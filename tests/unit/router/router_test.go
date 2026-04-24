@@ -1,0 +1,152 @@
+package router_test
+
+import (
+	"context"
+	"testing"
+
+	"github.com/BerriAI/go-llm-proxy/internal/cache"
+	"github.com/BerriAI/go-llm-proxy/internal/config"
+	llmrouter "github.com/BerriAI/go-llm-proxy/internal/router"
+
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
+)
+
+// TestRouter_ShouldSelectDeployment verifies that the router selects a healthy deployment.
+func TestRouter_ShouldSelectDeployment(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+
+	modelList := []config.ModelDeployment{
+		{
+			ModelName: "gpt-3.5-turbo",
+			LiteLLMParams: config.LiteLLMParams{
+				Model: "openai/gpt-3.5-turbo",
+				RPM:   1000,
+			},
+			ModelInfo: map[string]interface{}{"id": "dep-1"},
+		},
+	}
+
+	settings := config.RouterSettings{
+		RoutingStrategy: "simple-shuffle",
+		CooldownTime:    60,
+		NumRetries:      3,
+	}
+
+	r, err := llmrouter.NewRouter(modelList, settings, memCache, logger)
+	assert.NoError(t, err)
+	assert.NotNil(t, r)
+
+	dep, err := r.Route(context.Background(), "gpt-3.5-turbo")
+	assert.NoError(t, err)
+	assert.NotNil(t, dep)
+	assert.Equal(t, "gpt-3.5-turbo", dep.ModelName)
+}
+
+// TestRouter_ShouldReturnError_WhenModelNotFound verifies that the router returns an error for unknown models.
+func TestRouter_ShouldReturnError_WhenModelNotFound(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+
+	modelList := []config.ModelDeployment{}
+	settings := config.RouterSettings{}
+
+	r, err := llmrouter.NewRouter(modelList, settings, memCache, logger)
+	assert.NoError(t, err)
+
+	dep, err := r.Route(context.Background(), "unknown-model")
+	assert.Error(t, err)
+	assert.Nil(t, dep)
+	assert.Equal(t, llmrouter.ErrModelNotFound, err)
+}
+
+// TestRouter_ShouldExcludeCooldownedDeployment verifies that cooldowned deployments are excluded from routing.
+func TestRouter_ShouldExcludeCooldownedDeployment(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+
+	modelList := []config.ModelDeployment{
+		{
+			ModelName: "test-model",
+			LiteLLMParams: config.LiteLLMParams{
+				Model: "openai/test-model",
+				RPM:   1000,
+			},
+			ModelInfo: map[string]interface{}{"id": "dep-1"},
+		},
+	}
+
+	settings := config.RouterSettings{
+		CooldownTime: 60,
+	}
+
+	r, err := llmrouter.NewRouter(modelList, settings, memCache, logger)
+	assert.NoError(t, err)
+
+	// First, select the deployment
+	dep, err := r.Route(context.Background(), "test-model")
+	assert.NoError(t, err)
+	assert.NotNil(t, dep)
+
+	// Mark it as failed (adds to cooldown)
+	r.MarkFailed(context.Background(), dep, "test failure")
+
+	// Should fail to route since the only deployment is in cooldown
+	dep2, err := r.Route(context.Background(), "test-model")
+	assert.Error(t, err)
+	assert.Nil(t, dep2)
+	assert.Equal(t, llmrouter.ErrNoHealthyDeployments, err)
+}
+
+// TestRouter_WeightedSelection_ShouldPreferHigherWeight verifies weighted selection favors higher weight deployments.
+func TestRouter_WeightedSelection_ShouldPreferHigherWeight(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+
+	modelList := []config.ModelDeployment{
+		{
+			ModelName: "gpt-3.5-turbo",
+			LiteLLMParams: config.LiteLLMParams{
+				Model: "openai/gpt-3.5-turbo",
+				RPM:   1000, // High weight
+			},
+			ModelInfo: map[string]interface{}{"id": "dep-high"},
+		},
+		{
+			ModelName: "gpt-3.5-turbo",
+			LiteLLMParams: config.LiteLLMParams{
+				Model: "openai/gpt-3.5-turbo",
+				RPM:   100, // Low weight
+			},
+			ModelInfo: map[string]interface{}{"id": "dep-low"},
+		},
+	}
+
+	settings := config.RouterSettings{
+		RoutingStrategy: "simple-shuffle",
+	}
+
+	r, err := llmrouter.NewRouter(modelList, settings, memCache, logger)
+	assert.NoError(t, err)
+
+	// Run 1000 selections, verify distribution roughly matches weights
+	highCount := 0
+	lowCount := 0
+	iterations := 1000
+
+	for i := 0; i < iterations; i++ {
+		dep, err := r.Route(context.Background(), "gpt-3.5-turbo")
+		assert.NoError(t, err)
+		if dep.ID == "dep-high" {
+			highCount++
+		} else {
+			lowCount++
+		}
+	}
+
+	// High weight deployment should be selected more often (1000 vs 100 = 10x weight)
+	// Expect > 80% to be high-weight (allowing some randomness)
+	highPercent := float64(highCount) / float64(iterations)
+	assert.Greater(t, highPercent, 0.80, "High-weight deployment should be selected >80% of the time")
+}

@@ -1,0 +1,144 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.out
+coverage.txt
+coverage.html
+coverage/
+
+# Go workspace file
+workspace
+
+# Dependency directories (Go modules)
+vendor/
+
+# Go build cache
+$GOPATH/pkg/
+
+# IDE and editor files
+## VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+## GoLand/IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+
+## Vim
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+## Emacs
+*~
+\#*\#
+.\#*
+
+## Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+## VSCode Code Spaces
+.devcontainer/
+
+# OS generated files
+## macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+## Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+## Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# Docker
+.dockerenv
+.env.local
+.env.*.local
+
+# Environment variables (secrets)
+.env
+.env.production
+.env.staging
+.env.development
+*.env
+
+# Build artifacts
+*.tar.gz
+*.zip
+*.tar
+
+# Go module proxy cache
+$GOPATH/pkg/mod/cache/
+
+# Profiling and trace files
+*.pprof
+*.trace
+*.cpu
+*.mem
+
+# Local configuration overrides
+configs/proxy_config.local.yaml
+configs/proxy_config.*.local.yaml
+
+# SQLite database (if used for local dev)
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Node modules (for any embedded web UIs)
+node_modules/
+
+# Semgrep
+.semgrep/
+
+# Pre-commit hooks
+.pre-commit-config.yaml
+
+# Release notes
+RELEASE-NOTES.md
+
+# Custom paths
+build/
+release/
