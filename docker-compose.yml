@@ -1,7 +1,7 @@
 version: "3.8"
 
 services:
-  go-llm-proxy:
+  shahrah:
     build: .
     ports:
       - "4000:4000"
@@ -53,3 +53,4 @@ services:
 volumes:
   pgdata:
   redisdata:
+

@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Initial release of Go LLM Proxy
+- Initial release of Shahrah
 - OpenAI-compatible chat completions endpoint (`/v1/chat/completions`)
 - Streaming support via Server-Sent Events (SSE)
 - Intelligent routing with simple-shuffle strategy
@@ -27,9 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - golangci-lint configuration
 
 ### Changed
-- Module path updated to `github.com/BerriAI/go-llm-proxy`
+- Module path updated to `github.com/Delpak/shahrah`
 - Go version updated to 1.22
 
 ### Fixed
 - Duplicate `HashKey` function removed from router package
 - Import paths corrected for standalone repository
+

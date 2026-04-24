@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/BerriAI/go-llm-proxy/internal/cache"
-	"github.com/BerriAI/go-llm-proxy/internal/config"
+	"github.com/Delpak/shahrah/internal/cache"
+	"github.com/Delpak/shahrah/internal/config"
 	"go.uber.org/zap"
 )
 
@@ -214,3 +214,4 @@ func weightedRandomPick(deployments []*Deployment) *Deployment {
 	}
 	return deployments[len(deployments)-1]
 }
+

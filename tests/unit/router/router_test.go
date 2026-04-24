@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/BerriAI/go-llm-proxy/internal/cache"
-	"github.com/BerriAI/go-llm-proxy/internal/config"
-	llmrouter "github.com/BerriAI/go-llm-proxy/internal/router"
+	"github.com/Delpak/shahrah/internal/cache"
+	"github.com/Delpak/shahrah/internal/config"
+	llmrouter "github.com/Delpak/shahrah/internal/router"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -150,3 +150,4 @@ func TestRouter_WeightedSelection_ShouldPreferHigherWeight(t *testing.T) {
 	highPercent := float64(highCount) / float64(iterations)
 	assert.Greater(t, highPercent, 0.80, "High-weight deployment should be selected >80% of the time")
 }
+

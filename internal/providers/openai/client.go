@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BerriAI/go-llm-proxy/internal/providers"
-	"github.com/BerriAI/go-llm-proxy/pkg/types"
+	"github.com/Delpak/shahrah/internal/providers"
+	"github.com/Delpak/shahrah/pkg/types"
 )
 
 const (
@@ -155,3 +155,4 @@ func (c *Client) StreamComplete(ctx context.Context, req types.ChatCompletionReq
 
 	return chunkCh, errCh, nil
 }
+

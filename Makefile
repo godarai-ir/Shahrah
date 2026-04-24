@@ -1,4 +1,4 @@
-# Makefile for go-llm-proxy
+# Makefile for shahrah
 # Usage: make [target]
 
 .PHONY: all setup build run test-unit test-integration test lint fmt clean vet docker-up docker-down docker-migrate help
@@ -8,7 +8,7 @@
 # =============================================================================
 
 # Build variables
-BINARY_NAME     := go-llm-proxy
+BINARY_NAME     := shahrah
 BUILD_DIR       := bin
 VERSION        ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_TIME      := $(shell date -u '+%Y-%m-%dT%H:%M:%SZ')
@@ -158,3 +158,4 @@ clean: ## Clean build artifacts
 
 release: clean test build-all ## Build all release binaries
 	@echo "Release $(VERSION) built successfully in $(BUILD_DIR)/"
+

@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/BerriAI/go-llm-proxy/internal/cache"
-	"github.com/BerriAI/go-llm-proxy/internal/config"
-	"github.com/BerriAI/go-llm-proxy/internal/router"
-	"github.com/BerriAI/go-llm-proxy/internal/server"
+	"github.com/Delpak/shahrah/internal/cache"
+	"github.com/Delpak/shahrah/internal/config"
+	"github.com/Delpak/shahrah/internal/router"
+	"github.com/Delpak/shahrah/internal/server"
 	"go.uber.org/zap"
 )
 
@@ -71,9 +71,10 @@ func main() {
 	}()
 
 	addr := fmt.Sprintf("%s:%d", cfg.GeneralSettings.Host, cfg.GeneralSettings.Port)
-	logger.Info("Starting LLM Proxy", zap.String("addr", addr), zap.String("version", "0.1.0"))
+	logger.Info("Starting Shahrah", zap.String("addr", addr), zap.String("version", "0.1.0"))
 
 	if err := app.Listen(addr); err != nil {
 		logger.Fatal("Server failed to start", zap.Error(err))
 	}
 }
+

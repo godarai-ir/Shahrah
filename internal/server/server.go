@@ -8,11 +8,11 @@ import (
 	fiberlogger "github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 
-	"github.com/BerriAI/go-llm-proxy/internal/auth"
-	"github.com/BerriAI/go-llm-proxy/internal/cache"
-	"github.com/BerriAI/go-llm-proxy/internal/config"
-	"github.com/BerriAI/go-llm-proxy/internal/proxy"
-	"github.com/BerriAI/go-llm-proxy/internal/router"
+	"github.com/Delpak/shahrah/internal/auth"
+	"github.com/Delpak/shahrah/internal/cache"
+	"github.com/Delpak/shahrah/internal/config"
+	"github.com/Delpak/shahrah/internal/proxy"
+	"github.com/Delpak/shahrah/internal/router"
 
 	"go.uber.org/zap"
 )
@@ -94,3 +94,4 @@ func customErrorHandler(ctx *fiber.Ctx, err error) error {
 		},
 	})
 }
+

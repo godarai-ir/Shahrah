@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BerriAI/go-llm-proxy/internal/auth"
+	"github.com/Delpak/shahrah/internal/auth"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -85,3 +85,4 @@ func TestInMemoryKeyStore_ExpiredKey_ShouldBeRetrieved(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, time.Now().After(*key.ExpiresAt))
 }
+

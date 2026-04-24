@@ -1,4 +1,4 @@
-module github.com/BerriAI/go-llm-proxy
+module github.com/Delpak/shahrah
 
 go 1.22.0
 

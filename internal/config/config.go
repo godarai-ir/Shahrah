@@ -66,7 +66,7 @@ func LoadConfig(logger *zap.Logger) (*Config, error) {
 	v.SetConfigType("yaml")
 	v.AddConfigPath(".")
 	v.AddConfigPath("./configs")
-	v.AddConfigPath("/etc/llm-proxy")
+	v.AddConfigPath("/etc/shahrah")
 
 	// Set defaults
 	v.SetDefault("general_settings.host", "0.0.0.0")
@@ -129,3 +129,4 @@ func resolveEnvVars(cfg *Config, logger *zap.Logger) error {
 
 	return nil
 }
+

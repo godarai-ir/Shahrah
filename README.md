@@ -1,4 +1,4 @@
-# Go LLM Proxy
+# Shahrah
 
 A high-performance, horizontally scalable LLM proxy written in Go. This proxy provides a unified OpenAI-compatible interface for 100+ LLM providers with intelligent routing, load balancing, and API key management.
 
@@ -30,7 +30,7 @@ A high-performance, horizontally scalable LLM proxy written in Go. This proxy pr
 ```bash
 # Clone the repository
 git clone https://github.com/Delpak/shahrah.git
-cd go-llm-proxy
+cd shahrah
 
 # Install dependencies
 make setup
@@ -51,7 +51,7 @@ make run
 #### Windows (PowerShell - no Make required)
 
 ```powershell
-cd go-llm-proxy
+cd shahrah
 
 # Install dependencies
 go mod download
@@ -136,7 +136,7 @@ curl http://localhost:4000/health
 ## Project Structure
 
 ```
-go-llm-proxy/
+shahrah/
 ├── cmd/server/           # Application entry point
 ├── internal/
 │   ├── auth/             # Authentication middleware & key store
@@ -223,3 +223,4 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
+

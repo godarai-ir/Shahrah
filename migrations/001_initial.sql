@@ -1,5 +1,5 @@
 -- Migration: 001_initial.sql
--- Description: Initial database schema for LLM Proxy
+-- Description: Initial database schema for Shahrah
 -- Based on LiteLLM's schema.prisma (organizations -> teams -> users -> keys hierarchy)
 --
 -- Run with: docker-compose exec postgres psql -U postgres -d llmproxy -f /docker-entrypoint-initdb.d/001_initial.sql
@@ -322,3 +322,4 @@ CREATE INDEX idx_spend_created ON spend_logs(created_at);
 CREATE INDEX idx_spend_team ON spend_logs(team_id);
 CREATE INDEX idx_spend_user ON spend_logs(user_id);
 CREATE INDEX idx_spend_org ON spend_logs(organization_id);
+

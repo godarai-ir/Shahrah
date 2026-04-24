@@ -1,6 +1,6 @@
-# Contributing to Go LLM Proxy
+# Contributing to Shahrah
 
-Thank you for your interest in contributing to Go LLM Proxy! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Shahrah! This document provides guidelines and instructions for contributing.
 
 ## Code of Conduct
 
@@ -18,8 +18,8 @@ This project follows the standard open source code of conduct. Be respectful and
 
 ```bash
 # Clone the repository
-git clone https://github.com/BerriAI/go-llm-proxy.git
-cd go-llm-proxy
+git clone https://github.com/Delpak/shahrah.git
+cd shahrah
 
 # Install dependencies
 make setup
@@ -170,3 +170,4 @@ When reporting issues, please include:
 ## License
 
 By contributing, you agree that your contributions will be licensed under the MIT License.
+

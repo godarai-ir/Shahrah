@@ -3,7 +3,7 @@ package providers
 import (
 	"context"
 
-	"github.com/BerriAI/go-llm-proxy/pkg/types"
+	"github.com/Delpak/shahrah/pkg/types"
 )
 
 // Provider defines the interface for LLM provider implementations.
@@ -21,3 +21,4 @@ type ProviderConfig struct {
 	Region     string
 	Timeout    float64
 }
+

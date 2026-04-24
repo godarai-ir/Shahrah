@@ -1,6 +1,6 @@
-# Go LLM Proxy - Standalone Repository Implementation Guide
+# Shahrah - Standalone Repository Implementation Guide
 
-This document provides a complete audit report and step-by-step implementation guide for transforming the `go-llm-proxy` directory into a standalone, production-ready Git repository.
+This document provides a complete audit report and step-by-step implementation guide for transforming the `shahrah` directory into a standalone, production-ready Git repository.
 
 ---
 
@@ -10,7 +10,7 @@ This document provides a complete audit report and step-by-step implementation g
 
 | Category | Status | Notes |
 |----------|--------|-------|
-| Module Path | ISSUE | Used generic `go-llm-proxy` instead of `github.com/BerriAI/go-llm-proxy` |
+| Module Path | ISSUE | Used generic `shahrah` instead of `github.com/Delpak/shahrah` |
 | Go Version | OUTDATED | Was Go 1.21, needed 1.22+ |
 | `.gitignore` | MISSING | No `.gitignore` file existed |
 | `LICENSE` | MISSING | README mentioned MIT but no LICENSE file existed |
@@ -19,7 +19,7 @@ This document provides a complete audit report and step-by-step implementation g
 | `CHANGELOG.md` | MISSING | No changelog |
 | `CONTRIBUTING.md` | MISSING | No contribution guidelines |
 | CI/CD Pipeline | MISSING | No GitHub Actions workflows |
-| Import Paths | ISSUE | All imports used `go-llm-proxy/internal/...` |
+| Import Paths | ISSUE | All imports used `shahrah/internal/...` |
 | Duplicate Code | ISSUE | `HashKey` defined in both `auth/middleware.go` and `router/router.go` |
 | Directory Structure | GOOD | Already follows Go conventions (`cmd/`, `internal/`, `pkg/`, `tests/`) |
 | Test Coverage | PARTIAL | Unit tests existed but no integration tests directory |
@@ -29,7 +29,7 @@ This document provides a complete audit report and step-by-step implementation g
 The existing structure already aligns well with [Go Project Layout Standards](https://github.com/golang-standards/project-layout):
 
 ```
-go-llm-proxy/
+shahrah/
 ├── cmd/server/           ✅ Application entry point (good)
 ├── internal/             ✅ Private application code (good)
 │   ├── auth/             ✅ Authentication
@@ -72,7 +72,7 @@ go-llm-proxy/
 
 | File | Changes |
 |------|---------|
-| `go.mod` | Module path changed to `github.com/BerriAI/go-llm-proxy`, Go version to 1.22 |
+| `go.mod` | Module path changed to `github.com/Delpak/shahrah`, Go version to 1.22 |
 | `Makefile` | Added cross-compilation, version injection, coverage, help target |
 | `README.md` | Comprehensive documentation with usage examples |
 | `*.go` (all) | Import paths updated to new module path |
@@ -82,7 +82,7 @@ go-llm-proxy/
 ### 2.3 Directory Structure After Changes
 
 ```
-go-llm-proxy/
+shahrah/
 ├── .github/
 │   └── workflows/
 │       └── ci.yml              # NEW: CI/CD pipeline
@@ -147,8 +147,8 @@ go-llm-proxy/
 
 ```bash
 # From the parent repository root
-cp -r go-llm-proxy /path/to/new/location/
-cd /path/to/new/location/go-llm-proxy
+cp -r shahrah /path/to/new/location/
+cd /path/to/new/location/shahrah
 ```
 
 ### Step 2: Initialize Git Repository
@@ -161,7 +161,7 @@ git init
 git add -A
 
 # Initial commit
-git commit -m "feat: initial release of Go LLM Proxy
+git commit -m "feat: initial release of Shahrah
 
 - OpenAI-compatible chat completions endpoint
 - Intelligent routing with simple-shuffle strategy
@@ -173,10 +173,10 @@ git commit -m "feat: initial release of Go LLM Proxy
 ### Step 3: Create Remote Repository
 
 ```bash
-# On GitHub, create a new repository named "go-llm-proxy"
+# On GitHub, create a new repository named "shahrah"
 # Then add the remote and push:
 
-git remote add origin https://github.com/BerriAI/go-llm-proxy.git
+git remote add origin https://github.com/Delpak/shahrah.git
 git branch -M main
 git push -u origin main
 ```
@@ -213,7 +213,7 @@ The `.github/workflows/ci.yml` is already configured with:
 ### 4.1 Repository Structure
 
 - [x] `.gitignore` exists and covers Go, OS, IDE, build artifacts
-- [x] `go.mod` uses valid module path (`github.com/BerriAI/go-llm-proxy`)
+- [x] `go.mod` uses valid module path (`github.com/Delpak/shahrah`)
 - [x] `go.sum` exists and is up-to-date
 - [x] `LICENSE` file exists (MIT)
 - [x] `README.md` has comprehensive documentation
@@ -350,6 +350,7 @@ Configured linters in `.golangci.yml`:
 
 ## Summary
 
-The `go-llm-proxy` directory has been successfully transformed into a standalone, production-ready Git repository. All files have been updated with the correct module path (`github.com/BerriAI/go-llm-proxy`), code issues have been fixed (duplicate `HashKey` removed), and comprehensive scaffolding has been added (`.gitignore`, `LICENSE`, `CHANGELOG.md`, `CONTRIBUTING.md`, `.golangci.yml`, CI/CD pipeline).
+The `shahrah` directory has been successfully transformed into a standalone, production-ready Git repository. All files have been updated with the correct module path (`github.com/Delpak/shahrah`), code issues have been fixed (duplicate `HashKey` removed), and comprehensive scaffolding has been added (`.gitignore`, `LICENSE`, `CHANGELOG.md`, `CONTRIBUTING.md`, `.golangci.yml`, CI/CD pipeline).
 
 The repository now adheres to modern Go ecosystem standards and is ready for public release.
+

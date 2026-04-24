@@ -10,12 +10,12 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
 
-	"github.com/BerriAI/go-llm-proxy/internal/auth"
-	"github.com/BerriAI/go-llm-proxy/internal/cache"
-	"github.com/BerriAI/go-llm-proxy/internal/providers"
-	"github.com/BerriAI/go-llm-proxy/internal/providers/openai"
-	"github.com/BerriAI/go-llm-proxy/internal/router"
-	"github.com/BerriAI/go-llm-proxy/pkg/types"
+	"github.com/Delpak/shahrah/internal/auth"
+	"github.com/Delpak/shahrah/internal/cache"
+	"github.com/Delpak/shahrah/internal/providers"
+	"github.com/Delpak/shahrah/internal/providers/openai"
+	"github.com/Delpak/shahrah/internal/router"
+	"github.com/Delpak/shahrah/pkg/types"
 )
 
 // ChatCompletionHandler handles chat completion requests.
@@ -205,3 +205,4 @@ func (h *ChatCompletionHandler) createProvider(deployment *router.Deployment) pr
 		return openai.NewClient(cfg)
 	}
 }
+

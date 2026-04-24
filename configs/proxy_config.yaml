@@ -1,4 +1,4 @@
-# LLM Proxy Configuration
+# Shahrah Configuration
 # Environment variables are referenced using ${ENV_VAR} syntax
 
 model_list:
@@ -46,3 +46,4 @@ general_settings:
   port: 4000
   proxy_batch_write_at: 1
   database_connection_pool_limit: 10
+
