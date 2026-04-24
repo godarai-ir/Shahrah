@@ -17,14 +17,17 @@ coverage.txt
 coverage.html
 coverage/
 
-# Go workspace file
-workspace
+# Go workspace files
+go.work
+go.work.sum
 
 # Dependency directories (Go modules)
 vendor/
 
 # Go build cache
 $GOPATH/pkg/
+.gocache/
+.gomodcache/
 
 # IDE and editor files
 ## VSCode
@@ -132,9 +135,6 @@ node_modules/
 
 # Semgrep
 .semgrep/
-
-# Pre-commit hooks
-.pre-commit-config.yaml
 
 # Release notes
 RELEASE-NOTES.md
