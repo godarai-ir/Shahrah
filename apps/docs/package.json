@@ -1,0 +1,11 @@
+{
+  "name": "@shahrah/docs",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "build": "echo docs app not implemented yet",
+    "dev": "echo docs app not implemented yet",
+    "lint": "echo docs app not implemented yet",
+    "test": "echo docs app not implemented yet"
+  }
+}

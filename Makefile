@@ -1,58 +1,9 @@
-# Makefile for shahrah
-# Usage: make [target]
+.PHONY: help setup build run test-unit test-integration test fmt vet lint check docker-up docker-down docker-migrate docker-logs docker-clean
 
-.PHONY: all setup build run test-unit test-integration test lint fmt clean vet docker-up docker-down docker-migrate help
-
-# =============================================================================
-# Variables
-# =============================================================================
-
-# Build variables
-BINARY_NAME     := shahrah
-BUILD_DIR       := bin
-VERSION        ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
-BUILD_TIME      := $(shell date -u '+%Y-%m-%dT%H:%M:%SZ')
-GIT_COMMIT      := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-GO              := go
-GOFMT           := gofmt
-
-# Build flags
-LDFLAGS         := -ldflags "-s -w \
-	-X main.Version=$(VERSION) \
-	-X main.BuildTime=$(BUILD_TIME) \
-	-X main.GitCommit=$(GIT_COMMIT)"
-
-# Test variables
-COVERAGE_DIR    := coverage
-TEST_ARGS       := -v -race
-TEST_PACKAGES   := ./...
-
-# Docker variables
-DOCKER_COMPOSE  := docker-compose
-
-# Lint variables
-GOLANGCI_LINT   := golangci-lint
-
-# OS detection
-ifeq ($(OS),Windows_NT)
-	PLATFORM := windows
-	ARCH     := amd64
-else
-	UNAME_S := $(shell uname -s)
-	UNAME_M := $(shell uname -m)
-	PLATFORM := $(shell echo $(UNAME_S) | tr '[:upper:]' '[:lower:]')
-	ARCH     := $(UNAME_M)
-endif
-
-# =============================================================================
-# Default target
-# =============================================================================
-
-all: test build ## Run tests and build binary
-
-# =============================================================================
-# Help
-# =============================================================================
+CONTROL_PLANE_DIR := services/control-plane
+COMPOSE_FILE := infra/compose/local.yml
+GO := go
+GOLANGCI_LINT := golangci-lint
 
 help: ## Show this help message
 	@echo "Usage: make [target]"
@@ -60,102 +11,46 @@ help: ## Show this help message
 	@echo "Targets:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-# =============================================================================
-# Build
-# =============================================================================
+setup: ## Download and tidy control-plane dependencies
+	$(GO) -C $(CONTROL_PLANE_DIR) mod download
+	$(GO) -C $(CONTROL_PLANE_DIR) mod tidy
 
-setup: ## Download and tidy Go module dependencies
-	$(GO) mod download
-	$(GO) mod tidy
+build: ## Build the control-plane service
+	$(GO) -C $(CONTROL_PLANE_DIR) build -o ../../bin/control-plane ./cmd/server
 
-build: ## Build the binary
-	@mkdir -p $(BUILD_DIR)
-	$(GO) build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/server/
+run: ## Run the control-plane service locally
+	$(GO) -C $(CONTROL_PLANE_DIR) run ./cmd/server
 
-run: ## Run the server locally
-	$(GO) run $(LDFLAGS) ./cmd/server/
+test-unit: ## Run control-plane unit tests
+	$(GO) -C $(CONTROL_PLANE_DIR) test -v -race ./tests/unit/...
 
-build-linux-amd64: ## Build binary for Linux amd64
-	GOOS=linux GOARCH=amd64 $(GO) build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd/server/
+test-integration: ## Run control-plane integration tests
+	$(GO) -C $(CONTROL_PLANE_DIR) test -v -race ./tests/integration/...
 
-build-darwin-amd64: ## Build binary for macOS amd64
-	GOOS=darwin GOARCH=amd64 $(GO) build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 ./cmd/server/
+test: test-unit ## Run default tests
 
-build-darwin-arm64: ## Build binary for macOS arm64 (Apple Silicon)
-	GOOS=darwin GOARCH=arm64 $(GO) build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/server/
+fmt: ## Format control-plane Go code
+	$(GO) -C $(CONTROL_PLANE_DIR) fmt ./...
 
-build-windows-amd64: ## Build binary for Windows amd64
-	GOOS=windows GOARCH=amd64 $(GO) build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe ./cmd/server/
+vet: ## Run go vet for control-plane
+	$(GO) -C $(CONTROL_PLANE_DIR) vet ./...
 
-build-all: build-linux-amd64 build-darwin-amd64 build-darwin-arm64 build-windows-amd64 ## Build binaries for all platforms
+lint: ## Run golangci-lint for control-plane
+	cd $(CONTROL_PLANE_DIR) && $(GOLANGCI_LINT) run ./...
 
-# =============================================================================
-# Test
-# =============================================================================
+check: fmt vet lint test ## Run the default checks
 
-test-unit: ## Run unit tests
-	$(GO) test $(TEST_ARGS) -coverprofile=$(COVERAGE_DIR)/unit.coverage ./tests/unit/...
+docker-up: ## Start local dependencies
+	docker compose -f $(COMPOSE_FILE) up -d postgres redis
 
-test-integration: ## Run integration tests (requires Docker)
-	$(GO) test $(TEST_ARGS) -coverprofile=$(COVERAGE_DIR)/integration.coverage ./tests/integration/...
+docker-down: ## Stop local dependencies
+	docker compose -f $(COMPOSE_FILE) down
 
-test: test-unit ## Run all tests
+docker-migrate: ## Run the main database bootstrap migration
+	docker compose -f $(COMPOSE_FILE) exec postgres psql -U postgres -d llmproxy -f /docker-entrypoint-initdb.d/001_initial.sql
 
-test-coverage: ## Run tests and generate HTML coverage report
-	@mkdir -p $(COVERAGE_DIR)
-	$(GO) test $(TEST_ARGS) -coverprofile=$(COVERAGE_DIR)/coverage.out ./...
-	$(GO) tool cover -html=$(COVERAGE_DIR)/coverage.out -o $(COVERAGE_DIR)/coverage.html
-	@echo "Coverage report generated at $(COVERAGE_DIR)/coverage.html"
+docker-logs: ## Follow local compose logs
+	docker compose -f $(COMPOSE_FILE) logs -f
 
-test-bench: ## Run benchmarks
-	$(GO) test -bench=. -benchmem ./...
-
-# =============================================================================
-# Code Quality
-# =============================================================================
-
-lint: ## Run golangci-lint
-	$(GOLANGCI_LINT) run ./...
-
-fmt: ## Format Go source files
-	$(GOFMT) -s -w .
-
-vet: ## Run go vet
-	$(GO) vet ./...
-
-check: fmt vet lint test ## Run all code quality checks
-
-# =============================================================================
-# Database / Docker
-# =============================================================================
-
-docker-up: ## Start development environment (PostgreSQL + Redis)
-	$(DOCKER_COMPOSE) up -d postgres redis
-
-docker-down: ## Stop development environment
-	$(DOCKER_COMPOSE) down
-
-docker-migrate: ## Run database migrations
-	$(DOCKER_COMPOSE) exec postgres psql -U postgres -d llmproxy -f /docker-entrypoint-initdb.d/001_initial.sql
-
-docker-logs: ## Show Docker logs
-	$(DOCKER_COMPOSE) logs -f
-
-docker-clean: ## Clean Docker resources
-	$(DOCKER_COMPOSE) down -v --remove-orphans
-
-# =============================================================================
-# Cleanup
-# =============================================================================
-
-clean: ## Clean build artifacts
-	rm -rf $(BUILD_DIR) $(COVERAGE_DIR)
-	$(GO) clean -cache -testcache -modcache
-
-# =============================================================================
-# Release
-# =============================================================================
-
-release: clean test build-all ## Build all release binaries
-	@echo "Release $(VERSION) built successfully in $(BUILD_DIR)/"
-
+docker-clean: ## Remove local compose resources
+	docker compose -f $(COMPOSE_FILE) down -v --remove-orphans

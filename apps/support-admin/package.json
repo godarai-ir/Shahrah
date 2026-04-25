@@ -1,0 +1,11 @@
+{
+  "name": "@shahrah/support-admin",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "build": "echo support-admin not implemented yet",
+    "dev": "echo support-admin not implemented yet",
+    "lint": "echo support-admin not implemented yet",
+    "test": "echo support-admin not implemented yet"
+  }
+}

@@ -1,0 +1,7 @@
+packages:
+  - "apps/*"
+  - "packages/web/*"
+  - "sdks/openapi"
+  - "sdks/typescript"
+  - "sdks/nextjs"
+  - "sdks/nestjs"

@@ -1,0 +1,10 @@
+{
+  "name": "@shahrah/nextjs",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "build": "echo nextjs sdk not implemented yet",
+    "lint": "echo nextjs sdk not implemented yet",
+    "test": "echo nextjs sdk not implemented yet"
+  }
+}

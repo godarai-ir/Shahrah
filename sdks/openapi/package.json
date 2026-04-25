@@ -1,0 +1,10 @@
+{
+  "name": "@shahrah/openapi",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "build": "echo openapi package not implemented yet",
+    "lint": "echo openapi package not implemented yet",
+    "test": "echo openapi package not implemented yet"
+  }
+}

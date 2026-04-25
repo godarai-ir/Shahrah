@@ -1,0 +1,10 @@
+{
+  "name": "@shahrah/ui",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "build": "echo ui package not implemented yet",
+    "lint": "echo ui package not implemented yet",
+    "test": "echo ui package not implemented yet"
+  }
+}
