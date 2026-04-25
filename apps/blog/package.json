@@ -1,11 +1,22 @@
 {
   "name": "@shahrah/blog",
-  "private": true,
-  "version": "0.0.0",
+  "type": "module",
+  "version": "0.0.1",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
-    "build": "echo blog app not implemented yet",
-    "dev": "echo blog app not implemented yet",
-    "lint": "echo blog app not implemented yet",
-    "test": "echo blog app not implemented yet"
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "lint": "astro check"
+  },
+  "dependencies": {
+    "astro": "^6.1.9"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.4",
+    "typescript": "^5.9.3"
   }
 }

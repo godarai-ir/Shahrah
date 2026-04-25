@@ -1,0 +1,44 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout>
+  <main class="hero">
+    <p class="eyebrow">Shahrah</p>
+    <h1>Blog</h1>
+    <p class="body">
+      This Astro app will host announcements, tutorials, and technical
+      deep-dives for the Shahrah platform.
+    </p>
+  </main>
+</Layout>
+
+<style>
+  .hero {
+    margin: 0 auto;
+    max-width: 52rem;
+    padding: 8rem 1.5rem;
+  }
+
+  .eyebrow {
+    color: #0f766e;
+    font-size: 0.875rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    margin: 1rem 0 0;
+    font-size: clamp(3rem, 7vw, 5rem);
+    line-height: 0.95;
+  }
+
+  .body {
+    color: #475569;
+    font-size: 1.125rem;
+    line-height: 1.8;
+    margin-top: 1.5rem;
+    max-width: 40rem;
+  }
+</style>

@@ -36,6 +36,7 @@ $GOPATH/pkg/
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+**/.vscode/
 *.code-workspace
 
 ## GoLand/IntelliJ

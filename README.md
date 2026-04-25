@@ -28,10 +28,10 @@ shahrah/
 
 ## Current Apps
 
-- `apps/tenant-admin`: tenant-facing admin panel scaffold
-- `apps/support-admin`: internal operations panel scaffold
-- `apps/docs`: Docusaurus docs scaffold
-- `apps/blog`: Astro blog scaffold
+- `apps/tenant-admin`: tenant-facing Next.js admin panel
+- `apps/support-admin`: internal Next.js support panel
+- `apps/docs`: Docusaurus documentation site
+- `apps/blog`: Astro blog site
 
 ## Quick Start
 
@@ -71,7 +71,7 @@ go -C services/control-plane run ./cmd/server
 
 ## Next Migration Steps
 
-1. Build `apps/tenant-admin` and `apps/support-admin` as real Next.js apps.
+1. Replace remaining framework starter assets and sample content with Shahrah-specific UI and docs.
 2. Add `proto` and OpenAPI sources under `packages/contracts/`.
 3. Split shared Go utilities from `services/control-plane/internal` into `packages/go/` only when another service actually needs them.
 4. Add per-service CI once new services become real modules.
