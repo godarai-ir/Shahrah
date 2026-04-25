@@ -171,7 +171,7 @@ func (s *Store) CreateKey(ctx context.Context, params platform.CreateKeyParams) 
 			id, tenant_id, token_hash, key_alias, key_name, models, max_budget,
 			rpm_limit, tpm_limit, team_id, organization_id, expires, spend, blocked
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''), NULLIF($11, ''), $12, 0, false)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULLIF($10, '')::uuid, NULLIF($11, '')::uuid, $12, 0, false)
 	`, keyID, params.TenantID, tokenHash, params.KeyAlias, masked, params.Models, params.MaxBudget,
 		params.RPMLimit, params.TPMLimit, params.TeamID, params.OrgID, expiresAt)
 	if err != nil {
