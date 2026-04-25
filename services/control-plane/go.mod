@@ -3,13 +3,17 @@ module github.com/Delpak/shahrah/services/control-plane
 go 1.22.0
 
 require (
+	github.com/Delpak/shahrah/packages/contracts v0.0.0
 	github.com/dgraph-io/ristretto v0.1.1
 	github.com/gofiber/fiber/v2 v2.52.9
+	github.com/jackc/pgx/v5 v5.7.2
 	github.com/redis/go-redis/v9 v9.5.1
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.9.0
 	go.uber.org/zap v1.27.0
 )
+
+replace github.com/Delpak/shahrah/packages/contracts => ../../packages/contracts
 
 require (
 	github.com/andybalholm/brotli v1.1.0 // indirect

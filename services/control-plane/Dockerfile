@@ -1,28 +1,22 @@
 FROM golang:1.22-alpine AS builder
 
-WORKDIR /app
+WORKDIR /src
 
-# Install dependencies
-COPY go.mod go.sum ./
+COPY go.work ./
+COPY packages/contracts ./packages/contracts
+COPY services/control-plane ./services/control-plane
+
+WORKDIR /src/services/control-plane
 RUN go mod download
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/server ./cmd/server
 
-# Copy source code
-COPY . .
-
-# Build the binary
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/server ./cmd/server/
-
-# Final stage
 FROM alpine:3.19
 
 WORKDIR /app
-
-# Install ca-certificates for HTTPS
 RUN apk --no-cache add ca-certificates
 
-# Copy binary and config
-COPY --from=builder /app/bin/server /app/server
-COPY --from=builder /app/configs /app/configs
+COPY --from=builder /out/server /app/server
+COPY --from=builder /src/services/control-plane/configs /app/configs
 
 EXPOSE 4000
 

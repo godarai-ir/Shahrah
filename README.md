@@ -21,9 +21,9 @@ shahrah/
 ## Current Services
 
 - `services/control-plane`: existing Go gateway/control-plane service
-- `services/tunnel-client`: Iran-side tunnel client scaffold
-- `services/tunnel-server`: Europe-side tunnel server scaffold
-- `services/silk-road`: provider proxy scaffold
+- `services/tunnel-client`: Iran-side tunnel client
+- `services/tunnel-server`: Europe-side tunnel server
+- `services/silk-road`: Europe-side provider proxy
 - `services/sync-worker`: background worker scaffold
 
 ## Current Apps
@@ -35,12 +35,13 @@ shahrah/
 
 ## Quick Start
 
-### Control Plane
+### Backend Stack
 
 ```bash
 make setup
 make docker-up
 make docker-migrate
+make test-integration
 make test-unit
 make run
 ```
@@ -50,8 +51,10 @@ PowerShell:
 ```powershell
 go -C services/control-plane mod download
 go -C services/control-plane mod tidy
-docker compose -f infra/compose/local.yml up -d postgres redis
+docker compose -f infra/compose/local.yml up -d postgres redis silk-road tunnel-server tunnel-client control-plane
 docker compose -f infra/compose/local.yml exec postgres psql -U postgres -d llmproxy -f /docker-entrypoint-initdb.d/001_initial.sql
+docker compose -f infra/compose/local.yml exec postgres psql -U postgres -d llmproxy -f /docker-entrypoint-initdb.d/002_platform_foundations.sql
+go -C services/control-plane test -v -race ./tests/integration/...
 go -C services/control-plane test -v -race ./tests/unit/...
 go -C services/control-plane run ./cmd/server
 ```
@@ -66,13 +69,14 @@ go -C services/control-plane run ./cmd/server
 
 - `services/control-plane/configs/proxy_config.yaml`
 - `db/main/migrations/001_initial.sql`
+- `db/main/migrations/002_platform_foundations.sql`
 - `infra/compose/local.yml`
 - `plans/README.md`
 
 ## Next Migration Steps
 
 1. Replace remaining framework starter assets and sample content with Shahrah-specific UI and docs.
-2. Add `proto` and OpenAPI sources under `packages/contracts/`.
+2. Add generated protobuf artifacts and stronger tunnel transport semantics on top of the current HTTP-backed local chain.
 3. Split shared Go utilities from `services/control-plane/internal` into `packages/go/` only when another service actually needs them.
 4. Add per-service CI once new services become real modules.
 

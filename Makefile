@@ -40,14 +40,14 @@ lint: ## Run golangci-lint for control-plane
 
 check: fmt vet lint test ## Run the default checks
 
-docker-up: ## Start local dependencies
-	docker compose -f $(COMPOSE_FILE) up -d postgres redis
+docker-up: ## Start the local backend stack
+	docker compose -f $(COMPOSE_FILE) up -d postgres redis silk-road tunnel-server tunnel-client control-plane
 
 docker-down: ## Stop local dependencies
 	docker compose -f $(COMPOSE_FILE) down
 
-docker-migrate: ## Run the main database bootstrap migration
-	docker compose -f $(COMPOSE_FILE) exec postgres psql -U postgres -d llmproxy -f /docker-entrypoint-initdb.d/001_initial.sql
+docker-migrate: ## Run the main database bootstrap migrations
+	docker compose -f $(COMPOSE_FILE) exec postgres sh -lc "psql -U postgres -d llmproxy -f /docker-entrypoint-initdb.d/001_initial.sql && psql -U postgres -d llmproxy -f /docker-entrypoint-initdb.d/002_platform_foundations.sql"
 
 docker-logs: ## Follow local compose logs
 	docker compose -f $(COMPOSE_FILE) logs -f

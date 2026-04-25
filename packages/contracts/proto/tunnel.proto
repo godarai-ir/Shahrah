@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package shahrah.tunnel.v1;
+
+option go_package = "github.com/Delpak/shahrah/packages/contracts/tunnelpb";
+
+service TunnelService {
+  rpc ProxyStream(stream TunnelMessage) returns (stream TunnelMessage);
+}
+
+message TunnelMessage {
+  string request_id = 1;
+
+  oneof payload {
+    TunnelRequest request = 2;
+    TunnelResponse response = 3;
+    TunnelChunk chunk = 4;
+    TunnelError error = 5;
+  }
+}
+
+message TunnelRequest {
+  string tenant_id = 1;
+  string trace_id = 2;
+  bool stream = 3;
+  string provider = 4;
+  string model_name = 5;
+  string provider_model = 6;
+  string api_base = 7;
+  string api_key = 8;
+  string api_version = 9;
+  string region_name = 10;
+  map<string, string> headers = 11;
+  bytes body = 12;
+}
+
+message TunnelResponse {
+  int32 status_code = 1;
+  map<string, string> headers = 2;
+  bytes body = 3;
+}
+
+message TunnelChunk {
+  bytes data = 1;
+  bool is_done = 2;
+}
+
+message TunnelError {
+  string code = 1;
+  string message = 2;
+}

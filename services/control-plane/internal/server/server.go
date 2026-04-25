@@ -3,22 +3,29 @@ package server
 import (
 	"time"
 
+	"github.com/Delpak/shahrah/services/control-plane/internal/admin"
+	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
+	"github.com/Delpak/shahrah/services/control-plane/internal/config"
+	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
+	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	fiberlogger "github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
-
-	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
-	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
-	"github.com/Delpak/shahrah/services/control-plane/internal/config"
-	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
-	"github.com/Delpak/shahrah/services/control-plane/internal/router"
-
 	"go.uber.org/zap"
 )
 
+// Dependencies contains the concrete services required by the control-plane server.
+type Dependencies struct {
+	AuthMiddleware *auth.AuthMiddleware
+	TenantResolver *tenant.Middleware
+	AdminHandlers  *admin.Handlers
+	ProxyHandler   *proxy.ChatCompletionHandler
+	Logger         *zap.Logger
+}
+
 // NewFiberApp creates and configures a new Fiber application.
-func NewFiberApp(cfg *config.Config, llmRouter *router.Router, c cache.Cache, logger *zap.Logger) *fiber.App {
+func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 	app := fiber.New(fiber.Config{
 		ReadTimeout:  60 * time.Second,
 		WriteTimeout: 60 * time.Second,
@@ -26,7 +33,6 @@ func NewFiberApp(cfg *config.Config, llmRouter *router.Router, c cache.Cache, lo
 		ErrorHandler: customErrorHandler,
 	})
 
-	// Middleware chain
 	app.Use(fiberlogger.New(fiberlogger.Config{
 		Format: "${time} | ${status} | ${latency} | ${ip} | ${method} | ${path}\n",
 	}))
@@ -34,51 +40,40 @@ func NewFiberApp(cfg *config.Config, llmRouter *router.Router, c cache.Cache, lo
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
 		AllowMethods: "GET, POST, OPTIONS",
-		AllowHeaders: "Origin, Content-Type, Accept, Authorization, api-key, x-api-key",
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization, api-key, x-api-key, x-shahrah-tenant",
 	}))
+	app.Use(deps.TenantResolver.Handle())
+	app.Use(deps.AuthMiddleware.Middleware())
 
-	// Auth middleware
-	keyStore := auth.NewInMemoryKeyStore() // Replace with DB-backed store
-	authMiddleware := auth.NewAuthMiddleware(keyStore, cfg.GeneralSettings.MasterKey, logger)
-	app.Use(authMiddleware.Middleware())
-
-	// Register routes
-	registerRoutes(app, llmRouter, c, logger)
-
+	registerRoutes(app, deps)
 	return app
 }
 
-func registerRoutes(app *fiber.App, llmRouter *router.Router, c cache.Cache, logger *zap.Logger) {
-	// Health check
+func registerRoutes(app *fiber.App, deps Dependencies) {
 	app.Get("/health", healthHandler)
 	app.Get("/ready", healthHandler)
 
-	// OpenAI-compatible endpoints
 	v1 := app.Group("/v1")
+	v1.Post("/chat/completions", deps.ProxyHandler.Handle)
+	v1.Get("/models", deps.AdminHandlers.ListModels)
 
-	// Chat completions
-	v1.Post("/chat/completions", proxy.NewChatCompletionHandler(llmRouter, c, logger).Handle)
-
-	// Model list
-	v1.Get("/models", listModelsHandler)
+	api := app.Group("/api/v1")
+	api.Post("/keys", deps.AdminHandlers.CreateKey)
+	api.Get("/keys", deps.AdminHandlers.ListKeys)
+	api.Post("/models", deps.AdminHandlers.CreateModel)
+	api.Get("/models", deps.AdminHandlers.ListModels)
+	api.Get("/wallet", deps.AdminHandlers.GetWallet)
+	api.Post("/wallet/topup", deps.AdminHandlers.TopUpWallet)
 }
 
 func healthHandler(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"status":  "healthy",
-		"version": "0.1.0",
-	})
-}
-
-func listModelsHandler(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{
-		"object": "list",
-		"data":   []fiber.Map{}, // Would return registered models
+		"version": "0.2.0",
 	})
 }
 
 func customErrorHandler(ctx *fiber.Ctx, err error) error {
-	// Default 500 status code
 	code := fiber.StatusInternalServerError
 	msg := "Internal Server Error"
 
@@ -91,6 +86,7 @@ func customErrorHandler(ctx *fiber.Ctx, err error) error {
 		"error": map[string]interface{}{
 			"message": msg,
 			"type":    "server_error",
+			"code":    code,
 		},
 	})
 }

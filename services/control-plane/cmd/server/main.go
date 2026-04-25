@@ -9,28 +9,39 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Delpak/shahrah/services/control-plane/internal/admin"
+	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
+	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
+	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/server"
+	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
+	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
+	tunneltransport "github.com/Delpak/shahrah/services/control-plane/internal/tunnel"
 	"go.uber.org/zap"
 )
 
 func main() {
-	// Initialize logger
 	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatalf("Failed to initialize logger: %v", err)
 	}
 	defer logger.Sync()
 
-	// Load configuration
 	cfg, err := config.LoadConfig(logger)
 	if err != nil {
 		logger.Fatal("Failed to load configuration", zap.Error(err))
 	}
 
-	// Initialize dual cache
+	ctx := context.Background()
+	store, err := storage.NewStore(ctx, cfg.GeneralSettings.DatabaseURL, cfg.TenantSettings.DefaultTenant, logger)
+	if err != nil {
+		logger.Fatal("Failed to initialize storage", zap.Error(err))
+	}
+	defer store.Close()
+
 	var dualCache cache.Cache
 	if cfg.RouterSettings.RedisHost != "" {
 		dualCache, err = cache.NewDualCache(cfg.RouterSettings.RedisHost, cfg.RouterSettings.RedisPort, cfg.RouterSettings.RedisPassword, logger)
@@ -41,18 +52,29 @@ func main() {
 	} else {
 		dualCache, _ = cache.NewMemoryCache(logger)
 	}
+	defer dualCache.Close()
 
-	// Initialize router
-	llmRouter, err := router.NewRouter(cfg.ModelList, cfg.RouterSettings, dualCache, logger)
+	llmRouter, err := router.NewRouter(cfg.ModelList, cfg.RouterSettings, dualCache, store, logger)
 	if err != nil {
 		logger.Fatal("Failed to initialize router", zap.Error(err))
 	}
 
-	// Create and start Fiber server
-	app := server.NewFiberApp(cfg, llmRouter, dualCache, logger)
+	authMiddleware := auth.NewAuthMiddleware(store, cfg.GeneralSettings.MasterKey, logger)
+	tenantMiddleware := tenant.NewMiddleware(store, cfg.TenantSettings.DefaultTenant, cfg.TenantSettings.AllowHeaderHint)
+	billingService := billing.NewService(dualCache, store, cfg.BillingSettings.DefaultUSDtoIRR, cfg.BillingSettings.RateSource)
+	tunnelClient := tunneltransport.NewHTTPTransport(cfg.TunnelSettings.ClientURL, time.Duration(cfg.TunnelSettings.Timeout)*time.Second)
 
-	// Graceful shutdown handling
-	ctx, cancel := context.WithCancel(context.Background())
+	adminHandlers := admin.New(store, store, store)
+	proxyHandler := proxy.NewChatCompletionHandler(llmRouter, tunnelClient, billingService, store, store, logger)
+	app := server.NewFiberApp(cfg, server.Dependencies{
+		AuthMiddleware: authMiddleware,
+		TenantResolver: tenantMiddleware,
+		AdminHandlers:  adminHandlers,
+		ProxyHandler:   proxyHandler,
+		Logger:         logger,
+	})
+
+	runCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	go func() {
@@ -65,13 +87,13 @@ func main() {
 				logger.Error("Server shutdown failed", zap.Error(err))
 			}
 			cancel()
-		case <-ctx.Done():
+		case <-runCtx.Done():
 			return
 		}
 	}()
 
 	addr := fmt.Sprintf("%s:%d", cfg.GeneralSettings.Host, cfg.GeneralSettings.Port)
-	logger.Info("Starting Shahrah", zap.String("addr", addr), zap.String("version", "0.1.0"))
+	logger.Info("Starting Shahrah control-plane", zap.String("addr", addr), zap.String("version", "0.2.0"))
 
 	if err := app.Listen(addr); err != nil {
 		logger.Fatal("Server failed to start", zap.Error(err))

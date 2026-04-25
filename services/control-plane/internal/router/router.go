@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	"go.uber.org/zap"
@@ -23,12 +24,18 @@ var (
 // Deployment represents a single model deployment.
 type Deployment struct {
 	ID        string
+	TenantID  string
 	ModelName string
 	Provider  string
 	Model     string
 	Params    config.LiteLLMParams
 	Healthy   bool
 	Weight    float64
+}
+
+// DeploymentStore allows dynamic deployment lookup from persistence.
+type DeploymentStore interface {
+	ListDeployments(ctx context.Context, tenantID string) ([]platform.Deployment, error)
 }
 
 // CooldownCache tracks cooldowns for failed deployments.
@@ -73,16 +80,18 @@ type Router struct {
 	timeout     time.Duration
 	cache       cache.Cache
 	logger      *zap.Logger
+	store       DeploymentStore
 }
 
 // NewRouter creates a new Router instance.
-func NewRouter(modelList []config.ModelDeployment, settings config.RouterSettings, c cache.Cache, logger *zap.Logger) (*Router, error) {
+func NewRouter(modelList []config.ModelDeployment, settings config.RouterSettings, c cache.Cache, store DeploymentStore, logger *zap.Logger) (*Router, error) {
 	r := &Router{
 		deployments: make(map[string][]*Deployment),
 		fallbacks:   make(map[string][]string),
 		numRetries:  settings.NumRetries,
 		cache:       c,
 		logger:      logger,
+		store:       store,
 	}
 
 	// Initialize cooldown cache
@@ -134,18 +143,48 @@ func NewRouter(modelList []config.ModelDeployment, settings config.RouterSetting
 }
 
 // Route selects a deployment for the given model name.
-func (r *Router) Route(ctx context.Context, modelName string) (*Deployment, error) {
+func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deployment, error) {
 	r.mu.RLock()
-	defer r.mu.RUnlock()
+	deployments := append([]*Deployment(nil), r.deployments[modelName]...)
+	fallbacks := append([]string(nil), r.fallbacks[modelName]...)
+	r.mu.RUnlock()
 
-	deployments, ok := r.deployments[modelName]
+	if r.store != nil && tenantID != "" {
+		dynamic, err := r.store.ListDeployments(ctx, tenantID)
+		if err == nil {
+			for _, dep := range dynamic {
+				if dep.ModelName != modelName && dep.ModelName != "*" {
+					continue
+				}
+				deployments = append(deployments, &Deployment{
+					ID:        dep.ID,
+					TenantID:  dep.TenantID,
+					ModelName: dep.ModelName,
+					Provider:  dep.Provider,
+					Model:     dep.Model,
+					Params: config.LiteLLMParams{
+						Model:      dep.Model,
+						APIKey:     dep.APIKey,
+						APIBase:    dep.APIBase,
+						APIVersion: dep.APIVersion,
+						RPM:        dep.RPM,
+						TPM:        dep.TPM,
+						Weight:     dep.Weight,
+						Timeout:    dep.TimeoutSec,
+						RegionName: dep.RegionName,
+					},
+					Healthy: true,
+					Weight:  fallbackWeight(dep),
+				})
+			}
+		}
+	}
+
+	_, ok := r.deployments[modelName]
 	if !ok {
 		// Check for wildcard matching
-		for key := range r.deployments {
-			if key == "*" {
-				deployments = r.deployments[key]
-				break
-			}
+		for _, dep := range r.deployments["*"] {
+			deployments = append(deployments, dep)
 		}
 		if deployments == nil {
 			return nil, ErrModelNotFound
@@ -156,13 +195,11 @@ func (r *Router) Route(ctx context.Context, modelName string) (*Deployment, erro
 	healthyDeployments := r.filterHealthy(ctx, deployments)
 	if len(healthyDeployments) == 0 {
 		// Try fallbacks
-		if fallbacks, ok := r.fallbacks[modelName]; ok {
-			for _, fb := range fallbacks {
-				if fbDeployments, exists := r.deployments[fb]; exists {
-					healthyFB := r.filterHealthy(ctx, fbDeployments)
-					if len(healthyFB) > 0 {
-						return r.strategy.SelectDeployment(healthyFB, modelName)
-					}
+		for _, fb := range fallbacks {
+			if fbDeployments, exists := r.deployments[fb]; exists {
+				healthyFB := r.filterHealthy(ctx, fbDeployments)
+				if len(healthyFB) > 0 {
+					return r.strategy.SelectDeployment(healthyFB, modelName)
 				}
 			}
 		}
@@ -213,4 +250,14 @@ func weightedRandomPick(deployments []*Deployment) *Deployment {
 		}
 	}
 	return deployments[len(deployments)-1]
+}
+
+func fallbackWeight(dep platform.Deployment) float64 {
+	if dep.TPM > 0 {
+		return float64(dep.TPM)
+	}
+	if dep.RPM > 0 {
+		return float64(dep.RPM)
+	}
+	return dep.Weight
 }

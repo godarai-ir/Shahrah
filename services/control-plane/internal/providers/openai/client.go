@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
+	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/services/control-plane/internal/providers"
-	"github.com/Delpak/shahrah/services/control-plane/pkg/types"
 )
 
 const (
@@ -54,7 +54,7 @@ func (c *Client) Name() string {
 }
 
 // Complete sends a non-streaming chat completion request.
-func (c *Client) Complete(ctx context.Context, req types.ChatCompletionRequest) (*types.ChatCompletionResponse, error) {
+func (c *Client) Complete(ctx context.Context, req contractsopenai.ChatCompletionRequest) (*contractsopenai.ChatCompletionResponse, error) {
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
@@ -79,7 +79,7 @@ func (c *Client) Complete(ctx context.Context, req types.ChatCompletionRequest) 
 		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(bodyBytes))
 	}
 
-	var result types.ChatCompletionResponse
+	var result contractsopenai.ChatCompletionResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
@@ -88,7 +88,7 @@ func (c *Client) Complete(ctx context.Context, req types.ChatCompletionRequest) 
 }
 
 // StreamComplete sends a streaming chat completion request.
-func (c *Client) StreamComplete(ctx context.Context, req types.ChatCompletionRequest) (<-chan types.StreamChunk, <-chan error, error) {
+func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCompletionRequest) (<-chan contractsopenai.StreamChunk, <-chan error, error) {
 	req.Stream = true
 
 	body, err := json.Marshal(req)
@@ -110,7 +110,7 @@ func (c *Client) StreamComplete(ctx context.Context, req types.ChatCompletionReq
 		return nil, nil, fmt.Errorf("request failed: %w", err)
 	}
 
-	chunkCh := make(chan types.StreamChunk)
+	chunkCh := make(chan contractsopenai.StreamChunk)
 	errCh := make(chan error, 1)
 
 	go func() {
@@ -139,7 +139,7 @@ func (c *Client) StreamComplete(ctx context.Context, req types.ChatCompletionReq
 				return
 			}
 
-			var chunk types.StreamChunk
+			var chunk contractsopenai.StreamChunk
 			if err := json.Unmarshal([]byte(data), &chunk); err != nil {
 				errCh <- fmt.Errorf("decode error: %w", err)
 				return

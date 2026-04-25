@@ -4,31 +4,33 @@ import (
 	"context"
 	"sync"
 	"time"
+
+	"github.com/Delpak/shahrah/packages/contracts/platform"
 )
 
 // InMemoryKeyStore is a simple in-memory key store for development/testing.
 // In production, this would be backed by a PostgreSQL database.
 type InMemoryKeyStore struct {
 	mu   sync.RWMutex
-	keys map[string]*KeyInfo
+	keys map[string]*platform.AuthContext
 }
 
 // NewInMemoryKeyStore creates a new in-memory key store.
 func NewInMemoryKeyStore() *InMemoryKeyStore {
 	return &InMemoryKeyStore{
-		keys: make(map[string]*KeyInfo),
+		keys: make(map[string]*platform.AuthContext),
 	}
 }
 
 // AddKey adds a key to the store (for testing/admin purposes).
-func (s *InMemoryKeyStore) AddKey(hash string, info *KeyInfo) {
+func (s *InMemoryKeyStore) AddKey(hash string, info *platform.AuthContext) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.keys[hash] = info
 }
 
 // GetKeyByHash retrieves a key by its hash.
-func (s *InMemoryKeyStore) GetKeyByHash(ctx context.Context, hash string) (*KeyInfo, error) {
+func (s *InMemoryKeyStore) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthContext, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -44,11 +46,11 @@ func (s *InMemoryKeyStore) GetKeyByHash(ctx context.Context, hash string) (*KeyI
 func (s *InMemoryKeyStore) GenerateTestKeys() {
 	// Admin key
 	adminExpires := time.Now().Add(365 * 24 * time.Hour)
-	s.AddKey(HashKey("sk-admin-12345"), &KeyInfo{
-		KeyAlias:  "admin-key",
-		Role:      "proxy_admin",
-		Models:    []string{"*"},
-		ExpiresAt: &adminExpires,
+	s.AddKey(HashKey("sk-admin-12345"), &platform.AuthContext{
+		KeyAlias:      "admin-key",
+		Role:          "proxy_admin",
+		AllowedModels: []string{"*"},
+		ExpiresAt:     &adminExpires,
 	})
 
 	// Team key with limited models
@@ -56,20 +58,20 @@ func (s *InMemoryKeyStore) GenerateTestKeys() {
 	maxBudget := 100.0
 	rpmLimit := int64(100)
 	tpmLimit := int64(100000)
-	s.AddKey(HashKey("sk-team-key-67890"), &KeyInfo{
-		KeyAlias:  "team-key",
-		TeamID:    "team-1",
-		Role:      "team",
-		Models:    []string{"gpt-3.5-turbo", "gpt-4"},
-		MaxBudget: &maxBudget,
-		RPMLimit:  &rpmLimit,
-		TPMLimit:  &tpmLimit,
-		ExpiresAt: &teamExpires,
+	s.AddKey(HashKey("sk-team-key-67890"), &platform.AuthContext{
+		KeyAlias:      "team-key",
+		TeamID:        "team-1",
+		Role:          "team",
+		AllowedModels: []string{"gpt-3.5-turbo", "gpt-4"},
+		MaxBudget:     &maxBudget,
+		RPMLimit:      &rpmLimit,
+		TPMLimit:      &tpmLimit,
+		ExpiresAt:     &teamExpires,
 	})
 
 	// Blocked key
 	blocked := true
-	s.AddKey(HashKey("sk-blocked-key"), &KeyInfo{
+	s.AddKey(HashKey("sk-blocked-key"), &platform.AuthContext{
 		KeyAlias: "blocked-key",
 		Role:     "internal_user",
 		Blocked:  blocked,
@@ -77,7 +79,7 @@ func (s *InMemoryKeyStore) GenerateTestKeys() {
 
 	// Expired key
 	expiredTime := time.Now().Add(-24 * time.Hour)
-	s.AddKey(HashKey("sk-expired-key"), &KeyInfo{
+	s.AddKey(HashKey("sk-expired-key"), &platform.AuthContext{
 		KeyAlias:  "expired-key",
 		Role:      "internal_user",
 		ExpiresAt: &expiredTime,

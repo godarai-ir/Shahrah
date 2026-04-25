@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 
 	"github.com/stretchr/testify/assert"
@@ -33,7 +34,7 @@ func TestInMemoryKeyStore_GetKeyByHash_ShouldReturnKey(t *testing.T) {
 	store := auth.NewInMemoryKeyStore()
 	hash := auth.HashKey("test-key")
 
-	store.AddKey(hash, &auth.KeyInfo{
+	store.AddKey(hash, &platform.AuthContext{
 		KeyAlias: "test-key",
 		Role:     "team",
 	})
@@ -60,7 +61,7 @@ func TestInMemoryKeyStore_BlockedKey_ShouldBeRetrieved(t *testing.T) {
 	hash := auth.HashKey("blocked-key")
 	blocked := true
 
-	store.AddKey(hash, &auth.KeyInfo{
+	store.AddKey(hash, &platform.AuthContext{
 		KeyAlias: "blocked-key",
 		Blocked:  blocked,
 	})
@@ -76,7 +77,7 @@ func TestInMemoryKeyStore_ExpiredKey_ShouldBeRetrieved(t *testing.T) {
 	hash := auth.HashKey("expired-key")
 	expiredTime := time.Now().Add(-24 * time.Hour)
 
-	store.AddKey(hash, &auth.KeyInfo{
+	store.AddKey(hash, &platform.AuthContext{
 		KeyAlias:  "expired-key",
 		ExpiresAt: &expiredTime,
 	})

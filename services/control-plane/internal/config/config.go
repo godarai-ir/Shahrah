@@ -15,6 +15,9 @@ type Config struct {
 	ModelList       []ModelDeployment `mapstructure:"model_list"`
 	RouterSettings  RouterSettings    `mapstructure:"router_settings"`
 	GeneralSettings GeneralSettings   `mapstructure:"general_settings"`
+	TenantSettings  TenantSettings    `mapstructure:"tenant_settings"`
+	TunnelSettings  TunnelSettings    `mapstructure:"tunnel_settings"`
+	BillingSettings BillingSettings   `mapstructure:"billing_settings"`
 }
 
 // ModelDeployment represents a single model deployment configuration.
@@ -49,6 +52,25 @@ type RouterSettings struct {
 	NumRetries          int     `mapstructure:"num_retries"`
 }
 
+// TenantSettings controls tenant resolution.
+type TenantSettings struct {
+	BaseDomain      string `mapstructure:"base_domain"`
+	DefaultTenant   string `mapstructure:"default_tenant"`
+	AllowHeaderHint bool   `mapstructure:"allow_header_hint"`
+}
+
+// TunnelSettings controls the local tunnel client integration.
+type TunnelSettings struct {
+	ClientURL string `mapstructure:"client_url"`
+	Timeout   int    `mapstructure:"timeout_seconds"`
+}
+
+// BillingSettings controls exchange rate and pricing behavior.
+type BillingSettings struct {
+	DefaultUSDtoIRR float64 `mapstructure:"default_usd_to_irr"`
+	RateSource      string  `mapstructure:"rate_source"`
+}
+
 // GeneralSettings represents general proxy settings.
 type GeneralSettings struct {
 	MasterKey                   string `mapstructure:"master_key"`
@@ -74,6 +96,13 @@ func LoadConfig(logger *zap.Logger) (*Config, error) {
 	v.SetDefault("router_settings.routing_strategy", "simple-shuffle")
 	v.SetDefault("router_settings.cooldown_time", 60.0)
 	v.SetDefault("router_settings.num_retries", 3)
+	v.SetDefault("tenant_settings.base_domain", "shahrah.local")
+	v.SetDefault("tenant_settings.default_tenant", "default")
+	v.SetDefault("tenant_settings.allow_header_hint", true)
+	v.SetDefault("tunnel_settings.client_url", "http://127.0.0.1:8081")
+	v.SetDefault("tunnel_settings.timeout_seconds", 300)
+	v.SetDefault("billing_settings.default_usd_to_irr", 850000.0)
+	v.SetDefault("billing_settings.rate_source", "static")
 
 	// Read config file
 	if err := v.ReadInConfig(); err != nil {
@@ -126,6 +155,7 @@ func resolveEnvVars(cfg *Config, logger *zap.Logger) error {
 	cfg.RouterSettings.RedisPassword = resolveString(cfg.RouterSettings.RedisPassword)
 	cfg.GeneralSettings.MasterKey = resolveString(cfg.GeneralSettings.MasterKey)
 	cfg.GeneralSettings.DatabaseURL = resolveString(cfg.GeneralSettings.DatabaseURL)
+	cfg.TunnelSettings.ClientURL = resolveString(cfg.TunnelSettings.ClientURL)
 
 	return nil
 }

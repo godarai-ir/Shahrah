@@ -34,11 +34,11 @@ func TestRouter_ShouldSelectDeployment(t *testing.T) {
 		NumRetries:      3,
 	}
 
-	r, err := llmrouter.NewRouter(modelList, settings, memCache, logger)
+	r, err := llmrouter.NewRouter(modelList, settings, memCache, nil, logger)
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
 
-	dep, err := r.Route(context.Background(), "gpt-3.5-turbo")
+	dep, err := r.Route(context.Background(), "", "gpt-3.5-turbo")
 	assert.NoError(t, err)
 	assert.NotNil(t, dep)
 	assert.Equal(t, "gpt-3.5-turbo", dep.ModelName)
@@ -52,10 +52,10 @@ func TestRouter_ShouldReturnError_WhenModelNotFound(t *testing.T) {
 	modelList := []config.ModelDeployment{}
 	settings := config.RouterSettings{}
 
-	r, err := llmrouter.NewRouter(modelList, settings, memCache, logger)
+	r, err := llmrouter.NewRouter(modelList, settings, memCache, nil, logger)
 	assert.NoError(t, err)
 
-	dep, err := r.Route(context.Background(), "unknown-model")
+	dep, err := r.Route(context.Background(), "", "unknown-model")
 	assert.Error(t, err)
 	assert.Nil(t, dep)
 	assert.Equal(t, llmrouter.ErrModelNotFound, err)
@@ -81,11 +81,11 @@ func TestRouter_ShouldExcludeCooldownedDeployment(t *testing.T) {
 		CooldownTime: 60,
 	}
 
-	r, err := llmrouter.NewRouter(modelList, settings, memCache, logger)
+	r, err := llmrouter.NewRouter(modelList, settings, memCache, nil, logger)
 	assert.NoError(t, err)
 
 	// First, select the deployment
-	dep, err := r.Route(context.Background(), "test-model")
+	dep, err := r.Route(context.Background(), "", "test-model")
 	assert.NoError(t, err)
 	assert.NotNil(t, dep)
 
@@ -93,7 +93,7 @@ func TestRouter_ShouldExcludeCooldownedDeployment(t *testing.T) {
 	r.MarkFailed(context.Background(), dep, "test failure")
 
 	// Should fail to route since the only deployment is in cooldown
-	dep2, err := r.Route(context.Background(), "test-model")
+	dep2, err := r.Route(context.Background(), "", "test-model")
 	assert.Error(t, err)
 	assert.Nil(t, dep2)
 	assert.Equal(t, llmrouter.ErrNoHealthyDeployments, err)
@@ -127,7 +127,7 @@ func TestRouter_WeightedSelection_ShouldPreferHigherWeight(t *testing.T) {
 		RoutingStrategy: "simple-shuffle",
 	}
 
-	r, err := llmrouter.NewRouter(modelList, settings, memCache, logger)
+	r, err := llmrouter.NewRouter(modelList, settings, memCache, nil, logger)
 	assert.NoError(t, err)
 
 	// Run 1000 selections, verify distribution roughly matches weights
@@ -136,7 +136,7 @@ func TestRouter_WeightedSelection_ShouldPreferHigherWeight(t *testing.T) {
 	iterations := 1000
 
 	for i := 0; i < iterations; i++ {
-		dep, err := r.Route(context.Background(), "gpt-3.5-turbo")
+		dep, err := r.Route(context.Background(), "", "gpt-3.5-turbo")
 		assert.NoError(t, err)
 		if dep.ID == "dep-high" {
 			highCount++

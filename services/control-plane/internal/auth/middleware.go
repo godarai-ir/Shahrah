@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
 )
@@ -20,7 +21,7 @@ var ErrInvalidAPIKey = errors.New("invalid API key")
 
 // KeyStore defines the interface for API key lookup.
 type KeyStore interface {
-	GetKeyByHash(ctx context.Context, hash string) (*KeyInfo, error)
+	GetKeyByHash(ctx context.Context, hash string) (*platform.AuthContext, error)
 }
 
 // KeyInfo stores information about an API key.
@@ -75,10 +76,20 @@ func (m *AuthMiddleware) Middleware() fiber.Handler {
 
 		// Check master key
 		if m.masterKey != "" && apiKey == m.masterKey {
-			c.Locals(AuthContextKey{}, &KeyInfo{
+			c.Locals(AuthContextKey{}, &platform.AuthContext{
 				Role: "proxy_admin",
 			})
 			return c.Next()
+		}
+
+		// Management APIs require the master key.
+		if strings.HasPrefix(c.Path(), "/api/") {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": map[string]interface{}{
+					"message": "Management APIs require the master key",
+					"type":    "authentication_error",
+				},
+			})
 		}
 
 		// Hash the key for lookup
@@ -128,12 +139,12 @@ func (m *AuthMiddleware) Middleware() fiber.Handler {
 }
 
 // GetAuthInfo retrieves auth info from Fiber context.
-func GetAuthInfo(c *fiber.Ctx) *KeyInfo {
+func GetAuthInfo(c *fiber.Ctx) *platform.AuthContext {
 	val := c.Locals(AuthContextKey{})
 	if val == nil {
 		return nil
 	}
-	return val.(*KeyInfo)
+	return val.(*platform.AuthContext)
 }
 
 func (m *AuthMiddleware) extractAPIKey(c *fiber.Ctx) string {

@@ -39,6 +39,19 @@ router_settings:
   cooldown_time: 60
   num_retries: 3
 
+tenant_settings:
+  base_domain: "shahrah.local"
+  default_tenant: "default"
+  allow_header_hint: true
+
+tunnel_settings:
+  client_url: ${TUNNEL_CLIENT_URL}
+  timeout_seconds: 300
+
+billing_settings:
+  default_usd_to_irr: 850000
+  rate_source: "static"
+
 general_settings:
   master_key: ${MASTER_KEY}
   database_url: ${DATABASE_URL}
