@@ -2,7 +2,9 @@ package tenant
 
 import (
 	"context"
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/gofiber/fiber/v2"
@@ -17,39 +19,112 @@ type Store interface {
 	EnsureTenant(ctx context.Context, slug string) (*platform.Tenant, error)
 }
 
+// Cache defines the cache operations used by the middleware.
+type Cache interface {
+	Get(ctx context.Context, key string) (interface{}, bool)
+	Set(ctx context.Context, key string, value interface{}, ttl time.Duration)
+	Delete(ctx context.Context, key string)
+}
+
+// MiddlewareConfig holds configuration for the middleware.
+type MiddlewareConfig struct {
+	DefaultTenant   string
+	AllowHeaderHint bool
+	CacheTTL        time.Duration
+}
+
 // Middleware resolves tenants from host and optional local-dev header hints.
 type Middleware struct {
 	store           Store
+	cache           Cache
 	defaultTenant   string
 	allowHeaderHint bool
+	cacheTTL        time.Duration
 }
 
-// NewMiddleware creates a new tenant middleware.
+// NewMiddleware creates a new tenant middleware without caching.
+// Deprecated: Use NewMiddlewareWithCache instead.
 func NewMiddleware(store Store, defaultTenant string, allowHeaderHint bool) *Middleware {
-	return &Middleware{store: store, defaultTenant: defaultTenant, allowHeaderHint: allowHeaderHint}
+	return &Middleware{
+		store:           store,
+		defaultTenant:   defaultTenant,
+		allowHeaderHint: allowHeaderHint,
+		cacheTTL:        5 * time.Minute, // default TTL
+	}
+}
+
+// NewMiddlewareWithCache creates a new tenant middleware with caching support.
+func NewMiddlewareWithCache(store Store, c Cache, cfg MiddlewareConfig) *Middleware {
+	cacheTTL := cfg.CacheTTL
+	if cacheTTL <= 0 {
+		cacheTTL = 5 * time.Minute
+	}
+	return &Middleware{
+		store:           store,
+		cache:           c,
+		defaultTenant:   cfg.DefaultTenant,
+		allowHeaderHint: cfg.AllowHeaderHint,
+		cacheTTL:        cacheTTL,
+	}
 }
 
 // Handle resolves and stores the tenant context.
 func (m *Middleware) Handle() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		host := c.Hostname()
+
+		// Allow header hint for local development
 		if m.allowHeaderHint && (host == "localhost" || strings.HasPrefix(host, "127.")) {
 			if hinted := c.Get("x-shahrah-tenant"); hinted != "" {
-				host = hinted
+				host = hinted + ".localhost"
 			}
 		}
 
+		// Check cache first
+		if m.cache != nil {
+			cacheKey := cacheKeyForHost(host)
+			if cached, found := m.cache.Get(c.Context(), cacheKey); found && cached != nil {
+				if tenant, ok := cached.(*platform.Tenant); ok {
+					c.Locals(ContextKey{}, tenant)
+					return c.Next()
+				}
+			}
+		}
+
+		// Cache miss - query database
 		tenant, err := m.store.GetTenantByHost(c.Context(), host)
 		if err != nil {
+			// Fall back to default tenant
 			tenant, err = m.store.EnsureTenant(c.Context(), m.defaultTenant)
 			if err != nil {
 				return fiber.NewError(fiber.StatusNotFound, "tenant not found")
 			}
 		}
 
+		// Check tenant status
+		if !isActiveTenant(tenant) {
+			return fiber.NewError(fiber.StatusForbidden, fmt.Sprintf("tenant is not active (status: %s)", tenant.Status))
+		}
+
+		// Cache the result
+		if m.cache != nil {
+			cacheKey := cacheKeyForHost(host)
+			m.cache.Set(c.Context(), cacheKey, tenant, m.cacheTTL)
+		}
+
 		c.Locals(ContextKey{}, tenant)
 		return c.Next()
 	}
+}
+
+// InvalidateTenant removes the cached tenant entries.
+// Call this after updating a tenant via admin API.
+func (m *Middleware) InvalidateTenant(ctx context.Context, slug string, tenantID string) {
+	if m.cache == nil {
+		return
+	}
+	m.cache.Delete(ctx, cacheKeyForHost(slug))
+	m.cache.Delete(ctx, cacheKeyForID(tenantID))
 }
 
 // FromContext returns the current tenant from locals.
@@ -60,4 +135,19 @@ func FromContext(c *fiber.Ctx) *platform.Tenant {
 		}
 	}
 	return nil
+}
+
+func cacheKeyForHost(host string) string {
+	return "tenant:host:" + host
+}
+
+func cacheKeyForID(tenantID string) string {
+	return "tenant:id:" + tenantID
+}
+
+func isActiveTenant(t *platform.Tenant) bool {
+	if t == nil {
+		return false
+	}
+	return strings.EqualFold(t.Status, "active")
 }

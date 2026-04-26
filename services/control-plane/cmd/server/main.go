@@ -64,7 +64,11 @@ func main() {
 	}
 
 	authMiddleware := auth.NewAuthMiddleware(store, cfg.GeneralSettings.MasterKey, logger)
-	tenantMiddleware := tenant.NewMiddleware(store, cfg.TenantSettings.DefaultTenant, cfg.TenantSettings.AllowHeaderHint)
+	tenantMiddleware := tenant.NewMiddlewareWithCache(store, dualCache, tenant.MiddlewareConfig{
+		DefaultTenant:   cfg.TenantSettings.DefaultTenant,
+		AllowHeaderHint: cfg.TenantSettings.AllowHeaderHint,
+		CacheTTL:        5 * time.Minute,
+	})
 	billingService := billing.NewService(dualCache, store, cfg.BillingSettings.DefaultUSDtoIRR, cfg.BillingSettings.RateSource)
 	tunnelClient := tunneltransport.NewHTTPTransport(cfg.TunnelSettings.ClientURL, time.Duration(cfg.TunnelSettings.Timeout)*time.Second)
 
