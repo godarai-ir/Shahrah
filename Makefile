@@ -28,7 +28,7 @@ test-integration: ## Run control-plane integration tests
 	$(GO) -C $(CONTROL_PLANE_DIR) test -v -race ./tests/integration/...
 
 test-integration-db: ## Run Postgres-backed control-plane integration tests (requires DATABASE_URL)
-	$(GO) -C $(CONTROL_PLANE_DIR) test -v -race ./tests/integration/... -run PostgresBacked
+	$(GO) -C $(CONTROL_PLANE_DIR) test -v -race ./tests/integration/... -run "PostgresBacked|StorageSchemaContract|ConcurrentWalletDebitUsesRowLock"
 
 test: test-unit ## Run default tests
 

@@ -9,6 +9,9 @@ import (
 	"github.com/google/uuid"
 )
 
+// ErrInsufficientWalletBalance indicates a debit was attempted with insufficient funds.
+var ErrInsufficientWalletBalance = errors.New("insufficient wallet balance")
+
 // GetWallet retrieves or creates the tenant wallet.
 func (s *Store) GetWallet(ctx context.Context, tenantID string) (*platform.Wallet, error) {
 	var wallet platform.Wallet
@@ -76,6 +79,7 @@ func (s *Store) DebitWallet(ctx context.Context, tenantID string, breakdown plat
 	defer tx.Rollback(ctx)
 
 	var wallet platform.Wallet
+	// Lock the wallet row for the full transaction so concurrent debits serialize.
 	if err := tx.QueryRow(ctx, `
 		SELECT wallet_id::text, tenant_id::text, balance_irr, pending_irr
 		FROM wallets
@@ -86,7 +90,7 @@ func (s *Store) DebitWallet(ctx context.Context, tenantID string, breakdown plat
 	}
 
 	if wallet.BalanceIRR < breakdown.TotalCostIRR {
-		return nil, errors.New("insufficient wallet balance")
+		return nil, ErrInsufficientWalletBalance
 	}
 
 	if _, err := tx.Exec(ctx, `UPDATE wallets SET balance_irr = balance_irr - $2, updated_at = NOW() WHERE wallet_id::text = $1`, wallet.ID, breakdown.TotalCostIRR); err != nil {

@@ -1509,10 +1509,10 @@ test-coverage:
 
 ## Risk Mitigation
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| Database schema mismatch with Go structs | High | Run migration tests early, use code generation |
-| Race condition in wallet debit | High | Use `FOR UPDATE` row locks, test with concurrent debits |
+| Risk | Impact | Mitigation | Status |
+|------|--------|------------|--------|
+| Database schema mismatch with Go structs | High | Run migration tests early, use code generation | Addressed with `TestIntegration_StorageSchemaContract` to validate required table columns and critical index coverage before release |
+| Race condition in wallet debit | High | Use `FOR UPDATE` row locks, test with concurrent debits | Addressed with `FOR UPDATE` row lock + sentinel error (`ErrInsufficientWalletBalance`) and `TestIntegration_ConcurrentWalletDebitUsesRowLock` |
 | Redis not available in production | Medium | Dual cache fallback (memory-only) with degraded rate limiting |
 | Tunnel errors not properly handled | Medium | Add comprehensive error classification in tunnel transport |
 | Provider API format changes | Low | Abstract provider interface, test with real API calls |
