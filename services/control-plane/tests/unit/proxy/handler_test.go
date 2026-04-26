@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
@@ -48,6 +49,7 @@ type mockBilling struct {
 	cost         platform.UsageCostBreakdown
 	estimateErr  error
 	rateLimitErr error
+	rateLimitRes *mcache.RateLimitResult
 	budgetErr    error
 }
 
@@ -55,8 +57,8 @@ func (m *mockBilling) EstimateCost(ctx context.Context, req contractsopenai.Chat
 	return m.cost, m.estimateErr
 }
 
-func (m *mockBilling) CheckRateLimit(ctx context.Context, auth *platform.AuthContext, model string, estimatedTokens int) error {
-	return m.rateLimitErr
+func (m *mockBilling) CheckRateLimit(ctx context.Context, auth *platform.AuthContext, model string, estimatedTokens int) (*mcache.RateLimitResult, error) {
+	return m.rateLimitRes, m.rateLimitErr
 }
 
 func (m *mockBilling) CheckBudget(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown) error {
@@ -473,6 +475,72 @@ func TestChatCompletionHandler_ShouldPassThroughValidProviderHeaders(t *testing.
 	assert.NotEmpty(t, resp.Header.Get("X-Shahrah-Trace-Id"))
 	assert.NotEmpty(t, resp.Header.Get("X-Shahrah-Cost-Usd"))
 	assert.NotEmpty(t, resp.Header.Get("X-Shahrah-Cost-Irr"))
+}
+
+func TestChatCompletionHandler_ShouldSetRateLimitHeaders(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	r := newTestRouter(t, logger)
+
+	validResponse := contractsopenai.ChatCompletionResponse{
+		ID:      "chatcmpl-123",
+		Object:  "chat.completion",
+		Created: 1234567890,
+		Model:   "gpt-4",
+		Choices: []contractsopenai.Choice{
+			{
+				Index: 0,
+				Message: &contractsopenai.ChatMessage{
+					Role:    "assistant",
+					Content: "Hello!",
+				},
+				FinishReason: "stop",
+			},
+		},
+		Usage: &contractsopenai.Usage{
+			PromptTokens:     10,
+			CompletionTokens: 5,
+			TotalTokens:      15,
+		},
+	}
+	respBody, _ := json.Marshal(validResponse)
+
+	mTunnel := &mockTunnelTransport{
+		response: &platform.TunnelResponse{
+			StatusCode: http.StatusOK,
+			Headers:    map[string]string{},
+			Body:       respBody,
+		},
+	}
+	mBilling := &mockBilling{
+		cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 15},
+		rateLimitRes: &mcache.RateLimitResult{
+			Allowed: true,
+			Current: 2,
+			Limit:   10,
+			ResetAt: time.Now().Add(time.Minute),
+		},
+	}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{}
+
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	app := setupTestApp(t, handler)
+
+	body := map[string]interface{}{
+		"model":    "gpt-4",
+		"messages": []interface{}{map[string]interface{}{"role": "user", "content": "Hello"}},
+	}
+	payload, _ := json.Marshal(body)
+
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, "10", resp.Header.Get("X-Ratelimit-Limit"))
+	assert.Equal(t, "8", resp.Header.Get("X-Ratelimit-Remaining"))
+	assert.NotEmpty(t, resp.Header.Get("X-Ratelimit-Reset"))
 }
 
 func TestChatCompletionHandler_ShouldAcceptValidTemperature(t *testing.T) {

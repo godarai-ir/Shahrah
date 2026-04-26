@@ -12,6 +12,7 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
+	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
@@ -23,7 +24,7 @@ const httpErrorFloor = 400
 
 type budgeter interface {
 	EstimateCost(ctx context.Context, req contractsopenai.ChatCompletionRequest) (platform.UsageCostBreakdown, error)
-	CheckRateLimit(ctx context.Context, auth *platform.AuthContext, model string, estimatedTokens int) error
+	CheckRateLimit(ctx context.Context, auth *platform.AuthContext, model string, estimatedTokens int) (*cache.RateLimitResult, error)
 	CheckBudget(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown) error
 	FinalizeFromUsage(ctx context.Context, model string, usage *contractsopenai.Usage, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error)
 }
@@ -106,7 +107,9 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to estimate request cost", "billing_error")
 	}
 
-	if err := h.billing.CheckRateLimit(c.Context(), authInfo, req.Model, estimated.TotalTokens); err != nil {
+	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, req.Model, estimated.TotalTokens)
+	setRateLimitHeaders(c, rateLimit)
+	if err != nil {
 		status := fiber.StatusTooManyRequests
 		if err == billing.ErrBudgetExceeded {
 			status = fiber.StatusPaymentRequired
@@ -309,4 +312,18 @@ func toContractDeployment(dep *router.Deployment) platform.Deployment {
 		Weight:     dep.Weight,
 		TimeoutSec: dep.Params.Timeout,
 	}
+}
+
+func setRateLimitHeaders(c *fiber.Ctx, result *cache.RateLimitResult) {
+	if result == nil {
+		return
+	}
+
+	remaining := result.Limit - result.Current
+	if remaining < 0 {
+		remaining = 0
+	}
+	c.Set("X-RateLimit-Limit", fmt.Sprintf("%d", result.Limit))
+	c.Set("X-RateLimit-Remaining", fmt.Sprintf("%d", remaining))
+	c.Set("X-RateLimit-Reset", fmt.Sprintf("%d", result.ResetAt.Unix()))
 }

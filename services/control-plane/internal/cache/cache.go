@@ -10,12 +10,23 @@ import (
 	"go.uber.org/zap"
 )
 
+// RateLimitResult holds the result of a rate-limit check.
+type RateLimitResult struct {
+	Allowed bool
+	Current int64
+	Limit   int64
+	ResetAt time.Time
+}
+
 // Cache interface defines the contract for cache implementations.
 type Cache interface {
 	Get(ctx context.Context, key string) (interface{}, bool)
 	Set(ctx context.Context, key string, value interface{}, ttl time.Duration)
 	Delete(ctx context.Context, key string)
 	Increment(ctx context.Context, key string, value int64, ttl time.Duration) (int64, error)
+	CheckRateLimit(ctx context.Context, key string, limit int64, window time.Duration) (*RateLimitResult, error)
+	CheckSlidingWindowRateLimit(ctx context.Context, key string, limit int64, window time.Duration) (*RateLimitResult, error)
+	CheckSlidingWindowRateLimitWithWeight(ctx context.Context, key string, limit int64, weight int64, window time.Duration) (*RateLimitResult, error)
 	Close() error
 }
 
@@ -91,6 +102,149 @@ func (d *DualCache) Increment(ctx context.Context, key string, value int64, ttl 
 	d.memory.Set(ctx, key, result, ttl)
 
 	return result, nil
+}
+
+const fixedWindowRateLimitScript = `
+local key = KEYS[1]
+local limit = tonumber(ARGV[1])
+local windowMs = tonumber(ARGV[2])
+
+local current = redis.call('GET', key)
+if not current then
+  redis.call('SET', key, 1, 'PX', windowMs)
+  return {1, 1, windowMs}
+end
+
+current = tonumber(current)
+local pttl = redis.call('PTTL', key)
+if pttl < 0 then
+  redis.call('PEXPIRE', key, windowMs)
+  pttl = windowMs
+end
+
+if current >= limit then
+  return {0, current, pttl}
+end
+
+current = redis.call('INCR', key)
+pttl = redis.call('PTTL', key)
+if pttl < 0 then
+  redis.call('PEXPIRE', key, windowMs)
+  pttl = windowMs
+end
+
+return {1, current, pttl}
+`
+
+const slidingWindowRateLimitScript = `
+local key = KEYS[1]
+local limit = tonumber(ARGV[1])
+local windowMs = tonumber(ARGV[2])
+local nowMs = tonumber(ARGV[3])
+local weight = tonumber(ARGV[4])
+if weight < 1 then
+  weight = 1
+end
+
+local windowStart = nowMs - windowMs
+redis.call('ZREMRANGEBYSCORE', key, 0, windowStart)
+
+local entries = redis.call('ZRANGE', key, 0, -1)
+local total = 0
+for _, entry in ipairs(entries) do
+  local w = string.match(entry, ":(%d+):")
+  if w then
+    total = total + tonumber(w)
+  else
+    total = total + 1
+  end
+end
+
+if (total + weight) > limit then
+  local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
+  if oldest and #oldest >= 2 then
+    local oldestMs = tonumber(oldest[2])
+    local resetIn = (oldestMs + windowMs) - nowMs
+    if resetIn < 0 then
+      resetIn = 0
+    end
+    return {0, total, resetIn}
+  end
+  return {0, total, windowMs}
+end
+
+local seqKey = key .. ':seq'
+local seq = redis.call('INCR', seqKey)
+local member = tostring(nowMs) .. ':' .. tostring(weight) .. ':' .. tostring(seq)
+redis.call('ZADD', key, nowMs, member)
+redis.call('PEXPIRE', key, windowMs * 2)
+redis.call('PEXPIRE', seqKey, windowMs * 2)
+
+return {1, total + weight, windowMs}
+`
+
+// CheckRateLimit atomically checks a fixed-window rate-limit counter in Redis.
+func (d *DualCache) CheckRateLimit(ctx context.Context, key string, limit int64, window time.Duration) (*RateLimitResult, error) {
+	if limit <= 0 {
+		return &RateLimitResult{
+			Allowed: true,
+			Current: 0,
+			Limit:   limit,
+			ResetAt: time.Now().Add(window),
+		}, nil
+	}
+
+	windowMS := window.Milliseconds()
+	result, err := d.redis.Eval(ctx, fixedWindowRateLimitScript, []string{key}, limit, windowMS).Int64Slice()
+	if err != nil {
+		return d.memory.CheckRateLimit(ctx, key, limit, window)
+	}
+	if len(result) < 3 {
+		return nil, fmt.Errorf("unexpected redis rate-limit result length: %d", len(result))
+	}
+
+	resetIn := time.Duration(result[2]) * time.Millisecond
+	return &RateLimitResult{
+		Allowed: result[0] == 1,
+		Current: result[1],
+		Limit:   limit,
+		ResetAt: time.Now().Add(resetIn),
+	}, nil
+}
+
+// CheckSlidingWindowRateLimit checks a true sliding-window rate-limit counter in Redis.
+func (d *DualCache) CheckSlidingWindowRateLimit(ctx context.Context, key string, limit int64, window time.Duration) (*RateLimitResult, error) {
+	return d.CheckSlidingWindowRateLimitWithWeight(ctx, key, limit, 1, window)
+}
+
+// CheckSlidingWindowRateLimitWithWeight checks a true sliding-window rate limit with weighted entries.
+func (d *DualCache) CheckSlidingWindowRateLimitWithWeight(ctx context.Context, key string, limit int64, weight int64, window time.Duration) (*RateLimitResult, error) {
+	if limit <= 0 {
+		return &RateLimitResult{
+			Allowed: true,
+			Current: 0,
+			Limit:   limit,
+			ResetAt: time.Now().Add(window),
+		}, nil
+	}
+
+	windowMS := window.Milliseconds()
+	nowMS := time.Now().UnixMilli()
+	result, err := d.redis.Eval(ctx, slidingWindowRateLimitScript, []string{key}, limit, windowMS, nowMS, weight).Int64Slice()
+	if err != nil {
+		return d.memory.CheckSlidingWindowRateLimitWithWeight(ctx, key, limit, weight, window)
+	}
+	if len(result) < 3 {
+		return nil, fmt.Errorf("unexpected redis sliding-window result length: %d", len(result))
+	}
+
+	resetIn := time.Duration(result[2]) * time.Millisecond
+	return &RateLimitResult{
+		Allowed: result[0] == 1,
+		Current: result[1],
+		Limit:   limit,
+		ResetAt: time.Now().Add(resetIn),
+	}, nil
 }
 
 // Close closes both memory and Redis caches.

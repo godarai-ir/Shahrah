@@ -3,6 +3,7 @@ package billing
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/openai"
@@ -42,31 +43,66 @@ func NewService(c cache.Cache, store walletStore, defaultUSDtoIRR float64, sourc
 	}
 }
 
+const tenantLimitMultiplier int64 = 5
+
 // CheckRateLimit validates per-minute request and token limits.
-func (s *Service) CheckRateLimit(ctx context.Context, auth *platform.AuthContext, model string, estimatedTokens int) error {
+// Returns the primary rate-limit result to expose in response headers.
+func (s *Service) CheckRateLimit(ctx context.Context, auth *platform.AuthContext, model string, estimatedTokens int) (*cache.RateLimitResult, error) {
 	window := time.Minute
-	nowBucket := time.Now().UTC().Format("200601021504")
+	var primary *cache.RateLimitResult
+
 	if auth.RPMLimit != nil {
-		key := "rpm:" + auth.TokenHash + ":" + model + ":" + nowBucket
-		value, err := s.cache.Increment(ctx, key, 1, window)
+		key := fmt.Sprintf("rpm:key:%s:%s", auth.TokenHash, model)
+		result, err := s.cache.CheckRateLimit(ctx, key, *auth.RPMLimit, window)
 		if err != nil {
-			return err
+			return primary, err
 		}
-		if value > *auth.RPMLimit {
-			return ErrRateLimitExceeded
+		if primary == nil {
+			primary = result
+		}
+		if !result.Allowed {
+			return primary, ErrRateLimitExceeded
+		}
+
+		if auth.TenantID != "" {
+			tenantLimit := deriveTenantLimit(*auth.RPMLimit)
+			tenantKey := fmt.Sprintf("rpm:tenant:%s:%s", auth.TenantID, model)
+			tenantResult, err := s.cache.CheckRateLimit(ctx, tenantKey, tenantLimit, window)
+			if err != nil {
+				return primary, err
+			}
+			if !tenantResult.Allowed {
+				return tenantResult, ErrRateLimitExceeded
+			}
 		}
 	}
+
 	if auth.TPMLimit != nil && estimatedTokens > 0 {
-		key := "tpm:" + auth.TokenHash + ":" + model + ":" + nowBucket
-		value, err := s.cache.Increment(ctx, key, int64(estimatedTokens), window)
+		key := fmt.Sprintf("tpm:key:%s:%s", auth.TokenHash, model)
+		result, err := s.cache.CheckSlidingWindowRateLimitWithWeight(ctx, key, *auth.TPMLimit, int64(estimatedTokens), window)
 		if err != nil {
-			return err
+			return primary, err
 		}
-		if value > *auth.TPMLimit {
-			return ErrRateLimitExceeded
+		if primary == nil {
+			primary = result
+		}
+		if !result.Allowed {
+			return primary, ErrRateLimitExceeded
+		}
+
+		if auth.TenantID != "" {
+			tenantLimit := deriveTenantLimit(*auth.TPMLimit)
+			tenantKey := fmt.Sprintf("tpm:tenant:%s:%s", auth.TenantID, model)
+			tenantResult, err := s.cache.CheckSlidingWindowRateLimitWithWeight(ctx, tenantKey, tenantLimit, int64(estimatedTokens), window)
+			if err != nil {
+				return primary, err
+			}
+			if !tenantResult.Allowed {
+				return tenantResult, ErrRateLimitExceeded
+			}
 		}
 	}
-	return nil
+	return primary, nil
 }
 
 // CheckBudget validates wallet and hard budget constraints.
@@ -143,4 +179,11 @@ func (s *Service) FinalizeFromUsage(ctx context.Context, model string, usage *op
 		ExchangeRate:  rate.USDtoIRR,
 		TotalCostIRR:  totalUSD * rate.USDtoIRR,
 	}, nil
+}
+
+func deriveTenantLimit(perKeyLimit int64) int64 {
+	if perKeyLimit <= 0 {
+		return perKeyLimit
+	}
+	return perKeyLimit * tenantLimitMultiplier
 }
