@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
@@ -132,14 +133,32 @@ func (h *Handlers) ListModels(c *fiber.Ctx) error {
 		return err
 	}
 
-	data := make([]openai.Model, 0, len(deployments))
+	byAlias := make(map[string]openai.Model, len(deployments))
 	for _, dep := range deployments {
+		id := dep.ModelName
+		if id == "" {
+			id = dep.ID
+		}
+		model := byAlias[id]
+		model.ID = id
+		model.Object = "model"
+		model.OwnedBy = "shahrah"
+		if model.Provider == "" {
+			model.Provider = dep.Provider
+		}
+		model.Aliases = appendUnique(model.Aliases, dep.ModelName)
+		model.Aliases = appendUnique(model.Aliases, dep.Model)
+		byAlias[id] = model
+	}
+
+	data := make([]openai.Model, 0, len(byAlias))
+	for _, item := range byAlias {
 		data = append(data, openai.Model{
-			ID:       dep.ID,
+			ID:       item.ID,
 			Object:   "model",
-			OwnedBy:  "shahrah",
-			Provider: dep.Provider,
-			Aliases:  []string{dep.ModelName},
+			OwnedBy:  item.OwnedBy,
+			Provider: item.Provider,
+			Aliases:  item.Aliases,
 		})
 	}
 	return c.JSON(openai.ModelListResponse{Object: "list", Data: data})
@@ -180,4 +199,17 @@ func (h *Handlers) TopUpWallet(c *fiber.Ctx) error {
 		return err
 	}
 	return c.Status(fiber.StatusCreated).JSON(txn)
+}
+
+func appendUnique(values []string, candidate string) []string {
+	candidate = strings.TrimSpace(candidate)
+	if candidate == "" {
+		return values
+	}
+	for _, existing := range values {
+		if existing == candidate {
+			return values
+		}
+	}
+	return append(values, candidate)
 }

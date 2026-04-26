@@ -28,7 +28,7 @@ type Deployment struct {
 	ModelName string
 	Provider  string
 	Model     string
-	Params    config.LiteLLMParams
+	Params    config.ProviderEndpointConfig
 	Healthy   bool
 	Weight    float64
 }
@@ -106,12 +106,12 @@ func NewRouter(modelList []config.ModelDeployment, settings config.RouterSetting
 		deployment := &Deployment{
 			ID:        fmt.Sprintf("%v", md.ModelInfo["id"]),
 			ModelName: md.ModelName,
-			Params:    md.LiteLLMParams,
+			Params:    md.ProviderEndpoint,
 			Healthy:   true,
 		}
 
 		// Parse provider from model string (e.g., "openai/gpt-3.5-turbo")
-		modelParts := md.LiteLLMParams.Model
+		modelParts := md.ProviderEndpoint.Model
 		if idx := len("openai/"); idx < len(modelParts) && modelParts[:idx] == "openai/" {
 			deployment.Provider = "openai"
 			deployment.Model = modelParts[idx:]
@@ -121,12 +121,12 @@ func NewRouter(modelList []config.ModelDeployment, settings config.RouterSetting
 		}
 
 		// Use TPM or RPM as weight
-		if md.LiteLLMParams.TPM > 0 {
-			deployment.Weight = float64(md.LiteLLMParams.TPM)
-		} else if md.LiteLLMParams.RPM > 0 {
-			deployment.Weight = float64(md.LiteLLMParams.RPM)
-		} else if md.LiteLLMParams.Weight > 0 {
-			deployment.Weight = md.LiteLLMParams.Weight
+		if md.ProviderEndpoint.TPM > 0 {
+			deployment.Weight = float64(md.ProviderEndpoint.TPM)
+		} else if md.ProviderEndpoint.RPM > 0 {
+			deployment.Weight = float64(md.ProviderEndpoint.RPM)
+		} else if md.ProviderEndpoint.Weight > 0 {
+			deployment.Weight = md.ProviderEndpoint.Weight
 		}
 
 		r.deployments[md.ModelName] = append(r.deployments[md.ModelName], deployment)
@@ -162,7 +162,7 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 					ModelName: dep.ModelName,
 					Provider:  dep.Provider,
 					Model:     dep.Model,
-					Params: config.LiteLLMParams{
+					Params: config.ProviderEndpointConfig{
 						Model:      dep.Model,
 						APIKey:     dep.APIKey,
 						APIBase:    dep.APIBase,

@@ -4,7 +4,7 @@
 model_list:
   # OpenAI GPT-3.5-Turbo
   - model_name: gpt-3.5-turbo
-    litellm_params:
+    provider_endpoint_config:
       model: openai/gpt-3.5-turbo
       api_key: ${OPENAI_API_KEY}
       rpm: 1000
@@ -15,7 +15,7 @@ model_list:
 
   # OpenAI GPT-4
   - model_name: gpt-4
-    litellm_params:
+    provider_endpoint_config:
       model: openai/gpt-4
       api_key: ${OPENAI_API_KEY}
       rpm: 500
@@ -26,7 +26,7 @@ model_list:
 
   # Wildcard: any openai model
   - model_name: "*"
-    litellm_params:
+    provider_endpoint_config:
       model: openai/*
       api_key: ${OPENAI_API_KEY}
 

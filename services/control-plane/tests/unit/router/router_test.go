@@ -20,7 +20,7 @@ func TestRouter_ShouldSelectDeployment(t *testing.T) {
 	modelList := []config.ModelDeployment{
 		{
 			ModelName: "gpt-3.5-turbo",
-			LiteLLMParams: config.LiteLLMParams{
+			ProviderEndpoint: config.ProviderEndpointConfig{
 				Model: "openai/gpt-3.5-turbo",
 				RPM:   1000,
 			},
@@ -69,7 +69,7 @@ func TestRouter_ShouldExcludeCooldownedDeployment(t *testing.T) {
 	modelList := []config.ModelDeployment{
 		{
 			ModelName: "test-model",
-			LiteLLMParams: config.LiteLLMParams{
+			ProviderEndpoint: config.ProviderEndpointConfig{
 				Model: "openai/test-model",
 				RPM:   1000,
 			},
@@ -107,7 +107,7 @@ func TestRouter_WeightedSelection_ShouldPreferHigherWeight(t *testing.T) {
 	modelList := []config.ModelDeployment{
 		{
 			ModelName: "gpt-3.5-turbo",
-			LiteLLMParams: config.LiteLLMParams{
+			ProviderEndpoint: config.ProviderEndpointConfig{
 				Model: "openai/gpt-3.5-turbo",
 				RPM:   1000, // High weight
 			},
@@ -115,7 +115,7 @@ func TestRouter_WeightedSelection_ShouldPreferHigherWeight(t *testing.T) {
 		},
 		{
 			ModelName: "gpt-3.5-turbo",
-			LiteLLMParams: config.LiteLLMParams{
+			ProviderEndpoint: config.ProviderEndpointConfig{
 				Model: "openai/gpt-3.5-turbo",
 				RPM:   100, // Low weight
 			},

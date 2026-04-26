@@ -1,4 +1,4 @@
-.PHONY: help setup build run test-unit test-integration test fmt vet lint check docker-up docker-down docker-migrate docker-logs docker-clean
+.PHONY: help setup build run test-unit test-integration test-integration-db test fmt vet lint check docker-up docker-down docker-migrate docker-logs docker-clean
 
 CONTROL_PLANE_DIR := services/control-plane
 COMPOSE_FILE := infra/compose/local.yml
@@ -26,6 +26,9 @@ test-unit: ## Run control-plane unit tests
 
 test-integration: ## Run control-plane integration tests
 	$(GO) -C $(CONTROL_PLANE_DIR) test -v -race ./tests/integration/...
+
+test-integration-db: ## Run Postgres-backed control-plane integration tests (requires DATABASE_URL)
+	$(GO) -C $(CONTROL_PLANE_DIR) test -v -race ./tests/integration/... -run PostgresBacked
 
 test: test-unit ## Run default tests
 

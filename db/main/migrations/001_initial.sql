@@ -1,6 +1,6 @@
 -- Migration: 001_initial.sql
 -- Description: Initial database schema for Shahrah
--- Based on LiteLLM's schema.prisma (organizations -> teams -> users -> keys hierarchy)
+-- (organizations -> teams -> users -> keys hierarchy)
 --
 -- Run with: docker-compose exec postgres psql -U postgres -d llmproxy -f /docker-entrypoint-initdb.d/001_initial.sql
 
@@ -222,9 +222,9 @@ CREATE TABLE tags (
 CREATE TABLE model_deployments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     model_name VARCHAR(255) NOT NULL,
-    litellm_provider VARCHAR(50) NOT NULL,
-    litellm_model VARCHAR(255) NOT NULL,
-    litellm_params JSONB NOT NULL,
+    provider VARCHAR(50) NOT NULL,
+    model VARCHAR(255) NOT NULL,
+    provider_config JSONB NOT NULL,
     model_info JSONB,
     rpm BIGINT,
     tpm BIGINT,

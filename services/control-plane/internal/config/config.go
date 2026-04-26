@@ -22,13 +22,13 @@ type Config struct {
 
 // ModelDeployment represents a single model deployment configuration.
 type ModelDeployment struct {
-	ModelName     string                 `mapstructure:"model_name"`
-	LiteLLMParams LiteLLMParams          `mapstructure:"litellm_params"`
-	ModelInfo     map[string]interface{} `mapstructure:"model_info"`
+	ModelName        string                 `mapstructure:"model_name"`
+	ProviderEndpoint ProviderEndpointConfig `mapstructure:"provider_endpoint_config"`
+	ModelInfo        map[string]interface{} `mapstructure:"model_info"`
 }
 
-// LiteLLMParams represents the parameters for a LiteLLM call.
-type LiteLLMParams struct {
+// ProviderEndpointConfig represents the connection and routing parameters for an LLM provider endpoint.
+type ProviderEndpointConfig struct {
 	Model         string  `mapstructure:"model"`
 	APIKey        string  `mapstructure:"api_key"`
 	APIBase       string  `mapstructure:"api_base"`
@@ -147,8 +147,8 @@ func resolveEnvVars(cfg *Config, logger *zap.Logger) error {
 
 	// Resolve model deployment params
 	for i := range cfg.ModelList {
-		cfg.ModelList[i].LiteLLMParams.APIKey = resolveString(cfg.ModelList[i].LiteLLMParams.APIKey)
-		cfg.ModelList[i].LiteLLMParams.APIBase = resolveString(cfg.ModelList[i].LiteLLMParams.APIBase)
+		cfg.ModelList[i].ProviderEndpoint.APIKey = resolveString(cfg.ModelList[i].ProviderEndpoint.APIKey)
+		cfg.ModelList[i].ProviderEndpoint.APIBase = resolveString(cfg.ModelList[i].ProviderEndpoint.APIBase)
 	}
 
 	cfg.RouterSettings.RedisHost = resolveString(cfg.RouterSettings.RedisHost)

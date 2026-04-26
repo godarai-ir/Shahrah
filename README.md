@@ -59,6 +59,24 @@ go -C services/control-plane test -v -race ./tests/unit/...
 go -C services/control-plane run ./cmd/server
 ```
 
+### Persistent MVP Verification
+
+The control-plane now expects a reachable PostgreSQL database and applies tenant, key, deployment, wallet, and usage persistence through `internal/storage.Store`.
+
+Migration order:
+
+1. `db/main/migrations/001_initial.sql`
+2. `db/main/migrations/002_platform_foundations.sql`
+
+Required runtime configuration:
+
+- `DATABASE_URL`
+- `MASTER_KEY`
+- `TUNNEL_CLIENT_URL`
+- `OPENAI_API_KEY` only if using the sample static model entries in `services/control-plane/configs/proxy_config.yaml`
+
+Minimal onboarding flow is documented in `services/control-plane/README.md`.
+
 ### Workspace Tooling
 
 - Go services are managed via `go.work`

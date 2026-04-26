@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -33,6 +34,9 @@ func main() {
 	cfg, err := config.LoadConfig(logger)
 	if err != nil {
 		logger.Fatal("Failed to load configuration", zap.Error(err))
+	}
+	if strings.TrimSpace(cfg.GeneralSettings.DatabaseURL) == "" {
+		logger.Fatal("Missing required database configuration", zap.String("field", "general_settings.database_url"))
 	}
 
 	ctx := context.Background()
