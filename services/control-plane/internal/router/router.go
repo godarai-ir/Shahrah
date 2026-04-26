@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 
@@ -79,14 +80,32 @@ func NewRouter(modelList []config.ModelDeployment, settings config.RouterSetting
 			Healthy:   true,
 		}
 
-		// Parse provider from model string (e.g., "openai/gpt-3.5-turbo")
+		// Parse provider from model string or config (e.g., "openai/gpt-3.5-turbo")
 		modelParts := md.ProviderEndpoint.Model
-		if idx := len("openai/"); idx < len(modelParts) && modelParts[:idx] == "openai/" {
-			deployment.Provider = "openai"
-			deployment.Model = modelParts[idx:]
-		} else {
-			deployment.Provider = "openai" // default
+
+		// First, check if provider is explicitly set in config
+		if md.ProviderEndpoint.Provider != "" {
+			deployment.Provider = md.ProviderEndpoint.Provider
 			deployment.Model = modelParts
+		} else {
+			// Parse from model string prefix - support all 10 providers
+			providerPrefixes := []string{
+				"openai/", "azure/", "anthropic/", "groq/", "mistral/",
+				"togetherai/", "cohere/", "vertexai/", "gemini/", "bedrock/",
+			}
+			found := false
+			for _, prefix := range providerPrefixes {
+				if len(modelParts) > len(prefix) && strings.HasPrefix(modelParts, prefix) {
+					deployment.Provider = strings.TrimSuffix(prefix, "/")
+					deployment.Model = strings.TrimPrefix(modelParts, prefix)
+					found = true
+					break
+				}
+			}
+			if !found {
+				deployment.Provider = "openai" // explicit default - not silent
+				deployment.Model = modelParts
+			}
 		}
 
 		// Use TPM or RPM as weight

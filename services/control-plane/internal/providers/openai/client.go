@@ -27,6 +27,13 @@ type Client struct {
 	httpClient *http.Client
 }
 
+// Register the adapter
+func init() {
+	providers.Register("openai", func(cfg providers.ProviderConfig) providers.Provider {
+		return NewClient(cfg)
+	})
+}
+
 // NewClient creates a new OpenAI client.
 func NewClient(cfg providers.ProviderConfig) *Client {
 	apiBase := cfg.APIBase

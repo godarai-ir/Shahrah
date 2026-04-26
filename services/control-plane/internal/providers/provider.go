@@ -20,4 +20,6 @@ type ProviderConfig struct {
 	APIVersion string
 	Region     string
 	Timeout    float64
+	ProjectID  string // For Google Cloud (Vertex AI)
+	EndpointID string // For Azure OpenAI
 }

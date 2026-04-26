@@ -2,101 +2,249 @@ package proxy
 
 import (
 	"encoding/json"
-	"fmt"
-	"net/http"
 	"strings"
 
-	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/gofiber/fiber/v2"
+
+	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 )
 
-// writeAPIError writes a standardized OpenAI-compatible error response.
-func writeAPIError(c *fiber.Ctx, status int, message string, errorType string) error {
+// Error codes matching LiteLLM exception_mapping.md
+const (
+	ErrBadRequest         = 400
+	ErrAuthentication     = 401
+	ErrPermissionDenied   = 403
+	ErrNotFound           = 404
+	ErrTimeout            = 408
+	ErrRateLimit          = 429
+	ErrInternal           = 500
+	ErrServiceUnavailable = 503
+)
+
+// ErrorTypeMap maps HTTP status codes to OpenAI error types
+var ErrorTypeMap = map[int]string{
+	ErrBadRequest:         "invalid_request_error",
+	ErrAuthentication:     "authentication_error",
+	ErrPermissionDenied:   "permission_denied_error",
+	ErrNotFound:           "invalid_request_error",
+	ErrTimeout:            "timeout_error",
+	ErrRateLimit:          "rate_limit_error",
+	ErrInternal:           "server_error",
+	ErrServiceUnavailable: "server_error",
+}
+
+// TransformProviderError transforms a provider error to OpenAI envelope format
+// This version matches existing handler code signatures - takes 4 args including headers
+func TransformProviderError(c *fiber.Ctx, status int, body []byte, headers map[string]string) error {
+	// Forward provider headers before writing error response
+	forwardProviderHeaders(c, headers)
+
+	errType := ErrorTypeMap[status]
+	if errType == "" {
+		errType = "internal_error"
+	}
+
+	message := "An error occurred while processing your request"
+
+	// Parse error from body
+	message = parseGenericError(body)
+
+	return WriteAPIError(c, status, message, errType)
+}
+
+// transformProviderError is an alias for TransformProviderError (for backward compatibility)
+var transformProviderError = TransformProviderError
+
+// parseOpenAIError parses OpenAI/Azure/Groq/Mistral/Together AI error format
+func parseOpenAIError(body []byte) string {
+	if len(body) == 0 {
+		return "Provider returned an empty response"
+	}
+
+	var errResp struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+
+	if err := json.Unmarshal(body, &errResp); err == nil && errResp.Error.Message != "" {
+		return errResp.Error.Message
+	}
+
+	var altErrResp struct {
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(body, &altErrResp); err == nil && altErrResp.Message != "" {
+		return altErrResp.Message
+	}
+
+	return string(body)
+}
+
+// parseAnthropicError parses Anthropic error format
+func parseAnthropicError(body []byte) string {
+	if len(body) == 0 {
+		return "Provider returned an empty response"
+	}
+
+	var errResp struct {
+		Type  string `json:"type"`
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+
+	if err := json.Unmarshal(body, &errResp); err == nil && errResp.Error.Message != "" {
+		return errResp.Error.Message
+	}
+
+	var simpleErr struct {
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal(body, &simpleErr); err == nil && simpleErr.Error != "" {
+		return simpleErr.Error
+	}
+
+	return string(body)
+}
+
+// parseBedrockError parses AWS Bedrock error format
+func parseBedrockError(body []byte) string {
+	if len(body) == 0 {
+		return "Provider returned an empty response"
+	}
+
+	var errResp struct {
+		Message string `json:"message"`
+		Type    string `json:"type"`
+	}
+
+	if err := json.Unmarshal(body, &errResp); err == nil && errResp.Message != "" {
+		return errResp.Message
+	}
+
+	return string(body)
+}
+
+// parseGoogleError parses Google (Vertex AI/Gemini) error format
+func parseGoogleError(body []byte) string {
+	if len(body) == 0 {
+		return "Provider returned an empty response"
+	}
+
+	var errResp struct {
+		Error struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+			Status  string `json:"status"`
+		} `json:"error"`
+	}
+
+	if err := json.Unmarshal(body, &errResp); err == nil && errResp.Error.Message != "" {
+		return errResp.Error.Message
+	}
+
+	var altErr struct {
+		ErrorMessage string `json:"error_message"`
+	}
+	if err := json.Unmarshal(body, &altErr); err == nil && altErr.ErrorMessage != "" {
+		return altErr.ErrorMessage
+	}
+
+	return string(body)
+}
+
+// parseGenericError tries to extract a message from any error format
+func parseGenericError(body []byte) string {
+	if len(body) == 0 {
+		return "Provider returned an empty response"
+	}
+
+	var generic map[string]interface{}
+	if err := json.Unmarshal(body, &generic); err == nil {
+		// Try top-level message
+		if msg, ok := generic["message"].(string); ok && msg != "" {
+			return msg
+		}
+		// Try nested error object
+		if errObj, ok := generic["error"].(map[string]interface{}); ok {
+			if msg, ok := errObj["message"].(string); ok && msg != "" {
+				return msg
+			}
+			if msg, ok := errObj["error"].(string); ok && msg != "" {
+				return msg
+			}
+		}
+		// Try simple error string
+		if msg, ok := generic["error"].(string); ok && msg != "" {
+			return msg
+		}
+		if msg, ok := generic["error_message"].(string); ok && msg != "" {
+			return msg
+		}
+	}
+
+	if len(body) > 200 {
+		return strings.TrimSpace(string(body[:200])) + "..."
+	}
+	return strings.TrimSpace(string(body))
+}
+
+// Aliases for backward compatibility with existing handler code
+var writeAPIError = WriteAPIError
+var containsModel = ContainsModel
+
+// forwardProviderHeaders forwards relevant provider headers to the client
+// Uses case-insensitive matching to handle providers that send headers in any case
+func forwardProviderHeaders(c *fiber.Ctx, headers map[string]string) {
+	if headers == nil {
+		return
+	}
+
+	// Build a normalized lookup map (lowercase keys)
+	normalized := make(map[string]string, len(headers))
+	for k, v := range headers {
+		normalized[strings.ToLower(k)] = v
+	}
+
+	// Header mappings: lowercase lookup key -> proper mixed-case output key
+	// This table handles both formats providers may send
+	headerMappings := map[string]string{
+		"x-request-id":                   "X-Request-Id",
+		"x-ratelimit-remaining-tokens":   "X-Ratelimit-Remaining-Tokens",
+		"x-ratelimit-remaining-requests": "X-Ratelimit-Remaining-Requests",
+		"x-ratelimit-limit":              "X-Ratelimit-Limit",
+		"x-ratelimit-reset":              "X-Ratelimit-Reset",
+		"cf-ray":                         "Cf-Ray",
+		"x-correlation-id":               "X-Correlation-Id",
+		"x-shahrah-trace-id":             "X-Shahrah-Trace-Id",
+		"x-trace-id":                     "X-Trace-Id",
+		"traceparent":                    "Traceparent",
+		// Also handle mixed-case input that some providers may send
+		"x-ratelimit-remaining": "X-Ratelimit-Remaining",
+	}
+
+	for lookupKey, outputKey := range headerMappings {
+		if val, ok := normalized[lookupKey]; ok {
+			c.Set(outputKey, val)
+		}
+	}
+}
+
+// WriteAPIError writes an API error response in OpenAI format
+func WriteAPIError(c *fiber.Ctx, status int, message string, errType string) error {
 	return c.Status(status).JSON(contractsopenai.APIError{
 		Error: contractsopenai.ErrorInfo{
 			Message: message,
-			Type:    errorType,
-			Code:    fmt.Sprintf("%d", status),
+			Type:    errType,
 		},
 	})
 }
 
-// transformProviderError converts non-OpenAI provider errors to OpenAI-compatible format.
-func transformProviderError(c *fiber.Ctx, statusCode int, body []byte, headers map[string]string) error {
-	// Forward provider headers even on error
-	forwardProviderHeaders(c, headers)
-
-	// Try to parse as OpenAI error first
-	var apiErr contractsopenai.APIError
-	if err := json.Unmarshal(body, &apiErr); err == nil && apiErr.Error.Message != "" {
-		return c.Status(statusCode).JSON(apiErr)
-	}
-
-	// Fall back to generic OpenAI-compatible error
-	message := string(body)
-	if len(message) > 500 {
-		message = message[:500] + "..."
-	}
-	if message == "" {
-		message = http.StatusText(statusCode)
-	}
-
-	errorType := classifyErrorType(statusCode)
-
-	return c.Status(statusCode).JSON(contractsopenai.APIError{
-		Error: contractsopenai.ErrorInfo{
-			Message: message,
-			Type:    errorType,
-			Code:    fmt.Sprintf("%d", statusCode),
-		},
-	})
-}
-
-func classifyErrorType(statusCode int) string {
-	switch {
-	case statusCode == http.StatusTooManyRequests:
-		return "rate_limit_error"
-	case statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden:
-		return "authentication_error"
-	case statusCode >= http.StatusInternalServerError:
-		return "server_error"
-	default:
-		return "api_error"
-	}
-}
-
-func containsModel(models []string, model string) bool {
-	for _, candidate := range models {
-		if candidate == model {
-			return true
-		}
-	}
-	return false
-}
-
-// forwardProviderHeaders forwards allowed provider response headers to the client.
-func forwardProviderHeaders(c *fiber.Ctx, headers map[string]string) {
-	allowedPrefixes := []string{
-		"x-ratelimit-",
-		"x-request-id",
-		"x-trace-id",
-		"x-correlation-id",
-		"cf-ray",
-		"traceparent",
-	}
-
-	for key, val := range headers {
-		if isAllowedHeader(key, allowedPrefixes) {
-			c.Set(key, val)
-		}
-	}
-}
-
-// isAllowedHeader checks if a header key matches allowed prefixes (case-insensitive).
-func isAllowedHeader(key string, prefixes []string) bool {
-	lower := strings.ToLower(key)
-	for _, prefix := range prefixes {
-		if strings.HasPrefix(lower, prefix) {
+// ContainsModel checks if a model is in the allowed models list
+func ContainsModel(allowed []string, model string) bool {
+	for _, m := range allowed {
+		if m == "*" || m == model {
 			return true
 		}
 	}

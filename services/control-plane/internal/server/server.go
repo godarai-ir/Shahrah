@@ -17,11 +17,12 @@ import (
 
 // Dependencies contains the concrete services required by the control-plane server.
 type Dependencies struct {
-	AuthMiddleware *auth.AuthMiddleware
-	TenantResolver *tenant.Middleware
-	AdminHandlers  *admin.Handlers
-	ProxyHandler   *proxy.ChatCompletionHandler
-	Logger         *zap.Logger
+	AuthMiddleware     *auth.AuthMiddleware
+	TenantResolver     *tenant.Middleware
+	AdminHandlers      *admin.Handlers
+	ProxyHandler       *proxy.ChatCompletionHandler
+	CompletionsHandler *proxy.CompletionsHandler
+	Logger             *zap.Logger
 }
 
 // NewFiberApp creates and configures a new Fiber application.
@@ -55,6 +56,7 @@ func registerRoutes(app *fiber.App, deps Dependencies) {
 
 	v1 := app.Group("/v1")
 	v1.Post("/chat/completions", deps.ProxyHandler.Handle)
+	v1.Post("/completions", deps.CompletionsHandler.Handle)
 	v1.Get("/models", deps.AdminHandlers.ListModels)
 
 	api := app.Group("/api/v1")

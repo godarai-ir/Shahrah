@@ -95,3 +95,53 @@ type ModelListResponse struct {
 	Object string  `json:"object"`
 	Data   []Model `json:"data"`
 }
+
+// CompletionRequest mirrors OpenAI's legacy completion request format.
+type CompletionRequest struct {
+	Model       string      `json:"model"`
+	Prompt      string      `json:"prompt"`
+	Stream      bool        `json:"stream,omitempty"`
+	MaxTokens   *int        `json:"max_tokens,omitempty"`
+	Temperature *float64    `json:"temperature,omitempty"`
+	TopP        *float64    `json:"top_p,omitempty"`
+	N           int         `json:"n,omitempty"`
+	Echo        bool        `json:"echo,omitempty"`
+	Stop        interface{} `json:"stop,omitempty"`
+}
+
+// CompletionResponse mirrors OpenAI's legacy completion response format.
+type CompletionResponse struct {
+	ID      string             `json:"id"`
+	Object  string             `json:"object"`
+	Created int64              `json:"created"`
+	Model   string             `json:"model"`
+	Choices []CompletionChoice `json:"choices"`
+	Usage   *Usage             `json:"usage,omitempty"`
+}
+
+// CompletionChoice represents a single choice in completion response.
+type CompletionChoice struct {
+	Text         string `json:"text"`
+	Index        int    `json:"index"`
+	FinishReason string `json:"finish_reason,omitempty"`
+}
+
+// EmbeddingRequest mirrors OpenAI's embedding request format.
+type EmbeddingRequest struct {
+	Model string      `json:"model"`
+	Input interface{} `json:"input"` // string or []string
+}
+
+// EmbeddingResponse mirrors OpenAI's embedding response format.
+type EmbeddingResponse struct {
+	Object string      `json:"object"`
+	Data   []Embedding `json:"data"`
+	Usage  *Usage      `json:"usage,omitempty"`
+}
+
+// Embedding represents a single embedding vector.
+type Embedding struct {
+	Object    string    `json:"object"`
+	Embedding []float64 `json:"embedding"`
+	Index     int       `json:"index"`
+}

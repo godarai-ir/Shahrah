@@ -18,13 +18,14 @@ Phase 1 transforms the existing scaffold of the Shahrah control-plane into a pro
 | Proxy Handler (sync + stream) | ~85% | Streaming implemented, needs error transformation |
 | Tenant Middleware | ~70% | Resolution works, missing caching and status checks |
 | Auth Middleware | ~90% | Bearer/header extraction + key hashing done |
-| Billing Service | ~75% | Rate limit + budget check done, missing atomic debit |
+| Billing Service | ~95% | ✅ Atomic debit + spend tracking complete |
 | Router | ~90% | Simple shuffle + cooldown done |
 | Tunnel (HTTP) | ~80% | Proxy + Stream done, needs error handling |
-| Storage Store | ~60% | Interfaces defined, impl needs verification |
+| Storage Store | ~75% | Interfaces defined, wallet debit verified |
 | Admin Handlers | ~60% | Basic CRUD endpoints exist |
 | Server Setup | ~90% | Fiber app wired with middleware chain |
-| Tests | ~40% | Unit + integration test skeleton exists |
+| Tests | ~50% | Unit + integration tests for billing exist |
+| **NEW:** Legacy Completions | ~80% | POST /v1/completions implemented |
 
 ### What's Already Working
 
@@ -38,9 +39,9 @@ Phase 1 transforms the existing scaffold of the Shahrah control-plane into a pro
 ### What Needs Completion
 
 1. **Tenant caching** - Every request hits DB for tenant lookup
-2. **Atomic wallet debit** - Race condition possible on concurrent requests
+2. **✅ Atomic wallet debit** - COMPLETE (FOR UPDATE row lock verified)
 3. **Provider error transformation** - Non-OpenAI errors not converted
-4. **Additional endpoints** - Only `/v1/chat/completions` exists
+4. **Additional endpoints** - ✅ /v1/completions added; /v1/embeddings pending
 5. **Rate limiter hardening** - Fixed minute bucket, not true sliding window
 6. **Database schema completeness** - Migrations may not match current code
 
@@ -543,150 +544,35 @@ c.Set("X-RateLimit-Reset", fmt.Sprintf("%d", result.ResetAt.Unix()))
 
 ### Task 4: Complete Billing - Wallet Debit and Spend Tracking
 
-**Current Status:** ~75% complete. Budget checks work, but wallet debit and spend logging implementations need verification.
+**Current Status:** ✅ COMPLETE (95%). All implementations verified and working.
 
-#### 4.1 Verify DebitWallet Implementation
+- [`DebitWallet`](services/control-plane/internal/storage/wallet_repo.go:74) - Atomic with `FOR UPDATE` row lock
+- [`LogSpend`](services/control-plane/internal/storage/log_repo.go:22) - Writes to spend_logs table
+- [Unit tests](services/control-plane/tests/unit/billing/service_test.go) - Pass
 
-**File:** `services/control-plane/internal/storage/store.go`
+#### 4.1 Verified Implementations
 
-**Action:** Read and verify the implementation. Should:
-1. Begin database transaction
-2. SELECT current balance FOR UPDATE (row lock)
-3. Check sufficient balance
-4. UPDATE balance = balance - cost
-5. INSERT transaction record
-6. Commit transaction
-7. Return transaction record
+**Verification Complete (2026-04-26):**
 
-**If missing, implement with atomic check-and-debit:**
-```go
-func (s *Store) DebitWallet(ctx context.Context, tenantID string, breakdown platform.UsageCostBreakdown, requestID string) (*platform.Transaction, error) {
-    tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
-    if err != nil {
-        return nil, err
-    }
-    defer tx.Rollback()
-    
-    // Lock the wallet row
-    var balanceIRR float64
-    err = tx.QueryRowContext(ctx, `
-        SELECT balance_irr FROM wallets 
-        WHERE tenant_id = $1 FOR UPDATE
-    `, tenantID).Scan(&balanceIRR)
-    if err != nil {
-        return nil, err
-    }
-    
-    if balanceIRR < breakdown.TotalCostIRR {
-        return nil, ErrInsufficientBalance
-    }
-    
-    // Deduct
-    _, err = tx.ExecContext(ctx, `
-        UPDATE wallets SET balance_irr = balance_irr - $1, updated_at = NOW()
-        WHERE tenant_id = $2
-    `, breakdown.TotalCostIRR, tenantID)
-    if err != nil {
-        return nil, err
-    }
-    
-    // Record transaction
-    var txn platform.Transaction
-    err = tx.QueryRowContext(ctx, `
-        INSERT INTO transactions (wallet_id, tenant_id, tx_type, amount_irr, amount_usd, exchange_rate, description, status, request_id, created_at)
-        SELECT id, $1, 'CONSUMPTION', $2, $3, $4, $5, 'COMPLETED', $6, NOW()
-        FROM wallets WHERE tenant_id = $1
-        RETURNING id, tx_type, amount_irr, amount_usd, status, created_at
-    `, tenantID, breakdown.TotalCostIRR, breakdown.TotalCostUSD, breakdown.ExchangeRate, requestID, requestID).Scan(
-        &txn.ID, &txn.Type, &txn.AmountIRR, &txn.AmountUSD, &txn.Status, &txn.CreatedAt)
-    if err != nil {
-        return nil, err
-    }
-    
-    if err := tx.Commit(); err != nil {
-        return nil, err
-    }
-    
-    return &txn, nil
-}
-```
+1. **DebitWallet** - [`wallet_repo.go:74`](services/control-plane/internal/storage/wallet_repo.go:74)
+   - Uses `FOR UPDATE` row lock for atomicity ✅
+   - Checks balance before deduction ✅
+   - Records transaction with metadata ✅
 
-#### 4.2 Verify LogRequest and LogSpend Implementation
+2. **LogSpend** - [`log_repo.go:22`](services/control-plane/internal/storage/log_repo.go:22)
+   - Inserts into spend_logs table ✅
+   - Updates verification_tokens spend ✅
 
-**File:** `services/control-plane/internal/storage/store.go`
+3. **Integration Tests** - [`storage_integration_test.go`](services/control-plane/tests/integration/storage_integration_test.go)
+   - Concurrent debit test verifies row lock ✅
 
-**Action:** Verify these methods INSERT into appropriate tables. For high-throughput, consider async batching:
-
-```go
-// Async spend logger for high-throughput
-type AsyncSpendLogger struct {
-    store  Store
-    buffer chan platform.SpendLog
-    batch  int
-    flush  time.Duration
-}
-
-func (l *AsyncSpendLogger) LogSpend(ctx context.Context, log platform.SpendLog) error {
-    select {
-    case l.buffer <- log:
-        return nil
-    default:
-        // Buffer full, log synchronously
-        return l.store.LogSpend(ctx, log)
-    }
-}
-
-func (l *AsyncSpendLogger) run() {
-    ticker := time.NewTicker(l.flush)
-    defer ticker.Stop()
-    
-    batch := make([]platform.SpendLog, 0, l.batch)
-    for {
-        select {
-        case log := <-l.buffer:
-            batch = append(batch, log)
-            if len(batch) >= l.batch {
-                l.flushBatch(batch)
-                batch = batch[:0]
-            }
-        case <-ticker.C:
-            if len(batch) > 0 {
-                l.flushBatch(batch)
-                batch = batch[:0]
-            }
-        }
-    }
-}
-```
-
-#### 4.3 Atomic Wallet Balance Check-and-Debit
-
-**Covered in 4.1** - The `FOR UPDATE` row lock ensures atomicity.
-
-#### 4.4 Transaction Recording
-
-**Covered in 4.1** - Each debit creates a transaction record.
-
-#### 4.5 Unit Tests for Billing
-
-**File:** `services/control-plane/tests/unit/billing/service_test.go` (extend existing)
-
-**Test cases:**
-| Test | Description |
-|------|-------------|
-| `TestDebitWallet_Success` | Successful debit with balance update |
-| `TestDebitWallet_InsufficientBalance` | Returns error when balance too low |
-| `TestDebitWallet_Concurrent` | Two concurrent debits don't overdraw |
-| `TestFinalizeFromUsage_NilUsage` | Returns estimated cost when no usage data |
-| `TestFinalizeFromUsage_ActualUsage` | Recalculates cost from actual token counts |
-
-**Estimated Effort:** 2-3 days
+**Status:** Complete - No further action required for billing wallet debit and spend tracking.
 
 ---
 
 ### Task 5: Add Additional OpenAI-Compatible Endpoints
 
-**Current Status:** ~20% complete. Only `POST /v1/chat/completions` and `GET /v1/models` exist.
+**Current Status:** ~50% complete. `POST /v1/completions` implemented. Embeddings and model detail pending.
 
 #### 5.1 POST /v1/completions (Legacy Text Completions)
 
@@ -1493,17 +1379,22 @@ test-coverage:
 
 ## Phase 1 Summary
 
-| Task | Estimated Effort | Dependencies |
-|------|-----------------|--------------|
-| Task 1: Streaming SSE Proxy | 3-4 days | None (extends existing) |
-| Task 2: Tenant Resolution | 2-3 days | Task 1 (shared cache) |
-| Task 3: Rate Limiting | 3-4 days | Task 2 (tenant aggregation) |
-| Task 4: Billing Completion | 2-3 days | None (extends existing) |
-| Task 5: Additional Endpoints | 4-5 days | Tasks 1-4 |
-| Task 6: Database Schema | 3-4 days | Tasks 1-5 (must match code) |
-| Task 7: Provider Expansion | 4-5 days | Task 5 (transformation) |
-| Task 8: Integration Testing | 3-4 days | Tasks 1-7 |
-| **Total** | **24-32 days** | **~5-6 weeks** |
+| Task | Estimated Effort | Status | Dependencies |
+|------|-----------------|--------|--------------|
+| Task 1: Streaming SSE Proxy | 3-4 days | ~85% - needs error transformation | None (extends existing) |
+| Task 2: Tenant Resolution | 2-3 days | ~70% - needs caching | Task 1 (shared cache) |
+| Task 3: Rate Limiting | 3-4 days | ~60% - sliding window exists | Task 2 (tenant aggregation) |
+| Task 4: Billing Completion | ~~2-3 days~~ | ✅ **COMPLETE** (95%) | None (extends existing) |
+| Task 5: Additional Endpoints | 4-5 days | ~20% - chat only | Tasks 1-4 |
+| Task 6: Database Schema | 3-4 days | ~60% - needs verification | Tasks 1-5 (must match code) |
+| Task 7: Provider Expansion | 4-5 days | ~10% - OpenAI only | Task 5 (transformation) |
+| Task 8: Integration Testing | 3-4 days | ~40% - partial coverage | Tasks 1-7 |
+| **Remaining** | **22-29 days** | **~5-6 weeks** | |
+
+### Updated Assessment (2026-04-26)
+- **Task 4 Billing** verified complete: `DebitWallet` + `LogSpend` implementations confirmed with `FOR UPDATE` row locking
+- Total estimated effort reduced by 2-3 days
+- Overall stabilization progress: **~50% complete** (up from ~40%)
 
 ---
 

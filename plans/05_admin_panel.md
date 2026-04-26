@@ -43,7 +43,7 @@ graph TB
 
 | Technology | Purpose | Version |
 |------------|---------|---------|
-| Next.js | React framework | 15.x (App Router) |
+| Next.js | React framework | 16.x (App Router) |
 | TailwindCSS | Utility-first CSS | 4.x |
 | shadcn/ui | UI Components | Latest |
 | React Query | Data fetching | 5.x |
@@ -56,7 +56,7 @@ graph TB
 | Technology | Purpose |
 |------------|---------|
 | Next.js API Routes | Backend endpoints |
-| Drizzle ORM | Database ORM |
+| Prisma ORM | Database ORM |
 | PostgreSQL | Database |
 | Redis | Caching & sessions |
 
