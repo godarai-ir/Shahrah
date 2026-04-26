@@ -226,6 +226,7 @@ type TunnelStream interface {
 	Chunks() <-chan TunnelChunk
 	Errors() <-chan error
 	Close() error
+	Headers() map[string]string
 }
 
 // RequestLogEntry records the normalized request lifecycle.

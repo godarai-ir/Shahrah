@@ -76,10 +76,25 @@ func (t *HTTPTransport) Stream(ctx context.Context, req platform.TunnelRequest) 
 		return nil, err
 	}
 
+	// Check for error status from upstream (e.g., 4xx/5xx from provider)
+	if resp.StatusCode >= http.StatusBadRequest {
+		respBody, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if readErr != nil {
+			return nil, readErr
+		}
+		return &errorStream{
+			statusCode: resp.StatusCode,
+			headers:    flattenHeaders(resp.Header),
+			body:       respBody,
+		}, nil
+	}
+
 	stream := &streamRelay{
-		body:   resp.Body,
-		chunks: make(chan platform.TunnelChunk),
-		errors: make(chan error, 1),
+		body:    resp.Body,
+		headers: flattenHeaders(resp.Header),
+		chunks:  make(chan platform.TunnelChunk),
+		errors:  make(chan error, 1),
 	}
 
 	go func() {
@@ -125,14 +140,33 @@ func (t *HTTPTransport) Healthy(ctx context.Context) error {
 }
 
 type streamRelay struct {
-	body   io.Closer
-	chunks chan platform.TunnelChunk
-	errors chan error
+	body    io.Closer
+	headers map[string]string
+	chunks  chan platform.TunnelChunk
+	errors  chan error
 }
 
 func (s *streamRelay) Chunks() <-chan platform.TunnelChunk { return s.chunks }
 func (s *streamRelay) Errors() <-chan error                { return s.errors }
 func (s *streamRelay) Close() error                        { return s.body.Close() }
+func (s *streamRelay) Headers() map[string]string          { return s.headers }
+
+// errorStream implements TunnelStream for immediate upstream errors.
+type errorStream struct {
+	statusCode int
+	headers    map[string]string
+	body       []byte
+}
+
+func (e *errorStream) Chunks() <-chan platform.TunnelChunk {
+	ch := make(chan platform.TunnelChunk, 1)
+	ch <- platform.TunnelChunk{Data: e.body, IsDone: true}
+	close(ch)
+	return ch
+}
+func (e *errorStream) Errors() <-chan error       { return nil }
+func (e *errorStream) Close() error               { return nil }
+func (e *errorStream) Headers() map[string]string { return e.headers }
 
 func flattenHeaders(in http.Header) map[string]string {
 	out := make(map[string]string, len(in))

@@ -6,6 +6,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"strings"
 	"time"
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
@@ -77,6 +79,23 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	if req.Model == "" {
 		return writeAPIError(c, fiber.StatusBadRequest, "Model is required", "invalid_request_error")
 	}
+	if len(req.Messages) == 0 {
+		return writeAPIError(c, fiber.StatusBadRequest, "messages array must not be empty", "invalid_request_error")
+	}
+	for i, msg := range req.Messages {
+		if msg.Role == "" {
+			return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("message[%d].role is required", i), "invalid_request_error")
+		}
+	}
+	if req.Temperature != nil && (*req.Temperature < 0 || *req.Temperature > 2) {
+		return writeAPIError(c, fiber.StatusBadRequest, "temperature must be between 0 and 2", "invalid_request_error")
+	}
+	if req.TopP != nil && (*req.TopP < 0 || *req.TopP > 1) {
+		return writeAPIError(c, fiber.StatusBadRequest, "top_p must be between 0 and 1", "invalid_request_error")
+	}
+	if req.MaxTokens != nil && *req.MaxTokens < 1 {
+		return writeAPIError(c, fiber.StatusBadRequest, "max_tokens must be at least 1", "invalid_request_error")
+	}
 	if len(authInfo.AllowedModels) > 0 && !containsModel(authInfo.AllowedModels, req.Model) && !containsModel(authInfo.AllowedModels, "*") {
 		return writeAPIError(c, fiber.StatusForbidden, "Model access denied", "authorization_error")
 	}
@@ -146,7 +165,7 @@ func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.Cha
 	}
 
 	if resp.StatusCode >= httpErrorFloor {
-		return c.Status(resp.StatusCode).Send(resp.Body)
+		return transformProviderError(c, resp.StatusCode, resp.Body, resp.Headers)
 	}
 
 	var completion contractsopenai.ChatCompletionResponse
@@ -193,6 +212,9 @@ func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.Cha
 		CompletionEnd:   time.Now(),
 	})
 
+	// Forward allowed provider response headers
+	forwardProviderHeaders(c, resp.Headers)
+
 	c.Set("x-shahrah-trace-id", tunnelReq.TraceID)
 	c.Set("x-shahrah-cost-usd", fmt.Sprintf("%.8f", finalCost.TotalCostUSD))
 	c.Set("x-shahrah-cost-irr", fmt.Sprintf("%.2f", finalCost.TotalCostIRR))
@@ -209,6 +231,9 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 	c.Set("Cache-Control", "no-cache")
 	c.Set("Connection", "keep-alive")
 	c.Set("x-shahrah-trace-id", tunnelReq.TraceID)
+
+	// Forward provider headers from stream
+	forwardProviderHeaders(c, stream.Headers())
 
 	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
 		defer stream.Close()
@@ -304,4 +329,72 @@ func writeAPIError(c *fiber.Ctx, status int, message string, errorType string) e
 			Code:    fmt.Sprintf("%d", status),
 		},
 	})
+}
+
+// transformProviderError converts non-OpenAI provider errors to OpenAI-compatible format.
+func transformProviderError(c *fiber.Ctx, statusCode int, body []byte, headers map[string]string) error {
+	// Forward provider headers even on error
+	forwardProviderHeaders(c, headers)
+
+	// Try to parse as OpenAI error first
+	var apiErr contractsopenai.APIError
+	if err := json.Unmarshal(body, &apiErr); err == nil && apiErr.Error.Message != "" {
+		return c.Status(statusCode).JSON(apiErr)
+	}
+
+	// Fall back to generic OpenAI-compatible error
+	message := string(body)
+	if len(message) > 500 {
+		message = message[:500] + "..."
+	}
+	if message == "" {
+		message = http.StatusText(statusCode)
+	}
+
+	errorType := "api_error"
+	switch {
+	case statusCode == http.StatusTooManyRequests:
+		errorType = "rate_limit_error"
+	case statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden:
+		errorType = "authentication_error"
+	case statusCode >= http.StatusInternalServerError:
+		errorType = "server_error"
+	}
+
+	return c.Status(statusCode).JSON(contractsopenai.APIError{
+		Error: contractsopenai.ErrorInfo{
+			Message: message,
+			Type:    errorType,
+			Code:    fmt.Sprintf("%d", statusCode),
+		},
+	})
+}
+
+// forwardProviderHeaders forwards allowed provider response headers to the client.
+func forwardProviderHeaders(c *fiber.Ctx, headers map[string]string) {
+	allowedPrefixes := []string{
+		"x-ratelimit-",
+		"x-request-id",
+		"x-trace-id",
+		"x-correlation-id",
+		"cf-ray",
+		"traceparent",
+	}
+
+	for key, val := range headers {
+		if isAllowedHeader(key, allowedPrefixes) {
+			c.Set(key, val)
+		}
+	}
+}
+
+// isAllowedHeader checks if a header key matches allowed prefixes (case-insensitive).
+func isAllowedHeader(key string, prefixes []string) bool {
+	lower := strings.ToLower(key)
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(lower, prefix) {
+			return true
+		}
+	}
+	return false
 }
