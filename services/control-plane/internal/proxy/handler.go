@@ -6,8 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"strings"
 	"time"
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
@@ -19,6 +17,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
 )
+
+// HTTP status constant used by sync.go for error floor checks.
+const httpErrorFloor = 400
 
 type budgeter interface {
 	EstimateCost(ctx context.Context, req contractsopenai.ChatCompletionRequest) (platform.UsageCostBreakdown, error)
@@ -292,8 +293,6 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 	return nil
 }
 
-const httpErrorFloor = 400
-
 func toContractDeployment(dep *router.Deployment) platform.Deployment {
 	return platform.Deployment{
 		ID:         dep.ID,
@@ -310,91 +309,4 @@ func toContractDeployment(dep *router.Deployment) platform.Deployment {
 		Weight:     dep.Weight,
 		TimeoutSec: dep.Params.Timeout,
 	}
-}
-
-func containsModel(models []string, model string) bool {
-	for _, candidate := range models {
-		if candidate == model {
-			return true
-		}
-	}
-	return false
-}
-
-func writeAPIError(c *fiber.Ctx, status int, message string, errorType string) error {
-	return c.Status(status).JSON(contractsopenai.APIError{
-		Error: contractsopenai.ErrorInfo{
-			Message: message,
-			Type:    errorType,
-			Code:    fmt.Sprintf("%d", status),
-		},
-	})
-}
-
-// transformProviderError converts non-OpenAI provider errors to OpenAI-compatible format.
-func transformProviderError(c *fiber.Ctx, statusCode int, body []byte, headers map[string]string) error {
-	// Forward provider headers even on error
-	forwardProviderHeaders(c, headers)
-
-	// Try to parse as OpenAI error first
-	var apiErr contractsopenai.APIError
-	if err := json.Unmarshal(body, &apiErr); err == nil && apiErr.Error.Message != "" {
-		return c.Status(statusCode).JSON(apiErr)
-	}
-
-	// Fall back to generic OpenAI-compatible error
-	message := string(body)
-	if len(message) > 500 {
-		message = message[:500] + "..."
-	}
-	if message == "" {
-		message = http.StatusText(statusCode)
-	}
-
-	errorType := "api_error"
-	switch {
-	case statusCode == http.StatusTooManyRequests:
-		errorType = "rate_limit_error"
-	case statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden:
-		errorType = "authentication_error"
-	case statusCode >= http.StatusInternalServerError:
-		errorType = "server_error"
-	}
-
-	return c.Status(statusCode).JSON(contractsopenai.APIError{
-		Error: contractsopenai.ErrorInfo{
-			Message: message,
-			Type:    errorType,
-			Code:    fmt.Sprintf("%d", statusCode),
-		},
-	})
-}
-
-// forwardProviderHeaders forwards allowed provider response headers to the client.
-func forwardProviderHeaders(c *fiber.Ctx, headers map[string]string) {
-	allowedPrefixes := []string{
-		"x-ratelimit-",
-		"x-request-id",
-		"x-trace-id",
-		"x-correlation-id",
-		"cf-ray",
-		"traceparent",
-	}
-
-	for key, val := range headers {
-		if isAllowedHeader(key, allowedPrefixes) {
-			c.Set(key, val)
-		}
-	}
-}
-
-// isAllowedHeader checks if a header key matches allowed prefixes (case-insensitive).
-func isAllowedHeader(key string, prefixes []string) bool {
-	lower := strings.ToLower(key)
-	for _, prefix := range prefixes {
-		if strings.HasPrefix(lower, prefix) {
-			return true
-		}
-	}
-	return false
 }
