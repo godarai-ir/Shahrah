@@ -133,10 +133,10 @@ db/main/migrations/*.sql     -->  packages/database/schema.prisma  -->  Prisma C
 node scripts/sync-prisma.js
 
 # Format schema
-npx prisma@6.9.0 format --schema=packages/database/schema.prisma
+npx prisma@7.8.0 format --schema=packages/database/schema.prisma
 
 # Generate client
-npx prisma@6.9.0 generate --schema=packages/database/schema.prisma
+npx prisma@7.8.0 generate --schema=packages/database/schema.prisma
 ```
 
 ## Next Migration Steps

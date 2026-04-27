@@ -472,8 +472,9 @@ async function cleanupExpiredRecords() {
 async function ensureDatabaseReady() {
   if (!databaseReadyPromise) {
     databaseReadyPromise = (async () => {
-      // Postgres schema is managed through Prisma schema/migrations.
-      // Runtime only needs a health-check query.
+      // Keep this auth store self-contained in dev/new environments.
+      // These statements are idempotent and only create missing tables/indexes.
+      await ensureTenantAdminAuthSchema();
       await prisma.$queryRaw`SELECT 1`;
     })();
   }
@@ -484,6 +485,99 @@ async function ensureDatabaseReady() {
     databaseReadyPromise = null;
     throw error;
   }
+}
+
+async function ensureTenantAdminAuthSchema() {
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "tenant_admin_users" (
+      "id" TEXT NOT NULL,
+      "tenantSlug" TEXT NOT NULL,
+      "email" TEXT,
+      "mobile" TEXT,
+      "role" TEXT NOT NULL DEFAULT 'tenant_member',
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL,
+      "lastLoginAt" TIMESTAMP(3),
+      CONSTRAINT "tenant_admin_users_pkey" PRIMARY KEY ("id")
+    )
+  `);
+
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "tenant_admin_captchas" (
+      "id" TEXT NOT NULL,
+      "answer" TEXT NOT NULL,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "expiresAt" TIMESTAMP(3) NOT NULL,
+      CONSTRAINT "tenant_admin_captchas_pkey" PRIMARY KEY ("id")
+    )
+  `);
+
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "tenant_admin_sessions" (
+      "id" TEXT NOT NULL,
+      "tenantSlug" TEXT NOT NULL,
+      "userID" TEXT NOT NULL,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "expiresAt" TIMESTAMP(3) NOT NULL,
+      CONSTRAINT "tenant_admin_sessions_pkey" PRIMARY KEY ("id"),
+      CONSTRAINT "tenant_admin_sessions_userID_fkey"
+        FOREIGN KEY ("userID") REFERENCES "tenant_admin_users" ("id")
+        ON DELETE CASCADE ON UPDATE CASCADE
+    )
+  `);
+
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "tenant_admin_otp_requests" (
+      "id" TEXT NOT NULL,
+      "tenantSlug" TEXT NOT NULL,
+      "purpose" TEXT NOT NULL,
+      "channel" TEXT NOT NULL,
+      "identifier" TEXT NOT NULL,
+      "userID" TEXT,
+      "pendingValue" TEXT,
+      "otpCode" TEXT NOT NULL,
+      "attempts" INTEGER NOT NULL DEFAULT 0,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "expiresAt" TIMESTAMP(3) NOT NULL,
+      CONSTRAINT "tenant_admin_otp_requests_pkey" PRIMARY KEY ("id"),
+      CONSTRAINT "tenant_admin_otp_requests_userID_fkey"
+        FOREIGN KEY ("userID") REFERENCES "tenant_admin_users" ("id")
+        ON DELETE SET NULL ON UPDATE CASCADE
+    )
+  `);
+
+  await prisma.$executeRawUnsafe(`
+    CREATE UNIQUE INDEX IF NOT EXISTS "tenant_admin_user_tenant_email_uq"
+      ON "tenant_admin_users" ("tenantSlug", "email")
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE UNIQUE INDEX IF NOT EXISTS "tenant_admin_user_tenant_mobile_uq"
+      ON "tenant_admin_users" ("tenantSlug", "mobile")
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE INDEX IF NOT EXISTS "tenant_admin_user_tenant_slug_idx"
+      ON "tenant_admin_users" ("tenantSlug")
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE INDEX IF NOT EXISTS "tenant_admin_captcha_expires_at_idx"
+      ON "tenant_admin_captchas" ("expiresAt")
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE INDEX IF NOT EXISTS "tenant_admin_session_tenant_slug_idx"
+      ON "tenant_admin_sessions" ("tenantSlug")
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE INDEX IF NOT EXISTS "tenant_admin_session_expires_at_idx"
+      ON "tenant_admin_sessions" ("expiresAt")
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE INDEX IF NOT EXISTS "tenant_admin_otp_tenant_purpose_idx"
+      ON "tenant_admin_otp_requests" ("tenantSlug", "purpose")
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE INDEX IF NOT EXISTS "tenant_admin_otp_expires_at_idx"
+      ON "tenant_admin_otp_requests" ("expiresAt")
+  `);
 }
 
 function toPublicTenantUser(user: {

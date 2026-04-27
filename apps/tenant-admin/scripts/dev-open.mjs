@@ -5,18 +5,24 @@ const HEALTH_URL = process.env.TENANT_ADMIN_HEALTH_URL ?? "http://127.0.0.1:3000
 const child = spawnDevServer();
 
 let opened = false;
+let checking = false;
 
 const timer = setInterval(async () => {
-  if (opened) {
+  if (opened || checking) {
     return;
   }
-  const isReady = await isServerReady(HEALTH_URL);
-  if (!isReady) {
-    return;
+  checking = true;
+  try {
+    const isReady = await isServerReady(HEALTH_URL);
+    if (!isReady || opened) {
+      return;
+    }
+    opened = true;
+    clearInterval(timer);
+    openBrowser(APP_URL);
+  } finally {
+    checking = false;
   }
-  opened = true;
-  clearInterval(timer);
-  openBrowser(APP_URL);
 }, 800);
 
 timer.unref();
