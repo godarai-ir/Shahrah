@@ -4,7 +4,8 @@
   "packageManager": "pnpm@10.0.0",
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev --parallel",
+    "dev": "pnpm --filter @shahrah/tenant-admin dev",
+    "dev:all": "turbo run dev --parallel",
     "lint": "turbo run lint",
     "test": "turbo run test"
   }

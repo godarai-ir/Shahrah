@@ -1,26 +1,41 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #091121;
+  --surface: #0e192d;
+  --surface-2: #14233b;
+  --border: #27405f;
+  --text: #ebf2ff;
+  --muted: #9eb0cf;
+  --accent: #5dd2ff;
+  --good: #7bf6a5;
+  --danger: #ff9590;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --font-sans: var(--font-vazirmatn);
+  --font-mono: var(--font-jetbrains-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(96, 209, 255, 0.26), transparent 35%),
+    radial-gradient(circle at 88% 10%, rgba(123, 246, 165, 0.16), transparent 32%),
+    linear-gradient(155deg, #050a16 0%, #0c1830 45%, #071225 100%);
+  color: var(--text);
+  direction: rtl;
+  text-align: right;
+  font-family: var(--font-vazirmatn), Tahoma, "Segoe UI", sans-serif;
 }

@@ -1,0 +1,27 @@
+// Support Admin Prisma Configuration
+// Uses the shared schema from packages/database
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// All models are imported
+// This file allows support-admin to have its own specific models if needed
+
+// Support Admin-specific models can be added here
+
+model SupportAdminUser {
+  id          String    @id @default(cuid())
+  email       String?   @unique
+  role        String    @default("support_agent")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  lastLoginAt DateTime?
+
+  @@map("support_admin_users")
+}

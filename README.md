@@ -91,6 +91,54 @@ Minimal onboarding flow is documented in `services/control-plane/README.md`.
 - `infra/compose/local.yml`
 - `plans/README.md`
 
+## Database Schema Management
+
+Shahrah uses Prisma as the single source of truth for database schema. All three services (`tenant-admin`, `support-admin`, and `control-plane`) share the same PostgreSQL database schema.
+
+### Architecture
+
+```text
+db/main/migrations/*.sql     -->  packages/database/schema.prisma  -->  Prisma Clients
+        (source of SQL)              (source of truth)              (for apps)
+                                                                  |
+                                                        control-plane (Go: raw SQL)
+```
+
+### Workflow
+
+1. **Add new migration**: AI adds SQL migration to `db/main/migrations/`
+2. **Sync schema**: Run `node scripts/sync-prisma.js`
+3. **Review changes**: Check `packages/database/schema.prisma`
+4. **Commit**: Push changes to version control
+5. **Deploy**: `npx prisma migrate deploy`
+
+### Packages
+
+- `packages/database/` - Shared Prisma schema and generated client
+- `apps/tenant-admin/` - Tenant admin panel (Next.js + Prisma)
+- `apps/support-admin/` - Support admin panel (Next.js + Prisma)
+
+### Key Files
+
+- `packages/database/schema.prisma` - Single source of truth
+- `scripts/sync-prisma.js` - Sync automation
+- `db/main/migrations/` - SQL migrations (Go / control-plane)
+- `apps/tenant-admin/prisma/schema.prisma` - Tenant admin schema
+- `apps/support-admin/prisma/schema.prisma` - Support admin schema
+
+### Troubleshooting
+
+```bash
+# Regenerate all Prisma clients
+node scripts/sync-prisma.js
+
+# Format schema
+npx prisma@6.9.0 format --schema=packages/database/schema.prisma
+
+# Generate client
+npx prisma@6.9.0 generate --schema=packages/database/schema.prisma
+```
+
 ## Next Migration Steps
 
 1. Replace remaining framework starter assets and sample content with Shahrah-specific UI and docs.

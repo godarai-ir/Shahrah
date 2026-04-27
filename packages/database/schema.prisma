@@ -1,0 +1,573 @@
+// Database Package - Central Schema Definition
+// Source of truth for all database operations
+// Generated from SQL migrations in db/main/migrations/
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// Budget & Rate Limits (top-level)
+// ============================================
+
+model Budget {
+  budgetId            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  maxBudget           Decimal?  @db.Decimal(10, 4)
+  softBudget          Decimal?  @db.Decimal(10, 4)
+  tpmLimit            BigInt?
+  rpmLimit            BigInt?
+  maxParallelRequests Int?
+  budgetDuration      String?   @db.VarChar(50)
+  budgetResetAt       DateTime? @db.Timestamptz
+  modelMaxBudget      Json?
+  createdAt           DateTime  @default(now()) @db.Timestamptz
+  createdBy           String?   @db.VarChar(255)
+  updatedAt           DateTime  @default(now()) @db.Timestamptz
+  updatedBy           String?   @db.VarChar(255)
+
+  // Relations
+  organizations Organization[]
+  teams         Team[]
+  projects      Project[]
+  endUsers      EndUser[]
+  tags          Tag[]
+
+  @@map("budgets")
+}
+
+// ============================================
+// RBAC - Object Permissions
+// ============================================
+
+model ObjectPermission {
+  objectPermissionId String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  permissions        Json     @default("{}")
+  createdAt          DateTime @default(now()) @db.Timestamptz
+  createdBy          String?  @db.VarChar(255)
+  updatedAt          DateTime @default(now()) @db.Timestamptz
+  updatedBy          String?  @db.VarChar(255)
+
+  // Relations
+  organizations Organization[]
+  teams         Team[]
+  projects      Project[]
+  users         User[]
+
+  @@map("object_permissions")
+}
+
+// ============================================
+// Model Aliases
+// ============================================
+
+model ModelAlias {
+  id        Int      @id @default(autoincrement())
+  aliases   Json?
+  createdAt DateTime @default(now()) @db.Timestamptz
+  createdBy String?  @db.VarChar(255)
+  updatedAt DateTime @default(now()) @db.Timestamptz
+  updatedBy String?  @db.VarChar(255)
+
+  @@map("model_aliases")
+}
+
+// ============================================
+// Tenants (multi-tenant support)
+// ============================================
+
+model Tenant {
+  tenantId  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug      String   @unique @db.VarChar(255)
+  domain    String   @unique @db.VarChar(255)
+  status    String   @default("active") @db.VarChar(50)
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @default(now()) @db.Timestamptz
+
+  // Relations
+  wallets            Wallet[]
+  walletTransactions WalletTransaction[]
+  verificationTokens VerificationToken[]
+  modelDeployments   ModelDeployment[]
+  requestLogs        RequestLog[]
+  spendLogs          SpendLog[]
+
+  @@map("tenants")
+}
+
+// ============================================
+// Organizations (top-level hierarchy)
+// ============================================
+
+model Organization {
+  organizationId     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationAlias  String   @db.VarChar(255)
+  budgetId           String?  @db.Uuid
+  metadata           Json     @default("{}")
+  models             String[] @default([]) @db.VarChar(255)
+  spend              Decimal  @default(0) @db.Decimal(10, 4)
+  modelSpend         Json     @default("{}")
+  objectPermissionId String?  @db.Uuid
+  createdAt          DateTime @default(now()) @db.Timestamptz
+  createdBy          String?  @db.VarChar(255)
+  updatedAt          DateTime @default(now()) @db.Timestamptz
+  updatedBy          String?  @db.VarChar(255)
+
+  // Relations
+  budget                  Budget?                  @relation(fields: [budgetId], references: [budgetId])
+  objectPermission        ObjectPermission?        @relation(fields: [objectPermissionId], references: [objectPermissionId])
+  teams                   Team[]
+  users                   User[]
+  organizationMemberships OrganizationMembership[]
+  verificationTokens      VerificationToken[]
+  projects                Project[]
+  SpendLog                SpendLog[]
+
+  @@unique([organizationAlias])
+  @@map("organizations")
+}
+
+// ============================================
+// Teams (belong to organizations)
+// ============================================
+
+model Team {
+  teamId                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teamAlias                String?   @db.VarChar(255)
+  organizationId           String?   @db.Uuid
+  objectPermissionId       String?   @db.Uuid
+  admins                   String[]  @default([]) @db.VarChar(255)
+  members                  String[]  @default([]) @db.VarChar(255)
+  membersWithRoles         Json      @default("{}")
+  metadata                 Json      @default("{}")
+  maxBudget                Decimal?  @db.Decimal(10, 4)
+  softBudget               Decimal?  @db.Decimal(10, 4)
+  spend                    Decimal   @default(0) @db.Decimal(10, 4)
+  models                   String[]  @default([]) @db.VarChar(255)
+  maxParallelRequests      Int?
+  tpmLimit                 BigInt?
+  rpmLimit                 BigInt?
+  budgetDuration           String?   @db.VarChar(50)
+  budgetResetAt            DateTime? @db.Timestamptz
+  blocked                  Boolean   @default(false)
+  modelSpend               Json      @default("{}")
+  modelMaxBudget           Json      @default("{}")
+  routerSettings           Json      @default("{}")
+  teamMemberPermissions    String[]  @default([]) @db.VarChar(255)
+  accessGroupIds           String[]  @default([]) @db.VarChar(255)
+  policies                 String[]  @default([]) @db.VarChar(255)
+  defaultTeamMemberModels  String[]  @default([]) @db.VarChar(255)
+  budgetLimits             Json?
+  modelId                  Int?
+  allowTeamGuardrailConfig Boolean   @default(false)
+  budgetId                 String?   @db.Uuid
+  createdAt                DateTime  @default(now()) @db.Timestamptz
+  updatedAt                DateTime  @default(now()) @db.Timestamptz
+
+  // Relations
+  organization       Organization?       @relation(fields: [organizationId], references: [organizationId])
+  objectPermission   ObjectPermission?   @relation(fields: [objectPermissionId], references: [objectPermissionId])
+  budget             Budget?             @relation(fields: [budgetId], references: [budgetId])
+  users              User[]
+  verificationTokens VerificationToken[]
+  projects           Project[]
+  endUsers           EndUser[]
+  SpendLog           SpendLog[]
+  RequestLog         RequestLog[]
+
+  @@index([organizationId])
+  @@index([teamAlias])
+  @@index([createdAt])
+  @@map("teams")
+}
+
+// ============================================
+// Projects (optional, between teams and keys)
+// ============================================
+
+model Project {
+  projectId          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectAlias       String?  @db.VarChar(255)
+  description        String?  @db.VarChar(255)
+  teamId             String?  @db.Uuid
+  budgetId           String?  @db.Uuid
+  metadata           Json     @default("{}")
+  models             String[] @default([]) @db.VarChar(255)
+  spend              Decimal  @default(0) @db.Decimal(10, 4)
+  modelSpend         Json     @default("{}")
+  modelRpmLimit      Json     @default("{}")
+  modelTpmLimit      Json     @default("{}")
+  blocked            Boolean  @default(false)
+  objectPermissionId String?  @db.Uuid
+  createdAt          DateTime @default(now()) @db.Timestamptz
+  createdBy          String?  @db.VarChar(255)
+  updatedAt          DateTime @default(now()) @db.Timestamptz
+  updatedBy          String?  @db.VarChar(255)
+
+  // Relations
+  team                       Team?               @relation(fields: [teamId], references: [teamId])
+  budget                     Budget?             @relation(fields: [budgetId], references: [budgetId])
+  objectPermission           ObjectPermission?   @relation(fields: [objectPermissionId], references: [objectPermissionId])
+  verificationTokens         VerificationToken[]
+  Organization               Organization?       @relation(fields: [organizationOrganizationId], references: [organizationId])
+  organizationOrganizationId String?             @db.Uuid
+
+  @@map("projects")
+}
+
+// ============================================
+// Users (Internal)
+// ============================================
+
+model User {
+  userId             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userAlias          String?  @db.VarChar(255)
+  email              String?  @unique @db.VarChar(255)
+  role               String   @default("internal_user") @db.VarChar(50)
+  teamId             String?  @db.Uuid
+  organizationId     String?  @db.Uuid
+  maxBudget          Decimal? @db.Decimal(10, 4)
+  budgetDuration     String?  @db.VarChar(50)
+  spend              Decimal  @default(0) @db.Decimal(10, 4)
+  tpmLimit           BigInt?
+  rpmLimit           BigInt?
+  metadata           Json     @default("{}")
+  objectPermissionId String?  @db.Uuid
+  createdAt          DateTime @default(now()) @db.Timestamptz
+  updatedAt          DateTime @default(now()) @db.Timestamptz
+
+  // Relations
+  team                    Team?                    @relation(fields: [teamId], references: [teamId])
+  organization            Organization?            @relation(fields: [organizationId], references: [organizationId])
+  objectPermission        ObjectPermission?        @relation(fields: [objectPermissionId], references: [objectPermissionId])
+  organizationMemberships OrganizationMembership[]
+  verificationTokens      VerificationToken[]
+  endUsers                EndUser[]
+  spendLogs               SpendLog[]
+  requestLogs             RequestLog[]
+
+  @@map("users")
+}
+
+// ============================================
+// Organization Memberships
+// ============================================
+
+model OrganizationMembership {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @db.Uuid
+  userId         String   @db.Uuid
+  role           String   @default("member") @db.VarChar(50)
+  createdAt      DateTime @default(now()) @db.Timestamptz
+  updatedAt      DateTime @default(now()) @db.Timestamptz
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [organizationId], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+  @@map("organization_memberships")
+}
+
+// ============================================
+// API Keys (Verification Tokens)
+// ============================================
+
+model VerificationToken {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tokenHash           String    @unique @db.VarChar(64)
+  keyAlias            String?   @db.VarChar(255)
+  keyName             String?   @db.VarChar(255)
+  teamId              String?   @db.Uuid
+  userId              String?   @db.Uuid
+  organizationId      String?   @db.Uuid
+  projectId           String?   @db.Uuid
+  tenantId            String?   @db.Uuid
+  models              String[]  @default([]) @db.VarChar(255)
+  maxBudget           Decimal?  @db.Decimal(10, 4)
+  softBudget          Decimal?  @db.Decimal(10, 4)
+  tpmLimit            BigInt?
+  rpmLimit            BigInt?
+  maxParallelRequests Int?
+  budgetDuration      String?   @db.VarChar(50)
+  budgetResetAt       DateTime? @db.Timestamptz
+  spend               Decimal   @default(0) @db.Decimal(10, 4)
+  expires             DateTime? @db.Timestamptz
+  blocked             Boolean   @default(false)
+  metadata            Json      @default("{}")
+  createdAt           DateTime  @default(now()) @db.Timestamptz
+  updatedAt           DateTime  @default(now()) @db.Timestamptz
+
+  // Relations
+  team         Team?         @relation(fields: [teamId], references: [teamId])
+  user         User?         @relation(fields: [userId], references: [userId])
+  organization Organization? @relation(fields: [organizationId], references: [organizationId])
+  project      Project?      @relation(fields: [projectId], references: [projectId])
+  tenant       Tenant?       @relation(fields: [tenantId], references: [tenantId])
+
+  @@index([tokenHash])
+  @@index([teamId])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([tenantId])
+  @@map("verification_tokens")
+}
+
+// ============================================
+// End Users (for tracking individual consumers)
+// ============================================
+
+model EndUser {
+  userId    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userAlias String?  @db.VarChar(255)
+  teamId    String?  @db.Uuid
+  budgetId  String?  @db.Uuid
+  spend     Decimal  @default(0) @db.Decimal(10, 4)
+  maxBudget Decimal? @db.Decimal(10, 4)
+  tpmLimit  BigInt?
+  rpmLimit  BigInt?
+  blocked   Boolean  @default(false)
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @default(now()) @db.Timestamptz
+
+  // Relations
+  team       Team?      @relation(fields: [teamId], references: [teamId])
+  budget     Budget?    @relation(fields: [budgetId], references: [budgetId])
+  spendLogs  SpendLog[]
+  User       User?      @relation(fields: [userUserId], references: [userId])
+  userUserId String?    @db.Uuid
+
+  @@index([teamId])
+  @@map("end_users")
+}
+
+// ============================================
+// Tags (for grouping keys/requests)
+// ============================================
+
+model Tag {
+  tagName   String   @id @db.VarChar(255)
+  budgetId  String?  @db.Uuid
+  spend     Decimal  @default(0) @db.Decimal(10, 4)
+  maxBudget Decimal? @db.Decimal(10, 4)
+  tpmLimit  BigInt?
+  rpmLimit  BigInt?
+  models    String[] @default([]) @db.VarChar(255)
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @default(now()) @db.Timestamptz
+
+  // Relations
+  budget Budget? @relation(fields: [budgetId], references: [budgetId])
+
+  @@map("tags")
+}
+
+// ============================================
+// Model Deployments (provider configurations)
+// ============================================
+
+model ModelDeployment {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  modelName          String   @db.VarChar(255)
+  provider           String   @db.VarChar(50)
+  model              String   @db.VarChar(255)
+  providerConfig     Json     @db.Json
+  modelInfo          Json?
+  rpm                BigInt?
+  tpm                BigInt?
+  timeout            Float?
+  streamTimeout      Float?
+  healthCheckTimeout Int      @default(60)
+  tenantId           String?  @db.Uuid
+  createdAt          DateTime @default(now()) @db.Timestamptz
+  updatedAt          DateTime @default(now()) @db.Timestamptz
+
+  // Relations
+  tenant Tenant? @relation(fields: [tenantId], references: [tenantId])
+
+  @@index([modelName])
+  @@index([tenantId])
+  @@map("model_deployments")
+}
+
+// ============================================
+// Credentials (secure storage for API keys)
+// ============================================
+
+model Credential {
+  credentialId     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  credentialName   String   @unique @db.VarChar(255)
+  credentialValues Json     @db.Json
+  credentialInfo   Json?
+  createdAt        DateTime @default(now()) @db.Timestamptz
+  createdBy        String?  @db.VarChar(255)
+  updatedAt        DateTime @default(now()) @db.Timestamptz
+  updatedBy        String?  @db.VarChar(255)
+
+  @@map("credentials")
+}
+
+// ============================================
+// Spend Logs (batch writes for tracking)
+// ============================================
+
+model SpendLog {
+  id                  BigInt    @id @default(autoincrement())
+  tokenHash           String?   @db.VarChar(64)
+  teamId              String?   @db.Uuid
+  userId              String?   @db.Uuid
+  organizationId      String?   @db.Uuid
+  endUserId           String?   @db.Uuid
+  tenantId            String?   @db.Uuid
+  model               String?   @db.VarChar(255)
+  requestId           String?   @db.VarChar(255)
+  inputTokens         Int?
+  outputTokens        Int?
+  totalTokens         Int?
+  cost                Decimal?  @db.Decimal(10, 6)
+  costUsd             Decimal?  @db.Decimal(10, 6)
+  costIrr             Decimal?  @db.Decimal(18, 2)
+  responseTimeMs      Int?
+  status              String?   @db.VarChar(20)
+  completionStartTime DateTime? @db.Timestamptz
+  completionEndTime   DateTime? @db.Timestamptz
+  requestTags         String[]  @default([]) @db.VarChar(255)
+  requestMetadata     Json?
+  createdAt           DateTime  @default(now()) @db.Timestamptz
+
+  // Relations
+  team         Team?         @relation(fields: [teamId], references: [teamId])
+  user         User?         @relation(fields: [userId], references: [userId])
+  organization Organization? @relation(fields: [organizationId], references: [organizationId])
+  endUser      EndUser?      @relation(fields: [endUserId], references: [userId])
+  tenant       Tenant?       @relation(fields: [tenantId], references: [tenantId])
+
+  @@index([tokenHash])
+  @@index([createdAt])
+  @@index([teamId])
+  @@index([userId])
+  @@index([organizationId])
+  @@map("spend_logs")
+}
+
+// ============================================
+// Request Logs (for audit/observability)
+// ============================================
+
+model RequestLog {
+  id             BigInt   @id @default(autoincrement())
+  requestId      String?  @db.VarChar(255)
+  tokenHash      String?  @db.VarChar(64)
+  teamId         String?  @db.Uuid
+  userId         String?  @db.Uuid
+  tenantId       String?  @db.Uuid
+  model          String?  @db.VarChar(255)
+  requestBody    Json?
+  responseBody   Json?
+  status         String?  @db.VarChar(20)
+  cost           Decimal? @db.Decimal(10, 6)
+  responseTimeMs Int?
+  createdAt      DateTime @default(now()) @db.Timestamptz
+
+  // Relations
+  team   Team?   @relation(fields: [teamId], references: [teamId])
+  user   User?   @relation(fields: [userId], references: [userId])
+  tenant Tenant? @relation(fields: [tenantId], references: [tenantId])
+
+  @@map("request_logs")
+}
+
+// ============================================
+// Guardrails Configuration
+// ============================================
+
+model Guardrail {
+  guardrailName       String   @id @db.VarChar(255)
+  guardrailType       String?  @db.VarChar(50) // 'input' | 'output'
+  eventHook           String?  @db.VarChar(50) // 'pre_call' | 'post_call'
+  guardrailInitKwargs Json     @default("{}")
+  createdAt           DateTime @default(now()) @db.Timestamptz
+  updatedAt           DateTime @default(now()) @db.Timestamptz
+
+  @@map("guardrails")
+}
+
+// ============================================
+// Policies
+// ============================================
+
+model Policy {
+  policyId     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  policyName   String   @unique @db.VarChar(255)
+  policyType   String?  @db.VarChar(50) // 'budget' | 'rate_limit' | 'model_access'
+  policyConfig Json     @db.Json
+  createdAt    DateTime @default(now()) @db.Timestamptz
+  updatedAt    DateTime @default(now()) @db.Timestamptz
+
+  @@map("policies")
+}
+
+// ============================================
+// Wallet (tenant-level)
+// ============================================
+
+model Wallet {
+  walletId   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String   @unique @db.Uuid
+  balanceIrr Float    @default(0)
+  pendingIrr Float    @default(0)
+  createdAt  DateTime @default(now()) @db.Timestamptz
+  updatedAt  DateTime @default(now()) @db.Timestamptz
+
+  // Relations
+  tenant            Tenant              @relation(fields: [tenantId], references: [tenantId], onDelete: Cascade)
+  WalletTransaction WalletTransaction[]
+
+  @@map("wallets")
+}
+
+// ============================================
+// Wallet Transactions (tenant-level transactions)
+// ============================================
+
+model WalletTransaction {
+  transactionId String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  walletId      String   @db.Uuid
+  tenantId      String   @db.Uuid
+  txType        String   @db.VarChar(50)
+  amountIrr     Float
+  amountUsd     Float?
+  exchangeRate  Float?
+  status        String   @db.VarChar(50)
+  description   String?  @db.Text
+  metadata      Json     @default("{}")
+  createdAt     DateTime @default(now()) @db.Timestamptz
+
+  // Relations
+  wallet Wallet @relation(fields: [walletId], references: [walletId], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [tenantId], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("wallet_transactions")
+}
+
+// ============================================
+// Exchange Rates
+// ============================================
+
+model ExchangeRate {
+  rateId    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usdToIrr  Float
+  source    String   @db.VarChar(255)
+  fetchedAt DateTime @default(now()) @db.Timestamptz
+
+  @@index([fetchedAt])
+  @@map("exchange_rates")
+}
