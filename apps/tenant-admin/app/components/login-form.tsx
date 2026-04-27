@@ -2,6 +2,20 @@
 
 import Image from "next/image";
 import { FormEvent, useState } from "react";
+import { useTranslations } from "next-intl";
+
+import { ThemeToggle } from "@/components/theme-toggle";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type CaptchaChallenge = {
   captcha_id: string;
@@ -19,14 +33,16 @@ type OTPRequestResponse = {
 
 type LoginFormProps = {
   initialCaptcha: CaptchaChallenge;
+  redirectTo: string;
 };
 
-export default function LoginForm(props: LoginFormProps) {
+export default function LoginForm({ initialCaptcha, redirectTo }: LoginFormProps) {
+  const t = useTranslations("login");
+  const common = useTranslations("common");
+
   const [identifier, setIdentifier] = useState("");
-  const [captchaID, setCaptchaID] = useState(props.initialCaptcha.captcha_id);
-  const [captchaImage, setCaptchaImage] = useState(
-    props.initialCaptcha.image_data_url,
-  );
+  const [captchaID, setCaptchaID] = useState(initialCaptcha.captcha_id);
+  const [captchaImage, setCaptchaImage] = useState(initialCaptcha.image_data_url);
   const [captchaAnswer, setCaptchaAnswer] = useState("");
 
   const [otpRequest, setOTPRequest] = useState<OTPRequestResponse | null>(null);
@@ -43,7 +59,7 @@ export default function LoginForm(props: LoginFormProps) {
       setCaptchaImage(challenge.image_data_url);
       setCaptchaAnswer("");
     } catch (err) {
-      setError(normalizeError(err));
+      setError(normalizeError(err, common("requestError")));
     }
   }
 
@@ -63,10 +79,10 @@ export default function LoginForm(props: LoginFormProps) {
         }),
       });
       setOTPRequest(result);
-      setNotice(`کد OTP به ${result.destination_masked} ارسال شد.`);
+      setNotice(t("otp.sent", { destination: result.destination_masked }));
       setCaptchaAnswer("");
     } catch (err) {
-      setError(normalizeError(err));
+      setError(normalizeError(err, common("requestError")));
       await refreshCaptcha();
     } finally {
       setLoading(false);
@@ -91,9 +107,9 @@ export default function LoginForm(props: LoginFormProps) {
           otp_code: otpCode,
         }),
       });
-      window.location.href = "/";
+      window.location.href = redirectTo;
     } catch (err) {
-      setError(normalizeError(err));
+      setError(normalizeError(err, common("requestError")));
     } finally {
       setLoading(false);
     }
@@ -101,131 +117,130 @@ export default function LoginForm(props: LoginFormProps) {
 
   return (
     <main className="min-h-screen px-4 py-8 md:px-8 md:py-14">
-      <div className="mx-auto w-full max-w-lg rounded-3xl border border-[var(--border)] bg-[var(--surface)]/95 p-6 shadow-[0_28px_70px_rgba(2,8,23,0.5)]">
-        <p className="text-xs tracking-[0.35em] text-[var(--muted)]">
-          پنل مدیریت تننت شاهراه
-        </p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight">ورود</h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">
-          با ایمیل یا شماره همراه وارد شوید. کد OTP بر اساس نوع ورودی ارسال
-          می‌شود.
-        </p>
+      <div className="mx-auto w-full max-w-lg space-y-4">
+        <div className="flex justify-start">
+          <ThemeToggle />
+        </div>
 
-        {notice ? (
-          <div className="mt-4 rounded-xl border border-[var(--good)]/40 bg-[var(--good)]/10 px-3 py-2 text-sm text-[var(--good)]">
-            {notice}
-          </div>
-        ) : null}
-        {error ? (
-          <div className="mt-4 rounded-xl border border-[var(--danger)]/45 bg-[var(--danger)]/10 px-3 py-2 text-sm text-[var(--danger)]">
-            {error}
-          </div>
-        ) : null}
-
-        {!otpRequest ? (
-          <form className="mt-5 grid gap-4" onSubmit={handleRequestOTP}>
-            <label className="text-sm text-[var(--muted)]">
-              ایمیل یا شماره همراه
-              <input
-                value={identifier}
-                onChange={(event) => setIdentifier(event.target.value)}
-                className={inputClassName}
-                placeholder="name@example.com یا +98912..."
-                autoComplete="username"
-              />
-            </label>
-
-            <div className="grid gap-3">
-              <label className="text-sm text-[var(--muted)]">کپچای تصویری</label>
+        <Card>
+          <CardHeader>
+            <div className="mb-2 flex items-center justify-center">
               <Image
-                src={captchaImage}
-                alt="captcha"
-                width={170}
-                height={56}
-                unoptimized
-                className="h-14 w-[170px] rounded-lg border border-[var(--border)] bg-slate-100"
+                src="/brand/shahrah-logo.png"
+                alt={t("logoAlt")}
+                width={68}
+                height={68}
+                className="h-16 w-16 rounded-xl border bg-muted/40 p-1 object-contain"
+                priority
               />
-              <div className="flex items-end gap-2">
-                <label className="flex-1 text-sm text-[var(--muted)]">
-                  پاسخ کپچا
-                  <input
-                    value={captchaAnswer}
-                    onChange={(event) => setCaptchaAnswer(event.target.value)}
-                    className={inputClassName}
-                    placeholder="متن کپچا را وارد کنید"
-                    autoComplete="off"
-                  />
-                </label>
-                <button
-                  type="button"
-                  onClick={() => void refreshCaptcha()}
-                  className="rounded-xl border border-[var(--border)] px-3 py-2 text-sm text-[var(--muted)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
-                >
-                  کپچای جدید
-                </button>
-              </div>
             </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="rounded-xl border border-[var(--accent)]/55 bg-[var(--accent)] px-4 py-2 text-sm font-medium text-slate-950 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {loading ? "در حال ارسال OTP..." : "دریافت OTP"}
-            </button>
-          </form>
-        ) : (
-          <form className="mt-5 grid gap-4" onSubmit={handleVerifyOTP}>
-            <p className="text-sm text-[var(--muted)]">
-              کد OTP ارسال‌شده به <b>{otpRequest.destination_masked}</b> را وارد
-              کنید.
-            </p>
-            {otpRequest.debug_otp ? (
-              <p className="rounded-lg border border-amber-300/45 bg-amber-100/10 px-3 py-2 text-xs text-amber-200">
-                کد OTP توسعه: <code>{otpRequest.debug_otp}</code>
-              </p>
+            <CardTitle>{t("title")}</CardTitle>
+            <CardDescription>{t("subtitle")}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {notice ? (
+              <Alert className="border-primary/30 bg-primary/5">
+                <AlertDescription>{notice}</AlertDescription>
+              </Alert>
             ) : null}
-            <label className="text-sm text-[var(--muted)]">
-              کد OTP
-              <input
-                value={otpCode}
-                onChange={(event) => setOTPCode(event.target.value)}
-                className={inputClassName}
-                placeholder="کد ۶ رقمی"
-                autoComplete="one-time-code"
-              />
-            </label>
+            {error ? (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            ) : null}
 
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="submit"
-                disabled={loading}
-                className="rounded-xl border border-[var(--accent)]/55 bg-[var(--accent)] px-4 py-2 text-sm font-medium text-slate-950 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {loading ? "در حال تایید..." : "ورود به پنل"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setOTPRequest(null);
-                  setOTPCode("");
-                  setNotice(null);
-                  void refreshCaptcha();
-                }}
-                className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm text-[var(--muted)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
-              >
-                بازگشت
-              </button>
-            </div>
-          </form>
-        )}
+            {!otpRequest ? (
+              <form className="grid gap-4" onSubmit={handleRequestOTP}>
+                <div className="grid gap-2">
+                  <Label htmlFor="identifier">{t("identifier")}</Label>
+                  <Input
+                    id="identifier"
+                    value={identifier}
+                    onChange={(event) => setIdentifier(event.target.value)}
+                    placeholder={t("identifierPlaceholder")}
+                    autoComplete="username"
+                  />
+                </div>
+
+                <div className="grid gap-3">
+                  <Label>{t("captcha.label")}</Label>
+                  <Image
+                    src={captchaImage}
+                    alt="captcha"
+                    width={170}
+                    height={56}
+                    unoptimized
+                    className="h-14 w-[170px] rounded-md border bg-secondary"
+                  />
+                  <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                    <div className="grid gap-2">
+                      <Label htmlFor="captchaAnswer">{t("captcha.answer")}</Label>
+                      <Input
+                        id="captchaAnswer"
+                        value={captchaAnswer}
+                        onChange={(event) => setCaptchaAnswer(event.target.value)}
+                        placeholder={t("captcha.answerPlaceholder")}
+                        autoComplete="off"
+                      />
+                    </div>
+                    <Button type="button" variant="outline" onClick={() => void refreshCaptcha()}>
+                      {t("captcha.refresh")}
+                    </Button>
+                  </div>
+                </div>
+
+                <Button type="submit" disabled={loading}>
+                  {loading ? t("otp.requesting") : t("otp.request")}
+                </Button>
+              </form>
+            ) : (
+              <form className="grid gap-4" onSubmit={handleVerifyOTP}>
+                <p className="text-sm text-muted-foreground">
+                  {t("otp.enterCode", { destination: otpRequest.destination_masked })}
+                </p>
+                {otpRequest.debug_otp ? (
+                  <Alert className="border-amber-400/45 bg-amber-100/40 text-amber-950 dark:bg-amber-500/10 dark:text-amber-200">
+                    <AlertDescription>
+                      {t("otp.devCode")}: <code>{otpRequest.debug_otp}</code>
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+                <div className="grid gap-2">
+                  <Label htmlFor="otpCode">{t("otp.code")}</Label>
+                  <Input
+                    id="otpCode"
+                    value={otpCode}
+                    onChange={(event) => setOTPCode(event.target.value)}
+                    placeholder={t("otp.codePlaceholder")}
+                    autoComplete="one-time-code"
+                  />
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button type="submit" disabled={loading}>
+                    {loading ? t("otp.verifying") : t("otp.verify")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setOTPRequest(null);
+                      setOTPCode("");
+                      setNotice(null);
+                      void refreshCaptcha();
+                    }}
+                  >
+                    {t("otp.back")}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </main>
   );
 }
-
-const inputClassName =
-  "mt-1 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm outline-none ring-0 focus:border-[var(--accent)]";
 
 async function requestJSON<T = unknown>(
   path: string,
@@ -272,9 +287,9 @@ function getErrorMessage(payload: unknown): string | null {
   return candidate.error?.message ?? candidate.message ?? null;
 }
 
-function normalizeError(error: unknown): string {
+function normalizeError(error: unknown, fallback: string): string {
   if (error instanceof Error) {
     return error.message;
   }
-  return "درخواست با خطا مواجه شد.";
+  return fallback;
 }

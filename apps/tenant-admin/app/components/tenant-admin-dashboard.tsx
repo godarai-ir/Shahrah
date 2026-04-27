@@ -1,8 +1,28 @@
 "use client";
 
-import Link from "next/link";
-import { FormEvent, ReactNode, useCallback, useMemo, useState } from "react";
+import { FormEvent, useCallback, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { extractTenantSlugFromHost } from "@/lib/tenant";
 
 type TenantKey = {
@@ -60,6 +80,9 @@ type TenantAdminDashboardProps = {
 const numberFormatter = new Intl.NumberFormat("fa-IR");
 
 export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
+  const t = useTranslations("dashboard");
+  const common = useTranslations("common");
+
   const [keys, setKeys] = useState<TenantKey[]>(props.initialKeys);
   const [models, setModels] = useState<TenantModel[]>(props.initialModels);
   const [wallet, setWallet] = useState<Wallet | null>(props.initialWallet);
@@ -97,6 +120,9 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
     return slug || "default";
   }, [props.initialHost]);
 
+  const userIdentity =
+    props.currentUser.email ?? props.currentUser.mobile ?? props.currentUser.id;
+
   const loadDashboard = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -112,12 +138,12 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
     } catch (error) {
       setBanner({
         kind: "error",
-        message: normalizeError(error),
+        message: normalizeError(error, common("requestError")),
       });
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [common]);
 
   async function handleCreateKey(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -133,7 +159,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
     if (!cleanAlias || selectedModels.length === 0) {
       setBanner({
         kind: "error",
-        message: "وارد کردن نام کلید و حداقل یک مدل الزامی است.",
+        message: t("keys.messages.validation"),
       });
       return;
     }
@@ -153,12 +179,12 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
       await loadDashboard();
       setBanner({
         kind: "success",
-        message: "کلید API با موفقیت ساخته شد.",
+        message: t("keys.messages.success"),
       });
     } catch (error) {
       setBanner({
         kind: "error",
-        message: normalizeError(error),
+        message: normalizeError(error, common("requestError")),
       });
     } finally {
       setIsCreatingKey(false);
@@ -178,7 +204,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
     ) {
       setBanner({
         kind: "error",
-        message: "تکمیل همه فیلدهای ضروری مدل الزامی است.",
+        message: t("models.messages.validation"),
       });
       return;
     }
@@ -202,12 +228,12 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
       await loadDashboard();
       setBanner({
         kind: "success",
-        message: "مدل جدید برای Tenant ثبت شد.",
+        message: t("models.messages.success"),
       });
     } catch (error) {
       setBanner({
         kind: "error",
-        message: normalizeError(error),
+        message: normalizeError(error, common("requestError")),
       });
     } finally {
       setIsCreatingModel(false);
@@ -222,7 +248,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
     if (!Number.isFinite(amount) || amount <= 0) {
       setBanner({
         kind: "error",
-        message: "مبلغ شارژ باید عددی بیشتر از صفر باشد.",
+        message: t("wallet.messages.validation"),
       });
       return;
     }
@@ -242,12 +268,12 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
       await loadDashboard();
       setBanner({
         kind: "success",
-        message: "کیف پول با موفقیت شارژ شد.",
+        message: t("wallet.messages.success"),
       });
     } catch (error) {
       setBanner({
         kind: "error",
-        message: normalizeError(error),
+        message: normalizeError(error, common("requestError")),
       });
     } finally {
       setIsTopUpLoading(false);
@@ -255,319 +281,258 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
   }
 
   return (
-    <main className="min-h-screen px-4 py-6 md:px-8 md:py-10">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
-        <header className="rounded-3xl border border-[var(--border)] bg-[var(--surface)]/90 p-6 shadow-[0_30px_80px_rgba(3,10,25,0.55)] backdrop-blur">
-          <p className="text-xs uppercase tracking-[0.35em] text-[var(--muted)]">
-            پنل مدیریت تننت شاهراه
-          </p>
-          <div className="mt-3 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
-                {tenantSlug}.localhost
-              </h1>
-              <p className="mt-2 text-sm text-[var(--muted)]">
-                محدوده Tenant از روی hostname تشخیص داده می‌شود.
-              </p>
-              <p className="mt-2 text-xs text-[var(--muted)]">
-                کاربر جاری:{" "}
-                <span className="font-mono">
-                  {props.currentUser.email ??
-                    props.currentUser.mobile ??
-                    props.currentUser.id}
-                </span>{" "}
-                ({props.currentUser.role})
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => void loadDashboard()}
-                disabled={isLoading}
-                className="rounded-xl border border-[var(--accent)]/55 bg-[var(--accent)]/10 px-4 py-2 text-sm font-medium text-[var(--accent)] transition hover:bg-[var(--accent)]/20 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isLoading ? "در حال بارگذاری..." : "به‌روزرسانی"}
-              </button>
-              <Link
-                href="/settings"
-                className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm text-[var(--muted)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
-              >
-                تنظیمات
-              </Link>
-              <form action="/logout" method="post">
-                <button
-                  type="submit"
-                  className="rounded-xl border border-[var(--danger)]/55 bg-[var(--danger)]/10 px-4 py-2 text-sm text-[var(--danger)] transition hover:bg-[var(--danger)]/20"
-                >
-                  خروج
-                </button>
-              </form>
-            </div>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle>{t("title")}</CardTitle>
+            <CardDescription>{t("subtitle")}</CardDescription>
           </div>
-        </header>
-
-        {banner ? (
-          <div
-            className={`rounded-2xl border px-4 py-3 text-sm ${
-              banner.kind === "success"
-                ? "border-[var(--good)]/40 bg-[var(--good)]/10 text-[var(--good)]"
-                : "border-[var(--danger)]/45 bg-[var(--danger)]/10 text-[var(--danger)]"
-            }`}
-          >
-            {banner.message}
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline">{tenantSlug}.localhost</Badge>
+            <Badge variant="secondary">
+              {t("currentUser")}: {userIdentity}
+            </Badge>
+            <Button type="button" variant="outline" onClick={() => void loadDashboard()} disabled={isLoading}>
+              {isLoading ? t("refreshing") : common("refresh")}
+            </Button>
           </div>
-        ) : null}
+        </CardHeader>
+      </Card>
 
-        {lastCreatedKey ? (
-          <section className="rounded-2xl border border-amber-300/40 bg-amber-100/10 p-4 text-sm text-amber-200">
-            <p className="font-medium">
-              کلید ساخته‌شده فقط یک‌بار نمایش داده می‌شود:
-            </p>
-            <code className="mt-2 block overflow-x-auto rounded-lg bg-black/35 px-3 py-2 font-mono text-xs">
+      {banner ? (
+        <Alert variant={banner.kind === "error" ? "destructive" : "default"}>
+          <AlertTitle>{banner.kind === "error" ? "خطا" : "موفق"}</AlertTitle>
+          <AlertDescription>{banner.message}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {lastCreatedKey ? (
+        <Alert className="border-primary/35 bg-primary/5">
+          <AlertTitle>{t("keyCreatedTitle")}</AlertTitle>
+          <AlertDescription>
+            <code className="mt-2 block overflow-x-auto rounded bg-muted px-3 py-2 text-xs font-mono">
               {lastCreatedKey}
             </code>
-          </section>
-        ) : null}
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
-        <section className="grid gap-4 md:grid-cols-3">
-          <SummaryCard
-            title="موجودی کیف پول"
-            value={wallet ? formatIRR(wallet.balance_irr) : "-"}
-            subtitle="اعتبار قابل استفاده"
-          />
-          <SummaryCard
-            title="مبلغ معلق"
-            value={wallet ? formatIRR(wallet.pending_irr) : "-"}
-            subtitle="تراکنش‌های در انتظار"
-          />
-          <SummaryCard
-            title="کلیدهای API"
-            value={`${numberFormatter.format(keys.length)}`}
-            subtitle="کلیدهای فعال Tenant"
-          />
-        </section>
+      <section className="grid gap-4 md:grid-cols-3">
+        <SummaryCard
+          title={t("stats.balance")}
+          value={wallet ? formatIRR(wallet.balance_irr) : common("none")}
+          subtitle={t("stats.balanceHint")}
+        />
+        <SummaryCard
+          title={t("stats.pending")}
+          value={wallet ? formatIRR(wallet.pending_irr) : common("none")}
+          subtitle={t("stats.pendingHint")}
+        />
+        <SummaryCard
+          title={t("stats.keys")}
+          value={numberFormatter.format(keys.length)}
+          subtitle={t("stats.keysHint")}
+        />
+      </section>
 
-        <section className="grid gap-6 xl:grid-cols-2">
-          <article className="rounded-3xl border border-[var(--border)] bg-[var(--surface)]/85 p-5">
-            <h2 className="text-xl font-semibold">مدیریت کلید API</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">
-              مبتنی بر `POST /api/v1/keys` و `GET /api/v1/keys`
-            </p>
-
-            <form className="mt-4 grid gap-3" onSubmit={handleCreateKey}>
-              <label className="text-sm text-[var(--muted)]">
-                نام کلید
-                <input
+      <section className="grid gap-6 xl:grid-cols-2">
+        <Card id="keys">
+          <CardHeader>
+            <CardTitle>{t("keys.title")}</CardTitle>
+            <CardDescription>{t("keys.description")}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <form className="grid gap-3" onSubmit={handleCreateKey}>
+              <div className="grid gap-2">
+                <Label htmlFor="keyAlias">{t("keys.name")}</Label>
+                <Input
+                  id="keyAlias"
                   value={keyAlias}
                   onChange={(event) => setKeyAlias(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm outline-none ring-0 focus:border-[var(--accent)]"
-                  placeholder="tenant-dashboard-key"
+                  placeholder={t("keys.namePlaceholder")}
                 />
-              </label>
-              <label className="text-sm text-[var(--muted)]">
-                مدل‌های مجاز (با ویرگول جدا کنید)
-                <input
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="keyModels">{t("keys.models")}</Label>
+                <Input
+                  id="keyModels"
                   value={keyModelsInput}
                   onChange={(event) => setKeyModelsInput(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm outline-none ring-0 focus:border-[var(--accent)]"
-                  placeholder="gpt-4o-mini,gpt-4.1-mini"
+                  placeholder={t("keys.modelsPlaceholder")}
                 />
-              </label>
-              <button
-                type="submit"
-                disabled={isCreatingKey}
-                className="mt-1 w-fit rounded-xl border border-[var(--accent)]/55 bg-[var(--accent)] px-4 py-2 text-sm font-medium text-slate-950 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isCreatingKey ? "در حال ساخت..." : "ساخت کلید"}
-              </button>
+              </div>
+
+              <Button type="submit" disabled={isCreatingKey} className="w-fit">
+                {isCreatingKey ? t("keys.creating") : t("keys.create")}
+              </Button>
             </form>
 
-            <div className="mt-5 overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="border-b border-[var(--border)] text-right text-[var(--muted)]">
-                    <th className="px-2 py-2 font-medium">نام</th>
-                    <th className="px-2 py-2 font-medium">نقش</th>
-                    <th className="px-2 py-2 font-medium">مدل‌ها</th>
-                    <th className="px-2 py-2 font-medium">کلید</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {keys.length === 0 ? (
-                    <tr>
-                      <td className="px-2 py-4 text-[var(--muted)]" colSpan={4}>
-                        هنوز کلیدی برای این Tenant ثبت نشده است.
-                      </td>
-                    </tr>
-                  ) : (
-                    keys.map((item) => (
-                      <tr key={item.id} className="border-b border-[var(--border)]/60">
-                        <td className="px-2 py-2">{item.key_alias}</td>
-                        <td className="px-2 py-2">{item.role}</td>
-                        <td className="px-2 py-2">
-                          {(item.models ?? []).length > 0
-                            ? item.models.join("، ")
-                            : "-"}
-                        </td>
-                        <td className="px-2 py-2 font-mono text-xs">
-                          {item.key_name ?? "پنهان"}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </article>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("keys.table.name")}</TableHead>
+                  <TableHead>{t("keys.table.role")}</TableHead>
+                  <TableHead>{t("keys.table.models")}</TableHead>
+                  <TableHead>{t("keys.table.key")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {keys.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-muted-foreground">
+                      {t("keys.table.empty")}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  keys.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>{item.key_alias}</TableCell>
+                      <TableCell>{item.role}</TableCell>
+                      <TableCell>
+                        {(item.models ?? []).length > 0
+                          ? item.models.join("، ")
+                          : common("none")}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {item.key_name ?? t("keys.table.hidden")}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
 
-          <article className="rounded-3xl border border-[var(--border)] bg-[var(--surface)]/85 p-5">
-            <h2 className="text-xl font-semibold">مدیریت مدل‌ها</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">
-              مبتنی بر `POST /api/v1/models` و `GET /api/v1/models`
-            </p>
-
-            <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={handleCreateModel}>
-              <Field label="نام نمایشی مدل">
-                <input
-                  value={modelName}
-                  onChange={(event) => setModelName(event.target.value)}
-                  className={inputClassName}
-                  placeholder="gpt-4o-mini"
-                />
-              </Field>
-              <Field label="پرووایدر">
-                <input
-                  value={provider}
-                  onChange={(event) => setProvider(event.target.value)}
-                  className={inputClassName}
-                  placeholder="openai"
-                />
-              </Field>
-              <Field label="نام مدل در پرووایدر">
-                <input
-                  value={providerModel}
-                  onChange={(event) => setProviderModel(event.target.value)}
-                  className={inputClassName}
-                  placeholder="gpt-4o-mini"
-                />
-              </Field>
-              <Field label="API Base">
-                <input
-                  value={apiBase}
-                  onChange={(event) => setApiBase(event.target.value)}
-                  className={inputClassName}
-                  placeholder="http://provider.example/v1"
-                />
-              </Field>
-              <Field label="API Key">
-                <input
-                  value={apiKey}
-                  onChange={(event) => setApiKey(event.target.value)}
-                  className={inputClassName}
-                  placeholder="sk-provider"
-                />
-              </Field>
-              <Field label="RPM">
-                <input
-                  value={rpm}
-                  onChange={(event) => setRPM(event.target.value)}
-                  className={inputClassName}
-                  placeholder="250"
-                />
-              </Field>
-              <Field label="TPM">
-                <input
-                  value={tpm}
-                  onChange={(event) => setTPM(event.target.value)}
-                  className={inputClassName}
-                  placeholder="150000"
-                />
-              </Field>
-              <Field label="وزن">
-                <input
-                  value={weight}
-                  onChange={(event) => setWeight(event.target.value)}
-                  className={inputClassName}
-                  placeholder="1"
-                />
-              </Field>
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("models.title")}</CardTitle>
+            <CardDescription>{t("models.description")}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <form className="grid gap-3 sm:grid-cols-2" onSubmit={handleCreateModel}>
+              <InputField
+                id="modelName"
+                label={t("models.displayName")}
+                value={modelName}
+                onChange={setModelName}
+                placeholder="gpt-4o-mini"
+              />
+              <InputField
+                id="provider"
+                label={t("models.provider")}
+                value={provider}
+                onChange={setProvider}
+                placeholder="openai"
+              />
+              <InputField
+                id="providerModel"
+                label={t("models.providerModel")}
+                value={providerModel}
+                onChange={setProviderModel}
+                placeholder="gpt-4o-mini"
+              />
+              <InputField
+                id="apiBase"
+                label={t("models.apiBase")}
+                value={apiBase}
+                onChange={setApiBase}
+                placeholder="http://provider.example/v1"
+              />
+              <InputField
+                id="apiKey"
+                label={t("models.apiKey")}
+                value={apiKey}
+                onChange={setApiKey}
+                placeholder="sk-provider"
+              />
+              <InputField
+                id="rpm"
+                label={t("models.rpm")}
+                value={rpm}
+                onChange={setRPM}
+                placeholder="250"
+              />
+              <InputField
+                id="tpm"
+                label={t("models.tpm")}
+                value={tpm}
+                onChange={setTPM}
+                placeholder="150000"
+              />
+              <InputField
+                id="weight"
+                label={t("models.weight")}
+                value={weight}
+                onChange={setWeight}
+                placeholder="1"
+              />
 
               <div className="sm:col-span-2">
-                <button
-                  type="submit"
-                  disabled={isCreatingModel}
-                  className="rounded-xl border border-[var(--accent)]/55 bg-[var(--accent)] px-4 py-2 text-sm font-medium text-slate-950 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isCreatingModel ? "در حال افزودن..." : "افزودن مدل"}
-                </button>
+                <Button type="submit" disabled={isCreatingModel}>
+                  {isCreatingModel ? t("models.creating") : t("models.create")}
+                </Button>
               </div>
             </form>
 
-            <div className="mt-5 overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="border-b border-[var(--border)] text-right text-[var(--muted)]">
-                    <th className="px-2 py-2 font-medium">مدل</th>
-                    <th className="px-2 py-2 font-medium">پرووایدر</th>
-                    <th className="px-2 py-2 font-medium">نام‌های جایگزین</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {models.length === 0 ? (
-                    <tr>
-                      <td className="px-2 py-4 text-[var(--muted)]" colSpan={3}>
-                        هنوز مدلی برای این Tenant ثبت نشده است.
-                      </td>
-                    </tr>
-                  ) : (
-                    models.map((item) => (
-                      <tr key={item.id} className="border-b border-[var(--border)]/60">
-                        <td className="px-2 py-2">{item.id}</td>
-                        <td className="px-2 py-2">{item.provider ?? "-"}</td>
-                        <td className="px-2 py-2">
-                          {(item.aliases ?? []).length > 0
-                            ? (item.aliases ?? []).join("، ")
-                            : "-"}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </article>
-        </section>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("models.table.model")}</TableHead>
+                  <TableHead>{t("models.table.provider")}</TableHead>
+                  <TableHead>{t("models.table.aliases")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {models.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-muted-foreground">
+                      {t("models.table.empty")}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  models.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>{item.id}</TableCell>
+                      <TableCell>{item.provider ?? common("none")}</TableCell>
+                      <TableCell>
+                        {(item.aliases ?? []).length > 0
+                          ? (item.aliases ?? []).join("، ")
+                          : common("none")}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </section>
 
-        <section className="rounded-3xl border border-[var(--border)] bg-[var(--surface)]/85 p-5">
-          <h2 className="text-xl font-semibold">شارژ کیف پول</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            مبتنی بر `GET /api/v1/wallet` و `POST /api/v1/wallet/topup`
-          </p>
-
-          <form
-            onSubmit={handleTopUp}
-            className="mt-4 flex flex-col gap-3 md:flex-row md:items-end"
-          >
-            <label className="w-full max-w-xs text-sm text-[var(--muted)]">
-              مبلغ (ریال)
-              <input
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("wallet.title")}</CardTitle>
+          <CardDescription>{t("wallet.description")}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleTopUp} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="w-full max-w-xs grid gap-2">
+              <Label htmlFor="walletAmount">{t("wallet.amount")}</Label>
+              <Input
+                id="walletAmount"
                 value={topUpAmount}
                 onChange={(event) => setTopUpAmount(event.target.value)}
-                className="mt-1 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm outline-none ring-0 focus:border-[var(--accent)]"
-                placeholder="1500000"
+                placeholder={t("wallet.amountPlaceholder")}
               />
-            </label>
-            <button
-              type="submit"
-              disabled={isTopUpLoading}
-              className="w-fit rounded-xl border border-[var(--accent)]/55 bg-[var(--accent)] px-4 py-2 text-sm font-medium text-slate-950 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isTopUpLoading ? "در حال پردازش..." : "شارژ کیف پول"}
-            </button>
+            </div>
+            <Button type="submit" disabled={isTopUpLoading}>
+              {isTopUpLoading ? t("wallet.submitting") : t("wallet.submit")}
+            </Button>
           </form>
-        </section>
-      </div>
-    </main>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -577,25 +542,35 @@ function SummaryCard(props: {
   subtitle: string;
 }) {
   return (
-    <article className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/90 p-4">
-      <p className="text-xs tracking-[0.28em] text-[var(--muted)]">{props.title}</p>
-      <p className="mt-3 text-2xl font-semibold">{props.value}</p>
-      <p className="mt-2 text-sm text-[var(--muted)]">{props.subtitle}</p>
-    </article>
+    <Card>
+      <CardHeader className="gap-3">
+        <CardDescription>{props.title}</CardDescription>
+        <CardTitle className="text-2xl">{props.value}</CardTitle>
+        <CardDescription>{props.subtitle}</CardDescription>
+      </CardHeader>
+    </Card>
   );
 }
 
-function Field(props: { label: string; children: ReactNode }) {
+function InputField(props: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+}) {
   return (
-    <label className="text-sm text-[var(--muted)]">
-      {props.label}
-      <div className="mt-1">{props.children}</div>
-    </label>
+    <div className="grid gap-2">
+      <Label htmlFor={props.id}>{props.label}</Label>
+      <Input
+        id={props.id}
+        value={props.value}
+        onChange={(event) => props.onChange(event.target.value)}
+        placeholder={props.placeholder}
+      />
+    </div>
   );
 }
-
-const inputClassName =
-  "w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm outline-none ring-0 focus:border-[var(--accent)]";
 
 async function requestJSON<T = unknown>(
   path: string,
@@ -651,11 +626,11 @@ function extractMessageFromPayload(payload: unknown): string | null {
   return candidate.error?.message ?? candidate.message ?? null;
 }
 
-function normalizeError(error: unknown): string {
+function normalizeError(error: unknown, fallback: string): string {
   if (error instanceof Error) {
     return error.message;
   }
-  return "درخواست با خطا مواجه شد.";
+  return fallback;
 }
 
 function toNumberOrUndefined(value: string): number | undefined {

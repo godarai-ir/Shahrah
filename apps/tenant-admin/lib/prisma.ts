@@ -1,11 +1,9 @@
-// @ts-expect-error - PrismaClient generated at build time
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
-declare global {
-  // eslint-disable-next-line no-var
-  var __tenantAdminPrisma: PrismaClient | undefined;
-}
+const globalForPrisma = globalThis as typeof globalThis & {
+  __tenantAdminPrisma?: PrismaClient;
+};
 
 const databaseURL = process.env.DATABASE_URL;
 if (!databaseURL) {
@@ -17,12 +15,12 @@ const adapter = new PrismaPg({
 });
 
 export const prisma =
-  global.__tenantAdminPrisma ??
+  globalForPrisma.__tenantAdminPrisma ??
   new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
 
 if (process.env.NODE_ENV !== "production") {
-  global.__tenantAdminPrisma = prisma;
+  globalForPrisma.__tenantAdminPrisma = prisma;
 }

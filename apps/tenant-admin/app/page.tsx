@@ -1,4 +1,5 @@
 import TenantAdminDashboard from "@/app/components/tenant-admin-dashboard";
+import AdminShell from "@/app/components/admin-shell";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 import { extractTenantSlugFromHost } from "@/lib/tenant";
 import { requireAuth } from "@/lib/auth/session";
@@ -86,19 +87,23 @@ export default async function Home() {
     modelsResult.errorMessage ??
     null;
 
+  const currentUser = {
+    id: auth.user.id,
+    email: auth.user.email,
+    mobile: auth.user.mobile,
+    role: auth.user.role,
+  };
+
   return (
-    <TenantAdminDashboard
-      initialHost={incomingHost}
-      initialWallet={initialWallet}
-      initialKeys={initialKeys}
-      initialModels={initialModels}
-      initialError={errorMessage}
-      currentUser={{
-        id: auth.user.id,
-        email: auth.user.email,
-        mobile: auth.user.mobile,
-        role: auth.user.role,
-      }}
-    />
+    <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
+      <TenantAdminDashboard
+        initialHost={incomingHost}
+        initialWallet={initialWallet}
+        initialKeys={initialKeys}
+        initialModels={initialModels}
+        initialError={errorMessage}
+        currentUser={currentUser}
+      />
+    </AdminShell>
   );
 }

@@ -1,7 +1,19 @@
 "use client";
 
-import Link from "next/link";
 import { FormEvent, useState } from "react";
+import { useTranslations } from "next-intl";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type UserProfile = {
   id: string;
@@ -29,6 +41,9 @@ type ProfileSettingsProps = {
 };
 
 export default function ProfileSettings(props: ProfileSettingsProps) {
+  const t = useTranslations("settings");
+  const common = useTranslations("common");
+
   const [user, setUser] = useState<UserProfile>(props.initialUser);
   const [emailState, setEmailState] = useState<FieldState>({
     value: props.initialUser.email ?? "",
@@ -82,9 +97,9 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
         }));
       }
 
-      setMessage(`کد تایید به ${result.destination_masked} ارسال شد.`);
+      setMessage(t("messages.sent", { destination: result.destination_masked }));
     } catch (err) {
-      setError(normalizeError(err));
+      setError(normalizeError(err, common("requestError")));
     } finally {
       setLoadingField(null);
     }
@@ -131,71 +146,49 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
           debugOTP: undefined,
         }));
       }
-      setMessage(field === "email" ? "ایمیل با موفقیت تغییر کرد." : "شماره همراه با موفقیت تغییر کرد.");
+      setMessage(field === "email" ? t("messages.emailSuccess") : t("messages.mobileSuccess"));
     } catch (err) {
-      setError(normalizeError(err));
+      setError(normalizeError(err, common("requestError")));
     } finally {
       setLoadingField(null);
     }
   }
 
   return (
-    <main className="min-h-screen px-4 py-8 md:px-8 md:py-12">
-      <div className="mx-auto w-full max-w-3xl space-y-6">
-        <header className="rounded-3xl border border-[var(--border)] bg-[var(--surface)]/92 p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-xs tracking-[0.35em] text-[var(--muted)]">
-                تنظیمات کاربری
-              </p>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-                حساب کاربری
-              </h1>
-              <p className="mt-2 text-sm text-[var(--muted)]">
-                نقش فعلی: <b>{user.role}</b>. در فاز فعلی همه کاربران دسترسی یکسان
-                به پنل دارند.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Link
-                href="/"
-                className="rounded-xl border border-[var(--border)] px-3 py-2 text-sm text-[var(--muted)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
-              >
-                بازگشت به داشبورد
-              </Link>
-              <form action="/logout" method="post">
-                <button
-                  type="submit"
-                  className="rounded-xl border border-[var(--danger)]/55 bg-[var(--danger)]/10 px-3 py-2 text-sm text-[var(--danger)] transition hover:bg-[var(--danger)]/20"
-                >
-                  خروج
-                </button>
-              </form>
-            </div>
-          </div>
-        </header>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("title")}</CardTitle>
+          <CardDescription>
+            {t("subtitle")} - {t("role")}: <b>{user.role}</b>
+          </CardDescription>
+        </CardHeader>
+      </Card>
 
-        {message ? (
-          <div className="rounded-xl border border-[var(--good)]/40 bg-[var(--good)]/10 px-3 py-2 text-sm text-[var(--good)]">
-            {message}
-          </div>
-        ) : null}
-        {error ? (
-          <div className="rounded-xl border border-[var(--danger)]/45 bg-[var(--danger)]/10 px-3 py-2 text-sm text-[var(--danger)]">
-            {error}
-          </div>
-        ) : null}
+      {message ? (
+        <Alert className="border-primary/30 bg-primary/5">
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      ) : null}
+      {error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
 
-        <section className="grid gap-6 md:grid-cols-2">
-          <article className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/92 p-5">
-            <h2 className="text-lg font-semibold">ایمیل</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">
-              مقدار فعلی: {user.email ?? "ثبت نشده"}
-            </p>
-
-            <label className="mt-4 block text-sm text-[var(--muted)]">
-              ایمیل جدید
-              <input
+      <section className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("sections.email")}</CardTitle>
+            <CardDescription>
+              {t("currentValue")}: {user.email ?? common("notSet")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-2">
+              <Label htmlFor="newEmail">{t("newEmail")}</Label>
+              <Input
+                id="newEmail"
                 value={emailState.value}
                 onChange={(event) =>
                   setEmailState((current) => ({
@@ -203,35 +196,33 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
                     value: event.target.value,
                   }))
                 }
-                className={inputClassName}
                 placeholder="name@example.com"
               />
-            </label>
-            <button
+            </div>
+            <Button
               type="button"
               onClick={() => void handleRequestChange("email")}
               disabled={loadingField === "email"}
-              className="mt-3 rounded-xl border border-[var(--accent)]/55 bg-[var(--accent)] px-4 py-2 text-sm font-medium text-slate-950 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              ارسال کد تایید
-            </button>
+              {t("sendCode")}
+            </Button>
 
             {emailState.requestID ? (
-              <form
-                className="mt-4 grid gap-3"
-                onSubmit={(event) => void handleVerifyChange(event, "email")}
-              >
-                <p className="text-xs text-[var(--muted)]">
-                  ارسال شده به {emailState.destinationMasked}
+              <form className="grid gap-3" onSubmit={(event) => void handleVerifyChange(event, "email")}>
+                <p className="text-xs text-muted-foreground">
+                  {t("otpSentTo", { destination: emailState.destinationMasked })}
                 </p>
                 {emailState.debugOTP ? (
-                  <p className="rounded-lg border border-amber-300/45 bg-amber-100/10 px-3 py-2 text-xs text-amber-200">
-                    کد توسعه: <code>{emailState.debugOTP}</code>
-                  </p>
+                  <Alert className="border-amber-400/45 bg-amber-100/40 text-amber-950 dark:bg-amber-500/10 dark:text-amber-200">
+                    <AlertDescription>
+                      {t("devCode")}: <code>{emailState.debugOTP}</code>
+                    </AlertDescription>
+                  </Alert>
                 ) : null}
-                <label className="text-sm text-[var(--muted)]">
-                  کد OTP
-                  <input
+                <div className="grid gap-2">
+                  <Label htmlFor="emailOTP">{t("otpCode")}</Label>
+                  <Input
+                    id="emailOTP"
                     value={emailState.otpCode}
                     onChange={(event) =>
                       setEmailState((current) => ({
@@ -239,30 +230,29 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
                         otpCode: event.target.value,
                       }))
                     }
-                    className={inputClassName}
-                    placeholder="کد ۶ رقمی"
+                    placeholder={t("otpCodePlaceholder")}
                   />
-                </label>
-                <button
-                  type="submit"
-                  disabled={loadingField === "email"}
-                  className="rounded-xl border border-[var(--good)]/55 bg-[var(--good)]/20 px-4 py-2 text-sm font-medium text-[var(--good)] transition hover:bg-[var(--good)]/30 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  تایید تغییر ایمیل
-                </button>
+                </div>
+                <Button type="submit" variant="secondary" disabled={loadingField === "email"}>
+                  {t("confirmEmail")}
+                </Button>
               </form>
             ) : null}
-          </article>
+          </CardContent>
+        </Card>
 
-          <article className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/92 p-5">
-            <h2 className="text-lg font-semibold">شماره همراه</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">
-              مقدار فعلی: {user.mobile ?? "ثبت نشده"}
-            </p>
-
-            <label className="mt-4 block text-sm text-[var(--muted)]">
-              شماره همراه جدید
-              <input
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("sections.mobile")}</CardTitle>
+            <CardDescription>
+              {t("currentValue")}: {user.mobile ?? common("notSet")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-2">
+              <Label htmlFor="newMobile">{t("newMobile")}</Label>
+              <Input
+                id="newMobile"
                 value={mobileState.value}
                 onChange={(event) =>
                   setMobileState((current) => ({
@@ -270,35 +260,33 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
                     value: event.target.value,
                   }))
                 }
-                className={inputClassName}
                 placeholder="+98912..."
               />
-            </label>
-            <button
+            </div>
+            <Button
               type="button"
               onClick={() => void handleRequestChange("mobile")}
               disabled={loadingField === "mobile"}
-              className="mt-3 rounded-xl border border-[var(--accent)]/55 bg-[var(--accent)] px-4 py-2 text-sm font-medium text-slate-950 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              ارسال کد تایید
-            </button>
+              {t("sendCode")}
+            </Button>
 
             {mobileState.requestID ? (
-              <form
-                className="mt-4 grid gap-3"
-                onSubmit={(event) => void handleVerifyChange(event, "mobile")}
-              >
-                <p className="text-xs text-[var(--muted)]">
-                  ارسال شده به {mobileState.destinationMasked}
+              <form className="grid gap-3" onSubmit={(event) => void handleVerifyChange(event, "mobile")}>
+                <p className="text-xs text-muted-foreground">
+                  {t("otpSentTo", { destination: mobileState.destinationMasked })}
                 </p>
                 {mobileState.debugOTP ? (
-                  <p className="rounded-lg border border-amber-300/45 bg-amber-100/10 px-3 py-2 text-xs text-amber-200">
-                    کد توسعه: <code>{mobileState.debugOTP}</code>
-                  </p>
+                  <Alert className="border-amber-400/45 bg-amber-100/40 text-amber-950 dark:bg-amber-500/10 dark:text-amber-200">
+                    <AlertDescription>
+                      {t("devCode")}: <code>{mobileState.debugOTP}</code>
+                    </AlertDescription>
+                  </Alert>
                 ) : null}
-                <label className="text-sm text-[var(--muted)]">
-                  کد OTP
-                  <input
+                <div className="grid gap-2">
+                  <Label htmlFor="mobileOTP">{t("otpCode")}</Label>
+                  <Input
+                    id="mobileOTP"
                     value={mobileState.otpCode}
                     onChange={(event) =>
                       setMobileState((current) => ({
@@ -306,28 +294,20 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
                         otpCode: event.target.value,
                       }))
                     }
-                    className={inputClassName}
-                    placeholder="کد ۶ رقمی"
+                    placeholder={t("otpCodePlaceholder")}
                   />
-                </label>
-                <button
-                  type="submit"
-                  disabled={loadingField === "mobile"}
-                  className="rounded-xl border border-[var(--good)]/55 bg-[var(--good)]/20 px-4 py-2 text-sm font-medium text-[var(--good)] transition hover:bg-[var(--good)]/30 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  تایید تغییر شماره همراه
-                </button>
+                </div>
+                <Button type="submit" variant="secondary" disabled={loadingField === "mobile"}>
+                  {t("confirmMobile")}
+                </Button>
               </form>
             ) : null}
-          </article>
-        </section>
-      </div>
-    </main>
+          </CardContent>
+        </Card>
+      </section>
+    </div>
   );
 }
-
-const inputClassName =
-  "mt-1 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm outline-none ring-0 focus:border-[var(--accent)]";
 
 async function requestJSON<T = unknown>(
   path: string,
@@ -375,9 +355,9 @@ function getErrorMessage(payload: unknown): string | null {
   return candidate.error?.message ?? candidate.message ?? null;
 }
 
-function normalizeError(error: unknown): string {
+function normalizeError(error: unknown, fallback: string): string {
   if (error instanceof Error) {
     return error.message;
   }
-  return "درخواست با خطا مواجه شد.";
+  return fallback;
 }

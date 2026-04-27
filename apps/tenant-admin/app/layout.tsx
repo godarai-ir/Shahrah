@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono, Vazirmatn } from "next/font/google";
+import { getLocale, getMessages } from "next-intl/server";
+
+import AppProviders from "@/app/components/app-providers";
+
 import "./globals.css";
 
 const vazirmatn = Vazirmatn({
@@ -16,21 +20,35 @@ const jetBrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "شاهراه | پنل مدیریت تننت",
-  description: "پنل فارسی مدیریت تننت برای کلیدها، مدل‌ها و کیف پول در شاهراه.",
+  description:
+    "پنل فارسی مدیریت تننت برای کلیدها، مدل‌ها، کیف پول و تنظیمات حساب.",
+  icons: {
+    icon: [{ url: "/icon.png", type: "image/png" }],
+    apple: [{ url: "/apple-icon.png", type: "image/png" }],
+    shortcut: ["/icon.png"],
+  },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
     <html
-      lang="fa-IR"
+      lang={locale}
       dir="rtl"
+      suppressHydrationWarning
       className={`${vazirmatn.variable} ${jetBrainsMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full bg-background text-foreground">
+        <AppProviders locale={locale} messages={messages}>
+          {children}
+        </AppProviders>
+      </body>
     </html>
   );
 }

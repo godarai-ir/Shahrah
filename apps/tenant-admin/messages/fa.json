@@ -1,0 +1,157 @@
+{
+  "theme": {
+    "toggle": "تغییر حالت نمایش",
+    "light": "روشن",
+    "dark": "تیره",
+    "system": "سیستمی"
+  },
+  "shell": {
+    "title": "پنل مدیریت تننت",
+    "tenant": "مدیریت تننت",
+    "searchPlaceholder": "جستجو در پنل...",
+    "logout": "خروج",
+    "menu": {
+      "open": "باز کردن منو",
+      "description": "ناوبری و دسترسی سریع پنل"
+    },
+    "nav": {
+      "dashboard": "داشبورد",
+      "settings": "تنظیمات حساب"
+    },
+    "logoAlt": "????? ??????"
+  },
+  "common": {
+    "save": "ذخیره",
+    "cancel": "انصراف",
+    "refresh": "به‌روزرسانی",
+    "loading": "در حال بارگذاری...",
+    "requestError": "درخواست با خطا مواجه شد.",
+    "none": "-",
+    "notSet": "ثبت نشده"
+  },
+  "dashboard": {
+    "title": "داشبورد تننت",
+    "subtitle": "مدیریت کلیدها، مدل‌ها و شارژ کیف پول",
+    "currentUser": "کاربر جاری",
+    "tenantHint": "تننت از روی hostname تشخیص داده می‌شود.",
+    "refreshing": "در حال به‌روزرسانی...",
+    "stats": {
+      "balance": "موجودی کیف پول",
+      "balanceHint": "اعتبار قابل استفاده",
+      "pending": "مبلغ معلق",
+      "pendingHint": "تراکنش‌های در انتظار",
+      "keys": "کلیدهای API",
+      "keysHint": "کلیدهای فعال تننت"
+    },
+    "keyCreatedTitle": "کلید ساخته‌شده فقط یک‌بار نمایش داده می‌شود",
+    "keys": {
+      "title": "مدیریت کلید API",
+      "description": "ایجاد و مشاهده کلیدهای دسترسی تننت",
+      "name": "نام کلید",
+      "namePlaceholder": "tenant-dashboard-key",
+      "models": "مدل‌های مجاز (با ویرگول جدا کنید)",
+      "modelsPlaceholder": "gpt-4o-mini,gpt-4.1-mini",
+      "create": "ساخت کلید",
+      "creating": "در حال ساخت...",
+      "table": {
+        "name": "نام",
+        "role": "نقش",
+        "models": "مدل‌ها",
+        "key": "کلید",
+        "empty": "هنوز کلیدی برای این تننت ثبت نشده است.",
+        "hidden": "پنهان"
+      },
+      "messages": {
+        "validation": "وارد کردن نام کلید و حداقل یک مدل الزامی است.",
+        "success": "کلید API با موفقیت ساخته شد."
+      }
+    },
+    "models": {
+      "title": "مدیریت مدل‌ها",
+      "description": "ثبت مدل‌های قابل استفاده برای تننت",
+      "displayName": "نام نمایشی مدل",
+      "provider": "پرووایدر",
+      "providerModel": "نام مدل در پرووایدر",
+      "apiBase": "API Base",
+      "apiKey": "API Key",
+      "rpm": "RPM",
+      "tpm": "TPM",
+      "weight": "وزن",
+      "create": "افزودن مدل",
+      "creating": "در حال افزودن...",
+      "table": {
+        "model": "مدل",
+        "provider": "پرووایدر",
+        "aliases": "نام‌های جایگزین",
+        "empty": "هنوز مدلی برای این تننت ثبت نشده است."
+      },
+      "messages": {
+        "validation": "تکمیل همه فیلدهای ضروری مدل الزامی است.",
+        "success": "مدل جدید برای تننت ثبت شد."
+      }
+    },
+    "wallet": {
+      "title": "شارژ کیف پول",
+      "description": "افزایش اعتبار کیف پول تننت",
+      "amount": "مبلغ (ریال)",
+      "amountPlaceholder": "1500000",
+      "submit": "شارژ کیف پول",
+      "submitting": "در حال پردازش...",
+      "messages": {
+        "validation": "مبلغ شارژ باید عددی بیشتر از صفر باشد.",
+        "success": "کیف پول با موفقیت شارژ شد."
+      }
+    }
+  },
+  "login": {
+    "title": "ورود",
+    "subtitle": "با ایمیل یا شماره همراه وارد شوید. کد OTP بر اساس نوع ورودی ارسال می‌شود.",
+    "identifier": "ایمیل یا شماره همراه",
+    "identifierPlaceholder": "name@example.com یا +98912...",
+    "captcha": {
+      "label": "کپچای تصویری",
+      "answer": "پاسخ کپچا",
+      "answerPlaceholder": "متن کپچا را وارد کنید",
+      "refresh": "کپچای جدید"
+    },
+    "otp": {
+      "request": "دریافت OTP",
+      "requesting": "در حال ارسال OTP...",
+      "verify": "ورود به پنل",
+      "verifying": "در حال تایید...",
+      "code": "کد OTP",
+      "codePlaceholder": "کد ۶ رقمی",
+      "sent": "کد OTP به {destination} ارسال شد.",
+      "enterCode": "کد OTP ارسال‌شده به {destination} را وارد کنید.",
+      "devCode": "کد OTP توسعه",
+      "back": "بازگشت"
+    },
+    "logoAlt": "????? ??????"
+  },
+  "settings": {
+    "title": "تنظیمات حساب",
+    "subtitle": "مدیریت اطلاعات تماس و احراز هویت",
+    "role": "نقش فعلی",
+    "sameAccess": "در فاز فعلی همه کاربران دسترسی یکسان به پنل دارند.",
+    "backToDashboard": "بازگشت به داشبورد",
+    "sections": {
+      "email": "ایمیل",
+      "mobile": "شماره همراه"
+    },
+    "currentValue": "مقدار فعلی",
+    "newEmail": "ایمیل جدید",
+    "newMobile": "شماره همراه جدید",
+    "sendCode": "ارسال کد تایید",
+    "otpSentTo": "ارسال شده به {destination}",
+    "otpCode": "کد OTP",
+    "otpCodePlaceholder": "کد ۶ رقمی",
+    "confirmEmail": "تایید تغییر ایمیل",
+    "confirmMobile": "تایید تغییر شماره همراه",
+    "devCode": "کد توسعه",
+    "messages": {
+      "sent": "کد تایید به {destination} ارسال شد.",
+      "emailSuccess": "ایمیل با موفقیت تغییر کرد.",
+      "mobileSuccess": "شماره همراه با موفقیت تغییر کرد."
+    }
+  }
+}

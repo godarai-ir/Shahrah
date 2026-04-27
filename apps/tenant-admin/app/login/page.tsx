@@ -6,12 +6,28 @@ import { createCaptchaChallenge } from "@/lib/auth/store";
 
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage() {
+type LoginPageProps = {
+  searchParams?: Promise<{
+    next?: string;
+  }>;
+};
+
+function sanitizeNextPath(nextPath: string | undefined) {
+  if (!nextPath || !nextPath.startsWith("/") || nextPath.startsWith("//")) {
+    return "/";
+  }
+  return nextPath;
+}
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
   const auth = await getAuthContext();
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const redirectTo = sanitizeNextPath(resolvedSearchParams.next);
+
   if (auth) {
-    redirect("/");
+    redirect(redirectTo);
   }
 
   const initialCaptcha = await createCaptchaChallenge();
-  return <LoginForm initialCaptcha={initialCaptcha} />;
+  return <LoginForm initialCaptcha={initialCaptcha} redirectTo={redirectTo} />;
 }
