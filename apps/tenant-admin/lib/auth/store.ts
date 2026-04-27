@@ -472,84 +472,9 @@ async function cleanupExpiredRecords() {
 async function ensureDatabaseReady() {
   if (!databaseReadyPromise) {
     databaseReadyPromise = (async () => {
-      await prisma.$executeRawUnsafe("PRAGMA foreign_keys = ON");
-
-      await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS "TenantAdminUser" (
-          "id" TEXT NOT NULL PRIMARY KEY,
-          "tenantSlug" TEXT NOT NULL,
-          "email" TEXT,
-          "mobile" TEXT,
-          "role" TEXT NOT NULL DEFAULT 'tenant_member',
-          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          "lastLoginAt" DATETIME
-        )
-      `);
-
-      await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS "TenantAdminSession" (
-          "id" TEXT NOT NULL PRIMARY KEY,
-          "tenantSlug" TEXT NOT NULL,
-          "userID" TEXT NOT NULL,
-          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          "expiresAt" DATETIME NOT NULL,
-          FOREIGN KEY ("userID") REFERENCES "TenantAdminUser" ("id")
-            ON DELETE CASCADE ON UPDATE CASCADE
-        )
-      `);
-
-      await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS "TenantAdminCaptcha" (
-          "id" TEXT NOT NULL PRIMARY KEY,
-          "answer" TEXT NOT NULL,
-          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          "expiresAt" DATETIME NOT NULL
-        )
-      `);
-
-      await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS "TenantAdminOtpRequest" (
-          "id" TEXT NOT NULL PRIMARY KEY,
-          "tenantSlug" TEXT NOT NULL,
-          "purpose" TEXT NOT NULL,
-          "channel" TEXT NOT NULL,
-          "identifier" TEXT NOT NULL,
-          "userID" TEXT,
-          "pendingValue" TEXT,
-          "otpCode" TEXT NOT NULL,
-          "attempts" INTEGER NOT NULL DEFAULT 0,
-          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          "expiresAt" DATETIME NOT NULL,
-          FOREIGN KEY ("userID") REFERENCES "TenantAdminUser" ("id")
-            ON DELETE SET NULL ON UPDATE CASCADE
-        )
-      `);
-
-      await prisma.$executeRawUnsafe(
-        `CREATE INDEX IF NOT EXISTS "tenant_admin_user_tenant_slug_idx" ON "TenantAdminUser" ("tenantSlug")`,
-      );
-      await prisma.$executeRawUnsafe(
-        `CREATE UNIQUE INDEX IF NOT EXISTS "tenant_admin_user_tenant_email_uq" ON "TenantAdminUser" ("tenantSlug", "email")`,
-      );
-      await prisma.$executeRawUnsafe(
-        `CREATE UNIQUE INDEX IF NOT EXISTS "tenant_admin_user_tenant_mobile_uq" ON "TenantAdminUser" ("tenantSlug", "mobile")`,
-      );
-      await prisma.$executeRawUnsafe(
-        `CREATE INDEX IF NOT EXISTS "tenant_admin_session_tenant_slug_idx" ON "TenantAdminSession" ("tenantSlug")`,
-      );
-      await prisma.$executeRawUnsafe(
-        `CREATE INDEX IF NOT EXISTS "tenant_admin_session_expires_at_idx" ON "TenantAdminSession" ("expiresAt")`,
-      );
-      await prisma.$executeRawUnsafe(
-        `CREATE INDEX IF NOT EXISTS "tenant_admin_captcha_expires_at_idx" ON "TenantAdminCaptcha" ("expiresAt")`,
-      );
-      await prisma.$executeRawUnsafe(
-        `CREATE INDEX IF NOT EXISTS "tenant_admin_otp_tenant_purpose_idx" ON "TenantAdminOtpRequest" ("tenantSlug", "purpose")`,
-      );
-      await prisma.$executeRawUnsafe(
-        `CREATE INDEX IF NOT EXISTS "tenant_admin_otp_expires_at_idx" ON "TenantAdminOtpRequest" ("expiresAt")`,
-      );
+      // Postgres schema is managed through Prisma schema/migrations.
+      // Runtime only needs a health-check query.
+      await prisma.$queryRaw`SELECT 1`;
     })();
   }
 

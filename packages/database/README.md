@@ -10,20 +10,22 @@ This package contains the definitive Prisma schema. All database changes should 
 
 ```bash
 # Generate Prisma clients
-npm run prisma:generate
+pnpm prisma:generate
 
 # Apply migrations
-npm run prisma:migrate
+pnpm prisma:migrate
 
 # Development migration
-npm run prisma:migrate:dev
+pnpm prisma:migrate:dev
 
 # Pull schema from existing database
-npm run prisma:pull
+pnpm prisma:pull
 
 # Open Prisma Studio
-npm run prisma:studio
+pnpm prisma:studio
 ```
+
+Set `DATABASE_URL` before running commands that talk to Postgres (`prisma:migrate`, `prisma:migrate:dev`, `prisma:pull`, `prisma:studio`).
 
 ## Schema Models
 

@@ -154,7 +154,7 @@ model_list:
 
 general_settings:
   master_key: sk-1234 # 🔑 your proxy admin key (must start with sk-)
-  database_url: "postgresql://llmproxy:dbpassword9090@db:5432/litellm"
+  database_url: "postgresql://postgres:postgres@localhost:5432/sharah_db"
 ```
 
 :::tip

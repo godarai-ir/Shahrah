@@ -42,7 +42,7 @@ Create `apps/tenant-admin/.env.local`:
 SHAHRAH_CONTROL_PLANE_URL=http://127.0.0.1:4000
 SHAHRAH_MASTER_KEY=sk-master
 SHAHRAH_DEFAULT_TENANT=default
-DATABASE_URL=file:./tenant-admin.db
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/sharah_db?sslmode=disable
 ```
 
 For hostname-based tenant resolution in local development, map a tenant host:

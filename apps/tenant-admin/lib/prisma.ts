@@ -7,8 +7,13 @@ declare global {
   var __tenantAdminPrisma: PrismaClient | undefined;
 }
 
+const databaseURL = process.env.DATABASE_URL;
+if (!databaseURL) {
+  throw new Error("Missing required DATABASE_URL");
+}
+
 const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: databaseURL,
 });
 
 export const prisma =

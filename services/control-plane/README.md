@@ -61,7 +61,7 @@ Successful inference should create a wallet debit plus request and spend log rec
 For a real Postgres-backed verification run:
 
 ```bash
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/llmproxy?sslmode=disable make test-integration-db
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/sharah_db?sslmode=disable make test-integration-db
 ```
 
 That target runs only the database-backed onboarding test and skips when `DATABASE_URL` is unset.

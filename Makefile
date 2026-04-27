@@ -2,6 +2,9 @@
 
 CONTROL_PLANE_DIR := services/control-plane
 COMPOSE_FILE := infra/compose/local.yml
+POSTGRES_VERSION ?= 18
+export POSTGRES_VERSION
+DOCKER_COMPOSE := docker compose -f $(COMPOSE_FILE)
 GO := go
 GOLANGCI_LINT := golangci-lint
 
@@ -44,16 +47,16 @@ lint: ## Run golangci-lint for control-plane
 check: fmt vet lint test ## Run the default checks
 
 docker-up: ## Start the local backend stack
-	docker compose -f $(COMPOSE_FILE) up -d postgres redis silk-road tunnel-server tunnel-client control-plane
+	$(DOCKER_COMPOSE) up -d postgres redis silk-road tunnel-server tunnel-client control-plane
 
 docker-down: ## Stop local dependencies
-	docker compose -f $(COMPOSE_FILE) down
+	$(DOCKER_COMPOSE) down
 
 docker-migrate: ## Run the main database bootstrap migrations
-	docker compose -f $(COMPOSE_FILE) exec postgres sh -lc "psql -U postgres -d llmproxy -f /docker-entrypoint-initdb.d/001_initial.sql && psql -U postgres -d llmproxy -f /docker-entrypoint-initdb.d/002_platform_foundations.sql"
+	$(DOCKER_COMPOSE) exec postgres sh -lc "psql -U postgres -d llmproxy -f /docker-entrypoint-initdb.d/001_initial.sql && psql -U postgres -d llmproxy -f /docker-entrypoint-initdb.d/002_platform_foundations.sql"
 
 docker-logs: ## Follow local compose logs
-	docker compose -f $(COMPOSE_FILE) logs -f
+	$(DOCKER_COMPOSE) logs -f
 
 docker-clean: ## Remove local compose resources
-	docker compose -f $(COMPOSE_FILE) down -v --remove-orphans
+	$(DOCKER_COMPOSE) down -v --remove-orphans
