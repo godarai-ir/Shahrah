@@ -1,8 +1,8 @@
-# Output Templates for LLMLite Expert
+# Output Templates for PortKey Expert
 
 ## MVP Capability Analysis
 
-Use this structure when the user asks which LiteLLM ideas should become Shahrah MVP capabilities.
+Use this structure when the user asks which PortKey ideas should become Shahrah MVP capabilities.
 
 ```markdown
 # Shahrah MVP Capability Analysis
@@ -11,9 +11,9 @@ Use this structure when the user asks which LiteLLM ideas should become Shahrah 
 
 State the recommended MVP scope in 3-7 bullets.
 
-## LiteLLM Capability Map
+## PortKey Capability Map
 
-| LiteLLM capability | User/job value | MVP decision | Shahrah adaptation | Rationale |
+| PortKey capability | User/job value | MVP decision | Shahrah adaptation | Rationale |
 |---|---:|---|---|---|
 | capability | high/medium/low | include/defer/exclude | adaptation | evidence from docs |
 
@@ -49,7 +49,7 @@ Use this structure when writing or revising a PRD.
 
 ## Context
 
-Explain the customer problem, Shahrah product goal, and relevant LiteLLM inspiration.
+Explain the customer problem, Shahrah product goal, and relevant PortKey inspiration.
 
 ## Goals
 
@@ -113,8 +113,8 @@ One paragraph describing the feature and why it is in the MVP.
 
 ## Inputs Reviewed
 
-- LiteLLM docs: paths reviewed
-- LiteLLM source: paths reviewed, only if needed
+- PortKey docs: paths reviewed
+- PortKey source: paths reviewed, only if needed
 - Shahrah plans: paths reviewed
 
 ## Architecture
