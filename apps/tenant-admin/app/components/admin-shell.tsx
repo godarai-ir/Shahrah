@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { LayoutDashboard, LogOut, Menu, Search, Settings } from "lucide-react";
+import { CreditCard, LayoutDashboard, LogOut, Menu, Search, Settings } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -68,6 +68,12 @@ export default function AdminShell({
       title: t("nav.dashboard"),
       icon: LayoutDashboard,
       isActive: pathname === "/",
+    },
+    {
+      href: "/billing/topup",
+      title: t("nav.topup"),
+      icon: CreditCard,
+      isActive: pathname.startsWith("/billing/topup"),
     },
     {
       href: "/settings",

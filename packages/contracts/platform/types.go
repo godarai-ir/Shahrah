@@ -55,6 +55,57 @@ type Transaction struct {
 	CreatedAt    time.Time              `json:"created_at"`
 }
 
+// WalletTopUpStatus defines payment lifecycle states.
+type WalletTopUpStatus string
+
+const (
+	WalletTopUpStatusPending   WalletTopUpStatus = "PENDING"
+	WalletTopUpStatusCompleted WalletTopUpStatus = "COMPLETED"
+	WalletTopUpStatusFailed    WalletTopUpStatus = "FAILED"
+	WalletTopUpStatusCanceled  WalletTopUpStatus = "CANCELED"
+)
+
+// WalletTopUpIntent tracks a pending external payment before wallet credit.
+type WalletTopUpIntent struct {
+	ID            string                 `json:"id"`
+	PublicID      string                 `json:"public_id"`
+	TenantID      string                 `json:"tenant_id"`
+	Provider      string                 `json:"provider"`
+	Status        WalletTopUpStatus      `json:"status"`
+	AmountUSD     float64                `json:"amount_usd"`
+	AmountIRR     float64                `json:"amount_irr"`
+	ExchangeRate  float64                `json:"exchange_rate"`
+	TaxPercent    float64                `json:"tax_percent"`
+	FeePercent    float64                `json:"fee_percent"`
+	TaxAmountIRR  float64                `json:"tax_amount_irr"`
+	FeeAmountIRR  float64                `json:"fee_amount_irr"`
+	PayableIRR    float64                `json:"payable_irr"`
+	Authority     string                 `json:"authority,omitempty"`
+	PaymentURL    string                 `json:"payment_url,omitempty"`
+	RefID         string                 `json:"ref_id,omitempty"`
+	GatewayTxnID  string                 `json:"gateway_txn_id,omitempty"`
+	CardMask      string                 `json:"card_mask,omitempty"`
+	PayerPhone    string                 `json:"payer_phone,omitempty"`
+	CallbackURL   string                 `json:"callback_url,omitempty"`
+	ReturnURL     string                 `json:"return_url,omitempty"`
+	Metadata      map[string]interface{} `json:"metadata,omitempty"`
+	RawPayload    map[string]interface{} `json:"raw_payload,omitempty"`
+	WalletTxID    string                 `json:"wallet_tx_id,omitempty"`
+	FailureReason string                 `json:"failure_reason,omitempty"`
+	CreatedAt     time.Time              `json:"created_at"`
+	UpdatedAt     time.Time              `json:"updated_at"`
+	CompletedAt   *time.Time             `json:"completed_at,omitempty"`
+}
+
+// WalletTopUpSettings controls supported top-up ranges and pricing parameters.
+type WalletTopUpSettings struct {
+	MinAmountUSD float64   `json:"min_amount_usd"`
+	MaxAmountUSD float64   `json:"max_amount_usd"`
+	TaxPercent   float64   `json:"tax_percent"`
+	FeePercent   float64   `json:"fee_percent"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
 // ExchangeRate records a USD to IRR rate snapshot.
 type ExchangeRate struct {
 	ID        string    `json:"id"`

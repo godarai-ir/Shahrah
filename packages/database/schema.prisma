@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["partialIndexes"]
 }
 
 datasource db {
@@ -67,6 +68,7 @@ model Tenant {
   spend_logs               SpendLog[]
   tenant_provider_accounts TenantProviderAccount[]
   verification_tokens      VerificationToken[]
+  wallet_topup_intents     wallet_topup_intents[]
   wallet_transactions      WalletTransaction[]
   wallets                  Wallet?
 
@@ -404,19 +406,20 @@ model Wallet {
 }
 
 model WalletTransaction {
-  transaction_id String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  wallet_id      String   @db.Uuid
-  tenant_id      String   @db.Uuid
-  tx_type        String   @db.VarChar(50)
-  amount_irr     Float
-  amount_usd     Float?
-  exchange_rate  Float?
-  status         String   @db.VarChar(50)
-  description    String?
-  metadata       Json?    @default("{}")
-  created_at     DateTime @default(now()) @db.Timestamptz(6)
-  tenants        Tenant   @relation(fields: [tenant_id], references: [tenant_id], onDelete: Cascade, onUpdate: NoAction)
-  wallets        Wallet   @relation(fields: [wallet_id], references: [wallet_id], onDelete: Cascade, onUpdate: NoAction)
+  transaction_id       String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  wallet_id            String                 @db.Uuid
+  tenant_id            String                 @db.Uuid
+  tx_type              String                 @db.VarChar(50)
+  amount_irr           Float
+  amount_usd           Float?
+  exchange_rate        Float?
+  status               String                 @db.VarChar(50)
+  description          String?
+  metadata             Json?                  @default("{}")
+  created_at           DateTime               @default(now()) @db.Timestamptz(6)
+  wallet_topup_intents wallet_topup_intents[]
+  tenants              Tenant                 @relation(fields: [tenant_id], references: [tenant_id], onDelete: Cascade, onUpdate: NoAction)
+  wallets              Wallet                 @relation(fields: [wallet_id], references: [wallet_id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([tenant_id], map: "idx_wallet_transactions_tenant_id")
   @@map("wallet_transactions")
@@ -492,4 +495,107 @@ model shahrah_sql_migrations {
   filename   String   @id
   checksum   String
   applied_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model tenant_admin_captchas {
+  id        String   @id
+  answer    String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([expiresAt], map: "tenant_admin_captcha_expires_at_idx")
+}
+
+model tenant_admin_otp_requests {
+  id                 String              @id
+  tenantSlug         String
+  purpose            String
+  channel            String
+  identifier         String
+  userID             String?
+  pendingValue       String?
+  otpCode            String
+  attempts           Int                 @default(0)
+  createdAt          DateTime            @default(now())
+  expiresAt          DateTime
+  tenant_admin_users tenant_admin_users? @relation(fields: [userID], references: [id])
+
+  @@index([expiresAt], map: "tenant_admin_otp_expires_at_idx")
+  @@index([tenantSlug, purpose], map: "tenant_admin_otp_tenant_purpose_idx")
+}
+
+model tenant_admin_sessions {
+  id                 String             @id
+  tenantSlug         String
+  userID             String
+  createdAt          DateTime           @default(now())
+  expiresAt          DateTime
+  tenant_admin_users tenant_admin_users @relation(fields: [userID], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt], map: "tenant_admin_session_expires_at_idx")
+  @@index([tenantSlug], map: "tenant_admin_session_tenant_slug_idx")
+}
+
+model tenant_admin_users {
+  id                        String                      @id
+  tenantSlug                String
+  email                     String?
+  mobile                    String?
+  role                      String                      @default("tenant_member")
+  createdAt                 DateTime                    @default(now())
+  updatedAt                 DateTime
+  lastLoginAt               DateTime?
+  tenant_admin_otp_requests tenant_admin_otp_requests[]
+  tenant_admin_sessions     tenant_admin_sessions[]
+
+  @@unique([tenantSlug, email], map: "tenant_admin_user_tenant_email_uq")
+  @@unique([tenantSlug, mobile], map: "tenant_admin_user_tenant_mobile_uq")
+  @@index([tenantSlug], map: "tenant_admin_user_tenant_slug_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model wallet_topup_intents {
+  topup_intent_id     String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  public_id           String             @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String             @db.Uuid
+  provider            String             @db.VarChar(50)
+  status              String             @db.VarChar(20)
+  amount_usd          Float
+  amount_irr          Float
+  exchange_rate       Float
+  tax_percent         Float
+  fee_percent         Float
+  tax_amount_irr      Float
+  fee_amount_irr      Float
+  payable_irr         Float
+  authority           String?            @unique(map: "idx_wallet_topup_intents_authority_unique", where: raw("(authority IS NOT NULL)")) @db.VarChar(255)
+  payment_url         String?
+  ref_id              String?            @db.VarChar(255)
+  gateway_txn_id      String?            @db.VarChar(255)
+  card_mask           String?            @db.VarChar(64)
+  payer_phone         String?            @db.VarChar(64)
+  callback_url        String?
+  return_url          String?
+  metadata            Json               @default("{}")
+  raw_payload         Json               @default("{}")
+  failure_reason      String?
+  wallet_tx_id        String?            @db.Uuid
+  completed_at        DateTime?          @db.Timestamptz(6)
+  created_at          DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime           @default(now()) @db.Timestamptz(6)
+  tenants             Tenant             @relation(fields: [tenant_id], references: [tenant_id], onDelete: Cascade, onUpdate: NoAction)
+  wallet_transactions WalletTransaction? @relation(fields: [wallet_tx_id], references: [transaction_id], onUpdate: NoAction)
+
+  @@index([status], map: "idx_wallet_topup_intents_status")
+  @@index([tenant_id, created_at(sort: Desc)], map: "idx_wallet_topup_intents_tenant_created")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model wallet_topup_settings {
+  settings_id    Boolean  @id @default(true)
+  min_amount_usd Float    @default(1)
+  max_amount_usd Float    @default(1000)
+  tax_percent    Float    @default(0)
+  fee_percent    Float    @default(2)
+  updated_at     DateTime @default(now()) @db.Timestamptz(6)
 }

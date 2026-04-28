@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import { JetBrains_Mono, Vazirmatn } from "next/font/google";
 import { getLocale, getMessages } from "next-intl/server";
 
@@ -20,8 +20,7 @@ const jetBrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "شاهراه | پنل مدیریت تننت",
-  description:
-    "پنل فارسی مدیریت تننت برای کلیدها، مدل‌ها، کیف پول و تنظیمات حساب.",
+  description: "پنل فارسی مدیریت تننت برای کلیدها، مدل‌ها، کیف پول و تنظیمات حساب.",
   icons: {
     icon: [{ url: "/icon.png", type: "image/png" }],
     apple: [{ url: "/apple-icon.png", type: "image/png" }],

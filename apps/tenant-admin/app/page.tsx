@@ -28,6 +28,17 @@ type Wallet = {
   balance_irr: number;
   pending_irr: number;
 };
+type WalletTransaction = {
+  id: string;
+  type: string;
+  amount_irr: number;
+  amount_usd?: number | null;
+  status: string;
+  created_at: string;
+};
+type WalletTransactionListResponse = {
+  data?: WalletTransaction[];
+};
 
 type KeyListResponse = {
   data?: TenantKey[];
@@ -53,7 +64,7 @@ export default async function Home() {
     process.env.SHAHRAH_DEFAULT_TENANT ||
     "default";
 
-  const [walletResult, keysResult, modelsResult] = await Promise.all([
+  const [walletResult, keysResult, modelsResult, txResult] = await Promise.all([
     fetchControlPlaneJSON({
       tenantSlug,
       method: "GET",
@@ -69,6 +80,11 @@ export default async function Home() {
       method: "GET",
       path: "/api/v1/models",
     }),
+    fetchControlPlaneJSON({
+      tenantSlug,
+      method: "GET",
+      path: "/api/v1/wallet/transactions?limit=20",
+    }),
   ]);
 
   const initialWallet = walletResult.ok
@@ -80,11 +96,15 @@ export default async function Home() {
   const initialModels = modelsResult.ok
     ? ((modelsResult.payload as ModelListResponse).data ?? [])
     : [];
+  const initialTransactions = txResult.ok
+    ? ((txResult.payload as WalletTransactionListResponse).data ?? [])
+    : [];
 
   const errorMessage =
     walletResult.errorMessage ??
     keysResult.errorMessage ??
     modelsResult.errorMessage ??
+    txResult.errorMessage ??
     null;
 
   const currentUser = {
@@ -101,6 +121,7 @@ export default async function Home() {
         initialWallet={initialWallet}
         initialKeys={initialKeys}
         initialModels={initialModels}
+        initialTransactions={initialTransactions}
         initialError={errorMessage}
         currentUser={currentUser}
       />

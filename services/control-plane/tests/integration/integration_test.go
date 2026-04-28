@@ -23,6 +23,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	controlserver "github.com/Delpak/shahrah/services/control-plane/internal/server"
+	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	tenantmw "github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	tunneltransport "github.com/Delpak/shahrah/services/control-plane/internal/tunnel"
 	silkserver "github.com/Delpak/shahrah/services/silk-road/pkg/server"
@@ -302,6 +303,7 @@ type integrationWalletStore struct {
 	requestLogs []platform.RequestLogEntry
 	spendLogs   []platform.SpendLog
 	onSpend     func(tokenHash string, amount float64)
+	settings    platform.WalletTopUpSettings
 }
 
 func (s *integrationWalletStore) GetWallet(ctx context.Context, tenantID string) (*platform.Wallet, error) {
@@ -335,6 +337,79 @@ func (s *integrationWalletStore) GetLatestExchangeRate(ctx context.Context) (*pl
 func (s *integrationWalletStore) UpsertExchangeRate(ctx context.Context, rate platform.ExchangeRate) (*platform.ExchangeRate, error) {
 	s.rate = &rate
 	return &rate, nil
+}
+
+func (s *integrationWalletStore) GetWalletTopUpSettings(ctx context.Context) (*platform.WalletTopUpSettings, error) {
+	return &s.settings, nil
+}
+
+func (s *integrationWalletStore) UpdateWalletTopUpSettings(ctx context.Context, minUSD, maxUSD, taxPercent, feePercent float64) (*platform.WalletTopUpSettings, error) {
+	s.settings.MinAmountUSD = minUSD
+	s.settings.MaxAmountUSD = maxUSD
+	s.settings.TaxPercent = taxPercent
+	s.settings.FeePercent = feePercent
+	s.settings.UpdatedAt = time.Now()
+	return &s.settings, nil
+}
+
+func (s *integrationWalletStore) CreateWalletTopUpIntent(ctx context.Context, p storage.CreateTopUpIntentParams) (*platform.WalletTopUpIntent, error) {
+	return &platform.WalletTopUpIntent{
+		ID:           "intent-1",
+		PublicID:     "intent-public-1",
+		TenantID:     p.TenantID,
+		Provider:     p.Provider,
+		Status:       platform.WalletTopUpStatusPending,
+		AmountUSD:    p.AmountUSD,
+		AmountIRR:    p.AmountIRR,
+		ExchangeRate: p.ExchangeRate,
+		TaxPercent:   p.TaxPercent,
+		FeePercent:   p.FeePercent,
+		TaxAmountIRR: p.TaxAmountIRR,
+		FeeAmountIRR: p.FeeAmountIRR,
+		PayableIRR:   p.PayableIRR,
+		CallbackURL:  p.CallbackURL,
+		ReturnURL:    p.ReturnURL,
+		Metadata:     p.Metadata,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}, nil
+}
+
+func (s *integrationWalletStore) AttachWalletTopUpGatewayData(ctx context.Context, intentPublicID, authority, paymentURL string, raw map[string]interface{}) error {
+	return nil
+}
+
+func (s *integrationWalletStore) GetWalletTopUpIntentByAuthority(ctx context.Context, authority string) (*platform.WalletTopUpIntent, error) {
+	return &platform.WalletTopUpIntent{
+		PublicID:   "intent-public-1",
+		ReturnURL:  "https://default.app.sharah.ir/billing/topup/result",
+		Authority:  authority,
+		Status:     platform.WalletTopUpStatusPending,
+		AmountUSD:  10,
+		PayableIRR: 8500000,
+	}, nil
+}
+
+func (s *integrationWalletStore) CompleteWalletTopUpByAuthority(ctx context.Context, authority string, verifyRaw map[string]interface{}, refID, gatewayTxnID, cardMask, payerPhone string) (*platform.WalletTopUpIntent, bool, error) {
+	s.wallet.BalanceIRR += 1000
+	return &platform.WalletTopUpIntent{
+		PublicID:     "intent-public-1",
+		ReturnURL:    "https://default.app.sharah.ir/billing/topup/result",
+		Authority:    authority,
+		Status:       platform.WalletTopUpStatusCompleted,
+		RefID:        refID,
+		GatewayTxnID: gatewayTxnID,
+		CardMask:     cardMask,
+		PayerPhone:   payerPhone,
+	}, false, nil
+}
+
+func (s *integrationWalletStore) MarkWalletTopUpFailedByAuthority(ctx context.Context, authority string, reason string, raw map[string]interface{}) error {
+	return nil
+}
+
+func (s *integrationWalletStore) ListWalletTransactions(ctx context.Context, tenantID string, limit int) ([]platform.Transaction, error) {
+	return []platform.Transaction{}, nil
 }
 
 func (s *integrationWalletStore) LogRequest(ctx context.Context, entry platform.RequestLogEntry) error {
@@ -472,6 +547,13 @@ func newIntegrationApp(t *testing.T, logger *zap.Logger, memCache cache.Cache, p
 	walletStore := &integrationWalletStore{
 		wallet: &platform.Wallet{ID: "wallet-1", TenantID: "tenant-1", BalanceIRR: 0},
 		rate:   &platform.ExchangeRate{ID: "rate-1", USDtoIRR: 850000, Source: "test", FetchedAt: time.Now()},
+		settings: platform.WalletTopUpSettings{
+			MinAmountUSD: 1,
+			MaxAmountUSD: 1000,
+			TaxPercent:   0,
+			FeePercent:   2,
+			UpdatedAt:    time.Now(),
+		},
 	}
 
 	billingSvc := billing.NewService(memCache, walletStore, 850000, "test")

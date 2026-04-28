@@ -1,0 +1,93 @@
+﻿import Link from "next/link";
+import { getTranslations } from "next-intl/server";
+
+import AdminShell from "@/app/components/admin-shell";
+import { headers } from "next/headers";
+import { requireAuth } from "@/lib/auth/session";
+import { extractTenantSlugFromHost } from "@/lib/tenant";
+
+type ResultPageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export const dynamic = "force-dynamic";
+
+export default async function TopUpResultPage(props: ResultPageProps) {
+  const auth = await requireAuth("/login");
+  const t = await getTranslations("topupResult");
+
+  const incomingHeaders = await headers();
+  const incomingHost =
+    incomingHeaders.get("x-forwarded-host") ??
+    incomingHeaders.get("host") ??
+    "";
+
+  const tenantSlug =
+    extractTenantSlugFromHost(incomingHost) ||
+    process.env.SHAHRAH_DEFAULT_TENANT ||
+    "default";
+
+  const currentUser = {
+    id: auth.user.id,
+    email: auth.user.email,
+    mobile: auth.user.mobile,
+    role: auth.user.role,
+  };
+
+  const searchParams = await props.searchParams;
+  const status = first(searchParams.status) ?? "unknown";
+  const reason = first(searchParams.reason);
+  const refID = first(searchParams.ref_id);
+  const authority = first(searchParams.authority);
+
+  const success = status === "success";
+
+  return (
+    <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
+      <div className="mx-auto max-w-2xl rounded-xl border bg-card p-6">
+        <h1 className="text-2xl font-bold">{t("title")}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {success ? t("successDescription") : t("failureDescription")}
+        </p>
+
+        <dl className="mt-6 space-y-2 text-sm">
+          <div className="flex items-center justify-between gap-3 border-b pb-2">
+            <dt className="text-muted-foreground">{t("fields.status")}</dt>
+            <dd className="font-medium">{status}</dd>
+          </div>
+          {refID ? (
+            <div className="flex items-center justify-between gap-3 border-b pb-2">
+              <dt className="text-muted-foreground">{t("fields.refId")}</dt>
+              <dd className="font-mono">{refID}</dd>
+            </div>
+          ) : null}
+          {authority ? (
+            <div className="flex items-center justify-between gap-3 border-b pb-2">
+              <dt className="text-muted-foreground">{t("fields.authority")}</dt>
+              <dd className="font-mono">{authority}</dd>
+            </div>
+          ) : null}
+          {reason ? (
+            <div className="flex items-center justify-between gap-3 border-b pb-2">
+              <dt className="text-muted-foreground">{t("fields.reason")}</dt>
+              <dd>{reason}</dd>
+            </div>
+          ) : null}
+        </dl>
+
+        <div className="mt-6">
+          <Link href="/billing/topup" className="inline-flex h-10 items-center rounded-md border px-4 text-sm font-medium">
+            {t("backToTopup")}
+          </Link>
+        </div>
+      </div>
+    </AdminShell>
+  );
+}
+
+function first(value: string | string[] | undefined): string | undefined {
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+  return value;
+}

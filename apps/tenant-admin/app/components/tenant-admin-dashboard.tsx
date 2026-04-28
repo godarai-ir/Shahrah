@@ -51,12 +51,20 @@ type Wallet = {
   pending_irr: number;
 };
 
-type KeyListResponse = {
-  data?: TenantKey[];
+type WalletTransaction = {
+  id: string;
+  type: string;
+  amount_irr: number;
+  status: string;
+  created_at: string;
 };
 
-type ModelListResponse = {
-  data?: TenantModel[];
+type WalletTransactionListResponse = {
+  data?: WalletTransaction[];
+};
+
+type KeyListResponse = {
+  data?: TenantKey[];
 };
 
 type Banner = {
@@ -70,6 +78,7 @@ type TenantAdminDashboardProps = {
   initialKeys: TenantKey[];
   initialModels: TenantModel[];
   initialError: string | null;
+  initialTransactions: WalletTransaction[];
   currentUser: {
     id: string;
     email?: string;
@@ -85,8 +94,8 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
   const common = useTranslations("common");
 
   const [keys, setKeys] = useState<TenantKey[]>(props.initialKeys);
-  const [models, setModels] = useState<TenantModel[]>(props.initialModels);
   const [wallet, setWallet] = useState<Wallet | null>(props.initialWallet);
+  const [transactions, setTransactions] = useState<WalletTransaction[]>(props.initialTransactions);
   const [lastCreatedKey, setLastCreatedKey] = useState<string | null>(null);
   const [banner, setBanner] = useState<Banner | null>(
     props.initialError
@@ -100,7 +109,6 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isCreatingKey, setIsCreatingKey] = useState(false);
   const [isCreatingModel, setIsCreatingModel] = useState(false);
-  const [isTopUpLoading, setIsTopUpLoading] = useState(false);
 
   const [keyAlias, setKeyAlias] = useState("tenant-dashboard-key");
   const [keyModelsInput, setKeyModelsInput] = useState("gpt-4o-mini");
@@ -114,8 +122,6 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
   const [tpm, setTPM] = useState("150000");
   const [weight, setWeight] = useState("1");
 
-  const [topUpAmount, setTopUpAmount] = useState("1500000");
-
   const tenantSlug = useMemo(() => {
     const slug = extractTenantSlugFromHost(props.initialHost);
     return slug || "default";
@@ -127,15 +133,15 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
   const loadDashboard = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [walletData, keysData, modelsData] = await Promise.all([
+      const [walletData, keysData, txData] = await Promise.all([
         requestJSON<Wallet>("/api/wallet"),
         requestJSON<KeyListResponse>("/api/keys"),
-        requestJSON<ModelListResponse>("/api/models"),
+        requestJSON<WalletTransactionListResponse>("/api/wallet/transactions?limit=20"),
       ]);
 
       setWallet(walletData);
       setKeys(keysData.data ?? []);
-      setModels(modelsData.data ?? []);
+      setTransactions(txData.data ?? []);
     } catch (error) {
       setBanner({
         kind: "error",
@@ -241,46 +247,6 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
     }
   }
 
-  async function handleTopUp(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBanner(null);
-
-    const amount = Number(topUpAmount);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setBanner({
-        kind: "error",
-        message: t("wallet.messages.validation"),
-      });
-      return;
-    }
-
-    setIsTopUpLoading(true);
-    try {
-      await requestJSON("/api/wallet/topup", {
-        method: "POST",
-        body: JSON.stringify({
-          amount_irr: amount,
-          metadata: {
-            source: "tenant-admin-ui",
-          },
-        }),
-      });
-
-      await loadDashboard();
-      setBanner({
-        kind: "success",
-        message: t("wallet.messages.success"),
-      });
-    } catch (error) {
-      setBanner({
-        kind: "error",
-        message: normalizeError(error, common("requestError")),
-      });
-    } finally {
-      setIsTopUpLoading(false);
-    }
-  }
-
   return (
     <div className="space-y-6">
       <Card>
@@ -303,7 +269,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
 
       {banner ? (
         <Alert variant={banner.kind === "error" ? "destructive" : "default"}>
-          <AlertTitle>{banner.kind === "error" ? "خطا" : "موفق"}</AlertTitle>
+          <AlertTitle>{banner.kind === "error" ? t("messages.errorTitle") : t("messages.successTitle")}</AlertTitle>
           <AlertDescription>{banner.message}</AlertDescription>
         </Alert>
       ) : null}
@@ -413,62 +379,14 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
           </CardHeader>
           <CardContent className="space-y-4">
             <form className="grid gap-3 sm:grid-cols-2" onSubmit={handleCreateModel}>
-              <InputField
-                id="modelName"
-                label={t("models.displayName")}
-                value={modelName}
-                onChange={setModelName}
-                placeholder="gpt-4o-mini"
-              />
-              <InputField
-                id="provider"
-                label={t("models.provider")}
-                value={provider}
-                onChange={setProvider}
-                placeholder="openai"
-              />
-              <InputField
-                id="providerModel"
-                label={t("models.providerModel")}
-                value={providerModel}
-                onChange={setProviderModel}
-                placeholder="gpt-4o-mini"
-              />
-              <InputField
-                id="apiBase"
-                label={t("models.apiBase")}
-                value={apiBase}
-                onChange={setApiBase}
-                placeholder="http://provider.example/v1"
-              />
-              <InputField
-                id="apiKey"
-                label={t("models.apiKey")}
-                value={apiKey}
-                onChange={setApiKey}
-                placeholder="sk-provider"
-              />
-              <InputField
-                id="rpm"
-                label={t("models.rpm")}
-                value={rpm}
-                onChange={setRPM}
-                placeholder="250"
-              />
-              <InputField
-                id="tpm"
-                label={t("models.tpm")}
-                value={tpm}
-                onChange={setTPM}
-                placeholder="150000"
-              />
-              <InputField
-                id="weight"
-                label={t("models.weight")}
-                value={weight}
-                onChange={setWeight}
-                placeholder="1"
-              />
+              <InputField id="modelName" label={t("models.displayName")} value={modelName} onChange={setModelName} placeholder="gpt-4o-mini" />
+              <InputField id="provider" label={t("models.provider")} value={provider} onChange={setProvider} placeholder="openai" />
+              <InputField id="providerModel" label={t("models.providerModel")} value={providerModel} onChange={setProviderModel} placeholder="gpt-4o-mini" />
+              <InputField id="apiBase" label={t("models.apiBase")} value={apiBase} onChange={setApiBase} placeholder="http://provider.example/v1" />
+              <InputField id="apiKey" label={t("models.apiKey")} value={apiKey} onChange={setApiKey} placeholder="sk-provider" />
+              <InputField id="rpm" label={t("models.rpm")} value={rpm} onChange={setRPM} placeholder="250" />
+              <InputField id="tpm" label={t("models.tpm")} value={tpm} onChange={setTPM} placeholder="150000" />
+              <InputField id="weight" label={t("models.weight")} value={weight} onChange={setWeight} placeholder="1" />
 
               <div className="sm:col-span-2">
                 <Button type="submit" disabled={isCreatingModel}>
@@ -476,74 +394,16 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
                 </Button>
               </div>
             </form>
-
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("models.table.model")}</TableHead>
-                  <TableHead>{t("models.table.provider")}</TableHead>
-                  <TableHead>{t("models.table.aliases")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {models.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={3} className="text-muted-foreground">
-                      {t("models.table.empty")}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  models.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>{item.id}</TableCell>
-                      <TableCell>{item.provider ?? common("none")}</TableCell>
-                      <TableCell>
-                        {(item.aliases ?? []).length > 0
-                          ? (item.aliases ?? []).join("، ")
-                          : common("none")}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
           </CardContent>
         </Card>
       </section>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("wallet.title")}</CardTitle>
-          <CardDescription>{t("wallet.description")}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleTopUp} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <div className="w-full max-w-xs grid gap-2">
-              <Label htmlFor="walletAmount">{t("wallet.amount")}</Label>
-              <Input
-                id="walletAmount"
-                value={topUpAmount}
-                onChange={(event) => setTopUpAmount(event.target.value)}
-                placeholder={t("wallet.amountPlaceholder")}
-              />
-            </div>
-            <Button type="submit" disabled={isTopUpLoading}>
-              {isTopUpLoading ? t("wallet.submitting") : t("wallet.submit")}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
 
       <ProviderAccountWizard />
     </div>
   );
 }
 
-function SummaryCard(props: {
-  title: string;
-  value: string;
-  subtitle: string;
-}) {
+function SummaryCard(props: { title: string; value: string; subtitle: string }) {
   return (
     <Card>
       <CardHeader className="gap-3">
@@ -555,30 +415,16 @@ function SummaryCard(props: {
   );
 }
 
-function InputField(props: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder: string;
-}) {
+function InputField(props: { id: string; label: string; value: string; onChange: (value: string) => void; placeholder: string }) {
   return (
     <div className="grid gap-2">
       <Label htmlFor={props.id}>{props.label}</Label>
-      <Input
-        id={props.id}
-        value={props.value}
-        onChange={(event) => props.onChange(event.target.value)}
-        placeholder={props.placeholder}
-      />
+      <Input id={props.id} value={props.value} onChange={(event) => props.onChange(event.target.value)} placeholder={props.placeholder} />
     </div>
   );
 }
 
-async function requestJSON<T = unknown>(
-  path: string,
-  options?: RequestInit,
-): Promise<T> {
+async function requestJSON<T = unknown>(path: string, options?: RequestInit): Promise<T> {
   const headers = new Headers(options?.headers ?? {});
   if (options?.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
@@ -593,17 +439,13 @@ async function requestJSON<T = unknown>(
   const text = await response.text();
   const data = parseResponsePayload(text);
   if (!response.ok) {
-    throw new Error(
-      extractMessageFromPayload(data) ?? `خطای درخواست (${response.status})`,
-    );
+    throw new Error(extractMessageFromPayload(data) ?? `خطای درخواست (${response.status})`);
   }
   return data as T;
 }
 
 function parseResponsePayload(text: string): unknown {
-  if (!text.trim()) {
-    return {};
-  }
+  if (!text.trim()) return {};
   try {
     return JSON.parse(text) as unknown;
   } catch {
@@ -612,35 +454,20 @@ function parseResponsePayload(text: string): unknown {
 }
 
 function extractMessageFromPayload(payload: unknown): string | null {
-  if (typeof payload === "string") {
-    return payload;
-  }
-  if (!payload || typeof payload !== "object") {
-    return null;
-  }
-
-  const candidate = payload as {
-    error?: {
-      message?: string;
-    };
-    message?: string;
-  };
-
+  if (typeof payload === "string") return payload;
+  if (!payload || typeof payload !== "object") return null;
+  const candidate = payload as { error?: { message?: string }; message?: string };
   return candidate.error?.message ?? candidate.message ?? null;
 }
 
 function normalizeError(error: unknown, fallback: string): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
+  if (error instanceof Error) return error.message;
   return fallback;
 }
 
 function toNumberOrUndefined(value: string): number | undefined {
   const raw = value.trim();
-  if (!raw) {
-    return undefined;
-  }
+  if (!raw) return undefined;
   const parsed = Number(raw);
   return Number.isFinite(parsed) ? parsed : undefined;
 }

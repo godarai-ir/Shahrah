@@ -8,6 +8,7 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
@@ -26,6 +27,15 @@ type modelStore interface {
 type walletStore interface {
 	GetWallet(ctx context.Context, tenantID string) (*platform.Wallet, error)
 	TopUpWallet(ctx context.Context, tenantID string, amountIRR float64, metadata map[string]interface{}) (*platform.Transaction, error)
+	GetLatestExchangeRate(ctx context.Context) (*platform.ExchangeRate, error)
+	GetWalletTopUpSettings(ctx context.Context) (*platform.WalletTopUpSettings, error)
+	UpdateWalletTopUpSettings(ctx context.Context, minUSD, maxUSD, taxPercent, feePercent float64) (*platform.WalletTopUpSettings, error)
+	CreateWalletTopUpIntent(ctx context.Context, p storage.CreateTopUpIntentParams) (*platform.WalletTopUpIntent, error)
+	AttachWalletTopUpGatewayData(ctx context.Context, intentPublicID, authority, paymentURL string, raw map[string]interface{}) error
+	GetWalletTopUpIntentByAuthority(ctx context.Context, authority string) (*platform.WalletTopUpIntent, error)
+	CompleteWalletTopUpByAuthority(ctx context.Context, authority string, verifyRaw map[string]interface{}, refID, gatewayTxnID, cardMask, payerPhone string) (*platform.WalletTopUpIntent, bool, error)
+	MarkWalletTopUpFailedByAuthority(ctx context.Context, authority string, reason string, raw map[string]interface{}) error
+	ListWalletTransactions(ctx context.Context, tenantID string, limit int) ([]platform.Transaction, error)
 }
 
 type providerAccountStore interface {

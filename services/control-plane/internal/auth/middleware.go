@@ -58,8 +58,8 @@ func NewAuthMiddleware(keyStore KeyStore, masterKey string, logger *zap.Logger) 
 // Middleware returns the Fiber middleware handler.
 func (m *AuthMiddleware) Middleware() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		// Skip auth for health check
-		if c.Path() == "/health" || c.Path() == "/ready" {
+		// Skip auth for health checks and payment gateway callbacks.
+		if c.Path() == "/health" || c.Path() == "/ready" || strings.HasPrefix(c.Path(), "/api/v1/wallet/topup/callback/") {
 			return c.Next()
 		}
 

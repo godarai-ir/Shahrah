@@ -114,7 +114,11 @@ GET    /api/v1/usage/{model}      # Get usage by model
 
 # Billing
 GET    /api/v1/wallet             # Get wallet balance
-POST   /api/v1/wallet/topup       # Request wallet top-up (payment link)
+POST   /api/v1/wallet/topup/intents # Create top-up payment intent from USD amount
+GET    /api/v1/wallet/topup/callback/{provider} # Provider callback endpoint (public)
+POST   /api/v1/wallet/topup/callback/{provider} # Provider callback endpoint (public)
+GET    /api/v1/wallet/topup/settings # Get min/max USD + tax/fee settings
+PUT    /api/v1/wallet/topup/settings # Update min/max USD + tax/fee settings (support-admin)
 GET    /api/v1/transactions       # List transactions
 GET    /api/v1/invoices           # List invoices
 GET    /api/v1/invoices/{id}      # Get invoice details

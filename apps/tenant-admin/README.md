@@ -12,7 +12,10 @@ Current implementation is wired to existing control-plane management APIs:
 - `GET/POST /api/v1/keys`
 - `GET/POST /api/v1/models`
 - `GET /api/v1/wallet`
-- `POST /api/v1/wallet/topup`
+- `POST /api/v1/wallet/topup/intents`
+- `GET|POST /api/v1/wallet/topup/callback/:provider`
+- `GET /api/v1/wallet/transactions`
+- `GET /api/v1/wallet/topup/settings`
 
 Authentication flow implemented in app routes:
 
@@ -34,13 +37,21 @@ Notes:
   - captcha challenges
 - Database schema is auto-bootstrapped on first auth request.
 
+Wallet top-up UX flow in tenant-admin:
+
+1. User opens `/billing/topup`, enters top-up amount in USD and selects provider (`mock`, `zarinpal`, `idpay`).
+2. Frontend calls `POST /api/wallet/topup` (app route proxy to control-plane intent endpoint).
+3. On success, app redirects browser to returned `payment_url`.
+4. After provider callback/verification, user lands on `/billing/topup/result` and can return to dashboard.
+5. Dashboard also reads dynamic top-up constraints (`min/max/tax/fee`) and shows recent wallet transactions.
+
 ## Environment
 
 Create `apps/tenant-admin/.env.local`:
 
 ```bash
 SHAHRAH_CONTROL_PLANE_URL=http://127.0.0.1:4000
-SHAHRAH_MASTER_KEY=sk-master
+SHAHRAH_MASTER_KEY=-sk-dev-master-key-12345
 SHAHRAH_DEFAULT_TENANT=default
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/sharah_db?sslmode=disable
 ```

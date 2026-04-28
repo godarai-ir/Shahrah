@@ -4,6 +4,27 @@
 
 This document describes the payment and billing system for Shahrah, designed specifically for the Iranian market. The system supports Rial (IRR) wallet top-ups through Iranian payment gateways while maintaining USD-based token consumption tracking with real-time exchange rate conversion.
 
+## Implementation Status (2026-04-28)
+
+- `COMPLETED (MVP)`: wallet top-up intent and callback pipeline in control-plane
+- Implemented providers:
+  - `mock` (development/staging)
+  - `zarinpal` (request + verify)
+  - `idpay` (request + verify)
+- Implemented runtime flow:
+  1. `POST /api/v1/wallet/topup/intents` with `amount_usd` and provider
+  2. USD-to-IRR conversion with current exchange rate
+  3. tax/fee application (current defaults: tax `0%`, fee `2%`)
+  4. redirect to gateway via returned `payment_url`
+  5. gateway callback to `/api/v1/wallet/topup/callback/:provider`
+  6. server-to-server verify with provider API
+  7. atomic wallet credit + `DEPOSIT` transaction on success
+  8. redirect to tenant app with query-string status
+- Implemented idempotency:
+  - callback completion is idempotent using unique `authority` and transactional `FOR UPDATE` flow
+- Implemented auditable fields:
+  - `ref_id`, `gateway_txn_id`, `card_mask`, `payer_phone`, `raw_payload`, `wallet_tx_id`
+
 ## Architecture
 
 ### Core Components

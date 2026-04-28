@@ -25,16 +25,20 @@ export async function getAuthContext(): Promise<AuthContext | null> {
     return null;
   }
 
+  const session = await getTenantSession(sessionID);
+  if (!session) {
+    return null;
+  }
+
   const incomingHeaders = await headers();
-  const tenantSlug = resolveTenantSlugFromHeaders(
+  const hintedTenantSlug = resolveTenantSlugFromHeaders(
     incomingHeaders,
     process.env.SHAHRAH_DEFAULT_TENANT ?? "default",
   );
-
-  const session = await getTenantSession(sessionID);
-  if (!session || session.tenantSlug !== tenantSlug) {
-    return null;
-  }
+  const tenantSlug =
+    hintedTenantSlug === session.tenantSlug
+      ? hintedTenantSlug
+      : session.tenantSlug;
 
   const user = await getTenantUser(tenantSlug, session.userID);
   if (!user) {

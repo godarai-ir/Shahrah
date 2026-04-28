@@ -6,7 +6,9 @@ import { proxyToControlPlane } from "@/lib/control-plane";
 export const dynamic = "force-dynamic";
 
 type TopUpPayload = {
-  amount_irr?: unknown;
+  amount_usd?: unknown;
+  provider?: unknown;
+  return_url?: unknown;
   metadata?: unknown;
 };
 
@@ -27,13 +29,23 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const amount = parseAmount(body.amount_irr);
+  const amount = parseAmount(body.amount_usd);
   if (amount === null || amount <= 0) {
     return NextResponse.json(
-      { error: { message: "amount_irr باید عددی مثبت باشد." } },
+      { error: { message: "مقدار amount_usd باید یک عدد مثبت باشد." } },
       { status: 400 },
     );
   }
+
+  const provider =
+    typeof body.provider === "string" && body.provider.trim() !== ""
+      ? body.provider.trim().toLowerCase()
+      : "mock";
+
+  const returnURL =
+    typeof body.return_url === "string" && body.return_url.trim() !== ""
+      ? body.return_url.trim()
+      : undefined;
 
   const metadata =
     body.metadata && typeof body.metadata === "object" && !Array.isArray(body.metadata)
@@ -43,9 +55,11 @@ export async function POST(request: NextRequest) {
   return proxyToControlPlane({
     request,
     method: "POST",
-    path: "/api/v1/wallet/topup",
+    path: "/api/v1/wallet/topup/intents",
     body: {
-      amount_irr: amount,
+      amount_usd: amount,
+      provider,
+      return_url: returnURL,
       metadata,
     },
   });

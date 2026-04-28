@@ -67,6 +67,7 @@ Migration order:
 
 1. `db/main/migrations/001_initial.sql`
 2. `db/main/migrations/002_platform_foundations.sql`
+3. `db/main/migrations/005_wallet_topup_intents.sql`
 
 Required runtime configuration:
 

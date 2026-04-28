@@ -1,4 +1,4 @@
-.PHONY: help setup build run test-unit test-integration test-integration-db test fmt vet lint check docker-up docker-down docker-migrate docker-logs docker-clean
+.PHONY: help setup setup-full setup-local build run test-unit test-integration test-integration-db test fmt vet lint check docker-up docker-down docker-migrate docker-logs docker-clean
 
 CONTROL_PLANE_DIR := services/control-plane
 COMPOSE_FILE := infra/compose/local.yml
@@ -14,8 +14,12 @@ help: ## Show this help message
 	@echo "Targets:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-setup: ## Download and tidy control-plane dependencies
+setup: setup-local ## Default local setup without remote-sensitive tidy
+
+setup-local: ## Download control-plane dependencies (local-safe, no tidy)
 	$(GO) -C $(CONTROL_PLANE_DIR) mod download
+
+setup-full: ## Download and tidy control-plane dependencies (may require VCS access)
 	$(GO) -C $(CONTROL_PLANE_DIR) mod tidy
 
 build: ## Build the control-plane service

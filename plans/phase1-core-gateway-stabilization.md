@@ -1396,6 +1396,14 @@ test-coverage:
 - Total estimated effort reduced by 2-3 days
 - Overall stabilization progress: **~50% complete** (up from ~40%)
 
+### Updated Assessment (2026-04-28)
+- **Wallet top-up pipeline** implemented end-to-end:
+  - top-up intent creation from USD amount
+  - provider request/redirect for `mock`, `zarinpal`, `idpay`
+  - public callback endpoint + provider verification
+  - idempotent atomic wallet credit and deposit ledger transaction
+  - support-admin configurable min/max USD and tax/fee settings
+
 ---
 
 ## Risk Mitigation

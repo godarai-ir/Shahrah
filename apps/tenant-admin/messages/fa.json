@@ -16,9 +16,10 @@
     },
     "nav": {
       "dashboard": "داشبورد",
+      "topup": "شارژ کیف پول",
       "settings": "تنظیمات حساب"
     },
-    "logoAlt": "????? ??????"
+    "logoAlt": "لوگوی شاهراه"
   },
   "common": {
     "save": "ذخیره",
@@ -31,10 +32,14 @@
   },
   "dashboard": {
     "title": "داشبورد تننت",
-    "subtitle": "مدیریت کلیدها، مدل‌ها و شارژ کیف پول",
+    "subtitle": "مدیریت کلیدها، مدل‌ها و وضعیت کیف پول",
     "currentUser": "کاربر جاری",
-    "tenantHint": "تننت از روی hostname تشخیص داده می‌شود.",
     "refreshing": "در حال به‌روزرسانی...",
+    "keyCreatedTitle": "کلید ساخته‌شده فقط یک‌بار نمایش داده می‌شود",
+    "messages": {
+      "errorTitle": "خطا",
+      "successTitle": "موفق"
+    },
     "stats": {
       "balance": "موجودی کیف پول",
       "balanceHint": "اعتبار قابل استفاده",
@@ -43,7 +48,6 @@
       "keys": "کلیدهای API",
       "keysHint": "کلیدهای فعال تننت"
     },
-    "keyCreatedTitle": "کلید ساخته‌شده فقط یک‌بار نمایش داده می‌شود",
     "keys": {
       "title": "مدیریت کلید API",
       "description": "ایجاد و مشاهده کلیدهای دسترسی تننت",
@@ -58,8 +62,8 @@
         "role": "نقش",
         "models": "مدل‌ها",
         "key": "کلید",
-        "empty": "هنوز کلیدی برای این تننت ثبت نشده است.",
-        "hidden": "پنهان"
+        "hidden": "پنهان",
+        "empty": "هنوز کلیدی برای این تننت ثبت نشده است."
       },
       "messages": {
         "validation": "وارد کردن نام کلید و حداقل یک مدل الزامی است.",
@@ -72,36 +76,76 @@
       "displayName": "نام نمایشی مدل",
       "provider": "پرووایدر",
       "providerModel": "نام مدل در پرووایدر",
-      "apiBase": "API Base",
-      "apiKey": "API Key",
+      "apiBase": "آدرس پایه API",
+      "apiKey": "کلید API",
       "rpm": "RPM",
       "tpm": "TPM",
       "weight": "وزن",
       "create": "افزودن مدل",
       "creating": "در حال افزودن...",
-      "table": {
-        "model": "مدل",
-        "provider": "پرووایدر",
-        "aliases": "نام‌های جایگزین",
-        "empty": "هنوز مدلی برای این تننت ثبت نشده است."
-      },
       "messages": {
         "validation": "تکمیل همه فیلدهای ضروری مدل الزامی است.",
         "success": "مدل جدید برای تننت ثبت شد."
       }
     },
-    "wallet": {
-      "title": "شارژ کیف پول",
-      "description": "افزایش اعتبار کیف پول تننت",
-      "amount": "مبلغ (ریال)",
-      "amountPlaceholder": "1500000",
-      "submit": "شارژ کیف پول",
-      "submitting": "در حال پردازش...",
-      "messages": {
-        "validation": "مبلغ شارژ باید عددی بیشتر از صفر باشد.",
-        "success": "کیف پول با موفقیت شارژ شد."
-      }
+    "transactions": {
+      "title": "تراکنش‌های کیف پول",
+      "description": "۲۰ تراکنش آخر کیف پول این تننت",
+      "columns": {
+        "id": "شناسه",
+        "type": "نوع",
+        "status": "وضعیت",
+        "amount": "مبلغ (ریال)",
+        "createdAt": "زمان ایجاد"
+      },
+      "empty": "تراکنشی ثبت نشده است."
     }
+  },
+  "topupPage": {
+    "title": "شارژ کیف پول",
+    "description": "مبلغ را انتخاب کنید و به درگاه پرداخت منتقل شوید.",
+    "errorTitle": "خطا",
+    "amountLabel": "مبلغ (دلار)",
+    "providerLabel": "درگاه پرداخت",
+    "balanceLabel": "موجودی فعلی کیف پول",
+    "constraints": "بازه مجاز: {min} تا {max} دلار | مالیات: {tax}% | کارمزد: {fee}%",
+    "submit": "ادامه و انتقال به درگاه",
+    "submitLoading": "در حال ایجاد پرداخت...",
+    "providers": {
+      "mock": "درگاه آزمایشی (توسعه)",
+      "zarinpal": "زرین‌پال",
+      "idpay": "آی‌دی‌پی"
+    },
+    "messages": {
+      "amountOutOfRange": "مبلغ باید بین {min} و {max} دلار باشد.",
+      "intentFailed": "ایجاد درخواست پرداخت ناموفق بود.",
+      "missingRedirect": "آدرس انتقال به درگاه دریافت نشد.",
+      "unknownError": "خطای ناشناخته رخ داد."
+    },
+    "transactions": {
+      "title": "تراکنش‌های اخیر",
+      "description": "۲۰ تراکنش آخر کیف پول این تننت",
+      "columns": {
+        "id": "شناسه",
+        "type": "نوع",
+        "status": "وضعیت",
+        "amount": "مبلغ (ریال)",
+        "createdAt": "زمان ایجاد"
+      },
+      "empty": "تراکنشی ثبت نشده است."
+    }
+  },
+  "topupResult": {
+    "title": "نتیجه شارژ کیف پول",
+    "successDescription": "پرداخت با موفقیت انجام شد و کیف پول شارژ شد.",
+    "failureDescription": "پرداخت کامل نشد یا با خطا مواجه شد.",
+    "fields": {
+      "status": "وضعیت",
+      "refId": "کد پیگیری",
+      "authority": "Authority درگاه",
+      "reason": "دلیل"
+    },
+    "backToTopup": "بازگشت به صفحه شارژ"
   },
   "login": {
     "title": "ورود",
@@ -126,14 +170,12 @@
       "devCode": "کد OTP توسعه",
       "back": "بازگشت"
     },
-    "logoAlt": "????? ??????"
+    "logoAlt": "لوگوی شاهراه"
   },
   "settings": {
     "title": "تنظیمات حساب",
     "subtitle": "مدیریت اطلاعات تماس و احراز هویت",
     "role": "نقش فعلی",
-    "sameAccess": "در فاز فعلی همه کاربران دسترسی یکسان به پنل دارند.",
-    "backToDashboard": "بازگشت به داشبورد",
     "sections": {
       "email": "ایمیل",
       "mobile": "شماره همراه"

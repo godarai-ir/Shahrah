@@ -75,6 +75,12 @@ func registerRoutes(app *fiber.App, deps Dependencies) {
 	api.Post("/tenant-provider-accounts/:accountID/test-credentials", deps.AdminHandlers.TestTenantProviderAccountCredentials)
 	api.Get("/wallet", deps.AdminHandlers.GetWallet)
 	api.Post("/wallet/topup", deps.AdminHandlers.TopUpWallet)
+	api.Post("/wallet/topup/intents", deps.AdminHandlers.CreateWalletTopUpIntent)
+	api.Get("/wallet/transactions", deps.AdminHandlers.ListWalletTransactions)
+	api.Get("/wallet/topup/settings", deps.AdminHandlers.GetWalletTopUpSettings)
+	api.Put("/wallet/topup/settings", deps.AdminHandlers.UpdateWalletTopUpSettings)
+	api.Get("/wallet/topup/callback/:provider", deps.AdminHandlers.WalletTopUpCallback)
+	api.Post("/wallet/topup/callback/:provider", deps.AdminHandlers.WalletTopUpCallback)
 }
 
 func healthHandler(c *fiber.Ctx) error {

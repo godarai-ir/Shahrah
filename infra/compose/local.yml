@@ -12,6 +12,8 @@ services:
       MASTER_KEY: ${MASTER_KEY:-sk-dev-master-key-12345}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-sk-provider-placeholder}
       TUNNEL_CLIENT_URL: http://tunnel-client:8081
+      SHAHRAH_MODEL_DISCOVERY_URL: ${SHAHRAH_MODEL_DISCOVERY_URL:-http://silk-road:8083}
+      SHAHRAH_DISCOVERY_TOKEN: ${SHAHRAH_DISCOVERY_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy

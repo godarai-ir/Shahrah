@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 
 import { readAuthFromRequest } from "@/lib/auth/request-auth";
 import { proxyToControlPlane } from "@/lib/control-plane";

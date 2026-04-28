@@ -107,6 +107,10 @@ graph TB
    - Payment gateway integration
 3. **Iterative Development**: Build in phases, starting with MVP features
 
+## Recent Delivery Notes
+
+- **2026-04-28**: Wallet top-up intent/callback/verify flow delivered in `services/control-plane` with provider adapters for `mock`, `zarinpal`, and `idpay`, plus idempotent wallet crediting and transaction auditing.
+
 ## LiteLLM Inspiration
 
 Shahrah draws heavily from LiteLLM's proven architecture:
