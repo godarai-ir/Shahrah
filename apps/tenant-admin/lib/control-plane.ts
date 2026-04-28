@@ -4,14 +4,14 @@ import { resolveTenantSlugFromHeaders } from "@/lib/tenant";
 
 type ProxyOptions = {
   request: Request;
-  method: "GET" | "POST";
+  method: "GET" | "POST" | "PUT";
   path: string;
   body?: unknown;
 };
 
 type ControlPlaneRequest = {
   tenantSlug: string;
-  method: "GET" | "POST";
+  method: "GET" | "POST" | "PUT";
   path: string;
   body?: unknown;
 };

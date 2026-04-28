@@ -40,7 +40,7 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 	app.Use(recover.New())
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
-		AllowMethods: "GET, POST, OPTIONS",
+		AllowMethods: "GET, POST, PUT, OPTIONS",
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization, api-key, x-api-key, x-shahrah-tenant",
 	}))
 	app.Use(deps.TenantResolver.Handle())
@@ -64,6 +64,15 @@ func registerRoutes(app *fiber.App, deps Dependencies) {
 	api.Get("/keys", deps.AdminHandlers.ListKeys)
 	api.Post("/models", deps.AdminHandlers.CreateModel)
 	api.Get("/models", deps.AdminHandlers.ListModels)
+	api.Get("/provider-catalog/providers", deps.AdminHandlers.ListProviderCatalog)
+	api.Get("/provider-catalog/providers/:provider/models", deps.AdminHandlers.ListProviderModelsCatalog)
+	api.Get("/access-principals", deps.AdminHandlers.ListAccessPrincipals)
+	api.Post("/tenant-provider-accounts", deps.AdminHandlers.CreateTenantProviderAccount)
+	api.Get("/tenant-provider-accounts", deps.AdminHandlers.ListTenantProviderAccounts)
+	api.Get("/tenant-provider-accounts/:accountID", deps.AdminHandlers.GetTenantProviderAccount)
+	api.Put("/tenant-provider-accounts/:accountID/models", deps.AdminHandlers.UpsertTenantProviderAccountModels)
+	api.Put("/tenant-provider-accounts/:accountID/access", deps.AdminHandlers.UpdateTenantProviderAccountAccess)
+	api.Post("/tenant-provider-accounts/:accountID/test-credentials", deps.AdminHandlers.TestTenantProviderAccountCredentials)
 	api.Get("/wallet", deps.AdminHandlers.GetWallet)
 	api.Post("/wallet/topup", deps.AdminHandlers.TopUpWallet)
 }

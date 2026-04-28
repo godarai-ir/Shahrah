@@ -1,0 +1,536 @@
+# TrueFoundry Docs
+
+> TrueFoundry documentation — enterprise-grade AI Gateway combining LLM, MCP, and Agent Gateways to connect, monitor, and govern agentic AI applications across providers from a unified control plane.
+
+## Docs
+
+- [Access Data From S3 Or Other Clouds](https://www.truefoundry.com/docs/access-data-from-s3-or-other-clouds-jobs.md): Learn how to access data from S3 and other cloud storage in batch jobs on TrueFoundry.
+- [Access Cloud Services Like S3](https://www.truefoundry.com/docs/access-data-from-s3-or-other-clouds-services.md): Guide to accessing S3 and cloud data sources from services deployed on TrueFoundry.
+- [Add Alerts To Your Job](https://www.truefoundry.com/docs/add-alerts-to-your-job.md): Step-by-step guide to adding alerts for jobs to monitor failures and performance.
+- [Adding Alerts For Workflow](https://www.truefoundry.com/docs/adding-alerts-for-workflow.md): Learn how to add alerts for workflows to track execution and failures.
+- [Adding Environment Variable](https://www.truefoundry.com/docs/adding-environment-variable.md): How to add and manage environment variables for jobs and services on TrueFoundry.
+- [Adding Retries And Handling Failures](https://www.truefoundry.com/docs/adding-retries-and-handling-failures.md): Learn how to configure retries and handle failures in production workflows.
+- [Overview](https://www.truefoundry.com/docs/ai-gateway/agents/agent-registry.md): The single place to build, register, discover, and govern every AI agent in your organization — whether built on TrueFoundry or running anywhere else.
+- [Remote Agents](https://www.truefoundry.com/docs/ai-gateway/agents/remote-agents.md): Register agents running on any platform — Bedrock, Vertex AI, LangGraph, or custom infrastructure — into a unified control plane with governance.
+- [TrueFoundry Agents](https://www.truefoundry.com/docs/ai-gateway/agents/truefoundry-agents.md): Build, publish, and share AI agents natively on TrueFoundry with model selection, MCP tools, sandboxed execution, and built-in observability.
+- [Agno AI](https://www.truefoundry.com/docs/ai-gateway/agno.md): Documentation on integrating Agno with the TrueFoundry AI Gateway.
+- [AI21](https://www.truefoundry.com/docs/ai-gateway/ai21.md): Add and configure AI21 language models in TrueFoundry's AI Gateway
+- [Akto Integration](https://www.truefoundry.com/docs/ai-gateway/akto.md): Learn how to use Akto with TrueFoundry AI Gateway for LLM security, prompt injection detection, and policy violation monitoring.
+- [View Metrics](https://www.truefoundry.com/docs/ai-gateway/analytics.md): Monitor LLM and MCP performance, costs, guardrails, routing, and caching from a unified metrics dashboard
+- [Anthropic](https://www.truefoundry.com/docs/ai-gateway/anthropic.md): Add and configure Anthropic's Claude models in TrueFoundry's AI Gateway
+- [Anthropic Stream Overload Fallback](https://www.truefoundry.com/docs/ai-gateway/anthropic-stream-overload-fallback.md): How TrueFoundry AI Gateway handles Anthropic overloaded_error in streaming with automatic fallback.
+- [AnythingLLM](https://www.truefoundry.com/docs/ai-gateway/anythingllm.md): Learn how to connect AnythingLLM with the TrueFoundry AI Gateway.
+- [Arize](https://www.truefoundry.com/docs/ai-gateway/arize.md): Learn how to export LLM Gateway traces to Arize using OpenTelemetry integration.
+- [Speech to Text API](https://www.truefoundry.com/docs/ai-gateway/audio-transcription.md): Convert audio files to text using speech-to-text models through TrueFoundry's AI Gateway
+- [Audio Translation API](https://www.truefoundry.com/docs/ai-gateway/audio-translation.md): Convert audio files to text using translations models through TrueFoundry's AI Gateway
+- [Authentication](https://www.truefoundry.com/docs/ai-gateway/authentication.md): Authenticate with the TrueFoundry AI Gateway using Personal Access Tokens (PATs) or Virtual Account Tokens (VATs).
+- [AWS Bedrock](https://www.truefoundry.com/docs/ai-gateway/aws-bedrock.md): Configure and use AWS Bedrock models through TrueFoundry's AI Gateway with cross-region support
+- [AWS Sagemaker](https://www.truefoundry.com/docs/ai-gateway/aws-sagemaker.md): Configure and use AWS Sagemaker models through TrueFoundry's AI Gateway
+- [Azure Foundry](https://www.truefoundry.com/docs/ai-gateway/azure-ai-foundry.md): Add and configure Azure AI Foundry models in TrueFoundry's AI Gateway
+- [Azure Content Safety Guardrail Integration](https://www.truefoundry.com/docs/ai-gateway/azure-content-safety.md): Configure Azure Content Safety with the TrueFoundry AI Gateway.
+- [Azure Entra ID Certificate Based Authentication](https://www.truefoundry.com/docs/ai-gateway/azure-entra-certificate-auth.md): Configure certificate-based authentication for Azure OpenAI, Azure AI Foundry models, and Azure guardrails (PII, Content Safety, Prompt Shield)
+- [Choosing an Azure Resource Type](https://www.truefoundry.com/docs/ai-gateway/azure-models-guide.md): Understand Azure OpenAI vs Azure AI Foundry and choose the right integration for TrueFoundry's AI Gateway
+- [Azure OpenAI](https://www.truefoundry.com/docs/ai-gateway/azure-openai.md): Add and configure Azure OpenAI models through TrueFoundry's AI Gateway
+- [Azure PII Guardrail Integration](https://www.truefoundry.com/docs/ai-gateway/azure-pii.md): Set up Azure PII detection and redaction using the TrueFoundry AI Gateway.
+- [Azure Prompt Shield Guardrail Integration](https://www.truefoundry.com/docs/ai-gateway/azure-prompt-shield.md): Configure Azure Prompt Shield with the TrueFoundry AI Gateway for jailbreak and prompt injection detection.
+- [Batch API (/batches)](https://www.truefoundry.com/docs/ai-gateway/batch-predictions-with-truefoundry-llm-gateway.md): Process jobs asynchronously using TrueFoundry's batch prediction API
+- [AWS Bedrock Guardrail Integration](https://www.truefoundry.com/docs/ai-gateway/bedrock-guardrails.md): Learn how to use Amazon Bedrock guardrails via the TrueFoundry AI Gateway.
+- [Braintrust](https://www.truefoundry.com/docs/ai-gateway/braintrust.md): Guide to integrating Braintrust with the TrueFoundry AI Gateway.
+- [Budget Limiting](https://www.truefoundry.com/docs/ai-gateway/budgetlimiting.md): Set and enforce cost boundaries across teams, users, and models to prevent runaway costs and maintain financial control
+- [Caching (Exact and Semantic)](https://www.truefoundry.com/docs/ai-gateway/caching.md): Speed up responses and cut costs with gateway-level exact-match and semantic caching.
+- [Cartesia](https://www.truefoundry.com/docs/ai-gateway/cartesia.md): Add and configure Cartesia Models in TrueFoundry's AI Gateway
+- [Cedar Guardrails](https://www.truefoundry.com/docs/ai-gateway/cedar-guardrails.md): Learn how to use Cedar policy language to create fine-grained access control guardrails for MCP tool invocations
+- [Cerebras](https://www.truefoundry.com/docs/ai-gateway/cerebras.md): Add and configure Cerebras models through TrueFoundry's AI Gateway
+- [Chat Completions API (/chat/completions)](https://www.truefoundry.com/docs/ai-gateway/chat-completions-overview.md): Learn how to use TrueFoundry's unified Chat Completions API to interact with models from multiple providers through a consistent interface
+- [Claude Code](https://www.truefoundry.com/docs/ai-gateway/claude-code.md): How to connect Claude Code with the TrueFoundry AI Gateway.
+- [Claude Code Max](https://www.truefoundry.com/docs/ai-gateway/claude-code-max.md): How to connect Claude Code Max with the TrueFoundry AI Gateway.
+- [Cline](https://www.truefoundry.com/docs/ai-gateway/cline.md): Documentation for using Cline with the TrueFoundry AI Gateway.
+- [Cloudera](https://www.truefoundry.com/docs/ai-gateway/cloudera.md): Add and configure Cloudera models in TrueFoundry's AI Gateway
+- [Code Safety Linter Guardrail](https://www.truefoundry.com/docs/ai-gateway/code-safety-linter.md): Detect unsafe code patterns in LLM outputs using TrueFoundry's built-in Code Safety Linter guardrail.
+- [Cohere](https://www.truefoundry.com/docs/ai-gateway/cohere.md): Add and configure Cohere models in TrueFoundry's AI Gateway
+- [Compaction API (/responses/compact)](https://www.truefoundry.com/docs/ai-gateway/compaction.md): Learn how to use the Compaction API through TrueFoundry Gateway to manage long-running conversations by reducing context size while preserving state.
+- [Coralogix](https://www.truefoundry.com/docs/ai-gateway/coralogix.md): Learn how to export LLM Gateway traces to Coralogix using OpenTelemetry integration.
+- [Cost Tracking](https://www.truefoundry.com/docs/ai-gateway/cost-tracking.md): Set up and manage cost tracking for AI model usage with public and private pricing options.
+- [CrewAI](https://www.truefoundry.com/docs/ai-gateway/crewai.md): Learn how to deploy CrewAI agents using the TrueFoundry AI Gateway.
+- [CrowdStrike Guardrails Integration](https://www.truefoundry.com/docs/ai-gateway/crowstrike.md): Integrate CrowdStrike AIDR with TrueFoundry AI Gateway using Custom Guardrails and the guard_chat_completions endpoint.
+- [Cursor](https://www.truefoundry.com/docs/ai-gateway/cursor.md): Set up Cursor with the TrueFoundry AI Gateway for AI-powered development.
+- [Custom Guardrail/Plugins Configuration](https://www.truefoundry.com/docs/ai-gateway/custom-guardrails.md): Configure custom guardrails for validation and security.
+- [Configure Data Access](https://www.truefoundry.com/docs/ai-gateway/data-access.md): Control who can access which request traces and metrics in the AI Gateway.
+- [Configure Data Routing](https://www.truefoundry.com/docs/ai-gateway/data-routing.md): Configure storage destinations for AI Gateway request logs and metrics. Route traces to custom object stores based on Enterprise plan.
+- [Databricks](https://www.truefoundry.com/docs/ai-gateway/databricks-models.md): Add and configure Databricks models in TrueFoundry's AI Gateway
+- [Deepgram](https://www.truefoundry.com/docs/ai-gateway/deepgram.md): Add and configure Deepgram Models in TrueFoundry's AI Gateway
+- [Deepinfra](https://www.truefoundry.com/docs/ai-gateway/deepinfra.md): Add and configure Deepinfra models in TrueFoundry's AI Gateway
+- [Dify](https://www.truefoundry.com/docs/ai-gateway/dify.md): Guide to integrating Dify with the TrueFoundry AI Gateway.
+- [DSPy](https://www.truefoundry.com/docs/ai-gateway/dspy.md): Learn how to use dspy with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [Dynatrace](https://www.truefoundry.com/docs/ai-gateway/dynatrace.md): Learn how to export LLM Gateway traces to Dynatrace using OpenTelemetry OTLP integration.
+- [Ecosystem & Integrations](https://www.truefoundry.com/docs/ai-gateway/ecosystem.md): Discover the full ecosystem of tools, frameworks, and platforms that integrate with TrueFoundry AI Gateway.
+- [Elastic](https://www.truefoundry.com/docs/ai-gateway/elastic.md): Learn how to export LLM Gateway traces to Elastic Cloud using OpenTelemetry integration.
+- [ElevenLabs](https://www.truefoundry.com/docs/ai-gateway/elevenlabs.md): Add and configure ElevenLabs Models in TrueFoundry's AI Gateway
+- [Embeddings API (/embeddings)](https://www.truefoundry.com/docs/ai-gateway/embed.md): Generate vector embeddings through TrueFoundry's AI Gateway
+- [Enkrypt AI Guardrail Integration](https://www.truefoundry.com/docs/ai-gateway/enkrypt-ai.md): Learn how to use enkrypt ai with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [Export OpenTelemetry Data](https://www.truefoundry.com/docs/ai-gateway/export-opentelemetry-data.md): Learn how to export OpenTelemetry traces and metrics with TrueFoundry AI Gateway for comprehensive observability.
+- [Log Feedback on requests](https://www.truefoundry.com/docs/ai-gateway/feedback-for-traces.md): Learn how to create, modify, and retrieve feedback for trace spans.
+- [API Access to Metrics](https://www.truefoundry.com/docs/ai-gateway/fetch-raw-metrics.md): Query Gateway model metrics for usage, cost, and performance analytics via API.
+- [API Access to Logs](https://www.truefoundry.com/docs/ai-gateway/fetch-request-logs.md): Learn how to fetch Gateway request logs using the spans query API for different use cases.
+- [Fiddler Integration](https://www.truefoundry.com/docs/ai-gateway/fiddler.md): Learn how to use fiddler with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [Files API (/files)](https://www.truefoundry.com/docs/ai-gateway/file-endpoints.md): Upload, manage, and retrieve files through TrueFoundry's AI Gateway
+- [Finetune API (/fine_tuning)](https://www.truefoundry.com/docs/ai-gateway/finetune.md): Fine-tune models using TrueFoundry's AI Gateway with OpenAI or Vertex AI providers
+- [Flowise](https://www.truefoundry.com/docs/ai-gateway/flowise.md): Learn how to use flowise with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [Access Control](https://www.truefoundry.com/docs/ai-gateway/gateway-access-control.md): Control access of models among teams, users and applications
+- [Gateway Architecture](https://www.truefoundry.com/docs/ai-gateway/gateway-architecture.md): Learn how to use gateway architecture with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [Gemini CLI](https://www.truefoundry.com/docs/ai-gateway/gemini-cli.md): This guide provides instructions for integrating Gemini CLI with TrueFoundry's AI Gateway
+- [GitHub Copilot](https://www.truefoundry.com/docs/ai-gateway/github-copilot.md): Route GitHub Copilot requests through TrueFoundry AI Gateway for observability, governance, and custom model access.
+- [Globally Distributed SAAS Gateway](https://www.truefoundry.com/docs/ai-gateway/globally-distributed-saas.md): Learn about Truefoundry's globally distributed AI Gateway infrastructure deployed across multiple regions and cloud providers
+- [Google Gemini](https://www.truefoundry.com/docs/ai-gateway/google-gemini.md): Add and configure Google Gemini models in TrueFoundry's AI Gateway
+- [Google Model Armor Guardrail Integration](https://www.truefoundry.com/docs/ai-gateway/google-model-armor.md): Integrate Google Cloud Model Armor with TrueFoundry AI Gateway for prompt injection, harmful content, PII, and malicious URI detection.
+- [Google Vertex](https://www.truefoundry.com/docs/ai-gateway/google-vertex.md): Add and configure Google Vertex AI models including Gemini, Anthropic, and Mistral in TrueFoundry's AI Gateway
+- [Goose](https://www.truefoundry.com/docs/ai-gateway/goose.md): Learn how to use goose with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [GraySwan Cygnal Integration](https://www.truefoundry.com/docs/ai-gateway/grayswan-cygnal.md): Learn how to use GraySwan Cygnal with TrueFoundry AI Gateway for policy violation detection and content safety monitoring.
+- [Groq](https://www.truefoundry.com/docs/ai-gateway/groq.md): Add and configure Groq models in TrueFoundry's AI Gateway for high-performance inference
+- [Configure Guardrails](https://www.truefoundry.com/docs/ai-gateway/guardrails-configuration.md): Learn how to create and configure guardrail rules to enforce security and compliance policies for LLM interactions and MCP tool invocations
+- [Getting Started](https://www.truefoundry.com/docs/ai-gateway/guardrails-getting-started.md): Learn how to set up and implement guardrails to ensure safe and compliant LLM interactions and MCP tool invocations
+- [Introduction](https://www.truefoundry.com/docs/ai-gateway/guardrails-overview.md): Learn about guardrails for ensuring safety, compliance, and quality in LLM interactions and MCP tool invocations
+- [Image Edit API (/images/edits)](https://www.truefoundry.com/docs/ai-gateway/image-edit.md): Edit and transform images using text prompts via TrueFoundry AI Gateway
+- [Image Generation API (/images/generations)](https://www.truefoundry.com/docs/ai-gateway/image-generation.md): Generate images from text prompts through TrueFoundry's AI Gateway
+- [Image Variation API (/images/variations)](https://www.truefoundry.com/docs/ai-gateway/image-variation.md): Generate creative variations of existing images using TrueFoundry AI Gateway
+- [Deploy AI Gateway](https://www.truefoundry.com/docs/ai-gateway/install-only-llm-gateway.md): Learn how to use install only llm gateway with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [Instructor](https://www.truefoundry.com/docs/ai-gateway/instructor.md): Learn how to use instructor with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [Introduction to AI Gateway](https://www.truefoundry.com/docs/ai-gateway/intro-to-llm-gateway.md): TrueFoundry AI Gateway: A unified interface for accessing 1000+ LLMs with enterprise-grade security, observability, and governance
+- [Jan AI](https://www.truefoundry.com/docs/ai-gateway/jan.md): Learn how to use jan with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [LangChain](https://www.truefoundry.com/docs/ai-gateway/langchain.md): Learn how to use langchain with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [Langflow](https://www.truefoundry.com/docs/ai-gateway/langflow.md): Learn how to use langflow with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [Langfuse](https://www.truefoundry.com/docs/ai-gateway/langfuse.md): Learn how to use langfuse with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [Langroid](https://www.truefoundry.com/docs/ai-gateway/langroid.md): Learn how to use langroid with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [LangSmith](https://www.truefoundry.com/docs/ai-gateway/langsmith.md): Learn how to export LLM Gateway traces to LangSmith using OpenTelemetry integration.
+- [Last9](https://www.truefoundry.com/docs/ai-gateway/last9.md): Learn how to export LLM Gateway traces to Last9 using OpenTelemetry integration.
+- [LibreChat](https://www.truefoundry.com/docs/ai-gateway/librechat.md): Learn how to use librechat with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [Live / Realtime API (/live)](https://www.truefoundry.com/docs/ai-gateway/live-api.md): Bidirectional realtime streaming (Live API) over WebSocket through TrueFoundry's AI Gateway
+- [LiveKit](https://www.truefoundry.com/docs/ai-gateway/livekit.md): Learn how to use livekit with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [Routing Config](https://www.truefoundry.com/docs/ai-gateway/load-balancing-overview.md): Global YAML-based routing configuration for TrueFoundry AI Gateway
+- [Making Your First Request](https://www.truefoundry.com/docs/ai-gateway/making-llm-requests-via-gateway.md): Get your Gateway Base URL, Model ID, and API key to start calling LLMs through the TrueFoundry AI Gateway.
+- [Using the Common Tools MCP Server](https://www.truefoundry.com/docs/ai-gateway/mcp/common-tools-mcp-server.md): Connect and use tools from the Common Tools MCP Server managed by TrueFoundry
+- [Create Calculator MCP Server](https://www.truefoundry.com/docs/ai-gateway/mcp/create-calculator-mcp-server.md): Learn how to build a simple calculator MCP server that provides basic math operations using FastMCP.
+- [Claude Enterprise Security Guide For Developers](https://www.truefoundry.com/docs/ai-gateway/mcp/enterprise-security-claude.md): A guide to Claude enterprise security for admins to govern access, secure data, and monitor deployments across web and CLI interfaces.
+- [Authentication and Security](https://www.truefoundry.com/docs/ai-gateway/mcp/mcp-gateway-auth-security.md): Complete guide to authentication, authorization, and security for MCP Servers in TrueFoundry AI Gateway
+- [TrueFoundry MCP Gateway](https://www.truefoundry.com/docs/ai-gateway/mcp/mcp-overview.md): Centralized MCP gateway for enterprise AI agents—unified access, OAuth, security, observability, and guardrails for all your MCP servers.
+- [Auth Overrides](https://www.truefoundry.com/docs/ai-gateway/mcp/mcp-server-auth-overrides.md): Replace a server's default credentials with user-specific tokens for MCP servers in TrueFoundry AI Gateway
+- [Getting Started](https://www.truefoundry.com/docs/ai-gateway/mcp/mcp-server-getting-started.md): Learn how to create MCP Server Groups, add MCP servers, and use them in the TrueFoundry AI Gateway playground.
+- [Setting up Azure Entra ID OAuth2 Authentication for MCP Servers](https://www.truefoundry.com/docs/ai-gateway/mcp/mcp-server-oauth-azure.md): Learn how to create and deploy an OAuth2-authenticated MCP server using Azure Entra ID and fastMCP, then integrate it with TrueFoundry AI Gateway.
+- [Setting up Okta OAuth2 Authentication for MCP Servers](https://www.truefoundry.com/docs/ai-gateway/mcp/mcp-server-oauth-okta.md): Learn how to create and deploy an OAuth2-authenticated MCP server using Okta and fastMCP, then integrate it with TrueFoundry AI Gateway.
+- [OpenAPI to MCP Server](https://www.truefoundry.com/docs/ai-gateway/mcp/openapi-mcp-server.md): Automatically generate MCP servers from your existing OpenAPI specifications to expose your APIs as AI-callable tools.
+- [Hosted Stdio-based MCP Server](https://www.truefoundry.com/docs/ai-gateway/mcp/stdio-mcp-server.md): Run a hosted MCP server via stdio and expose it through the gateway.
+- [Using MCP Gateway in Your Agent](https://www.truefoundry.com/docs/ai-gateway/mcp/use-mcp-gateway-in-agent.md): Learn how to integrate MCP servers into your agent with the right authentication approach for your use case.
+- [Virtual MCP Server](https://www.truefoundry.com/docs/ai-gateway/mcp/virtual-mcp-server.md): Combine tools from multiple MCP servers into a single curated virtual MCP server without extra deployments.
+- [Messages API (/messages)](https://www.truefoundry.com/docs/ai-gateway/messages-overview.md): Learn how to use Messages API through TrueFoundry's AI Gateway for interacting with Claude models.
+- [Mistral AI](https://www.truefoundry.com/docs/ai-gateway/mistral.md): Add and configure Mistral AI models in TrueFoundry's AI Gateway
+- [Model Discovery](https://www.truefoundry.com/docs/ai-gateway/model-discovery.md): Use the /models API to programmatically list all available models in your TrueFoundry AI Gateway.
+- [Moderation API (/moderations)](https://www.truefoundry.com/docs/ai-gateway/moderation.md): Learn how to use the OpenAI Moderations API through TrueFoundry's AI Gateway to identify potentially harmful content in text and images.
+- [Deployment Options](https://www.truefoundry.com/docs/ai-gateway/modes-of-deployment.md): Explore the different Gateway deployment options ranging from self-hosting to fully managed
+- [n8n](https://www.truefoundry.com/docs/ai-gateway/n8n.md): Learn how to use n8n with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [Native SDK Support](https://www.truefoundry.com/docs/ai-gateway/native-sdk-support.md): Use OpenAI, Google Gen AI, Anthropic, and boto3 SDKs with the TrueFoundry AI Gateway
+- [New Relic](https://www.truefoundry.com/docs/ai-gateway/newrelic.md): Learn how to export LLM Gateway traces to New Relic using OpenTelemetry integration.
+- [OPA Guardrails](https://www.truefoundry.com/docs/ai-gateway/opa-guardrails.md): Learn how to use Open Policy Agent (OPA) to create flexible, policy-driven guardrails for LLM inputs, outputs, and MCP tool invocations
+- [Open WebUI](https://www.truefoundry.com/docs/ai-gateway/open-webui.md): Learn how to use open webui with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [OpenAI](https://www.truefoundry.com/docs/ai-gateway/openai.md): Add and configure OpenAI models in TrueFoundry's AI Gateway
+- [OpenAI Agents SDK](https://www.truefoundry.com/docs/ai-gateway/openai-agents-sdk.md): Learn how to use openai agents sdk with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [OpenAI Codex CLI](https://www.truefoundry.com/docs/ai-gateway/openai-codex-cli.md): Use OpenAI Codex CLI with TrueFoundry LLM Gateway to interact with AI models from your terminal
+- [OpenAI Moderation Integration](https://www.truefoundry.com/docs/ai-gateway/openai-moderations.md): Learn how to use openai moderations with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [OpenAI Swarm](https://www.truefoundry.com/docs/ai-gateway/openai-swarm.md): Learn how to use openai swarm with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [OpenCode](https://www.truefoundry.com/docs/ai-gateway/opencode.md): Learn how to integrate OpenCode with TrueFoundry AI Gateway for secure, governed AI-powered coding in the terminal, desktop, or IDE.
+- [OpenRouter](https://www.truefoundry.com/docs/ai-gateway/openrouter.md): Add and configure OpenRouter models in TrueFoundry's AI Gateway
+- [Palo Alto Prisma AIRS Integration](https://www.truefoundry.com/docs/ai-gateway/palo-alto-airs.md): Learn how to use palo alto airs with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [Patronus AI Integration](https://www.truefoundry.com/docs/ai-gateway/patronus.md): Learn how to use patronus with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [Perplexity AI](https://www.truefoundry.com/docs/ai-gateway/perplexity-ai.md): Add and configure Google Perplexity models in TrueFoundry's AI Gateway.
+- [Phidata](https://www.truefoundry.com/docs/ai-gateway/phidata.md): Learn how to use phidata with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [Pillar Security Integration](https://www.truefoundry.com/docs/ai-gateway/pillar-security.md): Add Pillar Security guardrails to TrueFoundry AI Gateway using the Custom Guardrails feature.
+- [TrueFoundry AI Gateway Playground](https://www.truefoundry.com/docs/ai-gateway/playground-overview.md): Experiment with AI models, configure settings, set up guardrails, connect MCP servers, and create reusable prompts in the Playground.
+- [Prometheus Grafana Integration](https://www.truefoundry.com/docs/ai-gateway/prometheus-grafana-integration.md): Learn how to monitor your TrueFoundry AI Gateway using Prometheus metrics and Grafana dashboards for performance, cost, and usage insights.
+- [Prompt Management](https://www.truefoundry.com/docs/ai-gateway/prompt-management.md): Learn how to create, test, save, and version your prompts using TrueFoundry's AI Gateway for optimised AI interactions.
+- [Playground](https://www.truefoundry.com/docs/ai-gateway/prompt-playground.md): Create, test, save and compare prompts in the Playground.
+- [Prompt Versioning](https://www.truefoundry.com/docs/ai-gateway/prompt-versioning.md): Understand version history and the Prompt Registry; load specific versions into the Playground.
+- [Proxy API (/proxy)](https://www.truefoundry.com/docs/ai-gateway/proxy-api.md): Route requests directly to AI provider endpoints while maintaining TrueFoundry features like logging, rate limiting, and budget management
+- [Pydantic AI](https://www.truefoundry.com/docs/ai-gateway/pydantic-ai.md): Learn how to use pydantic ai with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [Quick Start Guide: Setup & Integration](https://www.truefoundry.com/docs/ai-gateway/quick-start.md): Quickly set up the TrueFoundry AI Gateway, connect model providers, and access LLMs with step-by-step instructions.
+- [Qwen Code CLI](https://www.truefoundry.com/docs/ai-gateway/qwen-cli.md): Use Qwen Code CLI with TrueFoundry AI Gateway to interact with AI models from your terminal
+- [Rate Limiting](https://www.truefoundry.com/docs/ai-gateway/ratelimiting.md): Learn how to configure rate limiting in TrueFoundry AI Gateway to control usage, manage costs, and set limits based on users, teams, or applications.
+- [Regex Pattern Match Guardrail](https://www.truefoundry.com/docs/ai-gateway/regex-pattern-matching.md): Detect and redact sensitive patterns in LLM inputs/outputs and MCP tool invocations using TrueFoundry's built-in Regex Pattern Matching guardrail.
+- [Request Headers & Metadata](https://www.truefoundry.com/docs/ai-gateway/request-headers.md): Configure request headers for authentication, metadata tagging, logging, retries, and timeouts in the AI Gateway.
+- [View Traces](https://www.truefoundry.com/docs/ai-gateway/request-logging.md): Control which requests are traced using headers or environment variables.
+- [Rerank API (/rerank)](https://www.truefoundry.com/docs/ai-gateway/rerank.md): Learn how to use the Rerank API through TrueFoundry Gateway to enhance search relevance by scoring and reordering document results.
+- [Responses API (/responses)](https://www.truefoundry.com/docs/ai-gateway/responses-api.md): Learn how to use OpenAI's Responses API through TrueFoundry Gateway for creating, retrieving, and managing text and multimodal completions.
+- [Roo Code](https://www.truefoundry.com/docs/ai-gateway/roo-code.md): Learn how to use roo code with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [SambaNova](https://www.truefoundry.com/docs/ai-gateway/sambanova.md): Add and configure SambaNova models through TrueFoundry's AI Gateway
+- [Use Secret Manager in Integrations](https://www.truefoundry.com/docs/ai-gateway/secret-manager-in-ai-gateway.md): Store API keys and other sensitive credentials in Secret manager and reference them in Model, MCP server, and Guardrail integrations.
+- [Secrets Detection Guardrail](https://www.truefoundry.com/docs/ai-gateway/secrets-detection.md): Detect and redact sensitive credentials and secrets in LLM inputs/outputs and MCP tool invocations using TrueFoundry's built-in Secrets Detection guardrail.
+- [Self-Hosted Models](https://www.truefoundry.com/docs/ai-gateway/self-hosted-models.md): Learn how to add and configure self-hosted or external AI models to TrueFoundry AI Gateway for centralized management and inference.
+- [Session Management](https://www.truefoundry.com/docs/ai-gateway/session-management.md): Track and manage multi-turn conversations in TrueFoundry AI Gateway.
+- [Setup AI Gateway in Your Organization](https://www.truefoundry.com/docs/ai-gateway/setup-ai-gateway-in-org.md): Configure AI Gateway operations for your organization: enable SSO, manage access, and control how users sign in and use the gateway.
+- [Snowflake Cortex](https://www.truefoundry.com/docs/ai-gateway/snowflake-cortex.md): Add and configure Cortex models through TrueFoundry's AI Gateway
+- [SQL Sanitizer Guardrail](https://www.truefoundry.com/docs/ai-gateway/sql-sanitizer.md): Detect and sanitize risky SQL patterns in LLM outputs using TrueFoundry's built-in SQL Sanitizer guardrail.
+- [Strands Agents](https://www.truefoundry.com/docs/ai-gateway/strands.md): Learn how to use strands with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [Text to Speech API](https://www.truefoundry.com/docs/ai-gateway/text-to-speech.md): Convert text to speech through TrueFoundry's AI Gateway
+- [Content Moderation Guardrail](https://www.truefoundry.com/docs/ai-gateway/tfy-content-moderation.md): Detect and block harmful content in LLM inputs/outputs using TrueFoundry's built-in Content Moderation guardrail.
+- [PII/PHI Detection Guardrail](https://www.truefoundry.com/docs/ai-gateway/tfy-pii.md): Detect and redact PII or PHI in LLM inputs, outputs, and MCP tool calls using the built-in TrueFoundry guardrail.
+- [Prompt Injection Guardrail](https://www.truefoundry.com/docs/ai-gateway/tfy-prompt-injection.md): Detect and block prompt injection and jailbreak attempts in LLM inputs using TrueFoundry's built-in Prompt Injection guardrail.
+- [Together AI](https://www.truefoundry.com/docs/ai-gateway/together-ai.md): Learn how to add and configure Together AI models in TrueFoundry AI Gateway for seamless integration and inference.
+- [TrojAI DEFEND Integration](https://www.truefoundry.com/docs/ai-gateway/trojai.md): Integrate TrojAI DEFEND with TrueFoundry AI Gateway for real-time AI firewall protection, PII detection, and prompt injection prevention.
+- [Using Prompts](https://www.truefoundry.com/docs/ai-gateway/using-prompts.md): Learn how to use using prompts with TrueFoundry AI Gateway, including setup steps, use cases, and production-ready examples.
+- [Virtual Models](https://www.truefoundry.com/docs/ai-gateway/virtual-model.md): Route requests across multiple model providers with load balancing, failover, and retries using a single model name
+- [Create a Virtual Model](https://www.truefoundry.com/docs/ai-gateway/virtual-model-advanced.md): Step-by-step guide to creating virtual models, configuring targets, and using them in your application
+- [xAI](https://www.truefoundry.com/docs/ai-gateway/xai.md): Add and configure xAI (Grok) models in TrueFoundry's AI Gateway
+- [Agent App](https://www.truefoundry.com/docs/api-reference/agent/agent-app.md): Generate completions using agent app configuration. The model, MCP servers, system prompt, and guardrails are automatically provided from the agent app configuration.
+- [Agent Responses](https://www.truefoundry.com/docs/api-reference/agent/agent-responses.md): Generate responses using the specified model with integrated external tools.
+- [Create or Update Agent](https://www.truefoundry.com/docs/api-reference/agent/create-or-update-agent.md): Create or Update an Agent.
+- [Delete Agent](https://www.truefoundry.com/docs/api-reference/agent/delete-agent.md): Delete an Agent by id.
+- [Fetch Agent Card](https://www.truefoundry.com/docs/api-reference/agent/fetch-agent-card.md): Fetch agent card JSON from a source URL.
+- [Get Agent](https://www.truefoundry.com/docs/api-reference/agent/get-agent.md): Get a specific Agent by id.
+- [List Agent Versions](https://www.truefoundry.com/docs/api-reference/agent/list-agent-versions.md): List Agent Versions for the provided agent id
+- [List Agents](https://www.truefoundry.com/docs/api-reference/agent/list-agents.md): List all Agents for a tenant.
+- [Cancel an Ongoing Deployment](https://www.truefoundry.com/docs/api-reference/applications/cancel-an-ongoing-deployment.md): Cancel an ongoing deployment associated with the provided application ID and deployment ID.
+- [Create Application Deployment](https://www.truefoundry.com/docs/api-reference/applications/create-application-deployment.md): Create a new Application Deployment based on the provided manifest.
+- [Delete Application](https://www.truefoundry.com/docs/api-reference/applications/delete-application.md): Delete Application associated with the provided application ID.
+- [Get Application](https://www.truefoundry.com/docs/api-reference/applications/get-application.md): Get Application associated with the provided application ID.
+- [Get Application Resources](https://www.truefoundry.com/docs/api-reference/applications/get-application-resources.md): Retrieves the ArgoCD resources for the specified application.
+- [Get Deployment details](https://www.truefoundry.com/docs/api-reference/applications/get-deployment-details.md): Get Deployment associated with the provided application ID and deployment ID.
+- [List Application Deployments](https://www.truefoundry.com/docs/api-reference/applications/list-application-deployments.md): Fetch all deployments for a given application ID with optional filters such as deployment ID or version. Supports pagination.
+- [List Applications](https://www.truefoundry.com/docs/api-reference/applications/list-applications.md): Retrieves a list of all latest applications. Supports filtering by application ID, name, type, and other parameters. Pagination is available based on query parameters.
+- [Pause an Application](https://www.truefoundry.com/docs/api-reference/applications/pause-an-application.md): Pause a running application by scaling to 0 replicas
+- [Redeploy](https://www.truefoundry.com/docs/api-reference/applications/redeploy.md): Creates a new deployment with the same manifest as the given deployment.
+- [Resume an Application](https://www.truefoundry.com/docs/api-reference/applications/resume-an-application.md): Resume a paused application by scaling back to the original number of replicas
+- [Sync application](https://www.truefoundry.com/docs/api-reference/applications/sync-application.md): Syncs the application for the specified application.
+- [Create or Update Resources](https://www.truefoundry.com/docs/api-reference/apply/create-or-update-resources.md): Applies a given manifest to create or update resources of specific types, such as provider-account, cluster, workspace, or ml-repo.
+- [Delete Resources](https://www.truefoundry.com/docs/api-reference/apply/delete-resources.md): Deletes resources of specific types, such as provider-account, cluster, workspace, or application.
+- [Resolve Dependency Tree](https://www.truefoundry.com/docs/api-reference/apply/resolve-dependency-tree.md): Resolves the dependency tree for the given manifests.
+- [Apply tags to artifact version](https://www.truefoundry.com/docs/api-reference/artifacts/apply-tags-to-artifact-version.md): Apply tags to an artifact version.
+- [Create multipart upload](https://www.truefoundry.com/docs/api-reference/artifacts/create-multipart-upload.md): Create a multipart upload for large files in an artifact version.
+- [Create or update artifact version](https://www.truefoundry.com/docs/api-reference/artifacts/create-or-update-artifact-version.md): Create or update an artifact version.
+- [Delete artifact](https://www.truefoundry.com/docs/api-reference/artifacts/delete-artifact.md): Delete an artifact by its ID.
+- [Delete artifact version](https://www.truefoundry.com/docs/api-reference/artifacts/delete-artifact-version.md): Delete an artifact version by its ID.
+- [Delete artifact version](https://www.truefoundry.com/docs/api-reference/artifacts/delete-artifact-version-1.md): Delete an artifact version by manifest.
+- [Get artifact](https://www.truefoundry.com/docs/api-reference/artifacts/get-artifact.md): Get an artifact by its ID.
+- [Get artifact version](https://www.truefoundry.com/docs/api-reference/artifacts/get-artifact-version.md): Get an artifact version by its ID.
+- [Get signed URLs for artifact version](https://www.truefoundry.com/docs/api-reference/artifacts/get-signed-urls-for-artifact-version.md): Get pre-signed URLs for reading or writing files in an artifact version.
+- [List artifact versions](https://www.truefoundry.com/docs/api-reference/artifacts/list-artifact-versions.md): List artifact versions with optional filtering by tag, FQN, artifact ID, ML Repo, name, version, run IDs, or run steps.
+- [List artifacts](https://www.truefoundry.com/docs/api-reference/artifacts/list-artifacts.md): List artifacts with optional filtering by FQN, ML Repo, name, or run ID.
+- [List files in artifact version](https://www.truefoundry.com/docs/api-reference/artifacts/list-files-in-artifact-version.md): List files and directories in an artifact version.
+- [Mark stage failure](https://www.truefoundry.com/docs/api-reference/artifacts/mark-stage-failure.md): Mark a staged artifact version as failed.
+- [Stage artifact version](https://www.truefoundry.com/docs/api-reference/artifacts/stage-artifact-version.md): Stage an artifact version for upload, returning storage location and version ID.
+- [Transcribe Audio](https://www.truefoundry.com/docs/api-reference/audio/transcribe-audio.md): Transcribes audio into the input language.
+- [Get Audit Logs](https://www.truefoundry.com/docs/api-reference/audit-logs/get-audit-logs.md): Get paginated audit logs filtered by parameters passed in the query.
+- [Cancel Batch](https://www.truefoundry.com/docs/api-reference/batch/cancel-batch.md): Cancel a running batch process
+- [Create Batch](https://www.truefoundry.com/docs/api-reference/batch/create-batch.md): Creates a new batch process
+- [Get Batch](https://www.truefoundry.com/docs/api-reference/batch/get-batch.md): Get information about a specific batch process
+- [Get Batch Output](https://www.truefoundry.com/docs/api-reference/batch/get-batch-output.md): Get output of a specific batch process
+- [List batches](https://www.truefoundry.com/docs/api-reference/batch/list-batches.md): List all batches
+- [Chat Completions](https://www.truefoundry.com/docs/api-reference/chat/chat-completions.md): Generate chat-based completions using the specified model.
+- [Create or Update Cluster](https://www.truefoundry.com/docs/api-reference/clusters/create-or-update-cluster.md): Create or Update cluster with provided manifest
+- [Delete cluster](https://www.truefoundry.com/docs/api-reference/clusters/delete-cluster.md): Delete cluster associated with provided cluster id
+- [Get Cluster](https://www.truefoundry.com/docs/api-reference/clusters/get-cluster.md): Get cluster associated with provided id
+- [Get Cluster status](https://www.truefoundry.com/docs/api-reference/clusters/get-cluster-status.md): Get the status of provided cluster
+- [List Addons](https://www.truefoundry.com/docs/api-reference/clusters/list-addons.md): List addons for the provided cluster. Pagination is available based on query parameters.
+- [List Clusters](https://www.truefoundry.com/docs/api-reference/clusters/list-clusters.md): Retrieves a list of all latest Clusters. Pagination is available based on query parameters.
+- [Generate Embeddings](https://www.truefoundry.com/docs/api-reference/embeddings/generate-embeddings.md): Generate embeddings for the given input using the specified model.
+- [Delete file](https://www.truefoundry.com/docs/api-reference/files/delete-file.md): Deletes a specified file
+- [Get File](https://www.truefoundry.com/docs/api-reference/files/get-file.md): Get information about a specific file
+- [Get File Content](https://www.truefoundry.com/docs/api-reference/files/get-file-content.md): Get content of a specific file
+- [List Files](https://www.truefoundry.com/docs/api-reference/files/list-files.md): List all files
+- [Upload File](https://www.truefoundry.com/docs/api-reference/files/upload-file.md): Upload a new file
+- [Creates a variation of an image.](https://www.truefoundry.com/docs/api-reference/image/creates-a-variation-of-an-image.md): Generates a variation of a given image.
+- [Edit images based on a prompt](https://www.truefoundry.com/docs/api-reference/image/edit-images-based-on-a-prompt.md): Edits an image given the original image and a prompt.
+- [Generate images from a prompt](https://www.truefoundry.com/docs/api-reference/image/generate-images-from-a-prompt.md): Creates an image given a prompt.
+- [Delete Job Run](https://www.truefoundry.com/docs/api-reference/jobs/delete-job-run.md): Delete Job Run for provided jobRunName and jobId
+- [Get Job Run](https://www.truefoundry.com/docs/api-reference/jobs/get-job-run.md): Get Job Run for provided jobRunName and jobId
+- [List Job Runs](https://www.truefoundry.com/docs/api-reference/jobs/list-job-runs.md): List Job Runs for provided Job Id. Filter the data based on parameters passed in the query
+- [Terminate Job](https://www.truefoundry.com/docs/api-reference/jobs/terminate-job.md): Terminate Job for provided deploymentId and jobRunName
+- [Trigger Job](https://www.truefoundry.com/docs/api-reference/jobs/trigger-job.md): Trigger Job for provided deploymentId or applicationId
+- [Download Logs](https://www.truefoundry.com/docs/api-reference/logs/download-logs.md): Download logs associated with the specified workload, including Jobs, Services, Job Runs, Pods, or Workflows. Logs are filtered based on the provided query parameters.
+- [Get Logs](https://www.truefoundry.com/docs/api-reference/logs/get-logs.md): Fetch logs for various workload components, including Services, Jobs, Workflows, Job Runs, and Pods. Logs are filtered based on the provided query parameters.
+- [Create or update MCP server](https://www.truefoundry.com/docs/api-reference/mcp-servers/create-or-update-mcp-server.md): Creates a new MCP server or updates an existing one.
+- [Delete MCP server authentication](https://www.truefoundry.com/docs/api-reference/mcp-servers/delete-mcp-server-authentication.md): Deletes the current user's OAuth 2.1 authentication for an MCP server integration.
+- [Delete MCP server by ID](https://www.truefoundry.com/docs/api-reference/mcp-servers/delete-mcp-server-by-id.md): Deletes an MCP server by its ID.
+- [Delete MCP server by name](https://www.truefoundry.com/docs/api-reference/mcp-servers/delete-mcp-server-by-name.md): Deletes an MCP server by its name.
+- [Fetch OpenAPI spec via proxy](https://www.truefoundry.com/docs/api-reference/mcp-servers/fetch-openapi-spec-via-proxy.md): Returns the JSON document from a source URL.
+- [Generate MCP tools from an OpenAPI specification](https://www.truefoundry.com/docs/api-reference/mcp-servers/generate-mcp-tools-from-an-openapi-specification.md): Returns MCP tool definitions from an OpenAPI specification.
+- [Generate stdio MCP manifest from stdio configuration JSON](https://www.truefoundry.com/docs/api-reference/mcp-servers/generate-stdio-mcp-manifest-from-stdio-configuration-json.md): Parses a single-entry mcpServers object and returns a stdio MCP server manifest.
+- [Get MCP server authentication with auto-refresh (Admin only)](https://www.truefoundry.com/docs/api-reference/mcp-servers/get-mcp-server-authentication-with-auto-refresh-admin-only.md): Retrieves authentication details for the specified user. Automatically refreshes expired tokens for OAuth based servers. Requires admin access.
+- [Get MCP server by ID](https://www.truefoundry.com/docs/api-reference/mcp-servers/get-mcp-server-by-id.md): Retrieves a single MCP server by its ID.
+- [Get MCP server by name](https://www.truefoundry.com/docs/api-reference/mcp-servers/get-mcp-server-by-name.md): Retrieves a single MCP server by its name.
+- [List MCP servers](https://www.truefoundry.com/docs/api-reference/mcp-servers/list-mcp-servers.md): Lists all MCP servers for the current tenant with pagination.
+- [Create or Update MLRepo](https://www.truefoundry.com/docs/api-reference/mlrepos/create-or-update-mlrepo.md): Creates or updates an MLRepo entity based on the provided manifest.
+- [Delete ML Repo](https://www.truefoundry.com/docs/api-reference/mlrepos/delete-ml-repo.md): Delete an ML Repo by its ID.
+- [Get ML Repo](https://www.truefoundry.com/docs/api-reference/mlrepos/get-ml-repo.md): Get an ML Repo by its ID.
+- [List ML Repos](https://www.truefoundry.com/docs/api-reference/mlrepos/list-ml-repos.md): List ML Repos with optional filtering by name.
+- [Get Deployment Specifications](https://www.truefoundry.com/docs/api-reference/model-deployments/get-deployment-specifications.md): Fetches deployment specifications for a model version or a HuggingFace model URL.
+- [Get Finetuning Specifications](https://www.truefoundry.com/docs/api-reference/model-deployments/get-finetuning-specifications.md): Fetches finetuning specifications for a model version or a HuggingFace model URL
+- [Get Nvidia NIM Model Deployment Specifications](https://www.truefoundry.com/docs/api-reference/model-deployments/get-nvidia-nim-model-deployment-specifications.md): Fetches deployment specifications for a NIM Model
+- [Apply tags to model version](https://www.truefoundry.com/docs/api-reference/models/apply-tags-to-model-version.md): Apply tags to a model version.
+- [Create or update model version](https://www.truefoundry.com/docs/api-reference/models/create-or-update-model-version.md): Create or update a model version.
+- [Delete model](https://www.truefoundry.com/docs/api-reference/models/delete-model.md): Delete a model by its ID.
+- [Delete model version](https://www.truefoundry.com/docs/api-reference/models/delete-model-version.md): Delete a model version by its ID.
+- [Delete model version](https://www.truefoundry.com/docs/api-reference/models/delete-model-version-1.md): Delete a model version by manifest.
+- [Get model](https://www.truefoundry.com/docs/api-reference/models/get-model.md): Get a model by its ID.
+- [Get model version](https://www.truefoundry.com/docs/api-reference/models/get-model-version.md): Get a model version by its ID.
+- [List available models](https://www.truefoundry.com/docs/api-reference/models/list-available-models.md): Lists the models that the requesting user is authorized to access.
+- [List model versions](https://www.truefoundry.com/docs/api-reference/models/list-model-versions.md): List model versions with optional filtering by tag, FQN, model ID, ML Repo, name, version, run IDs, or run steps.
+- [List models](https://www.truefoundry.com/docs/api-reference/models/list-models.md): List models with optional filtering by FQN, ML Repo, name, or run ID.
+- [Post moderations](https://www.truefoundry.com/docs/api-reference/moderations/post-moderations.md): API reference for post moderations, covering request parameters, responses, and examples for integrating with TrueFoundry.
+- [Check Personal Access Token Exists](https://www.truefoundry.com/docs/api-reference/personal-access-tokens/check-personal-access-token-exists.md): Check whether a Personal Access Token with the given name exists in the current tenant.
+- [Create Personal Access Token](https://www.truefoundry.com/docs/api-reference/personal-access-tokens/create-personal-access-token.md): Create Personal Access Token
+- [Delete Personal Access Token](https://www.truefoundry.com/docs/api-reference/personal-access-tokens/delete-personal-access-token.md): Delete Personal Access Token associated with the provided serviceAccountId
+- [Get or Create Personal Access Token](https://www.truefoundry.com/docs/api-reference/personal-access-tokens/get-or-create-personal-access-token.md): Get an existing Personal Access Token by name, if it doesn't exist, it will create a new one and return the PAT data along with a fresh token.
+- [List Personal Access Tokens](https://www.truefoundry.com/docs/api-reference/personal-access-tokens/list-personal-access-tokens.md): List Personal Access Tokens created by the user in the current tenant.
+- [Revoke All Personal Access Tokens](https://www.truefoundry.com/docs/api-reference/personal-access-tokens/revoke-all-personal-access-tokens.md): Revoke All Personal Access Tokens for the user with the given email
+- [Apply tags to prompt version](https://www.truefoundry.com/docs/api-reference/prompts/apply-tags-to-prompt-version.md): Apply tags to a prompt version.
+- [Create or update prompt version](https://www.truefoundry.com/docs/api-reference/prompts/create-or-update-prompt-version.md): Create or update a prompt version.
+- [Delete prompt](https://www.truefoundry.com/docs/api-reference/prompts/delete-prompt.md): Delete a prompt by its ID.
+- [Delete prompt version](https://www.truefoundry.com/docs/api-reference/prompts/delete-prompt-version.md): Delete a prompt version by its ID.
+- [Delete prompt version](https://www.truefoundry.com/docs/api-reference/prompts/delete-prompt-version-1.md): Delete a prompt version by manifest.
+- [Get prompt](https://www.truefoundry.com/docs/api-reference/prompts/get-prompt.md): Get a prompt by its ID.
+- [Get prompt version](https://www.truefoundry.com/docs/api-reference/prompts/get-prompt-version.md): Get a prompt version by its ID.
+- [List prompt versions](https://www.truefoundry.com/docs/api-reference/prompts/list-prompt-versions.md): List prompt versions with optional filtering by tag, FQN, prompt ID, ML Repo, name, or version.
+- [List prompts](https://www.truefoundry.com/docs/api-reference/prompts/list-prompts.md): List prompts with optional filtering by FQN, ML Repo, or name.
+- [List Provider Integrations](https://www.truefoundry.com/docs/api-reference/provider-integrations/list-provider-integrations.md): Get provider integrations for a tenant with optional filtering by type, fqn or id. Pagination is available based on query parameters.
+- [Rerank Documents](https://www.truefoundry.com/docs/api-reference/rerank/rerank-documents.md): Rerank documents based on the given query and parameters.
+- [Delete Model Response](https://www.truefoundry.com/docs/api-reference/responses/delete-model-response.md): Delete a specific model response
+- [Get Model Response](https://www.truefoundry.com/docs/api-reference/responses/get-model-response.md): Get a specific model response
+- [List Model Response Input Items](https://www.truefoundry.com/docs/api-reference/responses/list-model-response-input-items.md): List input items for a specific model response
+- [Model Responses](https://www.truefoundry.com/docs/api-reference/responses/model-responses.md): Generate model responses using the specified model.
+- [Create Group](https://www.truefoundry.com/docs/api-reference/scim-v2/create-group.md)
+- [Create User](https://www.truefoundry.com/docs/api-reference/scim-v2/create-user.md)
+- [Delete Group](https://www.truefoundry.com/docs/api-reference/scim-v2/delete-group.md)
+- [Delete User](https://www.truefoundry.com/docs/api-reference/scim-v2/delete-user.md)
+- [Get Group](https://www.truefoundry.com/docs/api-reference/scim-v2/get-group.md)
+- [Get Schema](https://www.truefoundry.com/docs/api-reference/scim-v2/get-schema.md)
+- [Get Service Provider Configuration](https://www.truefoundry.com/docs/api-reference/scim-v2/get-service-provider-configuration.md)
+- [Get User](https://www.truefoundry.com/docs/api-reference/scim-v2/get-user.md)
+- [List Groups](https://www.truefoundry.com/docs/api-reference/scim-v2/list-groups.md)
+- [List Resource Types](https://www.truefoundry.com/docs/api-reference/scim-v2/list-resource-types.md)
+- [List Schemas](https://www.truefoundry.com/docs/api-reference/scim-v2/list-schemas.md)
+- [List Users](https://www.truefoundry.com/docs/api-reference/scim-v2/list-users.md)
+- [Patch Group](https://www.truefoundry.com/docs/api-reference/scim-v2/patch-group.md)
+- [Update Group](https://www.truefoundry.com/docs/api-reference/scim-v2/update-group.md)
+- [Update User](https://www.truefoundry.com/docs/api-reference/scim-v2/update-user.md)
+- [Update User](https://www.truefoundry.com/docs/api-reference/scim-v2/update-user-1.md)
+- [Create or Update Secret Group](https://www.truefoundry.com/docs/api-reference/secret-groups/create-or-update-secret-group.md): Creates a new secret group or updates an existing one based on the provided manifest.
+- [Create Secret Group](https://www.truefoundry.com/docs/api-reference/secret-groups/create-secret-group.md): Creates a secret group with secrets in it. A secret version for each of the created secret is created with version number as 1. The returned secret group does not have any secret values in the <em>associatedSecrets</em> field. A separate API call to `/v1/secrets/{id}` should be made to fetch the ass…
+- [Delete Secret Group](https://www.truefoundry.com/docs/api-reference/secret-groups/delete-secret-group.md): Deletes the secret group, its associated secrets and secret versions of those secrets.
+- [Get Secret Group](https://www.truefoundry.com/docs/api-reference/secret-groups/get-secret-group.md): Get Secret Group by id. This method does not return the secret values of the <em>associatedSecrets</em> in the response. A separate API call to `/v1/secrets/{id}` should be made to fetch the associated secret value.
+- [List Secret Groups](https://www.truefoundry.com/docs/api-reference/secret-groups/list-secret-groups.md): List the secret groups associated with a user along with the associated secrets for each group. Filtered with the options passed in the query fields. Note: This method does not return the secret values of the <em>associatedSecrets</em> in the response. A separate API call to `/v1/secrets/{id}` shoul…
+- [Update Secret Group](https://www.truefoundry.com/docs/api-reference/secret-groups/update-secret-group.md): Updates the secrets in a secret group with new values. A new secret version is created for every secret that has a modified value and any omitted secrets are deleted. The returned updated secret group does not have any secret values in the <em>associatedSecrets</em> field. A separate API call to `/v…
+- [Delete Secret](https://www.truefoundry.com/docs/api-reference/secrets/delete-secret.md): Deletes a secret and its versions along with its values.
+- [Get Secret](https://www.truefoundry.com/docs/api-reference/secrets/get-secret.md): Get Secret associated with provided id. The secret value is not returned if the control plane has `DISABLE_SECRET_VALUE_VIEW` set
+- [List Associated Active Deployments](https://www.truefoundry.com/docs/api-reference/secrets/list-associated-active-deployments.md): List the active deployments that are associated with a secret.
+- [List Associated Active Deployments for Multiple Secrets](https://www.truefoundry.com/docs/api-reference/secrets/list-associated-active-deployments-for-multiple-secrets.md): Returns the union of active deployments associated with any of the given secret IDs. Only secrets the user has read access to are considered.
+- [List Secrets](https://www.truefoundry.com/docs/api-reference/secrets/list-secrets.md): List secrets associated with a user filtered with optional parameters passed in the body.
+- [Create or Update a Team](https://www.truefoundry.com/docs/api-reference/teams/create-or-update-a-team.md): Creates a new team or updates an existing team. It ensures that the team name is unique, valid, and that the team has at least one member. The members of the team are added or updated based on the provided emails.
+- [Delete Team](https://www.truefoundry.com/docs/api-reference/teams/delete-team.md): Deletes the Team associated with the provided Id.
+- [Get Team](https://www.truefoundry.com/docs/api-reference/teams/get-team.md): Get Team associated with provided team id
+- [Get Team Permissions](https://www.truefoundry.com/docs/api-reference/teams/get-team-permissions.md): Get all role bindings associated with a team.
+- [List Teams for User](https://www.truefoundry.com/docs/api-reference/teams/list-teams-for-user.md): Retrieve all teams associated with the authenticated user. If the user is a tenant admin, returns all teams for the tenant. Pagination is available based on query parameters
+- [Get filtered spans data with detailed attributes](https://www.truefoundry.com/docs/api-reference/traces/get-filtered-spans-data-with-detailed-attributes.md)
+- [Activate User](https://www.truefoundry.com/docs/api-reference/users/activate-user.md): Activate user associated with the provided email within the tenant.
+- [Change Password](https://www.truefoundry.com/docs/api-reference/users/change-password.md): Change password for the authenticated user. Requires clientId and loginId in the request body.
+- [Check user registration](https://www.truefoundry.com/docs/api-reference/users/check-user-registration.md): Check if a user is registered with the platform
+- [Deactivate User](https://www.truefoundry.com/docs/api-reference/users/deactivate-user.md): Deactivate user associated with the provided email within the tenant.
+- [Delete User](https://www.truefoundry.com/docs/api-reference/users/delete-user.md): Delete user if they are not a collaborator in any resource and not part of any team other than everyone.
+- [Get User](https://www.truefoundry.com/docs/api-reference/users/get-user.md): Get User associated with provided User id
+- [Invite User](https://www.truefoundry.com/docs/api-reference/users/invite-user.md): Invite a user to the tenant
+- [List Users](https://www.truefoundry.com/docs/api-reference/users/list-users.md): List all users of tenant filtered by query and showInvalidUsers. Pagination is available based on query parameters.
+- [Register Users](https://www.truefoundry.com/docs/api-reference/users/register-users.md): This endpoint allows tenant administrators to register users within their tenant.
+- [Resend Invite](https://www.truefoundry.com/docs/api-reference/users/resend-invite.md): Resend the invite to the user
+- [Update User Profile Picture](https://www.truefoundry.com/docs/api-reference/users/update-user-profile-picture.md): Update the profile picture URL for the authenticated user
+- [Update User Roles](https://www.truefoundry.com/docs/api-reference/users/update-user-roles.md): This endpoint allows tenant administrators to update the roles of a user within their tenant.
+- [Check Virtual Account Exists](https://www.truefoundry.com/docs/api-reference/virtual-accounts/check-virtual-account-exists.md): Check whether a Virtual Account with the given name exists in the current tenant.
+- [Create or Update a Virtual Account](https://www.truefoundry.com/docs/api-reference/virtual-accounts/create-or-update-a-virtual-account.md): Creates a new virtual account or updates an existing one based on the provided manifest.
+- [Delete a JWT for a virtual account](https://www.truefoundry.com/docs/api-reference/virtual-accounts/delete-a-jwt-for-a-virtual-account.md): Delete a JWT for a virtual account by id
+- [Delete a Virtual Account](https://www.truefoundry.com/docs/api-reference/virtual-accounts/delete-a-virtual-account.md): Delete a virtual account associated with the provided virtual account id.
+- [Get token for a virtual account](https://www.truefoundry.com/docs/api-reference/virtual-accounts/get-token-for-a-virtual-account.md): Get token for a virtual account by id
+- [Get virtual account](https://www.truefoundry.com/docs/api-reference/virtual-accounts/get-virtual-account.md): Get virtual account by id
+- [List Virtual Accounts](https://www.truefoundry.com/docs/api-reference/virtual-accounts/list-virtual-accounts.md): List virtual accounts for the tenant.
+- [Regenerate token for a virtual account](https://www.truefoundry.com/docs/api-reference/virtual-accounts/regenerate-token-for-a-virtual-account.md): Regenerate token for a virtual account by id. The old token will remain valid for the specified grace period.
+- [Sync virtual account token to secret store](https://www.truefoundry.com/docs/api-reference/virtual-accounts/sync-virtual-account-token-to-secret-store.md): Syncs the virtual account token to the configured secret store. Returns the updated JWT with sync metadata including timestamp and error (if any).
+- [Create or Update Workspace](https://www.truefoundry.com/docs/api-reference/workspaces/create-or-update-workspace.md): Creates a new workspace or updates an existing one based on the provided manifest.
+- [Delete Workspace](https://www.truefoundry.com/docs/api-reference/workspaces/delete-workspace.md): Deletes the workspace with the given workspace ID.     - Removes the associated namespace from the cluster.     - Deletes the corresponding authorization entry.
+- [Get Workspace](https://www.truefoundry.com/docs/api-reference/workspaces/get-workspace.md): Get workspace associated with provided workspace id
+- [List Workspace](https://www.truefoundry.com/docs/api-reference/workspaces/list-workspace.md): List workspaces associated with the user. Optional filters include clusterId, fqn, and workspace name.
+- [Search workspaces](https://www.truefoundry.com/docs/api-reference/workspaces/search-workspaces.md): List workspaces the user can read with optional structured `filter` (name, id, environmentId, cluster_fqn) and pagination.
+- [Add and List Models](https://www.truefoundry.com/docs/apply-api-create-models.md): Learn how to add and list models (OpenAI, Anthropic, AWS Bedrock, etc.) using TrueFoundry APIs with comprehensive examples
+- [Secret Management API](https://www.truefoundry.com/docs/apply-api-secret-management.md): Create and manage secret groups using TrueFoundry REST API with examples for create, update, and search.
+- [Deployment Guardrails and Policies](https://www.truefoundry.com/docs/applying-custom-policies.md): Step-by-step guide for applying custom policies, explaining configuration, best practices, and real-world usage on TrueFoundry.
+- [Attaching Mounts](https://www.truefoundry.com/docs/attaching-mounts.md): Step-by-step guide for attaching mounts, explaining configuration, best practices, and real-world usage on TrueFoundry.
+- [Autoscaling](https://www.truefoundry.com/docs/autoscaling.md): Step-by-step guide for autoscaling, explaining configuration, best practices, and real-world usage on TrueFoundry.
+- [Autoscaling](https://www.truefoundry.com/docs/autoscaling-overview.md): Step-by-step guide for autoscaling overview, explaining configuration, best practices, and real-world usage on TrueFoundry.
+- [AWS](https://www.truefoundry.com/docs/aws-control-plane.md): This page provides an architecture overview, requirements and steps to setup a TrueFoundry control plane cluster in AWS.
+- [AWS SQS](https://www.truefoundry.com/docs/aws-sqs.md): Step-by-step guide for aws sqs, explaining configuration, best practices, and real-world usage on TrueFoundry.
+- [Azure](https://www.truefoundry.com/docs/azure-control-plane.md): Provisioning Control Plane Infrastructure on Azure
+- [Azure Repos](https://www.truefoundry.com/docs/azure-repos-integration-set-up.md): Follow this step to enable Azure Repos integrations
+- [Benchmarking LLMs](https://www.truefoundry.com/docs/benchmarking-llms.md): Measure token generation throughput, Time to First Token (TTFT), Inter Token Latency of LLMs via the chat completions API
+- [Bitbucket](https://www.truefoundry.com/docs/bitbucket-integration-set-up.md): Create a Bitbucket OAuth Consumer app and configure the integration with TrueFoundry for repository access.
+- [Deprecation of Common Tools in Playground and Settings — v0.135](https://www.truefoundry.com/docs/change-announcements/deprecation-of-common-tools-v0-135-0.md): Built-in common tools are deprecated from Playground and Settings in v0.135.0 and fully removed after 15 May 2026.
+- [Deprecation of MCP Servers in Prompts](https://www.truefoundry.com/docs/change-announcements/deprecation-of-mcp-servers-in-prompts.md): MCP servers can no longer be attached to new prompts starting 28th April 2026. Existing prompts with MCP servers will continue to work until 30th May 2026.
+- [Gemini CLI Model Registration Requirement — v0.118](https://www.truefoundry.com/docs/change-announcements/gemini-cli-model-registration-v0.118.md): From v0.118.1, all Gemini CLI models must be registered in the TrueFoundry Gateway for cost calculation and attribution.
+- [Guardrails YAML Schema Change — v0.116](https://www.truefoundry.com/docs/change-announcements/guardrails-yaml-schema-change-v0.116.md): MCP Guardrails feature launched in v0.116 introduces breaking changes to the guardrails YAML schema for GitOps users.
+- [Legacy MCP OAuth Routes Removal — v0.134](https://www.truefoundry.com/docs/change-announcements/legacy-mcp-oauth-routes-removal.md): Legacy unscoped MCP OAuth routes are being removed in favor of scoped OAuth Protected Resource Metadata endpoints (RFC 9728).
+- [MCP Gateway URL and Transport Changes — v0.130](https://www.truefoundry.com/docs/change-announcements/mcp-gateway-url-transport-v0.130.md): v0.130 introduces smarter MCP Gateway URLs with OAuth chaining and a breaking change in transport protocol handling.
+- [MCP Server Groups Removal — v0.112](https://www.truefoundry.com/docs/change-announcements/mcp-server-groups-removal-v0.112.md): MCP Server Groups are removed from v0.112. MCP Servers are now standalone, top-level resources with simplified management.
+- [AI Gateway Metrics Rename — v0.136](https://www.truefoundry.com/docs/change-announcements/refactoring-of-ai-gateway-metrics.md): Metric names in AI Gateway are being renamed. A dual-write transition period lets you migrate dashboards and alerts without downtime.
+- [x-tfy-routing-config Header Removal — v0.133](https://www.truefoundry.com/docs/change-announcements/routing-config-header-removal-v0.133.md): The x-tfy-routing-config request header is retired from AI Gateway in v0.133. Migrate routing logic to Virtual Models.
+- [Simplified GitOps CI/CD with tfy apply — v0.132](https://www.truefoundry.com/docs/change-announcements/simplified-gitops-cicd-v0.132.md): From v0.132, use a single tfy apply command to replace complex per-file CI/CD scripts for GitOps workflows.
+- [Changelog](https://www.truefoundry.com/docs/changelog.md): Step-by-step guide for changelog, explaining configuration, best practices, and real-world usage on TrueFoundry.
+- [Cluster migration with Velero](https://www.truefoundry.com/docs/cluster-migration-with-velero.md): Move a TrueFoundry-connected Kubernetes cluster to a new cluster using Velero backups.
+- [Access Control](https://www.truefoundry.com/docs/collaboration-and-access-control.md): Step-by-step guide for collaboration and access control, explaining configuration, best practices, and real-world usage on TrueFoundry.
+- [Set Concurrency Limit](https://www.truefoundry.com/docs/concurrency-limits.md): Step-by-step guide for concurrency limits, explaining configuration, best practices, and real-world usage on TrueFoundry.
+- [Creating A Conditional Task](https://www.truefoundry.com/docs/conditional-task.md): Step-by-step guide for conditional task, explaining configuration, best practices, and real-world usage on TrueFoundry.
+- [Configure Ports](https://www.truefoundry.com/docs/configure-ports.md): Step-by-step guide for configure ports, explaining configuration, best practices, and real-world usage on TrueFoundry.
+- [Configure Queue](https://www.truefoundry.com/docs/configure-queue.md): Step-by-step guide for configure queue, explaining configuration, best practices, and real-world usage on TrueFoundry.
+- [Configure Sidecar](https://www.truefoundry.com/docs/configure-sidecar.md): Step-by-step guide for configure sidecar, explaining configuration, best practices, and real-world usage on TrueFoundry.
+- [Configuring Resources](https://www.truefoundry.com/docs/configuring-resources.md): Step-by-step guide for configuring resources, explaining configuration, best practices, and real-world usage on TrueFoundry.
+- [Using Raw Container Task](https://www.truefoundry.com/docs/container-task.md): Step-by-step guide for container task, explaining configuration, best practices, and real-world usage on TrueFoundry.
+- [Cost Monitoring](https://www.truefoundry.com/docs/cost-monitoring.md): Step-by-step guide for cost monitoring, explaining configuration, best practices, and real-world usage on TrueFoundry.
+- [Setup Your Account](https://www.truefoundry.com/docs/create-and-setup-your-account.md): Step-by-step guide for create and setup your account, explaining configuration, best practices, and real-world usage on TrueFoundry.
+- [Create Runs and Log Data](https://www.truefoundry.com/docs/create-run.md): Step-by-step guide for create run, explaining configuration, best practices, and real-world usage on TrueFoundry.
+- [Creating A Map Task](https://www.truefoundry.com/docs/creating-a-map-task.md): Step-by-step guide for creating a map task, explaining configuration, best practices, and real-world usage on TrueFoundry.
+- [Creating And Using Volumes](https://www.truefoundry.com/docs/creating-a-volume.md): Step-by-step guide for creating a volume, explaining configuration, best practices, and real-world usage on TrueFoundry.
+- [Creating A Workflow With Different Container Images](https://www.truefoundry.com/docs/creating-a-workflow-with-gpu-and-non-gpu-image.md): Step-by-step guide for creating a workflow with gpu and non gpu image, explaining configuration, best practices, and real-world usage on…
+- [Creating Your First Workflow](https://www.truefoundry.com/docs/creating-your-first-workflow.md): Step-by-step guide for creating your first workflow, explaining configuration, best practices, and real-world usage on TrueFoundry.
+- [Creating A Cron Workflow](https://www.truefoundry.com/docs/cron-workflow.md): Schedule recurring workflows with cron on TrueFoundry. Learn setup, timing options, retries, and best practices.
+- [Customize Build Workflow](https://www.truefoundry.com/docs/customize-build-workflow.md): Inject custom logic into TrueFoundry's image build pipeline for services, jobs, and workflows. Run scripts before, during, or after the build and push steps.
+- [Customizing CI/CD Templates](https://www.truefoundry.com/docs/customizing-cicd-templates.md): Learn how to customize CI/CD templates on TrueFoundry for faster, consistent deployments.
+- [Creating A Databricks Task](https://www.truefoundry.com/docs/databricks-task.md): Learn how to trigger Databricks jobs from a TrueFoundry workflow using DatabricksJobTaskConfig, configure workspace and job settings, and set up authentication.
+- [Define Ports And Domains](https://www.truefoundry.com/docs/define-ports-and-domains.md): Define ports and domains for your services. Configure routing, exposure, and access correctly.
+- [Parameterize A Job](https://www.truefoundry.com/docs/deploy-a-job-with-additional-parameters.md): Deploy jobs with custom parameters. Learn flags, overrides, and runtime configuration.
+- [Use blob storage with your Spark job](https://www.truefoundry.com/docs/deploy-a-spark-job-with-blob-storage.md): Run Spark jobs with blob storage. Configure data access, storage, and execution.
+- [Deploy Control Plane and Compute Plane](https://www.truefoundry.com/docs/deploy-control-and-compute-plane.md): Deploy TrueFoundry Control Plane and Compute Plane in your own infrastructure
+- [External SSO (OIDC/SAML)](https://www.truefoundry.com/docs/deploy-control-plane-with-external-oauth.md): Deploy the TrueFoundry Control Plane without TrueFoundry Auth Server using any external OIDC or SAML identity providers for authentication.
+- [Getting Started](https://www.truefoundry.com/docs/deploy-first-service.md): Deploy your first service on TrueFoundry. From setup to live endpoint in minutes.
+- [Deploy Helm Charts](https://www.truefoundry.com/docs/deploy-helm-charts.md): Complete guide to deploying Helm charts in TrueFoundry with support for multiple repository types, Kustomize integration, and advanced configurations
+- [Getting Started](https://www.truefoundry.com/docs/deploy-job-from-a-public-github-repository.md): Deploy jobs directly from a public GitHub repo. Simple setup with version control.
+- [Deploy Programatically](https://www.truefoundry.com/docs/deploy-job-programatically.md): Deploy jobs programmatically using APIs. Automate job creation and execution.
+- [Deploy Kubernetes Manifests](https://www.truefoundry.com/docs/deploy-kubernetes-manifests.md): Learn how to deploy Kubernetes manifests directly through TrueFoundry's web interface with a complete example.
+- [Deploy Programatically](https://www.truefoundry.com/docs/deploy-service-programatically.md): Programmatically deploy services using TrueFoundry APIs and automation workflows.
+- [Deploy your first Async Service](https://www.truefoundry.com/docs/deploy-your-first-asyncservice.md): Deploy your first async service. Learn architecture, setup, and scaling basics.
+- [Deploying LLMs](https://www.truefoundry.com/docs/deploying-an-llm-model-from-the-model-catalogue.md): Deploy LLMs from the model catalogue. Simple steps to serve models in production.
+- [Deploying NVIDIA NIM Models](https://www.truefoundry.com/docs/deploying-nvidia-nims.md): Deploy optimized TensorRT-LLM Engines using NIM Containers
+- [Docker Build Secrets](https://www.truefoundry.com/docs/docker-build-secrets.md): Securely pass sensitive information during Docker image builds without exposing them in image layers.
+- [Dockerize Your Code](https://www.truefoundry.com/docs/dockerize-code.md): Learn how to dockerize your code for deployment on TrueFoundry.
+- [Download Models/Artifacts](https://www.truefoundry.com/docs/download-and-cache-models.md): Download and cache models efficiently to reduce cold starts and latency.
+- [Email Integration](https://www.truefoundry.com/docs/email-integration.md): Set up email integrations for alerts and notifications in TrueFoundry.
+- [Add authentication to your Endpoints](https://www.truefoundry.com/docs/endpoint-authentication.md): Configure endpoint authentication. Secure your services with tokens and access rules.
+- [Environment Variables And Secrets](https://www.truefoundry.com/docs/environment-variables-and-secrets.md): Manage environment variables and secrets securely across services.
+- [Environment Variables And Secrets](https://www.truefoundry.com/docs/environment-variables-and-secrets-jobs.md): Configure environment variables and secrets specifically for jobs.
+- [Example Of Task Config With Different Parameters](https://www.truefoundry.com/docs/example-of-task-config-with-different-parameters.md): See task config examples with different parameters and execution options.
+- [Manage External Identity](https://www.truefoundry.com/docs/external-identity.md): Bring your own Auth by setting up external identity for secure authentication and access control.
+- [Finetuning LLMs](https://www.truefoundry.com/docs/finetuning-a-model-from-the-model-catalogue.md): Finetune Llama, Mistral, Mixtral and more on one or more GPUs
+- [GCP](https://www.truefoundry.com/docs/gcp-control-plane.md): Provision TrueFoundry control plane infrastructure on Google Cloud Platform using OpenTofu or Terraform.
+- [Generating TrueFoundry API Keys](https://www.truefoundry.com/docs/generating-truefoundry-api-keys.md): Create and manage Personal Access Tokens and Virtual Accounts for programmatic TrueFoundry platform access.
+- [Deploy Generic Control Plane](https://www.truefoundry.com/docs/generic-control-plane.md): Learn how to deploy TrueFoundry's Control Plane on your generic Kubernetes cluster with detailed compute requirements and installation instructions.
+- [Github](https://www.truefoundry.com/docs/github-integration-set-up.md): Create a GitHub App and configure the integration with TrueFoundry for repository access and CI/CD.
+- [Gitlab](https://www.truefoundry.com/docs/gitlab-integration-set-up.md): Create a GitLab application and configure the integration with TrueFoundry for repository access and CI/CD.
+- [Handling Failure using Failure Task/Node](https://www.truefoundry.com/docs/handling-workflow-failure.md): Handle workflow failures gracefully using retries, alerts, and recovery steps.
+- [HashiCorp Vault](https://www.truefoundry.com/docs/hashicorp.md): Integrate HashiCorp tools for secrets and infrastructure management.
+- [Huggingface Trainer Callback](https://www.truefoundry.com/docs/huggingface-trainer-callback.md): Callback for Huggingface Trainer to automatically log metrics and checkpoints to TrueFoundry
+- [Infra Set Up For Workflows](https://www.truefoundry.com/docs/infra-set-up-for-workflows.md): Infrastructure setup guide for running workflows reliably at scale.
+- [AWS](https://www.truefoundry.com/docs/infrastructure/aws-compute-plane-setup.md): This page provides an architecture overview, requirements and steps to setup a TrueFoundry compute plane cluster in AWS
+- [Azure](https://www.truefoundry.com/docs/infrastructure/azure-compute-plane-setup.md): This page provides an overview of the architecture, requirements and steps to install the TrueFoundry compute plane cluster in Azure
+- [Deploy Compute Plane](https://www.truefoundry.com/docs/infrastructure/deploy-compute-plane.md): Connect Kubernetes Cluster in your cloud account to TrueFoundry Control Plane
+- [GCP](https://www.truefoundry.com/docs/infrastructure/gcp-compute-plane-setup.md): This page provides an overview of the architecture, requirements and steps to install the TrueFoundry compute plane cluster in GCP
+- [Generic](https://www.truefoundry.com/docs/infrastructure/generic-compute-plane-setup.md): This page provides an overview of the architecture, requirements and steps to install the TrueFoundry compute plane cluster in your generic cluster
+- [Ingress Controller Configuration](https://www.truefoundry.com/docs/ingress-controller-configuration.md): Configure an ingress controller other than Istio with custom ingress class names and TLS certificate settings.
+- [AWS](https://www.truefoundry.com/docs/integration-provider-aws.md): Integrate AWS services with TrueFoundry. Configure access and resources.
+- [Azure](https://www.truefoundry.com/docs/integration-provider-azure.md): Connect Azure services to TrueFoundry with secure configurations.
+- [GCP](https://www.truefoundry.com/docs/integration-provider-gcp.md): Integrate GCP services into your TrueFoundry environment.
+- [Integrations](https://www.truefoundry.com/docs/integrations-overview.md): Overview of all supported integrations in the TrueFoundry platform.
+- [Interacting With Workflow](https://www.truefoundry.com/docs/interacting-with-workflow.md): Learn how to trigger, monitor, and debug workflows.
+- [Redirect And Mirror Traffic](https://www.truefoundry.com/docs/intercepts.md): Understand intercepts and how they modify request and execution flow.
+- [Introduction](https://www.truefoundry.com/docs/introduction-to-a-job.md): Understand what a job is and how it runs on TrueFoundry.
+- [Introduction](https://www.truefoundry.com/docs/introduction-to-a-service.md): Learn the basics of services, endpoints, and deployments.
+- [Introduction to Async Service](https://www.truefoundry.com/docs/introduction-to-async-service.md): Introduction to async services and event-driven execution.
+- [Introduction](https://www.truefoundry.com/docs/introduction-to-ml-repo.md): Overview of ML Repo for managing experiments and artifacts.
+- [Introduction to Volume](https://www.truefoundry.com/docs/introduction-to-volume.md): Understand how volumes work for persistent storage, shared data, and model checkpointing in TrueFoundry deployments.
+- [Introduction To Workflow](https://www.truefoundry.com/docs/introduction-to-workflow.md): Powered by Flyte (An OpenSource Workflow Orchestrator)
+- [Logging Data in Job Runs](https://www.truefoundry.com/docs/job-runs-and-logging.md): Track job runs and view logs for debugging and monitoring.
+- [Key Concepts](https://www.truefoundry.com/docs/key-concepts.md): Key concepts you need to understand before using TrueFoundry.
+- [Kustomize Support](https://www.truefoundry.com/docs/kustomize.md): Use Kustomize to patch or add Kubernetes resources to your TrueFoundry deployment configurations.
+- [Launch a SSH Server](https://www.truefoundry.com/docs/launch-an-ssh-server.md): Launch an SSH server for debugging and secure access.
+- [Launch Jupyter Notebook](https://www.truefoundry.com/docs/launch-notebooks.md): Launch notebooks for experimentation and development.
+- [Liveness/Readiness Probe](https://www.truefoundry.com/docs/liveness-readiness-probe.md): Configure liveness and readiness probes for services.
+- [LoadBalancer/Ingress](https://www.truefoundry.com/docs/loadbalancers.md): Set up load balancers to distribute traffic efficiently.
+- [Artifacts and Artifact Versions](https://www.truefoundry.com/docs/log-artifacts.md): Uploading files and directories as Artifacts. Downloading contents of Artifact to disk.
+- [Models and Model Versions](https://www.truefoundry.com/docs/log-models.md): Uploading files and directories as Models. Downloading models to disk.
+- [Log & Monitor Custom Metrics](https://www.truefoundry.com/docs/log-monitor-custom-metrics.md): Monitor logs and custom metrics for observability.
+- [Secret Management](https://www.truefoundry.com/docs/manage-secrets.md): Store and manage secrets securely using secret groups with role-based access control in TrueFoundry.
+- [Deploy MCP Server From Code](https://www.truefoundry.com/docs/mcp-server-deployment/deploy-mcp-server-from-code.md): Learn how to deploy an MCP server from source code, whether it's in a public GitHub repository or code you've written yourself.
+- [Deploy MCP Server from npx/uvx](https://www.truefoundry.com/docs/mcp-server-deployment/deploy-mcp-server-from-npx-uvx.md): Learn how to deploy an MCP server that you're currently using in VSCode/Cursor/Claude as a service on TrueFoundry.
+- [Overview](https://www.truefoundry.com/docs/mcp-server-deployment/mcp-server-deployment-overview.md): Learn how to deploy MCP servers on TrueFoundry. Covers HTTP and stdio-based servers from source code, npx/uvx packages, and custom implementations.
+- [Getting Started](https://www.truefoundry.com/docs/ml-repo-quickstart.md): Get started with ML Repo by creating a repository, setting up the CLI, and logging your first experiment.
+- [Introduction](https://www.truefoundry.com/docs/model-deployment-introduction.md): Introduction to the model deployment lifecycle from training and logging to serving models in production.
+- [LitServe](https://www.truefoundry.com/docs/model-deployment/deploy-litserve.md): Deploying sample Whisper Speech to Text model with LitServe
+- [FastAPI](https://www.truefoundry.com/docs/model-deployment/deploy-model-fastapi.md): Deploy a scikit-learn iris classification model as a FastAPI service on TrueFoundry step by step.
+- [HuggingFace](https://www.truefoundry.com/docs/model-deployment/deploy-model-from-huggingface.md): Deploying any model from HuggingFace Hub using optimized model servers
+- [MlFlow](https://www.truefoundry.com/docs/model-deployment/deploy-model-mlflow.md): Deploy MLflow models on TrueFoundry with examples for Scikit-Learn, Transformers, and custom PyFunc models.
+- [AWS Multi-Model Server](https://www.truefoundry.com/docs/model-deployment/deploy-model-mms.md): Deploying sample MNIST model with AWS Multi-Model Server
+- [Scikit Learn / XGBoost](https://www.truefoundry.com/docs/model-deployment/deploy-sklearn-xgboost.md): Deploying Scikit Learn and XGBoost models with FastAPI or PyTriton
+- [TensorFlow Serve (TFServe)](https://www.truefoundry.com/docs/model-deployment/deploy-tfserve.md): Deploying sample MNIST model with TensorFlow Serve
+- [TorchServe](https://www.truefoundry.com/docs/model-deployment/deploy-torchserve.md): Deploy a sample MNIST model using TorchServe on TrueFoundry with Docker-based configuration.
+- [Migrate Sagemaker Pytorch Endpoint](https://www.truefoundry.com/docs/model-deployment/migrate-from-sagemaker-pytorch-endpoint.md): Migrate SageMaker PyTorch endpoints to TrueFoundry.
+- [Overview](https://www.truefoundry.com/docs/model-deployment/overview.md): Overview of model deployment options and patterns.
+- [Model Registry](https://www.truefoundry.com/docs/model-registry.md): Store, version, and manage your ML models in the TrueFoundry model registry with stage transitions and metadata.
+- [Monitor Your Job](https://www.truefoundry.com/docs/monitor-your-job.md): Monitor job execution using real-time logs, metrics dashboards, and events in the TrueFoundry platform.
+- [View Logs, Metrics And Events](https://www.truefoundry.com/docs/monitor-your-service.md): Monitor your deployed services with pod-level logs, resource metrics, events, and Grafana dashboard integration.
+- [Monitor Your Async Service](https://www.truefoundry.com/docs/monitoring-your-async-service.md): Monitor async service health with consumer lag, processing rate, and latency metrics plus real-time logs.
+- [Mounting Volumes](https://www.truefoundry.com/docs/mounting-volumes-job.md): Mount persistent volumes to jobs for sharing data across training runs without re-downloading datasets.
+- [Mounting Volumes/Files](https://www.truefoundry.com/docs/mounting-volumes-service.md): Mount volumes, secrets, or configuration strings to your services for persistent data and runtime settings.
+- [OIDC with Azure AD](https://www.truefoundry.com/docs/openid-connect-with-azure-ad.md): Configure OpenID Connect with Azure AD or Microsoft Entra ID for single sign-on access to TrueFoundry.
+- [OIDC with Keycloak](https://www.truefoundry.com/docs/openid-connect-with-keycloak.md): Register a Keycloak client and integrate it with TrueFoundry for OpenID Connect based authentication.
+- [OIDC with Okta](https://www.truefoundry.com/docs/openid-connect-with-okta.md): Configure OpenID Connect with Okta to enable single sign-on for TrueFoundry dashboard access.
+- [PagerDuty](https://www.truefoundry.com/docs/pagerduty-integration.md): Set up PagerDuty as a notification channel for TrueFoundry alerts and incident management.
+- [Passing Files/Artifacts Between Tasks](https://www.truefoundry.com/docs/passing-filesartifacts-between-tasks.md): Use FlyteFile and FlyteDirectory to pass files and directories between tasks in TrueFoundry workflows.
+- [Pause / Resume Service](https://www.truefoundry.com/docs/pause-resume-service.md): Pause services to shut down all replicas and save costs, then resume them without losing your configuration.
+- [Truefoundry Architecture](https://www.truefoundry.com/docs/platform/architecture.md): Truefoundry provides a split-plane architecture to decouple compute, gateway and control-plane and can be deployed on your own infrastructure.
+- [Audit Logging](https://www.truefoundry.com/docs/platform/audit-logging.md): Track and monitor all platform activities with comprehensive audit logs for security, compliance, and troubleshooting
+- [Truefoundry Compute Plane Architecture](https://www.truefoundry.com/docs/platform/compute-plane-architecture.md): Architecture of the TrueFoundry Compute Plane which handles all the models, services, jobs and pipelines deployed by the users.
+- [Truefoundry Control Plane](https://www.truefoundry.com/docs/platform/control-plane-architecture.md): Architecture of the TrueFoundry Control Plane which is the brain of the Truefoundry platform.
+- [Control Plane Upgrade](https://www.truefoundry.com/docs/platform/control-plane-upgrade.md): Upgrade the control plane safely with minimal downtime.
+- [Control Plane Monitoring](https://www.truefoundry.com/docs/platform/controlplane-monitoring.md): Monitor your self-hosted TrueFoundry control plane using Prometheus metrics and Grafana dashboards.
+- [Deploy AI Gateway](https://www.truefoundry.com/docs/platform/deploy-control-plane-and-gateway-plane.md): Learn how to deploy TrueFoundry's AI Gateway on your own infrastructure with detailed compute requirements and installation instructions.
+- [Deploy Gateway Plane](https://www.truefoundry.com/docs/platform/deploy-gateway-plane.md): Installation guide of deploying the gateway plane on your own infrastructure.
+- [Installation and Deployment Overview](https://www.truefoundry.com/docs/platform/deployment-overview.md): Description of the different deployment options for Truefoundry.
+- [Truefoundry Gateway Plane Architecture](https://www.truefoundry.com/docs/platform/gateway-plane-architecture.md): Architecture of the TrueFoundry AI Gateway, designed for high availability, low latency, and scalable LLM integration in production environments.
+- [Manage User Roles & Permissions](https://www.truefoundry.com/docs/platform/manage-user-roles-and-permissions.md): Configure custom roles with scoped permissions for AI Gateway, MCP servers, agents, and platform resources.
+- [Truefoundry Overview](https://www.truefoundry.com/docs/platform/overview.md): Truefoundry enables developer productivity and governance by making AI deployments easier and providing an AI gateway to access models, MCP servers and agents.
+- [Security and Compliance](https://www.truefoundry.com/docs/platform/security-and-compliance.md): Learn about Truefoundry's enterprise-grade security features, compliance certifications, and data protection measures
+- [Manage Teams](https://www.truefoundry.com/docs/platform/team-management.md): Detailed guide to how to add, manage and delete teams in Truefoundry
+- [Manage Users](https://www.truefoundry.com/docs/platform/user-management.md): Detailed guide to how to add, manage and delete users in Truefoundry
+- [User, Team, Account and Tenant Management](https://www.truefoundry.com/docs/platform/user-team-account-management.md): A high level introduction to Truefoundry's account management hierarchy and key concepts.
+- [Manage Virtual Accounts](https://www.truefoundry.com/docs/platform/virtual-account-management.md): Detailed guide to how to add, manage and delete Virtual Accounts in Truefoundry
+- [Using Dockerfile For Python Function Task](https://www.truefoundry.com/docs/python-function-tasks-with-dockefile.md): Use a custom Dockerfile with Python function tasks in TrueFoundry workflows to install extra dependencies.
+- [Recovering a Failed Workflow Execution](https://www.truefoundry.com/docs/recovering-workflow-execution.md): Resume a failed workflow execution from the exact step where it failed.
+- [Set Resources](https://www.truefoundry.com/docs/resources-cpu-memory-storage.md): Configure CPU, memory, ephemeral storage, GPU, and shared memory resources for your TrueFoundry deployments.
+- [Set Retries And Timeout](https://www.truefoundry.com/docs/retries-and-timeout.md): Configure retry policies and timeout settings for jobs to improve reliability and manage compute resources.
+- [Rollout Strategy](https://www.truefoundry.com/docs/rollout-strategy.md): Configure how to rollout a new version of your application
+- [Running Workflow Locally](https://www.truefoundry.com/docs/running-workflow-locally.md): Run TrueFoundry workflows locally for rapid testing and debugging before deploying to the platform.
+- [SAML V2 With Azure AD](https://www.truefoundry.com/docs/saml-v2-with-azure-ad.md): Configure SAML v2 authentication with Azure AD to enable enterprise single sign-on for TrueFoundry.
+- [Scale Service to 0](https://www.truefoundry.com/docs/scale-service-to-0.md): Auto-scale services to zero replicas when idle and automatically restart them on incoming traffic using Elasti.
+- [Set Up CI/CD](https://www.truefoundry.com/docs/setting-up-cicd-for-your-service.md): Configure CI/CD pipelines for your services using GitHub Actions, GitLab CI/CD, Bitbucket, or Jenkins.
+- [Setup Alerts](https://www.truefoundry.com/docs/setup-alerts.md): Configure Prometheus AlertManager alerts with Email, Slack, or PagerDuty notification channels for monitoring.
+- [Setup For CLI](https://www.truefoundry.com/docs/setup-cli.md): Install and configure the TrueFoundry CLI for managing deployments, experiments, and platform resources.
+- [Setup GitOps](https://www.truefoundry.com/docs/setup-gitops-using-truefoundry.md): Enable GitOps with TrueFoundry—store deployment configuration in Git and sync with a single CLI command.
+- [Slack](https://www.truefoundry.com/docs/slack-bot-integration.md): Set up a Slack Bot integration with TrueFoundry to receive deployment alerts and platform notifications.
+- [Creating A Spark Task](https://www.truefoundry.com/docs/spark-task.md): Learn how to run PySpark jobs as tasks in a TrueFoundry workflow, configure Spark resources, and monitor runs with the Spark UI.
+- [SSO Overview](https://www.truefoundry.com/docs/sso.md): Enable single sign-on for TrueFoundry with identity providers like GSuite, Azure AD, Okta, or Keycloak.
+- [Sticky Routing](https://www.truefoundry.com/docs/sticky-routing.md): Pin user requests using consistent hash based routing
+- [Task Config](https://www.truefoundry.com/docs/task-config.md): Configure task settings including environment variables, resources, volume mounts, and service accounts for workflows.
+- [TFY Agent](https://www.truefoundry.com/docs/tfy-agent.md): Learn how the TFY Agent connects compute-plane clusters to the TrueFoundry control plane via secure WebSocket.
+- [TrueFoundry ML Client](https://www.truefoundry.com/docs/truefoundry-ml-reference/index.md): TrueFoundry ML client reference for tracking experiments, logging artifacts, and managing models programmatically.
+- [TrueFoundry Python SDK](https://www.truefoundry.com/docs/truefoundry_sdk/index.md): Complete Python SDK for TrueFoundry - Access and manage resources on TrueFoundry
+- [Update, Rollback, Promote](https://www.truefoundry.com/docs/update-rollback-promote-your-service.md): Update service versions, rollback to previous deployments, and promote services between environments safely.
+- [Using Fractional GPUs](https://www.truefoundry.com/docs/using-fractional-gpus.md): Share a single GPU across multiple workloads using Nvidia MIG and TimeSlicing for cost-efficient deployments.
+- [Using tfy apply](https://www.truefoundry.com/docs/using-tfy-apply.md): preview and apply changes to your resources using tfy apply
+- [Using tfy delete](https://www.truefoundry.com/docs/using-tfy-delete.md): Delete TrueFoundry resources using tfy delete and a manifest file
+- [Using TPUs](https://www.truefoundry.com/docs/using-tpus.md): Deploy apps on Single Host TPU v4, v5e, v5p slices
+- [Workflow Concepts](https://www.truefoundry.com/docs/workflow-concepts.md): Understand core workflow concepts including workflows, tasks, decorators, and task execution flow in TrueFoundry.
+
+## OpenAPI Specs
+
+- [openapi](https://www.truefoundry.com/openapi.json)
+- [gateway-openapi](https://www.truefoundry.com/gateway-openapi.json)

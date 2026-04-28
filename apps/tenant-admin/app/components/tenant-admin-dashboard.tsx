@@ -23,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import ProviderAccountWizard from "@/app/components/provider-account-wizard";
 import { extractTenantSlugFromHost } from "@/lib/tenant";
 
 type TenantKey = {
@@ -532,6 +533,8 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
           </form>
         </CardContent>
       </Card>
+
+      <ProviderAccountWizard />
     </div>
   );
 }

@@ -1,0 +1,200 @@
+package platform
+
+import "time"
+
+// ProviderAuthMode declares how a provider account can authenticate.
+type ProviderAuthMode string
+
+const (
+	ProviderAuthModeAPIKey               ProviderAuthMode = "api_key"
+	ProviderAuthModeAzureEntraCert       ProviderAuthMode = "azure_entra_cert"
+	ProviderAuthModeAWSSigV4             ProviderAuthMode = "aws_sigv4"
+	ProviderAuthModeGoogleServiceAccount ProviderAuthMode = "google_service_account"
+	ProviderAuthModeNoCredential         ProviderAuthMode = "no_credential"
+)
+
+// ModelType is the logical usage type exposed to tenants.
+type ModelType string
+
+const (
+	ModelTypeChat               ModelType = "chat"
+	ModelTypeCompletion         ModelType = "completion"
+	ModelTypeEmbedding          ModelType = "embedding"
+	ModelTypeRealtime           ModelType = "realtime"
+	ModelTypeTextToSpeech       ModelType = "text_to_speech"
+	ModelTypeAudioTranscription ModelType = "audio_transcription"
+	ModelTypeImageGeneration    ModelType = "image_generation"
+	ModelTypeModeration         ModelType = "moderation"
+	ModelTypeRerank             ModelType = "rerank"
+	ModelTypeSearch             ModelType = "search"
+)
+
+// PricingMode defines whether price is inherited from public catalog or private override.
+type PricingMode string
+
+const (
+	PricingModePublic  PricingMode = "public"
+	PricingModePrivate PricingMode = "private"
+)
+
+// PrincipalType identifies who receives a role on a provider account.
+type PrincipalType string
+
+const (
+	PrincipalTypeUser     PrincipalType = "user"
+	PrincipalTypeTeam     PrincipalType = "team"
+	PrincipalTypeEveryone PrincipalType = "everyone"
+)
+
+// AccessRole specifies which permission bucket a principal belongs to.
+type AccessRole string
+
+const (
+	AccessRoleManager AccessRole = "manager"
+	AccessRoleUser    AccessRole = "user"
+)
+
+// ModelPrice is normalized as USD per 1M tokens.
+type ModelPrice struct {
+	InputUSDPer1M  *float64 `json:"input_usd_per_1m,omitempty"`
+	OutputUSDPer1M *float64 `json:"output_usd_per_1m,omitempty"`
+}
+
+// ProviderCatalogProvider is returned by the provider picker endpoint.
+type ProviderCatalogProvider struct {
+	Provider                string             `json:"provider"`
+	DisplayName             string             `json:"display_name"`
+	Enabled                 bool               `json:"enabled"`
+	AuthModes               []ProviderAuthMode `json:"auth_modes"`
+	SupportsBringYourOwnKey bool               `json:"supports_bring_your_own_key"`
+	SupportsVirtualKeys     bool               `json:"supports_virtual_keys"`
+}
+
+// ProviderCatalogModel is returned by provider model discovery endpoints.
+type ProviderCatalogModel struct {
+	Provider         string                 `json:"provider"`
+	Model            string                 `json:"model"`
+	DisplayName      string                 `json:"display_name"`
+	Types            []ModelType            `json:"types"`
+	PublicPricing    *ModelPrice            `json:"public_pricing,omitempty"`
+	SettingsSchema   map[string]interface{} `json:"settings_schema,omitempty"`
+	IsDeprecated     bool                   `json:"is_deprecated,omitempty"`
+	ReplacementModel string                 `json:"replacement_model,omitempty"`
+}
+
+// ProviderCatalogListResponse contains providers available to a tenant.
+type ProviderCatalogListResponse struct {
+	Data []ProviderCatalogProvider `json:"data"`
+}
+
+// ProviderModelCatalogListResponse contains models of one provider.
+type ProviderModelCatalogListResponse struct {
+	Data []ProviderCatalogModel `json:"data"`
+}
+
+// ProviderAccountCredentials captures credential input for account setup.
+type ProviderAccountCredentials struct {
+	APIKey       string                 `json:"api_key,omitempty"`
+	SecretRef    string                 `json:"secret_ref,omitempty"`
+	Raw          map[string]interface{} `json:"raw,omitempty"`
+	SkipRequired bool                   `json:"skip_required,omitempty"`
+}
+
+// TenantProviderAccount stores tenant-level provider account configuration.
+type TenantProviderAccount struct {
+	ID                    string                 `json:"id"`
+	TenantID              string                 `json:"tenant_id"`
+	Provider              string                 `json:"provider"`
+	Name                  string                 `json:"name"`
+	AuthMode              ProviderAuthMode       `json:"auth_mode"`
+	ProviderConfig        map[string]interface{} `json:"provider_config,omitempty"`
+	HasCredential         bool                   `json:"has_credential"`
+	AllowsVirtualKeysOnly bool                   `json:"allows_virtual_keys_only"`
+	CreatedAt             time.Time              `json:"created_at"`
+	UpdatedAt             time.Time              `json:"updated_at"`
+}
+
+// TenantProviderAccountModel is tenant-selected model config inside one account.
+type TenantProviderAccountModel struct {
+	Model          string                 `json:"model"`
+	Enabled        bool                   `json:"enabled"`
+	Types          []ModelType            `json:"types"`
+	PricingMode    PricingMode            `json:"pricing_mode"`
+	PrivatePricing *ModelPrice            `json:"private_pricing,omitempty"`
+	Settings       map[string]interface{} `json:"settings,omitempty"`
+}
+
+// AccessPrincipal is one user/team/everyone principal entry.
+type AccessPrincipal struct {
+	Type        PrincipalType `json:"type"`
+	PrincipalID string        `json:"principal_id,omitempty"`
+	DisplayName string        `json:"display_name,omitempty"`
+}
+
+// AccessPrincipalCandidate is returned by principal picker search APIs.
+type AccessPrincipalCandidate struct {
+	Type        PrincipalType `json:"type"`
+	PrincipalID string        `json:"principal_id"`
+	DisplayName string        `json:"display_name"`
+	Secondary   string        `json:"secondary,omitempty"`
+}
+
+// TenantProviderAccountAccessRule binds a principal to manager/user role.
+type TenantProviderAccountAccessRule struct {
+	Role      AccessRole      `json:"role"`
+	Principal AccessPrincipal `json:"principal"`
+}
+
+// TenantProviderAccountAccessControl groups manager/user access entries.
+type TenantProviderAccountAccessControl struct {
+	Managers []AccessPrincipal `json:"managers"`
+	Users    []AccessPrincipal `json:"users"`
+}
+
+// CreateTenantProviderAccountRequest creates step-1 provider account.
+type CreateTenantProviderAccountRequest struct {
+	Provider             string                      `json:"provider"`
+	Name                 string                      `json:"name"`
+	AuthMode             ProviderAuthMode            `json:"auth_mode"`
+	ProviderConfig       map[string]interface{}      `json:"provider_config,omitempty"`
+	Credentials          *ProviderAccountCredentials `json:"credentials,omitempty"`
+	AllowVirtualKeysOnly bool                        `json:"allow_virtual_keys_only"`
+}
+
+// UpsertTenantProviderAccountModelsRequest saves selected models from step-2.
+type UpsertTenantProviderAccountModelsRequest struct {
+	Models []TenantProviderAccountModel `json:"models"`
+}
+
+// UpdateTenantProviderAccountAccessRequest saves step-3 access control.
+type UpdateTenantProviderAccountAccessRequest struct {
+	Access TenantProviderAccountAccessControl `json:"access"`
+}
+
+// TestTenantProviderAccountCredentialsRequest triggers credential validation.
+type TestTenantProviderAccountCredentialsRequest struct {
+	ModelHint string `json:"model_hint,omitempty"`
+}
+
+// TestTenantProviderAccountCredentialsResponse returns test execution result.
+type TestTenantProviderAccountCredentialsResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message,omitempty"`
+}
+
+// TenantProviderAccountDetailsResponse returns full account data for wizard editing.
+type TenantProviderAccountDetailsResponse struct {
+	Account TenantProviderAccount              `json:"account"`
+	Models  []TenantProviderAccountModel       `json:"models"`
+	Access  TenantProviderAccountAccessControl `json:"access"`
+}
+
+// TenantProviderAccountListResponse lists provider accounts for the tenant.
+type TenantProviderAccountListResponse struct {
+	Data []TenantProviderAccount `json:"data"`
+}
+
+// AccessPrincipalListResponse contains principal picker search results.
+type AccessPrincipalListResponse struct {
+	Data []AccessPrincipalCandidate `json:"data"`
+}

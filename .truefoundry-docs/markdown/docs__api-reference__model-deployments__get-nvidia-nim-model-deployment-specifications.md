@@ -1,0 +1,182 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://www.truefoundry.com/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Get Nvidia NIM Model Deployment Specifications
+
+> Fetches deployment specifications for a NIM Model
+
+
+
+## OpenAPI
+
+````yaml /openapi.json get /api/svc/v1/model-catalogues/nim-deployment-specs
+openapi: 3.1.0
+info:
+  title: TrueFoundry API
+  description: API for TrueFoundry
+  version: 0.1.0
+  contact: {}
+servers:
+  - url: https://{controlPlaneURL}
+    variables:
+      controlPlaneURL:
+        default: app.truefoundry.com
+        description: Control Plane URL
+security: []
+tags:
+  - name: Agent
+  - name: Applications
+  - name: Apply
+  - name: Artifacts
+  - name: Audit Logs
+  - name: Clusters
+  - name: Jobs
+  - name: Logs
+  - name: MCP Servers
+  - name: MLRepos
+  - name: Model Deployments
+  - name: Models
+  - name: Personal Access Tokens
+  - name: Prompts
+  - name: Provider Integrations
+  - name: SCIM v2
+  - name: Secret Groups
+  - name: Secrets
+  - name: Teams
+  - name: Traces
+  - name: Users
+  - name: Virtual Accounts
+  - name: Workspaces
+paths:
+  /api/svc/v1/model-catalogues/nim-deployment-specs:
+    get:
+      tags:
+        - Model Deployments
+      summary: Get Nvidia NIM Model Deployment Specifications
+      description: Fetches deployment specifications for a NIM Model
+      operationId: ModelCatalogue.getNvidiaNIMDeploymentSpecs
+      parameters:
+        - name: workspaceId
+          required: true
+          in: query
+          description: Workspace Id
+          schema:
+            type: string
+        - name: nimModelId
+          required: true
+          in: query
+          description: >-
+            Nvidia NIM container id Format: `<org>/<team>/<model>`, e.g.
+            `nim/meta/llama3-8b-instruct`
+          schema:
+            type: string
+        - name: nvcrDockerRegistryProviderIntegrationFqn
+          required: true
+          in: query
+          description: FQN of the Custom Registry Provider Integration pointing to nvcr.io
+          schema:
+            type: string
+        - name: ngcApiKeySecretFqn
+          required: true
+          in: query
+          description: FQN of the Secret containing the NGC API key
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Returns deployment specifications for the NIM Model
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListModelDeploymentSpecResponse'
+        '400':
+          description: >
+            Bad Request. This can occur due to: 
+
+            1. NIM Model ID is not provided. 
+
+            2. NVCR Docker Registry Provider Integration FQN is not provided or
+            invalid. 
+
+            3. NGC API Key Secret FQN is not provided or invalid. 
+        '404':
+          description: Not Found. Workspace with the provided ID not found.
+      security:
+        - jwt: []
+components:
+  schemas:
+    ListModelDeploymentSpecResponse:
+      type: object
+      properties:
+        data:
+          description: Array of ModelDeploymentSpec
+          type: array
+          items:
+            $ref: '#/components/schemas/ModelServerOption'
+      required:
+        - data
+      title: ListModelDeploymentSpecResponse
+      x-fern-type-name: ListModelDeploymentSpecResponse
+    ModelServerOption:
+      type: object
+      properties:
+        name:
+          type: string
+          enum:
+            - vLLM
+            - SGLang
+            - TRT-LLM
+            - NIM
+            - TEI
+            - Infinity
+            - Triton
+            - MMS
+            - FastAPI
+            - TGI
+        displayName:
+          type: string
+        description:
+          type: string
+        openAPIDescription:
+          type: string
+        deployments:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeploymentConfig'
+      required:
+        - name
+        - displayName
+        - description
+        - openAPIDescription
+        - deployments
+      title: ModelServerOption
+      x-fern-type-name: ModelServerOption
+    DeploymentConfig:
+      type: object
+      properties:
+        name:
+          type: string
+        spec:
+          type: object
+          additionalProperties: true
+        isAvailableInWorkspace:
+          type: boolean
+        cost:
+          type: object
+          additionalProperties: true
+        isTRTLLMEngineAvailable:
+          type: boolean
+      required:
+        - name
+        - spec
+        - isAvailableInWorkspace
+      title: DeploymentConfig
+      x-fern-type-name: DeploymentConfig
+  securitySchemes:
+    jwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+````

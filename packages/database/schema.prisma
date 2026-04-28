@@ -56,18 +56,19 @@ model ModelAlias {
 }
 
 model Tenant {
-  tenant_id           String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  slug                String              @unique @db.VarChar(255)
-  domain              String              @unique @db.VarChar(255)
-  status              String              @default("active") @db.VarChar(50)
-  created_at          DateTime            @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime            @default(now()) @db.Timestamptz(6)
-  model_deployments   ModelDeployment[]
-  request_logs        RequestLog[]
-  spend_logs          SpendLog[]
-  verification_tokens VerificationToken[]
-  wallet_transactions WalletTransaction[]
-  wallets             Wallet?
+  tenant_id                String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug                     String                  @unique @db.VarChar(255)
+  domain                   String                  @unique @db.VarChar(255)
+  status                   String                  @default("active") @db.VarChar(50)
+  created_at               DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime                @default(now()) @db.Timestamptz(6)
+  model_deployments        ModelDeployment[]
+  request_logs             RequestLog[]
+  spend_logs               SpendLog[]
+  tenant_provider_accounts TenantProviderAccount[]
+  verification_tokens      VerificationToken[]
+  wallet_transactions      WalletTransaction[]
+  wallets                  Wallet?
 
   @@map("tenants")
 }
@@ -429,6 +430,62 @@ model ExchangeRate {
 
   @@index([fetched_at(sort: Desc)], map: "idx_exchange_rates_fetched_at")
   @@map("exchange_rates")
+}
+
+model TenantProviderAccount {
+  account_id                     String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                      String                        @db.Uuid
+  provider                       String                        @db.VarChar(100)
+  name                           String                        @db.VarChar(255)
+  auth_mode                      String                        @db.VarChar(50)
+  provider_config                Json                          @default("{}")
+  credential_data                Json?
+  has_credential                 Boolean                       @default(false)
+  allow_virtual_keys_only        Boolean                       @default(false)
+  created_at                     DateTime                      @default(now()) @db.Timestamptz(6)
+  updated_at                     DateTime                      @default(now()) @db.Timestamptz(6)
+  tenant_provider_account_access TenantProviderAccountAccess[]
+  tenant_provider_account_models TenantProviderAccountModel[]
+  tenants                        Tenant                        @relation(fields: [tenant_id], references: [tenant_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([tenant_id, name], map: "uq_tenant_provider_accounts_tenant_name")
+  @@index([tenant_id], map: "idx_tenant_provider_accounts_tenant_id")
+  @@index([tenant_id, provider], map: "idx_tenant_provider_accounts_tenant_provider")
+  @@map("tenant_provider_accounts")
+}
+
+model TenantProviderAccountModel {
+  account_model_id         String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id               String                @db.Uuid
+  model                    String                @db.VarChar(255)
+  enabled                  Boolean               @default(true)
+  types                    String[]              @default([])
+  pricing_mode             String                @default("public") @db.VarChar(20)
+  private_pricing          Json?
+  settings                 Json                  @default("{}")
+  created_at               DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime              @default(now()) @db.Timestamptz(6)
+  tenant_provider_accounts TenantProviderAccount @relation(fields: [account_id], references: [account_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([account_id, model], map: "uq_tenant_provider_account_models_account_model")
+  @@index([account_id], map: "idx_tenant_provider_account_models_account_id")
+  @@map("tenant_provider_account_models")
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model TenantProviderAccountAccess {
+  account_access_id        String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id               String                @db.Uuid
+  role                     String                @db.VarChar(20)
+  principal_type           String                @db.VarChar(20)
+  principal_id             String?               @db.VarChar(255)
+  display_name             String?               @db.VarChar(255)
+  created_at               DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime              @default(now()) @db.Timestamptz(6)
+  tenant_provider_accounts TenantProviderAccount @relation(fields: [account_id], references: [account_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([account_id], map: "idx_tenant_provider_account_access_account_id")
+  @@map("tenant_provider_account_access")
 }
 
 model shahrah_sql_migrations {
