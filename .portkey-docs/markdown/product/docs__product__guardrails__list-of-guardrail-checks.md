@@ -1,0 +1,198 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# List of Guardrail Checks
+
+A **Guardrail Check** is a specific rule or validation applied to your AI traffic. You can apply checks to the **Input** (to sanitize user prompts before they reach the LLM) or the **Output** (to validate the LLM's response before sending it back to your user). You can combine multiple checks to build a robust Guardrail.
+
+<Note>
+  You can now have configurable timeouts for Partner & Pro Guardrails!
+</Note>
+
+## Partner Guardrails
+
+Each Guardrail Check has a specific purpose, it's own parameters, supported hooks, and sources.
+
+<CardGroup cols={3}>
+  <Card title="Acuvity" href="/integrations/guardrails/acuvity" img="https://mintcdn.com/portkey-docs/wAHXB_jjwLt8bYcN/images/product/Guardrails/Acuvity.jpg?fit=max&auto=format&n=wAHXB_jjwLt8bYcN&q=85&s=37349c5d9950c465895d3fc0ad34dbfe" width="798" height="549" data-path="images/product/Guardrails/Acuvity.jpg">
+    * Scan prompts and responses for security threats \* Detect PII, toxicity,
+      and prompt injections \* Real-time content analysis and filtering
+  </Card>
+
+  <Card title="Aporia" href="/integrations/guardrails/aporia" img="https://mintcdn.com/portkey-docs/wAHXB_jjwLt8bYcN/images/product/Guardrails/Aporia.jpg?fit=max&auto=format&n=wAHXB_jjwLt8bYcN&q=85&s=4f65646a8721789e6a3134ded9d731fb" width="798" height="549" data-path="images/product/Guardrails/Aporia.jpg">
+    * Validate custom Aporia policies via project ID \* Define policies on your
+      Aporia dashboard \* Seamless integration with Portkey checks
+  </Card>
+
+  <Card title="AWS Bedrock" href="/integrations/guardrails/bedrock-guardrails" img="https://mintcdn.com/portkey-docs/wAHXB_jjwLt8bYcN/images/product/Guardrails/Bedrock.jpg?fit=max&auto=format&n=wAHXB_jjwLt8bYcN&q=85&s=0260740d53b4c6ece7632cfa20d5cceb" width="798" height="549" data-path="images/product/Guardrails/Bedrock.jpg">
+    * Analyze and redact PII to prevent manipulation \* Integrate AWS Guardrails
+      directly in Portkey \* Advanced security policy enforcement
+  </Card>
+
+  <Card title="Azure" href="/integrations/guardrails/azure-guardrails" img="https://mintcdn.com/portkey-docs/wAHXB_jjwLt8bYcN/images/product/Guardrails/Azure.jpg?fit=max&auto=format&n=wAHXB_jjwLt8bYcN&q=85&s=5d4e0a83a3c90193422d482a180a8d9f" alt="Azure OpenAI" width="798" height="549" data-path="images/product/Guardrails/Azure.jpg">
+    * Detect and redact sensitive PII data \* Apply Azure's comprehensive content
+      safety checks \* Detect jailbreaks and prompt injections with Shield Prompt
+    * Identify copyrighted content with Protected Material detection
+  </Card>
+
+  <Card title="Javelin (Highflame)" href="/integrations/guardrails/javelin" img="https://mintcdn.com/portkey-docs/Hpgh9l6IJ9BzqZwp/images/product/Guardrails/Javelin.png?fit=max&auto=format&n=Hpgh9l6IJ9BzqZwp&q=85&s=88522b6ecceaba24c896dacbd1bc8e30" width="798" height="549" data-path="images/product/Guardrails/Javelin.png">
+    * Platform to secure your entire AI journey, with visibility at every step,
+      protection against emerging AI threats across GenAI, Agents & MCPs, and the
+      confidence to innovate at scale
+  </Card>
+
+  <Card title="Lasso Security" href="/integrations/guardrails/lasso" img="https://mintcdn.com/portkey-docs/VWP2Y8zxPP5N4jE6/images/product/Guardrails/Lasso.jpg?fit=max&auto=format&n=VWP2Y8zxPP5N4jE6&q=85&s=587e455c6b0984419570b5ee33760261" width="798" height="549" data-path="images/product/Guardrails/Lasso.jpg">
+    * Analyze content for security risks and jailbreaks \* Enforce custom policy
+      violations detection \* AI-powered threat detection and prevention
+  </Card>
+
+  <Card title="Mistral" href="/integrations/guardrails/mistral" img="https://mintcdn.com/portkey-docs/VWP2Y8zxPP5N4jE6/images/product/Guardrails/Mistral-AI.jpg?fit=max&auto=format&n=VWP2Y8zxPP5N4jE6&q=85&s=484f1e88353f474600a3176802acaf27" width="798" height="549" data-path="images/product/Guardrails/Mistral-AI.jpg">
+    * Detect and filter harmful content automatically \* Multi-dimensional
+      content safety analysis \* Real-time moderation capabilities
+  </Card>
+
+  <Card title="Pangea" href="/integrations/guardrails/pangea" img="https://mintcdn.com/portkey-docs/VWP2Y8zxPP5N4jE6/images/product/Guardrails/Pangea.jpg?fit=max&auto=format&n=VWP2Y8zxPP5N4jE6&q=85&s=45eb1e1e136ce07de974c033e3975799" width="798" height="549" data-path="images/product/Guardrails/Pangea.jpg">
+    * Guard LLM inputs and outputs with Text Guard \* Detect malicious content
+      and data transfers \* Prevent model manipulation attempts
+  </Card>
+
+  <Card title="Palo Alto Networks Prisma AIRS" href="/integrations/guardrails/palo-alto-panw-prisma" img="https://mintcdn.com/portkey-docs/VWP2Y8zxPP5N4jE6/images/product/Guardrails/prisma.png?fit=max&auto=format&n=VWP2Y8zxPP5N4jE6&q=85&s=55e0159e5f574f1fb58776efadbb4118" alt="PRISMA" width="636" height="588" data-path="images/product/Guardrails/prisma.png">
+    * Real-time threat detection across all OSI layers (1-7) \* Block prompt
+      injections, data leakage, and model DoS attacks
+  </Card>
+
+  <Card title="Patronus" href="/integrations/guardrails/patronus-ai" img="https://mintcdn.com/portkey-docs/VWP2Y8zxPP5N4jE6/images/product/Guardrails/Patronus.jpg?fit=max&auto=format&n=VWP2Y8zxPP5N4jE6&q=85&s=b4d0ffce8d0854057448220f48e7533e" width="798" height="549" data-path="images/product/Guardrails/Patronus.jpg">
+    * Detect hallucinations and factual errors \* Assess quality: conciseness,
+      helpfulness, tone \* Identify gender and racial bias in outputs
+  </Card>
+
+  <Card title="Pillar" href="/integrations/guardrails/pillar" img="https://mintcdn.com/portkey-docs/VWP2Y8zxPP5N4jE6/images/product/Guardrails/Pillar.jpg?fit=max&auto=format&n=VWP2Y8zxPP5N4jE6&q=85&s=4692617ebc7ae9a56f4beca8ff225027" width="798" height="549" data-path="images/product/Guardrails/Pillar.jpg">
+    * Scan prompts and responses comprehensively \* Detect PII, toxicity, and
+      injection attacks \* Enterprise security and compliance features
+  </Card>
+
+  <Card title="Prompt Security" href="/integrations/guardrails/prompt-security" img="https://mintcdn.com/portkey-docs/VWP2Y8zxPP5N4jE6/images/product/Guardrails/PromptSecurity.jpg?fit=max&auto=format&n=VWP2Y8zxPP5N4jE6&q=85&s=7d09d76b4c0ca0951d9dad5fb1673322" width="798" height="549" data-path="images/product/Guardrails/PromptSecurity.jpg">
+    * Scan prompts for security vulnerabilities \* Analyze responses for policy
+      violations \* Advanced threat detection and mitigation
+  </Card>
+
+  <Card title="Qualifire" href="/integrations/guardrails/qualifire" img="https://mintcdn.com/portkey-docs/zx71VV27BwiN1HFV/images/product/Guardrails/Qualifire.png?fit=max&auto=format&n=zx71VV27BwiN1HFV&q=85&s=ac12c860fcc4290270f3087c7fa9e0c8" width="960" height="540" data-path="images/product/Guardrails/Qualifire.png">
+    * Best in class evaluation and guardrails for agents, RAG and chat bots.
+      Detect and mitigate hallucinations, grounding issues, and any custom
+      policies.
+  </Card>
+
+  <Card title="CrowdStrike AIDR" href="/integrations/guardrails/crowdstrike-aidr" img="https://dr46azxe5rdcu.cloudfront.net/wp-content/uploads/2025/03/04224136/CrowdStrike-scaled.jpeg">
+    * Pass LLM Input and Output to guard chat completions \* Block or sanitize text depending on configured rules
+  </Card>
+
+  <Card title="Exa" href="/integrations/plugins" img="https://lsvp.com/wp-content/uploads/2024/07/ColorColor_TypeWordmark@4x-1.jpg">
+    * Provider business-grade search and crawling for any web data
+  </Card>
+
+  <Card title="F5 Guardrails" href="/integrations/guardrails/f5-guardrails" img="https://www.cisco.com/content/dam/cisco-cdc/site/images/legacy/assets/swa/img/anchor-info/f5-logo-solid-628x353.png">
+    * Advanced content moderation and PII detection capabilities for LLM inputs and outputs
+  </Card>
+
+  <Card title="Walled AI" href="/integrations/guardrails/walledai" img="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRsFdEGKnMqyCLqxNQg0_bUqgBjaKAiRoH6ZA&s">
+    * Ensure the safety and compliance of your LLM inputs \* Generic safety checks, greetings, PII, and compliance checks
+  </Card>
+
+  <Card title="Zscaler" href="/integrations/guardrails/zscaler" img="https://d2908q01vomqb2.cloudfront.net/77de68daecd823babbb58edb1c8e14d7106e83bb/2025/09/23/Zscaler-AWS-Partners-2025-300x150-1.png">
+    * Integrates Zscaler AI Guard to perform security checks on both inbound prompts and outbound LLM responses
+  </Card>
+
+  <Card title="Akto" href="/integrations/guardrails/akto">
+    * Advanced threat detection and security scanning for LLM inputs and outputs \* Protect against prompt injection and sensitive data leakage
+  </Card>
+</CardGroup>
+
+## Portkey's Guardrails
+
+Along with the partner Guardrails, there are also deterministic as well as LLM-based Guardrails supported natively by Portkey.
+
+* `BASIC` Guardrails are available on all Portkey plans.
+* `PRO` Guardrails are available on Portkey Pro & Enterprise plans.
+
+### Understanding Supported Hooks
+
+* `input_guardrails`: Runs on the user's prompt *before* calling the model.
+* `output_guardrails`: Runs on the model's generated text *after* the call.
+
+### `BASIC` — Deterministic Guardrails
+
+Basic deterministic guardrails are ideal for quick, hard-coded validations that require zero LLM overhead. Implement these when you need to enforce strict data structures (like JSON schema), exact regex matches, or basic text limits (like word counts) with absolute certainty and minimal latency.
+
+#### Text & Format Validation
+
+| Guardrail Check         | Description                                                                    | Parameters                                       | Supported On  |
+| :---------------------- | :----------------------------------------------------------------------------- | :----------------------------------------------- | :------------ |
+| **Regex Match**         | Checks if the request or response text matches a regex pattern.                | `rule`: string                                   | Input, Output |
+| **Sentence Count**      | Checks if the content contains a certain number of sentences. Ranges allowed.  | `minSentences`: number, `maxSentences`: number   | Input, Output |
+| **Word Count**          | Checks if the content contains a certain number of words. Ranges allowed.      | `minWords`: number, `maxWords`: number           | Input, Output |
+| **Character Count**     | Checks if the content contains a certain number of characters. Ranges allowed. | `minCharacters`: number, `maxCharacters`: number | Input, Output |
+| **Uppercase check**     | Checks if content has all uppercase letters.                                   | `not`: boolean                                   | Input, Output |
+| **Lowercase Detection** | Check if the given string is lowercase or not.                                 | `format`: string                                 | Input, Output |
+| **Ends With**           | Check if the content ends with a specified string.                             | `Suffix`: string                                 | Input, Output |
+
+#### Data & Structure
+
+| Guardrail Check   | Description                                                                 | Parameters                         | Supported On |
+| :---------------- | :-------------------------------------------------------------------------- | :--------------------------------- | :----------- |
+| **JSON Schema**   | Check if the response JSON matches a JSON schema.                           | `schema`: json                     | Output only  |
+| **JSON Keys**     | Check if the response JSON contains any, all or none of the mentioned keys. | `keys`: array, `operator`: string  | Output only  |
+| **Valid URLs**    | Checks if all the URLs mentioned in the content are valid.                  | `onlyDNS`: boolean                 | Output only  |
+| **Contains Code** | Checks if the content contains code of format SQL, Python, TypeScript, etc. | `format`: string                   | Output only  |
+| **Not Null**      | Checks if the response content is not null, undefined, or empty.            | `not`: boolean                     | Output only  |
+| **Contains**      | Checks if the content contains any, all or none of the words or phrases.    | `words`: array, `operator`: string | Output only  |
+
+#### Security & Auth
+
+| Guardrail Check                                                                   | Description                                                                                                                                        | Parameters                        | Supported On |
+| :-------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------- | :----------- |
+| **JWT Token Validator**                                                           | [Validate JWT tokens](/integrations/guardrails/jwt) with signature verification (JWKS), token introspection, claim validation, and extract claims. | *Multiple*                        | Input only   |
+| **[Request Parameters Check](/integrations/guardrails/request-parameters-check)** | Allow/block tools, top-level request keys, and specific parameter values.                                                                          | `tools`: object, `params`: object | Input only   |
+
+#### Routing & Control
+
+| Guardrail Check                                         | Description                                                                               | Parameters                                                 | Supported On |
+| :------------------------------------------------------ | :---------------------------------------------------------------------------------------- | :--------------------------------------------------------- | :----------- |
+| **Model Whitelist**                                     | Check if the inference model to be used is in the whitelist.                              | `Models`: array, `Inverse`: boolean                        | Input only   |
+| **[Model Rules](/integrations/guardrails/model-rules)** | Allow requests based on metadata-driven rules mapping to allowed models.                  | `rules`: object, `not`: boolean                            | Input only   |
+| **Allowed Request Types**                               | Control which request types (endpoints) can be processed using an allowlist or blocklist. | `allowedTypes`: array, `blockedTypes`: array               | Input only   |
+| **Required Metadata Keys**                              | Checks if the metadata contains all the required keys.                                    | `metadataKeys`: array, `operator`: string                  | Input only   |
+| **Required Metadata Key-Value Pairs**                   | Checks if the metadata contains specified key-value pairs.                                | `metadataPairs`: object, `operator`: string (all/any/none) | Input only   |
+
+#### Media Processing
+
+| Guardrail Check | Description           | Parameters                                                                                                                                           | Supported On                                                                                                                                  |            |
+| :-------------- | :-------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+|                 | **Inline Image URLs** | Fetches external image URLs and converts them to Base64 inline data. Useful for VPC-SC environments where LLM providers cannot access external URLs. | `providers`: array, `maxSizeBytes`: number (default: 20971520), `timeoutMs`: number (default: 30000), `failOnError`: boolean (default: false) | Input only |
+
+#### Extensibility
+
+| Guardrail Check | Description                                                        | Parameters                            | Supported On  |
+| :-------------- | :----------------------------------------------------------------- | :------------------------------------ | :------------ |
+| **Webhook**     | Makes a webhook request for custom guardrails.                     | `webhookURL`: string, `headers`: json | Input, Output |
+| **Log**         | Makes a request to a log URL and always gives true as the verdict. | `logURL`: string, `headers`: json     | Output only   |
+
+### `PRO` — LLM Guardrails
+
+Pro guardrails leverage LLMs to perform nuanced, semantic validations. Implement these when you need to detect complex concepts like PII, toxicity, or gibberish that cannot be reliably caught with simple regex or deterministic rules.
+
+| Guardrail Check      | Description                                                           | Parameters          | Supported On  |
+| :------------------- | :-------------------------------------------------------------------- | :------------------ | :------------ |
+| **Moderate Content** | Checks if the content passes the mentioned content moderation checks. | `categories`: array | Input only    |
+| **Check Language**   | Checks if the response content is in the mentioned language.          | `language`: string  | Input only    |
+| **Detect PII**       | Detects Personally Identifiable Information (PII) in the content.     | `categories`: array | Input, Output |
+| **Detect Gibberish** | Detects if the content is gibberish.                                  | `boolean`           | Input, Output |
+
+## Bring Your Own Guardrail
+
+We have built Guardrails in a very modular way, and support bringing your own Guardrail using a custom webhook! [Learn more here](/integrations/guardrails/bring-your-own-guardrails).
+
+## Contribute Your Guardrail
+
+Integrate your Guardrail platform with Portkey Gateway and reach our growing user base.
+Check out some [existing integrations](https://github.com/portkey-ai/gateway) to get started.

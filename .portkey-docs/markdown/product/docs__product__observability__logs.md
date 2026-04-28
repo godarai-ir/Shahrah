@@ -1,0 +1,213 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Logs
+
+> The Logs section presents a chronological list of all the requests processed through Portkey.
+
+<Info>
+  This feature is available for all plans:
+
+  * [Developer](https://app.portkey.ai/): 10k Logs / Month with 3 day Log Retention
+  * [Production](https://app.portkey.ai/): 100k Logs / Month + \$9 for additional 100k with 30 Days Log Retention
+  * [Enterprise](https://portkey.ai/docs/product/enterprise-offering): Unlimited
+</Info>
+
+Each log entry provides useful data such as the timestamp, request type, LLM used, tokens generated, thinking tokens and cost. For [multimodal models](/product/ai-gateway/multimodal-capabilities), Logs will also show the image sent with vision/image models, as well as the image generated.
+
+By clicking on an entry, a side panel opens up, revealing the entire raw data with the request and response objects.
+
+This detailed log can be invaluable when troubleshooting issues or understanding specific interactions. It provides full transparency into each request and response, enabling you to see exactly what data was sent and received.
+
+<Frame>
+  <img src="https://mintcdn.com/portkey-docs/_Cb_bj7tVjxcfwsu/images/product/product-2.avif?fit=max&auto=format&n=_Cb_bj7tVjxcfwsu&q=85&s=831f1cb98919f6a6d9e2a467db031653" width="800" height="492" data-path="images/product/product-2.avif" />
+</Frame>
+
+## Share Logs with Teammates
+
+Each log on Portkey has a unique URL. You can copy the link from the address bar and directly share it with anyone in your org.
+
+## Request Status Guide
+
+The Status column on the Logs page gives you a snapshot of the gateway activity for every request.
+
+Portkey’s gateway features—[Cache](/product/ai-gateway/cache-simple-and-semantic), [Retries](/product/ai-gateway/automatic-retries), [Fallback](/product/ai-gateway/fallbacks), [Loadbalance](/product/ai-gateway/load-balancing) are tracked here with their exact states (`disabled`, `triggered`, etc.), making it a breeze to monitor and optimize your usage.
+
+**Common Queries Answered:**
+
+* **Is the cache working?**: Enabled caching but unsure if it's active? The Status column will confirm it for you.
+* **How many retries happened?**: Curious about the retry count for a successful request? See it in a glance.
+* **Fallback and Loadbalance**: Want to know if load balance is active or which fallback option was triggered? See it in a glance.
+
+<Frame>
+  <img src="https://mintcdn.com/portkey-docs/_Cb_bj7tVjxcfwsu/images/product/product-3.avif?fit=max&auto=format&n=_Cb_bj7tVjxcfwsu&q=85&s=47bb08ef14ca9168f30d9d8bd8a6aece" width="800" height="419" data-path="images/product/product-3.avif" />
+</Frame>
+
+| Option          | 🔴 Inactive State     | 🟢 Possible Active States                               |
+| --------------- | --------------------- | ------------------------------------------------------- |
+| **Cache**       | Cache Disabled        | Cache Miss,Cache Refreshed,Cache Hit,Cache Semantic Hit |
+| **Retry**       | Retry Not Triggered   | Retry Success on {x} Tries,Retry Failed                 |
+| **Fallback**    | Fallback Disabled     | Fallback Active                                         |
+| **Loadbalance** | Loadbalancer Disabled | Loadbalancer Active                                     |
+
+## Manual Feedback
+
+As you're viewing logs, you can also add manual feedback on the logs to be analysed and filtered later. This data can be viewed on the [feedback analytics dashboards](/product/observability/analytics#feedback).
+
+<Frame>
+  <img src="https://mintcdn.com/portkey-docs/_Cb_bj7tVjxcfwsu/images/product/product-7-1.avif?fit=max&auto=format&n=_Cb_bj7tVjxcfwsu&q=85&s=3aac211557b5a7cea6dc9be7969b2560" width="800" height="522" data-path="images/product/product-7-1.avif" />
+</Frame>
+
+## Configs & Prompt IDs in Logs
+
+If your request has an attached [Config](/product/ai-gateway/configs) or if it's originating from a [prompt template](/product/prompt-library), you can see the relevant Config or Prompt IDs separately in the log's details on Portkey. And to dig deeper, you can just click on the IDs and Portkey will take you to the respective Config or Prompt playground where you can view the full details.
+
+<Frame>
+  <img src="https://mintcdn.com/portkey-docs/_Cb_bj7tVjxcfwsu/images/product/product-8-1.avif?fit=max&auto=format&n=_Cb_bj7tVjxcfwsu&q=85&s=e1884ad3ed0aff3c2484a9a9c6edd2bf" width="540" height="410" data-path="images/product/product-8-1.avif" />
+</Frame>
+
+## Debug Requests with Log Replay
+
+You can rerun any buggy request with just one click, straight from the log details page. The `Replay` button opens your request in a fresh prompt playground where you can rerun the request and edit it right there until it works.
+
+<Frame>
+  <img src="https://mintcdn.com/portkey-docs/_Cb_bj7tVjxcfwsu/images/product/product-9-1.avif?fit=max&auto=format&n=_Cb_bj7tVjxcfwsu&q=85&s=59dce817f829583e49a6f0fa273f19a0" width="650" height="370" data-path="images/product/product-9-1.avif" />
+</Frame>
+
+<Info>
+  `Replay` **button will be inactive for a log in the following cases:**
+
+  1. If the request is sent to any endpoint other than `/chat/completions,` `/completions`, `/embeddings`
+  2. If the provider used in the log is archived on Portkey
+  3. If the request originates from a prompt template which is called from inside a Config target
+</Info>
+
+## DO NOT TRACK
+
+The `DO NOT TRACK` option allows you to process requests without logging the request and response data. When enabled, only high-level statistics like **tokens** used, **cost**, and **latency** will be recorded, while the actual request and response content will be omitted from the logs.
+
+This feature is particularly useful when dealing with sensitive data or complying with data privacy regulations. It ensures that you can still capture critical operational metrics without storing potentially sensitive information in your logs.
+
+To enable `DO NOT TRACK` for a specific request, set the `debug` flag to `false` when instantiating your **Portkey** or **OpenAI** client, or include the `x-portkey-debug:false` header with your request.
+
+<Tabs>
+  <Tab title="Node SDK">
+    ```js theme={"system"}
+    import Portkey from 'portkey-ai';
+
+    const portkey = new Portkey({
+        provider:"@OPENAI_PROVIDER",
+        apiKey: "PORTKEY_API_KEY",
+        debug: false
+    })
+
+    async function main(){
+        const response = await portkey.chat.completions.create({
+            messages: [{ role: 'user', content: '1729' }],
+            model: 'gpt-4',
+        });
+        console.log(response.choices[0].message?.content)
+    }
+
+    main()
+    ```
+  </Tab>
+
+  <Tab title="Python SDK">
+    ```Python theme={"system"}
+    from portkey_ai import Portkey
+
+    portkey = Portkey(
+        api_key="PORTKEY_API_KEY",
+        provider="@OPENAI_PROVIDER",
+        debug=False
+    )
+
+    response = portkey.chat.completions.create(
+        messages=[{'role': 'user', 'content': 'Say this is a test'}],
+        model='gpt-4'
+    )
+
+    print(response.choices[0].message.content)
+    ```
+  </Tab>
+
+  <Tab title="cURL">
+    ```sh theme={"system"}
+    curl 'https://api.portkey.ai/v1/chat/completions' \
+        -H 'Content-Type: application/json' \
+        -H 'x-portkey-provider: $OPENAI_PROVIDER' \
+        -H 'x-portkey-api-key: $PORTKEY_API_KEY' \
+        -H 'x-portkey-debug: false' \
+        -d '{
+        "model": "gpt-4o",
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are a helpful assistant"
+          },
+          {
+            "role": "user",
+            "content": "what is a portkey?"
+          }
+        ]
+    }'
+    ```
+  </Tab>
+
+  <Tab title="OpenAI Python ">
+    ```py theme={"system"}
+    from openai import OpenAI
+    from portkey_ai import PORTKEY_GATEWAY_URL, createHeaders
+
+    client = OpenAI(
+        base_url=PORTKEY_GATEWAY_URL,
+        default_headers=createHeaders(
+            provider="@OPENAI_PROVIDER",
+            api_key="PORTKEY_API_KEY",
+            debug=False
+        )
+    )
+
+    chat_complete = client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": "Say this is a test"}],
+    )
+
+    print(chat_complete.choices[0].message.content)
+    ```
+  </Tab>
+
+  <Tab title="OpenAI Node ">
+    ```js theme={"system"}
+    import OpenAI from 'openai';
+    import { PORTKEY_GATEWAY_URL, createHeaders } from 'portkey-ai'
+
+    const openai = new OpenAI({
+      baseURL: PORTKEY_GATEWAY_URL,
+      defaultHeaders: createHeaders({
+        provider:"@OPENAI_PROVIDER",
+        apiKey: "PORTKEY_API_KEY",
+        debug: false
+      })
+    });
+
+    async function main() {
+      const chatCompletion = await openai.chat.completions.create({
+        messages: [{ role: 'user', content: 'Say this is a test' }],
+        model: 'gpt-3.5-turbo',
+      });
+      console.log(chatCompletion.choices);
+    }
+
+    main();
+    ```
+  </Tab>
+</Tabs>
+
+### Side-by-side comparison on how a `debug:false` request will be logged
+
+<Frame>
+  <img src="https://mintcdn.com/portkey-docs/_Cb_bj7tVjxcfwsu/images/product/product-10-1.avif?fit=max&auto=format&n=_Cb_bj7tVjxcfwsu&q=85&s=6cbd23cc741530ff9d0c357e3a3b0131" width="800" height="607" data-path="images/product/product-10-1.avif" />
+</Frame>

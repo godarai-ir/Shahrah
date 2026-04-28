@@ -1,0 +1,61 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Overview
+
+<CardGroup cols={3}>
+  <Card title="Autogen" href="/integrations/libraries/autogen" />
+
+  <Card title="Anything LLMs" href="/integrations/libraries/anythingllm" />
+
+  <Card title="OpenAI Codex" href="/integrations/libraries/codex" />
+
+  <Card title="Cline" href="/integrations/libraries/cline" />
+
+  <Card title="Claude Code" href="/integrations/libraries/claude-code" />
+
+  <Card title="Anthropic Computer Use" href="/integrations/libraries/anthropic-computer-use" />
+
+  <Card title="Instructor" href="/integrations/libraries/instructor" />
+
+  <Card title="Langchain (Python)" href="/integrations/libraries/langchain-python" />
+
+  <Card title="Langchain (JS/TS)" href="/integrations/libraries/langchain-js" />
+
+  <Card title="LlamaIndex (Python)" href="/integrations/libraries/llama-index-python" />
+
+  <Card title="n8n" href="/integrations/libraries/n8n" />
+
+  <Card title="OpenAI Agent Builder (TS)" href="/integrations/libraries/openai-agent-builder" />
+
+  <Card title="OpenAI Agent Builder (Python)" href="/integrations/libraries/openai-agent-builder-python" />
+
+  <Card title="Roo Code" href="/integrations/libraries/roo-code" />
+
+  <Card title="Goose" href="/integrations/libraries/goose" />
+
+  <Card title="LibreChat" href="/integrations/libraries/librechat" />
+
+  <Card title="Promptfoo" href="/integrations/libraries/promptfoo" />
+
+  <Card title="Jan" href="/integrations/libraries/janhq" />
+
+  <Card title="Vercel" href="/integrations/libraries/vercel" />
+
+  <Card title="Mongo DB" href="/integrations/libraries/mongodb" />
+
+  <Card title="Microsoft Seamntic Kernel" href="/api-reference/inference-api/sdks/c-sharp#microsoft-semantic-kernel-example" />
+
+  <Card title="Tooljet" href="/integrations/libraries/tooljet" />
+
+  <Card title="Retool" href="/integrations/libraries/retool" />
+
+  <Card title="Supabase" href="/integrations/libraries/supabase" />
+
+  <Card title="Open WebUI" href="/integrations/libraries/openwebui" />
+
+  <Card title="Zed.dev" href="/integrations/libraries/zed" />
+
+  <Card title="Any OpenAI Compatible Project" href="/integrations/libraries/openai-compatible" />
+</CardGroup>

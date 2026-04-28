@@ -1,0 +1,27 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Overview
+
+<CardGroup>
+  <Card title="Llama 3 on Portkey + Together AI" href="/guides/integrations/llama-3-on-portkey-+-together-ai" />
+
+  <Card title="Introduction to GPT-4o" href="/guides/integrations/introduction-to-gpt-4o" />
+
+  <Card title="Anyscale" href="/guides/integrations/anyscale" />
+
+  <Card title="Mistral" href="/guides/integrations/mistral" />
+
+  <Card title="Vercel AI" href="/guides/integrations/vercel-ai" />
+
+  <Card title="Deepinfra" href="/guides/integrations/deepinfra" />
+
+  <Card title="Groq" href="/guides/integrations/groq" />
+
+  <Card title="Langchain" href="/guides/integrations/langchain" />
+
+  <Card title="Mixtral 8x22b" href="/guides/integrations/mixtral-8x22b" />
+
+  <Card title="Segmind" href="/guides/integrations/segmind" />
+</CardGroup>

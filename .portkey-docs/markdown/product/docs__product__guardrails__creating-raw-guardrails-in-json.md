@@ -1,0 +1,69 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Creating Raw Guardrails (in JSON)
+
+> With the raw Guardrails mode, we let you define your Guardrail checks & actions however you want, directly in code.
+
+At Portkey, we believe in helping you make your workflows [as modular as possible](https://portkey.ai/blog/what-it-means-to-go-to-prod/).
+This is useful when:
+
+* You want the same Guardrail checks but want to take different basic actions on them
+* Your Guardrail checks definitions are dependent on an upstream task and are updated in code
+* You want greater control over how you want to handle Guardrails
+
+With the Raw Guardrails mode, you can achieve all this.
+
+### Example of a Raw Guardrail
+
+```JSON theme={"system"}
+"before_request_hooks": [{
+    "type": "guardrail",
+    "id": "my_solid_guardrail",
+    "checks": [{
+      "id": "default.regexMatch",
+      "parameters": {
+        "rule": "test"
+      }
+    }]
+}]
+```
+
+In this example:
+
+* `type`: Specifies the type of hook, which is `guardrail`.
+* `name`: Gives a name to the guardrail for identification.
+* `checks`: Lists the checks that make up the guardrail. Each check includes an `id` and `parameters` for the specific conditions to validate.
+
+### Configuring Guardrail Actions
+
+```JSON theme={"system"}
+"before_request_hooks": [{
+    "type": "guardrail",
+    "id": "my_solid_guardrail",
+    "checks": [{
+      "id": "default.regexMatch",
+      "parameters": {
+        "rule": "test"
+      }
+    }],
+    "deny": false,
+    "async": false,
+    "sequential": false,
+    "on_success": {
+        "feedback": {"value": 1,"weight": 1}
+    },
+    "on_fail": {
+        "feedback": {"value": -1,"weight": 1}
+     }
+}]
+```
+
+In this example,
+
+* `deny`: Is set to `TRUE` or `FALSE`
+* `async`: Is set to `TRUE` or `FALSE`
+* `sequential`: Is set to `TRUE` or `FALSE` - when `TRUE`, guardrail checks run one after another instead of in parallel
+* `on_success`: Used to pass custom `feedback`
+* `on_failure`: Used to pass custom `feedback`

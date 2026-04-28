@@ -1,0 +1,803 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Anthropic
+
+> Integrate Anthropic's Claude models with Portkey's AI Gateway
+
+Portkey provides a robust and secure gateway to integrate various Large Language Models (LLMs) into applications, including [Anthropic's Claude APIs](https://docs.anthropic.com/claude/reference/getting-started-with-the-api).
+
+With Portkey, take advantage of features like fast AI gateway access, observability, prompt management, and more, while securely managing API keys through [Model Catalog](/product/model-catalog).
+
+<CardGroup cols={3}>
+  <Card title="All Models" icon="circle-check" color="#10b981">
+    Full support for all Claude models including Sonnet and Haiku 4-5
+  </Card>
+
+  <Card title="All Endpoints" icon="circle-check" color="#10b981">
+    `/messages`, `count-tokens` and more fully supported
+  </Card>
+
+  <Card title="Multi-Provider Support" icon="circle-check" color="#10b981">
+    Use Claude from Anthropic, Bedrock, and Vertex with native SDK support
+  </Card>
+</CardGroup>
+
+## Quick Start
+
+Get Anthropic working in 3 steps:
+
+<CodeGroup>
+  ```python Python icon="python" theme={"system"}
+  from portkey_ai import Portkey
+
+  # 1. Install: pip install portkey-ai
+  # 2. Add @anthropic provider in model catalog
+  # 3. Use it:
+
+  portkey = Portkey(api_key="PORTKEY_API_KEY")
+
+  response = portkey.chat.completions.create(
+      model="@anthropic/claude-sonnet-4-5-20250929",
+      messages=[{"role": "user", "content": "What is Portkey's AI Gateway?"}],
+      max_tokens=250  # Required for Anthropic
+  )
+
+  print(response.choices[0].message.content)
+  ```
+
+  ```js Javascript icon="square-js" theme={"system"}
+  import Portkey from 'portkey-ai'
+
+  // 1. Install: npm install portkey-ai
+  // 2. Add @anthropic provider in model catalog
+  // 3. Use it:
+
+  const portkey = new Portkey({
+      apiKey: "PORTKEY_API_KEY"
+  })
+
+  const response = await portkey.chat.completions.create({
+      model: "@anthropic/claude-sonnet-4-5-20250929",
+      messages: [{ role: "user", content: "What is Portkey's AI Gateway?" }],
+      max_tokens: 250  // Required for Anthropic
+  })
+
+  console.log(response.choices[0].message.content)
+  ```
+
+  ```python OpenAI Py icon="python" theme={"system"}
+  from openai import OpenAI
+  from portkey_ai import PORTKEY_GATEWAY_URL
+
+  # 1. Install: pip install openai portkey-ai
+  # 2. Add @anthropic provider in model catalog
+  # 3. Use it:
+
+  client = OpenAI(
+      api_key="PORTKEY_API_KEY",  # Portkey API key
+      base_url=PORTKEY_GATEWAY_URL
+  )
+
+  response = client.chat.completions.create(
+      model="@anthropic/claude-sonnet-4-5-20250929",
+      messages=[{"role": "user", "content": "What is Portkey's AI Gateway?"}],
+      max_tokens=250  # Required for Anthropic
+  )
+
+  print(response.choices[0].message.content)
+  ```
+
+  ```js OpenAI JS icon="square-js" theme={"system"}
+  import OpenAI from "openai"
+  import { PORTKEY_GATEWAY_URL } from "portkey-ai"
+
+  // 1. Install: npm install openai portkey-ai
+  // 2. Add @anthropic provider in model catalog
+  // 3. Use it:
+
+  const client = new OpenAI({
+      apiKey: "PORTKEY_API_KEY",  // Portkey API key
+      baseURL: PORTKEY_GATEWAY_URL
+  })
+
+  const response = await client.chat.completions.create({
+      model: "@anthropic/claude-sonnet-4-5-20250929",
+      messages: [{ role: "user", content: "What is Portkey's AI Gateway?" }],
+      max_tokens: 250  // Required for Anthropic
+  })
+
+  console.log(response.choices[0].message.content)
+  ```
+
+  ```sh cURL icon="square-terminal" theme={"system"}
+  # 1. Add @anthropic provider in model catalog
+  # 2. Use it:
+
+  # /chat/completions endpoint (OpenAI-compatible)
+  curl https://api.portkey.ai/v1/chat/completions \
+    -H "Content-Type: application/json" \
+    -H "x-portkey-api-key: $PORTKEY_API_KEY" \
+    -d '{
+      "model": "@anthropic/claude-sonnet-4-5-20250929",
+      "messages": [
+        { "role": "user", "content": "What is Portkey's AI Gateway?" }
+      ],
+      "max_tokens": 250
+    }'
+
+  # /messages endpoint (Anthropic native) - also supported
+  curl https://api.portkey.ai/v1/messages \
+    -H "Content-Type: application/json" \
+    -H "x-portkey-api-key: $PORTKEY_API_KEY" \
+    -d '{
+      "model": "@anthropic/claude-sonnet-4-5-20250929",
+      "max_tokens": 250,
+      "messages": [
+        { "role": "user", "content": "What is Portkey's AI Gateway?" }
+      ]
+    }'
+  ```
+
+  ```python Anthropic Py theme={"system"}
+  import anthropic
+
+  # 1. Install: pip install anthropic portkey-ai
+  # 2. Add @anthropic provider in model catalog
+  # 3. Use it:
+
+  client = anthropic.Anthropic(
+      api_key="dummy", # we will use portkey's provider slug
+      default_headers={"x-portkey-api-key": "YOUR_PORTKEY_API_KEY"},
+      base_url="https://api.portkey.ai"
+  )
+
+  message = client.messages.create(
+      model="@anthropic/claude-sonnet-4-5-20250929",
+      max_tokens=250,
+      messages=[{"role": "user", "content": "What is Portkey's AI Gateway?"}]
+  )
+
+  print(message.content)
+  ```
+
+  ```typescript Anthropic TS theme={"system"}
+  import Anthropic from '@anthropic-ai/sdk'
+
+  // 1. Install: npm install @anthropic-ai/sdk portkey-ai
+  // 2. Add @anthropic provider in model catalog
+  // 3. Use it:
+
+  const anthropic = new Anthropic({
+      apiKey: "PORTKEY_API_KEY",
+      baseURL: "https://api.portkey.ai"
+  })
+
+  const msg = await anthropic.messages.create({
+      model: "@anthropic/claude-sonnet-4-5-20250929",
+      max_tokens: 250,
+      messages: [{ role: "user", content: "What is Portkey's AI Gateway?" }],
+  })
+
+  console.log(msg)
+  ```
+</CodeGroup>
+
+<Note>
+  **Tip:** You can also set `provider="@anthropic"` in `Portkey()` and use just `model="claude-sonnet-4-5-20250929"` in the request.
+</Note>
+
+* **`max_tokens` is required** - Always specify this parameter
+* **System prompts** - Handled differently (see System Prompts section below)
+* **Model naming** - Use full model names like `claude-sonnet-4-5-20250929`
+
+## Add Provider in Model Catalog
+
+1. Go to [**Model Catalog → Add Provider**](https://app.portkey.ai/model-catalog/providers)
+2. Select **Anthropic**
+3. Choose existing credentials or create new by entering your [Anthropic API key](https://console.anthropic.com/settings/keys)
+4. Name your provider (e.g., `anthropic-prod`)
+
+<Card title="Complete Setup Guide →" href="/product/model-catalog">
+  See all setup options, code examples, and detailed instructions
+</Card>
+
+## Basic Usage
+
+### Chat Completions
+
+<CodeGroup>
+  ```js Javascript icon="square-js" theme={"system"}
+  import Portkey from 'portkey-ai'
+
+  const portkey = new Portkey({
+      apiKey: "PORTKEY_API_KEY"
+  })
+
+  const response = await portkey.chat.completions.create({
+      model: "@anthropic/claude-sonnet-4-5-20250929",
+      messages: [
+          { role: "system", content: "You are a helpful assistant." },
+          { role: "user", content: "What is Portkey's AI Gateway?" }
+      ],
+      max_tokens: 250  // Required
+  })
+
+  console.log(response.choices[0].message.content)
+  ```
+</CodeGroup>
+
+### System Prompts
+
+Anthropic handles system prompts differently than OpenAI. With Portkey, you can use the OpenAI-compatible format:
+
+<CodeGroup>
+  ```python Python icon="python" theme={"system"}
+  response = portkey.chat.completions.create(
+      model="@anthropic/claude-sonnet-4-5-20250929",
+      messages=[
+          {"role": "system", "content": "You are a snarky assistant."},
+          {"role": "user", "content": "How do I boil water?"}
+      ],
+      max_tokens=250
+  )
+  ```
+
+  ```js Javascript icon="square-js" theme={"system"}
+  const response = await portkey.chat.completions.create({
+      model: "@anthropic/claude-sonnet-4-5-20250929",
+      messages: [
+          { role: "system", content: "You are a snarky assistant." },
+          { role: "user", content: "How do I boil water?" }
+      ],
+      max_tokens: 250
+  })
+  ```
+</CodeGroup>
+
+Portkey automatically formats this for Anthropic's API.
+
+### Streaming
+
+Streaming works the same as OpenAI:
+
+<CodeGroup>
+  ```python Python icon="python" theme={"system"}
+  response = portkey.chat.completions.create(
+      model="@anthropic/claude-sonnet-4-5-20250929",
+      messages=[{"role": "user", "content": "Tell me a story"}],
+      max_tokens=500,
+      stream=True
+  )
+
+  for chunk in response:
+      if chunk.choices[0].delta.content:
+          print(chunk.choices[0].delta.content, end="")
+  ```
+
+  ```js Javascript icon="square-js" theme={"system"}
+  const response = await portkey.chat.completions.create({
+      model: "@anthropic/claude-sonnet-4-5-20250929",
+      messages: [{ role: "user", content: "Tell me a story" }],
+      max_tokens: 500,
+      stream: true
+  })
+
+  for await (const chunk of response) {
+      if (chunk.choices[0].delta.content) {
+          process.stdout.write(chunk.choices[0].delta.content)
+      }
+  }
+  ```
+</CodeGroup>
+
+## Advanced Features
+
+### Vision (Multimodal)
+
+Portkey supports Anthropic's vision models including `claude-sonnet-4-5-20250929`, `claude-3-5-sonnet`, `claude-3-haiku`, `claude-3-opus`, and `claude-3.7-sonnet`. Use the same format as OpenAI:
+
+<Note>
+  Anthropic **only accepts base64-encoded images** and does not support image URLs. Use the same base64 format to send images to both Anthropic and OpenAI models.
+</Note>
+
+<CodeGroup>
+  ```python Python icon="python" theme={"system"}
+  import base64
+  import httpx
+  from portkey_ai import Portkey
+
+  portkey = Portkey(api_key="PORTKEY_API_KEY")
+
+  # Fetch and encode the image
+  image_url = "https://upload.wikimedia.org/wikipedia/commons/a/a7/Camponotus_flavomarginatus_ant.jpg"
+  image_data = base64.b64encode(httpx.get(image_url).content).decode("utf-8")
+
+  response = portkey.chat.completions.create(
+      model="@anthropic/claude-sonnet-4-5-20250929",
+      messages=[{
+          "role": "user",
+          "content": [
+              {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_data}"}},
+              {"type": "text", "text": "What's in this image?"}
+          ]
+      }],
+      max_tokens=300
+  )
+
+  print(response.choices[0].message.content)
+  ```
+
+  ```js Javascript icon="square-js" theme={"system"}
+  import Portkey from 'portkey-ai'
+  import axios from 'axios'
+
+  const portkey = new Portkey({
+      apiKey: "PORTKEY_API_KEY"
+  })
+
+  // Fetch and encode the image
+  const imageUrl = "https://upload.wikimedia.org/wikipedia/commons/a/a7/Camponotus_flavomarginatus_ant.jpg"
+  const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' })
+  const imageBase64 = Buffer.from(imageResponse.data).toString('base64')
+
+  const response = await portkey.chat.completions.create({
+      model: "@anthropic/claude-sonnet-4-5-20250929",
+      messages: [{
+          role: "user",
+          content: [
+              { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageBase64}` } },
+              { type: "text", text: "What's in this image?" }
+          ]
+      }],
+      max_tokens: 300
+  })
+
+  console.log(response.choices[0].message.content)
+  ```
+</CodeGroup>
+
+<Note>
+  To prompt with PDFs, update the `url` field to: `data:application/pdf;base64,BASE64_PDF_DATA`
+</Note>
+
+### PDF Support
+
+Anthropic Claude processes PDFs to extract text, analyze charts, and understand visual content. PDF support is available on:
+
+* Claude 3.7 Sonnet (`claude-3-7-sonnet-20250219`)
+* Claude 3.5 Sonnet (`claude-3-5-sonnet-20241022`, `claude-3-5-sonnet-20240620`)
+* Claude Sonnet 4-5 (`claude-sonnet-4-5-20250929`)
+* Claude 3.5 Haiku (`claude-3-5-haiku-20241022`)
+
+**Limitations:**
+
+* Maximum request size: 32MB
+* Maximum pages per request: 100
+* Format: Standard PDF (no passwords/encryption)
+
+<CodeGroup>
+  ```python Python icon="python" theme={"system"}
+  from portkey_ai import Portkey
+  import base64
+  import httpx
+
+  portkey = Portkey(api_key="PORTKEY_API_KEY")
+
+  # Fetch and encode the PDF
+  pdf_url = "https://assets.anthropic.com/m/1cd9d098ac3e6467/original/Claude-3-Model-Card-October-Addendum.pdf"
+  pdf_data = base64.standard_b64encode(httpx.get(pdf_url).content).decode("utf-8")
+
+  response = portkey.chat.completions.create(
+      model="@anthropic/claude-sonnet-4-5-20250929",
+      max_tokens=1024,
+      messages=[
+          {"role": "system", "content": "You are a helpful document analysis assistant."},
+          {
+              "role": "user",
+              "content": [
+                  {"type": "text", "text": "What are the key findings in this document?"},
+                  {"type": "file", "file": {"mime_type": "application/pdf", "file_data": pdf_data}}
+              ]
+          }
+      ]
+  )
+
+  print(response.choices[0].message.content)
+  ```
+
+  ```js Javascript icon="square-js" theme={"system"}
+  import Portkey from 'portkey-ai'
+  import axios from 'axios'
+
+  const portkey = new Portkey({
+      apiKey: "PORTKEY_API_KEY"
+  })
+
+  // Fetch and encode the PDF
+  const pdfUrl = "https://assets.anthropic.com/m/1cd9d098ac3e6467/original/Claude-3-Model-Card-October-Addendum.pdf"
+  const pdfResponse = await axios.get(pdfUrl, { responseType: 'arraybuffer' })
+  const pdfBase64 = Buffer.from(pdfResponse.data).toString('base64')
+  const pdfData = `data:application/pdf;base64,${pdfBase64}`
+
+  const response = await portkey.chat.completions.create({
+      model: "@anthropic/claude-sonnet-4-5-20250929",
+      max_tokens: 1024,
+      messages: [
+          { role: "system", content: "You are a helpful document analysis assistant." },
+          {
+              role: "user",
+              content: [
+                  { type: "text", text: "What are the key findings in this document?" },
+                  { type: "file", file: { mime_type: "application/pdf", file_data: pdfData } }
+              ]
+          }
+      ]
+  })
+
+  console.log(response.choices[0].message.content)
+  ```
+</CodeGroup>
+
+### Extended Thinking (Reasoning Models)
+
+Models like `claude-3-7-sonnet-latest` support [extended thinking](https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking#streaming-extended-thinking). Get the model's reasoning as it processes the request.
+
+<Note>
+  The assistant's thinking response is returned in the `response_chunk.choices[0].delta.content_blocks` array, not the `response.choices[0].message.content` string.
+</Note>
+
+Set `strict_open_ai_compliance=False` to use this feature:
+
+<CodeGroup>
+  ```python Python icon="python" theme={"system"}
+  from portkey_ai import Portkey
+
+  portkey = Portkey(
+      api_key="PORTKEY_API_KEY",
+      strict_open_ai_compliance=False
+  )
+
+  response = portkey.chat.completions.create(
+      model="@anthropic/claude-3-7-sonnet-latest",
+      max_tokens=3000,
+      thinking={"type": "enabled", "budget_tokens": 2030},
+      stream=False,
+      messages=[{
+          "role": "user",
+          "content": [{
+              "type": "text",
+              "text": "when does the flight from new york to bengaluru land tomorrow, what time, what is its flight number, and what is its baggage belt?"
+          }]
+      }]
+  )
+
+  print(response)
+  ```
+
+  ```js Javascript icon="square-js" theme={"system"}
+  import Portkey from 'portkey-ai'
+
+  const portkey = new Portkey({
+      apiKey: "PORTKEY_API_KEY",
+      strictOpenAiCompliance: false
+  })
+
+  const response = await portkey.chat.completions.create({
+      model: "@anthropic/claude-3-7-sonnet-latest",
+      max_tokens: 3000,
+      thinking: { type: "enabled", budget_tokens: 2030 },
+      stream: false,
+      messages: [{
+          role: "user",
+          content: [{
+              type: "text",
+              text: "when does the flight from new york to bengaluru land tomorrow, what time, what is its flight number, and what is its baggage belt?"
+          }]
+      }]
+  })
+
+  console.log(response)
+  ```
+</CodeGroup>
+
+### Using /messages Route
+
+Portkey supports Anthropic's `/messages` endpoint, allowing you to use either Anthropic's native SDK or Portkey's SDK with full gateway features.
+
+#### Using Anthropic's Native SDK
+
+<CodeGroup>
+  ```python Anthropic Py theme={"system"}
+  import anthropic
+
+  client = anthropic.Anthropic(
+      api_key="dummy", # we will use portkey's provider slug
+      default_headers={"x-portkey-api-key": "YOUR_PORTKEY_API_KEY"},
+      base_url="https://api.portkey.ai"
+  )
+
+  message = client.messages.create(
+      model="@your-provider-slug/claude-sonnet-4-5-20250929",
+      max_tokens=250,
+      messages=[{"role": "user", "content": "Hello, Claude"}]
+  )
+
+  print(message.content)
+  ```
+
+  ```typescript Anthropic TS theme={"system"}
+  import Anthropic from '@anthropic-ai/sdk'
+
+  const anthropic = new Anthropic({
+      apiKey: "YOUR_PORTKEY_API_KEY",
+      baseURL: "https://api.portkey.ai"
+  })
+
+  const msg = await anthropic.messages.create({
+      model: "@your-provider-slug/claude-sonnet-4-5-20250929",
+      max_tokens: 1024,
+      messages: [{ role: "user", content: "Hello, Claude" }]
+  })
+
+  console.log(msg)
+  ```
+</CodeGroup>
+
+#### Using Portkey's SDK
+
+```sh cURL icon="square-terminal" theme={"system"}
+curl --location 'https://api.portkey.ai/v1/messages' \
+--header 'x-portkey-provider: anthropic' \
+--header 'Content-Type: application/json' \
+--header 'x-portkey-api-key: YOUR_PORTKEY_API_KEY' \
+--data-raw '{
+    "model": "@your-provider-slug/claude-sonnet-4-5-20250929",
+    "max_tokens": 1024,
+    "stream": true,
+    "messages": [
+        {
+            "role": "user",
+            "content": "What is the weather like in Chennai?"
+        }
+    ]
+}'
+```
+
+<Note>
+  You can use all Portkey features (like caching, observability, configs) with this route. Just add the `x-portkey-config`, `x-portkey-provider`, `x-portkey-...` headers.
+</Note>
+
+### Prompt Caching
+
+Portkey works with Anthropic's prompt caching feature to save time and money. Refer to this guide:
+
+<Card title="Prompt Caching" icon="bolt" href="/integrations/llms/anthropic/prompt-caching">
+  Learn how to enable prompt caching for Anthropic requests
+</Card>
+
+### Structured Outputs
+
+Ensure that the model always follows your supplied JSON schema with Portkey's structured outputs support.
+
+<Card title="Structured Outputs" icon="brackets-curly" href="/integrations/llms/anthropic/structured-outputs">
+  Learn how to use Pydantic, Zod, or JSON schema for structured data from Anthropic
+</Card>
+
+### Web Search
+
+Anthropic Claude models support web search as a tool, allowing the model to search the web for up-to-date information.
+
+<CodeGroup>
+  ```python Python icon="python" theme={"system"}
+  from portkey_ai import Portkey
+
+  portkey = Portkey(
+      api_key="PORTKEY_API_KEY",
+      strict_open_ai_compliance=False
+  )
+
+  response = portkey.chat.completions.create(
+      model="@anthropic/claude-haiku-4-5-20250929",
+      max_tokens=1024,
+      messages=[{"role": "user", "content": "What is the latest news on Poland?"}],
+      tools=[{
+          "type": "web_search",
+          "web_search": {
+              "name": "web_search_20250305",
+              "max_uses": 2
+          }
+      }]
+  )
+
+  print(response.choices[0].message.content)
+  ```
+
+  ```js Javascript icon="square-js" theme={"system"}
+  import Portkey from 'portkey-ai'
+
+  const portkey = new Portkey({
+      apiKey: "PORTKEY_API_KEY",
+      strictOpenAiCompliance: false
+  })
+
+  const response = await portkey.chat.completions.create({
+      model: "@anthropic/claude-haiku-4-5-20250929",
+      max_tokens: 1024,
+      messages: [{ role: "user", content: "What is the latest news on Poland?" }],
+      tools: [{
+          type: "web_search",
+          web_search: {
+              name: "web_search_20250305",
+              max_uses: 2
+          }
+      }]
+  })
+
+  console.log(response.choices[0].message.content)
+  ```
+
+  ```sh cURL icon="square-terminal" theme={"system"}
+  curl POST 'https://api.portkey.ai/v1/chat/completions' \
+    --header 'x-portkey-provider: @my-anthropic' \
+    --header 'Content-Type: application/json' \
+    --header 'x-portkey-api-key: $PORTKEY_API_KEY' \
+    --header 'x-portkey-strict-open-ai-compliance: false' \
+    --data '{
+      "model": "claude-haiku-4-5",
+      "max_tokens": 1024,
+      "messages": [
+          {
+              "role": "user",
+              "content": "What is the latest news on Poland?"
+          }
+      ],
+      "tools": [
+          {
+              "type": "web_search",
+              "web_search": {
+                  "name": "web_search_20250305",
+                  "max_uses": 2
+              }
+          }
+      ]
+  }'
+  ```
+</CodeGroup>
+
+<Note>
+  Set `strict_open_ai_compliance` to `false` (or use the header `x-portkey-strict-open-ai-compliance: false`) to receive citations in the response.
+</Note>
+
+### Files API
+
+Portkey supports Anthropic's [Files API](https://docs.anthropic.com/en/docs/build-with-claude/files) (beta), enabling you to upload, list, retrieve, and delete files through the gateway. Uploaded files can be referenced in chat completions using `file_id` instead of re-uploading content each request.
+
+<Card title="Files API" icon="file" href="/integrations/llms/anthropic/files">
+  Upload, list, retrieve, and delete files — then use them in chat completions
+</Card>
+
+### Service Tier
+
+When routing Chat Completions requests to Anthropic, Portkey automatically translates OpenAI's `service_tier` parameter to Anthropic's native `speed` parameter:
+
+| `service_tier`  | Anthropic `speed` |
+| --------------- | ----------------- |
+| `auto`          | `fast`            |
+| `standard_only` | `standard`        |
+| `default`       | `standard`        |
+| `fast`          | `fast`            |
+| `standard`      | `standard`        |
+| unknown value   | omitted           |
+
+<CodeGroup>
+  ```python Python icon="python" theme={"system"}
+  from portkey_ai import Portkey
+
+  portkey = Portkey(
+      api_key="PORTKEY_API_KEY",
+      provider="@anthropic"
+  )
+
+  response = portkey.chat.completions.create(
+      model="claude-sonnet-4-5",
+      max_tokens=1024,
+      messages=[{"role": "user", "content": "Hello!"}],
+      service_tier="auto"  # maps to speed: "fast" on Anthropic
+  )
+  ```
+
+  ```js JavaScript icon="square-js" theme={"system"}
+  import Portkey from 'portkey-ai'
+
+  const portkey = new Portkey({
+      apiKey: "PORTKEY_API_KEY",
+      provider: "@anthropic"
+  })
+
+  const response = await portkey.chat.completions.create({
+      model: "claude-sonnet-4-5",
+      max_tokens: 1024,
+      messages: [{ role: "user", content: "Hello!" }],
+      service_tier: "auto"  // maps to speed: "fast" on Anthropic
+  })
+  ```
+
+  ```sh cURL icon="square-terminal" theme={"system"}
+  curl -X POST https://api.portkey.ai/v1/chat/completions \
+    -H "x-portkey-api-key: $PORTKEY_API_KEY" \
+    -H "x-portkey-provider: @anthropic" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "model": "claude-sonnet-4-5",
+      "max_tokens": 1024,
+      "messages": [{"role": "user", "content": "Hello!"}],
+      "service_tier": "auto"
+    }'
+  ```
+</CodeGroup>
+
+### Beta Features
+
+Portkey supports Anthropic's beta features through headers. Pass the beta feature name as the value:
+
+<CodeGroup>
+  ```python Python icon="python" theme={"system"}
+  from portkey_ai import Portkey
+
+  client = Portkey(
+      api_key="PORTKEY_API_KEY",
+      provider="@anthropic",
+      anthropic_beta="token-efficient-tools-2025-02-19",
+      strict_open_ai_compliance=False
+  )
+  ```
+
+  ```js Javascript icon="square-js" theme={"system"}
+  import Portkey from 'portkey-ai'
+
+  const portkey = new Portkey({
+      apiKey: "PORTKEY_API_KEY",
+      provider: "@anthropic",
+      anthropicBeta: "token-efficient-tools-2025-02-19",
+      strictOpenAiCompliance: false
+  })
+  ```
+
+  ```sh cURL icon="square-terminal" theme={"system"}
+  x-portkey-anthropic-beta: "token-efficient-tools-2025-02-19"
+  ```
+</CodeGroup>
+
+## Managing Anthropic Prompts
+
+Manage all prompt templates to Anthropic in the [Prompt Library](/product/prompt-library). All current Anthropic models are supported, and you can easily test different prompts.
+
+Use the `portkey.prompts.completions.create` interface to use the prompt in an application.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Add Metadata" icon="tags" href="/product/observability/metadata">
+    Add metadata to your Anthropic requests
+  </Card>
+
+  <Card title="Gateway Configs" icon="gear" href="/product/ai-gateway/configs">
+    Add gateway configs to your Anthropic requests
+  </Card>
+
+  <Card title="Tracing" icon="chart-line" href="/product/observability/traces">
+    Trace your Anthropic requests
+  </Card>
+
+  <Card title="Fallbacks" icon="arrow-rotate-left" href="/product/ai-gateway/fallbacks">
+    Setup fallback from OpenAI to Anthropic
+  </Card>
+</CardGroup>
+
+For complete SDK documentation:
+
+<Card title="SDK Reference" icon="code" href="/api-reference/sdk/list">
+  Complete Portkey SDK documentation
+</Card>

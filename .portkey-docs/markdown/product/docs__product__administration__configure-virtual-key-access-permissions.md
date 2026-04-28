@@ -1,0 +1,61 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Configure Provider Access Permissions
+
+<Check>
+  This is a Portkey <a href="/product/enterprise-offering">Enterprise</a> plan feature.
+</Check>
+
+## Overview
+
+Provider Management in Portkey allows Organization administrators to define who can view and manage providers within workspaces. This feature provides granular control over access to providers, which are critical for managing connections to external AI services.
+
+## Accessing Provider Management Permissions
+
+1. Navigate to **Admin Settings** in the Portkey dashboard
+2. Select the **Security** tab from the left sidebar
+3. Locate the **Provider Management** section
+
+## Permission Settings
+
+The Provider Management section includes a toggle for **Allow workspace-level configuration** and provides granular permission controls for different user roles:
+
+| Permission           | Description                                                  | Managers | Members |
+| -------------------- | ------------------------------------------------------------ | -------- | ------- |
+| **View Providers**   | View all providers within their workspace.                   | Yes      | Yes     |
+| **Manage Providers** | Create, update, and delete providers within their workspace. | Yes      | N/A     |
+
+<Note>
+  Members cannot create, modify, or delete providers by default. Only Managers have access to manage providers.
+</Note>
+
+<Frame caption="Provider Management settings in Admin Settings > Security">
+  <img src="https://mintcdn.com/portkey-docs/Aal91EQxwu83Mw6q/product/administration/provider-management-settings.png?fit=max&auto=format&n=Aal91EQxwu83Mw6q&q=85&s=b724f237ab3b40d10919d5d9b94ec271" width="2450" height="753" data-path="product/administration/provider-management-settings.png" />
+</Frame>
+
+## Understanding Providers in Model Catalog
+
+Providers in Portkey's [Model Catalog](/product/model-catalog) securely store your API credentials and enable:
+
+* Centralized management of AI provider credentials
+* Abstraction of actual API keys from end users
+* Definition of routing rules, fallbacks, and other advanced features
+* Application of usage limits and tracking across providers
+
+By controlling who can view and manage providers, organizations can maintain security while enabling appropriate access for different team roles.
+
+## Related Features
+
+<Card title="Access Control Management" href="/product/enterprise-offering/access-control-management">
+  Learn about Portkey's access control features including user roles and organization hierarchy
+</Card>
+
+<Card title="Model Catalog" href="/product/model-catalog">
+  Understand how to add and manage providers in the Model Catalog
+</Card>
+
+<Card title="Budget Limits" href="/product/model-catalog/integrations#3-budget-%26-rate-limits">
+  Learn how to set budget limits on providers to control spending
+</Card>

@@ -1,0 +1,45 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Canary Testing
+
+> You can use Portkey's AI gateway to also canary test new models or prompts in different environments. 
+
+<Info>
+  This feature is available on all Portkey [plans](https://portkey.ai/pricing).
+</Info>
+
+This uses the same techniques as [load balancing](/product/ai-gateway/load-balancing) but to achieve a different outcome.
+
+### Example: Test Llama2 on 5% of the traffic
+
+Let's take an example where we want to introduce llama2 in our systems (through Anyscale) but we're not sure of the impact. We can create a config specifically for this use case to test llama2 in production.
+
+The config object would look like this
+
+```JSON theme={"system"}
+{
+  "strategy": {
+      "mode": "loadbalance"
+  },
+  "targets": [
+    {
+      "provider":"@openai-prod",
+      "weight": 0.95
+    },
+    {
+      "provider":"@anyscale-prod",
+      "weight": 0.05,
+      "override_params": {
+          "model": "meta-llama/Llama-2-70b-chat-hf"
+    }
+  ]
+}
+```
+
+Here we are telling the gateway to send 5% of the traffic to anyscale's hosted llama2-70b model. Portkey handles all the request transforms to make sure you don't have to change your code.
+
+You can now [use this config like this](/product/ai-gateway/configs#using-configs) in your requests.
+
+Once data starts flowing in, we can use Portkey's [analytics dashboards](/product/observability/analytics) to see the impact of the new model on cost, latency, errors and feedback.

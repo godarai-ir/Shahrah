@@ -1,0 +1,137 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Fallback from SDXL to Dall-e-3
+
+> Generative AI models have revolutionized text generation and opened up new possibilities for developers.
+
+What next? A new category of image generation models.
+
+[<img src="https://mintcdn.com/portkey-docs/izapyWTWQvJmiZ2Q/images/guides/colab-badge.svg?fit=max&auto=format&n=izapyWTWQvJmiZ2Q&q=85&s=cadfc29fd7966d28a3c852d79a015cce" alt="" width="117" height="20" data-path="images/guides/colab-badge.svg" />](https://colab.research.google.com/github/Portkey-AI/portkey-cookbook/blob/main/ai-gateway/set-up-fallback-from-stable-diffusion-to-dall-e.ipynb)
+
+## Set up Fallback from Stable Diffusion to Dall-E
+
+This cookbook introduces Portkey's multimodal AI gateway, which helps you switch between multiple image generation models without any code changes — all with OpenAI SDK. You will learn to set up fallbacks from Stable Diffusion to Dall-E.
+
+### 1. Add Providers in Model Catalog
+
+Begin by adding your API keys in Portkey's Model Catalog.
+
+1. Go to [Model Catalog](https://app.portkey.ai/model-catalog)
+2. Click **Add Provider**
+3. Add your **StabilityAI** credentials (name it e.g., `stability-prod`)
+4. Add your **OpenAI** credentials (name it e.g., `openai-prod`)
+
+For more information, see the [Model Catalog docs](/product/model-catalog).
+
+The multi-modal AI gateway will use these provider slugs to apply a fallback mechanism to every request from your app.
+
+### 2. Making a call to Stability AI using OpenAI SDK
+
+With Portkey, you can call Stability AI models like SDXL right from inside the OpenAI SDK. Just change the `base_url` to Portkey Gateway and add `defaultHeaders` while instantiating your OpenAI client, and you're good to go
+
+Import the `openai` and `portkey_ai` libraries to send the requests, whereas the rest of the utility libraries will help decode the base64 response and print them onto Jupyter Notebook.
+
+```python Python icon="python" theme={"system"}
+from IPython.display import display
+from PIL import Image
+from openai import OpenAI
+from portkey_ai import PORTKEY_GATEWAY_URL, createHeaders
+import requests, io, base64, json
+```
+
+```python Python icon="python" theme={"system"}
+PORTKEY_API_KEY = "YOUR_PORTKEY_API_KEY_HERE"
+CONFIG_ID = "YOUR_CONFIG_ID_HERE"
+```
+
+Declare the arguments to pass to the parameters of OpenAI SDK and initialize a client instance.
+
+```python OpenAI Python icon="openai" theme={"system"}
+client = OpenAI(
+    api_key=PORTKEY_API_KEY,
+    base_url=PORTKEY_GATEWAY_URL,
+    default_headers=createHeaders(
+        provider="stabilityai"
+    )
+)
+```
+
+The Portkey API key is passed directly to the `api_key` parameter since Portkey works natively with the OpenAI client.
+
+To generate an image:
+
+```python Python icon="python" theme={"system"}
+image = client.images.generate(
+    model="stable-diffusion-v1-6",
+    prompt="Kraken in the milkyway galaxy",
+    n=1,
+    size="1024x1024",
+    response_format="b64_json"
+)
+
+base64_image = image.data[0].b64_json
+image_data = base64.b64decode(base64_image)
+image = Image.open(io.BytesIO(image_data))
+display(image)
+```
+
+The image you receive in the response is encoded in base64 format, which requires you to decode it before you can view it in the Jupyter Notebook. In addition, Portkey offers logging for observability. To find all the information for every request, simply check the requests on the **Dashboard > Logs**.
+
+### 3. Now, Setup a Fallback from SDXL to Dall-E
+
+Let's learn how to enhance the reliability of your Stability AI requests by configuring automatic fallbacks to Dall-E in case of failures. You can use Gateway Configs on Portkey to implement this automated fallback logic. These configurations can be passed while creating your OpenAI client.
+
+From the Portkey Dashboard, open **Configs** and then click **Create**. In the config editor, write the JSON for Gateway Configs:
+
+```json Config theme={"system"}
+{
+    "strategy": {"mode": "fallback"},
+    "targets": [
+        {"override_params": {"model": "@stability-prod/stable-diffusion-v1-6"}},
+        {"override_params": {"model": "@openai-prod/dall-e-3"}}
+    ]
+}
+```
+
+These configs tell the AI gateway to follow a `fallback` strategy, where the primary target is *Stability AI* and the fallback is *OpenAI*. The `override_params` let you specify the model in `@provider-slug/model-name` format.
+
+Learn about [Gateway Configs](https://portkey.ai/docs/product/ai-gateway-streamline-llm-integrations/configs) and [Caching](https://portkey.ai/docs/product/ai-gateway-streamline-llm-integrations/cache-simple-and-semantic) from the docs.
+
+Hit **Save Config** on the top right corner and grab the \*\*Config ID. \*\*Next up, we are going to use the \_Config ID \_in our requests to activate fallback mechanism.
+
+### 4. Make a request with gateway configs
+
+Finally, the requests will be sent like we did with OpenAI SDK earlier, but with one specific difference - the `config` parameter. The request is sent through Portkey and uses saved gateway configs as references to activate the fallback mechanism.
+
+```python OpenAI Python icon="openai" theme={"system"}
+client = OpenAI(
+    api_key=PORTKEY_API_KEY,
+    base_url=PORTKEY_GATEWAY_URL,
+    default_headers=createHeaders(
+        config=CONFIG_ID
+    )
+)
+
+image = client.images.generate(
+    model="stable-diffusion-v1-6",
+    prompt="Harry Potter travelling the world using Portkey",
+    n=1,
+    size="1024x1024",
+    response_format="b64_json"
+)
+
+base64_image = image.data[0].b64_json
+image_data = base64.b64decode(base64_image)
+image = Image.open(io.BytesIO(image_data))
+display(image)
+```
+
+### Afterthoughts
+
+All the requests that go through Portkey will appear in the Logs page within the Portkey Dashboard. You can apply filters or even trace the specific set of requests. Check out [Request Tracing](https://portkey.ai/docs/product/observability/traces). Simultaneously, a fallback icon is turned on for the log where the fallback is activated.
+
+Portkey supports multiple providers offering multimodal capabilities, such as OpenAI, Anthropic, and Stability AI, all accessible through a unified API interface following OpenAI Signature.
+
+For further exploration, why not [play with Vision capabilities](https://portkey.ai/docs/product/ai-gateway-streamline-llm-integrations/multimodal-capabilities/vision)?

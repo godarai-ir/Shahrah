@@ -1,0 +1,93 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# How to Contribute
+
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Portkey-AI/gateway)
+
+# Portkey AI Docs
+
+This repository contains the source code for [Portkey AI](https://portkey.ai)'s documentation, built using [Mintlify](https://mintlify.com).\
+We welcome contributions to improve the accuracy, clarity, and coverage of our docs.
+
+***
+
+## Getting Started
+
+To contribute or preview the documentation locally:
+
+### 1. Clone the Repository
+
+```bash theme={"system"}
+git clone https://github.com/portkey-ai/docs-core.git
+cd docs-core
+```
+
+### 2. Install Mintlify CLI
+
+The documentation is built using Mintlify. Install the `mint` CLI globally with any of the following:
+
+```bash theme={"system"}
+npm install -g mint
+# OR
+pnpm add -g mint
+# OR
+yarn global add mint
+```
+
+Refer to the [Mintlify Docs](https://mintlify.com/docs) if you run into issues.
+
+### 3. Run the Local Server
+
+```bash theme={"system"}
+mint dev
+```
+
+This will start a local server so you can preview your changes as you edit.
+
+***
+
+## How to Contribute
+
+We appreciate all contributions—small or large. Here's how you can help:
+
+1. **Fork** the repository.
+2. **Create a branch** for your changes:
+
+   ```bash theme={"system"}
+   git checkout -b your-branch-name
+   ```
+3. **Make edits** and test them locally using `mint dev`.
+4. **Commit and push** your changes.
+5. **Open a pull request** to the `main` branch with a clear description.
+
+***
+
+## What You Can Contribute
+
+* Fix typos or broken links
+* Improve explanations or formatting
+* Add missing documentation
+* Suggest structural improvements
+* Maintain existing integrations with Portkey
+
+***
+
+## Need Help?
+
+Join the `#portkey-docs` channel in our [Discord](https://portkey.wiki/community) to ask questions or share suggestions.
+You can also open an issue here on GitHub.
+
+## Community
+
+Join our growing community around the world, for help, ideas, and discussions on AI.
+
+* View our official [Blog](https://portkey.wiki/gh-78)
+* Chat with us on [Discord](https://portkey.wiki/community)
+* Follow us on [Twitter](https://portkey.wiki/gh-79)
+* Connect with us on [LinkedIn](https://portkey.wiki/gh-80)
+* Visit us on [YouTube](https://portkey.wiki/gh-103)
+* Join our [Dev community](https://portkey.wiki/gh-82)
+
+***

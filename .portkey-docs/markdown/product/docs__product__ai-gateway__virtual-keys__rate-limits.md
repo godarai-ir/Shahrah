@@ -1,0 +1,83 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Rate Limits
+
+> Set Rate Limts to your Integrations/Providers
+
+Rate Limits lets you set request or token consumption limits on providers/integrations
+
+<Info>
+  Available on **Enterprise** plan and select **Pro** customers.
+</Info>
+
+\*\*Rate Limits provide a powerful way to control the frequency of API requests or token consumption for your requests - giving you confidence and control over your application's usage patterns and performance.
+
+Rate Limit is currently only available to **Portkey** [**Enterprise Plan**](https://portkey.ai/docs/product/enterprise-offering) customers and select Pro users. Email us at `support@portkey.ai` if you would like to enable it for your org.
+
+## Setting Rate Limits on Providers
+
+When creating a new provider on Portkey, you can set rate limits in two ways:
+
+### Request-Based Limits
+
+Set a maximum number of requests that can be made within a specified time period (per minute, hour, or day).
+
+### Token-Based Limits
+
+Set a maximum number of tokens that can be consumed within a specified time period (per minute, hour, or day).
+
+<Frame>
+  <img src="https://mintcdn.com/portkey-docs/_Cb_bj7tVjxcfwsu/images/product/rate-limit.png?fit=max&auto=format&n=_Cb_bj7tVjxcfwsu&q=85&s=0e0ce0c4811a056ce4bc79fac708ea9e" width="873" height="323" data-path="images/product/rate-limit.png" />
+</Frame>
+
+> #### Key Considerations
+>
+> * Rate limits can be set as either request-based or token-based
+> * Time intervals can be configured as per minute, per hour, or per day
+> * Setting the limit to 0 disables the provider
+> * Rate limits apply immediately after being set
+> * Once set, rate limits **cannot be edited** by any organization member
+> * Rate limits work for **all providers** available on Portkey and apply to **all organization members** who use the provider
+> * After a rate limit is reached, requests will be rejected until the time period resets
+
+## Rate Limit Intervals
+
+You can choose from three different time intervals for your rate limits:
+
+* **Per Minute**: Limits reset every minute, ideal for fine-grained control
+* **Per Hour**: Limits reset hourly, providing balanced usage control
+* **Per Day**: Limits reset daily, suitable for broader usage patterns
+
+## Exceeding Rate Limits
+
+When a rate limit is reached:
+
+* Subsequent requests are rejected with a specific error code
+* Error messages clearly indicate that the rate limit has been exceeded
+* The limit automatically resets after the specified time period has elapsed
+
+## Editing Rate Limits
+
+If you need to change or update a rate limit, you can **duplicate** the existing provider and create a new one with the desired limit.
+
+## Monitoring Your Usage
+
+You can track your request and token usage for any specific provider by navigating to the Analytics tab and filtering by the **desired provider** and **timeframe**.
+
+## Use Cases for Rate Limits
+
+* **Cost Control**: Prevent unexpected usage spikes that could lead to high costs
+* **Performance Management**: Ensure your application maintains consistent performance
+* **Fairness**: Distribute API access fairly across teams or users
+* **Security**: Mitigate potential abuse or DoS attacks
+* **Provider Compliance**: Stay within the rate limits imposed by underlying AI providers
+
+## Availability
+
+Rate Limits is currently available **exclusively to Portkey Enterprise** customers and select Pro users. If you're interested in enabling this feature for your account, please reach out to us at [support@portkey.ai](mailto:support@portkey.ai) or join the [Portkey Discord](https://portkey.ai/community) community.
+
+## Enterprise Plan
+
+To discuss Portkey Enterprise plan details and pricing, [you can schedule a quick call here](https://portkey.sh/demo-16).

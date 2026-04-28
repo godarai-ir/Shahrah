@@ -1,0 +1,141 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Llama 3 on Groq
+
+[<img src="https://mintcdn.com/portkey-docs/izapyWTWQvJmiZ2Q/images/guides/colab-badge.svg?fit=max&auto=format&n=izapyWTWQvJmiZ2Q&q=85&s=cadfc29fd7966d28a3c852d79a015cce" alt="" width="117" height="20" data-path="images/guides/colab-badge.svg" />](https://colab.research.google.com/drive/1XNGpOKhSsosWhDeaAdGds0E8pISILdry?usp=sharing)
+
+## Groq + Llama 3 + Portkey
+
+### Use blazing fast Groq API with OpenAI Compatibility using Portkey!
+
+```bash icon="square-terminal" theme={"system"}
+pip install -qU portkey-ai openai
+```
+
+You will need Portkey and Groq API keys to run this notebook.
+
+* Sign up for Portkey and generate your API key [here](https://app.portkey.ai/)
+* Get your Groq API key [here](https://console.groq.com/keys)
+
+### With OpenAI Client
+
+```python OpenAI Python icon="openai" theme={"system"}
+from openai import OpenAI
+from portkey_ai import PORTKEY_GATEWAY_URL, createHeaders
+from google.colab import userdata
+
+client = OpenAI(
+    api_key=userdata.get('GROQ_API_KEY'),  # replace with your Groq API key
+    base_url=PORTKEY_GATEWAY_URL,
+    default_headers=createHeaders(
+        provider="groq",
+        api_key=userdata.get('PORTKEY_API_KEY')  # replace with your Portkey API key
+    )
+)
+
+chat_complete = client.chat.completions.create(
+    model="llama3-70b-8192",
+    messages=[{"role": "user", "content": "What's the purpose of Generative AI?"}]
+)
+
+print(chat_complete.choices[0].message.content)
+```
+
+```
+The primary purpose of generative AI is to create new, original, and often realistic data or content, such as images, videos, music, text, or speeches, that are similar to those created by humans. Generative AI models are designed to generate new data samples that are indistinguishable from real-world data, allowing for a wide range of applications and possibilities. Some of the main purposes of generative AI include:
+
+1. **Data augmentation**: Generating new data to augment existing datasets, improving machine learning model performance, and reducing overfitting.
+
+2. **Content creation**: Automating the creation of content, such as music, videos, or articles, that can be used for entertainment, education, or marketing purposes.
+
+3. **Simulation and modeling**: Generating synthetic data to simulate real-world scenarios, allowing for experimentation, testing, and analysis in various fields, such as healthcare, finance, or climate modeling.
+
+4. **Personalization**: Creating personalized content, recommendations, or experiences tailored to individual users' preferences and behaviors.
+
+5. **Creative assistance**: Providing tools and inspiration for human creators, such as artists, writers, or musicians, to aid in their creative processes.
+
+6. **Synthetic data generation**: Generating realistic synthetic data to protect sensitive information, such as personal data or confidential business data.
+
+7. **Research and development**: Facilitating research in various domains, such as computer vision, natural language processing, or robotics, by generating new data or scenarios.
+
+8. **Entertainment and leisure**: Creating engaging and interactive experiences, such as games, chatbots, or interactive stories.
+
+9. **Education and training**: Generating educational content, such as interactive tutorials, virtual labs, or personalized learning materials.
+
+10. **Healthcare and biomedical applications**: Generating synthetic medical images, patient data, or clinical trials data to aid in disease diagnosis, treatment planning, and drug discovery.
+
+Some of the key benefits of generative AI include:
+
+* Increased efficiency and productivity
+
+* Improved accuracy and realism
+
+* Enhanced creativity and inspiration
+
+* Accelerated research and development
+
+* Personalized experiences and services
+
+* Cost savings and reduced data collection costs
+
+However, it's essential to address the potential risks and concerns associated with generative AI, such as:
+
+* Misuse and abuse of generated content
+
+* Bias and unfairness in AI-generated data
+
+* Privacy and security concerns
+
+* Job displacement and labor market impacts
+
+As generative AI continues to evolve, it's crucial to develop and implement responsible AI practices, ensuring that these technologies are used for the betterment of society and humanity.
+```
+
+### With Portkey Client
+
+Note: Add your Groq API key in [Model Catalog](https://app.portkey.ai/model-catalog) and access models using your provider slug
+
+```python Python icon="python" theme={"system"}
+from portkey_ai import Portkey
+
+portkey = Portkey(
+    api_key=userdata.get('PORTKEY_API_KEY'),  # replace with your Portkey API key
+    provider="@groq-431005"  # replace with your provider slug for Groq AI
+)
+
+completion = portkey.chat.completions.create(
+    messages=[{"role": 'user', "content": 'Who are you?'}],
+    model='llama3-70b-8192',
+    max_tokens=250
+)
+
+print(completion)
+```
+
+```json Output theme={"system"}
+{
+    "id": "chatcmpl-8cec08e0-910e-4331-9c4b-f675d9923371",
+    "choices": [{
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+            "content": "I am LLaMA, an AI assistant developed by Meta AI...",
+            "role": "assistant",
+            "function_call": null,
+            "tool_calls": null
+        }
+    }],
+    "created": 1714136032,
+    "model": "llama3-70b-8192",
+    "object": "chat.completion",
+    "system_fingerprint": null,
+    "usage": {"prompt_tokens": 14, "completion_tokens": 147, "total_tokens": 161}
+}
+```
+
+### Observability with Portkey
+
+By routing requests through Portkey you can track a number of metrics like - tokens used, latency, cost, etc.

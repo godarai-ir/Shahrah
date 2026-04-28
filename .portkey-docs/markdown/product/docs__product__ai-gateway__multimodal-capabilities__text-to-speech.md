@@ -1,0 +1,148 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Text-to-Speech
+
+> Portkey's AI gateway currently supports text-to-speech models on `OpenAI` and `Azure OpenAI`.
+
+## Usage
+
+We follow the OpenAI signature where you can send the input text and the voice option as a part of the API request. All the output formats `mp3`, `opus`, `aac`, `flac`, and `pcm` are supported. Portkey also supports real time audio streaming for TTS models.
+
+Here's an example:
+
+<Tabs>
+  <Tab title="OpenAI NodeJS">
+    ```js theme={"system"}
+    import fs from "fs";
+    import path from "path";
+    import OpenAI from "openai";
+    import { PORTKEY_GATEWAY_URL } from 'portkey-ai'
+
+    const openai = new OpenAI({
+      apiKey: "PORTKEY_API_KEY",
+      baseURL: PORTKEY_GATEWAY_URL
+    });
+
+    const speechFile = path.resolve("./speech.mp3");
+
+    async function main() {
+      const mp3 = await openai.audio.speech.create({
+        model: "@openai/tts-1",
+        voice: "alloy",
+        input: "Today is a wonderful day to build something people love!",
+      });
+      const buffer = Buffer.from(await mp3.arrayBuffer());
+      await fs.promises.writeFile(speechFile, buffer);
+    }
+
+    main();
+    ```
+  </Tab>
+
+  <Tab title="OpenAI Python">
+    ```py theme={"system"}
+    from pathlib import Path
+    from openai import OpenAI
+    from portkey_ai import PORTKEY_GATEWAY_URL
+
+    client = OpenAI(
+        api_key="PORTKEY_API_KEY",
+        base_url=PORTKEY_GATEWAY_URL
+    )
+
+    speech_file_path = Path(__file__).parent / "speech.mp3"
+
+    response = client.audio.speech.create(
+      model="@openai/tts-1",
+      voice="alloy",
+      input="Today is a wonderful day to build something people love!"
+    )
+
+    f = open(speech_file_path, "wb")
+    f.write(response.content)
+    f.close()
+    ```
+  </Tab>
+
+  <Tab title="Python SDK">
+    ```python theme={"system"}
+    from pathlib import Path
+    from portkey_ai import Portkey
+
+    # Initialize the Portkey client
+
+    portkey = Portkey(
+        api_key="PORTKEY_API_KEY",  # Replace with your Portkey API key
+        provider="@PROVIDER"   
+    )
+
+    speech_file_path = Path(__file__).parent / "speech.mp3"
+
+    response = portkey.audio.speech.create(
+      model="@openai/tts-1",
+      voice="alloy",
+      input="Today is a wonderful day to build something people love!"
+    )
+
+    f = open(speech_file_path, "wb")
+    f.write(response.content)
+    f.close()
+    ```
+  </Tab>
+
+  <Tab title="cURL">
+    ```sh theme={"system"}
+    curl "https://api.portkey.ai/v1/audio/speech" \
+      -H "Content-Type: application/json" \
+      -H "x-portkey-api-key: $PORTKEY_API_KEY" \
+      -d '{
+        "model": "@openai/tts-1",
+        "input": "Today is a wonderful day to build something people love!",
+        "voice": "alloy"
+      }' \
+      --output speech.mp3
+    ```
+  </Tab>
+</Tabs>
+
+On completion, the request will get logged in the logs UI and show the cost and latency incurred.
+
+## SSE Streaming
+
+OpenAI and Azure OpenAI support Server-Sent Events (SSE) streaming for the speech endpoint. Set `stream_format` to `"sse"` to receive audio data as a stream of events:
+
+<Tabs>
+  <Tab title="Python">
+    ```py theme={"system"}
+    from portkey_ai import Portkey
+
+    portkey = Portkey(
+        api_key="PORTKEY_API_KEY",
+        provider="@PROVIDER"
+    )
+
+    response = portkey.audio.speech.create(
+        model="@openai/tts-1",
+        voice="alloy",
+        input="Today is a wonderful day to build something people love!",
+        stream_format="sse"
+    )
+    ```
+  </Tab>
+
+  <Tab title="cURL">
+    ```sh theme={"system"}
+    curl "https://api.portkey.ai/v1/audio/speech" \
+      -H "Content-Type: application/json" \
+      -H "x-portkey-api-key: $PORTKEY_API_KEY" \
+      -d '{
+        "model": "@openai/tts-1",
+        "input": "Today is a wonderful day to build something people love!",
+        "voice": "alloy",
+        "stream_format": "sse"
+      }'
+    ```
+  </Tab>
+</Tabs>

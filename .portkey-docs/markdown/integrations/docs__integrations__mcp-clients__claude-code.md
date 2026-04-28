@@ -1,0 +1,149 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Claude Code
+
+> Connect your MCP servers to Claude Code CLI through Portkey's secure MCP gateway
+
+## Overview
+
+Claude Code is a command-line tool for agentic coding that supports MCP (Model Context Protocol) for enhanced development capabilities. Through Portkey's MCP Gateway, you can seamlessly connect any MCP server to Claude Code without managing infrastructure or authentication.
+
+### Key Benefits
+
+* **Secure Authentication**: Portkey handles OAuth flows and token management
+* **Unified Authentication**: Single OAuth token to rule them all
+* **Team Collaboration**: Share MCP server configurations, manage access permissions, and ensure everyone on your team has the tools they need—configured correctly, every time
+* **Complete Observability**: See every request, track latency, monitor errors, and understand usage patterns
+
+***
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+1. **Claude Code** CLI installed
+2. **Portkey account** with workspace access
+3. **MCP server** registered in Portkey's MCP Hub
+
+***
+
+## Quick Setup
+
+### Step 1: Get Your MCP Server URL
+
+1. Log in to [Portkey Dashboard](https://app.portkey.ai)
+2. Navigate to **MCP Hub** → **Your Servers**
+3. Copy your server URL:
+   ```
+   https://mcp.portkey.ai/:workspace-id/:server-id/mcp
+   ```
+
+### Step 2: Add Remote Server
+
+Add your Portkey MCP server using the HTTP transport:
+
+```bash theme={"system"}
+claude mcp add --transport http portkey-mcp https://mcp.portkey.ai/:workspace-id/:server-id/mcp
+```
+
+### Step 3: Verify Connection
+
+List your configured MCP servers:
+
+```bash theme={"system"}
+claude mcp list
+```
+
+***
+
+### Step 4: Authentication
+
+Portkey handles all authentication flows automatically:
+
+1. **First Connection**: Run the authentication command in Claude Code:
+   ```bash theme={"system"}
+   /mcp
+   ```
+
+2. **Browser Authentication**:
+   * Your browser will open for OAuth authorization (if required)
+   * Complete the authentication flow
+   * Tokens are stored securely and refreshed automatically
+
+3. **Team Access**: Workspace members share the same authentication scope based on your Portkey settings
+
+***
+
+## Configuration Examples
+
+### Single Server Setup
+
+```bash theme={"system"}
+# Add Linear integration
+claude mcp add --transport http linear https://mcp.portkey.ai/ws-abc123/linear-def456/mcp
+```
+
+### Multiple Servers Setup
+
+```bash theme={"system"}
+# Add Linear
+claude mcp add --transport http linear https://mcp.portkey.ai/ws-abc123/linear-def456/mcp
+
+# Add GitHub
+claude mcp add --transport http github https://mcp.portkey.ai/ws-abc123/github-ghi789/mcp
+
+# Add Slack
+claude mcp add --transport http slack https://mcp.portkey.ai/ws-abc123/slack-jkl012/mcp
+```
+
+### With Custom Headers (if needed)
+
+```bash theme={"system"}
+claude mcp add --transport http secure-api https://mcp.portkey.ai/ws-abc123/api-xyz789/mcp \
+  --header "X-Custom-Header: value"
+```
+
+***
+
+## Managing Servers
+
+### List All Servers
+
+```bash theme={"system"}
+claude mcp list
+```
+
+### Remove a Server
+
+```bash theme={"system"}
+claude mcp remove portkey-mcp
+```
+
+### Clear Authentication
+
+To revoke access and clear stored tokens:
+
+```bash theme={"system"}
+/mcp
+# Select "Clear authentication" from the menu
+```
+
+***
+
+## Tips
+
+* Authentication tokens are stored securely and refreshed automatically
+* If your browser doesn't open automatically during auth, copy the provided URL
+* OAuth authentication works with both SSE and HTTP transports
+* Use descriptive names when adding servers for easier management
+
+***
+
+## Support
+
+Need help? We're here for you:
+
+* 📧 Email: [support@portkey.ai](mailto:support@portkey.ai)
+* 💬 Discord: [Join our community](https://discord.gg/portkey)

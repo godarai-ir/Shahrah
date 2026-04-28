@@ -1,0 +1,252 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Prompt Caching on Bedrock
+
+Prompt caching on Amazon Bedrock lets you cache specific portions of your requests for repeated use. This feature significantly reduces inference response latency and input token costs by allowing the model to skip recomputation of previously processed content.
+
+With Portkey, you can easily implement Amazon Bedrock's prompt caching through our OpenAI-compliant unified API and prompt templates.
+
+## Model Support
+
+Amazon Bedrock prompt caching is generally available with the following models:
+
+<Info>
+  **Currently Supported Models:**
+
+  * Claude 3.7 Sonnet
+  * Claude 3.5 Haiku
+  * Amazon Nova Micro
+  * Amazon Nova Lite
+  * Amazon Nova Pro
+
+  Customers who were given access to Claude 3.5 Sonnet v2 during the prompt caching preview will retain their access, but no additional customers will be granted access to prompt caching on the Claude 3.5 Sonnet v2 model.
+</Info>
+
+## How Bedrock Prompt Caching Works
+
+When using prompt caching, you define **cache checkpoints** - markers that indicate parts of your prompt to cache. These cached sections must be static between requests; any alterations will result in a cache miss.
+
+<Note>
+  You can also use Bedrock Prompt Caching Feature with Portkey's Prompt Templates.
+</Note>
+
+## Implementation Examples
+
+Here's how to implement prompt caching with Portkey:
+
+<CodeGroup>
+  ```javascript NodeJS theme={"system"}
+  import Portkey from 'portkey-ai'
+
+  const portkey = new Portkey({
+      apiKey: "PORTKEY_API_KEY", // defaults to process.env["PORTKEY_API_KEY"]
+      provider:"@PROVIDER" // Your Bedrock Provider Slug
+  })
+
+  const chatCompletion = await portkey.chat.completions.create({
+      messages: [
+          { "role": 'system', "content": [
+              {
+                  "type":"text","text":"You are a helpful assistant"
+              },
+              {
+                  "type":"text","text":"This is a large document I want to cache...",
+                  "cache_control": {"type": "ephemeral"}
+              }
+          ]},
+          { "role": 'user', "content": 'Summarize the above document for me in 20 words' }
+      ],
+      model: 'anthropic.claude-3-7-sonnet-20250219-v1:0'
+  });
+
+  console.log(chatCompletion.choices[0].message.content);
+  ```
+
+  ```python Python theme={"system"}
+  from portkey_ai import Portkey
+
+  portkey = Portkey(
+      api_key="PORTKEY_API_KEY",
+      provider="@BEDROCK_PROVIDER",
+  )
+
+  chat_completion = portkey.chat.completions.create(
+      messages= [
+          { "role": 'system', "content": [
+              {
+                  "type":"text","text":"You are a helpful assistant"
+              },
+              {
+                  "type":"text","text":"This is a large document I want to cache...",
+                  "cache_control": {"type": "ephemeral"}
+              }
+          ]},
+          { "role": 'user', "content": 'Summarize the above document in 20 words' }
+      ],
+      model= 'anthropic.claude-3-7-sonnet-20250219-v1:0',
+  )
+
+  print(chat_completion.choices[0].message.content)
+  ```
+
+  ```javascript OpenAI NodeJS theme={"system"}
+  import OpenAI from "openai";
+  import { PORTKEY_GATEWAY_URL, createHeaders } from "portkey-ai";
+
+  const openai = new OpenAI({
+      apiKey: "BEDROCK_API_KEY",
+      baseURL: PORTKEY_GATEWAY_URL,
+      defaultHeaders: createHeaders({
+          provider: "bedrock",
+          apiKey: "PORTKEY_API_KEY",
+    }),
+  });
+
+  const chatCompletion = await openai.chat.completions.create({
+      messages: [
+          { "role": 'system', "content": [
+              {
+                  "type":"text","text":"You are a helpful assistant"
+              },
+              {
+                  "type":"text","text":"This is a large document I want to cache...",
+                  "cache_control": {"type": "ephemeral"}
+              }
+          ]},
+          { "role": 'user', "content": 'Summarize the above document for me in 20 words' }
+      ],
+      model: 'anthropic.claude-3-7-sonnet-20250219-v1:0',
+  });
+
+  console.log(chatCompletion.choices[0].message.content);
+  ```
+
+  ```python OpenAI Python theme={"system"}
+  from openai import OpenAI
+  from portkey_ai import PORTKEY_GATEWAY_URL, createHeaders
+
+  client = OpenAI(
+      api_key="BEDROCK_API_KEY",
+      base_url=PORTKEY_GATEWAY_URL,
+      default_headers=createHeaders(
+          api_key="PORTKEY_API_KEY",
+          provider="bedrock",
+      )
+  )
+
+  chat_completion = client.chat.completions.create(
+      messages= [
+          { "role": 'system', "content": [
+              {
+                  "type":"text","text":"You are a helpful assistant"
+              },
+              {
+                  "type":"text","text":"This is a large document I want to cache...",
+                  "cache_control": {"type": "ephemeral"}
+              }
+          ]},
+          { "role": 'user', "content": 'Summarize the above document in 20 words' }
+      ],
+      model= 'anthropic.claude-3-7-sonnet-20250219-v1:0',
+  )
+
+  print(chat_completion.choices[0].message.content)
+  ```
+
+  ```sh REST API theme={"system"}
+  curl https://api.portkey.ai/v1/chat/completions \
+    -H "Content-Type: application/json" \
+    -H "x-portkey-provider: $BEDROCK_PROVIDER" \
+    -H "x-portkey-api-key: $PORTKEY_API_KEY" \
+    -d '{
+      "model": "anthropic.claude-3-7-sonnet-20250219-v1:0",
+      "messages": [
+          { "role": "system", "content": [
+              {
+                  "type":"text","text":"You are a helpful assistant"
+              },
+              {
+                  "type":"text","text":"This is a large document I want to cache...",
+                  "cache_control": {"type": "ephemeral"}
+              }
+          ]},
+          { "role": "user", "content": "Summarize the above document for me in 20 words" }
+      ]
+    }'
+  ```
+</CodeGroup>
+
+## Cache TTL Options
+
+By default, cache checkpoints use the standard TTL. You can optionally specify a TTL by adding the `ttl` field to `cache_control`:
+
+```json theme={"system"}
+{
+  "cache_control": { "type": "ephemeral", "ttl": "1h" }
+}
+```
+
+Supported TTL values are `"5m"` (5 minutes) and `"1h"` (1 hour). The TTL is forwarded to Bedrock's `cachePoint` configuration.
+
+## Supported Features and Limitations
+
+<Info>
+  **Supported Features**
+
+  * Text prompts and images embedded within text prompts
+  * Multiple cache checkpoints per request
+  * Caching in system prompts, messages, and tools fields (model-dependent)
+  * Configurable TTL (`5m` or `1h`) per cache checkpoint
+</Info>
+
+### Supported Models and Limits
+
+Below is a detailed table of supported models, their minimum token requirements, maximum cache checkpoints, and fields that support caching:
+
+| Model             | Model ID                                  | Min tokens per checkpoint | Max checkpoints per request | Cacheable fields        |
+| ----------------- | ----------------------------------------- | ------------------------- | --------------------------- | ----------------------- |
+| Claude 3.7 Sonnet | anthropic.claude-3-7-sonnet-20250219-v1:0 | 1,024                     | 4                           | system, messages, tools |
+| Claude 3.5 Haiku  | anthropic.claude-3-5-haiku-20241022-v1:0  | 2,048                     | 4                           | system, messages, tools |
+| Amazon Nova Micro | amazon.nova-micro-v1:0                    | 1,000                     | 4                           | system, messages        |
+| Amazon Nova Lite  | amazon.nova-lite-v1:0                     | 1,000                     | 4                           | system, messages        |
+| Amazon Nova Pro   | amazon.nova-pro-v1:0                      | 1,000                     | 4                           | system, messages        |
+
+<Note>
+  * The Amazon Nova models support a maximum of 32k tokens for prompt caching.
+  * For Claude models, tools caching is fully supported.
+  * Tools caching is not supported for Amazon Nova models.
+</Note>
+
+## Understanding Token Counts and Pricing
+
+Portkey automatically calculates correct pricing for prompt caching requests. In the logs, you'll see cache-related token counts in the `usage` object:
+
+* `cache_creation_input_tokens`: Number of tokens written to the cache when creating a new entry.
+* `cache_read_input_tokens`: Number of tokens retrieved from the cache for this request.
+
+<Info>
+  **Token Format Normalization**
+
+  Portkey normalizes responses to the OpenAI format. In this format, `prompt_tokens` **includes** the cached tokens:
+
+  ```
+  prompt_tokens = inputTokens + cache_read_input_tokens + cache_creation_input_tokens
+  ```
+
+  This differs from native provider formats where input tokens may exclude cached tokens. Portkey's pricing calculation accounts for this by:
+
+  1. Subtracting cached tokens from `prompt_tokens` to get the base input token count
+  2. Applying the standard input token rate to base tokens
+  3. Applying the discounted cache read rate to `cache_read_input_tokens`
+  4. Applying the cache write rate to `cache_creation_input_tokens`
+
+  This ensures accurate cost calculation even though the token format is normalized.
+</Info>
+
+## Related Resources
+
+<Card title="AWS Bedrock Prompt Caching Docs" href="https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html">
+  For more detailed information on Bedrock prompt caching, refer to:
+</Card>

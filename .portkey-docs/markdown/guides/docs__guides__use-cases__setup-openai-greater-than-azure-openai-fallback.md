@@ -1,0 +1,165 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Setup OpenAI -> Azure OpenAI Fallback
+
+> Portkey Fallbacks can automatically switch your app's requests from one LLM provider to another, ensuring reliability by allowing you to fallback among multiple LLMs.
+
+[<img src="https://mintcdn.com/portkey-docs/izapyWTWQvJmiZ2Q/images/guides/colab-badge.svg?fit=max&auto=format&n=izapyWTWQvJmiZ2Q&q=85&s=cadfc29fd7966d28a3c852d79a015cce" alt="" width="117" height="20" data-path="images/guides/colab-badge.svg" />](https://colab.research.google.com/github/Portkey-AI/portkey-cookbook/blob/main/ai-gateway/how%5Fto%5Fsetup%5Ffallback%5Ffrom%5Fopenai%5Fto%5Fazure%5Fopenai.ipynb)
+
+## How to Setup Fallback from OpenAI to Azure OpenAI
+
+Let’s say you’ve built an LLM-based app and deployed it to production. It relies on OpenAI’s gpt-4 model. It’s [Mar 12, 2023](https://status.portkey.ai/incident/339664), and suddenly your users find errors with the functionality of the app — “It doesn’t work!”
+
+It turns out that in the logs, the app has encountered [503 errors](https://platform.openai.com/docs/guides/error-codes) due to overloaded requests on the server-side. What could you do? If you are in such a situation, we have an answer for you: Portkey Fallbacks.
+
+This is especially useful given the unpredictable nature of LLM APIs. With Portkey, you can switch to a different LLM provider, such as Azure, when needed, making your app Production-Ready.
+
+In this cookbook, we will learn how to implement a fallback mechanism in our apps that allows us to automatically switch the LLM provider from OpenAI to Azure OpenAI with just a few lines of code. Both providers have the exact same set of models, but they are deployed differently. Azure OpenAI comes with its own deployment mechanisms, which are generally considered to be more reliable.
+
+Prerequisites:
+
+1. [Portkey API Key](https://portkey.ai/docs/api-reference/authentication#obtaining-your-api-key) ([Sign Up](https://portkey.ai))
+2. OpenAI and Azure OpenAI credentials added in [Model Catalog](https://app.portkey.ai/model-catalog)
+
+## 1. Import the SDK and authenticate with Portkey
+
+We start by importing Portkey SDK into our NodeJS project using npm and authenticate by passing the Portkey API Key.
+
+```bash icon="square-terminal" theme={"system"}
+pip install portkey-ai openai
+```
+
+```python Python icon="python" theme={"system"}
+from portkey_ai import Portkey
+from google.colab import userdata
+
+PORTKEY_API_KEY = userdata.get('PORTKEY_API_KEY')
+
+portkey = Portkey(api_key=PORTKEY_API_KEY)
+```
+
+## 2. Create Fallback Configs
+
+Next, we will create a configs object that influences the behavior of the request sent using Portkey.
+
+```json Config theme={"system"}
+{
+    "strategy": {"mode": "fallback"},
+    "targets": [
+        {"override_params": {"model": "@openai-prod/gpt-4o"}},
+        {"override_params": {"model": "@azure-prod/gpt-4o"}}
+    ]
+}
+```
+
+This configuration instructs Portkey to use a fallback strategy. The targets array lists providers in fallback order using the `@provider-slug/model` format.
+
+Most users find it cleaner to define configs in the Portkey UI and reference the config ID in code. [Try it out](https://portkey.ai/docs/product/ai-gateway-streamline-llm-integrations/configs#creating-configs).
+
+Add this configuration to the portkey instance to apply fallback behavior to all requests.
+
+```python Python icon="python" theme={"system"}
+from portkey_ai import Portkey
+from google.colab import userdata
+import json
+
+PORTKEY_API_KEY = userdata.get('PORTKEY_API_KEY')
+
+config_data = {
+    'strategy': {'mode': "fallback"},
+    'targets': [
+        {'override_params': {'model': '@openai-prod/gpt-4o'}},
+        {'override_params': {'model': '@azure-prod/gpt-4o'}}
+    ]
+}
+
+portkey = Portkey(
+    api_key=PORTKEY_API_KEY,
+    config=json.dumps(config_data)
+)
+```
+
+Always reference credentials from environment variables to prevent exposure of sensitive data.
+
+> Add your providers once in Model Catalog, then reference them using provider slugs in all subsequent API calls.
+
+````
+
+## 3\. Make a request
+
+All the requests will hit OpenAI since Portkey proxies all those requests to the target(s) we already specified. Notice that the changes to the requests do not demand any code changes in the business logic implementation. Smooth!
+
+```python Python icon="python"
+messages = [{"role": "user", "content": "What are the 7 wonders of the world?"}]
+
+response = portkey.chat.completions.create(
+    messages=messages,
+    model='gpt-4o'
+)
+
+print(response.choices[0].message.content)
+````
+
+When OpenAI returns any 4xx or 5xx errors, Portkey will automatically switch to Azure OpenAI to ensure the same specified model is used.
+
+## 4. View the Fallback Status in Logs
+
+Since all the requests go through Portkey, Portkey can log them for better observability of your app. You can find the specific requests by passing an *trace ID*. It can be any desired string name. In this case, `my-trace-id`
+
+```python Python icon="python" theme={"system"}
+response = portkey.with_options(trace_id="my-trace-id").chat.completions.create(
+    messages=messages,
+    model='gpt-4o'
+)
+
+print(response.choices[0].message.content)
+```
+
+You can apply filter with Trace ID to list requests. Instances when the fallbacks are activated will highlight the fallback icon. The logs can be filtered by cost, tokens, status, config, trace id and so on.
+
+Learn more about [Logs](https://portkey.ai/docs/product/observability/logs).
+
+## 5. Advanced: Fallback on Specific Status Codes
+
+Portkey provides finer control over the when it should apply fallback strategy to your requests to LLMs. You can define the configuration to condition based on specific status codes returned by the LLM provider.
+
+```python Python icon="python" theme={"system"}
+from portkey_ai import Portkey
+from google.colab import userdata
+import json
+
+PORTKEY_API_KEY = userdata.get('PORTKEY_API_KEY')
+
+config_data = {
+    'strategy': {'mode': "fallback", 'on_status_codes': [429]},
+    'targets': [
+        {'override_params': {'model': '@openai-prod/gpt-4o'}},
+        {'override_params': {'model': '@azure-prod/gpt-4o'}}
+    ]
+}
+
+portkey = Portkey(
+    api_key=PORTKEY_API_KEY,
+    config=json.dumps(config_data)
+)
+
+messages = [{"role": "user", "content": "What are the 7 wonders of the world?"}]
+
+response = portkey.chat.completions.create(
+    messages=messages,
+    model='gpt-4o'
+)
+
+print(response.choices[0].message.content)
+```
+
+In the above case for all the request that are acknowledged with the status code of 429 will fallback from OpenAI to Azure OpenAI.
+
+## 6. Considerations
+
+That’s it; you can implement production-grade fallback mechanisms with just a few lines of code. While you are equipped with all the tools to implement fallbacks to your next GenAI app, here are few considerations:
+
+* The implementation of Fallback does not alter the quality of LLM outputs received by your app.
+* Azure requires you to deploy specific models. Portkey will automatically trigger the chat completions endpoint using GPT4 if it is available instead of GPT3.5.

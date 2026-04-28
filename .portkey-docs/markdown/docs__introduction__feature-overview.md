@@ -1,0 +1,175 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Portkey Features
+
+> Explore the powerful features of Portkey
+
+## AI Gateway
+
+Connect to 250+ AI models using a single consistent API. Set up load balancers, automated fallbacks, caching, conditional routing, and more, seamlessly.
+
+<CardGroup cols={3}>
+  <Card title="🌐 Universal API" href="/product/ai-gateway/universal-api">
+    Integrate with multiple AI models through a single API
+  </Card>
+
+  <Card title="💾 Caching" href="/product/ai-gateway/cache-simple-and-semantic">
+    Implement simple and semantic caching for improved performance
+  </Card>
+
+  <Card title="🔄 Fallbacks" href="/product/ai-gateway/fallbacks">
+    Set up automated fallbacks for enhanced reliability
+  </Card>
+
+  <Card title="🔀 Multimodal Capabilities" href="/product/ai-gateway/multimodal-capabilities">
+    Handle various data types with multimodal AI capabilities
+  </Card>
+
+  <Card title="🔁 Automatic Retries" href="/product/ai-gateway/automatic-retries">
+    Implement automatic retries for improved resilience
+  </Card>
+
+  <Card title="🔌 Circuit Breaker" href="/product/ai-gateway/circuit-breaker">
+    Configure per-strategy circuit protection and failure handling
+  </Card>
+
+  <Card title="⚖️ Load Balancing" href="/product/ai-gateway/load-balancing">
+    Distribute workload efficiently across multiple models
+  </Card>
+
+  <Card title="🔑 Integrations" href="/product/integrations">
+    Manage access to LLMs
+  </Card>
+
+  <Card title="⏱️ Request Timeouts" href="/product/ai-gateway/request-timeouts">
+    Set and manage request timeouts
+  </Card>
+
+  <Card title="🐤 Canary Tests" href="/product/ai-gateway/canary-testing">
+    Implement canary testing for safe deployments
+  </Card>
+
+  <Card title="🚦 Conditional Routing" href="/product/ai-gateway/conditional-routing">
+    Route requests based on specific conditions
+  </Card>
+
+  <Card title="💳 Budget Limits" href="/product/model-catalog/budget-limits">
+    Set and manage budget limits
+  </Card>
+</CardGroup>
+
+## Observability & Logs
+
+Gain real-time insights, track key metrics, and streamline debugging with our OpenTelemetry-compliant system.
+
+<CardGroup cols={3}>
+  <Card title="📜 Logs" href="/product/observability/logs">
+    Access and analyze detailed logs
+  </Card>
+
+  <Card title="🕵️ Tracing" href="/product/observability/traces">
+    Implement distributed tracing for request flows
+  </Card>
+
+  <Card title="📊 Analytics" href="/product/observability/analytics">
+    Gain insights through comprehensive analytics
+  </Card>
+
+  <Card title="🧪 Filters" href="/product/observability/filters">
+    Apply filters for targeted analysis
+  </Card>
+
+  <Card title="🏷️ Metadata" href="/product/observability/metadata">
+    Manage and utilize metadata effectively
+  </Card>
+
+  <Card title="💬 Feedback" href="/product/observability/feedback">
+    Collect and analyze user feedback
+  </Card>
+</CardGroup>
+
+## Prompt Library
+
+Collaborate with team members to create, templatize, and version prompt templates easily. Experiment across 250+ LLMs with a strong Publish/Release flow to deploy the prompts.
+
+<CardGroup cols={3}>
+  <Card title="🧩 Prompt Templates" href="/product/prompt-library/prompt-templates">
+    Create and manage reusable prompt templates
+  </Card>
+
+  <Card title="✂️ Prompt Partials" href="/product/prompt-library/prompt-partials">
+    Utilize modular prompt components
+  </Card>
+
+  <Card title="{ } JSON Mode Prompting" href="/product/prompt-library/advanced-prompting-with-json-mode">
+    Advanced prompting with JSON mode
+  </Card>
+</CardGroup>
+
+## Guardrails
+
+Enforce Real-Time LLM Behavior with 50+ state-of-the-art AI guardrails, so that you can synchronously run Guardrails on your requests and route them with precision.
+
+<CardGroup cols={2}>
+  <Card title="🛡️ Deterministic Guardrails" href="/product/guardrails/list-of-guardrail-checks">
+    Implement rule-based safety checks
+  </Card>
+
+  <Card title="🤖 LLM-based Guardrails" href="/product/guardrails/list-of-guardrail-checks">
+    Leverage AI for advanced content filtering
+  </Card>
+
+  <Card title="🤝 Partner Guardrails" href="/product/guardrails/list-of-guardrail-checks">
+    Integrate third-party safety solutions
+  </Card>
+
+  <Card title="🎒 Bring Your Own" href="/integrations/guardrails/bring-your-own-guardrails">
+    Customize guardrails to your needs
+  </Card>
+</CardGroup>
+
+## Agents
+
+Natively integrate Portkey's gateway, guardrails, and observability suite with leading agent frameworks and take them to production.
+
+<CardGroup cols={3}>
+  <Card title="🤖 Autogen" href="/integrations/agents/autogen" />
+
+  <Card title="👥 CrewAI" href="/integrations/agents/crewai" />
+
+  <Card title="🔗 Langchain Agents" href="/integrations/agents/langchain-agents" />
+
+  <Card title="🦙 Llama Agents" href="/integrations/agents/llama-agents" />
+
+  <Card title="φ PhiData" href="/integrations/agents/phidata" />
+
+  <Card title="🔀 ControlFlow" href="/integrations/agents/control-flow" />
+
+  <Card title="🕸️ LangGraph" href="/integrations/agents/langgraph" />
+</CardGroup>
+
+## More Resources
+
+<CardGroup cols={2}>
+  <Card title="📋 Portkey Plans" href="/product/product-feature-comparison">
+    Compare different Portkey subscription plans
+  </Card>
+
+  <Card title="💬 Developer Forum" href="/support/developer-forum">
+    Join our community of developers
+  </Card>
+
+  <Card title="📚 API Reference" href="/api-reference">
+    Explore our comprehensive API documentation
+  </Card>
+
+  <Card title="🏢 Portkey Enterprise" href="/product/enterprise-offering">
+    Learn about our enterprise solutions
+  </Card>
+
+  <Card title="🌐 Portkey Open Source" href="/product/open-source">
+    Contribute to our open-source projects
+  </Card>
+</CardGroup>

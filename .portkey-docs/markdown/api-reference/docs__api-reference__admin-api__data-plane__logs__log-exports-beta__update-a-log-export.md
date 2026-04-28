@@ -1,0 +1,404 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Update a Log Export
+
+
+
+## OpenAPI
+
+````yaml put /logs/exports/{exportId}
+openapi: 3.0.0
+info:
+  title: Portkey API
+  description: >-
+    The Portkey REST API. Please see https://portkey.ai/docs/api-reference for
+    more details.
+  version: 2.0.0
+  termsOfService: https://portkey.ai/terms
+  contact:
+    name: Portkey Developer Forum
+    url: https://portkey.wiki/community
+  license:
+    name: MIT
+    url: https://github.com/Portkey-AI/portkey-openapi/blob/master/LICENSE
+servers:
+  - url: https://api.portkey.ai/v1
+    description: Portkey API Public Endpoint
+security:
+  - Portkey-Key: []
+tags:
+  - name: Assistants
+    description: Build Assistants that can call models and use tools.
+  - name: Audio
+    description: Turn audio into text or text into audio.
+  - name: Chat
+    description: >-
+      Given a list of messages comprising a conversation, the model will return
+      a response.
+  - name: Realtime
+    description: WebSocket proxy for provider Realtime APIs
+  - name: Collections
+    description: Create, List, Retrieve, Update, and Delete collections of prompts.
+  - name: Labels
+    description: Create, List, Retrieve, Update, and Delete labels.
+  - name: Prompt Collections
+    description: Create, List, Retrieve, Update, and Delete prompt collections.
+  - name: PromptPartials
+    description: Create, List, Retrieve, Update, and Delete prompt partials.
+  - name: Prompts
+    description: >-
+      Given a prompt template ID and variables, will run the saved prompt
+      template and return a response.
+  - name: Guardrails
+    description: Create, List, Retrieve, Update, and Delete prompt Guardrails.
+  - name: Completions
+    description: >-
+      Given a prompt, the model will return one or more predicted completions,
+      and can also return the probabilities of alternative tokens at each
+      position.
+  - name: Embeddings
+    description: >-
+      Get a vector representation of a given input that can be easily consumed
+      by machine learning models and algorithms.
+  - name: Rerank
+    description: >-
+      Rerank a list of documents based on their relevance to a query. Supported
+      providers include Cohere, Voyage, Jina, Pinecone, Bedrock, and Azure AI.
+  - name: Fine-tuning
+    description: Manage fine-tuning jobs to tailor a model to your specific training data.
+  - name: Batch
+    description: Create large batches of API requests to run asynchronously.
+  - name: Files
+    description: >-
+      Files are used to upload documents that can be used with features like
+      Assistants and Fine-tuning.
+  - name: Images
+    description: Given a prompt and/or an input image, the model will generate a new image.
+  - name: Models
+    description: List and describe the various models available in the API.
+  - name: Moderations
+    description: >-
+      Given a input text, outputs if the model classifies it as potentially
+      harmful.
+  - name: Configs
+    description: Create, List, Retrieve, and Update your Portkey Configs.
+  - name: Feedback
+    description: Send and Update any feedback.
+  - name: Logs
+    description: Custom Logger to add external logs to Portkey.
+  - name: Integrations
+    description: Create, List, Retrieve, Update, and Delete your Portkey Integrations.
+  - name: Integrations > Workspaces
+    description: Manage workspace access for your Portkey Integrations.
+  - name: Integrations > Models
+    description: Manage model access for your Portkey Integrations.
+  - name: Providers
+    description: Create, List, Retrieve, Update, and Delete your Portkey Providers.
+  - name: Virtual-keys
+    description: Create, List, Retrieve, Update, and Delete your Portkey Virtual keys.
+  - name: Users
+    description: Create and manage users.
+  - name: User-invites
+    description: Create and manage user invites.
+  - name: Workspaces
+    description: Create and manage workspaces.
+  - name: Workspaces > Members
+    description: Create and manage workspace members.
+  - name: MCP Integrations
+    description: Create, List, Retrieve, Update, and Delete MCP Integrations.
+  - name: MCP Integrations > Workspaces
+    description: Manage workspace access for MCP Integrations.
+  - name: MCP Integrations > Capabilities
+    description: List and manage capabilities for MCP Integrations.
+  - name: MCP Integrations > Metadata
+    description: Get MCP Integration metadata and sync info.
+  - name: MCP Servers
+    description: >-
+      Create, List, Retrieve, Update, and Delete MCP Servers (workspace
+      instances of MCP Integrations).
+  - name: MCP Servers > Capabilities
+    description: List and manage capabilities for MCP Servers.
+  - name: MCP Servers > User Access
+    description: List and manage user access for MCP Servers.
+  - name: MCP Servers > Connections
+    description: List and manage user connections for MCP Servers.
+  - name: Api-Keys
+    description: Create, List, Retrieve, Update, and Delete your Portkey API keys.
+  - name: Logs Export
+    description: Exports logs service.
+  - name: Audit Logs
+    description: Get audit logs for your Portkey account.
+  - name: Analytics
+    description: >-
+      Get analytics over different data points like requests, costs, tokens,
+      etc.
+  - name: Analytics > Graphs
+    description: Get data points for graphical representation.
+  - name: Analytics > Summary
+    description: Get overall summary for the selected time bucket.
+  - name: Analytics > Groups
+    description: Get grouped metrics for the selected time bucket.
+  - name: Usage Limits Policies
+    description: Manage usage limits policies to control total usage over time
+  - name: Rate Limits Policies
+    description: Manage rate limits policies to control request or token rates
+  - name: Model Pricing
+    description: Model pricing configurations for 2300+ LLMs across 40+ providers
+  - name: Secret-References
+    description: >-
+      Create, List, Retrieve, Update, and Delete secret references to external
+      secret managers.
+paths:
+  /logs/exports/{exportId}:
+    servers:
+      - url: https://api.portkey.ai/v1
+        description: Portkey API Public Endpoint
+      - url: SELF_HOSTED_CONTROL_PLANE_URL
+        description: Self-Hosted Control Plane URL
+    put:
+      tags:
+        - Logs Export
+      summary: Update a logs export
+      parameters:
+        - name: exportId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id:
+                  type: string
+                filters:
+                  $ref: '#/components/schemas/GenerationsFilterSchema'
+                requested_data:
+                  $ref: '#/components/schemas/LogExportsRequestedData'
+              required:
+                - filters
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateExportResponse'
+      x-code-samples:
+        - lang: python
+          label: Default
+          source: |
+            from portkey_ai import Portkey
+
+            portkey = Portkey(
+              api_key="PORTKEY_API_KEY"
+            )
+
+            res = portkey.logs.exports.update(
+              export_id="EXPORT_ID",
+              workspace_id="WORKSPACE_ID",
+              filters={
+                "time_of_generation_max": "2024-07-25"
+              }
+            )
+
+            print(res)
+        - lang: javascript
+          label: Default
+          source: |
+            import Portkey from "portkey-ai";
+
+            const portkey = new Portkey({
+              apiKey:"PORTKEY_API_KEY"
+            })
+
+            async function main() {
+              const res = await portkey.logs.exports.update({
+                exportId:"7ef9f738-a93a-xxx-xxx-xxxxx",
+                workspaceId: "ws-shared-xxx",
+                filters: {
+                  "time_of_generation_max": "2024-07-25"
+                }
+              });
+
+              console.log(res);
+            }
+
+            main();
+        - lang: curl
+          label: Default
+          source: >
+            curl -X PUT "https://api.portkey.ai/v1/logs/exports/EXPORT_ID" \
+
+            -H "x-portkey-api-key: PORTKEY_API_KEY" \
+
+            -H "Content-Type: application/json" \
+
+            -d
+            '{"workspace_id":"WORKSPACE_ID","filters":{"time_of_generation_max":"2024-07-25"}}'
+        - lang: curl
+          label: Self-Hosted
+          source: >
+            curl -X PUT "SELF_HOSTED_CONTROL_PLANE_URL/logs/exports/EXPORT_ID" \
+
+            -H "x-portkey-api-key: PORTKEY_API_KEY" \
+
+            -H "Content-Type: application/json" \
+
+            -d
+            '{"workspace_id":"WORKSPACE_ID","filters":{"time_of_generation_max":"2024-07-25"}}'
+        - lang: python
+          label: Self-Hosted
+          source: |
+            from portkey_ai import Portkey
+
+            portkey = Portkey(
+              api_key="PORTKEY_API_KEY",
+              base_url="SELF_HOSTED_CONTROL_PLANE_URL"
+            )
+
+            res = portkey.logs.exports.update(
+              export_id='EXPORT_ID',
+              workspace_id='WORKSPACE_ID',
+              filters={
+                'time_of_generation_max': '2024-07-25'
+              }
+            )
+
+            print(res)
+        - lang: javascript
+          label: Self-Hosted
+          source: |
+            import Portkey from "portkey-ai";
+
+            const portkey = new Portkey({
+              apiKey:"PORTKEY_API_KEY",
+              baseUrl:"SELF_HOSTED_CONTROL_PLANE_URL"
+            })
+
+            async function main() {
+              const res = await portkey.logs.exports.update({
+                exportId:"7ef9f738-a93a-xxx-xxx-xxxxx",
+                workspaceId: "ws-shared-xxx",
+                filters: {
+                  "time_of_generation_max": "2024-07-25"
+                }
+              });
+
+              console.log(res);
+            }
+
+            main();
+components:
+  schemas:
+    GenerationsFilterSchema:
+      type: object
+      properties:
+        time_of_generation_min:
+          type: string
+          format: date-time
+        time_of_generation_max:
+          type: string
+          format: date-time
+        total_units_min:
+          type: integer
+        total_units_max:
+          type: integer
+        cost_min:
+          type: number
+        cost_max:
+          type: number
+        ai_model:
+          type: string
+        prompt_token_min:
+          type: integer
+        prompt_token_max:
+          type: integer
+        completion_token_min:
+          type: integer
+        completion_token_max:
+          type: integer
+        status_code:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        ai_org_model:
+          type: string
+          example: openai__gpt-3.5-turbo, anthropic__claude-2.1
+        weighted_feedback_min:
+          type: number
+        weighted_feedback_max:
+          type: number
+        virtual_keys:
+          type: string
+        trace_id:
+          type: string
+        configs:
+          type: string
+        workspace_slug:
+          type: string
+        prompt_slug:
+          type: string
+        page_size:
+          type: number
+          description: 'max: 50000, default: 50000'
+          example: 50000
+        current_page:
+          type: number
+          example: 0
+    LogExportsRequestedData:
+      type: array
+      items:
+        type: string
+        enum:
+          - id
+          - trace_id
+          - created_at
+          - request
+          - response
+          - is_success
+          - ai_org
+          - ai_model
+          - req_units
+          - res_units
+          - total_units
+          - request_url
+          - cost
+          - cost_currency
+          - response_time
+          - response_status_code
+          - mode
+          - config
+          - prompt_slug
+          - metadata
+    UpdateExportResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The unique identifier of the updated export
+        total:
+          type: integer
+          description: The total number of items in the export
+        object:
+          type: string
+          enum:
+            - export
+          description: The type of the object
+      required:
+        - id
+        - total
+        - object
+  securitySchemes:
+    Portkey-Key:
+      type: apiKey
+      in: header
+      name: x-portkey-api-key
+
+````

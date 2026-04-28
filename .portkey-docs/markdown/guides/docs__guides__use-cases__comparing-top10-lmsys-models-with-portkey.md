@@ -1,0 +1,157 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Comparing Top10 LMSYS Models with Portkey
+
+[<img src="https://mintcdn.com/portkey-docs/izapyWTWQvJmiZ2Q/images/guides/colab-badge.svg?fit=max&auto=format&n=izapyWTWQvJmiZ2Q&q=85&s=cadfc29fd7966d28a3c852d79a015cce" alt="" width="117" height="20" data-path="images/guides/colab-badge.svg" />](https://colab.research.google.com/drive/1mBr22Ov8xN6Piy6M38Tr5wOYjpmT%5FIoH#scrollTo=pNpHQn6FlCL1)
+
+The [LMSYS Chatbot Arena](https://chat.lmsys.org/?leaderboard), with over **1,000,000** human comparisons, is the gold standard for evaluating LLM performance.
+
+But, testing multiple LLMs is a ***pain***, requiring you to juggle APIs that all work differently, with different authentication and dependencies.
+
+<Frame>
+  <img src="https://mintcdn.com/portkey-docs/T0lFtdapIPX8YtCI/images/guides/use-case-4.avif?fit=max&auto=format&n=T0lFtdapIPX8YtCI&q=85&s=34c948cff8d0e344d84bfec142d1eb8b" width="300" height="169" data-path="images/guides/use-case-4.avif" />
+</Frame>
+
+**Enter Portkey:** A unified, open source API for accessing over 1,600+ LLMs. Portkey makes it a breeze to call the models on the LMSYS leaderboard - no setup required.
+
+***
+
+In this notebook, you'll see how Portkey streamlines LLM evaluation for the **Top 10 LMSYS Models**, giving you valuable insights into cost, performance, and accuracy metrics.
+
+Let's dive in!
+
+***
+
+#### Video Guide
+
+The notebook comes with a video guide that you can follow along
+
+<iframe width="100%" height="350" src="https://www.youtube.com/embed/A1ZJV1ML2qI?si=e93-f-b1N-GzGLcO" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen />
+
+#### Setting up Portkey
+
+To get started, install the necessary packages:
+
+```bash icon="square-terminal" theme={"system"}
+pip install -qU portkey-ai openai
+```
+
+Next, sign up for a Portkey API key at [https://app.portkey.ai/](https://app.portkey.ai/). Navigate to "Settings" -> "API Keys" and create an API key with the appropriate scope.
+
+#### Defining the Top 10 LMSYS Models
+
+Let's define the list of Top 10 LMSYS models and their corresponding providers.
+
+```python Python icon="python" theme={"system"}
+top_10_models = [
+    ["gpt-4o-2024-05-13", "openai"],
+    ["gemini-1.5-pro-latest", "google"],
+    ["gpt-4-turbo-2024-04-09", "openai"],
+    ["gpt-4-1106-preview", "openai"],
+    ["claude-3-opus-20240229", "anthropic"],
+    ["gpt-4-0125-preview", "openai"],
+    ["gemini-1.5-flash-latest", "google"],
+    ["gemini-1.0-pro", "google"],
+    ["meta-llama/Llama-3-70b-chat-hf", "together"],
+    ["claude-3-sonnet-20240229", "anthropic"],
+    ["reka-core-20240501", "reka-ai"],
+    ["command-r-plus", "cohere"],
+    ["gpt-4-0314", "openai"],
+    ["glm-4", "zhipu"],
+]
+```
+
+#### Add Providers to Model Catalog
+
+ALL the providers above are integrated with Portkey - add them to [Model Catalog](https://app.portkey.ai/model-catalog) to get provider slugs for streamlined API key management.
+
+| Provider    | Link to get API Key                                              | Payment Mode                             |
+| ----------- | ---------------------------------------------------------------- | ---------------------------------------- |
+| openai      | [https://platform.openai.com/](https://platform.openai.com/)     | Wallet Top Up                            |
+| anthropic   | [https://console.anthropic.com/](https://console.anthropic.com/) | Wallet Top Up                            |
+| google      | [https://aistudio.google.com/](https://aistudio.google.com/)     | <Icon icon="sack-dollar" /> Free to Use  |
+| cohere      | [https://dashboard.cohere.com/](https://dashboard.cohere.com/)   | <Icon icon="sack-dollar" /> Free Credits |
+| together-ai | [https://api.together.ai/](https://api.together.ai/)             | <Icon icon="sack-dollar" /> Free Credits |
+| reka-ai     | [https://platform.reka.ai/](https://platform.reka.ai/)           | Wallet Top Up                            |
+| zhipu       | [https://open.bigmodel.cn/](https://open.bigmodel.cn/)           | <Icon icon="sack-dollar" /> Free to Use  |
+
+```python Python icon="python" theme={"system"}
+# Replace with your provider slugs from Model Catalog
+provider_slugs = {
+    "openai": "@openai-prod",
+    "anthropic": "@anthropic-prod",
+    "google": "@google-prod",
+    "cohere": "@cohere-prod",
+    "together": "@together-prod",
+    "reka-ai": "@reka-prod",
+    "zhipu": "@zhipu-prod"
+}
+```
+
+#### Running the Models with Portkey
+
+Now, let's create a function to run the Top 10 LMSYS models using OpenAI SDK with Portkey Gateway:
+
+```python OpenAI Python icon="openai" theme={"system"}
+from openai import OpenAI
+from portkey_ai import PORTKEY_GATEWAY_URL, createHeaders
+
+def run_top10_lmsys_models(prompt):
+    outputs = {}
+    for model, provider in top_10_models:
+        client = OpenAI(
+            api_key="YOUR_PORTKEY_API_KEY",
+            base_url=PORTKEY_GATEWAY_URL,
+            default_headers=createHeaders(
+                provider=provider_slugs[provider],
+                trace_id="COMPARING_LMSYS_MODELS"
+            )
+        )
+        response = client.chat.completions.create(
+            messages=[{"role": "user", "content": prompt}],
+            model=model,
+            max_tokens=256
+        )
+        outputs[model] = response.choices[0].message.content
+    return outputs
+```
+
+#### Comparing Model Outputs
+
+To display the model outputs in a tabular format for easy comparison, we define the print\_model\_outputs function:
+
+```python Python icon="python" theme={"system"}
+from tabulate import tabulate
+
+def print_model_outputs(prompt):
+    outputs = run_top10_lmsys_models(prompt)
+    table_data = []
+    for model, output in outputs.items():
+        table_data.append([model, output.strip()])
+    headers = ["Model", "Output"]
+    table = tabulate(table_data, headers, tablefmt="grid")
+    print(table)
+```
+
+#### Example: Evaluating LLMs for a Specific Task
+
+Let's run the notebook with a specific prompt to showcase the differences in responses from various LLMs:
+
+On Portkey, you will be able to see the logs for all models:
+
+<Frame>
+  <img src="https://mintcdn.com/portkey-docs/T0lFtdapIPX8YtCI/images/guides/use-case-5.webp?fit=max&auto=format&n=T0lFtdapIPX8YtCI&q=85&s=772e67c4b30418c62f4d194149e7ee31" width="300" height="187" data-path="images/guides/use-case-5.webp" />
+</Frame>
+
+```python Python icon="python" theme={"system"}
+prompt = "If 20 shirts take 5 hours to dry, how much time will 100 shirts take to dry?"
+print_model_outputs(prompt)
+```
+
+#### Conclusion
+
+With minimal setup and code modifications, Portkey enables you to streamline your LLM evaluation process and easily call 1600+ LLMs to find the best model for your specific use case.
+
+Explore Portkey further and integrate it into your own projects. Visit the Portkey documentation at [https://docs.portkey.ai/](https://docs.portkey.ai/) for more information on how to leverage Portkey's capabilities in your workflow.

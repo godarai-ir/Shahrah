@@ -1,0 +1,25 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Overview
+
+<CardGroup>
+  <Card title="A/B Test Prompts and Models" href="/guides/getting-started/a-b-test-prompts-and-models" />
+
+  <Card title="Tackling Rate Limiting" href="/guides/getting-started/tackling-rate-limiting" />
+
+  <Card title="Function Calling" href="/guides/getting-started/function-calling" />
+
+  <Card title="Image Generation" href="/guides/getting-started/image-generation" />
+
+  <Card title="Getting started with AI Gateway" href="/guides/getting-started/getting-started-with-ai-gateway" />
+
+  <Card title="Llama 3 on Groq" href="/guides/getting-started/llama-3-on-groq" />
+
+  <Card title="Return Repeat Requests from Cache" href="/guides/getting-started/return-repeat-requests-from-cache" />
+
+  <Card title="Trigger Automatic Retries on LLM Failures" href="/guides/getting-started/trigger-automatic-retries-on-llm-failures" />
+
+  <Card title="101 on Portkey's Gateway Configs" href="/guides/getting-started/101-on-portkey-s-gateway-configs" />
+</CardGroup>

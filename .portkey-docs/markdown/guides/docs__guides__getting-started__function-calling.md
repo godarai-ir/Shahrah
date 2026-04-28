@@ -1,0 +1,169 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Function Calling
+
+> Get the LLM to interact with external APIs!
+
+Function calling (or Tool calling) lets LLMs interact with external APIs by generating structured arguments for specific functions. This enables LLMs to fetch real-time data, perform calculations, or trigger actions.
+
+Portkey supports function calling across [3000+ models](/product/model-catalog) including those from all major providers.
+
+## How it Works
+
+1. **Define tools**: Tell the model about available functions and their parameters.
+2. **Generate arguments**: The model decides to call a tool and returns the arguments.
+3. **Execute tool**: Run the function in your application.
+4. **Final answer**: Send the tool output back to the model to generate a natural language response.
+
+### Example: Weather Forecast
+
+To get the weather for a specific location:
+
+```js theme={"system"}
+import Portkey from "portkey-ai";
+
+const portkey = new Portkey({
+    apiKey: "PORTKEY_API_KEY",
+});
+
+const tools = [{
+    type: "function",
+    function: {
+        name: "get_weather",
+        description: "Get the current weather in a given location",
+        parameters: {
+            type: "object",
+            properties: {
+                location: {
+                    type: "string",
+                    description: "The city and state",
+                },
+                unit: { type: "string", enum: ["celsius", "fahrenheit"] },
+            },
+            required: ["location"],
+        },
+    },
+}];
+
+const response = await portkey.chat.completions.create({
+    model: "MODEL_NAME",
+    messages: [
+        { role: "user", content: "What's the weather like in Delhi?" }
+    ],
+    tools,
+    tool_choice: "auto",
+});
+
+console.log(response.choices[0].message.tool_calls);
+```
+
+The model returns a JSON object with the function name and arguments:
+
+```json theme={"system"}
+[
+    {
+        "id": "call_123",
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "arguments": "{\"location\": \"Delhi, India\", \"unit\": \"celsius\"}"
+        }
+    }
+]
+```
+
+Pass the tool output back to the model to complete the loop:
+
+```js theme={"system"}
+const toolCall = response.choices[0].message.tool_calls[0];
+const weatherData = await get_weather(JSON.parse(toolCall.function.arguments));
+
+const finalResponse = await portkey.chat.completions.create({
+    model: "MODEL_NAME",
+    messages: [
+        { role: "user", content: "What's the weather like in Delhi?" },
+        response.choices[0].message, // Assistant's tool call
+        {
+            role: "tool",
+            tool_call_id: toolCall.id,
+            content: JSON.stringify(weatherData),
+        }
+    ],
+});
+```
+
+## Unified API Support
+
+Portkey supports function calling across different API formats. Use the one that fits your application to call any provider's model.
+
+### /chat/completions
+
+Standard OpenAI-compatible format used by most providers.
+
+<CodeGroup>
+  ```js JavaScript theme={"system"}
+  const response = await portkey.chat.completions.create({
+      model: "MODEL_NAME",
+      messages: [{ role: "user", content: "What's the weather?" }],
+      tools: [{
+          type: "function",
+          function: {
+              name: "get_weather",
+              parameters: { ... }
+          }
+      }]
+  });
+  ```
+</CodeGroup>
+
+### /messages
+
+Anthropic-compatible format supported by all models through Portkey's translation.
+
+<CodeGroup>
+  ```js JavaScript theme={"system"}
+  const message = await portkey.messages.create({
+      model: "MODEL_NAME",
+      max_tokens: 1024,
+      messages: [{ role: "user", content: "What's the weather?" }],
+      tools: [{
+          name: "get_weather",
+          description: "Get the weather",
+          input_schema: {
+              type: "object",
+              properties: { ... }
+          }
+      }]
+  });
+  ```
+</CodeGroup>
+
+### /responses
+
+Unified agentic format for multi-provider interoperability.
+
+<CodeGroup>
+  ```js JavaScript theme={"system"}
+  const response = await portkey.responses.create({
+      model: "MODEL_NAME",
+      input: "What's the weather?",
+      tools: [{
+          type: "function",
+          name: "get_weather",
+          parameters: { ... }
+      }]
+  });
+  ```
+</CodeGroup>
+
+## Supported Models
+
+Portkey provides native function calling support for all major providers.
+
+If you discover a function-calling capable LLM that isn't working with Portkey, please let us know [on Discord](https://portkey.wiki/community).
+
+<Note>
+  Portkey supports parallel tool calling for models that provide it. This allows the model to trigger multiple functions in a single request.
+</Note>

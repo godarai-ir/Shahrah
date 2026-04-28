@@ -1,0 +1,155 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Quickstart
+
+> Add DeepWiki to Portkey MCP Gateway and connect it to Claude.
+
+This quickstart covers:
+
+1. Adding the DeepWiki MCP server to your organization's MCP Registry
+2. Getting your MCP connection URL from your workspace
+3. Using the URL in Claude (Desktop / Code) via MCP configuration
+
+<Info>
+  **Who does what:** MCP integrations can be added by **org admin and members**. The MCP server can be used by **workspace admin, manager, and members**.
+</Info>
+
+***
+
+## 1) Add DeepWiki to MCP Registry
+
+<Steps>
+  <Step title="Open MCP Registry">
+    Go to **MCP Registry** in your org settings, then click **Add Server**.
+
+    <Frame>
+      <img src="https://mintcdn.com/portkey-docs/SYbJLnYR8wpty2Fv/images/mcp-gateway/mcp-registry-list.png?fit=max&auto=format&n=SYbJLnYR8wpty2Fv&q=85&s=d772598e4180e52530a580c755225c77" alt="MCP Registry list with Add Server button" width="2932" height="1478" data-path="images/mcp-gateway/mcp-registry-list.png" />
+    </Frame>
+  </Step>
+
+  <Step title="Fill in the server details">
+    Enter the following:
+
+    | Field                 | Value                                  |
+    | --------------------- | -------------------------------------- |
+    | **Name**              | `deepwiki-test-mcp-server`             |
+    | **Short Description** | A short note about the MCP Integration |
+    | **URL**               | `https://mcp.deepwiki.com/mcp`         |
+    | **Slug**              | `deepwiki-test-mcp-server`             |
+    | **Server Type**       | Http                                   |
+    | **Auth Type**         | None                                   |
+
+    <Note>
+      DeepWiki is a public MCP server that doesn't require authentication, so set **Auth Type** to `None`. Learn more about [DeepWiki MCP](https://docs.devin.ai/work-with-devin/deepwiki-mcp).
+    </Note>
+
+    The form includes **Workspace Provisioning** settings. Select the workspace(s) that should have access to this MCP server.
+
+    <Frame>
+      <img src="https://mintcdn.com/portkey-docs/SYbJLnYR8wpty2Fv/images/mcp-gateway/provision-server-access.png?fit=max&auto=format&n=SYbJLnYR8wpty2Fv&q=85&s=c068985d563f3b2fec8a439098a8713f" alt="Provision server access to workspaces" width="2570" height="1382" data-path="images/mcp-gateway/provision-server-access.png" />
+    </Frame>
+  </Step>
+
+  <Step title="Test & save">
+    Click **Test Connection**, then **Add Server**.
+  </Step>
+</Steps>
+
+***
+
+## 2) Get Your Connection URL
+
+Once enabled, go to the **MCP** page in your workspace sidebar and copy the DeepWiki connection URL.
+
+<Frame>
+  <img src="https://mintcdn.com/portkey-docs/SYbJLnYR8wpty2Fv/images/mcp-gateway/workspace-mcp-connection-url.png?fit=max&auto=format&n=SYbJLnYR8wpty2Fv&q=85&s=ad514d57a685a4742d5bf2145cf1bc1f" alt="Workspace MCP page showing per-server connection URL" width="2560" height="1252" data-path="images/mcp-gateway/workspace-mcp-connection-url.png" />
+</Frame>
+
+The URL will look like:
+
+```
+https://mcp.portkey.ai/deepwiki-test-mcp-server/mcp
+```
+
+***
+
+## 3) Use the URL in Claude (Desktop / Code)
+
+Add a new MCP server that points to the Portkey URL. You have two authentication options:
+
+<Tabs>
+  <Tab title="OAuth (Recommended)">
+    The simplest setup—just the URL, no credentials to manage:
+
+    ```json theme={"system"}
+    {
+      "mcpServers": {
+        "deepwiki": {
+          "url": "https://mcp.portkey.ai/deepwiki-test-mcp-server/mcp"
+        }
+      }
+    }
+    ```
+
+    On first use, Claude will prompt you to authenticate with Portkey via OAuth 2.1. After you log in, your session is stored and refreshed automatically.
+
+    <Info>
+      **Best for:** Interactive use in Claude Desktop, Cursor, or VS Code. No API keys to create, rotate, or accidentally leak.
+    </Info>
+  </Tab>
+
+  <Tab title="API Key">
+    For programmatic access or when you prefer explicit credentials:
+
+    ```json theme={"system"}
+    {
+      "mcpServers": {
+        "deepwiki": {
+          "url": "https://mcp.portkey.ai/deepwiki-test-mcp-server/mcp",
+          "headers": {
+            "x-portkey-api-key": "<PORTKEY_API_KEY>"
+          }
+        }
+      }
+    }
+    ```
+
+    Get your Portkey API key at [app.portkey.ai/api-keys](https://app.portkey.ai/api-keys). Use a **workspace user API key** with **`mcp invoke`** permissions.
+
+    <Note>
+      When creating your workspace API key, ensure it has **MCP Invoke** permissions enabled.
+    </Note>
+
+    <Info>
+      **Best for:** CI/CD pipelines, backend services, or automated agents where interactive OAuth isn't possible.
+    </Info>
+  </Tab>
+</Tabs>
+
+<Note>
+  Even though DeepWiki doesn't require authentication to the upstream server, you still need to authenticate with Portkey (via OAuth or API key) to access the server through the gateway.
+</Note>
+
+***
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Add MCP Servers" icon="layer-group" href="/product/mcp-gateway/internal-mcp-servers">
+    Add internal and external MCP servers, configure authentication, and control access.
+  </Card>
+
+  <Card title="Using MCP Servers" icon="plug" href="/product/mcp-gateway/using-mcp-servers">
+    Connect MCP clients like Cursor, VS Code, Claude Desktop, or build your own integration.
+  </Card>
+
+  <Card title="Team Provisioning" icon="users" href="/product/mcp-gateway/access-control">
+    Control which teams and users can access which MCP servers and tools.
+  </Card>
+
+  <Card title="Observability" icon="chart-mixed" href="/product/mcp-gateway/observability">
+    Monitor and debug MCP tool calls with full context and logs.
+  </Card>
+</CardGroup>

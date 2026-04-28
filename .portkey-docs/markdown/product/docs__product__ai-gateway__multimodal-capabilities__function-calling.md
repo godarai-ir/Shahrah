@@ -1,0 +1,240 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Function Calling
+
+> Portkey's AI Gateway supports function calling across major foundational models. Define functions in your API call, and the model can output the function name with parameters.
+
+## Functions Usage
+
+Portkey supports the OpenAI signature to define functions. Pass the `tools` parameter to models that support function/tool calling.
+
+<Tabs>
+  <Tab title="NodeJS">
+    ```js theme={"system"}
+    import Portkey from 'portkey-ai';
+
+    const portkey = new Portkey({
+        apiKey: "PORTKEY_API_KEY",
+    });
+
+    async function run() {
+      const response = await portkey.chat.completions.create({
+        model: "MODEL_NAME",
+        messages: [{ role: "user", content: "What's the weather like in Boston today?" }],
+        tools: [{
+            type: "function",
+            function: {
+              name: "get_current_weather",
+              description: "Get the current weather in a given location",
+              parameters: {
+                type: "object",
+                properties: {
+                  location: {
+                    type: "string",
+                    description: "The city and state, e.g. San Francisco, CA",
+                  },
+                  unit: { type: "string", enum: ["celsius", "fahrenheit"] },
+                },
+                required: ["location"],
+              },
+            }
+        }],
+        tool_choice: "auto",
+      });
+
+      console.log(response.choices[0].message.tool_calls);
+    }
+
+    run();
+    ```
+  </Tab>
+
+  <Tab title="Python">
+    ```py theme={"system"}
+    from portkey_ai import Portkey
+
+    portkey = Portkey(
+        api_key="PORTKEY_API_KEY",
+    )
+
+    completion = portkey.chat.completions.create(
+      model="MODEL_NAME",
+      messages=[{"role": "user", "content": "What's the weather like in Boston today?"}],
+      tools=[{
+        "type": "function",
+        "function": {
+          "name": "get_current_weather",
+          "description": "Get the current weather in a given location",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": {
+                "type": "string",
+                "description": "The city and state, e.g. San Francisco, CA",
+              },
+              "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]},
+            },
+            "required": ["location"],
+          },
+        }
+      }],
+      tool_choice="auto"
+    )
+
+    print(completion.choices[0].message.tool_calls)
+    ```
+  </Tab>
+
+  <Tab title="OpenAI NodeJS">
+    ```js theme={"system"}
+    import OpenAI from 'openai';
+    import { PORTKEY_GATEWAY_URL, createHeaders } from 'portkey-ai'
+
+    const openai = new OpenAI({
+      baseURL: PORTKEY_GATEWAY_URL,
+      defaultHeaders: createHeaders({
+        apiKey: "PORTKEY_API_KEY"
+      })
+    });
+
+    async function run() {
+      const response = await openai.chat.completions.create({
+        model: "MODEL_NAME",
+        messages: [{ role: "user", content: "What's the weather like in Boston today?" }],
+        tools: [{
+            type: "function",
+            function: {
+              name: "get_current_weather",
+              description: "Get the current weather in a given location",
+              parameters: {
+                type: "object",
+                properties: {
+                  location: {
+                    type: "string",
+                    description: "The city and state, e.g. San Francisco, CA",
+                  },
+                  unit: { type: "string", enum: ["celsius", "fahrenheit"] },
+                },
+                required: ["location"],
+              },
+            }
+        }],
+        tool_choice: "auto",
+      });
+
+      console.log(response.choices[0].message.tool_calls);
+    }
+
+    run();
+    ```
+  </Tab>
+
+  <Tab title="OpenAI Python">
+    ```py theme={"system"}
+    from openai import OpenAI
+    from portkey_ai import PORTKEY_GATEWAY_URL, createHeaders
+
+    openai = OpenAI(
+        base_url=PORTKEY_GATEWAY_URL,
+        default_headers=createHeaders(
+            api_key="PORTKEY_API_KEY"
+        )
+    )
+
+    completion = openai.chat.completions.create(
+      model="MODEL_NAME",
+      messages=[{"role": "user", "content": "What's the weather like in Boston today?"}],
+      tools=[{
+        "type": "function",
+        "function": {
+          "name": "get_current_weather",
+          "description": "Get the current weather in a given location",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": {
+                "type": "string",
+                "description": "The city and state, e.g. San Francisco, CA",
+              },
+              "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]},
+            },
+            "required": ["location"],
+          },
+        }
+      }],
+      tool_choice="auto"
+    )
+
+    print(completion.choices[0].message.tool_calls)
+    ```
+  </Tab>
+
+  <Tab title="cURL">
+    ```sh theme={"system"}
+    curl "https://api.portkey.ai/v1/chat/completions" \
+      -H "Content-Type: application/json" \
+      -H "x-portkey-api-key: $PORTKEY_API_KEY" \
+      -d '{
+      "model": "MODEL_NAME",
+      "messages": [
+        {
+          "role": "user",
+          "content": "What is the weather like in Boston?"
+        }
+      ],
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "get_current_weather",
+            "description": "Get the current weather in a given location",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "location": {
+                  "type": "string",
+                  "description": "The city and state, e.g. San Francisco, CA"
+                },
+                "unit": {
+                  "type": "string",
+                  "enum": ["celsius", "fahrenheit"]
+                }
+              },
+              "required": ["location"]
+            }
+          }
+        }
+      ],
+      "tool_choice": "auto"
+    }'
+    ```
+  </Tab>
+</Tabs>
+
+### [API Reference](/provider-endpoints/chat)
+
+On completion, the request logs in the Portkey UI where tools and functions are visible. Portkey automatically formats the JSON blocks in the input and output for easier debugging.
+
+<Frame>
+  <img src="https://mintcdn.com/portkey-docs/VWP2Y8zxPP5N4jE6/images/product/ai-gateway/ai-15.webp?fit=max&auto=format&n=VWP2Y8zxPP5N4jE6&q=85&s=0b2b72327452d12a019999d086922d0b" width="2304" height="2202" data-path="images/product/ai-gateway/ai-15.webp" />
+</Frame>
+
+## Managing Functions and Tools in Prompts
+
+Create prompt templates with function/tool definitions in Portkey's Prompt Library. Set the `tool_choice` parameter, and Portkey validates your tool definition on the fly, eliminating syntax errors.
+
+<Frame>
+  <img src="https://mintcdn.com/portkey-docs/VWP2Y8zxPP5N4jE6/images/product/ai-gateway/ai-16.avif?fit=max&auto=format&n=VWP2Y8zxPP5N4jE6&q=85&s=7ec1cef509f11c322c3a91c2dd77f3cc" width="700" height="500" data-path="images/product/ai-gateway/ai-16.avif" />
+</Frame>
+
+## Supported Providers and Models
+
+Portkey provides native function calling support across all major AI providers.
+
+If you discover a function-calling capable LLM that isn't working with Portkey, please let us know [on Discord](https://portkey.wiki/community).
+
+## Cookbook
+
+[**See the detailed cookbook on function calling.**](/guides/getting-started/function-calling)

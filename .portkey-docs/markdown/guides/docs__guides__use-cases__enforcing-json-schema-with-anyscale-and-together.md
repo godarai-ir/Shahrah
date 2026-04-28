@@ -1,0 +1,127 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Enforcing JSON Schema with Anyscale & Together
+
+> Get the LLM to adhere to your JSON schema using Anyscale & Together AI's newly introduced JSON modes
+
+LLMs excel at generating creative text, but production applications demand structured outputs for seamless integration. Instructing LLMs to only generate the output in a specified syntax can help make their behaviour a bit more predictable. JSON is the format of choice here - it is versatile enough and is widely used as a standard data exchange format.
+
+Several LLM providers offer features that help enforce JSON outputs:
+
+* OpenAI has a feature called [JSON mode](https://platform.openai.com/docs/guides/text-generation/json-mode) that ensures that the output is a valid JSON object.
+* While this is great, it doesn't guarantee adherence to your custom JSON schemas, but only that the output IS a JSON.
+* Anyscale and Together AI go further - they not only enforce that the output is in JSON but also ensure that the output follows any given JSON schema.
+
+Using Portkey, you can easily experiment with models from Anyscale & Together AI and explore the power of their JSON modes:
+
+<CodeGroup>
+  ```javascript JavaScript icon="square-js" theme={"system"}
+  import Portkey from 'portkey-ai';
+
+  const portkey = new Portkey({
+      apiKey: "PORTKEY_API_KEY",
+      provider: "@anyscale-prod"  // Or "@together-prod"
+  })
+
+  async function main() {
+      const json_response = await portkey.chat.completions.create({
+          messages: [{role: "user", content: "Give me a recipe for making Ramen, in JSON format"}],
+          model: "mistralai/Mistral-7B-Instruct-v0.1",
+          response_format: {
+              type: "json_object",
+              schema: {
+                  type: "object",
+                  properties: {
+                      title: {type: "string"},
+                      description: {type: "string"},
+                      steps: {type: "array"}
+                  }
+              }
+          }
+      });
+      console.log(json_response.choices[0].message.content);
+  }
+
+  main()
+  ```
+
+  ```python Python icon="python" theme={"system"}
+  from portkey_ai import Portkey
+  from pydantic import BaseModel
+  from typing import List
+
+  portkey = Portkey(
+      api_key="PORTKEY_API_KEY",
+      provider="@anyscale-prod"  # Or "@together-prod"
+  )
+
+  class Recipe(BaseModel):
+      title: str
+      description: str
+      steps: List[str]
+
+  json_response = portkey.chat.completions.create(
+      messages=[{"role": "user", "content": "Give me a recipe for making Ramen, in JSON format"}],
+      model="mistralai/Mistral-7B-Instruct-v0.1",
+      response_format={"type": "json_object", "schema": Recipe.schema_json()}
+  )
+
+  print(json_response.choices[0].message.content)
+  ```
+</CodeGroup>
+
+### Output JSON:
+
+```JSON theme={"system"}
+
+{
+  "title": "Fried Rice with Chicken and Vegetables",
+  "description": "A delicious recipe for fried rice that includes chicken and a mix of colorful vegetables. Perfect for a healthy and satisfying meal. yum yum yum yum yum",
+  "steps": [
+    "1. Cook rice and set aside",
+    "2. In a large skillet or wok, sauté sliced chicken in oil until browned",
+    "3. ..."
+  ]
+}
+```
+
+As you can see - it's pretty simple. Just define the JSON schema, and pass it at the time of making your request using the `response_format` param. The `response_format`'s `type` is `json_object` and the `schema` contains all keys and their expected type.
+
+## Supporting Models
+
+| Model/Provider                                            | Ensure JSON                  | Ensure Schema                |
+| --------------------------------------------------------- | ---------------------------- | ---------------------------- |
+| mistralai/Mistral-7B-Instruct-v0.1 Anyscale               | <Icon icon="square-check" /> | <Icon icon="square-check" /> |
+| mistralai/Mixtral-8x7B-Instruct-v0.1Anyscale              | <Icon icon="square-check" /> | <Icon icon="square-check" /> |
+| mistralai/Mixtral-8x7B-Instruct-v0.1Together AI           | <Icon icon="square-check" /> | <Icon icon="square-check" /> |
+| mistralai/Mistral-7B-Instruct-v0.1Together AI             | <Icon icon="square-check" /> | <Icon icon="square-check" /> |
+| togethercomputer/CodeLlama-34b-InstructTogether AI        | <Icon icon="square-check" /> | <Icon icon="square-check" /> |
+| gpt-4 and previous releases OpenAI / Azure OpenAI         | <Icon icon="square-check" /> | <Icon icon="xmark" />        |
+| gpt-3.5-turbo and previous releases OpenAI / Azure OpenAI | <Icon icon="square-check" /> | <Icon icon="xmark" />        |
+| Ollama models                                             | <Icon icon="square-check" /> | <Icon icon="xmark" />        |
+
+### Creating Nested JSON Object Schema
+
+Here's an example showing how you can also create nested JSON schema and get the LLM to enforce it:
+
+```python Python icon="python" theme={"system"}
+class Ingredient(BaseModel):
+    name: str
+    quantity: str
+
+class Recipe(BaseModel):
+    title: str
+    description: str
+    ingredients: List[Ingredient]
+    steps: List[str]
+
+json_response = portkey.chat.completions.create(
+    messages=[{"role": "user", "content": "Give me a recipe for making Ramen, in JSON format"}],
+    model="mistralai/Mistral-7B-Instruct-v0.1",
+    response_format={"type": "json_object", "schema": Recipe.schema_json()}
+)
+```
+
+Add your Anyscale or Together AI credentials to [Model Catalog](https://app.portkey.ai/model-catalog) and get started!

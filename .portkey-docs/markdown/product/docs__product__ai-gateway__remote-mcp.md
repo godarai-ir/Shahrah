@@ -1,0 +1,474 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Remote MCP
+
+> Portkey's AI gateway has MCP server support that many foundational model providers offer.
+
+[Model Context Protocol](https://modelcontextprotocol.io/introduction) (MCP) is an open protocol that standardizes how applications provide tools and context to LLMs. The MCP tool in the Responses API allows developers to give the model access to tools hosted on **Remote MCP servers**. These are MCP servers maintained by developers and organizations across the internet that expose these tools to MCP clients, like the Responses API.
+
+<Info>
+  **Using a Private MCP Server?** If your MCP server is behind a firewall, on localhost, or not publicly accessible, the model provider won't be able to reach it. Check out our guide on [Using Private MCP Servers](/guides/use-cases/private-mcp-servers) to learn how to handle tool fetching and invocations on the client side.
+</Info>
+
+Portkey Supports using MCP server via the Response API. Calling a remote MCP server with the Responses API is straightforward. For example, here's how you can use the [DeepWiki](https://deepwiki.com/) MCP server to ask questions about nearly any public GitHub repository.
+
+## OpenAI Responses API Remote MCP Support
+
+A Responses API request to OpenAI with MCP tools enabled.
+
+<CodeGroup>
+  ```bash cURL theme={"system"}
+  curl https://api.portkey.ai/v1/responses \
+    -H "Content-Type: application/json" \
+    -H "x-portkey-api-key: $PORTKEY_API_KEY" \
+    -d '{
+      "model": "@OPENAI_PROVIDER/gpt-4.1",
+      "tools": [
+        {
+          "type": "mcp",
+          "server_label": "deepwiki",
+          "server_url": "https://mcp.deepwiki.com/mcp",
+          "require_approval": "never"
+        }
+      ],
+      "input": "What transport protocols are supported in the 2025-03-26 version of the MCP spec?"
+    }'
+  ```
+
+  ```javascript OpenAI Node SDK theme={"system"}
+  import OpenAI from "openai";
+  import { PORTKEY_GATEWAY_URL, createHeaders } from 'portkey-ai'
+
+  const client = new OpenAI({
+    apiKey: "PORTKEY_API_KEY",
+    baseURL: PORTKEY_GATEWAY_URL
+  });
+
+  const resp = await client.responses.create({
+    model: "@OPENAI_PROVIDER/gpt-4.1",
+    tools: [
+      {
+        type: "mcp",
+        server_label: "deepwiki",
+        server_url: "https://mcp.deepwiki.com/mcp",
+        require_approval: "never",
+      },
+    ],
+    input: "What transport protocols are supported in the 2025-03-26 version of the MCP spec?",
+  });
+
+  console.log(resp.output_text);
+  ```
+
+  ```python OpenAI Python SDK theme={"system"}
+  from openai import OpenAI
+  from portkey_ai import PORTKEY_GATEWAY_URL, createHeaders
+
+  client = OpenAI(
+    api_key="PORTKEY_API_KEY",
+    base_url=PORTKEY_GATEWAY_URL,
+  )
+
+  resp = client.responses.create(
+    model="@OPENAI_PROVIDER/gpt-4.1",
+    tools=[
+      {
+        "type": "mcp",
+        "server_label": "deepwiki",
+        "server_url": "https://mcp.deepwiki.com/mcp",
+        "require_approval": "never",
+      },
+    ],
+    input="What transport protocols are supported in the 2025-03-26 version of the MCP spec?",
+  )
+
+  print(resp.output_text)
+  ```
+
+  ```typescript Portkey Node SDK theme={"system"}
+  import Portkey from 'portkey-ai';
+
+  const portkey = new Portkey({
+    apiKey: "PORTKEY_API_KEY"
+  });
+
+  const resp = await portkey.responses.create({
+    model: "@OPENAI_PROVIDER/gpt-4.1",
+    tools: [
+      {
+        type: "mcp",
+        server_label: "deepwiki",
+        server_url: "https://mcp.deepwiki.com/mcp",
+        require_approval: "never",
+      },
+    ],
+    input: "What transport protocols are supported in the 2025-03-26 version of the MCP spec?",
+  });
+
+  console.log(resp.output_text);
+  ```
+
+  ```python Portkey Python SDK theme={"system"}
+  from portkey_ai import Portkey
+
+  portkey = Portkey(
+    api_key="PORTKEY_API_KEY"
+  )
+
+  resp = portkey.responses.create(
+    model="@OPENAI_PROVIDER/gpt-4.1",
+    tools=[
+      {
+        "type": "mcp",
+        "server_label": "deepwiki",
+        "server_url": "https://mcp.deepwiki.com/mcp",
+        "require_approval": "never",
+      },
+    ],
+    input="What transport protocols are supported in the 2025-03-26 version of the MCP spec?",
+  )
+
+  print(resp.output_text)
+  ```
+</CodeGroup>
+
+<Frame caption="Example Log for the request on Portkey">
+  <img src="https://mintcdn.com/portkey-docs/Buc1Vm2P31GSPm3S/images/product/ai-gateway/mcp-remote-logs-image.png?fit=max&auto=format&n=Buc1Vm2P31GSPm3S&q=85&s=690bca153170bca3b511b3cd97b1d7f6" width="2938" height="1774" data-path="images/product/ai-gateway/mcp-remote-logs-image.png" />
+</Frame>
+
+### MCP Server Authentication
+
+Unlike the DeepWiki MCP server, most other MCP servers require authentication. The MCP tool in the Responses API gives you the ability to flexibly specify headers that should be included in any request made to a remote MCP server. These headers can be used to share API keys, oAuth access tokens, or any other authentication scheme the remote MCP server implements.
+
+The most common header used by remote MCP servers is the `Authorization` header. This is what passing this header looks like:
+
+Use Stripe MCP tool
+
+<CodeGroup>
+  ```bash cURL theme={"system"}
+  curl https://api.portkey.ai/v1/responses \
+    -H "Content-Type: application/json" \
+    -H "x-portkey-api-key: $PORTKEY_API_KEY" \
+    -d '{
+      "model": "@OPENAI_PROVIDER/gpt-4.1",
+      "input": "Create a payment link for $20",
+      "tools": [
+        {
+          "type": "mcp",
+          "server_label": "stripe",
+          "server_url": "https://mcp.stripe.com",
+          "headers": {
+            "Authorization": "Bearer $STRIPE_API_KEY"
+          }
+        }
+      ]
+    }'
+  ```
+
+  ```javascript OpenAI Node SDK theme={"system"}
+  import OpenAI from "openai";
+  import { PORTKEY_GATEWAY_URL } from 'portkey-ai'
+
+  const client = new OpenAI({
+    apiKey: "PORTKEY_API_KEY",
+    baseURL: PORTKEY_GATEWAY_URL
+  });
+
+  const resp = await client.responses.create({
+    model: "@OPENAI_PROVIDER/gpt-4.1",
+    input: "Create a payment link for $20",
+    tools: [
+      {
+        type: "mcp",
+        server_label: "stripe",
+        server_url: "https://mcp.stripe.com",
+        headers: {
+          Authorization: "Bearer $STRIPE_API_KEY"
+        }
+      }
+    ]
+  });
+
+  console.log(resp.output_text);
+  ```
+
+  ```python OpenAI Python SDK theme={"system"}
+  from openai import OpenAI
+  from portkey_ai import PORTKEY_GATEWAY_URL
+
+  client = OpenAI(
+    api_key="PORTKEY_API_KEY",
+    base_url=PORTKEY_GATEWAY_URL
+  )
+
+  resp = client.responses.create(
+    model="@OPENAI_PROVIDER/gpt-4.1",
+    input="Create a payment link for $20",
+    tools=[
+      {
+        "type": "mcp",
+        "server_label": "stripe",
+        "server_url": "https://mcp.stripe.com",
+        "headers": {
+          "Authorization": "Bearer $STRIPE_API_KEY"
+        }
+      }
+    ]
+  )
+
+  print(resp.output_text)
+  ```
+
+  ```typescript Portkey Node SDK theme={"system"}
+  import Portkey from 'portkey-ai';
+
+  const portkey = new Portkey({
+    apiKey: "PORTKEY_API_KEY"
+  });
+
+  const resp = await portkey.responses.create({
+    model: "@OPENAI_PROVIDER/gpt-4.1",
+    input: "Create a payment link for $20",
+    tools: [
+      {
+        type: "mcp",
+        server_label: "stripe",
+        server_url: "https://mcp.stripe.com",
+        headers: {
+          Authorization: "Bearer $STRIPE_API_KEY"
+        }
+      }
+    ]
+  });
+
+  console.log(resp.output_text);
+  ```
+
+  ```python Portkey Python SDK theme={"system"}
+  from portkey_ai import Portkey
+
+  portkey = Portkey(
+    api_key="PORTKEY_API_KEY"
+  )
+
+  resp = portkey.responses.create(
+    model="@OPENAI_PROVIDER/gpt-4.1",
+    input="Create a payment link for $20",
+    tools=[
+      {
+        "type": "mcp",
+        "server_label": "stripe",
+        "server_url": "https://mcp.stripe.com",
+        "headers": {
+          "Authorization": "Bearer $STRIPE_API_KEY"
+        }
+      }
+    ]
+  )
+
+  print(resp.output_text)
+  ```
+</CodeGroup>
+
+To prevent the leakage of sensitive keys, the Responses API does not store the values of **any** string you provide in the `headers` object. These values will also not be visible in the Response object created. Additionally, because some remote MCP servers generate authenticated URLs, we also discard the *path* portion of the `server_url` in our responses (i.e. `example.com/mcp` becomes `example.com`). Because of this, you must send the full path of the MCP `server_url` and any relevant `headers` in every Responses API creation request you make.
+
+## Anthropic's Messages API MCP connector
+
+Claude's Model Context Protocol (MCP) connector feature enables you to connect to remote MCP servers directly from the Messages API without a separate MCP client.
+
+<Note>
+  This feature requires the beta header: `"anthropic-beta": "mcp-client-2025-04-04"`
+</Note>
+
+**Key features**
+
+* **Direct API integration**: Connect to MCP servers without implementing an MCP client
+* **Tool calling support**: Access MCP tools through the Messages API
+* **OAuth authentication**: Support for OAuth Bearer tokens for authenticated servers
+* **Multiple servers**: Connect to multiple MCP servers in a single request
+
+#### Using the MCP connector in the Messages API
+
+To connect to a remote MCP server, include the `mcp_servers` parameter in your Messages API request:
+
+<CodeGroup>
+  ```bash cURL theme={"system"}
+  curl https://api.portkey.ai/v1/messages \
+    -H "Content-Type: application/json" \
+    -H "X-API-Key: dummy" \
+    -H "anthropic-version: 2023-06-01" \
+    -H "anthropic-beta: mcp-client-2025-04-04" \
+    -H "x-portkey-api-key: PORTKEY_API_KEY" \
+    -d '{
+      "model": "@your-provider-slug/your-model-name",
+      "max_tokens": 1000,
+      "messages": [{"role": "user", "content": "What tools do you have available?"}],
+      "mcp_servers": [
+        {
+          "type": "url",
+          "url": "https://example-server.modelcontextprotocol.io/sse",
+          "name": "example-mcp",
+          "authorization_token": "YOUR_TOKEN"
+        }
+      ]
+    }'
+  ```
+
+  ```typescript Anthropic TS SDK theme={"system"}
+  const response = await anthropic.beta.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 1000,
+    messages: [
+      {
+        role: "user",
+        content: "What tools do you have available?",
+      },
+    ],
+    mcp_servers: [
+      {
+        type: "url",
+        url: "https://example-server.modelcontextprotocol.io/sse",
+        name: "example-mcp",
+        authorization_token: "YOUR_TOKEN",
+      },
+    ],
+    betas: ["mcp-client-2025-04-04"],
+  });
+  ```
+
+  ```python Anthropic Python SDK theme={"system"}
+  response = anthropic.beta.messages.create(
+      model="claude-sonnet-4-20250514",
+      max_tokens=1000,
+      messages=[{
+          "role": "user",
+          "content": "What tools do you have available?"
+      }],
+      mcp_servers=[{
+          "type": "url",
+          "url": "https://mcp.example.com/sse",
+          "name": "example-mcp",
+          "authorization_token": "YOUR_TOKEN"
+      }],
+      betas=["mcp-client-2025-04-04"]
+  )
+  ```
+
+  ```ts Python SDK theme={"system"}
+    Coming soon!
+  ```
+
+  ```ts Node SDK theme={"system"}
+    Coming soon!
+  ```
+</CodeGroup>
+
+**MCP server configuration**
+
+Each MCP server in the `mcp_servers` array supports the following configuration:
+
+```json theme={"system"}
+{
+  "type": "url",
+  "url": "https://example-server.modelcontextprotocol.io/sse",
+  "name": "example-mcp",
+  "tool_configuration": {
+    "enabled": true,
+    "allowed_tools": ["example_tool_1", "example_tool_2"]
+  },
+  "authorization_token": "YOUR_TOKEN"
+}
+```
+
+##### Field descriptions
+
+| Property                           | Type    | Required | Description                                                                                                                                                     |
+| ---------------------------------- | ------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `type`                             | string  | Yes      | Currently only "url" is supported                                                                                                                               |
+| `url`                              | string  | Yes      | The URL of the MCP server. Must start with https\://                                                                                                            |
+| `name`                             | string  | Yes      | A unique identifier for this MCP server. It will be used in `mcp_tool_call` blocks to identify the server and to disambiguate tools to the model.               |
+| `tool_configuration`               | object  | No       | Configure tool usage                                                                                                                                            |
+| `tool_configuration.enabled`       | boolean | No       | Whether to enable tools from this server (default: true)                                                                                                        |
+| `tool_configuration.allowed_tools` | array   | No       | List to restrict the tools to allow (by default, all tools are allowed)                                                                                         |
+| `authorization_token`              | string  | No       | OAuth authorization token if required by the MCP server. See [MCP specification](https://modelcontextprotocol.io/specification/2025-03-26/basic/authorization). |
+
+#### Response content types
+
+When Claude uses MCP tools, the response will include two new content block types:
+
+##### MCP Tool Use Block
+
+```json theme={"system"}
+{
+  "type": "mcp_tool_use",
+  "id": "mcptoolu_014Q35RayjACSWkSj4X2yov1",
+  "name": "echo",
+  "server_name": "example-mcp",
+  "input": { "param1": "value1", "param2": "value2" }
+}
+```
+
+##### MCP Tool Result Block
+
+```json theme={"system"}
+{
+  "type": "mcp_tool_result",
+  "tool_use_id": "mcptoolu_014Q35RayjACSWkSj4X2yov1",
+  "is_error": false,
+  "content": [
+    {
+      "type": "text",
+      "text": "Hello"
+    }
+  ]
+}
+```
+
+#### MCP Server Authentication
+
+For MCP servers that require OAuth authentication, you'll need to obtain an access token. The MCP connector beta supports passing an `authorization_token` parameter in the MCP server definition.
+API consumers are expected to handle the OAuth flow and obtain the access token prior to making the API call, as well as refreshing the token as needed.
+
+##### Obtaining an access token for testing
+
+The MCP inspector can guide you through the process of obtaining an access token for testing purposes.
+
+1. Run the inspector with the following command. You need Node.js installed on your machine.
+   ```bash theme={"system"}
+   npx @modelcontextprotocol/inspector
+   ```
+
+2. In the sidebar on the left, for "Transport type", select either "SSE" or "Streamable HTTP".
+
+3. Enter the URL of the MCP server.
+
+4. In the right area, click on the "Open Auth Settings" button after "Need to configure authentication?".
+
+5. Click "Quick OAuth Flow" and authorize on the OAuth screen.
+
+6. Follow the steps in the "OAuth Flow Progress" section of the inspector and click "Continue" until you reach "Authentication complete".
+
+7. Copy the `access_token` value.
+
+8. Paste it into the `authorization_token` field in your MCP server configuration.
+
+##### Using the access token
+
+Once you've obtained an access token using either OAuth flow above, you can use it in your MCP server configuration:
+
+```json theme={"system"}
+{
+  "mcp_servers": [
+    {
+      "type": "url",
+      "url": "https://example-server.modelcontextprotocol.io/sse",
+      "name": "authenticated-server",
+      "authorization_token": "YOUR_ACCESS_TOKEN_HERE"
+    }
+  ]
+}
+```
+
+For detailed explanations of the OAuth flow, refer to the [Authorization section](https://modelcontextprotocol.io/docs/concepts/authentication) in the MCP specification.

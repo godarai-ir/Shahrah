@@ -1,0 +1,158 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Snowflake Cortex
+
+> Use Snowflake Cortex AI models through Portkey for enterprise data cloud AI.
+
+## Quick Start
+
+Get started with Snowflake Cortex in under 2 minutes:
+
+<CodeGroup>
+  ```python Python icon="python" theme={"system"}
+  from portkey_ai import Portkey
+
+  # 1. Install: pip install portkey-ai
+  # 2. Add @cortex provider in model catalog
+  # 3. Use it:
+
+  portkey = Portkey(api_key="PORTKEY_API_KEY")
+
+  response = portkey.chat.completions.create(
+      model="@cortex/claude-3-5-sonnet",
+      messages=[{"role": "user", "content": "Hello!"}]
+  )
+
+  print(response.choices[0].message.content)
+  ```
+
+  ```js Javascript icon="square-js" theme={"system"}
+  import Portkey from 'portkey-ai'
+
+  // 1. Install: npm install portkey-ai
+  // 2. Add @cortex provider in model catalog
+  // 3. Use it:
+
+  const portkey = new Portkey({
+      apiKey: "PORTKEY_API_KEY"
+  })
+
+  const response = await portkey.chat.completions.create({
+      model: "@cortex/claude-3-5-sonnet",
+      messages: [{ role: "user", content: "Hello!" }]
+  })
+
+  console.log(response.choices[0].message.content)
+  ```
+
+  ```python OpenAI Py icon="python" theme={"system"}
+  from openai import OpenAI
+  from portkey_ai import PORTKEY_GATEWAY_URL
+
+  # 1. Install: pip install openai portkey-ai
+  # 2. Add @cortex provider in model catalog
+  # 3. Use it:
+
+  client = OpenAI(
+      api_key="PORTKEY_API_KEY",  # Portkey API key
+      base_url=PORTKEY_GATEWAY_URL
+  )
+
+  response = client.chat.completions.create(
+      model="@cortex/claude-3-5-sonnet",
+      messages=[{"role": "user", "content": "Hello!"}]
+  )
+
+  print(response.choices[0].message.content)
+  ```
+
+  ```js OpenAI JS icon="square-js" theme={"system"}
+  import OpenAI from "openai"
+  import { PORTKEY_GATEWAY_URL } from "portkey-ai"
+
+  // 1. Install: npm install openai portkey-ai
+  // 2. Add @cortex provider in model catalog
+  // 3. Use it:
+
+  const client = new OpenAI({
+      apiKey: "PORTKEY_API_KEY",  // Portkey API key
+      baseURL: PORTKEY_GATEWAY_URL
+  })
+
+  const response = await client.chat.completions.create({
+      model: "@cortex/claude-3-5-sonnet",
+      messages: [{ role: "user", content: "Hello!" }]
+  })
+
+  console.log(response.choices[0].message.content)
+  ```
+
+  ```sh cURL icon="square-terminal" theme={"system"}
+  # 1. Add @cortex provider in model catalog
+  # 2. Use it:
+
+  curl https://api.portkey.ai/v1/chat/completions \
+    -H "Content-Type: application/json" \
+    -H "x-portkey-api-key: $PORTKEY_API_KEY" \
+    -d '{
+      "model": "@cortex/claude-3-5-sonnet",
+      "messages": [{"role": "user", "content": "Hello!"}]
+    }'
+  ```
+</CodeGroup>
+
+## Add Provider in Model Catalog
+
+Before making requests, add Snowflake Cortex to your Model Catalog:
+
+1. Go to [**Model Catalog → Add Provider**](https://app.portkey.ai/model-catalog/providers)
+2. Select **Snowflake Cortex**
+3. Enter your API key/JWT Token from Snowflake
+4. Name your provider (e.g., `cortex`)
+
+<Card title="Complete Setup Guide" icon="book" href="/product/model-catalog">
+  See all setup options and detailed configuration instructions
+</Card>
+
+***
+
+## Supported Models
+
+Snowflake Cortex provides access to various AI models through the Snowflake platform:
+
+* Claude (Anthropic)
+* Llama (Meta)
+* Mistral
+* And other popular models
+
+Check [Snowflake Cortex documentation](https://docs.snowflake.com/) for the complete model list.
+
+***
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Gateway Configs" icon="sliders" href="/product/ai-gateway">
+    Add fallbacks, load balancing, and more
+  </Card>
+
+  <Card title="Observability" icon="chart-line" href="/product/observability">
+    Monitor and trace your Cortex requests
+  </Card>
+
+  <Card title="Prompt Library" icon="book" href="/product/prompt-engineering-studio">
+    Manage and version your prompts
+  </Card>
+
+  <Card title="Metadata" icon="tag" href="/product/observability/metadata">
+    Add custom metadata to requests
+  </Card>
+</CardGroup>
+
+For complete SDK documentation:
+
+<Card title="SDK Reference" icon="code" href="/api-reference/sdk/list">
+  Complete Portkey SDK documentation
+</Card>

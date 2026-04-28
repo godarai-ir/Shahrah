@@ -1,0 +1,113 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Gitlab MCP server
+
+> The GitLab MCP server enables AI agents to interact with GitLab—the DevOps platform for software development, security, and operations.
+
+Through MCP, assistants can programmatically access repositories, issues, merge requests, pipelines, and more without embedding long-lived tokens inside agents. This server is designed for conversational and automated engineering workflows within the GitLab ecosystem.
+
+## **When should you use this server**
+
+* Retrieve and create issues or merge requests without switching contexts
+* Access pipeline status and job information for CI/CD workflows
+* Query project metadata and repository details
+* Automate GitLab operations with natural language commands and AI assistance
+
+## **Key features**
+
+* Project information and metadata retrieval
+* Issue and merge request querying and creation
+* Pipeline and CI/CD job inspection
+* Repository browsing and file access
+* Secure OAuth authentication with permission controls
+
+## **Authentication**
+
+Method\
+OAuth 2.1 or personal access tokens (depending on instance setup)
+
+Scopes\
+Based on the required operations - read\_api, api, read\_repository
+
+Notes\
+Premium and Ultimate tier requirement; respects user permissions and roles
+
+## **Endpoints**
+
+* **GitLab.com (cloud):** Uses GitLab's cloud-hosted MCP server
+* **Self-managed:** Supports on-premise GitLab instances with appropriate configuration
+
+Premium and Ultimate tier only; additional configuration may be required for self-managed instances.
+
+## **Setup & usage**
+
+Configure the MCP server once with your GitLab instance, then connect via your MCP-compatible client (Claude Desktop, Cursor, VS Code, etc.).
+
+## **Tools provided**
+
+### **get\_mcp\_server\_version**
+
+Returns the current version of the GitLab MCP server.
+
+### **get\_issue**
+
+Retrieves detailed information about a specific issue.
+
+### **create\_issue**
+
+Creates a new issue in a GitLab project.
+
+### **get\_merge\_request**
+
+Retrieves detailed information about a specific merge request.
+
+### **get\_merge\_request\_commits**
+
+Lists commits associated with a specific merge request.
+
+### **get\_merge\_request\_changes**
+
+Retrieves file changes (diffs) for a specific merge request.
+
+### **get\_pipeline\_jobs**
+
+Retrieves the list of jobs for a CI/CD pipeline.
+
+### **get\_merge\_request\_pipelines\_service**
+
+Retrieves the pipelines associated with a specific merge request.
+
+## **Rate limits**
+
+Follows GitLab API rate limits. Implement backoff and retry handling for rate-limited responses.
+
+## **Notes**
+
+* Available for **Premium** and **Ultimate** tier customers only
+* Enterprise Cloud or self-managed instances may require different endpoints and configurations
+* The MCP server respects your GitLab access permissions - actions available depend on your role
+* This capability is under active development with additional tools expected over time
+
+## **FAQ**
+
+### What authentication method should I use?
+
+OAuth 2.1 is recommended for most users as it provides better security and granular permissions. Personal access tokens are available for self-managed instances or specific use cases.
+
+### What if I encounter "Insufficient permissions" errors?
+
+Verify your GitLab role has the appropriate permissions for the requested action. Some operations require specific roles (Maintainer, Owner) or explicit permissions.
+
+### Can I use this with my self-managed GitLab instance?
+
+Yes, self-managed GitLab instances running Premium or Ultimate tier can configure the MCP server. Refer to the GitLab documentation for specific setup requirements.
+
+### How do I troubleshoot connection issues?
+
+* Confirm you're using a compatible MCP client
+* Verify authentication credentials and scopes
+* Check GitLab instance version and tier
+* Review network access between your client and the GitLab instance
+* Check GitLab logs for more detailed error information

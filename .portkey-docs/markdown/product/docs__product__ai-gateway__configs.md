@@ -1,0 +1,241 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Configs
+
+> This feature is available on all Portkey plans.
+
+<Info>
+  Available on all Portkey plans.
+</Info>
+
+Configs streamline your Gateway management, enabling you to programmatically control various aspects like fallbacks, load balancing, retries, caching, and more.
+
+A configuration is a JSON object that can be used to define routing rules for all the requests coming to your gateway. You can configure multiple configs and use them in your requests.
+
+## Creating Configs
+
+Navigate to the ‘Configs’ page in the Portkey app and click 'Create' to start writing a new config.
+
+## Using Configs
+
+Configs are supported across all integrations.
+
+* Through the config parameter of the Portkey SDK client(Directly or via [frameworks](/integrations/llms))
+* Through the config headers in the OpenAI SDK
+* Via the REST API through the `x-portkey-config` header
+
+### Applying Gateway Configs
+
+Gateway [configs](/product/ai-gateway/configs) allow you to unlock the gateway superpowers of Portkey. You can create a config in the UI and attach it's config id in the OpenAI client.
+
+<Tabs>
+  <Tab title="NodeJS">
+    ```js theme={"system"}
+    const portkey = new Portkey({
+        apiKey: "PORTKEY_API_KEY",
+        config: "pc-***" // Supports a string config id or a config object
+    });
+    ```
+  </Tab>
+
+  <Tab title="Python">
+    ```py theme={"system"}
+    portkey = Portkey(
+        api_key="PORTKEY_API_KEY",
+        config="pc-***" # Supports a string config id or a config object
+    )
+    ```
+  </Tab>
+
+  <Tab title="OpenAI NodeJS">
+    ```js theme={"system"}
+    const openai = new OpenAI({
+      apiKey: 'OPENAI_API_KEY', // defaults to process.env["OPENAI_API_KEY"],
+      baseURL: PORTKEY_GATEWAY_URL,
+      defaultHeaders: createHeaders({
+        provider: "openai",
+        apiKey: "PORTKEY_API_KEY", // defaults to process.env["PORTKEY_API_KEY"]
+        config: "CONFIG_ID" // Fetched from the UI
+      })
+    });
+    ```
+  </Tab>
+
+  <Tab title="OpenAI Python">
+    ```python theme={"system"}
+    client = OpenAI(
+        api_key="OPENAI_API_KEY", # defaults to os.environ.get("OPENAI_API_KEY")
+        base_url=PORTKEY_GATEWAY_URL,
+        default_headers=createHeaders(
+            provider="openai",
+            api_key="PORTKEY_API_KEY", # defaults to os.environ.get("PORTKEY_API_KEY")
+            config="CONFIG_ID"
+        )
+    )
+    ```
+  </Tab>
+
+  <Tab title="cURL">
+    ```sh theme={"system"}
+    curl https://api.portkey.ai/v1/chat/completions \
+      -H "Content-Type: application/json" \
+      -H "Authorization: Bearer $OPENAI_API_KEY" \
+      -H "x-portkey-api-key: $PORTKEY_API_KEY" \
+      -H "x-portkey-provider: openai" \
+      -H "x-portkey-config: $CONFIG_ID" \
+      -d '{
+        "model": "gpt-3.5-turbo",
+        "messages": [{
+            "role": "user",
+            "content": "Hello!"
+          }]
+      }'
+    ```
+  </Tab>
+</Tabs>
+
+If you want to attach the configuration to only a few requests instead of modifying the client, you can send it in the request headers for OpenAI or in the config parameter while using the Portkey SDK.
+
+> Note: If you have a default configuration set in the client, but also include a configuration in a specific request, the request-specific configuration will take precedence and replace the default config for that particular request.
+
+<Tabs>
+  <Tab title="NodeJS">
+    ```js theme={"system"}
+    portkey.chat.completions.create({
+      messages: [{role: "user", content: "Say this is a test"}],
+      model: "gpt-3.5-turbo"
+    }, {config: "pc-***"})
+    ```
+  </Tab>
+
+  <Tab title="Python">
+    ```py theme={"system"}
+    portkey.with_options(config="pc-***").chat.completions.create(
+        messages = [{ "role": 'user', "content": 'Say this is a test' }],
+        model = 'gpt-3.5-turbo'
+    })
+    ```
+  </Tab>
+
+  <Tab title="OpenAI NodeJS">
+    ```js theme={"system"}
+    let reqHeaders = createHeaders({config: "CONFIG_ID});
+    openai.chat.completions.create({
+      messages: [{role: "user", content: "Say this is a test"}],
+      model: "gpt-3.5-turbo"
+    }, {headers: reqHeaders})
+    ```
+  </Tab>
+
+  <Tab title="OpenAI Python">
+    ```py theme={"system"}
+    reqHeaders = createHeaders(config="CONFIG_ID")
+    client.with_options(headers=reqHeaders).chat.completions.create(
+        messages = [{ "role": 'user', "content": 'Say this is a test' }],
+        model = 'gpt-3.5-turbo'
+    })
+    ```
+  </Tab>
+</Tabs>
+
+<Info>
+  You can also add the config JSON as a string instead of the slug.
+</Info>
+
+### Setting Default Configs on API Keys
+
+You can attach a default config directly to an API key, which means all requests made with that key will automatically use the specified config without needing to include it in each request. This is particularly useful for:
+
+* **Integrations that don't support custom headers** (like Open WebUI, LibreChat, and other OpenAI-compatible interfaces)
+* **Enforcing organization-wide governance policies** without requiring code changes
+* **Centralized configuration management** where all applications using a specific API key share the same routing, fallbacks, and caching rules
+
+When you attach a default config to an API key, every request made with that key automatically applies the config's settings (routing, fallbacks, caching, etc.), even if the application doesn't send the `x-portkey-config` header.
+
+To set a default config on an API key:
+
+1. Navigate to [API Keys](https://app.portkey.ai/api-keys) in the Portkey dashboard
+2. Create a new API key or edit an existing one
+3. In the API key settings, select a config from the **Default Config** dropdown
+4. Save the API key
+
+See the [Default Configs documentation](/product/administration/enforce-default-config) for detailed instructions and use cases.
+
+<Note>
+  If you specify a config in a request (via headers or SDK parameters), it will override the default config for that specific request. The default config only applies when no config is specified in the request itself.
+</Note>
+
+## Passthrough targets
+
+Passthrough targets allow config targets to defer provider resolution to the incoming request, instead of specifying a fixed provider in the config itself. This is useful when you want to define routing strategies (conditional, fallback, loadbalance) at the config level but let the caller decide which provider to use at request time.
+
+### How it works
+
+A target with `"passthrough": true` does not require a `provider` or `virtual_key` field. Instead, the gateway resolves the provider from the incoming request using the following sources, in priority order:
+
+1. **`x-portkey-provider` header** — If the value starts with `@` (e.g., `@anthropic-dev`), the slug after `@` is used as the virtual key.
+2. **Request body `model` field** — If the model uses the `@slug/model-name` format (e.g., `@anthropic-dev/claude-sonnet-4-20250514`), the slug is extracted as the virtual key and the model name is passed through to the provider.
+
+### Config schema
+
+Set the `passthrough` property to `true` on a target to enable passthrough resolution:
+
+```json theme={"system"}
+{
+  "passthrough": true
+}
+```
+
+### Example: Fallback with passthrough targets
+
+```json theme={"system"}
+{
+  "strategy": {
+    "mode": "fallback"
+  },
+  "targets": [
+    {
+      "passthrough": true,
+      "override_params": { "model": "gpt-4o" }
+    },
+    {
+      "provider": "@anthropic-backup",
+      "override_params": { "model": "claude-sonnet-4-20250514" }
+    }
+  ]
+}
+```
+
+In this example, the first target resolves the provider from the incoming request. If that fails, the gateway falls back to the second target which uses a fixed provider.
+
+### Example: Load balancing with passthrough targets
+
+```json theme={"system"}
+{
+  "strategy": {
+    "mode": "loadbalance"
+  },
+  "targets": [
+    { "passthrough": true, "weight": 0.7 },
+    { "provider": "@openai-backup", "weight": 0.3 }
+  ]
+}
+```
+
+<Note>
+  When using passthrough targets, the incoming request must include provider information through one of the supported resolution methods. If the gateway cannot resolve a provider, the request will fail for that target.
+</Note>
+
+## Configs in Logs
+
+Portkey shows your Config usage smartly on the logs page with the **Status column** and gives you a snapshot of the Gateway activity for every request. [Read more about the status column here](https://portkey.ai/docs/product/observability/logs#request-status-guide).
+
+You can also see the ID of the specific Config used for a request separately in the log details, and jump into viewing/editing it directly from the log details page.
+
+## Config Object Documentation
+
+Find detailed info about the Config object schema, and more examples:
+
+<Card title="Config Schema" horizontal="true" href="/api-reference/inference-api/config-object" />

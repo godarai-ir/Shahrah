@@ -1,0 +1,103 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# MCP Gateway
+
+> Centralized authentication, access control, and observability for MCP servers.
+
+The MCP Gateway is Portkey's solution for managing access to MCP servers. It acts as a proxy between MCP Clients and MCP servers, handling authentication, access control, and logging.
+
+When connecting to MCP servers directly, each agent needs its own credentials and configuration for every server. With the MCP Gateway, clients authenticate once to Portkey. The Gateway handles credential injection, permission checks, and request logging for all configured servers.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/product/mcp-gateway/quickstart">
+    Add an MCP server and connect an MCP client in 5 minutes.
+  </Card>
+
+  <Card title="Integrations" icon="plug" href="/product/mcp-gateway/integrations">
+    Connect Claude Desktop, Cursor, VS Code, or custom agents.
+  </Card>
+</CardGroup>
+
+***
+
+## How It Works
+
+<Frame>
+  <img src="https://mintcdn.com/portkey-docs/VxwM6JLKnrymRsvN/images/mcp-gateway/mcp-hero.png?fit=max&auto=format&n=VxwM6JLKnrymRsvN&q=85&s=0903f99ccd5f2cdbcaab3f57027e13bb" alt="Portkey MCP Gateway Architecture" width="2091" height="1600" data-path="images/mcp-gateway/mcp-hero.png" />
+</Frame>
+
+When an AI Agent/MCP Client calls an MCP tool, the request flows through Portkey. The Gateway authenticates the request using the agent's API key (or IdP token), checks whether that user has access to the requested server and tool, then injects the appropriate credentials for the upstream server—OAuth tokens for services like GitHub and Slack, API keys for public servers, or identity headers for internal servers. The request is proxied to the MCP server, and the full request/response is logged.
+
+This gives platform teams complete visibility into MCP usage—who accessed what, when, and with what parameters—while developers get access to tools without managing credentials or requesting permissions for each server.
+
+***
+
+## Capabilities
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/product/mcp-gateway/authentication">
+    Configure OAuth, API keys, or custom headers per server. Supports external IdPs like Okta and Auth0.
+  </Card>
+
+  <Card title="Access Control" icon="users" href="/product/mcp-gateway/access-control">
+    Control which workspaces and users can access each server.
+  </Card>
+
+  <Card title="Tool Provisioning" icon="wrench" href="/product/mcp-gateway/tool-provisioning">
+    Enable or disable specific tools per user when a server exposes tools that shouldn't be available to everyone.
+  </Card>
+
+  <Card title="Observability" icon="chart-mixed" href="/product/mcp-gateway/observability">
+    Every tool call logged with user, parameters, and response. Filter by server, user, or time range.
+  </Card>
+
+  <Card title="Guardrails" icon="shield-check" href="/product/mcp-gateway/guardrails">
+    Rate limits, content filters, and approval workflows per server.
+  </Card>
+</CardGroup>
+
+***
+
+## Usage
+
+Add an MCP server to your organization's registry, configure its authentication, and provision access to workspaces. Then connect any MCP client to Portkey's endpoint:
+
+```json theme={"system"}
+{
+  "mcpServers": {
+    "portkey": {
+      "url": "https://mcp.portkey.ai/{server-slug}/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_KEY"
+      }
+    }
+  }
+}
+```
+
+The API key determines which servers and tools are accessible. See [Integrations](/product/mcp-gateway/integrations) for setup guides for Claude Desktop, Cursor, VS Code, and custom agents.
+
+***
+
+## MCP Registry
+
+The MCP Registry is where MCP servers are configured and managed. Add servers, set up authentication, and control which workspaces can access them.
+
+<Card title="MCP Registry" icon="layer-group" href="/product/mcp-gateway/mcp-registry">
+  Add servers, configure authentication, and manage access.
+</Card>
+
+**For platform teams:**
+
+* Add MCP servers (external services, internal APIs, or public servers)
+* Configure authentication (OAuth, API keys, custom headers)
+* Provision access to specific workspaces
+* View usage across the organization
+
+**For developers:**
+
+* Browse available servers and tools in your workspace
+* Copy connection URLs
+* Test tools directly from the UI

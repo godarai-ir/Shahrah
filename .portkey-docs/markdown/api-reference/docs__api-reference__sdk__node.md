@@ -1,0 +1,171 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Node.js
+
+> Official Portkey Node.js SDK – robust, modern, and fully typed integration for JavaScript and TypeScript developers.
+
+The official Node.js SDK makes it easy to integrate Portkey’s AI gateway into any Node.js or TypeScript application. Enjoy unified access to 250+ LLMs, advanced observability, routing, governance, and enterprise features with just a few lines of code.
+
+<CardGroup cols={3}>
+  <Card horizontal icon="badge-check">Official</Card>
+  <Card horizontal icon="js" href="https://www.npmjs.com/package/portkey-ai"> ![](https://img.shields.io/npm/v/portkey-ai.svg) </Card>
+  <Card horizontal icon="github" href="https://github.com/Portkey-AI/portkey-node-sdk"> Github Repo </Card>
+</CardGroup>
+
+## Installation
+
+Install the Portkey SDK from npm:
+
+```bash theme={"system"}
+npm install portkey-ai
+# or
+yarn add portkey-ai
+# or
+pnpm add portkey-ai
+```
+
+***
+
+## API Key Setup
+
+1. [Create a Portkey API key](https://app.portkey.ai) in your dashboard.
+2. Store your API key securely as an environment variable:
+
+<CodeGroup>
+  ```sh macOS/Linux theme={"system"}
+  export PORTKEY_API_KEY="your_api_key_here"
+  ```
+
+  ```sh Windows(PowerShell) theme={"system"}
+  setx PORTKEY_API_KEY "your_api_key_here"
+  ```
+</CodeGroup>
+
+<Info>The SDK automatically detects your API key from the environment.</Info>
+
+***
+
+## Quickstart
+
+Here's a minimal example to get you started:
+
+```ts theme={"system"}
+import Portkey from 'portkey-ai';
+
+const portkey = new Portkey({
+  apiKey: process.env.PORTKEY_API_KEY,
+  provider: '@openai-prod' // Provider slug from Model Catalog
+});
+
+const response = await portkey.chat.completions.create({
+  messages: [{ role: 'user', content: 'Hello, world!' }],
+  model: 'gpt-4o'
+});
+
+console.log(response.choices[0].message.content);
+```
+
+<Info>Add providers in the [Model Catalog](/product/model-catalog) to get a provider slug (e.g., `@openai-prod`). You can also use a [Config](/api-reference/inference-api/config-object) for advanced routing.</Info>
+
+## Authentication & Configuration
+
+The SDK requires:
+
+* **Portkey API Key**: Your Portkey API key (env var `PORTKEY_API_KEY` recommended)
+* **Provider Authentication**:
+  * **Provider Slug**: Add a provider in [Model Catalog](/product/model-catalog) and use its slug (recommended)
+  * **Config**: The [Config object](/api-reference/inference-api/config-object) or config slug for advanced routing
+  * **Provider Slug + Auth Headers**: Useful if you do not want to save your API keys to Portkey and make direct requests.
+
+````ts theme={"system"}
+// With Provider Slug
+const portkey = new Portkey({ apiKey: '...', provider: 'openai' });
+
+// With Config
+const portkey = new Portkey({ apiKey: '...', config: 'cf-***' });
+
+
+---
+
+## Adding Trace ID & Metadata
+
+```ts
+const chatCompletion = await portkey.chat.completions.create({
+  messages: [{ role: 'user', content: 'Say this is a test' }],
+  model: 'gpt-4o',
+}, {
+  traceId: '39e2a60c-b47c-45d8',
+  metadata: { _user: '432erf6' }
+});
+
+console.log(chatCompletion.choices);
+````
+
+### TypeScript Support
+
+Portkey’s Node.js SDK is fully typed and works seamlessly with TypeScript:
+
+```ts theme={"system"}
+import Portkey, { ChatCompletionResponse } from 'portkey-ai';
+// ...
+const response: ChatCompletionResponse = await portkey.chat.completions.create(/* ... */);
+```
+
+## Parameters
+
+<Card title="List of All Headers" icon="list" href="/api-reference/inference-api/headers#list-of-all-headers">
+  View the complete list of headers that can be used with Portkey API requests, including authentication, configuration, and custom headers.
+</Card>
+
+Here's how you can use these headers with the Node.js SDK:
+
+```js theme={"system"}
+const portkey = new Portkey({
+    apiKey: "PORTKEY_API_KEY",
+    provider: "@openai-prod",
+    // Add any other headers from the reference
+});
+
+// Or at runtime
+const chatCompletion = await portkey.chat.completions.create(
+    {
+        messages: [{ role: "user", content: "Hello!" }],
+        model: "gpt-4o"
+    },
+    {
+        traceId: "your_trace_id",
+        metadata: { _user: "user_id" },
+        // Add any other headers as needed
+    }
+);
+```
+
+***
+
+## Changelog
+
+<Card title="View Changelog" icon="code-branch" href="https://github.com/Portkey-AI/portkey-node-sdk/tags">
+  Stay updated with the latest features, improvements, and bug fixes in the Portkey Node.js SDK by checking the release tags on GitHub.
+</Card>
+
+## Troubleshooting & Support
+
+* Having trouble? [Email support](mailto:support@portkey.ai) or [book a demo](https://portkey.sh/demo-15) with our team.
+* [View the SDK on GitHub](https://github.com/Portkey-AI/portkey-node-sdk)
+* [Report issues or request features](https://github.com/Portkey-AI/portkey-node-sdk/issues)
+
+***
+
+## FAQ
+
+<AccordionGroup>
+  <Accordion title="Can I use Portkey with OpenAI-compatible code?">
+    Yes! Portkey's APIs are OpenAI-compatible. You can use any OpenAI-compatible library by pointing it to the Portkey API endpoint and using your Portkey API key.
+  </Accordion>
+
+  <Accordion title="Where can I find more examples?">
+    Check out our integration docs [here](/integrations/ecosystem).
+  </Accordion>
+</AccordionGroup>

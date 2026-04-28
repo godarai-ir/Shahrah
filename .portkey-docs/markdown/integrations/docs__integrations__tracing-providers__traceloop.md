@@ -1,0 +1,172 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Traceloop (OpenLLMetry)
+
+[Traceloop's OpenLLMetry](https://www.traceloop.com/docs/openllmetry/introduction) is an open source project that allows you to easily start monitoring and debugging the execution of your LLM app.
+
+<Info>
+  Traceloop's non-intrusive instrumentation combined with Portkey's intelligent gateway provides comprehensive observability without modifying your application code, while adding routing intelligence, caching, and failover capabilities.
+</Info>
+
+## Why Traceloop + Portkey?
+
+<CardGroup cols={2}>
+  <Card title="Non-Intrusive Monitoring" icon="eye">
+    Automatic instrumentation without changing your application code
+  </Card>
+
+  <Card title="OpenTelemetry Native" icon="chart-network">
+    Built on industry-standard OpenTelemetry for maximum compatibility
+  </Card>
+
+  <Card title="Flexible Export Options" icon="arrows-split-up-and-left">
+    Send traces to Portkey or any OpenTelemetry-compatible backend
+  </Card>
+
+  <Card title="Enhanced Intelligence" icon="brain">
+    Portkey adds gateway features like caching, fallbacks, and load balancing
+  </Card>
+</CardGroup>
+
+## Quick Start
+
+### Prerequisites
+
+* Python
+* Portkey account with API key
+* OpenAI API key (or add it to [Model Catalog](/product/model-catalog))
+
+### Step 1: Install Dependencies
+
+Install the required packages for Traceloop and Portkey integration:
+
+```bash theme={"system"}
+pip install openai traceloop-sdk portkey-ai
+```
+
+### Step 2: Initialize Traceloop
+
+Configure Traceloop to send traces to Portkey's OpenTelemetry endpoint:
+
+```python theme={"system"}
+from traceloop.sdk import Traceloop
+
+# Initialize Traceloop with Portkey's endpoint
+Traceloop.init(
+    disable_batch=True,  # Process traces immediately
+    api_endpoint="https://api.portkey.ai/v1/logs/otel",
+    headers="x-portkey-api-key=YOUR_PORTKEY_API_KEY",
+    telemetry_enabled=False  # Disable Traceloop's own telemetry
+)
+```
+
+### Step 3: Configure Portkey Gateway
+
+Set up the OpenAI client to use Portkey's intelligent gateway:
+
+```python theme={"system"}
+from openai import OpenAI
+from portkey_ai import createHeaders
+
+# Use Portkey's gateway for intelligent routing
+client = OpenAI(
+    api_key="PORTKEY_API_KEY",
+    base_url="https://api.portkey.ai/v1",
+    default_headers=createHeaders(
+        api_key="PORTKEY_API_KEY",
+        provider="@openai-prod"  # Your AI Provider slug from Model Catalog
+    )
+)
+```
+
+### Step 4: Make Instrumented LLM Calls
+
+Your LLM calls are now automatically traced by Traceloop and enhanced by Portkey:
+
+```python theme={"system"}
+# Make calls through Portkey's gateway
+# Traceloop automatically instruments the call
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Explain the benefits of OpenTelemetry for LLM applications"}],
+    temperature=0.7
+)
+
+print(response.choices[0].message.content)
+
+# You now get:
+# 1. Automatic, non-intrusive tracing from Traceloop
+# 2. Gateway features from Portkey (caching, fallbacks, routing)
+# 3. Combined insights in Portkey's dashboard
+```
+
+## Complete Example
+
+Here's a full example bringing everything together:
+
+```python theme={"system"}
+from traceloop.sdk import Traceloop
+from openai import OpenAI
+from portkey_ai import createHeaders
+
+# Step 1: Initialize Traceloop with Portkey endpoint
+Traceloop.init(
+    disable_batch=True,
+    api_endpoint="https://api.portkey.ai/v1/logs/otel",
+    headers="x-portkey-api-key=YOUR_PORTKEY_API_KEY",
+    telemetry_enabled=False
+)
+
+# Step 2: Configure Portkey Gateway
+client = OpenAI(
+    api_key="PORTKEY_API_KEY",
+    base_url="https://api.portkey.ai/v1",
+    default_headers=createHeaders(
+        api_key="PORTKEY_API_KEY",
+        provider="@openai-prod"
+    )
+)
+
+# Step 3: Make instrumented calls
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "What makes observability important for production AI?"}
+    ]
+)
+
+print(response.choices[0].message.content)
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configure Gateway" icon="gear" href="/product/ai-gateway/configs">
+    Set up intelligent routing, fallbacks, and caching
+  </Card>
+
+  <Card title="Model Catalog" icon="sparkles" href="/product/model-catalog">
+    Manage AI providers, credentials, and model access centrally
+  </Card>
+
+  <Card title="View Analytics" icon="chart-line" href="/product/observability/analytics">
+    Analyze costs, performance, and usage patterns
+  </Card>
+
+  <Card title="Set Up Alerts" icon="bell" href="/product/observability/analytics">
+    Configure alerts for anomalies and performance issues
+  </Card>
+</CardGroup>
+
+***
+
+## See Your Traces in Action
+
+Once configured, navigate to the [Portkey dashboard](https://app.portkey.ai/logs) to see your Traceloop instrumentation combined with gateway intelligence:
+
+<Frame>
+  <img src="https://mintcdn.com/portkey-docs/Buc1Vm2P31GSPm3S/images/product/opentelemetry.png?fit=max&auto=format&n=Buc1Vm2P31GSPm3S&q=85&s=bc982b581d5ce60764d207b004b4677f" alt="OpenTelemetry traces in Portkey" width="2860" height="2087" data-path="images/product/opentelemetry.png" />
+</Frame>

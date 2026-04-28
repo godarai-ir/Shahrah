@@ -1,0 +1,38 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Org Management
+
+> A high-level introduction to Portkey's organization management structure and key concepts.
+
+Portkey's organization management structure provides a hierarchical system for managing teams, resources, and access within your AI development environment. This structure is designed to offer flexibility and security for enterprises of various sizes.
+
+The account hierarchy in Portkey is organized as follows:
+
+<Frame>
+  <img src="https://mintcdn.com/portkey-docs/IbI4RvWwDz6X1dr5/images/guardrails/g7.webp?fit=max&auto=format&n=IbI4RvWwDz6X1dr5&q=85&s=87abdb7a4480cce453ac601b4df70fde" width="2279" height="1600" data-path="images/guardrails/g7.webp" />
+</Frame>
+
+This hierarchy allows for efficient management of resources and access control across your organization. At the top level, you have your Account, which can contain one or more Organizations. Each Organization can have multiple Workspaces, providing a way to separate teams, projects, or departments within your company.
+
+<Note>
+  **Workspaces** is currently a feature only enabled on the **Enterprise Plans**. If you're looking to add this feature to your organisation, please reach out to us on our [Discord Community](https://portkey.ai/community) or via email on [support@portkey.ai](mailto:support@portkey.ai)
+</Note>
+
+Organizations contain User Invites & Users, Admin API Keys, and Workspaces. Workspaces, in turn, have their own Team structure (with Managers and Members), Workspace API Keys, and various features like Integrations, Model Catalog, Configs, Prompts, and more.
+
+This structure enables you to:
+
+* Maintain overall control at the Organization level
+* Delegate responsibilities and access at the Workspace level
+* Ensure data separation and project scoping
+* Manage teams efficiently across different projects or departments
+
+<Card title="Organizations" href="/product/enterprise-offering/org-management/organizations" />
+
+<Card title="Workspaces" href="/portkey-endpoints/admin/workspaces" />
+
+<Card title="User Roles & Permissions" href="/product/enterprise-offering/org-management/user-roles-and-permissions" />
+
+<Card title="API Keys (AuthN and AuthZ)" href="/product/enterprise-offering/org-management/api-keys-authn-and-authz" />

@@ -1,0 +1,229 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.portkey.ai/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# AWS SageMaker
+
+> Route to your AWS Sagemaker models through Portkey
+
+Sagemaker allows users to host any ML model on their own AWS infrastructure.
+
+With Portkey you can manage/restrict access, log requests, and more.
+
+## Quick Start
+
+<CodeGroup>
+  ```python Python icon="python" theme={"system"}
+  from portkey_ai import Portkey
+
+  # 1. Install: pip install portkey-ai
+  # 2. Add @sagemaker provider in Model Catalog
+  # 3. Use it:
+
+  portkey = Portkey(
+      api_key="PORTKEY_API_KEY",
+      provider="@sagemaker"
+  )
+
+  response = portkey.post(
+      url="endpoints/{endpoint_name}/invocations",
+      # You can pass any key value pair required by the model
+      # (apart from `url`), they are passed to the Sagemaker endpoint
+      inputs="my_custom_value",
+      my_custom_key="my_custom_value"
+  )
+
+  print(response)
+  ```
+
+  ```js Javascript icon="square-js" theme={"system"}
+  import Portkey from 'portkey-ai'
+
+  // 1. Install: npm install portkey-ai
+  // 2. Add @sagemaker provider in Model Catalog
+  // 3. Use it:
+
+  const portkey = new Portkey({
+      apiKey: "PORTKEY_API_KEY",
+      provider: "@sagemaker"
+  })
+
+  const response = await portkey.post({
+      url: "endpoints/{endpoint_name}/invocations",
+      // You can pass any key value pair required by the model
+      // (apart from `url`), they are passed to the Sagemaker endpoint
+      inputs: "my_custom_value",
+      my_custom_key: "my_custom_value"
+  })
+
+  console.log(response)
+  ```
+
+  ```sh cURL icon="square-terminal" theme={"system"}
+  # 1. Add @sagemaker provider in Model Catalog
+  # 2. Use it:
+
+  curl https://api.portkey.ai/v1/endpoints/{endpoint_name}/invocations \
+    -H "Content-Type: application/json" \
+    -H "x-portkey-api-key: $PORTKEY_API_KEY" \
+    -d '{
+      "inputs": "my_custom_value",
+      "my_custom_key": "my_custom_value"
+    }'
+  ```
+</CodeGroup>
+
+***
+
+## Add Provider in Model Catalog
+
+<Steps>
+  <Step title="Navigate to Model Catalog">
+    Go to [**Model Catalog → Add Provider**](https://app.portkey.ai/model-catalog/providers) in your Portkey dashboard.
+  </Step>
+
+  <Step title="Select AWS Sagemaker">
+    Find and select **AWS Sagemaker** from the provider list.
+  </Step>
+
+  <Step title="Configure AWS Credentials">
+    There are two authentication methods:
+
+    <Note>
+      Here's how to find your AWS credentials:
+
+      <CardGroup cols={2}>
+        <Card title="AWS Access Key" href="/integrations/llms/aws-bedrock#how-to-find-your-aws-credentials">
+          Use your `AWS Secret Access Key`, `AWS Access Key Id`, and `AWS Region` to create your provider.
+
+          [**Integration Guide**](/integrations/llms/aws-bedrock#how-to-find-your-aws-credentials)
+        </Card>
+
+        <Card title="AWS Assumed Role" href="/product/model-catalog/connect-bedrock-with-amazon-assumed-role">
+          Take your `AWS Assumed Role ARN` and `AWS Region` to create the provider.
+
+          [**Integration Guide**](/product/model-catalog/connect-bedrock-with-amazon-assumed-role)
+        </Card>
+      </CardGroup>
+    </Note>
+
+    Enter your AWS credentials and deployment details for your Sagemaker endpoint.
+  </Step>
+
+  <Step title="Save and Use">
+    Save your configuration. Your provider slug will be `@sagemaker` (or a custom name you specify).
+  </Step>
+</Steps>
+
+***
+
+## Direct Integration Without Model Catalog
+
+If you prefer not to store your AWS credentials in Portkey, you can pass them directly when instantiating the Portkey client.
+
+### Supported Parameters
+
+These parameters are supported for Sagemaker (not required if you're using Model Catalog):
+
+| Node SDK                         | Python SDK                             | REST Headers                                       |
+| -------------------------------- | -------------------------------------- | -------------------------------------------------- |
+| awsAccessKeyId                   | aws\_access\_key\_id                   | x-portkey-aws-access-key-id                        |
+| awsSecretAccessKey               | aws\_secret\_access\_key               | x-portkey-aws-secret-access-key                    |
+| awsRegion                        | aws\_region                            | x-portkey-aws-region                               |
+| awsSessionToken                  | aws\_session\_token                    | x-portkey-aws-session-token                        |
+| sagemakerCustomAttributes        | sagemaker\_custom\_attributes          | x-portkey-amzn-sagemaker-custom-attributes         |
+| sagemakerTargetModel             | sagemaker\_target\_model               | x-portkey-amzn-sagemaker-target-model              |
+| sagemakerTargetVariant           | sagemaker\_target\_variant             | x-portkey-amzn-sagemaker-target-variant            |
+| sagemakerTargetContainerHostname | sagemaker\_target\_container\_hostname | x-portkey-amzn-sagemaker-target-container-hostname |
+| sagemakerInferenceId             | sagemaker\_inference\_id               | x-portkey-amzn-sagemaker-inference-id              |
+| sagemakerEnableExplanations      | sagemaker\_enable\_explanations        | x-portkey-amzn-sagemaker-enable-explanations       |
+| sagemakerInferenceComponent      | sagemaker\_inference\_component        | x-portkey-amzn-sagemaker-inference-component       |
+| sagemakerSessionId               | sagemaker\_session\_id                 | x-portkey-amzn-sagemaker-session-id                |
+| sagemakerModelName               | sagemaker\_model\_name                 | x-portkey-amzn-sagemaker-model-name                |
+
+### Example
+
+<CodeGroup>
+  ```python Python icon="python" theme={"system"}
+  from portkey_ai import Portkey
+
+  portkey = Portkey(
+      api_key="PORTKEY_API_KEY",
+      provider="@sagemaker",
+      aws_region="us-east-1",
+      aws_access_key_id="AWS_ACCESS_KEY_ID",
+      aws_secret_access_key="AWS_SECRET_ACCESS_KEY",
+      sagemaker_inference_component="SAGEMAKER_INFERENCE_COMPONENT"
+  )
+
+  response = portkey.post(
+      url="endpoints/{endpoint_name}/invocations",
+      # You can pass any key value pair required by the model
+      # (apart from `url`), they are passed to the Sagemaker endpoint
+      inputs="my_custom_value",
+      my_custom_key="my_custom_value"
+  )
+
+  print(response)
+  ```
+
+  ```js Javascript icon="square-js" theme={"system"}
+  import Portkey from 'portkey-ai'
+
+  const portkey = new Portkey({
+      apiKey: "PORTKEY_API_KEY",
+      provider: "@sagemaker",
+      awsAccessKeyId: "AWS_ACCESS_KEY_ID",
+      awsSecretAccessKey: "AWS_SECRET_ACCESS_KEY",
+      awsRegion: "us-east-1",
+      sagemakerInferenceComponent: "SAGEMAKER_INFERENCE_COMPONENT"
+  })
+
+  const response = await portkey.post({
+      url: "endpoints/{endpoint_name}/invocations",
+      // You can pass any key value pair required by the model
+      // (apart from `url`), they are passed to the Sagemaker endpoint
+      inputs: "my_custom_value",
+      my_custom_key: "my_custom_value"
+  })
+
+  console.log(response)
+  ```
+
+  ```sh cURL icon="square-terminal" theme={"system"}
+  curl https://api.portkey.ai/v1/endpoints/{endpoint_name}/invocations \
+    -H "Content-Type: application/json" \
+    -H "x-portkey-api-key: $PORTKEY_API_KEY" \
+    -H "x-portkey-provider: @sagemaker" \
+    -H "x-portkey-aws-access-key-id: $AWS_ACCESS_KEY_ID" \
+    -H "x-portkey-aws-secret-access-key: $AWS_SECRET_ACCESS_KEY" \
+    -H "x-portkey-aws-region: $AWS_REGION" \
+    -H "x-portkey-amzn-sagemaker-inference-component: $SAGEMAKER_INFERENCE_COMPONENT" \
+    -d '{
+      "inputs": "my_custom_value",
+      "my_custom_key": "my_custom_value"
+    }'
+  ```
+</CodeGroup>
+
+***
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="SDK Reference" icon="code" href="/api-reference/sdk/list">
+    Complete SDK documentation and API reference
+  </Card>
+
+  <Card title="Add Metadata" icon="tag" href="/product/observability/metadata">
+    Add metadata to your Sagemaker requests
+  </Card>
+
+  <Card title="Gateway Configs" icon="sliders" href="/product/ai-gateway/configs">
+    Configure advanced gateway features
+  </Card>
+
+  <Card title="Tracing" icon="chart-line" href="/product/observability/traces">
+    Trace and monitor your Sagemaker requests
+  </Card>
+</CardGroup>
