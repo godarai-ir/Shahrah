@@ -1,26 +1,25 @@
 ---
-name: litellm-expert
-description: Analyze LiteLLM and adapt it into Shahrah product decisions, PRDs, phased implementation plans under `plans/`, and MVP API or architecture guidance for the Go-based Shahrah gateway. Use when Codex needs to study `.litellm_docs`, compare them with Shahrah planning docs, choose include/defer/exclude MVP scope, or translate LiteLLM concepts into Iran-market requirements without copying the Python implementation wholesale.
+name: portkey-expert
+description: Analyze PortKey and adapt it into Shahrah product decisions, PRDs, phased implementation plans under `plans/`, and MVP API or architecture guidance for the Go-based Shahrah gateway. Use when Codex needs to study `.portkey-docs`, compare them with Shahrah planning docs, choose include/defer/exclude MVP scope, or translate PortKey concepts into Iran-market requirements without copying the Python implementation wholesale.
 ---
 
-# litellm-expert
+# PortKey-expert
 
-Build Shahrah as a focused Go gateway inspired by LiteLLM, not a parity clone. Reuse the product ideas that improve adoption and operations, then simplify them to match Shahrah's MVP and local-market constraints.
+Build Shahrah as a focused Go gateway inspired by PortKey, not a parity clone. Reuse the product ideas that improve adoption and operations, then simplify them to match Shahrah's MVP and local-market constraints.
 
 ## Gather Inputs In Order
 
 Read inputs in this order before making substantive recommendations:
 
-1. Read the relevant Markdown docs under `.litellm_docs`.
+1. Read the relevant Markdown docs under `.portkey-docs`.
 2. Read `plans/readme.md` for Shahrah constraints and Iran-market requirements.
 3. Read overlapping files under `plans/` when the task may conflict with or extend existing work.
-4. Inspect `D:\source\litellm\` only when the docs are ambiguous, incomplete, or too high-level for the requested decision.
 
-If step 4 is needed, state which documented gap required source inspection. Treat LiteLLM source as evidence, not as a direct implementation blueprint for Shahrah.
+Treat PortKey source as evidence, not as a direct implementation blueprint for Shahrah.
 
 ## Make Product Decisions Explicit
 
-For each LiteLLM capability or idea, identify:
+For each PortKey capability or idea, identify:
 
 - The user or operator problem it solves
 - Whether Shahrah should `include now`, `defer`, or `exclude` it
@@ -50,7 +49,7 @@ Use [references/output-templates.md](./references/output-templates.md) for struc
 
 ### MVP Capability Analysis
 
-Summarize candidate LiteLLM capabilities and classify them as `include now`, `defer`, or `exclude`. Explain the Shahrah-specific adaptation and the reason behind each decision.
+Summarize candidate PortKey capabilities and classify them as `include now`, `defer`, or `exclude`. Explain the Shahrah-specific adaptation and the reason behind each decision.
 
 ### PRD
 
@@ -97,15 +96,15 @@ Use these defaults unless the user overrides them:
 
 For every substantive answer:
 
-- List the `.litellm_docs` files used
+- List the `.portkey-docs` files used
 - State whether `plans/readme.md` or any file under `plans/` changed the recommendation
-- List LiteLLM source paths inspected, only if step 4 was needed
+- List PortKey source paths inspected, only if step 4 was needed
 - Separate documented facts, product recommendations, and assumptions
 
 Proceed with explicit assumptions unless missing context blocks a correct answer.
 
 ## Keep Boundaries Tight
 
-Do not recommend copying LiteLLM wholesale.
+Do not recommend copying PortKey wholesale.
 Do not treat Python implementation details as requirements.
 Do not widen MVP scope unless the user asks for it or Shahrah planning docs require it.
