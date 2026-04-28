@@ -272,6 +272,15 @@ func newPersistentIntegrationApp(t *testing.T, logger *zap.Logger, memCache cach
 			store,
 			logger,
 		),
+		CompletionsHandler: proxy.NewCompletionsHandler(
+			llmRouter,
+			tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
+			billingSvc,
+			store,
+			store,
+			logger,
+		),
+		ModelsHandler: proxy.NewModelsHandler(store),
 		Logger: logger,
 	})
 

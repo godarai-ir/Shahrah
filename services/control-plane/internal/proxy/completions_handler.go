@@ -6,12 +6,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
+	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
 )
@@ -62,9 +64,14 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	// Get tenant context
-	currentTenant := c.Locals("tenant").(*platform.Tenant)
+	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
-		return writeAPIError(c, fiber.StatusNotFound, "tenant not found", "invalid_request_error")
+		return writeAPIError(c, fiber.StatusBadRequest, "tenant resolution required", "invalid_request_error")
+	}
+	authInfo.TenantID = currentTenant.ID
+
+	if len(authInfo.AllowedModels) > 0 && !containsModel(authInfo.AllowedModels, req.Model) && !containsModel(authInfo.AllowedModels, "*") {
+		return writeAPIError(c, fiber.StatusForbidden, "model access denied", "authorization_error")
 	}
 
 	// Transform to chat completion format internally
@@ -90,11 +97,10 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	// Check rate limit
-	if authInfo.RPMLimit != nil || authInfo.TPMLimit != nil {
-		_, err := h.billing.CheckRateLimit(c.Context(), authInfo, req.Model, estimated.TotalTokens)
-		if err != nil {
-			return writeAPIError(c, fiber.StatusTooManyRequests, "rate limit exceeded", "rate_limit_error")
-		}
+	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, req.Model, estimated.TotalTokens)
+	setRateLimitHeaders(c, rateLimit)
+	if err != nil {
+		return writeAPIError(c, fiber.StatusTooManyRequests, "rate limit exceeded", "rate_limit_error")
 	}
 
 	// Check budget
@@ -149,6 +155,7 @@ func (h *CompletionsHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCo
 	if resp.StatusCode >= httpErrorFloor {
 		return transformProviderError(c, resp.StatusCode, resp.Body, resp.Headers)
 	}
+	forwardProviderHeaders(c, resp.Headers)
 
 	// Transform chat completion response to legacy completion format
 	var chatResp contractsopenai.ChatCompletionResponse
@@ -177,15 +184,13 @@ func (h *CompletionsHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCo
 	completionResp.Choices = choices
 	completionResp.Usage = chatResp.Usage
 
-	// Set response headers
-	setCostHeaders(c, estimated)
-	c.Set("x-shahrah-trace-id", tunnelReq.RequestID)
-
 	// Finalize billing
 	finalCost, _ := h.billing.FinalizeFromUsage(c.Context(), req.Model, chatResp.Usage, estimated)
 	if _, err := h.wallets.DebitWallet(c.Context(), authInfo.TenantID, finalCost, tunnelReq.RequestID); err != nil {
 		h.logger.Error("failed to debit wallet", zap.Error(err))
 	}
+	setCostHeaders(c, finalCost)
+	c.Set("x-shahrah-trace-id", tunnelReq.RequestID)
 
 	// Log asynchronously
 	responseTimeMS := int(time.Since(start).Milliseconds())
@@ -201,7 +206,7 @@ func (h *CompletionsHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCo
 		})
 	}()
 
-	return c.Status(fiber.StatusOK).JSON(completionResp)
+	return c.Status(resp.StatusCode).JSON(completionResp)
 }
 
 func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, start time.Time) error {
@@ -247,11 +252,26 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 
 				// Transform chat chunk to legacy completion format
 				if len(chunk.Data) > 0 {
-					var chatChunk contractsopenai.StreamChunk
-					if err := json.Unmarshal(chunk.Data, &chatChunk); err != nil {
-						// Not a JSON chunk, write as-is
-						w.Write(chunk.Data)
+					raw := bytes.TrimSpace(chunk.Data)
+					if bytes.Equal(raw, []byte("data: [DONE]")) || bytes.Equal(raw, []byte("[DONE]")) {
+						_, _ = w.Write([]byte("data: [DONE]\n\n"))
+						_ = w.Flush()
 						return
+					}
+
+					normalized := raw
+					if bytes.HasPrefix(normalized, []byte("data: ")) {
+						normalized = bytes.TrimSpace(bytes.TrimPrefix(normalized, []byte("data: ")))
+					}
+
+					var chatChunk contractsopenai.StreamChunk
+					if err := json.Unmarshal(normalized, &chatChunk); err != nil {
+						_, _ = w.Write(chunk.Data)
+						if !bytes.HasSuffix(chunk.Data, []byte("\n\n")) {
+							_, _ = w.Write([]byte("\n\n"))
+						}
+						_ = w.Flush()
+						continue
 					}
 
 					// Extract text from chat delta
@@ -274,13 +294,16 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 							},
 						}
 						data, _ := json.Marshal(legacyChunk)
-						w.Write([]byte("data: "))
-						w.Write(data)
-						w.Write([]byte("\n\n"))
+						_, _ = w.Write([]byte("data: "))
+						_, _ = w.Write(data)
+						_, _ = w.Write([]byte("\n\n"))
+						_ = w.Flush()
 					}
 
 					if chunk.IsDone {
-						w.Write([]byte("data: [DONE]\n\n"))
+						_, _ = w.Write([]byte("data: [DONE]\n\n"))
+						_ = w.Flush()
+						return
 					}
 				}
 
@@ -292,8 +315,11 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 							Type:    "streaming_error",
 						},
 					})
-					w.Write(bytes.Join([][]byte{[]byte("data: "), errorPayload, []byte("\n\n")}, nil))
+					_, _ = w.Write(bytes.Join([][]byte{[]byte("data: "), errorPayload, []byte("\n\n")}, nil))
+					_ = w.Flush()
 				}
+			case <-c.Context().Done():
+				return
 			}
 		}
 	})
@@ -303,8 +329,8 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 
 // setCostHeaders sets cost-related response headers.
 func setCostHeaders(c *fiber.Ctx, cost platform.UsageCostBreakdown) {
-	c.Set("x-shahrah-cost-usd", fmt.Sprintf("%.6f", cost.TotalCostUSD))
-	c.Set("x-shahrah-cost-irr", fmt.Sprintf("%.0f", cost.TotalCostIRR))
+	c.Set("x-shahrah-cost-usd", fmt.Sprintf("%.8f", cost.TotalCostUSD))
+	c.Set("x-shahrah-cost-irr", fmt.Sprintf("%.2f", cost.TotalCostIRR))
 }
 
 // mustMarshalJSON marshals to JSON or panics.
@@ -314,4 +340,23 @@ func mustMarshalJSON(v interface{}) []byte {
 		panic(err)
 	}
 	return data
+}
+
+func normalizePrompt(prompt interface{}) string {
+	switch p := prompt.(type) {
+	case string:
+		return p
+	case []string:
+		return strings.TrimSpace(strings.Join(p, "\n"))
+	case []interface{}:
+		parts := make([]string, 0, len(p))
+		for _, item := range p {
+			if s, ok := item.(string); ok && strings.TrimSpace(s) != "" {
+				parts = append(parts, s)
+			}
+		}
+		return strings.TrimSpace(strings.Join(parts, "\n"))
+	default:
+		return ""
+	}
 }

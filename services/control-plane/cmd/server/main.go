@@ -74,11 +74,15 @@ func main() {
 
 	adminHandlers := admin.New(store, store, store)
 	proxyHandler := proxy.NewChatCompletionHandler(llmRouter, tunnelClient, billingService, store, store, logger)
+	completionsHandler := proxy.NewCompletionsHandler(llmRouter, tunnelClient, billingService, store, store, logger)
+	modelsHandler := proxy.NewModelsHandler(store)
 	app := server.NewFiberApp(cfg, server.Dependencies{
 		AuthMiddleware: authMiddleware,
 		TenantResolver: tenantMiddleware,
 		AdminHandlers:  adminHandlers,
 		ProxyHandler:   proxyHandler,
+		CompletionsHandler: completionsHandler,
+		ModelsHandler:      modelsHandler,
 		Logger:         logger,
 	})
 

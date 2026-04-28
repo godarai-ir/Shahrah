@@ -129,6 +129,15 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 			walletStore,
 			logger,
 		),
+		CompletionsHandler: proxy.NewCompletionsHandler(
+			llmRouter,
+			tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
+			billingSvc,
+			walletStore,
+			walletStore,
+			logger,
+		),
+		ModelsHandler: proxy.NewModelsHandler(modelStore),
 		Logger: logger,
 	})
 
@@ -269,6 +278,68 @@ func TestIntegration_ChatCompletionRejectsInsufficientWalletBalance(t *testing.T
 	assert.Empty(t, walletStore.requestLogs)
 	assert.Empty(t, walletStore.spendLogs)
 	assert.Equal(t, 1.0, walletStore.wallet.BalanceIRR)
+}
+
+func TestIntegration_LegacyCompletionsEnforcesAllowedModels(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(contractsopenai.ChatCompletionResponse{
+			ID:      "chatcmpl-forbidden",
+			Object:  "chat.completion",
+			Created: time.Now().Unix(),
+			Model:   "gpt-4",
+			Choices: []contractsopenai.Choice{{Index: 0, Message: &contractsopenai.ChatMessage{Role: "assistant", Content: "blocked"}}},
+		})
+	}))
+	defer provider.Close()
+
+	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
+	createdKey := createVirtualKey(t, app, `{"key_alias":"restricted","models":["gpt-4o-mini"]}`)
+	createModel(t, app, fmt.Sprintf(`{"model_name":"gpt-4","provider":"openai","model":"gpt-4","api_base":"%s/v1","api_key":"sk-provider","rpm":50}`, provider.URL))
+
+	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/v1/completions", "Bearer "+createdKey.Key, `{"model":"gpt-4","prompt":"hello"}`)
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+
+	var apiErr contractsopenai.APIError
+	decodeJSONBody(t, resp, &apiErr)
+	assert.Equal(t, "authorization_error", apiErr.Error.Type)
+}
+
+func TestIntegration_LegacyCompletionsSetsFinalCostHeaders(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Request-Id", "provider-req-1")
+		_ = json.NewEncoder(w).Encode(contractsopenai.ChatCompletionResponse{
+			ID:      "chatcmpl-legacy",
+			Object:  "chat.completion",
+			Created: time.Now().Unix(),
+			Model:   "gpt-4o-mini",
+			Choices: []contractsopenai.Choice{{Index: 0, Message: &contractsopenai.ChatMessage{Role: "assistant", Content: "ok"}}},
+			Usage: &contractsopenai.Usage{
+				PromptTokens:     40,
+				CompletionTokens: 20,
+				TotalTokens:      60,
+			},
+		})
+	}))
+	defer provider.Close()
+
+	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
+	createdKey := createVirtualKey(t, app, `{"key_alias":"legacy","models":["gpt-4o-mini"]}`)
+	createModel(t, app, fmt.Sprintf(`{"model_name":"gpt-4o-mini","provider":"openai","model":"gpt-4o-mini","api_base":"%s/v1","api_key":"sk-provider","rpm":100}`, provider.URL))
+	topUpWallet(t, app, `{"amount_irr":2000000}`)
+
+	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/v1/completions", "Bearer "+createdKey.Key, `{"model":"gpt-4o-mini","prompt":"hello"}`)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.NotEmpty(t, resp.Header.Get("X-Shahrah-Cost-Usd"))
+	assert.NotEmpty(t, resp.Header.Get("X-Shahrah-Cost-Irr"))
+	assert.Equal(t, "provider-req-1", resp.Header.Get("X-Request-Id"))
 }
 
 type integrationTenantStore struct {
@@ -575,6 +646,15 @@ func newIntegrationApp(t *testing.T, logger *zap.Logger, memCache cache.Cache, p
 			walletStore,
 			logger,
 		),
+		CompletionsHandler: proxy.NewCompletionsHandler(
+			llmRouter,
+			tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
+			billingSvc,
+			walletStore,
+			walletStore,
+			logger,
+		),
+		ModelsHandler: proxy.NewModelsHandler(modelStore),
 		Logger: logger,
 	})
 

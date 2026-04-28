@@ -22,6 +22,7 @@ type Dependencies struct {
 	AdminHandlers      *admin.Handlers
 	ProxyHandler       *proxy.ChatCompletionHandler
 	CompletionsHandler *proxy.CompletionsHandler
+	ModelsHandler      *proxy.ModelsHandler
 	Logger             *zap.Logger
 }
 
@@ -57,7 +58,7 @@ func registerRoutes(app *fiber.App, deps Dependencies) {
 	v1 := app.Group("/v1")
 	v1.Post("/chat/completions", deps.ProxyHandler.Handle)
 	v1.Post("/completions", deps.CompletionsHandler.Handle)
-	v1.Get("/models", deps.AdminHandlers.ListModels)
+	v1.Get("/models", deps.ModelsHandler.Handle)
 
 	api := app.Group("/api/v1")
 	api.Post("/keys", deps.AdminHandlers.CreateKey)
