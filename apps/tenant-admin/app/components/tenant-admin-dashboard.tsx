@@ -23,7 +23,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import ProviderAccountWizard from "@/app/components/provider-account-wizard";
 import { extractTenantSlugFromHost } from "@/lib/tenant";
 
 type TenantKey = {
@@ -33,6 +32,8 @@ type TenantKey = {
   key_name?: string;
   role: string;
   models: string[];
+  team_id?: string;
+  organization_id?: string;
   spend: number;
   blocked: boolean;
   expires_at?: string;
@@ -112,6 +113,11 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
 
   const [keyAlias, setKeyAlias] = useState("tenant-dashboard-key");
   const [keyModelsInput, setKeyModelsInput] = useState("gpt-4o-mini");
+  const [keyMode, setKeyMode] = useState<"virtual_key" | "service_account">(
+    "virtual_key",
+  );
+  const [keyTeamID, setKeyTeamID] = useState("");
+  const [keyOrgID, setKeyOrgID] = useState("");
 
   const [modelName, setModelName] = useState("gpt-4o-mini");
   const [provider, setProvider] = useState("openai");
@@ -170,6 +176,13 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
       });
       return;
     }
+    if (keyMode === "service_account" && !keyTeamID.trim()) {
+      setBanner({
+        kind: "error",
+        message: "For Service Account keys, team_id is required.",
+      });
+      return;
+    }
 
     setIsCreatingKey(true);
     try {
@@ -178,7 +191,9 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
         body: JSON.stringify({
           key_alias: cleanAlias,
           models: selectedModels,
-          role: "virtual_key",
+          role: keyMode,
+          team_id: keyTeamID.trim() || undefined,
+          organization_id: keyOrgID.trim() || undefined,
         }),
       });
 
@@ -329,6 +344,42 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
                   placeholder={t("keys.modelsPlaceholder")}
                 />
               </div>
+              <div className="grid gap-2">
+                <Label htmlFor="keyMode">Key type</Label>
+                <select
+                  id="keyMode"
+                  value={keyMode}
+                  onChange={(event) =>
+                    setKeyMode(
+                      event.target.value === "service_account"
+                        ? "service_account"
+                        : "virtual_key",
+                    )
+                  }
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="virtual_key">Virtual key</option>
+                  <option value="service_account">Service account (team)</option>
+                </select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="keyTeamID">Team ID (required for service account)</Label>
+                <Input
+                  id="keyTeamID"
+                  value={keyTeamID}
+                  onChange={(event) => setKeyTeamID(event.target.value)}
+                  placeholder="UUID team_id"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="keyOrgID">Organization ID (optional)</Label>
+                <Input
+                  id="keyOrgID"
+                  value={keyOrgID}
+                  onChange={(event) => setKeyOrgID(event.target.value)}
+                  placeholder="UUID organization_id"
+                />
+              </div>
 
               <Button type="submit" disabled={isCreatingKey} className="w-fit">
                 {isCreatingKey ? t("keys.creating") : t("keys.create")}
@@ -340,6 +391,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
                 <TableRow>
                   <TableHead>{t("keys.table.name")}</TableHead>
                   <TableHead>{t("keys.table.role")}</TableHead>
+                  <TableHead>Scope</TableHead>
                   <TableHead>{t("keys.table.models")}</TableHead>
                   <TableHead>{t("keys.table.key")}</TableHead>
                 </TableRow>
@@ -347,7 +399,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
               <TableBody>
                 {keys.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-muted-foreground">
+                    <TableCell colSpan={5} className="text-muted-foreground">
                       {t("keys.table.empty")}
                     </TableCell>
                   </TableRow>
@@ -356,6 +408,9 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
                     <TableRow key={item.id}>
                       <TableCell>{item.key_alias}</TableCell>
                       <TableCell>{item.role}</TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {item.team_id ? `team:${item.team_id}` : "tenant"}
+                      </TableCell>
                       <TableCell>
                         {(item.models ?? []).length > 0
                           ? item.models.join("، ")
@@ -397,8 +452,6 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
           </CardContent>
         </Card>
       </section>
-
-      <ProviderAccountWizard />
     </div>
   );
 }

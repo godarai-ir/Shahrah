@@ -1,0 +1,301 @@
+{
+  "theme": {
+    "toggle": "Toggle theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "shell": {
+    "title": "Tenant Admin Panel",
+    "tenant": "Tenant Workspace",
+    "searchPlaceholder": "Search in panel...",
+    "logout": "Sign out",
+    "menu": {
+      "open": "Open menu",
+      "description": "Quick navigation and panel shortcuts"
+    },
+    "nav": {
+      "dashboard": "Dashboard",
+      "topup": "Wallet Top-up",
+      "settings": "Account Settings",
+      "providerAccounts": "Provider Accounts"
+    },
+    "logoAlt": "Shahrah logo"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "refresh": "Refresh",
+    "loading": "Loading...",
+    "requestError": "Request failed.",
+    "none": "-",
+    "notSet": "Not set"
+  },
+  "dashboard": {
+    "title": "Tenant Dashboard",
+    "subtitle": "Manage keys, models, and tenant balance",
+    "currentUser": "Current user",
+    "refreshing": "Refreshing...",
+    "keyCreatedTitle": "Newly created key is shown only once",
+    "messages": {
+      "errorTitle": "Error",
+      "successTitle": "Success"
+    },
+    "stats": {
+      "balance": "Wallet balance",
+      "balanceHint": "Available credit",
+      "pending": "Pending transactions",
+      "pendingHint": "Unsettled amounts",
+      "keys": "API keys",
+      "keysHint": "Active keys"
+    },
+    "keys": {
+      "title": "API Key Management",
+      "description": "Issue and manage model access keys",
+      "name": "Key name",
+      "namePlaceholder": "tenant-dashboard-key",
+      "models": "Allowed models (comma-separated)",
+      "modelsPlaceholder": "gpt-4o-mini,gpt-4.1-mini",
+      "create": "Create key",
+      "creating": "Creating...",
+      "table": {
+        "name": "Name",
+        "role": "Role",
+        "models": "Models",
+        "key": "Key",
+        "hidden": "Hidden",
+        "empty": "No keys have been registered for this tenant yet."
+      },
+      "messages": {
+        "validation": "Key name and at least one model are required.",
+        "success": "API key created successfully."
+      }
+    },
+    "models": {
+      "title": "Tenant Models",
+      "description": "Register and manage available models",
+      "displayName": "Model display name",
+      "provider": "Provider",
+      "providerModel": "Provider model ID",
+      "apiBase": "API base URL",
+      "apiKey": "API key",
+      "rpm": "RPM",
+      "tpm": "TPM",
+      "weight": "Weight",
+      "create": "Add model",
+      "creating": "Adding...",
+      "messages": {
+        "validation": "All required model fields must be completed.",
+        "success": "New model registered successfully."
+      }
+    },
+    "transactions": {
+      "title": "Wallet Transactions",
+      "description": "Last 20 wallet transactions for this tenant",
+      "columns": {
+        "id": "ID",
+        "type": "Type",
+        "status": "Status",
+        "amount": "Amount (IRR)",
+        "createdAt": "Created at"
+      },
+      "empty": "No transactions recorded."
+    }
+  },
+  "topupPage": {
+    "title": "Wallet Top-up",
+    "description": "Choose the amount and continue to payment gateway.",
+    "errorTitle": "Error",
+    "amountLabel": "Amount (USD)",
+    "providerLabel": "Payment gateway",
+    "balanceLabel": "Current wallet balance",
+    "constraints": "Allowed range: {min} to {max} USD | Tax: {tax}% | Fee: {fee}%",
+    "submit": "Continue to gateway",
+    "submitLoading": "Creating payment...",
+    "providers": {
+      "mock": "Mock gateway (development)",
+      "zarinpal": "ZarinPal",
+      "idpay": "IDPay"
+    },
+    "messages": {
+      "amountOutOfRange": "Amount must be between {min} and {max} USD.",
+      "intentFailed": "Failed to create payment intent.",
+      "missingRedirect": "Gateway redirect URL was not received.",
+      "unknownError": "Unknown error occurred."
+    },
+    "transactions": {
+      "title": "Recent Transactions",
+      "description": "Last 20 wallet transactions for this tenant",
+      "columns": {
+        "id": "ID",
+        "type": "Type",
+        "status": "Status",
+        "amount": "Amount (IRR)",
+        "createdAt": "Created at"
+      },
+      "empty": "No transactions recorded."
+    }
+  },
+  "topupResult": {
+    "title": "Top-up Result",
+    "successDescription": "Payment was successful and your wallet was credited.",
+    "failureDescription": "Payment was not completed or failed.",
+    "fields": {
+      "status": "Status",
+      "refId": "Reference ID",
+      "authority": "Gateway Authority",
+      "reason": "Reason"
+    },
+    "backToTopup": "Back to top-up"
+  },
+  "login": {
+    "title": "Sign in",
+    "subtitle": "Sign in with email or mobile. OTP is sent based on your identifier type.",
+    "identifier": "Email or mobile",
+    "identifierPlaceholder": "name@example.com or +98912...",
+    "captcha": {
+      "label": "Image captcha",
+      "answer": "Captcha answer",
+      "answerPlaceholder": "Enter captcha text",
+      "refresh": "New captcha"
+    },
+    "otp": {
+      "request": "Request OTP",
+      "requesting": "Sending OTP...",
+      "verify": "Sign in",
+      "verifying": "Verifying...",
+      "code": "OTP code",
+      "codePlaceholder": "6-digit code",
+      "sent": "OTP sent to {destination}.",
+      "enterCode": "Enter the OTP sent to {destination}.",
+      "devCode": "Development code",
+      "back": "Back"
+    },
+    "logoAlt": "Shahrah logo"
+  },
+  "settings": {
+    "title": "Account Settings",
+    "subtitle": "Manage contact information and identity verification",
+    "role": "Current role",
+    "sections": {
+      "email": "Email",
+      "mobile": "Mobile"
+    },
+    "currentValue": "Current value",
+    "newEmail": "New email",
+    "newMobile": "New mobile",
+    "sendCode": "Send verification code",
+    "otpSentTo": "Sent to {destination}",
+    "otpCode": "OTP code",
+    "otpCodePlaceholder": "6-digit code",
+    "confirmEmail": "Confirm email change",
+    "confirmMobile": "Confirm mobile change",
+    "devCode": "Development code",
+    "messages": {
+      "sent": "Verification code sent to {destination}.",
+      "emailSuccess": "Email updated successfully.",
+      "mobileSuccess": "Mobile updated successfully."
+    }
+  },
+  "providerAccounts": {
+    "title": "Model Provider Accounts",
+    "description": "Connect provider accounts, enable models, and manage usage access at tenant level.",
+    "errorTitle": "Error",
+    "successTitle": "Success",
+    "existingAccount": "Provider account",
+    "selectAccount": "Select a provider account",
+    "loadAccount": "Load account settings",
+    "refresh": "Reload data",
+    "refreshing": "Reloading...",
+    "testing": "Validating...",
+    "testCredentials": "Validate connection",
+    "selectProvider": "Select provider",
+    "creating": "Creating account...",
+    "createProviderAccount": "Create new account",
+    "saving": "Saving...",
+    "saveSelectedModels": "Save enabled models",
+    "saveAccessControl": "Save access policy",
+    "step1": {
+      "title": "Step 1: Choose provider",
+      "description": "Select a model provider to continue to provider-specific connection settings."
+    },
+    "step2": {
+      "title": "Step 2: Configure connection",
+      "description": "Model list is fetched from provider discovery.",
+      "empty": "No models were discovered for this provider.",
+      "connectionDescription": "Complete connection details for this account based on the provider auth mode."
+    },
+    "step3": {
+      "title": "Step 3: Models & access",
+      "managersTitle": "Account managers (user/team)",
+      "usersTitle": "Users allowed to consume models",
+      "description": "Enable usable models and define usage access policy.",
+      "accessTitle": "Usage access control",
+      "empty": "No models were discovered for this provider.",
+      "searchPlaceholder": "Search model name",
+      "toggleSelectAll": "Select/Clear all",
+      "columns": {
+        "model": "Model",
+        "inputCost": "Input cost ($/1M)",
+        "outputCost": "Output cost ($/1M)"
+      }
+    },
+    "fields": {
+      "provider": "Model provider",
+      "accountName": "Account display name",
+      "authMode": "Connection auth mode",
+      "virtualKeysMode": "Virtual key policy",
+      "allowVirtualOnly": "Tenant virtual keys only",
+      "apiKeyOptional": "API Key (optional)",
+      "secretRefOptional": "Secret reference (optional)",
+      "pricingMode": "Pricing basis",
+      "inputPrice": "Input cost (USD / 1M tokens)",
+      "outputPrice": "Output cost (USD / 1M tokens)",
+      "publicPricing": "Public pricing",
+      "privatePricing": "Custom pricing",
+      "azureTenantID": "Azure Tenant ID",
+      "azureClientID": "Azure Client ID",
+      "awsAccessKeyID": "AWS Access Key ID",
+      "awsSecretAccessKey": "AWS Secret Access Key",
+      "awsRegion": "AWS Region",
+      "googleServiceAccountJSON": "Google Service Account JSON"
+    },
+    "principal": {
+      "user": "User",
+      "team": "Team",
+      "searchPlaceholder": "User or team name...",
+      "search": "Search",
+      "add": "Add",
+      "addEveryone": "Grant access to all users",
+      "remove": "Remove",
+      "everyone": "All users"
+    },
+    "messages": {
+      "initialLoadFailed": "Initial loading failed.",
+      "providerModelsLoadFailed": "Failed to fetch model list from discovery.",
+      "validationProviderName": "Provider selection and account name are required.",
+      "accountCreateSuccess": "Provider account created successfully.",
+      "accountCreateFailed": "Failed to create provider account.",
+      "accountLoadSuccess": "Account settings loaded successfully.",
+      "accountLoadFailed": "Failed to load account settings.",
+      "selectAccountFirst": "Select or create a provider account first.",
+      "selectAtLeastOneModel": "Select at least one model to enable.",
+      "modelsSaveSuccess": "Model settings saved successfully.",
+      "modelsSaveFailed": "Failed to save model settings.",
+      "managerRequired": "At least one account manager is required.",
+      "accessSaveSuccess": "Access policy saved successfully.",
+      "accessSaveFailed": "Failed to save access policy.",
+      "credentialValid": "Connection credentials are valid.",
+      "credentialInvalid": "Connection validation failed.",
+      "credentialTestFailed": "Failed to validate connection credentials.",
+      "managerSearchFailed": "Failed to search managers.",
+      "userSearchFailed": "Failed to search users/teams."
+    },
+    "wizard": {
+      "stepLabel": "Step {number}",
+      "back": "Back",
+      "next": "Next",
+      "finalHint": "After assigning managers and users, save the access policy."
+    }
+  }
+}

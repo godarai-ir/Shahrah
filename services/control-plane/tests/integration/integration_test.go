@@ -30,6 +30,7 @@ import (
 	tclientserver "github.com/Delpak/shahrah/services/tunnel-client/pkg/server"
 	tserverserver "github.com/Delpak/shahrah/services/tunnel-server/pkg/server"
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -138,7 +139,7 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 			logger,
 		),
 		ModelsHandler: proxy.NewModelsHandler(modelStore),
-		Logger: logger,
+		Logger:        logger,
 	})
 
 	reqBody := `{"model":"gpt-3.5-turbo","messages":[{"role":"user","content":"hi"}]}`
@@ -280,6 +281,125 @@ func TestIntegration_ChatCompletionRejectsInsufficientWalletBalance(t *testing.T
 	assert.Equal(t, 1.0, walletStore.wallet.BalanceIRR)
 }
 
+func TestIntegration_CreateServiceAccountKeyRequiresTeamID(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer provider.Close()
+
+	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
+
+	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/keys", "Bearer sk-master", `{"key_alias":"svc-no-team","models":["gpt-4o-mini"],"role":"service_account"}`)
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestIntegration_CreateServiceAccountKey(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer provider.Close()
+
+	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
+
+	createdKey := createVirtualKey(t, app, `{"key_alias":"svc-team-key","models":["gpt-4o-mini"],"role":"service_account","team_id":"team-ops","organization_id":"org-platform"}`)
+	assert.Equal(t, "service_account", createdKey.Role)
+	assert.Equal(t, "team-ops", createdKey.TeamID)
+	assert.Equal(t, "org-platform", createdKey.OrgID)
+
+	keysResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/keys", "Bearer sk-master", "")
+	assert.Equal(t, http.StatusOK, keysResp.StatusCode)
+	var listedKeys struct {
+		Data []platform.CreatedKey `json:"data"`
+	}
+	decodeJSONBody(t, keysResp, &listedKeys)
+	require.Len(t, listedKeys.Data, 1)
+	assert.Equal(t, "service_account", listedKeys.Data[0].Role)
+	assert.Equal(t, "team-ops", listedKeys.Data[0].TeamID)
+}
+
+func TestIntegration_ListTenantUsers(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer provider.Close()
+
+	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
+	resp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/users?limit=20&offset=0", "Bearer sk-master", "")
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var out platform.TenantAdminUserListResponse
+	decodeJSONBody(t, resp, &out)
+	require.GreaterOrEqual(t, out.Total, 1)
+	require.NotEmpty(t, out.Data)
+	assert.Equal(t, "default", out.Data[0].TenantSlug)
+}
+
+func TestIntegration_InviteTenantUser(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer provider.Close()
+
+	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
+	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/users/invite", "Bearer sk-master", `{"email":"new-user@tenant.test","role":"tenant_member"}`)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	var out platform.InviteTenantAdminUserResponse
+	decodeJSONBody(t, resp, &out)
+	assert.Equal(t, "new-user@tenant.test", out.Invitation.Email)
+	assert.Equal(t, "tenant_member", out.Invitation.Role)
+	assert.NotEmpty(t, out.Link)
+}
+
+func TestIntegration_AcceptTenantUserInvitation(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer provider.Close()
+
+	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
+
+	inviteResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/users/invite", "Bearer sk-master", `{"email":"accept-me@tenant.test","role":"tenant_member"}`)
+	assert.Equal(t, http.StatusCreated, inviteResp.StatusCode)
+
+	acceptResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/users/invitations/accept", "Bearer sk-master", `{"token":"test-token"}`)
+	assert.Equal(t, http.StatusOK, acceptResp.StatusCode)
+
+	var out platform.AcceptTenantAdminInvitationResponse
+	decodeJSONBody(t, acceptResp, &out)
+	assert.Equal(t, "accepted", out.Invitation.Status)
+	assert.Equal(t, "accept-me@tenant.test", out.User.Email)
+}
+
+func TestIntegration_ActivateDeactivateTenantUser(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer provider.Close()
+
+	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
+
+	deactivateResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/users/tenant-user-1/deactivate", "Bearer sk-master", "")
+	assert.Equal(t, http.StatusOK, deactivateResp.StatusCode)
+	var deactivated platform.TenantAdminUser
+	decodeJSONBody(t, deactivateResp, &deactivated)
+	assert.False(t, deactivated.Active)
+	assert.Equal(t, "deactivated", deactivated.Role)
+
+	activateResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/users/tenant-user-1/activate", "Bearer sk-master", "")
+	assert.Equal(t, http.StatusOK, activateResp.StatusCode)
+	var activated platform.TenantAdminUser
+	decodeJSONBody(t, activateResp, &activated)
+	assert.True(t, activated.Active)
+	assert.NotEqual(t, "deactivated", activated.Role)
+}
+
 func TestIntegration_LegacyCompletionsEnforcesAllowedModels(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
@@ -356,6 +476,9 @@ func (s integrationTenantStore) EnsureTenant(ctx context.Context, slug string) (
 
 type integrationModelStore struct {
 	deployments []platform.Deployment
+	users       []platform.TenantAdminUser
+	invitations []platform.TenantAdminInvitation
+	inviteToken string
 }
 
 func (s *integrationModelStore) CreateDeployment(ctx context.Context, dep platform.Deployment) (*platform.Deployment, error) {
@@ -365,6 +488,92 @@ func (s *integrationModelStore) CreateDeployment(ctx context.Context, dep platfo
 
 func (s *integrationModelStore) ListDeployments(ctx context.Context, tenantID string) ([]platform.Deployment, error) {
 	return s.deployments, nil
+}
+
+func (s *integrationModelStore) ListTenantAdminUsers(ctx context.Context, tenantSlug string, query string, limit int, offset int) ([]platform.TenantAdminUser, int, error) {
+	filtered := make([]platform.TenantAdminUser, 0, len(s.users))
+	for _, item := range s.users {
+		if item.TenantSlug != tenantSlug {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+
+	total := len(filtered)
+	if offset >= total {
+		return []platform.TenantAdminUser{}, total, nil
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return filtered[offset:end], total, nil
+}
+
+func (s *integrationModelStore) InviteTenantAdminUser(ctx context.Context, tenantID string, tenantSlug string, req platform.InviteTenantAdminUserRequest) (*platform.TenantAdminInvitation, string, error) {
+	now := time.Now().UTC()
+	invitation := platform.TenantAdminInvitation{
+		InvitationID: "invite-1",
+		TenantID:     tenantID,
+		TenantSlug:   tenantSlug,
+		Email:        req.Email,
+		Mobile:       req.Mobile,
+		Role:         req.Role,
+		Status:       "pending",
+		ExpiresAt:    now.Add(24 * time.Hour),
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+	s.invitations = append(s.invitations, invitation)
+	s.inviteToken = "test-token"
+	return &invitation, "https://tenant.app.sharah.ir/invite/accept?token=test-token", nil
+}
+
+func (s *integrationModelStore) AcceptTenantAdminInvitation(ctx context.Context, tenantID string, tenantSlug string, token string) (*platform.TenantAdminInvitation, *platform.TenantAdminUser, error) {
+	for i := range s.invitations {
+		if s.invitations[i].TenantID != tenantID || s.invitations[i].TenantSlug != tenantSlug {
+			continue
+		}
+		if token != s.inviteToken {
+			continue
+		}
+		now := time.Now().UTC()
+		s.invitations[i].Status = "accepted"
+		s.invitations[i].AcceptedAt = &now
+		s.invitations[i].UpdatedAt = now
+		user := platform.TenantAdminUser{
+			ID:         "accepted-user-1",
+			TenantSlug: tenantSlug,
+			Email:      s.invitations[i].Email,
+			Mobile:     s.invitations[i].Mobile,
+			Role:       s.invitations[i].Role,
+			Active:     true,
+			CreatedAt:  now,
+			UpdatedAt:  now,
+		}
+		s.users = append(s.users, user)
+		return &s.invitations[i], &user, nil
+	}
+	return nil, nil, pgx.ErrNoRows
+}
+
+func (s *integrationModelStore) SetTenantAdminUserActive(ctx context.Context, tenantSlug string, userID string, active bool) (*platform.TenantAdminUser, error) {
+	for i := range s.users {
+		if s.users[i].TenantSlug != tenantSlug || s.users[i].ID != userID {
+			continue
+		}
+		if active {
+			if s.users[i].Role == "deactivated" {
+				s.users[i].Role = "tenant_member"
+			}
+		} else {
+			s.users[i].Role = "deactivated"
+		}
+		s.users[i].Active = active
+		s.users[i].UpdatedAt = time.Now().UTC()
+		return &s.users[i], nil
+	}
+	return nil, pgx.ErrNoRows
 }
 
 type integrationWalletStore struct {
@@ -614,7 +823,19 @@ func newIntegrationApp(t *testing.T, logger *zap.Logger, memCache cache.Cache, p
 		tenant: &platform.Tenant{ID: "tenant-1", Slug: "default", Domain: "default", Status: "active", CreatedAt: time.Now()},
 	}
 	keyStore := newIntegrationKeyStore()
-	modelStore := &integrationModelStore{}
+	modelStore := &integrationModelStore{
+		users: []platform.TenantAdminUser{
+			{
+				ID:         "tenant-user-1",
+				TenantSlug: "default",
+				Email:      "owner@tenant.test",
+				Role:       "tenant_admin",
+				Active:     true,
+				CreatedAt:  time.Now().UTC(),
+				UpdatedAt:  time.Now().UTC(),
+			},
+		},
+	}
 	walletStore := &integrationWalletStore{
 		wallet: &platform.Wallet{ID: "wallet-1", TenantID: "tenant-1", BalanceIRR: 0},
 		rate:   &platform.ExchangeRate{ID: "rate-1", USDtoIRR: 850000, Source: "test", FetchedAt: time.Now()},
@@ -655,7 +876,7 @@ func newIntegrationApp(t *testing.T, logger *zap.Logger, memCache cache.Cache, p
 			logger,
 		),
 		ModelsHandler: proxy.NewModelsHandler(modelStore),
-		Logger: logger,
+		Logger:        logger,
 	})
 
 	walletStore.onSpend = keyStore.addSpend

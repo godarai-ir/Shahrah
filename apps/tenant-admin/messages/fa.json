@@ -12,51 +12,52 @@
     "logout": "خروج",
     "menu": {
       "open": "باز کردن منو",
-      "description": "ناوبری و دسترسی سریع پنل"
+      "description": "مسیریابی و دسترسی سریع به ابزارهای پنل"
     },
     "nav": {
       "dashboard": "داشبورد",
       "topup": "شارژ کیف پول",
-      "settings": "تنظیمات حساب"
+      "settings": "تنظیمات حساب",
+      "providerAccounts": "حساب‌های ارائه‌دهنده"
     },
     "logoAlt": "لوگوی شاهراه"
   },
   "common": {
     "save": "ذخیره",
     "cancel": "انصراف",
-    "refresh": "به‌روزرسانی",
-    "loading": "در حال بارگذاری...",
+    "refresh": "بازآوری",
+    "loading": "در حال بارگیری...",
     "requestError": "درخواست با خطا مواجه شد.",
     "none": "-",
-    "notSet": "ثبت نشده"
+    "notSet": "تعریف نشده"
   },
   "dashboard": {
     "title": "داشبورد تننت",
-    "subtitle": "مدیریت کلیدها، مدل‌ها و وضعیت کیف پول",
-    "currentUser": "کاربر جاری",
-    "refreshing": "در حال به‌روزرسانی...",
-    "keyCreatedTitle": "کلید ساخته‌شده فقط یک‌بار نمایش داده می‌شود",
+    "subtitle": "مدیریت کلیدها، مدل‌ها و وضعیت اعتبار تننت",
+    "currentUser": "کاربر فعلی",
+    "refreshing": "در حال بازآوری...",
+    "keyCreatedTitle": "کلید تازه ایجادشده فقط یک‌بار نمایش داده می‌شود",
     "messages": {
       "errorTitle": "خطا",
       "successTitle": "موفق"
     },
     "stats": {
       "balance": "موجودی کیف پول",
-      "balanceHint": "اعتبار قابل استفاده",
-      "pending": "مبلغ معلق",
-      "pendingHint": "تراکنش‌های در انتظار",
+      "balanceHint": "اعتبار قابل مصرف",
+      "pending": "تراکنش‌های در انتظار",
+      "pendingHint": "مبالغ تاییدنشده",
       "keys": "کلیدهای API",
-      "keysHint": "کلیدهای فعال تننت"
+      "keysHint": "تعداد کلیدهای فعال"
     },
     "keys": {
-      "title": "مدیریت کلید API",
-      "description": "ایجاد و مشاهده کلیدهای دسترسی تننت",
+      "title": "مدیریت کلیدهای API",
+      "description": "صدور و مدیریت کلیدهای دسترسی مدل",
       "name": "نام کلید",
       "namePlaceholder": "tenant-dashboard-key",
       "models": "مدل‌های مجاز (با ویرگول جدا کنید)",
       "modelsPlaceholder": "gpt-4o-mini,gpt-4.1-mini",
-      "create": "ساخت کلید",
-      "creating": "در حال ساخت...",
+      "create": "ایجاد کلید",
+      "creating": "در حال ایجاد...",
       "table": {
         "name": "نام",
         "role": "نقش",
@@ -67,25 +68,25 @@
       },
       "messages": {
         "validation": "وارد کردن نام کلید و حداقل یک مدل الزامی است.",
-        "success": "کلید API با موفقیت ساخته شد."
+        "success": "کلید API با موفقیت ایجاد شد."
       }
     },
     "models": {
-      "title": "مدیریت مدل‌ها",
-      "description": "ثبت مدل‌های قابل استفاده برای تننت",
+      "title": "مدل‌های تننت",
+      "description": "افزودن و مدیریت مدل‌های قابل مصرف",
       "displayName": "نام نمایشی مدل",
-      "provider": "پرووایدر",
-      "providerModel": "نام مدل در پرووایدر",
+      "provider": "ارائه‌دهنده",
+      "providerModel": "شناسه مدل در ارائه‌دهنده",
       "apiBase": "آدرس پایه API",
-      "apiKey": "کلید API",
+      "apiKey": "API Key",
       "rpm": "RPM",
       "tpm": "TPM",
       "weight": "وزن",
       "create": "افزودن مدل",
       "creating": "در حال افزودن...",
       "messages": {
-        "validation": "تکمیل همه فیلدهای ضروری مدل الزامی است.",
-        "success": "مدل جدید برای تننت ثبت شد."
+        "validation": "تکمیل فیلدهای الزامی مدل ضروری است.",
+        "success": "مدل جدید با موفقیت ثبت شد."
       }
     },
     "transactions": {
@@ -103,7 +104,7 @@
   },
   "topupPage": {
     "title": "شارژ کیف پول",
-    "description": "مبلغ را انتخاب کنید و به درگاه پرداخت منتقل شوید.",
+    "description": "مبلغ شارژ را انتخاب کنید و به درگاه پرداخت منتقل شوید.",
     "errorTitle": "خطا",
     "amountLabel": "مبلغ (دلار)",
     "providerLabel": "درگاه پرداخت",
@@ -137,7 +138,7 @@
   },
   "topupResult": {
     "title": "نتیجه شارژ کیف پول",
-    "successDescription": "پرداخت با موفقیت انجام شد و کیف پول شارژ شد.",
+    "successDescription": "پرداخت موفق بود و کیف پول شارژ شد.",
     "failureDescription": "پرداخت کامل نشد یا با خطا مواجه شد.",
     "fields": {
       "status": "وضعیت",
@@ -149,7 +150,7 @@
   },
   "login": {
     "title": "ورود",
-    "subtitle": "با ایمیل یا شماره همراه وارد شوید. کد OTP بر اساس نوع ورودی ارسال می‌شود.",
+    "subtitle": "با ایمیل یا شماره همراه وارد شوید. کد OTP متناسب با شیوه ورود ارسال می‌شود.",
     "identifier": "ایمیل یا شماره همراه",
     "identifierPlaceholder": "name@example.com یا +98912...",
     "captcha": {
@@ -166,8 +167,8 @@
       "code": "کد OTP",
       "codePlaceholder": "کد ۶ رقمی",
       "sent": "کد OTP به {destination} ارسال شد.",
-      "enterCode": "کد OTP ارسال‌شده به {destination} را وارد کنید.",
-      "devCode": "کد OTP توسعه",
+      "enterCode": "کد ارسال‌شده به {destination} را وارد کنید.",
+      "devCode": "کد توسعه",
       "back": "بازگشت"
     },
     "logoAlt": "لوگوی شاهراه"
@@ -194,6 +195,107 @@
       "sent": "کد تایید به {destination} ارسال شد.",
       "emailSuccess": "ایمیل با موفقیت تغییر کرد.",
       "mobileSuccess": "شماره همراه با موفقیت تغییر کرد."
+    }
+  },
+  "providerAccounts": {
+    "title": "حساب‌های ارائه‌دهنده مدل",
+    "description": "اتصال حساب‌های ارائه‌دهنده، فعال‌سازی مدل‌ها و مدیریت دسترسی مصرف",
+    "errorTitle": "خطا",
+    "successTitle": "موفق",
+    "existingAccount": "حساب ارائه‌دهنده",
+    "selectAccount": "یک حساب ارائه‌دهنده انتخاب کنید",
+    "loadAccount": "بارگذاری تنظیمات حساب",
+    "refresh": "بازآوری داده‌ها",
+    "refreshing": "در حال بازآوری...",
+    "testing": "در حال اعتبارسنجی...",
+    "testCredentials": "اعتبارسنجی اتصال",
+    "selectProvider": "انتخاب ارائه‌دهنده",
+    "creating": "در حال ایجاد حساب...",
+    "createProviderAccount": "ایجاد حساب جدید",
+    "saving": "در حال ذخیره...",
+    "saveSelectedModels": "ذخیره مدل‌های فعال",
+    "saveAccessControl": "ذخیره سطح دسترسی",
+    "step1": {
+      "title": "گام ۱: انتخاب ارائه‌دهنده",
+      "description": "ارائه‌دهنده مدل را انتخاب کنید تا وارد تنظیمات اتصال همان ارائه‌دهنده شوید."
+    },
+    "step2": {
+      "title": "گام ۲: پیکربندی اتصال",
+      "description": "فهرست مدل‌ها از Discovery ارائه‌دهنده دریافت می‌شود.",
+      "empty": "مدل قابلی از این ارائه‌دهنده یافت نشد.",
+      "connectionDescription": "اطلاعات اتصال حساب را متناسب با روش احراز هویت ارائه‌دهنده تکمیل کنید."
+    },
+    "step3": {
+      "title": "گام ۳: مدل‌ها و دسترسی",
+      "managersTitle": "مدیران حساب (کاربر/تیم)",
+      "usersTitle": "کاربران مجاز به مصرف مدل",
+      "description": "مدل‌های قابل مصرف را فعال کنید و دسترسی کاربران را تنظیم کنید.",
+      "accessTitle": "کنترل دسترسی مصرف",
+      "empty": "مدلی برای این ارائه‌دهنده یافت نشد.",
+      "searchPlaceholder": "جستجو در نام مدل",
+      "toggleSelectAll": "انتخاب/لغو انتخاب همه",
+      "columns": {
+        "model": "مدل",
+        "inputCost": "هزینه ورودی (دلار / 1M)",
+        "outputCost": "هزینه خروجی (دلار / 1M)"
+      }
+    },
+    "fields": {
+      "provider": "ارائه‌دهنده مدل",
+      "accountName": "نام نمایشی حساب",
+      "authMode": "روش احراز هویت اتصال",
+      "virtualKeysMode": "سیاست کلید مجازی",
+      "allowVirtualOnly": "فقط کلیدهای مجازی تننت",
+      "apiKeyOptional": "API Key (اختیاری)",
+      "secretRefOptional": "مرجع Secret (اختیاری)",
+      "pricingMode": "مبنای قیمت‌گذاری",
+      "inputPrice": "هزینه ورودی (دلار / ۱M توکن)",
+      "outputPrice": "هزینه خروجی (دلار / ۱M توکن)",
+      "publicPricing": "قیمت عمومی",
+      "privatePricing": "قیمت اختصاصی",
+      "azureTenantID": "Azure Tenant ID",
+      "azureClientID": "Azure Client ID",
+      "awsAccessKeyID": "AWS Access Key ID",
+      "awsSecretAccessKey": "AWS Secret Access Key",
+      "awsRegion": "AWS Region",
+      "googleServiceAccountJSON": "Google Service Account JSON"
+    },
+    "principal": {
+      "user": "کاربر",
+      "team": "تیم",
+      "searchPlaceholder": "نام کاربر یا تیم...",
+      "search": "جستجو",
+      "add": "افزودن",
+      "addEveryone": "اعطای دسترسی به همه کاربران",
+      "remove": "حذف",
+      "everyone": "همه کاربران"
+    },
+    "messages": {
+      "initialLoadFailed": "بارگیری اولیه انجام نشد.",
+      "providerModelsLoadFailed": "دریافت لیست مدل‌ها از Discovery ناموفق بود.",
+      "validationProviderName": "انتخاب ارائه‌دهنده و وارد کردن نام حساب الزامی است.",
+      "accountCreateSuccess": "حساب ارائه‌دهنده با موفقیت ایجاد شد.",
+      "accountCreateFailed": "ایجاد حساب ارائه‌دهنده انجام نشد.",
+      "accountLoadSuccess": "تنظیمات حساب با موفقیت بارگذاری شد.",
+      "accountLoadFailed": "بارگذاری تنظیمات حساب ناموفق بود.",
+      "selectAccountFirst": "ابتدا یک حساب ارائه‌دهنده انتخاب یا ایجاد کنید.",
+      "selectAtLeastOneModel": "حداقل یک مدل را برای فعال‌سازی انتخاب کنید.",
+      "modelsSaveSuccess": "تنظیمات مدل‌ها با موفقیت ذخیره شد.",
+      "modelsSaveFailed": "ذخیره تنظیمات مدل‌ها ناموفق بود.",
+      "managerRequired": "حداقل یک مدیر حساب باید تعریف شود.",
+      "accessSaveSuccess": "سطح دسترسی با موفقیت ذخیره شد.",
+      "accessSaveFailed": "ذخیره سطح دسترسی ناموفق بود.",
+      "credentialValid": "اعتبارنامه‌های اتصال معتبر است.",
+      "credentialInvalid": "اعتبارسنجی اتصال ناموفق بود.",
+      "credentialTestFailed": "تست اعتبارنامه‌های اتصال انجام نشد.",
+      "managerSearchFailed": "جستجوی مدیران ناموفق بود.",
+      "userSearchFailed": "جستجوی کاربران/تیم‌ها ناموفق بود."
+    },
+    "wizard": {
+      "stepLabel": "گام {number}",
+      "back": "بازگشت",
+      "next": "ادامه",
+      "finalHint": "پس از تعریف مدیران و کاربران، سطح دسترسی را ذخیره کنید."
     }
   }
 }

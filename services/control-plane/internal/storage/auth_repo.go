@@ -19,13 +19,14 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 	var rpmLimit *int64
 	var tpmLimit *int64
 	var expiresAt *time.Time
-	var models []string
+	var keyModels []string
 
 	err := s.pool.QueryRow(ctx, `
 		SELECT id::text,
 		       tenant_id::text,
 		       COALESCE(organization_id::text, ''),
 		       COALESCE(team_id::text, ''),
+		       COALESCE(user_id::text, ''),
 		       COALESCE(key_alias, ''),
 		       COALESCE(token_hash, ''),
 		       COALESCE(models, '{}'),
@@ -43,9 +44,10 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 		&auth.TenantID,
 		&auth.OrganizationID,
 		&auth.TeamID,
+		&auth.UserID,
 		&auth.KeyAlias,
 		&auth.TokenHash,
-		&models,
+		&keyModels,
 		&auth.Spend,
 		&maxBudget,
 		&rpmLimit,
@@ -57,13 +59,141 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 		return nil, err
 	}
 
-	auth.Role = "virtual_key"
-	auth.AllowedModels = models
+	auth.Role = deriveKeyRole(auth.TeamID)
 	auth.MaxBudget = maxBudget
 	auth.RPMLimit = rpmLimit
 	auth.TPMLimit = tpmLimit
 	auth.ExpiresAt = expiresAt
+
+	runtimeModels, enforceProviderPolicy, err := s.listRuntimeAllowedModelsByProviderAccount(ctx, auth.TenantID, auth.TeamID, auth.UserID)
+	if err != nil {
+		return nil, err
+	}
+	if enforceProviderPolicy {
+		auth.AllowedModels = intersectAllowedModels(keyModels, runtimeModels)
+	} else {
+		auth.AllowedModels = keyModels
+	}
+
 	return &auth, nil
+}
+
+func (s *Store) listRuntimeAllowedModelsByProviderAccount(ctx context.Context, tenantID string, teamID string, userID string) ([]string, bool, error) {
+	var hasEnabledModels bool
+	if err := s.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM tenant_provider_accounts a
+			JOIN tenant_provider_account_models m ON m.account_id = a.account_id
+			WHERE a.tenant_id = $1
+			  AND m.enabled = true
+		)
+	`, tenantID).Scan(&hasEnabledModels); err != nil {
+		return nil, false, err
+	}
+	if !hasEnabledModels {
+		return nil, false, nil
+	}
+
+	rows, err := s.pool.Query(ctx, `
+		SELECT DISTINCT m.model
+		FROM tenant_provider_accounts a
+		JOIN tenant_provider_account_models m
+		  ON m.account_id = a.account_id
+		 AND m.enabled = true
+		JOIN tenant_provider_account_access ac
+		  ON ac.account_id = a.account_id
+		 AND ac.role IN ('manager', 'user')
+		WHERE a.tenant_id = $1
+		  AND (
+			   ac.principal_type = 'everyone'
+			OR (ac.principal_type = 'team' AND ac.principal_id = NULLIF($2, ''))
+			OR (ac.principal_type = 'user' AND ac.principal_id = NULLIF($3, ''))
+		  )
+	`, tenantID, teamID, userID)
+	if err != nil {
+		return nil, false, err
+	}
+	defer rows.Close()
+
+	models := make([]string, 0)
+	for rows.Next() {
+		var model string
+		if err := rows.Scan(&model); err != nil {
+			return nil, false, err
+		}
+		model = strings.TrimSpace(model)
+		if model != "" {
+			models = append(models, model)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, false, err
+	}
+
+	return models, true, nil
+}
+
+func intersectAllowedModels(keyModels []string, runtimeModels []string) []string {
+	if len(runtimeModels) == 0 {
+		return []string{}
+	}
+	if len(keyModels) == 0 || containsWildcard(keyModels) {
+		return dedupeModels(runtimeModels)
+	}
+
+	runtimeSet := make(map[string]struct{}, len(runtimeModels))
+	for _, model := range runtimeModels {
+		model = strings.TrimSpace(model)
+		if model == "" {
+			continue
+		}
+		runtimeSet[model] = struct{}{}
+	}
+
+	out := make([]string, 0, len(keyModels))
+	seen := make(map[string]struct{}, len(keyModels))
+	for _, model := range keyModels {
+		model = strings.TrimSpace(model)
+		if model == "" {
+			continue
+		}
+		if _, ok := runtimeSet[model]; !ok {
+			continue
+		}
+		if _, ok := seen[model]; ok {
+			continue
+		}
+		seen[model] = struct{}{}
+		out = append(out, model)
+	}
+	return out
+}
+
+func dedupeModels(models []string) []string {
+	out := make([]string, 0, len(models))
+	seen := make(map[string]struct{}, len(models))
+	for _, model := range models {
+		model = strings.TrimSpace(model)
+		if model == "" {
+			continue
+		}
+		if _, ok := seen[model]; ok {
+			continue
+		}
+		seen[model] = struct{}{}
+		out = append(out, model)
+	}
+	return out
+}
+
+func containsWildcard(models []string) bool {
+	for _, model := range models {
+		if strings.TrimSpace(model) == "*" {
+			return true
+		}
+	}
+	return false
 }
 
 // CreateKey creates a tenant-scoped virtual key.
@@ -138,10 +268,17 @@ func (s *Store) ListKeys(ctx context.Context, tenantID string) ([]platform.Creat
 			return nil, err
 		}
 		item.Models = models
-		item.Role = "virtual_key"
+		item.Role = deriveKeyRole(item.TeamID)
 		keys = append(keys, item)
 	}
 	return keys, rows.Err()
+}
+
+func deriveKeyRole(teamID string) string {
+	if strings.TrimSpace(teamID) != "" {
+		return "service_account"
+	}
+	return "virtual_key"
 }
 
 func maskKey(key string) string {

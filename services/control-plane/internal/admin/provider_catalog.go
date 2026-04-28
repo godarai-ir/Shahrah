@@ -9,10 +9,12 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
 )
 
 var errDiscoveryNotFound = errors.New("discovery resource not found")
@@ -34,71 +36,75 @@ func discoveryProviderExists(ctx context.Context, provider string) (bool, error)
 }
 
 func discoveryProviders(ctx context.Context) ([]platform.ProviderCatalogProvider, error) {
-	baseURL, err := getDiscoveryBaseURL()
-	if err != nil {
-		return nil, err
+	baseURL := getDiscoveryBaseURL()
+	if baseURL == "" {
+		return localProviderCatalog(), nil
 	}
 	body, status, err := discoveryGET(ctx, baseURL+"/providers")
 	if err != nil {
-		return nil, err
+		return localProviderCatalog(), nil
 	}
 	if status == http.StatusNotFound {
-		return nil, errDiscoveryNotFound
+		return localProviderCatalog(), nil
 	}
 	if status >= http.StatusBadRequest {
-		return nil, fmt.Errorf("discovery providers failed with status %d", status)
+		return localProviderCatalog(), nil
 	}
 
 	items, err := decodeProvidersPayload(body)
 	if err != nil {
-		return nil, err
+		return localProviderCatalog(), nil
 	}
-	return normalizeProviders(items), nil
+	normalized := normalizeProviders(items)
+	if len(normalized) == 0 {
+		return localProviderCatalog(), nil
+	}
+	return normalized, nil
 }
 
 func discoveryProviderModels(ctx context.Context, provider string) ([]platform.ProviderCatalogModel, error) {
-	baseURL, err := getDiscoveryBaseURL()
-	if err != nil {
-		return nil, err
-	}
 	normalizedProvider := strings.TrimSpace(strings.ToLower(provider))
 	if normalizedProvider == "" {
 		return nil, fmt.Errorf("provider is required")
 	}
+	baseURL := getDiscoveryBaseURL()
+	if baseURL == "" {
+		return localProviderModels(normalizedProvider)
+	}
 	body, status, err := discoveryGET(ctx, baseURL+"/providers/"+url.PathEscape(normalizedProvider)+"/models")
 	if err != nil {
-		return nil, err
+		return localProviderModels(normalizedProvider)
 	}
 	if status == http.StatusNotFound {
-		return nil, errDiscoveryNotFound
+		return localProviderModels(normalizedProvider)
 	}
 	if status >= http.StatusBadRequest {
-		return nil, fmt.Errorf("discovery provider models failed with status %d", status)
+		return localProviderModels(normalizedProvider)
 	}
 
 	items, err := decodeProviderModelsPayload(body)
 	if err != nil {
-		return nil, err
+		return localProviderModels(normalizedProvider)
 	}
 	for i := range items {
 		items[i].Provider = normalizedProvider
 		if items[i].Model == "" {
-			return nil, fmt.Errorf("discovery payload contains empty model value")
+			return localProviderModels(normalizedProvider)
 		}
 	}
 	return items, nil
 }
 
-func getDiscoveryBaseURL() (string, error) {
+func getDiscoveryBaseURL() string {
 	baseURL := strings.TrimSpace(os.Getenv("SHAHRAH_MODEL_DISCOVERY_URL"))
 	if baseURL == "" {
 		baseURL = strings.TrimSpace(os.Getenv("SHAHRAH_DISCOVERY_URL"))
 	}
 	if baseURL == "" {
-		return "", fmt.Errorf("model discovery service URL is not configured (set SHAHRAH_MODEL_DISCOVERY_URL)")
+		return ""
 	}
 	baseURL = strings.TrimSuffix(baseURL, "/")
-	return baseURL, nil
+	return baseURL
 }
 
 func discoveryGET(ctx context.Context, rawURL string) ([]byte, int, error) {
@@ -190,6 +196,9 @@ func normalizeProviders(items []platform.ProviderCatalogProvider) []platform.Pro
 		if item.Provider == "" {
 			continue
 		}
+		if item.Provider == "azure" {
+			continue
+		}
 		if item.DisplayName == "" {
 			item.DisplayName = item.Provider
 		}
@@ -199,4 +208,109 @@ func normalizeProviders(items []platform.ProviderCatalogProvider) []platform.Pro
 		out = append(out, item)
 	}
 	return out
+}
+
+func localProviderCatalog() []platform.ProviderCatalogProvider {
+	return []platform.ProviderCatalogProvider{
+		{
+			Provider:                "openai",
+			DisplayName:             "OpenAI",
+			Enabled:                 true,
+			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
+			SupportsBringYourOwnKey: true,
+			SupportsVirtualKeys:     true,
+		},
+		{
+			Provider:                "anthropic",
+			DisplayName:             "Anthropic",
+			Enabled:                 true,
+			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
+			SupportsBringYourOwnKey: true,
+			SupportsVirtualKeys:     true,
+		},
+		{
+			Provider:                "bedrock",
+			DisplayName:             "AWS Bedrock",
+			Enabled:                 true,
+			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAWSSigV4},
+			SupportsBringYourOwnKey: true,
+			SupportsVirtualKeys:     true,
+		},
+		{
+			Provider:                "gemini",
+			DisplayName:             "Google Gemini",
+			Enabled:                 true,
+			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey, platform.ProviderAuthModeGoogleServiceAccount},
+			SupportsBringYourOwnKey: true,
+			SupportsVirtualKeys:     true,
+		},
+		{
+			Provider:                "vertexai",
+			DisplayName:             "Google Vertex AI",
+			Enabled:                 true,
+			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeGoogleServiceAccount},
+			SupportsBringYourOwnKey: true,
+			SupportsVirtualKeys:     true,
+		},
+		{
+			Provider:                "groq",
+			DisplayName:             "Groq",
+			Enabled:                 true,
+			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
+			SupportsBringYourOwnKey: true,
+			SupportsVirtualKeys:     true,
+		},
+		{
+			Provider:                "mistral",
+			DisplayName:             "Mistral",
+			Enabled:                 true,
+			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
+			SupportsBringYourOwnKey: true,
+			SupportsVirtualKeys:     true,
+		},
+		{
+			Provider:                "togetherai",
+			DisplayName:             "Together AI",
+			Enabled:                 true,
+			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
+			SupportsBringYourOwnKey: true,
+			SupportsVirtualKeys:     true,
+		},
+		{
+			Provider:                "cohere",
+			DisplayName:             "Cohere",
+			Enabled:                 true,
+			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
+			SupportsBringYourOwnKey: true,
+			SupportsVirtualKeys:     true,
+		},
+	}
+}
+
+func localProviderModels(provider string) ([]platform.ProviderCatalogModel, error) {
+	items := make([]platform.ProviderCatalogModel, 0)
+	for _, pricing := range billing.PricingRegistry {
+		if strings.TrimSpace(strings.ToLower(pricing.Provider)) != provider {
+			continue
+		}
+		input := pricing.InputPrice
+		output := pricing.OutputPrice
+		items = append(items, platform.ProviderCatalogModel{
+			Provider:    provider,
+			Model:       pricing.Model,
+			DisplayName: pricing.Model,
+			Types:       []platform.ModelType{platform.ModelTypeChat},
+			PublicPricing: &platform.ModelPrice{
+				InputUSDPer1M:  &input,
+				OutputUSDPer1M: &output,
+			},
+		})
+	}
+	if len(items) == 0 {
+		return nil, errDiscoveryNotFound
+	}
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].Model < items[j].Model
+	})
+	return items, nil
 }

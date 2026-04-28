@@ -48,26 +48,36 @@ type providerAccountStore interface {
 	SearchAccessPrincipals(ctx context.Context, kind string, query string, limit int) ([]platform.AccessPrincipalCandidate, error)
 }
 
+type userStore interface {
+	ListTenantAdminUsers(ctx context.Context, tenantSlug string, query string, limit int, offset int) ([]platform.TenantAdminUser, int, error)
+	InviteTenantAdminUser(ctx context.Context, tenantID string, tenantSlug string, req platform.InviteTenantAdminUserRequest) (*platform.TenantAdminInvitation, string, error)
+	AcceptTenantAdminInvitation(ctx context.Context, tenantID string, tenantSlug string, token string) (*platform.TenantAdminInvitation, *platform.TenantAdminUser, error)
+	SetTenantAdminUserActive(ctx context.Context, tenantSlug string, userID string, active bool) (*platform.TenantAdminUser, error)
+}
+
 // Handlers serves bootstrap management APIs.
 type Handlers struct {
 	keys             keyStore
 	models           modelStore
 	wallets          walletStore
 	providerAccounts providerAccountStore
+	users            userStore
 }
 
 // New creates a management handlers bundle.
 func New(keys keyStore, models modelStore, wallets walletStore) *Handlers {
 	accounts, _ := models.(providerAccountStore)
+	users, _ := models.(userStore)
 	return &Handlers{
 		keys:             keys,
 		models:           models,
 		wallets:          wallets,
 		providerAccounts: accounts,
+		users:            users,
 	}
 }
 
-// CreateKey creates a tenant-scoped virtual key.
+// CreateKey creates a tenant-scoped key (virtual key or service account key).
 func (h *Handlers) CreateKey(c *fiber.Ctx) error {
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
@@ -78,9 +88,38 @@ func (h *Handlers) CreateKey(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
+	req.KeyAlias = strings.TrimSpace(req.KeyAlias)
+	if req.KeyAlias == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "key_alias is required")
+	}
+	for i := range req.Models {
+		req.Models[i] = strings.TrimSpace(req.Models[i])
+	}
+	filteredModels := make([]string, 0, len(req.Models))
+	for _, model := range req.Models {
+		if model != "" {
+			filteredModels = append(filteredModels, model)
+		}
+	}
+	if len(filteredModels) == 0 {
+		return fiber.NewError(fiber.StatusBadRequest, "at least one model is required")
+	}
+	req.Models = filteredModels
+	req.TeamID = strings.TrimSpace(req.TeamID)
+	req.OrgID = strings.TrimSpace(req.OrgID)
+
 	req.TenantID = currentTenant.ID
+	req.Role = strings.TrimSpace(strings.ToLower(req.Role))
 	if req.Role == "" {
 		req.Role = "virtual_key"
+	}
+	switch req.Role {
+	case "virtual_key", "service_account":
+	default:
+		return fiber.NewError(fiber.StatusBadRequest, "role must be virtual_key or service_account")
+	}
+	if req.Role == "service_account" && req.TeamID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "team_id is required for service_account")
 	}
 
 	created, err := h.keys.CreateKey(c.Context(), req)
@@ -489,6 +528,169 @@ func (h *Handlers) ListAccessPrincipals(c *fiber.Ctx) error {
 		return err
 	}
 	return c.JSON(platform.AccessPrincipalListResponse{Data: items})
+}
+
+// ListTenantUsers lists tenant-admin users for the current tenant.
+func (h *Handlers) ListTenantUsers(c *fiber.Ctx) error {
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.users == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "user store not configured")
+	}
+
+	query := strings.TrimSpace(c.Query("query"))
+	limit := 50
+	offset := 0
+
+	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
+		parsed, parseErr := strconv.Atoi(raw)
+		if parseErr != nil || parsed <= 0 {
+			return fiber.NewError(fiber.StatusBadRequest, "limit must be a positive number")
+		}
+		if parsed > 200 {
+			parsed = 200
+		}
+		limit = parsed
+	}
+
+	if raw := strings.TrimSpace(c.Query("offset")); raw != "" {
+		parsed, parseErr := strconv.Atoi(raw)
+		if parseErr != nil || parsed < 0 {
+			return fiber.NewError(fiber.StatusBadRequest, "offset must be zero or greater")
+		}
+		offset = parsed
+	}
+
+	items, total, err := h.users.ListTenantAdminUsers(c.Context(), currentTenant.Slug, query, limit, offset)
+	if err != nil {
+		return err
+	}
+
+	var nextOffset *int
+	if offset+len(items) < total {
+		n := offset + len(items)
+		nextOffset = &n
+	}
+
+	return c.JSON(platform.TenantAdminUserListResponse{
+		Data:       items,
+		Total:      total,
+		Limit:      limit,
+		Offset:     offset,
+		NextOffset: nextOffset,
+	})
+}
+
+// InviteTenantUser creates a tenant-admin invitation link.
+func (h *Handlers) InviteTenantUser(c *fiber.Ctx) error {
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.users == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "user store not configured")
+	}
+
+	var req platform.InviteTenantAdminUserRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
+	req.Mobile = strings.TrimSpace(req.Mobile)
+	req.Role = strings.TrimSpace(strings.ToLower(req.Role))
+	req.AcceptInviteClientURL = strings.TrimSpace(req.AcceptInviteClientURL)
+
+	if req.Email == "" && req.Mobile == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "either email or mobile is required")
+	}
+	if req.Role == "" {
+		req.Role = "tenant_member"
+	}
+
+	invitation, link, err := h.users.InviteTenantAdminUser(c.Context(), currentTenant.ID, currentTenant.Slug, req)
+	if err != nil {
+		return err
+	}
+	return c.Status(fiber.StatusCreated).JSON(platform.InviteTenantAdminUserResponse{
+		Invitation: *invitation,
+		Link:       link,
+	})
+}
+
+// AcceptTenantUserInvitation accepts invite token and activates/creates user.
+func (h *Handlers) AcceptTenantUserInvitation(c *fiber.Ctx) error {
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.users == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "user store not configured")
+	}
+
+	var req platform.AcceptTenantAdminInvitationRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	req.Token = strings.TrimSpace(req.Token)
+	if req.Token == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "token is required")
+	}
+
+	invitation, user, err := h.users.AcceptTenantAdminInvitation(c.Context(), currentTenant.ID, currentTenant.Slug, req.Token)
+	if err != nil {
+		switch {
+		case errors.Is(err, storage.ErrInvalidInvitationToken):
+			return fiber.NewError(fiber.StatusBadRequest, "invalid invitation token")
+		case errors.Is(err, storage.ErrInvitationExpired):
+			return fiber.NewError(fiber.StatusGone, "invitation expired")
+		case errors.Is(err, storage.ErrInvitationAlreadyUsed):
+			return fiber.NewError(fiber.StatusConflict, "invitation already used")
+		case errors.Is(err, pgx.ErrNoRows):
+			return fiber.NewError(fiber.StatusNotFound, "invitation not found")
+		default:
+			return err
+		}
+	}
+
+	return c.JSON(platform.AcceptTenantAdminInvitationResponse{
+		Invitation: *invitation,
+		User:       *user,
+	})
+}
+
+// ActivateTenantUser marks one tenant-admin user as active.
+func (h *Handlers) ActivateTenantUser(c *fiber.Ctx) error {
+	return h.setTenantUserActive(c, true)
+}
+
+// DeactivateTenantUser marks one tenant-admin user as deactivated.
+func (h *Handlers) DeactivateTenantUser(c *fiber.Ctx) error {
+	return h.setTenantUserActive(c, false)
+}
+
+func (h *Handlers) setTenantUserActive(c *fiber.Ctx, active bool) error {
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.users == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "user store not configured")
+	}
+
+	userID := strings.TrimSpace(c.Params("userID"))
+	if userID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "userID is required")
+	}
+	user, err := h.users.SetTenantAdminUserActive(c.Context(), currentTenant.Slug, userID, active)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "user not found")
+		}
+		return err
+	}
+	return c.JSON(user)
 }
 
 func (h *Handlers) requireProviderAccountsStore() (providerAccountStore, error) {

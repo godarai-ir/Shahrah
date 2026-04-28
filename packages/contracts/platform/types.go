@@ -19,6 +19,7 @@ type AuthContext struct {
 	TenantID       string     `json:"tenant_id"`
 	OrganizationID string     `json:"organization_id,omitempty"`
 	TeamID         string     `json:"team_id,omitempty"`
+	UserID         string     `json:"user_id,omitempty"`
 	KeyID          string     `json:"key_id"`
 	KeyAlias       string     `json:"key_alias,omitempty"`
 	Role           string     `json:"role"`

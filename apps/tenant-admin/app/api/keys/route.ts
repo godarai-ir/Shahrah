@@ -9,6 +9,8 @@ type CreateKeyPayload = {
   key_alias?: unknown;
   models?: unknown;
   role?: unknown;
+  team_id?: unknown;
+  organization_id?: unknown;
 };
 
 export async function GET(request: NextRequest) {
@@ -52,7 +54,15 @@ export async function POST(request: NextRequest) {
         .map((item) => item.trim())
         .filter(Boolean)
     : [];
-  const role = typeof body.role === "string" ? body.role.trim() : "virtual_key";
+  const requestedRole =
+    typeof body.role === "string" ? body.role.trim().toLowerCase() : "";
+  const role =
+    requestedRole === "service_account" ? "service_account" : "virtual_key";
+  const teamID = typeof body.team_id === "string" ? body.team_id.trim() : "";
+  const organizationID =
+    typeof body.organization_id === "string"
+      ? body.organization_id.trim()
+      : "";
 
   if (!keyAlias) {
     return NextResponse.json(
@@ -66,6 +76,12 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
+  if (role === "service_account" && !teamID) {
+    return NextResponse.json(
+      { error: { message: "برای Service Account، ارسال team_id الزامی است." } },
+      { status: 400 },
+    );
+  }
 
   return proxyToControlPlane({
     request,
@@ -74,7 +90,9 @@ export async function POST(request: NextRequest) {
     body: {
       key_alias: keyAlias,
       models,
-      role: role || "virtual_key",
+      role,
+      team_id: teamID || undefined,
+      organization_id: organizationID || undefined,
     },
   });
 }
