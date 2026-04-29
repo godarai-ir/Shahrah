@@ -28,7 +28,7 @@ export function Hero() {
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-900 dark:text-white leading-[1.2] mb-6 font-sans">شاهراه؛ مسیر ساده و به‌صرفه برای دسترسی به <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500">مدل‌های هوش مصنوعی</span></h1>
             <p className="text-lg text-slate-600 dark:text-gray-400 mb-8 leading-relaxed">
-              یک LLM Gateway برای کاربران و کسب‌وکارهای ایرانی — از خرید اکانت تا مدیریت، بهینه‌سازی و استفاده از مدل‌های AI در مقیاس با کمترین هزینه و بالاترین پایداری.
+              یک LLM Gateway برای کاربران و کسب‌وکارهای ایرانی — از درگاه پرداخت ایرانی تا مدیریت، بهینه‌سازی و استفاده از مدل‌های AI در مقیاس با کمترین هزینه و بالاترین پایداری.
             </p>
             <div className="flex flex-wrap items-center gap-4">
               <Link href="/signup" className="flex items-center gap-2 px-6 py-3 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-medium transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] hover:shadow-[0_0_30px_rgba(99,102,241,0.6)]">
@@ -65,7 +65,7 @@ export function Hero() {
 <span className="text-purple-400">from</span> openai <span className="text-purple-400">import</span> OpenAI{'\n\n'}
 client = OpenAI({'\n'}
 {'  '}api_key=<span className="text-green-400">"sh_live_xxx"</span>,{'\n'}
-{'  '}base_url=<span className="text-green-400">"https://api.shahrah.ai/v1"</span>{'\n'}
+{'  '}base_url=<span className="text-green-400">"https://api.sharah.ir/v1"</span>{'\n'}
 ){'\n\n'}
 response = client.chat.completions.create({'\n'}
 {'  '}model=<span className="text-green-400">"gpt-4o"</span>,{'\n'}

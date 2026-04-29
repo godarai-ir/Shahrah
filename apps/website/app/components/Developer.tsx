@@ -10,7 +10,7 @@ export function Developer() {
 
 const client = new OpenAI({
   apiKey: "SHAHRAH_API_KEY",
-  baseURL: "https://api.shahrah.ai/v1" // تنها خطی که باید تغییر کند
+  baseURL: "https://api.sharah.ir/v1" // تنها خطی که باید تغییر کند
 });
 
 const response = await client.chat.completions.create({
@@ -87,7 +87,7 @@ console.log(response.choices[0].message.content);`;
 <span className="text-purple-400">import</span> {'{'} OpenAI {'}'} <span className="text-purple-400">from</span> <span className="text-green-400">"openai"</span>;{'\n\n'}
 <span className="text-purple-400">const</span> client = <span className="text-purple-400">new</span> OpenAI({'{'}{'\n'}
 {'  '}apiKey: <span className="text-green-400">"SHAHRAH_API_KEY"</span>,{'\n'}
-{'  '}baseURL: <span className="text-green-400">"https://api.shahrah.ai/v1"</span> <span className="text-gray-500">// تنها خطی که باید تغییر کند</span>{'\n'}
+{'  '}baseURL: <span className="text-green-400">"https://api.sharah.ir/v1"</span> <span className="text-gray-500">// تنها خطی که باید تغییر کند</span>{'\n'}
 {'}'});{'\n\n'}
 <span className="text-purple-400">const</span> response = <span className="text-blue-400">await</span> client.chat.completions.create({'{'}{'\n'}
 {'  '}model: <span className="text-green-400">"gpt-4-turbo"</span>,{'\n'}

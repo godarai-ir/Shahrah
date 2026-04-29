@@ -65,7 +65,7 @@ export function Documentation() {
 
 const client = new OpenAI({
   apiKey: 'YOUR_SHAHRAH_API_KEY',
-  baseURL: 'https://api.shahrah.ai/v1'
+  baseURL: 'https://api.sharah.ir/v1'
 });
 
 const response = await client.chat.completions.create({

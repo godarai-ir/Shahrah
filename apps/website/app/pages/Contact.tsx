@@ -23,7 +23,7 @@ export function Contact() {
                 {
                   icon: Mail,
                   title: 'ایمیل',
-                  value: 'info@shahrah.ai',
+                  value: 'info@sharah.ir',
                   description: 'پاسخگویی در کمتر از ۲۴ ساعت',
                 },
                 {

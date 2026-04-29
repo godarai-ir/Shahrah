@@ -110,8 +110,8 @@ export function Terms() {
             <h2 className="text-2xl font-bold mb-4">۱۲. تماس با ما</h2>
             <p className="text-slate-600 dark:text-gray-400 leading-relaxed">
               برای سوالات مربوط به شرایط استفاده، با ما از طریق ایمیل{' '}
-              <a href="mailto:legal@shahrah.ai" className="text-indigo-500 hover:text-indigo-600">
-                legal@shahrah.ai
+              <a href="mailto:legal@sharah.ir" className="text-indigo-500 hover:text-indigo-600">
+                legal@sharah.ir
               </a>{' '}
               تماس بگیرید.
             </p>

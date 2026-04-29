@@ -76,8 +76,8 @@ export function Privacy() {
             <h2 className="text-2xl font-bold mb-4">۸. تماس با ما</h2>
             <p className="text-slate-600 dark:text-gray-400 leading-relaxed">
               برای سوالات مربوط به حریم خصوصی، با ما از طریق ایمیل{' '}
-              <a href="mailto:privacy@shahrah.ai" className="text-indigo-500 hover:text-indigo-600">
-                privacy@shahrah.ai
+              <a href="mailto:privacy@sharah.ir" className="text-indigo-500 hover:text-indigo-600">
+                privacy@sharah.ir
               </a>{' '}
               تماس بگیرید.
             </p>
