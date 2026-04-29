@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import {
   BadgeCheck,
   BriefcaseBusiness,
@@ -66,7 +67,6 @@ type InviteResponse = {
   link?: string;
   invitation?: {
     email?: string;
-    mobile?: string;
     role?: string;
   };
 };
@@ -85,6 +85,8 @@ type UsersAccessManagementProps = {
 const PAGE_SIZE = 25;
 
 export default function UsersAccessManagement(props: UsersAccessManagementProps) {
+  const t = useTranslations("accessManagement");
+
   const [users, setUsers] = useState<TenantAdminUser[]>(props.initialUsers);
   const [total, setTotal] = useState(props.initialTotal);
   const [query, setQuery] = useState("");
@@ -93,7 +95,6 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   const [isInviting, setIsInviting] = useState(false);
   const [isUpdatingUserID, setIsUpdatingUserID] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteMobile, setInviteMobile] = useState("");
   const [inviteRole, setInviteRole] = useState("tenant_member");
   const [banner, setBanner] = useState<Banner | null>(
     props.initialError
@@ -121,15 +122,16 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
 
   const accessTabs = useMemo(
     () => [
-      { href: "/users", label: "Users", icon: UserCircle2, active: true },
-      { href: "#", label: "Teams", icon: Users, active: false },
-      { href: "#", label: "External Auth", icon: ShieldCheck, active: false },
-      { href: "#", label: "Personal Access Tokens", icon: KeyRound, active: false },
-      { href: "#", label: "Virtual Accounts", icon: BriefcaseBusiness, active: false },
-      { href: "#", label: "Roles", icon: BadgeCheck, active: false },
-      { href: "#", label: "Audit Logs", icon: ShieldCheck, active: false },
+      { href: "/users", label: t("tabs.users"), icon: UserCircle2, active: true },
+      { href: "#", label: t("tabs.teams"), icon: Users, active: false },
+      { href: "#", label: t("tabs.externalAuth"), icon: ShieldCheck, active: false },
+      { href: "#", label: t("tabs.personalAccessTokens"), icon: KeyRound, active: false },
+      { href: "#", label: t("tabs.virtualAccounts"), icon: BriefcaseBusiness, active: false },
+      { href: "#", label: t("tabs.roles"), icon: BadgeCheck, active: false },
+      { href: "#", label: t("tabs.auditLogs"), icon: ShieldCheck, active: false },
     ],
-    [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [t],
   );
 
   async function loadUsers(nextOffset: number, q: string) {
@@ -148,7 +150,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
     } catch (error) {
       setBanner({
         kind: "error",
-        message: normalizeError(error, "Failed to load users."),
+        message: normalizeError(error, t("messages.loadUsersError")),
       });
     } finally {
       setIsLoading(false);
@@ -161,11 +163,10 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
     setLastInviteLink(null);
 
     const email = inviteEmail.trim();
-    const mobile = inviteMobile.trim();
-    if (!email && !mobile) {
+    if (!email) {
       setBanner({
         kind: "error",
-        message: "Provide either email or mobile for invitation.",
+        message: t("messages.provideEmail"),
       });
       return;
     }
@@ -175,24 +176,22 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       const response = await requestJSON<InviteResponse>("/api/users/invite", {
         method: "POST",
         body: JSON.stringify({
-          email: email || undefined,
-          mobile: mobile || undefined,
+          email,
           role: inviteRole,
         }),
       });
       setLastInviteLink(response.link ?? null);
       setBanner({
         kind: "success",
-        message: "Invitation created successfully.",
+        message: t("messages.invitationSuccess"),
       });
       setInviteEmail("");
-      setInviteMobile("");
       setInviteRole("tenant_member");
       await loadUsers(0, query.trim());
     } catch (error) {
       setBanner({
         kind: "error",
-        message: normalizeError(error, "Failed to invite user."),
+        message: normalizeError(error, t("messages.inviteError")),
       });
     } finally {
       setIsInviting(false);
@@ -208,13 +207,13 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       });
       setBanner({
         kind: "success",
-        message: activate ? "User activated." : "User deactivated.",
+        message: activate ? t("messages.activateSuccess") : t("messages.deactivateSuccess"),
       });
       await loadUsers(offset, query.trim());
     } catch (error) {
       setBanner({
         kind: "error",
-        message: normalizeError(error, "Failed to update user status."),
+        message: normalizeError(error, t("messages.updateStatusError")),
       });
     } finally {
       setIsUpdatingUserID(null);
@@ -224,7 +223,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   return (
     <div className="space-y-5">
       <header className="space-y-4">
-        <h1 className="text-4xl font-bold tracking-tight">Access Management</h1>
+        <h1 className="text-4xl font-bold tracking-tight">{t("title")}</h1>
         <nav className="border-b">
           <ul className="flex flex-wrap items-center gap-5 pb-2">
             {accessTabs.map((tab) => {
@@ -252,14 +251,14 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
 
       {banner ? (
         <Alert variant={banner.kind === "error" ? "destructive" : "default"}>
-          <AlertTitle>{banner.kind === "error" ? "Error" : "Success"}</AlertTitle>
+          <AlertTitle>{banner.kind === "error" ? t("alerts.error") : t("alerts.success")}</AlertTitle>
           <AlertDescription>{banner.message}</AlertDescription>
         </Alert>
       ) : null}
 
       {lastInviteLink ? (
         <Alert className="border-primary/40 bg-primary/5">
-          <AlertTitle>Invitation Link</AlertTitle>
+          <AlertTitle>{t("alerts.invitationLink")}</AlertTitle>
           <AlertDescription>
             <code className="block overflow-x-auto rounded bg-muted px-3 py-2 text-xs">
               {lastInviteLink}
@@ -270,14 +269,14 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
 
       <section className="rounded-xl border bg-card px-4 py-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold tracking-wide text-slate-700">ALL USERS</h2>
+          <h2 className="text-lg font-semibold tracking-wide text-slate-700">{t("allUsers")}</h2>
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search..."
+                placeholder={t("searchPlaceholder")}
                 className="w-64 pl-9"
               />
             </div>
@@ -286,43 +285,32 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
               <SheetTrigger asChild>
                 <Button className="gap-2">
                   <Plus className="h-4 w-4" />
-                  Invite User
+                  {t("inviteUser")}
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className="w-[94vw] max-w-md">
                 <SheetHeader>
-                  <SheetTitle>Invite User</SheetTitle>
+                  <SheetTitle>{t("inviteTitle")}</SheetTitle>
                   <SheetDescription>
-                    Invite user with email or mobile to this tenant.
+                    {t("inviteDescription")}
                   </SheetDescription>
                 </SheetHeader>
 
                 <form className="mt-6 space-y-4" onSubmit={handleInvite}>
                   <div className="grid gap-2">
                     <label className="text-sm font-medium" htmlFor="invite-email">
-                      Email
+                      {t("form.email")}
                     </label>
                     <Input
                       id="invite-email"
                       value={inviteEmail}
                       onChange={(event) => setInviteEmail(event.target.value)}
-                      placeholder="user@company.com"
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium" htmlFor="invite-mobile">
-                      Mobile
-                    </label>
-                    <Input
-                      id="invite-mobile"
-                      value={inviteMobile}
-                      onChange={(event) => setInviteMobile(event.target.value)}
-                      placeholder="+98912..."
+                      placeholder={t("form.emailPlaceholder")}
                     />
                   </div>
                   <div className="grid gap-2">
                     <label className="text-sm font-medium" htmlFor="invite-role">
-                      Role
+                      {t("form.role")}
                     </label>
                     <select
                       id="invite-role"
@@ -330,13 +318,13 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
                       onChange={(event) => setInviteRole(event.target.value)}
                       className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                     >
-                      <option value="tenant_member">Member</option>
-                      <option value="tenant_admin">Tenant Admin</option>
+                      <option value="tenant_member">{t("roles.member")}</option>
+                      <option value="tenant_admin">{t("roles.tenantAdmin")}</option>
                     </select>
                   </div>
 
                   <Button type="submit" disabled={isInviting} className="w-full">
-                    {isInviting ? "Inviting..." : "Create Invite"}
+                    {isInviting ? t("button.inviting") : t("button.createInvite")}
                   </Button>
                 </form>
               </SheetContent>
@@ -347,9 +335,9 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>EMAIL / MOBILE</TableHead>
-              <TableHead>DISPLAY NAME</TableHead>
-              <TableHead>ROLE</TableHead>
+              <TableHead>{t("table.emailMobile")}</TableHead>
+              <TableHead>{t("table.displayName")}</TableHead>
+              <TableHead>{t("table.role")}</TableHead>
               <TableHead className="w-16 text-right"> </TableHead>
             </TableRow>
           </TableHeader>
@@ -357,7 +345,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
             {users.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} className="text-muted-foreground">
-                  No users found.
+                  {t("table.noUsersFound")}
                 </TableCell>
               </TableRow>
             ) : (
@@ -379,7 +367,11 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
                     </TableCell>
                     <TableCell>
                       <Badge variant={active ? "secondary" : "outline"}>
-                        {active ? mapRoleLabel(user.role) : "Deactivated"}
+                        {active
+                          ? user.role === "tenant_admin"
+                            ? t("roles.tenantAdmin")
+                            : t("roles.member")
+                          : t("status.deactivated")}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -396,11 +388,11 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
                         <DropdownMenuContent align="end">
                           {active ? (
                             <DropdownMenuItem onClick={() => void changeUserStatus(user.id, false)}>
-                              Deactivate
+                              {t("actions.deactivate")}
                             </DropdownMenuItem>
                           ) : (
                             <DropdownMenuItem onClick={() => void changeUserStatus(user.id, true)}>
-                              Activate
+                              {t("actions.activate")}
                             </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>
@@ -415,10 +407,10 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
           <p>
-            Showing {from} to {to} of {total} results
+            {t("pagination.showingResults", { from, to, total })}
           </p>
           <div className="flex items-center gap-2">
-            <span>Rows per page</span>
+            <span>{t("pagination.rowsPerPage")}</span>
             <Badge variant="outline">{PAGE_SIZE}</Badge>
             <Button
               variant="outline"
@@ -426,7 +418,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
               onClick={() => void loadUsers(Math.max(0, offset - PAGE_SIZE), query.trim())}
               disabled={!canPrev || isLoading}
             >
-              Prev
+              {t("pagination.prev")}
             </Button>
             <Badge variant="secondary">{Math.floor(offset / PAGE_SIZE) + 1}</Badge>
             <Button
@@ -435,20 +427,13 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
               onClick={() => void loadUsers(offset + PAGE_SIZE, query.trim())}
               disabled={!canNext || isLoading}
             >
-              Next
+              {t("pagination.next")}
             </Button>
           </div>
         </div>
       </section>
     </div>
   );
-}
-
-function mapRoleLabel(role: string) {
-  const value = role.trim().toLowerCase();
-  if (value === "tenant_admin") return "Tenant Admin";
-  if (value === "tenant_member") return "Member";
-  return role || "Member";
 }
 
 function guessDisplayName(identity: string) {

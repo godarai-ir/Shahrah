@@ -1,58 +1,122 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { readAuthFromRequest } from "@/lib/auth/request-auth";
-import { proxyToControlPlane } from "@/lib/control-plane";
+import { fetchControlPlaneJSON } from "@/lib/control-plane";
+import { sendInvitationEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
 type InvitePayload = {
   email?: unknown;
-  mobile?: unknown;
   role?: unknown;
   accept_invite_client_url?: unknown;
 };
 
+function resolveInviteBaseURL(request: NextRequest) {
+  const configured = process.env.SHAHRAH_INVITE_BASE_URL?.trim();
+  if (configured) {
+    return configured.endsWith("/") ? configured : `${configured}/`;
+  }
+
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.trim();
+  const host = request.headers.get("x-forwarded-host")?.trim() || request.headers.get("host")?.trim();
+  const protocol = forwardedProto || request.nextUrl.protocol.replace(":", "") || "https";
+
+  if (!host) {
+    return "";
+  }
+
+  return `${protocol}://${host}/invite/`;
+}
+
 export async function POST(request: NextRequest) {
-  const auth = await readAuthFromRequest(request);
-  if (!auth.ok) {
+  try {
+    const auth = await readAuthFromRequest(request);
+    if (!auth.ok) {
+      return NextResponse.json(
+        { error: { message: auth.message } },
+        { status: auth.status },
+      );
+    }
+
+    const body = (await request.json().catch(() => null)) as InvitePayload | null;
+    if (!body || typeof body !== "object") {
+      return NextResponse.json(
+        { error: { message: "Invalid request body." } },
+        { status: 400 },
+      );
+    }
+
+    const email = typeof body.email === "string" ? body.email.trim() : "";
+    const role = typeof body.role === "string" ? body.role.trim() : "tenant_member";
+    const acceptInviteClientURL =
+      typeof body.accept_invite_client_url === "string"
+        ? body.accept_invite_client_url.trim()
+        : resolveInviteBaseURL(request);
+
+    if (!email) {
+      return NextResponse.json(
+        { error: { message: "Email is required." } },
+        { status: 400 },
+      );
+    }
+
+    const upstream = await fetchControlPlaneJSON({
+      tenantSlug: auth.tenantSlug,
+      method: "POST",
+      path: "/api/v1/users/invite",
+      body: {
+        email,
+        role: role || "tenant_member",
+        accept_invite_client_url: acceptInviteClientURL || undefined,
+      },
+    });
+
+    if (!upstream.ok) {
+      console.error(
+        `[tenant-admin][invite-upstream] status=${upstream.status} message=${upstream.errorMessage ?? "n/a"} payload=${JSON.stringify(upstream.payload)}`,
+      );
+      return NextResponse.json(
+        {
+          error: {
+            message:
+              upstream.errorMessage ??
+              `Control-plane request failed (${upstream.status})`,
+          },
+          details: upstream.payload,
+        },
+        { status: upstream.status },
+      );
+    }
+
+    const payload =
+      upstream.payload && typeof upstream.payload === "object"
+        ? (upstream.payload as { link?: string; invitation?: { role?: string } })
+        : undefined;
+
+  if (payload?.link) {
+    try {
+      await sendInvitationEmail({
+        to: email,
+        link: payload.link,
+        tenantSlug: auth.tenantSlug,
+        tenantName: auth.tenantSlug,
+      });
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(
+          `[tenant-admin][invite-email] failed tenant=${auth.tenantSlug} to=${email}: ${message}`,
+        );
+      }
+    }
+
+    return NextResponse.json(upstream.payload, { status: upstream.status });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unexpected invite route error";
+    console.error(`[tenant-admin][invite-route] ${message}`);
     return NextResponse.json(
-      { error: { message: auth.message } },
-      { status: auth.status },
+      { error: { message: "Internal invite route error." } },
+      { status: 500 },
     );
   }
-
-  const body = (await request.json().catch(() => null)) as InvitePayload | null;
-  if (!body || typeof body !== "object") {
-    return NextResponse.json(
-      { error: { message: "بدنه درخواست نامعتبر است." } },
-      { status: 400 },
-    );
-  }
-
-  const email = typeof body.email === "string" ? body.email.trim() : "";
-  const mobile = typeof body.mobile === "string" ? body.mobile.trim() : "";
-  const role = typeof body.role === "string" ? body.role.trim() : "tenant_member";
-  const acceptInviteClientURL =
-    typeof body.accept_invite_client_url === "string"
-      ? body.accept_invite_client_url.trim()
-      : "";
-
-  if (!email && !mobile) {
-    return NextResponse.json(
-      { error: { message: "ارسال email یا mobile الزامی است." } },
-      { status: 400 },
-    );
-  }
-
-  return proxyToControlPlane({
-    request,
-    method: "POST",
-    path: "/api/v1/users/invite",
-    body: {
-      email: email || undefined,
-      mobile: mobile || undefined,
-      role: role || "tenant_member",
-      accept_invite_client_url: acceptInviteClientURL || undefined,
-    },
-  });
 }

@@ -1,4 +1,4 @@
-.PHONY: help setup setup-full setup-local build run test-unit test-integration test-integration-db test fmt vet lint check docker-up docker-down docker-migrate docker-logs docker-clean
+.PHONY: help setup setup-full setup-local build run test-unit test-integration test-integration-db test fmt vet lint check docker-up docker-up-mailpit docker-down docker-migrate docker-logs docker-clean
 
 CONTROL_PLANE_DIR := services/control-plane
 COMPOSE_FILE := infra/compose/local.yml
@@ -50,8 +50,11 @@ lint: ## Run golangci-lint for control-plane
 
 check: fmt vet lint test ## Run the default checks
 
-docker-up: ## Start the local backend stack
-	$(DOCKER_COMPOSE) up -d postgres redis silk-road tunnel-server tunnel-client control-plane
+docker-up: ## Start the local backend stack (including Mailpit)
+	$(DOCKER_COMPOSE) up -d postgres redis mailpit silk-road tunnel-server tunnel-client control-plane
+
+docker-up-mailpit: ## Start only Mailpit for local email testing
+	$(DOCKER_COMPOSE) up -d mailpit
 
 docker-down: ## Stop local dependencies
 	$(DOCKER_COMPOSE) down

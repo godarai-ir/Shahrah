@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -83,7 +83,7 @@ export default function AdminShell({
     },
     {
       href: "/users",
-      title: "Access Management",
+      title: t("nav.accessManagement"),
       icon: Users,
       isActive: pathname.startsWith("/users"),
     },

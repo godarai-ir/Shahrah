@@ -18,7 +18,8 @@
       "dashboard": "داشبورد",
       "topup": "شارژ کیف پول",
       "settings": "تنظیمات حساب",
-      "providerAccounts": "حساب‌های ارائه‌دهنده"
+      "providerAccounts": "حساب‌های ارائه‌دهنده",
+      "accessManagement": "مدیریت دسترسی"
     },
     "logoAlt": "لوگوی شاهراه"
   },
@@ -296,6 +297,92 @@
       "back": "بازگشت",
       "next": "ادامه",
       "finalHint": "پس از تعریف مدیران و کاربران، سطح دسترسی را ذخیره کنید."
+    }
+  },
+  "accessManagement": {
+    "title": "مدیریت دسترسی",
+    "tabs": {
+      "users": "کاربران",
+      "teams": "تیم‌ها",
+      "externalAuth": "احراز هویت خارجی",
+      "personalAccessTokens": "توکن‌های دسترسی شخصی",
+      "virtualAccounts": "حساب‌های مجازی",
+      "roles": "نقش‌ها",
+      "auditLogs": "تاریخچه حسابرسی"
+    },
+    "allUsers": "همه کاربران",
+    "searchPlaceholder": "جستجو...",
+    "inviteUser": "دعوت کاربر",
+    "inviteTitle": "دعوت کاربر",
+    "inviteDescription": "کاربر را با ایمیل به این تننت دعوت کنید.",
+    "form": {
+      "email": "ایمیل",
+      "emailPlaceholder": "user@company.com",
+      "role": "نقش"
+    },
+    "roles": {
+      "member": "عضو",
+      "tenantAdmin": "مدیر تننت"
+    },
+    "button": {
+      "createInvite": "ایجاد دعوت",
+      "inviting": "در حال دعوت..."
+    },
+    "table": {
+      "emailMobile": "ایمیل / شماره همراه",
+      "displayName": "نام نمایشی",
+      "role": "نقش",
+      "noUsersFound": "کاربری یافت نشد."
+    },
+    "status": {
+      "deactivated": "غیرفعال"
+    },
+    "actions": {
+      "activate": "فعال کردن",
+      "deactivate": "غیرفعال کردن"
+    },
+    "pagination": {
+      "showingResults": "نمایش {from} تا {to} از {total} نتیجه",
+      "rowsPerPage": "سطر در هر صفحه",
+      "page": "صفحه",
+      "prev": "قبلی",
+      "next": "بعدی"
+    },
+    "alerts": {
+      "invitationLink": "لینک دعوت",
+      "error": "خطا",
+      "success": "موفق"
+    },
+    "messages": {
+      "loadUsersError": "بارگیری کاربران ناموفق بود.",
+      "provideEmail": "ارائه ایمیل برای دعوت الزامی است.",
+      "invitationSuccess": "دعوت کاربر با موفقیت ایجاد شد.",
+      "inviteError": "دعوت کاربر ناموفق بود.",
+      "activateSuccess": "کاربر فعال شد.",
+      "deactivateSuccess": "کاربر غیرفعال شد.",
+      "updateStatusError": "به‌روزرسانی وضعیت کاربر ناموفق بود."
+    }
+  },
+  "invite": {
+    "title": "پذیرش دعوت",
+    "status": {
+      "idle": "آماده پردازش دعوت",
+      "loading": "در حال پذیرش دعوت...",
+      "success": "دعوت با موفقیت پذیرفته شد.",
+      "error": "پذیرش دعوت ناموفق بود."
+    },
+    "alerts": {
+      "successTitle": "موفق",
+      "errorTitle": "خطا"
+    },
+    "messages": {
+      "accepted": "دعوت شما با موفقیت پذیرفته شد.",
+      "acceptFailed": "پذیرش دعوت انجام نشد.",
+      "missingToken": "توکن دعوت ارسال نشده است."
+    },
+    "actions": {
+      "goToLogin": "رفتن به ورود",
+      "goToDashboard": "رفتن به داشبورد"
     }
   }
 }

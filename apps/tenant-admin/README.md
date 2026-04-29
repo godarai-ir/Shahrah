@@ -54,6 +54,11 @@ SHAHRAH_CONTROL_PLANE_URL=http://127.0.0.1:4000
 SHAHRAH_MASTER_KEY=-sk-dev-master-key-12345
 SHAHRAH_DEFAULT_TENANT=default
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/sharah_db?sslmode=disable
+EMAIL_SENDING_ENABLED=true
+SMTP_HOST=127.0.0.1
+SMTP_PORT=1025
+SMTP_SECURE=false
+SMTP_FROM=no-reply@shahrah.local
 ```
 
 For hostname-based tenant resolution in local development, map a tenant host:
@@ -76,3 +81,16 @@ pnpm --filter @shahrah/tenant-admin dev
 pnpm --filter @shahrah/tenant-admin build
 pnpm --filter @shahrah/tenant-admin lint
 ```
+
+## Dev Email Mock (Mailpit)
+
+Run local compose stack (includes Mailpit):
+
+```bash
+docker compose -f infra/compose/local.yml up -d mailpit
+```
+
+Mailpit endpoints:
+
+- SMTP: `127.0.0.1:1025`
+- Web UI: `http://127.0.0.1:8025`

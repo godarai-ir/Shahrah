@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { randomBytes, randomInt, randomUUID } from "crypto";
 
+import { sendOTPEmail } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
 
 export type AuthChannel = "email" | "mobile";
@@ -162,9 +163,18 @@ export async function createOTPRequest(input: {
   });
 
   // جایگزین موقت برای سرویس ارسال OTP
-  console.info(
-    `[tenant-admin][otp] tenant=${input.tenantSlug} purpose=${input.purpose} channel=${input.channel} to=${input.identifier} code=${otpCode}`,
-  );
+  if (input.channel === "email") {
+    await sendOTPEmail({
+      to: input.identifier,
+      otpCode,
+      expiresInMinutes: Math.floor(OTP_TTL_MS / 60000),
+      tenantSlug: input.tenantSlug,
+    });
+  } else {
+    console.info(
+      `[tenant-admin][otp] tenant=${input.tenantSlug} purpose=${input.purpose} channel=${input.channel} to=${input.identifier} code=${otpCode}`,
+    );
+  }
 
   return {
     request_id: id,
