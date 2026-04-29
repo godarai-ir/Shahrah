@@ -26,7 +26,7 @@ export function Hero() {
               <span className="flex h-2 w-2 rounded-full bg-indigo-500 animate-pulse"></span>
               دسترسی بدون محدودیت به مدل‌های روز دنیا
             </div>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 dark:text-white leading-[1.2] mb-6 font-[IRANYekanX]">شاهراه؛ مسیر ساده و به‌صرفه برای دسترسی به <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500">مدل‌های هوش مصنوعی</span></h1>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-900 dark:text-white leading-[1.2] mb-6 font-sans">شاهراه؛ مسیر ساده و به‌صرفه برای دسترسی به <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500">مدل‌های هوش مصنوعی</span></h1>
             <p className="text-lg text-slate-600 dark:text-gray-400 mb-8 leading-relaxed">
               یک LLM Gateway برای کاربران و کسب‌وکارهای ایرانی — از خرید اکانت تا مدیریت، بهینه‌سازی و استفاده از مدل‌های AI در مقیاس با کمترین هزینه و بالاترین پایداری.
             </p>
