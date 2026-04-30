@@ -1,18 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import dynamic from 'next/dynamic';
 import { Activity, Database, DollarSign, Users } from 'lucide-react';
 
-const data = [
-  { name: '1', requests: 4000, cost: 24 },
-  { name: '2', requests: 3000, cost: 13 },
-  { name: '3', requests: 2000, cost: 98 },
-  { name: '4', requests: 2780, cost: 39 },
-  { name: '5', requests: 1890, cost: 48 },
-  { name: '6', requests: 2390, cost: 38 },
-  { name: '7', requests: 3490, cost: 43 },
-];
+const RequestsAreaChart = dynamic(
+  () => import('./charts/RequestsAreaChart').then((mod) => mod.RequestsAreaChart),
+  { ssr: false },
+);
 
 export function DashboardPreview() {
   const [chartReady, setChartReady] = useState(false);
@@ -69,24 +64,7 @@ export function DashboardPreview() {
             
             <div className="h-64 w-full min-w-[200px] min-h-[250px]">
               {chartReady ? (
-                <ResponsiveContainer width="100%" height="100%" minWidth={200} minHeight={200}>
-                  <AreaChart data={data}>
-                    <defs key="defs">
-                      <linearGradient id="colorRequests" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#6366F1" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#6366F1" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid key="grid" strokeDasharray="3 3" stroke="#1F2937" vertical={false} />
-                    <XAxis key="xaxis" dataKey="name" stroke="#4B5563" tick={{fill: '#9CA3AF', fontSize: 12}} axisLine={false} tickLine={false} />
-                    <YAxis key="yaxis" stroke="#4B5563" tick={{fill: '#9CA3AF', fontSize: 12}} axisLine={false} tickLine={false} />
-                    <Tooltip key="tooltip"
-                      contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', borderRadius: '8px' }}
-                      itemStyle={{ color: '#E5E7EB' }}
-                    />
-                    <Area key="area" type="monotone" dataKey="requests" stroke="#6366F1" strokeWidth={3} fillOpacity={1} fill="url(#colorRequests)" />
-                  </AreaChart>
-                </ResponsiveContainer>
+                <RequestsAreaChart />
               ) : (
                 <div className="h-full w-full animate-pulse rounded-lg bg-[#0f172a]" />
               )}
