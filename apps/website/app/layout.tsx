@@ -1,9 +1,38 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import "./globals.css";
+import { absoluteUrl } from "@/app/lib/seo";
 
 export const metadata: Metadata = {
-  title: "Shahrah",
-  description: "Shahrah AI Gateway website",
+  metadataBase: new URL(absoluteUrl("/")),
+  title: {
+    default: "Shahrah | AI Gateway for Iranian Teams",
+    template: "%s | Shahrah",
+  },
+  description:
+    "Shahrah is an AI gateway for Iranian teams to access, manage, and monitor leading language models with stable local infrastructure.",
+  applicationName: "Shahrah",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "Shahrah | AI Gateway for Iranian Teams",
+    description:
+      "Route, monitor, and secure AI model usage with Shahrah's LLM gateway built for Iranian developers and businesses.",
+    url: "/",
+    siteName: "Shahrah",
+    locale: "fa_IR",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Shahrah | AI Gateway for Iranian Teams",
+    description:
+      "AI gateway for local payments, observability, and scalable model access in Iran.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
