@@ -40,7 +40,7 @@ export function Footer() {
               <span className="font-bold text-xl text-slate-900 dark:text-white">شاهراه</span>
             </div>
             <p className="text-sm text-slate-500 dark:text-gray-400 leading-relaxed mb-6">
-              یک LLM Gateway امن، سریع و به‌صرفه برای دسترسی به بهترین مدل‌های هوش مصنوعی دنیا بدون محدودیت.
+              یک LLM Gateway امن، سریع و به‌صرفه برای دسترسی به بهترین مدل‌های هوش مصنوعی دنیا، بدون محدودیت.
             </p>
             <div className="flex items-center gap-4">
               <a href="#" className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
