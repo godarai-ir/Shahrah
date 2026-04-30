@@ -1,0 +1,11 @@
+
+> @shahrah/support-admin@0.1.0 lint D:\source\Shahrah\apps\support-admin
+> eslint .
+
+
+D:\source\Shahrah\apps\support-admin\lib\prisma.ts
+  6:3  warning  Unused eslint-disable directive (no problems were reported from 'no-var')
+
+✖ 1 problem (0 errors, 1 warning)
+  0 errors and 1 warning potentially fixable with the `--fix` option.
+

@@ -1,0 +1,14 @@
+
+> @shahrah/tenant-admin@0.1.0 lint D:\source\Shahrah\apps\tenant-admin
+> eslint .
+
+
+D:\source\Shahrah\apps\tenant-admin\app\components\tenant-admin-dashboard.tsx
+  99:10  warning  'transactions' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\source\Shahrah\apps\tenant-admin\app\components\users-access-management.tsx
+  133:5  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+
+✖ 2 problems (0 errors, 2 warnings)
+  0 errors and 1 warning potentially fixable with the `--fix` option.
+

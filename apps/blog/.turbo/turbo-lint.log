@@ -1,0 +1,11 @@
+
+> @shahrah/blog@0.0.1 lint D:\source\Shahrah\apps\blog
+> astro check
+
+[2m۱۵:۰۹:۲۶[22m [34m[types][39m Generated [2m96ms[22m
+[2m۱۵:۰۹:۲۶[22m [34m[check][39m Getting diagnostics for Astro files in D:\source\Shahrah\apps\blog...
+Result (4 files): 
+- 0 errors
+- 0 warnings
+- 0 hints
+

@@ -8,5 +8,8 @@
     "dev:all": "turbo run dev --parallel",
     "lint": "turbo run lint",
     "test": "turbo run test"
+  },
+  "devDependencies": {
+    "turbo": "^2.9.6"
   }
 }

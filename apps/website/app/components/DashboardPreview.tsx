@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Activity, Database, DollarSign, Users } from 'lucide-react';
 
@@ -10,11 +9,7 @@ const RequestsAreaChart = dynamic(
 );
 
 export function DashboardPreview() {
-  const [chartReady, setChartReady] = useState(false);
-
-  useEffect(() => {
-    setChartReady(true);
-  }, []);
+  const chartReady = true;
 
   return (
     <section className="py-14 sm:py-20 lg:py-24 bg-slate-900 text-white overflow-hidden relative">

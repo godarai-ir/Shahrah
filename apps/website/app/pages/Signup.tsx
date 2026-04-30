@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'motion/react';
-import { CheckCircle2, Users, Building2, Phone, LayoutGrid, Sparkles, Activity, ArrowRight, ArrowLeft } from 'lucide-react';
+import { CheckCircle2, Users, Building2, Phone, Sparkles, Activity, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { MagicCard } from '../components/ui/MagicCard';
 
@@ -23,11 +23,7 @@ const TokenAreaChart = dynamic(
 );
 
 function DashboardMockup() {
-  const [chartReady, setChartReady] = useState(false);
-
-  useEffect(() => {
-    setChartReady(true);
-  }, []);
+  const chartReady = true;
 
   return (
     <div className="w-full max-w-2xl bg-slate-900/90 border border-indigo-500/20 rounded-2xl p-6 shadow-2xl relative overflow-hidden ring-1 ring-white/5 backdrop-blur-xl">
