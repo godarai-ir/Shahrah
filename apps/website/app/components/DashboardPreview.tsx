@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'motion/react';
+import { useEffect, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Activity, Database, DollarSign, Users } from 'lucide-react';
 
@@ -15,6 +15,12 @@ const data = [
 ];
 
 export function DashboardPreview() {
+  const [chartReady, setChartReady] = useState(false);
+
+  useEffect(() => {
+    setChartReady(true);
+  }, []);
+
   return (
     <section className="py-24 bg-slate-900 text-white overflow-hidden relative">
       {/* Background Glow */}
@@ -62,24 +68,28 @@ export function DashboardPreview() {
             </div>
             
             <div className="h-64 w-full min-w-[200px] min-h-[250px]">
-              <ResponsiveContainer width="100%" height="100%" minWidth={200} minHeight={200}>
-                <AreaChart data={data}>
-                  <defs key="defs">
-                    <linearGradient id="colorRequests" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366F1" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#6366F1" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid key="grid" strokeDasharray="3 3" stroke="#1F2937" vertical={false} />
-                  <XAxis key="xaxis" dataKey="name" stroke="#4B5563" tick={{fill: '#9CA3AF', fontSize: 12}} axisLine={false} tickLine={false} />
-                  <YAxis key="yaxis" stroke="#4B5563" tick={{fill: '#9CA3AF', fontSize: 12}} axisLine={false} tickLine={false} />
-                  <Tooltip key="tooltip" 
-                    contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', borderRadius: '8px' }}
-                    itemStyle={{ color: '#E5E7EB' }}
-                  />
-                  <Area key="area" type="monotone" dataKey="requests" stroke="#6366F1" strokeWidth={3} fillOpacity={1} fill="url(#colorRequests)" />
-                </AreaChart>
-              </ResponsiveContainer>
+              {chartReady ? (
+                <ResponsiveContainer width="100%" height="100%" minWidth={200} minHeight={200}>
+                  <AreaChart data={data}>
+                    <defs key="defs">
+                      <linearGradient id="colorRequests" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#6366F1" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#6366F1" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid key="grid" strokeDasharray="3 3" stroke="#1F2937" vertical={false} />
+                    <XAxis key="xaxis" dataKey="name" stroke="#4B5563" tick={{fill: '#9CA3AF', fontSize: 12}} axisLine={false} tickLine={false} />
+                    <YAxis key="yaxis" stroke="#4B5563" tick={{fill: '#9CA3AF', fontSize: 12}} axisLine={false} tickLine={false} />
+                    <Tooltip key="tooltip"
+                      contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', borderRadius: '8px' }}
+                      itemStyle={{ color: '#E5E7EB' }}
+                    />
+                    <Area key="area" type="monotone" dataKey="requests" stroke="#6366F1" strokeWidth={3} fillOpacity={1} fill="url(#colorRequests)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full w-full animate-pulse rounded-lg bg-[#0f172a]" />
+              )}
             </div>
           </div>
         </div>

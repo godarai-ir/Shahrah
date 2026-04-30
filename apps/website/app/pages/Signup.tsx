@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CheckCircle2, Users, Building2, Phone, LayoutGrid, Sparkles, Activity, ArrowRight, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -28,6 +28,12 @@ const mockData = [
 ];
 
 function DashboardMockup() {
+  const [chartReady, setChartReady] = useState(false);
+
+  useEffect(() => {
+    setChartReady(true);
+  }, []);
+
   return (
     <div className="w-full max-w-2xl bg-slate-900/90 border border-indigo-500/20 rounded-2xl p-6 shadow-2xl relative overflow-hidden ring-1 ring-white/5 backdrop-blur-xl">
       <div className="absolute -top-32 -right-32 w-64 h-64 bg-indigo-500/30 rounded-full blur-[100px]" />
@@ -92,25 +98,29 @@ function DashboardMockup() {
       </div>
 
       <div className="h-[200px] w-full min-w-[200px] min-h-[200px] bg-slate-800/50 backdrop-blur-md border border-white/5 rounded-xl p-4 relative z-10">
-        <ResponsiveContainer width="100%" height={200} minWidth={200}>
-          <AreaChart data={mockData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
-            <defs key="defs">
-              <linearGradient id="colorTokens" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
-                <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            <CartesianGrid key="grid" strokeDasharray="3 3" stroke="#334155" vertical={false} />
-            <XAxis key="xaxis" dataKey="time" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} dy={10} />
-            <YAxis key="yaxis" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(value) => `${value / 1000}k`} dx={-10} />
-            <Tooltip key="tooltip" 
-              contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px', fontSize: '12px' }}
-              itemStyle={{ color: '#fff', fontWeight: 'bold' }}
-              labelStyle={{ color: '#94a3b8', marginBottom: '4px' }}
-            />
-            <Area key="area" type="monotone" dataKey="tokens" stroke="#818cf8" strokeWidth={2} fillOpacity={1} fill="url(#colorTokens)" />
-          </AreaChart>
-        </ResponsiveContainer>
+        {chartReady ? (
+          <ResponsiveContainer width="100%" height={200} minWidth={200}>
+            <AreaChart data={mockData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+              <defs key="defs">
+                <linearGradient id="colorTokens" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid key="grid" strokeDasharray="3 3" stroke="#334155" vertical={false} />
+              <XAxis key="xaxis" dataKey="time" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} dy={10} />
+              <YAxis key="yaxis" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(value) => `${value / 1000}k`} dx={-10} />
+              <Tooltip key="tooltip"
+                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px', fontSize: '12px' }}
+                itemStyle={{ color: '#fff', fontWeight: 'bold' }}
+                labelStyle={{ color: '#94a3b8', marginBottom: '4px' }}
+              />
+              <Area key="area" type="monotone" dataKey="tokens" stroke="#818cf8" strokeWidth={2} fillOpacity={1} fill="url(#colorTokens)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="h-full w-full animate-pulse rounded-lg bg-slate-800/70" />
+        )}
       </div>
     </div>
   );
