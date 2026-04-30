@@ -77,19 +77,9 @@ func (m *AuthMiddleware) Middleware() fiber.Handler {
 		// Check master key
 		if m.masterKey != "" && apiKey == m.masterKey {
 			c.Locals(AuthContextKey{}, &platform.AuthContext{
-				Role: "proxy_admin",
+				Role: roleProxyAdmin,
 			})
 			return c.Next()
-		}
-
-		// Management APIs require the master key.
-		if strings.HasPrefix(c.Path(), "/api/") {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": map[string]interface{}{
-					"message": "Management APIs require the master key",
-					"type":    "authentication_error",
-				},
-			})
 		}
 
 		// Hash the key for lookup
@@ -129,6 +119,14 @@ func (m *AuthMiddleware) Middleware() fiber.Handler {
 
 		// Store auth info in context
 		c.Locals(AuthContextKey{}, keyInfo)
+		if err := CheckRouteAuthorization(c.Method(), c.Path(), keyInfo); err != nil {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error": map[string]interface{}{
+					"message": err.Error(),
+					"type":    "authorization_error",
+				},
+			})
+		}
 		m.logger.Debug("Authentication successful",
 			zap.String("key_alias", keyInfo.KeyAlias),
 			zap.String("role", keyInfo.Role),

@@ -15,6 +15,8 @@ type TenantAdminUser struct {
 	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
+type TenantConsoleUser = TenantAdminUser
+
 // TenantAdminUserListResponse returns paginated users for one tenant.
 type TenantAdminUserListResponse struct {
 	Data       []TenantAdminUser `json:"data"`
@@ -23,6 +25,8 @@ type TenantAdminUserListResponse struct {
 	Offset     int               `json:"offset"`
 	NextOffset *int              `json:"next_offset,omitempty"`
 }
+
+type TenantConsoleUserListResponse = TenantAdminUserListResponse
 
 // InviteTenantAdminUserRequest creates an invitation for tenant-admin access.
 type InviteTenantAdminUserRequest struct {

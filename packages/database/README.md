@@ -32,7 +32,9 @@ Set `DATABASE_URL` before running commands that talk to Postgres (`prisma:migrat
 - **Budget** - Budget and rate limits
 - **Tenant** - Multi-tenant support
 - **Organization** - Organization hierarchy
+- **VirtualUser** - Service identities for tenant/team automation
 - **Team** - Team within organizations
+- **TeamMembership** - Explicit scoped user-to-team relation
 - **Project** - Project within teams
 - **User** - Internal users
 - **VerificationToken** - API keys

@@ -25,6 +25,7 @@ model Budget {
   organizations         Organization[]
   projects              Project[]
   tags                  Tag[]
+  team_memberships      TeamMembership[]
 
   @@map("budgets")
 }
@@ -64,10 +65,16 @@ model Tenant {
   created_at               DateTime                   @default(now()) @db.Timestamptz(6)
   updated_at               DateTime                   @default(now()) @db.Timestamptz(6)
   model_deployments        ModelDeployment[]
+  organization_memberships OrganizationMembership[]
   request_logs             RequestLog[]
   spend_logs               SpendLog[]
   tenant_provider_accounts TenantProviderAccount[]
+  organizations           Organization[]
+  team_memberships        TeamMembership[]
+  teams                   Team[]
+  users                   User[]
   verification_tokens      VerificationToken[]
+  virtual_users           VirtualUser[]
   wallet_topup_intents     wallet_topup_intents[]
   wallet_transactions      WalletTransaction[]
   wallets                  Wallet?
@@ -78,6 +85,7 @@ model Tenant {
 
 model Organization {
   organization_id          String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                String?                  @db.Uuid
   organization_alias       String                   @db.VarChar(255)
   budget_id                String?                  @db.Uuid
   metadata                 Json?                    @default("{}")
@@ -93,17 +101,23 @@ model Organization {
   budgets                  Budget?                  @relation(fields: [budget_id], references: [budget_id], onDelete: NoAction, onUpdate: NoAction)
   object_permissions       ObjectPermission?        @relation(fields: [object_permission_id], references: [object_permission_id], onDelete: NoAction, onUpdate: NoAction)
   teams                    Team[]
+  tenants                  Tenant?                  @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction)
   users                    User[]
   verification_tokens      VerificationToken[]
+  virtual_users            VirtualUser[]
 
+  @@index([tenant_id], map: "idx_organizations_tenant_id")
   @@map("organizations")
 }
 
 model Team {
   team_id                     String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                   String?             @db.Uuid
   team_alias                  String?             @db.VarChar(255)
   organization_id             String?             @db.Uuid
+  org_unit_id                 String?             @db.Uuid
   object_permission_id        String?             @db.Uuid
+  workspace_type              String              @default("general") @db.VarChar(50)
   admins                      String[]            @default([])
   members                     String[]            @default([])
   members_with_roles          Json?               @default("{}")
@@ -135,12 +149,17 @@ model Team {
   model_aliases               ModelAlias?         @relation(fields: [model_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   object_permissions          ObjectPermission?   @relation(fields: [object_permission_id], references: [object_permission_id], onDelete: NoAction, onUpdate: NoAction)
   organizations               Organization?       @relation(fields: [organization_id], references: [organization_id], onDelete: NoAction, onUpdate: NoAction)
+  tenants                     Tenant?             @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction)
+  team_memberships            TeamMembership[]
   users                       User[]
   verification_tokens         VerificationToken[]
+  virtual_users               VirtualUser[]
 
   @@index([team_alias], map: "idx_team_alias")
   @@index([created_at], map: "idx_team_created_at")
   @@index([organization_id], map: "idx_team_org_id")
+  @@index([tenant_id], map: "idx_teams_tenant_id")
+  @@index([org_unit_id], map: "idx_teams_org_unit_id")
   @@map("teams")
 }
 
@@ -174,9 +193,12 @@ model User {
   user_id                  String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   user_alias               String?                  @db.VarChar(255)
   email                    String?                  @unique @db.VarChar(255)
+  mobile                   String?                  @db.VarChar(50)
   role                     String?                  @default("internal_user") @db.VarChar(50)
+  tenant_id                String?                  @db.Uuid
   team_id                  String?                  @db.Uuid
   organization_id          String?                  @db.Uuid
+  active                   Boolean                  @default(true)
   max_budget               Decimal?                 @db.Decimal(10, 4)
   budget_duration          String?                  @db.VarChar(50)
   spend                    Decimal?                 @default(0.0) @db.Decimal(10, 4)
@@ -190,25 +212,79 @@ model User {
   object_permissions       ObjectPermission?        @relation(fields: [object_permission_id], references: [object_permission_id], onDelete: NoAction, onUpdate: NoAction)
   organizations            Organization?            @relation(fields: [organization_id], references: [organization_id], onDelete: NoAction, onUpdate: NoAction)
   teams                    Team?                    @relation(fields: [team_id], references: [team_id], onDelete: NoAction, onUpdate: NoAction)
+  team_memberships         TeamMembership[]
+  tenants                  Tenant?                  @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction)
   verification_tokens      VerificationToken[]
 
+  @@index([tenant_id], map: "idx_users_tenant_id")
+  @@index([mobile], map: "idx_users_mobile")
   @@map("users")
 }
 
 model OrganizationMembership {
   id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String?      @db.Uuid
   organization_id String       @db.Uuid
   user_id         String       @db.Uuid
   role            String?      @default("member") @db.VarChar(50)
   created_at      DateTime?    @default(now()) @db.Timestamptz(6)
   updated_at      DateTime?    @default(now()) @db.Timestamptz(6)
   organizations   Organization @relation(fields: [organization_id], references: [organization_id], onDelete: Cascade, onUpdate: NoAction)
+  tenants         Tenant?      @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction)
   users           User         @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([organization_id, user_id])
+  @@index([tenant_id], map: "idx_org_memberships_tenant")
   @@index([organization_id], map: "idx_org_memberships_org")
   @@index([user_id], map: "idx_org_memberships_user")
   @@map("organization_memberships")
+}
+
+model TeamMembership {
+  team_membership_id       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                String   @db.Uuid
+  team_id                  String   @db.Uuid
+  user_id                  String   @db.Uuid
+  role                     String   @default("team_member") @db.VarChar(50)
+  team_member_permissions  String[] @default([])
+  budget_id                String?  @db.Uuid
+  spend                    Decimal? @default(0.0) @db.Decimal(10, 4)
+  metadata                 Json?    @default("{}")
+  created_at               DateTime @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime @default(now()) @db.Timestamptz(6)
+  budgets                  Budget?  @relation(fields: [budget_id], references: [budget_id], onDelete: NoAction, onUpdate: NoAction)
+  teams                    Team     @relation(fields: [team_id], references: [team_id], onDelete: Cascade, onUpdate: NoAction)
+  tenants                  Tenant   @relation(fields: [tenant_id], references: [tenant_id], onDelete: Cascade, onUpdate: NoAction)
+  users                    User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([team_id, user_id], map: "uq_team_memberships_team_user")
+  @@index([tenant_id], map: "idx_team_memberships_tenant")
+  @@index([team_id], map: "idx_team_memberships_team")
+  @@index([user_id], map: "idx_team_memberships_user")
+  @@map("team_memberships")
+}
+
+model VirtualUser {
+  virtual_user_id String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String        @db.Uuid
+  team_id         String?       @db.Uuid
+  org_unit_id     String?       @db.Uuid
+  alias           String        @db.VarChar(255)
+  display_name    String?       @db.VarChar(255)
+  active          Boolean       @default(true)
+  metadata        Json?         @default("{}")
+  created_at      DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime      @default(now()) @db.Timestamptz(6)
+  organizations   Organization? @relation(fields: [org_unit_id], references: [organization_id], onDelete: SetNull, onUpdate: NoAction)
+  teams           Team?         @relation(fields: [team_id], references: [team_id], onDelete: SetNull, onUpdate: NoAction)
+  tenants         Tenant        @relation(fields: [tenant_id], references: [tenant_id], onDelete: Cascade, onUpdate: NoAction)
+  verification_tokens VerificationToken[]
+
+  @@unique([tenant_id, alias], map: "uq_virtual_users_tenant_alias")
+  @@index([tenant_id], map: "idx_virtual_users_tenant")
+  @@index([team_id], map: "idx_virtual_users_team")
+  @@index([org_unit_id], map: "idx_virtual_users_org_unit")
+  @@map("virtual_users")
 }
 
 model VerificationToken {
@@ -216,11 +292,15 @@ model VerificationToken {
   token_hash            String        @unique @db.VarChar(64)
   key_alias             String?       @db.VarChar(255)
   key_name              String?       @db.VarChar(255)
+  key_type              String?       @db.VarChar(20)
   team_id               String?       @db.Uuid
   user_id               String?       @db.Uuid
+  virtual_user_id       String?       @db.Uuid
   organization_id       String?       @db.Uuid
+  org_unit_id           String?       @db.Uuid
   project_id            String?       @db.Uuid
   models                String[]      @default([])
+  allowed_models        String[]      @default([])
   max_budget            Decimal?      @db.Decimal(10, 4)
   soft_budget           Decimal?      @db.Decimal(10, 4)
   tpm_limit             BigInt?
@@ -240,7 +320,11 @@ model VerificationToken {
   teams                 Team?         @relation(fields: [team_id], references: [team_id], onDelete: NoAction, onUpdate: NoAction)
   tenants               Tenant?       @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction)
   users                 User?         @relation(fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  virtual_users         VirtualUser?  @relation(fields: [virtual_user_id], references: [virtual_user_id], onDelete: NoAction, onUpdate: NoAction)
 
+  @@index([virtual_user_id], map: "idx_vt_virtual_user")
+  @@index([key_type], map: "idx_vt_key_type")
+  @@index([org_unit_id], map: "idx_vt_org_unit")
   @@index([tenant_id], map: "idx_verification_tokens_tenant_id")
   @@index([organization_id], map: "idx_vt_org")
   @@index([team_id], map: "idx_vt_team")
@@ -325,6 +409,7 @@ model SpendLog {
   team_id               String?   @db.Uuid
   user_id               String?   @db.Uuid
   organization_id       String?   @db.Uuid
+  org_unit_id           String?   @db.Uuid
   end_user_id           String?   @db.Uuid
   model                 String?   @db.VarChar(255)
   input_tokens          Int?
@@ -346,6 +431,7 @@ model SpendLog {
 
   @@index([created_at], map: "idx_spend_created")
   @@index([organization_id], map: "idx_spend_org")
+  @@index([org_unit_id], map: "idx_spend_org_unit")
   @@index([team_id], map: "idx_spend_team")
   @@index([token_hash], map: "idx_spend_token")
   @@index([user_id], map: "idx_spend_user")

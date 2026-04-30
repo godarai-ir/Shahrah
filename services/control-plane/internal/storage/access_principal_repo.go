@@ -8,9 +8,10 @@ import (
 )
 
 // SearchAccessPrincipals returns platform users/teams for tenant-admin access pickers.
-func (s *Store) SearchAccessPrincipals(ctx context.Context, kind string, query string, limit int) ([]platform.AccessPrincipalCandidate, error) {
+func (s *Store) SearchAccessPrincipals(ctx context.Context, tenantID string, kind string, query string, limit int) ([]platform.AccessPrincipalCandidate, error) {
 	normalizedKind := strings.TrimSpace(strings.ToLower(kind))
 	normalizedQuery := strings.TrimSpace(query)
+	normalizedTenantID := strings.TrimSpace(tenantID)
 	if limit <= 0 {
 		limit = 20
 	}
@@ -20,23 +21,24 @@ func (s *Store) SearchAccessPrincipals(ctx context.Context, kind string, query s
 
 	switch normalizedKind {
 	case "user":
-		return s.searchUserPrincipals(ctx, normalizedQuery, limit)
+		return s.searchUserPrincipals(ctx, normalizedTenantID, normalizedQuery, limit)
 	case "team":
-		return s.searchTeamPrincipals(ctx, normalizedQuery, limit)
+		return s.searchTeamPrincipals(ctx, normalizedTenantID, normalizedQuery, limit)
 	default:
 		return []platform.AccessPrincipalCandidate{}, nil
 	}
 }
 
-func (s *Store) searchUserPrincipals(ctx context.Context, query string, limit int) ([]platform.AccessPrincipalCandidate, error) {
+func (s *Store) searchUserPrincipals(ctx context.Context, tenantID string, query string, limit int) ([]platform.AccessPrincipalCandidate, error) {
 	like := "%" + query + "%"
 	rows, err := s.pool.Query(ctx, `
 		SELECT user_id::text, COALESCE(user_alias, ''), COALESCE(email, '')
 		FROM users
-		WHERE $1 = '' OR user_alias ILIKE $2 OR email ILIKE $2
+		WHERE tenant_id = NULLIF($1, '')::uuid
+		  AND ($2 = '' OR user_alias ILIKE $3 OR email ILIKE $3)
 		ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
-		LIMIT $3
-	`, query, like, limit)
+		LIMIT $4
+	`, tenantID, query, like, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -72,16 +74,17 @@ func (s *Store) searchUserPrincipals(ctx context.Context, query string, limit in
 	return items, rows.Err()
 }
 
-func (s *Store) searchTeamPrincipals(ctx context.Context, query string, limit int) ([]platform.AccessPrincipalCandidate, error) {
+func (s *Store) searchTeamPrincipals(ctx context.Context, tenantID string, query string, limit int) ([]platform.AccessPrincipalCandidate, error) {
 	like := "%" + query + "%"
 	rows, err := s.pool.Query(ctx, `
 		SELECT team_id::text, COALESCE(team_alias, ''), COALESCE(organization_alias, '')
 		FROM teams
 		LEFT JOIN organizations ON teams.organization_id = organizations.organization_id
-		WHERE $1 = '' OR team_alias ILIKE $2 OR organization_alias ILIKE $2
+		WHERE teams.tenant_id = NULLIF($1, '')::uuid
+		  AND ($2 = '' OR team_alias ILIKE $3 OR organization_alias ILIKE $3)
 		ORDER BY teams.updated_at DESC NULLS LAST, teams.created_at DESC NULLS LAST
-		LIMIT $3
-	`, query, like, limit)
+		LIMIT $4
+	`, tenantID, query, like, limit)
 	if err != nil {
 		return nil, err
 	}

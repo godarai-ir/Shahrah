@@ -8,6 +8,7 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
@@ -45,7 +46,34 @@ type providerAccountStore interface {
 	UpsertTenantProviderAccountModels(ctx context.Context, tenantID string, accountID string, models []platform.TenantProviderAccountModel) ([]platform.TenantProviderAccountModel, error)
 	UpdateTenantProviderAccountAccess(ctx context.Context, tenantID string, accountID string, access platform.TenantProviderAccountAccessControl) (*platform.TenantProviderAccountAccessControl, error)
 	TestTenantProviderAccountCredentials(ctx context.Context, tenantID string, accountID string, req platform.TestTenantProviderAccountCredentialsRequest) (*platform.TestTenantProviderAccountCredentialsResponse, error)
-	SearchAccessPrincipals(ctx context.Context, kind string, query string, limit int) ([]platform.AccessPrincipalCandidate, error)
+	SearchAccessPrincipals(ctx context.Context, tenantID string, kind string, query string, limit int) ([]platform.AccessPrincipalCandidate, error)
+}
+
+type orgUnitStore interface {
+	CreateOrgUnit(ctx context.Context, tenantID string, req platform.CreateOrgUnitRequest) (*platform.OrgUnit, error)
+	ListOrgUnits(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.OrgUnit, int, error)
+	GetOrgUnit(ctx context.Context, tenantID string, orgUnitID string) (*platform.OrgUnit, error)
+	UpdateOrgUnit(ctx context.Context, tenantID string, orgUnitID string, req platform.UpdateOrgUnitRequest) (*platform.OrgUnit, error)
+	DeleteOrgUnit(ctx context.Context, tenantID string, orgUnitID string) error
+	ListOrgUnitMemberships(ctx context.Context, tenantID string, orgUnitID string) ([]platform.OrgUnitMembership, error)
+	AddOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, req platform.CreateOrgUnitMembershipRequest) (*platform.OrgUnitMembership, error)
+	UpdateOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, userID string, req platform.UpdateOrgUnitMembershipRequest) (*platform.OrgUnitMembership, error)
+	DeleteOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, userID string) error
+}
+
+type virtualUserStore interface {
+	CreateVirtualUser(ctx context.Context, tenantID string, req platform.CreateVirtualUserRequest) (*platform.VirtualUser, error)
+	ListVirtualUsers(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.VirtualUser, int, error)
+	GetVirtualUser(ctx context.Context, tenantID string, virtualUserID string) (*platform.VirtualUser, error)
+	UpdateVirtualUser(ctx context.Context, tenantID string, virtualUserID string, req platform.UpdateVirtualUserRequest) (*platform.VirtualUser, error)
+	DeleteVirtualUser(ctx context.Context, tenantID string, virtualUserID string) error
+}
+
+type membershipStore interface {
+	ListTeamMemberships(ctx context.Context, tenantID string, teamID string) ([]platform.TeamMembership, error)
+	AddTeamMembership(ctx context.Context, tenantID string, teamID string, req platform.CreateTeamMembershipRequest) (*platform.TeamMembership, error)
+	UpdateTeamMembership(ctx context.Context, tenantID string, teamID string, userID string, req platform.UpdateTeamMembershipRequest) (*platform.TeamMembership, error)
+	DeleteTeamMembership(ctx context.Context, tenantID string, teamID string, userID string) error
 }
 
 type userStore interface {
@@ -61,24 +89,36 @@ type Handlers struct {
 	models           modelStore
 	wallets          walletStore
 	providerAccounts providerAccountStore
+	orgUnits         orgUnitStore
+	memberships      membershipStore
 	users            userStore
+	virtualUsers     virtualUserStore
 }
 
 // New creates a management handlers bundle.
 func New(keys keyStore, models modelStore, wallets walletStore) *Handlers {
 	accounts, _ := models.(providerAccountStore)
+	orgUnits, _ := keys.(orgUnitStore)
+	memberships, _ := keys.(membershipStore)
 	users, _ := models.(userStore)
+	virtualUsers, _ := keys.(virtualUserStore)
 	return &Handlers{
 		keys:             keys,
 		models:           models,
 		wallets:          wallets,
 		providerAccounts: accounts,
+		orgUnits:         orgUnits,
+		memberships:      memberships,
 		users:            users,
+		virtualUsers:     virtualUsers,
 	}
 }
 
-// CreateKey creates a tenant-scoped key (virtual key or service account key).
-func (h *Handlers) CreateKey(c *fiber.Ctx) error {
+func (h *Handlers) createKey(c *fiber.Ctx, forcedKeyType string) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
@@ -88,38 +128,42 @@ func (h *Handlers) CreateKey(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
-	req.KeyAlias = strings.TrimSpace(req.KeyAlias)
+	req.Normalize()
 	if req.KeyAlias == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "key_alias is required")
 	}
-	for i := range req.Models {
-		req.Models[i] = strings.TrimSpace(req.Models[i])
+
+	if forcedKeyType != "" {
+		req.KeyType = forcedKeyType
 	}
-	filteredModels := make([]string, 0, len(req.Models))
-	for _, model := range req.Models {
+
+	for i := range req.AllowedModels {
+		req.AllowedModels[i] = strings.TrimSpace(req.AllowedModels[i])
+	}
+	filteredModels := make([]string, 0, len(req.AllowedModels))
+	for _, model := range req.AllowedModels {
 		if model != "" {
 			filteredModels = append(filteredModels, model)
 		}
 	}
 	if len(filteredModels) == 0 {
-		return fiber.NewError(fiber.StatusBadRequest, "at least one model is required")
+		return fiber.NewError(fiber.StatusBadRequest, "at least one allowed model is required")
 	}
+	req.AllowedModels = filteredModels
 	req.Models = filteredModels
-	req.TeamID = strings.TrimSpace(req.TeamID)
-	req.OrgID = strings.TrimSpace(req.OrgID)
 
 	req.TenantID = currentTenant.ID
-	req.Role = strings.TrimSpace(strings.ToLower(req.Role))
-	if req.Role == "" {
-		req.Role = "virtual_key"
-	}
-	switch req.Role {
-	case "virtual_key", "service_account":
+	switch req.KeyType {
+	case "", platform.KeyTypePAT:
+		req.KeyType = platform.KeyTypePAT
+		req.Role = platform.LegacyKeyRoleVirtualKey
+	case platform.KeyTypeVAT:
+		req.Role = platform.LegacyKeyRoleServiceAccount
 	default:
-		return fiber.NewError(fiber.StatusBadRequest, "role must be virtual_key or service_account")
+		return fiber.NewError(fiber.StatusBadRequest, "key_type must be pat or vat")
 	}
-	if req.Role == "service_account" && req.TeamID == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "team_id is required for service_account")
+	if req.KeyType == platform.KeyTypeVAT && req.TeamID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "team_id is required for vat")
 	}
 
 	created, err := h.keys.CreateKey(c.Context(), req)
@@ -127,6 +171,21 @@ func (h *Handlers) CreateKey(c *fiber.Ctx) error {
 		return err
 	}
 	return c.Status(fiber.StatusCreated).JSON(created)
+}
+
+// CreateKey creates a tenant-scoped key using the transitional endpoint.
+func (h *Handlers) CreateKey(c *fiber.Ctx) error {
+	return h.createKey(c, "")
+}
+
+// CreatePATKey creates a tenant-scoped PAT using the canonical endpoint.
+func (h *Handlers) CreatePATKey(c *fiber.Ctx) error {
+	return h.createKey(c, platform.KeyTypePAT)
+}
+
+// CreateVATKey creates a tenant-scoped VAT using the canonical endpoint.
+func (h *Handlers) CreateVATKey(c *fiber.Ctx) error {
+	return h.createKey(c, platform.KeyTypeVAT)
 }
 
 // ListKeys lists keys for the current tenant.
@@ -159,6 +218,10 @@ type createModelRequest struct {
 
 // CreateModel creates a deployment for the current tenant.
 func (h *Handlers) CreateModel(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
@@ -192,6 +255,10 @@ func (h *Handlers) CreateModel(c *fiber.Ctx) error {
 
 // ListModels lists tenant-visible model aliases.
 func (h *Handlers) ListModels(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
@@ -235,6 +302,10 @@ func (h *Handlers) ListModels(c *fiber.Ctx) error {
 
 // GetWallet returns the current tenant wallet.
 func (h *Handlers) GetWallet(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
@@ -253,6 +324,10 @@ type topUpRequest struct {
 
 // TopUpWallet performs a stubbed immediate top-up.
 func (h *Handlers) TopUpWallet(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
@@ -272,6 +347,10 @@ func (h *Handlers) TopUpWallet(c *fiber.Ctx) error {
 
 // ListProviderCatalog returns providers available for tenant model onboarding.
 func (h *Handlers) ListProviderCatalog(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+
 	items, err := discoveryProviders(c.Context())
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadGateway, err.Error())
@@ -281,6 +360,10 @@ func (h *Handlers) ListProviderCatalog(c *fiber.Ctx) error {
 
 // ListProviderModelsCatalog returns provider model catalog for step-2 selection.
 func (h *Handlers) ListProviderModelsCatalog(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+
 	provider := strings.TrimSpace(strings.ToLower(c.Params("provider")))
 	if provider == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "provider is required")
@@ -297,6 +380,10 @@ func (h *Handlers) ListProviderModelsCatalog(c *fiber.Ctx) error {
 
 // CreateTenantProviderAccount creates a tenant-scoped provider account definition.
 func (h *Handlers) CreateTenantProviderAccount(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
@@ -336,6 +423,10 @@ func (h *Handlers) CreateTenantProviderAccount(c *fiber.Ctx) error {
 
 // ListTenantProviderAccounts returns all provider accounts configured for the tenant.
 func (h *Handlers) ListTenantProviderAccounts(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
@@ -354,6 +445,10 @@ func (h *Handlers) ListTenantProviderAccounts(c *fiber.Ctx) error {
 
 // GetTenantProviderAccount returns full account details for wizard editing.
 func (h *Handlers) GetTenantProviderAccount(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
@@ -380,6 +475,10 @@ func (h *Handlers) GetTenantProviderAccount(c *fiber.Ctx) error {
 
 // UpsertTenantProviderAccountModels replaces selected models for a provider account.
 func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
@@ -423,6 +522,10 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 
 // UpdateTenantProviderAccountAccess replaces access control entries for one provider account.
 func (h *Handlers) UpdateTenantProviderAccountAccess(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
@@ -462,6 +565,10 @@ func (h *Handlers) UpdateTenantProviderAccountAccess(c *fiber.Ctx) error {
 
 // TestTenantProviderAccountCredentials validates configured credentials (or virtual-key-only mode).
 func (h *Handlers) TestTenantProviderAccountCredentials(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
@@ -495,6 +602,10 @@ func (h *Handlers) TestTenantProviderAccountCredentials(c *fiber.Ctx) error {
 
 // ListAccessPrincipals returns user/team principals for access picker controls.
 func (h *Handlers) ListAccessPrincipals(c *fiber.Ctx) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
@@ -523,7 +634,7 @@ func (h *Handlers) ListAccessPrincipals(c *fiber.Ctx) error {
 		limit = parsed
 	}
 
-	items, err := store.SearchAccessPrincipals(c.Context(), kind, query, limit)
+	items, err := store.SearchAccessPrincipals(c.Context(), currentTenant.ID, kind, query, limit)
 	if err != nil {
 		return err
 	}
@@ -532,6 +643,10 @@ func (h *Handlers) ListAccessPrincipals(c *fiber.Ctx) error {
 
 // ListTenantUsers lists tenant-admin users for the current tenant.
 func (h *Handlers) ListTenantUsers(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
@@ -585,6 +700,10 @@ func (h *Handlers) ListTenantUsers(c *fiber.Ctx) error {
 
 // InviteTenantUser creates a tenant-admin invitation link.
 func (h *Handlers) InviteTenantUser(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
@@ -621,6 +740,10 @@ func (h *Handlers) InviteTenantUser(c *fiber.Ctx) error {
 
 // AcceptTenantUserInvitation accepts invite token and activates/creates user.
 func (h *Handlers) AcceptTenantUserInvitation(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
@@ -671,6 +794,10 @@ func (h *Handlers) DeactivateTenantUser(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) setTenantUserActive(c *fiber.Ctx, active bool) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
@@ -711,4 +838,550 @@ func appendUnique(values []string, candidate string) []string {
 		}
 	}
 	return append(values, candidate)
+}
+
+func (h *Handlers) ListOrgUnits(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.orgUnits == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "org unit store not configured")
+	}
+
+	query := strings.TrimSpace(c.Query("query"))
+	limit := 50
+	offset := 0
+	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
+		parsed, parseErr := strconv.Atoi(raw)
+		if parseErr != nil || parsed <= 0 {
+			return fiber.NewError(fiber.StatusBadRequest, "limit must be a positive number")
+		}
+		if parsed > 200 {
+			parsed = 200
+		}
+		limit = parsed
+	}
+	if raw := strings.TrimSpace(c.Query("offset")); raw != "" {
+		parsed, parseErr := strconv.Atoi(raw)
+		if parseErr != nil || parsed < 0 {
+			return fiber.NewError(fiber.StatusBadRequest, "offset must be zero or greater")
+		}
+		offset = parsed
+	}
+
+	items, total, err := h.orgUnits.ListOrgUnits(c.Context(), currentTenant.ID, query, limit, offset)
+	if err != nil {
+		return err
+	}
+	var nextOffset *int
+	if offset+len(items) < total {
+		n := offset + len(items)
+		nextOffset = &n
+	}
+	return c.JSON(platform.OrgUnitListResponse{Data: items, Total: total, Limit: limit, Offset: offset, NextOffset: nextOffset})
+}
+
+func (h *Handlers) CreateOrgUnit(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.orgUnits == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "org unit store not configured")
+	}
+	var req platform.CreateOrgUnitRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	req.Alias = strings.TrimSpace(req.Alias)
+	req.DisplayName = strings.TrimSpace(req.DisplayName)
+	req.BudgetID = strings.TrimSpace(req.BudgetID)
+	if req.Alias == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "alias is required")
+	}
+	item, err := h.orgUnits.CreateOrgUnit(c.Context(), currentTenant.ID, req)
+	if err != nil {
+		return err
+	}
+	return c.Status(fiber.StatusCreated).JSON(item)
+}
+
+func (h *Handlers) GetOrgUnit(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.orgUnits == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "org unit store not configured")
+	}
+	orgUnitID := strings.TrimSpace(c.Params("orgUnitID"))
+	if orgUnitID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "orgUnitID is required")
+	}
+	item, err := h.orgUnits.GetOrgUnit(c.Context(), currentTenant.ID, orgUnitID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "org unit not found")
+		}
+		return err
+	}
+	return c.JSON(item)
+}
+
+func (h *Handlers) UpdateOrgUnit(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.orgUnits == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "org unit store not configured")
+	}
+	orgUnitID := strings.TrimSpace(c.Params("orgUnitID"))
+	if orgUnitID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "orgUnitID is required")
+	}
+	var req platform.UpdateOrgUnitRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	item, err := h.orgUnits.UpdateOrgUnit(c.Context(), currentTenant.ID, orgUnitID, req)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "org unit not found")
+		}
+		return err
+	}
+	return c.JSON(item)
+}
+
+func (h *Handlers) DeleteOrgUnit(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.orgUnits == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "org unit store not configured")
+	}
+	orgUnitID := strings.TrimSpace(c.Params("orgUnitID"))
+	if orgUnitID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "orgUnitID is required")
+	}
+	if err := h.orgUnits.DeleteOrgUnit(c.Context(), currentTenant.ID, orgUnitID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "org unit not found")
+		}
+		return err
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func (h *Handlers) ListOrgUnitMembers(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.orgUnits == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "org unit store not configured")
+	}
+	orgUnitID := strings.TrimSpace(c.Params("orgUnitID"))
+	if orgUnitID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "orgUnitID is required")
+	}
+	items, err := h.orgUnits.ListOrgUnitMemberships(c.Context(), currentTenant.ID, orgUnitID)
+	if err != nil {
+		return err
+	}
+	return c.JSON(platform.OrgUnitMembershipListResponse{Data: items})
+}
+
+func (h *Handlers) AddOrgUnitMember(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.orgUnits == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "org unit store not configured")
+	}
+	orgUnitID := strings.TrimSpace(c.Params("orgUnitID"))
+	if orgUnitID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "orgUnitID is required")
+	}
+	var req platform.CreateOrgUnitMembershipRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	req.UserID = strings.TrimSpace(req.UserID)
+	req.Role = strings.TrimSpace(req.Role)
+	if req.UserID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "user_id is required")
+	}
+	if req.Role == "" {
+		req.Role = "member"
+	}
+	item, err := h.orgUnits.AddOrgUnitMembership(c.Context(), currentTenant.ID, orgUnitID, req)
+	if err != nil {
+		return err
+	}
+	return c.Status(fiber.StatusCreated).JSON(item)
+}
+
+func (h *Handlers) UpdateOrgUnitMember(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.orgUnits == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "org unit store not configured")
+	}
+	orgUnitID := strings.TrimSpace(c.Params("orgUnitID"))
+	userID := strings.TrimSpace(c.Params("userID"))
+	if orgUnitID == "" || userID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "orgUnitID and userID are required")
+	}
+	var req platform.UpdateOrgUnitMembershipRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	req.Role = strings.TrimSpace(req.Role)
+	if req.Role == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "role is required")
+	}
+	item, err := h.orgUnits.UpdateOrgUnitMembership(c.Context(), currentTenant.ID, orgUnitID, userID, req)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "org unit membership not found")
+		}
+		return err
+	}
+	return c.JSON(item)
+}
+
+func (h *Handlers) DeleteOrgUnitMember(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.orgUnits == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "org unit store not configured")
+	}
+	orgUnitID := strings.TrimSpace(c.Params("orgUnitID"))
+	userID := strings.TrimSpace(c.Params("userID"))
+	if orgUnitID == "" || userID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "orgUnitID and userID are required")
+	}
+	if err := h.orgUnits.DeleteOrgUnitMembership(c.Context(), currentTenant.ID, orgUnitID, userID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "org unit membership not found")
+		}
+		return err
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func (h *Handlers) ListTeamMembers(c *fiber.Ctx) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.memberships == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "membership store not configured")
+	}
+	teamID := strings.TrimSpace(c.Params("teamID"))
+	if teamID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "teamID is required")
+	}
+	items, err := h.memberships.ListTeamMemberships(c.Context(), currentTenant.ID, teamID)
+	if err != nil {
+		return err
+	}
+	return c.JSON(platform.TeamMembershipListResponse{Data: items})
+}
+
+func (h *Handlers) AddTeamMember(c *fiber.Ctx) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.memberships == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "membership store not configured")
+	}
+	teamID := strings.TrimSpace(c.Params("teamID"))
+	if teamID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "teamID is required")
+	}
+	var req platform.CreateTeamMembershipRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	req.UserID = strings.TrimSpace(req.UserID)
+	req.Role = strings.TrimSpace(req.Role)
+	req.BudgetID = strings.TrimSpace(req.BudgetID)
+	if req.UserID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "user_id is required")
+	}
+	if req.Role == "" {
+		req.Role = "team_member"
+	}
+	item, err := h.memberships.AddTeamMembership(c.Context(), currentTenant.ID, teamID, req)
+	if err != nil {
+		return err
+	}
+	return c.Status(fiber.StatusCreated).JSON(item)
+}
+
+func (h *Handlers) UpdateTeamMember(c *fiber.Ctx) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.memberships == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "membership store not configured")
+	}
+	teamID := strings.TrimSpace(c.Params("teamID"))
+	userID := strings.TrimSpace(c.Params("userID"))
+	if teamID == "" || userID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "teamID and userID are required")
+	}
+	var req platform.UpdateTeamMembershipRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	req.Role = strings.TrimSpace(req.Role)
+	req.BudgetID = strings.TrimSpace(req.BudgetID)
+	item, err := h.memberships.UpdateTeamMembership(c.Context(), currentTenant.ID, teamID, userID, req)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "team membership not found")
+		}
+		return err
+	}
+	return c.JSON(item)
+}
+
+func (h *Handlers) DeleteTeamMember(c *fiber.Ctx) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.memberships == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "membership store not configured")
+	}
+	teamID := strings.TrimSpace(c.Params("teamID"))
+	userID := strings.TrimSpace(c.Params("userID"))
+	if teamID == "" || userID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "teamID and userID are required")
+	}
+	if err := h.memberships.DeleteTeamMembership(c.Context(), currentTenant.ID, teamID, userID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "team membership not found")
+		}
+		return err
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func (h *Handlers) ListVirtualUsers(c *fiber.Ctx) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.virtualUsers == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "virtual user store not configured")
+	}
+	query := strings.TrimSpace(c.Query("query"))
+	limit := 50
+	offset := 0
+	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
+		parsed, parseErr := strconv.Atoi(raw)
+		if parseErr != nil || parsed <= 0 {
+			return fiber.NewError(fiber.StatusBadRequest, "limit must be a positive number")
+		}
+		if parsed > 200 {
+			parsed = 200
+		}
+		limit = parsed
+	}
+	if raw := strings.TrimSpace(c.Query("offset")); raw != "" {
+		parsed, parseErr := strconv.Atoi(raw)
+		if parseErr != nil || parsed < 0 {
+			return fiber.NewError(fiber.StatusBadRequest, "offset must be zero or greater")
+		}
+		offset = parsed
+	}
+	items, total, err := h.virtualUsers.ListVirtualUsers(c.Context(), currentTenant.ID, query, limit, offset)
+	if err != nil {
+		return err
+	}
+	var nextOffset *int
+	if offset+len(items) < total {
+		n := offset + len(items)
+		nextOffset = &n
+	}
+	return c.JSON(platform.VirtualUserListResponse{Data: items, Total: total, Limit: limit, Offset: offset, NextOffset: nextOffset})
+}
+
+func (h *Handlers) CreateVirtualUser(c *fiber.Ctx) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.virtualUsers == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "virtual user store not configured")
+	}
+	var req platform.CreateVirtualUserRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	req.Alias = strings.TrimSpace(req.Alias)
+	req.DisplayName = strings.TrimSpace(req.DisplayName)
+	req.TeamID = strings.TrimSpace(req.TeamID)
+	req.OrgUnitID = strings.TrimSpace(req.OrgUnitID)
+	if req.Alias == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "alias is required")
+	}
+	item, err := h.virtualUsers.CreateVirtualUser(c.Context(), currentTenant.ID, req)
+	if err != nil {
+		return err
+	}
+	return c.Status(fiber.StatusCreated).JSON(item)
+}
+
+func (h *Handlers) GetVirtualUser(c *fiber.Ctx) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.virtualUsers == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "virtual user store not configured")
+	}
+	virtualUserID := strings.TrimSpace(c.Params("virtualUserID"))
+	if virtualUserID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "virtualUserID is required")
+	}
+	item, err := h.virtualUsers.GetVirtualUser(c.Context(), currentTenant.ID, virtualUserID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "virtual user not found")
+		}
+		return err
+	}
+	return c.JSON(item)
+}
+
+func (h *Handlers) UpdateVirtualUser(c *fiber.Ctx) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.virtualUsers == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "virtual user store not configured")
+	}
+	virtualUserID := strings.TrimSpace(c.Params("virtualUserID"))
+	if virtualUserID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "virtualUserID is required")
+	}
+	var req platform.UpdateVirtualUserRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	item, err := h.virtualUsers.UpdateVirtualUser(c.Context(), currentTenant.ID, virtualUserID, req)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "virtual user not found")
+		}
+		return err
+	}
+	return c.JSON(item)
+}
+
+func (h *Handlers) DeleteVirtualUser(c *fiber.Ctx) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.virtualUsers == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "virtual user store not configured")
+	}
+	virtualUserID := strings.TrimSpace(c.Params("virtualUserID"))
+	if virtualUserID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "virtualUserID is required")
+	}
+	if err := h.virtualUsers.DeleteVirtualUser(c.Context(), currentTenant.ID, virtualUserID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "virtual user not found")
+		}
+		return err
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func requireTenantAdminOrHigher(c *fiber.Ctx) error {
+	authInfo := auth.GetAuthInfo(c)
+	if auth.IsTenantAdminOrHigher(authInfo) {
+		return nil
+	}
+	return fiber.NewError(fiber.StatusForbidden, "tenant admin privileges required")
+}
+
+func requireTeamAdminOrHigher(c *fiber.Ctx) error {
+	authInfo := auth.GetAuthInfo(c)
+	if auth.IsTeamAdminOrHigher(authInfo) {
+		return nil
+	}
+	return fiber.NewError(fiber.StatusForbidden, "team admin privileges required")
 }

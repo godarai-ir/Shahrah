@@ -319,6 +319,217 @@ func TestIntegration_CreateServiceAccountKey(t *testing.T) {
 	assert.Equal(t, "team-ops", listedKeys.Data[0].TeamID)
 }
 
+func TestIntegration_CreateVATKeyViaCanonicalEndpoint(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer provider.Close()
+
+	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
+
+	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/keys/vat", "Bearer sk-master", `{"key_alias":"svc-team-key","allowed_models":["gpt-4o-mini"],"team_id":"team-ops","org_unit_id":"org-platform"}`)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	var out platform.CreatedKey
+	decodeJSONBody(t, resp, &out)
+	assert.Equal(t, platform.KeyTypeVAT, out.KeyType)
+	assert.Equal(t, platform.LegacyKeyRoleServiceAccount, out.Role)
+	assert.Equal(t, "team-ops", out.TeamID)
+	assert.Equal(t, "org-platform", out.OrgUnitID)
+	assert.Equal(t, "org-platform", out.OrgID)
+	assert.Equal(t, []string{"gpt-4o-mini"}, out.AllowedModels)
+}
+
+func TestIntegration_InviteTenantUserViaCanonicalInvitationEndpoint(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer provider.Close()
+
+	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
+	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/users/invitations", "Bearer sk-master", `{"email":"new-user@tenant.test","role":"tenant_member"}`)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	var out platform.InviteTenantAdminUserResponse
+	decodeJSONBody(t, resp, &out)
+	assert.Equal(t, "new-user@tenant.test", out.Invitation.Email)
+	assert.Equal(t, "tenant_member", out.Invitation.Role)
+}
+
+func TestIntegration_OrgUnitCRUD(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer provider.Close()
+
+	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
+
+	createResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/org-units", "Bearer sk-master", `{"alias":"engineering","display_name":"Engineering"}`)
+	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
+	var created platform.OrgUnit
+	decodeJSONBody(t, createResp, &created)
+	assert.Equal(t, "engineering", created.Alias)
+	assert.Equal(t, "Engineering", created.DisplayName)
+
+	listResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/org-units?limit=20&offset=0", "Bearer sk-master", "")
+	assert.Equal(t, http.StatusOK, listResp.StatusCode)
+	var listed platform.OrgUnitListResponse
+	decodeJSONBody(t, listResp, &listed)
+	require.Len(t, listed.Data, 1)
+
+	updateResp := performJSONRequest(t, app, http.MethodPatch, "http://localhost/api/v1/org-units/"+created.ID, "Bearer sk-master", `{"display_name":"Platform Engineering"}`)
+	assert.Equal(t, http.StatusOK, updateResp.StatusCode)
+	var updated platform.OrgUnit
+	decodeJSONBody(t, updateResp, &updated)
+	assert.Equal(t, "Platform Engineering", updated.DisplayName)
+
+	deleteResp := performJSONRequest(t, app, http.MethodDelete, "http://localhost/api/v1/org-units/"+created.ID, "Bearer sk-master", "")
+	assert.Equal(t, http.StatusNoContent, deleteResp.StatusCode)
+}
+
+func TestIntegration_VirtualUserCRUD(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer provider.Close()
+
+	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
+
+	createResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/virtual-users", "Bearer sk-master", `{"alias":"ci-cd","display_name":"CI/CD Service","team_id":"team-ops"}`)
+	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
+	var created platform.VirtualUser
+	decodeJSONBody(t, createResp, &created)
+	assert.Equal(t, "ci-cd", created.Alias)
+	assert.Equal(t, "team-ops", created.TeamID)
+
+	getResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/virtual-users/"+created.ID, "Bearer sk-master", "")
+	assert.Equal(t, http.StatusOK, getResp.StatusCode)
+
+	updateResp := performJSONRequest(t, app, http.MethodPatch, "http://localhost/api/v1/virtual-users/"+created.ID, "Bearer sk-master", `{"display_name":"CI Service","active":false}`)
+	assert.Equal(t, http.StatusOK, updateResp.StatusCode)
+	var updated platform.VirtualUser
+	decodeJSONBody(t, updateResp, &updated)
+	assert.Equal(t, "CI Service", updated.DisplayName)
+	assert.False(t, updated.Active)
+
+	listResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/virtual-users?limit=20&offset=0", "Bearer sk-master", "")
+	assert.Equal(t, http.StatusOK, listResp.StatusCode)
+	var listed platform.VirtualUserListResponse
+	decodeJSONBody(t, listResp, &listed)
+	require.Len(t, listed.Data, 1)
+
+	deleteResp := performJSONRequest(t, app, http.MethodDelete, "http://localhost/api/v1/virtual-users/"+created.ID, "Bearer sk-master", "")
+	assert.Equal(t, http.StatusNoContent, deleteResp.StatusCode)
+}
+
+func TestIntegration_OrgUnitMembershipCRUD(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer provider.Close()
+
+	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
+	orgResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/org-units", "Bearer sk-master", `{"alias":"engineering"}`)
+	assert.Equal(t, http.StatusCreated, orgResp.StatusCode)
+	var org platform.OrgUnit
+	decodeJSONBody(t, orgResp, &org)
+
+	addResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/org-units/"+org.ID+"/members", "Bearer sk-master", `{"user_id":"user-1","role":"org_admin"}`)
+	assert.Equal(t, http.StatusCreated, addResp.StatusCode)
+	var added platform.OrgUnitMembership
+	decodeJSONBody(t, addResp, &added)
+	assert.Equal(t, "org_admin", added.Role)
+
+	listResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/org-units/"+org.ID+"/members", "Bearer sk-master", "")
+	assert.Equal(t, http.StatusOK, listResp.StatusCode)
+	var listed platform.OrgUnitMembershipListResponse
+	decodeJSONBody(t, listResp, &listed)
+	require.Len(t, listed.Data, 1)
+
+	updateResp := performJSONRequest(t, app, http.MethodPatch, "http://localhost/api/v1/org-units/"+org.ID+"/members/user-1", "Bearer sk-master", `{"role":"member"}`)
+	assert.Equal(t, http.StatusOK, updateResp.StatusCode)
+	var updated platform.OrgUnitMembership
+	decodeJSONBody(t, updateResp, &updated)
+	assert.Equal(t, "member", updated.Role)
+
+	deleteResp := performJSONRequest(t, app, http.MethodDelete, "http://localhost/api/v1/org-units/"+org.ID+"/members/user-1", "Bearer sk-master", "")
+	assert.Equal(t, http.StatusNoContent, deleteResp.StatusCode)
+}
+
+func TestIntegration_TeamMembershipCRUD(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer provider.Close()
+
+	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
+
+	addResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/teams/team-ops/members", "Bearer sk-master", `{"user_id":"user-1","role":"team_member","team_member_permissions":["/key/generate"]}`)
+	assert.Equal(t, http.StatusCreated, addResp.StatusCode)
+	var added platform.TeamMembership
+	decodeJSONBody(t, addResp, &added)
+	assert.Equal(t, "team_member", added.Role)
+	assert.Equal(t, []string{"/key/generate"}, added.TeamMemberPermissions)
+
+	listResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/teams/team-ops/members", "Bearer sk-master", "")
+	assert.Equal(t, http.StatusOK, listResp.StatusCode)
+	var listed platform.TeamMembershipListResponse
+	decodeJSONBody(t, listResp, &listed)
+	require.Len(t, listed.Data, 1)
+
+	updateResp := performJSONRequest(t, app, http.MethodPatch, "http://localhost/api/v1/teams/team-ops/members/user-1", "Bearer sk-master", `{"role":"team_admin","team_member_permissions":["/key/generate","/key/update"]}`)
+	assert.Equal(t, http.StatusOK, updateResp.StatusCode)
+	var updated platform.TeamMembership
+	decodeJSONBody(t, updateResp, &updated)
+	assert.Equal(t, "team_admin", updated.Role)
+	assert.Equal(t, []string{"/key/generate", "/key/update"}, updated.TeamMemberPermissions)
+
+	deleteResp := performJSONRequest(t, app, http.MethodDelete, "http://localhost/api/v1/teams/team-ops/members/user-1", "Bearer sk-master", "")
+	assert.Equal(t, http.StatusNoContent, deleteResp.StatusCode)
+}
+
+func TestIntegration_RBACDeniesTeamMemberOnVirtualUsers(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer provider.Close()
+
+	app, keyStore, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
+	teamMemberHash := hashToken("sk-team-member")
+	keyStore.byHash[teamMemberHash] = &platform.AuthContext{
+		TenantID:  "tenant-1",
+		KeyID:     "tm-1",
+		KeyAlias:  "team-member",
+		Role:      "team_member",
+		TokenHash: teamMemberHash,
+	}
+
+	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/virtual-users", "Bearer sk-team-member", `{"alias":"blocked-user"}`)
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+}
+
+func TestIntegration_RBACAllowsTeamAdminOnTeamMembers(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer provider.Close()
+
+	app, keyStore, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
+	teamAdminHash := hashToken("sk-team-admin")
+	keyStore.byHash[teamAdminHash] = &platform.AuthContext{
+		TenantID:  "tenant-1",
+		KeyID:     "ta-1",
+		KeyAlias:  "team-admin",
+		Role:      "team_admin",
+		TokenHash: teamAdminHash,
+	}
+
+	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/teams/team-ops/members", "Bearer sk-team-admin", `{"user_id":"user-2","role":"team_member"}`)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+}
+
 func TestIntegration_ListTenantUsers(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
@@ -716,10 +927,14 @@ func (noopKeyStore) ListKeys(ctx context.Context, tenantID string) ([]platform.C
 }
 
 type integrationKeyStore struct {
-	mu      sync.RWMutex
-	nextID  int
-	byHash  map[string]*platform.AuthContext
-	created []platform.CreatedKey
+	mu           sync.RWMutex
+	nextID       int
+	byHash       map[string]*platform.AuthContext
+	created      []platform.CreatedKey
+	orgUnits     []platform.OrgUnit
+	orgUnitMemberships []platform.OrgUnitMembership
+	teamMemberships    []platform.TeamMembership
+	virtualUsers []platform.VirtualUser
 }
 
 func newIntegrationKeyStore() *integrationKeyStore {
@@ -744,33 +959,42 @@ func (s *integrationKeyStore) CreateKey(ctx context.Context, params platform.Cre
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	params.Normalize()
 	s.nextID++
 	rawKey := fmt.Sprintf("sk-managed-%03d", s.nextID)
 	keyHash := hashToken(rawKey)
 	created := platform.CreatedKey{
-		ID:        fmt.Sprintf("key-%03d", s.nextID),
-		Key:       rawKey,
-		KeyAlias:  params.KeyAlias,
-		MaskedKey: maskToken(rawKey),
-		TenantID:  params.TenantID,
-		Role:      params.Role,
-		Models:    append([]string(nil), params.Models...),
-		MaxBudget: params.MaxBudget,
-		RPMLimit:  params.RPMLimit,
-		TPMLimit:  params.TPMLimit,
-		TeamID:    params.TeamID,
-		OrgID:     params.OrgID,
-		TokenHash: keyHash,
+		ID:            fmt.Sprintf("key-%03d", s.nextID),
+		Key:           rawKey,
+		KeyAlias:      params.KeyAlias,
+		MaskedKey:     maskToken(rawKey),
+		TenantID:      params.TenantID,
+		Role:          params.Role,
+		KeyType:       params.KeyType,
+		Models:        append([]string(nil), params.Models...),
+		AllowedModels: append([]string(nil), params.AllowedModels...),
+		MaxBudget:     params.MaxBudget,
+		RPMLimit:      params.RPMLimit,
+		TPMLimit:      params.TPMLimit,
+		TeamID:        params.TeamID,
+		OrgID:         params.OrgID,
+		OrgUnitID:     params.OrgUnitID,
+		UserID:        params.UserID,
+		VirtualUserID: params.VirtualUserID,
+		TokenHash:     keyHash,
 	}
 	s.created = append(s.created, created)
 	s.byHash[keyHash] = &platform.AuthContext{
 		TenantID:       params.TenantID,
 		OrganizationID: params.OrgID,
+		OrgUnitID:      params.OrgUnitID,
 		TeamID:         params.TeamID,
+		UserID:         params.UserID,
 		KeyID:          created.ID,
 		KeyAlias:       params.KeyAlias,
 		Role:           params.Role,
-		AllowedModels:  append([]string(nil), params.Models...),
+		KeyType:        params.KeyType,
+		AllowedModels:  append([]string(nil), params.AllowedModels...),
 		MaxBudget:      params.MaxBudget,
 		RPMLimit:       params.RPMLimit,
 		TPMLimit:       params.TPMLimit,
@@ -807,6 +1031,332 @@ func (s *integrationKeyStore) addSpend(tokenHash string, amount float64) {
 			s.created[i].Spend += amount
 		}
 	}
+}
+
+func (s *integrationKeyStore) CreateOrgUnit(ctx context.Context, tenantID string, req platform.CreateOrgUnitRequest) (*platform.OrgUnit, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	item := platform.OrgUnit{
+		ID:          fmt.Sprintf("org-%03d", len(s.orgUnits)+1),
+		TenantID:    tenantID,
+		Alias:       req.Alias,
+		DisplayName: req.DisplayName,
+		BudgetID:    req.BudgetID,
+		Metadata:    req.Metadata,
+		CreatedAt:   time.Now().UTC(),
+		UpdatedAt:   time.Now().UTC(),
+	}
+	s.orgUnits = append(s.orgUnits, item)
+	return &item, nil
+}
+
+func (s *integrationKeyStore) ListOrgUnits(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.OrgUnit, int, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	filtered := make([]platform.OrgUnit, 0, len(s.orgUnits))
+	for _, item := range s.orgUnits {
+		if item.TenantID != tenantID {
+			continue
+		}
+		if query != "" && !strings.Contains(strings.ToLower(item.Alias), strings.ToLower(query)) {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	total := len(filtered)
+	if offset >= total {
+		return []platform.OrgUnit{}, total, nil
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return filtered[offset:end], total, nil
+}
+
+func (s *integrationKeyStore) GetOrgUnit(ctx context.Context, tenantID string, orgUnitID string) (*platform.OrgUnit, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, item := range s.orgUnits {
+		if item.TenantID == tenantID && item.ID == orgUnitID {
+			copy := item
+			return &copy, nil
+		}
+	}
+	return nil, pgx.ErrNoRows
+}
+
+func (s *integrationKeyStore) UpdateOrgUnit(ctx context.Context, tenantID string, orgUnitID string, req platform.UpdateOrgUnitRequest) (*platform.OrgUnit, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.orgUnits {
+		if s.orgUnits[i].TenantID != tenantID || s.orgUnits[i].ID != orgUnitID {
+			continue
+		}
+		if req.Alias != "" {
+			s.orgUnits[i].Alias = req.Alias
+		}
+		if req.DisplayName != "" {
+			s.orgUnits[i].DisplayName = req.DisplayName
+		}
+		if req.BudgetID != "" {
+			s.orgUnits[i].BudgetID = req.BudgetID
+		}
+		if req.Metadata != nil {
+			s.orgUnits[i].Metadata = req.Metadata
+		}
+		s.orgUnits[i].UpdatedAt = time.Now().UTC()
+		copy := s.orgUnits[i]
+		return &copy, nil
+	}
+	return nil, pgx.ErrNoRows
+}
+
+func (s *integrationKeyStore) DeleteOrgUnit(ctx context.Context, tenantID string, orgUnitID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.orgUnits {
+		if s.orgUnits[i].TenantID == tenantID && s.orgUnits[i].ID == orgUnitID {
+			s.orgUnits = append(s.orgUnits[:i], s.orgUnits[i+1:]...)
+			return nil
+		}
+	}
+	return pgx.ErrNoRows
+}
+
+func (s *integrationKeyStore) ListOrgUnitMemberships(ctx context.Context, tenantID string, orgUnitID string) ([]platform.OrgUnitMembership, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	items := make([]platform.OrgUnitMembership, 0)
+	for _, item := range s.orgUnitMemberships {
+		if item.TenantID == tenantID && item.OrgUnitID == orgUnitID {
+			items = append(items, item)
+		}
+	}
+	return items, nil
+}
+
+func (s *integrationKeyStore) AddOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, req platform.CreateOrgUnitMembershipRequest) (*platform.OrgUnitMembership, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.orgUnitMemberships {
+		if s.orgUnitMemberships[i].TenantID == tenantID && s.orgUnitMemberships[i].OrgUnitID == orgUnitID && s.orgUnitMemberships[i].UserID == req.UserID {
+			s.orgUnitMemberships[i].Role = req.Role
+			s.orgUnitMemberships[i].UpdatedAt = time.Now().UTC()
+			copy := s.orgUnitMemberships[i]
+			return &copy, nil
+		}
+	}
+	item := platform.OrgUnitMembership{
+		ID:        fmt.Sprintf("oum-%03d", len(s.orgUnitMemberships)+1),
+		TenantID:  tenantID,
+		OrgUnitID: orgUnitID,
+		UserID:    req.UserID,
+		Role:      req.Role,
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+	}
+	s.orgUnitMemberships = append(s.orgUnitMemberships, item)
+	return &item, nil
+}
+
+func (s *integrationKeyStore) UpdateOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, userID string, req platform.UpdateOrgUnitMembershipRequest) (*platform.OrgUnitMembership, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.orgUnitMemberships {
+		if s.orgUnitMemberships[i].TenantID == tenantID && s.orgUnitMemberships[i].OrgUnitID == orgUnitID && s.orgUnitMemberships[i].UserID == userID {
+			s.orgUnitMemberships[i].Role = req.Role
+			s.orgUnitMemberships[i].UpdatedAt = time.Now().UTC()
+			copy := s.orgUnitMemberships[i]
+			return &copy, nil
+		}
+	}
+	return nil, pgx.ErrNoRows
+}
+
+func (s *integrationKeyStore) DeleteOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, userID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.orgUnitMemberships {
+		if s.orgUnitMemberships[i].TenantID == tenantID && s.orgUnitMemberships[i].OrgUnitID == orgUnitID && s.orgUnitMemberships[i].UserID == userID {
+			s.orgUnitMemberships = append(s.orgUnitMemberships[:i], s.orgUnitMemberships[i+1:]...)
+			return nil
+		}
+	}
+	return pgx.ErrNoRows
+}
+
+func (s *integrationKeyStore) ListTeamMemberships(ctx context.Context, tenantID string, teamID string) ([]platform.TeamMembership, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	items := make([]platform.TeamMembership, 0)
+	for _, item := range s.teamMemberships {
+		if item.TenantID == tenantID && item.TeamID == teamID {
+			items = append(items, item)
+		}
+	}
+	return items, nil
+}
+
+func (s *integrationKeyStore) AddTeamMembership(ctx context.Context, tenantID string, teamID string, req platform.CreateTeamMembershipRequest) (*platform.TeamMembership, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.teamMemberships {
+		if s.teamMemberships[i].TenantID == tenantID && s.teamMemberships[i].TeamID == teamID && s.teamMemberships[i].UserID == req.UserID {
+			s.teamMemberships[i].Role = req.Role
+			s.teamMemberships[i].TeamMemberPermissions = append([]string(nil), req.TeamMemberPermissions...)
+			s.teamMemberships[i].BudgetID = req.BudgetID
+			s.teamMemberships[i].UpdatedAt = time.Now().UTC()
+			copy := s.teamMemberships[i]
+			return &copy, nil
+		}
+	}
+	item := platform.TeamMembership{
+		ID:                    fmt.Sprintf("tm-%03d", len(s.teamMemberships)+1),
+		TenantID:              tenantID,
+		TeamID:                teamID,
+		UserID:                req.UserID,
+		Role:                  req.Role,
+		TeamMemberPermissions: append([]string(nil), req.TeamMemberPermissions...),
+		BudgetID:              req.BudgetID,
+		CreatedAt:             time.Now().UTC(),
+		UpdatedAt:             time.Now().UTC(),
+	}
+	s.teamMemberships = append(s.teamMemberships, item)
+	return &item, nil
+}
+
+func (s *integrationKeyStore) UpdateTeamMembership(ctx context.Context, tenantID string, teamID string, userID string, req platform.UpdateTeamMembershipRequest) (*platform.TeamMembership, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.teamMemberships {
+		if s.teamMemberships[i].TenantID == tenantID && s.teamMemberships[i].TeamID == teamID && s.teamMemberships[i].UserID == userID {
+			if req.Role != "" {
+				s.teamMemberships[i].Role = req.Role
+			}
+			if req.TeamMemberPermissions != nil {
+				s.teamMemberships[i].TeamMemberPermissions = append([]string(nil), req.TeamMemberPermissions...)
+			}
+			if req.BudgetID != "" {
+				s.teamMemberships[i].BudgetID = req.BudgetID
+			}
+			s.teamMemberships[i].UpdatedAt = time.Now().UTC()
+			copy := s.teamMemberships[i]
+			return &copy, nil
+		}
+	}
+	return nil, pgx.ErrNoRows
+}
+
+func (s *integrationKeyStore) DeleteTeamMembership(ctx context.Context, tenantID string, teamID string, userID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.teamMemberships {
+		if s.teamMemberships[i].TenantID == tenantID && s.teamMemberships[i].TeamID == teamID && s.teamMemberships[i].UserID == userID {
+			s.teamMemberships = append(s.teamMemberships[:i], s.teamMemberships[i+1:]...)
+			return nil
+		}
+	}
+	return pgx.ErrNoRows
+}
+
+func (s *integrationKeyStore) CreateVirtualUser(ctx context.Context, tenantID string, req platform.CreateVirtualUserRequest) (*platform.VirtualUser, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	item := platform.VirtualUser{
+		ID:          fmt.Sprintf("vu-%03d", len(s.virtualUsers)+1),
+		TenantID:    tenantID,
+		OrgUnitID:   req.OrgUnitID,
+		TeamID:      req.TeamID,
+		Alias:       req.Alias,
+		DisplayName: req.DisplayName,
+		Active:      true,
+		Metadata:    req.Metadata,
+		CreatedAt:   time.Now().UTC(),
+		UpdatedAt:   time.Now().UTC(),
+	}
+	s.virtualUsers = append(s.virtualUsers, item)
+	return &item, nil
+}
+
+func (s *integrationKeyStore) ListVirtualUsers(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.VirtualUser, int, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	filtered := make([]platform.VirtualUser, 0, len(s.virtualUsers))
+	for _, item := range s.virtualUsers {
+		if item.TenantID != tenantID {
+			continue
+		}
+		if query != "" && !strings.Contains(strings.ToLower(item.Alias), strings.ToLower(query)) {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	total := len(filtered)
+	if offset >= total {
+		return []platform.VirtualUser{}, total, nil
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return filtered[offset:end], total, nil
+}
+
+func (s *integrationKeyStore) GetVirtualUser(ctx context.Context, tenantID string, virtualUserID string) (*platform.VirtualUser, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, item := range s.virtualUsers {
+		if item.TenantID == tenantID && item.ID == virtualUserID {
+			copy := item
+			return &copy, nil
+		}
+	}
+	return nil, pgx.ErrNoRows
+}
+
+func (s *integrationKeyStore) UpdateVirtualUser(ctx context.Context, tenantID string, virtualUserID string, req platform.UpdateVirtualUserRequest) (*platform.VirtualUser, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.virtualUsers {
+		if s.virtualUsers[i].TenantID != tenantID || s.virtualUsers[i].ID != virtualUserID {
+			continue
+		}
+		if req.Alias != "" {
+			s.virtualUsers[i].Alias = req.Alias
+		}
+		if req.DisplayName != "" {
+			s.virtualUsers[i].DisplayName = req.DisplayName
+		}
+		if req.TeamID != "" {
+			s.virtualUsers[i].TeamID = req.TeamID
+		}
+		if req.OrgUnitID != "" {
+			s.virtualUsers[i].OrgUnitID = req.OrgUnitID
+		}
+		if req.Active != nil {
+			s.virtualUsers[i].Active = *req.Active
+		}
+		if req.Metadata != nil {
+			s.virtualUsers[i].Metadata = req.Metadata
+		}
+		s.virtualUsers[i].UpdatedAt = time.Now().UTC()
+		copy := s.virtualUsers[i]
+		return &copy, nil
+	}
+	return nil, pgx.ErrNoRows
+}
+
+func (s *integrationKeyStore) DeleteVirtualUser(ctx context.Context, tenantID string, virtualUserID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.virtualUsers {
+		if s.virtualUsers[i].TenantID == tenantID && s.virtualUsers[i].ID == virtualUserID {
+			s.virtualUsers = append(s.virtualUsers[:i], s.virtualUsers[i+1:]...)
+			return nil
+		}
+	}
+	return pgx.ErrNoRows
 }
 
 func newIntegrationApp(t *testing.T, logger *zap.Logger, memCache cache.Cache, providerURL string) (*fiber.App, *integrationKeyStore, *integrationModelStore, *integrationWalletStore) {

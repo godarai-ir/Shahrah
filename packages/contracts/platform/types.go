@@ -2,6 +2,7 @@ package platform
 
 import (
 	"context"
+	"strings"
 	"time"
 )
 
@@ -16,21 +17,24 @@ type Tenant struct {
 
 // AuthContext is the effective request auth context.
 type AuthContext struct {
-	TenantID       string     `json:"tenant_id"`
-	OrganizationID string     `json:"organization_id,omitempty"`
-	TeamID         string     `json:"team_id,omitempty"`
-	UserID         string     `json:"user_id,omitempty"`
-	KeyID          string     `json:"key_id"`
-	KeyAlias       string     `json:"key_alias,omitempty"`
-	Role           string     `json:"role"`
-	AllowedModels  []string   `json:"allowed_models,omitempty"`
-	Spend          float64    `json:"spend"`
-	MaxBudget      *float64   `json:"max_budget,omitempty"`
-	RPMLimit       *int64     `json:"rpm_limit,omitempty"`
-	TPMLimit       *int64     `json:"tpm_limit,omitempty"`
-	ExpiresAt      *time.Time `json:"expires_at,omitempty"`
-	Blocked        bool       `json:"blocked"`
-	TokenHash      string     `json:"token_hash,omitempty"`
+	TenantID              string     `json:"tenant_id"`
+	OrganizationID        string     `json:"organization_id,omitempty"`
+	OrgUnitID             string     `json:"org_unit_id,omitempty"`
+	TeamID                string     `json:"team_id,omitempty"`
+	UserID                string     `json:"user_id,omitempty"`
+	KeyID                 string     `json:"key_id"`
+	KeyAlias              string     `json:"key_alias,omitempty"`
+	Role                  string     `json:"role"`
+	KeyType               string     `json:"key_type,omitempty"`
+	TeamMemberPermissions []string   `json:"team_member_permissions,omitempty"`
+	AllowedModels         []string   `json:"allowed_models,omitempty"`
+	Spend                 float64    `json:"spend"`
+	MaxBudget             *float64   `json:"max_budget,omitempty"`
+	RPMLimit              *int64     `json:"rpm_limit,omitempty"`
+	TPMLimit              *int64     `json:"tpm_limit,omitempty"`
+	ExpiresAt             *time.Time `json:"expires_at,omitempty"`
+	Blocked               bool       `json:"blocked"`
+	TokenHash             string     `json:"token_hash,omitempty"`
 }
 
 // Wallet tracks tenant balance in IRR.
@@ -216,36 +220,96 @@ type ProviderForwarder interface {
 
 // CreateKeyParams are the inputs for creating a virtual key.
 type CreateKeyParams struct {
-	TenantID  string   `json:"tenant_id"`
-	KeyAlias  string   `json:"key_alias"`
-	Role      string   `json:"role"`
-	Models    []string `json:"models"`
-	MaxBudget *float64 `json:"max_budget,omitempty"`
-	RPMLimit  *int64   `json:"rpm_limit,omitempty"`
-	TPMLimit  *int64   `json:"tpm_limit,omitempty"`
-	TeamID    string   `json:"team_id,omitempty"`
-	OrgID     string   `json:"organization_id,omitempty"`
-	ExpiresIn string   `json:"expires_in,omitempty"`
+	TenantID      string   `json:"tenant_id"`
+	KeyAlias      string   `json:"key_alias"`
+	Role          string   `json:"role,omitempty"`
+	KeyType       string   `json:"key_type,omitempty"`
+	Models        []string `json:"models,omitempty"`
+	AllowedModels []string `json:"allowed_models,omitempty"`
+	MaxBudget     *float64 `json:"max_budget,omitempty"`
+	RPMLimit      *int64   `json:"rpm_limit,omitempty"`
+	TPMLimit      *int64   `json:"tpm_limit,omitempty"`
+	TeamID        string   `json:"team_id,omitempty"`
+	OrgID         string   `json:"organization_id,omitempty"`
+	OrgUnitID     string   `json:"org_unit_id,omitempty"`
+	UserID        string   `json:"user_id,omitempty"`
+	VirtualUserID string   `json:"virtual_user_id,omitempty"`
+	ExpiresIn     string   `json:"expires_in,omitempty"`
 }
 
 // CreatedKey is the persisted key metadata returned by admin APIs.
 type CreatedKey struct {
-	ID        string     `json:"id"`
-	Key       string     `json:"key,omitempty"`
-	KeyAlias  string     `json:"key_alias"`
-	MaskedKey string     `json:"key_name,omitempty"`
-	TenantID  string     `json:"tenant_id"`
-	Role      string     `json:"role"`
-	Models    []string   `json:"models"`
-	MaxBudget *float64   `json:"max_budget,omitempty"`
-	RPMLimit  *int64     `json:"rpm_limit,omitempty"`
-	TPMLimit  *int64     `json:"tpm_limit,omitempty"`
-	TeamID    string     `json:"team_id,omitempty"`
-	OrgID     string     `json:"organization_id,omitempty"`
-	Spend     float64    `json:"spend"`
-	Blocked   bool       `json:"blocked"`
-	ExpiresAt *time.Time `json:"expires_at,omitempty"`
-	TokenHash string     `json:"token_hash,omitempty"`
+	ID            string     `json:"id"`
+	Key           string     `json:"key,omitempty"`
+	KeyAlias      string     `json:"key_alias"`
+	MaskedKey     string     `json:"key_name,omitempty"`
+	TenantID      string     `json:"tenant_id"`
+	Role          string     `json:"role"`
+	KeyType       string     `json:"key_type,omitempty"`
+	Models        []string   `json:"models"`
+	AllowedModels []string   `json:"allowed_models,omitempty"`
+	MaxBudget     *float64   `json:"max_budget,omitempty"`
+	RPMLimit      *int64     `json:"rpm_limit,omitempty"`
+	TPMLimit      *int64     `json:"tpm_limit,omitempty"`
+	TeamID        string     `json:"team_id,omitempty"`
+	OrgID         string     `json:"organization_id,omitempty"`
+	OrgUnitID     string     `json:"org_unit_id,omitempty"`
+	UserID        string     `json:"user_id,omitempty"`
+	VirtualUserID string     `json:"virtual_user_id,omitempty"`
+	Spend         float64    `json:"spend"`
+	Blocked       bool       `json:"blocked"`
+	ExpiresAt     *time.Time `json:"expires_at,omitempty"`
+	TokenHash     string     `json:"token_hash,omitempty"`
+}
+
+const (
+	LegacyKeyRoleVirtualKey     = "virtual_key"
+	LegacyKeyRoleServiceAccount = "service_account"
+	KeyTypePAT                  = "pat"
+	KeyTypeVAT                  = "vat"
+)
+
+func (p *CreateKeyParams) Normalize() {
+	p.KeyAlias = strings.TrimSpace(p.KeyAlias)
+	p.Role = strings.TrimSpace(strings.ToLower(p.Role))
+	p.KeyType = strings.TrimSpace(strings.ToLower(p.KeyType))
+	p.TeamID = strings.TrimSpace(p.TeamID)
+	p.OrgID = strings.TrimSpace(p.OrgID)
+	p.OrgUnitID = strings.TrimSpace(p.OrgUnitID)
+	p.UserID = strings.TrimSpace(p.UserID)
+	p.VirtualUserID = strings.TrimSpace(p.VirtualUserID)
+	p.ExpiresIn = strings.TrimSpace(p.ExpiresIn)
+
+	if p.OrgUnitID == "" {
+		p.OrgUnitID = p.OrgID
+	}
+	if p.OrgID == "" {
+		p.OrgID = p.OrgUnitID
+	}
+
+	if len(p.AllowedModels) == 0 && len(p.Models) > 0 {
+		p.AllowedModels = append([]string(nil), p.Models...)
+	}
+	if len(p.Models) == 0 && len(p.AllowedModels) > 0 {
+		p.Models = append([]string(nil), p.AllowedModels...)
+	}
+
+	if p.KeyType == "" {
+		switch p.Role {
+		case LegacyKeyRoleServiceAccount:
+			p.KeyType = KeyTypeVAT
+		case "", LegacyKeyRoleVirtualKey:
+			p.KeyType = KeyTypePAT
+		}
+	}
+	if p.Role == "" {
+		switch p.KeyType {
+		case KeyTypeVAT:
+			p.Role = LegacyKeyRoleServiceAccount
+		default:
+			p.Role = LegacyKeyRoleVirtualKey
+		}
+	}
 }
 
 // TunnelRequest is the internal request sent over the Shahrah tunnel path.

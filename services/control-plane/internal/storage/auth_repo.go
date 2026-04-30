@@ -60,6 +60,8 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 	}
 
 	auth.Role = deriveKeyRole(auth.TeamID)
+	auth.KeyType = deriveKeyType(auth.TeamID)
+	auth.OrgUnitID = auth.OrganizationID
 	auth.MaxBudget = maxBudget
 	auth.RPMLimit = rpmLimit
 	auth.TPMLimit = tpmLimit
@@ -198,6 +200,8 @@ func containsWildcard(models []string) bool {
 
 // CreateKey creates a tenant-scoped virtual key.
 func (s *Store) CreateKey(ctx context.Context, params platform.CreateKeyParams) (*platform.CreatedKey, error) {
+	params.Normalize()
+
 	rawKey := "sk-" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	tokenHash := hashKey(rawKey)
 	keyID := uuid.NewString()
@@ -226,19 +230,24 @@ func (s *Store) CreateKey(ctx context.Context, params platform.CreateKeyParams) 
 	}
 
 	return &platform.CreatedKey{
-		ID:        keyID,
-		Key:       rawKey,
-		KeyAlias:  params.KeyAlias,
-		MaskedKey: masked,
-		TenantID:  params.TenantID,
-		Role:      params.Role,
-		Models:    params.Models,
-		MaxBudget: params.MaxBudget,
-		RPMLimit:  params.RPMLimit,
-		TPMLimit:  params.TPMLimit,
-		TeamID:    params.TeamID,
-		OrgID:     params.OrgID,
-		TokenHash: tokenHash,
+		ID:            keyID,
+		Key:           rawKey,
+		KeyAlias:      params.KeyAlias,
+		MaskedKey:     masked,
+		TenantID:      params.TenantID,
+		Role:          params.Role,
+		KeyType:       params.KeyType,
+		Models:        params.Models,
+		AllowedModels: append([]string(nil), params.Models...),
+		MaxBudget:     params.MaxBudget,
+		RPMLimit:      params.RPMLimit,
+		TPMLimit:      params.TPMLimit,
+		TeamID:        params.TeamID,
+		OrgID:         params.OrgID,
+		OrgUnitID:     params.OrgUnitID,
+		UserID:        params.UserID,
+		VirtualUserID: params.VirtualUserID,
+		TokenHash:     tokenHash,
 	}, nil
 }
 
@@ -268,7 +277,10 @@ func (s *Store) ListKeys(ctx context.Context, tenantID string) ([]platform.Creat
 			return nil, err
 		}
 		item.Models = models
+		item.AllowedModels = append([]string(nil), models...)
 		item.Role = deriveKeyRole(item.TeamID)
+		item.KeyType = deriveKeyType(item.TeamID)
+		item.OrgUnitID = item.OrgID
 		keys = append(keys, item)
 	}
 	return keys, rows.Err()
@@ -276,9 +288,16 @@ func (s *Store) ListKeys(ctx context.Context, tenantID string) ([]platform.Creat
 
 func deriveKeyRole(teamID string) string {
 	if strings.TrimSpace(teamID) != "" {
-		return "service_account"
+		return platform.LegacyKeyRoleServiceAccount
 	}
-	return "virtual_key"
+	return platform.LegacyKeyRoleVirtualKey
+}
+
+func deriveKeyType(teamID string) string {
+	if strings.TrimSpace(teamID) != "" {
+		return platform.KeyTypeVAT
+	}
+	return platform.KeyTypePAT
 }
 
 func maskKey(key string) string {
