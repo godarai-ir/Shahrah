@@ -1,0 +1,4 @@
+interface:
+  display_name: "TrueFoundry Expert"
+  short_description: "Turn TrueFoundry research into Shahrah plans."
+  default_prompt: "Use $truefoundry-expert to translate TrueFoundry documentation into a focused Shahrah MVP plan."
