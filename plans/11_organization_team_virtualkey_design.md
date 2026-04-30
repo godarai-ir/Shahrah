@@ -1,6 +1,8 @@
 # Shahrah: Organization, Team, and Virtual Key Design
 
-> This document defines the hierarchical access control and resource isolation model for Shahrah, inspired by LiteLLM's Organization / Team / Virtual Key architecture. It enables enterprise tenants (customers) to manage multiple isolated organizational units, each with their own teams, budgets, and API keys.
+> **Note**: This document describes the LiteLLM-based architecture. For the updated Shahrah-specific design with Tenant subdomains, Organization Units, and Virtual Users, see [tenant-organization-team-design.md](./tenant-organization-team-design.md).
+
+This document defines the hierarchical access control and resource isolation model for Shahrah, inspired by LiteLLM's Organization / Team / Virtual Key architecture. It enables enterprise tenants (customers) to manage multiple isolated organizational units, each with their own teams, budgets, and API keys.
 
 ---
 

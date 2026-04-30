@@ -1,5 +1,7 @@
 # Role-based Access Controls (RBAC) for Shahrah
 
+> **Note**: For the complete hierarchical structure including Tenant subdomains, Organization Units, and Virtual Users, see [tenant-organization-team-design.md](./tenant-organization-team-design.md).
+
 Role-based access control (RBAC) in Shahrah is based on Organizations, Teams, and Internal User Roles.
 
 ## Hierarchy Overview
