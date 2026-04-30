@@ -1,0 +1,118 @@
+- generic [active] [ref=e1] [box=0,0,390,10235]:
+  - generic [ref=e2] [box=0,0,390,10235]:
+    - navigation [ref=e3] [box=0,0,390,65]:
+      - generic [ref=e5] [box=16,0,358,64]:
+        - link "ش شاهراه" [ref=e7] [cursor=pointer] [box=283,16,91,32]:
+          - /url: /
+          - generic [ref=e8] [box=342,16,32,32]: ش
+          - generic [ref=e9] [box=283,18,51,28]: شاهراه
+        - generic [ref=e467] [box=16,10,96,44]:
+          - button "Toggle theme" [ref=e468] [box=68,10,44,44]
+          - button "Open menu" [ref=e475] [box=16,10,44,44]
+    - main [ref=e30] [box=0,65,390,9231]:
+      - generic [ref=e33] [box=16,105,358,786]:
+        - generic [ref=e34] [box=16,105,358,424]:
+          - generic [ref=e35] [box=77,105,236,33]: دسترسی بدون محدودیت به مدل‌های روز دنیا
+          - heading "شاهراه؛ مسیر ساده و به‌صرفه برای دسترسی به مدل‌های هوش مصنوعی" [level=1] [ref=e37] [box=16,154,358,122]
+          - paragraph [ref=e38] [box=16,292,358,96]: یک LLM Gateway برای کاربران و کسب‌وکارهای ایرانی — از درگاه پرداخت ایرانی تا مدیریت، بهینه‌سازی و استفاده از مدل‌های AI در مقیاس با کمترین هزینه و بالاترین پایداری.
+          - generic [ref=e39] [box=16,412,358,117]
+        - generic [ref=e47] [box=16,569,358,322]:
+          - generic [ref=e53] [box=188,582,66,16]: request.py
+          - code [ref=e56] [box=29,623,304,255]: "from openai import OpenAI client = OpenAI( api_key=\"sh_live_xxx\", base_url=\"https://api.sharah.ir/v1\" ) response = client.chat.completions.create( model=\"gpt-4o\", messages=[{ \"role\": \"user\", \"content\": \"سلام! شاهراه چطور کار میکنه؟\" }] ) print(response.choices[0].message.content)"
+      - generic [ref=e73] [box=0,996,390,1015]:
+        - generic [ref=e74] [box=16,996,358,132]:
+          - heading "چرا استفاده از هوش مصنوعی در ایران سخت است؟" [level=2] [ref=e75] [box=16,996,358,60]
+          - paragraph [ref=e76] [box=16,1072,358,56]: توسعه‌دهندگان و کسب‌وکارهای ایرانی برای استفاده از مدل‌های روز دنیا با چالش‌های متعددی روبرو هستند.
+        - generic [ref=e77] [box=16,1168,358,843]:
+          - generic [ref=e78] [box=16,1188,358,199]
+          - generic [ref=e84] [box=16,1402,358,199]
+          - generic [ref=e93] [box=16,1617,358,199]
+          - generic [ref=e99] [box=16,1832,358,199]
+      - generic [ref=e106] [box=0,2124,390,626]:
+        - generic [ref=e107] [box=16,2124,358,102]:
+          - heading "یک درگاه واحد برای همه نیازهای شما" [level=2] [ref=e108] [box=16,2124,358,30]
+          - paragraph [ref=e109] [box=16,2170,358,56]: با شاهراه، پیچیدگی‌ها را حذف کنید. تمام درخواست‌های خود را به یک اندپوینت ارسال کنید و ما بقیه کارها را انجام می‌دهیم.
+        - generic [ref=e114] [box=16,2282,358,452]:
+          - generic [ref=e116] [box=155,2282,80,80]
+          - generic [ref=e122] [box=139,2406,112,112]
+          - generic [ref=e128] [box=16,2554,358,180]
+      - generic [ref=e145] [box=0,2862,390,1835]:
+        - generic [ref=e146] [box=16,2862,358,102]:
+          - heading "امکانات و ویژگی‌های کلیدی" [level=2] [ref=e147] [box=16,2862,358,30]
+          - paragraph [ref=e148] [box=16,2908,358,56]: هرآنچه برای مدیریت یکپارچه، امن و مقرون‌به‌صرفه زیرساخت هوش مصنوعی نیاز دارید.
+        - generic [ref=e149] [box=16,3004,358,1693]:
+          - generic [ref=e150] [box=16,3024,358,195]
+          - generic [ref=e158] [box=16,3235,358,195]
+          - generic [ref=e166] [box=16,3446,358,218]
+          - generic [ref=e175] [box=16,3679,358,195]
+          - generic [ref=e182] [box=16,3890,358,195]
+          - generic [ref=e189] [box=16,4101,358,195]
+          - generic [ref=e198] [box=16,4312,358,195]
+          - generic [ref=e204] [box=16,4523,358,195]
+      - generic [ref=e213] [box=16,4810,358,636]:
+        - generic [ref=e214] [box=-114,4810,488,314]:
+          - heading "طراحی شده برای توسعه‌دهندگان" [level=2] [ref=e215] [box=-114,4810,488,30]
+          - paragraph [ref=e216] [box=-114,4856,488,56]: شاهراه کاملاً با استاندارد OpenAI سازگار است. هیچ نیازی به یادگیری SDK جدید یا تغییرات گسترده در کدهای فعلی‌تان نیست. فقط Base URL را تغییر دهید.
+          - list [ref=e217] [box=-114,4936,488,116]
+          - link "مطالعه مستندات API" [ref=e238] [cursor=pointer] [box=-114,5076,488,48]:
+            - /url: "#docs"
+        - generic [ref=e241] [box=-114,5164,488,282]:
+          - generic [ref=e242] [box=-113,5165,487,41]
+          - code [ref=e254] [box=-97,5222,455,207]: "import { OpenAI } from \"openai\"; const client = new OpenAI({ apiKey: \"SHAHRAH_API_KEY\", baseURL: \"https://api.sharah.ir/v1\" // تنها خطی که باید تغییر کند }); const response = await client.chat.completions.create({ model: \"gpt-4-turbo\", messages: [{ role: \"user\", content: \"سلام دنیا\" }] }); console.log(response.choices[0].message.content);"
+      - generic [ref=e256] [box=0,5559,390,965]:
+        - generic [ref=e257] [box=16,5559,358,74]:
+          - heading "چگونه کار می‌کند؟" [level=2] [ref=e258] [box=16,5559,358,30]
+          - paragraph [ref=e259] [box=16,5605,358,28]: شروع کار با شاهراه تنها چند دقیقه زمان می‌برد.
+        - generic [ref=e262] [box=16,5673,358,851]:
+          - generic [ref=e263] [box=120,5693,151,151]
+          - generic [ref=e271] [box=128,5868,134,151]
+          - generic [ref=e280] [box=130,6043,129,151]
+          - generic [ref=e288] [box=118,6218,154,151]
+          - generic [ref=e296] [box=118,6393,154,151]
+      - generic [ref=e303] [box=0,6637,390,1125]:
+        - generic [ref=e304] [box=16,6637,358,74]:
+          - heading "کاربردهای شاهراه" [level=2] [ref=e305] [box=16,6637,358,30]
+          - paragraph [ref=e306] [box=16,6683,358,28]: برای هر محصولی که به قدرت پردازش زبان طبیعی نیاز دارد.
+        - generic [ref=e307] [box=16,6751,358,1011]:
+          - generic [ref=e308] [box=25,6755,340,180]
+          - generic [ref=e314] [box=25,6961,340,180]
+          - generic [ref=e321] [box=25,7166,340,180]
+          - generic [ref=e327] [box=25,7371,340,180]
+          - generic [ref=e336] [box=25,7577,340,180]
+      - generic [ref=e345] [box=0,7873,390,905]:
+        - generic [ref=e346] [box=16,7873,358,102]:
+          - heading "نظارت دقیق بر روی هر درخواست" [level=2] [ref=e347] [box=16,7873,358,30]
+          - paragraph [ref=e348] [box=16,7919,358,56]: داشبورد حرفه‌ای شاهراه به شما امکان می‌دهد تا تمام معیارها را در لحظه مانیتور کنید و تصمیمات بهتری بگیرید.
+        - generic [ref=e349] [box=16,8015,358,763]:
+          - generic [ref=e350] [box=33,8032,325,361]
+          - generic [ref=e384] [box=33,8417,325,344]
+      - generic [ref=e393] [box=0,8898,390,333]:
+        - heading "شاهراه برای شرایط واقعی کاربران ایرانی طراحی شده است؛ تمرکز بر سادگی، پایداری و کاهش هزینه." [level=2] [ref=e394] [box=16,8898,358,117]
+        - paragraph [ref=e395] [box=16,9031,358,56]: ما چالش‌های شما را می‌شناسیم و زیرساختی ساخته‌ایم تا شما فقط روی توسعه محصول خود تمرکز کنید.
+        - generic [ref=e396] [box=16,9119,358,112]:
+          - heading "مسیر استفاده از AI را ساده کنید" [level=3] [ref=e397] [box=41,9119,309,32]
+          - link "شروع کنید" [ref=e398] [cursor=pointer] [box=16,9175,358,56]:
+            - /url: /dashboard
+    - contentinfo [ref=e401] [box=0,9295,390,940]:
+      - generic [ref=e402] [box=0,9344,390,860]:
+        - generic [ref=e403] [box=16,9344,358,710]:
+          - generic [ref=e404] [box=16,9344,358,146]
+          - generic [ref=e419] [box=16,9521,358,156]
+          - generic [ref=e430] [box=16,9709,358,156]
+          - generic [ref=e441] [box=16,9897,358,156]
+        - generic [ref=e452] [box=16,10101,358,102]:
+          - paragraph [ref=e453] [box=76,10134,239,20]: © ۱۴۰۵ شاهراه. تمامی حقوق محفوظ است.
+          - generic [ref=e454] [box=157,10170,76,33]
+  - generic [ref=e462] [cursor=pointer] [box=20,790,118,32]:
+    - button "Open Next.js Dev Tools" [ref=e463] [box=22,790,32,32]:
+      - img [ref=e464] [box=22,786,40,40]
+    - generic [ref=e515] [box=56,790,80,32]:
+      - button "Open issues overlay" [ref=e516] [box=64,790,42,32]:
+        - generic [ref=e517] [box=64,788,8,36]:
+          - generic [ref=e518] [box=64,776,8,36]: "0"
+          - generic [ref=e519] [box=64,788,8,36]: "1"
+        - generic [ref=e520] [box=74,788,32,36]: Issue
+      - button "Collapse issues badge" [ref=e521] [box=108,794,24,24]:
+        - img [ref=e522] [box=114,800,12,12]
+  - alert [ref=e524] [box=390,-1,1,1]
+  - generic [ref=e525] [box=0,-20000,7,18]: "0"

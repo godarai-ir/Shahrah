@@ -17,23 +17,23 @@ export function DashboardPreview() {
   }, []);
 
   return (
-    <section className="py-24 bg-slate-900 text-white overflow-hidden relative">
+    <section className="py-14 sm:py-20 lg:py-24 bg-slate-900 text-white overflow-hidden relative">
       {/* Background Glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-indigo-500/20 rounded-full blur-[120px] pointer-events-none"></div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+        <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-16">
+          <h2 className="text-2xl sm:text-4xl font-bold mb-4 leading-tight">
             نظارت دقیق بر روی هر درخواست
           </h2>
-          <p className="text-lg text-gray-400">
+          <p className="text-sm sm:text-lg text-gray-400 leading-7 sm:leading-relaxed">
             داشبورد حرفه‌ای شاهراه به شما امکان می‌دهد تا تمام معیارها را در لحظه مانیتور کنید و تصمیمات بهتری بگیرید.
           </p>
         </div>
 
-        <div className="bg-[#0B0F19] rounded-2xl border border-gray-800 shadow-2xl p-6 md:p-8" dir="ltr">
+        <div className="bg-[#0B0F19] rounded-2xl border border-gray-800 shadow-2xl p-4 sm:p-6 md:p-8" dir="ltr">
           {/* Top Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
             {[
               { label: 'Total Requests', value: '1,234,567', icon: <Activity className="text-blue-400" /> },
               { label: 'Token Usage', value: '45.2M', icon: <Database className="text-indigo-400" /> },
@@ -43,7 +43,7 @@ export function DashboardPreview() {
               <div key={i} className="bg-[#111827] p-4 rounded-xl border border-gray-800 flex items-center justify-between">
                 <div>
                   <p className="text-gray-500 text-xs font-medium mb-1">{stat.label}</p>
-                  <p className="text-xl font-bold">{stat.value}</p>
+                  <p className="text-lg sm:text-xl font-bold">{stat.value}</p>
                 </div>
                 <div className="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center">
                   {stat.icon}
@@ -53,16 +53,16 @@ export function DashboardPreview() {
           </div>
 
           {/* Chart Area */}
-          <div className="bg-[#111827] p-6 rounded-xl border border-gray-800">
-            <div className="flex items-center justify-between mb-6">
+          <div className="bg-[#111827] p-4 sm:p-6 rounded-xl border border-gray-800">
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="font-bold">Requests Overview</h3>
-              <div className="flex gap-2">
+              <div className="flex gap-2 self-start">
                 <span className="px-3 py-1 rounded bg-indigo-500/20 text-indigo-400 text-xs font-medium">7 Days</span>
                 <span className="px-3 py-1 rounded hover:bg-gray-800 text-gray-400 cursor-pointer text-xs font-medium">30 Days</span>
               </div>
             </div>
             
-            <div className="h-64 w-full min-w-[200px] min-h-[250px]">
+            <div className="h-56 sm:h-64 w-full min-w-0 min-h-[220px] sm:min-h-[250px]">
               {chartReady ? (
                 <RequestsAreaChart />
               ) : (

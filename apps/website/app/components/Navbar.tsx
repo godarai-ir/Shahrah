@@ -24,12 +24,12 @@ export function Navbar() {
   return (
     <nav className="sticky top-0 z-50 w-full backdrop-blur-xl bg-white/70 dark:bg-[#0B0F19]/70 border-b border-gray-200 dark:border-gray-800 transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16 items-center">
+        <div className="flex min-h-16 justify-between items-center gap-3">
           {/* Logo & Menu */}
-          <div className="flex items-center gap-8">
-            <Link href="/" className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-4 sm:gap-8">
+            <Link href="/" className="flex min-w-0 items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center text-white font-bold text-xl">ش</div>
-              <span className="font-bold text-xl text-slate-900 dark:text-white">شاهراه</span>
+              <span className="truncate font-bold text-lg sm:text-xl text-slate-900 dark:text-white">شاهراه</span>
             </Link>
             <div className="hidden md:flex items-center gap-6 h-16">
               <div className="relative group/features h-full flex items-center">
@@ -75,14 +75,21 @@ export function Navbar() {
           </div>
 
           {/* Mobile menu button */}
-          <div className="md:hidden flex items-center gap-4">
+          <div className="md:hidden flex shrink-0 items-center gap-2">
             <button
+              aria-label="Toggle theme"
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="p-2 rounded-full text-slate-600 dark:text-gray-300"
+              className="min-h-11 min-w-11 p-2 rounded-full text-slate-600 dark:text-gray-300"
             >
               {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
-            <button onClick={() => setIsOpen(!isOpen)} className="text-slate-600 dark:text-gray-300">
+            <button
+              aria-label={isOpen ? "Close menu" : "Open menu"}
+              aria-expanded={isOpen}
+              aria-controls="mobile-menu"
+              onClick={() => setIsOpen(!isOpen)}
+              className="min-h-11 min-w-11 text-slate-600 dark:text-gray-300"
+            >
               {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
@@ -91,12 +98,13 @@ export function Navbar() {
 
       {/* Mobile Menu */}
       {isOpen && (
-        <div className="md:hidden border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0B0F19] overflow-y-auto max-h-[calc(100vh-64px)]">
-          <div className="px-4 pt-2 pb-6 flex flex-col gap-4">
+        <div id="mobile-menu" className="md:hidden border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0B0F19] overflow-y-auto max-h-[calc(100vh-64px)]">
+          <div className="px-4 pt-2 pb-6 flex flex-col gap-3">
             <div>
               <button 
+                aria-expanded={isMobileFeaturesOpen}
                 onClick={() => setIsMobileFeaturesOpen(!isMobileFeaturesOpen)}
-                className="flex items-center justify-between w-full text-sm font-medium text-slate-600 dark:text-gray-300 py-2"
+                className="flex items-center justify-between w-full text-sm font-medium text-slate-600 dark:text-gray-300 py-3 min-h-11"
               >
                 امکانات
                 <ChevronDown className={`w-4 h-4 transition-transform ${isMobileFeaturesOpen ? 'rotate-180' : ''}`} />
@@ -107,7 +115,7 @@ export function Navbar() {
                     <Link 
                       key={idx} 
                       href={feature.href} 
-                      className="flex items-start gap-3"
+                      className="flex items-start gap-3 py-2 min-h-11"
                       onClick={() => {
                         setIsOpen(false);
                         setIsMobileFeaturesOpen(false);
@@ -123,12 +131,12 @@ export function Navbar() {
                 </div>
               )}
             </div>
-            <Link href="/pricing" className="text-sm font-medium text-slate-600 dark:text-gray-300 block py-2" onClick={() => setIsOpen(false)}>قیمت‌گذاری</Link>
-            <Link href="/about" className="text-sm font-medium text-slate-600 dark:text-gray-300 block py-2" onClick={() => setIsOpen(false)}>درباره ما</Link>
-            <Link href="/blog" className="text-sm font-medium text-slate-600 dark:text-gray-300 block py-2" onClick={() => setIsOpen(false)}>وبلاگ</Link>
-            <Link href="/contact" className="text-sm font-medium text-slate-600 dark:text-gray-300 block py-2" onClick={() => setIsOpen(false)}>تماس</Link>
+            <Link href="/pricing" className="block min-h-11 py-3 text-sm font-medium text-slate-600 dark:text-gray-300" onClick={() => setIsOpen(false)}>قیمت‌گذاری</Link>
+            <Link href="/about" className="block min-h-11 py-3 text-sm font-medium text-slate-600 dark:text-gray-300" onClick={() => setIsOpen(false)}>درباره ما</Link>
+            <Link href="/blog" className="block min-h-11 py-3 text-sm font-medium text-slate-600 dark:text-gray-300" onClick={() => setIsOpen(false)}>وبلاگ</Link>
+            <Link href="/contact" className="block min-h-11 py-3 text-sm font-medium text-slate-600 dark:text-gray-300" onClick={() => setIsOpen(false)}>تماس</Link>
             <div className="border-t border-gray-200 dark:border-gray-800 pt-4 flex flex-col gap-4">
-              <Link href="/signup" className="text-center block px-4 py-2 rounded-lg bg-indigo-500 text-white text-sm font-medium" onClick={() => setIsOpen(false)}>شروع کنید</Link>
+              <Link href="/signup" className="block min-h-12 rounded-lg bg-indigo-500 px-4 py-3 text-center text-sm font-medium text-white" onClick={() => setIsOpen(false)}>شروع کنید</Link>
             </div>
           </div>
         </div>

@@ -6,20 +6,20 @@ import Link from 'next/link';
 
 export function Trust() {
   return (
-    <section className="py-32 relative overflow-hidden">
+    <section className="py-16 sm:py-24 lg:py-32 relative overflow-hidden">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white mb-6 leading-relaxed">
+        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white mb-4 sm:mb-6 leading-relaxed">
           شاهراه برای شرایط واقعی کاربران ایرانی طراحی شده است؛ تمرکز بر سادگی، پایداری و کاهش هزینه.
         </h2>
-        <p className="text-lg text-slate-600 dark:text-gray-400 mb-12">
+        <p className="text-sm sm:text-lg text-slate-600 dark:text-gray-400 mb-8 sm:mb-12 leading-7 sm:leading-relaxed">
           ما چالش‌های شما را می‌شناسیم و زیرساختی ساخته‌ایم تا شما فقط روی توسعه محصول خود تمرکز کنید.
         </p>
 
         <div className="flex flex-col items-center">
-          <h3 className="text-3xl font-black text-slate-900 dark:text-white mb-8">
+          <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mb-6 sm:mb-8">
             مسیر استفاده از AI را ساده کنید
           </h3>
-          <Link href="/dashboard" className="flex items-center gap-2 px-8 py-4 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-medium text-lg transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] hover:shadow-[0_0_30px_rgba(99,102,241,0.6)] hover:-translate-y-1">
+          <Link href="/dashboard" className="flex min-h-12 w-full sm:w-auto items-center justify-center gap-2 px-8 py-4 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-medium text-base sm:text-lg transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] hover:shadow-[0_0_30px_rgba(99,102,241,0.6)] hover:-translate-y-1">
             شروع کنید
             <ArrowLeft className="w-5 h-5" />
           </Link>
@@ -31,10 +31,10 @@ export function Trust() {
 
 export function Footer() {
   return (
-    <footer className="bg-slate-50 dark:bg-[#0B0F19] border-t border-gray-200 dark:border-gray-800 pt-16 pb-8 transition-colors">
+    <footer className="bg-slate-50 dark:bg-[#0B0F19] border-t border-gray-200 dark:border-gray-800 pt-12 sm:pt-16 pb-8 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
-          <div className="col-span-2 md:col-span-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+          <div className="sm:col-span-2 md:col-span-1">
             <div className="flex items-center gap-2 mb-6">
               <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center text-white font-bold text-xl">ش</div>
               <span className="font-bold text-xl text-slate-900 dark:text-white">شاهراه</span>
@@ -92,7 +92,7 @@ export function Footer() {
           </div>
         </div>
         
-        <div className="border-t border-gray-200 dark:border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="border-t border-gray-200 dark:border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-right">
           <p className="text-sm text-slate-500 dark:text-gray-500">
             © ۱۴۰۵ شاهراه. تمامی حقوق محفوظ است.
           </p>

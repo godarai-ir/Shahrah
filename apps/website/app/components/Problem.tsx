@@ -36,18 +36,18 @@ const problems = [
 
 export function Problem() {
   return (
-    <section className="py-24 bg-slate-50 dark:bg-[#111827]/50 border-y border-gray-200 dark:border-gray-800 transition-colors">
+    <section className="py-14 sm:py-20 lg:py-24 bg-slate-50 dark:bg-[#111827]/50 border-y border-gray-200 dark:border-gray-800 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white mb-4">
+        <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-16">
+          <h2 className="text-2xl sm:text-4xl font-bold text-slate-900 dark:text-white mb-4 leading-tight">
             چرا استفاده از هوش مصنوعی در ایران سخت است؟
           </h2>
-          <p className="text-lg text-slate-600 dark:text-gray-400">
+          <p className="text-sm sm:text-lg text-slate-600 dark:text-gray-400 leading-7 sm:leading-relaxed">
             توسعه‌دهندگان و کسب‌وکارهای ایرانی برای استفاده از مدل‌های روز دنیا با چالش‌های متعددی روبرو هستند.
           </p>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 sm:gap-6">
           {problems.map((item, index) => (
             <motion.div
               key={index}
@@ -55,7 +55,7 @@ export function Problem() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="bg-white dark:bg-[#0B0F19] p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow"
+              className="bg-white dark:bg-[#0B0F19] p-5 sm:p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow"
             >
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-6 ${item.bg} ${item.color}`}>
                 {item.icon}

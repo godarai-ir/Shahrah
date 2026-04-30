@@ -33,18 +33,18 @@ const cases = [
 
 export function UseCases() {
   return (
-    <section id="use-cases" className="py-24">
+    <section id="use-cases" className="py-14 sm:py-20 lg:py-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white mb-4">
+        <div className="text-center mb-10 sm:mb-16">
+          <h2 className="text-2xl sm:text-4xl font-bold text-slate-900 dark:text-white mb-4 leading-tight">
             کاربردهای شاهراه
           </h2>
-          <p className="text-lg text-slate-600 dark:text-gray-400">
+          <p className="text-sm sm:text-lg text-slate-600 dark:text-gray-400 leading-7 sm:leading-relaxed">
             برای هر محصولی که به قدرت پردازش زبان طبیعی نیاز دارد.
           </p>
         </div>
 
-        <div className="flex flex-wrap justify-center gap-6">
+        <div className="flex flex-wrap justify-center gap-4 sm:gap-6">
           {cases.map((item, idx) => (
             <motion.div
               key={idx}
@@ -52,7 +52,7 @@ export function UseCases() {
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.4, delay: idx * 0.1 }}
-              className="w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)] bg-slate-50 dark:bg-[#111827] p-8 rounded-3xl border border-gray-100 dark:border-gray-800 hover:shadow-xl transition-all group overflow-hidden relative"
+              className="w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)] bg-slate-50 dark:bg-[#111827] p-5 sm:p-8 rounded-3xl border border-gray-100 dark:border-gray-800 hover:shadow-xl transition-all group overflow-hidden relative"
             >
               <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-3xl group-hover:bg-indigo-500/10 transition-colors pointer-events-none"></div>
               
