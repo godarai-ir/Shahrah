@@ -35,14 +35,14 @@ export function Contact() {
                 {
                   icon: Phone,
                   title: 'تلفن',
-                  value: '۰۲۱-۱۲۳۴۵۶۷۸',
+                  value: '۰۹۱۶-۶۰۹-۵۹۶۳',
                   description: 'شنبه تا چهارشنبه، ۹ صبح تا ۶ عصر',
                 },
                 {
                   icon: MapPin,
                   title: 'آدرس',
                   value: 'تهران، ایران',
-                  description: 'دفتر مرکزی',
+                  description: 'کارخانه نوآوری آزادی',
                 },
               ].map((contact) => (
                 <div key={contact.title} className="flex gap-4 p-6 rounded-xl border border-gray-200 dark:border-gray-800">

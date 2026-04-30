@@ -21,15 +21,19 @@ function escapeHtml(value: string) {
 }
 
 export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const password = url.searchParams.get("password") ?? "";
+  const authHeader = req.headers.get("authorization") ?? "";
   const expected = process.env.SIGNUP_ADMIN_PASSWORD ?? "";
 
   if (!expected) {
     return new NextResponse("SIGNUP_ADMIN_PASSWORD is not set", { status: 500 });
   }
 
-  if (!safeEqual(password, expected)) {
+  const bearerPrefix = "Bearer ";
+  const token = authHeader.startsWith(bearerPrefix)
+    ? authHeader.slice(bearerPrefix.length).trim()
+    : "";
+
+  if (!token || !safeEqual(token, expected)) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
@@ -87,6 +91,9 @@ export async function GET(req: Request) {
 
   return new NextResponse(html, {
     status: 200,
-    headers: { "content-type": "text/html; charset=utf-8" },
+    headers: {
+      "cache-control": "no-store, max-age=0",
+      "content-type": "text/html; charset=utf-8",
+    },
   });
 }
