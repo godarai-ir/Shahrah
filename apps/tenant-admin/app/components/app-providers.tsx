@@ -17,12 +17,7 @@ export default function AppProviders({
 }: AppProvidersProps) {
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="light"
-        enableSystem
-        disableTransitionOnChange
-      >
+      <ThemeProvider defaultTheme="light" disableTransitionOnChange>
         {children}
       </ThemeProvider>
     </NextIntlClientProvider>

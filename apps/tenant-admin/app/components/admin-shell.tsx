@@ -98,9 +98,10 @@ export default function AdminShell({
   const currentPageLabel = navItems.find((item) => item.isActive)?.title ?? t("nav.dashboard");
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background app-background">
       <div className="grid min-h-screen lg:grid-cols-[280px_1fr]">
-        <aside className="hidden border-l bg-card/70 lg:block">
+        {/* Desktop Sidebar */}
+        <aside className="hidden lg:block">
           <SidebarContent
             tenantSlug={tenantSlug}
             currentUser={currentUser}
@@ -109,13 +110,16 @@ export default function AdminShell({
           />
         </aside>
 
+        {/* Main Content Area */}
         <div className="min-w-0">
-          <header className="sticky top-0 z-10 border-b bg-background/85 px-4 py-3 backdrop-blur md:px-6">
+          {/* Mobile + Desktop Header */}
+          <header className="sticky top-0 z-sticky border-b bg-background/80 px-4 py-3 backdrop-blur md:px-6">
             <div className="flex items-center gap-2 md:gap-3">
+              {/* Mobile Menu Trigger */}
               <Sheet>
                 <SheetTrigger asChild>
-                  <Button variant="outline" size="icon" className="lg:hidden">
-                    <Menu className="h-4 w-4" />
+                  <Button variant="outline" size="icon" className="lg:hidden" aria-label={t("menu.open")}>
+                    <Menu className="h-5 w-5" />
                     <span className="sr-only">{t("menu.open")}</span>
                   </Button>
                 </SheetTrigger>
@@ -134,22 +138,30 @@ export default function AdminShell({
                 </SheetContent>
               </Sheet>
 
+              {/* Page Title */}
               <div className="min-w-0 flex-1">
                 <p className="text-xs text-muted-foreground">{t("tenant")}</p>
-                <h1 className="truncate text-lg font-semibold">{currentPageLabel}</h1>
+                <h1 className="truncate text-base font-semibold md:text-lg">{currentPageLabel}</h1>
               </div>
 
+              {/* Search Bar — Desktop Only */}
               <div className="hidden w-full max-w-sm items-center gap-2 md:flex">
-                <Search className="h-4 w-4 text-muted-foreground" />
-                <Input placeholder={t("searchPlaceholder")} aria-label={t("searchPlaceholder")} />
+                <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                <Input
+                  placeholder={t("searchPlaceholder")}
+                  aria-label={t("searchPlaceholder")}
+                  className="max-w-xs"
+                />
               </div>
 
+              {/* Theme Toggle */}
               <ThemeToggle />
             </div>
           </header>
 
+          {/* Page Content */}
           <main className="p-4 md:p-6">
-            <div className="mx-auto w-full max-w-7xl">{children}</div>
+            <div className="mx-auto w-full max-w-7xl animate-fade-in">{children}</div>
           </main>
         </div>
       </div>
@@ -182,9 +194,10 @@ function SidebarContent({
   const t = useTranslations("shell");
 
   return (
-    <div className={cn("flex h-full flex-col border-l p-4", className)}>
-      <div className="flex items-center gap-3 rounded-lg border bg-background p-3">
-        <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border bg-muted/40 p-1">
+    <div className={cn("flex h-full flex-col bg-sidebar p-4", className)}>
+      {/* Brand Header */}
+      <div className="flex items-center gap-3 rounded-xl border border-sidebar-border bg-sidebar p-3 shadow-xs">
+        <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border border-sidebar-border bg-sidebar-accent p-1.5">
           <Image
             src="/brand/shahrah-logo.png"
             alt={t("logoAlt")}
@@ -195,49 +208,64 @@ function SidebarContent({
           />
         </div>
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">{t("title")}</p>
-          <p className="truncate text-xs text-muted-foreground">{tenantSlug}</p>
+          <p className="truncate text-sm font-semibold text-sidebar-foreground">{t("title")}</p>
+          <p className="truncate text-xs text-sidebar-accent-foreground">{tenantSlug}</p>
         </div>
       </div>
 
-      <nav className="mt-6 grid gap-1">
+      {/* Navigation */}
+      <nav className="mt-6 grid gap-1.5" aria-label={t("nav.title")}>
         {navItems.map((item) => {
           const Icon = item.icon;
 
           return (
             <Button
               key={item.href}
-              variant={item.isActive ? "secondary" : "ghost"}
-              className="h-10 justify-start gap-2"
+              variant={item.isActive ? "default" : "ghost"}
+              size="default"
+              className={cn(
+                "h-10 justify-start gap-3 px-3 transition-all duration-150",
+                item.isActive && "shadow-xs",
+              )}
               asChild
             >
               <Link href={item.href}>
-                <Icon className="h-4 w-4" />
-                <span>{item.title}</span>
+                <Icon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                <span className="truncate">{item.title}</span>
               </Link>
             </Button>
           );
         })}
       </nav>
 
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* User Profile Card */}
       <Separator className="my-4" />
 
-      <div className="mt-auto rounded-xl border bg-background p-3">
-        <div className="flex items-center gap-2">
-          <Avatar>
-            <AvatarFallback>{getInitials(userIdentity)}</AvatarFallback>
+      <div className="rounded-xl border border-sidebar-border bg-sidebar p-3 shadow-xs">
+        <div className="flex items-center gap-3">
+          <Avatar className="h-10 w-10">
+            <AvatarFallback className="text-xs font-semibold">
+              {getInitials(userIdentity)}
+            </AvatarFallback>
           </Avatar>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{userIdentity}</p>
-            <Badge variant="outline" className="mt-1">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-sidebar-foreground">{userIdentity}</p>
+            <Badge variant="secondary" className="mt-1 text-xs">
               {currentUser.role}
             </Badge>
           </div>
         </div>
 
         <form action="/logout" method="post" className="mt-3">
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2">
-            <LogOut className="h-4 w-4" />
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full justify-start gap-2"
+          >
+            <LogOut className="h-4 w-4" aria-hidden="true" />
             {t("logout")}
           </Button>
         </form>

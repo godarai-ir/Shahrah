@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { FormEvent, useState } from "react";
 import { useTranslations } from "next-intl";
+import { AlertCircle, CheckCircle, RefreshCw } from "lucide-react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -116,41 +117,76 @@ export default function LoginForm({ initialCaptcha, redirectTo }: LoginFormProps
   }
 
   return (
-    <main className="min-h-screen px-4 py-8 md:px-8 md:py-14">
-      <div className="mx-auto w-full max-w-lg space-y-4">
+    <main className="relative flex min-h-screen items-center justify-center px-4 py-12 md:px-8 md:py-16">
+      {/* Background Gradient */}
+      <div className="absolute inset-0 -z-10 overflow-hidden">
+        <div className="absolute left-1/2 top-0 h-[500px] w-[800px] -translate-x-1/2 opacity-20 dark:opacity-10">
+          <div className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full w-full blur-[120px] rounded-full" />
+        </div>
+      </div>
+
+      <div className="mx-auto w-full max-w-md space-y-6 animate-fade-in">
+        {/* Theme Toggle */}
         <div className="flex justify-start">
           <ThemeToggle />
         </div>
 
-        <Card>
-          <CardHeader>
-            <div className="mb-2 flex items-center justify-center">
-              <Image
-                src="/brand/shahrah-logo.png"
-                alt={t("logoAlt")}
-                width={68}
-                height={68}
-                className="h-16 w-16 rounded-xl border bg-muted/40 p-1 object-contain"
-                priority
-              />
-            </div>
-            <CardTitle>{t("title")}</CardTitle>
-            <CardDescription>{t("subtitle")}</CardDescription>
+        {/* Logo */}
+        <div className="flex flex-col items-center gap-3 text-center">
+          <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-border bg-card p-2 shadow-lg">
+            <Image
+              src="/brand/shahrah-logo.png"
+              alt={t("logoAlt")}
+              width={56}
+              height={56}
+              className="h-full w-full object-contain"
+              priority
+            />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-foreground">{t("title")}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
+          </div>
+        </div>
+
+        {/* Auth Card */}
+        <Card className="border-border/60 shadow-lg">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg">
+              {otpRequest ? t("otp.verifyTitle") : t("title")}
+            </CardTitle>
+            <CardDescription>
+              {otpRequest
+                ? t("otp.enterCode", { destination: otpRequest.destination_masked })
+                : t("subtitle")}
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {notice ? (
-              <Alert className="border-primary/30 bg-primary/5">
+          <CardContent className="space-y-5">
+            {notice && (
+              <Alert variant="success" icon={<CheckCircle className="h-4 w-4" />}>
                 <AlertDescription>{notice}</AlertDescription>
               </Alert>
-            ) : null}
-            {error ? (
-              <Alert variant="destructive">
+            )}
+            {error && (
+              <Alert variant="destructive" icon={<AlertCircle className="h-4 w-4" />}>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
-            ) : null}
+            )}
+
+            {otpRequest?.debug_otp && (
+              <Alert variant="warning">
+                <AlertDescription>
+                  {t("otp.devCode")}:{" "}
+                  <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">
+                    {otpRequest.debug_otp}
+                  </code>
+                </AlertDescription>
+              </Alert>
+            )}
 
             {!otpRequest ? (
-              <form className="grid gap-4" onSubmit={handleRequestOTP}>
+              <form className="grid gap-5" onSubmit={handleRequestOTP}>
+                {/* Identifier */}
                 <div className="grid gap-2">
                   <Label htmlFor="identifier">{t("identifier")}</Label>
                   <Input
@@ -159,9 +195,11 @@ export default function LoginForm({ initialCaptcha, redirectTo }: LoginFormProps
                     onChange={(event) => setIdentifier(event.target.value)}
                     placeholder={t("identifierPlaceholder")}
                     autoComplete="username"
+                    required
                   />
                 </div>
 
+                {/* Captcha */}
                 <div className="grid gap-3">
                   <Label>{t("captcha.label")}</Label>
                   <Image
@@ -170,41 +208,37 @@ export default function LoginForm({ initialCaptcha, redirectTo }: LoginFormProps
                     width={170}
                     height={56}
                     unoptimized
-                    className="h-14 w-[170px] rounded-md border bg-secondary"
+                    className="h-14 w-[170px] rounded-lg border border-border bg-secondary"
                   />
-                  <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-                    <div className="grid gap-2">
-                      <Label htmlFor="captchaAnswer">{t("captcha.answer")}</Label>
-                      <Input
-                        id="captchaAnswer"
-                        value={captchaAnswer}
-                        onChange={(event) => setCaptchaAnswer(event.target.value)}
-                        placeholder={t("captcha.answerPlaceholder")}
-                        autoComplete="off"
-                      />
-                    </div>
-                    <Button type="button" variant="outline" onClick={() => void refreshCaptcha()}>
-                      {t("captcha.refresh")}
+                  <div className="flex gap-2">
+                    <Input
+                      value={captchaAnswer}
+                      onChange={(event) => setCaptchaAnswer(event.target.value)}
+                      placeholder={t("captcha.answerPlaceholder")}
+                      autoComplete="off"
+                      required
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => void refreshCaptcha()}
+                      aria-label={t("captcha.refresh")}
+                    >
+                      <RefreshCw className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
 
-                <Button type="submit" disabled={loading}>
+                {/* Submit */}
+                <Button type="submit" loading={loading} className="w-full">
                   {loading ? t("otp.requesting") : t("otp.request")}
                 </Button>
               </form>
             ) : (
-              <form className="grid gap-4" onSubmit={handleVerifyOTP}>
-                <p className="text-sm text-muted-foreground">
-                  {t("otp.enterCode", { destination: otpRequest.destination_masked })}
-                </p>
-                {otpRequest.debug_otp ? (
-                  <Alert className="border-amber-400/45 bg-amber-100/40 text-amber-950 dark:bg-amber-500/10 dark:text-amber-200">
-                    <AlertDescription>
-                      {t("otp.devCode")}: <code>{otpRequest.debug_otp}</code>
-                    </AlertDescription>
-                  </Alert>
-                ) : null}
+              <form className="grid gap-5" onSubmit={handleVerifyOTP}>
+                {/* OTP Code */}
                 <div className="grid gap-2">
                   <Label htmlFor="otpCode">{t("otp.code")}</Label>
                   <Input
@@ -213,11 +247,15 @@ export default function LoginForm({ initialCaptcha, redirectTo }: LoginFormProps
                     onChange={(event) => setOTPCode(event.target.value)}
                     placeholder={t("otp.codePlaceholder")}
                     autoComplete="one-time-code"
+                    required
+                    maxLength={6}
+                    inputMode="numeric"
                   />
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <Button type="submit" disabled={loading}>
+                {/* Actions */}
+                <div className="flex flex-col-reverse gap-2 sm:flex-row">
+                  <Button type="submit" loading={loading} className="flex-1">
                     {loading ? t("otp.verifying") : t("otp.verify")}
                   </Button>
                   <Button

@@ -15,6 +15,7 @@
       "description": "Quick navigation and panel shortcuts"
     },
     "nav": {
+      "title": "Primary navigation",
       "dashboard": "Dashboard",
       "topup": "Wallet Top-up",
       "settings": "Account Settings",
