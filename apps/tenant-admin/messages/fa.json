@@ -165,6 +165,7 @@
     "otp": {
       "request": "دریافت OTP",
       "requesting": "در حال ارسال OTP...",
+      "verifyTitle": "تایید کد ورود",
       "verify": "ورود به پنل",
       "verifying": "در حال تایید...",
       "code": "کد OTP",

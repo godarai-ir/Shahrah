@@ -165,6 +165,7 @@
     "otp": {
       "request": "Request OTP",
       "requesting": "Sending OTP...",
+      "verifyTitle": "Verify OTP",
       "verify": "Sign in",
       "verifying": "Verifying...",
       "code": "OTP code",
