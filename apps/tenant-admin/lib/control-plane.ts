@@ -11,7 +11,7 @@ type ProxyOptions = {
 
 type ControlPlaneRequest = {
   tenantSlug: string;
-  method: "GET" | "POST" | "PUT";
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   path: string;
   body?: unknown;
 };
@@ -26,6 +26,7 @@ type APIErrorPayload = {
 export type ControlPlaneResponse = {
   ok: boolean;
   status: number;
+  statusCode?: number;
   payload: unknown;
   errorMessage?: string;
 };
@@ -102,6 +103,7 @@ export async function fetchControlPlaneJSON(
     return {
       ok: upstream.ok,
       status: upstream.status,
+      statusCode: upstream.status,
       payload,
       errorMessage: upstream.ok
         ? undefined

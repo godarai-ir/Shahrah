@@ -841,7 +841,7 @@ func appendUnique(values []string, candidate string) []string {
 }
 
 func (h *Handlers) ListOrgUnits(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requireOrgAdminOrHigher(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -886,7 +886,7 @@ func (h *Handlers) ListOrgUnits(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) CreateOrgUnit(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requireOrgAdminOrHigher(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -914,7 +914,7 @@ func (h *Handlers) CreateOrgUnit(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) GetOrgUnit(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requireOrgAdminOrHigher(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -939,7 +939,7 @@ func (h *Handlers) GetOrgUnit(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) UpdateOrgUnit(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requireOrgAdminOrHigher(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -968,7 +968,7 @@ func (h *Handlers) UpdateOrgUnit(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) DeleteOrgUnit(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requireOrgAdminOrHigher(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -992,7 +992,7 @@ func (h *Handlers) DeleteOrgUnit(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) ListOrgUnitMembers(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requireOrgAdminOrHigher(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -1014,7 +1014,7 @@ func (h *Handlers) ListOrgUnitMembers(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) AddOrgUnitMember(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requireOrgAdminOrHigher(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -1048,7 +1048,7 @@ func (h *Handlers) AddOrgUnitMember(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) UpdateOrgUnitMember(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requireOrgAdminOrHigher(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -1082,7 +1082,7 @@ func (h *Handlers) UpdateOrgUnitMember(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) DeleteOrgUnitMember(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requireOrgAdminOrHigher(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -1384,4 +1384,13 @@ func requireTeamAdminOrHigher(c *fiber.Ctx) error {
 		return nil
 	}
 	return fiber.NewError(fiber.StatusForbidden, "team admin privileges required")
+}
+
+// requireOrgAdminOrHigher checks if the caller is org_admin or higher role.
+func requireOrgAdminOrHigher(c *fiber.Ctx) error {
+	authInfo := auth.GetAuthInfo(c)
+	if auth.IsOrgAdminOrHigher(authInfo) {
+		return nil
+	}
+	return fiber.NewError(fiber.StatusForbidden, "organization admin privileges required")
 }

@@ -65,6 +65,25 @@ func IsTeamAdminOrHigher(authInfo *platform.AuthContext) bool {
 	}
 }
 
+// IsOrgAdminOrHigherForOrgUnit returns true when caller can manage the given OrgUnit.
+// For org_admin: checks if they are member of the OrgUnit
+// For tenant_admin/proxy_admin: always returns true
+func IsOrgAdminOrHigherForOrgUnit(authInfo *platform.AuthContext, orgUnitID string) bool {
+	if authInfo == nil {
+		return false
+	}
+	normalizedRole := normalizeRole(authInfo.Role)
+	// proxy_admin and tenant_admin can manage any OrgUnit
+	if normalizedRole == roleProxyAdmin || normalizedRole == roleTenantAdmin {
+		return true
+	}
+	// org_admin can only manage their assigned OrgUnits
+	if normalizedRole == roleOrgAdmin {
+		return authInfo.OrgUnitID == orgUnitID
+	}
+	return false
+}
+
 // CheckRouteAuthorization validates whether the current auth context can access the given route.
 func CheckRouteAuthorization(method string, route string, authInfo *platform.AuthContext) error {
 	if authInfo == nil {

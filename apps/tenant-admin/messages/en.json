@@ -20,7 +20,8 @@
       "topup": "Wallet Top-up",
       "settings": "Account Settings",
       "providerAccounts": "Provider Accounts",
-      "accessManagement": "Access Management"
+      "accessManagement": "Access Management",
+      "orgUnits": "Organization Units"
     },
     "logoAlt": "Shahrah logo"
   },
