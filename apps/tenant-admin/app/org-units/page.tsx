@@ -1,4 +1,5 @@
 import AdminShell from "@/app/components/admin-shell";
+import OrgUnitManagement from "@/app/components/org-unit-management";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 import { extractTenantSlugFromHost } from "@/lib/tenant";
@@ -56,24 +57,14 @@ export default async function OrgUnitsPage() {
     role: auth.user.role,
   };
 
-  // Render a placeholder until we create the OrgUnitManagement component
   return (
     <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
-      <div className="container mx-auto py-8">
-        <h1 className="text-2xl font-bold mb-4">Organization Units</h1>
-        {initialError ? (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-            {initialError}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <p className="text-muted-foreground">
-              Found {initialTotal} organization units
-            </p>
-            {/* TODO: Create OrgUnitManagement component */}
-          </div>
-        )}
-      </div>
+      <OrgUnitManagement
+        initialOrgUnits={initialOrgUnits}
+        initialTotal={initialTotal}
+        initialError={initialError}
+        currentUserRole={auth.user.role}
+      />
     </AdminShell>
   );
 }

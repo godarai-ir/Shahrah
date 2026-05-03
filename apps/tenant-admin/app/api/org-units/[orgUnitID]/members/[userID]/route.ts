@@ -32,7 +32,7 @@ export async function PATCH(
   if (!result.ok) {
     return NextResponse.json(
       { error: result.errorMessage ?? "Failed to update org unit member" },
-      { status: result.status }
+      { status: result.statusCode ?? 500 }
     );
   }
 
@@ -65,7 +65,7 @@ export async function DELETE(
   if (!result.ok) {
     return NextResponse.json(
       { error: result.errorMessage ?? "Failed to remove org unit member" },
-      { status: result.status }
+      { status: result.statusCode ?? 500 }
     );
   }
 

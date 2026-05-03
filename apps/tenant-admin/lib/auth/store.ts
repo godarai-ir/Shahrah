@@ -12,7 +12,7 @@ export type TenantUser = {
   tenantSlug: string;
   email?: string;
   mobile?: string;
-  role: "tenant_member";
+  role: string;
   createdAtISO: string;
   updatedAtISO: string;
   lastLoginAtISO?: string;
@@ -277,14 +277,19 @@ export async function findOrCreateTenantUser(input: {
   });
 
   if (existing) {
-    return toPublicTenantUser(existing);
+    const bootstrapped = await ensureTenantHasAdmin({
+      tenantSlug: input.tenantSlug,
+      candidateUserID: existing.id,
+    });
+    return toPublicTenantUser(bootstrapped ?? existing);
   }
 
   try {
+    const initialRole = await getDefaultRoleForNewTenantUser(input.tenantSlug);
     const created = await prisma.tenantAdminUser.create({
       data: {
         tenantSlug: input.tenantSlug,
-        role: "tenant_member",
+        role: initialRole,
         ...(input.channel === "email"
           ? { email: input.identifier }
           : { mobile: input.identifier }),
@@ -302,7 +307,11 @@ export async function findOrCreateTenantUser(input: {
         },
       });
       if (fallback) {
-        return toPublicTenantUser(fallback);
+        const bootstrapped = await ensureTenantHasAdmin({
+          tenantSlug: input.tenantSlug,
+          candidateUserID: fallback.id,
+        });
+        return toPublicTenantUser(bootstrapped ?? fallback);
       }
     }
     throw error;
@@ -334,7 +343,14 @@ export async function getTenantUser(tenantSlug: string, userID: string) {
       tenantSlug,
     },
   });
-  return user ? toPublicTenantUser(user) : null;
+  if (!user) {
+    return null;
+  }
+  const bootstrapped = await ensureTenantHasAdmin({
+    tenantSlug,
+    candidateUserID: user.id,
+  });
+  return toPublicTenantUser(bootstrapped ?? user);
 }
 
 export async function updateTenantUserContact(input: {
@@ -479,6 +495,60 @@ async function cleanupExpiredRecords() {
   ]);
 }
 
+async function getDefaultRoleForNewTenantUser(tenantSlug: string) {
+  const existingUsers = await prisma.tenantAdminUser.count({
+    where: {
+      tenantSlug,
+      NOT: {
+        role: "deactivated",
+      },
+    },
+  });
+
+  return existingUsers === 0 ? "tenant_admin" : "tenant_member";
+}
+
+async function ensureTenantHasAdmin(input: {
+  tenantSlug: string;
+  candidateUserID: string;
+}) {
+  const admin = await prisma.tenantAdminUser.findFirst({
+    where: {
+      tenantSlug: input.tenantSlug,
+      role: {
+        in: ["tenant_admin", "proxy_admin"],
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+  if (admin) {
+    return null;
+  }
+
+  const activeUsers = await prisma.tenantAdminUser.count({
+    where: {
+      tenantSlug: input.tenantSlug,
+      NOT: {
+        role: "deactivated",
+      },
+    },
+  });
+  if (activeUsers === 0) {
+    return null;
+  }
+
+  return prisma.tenantAdminUser.update({
+    where: {
+      id: input.candidateUserID,
+    },
+    data: {
+      role: "tenant_admin",
+    },
+  });
+}
+
 async function ensureDatabaseReady() {
   if (!databaseReadyPromise) {
     databaseReadyPromise = (async () => {
@@ -605,11 +675,19 @@ function toPublicTenantUser(user: {
     tenantSlug: user.tenantSlug,
     email: user.email ?? undefined,
     mobile: user.mobile ?? undefined,
-    role: "tenant_member",
+    role: normalizeTenantRole(user.role),
     createdAtISO: user.createdAt.toISOString(),
     updatedAtISO: user.updatedAt.toISOString(),
     lastLoginAtISO: user.lastLoginAt?.toISOString(),
   };
+}
+
+function normalizeTenantRole(role: string) {
+  const normalized = role.trim().toLowerCase();
+  if (!normalized || normalized === "tenant_user") {
+    return "tenant_member";
+  }
+  return normalized;
 }
 
 function toPublicSession(session: {

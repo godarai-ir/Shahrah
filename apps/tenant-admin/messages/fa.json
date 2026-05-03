@@ -366,6 +366,200 @@
       "updateStatusError": "به‌روزرسانی وضعیت کاربر ناموفق بود."
     }
   },
+  "orgUnits": {
+    "title": "واحدهای سازمانی",
+    "subtitle": "تیم‌ها را بر اساس دپارتمان، مرکز هزینه و محدوده مدیریتی با کنترل بودجه گروه‌بندی کنید.",
+    "breadcrumb": {
+      "tenant": "تننت"
+    },
+    "common": {
+      "notSet": "تعریف نشده",
+      "inherited": "ارث‌بری‌شده"
+    },
+    "actions": {
+      "refresh": "بازآوری",
+      "new": "واحد جدید",
+      "saving": "در حال ذخیره...",
+      "viewDetails": "مشاهده جزئیات",
+      "edit": "ویرایش",
+      "manageMembers": "مدیریت اعضا",
+      "members": "اعضا",
+      "delete": "حذف"
+    },
+    "alerts": {
+      "error": "خطا",
+      "warning": "نیاز به بررسی",
+      "success": "موفق"
+    },
+    "list": {
+      "title": "همه واحدها",
+      "description": "فهرست عملیاتی همراه با شاخص‌های بودجه و مدیریت."
+    },
+    "filters": {
+      "searchPlaceholder": "جستجوی نام یا alias",
+      "filterLabel": "فیلتر واحدهای سازمانی",
+      "sortLabel": "مرتب‌سازی واحدهای سازمانی",
+      "all": "همه",
+      "withTeams": "دارای تیم",
+      "noTeams": "بدون تیم"
+    },
+    "sort": {
+      "recent": "جدیدترین",
+      "name": "نام",
+      "spend": "مصرف",
+      "teams": "تیم‌ها"
+    },
+    "table": {
+      "orgUnit": "واحد سازمانی",
+      "teams": "تیم‌ها",
+      "members": "اعضا",
+      "budget": "بودجه",
+      "spend": "مصرف",
+      "limits": "محدودیت‌ها",
+      "status": "وضعیت",
+      "updated": "بروزرسانی"
+    },
+    "empty": {
+      "title": "واحد سازمانی یافت نشد",
+      "description": "واحدهای سازمانی برای گروه‌بندی تیم‌ها، بودجه و مسئولیت مدیریتی در تننت‌های بزرگ استفاده می‌شوند.",
+      "action": "ایجاد اولین واحد"
+    },
+    "status": {
+      "normal": "عادی",
+      "warning": "هشدار",
+      "exceeded": "عبور از سقف"
+    },
+    "units": {
+      "tpm": "TPM",
+      "rpm": "RPM"
+    },
+    "pagination": {
+      "showing": "نمایش {from} تا {to} از {total} نتیجه",
+      "rows": "{count} ردیف",
+      "prev": "قبلی",
+      "next": "بعدی"
+    },
+    "detail": {
+      "breadcrumb": "تننت / واحد سازمانی",
+      "empty": "یک واحد سازمانی را انتخاب کنید تا بودجه، تیم‌ها، اعضا و متادیتا را ببینید."
+    },
+    "kpi": {
+      "totalSpend": "مصرف کل",
+      "remaining": "بودجه باقی‌مانده",
+      "teams": "تیم‌ها",
+      "membersAdmins": "اعضا/مدیران"
+    },
+    "budget": {
+      "title": "بودجه و محدودیت نرخ",
+      "used": "{amount} مصرف شده",
+      "soft": "بودجه نرم",
+      "duration": "دوره",
+      "tpm": "محدودیت TPM",
+      "rpm": "محدودیت RPM",
+      "exceededTitle": "بودجه از سقف عبور کرده است",
+      "warningTitle": "هشدار بودجه",
+      "warningDescription": "قبل از افزایش دسترسی مدل یا کلید، تخصیص تیم‌ها را بررسی کنید."
+    },
+    "teams": {
+      "title": "تیم‌ها",
+      "summaryCount": "{count} تیم در متادیتای خلاصه ثبت شده است.",
+      "emptyMetadata": "در متادیتای موجود تیمی متصل نیست.",
+      "apiHint": "پس از آماده شدن API تیم‌ها، این خلاصه با فهرست کامل تیم‌ها جایگزین می‌شود.",
+      "fallbackName": "تیم {index}",
+      "budget": "بودجه: {amount}",
+      "models": "مدل‌ها: {models}"
+    },
+    "members": {
+      "title": "اعضا",
+      "loading": "در حال بارگیری اعضا...",
+      "empty": "عضو مستقیمی برای این واحد تعریف نشده است.",
+      "added": "افزوده شده در {date}",
+      "manageTitle": "مدیریت اعضا",
+      "manageDescription": "مدیران واحد را برای مدیریت تیم‌های زیرمجموعه تعیین کنید.",
+      "user": "کاربر",
+      "userPlaceholder": "شناسه کاربر را وارد کنید یا در کاربران بارگیری‌شده جستجو کنید",
+      "role": "نقش",
+      "add": "افزودن عضو",
+      "makeMember": "تبدیل به عضو",
+      "makeOrgAdmin": "تبدیل به مدیر واحد",
+      "remove": "حذف"
+    },
+    "roles": {
+      "orgAdmin": "مدیر واحد",
+      "member": "عضو"
+    },
+    "audit": {
+      "title": "حسابرسی و متادیتا",
+      "created": "ایجاد",
+      "updated": "بروزرسانی",
+      "budgetId": "شناسه بودجه"
+    },
+    "create": {
+      "title": "ایجاد واحد سازمانی",
+      "description": "یک محدوده مدیریتی برای تیم‌ها، بودجه و مدیران تفویض‌شده تعریف کنید.",
+      "submit": "ایجاد واحد"
+    },
+    "edit": {
+      "title": "ویرایش واحد سازمانی",
+      "description": "تغییرات بودجه یا محدودیت‌ها باید با تخصیص تیم‌های زیرمجموعه سازگار باشد.",
+      "submit": "ذخیره تغییرات"
+    },
+    "delete": {
+      "title": "حذف واحد سازمانی",
+      "description": "وقتی تیم زیرمجموعه وجود دارد، حذف مسدود می‌شود.",
+      "childTeamsTitle": "تیم زیرمجموعه وجود دارد",
+      "childTeamsDescription": "قبل از حذف {name}، تیم‌ها را به ریشه تننت یا واحد دیگری منتقل کنید.",
+      "confirmLabel": "برای تایید alias را وارد کنید: {alias}",
+      "submit": "حذف واحد"
+    },
+    "form": {
+      "alias": "Alias",
+      "displayName": "نام نمایشی",
+      "costCenter": "مرکز هزینه",
+      "description": "توضیح",
+      "budgetGuardrails": "قواعد بودجه",
+      "budgetDescription": "این مقادیر تا زمان اتصال موجودیت Budget در متادیتای واحد ذخیره می‌شوند.",
+      "maxBudget": "بودجه حداکثر",
+      "softBudget": "بودجه نرم",
+      "duration": "دوره",
+      "rateLimits": "محدودیت نرخ",
+      "rateDescription": "تخصیص تیم‌های زیرمجموعه باید پایین‌تر از محدودیت واحد بماند.",
+      "tpmLimit": "محدودیت TPM",
+      "rpmLimit": "محدودیت RPM"
+    },
+    "duration": {
+      "monthly": "ماهانه",
+      "weekly": "هفتگی",
+      "daily": "روزانه"
+    },
+    "messages": {
+      "permissionDenied": "نقش فعلی شما اجازه ایجاد واحد سازمانی ندارد.",
+      "loadError": "بارگیری واحدهای سازمانی ناموفق بود.",
+      "detailLoadError": "بارگیری جزئیات واحد سازمانی ناموفق بود.",
+      "userLoadError": "بارگیری کاربران برای عضویت ناموفق بود.",
+      "createSuccess": "واحد سازمانی ایجاد شد.",
+      "createError": "ایجاد واحد سازمانی ناموفق بود.",
+      "updateSuccess": "واحد سازمانی بروزرسانی شد.",
+      "updateError": "بروزرسانی واحد سازمانی ناموفق بود.",
+      "budgetConflict": "تغییر بودجه با مصرف فعلی یا بودجه تخصیص‌یافته تیم‌ها ناسازگار است.",
+      "selectUser": "یک شناسه کاربر انتخاب یا وارد کنید.",
+      "duplicateMember": "این کاربر از قبل به واحد سازمانی اضافه شده است.",
+      "memberAddSuccess": "عضو اضافه شد.",
+      "memberAddError": "افزودن عضو ناموفق بود.",
+      "memberUpdateSuccess": "نقش عضو بروزرسانی شد.",
+      "memberUpdateError": "بروزرسانی عضو ناموفق بود.",
+      "memberRemoveSuccess": "عضو حذف شد.",
+      "memberRemoveError": "حذف عضو ناموفق بود.",
+      "deleteBlocked": "قبل از حذف این واحد، تیم‌های زیرمجموعه را منتقل یا حذف کنید.",
+      "deleteConfirmAlias": "برای تایید حذف، alias واحد را وارد کنید.",
+      "deleteSuccess": "واحد سازمانی حذف شد.",
+      "deleteError": "حذف واحد سازمانی ناموفق بود.",
+      "softBudgetConflict": "بودجه نرم باید کمتر از بودجه حداکثر باشد.",
+      "aliasRequired": "Alias الزامی است.",
+      "aliasPattern": "Alias باید فقط شامل حروف، عدد، خط تیره یا زیرخط باشد.",
+      "aliasUnique": "Alias باید در این تننت یکتا باشد."
+    }
+  },
   "invite": {
     "title": "پذیرش دعوت",
     "status": {

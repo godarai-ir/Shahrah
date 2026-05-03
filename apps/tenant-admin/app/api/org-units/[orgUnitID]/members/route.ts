@@ -29,7 +29,7 @@ export async function GET(
   if (!result.ok) {
     return NextResponse.json(
       { error: result.errorMessage ?? "Failed to fetch org unit members" },
-      { status: result.status }
+      { status: result.statusCode ?? 500 }
     );
   }
 
@@ -65,7 +65,7 @@ export async function POST(
   if (!result.ok) {
     return NextResponse.json(
       { error: result.errorMessage ?? "Failed to add org unit member" },
-      { status: result.status }
+      { status: result.statusCode ?? 500 }
     );
   }
 
