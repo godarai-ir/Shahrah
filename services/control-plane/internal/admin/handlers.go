@@ -1042,6 +1042,12 @@ func (h *Handlers) AddOrgUnitMember(c *fiber.Ctx) error {
 	}
 	item, err := h.orgUnits.AddOrgUnitMembership(c.Context(), currentTenant.ID, orgUnitID, req)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "user not found for this tenant")
+		}
+		if strings.Contains(strings.ToLower(err.Error()), "invalid uuid") {
+			return fiber.NewError(fiber.StatusBadRequest, "user_id must be a UUID platform user id")
+		}
 		return err
 	}
 	return c.Status(fiber.StatusCreated).JSON(item)

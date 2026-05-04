@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
@@ -348,6 +349,10 @@ func (s *Store) ListOrgUnitMemberships(ctx context.Context, tenantID string, org
 }
 
 func (s *Store) AddOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, req platform.CreateOrgUnitMembershipRequest) (*platform.OrgUnitMembership, error) {
+	if err := s.ensurePlatformUserForMembership(ctx, tenantID, req.UserID); err != nil {
+		return nil, err
+	}
+
 	rows, err := s.pool.Query(ctx, `
 		INSERT INTO organization_memberships (id, tenant_id, organization_id, user_id, role, created_at, updated_at)
 		VALUES ($1, $2::uuid, $3::uuid, $4::uuid, $5, NOW(), NOW())
@@ -367,6 +372,82 @@ func (s *Store) AddOrgUnitMembership(ctx context.Context, tenantID string, orgUn
 		return nil, err
 	}
 	return &item, nil
+}
+
+func (s *Store) ensurePlatformUserForMembership(ctx context.Context, tenantID string, userID string) error {
+	if _, err := uuid.Parse(strings.TrimSpace(userID)); err != nil {
+		return err
+	}
+
+	command, err := s.pool.Exec(ctx, `
+		UPDATE users
+		SET tenant_id = COALESCE(tenant_id, $1::uuid),
+		    updated_at = NOW()
+		WHERE user_id = $2::uuid
+		  AND (tenant_id IS NULL OR tenant_id = $1::uuid)
+	`, tenantID, userID)
+	if err != nil {
+		return err
+	}
+	if command.RowsAffected() > 0 {
+		return nil
+	}
+
+	var tenantSlug string
+	if err := s.pool.QueryRow(ctx, `
+		SELECT COALESCE(slug, '')
+		FROM tenants
+		WHERE tenant_id = $1::uuid
+		LIMIT 1
+	`, tenantID).Scan(&tenantSlug); err != nil {
+		return err
+	}
+
+	var email string
+	var mobile string
+	var role string
+	if err := s.pool.QueryRow(ctx, `
+		SELECT COALESCE("email", ''), COALESCE("mobile", ''), COALESCE("role", 'tenant_member')
+		FROM "tenant_admin_users"
+		WHERE "id" = $1 AND "tenantSlug" = $2
+		LIMIT 1
+	`, userID, tenantSlug).Scan(&email, &mobile, &role); err != nil {
+		return err
+	}
+
+	emailForInsert := strings.TrimSpace(strings.ToLower(email))
+	if emailForInsert != "" {
+		var existingEmailUserID string
+		err := s.pool.QueryRow(ctx, `
+			SELECT user_id::text
+			FROM users
+			WHERE LOWER(COALESCE(email, '')) = LOWER($1)
+			LIMIT 1
+		`, emailForInsert).Scan(&existingEmailUserID)
+		if err == nil && existingEmailUserID != userID {
+			emailForInsert = ""
+		} else if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+	}
+
+	alias := emailForInsert
+	if alias == "" {
+		alias = strings.TrimSpace(mobile)
+	}
+	if alias == "" {
+		alias = userID
+	}
+
+	_, err = s.pool.Exec(ctx, `
+		INSERT INTO users (user_id, tenant_id, user_alias, email, mobile, role, active, metadata, created_at, updated_at)
+		VALUES ($1::uuid, $2::uuid, $3, NULLIF($4, ''), NULLIF($5, ''), $6, true, '{}'::jsonb, NOW(), NOW())
+		ON CONFLICT (user_id) DO UPDATE
+		SET tenant_id = EXCLUDED.tenant_id,
+		    user_alias = COALESCE(NULLIF(users.user_alias, ''), EXCLUDED.user_alias),
+		    updated_at = NOW()
+	`, userID, tenantID, alias, emailForInsert, strings.TrimSpace(mobile), normalizePlatformUserRole(role))
+	return err
 }
 
 func (s *Store) UpdateOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, userID string, req platform.UpdateOrgUnitMembershipRequest) (*platform.OrgUnitMembership, error) {
@@ -565,4 +646,15 @@ func extractDisplayName(metadata map[string]interface{}, fallback string) string
 		}
 	}
 	return strings.TrimSpace(fallback)
+}
+
+func normalizePlatformUserRole(role string) string {
+	switch strings.TrimSpace(strings.ToLower(role)) {
+	case "tenant_admin", "proxy_admin", "org_admin":
+		return "org_admin"
+	case "team_admin":
+		return "team_admin"
+	default:
+		return "internal_user"
+	}
 }

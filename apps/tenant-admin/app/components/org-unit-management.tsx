@@ -70,12 +70,11 @@ type OrgUnitMember = {
   updated_at: string;
 };
 
-type TenantAdminUser = {
-  id: string;
-  email?: string;
-  mobile?: string;
-  role: string;
-  active?: boolean;
+type AccessPrincipalCandidate = {
+  type: "user" | "team";
+  principal_id: string;
+  display_name: string;
+  secondary?: string;
 };
 
 type OrgUnitListResponse = {
@@ -91,7 +90,7 @@ type MemberListResponse = {
 };
 
 type UserListResponse = {
-  data?: TenantAdminUser[];
+  data?: AccessPrincipalCandidate[];
 };
 
 type Banner = {
@@ -157,7 +156,7 @@ export default function OrgUnitManagement({
     initialOrgUnits[0] ?? null,
   );
   const [members, setMembers] = useState<OrgUnitMember[]>([]);
-  const [users, setUsers] = useState<TenantAdminUser[]>([]);
+  const [users, setUsers] = useState<AccessPrincipalCandidate[]>([]);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -256,7 +255,7 @@ export default function OrgUnitManagement({
 
   async function loadUsers() {
     try {
-      const payload = await requestJSON<UserListResponse>("/api/users?limit=100&offset=0");
+      const payload = await requestJSON<UserListResponse>("/api/access-principals?kind=user&limit=100");
       setUsers(payload.data ?? []);
     } catch (error) {
       setBanner({ kind: "error", message: normalizeError(error, t("messages.userLoadError")) });
@@ -831,8 +830,8 @@ export default function OrgUnitManagement({
               />
               <datalist id="org-unit-users">
                 {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.email ?? user.mobile ?? user.id}
+                  <option key={user.principal_id} value={user.principal_id}>
+                    {user.display_name || user.secondary || user.principal_id}
                   </option>
                 ))}
               </datalist>
