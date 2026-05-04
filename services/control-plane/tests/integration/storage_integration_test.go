@@ -164,7 +164,7 @@ func TestIntegration_ConcurrentWalletDebitUsesRowLock(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	ctx := context.Background()
 
-	store, err := storage.NewStore(ctx, databaseURL, "default", logger)
+	store, err := storage.NewStore(ctx, databaseURL, logger)
 	require.NoError(t, err)
 	t.Cleanup(store.Close)
 
@@ -174,8 +174,7 @@ func TestIntegration_ConcurrentWalletDebitUsesRowLock(t *testing.T) {
 
 	resetPersistentState(t, pool)
 
-	tenant, err := store.EnsureTenant(ctx, "race-lock")
-	require.NoError(t, err)
+	tenant := createIntegrationTenant(t, pool, "race-lock")
 
 	_, err = store.TopUpWallet(ctx, tenant.ID, 1_000_000, map[string]interface{}{"source": "concurrency-test"})
 	require.NoError(t, err)
@@ -234,11 +233,28 @@ func TestIntegration_ConcurrentWalletDebitUsesRowLock(t *testing.T) {
 	assert.Equal(t, successes, debits)
 }
 
+func createIntegrationTenant(t *testing.T, pool *pgxpool.Pool, slug string) *platform.Tenant {
+	t.Helper()
+	var tenant platform.Tenant
+	err := pool.QueryRow(context.Background(), `
+		INSERT INTO tenants (slug, domain, status)
+		VALUES ($1, $2, 'active')
+		RETURNING tenant_id::text, slug, domain, status, created_at
+	`, slug, slug+".localhost").Scan(&tenant.ID, &tenant.Slug, &tenant.Domain, &tenant.Status, &tenant.CreatedAt)
+	require.NoError(t, err)
+	_, err = pool.Exec(context.Background(), `
+		INSERT INTO wallets (tenant_id, balance_irr, pending_irr)
+		VALUES ($1::uuid, 0, 0)
+	`, tenant.ID)
+	require.NoError(t, err)
+	return &tenant
+}
+
 func newPersistentIntegrationApp(t *testing.T, logger *zap.Logger, memCache cache.Cache, databaseURL string) (*fiber.App, *pgxpool.Pool) {
 	t.Helper()
 
 	ctx := context.Background()
-	store, err := storage.NewStore(ctx, databaseURL, "default", logger)
+	store, err := storage.NewStore(ctx, databaseURL, logger)
 	require.NoError(t, err)
 	t.Cleanup(store.Close)
 
@@ -281,7 +297,7 @@ func newPersistentIntegrationApp(t *testing.T, logger *zap.Logger, memCache cach
 			logger,
 		),
 		ModelsHandler: proxy.NewModelsHandler(store),
-		Logger: logger,
+		Logger:        logger,
 	})
 
 	return app, pool

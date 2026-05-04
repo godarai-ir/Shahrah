@@ -10,13 +10,12 @@ import (
 
 // Store provides PostgreSQL-backed persistence for the control-plane.
 type Store struct {
-	pool          *pgxpool.Pool
-	logger        *zap.Logger
-	defaultTenant string
+	pool   *pgxpool.Pool
+	logger *zap.Logger
 }
 
 // NewStore creates a new PostgreSQL store.
-func NewStore(ctx context.Context, databaseURL, defaultTenant string, logger *zap.Logger) (*Store, error) {
+func NewStore(ctx context.Context, databaseURL string, logger *zap.Logger) (*Store, error) {
 	cfg, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("parse database config: %w", err)
@@ -28,7 +27,7 @@ func NewStore(ctx context.Context, databaseURL, defaultTenant string, logger *za
 	if err := pool.Ping(ctx); err != nil {
 		return nil, fmt.Errorf("ping database: %w", err)
 	}
-	return &Store{pool: pool, logger: logger, defaultTenant: defaultTenant}, nil
+	return &Store{pool: pool, logger: logger}, nil
 }
 
 // Close closes the store.

@@ -34,8 +34,13 @@ export type ControlPlaneResponse = {
 export async function proxyToControlPlane(options: ProxyOptions) {
   const tenantSlug = resolveTenantSlugFromHeaders(
     options.request.headers,
-    process.env.SHAHRAH_DEFAULT_TENANT ?? "default",
   );
+  if (!tenantSlug) {
+    return NextResponse.json(
+      { error: { message: "Tenant host is required." } },
+      { status: 400 },
+    );
+  }
   const upstream = await fetchControlPlaneJSON({
     tenantSlug,
     method: options.method,

@@ -65,7 +65,6 @@ type RouterSettings struct {
 // TenantSettings controls tenant resolution.
 type TenantSettings struct {
 	BaseDomain      string `mapstructure:"base_domain"`
-	DefaultTenant   string `mapstructure:"default_tenant"`
 	AllowHeaderHint bool   `mapstructure:"allow_header_hint"`
 }
 
@@ -107,7 +106,6 @@ func LoadConfig(logger *zap.Logger) (*Config, error) {
 	v.SetDefault("router_settings.cooldown_time", 60.0)
 	v.SetDefault("router_settings.num_retries", 3)
 	v.SetDefault("tenant_settings.base_domain", "shahrah.local")
-	v.SetDefault("tenant_settings.default_tenant", "default")
 	v.SetDefault("tenant_settings.allow_header_hint", true)
 	v.SetDefault("tunnel_settings.client_url", "http://127.0.0.1:8081")
 	v.SetDefault("tunnel_settings.timeout_seconds", 300)

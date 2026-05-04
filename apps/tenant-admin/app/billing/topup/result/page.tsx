@@ -2,9 +2,7 @@
 import { getTranslations } from "next-intl/server";
 
 import AdminShell from "@/app/components/admin-shell";
-import { headers } from "next/headers";
 import { requireAuth } from "@/lib/auth/session";
-import { extractTenantSlugFromHost } from "@/lib/tenant";
 
 type ResultPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -15,17 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function TopUpResultPage(props: ResultPageProps) {
   const auth = await requireAuth("/login");
   const t = await getTranslations("topupResult");
-
-  const incomingHeaders = await headers();
-  const incomingHost =
-    incomingHeaders.get("x-forwarded-host") ??
-    incomingHeaders.get("host") ??
-    "";
-
-  const tenantSlug =
-    extractTenantSlugFromHost(incomingHost) ||
-    process.env.SHAHRAH_DEFAULT_TENANT ||
-    "default";
+  const tenantSlug = auth.tenantSlug;
 
   const currentUser = {
     id: auth.user.id,

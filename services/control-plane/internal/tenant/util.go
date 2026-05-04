@@ -5,6 +5,23 @@ import (
 	"strings"
 )
 
+var reservedTenantSlugs = map[string]struct{}{
+	"admin":     {},
+	"api":       {},
+	"app":       {},
+	"billing":   {},
+	"default":   {},
+	"help":      {},
+	"localhost": {},
+	"login":     {},
+	"root":      {},
+	"shahrah":   {},
+	"signup":    {},
+	"support":   {},
+	"system":    {},
+	"www":       {},
+}
+
 // ExtractSubdomain extracts the tenant slug from a hostname.
 // Examples:
 //
@@ -41,6 +58,9 @@ func ExtractSubdomain(host string) string {
 // must not start or end with hyphen.
 func ValidateTenantSlug(slug string) bool {
 	if len(slug) < 1 || len(slug) > 63 {
+		return false
+	}
+	if _, reserved := reservedTenantSlugs[slug]; reserved {
 		return false
 	}
 	for _, c := range slug {

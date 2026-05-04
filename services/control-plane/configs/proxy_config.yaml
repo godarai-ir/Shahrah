@@ -41,7 +41,6 @@ router_settings:
 
 tenant_settings:
   base_domain: "shahrah.local"
-  default_tenant: "default"
   allow_header_hint: true
 
 tunnel_settings:

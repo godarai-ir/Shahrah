@@ -64,16 +64,6 @@ CREATE TABLE IF NOT EXISTS exchange_rates (
     fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-INSERT INTO tenants (slug, domain, status)
-VALUES ('default', 'default', 'active')
-ON CONFLICT (slug) DO NOTHING;
-
-INSERT INTO wallets (tenant_id, balance_irr, pending_irr)
-SELECT tenant_id, 0, 0
-FROM tenants
-WHERE slug = 'default'
-ON CONFLICT (tenant_id) DO NOTHING;
-
 CREATE INDEX IF NOT EXISTS idx_verification_tokens_tenant_id ON verification_tokens(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_model_deployments_tenant_id ON model_deployments(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_tenant_id ON wallet_transactions(tenant_id);

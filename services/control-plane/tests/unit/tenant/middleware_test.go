@@ -18,7 +18,6 @@ import (
 type mockTenantStore struct {
 	mu            sync.Mutex
 	tenantsByHost map[string]*platform.Tenant
-	ensureCalls   int
 }
 
 func (s *mockTenantStore) GetTenantByHost(ctx context.Context, host string) (*platform.Tenant, error) {
@@ -28,19 +27,6 @@ func (s *mockTenantStore) GetTenantByHost(ctx context.Context, host string) (*pl
 		return t, nil
 	}
 	return nil, errors.New("tenant not found")
-}
-
-func (s *mockTenantStore) EnsureTenant(ctx context.Context, slug string) (*platform.Tenant, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.ensureCalls++
-	return &platform.Tenant{
-		ID:        "default-tenant",
-		Slug:      slug,
-		Domain:    slug + ".localhost",
-		Status:    "active",
-		CreatedAt: time.Now(),
-	}, nil
 }
 
 func (s *mockTenantStore) addTenant(host string, t *platform.Tenant) {
@@ -110,7 +96,6 @@ func TestTenantMiddleware_CacheHit(t *testing.T) {
 	cache.data["tenant:host:acme.localhost"] = newActiveTenant("tenant-1", "acme", "acme.localhost", "active")
 
 	mw := tenantmw.NewMiddlewareWithCache(store, cache, tenantmw.MiddlewareConfig{
-		DefaultTenant:   "default",
 		AllowHeaderHint: false,
 		CacheTTL:        5 * time.Minute,
 	})
@@ -130,7 +115,7 @@ func TestTenantMiddleware_CacheHit(t *testing.T) {
 	assert.Equal(t, fiber.StatusNoContent, resp.StatusCode)
 
 	// Store should not be called on cache hit
-	assert.Equal(t, 0, store.ensureCalls)
+	assert.Empty(t, store.tenantsByHost)
 }
 
 func TestTenantMiddleware_CacheMiss(t *testing.T) {
@@ -142,7 +127,6 @@ func TestTenantMiddleware_CacheMiss(t *testing.T) {
 	store.addTenant("acme.localhost", newActiveTenant("tenant-1", "acme", "acme.localhost", "active"))
 
 	mw := tenantmw.NewMiddlewareWithCache(store, cache, tenantmw.MiddlewareConfig{
-		DefaultTenant:   "default",
 		AllowHeaderHint: false,
 		CacheTTL:        5 * time.Minute,
 	})
@@ -167,7 +151,7 @@ func TestTenantMiddleware_CacheMiss(t *testing.T) {
 	assert.True(t, found)
 }
 
-func TestTenantMiddleware_TenantNotFound_FallsBackToDefault(t *testing.T) {
+func TestTenantMiddleware_TenantNotFound_ReturnsNotFound(t *testing.T) {
 	app := fiber.New()
 	cache := newMockCache()
 	store := &mockTenantStore{
@@ -175,16 +159,12 @@ func TestTenantMiddleware_TenantNotFound_FallsBackToDefault(t *testing.T) {
 	}
 
 	mw := tenantmw.NewMiddlewareWithCache(store, cache, tenantmw.MiddlewareConfig{
-		DefaultTenant:   "default",
 		AllowHeaderHint: false,
 		CacheTTL:        5 * time.Minute,
 	})
 
 	app.Use(mw.Handle())
 	app.Get("/", func(c *fiber.Ctx) error {
-		current := tenantmw.FromContext(c)
-		assert.NotNil(t, current)
-		assert.Equal(t, "default-tenant", current.ID)
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
@@ -192,10 +172,9 @@ func TestTenantMiddleware_TenantNotFound_FallsBackToDefault(t *testing.T) {
 	assert.NoError(t, err)
 	resp, err := app.Test(req)
 	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusNoContent, resp.StatusCode)
+	assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
 
-	// Default tenant should have been created
-	assert.Equal(t, 1, store.ensureCalls)
+	assert.Empty(t, store.tenantsByHost)
 }
 
 func TestTenantMiddleware_TenantSuspended(t *testing.T) {
@@ -207,7 +186,6 @@ func TestTenantMiddleware_TenantSuspended(t *testing.T) {
 	store.addTenant("suspended.localhost", newActiveTenant("tenant-1", "suspended", "suspended.localhost", "suspended"))
 
 	mw := tenantmw.NewMiddlewareWithCache(store, cache, tenantmw.MiddlewareConfig{
-		DefaultTenant:   "default",
 		AllowHeaderHint: false,
 		CacheTTL:        5 * time.Minute,
 	})
@@ -233,7 +211,6 @@ func TestTenantMiddleware_LocalDevHint(t *testing.T) {
 	store.addTenant("mytenant.localhost", newActiveTenant("tenant-1", "mytenant", "mytenant.localhost", "active"))
 
 	mw := tenantmw.NewMiddlewareWithCache(store, cache, tenantmw.MiddlewareConfig{
-		DefaultTenant:   "default",
 		AllowHeaderHint: true,
 		CacheTTL:        5 * time.Minute,
 	})
@@ -253,6 +230,35 @@ func TestTenantMiddleware_LocalDevHint(t *testing.T) {
 	resp, err := app.Test(req)
 	assert.NoError(t, err)
 	assert.Equal(t, fiber.StatusNoContent, resp.StatusCode)
+}
+
+func TestTenantMiddleware_BypassesWalletTopUpCallback(t *testing.T) {
+	app := fiber.New()
+	cache := newMockCache()
+	store := &mockTenantStore{
+		tenantsByHost: make(map[string]*platform.Tenant),
+	}
+
+	mw := tenantmw.NewMiddlewareWithCache(store, cache, tenantmw.MiddlewareConfig{
+		AllowHeaderHint: true,
+		CacheTTL:        5 * time.Minute,
+	})
+
+	app.Use(mw.Handle())
+	app.Get("/api/v1/wallet/topup/callback/:provider", func(c *fiber.Ctx) error {
+		assert.Nil(t, tenantmw.FromContext(c))
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+
+	req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:4000/api/v1/wallet/topup/callback/mock?authority=mock_123&status=ok", nil)
+	assert.NoError(t, err)
+
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusNoContent, resp.StatusCode)
+	assert.Empty(t, store.tenantsByHost)
+	assert.Equal(t, 0, cache.gets)
+	assert.Equal(t, 0, cache.sets)
 }
 
 func TestTenantMiddleware_NoCache_StillWorks(t *testing.T) {
@@ -288,7 +294,6 @@ func TestTenantMiddleware_InvalidateCache(t *testing.T) {
 	store.addTenant("acme.localhost", newActiveTenant("tenant-1", "acme", "acme.localhost", "active"))
 
 	mw := tenantmw.NewMiddlewareWithCache(store, cache, tenantmw.MiddlewareConfig{
-		DefaultTenant:   "default",
 		AllowHeaderHint: false,
 		CacheTTL:        5 * time.Minute,
 	})
@@ -347,6 +352,8 @@ func TestValidateTenantSlug_Invalid(t *testing.T) {
 	assert.False(t, tenantmw.ValidateTenantSlug("acme-"))                                                                              // Ends with hyphen
 	assert.False(t, tenantmw.ValidateTenantSlug("ACME"))                                                                               // Uppercase
 	assert.False(t, tenantmw.ValidateTenantSlug("acme_company"))                                                                       // Underscore
+	assert.False(t, tenantmw.ValidateTenantSlug("default"))                                                                            // Reserved
+	assert.False(t, tenantmw.ValidateTenantSlug("www"))                                                                                // Reserved
 	assert.False(t, tenantmw.ValidateTenantSlug("this-is-a-very-long-slug-that-exceeds-the-maximum-length-of-sixty-three-characters")) // Too long
 }
 

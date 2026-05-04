@@ -1,19 +1,13 @@
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
-import { extractTenantSlugFromHost } from "@/lib/tenant";
+import { readAuthFromRequest } from "@/lib/auth/request-auth";
 import { NextRequest, NextResponse } from "next/server";
-import { headers } from "next/headers";
 
 export async function GET(request: NextRequest) {
-  const incomingHeaders = await headers();
-  const incomingHost =
-    incomingHeaders.get("x-forwarded-host") ??
-    incomingHeaders.get("host") ??
-    "";
-
-  const tenantSlug =
-    extractTenantSlugFromHost(incomingHost) ||
-    process.env.SHAHRAH_DEFAULT_TENANT ||
-    "default";
+  const auth = await readAuthFromRequest(request);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+  const tenantSlug = auth.tenantSlug;
 
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("query") ?? "";
@@ -37,16 +31,11 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const incomingHeaders = await headers();
-  const incomingHost =
-    incomingHeaders.get("x-forwarded-host") ??
-    incomingHeaders.get("host") ??
-    "";
-
-  const tenantSlug =
-    extractTenantSlugFromHost(incomingHost) ||
-    process.env.SHAHRAH_DEFAULT_TENANT ||
-    "default";
+  const auth = await readAuthFromRequest(request);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+  const tenantSlug = auth.tenantSlug;
 
   const body = await request.json();
 

@@ -36,8 +36,13 @@ export async function POST(request: NextRequest) {
 
   const tenantSlug = resolveTenantSlugFromHeaders(
     request.headers,
-    process.env.SHAHRAH_DEFAULT_TENANT ?? "default",
   );
+  if (!tenantSlug) {
+    return NextResponse.json(
+      { error: { message: "Tenant host is required." } },
+      { status: 400 },
+    );
+  }
   const otpResult = await verifyOTPRequest({
     tenantSlug,
     requestID,

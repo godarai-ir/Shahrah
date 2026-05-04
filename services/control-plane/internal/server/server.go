@@ -61,6 +61,9 @@ func registerRoutes(app *fiber.App, deps Dependencies) {
 	v1.Get("/models", deps.ModelsHandler.Handle)
 
 	api := app.Group("/api/v1")
+	api.Get("/onboarding/tenant-slugs/:slug/availability", deps.AdminHandlers.CheckTenantSlugAvailability)
+	api.Post("/onboarding/otp", deps.AdminHandlers.RequestOnboardingOTP)
+	api.Post("/onboarding/otp/verify", deps.AdminHandlers.VerifyOnboardingOTP)
 	api.Post("/keys", deps.AdminHandlers.CreateKey)
 	api.Post("/keys/pat", deps.AdminHandlers.CreatePATKey)
 	api.Post("/keys/vat", deps.AdminHandlers.CreateVATKey)

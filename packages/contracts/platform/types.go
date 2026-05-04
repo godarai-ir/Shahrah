@@ -174,7 +174,6 @@ type Deployment struct {
 // TenantStore resolves tenants for requests.
 type TenantStore interface {
 	GetTenantByHost(ctx context.Context, host string) (*Tenant, error)
-	EnsureTenant(ctx context.Context, slug string) (*Tenant, error)
 }
 
 // KeyStore resolves and persists virtual keys.

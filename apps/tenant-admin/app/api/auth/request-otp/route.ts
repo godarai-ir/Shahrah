@@ -5,6 +5,7 @@ import {
   createOTPRequest,
   normalizeIdentifier,
 } from "@/lib/auth/store";
+import { prisma } from "@/lib/prisma";
 import { resolveTenantSlugFromHeaders } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
@@ -55,8 +56,25 @@ export async function POST(request: NextRequest) {
 
   const tenantSlug = resolveTenantSlugFromHeaders(
     request.headers,
-    process.env.SHAHRAH_DEFAULT_TENANT ?? "default",
   );
+  if (!tenantSlug) {
+    return NextResponse.json(
+      { error: { message: "Tenant host is required." } },
+      { status: 400 },
+    );
+  }
+  const tenantRows = await prisma.$queryRaw<Array<{ tenant_id: string }>>`
+    SELECT tenant_id
+    FROM tenants
+    WHERE slug = ${tenantSlug} AND status = 'active'
+    LIMIT 1
+  `;
+  if (!tenantRows[0]) {
+    return NextResponse.json(
+      { error: { message: "Tenant not found." } },
+      { status: 404 },
+    );
+  }
   const otp = await createOTPRequest({
     tenantSlug,
     purpose: "login",

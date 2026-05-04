@@ -40,7 +40,7 @@ func main() {
 	}
 
 	ctx := context.Background()
-	store, err := storage.NewStore(ctx, cfg.GeneralSettings.DatabaseURL, cfg.TenantSettings.DefaultTenant, logger)
+	store, err := storage.NewStore(ctx, cfg.GeneralSettings.DatabaseURL, logger)
 	if err != nil {
 		logger.Fatal("Failed to initialize storage", zap.Error(err))
 	}
@@ -65,7 +65,6 @@ func main() {
 
 	authMiddleware := auth.NewAuthMiddleware(store, cfg.GeneralSettings.MasterKey, logger)
 	tenantMiddleware := tenant.NewMiddlewareWithCache(store, dualCache, tenant.MiddlewareConfig{
-		DefaultTenant:   cfg.TenantSettings.DefaultTenant,
 		AllowHeaderHint: cfg.TenantSettings.AllowHeaderHint,
 		CacheTTL:        5 * time.Minute,
 	})
@@ -77,13 +76,13 @@ func main() {
 	completionsHandler := proxy.NewCompletionsHandler(llmRouter, tunnelClient, billingService, store, store, logger)
 	modelsHandler := proxy.NewModelsHandler(store)
 	app := server.NewFiberApp(cfg, server.Dependencies{
-		AuthMiddleware: authMiddleware,
-		TenantResolver: tenantMiddleware,
-		AdminHandlers:  adminHandlers,
-		ProxyHandler:   proxyHandler,
+		AuthMiddleware:     authMiddleware,
+		TenantResolver:     tenantMiddleware,
+		AdminHandlers:      adminHandlers,
+		ProxyHandler:       proxyHandler,
 		CompletionsHandler: completionsHandler,
 		ModelsHandler:      modelsHandler,
-		Logger:         logger,
+		Logger:             logger,
 	})
 
 	runCtx, cancel := context.WithCancel(context.Background())

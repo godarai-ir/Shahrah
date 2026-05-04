@@ -130,7 +130,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
 
   const tenantSlug = useMemo(() => {
     const slug = extractTenantSlugFromHost(props.initialHost);
-    return slug || "default";
+    return slug || props.initialHost;
   }, [props.initialHost]);
 
   const userIdentity =

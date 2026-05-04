@@ -2,8 +2,6 @@
 import TopUpPanel from "@/app/components/topup-panel";
 import { requireAuth } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
-import { extractTenantSlugFromHost } from "@/lib/tenant";
-import { headers } from "next/headers";
 
 export const dynamic = "force-dynamic";
 
@@ -36,17 +34,7 @@ type TransactionRow = { transaction_id: string; tx_type: string; amount_irr: num
 
 export default async function TopUpPage() {
   const auth = await requireAuth("/login?next=/billing/topup");
-
-  const incomingHeaders = await headers();
-  const incomingHost =
-    incomingHeaders.get("x-forwarded-host") ??
-    incomingHeaders.get("host") ??
-    "";
-
-  const tenantSlug =
-    extractTenantSlugFromHost(incomingHost) ||
-    process.env.SHAHRAH_DEFAULT_TENANT ||
-    "default";
+  const tenantSlug = auth.tenantSlug;
 
   let initialError: string | null = null;
   let initialWallet: Wallet | null = null;

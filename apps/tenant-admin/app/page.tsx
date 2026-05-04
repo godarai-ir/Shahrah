@@ -1,9 +1,7 @@
 import TenantAdminDashboard from "@/app/components/tenant-admin-dashboard";
 import AdminShell from "@/app/components/admin-shell";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
-import { extractTenantSlugFromHost } from "@/lib/tenant";
 import { requireAuth } from "@/lib/auth/session";
-import { headers } from "next/headers";
 
 type TenantKey = {
   id: string;
@@ -52,17 +50,7 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const auth = await requireAuth("/login");
-
-  const incomingHeaders = await headers();
-  const incomingHost =
-    incomingHeaders.get("x-forwarded-host") ??
-    incomingHeaders.get("host") ??
-    "";
-
-  const tenantSlug =
-    extractTenantSlugFromHost(incomingHost) ||
-    process.env.SHAHRAH_DEFAULT_TENANT ||
-    "default";
+  const tenantSlug = auth.tenantSlug;
 
   const [walletResult, keysResult, modelsResult, txResult] = await Promise.all([
     fetchControlPlaneJSON({
@@ -117,7 +105,7 @@ export default async function Home() {
   return (
     <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
       <TenantAdminDashboard
-        initialHost={incomingHost}
+        initialHost={`${tenantSlug}.localhost`}
         initialWallet={initialWallet}
         initialKeys={initialKeys}
         initialModels={initialModels}

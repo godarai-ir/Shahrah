@@ -5,7 +5,7 @@ ALTER TABLE organizations
     ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(tenant_id);
 
 UPDATE organizations
-SET tenant_id = (SELECT tenant_id FROM tenants WHERE slug = 'default' LIMIT 1)
+SET tenant_id = (SELECT tenant_id FROM tenants ORDER BY created_at LIMIT 1)
 WHERE tenant_id IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_organizations_tenant_id
@@ -33,7 +33,7 @@ WHERE t.tenant_id IS NULL
   AND o.tenant_id IS NOT NULL;
 
 UPDATE teams
-SET tenant_id = (SELECT tenant_id FROM tenants WHERE slug = 'default' LIMIT 1)
+SET tenant_id = (SELECT tenant_id FROM tenants ORDER BY created_at LIMIT 1)
 WHERE tenant_id IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_teams_tenant_id
@@ -66,7 +66,7 @@ WHERE u.tenant_id IS NULL
   AND t.tenant_id IS NOT NULL;
 
 UPDATE users
-SET tenant_id = (SELECT tenant_id FROM tenants WHERE slug = 'default' LIMIT 1)
+SET tenant_id = (SELECT tenant_id FROM tenants ORDER BY created_at LIMIT 1)
 WHERE tenant_id IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_users_tenant_id
@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS team_memberships (
 
 INSERT INTO team_memberships (tenant_id, team_id, user_id, role, created_at, updated_at)
 SELECT
-    COALESCE(u.tenant_id, t.tenant_id, (SELECT tenant_id FROM tenants WHERE slug = 'default' LIMIT 1)),
+    COALESCE(u.tenant_id, t.tenant_id, (SELECT tenant_id FROM tenants ORDER BY created_at LIMIT 1)),
     u.team_id,
     u.user_id,
     CASE WHEN LOWER(COALESCE(u.role, '')) = 'team_admin' THEN 'team_admin' ELSE 'team_member' END,

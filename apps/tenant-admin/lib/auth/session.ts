@@ -33,7 +33,6 @@ export async function getAuthContext(): Promise<AuthContext | null> {
   const incomingHeaders = await headers();
   const hintedTenantSlug = resolveTenantSlugFromHeaders(
     incomingHeaders,
-    process.env.SHAHRAH_DEFAULT_TENANT ?? "default",
   );
   const tenantSlug =
     hintedTenantSlug === session.tenantSlug

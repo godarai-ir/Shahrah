@@ -16,7 +16,6 @@ type ContextKey struct{}
 // Store is the subset of tenant storage used by middleware.
 type Store interface {
 	GetTenantByHost(ctx context.Context, host string) (*platform.Tenant, error)
-	EnsureTenant(ctx context.Context, slug string) (*platform.Tenant, error)
 }
 
 // Cache defines the cache operations used by the middleware.
@@ -28,7 +27,6 @@ type Cache interface {
 
 // MiddlewareConfig holds configuration for the middleware.
 type MiddlewareConfig struct {
-	DefaultTenant   string
 	AllowHeaderHint bool
 	CacheTTL        time.Duration
 }
@@ -37,7 +35,6 @@ type MiddlewareConfig struct {
 type Middleware struct {
 	store           Store
 	cache           Cache
-	defaultTenant   string
 	allowHeaderHint bool
 	cacheTTL        time.Duration
 }
@@ -47,7 +44,6 @@ type Middleware struct {
 func NewMiddleware(store Store, defaultTenant string, allowHeaderHint bool) *Middleware {
 	return &Middleware{
 		store:           store,
-		defaultTenant:   defaultTenant,
 		allowHeaderHint: allowHeaderHint,
 		cacheTTL:        5 * time.Minute, // default TTL
 	}
@@ -62,7 +58,6 @@ func NewMiddlewareWithCache(store Store, c Cache, cfg MiddlewareConfig) *Middlew
 	return &Middleware{
 		store:           store,
 		cache:           c,
-		defaultTenant:   cfg.DefaultTenant,
 		allowHeaderHint: cfg.AllowHeaderHint,
 		cacheTTL:        cacheTTL,
 	}
@@ -71,6 +66,10 @@ func NewMiddlewareWithCache(store Store, c Cache, cfg MiddlewareConfig) *Middlew
 // Handle resolves and stores the tenant context.
 func (m *Middleware) Handle() fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		if isTenantResolutionBypassed(c.Path()) {
+			return c.Next()
+		}
+
 		host := c.Hostname()
 
 		// Allow header hint for local development
@@ -94,11 +93,7 @@ func (m *Middleware) Handle() fiber.Handler {
 		// Cache miss - query database
 		tenant, err := m.store.GetTenantByHost(c.Context(), host)
 		if err != nil {
-			// Fall back to default tenant
-			tenant, err = m.store.EnsureTenant(c.Context(), m.defaultTenant)
-			if err != nil {
-				return fiber.NewError(fiber.StatusNotFound, "tenant not found")
-			}
+			return fiber.NewError(fiber.StatusNotFound, "tenant not found")
 		}
 
 		// Check tenant status
@@ -115,6 +110,13 @@ func (m *Middleware) Handle() fiber.Handler {
 		c.Locals(ContextKey{}, tenant)
 		return c.Next()
 	}
+}
+
+func isTenantResolutionBypassed(path string) bool {
+	return path == "/health" ||
+		path == "/ready" ||
+		strings.HasPrefix(path, "/api/v1/onboarding/") ||
+		strings.HasPrefix(path, "/api/v1/wallet/topup/callback/")
 }
 
 // InvalidateTenant removes the cached tenant entries.

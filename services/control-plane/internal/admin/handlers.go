@@ -83,6 +83,12 @@ type userStore interface {
 	SetTenantAdminUserActive(ctx context.Context, tenantSlug string, userID string, active bool) (*platform.TenantAdminUser, error)
 }
 
+type onboardingStore interface {
+	CheckTenantSlugAvailability(ctx context.Context, slug string) (*storage.TenantSlugAvailability, error)
+	CreateOnboardingOTP(ctx context.Context, req storage.CreateOnboardingOTPParams) (*storage.OnboardingOTP, error)
+	VerifyOnboardingOTPAndProvision(ctx context.Context, req storage.VerifyOnboardingOTPParams) (*storage.ProvisionedTenant, error)
+}
+
 // Handlers serves bootstrap management APIs.
 type Handlers struct {
 	keys             keyStore
@@ -93,6 +99,7 @@ type Handlers struct {
 	memberships      membershipStore
 	users            userStore
 	virtualUsers     virtualUserStore
+	onboarding       onboardingStore
 }
 
 // New creates a management handlers bundle.
@@ -102,6 +109,7 @@ func New(keys keyStore, models modelStore, wallets walletStore) *Handlers {
 	memberships, _ := keys.(membershipStore)
 	users, _ := models.(userStore)
 	virtualUsers, _ := keys.(virtualUserStore)
+	onboarding, _ := keys.(onboardingStore)
 	return &Handlers{
 		keys:             keys,
 		models:           models,
@@ -111,7 +119,69 @@ func New(keys keyStore, models modelStore, wallets walletStore) *Handlers {
 		memberships:      memberships,
 		users:            users,
 		virtualUsers:     virtualUsers,
+		onboarding:       onboarding,
 	}
+}
+
+func (h *Handlers) CheckTenantSlugAvailability(c *fiber.Ctx) error {
+	store, err := h.requireOnboardingStore()
+	if err != nil {
+		return err
+	}
+	slug := strings.TrimSpace(c.Params("slug"))
+	result, err := store.CheckTenantSlugAvailability(c.Context(), slug)
+	if err != nil {
+		return err
+	}
+	return c.JSON(result)
+}
+
+func (h *Handlers) RequestOnboardingOTP(c *fiber.Ctx) error {
+	store, err := h.requireOnboardingStore()
+	if err != nil {
+		return err
+	}
+	var req storage.CreateOnboardingOTPParams
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	resp, err := store.CreateOnboardingOTP(c.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, storage.ErrTenantSlugInvalid):
+			return fiber.NewError(fiber.StatusBadRequest, "tenant slug is invalid or reserved")
+		case errors.Is(err, storage.ErrTenantSlugTaken):
+			return fiber.NewError(fiber.StatusConflict, "tenant slug is already taken")
+		default:
+			return err
+		}
+	}
+	return c.Status(fiber.StatusCreated).JSON(resp)
+}
+
+func (h *Handlers) VerifyOnboardingOTP(c *fiber.Ctx) error {
+	store, err := h.requireOnboardingStore()
+	if err != nil {
+		return err
+	}
+	var req storage.VerifyOnboardingOTPParams
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	resp, err := store.VerifyOnboardingOTPAndProvision(c.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, storage.ErrOnboardingNotFound):
+			return fiber.NewError(fiber.StatusNotFound, "onboarding request not found")
+		case errors.Is(err, storage.ErrOnboardingExpired):
+			return fiber.NewError(fiber.StatusGone, "onboarding request expired")
+		case errors.Is(err, storage.ErrOnboardingOTPFailed):
+			return fiber.NewError(fiber.StatusBadRequest, "invalid onboarding otp")
+		default:
+			return err
+		}
+	}
+	return c.Status(fiber.StatusCreated).JSON(resp)
 }
 
 func (h *Handlers) createKey(c *fiber.Ctx, forcedKeyType string) error {
@@ -825,6 +895,13 @@ func (h *Handlers) requireProviderAccountsStore() (providerAccountStore, error) 
 		return nil, fiber.NewError(fiber.StatusNotImplemented, "provider account store not configured")
 	}
 	return h.providerAccounts, nil
+}
+
+func (h *Handlers) requireOnboardingStore() (onboardingStore, error) {
+	if h.onboarding == nil {
+		return nil, fiber.NewError(fiber.StatusNotImplemented, "onboarding store not configured")
+	}
+	return h.onboarding, nil
 }
 
 func appendUnique(values []string, candidate string) []string {

@@ -19,7 +19,7 @@ export function extractTenantSlugFromHost(host: string): string {
 
 export function resolveTenantSlugFromHeaders(
   headers: Headers,
-  fallbackTenant = "default",
+  fallbackTenant = "",
 ): string {
   const candidates = [
     headers.get("x-forwarded-host"),

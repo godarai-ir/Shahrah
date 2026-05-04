@@ -681,10 +681,6 @@ func (s integrationTenantStore) GetTenantByHost(ctx context.Context, host string
 	return s.tenant, nil
 }
 
-func (s integrationTenantStore) EnsureTenant(ctx context.Context, slug string) (*platform.Tenant, error) {
-	return s.tenant, nil
-}
-
 type integrationModelStore struct {
 	deployments []platform.Deployment
 	users       []platform.TenantAdminUser
@@ -927,14 +923,14 @@ func (noopKeyStore) ListKeys(ctx context.Context, tenantID string) ([]platform.C
 }
 
 type integrationKeyStore struct {
-	mu           sync.RWMutex
-	nextID       int
-	byHash       map[string]*platform.AuthContext
-	created      []platform.CreatedKey
-	orgUnits     []platform.OrgUnit
+	mu                 sync.RWMutex
+	nextID             int
+	byHash             map[string]*platform.AuthContext
+	created            []platform.CreatedKey
+	orgUnits           []platform.OrgUnit
 	orgUnitMemberships []platform.OrgUnitMembership
 	teamMemberships    []platform.TeamMembership
-	virtualUsers []platform.VirtualUser
+	virtualUsers       []platform.VirtualUser
 }
 
 func newIntegrationKeyStore() *integrationKeyStore {

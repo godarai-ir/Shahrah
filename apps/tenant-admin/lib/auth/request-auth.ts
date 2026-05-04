@@ -27,7 +27,6 @@ export async function readAuthFromRequest(request: NextRequest) {
   // tenant context. Session tenant is the source of truth for protected routes.
   const hintedTenantSlug = resolveTenantSlugFromHeaders(
     request.headers,
-    process.env.SHAHRAH_DEFAULT_TENANT ?? "default",
   );
   const tenantSlug =
     hintedTenantSlug === session.tenantSlug
