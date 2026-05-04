@@ -2,12 +2,19 @@ FROM golang:1.22-alpine AS builder
 
 WORKDIR /src
 
-COPY packages/contracts ./packages/contracts
-COPY services/control-plane ./services/control-plane
+COPY packages/contracts/go.mod ./packages/contracts/go.mod
+
+COPY services/control-plane/go.mod services/control-plane/go.sum ./services/control-plane/
 
 WORKDIR /src/services/control-plane
 ENV GOWORK=off
 RUN go mod download
+
+WORKDIR /src
+COPY packages/contracts ./packages/contracts
+COPY services/control-plane ./services/control-plane
+
+WORKDIR /src/services/control-plane
 RUN CGO_ENABLED=0 GOOS=linux go build -mod=mod -o /out/server ./cmd/server
 
 FROM alpine:3.19
