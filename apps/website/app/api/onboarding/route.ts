@@ -24,10 +24,20 @@ type OnboardingOTPPayload = {
   debug_otp?: string;
 };
 
+const errorMessages = {
+  invalidRequest: "درخواست فعال‌سازی نامعتبر است.",
+  controlPlaneFailed: "ارتباط با سرویس فعال‌سازی برقرار نشد.",
+  slugInvalid: "شناسه تننت نامعتبر یا رزروشده است.",
+  slugTaken: "این شناسه تننت در حال حاضر قابل انتخاب نیست.",
+  requestNotFound: "درخواست فعال‌سازی پیدا نشد.",
+  requestExpired: "مهلت کد تایید تمام شده است.",
+  otpInvalid: "کد تایید نامعتبر است.",
+} as const;
+
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as OnboardingBody | null;
   if (!body?.action) {
-    return NextResponse.json({ ok: false, error: "Invalid onboarding request" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: errorMessages.invalidRequest }, { status: 400 });
   }
 
   try {
@@ -36,11 +46,11 @@ export async function POST(request: Request) {
       await sendOnboardingEmailIfPossible(body, upstream.payload);
     }
     return NextResponse.json(upstream.payload, { status: upstream.status });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       {
         ok: false,
-        error: error instanceof Error ? error.message : "Control-plane onboarding request failed",
+        error: errorMessages.controlPlaneFailed,
       },
       { status: 502 },
     );
@@ -61,7 +71,7 @@ async function sendOnboardingEmailIfPossible(body: OnboardingBody, payload: unkn
     to: body.email,
     tenantSlug: otpPayload.tenant_slug ?? body.tenant_slug ?? "",
     otpCode: otpPayload.debug_otp,
-    expiresInMinutes: Math.max(1, Math.floor((otpPayload.expires_in_seconds ?? 600) / 60)),
+    expiresInMinutes: Math.max(1, Math.floor((otpPayload.expires_in_seconds ?? 300) / 60)),
   });
 }
 
@@ -112,9 +122,7 @@ async function callControlPlane(body: OnboardingBody) {
       status: response.status,
       payload: {
         ok: false,
-        error:
-          extractErrorMessage(payload) ??
-          `Control-plane onboarding endpoint returned ${response.status}`,
+        error: localizeUpstreamError(extractErrorMessage(payload), response.status),
         details: payload,
       },
     };
@@ -123,6 +131,32 @@ async function callControlPlane(body: OnboardingBody) {
     status: response.status,
     payload,
   };
+}
+
+function localizeUpstreamError(message: string | undefined, status: number) {
+  const normalized = (message ?? "").toLowerCase();
+  if (normalized.includes("invalid or reserved")) {
+    return errorMessages.slugInvalid;
+  }
+  if (normalized.includes("already taken")) {
+    return errorMessages.slugTaken;
+  }
+  if (normalized.includes("not found")) {
+    return errorMessages.requestNotFound;
+  }
+  if (normalized.includes("expired")) {
+    return errorMessages.requestExpired;
+  }
+  if (normalized.includes("invalid onboarding otp")) {
+    return errorMessages.otpInvalid;
+  }
+  if (status === 409) {
+    return errorMessages.slugTaken;
+  }
+  if (status === 410) {
+    return errorMessages.requestExpired;
+  }
+  return errorMessages.controlPlaneFailed;
 }
 
 function ensureTrailingSlash(value: string) {

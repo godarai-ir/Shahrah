@@ -155,6 +155,115 @@ func TestIntegration_StorageSchemaContract(t *testing.T) {
 	assertIndexForColumn(t, pool, "model_deployments", "tenant_id")
 }
 
+func TestIntegration_OnboardingPendingRequestReusedAndExpiresAfterFiveMinutes(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if strings.TrimSpace(databaseURL) == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+
+	logger, _ := zap.NewDevelopment()
+	ctx := context.Background()
+	store, err := storage.NewStore(ctx, databaseURL, logger)
+	require.NoError(t, err)
+	t.Cleanup(store.Close)
+
+	pool, err := pgxpool.New(ctx, databaseURL)
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	resetPersistentState(t, pool)
+
+	first, err := store.CreateOnboardingOTP(ctx, storage.CreateOnboardingOTPParams{
+		TenantSlug: "ttl-tenant",
+		Email:      "owner@example.com",
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, first.RequestID)
+	assert.Equal(t, 300, first.ExpiresInSeconds)
+	assert.False(t, first.AlreadyPending)
+
+	reused, err := store.CreateOnboardingOTP(ctx, storage.CreateOnboardingOTPParams{
+		TenantSlug: "ttl-tenant",
+		Email:      "owner@example.com",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, first.RequestID, reused.RequestID)
+	assert.True(t, reused.AlreadyPending)
+	assert.LessOrEqual(t, reused.ExpiresInSeconds, 300)
+	assert.Greater(t, reused.ExpiresInSeconds, 0)
+
+	_, err = store.CreateOnboardingOTP(ctx, storage.CreateOnboardingOTPParams{
+		TenantSlug: "ttl-tenant",
+		Email:      "other@example.com",
+	})
+	assert.ErrorIs(t, err, storage.ErrTenantSlugTaken)
+
+	_, err = pool.Exec(ctx, `
+		UPDATE tenant_onboarding_requests
+		SET expires_at = NOW() - INTERVAL '1 second'
+		WHERE request_id = $1::uuid
+	`, first.RequestID)
+	require.NoError(t, err)
+
+	availability, err := store.CheckTenantSlugAvailability(ctx, "ttl-tenant")
+	require.NoError(t, err)
+	assert.True(t, availability.Available)
+
+	second, err := store.CreateOnboardingOTP(ctx, storage.CreateOnboardingOTPParams{
+		TenantSlug: "ttl-tenant",
+		Email:      "other@example.com",
+	})
+	require.NoError(t, err)
+	assert.NotEqual(t, first.RequestID, second.RequestID)
+	assert.False(t, second.AlreadyPending)
+
+	var expiredCount int
+	require.NoError(t, pool.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM tenant_onboarding_requests
+		WHERE request_id = $1::uuid AND status = 'expired'
+	`, first.RequestID).Scan(&expiredCount))
+	assert.Equal(t, 1, expiredCount)
+}
+
+func TestIntegration_OnboardingExpiredOTPIsRejected(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if strings.TrimSpace(databaseURL) == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+
+	logger, _ := zap.NewDevelopment()
+	ctx := context.Background()
+	store, err := storage.NewStore(ctx, databaseURL, logger)
+	require.NoError(t, err)
+	t.Cleanup(store.Close)
+
+	pool, err := pgxpool.New(ctx, databaseURL)
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	resetPersistentState(t, pool)
+
+	otp, err := store.CreateOnboardingOTP(ctx, storage.CreateOnboardingOTPParams{
+		TenantSlug: "expired-otp",
+		Email:      "owner@example.com",
+	})
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `
+		UPDATE tenant_onboarding_requests
+		SET expires_at = NOW() - INTERVAL '1 second'
+		WHERE request_id = $1::uuid
+	`, otp.RequestID)
+	require.NoError(t, err)
+
+	_, err = store.VerifyOnboardingOTPAndProvision(ctx, storage.VerifyOnboardingOTPParams{
+		RequestID: otp.RequestID,
+		OTPCode:   otp.DebugOTP,
+	})
+	assert.ErrorIs(t, err, storage.ErrOnboardingExpired)
+}
+
 func TestIntegration_ConcurrentWalletDebitUsesRowLock(t *testing.T) {
 	databaseURL := os.Getenv("DATABASE_URL")
 	if strings.TrimSpace(databaseURL) == "" {
@@ -309,6 +418,7 @@ func resetPersistentState(t *testing.T, pool *pgxpool.Pool) {
 	ctx := context.Background()
 	_, err := pool.Exec(ctx, `
 		TRUNCATE TABLE
+			tenant_onboarding_requests,
 			wallet_transactions,
 			wallets,
 			exchange_rates,

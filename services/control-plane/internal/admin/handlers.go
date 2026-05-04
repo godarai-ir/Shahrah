@@ -156,6 +156,9 @@ func (h *Handlers) RequestOnboardingOTP(c *fiber.Ctx) error {
 			return err
 		}
 	}
+	if resp.AlreadyPending {
+		return c.Status(fiber.StatusOK).JSON(resp)
+	}
 	return c.Status(fiber.StatusCreated).JSON(resp)
 }
 

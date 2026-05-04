@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	onboardingOTPTTL      = 10 * time.Minute
+	onboardingOTPTTL      = 5 * time.Minute
 	maxOnboardingAttempts = 5
 )
 
@@ -51,6 +51,7 @@ type OnboardingOTP struct {
 	Channel           string `json:"channel"`
 	DestinationMasked string `json:"destination_masked"`
 	ExpiresInSeconds  int    `json:"expires_in_seconds"`
+	AlreadyPending    bool   `json:"already_pending,omitempty"`
 	DebugOTP          string `json:"debug_otp,omitempty"`
 }
 
@@ -68,6 +69,10 @@ func (s *Store) CheckTenantSlugAvailability(ctx context.Context, slug string) (*
 	slug = normalizeOnboardingSlug(slug)
 	if !tenant.ValidateTenantSlug(slug) {
 		return &TenantSlugAvailability{Slug: slug, Available: false, Reason: "invalid_or_reserved"}, nil
+	}
+
+	if err := s.expirePendingOnboardingRequests(ctx); err != nil {
+		return nil, err
 	}
 
 	var exists bool
@@ -106,12 +111,43 @@ func (s *Store) CreateOnboardingOTP(ctx context.Context, p CreateOnboardingOTPPa
 	if p.Email == "" && p.Mobile == "" {
 		return nil, errors.New("email or mobile is required")
 	}
-	availability, err := s.CheckTenantSlugAvailability(ctx, p.TenantSlug)
+
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, err
 	}
-	if !availability.Available {
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, p.TenantSlug); err != nil {
+		return nil, err
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE tenant_onboarding_requests
+		SET status = 'expired', updated_at = NOW()
+		WHERE status = 'pending' AND expires_at <= NOW()
+	`); err != nil {
+		return nil, err
+	}
+
+	var tenantExists bool
+	if err := tx.QueryRow(ctx, `
+		SELECT EXISTS (SELECT 1 FROM tenants WHERE slug = $1)
+	`, p.TenantSlug).Scan(&tenantExists); err != nil {
+		return nil, err
+	}
+	if tenantExists {
 		return nil, ErrTenantSlugTaken
+	}
+
+	existing, err := findActiveOnboardingRequestForSlug(ctx, tx, p)
+	if err != nil {
+		return nil, err
+	}
+	if existing != nil {
+		if err := tx.Commit(ctx); err != nil {
+			return nil, err
+		}
+		return existing, nil
 	}
 
 	code, err := numericOTP(6)
@@ -125,12 +161,15 @@ func (s *Store) CreateOnboardingOTP(ctx context.Context, p CreateOnboardingOTPPa
 
 	requestID := uuid.NewString()
 	expiresAt := time.Now().UTC().Add(onboardingOTPTTL)
-	if _, err := s.pool.Exec(ctx, `
+	if _, err := tx.Exec(ctx, `
 		INSERT INTO tenant_onboarding_requests (
 			request_id, tenant_slug, tenant_domain, plan_slug, email, mobile, customer_name,
 			otp_code, expires_at, metadata
 		) VALUES ($1::uuid, $2, $3, $4, NULLIF($5, ''), NULLIF($6, ''), NULLIF($7, ''), $8, $9, $10::jsonb)
 	`, requestID, p.TenantSlug, p.TenantDomain, p.PlanSlug, p.Email, p.Mobile, p.CustomerName, code, expiresAt, string(metadata)); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -150,6 +189,76 @@ func (s *Store) CreateOnboardingOTP(ctx context.Context, p CreateOnboardingOTPPa
 		ExpiresInSeconds:  int(onboardingOTPTTL.Seconds()),
 		DebugOTP:          code,
 	}, nil
+}
+
+func (s *Store) expirePendingOnboardingRequests(ctx context.Context) error {
+	_, err := s.pool.Exec(ctx, `
+		UPDATE tenant_onboarding_requests
+		SET status = 'expired', updated_at = NOW()
+		WHERE status = 'pending' AND expires_at <= NOW()
+	`)
+	return err
+}
+
+func findActiveOnboardingRequestForSlug(ctx context.Context, tx pgx.Tx, p CreateOnboardingOTPParams) (*OnboardingOTP, error) {
+	rows, err := tx.Query(ctx, `
+		SELECT request_id::text, tenant_slug, COALESCE(email, ''), COALESCE(mobile, ''), expires_at
+		FROM tenant_onboarding_requests
+		WHERE tenant_slug = $1 AND status = 'pending' AND expires_at > NOW()
+		FOR UPDATE
+	`, p.TenantSlug)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	now := time.Now().UTC()
+	var taken bool
+	for rows.Next() {
+		var requestID, tenantSlug, email, mobile string
+		var expiresAt time.Time
+		if err := rows.Scan(&requestID, &tenantSlug, &email, &mobile, &expiresAt); err != nil {
+			return nil, err
+		}
+		if sameOnboardingRequester(email, mobile, p.Email, p.Mobile) {
+			channel := "email"
+			destination := email
+			if destination == "" {
+				channel = "mobile"
+				destination = mobile
+			}
+			remaining := int(time.Until(expiresAt).Seconds())
+			if remaining < 1 && expiresAt.After(now) {
+				remaining = 1
+			}
+			return &OnboardingOTP{
+				RequestID:         requestID,
+				TenantSlug:        tenantSlug,
+				Channel:           channel,
+				DestinationMasked: maskDestination(channel, destination),
+				ExpiresInSeconds:  remaining,
+				AlreadyPending:    true,
+			}, rows.Err()
+		}
+		taken = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if taken {
+		return nil, ErrTenantSlugTaken
+	}
+	return nil, nil
+}
+
+func sameOnboardingRequester(existingEmail, existingMobile, requestedEmail, requestedMobile string) bool {
+	if existingEmail != "" && requestedEmail != "" && existingEmail == requestedEmail {
+		return true
+	}
+	if existingMobile != "" && requestedMobile != "" && existingMobile == requestedMobile {
+		return true
+	}
+	return false
 }
 
 func (s *Store) VerifyOnboardingOTPAndProvision(ctx context.Context, p VerifyOnboardingOTPParams) (*ProvisionedTenant, error) {

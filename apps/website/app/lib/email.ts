@@ -61,20 +61,20 @@ export async function sendOnboardingOTPEmail(input: {
   expiresInMinutes: number;
   tenantSlug: string;
 }) {
-  const subject = "Shahrah Tenant Onboarding OTP";
+  const subject = "کد تایید فعال‌سازی تننت شاهراه";
   const text = [
-    `Your one-time onboarding code for tenant "${input.tenantSlug}" is: ${input.otpCode}`,
-    `This code expires in ${input.expiresInMinutes} minutes.`,
-    "If you did not request this tenant, ignore this email.",
+    `کد تایید فعال‌سازی تننت «${input.tenantSlug}»: ${input.otpCode}`,
+    `این کد تا ${input.expiresInMinutes} دقیقه معتبر است.`,
+    "اگر شما این درخواست را ثبت نکرده‌اید، این ایمیل را نادیده بگیرید.",
   ].join("\n");
 
   const html = `
-<div style="font-family: sans-serif; line-height: 1.6;">
-  <h2>Shahrah Tenant Onboarding OTP</h2>
-  <p>Your one-time onboarding code for tenant <strong>${input.tenantSlug}</strong> is:</p>
+<div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; line-height: 1.8; color: #111827;">
+  <h2>کد تایید فعال‌سازی تننت شاهراه</h2>
+  <p>کد تایید یک‌بارمصرف برای تننت <strong>${input.tenantSlug}</strong>:</p>
   <p style="font-size: 24px; font-weight: bold; letter-spacing: 3px;">${input.otpCode}</p>
-  <p>This code expires in ${input.expiresInMinutes} minutes.</p>
-  <p>If you did not request this tenant, ignore this email.</p>
+  <p>این کد تا ${input.expiresInMinutes} دقیقه معتبر است.</p>
+  <p>اگر شما این درخواست را ثبت نکرده‌اید، این ایمیل را نادیده بگیرید.</p>
 </div>`;
 
   await sendEmail({
