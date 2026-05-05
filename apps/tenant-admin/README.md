@@ -20,6 +20,9 @@ Current implementation is wired to existing control-plane management APIs:
 - `GET /api/v1/personal-access-tokens/exists`
 - `DELETE /api/v1/personal-access-tokens/:id`
 - `DELETE /api/v1/personal-access-tokens/revoke/all`
+- `GET /api/v1/traces`
+- `GET /api/v1/traces/:trace_id`
+- `GET /api/v1/traces/:trace_id/spans`
 
 Authentication flow implemented in app routes:
 
@@ -56,6 +59,12 @@ PAT UX flow in tenant-admin:
 3. User creates a PAT with token name, allowed models, and optional expiry.
 4. Raw token is displayed once in success panel; subsequent list responses never include raw token.
 5. User can revoke a single PAT or revoke all own PATs.
+
+Trace UX flow in tenant-admin:
+
+1. User opens `/traces`.
+2. Frontend fetches trace list via tenant-scoped control-plane API with filters/pagination.
+3. User opens `/traces/:trace_id` for detailed request summary and span timeline.
 
 ## Environment
 

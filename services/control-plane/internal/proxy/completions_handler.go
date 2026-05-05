@@ -54,6 +54,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	if req.Model == "" {
 		return writeAPIError(c, fiber.StatusBadRequest, "model is required", "invalid_request_error")
 	}
+	tracing.SetModelForTrace(c, req.Model)
 	if req.Prompt == "" {
 		return writeAPIError(c, fiber.StatusBadRequest, "prompt is required", "invalid_request_error")
 	}

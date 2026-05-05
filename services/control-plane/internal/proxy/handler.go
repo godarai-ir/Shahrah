@@ -83,6 +83,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	if req.Model == "" {
 		return writeAPIError(c, fiber.StatusBadRequest, "Model is required", "invalid_request_error")
 	}
+	tracing.SetModelForTrace(c, req.Model)
 	if len(req.Messages) == 0 {
 		return writeAPIError(c, fiber.StatusBadRequest, "messages array must not be empty", "invalid_request_error")
 	}
@@ -103,7 +104,10 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	if len(authInfo.AllowedModels) > 0 && !containsModel(authInfo.AllowedModels, req.Model) && !containsModel(authInfo.AllowedModels, "*") {
 		return writeAPIError(c, fiber.StatusForbidden, "Model access denied", "authorization_error")
 	}
+	authStart := time.Now()
+	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "auth.validate", "internal", authStart, fiber.StatusOK, map[string]interface{}{"model": req.Model})
 
+	quotaStart := time.Now()
 	estimated, err := h.billing.EstimateCost(c.Context(), req)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to estimate request cost", "billing_error")
@@ -121,11 +125,14 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	if err := h.billing.CheckBudget(c.Context(), authInfo, estimated); err != nil {
 		return writeAPIError(c, fiber.StatusPaymentRequired, err.Error(), "budget_exceeded")
 	}
+	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "quota.check", "internal", quotaStart, fiber.StatusOK, map[string]interface{}{"estimated_tokens": estimated.TotalTokens})
 
+	routeStart := time.Now()
 	deployment, err := h.llmRouter.Route(c.Context(), currentTenant.ID, req.Model)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", req.Model), "routing_error")
 	}
+	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": deployment.Provider, "deployment_id": deployment.ID})
 
 	if err := h.tunnel.Healthy(c.Context()); err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Tunnel path unavailable", "tunnel_unavailable")
@@ -164,11 +171,13 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 }
 
 func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, start time.Time) error {
+	providerStart := time.Now()
 	resp, err := h.tunnel.Proxy(c.Context(), tunnelReq)
 	if err != nil {
 		h.llmRouter.MarkFailed(c.Context(), &router.Deployment{ID: tunnelReq.Deployment.ID}, err.Error())
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}
+	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, map[string]interface{}{"provider": tunnelReq.Deployment.Provider})
 
 	if resp.StatusCode >= httpErrorFloor {
 		return transformProviderError(c, resp.StatusCode, resp.Body, resp.Headers)
@@ -224,7 +233,10 @@ func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.Cha
 	c.Set("x-shahrah-trace-id", tunnelReq.TraceID)
 	c.Set("x-shahrah-cost-usd", fmt.Sprintf("%.8f", finalCost.TotalCostUSD))
 	c.Set("x-shahrah-cost-irr", fmt.Sprintf("%.2f", finalCost.TotalCostIRR))
-	return c.Status(resp.StatusCode).JSON(completion)
+	responseStart := time.Now()
+	err = c.Status(resp.StatusCode).JSON(completion)
+	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "response.write", "internal", responseStart, resp.StatusCode, nil)
+	return err
 }
 
 func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, start time.Time) error {

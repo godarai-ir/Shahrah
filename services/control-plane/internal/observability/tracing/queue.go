@@ -6,14 +6,21 @@ import (
 )
 
 type SpanEvent struct {
-	TraceID    string
-	TenantID   string
-	Method     string
-	Route      string
-	StatusCode int
-	StartedAt  time.Time
-	DurationMS int64
-	Sampled    bool
+	TraceID      string
+	SpanID       string
+	ParentSpanID string
+	Name         string
+	Kind         string
+	TenantID     string
+	Model        string
+	Method       string
+	Route        string
+	StatusCode   int
+	StartedAt    time.Time
+	DurationMS   int64
+	Sampled      bool
+	ErrorCode    string
+	Attributes   map[string]interface{}
 }
 
 type Queue struct {

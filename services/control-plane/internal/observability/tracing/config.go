@@ -3,6 +3,7 @@ package tracing
 import (
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -22,6 +23,15 @@ type Config struct {
 	BatchSize         int
 	FlushInterval     time.Duration
 	ExportTimeout     time.Duration
+	OTLPEndpoint      string
+	OTLPInsecure      bool
+	OTLPServiceName   string
+	RetryMaxAttempts  int
+	RetryBaseDelay    time.Duration
+	RetryMaxDelay     time.Duration
+	WALEnabled        bool
+	WALPath           string
+	WALReplayInterval time.Duration
 }
 
 func LoadConfigFromEnv() Config {
@@ -32,6 +42,15 @@ func LoadConfigFromEnv() Config {
 		BatchSize:         defaultBatchSize,
 		FlushInterval:     defaultFlushEvery,
 		ExportTimeout:     defaultExportTimout,
+		OTLPEndpoint:      strings.TrimSpace(os.Getenv("TRACE_OTLP_ENDPOINT")),
+		OTLPInsecure:      strings.EqualFold(strings.TrimSpace(os.Getenv("TRACE_OTLP_INSECURE")), "true"),
+		OTLPServiceName:   "shahrah-control-plane",
+		RetryMaxAttempts:  3,
+		RetryBaseDelay:    100 * time.Millisecond,
+		RetryMaxDelay:     2 * time.Second,
+		WALEnabled:        true,
+		WALPath:           "./tmp/trace-wal.jsonl",
+		WALReplayInterval: 3 * time.Second,
 	}
 
 	if v := os.Getenv("TRACE_DEFAULT_SAMPLE_RATE"); v != "" {
@@ -57,6 +76,35 @@ func LoadConfigFromEnv() Config {
 	if v := os.Getenv("TRACE_EXPORT_TIMEOUT_MS"); v != "" {
 		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
 			cfg.ExportTimeout = time.Duration(parsed) * time.Millisecond
+		}
+	}
+	if v := strings.TrimSpace(os.Getenv("TRACE_OTLP_SERVICE_NAME")); v != "" {
+		cfg.OTLPServiceName = v
+	}
+	if v := os.Getenv("TRACE_RETRY_MAX_ATTEMPTS"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			cfg.RetryMaxAttempts = parsed
+		}
+	}
+	if v := os.Getenv("TRACE_RETRY_BASE_DELAY_MS"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			cfg.RetryBaseDelay = time.Duration(parsed) * time.Millisecond
+		}
+	}
+	if v := os.Getenv("TRACE_RETRY_MAX_DELAY_MS"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			cfg.RetryMaxDelay = time.Duration(parsed) * time.Millisecond
+		}
+	}
+	if v := strings.TrimSpace(os.Getenv("TRACE_WAL_PATH")); v != "" {
+		cfg.WALPath = v
+	}
+	if v := os.Getenv("TRACE_WAL_ENABLED"); v != "" {
+		cfg.WALEnabled = strings.EqualFold(strings.TrimSpace(v), "true")
+	}
+	if v := os.Getenv("TRACE_WAL_REPLAY_INTERVAL_MS"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			cfg.WALReplayInterval = time.Duration(parsed) * time.Millisecond
 		}
 	}
 	return cfg

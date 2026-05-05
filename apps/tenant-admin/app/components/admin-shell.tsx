@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Building2, CreditCard, LayoutDashboard, LogOut, Menu, Search, Settings, ShieldCheck, Users } from "lucide-react";
+import { Activity, Building2, CreditCard, LayoutDashboard, LogOut, Menu, Search, Settings, ShieldCheck, Users } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -86,6 +86,12 @@ export default function AdminShell({
       title: t("nav.accessManagement"),
       icon: Users,
       isActive: pathname.startsWith("/users"),
+    },
+    {
+      href: "/traces",
+      title: t("nav.traces"),
+      icon: Activity,
+      isActive: pathname.startsWith("/traces"),
     },
     {
       href: "/teams",

@@ -51,7 +51,7 @@ PowerShell:
 ```powershell
 go -C services/control-plane mod download
 go -C services/control-plane mod tidy
-docker compose -f infra/compose/local.yml up -d postgres redis silk-road tunnel-server tunnel-client control-plane
+docker compose -f infra/compose/local.yml up -d postgres redis clickhouse silk-road tunnel-server tunnel-client control-plane
 docker compose -f infra/compose/local.yml exec postgres psql -U postgres -d llmproxy -f /docker-entrypoint-initdb.d/001_initial.sql
 docker compose -f infra/compose/local.yml exec postgres psql -U postgres -d llmproxy -f /docker-entrypoint-initdb.d/002_platform_foundations.sql
 go -C services/control-plane test -v -race ./tests/integration/...

@@ -29,6 +29,7 @@ go build ./cmd/server
 - `IDPAY_API_KEY`: required when `provider=idpay`
 - `IDPAY_BASE_URL`: optional, default `https://api.idpay.ir/v1.1`
 - `IDPAY_SANDBOX`: optional (`true|false`)
+- `CLICKHOUSE_DSN`: required, used for all request trace storage/read APIs
 
 ## Local Verification
 
@@ -37,6 +38,7 @@ Apply migrations in this order:
 1. `db/main/migrations/001_initial.sql`
 2. `db/main/migrations/002_platform_foundations.sql`
 3. `db/main/migrations/010_personal_access_tokens.sql`
+4. `db/main/migrations/012_drop_postgres_trace_tables.sql`
 
 Example flow after the stack is running on `http://localhost:4000`:
 

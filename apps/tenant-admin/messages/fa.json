@@ -22,7 +22,8 @@
       "providerAccounts": "حساب‌های ارائه‌دهنده",
       "accessManagement": "مدیریت دسترسی",
       "orgUnits": "واحدهای سازمانی",
-      "teams": "تیم‌ها"
+      "teams": "تیم‌ها",
+      "traces": "Request Traces"
     },
     "logoAlt": "لوگوی شاهراه"
   },
@@ -693,6 +694,42 @@
       "revokeError": "ابطال توکن ناموفق بود.",
       "revokeAllSuccess": "همه توکن‌های شما ابطال شدند.",
       "revokeAllError": "ابطال همه توکن‌ها ناموفق بود."
+    }
+  },
+  "traces": {
+    "title": "Request Traces",
+    "description": "ردیابی درخواست‌های تننت و مشاهده جزئیات spanها.",
+    "alerts": {
+      "errorTitle": "خطا"
+    },
+    "filters": {
+      "traceId": "Trace ID",
+      "model": "Model",
+      "route": "Route",
+      "statusCode": "Status Code",
+      "from": "From (RFC3339)",
+      "to": "To (RFC3339)"
+    },
+    "actions": {
+      "apply": "اعمال فیلتر",
+      "clear": "پاک‌کردن"
+    },
+    "list": {
+      "title": "لیست Traceها",
+      "columns": {
+        "traceId": "Trace ID",
+        "route": "Route",
+        "model": "Model",
+        "status": "Status",
+        "duration": "Duration",
+        "startedAt": "Started At"
+      },
+      "empty": "Traceی برای فیلترهای فعلی یافت نشد."
+    },
+    "pagination": {
+      "showing": "نمایش {from} تا {to} از {total}",
+      "prev": "قبلی",
+      "next": "بعدی"
     }
   },
   "invite": {

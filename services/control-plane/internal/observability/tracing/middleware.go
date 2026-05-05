@@ -1,6 +1,7 @@
 package tracing
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -16,6 +17,9 @@ const (
 	LocalTraceIDKey    = "shahrah.trace_id"
 	LocalStartTimeKey  = "shahrah.trace_start"
 	LocalTenantIDKey   = "shahrah.trace_tenant_id"
+	LocalModelKey      = "shahrah.trace_model"
+	LocalSpanSeqKey    = "shahrah.trace_span_seq"
+	LocalQueueKey      = "shahrah.trace_queue"
 	defaultUnknownPath = "unknown"
 )
 
@@ -24,6 +28,8 @@ func Middleware(queue *Queue, sampler *Sampler, slowMS int64) fiber.Handler {
 		traceID := resolveTraceID(c)
 		c.Locals(LocalTraceIDKey, traceID)
 		c.Locals(LocalStartTimeKey, time.Now())
+		c.Locals(LocalSpanSeqKey, int64(0))
+		c.Locals(LocalQueueKey, queue)
 
 		c.Set(TraceIDHeader, traceID)
 		propagateW3CHeaders(c)
@@ -49,20 +55,68 @@ func Middleware(queue *Queue, sampler *Sampler, slowMS int64) fiber.Handler {
 		})
 
 		if shouldSample {
+			model, _ := c.Locals(LocalModelKey).(string)
+			spanID := nextSpanID(c, traceID)
 			_ = queue.Enqueue(SpanEvent{
-				TraceID:    traceID,
-				TenantID:   tenantID,
-				Method:     c.Method(),
-				Route:      normalizeRoute(c.Path()),
-				StatusCode: statusCode,
-				StartedAt:  start,
-				DurationMS: durationMS,
-				Sampled:    shouldSample || statusCode >= 500 || durationMS >= slowMS,
+				TraceID:      traceID,
+				SpanID:       spanID,
+				ParentSpanID: "",
+				Name:         "gateway.request",
+				Kind:         "server",
+				TenantID:     tenantID,
+				Model:        strings.TrimSpace(model),
+				Method:       c.Method(),
+				Route:        normalizeRoute(c.Path()),
+				StatusCode:   statusCode,
+				StartedAt:    start,
+				DurationMS:   durationMS,
+				Sampled:      shouldSample || statusCode >= 500 || durationMS >= slowMS,
+				Attributes: map[string]interface{}{
+					"http.method": c.Method(),
+					"http.route":  normalizeRoute(c.Path()),
+				},
 			})
 		}
 
 		return err
 	}
+}
+
+func nextSpanID(c *fiber.Ctx, traceID string) string {
+	cur, _ := c.Locals(LocalSpanSeqKey).(int64)
+	cur++
+	c.Locals(LocalSpanSeqKey, cur)
+	return fmt.Sprintf("%s:%d", traceID, cur)
+}
+
+func RecordStepSpan(c *fiber.Ctx, queue *Queue, parentSpanID, name, kind string, startedAt time.Time, statusCode int, attrs map[string]interface{}) {
+	if c == nil || queue == nil || startedAt.IsZero() {
+		return
+	}
+	traceID := TraceIDFromContext(c)
+	if strings.TrimSpace(traceID) == "" {
+		return
+	}
+	tenantID, _ := c.Locals(LocalTenantIDKey).(string)
+	if tenantID == "" {
+		tenantID = c.Get("x-shahrah-tenant")
+	}
+	spanID := nextSpanID(c, traceID)
+	_ = queue.Enqueue(SpanEvent{
+		TraceID:      traceID,
+		SpanID:       spanID,
+		ParentSpanID: parentSpanID,
+		Name:         name,
+		Kind:         kind,
+		TenantID:     tenantID,
+		Method:       c.Method(),
+		Route:        normalizeRoute(c.Path()),
+		StatusCode:   statusCode,
+		StartedAt:    startedAt,
+		DurationMS:   time.Since(startedAt).Milliseconds(),
+		Sampled:      true,
+		Attributes:   attrs,
+	})
 }
 
 func resolveTraceID(c *fiber.Ctx) string {
@@ -111,6 +165,13 @@ func SetTenantForTrace(c *fiber.Ctx, tenantID string) {
 	c.Locals(LocalTenantIDKey, tenantID)
 }
 
+func SetModelForTrace(c *fiber.Ctx, model string) {
+	if c == nil {
+		return
+	}
+	c.Locals(LocalModelKey, strings.TrimSpace(model))
+}
+
 func DurationMS(c *fiber.Ctx) int64 {
 	start, _ := c.Locals(LocalStartTimeKey).(time.Time)
 	if start.IsZero() {
@@ -121,4 +182,16 @@ func DurationMS(c *fiber.Ctx) int64 {
 
 func StatusCodeString(c *fiber.Ctx) string {
 	return strconv.Itoa(c.Response().StatusCode())
+}
+
+func QueueFromContext(c *fiber.Ctx) *Queue {
+	if c == nil {
+		return nil
+	}
+	if v := c.Locals(LocalQueueKey); v != nil {
+		if q, ok := v.(*Queue); ok {
+			return q
+		}
+	}
+	return nil
 }

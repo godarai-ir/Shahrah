@@ -20,11 +20,16 @@ type Dependencies struct {
 	AuthMiddleware     *auth.AuthMiddleware
 	TenantResolver     *tenant.Middleware
 	TracingMiddleware  fiber.Handler
+	TraceHealth        TraceHealthReporter
 	AdminHandlers      *admin.Handlers
 	ProxyHandler       *proxy.ChatCompletionHandler
 	CompletionsHandler *proxy.CompletionsHandler
 	ModelsHandler      *proxy.ModelsHandler
 	Logger             *zap.Logger
+}
+
+type TraceHealthReporter interface {
+	ReadinessReport() map[string]interface{}
 }
 
 // NewFiberApp creates and configures a new Fiber application.
@@ -57,7 +62,7 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 
 func registerRoutes(app *fiber.App, deps Dependencies) {
 	app.Get("/health", healthHandler)
-	app.Get("/ready", healthHandler)
+	app.Get("/ready", readyHandler(deps))
 
 	v1 := app.Group("/v1")
 	v1.Post("/chat/completions", deps.ProxyHandler.Handle)
@@ -137,6 +142,19 @@ func healthHandler(c *fiber.Ctx) error {
 		"status":  "healthy",
 		"version": "0.2.0",
 	})
+}
+
+func readyHandler(deps Dependencies) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		resp := fiber.Map{
+			"status":  "ready",
+			"version": "0.2.0",
+		}
+		if deps.TraceHealth != nil {
+			resp["tracing"] = deps.TraceHealth.ReadinessReport()
+		}
+		return c.JSON(resp)
+	}
 }
 
 func customErrorHandler(ctx *fiber.Ctx, err error) error {

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
@@ -85,6 +86,9 @@ func (h *Handlers) ListRequestTraces(c *fiber.Ctx) error {
 		Offset:     offset,
 	})
 	if err != nil {
+		if errors.Is(err, storage.ErrTraceStoreUnavailable) {
+			return fiber.NewError(fiber.StatusNotImplemented, "trace store not configured")
+		}
 		return err
 	}
 	var nextOffset *int
@@ -119,6 +123,9 @@ func (h *Handlers) GetRequestTrace(c *fiber.Ctx) error {
 
 	item, err := h.traces.GetRequestTrace(c.Context(), currentTenant.ID, traceID)
 	if err != nil {
+		if errors.Is(err, storage.ErrTraceStoreUnavailable) {
+			return fiber.NewError(fiber.StatusNotImplemented, "trace store not configured")
+		}
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "trace not found")
 		}
@@ -144,6 +151,9 @@ func (h *Handlers) ListRequestTraceSpans(c *fiber.Ctx) error {
 	}
 	items, err := h.traces.ListTraceSpans(c.Context(), currentTenant.ID, traceID)
 	if err != nil {
+		if errors.Is(err, storage.ErrTraceStoreUnavailable) {
+			return fiber.NewError(fiber.StatusNotImplemented, "trace store not configured")
+		}
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "trace not found")
 		}

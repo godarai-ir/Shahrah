@@ -80,7 +80,12 @@ func main() {
 	traceCfg := tracing.LoadConfigFromEnv()
 	traceQueue := tracing.NewQueue(traceCfg.QueueCapacity)
 	traceSampler := tracing.NewSampler(traceCfg.DefaultSampleRate, traceCfg.SlowRequest.Milliseconds())
-	traceProcessor := tracing.NewProcessor(traceCfg, traceQueue, store, logger)
+	reliableExporter, err := tracing.NewReliableExporter(traceCfg, store, logger)
+	if err != nil {
+		logger.Fatal("Failed to initialize tracing exporter", zap.Error(err))
+	}
+	defer reliableExporter.Close()
+	traceProcessor := tracing.NewProcessor(traceCfg, traceQueue, reliableExporter, logger)
 	traceProcessor.Start()
 	defer func() {
 		stopCtx, cancelStop := context.WithTimeout(context.Background(), 3*time.Second)
@@ -92,6 +97,7 @@ func main() {
 		AuthMiddleware:     authMiddleware,
 		TenantResolver:     tenantMiddleware,
 		TracingMiddleware:  tracing.Middleware(traceQueue, traceSampler, traceCfg.SlowRequest.Milliseconds()),
+		TraceHealth:        reliableExporter,
 		AdminHandlers:      adminHandlers,
 		ProxyHandler:       proxyHandler,
 		CompletionsHandler: completionsHandler,
