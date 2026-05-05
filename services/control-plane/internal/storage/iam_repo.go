@@ -172,6 +172,223 @@ func (s *Store) DeleteOrgUnit(ctx context.Context, tenantID string, orgUnitID st
 	return nil
 }
 
+func (s *Store) CreateTeam(ctx context.Context, tenantID string, req platform.CreateTeamRequest) (*platform.Team, error) {
+	metadata, err := mergeDisplayNameMetadata(req.Metadata, req.DisplayName)
+	if err != nil {
+		return nil, err
+	}
+	rawMetadata, err := marshalJSONObject(metadata)
+	if err != nil {
+		return nil, err
+	}
+	workspaceType := strings.TrimSpace(req.WorkspaceType)
+	if workspaceType == "" {
+		workspaceType = "general"
+	}
+
+	rows, err := s.pool.Query(ctx, `
+		INSERT INTO teams (team_id, tenant_id, team_alias, org_unit_id, workspace_type, metadata, models, team_member_permissions, created_at, updated_at)
+		VALUES ($1, $2::uuid, $3, NULLIF($4, '')::uuid, $5, $6, $7, $8, NOW(), NOW())
+		RETURNING team_id::text, tenant_id::text, COALESCE(team_alias, ''), COALESCE(org_unit_id::text, ''), workspace_type,
+		          COALESCE(metadata, '{}'::jsonb), COALESCE(models, '{}'), COALESCE(team_member_permissions, '{}'),
+		          COALESCE(max_budget::text, ''), COALESCE(soft_budget::text, ''), COALESCE(tpm_limit::text, ''), COALESCE(rpm_limit::text, ''),
+		          COALESCE(budget_duration, ''), COALESCE(spend::text, ''), created_at, updated_at
+	`, uuid.NewString(), tenantID, strings.TrimSpace(req.Alias), strings.TrimSpace(req.OrgUnitID), workspaceType, rawMetadata, req.AllowedModels, []string{})
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return nil, pgx.ErrNoRows
+	}
+	return scanTeam(rows)
+}
+
+func (s *Store) ListTeams(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.Team, int, error) {
+	query = strings.TrimSpace(strings.ToLower(query))
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	like := "%" + query + "%"
+
+	var total int
+	if err := s.pool.QueryRow(ctx, `
+		SELECT COUNT(1)
+		FROM teams
+		WHERE tenant_id = $1::uuid
+		  AND ($2 = '' OR LOWER(COALESCE(team_alias, '')) LIKE $3 OR LOWER(COALESCE(metadata->>'display_name', '')) LIKE $3)
+	`, tenantID, query, like).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	rows, err := s.pool.Query(ctx, `
+		SELECT team_id::text, tenant_id::text, COALESCE(team_alias, ''), COALESCE(org_unit_id::text, ''), workspace_type,
+		       COALESCE(metadata, '{}'::jsonb), COALESCE(models, '{}'), COALESCE(team_member_permissions, '{}'),
+		       COALESCE(max_budget::text, ''), COALESCE(soft_budget::text, ''), COALESCE(tpm_limit::text, ''), COALESCE(rpm_limit::text, ''),
+		       COALESCE(budget_duration, ''), COALESCE(spend::text, ''), created_at, updated_at
+		FROM teams
+		WHERE tenant_id = $1::uuid
+		  AND ($2 = '' OR LOWER(COALESCE(team_alias, '')) LIKE $3 OR LOWER(COALESCE(metadata->>'display_name', '')) LIKE $3)
+		ORDER BY updated_at DESC, created_at DESC
+		LIMIT $4 OFFSET $5
+	`, tenantID, query, like, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	items := make([]platform.Team, 0, limit)
+	for rows.Next() {
+		item, err := scanTeam(rows)
+		if err != nil {
+			return nil, 0, err
+		}
+		items = append(items, *item)
+	}
+	return items, total, rows.Err()
+}
+
+func (s *Store) GetTeam(ctx context.Context, tenantID string, teamID string) (*platform.Team, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT team_id::text, tenant_id::text, COALESCE(team_alias, ''), COALESCE(org_unit_id::text, ''), workspace_type,
+		       COALESCE(metadata, '{}'::jsonb), COALESCE(models, '{}'), COALESCE(team_member_permissions, '{}'),
+		       COALESCE(max_budget::text, ''), COALESCE(soft_budget::text, ''), COALESCE(tpm_limit::text, ''), COALESCE(rpm_limit::text, ''),
+		       COALESCE(budget_duration, ''), COALESCE(spend::text, ''), created_at, updated_at
+		FROM teams
+		WHERE tenant_id = $1::uuid AND team_id = $2::uuid
+		LIMIT 1
+	`, tenantID, teamID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return nil, pgx.ErrNoRows
+	}
+	return scanTeam(rows)
+}
+
+func (s *Store) UpdateTeam(ctx context.Context, tenantID string, teamID string, req platform.UpdateTeamRequest) (*platform.Team, error) {
+	current, err := s.GetTeam(ctx, tenantID, teamID)
+	if err != nil {
+		return nil, err
+	}
+	alias := current.Alias
+	if trimmed := strings.TrimSpace(req.Alias); trimmed != "" {
+		alias = trimmed
+	}
+	displayName := current.DisplayName
+	if trimmed := strings.TrimSpace(req.DisplayName); trimmed != "" {
+		displayName = trimmed
+	}
+	workspaceType := current.WorkspaceType
+	if trimmed := strings.TrimSpace(req.WorkspaceType); trimmed != "" {
+		workspaceType = trimmed
+	}
+	orgUnitID := current.OrgUnitID
+	if req.OrgUnitID != "" {
+		orgUnitID = strings.TrimSpace(req.OrgUnitID)
+	}
+	allowedModels := current.AllowedModels
+	if req.AllowedModels != nil {
+		allowedModels = req.AllowedModels
+	}
+	metadata := current.Metadata
+	if req.Metadata != nil {
+		metadata = req.Metadata
+	}
+	mergedMetadata, err := mergeDisplayNameMetadata(metadata, displayName)
+	if err != nil {
+		return nil, err
+	}
+	rawMetadata, err := marshalJSONObject(mergedMetadata)
+	if err != nil {
+		return nil, err
+	}
+	if budget := strings.TrimSpace(req.BudgetID); budget != "" {
+		mergedMetadata["budget_id"] = budget
+		rawMetadata, err = marshalJSONObject(mergedMetadata)
+		if err != nil {
+			return nil, err
+		}
+	}
+	rows, err := s.pool.Query(ctx, `
+		UPDATE teams
+		SET team_alias = $3,
+		    org_unit_id = NULLIF($4, '')::uuid,
+		    workspace_type = $5,
+		    metadata = $6,
+		    models = $7,
+		    updated_at = NOW()
+		WHERE tenant_id = $1::uuid AND team_id = $2::uuid
+		RETURNING team_id::text, tenant_id::text, COALESCE(team_alias, ''), COALESCE(org_unit_id::text, ''), workspace_type,
+		          COALESCE(metadata, '{}'::jsonb), COALESCE(models, '{}'), COALESCE(team_member_permissions, '{}'),
+		          COALESCE(max_budget::text, ''), COALESCE(soft_budget::text, ''), COALESCE(tpm_limit::text, ''), COALESCE(rpm_limit::text, ''),
+		          COALESCE(budget_duration, ''), COALESCE(spend::text, ''), created_at, updated_at
+	`, tenantID, teamID, alias, orgUnitID, workspaceType, rawMetadata, allowedModels)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return nil, pgx.ErrNoRows
+	}
+	return scanTeam(rows)
+}
+
+func (s *Store) DeleteTeam(ctx context.Context, tenantID string, teamID string) error {
+	command, err := s.pool.Exec(ctx, `
+		DELETE FROM teams
+		WHERE tenant_id = $1::uuid AND team_id = $2::uuid
+	`, tenantID, teamID)
+	if err != nil {
+		return err
+	}
+	if command.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
+func (s *Store) GetTeamPermissions(ctx context.Context, tenantID string, teamID string) (*platform.TeamPermissionsResponse, error) {
+	var permissions []string
+	if err := s.pool.QueryRow(ctx, `
+		SELECT COALESCE(team_member_permissions, '{}')
+		FROM teams
+		WHERE tenant_id = $1::uuid AND team_id = $2::uuid
+		LIMIT 1
+	`, tenantID, teamID).Scan(&permissions); err != nil {
+		return nil, err
+	}
+	return &platform.TeamPermissionsResponse{
+		TeamID:                teamID,
+		TeamMemberPermissions: permissions,
+	}, nil
+}
+
+func (s *Store) UpdateTeamPermissions(ctx context.Context, tenantID string, teamID string, req platform.UpdateTeamPermissionsRequest) (*platform.TeamPermissionsResponse, error) {
+	var permissions []string
+	if err := s.pool.QueryRow(ctx, `
+		UPDATE teams
+		SET team_member_permissions = $3,
+		    updated_at = NOW()
+		WHERE tenant_id = $1::uuid AND team_id = $2::uuid
+		RETURNING COALESCE(team_member_permissions, '{}')
+	`, tenantID, teamID, req.TeamMemberPermissions).Scan(&permissions); err != nil {
+		return nil, err
+	}
+	return &platform.TeamPermissionsResponse{
+		TeamID:                teamID,
+		TeamMemberPermissions: permissions,
+	}, nil
+}
+
 func (s *Store) CreateVirtualUser(ctx context.Context, tenantID string, req platform.CreateVirtualUserRequest) (*platform.VirtualUser, error) {
 	rawMetadata, err := marshalJSONObject(req.Metadata)
 	if err != nil {
@@ -617,6 +834,64 @@ func scanVirtualUser(rows pgx.Rows) (*platform.VirtualUser, error) {
 	}
 	item.DisplayName = strings.TrimSpace(displayName)
 	item.Metadata = parseJSONObject(metadataBytes)
+	return &item, nil
+}
+
+func scanTeam(rows pgx.Rows) (*platform.Team, error) {
+	var item platform.Team
+	var metadataBytes []byte
+	var teamMemberPermissions []string
+	var maxBudget string
+	var softBudget string
+	var tpm string
+	var rpm string
+	var budgetDuration string
+	var spend string
+	if err := rows.Scan(
+		&item.ID,
+		&item.TenantID,
+		&item.Alias,
+		&item.OrgUnitID,
+		&item.WorkspaceType,
+		&metadataBytes,
+		&item.AllowedModels,
+		&teamMemberPermissions,
+		&maxBudget,
+		&softBudget,
+		&tpm,
+		&rpm,
+		&budgetDuration,
+		&spend,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	); err != nil {
+		return nil, err
+	}
+	item.Metadata = parseJSONObject(metadataBytes)
+	item.DisplayName = extractDisplayName(item.Metadata, item.Alias)
+	if item.Metadata == nil {
+		item.Metadata = map[string]interface{}{}
+	}
+	if maxBudget != "" {
+		item.Metadata["max_budget"] = maxBudget
+	}
+	if softBudget != "" {
+		item.Metadata["soft_budget"] = softBudget
+	}
+	if tpm != "" {
+		item.Metadata["tpm_limit"] = tpm
+	}
+	if rpm != "" {
+		item.Metadata["rpm_limit"] = rpm
+	}
+	if budgetDuration != "" {
+		item.Metadata["budget_duration"] = budgetDuration
+	}
+	if spend != "" {
+		item.Metadata["spend"] = spend
+	}
+	item.Metadata["team_member_permissions"] = teamMemberPermissions
+	item.Metadata["allowed_models"] = item.AllowedModels
 	return &item, nil
 }
 

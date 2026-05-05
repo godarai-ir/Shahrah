@@ -59,6 +59,58 @@ type OrgUnitMembershipListResponse struct {
 	Data []OrgUnitMembership `json:"data"`
 }
 
+// Team is the canonical team workspace entity.
+type Team struct {
+	ID            string                 `json:"id"`
+	TenantID      string                 `json:"tenant_id"`
+	Alias         string                 `json:"alias"`
+	DisplayName   string                 `json:"display_name,omitempty"`
+	OrgUnitID     string                 `json:"org_unit_id,omitempty"`
+	WorkspaceType string                 `json:"workspace_type,omitempty"`
+	BudgetID      string                 `json:"budget_id,omitempty"`
+	AllowedModels []string               `json:"allowed_models,omitempty"`
+	Metadata      map[string]interface{} `json:"metadata,omitempty"`
+	CreatedAt     time.Time              `json:"created_at"`
+	UpdatedAt     time.Time              `json:"updated_at"`
+}
+
+type CreateTeamRequest struct {
+	Alias         string                 `json:"alias"`
+	DisplayName   string                 `json:"display_name,omitempty"`
+	OrgUnitID     string                 `json:"org_unit_id,omitempty"`
+	WorkspaceType string                 `json:"workspace_type,omitempty"`
+	AllowedModels []string               `json:"allowed_models,omitempty"`
+	BudgetID      string                 `json:"budget_id,omitempty"`
+	Metadata      map[string]interface{} `json:"metadata,omitempty"`
+}
+
+type UpdateTeamRequest struct {
+	Alias         string                 `json:"alias,omitempty"`
+	DisplayName   string                 `json:"display_name,omitempty"`
+	OrgUnitID     string                 `json:"org_unit_id,omitempty"`
+	WorkspaceType string                 `json:"workspace_type,omitempty"`
+	AllowedModels []string               `json:"allowed_models,omitempty"`
+	BudgetID      string                 `json:"budget_id,omitempty"`
+	Metadata      map[string]interface{} `json:"metadata,omitempty"`
+}
+
+type TeamListResponse struct {
+	Data       []Team `json:"data"`
+	Total      int    `json:"total"`
+	Limit      int    `json:"limit"`
+	Offset     int    `json:"offset"`
+	NextOffset *int   `json:"next_offset,omitempty"`
+}
+
+type TeamPermissionsResponse struct {
+	TeamID                 string   `json:"team_id"`
+	TeamMemberPermissions  []string `json:"team_member_permissions"`
+}
+
+type UpdateTeamPermissionsRequest struct {
+	TeamMemberPermissions []string `json:"team_member_permissions"`
+}
+
 // TeamMembership represents one user's scoped membership in one team.
 type TeamMembership struct {
 	ID                    string    `json:"id"`

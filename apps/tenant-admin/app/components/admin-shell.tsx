@@ -88,6 +88,12 @@ export default function AdminShell({
       isActive: pathname.startsWith("/users"),
     },
     {
+      href: "/teams",
+      title: t("nav.teams"),
+      icon: Users,
+      isActive: pathname.startsWith("/teams"),
+    },
+    {
       href: "/org-units",
       title: t("nav.orgUnits"),
       icon: Building2,

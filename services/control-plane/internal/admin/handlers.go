@@ -76,6 +76,16 @@ type membershipStore interface {
 	DeleteTeamMembership(ctx context.Context, tenantID string, teamID string, userID string) error
 }
 
+type teamStore interface {
+	CreateTeam(ctx context.Context, tenantID string, req platform.CreateTeamRequest) (*platform.Team, error)
+	ListTeams(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.Team, int, error)
+	GetTeam(ctx context.Context, tenantID string, teamID string) (*platform.Team, error)
+	UpdateTeam(ctx context.Context, tenantID string, teamID string, req platform.UpdateTeamRequest) (*platform.Team, error)
+	DeleteTeam(ctx context.Context, tenantID string, teamID string) error
+	GetTeamPermissions(ctx context.Context, tenantID string, teamID string) (*platform.TeamPermissionsResponse, error)
+	UpdateTeamPermissions(ctx context.Context, tenantID string, teamID string, req platform.UpdateTeamPermissionsRequest) (*platform.TeamPermissionsResponse, error)
+}
+
 type userStore interface {
 	ListTenantAdminUsers(ctx context.Context, tenantSlug string, query string, limit int, offset int) ([]platform.TenantAdminUser, int, error)
 	InviteTenantAdminUser(ctx context.Context, tenantID string, tenantSlug string, req platform.InviteTenantAdminUserRequest) (*platform.TenantAdminInvitation, string, error)
@@ -99,6 +109,7 @@ type Handlers struct {
 	memberships      membershipStore
 	users            userStore
 	virtualUsers     virtualUserStore
+	teams            teamStore
 	onboarding       onboardingStore
 }
 
@@ -109,6 +120,7 @@ func New(keys keyStore, models modelStore, wallets walletStore) *Handlers {
 	memberships, _ := keys.(membershipStore)
 	users, _ := models.(userStore)
 	virtualUsers, _ := keys.(virtualUserStore)
+	teams, _ := keys.(teamStore)
 	onboarding, _ := keys.(onboardingStore)
 	return &Handlers{
 		keys:             keys,
@@ -119,6 +131,7 @@ func New(keys keyStore, models modelStore, wallets walletStore) *Handlers {
 		memberships:      memberships,
 		users:            users,
 		virtualUsers:     virtualUsers,
+		teams:            teams,
 		onboarding:       onboarding,
 	}
 }
@@ -963,6 +976,207 @@ func (h *Handlers) ListOrgUnits(c *fiber.Ctx) error {
 		nextOffset = &n
 	}
 	return c.JSON(platform.OrgUnitListResponse{Data: items, Total: total, Limit: limit, Offset: offset, NextOffset: nextOffset})
+}
+
+func (h *Handlers) ListTeams(c *fiber.Ctx) error {
+	if err := requireOrgAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.teams == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "team store not configured")
+	}
+	query := strings.TrimSpace(c.Query("query"))
+	limit := 50
+	offset := 0
+	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
+		parsed, parseErr := strconv.Atoi(raw)
+		if parseErr != nil || parsed <= 0 {
+			return fiber.NewError(fiber.StatusBadRequest, "limit must be a positive number")
+		}
+		if parsed > 200 {
+			parsed = 200
+		}
+		limit = parsed
+	}
+	if raw := strings.TrimSpace(c.Query("offset")); raw != "" {
+		parsed, parseErr := strconv.Atoi(raw)
+		if parseErr != nil || parsed < 0 {
+			return fiber.NewError(fiber.StatusBadRequest, "offset must be zero or greater")
+		}
+		offset = parsed
+	}
+	items, total, err := h.teams.ListTeams(c.Context(), currentTenant.ID, query, limit, offset)
+	if err != nil {
+		return err
+	}
+	var nextOffset *int
+	if offset+len(items) < total {
+		n := offset + len(items)
+		nextOffset = &n
+	}
+	return c.JSON(platform.TeamListResponse{Data: items, Total: total, Limit: limit, Offset: offset, NextOffset: nextOffset})
+}
+
+func (h *Handlers) CreateTeam(c *fiber.Ctx) error {
+	if err := requireOrgAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.teams == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "team store not configured")
+	}
+	var req platform.CreateTeamRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	req.Alias = strings.TrimSpace(req.Alias)
+	if req.Alias == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "alias is required")
+	}
+	item, err := h.teams.CreateTeam(c.Context(), currentTenant.ID, req)
+	if err != nil {
+		return err
+	}
+	return c.Status(fiber.StatusCreated).JSON(item)
+}
+
+func (h *Handlers) GetTeam(c *fiber.Ctx) error {
+	if err := requireOrgAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.teams == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "team store not configured")
+	}
+	teamID := strings.TrimSpace(c.Params("teamID"))
+	if teamID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "teamID is required")
+	}
+	item, err := h.teams.GetTeam(c.Context(), currentTenant.ID, teamID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "team not found")
+		}
+		return err
+	}
+	return c.JSON(item)
+}
+
+func (h *Handlers) UpdateTeam(c *fiber.Ctx) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.teams == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "team store not configured")
+	}
+	teamID := strings.TrimSpace(c.Params("teamID"))
+	if teamID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "teamID is required")
+	}
+	var req platform.UpdateTeamRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	item, err := h.teams.UpdateTeam(c.Context(), currentTenant.ID, teamID, req)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "team not found")
+		}
+		return err
+	}
+	return c.JSON(item)
+}
+
+func (h *Handlers) DeleteTeam(c *fiber.Ctx) error {
+	if err := requireOrgAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.teams == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "team store not configured")
+	}
+	teamID := strings.TrimSpace(c.Params("teamID"))
+	if teamID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "teamID is required")
+	}
+	if err := h.teams.DeleteTeam(c.Context(), currentTenant.ID, teamID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "team not found")
+		}
+		return err
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func (h *Handlers) GetTeamPermissions(c *fiber.Ctx) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.teams == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "team store not configured")
+	}
+	teamID := strings.TrimSpace(c.Params("teamID"))
+	if teamID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "teamID is required")
+	}
+	item, err := h.teams.GetTeamPermissions(c.Context(), currentTenant.ID, teamID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "team not found")
+		}
+		return err
+	}
+	return c.JSON(item)
+}
+
+func (h *Handlers) UpdateTeamPermissions(c *fiber.Ctx) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if h.teams == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "team store not configured")
+	}
+	teamID := strings.TrimSpace(c.Params("teamID"))
+	if teamID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "teamID is required")
+	}
+	var req platform.UpdateTeamPermissionsRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	item, err := h.teams.UpdateTeamPermissions(c.Context(), currentTenant.ID, teamID, req)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "team not found")
+		}
+		return err
+	}
+	return c.JSON(item)
 }
 
 func (h *Handlers) CreateOrgUnit(c *fiber.Ctx) error {

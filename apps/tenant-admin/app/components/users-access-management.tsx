@@ -123,7 +123,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   const accessTabs = useMemo(
     () => [
       { href: "/users", label: t("tabs.users"), icon: UserCircle2, active: true },
-      { href: "#", label: t("tabs.teams"), icon: Users, active: false },
+      { href: "/teams", label: t("tabs.teams"), icon: Users, active: false },
       { href: "#", label: t("tabs.externalAuth"), icon: ShieldCheck, active: false },
       { href: "#", label: t("tabs.personalAccessTokens"), icon: KeyRound, active: false },
       { href: "#", label: t("tabs.virtualAccounts"), icon: BriefcaseBusiness, active: false },

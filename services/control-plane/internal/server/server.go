@@ -41,7 +41,7 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 	app.Use(recover.New())
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
-		AllowMethods: "GET, POST, PUT, OPTIONS",
+		AllowMethods: "GET, POST, PUT, PATCH, DELETE, OPTIONS",
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization, api-key, x-api-key, x-shahrah-tenant",
 	}))
 	app.Use(deps.TenantResolver.Handle())
@@ -77,10 +77,17 @@ func registerRoutes(app *fiber.App, deps Dependencies) {
 	api.Post("/org-units/:orgUnitID/members", deps.AdminHandlers.AddOrgUnitMember)
 	api.Patch("/org-units/:orgUnitID/members/:userID", deps.AdminHandlers.UpdateOrgUnitMember)
 	api.Delete("/org-units/:orgUnitID/members/:userID", deps.AdminHandlers.DeleteOrgUnitMember)
+	api.Get("/teams", deps.AdminHandlers.ListTeams)
+	api.Post("/teams", deps.AdminHandlers.CreateTeam)
+	api.Get("/teams/:teamID", deps.AdminHandlers.GetTeam)
+	api.Patch("/teams/:teamID", deps.AdminHandlers.UpdateTeam)
+	api.Delete("/teams/:teamID", deps.AdminHandlers.DeleteTeam)
 	api.Get("/teams/:teamID/members", deps.AdminHandlers.ListTeamMembers)
 	api.Post("/teams/:teamID/members", deps.AdminHandlers.AddTeamMember)
 	api.Patch("/teams/:teamID/members/:userID", deps.AdminHandlers.UpdateTeamMember)
 	api.Delete("/teams/:teamID/members/:userID", deps.AdminHandlers.DeleteTeamMember)
+	api.Get("/teams/:teamID/permissions", deps.AdminHandlers.GetTeamPermissions)
+	api.Patch("/teams/:teamID/permissions", deps.AdminHandlers.UpdateTeamPermissions)
 	api.Get("/virtual-users", deps.AdminHandlers.ListVirtualUsers)
 	api.Post("/virtual-users", deps.AdminHandlers.CreateVirtualUser)
 	api.Get("/virtual-users/:virtualUserID", deps.AdminHandlers.GetVirtualUser)
