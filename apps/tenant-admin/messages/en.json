@@ -20,6 +20,7 @@
       "topup": "Wallet Top-up",
       "settings": "Account Settings",
       "providerAccounts": "Provider Accounts",
+      "virtualModels": "Virtual Models",
       "accessManagement": "Access Management",
       "traces": "Request Traces",
       "orgUnits": "Organization Units",
@@ -302,6 +303,84 @@
       "back": "Back",
       "next": "Next",
       "finalHint": "After assigning managers and users, save the access policy."
+    }
+  },
+  "virtualModels": {
+    "title": "Virtual Models",
+    "description": "Create stable model aliases with priority routing, retries, and fallback.",
+    "searchPlaceholder": "Search alias",
+    "alerts": {
+      "error": "Error",
+      "success": "Success"
+    },
+    "actions": {
+      "refresh": "Refresh",
+      "new": "New Virtual Model",
+      "create": "Create Virtual Model",
+      "reset": "Reset changes"
+    },
+    "status": {
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "empty": {
+      "title": "No virtual models yet",
+      "description": "Create a virtual model to route traffic across provider targets."
+    },
+    "list": {
+      "alias": "Alias",
+      "strategy": "Strategy",
+      "targets": "Targets",
+      "status": "Status"
+    },
+    "form": {
+      "createTitle": "Create virtual model",
+      "editTitle": "Edit virtual model",
+      "createDescription": "Define alias, target order, and fallback behavior.",
+      "editDescription": "Update alias, availability, and target routing rules.",
+      "alias": "Alias",
+      "aliasPlaceholder": "gpt-4o-smart",
+      "strategy": "Routing strategy",
+      "priorityValue": "Priority (MVP)",
+      "enabledLabel": "Availability",
+      "enabledHelp": "Disabled virtual models cannot be used in gateway requests."
+    },
+    "targets": {
+      "title": "Target chain",
+      "description": "Traffic starts at target 1 and falls back in order.",
+      "add": "Add target",
+      "itemLabel": "Target {order}",
+      "provider": "Provider",
+      "model": "Provider model",
+      "retryAttempts": "Retry attempts",
+      "retryDelay": "Retry delay (ms)",
+      "timeout": "Timeout (sec)",
+      "retryCodes": "Retry status codes",
+      "fallbackCodes": "Fallback status codes"
+    },
+    "preview": {
+      "title": "Effective routing preview",
+      "description": "Requests use this order until a target succeeds.",
+      "providerPlaceholder": "provider",
+      "modelPlaceholder": "model"
+    },
+    "messages": {
+      "listLoadError": "Failed to load virtual models.",
+      "detailLoadError": "Failed to load virtual model details.",
+      "createSuccess": "Virtual model created successfully.",
+      "createError": "Failed to create virtual model.",
+      "updateSuccess": "Virtual model updated successfully.",
+      "updateError": "Failed to update virtual model.",
+      "unsavedConfirm": "You have unsaved changes. Continue and discard them?",
+      "disableConfirm": "Disable this virtual model? Requests using this alias will fail.",
+      "aliasRequired": "Alias is required.",
+      "aliasPattern": "Alias must contain only letters, numbers, dash, or underscore.",
+      "targetsRequired": "At least one target is required.",
+      "providerRequired": "Each target must include a provider.",
+      "modelRequired": "Each target must include a model.",
+      "duplicateOrder": "Target order values must be unique.",
+      "retryAttemptsRange": "Retry attempts must be between 0 and 5.",
+      "retryDelayRange": "Retry delay must be between 0 and 10000 ms."
     }
   },
   "accessManagement": {

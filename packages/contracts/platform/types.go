@@ -388,3 +388,57 @@ type RequestLogEntry struct {
 	RequestBody    map[string]interface{} `json:"request_body,omitempty"`
 	ResponseBody   map[string]interface{} `json:"response_body,omitempty"`
 }
+
+// VirtualModel defines a tenant-scoped alias that routes to concrete provider targets.
+type VirtualModel struct {
+	ID              string               `json:"id"`
+	TenantID        string               `json:"tenant_id"`
+	Alias           string               `json:"alias"`
+	RoutingStrategy string               `json:"routing_strategy"`
+	Enabled         bool                 `json:"enabled"`
+	Version         int                  `json:"version"`
+	Targets         []VirtualModelTarget `json:"targets"`
+	CreatedBy       string               `json:"created_by,omitempty"`
+	UpdatedBy       string               `json:"updated_by,omitempty"`
+	CreatedAt       time.Time            `json:"created_at"`
+	UpdatedAt       time.Time            `json:"updated_at"`
+}
+
+type VirtualModelTarget struct {
+	ID       string             `json:"id"`
+	Order    int                `json:"order"`
+	Provider string             `json:"provider"`
+	Model    string             `json:"model"`
+	Policy   VirtualModelPolicy `json:"policy"`
+}
+
+type VirtualModelPolicy struct {
+	TimeoutSec float64                    `json:"timeout_sec,omitempty"`
+	Retry      VirtualModelRetryPolicy    `json:"retry"`
+	Fallback   VirtualModelFallbackPolicy `json:"fallback"`
+}
+
+type VirtualModelRetryPolicy struct {
+	Attempts    int   `json:"attempts"`
+	DelayMS     int   `json:"delay_ms"`
+	StatusCodes []int `json:"status_codes,omitempty"`
+}
+
+type VirtualModelFallbackPolicy struct {
+	StatusCodes []int `json:"status_codes,omitempty"`
+	Candidate   bool  `json:"candidate"`
+}
+
+type CreateVirtualModelRequest struct {
+	Alias           string               `json:"alias"`
+	RoutingStrategy string               `json:"routing_strategy"`
+	Enabled         *bool                `json:"enabled,omitempty"`
+	Targets         []VirtualModelTarget `json:"targets"`
+}
+
+type UpdateVirtualModelRequest struct {
+	Alias           *string              `json:"alias,omitempty"`
+	RoutingStrategy *string              `json:"routing_strategy,omitempty"`
+	Enabled         *bool                `json:"enabled,omitempty"`
+	Targets         []VirtualModelTarget `json:"targets,omitempty"`
+}

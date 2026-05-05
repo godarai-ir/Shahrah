@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Activity, Building2, CreditCard, LayoutDashboard, LogOut, Menu, Search, Settings, ShieldCheck, Users } from "lucide-react";
+import { Activity, Building2, CreditCard, LayoutDashboard, LogOut, Menu, Route, Search, Settings, ShieldCheck, Users } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -80,6 +80,12 @@ export default function AdminShell({
       title: t("nav.providerAccounts"),
       icon: ShieldCheck,
       isActive: pathname.startsWith("/provider-accounts"),
+    },
+    {
+      href: "/virtual-models",
+      title: t("nav.virtualModels"),
+      icon: Route,
+      isActive: pathname.startsWith("/virtual-models"),
     },
     {
       href: "/users",

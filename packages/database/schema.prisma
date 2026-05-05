@@ -67,7 +67,6 @@ model Tenant {
   organization_memberships   OrganizationMembership[]
   organizations              Organization[]
   request_logs               RequestLog[]
-  request_traces             request_traces[]
   spend_logs                 SpendLog[]
   team_memberships           TeamMembership[]
   teams                      Team[]
@@ -76,6 +75,7 @@ model Tenant {
   tenant_provider_accounts   TenantProviderAccount[]
   users                      User[]
   verification_tokens        VerificationToken[]
+  virtual_models             virtual_models[]
   virtual_users              VirtualUser[]
   wallet_topup_intents       wallet_topup_intents[]
   wallet_transactions        WalletTransaction[]
@@ -735,39 +735,41 @@ model tenant_admin_sessions {
   @@index([tenantSlug], map: "tenant_admin_session_tenant_slug_idx")
 }
 
-model request_spans {
-  span_id         String         @id
-  trace_id        String
-  parent_span_id  String?
-  name            String
-  kind            String
-  started_at      DateTime       @db.Timestamptz(6)
-  duration_ms     Int
-  status          String
-  attributes_json Json           @default("{}")
-  created_at      DateTime       @default(now()) @db.Timestamptz(6)
-  request_traces  request_traces @relation(fields: [trace_id], references: [trace_id], onDelete: Cascade, onUpdate: NoAction)
+model virtual_model_targets {
+  target_id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  virtual_model_id      String         @db.Uuid
+  target_order          Int
+  provider              String         @db.VarChar(64)
+  model                 String         @db.VarChar(255)
+  timeout_sec           Float?
+  retry_attempts        Int            @default(2)
+  retry_delay_ms        Int            @default(100)
+  retry_status_codes    Int[]          @default([429, 500, 502, 503])
+  fallback_status_codes Int[]          @default([429, 500, 502, 503, 504])
+  fallback_candidate    Boolean        @default(true)
+  created_at            DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime       @default(now()) @db.Timestamptz(6)
+  virtual_models        virtual_models @relation(fields: [virtual_model_id], references: [virtual_model_id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@index([trace_id, started_at], map: "idx_request_spans_trace_started")
+  @@unique([virtual_model_id, target_order], map: "uq_virtual_model_targets_order")
+  @@index([model], map: "idx_virtual_model_targets_model")
 }
 
-model request_traces {
-  trace_id      String          @id
-  tenant_id     String?         @db.Uuid
-  request_id    String?
-  model         String?
-  route         String
-  status_code   Int
-  started_at    DateTime        @db.Timestamptz(6)
-  duration_ms   Int
-  error_code    String?
-  sampled       Boolean         @default(true)
-  created_at    DateTime        @default(now()) @db.Timestamptz(6)
-  request_spans request_spans[]
-  tenants       Tenant?         @relation(fields: [tenant_id], references: [tenant_id], onDelete: Cascade, onUpdate: NoAction)
+model virtual_models {
+  virtual_model_id      String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id             String                  @db.Uuid
+  alias                 String                  @db.VarChar(255)
+  routing_strategy      String                  @default("priority") @db.VarChar(64)
+  enabled               Boolean                 @default(true)
+  version               Int                     @default(1)
+  created_by            String?                 @db.VarChar(255)
+  updated_by            String?                 @db.VarChar(255)
+  created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime                @default(now()) @db.Timestamptz(6)
+  virtual_model_targets virtual_model_targets[]
+  tenants               Tenant                  @relation(fields: [tenant_id], references: [tenant_id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@index([model, started_at(sort: Desc)], map: "idx_request_traces_model_started")
-  @@index([route, started_at(sort: Desc)], map: "idx_request_traces_route_started")
-  @@index([status_code, started_at(sort: Desc)], map: "idx_request_traces_status_started")
-  @@index([tenant_id, started_at(sort: Desc)], map: "idx_request_traces_tenant_started")
+  @@unique([tenant_id, alias], map: "uq_virtual_models_tenant_alias")
+  @@index([alias], map: "idx_virtual_models_alias")
+  @@index([tenant_id], map: "idx_virtual_models_tenant_id")
 }

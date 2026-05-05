@@ -735,10 +735,11 @@ func (s integrationTenantStore) GetTenantByHost(ctx context.Context, host string
 }
 
 type integrationModelStore struct {
-	deployments []platform.Deployment
-	users       []platform.TenantAdminUser
-	invitations []platform.TenantAdminInvitation
-	inviteToken string
+	deployments   []platform.Deployment
+	virtualModels []platform.VirtualModel
+	users         []platform.TenantAdminUser
+	invitations   []platform.TenantAdminInvitation
+	inviteToken   string
 }
 
 func (s *integrationModelStore) CreateDeployment(ctx context.Context, dep platform.Deployment) (*platform.Deployment, error) {
@@ -748,6 +749,81 @@ func (s *integrationModelStore) CreateDeployment(ctx context.Context, dep platfo
 
 func (s *integrationModelStore) ListDeployments(ctx context.Context, tenantID string) ([]platform.Deployment, error) {
 	return s.deployments, nil
+}
+
+func (s *integrationModelStore) CreateVirtualModel(ctx context.Context, tenantID string, req platform.CreateVirtualModelRequest, actor string) (*platform.VirtualModel, error) {
+	vm := platform.VirtualModel{
+		ID:              fmt.Sprintf("vm-%d", len(s.virtualModels)+1),
+		TenantID:        tenantID,
+		Alias:           req.Alias,
+		RoutingStrategy: req.RoutingStrategy,
+		Enabled:         req.Enabled == nil || *req.Enabled,
+		Version:         1,
+		Targets:         req.Targets,
+		CreatedBy:       actor,
+		UpdatedBy:       actor,
+		CreatedAt:       time.Now().UTC(),
+		UpdatedAt:       time.Now().UTC(),
+	}
+	s.virtualModels = append(s.virtualModels, vm)
+	return &vm, nil
+}
+
+func (s *integrationModelStore) ListVirtualModels(ctx context.Context, tenantID string) ([]platform.VirtualModel, error) {
+	out := make([]platform.VirtualModel, 0, len(s.virtualModels))
+	for _, vm := range s.virtualModels {
+		if vm.TenantID == tenantID {
+			out = append(out, vm)
+		}
+	}
+	return out, nil
+}
+
+func (s *integrationModelStore) GetVirtualModel(ctx context.Context, tenantID string, id string) (*platform.VirtualModel, error) {
+	for _, vm := range s.virtualModels {
+		if vm.TenantID == tenantID && vm.ID == id {
+			copy := vm
+			return &copy, nil
+		}
+	}
+	return nil, storage.ErrVirtualModelNotFound
+}
+
+func (s *integrationModelStore) UpdateVirtualModel(ctx context.Context, tenantID string, id string, req platform.UpdateVirtualModelRequest, actor string) (*platform.VirtualModel, error) {
+	for i := range s.virtualModels {
+		vm := &s.virtualModels[i]
+		if vm.TenantID != tenantID || vm.ID != id {
+			continue
+		}
+		if req.Alias != nil {
+			vm.Alias = *req.Alias
+		}
+		if req.RoutingStrategy != nil {
+			vm.RoutingStrategy = *req.RoutingStrategy
+		}
+		if req.Enabled != nil {
+			vm.Enabled = *req.Enabled
+		}
+		if len(req.Targets) > 0 {
+			vm.Targets = req.Targets
+		}
+		vm.UpdatedBy = actor
+		vm.Version++
+		vm.UpdatedAt = time.Now().UTC()
+		copy := *vm
+		return &copy, nil
+	}
+	return nil, storage.ErrVirtualModelNotFound
+}
+
+func (s *integrationModelStore) GetVirtualModelByAlias(ctx context.Context, tenantID string, alias string) (*platform.VirtualModel, error) {
+	for _, vm := range s.virtualModels {
+		if vm.TenantID == tenantID && vm.Alias == alias && vm.Enabled {
+			copy := vm
+			return &copy, nil
+		}
+	}
+	return nil, storage.ErrVirtualModelNotFound
 }
 
 func (s *integrationModelStore) ListTenantAdminUsers(ctx context.Context, tenantSlug string, query string, limit int, offset int) ([]platform.TenantAdminUser, int, error) {

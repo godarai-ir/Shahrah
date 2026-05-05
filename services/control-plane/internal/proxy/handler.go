@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
+	"github.com/Delpak/shahrah/services/control-plane/internal/virtualmodels"
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
 )
@@ -41,23 +43,39 @@ type usageLogger interface {
 
 // ChatCompletionHandler handles chat completion requests.
 type ChatCompletionHandler struct {
-	llmRouter *router.Router
-	tunnel    platform.TunnelTransport
-	billing   budgeter
-	wallets   walletStore
-	logs      usageLogger
-	logger    *zap.Logger
+	llmRouter  *router.Router
+	tunnel     platform.TunnelTransport
+	billing    budgeter
+	wallets    walletStore
+	logs       usageLogger
+	logger     *zap.Logger
+	vmResolver virtualmodels.VirtualModelResolver
+	vmEngine   virtualmodels.RoutingEngine
+	vmExec     virtualmodels.FallbackExecutor
 }
 
 // NewChatCompletionHandler creates a new handler.
 func NewChatCompletionHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, wallets walletStore, logs usageLogger, logger *zap.Logger) *ChatCompletionHandler {
+	var resolver virtualmodels.VirtualModelResolver
+	var engine virtualmodels.RoutingEngine
+	var exec virtualmodels.FallbackExecutor
+	if repo, ok := logs.(interface {
+		GetVirtualModelByAlias(ctx context.Context, tenantID string, alias string) (*platform.VirtualModel, error)
+	}); ok {
+		resolver = virtualmodels.NewResolver(repo)
+		engine = virtualmodels.NewPriorityRoutingEngine()
+		exec = virtualmodels.NewExecutor(virtualmodels.NewDefaultErrorNormalizer())
+	}
 	return &ChatCompletionHandler{
-		llmRouter: llmRouter,
-		tunnel:    tunnel,
-		billing:   billing,
-		wallets:   wallets,
-		logs:      logs,
-		logger:    logger,
+		llmRouter:  llmRouter,
+		tunnel:     tunnel,
+		billing:    billing,
+		wallets:    wallets,
+		logs:       logs,
+		logger:     logger,
+		vmResolver: resolver,
+		vmEngine:   engine,
+		vmExec:     exec,
 	}
 }
 
@@ -127,13 +145,6 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	}
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "quota.check", "internal", quotaStart, fiber.StatusOK, map[string]interface{}{"estimated_tokens": estimated.TotalTokens})
 
-	routeStart := time.Now()
-	deployment, err := h.llmRouter.Route(c.Context(), currentTenant.ID, req.Model)
-	if err != nil {
-		return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", req.Model), "routing_error")
-	}
-	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": deployment.Provider, "deployment_id": deployment.ID})
-
 	if err := h.tunnel.Healthy(c.Context()); err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Tunnel path unavailable", "tunnel_unavailable")
 	}
@@ -148,12 +159,11 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
 
-	tunnelReq := platform.TunnelRequest{
-		RequestID:  requestID,
-		TenantID:   currentTenant.ID,
-		TraceID:    requestID,
-		Stream:     req.Stream,
-		Deployment: toContractDeployment(deployment),
+	baseReq := platform.TunnelRequest{
+		RequestID: requestID,
+		TenantID:  currentTenant.ID,
+		TraceID:   requestID,
+		Stream:    req.Stream,
 		Headers: map[string]string{
 			"Content-Type": "application/json",
 		},
@@ -164,6 +174,47 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		},
 	}
 
+	routeStart := time.Now()
+	deployment, err := h.llmRouter.Route(c.Context(), currentTenant.ID, req.Model)
+	isVirtual := false
+	if err != nil && h.vmResolver != nil && h.vmEngine != nil && h.vmExec != nil {
+		vm, vmErr := h.vmResolver.Resolve(c.Context(), currentTenant.ID, req.Model)
+		if vmErr == nil {
+			targets, selErr := h.vmEngine.SelectTargets(vm)
+			if selErr == nil && !req.Stream {
+				resp, selectedDep, fallbackCount, failureReason, execErr := h.vmExec.ExecuteSync(c.Context(), targets, func(callCtx context.Context, dep *router.Deployment) (*platform.TunnelResponse, error) {
+					tunnelReq := baseReq
+					tunnelReq.Deployment = toContractDeployment(dep)
+					return h.tunnel.Proxy(callCtx, tunnelReq)
+				})
+				if execErr == nil && resp != nil && selectedDep != nil {
+					isVirtual = true
+					deployment = selectedDep
+					c.Locals("vm_resp", resp)
+					c.Locals("vm_fallback_count", fallbackCount)
+					c.Locals("vm_failure_reason", failureReason)
+					tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_virtual_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{
+						"virtual_model":     vm.Alias,
+						"selected_provider": selectedDep.Provider,
+						"selected_model":    selectedDep.Model,
+						"fallback_count":    fallbackCount,
+						"failure_reason":    failureReason,
+					})
+				} else if errors.Is(execErr, virtualmodels.ErrFallbackExhausted) {
+					return writeAPIError(c, fiber.StatusBadGateway, "Virtual model fallback exhausted", "fallback_exhausted")
+				}
+			}
+		}
+	}
+	if deployment == nil {
+		return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", req.Model), "routing_error")
+	}
+	if !isVirtual {
+		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": deployment.Provider, "deployment_id": deployment.ID})
+	}
+	tunnelReq := baseReq
+	tunnelReq.Deployment = toContractDeployment(deployment)
+
 	if req.Stream {
 		return h.handleStream(c, req, authInfo, estimated, tunnelReq, startTime)
 	}
@@ -172,10 +223,16 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 
 func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, start time.Time) error {
 	providerStart := time.Now()
-	resp, err := h.tunnel.Proxy(c.Context(), tunnelReq)
-	if err != nil {
-		h.llmRouter.MarkFailed(c.Context(), &router.Deployment{ID: tunnelReq.Deployment.ID}, err.Error())
-		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
+	var resp *platform.TunnelResponse
+	if vmResp, ok := c.Locals("vm_resp").(*platform.TunnelResponse); ok && vmResp != nil {
+		resp = vmResp
+	} else {
+		var err error
+		resp, err = h.tunnel.Proxy(c.Context(), tunnelReq)
+		if err != nil {
+			h.llmRouter.MarkFailed(c.Context(), &router.Deployment{ID: tunnelReq.Deployment.ID}, err.Error())
+			return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
+		}
 	}
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, map[string]interface{}{"provider": tunnelReq.Deployment.Provider})
 

@@ -1,2 +1,0 @@
--- Migration: 011_request_traces.sql
--- Description: Trace persistence moved to ClickHouse; no PostgreSQL schema changes required.

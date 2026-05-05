@@ -27,6 +27,10 @@ type keyStore interface {
 type modelStore interface {
 	CreateDeployment(ctx context.Context, dep platform.Deployment) (*platform.Deployment, error)
 	ListDeployments(ctx context.Context, tenantID string) ([]platform.Deployment, error)
+	CreateVirtualModel(ctx context.Context, tenantID string, req platform.CreateVirtualModelRequest, actor string) (*platform.VirtualModel, error)
+	ListVirtualModels(ctx context.Context, tenantID string) ([]platform.VirtualModel, error)
+	GetVirtualModel(ctx context.Context, tenantID string, id string) (*platform.VirtualModel, error)
+	UpdateVirtualModel(ctx context.Context, tenantID string, id string, req platform.UpdateVirtualModelRequest, actor string) (*platform.VirtualModel, error)
 }
 
 type walletStore interface {
@@ -562,6 +566,149 @@ func (h *Handlers) ListModels(c *fiber.Ctx) error {
 		})
 	}
 	return c.JSON(openai.ModelListResponse{Object: "list", Data: data})
+}
+
+func (h *Handlers) CreateVirtualModel(c *fiber.Ctx) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	var req platform.CreateVirtualModelRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	if err := validateCreateVirtualModelRequest(req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	actor := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	item, err := h.models.CreateVirtualModel(c.Context(), currentTenant.ID, req, actor)
+	if err != nil {
+		return err
+	}
+	return c.Status(fiber.StatusCreated).JSON(item)
+}
+
+func (h *Handlers) ListVirtualModels(c *fiber.Ctx) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	items, err := h.models.ListVirtualModels(c.Context(), currentTenant.ID)
+	if err != nil {
+		return err
+	}
+	return c.JSON(fiber.Map{"data": items})
+}
+
+func (h *Handlers) GetVirtualModel(c *fiber.Ctx) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	id := strings.TrimSpace(c.Params("id"))
+	if id == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "id is required")
+	}
+	item, err := h.models.GetVirtualModel(c.Context(), currentTenant.ID, id)
+	if err != nil {
+		if errors.Is(err, storage.ErrVirtualModelNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "virtual model not found")
+		}
+		return err
+	}
+	return c.JSON(item)
+}
+
+func (h *Handlers) UpdateVirtualModel(c *fiber.Ctx) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	id := strings.TrimSpace(c.Params("id"))
+	if id == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "id is required")
+	}
+	var req platform.UpdateVirtualModelRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	if err := validateUpdateVirtualModelRequest(req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	actor := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	item, err := h.models.UpdateVirtualModel(c.Context(), currentTenant.ID, id, req, actor)
+	if err != nil {
+		if errors.Is(err, storage.ErrVirtualModelNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "virtual model not found")
+		}
+		return err
+	}
+	return c.JSON(item)
+}
+
+func validateCreateVirtualModelRequest(req platform.CreateVirtualModelRequest) error {
+	if strings.TrimSpace(req.Alias) == "" {
+		return errors.New("alias is required")
+	}
+	if strings.TrimSpace(req.RoutingStrategy) == "" {
+		req.RoutingStrategy = "priority"
+	}
+	if strings.ToLower(strings.TrimSpace(req.RoutingStrategy)) != "priority" {
+		return errors.New("routing_strategy must be priority in MVP")
+	}
+	if len(req.Targets) == 0 {
+		return errors.New("at least one target is required")
+	}
+	return validateVirtualModelTargets(req.Targets)
+}
+
+func validateUpdateVirtualModelRequest(req platform.UpdateVirtualModelRequest) error {
+	if req.RoutingStrategy != nil && strings.ToLower(strings.TrimSpace(*req.RoutingStrategy)) != "priority" {
+		return errors.New("routing_strategy must be priority in MVP")
+	}
+	if len(req.Targets) > 0 {
+		return validateVirtualModelTargets(req.Targets)
+	}
+	return nil
+}
+
+func validateVirtualModelTargets(targets []platform.VirtualModelTarget) error {
+	seenOrders := make(map[int]struct{}, len(targets))
+	for i := range targets {
+		t := targets[i]
+		if strings.TrimSpace(t.Provider) == "" {
+			return errors.New("target.provider is required")
+		}
+		if strings.TrimSpace(t.Model) == "" {
+			return errors.New("target.model is required")
+		}
+		if t.Order <= 0 {
+			return errors.New("target.order must be greater than 0")
+		}
+		if _, exists := seenOrders[t.Order]; exists {
+			return errors.New("target.order must be unique")
+		}
+		seenOrders[t.Order] = struct{}{}
+		if t.Policy.Retry.Attempts < 0 || t.Policy.Retry.Attempts > 5 {
+			return errors.New("target.retry.attempts must be between 0 and 5")
+		}
+		if t.Policy.Retry.DelayMS < 0 || t.Policy.Retry.DelayMS > 10000 {
+			return errors.New("target.retry.delay_ms must be between 0 and 10000")
+		}
+	}
+	return nil
 }
 
 // GetWallet returns the current tenant wallet.

@@ -12,6 +12,7 @@ import (
 
 type deploymentLister interface {
 	ListDeployments(ctx context.Context, tenantID string) ([]platform.Deployment, error)
+	ListVirtualModels(ctx context.Context, tenantID string) ([]platform.VirtualModel, error)
 }
 
 // ModelsHandler serves OpenAI-compatible model listing.
@@ -50,6 +51,20 @@ func (h *ModelsHandler) Handle(c *fiber.Ctx) error {
 		model.Aliases = appendUniqueModelAlias(model.Aliases, dep.ModelName)
 		model.Aliases = appendUniqueModelAlias(model.Aliases, dep.Model)
 		byAlias[id] = model
+	}
+
+	virtualModels, err := h.models.ListVirtualModels(c.Context(), currentTenant.ID)
+	if err != nil {
+		return err
+	}
+	for _, vm := range virtualModels {
+		model := byAlias[vm.Alias]
+		model.ID = vm.Alias
+		model.Object = "model"
+		model.OwnedBy = "shahrah"
+		model.Provider = "virtual"
+		model.Aliases = appendUniqueModelAlias(model.Aliases, vm.Alias)
+		byAlias[vm.Alias] = model
 	}
 
 	data := make([]contractsopenai.Model, 0, len(byAlias))
