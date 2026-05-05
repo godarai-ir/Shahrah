@@ -341,6 +341,59 @@ func TestIntegration_CreateVATKeyViaCanonicalEndpoint(t *testing.T) {
 	assert.Equal(t, []string{"gpt-4o-mini"}, out.AllowedModels)
 }
 
+func TestIntegration_PersonalAccessTokenLifecycle(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer provider.Close()
+
+	app, keyStore, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
+
+	createResp := performJSONRequestWithHeaders(
+		t,
+		app,
+		http.MethodPost,
+		"http://localhost/api/v1/personal-access-tokens",
+		"Bearer sk-master",
+		map[string]string{"x-shahrah-user-id": "tenant-user-1"},
+		`{"name":"ci-token","models":["gpt-4o-mini"],"expires_in":"30d"}`,
+	)
+	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
+	var created platform.CreatedKey
+	decodeJSONBody(t, createResp, &created)
+	assert.NotEmpty(t, created.Key)
+	assert.Equal(t, platform.KeyTypePAT, created.KeyType)
+
+	listResp := performJSONRequestWithHeaders(
+		t,
+		app,
+		http.MethodGet,
+		"http://localhost/api/v1/personal-access-tokens?limit=25&offset=0",
+		"Bearer sk-master",
+		map[string]string{"x-shahrah-user-id": "tenant-user-1"},
+		"",
+	)
+	assert.Equal(t, http.StatusOK, listResp.StatusCode)
+	var listed platform.ListPATResponse
+	decodeJSONBody(t, listResp, &listed)
+	require.Len(t, listed.Data, 1)
+	assert.Empty(t, listed.Data[0].Key)
+
+	revokeResp := performJSONRequestWithHeaders(
+		t,
+		app,
+		http.MethodDelete,
+		"http://localhost/api/v1/personal-access-tokens/"+created.ID,
+		"Bearer sk-master",
+		map[string]string{"x-shahrah-user-id": "tenant-user-1"},
+		"",
+	)
+	assert.Equal(t, http.StatusNoContent, revokeResp.StatusCode)
+
+	_, err := keyStore.GetKeyByHash(context.Background(), hashToken(created.Key))
+	require.NoError(t, err)
+}
+
 func TestIntegration_InviteTenantUserViaCanonicalInvitationEndpoint(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
@@ -922,6 +975,26 @@ func (noopKeyStore) ListKeys(ctx context.Context, tenantID string) ([]platform.C
 	return nil, nil
 }
 
+func (noopKeyStore) TouchKeyLastUsed(ctx context.Context, keyID string, usedAt time.Time) error {
+	return nil
+}
+
+func (noopKeyStore) ListPATs(ctx context.Context, tenantID string, userID string, query string, limit int, offset int) ([]platform.CreatedKey, int, error) {
+	return []platform.CreatedKey{}, 0, nil
+}
+
+func (noopKeyStore) PATExists(ctx context.Context, tenantID string, userID string, name string) (bool, error) {
+	return false, nil
+}
+
+func (noopKeyStore) RevokePAT(ctx context.Context, tenantID string, userID string, keyID string, revokedByUserID string) (bool, error) {
+	return false, nil
+}
+
+func (noopKeyStore) RevokeAllPATs(ctx context.Context, tenantID string, userID string, revokedByUserID string) (int64, error) {
+	return 0, nil
+}
+
 type integrationKeyStore struct {
 	mu                 sync.RWMutex
 	nextID             int
@@ -960,24 +1033,25 @@ func (s *integrationKeyStore) CreateKey(ctx context.Context, params platform.Cre
 	rawKey := fmt.Sprintf("sk-managed-%03d", s.nextID)
 	keyHash := hashToken(rawKey)
 	created := platform.CreatedKey{
-		ID:            fmt.Sprintf("key-%03d", s.nextID),
-		Key:           rawKey,
-		KeyAlias:      params.KeyAlias,
-		MaskedKey:     maskToken(rawKey),
-		TenantID:      params.TenantID,
-		Role:          params.Role,
-		KeyType:       params.KeyType,
-		Models:        append([]string(nil), params.Models...),
-		AllowedModels: append([]string(nil), params.AllowedModels...),
-		MaxBudget:     params.MaxBudget,
-		RPMLimit:      params.RPMLimit,
-		TPMLimit:      params.TPMLimit,
-		TeamID:        params.TeamID,
-		OrgID:         params.OrgID,
-		OrgUnitID:     params.OrgUnitID,
-		UserID:        params.UserID,
-		VirtualUserID: params.VirtualUserID,
-		TokenHash:     keyHash,
+		ID:              fmt.Sprintf("key-%03d", s.nextID),
+		Key:             rawKey,
+		KeyAlias:        params.KeyAlias,
+		MaskedKey:       maskToken(rawKey),
+		TenantID:        params.TenantID,
+		Role:            params.Role,
+		KeyType:         params.KeyType,
+		Models:          append([]string(nil), params.Models...),
+		AllowedModels:   append([]string(nil), params.AllowedModels...),
+		MaxBudget:       params.MaxBudget,
+		RPMLimit:        params.RPMLimit,
+		TPMLimit:        params.TPMLimit,
+		TeamID:          params.TeamID,
+		OrgID:           params.OrgID,
+		OrgUnitID:       params.OrgUnitID,
+		UserID:          params.UserID,
+		VirtualUserID:   params.VirtualUserID,
+		CreatedByUserID: params.UserID,
+		TokenHash:       keyHash,
 	}
 	s.created = append(s.created, created)
 	s.byHash[keyHash] = &platform.AuthContext{
@@ -999,6 +1073,18 @@ func (s *integrationKeyStore) CreateKey(ctx context.Context, params platform.Cre
 	return &created, nil
 }
 
+func (s *integrationKeyStore) TouchKeyLastUsed(ctx context.Context, keyID string, usedAt time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.created {
+		if s.created[i].ID == keyID {
+			ts := usedAt
+			s.created[i].LastUsedAt = &ts
+		}
+	}
+	return nil
+}
+
 func (s *integrationKeyStore) ListKeys(ctx context.Context, tenantID string) ([]platform.CreatedKey, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -1013,6 +1099,79 @@ func (s *integrationKeyStore) ListKeys(ctx context.Context, tenantID string) ([]
 		out = append(out, listItem)
 	}
 	return out, nil
+}
+
+func (s *integrationKeyStore) ListPATs(ctx context.Context, tenantID string, userID string, query string, limit int, offset int) ([]platform.CreatedKey, int, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	filtered := make([]platform.CreatedKey, 0)
+	for _, item := range s.created {
+		if item.TenantID != tenantID || item.KeyType != platform.KeyTypePAT || item.CreatedByUserID != userID || item.RevokedAt != nil {
+			continue
+		}
+		if query != "" && !strings.Contains(strings.ToLower(item.KeyAlias), strings.ToLower(query)) {
+			continue
+		}
+		listItem := item
+		listItem.Key = ""
+		filtered = append(filtered, listItem)
+	}
+	total := len(filtered)
+	if offset >= total {
+		return []platform.CreatedKey{}, total, nil
+	}
+	if limit <= 0 {
+		limit = 25
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return filtered[offset:end], total, nil
+}
+
+func (s *integrationKeyStore) PATExists(ctx context.Context, tenantID string, userID string, name string) (bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, item := range s.created {
+		if item.TenantID == tenantID && item.KeyType == platform.KeyTypePAT && item.CreatedByUserID == userID && item.KeyAlias == name && item.RevokedAt == nil {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (s *integrationKeyStore) RevokePAT(ctx context.Context, tenantID string, userID string, keyID string, revokedByUserID string) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.created {
+		if s.created[i].ID == keyID && s.created[i].TenantID == tenantID && s.created[i].KeyType == platform.KeyTypePAT && s.created[i].CreatedByUserID == userID && s.created[i].RevokedAt == nil {
+			now := time.Now().UTC()
+			s.created[i].RevokedAt = &now
+			if info, ok := s.byHash[s.created[i].TokenHash]; ok {
+				info.Blocked = true
+			}
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (s *integrationKeyStore) RevokeAllPATs(ctx context.Context, tenantID string, userID string, revokedByUserID string) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var count int64
+	for i := range s.created {
+		if s.created[i].TenantID == tenantID && s.created[i].KeyType == platform.KeyTypePAT && s.created[i].CreatedByUserID == userID && s.created[i].RevokedAt == nil {
+			now := time.Now().UTC()
+			s.created[i].RevokedAt = &now
+			if info, ok := s.byHash[s.created[i].TokenHash]; ok {
+				info.Blocked = true
+			}
+			count++
+		}
+	}
+	return count, nil
 }
 
 func (s *integrationKeyStore) addSpend(tokenHash string, amount float64) {
@@ -1466,6 +1625,25 @@ func performJSONRequest(t *testing.T, app *fiber.App, method string, url string,
 	req.Header.Set("Authorization", authz)
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
+	}
+	resp, err := app.Test(req, int((30 * time.Second).Milliseconds()))
+	require.NoError(t, err)
+	return resp
+}
+
+func performJSONRequestWithHeaders(t *testing.T, app *fiber.App, method string, url string, authz string, headers map[string]string, body string) *http.Response {
+	t.Helper()
+	var reader io.Reader
+	if body != "" {
+		reader = strings.NewReader(body)
+	}
+	req := httptest.NewRequest(method, url, reader)
+	req.Header.Set("Authorization", authz)
+	if body != "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
 	}
 	resp, err := app.Test(req, int((30 * time.Second).Milliseconds()))
 	require.NoError(t, err)

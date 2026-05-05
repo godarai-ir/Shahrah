@@ -24,6 +24,10 @@ type KeyStore interface {
 	GetKeyByHash(ctx context.Context, hash string) (*platform.AuthContext, error)
 }
 
+type keyLastUsedTracker interface {
+	TouchKeyLastUsed(ctx context.Context, keyID string, usedAt time.Time) error
+}
+
 // KeyInfo stores information about an API key.
 type KeyInfo struct {
 	KeyAlias  string
@@ -134,6 +138,13 @@ func (m *AuthMiddleware) Middleware() fiber.Handler {
 			zap.String("key_alias", keyInfo.KeyAlias),
 			zap.String("role", keyInfo.Role),
 		)
+		if keyInfo.KeyID != "" {
+			if tracker, ok := m.keyStore.(keyLastUsedTracker); ok {
+				if err := tracker.TouchKeyLastUsed(c.Context(), keyInfo.KeyID, time.Now().UTC()); err != nil {
+					m.logger.Debug("Failed to touch key last-used timestamp", zap.Error(err), zap.String("key_id", keyInfo.KeyID))
+				}
+			}
+		}
 
 		return c.Next()
 	}

@@ -36,6 +36,7 @@ Apply migrations in this order:
 
 1. `db/main/migrations/001_initial.sql`
 2. `db/main/migrations/002_platform_foundations.sql`
+3. `db/main/migrations/010_personal_access_tokens.sql`
 
 Example flow after the stack is running on `http://localhost:4000`:
 
@@ -67,6 +68,26 @@ curl -s http://localhost:4000/v1/chat/completions \
 ```
 
 Successful inference should create a wallet debit plus request and spend log records for the issuing tenant.
+
+## Personal Access Tokens (PAT)
+
+Canonical PAT endpoints:
+
+- `GET /api/v1/personal-access-tokens`
+- `POST /api/v1/personal-access-tokens`
+- `GET /api/v1/personal-access-tokens/exists?name=...`
+- `DELETE /api/v1/personal-access-tokens/:id`
+- `DELETE /api/v1/personal-access-tokens/revoke/all`
+
+Notes:
+
+- PATs are tenant-scoped and user-owned.
+- Raw token is returned only on creation.
+- Revocation is soft (`revoked_at`) and revoked tokens are rejected by auth lookup.
+
+Rollback notes:
+
+- If rollback is required, disable PAT endpoints first, then drop PAT columns/indexes from `verification_tokens` in a new rollback migration (do not edit applied migration files).
 
 ## Wallet Top-up Flow (Implemented)
 

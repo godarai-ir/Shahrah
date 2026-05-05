@@ -121,8 +121,23 @@ func CheckRouteAuthorization(method string, route string, authInfo *platform.Aut
 		return requireTenantAdmin(authInfo)
 	case strings.HasPrefix(normalizedRoute, "/api/v1/keys"):
 		return checkKeyRouteAuthorization(normalizedMethod, normalizedRoute, authInfo)
+	case strings.HasPrefix(normalizedRoute, "/api/v1/personal-access-tokens"):
+		return checkPATRouteAuthorization(authInfo)
 	default:
 		return requireTenantAdmin(authInfo)
+	}
+}
+
+func checkPATRouteAuthorization(authInfo *platform.AuthContext) error {
+	if authInfo == nil {
+		return fmt.Errorf("authentication required")
+	}
+	role := normalizeRole(authInfo.Role)
+	switch role {
+	case roleProxyAdmin, roleTenantAdmin, roleOrgAdmin, roleTeamAdmin, roleTeamMember, roleTenantUser:
+		return nil
+	default:
+		return fmt.Errorf("insufficient permissions for personal access token route")
 	}
 }
 

@@ -4,9 +4,10 @@ import { resolveTenantSlugFromHeaders } from "@/lib/tenant";
 
 type ProxyOptions = {
   request: Request;
-  method: "GET" | "POST" | "PUT";
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   path: string;
   body?: unknown;
+  userID?: string;
 };
 
 type ControlPlaneRequest = {
@@ -14,6 +15,7 @@ type ControlPlaneRequest = {
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   path: string;
   body?: unknown;
+  userID?: string;
 };
 
 type APIErrorPayload = {
@@ -46,6 +48,7 @@ export async function proxyToControlPlane(options: ProxyOptions) {
     method: options.method,
     path: options.path,
     body: options.body,
+    userID: options.userID,
   });
 
   if (!upstream.ok) {
@@ -60,6 +63,10 @@ export async function proxyToControlPlane(options: ProxyOptions) {
       },
       { status: upstream.status },
     );
+  }
+
+  if (upstream.status === 204 || upstream.status === 205 || upstream.status === 304) {
+    return new NextResponse(null, { status: upstream.status });
   }
 
   return NextResponse.json(upstream.payload, { status: upstream.status });
@@ -96,6 +103,7 @@ export async function fetchControlPlaneJSON(
         Accept: "application/json",
         "Content-Type": "application/json",
         "x-shahrah-tenant": options.tenantSlug,
+        ...(options.userID ? { "x-shahrah-user-id": options.userID } : {}),
       },
       body: options.body ? JSON.stringify(options.body) : undefined,
       cache: "no-store",

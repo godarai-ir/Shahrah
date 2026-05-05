@@ -35,9 +35,12 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 		       rpm_limit,
 		       tpm_limit,
 		       COALESCE(expires, NULL),
-		       COALESCE(blocked, false)
+		       COALESCE(blocked, false),
+		       COALESCE(key_type, CASE WHEN team_id IS NULL THEN 'pat' ELSE 'vat' END)
 		FROM verification_tokens
 		WHERE token_hash = $1
+		  AND revoked_at IS NULL
+		  AND (expires IS NULL OR expires > NOW())
 		LIMIT 1
 	`, hash).Scan(
 		&auth.KeyID,
@@ -54,13 +57,16 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 		&tpmLimit,
 		&expiresAt,
 		&auth.Blocked,
+		&auth.KeyType,
 	)
 	if err != nil {
 		return nil, err
 	}
 
 	auth.Role = deriveKeyRole(auth.TeamID)
-	auth.KeyType = deriveKeyType(auth.TeamID)
+	if auth.KeyType == "" {
+		auth.KeyType = deriveKeyType(auth.TeamID)
+	}
 	auth.OrgUnitID = auth.OrganizationID
 	auth.MaxBudget = maxBudget
 	auth.RPMLimit = rpmLimit
@@ -217,37 +223,40 @@ func (s *Store) CreateKey(ctx context.Context, params platform.CreateKeyParams) 
 		expiresAt = &exp
 	}
 
+	now := time.Now().UTC()
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO verification_tokens (
 			id, tenant_id, token_hash, key_alias, key_name, models, max_budget,
-			rpm_limit, tpm_limit, team_id, organization_id, expires, spend, blocked
+			rpm_limit, tpm_limit, team_id, organization_id, expires, spend, blocked, key_type, created_by_user_id, created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULLIF($10, '')::uuid, NULLIF($11, '')::uuid, $12, 0, false)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULLIF($10, '')::uuid, NULLIF($11, '')::uuid, $12, 0, false, $13, NULLIF($14, ''), $15, $15)
 	`, keyID, params.TenantID, tokenHash, params.KeyAlias, masked, params.Models, params.MaxBudget,
-		params.RPMLimit, params.TPMLimit, params.TeamID, params.OrgID, expiresAt)
+		params.RPMLimit, params.TPMLimit, params.TeamID, params.OrgID, expiresAt, params.KeyType, params.UserID, now)
 	if err != nil {
 		return nil, err
 	}
 
 	return &platform.CreatedKey{
-		ID:            keyID,
-		Key:           rawKey,
-		KeyAlias:      params.KeyAlias,
-		MaskedKey:     masked,
-		TenantID:      params.TenantID,
-		Role:          params.Role,
-		KeyType:       params.KeyType,
-		Models:        params.Models,
-		AllowedModels: append([]string(nil), params.Models...),
-		MaxBudget:     params.MaxBudget,
-		RPMLimit:      params.RPMLimit,
-		TPMLimit:      params.TPMLimit,
-		TeamID:        params.TeamID,
-		OrgID:         params.OrgID,
-		OrgUnitID:     params.OrgUnitID,
-		UserID:        params.UserID,
-		VirtualUserID: params.VirtualUserID,
-		TokenHash:     tokenHash,
+		ID:              keyID,
+		Key:             rawKey,
+		KeyAlias:        params.KeyAlias,
+		MaskedKey:       masked,
+		TenantID:        params.TenantID,
+		Role:            params.Role,
+		KeyType:         params.KeyType,
+		Models:          params.Models,
+		AllowedModels:   append([]string(nil), params.Models...),
+		MaxBudget:       params.MaxBudget,
+		RPMLimit:        params.RPMLimit,
+		TPMLimit:        params.TPMLimit,
+		TeamID:          params.TeamID,
+		OrgID:           params.OrgID,
+		OrgUnitID:       params.OrgUnitID,
+		UserID:          params.UserID,
+		VirtualUserID:   params.VirtualUserID,
+		CreatedAt:       &now,
+		CreatedByUserID: params.UserID,
+		TokenHash:       tokenHash,
 	}, nil
 }
 
@@ -257,7 +266,9 @@ func (s *Store) ListKeys(ctx context.Context, tenantID string) ([]platform.Creat
 		SELECT id::text, COALESCE(key_alias, ''), COALESCE(key_name, ''), tenant_id::text,
 		       COALESCE(models, '{}'), COALESCE(max_budget, NULL), COALESCE(rpm_limit, NULL),
 		       COALESCE(tpm_limit, NULL), COALESCE(team_id::text, ''), COALESCE(organization_id::text, ''),
-		       COALESCE(spend, 0), COALESCE(blocked, false), COALESCE(expires, NULL), token_hash
+		       COALESCE(spend, 0), COALESCE(blocked, false), COALESCE(expires, NULL), token_hash,
+		       COALESCE(key_type, CASE WHEN team_id IS NULL THEN 'pat' ELSE 'vat' END),
+		       COALESCE(created_by_user_id, ''), COALESCE(created_at, NULL), COALESCE(last_used_at, NULL), COALESCE(revoked_at, NULL)
 		FROM verification_tokens
 		WHERE tenant_id = $1
 		ORDER BY created_at DESC
@@ -273,17 +284,156 @@ func (s *Store) ListKeys(ctx context.Context, tenantID string) ([]platform.Creat
 		var models []string
 		if err := rows.Scan(&item.ID, &item.KeyAlias, &item.MaskedKey, &item.TenantID, &models,
 			&item.MaxBudget, &item.RPMLimit, &item.TPMLimit, &item.TeamID, &item.OrgID,
-			&item.Spend, &item.Blocked, &item.ExpiresAt, &item.TokenHash); err != nil {
+			&item.Spend, &item.Blocked, &item.ExpiresAt, &item.TokenHash, &item.KeyType,
+			&item.CreatedByUserID, &item.CreatedAt, &item.LastUsedAt, &item.RevokedAt); err != nil {
 			return nil, err
 		}
 		item.Models = models
 		item.AllowedModels = append([]string(nil), models...)
 		item.Role = deriveKeyRole(item.TeamID)
-		item.KeyType = deriveKeyType(item.TeamID)
+		if item.KeyType == "" {
+			item.KeyType = deriveKeyType(item.TeamID)
+		}
 		item.OrgUnitID = item.OrgID
 		keys = append(keys, item)
 	}
 	return keys, rows.Err()
+}
+
+func (s *Store) TouchKeyLastUsed(ctx context.Context, keyID string, usedAt time.Time) error {
+	_, err := s.pool.Exec(ctx, `
+		UPDATE verification_tokens
+		SET last_used_at = $2, updated_at = NOW()
+		WHERE id = $1
+	`, keyID, usedAt)
+	return err
+}
+
+func (s *Store) PATExists(ctx context.Context, tenantID string, userID string, name string) (bool, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return false, nil
+	}
+	var exists bool
+	err := s.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM verification_tokens
+			WHERE tenant_id = $1
+			  AND key_type = 'pat'
+			  AND COALESCE(created_by_user_id, '') = $2
+			  AND key_alias = $3
+			  AND revoked_at IS NULL
+		)
+	`, tenantID, strings.TrimSpace(userID), name).Scan(&exists)
+	return exists, err
+}
+
+func (s *Store) ListPATs(ctx context.Context, tenantID string, userID string, query string, limit int, offset int) ([]platform.CreatedKey, int, error) {
+	query = strings.TrimSpace(query)
+	if limit <= 0 {
+		limit = 25
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	like := "%"
+	if query != "" {
+		like = "%" + strings.ToLower(query) + "%"
+	}
+
+	var total int
+	if err := s.pool.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM verification_tokens
+		WHERE tenant_id = $1
+		  AND key_type = 'pat'
+		  AND COALESCE(created_by_user_id, '') = $2
+		  AND ($3 = '' OR LOWER(COALESCE(key_alias, '')) LIKE $4)
+		  AND revoked_at IS NULL
+	`, tenantID, strings.TrimSpace(userID), query, like).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	rows, err := s.pool.Query(ctx, `
+		SELECT id::text, COALESCE(key_alias, ''), COALESCE(key_name, ''), tenant_id::text,
+		       COALESCE(models, '{}'), COALESCE(max_budget, NULL), COALESCE(rpm_limit, NULL),
+		       COALESCE(tpm_limit, NULL), COALESCE(team_id::text, ''), COALESCE(organization_id::text, ''),
+		       COALESCE(spend, 0), COALESCE(blocked, false), COALESCE(expires, NULL), token_hash,
+		       COALESCE(created_by_user_id, ''), COALESCE(created_at, NULL), COALESCE(last_used_at, NULL), COALESCE(revoked_at, NULL)
+		FROM verification_tokens
+		WHERE tenant_id = $1
+		  AND key_type = 'pat'
+		  AND COALESCE(created_by_user_id, '') = $2
+		  AND ($3 = '' OR LOWER(COALESCE(key_alias, '')) LIKE $4)
+		  AND revoked_at IS NULL
+		ORDER BY created_at DESC
+		LIMIT $5 OFFSET $6
+	`, tenantID, strings.TrimSpace(userID), query, like, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	items := make([]platform.CreatedKey, 0)
+	for rows.Next() {
+		var item platform.CreatedKey
+		var models []string
+		if err := rows.Scan(&item.ID, &item.KeyAlias, &item.MaskedKey, &item.TenantID, &models,
+			&item.MaxBudget, &item.RPMLimit, &item.TPMLimit, &item.TeamID, &item.OrgID,
+			&item.Spend, &item.Blocked, &item.ExpiresAt, &item.TokenHash, &item.CreatedByUserID,
+			&item.CreatedAt, &item.LastUsedAt, &item.RevokedAt); err != nil {
+			return nil, 0, err
+		}
+		item.Models = models
+		item.AllowedModels = append([]string(nil), models...)
+		item.Role = platform.LegacyKeyRoleVirtualKey
+		item.KeyType = platform.KeyTypePAT
+		item.OrgUnitID = item.OrgID
+		items = append(items, item)
+	}
+	return items, total, rows.Err()
+}
+
+func (s *Store) RevokePAT(ctx context.Context, tenantID string, userID string, keyID string, revokedByUserID string) (bool, error) {
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE verification_tokens
+		SET revoked_at = NOW(),
+		    revoked_by_user_id = NULLIF($4, ''),
+		    blocked = true,
+		    updated_at = NOW()
+		WHERE id = $1
+		  AND tenant_id = $2
+		  AND key_type = 'pat'
+		  AND COALESCE(created_by_user_id, '') = $3
+		  AND revoked_at IS NULL
+	`, keyID, tenantID, strings.TrimSpace(userID), strings.TrimSpace(revokedByUserID))
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
+func (s *Store) RevokeAllPATs(ctx context.Context, tenantID string, userID string, revokedByUserID string) (int64, error) {
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE verification_tokens
+		SET revoked_at = NOW(),
+		    revoked_by_user_id = NULLIF($3, ''),
+		    blocked = true,
+		    updated_at = NOW()
+		WHERE tenant_id = $1
+		  AND key_type = 'pat'
+		  AND COALESCE(created_by_user_id, '') = $2
+		  AND revoked_at IS NULL
+	`, tenantID, strings.TrimSpace(userID), strings.TrimSpace(revokedByUserID))
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
 }
 
 func deriveKeyRole(teamID string) string {

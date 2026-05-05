@@ -16,6 +16,10 @@ Current implementation is wired to existing control-plane management APIs:
 - `GET|POST /api/v1/wallet/topup/callback/:provider`
 - `GET /api/v1/wallet/transactions`
 - `GET /api/v1/wallet/topup/settings`
+- `GET/POST /api/v1/personal-access-tokens`
+- `GET /api/v1/personal-access-tokens/exists`
+- `DELETE /api/v1/personal-access-tokens/:id`
+- `DELETE /api/v1/personal-access-tokens/revoke/all`
 
 Authentication flow implemented in app routes:
 
@@ -44,6 +48,14 @@ Wallet top-up UX flow in tenant-admin:
 3. On success, app redirects browser to returned `payment_url`.
 4. After provider callback/verification, user lands on `/billing/topup/result` and can return to dashboard.
 5. Dashboard also reads dynamic top-up constraints (`min/max/tax/fee`) and shows recent wallet transactions.
+
+PAT UX flow in tenant-admin:
+
+1. User opens `/personal-access-tokens`.
+2. Frontend lists user-owned PATs and allows search/refresh.
+3. User creates a PAT with token name, allowed models, and optional expiry.
+4. Raw token is displayed once in success panel; subsequent list responses never include raw token.
+5. User can revoke a single PAT or revoke all own PATs.
 
 ## Environment
 

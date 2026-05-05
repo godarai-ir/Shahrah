@@ -179,8 +179,13 @@ type TenantStore interface {
 // KeyStore resolves and persists virtual keys.
 type KeyStore interface {
 	GetKeyByHash(ctx context.Context, hash string) (*AuthContext, error)
+	TouchKeyLastUsed(ctx context.Context, keyID string, usedAt time.Time) error
 	CreateKey(ctx context.Context, params CreateKeyParams) (*CreatedKey, error)
 	ListKeys(ctx context.Context, tenantID string) ([]CreatedKey, error)
+	ListPATs(ctx context.Context, tenantID string, userID string, query string, limit int, offset int) ([]CreatedKey, int, error)
+	PATExists(ctx context.Context, tenantID string, userID string, name string) (bool, error)
+	RevokePAT(ctx context.Context, tenantID string, userID string, keyID string, revokedByUserID string) (bool, error)
+	RevokeAllPATs(ctx context.Context, tenantID string, userID string, revokedByUserID string) (int64, error)
 }
 
 // BudgetEnforcer validates budgets and rate limits.
@@ -238,27 +243,54 @@ type CreateKeyParams struct {
 
 // CreatedKey is the persisted key metadata returned by admin APIs.
 type CreatedKey struct {
-	ID            string     `json:"id"`
-	Key           string     `json:"key,omitempty"`
-	KeyAlias      string     `json:"key_alias"`
-	MaskedKey     string     `json:"key_name,omitempty"`
-	TenantID      string     `json:"tenant_id"`
-	Role          string     `json:"role"`
-	KeyType       string     `json:"key_type,omitempty"`
-	Models        []string   `json:"models"`
-	AllowedModels []string   `json:"allowed_models,omitempty"`
-	MaxBudget     *float64   `json:"max_budget,omitempty"`
-	RPMLimit      *int64     `json:"rpm_limit,omitempty"`
-	TPMLimit      *int64     `json:"tpm_limit,omitempty"`
-	TeamID        string     `json:"team_id,omitempty"`
-	OrgID         string     `json:"organization_id,omitempty"`
-	OrgUnitID     string     `json:"org_unit_id,omitempty"`
-	UserID        string     `json:"user_id,omitempty"`
-	VirtualUserID string     `json:"virtual_user_id,omitempty"`
-	Spend         float64    `json:"spend"`
-	Blocked       bool       `json:"blocked"`
-	ExpiresAt     *time.Time `json:"expires_at,omitempty"`
-	TokenHash     string     `json:"token_hash,omitempty"`
+	ID              string     `json:"id"`
+	Key             string     `json:"key,omitempty"`
+	KeyAlias        string     `json:"key_alias"`
+	MaskedKey       string     `json:"key_name,omitempty"`
+	TenantID        string     `json:"tenant_id"`
+	Role            string     `json:"role"`
+	KeyType         string     `json:"key_type,omitempty"`
+	Models          []string   `json:"models"`
+	AllowedModels   []string   `json:"allowed_models,omitempty"`
+	MaxBudget       *float64   `json:"max_budget,omitempty"`
+	RPMLimit        *int64     `json:"rpm_limit,omitempty"`
+	TPMLimit        *int64     `json:"tpm_limit,omitempty"`
+	TeamID          string     `json:"team_id,omitempty"`
+	OrgID           string     `json:"organization_id,omitempty"`
+	OrgUnitID       string     `json:"org_unit_id,omitempty"`
+	UserID          string     `json:"user_id,omitempty"`
+	VirtualUserID   string     `json:"virtual_user_id,omitempty"`
+	Spend           float64    `json:"spend"`
+	Blocked         bool       `json:"blocked"`
+	ExpiresAt       *time.Time `json:"expires_at,omitempty"`
+	CreatedAt       *time.Time `json:"created_at,omitempty"`
+	LastUsedAt      *time.Time `json:"last_used_at,omitempty"`
+	RevokedAt       *time.Time `json:"revoked_at,omitempty"`
+	CreatedByUserID string     `json:"created_by_user_id,omitempty"`
+	TokenHash       string     `json:"token_hash,omitempty"`
+}
+
+type ListPATResponse struct {
+	Data       []CreatedKey `json:"data"`
+	Total      int          `json:"total"`
+	Limit      int          `json:"limit"`
+	Offset     int          `json:"offset"`
+	NextOffset *int         `json:"next_offset,omitempty"`
+}
+
+type CreatePATRequest struct {
+	Name          string   `json:"name"`
+	Models        []string `json:"models,omitempty"`
+	AllowedModels []string `json:"allowed_models,omitempty"`
+	ExpiresIn     string   `json:"expires_in,omitempty"`
+}
+
+type PATExistsResponse struct {
+	Exists bool `json:"exists"`
+}
+
+type RevokeAllPATResponse struct {
+	Revoked int64 `json:"revoked"`
 }
 
 const (

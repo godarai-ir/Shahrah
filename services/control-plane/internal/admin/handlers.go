@@ -18,6 +18,10 @@ import (
 type keyStore interface {
 	CreateKey(ctx context.Context, params platform.CreateKeyParams) (*platform.CreatedKey, error)
 	ListKeys(ctx context.Context, tenantID string) ([]platform.CreatedKey, error)
+	ListPATs(ctx context.Context, tenantID string, userID string, query string, limit int, offset int) ([]platform.CreatedKey, int, error)
+	PATExists(ctx context.Context, tenantID string, userID string, name string) (bool, error)
+	RevokePAT(ctx context.Context, tenantID string, userID string, keyID string, revokedByUserID string) (bool, error)
+	RevokeAllPATs(ctx context.Context, tenantID string, userID string, revokedByUserID string) (int64, error)
 }
 
 type modelStore interface {
@@ -285,6 +289,171 @@ func (h *Handlers) ListKeys(c *fiber.Ctx) error {
 		return err
 	}
 	return c.JSON(fiber.Map{"data": items})
+}
+
+func (h *Handlers) ListPersonalAccessTokens(c *fiber.Ctx) error {
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	actorUserID := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	if actorUserID == "" {
+		return fiber.NewError(fiber.StatusUnauthorized, "x-shahrah-user-id header is required")
+	}
+
+	query := strings.TrimSpace(c.Query("query"))
+	limit := 25
+	offset := 0
+	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
+		parsed, parseErr := strconv.Atoi(raw)
+		if parseErr != nil || parsed <= 0 {
+			return fiber.NewError(fiber.StatusBadRequest, "limit must be a positive number")
+		}
+		if parsed > 200 {
+			parsed = 200
+		}
+		limit = parsed
+	}
+	if raw := strings.TrimSpace(c.Query("offset")); raw != "" {
+		parsed, parseErr := strconv.Atoi(raw)
+		if parseErr != nil || parsed < 0 {
+			return fiber.NewError(fiber.StatusBadRequest, "offset must be zero or greater")
+		}
+		offset = parsed
+	}
+
+	items, total, err := h.keys.ListPATs(c.Context(), currentTenant.ID, actorUserID, query, limit, offset)
+	if err != nil {
+		return err
+	}
+	var nextOffset *int
+	if offset+len(items) < total {
+		next := offset + len(items)
+		nextOffset = &next
+	}
+	return c.JSON(platform.ListPATResponse{
+		Data:       items,
+		Total:      total,
+		Limit:      limit,
+		Offset:     offset,
+		NextOffset: nextOffset,
+	})
+}
+
+func (h *Handlers) PersonalAccessTokenExists(c *fiber.Ctx) error {
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	actorUserID := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	if actorUserID == "" {
+		return fiber.NewError(fiber.StatusUnauthorized, "x-shahrah-user-id header is required")
+	}
+	name := strings.TrimSpace(c.Query("name"))
+	if name == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "name is required")
+	}
+	exists, err := h.keys.PATExists(c.Context(), currentTenant.ID, actorUserID, name)
+	if err != nil {
+		return err
+	}
+	return c.JSON(platform.PATExistsResponse{Exists: exists})
+}
+
+func (h *Handlers) CreatePersonalAccessToken(c *fiber.Ctx) error {
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	actorUserID := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	if actorUserID == "" {
+		return fiber.NewError(fiber.StatusUnauthorized, "x-shahrah-user-id header is required")
+	}
+
+	var req platform.CreatePATRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	req.Name = strings.TrimSpace(req.Name)
+	if req.Name == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "name is required")
+	}
+	if len(req.AllowedModels) == 0 && len(req.Models) > 0 {
+		req.AllowedModels = append([]string(nil), req.Models...)
+	}
+	models := make([]string, 0, len(req.AllowedModels))
+	for _, model := range req.AllowedModels {
+		model = strings.TrimSpace(model)
+		if model != "" {
+			models = append(models, model)
+		}
+	}
+	if len(models) == 0 {
+		return fiber.NewError(fiber.StatusBadRequest, "at least one allowed model is required")
+	}
+	req.AllowedModels = models
+
+	exists, err := h.keys.PATExists(c.Context(), currentTenant.ID, actorUserID, req.Name)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return fiber.NewError(fiber.StatusConflict, "personal access token with this name already exists")
+	}
+
+	created, err := h.keys.CreateKey(c.Context(), platform.CreateKeyParams{
+		TenantID:      currentTenant.ID,
+		KeyAlias:      req.Name,
+		Role:          platform.LegacyKeyRoleVirtualKey,
+		KeyType:       platform.KeyTypePAT,
+		Models:        req.AllowedModels,
+		AllowedModels: req.AllowedModels,
+		UserID:        actorUserID,
+		ExpiresIn:     strings.TrimSpace(req.ExpiresIn),
+	})
+	if err != nil {
+		return err
+	}
+	return c.Status(fiber.StatusCreated).JSON(created)
+}
+
+func (h *Handlers) RevokePersonalAccessToken(c *fiber.Ctx) error {
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	actorUserID := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	if actorUserID == "" {
+		return fiber.NewError(fiber.StatusUnauthorized, "x-shahrah-user-id header is required")
+	}
+	keyID := strings.TrimSpace(c.Params("id"))
+	if keyID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "id is required")
+	}
+	revoked, err := h.keys.RevokePAT(c.Context(), currentTenant.ID, actorUserID, keyID, actorUserID)
+	if err != nil {
+		return err
+	}
+	if !revoked {
+		return fiber.NewError(fiber.StatusNotFound, "personal access token not found")
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func (h *Handlers) RevokeAllPersonalAccessTokens(c *fiber.Ctx) error {
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	actorUserID := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	if actorUserID == "" {
+		return fiber.NewError(fiber.StatusUnauthorized, "x-shahrah-user-id header is required")
+	}
+	revoked, err := h.keys.RevokeAllPATs(c.Context(), currentTenant.ID, actorUserID, actorUserID)
+	if err != nil {
+		return err
+	}
+	return c.JSON(platform.RevokeAllPATResponse{Revoked: revoked})
 }
 
 type createModelRequest struct {

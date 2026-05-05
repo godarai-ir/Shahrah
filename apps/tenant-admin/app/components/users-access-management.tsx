@@ -125,7 +125,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       { href: "/users", label: t("tabs.users"), icon: UserCircle2, active: true },
       { href: "/teams", label: t("tabs.teams"), icon: Users, active: false },
       { href: "#", label: t("tabs.externalAuth"), icon: ShieldCheck, active: false },
-      { href: "#", label: t("tabs.personalAccessTokens"), icon: KeyRound, active: false },
+      { href: "/personal-access-tokens", label: t("tabs.personalAccessTokens"), icon: KeyRound, active: false },
       { href: "#", label: t("tabs.virtualAccounts"), icon: BriefcaseBusiness, active: false },
       { href: "#", label: t("tabs.roles"), icon: BadgeCheck, active: false },
       { href: "#", label: t("tabs.auditLogs"), icon: ShieldCheck, active: false },

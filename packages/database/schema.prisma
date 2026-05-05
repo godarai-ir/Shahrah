@@ -306,10 +306,14 @@ model VerificationToken {
   created_at                                                   DateTime?     @default(now()) @db.Timestamptz(6)
   updated_at                                                   DateTime?     @default(now()) @db.Timestamptz(6)
   tenant_id                                                    String?       @db.Uuid
-  key_type                                                     String?       @db.VarChar(20)
+  key_type                                                     String?       @default("pat") @db.VarChar(20)
   virtual_user_id                                              String?       @db.Uuid
   org_unit_id                                                  String?       @db.Uuid
   allowed_models                                               String[]      @default([])
+  created_by_user_id                                           String?
+  last_used_at                                                 DateTime?     @db.Timestamptz(6)
+  revoked_at                                                   DateTime?     @db.Timestamptz(6)
+  revoked_by_user_id                                           String?
   organizations_verification_tokens_org_unit_idToorganizations Organization? @relation("verification_tokens_org_unit_idToorganizations", fields: [org_unit_id], references: [organization_id], onDelete: NoAction, onUpdate: NoAction)
   organizations                                                Organization? @relation(fields: [organization_id], references: [organization_id], onDelete: NoAction, onUpdate: NoAction)
   projects                                                     Project?      @relation(fields: [project_id], references: [project_id], onDelete: NoAction, onUpdate: NoAction)
@@ -326,6 +330,8 @@ model VerificationToken {
   @@index([team_id], map: "idx_vt_team")
   @@index([token_hash], map: "idx_vt_token_hash")
   @@index([user_id], map: "idx_vt_user")
+  @@index([tenant_id, key_type, created_by_user_id, revoked_at], map: "idx_verification_tokens_pat_owner_state")
+  @@index([tenant_id, key_type], map: "idx_verification_tokens_tenant_keytype")
   @@map("verification_tokens")
 }
 
@@ -649,14 +655,16 @@ model wallet_topup_settings {
 }
 
 model tenant_admin_users {
-  id          String    @id
-  tenantSlug  String
-  email       String?
-  mobile      String?
-  role        String    @default("tenant_member")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime
-  lastLoginAt DateTime?
+  id                        String                      @id
+  tenantSlug                String
+  email                     String?
+  mobile                    String?
+  role                      String                      @default("tenant_member")
+  createdAt                 DateTime                    @default(now())
+  updatedAt                 DateTime
+  lastLoginAt               DateTime?
+  tenant_admin_otp_requests tenant_admin_otp_requests[]
+  tenant_admin_sessions     tenant_admin_sessions[]
 
   @@unique([tenantSlug, email], map: "tenant_admin_user_tenant_email_uq")
   @@unique([tenantSlug, mobile], map: "tenant_admin_user_tenant_mobile_uq")
@@ -685,4 +693,43 @@ model tenant_onboarding_requests {
 
   @@index([expires_at], map: "idx_tenant_onboarding_expires_at")
   @@index([tenant_slug, status], map: "idx_tenant_onboarding_slug_status")
+}
+
+model tenant_admin_captchas {
+  id        String   @id
+  answer    String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([expiresAt], map: "tenant_admin_captcha_expires_at_idx")
+}
+
+model tenant_admin_otp_requests {
+  id                 String              @id
+  tenantSlug         String
+  purpose            String
+  channel            String
+  identifier         String
+  userID             String?
+  pendingValue       String?
+  otpCode            String
+  attempts           Int                 @default(0)
+  createdAt          DateTime            @default(now())
+  expiresAt          DateTime
+  tenant_admin_users tenant_admin_users? @relation(fields: [userID], references: [id])
+
+  @@index([expiresAt], map: "tenant_admin_otp_expires_at_idx")
+  @@index([tenantSlug, purpose], map: "tenant_admin_otp_tenant_purpose_idx")
+}
+
+model tenant_admin_sessions {
+  id                 String             @id
+  tenantSlug         String
+  userID             String
+  createdAt          DateTime           @default(now())
+  expiresAt          DateTime
+  tenant_admin_users tenant_admin_users @relation(fields: [userID], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt], map: "tenant_admin_session_expires_at_idx")
+  @@index([tenantSlug], map: "tenant_admin_session_tenant_slug_idx")
 }

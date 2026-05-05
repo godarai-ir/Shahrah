@@ -42,6 +42,26 @@ func (s *InMemoryKeyStore) GetKeyByHash(ctx context.Context, hash string) (*plat
 	return key, nil
 }
 
+func (s *InMemoryKeyStore) TouchKeyLastUsed(ctx context.Context, keyID string, usedAt time.Time) error {
+	return nil
+}
+
+func (s *InMemoryKeyStore) ListPATs(ctx context.Context, tenantID string, userID string, query string, limit int, offset int) ([]platform.CreatedKey, int, error) {
+	return []platform.CreatedKey{}, 0, nil
+}
+
+func (s *InMemoryKeyStore) PATExists(ctx context.Context, tenantID string, userID string, name string) (bool, error) {
+	return false, nil
+}
+
+func (s *InMemoryKeyStore) RevokePAT(ctx context.Context, tenantID string, userID string, keyID string, revokedByUserID string) (bool, error) {
+	return false, nil
+}
+
+func (s *InMemoryKeyStore) RevokeAllPATs(ctx context.Context, tenantID string, userID string, revokedByUserID string) (int64, error) {
+	return 0, nil
+}
+
 // GenerateTestKeys populates the store with test keys.
 func (s *InMemoryKeyStore) GenerateTestKeys() {
 	// Admin key

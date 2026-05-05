@@ -634,6 +634,67 @@
       "aliasUnique": "Alias باید در تننت یکتا باشد."
     }
   },
+  "personalAccessTokens": {
+    "title": "توکن‌های دسترسی شخصی",
+    "tabs": {
+      "users": "کاربران",
+      "pat": "توکن‌های دسترسی شخصی"
+    },
+    "searchPlaceholder": "جستجو بر اساس نام توکن",
+    "summary": "{total} توکن",
+    "alerts": {
+      "error": "خطا",
+      "success": "موفق"
+    },
+    "oneTime": {
+      "title": "توکن را همین حالا کپی کنید (فقط یک‌بار نمایش داده می‌شود)",
+      "description": "مقدار خام این توکن بعد از این صفحه دیگر قابل بازیابی نیست."
+    },
+    "fields": {
+      "name": "نام توکن",
+      "namePlaceholder": "my-ci-token",
+      "models": "مدل‌های مجاز (با ویرگول جدا کنید)",
+      "modelsPlaceholder": "gpt-4o-mini,gpt-4.1-mini",
+      "expiresIn": "زمان انقضا (مثل 30d یا 720h)",
+      "expiresInPlaceholder": "30d"
+    },
+    "actions": {
+      "refresh": "بازآوری",
+      "create": "ایجاد PAT",
+      "creating": "در حال ایجاد...",
+      "revoke": "ابطال",
+      "revokeAll": "ابطال همه PATهای من"
+    },
+    "status": {
+      "active": "فعال",
+      "revoked": "ابطال‌شده"
+    },
+    "table": {
+      "name": "نام",
+      "masked": "کلید ماسک‌شده",
+      "models": "مدل‌ها",
+      "createdAt": "زمان ایجاد",
+      "lastUsedAt": "آخرین استفاده",
+      "expiresAt": "زمان انقضا",
+      "status": "وضعیت",
+      "actions": "عملیات",
+      "empty": "توکن دسترسی شخصی‌ای یافت نشد."
+    },
+    "create": {
+      "title": "ایجاد توکن دسترسی شخصی",
+      "description": "یک توکن tenant-scoped متعلق به حساب خودتان ایجاد کنید."
+    },
+    "messages": {
+      "validation": "نام توکن و حداقل یک مدل الزامی است.",
+      "loadError": "بارگیری توکن‌های دسترسی شخصی ناموفق بود.",
+      "createSuccess": "توکن دسترسی شخصی با موفقیت ایجاد شد.",
+      "createError": "ایجاد توکن دسترسی شخصی ناموفق بود.",
+      "revokeSuccess": "توکن با موفقیت ابطال شد.",
+      "revokeError": "ابطال توکن ناموفق بود.",
+      "revokeAllSuccess": "همه توکن‌های شما ابطال شدند.",
+      "revokeAllError": "ابطال همه توکن‌ها ناموفق بود."
+    }
+  },
   "invite": {
     "title": "پذیرش دعوت",
     "status": {
