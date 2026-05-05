@@ -13,6 +13,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
+	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
@@ -73,6 +74,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusBadRequest, "Tenant resolution required", "invalid_request_error")
 	}
 	authInfo.TenantID = currentTenant.ID
+	tracing.SetTenantForTrace(c, currentTenant.ID)
 
 	var req contractsopenai.ChatCompletionRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -134,7 +136,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusBadRequest, "Failed to encode request", "invalid_request_error")
 	}
 
-	requestID := c.GetRespHeader("x-request-id")
+	requestID := tracing.TraceIDFromContext(c)
 	if requestID == "" {
 		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}

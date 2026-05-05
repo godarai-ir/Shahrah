@@ -67,6 +67,7 @@ model Tenant {
   organization_memberships   OrganizationMembership[]
   organizations              Organization[]
   request_logs               RequestLog[]
+  request_traces             request_traces[]
   spend_logs                 SpendLog[]
   team_memberships           TeamMembership[]
   teams                      Team[]
@@ -732,4 +733,41 @@ model tenant_admin_sessions {
 
   @@index([expiresAt], map: "tenant_admin_session_expires_at_idx")
   @@index([tenantSlug], map: "tenant_admin_session_tenant_slug_idx")
+}
+
+model request_spans {
+  span_id         String         @id
+  trace_id        String
+  parent_span_id  String?
+  name            String
+  kind            String
+  started_at      DateTime       @db.Timestamptz(6)
+  duration_ms     Int
+  status          String
+  attributes_json Json           @default("{}")
+  created_at      DateTime       @default(now()) @db.Timestamptz(6)
+  request_traces  request_traces @relation(fields: [trace_id], references: [trace_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([trace_id, started_at], map: "idx_request_spans_trace_started")
+}
+
+model request_traces {
+  trace_id      String          @id
+  tenant_id     String?         @db.Uuid
+  request_id    String?
+  model         String?
+  route         String
+  status_code   Int
+  started_at    DateTime        @db.Timestamptz(6)
+  duration_ms   Int
+  error_code    String?
+  sampled       Boolean         @default(true)
+  created_at    DateTime        @default(now()) @db.Timestamptz(6)
+  request_spans request_spans[]
+  tenants       Tenant?         @relation(fields: [tenant_id], references: [tenant_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([model, started_at(sort: Desc)], map: "idx_request_traces_model_started")
+  @@index([route, started_at(sort: Desc)], map: "idx_request_traces_route_started")
+  @@index([status_code, started_at(sort: Desc)], map: "idx_request_traces_status_started")
+  @@index([tenant_id, started_at(sort: Desc)], map: "idx_request_traces_tenant_started")
 }

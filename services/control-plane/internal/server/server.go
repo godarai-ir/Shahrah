@@ -19,6 +19,7 @@ import (
 type Dependencies struct {
 	AuthMiddleware     *auth.AuthMiddleware
 	TenantResolver     *tenant.Middleware
+	TracingMiddleware  fiber.Handler
 	AdminHandlers      *admin.Handlers
 	ProxyHandler       *proxy.ChatCompletionHandler
 	CompletionsHandler *proxy.CompletionsHandler
@@ -44,6 +45,9 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 		AllowMethods: "GET, POST, PUT, PATCH, DELETE, OPTIONS",
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization, api-key, x-api-key, x-shahrah-tenant",
 	}))
+	if deps.TracingMiddleware != nil {
+		app.Use(deps.TracingMiddleware)
+	}
 	app.Use(deps.TenantResolver.Handle())
 	app.Use(deps.AuthMiddleware.Middleware())
 
@@ -123,6 +127,9 @@ func registerRoutes(app *fiber.App, deps Dependencies) {
 	api.Put("/wallet/topup/settings", deps.AdminHandlers.UpdateWalletTopUpSettings)
 	api.Get("/wallet/topup/callback/:provider", deps.AdminHandlers.WalletTopUpCallback)
 	api.Post("/wallet/topup/callback/:provider", deps.AdminHandlers.WalletTopUpCallback)
+	api.Get("/traces", deps.AdminHandlers.ListRequestTraces)
+	api.Get("/traces/:traceID", deps.AdminHandlers.GetRequestTrace)
+	api.Get("/traces/:traceID/spans", deps.AdminHandlers.ListRequestTraceSpans)
 }
 
 func healthHandler(c *fiber.Ctx) error {

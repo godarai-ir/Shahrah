@@ -15,6 +15,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
+	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/server"
@@ -75,9 +76,22 @@ func main() {
 	proxyHandler := proxy.NewChatCompletionHandler(llmRouter, tunnelClient, billingService, store, store, logger)
 	completionsHandler := proxy.NewCompletionsHandler(llmRouter, tunnelClient, billingService, store, store, logger)
 	modelsHandler := proxy.NewModelsHandler(store)
+
+	traceCfg := tracing.LoadConfigFromEnv()
+	traceQueue := tracing.NewQueue(traceCfg.QueueCapacity)
+	traceSampler := tracing.NewSampler(traceCfg.DefaultSampleRate, traceCfg.SlowRequest.Milliseconds())
+	traceProcessor := tracing.NewProcessor(traceCfg, traceQueue, store, logger)
+	traceProcessor.Start()
+	defer func() {
+		stopCtx, cancelStop := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancelStop()
+		_ = traceProcessor.Stop(stopCtx)
+	}()
+
 	app := server.NewFiberApp(cfg, server.Dependencies{
 		AuthMiddleware:     authMiddleware,
 		TenantResolver:     tenantMiddleware,
+		TracingMiddleware:  tracing.Middleware(traceQueue, traceSampler, traceCfg.SlowRequest.Milliseconds()),
 		AdminHandlers:      adminHandlers,
 		ProxyHandler:       proxyHandler,
 		CompletionsHandler: completionsHandler,

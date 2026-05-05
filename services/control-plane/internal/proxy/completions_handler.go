@@ -12,6 +12,7 @@ import (
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
+	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
@@ -69,6 +70,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusBadRequest, "tenant resolution required", "invalid_request_error")
 	}
 	authInfo.TenantID = currentTenant.ID
+	tracing.SetTenantForTrace(c, currentTenant.ID)
 
 	if len(authInfo.AllowedModels) > 0 && !containsModel(authInfo.AllowedModels, req.Model) && !containsModel(authInfo.AllowedModels, "*") {
 		return writeAPIError(c, fiber.StatusForbidden, "model access denied", "authorization_error")
@@ -115,7 +117,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	// Build tunnel request
-	requestID := c.GetRespHeader("x-request-id")
+	requestID := tracing.TraceIDFromContext(c)
 	if requestID == "" {
 		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}

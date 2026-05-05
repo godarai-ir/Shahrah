@@ -97,6 +97,12 @@ type userStore interface {
 	SetTenantAdminUserActive(ctx context.Context, tenantSlug string, userID string, active bool) (*platform.TenantAdminUser, error)
 }
 
+type traceStore interface {
+	ListRequestTraces(ctx context.Context, params platform.ListRequestTracesParams) ([]platform.RequestTrace, int, error)
+	GetRequestTrace(ctx context.Context, tenantID string, traceID string) (*platform.RequestTrace, error)
+	ListTraceSpans(ctx context.Context, tenantID string, traceID string) ([]platform.TraceSpan, error)
+}
+
 type onboardingStore interface {
 	CheckTenantSlugAvailability(ctx context.Context, slug string) (*storage.TenantSlugAvailability, error)
 	CreateOnboardingOTP(ctx context.Context, req storage.CreateOnboardingOTPParams) (*storage.OnboardingOTP, error)
@@ -115,6 +121,7 @@ type Handlers struct {
 	virtualUsers     virtualUserStore
 	teams            teamStore
 	onboarding       onboardingStore
+	traces           traceStore
 }
 
 // New creates a management handlers bundle.
@@ -126,6 +133,7 @@ func New(keys keyStore, models modelStore, wallets walletStore) *Handlers {
 	virtualUsers, _ := keys.(virtualUserStore)
 	teams, _ := keys.(teamStore)
 	onboarding, _ := keys.(onboardingStore)
+	traces, _ := keys.(traceStore)
 	return &Handlers{
 		keys:             keys,
 		models:           models,
@@ -137,6 +145,7 @@ func New(keys keyStore, models modelStore, wallets walletStore) *Handlers {
 		virtualUsers:     virtualUsers,
 		teams:            teams,
 		onboarding:       onboarding,
+		traces:           traces,
 	}
 }
 
