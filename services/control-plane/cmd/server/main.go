@@ -75,6 +75,7 @@ func main() {
 
 	metricsCfg := metricsobs.LoadConfigFromEnv()
 	var emitMetric func(input metricsobs.BuildInput)
+	var reconciler *metricsobs.CostReconciler
 	if metricsCfg.Enabled {
 		metricsQueue := metricsobs.NewQueue(metricsCfg.QueueCapacity)
 		metricsProcessor := metricsobs.NewProcessor(metricsCfg, metricsQueue, store, logger)
@@ -88,6 +89,10 @@ func main() {
 			event := metricsProcessor.BuildEvent(input)
 			_ = metricsQueue.Enqueue(event)
 		}
+
+		reconciler = metricsobs.NewCostReconciler(metricsobs.LoadReconcileConfigFromEnv(), &costReconcileAdapter{store: store}, logger)
+		reconciler.Start()
+		defer reconciler.Stop()
 	}
 
 	adminHandlers := admin.New(store, store, store)
@@ -147,4 +152,32 @@ func main() {
 	if err := app.Listen(addr); err != nil {
 		logger.Fatal("Server failed to start", zap.Error(err))
 	}
+}
+
+type costReconcileAdapter struct {
+	store *storage.Store
+}
+
+func (a *costReconcileAdapter) ListSpendCostByTenantAndDay(ctx context.Context, day time.Time) ([]metricsobs.ReconcileTenantCostRow, error) {
+	rows, err := a.store.ListSpendCostByTenantAndDay(ctx, day)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]metricsobs.ReconcileTenantCostRow, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, metricsobs.ReconcileTenantCostRow{TenantID: r.TenantID, CostUSD: r.CostUSD})
+	}
+	return out, nil
+}
+
+func (a *costReconcileAdapter) ListMetricsCostByTenantAndDay(ctx context.Context, day time.Time) ([]metricsobs.ReconcileTenantCostRow, error) {
+	rows, err := a.store.ListMetricsCostByTenantAndDay(ctx, day)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]metricsobs.ReconcileTenantCostRow, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, metricsobs.ReconcileTenantCostRow{TenantID: r.TenantID, CostUSD: r.CostUSD})
+	}
+	return out, nil
 }

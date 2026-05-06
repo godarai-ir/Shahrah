@@ -1,7 +1,15 @@
-# Makefile for Shahrah Database Migrations
-# Uses pressly/goose CLI for production-ready migrations
+.PHONY: help setup setup-full setup-local build run test-unit test-integration test-integration-db test fmt vet lint check docker-up docker-up-mailpit docker-up-pgadmin docker-down docker-migrate docker-logs docker-clean \
+	migrate-install migrate-up migrate-down migrate-reset migrate-status migrate-create docker-migrate-up
 
-# Configuration
+CONTROL_PLANE_DIR := services/control-plane
+COMPOSE_FILE := infra/compose/local.yml
+POSTGRES_VERSION ?= 18
+export POSTGRES_VERSION
+DOCKER_COMPOSE := docker compose -f $(COMPOSE_FILE)
+GO := go
+GOLANGCI_LINT := golangci-lint
+
+# Migration configuration (goose)
 DB_HOST ?= localhost
 DB_PORT ?= 5432
 DB_NAME ?= sharah_db
@@ -11,39 +19,96 @@ DB_SSLMODE ?= disable
 MIGRATIONS_DIR := db/main/migrations
 DBSTRING := "postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSLMODE)"
 
+help: ## Show this help message
+	@echo "Usage: make [target]"
+	@echo ""
+	@echo "Targets:"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+setup: setup-local ## Default local setup without remote-sensitive tidy
+
+setup-local: ## Download control-plane dependencies (local-safe, no tidy)
+	$(GO) -C $(CONTROL_PLANE_DIR) mod download
+
+setup-full: ## Download and tidy control-plane dependencies (may require VCS access)
+	$(GO) -C $(CONTROL_PLANE_DIR) mod tidy
+
+build: ## Build the control-plane service
+	$(GO) -C $(CONTROL_PLANE_DIR) build -o ../../bin/control-plane ./cmd/server
+
+run: ## Run the control-plane service locally
+	$(GO) -C $(CONTROL_PLANE_DIR) run ./cmd/server
+
+test-unit: ## Run control-plane unit tests
+	$(GO) -C $(CONTROL_PLANE_DIR) test -v -race ./tests/unit/...
+
+test-integration: ## Run control-plane integration tests
+	$(GO) -C $(CONTROL_PLANE_DIR) test -v -race ./tests/integration/...
+
+test-integration-db: ## Run Postgres-backed control-plane integration tests (requires DATABASE_URL)
+	$(GO) -C $(CONTROL_PLANE_DIR) test -v -race ./tests/integration/... -run "PostgresBacked|StorageSchemaContract|ConcurrentWalletDebitUsesRowLock"
+
+test: test-unit ## Run default tests
+
+fmt: ## Format control-plane Go code
+	$(GO) -C $(CONTROL_PLANE_DIR) fmt ./...
+
+vet: ## Run go vet for control-plane
+	$(GO) -C $(CONTROL_PLANE_DIR) vet ./...
+
+lint: ## Run golangci-lint for control-plane
+	cd $(CONTROL_PLANE_DIR) && $(GOLANGCI_LINT) run ./...
+
+check: fmt vet lint test ## Run the default checks
+
+docker-up: ## Start the local backend stack (including Mailpit and pgAdmin)
+	$(DOCKER_COMPOSE) up -d postgres redis clickhouse mailpit pgadmin silk-road tunnel-server tunnel-client control-plane
+
+
+docker-up-mailpit: ## Start only Mailpit for local email testing
+	$(DOCKER_COMPOSE) up -d mailpit
+
+
+docker-up-pgadmin: ## Start only pgAdmin for Postgres administration
+	$(DOCKER_COMPOSE) up -d pgadmin
+docker-down: ## Stop local dependencies
+	$(DOCKER_COMPOSE) down
+
+docker-migrate: ## Run the main database bootstrap migrations
+	$(DOCKER_COMPOSE) exec postgres sh -lc "psql -U postgres -d llmproxy -f /docker-entrypoint-initdb.d/001_initial.sql && psql -U postgres -d llmproxy -f /docker-entrypoint-initdb.d/002_platform_foundations.sql"
+
+docker-logs: ## Follow local compose logs
+	$(DOCKER_COMPOSE) logs -f
+
+docker-clean: ## Remove local compose resources
+	$(DOCKER_COMPOSE) down -v --remove-orphans
+
 # Install goose CLI
-.PHONY: migrate-install
-migrate-install:
+migrate-install: ## Install goose CLI if missing
 	@goose -version > /dev/null 2>&1 || go install github.com/pressly/goose/v3/cmd/goose@latest
 
 # Apply all pending migrations
-.PHONY: migrate-up
-migrate-up: migrate-install
+migrate-up: migrate-install ## Apply all pending goose migrations
 	@cd $(MIGRATIONS_DIR) && goose postgres $(DBSTRING) up
 
 # Rollback last migration
-.PHONY: migrate-down
-migrate-down: migrate-install
+migrate-down: migrate-install ## Roll back last goose migration
 	@cd $(MIGRATIONS_DIR) && goose postgres $(DBSTRING) down
 
 # Rollback all migrations
-.PHONY: migrate-reset
-migrate-reset: migrate-install
+migrate-reset: migrate-install ## Roll back all goose migrations
 	@cd $(MIGRATIONS_DIR) && goose postgres $(DBSTRING) reset
 
 # Show current migration version and status
-.PHONY: migrate-status
-migrate-status: migrate-install
+migrate-status: migrate-install ## Show goose migration status
 	@cd $(MIGRATIONS_DIR) && goose postgres $(DBSTRING) status
 
 # Create a new migration file
 # Usage: make migrate-create name=my_new_feature
-.PHONY: migrate-create
-migrate-create: migrate-install
+migrate-create: migrate-install ## Create a new goose SQL migration (name=...)
 	@if [ -z "$(name)" ]; then echo "Usage: make migrate-create name=my_new_feature"; exit 1; fi
 	@cd $(MIGRATIONS_DIR) && goose postgres $(DBSTRING) create $(name) sql
 
 # Docker-based migration (run migrations in docker-compose environment)
-.PHONY: docker-migrate-up
-docker-migrate-up:
+docker-migrate-up: ## Run migrations in docker compose migrate service
 	docker compose -f infra/compose/local.yml run --rm migrate up

@@ -1,6 +1,7 @@
 -- 008_iam_phase2_foundations
 
 -- +goose Up
+-- +goose StatementBegin
 
 -- Migration: 008_iam_phase2_foundations
 -- Description: Canonical IAM phase-2 foundations for tenant-scoped org units, team memberships, virtual users, and typed keys.
@@ -193,7 +194,8 @@ BEGIN
             ADD CONSTRAINT chk_verification_tokens_key_type
             CHECK (key_type IN ('pat', 'vat'));
     END IF;
-END $$;
+END;
+$$;
 
 CREATE INDEX IF NOT EXISTS idx_vt_virtual_user
     ON verification_tokens(virtual_user_id);
@@ -214,6 +216,8 @@ WHERE org_unit_id IS NULL
 
 CREATE INDEX IF NOT EXISTS idx_spend_org_unit
     ON spend_logs(org_unit_id);
+
+-- +goose StatementEnd
 
 -- +goose Down
 

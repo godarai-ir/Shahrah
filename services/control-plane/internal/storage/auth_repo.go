@@ -257,7 +257,13 @@ func (s *Store) CreateKey(ctx context.Context, params platform.CreateKeyParams) 
 		)
 		VALUES (
 			$1, $2, $3, $4, $5, $6, $7,
-			$8, $9, NULLIF($10, '')::uuid, NULLIF($11, '')::uuid, NULLIF($12, '')::uuid, NULLIF($13, '')::uuid, NULLIF($14, '')::uuid,
+			$8, $9, NULLIF($10, '')::uuid, NULLIF($11, '')::uuid,
+			CASE
+				WHEN NULLIF($12, '') IS NULL THEN NULL
+				WHEN $12 ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' THEN $12::uuid
+				ELSE NULL
+			END,
+			NULLIF($13, '')::uuid, NULLIF($14, '')::uuid,
 			$15, 0, false, $16, NULLIF($17, ''), $18, $18
 		)
 	`, keyID, params.TenantID, tokenHash, params.KeyAlias, masked, params.Models, params.MaxBudget,

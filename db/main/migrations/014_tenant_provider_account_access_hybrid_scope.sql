@@ -1,6 +1,7 @@
 -- 014_tenant_provider_account_access_hybrid_scope
 
 -- +goose Up
+-- +goose StatementBegin
 
 -- Migration: 014_tenant_provider_account_access_hybrid_scope
 -- Description: Prepare provider account access rules for optional per-model scope.
@@ -43,6 +44,8 @@ $$;
 
 CREATE INDEX IF NOT EXISTS idx_tenant_provider_account_access_scope
   ON tenant_provider_account_access(account_id, access_scope);
+
+-- +goose StatementEnd
 
 -- +goose Down
 

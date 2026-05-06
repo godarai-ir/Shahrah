@@ -1,6 +1,7 @@
 -- 010_personal_access_tokens
 
 -- +goose Up
+-- +goose StatementBegin
 
 -- Migration: 010_personal_access_tokens
 -- Description: Extend verification_tokens for PAT lifecycle and ownership.
@@ -48,6 +49,8 @@ ON verification_tokens (tenant_id, key_type, created_by_user_id, revoked_at);
 
 CREATE INDEX IF NOT EXISTS idx_verification_tokens_tenant_keytype
 ON verification_tokens (tenant_id, key_type);
+
+-- +goose StatementEnd
 
 -- +goose Down
 

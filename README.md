@@ -140,6 +140,22 @@ npx prisma@7.8.0 format --schema=packages/database/schema.prisma
 npx prisma@7.8.0 generate --schema=packages/database/schema.prisma
 ```
 
+## ClickHouse Migrations (Trace/Metrics)
+
+Use the Windows helper script to apply ClickHouse migrations reliably without container path issues:
+
+```cmd
+scripts\clickhouse-migrate.cmd
+```
+
+Check status/tables:
+
+```cmd
+scripts\clickhouse-migrate.cmd status
+```
+
+Source files are under [`infra/clickhouse/migrations`](infra/clickhouse/migrations).
+
 ## Next Migration Steps
 
 1. Replace remaining framework starter assets and sample content with Shahrah-specific UI and docs.
