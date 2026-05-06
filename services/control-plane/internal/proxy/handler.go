@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
@@ -14,6 +15,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
+	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
@@ -52,10 +54,11 @@ type ChatCompletionHandler struct {
 	vmResolver virtualmodels.VirtualModelResolver
 	vmEngine   virtualmodels.RoutingEngine
 	vmExec     virtualmodels.FallbackExecutor
+	emitMetric func(input metricsobs.BuildInput)
 }
 
 // NewChatCompletionHandler creates a new handler.
-func NewChatCompletionHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, wallets walletStore, logs usageLogger, logger *zap.Logger) *ChatCompletionHandler {
+func NewChatCompletionHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, wallets walletStore, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *ChatCompletionHandler {
 	var resolver virtualmodels.VirtualModelResolver
 	var engine virtualmodels.RoutingEngine
 	var exec virtualmodels.FallbackExecutor
@@ -65,6 +68,10 @@ func NewChatCompletionHandler(llmRouter *router.Router, tunnel platform.TunnelTr
 		resolver = virtualmodels.NewResolver(repo)
 		engine = virtualmodels.NewPriorityRoutingEngine()
 		exec = virtualmodels.NewExecutor(virtualmodels.NewDefaultErrorNormalizer())
+	}
+	var metricEmitter func(input metricsobs.BuildInput)
+	if len(emitMetric) > 0 {
+		metricEmitter = emitMetric[0]
 	}
 	return &ChatCompletionHandler{
 		llmRouter:  llmRouter,
@@ -76,6 +83,7 @@ func NewChatCompletionHandler(llmRouter *router.Router, tunnel platform.TunnelTr
 		vmResolver: resolver,
 		vmEngine:   engine,
 		vmExec:     exec,
+		emitMetric: metricEmitter,
 	}
 }
 
@@ -119,9 +127,9 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	if req.MaxTokens != nil && *req.MaxTokens < 1 {
 		return writeAPIError(c, fiber.StatusBadRequest, "max_tokens must be at least 1", "invalid_request_error")
 	}
-	if !isModelAllowed(authInfo, req.Model) {
+	if !isModelAllowedForType(authInfo, req.Model, platform.ModelTypeChat) {
 		emitDenyCounter(h.logger, denyReasonForModel(authInfo), req.Model, currentTenant.ID)
-		return writeAPIError(c, fiber.StatusForbidden, "Model access denied", "authorization_error")
+		return writeAPIError(c, fiber.StatusForbidden, "Model access denied or unsupported for chat completions", "authorization_error")
 	}
 	authStart := time.Now()
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "auth.validate", "internal", authStart, fiber.StatusOK, map[string]interface{}{"model": req.Model})
@@ -281,9 +289,35 @@ func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.Cha
 		CostIRR:         finalCost.TotalCostIRR,
 		ResponseTimeMS:  responseTimeMS,
 		Status:          "success",
-		RequestMetadata: tunnelReq.RequestMetadata,
+		RequestMetadata: enrichPricingMetadata(tunnelReq.RequestMetadata, authInfo, req.Model),
 		CompletionStart: start,
 		CompletionEnd:   time.Now(),
+	})
+	h.emitModelMetric(metricsobs.BuildInput{
+		TS:                 time.Now().UTC(),
+		TenantID:           authInfo.TenantID,
+		RequestID:          tunnelReq.RequestID,
+		ModelName:          req.Model,
+		VirtualModelName:   modelMetricVirtualName(c, req.Model),
+		ProviderName:       tunnelReq.Deployment.Provider,
+		ProviderModelName:  tunnelReq.Deployment.Model,
+		RequestType:        "chat_completions",
+		UserID:             authInfo.UserID,
+		VirtualAccountID:   authInfo.KeyID,
+		VirtualAccountName: authInfo.KeyAlias,
+		TeamIDs:            nonEmptySlice([]string{authInfo.TeamID}),
+		TeamNames:          []string{},
+		StatusCode:         resp.StatusCode,
+		LatencyMS:          responseTimeMS,
+		InputTokens:        finalCost.InputTokens,
+		OutputTokens:       finalCost.OutputTokens,
+		CostUSD:            finalCost.TotalCostUSD,
+		Metadata: map[string]interface{}{
+			"endpoint":    "/v1/chat/completions",
+			"key_type":    authInfo.KeyType,
+			"team_id":     authInfo.TeamID,
+			"org_unit_id": authInfo.OrgUnitID,
+		},
 	})
 
 	// Forward allowed provider response headers
@@ -335,9 +369,34 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 						CostIRR:         finalCost.TotalCostIRR,
 						ResponseTimeMS:  int(time.Since(start).Milliseconds()),
 						Status:          "success",
-						RequestMetadata: tunnelReq.RequestMetadata,
+						RequestMetadata: enrichPricingMetadata(tunnelReq.RequestMetadata, authInfo, req.Model),
 						CompletionStart: start,
 						CompletionEnd:   time.Now(),
+					})
+					h.emitModelMetric(metricsobs.BuildInput{
+						TS:                 time.Now().UTC(),
+						TenantID:           authInfo.TenantID,
+						RequestID:          tunnelReq.RequestID,
+						ModelName:          req.Model,
+						VirtualModelName:   modelMetricVirtualName(c, req.Model),
+						ProviderName:       tunnelReq.Deployment.Provider,
+						ProviderModelName:  tunnelReq.Deployment.Model,
+						RequestType:        "chat_completions",
+						UserID:             authInfo.UserID,
+						VirtualAccountID:   authInfo.KeyID,
+						VirtualAccountName: authInfo.KeyAlias,
+						TeamIDs:            nonEmptySlice([]string{authInfo.TeamID}),
+						StatusCode:         fiber.StatusOK,
+						LatencyMS:          int(time.Since(start).Milliseconds()),
+						InputTokens:        finalCost.InputTokens,
+						OutputTokens:       finalCost.OutputTokens,
+						CostUSD:            finalCost.TotalCostUSD,
+						Metadata: map[string]interface{}{
+							"endpoint":    "/v1/chat/completions",
+							"key_type":    authInfo.KeyType,
+							"team_id":     authInfo.TeamID,
+							"org_unit_id": authInfo.OrgUnitID,
+						},
 					})
 					return
 				}
@@ -367,6 +426,37 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 	})
 
 	return nil
+}
+
+func (h *ChatCompletionHandler) emitModelMetric(input metricsobs.BuildInput) {
+	if h.emitMetric == nil {
+		return
+	}
+	h.emitMetric(input)
+}
+
+func modelMetricVirtualName(c *fiber.Ctx, fallback string) string {
+	if c == nil {
+		return ""
+	}
+	if v, ok := c.Locals("vm_failure_reason").(string); ok && v != "" {
+		_ = v
+	}
+	if v, ok := c.Locals("vm_resp").(*platform.TunnelResponse); ok && v != nil {
+		return fallback
+	}
+	return ""
+}
+
+func nonEmptySlice(in []string) []string {
+	out := make([]string, 0, len(in))
+	for _, v := range in {
+		v = strings.TrimSpace(v)
+		if v != "" {
+			out = append(out, v)
+		}
+	}
+	return out
 }
 
 func toContractDeployment(dep *router.Deployment) platform.Deployment {

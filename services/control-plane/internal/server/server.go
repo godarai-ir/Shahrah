@@ -114,6 +114,8 @@ func registerRoutes(app *fiber.App, deps Dependencies) {
 	api.Get("/virtual-models/:id", deps.AdminHandlers.GetVirtualModel)
 	api.Patch("/virtual-models/:id", deps.AdminHandlers.UpdateVirtualModel)
 	api.Get("/provider-catalog/providers", deps.AdminHandlers.ListProviderCatalog)
+	api.Post("/provider-catalog/refresh", deps.AdminHandlers.RefreshProviderCatalogCache)
+	api.Get("/provider-catalog/stats", deps.AdminHandlers.GetProviderCatalogStats)
 	api.Get("/provider-catalog/providers/:provider/models", deps.AdminHandlers.ListProviderModelsCatalog)
 	api.Get("/access-principals", deps.AdminHandlers.ListAccessPrincipals)
 	api.Get("/users", deps.AdminHandlers.ListTenantUsers)
@@ -125,6 +127,7 @@ func registerRoutes(app *fiber.App, deps Dependencies) {
 	api.Post("/tenant-provider-accounts", deps.AdminHandlers.CreateTenantProviderAccount)
 	api.Get("/tenant-provider-accounts", deps.AdminHandlers.ListTenantProviderAccounts)
 	api.Get("/tenant-provider-accounts/:accountID", deps.AdminHandlers.GetTenantProviderAccount)
+	api.Get("/tenant-provider-accounts/:accountID/effective-models", deps.AdminHandlers.GetTenantProviderAccountEffectiveModels)
 	api.Put("/tenant-provider-accounts/:accountID/models", deps.AdminHandlers.UpsertTenantProviderAccountModels)
 	api.Put("/tenant-provider-accounts/:accountID/access", deps.AdminHandlers.UpdateTenantProviderAccountAccess)
 	api.Post("/tenant-provider-accounts/:accountID/test-credentials", deps.AdminHandlers.TestTenantProviderAccountCredentials)
@@ -139,6 +142,7 @@ func registerRoutes(app *fiber.App, deps Dependencies) {
 	api.Get("/traces", deps.AdminHandlers.ListRequestTraces)
 	api.Get("/traces/:traceID", deps.AdminHandlers.GetRequestTrace)
 	api.Get("/traces/:traceID/spans", deps.AdminHandlers.ListRequestTraceSpans)
+	api.Post("/metrics/query", deps.AdminHandlers.QueryModelMetrics)
 }
 
 func healthHandler(c *fiber.Ctx) error {

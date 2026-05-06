@@ -36,6 +36,11 @@ func (s *Store) initClickHouse(ctx context.Context) error {
 		s.clickhouse = nil
 		return err
 	}
+	if err := s.ensureClickHouseMetricsSchema(ctx); err != nil {
+		_ = db.Close()
+		s.clickhouse = nil
+		return err
+	}
 	s.clickhouseReady = true
 	s.logger.Info("clickhouse trace backend enabled")
 	return nil

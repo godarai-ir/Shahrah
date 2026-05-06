@@ -15,6 +15,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
+	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
@@ -72,9 +73,26 @@ func main() {
 	billingService := billing.NewService(dualCache, store, cfg.BillingSettings.DefaultUSDtoIRR, cfg.BillingSettings.RateSource)
 	tunnelClient := tunneltransport.NewHTTPTransport(cfg.TunnelSettings.ClientURL, time.Duration(cfg.TunnelSettings.Timeout)*time.Second)
 
+	metricsCfg := metricsobs.LoadConfigFromEnv()
+	var emitMetric func(input metricsobs.BuildInput)
+	if metricsCfg.Enabled {
+		metricsQueue := metricsobs.NewQueue(metricsCfg.QueueCapacity)
+		metricsProcessor := metricsobs.NewProcessor(metricsCfg, metricsQueue, store, logger)
+		metricsProcessor.Start()
+		defer func() {
+			stopCtx, cancelStop := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancelStop()
+			_ = metricsProcessor.Stop(stopCtx)
+		}()
+		emitMetric = func(input metricsobs.BuildInput) {
+			event := metricsProcessor.BuildEvent(input)
+			_ = metricsQueue.Enqueue(event)
+		}
+	}
+
 	adminHandlers := admin.New(store, store, store)
-	proxyHandler := proxy.NewChatCompletionHandler(llmRouter, tunnelClient, billingService, store, store, logger)
-	completionsHandler := proxy.NewCompletionsHandler(llmRouter, tunnelClient, billingService, store, store, logger)
+	proxyHandler := proxy.NewChatCompletionHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
+	completionsHandler := proxy.NewCompletionsHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
 	modelsHandler := proxy.NewModelsHandler(store)
 
 	traceCfg := tracing.LoadConfigFromEnv()

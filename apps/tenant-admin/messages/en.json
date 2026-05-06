@@ -23,6 +23,7 @@
       "virtualModels": "Virtual Models",
       "accessManagement": "Access Management",
       "traces": "Request Traces",
+      "metrics": "Model Metrics",
       "orgUnits": "Organization Units",
       "teams": "Teams"
     },
@@ -303,6 +304,170 @@
       "back": "Back",
       "next": "Next",
       "finalHint": "After assigning managers and users, save the access policy."
+    },
+    "ux": {
+      "panel": {
+        "setupTitle": "Setup Provider Account",
+        "workspaceTitle": "Account Workspace",
+        "overviewTitle": "Provider Overview",
+        "setupHint": "Guided flow: provider -> account -> models -> access -> review",
+        "workspaceHint": "Single source of truth for model, access, credential, and policy impact",
+        "overviewHint": "Select an account or create a new one."
+      },
+      "sidebar": {
+        "connectedProviders": "Connected Providers",
+        "connectedProvidersHint": "Choose a provider, then open account workspace.",
+        "providerAccounts": "Provider Accounts",
+        "selectProviderPrompt": "Select provider",
+        "noAccountYet": "No account yet for this provider."
+      },
+      "setupSteps": {
+        "provider": "Provider",
+        "accountCredentials": "Account & Credentials",
+        "models": "Models",
+        "access": "Access",
+        "review": "Review"
+      },
+      "tabs": {
+        "models": "Models",
+        "access": "Access",
+        "credentials": "Credentials",
+        "observability": "Observability"
+      },
+      "actions": {
+        "addProviderAccount": "Add Provider Account",
+        "refreshCatalog": "Refresh Catalog",
+        "refreshingCatalog": "Refreshing Catalog...",
+        "copyFqn": "Copy FQN",
+        "continue": "Continue",
+        "back": "Back",
+        "activateAccount": "Activate Account",
+        "activating": "Activating...",
+        "setupNewAccount": "Setup New Account",
+        "openExisting": "Open Existing Account",
+        "loadEffectiveModels": "Load effective models",
+        "loading": "Loading..."
+      },
+      "setup": {
+        "stepLabel": "Step {number}",
+        "selectProviderTitle": "Select Provider",
+        "selectProviderDesc": "Choose provider and continue to account details.",
+        "authModes": "auth modes",
+        "accountBasicsTitle": "Account Basics & Credentials"
+      },
+      "review": {
+        "title": "Review & Activate",
+        "activationCheckTitle": "Activation check"
+      },
+      "kpi": {
+        "credentialStatus": "Credential status",
+        "enabledModels": "Enabled models",
+        "unresolvedPricing": "Unresolved pricing",
+        "managersUsers": "Managers / Users",
+        "provider": "Provider"
+      },
+      "readiness": {
+        "ready": "Ready",
+        "needsCredentials": "Needs Credentials",
+        "needsAccess": "Needs Access",
+        "pricingIncomplete": "Pricing Incomplete"
+      },
+      "overview": {
+        "title": "Provider Account & Model Access Management",
+        "description": "Build a runtime-ready account: configure credentials, enable models, assign access, and verify effective policy."
+      },
+      "microcopy": {
+        "virtualOnly": "Virtual-key-only mode: applications can use platform keys without storing provider credential.",
+        "pricingPolicy": "Public pricing uses catalog rates and may change over time. Private pricing overrides catalog rates for this account."
+      },
+      "credentials": {
+        "desc": "Rotate credentials and run connection test.",
+        "hasCredential": "Has credential",
+        "virtualOnly": "Virtual-key-only",
+        "lastTest": "Last test",
+        "notTested": "Not tested in this session"
+      },
+      "observability": {
+        "desc": "Inspect effective model resolution and runtime deny reasons before real traffic.",
+        "deniedReasons": "Denied reasons taxonomy: `not in allowlist`, `capability mismatch`, `unknown model`.",
+        "cacheTTL": "Cache TTL (sec)",
+        "providersCache": "Providers cache (hit/miss)",
+        "modelsCache": "Models cache (hit/miss)",
+        "discoveryErrors": "Discovery errors",
+        "discoveryFallback": "Discovery fallback"
+      },
+      "messages": {
+        "fqnCopied": "Account FQN copied.",
+        "accountActivated": "Account activated and ready for runtime policy enforcement.",
+        "catalogRefreshSuccess": "Provider catalog cache refreshed.",
+        "catalogRefreshFailed": "Provider catalog refresh failed.",
+        "modelTypeRequired": "at least one model type is required",
+        "privatePricingRequired": "private pricing requires input and/or output price"
+      },
+      "common": {
+        "yes": "Yes",
+        "no": "No",
+        "enabled": "Enabled",
+        "disabled": "Disabled"
+      },
+      "models": {
+        "description": "Select models, capabilities, and pricing mode.",
+        "columns": {
+          "model": "Model",
+          "capabilities": "Capabilities",
+          "pricingMode": "Pricing mode",
+          "costConfig": "Cost config"
+        },
+        "pricing": {
+          "public": "Public",
+          "private": "Private"
+        },
+        "placeholders": {
+          "input": "input",
+          "output": "output"
+        },
+        "catalogPricing": "Catalog pricing",
+        "labels": {
+          "input": "Input",
+          "output": "Output"
+        },
+        "na": "N/A"
+      },
+      "access": {
+        "description": "Managers can edit account settings, and users can consume enabled models.",
+        "effectivePreviewTitle": "Effective Access Preview",
+        "keyTypeLabel": "key_type",
+        "userIdLabel": "user_id",
+        "teamIdLabel": "team_id",
+        "optional": "optional",
+        "previewAction": "Preview",
+        "pat": "pat",
+        "vat": "vat"
+      },
+      "effectiveModels": {
+        "columns": {
+          "model": "Model",
+          "capabilities": "Capabilities",
+          "pricing": "Pricing",
+          "status": "Status"
+        },
+        "empty": "No effective models returned for the selected principal scope.",
+        "resolved": "resolved",
+        "unresolved": "unresolved"
+      },
+      "placeholders": {
+        "accountName": "Example: openai-production",
+        "apiKey": "Example: sk-...",
+        "secretRefProvider": "Example: vault://provider-key",
+        "tenantId": "Tenant ID",
+        "clientId": "Client ID",
+        "secretRefAzure": "Example: vault://azure-cert",
+        "awsAccessKey": "Example: AKIA...",
+        "secret": "Secret",
+        "awsRegion": "Example: us-east-1",
+        "secretRefGoogle": "Example: vault://gcp-service-account",
+        "googleServiceJson": "{\"type\":\"service_account\", ...}"
+      }
     }
   },
   "virtualModels": {
@@ -900,6 +1065,29 @@
       "showing": "Showing {from} to {to} of {total}",
       "prev": "Prev",
       "next": "Next"
+    }
+  },
+  "metrics": {
+    "title": "Model Metrics",
+    "alerts": {
+      "errorTitle": "Error"
+    },
+    "filters": {
+      "from": "From (RFC3339)",
+      "to": "To (RFC3339)",
+      "model": "Model",
+      "viewBy": "View by",
+      "status": "Status"
+    },
+    "cards": {
+      "totalRequests": "Total Requests",
+      "inputTokens": "Input Tokens",
+      "outputTokens": "Output Tokens",
+      "totalCost": "Total Cost (USD)"
+    },
+    "table": {
+      "title": "Aggregated Metrics",
+      "empty": "No metrics found for current filters."
     }
   },
   "invite": {

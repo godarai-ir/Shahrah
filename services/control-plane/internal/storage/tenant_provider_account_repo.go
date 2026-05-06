@@ -219,6 +219,9 @@ func (s *Store) UpdateTenantProviderAccountAccess(ctx context.Context, tenantID 
 	if err := insertAccessRows(ctx, tx, tenantID, accountID, platform.AccessRoleUser, access.Users, seen); err != nil {
 		return nil, err
 	}
+	if err := insertAccessRules(ctx, tx, tenantID, accountID, access.Rules, seen); err != nil {
+		return nil, err
+	}
 
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
@@ -237,6 +240,46 @@ func (s *Store) UpdateTenantProviderAccountAccess(ctx context.Context, tenantID 
 		)
 	}
 	return &result, nil
+}
+
+func insertAccessRules(ctx context.Context, tx pgx.Tx, tenantID string, accountID string, rules []platform.TenantProviderAccountAccessRule, seen map[string]struct{}) error {
+	for _, rule := range rules {
+		role := rule.Role
+		if role != platform.AccessRoleManager && role != platform.AccessRoleUser {
+			continue
+		}
+		scope := rule.AccessScope
+		if scope == "" {
+			scope = platform.AccessScopeAccount
+		}
+		model := strings.TrimSpace(rule.Model)
+		if scope == platform.AccessScopeModel && model == "" {
+			continue
+		}
+		if scope == platform.AccessScopeAccount {
+			model = ""
+		}
+
+		normalized, err := normalizeAccessPrincipal(ctx, tx, tenantID, role, rule.Principal)
+		if err != nil {
+			return err
+		}
+		key := strings.Join([]string{string(role), string(scope), model, string(normalized.Type), normalized.PrincipalID}, "|")
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO tenant_provider_account_access (
+				account_id, role, access_scope, model, principal_type, principal_id, display_name
+			)
+			VALUES ($1, $2, $3, NULLIF($4, ''), $5, NULLIF($6, ''), NULLIF($7, ''))
+		`, accountID, string(role), string(scope), model, string(normalized.Type), normalized.PrincipalID, normalized.DisplayName); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // TestTenantProviderAccountCredentials validates whether the account can proceed.
@@ -343,7 +386,7 @@ func (s *Store) listTenantProviderAccountModels(ctx context.Context, accountID s
 
 func (s *Store) listTenantProviderAccountAccess(ctx context.Context, accountID string) (platform.TenantProviderAccountAccessControl, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT role, principal_type, COALESCE(principal_id, ''), COALESCE(display_name, '')
+		SELECT role, access_scope, COALESCE(model, ''), principal_type, COALESCE(principal_id, ''), COALESCE(display_name, '')
 		FROM tenant_provider_account_access
 		WHERE account_id = $1
 		ORDER BY created_at ASC
@@ -356,16 +399,29 @@ func (s *Store) listTenantProviderAccountAccess(ctx context.Context, accountID s
 	access := platform.TenantProviderAccountAccessControl{
 		Managers: make([]platform.AccessPrincipal, 0),
 		Users:    make([]platform.AccessPrincipal, 0),
+		Rules:    make([]platform.TenantProviderAccountAccessRule, 0),
 	}
 	for rows.Next() {
 		var role platform.AccessRole
+		var scope platform.AccessScope
+		var model string
 		var principal platform.AccessPrincipal
-		if err := rows.Scan(&role, &principal.Type, &principal.PrincipalID, &principal.DisplayName); err != nil {
+		if err := rows.Scan(&role, &scope, &model, &principal.Type, &principal.PrincipalID, &principal.DisplayName); err != nil {
 			return platform.TenantProviderAccountAccessControl{}, err
 		}
 		if principal.Type == platform.PrincipalTypeEveryone {
 			principal.PrincipalID = ""
 		}
+		rule := platform.TenantProviderAccountAccessRule{
+			Role:        role,
+			Principal:   principal,
+			AccessScope: scope,
+			Model:       strings.TrimSpace(model),
+		}
+		if rule.AccessScope == "" {
+			rule.AccessScope = platform.AccessScopeAccount
+		}
+		access.Rules = append(access.Rules, rule)
 		switch role {
 		case platform.AccessRoleManager:
 			access.Managers = append(access.Managers, principal)
@@ -403,14 +459,69 @@ func insertAccessRows(ctx context.Context, tx pgx.Tx, tenantID string, accountID
 
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO tenant_provider_account_access (
-				account_id, role, principal_type, principal_id, display_name
+				account_id, role, access_scope, model, principal_type, principal_id, display_name
 			)
-			VALUES ($1, $2, $3, NULLIF($4, ''), NULLIF($5, ''))
+			VALUES ($1, $2, 'account', NULL, $3, NULLIF($4, ''), NULLIF($5, ''))
 		`, accountID, string(role), string(normalized.Type), normalized.PrincipalID, normalized.DisplayName); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// ListTenantProviderAccountEffectiveModels resolves model access visibility for debugging/admin observability.
+func (s *Store) ListTenantProviderAccountEffectiveModels(ctx context.Context, tenantID string, accountID string, keyType string, userID string, teamID string) ([]platform.EffectiveModelView, error) {
+	_ = keyType // reserved for PAT/VAT-specific semantics in later phases
+	// Ensure account exists and belongs to tenant.
+	if _, err := s.getTenantProviderAccount(ctx, tenantID, accountID); err != nil {
+		return nil, err
+	}
+
+	rows, err := s.pool.Query(ctx, `
+		SELECT m.model,
+		       m.enabled,
+		       COALESCE(m.types, '{}'),
+		       COALESCE(m.pricing_mode, 'public'),
+		       CASE
+		         WHEN COALESCE(m.pricing_mode, 'public') = 'private' THEN m.private_pricing IS NOT NULL
+		         ELSE true
+		       END AS pricing_resolved,
+		       EXISTS (
+		         SELECT 1
+		         FROM tenant_provider_account_access ac
+		         WHERE ac.account_id = m.account_id
+		           AND ac.access_scope = 'account'
+		           AND (
+		             ac.principal_type = 'everyone'
+		             OR (ac.principal_type = 'team' AND ac.principal_id = NULLIF($4, ''))
+		             OR (ac.principal_type = 'user' AND ac.principal_id = NULLIF($3, ''))
+		           )
+		       ) AS allowed_by_access
+		FROM tenant_provider_account_models m
+		WHERE m.account_id = $2
+		ORDER BY m.model ASC
+	`, tenantID, accountID, strings.TrimSpace(userID), strings.TrimSpace(teamID))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]platform.EffectiveModelView, 0)
+	for rows.Next() {
+		var item platform.EffectiveModelView
+		var types []string
+		var pricingMode string
+		if err := rows.Scan(&item.Model, &item.Enabled, &types, &pricingMode, &item.PricingResolved, &item.Allowed); err != nil {
+			return nil, err
+		}
+		item.PricingMode = platform.PricingMode(pricingMode)
+		item.EffectiveCapabilities = stringsToModelTypes(types)
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 func normalizeAccessPrincipal(ctx context.Context, tx pgx.Tx, tenantID string, role platform.AccessRole, principal platform.AccessPrincipal) (platform.AccessPrincipal, error) {
@@ -470,7 +581,7 @@ func principalExistsForTenant(ctx context.Context, tx pgx.Tx, tenantID string, p
 				SELECT 1
 				FROM users u
 				WHERE u.tenant_id = $1::uuid
-				  AND u.user_id = $2::uuid
+				  AND u.user_id::text = $2
 			) OR EXISTS (
 				SELECT 1
 				FROM "tenant_admin_users" tau

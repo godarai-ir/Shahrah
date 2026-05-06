@@ -54,6 +54,14 @@ const (
 	AccessRoleUser    AccessRole = "user"
 )
 
+// AccessScope determines whether a rule applies to account-wide models or a specific model.
+type AccessScope string
+
+const (
+	AccessScopeAccount AccessScope = "account"
+	AccessScopeModel   AccessScope = "model"
+)
+
 // ModelPrice is normalized as USD per 1M tokens.
 type ModelPrice struct {
 	InputUSDPer1M  *float64 `json:"input_usd_per_1m,omitempty"`
@@ -141,14 +149,17 @@ type AccessPrincipalCandidate struct {
 
 // TenantProviderAccountAccessRule binds a principal to manager/user role.
 type TenantProviderAccountAccessRule struct {
-	Role      AccessRole      `json:"role"`
-	Principal AccessPrincipal `json:"principal"`
+	Role        AccessRole      `json:"role"`
+	Principal   AccessPrincipal `json:"principal"`
+	AccessScope AccessScope     `json:"access_scope,omitempty"`
+	Model       string          `json:"model,omitempty"`
 }
 
 // TenantProviderAccountAccessControl groups manager/user access entries.
 type TenantProviderAccountAccessControl struct {
-	Managers []AccessPrincipal `json:"managers"`
-	Users    []AccessPrincipal `json:"users"`
+	Managers []AccessPrincipal                 `json:"managers"`
+	Users    []AccessPrincipal                 `json:"users"`
+	Rules    []TenantProviderAccountAccessRule `json:"rules,omitempty"`
 }
 
 // CreateTenantProviderAccountRequest creates step-1 provider account.
@@ -164,6 +175,31 @@ type CreateTenantProviderAccountRequest struct {
 // UpsertTenantProviderAccountModelsRequest saves selected models from step-2.
 type UpsertTenantProviderAccountModelsRequest struct {
 	Models []TenantProviderAccountModel `json:"models"`
+}
+
+type TenantProviderAccountModelEffective struct {
+	Model                 string      `json:"model"`
+	Enabled               bool        `json:"enabled"`
+	EffectiveCapabilities []ModelType `json:"effective_capabilities"`
+	PricingMode           PricingMode `json:"pricing_mode"`
+	PricingResolved       bool        `json:"pricing_resolved"`
+}
+
+type TenantProviderAccountModelsUpsertResponse struct {
+	Data []TenantProviderAccountModelEffective `json:"data"`
+}
+
+type EffectiveModelView struct {
+	Model                 string      `json:"model"`
+	Enabled               bool        `json:"enabled"`
+	EffectiveCapabilities []ModelType `json:"effective_capabilities"`
+	PricingMode           PricingMode `json:"pricing_mode"`
+	PricingResolved       bool        `json:"pricing_resolved"`
+	Allowed               bool        `json:"allowed"`
+}
+
+type EffectiveModelsResponse struct {
+	Data []EffectiveModelView `json:"data"`
 }
 
 // UpdateTenantProviderAccountAccessRequest saves step-3 access control.

@@ -78,8 +78,18 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 		return nil, err
 	}
 	auth.EnforceModelAllowlist = enforceProviderPolicy
+	auth.AllowedModelTypes = make(map[string][]string)
+	auth.AllowedModelPricingMode = make(map[string]string)
+	auth.AllowedModelPricingResolved = make(map[string]bool)
 	if enforceProviderPolicy {
-		auth.AllowedModels = intersectAllowedModels(keyModels, runtimeModels)
+		intersected := intersectAllowedModelPolicies(keyModels, runtimeModels)
+		auth.AllowedModels = make([]string, 0, len(intersected))
+		for _, item := range intersected {
+			auth.AllowedModels = append(auth.AllowedModels, item.Model)
+			auth.AllowedModelTypes[item.Model] = append([]string(nil), item.Types...)
+			auth.AllowedModelPricingMode[item.Model] = item.PricingMode
+			auth.AllowedModelPricingResolved[item.Model] = item.PricingResolved
+		}
 	} else {
 		auth.AllowedModels = keyModels
 	}
@@ -87,7 +97,14 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 	return &auth, nil
 }
 
-func (s *Store) listRuntimeAllowedModelsByProviderAccount(ctx context.Context, tenantID string, teamID string, userID string) ([]string, bool, error) {
+type runtimeAllowedModelPolicy struct {
+	Model           string
+	Types           []string
+	PricingMode     string
+	PricingResolved bool
+}
+
+func (s *Store) listRuntimeAllowedModelsByProviderAccount(ctx context.Context, tenantID string, teamID string, userID string) ([]runtimeAllowedModelPolicy, bool, error) {
 	var hasEnabledModels bool
 	if err := s.pool.QueryRow(ctx, `
 		SELECT EXISTS (
@@ -105,7 +122,13 @@ func (s *Store) listRuntimeAllowedModelsByProviderAccount(ctx context.Context, t
 	}
 
 	rows, err := s.pool.Query(ctx, `
-		SELECT DISTINCT m.model
+		SELECT DISTINCT m.model,
+		       COALESCE(m.types, '{}'),
+		       COALESCE(m.pricing_mode, 'public'),
+		       CASE
+		         WHEN COALESCE(m.pricing_mode, 'public') = 'private' THEN m.private_pricing IS NOT NULL
+		         ELSE true
+		       END AS pricing_resolved
 		FROM tenant_provider_accounts a
 		JOIN tenant_provider_account_models m
 		  ON m.account_id = a.account_id
@@ -125,15 +148,15 @@ func (s *Store) listRuntimeAllowedModelsByProviderAccount(ctx context.Context, t
 	}
 	defer rows.Close()
 
-	models := make([]string, 0)
+	models := make([]runtimeAllowedModelPolicy, 0)
 	for rows.Next() {
-		var model string
-		if err := rows.Scan(&model); err != nil {
+		var item runtimeAllowedModelPolicy
+		if err := rows.Scan(&item.Model, &item.Types, &item.PricingMode, &item.PricingResolved); err != nil {
 			return nil, false, err
 		}
-		model = strings.TrimSpace(model)
-		if model != "" {
-			models = append(models, model)
+		item.Model = strings.TrimSpace(item.Model)
+		if item.Model != "" {
+			models = append(models, item)
 		}
 	}
 	if err := rows.Err(); err != nil {
@@ -143,47 +166,48 @@ func (s *Store) listRuntimeAllowedModelsByProviderAccount(ctx context.Context, t
 	return models, true, nil
 }
 
-func intersectAllowedModels(keyModels []string, runtimeModels []string) []string {
+func intersectAllowedModelPolicies(keyModels []string, runtimeModels []runtimeAllowedModelPolicy) []runtimeAllowedModelPolicy {
 	if len(runtimeModels) == 0 {
-		return []string{}
+		return []runtimeAllowedModelPolicy{}
 	}
 	if len(keyModels) == 0 || containsWildcard(keyModels) {
-		return dedupeModels(runtimeModels)
+		return dedupeRuntimePolicies(runtimeModels)
 	}
 
-	runtimeSet := make(map[string]struct{}, len(runtimeModels))
-	for _, model := range runtimeModels {
-		model = strings.TrimSpace(model)
+	runtimeSet := make(map[string]runtimeAllowedModelPolicy, len(runtimeModels))
+	for _, item := range runtimeModels {
+		model := strings.TrimSpace(item.Model)
 		if model == "" {
 			continue
 		}
-		runtimeSet[model] = struct{}{}
+		runtimeSet[model] = item
 	}
 
-	out := make([]string, 0, len(keyModels))
+	out := make([]runtimeAllowedModelPolicy, 0, len(keyModels))
 	seen := make(map[string]struct{}, len(keyModels))
 	for _, model := range keyModels {
 		model = strings.TrimSpace(model)
 		if model == "" {
 			continue
 		}
-		if _, ok := runtimeSet[model]; !ok {
+		item, ok := runtimeSet[model]
+		if !ok {
 			continue
 		}
 		if _, ok := seen[model]; ok {
 			continue
 		}
 		seen[model] = struct{}{}
-		out = append(out, model)
+		out = append(out, item)
 	}
 	return out
 }
 
-func dedupeModels(models []string) []string {
-	out := make([]string, 0, len(models))
+func dedupeRuntimePolicies(models []runtimeAllowedModelPolicy) []runtimeAllowedModelPolicy {
+	out := make([]runtimeAllowedModelPolicy, 0, len(models))
 	seen := make(map[string]struct{}, len(models))
-	for _, model := range models {
-		model = strings.TrimSpace(model)
+	for _, item := range models {
+		model := strings.TrimSpace(item.Model)
 		if model == "" {
 			continue
 		}
@@ -191,7 +215,7 @@ func dedupeModels(models []string) []string {
 			continue
 		}
 		seen[model] = struct{}{}
-		out = append(out, model)
+		out = append(out, item)
 	}
 	return out
 }

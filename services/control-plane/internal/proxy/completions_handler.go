@@ -12,6 +12,7 @@ import (
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
+	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
@@ -21,23 +22,29 @@ import (
 
 // CompletionsHandler handles legacy text completion requests.
 type CompletionsHandler struct {
-	llmRouter *router.Router
-	tunnel    platform.TunnelTransport
-	billing   budgeter
-	wallets   walletStore
-	logs      usageLogger
-	logger    *zap.Logger
+	llmRouter  *router.Router
+	tunnel     platform.TunnelTransport
+	billing    budgeter
+	wallets    walletStore
+	logs       usageLogger
+	logger     *zap.Logger
+	emitMetric func(input metricsobs.BuildInput)
 }
 
 // NewCompletionsHandler creates a new legacy completions handler.
-func NewCompletionsHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, wallets walletStore, logs usageLogger, logger *zap.Logger) *CompletionsHandler {
+func NewCompletionsHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, wallets walletStore, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *CompletionsHandler {
+	var metricEmitter func(input metricsobs.BuildInput)
+	if len(emitMetric) > 0 {
+		metricEmitter = emitMetric[0]
+	}
 	return &CompletionsHandler{
-		llmRouter: llmRouter,
-		tunnel:    tunnel,
-		billing:   billing,
-		wallets:   wallets,
-		logs:      logs,
-		logger:    logger,
+		llmRouter:  llmRouter,
+		tunnel:     tunnel,
+		billing:    billing,
+		wallets:    wallets,
+		logs:       logs,
+		logger:     logger,
+		emitMetric: metricEmitter,
 	}
 }
 
@@ -73,9 +80,9 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	authInfo.TenantID = currentTenant.ID
 	tracing.SetTenantForTrace(c, currentTenant.ID)
 
-	if !isModelAllowed(authInfo, req.Model) {
+	if !isModelAllowedForType(authInfo, req.Model, platform.ModelTypeCompletion) {
 		emitDenyCounter(h.logger, denyReasonForModel(authInfo), req.Model, currentTenant.ID)
-		return writeAPIError(c, fiber.StatusForbidden, "model access denied", "authorization_error")
+		return writeAPIError(c, fiber.StatusForbidden, "model access denied or unsupported for completions", "authorization_error")
 	}
 
 	// Transform to chat completion format internally
@@ -209,6 +216,48 @@ func (h *CompletionsHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCo
 			CostUSD:        finalCost.TotalCostUSD,
 			ResponseTimeMS: responseTimeMS,
 		})
+		_ = h.logs.LogSpend(context.Background(), platform.SpendLog{
+			RequestID:       tunnelReq.RequestID,
+			TokenHash:       authInfo.TokenHash,
+			TenantID:        authInfo.TenantID,
+			OrganizationID:  authInfo.OrganizationID,
+			TeamID:          authInfo.TeamID,
+			Model:           req.Model,
+			InputTokens:     finalCost.InputTokens,
+			OutputTokens:    finalCost.OutputTokens,
+			TotalTokens:     finalCost.TotalTokens,
+			CostUSD:         finalCost.TotalCostUSD,
+			CostIRR:         finalCost.TotalCostIRR,
+			ResponseTimeMS:  responseTimeMS,
+			Status:          "success",
+			RequestMetadata: enrichPricingMetadata(map[string]interface{}{"model": req.Model}, authInfo, req.Model),
+			CompletionStart: start,
+			CompletionEnd:   time.Now(),
+		})
+		h.emitModelMetric(metricsobs.BuildInput{
+			TS:                 time.Now().UTC(),
+			TenantID:           authInfo.TenantID,
+			RequestID:          tunnelReq.RequestID,
+			ModelName:          req.Model,
+			ProviderName:       tunnelReq.Deployment.Provider,
+			ProviderModelName:  tunnelReq.Deployment.Model,
+			RequestType:        "completions",
+			UserID:             authInfo.UserID,
+			VirtualAccountID:   authInfo.KeyID,
+			VirtualAccountName: authInfo.KeyAlias,
+			TeamIDs:            nonEmptySlice([]string{authInfo.TeamID}),
+			StatusCode:         resp.StatusCode,
+			LatencyMS:          responseTimeMS,
+			InputTokens:        finalCost.InputTokens,
+			OutputTokens:       finalCost.OutputTokens,
+			CostUSD:            finalCost.TotalCostUSD,
+			Metadata: map[string]interface{}{
+				"endpoint":    "/v1/completions",
+				"key_type":    authInfo.KeyType,
+				"team_id":     authInfo.TeamID,
+				"org_unit_id": authInfo.OrgUnitID,
+			},
+		})
 	}()
 
 	return c.Status(resp.StatusCode).JSON(completionResp)
@@ -251,6 +300,33 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 						CostIRR:        finalCost.TotalCostIRR,
 						ResponseTimeMS: int(time.Since(start).Milliseconds()),
 						Status:         "success",
+						RequestMetadata: enrichPricingMetadata(map[string]interface{}{
+							"model": req.Model,
+						}, authInfo, req.Model),
+					})
+					h.emitModelMetric(metricsobs.BuildInput{
+						TS:                 time.Now().UTC(),
+						TenantID:           authInfo.TenantID,
+						RequestID:          tunnelReq.RequestID,
+						ModelName:          req.Model,
+						ProviderName:       tunnelReq.Deployment.Provider,
+						ProviderModelName:  tunnelReq.Deployment.Model,
+						RequestType:        "completions",
+						UserID:             authInfo.UserID,
+						VirtualAccountID:   authInfo.KeyID,
+						VirtualAccountName: authInfo.KeyAlias,
+						TeamIDs:            nonEmptySlice([]string{authInfo.TeamID}),
+						StatusCode:         fiber.StatusOK,
+						LatencyMS:          int(time.Since(start).Milliseconds()),
+						InputTokens:        finalCost.InputTokens,
+						OutputTokens:       finalCost.OutputTokens,
+						CostUSD:            finalCost.TotalCostUSD,
+						Metadata: map[string]interface{}{
+							"endpoint":    "/v1/completions",
+							"key_type":    authInfo.KeyType,
+							"team_id":     authInfo.TeamID,
+							"org_unit_id": authInfo.OrgUnitID,
+						},
 					})
 					return
 				}
@@ -330,6 +406,13 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 	})
 
 	return nil
+}
+
+func (h *CompletionsHandler) emitModelMetric(input metricsobs.BuildInput) {
+	if h.emitMetric == nil {
+		return
+	}
+	h.emitMetric(input)
 }
 
 // setCostHeaders sets cost-related response headers.

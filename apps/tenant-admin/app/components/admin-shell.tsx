@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Activity, Building2, CreditCard, LayoutDashboard, LogOut, Menu, Route, Search, Settings, ShieldCheck, Users } from "lucide-react";
+import { Activity, BarChart3, Building2, CreditCard, LayoutDashboard, LogOut, Menu, Route, Search, Settings, ShieldCheck, Users } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -98,6 +98,12 @@ export default function AdminShell({
       title: t("nav.traces"),
       icon: Activity,
       isActive: pathname.startsWith("/traces"),
+    },
+    {
+      href: "/metrics",
+      title: t("nav.metrics"),
+      icon: BarChart3,
+      isActive: pathname.startsWith("/metrics"),
     },
     {
       href: "/teams",

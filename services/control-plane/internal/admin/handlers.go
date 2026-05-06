@@ -55,6 +55,7 @@ type providerAccountStore interface {
 	UpsertTenantProviderAccountModels(ctx context.Context, tenantID string, accountID string, models []platform.TenantProviderAccountModel) ([]platform.TenantProviderAccountModel, error)
 	UpdateTenantProviderAccountAccess(ctx context.Context, tenantID string, accountID string, access platform.TenantProviderAccountAccessControl) (*platform.TenantProviderAccountAccessControl, error)
 	TestTenantProviderAccountCredentials(ctx context.Context, tenantID string, accountID string, req platform.TestTenantProviderAccountCredentialsRequest) (*platform.TestTenantProviderAccountCredentialsResponse, error)
+	ListTenantProviderAccountEffectiveModels(ctx context.Context, tenantID string, accountID string, keyType string, userID string, teamID string) ([]platform.EffectiveModelView, error)
 	SearchAccessPrincipals(ctx context.Context, tenantID string, kind string, query string, limit int) ([]platform.AccessPrincipalCandidate, error)
 }
 
@@ -108,6 +109,10 @@ type traceStore interface {
 	ListTraceSpans(ctx context.Context, tenantID string, traceID string) ([]platform.TraceSpan, error)
 }
 
+type metricsStore interface {
+	QueryModelMetrics(ctx context.Context, tenantID string, req platform.MetricsQueryRequest) ([]map[string]interface{}, error)
+}
+
 type onboardingStore interface {
 	CheckTenantSlugAvailability(ctx context.Context, slug string) (*storage.TenantSlugAvailability, error)
 	CreateOnboardingOTP(ctx context.Context, req storage.CreateOnboardingOTPParams) (*storage.OnboardingOTP, error)
@@ -127,6 +132,7 @@ type Handlers struct {
 	teams            teamStore
 	onboarding       onboardingStore
 	traces           traceStore
+	metrics          metricsStore
 }
 
 // New creates a management handlers bundle.
@@ -139,6 +145,7 @@ func New(keys keyStore, models modelStore, wallets walletStore) *Handlers {
 	teams, _ := keys.(teamStore)
 	onboarding, _ := keys.(onboardingStore)
 	traces, _ := keys.(traceStore)
+	metrics, _ := keys.(metricsStore)
 	return &Handlers{
 		keys:             keys,
 		models:           models,
@@ -151,6 +158,7 @@ func New(keys keyStore, models modelStore, wallets walletStore) *Handlers {
 		teams:            teams,
 		onboarding:       onboarding,
 		traces:           traces,
+		metrics:          metrics,
 	}
 }
 
@@ -770,6 +778,31 @@ func (h *Handlers) ListProviderCatalog(c *fiber.Ctx) error {
 	return c.JSON(platform.ProviderCatalogListResponse{Data: items})
 }
 
+// RefreshProviderCatalogCache invalidates in-memory discovery cache.
+func (h *Handlers) RefreshProviderCatalogCache(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+	invalidateDiscoveryCache()
+	return c.JSON(fiber.Map{
+		"ok":      true,
+		"message": "provider catalog cache invalidated",
+	})
+}
+
+// GetProviderCatalogStats returns discovery/cache telemetry counters.
+func (h *Handlers) GetProviderCatalogStats(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+	return c.JSON(fiber.Map{
+		"data": fiber.Map{
+			"cache_ttl_sec": int64(discoveryCacheTTL().Seconds()),
+			"counters":      discoveryTelemetrySnapshot(),
+		},
+	})
+}
+
 // ListProviderModelsCatalog returns provider model catalog for step-2 selection.
 func (h *Handlers) ListProviderModelsCatalog(c *fiber.Ctx) error {
 	if err := requireTenantAdminOrHigher(c); err != nil {
@@ -896,6 +929,43 @@ func (h *Handlers) GetTenantProviderAccount(c *fiber.Ctx) error {
 	return c.JSON(details)
 }
 
+// GetTenantProviderAccountEffectiveModels returns effective model access view for debugging/observability.
+func (h *Handlers) GetTenantProviderAccountEffectiveModels(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	store, err := h.requireProviderAccountsStore()
+	if err != nil {
+		return err
+	}
+	accountID := strings.TrimSpace(c.Params("accountID"))
+	if accountID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "accountID is required")
+	}
+	keyType := strings.TrimSpace(strings.ToLower(c.Query("key_type")))
+	if keyType == "" {
+		keyType = platform.KeyTypePAT
+	}
+	if keyType != platform.KeyTypePAT && keyType != platform.KeyTypeVAT {
+		return fiber.NewError(fiber.StatusBadRequest, "key_type must be pat or vat")
+	}
+	userID := strings.TrimSpace(c.Query("user_id"))
+	teamID := strings.TrimSpace(c.Query("team_id"))
+
+	items, err := store.ListTenantProviderAccountEffectiveModels(c.Context(), currentTenant.ID, accountID, keyType, userID, teamID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
+		}
+		return err
+	}
+	return c.JSON(platform.EffectiveModelsResponse{Data: items})
+}
+
 // UpsertTenantProviderAccountModels replaces selected models for a provider account.
 func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 	if err := requireTenantAdminOrHigher(c); err != nil {
@@ -928,6 +998,11 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 		if req.Models[i].Model == "" {
 			return fiber.NewError(fiber.StatusBadRequest, "model is required for each item")
 		}
+		for _, mt := range req.Models[i].Types {
+			if !isSupportedModelType(mt) {
+				return fiber.NewError(fiber.StatusBadRequest, "invalid model type: "+string(mt))
+			}
+		}
 		if req.Models[i].PricingMode == "" {
 			req.Models[i].PricingMode = platform.PricingModePublic
 		}
@@ -950,24 +1025,31 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 		}
 		return mapProviderAccountStoreError(err)
 	}
-	invalidModels, err := validateProviderModelsFromCatalog(c.Context(), details.Account.Provider, normalizedModels)
+	invalidModels, invalidTypeModels, err := validateProviderModelsFromCatalog(c.Context(), details.Account.Provider, normalizedModels)
 	if err != nil {
 		if errors.Is(err, errDiscoveryNotFound) {
 			return fiber.NewError(fiber.StatusBadRequest, "provider model catalog not found")
 		}
 		return fiber.NewError(fiber.StatusBadGateway, err.Error())
 	}
-	if len(invalidModels) > 0 {
+	if len(invalidModels) > 0 || len(invalidTypeModels) > 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": fiber.Map{
 				"type":    "validation_error",
-				"message": "one or more models are not valid for this provider account",
+				"message": "one or more models are not valid for this provider account or requested capabilities",
 				"details": fiber.Map{
-					"invalid_models": invalidModels,
-					"provider":       details.Account.Provider,
+					"invalid_models":      invalidModels,
+					"invalid_model_types": invalidTypeModels,
+					"provider":            details.Account.Provider,
 				},
 			},
 		})
+	}
+
+	for _, item := range normalizedModels {
+		if item.PricingMode == platform.PricingModePrivate && (item.PrivatePricing == nil || (item.PrivatePricing.InputUSDPer1M == nil && item.PrivatePricing.OutputUSDPer1M == nil)) {
+			return fiber.NewError(fiber.StatusBadRequest, "private pricing mode requires private_pricing input/output values")
+		}
 	}
 
 	items, err := store.UpsertTenantProviderAccountModels(c.Context(), currentTenant.ID, accountID, normalizedModels)
@@ -977,7 +1059,18 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 		}
 		return mapProviderAccountStoreError(err)
 	}
-	return c.JSON(fiber.Map{"data": items})
+	out := make([]platform.TenantProviderAccountModelEffective, 0, len(items))
+	for _, item := range items {
+		resolved := item.PricingMode == platform.PricingModePublic || item.PrivatePricing != nil
+		out = append(out, platform.TenantProviderAccountModelEffective{
+			Model:                 item.Model,
+			Enabled:               item.Enabled,
+			EffectiveCapabilities: item.Types,
+			PricingMode:           item.PricingMode,
+			PricingResolved:       resolved,
+		})
+	}
+	return c.JSON(platform.TenantProviderAccountModelsUpsertResponse{Data: out})
 }
 
 // UpdateTenantProviderAccountAccess replaces access control entries for one provider account.
@@ -1010,6 +1103,14 @@ func (h *Handlers) UpdateTenantProviderAccountAccess(c *fiber.Ctx) error {
 	for _, item := range req.Access.Managers {
 		if item.Type == platform.PrincipalTypeEveryone {
 			return fiber.NewError(fiber.StatusBadRequest, "manager role only supports user/team principals")
+		}
+	}
+	for _, rule := range req.Access.Rules {
+		if rule.Role == platform.AccessRoleManager && rule.Principal.Type == platform.PrincipalTypeEveryone {
+			return fiber.NewError(fiber.StatusBadRequest, "manager role only supports user/team principals")
+		}
+		if rule.AccessScope == platform.AccessScopeModel && strings.TrimSpace(rule.Model) == "" {
+			return fiber.NewError(fiber.StatusBadRequest, "model is required when access_scope=model")
 		}
 	}
 
@@ -2086,4 +2187,22 @@ func mapProviderAccountStoreError(err error) error {
 		}
 	}
 	return err
+}
+
+func isSupportedModelType(v platform.ModelType) bool {
+	switch v {
+	case platform.ModelTypeChat,
+		platform.ModelTypeCompletion,
+		platform.ModelTypeEmbedding,
+		platform.ModelTypeRealtime,
+		platform.ModelTypeTextToSpeech,
+		platform.ModelTypeAudioTranscription,
+		platform.ModelTypeImageGeneration,
+		platform.ModelTypeModeration,
+		platform.ModelTypeRerank,
+		platform.ModelTypeSearch:
+		return true
+	default:
+		return false
+	}
 }
