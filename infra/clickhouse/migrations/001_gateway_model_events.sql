@@ -5,7 +5,7 @@
   request_id String,
 
   model_name LowCardinality(String),
-  virtual_model_name Nullable(LowCardinality(String)),
+  virtual_model_name LowCardinality(Nullable(String)),
   provider_name LowCardinality(String),
   provider_model_name LowCardinality(String),
   request_type LowCardinality(String),
@@ -34,6 +34,6 @@
 )
 ENGINE = MergeTree
 PARTITION BY toDate(ts)
-ORDER BY (tenant_id, ts, model_name, virtual_model_name)
-TTL ts + INTERVAL 90 DAY
-SETTINGS index_granularity = 8192;
+ORDER BY (tenant_id, ts, model_name, ifNull(virtual_model_name, ''))
+TTL toDate(ts) + INTERVAL 90 DAY
+SETTINGS index_granularity = 8192, allow_nullable_key = 1;

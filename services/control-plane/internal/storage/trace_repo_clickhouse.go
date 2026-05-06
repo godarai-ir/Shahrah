@@ -62,7 +62,7 @@ func (s *Store) ensureClickHouseTraceSchema(ctx context.Context) error {
 		) ENGINE = MergeTree
 		PARTITION BY toDate(started_at)
 		ORDER BY (tenant_id, started_at, trace_id)
-		TTL toDateTime(started_at) + INTERVAL 7 DAY`,
+		TTL toDate(started_at) + INTERVAL 7 DAY`,
 		`CREATE TABLE IF NOT EXISTS request_spans_ch (
 			span_id String,
 			trace_id String,
@@ -77,7 +77,7 @@ func (s *Store) ensureClickHouseTraceSchema(ctx context.Context) error {
 		) ENGINE = MergeTree
 		PARTITION BY toDate(started_at)
 		ORDER BY (tenant_id, trace_id, started_at, span_id)
-		TTL toDateTime(started_at) + INTERVAL 7 DAY`,
+		TTL toDate(started_at) + INTERVAL 7 DAY`,
 	}
 	for _, stmt := range stmts {
 		if _, err := s.clickhouse.ExecContext(ctx, stmt); err != nil {

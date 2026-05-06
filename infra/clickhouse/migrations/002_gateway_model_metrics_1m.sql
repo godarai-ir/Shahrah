@@ -4,7 +4,7 @@
   tenant_id String,
 
   view_model_name LowCardinality(String),
-  view_virtual_model_name Nullable(LowCardinality(String)),
+  view_virtual_model_name LowCardinality(Nullable(String)),
   view_user_email Nullable(String),
   view_virtual_account_name Nullable(String),
   view_team_name Nullable(String),
@@ -39,6 +39,6 @@
 )
 ENGINE = AggregatingMergeTree
 PARTITION BY toDate(bucket_ts)
-ORDER BY (tenant_id, bucket_ts, view_model_name, view_virtual_model_name)
-TTL bucket_ts + INTERVAL 540 DAY
-SETTINGS index_granularity = 8192;
+ORDER BY (tenant_id, bucket_ts, view_model_name, ifNull(view_virtual_model_name, ''))
+TTL toDate(bucket_ts) + INTERVAL 540 DAY
+SETTINGS index_granularity = 8192, allow_nullable_key = 1;
