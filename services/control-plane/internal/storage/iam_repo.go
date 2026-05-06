@@ -3,7 +3,6 @@ package storage
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
@@ -596,75 +595,21 @@ func (s *Store) ensurePlatformUserForMembership(ctx context.Context, tenantID st
 		return err
 	}
 
-	command, err := s.pool.Exec(ctx, `
-		UPDATE users
-		SET tenant_id = COALESCE(tenant_id, $1::uuid),
-		    updated_at = NOW()
-		WHERE user_id = $2::uuid
-		  AND (tenant_id IS NULL OR tenant_id = $1::uuid)
-	`, tenantID, userID)
-	if err != nil {
-		return err
-	}
-	if command.RowsAffected() > 0 {
-		return nil
-	}
-
-	var tenantSlug string
+	var exists bool
 	if err := s.pool.QueryRow(ctx, `
-		SELECT COALESCE(slug, '')
-		FROM tenants
-		WHERE tenant_id = $1::uuid
-		LIMIT 1
-	`, tenantID).Scan(&tenantSlug); err != nil {
-		return err
-	}
-
-	var email string
-	var mobile string
-	var role string
-	if err := s.pool.QueryRow(ctx, `
-		SELECT COALESCE("email", ''), COALESCE("mobile", ''), COALESCE("role", 'tenant_member')
-		FROM "tenant_admin_users"
-		WHERE "id" = $1 AND "tenantSlug" = $2
-		LIMIT 1
-	`, userID, tenantSlug).Scan(&email, &mobile, &role); err != nil {
-		return err
-	}
-
-	emailForInsert := strings.TrimSpace(strings.ToLower(email))
-	if emailForInsert != "" {
-		var existingEmailUserID string
-		err := s.pool.QueryRow(ctx, `
-			SELECT user_id::text
+		SELECT EXISTS (
+			SELECT 1
 			FROM users
-			WHERE LOWER(COALESCE(email, '')) = LOWER($1)
-			LIMIT 1
-		`, emailForInsert).Scan(&existingEmailUserID)
-		if err == nil && existingEmailUserID != userID {
-			emailForInsert = ""
-		} else if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-			return err
-		}
+			WHERE user_id = $2::uuid
+			  AND tenant_id = $1::uuid
+		)
+	`, tenantID, userID).Scan(&exists); err != nil {
+		return err
 	}
-
-	alias := emailForInsert
-	if alias == "" {
-		alias = strings.TrimSpace(mobile)
+	if !exists {
+		return pgx.ErrNoRows
 	}
-	if alias == "" {
-		alias = userID
-	}
-
-	_, err = s.pool.Exec(ctx, `
-		INSERT INTO users (user_id, tenant_id, user_alias, email, mobile, role, active, metadata, created_at, updated_at)
-		VALUES ($1::uuid, $2::uuid, $3, NULLIF($4, ''), NULLIF($5, ''), $6, true, '{}'::jsonb, NOW(), NOW())
-		ON CONFLICT (user_id) DO UPDATE
-		SET tenant_id = EXCLUDED.tenant_id,
-		    user_alias = COALESCE(NULLIF(users.user_alias, ''), EXCLUDED.user_alias),
-		    updated_at = NOW()
-	`, userID, tenantID, alias, emailForInsert, strings.TrimSpace(mobile), normalizePlatformUserRole(role))
-	return err
+	return nil
 }
 
 func (s *Store) UpdateOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, userID string, req platform.UpdateOrgUnitMembershipRequest) (*platform.OrgUnitMembership, error) {

@@ -32,31 +32,12 @@ func (s *Store) SearchAccessPrincipals(ctx context.Context, tenantID string, kin
 func (s *Store) searchUserPrincipals(ctx context.Context, tenantID string, query string, limit int) ([]platform.AccessPrincipalCandidate, error) {
 	like := "%" + query + "%"
 	rows, err := s.pool.Query(ctx, `
-		WITH current_tenant AS (
-			SELECT tenant_id, slug
-			FROM tenants
-			WHERE tenant_id = NULLIF($1, '')::uuid
-			LIMIT 1
-		),
-		candidates AS (
-			SELECT user_id::text AS id, COALESCE(user_alias, '') AS alias, COALESCE(email, '') AS email, updated_at, created_at
-			FROM users
-			WHERE tenant_id = NULLIF($1, '')::uuid
-			  AND ($2 = '' OR user_alias ILIKE $3 OR email ILIKE $3)
-			UNION ALL
-			SELECT tau."id" AS id,
-			       COALESCE(NULLIF(tau."email", ''), NULLIF(tau."mobile", ''), tau."id") AS alias,
-			       COALESCE(tau."email", '') AS email,
-			       tau."updatedAt" AS updated_at,
-			       tau."createdAt" AS created_at
-			FROM "tenant_admin_users" tau
-			JOIN current_tenant ct ON tau."tenantSlug" = ct.slug
-			WHERE tau."id" ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-			  AND NOT EXISTS (SELECT 1 FROM users u WHERE u.user_id::text = tau."id")
-			  AND ($2 = '' OR tau."email" ILIKE $3 OR tau."mobile" ILIKE $3)
-		)
-		SELECT id, alias, email
-		FROM candidates
+		SELECT user_id::text AS id,
+		       COALESCE(NULLIF(user_alias, ''), NULLIF(email, ''), NULLIF(mobile, ''), user_id::text) AS alias,
+		       COALESCE(email, '') AS email
+		FROM users
+		WHERE tenant_id = NULLIF($1, '')::uuid
+		  AND ($2 = '' OR user_alias ILIKE $3 OR email ILIKE $3 OR mobile ILIKE $3)
 		ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
 		LIMIT $4
 	`, tenantID, query, like, limit)

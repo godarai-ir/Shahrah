@@ -12,34 +12,12 @@ datasource db {
 // All models are imported from the shared database package
 // This file extends or overrides specific models for tenant-admin
 
-// TenantAdmin-specific models
-model TenantAdminUser {
-  id          String    @id @default(cuid())
-  tenantSlug  String
-  email       String?
-  mobile      String?
-  role        String    @default("tenant_member")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  lastLoginAt DateTime?
-
-  sessions    TenantAdminSession[]
-  otpRequests TenantAdminOtpRequest[]
-
-  @@unique([tenantSlug, email], map: "tenant_admin_user_tenant_email_uq")
-  @@unique([tenantSlug, mobile], map: "tenant_admin_user_tenant_mobile_uq")
-  @@index([tenantSlug], map: "tenant_admin_user_tenant_slug_idx")
-  @@map("tenant_admin_users")
-}
-
 model TenantAdminSession {
   id         String   @id
   tenantSlug String
   userID     String
   createdAt  DateTime @default(now())
   expiresAt  DateTime
-
-  user TenantAdminUser @relation(fields: [userID], references: [id], onDelete: Cascade)
 
   @@index([tenantSlug], map: "tenant_admin_session_tenant_slug_idx")
   @@index([expiresAt], map: "tenant_admin_session_expires_at_idx")
@@ -68,8 +46,6 @@ model TenantAdminOtpRequest {
   attempts     Int      @default(0)
   createdAt    DateTime @default(now())
   expiresAt    DateTime
-
-  user TenantAdminUser? @relation(fields: [userID], references: [id], onDelete: SetNull)
 
   @@index([tenantSlug, purpose], map: "tenant_admin_otp_tenant_purpose_idx")
   @@index([expiresAt], map: "tenant_admin_otp_expires_at_idx")

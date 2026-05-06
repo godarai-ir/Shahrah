@@ -260,7 +260,9 @@ func (s *Store) CreateKey(ctx context.Context, params platform.CreateKeyParams) 
 			$8, $9, NULLIF($10, '')::uuid, NULLIF($11, '')::uuid,
 			CASE
 				WHEN NULLIF($12, '') IS NULL THEN NULL
-				WHEN $12 ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' THEN $12::uuid
+				WHEN $12 ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+					AND EXISTS (SELECT 1 FROM users u WHERE u.user_id = $12::uuid)
+				THEN $12::uuid
 				ELSE NULL
 			END,
 			NULLIF($13, '')::uuid, NULLIF($14, '')::uuid,

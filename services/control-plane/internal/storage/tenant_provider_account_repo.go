@@ -571,22 +571,11 @@ func principalExistsForTenant(ctx context.Context, tx pgx.Tx, tenantID string, p
 	case platform.PrincipalTypeUser:
 		var exists bool
 		if err := tx.QueryRow(ctx, `
-			WITH tenant_slug_cte AS (
-				SELECT slug
-				FROM tenants
-				WHERE tenant_id = $1::uuid
-				LIMIT 1
-			)
 			SELECT EXISTS (
 				SELECT 1
 				FROM users u
 				WHERE u.tenant_id = $1::uuid
 				  AND u.user_id::text = $2
-			) OR EXISTS (
-				SELECT 1
-				FROM "tenant_admin_users" tau
-				JOIN tenant_slug_cte ts ON tau."tenantSlug" = ts.slug
-				WHERE tau."id" = $2
 			)
 		`, tenantID, principalID).Scan(&exists); err != nil {
 			return false, err

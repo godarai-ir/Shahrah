@@ -40,6 +40,17 @@ type OTPRecord = {
   createdAtISO: string;
 };
 
+type DBTenantUserRow = {
+  id: string;
+  tenantSlug: string;
+  email: string | null;
+  mobile: string | null;
+  role: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  lastLoginAt: Date | null;
+};
+
 const CAPTCHA_TTL_MS = 2 * 60 * 1000;
 const OTP_TTL_MS = 5 * 60 * 1000;
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -267,14 +278,11 @@ export async function findOrCreateTenantUser(input: {
 }) {
   await cleanupExpiredRecords();
 
-  const existing = await prisma.tenantAdminUser.findFirst({
-    where: {
-      tenantSlug: input.tenantSlug,
-      ...(input.channel === "email"
-        ? { email: input.identifier }
-        : { mobile: input.identifier }),
-    },
-  });
+  const existing = await findTenantUserByIdentifier(
+    input.tenantSlug,
+    input.channel,
+    input.identifier,
+  );
 
   if (existing) {
     const bootstrapped = await ensureTenantHasAdmin({
@@ -286,26 +294,20 @@ export async function findOrCreateTenantUser(input: {
 
   try {
     const initialRole = await getDefaultRoleForNewTenantUser(input.tenantSlug);
-    const created = await prisma.tenantAdminUser.create({
-      data: {
-        tenantSlug: input.tenantSlug,
-        role: initialRole,
-        ...(input.channel === "email"
-          ? { email: input.identifier }
-          : { mobile: input.identifier }),
-      },
-    });
+    const created = await createTenantUserFromIdentifier(
+      input.tenantSlug,
+      input.channel,
+      input.identifier,
+      initialRole,
+    );
     return toPublicTenantUser(created);
   } catch (error) {
     if (isUniqueViolation(error)) {
-      const fallback = await prisma.tenantAdminUser.findFirst({
-        where: {
-          tenantSlug: input.tenantSlug,
-          ...(input.channel === "email"
-            ? { email: input.identifier }
-            : { mobile: input.identifier }),
-        },
-      });
+      const fallback = await findTenantUserByIdentifier(
+        input.tenantSlug,
+        input.channel,
+        input.identifier,
+      );
       if (fallback) {
         const bootstrapped = await ensureTenantHasAdmin({
           tenantSlug: input.tenantSlug,
@@ -321,28 +323,18 @@ export async function findOrCreateTenantUser(input: {
 export async function touchLastLogin(tenantSlug: string, userID: string) {
   await ensureDatabaseReady();
 
-  const current = await prisma.tenantAdminUser.findFirst({
-    where: { id: userID, tenantSlug },
-  });
+  const current = await findTenantUserByID(tenantSlug, userID);
   if (!current) {
     return null;
   }
 
-  const updated = await prisma.tenantAdminUser.update({
-    where: { id: userID },
-    data: { lastLoginAt: new Date() },
-  });
+  const updated = await updateTenantUserLastLogin(tenantSlug, userID);
   return toPublicTenantUser(updated);
 }
 
 export async function getTenantUser(tenantSlug: string, userID: string) {
   await cleanupExpiredRecords();
-  const user = await prisma.tenantAdminUser.findFirst({
-    where: {
-      id: userID,
-      tenantSlug,
-    },
-  });
+  const user = await findTenantUserByID(tenantSlug, userID);
   if (!user) {
     return null;
   }
@@ -361,12 +353,7 @@ export async function updateTenantUserContact(input: {
 }) {
   await cleanupExpiredRecords();
 
-  const user = await prisma.tenantAdminUser.findFirst({
-    where: {
-      id: input.userID,
-      tenantSlug: input.tenantSlug,
-    },
-  });
+  const user = await findTenantUserByID(input.tenantSlug, input.userID);
   if (!user) {
     return {
       ok: false as const,
@@ -374,16 +361,11 @@ export async function updateTenantUserContact(input: {
     };
   }
 
-  const conflict = await prisma.tenantAdminUser.findFirst({
-    where: {
-      tenantSlug: input.tenantSlug,
-      ...(input.field === "email" ? { email: input.value } : { mobile: input.value }),
-      NOT: {
-        id: input.userID,
-      },
-    },
-    select: { id: true },
-  });
+  const conflict = await findTenantUserByIdentifier(
+    input.tenantSlug,
+    input.field,
+    input.value,
+  );
   if (conflict) {
     return {
       ok: false as const,
@@ -395,19 +377,12 @@ export async function updateTenantUserContact(input: {
   }
 
   try {
-    const updated = await prisma.tenantAdminUser.update({
-      where: {
-        id: input.userID,
-      },
-      data:
-        input.field === "email"
-          ? {
-              email: input.value,
-            }
-          : {
-              mobile: input.value,
-            },
-    });
+    const updated = await updateTenantUserContactField(
+      input.tenantSlug,
+      input.userID,
+      input.field,
+      input.value,
+    );
 
     return {
       ok: true as const,
@@ -496,57 +471,216 @@ async function cleanupExpiredRecords() {
 }
 
 async function getDefaultRoleForNewTenantUser(tenantSlug: string) {
-  const existingUsers = await prisma.tenantAdminUser.count({
-    where: {
-      tenantSlug,
-      NOT: {
-        role: "deactivated",
-      },
-    },
-  });
-
-  return existingUsers === 0 ? "tenant_admin" : "tenant_member";
+  const rows = await prisma.$queryRaw<{ count: bigint }[]>(Prisma.sql`
+    SELECT COUNT(*)::bigint AS count
+    FROM users u
+    JOIN tenants t ON t.tenant_id = u.tenant_id
+    WHERE t.slug = ${tenantSlug}
+      AND COALESCE(u.role, '') <> 'deactivated'
+  `);
+  const count = Number(rows[0]?.count ?? 0);
+  return count === 0 ? "tenant_admin" : "tenant_member";
 }
 
 async function ensureTenantHasAdmin(input: {
   tenantSlug: string;
   candidateUserID: string;
 }) {
-  const admin = await prisma.tenantAdminUser.findFirst({
-    where: {
-      tenantSlug: input.tenantSlug,
-      role: {
-        in: ["tenant_admin", "proxy_admin"],
-      },
-    },
-    select: {
-      id: true,
-    },
-  });
-  if (admin) {
+  const adminRows = await prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
+    SELECT u.user_id::text AS id
+    FROM users u
+    JOIN tenants t ON t.tenant_id = u.tenant_id
+    WHERE t.slug = ${input.tenantSlug}
+      AND COALESCE(u.role, '') IN ('tenant_admin', 'proxy_admin')
+    LIMIT 1
+  `);
+  if (adminRows.length > 0) {
     return null;
   }
 
-  const activeUsers = await prisma.tenantAdminUser.count({
-    where: {
-      tenantSlug: input.tenantSlug,
-      NOT: {
-        role: "deactivated",
-      },
-    },
-  });
+  const activeRows = await prisma.$queryRaw<{ count: bigint }[]>(Prisma.sql`
+    SELECT COUNT(*)::bigint AS count
+    FROM users u
+    JOIN tenants t ON t.tenant_id = u.tenant_id
+    WHERE t.slug = ${input.tenantSlug}
+      AND COALESCE(u.role, '') <> 'deactivated'
+  `);
+  const activeUsers = Number(activeRows[0]?.count ?? 0);
   if (activeUsers === 0) {
     return null;
   }
 
-  return prisma.tenantAdminUser.update({
-    where: {
-      id: input.candidateUserID,
-    },
-    data: {
-      role: "tenant_admin",
-    },
-  });
+  const updated = await prisma.$queryRaw<DBTenantUserRow[]>(Prisma.sql`
+    UPDATE users AS u
+    SET role = 'tenant_admin', updated_at = NOW()
+    FROM tenants t
+    WHERE t.slug = ${input.tenantSlug}
+      AND u.user_id::text = ${input.candidateUserID}
+      AND u.tenant_id = t.tenant_id
+    RETURNING
+      u.user_id::text AS id,
+      t.slug AS "tenantSlug",
+      u.email,
+      u.mobile,
+      u.role,
+      u.created_at AS "createdAt",
+      u.updated_at AS "updatedAt",
+      NULL::timestamptz AS "lastLoginAt"
+  `);
+  return updated[0] ?? null;
+}
+
+async function findTenantUserByIdentifier(
+  tenantSlug: string,
+  channel: AuthChannel,
+  identifier: string,
+) {
+  const rows = await prisma.$queryRaw<DBTenantUserRow[]>(Prisma.sql`
+    SELECT
+      u.user_id::text AS id,
+      t.slug AS "tenantSlug",
+      u.email,
+      u.mobile,
+      u.role,
+      u.created_at AS "createdAt",
+      u.updated_at AS "updatedAt",
+      NULL::timestamptz AS "lastLoginAt"
+    FROM users u
+    JOIN tenants t ON t.tenant_id = u.tenant_id
+    WHERE t.slug = ${tenantSlug}
+      AND ${channel === "email" ? Prisma.sql`u.email = ${identifier}` : Prisma.sql`u.mobile = ${identifier}`}
+    LIMIT 1
+  `);
+  return rows[0] ?? null;
+}
+
+async function findTenantUserByID(tenantSlug: string, userID: string) {
+  const rows = await prisma.$queryRaw<DBTenantUserRow[]>(Prisma.sql`
+    SELECT
+      u.user_id::text AS id,
+      t.slug AS "tenantSlug",
+      u.email,
+      u.mobile,
+      u.role,
+      u.created_at AS "createdAt",
+      u.updated_at AS "updatedAt",
+      NULL::timestamptz AS "lastLoginAt"
+    FROM users u
+    JOIN tenants t ON t.tenant_id = u.tenant_id
+    WHERE t.slug = ${tenantSlug}
+      AND u.user_id::text = ${userID}
+    LIMIT 1
+  `);
+  return rows[0] ?? null;
+}
+
+async function createTenantUserFromIdentifier(
+  tenantSlug: string,
+  channel: AuthChannel,
+  identifier: string,
+  role: string,
+) {
+  const rows = await prisma.$queryRaw<DBTenantUserRow[]>(Prisma.sql`
+    INSERT INTO users (
+      user_alias, email, mobile, role, tenant_id, created_at, updated_at
+    )
+    SELECT
+      NULL,
+      ${channel === "email" ? identifier : null},
+      ${channel === "mobile" ? identifier : null},
+      ${role},
+      t.tenant_id,
+      NOW(),
+      NOW()
+    FROM tenants t
+    WHERE t.slug = ${tenantSlug}
+    RETURNING
+      user_id::text AS id,
+      ${tenantSlug}::text AS "tenantSlug",
+      email,
+      mobile,
+      role,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      NULL::timestamptz AS "lastLoginAt"
+  `);
+  if (rows.length === 0) {
+    throw new Error("tenant not found");
+  }
+  return rows[0];
+}
+
+async function updateTenantUserLastLogin(tenantSlug: string, userID: string) {
+  const rows = await prisma.$queryRaw<DBTenantUserRow[]>(Prisma.sql`
+    UPDATE users AS u
+    SET updated_at = NOW()
+    FROM tenants t
+    WHERE t.slug = ${tenantSlug}
+      AND u.user_id::text = ${userID}
+      AND u.tenant_id = t.tenant_id
+    RETURNING
+      u.user_id::text AS id,
+      t.slug AS "tenantSlug",
+      u.email,
+      u.mobile,
+      u.role,
+      u.created_at AS "createdAt",
+      u.updated_at AS "updatedAt",
+      NULL::timestamptz AS "lastLoginAt"
+  `);
+  if (rows.length === 0) {
+    throw new Error("user not found");
+  }
+  return rows[0];
+}
+
+async function updateTenantUserContactField(
+  tenantSlug: string,
+  userID: string,
+  field: "email" | "mobile",
+  value: string,
+) {
+  const query =
+    field === "email"
+      ? Prisma.sql`
+          UPDATE users AS u
+          SET email = ${value}, updated_at = NOW()
+          FROM tenants t
+          WHERE t.slug = ${tenantSlug}
+            AND u.user_id::text = ${userID}
+            AND u.tenant_id = t.tenant_id
+          RETURNING
+            u.user_id::text AS id,
+            t.slug AS "tenantSlug",
+            u.email,
+            u.mobile,
+            u.role,
+            u.created_at AS "createdAt",
+            u.updated_at AS "updatedAt",
+            NULL::timestamptz AS "lastLoginAt"
+        `
+      : Prisma.sql`
+          UPDATE users AS u
+          SET mobile = ${value}, updated_at = NOW()
+          FROM tenants t
+          WHERE t.slug = ${tenantSlug}
+            AND u.user_id::text = ${userID}
+            AND u.tenant_id = t.tenant_id
+          RETURNING
+            u.user_id::text AS id,
+            t.slug AS "tenantSlug",
+            u.email,
+            u.mobile,
+            u.role,
+            u.created_at AS "createdAt",
+            u.updated_at AS "updatedAt",
+            NULL::timestamptz AS "lastLoginAt"
+        `;
+  const rows = await prisma.$queryRaw<DBTenantUserRow[]>(query);
+  if (rows.length === 0) {
+    throw new Error("user not found");
+  }
+  return rows[0];
 }
 
 async function ensureDatabaseReady() {
@@ -569,17 +703,15 @@ async function ensureDatabaseReady() {
 
 async function ensureTenantAdminAuthSchema() {
   await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS "tenant_admin_users" (
-      "id" TEXT NOT NULL,
-      "tenantSlug" TEXT NOT NULL,
-      "email" TEXT,
-      "mobile" TEXT,
-      "role" TEXT NOT NULL DEFAULT 'tenant_member',
-      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      "updatedAt" TIMESTAMP(3) NOT NULL,
-      "lastLoginAt" TIMESTAMP(3),
-      CONSTRAINT "tenant_admin_users_pkey" PRIMARY KEY ("id")
-    )
+    ALTER TABLE IF EXISTS "tenant_admin_sessions"
+      DROP CONSTRAINT IF EXISTS "tenant_admin_sessions_userID_fkey"
+  `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE IF EXISTS "tenant_admin_otp_requests"
+      DROP CONSTRAINT IF EXISTS "tenant_admin_otp_requests_userID_fkey"
+  `);
+  await prisma.$executeRawUnsafe(`
+    DROP TABLE IF EXISTS "tenant_admin_users"
   `);
 
   await prisma.$executeRawUnsafe(`
@@ -599,10 +731,7 @@ async function ensureTenantAdminAuthSchema() {
       "userID" TEXT NOT NULL,
       "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
       "expiresAt" TIMESTAMP(3) NOT NULL,
-      CONSTRAINT "tenant_admin_sessions_pkey" PRIMARY KEY ("id"),
-      CONSTRAINT "tenant_admin_sessions_userID_fkey"
-        FOREIGN KEY ("userID") REFERENCES "tenant_admin_users" ("id")
-        ON DELETE CASCADE ON UPDATE CASCADE
+      CONSTRAINT "tenant_admin_sessions_pkey" PRIMARY KEY ("id")
     )
   `);
 
@@ -619,25 +748,10 @@ async function ensureTenantAdminAuthSchema() {
       "attempts" INTEGER NOT NULL DEFAULT 0,
       "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
       "expiresAt" TIMESTAMP(3) NOT NULL,
-      CONSTRAINT "tenant_admin_otp_requests_pkey" PRIMARY KEY ("id"),
-      CONSTRAINT "tenant_admin_otp_requests_userID_fkey"
-        FOREIGN KEY ("userID") REFERENCES "tenant_admin_users" ("id")
-        ON DELETE SET NULL ON UPDATE CASCADE
+      CONSTRAINT "tenant_admin_otp_requests_pkey" PRIMARY KEY ("id")
     )
   `);
 
-  await prisma.$executeRawUnsafe(`
-    CREATE UNIQUE INDEX IF NOT EXISTS "tenant_admin_user_tenant_email_uq"
-      ON "tenant_admin_users" ("tenantSlug", "email")
-  `);
-  await prisma.$executeRawUnsafe(`
-    CREATE UNIQUE INDEX IF NOT EXISTS "tenant_admin_user_tenant_mobile_uq"
-      ON "tenant_admin_users" ("tenantSlug", "mobile")
-  `);
-  await prisma.$executeRawUnsafe(`
-    CREATE INDEX IF NOT EXISTS "tenant_admin_user_tenant_slug_idx"
-      ON "tenant_admin_users" ("tenantSlug")
-  `);
   await prisma.$executeRawUnsafe(`
     CREATE INDEX IF NOT EXISTS "tenant_admin_captcha_expires_at_idx"
       ON "tenant_admin_captchas" ("expiresAt")
@@ -665,7 +779,7 @@ function toPublicTenantUser(user: {
   tenantSlug: string;
   email: string | null;
   mobile: string | null;
-  role: string;
+  role: string | null;
   createdAt: Date;
   updatedAt: Date;
   lastLoginAt: Date | null;
@@ -682,8 +796,8 @@ function toPublicTenantUser(user: {
   };
 }
 
-function normalizeTenantRole(role: string) {
-  const normalized = role.trim().toLowerCase();
+function normalizeTenantRole(role: string | null | undefined) {
+  const normalized = (role ?? "").trim().toLowerCase();
   if (!normalized || normalized === "tenant_user") {
     return "tenant_member";
   }
