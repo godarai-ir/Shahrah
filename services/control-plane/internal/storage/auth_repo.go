@@ -77,6 +77,7 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 	if err != nil {
 		return nil, err
 	}
+	auth.EnforceModelAllowlist = enforceProviderPolicy
 	if enforceProviderPolicy {
 		auth.AllowedModels = intersectAllowedModels(keyModels, runtimeModels)
 	} else {
@@ -227,11 +228,16 @@ func (s *Store) CreateKey(ctx context.Context, params platform.CreateKeyParams) 
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO verification_tokens (
 			id, tenant_id, token_hash, key_alias, key_name, models, max_budget,
-			rpm_limit, tpm_limit, team_id, organization_id, expires, spend, blocked, key_type, created_by_user_id, created_at, updated_at
+			rpm_limit, tpm_limit, team_id, organization_id, user_id, virtual_user_id, org_unit_id,
+			expires, spend, blocked, key_type, created_by_user_id, created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULLIF($10, '')::uuid, NULLIF($11, '')::uuid, $12, 0, false, $13, NULLIF($14, ''), $15, $15)
+		VALUES (
+			$1, $2, $3, $4, $5, $6, $7,
+			$8, $9, NULLIF($10, '')::uuid, NULLIF($11, '')::uuid, NULLIF($12, '')::uuid, NULLIF($13, '')::uuid, NULLIF($14, '')::uuid,
+			$15, 0, false, $16, NULLIF($17, ''), $18, $18
+		)
 	`, keyID, params.TenantID, tokenHash, params.KeyAlias, masked, params.Models, params.MaxBudget,
-		params.RPMLimit, params.TPMLimit, params.TeamID, params.OrgID, expiresAt, params.KeyType, params.UserID, now)
+		params.RPMLimit, params.TPMLimit, params.TeamID, params.OrgID, params.UserID, params.VirtualUserID, params.OrgUnitID, expiresAt, params.KeyType, params.UserID, now)
 	if err != nil {
 		return nil, err
 	}

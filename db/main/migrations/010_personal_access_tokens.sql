@@ -1,4 +1,8 @@
--- Migration: 010_personal_access_tokens.sql
+-- 010_personal_access_tokens
+
+-- +goose Up
+
+-- Migration: 010_personal_access_tokens
 -- Description: Extend verification_tokens for PAT lifecycle and ownership.
 
 ALTER TABLE verification_tokens
@@ -44,3 +48,17 @@ ON verification_tokens (tenant_id, key_type, created_by_user_id, revoked_at);
 
 CREATE INDEX IF NOT EXISTS idx_verification_tokens_tenant_keytype
 ON verification_tokens (tenant_id, key_type);
+
+-- +goose Down
+
+-- Migration: 010_personal_access_tokens (DOWN)
+
+DROP INDEX IF EXISTS idx_verification_tokens_tenant_keytype;
+DROP INDEX IF EXISTS idx_verification_tokens_pat_owner_state;
+
+ALTER TABLE verification_tokens DROP COLUMN IF EXISTS created_by_user_id;
+ALTER TABLE verification_tokens DROP COLUMN IF EXISTS last_used_at;
+ALTER TABLE verification_tokens DROP COLUMN IF EXISTS revoked_at;
+ALTER TABLE verification_tokens DROP COLUMN IF EXISTS revoked_by_user_id;
+ALTER TABLE verification_tokens DROP CONSTRAINT IF EXISTS verification_tokens_key_type_check;
+ALTER TABLE verification_tokens DROP COLUMN IF EXISTS key_type;

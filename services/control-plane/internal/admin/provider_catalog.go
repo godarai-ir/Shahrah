@@ -95,6 +95,39 @@ func discoveryProviderModels(ctx context.Context, provider string) ([]platform.P
 	return items, nil
 }
 
+func validateProviderModelsFromCatalog(ctx context.Context, provider string, models []platform.TenantProviderAccountModel) ([]string, error) {
+	catalog, err := discoveryProviderModels(ctx, provider)
+	if err != nil {
+		return nil, err
+	}
+	allowed := make(map[string]struct{}, len(catalog))
+	for _, item := range catalog {
+		model := strings.TrimSpace(item.Model)
+		if model == "" {
+			continue
+		}
+		allowed[model] = struct{}{}
+	}
+	invalid := make([]string, 0)
+	seen := make(map[string]struct{})
+	for _, item := range models {
+		model := strings.TrimSpace(item.Model)
+		if model == "" {
+			continue
+		}
+		if _, ok := allowed[model]; ok {
+			continue
+		}
+		if _, ok := seen[model]; ok {
+			continue
+		}
+		seen[model] = struct{}{}
+		invalid = append(invalid, model)
+	}
+	sort.Strings(invalid)
+	return invalid, nil
+}
+
 func getDiscoveryBaseURL() string {
 	baseURL := strings.TrimSpace(os.Getenv("SHAHRAH_MODEL_DISCOVERY_URL"))
 	if baseURL == "" {

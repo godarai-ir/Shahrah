@@ -73,7 +73,8 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	authInfo.TenantID = currentTenant.ID
 	tracing.SetTenantForTrace(c, currentTenant.ID)
 
-	if len(authInfo.AllowedModels) > 0 && !containsModel(authInfo.AllowedModels, req.Model) && !containsModel(authInfo.AllowedModels, "*") {
+	if !isModelAllowed(authInfo, req.Model) {
+		emitDenyCounter(h.logger, denyReasonForModel(authInfo), req.Model, currentTenant.ID)
 		return writeAPIError(c, fiber.StatusForbidden, "model access denied", "authorization_error")
 	}
 
@@ -114,6 +115,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	// Route to deployment
 	dep, err := h.llmRouter.Route(c.Context(), currentTenant.ID, req.Model)
 	if err != nil {
+		emitDenyCounter(h.logger, denyReasonUnknownModel, req.Model, currentTenant.ID)
 		return writeAPIError(c, fiber.StatusInternalServerError, "no available deployments", "internal_error")
 	}
 

@@ -13,6 +13,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type keyStore interface {
@@ -827,8 +828,19 @@ func (h *Handlers) CreateTenantProviderAccount(c *fiber.Ctx) error {
 
 	account, err := store.CreateTenantProviderAccount(c.Context(), currentTenant.ID, req)
 	if err != nil {
-		return err
+		return mapProviderAccountStoreError(err)
 	}
+	actor := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	if actor == "" {
+		actor = "unknown"
+	}
+	c.Context().SetUserValue("audit.provider_account_event", map[string]interface{}{
+		"event":      "provider_account_created",
+		"tenant_id":  currentTenant.ID,
+		"account_id": account.ID,
+		"provider":   account.Provider,
+		"actor":      actor,
+	})
 	return c.Status(fiber.StatusCreated).JSON(account)
 }
 
@@ -920,13 +932,50 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 			req.Models[i].PricingMode = platform.PricingModePublic
 		}
 	}
+	// Normalize duplicate model entries while preserving input order.
+	seenModels := make(map[string]struct{}, len(req.Models))
+	normalizedModels := make([]platform.TenantProviderAccountModel, 0, len(req.Models))
+	for _, item := range req.Models {
+		if _, ok := seenModels[item.Model]; ok {
+			continue
+		}
+		seenModels[item.Model] = struct{}{}
+		normalizedModels = append(normalizedModels, item)
+	}
 
-	items, err := store.UpsertTenantProviderAccountModels(c.Context(), currentTenant.ID, accountID, req.Models)
+	details, err := store.GetTenantProviderAccountDetails(c.Context(), currentTenant.ID, accountID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
 		}
-		return err
+		return mapProviderAccountStoreError(err)
+	}
+	invalidModels, err := validateProviderModelsFromCatalog(c.Context(), details.Account.Provider, normalizedModels)
+	if err != nil {
+		if errors.Is(err, errDiscoveryNotFound) {
+			return fiber.NewError(fiber.StatusBadRequest, "provider model catalog not found")
+		}
+		return fiber.NewError(fiber.StatusBadGateway, err.Error())
+	}
+	if len(invalidModels) > 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": fiber.Map{
+				"type":    "validation_error",
+				"message": "one or more models are not valid for this provider account",
+				"details": fiber.Map{
+					"invalid_models": invalidModels,
+					"provider":       details.Account.Provider,
+				},
+			},
+		})
+	}
+
+	items, err := store.UpsertTenantProviderAccountModels(c.Context(), currentTenant.ID, accountID, normalizedModels)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
+		}
+		return mapProviderAccountStoreError(err)
 	}
 	return c.JSON(fiber.Map{"data": items})
 }
@@ -969,7 +1018,7 @@ func (h *Handlers) UpdateTenantProviderAccountAccess(c *fiber.Ctx) error {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
 		}
-		return err
+		return mapProviderAccountStoreError(err)
 	}
 	return c.JSON(fiber.Map{"access": access})
 }
@@ -2018,4 +2067,23 @@ func requireOrgAdminOrHigher(c *fiber.Ctx) error {
 		return nil
 	}
 	return fiber.NewError(fiber.StatusForbidden, "organization admin privileges required")
+}
+
+func mapProviderAccountStoreError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, storage.ErrInvalidAccessPrincipal) {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		switch pgErr.Code {
+		case "23505":
+			return fiber.NewError(fiber.StatusConflict, "resource already exists")
+		case "23514", "23502", "22P02":
+			return fiber.NewError(fiber.StatusBadRequest, "invalid provider account payload")
+		}
+	}
+	return err
 }

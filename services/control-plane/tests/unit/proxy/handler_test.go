@@ -309,6 +309,44 @@ func TestChatCompletionHandler_ShouldRejectInvalidMaxTokens(t *testing.T) {
 	assert.Contains(t, apiErr.Error.Message, "max_tokens must be at least 1")
 }
 
+func TestChatCompletionHandler_DeniesWhenAllowlistEnforcedAndEmpty(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	r := newTestRouter(t, logger)
+	mTunnel := &mockTunnelTransport{}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 100}}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{}
+
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	app := fiber.New()
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{
+			TokenHash:             "test-hash",
+			TenantID:              "tenant-1",
+			AllowedModels:         []string{},
+			EnforceModelAllowlist: true,
+		})
+		return c.Next()
+	})
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals(tenant.ContextKey{}, &platform.Tenant{ID: "tenant-1", Slug: "test-tenant"})
+		return c.Next()
+	})
+	app.Post("/v1/chat/completions", handler.Handle)
+
+	body := map[string]interface{}{
+		"model":    "gpt-4",
+		"messages": []interface{}{map[string]interface{}{"role": "user", "content": "Hello"}},
+	}
+	payload, _ := json.Marshal(body)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusForbidden, resp.StatusCode)
+}
+
 func TestChatCompletionHandler_ShouldTransformProviderError(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	r := newTestRouter(t, logger)

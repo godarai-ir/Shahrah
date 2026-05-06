@@ -8,6 +8,7 @@ require (
 	github.com/dgraph-io/ristretto v0.1.1
 	github.com/gofiber/fiber/v2 v2.52.9
 	github.com/jackc/pgx/v5 v5.7.2
+	github.com/pressly/goose/v3 v3.27.1
 	github.com/redis/go-redis/v9 v9.5.1
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.10.0

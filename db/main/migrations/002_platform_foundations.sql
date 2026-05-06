@@ -1,4 +1,8 @@
--- Migration: 002_platform_foundations.sql
+-- 002_platform_foundations
+
+-- +goose Up
+
+-- Migration: 002_platform_foundations
 -- Description: Tenant, wallet, exchange-rate, and tenant-scoped model/key foundations.
 
 CREATE TABLE IF NOT EXISTS tenants (
@@ -68,3 +72,30 @@ CREATE INDEX IF NOT EXISTS idx_verification_tokens_tenant_id ON verification_tok
 CREATE INDEX IF NOT EXISTS idx_model_deployments_tenant_id ON model_deployments(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_tenant_id ON wallet_transactions(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_exchange_rates_fetched_at ON exchange_rates(fetched_at DESC);
+
+-- +goose Down
+
+-- Migration: 002_platform_foundations (DOWN)
+-- Description: Rollback tenant, wallet, exchange-rate foundations.
+
+DROP INDEX IF EXISTS idx_exchange_rates_fetched_at;
+DROP INDEX IF EXISTS idx_wallet_transactions_tenant_id;
+DROP INDEX IF EXISTS idx_model_deployments_tenant_id;
+DROP INDEX IF EXISTS idx_verification_tokens_tenant_id;
+
+DROP TABLE IF EXISTS exchange_rates CASCADE;
+DROP TABLE IF EXISTS wallet_transactions CASCADE;
+DROP TABLE IF EXISTS wallets CASCADE;
+
+ALTER TABLE spend_logs DROP COLUMN IF EXISTS cost_irr;
+ALTER TABLE spend_logs DROP COLUMN IF EXISTS cost_usd;
+ALTER TABLE spend_logs DROP COLUMN IF EXISTS request_id;
+ALTER TABLE spend_logs DROP COLUMN IF EXISTS tenant_id;
+
+ALTER TABLE request_logs DROP COLUMN IF EXISTS model;
+ALTER TABLE request_logs DROP COLUMN IF EXISTS tenant_id;
+
+ALTER TABLE model_deployments DROP COLUMN IF EXISTS tenant_id;
+ALTER TABLE verification_tokens DROP COLUMN IF EXISTS tenant_id;
+
+DROP TABLE IF EXISTS tenants CASCADE;

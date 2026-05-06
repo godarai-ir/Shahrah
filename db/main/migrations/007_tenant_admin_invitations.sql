@@ -1,4 +1,8 @@
--- Migration: 007_tenant_admin_invitations.sql
+-- 007_tenant_admin_invitations
+
+-- +goose Up
+
+-- Migration: 007_tenant_admin_invitations
 -- Description: Tenant-admin invitation records for user onboarding and access control.
 
 CREATE TABLE IF NOT EXISTS "tenant_admin_invitations" (
@@ -26,3 +30,13 @@ ON "tenant_admin_invitations" ("status");
 
 CREATE INDEX IF NOT EXISTS "tenant_admin_invite_expiry_idx"
 ON "tenant_admin_invitations" ("expires_at");
+
+-- +goose Down
+
+-- Migration: 007_tenant_admin_invitations (DOWN)
+
+DROP INDEX IF EXISTS "tenant_admin_invite_expiry_idx";
+DROP INDEX IF EXISTS "tenant_admin_invite_status_idx";
+DROP INDEX IF EXISTS "tenant_admin_invite_tenant_slug_idx";
+
+DROP TABLE IF EXISTS "tenant_admin_invitations" CASCADE;

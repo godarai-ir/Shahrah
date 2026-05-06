@@ -1,4 +1,8 @@
--- Migration: 013_virtual_models.sql
+-- 013_virtual_models
+
+-- +goose Up
+
+-- Migration: 013_virtual_models
 -- Description: Tenant-scoped virtual models for gateway routing/fallback
 
 CREATE TABLE IF NOT EXISTS virtual_models (
@@ -36,3 +40,13 @@ CREATE INDEX IF NOT EXISTS idx_virtual_models_tenant_id ON virtual_models(tenant
 CREATE INDEX IF NOT EXISTS idx_virtual_models_alias ON virtual_models(alias);
 CREATE INDEX IF NOT EXISTS idx_virtual_model_targets_model ON virtual_model_targets(model);
 
+-- +goose Down
+
+-- Migration: 013_virtual_models (DOWN)
+
+DROP INDEX IF EXISTS idx_virtual_model_targets_model;
+DROP INDEX IF EXISTS idx_virtual_models_alias;
+DROP INDEX IF EXISTS idx_virtual_models_tenant_id;
+
+DROP TABLE IF EXISTS virtual_model_targets CASCADE;
+DROP TABLE IF EXISTS virtual_models CASCADE;

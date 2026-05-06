@@ -1,4 +1,8 @@
--- Migration: 005_wallet_topup_intents.sql
+-- 005_wallet_topup_intents
+
+-- +goose Up
+
+-- Migration: 005_wallet_topup_intents
 -- Description: External payment intents for wallet top-up with idempotent callback processing.
 
 CREATE TABLE IF NOT EXISTS wallet_topup_settings (
@@ -59,3 +63,14 @@ ON wallet_topup_intents(tenant_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_wallet_topup_intents_status
 ON wallet_topup_intents(status);
+
+-- +goose Down
+
+-- Migration: 005_wallet_topup_intents (DOWN)
+
+DROP INDEX IF EXISTS idx_wallet_topup_intents_status;
+DROP INDEX IF EXISTS idx_wallet_topup_intents_tenant_created;
+DROP INDEX IF EXISTS idx_wallet_topup_intents_authority_unique;
+
+DROP TABLE IF EXISTS wallet_topup_intents CASCADE;
+DROP TABLE IF EXISTS wallet_topup_settings CASCADE;

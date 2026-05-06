@@ -1,4 +1,8 @@
--- Migration: 008_iam_phase2_foundations.sql
+-- 008_iam_phase2_foundations
+
+-- +goose Up
+
+-- Migration: 008_iam_phase2_foundations
 -- Description: Canonical IAM phase-2 foundations for tenant-scoped org units, team memberships, virtual users, and typed keys.
 
 ALTER TABLE organizations
@@ -210,3 +214,49 @@ WHERE org_unit_id IS NULL
 
 CREATE INDEX IF NOT EXISTS idx_spend_org_unit
     ON spend_logs(org_unit_id);
+
+-- +goose Down
+
+-- Migration: 008_iam_phase2_foundations (DOWN)
+-- Description: Rollback IAM phase-2 foundations.
+
+DROP INDEX IF EXISTS idx_spend_org_unit;
+ALTER TABLE spend_logs DROP COLUMN IF EXISTS org_unit_id;
+
+DROP INDEX IF EXISTS idx_vt_org_unit;
+DROP INDEX IF EXISTS idx_vt_key_type;
+DROP INDEX IF EXISTS idx_vt_virtual_user;
+
+ALTER TABLE verification_tokens DROP CONSTRAINT IF EXISTS chk_verification_tokens_key_type;
+ALTER TABLE verification_tokens DROP COLUMN IF EXISTS key_type;
+ALTER TABLE verification_tokens DROP COLUMN IF EXISTS virtual_user_id;
+ALTER TABLE verification_tokens DROP COLUMN IF EXISTS org_unit_id;
+ALTER TABLE verification_tokens DROP COLUMN IF EXISTS allowed_models;
+
+DROP INDEX IF EXISTS idx_virtual_users_org_unit;
+DROP INDEX IF EXISTS idx_virtual_users_team;
+DROP INDEX IF EXISTS idx_virtual_users_tenant;
+DROP TABLE IF EXISTS virtual_users CASCADE;
+
+DROP INDEX IF EXISTS idx_team_memberships_user;
+DROP INDEX IF EXISTS idx_team_memberships_team;
+DROP INDEX IF EXISTS idx_team_memberships_tenant;
+DROP TABLE IF EXISTS team_memberships CASCADE;
+
+DROP INDEX IF EXISTS idx_org_memberships_tenant;
+ALTER TABLE organization_memberships DROP COLUMN IF EXISTS tenant_id;
+
+DROP INDEX IF EXISTS idx_users_mobile;
+DROP INDEX IF EXISTS idx_users_tenant_id;
+ALTER TABLE users DROP COLUMN IF EXISTS tenant_id;
+ALTER TABLE users DROP COLUMN IF EXISTS mobile;
+ALTER TABLE users DROP COLUMN IF EXISTS active;
+
+DROP INDEX IF EXISTS idx_teams_org_unit_id;
+DROP INDEX IF EXISTS idx_teams_tenant_id;
+ALTER TABLE teams DROP COLUMN IF EXISTS tenant_id;
+ALTER TABLE teams DROP COLUMN IF EXISTS org_unit_id;
+ALTER TABLE teams DROP COLUMN IF EXISTS workspace_type;
+
+DROP INDEX IF EXISTS idx_organizations_tenant_id;
+ALTER TABLE organizations DROP COLUMN IF EXISTS tenant_id;

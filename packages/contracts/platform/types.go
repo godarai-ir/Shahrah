@@ -28,6 +28,7 @@ type AuthContext struct {
 	KeyType               string     `json:"key_type,omitempty"`
 	TeamMemberPermissions []string   `json:"team_member_permissions,omitempty"`
 	AllowedModels         []string   `json:"allowed_models,omitempty"`
+	EnforceModelAllowlist bool       `json:"enforce_model_allowlist,omitempty"`
 	Spend                 float64    `json:"spend"`
 	MaxBudget             *float64   `json:"max_budget,omitempty"`
 	RPMLimit              *int64     `json:"rpm_limit,omitempty"`

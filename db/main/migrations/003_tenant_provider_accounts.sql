@@ -1,4 +1,8 @@
--- Migration: 003_tenant_provider_accounts.sql
+-- 003_tenant_provider_accounts
+
+-- +goose Up
+
+-- Migration: 003_tenant_provider_accounts
 -- Description: Tenant provider accounts, selected models, and access control.
 
 CREATE TABLE IF NOT EXISTS tenant_provider_accounts (
@@ -74,3 +78,18 @@ CREATE INDEX IF NOT EXISTS idx_tenant_provider_account_access_account_id
     ON tenant_provider_account_access(account_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_tenant_provider_account_access_principal
     ON tenant_provider_account_access(account_id, role, principal_type, COALESCE(principal_id, ''));
+
+-- +goose Down
+
+-- Migration: 003_tenant_provider_accounts (DOWN)
+-- Description: Rollback tenant provider accounts, selected models, and access control.
+
+DROP INDEX IF EXISTS uq_tenant_provider_account_access_principal;
+DROP INDEX IF EXISTS idx_tenant_provider_account_access_account_id;
+DROP INDEX IF EXISTS idx_tenant_provider_account_models_account_id;
+DROP INDEX IF EXISTS idx_tenant_provider_accounts_tenant_provider;
+DROP INDEX IF EXISTS idx_tenant_provider_accounts_tenant_id;
+
+DROP TABLE IF EXISTS tenant_provider_account_access CASCADE;
+DROP TABLE IF EXISTS tenant_provider_account_models CASCADE;
+DROP TABLE IF EXISTS tenant_provider_accounts CASCADE;

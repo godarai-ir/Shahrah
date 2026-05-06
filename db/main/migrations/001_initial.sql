@@ -1,29 +1,8 @@
--- Migration: 001_initial.sql
+-- Migration: 001_initial
 -- Description: Initial database schema for Shahrah
 -- (organizations -> teams -> users -> keys hierarchy)
---
--- Run with: docker-compose exec postgres psql -U postgres -d llmproxy -f /docker-entrypoint-initdb.d/001_initial.sql
 
--- Drop existing tables if re-running (for development only)
-DROP TABLE IF EXISTS request_logs CASCADE;
-DROP TABLE IF EXISTS spend_logs CASCADE;
-DROP TABLE IF EXISTS credentials CASCADE;
-DROP TABLE IF EXISTS model_deployments CASCADE;
-DROP TABLE IF EXISTS policies CASCADE;
-DROP TABLE IF EXISTS guardrails CASCADE;
-DROP TABLE IF EXISTS tags CASCADE;
-DROP TABLE IF EXISTS end_users CASCADE;
-DROP TABLE IF EXISTS verification_tokens CASCADE;
-DROP TABLE IF EXISTS organization_memberships CASCADE;
-DROP TABLE IF EXISTS projects CASCADE;
-DROP TABLE IF EXISTS teams CASCADE;
-DROP TABLE IF EXISTS users CASCADE;
-DROP TABLE IF EXISTS organizations CASCADE;
-DROP TABLE IF EXISTS model_aliases CASCADE;
-DROP TABLE IF EXISTS object_permissions CASCADE;
-DROP TABLE IF EXISTS budgets CASCADE;
-
--- Create tables in dependency order
+-- +goose Up
 
 -- Budget / Rate Limits (top-level, referenced by orgs, teams, keys)
 CREATE TABLE budgets (
@@ -288,8 +267,8 @@ CREATE TABLE request_logs (
 -- Guardrails Configuration
 CREATE TABLE guardrails (
     guardrail_name VARCHAR(255) PRIMARY KEY,
-    guardrail_type VARCHAR(50), -- 'input' | 'output'
-    event_hook VARCHAR(50), -- 'pre_call' | 'post_call'
+    guardrail_type VARCHAR(50),
+    event_hook VARCHAR(50),
     guardrail_init_kwargs JSONB DEFAULT '{}',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -299,13 +278,13 @@ CREATE TABLE guardrails (
 CREATE TABLE policies (
     policy_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     policy_name VARCHAR(255) UNIQUE NOT NULL,
-    policy_type VARCHAR(50), -- 'budget' | 'rate_limit' | 'model_access'
+    policy_type VARCHAR(50),
     policy_config JSONB NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Separate CREATE INDEX statements (PostgreSQL doesn't support inline INDEX in CREATE TABLE)
+-- Indexes
 CREATE INDEX idx_team_org_id ON teams(organization_id);
 CREATE INDEX idx_team_alias ON teams(team_alias);
 CREATE INDEX idx_team_created_at ON teams(created_at);
@@ -323,3 +302,22 @@ CREATE INDEX idx_spend_team ON spend_logs(team_id);
 CREATE INDEX idx_spend_user ON spend_logs(user_id);
 CREATE INDEX idx_spend_org ON spend_logs(organization_id);
 
+-- +goose Down
+
+DROP TABLE IF EXISTS request_logs CASCADE;
+DROP TABLE IF EXISTS spend_logs CASCADE;
+DROP TABLE IF EXISTS credentials CASCADE;
+DROP TABLE IF EXISTS model_deployments CASCADE;
+DROP TABLE IF EXISTS policies CASCADE;
+DROP TABLE IF EXISTS guardrails CASCADE;
+DROP TABLE IF EXISTS tags CASCADE;
+DROP TABLE IF EXISTS end_users CASCADE;
+DROP TABLE IF EXISTS verification_tokens CASCADE;
+DROP TABLE IF EXISTS organization_memberships CASCADE;
+DROP TABLE IF EXISTS projects CASCADE;
+DROP TABLE IF EXISTS teams CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS organizations CASCADE;
+DROP TABLE IF EXISTS model_aliases CASCADE;
+DROP TABLE IF EXISTS object_permissions CASCADE;
+DROP TABLE IF EXISTS budgets CASCADE;

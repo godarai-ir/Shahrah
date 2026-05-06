@@ -30,6 +30,7 @@ import (
 	tclientserver "github.com/Delpak/shahrah/services/tunnel-client/pkg/server"
 	tserverserver "github.com/Delpak/shahrah/services/tunnel-server/pkg/server"
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -340,6 +341,121 @@ func TestIntegration_ConcurrentWalletDebitUsesRowLock(t *testing.T) {
 		WHERE tenant_id = $1 AND tx_type = 'CONSUMPTION'
 	`, tenant.ID).Scan(&debits))
 	assert.Equal(t, successes, debits)
+}
+
+func TestIntegration_ProviderAccountAccessAndModelSelectionHardening(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if strings.TrimSpace(databaseURL) == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	app, pool := newPersistentIntegrationApp(t, logger, memCache, "http://127.0.0.1:65535")
+	resetPersistentState(t, pool)
+
+	ctx := context.Background()
+	userID := uuid.NewString()
+	teamID := uuid.NewString()
+	orgID := uuid.NewString()
+	_, err := pool.Exec(ctx, `
+		INSERT INTO organizations (organization_id, tenant_id, organization_alias, created_at, updated_at)
+		SELECT $1::uuid, tenant_id, 'platform', NOW(), NOW()
+		FROM tenants WHERE slug = 'default'
+	`, orgID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `
+		INSERT INTO users (user_id, tenant_id, user_alias, role, active, created_at, updated_at)
+		SELECT $1::uuid, tenant_id, 'owner', 'tenant_admin', true, NOW(), NOW()
+		FROM tenants WHERE slug = 'default'
+	`, userID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `
+		INSERT INTO teams (team_id, tenant_id, team_alias, organization_id, workspace_type, created_at, updated_at)
+		SELECT $1::uuid, tenant_id, 'ml-team', $2::uuid, 'general', NOW(), NOW()
+		FROM tenants WHERE slug = 'default'
+	`, teamID, orgID)
+	require.NoError(t, err)
+
+	createAccountResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/tenant-provider-accounts", "Bearer sk-master", `{
+		"provider":"openai",
+		"name":"openai-main",
+		"auth_mode":"api_key",
+		"credentials":{"api_key":"sk-provider-demo"}
+	}`)
+	assert.Equal(t, http.StatusCreated, createAccountResp.StatusCode)
+	var account platform.TenantProviderAccount
+	decodeJSONBody(t, createAccountResp, &account)
+	require.NotEmpty(t, account.ID)
+
+	modelsResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/models", "Bearer sk-master", `{
+		"models":[
+			{"model":"gpt-4o-mini","enabled":true},
+			{"model":"gpt-4o-mini","enabled":true}
+		]
+	}`)
+	assert.Equal(t, http.StatusOK, modelsResp.StatusCode)
+	var modelsOut struct {
+		Data []platform.TenantProviderAccountModel `json:"data"`
+	}
+	decodeJSONBody(t, modelsResp, &modelsOut)
+	require.Len(t, modelsOut.Data, 1)
+	assert.Equal(t, "gpt-4o-mini", modelsOut.Data[0].Model)
+
+	invalidModelResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/models", "Bearer sk-master", `{
+		"models":[{"model":"not-a-real-model","enabled":true}]
+	}`)
+	assert.Equal(t, http.StatusBadRequest, invalidModelResp.StatusCode)
+	var invalidModelErr map[string]interface{}
+	decodeJSONBody(t, invalidModelResp, &invalidModelErr)
+	errObj, ok := invalidModelErr["error"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "validation_error", errObj["type"])
+
+	invalidPrincipalResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/access", "Bearer sk-master", fmt.Sprintf(`{
+		"access":{
+			"managers":[{"type":"user","principal_id":"%s"}],
+			"users":[{"type":"team","principal_id":"%s"}]
+		}
+	}`, uuid.NewString(), teamID))
+	assert.Equal(t, http.StatusBadRequest, invalidPrincipalResp.StatusCode)
+
+	validAccessResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/access", "Bearer sk-master", fmt.Sprintf(`{
+		"access":{
+			"managers":[{"type":"user","principal_id":"%s"},{"type":"user","principal_id":"%s"}],
+			"users":[{"type":"team","principal_id":"%s"},{"type":"team","principal_id":"%s"}]
+		}
+	}`, userID, userID, teamID, teamID))
+	assert.Equal(t, http.StatusOK, validAccessResp.StatusCode)
+	var accessOut struct {
+		Access platform.TenantProviderAccountAccessControl `json:"access"`
+	}
+	decodeJSONBody(t, validAccessResp, &accessOut)
+	require.Len(t, accessOut.Access.Managers, 1)
+	require.Len(t, accessOut.Access.Users, 1)
+
+	createModel(t, app, `{"model_name":"gpt-4o-mini","provider":"openai","model":"gpt-4o-mini","api_base":"http://127.0.0.1:65535/v1","api_key":"sk-provider","rpm":10}`)
+
+	patResp := performJSONRequestWithHeaders(
+		t,
+		app,
+		http.MethodPost,
+		"http://localhost/api/v1/personal-access-tokens",
+		"Bearer sk-master",
+		map[string]string{"x-shahrah-user-id": userID},
+		`{"name":"owner-pat","allowed_models":["*"]}`,
+	)
+	assert.Equal(t, http.StatusCreated, patResp.StatusCode)
+	var pat platform.CreatedKey
+	decodeJSONBody(t, patResp, &pat)
+	require.NotEmpty(t, pat.Key)
+
+	listModelsResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/v1/models", "Bearer "+pat.Key, "")
+	assert.Equal(t, http.StatusOK, listModelsResp.StatusCode)
+	var listOut contractsopenai.ModelListResponse
+	decodeJSONBody(t, listModelsResp, &listOut)
+	require.Len(t, listOut.Data, 1)
+	assert.Equal(t, "gpt-4o-mini", listOut.Data[0].ID)
 }
 
 func createIntegrationTenant(t *testing.T, pool *pgxpool.Pool, slug string) *platform.Tenant {

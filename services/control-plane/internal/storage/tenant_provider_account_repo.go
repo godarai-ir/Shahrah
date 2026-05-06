@@ -3,11 +3,18 @@ package storage
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/jackc/pgx/v5"
+	"go.uber.org/zap"
+)
+
+var (
+	ErrInvalidAccessPrincipal            = errors.New("invalid access principal")
+	ErrModelNotAllowedForProviderAccount = errors.New("model is not allowed for provider account")
 )
 
 // CreateTenantProviderAccount creates a provider account for the tenant.
@@ -46,6 +53,14 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 	}
 
 	account.ProviderConfig = parseJSONObject(providerCfgRaw)
+	if s.logger != nil {
+		s.logger.Info("provider_account.created",
+			zap.String("tenant_id", tenantID),
+			zap.String("account_id", account.ID),
+			zap.String("provider", account.Provider),
+			zap.String("name", account.Name),
+		)
+	}
 	return &account, nil
 }
 
@@ -126,11 +141,17 @@ func (s *Store) UpsertTenantProviderAccountModels(ctx context.Context, tenantID 
 		return nil, err
 	}
 
+	seenModel := make(map[string]struct{}, len(models))
+	modelsChanged := 0
 	for _, item := range models {
 		modelName := strings.TrimSpace(item.Model)
 		if modelName == "" {
 			return nil, fmt.Errorf("model is required")
 		}
+		if _, ok := seenModel[modelName]; ok {
+			continue
+		}
+		seenModel[modelName] = struct{}{}
 
 		settings, err := marshalJSONObject(item.Settings)
 		if err != nil {
@@ -154,13 +175,25 @@ func (s *Store) UpsertTenantProviderAccountModels(ctx context.Context, tenantID 
 		`, accountID, modelName, item.Enabled, types, string(pricingMode), privatePricing, settings); err != nil {
 			return nil, err
 		}
+		modelsChanged++
 	}
 
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 
-	return s.listTenantProviderAccountModels(ctx, accountID)
+	items, err := s.listTenantProviderAccountModels(ctx, accountID)
+	if err != nil {
+		return nil, err
+	}
+	if s.logger != nil {
+		s.logger.Info("provider_account.models_replaced",
+			zap.String("tenant_id", tenantID),
+			zap.String("account_id", accountID),
+			zap.Int("models_count", modelsChanged),
+		)
+	}
+	return items, nil
 }
 
 // UpdateTenantProviderAccountAccess replaces manager/user access assignments for one account.
@@ -180,10 +213,10 @@ func (s *Store) UpdateTenantProviderAccountAccess(ctx context.Context, tenantID 
 	}
 
 	seen := make(map[string]struct{})
-	if err := insertAccessRows(ctx, tx, accountID, platform.AccessRoleManager, access.Managers, seen); err != nil {
+	if err := insertAccessRows(ctx, tx, tenantID, accountID, platform.AccessRoleManager, access.Managers, seen); err != nil {
 		return nil, err
 	}
-	if err := insertAccessRows(ctx, tx, accountID, platform.AccessRoleUser, access.Users, seen); err != nil {
+	if err := insertAccessRows(ctx, tx, tenantID, accountID, platform.AccessRoleUser, access.Users, seen); err != nil {
 		return nil, err
 	}
 
@@ -194,6 +227,14 @@ func (s *Store) UpdateTenantProviderAccountAccess(ctx context.Context, tenantID 
 	result, err := s.listTenantProviderAccountAccess(ctx, accountID)
 	if err != nil {
 		return nil, err
+	}
+	if s.logger != nil {
+		s.logger.Info("provider_account.access_replaced",
+			zap.String("tenant_id", tenantID),
+			zap.String("account_id", accountID),
+			zap.Int("managers_count", len(result.Managers)),
+			zap.Int("users_count", len(result.Users)),
+		)
 	}
 	return &result, nil
 }
@@ -348,9 +389,9 @@ func ensureTenantProviderAccountExists(ctx context.Context, tx pgx.Tx, tenantID 
 	return exists, nil
 }
 
-func insertAccessRows(ctx context.Context, tx pgx.Tx, accountID string, role platform.AccessRole, principals []platform.AccessPrincipal, seen map[string]struct{}) error {
+func insertAccessRows(ctx context.Context, tx pgx.Tx, tenantID string, accountID string, role platform.AccessRole, principals []platform.AccessPrincipal, seen map[string]struct{}) error {
 	for _, principal := range principals {
-		normalized, err := normalizeAccessPrincipal(role, principal)
+		normalized, err := normalizeAccessPrincipal(ctx, tx, tenantID, role, principal)
 		if err != nil {
 			return err
 		}
@@ -372,7 +413,7 @@ func insertAccessRows(ctx context.Context, tx pgx.Tx, accountID string, role pla
 	return nil
 }
 
-func normalizeAccessPrincipal(role platform.AccessRole, principal platform.AccessPrincipal) (platform.AccessPrincipal, error) {
+func normalizeAccessPrincipal(ctx context.Context, tx pgx.Tx, tenantID string, role platform.AccessRole, principal platform.AccessPrincipal) (platform.AccessPrincipal, error) {
 	principal.Type = platform.PrincipalType(strings.TrimSpace(string(principal.Type)))
 	principal.PrincipalID = strings.TrimSpace(principal.PrincipalID)
 	principal.DisplayName = strings.TrimSpace(principal.DisplayName)
@@ -390,7 +431,59 @@ func normalizeAccessPrincipal(role platform.AccessRole, principal platform.Acces
 	default:
 		return platform.AccessPrincipal{}, fmt.Errorf("unsupported principal type: %s", principal.Type)
 	}
+	if principal.Type == platform.PrincipalTypeUser || principal.Type == platform.PrincipalTypeTeam {
+		ok, err := principalExistsForTenant(ctx, tx, tenantID, principal.Type, principal.PrincipalID)
+		if err != nil {
+			return platform.AccessPrincipal{}, err
+		}
+		if !ok {
+			return platform.AccessPrincipal{}, fmt.Errorf("%w: %s principal %q is not found in tenant", ErrInvalidAccessPrincipal, principal.Type, principal.PrincipalID)
+		}
+	}
 	return principal, nil
+}
+
+func principalExistsForTenant(ctx context.Context, tx pgx.Tx, tenantID string, principalType platform.PrincipalType, principalID string) (bool, error) {
+	switch principalType {
+	case platform.PrincipalTypeTeam:
+		var exists bool
+		if err := tx.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1
+				FROM teams
+				WHERE tenant_id = $1::uuid AND team_id = $2::uuid
+			)
+		`, tenantID, principalID).Scan(&exists); err != nil {
+			return false, err
+		}
+		return exists, nil
+	case platform.PrincipalTypeUser:
+		var exists bool
+		if err := tx.QueryRow(ctx, `
+			WITH tenant_slug_cte AS (
+				SELECT slug
+				FROM tenants
+				WHERE tenant_id = $1::uuid
+				LIMIT 1
+			)
+			SELECT EXISTS (
+				SELECT 1
+				FROM users u
+				WHERE u.tenant_id = $1::uuid
+				  AND u.user_id = $2::uuid
+			) OR EXISTS (
+				SELECT 1
+				FROM "tenant_admin_users" tau
+				JOIN tenant_slug_cte ts ON tau."tenantSlug" = ts.slug
+				WHERE tau."id" = $2
+			)
+		`, tenantID, principalID).Scan(&exists); err != nil {
+			return false, err
+		}
+		return exists, nil
+	default:
+		return false, nil
+	}
 }
 
 func marshalCredentialData(input *platform.ProviderAccountCredentials) ([]byte, bool, error) {

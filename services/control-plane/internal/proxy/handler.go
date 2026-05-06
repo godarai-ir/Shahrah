@@ -119,7 +119,8 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	if req.MaxTokens != nil && *req.MaxTokens < 1 {
 		return writeAPIError(c, fiber.StatusBadRequest, "max_tokens must be at least 1", "invalid_request_error")
 	}
-	if len(authInfo.AllowedModels) > 0 && !containsModel(authInfo.AllowedModels, req.Model) && !containsModel(authInfo.AllowedModels, "*") {
+	if !isModelAllowed(authInfo, req.Model) {
+		emitDenyCounter(h.logger, denyReasonForModel(authInfo), req.Model, currentTenant.ID)
 		return writeAPIError(c, fiber.StatusForbidden, "Model access denied", "authorization_error")
 	}
 	authStart := time.Now()
@@ -207,6 +208,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		}
 	}
 	if deployment == nil {
+		emitDenyCounter(h.logger, denyReasonUnknownModel, req.Model, currentTenant.ID)
 		return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", req.Model), "routing_error")
 	}
 	if !isVirtual {

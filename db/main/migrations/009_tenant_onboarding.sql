@@ -1,6 +1,11 @@
--- Migration: 009_tenant_onboarding.sql
+-- 009_tenant_onboarding
+
+-- +goose Up
+
+-- Migration: 009_tenant_onboarding
 -- Description: Explicit tenant onboarding reservations and OTP verification.
 
+-- Remove 'default' tenant that was auto-created for development
 DELETE FROM wallets
 WHERE tenant_id IN (SELECT tenant_id FROM tenants WHERE slug = 'default');
 
@@ -53,3 +58,16 @@ CREATE UNIQUE INDEX IF NOT EXISTS "tenant_admin_user_tenant_mobile_uq"
 
 CREATE INDEX IF NOT EXISTS "tenant_admin_user_tenant_slug_idx"
     ON "tenant_admin_users" ("tenantSlug");
+
+-- +goose Down
+
+-- Migration: 009_tenant_onboarding (DOWN)
+
+DROP INDEX IF EXISTS "tenant_admin_user_tenant_slug_idx";
+DROP INDEX IF EXISTS "tenant_admin_user_tenant_mobile_uq";
+DROP INDEX IF EXISTS "tenant_admin_user_tenant_email_uq";
+DROP TABLE IF EXISTS "tenant_admin_users" CASCADE;
+
+DROP INDEX IF EXISTS idx_tenant_onboarding_expires_at;
+DROP INDEX IF EXISTS idx_tenant_onboarding_slug_status;
+DROP TABLE IF EXISTS tenant_onboarding_requests CASCADE;

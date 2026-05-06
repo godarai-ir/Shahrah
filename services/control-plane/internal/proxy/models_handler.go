@@ -6,6 +6,7 @@ import (
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
 )
@@ -25,6 +26,11 @@ func NewModelsHandler(models deploymentLister) *ModelsHandler {
 }
 
 func (h *ModelsHandler) Handle(c *fiber.Ctx) error {
+	authInfo := auth.GetAuthInfo(c)
+	if authInfo == nil {
+		return writeAPIError(c, fiber.StatusUnauthorized, "authentication required", "authentication_error")
+	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return writeAPIError(c, fiber.StatusBadRequest, "tenant context missing", "invalid_request_error")
@@ -40,6 +46,9 @@ func (h *ModelsHandler) Handle(c *fiber.Ctx) error {
 		id := dep.ModelName
 		if id == "" {
 			id = dep.ID
+		}
+		if !isModelAllowed(authInfo, id) {
+			continue
 		}
 		model := byAlias[id]
 		model.ID = id
@@ -58,6 +67,9 @@ func (h *ModelsHandler) Handle(c *fiber.Ctx) error {
 		return err
 	}
 	for _, vm := range virtualModels {
+		if !isModelAllowed(authInfo, vm.Alias) {
+			continue
+		}
 		model := byAlias[vm.Alias]
 		model.ID = vm.Alias
 		model.Object = "model"
