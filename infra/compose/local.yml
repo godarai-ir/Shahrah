@@ -3,6 +3,8 @@ services:
     build:
       context: ../../
       dockerfile: services/control-plane/Dockerfile
+      args:
+        GOPROXY: ${GOPROXY:-https://goproxy.io,direct}
     ports:
       - "4000:4000"
     environment:

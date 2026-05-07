@@ -1,20 +1,26 @@
 FROM golang:1.25.7-alpine AS builder
 
+ARG GOPROXY=https://goproxy.io,direct
+ENV GOPROXY=${GOPROXY}
+
 WORKDIR /src
 
 COPY packages/contracts ./packages/contracts
-
 COPY services/control-plane/go.mod services/control-plane/go.sum ./services/control-plane/
 
 WORKDIR /src/services/control-plane
 ENV GOWORK=off
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go mod download
 
 WORKDIR /src
 COPY services/control-plane ./services/control-plane
 
 WORKDIR /src/services/control-plane
-RUN CGO_ENABLED=0 GOOS=linux go build -mod=mod -o /out/server ./cmd/server
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build -mod=mod -o /out/server ./cmd/server
 
 FROM alpine:3.19
 
