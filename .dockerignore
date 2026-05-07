@@ -1,0 +1,45 @@
+# VCS
+.git
+.github
+
+# Editor/IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# JS/website workspace not needed for Go service image
+apps/
+node_modules/
+.turbo/
+
+# Planning/docs not required for image build
+plans/
+*.md
+
+# Local/dev tooling
+.agents/
+.codex/
+.roo/
+.portkey-docs/
+.truefoundry-docs/
+.llmLite_docs/
+
+# Build artifacts
+**/*.exe
+**/bin/
+**/dist/
+**/coverage/
+
+# Database assets not required by control-plane image build
+db/
+infra/clickhouse/
+
+# Env and logs
+**/.env
+**/.env.*
+**/*.log
