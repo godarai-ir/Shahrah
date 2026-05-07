@@ -184,6 +184,8 @@ func discoveryProviderModels(ctx context.Context, provider string) ([]platform.P
 			}
 			return items, errLocal
 		}
+		items[i].Types = normalizeModelTypes(items[i].Types)
+		items[i].PublicPricing = fillModelPricingFromRegistry(normalizedProvider, items[i].Model, items[i].PublicPricing)
 	}
 	setCachedProviderModels(normalizedProvider, items)
 	return items, nil
@@ -313,11 +315,15 @@ func validateProviderModelsFromCatalog(ctx context.Context, provider string, mod
 		if len(item.Types) > 0 && len(cm.Types) > 0 {
 			allowedTypes := map[platform.ModelType]struct{}{}
 			for _, t := range cm.Types {
-				allowedTypes[t] = struct{}{}
+				allowedTypes[platform.ModelType(strings.TrimSpace(strings.ToLower(string(t))))] = struct{}{}
 			}
 			for _, mt := range item.Types {
-				if _, ok := allowedTypes[mt]; !ok {
-					key := model + ":" + string(mt)
+				normalizedMT := platform.ModelType(strings.TrimSpace(strings.ToLower(string(mt))))
+				if normalizedMT == "" {
+					continue
+				}
+				if _, ok := allowedTypes[normalizedMT]; !ok {
+					key := model + ":" + string(normalizedMT)
 					if _, dup := seenType[key]; !dup {
 						seenType[key] = struct{}{}
 						invalidType = append(invalidType, key)
@@ -729,7 +735,7 @@ func builtinProviderModelCatalog(provider string) ([]platform.ProviderCatalogMod
 			Provider:    provider,
 			Model:       model,
 			DisplayName: model,
-			Types:       item.Types,
+			Types:       normalizeModelTypes(item.Types),
 		}
 		if item.InputUSDPer1M != nil || item.OutputUSDPer1M != nil {
 			entry.PublicPricing = &platform.ModelPrice{
@@ -737,6 +743,7 @@ func builtinProviderModelCatalog(provider string) ([]platform.ProviderCatalogMod
 				OutputUSDPer1M: item.OutputUSDPer1M,
 			}
 		}
+		entry.PublicPricing = fillModelPricingFromRegistry(provider, model, entry.PublicPricing)
 		items = append(items, entry)
 	}
 	if len(items) == 0 {
@@ -746,6 +753,56 @@ func builtinProviderModelCatalog(provider string) ([]platform.ProviderCatalogMod
 		return items[i].Model < items[j].Model
 	})
 	return items, true
+}
+
+func normalizeModelTypes(types []platform.ModelType) []platform.ModelType {
+	if len(types) == 0 {
+		return nil
+	}
+	out := make([]platform.ModelType, 0, len(types))
+	seen := make(map[platform.ModelType]struct{}, len(types))
+	for _, item := range types {
+		normalized := platform.ModelType(strings.TrimSpace(strings.ToLower(string(item))))
+		if normalized == "" {
+			continue
+		}
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, normalized)
+	}
+	return out
+}
+
+func fillModelPricingFromRegistry(provider string, model string, current *platform.ModelPrice) *platform.ModelPrice {
+	hasInput := current != nil && current.InputUSDPer1M != nil && *current.InputUSDPer1M > 0
+	hasOutput := current != nil && current.OutputUSDPer1M != nil && *current.OutputUSDPer1M > 0
+	if hasInput && hasOutput {
+		return current
+	}
+
+	pricing, _ := billing.GetPricing(provider, model)
+	if pricing.InputPrice <= 0 && pricing.OutputPrice <= 0 {
+		return current
+	}
+
+	out := &platform.ModelPrice{}
+	if current != nil {
+		*out = *current
+	}
+	if (out.InputUSDPer1M == nil || *out.InputUSDPer1M <= 0) && pricing.InputPrice > 0 {
+		v := pricing.InputPrice
+		out.InputUSDPer1M = &v
+	}
+	if (out.OutputUSDPer1M == nil || *out.OutputUSDPer1M <= 0) && pricing.OutputPrice > 0 {
+		v := pricing.OutputPrice
+		out.OutputUSDPer1M = &v
+	}
+	if out.InputUSDPer1M == nil && out.OutputUSDPer1M == nil {
+		return nil
+	}
+	return out
 }
 
 type builtInModelEntry struct {

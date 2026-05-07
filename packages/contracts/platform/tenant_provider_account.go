@@ -23,6 +23,7 @@ const (
 	ModelTypeRealtime           ModelType = "realtime"
 	ModelTypeTextToSpeech       ModelType = "text_to_speech"
 	ModelTypeAudioTranscription ModelType = "audio_transcription"
+	ModelTypeAudioTranslation   ModelType = "audio_translation"
 	ModelTypeImageGeneration    ModelType = "image_generation"
 	ModelTypeModeration         ModelType = "moderation"
 	ModelTypeRerank             ModelType = "rerank"

@@ -19,17 +19,7 @@ type ProviderAuthMode =
   | "google_service_account"
   | "no_credential";
 
-type ModelType =
-  | "chat"
-  | "completion"
-  | "embedding"
-  | "realtime"
-  | "text_to_speech"
-  | "audio_transcription"
-  | "image_generation"
-  | "moderation"
-  | "rerank"
-  | "search";
+type ModelType = string;
 
 type PrincipalType = "user" | "team" | "everyone";
 type SetupStep = 1 | 2 | 3 | 4 | 5;
@@ -137,19 +127,6 @@ type ModelDraft = {
 };
 
 type Readiness = "ready" | "needs_credentials" | "needs_access" | "pricing_incomplete";
-
-const ALL_MODEL_TYPES: ModelType[] = [
-  "chat",
-  "completion",
-  "embedding",
-  "realtime",
-  "text_to_speech",
-  "audio_transcription",
-  "image_generation",
-  "moderation",
-  "rerank",
-  "search",
-];
 
 export default function ProviderAccountWizard() {
   const t = useTranslations("providerAccounts");
@@ -1877,10 +1854,12 @@ function hydrateDraftsFromAccount(
 function normalizeModelTypes(types: string[] | ModelType[] | undefined): ModelType[] {
   if (!Array.isArray(types)) return [];
   const output: ModelType[] = [];
+  const seen = new Set<string>();
   for (const item of types) {
-    if ((ALL_MODEL_TYPES as string[]).includes(item)) {
-      output.push(item as ModelType);
-    }
+    const normalized = String(item ?? "").trim().toLowerCase();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    output.push(normalized);
   }
   return output;
 }

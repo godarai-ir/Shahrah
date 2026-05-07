@@ -998,11 +998,15 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 		if req.Models[i].Model == "" {
 			return fiber.NewError(fiber.StatusBadRequest, "model is required for each item")
 		}
+		normalizedTypes := make([]platform.ModelType, 0, len(req.Models[i].Types))
 		for _, mt := range req.Models[i].Types {
-			if !isSupportedModelType(mt) {
-				return fiber.NewError(fiber.StatusBadRequest, "invalid model type: "+string(mt))
+			trimmed := platform.ModelType(strings.TrimSpace(strings.ToLower(string(mt))))
+			if trimmed == "" {
+				continue
 			}
+			normalizedTypes = append(normalizedTypes, trimmed)
 		}
+		req.Models[i].Types = normalizedTypes
 		if req.Models[i].PricingMode == "" {
 			req.Models[i].PricingMode = platform.PricingModePublic
 		}
@@ -2187,22 +2191,4 @@ func mapProviderAccountStoreError(err error) error {
 		}
 	}
 	return err
-}
-
-func isSupportedModelType(v platform.ModelType) bool {
-	switch v {
-	case platform.ModelTypeChat,
-		platform.ModelTypeCompletion,
-		platform.ModelTypeEmbedding,
-		platform.ModelTypeRealtime,
-		platform.ModelTypeTextToSpeech,
-		platform.ModelTypeAudioTranscription,
-		platform.ModelTypeImageGeneration,
-		platform.ModelTypeModeration,
-		platform.ModelTypeRerank,
-		platform.ModelTypeSearch:
-		return true
-	default:
-		return false
-	}
 }
