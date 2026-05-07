@@ -55,6 +55,7 @@ type TeamMember = {
 };
 type OrgUnit = { id: string; alias: string; display_name?: string };
 type AccessPrincipalCandidate = { principal_id: string; display_name: string; secondary?: string };
+type MemberCandidateOption = { userID: string; label: string };
 type ListResponse<T> = { data?: T[]; total?: number };
 type Banner = { kind: "success" | "error" | "warning"; message: string };
 
@@ -134,7 +135,7 @@ export default function TeamManagement({
   const [membersOpen, setMembersOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [form, setForm] = useState<TeamForm>(emptyForm);
-  const [memberUserID, setMemberUserID] = useState("");
+  const [memberUserInput, setMemberUserInput] = useState("");
   const [memberRole, setMemberRole] = useState("team_member");
   const [memberPerms, setMemberPerms] = useState<string[]>(DEFAULT_PERMISSIONS);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
@@ -170,6 +171,16 @@ export default function TeamManagement({
       return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
     });
   }, [teams, orgFilter, workspaceFilter, statusFilter, sortBy]);
+
+  const memberCandidateOptions = useMemo<MemberCandidateOption[]>(() => {
+    return users.map((user) => ({
+      userID: user.principal_id,
+      label: formatMemberCandidateLabel(user),
+    }));
+  }, [users]);
+  const memberLabelByUserID = useMemo(() => {
+    return new Map(memberCandidateOptions.map((item) => [item.userID, item.label]));
+  }, [memberCandidateOptions]);
 
   async function loadTeams(nextOffset: number, q: string) {
     setIsLoading(true);
@@ -260,19 +271,20 @@ export default function TeamManagement({
   async function addMember(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedTeam) return;
-    if (!memberUserID.trim()) return setBanner({ kind: "error", message: t("messages.selectUser") });
+    const resolvedUserID = resolveMemberUserID(memberUserInput, memberCandidateOptions);
+    if (!resolvedUserID) return setBanner({ kind: "error", message: t("messages.selectUser") });
     setIsSaving(true);
     try {
       await requestJSON(`/api/teams/${encodeURIComponent(selectedTeam.id)}/members`, {
         method: "POST",
         body: JSON.stringify({
-          user_id: memberUserID.trim(),
+          user_id: resolvedUserID,
           role: memberRole,
           team_member_permissions: memberRole === "team_member" ? memberPerms : PERMISSIONS,
           metadata: {},
         }),
       });
-      setMemberUserID("");
+      setMemberUserInput("");
       setMemberRole("team_member");
       setMemberPerms(DEFAULT_PERMISSIONS);
       await loadTeamDetails(selectedTeam.id);
@@ -431,7 +443,7 @@ export default function TeamManagement({
             </div>
             <Card><CardHeader><CardTitle>{t("detail.guardrails")}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm"><p>{t("detail.budget", { spend: formatMoney(summary.spend), max: formatMoney(summary.maxBudget) })}</p><p>{t("detail.softBudget", { value: formatMoney(summary.softBudget) })}</p><p>{t("detail.duration", { value: summary.duration || t("common.notSet") })}</p><p>{t("detail.limits", { tpm: formatLimit(summary.tpm), rpm: formatLimit(summary.rpm) })}</p></CardContent></Card>
             <Card><CardHeader><CardTitle>{t("detail.access")}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm"><p>{t("detail.models", { value: getModelSummary(selectedTeam, t) })}</p><p>{t("detail.orgInheritance", { value: getOrgUnitName(selectedTeam, orgUnits, t) })}</p><p>{t("detail.permissions", { value: summarizePermissions(members, t) })}</p></CardContent></Card>
-            <Card><CardHeader><CardTitle>{t("detail.members")}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm">{detailLoading ? <p>{t("detail.loading")}</p> : members.length === 0 ? <p>{t("detail.noMembers")}</p> : members.map((member) => <div key={member.user_id} className="flex items-center justify-between gap-2 rounded border p-2"><span className="truncate">{member.user_id}</span><Badge variant={member.role === "team_admin" ? "default" : "secondary"}>{member.role}</Badge></div>)}</CardContent></Card>
+            <Card><CardHeader><CardTitle>{t("detail.members")}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm">{detailLoading ? <p>{t("detail.loading")}</p> : members.length === 0 ? <p>{t("detail.noMembers")}</p> : members.map((member) => <div key={member.user_id} className="flex items-center justify-between gap-2 rounded border p-2"><span className="truncate">{getMemberDisplayLabel(member.user_id, memberLabelByUserID, t("members.unknownUser"))}</span><Badge variant={member.role === "team_admin" ? "default" : "secondary"}>{member.role}</Badge></div>)}</CardContent></Card>
           </>}
         </div>
       </section>
@@ -440,12 +452,12 @@ export default function TeamManagement({
 
       <Sheet open={membersOpen} onOpenChange={setMembersOpen}><SheetContent side="right" className="w-[94vw] max-w-xl overflow-y-auto"><SheetHeader><SheetTitle>{t("members.title")}</SheetTitle><SheetDescription>{t("members.description")}</SheetDescription></SheetHeader>
         <form onSubmit={addMember} className="mt-6 space-y-3">
-          <div className="grid gap-2"><Label htmlFor="team-member-user">{t("members.user")}</Label><Input id="team-member-user" value={memberUserID} onChange={(e) => setMemberUserID(e.target.value)} list="member-candidates" placeholder={t("members.userPlaceholder")} /><datalist id="member-candidates">{users.map((user) => <option key={user.principal_id} value={user.principal_id}>{user.display_name}</option>)}</datalist></div>
+          <div className="grid gap-2"><Label htmlFor="team-member-user">{t("members.user")}</Label><Input id="team-member-user" value={memberUserInput} onChange={(e) => setMemberUserInput(e.target.value)} list="member-candidates" placeholder={t("members.userPlaceholder")} /><datalist id="member-candidates">{memberCandidateOptions.map((user) => <option key={user.userID} value={user.label} />)}</datalist></div>
           <div className="grid gap-2"><Label htmlFor="team-member-role">{t("members.role")}</Label><select id="team-member-role" className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={memberRole} onChange={(e) => setMemberRole(e.target.value)}><option value="team_member">{t("members.teamMember")}</option><option value="team_admin">{t("members.teamAdmin")}</option></select></div>
           {memberRole === "team_member" ? <div className="grid gap-2"><Label>{t("members.permissions")}</Label><div className="grid gap-2">{PERMISSIONS.map((perm) => <label key={perm} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={memberPerms.includes(perm)} onChange={(e) => setMemberPerms((prev) => e.target.checked ? [...prev, perm] : prev.filter((item) => item !== perm))} /><span>{perm}</span></label>)}</div></div> : null}
           <Button type="submit" className="w-full" disabled={!canManage || isSaving}>{t("members.add")}</Button>
         </form>
-        <div className="mt-6 space-y-2">{members.map((member) => <div key={member.user_id} className="rounded border p-3"><div className="flex items-center justify-between"><span className="truncate text-sm">{member.user_id}</span><Badge variant={member.role === "team_admin" ? "default" : "secondary"}>{member.role}</Badge></div><div className="mt-2 flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => void updateMember(member, member.role === "team_admin" ? "team_member" : "team_admin", member.team_member_permissions ?? DEFAULT_PERMISSIONS)} disabled={!canManage || isSaving}>{member.role === "team_admin" ? t("members.makeTeamMember") : t("members.makeTeamAdmin")}</Button><Button size="sm" variant="outline" className="text-destructive" onClick={() => void removeMember(member.user_id)} disabled={!canManage || isSaving}>{t("members.remove")}</Button></div></div>)}</div>
+        <div className="mt-6 space-y-2">{members.map((member) => <div key={member.user_id} className="rounded border p-3"><div className="flex items-center justify-between"><span className="truncate text-sm">{getMemberDisplayLabel(member.user_id, memberLabelByUserID, t("members.unknownUser"))}</span><Badge variant={member.role === "team_admin" ? "default" : "secondary"}>{member.role}</Badge></div><div className="mt-2 flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => void updateMember(member, member.role === "team_admin" ? "team_member" : "team_admin", member.team_member_permissions ?? DEFAULT_PERMISSIONS)} disabled={!canManage || isSaving}>{member.role === "team_admin" ? t("members.makeTeamMember") : t("members.makeTeamAdmin")}</Button><Button size="sm" variant="outline" className="text-destructive" onClick={() => void removeMember(member.user_id)} disabled={!canManage || isSaving}>{t("members.remove")}</Button></div></div>)}</div>
       </SheetContent></Sheet>
 
       <Sheet open={deleteOpen} onOpenChange={setDeleteOpen}><SheetContent side="right" className="w-[94vw] max-w-md"><SheetHeader><SheetTitle>{t("delete.title")}</SheetTitle><SheetDescription>{t("delete.description")}</SheetDescription></SheetHeader>
@@ -532,6 +544,35 @@ function formFromTeam(team: Team): TeamForm {
     tpmLimit: numberToInput(getTpm(team)),
     rpmLimit: numberToInput(getRpm(team)),
   };
+}
+
+function formatMemberCandidateLabel(candidate: AccessPrincipalCandidate) {
+  const secondary = candidate.secondary?.trim() ?? "";
+  const display = candidate.display_name.trim();
+  if (secondary && !looksLikeUserID(secondary)) return secondary;
+  if (!looksLikeUserID(display)) return display;
+  if (secondary) return secondary;
+  return display;
+}
+
+function resolveMemberUserID(input: string, options: MemberCandidateOption[]) {
+  const normalizedInput = input.trim();
+  if (!normalizedInput) return "";
+  const byLabel = options.find((option) => option.label === normalizedInput);
+  if (byLabel) return byLabel.userID;
+  if (looksLikeUserID(normalizedInput)) return normalizedInput;
+  return "";
+}
+
+function looksLikeUserID(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim());
+}
+
+function getMemberDisplayLabel(userID: string, memberLabelByUserID: Map<string, string>, unknownUserLabel: string) {
+  const userLabel = memberLabelByUserID.get(userID);
+  if (userLabel) return userLabel;
+  if (looksLikeUserID(userID)) return unknownUserLabel;
+  return userID;
 }
 
 function buildSummary(team: Team, members: TeamMember[]) {
