@@ -8,23 +8,24 @@ datasource db {
 }
 
 model Budget {
-  budget_id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  max_budget            Decimal?       @db.Decimal(10, 4)
-  soft_budget           Decimal?       @db.Decimal(10, 4)
+  budget_id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  max_budget            Decimal?         @db.Decimal(10, 4)
+  soft_budget           Decimal?         @db.Decimal(10, 4)
   tpm_limit             BigInt?
   rpm_limit             BigInt?
   max_parallel_requests Int?
-  budget_duration       String?        @db.VarChar(50)
-  budget_reset_at       DateTime?      @db.Timestamptz(6)
+  budget_duration       String?          @db.VarChar(50)
+  budget_reset_at       DateTime?        @db.Timestamptz(6)
   model_max_budget      Json?
-  created_at            DateTime?      @default(now()) @db.Timestamptz(6)
-  created_by            String?        @db.VarChar(255)
-  updated_at            DateTime?      @default(now()) @db.Timestamptz(6)
-  updated_by            String?        @db.VarChar(255)
+  created_at            DateTime?        @default(now()) @db.Timestamptz(6)
+  created_by            String?          @db.VarChar(255)
+  updated_at            DateTime?        @default(now()) @db.Timestamptz(6)
+  updated_by            String?          @db.VarChar(255)
   end_users             EndUser[]
   organizations         Organization[]
   projects              Project[]
   tags                  Tag[]
+  team_memberships      TeamMembership[]
 
   @@map("budgets")
 }
@@ -64,19 +65,14 @@ model Tenant {
   created_at                 DateTime                     @default(now()) @db.Timestamptz(6)
   updated_at                 DateTime                     @default(now()) @db.Timestamptz(6)
   model_deployments          ModelDeployment[]
-  organization_memberships   OrganizationMembership[]
-  organizations              Organization[]
   request_logs               RequestLog[]
   spend_logs                 SpendLog[]
   team_memberships           TeamMembership[]
-  teams                      Team[]
   tenantAdminInvitations     tenant_admin_invitations[]
   tenant_onboarding_requests tenant_onboarding_requests[]
   tenant_provider_accounts   TenantProviderAccount[]
-  users                      User[]
   verification_tokens        VerificationToken[]
   virtual_models             virtual_models[]
-  virtual_users              VirtualUser[]
   wallet_topup_intents       wallet_topup_intents[]
   wallet_transactions        WalletTransaction[]
   wallets                    Wallet?
@@ -85,83 +81,71 @@ model Tenant {
 }
 
 model Organization {
-  organization_id                                                    String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organization_alias                                                 String                   @db.VarChar(255)
-  budget_id                                                          String?                  @db.Uuid
-  metadata                                                           Json?                    @default("{}")
-  models                                                             String[]                 @default([])
-  spend                                                              Decimal?                 @default(0.0) @db.Decimal(10, 4)
-  model_spend                                                        Json?                    @default("{}")
-  object_permission_id                                               String?                  @db.Uuid
-  created_at                                                         DateTime?                @default(now()) @db.Timestamptz(6)
-  created_by                                                         String?                  @db.VarChar(255)
-  updated_at                                                         DateTime?                @default(now()) @db.Timestamptz(6)
-  updated_by                                                         String?                  @db.VarChar(255)
-  tenant_id                                                          String?                  @db.Uuid
-  organization_memberships                                           OrganizationMembership[]
-  budgets                                                            Budget?                  @relation(fields: [budget_id], references: [budget_id], onDelete: NoAction, onUpdate: NoAction)
-  object_permissions                                                 ObjectPermission?        @relation(fields: [object_permission_id], references: [object_permission_id], onDelete: NoAction, onUpdate: NoAction)
-  tenants                                                            Tenant?                  @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction)
-  spend_logs                                                         SpendLog[]
-  teams_teams_org_unit_idToorganizations                             Team[]                   @relation("teams_org_unit_idToorganizations")
-  teams                                                              Team[]
-  users                                                              User[]
-  verification_tokens_verification_tokens_org_unit_idToorganizations VerificationToken[]      @relation("verification_tokens_org_unit_idToorganizations")
-  verification_tokens                                                VerificationToken[]
+  organization_id          String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_alias       String                   @db.VarChar(255)
+  budget_id                String?                  @db.Uuid
+  metadata                 Json?                    @default("{}")
+  models                   String[]                 @default([])
+  spend                    Decimal?                 @default(0.0) @db.Decimal(10, 4)
+  model_spend              Json?                    @default("{}")
+  object_permission_id     String?                  @db.Uuid
+  created_at               DateTime?                @default(now()) @db.Timestamptz(6)
+  created_by               String?                  @db.VarChar(255)
+  updated_at               DateTime?                @default(now()) @db.Timestamptz(6)
+  updated_by               String?                  @db.VarChar(255)
+  organization_memberships OrganizationMembership[]
+  budgets                  Budget?                  @relation(fields: [budget_id], references: [budget_id], onDelete: NoAction, onUpdate: NoAction)
+  object_permissions       ObjectPermission?        @relation(fields: [object_permission_id], references: [object_permission_id], onDelete: NoAction, onUpdate: NoAction)
+  teams                    Team[]
+  users                    User[]
+  verification_tokens      VerificationToken[]
 
-  @@index([tenant_id], map: "idx_organizations_tenant_id")
   @@map("organizations")
 }
 
 model Team {
-  team_id                                        String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  team_alias                                     String?             @db.VarChar(255)
-  organization_id                                String?             @db.Uuid
-  object_permission_id                           String?             @db.Uuid
-  admins                                         String[]            @default([])
-  members                                        String[]            @default([])
-  members_with_roles                             Json?               @default("{}")
-  metadata                                       Json?               @default("{}")
-  max_budget                                     Decimal?            @db.Decimal(10, 4)
-  soft_budget                                    Decimal?            @db.Decimal(10, 4)
-  spend                                          Decimal?            @default(0.0) @db.Decimal(10, 4)
-  models                                         String[]            @default([])
-  max_parallel_requests                          Int?
-  tpm_limit                                      BigInt?
-  rpm_limit                                      BigInt?
-  budget_duration                                String?             @db.VarChar(50)
-  budget_reset_at                                DateTime?           @db.Timestamptz(6)
-  blocked                                        Boolean?            @default(false)
-  model_spend                                    Json?               @default("{}")
-  model_max_budget                               Json?               @default("{}")
-  router_settings                                Json?               @default("{}")
-  team_member_permissions                        String[]            @default([])
-  access_group_ids                               String[]            @default([])
-  policies                                       String[]            @default([])
-  default_team_member_models                     String[]            @default([])
-  budget_limits                                  Json?
-  model_id                                       Int?
-  allow_team_guardrail_config                    Boolean?            @default(false)
-  created_at                                     DateTime?           @default(now()) @db.Timestamptz(6)
-  updated_at                                     DateTime?           @default(now()) @db.Timestamptz(6)
-  tenant_id                                      String?             @db.Uuid
-  org_unit_id                                    String?             @db.Uuid
-  workspace_type                                 String              @default("general") @db.VarChar(50)
-  end_users                                      EndUser[]
-  projects                                       Project[]
-  model_aliases                                  ModelAlias?         @relation(fields: [model_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  object_permissions                             ObjectPermission?   @relation(fields: [object_permission_id], references: [object_permission_id], onDelete: NoAction, onUpdate: NoAction)
-  organizations_teams_org_unit_idToorganizations Organization?       @relation("teams_org_unit_idToorganizations", fields: [org_unit_id], references: [organization_id], onDelete: NoAction, onUpdate: NoAction)
-  organizations                                  Organization?       @relation(fields: [organization_id], references: [organization_id], onDelete: NoAction, onUpdate: NoAction)
-  tenants                                        Tenant?             @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction)
-  users                                          User[]
-  verification_tokens                            VerificationToken[]
+  team_id                     String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  team_alias                  String?             @db.VarChar(255)
+  organization_id             String?             @db.Uuid
+  object_permission_id        String?             @db.Uuid
+  admins                      String[]            @default([])
+  members                     String[]            @default([])
+  members_with_roles          Json?               @default("{}")
+  metadata                    Json?               @default("{}")
+  max_budget                  Decimal?            @db.Decimal(10, 4)
+  soft_budget                 Decimal?            @db.Decimal(10, 4)
+  spend                       Decimal?            @default(0.0) @db.Decimal(10, 4)
+  models                      String[]            @default([])
+  max_parallel_requests       Int?
+  tpm_limit                   BigInt?
+  rpm_limit                   BigInt?
+  budget_duration             String?             @db.VarChar(50)
+  budget_reset_at             DateTime?           @db.Timestamptz(6)
+  blocked                     Boolean?            @default(false)
+  model_spend                 Json?               @default("{}")
+  model_max_budget            Json?               @default("{}")
+  router_settings             Json?               @default("{}")
+  team_member_permissions     String[]            @default([])
+  access_group_ids            String[]            @default([])
+  policies                    String[]            @default([])
+  default_team_member_models  String[]            @default([])
+  budget_limits               Json?
+  model_id                    Int?
+  allow_team_guardrail_config Boolean?            @default(false)
+  created_at                  DateTime?           @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime?           @default(now()) @db.Timestamptz(6)
+  end_users                   EndUser[]
+  projects                    Project[]
+  team_memberships            TeamMembership[]
+  model_aliases               ModelAlias?         @relation(fields: [model_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  object_permissions          ObjectPermission?   @relation(fields: [object_permission_id], references: [object_permission_id], onDelete: NoAction, onUpdate: NoAction)
+  organizations               Organization?       @relation(fields: [organization_id], references: [organization_id], onDelete: NoAction, onUpdate: NoAction)
+  users                       User[]
+  verification_tokens         VerificationToken[]
 
   @@index([team_alias], map: "idx_team_alias")
   @@index([created_at], map: "idx_team_created_at")
   @@index([organization_id], map: "idx_team_org_id")
-  @@index([tenant_id], map: "idx_teams_tenant_id")
-  @@index([org_unit_id], map: "idx_teams_org_unit_id")
   @@map("teams")
 }
 
@@ -207,18 +191,13 @@ model User {
   object_permission_id     String?                  @db.Uuid
   created_at               DateTime?                @default(now()) @db.Timestamptz(6)
   updated_at               DateTime?                @default(now()) @db.Timestamptz(6)
-  tenant_id                String?                  @db.Uuid
-  mobile                   String?                  @db.VarChar(50)
-  active                   Boolean                  @default(true)
   organization_memberships OrganizationMembership[]
+  team_memberships         TeamMembership[]
   object_permissions       ObjectPermission?        @relation(fields: [object_permission_id], references: [object_permission_id], onDelete: NoAction, onUpdate: NoAction)
   organizations            Organization?            @relation(fields: [organization_id], references: [organization_id], onDelete: NoAction, onUpdate: NoAction)
   teams                    Team?                    @relation(fields: [team_id], references: [team_id], onDelete: NoAction, onUpdate: NoAction)
-  tenants                  Tenant?                  @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction)
   verification_tokens      VerificationToken[]
 
-  @@index([tenant_id], map: "idx_users_tenant_id")
-  @@index([mobile], map: "idx_users_mobile")
   @@map("users")
 }
 
@@ -229,13 +208,10 @@ model OrganizationMembership {
   role            String?      @default("member") @db.VarChar(50)
   created_at      DateTime?    @default(now()) @db.Timestamptz(6)
   updated_at      DateTime?    @default(now()) @db.Timestamptz(6)
-  tenant_id       String?      @db.Uuid
   organizations   Organization @relation(fields: [organization_id], references: [organization_id], onDelete: Cascade, onUpdate: NoAction)
-  tenants         Tenant?      @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction)
   users           User         @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([organization_id, user_id])
-  @@index([tenant_id], map: "idx_org_memberships_tenant")
   @@index([organization_id], map: "idx_org_memberships_org")
   @@index([user_id], map: "idx_org_memberships_user")
   @@map("organization_memberships")
@@ -253,7 +229,10 @@ model TeamMembership {
   metadata                Json?    @default("{}")
   created_at              DateTime @default(now()) @db.Timestamptz(6)
   updated_at              DateTime @default(now()) @db.Timestamptz(6)
+  budgets                 Budget?  @relation(fields: [budget_id], references: [budget_id], onDelete: NoAction, onUpdate: NoAction)
+  teams                   Team     @relation(fields: [team_id], references: [team_id], onDelete: Cascade, onUpdate: NoAction)
   tenants                 Tenant   @relation(fields: [tenant_id], references: [tenant_id], onDelete: Cascade, onUpdate: NoAction)
+  users                   User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([team_id, user_id], map: "uq_team_memberships_team_user")
   @@index([tenant_id], map: "idx_team_memberships_tenant")
@@ -262,77 +241,47 @@ model TeamMembership {
   @@map("team_memberships")
 }
 
-model VirtualUser {
-  virtual_user_id     String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id           String              @db.Uuid
-  team_id             String?             @db.Uuid
-  org_unit_id         String?             @db.Uuid
-  alias               String              @db.VarChar(255)
-  display_name        String?             @db.VarChar(255)
-  active              Boolean             @default(true)
-  metadata            Json?               @default("{}")
-  created_at          DateTime            @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime            @default(now()) @db.Timestamptz(6)
-  verification_tokens VerificationToken[]
-  tenants             Tenant              @relation(fields: [tenant_id], references: [tenant_id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([tenant_id, alias], map: "uq_virtual_users_tenant_alias")
-  @@index([tenant_id], map: "idx_virtual_users_tenant")
-  @@index([team_id], map: "idx_virtual_users_team")
-  @@index([org_unit_id], map: "idx_virtual_users_org_unit")
-  @@map("virtual_users")
-}
-
 model VerificationToken {
-  id                                                           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  token_hash                                                   String        @unique @db.VarChar(64)
-  key_alias                                                    String?       @db.VarChar(255)
-  key_name                                                     String?       @db.VarChar(255)
-  team_id                                                      String?       @db.Uuid
-  user_id                                                      String?       @db.Uuid
-  organization_id                                              String?       @db.Uuid
-  project_id                                                   String?       @db.Uuid
-  models                                                       String[]      @default([])
-  max_budget                                                   Decimal?      @db.Decimal(10, 4)
-  soft_budget                                                  Decimal?      @db.Decimal(10, 4)
-  tpm_limit                                                    BigInt?
-  rpm_limit                                                    BigInt?
-  max_parallel_requests                                        Int?
-  budget_duration                                              String?       @db.VarChar(50)
-  budget_reset_at                                              DateTime?     @db.Timestamptz(6)
-  spend                                                        Decimal?      @default(0.0) @db.Decimal(10, 4)
-  expires                                                      DateTime?     @db.Timestamptz(6)
-  blocked                                                      Boolean?      @default(false)
-  metadata                                                     Json?         @default("{}")
-  created_at                                                   DateTime?     @default(now()) @db.Timestamptz(6)
-  updated_at                                                   DateTime?     @default(now()) @db.Timestamptz(6)
-  tenant_id                                                    String?       @db.Uuid
-  key_type                                                     String?       @default("pat") @db.VarChar(20)
-  virtual_user_id                                              String?       @db.Uuid
-  org_unit_id                                                  String?       @db.Uuid
-  allowed_models                                               String[]      @default([])
-  created_by_user_id                                           String?
-  last_used_at                                                 DateTime?     @db.Timestamptz(6)
-  revoked_at                                                   DateTime?     @db.Timestamptz(6)
-  revoked_by_user_id                                           String?
-  organizations_verification_tokens_org_unit_idToorganizations Organization? @relation("verification_tokens_org_unit_idToorganizations", fields: [org_unit_id], references: [organization_id], onDelete: NoAction, onUpdate: NoAction)
-  organizations                                                Organization? @relation(fields: [organization_id], references: [organization_id], onDelete: NoAction, onUpdate: NoAction)
-  projects                                                     Project?      @relation(fields: [project_id], references: [project_id], onDelete: NoAction, onUpdate: NoAction)
-  teams                                                        Team?         @relation(fields: [team_id], references: [team_id], onDelete: NoAction, onUpdate: NoAction)
-  tenants                                                      Tenant?       @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction)
-  users                                                        User?         @relation(fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
-  virtual_users                                                VirtualUser?  @relation(fields: [virtual_user_id], references: [virtual_user_id], onDelete: NoAction, onUpdate: NoAction)
+  id                    String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  token_hash            String        @unique @db.VarChar(64)
+  key_alias             String?       @db.VarChar(255)
+  key_name              String?       @db.VarChar(255)
+  team_id               String?       @db.Uuid
+  user_id               String?       @db.Uuid
+  organization_id       String?       @db.Uuid
+  project_id            String?       @db.Uuid
+  models                String[]      @default([])
+  max_budget            Decimal?      @db.Decimal(10, 4)
+  soft_budget           Decimal?      @db.Decimal(10, 4)
+  tpm_limit             BigInt?
+  rpm_limit             BigInt?
+  max_parallel_requests Int?
+  budget_duration       String?       @db.VarChar(50)
+  budget_reset_at       DateTime?     @db.Timestamptz(6)
+  spend                 Decimal?      @default(0.0) @db.Decimal(10, 4)
+  expires               DateTime?     @db.Timestamptz(6)
+  blocked               Boolean?      @default(false)
+  metadata              Json?         @default("{}")
+  created_at            DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime?     @default(now()) @db.Timestamptz(6)
+  tenant_id             String?       @db.Uuid
+  created_by_user_id    String?
+  last_used_at          DateTime?     @db.Timestamptz(6)
+  revoked_at            DateTime?     @db.Timestamptz(6)
+  revoked_by_user_id    String?
+  key_type              String?       @db.VarChar(16)
+  organizations         Organization? @relation(fields: [organization_id], references: [organization_id], onDelete: NoAction, onUpdate: NoAction)
+  projects              Project?      @relation(fields: [project_id], references: [project_id], onDelete: NoAction, onUpdate: NoAction)
+  teams                 Team?         @relation(fields: [team_id], references: [team_id], onDelete: NoAction, onUpdate: NoAction)
+  tenants               Tenant?       @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction)
+  users                 User?         @relation(fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@index([virtual_user_id], map: "idx_vt_virtual_user")
   @@index([key_type], map: "idx_vt_key_type")
-  @@index([org_unit_id], map: "idx_vt_org_unit")
   @@index([tenant_id], map: "idx_verification_tokens_tenant_id")
   @@index([organization_id], map: "idx_vt_org")
   @@index([team_id], map: "idx_vt_team")
   @@index([token_hash], map: "idx_vt_token_hash")
   @@index([user_id], map: "idx_vt_user")
-  @@index([tenant_id, key_type, created_by_user_id, revoked_at], map: "idx_verification_tokens_pat_owner_state")
-  @@index([tenant_id, key_type], map: "idx_verification_tokens_tenant_keytype")
   @@map("verification_tokens")
 }
 
@@ -407,35 +356,32 @@ model Credential {
 }
 
 model SpendLog {
-  id                    BigInt        @id @default(autoincrement())
-  token_hash            String?       @db.VarChar(64)
-  team_id               String?       @db.Uuid
-  user_id               String?       @db.Uuid
-  organization_id       String?       @db.Uuid
-  end_user_id           String?       @db.Uuid
-  model                 String?       @db.VarChar(255)
+  id                    BigInt    @id @default(autoincrement())
+  token_hash            String?   @db.VarChar(64)
+  team_id               String?   @db.Uuid
+  user_id               String?   @db.Uuid
+  organization_id       String?   @db.Uuid
+  end_user_id           String?   @db.Uuid
+  model                 String?   @db.VarChar(255)
   input_tokens          Int?
   output_tokens         Int?
   total_tokens          Int?
-  cost                  Decimal?      @db.Decimal(10, 6)
+  cost                  Decimal?  @db.Decimal(10, 6)
   response_time_ms      Int?
-  status                String?       @db.VarChar(20)
-  completion_start_time DateTime?     @db.Timestamptz(6)
-  completion_end_time   DateTime?     @db.Timestamptz(6)
+  status                String?   @db.VarChar(20)
+  completion_start_time DateTime? @db.Timestamptz(6)
+  completion_end_time   DateTime? @db.Timestamptz(6)
   request_tags          String[]
   request_metadata      Json?
-  created_at            DateTime?     @default(now()) @db.Timestamptz(6)
-  tenant_id             String?       @db.Uuid
-  request_id            String?       @db.VarChar(255)
-  cost_usd              Decimal?      @db.Decimal(10, 6)
-  cost_irr              Decimal?      @db.Decimal(18, 2)
-  org_unit_id           String?       @db.Uuid
-  organizations         Organization? @relation(fields: [org_unit_id], references: [organization_id], onDelete: NoAction, onUpdate: NoAction)
-  tenants               Tenant?       @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction)
+  created_at            DateTime? @default(now()) @db.Timestamptz(6)
+  tenant_id             String?   @db.Uuid
+  request_id            String?   @db.VarChar(255)
+  cost_usd              Decimal?  @db.Decimal(10, 6)
+  cost_irr              Decimal?  @db.Decimal(18, 2)
+  tenants               Tenant?   @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([created_at], map: "idx_spend_created")
   @@index([organization_id], map: "idx_spend_org")
-  @@index([org_unit_id], map: "idx_spend_org_unit")
   @@index([team_id], map: "idx_spend_team")
   @@index([token_hash], map: "idx_spend_token")
   @@index([user_id], map: "idx_spend_user")
@@ -658,23 +604,6 @@ model wallet_topup_settings {
   updated_at     DateTime @default(now()) @db.Timestamptz(6)
 }
 
-model tenant_admin_users {
-  id                        String                      @id
-  tenantSlug                String
-  email                     String?
-  mobile                    String?
-  role                      String                      @default("tenant_member")
-  createdAt                 DateTime                    @default(now())
-  updatedAt                 DateTime
-  lastLoginAt               DateTime?
-  tenant_admin_otp_requests tenant_admin_otp_requests[]
-  tenant_admin_sessions     tenant_admin_sessions[]
-
-  @@unique([tenantSlug, email], map: "tenant_admin_user_tenant_email_uq")
-  @@unique([tenantSlug, mobile], map: "tenant_admin_user_tenant_mobile_uq")
-  @@index([tenantSlug], map: "tenant_admin_user_tenant_slug_idx")
-}
-
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model tenant_onboarding_requests {
   request_id    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -709,30 +638,28 @@ model tenant_admin_captchas {
 }
 
 model tenant_admin_otp_requests {
-  id                 String              @id
-  tenantSlug         String
-  purpose            String
-  channel            String
-  identifier         String
-  userID             String?
-  pendingValue       String?
-  otpCode            String
-  attempts           Int                 @default(0)
-  createdAt          DateTime            @default(now())
-  expiresAt          DateTime
-  tenant_admin_users tenant_admin_users? @relation(fields: [userID], references: [id])
+  id           String   @id
+  tenantSlug   String
+  purpose      String
+  channel      String
+  identifier   String
+  userID       String?
+  pendingValue String?
+  otpCode      String
+  attempts     Int      @default(0)
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
 
   @@index([expiresAt], map: "tenant_admin_otp_expires_at_idx")
   @@index([tenantSlug, purpose], map: "tenant_admin_otp_tenant_purpose_idx")
 }
 
 model tenant_admin_sessions {
-  id                 String             @id
-  tenantSlug         String
-  userID             String
-  createdAt          DateTime           @default(now())
-  expiresAt          DateTime
-  tenant_admin_users tenant_admin_users @relation(fields: [userID], references: [id], onDelete: Cascade)
+  id         String   @id
+  tenantSlug String
+  userID     String
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
 
   @@index([expiresAt], map: "tenant_admin_session_expires_at_idx")
   @@index([tenantSlug], map: "tenant_admin_session_tenant_slug_idx")
@@ -775,4 +702,11 @@ model virtual_models {
   @@unique([tenant_id, alias], map: "uq_virtual_models_tenant_alias")
   @@index([alias], map: "idx_virtual_models_alias")
   @@index([tenant_id], map: "idx_virtual_models_tenant_id")
+}
+
+model goose_db_version {
+  id         Int      @id @default(autoincrement())
+  version_id BigInt
+  is_applied Boolean
+  tstamp     DateTime @default(now()) @db.Timestamp(6)
 }
