@@ -41,6 +41,11 @@ type ListResponse = {
 };
 
 type Banner = { kind: "success" | "error"; message: string };
+const stableDateTimeFormatter = new Intl.DateTimeFormat("fa-IR", {
+  dateStyle: "short",
+  timeStyle: "medium",
+  timeZone: "Asia/Tehran",
+});
 
 export default function PersonalAccessTokenManagement(props: {
   initialTokens: PAT[];
@@ -224,7 +229,7 @@ function formatDate(input?: string) {
   if (!input) return "-";
   const date = new Date(input);
   if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleString();
+  return stableDateTimeFormatter.format(date);
 }
 
 async function requestJSON<T = unknown>(path: string, options?: RequestInit): Promise<T> {

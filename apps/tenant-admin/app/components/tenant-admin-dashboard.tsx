@@ -23,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { PrincipalSearchInput, type PrincipalSearchOption } from "@/app/components/principal-search-input";
 import { extractTenantSlugFromHost } from "@/lib/tenant";
 
 type TenantKey = {
@@ -52,20 +53,12 @@ type Wallet = {
   pending_irr: number;
 };
 
-type WalletTransaction = {
-  id: string;
-  type: string;
-  amount_irr: number;
-  status: string;
-  created_at: string;
-};
-
-type WalletTransactionListResponse = {
-  data?: WalletTransaction[];
-};
-
 type KeyListResponse = {
   data?: TenantKey[];
+};
+
+type AccessPrincipalResponse = {
+  data?: PrincipalSearchOption[];
 };
 
 type Banner = {
@@ -79,7 +72,6 @@ type TenantAdminDashboardProps = {
   initialKeys: TenantKey[];
   initialModels: TenantModel[];
   initialError: string | null;
-  initialTransactions: WalletTransaction[];
   currentUser: {
     id: string;
     email?: string;
@@ -93,10 +85,11 @@ const numberFormatter = new Intl.NumberFormat("fa-IR");
 export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
   const t = useTranslations("dashboard");
   const common = useTranslations("common");
+  const principalsT = useTranslations("providerAccounts");
+  const principalsUx = useTranslations("providerAccounts.ux");
 
   const [keys, setKeys] = useState<TenantKey[]>(props.initialKeys);
   const [wallet, setWallet] = useState<Wallet | null>(props.initialWallet);
-  const [transactions, setTransactions] = useState<WalletTransaction[]>(props.initialTransactions);
   const [lastCreatedKey, setLastCreatedKey] = useState<string | null>(null);
   const [banner, setBanner] = useState<Banner | null>(
     props.initialError
@@ -117,6 +110,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
     "virtual_key",
   );
   const [keyTeamID, setKeyTeamID] = useState("");
+  const [, setKeyTeamOption] = useState<PrincipalSearchOption | null>(null);
   const [keyOrgID, setKeyOrgID] = useState("");
 
   const [modelName, setModelName] = useState("gpt-4o-mini");
@@ -139,15 +133,13 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
   const loadDashboard = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [walletData, keysData, txData] = await Promise.all([
+      const [walletData, keysData] = await Promise.all([
         requestJSON<Wallet>("/api/wallet"),
         requestJSON<KeyListResponse>("/api/keys"),
-        requestJSON<WalletTransactionListResponse>("/api/wallet/transactions?limit=20"),
       ]);
 
       setWallet(walletData);
       setKeys(keysData.data ?? []);
-      setTransactions(txData.data ?? []);
     } catch (error) {
       setBanner({
         kind: "error",
@@ -155,6 +147,21 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
       });
     } finally {
       setIsLoading(false);
+    }
+  }, [common]);
+
+  const searchPrincipals = useCallback(async (kind: "user" | "team", query: string) => {
+    try {
+      const response = await requestJSON<AccessPrincipalResponse>(
+        `/api/access-principals?kind=${kind}&q=${encodeURIComponent(query.trim())}&limit=20`,
+      );
+      return response.data ?? [];
+    } catch (error) {
+      setBanner({
+        kind: "error",
+        message: normalizeError(error, common("requestError")),
+      });
+      return [];
     }
   }, [common]);
 
@@ -364,11 +371,16 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="keyTeamID">Team ID (required for service account)</Label>
-                <Input
+                <PrincipalSearchInput
                   id="keyTeamID"
-                  value={keyTeamID}
-                  onChange={(event) => setKeyTeamID(event.target.value)}
-                  placeholder="UUID team_id"
+                  kind="team"
+                  selectedID={keyTeamID}
+                  onSelectedIDChange={setKeyTeamID}
+                  onSelectedOptionChange={setKeyTeamOption}
+                  onSearch={searchPrincipals}
+                  loadingLabel={principalsUx("actions.loading")}
+                  emptyLabel={principalsUx("effectiveModels.empty")}
+                  placeholder={`${principalsT("principal.searchPlaceholder")} (${principalsT("principal.team")})`}
                 />
               </div>
               <div className="grid gap-2">

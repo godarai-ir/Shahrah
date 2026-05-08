@@ -130,7 +130,6 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       { href: "#", label: t("tabs.roles"), icon: BadgeCheck, active: false },
       { href: "#", label: t("tabs.auditLogs"), icon: ShieldCheck, active: false },
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [t],
   );
 

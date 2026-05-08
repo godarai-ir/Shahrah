@@ -351,7 +351,7 @@ func TestIntegration_ProviderAccountAccessAndModelSelectionHardening(t *testing.
 
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
-	app, pool := newPersistentIntegrationApp(t, logger, memCache, "http://127.0.0.1:65535")
+	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
 	resetPersistentState(t, pool)
 
 	ctx := context.Background()
@@ -390,8 +390,8 @@ func TestIntegration_ProviderAccountAccessAndModelSelectionHardening(t *testing.
 
 	modelsResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/models", "Bearer sk-master", `{
 		"models":[
-			{"model":"gpt-4o-mini","enabled":true},
-			{"model":"gpt-4o-mini","enabled":true}
+			{"model":"gpt-4.1-mini","enabled":true},
+			{"model":"gpt-4.1-mini","enabled":true}
 		]
 	}`)
 	assert.Equal(t, http.StatusOK, modelsResp.StatusCode)
@@ -400,7 +400,7 @@ func TestIntegration_ProviderAccountAccessAndModelSelectionHardening(t *testing.
 	}
 	decodeJSONBody(t, modelsResp, &modelsOut)
 	require.Len(t, modelsOut.Data, 1)
-	assert.Equal(t, "gpt-4o-mini", modelsOut.Data[0].Model)
+	assert.Equal(t, "gpt-4.1-mini", modelsOut.Data[0].Model)
 
 	invalidModelResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/models", "Bearer sk-master", `{
 		"models":[{"model":"not-a-real-model","enabled":true}]
@@ -434,7 +434,18 @@ func TestIntegration_ProviderAccountAccessAndModelSelectionHardening(t *testing.
 	require.Len(t, accessOut.Access.Managers, 1)
 	require.Len(t, accessOut.Access.Users, 1)
 
-	createModel(t, app, `{"model_name":"gpt-4o-mini","provider":"openai","model":"gpt-4o-mini","api_base":"http://127.0.0.1:65535/v1","api_key":"sk-provider","rpm":10}`)
+	// Effective-models preview must not fail with 500 when user/team selectors send non-UUID strings.
+	effectiveModelsResp := performJSONRequest(
+		t,
+		app,
+		http.MethodGet,
+		"http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/effective-models?key_type=pat&user_id=not-a-uuid",
+		"Bearer sk-master",
+		"",
+	)
+	assert.Equal(t, http.StatusOK, effectiveModelsResp.StatusCode)
+
+	createModel(t, app, `{"model_name":"gpt-4.1-mini","provider":"openai","model":"gpt-4.1-mini","api_base":"http://127.0.0.1:65535/v1","api_key":"sk-provider","rpm":10}`)
 
 	patResp := performJSONRequestWithHeaders(
 		t,
@@ -455,7 +466,263 @@ func TestIntegration_ProviderAccountAccessAndModelSelectionHardening(t *testing.
 	var listOut contractsopenai.ModelListResponse
 	decodeJSONBody(t, listModelsResp, &listOut)
 	require.Len(t, listOut.Data, 1)
-	assert.Equal(t, "gpt-4o-mini", listOut.Data[0].ID)
+	assert.Equal(t, "gpt-4.1-mini", listOut.Data[0].ID)
+}
+
+func TestIntegration_EffectiveModelsAccessMatrix_PAT_VAT_UserTeam(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if strings.TrimSpace(databaseURL) == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
+	resetPersistentState(t, pool)
+
+	ctx := context.Background()
+	userManagerID := uuid.NewString()
+	userAID := uuid.NewString()
+	userBID := uuid.NewString()
+	teamAID := uuid.NewString()
+	teamBID := uuid.NewString()
+	orgID := uuid.NewString()
+
+	_, err := pool.Exec(ctx, `
+		INSERT INTO organizations (organization_id, tenant_id, organization_alias, created_at, updated_at)
+		SELECT $1::uuid, tenant_id, 'platform', NOW(), NOW()
+		FROM tenants WHERE slug = 'default'
+	`, orgID)
+	require.NoError(t, err)
+
+	for _, uid := range []string{userManagerID, userAID, userBID} {
+		_, err = pool.Exec(ctx, `
+			INSERT INTO users (user_id, tenant_id, user_alias, role, active, created_at, updated_at)
+			SELECT $1::uuid, tenant_id, 'member', 'tenant_member', true, NOW(), NOW()
+			FROM tenants WHERE slug = 'default'
+		`, uid)
+		require.NoError(t, err)
+	}
+
+	for _, tid := range []string{teamAID, teamBID} {
+		_, err = pool.Exec(ctx, `
+			INSERT INTO teams (team_id, tenant_id, team_alias, organization_id, workspace_type, created_at, updated_at)
+			SELECT $1::uuid, tenant_id, 'ml-team', $2::uuid, 'general', NOW(), NOW()
+			FROM tenants WHERE slug = 'default'
+		`, tid, orgID)
+		require.NoError(t, err)
+	}
+	_, err = pool.Exec(ctx, `
+		INSERT INTO team_memberships (tenant_id, team_id, user_id, role, created_at, updated_at)
+		SELECT t.tenant_id, t.team_id, $2::uuid, 'team_member', NOW(), NOW()
+		FROM teams t
+		WHERE t.team_id = $1::uuid
+	`, teamAID, userAID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `
+		INSERT INTO team_memberships (tenant_id, team_id, user_id, role, created_at, updated_at)
+		SELECT t.tenant_id, t.team_id, $2::uuid, 'team_member', NOW(), NOW()
+		FROM teams t
+		WHERE t.team_id = $1::uuid
+	`, teamBID, userBID)
+	require.NoError(t, err)
+
+	createAccountResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/tenant-provider-accounts", "Bearer sk-master", `{
+		"provider":"openai",
+		"name":"openai-access-matrix",
+		"auth_mode":"api_key",
+		"credentials":{"api_key":"sk-provider-demo"}
+	}`)
+	assert.Equal(t, http.StatusCreated, createAccountResp.StatusCode)
+	var account platform.TenantProviderAccount
+	decodeJSONBody(t, createAccountResp, &account)
+	require.NotEmpty(t, account.ID)
+
+	modelsResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/models", "Bearer sk-master", `{
+		"models":[
+			{"model":"gpt-4.1-mini","enabled":true},
+			{"model":"gpt-4o","enabled":true}
+		]
+	}`)
+	assert.Equal(t, http.StatusOK, modelsResp.StatusCode)
+
+	setAccess := func(usersJSON string) {
+		resp := performJSONRequest(
+			t,
+			app,
+			http.MethodPut,
+			"http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/access",
+			"Bearer sk-master",
+			fmt.Sprintf(`{
+				"access":{
+					"managers":[{"type":"user","principal_id":"%s"}],
+					"users":%s
+				}
+			}`, userManagerID, usersJSON),
+		)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	}
+
+	assertAllowed := func(keyType string, userID string, teamID string, model string, expected bool) {
+		url := fmt.Sprintf(
+			"http://localhost/api/v1/tenant-provider-accounts/%s/effective-models?key_type=%s&user_id=%s&team_id=%s",
+			account.ID,
+			keyType,
+			userID,
+			teamID,
+		)
+		resp := performJSONRequest(t, app, http.MethodGet, url, "Bearer sk-master", "")
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		var out platform.EffectiveModelsResponse
+		decodeJSONBody(t, resp, &out)
+		found := false
+		for _, item := range out.Data {
+			if item.Model == model {
+				found = true
+				assert.Equal(t, expected, item.Allowed, "key_type=%s user_id=%s team_id=%s model=%s", keyType, userID, teamID, model)
+			}
+		}
+		require.True(t, found, "model %s not found in effective-models response", model)
+	}
+
+	createPAT := func(userID string, name string) {
+		resp := performJSONRequestWithHeaders(
+			t,
+			app,
+			http.MethodPost,
+			"http://localhost/api/v1/personal-access-tokens",
+			"Bearer sk-master",
+			map[string]string{"x-shahrah-user-id": userID},
+			fmt.Sprintf(`{"name":"%s","allowed_models":["*"]}`, name),
+		)
+		assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	}
+	createVAT := func(teamID string, name string) {
+		resp := performJSONRequest(
+			t,
+			app,
+			http.MethodPost,
+			"http://localhost/api/v1/keys/vat",
+			"Bearer sk-master",
+			fmt.Sprintf(`{"key_alias":"%s","allowed_models":["*"],"team_id":"%s"}`, name, teamID),
+		)
+		assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	}
+	createPAT(userManagerID, "pat-manager")
+	createPAT(userAID, "pat-user-a")
+	createPAT(userBID, "pat-user-b")
+	createVAT(teamAID, "vat-team-a")
+	createVAT(teamBID, "vat-team-b")
+
+	// Scenario 1: everyone can access (PAT/VAT should both allow).
+	setAccess(`[{"type":"everyone"}]`)
+	assertAllowed("pat", userManagerID, "", "gpt-4.1-mini", true)
+	assertAllowed("vat", "", teamAID, "gpt-4.1-mini", true)
+
+	// Scenario 2: user-specific access.
+	setAccess(fmt.Sprintf(`[{"type":"user","principal_id":"%s"}]`, userAID))
+	assertAllowed("pat", userAID, "", "gpt-4.1-mini", true)
+	assertAllowed("pat", userBID, "", "gpt-4.1-mini", false)
+	assertAllowed("vat", "", teamAID, "gpt-4.1-mini", false)
+
+	// Scenario 3: team-specific access.
+	setAccess(fmt.Sprintf(`[{"type":"team","principal_id":"%s"}]`, teamAID))
+	assertAllowed("vat", "", teamAID, "gpt-4.1-mini", true)
+	assertAllowed("vat", "", teamBID, "gpt-4.1-mini", false)
+	assertAllowed("pat", userAID, "", "gpt-4.1-mini", true)
+
+	// Scenario 4: mixed user/team access (OR semantics).
+	setAccess(fmt.Sprintf(`[
+		{"type":"user","principal_id":"%s"},
+		{"type":"team","principal_id":"%s"}
+	]`, userAID, teamAID))
+	assertAllowed("pat", userAID, "", "gpt-4o", true)
+	assertAllowed("vat", "", teamAID, "gpt-4o", true)
+	assertAllowed("pat", userBID, "", "gpt-4o", false)
+	assertAllowed("vat", "", teamBID, "gpt-4o", false)
+}
+
+func TestIntegration_EffectiveModels_PATKeyAllowlistIsApplied(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if strings.TrimSpace(databaseURL) == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
+	resetPersistentState(t, pool)
+
+	ctx := context.Background()
+	userID := uuid.NewString()
+
+	_, err := pool.Exec(ctx, `
+		INSERT INTO users (user_id, tenant_id, user_alias, role, active, created_at, updated_at)
+		SELECT $1::uuid, tenant_id, 'member', 'tenant_member', true, NOW(), NOW()
+		FROM tenants WHERE slug = 'default'
+	`, userID)
+	require.NoError(t, err)
+
+	createAccountResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/tenant-provider-accounts", "Bearer sk-master", `{
+		"provider":"openai",
+		"name":"openai-key-allowlist-preview",
+		"auth_mode":"api_key",
+		"credentials":{"api_key":"sk-provider-demo"}
+	}`)
+	assert.Equal(t, http.StatusCreated, createAccountResp.StatusCode)
+	var account platform.TenantProviderAccount
+	decodeJSONBody(t, createAccountResp, &account)
+	require.NotEmpty(t, account.ID)
+
+	modelsResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/models", "Bearer sk-master", `{
+		"models":[
+			{"model":"gpt-4.1-mini","enabled":true},
+			{"model":"gpt-4o","enabled":true}
+		]
+	}`)
+	assert.Equal(t, http.StatusOK, modelsResp.StatusCode)
+
+	accessResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/access", "Bearer sk-master", fmt.Sprintf(`{
+		"access":{
+			"managers":[{"type":"user","principal_id":"%s"}],
+			"users":[{"type":"user","principal_id":"%s"}]
+		}
+	}`, userID, userID))
+	assert.Equal(t, http.StatusOK, accessResp.StatusCode)
+
+	patResp := performJSONRequestWithHeaders(
+		t,
+		app,
+		http.MethodPost,
+		"http://localhost/api/v1/personal-access-tokens",
+		"Bearer sk-master",
+		map[string]string{"x-shahrah-user-id": userID},
+		`{"name":"pat-preview-allowlist","allowed_models":["gpt-4.1-mini"]}`,
+	)
+	assert.Equal(t, http.StatusCreated, patResp.StatusCode)
+
+	effectiveResp := performJSONRequest(
+		t,
+		app,
+		http.MethodGet,
+		fmt.Sprintf("http://localhost/api/v1/tenant-provider-accounts/%s/effective-models?key_type=pat&user_id=%s", account.ID, userID),
+		"Bearer sk-master",
+		"",
+	)
+	assert.Equal(t, http.StatusOK, effectiveResp.StatusCode)
+	var out platform.EffectiveModelsResponse
+	decodeJSONBody(t, effectiveResp, &out)
+	require.NotEmpty(t, out.Data)
+
+	byModel := make(map[string]platform.EffectiveModelView, len(out.Data))
+	for _, item := range out.Data {
+		byModel[item.Model] = item
+	}
+	require.Contains(t, byModel, "gpt-4.1-mini")
+	require.Contains(t, byModel, "gpt-4o")
+	assert.True(t, byModel["gpt-4.1-mini"].Allowed)
+	assert.False(t, byModel["gpt-4o"].Allowed)
+	assert.Equal(t, "model_not_in_token_allowlist", byModel["gpt-4o"].DeniedReason)
 }
 
 func createIntegrationTenant(t *testing.T, pool *pgxpool.Pool, slug string) *platform.Tenant {

@@ -197,6 +197,7 @@ type EffectiveModelView struct {
 	PricingMode           PricingMode `json:"pricing_mode"`
 	PricingResolved       bool        `json:"pricing_resolved"`
 	Allowed               bool        `json:"allowed"`
+	DeniedReason          string      `json:"denied_reason,omitempty"`
 }
 
 type EffectiveModelsResponse struct {

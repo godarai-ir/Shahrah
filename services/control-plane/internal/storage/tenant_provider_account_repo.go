@@ -471,11 +471,13 @@ func insertAccessRows(ctx context.Context, tx pgx.Tx, tenantID string, accountID
 
 // ListTenantProviderAccountEffectiveModels resolves model access visibility for debugging/admin observability.
 func (s *Store) ListTenantProviderAccountEffectiveModels(ctx context.Context, tenantID string, accountID string, keyType string, userID string, teamID string) ([]platform.EffectiveModelView, error) {
-	_ = keyType // reserved for PAT/VAT-specific semantics in later phases
 	// Ensure account exists and belongs to tenant.
 	if _, err := s.getTenantProviderAccount(ctx, tenantID, accountID); err != nil {
 		return nil, err
 	}
+	normalizedKeyType := strings.TrimSpace(strings.ToLower(keyType))
+	normalizedUserID := strings.TrimSpace(userID)
+	normalizedTeamID := strings.TrimSpace(teamID)
 
 	rows, err := s.pool.Query(ctx, `
 		SELECT m.model,
@@ -493,14 +495,56 @@ func (s *Store) ListTenantProviderAccountEffectiveModels(ctx context.Context, te
 		           AND ac.access_scope = 'account'
 		           AND (
 		             ac.principal_type = 'everyone'
-		             OR (ac.principal_type = 'team' AND ac.principal_id = NULLIF($4, ''))
-		             OR (ac.principal_type = 'user' AND ac.principal_id = NULLIF($3, ''))
+		             OR (ac.principal_type = 'team' AND ac.principal_id IS NOT NULL AND (
+		               ac.principal_id::text = NULLIF($3, '')
+		               OR (
+		                 NULLIF($2, '') IS NOT NULL
+		                 AND EXISTS (
+		                   SELECT 1
+		                   FROM team_memberships tm
+		                   WHERE tm.tenant_id = $5::uuid
+		                     AND tm.team_id::text = ac.principal_id::text
+		                     AND tm.user_id::text = NULLIF($2, '')
+		                 )
+		               )
+		             ))
+		             OR (ac.principal_type = 'user' AND ac.principal_id IS NOT NULL AND ac.principal_id::text = NULLIF($2, ''))
 		           )
-		       ) AS allowed_by_access
+		       ) AS allowed_by_access,
+		       COALESCE((
+		         SELECT COUNT(*) > 0
+		         FROM verification_tokens vt
+		         WHERE vt.tenant_id = $5::uuid
+		           AND COALESCE(vt.key_type, CASE WHEN vt.team_id IS NULL THEN 'pat' ELSE 'vat' END) = NULLIF($4, '')
+		           AND vt.revoked_at IS NULL
+		           AND (vt.expires IS NULL OR vt.expires > NOW())
+		           AND COALESCE(vt.blocked, false) = false
+		           AND (
+		             (NULLIF($4, '') = 'pat' AND vt.user_id IS NOT NULL AND vt.user_id::text = NULLIF($2, ''))
+		             OR (NULLIF($4, '') = 'vat' AND vt.team_id IS NOT NULL AND vt.team_id::text = NULLIF($3, ''))
+		           )
+		       ), false) AS has_candidate_keys,
+		       COALESCE((
+		         SELECT BOOL_OR(
+		           COALESCE(array_length(vt.models, 1), 0) = 0
+		           OR '*' = ANY(vt.models)
+		           OR m.model = ANY(vt.models)
+		         )
+		         FROM verification_tokens vt
+		         WHERE vt.tenant_id = $5::uuid
+		           AND COALESCE(vt.key_type, CASE WHEN vt.team_id IS NULL THEN 'pat' ELSE 'vat' END) = NULLIF($4, '')
+		           AND vt.revoked_at IS NULL
+		           AND (vt.expires IS NULL OR vt.expires > NOW())
+		           AND COALESCE(vt.blocked, false) = false
+		           AND (
+		             (NULLIF($4, '') = 'pat' AND vt.user_id IS NOT NULL AND vt.user_id::text = NULLIF($2, ''))
+		             OR (NULLIF($4, '') = 'vat' AND vt.team_id IS NOT NULL AND vt.team_id::text = NULLIF($3, ''))
+		           )
+		       ), false) AS allowed_by_key_allowlist
 		FROM tenant_provider_account_models m
-		WHERE m.account_id = $2
+		WHERE m.account_id = $1
 		ORDER BY m.model ASC
-	`, tenantID, accountID, strings.TrimSpace(userID), strings.TrimSpace(teamID))
+	`, accountID, normalizedUserID, normalizedTeamID, normalizedKeyType, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -511,11 +555,34 @@ func (s *Store) ListTenantProviderAccountEffectiveModels(ctx context.Context, te
 		var item platform.EffectiveModelView
 		var types []string
 		var pricingMode string
-		if err := rows.Scan(&item.Model, &item.Enabled, &types, &pricingMode, &item.PricingResolved, &item.Allowed); err != nil {
+		var allowedByAccess bool
+		var hasCandidateKeys bool
+		var allowedByKeyAllowlist bool
+		if err := rows.Scan(
+			&item.Model,
+			&item.Enabled,
+			&types,
+			&pricingMode,
+			&item.PricingResolved,
+			&allowedByAccess,
+			&hasCandidateKeys,
+			&allowedByKeyAllowlist,
+		); err != nil {
 			return nil, err
 		}
 		item.PricingMode = platform.PricingMode(pricingMode)
 		item.EffectiveCapabilities = stringsToModelTypes(types)
+		item.Allowed = allowedByAccess && hasCandidateKeys && allowedByKeyAllowlist
+		if !item.Allowed {
+			switch {
+			case !allowedByAccess:
+				item.DeniedReason = "denied_by_policy"
+			case !hasCandidateKeys:
+				item.DeniedReason = "no_active_pat/vat"
+			case !allowedByKeyAllowlist:
+				item.DeniedReason = "model_not_in_token_allowlist"
+			}
+		}
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {

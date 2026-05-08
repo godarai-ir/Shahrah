@@ -1,0 +1,268 @@
+{
+  "title": "حساب‌های ارائه‌دهنده مدل",
+  "description": "اتصال حساب‌های ارائه‌دهنده، فعال‌سازی مدل‌ها و مدیریت دسترسی مصرف",
+  "errorTitle": "خطا",
+  "successTitle": "موفق",
+  "existingAccount": "حساب ارائه‌دهنده",
+  "selectAccount": "یک حساب ارائه‌دهنده انتخاب کنید",
+  "loadAccount": "بارگذاری تنظیمات حساب",
+  "refresh": "بازآوری داده‌ها",
+  "refreshing": "در حال بازآوری...",
+  "testing": "در حال اعتبارسنجی...",
+  "testCredentials": "اعتبارسنجی اتصال",
+  "selectProvider": "انتخاب ارائه‌دهنده",
+  "creating": "در حال ایجاد حساب...",
+  "createProviderAccount": "ایجاد حساب جدید",
+  "saving": "در حال ذخیره...",
+  "saveSelectedModels": "ذخیره مدل‌های فعال",
+  "saveAccessControl": "ذخیره سطح دسترسی",
+  "step1": {
+    "title": "گام ۱: انتخاب ارائه‌دهنده",
+    "description": "ارائه‌دهنده مدل را انتخاب کنید تا وارد تنظیمات اتصال همان ارائه‌دهنده شوید."
+  },
+  "step2": {
+    "title": "گام ۲: پیکربندی اتصال",
+    "description": "فهرست مدل‌ها از Discovery ارائه‌دهنده دریافت می‌شود.",
+    "empty": "مدل قابلی از این ارائه‌دهنده یافت نشد.",
+    "connectionDescription": "اطلاعات اتصال حساب را متناسب با روش احراز هویت ارائه‌دهنده تکمیل کنید."
+  },
+  "step3": {
+    "title": "گام ۳: مدل‌ها و دسترسی",
+    "managersTitle": "مدیران حساب (کاربر/تیم)",
+    "usersTitle": "کاربران مجاز به مصرف مدل",
+    "description": "مدل‌های قابل مصرف را فعال کنید و دسترسی کاربران را تنظیم کنید.",
+    "accessTitle": "کنترل دسترسی مصرف",
+    "empty": "مدلی برای این ارائه‌دهنده یافت نشد.",
+    "searchPlaceholder": "جستجو در نام مدل",
+    "toggleSelectAll": "انتخاب/لغو انتخاب همه",
+    "columns": {
+      "model": "مدل",
+      "inputCost": "هزینه ورودی (دلار / 1M)",
+      "outputCost": "هزینه خروجی (دلار / 1M)"
+    }
+  },
+  "fields": {
+    "provider": "ارائه‌دهنده مدل",
+    "accountName": "نام نمایشی حساب",
+    "authMode": "روش احراز هویت اتصال",
+    "virtualKeysMode": "سیاست کلید مجازی",
+    "allowVirtualOnly": "فقط کلیدهای مجازی تننت",
+    "apiKeyOptional": "API Key (اختیاری)",
+    "secretRefOptional": "مرجع Secret (اختیاری)",
+    "pricingMode": "مبنای قیمت‌گذاری",
+    "inputPrice": "هزینه ورودی (دلار / ۱M توکن)",
+    "outputPrice": "هزینه خروجی (دلار / ۱M توکن)",
+    "publicPricing": "قیمت عمومی",
+    "privatePricing": "قیمت اختصاصی",
+    "azureTenantID": "Azure Tenant ID",
+    "azureClientID": "Azure Client ID",
+    "awsAccessKeyID": "AWS Access Key ID",
+    "awsSecretAccessKey": "AWS Secret Access Key",
+    "awsRegion": "AWS Region",
+    "googleServiceAccountJSON": "Google Service Account JSON"
+  },
+  "principal": {
+    "user": "کاربر",
+    "team": "تیم",
+    "searchPlaceholder": "نام کاربر یا تیم...",
+    "search": "جستجو",
+    "add": "افزودن",
+    "addEveryone": "اعطای دسترسی به همه کاربران",
+    "remove": "حذف",
+    "everyone": "همه کاربران"
+  },
+  "messages": {
+    "initialLoadFailed": "بارگیری اولیه انجام نشد.",
+    "providerModelsLoadFailed": "دریافت لیست مدل‌ها از Discovery ناموفق بود.",
+    "validationProviderName": "انتخاب ارائه‌دهنده و وارد کردن نام حساب الزامی است.",
+    "accountCreateSuccess": "حساب ارائه‌دهنده با موفقیت ایجاد شد.",
+    "accountCreateFailed": "ایجاد حساب ارائه‌دهنده انجام نشد.",
+    "accountLoadSuccess": "تنظیمات حساب با موفقیت بارگذاری شد.",
+    "accountLoadFailed": "بارگذاری تنظیمات حساب ناموفق بود.",
+    "selectAccountFirst": "ابتدا یک حساب ارائه‌دهنده انتخاب یا ایجاد کنید.",
+    "selectAtLeastOneModel": "حداقل یک مدل را برای فعال‌سازی انتخاب کنید.",
+    "modelsSaveSuccess": "تنظیمات مدل‌ها با موفقیت ذخیره شد.",
+    "modelsSaveFailed": "ذخیره تنظیمات مدل‌ها ناموفق بود.",
+    "managerRequired": "حداقل یک مدیر حساب باید تعریف شود.",
+    "accessSaveSuccess": "سطح دسترسی با موفقیت ذخیره شد.",
+    "accessSaveFailed": "ذخیره سطح دسترسی ناموفق بود.",
+    "credentialValid": "اعتبارنامه‌های اتصال معتبر است.",
+    "credentialInvalid": "اعتبارسنجی اتصال ناموفق بود.",
+    "credentialTestFailed": "تست اعتبارنامه‌های اتصال انجام نشد.",
+    "managerSearchFailed": "جستجوی مدیران ناموفق بود.",
+    "userSearchFailed": "جستجوی کاربران/تیم‌ها ناموفق بود."
+  },
+  "wizard": {
+    "stepLabel": "گام {number}",
+    "back": "بازگشت",
+    "next": "ادامه",
+    "finalHint": "پس از تعریف مدیران و کاربران، سطح دسترسی را ذخیره کنید."
+  },
+  "ux": {
+    "panel": {
+      "setupTitle": "راه‌اندازی حساب ارائه‌دهنده",
+      "workspaceTitle": "محیط کاری حساب",
+      "overviewTitle": "نمای کلی ارائه‌دهنده",
+      "setupHint": "جریان راه‌اندازی: ارائه‌دهنده، حساب، مدل‌ها، دسترسی و مرور نهایی.",
+      "workspaceHint": "مرجع اصلی برای مدیریت مدل، دسترسی، اعتبارنامه و اثر سیاست‌ها در Runtime.",
+      "overviewHint": "یک حساب موجود را باز کنید یا حساب جدید بسازید."
+    },
+    "sidebar": {
+      "connectedProviders": "ارائه‌دهندگان متصل",
+      "connectedProvidersHint": "یک ارائه‌دهنده را انتخاب کنید و سپس محیط کاری حساب را باز کنید.",
+      "providerAccounts": "حساب‌های ارائه‌دهنده",
+      "selectProviderPrompt": "ارائه‌دهنده را انتخاب کنید",
+      "noAccountYet": "هنوز حسابی برای این ارائه‌دهنده ثبت نشده است."
+    },
+    "setupSteps": {
+      "provider": "ارائه‌دهنده",
+      "accountCredentials": "حساب و اعتبارنامه",
+      "models": "مدل‌ها",
+      "access": "دسترسی",
+      "review": "مرور نهایی"
+    },
+    "tabs": {
+      "models": "مدل‌ها",
+      "access": "دسترسی",
+      "credentials": "اعتبارنامه",
+      "observability": "مشاهده‌پذیری"
+    },
+    "actions": {
+      "addProviderAccount": "افزودن حساب ارائه‌دهنده",
+      "copyFqn": "کپی FQN",
+      "continue": "ادامه",
+      "back": "بازگشت",
+      "activateAccount": "فعال‌سازی حساب",
+      "activating": "در حال فعال‌سازی...",
+      "setupNewAccount": "راه‌اندازی حساب جدید",
+      "openExisting": "باز کردن حساب موجود",
+      "loadEffectiveModels": "بارگذاری مدل‌های مؤثر",
+      "loading": "در حال بارگذاری...",
+      "clear": "پاک‌کردن",
+      "refreshCatalog": "بازآوری کاتالوگ",
+      "refreshingCatalog": "در حال بازآوری کاتالوگ..."
+    },
+    "setup": {
+      "stepLabel": "گام {number}",
+      "selectProviderTitle": "انتخاب ارائه‌دهنده",
+      "selectProviderDesc": "ارائه‌دهنده را انتخاب کنید و تنظیمات حساب را ادامه دهید.",
+      "authModes": "روش‌های احراز هویت",
+      "accountBasicsTitle": "مشخصات حساب و اعتبارنامه"
+    },
+    "review": {
+      "title": "مرور و فعال‌سازی",
+      "activationCheckTitle": "بررسی پیش از فعال‌سازی"
+    },
+    "kpi": {
+      "credentialStatus": "وضعیت اعتبارنامه",
+      "enabledModels": "مدل‌های فعال",
+      "unresolvedPricing": "قیمت‌گذاری حل‌نشده",
+      "managersUsers": "مدیران / کاربران",
+      "provider": "ارائه‌دهنده"
+    },
+    "readiness": {
+      "ready": "آماده",
+      "needsCredentials": "نیازمند اعتبارنامه",
+      "needsAccess": "نیازمند دسترسی",
+      "pricingIncomplete": "قیمت‌گذاری ناقص"
+    },
+    "overview": {
+      "title": "مدیریت حساب ارائه‌دهنده و دسترسی مدل",
+      "description": "یک حساب آماده برای Runtime بسازید: اعتبارنامه را تنظیم کنید، مدل‌ها را فعال کنید، دسترسی‌ها را تخصیص دهید و سیاست مؤثر را بررسی کنید."
+    },
+    "microcopy": {
+      "virtualOnly": "حالت فقط Virtual-Key: برنامه‌ها می‌توانند بدون ذخیره اعتبارنامه ارائه‌دهنده، از کلیدهای پلتفرم استفاده کنند.",
+      "pricingPolicy": "قیمت‌گذاری عمومی از نرخ‌های کاتالوگ استفاده می‌کند و ممکن است در زمان تغییر کند. قیمت‌گذاری خصوصی، نرخ‌های کاتالوگ را برای این حساب بازنویسی می‌کند."
+    },
+    "credentials": {
+      "desc": "اعتبارنامه را به‌روزرسانی کنید و آزمون اتصال اجرا کنید.",
+      "hasCredential": "دارای اعتبارنامه",
+      "virtualOnly": "فقط Virtual-Key",
+      "lastTest": "آخرین آزمون",
+      "notTested": "در این نشست هنوز آزمونی اجرا نشده است"
+    },
+    "observability": {
+      "desc": "پیش از ترافیک واقعی، نتیجه سیاست مؤثر و دلایل رد شدن درخواست را بررسی کنید.",
+      "deniedReasons": "دسته‌بندی دلایل رد: `not in allowlist`، `capability mismatch`، `unknown model`.",
+      "cacheTTL": "مدت زنده‌ماندن کش (ثانیه)",
+      "providersCache": "کش ارائه‌دهنده‌ها (hit/miss)",
+      "modelsCache": "کش مدل‌ها (hit/miss)",
+      "discoveryErrors": "خطاهای Discovery",
+      "discoveryFallback": "Fallback های Discovery"
+    },
+    "messages": {
+      "fqnCopied": "FQN حساب کپی شد.",
+      "accountActivated": "حساب فعال شد و برای اعمال سیاست‌های Runtime آماده است.",
+      "catalogRefreshSuccess": "کش کاتالوگ ارائه‌دهنده با موفقیت بازآوری شد.",
+      "catalogRefreshFailed": "بازآوری کاتالوگ ارائه‌دهنده ناموفق بود.",
+      "modelTypeRequired": "حداقل یک نوع مدل الزامی است",
+      "privatePricingRequired": "برای قیمت‌گذاری خصوصی، هزینه ورودی یا خروجی الزامی است"
+    },
+    "common": {
+      "yes": "بله",
+      "no": "خیر",
+      "enabled": "فعال",
+      "disabled": "غیرفعال"
+    },
+    "models": {
+      "description": "مدل‌ها، قابلیت‌ها و حالت قیمت‌گذاری را انتخاب کنید.",
+      "columns": {
+        "model": "مدل",
+        "capabilities": "قابلیت‌ها",
+        "pricingMode": "حالت قیمت‌گذاری",
+        "costConfig": "پیکربندی هزینه"
+      },
+      "pricing": {
+        "public": "عمومی",
+        "private": "خصوصی"
+      },
+      "placeholders": {
+        "input": "ورودی",
+        "output": "خروجی"
+      },
+      "catalogPricing": "قیمت کاتالوگ",
+      "labels": {
+        "input": "ورودی",
+        "output": "خروجی"
+      },
+      "na": "نامشخص"
+    },
+    "access": {
+      "description": "مدیران می‌توانند تنظیمات حساب را تغییر دهند و کاربران می‌توانند مدل‌های فعال را مصرف کنند.",
+      "effectivePreviewTitle": "پیش‌نمایش دسترسی مؤثر",
+      "keyTypeLabel": "نوع کلید",
+      "userIdLabel": "کاربر",
+      "teamIdLabel": "تیم",
+      "optional": "اختیاری",
+      "previewAction": "پیش‌نمایش",
+      "pat": "pat",
+      "vat": "vat"
+    },
+    "effectiveModels": {
+      "columns": {
+        "model": "مدل",
+        "capabilities": "قابلیت‌ها",
+        "pricing": "قیمت‌گذاری",
+        "status": "دسترسی"
+      },
+      "empty": "برای محدوده انتخاب‌شده، مدل مؤثری برنگشت.",
+      "resolved": "حل‌شده",
+      "unresolved": "حل‌نشده",
+      "allowed": "مجاز",
+      "denied": "غیرمجاز"
+    },
+    "placeholders": {
+      "accountName": "مثال: openai-production",
+      "apiKey": "مثال: sk-...",
+      "secretRefProvider": "مثال: vault://provider-key",
+      "tenantId": "شناسه tenant",
+      "clientId": "شناسه client",
+      "secretRefAzure": "مثال: vault://azure-cert",
+      "awsAccessKey": "مثال: AKIA...",
+      "secret": "مقدار secret",
+      "awsRegion": "مثال: us-east-1",
+      "secretRefGoogle": "مثال: vault://gcp-service-account",
+      "googleServiceJson": "{\"type\":\"service_account\", ...}"
+    }
+  }
+}

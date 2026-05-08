@@ -1,8 +1,9 @@
 ﻿import type { Metadata } from "next";
 import { JetBrains_Mono, Vazirmatn } from "next/font/google";
+import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 
-import AppProviders from "@/app/components/app-providers";
+import { ThemeProvider } from "@/components/theme-provider";
 
 import "./globals.css";
 
@@ -44,9 +45,11 @@ export default async function RootLayout({
       className={`${vazirmatn.variable} ${jetBrainsMono.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-background text-foreground">
-        <AppProviders locale={locale} messages={messages}>
-          {children}
-        </AppProviders>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <ThemeProvider defaultTheme="light" disableTransitionOnChange>
+            {children}
+          </ThemeProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

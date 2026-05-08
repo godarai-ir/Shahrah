@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PrincipalSearchInput, type PrincipalSearchOption } from "@/app/components/principal-search-input";
 
 type ProviderAuthMode =
   | "api_key"
@@ -91,15 +92,16 @@ type AccountDetailsResponse = {
 
 type EffectiveModelView = {
   model: string;
-  types: string[];
+  types?: string[];
+  effective_capabilities?: string[];
   pricing_mode: "public" | "private";
   pricing_resolved: boolean;
+  allowed: boolean;
+  denied_reason?: string;
 };
 
 type EffectiveModelsResponse = {
-  account_id: string;
-  key_type: "pat" | "vat";
-  models: EffectiveModelView[];
+  data?: EffectiveModelView[];
 };
 
 type ProvidersResponse = { data?: ProviderCatalogProvider[] };
@@ -157,7 +159,6 @@ export default function ProviderAccountWizard() {
   const [selectedAccountID, setSelectedAccountID] = useState("");
 
   const [account, setAccount] = useState<TenantProviderAccount | null>(null);
-  const [accountModels, setAccountModels] = useState<TenantProviderAccountModel[]>([]);
 
   const [provider, setProvider] = useState("");
   const [name, setName] = useState("");
@@ -180,18 +181,29 @@ export default function ProviderAccountWizard() {
   const [users, setUsers] = useState<AccessPrincipal[]>([{ type: "everyone", display_name: t("principal.everyone") }]);
 
   const [managerKind, setManagerKind] = useState<"user" | "team">("user");
-  const [managerQuery, setManagerQuery] = useState("");
-  const [managerResults, setManagerResults] = useState<AccessPrincipalCandidate[]>([]);
-
   const [userKind, setUserKind] = useState<"user" | "team">("user");
-  const [userQuery, setUserQuery] = useState("");
-  const [userResults, setUserResults] = useState<AccessPrincipalCandidate[]>([]);
 
   const [effectiveKeyType, setEffectiveKeyType] = useState<"pat" | "vat">("pat");
   const [effectiveUserID, setEffectiveUserID] = useState("");
   const [effectiveTeamID, setEffectiveTeamID] = useState("");
   const [effectiveModels, setEffectiveModels] = useState<EffectiveModelView[]>([]);
   const [lastCredentialTestMessage, setLastCredentialTestMessage] = useState("");
+
+  const handleEffectiveUserIDChange = useCallback(
+    (value: string) => {
+      setEffectiveUserID(value);
+      if (!value.trim() && !effectiveTeamID.trim()) setEffectiveModels([]);
+    },
+    [effectiveTeamID],
+  );
+
+  const handleEffectiveTeamIDChange = useCallback(
+    (value: string) => {
+      setEffectiveTeamID(value);
+      if (!value.trim() && !effectiveUserID.trim()) setEffectiveModels([]);
+    },
+    [effectiveUserID],
+  );
 
   const visibleProviders = useMemo(
     () => providers.filter((item) => item.enabled && stringsEqualFold(item.provider, "azure") === false),
@@ -330,11 +342,17 @@ export default function ProviderAccountWizard() {
   }, []);
 
   useEffect(() => {
-    void loadInitial();
+    const timer = setTimeout(() => {
+      void loadInitial();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [loadInitial]);
 
   useEffect(() => {
-    void loadCatalogStats();
+    const timer = setTimeout(() => {
+      void loadCatalogStats();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [loadCatalogStats]);
 
   const handleLoadAccount = useCallback(
@@ -348,7 +366,6 @@ export default function ProviderAccountWizard() {
         );
         const payload = unwrapData<AccountDetailsResponse>(details) ?? details;
         setAccount(payload.account);
-        setAccountModels(payload.models ?? []);
         setProvider(payload.account.provider);
         setName(payload.account.name);
         setAuthMode(payload.account.auth_mode);
@@ -370,7 +387,10 @@ export default function ProviderAccountWizard() {
 
   useEffect(() => {
     if (!selectedAccountID || workspaceMode !== "workspace") return;
-    void handleLoadAccount(selectedAccountID);
+    const timer = setTimeout(() => {
+      void handleLoadAccount(selectedAccountID);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [selectedAccountID, workspaceMode, handleLoadAccount]);
 
   function resetCredentialInputs() {
@@ -390,7 +410,6 @@ export default function ProviderAccountWizard() {
     setSetupStep(1);
     setSelectedAccountID("");
     setAccount(null);
-    setAccountModels([]);
     setManagers([]);
     setUsers([{ type: "everyone", display_name: t("principal.everyone") }]);
     setEffectiveModels([]);
@@ -637,30 +656,30 @@ export default function ProviderAccountWizard() {
     }
   }
 
-  async function searchManagerPrincipals() {
+  const searchPrincipalCandidates = useCallback(async (kind: "user" | "team", query: string) => {
     try {
       const response = await requestJSON<AccessPrincipalResponse>(
-        `/api/access-principals?kind=${managerKind}&q=${encodeURIComponent(managerQuery.trim())}&limit=20`,
+        `/api/access-principals?kind=${kind}&q=${encodeURIComponent(query.trim())}&limit=20`,
       );
-      setManagerResults(unwrapData<AccessPrincipalCandidate[]>(response) ?? []);
+      return unwrapData<AccessPrincipalCandidate[]>(response) ?? [];
     } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.managerSearchFailed")) });
+      setBanner({
+        kind: "error",
+        message: normalizeError(
+          error,
+          kind === "user" ? t("messages.userSearchFailed") : t("messages.managerSearchFailed"),
+        ),
+      });
+      return [];
     }
-  }
-
-  async function searchUserPrincipals() {
-    try {
-      const response = await requestJSON<AccessPrincipalResponse>(
-        `/api/access-principals?kind=${userKind}&q=${encodeURIComponent(userQuery.trim())}&limit=20`,
-      );
-      setUserResults(unwrapData<AccessPrincipalCandidate[]>(response) ?? []);
-    } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.userSearchFailed")) });
-    }
-  }
+  }, [t]);
 
   async function loadEffectiveModelsPreview(accountID = selectedAccountID) {
     if (!accountID) {
+      setEffectiveModels([]);
+      return;
+    }
+    if (!effectiveUserID.trim() && !effectiveTeamID.trim()) {
       setEffectiveModels([]);
       return;
     }
@@ -673,8 +692,13 @@ export default function ProviderAccountWizard() {
       const response = await requestJSON<EffectiveModelsResponse>(
         `/api/tenant-provider-accounts/${encodeURIComponent(accountID)}/effective-models?${query.toString()}`,
       );
-      const payload = unwrapData<EffectiveModelsResponse>(response) ?? response;
-      setEffectiveModels(payload.models ?? []);
+      const payload = unwrapData<EffectiveModelView[]>(response) ?? [];
+      setEffectiveModels(
+        payload.map((item) => ({
+          ...item,
+          types: item.types ?? item.effective_capabilities ?? [],
+        })),
+      );
     } catch (error) {
       setBanner({ kind: "error", message: normalizeError(error, "Failed to load effective models.") });
     } finally {
@@ -1021,28 +1045,21 @@ export default function ProviderAccountWizard() {
                           t={t}
                           managerKind={managerKind}
                           setManagerKind={setManagerKind}
-                          managerQuery={managerQuery}
-                          setManagerQuery={setManagerQuery}
-                          managerResults={managerResults}
                           managers={managers}
                           setManagers={setManagers}
                           userKind={userKind}
                           setUserKind={setUserKind}
-                          userQuery={userQuery}
-                          setUserQuery={setUserQuery}
-                          userResults={userResults}
                           users={users}
                           setUsers={setUsers}
-                          searchManagers={searchManagerPrincipals}
-                          searchUsers={searchUserPrincipals}
+                          onSearchPrincipal={searchPrincipalCandidates}
                           onSave={() => void handleSaveAccess()}
                           isSaving={isSavingAccess}
                           effectiveKeyType={effectiveKeyType}
                           setEffectiveKeyType={setEffectiveKeyType}
                           effectiveUserID={effectiveUserID}
-                          setEffectiveUserID={setEffectiveUserID}
+                          setEffectiveUserID={handleEffectiveUserIDChange}
                           effectiveTeamID={effectiveTeamID}
-                          setEffectiveTeamID={setEffectiveTeamID}
+                          setEffectiveTeamID={handleEffectiveTeamIDChange}
                           effectiveModels={effectiveModels}
                           isLoadingEffective={isLoadingEffective}
                           onLoadEffective={() => void loadEffectiveModelsPreview()}
@@ -1125,28 +1142,21 @@ export default function ProviderAccountWizard() {
                         t={t}
                         managerKind={managerKind}
                         setManagerKind={setManagerKind}
-                        managerQuery={managerQuery}
-                        setManagerQuery={setManagerQuery}
-                        managerResults={managerResults}
                         managers={managers}
                         setManagers={setManagers}
                         userKind={userKind}
                         setUserKind={setUserKind}
-                        userQuery={userQuery}
-                        setUserQuery={setUserQuery}
-                        userResults={userResults}
                         users={users}
                         setUsers={setUsers}
-                        searchManagers={searchManagerPrincipals}
-                        searchUsers={searchUserPrincipals}
+                        onSearchPrincipal={searchPrincipalCandidates}
                         onSave={() => void handleSaveAccess()}
                         isSaving={isSavingAccess}
                         effectiveKeyType={effectiveKeyType}
                         setEffectiveKeyType={setEffectiveKeyType}
                         effectiveUserID={effectiveUserID}
-                        setEffectiveUserID={setEffectiveUserID}
+                        setEffectiveUserID={handleEffectiveUserIDChange}
                         effectiveTeamID={effectiveTeamID}
-                        setEffectiveTeamID={setEffectiveTeamID}
+                        setEffectiveTeamID={handleEffectiveTeamIDChange}
                         effectiveModels={effectiveModels}
                         isLoadingEffective={isLoadingEffective}
                         onLoadEffective={() => void loadEffectiveModelsPreview()}
@@ -1224,10 +1234,28 @@ export default function ProviderAccountWizard() {
                             </select>
                           </div>
                           <Field label={ux("access.userIdLabel")} id="obsUserID">
-                            <Input id="obsUserID" value={effectiveUserID} onChange={(event) => setEffectiveUserID(event.target.value)} placeholder={ux("access.optional")} />
+                            <PrincipalSearchInput
+                              id="obsUserID"
+                              kind="user"
+                              selectedID={effectiveUserID}
+                              onSelectedIDChange={setEffectiveUserID}
+                              onSearch={searchPrincipalCandidates}
+                              loadingLabel={ux("actions.loading")}
+                              emptyLabel={ux("effectiveModels.empty")}
+                              placeholder={`${t("principal.searchPlaceholder")} (${t("principal.user")})`}
+                            />
                           </Field>
                           <Field label={ux("access.teamIdLabel")} id="obsTeamID">
-                            <Input id="obsTeamID" value={effectiveTeamID} onChange={(event) => setEffectiveTeamID(event.target.value)} placeholder={ux("access.optional")} />
+                            <PrincipalSearchInput
+                              id="obsTeamID"
+                              kind="team"
+                              selectedID={effectiveTeamID}
+                              onSelectedIDChange={setEffectiveTeamID}
+                              onSearch={searchPrincipalCandidates}
+                              loadingLabel={ux("actions.loading")}
+                              emptyLabel={ux("effectiveModels.empty")}
+                              placeholder={`${t("principal.searchPlaceholder")} (${t("principal.team")})`}
+                            />
                           </Field>
                           <Button type="button" variant="outline" onClick={() => void loadEffectiveModelsPreview()} disabled={isLoadingEffective}>
                             {isLoadingEffective ? ux("actions.loading") : ux("actions.loadEffectiveModels")}
@@ -1321,8 +1349,20 @@ function EffectiveModelsTable(props: { models: EffectiveModelView[] }) {
               <Badge key={`${item.model}-${type}`} variant="secondary">{type}</Badge>
             ))}
           </div>
-          <div>{item.pricing_mode}</div>
-          <div>{item.pricing_resolved ? ux("effectiveModels.resolved") : ux("effectiveModels.unresolved")}</div>
+          <div className="flex items-center gap-1">
+            <span>{item.pricing_mode}</span>
+            <Badge variant={item.pricing_resolved ? "default" : "outline"}>
+              {item.pricing_resolved ? ux("effectiveModels.resolved") : ux("effectiveModels.unresolved")}
+            </Badge>
+          </div>
+          <div>
+            <Badge variant={item.allowed ? "default" : "destructive"}>
+              {item.allowed ? ux("effectiveModels.allowed") : ux("effectiveModels.denied")}
+            </Badge>
+            {!item.allowed && item.denied_reason ? (
+              <p className="mt-1 truncate text-xs text-muted-foreground">{item.denied_reason}</p>
+            ) : null}
+          </div>
         </div>
       ))}
     </div>
@@ -1526,20 +1566,13 @@ function AccessEditor(props: {
   t: ReturnType<typeof useTranslations>;
   managerKind: "user" | "team";
   setManagerKind: (value: "user" | "team") => void;
-  managerQuery: string;
-  setManagerQuery: (value: string) => void;
-  managerResults: AccessPrincipalCandidate[];
   managers: AccessPrincipal[];
   setManagers: (value: AccessPrincipal[]) => void;
   userKind: "user" | "team";
   setUserKind: (value: "user" | "team") => void;
-  userQuery: string;
-  setUserQuery: (value: string) => void;
-  userResults: AccessPrincipalCandidate[];
   users: AccessPrincipal[];
   setUsers: (value: AccessPrincipal[]) => void;
-  searchManagers: () => Promise<void>;
-  searchUsers: () => Promise<void>;
+  onSearchPrincipal: (kind: "user" | "team", query: string) => Promise<AccessPrincipalCandidate[]>;
   onSave: () => void;
   isSaving: boolean;
   effectiveKeyType: "pat" | "vat";
@@ -1553,6 +1586,8 @@ function AccessEditor(props: {
   onLoadEffective: () => void;
 }) {
   const ux = useTranslations("providerAccounts.ux");
+  const hasEffectivePrincipal = Boolean(props.effectiveUserID.trim() || props.effectiveTeamID.trim());
+
   return (
     <section className="space-y-4 rounded-lg border p-4">
       <div className="flex items-center justify-between gap-2">
@@ -1570,10 +1605,7 @@ function AccessEditor(props: {
           title={props.t("step3.managersTitle")}
           kind={props.managerKind}
           setKind={props.setManagerKind}
-          query={props.managerQuery}
-          setQuery={props.setManagerQuery}
-          results={props.managerResults}
-          onSearch={props.searchManagers}
+          onSearchPrincipal={props.onSearchPrincipal}
           selected={props.managers}
           setSelected={props.setManagers}
           allowEveryone={false}
@@ -1584,10 +1616,7 @@ function AccessEditor(props: {
           title={props.t("step3.usersTitle")}
           kind={props.userKind}
           setKind={props.setUserKind}
-          query={props.userQuery}
-          setQuery={props.setUserQuery}
-          results={props.userResults}
-          onSearch={props.searchUsers}
+          onSearchPrincipal={props.onSearchPrincipal}
           selected={props.users}
           setSelected={props.setUsers}
           allowEveryone
@@ -1597,12 +1626,12 @@ function AccessEditor(props: {
 
       <div className="space-y-3 rounded-lg border bg-muted/10 p-3">
         <h4 className="font-medium">{ux("access.effectivePreviewTitle")}</h4>
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="grid gap-1">
+        <div className="grid gap-3 xl:grid-cols-4">
+          <div className="grid gap-1 xl:col-span-1">
             <Label htmlFor="previewKeyType">{ux("access.keyTypeLabel")}</Label>
             <select
               id="previewKeyType"
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
               value={props.effectiveKeyType}
               onChange={(event) => props.setEffectiveKeyType(event.target.value as "pat" | "vat")}
             >
@@ -1611,14 +1640,64 @@ function AccessEditor(props: {
             </select>
           </div>
           <Field label={ux("access.userIdLabel")} id="previewUserID">
-            <Input id="previewUserID" value={props.effectiveUserID} onChange={(event) => props.setEffectiveUserID(event.target.value)} placeholder={ux("access.optional")} />
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+              <PrincipalSearchInput
+                id="previewUserID"
+                kind="user"
+                selectedID={props.effectiveUserID}
+                onSelectedIDChange={props.setEffectiveUserID}
+                onSearch={props.onSearchPrincipal}
+                loadingLabel={ux("actions.loading")}
+                emptyLabel={ux("effectiveModels.empty")}
+                placeholder={`${props.t("principal.searchPlaceholder")} (${props.t("principal.user")})`}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => props.setEffectiveUserID("")}
+                disabled={!props.effectiveUserID.trim()}
+                className="w-full sm:w-auto"
+              >
+                {ux("actions.clear")}
+              </Button>
+            </div>
           </Field>
           <Field label={ux("access.teamIdLabel")} id="previewTeamID">
-            <Input id="previewTeamID" value={props.effectiveTeamID} onChange={(event) => props.setEffectiveTeamID(event.target.value)} placeholder={ux("access.optional")} />
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+              <PrincipalSearchInput
+                id="previewTeamID"
+                kind="team"
+                selectedID={props.effectiveTeamID}
+                onSelectedIDChange={props.setEffectiveTeamID}
+                onSearch={props.onSearchPrincipal}
+                loadingLabel={ux("actions.loading")}
+                emptyLabel={ux("effectiveModels.empty")}
+                placeholder={`${props.t("principal.searchPlaceholder")} (${props.t("principal.team")})`}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => props.setEffectiveTeamID("")}
+                disabled={!props.effectiveTeamID.trim()}
+                className="w-full sm:w-auto"
+              >
+                {ux("actions.clear")}
+              </Button>
+            </div>
           </Field>
-          <Button type="button" variant="outline" onClick={props.onLoadEffective} disabled={props.isLoadingEffective}>
-            {props.isLoadingEffective ? ux("actions.loading") : ux("access.previewAction")}
-          </Button>
+          <div className="flex items-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={props.onLoadEffective}
+              disabled={props.isLoadingEffective || !hasEffectivePrincipal}
+              className="w-full xl:w-auto"
+            >
+              {props.isLoadingEffective ? ux("actions.loading") : ux("access.previewAction")}
+            </Button>
+          </div>
         </div>
         <EffectiveModelsTable models={props.effectiveModels} />
       </div>
@@ -1727,15 +1806,16 @@ function PrincipalPicker(props: {
   title: string;
   kind: "user" | "team";
   setKind: (value: "user" | "team") => void;
-  query: string;
-  setQuery: (value: string) => void;
-  results: AccessPrincipalCandidate[];
-  onSearch: () => Promise<void>;
+  onSearchPrincipal: (kind: "user" | "team", query: string) => Promise<AccessPrincipalCandidate[]>;
   selected: AccessPrincipal[];
   setSelected: (value: AccessPrincipal[]) => void;
   allowEveryone: boolean;
   t: ReturnType<typeof useTranslations>;
 }) {
+  const ux = useTranslations("providerAccounts.ux");
+  const [candidateID, setCandidateID] = useState("");
+  const [candidateOption, setCandidateOption] = useState<PrincipalSearchOption | null>(null);
+
   function addPrincipal(item: AccessPrincipalCandidate) {
     const exists = props.selected.some(
       (current) =>
@@ -1761,16 +1841,55 @@ function PrincipalPicker(props: {
     );
   }
 
+  function addSelectedCandidate() {
+    if (!candidateOption?.principal_id) return;
+    addPrincipal({
+      type: props.kind,
+      principal_id: candidateOption.principal_id,
+      display_name: candidateOption.display_name,
+      secondary: candidateOption.secondary,
+    });
+    setCandidateID("");
+    setCandidateOption(null);
+  }
+
   return (
     <div className="space-y-3 rounded-lg border p-3">
       <h4 className="font-medium">{props.title}</h4>
-      <div className="grid gap-2 sm:grid-cols-3">
-        <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={props.kind} onChange={(event) => props.setKind(event.target.value as "user" | "team")}>
+      <div className="grid gap-2 lg:grid-cols-[120px_minmax(0,1fr)_auto]">
+        <select
+          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+          value={props.kind}
+          onChange={(event) => {
+            props.setKind(event.target.value as "user" | "team");
+            setCandidateID("");
+            setCandidateOption(null);
+          }}
+        >
           <option value="user">{props.t("principal.user")}</option>
           <option value="team">{props.t("principal.team")}</option>
         </select>
-        <Input value={props.query} onChange={(event) => props.setQuery(event.target.value)} placeholder={props.t("principal.searchPlaceholder")} />
-        <Button type="button" variant="outline" onClick={() => void props.onSearch()}>{props.t("principal.search")}</Button>
+        <PrincipalSearchInput
+          id={`${props.kind}-principal-picker`}
+          kind={props.kind}
+          selectedID={candidateID}
+          onSelectedIDChange={setCandidateID}
+          onSelectedOptionChange={setCandidateOption}
+          onSearch={props.onSearchPrincipal}
+          loadingLabel={ux("actions.loading")}
+          emptyLabel={ux("effectiveModels.empty")}
+          placeholder={`${props.t("principal.searchPlaceholder")} (${props.t(`principal.${props.kind}`)})`}
+          className="w-full"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          onClick={addSelectedCandidate}
+          disabled={!candidateOption?.principal_id}
+          className="w-full lg:w-auto"
+        >
+          {props.t("principal.add")}
+        </Button>
       </div>
 
       {props.allowEveryone ? (
@@ -1787,22 +1906,6 @@ function PrincipalPicker(props: {
           {props.t("principal.addEveryone")}
         </Button>
       ) : null}
-
-      <div className="space-y-2">
-        {props.results.map((item) => (
-          <div key={`${item.type}-${item.principal_id}`} className="flex items-center justify-between rounded border px-2 py-1">
-            <div>
-              <div className="text-sm font-medium">{item.display_name}</div>
-              <div className="text-xs text-muted-foreground">
-                {principalTypeLabel(item.type, props.t)} {item.secondary ? `- ${item.secondary}` : ""}
-              </div>
-            </div>
-            <Button type="button" size="sm" variant="outline" onClick={() => addPrincipal(item)}>
-              {props.t("principal.add")}
-            </Button>
-          </div>
-        ))}
-      </div>
 
       <div className="flex flex-wrap gap-2">
         {props.selected.map((item) => (
@@ -1910,12 +2013,6 @@ function toNumberOrUndefined(value: string): number | undefined {
   const parsed = Number(raw);
   if (!Number.isFinite(parsed)) return undefined;
   return parsed;
-}
-
-function principalTypeLabel(type: PrincipalType, t: ReturnType<typeof useTranslations>): string {
-  if (type === "user") return t("principal.user");
-  if (type === "team") return t("principal.team");
-  return t("principal.everyone");
 }
 
 function getProviderLogoPath(provider: string): string {

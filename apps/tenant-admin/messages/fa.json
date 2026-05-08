@@ -436,9 +436,9 @@
                                         "access":  {
                                                        "description":  "مدیران می‌توانند تنظیمات حساب را تغییر دهند و کاربران می‌توانند مدل‌های فعال را مصرف کنند.",
                                                        "effectivePreviewTitle":  "پیش‌نمایش دسترسی مؤثر",
-                                                       "keyTypeLabel":  "key_type",
-                                                       "userIdLabel":  "user_id",
-                                                       "teamIdLabel":  "team_id",
+                                                       "keyTypeLabel":  "نوع کلید",
+                                                       "userIdLabel":  "کاربر",
+                                                       "teamIdLabel":  "تیم",
                                                        "optional":  "اختیاری",
                                                        "previewAction":  "پیش‌نمایش",
                                                        "pat":  "pat",
@@ -453,8 +453,10 @@
                                                                             },
                                                                 "empty":  "برای محدوده انتخاب‌شده، مدل مؤثری برنگشت.",
                                                                 "resolved":  "حل‌شده",
-                                                                "unresolved":  "حل‌نشده"
-                                                            },
+                                                                "unresolved":  "حل‌نشده",
+                                                                "allowed":  "مجاز",
+                                                                "denied":  "غیرمجاز"
+                                                             },
                                         "placeholders":  {
                                                              "accountName":  "مثال: openai-production",
                                                              "apiKey":  "مثال: sk-...",

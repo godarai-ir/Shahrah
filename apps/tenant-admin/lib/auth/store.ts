@@ -353,6 +353,13 @@ export async function updateTenantUserContact(input: {
 }) {
   await cleanupExpiredRecords();
 
+  if (input.field === "mobile") {
+    return {
+      ok: false as const,
+      error: "ویرایش شماره همراه در اسکیمای فعلی پشتیبانی نمی‌شود.",
+    };
+  }
+
   const user = await findTenantUserByID(input.tenantSlug, input.userID);
   if (!user) {
     return {
@@ -471,12 +478,11 @@ async function cleanupExpiredRecords() {
 }
 
 async function getDefaultRoleForNewTenantUser(tenantSlug: string) {
+  void tenantSlug;
   const rows = await prisma.$queryRaw<{ count: bigint }[]>(Prisma.sql`
     SELECT COUNT(*)::bigint AS count
     FROM users u
-    JOIN tenants t ON t.tenant_id = u.tenant_id
-    WHERE t.slug = ${tenantSlug}
-      AND COALESCE(u.role, '') <> 'deactivated'
+    WHERE COALESCE(u.role, '') <> 'deactivated'
   `);
   const count = Number(rows[0]?.count ?? 0);
   return count === 0 ? "tenant_admin" : "tenant_member";
@@ -489,9 +495,7 @@ async function ensureTenantHasAdmin(input: {
   const adminRows = await prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
     SELECT u.user_id::text AS id
     FROM users u
-    JOIN tenants t ON t.tenant_id = u.tenant_id
-    WHERE t.slug = ${input.tenantSlug}
-      AND COALESCE(u.role, '') IN ('tenant_admin', 'proxy_admin')
+    WHERE COALESCE(u.role, '') IN ('tenant_admin', 'proxy_admin')
     LIMIT 1
   `);
   if (adminRows.length > 0) {
@@ -501,9 +505,7 @@ async function ensureTenantHasAdmin(input: {
   const activeRows = await prisma.$queryRaw<{ count: bigint }[]>(Prisma.sql`
     SELECT COUNT(*)::bigint AS count
     FROM users u
-    JOIN tenants t ON t.tenant_id = u.tenant_id
-    WHERE t.slug = ${input.tenantSlug}
-      AND COALESCE(u.role, '') <> 'deactivated'
+    WHERE COALESCE(u.role, '') <> 'deactivated'
   `);
   const activeUsers = Number(activeRows[0]?.count ?? 0);
   if (activeUsers === 0) {
@@ -513,15 +515,12 @@ async function ensureTenantHasAdmin(input: {
   const updated = await prisma.$queryRaw<DBTenantUserRow[]>(Prisma.sql`
     UPDATE users AS u
     SET role = 'tenant_admin', updated_at = NOW()
-    FROM tenants t
-    WHERE t.slug = ${input.tenantSlug}
-      AND u.user_id::text = ${input.candidateUserID}
-      AND u.tenant_id = t.tenant_id
+    WHERE u.user_id::text = ${input.candidateUserID}
     RETURNING
       u.user_id::text AS id,
-      t.slug AS "tenantSlug",
+      ${input.tenantSlug}::text AS "tenantSlug",
       u.email,
-      u.mobile,
+      NULL::text AS mobile,
       u.role,
       u.created_at AS "createdAt",
       u.updated_at AS "updatedAt",
@@ -535,20 +534,22 @@ async function findTenantUserByIdentifier(
   channel: AuthChannel,
   identifier: string,
 ) {
+  if (channel === "mobile") {
+    return null;
+  }
+
   const rows = await prisma.$queryRaw<DBTenantUserRow[]>(Prisma.sql`
     SELECT
       u.user_id::text AS id,
-      t.slug AS "tenantSlug",
+      ${tenantSlug}::text AS "tenantSlug",
       u.email,
-      u.mobile,
+      NULL::text AS mobile,
       u.role,
       u.created_at AS "createdAt",
       u.updated_at AS "updatedAt",
       NULL::timestamptz AS "lastLoginAt"
     FROM users u
-    JOIN tenants t ON t.tenant_id = u.tenant_id
-    WHERE t.slug = ${tenantSlug}
-      AND ${channel === "email" ? Prisma.sql`u.email = ${identifier}` : Prisma.sql`u.mobile = ${identifier}`}
+    WHERE u.email = ${identifier}
     LIMIT 1
   `);
   return rows[0] ?? null;
@@ -558,17 +559,15 @@ async function findTenantUserByID(tenantSlug: string, userID: string) {
   const rows = await prisma.$queryRaw<DBTenantUserRow[]>(Prisma.sql`
     SELECT
       u.user_id::text AS id,
-      t.slug AS "tenantSlug",
+      ${tenantSlug}::text AS "tenantSlug",
       u.email,
-      u.mobile,
+      NULL::text AS mobile,
       u.role,
       u.created_at AS "createdAt",
       u.updated_at AS "updatedAt",
       NULL::timestamptz AS "lastLoginAt"
     FROM users u
-    JOIN tenants t ON t.tenant_id = u.tenant_id
-    WHERE t.slug = ${tenantSlug}
-      AND u.user_id::text = ${userID}
+    WHERE u.user_id::text = ${userID}
     LIMIT 1
   `);
   return rows[0] ?? null;
@@ -580,25 +579,25 @@ async function createTenantUserFromIdentifier(
   identifier: string,
   role: string,
 ) {
+  if (channel === "mobile") {
+    throw new Error("mobile auth is not supported by current users schema");
+  }
+
   const rows = await prisma.$queryRaw<DBTenantUserRow[]>(Prisma.sql`
     INSERT INTO users (
-      user_alias, email, mobile, role, tenant_id, created_at, updated_at
+      user_alias, email, role, created_at, updated_at
     )
     SELECT
       NULL,
-      ${channel === "email" ? identifier : null},
-      ${channel === "mobile" ? identifier : null},
+      ${identifier},
       ${role},
-      t.tenant_id,
       NOW(),
       NOW()
-    FROM tenants t
-    WHERE t.slug = ${tenantSlug}
     RETURNING
       user_id::text AS id,
       ${tenantSlug}::text AS "tenantSlug",
       email,
-      mobile,
+      NULL::text AS mobile,
       role,
       created_at AS "createdAt",
       updated_at AS "updatedAt",
@@ -614,15 +613,12 @@ async function updateTenantUserLastLogin(tenantSlug: string, userID: string) {
   const rows = await prisma.$queryRaw<DBTenantUserRow[]>(Prisma.sql`
     UPDATE users AS u
     SET updated_at = NOW()
-    FROM tenants t
-    WHERE t.slug = ${tenantSlug}
-      AND u.user_id::text = ${userID}
-      AND u.tenant_id = t.tenant_id
+    WHERE u.user_id::text = ${userID}
     RETURNING
       u.user_id::text AS id,
-      t.slug AS "tenantSlug",
+      ${tenantSlug}::text AS "tenantSlug",
       u.email,
-      u.mobile,
+      NULL::text AS mobile,
       u.role,
       u.created_at AS "createdAt",
       u.updated_at AS "updatedAt",
@@ -640,42 +636,25 @@ async function updateTenantUserContactField(
   field: "email" | "mobile",
   value: string,
 ) {
+  if (field === "mobile") {
+    throw new Error("mobile contact update is not supported by current users schema");
+  }
+
   const query =
-    field === "email"
-      ? Prisma.sql`
-          UPDATE users AS u
-          SET email = ${value}, updated_at = NOW()
-          FROM tenants t
-          WHERE t.slug = ${tenantSlug}
-            AND u.user_id::text = ${userID}
-            AND u.tenant_id = t.tenant_id
-          RETURNING
-            u.user_id::text AS id,
-            t.slug AS "tenantSlug",
-            u.email,
-            u.mobile,
-            u.role,
-            u.created_at AS "createdAt",
-            u.updated_at AS "updatedAt",
-            NULL::timestamptz AS "lastLoginAt"
-        `
-      : Prisma.sql`
-          UPDATE users AS u
-          SET mobile = ${value}, updated_at = NOW()
-          FROM tenants t
-          WHERE t.slug = ${tenantSlug}
-            AND u.user_id::text = ${userID}
-            AND u.tenant_id = t.tenant_id
-          RETURNING
-            u.user_id::text AS id,
-            t.slug AS "tenantSlug",
-            u.email,
-            u.mobile,
-            u.role,
-            u.created_at AS "createdAt",
-            u.updated_at AS "updatedAt",
-            NULL::timestamptz AS "lastLoginAt"
-        `;
+    Prisma.sql`
+      UPDATE users AS u
+      SET email = ${value}, updated_at = NOW()
+      WHERE u.user_id::text = ${userID}
+      RETURNING
+        u.user_id::text AS id,
+        ${tenantSlug}::text AS "tenantSlug",
+        u.email,
+        NULL::text AS mobile,
+        u.role,
+        u.created_at AS "createdAt",
+        u.updated_at AS "updatedAt",
+        NULL::timestamptz AS "lastLoginAt"
+    `;
   const rows = await prisma.$queryRaw<DBTenantUserRow[]>(query);
   if (rows.length === 0) {
     throw new Error("user not found");

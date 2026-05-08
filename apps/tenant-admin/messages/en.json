@@ -449,11 +449,13 @@
           "model": "Model",
           "capabilities": "Capabilities",
           "pricing": "Pricing",
-          "status": "Status"
+          "status": "Access"
         },
         "empty": "No effective models returned for the selected principal scope.",
         "resolved": "resolved",
-        "unresolved": "unresolved"
+        "unresolved": "unresolved",
+        "allowed": "Allowed",
+        "denied": "Denied"
       },
       "placeholders": {
         "accountName": "Example: openai-production",

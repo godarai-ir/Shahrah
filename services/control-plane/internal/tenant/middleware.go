@@ -35,6 +35,7 @@ type MiddlewareConfig struct {
 type Middleware struct {
 	store           Store
 	cache           Cache
+	defaultTenant   string
 	allowHeaderHint bool
 	cacheTTL        time.Duration
 }
@@ -44,6 +45,7 @@ type Middleware struct {
 func NewMiddleware(store Store, defaultTenant string, allowHeaderHint bool) *Middleware {
 	return &Middleware{
 		store:           store,
+		defaultTenant:   strings.TrimSpace(defaultTenant),
 		allowHeaderHint: allowHeaderHint,
 		cacheTTL:        5 * time.Minute, // default TTL
 	}
@@ -73,9 +75,16 @@ func (m *Middleware) Handle() fiber.Handler {
 		host := c.Hostname()
 
 		// Allow header hint for local development
-		if m.allowHeaderHint && (host == "localhost" || strings.HasPrefix(host, "127.")) {
-			if hinted := c.Get("x-shahrah-tenant"); hinted != "" {
-				host = hinted + ".localhost"
+		if host == "localhost" || strings.HasPrefix(host, "127.") {
+			if m.allowHeaderHint {
+				if hinted := strings.TrimSpace(c.Get("x-shahrah-tenant")); hinted != "" {
+					host = hinted + ".localhost"
+				}
+			}
+			if host == "localhost" || strings.HasPrefix(host, "127.") {
+				if m.defaultTenant != "" {
+					host = m.defaultTenant + ".localhost"
+				}
 			}
 		}
 
