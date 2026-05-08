@@ -183,220 +183,6 @@ Budget (1) -----> (N) Organization / Team / VirtualKey / User
 
 ---
 
-## LiteLLM Reference Models
-
-The following LiteLLM Prisma schema models serve as the reference for this design:
-
-### LiteLLM_OrganizationTable
-```prisma
-model LiteLLM_OrganizationTable {
-    organization_id    String @id @default(uuid())
-    organization_alias String
-    budget_id          String
-    metadata           Json   @default("{}")
-    models             String[]
-    spend              Float  @default(0.0)
-    model_spend        Json   @default("{}")
-    object_permission_id String?
-    created_at         DateTime @default(now())
-    created_by         String
-    updated_at         DateTime @default(now()) @updatedAt
-    updated_by         String
-    
-    // Relations
-    litellm_budget_table LiteLLM_BudgetTable?
-    teams                LiteLLM_TeamTable[]
-    users                LiteLLM_UserTable[]
-    keys                 LiteLLM_VerificationToken[]
-    members              LiteLLM_OrganizationMembership[]
-    object_permission    LiteLLM_ObjectPermissionTable?
-}
-```
-
-### LiteLLM_TeamTable
-```prisma
-model LiteLLM_TeamTable {
-    team_id              String @id @default(uuid())
-    team_alias           String?
-    organization_id      String?
-    object_permission_id String?
-    admins               String[]
-    members              String[]
-    members_with_roles   Json @default("{}")
-    metadata             Json @default("{}")
-    max_budget           Float?
-    soft_budget          Float?
-    spend                Float @default(0.0)
-    models               String[]
-    max_parallel_requests Int?
-    tpm_limit            BigInt?
-    rpm_limit            BigInt?
-    budget_duration      String?
-    budget_reset_at      DateTime?
-    blocked              Boolean @default(false)
-    // ... more fields
-    
-    // Relations
-    litellm_organization_table LiteLLM_OrganizationTable?
-    object_permission          LiteLLM_ObjectPermissionTable?
-    projects                   LiteLLM_ProjectTable[]
-    
-    @@index([organization_id])
-    @@index([team_alias])
-    @@index([created_at])
-}
-```
-
-### LiteLLM_VerificationToken (Virtual Key)
-```prisma
-model LiteLLM_VerificationToken {
-    token               String @id
-    key_name            String?
-    key_alias           String?
-    spend               Float @default(0.0)
-    expires             DateTime?
-    models              String[]
-    user_id             String?
-    team_id             String?
-    project_id          String?
-    permissions         Json @default("{}")
-    max_parallel_requests Int?
-    metadata            Json @default("{}")
-    blocked             Boolean?
-    tpm_limit           BigInt?
-    rpm_limit           BigInt?
-    max_budget          Float?
-    budget_duration     String?
-    budget_reset_at     DateTime?
-    organization_id     String?
-    object_permission_id String?
-    created_at          DateTime?
-    updated_at          DateTime?
-    last_active         DateTime?
-    rotation_count      Int? @default(0)
-    auto_rotate         Boolean? @default(false)
-    rotation_interval   String?
-    key_rotation_at     DateTime?
-    budget_limits       Json?
-    
-    // Relations
-    litellm_budget_table     LiteLLM_BudgetTable?
-    litellm_organization_table LiteLLM_OrganizationTable?
-    litellm_project_table    LiteLLM_ProjectTable?
-    object_permission        LiteLLM_ObjectPermissionTable?
-    
-    @@index([user_id, team_id])
-    @@index([team_id])
-}
-```
-
-### LiteLLM_BudgetTable
-```prisma
-model LiteLLM_BudgetTable {
-    budget_id            String @id @default(uuid())
-    max_budget           Float?
-    soft_budget          Float?
-    max_parallel_requests Int?
-    tpm_limit            BigInt?
-    rpm_limit            BigInt?
-    model_max_budget     Json?
-    budget_duration      String?
-    budget_reset_at      DateTime?
-    allowed_models       String[] @default([])
-    created_at           DateTime @default(now())
-    updated_at           DateTime @default(now()) @updatedAt
-    
-    // Relations
-    organization         LiteLLM_OrganizationTable[]
-    projects             LiteLLM_ProjectTable[]
-    keys                 LiteLLM_VerificationToken[]
-    end_users            LiteLLM_EndUserTable[]
-    tags                 LiteLLM_TagTable[]
-    team_membership      LiteLLM_TeamMembership[]
-    organization_membership LiteLLM_OrganizationMembership[]
-}
-```
-
-### LiteLLM_OrganizationMembership
-```prisma
-model LiteLLM_OrganizationMembership {
-    user_id         String
-    organization_id String
-    user_role       String?
-    spend           Float? @default(0.0)
-    budget_id       String?
-    created_at      DateTime? @default(now())
-    updated_at      DateTime? @default(now()) @updatedAt
-    
-    user            LiteLLM_UserTable
-    organization    LiteLLM_OrganizationTable
-    litellm_budget_table LiteLLM_BudgetTable?
-    
-    @@id([user_id, organization_id])
-    @@unique([user_id, organization_id])
-}
-```
-
-### LiteLLM_TeamMembership
-```prisma
-model LiteLLM_TeamMembership {
-    user_id    String
-    team_id    String
-    spend      Float @default(0.0)
-    total_spend Float @default(0.0)
-    budget_id  String?
-    litellm_budget_table LiteLLM_BudgetTable?
-    
-    @@id([user_id, team_id])
-}
-```
-
-### LiteLLM_ObjectPermissionTable
-```prisma
-model LiteLLM_ObjectPermissionTable {
-    object_permission_id String @id @default(uuid())
-    mcp_servers          String[] @default([])
-    mcp_access_groups    String[] @default([])
-    mcp_tool_permissions Json?
-    vector_stores        String[] @default([])
-    agents               String[] @default([])
-    agent_access_groups  String[] @default([])
-    models               String[] @default([])
-    blocked_tools        String[] @default([])
-    mcp_toolsets         String[] @default([])
-    
-    teams                LiteLLM_TeamTable[]
-    projects             LiteLLM_ProjectTable[]
-    verification_tokens  LiteLLM_VerificationToken[]
-    organizations        LiteLLM_OrganizationTable[]
-    users                LiteLLM_UserTable[]
-    end_users            LiteLLM_EndUserTable[]
-}
-```
-
----
-
-## Shahrah Entity Mapping
-
-The following table maps LiteLLM entities to their Shahrah equivalents:
-
-| LiteLLM Entity | Shahrah Entity | Notes |
-|----------------|----------------|-------|
-| `LiteLLM_OrganizationTable` | `Organization` | Represents a business unit within a tenant |
-| `LiteLLM_TeamTable` | `Team` | Represents a working group within an organization |
-| `LiteLLM_VerificationToken` | `VirtualKey` | API keys for proxy authentication |
-| `LiteLLM_BudgetTable` | `Budget` | Spending limits and rate constraints |
-| `LiteLLM_UserTable` | `User` | Internal users of the Shahrah platform |
-| `LiteLLM_OrganizationMembership` | `OrganizationMembership` | User-to-organization relationship |
-| `LiteLLM_TeamMembership` | `TeamMembership` | User-to-team relationship |
-| `LiteLLM_ObjectPermissionTable` | `ObjectPermission` | Permissions for MCP servers, vector stores, agents |
-| `LiteLLM_EndUserTable` | `EndUser` | External end-users (customers' customers) |
-| `LiteLLM_SpendLogs` | `SpendLog` | Per-request spend tracking |
-| `LiteLLM_ModelTable` | `Model` | Team-level model aliases |
-| `LiteLLM_ProjectTable` | `Project` | Use-case scoped entity between teams and keys |
-
----
-
 ## Virtual Key Design
 
 ### Key Lifecycle
@@ -431,23 +217,11 @@ When creating a Virtual Key, the following parameters are supported:
 | `rpm_limit` | `int` | Requests per minute limit |
 | `max_parallel_requests` | `int` | Max concurrent requests |
 | `duration` | `string` | Key expiration (e.g., "90d"). "-1" means never expires |
-| `metadata` | `object` | Arbitrary metadata (tags, project info, etc.) |
 | `permissions` | `object` | Key-specific permissions (e.g., PII controls) |
 | `blocked` | `bool` | Whether the key is blocked |
 | `auto_rotate` | `bool` | Enable automatic key rotation |
 | `rotation_interval` | `string` | Rotation frequency (e.g., "30d") |
-| `object_permission` | `ObjectPermission` | MCP servers, vector stores, agents access |
-| `policies` | `string[]` | Policy names to apply |
-| `guardrails` | `string[]` | Guardrail names to apply |
 | `key_type` | `enum` | `llm_api`, `management`, `read_only`, `default` |
-
-### Key Types
-
-| Type | Allowed Routes | Use Case |
-|------|---------------|----------|
-| `llm_api` (default) | All LLM API routes | Standard inference key |
-| `management` | Management endpoints only | Admin operations |
-| `read_only` | Info/read endpoints only | Monitoring and auditing |
 
 ### Service Account Keys
 
@@ -550,12 +324,9 @@ This allows fine-grained control: a daily limit, a weekly limit, and a monthly l
 
 | Role | Scope | Permissions |
 |------|-------|-------------|
-| `proxy_admin` | Global | Full access to all organizations, teams, keys |
 | `org_admin` | Organization | Create/delete teams, manage org members, view org spend |
 | `team_admin` | Team | Add/remove team members, create team keys, manage team settings |
 | `team_member` | Team | Access team resources (scope defined by `team_member_permissions`) |
-| `internal_user` | Organization | Basic access, no admin privileges |
-| `admin_viewer` | Global | Read-only access to all resources |
 
 ### Team Member Permissions
 
@@ -573,23 +344,6 @@ Non-admin team members can be granted specific route-level permissions:
 ```
 
 This allows team admins to delegate key management without granting full admin access.
-
-### Object Permissions
-
-The `ObjectPermission` entity controls access to resources beyond models:
-
-| Resource | Field | Description |
-|----------|-------|-------------|
-| MCP Servers | `mcp_servers[]` | List of MCP server IDs allowed |
-| MCP Access Groups | `mcp_access_groups[]` | Group-based MCP access |
-| Vector Stores | `vector_stores[]` | Allowed vector store IDs |
-| Agents | `agents[]` | Allowed agent IDs |
-| Agent Access Groups | `agent_access_groups[]` | Group-based agent access |
-| Models | `models[]` | Explicitly allowed models |
-| Blocked Tools | `blocked_tools[]` | Tools blocked for this entity |
-| MCP Toolsets | `mcp_toolsets[]` | Allowed toolset IDs |
-
-Object permissions can be attached to Organizations, Teams, Keys, Users, and End Users.
 
 ### Access Validation Flow
 
@@ -751,8 +505,6 @@ Each client's data, keys, and spend are completely isolated. Client A cannot see
 ### Spend Tracking
 
 1. **Log every request**: Record `model`, `spend`, `tokens`, `api_key`, `team_id`, `organization_id` in spend logs
-2. **Aggregate periodically**: Run cron jobs to update `spend` fields on Team, Organization, and Key tables
-3. **Daily aggregation tables**: Maintain `DailyTeamSpend`, `DailyOrganizationSpend`, `DailyKeySpend` for analytics
 4. **Real-time checks**: Before each request, check current spend against budget limits
 
 ### Security Considerations
@@ -771,65 +523,3 @@ Each client's data, keys, and spend are completely isolated. Client A cannot see
 3. **Pagination**: All list endpoints should support pagination
 4. **Filtering**: Support filtering by alias, ID, and status on list endpoints
 5. **Lazy loading**: Don't load all relations by default. Use explicit includes
-
-### Migration from LiteLLM
-
-If migrating from LiteLLM:
-
-1. **Schema compatibility**: Shahrah's schema should be directly compatible with LiteLLM's Prisma schema
-2. **Key migration**: Existing virtual keys can be migrated (hashed tokens must be preserved)
-3. **Spend migration**: Historical spend data should be migrated for accurate budget tracking
-4. **Config migration**: Proxy configuration (models, routes, guardrails) needs to be ported
-
----
-
-## Appendix: LiteLLM User Roles
-
-LiteLLM defines the following user roles in `LitellmUserRoles`:
-
-| Role | Value | Description |
-|------|-------|-------------|
-| `PROXY_ADMIN` | `proxy_admin` | Full admin access to the proxy |
-| `PROXY_ADMIN_VIEW_ONLY` | `proxy_admin_view_only` | Read-only admin access |
-| `ORG_ADMIN` | `org_admin` | Admin access to a specific organization |
-| `INTERNAL_USER` | `internal_user` | Standard internal user |
-| `TEAM_MEMBER` | `team_member` | Member of a team with specific permissions |
-
----
-
-## Appendix: LiteLLM API Endpoints Reference
-
-The following LiteLLM endpoints are the reference for Shahrah's API design:
-
-### Organization
-- `POST /organization/new` - Create organization
-- `PATCH /organization/update` - Update organization
-- `DELETE /organization/delete` - Delete organization
-- `GET /organization/list` - List organizations
-- `GET /organization/info` - Get organization info
-- `POST /organization/member_add` - Add org member
-- `PATCH /organization/member_update` - Update org member
-- `DELETE /organization/member_delete` - Delete org member
-- `GET /organization/daily/activity` - Org daily activity
-
-### Team
-- `POST /team/new` - Create team
-- `POST /team/update` - Update team
-- `DELETE /team/delete` - Delete team
-- `GET /team/info` - Get team info
-- `POST /team/member/add` - Add team member
-- `POST /team/member/delete` - Delete team member
-- `POST /team/block` - Block/unblock team
-
-### Key
-- `POST /key/generate` - Generate key
-- `POST /key/update` - Update key
-- `POST /key/delete` - Delete key
-- `POST /key/regenerate` - Regenerate key
-- `GET /key/info` - Get key info
-- `GET /key/list` - List keys
-
-### Budget
-- `POST /budget/new` - Create budget
-- `PATCH /budget/update` - Update budget
-- `DELETE /budget/delete` - Delete budget
