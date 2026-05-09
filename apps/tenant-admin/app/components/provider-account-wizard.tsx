@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Copy, Eye, KeyRound, Layers3, ShieldCheck } from "lucide-react";
 
@@ -157,6 +157,8 @@ export default function ProviderAccountWizard() {
 
   const [selectedProviderID, setSelectedProviderID] = useState("");
   const [selectedAccountID, setSelectedAccountID] = useState("");
+  const selectedProviderRef = useRef("");
+  const selectedAccountRef = useRef("");
 
   const [account, setAccount] = useState<TenantProviderAccount | null>(null);
 
@@ -219,6 +221,14 @@ export default function ProviderAccountWizard() {
     () => accounts.filter((item) => stringsEqualFold(item.provider, selectedProviderID)),
     [accounts, selectedProviderID],
   );
+
+  useEffect(() => {
+    selectedProviderRef.current = selectedProviderID;
+  }, [selectedProviderID]);
+
+  useEffect(() => {
+    selectedAccountRef.current = selectedAccountID;
+  }, [selectedAccountID]);
 
   const filteredProviderModels = useMemo(() => {
     const query = modelSearchQuery.trim().toLowerCase();
@@ -297,6 +307,8 @@ export default function ProviderAccountWizard() {
     setIsLoading(true);
     setBanner(null);
     try {
+      const currentProviderID = selectedProviderRef.current;
+      const currentAccountID = selectedAccountRef.current;
       const [providerData, accountData] = await Promise.all([
         requestJSON<ProvidersResponse>("/api/provider-catalog/providers"),
         requestJSON<AccountsResponse>("/api/tenant-provider-accounts"),
@@ -308,10 +320,10 @@ export default function ProviderAccountWizard() {
       setAccounts(accountItems);
 
       const initialProvider =
-        selectedProviderID || accountItems[0]?.provider || providerItems[0]?.provider || "";
+        currentProviderID || accountItems[0]?.provider || providerItems[0]?.provider || "";
       if (initialProvider) setSelectedProviderID(initialProvider);
 
-      if (selectedAccountID && accountItems.some((item) => item.id === selectedAccountID)) return;
+      if (currentAccountID && accountItems.some((item) => item.id === currentAccountID)) return;
 
       const firstProviderAccount = accountItems.find((item) => stringsEqualFold(item.provider, initialProvider));
       if (firstProviderAccount) {
@@ -326,7 +338,7 @@ export default function ProviderAccountWizard() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedAccountID, selectedProviderID, t]);
+  }, [t]);
 
   const loadCatalogStats = useCallback(async () => {
     try {

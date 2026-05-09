@@ -9,6 +9,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
 
@@ -44,6 +45,61 @@ func TestBillingService_ShouldEstimateCost(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Greater(t, out.TotalTokens, 0)
 	assert.Greater(t, out.TotalCostIRR, 0.0)
+}
+
+func TestBillingService_ShouldEstimateCostWithPer1KScaling(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	svc := billing.NewService(memCache, walletStoreStub{
+		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1_000_000},
+		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
+	}, 850000, "test")
+
+	maxTokens := 250
+	out, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{
+		Model:     "gpt-3.5-turbo",
+		MaxTokens: &maxTokens,
+		Messages: []openai.ChatMessage{
+			{Role: "user", Content: "hello world"},
+		},
+	})
+	require.NoError(t, err)
+
+	// gpt-3.5-turbo: input=$0.50/1M, output=$1.50/1M
+	// modelPrice(): input=0.0005 and output=0.0015 per 1K
+	// promptTokens estimator returns 100
+	// inputCost=(100/1000)*0.0005=0.00005
+	// outputCost=(250/1000)*0.0015=0.000375
+	expectedUSD := 0.000425
+	expectedIRR := expectedUSD * 850000.0
+
+	assert.InDelta(t, expectedUSD, out.TotalCostUSD, 1e-12)
+	assert.InDelta(t, expectedIRR, out.TotalCostIRR, 1e-6)
+}
+
+func TestBillingService_ShouldFinalizeCostWithPer1KScaling(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	svc := billing.NewService(memCache, walletStoreStub{
+		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1_000_000},
+		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
+	}, 850000, "test")
+
+	usage := &openai.Usage{
+		PromptTokens:     120,
+		CompletionTokens: 80,
+		TotalTokens:      200,
+	}
+	out, err := svc.FinalizeFromUsage(context.Background(), "gpt-3.5-turbo", usage, platform.UsageCostBreakdown{})
+	require.NoError(t, err)
+
+	// inputCost=(120/1000)*0.0005=0.00006
+	// outputCost=(80/1000)*0.0015=0.00012
+	expectedUSD := 0.00018
+	expectedIRR := expectedUSD * 850000.0
+
+	assert.InDelta(t, expectedUSD, out.TotalCostUSD, 1e-12)
+	assert.InDelta(t, expectedIRR, out.TotalCostIRR, 1e-6)
 }
 
 func TestBillingService_ShouldRejectBudgetExceeded(t *testing.T) {

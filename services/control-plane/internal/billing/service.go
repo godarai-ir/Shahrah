@@ -135,8 +135,8 @@ func (s *Service) EstimateCost(ctx context.Context, req openai.ChatCompletionReq
 	}
 
 	price := modelPrice(req.Model)
-	inputCost := float64(promptTokens) * price.Input
-	outputCost := float64(outputTokens) * price.Output
+	inputCost := (float64(promptTokens) / 1000.0) * price.Input
+	outputCost := (float64(outputTokens) / 1000.0) * price.Output
 	totalUSD := inputCost + outputCost
 
 	return platform.UsageCostBreakdown{
@@ -164,8 +164,8 @@ func (s *Service) FinalizeFromUsage(ctx context.Context, model string, usage *op
 	}
 
 	price := modelPrice(model)
-	inputCost := float64(usage.PromptTokens) * price.Input
-	outputCost := float64(usage.CompletionTokens) * price.Output
+	inputCost := (float64(usage.PromptTokens) / 1000.0) * price.Input
+	outputCost := (float64(usage.CompletionTokens) / 1000.0) * price.Output
 	totalUSD := inputCost + outputCost
 
 	return platform.UsageCostBreakdown{
