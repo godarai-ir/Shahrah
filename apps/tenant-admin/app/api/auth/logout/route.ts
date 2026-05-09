@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { TENANT_ADMIN_SESSION_COOKIE } from "@/lib/auth/session";
-import { revokeTenantSession } from "@/lib/auth/store";
+import { getAuthService } from "@/lib/auth/factory";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   const sessionID = request.cookies.get(TENANT_ADMIN_SESSION_COOKIE)?.value;
   if (sessionID) {
-    await revokeTenantSession(sessionID);
+    await getAuthService().revokeSession(sessionID);
   }
 
   const response = NextResponse.json({ success: true });

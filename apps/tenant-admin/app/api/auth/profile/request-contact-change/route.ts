@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { readAuthFromRequest } from "@/lib/auth/request-auth";
-import { createOTPRequest, normalizeIdentifier } from "@/lib/auth/store";
+import { getAuthService } from "@/lib/auth/factory";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +36,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const normalized = normalizeIdentifier(newValueRaw);
+  const authService = getAuthService();
+  const normalized = authService.normalizeIdentifier(newValueRaw);
   if (!normalized) {
     return NextResponse.json(
       { error: { message: "مقدار جدید باید ایمیل یا شماره همراه معتبر باشد." } },
@@ -72,13 +73,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const otp = await createOTPRequest({
+  const otp = await authService.requestContactChangeOTP({
     tenantSlug: auth.tenantSlug,
-    purpose: field === "email" ? "change_email" : "change_mobile",
-    channel: normalized.channel,
-    identifier: normalized.normalized,
     userID: auth.user.id,
-    pendingValue: normalized.normalized,
+    field,
+    identifier: newValueRaw,
   });
 
   return NextResponse.json({

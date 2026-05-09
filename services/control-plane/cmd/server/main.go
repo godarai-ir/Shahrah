@@ -96,6 +96,7 @@ func main() {
 	}
 
 	adminHandlers := admin.New(store, store, store)
+	authHandlers := admin.NewAuthHandlers(store, admin.NewSMTPOTPEmailSenderFromEnv())
 	proxyHandler := proxy.NewChatCompletionHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
 	completionsHandler := proxy.NewCompletionsHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
 	modelsHandler := proxy.NewModelsHandler(store)
@@ -122,6 +123,7 @@ func main() {
 		TracingMiddleware:  tracing.Middleware(traceQueue, traceSampler, traceCfg.SlowRequest.Milliseconds()),
 		TraceHealth:        reliableExporter,
 		AdminHandlers:      adminHandlers,
+		AuthHandlers:       authHandlers,
 		ProxyHandler:       proxyHandler,
 		CompletionsHandler: completionsHandler,
 		ModelsHandler:      modelsHandler,

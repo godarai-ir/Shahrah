@@ -10,7 +10,7 @@ export function extractTenantSlugFromHost(host: string): string {
   }
 
   const slug = parts[0]?.trim().toLowerCase();
-  if (!slug || slug === "localhost" || slug === "www") {
+  if (!slug || slug === "localhost" || slug === "www" || isReservedTenantLabel(slug)) {
     return "";
   }
 
@@ -21,10 +21,16 @@ export function resolveTenantSlugFromHeaders(
   headers: Headers,
   fallbackTenant = "",
 ): string {
+  const envFallback =
+    process.env.SHAHRAH_TENANT_SLUG ??
+    process.env.TENANT_SLUG ??
+    process.env.NEXT_PUBLIC_TENANT_SLUG ??
+    "";
+  const effectiveFallback = fallbackTenant || envFallback;
   const candidates = [
+    headers.get("x-shahrah-tenant"),
     headers.get("x-forwarded-host"),
     headers.get("host"),
-    headers.get("x-shahrah-tenant"),
   ];
 
   for (const candidate of candidates) {
@@ -42,7 +48,7 @@ export function resolveTenantSlugFromHeaders(
     }
   }
 
-  return fallbackTenant;
+  return effectiveFallback;
 }
 
 export function resolveRequestOriginFromHeaders(
@@ -104,4 +110,8 @@ function normalizeProtocolFromOrigin(origin: string): "http" | "https" | null {
 
 function isSlug(value: string): boolean {
   return /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(value);
+}
+
+function isReservedTenantLabel(value: string): boolean {
+  return value === "tenant-admin";
 }

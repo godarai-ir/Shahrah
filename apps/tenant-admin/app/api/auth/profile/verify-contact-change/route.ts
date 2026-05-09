@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { readAuthFromRequest } from "@/lib/auth/request-auth";
-import { updateTenantUserContact, verifyOTPRequest } from "@/lib/auth/store";
+import { getAuthService } from "@/lib/auth/factory";
 
 export const dynamic = "force-dynamic";
 
@@ -38,40 +38,30 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const otpResult = await verifyOTPRequest({
-    tenantSlug: auth.tenantSlug,
-    requestID,
-    otpCode,
-    purpose: field === "email" ? "change_email" : "change_mobile",
-    userID: auth.user.id,
-  });
-  if (!otpResult.ok) {
+  const authService = getAuthService();
+
+  try {
+    const updatedUser = await authService.verifyContactChangeOTP({
+      tenantSlug: auth.tenantSlug,
+      userID: auth.user.id,
+      requestID,
+      otpCode,
+      field,
+    });
+
+    return NextResponse.json({
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email ?? null,
+        mobile: updatedUser.mobile ?? null,
+        role: updatedUser.role,
+      },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "خطایی رخ داد.";
     return NextResponse.json(
-      { error: { message: otpResult.error } },
+      { error: { message } },
       { status: 400 },
     );
   }
-
-  const pendingValue = otpResult.record.pendingValue ?? otpResult.record.identifier;
-  const updateResult = await updateTenantUserContact({
-    tenantSlug: auth.tenantSlug,
-    userID: auth.user.id,
-    field,
-    value: pendingValue,
-  });
-  if (!updateResult.ok) {
-    return NextResponse.json(
-      { error: { message: updateResult.error } },
-      { status: 400 },
-    );
-  }
-
-  return NextResponse.json({
-    user: {
-      id: updateResult.user.id,
-      email: updateResult.user.email ?? null,
-      mobile: updateResult.user.mobile ?? null,
-      role: updateResult.user.role,
-    },
-  });
 }

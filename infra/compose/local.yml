@@ -18,6 +18,10 @@ services:
       TUNNEL_CLIENT_URL: http://tunnel-client:8081
       SHAHRAH_MODEL_DISCOVERY_URL: ${SHAHRAH_MODEL_DISCOVERY_URL:-http://silk-road:8083}
       SHAHRAH_DISCOVERY_TOKEN: ${SHAHRAH_DISCOVERY_TOKEN:-}
+      EMAIL_SENDING_ENABLED: ${EMAIL_SENDING_ENABLED:-true}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_FROM: ${SMTP_FROM:-no-reply@shahrah.local}
     depends_on:
       postgres:
         condition: service_healthy
@@ -26,6 +30,8 @@ services:
       clickhouse:
         condition: service_healthy
       tunnel-client:
+        condition: service_started
+      mailpit:
         condition: service_started
     restart: unless-stopped
 

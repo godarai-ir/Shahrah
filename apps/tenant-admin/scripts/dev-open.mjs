@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 
-const APP_URL = process.env.TENANT_ADMIN_OPEN_URL ?? "http://tenant2.localhost:3001/login";
-const HEALTH_URL = process.env.TENANT_ADMIN_HEALTH_URL ?? "http://127.0.0.1:3001/";
+const APP_URL = process.env.TENANT_ADMIN_OPEN_URL ?? "http://tenant1.localhost:3001/login";
+const HEALTH_URL = process.env.TENANT_ADMIN_HEALTH_URL ?? "http://localhost:3001/";
 const child = spawnDevServer();
 
 let opened = false;

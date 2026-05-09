@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const CONTROL_PLANE_URL = process.env.CONTROL_PLANE_URL || "http://localhost:8080";
+const CONTROL_PLANE_URL = process.env.SHAHRAH_CONTROL_PLANE_URL || "http://localhost:8080";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);

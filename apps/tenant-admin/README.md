@@ -36,13 +36,9 @@ Authentication flow implemented in app routes:
 
 Notes:
 
-- OTP sender is currently stubbed (server logs + `debug_otp` in non-production).
-- Auth data persistence is database-backed via Prisma models:
-  - users
-  - sessions
-  - otp requests
-  - captcha challenges
-- Database schema is auto-bootstrapped on first auth request.
+- tenant-admin authentication always uses control-plane auth APIs.
+- tenant-admin has no direct database access and no Prisma dependency.
+- Email OTP is sent through configured SMTP (Mailpit in local setup).
 
 Wallet top-up UX flow in tenant-admin:
 
@@ -73,7 +69,6 @@ Create `apps/tenant-admin/.env.local`:
 ```bash
 SHAHRAH_CONTROL_PLANE_URL=http://127.0.0.1:4000
 SHAHRAH_MASTER_KEY=-sk-dev-master-key-12345
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/sharah_db?sslmode=disable
 EMAIL_SENDING_ENABLED=true
 SMTP_HOST=127.0.0.1
 SMTP_PORT=1025
@@ -98,7 +93,6 @@ Then run the app and open the provisioned tenant login URL:
 Run from the repository root:
 
 ```bash
-pnpm --filter @shahrah/tenant-admin prisma:generate
 pnpm --filter @shahrah/tenant-admin dev
 pnpm --filter @shahrah/tenant-admin build
 pnpm --filter @shahrah/tenant-admin lint

@@ -53,6 +53,15 @@ type Wallet = {
   pending_irr: number;
 };
 
+type WalletTransaction = {
+  id: string;
+  type: string;
+  amount_irr: number;
+  amount_usd?: number | null;
+  status: string;
+  created_at: string;
+};
+
 type KeyListResponse = {
   data?: TenantKey[];
 };
@@ -71,6 +80,7 @@ type TenantAdminDashboardProps = {
   initialWallet: Wallet | null;
   initialKeys: TenantKey[];
   initialModels: TenantModel[];
+  initialTransactions: WalletTransaction[];
   initialError: string | null;
   currentUser: {
     id: string;

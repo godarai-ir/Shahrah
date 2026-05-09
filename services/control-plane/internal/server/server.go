@@ -22,6 +22,7 @@ type Dependencies struct {
 	TracingMiddleware  fiber.Handler
 	TraceHealth        TraceHealthReporter
 	AdminHandlers      *admin.Handlers
+	AuthHandlers       *admin.AuthHandlers
 	ProxyHandler       *proxy.ChatCompletionHandler
 	CompletionsHandler *proxy.CompletionsHandler
 	ModelsHandler      *proxy.ModelsHandler
@@ -143,6 +144,22 @@ func registerRoutes(app *fiber.App, deps Dependencies) {
 	api.Get("/traces/:traceID", deps.AdminHandlers.GetRequestTrace)
 	api.Get("/traces/:traceID/spans", deps.AdminHandlers.ListRequestTraceSpans)
 	api.Post("/metrics/query", deps.AdminHandlers.QueryModelMetrics)
+
+	// Tenant-admin auth decoupling endpoints
+	if deps.AuthHandlers != nil {
+		authGroup := api.Group("/auth")
+		authGroup.Post("/captcha/create", deps.AuthHandlers.CreateCaptcha)
+		authGroup.Post("/captcha/consume", deps.AuthHandlers.ConsumeCaptcha)
+		authGroup.Post("/otp/request", deps.AuthHandlers.CreateOTPRequest)
+		authGroup.Post("/otp/verify", deps.AuthHandlers.VerifyOTPRequest)
+		authGroup.Post("/session", deps.AuthHandlers.CreateSession)
+		authGroup.Get("/session/:id", deps.AuthHandlers.GetSession)
+		authGroup.Delete("/session/:id", deps.AuthHandlers.RevokeSession)
+		authGroup.Post("/user/find-or-create", deps.AuthHandlers.FindOrCreateUser)
+		authGroup.Get("/user/:id", deps.AuthHandlers.GetUser)
+		authGroup.Post("/user/:id/update-contact", deps.AuthHandlers.UpdateUserContact)
+		authGroup.Post("/user/:id/touch-last-login", deps.AuthHandlers.TouchLastLogin)
+	}
 }
 
 func healthHandler(c *fiber.Ctx) error {

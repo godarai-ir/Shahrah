@@ -1345,7 +1345,7 @@ function EffectiveModelsTable(props: { models: EffectiveModelView[] }) {
         <div key={item.model} className="grid grid-cols-[1.2fr_1fr_120px_120px] items-center border-b px-3 py-2 text-sm last:border-b-0">
           <div className="truncate font-medium">{item.model}</div>
           <div className="flex flex-wrap gap-1">
-            {item.types.map((type) => (
+            {(item.types ?? []).map((type) => (
               <Badge key={`${item.model}-${type}`} variant="secondary">{type}</Badge>
             ))}
           </div>

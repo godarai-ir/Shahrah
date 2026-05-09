@@ -1,7 +1,7 @@
-﻿import AdminShell from "@/app/components/admin-shell";
+import AdminShell from "@/app/components/admin-shell";
 import TopUpPanel from "@/app/components/topup-panel";
 import { requireAuth } from "@/lib/auth/session";
-import { prisma } from "@/lib/prisma";
+import { fetchControlPlaneJSON } from "@/lib/control-plane";
 
 export const dynamic = "force-dynamic";
 
@@ -27,10 +27,22 @@ type WalletTransaction = {
   created_at: string;
 };
 
-type TenantRow = { tenant_id: string };
-type WalletRow = { wallet_id: string; tenant_id: string; balance_irr: number; pending_irr: number };
-type SettingsRow = WalletTopUpSettings;
-type TransactionRow = { transaction_id: string; tx_type: string; amount_irr: number; status: string; created_at: Date };
+type WalletPayload = {
+  wallet_id: string;
+  tenant_id: string;
+  balance_irr: number;
+  pending_irr: number;
+};
+
+type SettingsPayload = WalletTopUpSettings;
+
+type TransactionPayload = {
+  transaction_id: string;
+  tx_type: string;
+  amount_irr: number;
+  status: string;
+  created_at: string;
+};
 
 export default async function TopUpPage() {
   const auth = await requireAuth("/login?next=/billing/topup");
@@ -42,41 +54,42 @@ export default async function TopUpPage() {
   let initialTransactions: WalletTransaction[] = [];
 
   try {
-    const tenantRows = await prisma.$queryRaw<TenantRow[]>`
-      SELECT tenant_id
-      FROM tenants
-      WHERE slug = ${tenantSlug}
-      LIMIT 1
-    `;
-
-    const tenantID = tenantRows[0]?.tenant_id;
-    if (!tenantID) {
-      throw new Error("Tenant not found");
-    }
-
-    const [walletRows, settingsRows, transactionRows] = await Promise.all([
-      prisma.$queryRaw<WalletRow[]>`
-        SELECT wallet_id, tenant_id, balance_irr, pending_irr
-        FROM wallets
-        WHERE tenant_id = ${tenantID}
-        LIMIT 1
-      `,
-      prisma.$queryRaw<SettingsRow[]>`
-        SELECT min_amount_usd, max_amount_usd, tax_percent, fee_percent
-        FROM wallet_topup_settings
-        LIMIT 1
-      `,
-      prisma.$queryRaw<TransactionRow[]>`
-        SELECT transaction_id, tx_type, amount_irr, status, created_at
-        FROM wallet_transactions
-        WHERE tenant_id = ${tenantID}
-        ORDER BY created_at DESC
-        LIMIT 20
-      `,
+    const [walletResponse, settingsResponse, transactionsResponse] = await Promise.all([
+      fetchControlPlaneJSON({
+        tenantSlug,
+        method: "GET",
+        path: "/api/v1/wallet",
+        userID: auth.user.id,
+      }),
+      fetchControlPlaneJSON({
+        tenantSlug,
+        method: "GET",
+        path: "/api/v1/wallet/topup/settings",
+        userID: auth.user.id,
+      }),
+      fetchControlPlaneJSON({
+        tenantSlug,
+        method: "GET",
+        path: "/api/v1/wallet/transactions?limit=20",
+        userID: auth.user.id,
+      }),
     ]);
 
-    const wallet = walletRows[0];
-    if (wallet) {
+    if (!walletResponse.ok) {
+      throw new Error(walletResponse.errorMessage ?? "Failed to load wallet");
+    }
+    if (!settingsResponse.ok) {
+      throw new Error(settingsResponse.errorMessage ?? "Failed to load wallet settings");
+    }
+    if (!transactionsResponse.ok) {
+      throw new Error(transactionsResponse.errorMessage ?? "Failed to load transactions");
+    }
+
+    const wallet = walletResponse.payload as WalletPayload;
+    const settings = settingsResponse.payload as SettingsPayload;
+    const transactions = transactionsResponse.payload as TransactionPayload[];
+
+    if (wallet?.wallet_id) {
       initialWallet = {
         id: wallet.wallet_id,
         tenant_id: wallet.tenant_id,
@@ -85,13 +98,13 @@ export default async function TopUpPage() {
       };
     }
 
-    initialSettings = settingsRows[0] ?? null;
-    initialTransactions = transactionRows.map((row) => ({
+    initialSettings = settings ?? null;
+    initialTransactions = (transactions ?? []).map((row) => ({
       id: row.transaction_id,
       type: row.tx_type,
       amount_irr: Number(row.amount_irr ?? 0),
       status: row.status,
-      created_at: row.created_at.toISOString(),
+      created_at: row.created_at,
     }));
   } catch (error) {
     initialError = error instanceof Error ? error.message : "Failed to load wallet data";

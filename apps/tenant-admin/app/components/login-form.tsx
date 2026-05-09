@@ -202,14 +202,18 @@ export default function LoginForm({ initialCaptcha, redirectTo }: LoginFormProps
                 {/* Captcha */}
                 <div className="grid gap-3">
                   <Label>{t("captcha.label")}</Label>
-                  <Image
-                    src={captchaImage}
-                    alt="captcha"
-                    width={170}
-                    height={56}
-                    unoptimized
-                    className="h-14 w-[170px] rounded-lg border border-border bg-secondary"
-                  />
+                  {captchaImage ? (
+                    <Image
+                      src={captchaImage}
+                      alt="captcha"
+                      width={170}
+                      height={56}
+                      unoptimized
+                      className="h-14 w-[170px] rounded-lg border border-border bg-secondary"
+                    />
+                  ) : (
+                    <div className="h-14 w-[170px] rounded-lg border border-border bg-secondary" />
+                  )}
                   <div className="flex gap-2">
                     <Input
                       value={captchaAnswer}
