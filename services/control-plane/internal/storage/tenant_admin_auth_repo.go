@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -268,95 +269,85 @@ type FindOrCreateTenantAdminUserParams struct {
 
 // FindOrCreateTenantAdminUser finds or creates a user.
 func (s *Store) FindOrCreateTenantAdminUser(ctx context.Context, params FindOrCreateTenantAdminUserParams) (map[string]interface{}, error) {
-	var user map[string]interface{}
-	var err error
+	var id, email, alias, role string
+	var createdAt, updatedAt time.Time
 
-	if params.Channel == "email" {
-		var id, email, role string
-		var createdAt, updatedAt time.Time
-		err = s.pool.QueryRow(ctx, `
-			SELECT user_id::text, COALESCE(email, ''), COALESCE(role, 'tenant_member'),
+	if params.Channel == "mobile" {
+		err := s.pool.QueryRow(ctx, `
+			SELECT user_id::text, COALESCE(email, ''), COALESCE(user_alias, ''), COALESCE(role, 'tenant_member'),
 			       created_at, updated_at
-			FROM users WHERE email = $1 LIMIT 1
-		`, params.Identifier).Scan(&id, &email, &role, &createdAt, &updatedAt)
-
+			FROM users WHERE COALESCE(user_alias, '') = $1 LIMIT 1
+		`, params.Identifier).Scan(&id, &email, &alias, &role, &createdAt, &updatedAt)
 		if err == nil {
-			return map[string]interface{}{
-				"id":             id,
-				"tenant_slug":    params.TenantSlug,
-				"email":          email,
-				"role":           role,
-				"created_at_iso": createdAt.Format(time.RFC3339),
-				"updated_at_iso": updatedAt.Format(time.RFC3339),
-			}, nil
+			return buildTenantAdminUserMap(params.TenantSlug, id, email, alias, role, createdAt, updatedAt), nil
+		}
+	} else {
+		err := s.pool.QueryRow(ctx, `
+			SELECT user_id::text, COALESCE(email, ''), COALESCE(user_alias, ''), COALESCE(role, 'tenant_member'),
+			       created_at, updated_at
+			FROM users WHERE LOWER(COALESCE(email, '')) = LOWER($1) LIMIT 1
+		`, params.Identifier).Scan(&id, &email, &alias, &role, &createdAt, &updatedAt)
+		if err == nil {
+			return buildTenantAdminUserMap(params.TenantSlug, id, email, alias, role, createdAt, updatedAt), nil
 		}
 	}
 
 	// Create new user
-	id := generateTenantAdminID()
+	id = generateTenantAdminID()
 	now := time.Now()
-	role := "tenant_member"
-
-	err = s.pool.QueryRow(ctx, `
-		INSERT INTO users (user_id, user_alias, email, role, created_at, updated_at)
-		VALUES ($1, NULL, $2, $3, $4, $5)
-		RETURNING user_id::text, email, role, created_at, updated_at
-	`, id, params.Identifier, role, now, now).Scan(&id, &user, &role, &now, &now)
-	if err != nil {
-		// Retry in case of race condition
-		var id, email, role string
-		var createdAt, updatedAt time.Time
-		err = s.pool.QueryRow(ctx, `
-			SELECT user_id::text, COALESCE(email, ''), COALESCE(role, 'tenant_member'),
-			       created_at, updated_at
-			FROM users WHERE email = $1 LIMIT 1
-		`, params.Identifier).Scan(&id, &email, &role, &createdAt, &updatedAt)
-		if err == nil {
-			return map[string]interface{}{
-				"id":             id,
-				"tenant_slug":    params.TenantSlug,
-				"email":          email,
-				"role":           role,
-				"created_at_iso": createdAt.Format(time.RFC3339),
-				"updated_at_iso": updatedAt.Format(time.RFC3339),
-			}, nil
-		}
-		return nil, fmt.Errorf("create user: %w", err)
+	role = "tenant_member"
+	emailValue := ""
+	aliasValue := ""
+	if params.Channel == "mobile" {
+		aliasValue = params.Identifier
+	} else {
+		emailValue = params.Identifier
+		aliasValue = params.Identifier
 	}
 
-	return map[string]interface{}{
-		"id":             id,
-		"tenant_slug":    params.TenantSlug,
-		"email":          params.Identifier,
-		"role":           role,
-		"created_at_iso": now.Format(time.RFC3339),
-		"updated_at_iso": now.Format(time.RFC3339),
-	}, nil
+	err := s.pool.QueryRow(ctx, `
+		INSERT INTO users (user_id, user_alias, email, role, created_at, updated_at)
+		VALUES ($1, NULLIF($2, ''), NULLIF($3, ''), $4, $5, $6)
+		RETURNING user_id::text, COALESCE(email, ''), COALESCE(user_alias, ''), COALESCE(role, 'tenant_member'), created_at, updated_at
+	`, id, aliasValue, emailValue, role, now, now).Scan(&id, &email, &alias, &role, &createdAt, &updatedAt)
+	if err != nil {
+		// Retry in case of race condition
+		if params.Channel == "mobile" {
+			err = s.pool.QueryRow(ctx, `
+				SELECT user_id::text, COALESCE(email, ''), COALESCE(user_alias, ''), COALESCE(role, 'tenant_member'),
+				       created_at, updated_at
+				FROM users WHERE COALESCE(user_alias, '') = $1 LIMIT 1
+			`, params.Identifier).Scan(&id, &email, &alias, &role, &createdAt, &updatedAt)
+		} else {
+			err = s.pool.QueryRow(ctx, `
+				SELECT user_id::text, COALESCE(email, ''), COALESCE(user_alias, ''), COALESCE(role, 'tenant_member'),
+				       created_at, updated_at
+				FROM users WHERE LOWER(COALESCE(email, '')) = LOWER($1) LIMIT 1
+			`, params.Identifier).Scan(&id, &email, &alias, &role, &createdAt, &updatedAt)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("create user: %w", err)
+		}
+	}
+
+	return buildTenantAdminUserMap(params.TenantSlug, id, email, alias, role, createdAt, updatedAt), nil
 }
 
 // GetTenantAdminUser retrieves a user by ID.
 func (s *Store) GetTenantAdminUser(ctx context.Context, tenantID string, userID string) (map[string]interface{}, error) {
-	var id, email, mobile, role string
+	var id, email, alias, role string
 	var createdAt, updatedAt time.Time
 
 	err := s.pool.QueryRow(ctx, `
-		SELECT user_id::text, COALESCE(email, ''), COALESCE(mobile, ''),
+		SELECT user_id::text, COALESCE(email, ''), COALESCE(user_alias, ''),
 		       COALESCE(role, 'tenant_member'), created_at, updated_at
 		FROM users WHERE user_id::text = $1 LIMIT 1
-	`, userID).Scan(&id, &email, &mobile, &role, &createdAt, &updatedAt)
+	`, userID).Scan(&id, &email, &alias, &role, &createdAt, &updatedAt)
 	if err != nil {
 		return nil, nil
 	}
 
-	return map[string]interface{}{
-		"id":             id,
-		"tenant_slug":    tenantID,
-		"email":          email,
-		"mobile":         mobile,
-		"role":           role,
-		"created_at_iso": createdAt.Format(time.RFC3339),
-		"updated_at_iso": updatedAt.Format(time.RFC3339),
-	}, nil
+	return buildTenantAdminUserMap(tenantID, id, email, alias, role, createdAt, updatedAt), nil
 }
 
 // UpdateTenantAdminUserContactParams holds parameters for updating user contact.
@@ -369,60 +360,83 @@ type UpdateTenantAdminUserContactParams struct {
 
 // UpdateTenantAdminUserContact updates a user's contact field.
 func (s *Store) UpdateTenantAdminUserContact(ctx context.Context, params UpdateTenantAdminUserContactParams) (map[string]interface{}, error) {
-	var id, email, mobile, role string
+	var id, email, alias, role string
 	var createdAt, updatedAt time.Time
 
 	query := ""
 	args := []interface{}{params.Value, params.UserID}
 	if params.Field == "email" {
 		query = `UPDATE users SET email = $1, updated_at = NOW() WHERE user_id::text = $2
-			RETURNING user_id::text, COALESCE(email, ''), COALESCE(mobile, ''), COALESCE(role, 'tenant_member'), created_at, updated_at`
+			RETURNING user_id::text, COALESCE(email, ''), COALESCE(user_alias, ''), COALESCE(role, 'tenant_member'), created_at, updated_at`
 	} else {
-		query = `UPDATE users SET mobile = $1, updated_at = NOW() WHERE user_id::text = $2
-			RETURNING user_id::text, COALESCE(email, ''), COALESCE(mobile, ''), COALESCE(role, 'tenant_member'), created_at, updated_at`
+		// Current users schema has no `mobile` column. Store mobile as user_alias.
+		query = `UPDATE users SET user_alias = $1, updated_at = NOW() WHERE user_id::text = $2
+			RETURNING user_id::text, COALESCE(email, ''), COALESCE(user_alias, ''), COALESCE(role, 'tenant_member'), created_at, updated_at`
 	}
 
-	err := s.pool.QueryRow(ctx, query, args...).Scan(&id, &email, &mobile, &role, &createdAt, &updatedAt)
+	err := s.pool.QueryRow(ctx, query, args...).Scan(&id, &email, &alias, &role, &createdAt, &updatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("update user contact: %w", err)
 	}
 
-	return map[string]interface{}{
-		"id":             id,
-		"tenant_slug":    params.TenantSlug,
-		"email":          email,
-		"mobile":         mobile,
-		"role":           role,
-		"created_at_iso": createdAt.Format(time.RFC3339),
-		"updated_at_iso": updatedAt.Format(time.RFC3339),
-	}, nil
+	return buildTenantAdminUserMap(params.TenantSlug, id, email, alias, role, createdAt, updatedAt), nil
 }
 
 // TouchTenantAdminLastLogin updates the user's last login timestamp.
 func (s *Store) TouchTenantAdminLastLogin(ctx context.Context, tenantID string, userID string) (map[string]interface{}, error) {
-	var id, email, mobile, role string
+	var id, email, alias, role string
 	var createdAt, updatedAt time.Time
 
 	err := s.pool.QueryRow(ctx, `
 		UPDATE users SET updated_at = NOW() WHERE user_id::text = $1
-		RETURNING user_id::text, COALESCE(email, ''), COALESCE(mobile, ''),
+		RETURNING user_id::text, COALESCE(email, ''), COALESCE(user_alias, ''),
 		          COALESCE(role, 'tenant_member'), created_at, updated_at
-	`, userID).Scan(&id, &email, &mobile, &role, &createdAt, &updatedAt)
+	`, userID).Scan(&id, &email, &alias, &role, &createdAt, &updatedAt)
 	if err != nil {
 		return nil, nil
 	}
 
-	now := time.Now().Format(time.RFC3339)
-	return map[string]interface{}{
-		"id":                id,
-		"tenant_slug":       tenantID,
-		"email":             email,
-		"mobile":            mobile,
-		"role":              role,
-		"created_at_iso":    createdAt.Format(time.RFC3339),
-		"updated_at_iso":    updatedAt.Format(time.RFC3339),
-		"last_login_at_iso": now,
-	}, nil
+	result := buildTenantAdminUserMap(tenantID, id, email, alias, role, createdAt, updatedAt)
+	result["last_login_at_iso"] = time.Now().Format(time.RFC3339)
+	return result, nil
+}
+
+func buildTenantAdminUserMap(
+	tenantSlug string,
+	id string,
+	email string,
+	alias string,
+	role string,
+	createdAt time.Time,
+	updatedAt time.Time,
+) map[string]interface{} {
+	result := map[string]interface{}{
+		"id":             id,
+		"tenant_slug":    tenantSlug,
+		"email":          email,
+		"mobile":         "",
+		"role":           role,
+		"created_at_iso": createdAt.Format(time.RFC3339),
+		"updated_at_iso": updatedAt.Format(time.RFC3339),
+	}
+
+	if mobile := mobileFromAlias(alias); mobile != "" {
+		result["mobile"] = mobile
+	}
+	return result
+}
+
+var mobileAliasPattern = regexp.MustCompile(`^\+?\d{10,15}$`)
+
+func mobileFromAlias(alias string) string {
+	value := strings.TrimSpace(alias)
+	if value == "" {
+		return ""
+	}
+	if !mobileAliasPattern.MatchString(value) {
+		return ""
+	}
+	return value
 }
 
 // Helper functions
