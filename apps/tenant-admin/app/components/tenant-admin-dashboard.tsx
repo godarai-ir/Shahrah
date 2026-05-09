@@ -69,6 +69,9 @@ type KeyListResponse = {
 type AccessPrincipalResponse = {
   data?: PrincipalSearchOption[];
 };
+type AllowedModelResponse = {
+  data?: Array<{ id: string }>;
+};
 
 type Banner = {
   kind: "success" | "error";
@@ -81,6 +84,7 @@ type TenantAdminDashboardProps = {
   initialKeys: TenantKey[];
   initialModels: TenantModel[];
   initialTransactions: WalletTransaction[];
+  initialAllowedModels: string[];
   initialError: string | null;
   currentUser: {
     id: string;
@@ -112,10 +116,13 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isCreatingKey, setIsCreatingKey] = useState(false);
+  const [isLoadingAllowedModels, setIsLoadingAllowedModels] = useState(false);
   const [isCreatingModel, setIsCreatingModel] = useState(false);
 
   const [keyAlias, setKeyAlias] = useState("tenant-dashboard-key");
-  const [keyModelsInput, setKeyModelsInput] = useState("gpt-4o-mini");
+  const [keyModelQuery, setKeyModelQuery] = useState("");
+  const [keySelectedModels, setKeySelectedModels] = useState<string[]>([]);
+  const [keyAllowedModels, setKeyAllowedModels] = useState<string[]>(props.initialAllowedModels);
   const [keyMode, setKeyMode] = useState<"virtual_key" | "service_account">(
     "virtual_key",
   );
@@ -139,6 +146,37 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
 
   const userIdentity =
     props.currentUser.email ?? props.currentUser.mobile ?? props.currentUser.id;
+  const filteredAllowedModels = useMemo(() => {
+    const q = keyModelQuery.trim().toLowerCase();
+    if (!q) return keyAllowedModels;
+    return keyAllowedModels.filter((item) => item.toLowerCase().includes(q));
+  }, [keyAllowedModels, keyModelQuery]);
+
+  const loadAllowedModelsForScope = useCallback(async (mode: "virtual_key" | "service_account", teamID: string) => {
+    const keyType = mode === "service_account" ? "vat" : "pat";
+    if (keyType === "vat" && !teamID.trim()) {
+      setKeyAllowedModels([]);
+      setKeySelectedModels([]);
+      return;
+    }
+    setIsLoadingAllowedModels(true);
+    try {
+      const query = new URLSearchParams();
+      query.set("key_type", keyType);
+      if (keyType === "vat") query.set("team_id", teamID.trim());
+      const response = await requestJSON<AllowedModelResponse>(`/api/allowed-models?${query.toString()}`);
+      const items = (response.data ?? []).map((item) => item.id);
+      setKeyAllowedModels(items);
+      setKeySelectedModels((prev) => prev.filter((item) => items.includes(item)));
+    } catch (error) {
+      setBanner({
+        kind: "error",
+        message: normalizeError(error, common("requestError")),
+      });
+    } finally {
+      setIsLoadingAllowedModels(false);
+    }
+  }, [common]);
 
   const loadDashboard = useCallback(async () => {
     setIsLoading(true);
@@ -181,8 +219,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
     setLastCreatedKey(null);
 
     const cleanAlias = keyAlias.trim();
-    const selectedModels = keyModelsInput
-      .split(",")
+    const selectedModels = keySelectedModels
       .map((item) => item.trim())
       .filter(Boolean);
 
@@ -215,6 +252,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
       });
 
       setLastCreatedKey(created.key ?? null);
+      setKeySelectedModels([]);
       await loadDashboard();
       setBanner({
         kind: "success",
@@ -356,23 +394,48 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
                 <Label htmlFor="keyModels">{t("keys.models")}</Label>
                 <Input
                   id="keyModels"
-                  value={keyModelsInput}
-                  onChange={(event) => setKeyModelsInput(event.target.value)}
+                  value={keyModelQuery}
+                  onChange={(event) => setKeyModelQuery(event.target.value)}
                   placeholder={t("keys.modelsPlaceholder")}
                 />
+                <div className="max-h-56 overflow-auto rounded-md border p-2">
+                  {isLoadingAllowedModels ? (
+                    <p className="text-xs text-muted-foreground">Loading...</p>
+                  ) : filteredAllowedModels.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">{common("none")}</p>
+                  ) : (
+                    filteredAllowedModels.map((modelID) => (
+                      <label key={modelID} className="flex items-center gap-2 py-1 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={keySelectedModels.includes(modelID)}
+                          onChange={(event) => {
+                            if (event.target.checked) {
+                              setKeySelectedModels((prev) => Array.from(new Set([...prev, modelID])));
+                              return;
+                            }
+                            setKeySelectedModels((prev) => prev.filter((item) => item !== modelID));
+                          }}
+                        />
+                        <span className="font-mono text-xs">{modelID}</span>
+                      </label>
+                    ))
+                  )}
+                </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="keyMode">Key type</Label>
                 <select
                   id="keyMode"
                   value={keyMode}
-                  onChange={(event) =>
-                    setKeyMode(
+                  onChange={(event) => {
+                    const nextMode =
                       event.target.value === "service_account"
                         ? "service_account"
-                        : "virtual_key",
-                    )
-                  }
+                        : "virtual_key";
+                    setKeyMode(nextMode);
+                    void loadAllowedModelsForScope(nextMode, keyTeamID);
+                  }}
                   className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                 >
                   <option value="virtual_key">Virtual key</option>
@@ -385,7 +448,12 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
                   id="keyTeamID"
                   kind="team"
                   selectedID={keyTeamID}
-                  onSelectedIDChange={setKeyTeamID}
+                  onSelectedIDChange={(value) => {
+                    setKeyTeamID(value);
+                    if (keyMode === "service_account") {
+                      void loadAllowedModelsForScope("service_account", value);
+                    }
+                  }}
                   onSelectedOptionChange={setKeyTeamOption}
                   onSearch={searchPrincipals}
                   loadingLabel={principalsUx("actions.loading")}

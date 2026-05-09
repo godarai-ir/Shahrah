@@ -61,7 +61,13 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	if req.Model == "" {
 		return writeAPIError(c, fiber.StatusBadRequest, "model is required", "invalid_request_error")
 	}
-	tracing.SetModelForTrace(c, req.Model)
+	requestedModel := strings.TrimSpace(req.Model)
+	routeCandidates := modelRoutingCandidates(requestedModel)
+	if len(routeCandidates) == 0 {
+		return writeAPIError(c, fiber.StatusBadRequest, "model is required", "invalid_request_error")
+	}
+	resolvedModel := providerModelID(requestedModel)
+	tracing.SetModelForTrace(c, requestedModel)
 	if req.Prompt == "" {
 		return writeAPIError(c, fiber.StatusBadRequest, "prompt is required", "invalid_request_error")
 	}
@@ -80,14 +86,14 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	authInfo.TenantID = currentTenant.ID
 	tracing.SetTenantForTrace(c, currentTenant.ID)
 
-	if !isModelAllowedForType(authInfo, req.Model, platform.ModelTypeCompletion) {
-		emitDenyCounter(h.logger, denyReasonForModel(authInfo), req.Model, currentTenant.ID)
+	if !isModelAllowedForType(authInfo, requestedModel, platform.ModelTypeCompletion) {
+		emitDenyCounter(h.logger, denyReasonForModel(authInfo), requestedModel, currentTenant.ID)
 		return writeAPIError(c, fiber.StatusForbidden, "model access denied or unsupported for completions", "authorization_error")
 	}
 
 	// Transform to chat completion format internally
 	chatReq := contractsopenai.ChatCompletionRequest{
-		Model:       req.Model,
+		Model:       resolvedModel,
 		Messages:    []contractsopenai.ChatMessage{{Role: "user", Content: req.Prompt}},
 		Stream:      req.Stream,
 		MaxTokens:   req.MaxTokens,
@@ -108,7 +114,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	// Check rate limit
-	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, req.Model, estimated.TotalTokens)
+	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
 	setRateLimitHeaders(c, rateLimit)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusTooManyRequests, "rate limit exceeded", "rate_limit_error")
@@ -120,11 +126,24 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	// Route to deployment
-	dep, err := h.llmRouter.Route(c.Context(), currentTenant.ID, req.Model)
+	var (
+		dep *router.Deployment
+	)
+	for _, candidate := range routeCandidates {
+		dep, err = h.llmRouter.Route(c.Context(), currentTenant.ID, candidate)
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
-		emitDenyCounter(h.logger, denyReasonUnknownModel, req.Model, currentTenant.ID)
+		emitDenyCounter(h.logger, denyReasonUnknownModel, requestedModel, currentTenant.ID)
 		return writeAPIError(c, fiber.StatusInternalServerError, "no available deployments", "internal_error")
 	}
+	outboundModel := strings.TrimSpace(dep.Model)
+	if outboundModel == "" || outboundModel == "*" {
+		outboundModel = resolvedModel
+	}
+	chatReq.Model = outboundModel
 
 	// Build tunnel request
 	requestID := tracing.TraceIDFromContext(c)

@@ -45,6 +45,9 @@ type KeyListResponse = {
 type ModelListResponse = {
   data?: TenantModel[];
 };
+type AllowedModelListResponse = {
+  data?: Array<{ id: string }>;
+};
 
 export const dynamic = "force-dynamic";
 
@@ -52,7 +55,7 @@ export default async function Home() {
   const auth = await requireAuth("/login");
   const tenantSlug = auth.tenantSlug;
 
-  const [walletResult, keysResult, modelsResult, txResult] = await Promise.all([
+  const [walletResult, keysResult, modelsResult, txResult, allowedModelsResult] = await Promise.all([
     fetchControlPlaneJSON({
       tenantSlug,
       method: "GET",
@@ -73,6 +76,12 @@ export default async function Home() {
       method: "GET",
       path: "/api/v1/wallet/transactions?limit=20",
     }),
+    fetchControlPlaneJSON({
+      tenantSlug,
+      method: "GET",
+      path: "/api/v1/models/allowed?key_type=pat",
+      userID: auth.user.id,
+    }),
   ]);
 
   const initialWallet = walletResult.ok
@@ -87,12 +96,16 @@ export default async function Home() {
   const initialTransactions = txResult.ok
     ? ((txResult.payload as WalletTransactionListResponse).data ?? [])
     : [];
+  const initialAllowedModels = allowedModelsResult.ok
+    ? ((allowedModelsResult.payload as AllowedModelListResponse).data ?? []).map((item) => item.id)
+    : [];
 
   const errorMessage =
     walletResult.errorMessage ??
     keysResult.errorMessage ??
     modelsResult.errorMessage ??
     txResult.errorMessage ??
+    allowedModelsResult.errorMessage ??
     null;
 
   const currentUser = {
@@ -110,6 +123,7 @@ export default async function Home() {
         initialKeys={initialKeys}
         initialModels={initialModels}
         initialTransactions={initialTransactions}
+        initialAllowedModels={initialAllowedModels}
         initialError={errorMessage}
         currentUser={currentUser}
       />

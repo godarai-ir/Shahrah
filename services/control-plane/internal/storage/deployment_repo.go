@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/google/uuid"
@@ -83,5 +84,126 @@ func (s *Store) ListDeployments(ctx context.Context, tenantID string) ([]platfor
 		}
 		deps = append(deps, dep)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	providerAccountDeps, err := s.listProviderAccountDeployments(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	deps = append(deps, providerAccountDeps...)
+	return deps, nil
+}
+
+func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID string) ([]platform.Deployment, error) {
+	if strings.TrimSpace(tenantID) == "" {
+		return nil, nil
+	}
+
+	rows, err := s.pool.Query(ctx, `
+		SELECT a.account_id::text,
+		       a.tenant_id::text,
+		       a.provider,
+		       a.name,
+		       COALESCE(a.provider_config, '{}'::jsonb),
+		       COALESCE(a.credential_data, '{}'::jsonb),
+		       m.model,
+		       COALESCE(m.settings, '{}'::jsonb)
+		FROM tenant_provider_accounts a
+		JOIN tenant_provider_account_models m
+		  ON m.account_id = a.account_id
+		 AND m.enabled = true
+		WHERE a.tenant_id = $1
+		ORDER BY a.created_at ASC, m.created_at ASC, m.model ASC
+	`, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	deps := make([]platform.Deployment, 0)
+	for rows.Next() {
+		var (
+			accountID     string
+			accountTenant string
+			provider      string
+			accountName   string
+			providerRaw   []byte
+			credentialRaw []byte
+			model         string
+			settingsRaw   []byte
+		)
+		if err := rows.Scan(&accountID, &accountTenant, &provider, &accountName, &providerRaw, &credentialRaw, &model, &settingsRaw); err != nil {
+			return nil, err
+		}
+
+		provider = strings.TrimSpace(provider)
+		accountName = strings.TrimSpace(accountName)
+		model = strings.TrimSpace(model)
+		if provider == "" || accountName == "" || model == "" {
+			continue
+		}
+
+		providerConfig := parseJSONObject(providerRaw)
+		credentials := parseJSONObject(credentialRaw)
+		settings := parseJSONObject(settingsRaw)
+		deps = append(deps, platform.Deployment{
+			ID:         "provider-account:" + accountID + ":" + model,
+			TenantID:   accountTenant,
+			ModelName:  provider + ":" + accountName + ":" + model,
+			Provider:   provider,
+			Model:      model,
+			APIBase:    firstString(providerConfig, settings, "api_base", "base_url"),
+			APIKey:     toString(credentials["api_key"]),
+			APIVersion: firstString(providerConfig, settings, "api_version"),
+			RegionName: firstString(providerConfig, settings, "region_name", "region", "aws_region"),
+			RPM:        firstInt64(settings, providerConfig, "rpm"),
+			TPM:        firstInt64(settings, providerConfig, "tpm"),
+			Weight:     firstFloat64(settings, providerConfig, "weight"),
+			TimeoutSec: firstFloat64(settings, providerConfig, "timeout", "timeout_sec"),
+			ModelInfo: map[string]interface{}{
+				"source":                "tenant_provider_account",
+				"provider_account_id":   accountID,
+				"provider_account_name": accountName,
+			},
+		})
+	}
 	return deps, rows.Err()
+}
+
+func firstString(primary map[string]interface{}, secondary map[string]interface{}, keys ...string) string {
+	for _, key := range keys {
+		if v := strings.TrimSpace(toString(primary[key])); v != "" {
+			return v
+		}
+		if v := strings.TrimSpace(toString(secondary[key])); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func firstInt64(primary map[string]interface{}, secondary map[string]interface{}, keys ...string) int64 {
+	for _, key := range keys {
+		if v := toInt64(primary[key]); v != 0 {
+			return v
+		}
+		if v := toInt64(secondary[key]); v != 0 {
+			return v
+		}
+	}
+	return 0
+}
+
+func firstFloat64(primary map[string]interface{}, secondary map[string]interface{}, keys ...string) float64 {
+	for _, key := range keys {
+		if v := toFloat64(primary[key]); v != 0 {
+			return v
+		}
+		if v := toFloat64(secondary[key]); v != 0 {
+			return v
+		}
+	}
+	return 0
 }

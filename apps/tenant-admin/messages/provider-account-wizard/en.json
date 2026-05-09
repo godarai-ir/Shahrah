@@ -13,6 +13,7 @@
   "selectProvider": "Select provider",
   "creating": "Creating account...",
   "createProviderAccount": "Create new account",
+  "save": "Save",
   "saving": "Saving...",
   "saveSelectedModels": "Save enabled models",
   "saveAccessControl": "Save access policy",

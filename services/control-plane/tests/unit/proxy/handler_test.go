@@ -46,14 +46,16 @@ func (m *mockTunnelTransport) Healthy(ctx context.Context) error { return nil }
 
 // mockBilling implements budgeter interface for testing.
 type mockBilling struct {
-	cost         platform.UsageCostBreakdown
-	estimateErr  error
-	rateLimitErr error
-	rateLimitRes *mcache.RateLimitResult
-	budgetErr    error
+	cost          platform.UsageCostBreakdown
+	estimateErr   error
+	rateLimitErr  error
+	rateLimitRes  *mcache.RateLimitResult
+	budgetErr     error
+	estimateModel string
 }
 
 func (m *mockBilling) EstimateCost(ctx context.Context, req contractsopenai.ChatCompletionRequest) (platform.UsageCostBreakdown, error) {
+	m.estimateModel = req.Model
 	return m.cost, m.estimateErr
 }
 
@@ -142,6 +144,77 @@ func setupTestApp(t *testing.T, handler *proxy.ChatCompletionHandler) *fiber.App
 	})
 	app.Post("/v1/chat/completions", handler.Handle)
 	return app
+}
+
+func TestChatCompletionHandler_RoutesFQNThroughWildcardAsOfficialProviderModel(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, err := mcache.NewMemoryCache(logger)
+	require.NoError(t, err)
+
+	r, err := llmrouter.NewRouter([]config.ModelDeployment{
+		{
+			ModelName: "*",
+			ProviderEndpoint: config.ProviderEndpointConfig{
+				Model:  "openai/*",
+				APIKey: "sk-provider",
+				RPM:    1000,
+			},
+			ModelInfo: map[string]interface{}{"id": "dep-wildcard"},
+		},
+	}, config.RouterSettings{RoutingStrategy: "simple-shuffle", CooldownTime: 60}, memCache, nil, logger)
+	require.NoError(t, err)
+
+	validResponse := contractsopenai.ChatCompletionResponse{
+		ID:      "chatcmpl-123",
+		Object:  "chat.completion",
+		Created: 1234567890,
+		Model:   "gpt-4.1",
+		Choices: []contractsopenai.Choice{{
+			Index: 0,
+			Message: &contractsopenai.ChatMessage{
+				Role:    "assistant",
+				Content: "Hello!",
+			},
+			FinishReason: "stop",
+		}},
+		Usage: &contractsopenai.Usage{
+			PromptTokens:     10,
+			CompletionTokens: 5,
+			TotalTokens:      15,
+		},
+	}
+	respBody, _ := json.Marshal(validResponse)
+	mTunnel := &mockTunnelTransport{
+		response: &platform.TunnelResponse{
+			StatusCode: http.StatusOK,
+			Headers:    map[string]string{},
+			Body:       respBody,
+		},
+	}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 15}}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{}
+
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	app := setupTestApp(t, handler)
+
+	payload, _ := json.Marshal(map[string]interface{}{
+		"model":    "openai:openai:gpt-4.1",
+		"messages": []interface{}{map[string]interface{}{"role": "user", "content": "Hello"}},
+	})
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, "gpt-4.1", mBilling.estimateModel)
+
+	var outbound contractsopenai.ChatCompletionRequest
+	require.NoError(t, json.Unmarshal(mTunnel.lastRequest.Body, &outbound))
+	assert.Equal(t, "gpt-4.1", outbound.Model)
+	assert.Equal(t, "openai", mTunnel.lastRequest.Deployment.Provider)
+	assert.Equal(t, "sk-provider", mTunnel.lastRequest.Deployment.APIKey)
 }
 
 func TestChatCompletionHandler_ShouldRejectEmptyMessages(t *testing.T) {

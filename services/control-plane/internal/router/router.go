@@ -39,6 +39,10 @@ type DeploymentStore interface {
 	ListDeployments(ctx context.Context, tenantID string) ([]platform.Deployment, error)
 }
 
+type byokCredentialResolver interface {
+	ResolveProviderAccountAPIKey(ctx context.Context, tenantID string, modelFQN string) (string, error)
+}
+
 // Router is the main LLM request router.
 type Router struct {
 	mu          sync.RWMutex
@@ -144,6 +148,9 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 				if dep.ModelName != modelName && dep.ModelName != "*" {
 					continue
 				}
+				if isProviderAccountDeploymentWithoutRuntimeCredential(dep) {
+					continue
+				}
 				deployments = append(deployments, &Deployment{
 					ID:        dep.ID,
 					TenantID:  dep.TenantID,
@@ -187,14 +194,22 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 			if fbDeployments, exists := r.deployments[fb]; exists {
 				healthyFB := r.filterHealthy(ctx, fbDeployments)
 				if len(healthyFB) > 0 {
-					return r.strategy.SelectDeployment(healthyFB, modelName)
+					selected, err := r.strategy.SelectDeployment(healthyFB, modelName)
+					if err != nil {
+						return nil, err
+					}
+					return r.applyBYOK(ctx, tenantID, modelName, selected), nil
 				}
 			}
 		}
 		return nil, ErrNoHealthyDeployments
 	}
 
-	return r.strategy.SelectDeployment(healthyDeployments, modelName)
+	selected, err := r.strategy.SelectDeployment(healthyDeployments, modelName)
+	if err != nil {
+		return nil, err
+	}
+	return r.applyBYOK(ctx, tenantID, modelName, selected), nil
 }
 
 func (r *Router) filterHealthy(ctx context.Context, deployments []*Deployment) []*Deployment {
@@ -248,4 +263,40 @@ func fallbackWeight(dep platform.Deployment) float64 {
 		return float64(dep.RPM)
 	}
 	return dep.Weight
+}
+
+func isProviderAccountDeploymentWithoutRuntimeCredential(dep platform.Deployment) bool {
+	if !strings.HasPrefix(strings.TrimSpace(dep.ID), "provider-account:") {
+		return false
+	}
+	return strings.TrimSpace(dep.APIKey) == "" && strings.TrimSpace(dep.APIBase) == ""
+}
+
+func (r *Router) applyBYOK(ctx context.Context, tenantID, modelName string, dep *Deployment) *Deployment {
+	if dep == nil || r.store == nil || strings.TrimSpace(tenantID) == "" {
+		return dep
+	}
+	if !isModelFQN(modelName) {
+		return dep
+	}
+	resolver, ok := r.store.(byokCredentialResolver)
+	if !ok {
+		return dep
+	}
+	apiKey, err := resolver.ResolveProviderAccountAPIKey(ctx, tenantID, modelName)
+	if err != nil || strings.TrimSpace(apiKey) == "" {
+		return dep
+	}
+	cloned := *dep
+	cloned.Params = dep.Params
+	cloned.Params.APIKey = apiKey
+	return &cloned
+}
+
+func isModelFQN(model string) bool {
+	parts := strings.Split(strings.TrimSpace(model), ":")
+	if len(parts) != 3 {
+		return false
+	}
+	return strings.TrimSpace(parts[0]) != "" && strings.TrimSpace(parts[1]) != "" && strings.TrimSpace(parts[2]) != ""
 }

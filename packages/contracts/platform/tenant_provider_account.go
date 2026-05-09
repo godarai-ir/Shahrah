@@ -214,6 +214,14 @@ type TestTenantProviderAccountCredentialsRequest struct {
 	ModelHint string `json:"model_hint,omitempty"`
 }
 
+// UpdateTenantProviderAccountCredentialsRequest updates auth/credential settings for an existing account.
+type UpdateTenantProviderAccountCredentialsRequest struct {
+	AuthMode             ProviderAuthMode            `json:"auth_mode,omitempty"`
+	ProviderConfig       map[string]interface{}      `json:"provider_config,omitempty"`
+	Credentials          *ProviderAccountCredentials `json:"credentials,omitempty"`
+	AllowVirtualKeysOnly *bool                       `json:"allow_virtual_keys_only,omitempty"`
+}
+
 // TestTenantProviderAccountCredentialsResponse returns test execution result.
 type TestTenantProviderAccountCredentialsResponse struct {
 	Success bool   `json:"success"`

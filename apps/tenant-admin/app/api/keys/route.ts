@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
     request,
     method: "GET",
     path: "/api/v1/keys",
+    userID: auth.user.id,
   });
 }
 
@@ -87,6 +88,7 @@ export async function POST(request: NextRequest) {
     request,
     method: "POST",
     path: "/api/v1/keys",
+    userID: auth.user.id,
     body: {
       key_alias: keyAlias,
       models,

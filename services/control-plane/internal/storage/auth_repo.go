@@ -122,7 +122,7 @@ func (s *Store) listRuntimeAllowedModelsByProviderAccount(ctx context.Context, t
 	}
 
 	rows, err := s.pool.Query(ctx, `
-		SELECT DISTINCT m.model,
+		SELECT DISTINCT CONCAT(a.provider, ':', a.name, ':', m.model) AS model_fqn,
 		       COALESCE(m.types, '{}'),
 		       COALESCE(m.pricing_mode, 'public'),
 		       CASE
@@ -227,6 +227,29 @@ func containsWildcard(models []string) bool {
 		}
 	}
 	return false
+}
+
+// ListAllowedModelFQNs returns tenant-scoped model FQNs allowed for a principal.
+// Exactly one principal dimension should be used: PAT(userID) or VAT(teamID).
+func (s *Store) ListAllowedModelFQNs(ctx context.Context, tenantID string, userID string, teamID string) ([]string, error) {
+	policies, _, err := s.listRuntimeAllowedModelsByProviderAccount(ctx, tenantID, strings.TrimSpace(teamID), strings.TrimSpace(userID))
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(policies))
+	seen := make(map[string]struct{}, len(policies))
+	for _, item := range policies {
+		model := strings.TrimSpace(item.Model)
+		if model == "" {
+			continue
+		}
+		if _, ok := seen[model]; ok {
+			continue
+		}
+		seen[model] = struct{}{}
+		out = append(out, model)
+	}
+	return out, nil
 }
 
 // CreateKey creates a tenant-scoped virtual key.

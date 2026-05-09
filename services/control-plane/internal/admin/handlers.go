@@ -19,6 +19,7 @@ import (
 type keyStore interface {
 	CreateKey(ctx context.Context, params platform.CreateKeyParams) (*platform.CreatedKey, error)
 	ListKeys(ctx context.Context, tenantID string) ([]platform.CreatedKey, error)
+	ListAllowedModelFQNs(ctx context.Context, tenantID string, userID string, teamID string) ([]string, error)
 	ListPATs(ctx context.Context, tenantID string, userID string, query string, limit int, offset int) ([]platform.CreatedKey, int, error)
 	PATExists(ctx context.Context, tenantID string, userID string, name string) (bool, error)
 	RevokePAT(ctx context.Context, tenantID string, userID string, keyID string, revokedByUserID string) (bool, error)
@@ -52,6 +53,7 @@ type providerAccountStore interface {
 	CreateTenantProviderAccount(ctx context.Context, tenantID string, req platform.CreateTenantProviderAccountRequest) (*platform.TenantProviderAccount, error)
 	ListTenantProviderAccounts(ctx context.Context, tenantID string) ([]platform.TenantProviderAccount, error)
 	GetTenantProviderAccountDetails(ctx context.Context, tenantID string, accountID string) (*platform.TenantProviderAccountDetailsResponse, error)
+	UpdateTenantProviderAccountCredentials(ctx context.Context, tenantID string, accountID string, req platform.UpdateTenantProviderAccountCredentialsRequest) (*platform.TenantProviderAccount, error)
 	UpsertTenantProviderAccountModels(ctx context.Context, tenantID string, accountID string, models []platform.TenantProviderAccountModel) ([]platform.TenantProviderAccountModel, error)
 	UpdateTenantProviderAccountAccess(ctx context.Context, tenantID string, accountID string, access platform.TenantProviderAccountAccessControl) (*platform.TenantProviderAccountAccessControl, error)
 	TestTenantProviderAccountCredentials(ctx context.Context, tenantID string, accountID string, req platform.TestTenantProviderAccountCredentialsRequest) (*platform.TestTenantProviderAccountCredentialsResponse, error)
@@ -249,20 +251,12 @@ func (h *Handlers) createKey(c *fiber.Ctx, forcedKeyType string) error {
 		req.KeyType = forcedKeyType
 	}
 
-	for i := range req.AllowedModels {
-		req.AllowedModels[i] = strings.TrimSpace(req.AllowedModels[i])
+	normalizedModels, err := normalizeAndValidateModelFQNs(req.AllowedModels)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
-	filteredModels := make([]string, 0, len(req.AllowedModels))
-	for _, model := range req.AllowedModels {
-		if model != "" {
-			filteredModels = append(filteredModels, model)
-		}
-	}
-	if len(filteredModels) == 0 {
-		return fiber.NewError(fiber.StatusBadRequest, "at least one allowed model is required")
-	}
-	req.AllowedModels = filteredModels
-	req.Models = filteredModels
+	req.AllowedModels = normalizedModels
+	req.Models = normalizedModels
 
 	req.TenantID = currentTenant.ID
 	switch req.KeyType {
@@ -276,6 +270,19 @@ func (h *Handlers) createKey(c *fiber.Ctx, forcedKeyType string) error {
 	}
 	if req.KeyType == platform.KeyTypeVAT && req.TeamID == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "team_id is required for vat")
+	}
+	scopeUserID := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	scopeTeamID := ""
+	if req.KeyType == platform.KeyTypeVAT {
+		scopeUserID = ""
+		scopeTeamID = strings.TrimSpace(req.TeamID)
+	}
+	scopeAllowedModels, err := h.keys.ListAllowedModelFQNs(c.Context(), currentTenant.ID, scopeUserID, scopeTeamID)
+	if err != nil {
+		return err
+	}
+	if err := ensureRequestedModelsInScope(req.AllowedModels, scopeAllowedModels); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
 	created, err := h.keys.CreateKey(c.Context(), req)
@@ -403,17 +410,19 @@ func (h *Handlers) CreatePersonalAccessToken(c *fiber.Ctx) error {
 	if len(req.AllowedModels) == 0 && len(req.Models) > 0 {
 		req.AllowedModels = append([]string(nil), req.Models...)
 	}
-	models := make([]string, 0, len(req.AllowedModels))
-	for _, model := range req.AllowedModels {
-		model = strings.TrimSpace(model)
-		if model != "" {
-			models = append(models, model)
-		}
-	}
-	if len(models) == 0 {
-		return fiber.NewError(fiber.StatusBadRequest, "at least one allowed model is required")
+	models, err := normalizeAndValidateModelFQNs(req.AllowedModels)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 	req.AllowedModels = models
+
+	scopeAllowedModels, err := h.keys.ListAllowedModelFQNs(c.Context(), currentTenant.ID, actorUserID, "")
+	if err != nil {
+		return err
+	}
+	if err := ensureRequestedModelsInScope(req.AllowedModels, scopeAllowedModels); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
 
 	exists, err := h.keys.PATExists(c.Context(), currentTenant.ID, actorUserID, req.Name)
 	if err != nil {
@@ -437,6 +446,46 @@ func (h *Handlers) CreatePersonalAccessToken(c *fiber.Ctx) error {
 		return err
 	}
 	return c.Status(fiber.StatusCreated).JSON(created)
+}
+
+func (h *Handlers) ListAllowedModels(c *fiber.Ctx) error {
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	actorUserID := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	if actorUserID == "" {
+		return fiber.NewError(fiber.StatusUnauthorized, "x-shahrah-user-id header is required")
+	}
+
+	keyType := strings.TrimSpace(strings.ToLower(c.Query("key_type")))
+	if keyType == "" {
+		keyType = platform.KeyTypePAT
+	}
+	if keyType != platform.KeyTypePAT && keyType != platform.KeyTypeVAT {
+		return fiber.NewError(fiber.StatusBadRequest, "key_type must be pat or vat")
+	}
+
+	teamID := strings.TrimSpace(c.Query("team_id"))
+	scopeUserID := actorUserID
+	scopeTeamID := ""
+	if keyType == platform.KeyTypeVAT {
+		scopeUserID = ""
+		scopeTeamID = teamID
+		if scopeTeamID == "" {
+			return c.JSON(fiber.Map{"data": []fiber.Map{}})
+		}
+	}
+
+	models, err := h.keys.ListAllowedModelFQNs(c.Context(), currentTenant.ID, scopeUserID, scopeTeamID)
+	if err != nil {
+		return err
+	}
+	items := make([]fiber.Map, 0, len(models))
+	for _, model := range models {
+		items = append(items, fiber.Map{"id": model})
+	}
+	return c.JSON(fiber.Map{"data": items})
 }
 
 func (h *Handlers) RevokePersonalAccessToken(c *fiber.Ctx) error {
@@ -1163,6 +1212,47 @@ func (h *Handlers) TestTenantProviderAccountCredentials(c *fiber.Ctx) error {
 		return err
 	}
 	return c.JSON(result)
+}
+
+// UpdateTenantProviderAccountCredentials updates auth mode / credential settings for a provider account.
+func (h *Handlers) UpdateTenantProviderAccountCredentials(c *fiber.Ctx) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	store, err := h.requireProviderAccountsStore()
+	if err != nil {
+		return err
+	}
+
+	accountID := strings.TrimSpace(c.Params("accountID"))
+	if accountID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "accountID is required")
+	}
+
+	var req platform.UpdateTenantProviderAccountCredentialsRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	if req.AuthMode != "" {
+		req.AuthMode = platform.ProviderAuthMode(strings.TrimSpace(strings.ToLower(string(req.AuthMode))))
+	}
+	if req.Credentials != nil {
+		req.Credentials.APIKey = strings.TrimSpace(req.Credentials.APIKey)
+		req.Credentials.SecretRef = strings.TrimSpace(req.Credentials.SecretRef)
+	}
+
+	account, err := store.UpdateTenantProviderAccountCredentials(c.Context(), currentTenant.ID, accountID, req)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
+		}
+		return mapProviderAccountStoreError(err)
+	}
+	return c.JSON(account)
 }
 
 // ListAccessPrincipals returns user/team principals for access picker controls.
@@ -2193,4 +2283,60 @@ func mapProviderAccountStoreError(err error) error {
 		}
 	}
 	return err
+}
+
+func normalizeAndValidateModelFQNs(models []string) ([]string, error) {
+	normalized := make([]string, 0, len(models))
+	seen := make(map[string]struct{}, len(models))
+	for _, model := range models {
+		model = strings.TrimSpace(model)
+		if model == "" {
+			continue
+		}
+		if !isModelFQN(model) {
+			return nil, errors.New("models must use provider:account_alias:official_model_id format")
+		}
+		if _, ok := seen[model]; ok {
+			continue
+		}
+		seen[model] = struct{}{}
+		normalized = append(normalized, model)
+	}
+	if len(normalized) == 0 {
+		return nil, errors.New("at least one allowed model is required")
+	}
+	return normalized, nil
+}
+
+func isModelFQN(model string) bool {
+	parts := strings.Split(model, ":")
+	if len(parts) != 3 {
+		return false
+	}
+	for _, part := range parts {
+		if strings.TrimSpace(part) == "" {
+			return false
+		}
+	}
+	return true
+}
+
+func ensureRequestedModelsInScope(requested []string, allowed []string) error {
+	if len(allowed) == 0 {
+		return errors.New("no allowed models found in current tenant scope for this principal")
+	}
+	allowedSet := make(map[string]struct{}, len(allowed))
+	for _, item := range allowed {
+		allowedSet[strings.TrimSpace(item)] = struct{}{}
+	}
+	invalid := make([]string, 0)
+	for _, model := range requested {
+		if _, ok := allowedSet[strings.TrimSpace(model)]; !ok {
+			invalid = append(invalid, model)
+		}
+	}
+	if len(invalid) > 0 {
+		return errors.New("one or more requested models are not allowed in current tenant scope")
+	}
+	return nil
 }

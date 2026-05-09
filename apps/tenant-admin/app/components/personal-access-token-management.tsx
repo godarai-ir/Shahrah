@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { KeyRound, Plus, RefreshCcw, Trash2 } from "lucide-react";
@@ -57,13 +57,19 @@ export default function PersonalAccessTokenManagement(props: {
   const [tokens, setTokens] = useState<PAT[]>(props.initialTokens);
   const [total, setTotal] = useState<number>(props.initialTotal);
   const [query, setQuery] = useState("");
+  const [modelQuery, setModelQuery] = useState("");
   const [name, setName] = useState("");
-  const [models, setModels] = useState(props.initialModels.slice(0, 3));
+  const [models, setModels] = useState<string[]>([]);
   const [expiresIn, setExpiresIn] = useState("30d");
   const [newSecret, setNewSecret] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [banner, setBanner] = useState<Banner | null>(props.initialError ? { kind: "error", message: props.initialError } : null);
+  const selectableModels = useMemo(() => {
+    const q = modelQuery.trim().toLowerCase();
+    if (!q) return props.initialModels;
+    return props.initialModels.filter((item) => item.toLowerCase().includes(q));
+  }, [modelQuery, props.initialModels]);
 
   async function load() {
     setIsLoading(true);
@@ -97,6 +103,7 @@ export default function PersonalAccessTokenManagement(props: {
       });
       setNewSecret(created.key);
       setName("");
+      setModels([]);
       setExpiresIn("30d");
       setBanner({ kind: "success", message: t("messages.createSuccess") });
       await load();
@@ -178,7 +185,27 @@ export default function PersonalAccessTokenManagement(props: {
                 </div>
                 <div className="grid gap-2">
                   <label className="text-sm font-medium">{t("fields.models")}</label>
-                  <Input value={models.join(",")} onChange={(e) => setModels(e.target.value.split(",").map((x) => x.trim()).filter(Boolean))} placeholder={t("fields.modelsPlaceholder")} />
+                  <Input value={modelQuery} onChange={(e) => setModelQuery(e.target.value)} placeholder={t("searchPlaceholder")} />
+                  <div className="max-h-56 overflow-auto rounded-md border p-2">
+                    {selectableModels.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">{t("table.empty")}</p>
+                    ) : selectableModels.map((modelID) => (
+                      <label key={modelID} className="flex items-center gap-2 py-1 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={models.includes(modelID)}
+                          onChange={(event) => {
+                            if (event.target.checked) {
+                              setModels((prev) => Array.from(new Set([...prev, modelID])));
+                              return;
+                            }
+                            setModels((prev) => prev.filter((item) => item !== modelID));
+                          }}
+                        />
+                        <span className="font-mono text-xs">{modelID}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
                 <div className="grid gap-2">
                   <label className="text-sm font-medium">{t("fields.expiresIn")}</label>

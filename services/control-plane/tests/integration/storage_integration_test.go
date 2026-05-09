@@ -466,7 +466,7 @@ func TestIntegration_ProviderAccountAccessAndModelSelectionHardening(t *testing.
 	var listOut contractsopenai.ModelListResponse
 	decodeJSONBody(t, listModelsResp, &listOut)
 	require.Len(t, listOut.Data, 1)
-	assert.Equal(t, "gpt-4.1-mini", listOut.Data[0].ID)
+	assert.Equal(t, "openai:openai-main:gpt-4.1-mini", listOut.Data[0].ID)
 }
 
 func TestIntegration_EffectiveModelsAccessMatrix_PAT_VAT_UserTeam(t *testing.T) {

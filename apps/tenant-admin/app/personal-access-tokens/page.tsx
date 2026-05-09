@@ -40,7 +40,7 @@ export default async function PersonalAccessTokensPage() {
     fetchControlPlaneJSON({
       tenantSlug,
       method: "GET",
-      path: "/api/v1/models",
+      path: "/api/v1/models/allowed?key_type=pat",
       userID: auth.user.id,
     }),
   ]);

@@ -109,7 +109,13 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	if req.Model == "" {
 		return writeAPIError(c, fiber.StatusBadRequest, "Model is required", "invalid_request_error")
 	}
-	tracing.SetModelForTrace(c, req.Model)
+	requestedModel := strings.TrimSpace(req.Model)
+	routeCandidates := modelRoutingCandidates(requestedModel)
+	if len(routeCandidates) == 0 {
+		return writeAPIError(c, fiber.StatusBadRequest, "Model is required", "invalid_request_error")
+	}
+	resolvedModel := providerModelID(requestedModel)
+	tracing.SetModelForTrace(c, requestedModel)
 	if len(req.Messages) == 0 {
 		return writeAPIError(c, fiber.StatusBadRequest, "messages array must not be empty", "invalid_request_error")
 	}
@@ -127,20 +133,22 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	if req.MaxTokens != nil && *req.MaxTokens < 1 {
 		return writeAPIError(c, fiber.StatusBadRequest, "max_tokens must be at least 1", "invalid_request_error")
 	}
-	if !isModelAllowedForType(authInfo, req.Model, platform.ModelTypeChat) {
-		emitDenyCounter(h.logger, denyReasonForModel(authInfo), req.Model, currentTenant.ID)
+	if !isModelAllowedForType(authInfo, requestedModel, platform.ModelTypeChat) {
+		emitDenyCounter(h.logger, denyReasonForModel(authInfo), requestedModel, currentTenant.ID)
 		return writeAPIError(c, fiber.StatusForbidden, "Model access denied or unsupported for chat completions", "authorization_error")
 	}
 	authStart := time.Now()
-	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "auth.validate", "internal", authStart, fiber.StatusOK, map[string]interface{}{"model": req.Model})
+	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "auth.validate", "internal", authStart, fiber.StatusOK, map[string]interface{}{"model": requestedModel})
 
 	quotaStart := time.Now()
-	estimated, err := h.billing.EstimateCost(c.Context(), req)
+	estimateReq := req
+	estimateReq.Model = resolvedModel
+	estimated, err := h.billing.EstimateCost(c.Context(), estimateReq)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to estimate request cost", "billing_error")
 	}
 
-	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, req.Model, estimated.TotalTokens)
+	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
 	setRateLimitHeaders(c, rateLimit)
 	if err != nil {
 		status := fiber.StatusTooManyRequests
@@ -158,11 +166,6 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Tunnel path unavailable", "tunnel_unavailable")
 	}
 
-	payload, err := json.Marshal(req)
-	if err != nil {
-		return writeAPIError(c, fiber.StatusBadRequest, "Failed to encode request", "invalid_request_error")
-	}
-
 	requestID := tracing.TraceIDFromContext(c)
 	if requestID == "" {
 		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
@@ -176,18 +179,25 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		Headers: map[string]string{
 			"Content-Type": "application/json",
 		},
-		Body: payload,
 		RequestMetadata: map[string]interface{}{
 			"tenant_slug": currentTenant.Slug,
-			"model":       req.Model,
+			"model":       requestedModel,
 		},
 	}
 
 	routeStart := time.Now()
-	deployment, err := h.llmRouter.Route(c.Context(), currentTenant.ID, req.Model)
+	var (
+		deployment *router.Deployment
+	)
+	for _, candidate := range routeCandidates {
+		deployment, err = h.llmRouter.Route(c.Context(), currentTenant.ID, candidate)
+		if err == nil {
+			break
+		}
+	}
 	isVirtual := false
 	if err != nil && h.vmResolver != nil && h.vmEngine != nil && h.vmExec != nil {
-		vm, vmErr := h.vmResolver.Resolve(c.Context(), currentTenant.ID, req.Model)
+		vm, vmErr := h.vmResolver.Resolve(c.Context(), currentTenant.ID, requestedModel)
 		if vmErr == nil {
 			targets, selErr := h.vmEngine.SelectTargets(vm)
 			if selErr == nil && !req.Stream {
@@ -216,13 +226,24 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		}
 	}
 	if deployment == nil {
-		emitDenyCounter(h.logger, denyReasonUnknownModel, req.Model, currentTenant.ID)
-		return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", req.Model), "routing_error")
+		emitDenyCounter(h.logger, denyReasonUnknownModel, requestedModel, currentTenant.ID)
+		return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", requestedModel), "routing_error")
 	}
 	if !isVirtual {
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": deployment.Provider, "deployment_id": deployment.ID})
 	}
+	outboundReq := req
+	outboundModel := strings.TrimSpace(deployment.Model)
+	if outboundModel == "" || outboundModel == "*" {
+		outboundModel = resolvedModel
+	}
+	outboundReq.Model = outboundModel
+	payload, err := json.Marshal(outboundReq)
+	if err != nil {
+		return writeAPIError(c, fiber.StatusBadRequest, "Failed to encode request", "invalid_request_error")
+	}
 	tunnelReq := baseReq
+	tunnelReq.Body = payload
 	tunnelReq.Deployment = toContractDeployment(deployment)
 
 	if req.Stream {
@@ -255,7 +276,8 @@ func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.Cha
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to decode provider response", "api_error")
 	}
 
-	finalCost, err := h.billing.FinalizeFromUsage(c.Context(), req.Model, completion.Usage, estimated)
+	billingModel := billingModelForDeployment(req.Model, tunnelReq.Deployment)
+	finalCost, err := h.billing.FinalizeFromUsage(c.Context(), billingModel, completion.Usage, estimated)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize usage", "billing_error")
 	}
@@ -353,7 +375,8 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 			select {
 			case chunk, ok := <-stream.Chunks():
 				if !ok {
-					finalCost, _ := h.billing.FinalizeFromUsage(c.Context(), req.Model, nil, estimated)
+					billingModel := billingModelForDeployment(req.Model, tunnelReq.Deployment)
+					finalCost, _ := h.billing.FinalizeFromUsage(c.Context(), billingModel, nil, estimated)
 					_, _ = h.wallets.DebitWallet(c.Context(), authInfo.TenantID, finalCost, tunnelReq.RequestID)
 					_ = h.logs.LogSpend(c.Context(), platform.SpendLog{
 						RequestID:       tunnelReq.RequestID,
@@ -457,6 +480,14 @@ func nonEmptySlice(in []string) []string {
 		}
 	}
 	return out
+}
+
+func billingModelForDeployment(requestedModel string, deployment platform.Deployment) string {
+	model := strings.TrimSpace(deployment.Model)
+	if model != "" {
+		return model
+	}
+	return strings.TrimSpace(requestedModel)
 }
 
 func toContractDeployment(dep *router.Deployment) platform.Deployment {

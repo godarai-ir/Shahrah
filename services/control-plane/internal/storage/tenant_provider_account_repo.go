@@ -125,6 +125,102 @@ func (s *Store) GetTenantProviderAccountDetails(ctx context.Context, tenantID st
 	}, nil
 }
 
+// UpdateTenantProviderAccountCredentials updates auth mode, provider config, and credentials for one account.
+func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tenantID string, accountID string, req platform.UpdateTenantProviderAccountCredentialsRequest) (*platform.TenantProviderAccount, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	var (
+		currentAuthMode      string
+		currentProviderCfg   []byte
+		currentCredentialRaw []byte
+		currentHasCredential bool
+		currentVirtualOnly   bool
+	)
+	if err := tx.QueryRow(ctx, `
+		SELECT auth_mode, provider_config, COALESCE(credential_data, '{}'::jsonb), has_credential, allow_virtual_keys_only
+		FROM tenant_provider_accounts
+		WHERE tenant_id = $1 AND account_id = $2
+	`, tenantID, accountID).Scan(&currentAuthMode, &currentProviderCfg, &currentCredentialRaw, &currentHasCredential, &currentVirtualOnly); err != nil {
+		return nil, err
+	}
+
+	nextAuthMode := strings.TrimSpace(currentAuthMode)
+	if req.AuthMode != "" {
+		nextAuthMode = strings.TrimSpace(string(req.AuthMode))
+	}
+
+	nextProviderCfg := parseJSONObject(currentProviderCfg)
+	if req.ProviderConfig != nil {
+		nextProviderCfg = req.ProviderConfig
+	}
+	nextProviderCfgRaw, err := marshalJSONObject(nextProviderCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	nextCredentialMap := parseJSONObject(currentCredentialRaw)
+	if req.Credentials != nil {
+		if req.Credentials.APIKey != "" {
+			nextCredentialMap["api_key"] = strings.TrimSpace(req.Credentials.APIKey)
+		}
+		if req.Credentials.SecretRef != "" {
+			nextCredentialMap["secret_ref"] = strings.TrimSpace(req.Credentials.SecretRef)
+		}
+		if len(req.Credentials.Raw) > 0 {
+			nextCredentialMap["raw"] = req.Credentials.Raw
+		}
+		if req.Credentials.SkipRequired {
+			nextCredentialMap["skip_required"] = true
+		}
+	}
+	nextCredentialRaw, err := marshalJSONObject(nextCredentialMap)
+	if err != nil {
+		return nil, err
+	}
+	nextHasCredential := false
+	if v, ok := nextCredentialMap["api_key"].(string); ok && strings.TrimSpace(v) != "" {
+		nextHasCredential = true
+	}
+	if v, ok := nextCredentialMap["secret_ref"].(string); ok && strings.TrimSpace(v) != "" {
+		nextHasCredential = true
+	}
+	if _, ok := nextCredentialMap["raw"]; ok {
+		nextHasCredential = true
+	}
+	if req.Credentials == nil {
+		nextHasCredential = currentHasCredential
+		nextCredentialRaw = currentCredentialRaw
+	}
+
+	nextVirtualOnly := currentVirtualOnly
+	if req.AllowVirtualKeysOnly != nil {
+		nextVirtualOnly = *req.AllowVirtualKeysOnly
+	}
+
+	if _, err := tx.Exec(ctx, `
+		UPDATE tenant_provider_accounts
+		SET auth_mode = $3,
+		    provider_config = $4,
+		    credential_data = $5,
+		    has_credential = $6,
+		    allow_virtual_keys_only = $7,
+		    updated_at = NOW()
+		WHERE tenant_id = $1 AND account_id = $2
+	`, tenantID, accountID, nextAuthMode, nextProviderCfgRaw, nextCredentialRaw, nextHasCredential, nextVirtualOnly); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	return s.getTenantProviderAccount(ctx, tenantID, accountID)
+}
+
 // UpsertTenantProviderAccountModels replaces model selection for one provider account.
 func (s *Store) UpsertTenantProviderAccountModels(ctx context.Context, tenantID string, accountID string, models []platform.TenantProviderAccountModel) ([]platform.TenantProviderAccountModel, error) {
 	tx, err := s.pool.Begin(ctx)

@@ -65,6 +65,7 @@ type TenantProviderAccount = {
   provider: string;
   name: string;
   auth_mode: ProviderAuthMode;
+  provider_config?: Record<string, unknown>;
   has_credential: boolean;
   allows_virtual_keys_only: boolean;
 };
@@ -142,6 +143,7 @@ export default function ProviderAccountWizard() {
   const [isSavingModels, setIsSavingModels] = useState(false);
   const [isSavingAccess, setIsSavingAccess] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
+  const [isSavingCredentials, setIsSavingCredentials] = useState(false);
   const [isLoadingEffective, setIsLoadingEffective] = useState(false);
   const [isRefreshingCatalog, setIsRefreshingCatalog] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
@@ -382,6 +384,15 @@ export default function ProviderAccountWizard() {
         setName(payload.account.name);
         setAuthMode(payload.account.auth_mode);
         setAllowVirtualOnly(payload.account.allows_virtual_keys_only);
+        const cfg = payload.account.provider_config ?? {};
+        setAzureTenantID(typeof cfg.azure_tenant_id === "string" ? cfg.azure_tenant_id : "");
+        setAzureClientID(typeof cfg.azure_client_id === "string" ? cfg.azure_client_id : "");
+        setAWSRegion(typeof cfg.aws_region === "string" ? cfg.aws_region : "us-east-1");
+        setAWSAccessKeyID(typeof cfg.aws_access_key_id === "string" ? cfg.aws_access_key_id : "");
+        setAWSSecretAccessKey(typeof cfg.aws_secret_access_key === "string" ? cfg.aws_secret_access_key : "");
+        setGoogleServiceAccountJSON(typeof cfg.google_service_account_json === "string" ? cfg.google_service_account_json : "");
+        setAPIKey("");
+        setSecretRef("");
         setManagers(payload.access?.managers ?? []);
         setUsers(payload.access?.users ?? []);
         setSelectedProviderID(payload.account.provider);
@@ -396,6 +407,59 @@ export default function ProviderAccountWizard() {
     },
     [loadProviderModels, t],
   );
+
+  async function handleSaveCredentials(accountID = selectedAccountID) {
+    if (!accountID) {
+      setBanner({ kind: "error", message: t("messages.selectAccountFirst") });
+      return false;
+    }
+
+    const providerConfig: Record<string, unknown> = {};
+    const credentials: Record<string, unknown> = {};
+
+    if (authMode === "api_key") {
+      if (apiKey.trim()) credentials.api_key = apiKey.trim();
+      if (secretRef.trim()) credentials.secret_ref = secretRef.trim();
+    }
+    if (authMode === "azure_entra_cert") {
+      providerConfig.azure_tenant_id = azureTenantID.trim() || undefined;
+      providerConfig.azure_client_id = azureClientID.trim() || undefined;
+      if (secretRef.trim()) credentials.secret_ref = secretRef.trim();
+    }
+    if (authMode === "aws_sigv4") {
+      providerConfig.aws_region = awsRegion.trim() || undefined;
+      providerConfig.aws_access_key_id = awsAccessKeyID.trim() || undefined;
+      providerConfig.aws_secret_access_key = awsSecretAccessKey.trim() || undefined;
+    }
+    if (authMode === "google_service_account") {
+      providerConfig.google_service_account_json = googleServiceAccountJSON.trim() || undefined;
+      if (secretRef.trim()) credentials.secret_ref = secretRef.trim();
+    }
+
+    setIsSavingCredentials(true);
+    try {
+      await requestJSON(
+        `/api/tenant-provider-accounts/${encodeURIComponent(accountID)}/credentials`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            auth_mode: authMode,
+            allow_virtual_keys_only: allowVirtualOnly,
+            provider_config: providerConfig,
+            credentials: Object.keys(credentials).length > 0 ? credentials : undefined,
+          }),
+        },
+      );
+      setBanner({ kind: "success", message: t("messages.accountLoadSuccess") });
+      await handleLoadAccount(accountID);
+      return true;
+    } catch (error) {
+      setBanner({ kind: "error", message: normalizeError(error, t("messages.accountLoadFailed")) });
+      return false;
+    } finally {
+      setIsSavingCredentials(false);
+    }
+  }
 
   useEffect(() => {
     if (!selectedAccountID || workspaceMode !== "workspace") return;
@@ -1189,7 +1253,55 @@ export default function ProviderAccountWizard() {
                           <SummaryKPI label={ux("credentials.virtualOnly")} value={account.allows_virtual_keys_only ? ux("common.enabled") : ux("common.disabled")} />
                           <SummaryKPI label={ux("credentials.lastTest")} value={lastCredentialTestMessage || ux("credentials.notTested")} />
                         </div>
-                        <div>
+                        <Field label={t("fields.authMode")} id="credentialAuthMode">
+                          <select
+                            id="credentialAuthMode"
+                            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                            value={authMode}
+                            onChange={(event) => setAuthMode(event.target.value as ProviderAuthMode)}
+                          >
+                            {(selectedProvider?.auth_modes ?? ["api_key"]).map((mode) => (
+                              <option key={mode} value={mode}>{mode}</option>
+                            ))}
+                          </select>
+                        </Field>
+                        <Field label={t("fields.allowVirtualOnly")} id="credentialVirtualOnly">
+                          <label className="inline-flex items-center gap-2 text-sm">
+                            <input
+                              id="credentialVirtualOnly"
+                              type="checkbox"
+                              checked={allowVirtualOnly}
+                              onChange={(event) => setAllowVirtualOnly(event.target.checked)}
+                            />
+                            {t("fields.allowVirtualOnly")}
+                          </label>
+                        </Field>
+                        {!allowVirtualOnly ? (
+                          <CredentialFields
+                            authMode={authMode}
+                            apiKey={apiKey}
+                            setAPIKey={setAPIKey}
+                            secretRef={secretRef}
+                            setSecretRef={setSecretRef}
+                            azureTenantID={azureTenantID}
+                            setAzureTenantID={setAzureTenantID}
+                            azureClientID={azureClientID}
+                            setAzureClientID={setAzureClientID}
+                            awsAccessKeyID={awsAccessKeyID}
+                            setAWSAccessKeyID={setAWSAccessKeyID}
+                            awsSecretAccessKey={awsSecretAccessKey}
+                            setAWSSecretAccessKey={setAWSSecretAccessKey}
+                            awsRegion={awsRegion}
+                            setAWSRegion={setAWSRegion}
+                            googleServiceAccountJSON={googleServiceAccountJSON}
+                            setGoogleServiceAccountJSON={setGoogleServiceAccountJSON}
+                            t={t}
+                          />
+                        ) : null}
+                        <div className="flex flex-wrap gap-2">
+                          <Button type="button" onClick={() => void handleSaveCredentials()} disabled={isSavingCredentials}>
+                            {isSavingCredentials ? t("saving") : t("save")}
+                          </Button>
                           <Button type="button" variant="outline" onClick={() => void handleTestCredentials()} disabled={isTesting}>
                             {isTesting ? t("testing") : t("testCredentials")}
                           </Button>

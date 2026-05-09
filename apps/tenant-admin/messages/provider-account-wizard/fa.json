@@ -13,6 +13,7 @@
   "selectProvider": "انتخاب ارائه‌دهنده",
   "creating": "در حال ایجاد حساب...",
   "createProviderAccount": "ایجاد حساب جدید",
+  "save": "ذخیره",
   "saving": "در حال ذخیره...",
   "saveSelectedModels": "ذخیره مدل‌های فعال",
   "saveAccessControl": "ذخیره سطح دسترسی",

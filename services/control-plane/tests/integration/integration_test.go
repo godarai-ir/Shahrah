@@ -1051,6 +1051,10 @@ func (noopKeyStore) ListKeys(ctx context.Context, tenantID string) ([]platform.C
 	return nil, nil
 }
 
+func (noopKeyStore) ListAllowedModelFQNs(ctx context.Context, tenantID string, userID string, teamID string) ([]string, error) {
+	return nil, nil
+}
+
 func (noopKeyStore) TouchKeyLastUsed(ctx context.Context, keyID string, usedAt time.Time) error {
 	return nil
 }
@@ -1175,6 +1179,37 @@ func (s *integrationKeyStore) ListKeys(ctx context.Context, tenantID string) ([]
 		out = append(out, listItem)
 	}
 	return out, nil
+}
+
+func (s *integrationKeyStore) ListAllowedModelFQNs(ctx context.Context, tenantID string, userID string, teamID string) ([]string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	models := make([]string, 0)
+	seen := make(map[string]struct{})
+	for _, item := range s.created {
+		if item.TenantID != tenantID {
+			continue
+		}
+		if userID != "" && item.UserID != userID {
+			continue
+		}
+		if teamID != "" && item.TeamID != teamID {
+			continue
+		}
+		for _, model := range item.AllowedModels {
+			model = strings.TrimSpace(model)
+			if model == "" {
+				continue
+			}
+			if _, ok := seen[model]; ok {
+				continue
+			}
+			seen[model] = struct{}{}
+			models = append(models, model)
+		}
+	}
+	return models, nil
 }
 
 func (s *integrationKeyStore) ListPATs(ctx context.Context, tenantID string, userID string, query string, limit int, offset int) ([]platform.CreatedKey, int, error) {
