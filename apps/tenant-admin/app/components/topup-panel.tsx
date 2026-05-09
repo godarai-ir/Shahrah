@@ -181,8 +181,8 @@ export default function TopUpPanel(props: Props) {
                   </TableCell>
                 </TableRow>
               ) : (
-                props.initialTransactions.map((item) => (
-                  <TableRow key={item.id}>
+                props.initialTransactions.map((item, index) => (
+                  <TableRow key={item.id || `${item.created_at}-${item.type}-${index}`}>
                     <TableCell className="font-mono text-xs">{item.id}</TableCell>
                     <TableCell>{item.type}</TableCell>
                     <TableCell>{item.status}</TableCell>

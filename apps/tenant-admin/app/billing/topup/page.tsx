@@ -28,8 +28,9 @@ type WalletTransaction = {
 };
 
 type WalletPayload = {
-  wallet_id: string;
-  tenant_id: string;
+  id?: string;
+  wallet_id?: string;
+  tenant_id?: string;
   balance_irr: number;
   pending_irr: number;
 };
@@ -37,11 +38,17 @@ type WalletPayload = {
 type SettingsPayload = WalletTopUpSettings;
 
 type TransactionPayload = {
-  transaction_id: string;
-  tx_type: string;
+  id?: string;
+  transaction_id?: string;
+  type?: string;
+  tx_type?: string;
   amount_irr: number;
   status: string;
   created_at: string;
+};
+
+type TransactionListPayload = {
+  data?: TransactionPayload[];
 };
 
 export default async function TopUpPage() {
@@ -87,21 +94,29 @@ export default async function TopUpPage() {
 
     const wallet = walletResponse.payload as WalletPayload;
     const settings = settingsResponse.payload as SettingsPayload;
-    const transactions = transactionsResponse.payload as TransactionPayload[];
+    const txPayload = (transactionsResponse.payload ?? {}) as
+      | TransactionListPayload
+      | TransactionPayload[];
+    const transactions = Array.isArray(txPayload)
+      ? txPayload
+      : Array.isArray(txPayload.data)
+        ? txPayload.data
+        : [];
 
-    if (wallet?.wallet_id) {
+    const walletID = wallet?.wallet_id ?? wallet?.id;
+    if (walletID) {
       initialWallet = {
-        id: wallet.wallet_id,
-        tenant_id: wallet.tenant_id,
+        id: walletID,
+        tenant_id: wallet.tenant_id ?? "",
         balance_irr: Number(wallet.balance_irr ?? 0),
         pending_irr: Number(wallet.pending_irr ?? 0),
       };
     }
 
     initialSettings = settings ?? null;
-    initialTransactions = (transactions ?? []).map((row) => ({
-      id: row.transaction_id,
-      type: row.tx_type,
+    initialTransactions = transactions.map((row) => ({
+      id: row.transaction_id ?? row.id ?? "",
+      type: row.tx_type ?? row.type ?? "",
       amount_irr: Number(row.amount_irr ?? 0),
       status: row.status,
       created_at: row.created_at,
