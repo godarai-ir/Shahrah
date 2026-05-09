@@ -841,7 +841,8 @@
       "staging": "Staging",
       "development": "Development",
       "research": "Research",
-      "internal": "Internal"
+      "internal": "Internal",
+      "general": "General"
     },
     "status": {
       "active": "Active",

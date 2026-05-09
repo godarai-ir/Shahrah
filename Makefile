@@ -85,7 +85,7 @@ docker-clean: ## Remove local compose resources
 
 # Install goose CLI
 migrate-install: ## Install goose CLI if missing
-	@goose -version > /dev/null 2>&1 || go install github.com/pressly/goose/v3/cmd/goose@latest
+	@goose -version > NUL 2>&1 || go install github.com/pressly/goose/v3/cmd/goose@latest
 
 # Apply all pending migrations
 migrate-up: migrate-install ## Apply all pending goose migrations

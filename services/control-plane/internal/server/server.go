@@ -6,6 +6,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/admin"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
+	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
@@ -43,7 +44,9 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 	})
 
 	app.Use(fiberlogger.New(fiberlogger.Config{
-		Format: "${time} | ${status} | ${latency} | ${ip} | ${method} | ${path}\n",
+		TimeFormat: "2006-01-02T15:04:05.000Z07:00",
+		TimeZone:   "UTC",
+		Format:     "ts=${time} status=${status} latency=${latency} ip=${ip} method=${method} path=${path} trace_id=${respHeader:" + tracing.TraceIDHeader + "} ua=\"${ua}\" bytes_in=${bytesReceived} bytes_out=${bytesSent} req_headers=\"${reqHeaders}\" req_body=\"${body}\" resp_headers=\"${respHeaders}\" resp_body=\"${resBody}\" error=\"${error}\"\n",
 	}))
 	app.Use(recover.New())
 	app.Use(cors.New(cors.Config{

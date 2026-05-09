@@ -841,7 +841,8 @@
                                     "staging":  "آزمایش نهایی",
                                     "development":  "توسعه",
                                     "research":  "تحقیقات",
-                                    "internal":  "داخلی"
+                                    "internal":  "داخلی",
+                                    "general":  "عمومی"
                                 },
                   "status":  {
                                  "active":  "فعال",

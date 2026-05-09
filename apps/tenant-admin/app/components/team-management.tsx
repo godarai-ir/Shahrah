@@ -77,7 +77,8 @@ type TeamForm = {
 
 const PERMISSIONS = ["/key/info", "/key/list", "/key/generate", "/key/update", "/key/delete", "/key/regenerate", "/key/block", "/key/unblock", "/key/health"];
 const DEFAULT_PERMISSIONS = ["/key/info", "/key/health"];
-const WORKSPACE_TYPES = ["production", "staging", "development", "research", "internal"];
+const WORKSPACE_TYPES = ["production", "staging", "development", "research", "internal", "general"] as const;
+const WORKSPACE_TYPE_SET = new Set<string>(WORKSPACE_TYPES);
 const PAGE_SIZE = 25;
 
 const emptyForm: TeamForm = {
@@ -593,7 +594,10 @@ function buildSummary(team: Team, members: TeamMember[]) {
 }
 
 function getTeamName(team: Team) { return team.display_name || toText(team.metadata?.display_name) || team.alias; }
-function getWorkspaceType(team: Team) { return team.workspace_type || toText(team.metadata?.workspace_type) || "production"; }
+function getWorkspaceType(team: Team) {
+  const value = (team.workspace_type || toText(team.metadata?.workspace_type) || "production").trim().toLowerCase();
+  return WORKSPACE_TYPE_SET.has(value) ? value : "general";
+}
 function getMemberCount(team: Team) { return toNumber(team.metadata?.member_count ?? team.metadata?.members_count); }
 function getAdminCount(team: Team) { return toNumber(team.metadata?.admin_count ?? team.metadata?.admins_count); }
 function getSpend(team: Team) { return toNumber(team.metadata?.spend ?? team.metadata?.current_spend ?? team.metadata?.total_spend); }
