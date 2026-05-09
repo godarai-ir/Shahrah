@@ -252,7 +252,7 @@ func (s *Store) CreateKey(ctx context.Context, params platform.CreateKeyParams) 
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO verification_tokens (
 			id, tenant_id, token_hash, key_alias, key_name, models, max_budget,
-			rpm_limit, tpm_limit, team_id, organization_id, user_id, virtual_user_id, org_unit_id,
+			rpm_limit, tpm_limit, team_id, organization_id, user_id,
 			expires, spend, blocked, key_type, created_by_user_id, created_at, updated_at
 		)
 		VALUES (
@@ -265,11 +265,10 @@ func (s *Store) CreateKey(ctx context.Context, params platform.CreateKeyParams) 
 				THEN $12::uuid
 				ELSE NULL
 			END,
-			NULLIF($13, '')::uuid, NULLIF($14, '')::uuid,
-			$15, 0, false, $16, NULLIF($17, ''), $18, $18
+			$13, 0, false, $14, NULLIF($15, ''), $16, $16
 		)
 	`, keyID, params.TenantID, tokenHash, params.KeyAlias, masked, params.Models, params.MaxBudget,
-		params.RPMLimit, params.TPMLimit, params.TeamID, params.OrgID, params.UserID, params.VirtualUserID, params.OrgUnitID, expiresAt, params.KeyType, params.UserID, now)
+		params.RPMLimit, params.TPMLimit, params.TeamID, params.OrgID, params.UserID, expiresAt, params.KeyType, params.UserID, now)
 	if err != nil {
 		return nil, err
 	}
