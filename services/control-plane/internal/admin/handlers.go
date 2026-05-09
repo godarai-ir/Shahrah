@@ -1335,6 +1335,8 @@ func (h *Handlers) AcceptTenantUserInvitation(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusGone, "invitation expired")
 		case errors.Is(err, storage.ErrInvitationAlreadyUsed):
 			return fiber.NewError(fiber.StatusConflict, "invitation already used")
+		case errors.Is(err, storage.ErrInvitationContactTaken):
+			return fiber.NewError(fiber.StatusConflict, "invitation contact already belongs to another account")
 		case errors.Is(err, pgx.ErrNoRows):
 			return fiber.NewError(fiber.StatusNotFound, "invitation not found")
 		default:

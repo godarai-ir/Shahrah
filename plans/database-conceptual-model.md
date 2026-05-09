@@ -202,4 +202,4 @@ Standalone models in Prisma (no explicit relation edges):
 - `Guardrail`
 - `Policy`
 - `ExchangeRate`
-- `shahrah_sql_migrations`
+- Goose-managed migration metadata lives in `public.goose_db_version` (not modeled in Prisma)

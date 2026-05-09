@@ -531,12 +531,6 @@ model TenantProviderAccountAccess {
   @@map("tenant_provider_account_access")
 }
 
-model shahrah_sql_migrations {
-  filename   String   @id
-  checksum   String
-  applied_at DateTime @default(now()) @db.Timestamptz(6)
-}
-
 model tenant_admin_invitations {
   invitation_id String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id     String    @db.Uuid

@@ -328,10 +328,10 @@ func (s *Store) VerifyOnboardingOTPAndProvision(ctx context.Context, p VerifyOnb
 	}
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO users (
-			user_id, tenant_id, user_alias, email, mobile, role, created_at, updated_at
+			user_id, tenant_id, user_alias, email, mobile, role, active, created_at, updated_at
 		)
 		VALUES (
-			$1::uuid, $2::uuid, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), 'tenant_admin', NOW(), NOW()
+			$1::uuid, $2::uuid, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), 'tenant_admin', true, NOW(), NOW()
 		)
 		ON CONFLICT (email) DO NOTHING
 	`, uuid.NewString(), created.ID, strings.TrimSpace(email), strings.TrimSpace(email), strings.TrimSpace(mobile)); err != nil {

@@ -105,13 +105,14 @@ db/main/migrations/*.sql     -->  packages/database/schema.prisma  -->  Prisma C
                                                         control-plane (Go: raw SQL)
 ```
 
-### Workflow
+### Workflow (Goose-First)
 
-1. **Add new migration**: AI adds SQL migration to `db/main/migrations/`
-2. **Sync schema**: Run `node scripts/sync-prisma.js`
-3. **Review changes**: Check `packages/database/schema.prisma`
-4. **Commit**: Push changes to version control
-5. **Deploy**: `npx prisma migrate deploy`
+1. **Add new migration**: Create a new Goose SQL migration in `db/main/migrations/` (`-- +goose Up/Down`)
+2. **Apply migrations locally**: Run `make migrate-up` (or run `node scripts/sync-prisma.js`, which runs Goose first)
+3. **Sync Prisma schema/clients**: Run `node scripts/sync-prisma.js`
+4. **Review changes**: Check `packages/database/schema.prisma` and generated clients
+5. **Commit**: Push migration + schema/client updates together
+6. **Deploy**: Apply Goose migrations in target environments (`make migrate-up` or equivalent Goose command)
 
 ### Packages
 
@@ -122,14 +123,17 @@ db/main/migrations/*.sql     -->  packages/database/schema.prisma  -->  Prisma C
 ### Key Files
 
 - `packages/database/schema.prisma` - Single source of truth
-- `scripts/sync-prisma.js` - Sync automation
-- `db/main/migrations/` - SQL migrations (Go / control-plane)
+- `scripts/sync-prisma.js` - Goose-first migration + Prisma sync automation
+- `db/main/migrations/` - Goose SQL migrations (source of DB changes)
 - `apps/tenant-admin/prisma/schema.prisma` - Tenant admin schema
 - `apps/support-admin/prisma/schema.prisma` - Support admin schema
 
 ### Troubleshooting
 
 ```bash
+# Apply pending Goose migrations
+make migrate-up
+
 # Regenerate all Prisma clients
 node scripts/sync-prisma.js
 

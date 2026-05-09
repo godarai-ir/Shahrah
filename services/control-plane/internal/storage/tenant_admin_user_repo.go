@@ -12,6 +12,7 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -21,6 +22,7 @@ var (
 	ErrInvalidInvitationToken = errors.New("invalid tenant admin invitation token")
 	ErrInvitationExpired      = errors.New("tenant admin invitation expired")
 	ErrInvitationAlreadyUsed  = errors.New("tenant admin invitation already used")
+	ErrInvitationContactTaken = errors.New("tenant admin invitation contact already used")
 )
 
 func (s *Store) ListTenantAdminUsers(ctx context.Context, tenantSlug string, query string, limit int, offset int) ([]platform.TenantAdminUser, int, error) {
@@ -300,6 +302,10 @@ func upsertTenantAdminUserFromInvitation(ctx context.Context, tx pgx.Tx, tenantI
 			VALUES ($1::uuid, $2::uuid, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), $6, true, NOW(), NOW())
 			RETURNING created_at, updated_at
 		`, newUserID, tenantID, strings.TrimSpace(email), strings.TrimSpace(email), strings.TrimSpace(mobile), role).Scan(&user.CreatedAt, &user.UpdatedAt); err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+				return nil, ErrInvitationContactTaken
+			}
 			return nil, err
 		}
 		user.ID = newUserID
@@ -349,4 +355,3 @@ func tokenHashFromInviteToken(token string) (string, error) {
 	sum := sha256.Sum256(decoded)
 	return fmt.Sprintf("%x", sum[:]), nil
 }
-
