@@ -23,7 +23,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { PrincipalSearchInput, type PrincipalSearchOption } from "@/app/components/principal-search-input";
+import {
+  PrincipalEntitySelect,
+  type PrincipalEntitySelectLabels,
+  type PrincipalSearchKind,
+} from "@/app/components/principal-search-input";
 import { extractTenantSlugFromHost } from "@/lib/tenant";
 
 type TenantKey = {
@@ -101,6 +105,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
   const common = useTranslations("common");
   const principalsT = useTranslations("providerAccounts");
   const principalsUx = useTranslations("providerAccounts.ux");
+  const principalSelectorLabels = buildDashboardPrincipalSelectorLabels(principalsT, principalsUx);
 
   const [keys, setKeys] = useState<TenantKey[]>(props.initialKeys);
   const [wallet, setWallet] = useState<Wallet | null>(props.initialWallet);
@@ -127,7 +132,6 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
     "virtual_key",
   );
   const [keyTeamID, setKeyTeamID] = useState("");
-  const [, setKeyTeamOption] = useState<PrincipalSearchOption | null>(null);
   const [keyOrgID, setKeyOrgID] = useState("");
 
   const [modelName, setModelName] = useState("gpt-4o-mini");
@@ -198,7 +202,8 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
     }
   }, [common]);
 
-  const searchPrincipals = useCallback(async (kind: "user" | "team", query: string) => {
+  const searchPrincipals = useCallback(async (kind: PrincipalSearchKind, query: string) => {
+    if (kind === "external_identity") return [];
     try {
       const response = await requestJSON<AccessPrincipalResponse>(
         `/api/access-principals?kind=${kind}&q=${encodeURIComponent(query.trim())}&limit=20`,
@@ -444,21 +449,27 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="keyTeamID">Team ID (required for service account)</Label>
-                <PrincipalSearchInput
+                <PrincipalEntitySelect
                   id="keyTeamID"
-                  kind="team"
-                  selectedID={keyTeamID}
-                  onSelectedIDChange={(value) => {
+                  selected={
+                    keyTeamID.trim()
+                      ? {
+                          type: "team",
+                          principal_id: keyTeamID.trim(),
+                          display_name: keyTeamID.trim(),
+                        }
+                      : null
+                  }
+                  onSelectedChange={(selection) => {
+                    const value = selection?.type === "team" ? (selection.principal_id ?? "") : "";
                     setKeyTeamID(value);
                     if (keyMode === "service_account") {
                       void loadAllowedModelsForScope("service_account", value);
                     }
                   }}
-                  onSelectedOptionChange={setKeyTeamOption}
                   onSearch={searchPrincipals}
-                  loadingLabel={principalsUx("actions.loading")}
-                  emptyLabel={principalsUx("effectiveModels.empty")}
-                  placeholder={`${principalsT("principal.searchPlaceholder")} (${principalsT("principal.team")})`}
+                  labels={principalSelectorLabels}
+                  kinds={["team"]}
                 />
               </div>
               <div className="grid gap-2">
@@ -565,6 +576,23 @@ function InputField(props: { id: string; label: string; value: string; onChange:
       <Input id={props.id} value={props.value} onChange={(event) => props.onChange(event.target.value)} placeholder={props.placeholder} />
     </div>
   );
+}
+
+function buildDashboardPrincipalSelectorLabels(
+  t: ReturnType<typeof useTranslations>,
+  ux: ReturnType<typeof useTranslations>,
+): PrincipalEntitySelectLabels {
+  const isEnglish = t("principal.user").trim().toLowerCase() === "user";
+  return {
+    users: isEnglish ? "Users" : "کاربران",
+    teams: isEnglish ? "Teams" : "تیم‌ها",
+    externalIdentities: isEnglish ? "External identities" : "هویت‌های خارجی",
+    everyone: t("principal.everyone"),
+    searchPlaceholder: t("principal.searchPlaceholder"),
+    triggerPlaceholder: t("principal.searchPlaceholder"),
+    loading: ux("actions.loading"),
+    empty: ux("effectiveModels.empty"),
+  };
 }
 
 async function requestJSON<T = unknown>(path: string, options?: RequestInit): Promise<T> {

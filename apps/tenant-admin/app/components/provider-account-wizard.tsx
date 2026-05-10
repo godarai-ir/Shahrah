@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Copy, Eye, KeyRound, Layers3, ShieldCheck } from "lucide-react";
+import { Copy, Eye, KeyRound, Layers3, Plus, ShieldCheck, X } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PrincipalSearchInput, type PrincipalSearchOption } from "@/app/components/principal-search-input";
+import {
+  PrincipalEntitySelect,
+  type PrincipalEntitySelection,
+  type PrincipalEntitySelectLabels,
+  type PrincipalSearchKind,
+} from "@/app/components/principal-search-input";
 
 type ProviderAuthMode =
   | "api_key"
@@ -155,12 +160,14 @@ export default function ProviderAccountWizard() {
 
   const [providers, setProviders] = useState<ProviderCatalogProvider[]>([]);
   const [accounts, setAccounts] = useState<TenantProviderAccount[]>([]);
+  const [accountReadiness, setAccountReadiness] = useState<Record<string, Readiness>>({});
   const [providerModels, setProviderModels] = useState<ProviderCatalogModel[]>([]);
 
   const [selectedProviderID, setSelectedProviderID] = useState("");
   const [selectedAccountID, setSelectedAccountID] = useState("");
   const selectedProviderRef = useRef("");
   const selectedAccountRef = useRef("");
+  const accountLoadRequestRef = useRef(0);
 
   const [account, setAccount] = useState<TenantProviderAccount | null>(null);
 
@@ -183,9 +190,6 @@ export default function ProviderAccountWizard() {
 
   const [managers, setManagers] = useState<AccessPrincipal[]>([]);
   const [users, setUsers] = useState<AccessPrincipal[]>([{ type: "everyone", display_name: t("principal.everyone") }]);
-
-  const [managerKind, setManagerKind] = useState<"user" | "team">("user");
-  const [userKind, setUserKind] = useState<"user" | "team">("user");
 
   const [effectiveKeyType, setEffectiveKeyType] = useState<"pat" | "vat">("pat");
   const [effectiveUserID, setEffectiveUserID] = useState("");
@@ -278,21 +282,28 @@ export default function ProviderAccountWizard() {
     return "ready";
   }, [account, managers.length, selectedModelCount, unresolvedPricingCount]);
 
+  const fetchProviderModels = useCallback(async (nextProvider: string) => {
+    const normalized = nextProvider.trim().toLowerCase();
+    if (!normalized) return [];
+    const response = await requestJSON<ProviderModelsResponse>(
+      `/api/provider-catalog/providers/${encodeURIComponent(normalized)}/models`,
+    );
+    return unwrapData<ProviderCatalogModel[]>(response) ?? [];
+  }, []);
+
   const loadProviderModels = useCallback(
     async (nextProvider: string) => {
       const normalized = nextProvider.trim().toLowerCase();
       if (!normalized) {
         setProviderModels([]);
         setModelDrafts({});
-        return;
+        return [];
       }
       try {
-        const response = await requestJSON<ProviderModelsResponse>(
-          `/api/provider-catalog/providers/${encodeURIComponent(normalized)}/models`,
-        );
-        const items = unwrapData<ProviderCatalogModel[]>(response) ?? [];
+        const items = await fetchProviderModels(normalized);
         setProviderModels(items);
         setModelDrafts((prev) => buildDefaultDrafts(items, prev));
+        return items;
       } catch (error) {
         setProviderModels([]);
         setModelDrafts({});
@@ -300,9 +311,10 @@ export default function ProviderAccountWizard() {
           kind: "error",
           message: normalizeError(error, t("messages.providerModelsLoadFailed")),
         });
+        return [];
       }
     },
-    [t],
+    [fetchProviderModels, t],
   );
 
   const loadInitial = useCallback(async () => {
@@ -320,6 +332,10 @@ export default function ProviderAccountWizard() {
       const accountItems = unwrapData<TenantProviderAccount[]>(accountData) ?? [];
       setProviders(providerItems);
       setAccounts(accountItems);
+      setAccountReadiness((prev) => {
+        const activeIDs = new Set(accountItems.map((item) => item.id));
+        return Object.fromEntries(Object.entries(prev).filter(([id]) => activeIDs.has(id)));
+      });
 
       const initialProvider =
         currentProviderID || accountItems[0]?.provider || providerItems[0]?.provider || "";
@@ -372,6 +388,7 @@ export default function ProviderAccountWizard() {
   const handleLoadAccount = useCallback(
     async (accountID: string) => {
       if (!accountID) return;
+      const requestID = ++accountLoadRequestRef.current;
       setIsLoading(true);
       setBanner(null);
       try {
@@ -379,7 +396,25 @@ export default function ProviderAccountWizard() {
           `/api/tenant-provider-accounts/${encodeURIComponent(accountID)}`,
         );
         const payload = unwrapData<AccountDetailsResponse>(details) ?? details;
+
+        if (requestID !== accountLoadRequestRef.current) return;
+
+        let catalogModels: ProviderCatalogModel[] = [];
+        try {
+          catalogModels = await fetchProviderModels(payload.account.provider);
+        } catch (error) {
+          if (requestID !== accountLoadRequestRef.current) return;
+          setBanner({
+            kind: "error",
+            message: normalizeError(error, t("messages.providerModelsLoadFailed")),
+          });
+        }
+
+        if (requestID !== accountLoadRequestRef.current) return;
+
         setAccount(payload.account);
+        setAccounts((prev) => mergeAccountIntoList(prev, payload.account));
+        setProviderModels(catalogModels);
         setProvider(payload.account.provider);
         setName(payload.account.name);
         setAuthMode(payload.account.auth_mode);
@@ -397,15 +432,25 @@ export default function ProviderAccountWizard() {
         setUsers(payload.access?.users ?? []);
         setSelectedProviderID(payload.account.provider);
         setSelectedAccountID(payload.account.id);
-        await loadProviderModels(payload.account.provider);
-        setModelDrafts((prev) => hydrateDraftsFromAccount(payload.models ?? [], prev));
+        setModelDrafts(buildDraftsForAccount(payload.models ?? [], catalogModels));
+        setAccountReadiness((prev) => ({
+          ...prev,
+          [payload.account.id]: deriveAccountDetailsReadiness(
+            payload.account,
+            payload.models ?? [],
+            payload.access,
+            catalogModels,
+          ),
+        }));
       } catch (error) {
-        setBanner({ kind: "error", message: normalizeError(error, t("messages.accountLoadFailed")) });
+        if (requestID === accountLoadRequestRef.current) {
+          setBanner({ kind: "error", message: normalizeError(error, t("messages.accountLoadFailed")) });
+        }
       } finally {
-        setIsLoading(false);
+        if (requestID === accountLoadRequestRef.current) setIsLoading(false);
       }
     },
-    [loadProviderModels, t],
+    [fetchProviderModels, t],
   );
 
   async function handleSaveCredentials(accountID = selectedAccountID) {
@@ -481,6 +526,7 @@ export default function ProviderAccountWizard() {
   }
 
   function startSetup(providerID?: string) {
+    accountLoadRequestRef.current += 1;
     const nextProvider = providerID || selectedProviderID || visibleProviders[0]?.provider || "";
     setWorkspaceMode("setup");
     setSetupStep(1);
@@ -529,14 +575,48 @@ export default function ProviderAccountWizard() {
       setAuthMode(item.auth_modes?.[0] ?? "api_key");
       if (!name.trim()) setName(item.provider);
       void loadProviderModels(item.provider);
+      return;
+    }
+
+    const firstProviderAccount = accounts.find((accountItem) => stringsEqualFold(accountItem.provider, item.provider));
+    if (firstProviderAccount) {
+      handleSelectAccount(firstProviderAccount);
+    } else {
+      accountLoadRequestRef.current += 1;
+      setSelectedAccountID("");
+      setAccount(null);
+      setWorkspaceMode("overview");
+      setProvider(item.provider);
+      setName(item.provider);
+      setAuthMode(item.auth_modes?.[0] ?? "api_key");
+      setAllowVirtualOnly(false);
+      setManagers([]);
+      setUsers([{ type: "everyone", display_name: t("principal.everyone") }]);
+      setEffectiveModels([]);
+      void loadProviderModels(item.provider);
     }
   }
 
   function handleSelectAccount(item: TenantProviderAccount) {
+    const shouldReloadCurrentAccount = item.id === selectedAccountID && workspaceMode === "workspace";
+    accountLoadRequestRef.current += 1;
     setSelectedProviderID(item.provider);
     setSelectedAccountID(item.id);
+    setAccount(item);
+    setProvider(item.provider);
+    setName(item.name);
+    setAuthMode(item.auth_mode);
+    setAllowVirtualOnly(item.allows_virtual_keys_only);
+    resetCredentialInputs();
+    setManagers([]);
+    setUsers([]);
+    setEffectiveModels([]);
+    setLastCredentialTestMessage("");
+    setModelSearchQuery("");
+    setModelDrafts({});
     setWorkspaceMode("workspace");
     setActiveTab("models");
+    if (shouldReloadCurrentAccount) void handleLoadAccount(item.id);
   }
 
   async function handleCreateAccount() {
@@ -732,7 +812,8 @@ export default function ProviderAccountWizard() {
     }
   }
 
-  const searchPrincipalCandidates = useCallback(async (kind: "user" | "team", query: string) => {
+  const searchPrincipalCandidates = useCallback(async (kind: PrincipalSearchKind, query: string) => {
+    if (kind === "external_identity") return [];
     try {
       const response = await requestJSON<AccessPrincipalResponse>(
         `/api/access-principals?kind=${kind}&q=${encodeURIComponent(query.trim())}&limit=20`,
@@ -803,6 +884,7 @@ export default function ProviderAccountWizard() {
     { id: "credentials", label: ux("tabs.credentials"), icon: KeyRound },
     { id: "observability", label: ux("tabs.observability"), icon: Eye },
   ];
+  const principalSelectorLabels = buildPrincipalSelectorLabels(t, ux);
 
   return (
     <Card id="tenant-provider-accounts" className="border-border/70 shadow-sm">
@@ -878,7 +960,7 @@ export default function ProviderAccountWizard() {
                             <div className="text-xs text-muted-foreground">{item.auth_mode}</div>
                           </div>
                           <ReadinessBadge
-                            readiness={deriveAccountListReadiness(item)}
+                            readiness={accountReadiness[item.id] ?? deriveAccountListReadiness(item)}
                             labels={{
                               ready: ux("readiness.ready"),
                               needs_credentials: ux("readiness.needsCredentials"),
@@ -1119,15 +1201,12 @@ export default function ProviderAccountWizard() {
                       <section className="space-y-4">
                         <AccessEditor
                           t={t}
-                          managerKind={managerKind}
-                          setManagerKind={setManagerKind}
                           managers={managers}
                           setManagers={setManagers}
-                          userKind={userKind}
-                          setUserKind={setUserKind}
                           users={users}
                           setUsers={setUsers}
                           onSearchPrincipal={searchPrincipalCandidates}
+                          principalSelectorLabels={principalSelectorLabels}
                           onSave={() => void handleSaveAccess()}
                           isSaving={isSavingAccess}
                           effectiveKeyType={effectiveKeyType}
@@ -1216,15 +1295,12 @@ export default function ProviderAccountWizard() {
                     {activeTab === "access" ? (
                       <AccessEditor
                         t={t}
-                        managerKind={managerKind}
-                        setManagerKind={setManagerKind}
                         managers={managers}
                         setManagers={setManagers}
-                        userKind={userKind}
-                        setUserKind={setUserKind}
                         users={users}
                         setUsers={setUsers}
                         onSearchPrincipal={searchPrincipalCandidates}
+                        principalSelectorLabels={principalSelectorLabels}
                         onSave={() => void handleSaveAccess()}
                         isSaving={isSavingAccess}
                         effectiveKeyType={effectiveKeyType}
@@ -1357,28 +1433,27 @@ export default function ProviderAccountWizard() {
                               <option value="vat">{ux("access.vat")}</option>
                             </select>
                           </div>
-                          <Field label={ux("access.userIdLabel")} id="obsUserID">
-                            <PrincipalSearchInput
-                              id="obsUserID"
-                              kind="user"
-                              selectedID={effectiveUserID}
-                              onSelectedIDChange={setEffectiveUserID}
+                          <Field label={`${ux("access.userIdLabel")} / ${ux("access.teamIdLabel")}`} id="obsPrincipal">
+                            <PrincipalEntitySelect
+                              id="obsPrincipal"
+                              selected={buildEffectivePrincipalSelection(effectiveUserID, effectiveTeamID)}
+                              onSelectedChange={(selection) => {
+                                if (selection?.type === "user") {
+                                  setEffectiveUserID(selection.principal_id ?? "");
+                                  setEffectiveTeamID("");
+                                  return;
+                                }
+                                if (selection?.type === "team") {
+                                  setEffectiveUserID("");
+                                  setEffectiveTeamID(selection.principal_id ?? "");
+                                  return;
+                                }
+                                setEffectiveUserID("");
+                                setEffectiveTeamID("");
+                              }}
                               onSearch={searchPrincipalCandidates}
-                              loadingLabel={ux("actions.loading")}
-                              emptyLabel={ux("effectiveModels.empty")}
-                              placeholder={`${t("principal.searchPlaceholder")} (${t("principal.user")})`}
-                            />
-                          </Field>
-                          <Field label={ux("access.teamIdLabel")} id="obsTeamID">
-                            <PrincipalSearchInput
-                              id="obsTeamID"
-                              kind="team"
-                              selectedID={effectiveTeamID}
-                              onSelectedIDChange={setEffectiveTeamID}
-                              onSearch={searchPrincipalCandidates}
-                              loadingLabel={ux("actions.loading")}
-                              emptyLabel={ux("effectiveModels.empty")}
-                              placeholder={`${t("principal.searchPlaceholder")} (${t("principal.team")})`}
+                              labels={principalSelectorLabels}
+                              kinds={["user", "team"]}
                             />
                           </Field>
                           <Button type="button" variant="outline" onClick={() => void loadEffectiveModelsPreview()} disabled={isLoadingEffective}>
@@ -1450,6 +1525,50 @@ function deriveAccountListReadiness(account: TenantProviderAccount): Readiness {
     return "needs_credentials";
   }
   return "ready";
+}
+
+function deriveAccountDetailsReadiness(
+  account: TenantProviderAccount,
+  models: TenantProviderAccountModel[],
+  access: AccountDetailsResponse["access"] | undefined,
+  catalogModels: ProviderCatalogModel[],
+): Readiness {
+  if (!account.has_credential && !account.allows_virtual_keys_only && account.auth_mode !== "no_credential") {
+    return "needs_credentials";
+  }
+  if ((access?.managers ?? []).length === 0) {
+    return "needs_access";
+  }
+
+  const catalogByModel = new Map(catalogModels.map((model) => [model.model, model]));
+  const hasUnresolvedPricing = models.some((model) => {
+    if (!model.enabled) return false;
+    if (model.pricing_mode === "private") {
+      return (
+        typeof model.private_pricing?.input_usd_per_1m !== "number" &&
+        typeof model.private_pricing?.output_usd_per_1m !== "number"
+      );
+    }
+    const catalog = catalogByModel.get(model.model);
+    return (
+      typeof catalog?.public_pricing?.input_usd_per_1m !== "number" &&
+      typeof catalog?.public_pricing?.output_usd_per_1m !== "number"
+    );
+  });
+  return hasUnresolvedPricing ? "pricing_incomplete" : "ready";
+}
+
+function mergeAccountIntoList(
+  accounts: TenantProviderAccount[],
+  nextAccount: TenantProviderAccount,
+): TenantProviderAccount[] {
+  let found = false;
+  const next = accounts.map((item) => {
+    if (item.id !== nextAccount.id) return item;
+    found = true;
+    return nextAccount;
+  });
+  return found ? next : [nextAccount, ...next];
 }
 
 function EffectiveModelsTable(props: { models: EffectiveModelView[] }) {
@@ -1688,15 +1807,12 @@ function ModelsEditor(props: {
 
 function AccessEditor(props: {
   t: ReturnType<typeof useTranslations>;
-  managerKind: "user" | "team";
-  setManagerKind: (value: "user" | "team") => void;
   managers: AccessPrincipal[];
   setManagers: (value: AccessPrincipal[]) => void;
-  userKind: "user" | "team";
-  setUserKind: (value: "user" | "team") => void;
   users: AccessPrincipal[];
   setUsers: (value: AccessPrincipal[]) => void;
-  onSearchPrincipal: (kind: "user" | "team", query: string) => Promise<AccessPrincipalCandidate[]>;
+  onSearchPrincipal: (kind: PrincipalSearchKind, query: string) => Promise<AccessPrincipalCandidate[]>;
+  principalSelectorLabels: PrincipalEntitySelectLabels;
   onSave: () => void;
   isSaving: boolean;
   effectiveKeyType: "pat" | "vat";
@@ -1713,23 +1829,23 @@ function AccessEditor(props: {
   const hasEffectivePrincipal = Boolean(props.effectiveUserID.trim() || props.effectiveTeamID.trim());
 
   return (
-    <section className="space-y-4 rounded-lg border p-4">
-      <div className="flex items-center justify-between gap-2">
-        <div>
+    <section className="space-y-5 rounded-lg border border-border/70 bg-background p-4 sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <h3 className="text-base font-semibold">{ux("tabs.access")}</h3>
-          <p className="text-sm text-muted-foreground">{ux("access.description")}</p>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">{ux("access.description")}</p>
         </div>
-        <Button type="button" onClick={props.onSave} disabled={props.isSaving}>
+        <Button type="button" onClick={props.onSave} disabled={props.isSaving} className="shrink-0">
+          <ShieldCheck className="h-4 w-4" />
           {props.isSaving ? props.t("saving") : props.t("saveAccessControl")}
         </Button>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid items-stretch gap-4">
         <PrincipalPicker
           title={props.t("step3.managersTitle")}
-          kind={props.managerKind}
-          setKind={props.setManagerKind}
           onSearchPrincipal={props.onSearchPrincipal}
+          principalSelectorLabels={props.principalSelectorLabels}
           selected={props.managers}
           setSelected={props.setManagers}
           allowEveryone={false}
@@ -1738,9 +1854,8 @@ function AccessEditor(props: {
 
         <PrincipalPicker
           title={props.t("step3.usersTitle")}
-          kind={props.userKind}
-          setKind={props.setUserKind}
           onSearchPrincipal={props.onSearchPrincipal}
+          principalSelectorLabels={props.principalSelectorLabels}
           selected={props.users}
           setSelected={props.setUsers}
           allowEveryone
@@ -1748,14 +1863,14 @@ function AccessEditor(props: {
         />
       </div>
 
-      <div className="space-y-3 rounded-lg border bg-muted/10 p-3">
-        <h4 className="font-medium">{ux("access.effectivePreviewTitle")}</h4>
-        <div className="grid gap-3 xl:grid-cols-4">
-          <div className="grid gap-1 xl:col-span-1">
+      <div className="space-y-4 rounded-lg border border-border/70 bg-muted/10 p-4">
+        <h4 className="text-base font-semibold">{ux("access.effectivePreviewTitle")}</h4>
+        <div className="grid gap-3 lg:grid-cols-[150px_minmax(0,1fr)_auto]">
+          <div className="grid gap-2">
             <Label htmlFor="previewKeyType">{ux("access.keyTypeLabel")}</Label>
             <select
               id="previewKeyType"
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
               value={props.effectiveKeyType}
               onChange={(event) => props.setEffectiveKeyType(event.target.value as "pat" | "vat")}
             >
@@ -1763,51 +1878,44 @@ function AccessEditor(props: {
               <option value="vat">{ux("access.vat")}</option>
             </select>
           </div>
-          <Field label={ux("access.userIdLabel")} id="previewUserID">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-              <PrincipalSearchInput
-                id="previewUserID"
-                kind="user"
-                selectedID={props.effectiveUserID}
-                onSelectedIDChange={props.setEffectiveUserID}
+          <Field label={`${ux("access.userIdLabel")} / ${ux("access.teamIdLabel")}`} id="previewPrincipal">
+            <div className="grid grid-cols-[minmax(0,1fr)_40px] gap-2">
+              <PrincipalEntitySelect
+                id="previewPrincipal"
+                selected={buildEffectivePrincipalSelection(props.effectiveUserID, props.effectiveTeamID)}
+                onSelectedChange={(selection) => {
+                  if (selection?.type === "user") {
+                    props.setEffectiveUserID(selection.principal_id ?? "");
+                    props.setEffectiveTeamID("");
+                    return;
+                  }
+                  if (selection?.type === "team") {
+                    props.setEffectiveUserID("");
+                    props.setEffectiveTeamID(selection.principal_id ?? "");
+                    return;
+                  }
+                  props.setEffectiveUserID("");
+                  props.setEffectiveTeamID("");
+                }}
                 onSearch={props.onSearchPrincipal}
-                loadingLabel={ux("actions.loading")}
-                emptyLabel={ux("effectiveModels.empty")}
-                placeholder={`${props.t("principal.searchPlaceholder")} (${props.t("principal.user")})`}
-                className="flex-1"
+                labels={props.principalSelectorLabels}
+                kinds={["user", "team"]}
+                className="min-w-0"
               />
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => props.setEffectiveUserID("")}
-                disabled={!props.effectiveUserID.trim()}
-                className="w-full sm:w-auto"
+                size="icon"
+                onClick={() => {
+                  props.setEffectiveUserID("");
+                  props.setEffectiveTeamID("");
+                }}
+                disabled={!hasEffectivePrincipal}
+                title={ux("actions.clear")}
+                aria-label={ux("actions.clear")}
+                className="mt-0"
               >
-                {ux("actions.clear")}
-              </Button>
-            </div>
-          </Field>
-          <Field label={ux("access.teamIdLabel")} id="previewTeamID">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-              <PrincipalSearchInput
-                id="previewTeamID"
-                kind="team"
-                selectedID={props.effectiveTeamID}
-                onSelectedIDChange={props.setEffectiveTeamID}
-                onSearch={props.onSearchPrincipal}
-                loadingLabel={ux("actions.loading")}
-                emptyLabel={ux("effectiveModels.empty")}
-                placeholder={`${props.t("principal.searchPlaceholder")} (${props.t("principal.team")})`}
-                className="flex-1"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => props.setEffectiveTeamID("")}
-                disabled={!props.effectiveTeamID.trim()}
-                className="w-full sm:w-auto"
-              >
-                {ux("actions.clear")}
+                <X className="h-4 w-4" />
               </Button>
             </div>
           </Field>
@@ -1817,7 +1925,7 @@ function AccessEditor(props: {
               variant="outline"
               onClick={props.onLoadEffective}
               disabled={props.isLoadingEffective || !hasEffectivePrincipal}
-              className="w-full xl:w-auto"
+              className="h-10 w-full xl:w-auto"
             >
               {props.isLoadingEffective ? ux("actions.loading") : ux("access.previewAction")}
             </Button>
@@ -1926,31 +2034,64 @@ function Field(props: { label: string; id: string; children: React.ReactNode }) 
   );
 }
 
+function buildPrincipalSelectorLabels(
+  t: ReturnType<typeof useTranslations>,
+  ux: ReturnType<typeof useTranslations>,
+): PrincipalEntitySelectLabels {
+  const isEnglish = t("principal.user").trim().toLowerCase() === "user";
+  return {
+    users: isEnglish ? "Users" : "کاربران",
+    teams: isEnglish ? "Teams" : "تیم‌ها",
+    externalIdentities: isEnglish ? "External identities" : "هویت‌های خارجی",
+    everyone: t("principal.everyone"),
+    searchPlaceholder: t("principal.searchPlaceholder"),
+    triggerPlaceholder: t("principal.searchPlaceholder"),
+    loading: ux("actions.loading"),
+    empty: ux("effectiveModels.empty"),
+  };
+}
+
+function buildEffectivePrincipalSelection(userID: string, teamID: string): PrincipalEntitySelection | null {
+  const normalizedUserID = userID.trim();
+  if (normalizedUserID) {
+    return {
+      type: "user",
+      principal_id: normalizedUserID,
+      display_name: normalizedUserID,
+    };
+  }
+
+  const normalizedTeamID = teamID.trim();
+  if (normalizedTeamID) {
+    return {
+      type: "team",
+      principal_id: normalizedTeamID,
+      display_name: normalizedTeamID,
+    };
+  }
+
+  return null;
+}
+
 function PrincipalPicker(props: {
   title: string;
-  kind: "user" | "team";
-  setKind: (value: "user" | "team") => void;
-  onSearchPrincipal: (kind: "user" | "team", query: string) => Promise<AccessPrincipalCandidate[]>;
+  onSearchPrincipal: (kind: PrincipalSearchKind, query: string) => Promise<AccessPrincipalCandidate[]>;
+  principalSelectorLabels: PrincipalEntitySelectLabels;
   selected: AccessPrincipal[];
   setSelected: (value: AccessPrincipal[]) => void;
   allowEveryone: boolean;
   t: ReturnType<typeof useTranslations>;
 }) {
-  const ux = useTranslations("providerAccounts.ux");
-  const [candidateID, setCandidateID] = useState("");
-  const [candidateOption, setCandidateOption] = useState<PrincipalSearchOption | null>(null);
+  const [candidate, setCandidate] = useState<PrincipalEntitySelection | null>(null);
 
-  function addPrincipal(item: AccessPrincipalCandidate) {
+  function addPrincipal(item: AccessPrincipal) {
     const exists = props.selected.some(
       (current) =>
         current.type === item.type &&
         (current.principal_id ?? "") === (item.principal_id ?? ""),
     );
     if (exists) return;
-    props.setSelected([
-      ...props.selected,
-      { type: item.type, principal_id: item.principal_id, display_name: item.display_name },
-    ]);
+    props.setSelected([...props.selected, item]);
   }
 
   function removePrincipal(item: AccessPrincipal) {
@@ -1966,76 +2107,59 @@ function PrincipalPicker(props: {
   }
 
   function addSelectedCandidate() {
-    if (!candidateOption?.principal_id) return;
+    if (!candidate) return;
+    if (candidate.type === "external_identity") return;
     addPrincipal({
-      type: props.kind,
-      principal_id: candidateOption.principal_id,
-      display_name: candidateOption.display_name,
-      secondary: candidateOption.secondary,
+      type: candidate.type,
+      principal_id: candidate.principal_id,
+      display_name: candidate.display_name,
     });
-    setCandidateID("");
-    setCandidateOption(null);
+    setCandidate(null);
   }
 
   return (
-    <div className="space-y-3 rounded-lg border p-3">
-      <h4 className="font-medium">{props.title}</h4>
-      <div className="grid gap-2 lg:grid-cols-[120px_minmax(0,1fr)_auto]">
-        <select
-          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-          value={props.kind}
-          onChange={(event) => {
-            props.setKind(event.target.value as "user" | "team");
-            setCandidateID("");
-            setCandidateOption(null);
-          }}
-        >
-          <option value="user">{props.t("principal.user")}</option>
-          <option value="team">{props.t("principal.team")}</option>
-        </select>
-        <PrincipalSearchInput
-          id={`${props.kind}-principal-picker`}
-          kind={props.kind}
-          selectedID={candidateID}
-          onSelectedIDChange={setCandidateID}
-          onSelectedOptionChange={setCandidateOption}
+    <div className="flex min-h-full flex-col gap-4 rounded-lg border border-border/70 bg-card p-4">
+      <div className="flex items-start justify-between gap-3">
+        <h4 className="text-base font-semibold">{props.title}</h4>
+        <Badge variant="secondary" className="shrink-0">
+          {props.selected.length}
+        </Badge>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <PrincipalEntitySelect
+          id={`${props.title}-principal-picker`}
+          selected={candidate}
+          onSelectedChange={setCandidate}
           onSearch={props.onSearchPrincipal}
-          loadingLabel={ux("actions.loading")}
-          emptyLabel={ux("effectiveModels.empty")}
-          placeholder={`${props.t("principal.searchPlaceholder")} (${props.t(`principal.${props.kind}`)})`}
-          className="w-full"
+          labels={props.principalSelectorLabels}
+          kinds={["user", "team"]}
+          includeEveryone={props.allowEveryone}
+          className="min-w-0"
         />
         <Button
           type="button"
           variant="outline"
           onClick={addSelectedCandidate}
-          disabled={!candidateOption?.principal_id}
-          className="w-full lg:w-auto"
+          disabled={!candidate || candidate.type === "external_identity"}
+          className="w-full sm:w-auto"
         >
+          <Plus className="h-4 w-4" />
           {props.t("principal.add")}
         </Button>
       </div>
 
-      {props.allowEveryone ? (
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => {
-            const exists = props.selected.some((item) => item.type === "everyone");
-            if (!exists) {
-              props.setSelected([...props.selected, { type: "everyone", display_name: props.t("principal.everyone") }]);
-            }
-          }}
-        >
-          {props.t("principal.addEveryone")}
-        </Button>
-      ) : null}
-
-      <div className="flex flex-wrap gap-2">
+      <div className="flex min-h-9 flex-wrap items-center gap-2">
         {props.selected.map((item) => (
-          <button key={`${item.type}-${item.principal_id ?? "everyone"}`} type="button" className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs" onClick={() => removePrincipal(item)} title={props.t("principal.remove")}>
-            <span>{item.display_name || item.principal_id || item.type}</span>
-            <span>{props.t("principal.remove")}</span>
+          <button
+            key={`${item.type}-${item.principal_id ?? "everyone"}`}
+            type="button"
+            className="inline-flex max-w-full items-center gap-2 rounded-full border bg-background px-3 py-1.5 text-xs transition hover:border-destructive/40 hover:bg-destructive/5"
+            onClick={() => removePrincipal(item)}
+            title={props.t("principal.remove")}
+          >
+            <span className="max-w-[240px] truncate">{item.display_name || item.principal_id || item.type}</span>
+            <X className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           </button>
         ))}
       </div>
@@ -2061,11 +2185,11 @@ function buildDefaultDrafts(
   return next;
 }
 
-function hydrateDraftsFromAccount(
+function buildDraftsForAccount(
   models: TenantProviderAccountModel[],
-  current: Record<string, ModelDraft>,
+  catalogModels: ProviderCatalogModel[],
 ): Record<string, ModelDraft> {
-  const next = { ...current };
+  const next = buildDefaultDrafts(catalogModels, {});
   for (const item of models) {
     next[item.model] = {
       selected: item.enabled,
