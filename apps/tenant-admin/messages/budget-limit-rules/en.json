@@ -1,0 +1,125 @@
+{
+  "title": "Budget Limiting Rules",
+  "description": "Define budget guardrails for gateway requests across subjects, models, and metadata.",
+  "searchPlaceholder": "Search by rule id, model, subject, or metadata key",
+  "empty": "No budget limiting rules have been created yet.",
+  "alerts": {
+    "error": "Error",
+    "success": "Success"
+  },
+  "actions": {
+    "new": "Add New Rule",
+    "edit": "Edit",
+    "duplicate": "Duplicate",
+    "delete": "Delete",
+    "enable": "Enable",
+    "disable": "Disable",
+    "add": "Add",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving...",
+    "copySuffix": "Copy"
+  },
+  "table": {
+    "ruleId": "Rule ID",
+    "limit": "Budget ($)",
+    "unit": "Budget Unit",
+    "status": "Status",
+    "updatedAt": "Last updated",
+    "actions": "Actions"
+  },
+  "status": {
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
+  "messages": {
+    "loadError": "Failed to load budget limit rules.",
+    "saveSuccess": "Budget limit rule saved successfully.",
+    "saveError": "Failed to save budget limit rule.",
+    "loadRuleError": "Failed to load rule.",
+    "ruleNotFound": "Rule not found.",
+    "loading": "Loading..."
+  },
+  "units": {
+    "cost_per_day": "Cost per day",
+    "cost_per_week": "Cost per week",
+    "cost_per_month": "Cost per month"
+  },
+  "selectors": {
+    "principal": {
+      "users": "Users",
+      "teams": "Teams",
+      "orgUnits": "Organization units",
+      "virtualAccounts": "Virtual accounts",
+      "externalIdentities": "External identities",
+      "everyone": "Everyone",
+      "searchPlaceholder": "Search...",
+      "triggerPlaceholder": "Select subject",
+      "loading": "Loading...",
+      "empty": "No results"
+    },
+    "model": {
+      "triggerPlaceholder": "Select model",
+      "searchPlaceholder": "Search model...",
+      "providerAllowed": "Provider models",
+      "virtualModels": "Virtual models",
+      "loading": "Loading...",
+      "empty": "No results"
+    }
+  },
+  "filters": {
+    "title": "When request comes to",
+    "add": "Add Filters",
+    "metadataTitle": "Metadata",
+    "fields": {
+      "subject": "Subjects",
+      "model": "Models",
+      "metadata": "Metadata"
+    }
+  },
+  "form": {
+    "titleCreate": "Add Budget Limiting Rule",
+    "titleEdit": "Edit Budget Limiting Rule",
+    "sections": {
+      "ruleIdentity": "Rule Identity",
+      "budget": "Add Budget"
+    },
+    "fields": {
+      "ruleId": "Rule ID *",
+      "limitTo": "Budget ($) *",
+      "unit": "Budget Unit",
+      "budgetAppliesPer": "Apply budget per (optional)",
+      "thresholds": "Thresholds (%)",
+      "channelType": "Channel type"
+    },
+    "placeholders": {
+      "ruleId": "my-rule-1",
+      "metadataKey": "Key",
+      "metadataValue": "Value",
+      "thresholds": "75,90,95,100"
+    },
+    "options": {
+      "applyPer": {
+        "shared": "Shared",
+        "user": "User",
+        "model": "Model",
+        "virtualAccount": "Virtual account",
+        "metadataProjectId": "Metadata key (project_id)"
+      },
+      "channel": {
+        "email": "Email",
+        "slackWebhook": "Slack Webhook",
+        "slackBot": "Slack Bot"
+      }
+    },
+    "blocking": {
+      "title": "Block If Usage Limit Exceeded",
+      "description": "When disabled, rule runs in audit mode."
+    },
+    "alerts": {
+      "title": "Send Alerts On Budget Milestones",
+      "description": "Threshold alerts payload is stored for future delivery worker."
+    }
+  }
+}
+

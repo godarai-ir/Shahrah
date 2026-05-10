@@ -41,6 +41,12 @@ type modelStore interface {
 	UpdateRateLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string, req platform.UpdateRateLimitRuleRequest) (*platform.RateLimitRule, error)
 	UpdateRateLimitRuleStatusByRuleID(ctx context.Context, tenantID string, ruleID string, enabled bool) (*platform.RateLimitRule, error)
 	DeleteRateLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string) error
+	CreateBudgetLimitRule(ctx context.Context, tenantID string, req platform.CreateBudgetLimitRuleRequest) (*platform.BudgetLimitRule, error)
+	ListBudgetLimitRules(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.BudgetLimitRule, int, error)
+	GetBudgetLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string) (*platform.BudgetLimitRule, error)
+	UpdateBudgetLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string, req platform.UpdateBudgetLimitRuleRequest) (*platform.BudgetLimitRule, error)
+	UpdateBudgetLimitRuleStatusByRuleID(ctx context.Context, tenantID string, ruleID string, enabled bool) (*platform.BudgetLimitRule, error)
+	DeleteBudgetLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string) error
 }
 
 type walletStore interface {
@@ -1016,6 +1022,229 @@ func parseUpdateRateLimitRuleRequest(c *fiber.Ctx) (platform.UpdateRateLimitRule
 	req.EffectiveFrom = effectiveFrom
 	req.ExpiresAt = expiresAt
 	return req, nil
+}
+
+func (h *Handlers) ListBudgetLimitRules(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	query := strings.TrimSpace(c.Query("query"))
+	limit := 50
+	offset := 0
+	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
+		parsed, parseErr := strconv.Atoi(raw)
+		if parseErr != nil || parsed <= 0 {
+			return fiber.NewError(fiber.StatusBadRequest, "limit must be a positive number")
+		}
+		limit = parsed
+	}
+	if raw := strings.TrimSpace(c.Query("offset")); raw != "" {
+		parsed, parseErr := strconv.Atoi(raw)
+		if parseErr != nil || parsed < 0 {
+			return fiber.NewError(fiber.StatusBadRequest, "offset must be zero or greater")
+		}
+		offset = parsed
+	}
+	items, total, err := h.models.ListBudgetLimitRules(c.Context(), currentTenant.ID, query, limit, offset)
+	if err != nil {
+		return err
+	}
+	var nextOffset *int
+	if offset+len(items) < total {
+		n := offset + len(items)
+		nextOffset = &n
+	}
+	return c.JSON(platform.BudgetLimitRuleListResponse{
+		Data:       items,
+		Total:      total,
+		Limit:      limit,
+		Offset:     offset,
+		NextOffset: nextOffset,
+	})
+}
+
+func (h *Handlers) CreateBudgetLimitRule(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	var req platform.CreateBudgetLimitRuleRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	if err := validateCreateBudgetLimitRuleRequest(req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	item, err := h.models.CreateBudgetLimitRule(c.Context(), currentTenant.ID, req)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusUnprocessableEntity, "failed to create budget limit rule")
+		}
+		return mapProviderAccountStoreError(err)
+	}
+	return c.Status(fiber.StatusCreated).JSON(item)
+}
+
+func (h *Handlers) GetBudgetLimitRule(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	ruleID := strings.TrimSpace(c.Params("id"))
+	if ruleID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "id is required")
+	}
+	item, err := h.models.GetBudgetLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "budget limit rule not found")
+		}
+		return err
+	}
+	return c.JSON(item)
+}
+
+func (h *Handlers) UpdateBudgetLimitRule(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	ruleID := strings.TrimSpace(c.Params("id"))
+	if ruleID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "id is required")
+	}
+	var req platform.UpdateBudgetLimitRuleRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	if err := validateUpdateBudgetLimitRuleRequest(req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	item, err := h.models.UpdateBudgetLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID, req)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "budget limit rule not found")
+		}
+		return mapProviderAccountStoreError(err)
+	}
+	return c.JSON(item)
+}
+
+func (h *Handlers) DeleteBudgetLimitRule(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	ruleID := strings.TrimSpace(c.Params("id"))
+	if ruleID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "id is required")
+	}
+	if err := h.models.DeleteBudgetLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "budget limit rule not found")
+		}
+		return err
+	}
+	return c.JSON(fiber.Map{"success": true})
+}
+
+func (h *Handlers) UpdateBudgetLimitRuleStatus(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	ruleID := strings.TrimSpace(c.Params("id"))
+	if ruleID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "id is required")
+	}
+	var req platform.UpdateBudgetLimitRuleStatusRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	item, err := h.models.UpdateBudgetLimitRuleStatusByRuleID(c.Context(), currentTenant.ID, ruleID, req.Enabled)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "budget limit rule not found")
+		}
+		return err
+	}
+	return c.JSON(item)
+}
+
+func validateCreateBudgetLimitRuleRequest(req platform.CreateBudgetLimitRuleRequest) error {
+	if strings.TrimSpace(req.RuleID) == "" {
+		return errors.New("rule_id is required")
+	}
+	if req.LimitTo <= 0 {
+		return errors.New("limit_to must be greater than zero")
+	}
+	switch req.Unit {
+	case platform.BudgetLimitCostPerDay, platform.BudgetLimitCostPerWeek, platform.BudgetLimitCostPerMonth:
+	default:
+		return errors.New("unit is invalid")
+	}
+	if req.Priority != nil && *req.Priority < 0 {
+		return errors.New("priority cannot be negative")
+	}
+	if req.BudgetAppliesPer != nil && strings.TrimSpace(*req.BudgetAppliesPer) != "" {
+		if err := validateBudgetAppliesPer(*req.BudgetAppliesPer); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateUpdateBudgetLimitRuleRequest(req platform.UpdateBudgetLimitRuleRequest) error {
+	if req.Priority != nil && *req.Priority < 0 {
+		return errors.New("priority cannot be negative")
+	}
+	if req.LimitTo != nil && *req.LimitTo <= 0 {
+		return errors.New("limit_to must be greater than zero")
+	}
+	if req.Unit != nil {
+		switch *req.Unit {
+		case platform.BudgetLimitCostPerDay, platform.BudgetLimitCostPerWeek, platform.BudgetLimitCostPerMonth:
+		default:
+			return errors.New("unit is invalid")
+		}
+	}
+	if req.BudgetAppliesPer != nil && strings.TrimSpace(*req.BudgetAppliesPer) != "" {
+		if err := validateBudgetAppliesPer(*req.BudgetAppliesPer); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateBudgetAppliesPer(value string) error {
+	normalized := strings.TrimSpace(value)
+	switch normalized {
+	case string(platform.BudgetAppliesPerUser), string(platform.BudgetAppliesPerModel), string(platform.BudgetAppliesPerVirtualAccount):
+		return nil
+	}
+	if strings.HasPrefix(normalized, "metadata.") && len(strings.TrimPrefix(normalized, "metadata.")) > 0 {
+		return nil
+	}
+	return errors.New("budget_applies_per is invalid")
 }
 
 func parseOptionalTimeValue(value interface{}) (*time.Time, error) {
