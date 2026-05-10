@@ -3,8 +3,6 @@ package billing
 import (
 	"context"
 	"errors"
-	"fmt"
-	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
@@ -43,73 +41,14 @@ func NewService(c cache.Cache, store walletStore, defaultUSDtoIRR float64, sourc
 	}
 }
 
-const tenantLimitMultiplier int64 = 5
-
 // CheckRateLimit validates per-minute request and token limits.
 // Returns the primary rate-limit result to expose in response headers.
 func (s *Service) CheckRateLimit(ctx context.Context, auth *platform.AuthContext, model string, estimatedTokens int) (*cache.RateLimitResult, error) {
-	window := time.Minute
-	var primary *cache.RateLimitResult
-
-	if auth.RPMLimit != nil {
-		key := fmt.Sprintf("rpm:key:%s:%s", auth.TokenHash, model)
-		result, err := s.cache.CheckRateLimit(ctx, key, *auth.RPMLimit, window)
-		if err != nil {
-			return primary, err
-		}
-		if primary == nil {
-			primary = result
-		}
-		if !result.Allowed {
-			return primary, ErrRateLimitExceeded
-		}
-
-		if auth.TenantID != "" {
-			tenantLimit := deriveTenantLimit(*auth.RPMLimit)
-			tenantKey := fmt.Sprintf("rpm:tenant:%s:%s", auth.TenantID, model)
-			tenantResult, err := s.cache.CheckRateLimit(ctx, tenantKey, tenantLimit, window)
-			if err != nil {
-				return primary, err
-			}
-			if !tenantResult.Allowed {
-				return tenantResult, ErrRateLimitExceeded
-			}
-		}
-	}
-
-	if auth.TPMLimit != nil && estimatedTokens > 0 {
-		key := fmt.Sprintf("tpm:key:%s:%s", auth.TokenHash, model)
-		result, err := s.cache.CheckSlidingWindowRateLimitWithWeight(ctx, key, *auth.TPMLimit, int64(estimatedTokens), window)
-		if err != nil {
-			return primary, err
-		}
-		if primary == nil {
-			primary = result
-		}
-		if !result.Allowed {
-			return primary, ErrRateLimitExceeded
-		}
-
-		if auth.TenantID != "" {
-			tenantLimit := deriveTenantLimit(*auth.TPMLimit)
-			tenantKey := fmt.Sprintf("tpm:tenant:%s:%s", auth.TenantID, model)
-			tenantResult, err := s.cache.CheckSlidingWindowRateLimitWithWeight(ctx, tenantKey, tenantLimit, int64(estimatedTokens), window)
-			if err != nil {
-				return primary, err
-			}
-			if !tenantResult.Allowed {
-				return tenantResult, ErrRateLimitExceeded
-			}
-		}
-	}
-	return primary, nil
+	return nil, nil
 }
 
-// CheckBudget validates wallet and hard budget constraints.
+// CheckBudget validates wallet balance constraints.
 func (s *Service) CheckBudget(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown) error {
-	if auth.MaxBudget != nil && auth.Spend+breakdown.TotalCostUSD > *auth.MaxBudget {
-		return ErrBudgetExceeded
-	}
 	wallet, err := s.store.GetWallet(ctx, auth.TenantID)
 	if err != nil {
 		return err
@@ -179,11 +118,4 @@ func (s *Service) FinalizeFromUsage(ctx context.Context, model string, usage *op
 		ExchangeRate:  rate.USDtoIRR,
 		TotalCostIRR:  totalUSD * rate.USDtoIRR,
 	}, nil
-}
-
-func deriveTenantLimit(perKeyLimit int64) int64 {
-	if perKeyLimit <= 0 {
-		return perKeyLimit
-	}
-	return perKeyLimit * tenantLimitMultiplier
 }

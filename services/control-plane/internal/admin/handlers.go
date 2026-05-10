@@ -1767,7 +1767,6 @@ func (h *Handlers) CreateOrgUnit(c *fiber.Ctx) error {
 	}
 	req.Alias = strings.TrimSpace(req.Alias)
 	req.DisplayName = strings.TrimSpace(req.DisplayName)
-	req.BudgetID = strings.TrimSpace(req.BudgetID)
 	if req.Alias == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "alias is required")
 	}
@@ -2020,7 +2019,6 @@ func (h *Handlers) AddTeamMember(c *fiber.Ctx) error {
 	}
 	req.UserID = strings.TrimSpace(req.UserID)
 	req.Role = strings.TrimSpace(req.Role)
-	req.BudgetID = strings.TrimSpace(req.BudgetID)
 	if req.UserID == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "user_id is required")
 	}
@@ -2055,7 +2053,6 @@ func (h *Handlers) UpdateTeamMember(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
 	req.Role = strings.TrimSpace(req.Role)
-	req.BudgetID = strings.TrimSpace(req.BudgetID)
 	item, err := h.memberships.UpdateTeamMembership(c.Context(), currentTenant.ID, teamID, userID, req)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

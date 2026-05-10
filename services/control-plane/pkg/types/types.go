@@ -90,8 +90,5 @@ type UserAPIKeyAuth struct {
 	Role      string     `json:"role"`
 	Models    []string   `json:"models"`
 	Spend     float64    `json:"spend"`
-	MaxBudget *float64   `json:"max_budget,omitempty"`
-	RPMLimit  *int64     `json:"rpm_limit,omitempty"`
-	TPMLimit  *int64     `json:"tpm_limit,omitempty"`
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 }

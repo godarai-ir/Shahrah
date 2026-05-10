@@ -75,17 +75,11 @@ func (s *InMemoryKeyStore) GenerateTestKeys() {
 
 	// Team key with limited models
 	teamExpires := time.Now().Add(30 * 24 * time.Hour)
-	maxBudget := 100.0
-	rpmLimit := int64(100)
-	tpmLimit := int64(100000)
 	s.AddKey(HashKey("sk-team-key-67890"), &platform.AuthContext{
 		KeyAlias:      "team-key",
 		TeamID:        "team-1",
 		Role:          "team",
 		AllowedModels: []string{"gpt-3.5-turbo", "gpt-4"},
-		MaxBudget:     &maxBudget,
-		RPMLimit:      &rpmLimit,
-		TPMLimit:      &tpmLimit,
 		ExpiresAt:     &teamExpires,
 	})
 

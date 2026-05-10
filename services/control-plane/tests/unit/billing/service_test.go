@@ -102,23 +102,35 @@ func TestBillingService_ShouldFinalizeCostWithPer1KScaling(t *testing.T) {
 	assert.InDelta(t, expectedIRR, out.TotalCostIRR, 1e-6)
 }
 
-func TestBillingService_ShouldRejectBudgetExceeded(t *testing.T) {
+func TestBillingService_ShouldRejectWhenWalletBalanceIsInsufficient(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
-	maxBudget := 0.0000001
+	svc := billing.NewService(memCache, walletStoreStub{
+		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 10},
+		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
+	}, 850000, "test")
+
+	err := svc.CheckBudget(context.Background(), &platform.AuthContext{
+		TenantID: "tenant-1",
+	}, platform.UsageCostBreakdown{TotalCostIRR: 100})
+	assert.ErrorIs(t, err, billing.ErrBudgetExceeded)
+}
+
+func TestBillingService_ShouldAllowWhenWalletBalanceIsSufficient(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
 	svc := billing.NewService(memCache, walletStoreStub{
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000000},
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
 	}, 850000, "test")
 
 	err := svc.CheckBudget(context.Background(), &platform.AuthContext{
-		TenantID:  "tenant-1",
-		MaxBudget: &maxBudget,
-	}, platform.UsageCostBreakdown{TotalCostUSD: 1})
-	assert.ErrorIs(t, err, billing.ErrBudgetExceeded)
+		TenantID: "tenant-1",
+	}, platform.UsageCostBreakdown{TotalCostIRR: 100})
+	assert.NoError(t, err)
 }
 
-func TestBillingService_ShouldEnforcePerKeyRPM(t *testing.T) {
+func TestBillingService_ShouldSkipLegacyRateLimits(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
 	svc := billing.NewService(memCache, walletStoreStub{
@@ -126,81 +138,12 @@ func TestBillingService_ShouldEnforcePerKeyRPM(t *testing.T) {
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
 	}, 850000, "test")
 
-	limit := int64(2)
-	auth := &platform.AuthContext{
-		TenantID:  "tenant-1",
-		TokenHash: "key-a",
-		RPMLimit:  &limit,
-	}
-
-	first, err := svc.CheckRateLimit(context.Background(), auth, "gpt-4", 0)
-	assert.NoError(t, err)
-	assert.NotNil(t, first)
-	assert.EqualValues(t, 1, first.Current)
-
-	second, err := svc.CheckRateLimit(context.Background(), auth, "gpt-4", 0)
-	assert.NoError(t, err)
-	assert.NotNil(t, second)
-	assert.EqualValues(t, 2, second.Current)
-
-	third, err := svc.CheckRateLimit(context.Background(), auth, "gpt-4", 0)
-	assert.ErrorIs(t, err, billing.ErrRateLimitExceeded)
-	assert.NotNil(t, third)
-	assert.False(t, third.Allowed)
-}
-
-func TestBillingService_ShouldEnforceTenantAggregateRPM(t *testing.T) {
-	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
-	svc := billing.NewService(memCache, walletStoreStub{
-		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000000},
-		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
-	}, 850000, "test")
-
-	limit := int64(1)
-	for _, token := range []string{"key-a", "key-b", "key-c", "key-d", "key-e"} {
-		_, err := svc.CheckRateLimit(context.Background(), &platform.AuthContext{
+	for i := 0; i < 10; i++ {
+		res, err := svc.CheckRateLimit(context.Background(), &platform.AuthContext{
 			TenantID:  "tenant-1",
-			TokenHash: token,
-			RPMLimit:  &limit,
-		}, "gpt-4", 0)
+			TokenHash: "key-a",
+		}, "gpt-4", 500)
 		assert.NoError(t, err)
+		assert.Nil(t, res)
 	}
-
-	// tenantLimitMultiplier=5 with RPMLimit=1 => tenant aggregate limit 5.
-	tenantBlock, err := svc.CheckRateLimit(context.Background(), &platform.AuthContext{
-		TenantID:  "tenant-1",
-		TokenHash: "key-f",
-		RPMLimit:  &limit,
-	}, "gpt-4", 0)
-	assert.ErrorIs(t, err, billing.ErrRateLimitExceeded)
-	assert.NotNil(t, tenantBlock)
-	assert.False(t, tenantBlock.Allowed)
-}
-
-func TestBillingService_ShouldEnforceSlidingTPM(t *testing.T) {
-	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
-	svc := billing.NewService(memCache, walletStoreStub{
-		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000000},
-		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
-	}, 850000, "test")
-
-	limit := int64(100)
-	auth := &platform.AuthContext{
-		TenantID:  "tenant-1",
-		TokenHash: "key-a",
-		TPMLimit:  &limit,
-	}
-
-	first, err := svc.CheckRateLimit(context.Background(), auth, "gpt-4", 60)
-	assert.NoError(t, err)
-	assert.NotNil(t, first)
-	assert.True(t, first.Allowed)
-
-	second, err := svc.CheckRateLimit(context.Background(), auth, "gpt-4", 50)
-	assert.ErrorIs(t, err, billing.ErrRateLimitExceeded)
-	assert.NotNil(t, second)
-	assert.False(t, second.Allowed)
-
 }

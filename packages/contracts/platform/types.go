@@ -33,9 +33,6 @@ type AuthContext struct {
 	AllowedModelPricingResolved map[string]bool     `json:"allowed_model_pricing_resolved,omitempty"`
 	EnforceModelAllowlist       bool                `json:"enforce_model_allowlist,omitempty"`
 	Spend                       float64             `json:"spend"`
-	MaxBudget                   *float64            `json:"max_budget,omitempty"`
-	RPMLimit                    *int64              `json:"rpm_limit,omitempty"`
-	TPMLimit                    *int64              `json:"tpm_limit,omitempty"`
 	ExpiresAt                   *time.Time          `json:"expires_at,omitempty"`
 	Blocked                     bool                `json:"blocked"`
 	TokenHash                   string              `json:"token_hash,omitempty"`
@@ -234,9 +231,6 @@ type CreateKeyParams struct {
 	KeyType       string   `json:"key_type,omitempty"`
 	Models        []string `json:"models,omitempty"`
 	AllowedModels []string `json:"allowed_models,omitempty"`
-	MaxBudget     *float64 `json:"max_budget,omitempty"`
-	RPMLimit      *int64   `json:"rpm_limit,omitempty"`
-	TPMLimit      *int64   `json:"tpm_limit,omitempty"`
 	TeamID        string   `json:"team_id,omitempty"`
 	OrgID         string   `json:"organization_id,omitempty"`
 	OrgUnitID     string   `json:"org_unit_id,omitempty"`
@@ -256,9 +250,6 @@ type CreatedKey struct {
 	KeyType         string     `json:"key_type,omitempty"`
 	Models          []string   `json:"models"`
 	AllowedModels   []string   `json:"allowed_models,omitempty"`
-	MaxBudget       *float64   `json:"max_budget,omitempty"`
-	RPMLimit        *int64     `json:"rpm_limit,omitempty"`
-	TPMLimit        *int64     `json:"tpm_limit,omitempty"`
 	TeamID          string     `json:"team_id,omitempty"`
 	OrgID           string     `json:"organization_id,omitempty"`
 	OrgUnitID       string     `json:"org_unit_id,omitempty"`

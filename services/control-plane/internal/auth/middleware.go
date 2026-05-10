@@ -36,9 +36,6 @@ type KeyInfo struct {
 	Role      string
 	Models    []string
 	Spend     float64
-	MaxBudget *float64
-	RPMLimit  *int64
-	TPMLimit  *int64
 	ExpiresAt *time.Time
 	Blocked   bool
 }

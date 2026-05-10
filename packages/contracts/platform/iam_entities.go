@@ -8,7 +8,6 @@ type OrgUnit struct {
 	TenantID    string                 `json:"tenant_id"`
 	Alias       string                 `json:"alias"`
 	DisplayName string                 `json:"display_name,omitempty"`
-	BudgetID    string                 `json:"budget_id,omitempty"`
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 	CreatedAt   time.Time              `json:"created_at"`
 	UpdatedAt   time.Time              `json:"updated_at"`
@@ -17,14 +16,12 @@ type OrgUnit struct {
 type CreateOrgUnitRequest struct {
 	Alias       string                 `json:"alias"`
 	DisplayName string                 `json:"display_name,omitempty"`
-	BudgetID    string                 `json:"budget_id,omitempty"`
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 }
 
 type UpdateOrgUnitRequest struct {
 	Alias       string                 `json:"alias,omitempty"`
 	DisplayName string                 `json:"display_name,omitempty"`
-	BudgetID    string                 `json:"budget_id,omitempty"`
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 }
 
@@ -67,7 +64,6 @@ type Team struct {
 	DisplayName   string                 `json:"display_name,omitempty"`
 	OrgUnitID     string                 `json:"org_unit_id,omitempty"`
 	WorkspaceType string                 `json:"workspace_type,omitempty"`
-	BudgetID      string                 `json:"budget_id,omitempty"`
 	AllowedModels []string               `json:"allowed_models,omitempty"`
 	Metadata      map[string]interface{} `json:"metadata,omitempty"`
 	CreatedAt     time.Time              `json:"created_at"`
@@ -80,7 +76,6 @@ type CreateTeamRequest struct {
 	OrgUnitID     string                 `json:"org_unit_id,omitempty"`
 	WorkspaceType string                 `json:"workspace_type,omitempty"`
 	AllowedModels []string               `json:"allowed_models,omitempty"`
-	BudgetID      string                 `json:"budget_id,omitempty"`
 	Metadata      map[string]interface{} `json:"metadata,omitempty"`
 }
 
@@ -90,7 +85,6 @@ type UpdateTeamRequest struct {
 	OrgUnitID     string                 `json:"org_unit_id,omitempty"`
 	WorkspaceType string                 `json:"workspace_type,omitempty"`
 	AllowedModels []string               `json:"allowed_models,omitempty"`
-	BudgetID      string                 `json:"budget_id,omitempty"`
 	Metadata      map[string]interface{} `json:"metadata,omitempty"`
 }
 
@@ -119,7 +113,6 @@ type TeamMembership struct {
 	UserID                string    `json:"user_id"`
 	Role                  string    `json:"role"`
 	TeamMemberPermissions []string  `json:"team_member_permissions,omitempty"`
-	BudgetID              string    `json:"budget_id,omitempty"`
 	Spend                 float64   `json:"spend"`
 	CreatedAt             time.Time `json:"created_at"`
 	UpdatedAt             time.Time `json:"updated_at"`
@@ -129,13 +122,11 @@ type CreateTeamMembershipRequest struct {
 	UserID                string   `json:"user_id"`
 	Role                  string   `json:"role"`
 	TeamMemberPermissions []string `json:"team_member_permissions,omitempty"`
-	BudgetID              string   `json:"budget_id,omitempty"`
 }
 
 type UpdateTeamMembershipRequest struct {
 	Role                  string   `json:"role,omitempty"`
 	TeamMemberPermissions []string `json:"team_member_permissions,omitempty"`
-	BudgetID              string   `json:"budget_id,omitempty"`
 }
 
 type TeamMembershipListResponse struct {

@@ -1122,9 +1122,6 @@ func (s *integrationKeyStore) CreateKey(ctx context.Context, params platform.Cre
 		KeyType:         params.KeyType,
 		Models:          append([]string(nil), params.Models...),
 		AllowedModels:   append([]string(nil), params.AllowedModels...),
-		MaxBudget:       params.MaxBudget,
-		RPMLimit:        params.RPMLimit,
-		TPMLimit:        params.TPMLimit,
 		TeamID:          params.TeamID,
 		OrgID:           params.OrgID,
 		OrgUnitID:       params.OrgUnitID,
@@ -1145,9 +1142,6 @@ func (s *integrationKeyStore) CreateKey(ctx context.Context, params platform.Cre
 		Role:           params.Role,
 		KeyType:        params.KeyType,
 		AllowedModels:  append([]string(nil), params.AllowedModels...),
-		MaxBudget:      params.MaxBudget,
-		RPMLimit:       params.RPMLimit,
-		TPMLimit:       params.TPMLimit,
 		TokenHash:      keyHash,
 	}
 	return &created, nil
@@ -1307,7 +1301,6 @@ func (s *integrationKeyStore) CreateOrgUnit(ctx context.Context, tenantID string
 		TenantID:    tenantID,
 		Alias:       req.Alias,
 		DisplayName: req.DisplayName,
-		BudgetID:    req.BudgetID,
 		Metadata:    req.Metadata,
 		CreatedAt:   time.Now().UTC(),
 		UpdatedAt:   time.Now().UTC(),
@@ -1364,9 +1357,6 @@ func (s *integrationKeyStore) UpdateOrgUnit(ctx context.Context, tenantID string
 		}
 		if req.DisplayName != "" {
 			s.orgUnits[i].DisplayName = req.DisplayName
-		}
-		if req.BudgetID != "" {
-			s.orgUnits[i].BudgetID = req.BudgetID
 		}
 		if req.Metadata != nil {
 			s.orgUnits[i].Metadata = req.Metadata
@@ -1471,7 +1461,6 @@ func (s *integrationKeyStore) AddTeamMembership(ctx context.Context, tenantID st
 		if s.teamMemberships[i].TenantID == tenantID && s.teamMemberships[i].TeamID == teamID && s.teamMemberships[i].UserID == req.UserID {
 			s.teamMemberships[i].Role = req.Role
 			s.teamMemberships[i].TeamMemberPermissions = append([]string(nil), req.TeamMemberPermissions...)
-			s.teamMemberships[i].BudgetID = req.BudgetID
 			s.teamMemberships[i].UpdatedAt = time.Now().UTC()
 			copy := s.teamMemberships[i]
 			return &copy, nil
@@ -1484,7 +1473,6 @@ func (s *integrationKeyStore) AddTeamMembership(ctx context.Context, tenantID st
 		UserID:                req.UserID,
 		Role:                  req.Role,
 		TeamMemberPermissions: append([]string(nil), req.TeamMemberPermissions...),
-		BudgetID:              req.BudgetID,
 		CreatedAt:             time.Now().UTC(),
 		UpdatedAt:             time.Now().UTC(),
 	}
@@ -1500,15 +1488,12 @@ func (s *integrationKeyStore) UpdateTeamMembership(ctx context.Context, tenantID
 			if req.Role != "" {
 				s.teamMemberships[i].Role = req.Role
 			}
-			if req.TeamMemberPermissions != nil {
-				s.teamMemberships[i].TeamMemberPermissions = append([]string(nil), req.TeamMemberPermissions...)
-			}
-			if req.BudgetID != "" {
-				s.teamMemberships[i].BudgetID = req.BudgetID
-			}
-			s.teamMemberships[i].UpdatedAt = time.Now().UTC()
-			copy := s.teamMemberships[i]
-			return &copy, nil
+		if req.TeamMemberPermissions != nil {
+			s.teamMemberships[i].TeamMemberPermissions = append([]string(nil), req.TeamMemberPermissions...)
+		}
+		s.teamMemberships[i].UpdatedAt = time.Now().UTC()
+		copy := s.teamMemberships[i]
+		return &copy, nil
 		}
 	}
 	return nil, pgx.ErrNoRows

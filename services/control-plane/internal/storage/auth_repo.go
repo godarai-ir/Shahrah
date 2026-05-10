@@ -15,9 +15,6 @@ import (
 // GetKeyByHash retrieves a key by its hashed token.
 func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthContext, error) {
 	var auth platform.AuthContext
-	var maxBudget *float64
-	var rpmLimit *int64
-	var tpmLimit *int64
 	var expiresAt *time.Time
 	var keyModels []string
 
@@ -31,9 +28,6 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 		       COALESCE(token_hash, ''),
 		       COALESCE(models, '{}'),
 		       COALESCE(spend, 0),
-		       max_budget,
-		       rpm_limit,
-		       tpm_limit,
 		       COALESCE(expires, NULL),
 		       COALESCE(blocked, false),
 		       COALESCE(key_type, CASE WHEN team_id IS NULL THEN 'pat' ELSE 'vat' END)
@@ -52,9 +46,6 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 		&auth.TokenHash,
 		&keyModels,
 		&auth.Spend,
-		&maxBudget,
-		&rpmLimit,
-		&tpmLimit,
 		&expiresAt,
 		&auth.Blocked,
 		&auth.KeyType,
@@ -68,9 +59,6 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 		auth.KeyType = deriveKeyType(auth.TeamID)
 	}
 	auth.OrgUnitID = auth.OrganizationID
-	auth.MaxBudget = maxBudget
-	auth.RPMLimit = rpmLimit
-	auth.TPMLimit = tpmLimit
 	auth.ExpiresAt = expiresAt
 
 	runtimeModels, enforceProviderPolicy, err := s.listRuntimeAllowedModelsByProviderAccount(ctx, auth.TenantID, auth.TeamID, auth.UserID)
@@ -274,24 +262,22 @@ func (s *Store) CreateKey(ctx context.Context, params platform.CreateKeyParams) 
 	now := time.Now().UTC()
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO verification_tokens (
-			id, tenant_id, token_hash, key_alias, key_name, models, max_budget,
-			rpm_limit, tpm_limit, team_id, organization_id, user_id,
+			id, tenant_id, token_hash, key_alias, key_name, models, team_id, organization_id, user_id,
 			expires, spend, blocked, key_type, created_by_user_id, created_at, updated_at
 		)
 		VALUES (
-			$1, $2, $3, $4, $5, $6, $7,
-			$8, $9, NULLIF($10, '')::uuid, NULLIF($11, '')::uuid,
+			$1, $2, $3, $4, $5, $6, NULLIF($7, '')::uuid, NULLIF($8, '')::uuid,
 			CASE
-				WHEN NULLIF($12, '') IS NULL THEN NULL
-				WHEN $12 ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
-					AND EXISTS (SELECT 1 FROM users u WHERE u.user_id = $12::uuid)
-				THEN $12::uuid
+				WHEN NULLIF($9, '') IS NULL THEN NULL
+				WHEN $9 ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+					AND EXISTS (SELECT 1 FROM users u WHERE u.user_id = $9::uuid)
+				THEN $9::uuid
 				ELSE NULL
 			END,
-			$13, 0, false, $14, NULLIF($15, ''), $16, $16
+			$10, 0, false, $11, NULLIF($12, ''), $13, $13
 		)
-	`, keyID, params.TenantID, tokenHash, params.KeyAlias, masked, params.Models, params.MaxBudget,
-		params.RPMLimit, params.TPMLimit, params.TeamID, params.OrgID, params.UserID, expiresAt, params.KeyType, params.UserID, now)
+	`, keyID, params.TenantID, tokenHash, params.KeyAlias, masked, params.Models,
+		params.TeamID, params.OrgID, params.UserID, expiresAt, params.KeyType, params.UserID, now)
 	if err != nil {
 		return nil, err
 	}
@@ -306,9 +292,6 @@ func (s *Store) CreateKey(ctx context.Context, params platform.CreateKeyParams) 
 		KeyType:         params.KeyType,
 		Models:          params.Models,
 		AllowedModels:   append([]string(nil), params.Models...),
-		MaxBudget:       params.MaxBudget,
-		RPMLimit:        params.RPMLimit,
-		TPMLimit:        params.TPMLimit,
 		TeamID:          params.TeamID,
 		OrgID:           params.OrgID,
 		OrgUnitID:       params.OrgUnitID,
@@ -324,8 +307,7 @@ func (s *Store) CreateKey(ctx context.Context, params platform.CreateKeyParams) 
 func (s *Store) ListKeys(ctx context.Context, tenantID string) ([]platform.CreatedKey, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT id::text, COALESCE(key_alias, ''), COALESCE(key_name, ''), tenant_id::text,
-		       COALESCE(models, '{}'), COALESCE(max_budget, NULL), COALESCE(rpm_limit, NULL),
-		       COALESCE(tpm_limit, NULL), COALESCE(team_id::text, ''), COALESCE(organization_id::text, ''),
+		       COALESCE(models, '{}'), COALESCE(team_id::text, ''), COALESCE(organization_id::text, ''),
 		       COALESCE(spend, 0), COALESCE(blocked, false), COALESCE(expires, NULL), token_hash,
 		       COALESCE(key_type, CASE WHEN team_id IS NULL THEN 'pat' ELSE 'vat' END),
 		       COALESCE(created_by_user_id, ''), COALESCE(created_at, NULL), COALESCE(last_used_at, NULL), COALESCE(revoked_at, NULL)
@@ -343,7 +325,7 @@ func (s *Store) ListKeys(ctx context.Context, tenantID string) ([]platform.Creat
 		var item platform.CreatedKey
 		var models []string
 		if err := rows.Scan(&item.ID, &item.KeyAlias, &item.MaskedKey, &item.TenantID, &models,
-			&item.MaxBudget, &item.RPMLimit, &item.TPMLimit, &item.TeamID, &item.OrgID,
+			&item.TeamID, &item.OrgID,
 			&item.Spend, &item.Blocked, &item.ExpiresAt, &item.TokenHash, &item.KeyType,
 			&item.CreatedByUserID, &item.CreatedAt, &item.LastUsedAt, &item.RevokedAt); err != nil {
 			return nil, err
@@ -421,8 +403,7 @@ func (s *Store) ListPATs(ctx context.Context, tenantID string, userID string, qu
 
 	rows, err := s.pool.Query(ctx, `
 		SELECT id::text, COALESCE(key_alias, ''), COALESCE(key_name, ''), tenant_id::text,
-		       COALESCE(models, '{}'), COALESCE(max_budget, NULL), COALESCE(rpm_limit, NULL),
-		       COALESCE(tpm_limit, NULL), COALESCE(team_id::text, ''), COALESCE(organization_id::text, ''),
+		       COALESCE(models, '{}'), COALESCE(team_id::text, ''), COALESCE(organization_id::text, ''),
 		       COALESCE(spend, 0), COALESCE(blocked, false), COALESCE(expires, NULL), token_hash,
 		       COALESCE(created_by_user_id, ''), COALESCE(created_at, NULL), COALESCE(last_used_at, NULL), COALESCE(revoked_at, NULL)
 		FROM verification_tokens
@@ -444,7 +425,7 @@ func (s *Store) ListPATs(ctx context.Context, tenantID string, userID string, qu
 		var item platform.CreatedKey
 		var models []string
 		if err := rows.Scan(&item.ID, &item.KeyAlias, &item.MaskedKey, &item.TenantID, &models,
-			&item.MaxBudget, &item.RPMLimit, &item.TPMLimit, &item.TeamID, &item.OrgID,
+			&item.TeamID, &item.OrgID,
 			&item.Spend, &item.Blocked, &item.ExpiresAt, &item.TokenHash, &item.CreatedByUserID,
 			&item.CreatedAt, &item.LastUsedAt, &item.RevokedAt); err != nil {
 			return nil, 0, err

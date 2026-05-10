@@ -40,7 +40,6 @@ type Team = {
   display_name?: string;
   org_unit_id?: string | null;
   workspace_type?: string;
-  budget_id?: string;
   metadata?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -57,6 +56,7 @@ type OrgUnit = { id: string; alias: string; display_name?: string };
 type AccessPrincipalCandidate = { principal_id: string; display_name: string; secondary?: string };
 type MemberCandidateOption = { userID: string; label: string };
 type ListResponse<T> = { data?: T[]; total?: number };
+type AllowedModelResponse = { data?: Array<{ id: string }> };
 type Banner = { kind: "success" | "error" | "warning"; message: string };
 
 type TeamForm = {
@@ -102,12 +102,14 @@ export default function TeamManagement({
   initialTotal,
   initialError,
   initialOrgUnits,
+  initialAllowedModels,
   currentUserRole,
 }: {
   initialTeams: Team[];
   initialTotal: number;
   initialError: string | null;
   initialOrgUnits: OrgUnit[];
+  initialAllowedModels: string[];
   currentUserRole: string;
 }) {
   const t = useTranslations("teams");
@@ -123,7 +125,9 @@ export default function TeamManagement({
   const [offset, setOffset] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingAllowedModels, setIsLoadingAllowedModels] = useState(false);
   const [banner, setBanner] = useState<Banner | null>(initialError ? { kind: "error", message: initialError } : null);
+  const [allowedModels, setAllowedModels] = useState<string[]>(initialAllowedModels);
 
   const [selectedTeamID, setSelectedTeamID] = useState<string | null>(initialTeams[0]?.id ?? null);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(initialTeams[0] ?? null);
@@ -208,12 +212,14 @@ export default function TeamManagement({
   async function loadTeamDetails(teamID: string) {
     setDetailLoading(true);
     try {
-      const [team, memberPayload] = await Promise.all([
+      const [team, memberPayload, userPayload] = await Promise.all([
         requestJSON<Team>(`/api/teams/${encodeURIComponent(teamID)}`),
         requestJSON<ListResponse<TeamMember>>(`/api/teams/${encodeURIComponent(teamID)}/members`),
+        requestJSON<ListResponse<AccessPrincipalCandidate>>("/api/access-principals?kind=user&limit=100"),
       ]);
       setSelectedTeam(team);
       setMembers(memberPayload.data ?? []);
+      setUsers(userPayload.data ?? []);
       setTeams((prev) => prev.map((item) => (item.id === team.id ? team : item)));
     } catch (error) {
       setBanner({ kind: "error", message: normalizeError(error, t("messages.detailLoadError")) });
@@ -227,13 +233,33 @@ export default function TeamManagement({
     setUsers(payload.data ?? []);
   }
 
+  async function loadAllowedModels(teamID?: string) {
+    setIsLoadingAllowedModels(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("key_type", "vat");
+      if (teamID) params.set("team_id", teamID);
+      const payload = await requestJSON<AllowedModelResponse>(`/api/allowed-models?${params.toString()}`);
+      const nextModels = (payload.data ?? []).map((item) => item.id.trim()).filter(Boolean);
+      setAllowedModels(nextModels);
+      setForm((prev) => {
+        const nextAllowed = filterAllowedModels(modelsFromInput(prev.allowedModels), nextModels);
+        return nextAllowed.join(",") === prev.allowedModels ? prev : { ...prev, allowedModels: nextAllowed.join(",") };
+      });
+    } catch (error) {
+      setBanner({ kind: "error", message: normalizeError(error, t("messages.loadError")) });
+    } finally {
+      setIsLoadingAllowedModels(false);
+    }
+  }
+
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const validation = validateForm(form, teams, t);
     if (validation) return setBanner({ kind: "error", message: validation });
     setIsSaving(true);
     try {
-      const created = await requestJSON<Team>("/api/teams", { method: "POST", body: JSON.stringify(buildTeamPayload(form)) });
+      const created = await requestJSON<Team>("/api/teams", { method: "POST", body: JSON.stringify(buildTeamPayload(form, allowedModels)) });
       setCreateOpen(false);
       setForm(emptyForm);
       setBanner({ kind: "success", message: t("messages.createSuccess") });
@@ -251,12 +277,11 @@ export default function TeamManagement({
     if (!selectedTeam) return;
     const validation = validateForm(form, teams, t, selectedTeam.id);
     if (validation) return setBanner({ kind: "error", message: validation });
-    if (!budgetValid(form, selectedTeam)) return setBanner({ kind: "warning", message: t("messages.budgetCannotDrop") });
     setIsSaving(true);
     try {
       const updated = await requestJSON<Team>(`/api/teams/${encodeURIComponent(selectedTeam.id)}`, {
         method: "PATCH",
-        body: JSON.stringify(buildTeamPayload(form, selectedTeam.metadata)),
+        body: JSON.stringify(buildTeamPayload(form, allowedModels, selectedTeam.metadata)),
       });
       setSelectedTeam(updated);
       setTeams((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
@@ -383,10 +408,10 @@ export default function TeamManagement({
             <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />{t("actions.refresh")}
           </Button>
           <Sheet open={createOpen} onOpenChange={setCreateOpen}>
-            <Button className="gap-2" onClick={() => setCreateOpen(true)} disabled={!canManage}><Plus className="h-4 w-4" />{t("actions.new")}</Button>
+            <Button className="gap-2" onClick={() => { setCreateOpen(true); void loadAllowedModels(); }} disabled={!canManage}><Plus className="h-4 w-4" />{t("actions.new")}</Button>
             <SheetContent side="right" className="w-[94vw] max-w-xl overflow-y-auto">
               <SheetHeader><SheetTitle>{t("create.title")}</SheetTitle><SheetDescription>{t("create.description")}</SheetDescription></SheetHeader>
-              <TeamForm t={t} form={form} setForm={setForm} orgUnits={orgUnits} onSubmit={handleCreate} isSaving={isSaving} submitLabel={t("create.submit")} />
+              <TeamForm t={t} form={form} setForm={setForm} orgUnits={orgUnits} onSubmit={handleCreate} isSaving={isSaving} submitLabel={t("create.submit")} allowedModels={allowedModels} isLoadingAllowedModels={isLoadingAllowedModels} />
             </SheetContent>
           </Sheet>
         </div>
@@ -400,28 +425,27 @@ export default function TeamManagement({
             <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("filters.search")} className="w-full pl-9 sm:w-64" /></div>
             <select value={orgFilter} onChange={(e) => setOrgFilter(e.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm"><option value="all">{t("filters.orgAll")}</option><option value="root">{t("table.tenantRoot")}</option>{orgUnits.map((org) => <option key={org.id} value={org.id}>{org.display_name || org.alias}</option>)}</select>
             <select value={workspaceFilter} onChange={(e) => setWorkspaceFilter(e.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm"><option value="all">{t("filters.workspaceAll")}</option>{WORKSPACE_TYPES.map((type) => <option key={type} value={type}>{t(`workspace.${type}`)}</option>)}</select>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm"><option value="all">{t("filters.statusAll")}</option><option value="active">{t("status.active")}</option><option value="blocked">{t("status.blocked")}</option><option value="budget_warning">{t("status.budgetWarning")}</option><option value="budget_exceeded">{t("status.budgetExceeded")}</option></select>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm"><option value="all">{t("filters.statusAll")}</option><option value="active">{t("status.active")}</option><option value="blocked">{t("status.blocked")}</option></select>
             <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm"><option value="recent">{t("sort.recent")}</option><option value="name">{t("sort.name")}</option><option value="spend">{t("sort.spend")}</option><option value="members">{t("sort.members")}</option></select>
           </div>
 
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader><TableRow><TableHead>{t("table.team")}</TableHead><TableHead>{t("table.orgUnit")}</TableHead><TableHead>{t("table.workspaceType")}</TableHead><TableHead>{t("table.membersAdmins")}</TableHead><TableHead>{t("table.budgetSpend")}</TableHead><TableHead>{t("table.models")}</TableHead><TableHead>{t("table.limits")}</TableHead><TableHead>{t("table.status")}</TableHead><TableHead>{t("table.updated")}</TableHead><TableHead className="w-10 text-right"> </TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>{t("table.team")}</TableHead><TableHead>{t("table.orgUnit")}</TableHead><TableHead>{t("table.workspaceType")}</TableHead><TableHead>{t("table.membersAdmins")}</TableHead><TableHead>{t("table.spend")}</TableHead><TableHead>{t("table.models")}</TableHead><TableHead>{t("table.status")}</TableHead><TableHead>{t("table.updated")}</TableHead><TableHead className="w-10 text-right"> </TableHead></TableRow></TableHeader>
               <TableBody>
-                {filtered.length === 0 ? <TableRow><TableCell colSpan={10} className="py-10 text-center"><div className="mx-auto max-w-md space-y-2"><Users className="mx-auto h-9 w-9 text-muted-foreground" /><p className="font-medium">{t("empty.title")}</p><p className="text-sm text-muted-foreground">{t("empty.description")}</p></div></TableCell></TableRow> : filtered.map((team) => (
+                {filtered.length === 0 ? <TableRow><TableCell colSpan={9} className="py-10 text-center"><div className="mx-auto max-w-md space-y-2"><Users className="mx-auto h-9 w-9 text-muted-foreground" /><p className="font-medium">{t("empty.title")}</p><p className="text-sm text-muted-foreground">{t("empty.description")}</p></div></TableCell></TableRow> : filtered.map((team) => (
                   <TableRow key={team.id} className={cn("cursor-pointer", selectedTeamID === team.id && "bg-muted/50")} onClick={() => setSelectedTeamID(team.id)}>
                     <TableCell><div className="min-w-[180px]"><p className="truncate font-medium">{getTeamName(team)}</p><p className="truncate text-xs text-muted-foreground">{team.alias}</p></div></TableCell>
                     <TableCell>{getOrgUnitName(team, orgUnits, t)}</TableCell>
                     <TableCell><Badge variant="outline">{t(`workspace.${getWorkspaceType(team)}`)}</Badge></TableCell>
                     <TableCell>{`${getMemberCount(team)}/${getAdminCount(team)}`}</TableCell>
-                    <TableCell>{`${formatMoney(getSpend(team))} / ${formatMoney(getMaxBudget(team))}`}</TableCell>
+                    <TableCell>{formatMoney(getSpend(team))}</TableCell>
                     <TableCell>{getModelSummary(team, t)}</TableCell>
-                    <TableCell>{`${formatLimit(getTpm(team))} / ${formatLimit(getRpm(team))}`}</TableCell>
                     <TableCell><StatusBadge status={getStatus(team)} t={t} /></TableCell>
                     <TableCell>{formatDate(team.updated_at)}</TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => { setForm(formFromTeam(team)); setEditOpen(true); }} disabled={!canManage}>{t("actions.edit")}</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => { setForm(formFromTeam(team)); setEditOpen(true); void loadAllowedModels(team.id); }} disabled={!canManage}>{t("actions.edit")}</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => { setSelectedTeamID(team.id); setMembersOpen(true); void loadUsers(); }} disabled={!canManage}>{t("actions.members")}</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => { setSelectedTeamID(team.id); setDeleteOpen(true); }} disabled={!canDelete} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />{t("actions.delete")}</DropdownMenuItem>
                       </DropdownMenuContent></DropdownMenu>
@@ -435,21 +459,19 @@ export default function TeamManagement({
         </div>
 
         <div className="space-y-4">
-          {!selectedTeam || !summary ? <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">{t("detail.empty")}</CardContent></Card> : <>
+          {!selectedTeam || !summary ? <Card><CardContent className="px-8 py-10 text-center text-base leading-8 text-muted-foreground sm:px-10"><p className="mx-auto max-w-[34ch] text-balance">{t("detail.empty")}</p></CardContent></Card> : <>
             <div className="grid grid-cols-2 gap-3">
               <Kpi label={t("kpi.spend")} value={formatMoney(summary.spend)} />
-              <Kpi label={t("kpi.remaining")} value={formatMoney(summary.remaining)} />
               <Kpi label={t("kpi.membersAdmins")} value={`${summary.members}/${summary.admins}`} />
               <Kpi label={t("kpi.activeKeys")} value={String(summary.activeKeys)} />
             </div>
-            <Card><CardHeader><CardTitle>{t("detail.guardrails")}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm"><p>{t("detail.budget", { spend: formatMoney(summary.spend), max: formatMoney(summary.maxBudget) })}</p><p>{t("detail.softBudget", { value: formatMoney(summary.softBudget) })}</p><p>{t("detail.duration", { value: summary.duration || t("common.notSet") })}</p><p>{t("detail.limits", { tpm: formatLimit(summary.tpm), rpm: formatLimit(summary.rpm) })}</p></CardContent></Card>
             <Card><CardHeader><CardTitle>{t("detail.access")}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm"><p>{t("detail.models", { value: getModelSummary(selectedTeam, t) })}</p><p>{t("detail.orgInheritance", { value: getOrgUnitName(selectedTeam, orgUnits, t) })}</p><p>{t("detail.permissions", { value: summarizePermissions(members, t) })}</p></CardContent></Card>
             <Card><CardHeader><CardTitle>{t("detail.members")}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm">{detailLoading ? <p>{t("detail.loading")}</p> : members.length === 0 ? <p>{t("detail.noMembers")}</p> : members.map((member) => <div key={member.user_id} className="flex items-center justify-between gap-2 rounded border p-2"><span className="truncate">{getMemberDisplayLabel(member.user_id, memberLabelByUserID, t("members.unknownUser"))}</span><Badge variant={member.role === "team_admin" ? "default" : "secondary"}>{member.role}</Badge></div>)}</CardContent></Card>
           </>}
         </div>
       </section>
 
-      <Sheet open={editOpen} onOpenChange={setEditOpen}><SheetContent side="right" className="w-[94vw] max-w-xl overflow-y-auto"><SheetHeader><SheetTitle>{t("edit.title")}</SheetTitle><SheetDescription>{t("edit.description")}</SheetDescription></SheetHeader><TeamForm t={t} form={form} setForm={setForm} orgUnits={orgUnits} onSubmit={handleEdit} isSaving={isSaving} submitLabel={t("edit.submit")} /></SheetContent></Sheet>
+      <Sheet open={editOpen} onOpenChange={setEditOpen}><SheetContent side="right" className="w-[94vw] max-w-xl overflow-y-auto"><SheetHeader><SheetTitle>{t("edit.title")}</SheetTitle><SheetDescription>{t("edit.description")}</SheetDescription></SheetHeader><TeamForm t={t} form={form} setForm={setForm} orgUnits={orgUnits} onSubmit={handleEdit} isSaving={isSaving} submitLabel={t("edit.submit")} allowedModels={allowedModels} isLoadingAllowedModels={isLoadingAllowedModels} /></SheetContent></Sheet>
 
       <Sheet open={membersOpen} onOpenChange={setMembersOpen}><SheetContent side="right" className="w-[94vw] max-w-xl overflow-y-auto"><SheetHeader><SheetTitle>{t("members.title")}</SheetTitle><SheetDescription>{t("members.description")}</SheetDescription></SheetHeader>
         <form onSubmit={addMember} className="mt-6 space-y-3">
@@ -468,50 +490,76 @@ export default function TeamManagement({
   );
 }
 
-function TeamForm({ t, form, setForm, orgUnits, onSubmit, isSaving, submitLabel }: { t: ReturnType<typeof useTranslations>; form: TeamForm; setForm: (value: TeamForm) => void; orgUnits: OrgUnit[]; onSubmit: (event: FormEvent<HTMLFormElement>) => void; isSaving: boolean; submitLabel: string; }) {
-  const max = toNumber(form.maxBudget);
-  const soft = toNumber(form.softBudget);
-  const softError = max > 0 && soft > max;
+function TeamForm({ t, form, setForm, orgUnits, onSubmit, isSaving, submitLabel, allowedModels, isLoadingAllowedModels }: { t: ReturnType<typeof useTranslations>; form: TeamForm; setForm: (value: TeamForm) => void; orgUnits: OrgUnit[]; onSubmit: (event: FormEvent<HTMLFormElement>) => void; isSaving: boolean; submitLabel: string; allowedModels: string[]; isLoadingAllowedModels: boolean; }) {
+  const [modelQuery, setModelQuery] = useState("");
   const update = <K extends keyof TeamForm>(key: K, value: TeamForm[K]) => setForm({ ...form, [key]: value });
+  const selectedModels = useMemo(() => modelsFromInput(form.allowedModels), [form.allowedModels]);
+  const selectableModels = useMemo(() => {
+    const q = modelQuery.trim().toLowerCase();
+    if (!q) return allowedModels;
+    return allowedModels.filter((item) => item.toLowerCase().includes(q));
+  }, [allowedModels, modelQuery]);
   return (
     <form className="mt-6 space-y-4" onSubmit={onSubmit}>
       <div className="grid gap-2"><Label htmlFor="team-alias">{t("form.alias")}</Label><Input id="team-alias" value={form.alias} onChange={(e) => update("alias", e.target.value)} required /></div>
       <div className="grid gap-2"><Label htmlFor="team-display">{t("form.displayName")}</Label><Input id="team-display" value={form.displayName} onChange={(e) => update("displayName", e.target.value)} /></div>
       <div className="grid gap-2"><Label htmlFor="team-org">{t("form.orgUnit")}</Label><select id="team-org" className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={form.orgUnitID} onChange={(e) => update("orgUnitID", e.target.value)}><option value="">{t("table.tenantRoot")}</option>{orgUnits.map((org) => <option key={org.id} value={org.id}>{org.display_name || org.alias}</option>)}</select></div>
       <div className="grid gap-2"><Label htmlFor="team-workspace">{t("form.workspaceType")}</Label><select id="team-workspace" className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={form.workspaceType} onChange={(e) => update("workspaceType", e.target.value)}>{WORKSPACE_TYPES.map((type) => <option key={type} value={type}>{t(`workspace.${type}`)}</option>)}</select></div>
-      <div className="grid gap-2"><Label htmlFor="team-models">{t("form.allowedModels")}</Label><Input id="team-models" value={form.allowedModels} onChange={(e) => update("allowedModels", e.target.value)} placeholder={t("form.allowedModelsPlaceholder")} /></div>
-      <div className="grid gap-2"><Label htmlFor="team-budget-id">{t("form.budgetId")}</Label><Input id="team-budget-id" value={form.budgetID} onChange={(e) => update("budgetID", e.target.value)} /></div>
+      <div className="grid gap-2">
+        <Label htmlFor="team-models">{t("form.allowedModels")}</Label>
+        <Input id="team-models" value={modelQuery} onChange={(event) => setModelQuery(event.target.value)} placeholder={t("form.allowedModelsPlaceholder")} />
+        <div className="max-h-56 overflow-auto rounded-md border p-2">
+          {isLoadingAllowedModels ? (
+            <p className="text-xs text-muted-foreground">{t("detail.loading")}</p>
+          ) : selectableModels.length === 0 ? (
+            <p className="text-xs text-muted-foreground">{t("common.notSet")}</p>
+          ) : (
+            selectableModels.map((modelID) => (
+              <label key={modelID} className="flex items-center gap-2 py-1 text-sm">
+                <input
+                  type="checkbox"
+                  checked={selectedModels.includes(modelID)}
+                  onChange={(event) => {
+                    if (event.target.checked) {
+                      update("allowedModels", Array.from(new Set([...selectedModels, modelID])).join(","));
+                      return;
+                    }
+                    update("allowedModels", selectedModels.filter((item) => item !== modelID).join(","));
+                  }}
+                />
+                <span className="font-mono text-xs">{modelID}</span>
+              </label>
+            ))
+          )}
+        </div>
+      </div>
       <div className="grid gap-2"><Label htmlFor="team-cost">{t("form.costCenter")}</Label><Input id="team-cost" value={form.costCenter} onChange={(e) => update("costCenter", e.target.value)} /></div>
       <div className="grid gap-2"><Label htmlFor="team-description">{t("form.description")}</Label><Input id="team-description" value={form.description} onChange={(e) => update("description", e.target.value)} /></div>
-      <div className="grid gap-2 sm:grid-cols-2"><div className="grid gap-2"><Label htmlFor="team-max">{t("form.maxBudget")}</Label><Input id="team-max" type="number" min="0" value={form.maxBudget} onChange={(e) => update("maxBudget", e.target.value)} /></div><div className="grid gap-2"><Label htmlFor="team-soft">{t("form.softBudget")}</Label><Input id="team-soft" type="number" min="0" value={form.softBudget} onChange={(e) => update("softBudget", e.target.value)} /></div></div>
-      <div className="grid gap-2"><Label htmlFor="team-duration">{t("form.budgetDuration")}</Label><select id="team-duration" className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={form.budgetDuration} onChange={(e) => update("budgetDuration", e.target.value)}><option value="30d">30d</option><option value="7d">7d</option><option value="1d">1d</option></select></div>
-      <div className="grid gap-2 sm:grid-cols-2"><div className="grid gap-2"><Label htmlFor="team-tpm">{t("form.tpmLimit")}</Label><Input id="team-tpm" type="number" min="0" value={form.tpmLimit} onChange={(e) => update("tpmLimit", e.target.value)} /></div><div className="grid gap-2"><Label htmlFor="team-rpm">{t("form.rpmLimit")}</Label><Input id="team-rpm" type="number" min="0" value={form.rpmLimit} onChange={(e) => update("rpmLimit", e.target.value)} /></div></div>
-      {softError ? <Alert variant="warning"><AlertTitle>{t("alerts.warning")}</AlertTitle><AlertDescription>{t("messages.softBudgetConflict")}</AlertDescription></Alert> : null}
-      <Button type="submit" className="w-full" disabled={isSaving || softError}>{isSaving ? t("actions.saving") : submitLabel}</Button>
+      <Button type="submit" className="w-full" disabled={isSaving}>{isSaving ? t("actions.saving") : submitLabel}</Button>
     </form>
   );
 }
 
-function buildTeamPayload(form: TeamForm, metadata?: Record<string, unknown>) {
+function buildTeamPayload(form: TeamForm, allowedModels: string[], metadata?: Record<string, unknown>) {
+  const filteredModels = filterAllowedModels(modelsFromInput(form.allowedModels), allowedModels);
   return {
     alias: form.alias.trim(),
     display_name: form.displayName.trim(),
     org_unit_id: form.orgUnitID.trim() || null,
     workspace_type: form.workspaceType,
-    allowed_models: modelsFromInput(form.allowedModels),
-    budget_id: form.budgetID.trim() || undefined,
+    allowed_models: filteredModels,
     metadata: {
       ...(metadata ?? {}),
       description: form.description.trim(),
       cost_center: form.costCenter.trim(),
-      max_budget: toNumber(form.maxBudget),
-      soft_budget: toNumber(form.softBudget),
-      budget_duration: form.budgetDuration,
-      tpm_limit: toNumber(form.tpmLimit),
-      rpm_limit: toNumber(form.rpmLimit),
-      allowed_models: modelsFromInput(form.allowedModels),
+      allowed_models: filteredModels,
     },
   };
+}
+
+function filterAllowedModels(selectedModels: string[], allowedModels: string[]) {
+  const allowedSet = new Set(allowedModels.map((item) => item.trim()).filter(Boolean));
+  return selectedModels.filter((item) => allowedSet.has(item));
 }
 
 function validateForm(form: TeamForm, teams: Team[], t: ReturnType<typeof useTranslations>, currentID?: string) {
@@ -519,14 +567,7 @@ function validateForm(form: TeamForm, teams: Team[], t: ReturnType<typeof useTra
   if (!alias) return t("messages.aliasRequired");
   if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{1,62}$/.test(alias)) return t("messages.aliasPattern");
   if (teams.some((team) => team.id !== currentID && team.alias.toLowerCase() === alias.toLowerCase())) return t("messages.aliasUnique");
-  if (toNumber(form.maxBudget) > 0 && toNumber(form.softBudget) > toNumber(form.maxBudget)) return t("messages.softBudgetConflict");
   return null;
-}
-
-function budgetValid(form: TeamForm, team: Team) {
-  const next = toNumber(form.maxBudget);
-  const spend = getSpend(team);
-  return next <= 0 || next >= spend;
 }
 
 function formFromTeam(team: Team): TeamForm {
@@ -536,14 +577,14 @@ function formFromTeam(team: Team): TeamForm {
     orgUnitID: team.org_unit_id ?? "",
     workspaceType: getWorkspaceType(team),
     allowedModels: getModels(team).join(","),
-    budgetID: team.budget_id ?? "",
+    budgetID: "",
     costCenter: toText(team.metadata?.cost_center),
     description: toText(team.metadata?.description),
-    maxBudget: numberToInput(getMaxBudget(team)),
-    softBudget: numberToInput(getSoftBudget(team)),
-    budgetDuration: toText(team.metadata?.budget_duration) || "30d",
-    tpmLimit: numberToInput(getTpm(team)),
-    rpmLimit: numberToInput(getRpm(team)),
+    maxBudget: "",
+    softBudget: "",
+    budgetDuration: "30d",
+    tpmLimit: "",
+    rpmLimit: "",
   };
 }
 
@@ -577,19 +618,12 @@ function getMemberDisplayLabel(userID: string, memberLabelByUserID: Map<string, 
 }
 
 function buildSummary(team: Team, members: TeamMember[]) {
-  const maxBudget = getMaxBudget(team);
   const spend = getSpend(team);
   return {
-    maxBudget,
-    softBudget: getSoftBudget(team),
     spend,
-    remaining: maxBudget > 0 ? Math.max(0, maxBudget - spend) : 0,
-    duration: toText(team.metadata?.budget_duration),
     members: members.length || getMemberCount(team),
     admins: members.filter((item) => item.role === "team_admin").length || getAdminCount(team),
     activeKeys: getActiveKeys(team),
-    tpm: getTpm(team),
-    rpm: getRpm(team),
   };
 }
 
@@ -598,13 +632,37 @@ function getWorkspaceType(team: Team) {
   const value = (team.workspace_type || toText(team.metadata?.workspace_type) || "production").trim().toLowerCase();
   return WORKSPACE_TYPE_SET.has(value) ? value : "general";
 }
-function getMemberCount(team: Team) { return toNumber(team.metadata?.member_count ?? team.metadata?.members_count); }
-function getAdminCount(team: Team) { return toNumber(team.metadata?.admin_count ?? team.metadata?.admins_count); }
+function getMemberCount(team: Team) {
+  const metadata = team.metadata ?? {};
+  return toNumber(
+    metadata.member_count ??
+    metadata.members_count ??
+    metadata.memberCount ??
+    metadata.membersCount ??
+    metadata.team_member_count ??
+    metadata.team_members_count ??
+    (team as Team & { member_count?: unknown }).member_count ??
+    (team as Team & { members_count?: unknown }).members_count ??
+    (team as Team & { memberCount?: unknown }).memberCount ??
+    (team as Team & { membersCount?: unknown }).membersCount
+  );
+}
+function getAdminCount(team: Team) {
+  const metadata = team.metadata ?? {};
+  return toNumber(
+    metadata.admin_count ??
+    metadata.admins_count ??
+    metadata.adminCount ??
+    metadata.adminsCount ??
+    metadata.team_admin_count ??
+    metadata.team_admins_count ??
+    (team as Team & { admin_count?: unknown }).admin_count ??
+    (team as Team & { admins_count?: unknown }).admins_count ??
+    (team as Team & { adminCount?: unknown }).adminCount ??
+    (team as Team & { adminsCount?: unknown }).adminsCount
+  );
+}
 function getSpend(team: Team) { return toNumber(team.metadata?.spend ?? team.metadata?.current_spend ?? team.metadata?.total_spend); }
-function getMaxBudget(team: Team) { return toNumber(team.metadata?.max_budget); }
-function getSoftBudget(team: Team) { return toNumber(team.metadata?.soft_budget); }
-function getTpm(team: Team) { return toNumber(team.metadata?.tpm_limit); }
-function getRpm(team: Team) { return toNumber(team.metadata?.rpm_limit); }
 function getActiveKeys(team: Team) { return toNumber(team.metadata?.active_keys_count ?? team.metadata?.active_key_count); }
 function getVirtualUsers(team: Team) { return toNumber(team.metadata?.virtual_users_count); }
 function getModels(team: Team) {
@@ -618,13 +676,8 @@ function getModelSummary(team: Team, t: ReturnType<typeof useTranslations>) {
   if (models.length === 1) return models[0];
   return t("table.modelsSummary", { count: models.length, first: models[0] });
 }
-function getStatus(team: Team): "active" | "blocked" | "budget_warning" | "budget_exceeded" {
+function getStatus(team: Team): "active" | "blocked" {
   if (Boolean(team.metadata?.blocked)) return "blocked";
-  const max = getMaxBudget(team);
-  const spend = getSpend(team);
-  const soft = getSoftBudget(team);
-  if (max > 0 && spend >= max) return "budget_exceeded";
-  if ((soft > 0 && spend >= soft) || (max > 0 && spend / max >= 0.8)) return "budget_warning";
   return "active";
 }
 function getOrgUnitName(team: Team, orgUnits: OrgUnit[], t: ReturnType<typeof useTranslations>) {
@@ -640,15 +693,11 @@ function summarizePermissions(members: TeamMember[], t: ReturnType<typeof useTra
 function modelsFromInput(value: string) { return value.split(",").map((item) => item.trim()).filter(Boolean); }
 function toNumber(value: unknown) { if (typeof value === "number" && Number.isFinite(value)) return value; if (typeof value === "string") { const parsed = Number(value.replace(/,/g, "")); return Number.isFinite(parsed) ? parsed : 0; } return 0; }
 function toText(value: unknown) { if (typeof value === "string") return value; if (typeof value === "number") return String(value); return ""; }
-function numberToInput(value: number) { return value > 0 ? String(value) : ""; }
 function formatMoney(value: number) { if (value <= 0) return "-"; return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value); }
-function formatLimit(value: number) { if (value <= 0) return "-"; return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(value); }
 function formatDate(value: string) { if (!value) return "-"; return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(value)); }
 
 function StatusBadge({ status, t }: { status: ReturnType<typeof getStatus>; t: ReturnType<typeof useTranslations> }) {
   if (status === "blocked") return <Badge variant="destructive">{t("status.blocked")}</Badge>;
-  if (status === "budget_warning") return <Badge className="bg-warning text-warning-foreground">{t("status.budgetWarning")}</Badge>;
-  if (status === "budget_exceeded") return <Badge variant="destructive">{t("status.budgetExceeded")}</Badge>;
   return <Badge className="bg-success text-success-foreground">{t("status.active")}</Badge>;
 }
 

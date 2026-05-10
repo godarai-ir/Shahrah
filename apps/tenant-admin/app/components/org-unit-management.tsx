@@ -4,7 +4,6 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { ComponentType } from "react";
 import { useTranslations } from "next-intl";
 import {
-  AlertTriangle,
   Building2,
   CalendarClock,
   ChevronLeft,
@@ -54,7 +53,6 @@ type OrgUnit = {
   tenant_id: string;
   alias: string;
   display_name?: string;
-  budget_id?: string;
   metadata?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -93,6 +91,20 @@ type UserListResponse = {
   data?: AccessPrincipalCandidate[];
 };
 
+type TeamListResponse = {
+  data?: TeamSummary[];
+  total?: number;
+};
+
+type TeamSummary = {
+  id: string;
+  alias: string;
+  display_name?: string;
+  workspace_type?: string;
+  org_unit_id?: string | null;
+  metadata?: Record<string, unknown>;
+};
+
 type Banner = {
   kind: "success" | "error" | "warning";
   message: string;
@@ -103,11 +115,6 @@ type FormState = {
   displayName: string;
   costCenter: string;
   description: string;
-  maxBudget: string;
-  softBudget: string;
-  budgetDuration: string;
-  tpmLimit: string;
-  rpmLimit: string;
 };
 
 type OrgUnitManagementProps = {
@@ -124,11 +131,6 @@ const emptyForm: FormState = {
   displayName: "",
   costCenter: "",
   description: "",
-  maxBudget: "",
-  softBudget: "",
-  budgetDuration: "30d",
-  tpmLimit: "",
-  rpmLimit: "",
 };
 
 export default function OrgUnitManagement({
@@ -145,6 +147,8 @@ export default function OrgUnitManagement({
   const [sortBy, setSortBy] = useState("updated_at");
   const [offset, setOffset] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [teamCountByOrgUnit, setTeamCountByOrgUnit] = useState<Record<string, number>>({});
+  const [teamsByOrgUnit, setTeamsByOrgUnit] = useState<Record<string, TeamSummary[]>>({});
   const [banner, setBanner] = useState<Banner | null>(
     initialError ? { kind: "error", message: initialError } : null,
   );
@@ -165,6 +169,8 @@ export default function OrgUnitManagement({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [memberUserID, setMemberUserID] = useState("");
+  const [memberUserQuery, setMemberUserQuery] = useState("");
+  const [isMemberUserPickerOpen, setIsMemberUserPickerOpen] = useState(false);
   const [memberRole, setMemberRole] = useState("org_admin");
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -188,23 +194,57 @@ export default function OrgUnitManagement({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOrgUnitID]);
 
+  useEffect(() => {
+    void loadUsers();
+    void loadTeamCounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function resolveTeamCount(orgUnit: OrgUnit) {
+    return teamCountByOrgUnit[orgUnit.id] ?? getTeamCount(orgUnit);
+  }
+
+  function resolveTeams(orgUnit: OrgUnit) {
+    return teamsByOrgUnit[orgUnit.id] ?? [];
+  }
+
   const visibleOrgUnits = useMemo(() => {
     const filtered = orgUnits.filter((orgUnit) => {
       if (statusFilter === "all") return true;
-      if (statusFilter === "with_teams") return getTeamCount(orgUnit) > 0;
-      if (statusFilter === "empty") return getTeamCount(orgUnit) === 0;
+      if (statusFilter === "with_teams") return resolveTeamCount(orgUnit) > 0;
+      if (statusFilter === "empty") return resolveTeamCount(orgUnit) === 0;
       return getBudgetStatus(orgUnit).kind === statusFilter;
     });
 
     return [...filtered].sort((a, b) => {
       if (sortBy === "name") return getOrgName(a).localeCompare(getOrgName(b));
       if (sortBy === "spend") return getSpend(b) - getSpend(a);
-      if (sortBy === "teams") return getTeamCount(b) - getTeamCount(a);
+      if (sortBy === "teams") return resolveTeamCount(b) - resolveTeamCount(a);
       return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
     });
-  }, [orgUnits, sortBy, statusFilter]);
+  }, [orgUnits, sortBy, statusFilter, teamCountByOrgUnit]);
 
-  const selectedSummary = selectedOrgUnit ? buildSummary(selectedOrgUnit, members) : null;
+  const selectedSummary = selectedOrgUnit
+    ? { ...buildSummary(selectedOrgUnit, members), teams: resolveTeamCount(selectedOrgUnit) }
+    : null;
+  const userNameByID = useMemo(() => {
+    const map = new Map<string, string>();
+    users.forEach((user) => {
+      map.set(user.principal_id, user.display_name || user.secondary || t("members.user"));
+    });
+    return map;
+  }, [t, users]);
+  const memberUserOptions = useMemo(() => {
+    const queryValue = memberUserQuery.trim().toLowerCase();
+    if (!queryValue) return users.slice(0, 50);
+    return users
+      .filter((user) => {
+        const displayName = (user.display_name || "").toLowerCase();
+        const secondary = (user.secondary || "").toLowerCase();
+        return displayName.includes(queryValue) || secondary.includes(queryValue);
+      })
+      .slice(0, 50);
+  }, [memberUserQuery, users]);
   const from = total === 0 ? 0 : offset + 1;
   const to = Math.min(offset + orgUnits.length, total);
   const canPrev = offset > 0;
@@ -262,6 +302,39 @@ export default function OrgUnitManagement({
     }
   }
 
+  async function loadTeamCounts() {
+    try {
+      const counts: Record<string, number> = {};
+      const grouped: Record<string, TeamSummary[]> = {};
+      const limit = 200;
+      let nextOffset = 0;
+      let safety = 0;
+
+      while (safety < 50) {
+        const payload = await requestJSON<TeamListResponse>(`/api/teams?limit=${limit}&offset=${nextOffset}`);
+        const teams = payload.data ?? [];
+        teams.forEach((team) => {
+          if (!team.org_unit_id) return;
+          counts[team.org_unit_id] = (counts[team.org_unit_id] ?? 0) + 1;
+          grouped[team.org_unit_id] = [...(grouped[team.org_unit_id] ?? []), team];
+        });
+
+        const totalTeams = payload.total ?? teams.length;
+        nextOffset += teams.length;
+        safety += 1;
+
+        if (teams.length === 0 || nextOffset >= totalTeams) {
+          break;
+        }
+      }
+
+      setTeamCountByOrgUnit(counts);
+      setTeamsByOrgUnit(grouped);
+    } catch {
+      // Keep metadata-based fallback when team count aggregation fails.
+    }
+  }
+
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const validation = validateForm(form, orgUnits, t);
@@ -294,17 +367,6 @@ export default function OrgUnitManagement({
     const validation = validateForm(form, orgUnits, t, selectedOrgUnit.id);
     if (validation) {
       setBanner({ kind: "error", message: validation });
-      return;
-    }
-
-    const nextMax = toNumber(form.maxBudget);
-    const childBudget = getChildBudgetTotal(selectedOrgUnit);
-    const spend = getSpend(selectedOrgUnit);
-    if (nextMax > 0 && (nextMax < spend || nextMax < childBudget)) {
-      setBanner({
-        kind: "warning",
-        message: t("messages.budgetConflict"),
-      });
       return;
     }
 
@@ -345,6 +407,8 @@ export default function OrgUnitManagement({
       });
       await loadOrgUnitDetails(selectedOrgUnit.id);
       setMemberUserID("");
+      setMemberUserQuery("");
+      setIsMemberUserPickerOpen(false);
       setMemberRole("org_admin");
       setBanner({ kind: "success", message: t("messages.memberAddSuccess") });
     } catch (error) {
@@ -435,6 +499,9 @@ export default function OrgUnitManagement({
 
   function openMembers() {
     setMemberOpen(true);
+    setMemberUserID("");
+    setMemberUserQuery("");
+    setIsMemberUserPickerOpen(false);
     void loadUsers();
   }
 
@@ -585,7 +652,7 @@ export default function OrgUnitManagement({
                             <p className="text-xs text-muted-foreground">{orgUnit.alias}</p>
                           </div>
                         </TableCell>
-                        <TableCell>{getTeamCount(orgUnit)}</TableCell>
+                        <TableCell>{resolveTeamCount(orgUnit)}</TableCell>
                         <TableCell>{getMemberCount(orgUnit, orgUnit.id === selectedOrgUnitID ? members.length : undefined)}</TableCell>
                         <TableCell>{formatMoney(getMaxBudget(orgUnit))}</TableCell>
                         <TableCell>
@@ -669,7 +736,6 @@ export default function OrgUnitManagement({
                   <div className="min-w-0">
                     <p className="text-sm text-muted-foreground">{t("detail.breadcrumb")}</p>
                     <h2 className="mt-1 truncate text-xl font-semibold">{getOrgName(selectedOrgUnit)}</h2>
-                    <p className="truncate text-xs text-muted-foreground">{selectedOrgUnit.id}</p>
                   </div>
                   <BudgetStatusBadge status={selectedSummary.status.kind} />
                 </div>
@@ -742,7 +808,11 @@ export default function OrgUnitManagement({
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <MetadataTeams orgUnit={selectedOrgUnit} />
+                  <MetadataTeams
+                    orgUnit={selectedOrgUnit}
+                    teamCount={resolveTeamCount(selectedOrgUnit)}
+                    teams={resolveTeams(selectedOrgUnit)}
+                  />
                 </CardContent>
               </Card>
 
@@ -762,7 +832,7 @@ export default function OrgUnitManagement({
                     members.map((member) => (
                       <div key={member.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">{member.user_id}</p>
+                          <p className="truncate text-sm font-medium">{userNameByID.get(member.user_id) || t("members.user")}</p>
                           <p className="text-xs text-muted-foreground">{t("members.added", { date: formatDate(member.created_at) })}</p>
                         </div>
                         <Badge variant={member.role === "org_admin" ? "default" : "secondary"}>{member.role}</Badge>
@@ -782,7 +852,6 @@ export default function OrgUnitManagement({
                 <CardContent className="space-y-3 text-sm">
                   <InfoItem label={t("audit.created")} value={formatDateTime(selectedOrgUnit.created_at)} />
                   <InfoItem label={t("audit.updated")} value={formatDateTime(selectedOrgUnit.updated_at)} />
-                  <InfoItem label={t("audit.budgetId")} value={selectedOrgUnit.budget_id || t("common.notSet")} />
                   <pre className="max-h-40 overflow-auto rounded-lg bg-muted p-3 text-xs text-muted-foreground">
                     {JSON.stringify(selectedOrgUnit.metadata ?? {}, null, 2)}
                   </pre>
@@ -821,20 +890,44 @@ export default function OrgUnitManagement({
           <form className="mt-6 space-y-4" onSubmit={handleAddMember}>
             <div className="grid gap-2">
               <Label htmlFor="member-user">{t("members.user")}</Label>
-              <Input
-                id="member-user"
-                list="org-unit-users"
-                value={memberUserID}
-                onChange={(event) => setMemberUserID(event.target.value)}
-                placeholder={t("members.userPlaceholder")}
-              />
-              <datalist id="org-unit-users">
-                {users.map((user) => (
-                  <option key={user.principal_id} value={user.principal_id}>
-                    {user.display_name || user.secondary || user.principal_id}
-                  </option>
-                ))}
-              </datalist>
+              <div className="relative">
+                <Input
+                  id="member-user"
+                  value={memberUserQuery}
+                  onFocus={() => setIsMemberUserPickerOpen(true)}
+                  onBlur={() => setTimeout(() => setIsMemberUserPickerOpen(false), 120)}
+                  onChange={(event) => {
+                    setMemberUserQuery(event.target.value);
+                    setMemberUserID("");
+                    setIsMemberUserPickerOpen(true);
+                  }}
+                  placeholder={t("members.user")}
+                  autoComplete="off"
+                />
+                {isMemberUserPickerOpen ? (
+                  <div className="absolute z-50 mt-1 max-h-56 w-full overflow-auto rounded-md border bg-popover p-1 shadow-md">
+                    {memberUserOptions.length === 0 ? (
+                      <p className="px-2 py-1.5 text-sm text-muted-foreground">{t("common.notSet")}</p>
+                    ) : (
+                      memberUserOptions.map((user) => (
+                        <button
+                          key={user.principal_id}
+                          type="button"
+                          className="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => {
+                            setMemberUserID(user.principal_id);
+                            setMemberUserQuery(user.display_name || user.secondary || "");
+                            setIsMemberUserPickerOpen(false);
+                          }}
+                        >
+                          {user.display_name || user.secondary || t("members.user")}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                ) : null}
+              </div>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="member-role">{t("members.role")}</Label>
@@ -858,7 +951,7 @@ export default function OrgUnitManagement({
               <div key={member.id} className="rounded-lg border p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{member.user_id}</p>
+                    <p className="truncate text-sm font-medium">{userNameByID.get(member.user_id) || t("members.user")}</p>
                     <p className="text-xs text-muted-foreground">{formatDateTime(member.updated_at)}</p>
                   </div>
                   <Badge variant={member.role === "org_admin" ? "default" : "secondary"}>{member.role}</Badge>
@@ -900,7 +993,7 @@ export default function OrgUnitManagement({
           </SheetHeader>
           {selectedOrgUnit ? (
             <form className="mt-6 space-y-4" onSubmit={handleDelete}>
-              {getTeamCount(selectedOrgUnit) > 0 ? (
+              {resolveTeamCount(selectedOrgUnit) > 0 ? (
                 <Alert variant="warning">
                   <AlertTitle>{t("delete.childTeamsTitle")}</AlertTitle>
                   <AlertDescription>
@@ -942,9 +1035,6 @@ function OrgUnitForm({
   submitLabel: string;
 }) {
   const t = useTranslations("orgUnits");
-  const maxBudget = toNumber(form.maxBudget);
-  const softBudget = toNumber(form.softBudget);
-  const hasSoftBudgetConflict = maxBudget > 0 && softBudget > maxBudget;
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm({ ...form, [key]: value });
@@ -990,89 +1080,7 @@ function OrgUnitForm({
         />
       </div>
 
-      <div className="rounded-lg border p-4">
-        <div className="mb-4">
-          <h3 className="font-semibold">{t("form.budgetGuardrails")}</h3>
-          <p className="text-sm text-muted-foreground">{t("form.budgetDescription")}</p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="grid gap-2">
-            <Label htmlFor="org-max-budget">{t("form.maxBudget")}</Label>
-            <Input
-              id="org-max-budget"
-              type="number"
-              min="0"
-              value={form.maxBudget}
-              onChange={(event) => update("maxBudget", event.target.value)}
-              placeholder="10000"
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="org-soft-budget">{t("form.softBudget")}</Label>
-            <Input
-              id="org-soft-budget"
-              type="number"
-              min="0"
-              value={form.softBudget}
-              onChange={(event) => update("softBudget", event.target.value)}
-              placeholder="8000"
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="org-budget-duration">{t("form.duration")}</Label>
-            <select
-              id="org-budget-duration"
-              value={form.budgetDuration}
-              onChange={(event) => update("budgetDuration", event.target.value)}
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="30d">30d</option>
-              <option value="monthly">{t("duration.monthly")}</option>
-              <option value="weekly">{t("duration.weekly")}</option>
-              <option value="daily">{t("duration.daily")}</option>
-            </select>
-          </div>
-        </div>
-        {hasSoftBudgetConflict ? (
-          <div className="mt-3 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
-            <AlertTriangle className="mt-0.5 h-4 w-4" />
-            {t("messages.softBudgetConflict")}
-          </div>
-        ) : null}
-      </div>
-
-      <div className="rounded-lg border p-4">
-        <div className="mb-4">
-          <h3 className="font-semibold">{t("form.rateLimits")}</h3>
-          <p className="text-sm text-muted-foreground">{t("form.rateDescription")}</p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="grid gap-2">
-            <Label htmlFor="org-tpm">{t("form.tpmLimit")}</Label>
-            <Input
-              id="org-tpm"
-              type="number"
-              min="0"
-              value={form.tpmLimit}
-              onChange={(event) => update("tpmLimit", event.target.value)}
-              placeholder="1000000"
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="org-rpm">{t("form.rpmLimit")}</Label>
-            <Input
-              id="org-rpm"
-              type="number"
-              min="0"
-              value={form.rpmLimit}
-              onChange={(event) => update("rpmLimit", event.target.value)}
-              placeholder="10000"
-            />
-          </div>
-        </div>
-      </div>
-
-      <Button type="submit" disabled={isSaving || hasSoftBudgetConflict} className="w-full">
+      <Button type="submit" disabled={isSaving} className="w-full">
         {isSaving ? t("actions.saving") : submitLabel}
       </Button>
     </form>
@@ -1103,23 +1111,54 @@ function KpiCard({
   );
 }
 
-function MetadataTeams({ orgUnit }: { orgUnit: OrgUnit }) {
+function MetadataTeams({
+  orgUnit,
+  teamCount,
+  teams: orgTeams,
+}: {
+  orgUnit: OrgUnit;
+  teamCount: number;
+  teams: TeamSummary[];
+}) {
   const t = useTranslations("orgUnits");
-  const teams = getMetadataArray(orgUnit.metadata, "teams");
-  const teamCount = getTeamCount(orgUnit);
+  const metadataTeams = getMetadataArray(orgUnit.metadata, "teams");
 
-  if (teams.length === 0) {
+  if (orgTeams.length > 0) {
+    return (
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>نام تیم</TableHead>
+              <TableHead>نوع ورک‌اسپیس</TableHead>
+              <TableHead>تعداد اعضا</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {orgTeams.map((team) => (
+              <TableRow key={team.id}>
+                <TableCell className="font-medium">{getTeamName(team)}</TableCell>
+                <TableCell>{getTeamWorkspaceType(team)}</TableCell>
+                <TableCell>{getTeamMemberCount(team)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  }
+
+  if (metadataTeams.length === 0) {
     return (
       <div className="space-y-2 text-sm text-muted-foreground">
         <p>{teamCount > 0 ? t("teams.summaryCount", { count: teamCount }) : t("teams.emptyMetadata")}</p>
-        <p>{t("teams.apiHint")}</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-3">
-      {teams.map((team, index) => {
+      {metadataTeams.map((team, index) => {
         const record = asRecord(team);
         return (
           <div key={`${toText(record.id) || index}`} className="rounded-lg border p-3">
@@ -1139,6 +1178,18 @@ function MetadataTeams({ orgUnit }: { orgUnit: OrgUnit }) {
       })}
     </div>
   );
+}
+
+function getTeamName(team: TeamSummary) {
+  return team.display_name || toText(team.metadata?.display_name) || team.alias;
+}
+
+function getTeamWorkspaceType(team: TeamSummary) {
+  return (team.workspace_type || toText(team.metadata?.workspace_type) || "general").trim().toLowerCase();
+}
+
+function getTeamMemberCount(team: TeamSummary) {
+  return toNumber(team.metadata?.member_count ?? team.metadata?.members_count);
 }
 
 function InfoItem({ label, value }: { label: string; value: string }) {
@@ -1253,11 +1304,6 @@ function formFromOrgUnit(orgUnit: OrgUnit): FormState {
     displayName: getOrgName(orgUnit),
     costCenter: toText(orgUnit.metadata?.cost_center),
     description: toText(orgUnit.metadata?.description),
-    maxBudget: numberToInput(getMaxBudget(orgUnit)),
-    softBudget: numberToInput(getSoftBudget(orgUnit)),
-    budgetDuration: toText(orgUnit.metadata?.budget_duration) || "30d",
-    tpmLimit: numberToInput(getTpmLimit(orgUnit)),
-    rpmLimit: numberToInput(getRpmLimit(orgUnit)),
   };
 }
 
@@ -1267,11 +1313,6 @@ function buildPayload(form: FormState, previousMetadata?: Record<string, unknown
     display_name: form.displayName.trim() || form.alias.trim(),
     cost_center: form.costCenter.trim(),
     description: form.description.trim(),
-    max_budget: toNumber(form.maxBudget),
-    soft_budget: toNumber(form.softBudget),
-    budget_duration: form.budgetDuration,
-    tpm_limit: toNumber(form.tpmLimit),
-    rpm_limit: toNumber(form.rpmLimit),
   };
 
   return {
@@ -1294,9 +1335,6 @@ function validateForm(
   }
   const duplicate = orgUnits.some((orgUnit) => orgUnit.id !== currentID && orgUnit.alias.toLowerCase() === alias.toLowerCase());
   if (duplicate) return t("messages.aliasUnique");
-  const maxBudget = toNumber(form.maxBudget);
-  const softBudget = toNumber(form.softBudget);
-  if (maxBudget > 0 && softBudget > maxBudget) return t("messages.softBudgetConflict");
   return null;
 }
 
@@ -1325,15 +1363,11 @@ function toText(value: unknown) {
   return "";
 }
 
-function numberToInput(value: number) {
-  return value > 0 ? String(value) : "";
-}
-
 function formatMoney(value: number) {
   if (value <= 0) return "-";
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("fa-IR", {
     style: "currency",
-    currency: "USD",
+    currency: "IRR",
     maximumFractionDigits: 0,
   }).format(value);
 }
@@ -1345,18 +1379,25 @@ function formatLimit(value: number) {
 
 function formatDate(value: string) {
   if (!value) return "-";
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(value));
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+    month: "short",
+    day: "numeric",
+  }).format(date);
 }
 
 function formatDateTime(value: string) {
   if (!value) return "-";
-  return new Intl.DateTimeFormat("en-US", {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
     year: "numeric",
     month: "short",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(value));
+  }).format(date);
 }
 
 async function requestJSON<T = unknown>(path: string, options?: RequestInit): Promise<T> {

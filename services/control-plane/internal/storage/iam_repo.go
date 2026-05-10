@@ -23,14 +23,13 @@ func (s *Store) CreateOrgUnit(ctx context.Context, tenantID string, req platform
 	var item platform.OrgUnit
 	var metadataBytes []byte
 	err = s.pool.QueryRow(ctx, `
-		INSERT INTO organizations (organization_id, tenant_id, organization_alias, budget_id, metadata, created_at, updated_at)
-		VALUES ($1, $2::uuid, $3, NULLIF($4, '')::uuid, $5, NOW(), NOW())
-		RETURNING organization_id::text, tenant_id::text, organization_alias, COALESCE(budget_id::text, ''), COALESCE(metadata, '{}'::jsonb), created_at, updated_at
-	`, uuid.NewString(), tenantID, strings.TrimSpace(req.Alias), strings.TrimSpace(req.BudgetID), rawMetadata).Scan(
+		INSERT INTO organizations (organization_id, tenant_id, organization_alias, metadata, created_at, updated_at)
+		VALUES ($1, $2::uuid, $3, $4, NOW(), NOW())
+		RETURNING organization_id::text, tenant_id::text, organization_alias, COALESCE(metadata, '{}'::jsonb), created_at, updated_at
+	`, uuid.NewString(), tenantID, strings.TrimSpace(req.Alias), rawMetadata).Scan(
 		&item.ID,
 		&item.TenantID,
 		&item.Alias,
-		&item.BudgetID,
 		&metadataBytes,
 		&item.CreatedAt,
 		&item.UpdatedAt,
@@ -67,7 +66,7 @@ func (s *Store) ListOrgUnits(ctx context.Context, tenantID string, query string,
 	}
 
 	rows, err := s.pool.Query(ctx, `
-		SELECT organization_id::text, tenant_id::text, organization_alias, COALESCE(budget_id::text, ''), COALESCE(metadata, '{}'::jsonb), created_at, updated_at
+		SELECT organization_id::text, tenant_id::text, organization_alias, COALESCE(metadata, '{}'::jsonb), created_at, updated_at
 		FROM organizations
 		WHERE tenant_id = $1::uuid
 		  AND ($2 = '' OR LOWER(COALESCE(organization_alias, '')) LIKE $3)
@@ -92,7 +91,7 @@ func (s *Store) ListOrgUnits(ctx context.Context, tenantID string, query string,
 
 func (s *Store) GetOrgUnit(ctx context.Context, tenantID string, orgUnitID string) (*platform.OrgUnit, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT organization_id::text, tenant_id::text, organization_alias, COALESCE(budget_id::text, ''), COALESCE(metadata, '{}'::jsonb), created_at, updated_at
+		SELECT organization_id::text, tenant_id::text, organization_alias, COALESCE(metadata, '{}'::jsonb), created_at, updated_at
 		FROM organizations
 		WHERE tenant_id = $1::uuid AND organization_id = $2::uuid
 		LIMIT 1
@@ -121,10 +120,6 @@ func (s *Store) UpdateOrgUnit(ctx context.Context, tenantID string, orgUnitID st
 	if strings.TrimSpace(req.DisplayName) != "" {
 		displayName = strings.TrimSpace(req.DisplayName)
 	}
-	budgetID := current.BudgetID
-	if req.BudgetID != "" {
-		budgetID = strings.TrimSpace(req.BudgetID)
-	}
 	metadata := current.Metadata
 	if req.Metadata != nil {
 		metadata = req.Metadata
@@ -141,12 +136,11 @@ func (s *Store) UpdateOrgUnit(ctx context.Context, tenantID string, orgUnitID st
 	rows, err := s.pool.Query(ctx, `
 		UPDATE organizations
 		SET organization_alias = $3,
-		    budget_id = NULLIF($4, '')::uuid,
-		    metadata = $5,
+		    metadata = $4,
 		    updated_at = NOW()
 		WHERE tenant_id = $1::uuid AND organization_id = $2::uuid
-		RETURNING organization_id::text, tenant_id::text, organization_alias, COALESCE(budget_id::text, ''), COALESCE(metadata, '{}'::jsonb), created_at, updated_at
-	`, tenantID, orgUnitID, alias, budgetID, rawMetadata)
+		RETURNING organization_id::text, tenant_id::text, organization_alias, COALESCE(metadata, '{}'::jsonb), created_at, updated_at
+	`, tenantID, orgUnitID, alias, rawMetadata)
 	if err != nil {
 		return nil, err
 	}
@@ -190,8 +184,7 @@ func (s *Store) CreateTeam(ctx context.Context, tenantID string, req platform.Cr
 		VALUES ($1, $2::uuid, $3, NULLIF($4, '')::uuid, $5, $6, $7, $8, NOW(), NOW())
 		RETURNING team_id::text, tenant_id::text, COALESCE(team_alias, ''), COALESCE(org_unit_id::text, ''), workspace_type,
 		          COALESCE(metadata, '{}'::jsonb), COALESCE(models, '{}'), COALESCE(team_member_permissions, '{}'),
-		          COALESCE(max_budget::text, ''), COALESCE(soft_budget::text, ''), COALESCE(tpm_limit::text, ''), COALESCE(rpm_limit::text, ''),
-		          COALESCE(budget_duration, ''), COALESCE(spend::text, ''), created_at, updated_at
+		          COALESCE(spend::text, ''), created_at, updated_at
 	`, uuid.NewString(), tenantID, strings.TrimSpace(req.Alias), strings.TrimSpace(req.OrgUnitID), workspaceType, rawMetadata, req.AllowedModels, []string{})
 	if err != nil {
 		return nil, err
@@ -229,8 +222,7 @@ func (s *Store) ListTeams(ctx context.Context, tenantID string, query string, li
 	rows, err := s.pool.Query(ctx, `
 		SELECT team_id::text, tenant_id::text, COALESCE(team_alias, ''), COALESCE(org_unit_id::text, ''), workspace_type,
 		       COALESCE(metadata, '{}'::jsonb), COALESCE(models, '{}'), COALESCE(team_member_permissions, '{}'),
-		       COALESCE(max_budget::text, ''), COALESCE(soft_budget::text, ''), COALESCE(tpm_limit::text, ''), COALESCE(rpm_limit::text, ''),
-		       COALESCE(budget_duration, ''), COALESCE(spend::text, ''), created_at, updated_at
+		       COALESCE(spend::text, ''), created_at, updated_at
 		FROM teams
 		WHERE tenant_id = $1::uuid
 		  AND ($2 = '' OR LOWER(COALESCE(team_alias, '')) LIKE $3 OR LOWER(COALESCE(metadata->>'display_name', '')) LIKE $3)
@@ -257,8 +249,7 @@ func (s *Store) GetTeam(ctx context.Context, tenantID string, teamID string) (*p
 	rows, err := s.pool.Query(ctx, `
 		SELECT team_id::text, tenant_id::text, COALESCE(team_alias, ''), COALESCE(org_unit_id::text, ''), workspace_type,
 		       COALESCE(metadata, '{}'::jsonb), COALESCE(models, '{}'), COALESCE(team_member_permissions, '{}'),
-		       COALESCE(max_budget::text, ''), COALESCE(soft_budget::text, ''), COALESCE(tpm_limit::text, ''), COALESCE(rpm_limit::text, ''),
-		       COALESCE(budget_duration, ''), COALESCE(spend::text, ''), created_at, updated_at
+		       COALESCE(spend::text, ''), created_at, updated_at
 		FROM teams
 		WHERE tenant_id = $1::uuid AND team_id = $2::uuid
 		LIMIT 1
@@ -310,13 +301,6 @@ func (s *Store) UpdateTeam(ctx context.Context, tenantID string, teamID string, 
 	if err != nil {
 		return nil, err
 	}
-	if budget := strings.TrimSpace(req.BudgetID); budget != "" {
-		mergedMetadata["budget_id"] = budget
-		rawMetadata, err = marshalJSONObject(mergedMetadata)
-		if err != nil {
-			return nil, err
-		}
-	}
 	rows, err := s.pool.Query(ctx, `
 		UPDATE teams
 		SET team_alias = $3,
@@ -328,8 +312,7 @@ func (s *Store) UpdateTeam(ctx context.Context, tenantID string, teamID string, 
 		WHERE tenant_id = $1::uuid AND team_id = $2::uuid
 		RETURNING team_id::text, tenant_id::text, COALESCE(team_alias, ''), COALESCE(org_unit_id::text, ''), workspace_type,
 		          COALESCE(metadata, '{}'::jsonb), COALESCE(models, '{}'), COALESCE(team_member_permissions, '{}'),
-		          COALESCE(max_budget::text, ''), COALESCE(soft_budget::text, ''), COALESCE(tpm_limit::text, ''), COALESCE(rpm_limit::text, ''),
-		          COALESCE(budget_duration, ''), COALESCE(spend::text, ''), created_at, updated_at
+		          COALESCE(spend::text, ''), created_at, updated_at
 	`, tenantID, teamID, alias, orgUnitID, workspaceType, rawMetadata, allowedModels)
 	if err != nil {
 		return nil, err
@@ -650,7 +633,7 @@ func (s *Store) DeleteOrgUnitMembership(ctx context.Context, tenantID string, or
 func (s *Store) ListTeamMemberships(ctx context.Context, tenantID string, teamID string) ([]platform.TeamMembership, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT team_membership_id::text, tenant_id::text, team_id::text, user_id::text, role, COALESCE(team_member_permissions, '{}'),
-		       COALESCE(budget_id::text, ''), COALESCE(spend, 0.0), created_at, updated_at
+		       COALESCE(spend, 0.0), created_at, updated_at
 		FROM team_memberships
 		WHERE tenant_id = $1::uuid AND team_id = $2::uuid
 		ORDER BY updated_at DESC, created_at DESC
@@ -662,7 +645,7 @@ func (s *Store) ListTeamMemberships(ctx context.Context, tenantID string, teamID
 	items := make([]platform.TeamMembership, 0)
 	for rows.Next() {
 		var item platform.TeamMembership
-		if err := rows.Scan(&item.ID, &item.TenantID, &item.TeamID, &item.UserID, &item.Role, &item.TeamMemberPermissions, &item.BudgetID, &item.Spend, &item.CreatedAt, &item.UpdatedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.TenantID, &item.TeamID, &item.UserID, &item.Role, &item.TeamMemberPermissions, &item.Spend, &item.CreatedAt, &item.UpdatedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, item)
@@ -672,13 +655,13 @@ func (s *Store) ListTeamMemberships(ctx context.Context, tenantID string, teamID
 
 func (s *Store) AddTeamMembership(ctx context.Context, tenantID string, teamID string, req platform.CreateTeamMembershipRequest) (*platform.TeamMembership, error) {
 	rows, err := s.pool.Query(ctx, `
-		INSERT INTO team_memberships (team_membership_id, tenant_id, team_id, user_id, role, team_member_permissions, budget_id, created_at, updated_at)
-		VALUES ($1, $2::uuid, $3::uuid, $4::uuid, $5, $6, NULLIF($7, '')::uuid, NOW(), NOW())
+		INSERT INTO team_memberships (team_membership_id, tenant_id, team_id, user_id, role, team_member_permissions, created_at, updated_at)
+		VALUES ($1, $2::uuid, $3::uuid, $4::uuid, $5, $6, NOW(), NOW())
 		ON CONFLICT (team_id, user_id)
-		DO UPDATE SET role = EXCLUDED.role, team_member_permissions = EXCLUDED.team_member_permissions, budget_id = EXCLUDED.budget_id, updated_at = NOW()
+		DO UPDATE SET role = EXCLUDED.role, team_member_permissions = EXCLUDED.team_member_permissions, updated_at = NOW()
 		RETURNING team_membership_id::text, tenant_id::text, team_id::text, user_id::text, role, COALESCE(team_member_permissions, '{}'),
-		          COALESCE(budget_id::text, ''), COALESCE(spend, 0.0), created_at, updated_at
-	`, uuid.NewString(), tenantID, teamID, req.UserID, req.Role, req.TeamMemberPermissions, strings.TrimSpace(req.BudgetID))
+		          COALESCE(spend, 0.0), created_at, updated_at
+	`, uuid.NewString(), tenantID, teamID, req.UserID, req.Role, req.TeamMemberPermissions)
 	if err != nil {
 		return nil, err
 	}
@@ -687,7 +670,7 @@ func (s *Store) AddTeamMembership(ctx context.Context, tenantID string, teamID s
 		return nil, pgx.ErrNoRows
 	}
 	var item platform.TeamMembership
-	if err := rows.Scan(&item.ID, &item.TenantID, &item.TeamID, &item.UserID, &item.Role, &item.TeamMemberPermissions, &item.BudgetID, &item.Spend, &item.CreatedAt, &item.UpdatedAt); err != nil {
+	if err := rows.Scan(&item.ID, &item.TenantID, &item.TeamID, &item.UserID, &item.Role, &item.TeamMemberPermissions, &item.Spend, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		return nil, err
 	}
 	return &item, nil
@@ -696,7 +679,7 @@ func (s *Store) AddTeamMembership(ctx context.Context, tenantID string, teamID s
 func (s *Store) UpdateTeamMembership(ctx context.Context, tenantID string, teamID string, userID string, req platform.UpdateTeamMembershipRequest) (*platform.TeamMembership, error) {
 	currentRows, err := s.pool.Query(ctx, `
 		SELECT team_membership_id::text, tenant_id::text, team_id::text, user_id::text, role, COALESCE(team_member_permissions, '{}'),
-		       COALESCE(budget_id::text, ''), COALESCE(spend, 0.0), created_at, updated_at
+		       COALESCE(spend, 0.0), created_at, updated_at
 		FROM team_memberships
 		WHERE tenant_id = $1::uuid AND team_id = $2::uuid AND user_id = $3::uuid
 		LIMIT 1
@@ -709,7 +692,7 @@ func (s *Store) UpdateTeamMembership(ctx context.Context, tenantID string, teamI
 		return nil, pgx.ErrNoRows
 	}
 	var current platform.TeamMembership
-	if err := currentRows.Scan(&current.ID, &current.TenantID, &current.TeamID, &current.UserID, &current.Role, &current.TeamMemberPermissions, &current.BudgetID, &current.Spend, &current.CreatedAt, &current.UpdatedAt); err != nil {
+	if err := currentRows.Scan(&current.ID, &current.TenantID, &current.TeamID, &current.UserID, &current.Role, &current.TeamMemberPermissions, &current.Spend, &current.CreatedAt, &current.UpdatedAt); err != nil {
 		return nil, err
 	}
 	role := current.Role
@@ -720,17 +703,13 @@ func (s *Store) UpdateTeamMembership(ctx context.Context, tenantID string, teamI
 	if req.TeamMemberPermissions != nil {
 		perms = req.TeamMemberPermissions
 	}
-	budgetID := current.BudgetID
-	if req.BudgetID != "" {
-		budgetID = strings.TrimSpace(req.BudgetID)
-	}
 	rows, err := s.pool.Query(ctx, `
 		UPDATE team_memberships
-		SET role = $4, team_member_permissions = $5, budget_id = NULLIF($6, '')::uuid, updated_at = NOW()
+		SET role = $4, team_member_permissions = $5, updated_at = NOW()
 		WHERE tenant_id = $1::uuid AND team_id = $2::uuid AND user_id = $3::uuid
 		RETURNING team_membership_id::text, tenant_id::text, team_id::text, user_id::text, role, COALESCE(team_member_permissions, '{}'),
-		          COALESCE(budget_id::text, ''), COALESCE(spend, 0.0), created_at, updated_at
-	`, tenantID, teamID, userID, role, perms, budgetID)
+		          COALESCE(spend, 0.0), created_at, updated_at
+	`, tenantID, teamID, userID, role, perms)
 	if err != nil {
 		return nil, err
 	}
@@ -739,7 +718,7 @@ func (s *Store) UpdateTeamMembership(ctx context.Context, tenantID string, teamI
 		return nil, pgx.ErrNoRows
 	}
 	var item platform.TeamMembership
-	if err := rows.Scan(&item.ID, &item.TenantID, &item.TeamID, &item.UserID, &item.Role, &item.TeamMemberPermissions, &item.BudgetID, &item.Spend, &item.CreatedAt, &item.UpdatedAt); err != nil {
+	if err := rows.Scan(&item.ID, &item.TenantID, &item.TeamID, &item.UserID, &item.Role, &item.TeamMemberPermissions, &item.Spend, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		return nil, err
 	}
 	return &item, nil
@@ -762,7 +741,7 @@ func (s *Store) DeleteTeamMembership(ctx context.Context, tenantID string, teamI
 func scanOrgUnit(rows pgx.Rows) (*platform.OrgUnit, error) {
 	var item platform.OrgUnit
 	var metadataBytes []byte
-	if err := rows.Scan(&item.ID, &item.TenantID, &item.Alias, &item.BudgetID, &metadataBytes, &item.CreatedAt, &item.UpdatedAt); err != nil {
+	if err := rows.Scan(&item.ID, &item.TenantID, &item.Alias, &metadataBytes, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		return nil, err
 	}
 	item.Metadata = parseJSONObject(metadataBytes)
@@ -786,11 +765,6 @@ func scanTeam(rows pgx.Rows) (*platform.Team, error) {
 	var item platform.Team
 	var metadataBytes []byte
 	var teamMemberPermissions []string
-	var maxBudget string
-	var softBudget string
-	var tpm string
-	var rpm string
-	var budgetDuration string
 	var spend string
 	if err := rows.Scan(
 		&item.ID,
@@ -801,11 +775,6 @@ func scanTeam(rows pgx.Rows) (*platform.Team, error) {
 		&metadataBytes,
 		&item.AllowedModels,
 		&teamMemberPermissions,
-		&maxBudget,
-		&softBudget,
-		&tpm,
-		&rpm,
-		&budgetDuration,
 		&spend,
 		&item.CreatedAt,
 		&item.UpdatedAt,
@@ -816,21 +785,6 @@ func scanTeam(rows pgx.Rows) (*platform.Team, error) {
 	item.DisplayName = extractDisplayName(item.Metadata, item.Alias)
 	if item.Metadata == nil {
 		item.Metadata = map[string]interface{}{}
-	}
-	if maxBudget != "" {
-		item.Metadata["max_budget"] = maxBudget
-	}
-	if softBudget != "" {
-		item.Metadata["soft_budget"] = softBudget
-	}
-	if tpm != "" {
-		item.Metadata["tpm_limit"] = tpm
-	}
-	if rpm != "" {
-		item.Metadata["rpm_limit"] = rpm
-	}
-	if budgetDuration != "" {
-		item.Metadata["budget_duration"] = budgetDuration
 	}
 	if spend != "" {
 		item.Metadata["spend"] = spend

@@ -10,7 +10,6 @@ type Team = {
   display_name?: string;
   org_unit_id?: string | null;
   workspace_type?: string;
-  budget_id?: string;
   metadata?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -30,6 +29,9 @@ type OrgUnit = {
 type OrgUnitListResponse = {
   data?: OrgUnit[];
 };
+type AllowedModelListResponse = {
+  data?: Array<{ id: string }>;
+};
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +39,7 @@ export default async function TeamsPage() {
   const auth = await requireAuth("/login?next=/teams");
   const tenantSlug = auth.tenantSlug;
 
-  const [teamsResult, orgUnitsResult] = await Promise.all([
+  const [teamsResult, orgUnitsResult, allowedModelsResult] = await Promise.all([
     fetchControlPlaneJSON({
       tenantSlug,
       method: "GET",
@@ -48,15 +50,25 @@ export default async function TeamsPage() {
       method: "GET",
       path: "/api/v1/org-units?limit=200&offset=0",
     }),
+    fetchControlPlaneJSON({
+      tenantSlug,
+      method: "GET",
+      path: "/api/v1/models/allowed?key_type=vat",
+      userID: auth.user.id,
+    }),
   ]);
 
   const teamsPayload = (teamsResult.payload ?? {}) as TeamListResponse;
   const orgUnitsPayload = (orgUnitsResult.payload ?? {}) as OrgUnitListResponse;
+  const allowedModelsPayload = (allowedModelsResult.payload ?? {}) as AllowedModelListResponse;
 
   const initialTeams = teamsResult.ok ? teamsPayload.data ?? [] : [];
   const initialTotal = teamsResult.ok ? teamsPayload.total ?? initialTeams.length : 0;
   const initialError = teamsResult.ok ? null : teamsResult.errorMessage ?? "Request failed.";
   const initialOrgUnits = orgUnitsResult.ok ? orgUnitsPayload.data ?? [] : [];
+  const initialAllowedModels = allowedModelsResult.ok
+    ? (allowedModelsPayload.data ?? []).map((item) => item.id)
+    : [];
 
   const currentUser = {
     id: auth.user.id,
@@ -72,9 +84,9 @@ export default async function TeamsPage() {
         initialTotal={initialTotal}
         initialError={initialError}
         initialOrgUnits={initialOrgUnits}
+        initialAllowedModels={initialAllowedModels}
         currentUserRole={auth.user.role}
       />
     </AdminShell>
   );
 }
-

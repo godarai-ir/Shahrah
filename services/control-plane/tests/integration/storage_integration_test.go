@@ -122,7 +122,7 @@ func TestIntegration_StorageSchemaContract(t *testing.T) {
 		},
 		"verification_tokens": {
 			"id", "tenant_id", "organization_id", "team_id", "key_alias", "key_name", "token_hash",
-			"models", "max_budget", "rpm_limit", "tpm_limit", "spend", "expires", "blocked", "created_at", "updated_at",
+			"models", "spend", "expires", "blocked", "created_at", "updated_at",
 		},
 		"model_deployments": {
 			"id", "tenant_id", "model_name", "provider", "model", "provider_config", "model_info", "rpm", "tpm", "timeout", "created_at",

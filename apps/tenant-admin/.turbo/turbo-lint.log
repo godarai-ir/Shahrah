@@ -3,12 +3,8 @@
 > eslint .
 
 
-D:\source\Shahrah\apps\tenant-admin\app\components\tenant-admin-dashboard.tsx
-  99:10  warning  'transactions' is assigned a value but never used  @typescript-eslint/no-unused-vars
+D:\source\Shahrah\apps\tenant-admin\app\components\org-unit-management.tsx
+  237:6  warning  React Hook useMemo has a missing dependency: 'resolveTeamCount'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
 
-D:\source\Shahrah\apps\tenant-admin\app\components\users-access-management.tsx
-  133:5  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
-
-✖ 2 problems (0 errors, 2 warnings)
-  0 errors and 1 warning potentially fixable with the `--fix` option.
+✖ 1 problem (0 errors, 1 warning)
 

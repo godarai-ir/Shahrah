@@ -8,7 +8,6 @@ type OrgUnit = {
   tenant_id: string;
   alias: string;
   display_name?: string;
-  budget_id?: string;
   metadata?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
