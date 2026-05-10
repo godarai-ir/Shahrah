@@ -27,6 +27,7 @@ import {
   PrincipalEntitySelect,
   type PrincipalEntitySelectLabels,
   type PrincipalSearchKind,
+  type PrincipalSearchOption,
 } from "@/app/components/principal-search-input";
 import { extractTenantSlugFromHost } from "@/lib/tenant";
 

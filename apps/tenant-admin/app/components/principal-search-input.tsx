@@ -46,22 +46,16 @@ export function PrincipalEntitySelect(props: {
   includeEveryone?: boolean;
   disabled?: boolean;
   className?: string;
-  showSelectedMeta?: boolean;
 }) {
   const kinds = useMemo(() => props.kinds?.length ? props.kinds : (["user", "team"] as PrincipalSearchKind[]), [props.kinds]);
   const [open, setOpen] = useState(false);
-  const [activeKind, setActiveKind] = useState<PrincipalSearchKind>(kinds[0] ?? "user");
+  const [activeKindState, setActiveKind] = useState<PrincipalSearchKind>(kinds[0] ?? "user");
+  const activeKind = kinds.includes(activeKindState) ? activeKindState : (kinds[0] ?? "user");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PrincipalSearchOption[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestRef = useRef(0);
-
-  useEffect(() => {
-    if (!kinds.includes(activeKind)) {
-      setActiveKind(kinds[0] ?? "user");
-    }
-  }, [activeKind, kinds]);
 
   useEffect(() => {
     return () => {
@@ -145,7 +139,7 @@ export function PrincipalEntitySelect(props: {
                 <span className={cn("block truncate text-sm", !selected && "text-muted-foreground")}>
                   {selected ? selectedLabel : props.labels.triggerPlaceholder}
                 </span>
-                {selected && props.showSelectedMeta !== false && selectedMeta ? (
+                {selected && selectedMeta ? (
                   <span className="block truncate text-xs text-muted-foreground">{selectedMeta}</span>
                 ) : null}
               </span>
@@ -222,9 +216,6 @@ export function PrincipalEntitySelect(props: {
           </div>
         </PopoverContent>
       </Popover>
-      {selected?.principal_id && props.showSelectedMeta !== false ? (
-        <p className="break-all text-xs text-muted-foreground">ID: {selected.principal_id}</p>
-      ) : null}
     </div>
   );
 }
@@ -251,7 +242,7 @@ function PrincipalOptionRow(props: {
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium">{props.option.display_name}</span>
         <span className="block truncate text-xs text-muted-foreground">
-          {props.option.secondary || props.option.principal_id || getKindLabel(props.option.type, props.labels)}
+          {props.option.secondary || getKindLabel(props.option.type, props.labels)}
         </span>
       </span>
       <Check className={cn("h-4 w-4 shrink-0", isSelected ? "opacity-100" : "opacity-0")} />
