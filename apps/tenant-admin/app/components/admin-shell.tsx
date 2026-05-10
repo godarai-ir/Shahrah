@@ -118,6 +118,12 @@ export default function AdminShell({
       isActive: pathname.startsWith("/org-units"),
     },
     {
+      href: "/gateway-policies/rate-limiting-rules",
+      title: t("nav.gatewayPolicies"),
+      icon: ShieldCheck,
+      isActive: pathname.startsWith("/gateway-policies"),
+    },
+    {
       href: "/settings",
       title: t("nav.settings"),
       icon: Settings,

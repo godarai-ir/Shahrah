@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { FormEvent, useCallback, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -515,7 +515,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
                       </TableCell>
                       <TableCell>
                         {(item.models ?? []).length > 0
-                          ? item.models.join("، ")
+                          ? item.models.join("ØŒ ")
                           : common("none")}
                       </TableCell>
                       <TableCell className="font-mono text-xs">
@@ -585,9 +585,11 @@ function buildDashboardPrincipalSelectorLabels(
 ): PrincipalEntitySelectLabels {
   const isEnglish = t("principal.user").trim().toLowerCase() === "user";
   return {
-    users: isEnglish ? "Users" : "کاربران",
+    users: isEnglish ? "Users" : "Ú©Ø§Ø±Ø¨Ø±Ø§Ù†",
     teams: isEnglish ? "Teams" : "تیم‌ها",
-    externalIdentities: isEnglish ? "External identities" : "هویت‌های خارجی",
+    orgUnits: isEnglish ? "Org units" : "واحدهای سازمانی",
+    virtualAccounts: isEnglish ? "Virtual accounts" : "اکانت‌های مجازی",
+    externalIdentities: isEnglish ? "External identities" : "Ù‡ÙˆÛŒØªâ€ŒÙ‡Ø§ÛŒ Ø®Ø§Ø±Ø¬ÛŒ",
     everyone: t("principal.everyone"),
     searchPlaceholder: t("principal.searchPlaceholder"),
     triggerPlaceholder: t("principal.searchPlaceholder"),
@@ -611,7 +613,7 @@ async function requestJSON<T = unknown>(path: string, options?: RequestInit): Pr
   const text = await response.text();
   const data = parseResponsePayload(text);
   if (!response.ok) {
-    throw new Error(extractMessageFromPayload(data) ?? `خطای درخواست (${response.status})`);
+    throw new Error(extractMessageFromPayload(data) ?? `Ø®Ø·Ø§ÛŒ Ø¯Ø±Ø®ÙˆØ§Ø³Øª (${response.status})`);
   }
   return data as T;
 }
@@ -645,5 +647,6 @@ function toNumberOrUndefined(value: string): number | undefined {
 }
 
 function formatIRR(value: number): string {
-  return `${numberFormatter.format(Math.round(value))} ریال`;
+  return `${numberFormatter.format(Math.round(value))} Ø±ÛŒØ§Ù„`;
 }
+

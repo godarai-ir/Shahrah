@@ -2,9 +2,11 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
@@ -33,6 +35,12 @@ type modelStore interface {
 	ListVirtualModels(ctx context.Context, tenantID string) ([]platform.VirtualModel, error)
 	GetVirtualModel(ctx context.Context, tenantID string, id string) (*platform.VirtualModel, error)
 	UpdateVirtualModel(ctx context.Context, tenantID string, id string, req platform.UpdateVirtualModelRequest, actor string) (*platform.VirtualModel, error)
+	CreateRateLimitRule(ctx context.Context, tenantID string, req platform.CreateRateLimitRuleRequest) (*platform.RateLimitRule, error)
+	ListRateLimitRules(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.RateLimitRule, int, error)
+	GetRateLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string) (*platform.RateLimitRule, error)
+	UpdateRateLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string, req platform.UpdateRateLimitRuleRequest) (*platform.RateLimitRule, error)
+	UpdateRateLimitRuleStatusByRuleID(ctx context.Context, tenantID string, ruleID string, enabled bool) (*platform.RateLimitRule, error)
+	DeleteRateLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string) error
 }
 
 type walletStore interface {
@@ -767,6 +775,267 @@ func validateVirtualModelTargets(targets []platform.VirtualModelTarget) error {
 		}
 	}
 	return nil
+}
+
+func (h *Handlers) ListRateLimitRules(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	query := strings.TrimSpace(c.Query("query"))
+	limit := 50
+	offset := 0
+	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
+		parsed, parseErr := strconv.Atoi(raw)
+		if parseErr != nil || parsed <= 0 {
+			return fiber.NewError(fiber.StatusBadRequest, "limit must be a positive number")
+		}
+		limit = parsed
+	}
+	if raw := strings.TrimSpace(c.Query("offset")); raw != "" {
+		parsed, parseErr := strconv.Atoi(raw)
+		if parseErr != nil || parsed < 0 {
+			return fiber.NewError(fiber.StatusBadRequest, "offset must be zero or greater")
+		}
+		offset = parsed
+	}
+	items, total, err := h.models.ListRateLimitRules(c.Context(), currentTenant.ID, query, limit, offset)
+	if err != nil {
+		return err
+	}
+	var nextOffset *int
+	if offset+len(items) < total {
+		n := offset + len(items)
+		nextOffset = &n
+	}
+	return c.JSON(platform.RateLimitRuleListResponse{
+		Data:       items,
+		Total:      total,
+		Limit:      limit,
+		Offset:     offset,
+		NextOffset: nextOffset,
+	})
+}
+
+func (h *Handlers) CreateRateLimitRule(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	req, err := parseCreateRateLimitRuleRequest(c)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	if err := validateCreateRateLimitRuleRequest(req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	item, err := h.models.CreateRateLimitRule(c.Context(), currentTenant.ID, req)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusUnprocessableEntity, "ثبت قانون انجام نشد. لطفا فیلدهای قانون و شرایط را دوباره بررسی کنید.")
+		}
+		return mapProviderAccountStoreError(err)
+	}
+	return c.Status(fiber.StatusCreated).JSON(item)
+}
+
+func (h *Handlers) GetRateLimitRule(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	ruleID := strings.TrimSpace(c.Params("id"))
+	if ruleID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "id is required")
+	}
+	item, err := h.models.GetRateLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "rate limit rule not found")
+		}
+		return err
+	}
+	return c.JSON(item)
+}
+
+func (h *Handlers) UpdateRateLimitRule(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	ruleID := strings.TrimSpace(c.Params("id"))
+	if ruleID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "id is required")
+	}
+	req, err := parseUpdateRateLimitRuleRequest(c)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	if err := validateUpdateRateLimitRuleRequest(req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	item, err := h.models.UpdateRateLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID, req)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "rate limit rule not found")
+		}
+		return mapProviderAccountStoreError(err)
+	}
+	return c.JSON(item)
+}
+
+func (h *Handlers) DeleteRateLimitRule(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	ruleID := strings.TrimSpace(c.Params("id"))
+	if ruleID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "id is required")
+	}
+	if err := h.models.DeleteRateLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "rate limit rule not found")
+		}
+		return err
+	}
+	return c.JSON(fiber.Map{"success": true})
+}
+
+func (h *Handlers) UpdateRateLimitRuleStatus(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	ruleID := strings.TrimSpace(c.Params("id"))
+	if ruleID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "id is required")
+	}
+	var req platform.UpdateRateLimitRuleStatusRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	item, err := h.models.UpdateRateLimitRuleStatusByRuleID(c.Context(), currentTenant.ID, ruleID, req.Enabled)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "rate limit rule not found")
+		}
+		return err
+	}
+	return c.JSON(item)
+}
+
+func validateCreateRateLimitRuleRequest(req platform.CreateRateLimitRuleRequest) error {
+	if strings.TrimSpace(req.RuleID) == "" {
+		return errors.New("rule_id is required")
+	}
+	if len(req.Limit) == 0 {
+		return errors.New("limit is required")
+	}
+	return nil
+}
+
+func validateUpdateRateLimitRuleRequest(req platform.UpdateRateLimitRuleRequest) error {
+	if req.Priority != nil && *req.Priority < 0 {
+		return errors.New("priority cannot be negative")
+	}
+	return nil
+}
+
+func parseCreateRateLimitRuleRequest(c *fiber.Ctx) (platform.CreateRateLimitRuleRequest, error) {
+	var raw map[string]interface{}
+	if err := c.BodyParser(&raw); err != nil {
+		return platform.CreateRateLimitRuleRequest{}, err
+	}
+	effectiveFrom, err := parseOptionalTimeValue(raw["effective_from"])
+	if err != nil {
+		return platform.CreateRateLimitRuleRequest{}, err
+	}
+	expiresAt, err := parseOptionalTimeValue(raw["expires_at"])
+	if err != nil {
+		return platform.CreateRateLimitRuleRequest{}, err
+	}
+	raw["effective_from"] = nil
+	raw["expires_at"] = nil
+
+	encoded, err := json.Marshal(raw)
+	if err != nil {
+		return platform.CreateRateLimitRuleRequest{}, err
+	}
+	var req platform.CreateRateLimitRuleRequest
+	if err := json.Unmarshal(encoded, &req); err != nil {
+		return platform.CreateRateLimitRuleRequest{}, err
+	}
+	req.EffectiveFrom = effectiveFrom
+	req.ExpiresAt = expiresAt
+	return req, nil
+}
+
+func parseUpdateRateLimitRuleRequest(c *fiber.Ctx) (platform.UpdateRateLimitRuleRequest, error) {
+	var raw map[string]interface{}
+	if err := c.BodyParser(&raw); err != nil {
+		return platform.UpdateRateLimitRuleRequest{}, err
+	}
+	effectiveFrom, err := parseOptionalTimeValue(raw["effective_from"])
+	if err != nil {
+		return platform.UpdateRateLimitRuleRequest{}, err
+	}
+	expiresAt, err := parseOptionalTimeValue(raw["expires_at"])
+	if err != nil {
+		return platform.UpdateRateLimitRuleRequest{}, err
+	}
+	raw["effective_from"] = nil
+	raw["expires_at"] = nil
+
+	encoded, err := json.Marshal(raw)
+	if err != nil {
+		return platform.UpdateRateLimitRuleRequest{}, err
+	}
+	var req platform.UpdateRateLimitRuleRequest
+	if err := json.Unmarshal(encoded, &req); err != nil {
+		return platform.UpdateRateLimitRuleRequest{}, err
+	}
+	req.EffectiveFrom = effectiveFrom
+	req.ExpiresAt = expiresAt
+	return req, nil
+}
+
+func parseOptionalTimeValue(value interface{}) (*time.Time, error) {
+	if value == nil {
+		return nil, nil
+	}
+	switch v := value.(type) {
+	case string:
+		trimmed := strings.TrimSpace(v)
+		if trimmed == "" {
+			return nil, nil
+		}
+		parsed, err := time.Parse(time.RFC3339, trimmed)
+		if err != nil {
+			return nil, err
+		}
+		return &parsed, nil
+	default:
+		return nil, nil
+	}
 }
 
 // GetWallet returns the current tenant wallet.

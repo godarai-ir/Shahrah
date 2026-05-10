@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -2040,9 +2040,11 @@ function buildPrincipalSelectorLabels(
 ): PrincipalEntitySelectLabels {
   const isEnglish = t("principal.user").trim().toLowerCase() === "user";
   return {
-    users: isEnglish ? "Users" : "کاربران",
+    users: isEnglish ? "Users" : "Ú©Ø§Ø±Ø¨Ø±Ø§Ù†",
     teams: isEnglish ? "Teams" : "تیم‌ها",
-    externalIdentities: isEnglish ? "External identities" : "هویت‌های خارجی",
+    orgUnits: isEnglish ? "Org units" : "واحدهای سازمانی",
+    virtualAccounts: isEnglish ? "Virtual accounts" : "اکانت‌های مجازی",
+    externalIdentities: isEnglish ? "External identities" : "Ù‡ÙˆÛŒØªâ€ŒÙ‡Ø§ÛŒ Ø®Ø§Ø±Ø¬ÛŒ",
     everyone: t("principal.everyone"),
     searchPlaceholder: t("principal.searchPlaceholder"),
     triggerPlaceholder: t("principal.searchPlaceholder"),
@@ -2285,3 +2287,4 @@ function formatCostPerMillion(value: number | undefined, naLabel: string): strin
   if (typeof value !== "number" || !Number.isFinite(value)) return naLabel;
   return `$${value} / 1M`;
 }
+

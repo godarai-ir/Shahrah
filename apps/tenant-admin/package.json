@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test:auth": "node --import tsx --test lib/auth/*.test.ts"
+    "test:auth": "node --import tsx --test lib/auth/*.test.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.11",
@@ -29,9 +30,13 @@
     "nodemailer": "^7.0.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-hook-form": "^7.66.0",
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
+    "@hookform/resolvers": "^5.2.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/nodemailer": "^7.0.1",
@@ -41,6 +46,8 @@
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.4",
+    "zod": "^4.1.12"
   }
 }

@@ -1,1119 +1,1161 @@
 {
-    "theme":  {
-                  "toggle":  "تغییر حالت نمایش",
-                  "light":  "روشن",
-                  "dark":  "تیره",
-                  "system":  "سیستمی"
-              },
-    "shell":  {
-                  "title":  "پنل مدیریت تننت",
-                  "tenant":  "مدیریت تننت",
-                  "searchPlaceholder":  "جستجو در پنل...",
-                  "logout":  "خروج",
-                  "menu":  {
-                               "open":  "باز کردن منو",
-                               "description":  "مسیریابی و دسترسی سریع به ابزارهای پنل"
-                           },
-                  "nav":  {
-                              "title":  "مسیریابی اصلی",
-                              "dashboard":  "داشبورد",
-                              "topup":  "شارژ کیف پول",
-                              "settings":  "تنظیمات حساب",
-                              "providerAccounts":  "حساب‌های ارائه‌دهنده",
-                              "virtualModels":  "مدل‌های مجازی",
-                              "accessManagement":  "مدیریت دسترسی",
-                              "orgUnits":  "واحدهای سازمانی",
-                              "teams":  "تیم‌ها",
-                              "traces":  "Request Traces",
-                              "metrics":  "Model Metrics"
-                          },
-                  "logoAlt":  "لوگوی شاهراه"
-              },
-    "common":  {
-                   "save":  "ذخیره",
-                   "cancel":  "انصراف",
-                   "refresh":  "بازآوری",
-                   "loading":  "در حال بارگیری...",
-                   "requestError":  "درخواست با خطا مواجه شد.",
-                   "none":  "-",
-                   "notSet":  "تعریف نشده"
-               },
-    "dashboard":  {
-                      "title":  "داشبورد تننت",
-                      "subtitle":  "مدیریت کلیدها، مدل‌ها و وضعیت اعتبار تننت",
-                      "currentUser":  "کاربر فعلی",
-                      "refreshing":  "در حال بازآوری...",
-                      "keyCreatedTitle":  "کلید تازه ایجادشده فقط یک‌بار نمایش داده می‌شود",
-                      "messages":  {
-                                       "errorTitle":  "خطا",
-                                       "successTitle":  "موفق"
-                                   },
-                      "stats":  {
-                                    "balance":  "موجودی کیف پول",
-                                    "balanceHint":  "اعتبار قابل مصرف",
-                                    "pending":  "تراکنش‌های در انتظار",
-                                    "pendingHint":  "مبالغ تاییدنشده",
-                                    "keys":  "کلیدهای API",
-                                    "keysHint":  "تعداد کلیدهای فعال"
-                                },
-                      "keys":  {
-                                   "title":  "مدیریت کلیدهای API",
-                                   "description":  "صدور و مدیریت کلیدهای دسترسی مدل",
-                                   "name":  "نام کلید",
-                                   "namePlaceholder":  "tenant-dashboard-key",
-                                   "models":  "مدل‌های مجاز (با ویرگول جدا کنید)",
-                                   "modelsPlaceholder":  "gpt-4o-mini,gpt-4.1-mini",
-                                   "create":  "ایجاد کلید",
-                                   "creating":  "در حال ایجاد...",
-                                   "table":  {
-                                                 "name":  "نام",
-                                                 "role":  "نقش",
-                                                 "models":  "مدل‌ها",
-                                                 "key":  "کلید",
-                                                 "hidden":  "پنهان",
-                                                 "empty":  "هنوز کلیدی برای این تننت ثبت نشده است."
-                                             },
-                                   "messages":  {
-                                                    "validation":  "وارد کردن نام کلید و حداقل یک مدل الزامی است.",
-                                                    "success":  "کلید API با موفقیت ایجاد شد."
-                                                }
-                               },
-                      "models":  {
-                                     "title":  "مدل‌های تننت",
-                                     "description":  "افزودن و مدیریت مدل‌های قابل مصرف",
-                                     "displayName":  "نام نمایشی مدل",
-                                     "provider":  "ارائه‌دهنده",
-                                     "providerModel":  "شناسه مدل در ارائه‌دهنده",
-                                     "apiBase":  "آدرس پایه API",
-                                     "apiKey":  "API Key",
-                                     "rpm":  "RPM",
-                                     "tpm":  "TPM",
-                                     "weight":  "وزن",
-                                     "create":  "افزودن مدل",
-                                     "creating":  "در حال افزودن...",
-                                     "messages":  {
-                                                      "validation":  "تکمیل فیلدهای الزامی مدل ضروری است.",
-                                                      "success":  "مدل جدید با موفقیت ثبت شد."
-                                                  }
-                                 },
-                      "transactions":  {
-                                           "title":  "تراکنش‌های کیف پول",
-                                           "description":  "۲۰ تراکنش آخر کیف پول این تننت",
-                                           "columns":  {
-                                                           "id":  "شناسه",
-                                                           "type":  "نوع",
-                                                           "status":  "وضعیت",
-                                                           "amount":  "مبلغ (ریال)",
-                                                           "createdAt":  "زمان ایجاد"
-                                                       },
-                                           "empty":  "تراکنشی ثبت نشده است."
-                                       }
-                  },
-    "topupPage":  {
-                      "title":  "شارژ کیف پول",
-                      "description":  "مبلغ شارژ را انتخاب کنید و به درگاه پرداخت منتقل شوید.",
-                      "errorTitle":  "خطا",
-                      "amountLabel":  "مبلغ (دلار)",
-                      "providerLabel":  "درگاه پرداخت",
-                      "balanceLabel":  "موجودی فعلی کیف پول",
-                      "constraints":  "بازه مجاز: {min} تا {max} دلار | مالیات: {tax}% | کارمزد: {fee}%",
-                      "submit":  "ادامه و انتقال به درگاه",
-                      "submitLoading":  "در حال ایجاد پرداخت...",
-                      "providers":  {
-                                        "mock":  "درگاه آزمایشی (توسعه)",
-                                        "zarinpal":  "زرین‌پال",
-                                        "idpay":  "آی‌دی‌پی"
-                                    },
-                      "messages":  {
-                                       "amountOutOfRange":  "مبلغ باید بین {min} و {max} دلار باشد.",
-                                       "intentFailed":  "ایجاد درخواست پرداخت ناموفق بود.",
-                                       "missingRedirect":  "آدرس انتقال به درگاه دریافت نشد.",
-                                       "unknownError":  "خطای ناشناخته رخ داد."
-                                   },
-                      "transactions":  {
-                                           "title":  "تراکنش‌های اخیر",
-                                           "description":  "۲۰ تراکنش آخر کیف پول این تننت",
-                                           "columns":  {
-                                                           "id":  "شناسه",
-                                                           "type":  "نوع",
-                                                           "status":  "وضعیت",
-                                                           "amount":  "مبلغ (ریال)",
-                                                           "createdAt":  "زمان ایجاد"
-                                                       },
-                                           "empty":  "تراکنشی ثبت نشده است."
-                                       }
-                  },
-    "topupResult":  {
-                        "title":  "نتیجه شارژ کیف پول",
-                        "successDescription":  "پرداخت موفق بود و کیف پول شارژ شد.",
-                        "failureDescription":  "پرداخت کامل نشد یا با خطا مواجه شد.",
-                        "fields":  {
-                                       "status":  "وضعیت",
-                                       "refId":  "کد پیگیری",
-                                       "authority":  "Authority درگاه",
-                                       "reason":  "دلیل"
-                                   },
-                        "backToTopup":  "بازگشت به صفحه شارژ"
-                    },
-    "login":  {
-                  "title":  "ورود",
-                  "subtitle":  "با ایمیل یا شماره همراه وارد شوید. کد OTP متناسب با شیوه ورود ارسال می‌شود.",
-                  "identifier":  "ایمیل یا شماره همراه",
-                  "identifierPlaceholder":  "name@example.com یا +98912...",
-                  "captcha":  {
-                                  "label":  "کپچای تصویری",
-                                  "answer":  "پاسخ کپچا",
-                                  "answerPlaceholder":  "متن کپچا را وارد کنید",
-                                  "refresh":  "کپچای جدید"
-                              },
-                  "otp":  {
-                              "request":  "دریافت OTP",
-                              "requesting":  "در حال ارسال OTP...",
-                              "verifyTitle":  "تایید کد ورود",
-                              "verify":  "ورود به پنل",
-                              "verifying":  "در حال تایید...",
-                              "code":  "کد OTP",
-                              "codePlaceholder":  "کد ۶ رقمی",
-                              "sent":  "کد OTP به {destination} ارسال شد.",
-                              "enterCode":  "کد ارسال‌شده به {destination} را وارد کنید.",
-                              "devCode":  "کد توسعه",
-                              "back":  "بازگشت"
-                          },
-                  "logoAlt":  "لوگوی شاهراه"
-              },
-    "settings":  {
-                     "title":  "تنظیمات حساب",
-                     "subtitle":  "مدیریت اطلاعات تماس و احراز هویت",
-                     "role":  "نقش فعلی",
-                     "sections":  {
-                                      "email":  "ایمیل",
-                                      "mobile":  "شماره همراه"
-                                  },
-                     "currentValue":  "مقدار فعلی",
-                     "newEmail":  "ایمیل جدید",
-                     "newMobile":  "شماره همراه جدید",
-                     "sendCode":  "ارسال کد تایید",
-                     "otpSentTo":  "ارسال شده به {destination}",
-                     "otpCode":  "کد OTP",
-                     "otpCodePlaceholder":  "کد ۶ رقمی",
-                     "confirmEmail":  "تایید تغییر ایمیل",
-                     "confirmMobile":  "تایید تغییر شماره همراه",
-                     "devCode":  "کد توسعه",
-                     "messages":  {
-                                      "sent":  "کد تایید به {destination} ارسال شد.",
-                                      "emailSuccess":  "ایمیل با موفقیت تغییر کرد.",
-                                      "mobileSuccess":  "شماره همراه با موفقیت تغییر کرد."
-                                  }
-                 },
-    "providerAccounts":  {
-                             "title":  "حساب‌های ارائه‌دهنده مدل",
-                             "description":  "اتصال حساب‌های ارائه‌دهنده، فعال‌سازی مدل‌ها و مدیریت دسترسی مصرف",
-                             "errorTitle":  "خطا",
-                             "successTitle":  "موفق",
-                             "existingAccount":  "حساب ارائه‌دهنده",
-                             "selectAccount":  "یک حساب ارائه‌دهنده انتخاب کنید",
-                             "loadAccount":  "بارگذاری تنظیمات حساب",
-                             "refresh":  "بازآوری داده‌ها",
-                             "refreshing":  "در حال بازآوری...",
-                             "testing":  "در حال اعتبارسنجی...",
-                             "testCredentials":  "اعتبارسنجی اتصال",
-                             "selectProvider":  "انتخاب ارائه‌دهنده",
-                             "creating":  "در حال ایجاد حساب...",
-                             "createProviderAccount":  "ایجاد حساب جدید",
-                             "saving":  "در حال ذخیره...",
-                             "saveSelectedModels":  "ذخیره مدل‌های فعال",
-                             "saveAccessControl":  "ذخیره سطح دسترسی",
-                             "step1":  {
-                                           "title":  "گام ۱: انتخاب ارائه‌دهنده",
-                                           "description":  "ارائه‌دهنده مدل را انتخاب کنید تا وارد تنظیمات اتصال همان ارائه‌دهنده شوید."
-                                       },
-                             "step2":  {
-                                           "title":  "گام ۲: پیکربندی اتصال",
-                                           "description":  "فهرست مدل‌ها از Discovery ارائه‌دهنده دریافت می‌شود.",
-                                           "empty":  "مدل قابلی از این ارائه‌دهنده یافت نشد.",
-                                           "connectionDescription":  "اطلاعات اتصال حساب را متناسب با روش احراز هویت ارائه‌دهنده تکمیل کنید."
-                                       },
-                             "step3":  {
-                                           "title":  "گام ۳: مدل‌ها و دسترسی",
-                                           "managersTitle":  "مدیران حساب (کاربر/تیم)",
-                                           "usersTitle":  "کاربران مجاز به مصرف مدل",
-                                           "description":  "مدل‌های قابل مصرف را فعال کنید و دسترسی کاربران را تنظیم کنید.",
-                                           "accessTitle":  "کنترل دسترسی مصرف",
-                                           "empty":  "مدلی برای این ارائه‌دهنده یافت نشد.",
-                                           "searchPlaceholder":  "جستجو در نام مدل",
-                                           "toggleSelectAll":  "انتخاب/لغو انتخاب همه",
-                                           "columns":  {
-                                                           "model":  "مدل",
-                                                           "inputCost":  "هزینه ورودی (دلار / 1M)",
-                                                           "outputCost":  "هزینه خروجی (دلار / 1M)"
-                                                       }
-                                       },
-                             "fields":  {
-                                            "provider":  "ارائه‌دهنده مدل",
-                                            "accountName":  "نام نمایشی حساب",
-                                            "authMode":  "روش احراز هویت اتصال",
-                                            "virtualKeysMode":  "سیاست کلید مجازی",
-                                            "allowVirtualOnly":  "فقط کلیدهای مجازی تننت",
-                                            "apiKeyOptional":  "API Key (اختیاری)",
-                                            "secretRefOptional":  "مرجع Secret (اختیاری)",
-                                            "pricingMode":  "مبنای قیمت‌گذاری",
-                                            "inputPrice":  "هزینه ورودی (دلار / ۱M توکن)",
-                                            "outputPrice":  "هزینه خروجی (دلار / ۱M توکن)",
-                                            "publicPricing":  "قیمت عمومی",
-                                            "privatePricing":  "قیمت اختصاصی",
-                                            "azureTenantID":  "Azure Tenant ID",
-                                            "azureClientID":  "Azure Client ID",
-                                            "awsAccessKeyID":  "AWS Access Key ID",
-                                            "awsSecretAccessKey":  "AWS Secret Access Key",
-                                            "awsRegion":  "AWS Region",
-                                            "googleServiceAccountJSON":  "Google Service Account JSON"
-                                        },
-                             "principal":  {
-                                               "user":  "کاربر",
-                                               "team":  "تیم",
-                                               "searchPlaceholder":  "نام کاربر یا تیم...",
-                                               "search":  "جستجو",
-                                               "add":  "افزودن",
-                                               "addEveryone":  "اعطای دسترسی به همه کاربران",
-                                               "remove":  "حذف",
-                                               "everyone":  "همه کاربران"
-                                           },
-                             "messages":  {
-                                              "initialLoadFailed":  "بارگیری اولیه انجام نشد.",
-                                              "providerModelsLoadFailed":  "دریافت لیست مدل‌ها از Discovery ناموفق بود.",
-                                              "validationProviderName":  "انتخاب ارائه‌دهنده و وارد کردن نام حساب الزامی است.",
-                                              "accountCreateSuccess":  "حساب ارائه‌دهنده با موفقیت ایجاد شد.",
-                                              "accountCreateFailed":  "ایجاد حساب ارائه‌دهنده انجام نشد.",
-                                              "accountLoadSuccess":  "تنظیمات حساب با موفقیت بارگذاری شد.",
-                                              "accountLoadFailed":  "بارگذاری تنظیمات حساب ناموفق بود.",
-                                              "selectAccountFirst":  "ابتدا یک حساب ارائه‌دهنده انتخاب یا ایجاد کنید.",
-                                              "selectAtLeastOneModel":  "حداقل یک مدل را برای فعال‌سازی انتخاب کنید.",
-                                              "modelsSaveSuccess":  "تنظیمات مدل‌ها با موفقیت ذخیره شد.",
-                                              "modelsSaveFailed":  "ذخیره تنظیمات مدل‌ها ناموفق بود.",
-                                              "managerRequired":  "حداقل یک مدیر حساب باید تعریف شود.",
-                                              "accessSaveSuccess":  "سطح دسترسی با موفقیت ذخیره شد.",
-                                              "accessSaveFailed":  "ذخیره سطح دسترسی ناموفق بود.",
-                                              "credentialValid":  "اعتبارنامه‌های اتصال معتبر است.",
-                                              "credentialInvalid":  "اعتبارسنجی اتصال ناموفق بود.",
-                                              "credentialTestFailed":  "تست اعتبارنامه‌های اتصال انجام نشد.",
-                                              "managerSearchFailed":  "جستجوی مدیران ناموفق بود.",
-                                              "userSearchFailed":  "جستجوی کاربران/تیم‌ها ناموفق بود."
-                                          },
-                             "wizard":  {
-                                            "stepLabel":  "گام {number}",
-                                            "back":  "بازگشت",
-                                            "next":  "ادامه",
-                                            "finalHint":  "پس از تعریف مدیران و کاربران، سطح دسترسی را ذخیره کنید."
-                                        },
-                             "ux":  {
-                                        "panel":  {
-                                                      "setupTitle":  "راه‌اندازی حساب ارائه‌دهنده",
-                                                      "workspaceTitle":  "محیط کاری حساب",
-                                                      "overviewTitle":  "نمای کلی ارائه‌دهنده",
-                                                      "setupHint":  "جریان راه‌اندازی: ارائه‌دهنده، حساب، مدل‌ها، دسترسی و مرور نهایی.",
-                                                      "workspaceHint":  "مرجع اصلی برای مدیریت مدل، دسترسی، اعتبارنامه و اثر سیاست‌ها در Runtime.",
-                                                      "overviewHint":  "یک حساب موجود را باز کنید یا حساب جدید بسازید."
-                                                  },
-                                        "sidebar":  {
-                                                        "connectedProviders":  "ارائه‌دهندگان متصل",
-                                                        "connectedProvidersHint":  "یک ارائه‌دهنده را انتخاب کنید و سپس محیط کاری حساب را باز کنید.",
-                                                        "providerAccounts":  "حساب‌های ارائه‌دهنده",
-                                                        "selectProviderPrompt":  "ارائه‌دهنده را انتخاب کنید",
-                                                        "noAccountYet":  "هنوز حسابی برای این ارائه‌دهنده ثبت نشده است."
-                                                    },
-                                        "setupSteps":  {
-                                                           "provider":  "ارائه‌دهنده",
-                                                           "accountCredentials":  "حساب و اعتبارنامه",
-                                                           "models":  "مدل‌ها",
-                                                           "access":  "دسترسی",
-                                                           "review":  "مرور نهایی"
-                                                       },
-                                        "tabs":  {
-                                                     "models":  "مدل‌ها",
-                                                     "access":  "دسترسی",
-                                                     "credentials":  "اعتبارنامه",
-                                                     "observability":  "مشاهده‌پذیری"
-                                                 },
-                                        "actions":  {
-                                                        "addProviderAccount":  "افزودن حساب ارائه‌دهنده",
-                                                        "copyFqn":  "کپی FQN",
-                                                        "continue":  "ادامه",
-                                                        "back":  "بازگشت",
-                                                        "activateAccount":  "فعال‌سازی حساب",
-                                                        "activating":  "در حال فعال‌سازی...",
-                                                        "setupNewAccount":  "راه‌اندازی حساب جدید",
-                                                        "openExisting":  "باز کردن حساب موجود",
-                                                        "loadEffectiveModels":  "بارگذاری مدل‌های مؤثر",
-                                                        "loading":  "در حال بارگذاری...",
-                                                        "refreshCatalog":  "بازآوری کاتالوگ",
-                                                        "refreshingCatalog":  "در حال بازآوری کاتالوگ..."
-                                                    },
-                                        "setup":  {
-                                                      "stepLabel":  "گام {number}",
-                                                      "selectProviderTitle":  "انتخاب ارائه‌دهنده",
-                                                      "selectProviderDesc":  "ارائه‌دهنده را انتخاب کنید و تنظیمات حساب را ادامه دهید.",
-                                                      "authModes":  "روش‌های احراز هویت",
-                                                      "accountBasicsTitle":  "مشخصات حساب و اعتبارنامه"
-                                                  },
-                                        "review":  {
-                                                       "title":  "مرور و فعال‌سازی",
-                                                       "activationCheckTitle":  "بررسی پیش از فعال‌سازی"
-                                                   },
-                                        "kpi":  {
-                                                    "credentialStatus":  "وضعیت اعتبارنامه",
-                                                    "enabledModels":  "مدل‌های فعال",
-                                                    "unresolvedPricing":  "قیمت‌گذاری حل‌نشده",
-                                                    "managersUsers":  "مدیران / کاربران",
-                                                    "provider":  "ارائه‌دهنده"
-                                                },
-                                        "readiness":  {
-                                                          "ready":  "آماده",
-                                                          "needsCredentials":  "نیازمند اعتبارنامه",
-                                                          "needsAccess":  "نیازمند دسترسی",
-                                                          "pricingIncomplete":  "قیمت‌گذاری ناقص"
-                                                      },
-                                        "overview":  {
-                                                         "title":  "مدیریت حساب ارائه‌دهنده و دسترسی مدل",
-                                                         "description":  "یک حساب آماده برای Runtime بسازید: اعتبارنامه را تنظیم کنید، مدل‌ها را فعال کنید، دسترسی‌ها را تخصیص دهید و سیاست مؤثر را بررسی کنید."
-                                                     },
-                                        "microcopy":  {
-                                                          "virtualOnly":  "حالت فقط Virtual-Key: برنامه‌ها می‌توانند بدون ذخیره اعتبارنامه ارائه‌دهنده، از کلیدهای پلتفرم استفاده کنند.",
-                                                          "pricingPolicy":  "قیمت‌گذاری عمومی از نرخ‌های کاتالوگ استفاده می‌کند و ممکن است در زمان تغییر کند. قیمت‌گذاری خصوصی، نرخ‌های کاتالوگ را برای این حساب بازنویسی می‌کند."
-                                                      },
-                                        "credentials":  {
-                                                            "desc":  "اعتبارنامه را به‌روزرسانی کنید و آزمون اتصال اجرا کنید.",
-                                                            "hasCredential":  "دارای اعتبارنامه",
-                                                            "virtualOnly":  "فقط Virtual-Key",
-                                                            "lastTest":  "آخرین آزمون",
-                                                            "notTested":  "در این نشست هنوز آزمونی اجرا نشده است"
-                                                        },
-                                        "observability":  {
-                                                              "desc":  "پیش از ترافیک واقعی، نتیجه سیاست مؤثر و دلایل رد شدن درخواست را بررسی کنید.",
-                                                              "deniedReasons":  "دسته‌بندی دلایل رد: `not in allowlist`، `capability mismatch`، `unknown model`.",
-                                                              "cacheTTL":  "مدت زنده‌ماندن کش (ثانیه)",
-                                                              "providersCache":  "کش ارائه‌دهنده‌ها (hit/miss)",
-                                                              "modelsCache":  "کش مدل‌ها (hit/miss)",
-                                                              "discoveryErrors":  "خطاهای Discovery",
-                                                              "discoveryFallback":  "Fallback های Discovery"
-                                                          },
-                                        "messages":  {
-                                                         "fqnCopied":  "FQN حساب کپی شد.",
-                                                         "accountActivated":  "حساب فعال شد و برای اعمال سیاست‌های Runtime آماده است.",
-                                                         "catalogRefreshSuccess":  "کش کاتالوگ ارائه‌دهنده با موفقیت بازآوری شد.",
-                                                         "catalogRefreshFailed":  "بازآوری کاتالوگ ارائه‌دهنده ناموفق بود.",
-                                                         "modelTypeRequired":  "حداقل یک نوع مدل الزامی است",
-                                                         "privatePricingRequired":  "برای قیمت‌گذاری خصوصی، هزینه ورودی یا خروجی الزامی است"
-                                                     },
-                                        "common":  {
-                                                       "yes":  "بله",
-                                                       "no":  "خیر",
-                                                       "enabled":  "فعال",
-                                                       "disabled":  "غیرفعال"
-                                                   },
-                                        "models":  {
-                                                       "description":  "مدل‌ها، قابلیت‌ها و حالت قیمت‌گذاری را انتخاب کنید.",
-                                                       "columns":  {
-                                                                       "model":  "مدل",
-                                                                       "capabilities":  "قابلیت‌ها",
-                                                                       "pricingMode":  "حالت قیمت‌گذاری",
-                                                                       "costConfig":  "پیکربندی هزینه"
-                                                                   },
-                                                       "pricing":  {
-                                                                       "public":  "عمومی",
-                                                                       "private":  "خصوصی"
-                                                                   },
-                                                       "placeholders":  {
-                                                                            "input":  "ورودی",
-                                                                            "output":  "خروجی"
-                                                                        },
-                                                       "catalogPricing":  "قیمت کاتالوگ",
-                                                       "labels":  {
-                                                                      "input":  "ورودی",
-                                                                      "output":  "خروجی"
-                                                                  },
-                                                       "na":  "نامشخص"
-                                                   },
-                                        "access":  {
-                                                       "description":  "مدیران می‌توانند تنظیمات حساب را تغییر دهند و کاربران می‌توانند مدل‌های فعال را مصرف کنند.",
-                                                       "effectivePreviewTitle":  "پیش‌نمایش دسترسی مؤثر",
-                                                       "keyTypeLabel":  "نوع کلید",
-                                                       "userIdLabel":  "کاربر",
-                                                       "teamIdLabel":  "تیم",
-                                                       "optional":  "اختیاری",
-                                                       "previewAction":  "پیش‌نمایش",
-                                                       "pat":  "pat",
-                                                       "vat":  "vat"
-                                                   },
-                                        "effectiveModels":  {
-                                                                "columns":  {
-                                                                                "model":  "مدل",
-                                                                                "capabilities":  "قابلیت‌ها",
-                                                                                "pricing":  "قیمت‌گذاری",
-                                                                                "status":  "وضعیت"
-                                                                            },
-                                                                "empty":  "برای محدوده انتخاب‌شده، مدل مؤثری برنگشت.",
-                                                                "resolved":  "حل‌شده",
-                                                                "unresolved":  "حل‌نشده",
-                                                                "allowed":  "مجاز",
-                                                                "denied":  "غیرمجاز"
-                                                             },
-                                        "placeholders":  {
-                                                             "accountName":  "مثال: openai-production",
-                                                             "apiKey":  "مثال: sk-...",
-                                                             "secretRefProvider":  "مثال: vault://provider-key",
-                                                             "tenantId":  "شناسه tenant",
-                                                             "clientId":  "شناسه client",
-                                                             "secretRefAzure":  "مثال: vault://azure-cert",
-                                                             "awsAccessKey":  "مثال: AKIA...",
-                                                             "secret":  "مقدار secret",
-                                                             "awsRegion":  "مثال: us-east-1",
-                                                             "secretRefGoogle":  "مثال: vault://gcp-service-account",
-                                                             "googleServiceJson":  "{\"type\":\"service_account\", ...}"
-                                                         }
-                                    }
-                         },
-    "virtualModels":  {
-                          "title":  "مدل‌های مجازی",
-                          "description":  "ایجاد الیاس پایدار با مسیریابی اولویتی، تکرار و فال‌بک.",
-                          "searchPlaceholder":  "جست‌وجوی الیاس",
-                          "alerts":  {
-                                         "error":  "خطا",
-                                         "success":  "موفق"
-                                     },
-                          "actions":  {
-                                          "refresh":  "بازآوری",
-                                          "new":  "مدل مجازی جدید",
-                                          "create":  "ایجاد مدل مجازی",
-                                          "reset":  "بازنشانی تغییرات"
-                                      },
-                          "status":  {
-                                         "enabled":  "فعال",
-                                         "disabled":  "غیرفعال"
-                                     },
-                          "empty":  {
-                                        "title":  "هنوز مدل مجازی ثبت نشده",
-                                        "description":  "برای مسیریابی ترافیک بین ارائه‌دهنده‌ها یک مدل مجازی بسازید."
-                                    },
-                          "list":  {
-                                       "alias":  "الیاس",
-                                       "strategy":  "استراتژی",
-                                       "targets":  "تارگت‌ها",
-                                       "status":  "وضعیت"
-                                   },
-                          "form":  {
-                                       "createTitle":  "ایجاد مدل مجازی",
-                                       "editTitle":  "ویرایش مدل مجازی",
-                                       "createDescription":  "الیاس، ترتیب تارگت‌ها و رفتار فال‌بک را تعریف کنید.",
-                                       "editDescription":  "الیاس، فعال/غیرفعال بودن و سیاست روتینگ را به‌روزرسانی کنید.",
-                                       "alias":  "الیاس",
-                                       "aliasPlaceholder":  "gpt-4o-smart",
-                                       "strategy":  "استراتژی مسیریابی",
-                                       "priorityValue":  "اولویتی (MVP)",
-                                       "enabledLabel":  "در دسترس بودن",
-                                       "enabledHelp":  "مدل‌های غیرفعال در درخواست‌های گیت‌وی قابل استفاده نیستند."
-                                   },
-                          "targets":  {
-                                          "title":  "زنجیره تارگت",
-                                          "description":  "ترافیک از تارگت ۱ شروع می‌شود و در صورت خطا فال‌بک می‌زند.",
-                                          "add":  "افزودن تارگت",
-                                          "itemLabel":  "تارگت {order}",
-                                          "provider":  "ارائه‌دهنده",
-                                          "model":  "مدل ارائه‌دهنده",
-                                          "retryAttempts":  "تعداد تکرار",
-                                          "retryDelay":  "تأخیر تکرار (ms)",
-                                          "timeout":  "تایم‌اوت (ثانیه)",
-                                          "retryCodes":  "کدهای تکرار",
-                                          "fallbackCodes":  "کدهای فال‌بک"
-                                      },
-                          "preview":  {
-                                          "title":  "پیش‌نمایش مسیریابی مؤثر",
-                                          "description":  "درخواست تا زمان موفقیت با این ترتیب ارسال می‌شود.",
-                                          "providerPlaceholder":  "provider",
-                                          "modelPlaceholder":  "model"
-                                      },
-                          "messages":  {
-                                           "listLoadError":  "بارگذاری مدل‌های مجازی ناموفق بود.",
-                                           "detailLoadError":  "بارگذاری جزئیات مدل مجازی ناموفق بود.",
-                                           "createSuccess":  "مدل مجازی با موفقیت ایجاد شد.",
-                                           "createError":  "ایجاد مدل مجازی ناموفق بود.",
-                                           "updateSuccess":  "مدل مجازی با موفقیت به‌روزرسانی شد.",
-                                           "updateError":  "به‌روزرسانی مدل مجازی ناموفق بود.",
-                                           "unsavedConfirm":  "تغییرات ذخیره‌نشده دارید. ادامه داده و تغییرات را رها کنیم؟",
-                                           "disableConfirm":  "این مدل مجازی غیرفعال شود؟ درخواست‌های با این الیاس با خطا مواجه می‌شوند.",
-                                           "aliasRequired":  "الیاس الزامی است.",
-                                           "aliasPattern":  "الیاس فقط می‌تواند شامل حروف، عدد، خط تیره یا آندرلاین باشد.",
-                                           "targetsRequired":  "حداقل یک تارگت الزامی است.",
-                                           "providerRequired":  "برای هر تارگت ارائه‌دهنده الزامی است.",
-                                           "modelRequired":  "برای هر تارگت مدل الزامی است.",
-                                           "duplicateOrder":  "اولویت تارگت‌ها باید یکتا باشد.",
-                                           "retryAttemptsRange":  "تعداد تکرار باید بین ۰ تا ۵ باشد.",
-                                           "retryDelayRange":  "تأخیر تکرار باید بین ۰ تا ۱۰۰۰۰ ms باشد."
-                                       }
-                      },
-    "accessManagement":  {
-                             "title":  "مدیریت دسترسی",
-                             "tabs":  {
-                                          "users":  "کاربران",
-                                          "teams":  "تیم‌ها",
-                                          "externalAuth":  "احراز هویت خارجی",
-                                          "personalAccessTokens":  "توکن‌های دسترسی شخصی",
-                                          "virtualAccounts":  "حساب‌های مجازی",
-                                          "roles":  "نقش‌ها",
-                                          "auditLogs":  "تاریخچه حسابرسی"
-                                      },
-                             "allUsers":  "همه کاربران",
-                             "searchPlaceholder":  "جستجو...",
-                             "inviteUser":  "دعوت کاربر",
-                             "inviteTitle":  "دعوت کاربر",
-                             "inviteDescription":  "کاربر را با ایمیل به این تننت دعوت کنید.",
-                             "form":  {
-                                          "email":  "ایمیل",
-                                          "emailPlaceholder":  "user@company.com",
-                                          "role":  "نقش"
-                                      },
-                             "roles":  {
-                                           "member":  "عضو",
-                                           "tenantAdmin":  "مدیر تننت"
-                                       },
-                             "button":  {
-                                            "createInvite":  "ایجاد دعوت",
-                                            "inviting":  "در حال دعوت..."
-                                        },
-                             "table":  {
-                                           "emailMobile":  "ایمیل / شماره همراه",
-                                           "displayName":  "نام نمایشی",
-                                           "role":  "نقش",
-                                           "noUsersFound":  "کاربری یافت نشد."
-                                       },
-                             "status":  {
-                                            "deactivated":  "غیرفعال"
-                                        },
-                             "actions":  {
-                                             "activate":  "فعال کردن",
-                                             "deactivate":  "غیرفعال کردن"
-                                         },
-                             "pagination":  {
-                                                "showingResults":  "نمایش {from} تا {to} از {total} نتیجه",
-                                                "rowsPerPage":  "سطر در هر صفحه",
-                                                "page":  "صفحه",
-                                                "prev":  "قبلی",
-                                                "next":  "بعدی"
-                                            },
-                             "alerts":  {
-                                            "invitationLink":  "لینک دعوت",
-                                            "error":  "خطا",
-                                            "success":  "موفق"
-                                        },
-                             "messages":  {
-                                              "loadUsersError":  "بارگیری کاربران ناموفق بود.",
-                                              "provideEmail":  "ارائه ایمیل برای دعوت الزامی است.",
-                                              "invitationSuccess":  "دعوت کاربر با موفقیت ایجاد شد.",
-                                              "inviteError":  "دعوت کاربر ناموفق بود.",
-                                              "activateSuccess":  "کاربر فعال شد.",
-                                              "deactivateSuccess":  "کاربر غیرفعال شد.",
-                                              "updateStatusError":  "به‌روزرسانی وضعیت کاربر ناموفق بود."
-                                          }
-                         },
-    "orgUnits":  {
-                     "title":  "واحدهای سازمانی",
-                     "subtitle":  "تیم‌ها را بر اساس دپارتمان، مرکز هزینه و محدوده مدیریتی با کنترل بودجه گروه‌بندی کنید.",
-                     "breadcrumb":  {
-                                        "tenant":  "تننت"
-                                    },
-                     "common":  {
-                                    "notSet":  "تعریف نشده",
-                                    "inherited":  "ارث‌بری‌شده"
-                                },
-                     "actions":  {
-                                     "refresh":  "بازآوری",
-                                     "new":  "واحد جدید",
-                                     "saving":  "در حال ذخیره...",
-                                     "viewDetails":  "مشاهده جزئیات",
-                                     "edit":  "ویرایش",
-                                     "manageMembers":  "مدیریت اعضا",
-                                     "members":  "اعضا",
-                                     "delete":  "حذف"
-                                 },
-                     "alerts":  {
-                                    "error":  "خطا",
-                                    "warning":  "نیاز به بررسی",
-                                    "success":  "موفق"
-                                },
-                     "list":  {
-                                  "title":  "همه واحدها",
-                                  "description":  "فهرست عملیاتی همراه با شاخص‌های بودجه و مدیریت."
-                              },
-                     "filters":  {
-                                     "searchPlaceholder":  "جستجوی نام یا alias",
-                                     "filterLabel":  "فیلتر واحدهای سازمانی",
-                                     "sortLabel":  "مرتب‌سازی واحدهای سازمانی",
-                                     "all":  "همه",
-                                     "withTeams":  "دارای تیم",
-                                     "noTeams":  "بدون تیم"
-                                 },
-                     "sort":  {
-                                  "recent":  "جدیدترین",
-                                  "name":  "نام",
-                                  "spend":  "مصرف",
-                                  "teams":  "تیم‌ها"
-                              },
-                     "table":  {
-                                   "orgUnit":  "واحد سازمانی",
-                                   "teams":  "تیم‌ها",
-                                   "members":  "اعضا",
-                                   "budget":  "بودجه",
-                                   "spend":  "مصرف",
-                                   "limits":  "محدودیت‌ها",
-                                   "status":  "وضعیت",
-                                   "updated":  "بروزرسانی"
-                               },
-                     "empty":  {
-                                   "title":  "واحد سازمانی یافت نشد",
-                                   "description":  "واحدهای سازمانی برای گروه‌بندی تیم‌ها، بودجه و مسئولیت مدیریتی در تننت‌های بزرگ استفاده می‌شوند.",
-                                   "action":  "ایجاد اولین واحد"
-                               },
-                     "status":  {
-                                    "normal":  "عادی",
-                                    "warning":  "هشدار",
-                                    "exceeded":  "عبور از سقف"
-                                },
-                     "units":  {
-                                   "tpm":  "TPM",
-                                   "rpm":  "RPM"
-                               },
-                     "pagination":  {
-                                        "showing":  "نمایش {from} تا {to} از {total} نتیجه",
-                                        "rows":  "{count} ردیف",
-                                        "prev":  "قبلی",
-                                        "next":  "بعدی"
-                                    },
-                     "detail":  {
-                                    "breadcrumb":  "تننت / واحد سازمانی",
-                                    "empty":  "یک واحد سازمانی را انتخاب کنید تا بودجه، تیم‌ها، اعضا و متادیتا را ببینید."
-                                },
-                     "kpi":  {
-                                 "totalSpend":  "مصرف کل",
-                                 "remaining":  "بودجه باقی‌مانده",
-                                 "teams":  "تیم‌ها",
-                                 "membersAdmins":  "اعضا/مدیران"
-                             },
-                     "budget":  {
-                                    "title":  "بودجه و محدودیت نرخ",
-                                    "used":  "{amount} مصرف شده",
-                                    "soft":  "بودجه نرم",
-                                    "duration":  "دوره",
-                                    "tpm":  "محدودیت TPM",
-                                    "rpm":  "محدودیت RPM",
-                                    "exceededTitle":  "بودجه از سقف عبور کرده است",
-                                    "warningTitle":  "هشدار بودجه",
-                                    "warningDescription":  "قبل از افزایش دسترسی مدل یا کلید، تخصیص تیم‌ها را بررسی کنید."
-                                },
-                     "teams":  {
-                                   "title":  "تیم‌ها",
-                                   "summaryCount":  "{count} تیم در متادیتای خلاصه ثبت شده است.",
-                                   "emptyMetadata":  "در متادیتای موجود تیمی متصل نیست.",
-                                   "apiHint":  "پس از آماده شدن API تیم‌ها، این خلاصه با فهرست کامل تیم‌ها جایگزین می‌شود.",
-                                   "fallbackName":  "تیم {index}",
-                                   "budget":  "بودجه: {amount}",
-                                   "models":  "مدل‌ها: {models}"
-                               },
-                     "members":  {
-                                     "title":  "اعضا",
-                                     "loading":  "در حال بارگیری اعضا...",
-                                     "empty":  "عضو مستقیمی برای این واحد تعریف نشده است.",
-                                     "added":  "افزوده شده در {date}",
-                                     "manageTitle":  "مدیریت اعضا",
-                                     "manageDescription":  "مدیران واحد را برای مدیریت تیم‌های زیرمجموعه تعیین کنید.",
-                                     "user":  "کاربر",
-                                     "userPlaceholder":  "شناسه کاربر را وارد کنید یا در کاربران بارگیری‌شده جستجو کنید",
-                                     "role":  "نقش",
-                                     "add":  "افزودن عضو",
-                                     "makeMember":  "تبدیل به عضو",
-                                     "makeOrgAdmin":  "تبدیل به مدیر واحد",
-                                     "remove":  "حذف"
-                                 },
-                     "roles":  {
-                                   "orgAdmin":  "مدیر واحد",
-                                   "member":  "عضو"
-                               },
-                     "audit":  {
-                                   "title":  "حسابرسی و متادیتا",
-                                   "created":  "ایجاد",
-                                   "updated":  "بروزرسانی",
-                                   "budgetId":  "شناسه بودجه"
-                               },
-                     "create":  {
-                                    "title":  "ایجاد واحد سازمانی",
-                                    "description":  "یک محدوده مدیریتی برای تیم‌ها، بودجه و مدیران تفویض‌شده تعریف کنید.",
-                                    "submit":  "ایجاد واحد"
-                                },
-                     "edit":  {
-                                  "title":  "ویرایش واحد سازمانی",
-                                  "description":  "تغییرات بودجه یا محدودیت‌ها باید با تخصیص تیم‌های زیرمجموعه سازگار باشد.",
-                                  "submit":  "ذخیره تغییرات"
-                              },
-                     "delete":  {
-                                    "title":  "حذف واحد سازمانی",
-                                    "description":  "وقتی تیم زیرمجموعه وجود دارد، حذف مسدود می‌شود.",
-                                    "childTeamsTitle":  "تیم زیرمجموعه وجود دارد",
-                                    "childTeamsDescription":  "قبل از حذف {name}، تیم‌ها را به ریشه تننت یا واحد دیگری منتقل کنید.",
-                                    "confirmLabel":  "برای تایید alias را وارد کنید: {alias}",
-                                    "submit":  "حذف واحد"
-                                },
-                     "form":  {
-                                  "alias":  "Alias",
-                                  "displayName":  "نام نمایشی",
-                                  "costCenter":  "مرکز هزینه",
-                                  "description":  "توضیح",
-                                  "budgetGuardrails":  "قواعد بودجه",
-                                  "budgetDescription":  "این مقادیر تا زمان اتصال موجودیت Budget در متادیتای واحد ذخیره می‌شوند.",
-                                  "maxBudget":  "بودجه حداکثر",
-                                  "softBudget":  "بودجه نرم",
-                                  "duration":  "دوره",
-                                  "rateLimits":  "محدودیت نرخ",
-                                  "rateDescription":  "تخصیص تیم‌های زیرمجموعه باید پایین‌تر از محدودیت واحد بماند.",
-                                  "tpmLimit":  "محدودیت TPM",
-                                  "rpmLimit":  "محدودیت RPM"
-                              },
-                     "duration":  {
-                                      "monthly":  "ماهانه",
-                                      "weekly":  "هفتگی",
-                                      "daily":  "روزانه"
-                                  },
-                     "messages":  {
-                                      "permissionDenied":  "نقش فعلی شما اجازه ایجاد واحد سازمانی ندارد.",
-                                      "loadError":  "بارگیری واحدهای سازمانی ناموفق بود.",
-                                      "detailLoadError":  "بارگیری جزئیات واحد سازمانی ناموفق بود.",
-                                      "userLoadError":  "بارگیری کاربران برای عضویت ناموفق بود.",
-                                      "createSuccess":  "واحد سازمانی ایجاد شد.",
-                                      "createError":  "ایجاد واحد سازمانی ناموفق بود.",
-                                      "updateSuccess":  "واحد سازمانی بروزرسانی شد.",
-                                      "updateError":  "بروزرسانی واحد سازمانی ناموفق بود.",
-                                      "budgetConflict":  "تغییر بودجه با مصرف فعلی یا بودجه تخصیص‌یافته تیم‌ها ناسازگار است.",
-                                      "selectUser":  "یک شناسه کاربر انتخاب یا وارد کنید.",
-                                      "duplicateMember":  "این کاربر از قبل به واحد سازمانی اضافه شده است.",
-                                      "memberAddSuccess":  "عضو اضافه شد.",
-                                      "memberAddError":  "افزودن عضو ناموفق بود.",
-                                      "memberUpdateSuccess":  "نقش عضو بروزرسانی شد.",
-                                      "memberUpdateError":  "بروزرسانی عضو ناموفق بود.",
-                                      "memberRemoveSuccess":  "عضو حذف شد.",
-                                      "memberRemoveError":  "حذف عضو ناموفق بود.",
-                                      "deleteBlocked":  "قبل از حذف این واحد، تیم‌های زیرمجموعه را منتقل یا حذف کنید.",
-                                      "deleteConfirmAlias":  "برای تایید حذف، alias واحد را وارد کنید.",
-                                      "deleteSuccess":  "واحد سازمانی حذف شد.",
-                                      "deleteError":  "حذف واحد سازمانی ناموفق بود.",
-                                      "softBudgetConflict":  "بودجه نرم باید کمتر از بودجه حداکثر باشد.",
-                                      "aliasRequired":  "Alias الزامی است.",
-                                      "aliasPattern":  "Alias باید فقط شامل حروف، عدد، خط تیره یا زیرخط باشد.",
-                                      "aliasUnique":  "Alias باید در این تننت یکتا باشد."
-                                  }
-                 },
-    "teams":  {
-                  "title":  "تیم‌ها",
-                  "subtitle":  "مدیریت workspace تیم، اعضا، دسترسی‌ها، مدل‌های مجاز و کنترل‌های بودجه.",
-                  "breadcrumb":  {
-                                     "tenant":  "تننت"
-                                 },
-                  "common":  {
-                                 "notSet":  "تعریف نشده"
-                             },
-                  "alerts":  {
-                                 "error":  "خطا",
-                                 "warning":  "نیاز به بررسی",
-                                 "success":  "موفق"
-                             },
-                  "actions":  {
-                                  "refresh":  "بازآوری",
-                                  "new":  "تیم جدید",
-                                  "saving":  "در حال ذخیره...",
-                                  "edit":  "ویرایش تیم",
-                                  "members":  "مدیریت اعضا",
-                                  "delete":  "حذف تیم"
-                              },
-                  "filters":  {
-                                  "search":  "جست‌وجوی alias یا نام نمایشی",
-                                  "orgAll":  "همه واحدهای سازمانی",
-                                  "workspaceAll":  "همه انواع workspace",
-                                  "statusAll":  "همه وضعیت‌ها"
-                              },
-                  "workspace":  {
-                                    "production":  "تولید",
-                                    "staging":  "آزمایش نهایی",
-                                    "development":  "توسعه",
-                                    "research":  "تحقیقات",
-                                    "internal":  "داخلی",
-                                    "general":  "عمومی"
-                                },
-                  "status":  {
-                                 "active":  "فعال",
-                                 "blocked":  "مسدود",
-                                 "budgetWarning":  "هشدار بودجه",
-                                 "budgetExceeded":  "عبور از سقف بودجه"
-                             },
-                  "sort":  {
-                               "recent":  "جدیدترین",
-                               "name":  "نام",
-                               "spend":  "مصرف",
-                               "members":  "اعضا"
-                           },
-                  "table":  {
-                                "team":  "تیم",
-                                "orgUnit":  "واحد سازمانی",
-                                "orgUnknown":  "واحد سازمانی نامشخص",
-                                "tenantRoot":  "ریشه تننت",
-                                "workspaceType":  "نوع workspace",
-                                "membersAdmins":  "اعضا/مدیران",
-                                "budgetSpend":  "بودجه/مصرف",
-                                "models":  "مدل‌های مجاز",
-                                "modelsSummary":  "{first} +{count} مدل",
-                                "limits":  "TPM/RPM",
-                                "status":  "وضعیت",
-                                "updated":  "بروزرسانی"
-                            },
-                  "empty":  {
-                                "title":  "تیمی یافت نشد",
-                                "description":  "تیم‌ها برای سازمان‌دهی اعضا، بودجه، دسترسی مدل و مدیریت کلیدها استفاده می‌شوند."
-                            },
-                  "pagination":  {
-                                     "showing":  "نمایش {from} تا {to} از {total}",
-                                     "prev":  "قبلی",
-                                     "next":  "بعدی"
-                                 },
-                  "kpi":  {
-                              "spend":  "مصرف کل",
-                              "remaining":  "بودجه باقی‌مانده",
-                              "membersAdmins":  "اعضا/مدیران",
-                              "activeKeys":  "کلیدهای فعال"
-                          },
-                  "detail":  {
-                                 "empty":  "یک تیم را انتخاب کنید تا مصرف، محدودیت‌ها و عضویت‌ها را ببینید.",
-                                 "guardrails":  "بودجه و محدودیت نرخ",
-                                 "budget":  "{spend} از {max} مصرف شده",
-                                 "softBudget":  "بودجه نرم: {value}",
-                                 "duration":  "دوره بودجه: {value}",
-                                 "limits":  "TPM {tpm} / RPM {rpm}",
-                                 "access":  "محدوده دسترسی",
-                                 "models":  "مدل‌های مجاز: {value}",
-                                 "orgInheritance":  "محدوده واحد سازمانی: {value}",
-                                 "permissions":  "تعداد permissions: {value}",
-                                 "members":  "اعضا",
-                                 "loading":  "در حال بارگیری اعضا...",
-                                 "noMembers":  "عضوی برای تیم یافت نشد."
-                             },
-                  "create":  {
-                                 "title":  "ایجاد تیم",
-                                 "description":  "یک تیم جدید با محدوده اختیاری org unit و کنترل‌های بودجه ایجاد کنید.",
-                                 "submit":  "ایجاد تیم"
-                             },
-                  "edit":  {
-                               "title":  "ویرایش تیم",
-                               "description":  "تغییرات باید با محدودیت‌های بودجه، parent org unit و roleها هم‌راستا باشد.",
-                               "submit":  "ذخیره تغییرات"
-                           },
-                  "delete":  {
-                                 "title":  "حذف تیم",
-                                 "description":  "در صورت وجود وابستگی‌های فعال، حذف انجام نمی‌شود.",
-                                 "guardTitle":  "بررسی وابستگی",
-                                 "guardDescription":  "اگر کلید فعال، virtual user یا عضو موجود باشد، حذف مسدود می‌شود.",
-                                 "confirm":  "برای تایید alias را وارد کنید: {alias}",
-                                 "submit":  "حذف تیم"
-                             },
-                  "members":  {
-                                  "title":  "مدیریت اعضا",
-                                  "description":  "نقش و permissionهای route-level را برای اعضای تیم تعیین کنید.",
-                                  "user":  "کاربر",
-                                  "userPlaceholder":  "با ایمیل یا نام کاربر جستجو کنید و از فهرست انتخاب کنید",
-                                  "role":  "نقش",
-                                  "teamMember":  "عضو تیم",
-                                  "teamAdmin":  "مدیر تیم",
-                                    "permissions":  "permissionهای عضو تیم",
-                                    "unknownUser":  "کاربر ناشناس",
-                                    "add":  "افزودن عضو",
-                                  "makeTeamAdmin":  "تبدیل به مدیر تیم",
-                                  "makeTeamMember":  "تبدیل به عضو تیم",
-                                  "remove":  "حذف"
-                              },
-                  "form":  {
-                               "alias":  "Alias",
-                               "displayName":  "نام نمایشی",
-                               "orgUnit":  "واحد سازمانی (اختیاری)",
-                               "workspaceType":  "نوع workspace",
-                               "allowedModels":  "مدل‌های مجاز",
-                               "allowedModelsPlaceholder":  "gpt-4o-mini,gpt-4.1-mini",
-                               "budgetId":  "Budget ID (اختیاری)",
-                               "costCenter":  "مرکز هزینه",
-                               "description":  "توضیح",
-                               "maxBudget":  "بودجه حداکثر",
-                               "softBudget":  "بودجه نرم",
-                               "budgetDuration":  "دوره بودجه",
-                               "tpmLimit":  "محدودیت TPM",
-                               "rpmLimit":  "محدودیت RPM"
-                           },
-                  "messages":  {
-                                   "loadError":  "بارگیری تیم‌ها ناموفق بود.",
-                                   "detailLoadError":  "بارگیری جزئیات تیم ناموفق بود.",
-                                   "createSuccess":  "تیم ایجاد شد.",
-                                   "createError":  "ایجاد تیم ناموفق بود.",
-                                   "updateSuccess":  "تیم بروزرسانی شد.",
-                                   "updateError":  "بروزرسانی تیم ناموفق بود.",
-                                   "budgetCannotDrop":  "بودجه حداکثر نباید کمتر از مصرف فعلی باشد.",
-                                   "selectUser":  "یک کاربر را از فهرست (با ایمیل یا نام) انتخاب کنید.",
-                                   "memberAddSuccess":  "عضو اضافه شد.",
-                                   "memberAddError":  "افزودن عضو ناموفق بود.",
-                                   "memberUpdateSuccess":  "عضو بروزرسانی شد.",
-                                   "memberUpdateError":  "بروزرسانی عضو ناموفق بود.",
-                                   "memberRemoveSuccess":  "عضو حذف شد.",
-                                   "memberRemoveError":  "حذف عضو ناموفق بود.",
-                                   "deleteBlocked":  "قبل از حذف تیم، وابستگی‌های فعال را رفع کنید.",
-                                   "deleteConfirmAlias":  "برای تایید حذف، alias تیم را وارد کنید.",
-                                   "deleteSuccess":  "تیم حذف شد.",
-                                   "deleteError":  "حذف تیم ناموفق بود.",
-                                   "softBudgetConflict":  "بودجه نرم باید کمتر از بودجه حداکثر باشد.",
-                                   "aliasRequired":  "Alias الزامی است.",
-                                   "aliasPattern":  "Alias باید شامل حروف، عدد، خط تیره یا زیرخط باشد.",
-                                   "aliasUnique":  "Alias باید در تننت یکتا باشد."
-                               }
-              },
-    "personalAccessTokens":  {
-                                 "title":  "توکن‌های دسترسی شخصی",
-                                 "tabs":  {
-                                              "users":  "کاربران",
-                                              "pat":  "توکن‌های دسترسی شخصی"
-                                          },
-                                 "searchPlaceholder":  "جستجو بر اساس نام توکن",
-                                 "summary":  "{total} توکن",
-                                 "alerts":  {
-                                                "error":  "خطا",
-                                                "success":  "موفق"
-                                            },
-                                 "oneTime":  {
-                                                 "title":  "توکن را همین حالا کپی کنید (فقط یک‌بار نمایش داده می‌شود)",
-                                                 "description":  "مقدار خام این توکن بعد از این صفحه دیگر قابل بازیابی نیست."
-                                             },
-                                 "fields":  {
-                                                "name":  "نام توکن",
-                                                "namePlaceholder":  "my-ci-token",
-                                                "models":  "مدل‌های مجاز (با ویرگول جدا کنید)",
-                                                "modelsPlaceholder":  "gpt-4o-mini,gpt-4.1-mini",
-                                                "expiresIn":  "زمان انقضا (مثل 30d یا 720h)",
-                                                "expiresInPlaceholder":  "30d"
-                                            },
-                                 "actions":  {
-                                                 "refresh":  "بازآوری",
-                                                 "create":  "ایجاد PAT",
-                                                 "creating":  "در حال ایجاد...",
-                                                 "revoke":  "ابطال",
-                                                 "revokeAll":  "ابطال همه PATهای من"
-                                             },
-                                 "status":  {
-                                                "active":  "فعال",
-                                                "revoked":  "ابطال‌شده"
-                                            },
-                                 "table":  {
-                                               "name":  "نام",
-                                               "masked":  "کلید ماسک‌شده",
-                                               "models":  "مدل‌ها",
-                                               "createdAt":  "زمان ایجاد",
-                                               "lastUsedAt":  "آخرین استفاده",
-                                               "expiresAt":  "زمان انقضا",
-                                               "status":  "وضعیت",
-                                               "actions":  "عملیات",
-                                               "empty":  "توکن دسترسی شخصی‌ای یافت نشد."
-                                           },
-                                 "create":  {
-                                                "title":  "ایجاد توکن دسترسی شخصی",
-                                                "description":  "یک توکن tenant-scoped متعلق به حساب خودتان ایجاد کنید."
-                                            },
-                                 "messages":  {
-                                                  "validation":  "نام توکن و حداقل یک مدل الزامی است.",
-                                                  "loadError":  "بارگیری توکن‌های دسترسی شخصی ناموفق بود.",
-                                                  "createSuccess":  "توکن دسترسی شخصی با موفقیت ایجاد شد.",
-                                                  "createError":  "ایجاد توکن دسترسی شخصی ناموفق بود.",
-                                                  "revokeSuccess":  "توکن با موفقیت ابطال شد.",
-                                                  "revokeError":  "ابطال توکن ناموفق بود.",
-                                                  "revokeAllSuccess":  "همه توکن‌های شما ابطال شدند.",
-                                                  "revokeAllError":  "ابطال همه توکن‌ها ناموفق بود."
-                                              }
-                             },
-    "traces":  {
-                   "title":  "Request Traces",
-                   "description":  "ردیابی درخواست‌های تننت و مشاهده جزئیات spanها.",
-                   "alerts":  {
-                                  "errorTitle":  "خطا"
-                              },
-                   "filters":  {
-                                   "traceId":  "Trace ID",
-                                   "model":  "Model",
-                                   "route":  "Route",
-                                   "statusCode":  "Status Code",
-                                   "from":  "From (RFC3339)",
-                                   "to":  "To (RFC3339)"
-                               },
-                   "actions":  {
-                                   "apply":  "اعمال فیلتر",
-                                   "clear":  "پاک‌کردن"
-                               },
-                   "list":  {
-                                "title":  "لیست Traceها",
-                                "columns":  {
-                                                "traceId":  "Trace ID",
-                                                "route":  "Route",
-                                                "model":  "Model",
-                                                "status":  "Status",
-                                                "duration":  "Duration",
-                                                "startedAt":  "Started At"
-                                            },
-                                "empty":  "Traceی برای فیلترهای فعلی یافت نشد."
-                            },
-                   "pagination":  {
-                                      "showing":  "نمایش {from} تا {to} از {total}",
-                                      "prev":  "قبلی",
-                                      "next":  "بعدی"
-                                  }
-               },
-    "metrics":  {
-                    "title":  "Model Metrics",
-                    "alerts":  {
-                                   "errorTitle":  "Error"
-                               },
-                    "filters":  {
-                                    "from":  "From (RFC3339)",
-                                    "to":  "To (RFC3339)",
-                                    "model":  "Model",
-                                    "viewBy":  "View by",
-                                    "status":  "Status"
-                                },
-                    "cards":  {
-                                  "totalRequests":  "Total Requests",
-                                  "inputTokens":  "Input Tokens",
-                                  "outputTokens":  "Output Tokens",
-                                  "totalCost":  "Total Cost (USD)"
-                              },
-                    "table":  {
-                                  "title":  "Aggregated Metrics",
-                                  "empty":  "No metrics found for current filters."
-                              }
-                },
-    "invite":  {
-                   "title":  "پذیرش دعوت",
-                   "status":  {
-                                  "idle":  "آماده پردازش دعوت",
-                                  "loading":  "در حال پذیرش دعوت...",
-                                  "success":  "دعوت با موفقیت پذیرفته شد.",
-                                  "error":  "پذیرش دعوت ناموفق بود."
-                              },
-                   "alerts":  {
-                                  "successTitle":  "موفق",
-                                  "errorTitle":  "خطا"
-                              },
-                   "messages":  {
-                                    "accepted":  "دعوت شما با موفقیت پذیرفته شد.",
-                                    "acceptFailed":  "پذیرش دعوت انجام نشد.",
-                                    "missingToken":  "توکن دعوت ارسال نشده است."
-                                },
-                   "actions":  {
-                                   "goToLogin":  "رفتن به ورود",
-                                   "goToDashboard":  "رفتن به داشبورد"
-                               }
-               }
+  "theme": {
+    "toggle": "تغییر حالت نمایش",
+    "light": "روشن",
+    "dark": "تیره",
+    "system": "سیستمی"
+  },
+  "shell": {
+    "title": "پنل مدیریت تننت",
+    "tenant": "مدیریت تننت",
+    "searchPlaceholder": "جستجو در پنل...",
+    "logout": "خروج",
+    "menu": {
+      "open": "باز کردن منو",
+      "description": "مسیریابی و دسترسی سریع به ابزارهای پنل"
+    },
+    "nav": {
+      "title": "مسیریابی اصلی",
+      "dashboard": "داشبورد",
+      "topup": "شارژ کیف پول",
+      "settings": "تنظیمات حساب",
+      "providerAccounts": "حساب‌های ارائه‌دهنده",
+      "virtualModels": "مدل‌های مجازی",
+      "accessManagement": "مدیریت دسترسی",
+      "orgUnits": "واحدهای سازمانی",
+      "teams": "تیم‌ها",
+      "traces": "Request Traces",
+      "metrics": "Model Metrics",
+      "gatewayPolicies": "سیاست‌های گیت‌وی"
+    },
+    "logoAlt": "لوگوی شاهراه"
+  },
+  "common": {
+    "save": "ذخیره",
+    "cancel": "انصراف",
+    "refresh": "بازآوری",
+    "loading": "در حال بارگیری...",
+    "requestError": "درخواست با خطا مواجه شد.",
+    "none": "-",
+    "notSet": "تعریف نشده"
+  },
+  "dashboard": {
+    "title": "داشبورد تننت",
+    "subtitle": "مدیریت کلیدها، مدل‌ها و وضعیت اعتبار تننت",
+    "currentUser": "کاربر فعلی",
+    "refreshing": "در حال بازآوری...",
+    "keyCreatedTitle": "کلید تازه ایجادشده فقط یک‌بار نمایش داده می‌شود",
+    "messages": {
+      "errorTitle": "خطا",
+      "successTitle": "موفق"
+    },
+    "stats": {
+      "balance": "موجودی کیف پول",
+      "balanceHint": "اعتبار قابل مصرف",
+      "pending": "تراکنش‌های در انتظار",
+      "pendingHint": "مبالغ تاییدنشده",
+      "keys": "کلیدهای API",
+      "keysHint": "تعداد کلیدهای فعال"
+    },
+    "keys": {
+      "title": "مدیریت کلیدهای API",
+      "description": "صدور و مدیریت کلیدهای دسترسی مدل",
+      "name": "نام کلید",
+      "namePlaceholder": "tenant-dashboard-key",
+      "models": "مدل‌های مجاز (با ویرگول جدا کنید)",
+      "modelsPlaceholder": "gpt-4o-mini,gpt-4.1-mini",
+      "create": "ایجاد کلید",
+      "creating": "در حال ایجاد...",
+      "table": {
+        "name": "نام",
+        "role": "نقش",
+        "models": "مدل‌ها",
+        "key": "کلید",
+        "hidden": "پنهان",
+        "empty": "هنوز کلیدی برای این تننت ثبت نشده است."
+      },
+      "messages": {
+        "validation": "وارد کردن نام کلید و حداقل یک مدل الزامی است.",
+        "success": "کلید API با موفقیت ایجاد شد."
+      }
+    },
+    "models": {
+      "title": "مدل‌های تننت",
+      "description": "افزودن و مدیریت مدل‌های قابل مصرف",
+      "displayName": "نام نمایشی مدل",
+      "provider": "ارائه‌دهنده",
+      "providerModel": "شناسه مدل در ارائه‌دهنده",
+      "apiBase": "آدرس پایه API",
+      "apiKey": "API Key",
+      "rpm": "RPM",
+      "tpm": "TPM",
+      "weight": "وزن",
+      "create": "افزودن مدل",
+      "creating": "در حال افزودن...",
+      "messages": {
+        "validation": "تکمیل فیلدهای الزامی مدل ضروری است.",
+        "success": "مدل جدید با موفقیت ثبت شد."
+      }
+    },
+    "transactions": {
+      "title": "تراکنش‌های کیف پول",
+      "description": "۲۰ تراکنش آخر کیف پول این تننت",
+      "columns": {
+        "id": "شناسه",
+        "type": "نوع",
+        "status": "وضعیت",
+        "amount": "مبلغ (ریال)",
+        "createdAt": "زمان ایجاد"
+      },
+      "empty": "تراکنشی ثبت نشده است."
+    }
+  },
+  "topupPage": {
+    "title": "شارژ کیف پول",
+    "description": "مبلغ شارژ را انتخاب کنید و به درگاه پرداخت منتقل شوید.",
+    "errorTitle": "خطا",
+    "amountLabel": "مبلغ (دلار)",
+    "providerLabel": "درگاه پرداخت",
+    "balanceLabel": "موجودی فعلی کیف پول",
+    "constraints": "بازه مجاز: {min} تا {max} دلار | مالیات: {tax}% | کارمزد: {fee}%",
+    "submit": "ادامه و انتقال به درگاه",
+    "submitLoading": "در حال ایجاد پرداخت...",
+    "providers": {
+      "mock": "درگاه آزمایشی (توسعه)",
+      "zarinpal": "زرین‌پال",
+      "idpay": "آی‌دی‌پی"
+    },
+    "messages": {
+      "amountOutOfRange": "مبلغ باید بین {min} و {max} دلار باشد.",
+      "intentFailed": "ایجاد درخواست پرداخت ناموفق بود.",
+      "missingRedirect": "آدرس انتقال به درگاه دریافت نشد.",
+      "unknownError": "خطای ناشناخته رخ داد."
+    },
+    "transactions": {
+      "title": "تراکنش‌های اخیر",
+      "description": "۲۰ تراکنش آخر کیف پول این تننت",
+      "columns": {
+        "id": "شناسه",
+        "type": "نوع",
+        "status": "وضعیت",
+        "amount": "مبلغ (ریال)",
+        "createdAt": "زمان ایجاد"
+      },
+      "empty": "تراکنشی ثبت نشده است."
+    }
+  },
+  "topupResult": {
+    "title": "نتیجه شارژ کیف پول",
+    "successDescription": "پرداخت موفق بود و کیف پول شارژ شد.",
+    "failureDescription": "پرداخت کامل نشد یا با خطا مواجه شد.",
+    "fields": {
+      "status": "وضعیت",
+      "refId": "کد پیگیری",
+      "authority": "Authority درگاه",
+      "reason": "دلیل"
+    },
+    "backToTopup": "بازگشت به صفحه شارژ"
+  },
+  "login": {
+    "title": "ورود",
+    "subtitle": "با ایمیل یا شماره همراه وارد شوید. کد OTP متناسب با شیوه ورود ارسال می‌شود.",
+    "identifier": "ایمیل یا شماره همراه",
+    "identifierPlaceholder": "name@example.com یا +98912...",
+    "captcha": {
+      "label": "کپچای تصویری",
+      "answer": "پاسخ کپچا",
+      "answerPlaceholder": "متن کپچا را وارد کنید",
+      "refresh": "کپچای جدید"
+    },
+    "otp": {
+      "request": "دریافت OTP",
+      "requesting": "در حال ارسال OTP...",
+      "verifyTitle": "تایید کد ورود",
+      "verify": "ورود به پنل",
+      "verifying": "در حال تایید...",
+      "code": "کد OTP",
+      "codePlaceholder": "کد ۶ رقمی",
+      "sent": "کد OTP به {destination} ارسال شد.",
+      "enterCode": "کد ارسال‌شده به {destination} را وارد کنید.",
+      "devCode": "کد توسعه",
+      "back": "بازگشت"
+    },
+    "logoAlt": "لوگوی شاهراه"
+  },
+  "settings": {
+    "title": "تنظیمات حساب",
+    "subtitle": "مدیریت اطلاعات تماس و احراز هویت",
+    "role": "نقش فعلی",
+    "sections": {
+      "email": "ایمیل",
+      "mobile": "شماره همراه"
+    },
+    "currentValue": "مقدار فعلی",
+    "newEmail": "ایمیل جدید",
+    "newMobile": "شماره همراه جدید",
+    "sendCode": "ارسال کد تایید",
+    "otpSentTo": "ارسال شده به {destination}",
+    "otpCode": "کد OTP",
+    "otpCodePlaceholder": "کد ۶ رقمی",
+    "confirmEmail": "تایید تغییر ایمیل",
+    "confirmMobile": "تایید تغییر شماره همراه",
+    "devCode": "کد توسعه",
+    "messages": {
+      "sent": "کد تایید به {destination} ارسال شد.",
+      "emailSuccess": "ایمیل با موفقیت تغییر کرد.",
+      "mobileSuccess": "شماره همراه با موفقیت تغییر کرد."
+    }
+  },
+  "providerAccounts": {
+    "title": "حساب‌های ارائه‌دهنده مدل",
+    "description": "اتصال حساب‌های ارائه‌دهنده، فعال‌سازی مدل‌ها و مدیریت دسترسی مصرف",
+    "errorTitle": "خطا",
+    "successTitle": "موفق",
+    "existingAccount": "حساب ارائه‌دهنده",
+    "selectAccount": "یک حساب ارائه‌دهنده انتخاب کنید",
+    "loadAccount": "بارگذاری تنظیمات حساب",
+    "refresh": "بازآوری داده‌ها",
+    "refreshing": "در حال بازآوری...",
+    "testing": "در حال اعتبارسنجی...",
+    "testCredentials": "اعتبارسنجی اتصال",
+    "selectProvider": "انتخاب ارائه‌دهنده",
+    "creating": "در حال ایجاد حساب...",
+    "createProviderAccount": "ایجاد حساب جدید",
+    "saving": "در حال ذخیره...",
+    "saveSelectedModels": "ذخیره مدل‌های فعال",
+    "saveAccessControl": "ذخیره سطح دسترسی",
+    "step1": {
+      "title": "گام ۱: انتخاب ارائه‌دهنده",
+      "description": "ارائه‌دهنده مدل را انتخاب کنید تا وارد تنظیمات اتصال همان ارائه‌دهنده شوید."
+    },
+    "step2": {
+      "title": "گام ۲: پیکربندی اتصال",
+      "description": "فهرست مدل‌ها از Discovery ارائه‌دهنده دریافت می‌شود.",
+      "empty": "مدل قابلی از این ارائه‌دهنده یافت نشد.",
+      "connectionDescription": "اطلاعات اتصال حساب را متناسب با روش احراز هویت ارائه‌دهنده تکمیل کنید."
+    },
+    "step3": {
+      "title": "گام ۳: مدل‌ها و دسترسی",
+      "managersTitle": "مدیران حساب (کاربر/تیم)",
+      "usersTitle": "کاربران مجاز به مصرف مدل",
+      "description": "مدل‌های قابل مصرف را فعال کنید و دسترسی کاربران را تنظیم کنید.",
+      "accessTitle": "کنترل دسترسی مصرف",
+      "empty": "مدلی برای این ارائه‌دهنده یافت نشد.",
+      "searchPlaceholder": "جستجو در نام مدل",
+      "toggleSelectAll": "انتخاب/لغو انتخاب همه",
+      "columns": {
+        "model": "مدل",
+        "inputCost": "هزینه ورودی (دلار / 1M)",
+        "outputCost": "هزینه خروجی (دلار / 1M)"
+      }
+    },
+    "fields": {
+      "provider": "ارائه‌دهنده مدل",
+      "accountName": "نام نمایشی حساب",
+      "authMode": "روش احراز هویت اتصال",
+      "virtualKeysMode": "سیاست کلید مجازی",
+      "allowVirtualOnly": "فقط کلیدهای مجازی تننت",
+      "apiKeyOptional": "API Key (اختیاری)",
+      "secretRefOptional": "مرجع Secret (اختیاری)",
+      "pricingMode": "مبنای قیمت‌گذاری",
+      "inputPrice": "هزینه ورودی (دلار / ۱M توکن)",
+      "outputPrice": "هزینه خروجی (دلار / ۱M توکن)",
+      "publicPricing": "قیمت عمومی",
+      "privatePricing": "قیمت اختصاصی",
+      "azureTenantID": "Azure Tenant ID",
+      "azureClientID": "Azure Client ID",
+      "awsAccessKeyID": "AWS Access Key ID",
+      "awsSecretAccessKey": "AWS Secret Access Key",
+      "awsRegion": "AWS Region",
+      "googleServiceAccountJSON": "Google Service Account JSON"
+    },
+    "principal": {
+      "user": "کاربر",
+      "team": "تیم",
+      "searchPlaceholder": "نام کاربر یا تیم...",
+      "search": "جستجو",
+      "add": "افزودن",
+      "addEveryone": "اعطای دسترسی به همه کاربران",
+      "remove": "حذف",
+      "everyone": "همه کاربران"
+    },
+    "messages": {
+      "initialLoadFailed": "بارگیری اولیه انجام نشد.",
+      "providerModelsLoadFailed": "دریافت لیست مدل‌ها از Discovery ناموفق بود.",
+      "validationProviderName": "انتخاب ارائه‌دهنده و وارد کردن نام حساب الزامی است.",
+      "accountCreateSuccess": "حساب ارائه‌دهنده با موفقیت ایجاد شد.",
+      "accountCreateFailed": "ایجاد حساب ارائه‌دهنده انجام نشد.",
+      "accountLoadSuccess": "تنظیمات حساب با موفقیت بارگذاری شد.",
+      "accountLoadFailed": "بارگذاری تنظیمات حساب ناموفق بود.",
+      "selectAccountFirst": "ابتدا یک حساب ارائه‌دهنده انتخاب یا ایجاد کنید.",
+      "selectAtLeastOneModel": "حداقل یک مدل را برای فعال‌سازی انتخاب کنید.",
+      "modelsSaveSuccess": "تنظیمات مدل‌ها با موفقیت ذخیره شد.",
+      "modelsSaveFailed": "ذخیره تنظیمات مدل‌ها ناموفق بود.",
+      "managerRequired": "حداقل یک مدیر حساب باید تعریف شود.",
+      "accessSaveSuccess": "سطح دسترسی با موفقیت ذخیره شد.",
+      "accessSaveFailed": "ذخیره سطح دسترسی ناموفق بود.",
+      "credentialValid": "اعتبارنامه‌های اتصال معتبر است.",
+      "credentialInvalid": "اعتبارسنجی اتصال ناموفق بود.",
+      "credentialTestFailed": "تست اعتبارنامه‌های اتصال انجام نشد.",
+      "managerSearchFailed": "جستجوی مدیران ناموفق بود.",
+      "userSearchFailed": "جستجوی کاربران/تیم‌ها ناموفق بود."
+    },
+    "wizard": {
+      "stepLabel": "گام {number}",
+      "back": "بازگشت",
+      "next": "ادامه",
+      "finalHint": "پس از تعریف مدیران و کاربران، سطح دسترسی را ذخیره کنید."
+    },
+    "ux": {
+      "panel": {
+        "setupTitle": "راه‌اندازی حساب ارائه‌دهنده",
+        "workspaceTitle": "محیط کاری حساب",
+        "overviewTitle": "نمای کلی ارائه‌دهنده",
+        "setupHint": "جریان راه‌اندازی: ارائه‌دهنده، حساب، مدل‌ها، دسترسی و مرور نهایی.",
+        "workspaceHint": "مرجع اصلی برای مدیریت مدل، دسترسی، اعتبارنامه و اثر سیاست‌ها در Runtime.",
+        "overviewHint": "یک حساب موجود را باز کنید یا حساب جدید بسازید."
+      },
+      "sidebar": {
+        "connectedProviders": "ارائه‌دهندگان متصل",
+        "connectedProvidersHint": "یک ارائه‌دهنده را انتخاب کنید و سپس محیط کاری حساب را باز کنید.",
+        "providerAccounts": "حساب‌های ارائه‌دهنده",
+        "selectProviderPrompt": "ارائه‌دهنده را انتخاب کنید",
+        "noAccountYet": "هنوز حسابی برای این ارائه‌دهنده ثبت نشده است."
+      },
+      "setupSteps": {
+        "provider": "ارائه‌دهنده",
+        "accountCredentials": "حساب و اعتبارنامه",
+        "models": "مدل‌ها",
+        "access": "دسترسی",
+        "review": "مرور نهایی"
+      },
+      "tabs": {
+        "models": "مدل‌ها",
+        "access": "دسترسی",
+        "credentials": "اعتبارنامه",
+        "observability": "مشاهده‌پذیری"
+      },
+      "actions": {
+        "addProviderAccount": "افزودن حساب ارائه‌دهنده",
+        "copyFqn": "کپی FQN",
+        "continue": "ادامه",
+        "back": "بازگشت",
+        "activateAccount": "فعال‌سازی حساب",
+        "activating": "در حال فعال‌سازی...",
+        "setupNewAccount": "راه‌اندازی حساب جدید",
+        "openExisting": "باز کردن حساب موجود",
+        "loadEffectiveModels": "بارگذاری مدل‌های مؤثر",
+        "loading": "در حال بارگذاری...",
+        "refreshCatalog": "بازآوری کاتالوگ",
+        "refreshingCatalog": "در حال بازآوری کاتالوگ..."
+      },
+      "setup": {
+        "stepLabel": "گام {number}",
+        "selectProviderTitle": "انتخاب ارائه‌دهنده",
+        "selectProviderDesc": "ارائه‌دهنده را انتخاب کنید و تنظیمات حساب را ادامه دهید.",
+        "authModes": "روش‌های احراز هویت",
+        "accountBasicsTitle": "مشخصات حساب و اعتبارنامه"
+      },
+      "review": {
+        "title": "مرور و فعال‌سازی",
+        "activationCheckTitle": "بررسی پیش از فعال‌سازی"
+      },
+      "kpi": {
+        "credentialStatus": "وضعیت اعتبارنامه",
+        "enabledModels": "مدل‌های فعال",
+        "unresolvedPricing": "قیمت‌گذاری حل‌نشده",
+        "managersUsers": "مدیران / کاربران",
+        "provider": "ارائه‌دهنده"
+      },
+      "readiness": {
+        "ready": "آماده",
+        "needsCredentials": "نیازمند اعتبارنامه",
+        "needsAccess": "نیازمند دسترسی",
+        "pricingIncomplete": "قیمت‌گذاری ناقص"
+      },
+      "overview": {
+        "title": "مدیریت حساب ارائه‌دهنده و دسترسی مدل",
+        "description": "یک حساب آماده برای Runtime بسازید: اعتبارنامه را تنظیم کنید، مدل‌ها را فعال کنید، دسترسی‌ها را تخصیص دهید و سیاست مؤثر را بررسی کنید."
+      },
+      "microcopy": {
+        "virtualOnly": "حالت فقط Virtual-Key: برنامه‌ها می‌توانند بدون ذخیره اعتبارنامه ارائه‌دهنده، از کلیدهای پلتفرم استفاده کنند.",
+        "pricingPolicy": "قیمت‌گذاری عمومی از نرخ‌های کاتالوگ استفاده می‌کند و ممکن است در زمان تغییر کند. قیمت‌گذاری خصوصی، نرخ‌های کاتالوگ را برای این حساب بازنویسی می‌کند."
+      },
+      "credentials": {
+        "desc": "اعتبارنامه را به‌روزرسانی کنید و آزمون اتصال اجرا کنید.",
+        "hasCredential": "دارای اعتبارنامه",
+        "virtualOnly": "فقط Virtual-Key",
+        "lastTest": "آخرین آزمون",
+        "notTested": "در این نشست هنوز آزمونی اجرا نشده است"
+      },
+      "observability": {
+        "desc": "پیش از ترافیک واقعی، نتیجه سیاست مؤثر و دلایل رد شدن درخواست را بررسی کنید.",
+        "deniedReasons": "دسته‌بندی دلایل رد: `not in allowlist`، `capability mismatch`، `unknown model`.",
+        "cacheTTL": "مدت زنده‌ماندن کش (ثانیه)",
+        "providersCache": "کش ارائه‌دهنده‌ها (hit/miss)",
+        "modelsCache": "کش مدل‌ها (hit/miss)",
+        "discoveryErrors": "خطاهای Discovery",
+        "discoveryFallback": "Fallback های Discovery"
+      },
+      "messages": {
+        "fqnCopied": "FQN حساب کپی شد.",
+        "accountActivated": "حساب فعال شد و برای اعمال سیاست‌های Runtime آماده است.",
+        "catalogRefreshSuccess": "کش کاتالوگ ارائه‌دهنده با موفقیت بازآوری شد.",
+        "catalogRefreshFailed": "بازآوری کاتالوگ ارائه‌دهنده ناموفق بود.",
+        "modelTypeRequired": "حداقل یک نوع مدل الزامی است",
+        "privatePricingRequired": "برای قیمت‌گذاری خصوصی، هزینه ورودی یا خروجی الزامی است"
+      },
+      "common": {
+        "yes": "بله",
+        "no": "خیر",
+        "enabled": "فعال",
+        "disabled": "غیرفعال"
+      },
+      "models": {
+        "description": "مدل‌ها، قابلیت‌ها و حالت قیمت‌گذاری را انتخاب کنید.",
+        "columns": {
+          "model": "مدل",
+          "capabilities": "قابلیت‌ها",
+          "pricingMode": "حالت قیمت‌گذاری",
+          "costConfig": "پیکربندی هزینه"
+        },
+        "pricing": {
+          "public": "عمومی",
+          "private": "خصوصی"
+        },
+        "placeholders": {
+          "input": "ورودی",
+          "output": "خروجی"
+        },
+        "catalogPricing": "قیمت کاتالوگ",
+        "labels": {
+          "input": "ورودی",
+          "output": "خروجی"
+        },
+        "na": "نامشخص"
+      },
+      "access": {
+        "description": "مدیران می‌توانند تنظیمات حساب را تغییر دهند و کاربران می‌توانند مدل‌های فعال را مصرف کنند.",
+        "effectivePreviewTitle": "پیش‌نمایش دسترسی مؤثر",
+        "keyTypeLabel": "نوع کلید",
+        "userIdLabel": "کاربر",
+        "teamIdLabel": "تیم",
+        "optional": "اختیاری",
+        "previewAction": "پیش‌نمایش",
+        "pat": "pat",
+        "vat": "vat"
+      },
+      "effectiveModels": {
+        "columns": {
+          "model": "مدل",
+          "capabilities": "قابلیت‌ها",
+          "pricing": "قیمت‌گذاری",
+          "status": "وضعیت"
+        },
+        "empty": "برای محدوده انتخاب‌شده، مدل مؤثری برنگشت.",
+        "resolved": "حل‌شده",
+        "unresolved": "حل‌نشده",
+        "allowed": "مجاز",
+        "denied": "غیرمجاز"
+      },
+      "placeholders": {
+        "accountName": "مثال: openai-production",
+        "apiKey": "مثال: sk-...",
+        "secretRefProvider": "مثال: vault://provider-key",
+        "tenantId": "شناسه tenant",
+        "clientId": "شناسه client",
+        "secretRefAzure": "مثال: vault://azure-cert",
+        "awsAccessKey": "مثال: AKIA...",
+        "secret": "مقدار secret",
+        "awsRegion": "مثال: us-east-1",
+        "secretRefGoogle": "مثال: vault://gcp-service-account",
+        "googleServiceJson": "{\"type\":\"service_account\", ...}"
+      }
+    }
+  },
+  "virtualModels": {
+    "title": "مدل‌های مجازی",
+    "description": "ایجاد الیاس پایدار با مسیریابی اولویتی، تکرار و فال‌بک.",
+    "searchPlaceholder": "جست‌وجوی الیاس",
+    "alerts": {
+      "error": "خطا",
+      "success": "موفق"
+    },
+    "actions": {
+      "refresh": "بازآوری",
+      "new": "مدل مجازی جدید",
+      "create": "ایجاد مدل مجازی",
+      "reset": "بازنشانی تغییرات"
+    },
+    "status": {
+      "enabled": "فعال",
+      "disabled": "غیرفعال"
+    },
+    "empty": {
+      "title": "هنوز مدل مجازی ثبت نشده",
+      "description": "برای مسیریابی ترافیک بین ارائه‌دهنده‌ها یک مدل مجازی بسازید."
+    },
+    "list": {
+      "alias": "الیاس",
+      "strategy": "استراتژی",
+      "targets": "تارگت‌ها",
+      "status": "وضعیت"
+    },
+    "form": {
+      "createTitle": "ایجاد مدل مجازی",
+      "editTitle": "ویرایش مدل مجازی",
+      "createDescription": "الیاس، ترتیب تارگت‌ها و رفتار فال‌بک را تعریف کنید.",
+      "editDescription": "الیاس، فعال/غیرفعال بودن و سیاست روتینگ را به‌روزرسانی کنید.",
+      "alias": "الیاس",
+      "aliasPlaceholder": "gpt-4o-smart",
+      "strategy": "استراتژی مسیریابی",
+      "priorityValue": "اولویتی (MVP)",
+      "enabledLabel": "در دسترس بودن",
+      "enabledHelp": "مدل‌های غیرفعال در درخواست‌های گیت‌وی قابل استفاده نیستند."
+    },
+    "targets": {
+      "title": "زنجیره تارگت",
+      "description": "ترافیک از تارگت ۱ شروع می‌شود و در صورت خطا فال‌بک می‌زند.",
+      "add": "افزودن تارگت",
+      "itemLabel": "تارگت {order}",
+      "provider": "ارائه‌دهنده",
+      "model": "مدل ارائه‌دهنده",
+      "retryAttempts": "تعداد تکرار",
+      "retryDelay": "تأخیر تکرار (ms)",
+      "timeout": "تایم‌اوت (ثانیه)",
+      "retryCodes": "کدهای تکرار",
+      "fallbackCodes": "کدهای فال‌بک"
+    },
+    "preview": {
+      "title": "پیش‌نمایش مسیریابی مؤثر",
+      "description": "درخواست تا زمان موفقیت با این ترتیب ارسال می‌شود.",
+      "providerPlaceholder": "provider",
+      "modelPlaceholder": "model"
+    },
+    "messages": {
+      "listLoadError": "بارگذاری مدل‌های مجازی ناموفق بود.",
+      "detailLoadError": "بارگذاری جزئیات مدل مجازی ناموفق بود.",
+      "createSuccess": "مدل مجازی با موفقیت ایجاد شد.",
+      "createError": "ایجاد مدل مجازی ناموفق بود.",
+      "updateSuccess": "مدل مجازی با موفقیت به‌روزرسانی شد.",
+      "updateError": "به‌روزرسانی مدل مجازی ناموفق بود.",
+      "unsavedConfirm": "تغییرات ذخیره‌نشده دارید. ادامه داده و تغییرات را رها کنیم؟",
+      "disableConfirm": "این مدل مجازی غیرفعال شود؟ درخواست‌های با این الیاس با خطا مواجه می‌شوند.",
+      "aliasRequired": "الیاس الزامی است.",
+      "aliasPattern": "الیاس فقط می‌تواند شامل حروف، عدد، خط تیره یا آندرلاین باشد.",
+      "targetsRequired": "حداقل یک تارگت الزامی است.",
+      "providerRequired": "برای هر تارگت ارائه‌دهنده الزامی است.",
+      "modelRequired": "برای هر تارگت مدل الزامی است.",
+      "duplicateOrder": "اولویت تارگت‌ها باید یکتا باشد.",
+      "retryAttemptsRange": "تعداد تکرار باید بین ۰ تا ۵ باشد.",
+      "retryDelayRange": "تأخیر تکرار باید بین ۰ تا ۱۰۰۰۰ ms باشد."
+    }
+  },
+  "accessManagement": {
+    "title": "مدیریت دسترسی",
+    "tabs": {
+      "users": "کاربران",
+      "teams": "تیم‌ها",
+      "externalAuth": "احراز هویت خارجی",
+      "personalAccessTokens": "توکن‌های دسترسی شخصی",
+      "virtualAccounts": "حساب‌های مجازی",
+      "roles": "نقش‌ها",
+      "auditLogs": "تاریخچه حسابرسی"
+    },
+    "allUsers": "همه کاربران",
+    "searchPlaceholder": "جستجو...",
+    "inviteUser": "دعوت کاربر",
+    "inviteTitle": "دعوت کاربر",
+    "inviteDescription": "کاربر را با ایمیل به این تننت دعوت کنید.",
+    "form": {
+      "email": "ایمیل",
+      "emailPlaceholder": "user@company.com",
+      "role": "نقش"
+    },
+    "roles": {
+      "member": "عضو",
+      "tenantAdmin": "مدیر تننت"
+    },
+    "button": {
+      "createInvite": "ایجاد دعوت",
+      "inviting": "در حال دعوت..."
+    },
+    "table": {
+      "emailMobile": "ایمیل / شماره همراه",
+      "displayName": "نام نمایشی",
+      "role": "نقش",
+      "noUsersFound": "کاربری یافت نشد."
+    },
+    "status": {
+      "deactivated": "غیرفعال"
+    },
+    "actions": {
+      "activate": "فعال کردن",
+      "deactivate": "غیرفعال کردن"
+    },
+    "pagination": {
+      "showingResults": "نمایش {from} تا {to} از {total} نتیجه",
+      "rowsPerPage": "سطر در هر صفحه",
+      "page": "صفحه",
+      "prev": "قبلی",
+      "next": "بعدی"
+    },
+    "alerts": {
+      "invitationLink": "لینک دعوت",
+      "error": "خطا",
+      "success": "موفق"
+    },
+    "messages": {
+      "loadUsersError": "بارگیری کاربران ناموفق بود.",
+      "provideEmail": "ارائه ایمیل برای دعوت الزامی است.",
+      "invitationSuccess": "دعوت کاربر با موفقیت ایجاد شد.",
+      "inviteError": "دعوت کاربر ناموفق بود.",
+      "activateSuccess": "کاربر فعال شد.",
+      "deactivateSuccess": "کاربر غیرفعال شد.",
+      "updateStatusError": "به‌روزرسانی وضعیت کاربر ناموفق بود."
+    }
+  },
+  "orgUnits": {
+    "title": "واحدهای سازمانی",
+    "subtitle": "تیم‌ها را بر اساس دپارتمان، مرکز هزینه و محدوده مدیریتی با کنترل بودجه گروه‌بندی کنید.",
+    "breadcrumb": {
+      "tenant": "تننت"
+    },
+    "common": {
+      "notSet": "تعریف نشده",
+      "inherited": "ارث‌بری‌شده"
+    },
+    "actions": {
+      "refresh": "بازآوری",
+      "new": "واحد جدید",
+      "saving": "در حال ذخیره...",
+      "viewDetails": "مشاهده جزئیات",
+      "edit": "ویرایش",
+      "manageMembers": "مدیریت اعضا",
+      "members": "اعضا",
+      "delete": "حذف"
+    },
+    "alerts": {
+      "error": "خطا",
+      "warning": "نیاز به بررسی",
+      "success": "موفق"
+    },
+    "list": {
+      "title": "همه واحدها",
+      "description": "فهرست عملیاتی همراه با شاخص‌های بودجه و مدیریت."
+    },
+    "filters": {
+      "searchPlaceholder": "جستجوی نام یا alias",
+      "filterLabel": "فیلتر واحدهای سازمانی",
+      "sortLabel": "مرتب‌سازی واحدهای سازمانی",
+      "all": "همه",
+      "withTeams": "دارای تیم",
+      "noTeams": "بدون تیم"
+    },
+    "sort": {
+      "recent": "جدیدترین",
+      "name": "نام",
+      "spend": "مصرف",
+      "teams": "تیم‌ها"
+    },
+    "table": {
+      "orgUnit": "واحد سازمانی",
+      "teams": "تیم‌ها",
+      "members": "اعضا",
+      "budget": "بودجه",
+      "spend": "مصرف",
+      "limits": "محدودیت‌ها",
+      "status": "وضعیت",
+      "updated": "بروزرسانی"
+    },
+    "empty": {
+      "title": "واحد سازمانی یافت نشد",
+      "description": "واحدهای سازمانی برای گروه‌بندی تیم‌ها، بودجه و مسئولیت مدیریتی در تننت‌های بزرگ استفاده می‌شوند.",
+      "action": "ایجاد اولین واحد"
+    },
+    "status": {
+      "normal": "عادی",
+      "warning": "هشدار",
+      "exceeded": "عبور از سقف"
+    },
+    "units": {
+      "tpm": "TPM",
+      "rpm": "RPM"
+    },
+    "pagination": {
+      "showing": "نمایش {from} تا {to} از {total} نتیجه",
+      "rows": "{count} ردیف",
+      "prev": "قبلی",
+      "next": "بعدی"
+    },
+    "detail": {
+      "breadcrumb": "تننت / واحد سازمانی",
+      "empty": "یک واحد سازمانی را انتخاب کنید تا بودجه، تیم‌ها، اعضا و متادیتا را ببینید."
+    },
+    "kpi": {
+      "totalSpend": "مصرف کل",
+      "remaining": "بودجه باقی‌مانده",
+      "teams": "تیم‌ها",
+      "membersAdmins": "اعضا/مدیران"
+    },
+    "budget": {
+      "title": "بودجه و محدودیت نرخ",
+      "used": "{amount} مصرف شده",
+      "soft": "بودجه نرم",
+      "duration": "دوره",
+      "tpm": "محدودیت TPM",
+      "rpm": "محدودیت RPM",
+      "exceededTitle": "بودجه از سقف عبور کرده است",
+      "warningTitle": "هشدار بودجه",
+      "warningDescription": "قبل از افزایش دسترسی مدل یا کلید، تخصیص تیم‌ها را بررسی کنید."
+    },
+    "teams": {
+      "title": "تیم‌ها",
+      "summaryCount": "{count} تیم در متادیتای خلاصه ثبت شده است.",
+      "emptyMetadata": "در متادیتای موجود تیمی متصل نیست.",
+      "apiHint": "پس از آماده شدن API تیم‌ها، این خلاصه با فهرست کامل تیم‌ها جایگزین می‌شود.",
+      "fallbackName": "تیم {index}",
+      "budget": "بودجه: {amount}",
+      "models": "مدل‌ها: {models}"
+    },
+    "members": {
+      "title": "اعضا",
+      "loading": "در حال بارگیری اعضا...",
+      "empty": "عضو مستقیمی برای این واحد تعریف نشده است.",
+      "added": "افزوده شده در {date}",
+      "manageTitle": "مدیریت اعضا",
+      "manageDescription": "مدیران واحد را برای مدیریت تیم‌های زیرمجموعه تعیین کنید.",
+      "user": "کاربر",
+      "userPlaceholder": "شناسه کاربر را وارد کنید یا در کاربران بارگیری‌شده جستجو کنید",
+      "role": "نقش",
+      "add": "افزودن عضو",
+      "makeMember": "تبدیل به عضو",
+      "makeOrgAdmin": "تبدیل به مدیر واحد",
+      "remove": "حذف"
+    },
+    "roles": {
+      "orgAdmin": "مدیر واحد",
+      "member": "عضو"
+    },
+    "audit": {
+      "title": "حسابرسی و متادیتا",
+      "created": "ایجاد",
+      "updated": "بروزرسانی",
+      "budgetId": "شناسه بودجه"
+    },
+    "create": {
+      "title": "ایجاد واحد سازمانی",
+      "description": "یک محدوده مدیریتی برای تیم‌ها، بودجه و مدیران تفویض‌شده تعریف کنید.",
+      "submit": "ایجاد واحد"
+    },
+    "edit": {
+      "title": "ویرایش واحد سازمانی",
+      "description": "تغییرات بودجه یا محدودیت‌ها باید با تخصیص تیم‌های زیرمجموعه سازگار باشد.",
+      "submit": "ذخیره تغییرات"
+    },
+    "delete": {
+      "title": "حذف واحد سازمانی",
+      "description": "وقتی تیم زیرمجموعه وجود دارد، حذف مسدود می‌شود.",
+      "childTeamsTitle": "تیم زیرمجموعه وجود دارد",
+      "childTeamsDescription": "قبل از حذف {name}، تیم‌ها را به ریشه تننت یا واحد دیگری منتقل کنید.",
+      "confirmLabel": "برای تایید alias را وارد کنید: {alias}",
+      "submit": "حذف واحد"
+    },
+    "form": {
+      "alias": "Alias",
+      "displayName": "نام نمایشی",
+      "costCenter": "مرکز هزینه",
+      "description": "توضیح",
+      "budgetGuardrails": "قواعد بودجه",
+      "budgetDescription": "این مقادیر تا زمان اتصال موجودیت Budget در متادیتای واحد ذخیره می‌شوند.",
+      "maxBudget": "بودجه حداکثر",
+      "softBudget": "بودجه نرم",
+      "duration": "دوره",
+      "rateLimits": "محدودیت نرخ",
+      "rateDescription": "تخصیص تیم‌های زیرمجموعه باید پایین‌تر از محدودیت واحد بماند.",
+      "tpmLimit": "محدودیت TPM",
+      "rpmLimit": "محدودیت RPM"
+    },
+    "duration": {
+      "monthly": "ماهانه",
+      "weekly": "هفتگی",
+      "daily": "روزانه"
+    },
+    "messages": {
+      "permissionDenied": "نقش فعلی شما اجازه ایجاد واحد سازمانی ندارد.",
+      "loadError": "بارگیری واحدهای سازمانی ناموفق بود.",
+      "detailLoadError": "بارگیری جزئیات واحد سازمانی ناموفق بود.",
+      "userLoadError": "بارگیری کاربران برای عضویت ناموفق بود.",
+      "createSuccess": "واحد سازمانی ایجاد شد.",
+      "createError": "ایجاد واحد سازمانی ناموفق بود.",
+      "updateSuccess": "واحد سازمانی بروزرسانی شد.",
+      "updateError": "بروزرسانی واحد سازمانی ناموفق بود.",
+      "budgetConflict": "تغییر بودجه با مصرف فعلی یا بودجه تخصیص‌یافته تیم‌ها ناسازگار است.",
+      "selectUser": "یک شناسه کاربر انتخاب یا وارد کنید.",
+      "duplicateMember": "این کاربر از قبل به واحد سازمانی اضافه شده است.",
+      "memberAddSuccess": "عضو اضافه شد.",
+      "memberAddError": "افزودن عضو ناموفق بود.",
+      "memberUpdateSuccess": "نقش عضو بروزرسانی شد.",
+      "memberUpdateError": "بروزرسانی عضو ناموفق بود.",
+      "memberRemoveSuccess": "عضو حذف شد.",
+      "memberRemoveError": "حذف عضو ناموفق بود.",
+      "deleteBlocked": "قبل از حذف این واحد، تیم‌های زیرمجموعه را منتقل یا حذف کنید.",
+      "deleteConfirmAlias": "برای تایید حذف، alias واحد را وارد کنید.",
+      "deleteSuccess": "واحد سازمانی حذف شد.",
+      "deleteError": "حذف واحد سازمانی ناموفق بود.",
+      "softBudgetConflict": "بودجه نرم باید کمتر از بودجه حداکثر باشد.",
+      "aliasRequired": "Alias الزامی است.",
+      "aliasPattern": "Alias باید فقط شامل حروف، عدد، خط تیره یا زیرخط باشد.",
+      "aliasUnique": "Alias باید در این تننت یکتا باشد."
+    }
+  },
+  "teams": {
+    "title": "تیم‌ها",
+    "subtitle": "مدیریت workspace تیم، اعضا، دسترسی‌ها، مدل‌های مجاز و کنترل‌های بودجه.",
+    "breadcrumb": {
+      "tenant": "تننت"
+    },
+    "common": {
+      "notSet": "تعریف نشده"
+    },
+    "alerts": {
+      "error": "خطا",
+      "warning": "نیاز به بررسی",
+      "success": "موفق"
+    },
+    "actions": {
+      "refresh": "بازآوری",
+      "new": "تیم جدید",
+      "saving": "در حال ذخیره...",
+      "edit": "ویرایش تیم",
+      "members": "مدیریت اعضا",
+      "delete": "حذف تیم"
+    },
+    "filters": {
+      "search": "جست‌وجوی alias یا نام نمایشی",
+      "orgAll": "همه واحدهای سازمانی",
+      "workspaceAll": "همه انواع workspace",
+      "statusAll": "همه وضعیت‌ها"
+    },
+    "workspace": {
+      "production": "تولید",
+      "staging": "آزمایش نهایی",
+      "development": "توسعه",
+      "research": "تحقیقات",
+      "internal": "داخلی",
+      "general": "عمومی"
+    },
+    "status": {
+      "active": "فعال",
+      "blocked": "مسدود",
+      "budgetWarning": "هشدار بودجه",
+      "budgetExceeded": "عبور از سقف بودجه"
+    },
+    "sort": {
+      "recent": "جدیدترین",
+      "name": "نام",
+      "spend": "مصرف",
+      "members": "اعضا"
+    },
+    "table": {
+      "team": "تیم",
+      "orgUnit": "واحد سازمانی",
+      "orgUnknown": "واحد سازمانی نامشخص",
+      "tenantRoot": "ریشه تننت",
+      "workspaceType": "نوع workspace",
+      "membersAdmins": "اعضا/مدیران",
+      "budgetSpend": "بودجه/مصرف",
+      "models": "مدل‌های مجاز",
+      "modelsSummary": "{first} +{count} مدل",
+      "limits": "TPM/RPM",
+      "status": "وضعیت",
+      "updated": "بروزرسانی"
+    },
+    "empty": {
+      "title": "تیمی یافت نشد",
+      "description": "تیم‌ها برای سازمان‌دهی اعضا، بودجه، دسترسی مدل و مدیریت کلیدها استفاده می‌شوند."
+    },
+    "pagination": {
+      "showing": "نمایش {from} تا {to} از {total}",
+      "prev": "قبلی",
+      "next": "بعدی"
+    },
+    "kpi": {
+      "spend": "مصرف کل",
+      "remaining": "بودجه باقی‌مانده",
+      "membersAdmins": "اعضا/مدیران",
+      "activeKeys": "کلیدهای فعال"
+    },
+    "detail": {
+      "empty": "یک تیم را انتخاب کنید تا مصرف، محدودیت‌ها و عضویت‌ها را ببینید.",
+      "guardrails": "بودجه و محدودیت نرخ",
+      "budget": "{spend} از {max} مصرف شده",
+      "softBudget": "بودجه نرم: {value}",
+      "duration": "دوره بودجه: {value}",
+      "limits": "TPM {tpm} / RPM {rpm}",
+      "access": "محدوده دسترسی",
+      "models": "مدل‌های مجاز: {value}",
+      "orgInheritance": "محدوده واحد سازمانی: {value}",
+      "permissions": "تعداد permissions: {value}",
+      "members": "اعضا",
+      "loading": "در حال بارگیری اعضا...",
+      "noMembers": "عضوی برای تیم یافت نشد."
+    },
+    "create": {
+      "title": "ایجاد تیم",
+      "description": "یک تیم جدید با محدوده اختیاری org unit و کنترل‌های بودجه ایجاد کنید.",
+      "submit": "ایجاد تیم"
+    },
+    "edit": {
+      "title": "ویرایش تیم",
+      "description": "تغییرات باید با محدودیت‌های بودجه، parent org unit و roleها هم‌راستا باشد.",
+      "submit": "ذخیره تغییرات"
+    },
+    "delete": {
+      "title": "حذف تیم",
+      "description": "در صورت وجود وابستگی‌های فعال، حذف انجام نمی‌شود.",
+      "guardTitle": "بررسی وابستگی",
+      "guardDescription": "اگر کلید فعال، virtual user یا عضو موجود باشد، حذف مسدود می‌شود.",
+      "confirm": "برای تایید alias را وارد کنید: {alias}",
+      "submit": "حذف تیم"
+    },
+    "members": {
+      "title": "مدیریت اعضا",
+      "description": "نقش و permissionهای route-level را برای اعضای تیم تعیین کنید.",
+      "user": "کاربر",
+      "userPlaceholder": "با ایمیل یا نام کاربر جستجو کنید و از فهرست انتخاب کنید",
+      "role": "نقش",
+      "teamMember": "عضو تیم",
+      "teamAdmin": "مدیر تیم",
+      "permissions": "permissionهای عضو تیم",
+      "unknownUser": "کاربر ناشناس",
+      "add": "افزودن عضو",
+      "makeTeamAdmin": "تبدیل به مدیر تیم",
+      "makeTeamMember": "تبدیل به عضو تیم",
+      "remove": "حذف"
+    },
+    "form": {
+      "alias": "Alias",
+      "displayName": "نام نمایشی",
+      "orgUnit": "واحد سازمانی (اختیاری)",
+      "workspaceType": "نوع workspace",
+      "allowedModels": "مدل‌های مجاز",
+      "allowedModelsPlaceholder": "gpt-4o-mini,gpt-4.1-mini",
+      "budgetId": "Budget ID (اختیاری)",
+      "costCenter": "مرکز هزینه",
+      "description": "توضیح",
+      "maxBudget": "بودجه حداکثر",
+      "softBudget": "بودجه نرم",
+      "budgetDuration": "دوره بودجه",
+      "tpmLimit": "محدودیت TPM",
+      "rpmLimit": "محدودیت RPM"
+    },
+    "messages": {
+      "loadError": "بارگیری تیم‌ها ناموفق بود.",
+      "detailLoadError": "بارگیری جزئیات تیم ناموفق بود.",
+      "createSuccess": "تیم ایجاد شد.",
+      "createError": "ایجاد تیم ناموفق بود.",
+      "updateSuccess": "تیم بروزرسانی شد.",
+      "updateError": "بروزرسانی تیم ناموفق بود.",
+      "budgetCannotDrop": "بودجه حداکثر نباید کمتر از مصرف فعلی باشد.",
+      "selectUser": "یک کاربر را از فهرست (با ایمیل یا نام) انتخاب کنید.",
+      "memberAddSuccess": "عضو اضافه شد.",
+      "memberAddError": "افزودن عضو ناموفق بود.",
+      "memberUpdateSuccess": "عضو بروزرسانی شد.",
+      "memberUpdateError": "بروزرسانی عضو ناموفق بود.",
+      "memberRemoveSuccess": "عضو حذف شد.",
+      "memberRemoveError": "حذف عضو ناموفق بود.",
+      "deleteBlocked": "قبل از حذف تیم، وابستگی‌های فعال را رفع کنید.",
+      "deleteConfirmAlias": "برای تایید حذف، alias تیم را وارد کنید.",
+      "deleteSuccess": "تیم حذف شد.",
+      "deleteError": "حذف تیم ناموفق بود.",
+      "softBudgetConflict": "بودجه نرم باید کمتر از بودجه حداکثر باشد.",
+      "aliasRequired": "Alias الزامی است.",
+      "aliasPattern": "Alias باید شامل حروف، عدد، خط تیره یا زیرخط باشد.",
+      "aliasUnique": "Alias باید در تننت یکتا باشد."
+    }
+  },
+  "personalAccessTokens": {
+    "title": "توکن‌های دسترسی شخصی",
+    "tabs": {
+      "users": "کاربران",
+      "pat": "توکن‌های دسترسی شخصی"
+    },
+    "searchPlaceholder": "جستجو بر اساس نام توکن",
+    "summary": "{total} توکن",
+    "alerts": {
+      "error": "خطا",
+      "success": "موفق"
+    },
+    "oneTime": {
+      "title": "توکن را همین حالا کپی کنید (فقط یک‌بار نمایش داده می‌شود)",
+      "description": "مقدار خام این توکن بعد از این صفحه دیگر قابل بازیابی نیست."
+    },
+    "fields": {
+      "name": "نام توکن",
+      "namePlaceholder": "my-ci-token",
+      "models": "مدل‌های مجاز (با ویرگول جدا کنید)",
+      "modelsPlaceholder": "gpt-4o-mini,gpt-4.1-mini",
+      "expiresIn": "زمان انقضا (مثل 30d یا 720h)",
+      "expiresInPlaceholder": "30d"
+    },
+    "actions": {
+      "refresh": "بازآوری",
+      "create": "ایجاد PAT",
+      "creating": "در حال ایجاد...",
+      "revoke": "ابطال",
+      "revokeAll": "ابطال همه PATهای من"
+    },
+    "status": {
+      "active": "فعال",
+      "revoked": "ابطال‌شده"
+    },
+    "table": {
+      "name": "نام",
+      "masked": "کلید ماسک‌شده",
+      "models": "مدل‌ها",
+      "createdAt": "زمان ایجاد",
+      "lastUsedAt": "آخرین استفاده",
+      "expiresAt": "زمان انقضا",
+      "status": "وضعیت",
+      "actions": "عملیات",
+      "empty": "توکن دسترسی شخصی‌ای یافت نشد."
+    },
+    "create": {
+      "title": "ایجاد توکن دسترسی شخصی",
+      "description": "یک توکن tenant-scoped متعلق به حساب خودتان ایجاد کنید."
+    },
+    "messages": {
+      "validation": "نام توکن و حداقل یک مدل الزامی است.",
+      "loadError": "بارگیری توکن‌های دسترسی شخصی ناموفق بود.",
+      "createSuccess": "توکن دسترسی شخصی با موفقیت ایجاد شد.",
+      "createError": "ایجاد توکن دسترسی شخصی ناموفق بود.",
+      "revokeSuccess": "توکن با موفقیت ابطال شد.",
+      "revokeError": "ابطال توکن ناموفق بود.",
+      "revokeAllSuccess": "همه توکن‌های شما ابطال شدند.",
+      "revokeAllError": "ابطال همه توکن‌ها ناموفق بود."
+    }
+  },
+  "traces": {
+    "title": "Request Traces",
+    "description": "ردیابی درخواست‌های تننت و مشاهده جزئیات spanها.",
+    "alerts": {
+      "errorTitle": "خطا"
+    },
+    "filters": {
+      "traceId": "Trace ID",
+      "model": "Model",
+      "route": "Route",
+      "statusCode": "Status Code",
+      "from": "From (RFC3339)",
+      "to": "To (RFC3339)"
+    },
+    "actions": {
+      "apply": "اعمال فیلتر",
+      "clear": "پاک‌کردن"
+    },
+    "list": {
+      "title": "لیست Traceها",
+      "columns": {
+        "traceId": "Trace ID",
+        "route": "Route",
+        "model": "Model",
+        "status": "Status",
+        "duration": "Duration",
+        "startedAt": "Started At"
+      },
+      "empty": "Traceی برای فیلترهای فعلی یافت نشد."
+    },
+    "pagination": {
+      "showing": "نمایش {from} تا {to} از {total}",
+      "prev": "قبلی",
+      "next": "بعدی"
+    }
+  },
+  "metrics": {
+    "title": "Model Metrics",
+    "alerts": {
+      "errorTitle": "Error"
+    },
+    "filters": {
+      "from": "From (RFC3339)",
+      "to": "To (RFC3339)",
+      "model": "Model",
+      "viewBy": "View by",
+      "status": "Status"
+    },
+    "cards": {
+      "totalRequests": "Total Requests",
+      "inputTokens": "Input Tokens",
+      "outputTokens": "Output Tokens",
+      "totalCost": "Total Cost (USD)"
+    },
+    "table": {
+      "title": "Aggregated Metrics",
+      "empty": "No metrics found for current filters."
+    }
+  },
+  "invite": {
+    "title": "پذیرش دعوت",
+    "status": {
+      "idle": "آماده پردازش دعوت",
+      "loading": "در حال پذیرش دعوت...",
+      "success": "دعوت با موفقیت پذیرفته شد.",
+      "error": "پذیرش دعوت ناموفق بود."
+    },
+    "alerts": {
+      "successTitle": "موفق",
+      "errorTitle": "خطا"
+    },
+    "messages": {
+      "accepted": "دعوت شما با موفقیت پذیرفته شد.",
+      "acceptFailed": "پذیرش دعوت انجام نشد.",
+      "missingToken": "توکن دعوت ارسال نشده است."
+    },
+    "actions": {
+      "goToLogin": "رفتن به ورود",
+      "goToDashboard": "رفتن به داشبورد"
+    }
+  },
+  "rateLimitRules": {
+    "title": "قوانین محدودسازی نرخ",
+    "description": "تعریف قوانین محدودسازی برای درخواست‌های گیت‌وی بر اساس کاربر، مدل و متادیتا.",
+    "searchPlaceholder": "جست‌وجو بر اساس شناسه قانون، مدل، سوژه یا کلید متادیتا",
+    "empty": "هنوز قانونی برای محدودسازی نرخ ایجاد نشده است.",
+    "alerts": {
+      "error": "خطا",
+      "success": "موفق"
+    },
+    "actions": {
+      "new": "افزودن قانون جدید",
+      "edit": "ویرایش",
+      "duplicate": "تکثیر",
+      "delete": "حذف",
+      "enable": "فعال‌سازی",
+      "disable": "غیرفعال‌سازی",
+      "addFilter": "+ افزودن فیلتر",
+      "save": "ذخیره",
+      "saving": "در حال ذخیره...",
+      "cancel": "انصراف"
+    },
+    "table": {
+      "ruleId": "شناسه قانون",
+      "limit": "مقدار محدودیت",
+      "window": "بازه",
+      "status": "وضعیت",
+      "updatedAt": "آخرین بروزرسانی",
+      "actions": "عملیات"
+    },
+    "form": {
+      "addTitle": "افزودن قانون جدید",
+      "editTitle": "ویرایش قانون",
+      "identity": "هویت قانون",
+      "ruleIdPlaceholder": "شناسه قانون را وارد کنید"
+    },
+    "messages": {
+      "loadError": "بارگذاری قوانین محدودسازی نرخ ناموفق بود.",
+      "saveSuccess": "قانون محدودسازی نرخ با موفقیت ذخیره شد.",
+      "saveError": "ذخیره قانون محدودسازی نرخ ناموفق بود."
+    }
+  }
 }
