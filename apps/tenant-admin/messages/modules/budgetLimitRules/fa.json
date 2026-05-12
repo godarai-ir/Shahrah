@@ -1,7 +1,7 @@
 {
   "title": "قوانین محدودیت بودجه",
   "description": "قوانین کنترلی بودجه را برای درخواست‌های درگاه بر اساس سوژه، مدل و متادیتا تعریف کنید.",
-  "searchPlaceholder": "جستجو بر اساس شناسه قانون، مدل، سوژه یا کلید متادیتا",
+  "searchPlaceholder": "جست‌وجو بر اساس شناسه قانون، مدل، سوژه یا کلید متادیتا",
   "empty": "هنوز هیچ قانون محدودیت بودجه‌ای ایجاد نشده است.",
   "alerts": {
     "error": "خطا",
@@ -11,20 +11,113 @@
     "new": "افزودن قانون جدید",
     "edit": "ویرایش",
     "duplicate": "تکثیر",
+    "copySuffix": "(کپی)",
     "delete": "حذف",
     "enable": "فعال‌سازی",
-    "disable": "غیرفعال‌سازی"
+    "disable": "غیرفعال‌سازی",
+    "add": "افزودن",
+    "save": "ذخیره",
+    "saving": "در حال ذخیره...",
+    "cancel": "انصراف"
   },
   "table": {
     "ruleId": "شناسه قانون",
     "limit": "بودجه ($)",
     "unit": "واحد بودجه",
     "status": "وضعیت",
-    "updatedAt": "آخرین بروزرسانی",
+    "updatedAt": "آخرین به‌روزرسانی",
     "actions": "عملیات"
+  },
+  "status": {
+    "enabled": "فعال",
+    "disabled": "غیرفعال"
+  },
+  "units": {
+    "cost_per_day": "روزانه",
+    "cost_per_week": "هفتگی",
+    "cost_per_month": "ماهانه"
+  },
+  "filters": {
+    "title": "فیلترها",
+    "add": "افزودن فیلتر",
+    "metadataTitle": "فیلترهای متادیتا",
+    "fields": {
+      "subject": "سوژه",
+      "model": "مدل",
+      "metadata": "متادیتا"
+    }
+  },
+  "form": {
+    "titleCreate": "افزودن قانون جدید بودجه",
+    "titleEdit": "ویرایش قانون بودجه",
+    "sections": {
+      "ruleIdentity": "هویت قانون",
+      "budget": "بودجه"
+    },
+    "fields": {
+      "ruleId": "شناسه قانون",
+      "limitTo": "سقف بودجه ($)",
+      "unit": "واحد بودجه",
+      "budgetAppliesPer": "اعمال بودجه به‌ازای",
+      "thresholds": "آستانه‌های هشدار (%)",
+      "channelType": "کانال اعلان"
+    },
+    "placeholders": {
+      "ruleId": "شناسه قانون را وارد کنید",
+      "metadataKey": "کلید متادیتا",
+      "metadataValue": "مقدار متادیتا",
+      "thresholds": "75,90,100"
+    },
+    "options": {
+      "applyPer": {
+        "shared": "اشتراکی برای همه ترافیک",
+        "user": "به‌ازای هر کاربر",
+        "model": "به‌ازای هر مدل",
+        "virtualAccount": "به‌ازای هر اکانت مجازی",
+        "metadataProjectId": "به‌ازای metadata.project_id"
+      },
+      "channel": {
+        "email": "ایمیل",
+        "slackWebhook": "وبهوک اسلک",
+        "slackBot": "بات اسلک"
+      }
+    },
+    "blocking": {
+      "title": "مسدودسازی بعد از عبور از بودجه",
+      "description": "پس از عبور از سقف بودجه، درخواست‌ها بلافاصله رد شوند."
+    },
+    "alerts": {
+      "title": "هشدارهای بودجه",
+      "description": "وقتی مصرف به آستانه‌های تعریف‌شده برسد، اعلان ارسال شود."
+    }
+  },
+  "selectors": {
+    "principal": {
+      "users": "کاربران",
+      "teams": "تیم‌ها",
+      "orgUnits": "واحدهای سازمانی",
+      "virtualAccounts": "اکانت‌های مجازی",
+      "externalIdentities": "هویت‌های خارجی",
+      "everyone": "همه",
+      "searchPlaceholder": "جست‌وجوی سوژه",
+      "triggerPlaceholder": "انتخاب سوژه",
+      "loading": "در حال بارگذاری...",
+      "empty": "موردی پیدا نشد"
+    },
+    "model": {
+      "triggerPlaceholder": "انتخاب مدل",
+      "searchPlaceholder": "جست‌وجوی مدل",
+      "providerAllowed": "مدل‌های مجاز ارائه‌دهنده",
+      "virtualModels": "مدل‌های مجازی",
+      "loading": "در حال بارگذاری...",
+      "empty": "مدلی پیدا نشد"
+    }
   },
   "messages": {
     "loadError": "بارگذاری قوانین محدودیت بودجه انجام نشد.",
+    "loadRuleError": "بارگذاری قانون محدودیت بودجه انجام نشد.",
+    "loading": "در حال بارگذاری قانون بودجه...",
+    "ruleNotFound": "قانون محدودیت بودجه پیدا نشد.",
     "saveSuccess": "قانون محدودیت بودجه با موفقیت ذخیره شد.",
     "saveError": "ذخیره قانون محدودیت بودجه انجام نشد."
   }

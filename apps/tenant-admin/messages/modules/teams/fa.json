@@ -58,7 +58,8 @@
     "modelsSummary": "{first} +{count} مدل",
     "limits": "TPM/RPM",
     "status": "وضعیت",
-    "updated": "بروزرسانی"
+    "updated": "بروزرسانی",
+    "spend": "????"
   },
   "empty": {
     "title": "تیمی یافت نشد",

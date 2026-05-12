@@ -11,9 +11,14 @@
     "new": "Add New Rule",
     "edit": "Edit",
     "duplicate": "Duplicate",
+    "copySuffix": "(copy)",
     "delete": "Delete",
     "enable": "Enable",
-    "disable": "Disable"
+    "disable": "Disable",
+    "add": "Add",
+    "save": "Save",
+    "saving": "Saving...",
+    "cancel": "Cancel"
   },
   "table": {
     "ruleId": "Rule ID",
@@ -23,8 +28,96 @@
     "updatedAt": "Last updated",
     "actions": "Actions"
   },
+  "status": {
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
+  "units": {
+    "cost_per_day": "Per day",
+    "cost_per_week": "Per week",
+    "cost_per_month": "Per month"
+  },
+  "filters": {
+    "title": "Filters",
+    "add": "Add Filter",
+    "metadataTitle": "Metadata Filters",
+    "fields": {
+      "subject": "Subject",
+      "model": "Model",
+      "metadata": "Metadata"
+    }
+  },
+  "form": {
+    "titleCreate": "Add New Budget Rule",
+    "titleEdit": "Edit Budget Rule",
+    "sections": {
+      "ruleIdentity": "Rule Identity",
+      "budget": "Budget"
+    },
+    "fields": {
+      "ruleId": "Rule ID",
+      "limitTo": "Budget Limit ($)",
+      "unit": "Budget Unit",
+      "budgetAppliesPer": "Apply Budget Per",
+      "thresholds": "Alert Thresholds (%)",
+      "channelType": "Notification Channel"
+    },
+    "placeholders": {
+      "ruleId": "Enter rule ID",
+      "metadataKey": "Metadata key",
+      "metadataValue": "Metadata value",
+      "thresholds": "75,90,100"
+    },
+    "options": {
+      "applyPer": {
+        "shared": "Shared across all traffic",
+        "user": "Per user",
+        "model": "Per model",
+        "virtualAccount": "Per virtual account",
+        "metadataProjectId": "Per metadata.project_id"
+      },
+      "channel": {
+        "email": "Email",
+        "slackWebhook": "Slack webhook",
+        "slackBot": "Slack bot"
+      }
+    },
+    "blocking": {
+      "title": "Block on Budget Exceed",
+      "description": "Reject requests immediately after budget limit is exceeded."
+    },
+    "alerts": {
+      "title": "Budget Alerts",
+      "description": "Send notifications when consumption reaches configured thresholds."
+    }
+  },
+  "selectors": {
+    "principal": {
+      "users": "Users",
+      "teams": "Teams",
+      "orgUnits": "Org units",
+      "virtualAccounts": "Virtual accounts",
+      "externalIdentities": "External identities",
+      "everyone": "Everyone",
+      "searchPlaceholder": "Search principals",
+      "triggerPlaceholder": "Select principal",
+      "loading": "Loading...",
+      "empty": "No results"
+    },
+    "model": {
+      "triggerPlaceholder": "Select model",
+      "searchPlaceholder": "Search models",
+      "providerAllowed": "Provider allowed models",
+      "virtualModels": "Virtual models",
+      "loading": "Loading...",
+      "empty": "No models found"
+    }
+  },
   "messages": {
     "loadError": "Failed to load budget limit rules.",
+    "loadRuleError": "Failed to load budget limit rule.",
+    "loading": "Loading budget rule...",
+    "ruleNotFound": "Budget limit rule not found.",
     "saveSuccess": "Budget limit rule saved successfully.",
     "saveError": "Failed to save budget limit rule."
   }

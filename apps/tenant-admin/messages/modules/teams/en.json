@@ -53,6 +53,7 @@
     "tenantRoot": "Tenant root",
     "workspaceType": "Workspace type",
     "membersAdmins": "Members/Admins",
+    "spend": "Spend",
     "budgetSpend": "Budget/Spend",
     "models": "Allowed models",
     "modelsSummary": "{first} +{count} models",
