@@ -1,0 +1,26 @@
+{
+  "title": "Sign in",
+  "subtitle": "Sign in with email or mobile. OTP is sent based on your identifier type.",
+  "identifier": "Email or mobile",
+  "identifierPlaceholder": "name@example.com or +98912...",
+  "captcha": {
+    "label": "Image captcha",
+    "answer": "Captcha answer",
+    "answerPlaceholder": "Enter captcha text",
+    "refresh": "New captcha"
+  },
+  "otp": {
+    "request": "Request OTP",
+    "requesting": "Sending OTP...",
+    "verifyTitle": "Verify OTP",
+    "verify": "Sign in",
+    "verifying": "Verifying...",
+    "code": "OTP code",
+    "codePlaceholder": "6-digit code",
+    "sent": "OTP sent to {destination}.",
+    "enterCode": "Enter the OTP sent to {destination}.",
+    "devCode": "Development code",
+    "back": "Back"
+  },
+  "logoAlt": "Shahrah logo"
+}

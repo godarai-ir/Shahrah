@@ -1,0 +1,71 @@
+{
+  "title": "Tenant Dashboard",
+  "subtitle": "Manage keys, models, and tenant balance",
+  "currentUser": "Current user",
+  "refreshing": "Refreshing...",
+  "keyCreatedTitle": "Newly created key is shown only once",
+  "messages": {
+    "errorTitle": "Error",
+    "successTitle": "Success"
+  },
+  "stats": {
+    "balance": "Wallet balance",
+    "balanceHint": "Available credit",
+    "pending": "Pending transactions",
+    "pendingHint": "Unsettled amounts",
+    "keys": "API keys",
+    "keysHint": "Active keys"
+  },
+  "keys": {
+    "title": "API Key Management",
+    "description": "Issue and manage model access keys",
+    "name": "Key name",
+    "namePlaceholder": "tenant-dashboard-key",
+    "models": "Allowed models (comma-separated)",
+    "modelsPlaceholder": "gpt-4o-mini,gpt-4.1-mini",
+    "create": "Create key",
+    "creating": "Creating...",
+    "table": {
+      "name": "Name",
+      "role": "Role",
+      "models": "Models",
+      "key": "Key",
+      "hidden": "Hidden",
+      "empty": "No keys have been registered for this tenant yet."
+    },
+    "messages": {
+      "validation": "Key name and at least one model are required.",
+      "success": "API key created successfully."
+    }
+  },
+  "models": {
+    "title": "Tenant Models",
+    "description": "Register and manage available models",
+    "displayName": "Model display name",
+    "provider": "Provider",
+    "providerModel": "Provider model ID",
+    "apiBase": "API base URL",
+    "apiKey": "API key",
+    "rpm": "RPM",
+    "tpm": "TPM",
+    "weight": "Weight",
+    "create": "Add model",
+    "creating": "Adding...",
+    "messages": {
+      "validation": "All required model fields must be completed.",
+      "success": "New model registered successfully."
+    }
+  },
+  "transactions": {
+    "title": "Wallet Transactions",
+    "description": "Last 20 wallet transactions for this tenant",
+    "columns": {
+      "id": "ID",
+      "type": "Type",
+      "status": "Status",
+      "amount": "Amount (IRR)",
+      "createdAt": "Created at"
+    },
+    "empty": "No transactions recorded."
+  }
+}

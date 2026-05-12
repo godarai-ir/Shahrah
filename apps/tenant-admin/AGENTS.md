@@ -12,8 +12,8 @@ Any agent working in this app must follow these rules by default without needing
 
 ## i18n Source of Truth
 1. Primary locale is currently `fa` (see `i18n/request.ts`).
-2. Keep `messages/fa.json` complete and coherent.
-3. Keep `messages/en.json` structurally aligned with `fa.json` when English exists.
+2. Source of truth is namespace modules under `messages/modules/<namespace>/<locale>.json`.
+3. Keep `fa` and `en` structurally aligned per namespace.
 4. When adding a new key in one locale, add the corresponding key in the other locale in the same change.
 
 ## Copywriting Style (Product)
@@ -52,11 +52,12 @@ For provider connection setup:
 4. Text must reflect this flow exactly in both language files.
 
 ## Implementation Checklist (Required on i18n edits)
-1. Add/update keys in `fa.json`.
-2. Mirror structure in `en.json`.
+1. Add/update keys in `messages/modules/<namespace>/fa.json`.
+2. Mirror structure in `messages/modules/<namespace>/en.json`.
 3. Replace any newly introduced hardcoded UI text with translation keys.
 4. Run lint for `tenant-admin`.
-5. Verify no corrupted locale values.
+5. Run `npm run validate:i18n` for namespace parity and JSON integrity.
+6. Verify no corrupted locale values.
 
 ## PR/Delivery Notes
 When reporting i18n work:
@@ -64,4 +65,3 @@ When reporting i18n work:
 2. Mention if any keys were renamed or moved.
 3. Confirm hardcoded strings were not introduced.
 4. Confirm corruption scan passed.
-

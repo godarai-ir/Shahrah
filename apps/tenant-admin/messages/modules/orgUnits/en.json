@@ -1,0 +1,194 @@
+{
+  "title": "Organization Units",
+  "subtitle": "Group teams into departments, cost centers, and admin scopes with budget-aware controls.",
+  "breadcrumb": {
+    "tenant": "Tenant"
+  },
+  "common": {
+    "notSet": "Not set",
+    "inherited": "Inherited"
+  },
+  "actions": {
+    "refresh": "Refresh",
+    "new": "New Org Unit",
+    "saving": "Saving...",
+    "viewDetails": "View details",
+    "edit": "Edit",
+    "manageMembers": "Manage members",
+    "members": "Members",
+    "delete": "Delete"
+  },
+  "alerts": {
+    "error": "Error",
+    "warning": "Review required",
+    "success": "Success"
+  },
+  "list": {
+    "title": "All org units",
+    "description": "Operational list with budget and admin indicators."
+  },
+  "filters": {
+    "searchPlaceholder": "Search alias or name",
+    "filterLabel": "Filter organization units",
+    "sortLabel": "Sort organization units",
+    "all": "All",
+    "withTeams": "With teams",
+    "noTeams": "No teams"
+  },
+  "sort": {
+    "recent": "Recent",
+    "name": "Name",
+    "spend": "Spend",
+    "teams": "Teams"
+  },
+  "table": {
+    "orgUnit": "Org unit",
+    "teams": "Teams",
+    "members": "Members",
+    "budget": "Budget",
+    "spend": "Spend",
+    "limits": "Limits",
+    "status": "Status",
+    "updated": "Updated"
+  },
+  "empty": {
+    "title": "No organization units found",
+    "description": "Org units group teams, budgets, and admin responsibility for larger tenants.",
+    "action": "Create first org unit"
+  },
+  "status": {
+    "normal": "Normal",
+    "warning": "Warning",
+    "exceeded": "Exceeded"
+  },
+  "units": {
+    "tpm": "TPM",
+    "rpm": "RPM"
+  },
+  "pagination": {
+    "showing": "Showing {from} to {to} of {total} results",
+    "rows": "{count} rows",
+    "prev": "Prev",
+    "next": "Next"
+  },
+  "detail": {
+    "breadcrumb": "Tenant / Org Unit",
+    "empty": "Select an organization unit to inspect budget, teams, members, and audit metadata."
+  },
+  "kpi": {
+    "totalSpend": "Total spend",
+    "remaining": "Budget remaining",
+    "teams": "Teams",
+    "membersAdmins": "Members/Admins"
+  },
+  "budget": {
+    "title": "Budget and rate limits",
+    "used": "{amount} used",
+    "soft": "Soft budget",
+    "duration": "Duration",
+    "tpm": "TPM limit",
+    "rpm": "RPM limit",
+    "exceededTitle": "Budget exceeded",
+    "warningTitle": "Budget warning",
+    "warningDescription": "Review team allocations before increasing model or key access."
+  },
+  "teams": {
+    "title": "Teams",
+    "summaryCount": "{count} teams are recorded in summary metadata.",
+    "emptyMetadata": "No teams are linked in available metadata.",
+    "apiHint": "Team list endpoints can replace this summary when the team workspace API is available.",
+    "fallbackName": "Team {index}",
+    "budget": "Budget: {amount}",
+    "models": "Models: {models}"
+  },
+  "members": {
+    "title": "Members",
+    "loading": "Loading members...",
+    "empty": "No direct org unit members assigned.",
+    "added": "Added {date}",
+    "manageTitle": "Manage members",
+    "manageDescription": "Assign org admins who can manage teams inside this organization unit.",
+    "user": "User",
+    "userPlaceholder": "Paste user ID or search loaded users",
+    "role": "Role",
+    "add": "Add member",
+    "makeMember": "Make member",
+    "makeOrgAdmin": "Make org admin",
+    "remove": "Remove"
+  },
+  "roles": {
+    "orgAdmin": "Org admin",
+    "member": "Member"
+  },
+  "audit": {
+    "title": "Audit and metadata",
+    "created": "Created",
+    "updated": "Updated",
+    "budgetId": "Budget ID"
+  },
+  "create": {
+    "title": "Create organization unit",
+    "description": "Define a management scope for teams, budgets, and delegated admins.",
+    "submit": "Create org unit"
+  },
+  "edit": {
+    "title": "Edit organization unit",
+    "description": "Changes to budget or limits should stay aligned with child team allocation.",
+    "submit": "Save changes"
+  },
+  "delete": {
+    "title": "Delete organization unit",
+    "description": "This operation is blocked when child teams are still assigned.",
+    "childTeamsTitle": "Child teams detected",
+    "childTeamsDescription": "Transfer teams to tenant root or another org unit before deleting {name}.",
+    "confirmLabel": "Type alias to confirm: {alias}",
+    "submit": "Delete org unit"
+  },
+  "form": {
+    "alias": "Alias",
+    "displayName": "Display name",
+    "costCenter": "Cost center",
+    "description": "Description",
+    "budgetGuardrails": "Budget guardrails",
+    "budgetDescription": "These values are stored as org-unit metadata until budget entities are wired.",
+    "maxBudget": "Max budget",
+    "softBudget": "Soft budget",
+    "duration": "Duration",
+    "rateLimits": "Rate limits",
+    "rateDescription": "Keep child team allocation below the org unit limits.",
+    "tpmLimit": "TPM limit",
+    "rpmLimit": "RPM limit"
+  },
+  "duration": {
+    "monthly": "Monthly",
+    "weekly": "Weekly",
+    "daily": "Daily"
+  },
+  "messages": {
+    "permissionDenied": "Your current role cannot create organization units.",
+    "loadError": "Failed to load organization units.",
+    "detailLoadError": "Failed to load org unit details.",
+    "userLoadError": "Failed to load users for membership.",
+    "createSuccess": "Organization unit created.",
+    "createError": "Failed to create organization unit.",
+    "updateSuccess": "Organization unit updated.",
+    "updateError": "Failed to update organization unit.",
+    "budgetConflict": "Budget change conflicts with current spend or allocated child team budgets.",
+    "selectUser": "Select or enter a user ID.",
+    "duplicateMember": "This user is already assigned to the org unit.",
+    "memberAddSuccess": "Member added.",
+    "memberAddError": "Failed to add member.",
+    "memberUpdateSuccess": "Member role updated.",
+    "memberUpdateError": "Failed to update member.",
+    "memberRemoveSuccess": "Member removed.",
+    "memberRemoveError": "Failed to remove member.",
+    "deleteBlocked": "Move or remove child teams before deleting this org unit.",
+    "deleteConfirmAlias": "Type the org unit alias to confirm deletion.",
+    "deleteSuccess": "Organization unit deleted.",
+    "deleteError": "Failed to delete organization unit.",
+    "softBudgetConflict": "Soft budget should be lower than max budget.",
+    "aliasRequired": "Alias is required.",
+    "aliasPattern": "Alias must use letters, numbers, dash, or underscore.",
+    "aliasUnique": "Alias must be unique inside this tenant."
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "title": "Invitation",
+  "status": {
+    "idle": "Ready",
+    "loading": "Accepting invitation...",
+    "success": "Invitation accepted.",
+    "error": "Invitation acceptance failed."
+  },
+  "alerts": {
+    "successTitle": "Success",
+    "errorTitle": "Error"
+  },
+  "messages": {
+    "accepted": "Your invitation was accepted successfully.",
+    "acceptFailed": "Failed to accept invitation.",
+    "missingToken": "Invitation token is missing."
+  },
+  "actions": {
+    "goToLogin": "Go to login",
+    "goToDashboard": "Go to dashboard"
+  }
+}

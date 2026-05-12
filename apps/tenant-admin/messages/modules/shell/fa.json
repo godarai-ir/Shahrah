@@ -1,0 +1,27 @@
+{
+  "title": "پنل مدیریت تننت",
+  "tenant": "مدیریت تننت",
+  "searchPlaceholder": "جستجو در پنل...",
+  "logout": "خروج",
+  "menu": {
+    "open": "باز کردن منو",
+    "description": "مسیریابی و دسترسی سریع به ابزارهای پنل"
+  },
+  "nav": {
+    "title": "مسیریابی اصلی",
+    "dashboard": "داشبورد",
+    "topup": "شارژ کیف پول",
+    "settings": "تنظیمات حساب",
+    "providerAccounts": "حساب‌های ارائه‌دهنده",
+    "virtualModels": "مدل‌های مجازی",
+    "accessManagement": "مدیریت دسترسی",
+    "orgUnits": "واحدهای سازمانی",
+    "teams": "تیم‌ها",
+    "traces": "Request Traces",
+    "metrics": "Model Metrics",
+    "gatewayPolicies": "سیاست‌های گیت‌وی",
+    "rateLimitPolicies": "قوانین محدودیت نرخ",
+    "budgetLimitPolicies": "قوانین محدودیت بودجه"
+  },
+  "logoAlt": "لوگوی شاهراه"
+}

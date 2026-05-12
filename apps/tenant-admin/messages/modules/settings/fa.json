@@ -1,0 +1,24 @@
+{
+  "title": "تنظیمات حساب",
+  "subtitle": "مدیریت اطلاعات تماس و احراز هویت",
+  "role": "نقش فعلی",
+  "sections": {
+    "email": "ایمیل",
+    "mobile": "شماره همراه"
+  },
+  "currentValue": "مقدار فعلی",
+  "newEmail": "ایمیل جدید",
+  "newMobile": "شماره همراه جدید",
+  "sendCode": "ارسال کد تایید",
+  "otpSentTo": "ارسال شده به {destination}",
+  "otpCode": "کد OTP",
+  "otpCodePlaceholder": "کد ۶ رقمی",
+  "confirmEmail": "تایید تغییر ایمیل",
+  "confirmMobile": "تایید تغییر شماره همراه",
+  "devCode": "کد توسعه",
+  "messages": {
+    "sent": "کد تایید به {destination} ارسال شد.",
+    "emailSuccess": "ایمیل با موفقیت تغییر کرد.",
+    "mobileSuccess": "شماره همراه با موفقیت تغییر کرد."
+  }
+}

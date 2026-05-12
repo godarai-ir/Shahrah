@@ -1,0 +1,31 @@
+{
+  "title": "Budget Limiting Rules",
+  "description": "Define budget guardrails for gateway requests across subjects, models, and metadata.",
+  "searchPlaceholder": "Search by rule id, model, subject, or metadata key",
+  "empty": "No budget limiting rules have been created yet.",
+  "alerts": {
+    "error": "Error",
+    "success": "Success"
+  },
+  "actions": {
+    "new": "Add New Rule",
+    "edit": "Edit",
+    "duplicate": "Duplicate",
+    "delete": "Delete",
+    "enable": "Enable",
+    "disable": "Disable"
+  },
+  "table": {
+    "ruleId": "Rule ID",
+    "limit": "Budget ($)",
+    "unit": "Budget Unit",
+    "status": "Status",
+    "updatedAt": "Last updated",
+    "actions": "Actions"
+  },
+  "messages": {
+    "loadError": "Failed to load budget limit rules.",
+    "saveSuccess": "Budget limit rule saved successfully.",
+    "saveError": "Failed to save budget limit rule."
+  }
+}

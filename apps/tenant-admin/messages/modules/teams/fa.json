@@ -1,0 +1,166 @@
+{
+  "title": "تیم‌ها",
+  "subtitle": "مدیریت workspace تیم، اعضا، دسترسی‌ها، مدل‌های مجاز و کنترل‌های بودجه.",
+  "breadcrumb": {
+    "tenant": "تننت"
+  },
+  "common": {
+    "notSet": "تعریف نشده"
+  },
+  "alerts": {
+    "error": "خطا",
+    "warning": "نیاز به بررسی",
+    "success": "موفق"
+  },
+  "actions": {
+    "refresh": "بازآوری",
+    "new": "تیم جدید",
+    "saving": "در حال ذخیره...",
+    "edit": "ویرایش تیم",
+    "members": "مدیریت اعضا",
+    "delete": "حذف تیم"
+  },
+  "filters": {
+    "search": "جست‌وجوی alias یا نام نمایشی",
+    "orgAll": "همه واحدهای سازمانی",
+    "workspaceAll": "همه انواع workspace",
+    "statusAll": "همه وضعیت‌ها"
+  },
+  "workspace": {
+    "production": "تولید",
+    "staging": "آزمایش نهایی",
+    "development": "توسعه",
+    "research": "تحقیقات",
+    "internal": "داخلی",
+    "general": "عمومی"
+  },
+  "status": {
+    "active": "فعال",
+    "blocked": "مسدود",
+    "budgetWarning": "هشدار بودجه",
+    "budgetExceeded": "عبور از سقف بودجه"
+  },
+  "sort": {
+    "recent": "جدیدترین",
+    "name": "نام",
+    "spend": "مصرف",
+    "members": "اعضا"
+  },
+  "table": {
+    "team": "تیم",
+    "orgUnit": "واحد سازمانی",
+    "orgUnknown": "واحد سازمانی نامشخص",
+    "tenantRoot": "ریشه تننت",
+    "workspaceType": "نوع workspace",
+    "membersAdmins": "اعضا/مدیران",
+    "budgetSpend": "بودجه/مصرف",
+    "models": "مدل‌های مجاز",
+    "modelsSummary": "{first} +{count} مدل",
+    "limits": "TPM/RPM",
+    "status": "وضعیت",
+    "updated": "بروزرسانی"
+  },
+  "empty": {
+    "title": "تیمی یافت نشد",
+    "description": "تیم‌ها برای سازمان‌دهی اعضا، بودجه، دسترسی مدل و مدیریت کلیدها استفاده می‌شوند."
+  },
+  "pagination": {
+    "showing": "نمایش {from} تا {to} از {total}",
+    "prev": "قبلی",
+    "next": "بعدی"
+  },
+  "kpi": {
+    "spend": "مصرف کل",
+    "remaining": "بودجه باقی‌مانده",
+    "membersAdmins": "اعضا/مدیران",
+    "activeKeys": "کلیدهای فعال"
+  },
+  "detail": {
+    "empty": "یک تیم را انتخاب کنید تا مصرف، محدودیت‌ها و عضویت‌ها را ببینید.",
+    "guardrails": "بودجه و محدودیت نرخ",
+    "budget": "{spend} از {max} مصرف شده",
+    "softBudget": "بودجه نرم: {value}",
+    "duration": "دوره بودجه: {value}",
+    "limits": "TPM {tpm} / RPM {rpm}",
+    "access": "محدوده دسترسی",
+    "models": "مدل‌های مجاز: {value}",
+    "orgInheritance": "محدوده واحد سازمانی: {value}",
+    "permissions": "تعداد permissions: {value}",
+    "members": "اعضا",
+    "loading": "در حال بارگیری اعضا...",
+    "noMembers": "عضوی برای تیم یافت نشد."
+  },
+  "create": {
+    "title": "ایجاد تیم",
+    "description": "یک تیم جدید با محدوده اختیاری org unit و کنترل‌های بودجه ایجاد کنید.",
+    "submit": "ایجاد تیم"
+  },
+  "edit": {
+    "title": "ویرایش تیم",
+    "description": "تغییرات باید با محدودیت‌های بودجه، parent org unit و roleها هم‌راستا باشد.",
+    "submit": "ذخیره تغییرات"
+  },
+  "delete": {
+    "title": "حذف تیم",
+    "description": "در صورت وجود وابستگی‌های فعال، حذف انجام نمی‌شود.",
+    "guardTitle": "بررسی وابستگی",
+    "guardDescription": "اگر کلید فعال، virtual user یا عضو موجود باشد، حذف مسدود می‌شود.",
+    "confirm": "برای تایید alias را وارد کنید: {alias}",
+    "submit": "حذف تیم"
+  },
+  "members": {
+    "title": "مدیریت اعضا",
+    "description": "نقش و permissionهای route-level را برای اعضای تیم تعیین کنید.",
+    "user": "کاربر",
+    "userPlaceholder": "با ایمیل یا نام کاربر جستجو کنید و از فهرست انتخاب کنید",
+    "role": "نقش",
+    "teamMember": "عضو تیم",
+    "teamAdmin": "مدیر تیم",
+    "permissions": "permissionهای عضو تیم",
+    "unknownUser": "کاربر ناشناس",
+    "add": "افزودن عضو",
+    "makeTeamAdmin": "تبدیل به مدیر تیم",
+    "makeTeamMember": "تبدیل به عضو تیم",
+    "remove": "حذف"
+  },
+  "form": {
+    "alias": "Alias",
+    "displayName": "نام نمایشی",
+    "orgUnit": "واحد سازمانی (اختیاری)",
+    "workspaceType": "نوع workspace",
+    "allowedModels": "مدل‌های مجاز",
+    "allowedModelsPlaceholder": "gpt-4o-mini,gpt-4.1-mini",
+    "budgetId": "Budget ID (اختیاری)",
+    "costCenter": "مرکز هزینه",
+    "description": "توضیح",
+    "maxBudget": "بودجه حداکثر",
+    "softBudget": "بودجه نرم",
+    "budgetDuration": "دوره بودجه",
+    "tpmLimit": "محدودیت TPM",
+    "rpmLimit": "محدودیت RPM"
+  },
+  "messages": {
+    "loadError": "بارگیری تیم‌ها ناموفق بود.",
+    "detailLoadError": "بارگیری جزئیات تیم ناموفق بود.",
+    "createSuccess": "تیم ایجاد شد.",
+    "createError": "ایجاد تیم ناموفق بود.",
+    "updateSuccess": "تیم بروزرسانی شد.",
+    "updateError": "بروزرسانی تیم ناموفق بود.",
+    "budgetCannotDrop": "بودجه حداکثر نباید کمتر از مصرف فعلی باشد.",
+    "selectUser": "یک کاربر را از فهرست (با ایمیل یا نام) انتخاب کنید.",
+    "memberAddSuccess": "عضو اضافه شد.",
+    "memberAddError": "افزودن عضو ناموفق بود.",
+    "memberUpdateSuccess": "عضو بروزرسانی شد.",
+    "memberUpdateError": "بروزرسانی عضو ناموفق بود.",
+    "memberRemoveSuccess": "عضو حذف شد.",
+    "memberRemoveError": "حذف عضو ناموفق بود.",
+    "deleteBlocked": "قبل از حذف تیم، وابستگی‌های فعال را رفع کنید.",
+    "deleteConfirmAlias": "برای تایید حذف، alias تیم را وارد کنید.",
+    "deleteSuccess": "تیم حذف شد.",
+    "deleteError": "حذف تیم ناموفق بود.",
+    "softBudgetConflict": "بودجه نرم باید کمتر از بودجه حداکثر باشد.",
+    "aliasRequired": "Alias الزامی است.",
+    "aliasPattern": "Alias باید شامل حروف، عدد، خط تیره یا زیرخط باشد.",
+    "aliasUnique": "Alias باید در تننت یکتا باشد."
+  }
+}

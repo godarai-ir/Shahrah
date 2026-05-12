@@ -1,0 +1,24 @@
+{
+  "title": "Account Settings",
+  "subtitle": "Manage contact information and identity verification",
+  "role": "Current role",
+  "sections": {
+    "email": "Email",
+    "mobile": "Mobile"
+  },
+  "currentValue": "Current value",
+  "newEmail": "New email",
+  "newMobile": "New mobile",
+  "sendCode": "Send verification code",
+  "otpSentTo": "Sent to {destination}",
+  "otpCode": "OTP code",
+  "otpCodePlaceholder": "6-digit code",
+  "confirmEmail": "Confirm email change",
+  "confirmMobile": "Confirm mobile change",
+  "devCode": "Development code",
+  "messages": {
+    "sent": "Verification code sent to {destination}.",
+    "emailSuccess": "Email updated successfully.",
+    "mobileSuccess": "Mobile updated successfully."
+  }
+}

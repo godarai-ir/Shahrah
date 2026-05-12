@@ -13,7 +13,6 @@
   "selectProvider": "Select provider",
   "creating": "Creating account...",
   "createProviderAccount": "Create new account",
-  "save": "Save",
   "saving": "Saving...",
   "saveSelectedModels": "Save enabled models",
   "saveAccessControl": "Save access policy",
@@ -140,8 +139,7 @@
       "setupNewAccount": "Setup New Account",
       "openExisting": "Open Existing Account",
       "loadEffectiveModels": "Load effective models",
-      "loading": "Loading...",
-      "clear": "Clear"
+      "loading": "Loading..."
     },
     "setup": {
       "stepLabel": "Step {number}",

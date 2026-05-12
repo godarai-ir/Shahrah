@@ -1,0 +1,23 @@
+{
+  "title": "Model Metrics",
+  "alerts": {
+    "errorTitle": "Error"
+  },
+  "filters": {
+    "from": "From (RFC3339)",
+    "to": "To (RFC3339)",
+    "model": "Model",
+    "viewBy": "View by",
+    "status": "Status"
+  },
+  "cards": {
+    "totalRequests": "Total Requests",
+    "inputTokens": "Input Tokens",
+    "outputTokens": "Output Tokens",
+    "totalCost": "Total Cost (USD)"
+  },
+  "table": {
+    "title": "Aggregated Metrics",
+    "empty": "No metrics found for current filters."
+  }
+}

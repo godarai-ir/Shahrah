@@ -1,0 +1,22 @@
+{
+  "title": "پذیرش دعوت",
+  "status": {
+    "idle": "آماده پردازش دعوت",
+    "loading": "در حال پذیرش دعوت...",
+    "success": "دعوت با موفقیت پذیرفته شد.",
+    "error": "پذیرش دعوت ناموفق بود."
+  },
+  "alerts": {
+    "successTitle": "موفق",
+    "errorTitle": "خطا"
+  },
+  "messages": {
+    "accepted": "دعوت شما با موفقیت پذیرفته شد.",
+    "acceptFailed": "پذیرش دعوت انجام نشد.",
+    "missingToken": "توکن دعوت ارسال نشده است."
+  },
+  "actions": {
+    "goToLogin": "رفتن به ورود",
+    "goToDashboard": "رفتن به داشبورد"
+  }
+}

@@ -1,0 +1,166 @@
+{
+  "title": "Teams",
+  "subtitle": "Manage team workspaces, members, permissions, model access, and budget guardrails.",
+  "breadcrumb": {
+    "tenant": "Tenant"
+  },
+  "common": {
+    "notSet": "Not set"
+  },
+  "alerts": {
+    "error": "Error",
+    "warning": "Review required",
+    "success": "Success"
+  },
+  "actions": {
+    "refresh": "Refresh",
+    "new": "New Team",
+    "saving": "Saving...",
+    "edit": "Edit team",
+    "members": "Manage members",
+    "delete": "Delete team"
+  },
+  "filters": {
+    "search": "Search alias or display name",
+    "orgAll": "All org units",
+    "workspaceAll": "All workspace types",
+    "statusAll": "All statuses"
+  },
+  "workspace": {
+    "production": "Production",
+    "staging": "Staging",
+    "development": "Development",
+    "research": "Research",
+    "internal": "Internal",
+    "general": "General"
+  },
+  "status": {
+    "active": "Active",
+    "blocked": "Blocked",
+    "budgetWarning": "Budget warning",
+    "budgetExceeded": "Budget exceeded"
+  },
+  "sort": {
+    "recent": "Recent",
+    "name": "Name",
+    "spend": "Spend",
+    "members": "Members"
+  },
+  "table": {
+    "team": "Team",
+    "orgUnit": "Org unit",
+    "orgUnknown": "Unknown org unit",
+    "tenantRoot": "Tenant root",
+    "workspaceType": "Workspace type",
+    "membersAdmins": "Members/Admins",
+    "budgetSpend": "Budget/Spend",
+    "models": "Allowed models",
+    "modelsSummary": "{first} +{count} models",
+    "limits": "TPM/RPM",
+    "status": "Status",
+    "updated": "Updated"
+  },
+  "empty": {
+    "title": "No teams found",
+    "description": "Teams organize members, budgets, model access, and key management per workspace."
+  },
+  "pagination": {
+    "showing": "Showing {from} to {to} of {total}",
+    "prev": "Prev",
+    "next": "Next"
+  },
+  "kpi": {
+    "spend": "Total spend",
+    "remaining": "Budget remaining",
+    "membersAdmins": "Members/Admins",
+    "activeKeys": "Active keys"
+  },
+  "detail": {
+    "empty": "Select a team to inspect spend, limits, memberships, and controls.",
+    "guardrails": "Budget and rate limits",
+    "budget": "{spend} used from {max}",
+    "softBudget": "Soft budget: {value}",
+    "duration": "Budget duration: {value}",
+    "limits": "TPM {tpm} / RPM {rpm}",
+    "access": "Access scope",
+    "models": "Allowed models: {value}",
+    "orgInheritance": "Org unit scope: {value}",
+    "permissions": "Permission set size: {value}",
+    "members": "Members",
+    "loading": "Loading members...",
+    "noMembers": "No team members found."
+  },
+  "create": {
+    "title": "Create team",
+    "description": "Create a tenant team with optional org unit scope and guardrails.",
+    "submit": "Create team"
+  },
+  "edit": {
+    "title": "Edit team",
+    "description": "Keep changes aligned with budget, parent org-unit constraints, and role permissions.",
+    "submit": "Save changes"
+  },
+  "delete": {
+    "title": "Delete team",
+    "description": "Deleting a team is blocked when active dependencies still exist.",
+    "guardTitle": "Dependency check",
+    "guardDescription": "Delete is blocked when active keys, virtual users, or team members exist.",
+    "confirm": "Type alias to confirm: {alias}",
+    "submit": "Delete team"
+  },
+  "members": {
+    "title": "Manage members",
+    "description": "Assign team roles and route-level permissions for team members.",
+    "user": "User",
+    "userPlaceholder": "Search by email or name and select a user",
+    "role": "Role",
+    "teamMember": "Team member",
+    "teamAdmin": "Team admin",
+    "permissions": "Team member permissions",
+    "unknownUser": "Unknown user",
+    "add": "Add member",
+    "makeTeamAdmin": "Make team admin",
+    "makeTeamMember": "Make team member",
+    "remove": "Remove"
+  },
+  "form": {
+    "alias": "Alias",
+    "displayName": "Display name",
+    "orgUnit": "Org unit (optional)",
+    "workspaceType": "Workspace type",
+    "allowedModels": "Allowed models",
+    "allowedModelsPlaceholder": "gpt-4o-mini,gpt-4.1-mini",
+    "budgetId": "Budget ID (optional)",
+    "costCenter": "Cost center",
+    "description": "Description",
+    "maxBudget": "Max budget",
+    "softBudget": "Soft budget",
+    "budgetDuration": "Budget duration",
+    "tpmLimit": "TPM limit",
+    "rpmLimit": "RPM limit"
+  },
+  "messages": {
+    "loadError": "Failed to load teams.",
+    "detailLoadError": "Failed to load team details.",
+    "createSuccess": "Team created.",
+    "createError": "Failed to create team.",
+    "updateSuccess": "Team updated.",
+    "updateError": "Failed to update team.",
+    "budgetCannotDrop": "Max budget cannot be lower than current spend.",
+    "selectUser": "Select a user from the list (email or name).",
+    "memberAddSuccess": "Member added.",
+    "memberAddError": "Failed to add member.",
+    "memberUpdateSuccess": "Member updated.",
+    "memberUpdateError": "Failed to update member.",
+    "memberRemoveSuccess": "Member removed.",
+    "memberRemoveError": "Failed to remove member.",
+    "deleteBlocked": "Remove active dependencies before deleting this team.",
+    "deleteConfirmAlias": "Type team alias to confirm deletion.",
+    "deleteSuccess": "Team deleted.",
+    "deleteError": "Failed to delete team.",
+    "softBudgetConflict": "Soft budget must be lower than max budget.",
+    "aliasRequired": "Alias is required.",
+    "aliasPattern": "Alias must use letters, numbers, dash, or underscore.",
+    "aliasUnique": "Alias must be unique in this tenant."
+  }
+}

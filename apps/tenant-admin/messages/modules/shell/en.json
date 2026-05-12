@@ -1,0 +1,27 @@
+{
+  "title": "Tenant Admin Panel",
+  "tenant": "Tenant Workspace",
+  "searchPlaceholder": "Search in panel...",
+  "logout": "Sign out",
+  "menu": {
+    "open": "Open menu",
+    "description": "Quick navigation and panel shortcuts"
+  },
+  "nav": {
+    "title": "Primary navigation",
+    "dashboard": "Dashboard",
+    "topup": "Wallet Top-up",
+    "settings": "Account Settings",
+    "providerAccounts": "Provider Accounts",
+    "virtualModels": "Virtual Models",
+    "accessManagement": "Access Management",
+    "traces": "Request Traces",
+    "metrics": "Model Metrics",
+    "gatewayPolicies": "Gateway Policies",
+    "rateLimitPolicies": "Rate Limit Policies",
+    "budgetLimitPolicies": "Budget Limit Policies",
+    "orgUnits": "Organization Units",
+    "teams": "Teams"
+  },
+  "logoAlt": "Shahrah logo"
+}

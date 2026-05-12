@@ -1,0 +1,12 @@
+{
+  "title": "نتیجه شارژ کیف پول",
+  "successDescription": "پرداخت موفق بود و کیف پول شارژ شد.",
+  "failureDescription": "پرداخت کامل نشد یا با خطا مواجه شد.",
+  "fields": {
+    "status": "وضعیت",
+    "refId": "کد پیگیری",
+    "authority": "Authority درگاه",
+    "reason": "دلیل"
+  },
+  "backToTopup": "بازگشت به صفحه شارژ"
+}

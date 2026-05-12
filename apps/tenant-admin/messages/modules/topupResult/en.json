@@ -1,0 +1,12 @@
+{
+  "title": "Top-up Result",
+  "successDescription": "Payment was successful and your wallet was credited.",
+  "failureDescription": "Payment was not completed or failed.",
+  "fields": {
+    "status": "Status",
+    "refId": "Reference ID",
+    "authority": "Gateway Authority",
+    "reason": "Reason"
+  },
+  "backToTopup": "Back to top-up"
+}

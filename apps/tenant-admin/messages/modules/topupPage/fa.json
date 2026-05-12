@@ -1,0 +1,34 @@
+{
+  "title": "شارژ کیف پول",
+  "description": "مبلغ شارژ را انتخاب کنید و به درگاه پرداخت منتقل شوید.",
+  "errorTitle": "خطا",
+  "amountLabel": "مبلغ (دلار)",
+  "providerLabel": "درگاه پرداخت",
+  "balanceLabel": "موجودی فعلی کیف پول",
+  "constraints": "بازه مجاز: {min} تا {max} دلار | مالیات: {tax}% | کارمزد: {fee}%",
+  "submit": "ادامه و انتقال به درگاه",
+  "submitLoading": "در حال ایجاد پرداخت...",
+  "providers": {
+    "mock": "درگاه آزمایشی (توسعه)",
+    "zarinpal": "زرین‌پال",
+    "idpay": "آی‌دی‌پی"
+  },
+  "messages": {
+    "amountOutOfRange": "مبلغ باید بین {min} و {max} دلار باشد.",
+    "intentFailed": "ایجاد درخواست پرداخت ناموفق بود.",
+    "missingRedirect": "آدرس انتقال به درگاه دریافت نشد.",
+    "unknownError": "خطای ناشناخته رخ داد."
+  },
+  "transactions": {
+    "title": "تراکنش‌های اخیر",
+    "description": "۲۰ تراکنش آخر کیف پول این تننت",
+    "columns": {
+      "id": "شناسه",
+      "type": "نوع",
+      "status": "وضعیت",
+      "amount": "مبلغ (ریال)",
+      "createdAt": "زمان ایجاد"
+    },
+    "empty": "تراکنشی ثبت نشده است."
+  }
+}

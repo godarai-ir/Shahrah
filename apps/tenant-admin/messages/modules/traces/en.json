@@ -1,0 +1,36 @@
+{
+  "title": "Request Traces",
+  "description": "Inspect tenant-scoped request trace records and drill into span timelines.",
+  "alerts": {
+    "errorTitle": "Error"
+  },
+  "filters": {
+    "traceId": "Trace ID",
+    "model": "Model",
+    "route": "Route",
+    "statusCode": "Status Code",
+    "from": "From (RFC3339)",
+    "to": "To (RFC3339)"
+  },
+  "actions": {
+    "apply": "Apply Filters",
+    "clear": "Clear"
+  },
+  "list": {
+    "title": "Trace List",
+    "columns": {
+      "traceId": "Trace ID",
+      "route": "Route",
+      "model": "Model",
+      "status": "Status",
+      "duration": "Duration",
+      "startedAt": "Started At"
+    },
+    "empty": "No traces found for current filters."
+  },
+  "pagination": {
+    "showing": "Showing {from} to {to} of {total}",
+    "prev": "Prev",
+    "next": "Next"
+  }
+}

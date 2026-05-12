@@ -1,0 +1,41 @@
+{
+  "title": "Rate Limiting Rules",
+  "description": "Define rule-based limits for gateway requests across subjects, models, and metadata.",
+  "searchPlaceholder": "Search by rule id, model, subject, or metadata key",
+  "empty": "No rate limiting rules have been created yet.",
+  "alerts": {
+    "error": "Error",
+    "success": "Success"
+  },
+  "actions": {
+    "new": "Add New Rule",
+    "edit": "Edit",
+    "duplicate": "Duplicate",
+    "delete": "Delete",
+    "enable": "Enable",
+    "disable": "Disable",
+    "addFilter": "+ Add Filters",
+    "save": "Save",
+    "saving": "Saving...",
+    "cancel": "Cancel"
+  },
+  "table": {
+    "ruleId": "Rule ID",
+    "limit": "Limit Value",
+    "window": "Window",
+    "status": "Status",
+    "updatedAt": "Last updated",
+    "actions": "Actions"
+  },
+  "form": {
+    "addTitle": "Add New Rule",
+    "editTitle": "Edit Rule",
+    "identity": "RULE IDENTITY",
+    "ruleIdPlaceholder": "Enter Rule ID"
+  },
+  "messages": {
+    "loadError": "Failed to load rate limit rules.",
+    "saveSuccess": "Rate limit rule saved successfully.",
+    "saveError": "Failed to save rate limit rule."
+  }
+}

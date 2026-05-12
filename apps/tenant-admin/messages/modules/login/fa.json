@@ -1,0 +1,26 @@
+{
+  "title": "ورود",
+  "subtitle": "با ایمیل یا شماره همراه وارد شوید. کد OTP متناسب با شیوه ورود ارسال می‌شود.",
+  "identifier": "ایمیل یا شماره همراه",
+  "identifierPlaceholder": "name@example.com یا +98912...",
+  "captcha": {
+    "label": "کپچای تصویری",
+    "answer": "پاسخ کپچا",
+    "answerPlaceholder": "متن کپچا را وارد کنید",
+    "refresh": "کپچای جدید"
+  },
+  "otp": {
+    "request": "دریافت OTP",
+    "requesting": "در حال ارسال OTP...",
+    "verifyTitle": "تایید کد ورود",
+    "verify": "ورود به پنل",
+    "verifying": "در حال تایید...",
+    "code": "کد OTP",
+    "codePlaceholder": "کد ۶ رقمی",
+    "sent": "کد OTP به {destination} ارسال شد.",
+    "enterCode": "کد ارسال‌شده به {destination} را وارد کنید.",
+    "devCode": "کد توسعه",
+    "back": "بازگشت"
+  },
+  "logoAlt": "لوگوی شاهراه"
+}

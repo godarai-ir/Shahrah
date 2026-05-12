@@ -1,0 +1,9 @@
+{
+  "save": "Save",
+  "cancel": "Cancel",
+  "refresh": "Refresh",
+  "loading": "Loading...",
+  "requestError": "Request failed.",
+  "none": "-",
+  "notSet": "Not set"
+}

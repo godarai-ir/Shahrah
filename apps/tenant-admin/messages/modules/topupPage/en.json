@@ -1,0 +1,34 @@
+{
+  "title": "Wallet Top-up",
+  "description": "Choose the amount and continue to payment gateway.",
+  "errorTitle": "Error",
+  "amountLabel": "Amount (USD)",
+  "providerLabel": "Payment gateway",
+  "balanceLabel": "Current wallet balance",
+  "constraints": "Allowed range: {min} to {max} USD | Tax: {tax}% | Fee: {fee}%",
+  "submit": "Continue to gateway",
+  "submitLoading": "Creating payment...",
+  "providers": {
+    "mock": "Mock gateway (development)",
+    "zarinpal": "ZarinPal",
+    "idpay": "IDPay"
+  },
+  "messages": {
+    "amountOutOfRange": "Amount must be between {min} and {max} USD.",
+    "intentFailed": "Failed to create payment intent.",
+    "missingRedirect": "Gateway redirect URL was not received.",
+    "unknownError": "Unknown error occurred."
+  },
+  "transactions": {
+    "title": "Recent Transactions",
+    "description": "Last 20 wallet transactions for this tenant",
+    "columns": {
+      "id": "ID",
+      "type": "Type",
+      "status": "Status",
+      "amount": "Amount (IRR)",
+      "createdAt": "Created at"
+    },
+    "empty": "No transactions recorded."
+  }
+}

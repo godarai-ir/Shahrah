@@ -13,7 +13,6 @@
   "selectProvider": "انتخاب ارائه‌دهنده",
   "creating": "در حال ایجاد حساب...",
   "createProviderAccount": "ایجاد حساب جدید",
-  "save": "ذخیره",
   "saving": "در حال ذخیره...",
   "saveSelectedModels": "ذخیره مدل‌های فعال",
   "saveAccessControl": "ذخیره سطح دسترسی",
@@ -139,7 +138,6 @@
       "openExisting": "باز کردن حساب موجود",
       "loadEffectiveModels": "بارگذاری مدل‌های مؤثر",
       "loading": "در حال بارگذاری...",
-      "clear": "پاک‌کردن",
       "refreshCatalog": "بازآوری کاتالوگ",
       "refreshingCatalog": "در حال بازآوری کاتالوگ..."
     },
@@ -244,7 +242,7 @@
         "model": "مدل",
         "capabilities": "قابلیت‌ها",
         "pricing": "قیمت‌گذاری",
-        "status": "دسترسی"
+        "status": "وضعیت"
       },
       "empty": "برای محدوده انتخاب‌شده، مدل مؤثری برنگشت.",
       "resolved": "حل‌شده",

@@ -1,0 +1,71 @@
+{
+  "title": "داشبورد تننت",
+  "subtitle": "مدیریت کلیدها، مدل‌ها و وضعیت اعتبار تننت",
+  "currentUser": "کاربر فعلی",
+  "refreshing": "در حال بازآوری...",
+  "keyCreatedTitle": "کلید تازه ایجادشده فقط یک‌بار نمایش داده می‌شود",
+  "messages": {
+    "errorTitle": "خطا",
+    "successTitle": "موفق"
+  },
+  "stats": {
+    "balance": "موجودی کیف پول",
+    "balanceHint": "اعتبار قابل مصرف",
+    "pending": "تراکنش‌های در انتظار",
+    "pendingHint": "مبالغ تاییدنشده",
+    "keys": "کلیدهای API",
+    "keysHint": "تعداد کلیدهای فعال"
+  },
+  "keys": {
+    "title": "مدیریت کلیدهای API",
+    "description": "صدور و مدیریت کلیدهای دسترسی مدل",
+    "name": "نام کلید",
+    "namePlaceholder": "tenant-dashboard-key",
+    "models": "مدل‌های مجاز (با ویرگول جدا کنید)",
+    "modelsPlaceholder": "gpt-4o-mini,gpt-4.1-mini",
+    "create": "ایجاد کلید",
+    "creating": "در حال ایجاد...",
+    "table": {
+      "name": "نام",
+      "role": "نقش",
+      "models": "مدل‌ها",
+      "key": "کلید",
+      "hidden": "پنهان",
+      "empty": "هنوز کلیدی برای این تننت ثبت نشده است."
+    },
+    "messages": {
+      "validation": "وارد کردن نام کلید و حداقل یک مدل الزامی است.",
+      "success": "کلید API با موفقیت ایجاد شد."
+    }
+  },
+  "models": {
+    "title": "مدل‌های تننت",
+    "description": "افزودن و مدیریت مدل‌های قابل مصرف",
+    "displayName": "نام نمایشی مدل",
+    "provider": "ارائه‌دهنده",
+    "providerModel": "شناسه مدل در ارائه‌دهنده",
+    "apiBase": "آدرس پایه API",
+    "apiKey": "API Key",
+    "rpm": "RPM",
+    "tpm": "TPM",
+    "weight": "وزن",
+    "create": "افزودن مدل",
+    "creating": "در حال افزودن...",
+    "messages": {
+      "validation": "تکمیل فیلدهای الزامی مدل ضروری است.",
+      "success": "مدل جدید با موفقیت ثبت شد."
+    }
+  },
+  "transactions": {
+    "title": "تراکنش‌های کیف پول",
+    "description": "۲۰ تراکنش آخر کیف پول این تننت",
+    "columns": {
+      "id": "شناسه",
+      "type": "نوع",
+      "status": "وضعیت",
+      "amount": "مبلغ (ریال)",
+      "createdAt": "زمان ایجاد"
+    },
+    "empty": "تراکنشی ثبت نشده است."
+  }
+}

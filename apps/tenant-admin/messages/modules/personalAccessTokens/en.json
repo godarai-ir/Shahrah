@@ -1,0 +1,61 @@
+{
+  "title": "Personal Access Tokens",
+  "tabs": {
+    "users": "Users",
+    "pat": "Personal Access Tokens"
+  },
+  "searchPlaceholder": "Search by token name",
+  "summary": "{total} token(s)",
+  "alerts": {
+    "error": "Error",
+    "success": "Success"
+  },
+  "oneTime": {
+    "title": "Copy token now (shown once)",
+    "description": "This raw token cannot be retrieved again after this screen."
+  },
+  "fields": {
+    "name": "Token name",
+    "namePlaceholder": "my-ci-token",
+    "models": "Allowed models (comma-separated)",
+    "modelsPlaceholder": "gpt-4o-mini,gpt-4.1-mini",
+    "expiresIn": "Expires in (e.g. 30d, 720h)",
+    "expiresInPlaceholder": "30d"
+  },
+  "actions": {
+    "refresh": "Refresh",
+    "create": "Create PAT",
+    "creating": "Creating...",
+    "revoke": "Revoke",
+    "revokeAll": "Revoke all my PATs"
+  },
+  "status": {
+    "active": "Active",
+    "revoked": "Revoked"
+  },
+  "table": {
+    "name": "Name",
+    "masked": "Masked Key",
+    "models": "Models",
+    "createdAt": "Created At",
+    "lastUsedAt": "Last Used",
+    "expiresAt": "Expires At",
+    "status": "Status",
+    "actions": "Actions",
+    "empty": "No personal access tokens found."
+  },
+  "create": {
+    "title": "Create Personal Access Token",
+    "description": "Create a tenant-scoped token owned by your account."
+  },
+  "messages": {
+    "validation": "Token name and at least one model are required.",
+    "loadError": "Failed to load personal access tokens.",
+    "createSuccess": "Personal access token created successfully.",
+    "createError": "Failed to create personal access token.",
+    "revokeSuccess": "Token revoked successfully.",
+    "revokeError": "Failed to revoke token.",
+    "revokeAllSuccess": "All your tokens were revoked.",
+    "revokeAllError": "Failed to revoke all tokens."
+  }
+}
