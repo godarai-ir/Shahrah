@@ -26,10 +26,13 @@ export function ModelEntitySelect(props: {
   providerAllowedModels: ModelSelection[];
   virtualModels: ModelSelection[];
   labels: ModelEntitySelectLabels;
+  showVirtualModels?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [activeKind, setActiveKind] = useState<ModelSelectionKind>("provider_allowed");
+  const showVirtualModels = props.showVirtualModels ?? true;
+  const [requestedKind, setRequestedKind] = useState<ModelSelectionKind>("provider_allowed");
+  const activeKind: ModelSelectionKind = showVirtualModels ? requestedKind : "provider_allowed";
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -57,12 +60,14 @@ export function ModelEntitySelect(props: {
         </div>
         <div className="grid min-h-[230px] sm:grid-cols-[168px_minmax(0,1fr)]">
           <div className="flex gap-1 overflow-x-auto border-b bg-muted/30 p-2 sm:block sm:space-y-1 sm:border-b-0 sm:border-e">
-            <button type="button" className={cn("w-full whitespace-nowrap rounded-md px-3 py-2 text-start text-sm font-medium transition", activeKind === "provider_allowed" ? "bg-primary/10 text-primary ring-1 ring-primary/30" : "text-muted-foreground hover:bg-background hover:text-foreground")} onClick={() => setActiveKind("provider_allowed")}>
+            <button type="button" className={cn("w-full whitespace-nowrap rounded-md px-3 py-2 text-start text-sm font-medium transition", activeKind === "provider_allowed" ? "bg-primary/10 text-primary ring-1 ring-primary/30" : "text-muted-foreground hover:bg-background hover:text-foreground")} onClick={() => setRequestedKind("provider_allowed")}>
               {props.labels.providerAllowed}
             </button>
-            <button type="button" className={cn("w-full whitespace-nowrap rounded-md px-3 py-2 text-start text-sm font-medium transition", activeKind === "virtual_model" ? "bg-primary/10 text-primary ring-1 ring-primary/30" : "text-muted-foreground hover:bg-background hover:text-foreground")} onClick={() => setActiveKind("virtual_model")}>
-              {props.labels.virtualModels}
-            </button>
+            {showVirtualModels ? (
+              <button type="button" className={cn("w-full whitespace-nowrap rounded-md px-3 py-2 text-start text-sm font-medium transition", activeKind === "virtual_model" ? "bg-primary/10 text-primary ring-1 ring-primary/30" : "text-muted-foreground hover:bg-background hover:text-foreground")} onClick={() => setRequestedKind("virtual_model")}>
+                {props.labels.virtualModels}
+              </button>
+            ) : null}
           </div>
           <div className="max-h-[300px] overflow-y-auto p-2">
             {filtered.length === 0 ? (
@@ -87,4 +92,3 @@ export function ModelEntitySelect(props: {
     </Popover>
   );
 }
-

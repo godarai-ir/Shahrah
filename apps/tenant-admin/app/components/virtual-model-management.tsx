@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ModelEntitySelect, type ModelSelection } from "@/app/components/model-entity-select";
 import { cn } from "@/lib/utils";
 
 type VirtualModelPolicy = {
@@ -39,6 +40,17 @@ type VirtualModel = {
 
 type VMResponse = { data?: VirtualModel[] };
 type VMDetail = VirtualModel;
+type TenantProviderAccount = { id: string; provider: string; name: string };
+type TenantProviderAccountModel = { model: string; enabled: boolean };
+type AccountsResponse = { data?: TenantProviderAccount[] };
+type AccountDetailsResponse = {
+  account?: TenantProviderAccount;
+  models?: TenantProviderAccountModel[];
+  data?: {
+    account?: TenantProviderAccount;
+    models?: TenantProviderAccountModel[];
+  };
+};
 
 type FormState = {
   id?: string;
@@ -87,15 +99,17 @@ export default function VirtualModelManagement() {
   const [notice, setNotice] = useState<Notice>(null);
 
   const [items, setItems] = useState<VirtualModel[]>([]);
+  const [providerAllowedModels, setProviderAllowedModels] = useState<ModelSelection[]>([]);
   const [selectedID, setSelectedID] = useState<string>("");
-  const [form, setForm] = useState<FormState>(makeDefaultForm());
-  const [savedHash, setSavedHash] = useState("");
+  const [form, setForm] = useState<FormState>(() => makeDefaultForm());
+  const [savedHash, setSavedHash] = useState(() => JSON.stringify(makeDefaultForm()));
 
   const isCreate = !form.id;
   const dirty = useMemo(() => JSON.stringify(form) !== savedHash, [form, savedHash]);
 
   useEffect(() => {
     void loadList();
+    void loadProviderAllowedModels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -160,6 +174,35 @@ export default function VirtualModelManagement() {
       setNotice({ kind: "error", message: normalizeError(error, t("messages.detailLoadError")) });
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function loadProviderAllowedModels() {
+    try {
+      const accountsRes = await fetch("/api/tenant-provider-accounts", { cache: "no-store" });
+      const accountsData = (await accountsRes.json().catch(() => ({}))) as AccountsResponse;
+      if (!accountsRes.ok) throw new Error(readError(accountsData, t("messages.listLoadError")));
+      const accounts = accountsData.data ?? [];
+      const allSelections = await Promise.all(
+        accounts.map(async (account) => {
+          const detailRes = await fetch(`/api/tenant-provider-accounts/${encodeURIComponent(account.id)}`, { cache: "no-store" });
+          const detailData = (await detailRes.json().catch(() => ({}))) as AccountDetailsResponse;
+          if (!detailRes.ok) return [] as ModelSelection[];
+          const payload = detailData.data ?? detailData;
+          const models = payload.models ?? [];
+          return models
+            .filter((item) => item.enabled)
+            .map<ModelSelection>((item) => ({
+              id: `${account.id}:${item.model}`,
+              name: item.model,
+              kind: "provider_allowed",
+              secondary: `${account.provider}/${account.name}`,
+            }));
+        }),
+      );
+      setProviderAllowedModels(allSelections.flat());
+    } catch {
+      setProviderAllowedModels([]);
     }
   }
 
@@ -415,11 +458,30 @@ export default function VirtualModelManagement() {
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label>{t("targets.provider")}</Label>
-                    <Input value={target.provider} onChange={(event) => updateTarget(index, { provider: event.target.value })} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>{t("targets.model")}</Label>
-                    <Input value={target.model} onChange={(event) => updateTarget(index, { model: event.target.value })} />
+                    <ModelEntitySelect
+                      id={`vm-target-${index}-provider-model`}
+                      selected={
+                        providerAllowedModels.find(
+                          (item) => item.name === target.model && item.secondary?.startsWith(`${target.provider}/`),
+                        ) ?? null
+                      }
+                      onSelectedChange={(value) => {
+                        if (!value) return;
+                        const provider = value.secondary?.split("/")[0] ?? "";
+                        updateTarget(index, { provider, model: value.name });
+                      }}
+                      providerAllowedModels={providerAllowedModels}
+                      virtualModels={[]}
+                      showVirtualModels={false}
+                      labels={{
+                        triggerPlaceholder: t("targets.model"),
+                        searchPlaceholder: t("searchPlaceholder"),
+                        providerAllowed: t("targets.provider"),
+                        virtualModels: t("title"),
+                        loading: "",
+                        empty: t("empty.description"),
+                      }}
+                    />
                   </div>
                 </div>
 
@@ -606,4 +668,3 @@ function validateForm(form: FormState, t: ReturnType<typeof useTranslations<"vir
   }
   return null;
 }
-
