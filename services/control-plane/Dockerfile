@@ -4,6 +4,7 @@ ARG GOPROXY=https://goproxy.io,direct
 ENV GOPROXY=${GOPROXY}
 
 WORKDIR /src
+RUN apk --no-cache add git
 
 COPY packages/contracts ./packages/contracts
 COPY services/control-plane/go.mod services/control-plane/go.sum ./services/control-plane/
