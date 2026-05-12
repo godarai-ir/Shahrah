@@ -44,3 +44,20 @@ export async function PATCH(request: NextRequest, context: Params) {
     userID: auth.user.id,
   });
 }
+
+export async function DELETE(request: NextRequest, context: Params) {
+  const auth = await readAuthFromRequest(request);
+  if (!auth.ok) {
+    return NextResponse.json({ error: { message: auth.message } }, { status: auth.status });
+  }
+  const { id } = await context.params;
+  if (!id?.trim()) {
+    return NextResponse.json({ error: { message: "id is required." } }, { status: 400 });
+  }
+  return proxyToControlPlane({
+    request,
+    method: "DELETE",
+    path: `/api/v1/virtual-models/${encodeURIComponent(id)}`,
+    userID: auth.user.id,
+  });
+}

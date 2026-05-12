@@ -35,6 +35,7 @@ type modelStore interface {
 	ListVirtualModels(ctx context.Context, tenantID string) ([]platform.VirtualModel, error)
 	GetVirtualModel(ctx context.Context, tenantID string, id string) (*platform.VirtualModel, error)
 	UpdateVirtualModel(ctx context.Context, tenantID string, id string, req platform.UpdateVirtualModelRequest, actor string) (*platform.VirtualModel, error)
+	DeleteVirtualModel(ctx context.Context, tenantID string, id string) error
 	CreateRateLimitRule(ctx context.Context, tenantID string, req platform.CreateRateLimitRuleRequest) (*platform.RateLimitRule, error)
 	ListRateLimitRules(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.RateLimitRule, int, error)
 	GetRateLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string) (*platform.RateLimitRule, error)
@@ -728,6 +729,27 @@ func (h *Handlers) UpdateVirtualModel(c *fiber.Ctx) error {
 		return err
 	}
 	return c.JSON(item)
+}
+
+func (h *Handlers) DeleteVirtualModel(c *fiber.Ctx) error {
+	if err := requireTenantAdminOrHigher(c); err != nil {
+		return err
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	id := strings.TrimSpace(c.Params("id"))
+	if id == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "id is required")
+	}
+	if err := h.models.DeleteVirtualModel(c.Context(), currentTenant.ID, id); err != nil {
+		if errors.Is(err, storage.ErrVirtualModelNotFound) || errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "virtual model not found")
+		}
+		return err
+	}
+	return c.JSON(fiber.Map{"success": true})
 }
 
 func validateCreateVirtualModelRequest(req platform.CreateVirtualModelRequest) error {

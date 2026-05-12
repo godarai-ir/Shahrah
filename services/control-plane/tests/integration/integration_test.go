@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -824,6 +825,65 @@ func (s *integrationModelStore) GetVirtualModelByAlias(ctx context.Context, tena
 		}
 	}
 	return nil, storage.ErrVirtualModelNotFound
+}
+
+func (s *integrationModelStore) DeleteVirtualModel(ctx context.Context, tenantID string, id string) error {
+	for i := range s.virtualModels {
+		vm := s.virtualModels[i]
+		if vm.TenantID == tenantID && vm.ID == id {
+			s.virtualModels = append(s.virtualModels[:i], s.virtualModels[i+1:]...)
+			return nil
+		}
+	}
+	return storage.ErrVirtualModelNotFound
+}
+
+func (s *integrationModelStore) CreateRateLimitRule(ctx context.Context, tenantID string, req platform.CreateRateLimitRuleRequest) (*platform.RateLimitRule, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *integrationModelStore) ListRateLimitRules(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.RateLimitRule, int, error) {
+	return []platform.RateLimitRule{}, 0, nil
+}
+
+func (s *integrationModelStore) GetRateLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string) (*platform.RateLimitRule, error) {
+	return nil, pgx.ErrNoRows
+}
+
+func (s *integrationModelStore) UpdateRateLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string, req platform.UpdateRateLimitRuleRequest) (*platform.RateLimitRule, error) {
+	return nil, pgx.ErrNoRows
+}
+
+func (s *integrationModelStore) UpdateRateLimitRuleStatusByRuleID(ctx context.Context, tenantID string, ruleID string, enabled bool) (*platform.RateLimitRule, error) {
+	return nil, pgx.ErrNoRows
+}
+
+func (s *integrationModelStore) DeleteRateLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string) error {
+	return pgx.ErrNoRows
+}
+
+func (s *integrationModelStore) CreateBudgetLimitRule(ctx context.Context, tenantID string, req platform.CreateBudgetLimitRuleRequest) (*platform.BudgetLimitRule, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *integrationModelStore) ListBudgetLimitRules(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.BudgetLimitRule, int, error) {
+	return []platform.BudgetLimitRule{}, 0, nil
+}
+
+func (s *integrationModelStore) GetBudgetLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string) (*platform.BudgetLimitRule, error) {
+	return nil, pgx.ErrNoRows
+}
+
+func (s *integrationModelStore) UpdateBudgetLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string, req platform.UpdateBudgetLimitRuleRequest) (*platform.BudgetLimitRule, error) {
+	return nil, pgx.ErrNoRows
+}
+
+func (s *integrationModelStore) UpdateBudgetLimitRuleStatusByRuleID(ctx context.Context, tenantID string, ruleID string, enabled bool) (*platform.BudgetLimitRule, error) {
+	return nil, pgx.ErrNoRows
+}
+
+func (s *integrationModelStore) DeleteBudgetLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string) error {
+	return pgx.ErrNoRows
 }
 
 func (s *integrationModelStore) ListTenantAdminUsers(ctx context.Context, tenantSlug string, query string, limit int, offset int) ([]platform.TenantAdminUser, int, error) {

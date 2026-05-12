@@ -118,6 +118,7 @@ func registerRoutes(app *fiber.App, deps Dependencies) {
 	api.Get("/virtual-models", deps.AdminHandlers.ListVirtualModels)
 	api.Get("/virtual-models/:id", deps.AdminHandlers.GetVirtualModel)
 	api.Patch("/virtual-models/:id", deps.AdminHandlers.UpdateVirtualModel)
+	api.Delete("/virtual-models/:id", deps.AdminHandlers.DeleteVirtualModel)
 	api.Get("/gateway-policies/rate-limit-rules", deps.AdminHandlers.ListRateLimitRules)
 	api.Post("/gateway-policies/rate-limit-rules", deps.AdminHandlers.CreateRateLimitRule)
 	api.Get("/gateway-policies/rate-limit-rules/:id", deps.AdminHandlers.GetRateLimitRule)

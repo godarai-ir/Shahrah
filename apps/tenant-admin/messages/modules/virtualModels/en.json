@@ -10,7 +10,8 @@
     "refresh": "Refresh",
     "new": "New Virtual Model",
     "create": "Create Virtual Model",
-    "reset": "Reset changes"
+    "reset": "Reset changes",
+    "delete": "Delete Virtual Model"
   },
   "status": {
     "enabled": "Enabled",
@@ -64,6 +65,9 @@
     "createError": "Failed to create virtual model.",
     "updateSuccess": "Virtual model updated successfully.",
     "updateError": "Failed to update virtual model.",
+    "deleteSuccess": "Virtual model deleted successfully.",
+    "deleteError": "Failed to delete virtual model.",
+    "deleteConfirm": "Delete this virtual model? This action cannot be undone.",
     "unsavedConfirm": "You have unsaved changes. Continue and discard them?",
     "disableConfirm": "Disable this virtual model? Requests using this alias will fail.",
     "aliasRequired": "Alias is required.",

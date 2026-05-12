@@ -180,6 +180,28 @@ func (s *Store) UpdateVirtualModel(ctx context.Context, tenantID string, id stri
 	return s.GetVirtualModel(ctx, tenantID, id)
 }
 
+func (s *Store) DeleteVirtualModel(ctx context.Context, tenantID string, id string) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, `DELETE FROM virtual_model_targets WHERE virtual_model_id = $1`, id); err != nil {
+		return err
+	}
+
+	res, err := tx.Exec(ctx, `DELETE FROM virtual_models WHERE tenant_id = $1 AND virtual_model_id = $2`, tenantID, id)
+	if err != nil {
+		return err
+	}
+	if res.RowsAffected() == 0 {
+		return ErrVirtualModelNotFound
+	}
+
+	return tx.Commit(ctx)
+}
+
 func insertVirtualModelTargets(ctx context.Context, tx pgx.Tx, vmID string, targets []platform.VirtualModelTarget) ([]platform.VirtualModelTarget, error) {
 	out := make([]platform.VirtualModelTarget, 0, len(targets))
 	for i, target := range targets {

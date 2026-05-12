@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowDown, ArrowUp, CheckCircle2, Loader2, Plus, RefreshCw, Save, Search, XCircle } from "lucide-react";
+import { ArrowDown, ArrowUp, CheckCircle2, Loader2, Plus, RefreshCw, Save, Search, Trash2, XCircle } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ModelEntitySelect, type ModelSelection } from "@/app/components/model-entity-select";
 import { cn } from "@/lib/utils";
@@ -61,6 +63,13 @@ type FormState = {
 };
 
 type Notice = { kind: "success" | "error"; message: string } | null;
+type StatusCodeChipsInputProps = {
+  id: string;
+  value: number[];
+  onChange: (next: number[]) => void;
+  placeholder?: string;
+  disabled?: boolean;
+};
 
 const DEFAULT_TARGET: VirtualModelTarget = {
   order: 1,
@@ -95,6 +104,7 @@ export default function VirtualModelManagement() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [query, setQuery] = useState("");
   const [notice, setNotice] = useState<Notice>(null);
 
@@ -129,7 +139,7 @@ export default function VirtualModelManagement() {
     return items.filter((item) => item.alias.toLowerCase().includes(q));
   }, [items, query]);
 
-  async function loadList() {
+  async function loadList(options?: { skipDirtyConfirmOnAutoload?: boolean }) {
     setIsLoading(true);
     setNotice(null);
     try {
@@ -139,7 +149,7 @@ export default function VirtualModelManagement() {
       const rows = data.data ?? [];
       setItems(rows);
       if (!selectedID && rows.length > 0) {
-        await loadDetail(rows[0].id);
+        await loadDetail(rows[0].id, { skipDirtyConfirm: options?.skipDirtyConfirmOnAutoload });
       }
     } catch (error) {
       setNotice({ kind: "error", message: normalizeError(error, t("messages.listLoadError")) });
@@ -148,9 +158,9 @@ export default function VirtualModelManagement() {
     }
   }
 
-  async function loadDetail(id: string) {
+  async function loadDetail(id: string, options?: { skipDirtyConfirm?: boolean }) {
     if (!id) return;
-    if (dirty) {
+    if (!options?.skipDirtyConfirm && dirty) {
       const confirmed = window.confirm(t("messages.unsavedConfirm"));
       if (!confirmed) return;
     }
@@ -291,12 +301,39 @@ export default function VirtualModelManagement() {
       if (!res.ok) throw new Error(readError(data, isCreate ? t("messages.createError") : t("messages.updateError")));
       const nextID = data.id ?? form.id ?? "";
       setNotice({ kind: "success", message: isCreate ? t("messages.createSuccess") : t("messages.updateSuccess") });
-      await loadList();
-      if (nextID) await loadDetail(nextID);
+      // The current form has just been persisted; prevent unsaved confirmation
+      // while hydrating the latest server state back into the form.
+      setSavedHash(JSON.stringify(form));
+      await loadList({ skipDirtyConfirmOnAutoload: true });
+      if (nextID) await loadDetail(nextID, { skipDirtyConfirm: true });
     } catch (error) {
       setNotice({ kind: "error", message: normalizeError(error, isCreate ? t("messages.createError") : t("messages.updateError")) });
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function deleteCurrent() {
+    if (!form.id) return;
+    if (!window.confirm(t("messages.deleteConfirm"))) return;
+
+    setIsDeleting(true);
+    setNotice(null);
+    try {
+      const res = await fetch(`/api/virtual-models/${encodeURIComponent(form.id)}`, { method: "DELETE" });
+      const data = (await res.json().catch(() => ({}))) as Partial<VirtualModel>;
+      if (!res.ok) throw new Error(readError(data, t("messages.deleteError")));
+
+      const next = makeDefaultForm();
+      setSelectedID("");
+      setForm(next);
+      setSavedHash(JSON.stringify(next));
+      setNotice({ kind: "success", message: t("messages.deleteSuccess") });
+      await loadList({ skipDirtyConfirmOnAutoload: true });
+    } catch (error) {
+      setNotice({ kind: "error", message: normalizeError(error, t("messages.deleteError")) });
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -331,10 +368,10 @@ export default function VirtualModelManagement() {
         </CardHeader>
         <CardContent className="space-y-3">
           {isLoading && items.length === 0 ? (
-            <div className="space-y-2">
-              <div className="h-9 animate-pulse rounded-md bg-muted" />
-              <div className="h-9 animate-pulse rounded-md bg-muted" />
-              <div className="h-9 animate-pulse rounded-md bg-muted" />
+            <div className="flex flex-col gap-2">
+              <Skeleton className="h-9 w-full rounded-md" />
+              <Skeleton className="h-9 w-full rounded-md" />
+              <Skeleton className="h-9 w-full rounded-md" />
             </div>
           ) : filtered.length === 0 ? (
             <div className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">
@@ -408,16 +445,20 @@ export default function VirtualModelManagement() {
 
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>
-              <p className="text-sm font-medium">{t("form.enabledLabel")}</p>
+              <Label htmlFor="vm-enabled" className="text-sm font-medium">
+                {t("form.enabledLabel")}
+              </Label>
               <p className="text-xs text-muted-foreground">{t("form.enabledHelp")}</p>
             </div>
-            <Button
-              variant={form.enabled ? "default" : "secondary"}
-              type="button"
-              onClick={() => setForm((prev) => ({ ...prev, enabled: !prev.enabled }))}
-            >
-              {form.enabled ? t("status.enabled") : t("status.disabled")}
-            </Button>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">{form.enabled ? t("status.enabled") : t("status.disabled")}</span>
+              <Switch
+                id="vm-enabled"
+                checked={form.enabled}
+                onCheckedChange={(checked) => setForm((prev) => ({ ...prev, enabled: checked }))}
+                aria-label={t("form.enabledLabel")}
+              />
+            </div>
           </div>
 
           <div className="space-y-3 rounded-lg border p-3">
@@ -487,8 +528,9 @@ export default function VirtualModelManagement() {
 
                 <div className="grid gap-3 md:grid-cols-3">
                   <div className="space-y-1.5">
-                    <Label>{t("targets.retryAttempts")}</Label>
+                    <Label htmlFor={`vm-target-${index}-retry-attempts`}>{t("targets.retryAttempts")}</Label>
                     <Input
+                      id={`vm-target-${index}-retry-attempts`}
                       type="number"
                       min={0}
                       max={5}
@@ -507,8 +549,9 @@ export default function VirtualModelManagement() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>{t("targets.retryDelay")}</Label>
+                    <Label htmlFor={`vm-target-${index}-retry-delay`}>{t("targets.retryDelay")}</Label>
                     <Input
+                      id={`vm-target-${index}-retry-delay`}
                       type="number"
                       min={0}
                       max={10000}
@@ -527,8 +570,9 @@ export default function VirtualModelManagement() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>{t("targets.timeout")}</Label>
+                    <Label htmlFor={`vm-target-${index}-timeout`}>{t("targets.timeout")}</Label>
                     <Input
+                      id={`vm-target-${index}-timeout`}
                       type="number"
                       min={1}
                       value={target.policy.timeout_sec ?? 60}
@@ -546,37 +590,41 @@ export default function VirtualModelManagement() {
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label>{t("targets.retryCodes")}</Label>
-                    <Input
-                      value={(target.policy.retry.status_codes ?? []).join(",")}
-                      onChange={(event) =>
+                    <Label htmlFor={`vm-target-${index}-retry-codes`}>{t("targets.retryCodes")}</Label>
+                    <StatusCodeChipsInput
+                      id={`vm-target-${index}-retry-codes`}
+                      value={target.policy.retry.status_codes ?? []}
+                      onChange={(next) =>
                         updateTarget(index, {
                           policy: {
                             ...target.policy,
                             retry: {
                               ...target.policy.retry,
-                              status_codes: parseStatusCodes(event.target.value),
+                              status_codes: next,
                             },
                           },
                         })
                       }
+                      placeholder="429, 500, 502, 503"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>{t("targets.fallbackCodes")}</Label>
-                    <Input
-                      value={(target.policy.fallback.status_codes ?? []).join(",")}
-                      onChange={(event) =>
+                    <Label htmlFor={`vm-target-${index}-fallback-codes`}>{t("targets.fallbackCodes")}</Label>
+                    <StatusCodeChipsInput
+                      id={`vm-target-${index}-fallback-codes`}
+                      value={target.policy.fallback.status_codes ?? []}
+                      onChange={(next) =>
                         updateTarget(index, {
                           policy: {
                             ...target.policy,
                             fallback: {
                               ...target.policy.fallback,
-                              status_codes: parseStatusCodes(event.target.value),
+                              status_codes: next,
                             },
                           },
                         })
                       }
+                      placeholder="429, 500, 502, 503, 504"
                     />
                   </div>
                 </div>
@@ -597,13 +645,19 @@ export default function VirtualModelManagement() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button type="button" onClick={() => void submitForm()} disabled={isSaving}>
+            <Button type="button" onClick={() => void submitForm()} disabled={isSaving || isDeleting}>
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               {isCreate ? t("actions.create") : tc("save")}
             </Button>
             {!isCreate ? (
               <Button type="button" variant="outline" onClick={() => selectedID && void loadDetail(selectedID)}>
                 {t("actions.reset")}
+              </Button>
+            ) : null}
+            {!isCreate ? (
+              <Button type="button" variant="destructive" onClick={() => void deleteCurrent()} disabled={isSaving || isDeleting}>
+                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                {t("actions.delete")}
               </Button>
             ) : null}
           </div>
@@ -613,11 +667,78 @@ export default function VirtualModelManagement() {
   );
 }
 
+function StatusCodeChipsInput(props: StatusCodeChipsInputProps) {
+  const [draft, setDraft] = useState("");
+
+  function addCodes(raw: string) {
+    const codes = parseStatusCodes(raw);
+    if (codes.length === 0) return;
+    const seen = new Set(props.value);
+    const next = [...props.value];
+    for (const code of codes) {
+      if (seen.has(code)) continue;
+      seen.add(code);
+      next.push(code);
+    }
+    props.onChange(next);
+  }
+
+  function commitDraft() {
+    if (!draft.trim()) return;
+    addCodes(draft);
+    setDraft("");
+  }
+
+  function removeCode(code: number) {
+    props.onChange(props.value.filter((item) => item !== code));
+  }
+
+  return (
+    <div className="rounded-md border bg-background px-2 py-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {props.value.map((code) => (
+          <Badge key={code} variant="secondary" className="gap-1 pe-1">
+            <span>{code}</span>
+            <button
+              type="button"
+              className="rounded-sm p-0.5 text-muted-foreground transition hover:bg-accent hover:text-foreground"
+              onClick={() => removeCode(code)}
+              aria-label={`Remove status code ${code}`}
+              disabled={props.disabled}
+            >
+              <XCircle className="h-3.5 w-3.5" />
+            </button>
+          </Badge>
+        ))}
+        <Input
+          id={props.id}
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={commitDraft}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === ",") {
+              event.preventDefault();
+              commitDraft();
+              return;
+            }
+            if (event.key === "Backspace" && !draft && props.value.length > 0) {
+              removeCode(props.value[props.value.length - 1]);
+            }
+          }}
+          placeholder={props.placeholder}
+          className="h-8 min-w-[120px] flex-1 border-0 p-0 ps-1 shadow-none focus-visible:ring-0"
+          disabled={props.disabled}
+        />
+      </div>
+    </div>
+  );
+}
+
 function parseStatusCodes(input: string): number[] {
   return input
-    .split(",")
+    .split(/[,\s]+/)
     .map((value) => Number(value.trim()))
-    .filter((value) => Number.isFinite(value) && value >= 100 && value <= 599);
+    .filter((value) => Number.isInteger(value) && value >= 100 && value <= 599);
 }
 
 function readError(payload: unknown, fallback: string) {
