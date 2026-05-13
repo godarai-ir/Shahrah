@@ -10,7 +10,7 @@ This project follows the standard open source code of conduct. Be respectful and
 
 ### Prerequisites
 
-- Go 1.22+
+- Go 1.26.3+
 - Docker & Docker Compose
 - Make (or use PowerShell commands directly on Windows)
 
