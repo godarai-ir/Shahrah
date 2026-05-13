@@ -73,6 +73,8 @@ type providerAccountStore interface {
 	UpdateTenantProviderAccountAccess(ctx context.Context, tenantID string, accountID string, access platform.TenantProviderAccountAccessControl) (*platform.TenantProviderAccountAccessControl, error)
 	TestTenantProviderAccountCredentials(ctx context.Context, tenantID string, accountID string, req platform.TestTenantProviderAccountCredentialsRequest) (*platform.TestTenantProviderAccountCredentialsResponse, error)
 	ListTenantProviderAccountEffectiveModels(ctx context.Context, tenantID string, accountID string, keyType string, userID string, teamID string) ([]platform.EffectiveModelView, error)
+	IsTenantProviderAccountManager(ctx context.Context, tenantID string, accountID string, userID string, teamID string) (bool, error)
+	DeleteTenantProviderAccount(ctx context.Context, tenantID string, accountID string) error
 	SearchAccessPrincipals(ctx context.Context, tenantID string, kind string, query string, limit int) ([]platform.AccessPrincipalCandidate, error)
 }
 
@@ -1514,6 +1516,46 @@ func (h *Handlers) GetTenantProviderAccount(c *fiber.Ctx) error {
 	return c.JSON(details)
 }
 
+// DeleteTenantProviderAccount deletes one provider account for the tenant.
+func (h *Handlers) DeleteTenantProviderAccount(c *fiber.Ctx) error {
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	store, err := h.requireProviderAccountsStore()
+	if err != nil {
+		return err
+	}
+
+	accountID := strings.TrimSpace(c.Params("accountID"))
+	if accountID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "accountID is required")
+	}
+
+	details, err := store.GetTenantProviderAccountDetails(c.Context(), currentTenant.ID, accountID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
+		}
+		return mapProviderAccountStoreError(err)
+	}
+	if details == nil {
+		return fiber.NewError(fiber.StatusNotFound, "provider account not found")
+	}
+
+	if err := h.requireTenantAdminOrProviderAccountManager(c, store, currentTenant.ID, accountID); err != nil {
+		return err
+	}
+
+	if err := store.DeleteTenantProviderAccount(c.Context(), currentTenant.ID, accountID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
+		}
+		return mapProviderAccountStoreError(err)
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
 // GetTenantProviderAccountEffectiveModels returns effective model access view for debugging/observability.
 func (h *Handlers) GetTenantProviderAccountEffectiveModels(c *fiber.Ctx) error {
 	if err := requireTenantAdminOrHigher(c); err != nil {
@@ -2799,12 +2841,33 @@ func requireOrgAdminOrHigher(c *fiber.Ctx) error {
 	return fiber.NewError(fiber.StatusForbidden, "organization admin privileges required")
 }
 
+func (h *Handlers) requireTenantAdminOrProviderAccountManager(c *fiber.Ctx, store providerAccountStore, tenantID string, accountID string) error {
+	authInfo := auth.GetAuthInfo(c)
+	if auth.IsTenantAdminOrHigher(authInfo) {
+		return nil
+	}
+	if authInfo == nil {
+		return fiber.NewError(fiber.StatusForbidden, "insufficient permissions to delete provider account")
+	}
+	allowed, err := store.IsTenantProviderAccountManager(c.Context(), tenantID, accountID, authInfo.UserID, authInfo.TeamID)
+	if err != nil {
+		return err
+	}
+	if !allowed {
+		return fiber.NewError(fiber.StatusForbidden, "insufficient permissions to delete provider account")
+	}
+	return nil
+}
+
 func mapProviderAccountStoreError(err error) error {
 	if err == nil {
 		return nil
 	}
 	if errors.Is(err, storage.ErrInvalidAccessPrincipal) {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	if errors.Is(err, storage.ErrProviderAccountDependencyConflict) {
+		return fiber.NewError(fiber.StatusConflict, "provider account is referenced by active keys; revoke or update keys first")
 	}
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {

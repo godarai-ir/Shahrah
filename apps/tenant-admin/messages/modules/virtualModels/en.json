@@ -13,6 +13,13 @@
     "reset": "Reset changes",
     "delete": "Delete Virtual Model"
   },
+  "deleteDialog": {
+    "title": "Confirm deletion",
+    "description": "Are you sure you want to delete VAT \"{alias}\"? This action cannot be undone.",
+    "cancel": "Cancel",
+    "confirm": "Delete",
+    "deleting": "Deleting..."
+  },
   "status": {
     "enabled": "Enabled",
     "disabled": "Disabled"
@@ -67,7 +74,6 @@
     "updateError": "Failed to update virtual model.",
     "deleteSuccess": "Virtual model deleted successfully.",
     "deleteError": "Failed to delete virtual model.",
-    "deleteConfirm": "Delete this virtual model? This action cannot be undone.",
     "unsavedConfirm": "You have unsaved changes. Continue and discard them?",
     "disableConfirm": "Disable this virtual model? Requests using this alias will fail.",
     "aliasRequired": "Alias is required.",

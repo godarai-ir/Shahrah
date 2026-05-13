@@ -145,6 +145,7 @@ func registerRoutes(app *fiber.App, deps Dependencies) {
 	api.Post("/tenant-provider-accounts", deps.AdminHandlers.CreateTenantProviderAccount)
 	api.Get("/tenant-provider-accounts", deps.AdminHandlers.ListTenantProviderAccounts)
 	api.Get("/tenant-provider-accounts/:accountID", deps.AdminHandlers.GetTenantProviderAccount)
+	api.Delete("/tenant-provider-accounts/:accountID", deps.AdminHandlers.DeleteTenantProviderAccount)
 	api.Get("/tenant-provider-accounts/:accountID/effective-models", deps.AdminHandlers.GetTenantProviderAccountEffectiveModels)
 	api.Put("/tenant-provider-accounts/:accountID/credentials", deps.AdminHandlers.UpdateTenantProviderAccountCredentials)
 	api.Put("/tenant-provider-accounts/:accountID/models", deps.AdminHandlers.UpsertTenantProviderAccountModels)

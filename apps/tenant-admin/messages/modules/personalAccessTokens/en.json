@@ -12,7 +12,13 @@
   },
   "oneTime": {
     "title": "Copy token now (shown once)",
-    "description": "This raw token cannot be retrieved again after this screen."
+    "description": "This raw token cannot be retrieved again after this screen.",
+    "copyHint": "Store this token securely before closing this dialog.",
+    "copy": "Copy token",
+    "copying": "Copying...",
+    "copied": "Copied",
+    "copyFailed": "Failed to copy token. Please copy it manually.",
+    "close": "Close"
   },
   "fields": {
     "name": "Token name",
@@ -28,6 +34,14 @@
     "creating": "Creating...",
     "revoke": "Revoke",
     "revokeAll": "Revoke all my PATs"
+  },
+  "deleteDialog": {
+    "title": "Confirm deletion",
+    "singleDescription": "Are you sure you want to delete PAT \"{name}\"? This action cannot be undone.",
+    "allDescription": "Are you sure you want to delete all your PATs? This action cannot be undone.",
+    "cancel": "Cancel",
+    "confirm": "Delete",
+    "deleting": "Deleting..."
   },
   "status": {
     "active": "Active",

@@ -15,6 +15,7 @@ import (
 var (
 	ErrInvalidAccessPrincipal            = errors.New("invalid access principal")
 	ErrModelNotAllowedForProviderAccount = errors.New("model is not allowed for provider account")
+	ErrProviderAccountDependencyConflict = errors.New("provider account has active dependencies")
 )
 
 // CreateTenantProviderAccount creates a provider account for the tenant.
@@ -527,6 +528,100 @@ func (s *Store) listTenantProviderAccountAccess(ctx context.Context, accountID s
 	}
 
 	return access, rows.Err()
+}
+
+// IsTenantProviderAccountManager returns true when the given user/team is in manager bucket for the account.
+func (s *Store) IsTenantProviderAccountManager(ctx context.Context, tenantID string, accountID string, userID string, teamID string) (bool, error) {
+	normalizedUserID := strings.TrimSpace(userID)
+	normalizedTeamID := strings.TrimSpace(teamID)
+	if normalizedUserID == "" && normalizedTeamID == "" {
+		return false, nil
+	}
+
+	var allowed bool
+	if err := s.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM tenant_provider_account_access ac
+			INNER JOIN tenant_provider_accounts a ON a.account_id = ac.account_id
+			WHERE a.tenant_id = $1::uuid
+			  AND a.account_id = $2::uuid
+			  AND ac.role = 'manager'
+			  AND (
+			    (ac.principal_type = 'user' AND ac.principal_id IS NOT NULL AND ac.principal_id::text = NULLIF($3, ''))
+			    OR (ac.principal_type = 'team' AND ac.principal_id IS NOT NULL AND ac.principal_id::text = NULLIF($4, ''))
+			  )
+		)
+	`, tenantID, accountID, normalizedUserID, normalizedTeamID).Scan(&allowed); err != nil {
+		return false, err
+	}
+	return allowed, nil
+}
+
+// DeleteTenantProviderAccount deletes one provider account scoped to a tenant.
+func (s *Store) DeleteTenantProviderAccount(ctx context.Context, tenantID string, accountID string) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	var (
+		accountName string
+		provider    string
+	)
+	if err := tx.QueryRow(ctx, `
+		SELECT name, provider
+		FROM tenant_provider_accounts
+		WHERE tenant_id = $1::uuid AND account_id = $2::uuid
+	`, tenantID, accountID).Scan(&accountName, &provider); err != nil {
+		return err
+	}
+
+	var hasActiveKeyReference bool
+	if err := tx.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM verification_tokens vt
+			INNER JOIN LATERAL unnest(COALESCE(vt.models, ARRAY[]::text[])) AS m(model) ON true
+			WHERE vt.tenant_id = $1::uuid
+			  AND vt.revoked_at IS NULL
+			  AND (
+			    m.model ILIKE ($2 || ':' || $3 || ':%')
+			    OR m.model ILIKE ($2 || ':' || $3)
+			  )
+		)
+	`, tenantID, strings.TrimSpace(provider), strings.TrimSpace(accountName)).Scan(&hasActiveKeyReference); err != nil {
+		return err
+	}
+	if hasActiveKeyReference {
+		return ErrProviderAccountDependencyConflict
+	}
+
+	cmd, err := tx.Exec(ctx, `
+		DELETE FROM tenant_provider_accounts
+		WHERE tenant_id = $1::uuid AND account_id = $2::uuid
+	`, tenantID, accountID)
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	if s.logger != nil {
+		s.logger.Info("provider_account.deleted",
+			zap.String("tenant_id", tenantID),
+			zap.String("account_id", accountID),
+			zap.String("provider", provider),
+			zap.String("name", accountName),
+		)
+	}
+	return nil
 }
 
 func ensureTenantProviderAccountExists(ctx context.Context, tx pgx.Tx, tenantID string, accountID string) (bool, error) {

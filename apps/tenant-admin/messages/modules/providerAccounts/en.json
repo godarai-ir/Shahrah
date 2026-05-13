@@ -90,7 +90,17 @@
     "credentialInvalid": "Connection validation failed.",
     "credentialTestFailed": "Failed to validate connection credentials.",
     "managerSearchFailed": "Failed to search managers.",
-    "userSearchFailed": "Failed to search users/teams."
+    "userSearchFailed": "Failed to search users/teams.",
+    "accountDeleteConfirmInput": "Delete provider account \"{name}\".\nType the exact account name to confirm:",
+    "accountDeleteConfirmTitle": "Delete provider account",
+    "accountDeleteConfirmBody": "This action permanently deletes \"{name}\". Type the account name exactly to confirm.",
+    "accountDeleteConfirmLabel": "Account name",
+    "accountDeleteNameMismatch": "Account name mismatch. Deletion was canceled.",
+    "accountDeleteSuccess": "Provider account deleted successfully.",
+    "accountDeleteFailed": "Failed to delete provider account.",
+    "accountDeleteForbidden": "You do not have permission to delete this provider account.",
+    "accountDeleteConflict": "This provider account is referenced by active keys. Revoke or update them first.",
+    "accountDeleteNotFound": "Provider account not found."
   },
   "wizard": {
     "stepLabel": "Step {number}",
@@ -139,7 +149,10 @@
       "setupNewAccount": "Setup New Account",
       "openExisting": "Open Existing Account",
       "loadEffectiveModels": "Load effective models",
-      "loading": "Loading..."
+      "loading": "Loading...",
+      "deleteAccount": "Delete",
+      "cancelDelete": "Cancel",
+      "confirmDelete": "Delete account"
     },
     "setup": {
       "stepLabel": "Step {number}",

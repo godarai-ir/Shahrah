@@ -112,6 +112,9 @@ func CheckRouteAuthorization(method string, route string, authInfo *platform.Aut
 	case strings.HasPrefix(normalizedRoute, "/api/v1/models"):
 		return requireTenantAdmin(authInfo)
 	case strings.HasPrefix(normalizedRoute, "/api/v1/tenant-provider-accounts"):
+		if normalizedMethod == "DELETE" && isProviderAccountDeleteRoute(normalizedRoute) {
+			return nil
+		}
 		return requireTenantAdmin(authInfo)
 	case strings.HasPrefix(normalizedRoute, "/api/v1/access-principals"):
 		return requireTeamAdmin(authInfo)
@@ -239,4 +242,19 @@ func normalizeRoute(route string) string {
 		return "/" + trimmed
 	}
 	return trimmed
+}
+
+func isProviderAccountDeleteRoute(route string) bool {
+	trimmed := strings.TrimSpace(route)
+	if trimmed == "/api/v1/tenant-provider-accounts" {
+		return false
+	}
+	if !strings.HasPrefix(trimmed, "/api/v1/tenant-provider-accounts/") {
+		return false
+	}
+	rest := strings.TrimPrefix(trimmed, "/api/v1/tenant-provider-accounts/")
+	if rest == "" {
+		return false
+	}
+	return !strings.Contains(rest, "/")
 }

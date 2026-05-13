@@ -3,12 +3,20 @@
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Copy, Eye, KeyRound, Layers3, Plus, ShieldCheck, X } from "lucide-react";
+import { Copy, Eye, KeyRound, Layers3, Plus, ShieldCheck, Trash2, X } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -149,6 +157,10 @@ export default function ProviderAccountWizard() {
   const [isSavingAccess, setIsSavingAccess] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [isSavingCredentials, setIsSavingCredentials] = useState(false);
+  const [deletingAccountID, setDeletingAccountID] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteTargetAccount, setDeleteTargetAccount] = useState<TenantProviderAccount | null>(null);
+  const [deleteAccountNameInput, setDeleteAccountNameInput] = useState("");
   const [isLoadingEffective, setIsLoadingEffective] = useState(false);
   const [isRefreshingCatalog, setIsRefreshingCatalog] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
@@ -451,6 +463,81 @@ export default function ProviderAccountWizard() {
       }
     },
     [fetchProviderModels, t],
+  );
+
+  const normalizeDeleteAccountError = useCallback(
+    (message: string, status: number): string => {
+      const normalized = message.trim().toLowerCase();
+      if (status === 403 || normalized.includes("insufficient permissions")) return t("messages.accountDeleteForbidden");
+      if (status === 404 || normalized.includes("not found")) return t("messages.accountDeleteNotFound");
+      if (status === 409 || normalized.includes("active keys") || normalized.includes("referenced")) {
+        return t("messages.accountDeleteConflict");
+      }
+      return message || t("messages.accountDeleteFailed");
+    },
+    [t],
+  );
+
+  const openDeleteAccountDialog = useCallback((target: TenantProviderAccount) => {
+    setDeleteTargetAccount(target);
+    setDeleteAccountNameInput("");
+    setDeleteDialogOpen(true);
+  }, []);
+
+  const handleDeleteAccount = useCallback(
+    async (target: TenantProviderAccount) => {
+      if (!target?.id) return;
+      if (deleteAccountNameInput !== target.name) {
+        setBanner({ kind: "error", message: t("messages.accountDeleteNameMismatch") });
+        return;
+      }
+
+      setDeletingAccountID(target.id);
+      try {
+        const response = await fetch(`/api/tenant-provider-accounts/${encodeURIComponent(target.id)}`, {
+          method: "DELETE",
+          cache: "no-store",
+        });
+        const text = await response.text();
+        const payload = parseResponsePayload(text);
+        if (!response.ok) {
+          const upstreamMessage = extractMessageFromPayload(payload) ?? `Request failed (${response.status})`;
+          throw new Error(normalizeDeleteAccountError(upstreamMessage, response.status));
+        }
+
+        const remainingAccounts = accounts.filter((item) => item.id !== target.id);
+        setAccounts(remainingAccounts);
+        setAccountReadiness((prev) =>
+          Object.fromEntries(Object.entries(prev).filter(([id]) => id !== target.id)),
+        );
+
+        if (selectedAccountID === target.id) {
+          const nextAccount = remainingAccounts.find((item) => stringsEqualFold(item.provider, target.provider)) ?? remainingAccounts[0];
+          if (nextAccount) {
+            setSelectedAccountID(nextAccount.id);
+            setSelectedProviderID(nextAccount.provider);
+            setWorkspaceMode("workspace");
+          } else {
+            setSelectedAccountID("");
+            setAccount(null);
+            setProviderModels([]);
+            setModelDrafts({});
+            setManagers([]);
+            setUsers([{ type: "everyone", display_name: t("principal.everyone") }]);
+            setWorkspaceMode("overview");
+          }
+        }
+        setBanner({ kind: "success", message: t("messages.accountDeleteSuccess") });
+        setDeleteDialogOpen(false);
+        setDeleteTargetAccount(null);
+        setDeleteAccountNameInput("");
+      } catch (error) {
+        setBanner({ kind: "error", message: normalizeError(error, t("messages.accountDeleteFailed")) });
+      } finally {
+        setDeletingAccountID("");
+      }
+    },
+    [accounts, deleteAccountNameInput, normalizeDeleteAccountError, selectedAccountID, t],
   );
 
   async function handleSaveCredentials(accountID = selectedAccountID) {
@@ -945,31 +1032,49 @@ export default function ProviderAccountWizard() {
                 ) : (
                   selectedProviderAccounts.map((item) => {
                     const isSelected = item.id === selectedAccountID && workspaceMode === "workspace";
+                    const isDeleting = deletingAccountID === item.id;
                     return (
-                      <button
+                      <div
                         key={item.id}
-                        type="button"
-                        className={`w-full rounded-lg border px-3 py-2 text-start ${
+                        className={`w-full rounded-lg border px-2 py-2 ${
                           isSelected ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"
                         }`}
-                        onClick={() => handleSelectAccount(item)}
                       >
-                        <div className="flex items-center justify-between gap-2">
-                          <div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            className="min-w-0 flex-1 text-start"
+                            onClick={() => handleSelectAccount(item)}
+                          >
                             <div className="font-medium">{item.name}</div>
                             <div className="text-xs text-muted-foreground">{item.auth_mode}</div>
+                          </button>
+                          <div className="shrink-0">
+                            <ReadinessBadge
+                              readiness={accountReadiness[item.id] ?? deriveAccountListReadiness(item)}
+                              labels={{
+                                ready: ux("readiness.ready"),
+                                needs_credentials: ux("readiness.needsCredentials"),
+                                needs_access: ux("readiness.needsAccess"),
+                                pricing_incomplete: ux("readiness.pricingIncomplete"),
+                              }}
+                            />
                           </div>
-                          <ReadinessBadge
-                            readiness={accountReadiness[item.id] ?? deriveAccountListReadiness(item)}
-                            labels={{
-                              ready: ux("readiness.ready"),
-                              needs_credentials: ux("readiness.needsCredentials"),
-                              needs_access: ux("readiness.needsAccess"),
-                              pricing_incomplete: ux("readiness.pricingIncomplete"),
-                            }}
-                          />
                         </div>
-                      </button>
+                        <div className="mt-2 flex justify-end">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => openDeleteAccountDialog(item)}
+                            disabled={isDeleting}
+                          >
+                            <Trash2 className="me-1 h-4 w-4" />
+                            {isDeleting ? ux("actions.loading") : ux("actions.deleteAccount")}
+                          </Button>
+                        </div>
+                      </div>
                     );
                   })
                 )}
@@ -1022,6 +1127,16 @@ export default function ProviderAccountWizard() {
                       >
                         <Copy className="me-2 h-4 w-4" />
                         {ux("actions.copyFqn")}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => openDeleteAccountDialog(account)}
+                        disabled={deletingAccountID === account.id}
+                      >
+                        <Trash2 className="me-2 h-4 w-4" />
+                        {deletingAccountID === account.id ? ux("actions.loading") : ux("actions.deleteAccount")}
                       </Button>
                     </div>
                   ) : null}
@@ -1469,6 +1584,58 @@ export default function ProviderAccountWizard() {
             </Card>
           </section>
         </div>
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t("messages.accountDeleteConfirmTitle")}</DialogTitle>
+              <DialogDescription>
+                {t("messages.accountDeleteConfirmBody", { name: deleteTargetAccount?.name ?? "" })}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="delete-account-name-input">{t("messages.accountDeleteConfirmLabel")}</Label>
+              <Input
+                id="delete-account-name-input"
+                value={deleteAccountNameInput}
+                onChange={(event) => setDeleteAccountNameInput(event.target.value)}
+                placeholder={deleteTargetAccount?.name ?? ""}
+                aria-invalid={
+                  Boolean(deleteAccountNameInput) &&
+                  deleteAccountNameInput !== (deleteTargetAccount?.name ?? "")
+                }
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setDeleteDialogOpen(false);
+                  setDeleteTargetAccount(null);
+                  setDeleteAccountNameInput("");
+                }}
+              >
+                {ux("actions.cancelDelete")}
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => {
+                  if (deleteTargetAccount) {
+                    void handleDeleteAccount(deleteTargetAccount);
+                  }
+                }}
+                disabled={
+                  !deleteTargetAccount ||
+                  deletingAccountID === deleteTargetAccount.id ||
+                  deleteAccountNameInput !== (deleteTargetAccount?.name ?? "")
+                }
+              >
+                {deletingAccountID ? ux("actions.loading") : ux("actions.confirmDelete")}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

@@ -8,6 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -105,6 +106,7 @@ export default function VirtualModelManagement() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [notice, setNotice] = useState<Notice>(null);
 
@@ -315,7 +317,6 @@ export default function VirtualModelManagement() {
 
   async function deleteCurrent() {
     if (!form.id) return;
-    if (!window.confirm(t("messages.deleteConfirm"))) return;
 
     setIsDeleting(true);
     setNotice(null);
@@ -329,6 +330,7 @@ export default function VirtualModelManagement() {
       setForm(next);
       setSavedHash(JSON.stringify(next));
       setNotice({ kind: "success", message: t("messages.deleteSuccess") });
+      setDeleteDialogOpen(false);
       await loadList({ skipDirtyConfirmOnAutoload: true });
     } catch (error) {
       setNotice({ kind: "error", message: normalizeError(error, t("messages.deleteError")) });
@@ -655,7 +657,7 @@ export default function VirtualModelManagement() {
               </Button>
             ) : null}
             {!isCreate ? (
-              <Button type="button" variant="destructive" onClick={() => void deleteCurrent()} disabled={isSaving || isDeleting}>
+              <Button type="button" variant="destructive" onClick={() => setDeleteDialogOpen(true)} disabled={isSaving || isDeleting}>
                 {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                 {t("actions.delete")}
               </Button>
@@ -663,6 +665,31 @@ export default function VirtualModelManagement() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          if (isDeleting) return;
+          setDeleteDialogOpen(open);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("deleteDialog.title")}</DialogTitle>
+            <DialogDescription>
+              {t("deleteDialog.description", { alias: form.alias || form.id || "-" })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={isDeleting}>
+              {t("deleteDialog.cancel")}
+            </Button>
+            <Button type="button" variant="destructive" onClick={() => void deleteCurrent()} disabled={isDeleting || !form.id}>
+              {isDeleting ? t("deleteDialog.deleting") : t("deleteDialog.confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

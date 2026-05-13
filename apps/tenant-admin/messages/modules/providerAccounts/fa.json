@@ -90,7 +90,17 @@
     "credentialInvalid": "اعتبارسنجی اتصال ناموفق بود.",
     "credentialTestFailed": "تست اعتبارنامه‌های اتصال انجام نشد.",
     "managerSearchFailed": "جستجوی مدیران ناموفق بود.",
-    "userSearchFailed": "جستجوی کاربران/تیم‌ها ناموفق بود."
+    "userSearchFailed": "جستجوی کاربران/تیم‌ها ناموفق بود.",
+    "accountDeleteConfirmInput": "حذف حساب ارائه‌دهنده \"{name}\".\nبرای تایید، نام دقیق حساب را وارد کنید:",
+    "accountDeleteConfirmTitle": "حذف حساب ارائه‌دهنده",
+    "accountDeleteConfirmBody": "این عملیات حساب \"{name}\" را به‌صورت دائمی حذف می‌کند. برای تایید، نام حساب را دقیقاً وارد کنید.",
+    "accountDeleteConfirmLabel": "نام حساب",
+    "accountDeleteNameMismatch": "نام حساب با مقدار مورد نظر یکسان نیست. عملیات حذف لغو شد.",
+    "accountDeleteSuccess": "حساب ارائه‌دهنده با موفقیت حذف شد.",
+    "accountDeleteFailed": "حذف حساب ارائه‌دهنده ناموفق بود.",
+    "accountDeleteForbidden": "شما دسترسی لازم برای حذف این حساب ارائه‌دهنده را ندارید.",
+    "accountDeleteConflict": "این حساب به کلیدهای فعال متصل است. ابتدا کلیدها را لغو یا به‌روزرسانی کنید.",
+    "accountDeleteNotFound": "حساب ارائه‌دهنده یافت نشد."
   },
   "wizard": {
     "stepLabel": "گام {number}",
@@ -139,7 +149,10 @@
       "loadEffectiveModels": "بارگذاری مدل‌های مؤثر",
       "loading": "در حال بارگذاری...",
       "refreshCatalog": "بازآوری کاتالوگ",
-      "refreshingCatalog": "در حال بازآوری کاتالوگ..."
+      "refreshingCatalog": "در حال بازآوری کاتالوگ...",
+      "deleteAccount": "حذف",
+      "cancelDelete": "انصراف",
+      "confirmDelete": "حذف حساب"
     },
     "setup": {
       "stepLabel": "گام {number}",

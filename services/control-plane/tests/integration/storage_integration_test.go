@@ -725,6 +725,211 @@ func TestIntegration_EffectiveModels_PATKeyAllowlistIsApplied(t *testing.T) {
 	assert.Equal(t, "model_not_in_token_allowlist", byModel["gpt-4o"].DeniedReason)
 }
 
+func TestIntegration_DeleteTenantProviderAccount_Success(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if strings.TrimSpace(databaseURL) == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
+	resetPersistentState(t, pool)
+
+	ctx := context.Background()
+	userID := uuid.NewString()
+	orgID := uuid.NewString()
+	teamID := uuid.NewString()
+	_, err := pool.Exec(ctx, `
+		INSERT INTO organizations (organization_id, tenant_id, organization_alias, created_at, updated_at)
+		SELECT $1::uuid, tenant_id, 'platform', NOW(), NOW()
+		FROM tenants WHERE slug = 'default'
+	`, orgID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `
+		INSERT INTO users (user_id, tenant_id, user_alias, role, active, created_at, updated_at)
+		SELECT $1::uuid, tenant_id, 'owner', 'tenant_admin', true, NOW(), NOW()
+		FROM tenants WHERE slug = 'default'
+	`, userID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `
+		INSERT INTO teams (team_id, tenant_id, team_alias, organization_id, workspace_type, created_at, updated_at)
+		SELECT $1::uuid, tenant_id, 'ml-team', $2::uuid, 'general', NOW(), NOW()
+		FROM tenants WHERE slug = 'default'
+	`, teamID, orgID)
+	require.NoError(t, err)
+
+	createResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/tenant-provider-accounts", "Bearer sk-master", `{
+		"provider":"openai",
+		"name":"openai-delete-ok",
+		"auth_mode":"api_key",
+		"credentials":{"api_key":"sk-provider-demo"}
+	}`)
+	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
+	var account platform.TenantProviderAccount
+	decodeJSONBody(t, createResp, &account)
+	require.NotEmpty(t, account.ID)
+
+	modelsResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/models", "Bearer sk-master", `{
+		"models":[{"model":"gpt-4.1-mini","enabled":true}]
+	}`)
+	assert.Equal(t, http.StatusOK, modelsResp.StatusCode)
+
+	accessResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/access", "Bearer sk-master", fmt.Sprintf(`{
+		"access":{
+			"managers":[{"type":"user","principal_id":"%s"}],
+			"users":[{"type":"team","principal_id":"%s"}]
+		}
+	}`, userID, teamID))
+	assert.Equal(t, http.StatusOK, accessResp.StatusCode)
+
+	deleteResp := performJSONRequest(t, app, http.MethodDelete, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID, "Bearer sk-master", "")
+	assert.Equal(t, http.StatusNoContent, deleteResp.StatusCode)
+
+	assertCount(t, pool, `SELECT COUNT(*) FROM tenant_provider_accounts WHERE account_id = '`+account.ID+`'`, 0)
+	assertCount(t, pool, `SELECT COUNT(*) FROM tenant_provider_account_models WHERE account_id = '`+account.ID+`'`, 0)
+	assertCount(t, pool, `SELECT COUNT(*) FROM tenant_provider_account_access WHERE account_id = '`+account.ID+`'`, 0)
+}
+
+func TestIntegration_DeleteTenantProviderAccount_ForbiddenForNonManager(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if strings.TrimSpace(databaseURL) == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
+	resetPersistentState(t, pool)
+
+	ctx := context.Background()
+	orgID := uuid.NewString()
+	managerUserID := uuid.NewString()
+	nonManagerUserID := uuid.NewString()
+	_, err := pool.Exec(ctx, `
+		INSERT INTO organizations (organization_id, tenant_id, organization_alias, created_at, updated_at)
+		SELECT $1::uuid, tenant_id, 'platform', NOW(), NOW()
+		FROM tenants WHERE slug = 'default'
+	`, orgID)
+	require.NoError(t, err)
+	for _, uid := range []string{managerUserID, nonManagerUserID} {
+		_, err = pool.Exec(ctx, `
+			INSERT INTO users (user_id, tenant_id, user_alias, role, active, created_at, updated_at)
+			SELECT $1::uuid, tenant_id, 'member', 'tenant_member', true, NOW(), NOW()
+			FROM tenants WHERE slug = 'default'
+		`, uid)
+		require.NoError(t, err)
+	}
+
+	createResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/tenant-provider-accounts", "Bearer sk-master", `{
+		"provider":"openai",
+		"name":"openai-delete-authz",
+		"auth_mode":"api_key",
+		"credentials":{"api_key":"sk-provider-demo"}
+	}`)
+	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
+	var account platform.TenantProviderAccount
+	decodeJSONBody(t, createResp, &account)
+
+	accessResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/access", "Bearer sk-master", fmt.Sprintf(`{
+		"access":{
+			"managers":[{"type":"user","principal_id":"%s"}],
+			"users":[{"type":"user","principal_id":"%s"}]
+		}
+	}`, managerUserID, nonManagerUserID))
+	assert.Equal(t, http.StatusOK, accessResp.StatusCode)
+
+	patResp := performJSONRequestWithHeaders(
+		t,
+		app,
+		http.MethodPost,
+		"http://localhost/api/v1/personal-access-tokens",
+		"Bearer sk-master",
+		map[string]string{"x-shahrah-user-id": nonManagerUserID},
+		`{"name":"non-manager-delete","allowed_models":["*"]}`,
+	)
+	assert.Equal(t, http.StatusCreated, patResp.StatusCode)
+	var pat platform.CreatedKey
+	decodeJSONBody(t, patResp, &pat)
+	require.NotEmpty(t, pat.Key)
+
+	deleteResp := performJSONRequest(t, app, http.MethodDelete, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID, "Bearer "+pat.Key, "")
+	assert.Equal(t, http.StatusForbidden, deleteResp.StatusCode)
+}
+
+func TestIntegration_DeleteTenantProviderAccount_NotFound(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if strings.TrimSpace(databaseURL) == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
+	resetPersistentState(t, pool)
+
+	deleteResp := performJSONRequest(t, app, http.MethodDelete, "http://localhost/api/v1/tenant-provider-accounts/"+uuid.NewString(), "Bearer sk-master", "")
+	assert.Equal(t, http.StatusNotFound, deleteResp.StatusCode)
+}
+
+func TestIntegration_DeleteTenantProviderAccount_ConflictWhenReferencedByActiveKey(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if strings.TrimSpace(databaseURL) == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
+	resetPersistentState(t, pool)
+
+	ctx := context.Background()
+	userID := uuid.NewString()
+	_, err := pool.Exec(ctx, `
+		INSERT INTO users (user_id, tenant_id, user_alias, role, active, created_at, updated_at)
+		SELECT $1::uuid, tenant_id, 'owner', 'tenant_admin', true, NOW(), NOW()
+		FROM tenants WHERE slug = 'default'
+	`, userID)
+	require.NoError(t, err)
+
+	createResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/tenant-provider-accounts", "Bearer sk-master", `{
+		"provider":"openai",
+		"name":"openai-delete-blocked",
+		"auth_mode":"api_key",
+		"credentials":{"api_key":"sk-provider-demo"}
+	}`)
+	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
+	var account platform.TenantProviderAccount
+	decodeJSONBody(t, createResp, &account)
+
+	modelsResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/models", "Bearer sk-master", `{
+		"models":[{"model":"gpt-4.1-mini","enabled":true}]
+	}`)
+	assert.Equal(t, http.StatusOK, modelsResp.StatusCode)
+
+	accessResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/access", "Bearer sk-master", fmt.Sprintf(`{
+		"access":{
+			"managers":[{"type":"user","principal_id":"%s"}],
+			"users":[{"type":"user","principal_id":"%s"}]
+		}
+	}`, userID, userID))
+	assert.Equal(t, http.StatusOK, accessResp.StatusCode)
+
+	patResp := performJSONRequestWithHeaders(
+		t,
+		app,
+		http.MethodPost,
+		"http://localhost/api/v1/personal-access-tokens",
+		"Bearer sk-master",
+		map[string]string{"x-shahrah-user-id": userID},
+		`{"name":"key-ref-delete","allowed_models":["openai:openai-delete-blocked:gpt-4.1-mini"]}`,
+	)
+	assert.Equal(t, http.StatusCreated, patResp.StatusCode)
+
+	deleteResp := performJSONRequest(t, app, http.MethodDelete, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID, "Bearer sk-master", "")
+	assert.Equal(t, http.StatusConflict, deleteResp.StatusCode)
+}
+
 func createIntegrationTenant(t *testing.T, pool *pgxpool.Pool, slug string) *platform.Tenant {
 	t.Helper()
 	var tenant platform.Tenant
