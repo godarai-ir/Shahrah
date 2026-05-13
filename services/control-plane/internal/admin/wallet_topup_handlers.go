@@ -8,8 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -388,6 +390,31 @@ func calculateIRR(amountUSD, exchangeRate, taxPercent, feePercent float64) (amou
 	return
 }
 
+func fallbackUSDtoIRRRate() float64 {
+	const defaultRate = 1850000.0
+	raw := strings.TrimSpace(os.Getenv("BILLING_SETTINGS_DEFAULT_USD_TO_IRR"))
+	if raw == "" {
+		return defaultRate
+	}
+	parsed, err := strconv.ParseFloat(raw, 64)
+	if err != nil || math.IsNaN(parsed) || math.IsInf(parsed, 0) || parsed <= 0 {
+		return defaultRate
+	}
+	return parsed
+}
+
+func resolveUSDtoIRRRate(c *fiber.Ctx, store walletStore) (*platform.ExchangeRate, error) {
+	rate, err := store.GetLatestExchangeRate(c.Context())
+	if err == nil && rate != nil && rate.USDtoIRR > 0 {
+		return rate, nil
+	}
+	return &platform.ExchangeRate{
+		USDtoIRR: fallbackUSDtoIRRRate(),
+		Source:   "static-fallback",
+		FetchedAt: time.Now(),
+	}, nil
+}
+
 func (h *Handlers) CreateWalletTopUpIntent(c *fiber.Ctx) error {
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
@@ -410,9 +437,9 @@ func (h *Handlers) CreateWalletTopUpIntent(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("amount_usd must be between %.2f and %.2f", settings.MinAmountUSD, settings.MaxAmountUSD))
 	}
 
-	rate, err := h.wallets.GetLatestExchangeRate(c.Context())
+	rate, err := resolveUSDtoIRRRate(c, h.wallets)
 	if err != nil || rate == nil || rate.USDtoIRR <= 0 {
-		return fiber.NewError(fiber.StatusBadGateway, "exchange rate unavailable")
+		return fiber.NewError(fiber.StatusBadGateway, "failed to resolve exchange rate")
 	}
 
 	returnURL := strings.TrimSpace(req.ReturnURL)
