@@ -333,7 +333,7 @@ func (s *Store) VerifyOnboardingOTPAndProvision(ctx context.Context, p VerifyOnb
 		VALUES (
 			$1::uuid, $2::uuid, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), 'tenant_admin', true, NOW(), NOW()
 		)
-		ON CONFLICT (email) DO NOTHING
+		ON CONFLICT DO NOTHING
 	`, uuid.NewString(), created.ID, strings.TrimSpace(email), strings.TrimSpace(email), strings.TrimSpace(mobile)); err != nil {
 		return nil, err
 	}

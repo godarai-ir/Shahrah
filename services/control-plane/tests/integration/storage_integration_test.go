@@ -725,6 +725,88 @@ func TestIntegration_EffectiveModels_PATKeyAllowlistIsApplied(t *testing.T) {
 	assert.Equal(t, "model_not_in_token_allowlist", byModel["gpt-4o"].DeniedReason)
 }
 
+func TestIntegration_EffectiveModels_PATKeyAllowlistAcceptsFQN(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if strings.TrimSpace(databaseURL) == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
+	resetPersistentState(t, pool)
+
+	ctx := context.Background()
+	userID := uuid.NewString()
+
+	_, err := pool.Exec(ctx, `
+		INSERT INTO users (user_id, tenant_id, user_alias, role, active, created_at, updated_at)
+		SELECT $1::uuid, tenant_id, 'member', 'tenant_member', true, NOW(), NOW()
+		FROM tenants WHERE slug = 'default'
+	`, userID)
+	require.NoError(t, err)
+
+	accountAlias := "openai-key-allowlist-preview-fqn"
+	createAccountResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/tenant-provider-accounts", "Bearer sk-master", fmt.Sprintf(`{
+		"provider":"openai",
+		"name":"%s",
+		"auth_mode":"api_key",
+		"credentials":{"api_key":"sk-provider-demo"}
+	}`, accountAlias))
+	assert.Equal(t, http.StatusCreated, createAccountResp.StatusCode)
+	var account platform.TenantProviderAccount
+	decodeJSONBody(t, createAccountResp, &account)
+	require.NotEmpty(t, account.ID)
+
+	modelsResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/models", "Bearer sk-master", `{
+		"models":[
+			{"model":"gpt-4.1-mini","enabled":true},
+			{"model":"gpt-4o","enabled":true}
+		]
+	}`)
+	assert.Equal(t, http.StatusOK, modelsResp.StatusCode)
+
+	accessResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/access", "Bearer sk-master", fmt.Sprintf(`{
+		"access":{
+			"managers":[{"type":"user","principal_id":"%s"}],
+			"users":[{"type":"user","principal_id":"%s"}]
+		}
+	}`, userID, userID))
+	assert.Equal(t, http.StatusOK, accessResp.StatusCode)
+
+	patResp := performJSONRequestWithHeaders(
+		t,
+		app,
+		http.MethodPost,
+		"http://localhost/api/v1/personal-access-tokens",
+		"Bearer sk-master",
+		map[string]string{"x-shahrah-user-id": userID},
+		fmt.Sprintf(`{"name":"pat-preview-allowlist-fqn","allowed_models":["openai:%s:gpt-4o"]}`, accountAlias),
+	)
+	assert.Equal(t, http.StatusCreated, patResp.StatusCode)
+
+	effectiveResp := performJSONRequest(
+		t,
+		app,
+		http.MethodGet,
+		fmt.Sprintf("http://localhost/api/v1/tenant-provider-accounts/%s/effective-models?key_type=pat&user_id=%s", account.ID, userID),
+		"Bearer sk-master",
+		"",
+	)
+	assert.Equal(t, http.StatusOK, effectiveResp.StatusCode)
+	var out platform.EffectiveModelsResponse
+	decodeJSONBody(t, effectiveResp, &out)
+	require.NotEmpty(t, out.Data)
+
+	byModel := make(map[string]platform.EffectiveModelView, len(out.Data))
+	for _, item := range out.Data {
+		byModel[item.Model] = item
+	}
+	require.Contains(t, byModel, "gpt-4o")
+	assert.True(t, byModel["gpt-4o"].Allowed)
+	assert.Empty(t, byModel["gpt-4o"].DeniedReason)
+}
+
 func TestIntegration_DeleteTenantProviderAccount_Success(t *testing.T) {
 	databaseURL := os.Getenv("DATABASE_URL")
 	if strings.TrimSpace(databaseURL) == "" {

@@ -720,6 +720,7 @@ func (s *Store) ListTenantProviderAccountEffectiveModels(ctx context.Context, te
 		           COALESCE(array_length(vt.models, 1), 0) = 0
 		           OR '*' = ANY(vt.models)
 		           OR m.model = ANY(vt.models)
+		           OR CONCAT(pa.provider, ':', pa.name, ':', m.model) = ANY(vt.models)
 		         )
 		         FROM verification_tokens vt
 		         WHERE vt.tenant_id = $5::uuid
@@ -733,6 +734,7 @@ func (s *Store) ListTenantProviderAccountEffectiveModels(ctx context.Context, te
 		           )
 		       ), false) AS allowed_by_key_allowlist
 		FROM tenant_provider_account_models m
+		JOIN tenant_provider_accounts pa ON pa.account_id = m.account_id
 		WHERE m.account_id = $1
 		ORDER BY m.model ASC
 	`, accountID, normalizedUserID, normalizedTeamID, normalizedKeyType, tenantID)
