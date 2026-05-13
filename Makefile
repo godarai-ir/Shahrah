@@ -20,10 +20,14 @@ MIGRATIONS_DIR := db/main/migrations
 DBSTRING := "postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSLMODE)"
 
 help: ## Show this help message
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -Command "Write-Output 'Usage: make [target]'; Write-Output ''; Write-Output 'Targets:'; $$targets = Get-Content '$(firstword $(MAKEFILE_LIST))' | Where-Object { $$_ -match '^[a-zA-Z_-]+:.*?## .*' } | ForEach-Object { if ($$_ -match '^([a-zA-Z_-]+):.*?## (.*)$$') { [PSCustomObject]@{ Name = $$matches[1]; Desc = $$matches[2] } } } | Sort-Object Name; foreach ($$t in $$targets) { '{0,-20} {1}' -f $$t.Name, $$t.Desc }"
+else
 	@echo "Usage: make [target]"
 	@echo ""
 	@echo "Targets:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+endif
 
 setup: setup-local ## Default local setup without remote-sensitive tidy
 
@@ -106,7 +110,7 @@ migrate-status: migrate-install ## Show goose migration status
 # Create a new migration file
 # Usage: make migrate-create name=my_new_feature
 migrate-create: migrate-install ## Create a new goose SQL migration (name=...)
-	@if [ -z "$(name)" ]; then echo "Usage: make migrate-create name=my_new_feature"; exit 1; fi
+	@$(if $(name),,$(error Usage: make migrate-create name=my_new_feature))
 	@cd $(MIGRATIONS_DIR) && goose postgres $(DBSTRING) create $(name) sql
 
 # Docker-based migration (run migrations in docker-compose environment)
