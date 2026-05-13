@@ -112,6 +112,14 @@ type WalletTopUpSettings struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
+// TenantTracePrivacySettings controls tenant-level trace payload capture behavior.
+type TenantTracePrivacySettings struct {
+	TenantID          string    `json:"tenant_id"`
+	CapturePolicy     string    `json:"capture_policy"`
+	UpdatedAt         time.Time `json:"updated_at"`
+	UpdatedByUserID   string    `json:"updated_by_user_id,omitempty"`
+}
+
 // ExchangeRate records a USD to IRR rate snapshot.
 type ExchangeRate struct {
 	ID        string    `json:"id"`

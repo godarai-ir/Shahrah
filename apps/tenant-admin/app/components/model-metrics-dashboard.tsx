@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { EChartsOption } from "echarts";
 
@@ -20,18 +20,28 @@ type ViewBy = (typeof VIEW_BY)[number];
 type Pct = (typeof PCTS)[number];
 type Row = Record<string, unknown>;
 
-export default function ModelMetricsDashboard() {
+type ModelMetricsDashboardProps = {
+  initialFrom?: string;
+  initialTo?: string;
+  initialModel?: string;
+  initialProvider?: string;
+  initialRequestID?: string;
+};
+
+export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps) {
   const t = useTranslations("metrics");
   const common = useTranslations("common");
 
   const [viewBy, setViewBy] = useState<ViewBy>("modelName");
   const [pct, setPct] = useState<Pct>("p99");
-  const [modelFilter, setModelFilter] = useState("");
+  const [modelFilter, setModelFilter] = useState(props.initialModel ?? "");
+  const [providerFilter, setProviderFilter] = useState(props.initialProvider ?? "");
+  const [requestIDFilter, setRequestIDFilter] = useState(props.initialRequestID ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [from, setFrom] = useState(() => new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString());
-  const [to, setTo] = useState(() => new Date().toISOString());
+  const [from, setFrom] = useState(() => props.initialFrom?.trim() || new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString());
+  const [to, setTo] = useState(() => props.initialTo?.trim() || new Date().toISOString());
 
   const [distribution, setDistribution] = useState<Row[]>([]);
   const [timeseries, setTimeseries] = useState<Row[]>([]);
@@ -52,6 +62,12 @@ export default function ModelMetricsDashboard() {
       const filters: Array<Record<string, unknown>> = [];
       if (modelFilter.trim()) {
         filters.push({ fieldName: "modelName", operator: "STRING_CONTAINS", value: modelFilter.trim() });
+      }
+      if (providerFilter.trim()) {
+        filters.push({ fieldName: "providerName", operator: "EQUAL", value: providerFilter.trim() });
+      }
+      if (requestIDFilter.trim()) {
+        filters.push({ fieldName: "requestID", operator: "EQUAL", value: requestIDFilter.trim() });
       }
 
       const [dist, ts, errb] = await Promise.all([
@@ -109,6 +125,17 @@ export default function ModelMetricsDashboard() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (!(props.initialModel?.trim() || props.initialProvider?.trim() || props.initialRequestID?.trim())) {
+      return;
+    }
+    const id = window.setTimeout(() => {
+      void runQuery();
+    }, 0);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const chartData = useMemo(() => buildSeries(timeseries, viewBy, pct), [timeseries, viewBy, pct]);
 
@@ -211,6 +238,14 @@ export default function ModelMetricsDashboard() {
           <div className="grid gap-1.5">
             <Label>{t("filters.model")}</Label>
             <Input value={modelFilter} onChange={(e) => setModelFilter(e.target.value)} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Provider</Label>
+            <Input value={providerFilter} onChange={(e) => setProviderFilter(e.target.value)} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Request ID</Label>
+            <Input value={requestIDFilter} onChange={(e) => setRequestIDFilter(e.target.value)} />
           </div>
           <div className="grid gap-1.5">
             <Label>{t("filters.viewBy")}</Label>

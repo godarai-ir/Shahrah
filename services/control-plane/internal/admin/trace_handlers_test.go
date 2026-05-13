@@ -16,8 +16,13 @@ import (
 )
 
 type traceStoreMock struct {
-	getFn       func(ctx context.Context, tenantID string, traceID string) (*platform.RequestTrace, error)
-	listSpansFn func(ctx context.Context, tenantID string, traceID string) ([]platform.TraceSpan, error)
+	getFn            func(ctx context.Context, tenantID string, traceID string) (*platform.RequestTrace, error)
+	listSpansFn      func(ctx context.Context, tenantID string, traceID string) ([]platform.TraceSpan, error)
+	listV2Fn         func(ctx context.Context, params platform.ListRequestTracesV2Params) ([]platform.RequestTraceV2, int, error)
+	getV2Fn          func(ctx context.Context, tenantID string, traceID string) (*platform.RequestTraceDetailV2, error)
+	listTimelineV2Fn func(ctx context.Context, tenantID string, traceID string) ([]platform.TraceSpan, error)
+	listAttemptsV2Fn func(ctx context.Context, tenantID string, traceID string) ([]platform.TraceAttemptV2, error)
+	getFacetsV2Fn    func(ctx context.Context, params platform.ListRequestTracesV2Params) (*platform.TraceFacetsV2, error)
 }
 
 func (m *traceStoreMock) ListRequestTraces(ctx context.Context, params platform.ListRequestTracesParams) ([]platform.RequestTrace, int, error) {
@@ -36,6 +41,41 @@ func (m *traceStoreMock) ListTraceSpans(ctx context.Context, tenantID string, tr
 		return m.listSpansFn(ctx, tenantID, traceID)
 	}
 	return nil, pgx.ErrNoRows
+}
+
+func (m *traceStoreMock) ListRequestTracesV2(ctx context.Context, params platform.ListRequestTracesV2Params) ([]platform.RequestTraceV2, int, error) {
+	if m.listV2Fn != nil {
+		return m.listV2Fn(ctx, params)
+	}
+	return []platform.RequestTraceV2{}, 0, nil
+}
+
+func (m *traceStoreMock) GetRequestTraceV2(ctx context.Context, tenantID string, traceID string) (*platform.RequestTraceDetailV2, error) {
+	if m.getV2Fn != nil {
+		return m.getV2Fn(ctx, tenantID, traceID)
+	}
+	return nil, pgx.ErrNoRows
+}
+
+func (m *traceStoreMock) ListTraceTimelineV2(ctx context.Context, tenantID string, traceID string) ([]platform.TraceSpan, error) {
+	if m.listTimelineV2Fn != nil {
+		return m.listTimelineV2Fn(ctx, tenantID, traceID)
+	}
+	return nil, pgx.ErrNoRows
+}
+
+func (m *traceStoreMock) ListTraceAttemptsV2(ctx context.Context, tenantID string, traceID string) ([]platform.TraceAttemptV2, error) {
+	if m.listAttemptsV2Fn != nil {
+		return m.listAttemptsV2Fn(ctx, tenantID, traceID)
+	}
+	return nil, pgx.ErrNoRows
+}
+
+func (m *traceStoreMock) GetTraceFacetsV2(ctx context.Context, params platform.ListRequestTracesV2Params) (*platform.TraceFacetsV2, error) {
+	if m.getFacetsV2Fn != nil {
+		return m.getFacetsV2Fn(ctx, params)
+	}
+	return &platform.TraceFacetsV2{}, nil
 }
 
 func setupTraceTestApp(h *Handlers) *fiber.App {

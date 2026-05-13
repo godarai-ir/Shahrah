@@ -90,6 +90,8 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 		emitDenyCounter(h.logger, denyReasonForModel(authInfo), requestedModel, currentTenant.ID)
 		return writeAPIError(c, fiber.StatusForbidden, "model access denied or unsupported for completions", "authorization_error")
 	}
+	authStart := time.Now()
+	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "auth.validate", "internal", authStart, fiber.StatusOK, map[string]interface{}{"model": requestedModel})
 
 	// Transform to chat completion format internally
 	chatReq := contractsopenai.ChatCompletionRequest{
@@ -113,6 +115,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 		}
 	}
 
+	quotaStart := time.Now()
 	// Check rate limit
 	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
 	setRateLimitHeaders(c, rateLimit)
@@ -124,8 +127,10 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	if err := h.billing.CheckBudget(c.Context(), authInfo, estimated); err != nil {
 		return writeAPIError(c, fiber.StatusPaymentRequired, err.Error(), "budget_exceeded")
 	}
+	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "quota.check", "internal", quotaStart, fiber.StatusOK, map[string]interface{}{"estimated_tokens": estimated.TotalTokens})
 
 	// Route to deployment
+	routeStart := time.Now()
 	var (
 		dep *router.Deployment
 	)
@@ -139,6 +144,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 		emitDenyCounter(h.logger, denyReasonUnknownModel, requestedModel, currentTenant.ID)
 		return writeAPIError(c, fiber.StatusInternalServerError, "no available deployments", "internal_error")
 	}
+	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
 	outboundModel := strings.TrimSpace(dep.Model)
 	if outboundModel == "" || outboundModel == "*" {
 		outboundModel = resolvedModel
@@ -178,12 +184,21 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 }
 
 func (h *CompletionsHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, start time.Time) error {
+	providerStart := time.Now()
+	providerAttrs := map[string]interface{}{
+		"provider":        tunnelReq.Deployment.Provider,
+		"request_payload": buildTraceChatRequestPayload(req),
+	}
 	resp, err := h.tunnel.Proxy(c.Context(), tunnelReq)
 	if err != nil {
+		providerAttrs["error"] = err.Error()
+		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, providerAttrs)
 		return writeAPIError(c, fiber.StatusBadGateway, "provider request failed", "bad_gateway")
 	}
 
 	if resp.StatusCode >= httpErrorFloor {
+		providerAttrs["response_payload"] = buildTraceProviderErrorPayload(resp.StatusCode, resp.Body)
+		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
 		return transformProviderError(c, resp.StatusCode, resp.Body, resp.Headers)
 	}
 	forwardProviderHeaders(c, resp.Headers)
@@ -191,6 +206,9 @@ func (h *CompletionsHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCo
 	// Transform chat completion response to legacy completion format
 	var chatResp contractsopenai.ChatCompletionResponse
 	if err := json.Unmarshal(resp.Body, &chatResp); err != nil {
+		providerAttrs["error"] = "failed to decode provider response"
+		providerAttrs["response_payload"] = buildTraceProviderErrorPayload(fiber.StatusBadGateway, resp.Body)
+		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, providerAttrs)
 		return c.Status(fiber.StatusOK).Send(resp.Body)
 	}
 
@@ -214,6 +232,8 @@ func (h *CompletionsHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCo
 	}
 	completionResp.Choices = choices
 	completionResp.Usage = chatResp.Usage
+	providerAttrs["response_payload"] = buildTraceCompletionResponsePayload(completionResp)
+	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
 
 	// Finalize billing
 	finalCost, _ := h.billing.FinalizeFromUsage(c.Context(), req.Model, chatResp.Usage, estimated)
@@ -279,14 +299,31 @@ func (h *CompletionsHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCo
 		})
 	}()
 
-	return c.Status(resp.StatusCode).JSON(completionResp)
+	responseStart := time.Now()
+	err = c.Status(resp.StatusCode).JSON(completionResp)
+	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "response.write", "internal", responseStart, resp.StatusCode, map[string]interface{}{
+		"response_payload": buildTraceCompletionResponsePayload(completionResp),
+	})
+	return err
 }
 
 func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, start time.Time) error {
+	providerStart := time.Now()
 	stream, err := h.tunnel.Stream(c.Context(), tunnelReq)
 	if err != nil {
+		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, map[string]interface{}{
+			"provider":        tunnelReq.Deployment.Provider,
+			"request_payload": buildTraceChatRequestPayload(req),
+			"stream":          true,
+			"error":           err.Error(),
+		})
 		return writeAPIError(c, fiber.StatusBadGateway, "stream failed", "bad_gateway")
 	}
+	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusOK, map[string]interface{}{
+		"provider":        tunnelReq.Deployment.Provider,
+		"request_payload": buildTraceChatRequestPayload(req),
+		"stream":          true,
+	})
 
 	c.Set("Content-Type", "text/event-stream")
 	c.Set("Cache-Control", "no-cache")
@@ -423,6 +460,8 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 			}
 		}
 	})
+	responseStart := time.Now()
+	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "response.write", "internal", responseStart, fiber.StatusOK, map[string]interface{}{"stream": true})
 
 	return nil
 }

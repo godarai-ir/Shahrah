@@ -124,10 +124,20 @@ type traceStore interface {
 	ListRequestTraces(ctx context.Context, params platform.ListRequestTracesParams) ([]platform.RequestTrace, int, error)
 	GetRequestTrace(ctx context.Context, tenantID string, traceID string) (*platform.RequestTrace, error)
 	ListTraceSpans(ctx context.Context, tenantID string, traceID string) ([]platform.TraceSpan, error)
+	ListRequestTracesV2(ctx context.Context, params platform.ListRequestTracesV2Params) ([]platform.RequestTraceV2, int, error)
+	GetRequestTraceV2(ctx context.Context, tenantID string, traceID string) (*platform.RequestTraceDetailV2, error)
+	ListTraceTimelineV2(ctx context.Context, tenantID string, traceID string) ([]platform.TraceSpan, error)
+	ListTraceAttemptsV2(ctx context.Context, tenantID string, traceID string) ([]platform.TraceAttemptV2, error)
+	GetTraceFacetsV2(ctx context.Context, params platform.ListRequestTracesV2Params) (*platform.TraceFacetsV2, error)
 }
 
 type metricsStore interface {
 	QueryModelMetrics(ctx context.Context, tenantID string, req platform.MetricsQueryRequest) ([]map[string]interface{}, error)
+}
+
+type tracePrivacyStore interface {
+	GetTenantTracePrivacySettings(ctx context.Context, tenantID string) (*platform.TenantTracePrivacySettings, error)
+	UpsertTenantTracePrivacySettings(ctx context.Context, tenantID, capturePolicy, updatedByUserID string) (*platform.TenantTracePrivacySettings, error)
 }
 
 type onboardingStore interface {
@@ -150,6 +160,7 @@ type Handlers struct {
 	onboarding       onboardingStore
 	traces           traceStore
 	metrics          metricsStore
+	tracePrivacy     tracePrivacyStore
 }
 
 // New creates a management handlers bundle.
@@ -163,6 +174,10 @@ func New(keys keyStore, models modelStore, wallets walletStore) *Handlers {
 	onboarding, _ := keys.(onboardingStore)
 	traces, _ := keys.(traceStore)
 	metrics, _ := keys.(metricsStore)
+	tracePrivacy, _ := keys.(tracePrivacyStore)
+	if tracePrivacy == nil {
+		tracePrivacy, _ = wallets.(tracePrivacyStore)
+	}
 	return &Handlers{
 		keys:             keys,
 		models:           models,
@@ -176,6 +191,7 @@ func New(keys keyStore, models modelStore, wallets walletStore) *Handlers {
 		onboarding:       onboarding,
 		traces:           traces,
 		metrics:          metrics,
+		tracePrivacy:     tracePrivacy,
 	}
 }
 

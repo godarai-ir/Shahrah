@@ -32,6 +32,11 @@ type Config struct {
 	WALEnabled        bool
 	WALPath           string
 	WALReplayInterval time.Duration
+	CapturePolicy     CapturePolicy
+	PayloadBlobDir    string
+	PayloadEncryptKey string
+	PayloadMaxBytes   int
+	PIIHashSalt       string
 }
 
 func LoadConfigFromEnv() Config {
@@ -51,6 +56,11 @@ func LoadConfigFromEnv() Config {
 		WALEnabled:        true,
 		WALPath:           "./tmp/trace-wal.jsonl",
 		WALReplayInterval: 3 * time.Second,
+		CapturePolicy:     CapturePolicyMetadataOnly,
+		PayloadBlobDir:    "./tmp/trace-payload-blobs",
+		PayloadEncryptKey: strings.TrimSpace(os.Getenv("TRACE_PAYLOAD_ENCRYPTION_KEY")),
+		PayloadMaxBytes:   16 * 1024,
+		PIIHashSalt:       strings.TrimSpace(os.Getenv("TRACE_PII_HASH_SALT")),
 	}
 
 	if v := os.Getenv("TRACE_DEFAULT_SAMPLE_RATE"); v != "" {
@@ -105,6 +115,17 @@ func LoadConfigFromEnv() Config {
 	if v := os.Getenv("TRACE_WAL_REPLAY_INTERVAL_MS"); v != "" {
 		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
 			cfg.WALReplayInterval = time.Duration(parsed) * time.Millisecond
+		}
+	}
+	if v := strings.TrimSpace(os.Getenv("TRACE_CAPTURE_POLICY")); v != "" {
+		cfg.CapturePolicy = ParseCapturePolicy(v)
+	}
+	if v := strings.TrimSpace(os.Getenv("TRACE_PAYLOAD_BLOB_DIR")); v != "" {
+		cfg.PayloadBlobDir = v
+	}
+	if v := os.Getenv("TRACE_PAYLOAD_MAX_BYTES"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 256 {
+			cfg.PayloadMaxBytes = parsed
 		}
 	}
 	return cfg

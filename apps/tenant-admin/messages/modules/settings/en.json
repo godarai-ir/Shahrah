@@ -20,5 +20,38 @@
     "sent": "Verification code sent to {destination}.",
     "emailSuccess": "Email updated successfully.",
     "mobileSuccess": "Mobile updated successfully."
+  },
+  "tracePrivacy": {
+    "title": "Tracing Privacy",
+    "description": "Configure tenant-level prompt/response trace capture policy. This overrides the global default when set.",
+    "capturePolicyLabel": "Capture Policy",
+    "policyBehaviorTitle": "Policy behavior",
+    "updatedAtLabel": "Updated at",
+    "updatedByLabel": "Updated by",
+    "notSet": "-",
+    "save": "Save Policy",
+    "saving": "Saving...",
+    "messages": {
+      "updated": "Trace privacy policy updated.",
+      "updateFailed": "Failed to update trace privacy policy."
+    },
+    "policies": {
+      "none": {
+        "title": "None",
+        "description": "Do not capture prompt/response payloads in traces."
+      },
+      "metadataOnly": {
+        "title": "Metadata-only",
+        "description": "Capture only payload metadata like size and checksums."
+      },
+      "sampledRedacted": {
+        "title": "Sampled-redacted",
+        "description": "Capture redacted payload snapshots with hashed sensitive values."
+      },
+      "fullSecure": {
+        "title": "Full-secure",
+        "description": "Store encrypted payload blobs at rest and keep references in trace spans."
+      }
+    }
   }
 }

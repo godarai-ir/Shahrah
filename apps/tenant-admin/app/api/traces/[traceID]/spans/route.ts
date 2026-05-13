@@ -14,7 +14,6 @@ export async function GET(request: Request, { params }: Params) {
   return proxyToControlPlane({
     request,
     method: "GET",
-    path: `/api/v1/traces/${encodeURIComponent(normalized)}/spans`,
+    path: `/api/v2/traces/${encodeURIComponent(normalized)}/timeline`,
   });
 }
-

@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -104,6 +106,8 @@ func main() {
 	traceCfg := tracing.LoadConfigFromEnv()
 	traceQueue := tracing.NewQueue(traceCfg.QueueCapacity)
 	traceSampler := tracing.NewSampler(traceCfg.DefaultSampleRate, traceCfg.SlowRequest.Milliseconds())
+	tracePrivacy := tracing.NewPrivacyManager(traceCfg)
+	tracePrivacy.SetTenantPolicyResolver(newTenantTracePolicyResolver(store))
 	reliableExporter, err := tracing.NewReliableExporter(traceCfg, store, logger)
 	if err != nil {
 		logger.Fatal("Failed to initialize tracing exporter", zap.Error(err))
@@ -120,7 +124,7 @@ func main() {
 	app := server.NewFiberApp(cfg, server.Dependencies{
 		AuthMiddleware:     authMiddleware,
 		TenantResolver:     tenantMiddleware,
-		TracingMiddleware:  tracing.Middleware(traceQueue, traceSampler, traceCfg.SlowRequest.Milliseconds()),
+		TracingMiddleware:  tracing.Middleware(traceQueue, traceSampler, traceCfg.SlowRequest.Milliseconds(), tracePrivacy),
 		TraceHealth:        reliableExporter,
 		AdminHandlers:      adminHandlers,
 		AuthHandlers:       authHandlers,
@@ -154,6 +158,57 @@ func main() {
 	if err := app.Listen(addr); err != nil {
 		logger.Fatal("Server failed to start", zap.Error(err))
 	}
+}
+
+type tenantTracePolicyResolver struct {
+	store *storage.Store
+	mu    sync.RWMutex
+	cache map[string]tenantPolicyCache
+	ttl   time.Duration
+}
+
+type tenantPolicyCache struct {
+	policy    tracing.CapturePolicy
+	expiresAt time.Time
+}
+
+func newTenantTracePolicyResolver(store *storage.Store) *tenantTracePolicyResolver {
+	return &tenantTracePolicyResolver{
+		store: store,
+		cache: map[string]tenantPolicyCache{},
+		ttl:   60 * time.Second,
+	}
+}
+
+func (r *tenantTracePolicyResolver) ResolveTenantPolicy(tenantID string) (tracing.CapturePolicy, bool) {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return "", false
+	}
+	now := time.Now()
+	r.mu.RLock()
+	cached, ok := r.cache[tenantID]
+	r.mu.RUnlock()
+	if ok && now.Before(cached.expiresAt) {
+		return cached.policy, true
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
+	defer cancel()
+	policy, exists, err := r.store.ResolveTenantTraceCapturePolicy(ctx, tenantID)
+	if err != nil || !exists {
+		if err != nil && !errors.Is(err, context.DeadlineExceeded) {
+			// Fail open to global policy.
+		}
+		return "", false
+	}
+	out := tracing.ParseCapturePolicy(policy)
+	r.mu.Lock()
+	r.cache[tenantID] = tenantPolicyCache{
+		policy:    out,
+		expiresAt: now.Add(r.ttl),
+	}
+	r.mu.Unlock()
+	return out, true
 }
 
 type costReconcileAdapter struct {

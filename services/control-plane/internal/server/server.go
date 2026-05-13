@@ -162,6 +162,15 @@ func registerRoutes(app *fiber.App, deps Dependencies) {
 	api.Get("/traces/:traceID", deps.AdminHandlers.GetRequestTrace)
 	api.Get("/traces/:traceID/spans", deps.AdminHandlers.ListRequestTraceSpans)
 	api.Post("/metrics/query", deps.AdminHandlers.QueryModelMetrics)
+	api.Get("/settings/trace-privacy", deps.AdminHandlers.GetTenantTracePrivacySettings)
+	api.Put("/settings/trace-privacy", deps.AdminHandlers.UpdateTenantTracePrivacySettings)
+
+	apiV2 := app.Group("/api/v2")
+	apiV2.Get("/traces", deps.AdminHandlers.ListRequestTracesV2)
+	apiV2.Get("/traces/facets", deps.AdminHandlers.GetTraceFacetsV2)
+	apiV2.Get("/traces/:traceID", deps.AdminHandlers.GetRequestTraceV2)
+	apiV2.Get("/traces/:traceID/timeline", deps.AdminHandlers.ListRequestTraceTimelineV2)
+	apiV2.Get("/traces/:traceID/attempts", deps.AdminHandlers.ListRequestTraceAttemptsV2)
 
 	// Tenant-admin auth decoupling endpoints
 	if deps.AuthHandlers != nil {

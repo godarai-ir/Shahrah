@@ -6,25 +6,68 @@
   },
   "filters": {
     "traceId": "Trace ID",
+    "requestId": "Request ID",
     "model": "Model",
+    "provider": "Provider",
     "route": "Route",
     "statusCode": "Status Code",
+    "errorCode": "Error Code",
     "from": "From (RFC3339)",
-    "to": "To (RFC3339)"
+    "to": "To (RFC3339)",
+    "placeholders": {
+      "statusCode": "200",
+      "errorCode": "provider_error",
+      "from": "2026-01-01T00:00:00Z",
+      "to": "2026-01-01T23:59:59Z"
+    }
   },
   "actions": {
     "apply": "Apply Filters",
-    "clear": "Clear"
+    "clear": "Clear",
+    "last1h": "Last 1h",
+    "last24h": "Last 24h",
+    "removeFilter": "x"
+  },
+  "activeFilters": {
+    "none": "No active filters",
+    "traceId": "trace_id",
+    "requestId": "request_id",
+    "model": "model",
+    "provider": "provider",
+    "route": "route",
+    "status": "status",
+    "errorCode": "error_code",
+    "from": "from",
+    "to": "to"
+  },
+  "facets": {
+    "title": "Facets",
+    "description": "Click any facet to pivot the list immediately.",
+    "providers": "Providers",
+    "models": "Models",
+    "routes": "Routes",
+    "errorCodes": "Error Codes",
+    "statusCodes": "Status Codes",
+    "noData": "No data",
+    "empty": "(empty)"
   },
   "list": {
     "title": "Trace List",
     "columns": {
       "traceId": "Trace ID",
+      "requestId": "Request ID",
       "route": "Route",
       "model": "Model",
+      "provider": "Provider",
       "status": "Status",
       "duration": "Duration",
-      "startedAt": "Started At"
+      "startedAt": "Started At",
+      "attempts": "Attempts",
+      "error": "Error"
+    },
+    "units": {
+      "ms": "ms",
+      "utc": "UTC"
     },
     "empty": "No traces found for current filters."
   },
@@ -32,5 +75,83 @@
     "showing": "Showing {from} to {to} of {total}",
     "prev": "Prev",
     "next": "Next"
+  },
+  "detail": {
+    "title": "Trace Studio",
+    "actions": {
+      "openInMetrics": "Open in metrics",
+      "backToTraces": "Back to traces"
+    },
+    "notFound": {
+      "title": "Trace Not Found",
+      "description": "The requested trace is not available."
+    },
+    "units": {
+      "ms": "ms"
+    },
+    "values": {
+      "yes": "yes",
+      "no": "no"
+    },
+    "summary": {
+      "title": "Request summary",
+      "requestId": "Request ID",
+      "route": "Route",
+      "model": "Model",
+      "provider": "Provider",
+      "status": "Status",
+      "duration": "Duration",
+      "started": "Started",
+      "sampled": "Sampled",
+      "attempts": "Attempts",
+      "spans": "Spans",
+      "errors": "Errors",
+      "errorCode": "Error Code"
+    },
+    "usage": {
+      "title": "Usage and Cost",
+      "description": "Correlated spend and model metric snapshots.",
+      "inputTokens": "Input Tokens",
+      "outputTokens": "Output Tokens",
+      "totalTokens": "Total Tokens",
+      "costUsd": "Cost (USD)",
+      "costIrr": "Cost (IRR)",
+      "requestType": "Request Type",
+      "providerModel": "Provider Model",
+      "errorType": "Error Type",
+      "latency": "Latency",
+      "ttft": "TTFT",
+      "itl": "ITL",
+      "tpot": "TPOT"
+    },
+    "attempts": {
+      "title": "Attempt Chain",
+      "count": "{count} attempt(s)",
+      "loadFailed": "Failed to load attempts.",
+      "empty": "No provider attempts available for this trace.",
+      "attempt": "Attempt",
+      "duration": "Duration",
+      "started": "Started",
+      "fallback": "Fallback",
+      "retryReason": "Retry Reason",
+      "nextAttempt": "next attempt"
+    },
+    "timeline": {
+      "title": "Waterfall Timeline",
+      "count": "{count} span(s)",
+      "loadFailed": "Failed to load spans.",
+      "empty": "No timeline spans available for this trace."
+    },
+    "metadata": {
+      "title": "Metadata Inspector",
+      "description": "Root trace attributes and request metadata.",
+      "empty": "No metadata captured for this trace."
+    },
+    "errors": {
+      "title": "Error Inspector",
+      "description": "Trace-level and span-level failure signals.",
+      "empty": "No errors captured for this trace.",
+      "statusErrorDuration": "status=error duration={duration}ms"
+    }
   }
 }

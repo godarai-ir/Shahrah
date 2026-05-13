@@ -430,10 +430,16 @@ func mapFilterField(f string) (string, error) {
 		return "model_name", nil
 	case "requestType":
 		return "request_type", nil
+	case "requestID":
+		return "request_id", nil
 	case "userEmail":
 		return "user_email", nil
 	case "virtualAccount":
 		return "virtual_account_name", nil
+	case "providerName":
+		return "provider_name", nil
+	case "providerModelName":
+		return "provider_model_name", nil
 	case "team":
 		return "team_names", nil
 	case "latencyMs":

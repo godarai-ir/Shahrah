@@ -6,31 +6,152 @@
   },
   "filters": {
     "traceId": "Trace ID",
+    "requestId": "Request ID",
     "model": "Model",
+    "provider": "Provider",
     "route": "Route",
     "statusCode": "Status Code",
+    "errorCode": "Error Code",
     "from": "From (RFC3339)",
-    "to": "To (RFC3339)"
+    "to": "To (RFC3339)",
+    "placeholders": {
+      "statusCode": "200",
+      "errorCode": "provider_error",
+      "from": "2026-01-01T00:00:00Z",
+      "to": "2026-01-01T23:59:59Z"
+    }
   },
   "actions": {
     "apply": "اعمال فیلتر",
-    "clear": "پاک‌کردن"
+    "clear": "پاک‌کردن",
+    "last1h": "۱ ساعت اخیر",
+    "last24h": "۲۴ ساعت اخیر",
+    "removeFilter": "x"
+  },
+  "activeFilters": {
+    "none": "فیلتر فعالی وجود ندارد",
+    "traceId": "trace_id",
+    "requestId": "request_id",
+    "model": "model",
+    "provider": "provider",
+    "route": "route",
+    "status": "status",
+    "errorCode": "error_code",
+    "from": "from",
+    "to": "to"
+  },
+  "facets": {
+    "title": "ویژگی‌ها",
+    "description": "با کلیک روی هر ویژگی، لیست فورا بر اساس آن فیلتر می‌شود.",
+    "providers": "Providerها",
+    "models": "Modelها",
+    "routes": "Routeها",
+    "errorCodes": "کدهای خطا",
+    "statusCodes": "کدهای وضعیت",
+    "noData": "داده‌ای موجود نیست",
+    "empty": "(خالی)"
   },
   "list": {
     "title": "لیست Traceها",
     "columns": {
       "traceId": "Trace ID",
+      "requestId": "Request ID",
       "route": "Route",
       "model": "Model",
+      "provider": "Provider",
       "status": "Status",
       "duration": "Duration",
-      "startedAt": "Started At"
+      "startedAt": "Started At",
+      "attempts": "Attempts",
+      "error": "Error"
     },
-    "empty": "Traceی برای فیلترهای فعلی یافت نشد."
+    "units": {
+      "ms": "ms",
+      "utc": "UTC"
+    },
+    "empty": "Trace‌ای برای فیلترهای فعلی یافت نشد."
   },
   "pagination": {
     "showing": "نمایش {from} تا {to} از {total}",
     "prev": "قبلی",
     "next": "بعدی"
+  },
+  "detail": {
+    "title": "استودیوی رهگیری",
+    "actions": {
+      "openInMetrics": "باز کردن در متریک‌ها",
+      "backToTraces": "بازگشت به رهگیری‌ها"
+    },
+    "notFound": {
+      "title": "رهگیری پیدا نشد",
+      "description": "رهگیری درخواستی در دسترس نیست."
+    },
+    "units": {
+      "ms": "ms"
+    },
+    "values": {
+      "yes": "بله",
+      "no": "خیر"
+    },
+    "summary": {
+      "title": "خلاصه درخواست",
+      "requestId": "شناسه درخواست",
+      "route": "مسیر",
+      "model": "مدل",
+      "provider": "ارائه‌دهنده",
+      "status": "وضعیت",
+      "duration": "مدت",
+      "started": "شروع",
+      "sampled": "نمونه‌گیری شده",
+      "attempts": "تلاش‌ها",
+      "spans": "اسپن‌ها",
+      "errors": "خطاها",
+      "errorCode": "کد خطا"
+    },
+    "usage": {
+      "title": "مصرف و هزینه",
+      "description": "نمای همبسته هزینه و شاخص‌های مدل.",
+      "inputTokens": "توکن ورودی",
+      "outputTokens": "توکن خروجی",
+      "totalTokens": "مجموع توکن",
+      "costUsd": "هزینه (USD)",
+      "costIrr": "هزینه (IRR)",
+      "requestType": "نوع درخواست",
+      "providerModel": "مدل ارائه‌دهنده",
+      "errorType": "نوع خطا",
+      "latency": "تأخیر",
+      "ttft": "TTFT",
+      "itl": "ITL",
+      "tpot": "TPOT"
+    },
+    "attempts": {
+      "title": "زنجیره تلاش‌ها",
+      "count": "{count} تلاش",
+      "loadFailed": "بارگذاری تلاش‌ها ناموفق بود.",
+      "empty": "تلاشی از ارائه‌دهنده برای این رهگیری موجود نیست.",
+      "attempt": "تلاش",
+      "duration": "مدت",
+      "started": "شروع",
+      "fallback": "Fallback",
+      "retryReason": "دلیل تلاش مجدد",
+      "nextAttempt": "تلاش بعدی"
+    },
+    "timeline": {
+      "title": "خط زمانی آبشاری",
+      "count": "{count} اسپن",
+      "loadFailed": "بارگذاری اسپن‌ها ناموفق بود.",
+      "empty": "اسپن زمانی برای این رهگیری موجود نیست."
+    },
+    "metadata": {
+      "title": "بازرس فراداده",
+      "description": "ویژگی‌های ریشه رهگیری و فراداده درخواست.",
+      "empty": "فراداده‌ای برای این رهگیری ثبت نشده است."
+    },
+    "errors": {
+      "title": "بازرس خطا",
+      "description": "سیگنال‌های خطا در سطح رهگیری و اسپن.",
+      "empty": "خطایی برای این رهگیری ثبت نشده است.",
+      "statusErrorDuration": "status=error duration={duration}ms"
+    }
   }
 }

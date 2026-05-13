@@ -4,7 +4,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const params = new URLSearchParams();
 
-  for (const key of ["trace_id", "route", "model", "status_code", "from", "to", "limit", "offset"]) {
+  for (const key of ["trace_id", "request_id", "route", "model", "provider", "status_code", "error_code", "from", "to", "limit", "offset", "sort_by", "sort_order"]) {
     const value = url.searchParams.get(key)?.trim();
     if (value) {
       params.set(key, value);
@@ -13,8 +13,8 @@ export async function GET(request: Request) {
 
   const path =
     params.toString().length > 0
-      ? `/api/v1/traces?${params.toString()}`
-      : "/api/v1/traces";
+      ? `/api/v2/traces?${params.toString()}`
+      : "/api/v2/traces";
 
   return proxyToControlPlane({
     request,
@@ -22,4 +22,3 @@ export async function GET(request: Request) {
     path,
   });
 }
-

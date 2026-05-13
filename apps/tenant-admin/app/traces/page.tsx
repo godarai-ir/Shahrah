@@ -8,12 +8,14 @@ type RequestTrace = {
   tenant_id: string;
   request_id?: string;
   model?: string;
+  provider?: string;
   route: string;
   status_code: number;
   started_at: string;
   duration_ms: number;
   error_code?: string;
   sampled: boolean;
+  attempts?: number;
 };
 
 type TraceListResponse = {
@@ -30,7 +32,7 @@ export default async function TracesPage() {
   const tracesResult = await fetchControlPlaneJSON({
     tenantSlug,
     method: "GET",
-    path: "/api/v1/traces?limit=25&offset=0",
+    path: "/api/v2/traces?limit=25&offset=0",
     userID: auth.user.id,
   });
 
@@ -52,4 +54,3 @@ export default async function TracesPage() {
     </AdminShell>
   );
 }
-
