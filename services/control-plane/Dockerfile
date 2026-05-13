@@ -1,4 +1,4 @@
-FROM golang:1.25.7-alpine AS builder
+FROM golang:1.26.3-alpine AS builder
 
 ARG GOPROXY=https://goproxy.io,direct
 ENV GOPROXY=${GOPROXY}

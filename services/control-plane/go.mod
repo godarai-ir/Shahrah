@@ -1,11 +1,11 @@
 module github.com/Delpak/shahrah/services/control-plane
 
-go 1.25.7
+go 1.26.3
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.46.0
 	github.com/Delpak/shahrah/packages/contracts v0.0.0
-	github.com/dgraph-io/ristretto v0.1.1
+	github.com/dgraph-io/ristretto/v2 v2.4.0
 	github.com/gofiber/fiber/v2 v2.52.9
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.9.2

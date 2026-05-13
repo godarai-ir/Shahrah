@@ -6,13 +6,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dgraph-io/ristretto"
+	"github.com/dgraph-io/ristretto/v2"
 	"go.uber.org/zap"
 )
 
-// MemoryCache implements Cache using Ristretto.
+// cacheEntry is a generic wrapper for cache values with metadata.
+type cacheEntry struct {
+	value any
+}
+
+// MemoryCache implements Cache using Ristretto v2 with generics.
 type MemoryCache struct {
-	cache          *ristretto.Cache
+	cache          *ristretto.Cache[string, any]
 	logger         *zap.Logger
 	mu             sync.Mutex
 	fixedWindows   map[string]fixedWindowCounter
@@ -29,15 +34,15 @@ type slidingWindowEntry struct {
 	weight int64
 }
 
-// NewMemoryCache creates a new in-memory cache.
+// NewMemoryCache creates a new in-memory cache using Ristretto v2.
 func NewMemoryCache(logger *zap.Logger) (*MemoryCache, error) {
-	cache, err := ristretto.NewCache(&ristretto.Config{
-		NumCounters: 1e7,     // number of keys to track frequency of
+	cache, err := ristretto.NewCache(&ristretto.Config[string, any]{
+		NumCounters: 1e7,     // number of keys to track frequency of (10M)
 		MaxCost:     1 << 30, // maximum cost of cache (1GB)
 		BufferItems: 64,      // number of keys per Get buffer
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create ristretto cache: %w", err)
+		return nil, fmt.Errorf("failed to create ristretto v2 cache: %w", err)
 	}
 	return &MemoryCache{
 		cache:          cache,
@@ -47,13 +52,18 @@ func NewMemoryCache(logger *zap.Logger) (*MemoryCache, error) {
 	}, nil
 }
 
-// Get retrieves a value from the cache.
+// Get retrieves a value from the cache with proper type handling.
 func (m *MemoryCache) Get(ctx context.Context, key string) (interface{}, bool) {
-	return m.cache.Get(key)
+	val, found := m.cache.Get(key)
+	if !found {
+		return nil, false
+	}
+	return val, true
 }
 
-// Set stores a value in the cache.
+// Set stores a value in the cache with TTL support.
 func (m *MemoryCache) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) {
+	// Ristretto v2 uses SetWithTTL with cost parameter
 	m.cache.SetWithTTL(key, value, 1, ttl)
 	m.cache.Wait()
 }
@@ -63,7 +73,7 @@ func (m *MemoryCache) Delete(ctx context.Context, key string) {
 	m.cache.Del(key)
 }
 
-// Increment increments a value in the cache.
+// Increment safely increments an int64 value in the cache.
 func (m *MemoryCache) Increment(ctx context.Context, key string, value int64, ttl time.Duration) (int64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -74,7 +84,14 @@ func (m *MemoryCache) Increment(ctx context.Context, key string, value int64, tt
 		m.cache.Wait()
 		return value, nil
 	}
-	newVal := val.(int64) + value
+
+	// Type-safe access with proper error handling
+	intVal, ok := val.(int64)
+	if !ok {
+		return 0, fmt.Errorf("expected int64 value, got %T", val)
+	}
+
+	newVal := intVal + value
 	m.cache.SetWithTTL(key, newVal, 1, ttl)
 	m.cache.Wait()
 	return newVal, nil
@@ -182,7 +199,7 @@ func (m *MemoryCache) CheckSlidingWindowRateLimitWithWeight(ctx context.Context,
 	}, nil
 }
 
-// Close closes the cache.
+// Close closes the cache and releases resources.
 func (m *MemoryCache) Close() error {
 	m.cache.Close()
 	return nil
