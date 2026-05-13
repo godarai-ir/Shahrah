@@ -36,6 +36,14 @@
   "messages": {
     "loadError": "Failed to load rate limit rules.",
     "saveSuccess": "Rate limit rule saved successfully.",
-    "saveError": "Failed to save rate limit rule."
+    "saveError": "Failed to save rate limit rule.",
+    "deleteError": "Failed to delete rate limit rule."
+  },
+  "deleteDialog": {
+    "title": "Delete rule?",
+    "description": "This action will permanently delete rule \"{ruleId}\".",
+    "cancel": "Cancel",
+    "confirm": "Delete",
+    "deleting": "Deleting..."
   }
 }

@@ -119,6 +119,14 @@
     "loading": "Loading budget rule...",
     "ruleNotFound": "Budget limit rule not found.",
     "saveSuccess": "Budget limit rule saved successfully.",
-    "saveError": "Failed to save budget limit rule."
+    "saveError": "Failed to save budget limit rule.",
+    "deleteError": "Failed to delete budget limit rule."
+  },
+  "deleteDialog": {
+    "title": "Delete rule?",
+    "description": "This action will permanently delete rule \"{ruleId}\".",
+    "cancel": "Cancel",
+    "confirm": "Delete",
+    "deleting": "Deleting..."
   }
 }

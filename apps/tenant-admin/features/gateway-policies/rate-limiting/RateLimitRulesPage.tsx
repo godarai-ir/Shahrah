@@ -6,6 +6,14 @@ import { useTranslations } from "next-intl";
 import { Copy, Pencil, Power, Trash2 } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,7 +51,9 @@ export function RateLimitRulesPage() {
   const t = useTranslations("rateLimitRules");
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [items, setItems] = useState<RateLimitRule[]>([]);
+  const [pendingDeleteRule, setPendingDeleteRule] = useState<RateLimitRule | null>(null);
   const [notice, setNotice] = useState<{ kind: "success" | "error"; message: string } | null>(null);
 
   async function load() {
@@ -67,9 +77,24 @@ export function RateLimitRulesPage() {
 
   const filtered = useMemo(() => items, [items]);
 
+  async function confirmDeleteRule() {
+    if (!pendingDeleteRule || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      await deleteRateLimitRule(pendingDeleteRule.rule_id);
+      setPendingDeleteRule(null);
+      await load();
+    } catch (error) {
+      setNotice({ kind: "error", message: error instanceof Error ? error.message : t("messages.deleteError") });
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   return (
-    <Card>
-      <CardHeader>
+    <>
+      <Card>
+        <CardHeader>
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <CardTitle>{t("title")}</CardTitle>
@@ -80,8 +105,8 @@ export function RateLimitRulesPage() {
           </Button>
         </div>
         <Input placeholder={t("searchPlaceholder")} value={query} onChange={(event) => setQuery(event.target.value)} />
-      </CardHeader>
-      <CardContent className="space-y-3">
+        </CardHeader>
+        <CardContent className="space-y-3">
         {notice ? (
           <Alert variant={notice.kind === "error" ? "destructive" : "default"}>
             <AlertTitle>{notice.kind === "error" ? t("alerts.error") : t("alerts.success")}</AlertTitle>
@@ -156,7 +181,7 @@ export function RateLimitRulesPage() {
                         variant="outline"
                         title={t("actions.delete")}
                         aria-label={t("actions.delete")}
-                        onClick={() => void deleteRateLimitRule(rule.rule_id).then(load)}
+                        onClick={() => setPendingDeleteRule(rule)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -167,7 +192,25 @@ export function RateLimitRulesPage() {
             </Table>
           </div>
         )}
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      <Dialog open={pendingDeleteRule !== null} onOpenChange={(open) => !open && setPendingDeleteRule(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("deleteDialog.title")}</DialogTitle>
+            <DialogDescription>{t("deleteDialog.description", { ruleId: pendingDeleteRule?.rule_id ?? "-" })}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={isDeleting} onClick={() => setPendingDeleteRule(null)}>
+              {t("deleteDialog.cancel")}
+            </Button>
+            <Button type="button" variant="destructive" onClick={() => void confirmDeleteRule()} disabled={isDeleting}>
+              {isDeleting ? t("deleteDialog.deleting") : t("deleteDialog.confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
