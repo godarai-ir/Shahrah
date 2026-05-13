@@ -207,24 +207,26 @@ export default function ProviderAccountWizard() {
   const [effectiveKeyType, setEffectiveKeyType] = useState<"pat" | "vat">("pat");
   const [effectiveUserID, setEffectiveUserID] = useState("");
   const [effectiveTeamID, setEffectiveTeamID] = useState("");
+  const [effectivePrincipalSelection, setEffectivePrincipalSelection] = useState<PrincipalEntitySelection | null>(null);
   const [effectiveModels, setEffectiveModels] = useState<EffectiveModelView[]>([]);
   const [lastCredentialTestMessage, setLastCredentialTestMessage] = useState("");
 
-  const handleEffectiveUserIDChange = useCallback(
-    (value: string) => {
-      setEffectiveUserID(value);
-      if (!value.trim() && !effectiveTeamID.trim()) setEffectiveModels([]);
-    },
-    [effectiveTeamID],
-  );
-
-  const handleEffectiveTeamIDChange = useCallback(
-    (value: string) => {
-      setEffectiveTeamID(value);
-      if (!value.trim() && !effectiveUserID.trim()) setEffectiveModels([]);
-    },
-    [effectiveUserID],
-  );
+  const handleEffectivePrincipalChange = useCallback((selection: PrincipalEntitySelection | null) => {
+    setEffectivePrincipalSelection(selection);
+    if (selection?.type === "user") {
+      setEffectiveUserID((selection.principal_id ?? "").trim());
+      setEffectiveTeamID("");
+      return;
+    }
+    if (selection?.type === "team") {
+      setEffectiveUserID("");
+      setEffectiveTeamID((selection.principal_id ?? "").trim());
+      return;
+    }
+    setEffectiveUserID("");
+    setEffectiveTeamID("");
+    setEffectiveModels([]);
+  }, []);
 
   const visibleProviders = useMemo(
     () => providers.filter((item) => item.enabled && stringsEqualFold(item.provider, "azure") === false),
@@ -1327,10 +1329,8 @@ export default function ProviderAccountWizard() {
                           isSaving={isSavingAccess}
                           effectiveKeyType={effectiveKeyType}
                           setEffectiveKeyType={setEffectiveKeyType}
-                          effectiveUserID={effectiveUserID}
-                          setEffectiveUserID={handleEffectiveUserIDChange}
-                          effectiveTeamID={effectiveTeamID}
-                          setEffectiveTeamID={handleEffectiveTeamIDChange}
+                          effectivePrincipal={effectivePrincipalSelection}
+                          setEffectivePrincipal={handleEffectivePrincipalChange}
                           effectiveModels={effectiveModels}
                           isLoadingEffective={isLoadingEffective}
                           onLoadEffective={() => void loadEffectiveModelsPreview()}
@@ -1421,10 +1421,8 @@ export default function ProviderAccountWizard() {
                         isSaving={isSavingAccess}
                         effectiveKeyType={effectiveKeyType}
                         setEffectiveKeyType={setEffectiveKeyType}
-                        effectiveUserID={effectiveUserID}
-                        setEffectiveUserID={handleEffectiveUserIDChange}
-                        effectiveTeamID={effectiveTeamID}
-                        setEffectiveTeamID={handleEffectiveTeamIDChange}
+                        effectivePrincipal={effectivePrincipalSelection}
+                        setEffectivePrincipal={handleEffectivePrincipalChange}
                         effectiveModels={effectiveModels}
                         isLoadingEffective={isLoadingEffective}
                         onLoadEffective={() => void loadEffectiveModelsPreview()}
@@ -1552,21 +1550,8 @@ export default function ProviderAccountWizard() {
                           <Field label={`${ux("access.userIdLabel")} / ${ux("access.teamIdLabel")}`} id="obsPrincipal">
                             <PrincipalEntitySelect
                               id="obsPrincipal"
-                              selected={buildEffectivePrincipalSelection(effectiveUserID, effectiveTeamID)}
-                              onSelectedChange={(selection) => {
-                                if (selection?.type === "user") {
-                                  setEffectiveUserID(selection.principal_id ?? "");
-                                  setEffectiveTeamID("");
-                                  return;
-                                }
-                                if (selection?.type === "team") {
-                                  setEffectiveUserID("");
-                                  setEffectiveTeamID(selection.principal_id ?? "");
-                                  return;
-                                }
-                                setEffectiveUserID("");
-                                setEffectiveTeamID("");
-                              }}
+                              selected={effectivePrincipalSelection}
+                              onSelectedChange={handleEffectivePrincipalChange}
                               onSearch={searchPrincipalCandidates}
                               labels={principalSelectorLabels}
                               kinds={["user", "team"]}
@@ -1985,16 +1970,14 @@ function AccessEditor(props: {
   isSaving: boolean;
   effectiveKeyType: "pat" | "vat";
   setEffectiveKeyType: (value: "pat" | "vat") => void;
-  effectiveUserID: string;
-  setEffectiveUserID: (value: string) => void;
-  effectiveTeamID: string;
-  setEffectiveTeamID: (value: string) => void;
+  effectivePrincipal: PrincipalEntitySelection | null;
+  setEffectivePrincipal: (value: PrincipalEntitySelection | null) => void;
   effectiveModels: EffectiveModelView[];
   isLoadingEffective: boolean;
   onLoadEffective: () => void;
 }) {
   const ux = useTranslations("providerAccounts.ux");
-  const hasEffectivePrincipal = Boolean(props.effectiveUserID.trim() || props.effectiveTeamID.trim());
+  const hasEffectivePrincipal = Boolean((props.effectivePrincipal?.principal_id ?? "").trim());
 
   return (
     <section className="space-y-5 rounded-lg border border-border/70 bg-background p-4 sm:p-5">
@@ -2054,21 +2037,8 @@ function AccessEditor(props: {
             <div className="grid grid-cols-[minmax(0,1fr)_40px] gap-2">
               <PrincipalEntitySelect
                 id="previewPrincipal"
-                selected={buildEffectivePrincipalSelection(props.effectiveUserID, props.effectiveTeamID)}
-                onSelectedChange={(selection) => {
-                  if (selection?.type === "user") {
-                    props.setEffectiveUserID(selection.principal_id ?? "");
-                    props.setEffectiveTeamID("");
-                    return;
-                  }
-                  if (selection?.type === "team") {
-                    props.setEffectiveUserID("");
-                    props.setEffectiveTeamID(selection.principal_id ?? "");
-                    return;
-                  }
-                  props.setEffectiveUserID("");
-                  props.setEffectiveTeamID("");
-                }}
+                selected={props.effectivePrincipal}
+                onSelectedChange={props.setEffectivePrincipal}
                 onSearch={props.onSearchPrincipal}
                 labels={props.principalSelectorLabels}
                 kinds={["user", "team"]}
@@ -2078,10 +2048,7 @@ function AccessEditor(props: {
                 type="button"
                 variant="ghost"
                 size="icon"
-                onClick={() => {
-                  props.setEffectiveUserID("");
-                  props.setEffectiveTeamID("");
-                }}
+                onClick={() => props.setEffectivePrincipal(null)}
                 disabled={!hasEffectivePrincipal}
                 title={ux("actions.clear")}
                 aria-label={ux("actions.clear")}
@@ -2223,28 +2190,6 @@ function buildPrincipalSelectorLabels(
     loading: ux("actions.loading"),
     empty: t("principal.searchHint"),
   };
-}
-
-function buildEffectivePrincipalSelection(userID: string, teamID: string): PrincipalEntitySelection | null {
-  const normalizedUserID = userID.trim();
-  if (normalizedUserID) {
-    return {
-      type: "user",
-      principal_id: normalizedUserID,
-      display_name: normalizedUserID,
-    };
-  }
-
-  const normalizedTeamID = teamID.trim();
-  if (normalizedTeamID) {
-    return {
-      type: "team",
-      principal_id: normalizedTeamID,
-      display_name: normalizedTeamID,
-    };
-  }
-
-  return null;
 }
 
 function buildDefaultDrafts(
