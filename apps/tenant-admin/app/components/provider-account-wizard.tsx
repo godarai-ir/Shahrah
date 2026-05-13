@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Copy, Eye, KeyRound, Layers3, Plus, ShieldCheck, Trash2, X } from "lucide-react";
+import { Copy, Eye, KeyRound, Layers3, ShieldCheck, Trash2, X } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,7 @@ import {
   type PrincipalEntitySelectLabels,
   type PrincipalSearchKind,
 } from "@/app/components/principal-search-input";
+import { PrincipalPicker } from "@/app/components/principal-picker";
 
 type ProviderAuthMode =
   | "api_key"
@@ -47,7 +48,7 @@ type AccessPrincipal = {
 };
 
 type AccessPrincipalCandidate = {
-  type: PrincipalType;
+  type: PrincipalSearchKind;
   principal_id: string;
   display_name: string;
   secondary?: string;
@@ -2010,23 +2011,27 @@ function AccessEditor(props: {
 
       <div className="grid items-stretch gap-4">
         <PrincipalPicker
+          id="managers-principal-picker"
           title={props.t("step3.managersTitle")}
           onSearchPrincipal={props.onSearchPrincipal}
           principalSelectorLabels={props.principalSelectorLabels}
           selected={props.managers}
           setSelected={props.setManagers}
           allowEveryone={false}
-          t={props.t}
+          addLabel={props.t("principal.add")}
+          removeLabel={props.t("principal.remove")}
         />
 
         <PrincipalPicker
+          id="users-principal-picker"
           title={props.t("step3.usersTitle")}
           onSearchPrincipal={props.onSearchPrincipal}
           principalSelectorLabels={props.principalSelectorLabels}
           selected={props.users}
           setSelected={props.setUsers}
           allowEveryone
-          t={props.t}
+          addLabel={props.t("principal.add")}
+          removeLabel={props.t("principal.remove")}
         />
       </div>
 
@@ -2207,16 +2212,16 @@ function buildPrincipalSelectorLabels(
 ): PrincipalEntitySelectLabels {
   const isEnglish = t("principal.user").trim().toLowerCase() === "user";
   return {
-    users: isEnglish ? "Users" : "Ú©Ø§Ø±Ø¨Ø±Ø§Ù†",
+    users: isEnglish ? "Users" : "کاربران",
     teams: isEnglish ? "Teams" : "تیم‌ها",
     orgUnits: isEnglish ? "Org units" : "واحدهای سازمانی",
     virtualAccounts: isEnglish ? "Virtual accounts" : "اکانت‌های مجازی",
-    externalIdentities: isEnglish ? "External identities" : "Ù‡ÙˆÛŒØªâ€ŒÙ‡Ø§ÛŒ Ø®Ø§Ø±Ø¬ÛŒ",
+    externalIdentities: isEnglish ? "External identities" : "هویت‌های خارجی",
     everyone: t("principal.everyone"),
     searchPlaceholder: t("principal.searchPlaceholder"),
     triggerPlaceholder: t("principal.searchPlaceholder"),
     loading: ux("actions.loading"),
-    empty: ux("effectiveModels.empty"),
+    empty: t("principal.searchHint"),
   };
 }
 
@@ -2240,100 +2245,6 @@ function buildEffectivePrincipalSelection(userID: string, teamID: string): Princ
   }
 
   return null;
-}
-
-function PrincipalPicker(props: {
-  title: string;
-  onSearchPrincipal: (kind: PrincipalSearchKind, query: string) => Promise<AccessPrincipalCandidate[]>;
-  principalSelectorLabels: PrincipalEntitySelectLabels;
-  selected: AccessPrincipal[];
-  setSelected: (value: AccessPrincipal[]) => void;
-  allowEveryone: boolean;
-  t: ReturnType<typeof useTranslations>;
-}) {
-  const [candidate, setCandidate] = useState<PrincipalEntitySelection | null>(null);
-
-  function addPrincipal(item: AccessPrincipal) {
-    const exists = props.selected.some(
-      (current) =>
-        current.type === item.type &&
-        (current.principal_id ?? "") === (item.principal_id ?? ""),
-    );
-    if (exists) return;
-    props.setSelected([...props.selected, item]);
-  }
-
-  function removePrincipal(item: AccessPrincipal) {
-    props.setSelected(
-      props.selected.filter(
-        (current) =>
-          !(
-            current.type === item.type &&
-            (current.principal_id ?? "") === (item.principal_id ?? "")
-          ),
-      ),
-    );
-  }
-
-  function addSelectedCandidate() {
-    if (!candidate) return;
-    if (candidate.type === "external_identity") return;
-    addPrincipal({
-      type: candidate.type,
-      principal_id: candidate.principal_id,
-      display_name: candidate.display_name,
-    });
-    setCandidate(null);
-  }
-
-  return (
-    <div className="flex min-h-full flex-col gap-4 rounded-lg border border-border/70 bg-card p-4">
-      <div className="flex items-start justify-between gap-3">
-        <h4 className="text-base font-semibold">{props.title}</h4>
-        <Badge variant="secondary" className="shrink-0">
-          {props.selected.length}
-        </Badge>
-      </div>
-
-      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-        <PrincipalEntitySelect
-          id={`${props.title}-principal-picker`}
-          selected={candidate}
-          onSelectedChange={setCandidate}
-          onSearch={props.onSearchPrincipal}
-          labels={props.principalSelectorLabels}
-          kinds={["user", "team"]}
-          includeEveryone={props.allowEveryone}
-          className="min-w-0"
-        />
-        <Button
-          type="button"
-          variant="outline"
-          onClick={addSelectedCandidate}
-          disabled={!candidate || candidate.type === "external_identity"}
-          className="w-full sm:w-auto"
-        >
-          <Plus className="h-4 w-4" />
-          {props.t("principal.add")}
-        </Button>
-      </div>
-
-      <div className="flex min-h-9 flex-wrap items-center gap-2">
-        {props.selected.map((item) => (
-          <button
-            key={`${item.type}-${item.principal_id ?? "everyone"}`}
-            type="button"
-            className="inline-flex max-w-full items-center gap-2 rounded-full border bg-background px-3 py-1.5 text-xs transition hover:border-destructive/40 hover:bg-destructive/5"
-            onClick={() => removePrincipal(item)}
-            title={props.t("principal.remove")}
-          >
-            <span className="max-w-[240px] truncate">{item.display_name || item.principal_id || item.type}</span>
-            <X className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          </button>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 function buildDefaultDrafts(
