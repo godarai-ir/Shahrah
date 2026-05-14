@@ -121,11 +121,19 @@ func (e *Executor) ExecuteSync(ctx context.Context, targets []platform.VirtualMo
 		delay := time.Duration(target.Policy.Retry.DelayMS) * time.Millisecond
 
 		for attempt := 1; attempt <= retries; attempt++ {
+			provider := strings.TrimSpace(target.Provider)
+			modelForProvider := strings.TrimSpace(target.Model)
+			if p, _, official, ok := splitModelFQN(target.Model); ok {
+				if provider == "" {
+					provider = p
+				}
+				modelForProvider = official
+			}
 			dep := &router.Deployment{
 				ID:        target.ID,
 				ModelName: target.Model,
-				Provider:  target.Provider,
-				Model:     target.Model,
+				Provider:  provider,
+				Model:     modelForProvider,
 				Params: config.ProviderEndpointConfig{
 					Timeout: target.Policy.TimeoutSec,
 				},
@@ -159,6 +167,20 @@ func (e *Executor) ExecuteSync(ctx context.Context, targets []platform.VirtualMo
 		}
 	}
 	return nil, nil, fallbackCount, lastReason, ErrFallbackExhausted
+}
+
+func splitModelFQN(input string) (provider string, accountAlias string, officialModel string, ok bool) {
+	parts := strings.Split(strings.TrimSpace(input), ":")
+	if len(parts) != 3 {
+		return "", "", "", false
+	}
+	provider = strings.TrimSpace(parts[0])
+	accountAlias = strings.TrimSpace(parts[1])
+	officialModel = strings.TrimSpace(parts[2])
+	if provider == "" || accountAlias == "" || officialModel == "" {
+		return "", "", "", false
+	}
+	return provider, accountAlias, officialModel, true
 }
 
 func containsInt(values []int, target int) bool {

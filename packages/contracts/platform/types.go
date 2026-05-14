@@ -17,25 +17,26 @@ type Tenant struct {
 
 // AuthContext is the effective request auth context.
 type AuthContext struct {
-	TenantID                    string              `json:"tenant_id"`
-	OrganizationID              string              `json:"organization_id,omitempty"`
-	OrgUnitID                   string              `json:"org_unit_id,omitempty"`
-	TeamID                      string              `json:"team_id,omitempty"`
-	UserID                      string              `json:"user_id,omitempty"`
-	KeyID                       string              `json:"key_id"`
-	KeyAlias                    string              `json:"key_alias,omitempty"`
-	Role                        string              `json:"role"`
-	KeyType                     string              `json:"key_type,omitempty"`
-	TeamMemberPermissions       []string            `json:"team_member_permissions,omitempty"`
-	AllowedModels               []string            `json:"allowed_models,omitempty"`
-	AllowedModelTypes           map[string][]string `json:"allowed_model_types,omitempty"`
-	AllowedModelPricingMode     map[string]string   `json:"allowed_model_pricing_mode,omitempty"`
-	AllowedModelPricingResolved map[string]bool     `json:"allowed_model_pricing_resolved,omitempty"`
-	EnforceModelAllowlist       bool                `json:"enforce_model_allowlist,omitempty"`
-	Spend                       float64             `json:"spend"`
-	ExpiresAt                   *time.Time          `json:"expires_at,omitempty"`
-	Blocked                     bool                `json:"blocked"`
-	TokenHash                   string              `json:"token_hash,omitempty"`
+	TenantID                    string                          `json:"tenant_id"`
+	OrganizationID              string                          `json:"organization_id,omitempty"`
+	OrgUnitID                   string                          `json:"org_unit_id,omitempty"`
+	TeamID                      string                          `json:"team_id,omitempty"`
+	UserID                      string                          `json:"user_id,omitempty"`
+	KeyID                       string                          `json:"key_id"`
+	KeyAlias                    string                          `json:"key_alias,omitempty"`
+	Role                        string                          `json:"role"`
+	KeyType                     string                          `json:"key_type,omitempty"`
+	TeamMemberPermissions       []string                        `json:"team_member_permissions,omitempty"`
+	AllowedModels               []string                        `json:"allowed_models,omitempty"`
+	AllowedModelTypes           map[string][]string             `json:"allowed_model_types,omitempty"`
+	AllowedModelPricingMode     map[string]string               `json:"allowed_model_pricing_mode,omitempty"`
+	AllowedModelPricingResolved map[string]bool                 `json:"allowed_model_pricing_resolved,omitempty"`
+	VirtualModelSnapshots       map[string]VirtualModelSnapshot `json:"virtual_model_snapshots,omitempty"`
+	EnforceModelAllowlist       bool                            `json:"enforce_model_allowlist,omitempty"`
+	Spend                       float64                         `json:"spend"`
+	ExpiresAt                   *time.Time                      `json:"expires_at,omitempty"`
+	Blocked                     bool                            `json:"blocked"`
+	TokenHash                   string                          `json:"token_hash,omitempty"`
 }
 
 // Wallet tracks tenant balance in IRR.
@@ -114,10 +115,10 @@ type WalletTopUpSettings struct {
 
 // TenantTracePrivacySettings controls tenant-level trace payload capture behavior.
 type TenantTracePrivacySettings struct {
-	TenantID          string    `json:"tenant_id"`
-	CapturePolicy     string    `json:"capture_policy"`
-	UpdatedAt         time.Time `json:"updated_at"`
-	UpdatedByUserID   string    `json:"updated_by_user_id,omitempty"`
+	TenantID        string    `json:"tenant_id"`
+	CapturePolicy   string    `json:"capture_policy"`
+	UpdatedAt       time.Time `json:"updated_at"`
+	UpdatedByUserID string    `json:"updated_by_user_id,omitempty"`
 }
 
 // ExchangeRate records a USD to IRR rate snapshot.
@@ -233,18 +234,19 @@ type ProviderForwarder interface {
 
 // CreateKeyParams are the inputs for creating a virtual key.
 type CreateKeyParams struct {
-	TenantID      string   `json:"tenant_id"`
-	KeyAlias      string   `json:"key_alias"`
-	Role          string   `json:"role,omitempty"`
-	KeyType       string   `json:"key_type,omitempty"`
-	Models        []string `json:"models,omitempty"`
-	AllowedModels []string `json:"allowed_models,omitempty"`
-	TeamID        string   `json:"team_id,omitempty"`
-	OrgID         string   `json:"organization_id,omitempty"`
-	OrgUnitID     string   `json:"org_unit_id,omitempty"`
-	UserID        string   `json:"user_id,omitempty"`
-	VirtualUserID string   `json:"virtual_user_id,omitempty"`
-	ExpiresIn     string   `json:"expires_in,omitempty"`
+	TenantID      string                 `json:"tenant_id"`
+	KeyAlias      string                 `json:"key_alias"`
+	Role          string                 `json:"role,omitempty"`
+	KeyType       string                 `json:"key_type,omitempty"`
+	Models        []string               `json:"models,omitempty"`
+	AllowedModels []string               `json:"allowed_models,omitempty"`
+	TeamID        string                 `json:"team_id,omitempty"`
+	OrgID         string                 `json:"organization_id,omitempty"`
+	OrgUnitID     string                 `json:"org_unit_id,omitempty"`
+	UserID        string                 `json:"user_id,omitempty"`
+	VirtualUserID string                 `json:"virtual_user_id,omitempty"`
+	ExpiresIn     string                 `json:"expires_in,omitempty"`
+	Metadata      map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // CreatedKey is the persisted key metadata returned by admin APIs.
@@ -394,17 +396,26 @@ type RequestLogEntry struct {
 
 // VirtualModel defines a tenant-scoped alias that routes to concrete provider targets.
 type VirtualModel struct {
-	ID              string               `json:"id"`
-	TenantID        string               `json:"tenant_id"`
-	Alias           string               `json:"alias"`
-	RoutingStrategy string               `json:"routing_strategy"`
-	Enabled         bool                 `json:"enabled"`
-	Version         int                  `json:"version"`
-	Targets         []VirtualModelTarget `json:"targets"`
-	CreatedBy       string               `json:"created_by,omitempty"`
-	UpdatedBy       string               `json:"updated_by,omitempty"`
-	CreatedAt       time.Time            `json:"created_at"`
-	UpdatedAt       time.Time            `json:"updated_at"`
+	ID              string                             `json:"id"`
+	TenantID        string                             `json:"tenant_id"`
+	Alias           string                             `json:"alias"`
+	RoutingStrategy string                             `json:"routing_strategy"`
+	Enabled         bool                               `json:"enabled"`
+	Version         int                                `json:"version"`
+	Targets         []VirtualModelTarget               `json:"targets"`
+	Access          TenantProviderAccountAccessControl `json:"access"`
+	CreatedBy       string                             `json:"created_by,omitempty"`
+	UpdatedBy       string                             `json:"updated_by,omitempty"`
+	CreatedAt       time.Time                          `json:"created_at"`
+	UpdatedAt       time.Time                          `json:"updated_at"`
+}
+
+// VirtualModelSnapshot pins one virtual model alias to a static list of target FQNs for PAT enforcement.
+type VirtualModelSnapshot struct {
+	Alias          string   `json:"alias"`
+	VirtualModelID string   `json:"virtual_model_id"`
+	Version        int      `json:"version"`
+	TargetFQNs     []string `json:"target_fqns"`
 }
 
 type VirtualModelTarget struct {
@@ -433,15 +444,17 @@ type VirtualModelFallbackPolicy struct {
 }
 
 type CreateVirtualModelRequest struct {
-	Alias           string               `json:"alias"`
-	RoutingStrategy string               `json:"routing_strategy"`
-	Enabled         *bool                `json:"enabled,omitempty"`
-	Targets         []VirtualModelTarget `json:"targets"`
+	Alias           string                             `json:"alias"`
+	RoutingStrategy string                             `json:"routing_strategy"`
+	Enabled         *bool                              `json:"enabled,omitempty"`
+	Targets         []VirtualModelTarget               `json:"targets"`
+	Access          TenantProviderAccountAccessControl `json:"access"`
 }
 
 type UpdateVirtualModelRequest struct {
-	Alias           *string              `json:"alias,omitempty"`
-	RoutingStrategy *string              `json:"routing_strategy,omitempty"`
-	Enabled         *bool                `json:"enabled,omitempty"`
-	Targets         []VirtualModelTarget `json:"targets,omitempty"`
+	Alias           *string                             `json:"alias,omitempty"`
+	RoutingStrategy *string                             `json:"routing_strategy,omitempty"`
+	Enabled         *bool                               `json:"enabled,omitempty"`
+	Targets         []VirtualModelTarget                `json:"targets,omitempty"`
+	Access          *TenantProviderAccountAccessControl `json:"access,omitempty"`
 }

@@ -196,11 +196,40 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		}
 	}
 	isVirtual := false
-	if err != nil && h.vmResolver != nil && h.vmEngine != nil && h.vmExec != nil {
+	if err != nil && h.vmEngine != nil && h.vmExec != nil && !req.Stream {
+		if snapshotVM, ok := buildVirtualModelFromSnapshot(authInfo, requestedModel); ok {
+			targets, selErr := h.vmEngine.SelectTargets(snapshotVM)
+			if selErr == nil {
+				resp, selectedDep, fallbackCount, failureReason, execErr := h.vmExec.ExecuteSync(c.Context(), targets, func(callCtx context.Context, dep *router.Deployment) (*platform.TunnelResponse, error) {
+					tunnelReq := baseReq
+					tunnelReq.Deployment = toContractDeployment(dep)
+					return h.tunnel.Proxy(callCtx, tunnelReq)
+				})
+				if execErr == nil && resp != nil && selectedDep != nil {
+					isVirtual = true
+					deployment = selectedDep
+					c.Locals("vm_resp", resp)
+					c.Locals("vm_fallback_count", fallbackCount)
+					c.Locals("vm_failure_reason", failureReason)
+					tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_virtual_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{
+						"virtual_model":     snapshotVM.Alias,
+						"selected_provider": selectedDep.Provider,
+						"selected_model":    selectedDep.Model,
+						"fallback_count":    fallbackCount,
+						"failure_reason":    failureReason,
+						"snapshot":          true,
+					})
+				} else if errors.Is(execErr, virtualmodels.ErrFallbackExhausted) {
+					return writeAPIError(c, fiber.StatusBadGateway, "Virtual model fallback exhausted", "fallback_exhausted")
+				}
+			}
+		}
+	}
+	if deployment == nil && err != nil && h.vmResolver != nil && h.vmEngine != nil && h.vmExec != nil && !req.Stream {
 		vm, vmErr := h.vmResolver.Resolve(c.Context(), currentTenant.ID, requestedModel)
 		if vmErr == nil {
 			targets, selErr := h.vmEngine.SelectTargets(vm)
-			if selErr == nil && !req.Stream {
+			if selErr == nil {
 				resp, selectedDep, fallbackCount, failureReason, execErr := h.vmExec.ExecuteSync(c.Context(), targets, func(callCtx context.Context, dep *router.Deployment) (*platform.TunnelResponse, error) {
 					tunnelReq := baseReq
 					tunnelReq.Deployment = toContractDeployment(dep)

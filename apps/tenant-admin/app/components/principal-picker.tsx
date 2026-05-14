@@ -14,7 +14,7 @@ import {
 } from "@/app/components/principal-search-input";
 
 export type PrincipalPickerItem = {
-  type: "user" | "team" | "everyone";
+  type: "user" | "team" | "org_unit" | "everyone";
   principal_id?: string;
   display_name?: string;
 };
@@ -57,7 +57,7 @@ export function PrincipalPicker(props: {
   function addSelectedCandidate() {
     if (!candidate) return;
     if (candidate.type === "external_identity") return;
-    if (candidate.type !== "user" && candidate.type !== "team" && candidate.type !== "everyone") return;
+    if (candidate.type !== "user" && candidate.type !== "team" && candidate.type !== "org_unit" && candidate.type !== "everyone") return;
     addPrincipal({
       type: candidate.type,
       principal_id: candidate.principal_id,
@@ -82,7 +82,7 @@ export function PrincipalPicker(props: {
           onSelectedChange={setCandidate}
           onSearch={props.onSearchPrincipal}
           labels={props.principalSelectorLabels}
-          kinds={["user", "team"]}
+          kinds={["user", "team", "org_unit"]}
           includeEveryone={props.allowEveryone}
           className="min-w-0"
         />

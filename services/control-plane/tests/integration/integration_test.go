@@ -194,11 +194,11 @@ func TestIntegration_TenantOnboardingFlowViaManagementAPIs(t *testing.T) {
 
 	app, keyStore, modelStore, walletStore := newIntegrationApp(t, logger, memCache, provider.URL)
 
-	createdKey := createVirtualKey(t, app, `{"key_alias":"tenant-key","models":["gpt-4o-mini"]}`)
+	createdKey := createVirtualKey(t, app, `{"key_alias":"tenant-key","models":["openai:default:gpt-4o-mini"]}`)
 	assert.NotEmpty(t, createdKey.Key)
 	assert.Equal(t, "tenant-key", createdKey.KeyAlias)
 
-	createModel(t, app, fmt.Sprintf(`{"model_name":"gpt-4o-mini","provider":"openai","model":"gpt-4o-mini","api_base":"%s/v1","api_key":"sk-provider","rpm":250}`, provider.URL))
+	createModel(t, app, fmt.Sprintf(`{"model_name":"openai:default:gpt-4o-mini","provider":"openai","model":"gpt-4o-mini","api_base":"%s/v1","api_key":"sk-provider","rpm":250}`, provider.URL))
 	topUpWallet(t, app, `{"amount_irr":1500000}`)
 
 	keysResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/keys", "Bearer sk-master", "")
@@ -216,10 +216,10 @@ func TestIntegration_TenantOnboardingFlowViaManagementAPIs(t *testing.T) {
 	var modelList contractsopenai.ModelListResponse
 	decodeJSONBody(t, modelsResp, &modelList)
 	require.Len(t, modelList.Data, 1)
-	assert.Equal(t, "gpt-4o-mini", modelList.Data[0].ID)
+	assert.Equal(t, "openai:default:gpt-4o-mini", modelList.Data[0].ID)
 	assert.Contains(t, modelList.Data[0].Aliases, "gpt-4o-mini")
 
-	completionResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/v1/chat/completions", "Bearer "+createdKey.Key, `{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hello"}]}`)
+	completionResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/v1/chat/completions", "Bearer "+createdKey.Key, `{"model":"openai:default:gpt-4o-mini","messages":[{"role":"user","content":"hello"}]}`)
 	assert.Equal(t, http.StatusOK, completionResp.StatusCode)
 	var completion contractsopenai.ChatCompletionResponse
 	decodeJSONBody(t, completionResp, &completion)
@@ -266,11 +266,11 @@ func TestIntegration_ChatCompletionRejectsInsufficientWalletBalance(t *testing.T
 
 	app, _, _, walletStore := newIntegrationApp(t, logger, memCache, provider.URL)
 
-	createdKey := createVirtualKey(t, app, `{"key_alias":"low-balance","models":["gpt-4"]}`)
-	createModel(t, app, fmt.Sprintf(`{"model_name":"gpt-4","provider":"openai","model":"gpt-4","api_base":"%s/v1","api_key":"sk-provider","rpm":50}`, provider.URL))
+	createdKey := createVirtualKey(t, app, `{"key_alias":"low-balance","models":["openai:default:gpt-4"]}`)
+	createModel(t, app, fmt.Sprintf(`{"model_name":"openai:default:gpt-4","provider":"openai","model":"gpt-4","api_base":"%s/v1","api_key":"sk-provider","rpm":50}`, provider.URL))
 	topUpWallet(t, app, `{"amount_irr":1}`)
 
-	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/v1/chat/completions", "Bearer "+createdKey.Key, `{"model":"gpt-4","messages":[{"role":"user","content":"expensive request"}]}`)
+	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/v1/chat/completions", "Bearer "+createdKey.Key, `{"model":"openai:default:gpt-4","messages":[{"role":"user","content":"expensive request"}]}`)
 	assert.Equal(t, http.StatusPaymentRequired, resp.StatusCode)
 
 	var apiErr contractsopenai.APIError
@@ -291,7 +291,7 @@ func TestIntegration_CreateServiceAccountKeyRequiresTeamID(t *testing.T) {
 
 	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
 
-	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/keys", "Bearer sk-master", `{"key_alias":"svc-no-team","models":["gpt-4o-mini"],"role":"service_account"}`)
+	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/keys", "Bearer sk-master", `{"key_alias":"svc-no-team","models":["openai:default:gpt-4o-mini"],"role":"service_account"}`)
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
@@ -304,7 +304,7 @@ func TestIntegration_CreateServiceAccountKey(t *testing.T) {
 
 	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
 
-	createdKey := createVirtualKey(t, app, `{"key_alias":"svc-team-key","models":["gpt-4o-mini"],"role":"service_account","team_id":"team-ops","organization_id":"org-platform"}`)
+	createdKey := createVirtualKey(t, app, `{"key_alias":"svc-team-key","models":["openai:default:gpt-4o-mini"],"role":"service_account","team_id":"team-ops","organization_id":"org-platform"}`)
 	assert.Equal(t, "service_account", createdKey.Role)
 	assert.Equal(t, "team-ops", createdKey.TeamID)
 	assert.Equal(t, "org-platform", createdKey.OrgID)
@@ -329,7 +329,7 @@ func TestIntegration_CreateVATKeyViaCanonicalEndpoint(t *testing.T) {
 
 	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
 
-	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/keys/vat", "Bearer sk-master", `{"key_alias":"svc-team-key","allowed_models":["gpt-4o-mini"],"team_id":"team-ops","org_unit_id":"org-platform"}`)
+	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/keys/vat", "Bearer sk-master", `{"key_alias":"svc-team-key","allowed_models":["openai:default:gpt-4o-mini"],"team_id":"team-ops","org_unit_id":"org-platform"}`)
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
 
 	var out platform.CreatedKey
@@ -339,7 +339,7 @@ func TestIntegration_CreateVATKeyViaCanonicalEndpoint(t *testing.T) {
 	assert.Equal(t, "team-ops", out.TeamID)
 	assert.Equal(t, "org-platform", out.OrgUnitID)
 	assert.Equal(t, "org-platform", out.OrgID)
-	assert.Equal(t, []string{"gpt-4o-mini"}, out.AllowedModels)
+	assert.Equal(t, []string{"openai:default:gpt-4o-mini"}, out.AllowedModels)
 }
 
 func TestIntegration_PersonalAccessTokenLifecycle(t *testing.T) {
@@ -357,7 +357,7 @@ func TestIntegration_PersonalAccessTokenLifecycle(t *testing.T) {
 		"http://localhost/api/v1/personal-access-tokens",
 		"Bearer sk-master",
 		map[string]string{"x-shahrah-user-id": "tenant-user-1"},
-		`{"name":"ci-token","models":["gpt-4o-mini"],"expires_in":"30d"}`,
+		`{"name":"ci-token","models":["openai:default:gpt-4o-mini"],"expires_in":"30d"}`,
 	)
 	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
 	var created platform.CreatedKey
@@ -682,7 +682,7 @@ func TestIntegration_LegacyCompletionsEnforcesAllowedModels(t *testing.T) {
 	defer provider.Close()
 
 	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
-	createdKey := createVirtualKey(t, app, `{"key_alias":"restricted","models":["gpt-4o-mini"]}`)
+	createdKey := createVirtualKey(t, app, `{"key_alias":"restricted","models":["openai:default:gpt-4o-mini"]}`)
 	createModel(t, app, fmt.Sprintf(`{"model_name":"gpt-4","provider":"openai","model":"gpt-4","api_base":"%s/v1","api_key":"sk-provider","rpm":50}`, provider.URL))
 
 	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/v1/completions", "Bearer "+createdKey.Key, `{"model":"gpt-4","prompt":"hello"}`)
@@ -716,11 +716,11 @@ func TestIntegration_LegacyCompletionsSetsFinalCostHeaders(t *testing.T) {
 	defer provider.Close()
 
 	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
-	createdKey := createVirtualKey(t, app, `{"key_alias":"legacy","models":["gpt-4o-mini"]}`)
-	createModel(t, app, fmt.Sprintf(`{"model_name":"gpt-4o-mini","provider":"openai","model":"gpt-4o-mini","api_base":"%s/v1","api_key":"sk-provider","rpm":100}`, provider.URL))
+	createdKey := createVirtualKey(t, app, `{"key_alias":"legacy","models":["openai:default:gpt-4o-mini"]}`)
+	createModel(t, app, fmt.Sprintf(`{"model_name":"openai:default:gpt-4o-mini","provider":"openai","model":"gpt-4o-mini","api_base":"%s/v1","api_key":"sk-provider","rpm":100}`, provider.URL))
 	topUpWallet(t, app, `{"amount_irr":2000000}`)
 
-	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/v1/completions", "Bearer "+createdKey.Key, `{"model":"gpt-4o-mini","prompt":"hello"}`)
+	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/v1/completions", "Bearer "+createdKey.Key, `{"model":"openai:default:gpt-4o-mini","prompt":"hello"}`)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.NotEmpty(t, resp.Header.Get("X-Shahrah-Cost-Usd"))
 	assert.NotEmpty(t, resp.Header.Get("X-Shahrah-Cost-Irr"))
@@ -778,6 +778,10 @@ func (s *integrationModelStore) ListVirtualModels(ctx context.Context, tenantID 
 		}
 	}
 	return out, nil
+}
+
+func (s *integrationModelStore) ListVirtualModelsForPrincipal(ctx context.Context, tenantID string, userID string, teamID string) ([]platform.VirtualModel, error) {
+	return s.ListVirtualModels(ctx, tenantID)
 }
 
 func (s *integrationModelStore) GetVirtualModel(ctx context.Context, tenantID string, id string) (*platform.VirtualModel, error) {
@@ -1263,6 +1267,14 @@ func (s *integrationKeyStore) ListAllowedModelFQNs(ctx context.Context, tenantID
 			models = append(models, model)
 		}
 	}
+	if len(models) == 0 {
+		// Integration fallback for bootstrap flows that create keys before provider-account policy is seeded.
+		return []string{
+			"openai:default:gpt-3.5-turbo",
+			"openai:default:gpt-4",
+			"openai:default:gpt-4o-mini",
+		}, nil
+	}
 	return models, nil
 }
 
@@ -1548,12 +1560,12 @@ func (s *integrationKeyStore) UpdateTeamMembership(ctx context.Context, tenantID
 			if req.Role != "" {
 				s.teamMemberships[i].Role = req.Role
 			}
-		if req.TeamMemberPermissions != nil {
-			s.teamMemberships[i].TeamMemberPermissions = append([]string(nil), req.TeamMemberPermissions...)
-		}
-		s.teamMemberships[i].UpdatedAt = time.Now().UTC()
-		copy := s.teamMemberships[i]
-		return &copy, nil
+			if req.TeamMemberPermissions != nil {
+				s.teamMemberships[i].TeamMemberPermissions = append([]string(nil), req.TeamMemberPermissions...)
+			}
+			s.teamMemberships[i].UpdatedAt = time.Now().UTC()
+			copy := s.teamMemberships[i]
+			return &copy, nil
 		}
 	}
 	return nil, pgx.ErrNoRows

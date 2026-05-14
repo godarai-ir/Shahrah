@@ -550,6 +550,28 @@ func (s *Store) IsTenantProviderAccountManager(ctx context.Context, tenantID str
 			  AND (
 			    (ac.principal_type = 'user' AND ac.principal_id IS NOT NULL AND ac.principal_id::text = NULLIF($3, ''))
 			    OR (ac.principal_type = 'team' AND ac.principal_id IS NOT NULL AND ac.principal_id::text = NULLIF($4, ''))
+			    OR (ac.principal_type = 'org_unit' AND ac.principal_id IS NOT NULL AND (
+			        (
+			          NULLIF($3, '') IS NOT NULL
+			          AND EXISTS (
+			            SELECT 1
+			            FROM organization_memberships om
+			            WHERE om.tenant_id = $1::uuid
+			              AND om.organization_id::text = ac.principal_id::text
+			              AND om.user_id::text = NULLIF($3, '')
+			          )
+			        )
+			        OR (
+			          NULLIF($4, '') IS NOT NULL
+			          AND EXISTS (
+			            SELECT 1
+			            FROM teams t
+			            WHERE t.tenant_id = $1::uuid
+			              AND t.team_id::text = NULLIF($4, '')
+			              AND t.org_unit_id::text = ac.principal_id::text
+			          )
+			        )
+			    ))
 			  )
 		)
 	`, tenantID, accountID, normalizedUserID, normalizedTeamID).Scan(&allowed); err != nil {
@@ -700,6 +722,39 @@ func (s *Store) ListTenantProviderAccountEffectiveModels(ctx context.Context, te
 		               )
 		             ))
 		             OR (ac.principal_type = 'user' AND ac.principal_id IS NOT NULL AND ac.principal_id::text = NULLIF($2, ''))
+		             OR (ac.principal_type = 'org_unit' AND ac.principal_id IS NOT NULL AND (
+		               (
+		                 NULLIF($2, '') IS NOT NULL
+		                 AND EXISTS (
+		                   SELECT 1
+		                   FROM organization_memberships om
+		                   WHERE om.tenant_id = $5::uuid
+		                     AND om.organization_id::text = ac.principal_id::text
+		                     AND om.user_id::text = NULLIF($2, '')
+		                 )
+		               )
+		               OR (
+		                 NULLIF($2, '') IS NOT NULL
+		                 AND EXISTS (
+		                   SELECT 1
+		                   FROM team_memberships tm
+		                   JOIN teams t ON t.team_id = tm.team_id
+		                   WHERE tm.tenant_id = $5::uuid
+		                     AND tm.user_id::text = NULLIF($2, '')
+		                     AND t.org_unit_id::text = ac.principal_id::text
+		                 )
+		               )
+		               OR (
+		                 NULLIF($3, '') IS NOT NULL
+		                 AND EXISTS (
+		                   SELECT 1
+		                   FROM teams t
+		                   WHERE t.tenant_id = $5::uuid
+		                     AND t.team_id::text = NULLIF($3, '')
+		                     AND t.org_unit_id::text = ac.principal_id::text
+		                 )
+		               )
+		             ))
 		           )
 		       ) AS allowed_by_access,
 		       COALESCE((
@@ -790,19 +845,19 @@ func normalizeAccessPrincipal(ctx context.Context, tx pgx.Tx, tenantID string, r
 	principal.DisplayName = strings.TrimSpace(principal.DisplayName)
 
 	switch principal.Type {
-	case platform.PrincipalTypeUser, platform.PrincipalTypeTeam:
+	case platform.PrincipalTypeUser, platform.PrincipalTypeTeam, platform.PrincipalTypeOrgUnit:
 		if principal.PrincipalID == "" {
-			return platform.AccessPrincipal{}, fmt.Errorf("principal_id is required for user/team entries")
+			return platform.AccessPrincipal{}, fmt.Errorf("principal_id is required for user/team/org_unit entries")
 		}
 	case platform.PrincipalTypeEveryone:
 		if role == platform.AccessRoleManager {
-			return platform.AccessPrincipal{}, fmt.Errorf("manager role only supports user/team principals")
+			return platform.AccessPrincipal{}, fmt.Errorf("manager role only supports user/team/org_unit principals")
 		}
 		principal.PrincipalID = ""
 	default:
 		return platform.AccessPrincipal{}, fmt.Errorf("unsupported principal type: %s", principal.Type)
 	}
-	if principal.Type == platform.PrincipalTypeUser || principal.Type == platform.PrincipalTypeTeam {
+	if principal.Type == platform.PrincipalTypeUser || principal.Type == platform.PrincipalTypeTeam || principal.Type == platform.PrincipalTypeOrgUnit {
 		ok, err := principalExistsForTenant(ctx, tx, tenantID, principal.Type, principal.PrincipalID)
 		if err != nil {
 			return platform.AccessPrincipal{}, err
@@ -836,6 +891,19 @@ func principalExistsForTenant(ctx context.Context, tx pgx.Tx, tenantID string, p
 				FROM users u
 				WHERE u.tenant_id = $1::uuid
 				  AND u.user_id::text = $2
+			)
+		`, tenantID, principalID).Scan(&exists); err != nil {
+			return false, err
+		}
+		return exists, nil
+	case platform.PrincipalTypeOrgUnit:
+		var exists bool
+		if err := tx.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1
+				FROM organizations o
+				WHERE o.tenant_id = $1::uuid
+				  AND o.organization_id::text = $2
 			)
 		`, tenantID, principalID).Scan(&exists); err != nil {
 			return false, err

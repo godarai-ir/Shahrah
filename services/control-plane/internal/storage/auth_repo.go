@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -17,6 +18,7 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 	var auth platform.AuthContext
 	var expiresAt *time.Time
 	var keyModels []string
+	var rawMetadata []byte
 
 	err := s.pool.QueryRow(ctx, `
 		SELECT id::text,
@@ -30,7 +32,8 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 		       COALESCE(spend, 0),
 		       COALESCE(expires, NULL),
 		       COALESCE(blocked, false),
-		       COALESCE(key_type, CASE WHEN team_id IS NULL THEN 'pat' ELSE 'vat' END)
+		       COALESCE(key_type, CASE WHEN team_id IS NULL THEN 'pat' ELSE 'vat' END),
+		       COALESCE(metadata, '{}'::jsonb)
 		FROM verification_tokens
 		WHERE token_hash = $1
 		  AND revoked_at IS NULL
@@ -49,6 +52,7 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 		&expiresAt,
 		&auth.Blocked,
 		&auth.KeyType,
+		&rawMetadata,
 	)
 	if err != nil {
 		return nil, err
@@ -60,6 +64,7 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 	}
 	auth.OrgUnitID = auth.OrganizationID
 	auth.ExpiresAt = expiresAt
+	auth.VirtualModelSnapshots = parseVirtualModelSnapshots(rawMetadata)
 
 	runtimeModels, enforceProviderPolicy, err := s.listRuntimeAllowedModelsByProviderAccount(ctx, auth.TenantID, auth.TeamID, auth.UserID)
 	if err != nil {
@@ -70,13 +75,22 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 	auth.AllowedModelPricingMode = make(map[string]string)
 	auth.AllowedModelPricingResolved = make(map[string]bool)
 	if enforceProviderPolicy {
-		intersected := intersectAllowedModelPolicies(keyModels, runtimeModels)
-		auth.AllowedModels = make([]string, 0, len(intersected))
+		intersected, aliasTypes := intersectAllowedModelPoliciesWithSnapshots(keyModels, runtimeModels, auth.VirtualModelSnapshots)
+		auth.AllowedModels = make([]string, 0, len(intersected)+len(aliasTypes))
 		for _, item := range intersected {
 			auth.AllowedModels = append(auth.AllowedModels, item.Model)
 			auth.AllowedModelTypes[item.Model] = append([]string(nil), item.Types...)
 			auth.AllowedModelPricingMode[item.Model] = item.PricingMode
 			auth.AllowedModelPricingResolved[item.Model] = item.PricingResolved
+		}
+		for alias, types := range aliasTypes {
+			if strings.TrimSpace(alias) == "" {
+				continue
+			}
+			auth.AllowedModels = append(auth.AllowedModels, alias)
+			auth.AllowedModelTypes[alias] = append([]string(nil), types...)
+			auth.AllowedModelPricingMode[alias] = "virtual"
+			auth.AllowedModelPricingResolved[alias] = true
 		}
 	} else {
 		auth.AllowedModels = keyModels
@@ -129,6 +143,43 @@ func (s *Store) listRuntimeAllowedModelsByProviderAccount(ctx context.Context, t
 			   ac.principal_type = 'everyone'
 			OR (ac.principal_type = 'team' AND ac.principal_id = NULLIF($2, ''))
 			OR (ac.principal_type = 'user' AND ac.principal_id = NULLIF($3, ''))
+			OR (
+				ac.principal_type = 'org_unit'
+				AND ac.principal_id IS NOT NULL
+				AND (
+					(
+						NULLIF($3, '') IS NOT NULL
+						AND EXISTS (
+							SELECT 1
+							FROM organization_memberships om
+							WHERE om.tenant_id = $1::uuid
+							  AND om.organization_id::text = ac.principal_id::text
+							  AND om.user_id::text = NULLIF($3, '')
+						)
+					)
+					OR (
+						NULLIF($3, '') IS NOT NULL
+						AND EXISTS (
+							SELECT 1
+							FROM team_memberships tm
+							JOIN teams t ON t.team_id = tm.team_id
+							WHERE tm.tenant_id = $1::uuid
+							  AND tm.user_id::text = NULLIF($3, '')
+							  AND t.org_unit_id::text = ac.principal_id::text
+						)
+					)
+					OR (
+						NULLIF($2, '') IS NOT NULL
+						AND EXISTS (
+							SELECT 1
+							FROM teams t
+							WHERE t.tenant_id = $1::uuid
+							  AND t.team_id::text = NULLIF($2, '')
+							  AND t.org_unit_id::text = ac.principal_id::text
+						)
+					)
+				)
+			)
 		  )
 	`, tenantID, teamID, userID)
 	if err != nil {
@@ -208,6 +259,71 @@ func dedupeRuntimePolicies(models []runtimeAllowedModelPolicy) []runtimeAllowedM
 	return out
 }
 
+func intersectAllowedModelPoliciesWithSnapshots(keyModels []string, runtimeModels []runtimeAllowedModelPolicy, snapshots map[string]platform.VirtualModelSnapshot) ([]runtimeAllowedModelPolicy, map[string][]string) {
+	base := intersectAllowedModelPolicies(keyModels, runtimeModels)
+	aliasTypes := make(map[string][]string)
+	if len(snapshots) == 0 || len(runtimeModels) == 0 || len(keyModels) == 0 {
+		return base, aliasTypes
+	}
+
+	runtimeSet := make(map[string]runtimeAllowedModelPolicy, len(runtimeModels))
+	for _, item := range runtimeModels {
+		model := strings.TrimSpace(item.Model)
+		if model == "" {
+			continue
+		}
+		runtimeSet[model] = item
+	}
+
+	requested := make(map[string]struct{}, len(keyModels))
+	for _, model := range keyModels {
+		model = strings.TrimSpace(model)
+		if model == "" {
+			continue
+		}
+		requested[model] = struct{}{}
+	}
+
+	for alias, snapshot := range snapshots {
+		alias = strings.TrimSpace(alias)
+		if alias == "" {
+			continue
+		}
+		if _, ok := requested[alias]; !ok {
+			continue
+		}
+		if len(snapshot.TargetFQNs) == 0 {
+			continue
+		}
+		typeSet := make(map[string]struct{})
+		valid := true
+		for _, fqn := range snapshot.TargetFQNs {
+			fqn = strings.TrimSpace(fqn)
+			policy, ok := runtimeSet[fqn]
+			if !ok {
+				valid = false
+				break
+			}
+			for _, t := range policy.Types {
+				t = strings.TrimSpace(t)
+				if t == "" {
+					continue
+				}
+				typeSet[t] = struct{}{}
+			}
+		}
+		if !valid {
+			continue
+		}
+		types := make([]string, 0, len(typeSet))
+		for t := range typeSet {
+			types = append(types, t)
+		}
+		aliasTypes[alias] = types
+	}
+	return base, aliasTypes
+}
+
 func containsWildcard(models []string) bool {
 	for _, model := range models {
 		if strings.TrimSpace(model) == "*" {
@@ -215,6 +331,54 @@ func containsWildcard(models []string) bool {
 		}
 	}
 	return false
+}
+
+func parseVirtualModelSnapshots(raw []byte) map[string]platform.VirtualModelSnapshot {
+	snapshots := make(map[string]platform.VirtualModelSnapshot)
+	if len(raw) == 0 {
+		return snapshots
+	}
+	var metadata map[string]interface{}
+	if err := json.Unmarshal(raw, &metadata); err != nil {
+		return snapshots
+	}
+	rawSnapshots, ok := metadata["virtual_model_snapshots"]
+	if !ok || rawSnapshots == nil {
+		return snapshots
+	}
+	rawJSON, err := json.Marshal(rawSnapshots)
+	if err != nil {
+		return snapshots
+	}
+	var decoded map[string]platform.VirtualModelSnapshot
+	if err := json.Unmarshal(rawJSON, &decoded); err != nil {
+		return snapshots
+	}
+	for alias, item := range decoded {
+		alias = strings.TrimSpace(alias)
+		if alias == "" {
+			continue
+		}
+		if strings.TrimSpace(item.Alias) == "" {
+			item.Alias = alias
+		}
+		cleanTargets := make([]string, 0, len(item.TargetFQNs))
+		seen := make(map[string]struct{})
+		for _, target := range item.TargetFQNs {
+			target = strings.TrimSpace(target)
+			if target == "" {
+				continue
+			}
+			if _, exists := seen[target]; exists {
+				continue
+			}
+			seen[target] = struct{}{}
+			cleanTargets = append(cleanTargets, target)
+		}
+		item.TargetFQNs = cleanTargets
+		snapshots[alias] = item
+	}
+	return snapshots
 }
 
 // ListAllowedModelFQNs returns tenant-scoped model FQNs allowed for a principal.
@@ -260,10 +424,17 @@ func (s *Store) CreateKey(ctx context.Context, params platform.CreateKeyParams) 
 	}
 
 	now := time.Now().UTC()
-	_, err := s.pool.Exec(ctx, `
+	rawMetadata, err := json.Marshal(params.Metadata)
+	if err != nil {
+		return nil, err
+	}
+	if len(rawMetadata) == 0 || string(rawMetadata) == "null" {
+		rawMetadata = []byte("{}")
+	}
+	_, err = s.pool.Exec(ctx, `
 		INSERT INTO verification_tokens (
 			id, tenant_id, token_hash, key_alias, key_name, models, team_id, organization_id, user_id,
-			expires, spend, blocked, key_type, created_by_user_id, created_at, updated_at
+			expires, spend, blocked, key_type, created_by_user_id, metadata, created_at, updated_at
 		)
 		VALUES (
 			$1, $2, $3, $4, $5, $6, NULLIF($7, '')::uuid, NULLIF($8, '')::uuid,
@@ -274,10 +445,10 @@ func (s *Store) CreateKey(ctx context.Context, params platform.CreateKeyParams) 
 				THEN $9::uuid
 				ELSE NULL
 			END,
-			$10, 0, false, $11, NULLIF($12, ''), $13, $13
+			$10, 0, false, $11, NULLIF($12, ''), $13, $14, $14
 		)
 	`, keyID, params.TenantID, tokenHash, params.KeyAlias, masked, params.Models,
-		params.TeamID, params.OrgID, params.UserID, expiresAt, params.KeyType, params.UserID, now)
+		params.TeamID, params.OrgID, params.UserID, expiresAt, params.KeyType, params.UserID, rawMetadata, now)
 	if err != nil {
 		return nil, err
 	}

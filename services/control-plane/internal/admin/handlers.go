@@ -36,6 +36,7 @@ type modelStore interface {
 	GetVirtualModel(ctx context.Context, tenantID string, id string) (*platform.VirtualModel, error)
 	UpdateVirtualModel(ctx context.Context, tenantID string, id string, req platform.UpdateVirtualModelRequest, actor string) (*platform.VirtualModel, error)
 	DeleteVirtualModel(ctx context.Context, tenantID string, id string) error
+	ListVirtualModelsForPrincipal(ctx context.Context, tenantID string, userID string, teamID string) ([]platform.VirtualModel, error)
 	CreateRateLimitRule(ctx context.Context, tenantID string, req platform.CreateRateLimitRuleRequest) (*platform.RateLimitRule, error)
 	ListRateLimitRules(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.RateLimitRule, int, error)
 	GetRateLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string) (*platform.RateLimitRule, error)
@@ -443,7 +444,7 @@ func (h *Handlers) CreatePersonalAccessToken(c *fiber.Ctx) error {
 	if len(req.AllowedModels) == 0 && len(req.Models) > 0 {
 		req.AllowedModels = append([]string(nil), req.Models...)
 	}
-	models, err := normalizeAndValidateModelFQNs(req.AllowedModels)
+	models, err := normalizeRequestedModelIDs(req.AllowedModels)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
@@ -453,7 +454,26 @@ func (h *Handlers) CreatePersonalAccessToken(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	if err := ensureRequestedModelsInScope(req.AllowedModels, scopeAllowedModels); err != nil {
+	scopeAllowedSet := make(map[string]struct{}, len(scopeAllowedModels))
+	for _, item := range scopeAllowedModels {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		scopeAllowedSet[item] = struct{}{}
+	}
+	requestedFQNs, requestedAliases := splitRequestedModels(req.AllowedModels)
+	if len(requestedFQNs) > 0 {
+		if err := ensureRequestedModelsInScope(requestedFQNs, scopeAllowedModels); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	}
+	virtualModels, err := h.models.ListVirtualModelsForPrincipal(c.Context(), currentTenant.ID, actorUserID, "")
+	if err != nil {
+		return err
+	}
+	vmSnapshots, err := buildVirtualModelSnapshotsForAliases(requestedAliases, virtualModels, scopeAllowedSet)
+	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
@@ -465,6 +485,11 @@ func (h *Handlers) CreatePersonalAccessToken(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusConflict, "personal access token with this name already exists")
 	}
 
+	metadata := map[string]interface{}{}
+	if len(vmSnapshots) > 0 {
+		metadata["virtual_model_snapshots"] = vmSnapshots
+	}
+
 	created, err := h.keys.CreateKey(c.Context(), platform.CreateKeyParams{
 		TenantID:      currentTenant.ID,
 		KeyAlias:      req.Name,
@@ -474,6 +499,7 @@ func (h *Handlers) CreatePersonalAccessToken(c *fiber.Ctx) error {
 		AllowedModels: req.AllowedModels,
 		UserID:        actorUserID,
 		ExpiresIn:     strings.TrimSpace(req.ExpiresIn),
+		Metadata:      metadata,
 	})
 	if err != nil {
 		return err
@@ -515,8 +541,43 @@ func (h *Handlers) ListAllowedModels(c *fiber.Ctx) error {
 		return err
 	}
 	items := make([]fiber.Map, 0, len(models))
+	seen := make(map[string]struct{}, len(models))
 	for _, model := range models {
+		model = strings.TrimSpace(model)
+		if model == "" {
+			continue
+		}
+		if _, exists := seen[model]; exists {
+			continue
+		}
+		seen[model] = struct{}{}
 		items = append(items, fiber.Map{"id": model})
+	}
+	virtualModels, err := h.models.ListVirtualModelsForPrincipal(c.Context(), currentTenant.ID, scopeUserID, scopeTeamID)
+	if err != nil {
+		return err
+	}
+	scopeAllowedSet := make(map[string]struct{}, len(models))
+	for _, model := range models {
+		model = strings.TrimSpace(model)
+		if model == "" {
+			continue
+		}
+		scopeAllowedSet[model] = struct{}{}
+	}
+	for _, vm := range virtualModels {
+		alias := strings.TrimSpace(vm.Alias)
+		if alias == "" {
+			continue
+		}
+		if _, exists := seen[alias]; exists {
+			continue
+		}
+		if !isVirtualModelInScope(vm, scopeAllowedSet) {
+			continue
+		}
+		seen[alias] = struct{}{}
+		items = append(items, fiber.Map{"id": alias})
 	}
 	return c.JSON(fiber.Map{"data": items})
 }
@@ -1833,7 +1894,7 @@ func (h *Handlers) UpdateTenantProviderAccountCredentials(c *fiber.Ctx) error {
 	return c.JSON(account)
 }
 
-// ListAccessPrincipals returns user/team principals for access picker controls.
+// ListAccessPrincipals returns user/team/org-unit principals for access picker controls.
 func (h *Handlers) ListAccessPrincipals(c *fiber.Ctx) error {
 	if err := requireTeamAdminOrHigher(c); err != nil {
 		return err
@@ -1850,9 +1911,9 @@ func (h *Handlers) ListAccessPrincipals(c *fiber.Ctx) error {
 
 	kind := strings.TrimSpace(strings.ToLower(c.Query("kind")))
 	switch kind {
-	case "user", "team":
+	case "user", "team", "org_unit":
 	default:
-		return fiber.NewError(fiber.StatusBadRequest, "kind must be user or team")
+		return fiber.NewError(fiber.StatusBadRequest, "kind must be user, team or org_unit")
 	}
 	query := strings.TrimSpace(c.Query("q"))
 	limit := 20
@@ -2902,6 +2963,103 @@ func normalizeAndValidateModelFQNs(models []string) ([]string, error) {
 		return nil, errors.New("at least one allowed model is required")
 	}
 	return normalized, nil
+}
+
+func normalizeRequestedModelIDs(models []string) ([]string, error) {
+	normalized := make([]string, 0, len(models))
+	seen := make(map[string]struct{}, len(models))
+	for _, model := range models {
+		model = strings.TrimSpace(model)
+		if model == "" {
+			continue
+		}
+		if _, exists := seen[model]; exists {
+			continue
+		}
+		seen[model] = struct{}{}
+		normalized = append(normalized, model)
+	}
+	if len(normalized) == 0 {
+		return nil, errors.New("at least one allowed model is required")
+	}
+	return normalized, nil
+}
+
+func splitRequestedModels(models []string) ([]string, []string) {
+	fqns := make([]string, 0, len(models))
+	aliases := make([]string, 0, len(models))
+	for _, model := range models {
+		if isModelFQN(model) {
+			fqns = append(fqns, model)
+			continue
+		}
+		aliases = append(aliases, model)
+	}
+	return fqns, aliases
+}
+
+func isVirtualModelInScope(vm platform.VirtualModel, scopeAllowedSet map[string]struct{}) bool {
+	if len(vm.Targets) == 0 {
+		return false
+	}
+	for _, target := range vm.Targets {
+		targetFQN := strings.TrimSpace(target.Model)
+		if targetFQN == "" {
+			return false
+		}
+		if _, allowed := scopeAllowedSet[targetFQN]; !allowed {
+			return false
+		}
+	}
+	return true
+}
+
+func buildVirtualModelSnapshotsForAliases(aliases []string, virtualModels []platform.VirtualModel, scopeAllowedSet map[string]struct{}) (map[string]platform.VirtualModelSnapshot, error) {
+	if len(aliases) == 0 {
+		return map[string]platform.VirtualModelSnapshot{}, nil
+	}
+	byAlias := make(map[string]platform.VirtualModel, len(virtualModels))
+	for _, vm := range virtualModels {
+		alias := strings.TrimSpace(vm.Alias)
+		if alias == "" {
+			continue
+		}
+		byAlias[alias] = vm
+	}
+	out := make(map[string]platform.VirtualModelSnapshot, len(aliases))
+	for _, alias := range aliases {
+		alias = strings.TrimSpace(alias)
+		vm, ok := byAlias[alias]
+		if !ok {
+			return nil, errors.New("one or more requested models are not allowed in current tenant scope")
+		}
+		if !isVirtualModelInScope(vm, scopeAllowedSet) {
+			return nil, errors.New("one or more requested virtual models include targets outside your provider scope")
+		}
+		targetFQNs := make([]string, 0, len(vm.Targets))
+		seenTargets := make(map[string]struct{}, len(vm.Targets))
+		for _, target := range vm.Targets {
+			fqn := strings.TrimSpace(target.Model)
+			if fqn == "" {
+				continue
+			}
+			if _, exists := seenTargets[fqn]; exists {
+				continue
+			}
+			seenTargets[fqn] = struct{}{}
+			targetFQNs = append(targetFQNs, fqn)
+		}
+		if len(targetFQNs) == 0 {
+			return nil, errors.New("one or more requested virtual models do not have eligible targets")
+		}
+		out[alias] = platform.VirtualModelSnapshot{
+			Alias:          alias,
+			VirtualModelID: vm.ID,
+			Version:        vm.Version,
+			TargetFQNs:     targetFQNs,
+		}
+	}
+	return out, nil
 }
 
 func isModelFQN(model string) bool {

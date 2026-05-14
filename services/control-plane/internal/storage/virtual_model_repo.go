@@ -43,6 +43,10 @@ func (s *Store) CreateVirtualModel(ctx context.Context, tenantID string, req pla
 	if err != nil {
 		return nil, err
 	}
+	access, err := upsertVirtualModelAccess(ctx, tx, tenantID, id, req.Access)
+	if err != nil {
+		return nil, err
+	}
 
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
@@ -56,6 +60,7 @@ func (s *Store) CreateVirtualModel(ctx context.Context, tenantID string, req pla
 		Enabled:         enabled,
 		Version:         1,
 		Targets:         targets,
+		Access:          access,
 		CreatedBy:       actor,
 		UpdatedBy:       actor,
 	}
@@ -85,7 +90,12 @@ func (s *Store) ListVirtualModels(ctx context.Context, tenantID string) ([]platf
 		if err != nil {
 			return nil, err
 		}
+		access, err := s.listVirtualModelAccess(ctx, vm.ID)
+		if err != nil {
+			return nil, err
+		}
 		vm.Targets = targets
+		vm.Access = access
 		out = append(out, vm)
 	}
 	return out, rows.Err()
@@ -108,7 +118,12 @@ func (s *Store) GetVirtualModel(ctx context.Context, tenantID string, id string)
 	if err != nil {
 		return nil, err
 	}
+	access, err := s.listVirtualModelAccess(ctx, vm.ID)
+	if err != nil {
+		return nil, err
+	}
 	vm.Targets = targets
+	vm.Access = access
 	return &vm, nil
 }
 
@@ -129,7 +144,12 @@ func (s *Store) GetVirtualModelByAlias(ctx context.Context, tenantID string, ali
 	if err != nil {
 		return nil, err
 	}
+	access, err := s.listVirtualModelAccess(ctx, vm.ID)
+	if err != nil {
+		return nil, err
+	}
 	vm.Targets = targets
+	vm.Access = access
 	return &vm, nil
 }
 
@@ -173,6 +193,11 @@ func (s *Store) UpdateVirtualModel(ctx context.Context, tenantID string, id stri
 			return nil, err
 		}
 	}
+	if req.Access != nil {
+		if _, err := upsertVirtualModelAccess(ctx, tx, tenantID, id, *req.Access); err != nil {
+			return nil, err
+		}
+	}
 
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
@@ -190,6 +215,9 @@ func (s *Store) DeleteVirtualModel(ctx context.Context, tenantID string, id stri
 	if _, err := tx.Exec(ctx, `DELETE FROM virtual_model_targets WHERE virtual_model_id = $1`, id); err != nil {
 		return err
 	}
+	if _, err := tx.Exec(ctx, `DELETE FROM virtual_model_access WHERE virtual_model_id = $1`, id); err != nil {
+		return err
+	}
 
 	res, err := tx.Exec(ctx, `DELETE FROM virtual_models WHERE tenant_id = $1 AND virtual_model_id = $2`, tenantID, id)
 	if err != nil {
@@ -200,6 +228,92 @@ func (s *Store) DeleteVirtualModel(ctx context.Context, tenantID string, id stri
 	}
 
 	return tx.Commit(ctx)
+}
+
+func (s *Store) ListVirtualModelsForPrincipal(ctx context.Context, tenantID string, userID string, teamID string) ([]platform.VirtualModel, error) {
+	normalizedUserID := strings.TrimSpace(userID)
+	normalizedTeamID := strings.TrimSpace(teamID)
+	rows, err := s.pool.Query(ctx, `
+		SELECT vm.virtual_model_id::text
+		FROM virtual_models vm
+		WHERE vm.tenant_id = $1::uuid
+		  AND vm.enabled = true
+		  AND EXISTS (
+			SELECT 1
+			FROM virtual_model_access vma
+			WHERE vma.virtual_model_id = vm.virtual_model_id
+			  AND vma.role IN ('manager', 'user')
+			  AND (
+				vma.principal_type = 'everyone'
+				OR (vma.principal_type = 'user' AND vma.principal_id::text = NULLIF($2, ''))
+				OR (vma.principal_type = 'team' AND (
+					vma.principal_id::text = NULLIF($3, '')
+					OR (
+						NULLIF($2, '') IS NOT NULL
+						AND EXISTS (
+							SELECT 1
+							FROM team_memberships tm
+							WHERE tm.tenant_id = $1::uuid
+							  AND tm.team_id::text = vma.principal_id::text
+							  AND tm.user_id::text = NULLIF($2, '')
+						)
+					)
+				))
+				OR (vma.principal_type = 'org_unit' AND (
+					(
+						NULLIF($2, '') IS NOT NULL
+						AND EXISTS (
+							SELECT 1
+							FROM organization_memberships om
+							WHERE om.tenant_id = $1::uuid
+							  AND om.organization_id::text = vma.principal_id::text
+							  AND om.user_id::text = NULLIF($2, '')
+						)
+					)
+					OR (
+						NULLIF($2, '') IS NOT NULL
+						AND EXISTS (
+							SELECT 1
+							FROM team_memberships tm
+							JOIN teams t ON t.team_id = tm.team_id
+							WHERE tm.tenant_id = $1::uuid
+							  AND tm.user_id::text = NULLIF($2, '')
+							  AND t.org_unit_id::text = vma.principal_id::text
+						)
+					)
+					OR (
+						NULLIF($3, '') IS NOT NULL
+						AND EXISTS (
+							SELECT 1
+							FROM teams t
+							WHERE t.tenant_id = $1::uuid
+							  AND t.team_id::text = NULLIF($3, '')
+							  AND t.org_unit_id::text = vma.principal_id::text
+						)
+					)
+				))
+			  )
+		  )
+		ORDER BY vm.created_at ASC
+	`, tenantID, normalizedUserID, normalizedTeamID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]platform.VirtualModel, 0)
+	for rows.Next() {
+		var vmID string
+		if err := rows.Scan(&vmID); err != nil {
+			return nil, err
+		}
+		vm, err := s.GetVirtualModel(ctx, tenantID, vmID)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *vm)
+	}
+	return out, rows.Err()
 }
 
 func insertVirtualModelTargets(ctx context.Context, tx pgx.Tx, vmID string, targets []platform.VirtualModelTarget) ([]platform.VirtualModelTarget, error) {
@@ -249,6 +363,96 @@ func insertVirtualModelTargets(ctx context.Context, tx pgx.Tx, vmID string, targ
 		out = append(out, target)
 	}
 	return out, nil
+}
+
+func upsertVirtualModelAccess(ctx context.Context, tx pgx.Tx, tenantID string, vmID string, access platform.TenantProviderAccountAccessControl) (platform.TenantProviderAccountAccessControl, error) {
+	if _, err := tx.Exec(ctx, `DELETE FROM virtual_model_access WHERE virtual_model_id = $1`, vmID); err != nil {
+		return platform.TenantProviderAccountAccessControl{}, err
+	}
+	normalized := normalizeVirtualModelAccess(access)
+	seen := make(map[string]struct{})
+	if err := insertVirtualModelAccessRows(ctx, tx, tenantID, vmID, platform.AccessRoleManager, normalized.Managers, seen); err != nil {
+		return platform.TenantProviderAccountAccessControl{}, err
+	}
+	if err := insertVirtualModelAccessRows(ctx, tx, tenantID, vmID, platform.AccessRoleUser, normalized.Users, seen); err != nil {
+		return platform.TenantProviderAccountAccessControl{}, err
+	}
+	return normalized, nil
+}
+
+func normalizeVirtualModelAccess(access platform.TenantProviderAccountAccessControl) platform.TenantProviderAccountAccessControl {
+	normalized := platform.TenantProviderAccountAccessControl{
+		Managers: append([]platform.AccessPrincipal(nil), access.Managers...),
+		Users:    append([]platform.AccessPrincipal(nil), access.Users...),
+	}
+	if len(normalized.Users) == 0 && len(normalized.Managers) == 0 {
+		normalized.Users = []platform.AccessPrincipal{{Type: platform.PrincipalTypeEveryone}}
+	}
+	return normalized
+}
+
+func insertVirtualModelAccessRows(ctx context.Context, tx pgx.Tx, tenantID string, vmID string, role platform.AccessRole, principals []platform.AccessPrincipal, seen map[string]struct{}) error {
+	for _, principal := range principals {
+		normalized, err := normalizeAccessPrincipal(ctx, tx, tenantID, role, principal)
+		if err != nil {
+			return err
+		}
+		key := string(role) + "|" + string(normalized.Type) + "|" + normalized.PrincipalID
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO virtual_model_access (
+				virtual_model_id, role, principal_type, principal_id, display_name
+			)
+			VALUES ($1, $2, $3, NULLIF($4, ''), NULLIF($5, ''))
+		`, vmID, string(role), string(normalized.Type), normalized.PrincipalID, normalized.DisplayName); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Store) listVirtualModelAccess(ctx context.Context, vmID string) (platform.TenantProviderAccountAccessControl, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT role, principal_type, COALESCE(principal_id, ''), COALESCE(display_name, '')
+		FROM virtual_model_access
+		WHERE virtual_model_id = $1::uuid
+		ORDER BY role, principal_type, principal_id
+	`, vmID)
+	if err != nil {
+		return platform.TenantProviderAccountAccessControl{}, err
+	}
+	defer rows.Close()
+
+	access := platform.TenantProviderAccountAccessControl{
+		Managers: make([]platform.AccessPrincipal, 0),
+		Users:    make([]platform.AccessPrincipal, 0),
+	}
+	for rows.Next() {
+		var role string
+		var principal platform.AccessPrincipal
+		if err := rows.Scan(&role, &principal.Type, &principal.PrincipalID, &principal.DisplayName); err != nil {
+			return platform.TenantProviderAccountAccessControl{}, err
+		}
+		if principal.Type == platform.PrincipalTypeEveryone {
+			principal.PrincipalID = ""
+		}
+		switch platform.AccessRole(strings.TrimSpace(role)) {
+		case platform.AccessRoleManager:
+			access.Managers = append(access.Managers, principal)
+		case platform.AccessRoleUser:
+			access.Users = append(access.Users, principal)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return platform.TenantProviderAccountAccessControl{}, err
+	}
+	if len(access.Managers) == 0 && len(access.Users) == 0 {
+		access.Users = []platform.AccessPrincipal{{Type: platform.PrincipalTypeEveryone}}
+	}
+	return access, nil
 }
 
 func (s *Store) listVirtualModelTargets(ctx context.Context, vmID string) ([]platform.VirtualModelTarget, error) {

@@ -15,6 +15,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ModelEntitySelect, type ModelSelection } from "@/app/components/model-entity-select";
+import { PrincipalPicker, type PrincipalPickerItem } from "@/app/components/principal-picker";
+import { type PrincipalEntitySelectLabels, type PrincipalSearchKind } from "@/app/components/principal-search-input";
 import { cn } from "@/lib/utils";
 
 type VirtualModelPolicy = {
@@ -39,6 +41,10 @@ type VirtualModel = {
   version: number;
   updated_at?: string;
   targets: VirtualModelTarget[];
+  access?: {
+    managers?: PrincipalPickerItem[];
+    users?: PrincipalPickerItem[];
+  };
 };
 
 type VMResponse = { data?: VirtualModel[] };
@@ -61,7 +67,13 @@ type FormState = {
   routing_strategy: "priority";
   enabled: boolean;
   targets: VirtualModelTarget[];
+  access: {
+    managers: PrincipalPickerItem[];
+    users: PrincipalPickerItem[];
+  };
 };
+type AccessPrincipalCandidate = { principal_id: string; display_name: string; secondary?: string; type?: PrincipalSearchKind };
+type AccessPrincipalResponse = { data?: AccessPrincipalCandidate[] };
 
 type Notice = { kind: "success" | "error"; message: string } | null;
 type StatusCodeChipsInputProps = {
@@ -96,6 +108,10 @@ function makeDefaultForm(): FormState {
     routing_strategy: "priority",
     enabled: true,
     targets: [{ ...DEFAULT_TARGET }],
+    access: {
+      managers: [],
+      users: [{ type: "everyone", display_name: "Everyone" }],
+    },
   };
 }
 
@@ -141,6 +157,19 @@ export default function VirtualModelManagement() {
     return items.filter((item) => item.alias.toLowerCase().includes(q));
   }, [items, query]);
 
+  const principalSelectorLabels = useMemo<PrincipalEntitySelectLabels>(() => ({
+    users: "Users",
+    teams: "Teams",
+    orgUnits: "Org Units",
+    virtualAccounts: "Virtual Accounts",
+    externalIdentities: "External Identities",
+    everyone: "Everyone",
+    searchPlaceholder: "Search principals...",
+    triggerPlaceholder: "Select principal",
+    loading: "Loading...",
+    empty: "No results",
+  }), []);
+
   async function loadList(options?: { skipDirtyConfirmOnAutoload?: boolean }) {
     setIsLoading(true);
     setNotice(null);
@@ -178,6 +207,7 @@ export default function VirtualModelManagement() {
         routing_strategy: "priority",
         enabled: data.enabled,
         targets: normalizeTargets(data.targets),
+        access: normalizeAccess(data.access),
       };
       setSelectedID(id);
       setForm(mapped);
@@ -206,7 +236,7 @@ export default function VirtualModelManagement() {
             .filter((item) => item.enabled)
             .map<ModelSelection>((item) => ({
               id: `${account.id}:${item.model}`,
-              name: item.model,
+              name: `${account.provider}:${account.name}:${item.model}`,
               kind: "provider_allowed",
               secondary: `${account.provider}/${account.name}`,
             }));
@@ -290,6 +320,10 @@ export default function VirtualModelManagement() {
         ...target,
         order: idx + 1,
       })),
+      access: {
+        managers: form.access.managers,
+        users: form.access.users,
+      },
     };
     try {
       const url = form.id ? `/api/virtual-models/${encodeURIComponent(form.id)}` : "/api/virtual-models";
@@ -313,6 +347,17 @@ export default function VirtualModelManagement() {
     } finally {
       setIsSaving(false);
     }
+  }
+
+  async function onSearchPrincipal(kind: PrincipalSearchKind, query: string) {
+    if (query.trim().length < 2) return [];
+    const response = await fetch(
+      `/api/access-principals?kind=${kind}&q=${encodeURIComponent(query.trim())}&limit=20`,
+      { cache: "no-store" },
+    );
+    const payload = (await response.json().catch(() => ({}))) as AccessPrincipalResponse;
+    if (!response.ok) return [];
+    return payload.data ?? [];
   }
 
   async function deleteCurrent() {
@@ -663,6 +708,37 @@ export default function VirtualModelManagement() {
               </Button>
             ) : null}
           </div>
+
+          <div className="space-y-3 rounded-lg border p-3">
+            <div>
+              <p className="text-sm font-medium">Access Control</p>
+              <p className="text-xs text-muted-foreground">Define who can manage and use this virtual model.</p>
+            </div>
+            <div className="grid gap-3 lg:grid-cols-2">
+              <PrincipalPicker
+                id="vm-managers"
+                title="Managers"
+                selected={form.access.managers}
+                setSelected={(value) => setForm((prev) => ({ ...prev, access: { ...prev.access, managers: value } }))}
+                allowEveryone={false}
+                addLabel="Add"
+                removeLabel="Remove"
+                onSearchPrincipal={onSearchPrincipal}
+                principalSelectorLabels={principalSelectorLabels}
+              />
+              <PrincipalPicker
+                id="vm-users"
+                title="Users"
+                selected={form.access.users}
+                setSelected={(value) => setForm((prev) => ({ ...prev, access: { ...prev.access, users: value } }))}
+                allowEveryone
+                addLabel="Add"
+                removeLabel="Remove"
+                onSearchPrincipal={onSearchPrincipal}
+                principalSelectorLabels={principalSelectorLabels}
+              />
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -799,6 +875,21 @@ function normalizeTargets(targets: VirtualModelTarget[] | undefined): VirtualMod
       },
     }))
     .sort((a, b) => a.order - b.order);
+}
+
+function normalizeAccess(access: VirtualModel["access"] | undefined): FormState["access"] {
+  const managers = (access?.managers ?? []).filter(Boolean);
+  const users = (access?.users ?? []).filter(Boolean);
+  if (managers.length === 0 && users.length === 0) {
+    return {
+      managers: [],
+      users: [{ type: "everyone", display_name: "Everyone" }],
+    };
+  }
+  return {
+    managers,
+    users,
+  };
 }
 
 function validateForm(form: FormState, t: ReturnType<typeof useTranslations<"virtualModels">>) {

@@ -36,7 +36,7 @@ type ProviderAuthMode =
 
 type ModelType = string;
 
-type PrincipalType = "user" | "team" | "everyone";
+type PrincipalType = "user" | "team" | "org_unit" | "everyone";
 type SetupStep = 1 | 2 | 3 | 4 | 5;
 type WorkspaceTab = "models" | "access" | "credentials" | "observability";
 type WorkspaceMode = "overview" | "setup" | "workspace";
