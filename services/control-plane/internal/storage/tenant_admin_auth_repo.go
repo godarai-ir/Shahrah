@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 )
 
 // TenantAdminCaptcha represents a captcha challenge.
@@ -268,7 +267,7 @@ type FindOrCreateTenantAdminUserParams struct {
 	Identifier string
 }
 
-// FindOrCreateTenantAdminUser finds or creates a user.
+// FindOrCreateTenantAdminUser finds an active tenant user for login.
 func (s *Store) FindOrCreateTenantAdminUser(ctx context.Context, params FindOrCreateTenantAdminUserParams) (map[string]interface{}, error) {
 	var id, slug, email, mobile, role string
 	var active bool
@@ -283,7 +282,10 @@ func (s *Store) FindOrCreateTenantAdminUser(ctx context.Context, params FindOrCr
 			       u.created_at, u.updated_at
 			FROM users u
 			JOIN tenants t ON t.tenant_id = u.tenant_id
-			WHERE t.slug = $1 AND COALESCE(u.mobile, '') = $2
+			WHERE t.slug = $1
+			  AND COALESCE(u.mobile, '') = $2
+			  AND COALESCE(u.active, true) = true
+			  AND LOWER(COALESCE(u.role, '')) NOT IN ('deactivated', 'removed', 'suspended')
 			LIMIT 1
 		`, tenantSlug, identifier).Scan(&id, &slug, &email, &mobile, &role, &active, &createdAt, &updatedAt)
 		if err == nil {
@@ -295,63 +297,17 @@ func (s *Store) FindOrCreateTenantAdminUser(ctx context.Context, params FindOrCr
 			       u.created_at, u.updated_at
 			FROM users u
 			JOIN tenants t ON t.tenant_id = u.tenant_id
-			WHERE t.slug = $1 AND LOWER(COALESCE(u.email, '')) = LOWER($2)
+			WHERE t.slug = $1
+			  AND LOWER(COALESCE(u.email, '')) = LOWER($2)
+			  AND COALESCE(u.active, true) = true
+			  AND LOWER(COALESCE(u.role, '')) NOT IN ('deactivated', 'removed', 'suspended')
 			LIMIT 1
 		`, tenantSlug, identifier).Scan(&id, &slug, &email, &mobile, &role, &active, &createdAt, &updatedAt)
 		if err == nil {
 			return buildTenantAdminUserMap(slug, id, email, mobile, role, active, createdAt, updatedAt), nil
 		}
 	}
-
-	// Create new user
-	id = uuid.NewString()
-	now := time.Now()
-	role = "tenant_member"
-	emailValue := ""
-	aliasValue := ""
-	mobileValue := ""
-	if channel == "mobile" {
-		aliasValue = identifier
-		mobileValue = identifier
-	} else {
-		emailValue = identifier
-		aliasValue = identifier
-	}
-
-	err := s.pool.QueryRow(ctx, `
-		INSERT INTO users (user_id, tenant_id, user_alias, email, mobile, role, active, created_at, updated_at)
-		SELECT $1::uuid, t.tenant_id, NULLIF($2, ''), NULLIF($3, ''), NULLIF($4, ''), $5, true, $6, $6
-		FROM tenants t
-		WHERE t.slug = $7
-		RETURNING users.user_id::text, $7, COALESCE(users.email, ''), COALESCE(users.mobile, ''), COALESCE(users.role, 'tenant_member'), COALESCE(users.active, true), users.created_at, users.updated_at
-	`, id, aliasValue, emailValue, mobileValue, role, now, tenantSlug).Scan(&id, &slug, &email, &mobile, &role, &active, &createdAt, &updatedAt)
-	if err != nil {
-		// Retry in case of race condition
-		if channel == "mobile" {
-			err = s.pool.QueryRow(ctx, `
-				SELECT u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'tenant_member'), COALESCE(u.active, true),
-				       u.created_at, u.updated_at
-				FROM users u
-				JOIN tenants t ON t.tenant_id = u.tenant_id
-				WHERE t.slug = $1 AND COALESCE(u.mobile, '') = $2
-				LIMIT 1
-			`, tenantSlug, identifier).Scan(&id, &slug, &email, &mobile, &role, &active, &createdAt, &updatedAt)
-		} else {
-			err = s.pool.QueryRow(ctx, `
-				SELECT u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'tenant_member'), COALESCE(u.active, true),
-				       u.created_at, u.updated_at
-				FROM users u
-				JOIN tenants t ON t.tenant_id = u.tenant_id
-				WHERE t.slug = $1 AND LOWER(COALESCE(u.email, '')) = LOWER($2)
-				LIMIT 1
-			`, tenantSlug, identifier).Scan(&id, &slug, &email, &mobile, &role, &active, &createdAt, &updatedAt)
-		}
-		if err != nil {
-			return nil, fmt.Errorf("create user: %w", err)
-		}
-	}
-
-	return buildTenantAdminUserMap(slug, id, email, mobile, role, active, createdAt, updatedAt), nil
+	return nil, fmt.Errorf("tenant member not found")
 }
 
 // GetTenantAdminUser retrieves a user by ID.

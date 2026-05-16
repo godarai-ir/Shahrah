@@ -265,6 +265,170 @@ func TestIntegration_OnboardingExpiredOTPIsRejected(t *testing.T) {
 	assert.ErrorIs(t, err, storage.ErrOnboardingExpired)
 }
 
+func TestIntegration_TenantAdminInvitations_ValidationAndDedupe(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if strings.TrimSpace(databaseURL) == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+
+	logger, _ := zap.NewDevelopment()
+	ctx := context.Background()
+	store, err := storage.NewStore(ctx, databaseURL, logger)
+	require.NoError(t, err)
+	t.Cleanup(store.Close)
+
+	pool, err := pgxpool.New(ctx, databaseURL)
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	resetPersistentState(t, pool)
+
+	defaultTenant := &platform.Tenant{}
+	require.NoError(t, pool.QueryRow(ctx, `
+		SELECT tenant_id::text, slug, domain, status, created_at
+		FROM tenants
+		WHERE slug = 'default'
+	`).Scan(&defaultTenant.ID, &defaultTenant.Slug, &defaultTenant.Domain, &defaultTenant.Status, &defaultTenant.CreatedAt))
+
+	otherTenant := createIntegrationTenant(t, pool, "tenant-two")
+
+	// 1) New email can be invited.
+	firstInvite, firstLink, err := store.InviteTenantAdminUser(ctx, defaultTenant.ID, defaultTenant.Slug, platform.InviteTenantAdminUserRequest{
+		Email: "new-user@tenant.test",
+		Role:  "tenant_member",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, firstInvite)
+	assert.NotEmpty(t, firstLink)
+
+	// 2) Pending invitation is not duplicated.
+	secondInvite, secondLink, err := store.InviteTenantAdminUser(ctx, defaultTenant.ID, defaultTenant.Slug, platform.InviteTenantAdminUserRequest{
+		Email: "new-user@tenant.test",
+		Role:  "tenant_member",
+	})
+	assert.Nil(t, secondInvite)
+	assert.Empty(t, secondLink)
+	assert.ErrorIs(t, err, storage.ErrInvitationAlreadyPending)
+
+	// 3) Same email in another tenant does not block invitation in current tenant.
+	otherInvite, otherLink, err := store.InviteTenantAdminUser(ctx, otherTenant.ID, otherTenant.Slug, platform.InviteTenantAdminUserRequest{
+		Email: "new-user@tenant.test",
+		Role:  "tenant_member",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, otherInvite)
+	assert.NotEmpty(t, otherLink)
+
+	// 4) Existing active member in same tenant cannot be invited (case-insensitive check).
+	_, err = pool.Exec(ctx, `
+		INSERT INTO users (user_id, tenant_id, user_alias, email, role, active, created_at, updated_at)
+		VALUES (gen_random_uuid(), $1::uuid, 'existing-member', 'User1@Tenant2.com', 'tenant_member', true, NOW(), NOW())
+	`, defaultTenant.ID)
+	require.NoError(t, err)
+
+	activeMemberInvite, _, err := store.InviteTenantAdminUser(ctx, defaultTenant.ID, defaultTenant.Slug, platform.InviteTenantAdminUserRequest{
+		Email: "user1@tenant2.com",
+		Role:  "tenant_member",
+	})
+	assert.Nil(t, activeMemberInvite)
+	assert.ErrorIs(t, err, storage.ErrTenantMemberAlreadyExists)
+
+	// 5) Same email in another tenant still allowed.
+	_, err = pool.Exec(ctx, `
+		INSERT INTO users (user_id, tenant_id, user_alias, email, role, active, created_at, updated_at)
+		VALUES (gen_random_uuid(), $1::uuid, 'other-tenant-member', 'cross-tenant@example.com', 'tenant_member', true, NOW(), NOW())
+	`, otherTenant.ID)
+	require.NoError(t, err)
+
+	crossTenantInvite, crossTenantLink, err := store.InviteTenantAdminUser(ctx, defaultTenant.ID, defaultTenant.Slug, platform.InviteTenantAdminUserRequest{
+		Email: "cross-tenant@example.com",
+		Role:  "tenant_member",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, crossTenantInvite)
+	assert.NotEmpty(t, crossTenantLink)
+
+	// 6) Deactivated members do not receive invitation links.
+	_, err = pool.Exec(ctx, `
+		INSERT INTO users (user_id, tenant_id, user_alias, email, role, active, created_at, updated_at)
+		VALUES (gen_random_uuid(), $1::uuid, 'deactivated-member', 'deactivated@tenant.test', 'deactivated', false, NOW(), NOW())
+	`, defaultTenant.ID)
+	require.NoError(t, err)
+
+	deactivatedInvite, _, err := store.InviteTenantAdminUser(ctx, defaultTenant.ID, defaultTenant.Slug, platform.InviteTenantAdminUserRequest{
+		Email: "deactivated@tenant.test",
+		Role:  "tenant_member",
+	})
+	assert.Nil(t, deactivatedInvite)
+	assert.ErrorIs(t, err, storage.ErrTenantMemberDeactivated)
+
+	// 7) Expired invitation is cleaned up and recreated.
+	expiringEmail := "expired@tenant.test"
+	originalExpired, originalLink, err := store.InviteTenantAdminUser(ctx, defaultTenant.ID, defaultTenant.Slug, platform.InviteTenantAdminUserRequest{
+		Email: expiringEmail,
+		Role:  "tenant_member",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, originalExpired)
+	require.NotEmpty(t, originalLink)
+
+	_, err = pool.Exec(ctx, `
+		UPDATE tenant_admin_invitations
+		SET expires_at = NOW() - INTERVAL '1 second'
+		WHERE invitation_id = $1::uuid
+	`, originalExpired.InvitationID)
+	require.NoError(t, err)
+
+	reissued, reissuedLink, err := store.InviteTenantAdminUser(ctx, defaultTenant.ID, defaultTenant.Slug, platform.InviteTenantAdminUserRequest{
+		Email: expiringEmail,
+		Role:  "tenant_member",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, reissued)
+	assert.NotEqual(t, originalExpired.InvitationID, reissued.InvitationID)
+	assert.NotEqual(t, originalLink, reissuedLink)
+}
+
+func TestIntegration_InviteTenantUser_InvalidEmailRejectedWithoutSideEffects(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if strings.TrimSpace(databaseURL) == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
+	resetPersistentState(t, pool)
+
+	invalidEmails := []string{
+		"admin@tenant",
+		"admin@",
+		"@tenant.com",
+		"admin tenant.com",
+		"admin@tenant.",
+		"admin@.com",
+		"",
+		"   ",
+	}
+
+	for _, email := range invalidEmails {
+		var before int
+		require.NoError(t, pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM tenant_admin_invitations`).Scan(&before))
+
+		body := fmt.Sprintf(`{"email":%q,"role":"tenant_member"}`, email)
+		resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/users/invite", "Bearer sk-master", body)
+		assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "email=%q", email)
+
+		var payload map[string]interface{}
+		decodeJSONBody(t, resp, &payload)
+		assert.Contains(t, strings.ToLower(fmt.Sprint(payload["error"])), "valid email", "email=%q", email)
+
+		var after int
+		require.NoError(t, pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM tenant_admin_invitations`).Scan(&after))
+		assert.Equal(t, before, after, "email=%q", email)
+	}
+}
+
 func TestIntegration_ConcurrentWalletDebitUsesRowLock(t *testing.T) {
 	databaseURL := os.Getenv("DATABASE_URL")
 	if strings.TrimSpace(databaseURL) == "" {

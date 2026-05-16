@@ -279,6 +279,9 @@ func (h *AuthHandlers) FindOrCreateUser(c *fiber.Ctx) error {
 		Identifier: body.Identifier,
 	})
 	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "tenant member not found") {
+			return fiber.NewError(fiber.StatusForbidden, "You do not have access to this tenant.")
+		}
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to find or create user")
 	}
 

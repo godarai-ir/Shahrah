@@ -91,11 +91,20 @@ export class AuthService {
 
     // Create or find user
     const record = verifyResult.record;
-    const user = await this.repo.findOrCreateUser({
-      tenantSlug: input.tenantSlug,
-      channel: record.channel,
-      identifier: record.identifier,
-    });
+    let user: TenantUser;
+    try {
+      user = await this.repo.findOrCreateUser({
+        tenantSlug: input.tenantSlug,
+        channel: record.channel,
+        identifier: record.identifier,
+      });
+    } catch {
+      return {
+        ok: false,
+        status: 403,
+        error: "You do not have access to this tenant.",
+      };
+    }
     if (!user.active) {
       return {
         ok: false,

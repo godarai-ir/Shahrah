@@ -24,6 +24,8 @@ class FakeAuthRepository implements AuthRepository {
   public revokeCallCount = 0;
   public active = true;
   public sessionUserID = "user-1";
+  public createSessionCallCount = 0;
+  public membershipAllowedForTenant = new Map<string, boolean>();
   public userByTenantAndID = new Map<string, TenantUser>();
 
   async createCaptchaChallenge(): Promise<CaptchaChallenge> {
@@ -68,6 +70,7 @@ class FakeAuthRepository implements AuthRepository {
   }
 
   async createSession(params: CreateSessionParams): Promise<TenantSession> {
+    this.createSessionCallCount += 1;
     return {
       id: "sess-1",
       tenantSlug: params.tenantSlug,
@@ -92,7 +95,9 @@ class FakeAuthRepository implements AuthRepository {
   }
 
   async findOrCreateUser(params: FindOrCreateUserParams): Promise<TenantUser> {
-    void params;
+    if (this.membershipAllowedForTenant.get(params.tenantSlug) === false) {
+      throw new Error("tenant member not found");
+    }
     return {
       id: "user-1",
       tenantSlug: params.tenantSlug,
@@ -197,6 +202,7 @@ test("deactivated tenant user with existing session cannot access auth context",
 
 test("same email in another tenant is isolated", async () => {
   const repo = new FakeAuthRepository();
+  repo.membershipAllowedForTenant.set("tenant2", false);
   const service = new AuthService(repo);
 
   const result = await service.verifyOTPForLogin({
@@ -205,8 +211,25 @@ test("same email in another tenant is isolated", async () => {
     otpCode: "123456",
   });
 
-  assert.equal(result.ok, true);
-  assert.equal(result.user?.tenantSlug, "tenant2");
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 403);
+  assert.equal(repo.createSessionCallCount, 0);
+});
+
+test("non-member cannot log in and no session is issued", async () => {
+  const repo = new FakeAuthRepository();
+  repo.membershipAllowedForTenant.set("tenant1", false);
+  const service = new AuthService(repo);
+
+  const result = await service.verifyOTPForLogin({
+    tenantSlug: "tenant1",
+    requestID: "req-1",
+    otpCode: "123456",
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 403);
+  assert.equal(repo.createSessionCallCount, 0);
 });
 
 test("reactivation restores access when user becomes active", async () => {

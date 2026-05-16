@@ -12,17 +12,21 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 const invitationTTL = 7 * 24 * time.Hour
 
 var (
-	ErrInvalidInvitationToken = errors.New("invalid tenant admin invitation token")
-	ErrInvitationExpired      = errors.New("tenant admin invitation expired")
-	ErrInvitationAlreadyUsed  = errors.New("tenant admin invitation already used")
-	ErrInvitationContactTaken = errors.New("tenant admin invitation contact already used")
+	ErrInvalidInvitationToken    = errors.New("invalid tenant admin invitation token")
+	ErrInvitationExpired         = errors.New("tenant admin invitation expired")
+	ErrInvitationAlreadyUsed     = errors.New("tenant admin invitation already used")
+	ErrInvitationContactTaken    = errors.New("tenant admin invitation contact already used")
+	ErrInvitationAlreadyPending  = errors.New("tenant admin invitation already pending")
+	ErrTenantMemberAlreadyExists = errors.New("tenant admin user already member of tenant")
+	ErrTenantMemberDeactivated   = errors.New("tenant admin user is deactivated")
+	ErrInvalidInvitationEmail    = errors.New("invalid tenant admin invitation email")
 )
 
 func (s *Store) ListTenantAdminUsers(ctx context.Context, tenantSlug string, query string, limit int, offset int) ([]platform.TenantAdminUser, int, error) {
@@ -98,8 +102,75 @@ func (s *Store) InviteTenantAdminUser(ctx context.Context, tenantID string, tena
 	if role == "" {
 		role = "tenant_member"
 	}
+	if email != "" && !IsValidEmailAddress(email) {
+		return nil, "", ErrInvalidInvitationEmail
+	}
 
 	now := time.Now().UTC()
+
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, "", err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var existingActive bool
+	var existingRole string
+	err = tx.QueryRow(ctx, `
+		SELECT COALESCE(u.active, true), COALESCE(u.role, 'tenant_member')
+		FROM users u
+		WHERE u.tenant_id = $1::uuid
+		  AND (
+			($2 <> '' AND LOWER(COALESCE(u.email, '')) = LOWER($2))
+			OR ($3 <> '' AND COALESCE(u.mobile, '') = $3)
+		  )
+		LIMIT 1
+		FOR UPDATE
+	`, tenantID, email, mobile).Scan(&existingActive, &existingRole)
+	switch {
+	case err == nil:
+		if !existingActive || strings.EqualFold(existingRole, "deactivated") {
+			return nil, "", ErrTenantMemberDeactivated
+		}
+		return nil, "", ErrTenantMemberAlreadyExists
+	case !errors.Is(err, pgx.ErrNoRows):
+		return nil, "", err
+	}
+
+	if _, err := tx.Exec(ctx, `
+		DELETE FROM tenant_admin_invitations
+		WHERE tenant_id = $1::uuid
+		  AND status = 'pending'
+		  AND expires_at <= $2
+		  AND (
+			($3 <> '' AND LOWER(COALESCE(email, '')) = LOWER($3))
+			OR ($4 <> '' AND COALESCE(mobile, '') = $4)
+		  )
+	`, tenantID, now, email, mobile); err != nil {
+		return nil, "", err
+	}
+
+	var pendingID string
+	err = tx.QueryRow(ctx, `
+		SELECT invitation_id::text
+		FROM tenant_admin_invitations
+		WHERE tenant_id = $1::uuid
+		  AND status = 'pending'
+		  AND expires_at > $2
+		  AND (
+			($3 <> '' AND LOWER(COALESCE(email, '')) = LOWER($3))
+			OR ($4 <> '' AND COALESCE(mobile, '') = $4)
+		  )
+		LIMIT 1
+		FOR UPDATE
+	`, tenantID, now, email, mobile).Scan(&pendingID)
+	switch {
+	case err == nil:
+		return nil, "", ErrInvitationAlreadyPending
+	case !errors.Is(err, pgx.ErrNoRows):
+		return nil, "", err
+	}
+
 	expiresAt := now.Add(invitationTTL)
 	invitationID := uuid.NewString()
 	token, tokenHash, err := generateInviteToken()
@@ -108,7 +179,7 @@ func (s *Store) InviteTenantAdminUser(ctx context.Context, tenantID string, tena
 	}
 
 	var acceptedAt *time.Time
-	if err := s.pool.QueryRow(ctx, `
+	if err := tx.QueryRow(ctx, `
 		INSERT INTO "tenant_admin_invitations" (
 			"invitation_id", "tenant_id", "tenantSlug", "email", "mobile", "role", "status",
 			"token_hash", "expires_at", "created_at", "updated_at"
@@ -118,6 +189,10 @@ func (s *Store) InviteTenantAdminUser(ctx context.Context, tenantID string, tena
 		)
 		RETURNING "accepted_at"
 	`, invitationID, tenantID, tenantSlug, email, mobile, role, tokenHash, expiresAt, now).Scan(&acceptedAt); err != nil {
+		return nil, "", err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
 		return nil, "", err
 	}
 

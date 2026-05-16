@@ -2018,13 +2018,27 @@ func (h *Handlers) InviteTenantUser(c *fiber.Ctx) error {
 	if req.Email == "" && req.Mobile == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "either email or mobile is required")
 	}
+	if req.Email != "" && !storage.IsValidEmailAddress(req.Email) {
+		return fiber.NewError(fiber.StatusBadRequest, "Please enter a valid email address.")
+	}
 	if req.Role == "" {
 		req.Role = "tenant_member"
 	}
 
 	invitation, link, err := h.users.InviteTenantAdminUser(c.Context(), currentTenant.ID, currentTenant.Slug, req)
 	if err != nil {
-		return err
+		switch {
+		case errors.Is(err, storage.ErrInvalidInvitationEmail):
+			return fiber.NewError(fiber.StatusBadRequest, "Please enter a valid email address.")
+		case errors.Is(err, storage.ErrTenantMemberAlreadyExists):
+			return fiber.NewError(fiber.StatusConflict, "This user is already a member of this tenant.")
+		case errors.Is(err, storage.ErrTenantMemberDeactivated):
+			return fiber.NewError(fiber.StatusConflict, "This user is deactivated and cannot receive an invitation.")
+		case errors.Is(err, storage.ErrInvitationAlreadyPending):
+			return fiber.NewError(fiber.StatusConflict, "An invitation has already been sent to this email.")
+		default:
+			return err
+		}
 	}
 	return c.Status(fiber.StatusCreated).JSON(platform.InviteTenantAdminUserResponse{
 		Invitation: *invitation,

@@ -285,39 +285,9 @@ export async function findOrCreateTenantUser(input: {
   );
 
   if (existing) {
-    const bootstrapped = await ensureTenantHasAdmin({
-      tenantSlug: input.tenantSlug,
-      candidateUserID: existing.id,
-    });
-    return toPublicTenantUser(bootstrapped ?? existing);
+    return toPublicTenantUser(existing);
   }
-
-  try {
-    const initialRole = await getDefaultRoleForNewTenantUser(input.tenantSlug);
-    const created = await createTenantUserFromIdentifier(
-      input.tenantSlug,
-      input.channel,
-      input.identifier,
-      initialRole,
-    );
-    return toPublicTenantUser(created);
-  } catch (error) {
-    if (isUniqueViolation(error)) {
-      const fallback = await findTenantUserByIdentifier(
-        input.tenantSlug,
-        input.channel,
-        input.identifier,
-      );
-      if (fallback) {
-        const bootstrapped = await ensureTenantHasAdmin({
-          tenantSlug: input.tenantSlug,
-          candidateUserID: fallback.id,
-        });
-        return toPublicTenantUser(bootstrapped ?? fallback);
-      }
-    }
-    throw error;
-  }
+  throw new Error("tenant member not found");
 }
 
 export async function touchLastLogin(tenantSlug: string, userID: string) {
@@ -338,11 +308,7 @@ export async function getTenantUser(tenantSlug: string, userID: string) {
   if (!user) {
     return null;
   }
-  const bootstrapped = await ensureTenantHasAdmin({
-    tenantSlug,
-    candidateUserID: user.id,
-  });
-  return toPublicTenantUser(bootstrapped ?? user);
+  return toPublicTenantUser(user);
 }
 
 export async function updateTenantUserContact(input: {
@@ -541,7 +507,7 @@ async function findTenantUserByIdentifier(
   const rows = await prisma.$queryRaw<DBTenantUserRow[]>(Prisma.sql`
     SELECT
       u.user_id::text AS id,
-      ${tenantSlug}::text AS "tenantSlug",
+      t.slug AS "tenantSlug",
       u.email,
       NULL::text AS mobile,
       u.role,
@@ -549,7 +515,11 @@ async function findTenantUserByIdentifier(
       u.updated_at AS "updatedAt",
       NULL::timestamptz AS "lastLoginAt"
     FROM users u
-    WHERE u.email = ${identifier}
+    JOIN tenants t ON t.tenant_id = u.tenant_id
+    WHERE t.slug = ${tenantSlug}
+      AND LOWER(COALESCE(u.email, '')) = LOWER(${identifier})
+      AND COALESCE(u.active, true) = true
+      AND LOWER(COALESCE(u.role, '')) NOT IN ('deactivated', 'removed', 'suspended')
     LIMIT 1
   `);
   return rows[0] ?? null;
@@ -559,7 +529,7 @@ async function findTenantUserByID(tenantSlug: string, userID: string) {
   const rows = await prisma.$queryRaw<DBTenantUserRow[]>(Prisma.sql`
     SELECT
       u.user_id::text AS id,
-      ${tenantSlug}::text AS "tenantSlug",
+      t.slug AS "tenantSlug",
       u.email,
       NULL::text AS mobile,
       u.role,
@@ -567,7 +537,11 @@ async function findTenantUserByID(tenantSlug: string, userID: string) {
       u.updated_at AS "updatedAt",
       NULL::timestamptz AS "lastLoginAt"
     FROM users u
-    WHERE u.user_id::text = ${userID}
+    JOIN tenants t ON t.tenant_id = u.tenant_id
+    WHERE t.slug = ${tenantSlug}
+      AND u.user_id::text = ${userID}
+      AND COALESCE(u.active, true) = true
+      AND LOWER(COALESCE(u.role, '')) NOT IN ('deactivated', 'removed', 'suspended')
     LIMIT 1
   `);
   return rows[0] ?? null;
@@ -613,10 +587,13 @@ async function updateTenantUserLastLogin(tenantSlug: string, userID: string) {
   const rows = await prisma.$queryRaw<DBTenantUserRow[]>(Prisma.sql`
     UPDATE users AS u
     SET updated_at = NOW()
-    WHERE u.user_id::text = ${userID}
+    FROM tenants t
+    WHERE t.tenant_id = u.tenant_id
+      AND t.slug = ${tenantSlug}
+      AND u.user_id::text = ${userID}
     RETURNING
       u.user_id::text AS id,
-      ${tenantSlug}::text AS "tenantSlug",
+      t.slug AS "tenantSlug",
       u.email,
       NULL::text AS mobile,
       u.role,
@@ -644,10 +621,13 @@ async function updateTenantUserContactField(
     Prisma.sql`
       UPDATE users AS u
       SET email = ${value}, updated_at = NOW()
-      WHERE u.user_id::text = ${userID}
+      FROM tenants t
+      WHERE t.tenant_id = u.tenant_id
+        AND t.slug = ${tenantSlug}
+        AND u.user_id::text = ${userID}
       RETURNING
         u.user_id::text AS id,
-        ${tenantSlug}::text AS "tenantSlug",
+        t.slug AS "tenantSlug",
         u.email,
         NULL::text AS mobile,
         u.role,
