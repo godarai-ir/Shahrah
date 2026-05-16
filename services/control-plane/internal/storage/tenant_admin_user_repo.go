@@ -258,6 +258,14 @@ func (s *Store) SetTenantAdminUserActive(ctx context.Context, tenantSlug string,
 	if mobile != "" {
 		user.Mobile = mobile
 	}
+	if !active {
+		if _, revokeErr := s.pool.Exec(ctx, `
+			DELETE FROM tenant_admin_sessions
+			WHERE "tenantSlug" = $1 AND "userID" = $2
+		`, tenantSlug, userID); revokeErr != nil {
+			return nil, revokeErr
+		}
+	}
 	return &user, nil
 }
 

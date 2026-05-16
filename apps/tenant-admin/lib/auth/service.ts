@@ -37,6 +37,7 @@ export type UpdateContactInput = {
 
 export type OTPVerificationResult = {
   ok: boolean;
+  status?: number;
   error?: string;
   record?: OTPRecord;
   session?: TenantSession;
@@ -95,6 +96,13 @@ export class AuthService {
       channel: record.channel,
       identifier: record.identifier,
     });
+    if (!user.active) {
+      return {
+        ok: false,
+        status: 403,
+        error: "این حساب کاربری غیرفعال است.",
+      };
+    }
 
     // Touch last login is best-effort and must not block successful login.
     try {
@@ -137,6 +145,10 @@ export class AuthService {
 
     const user = await this.repo.getUser(tenantSlug, session.userID);
     if (!user) {
+      await this.repo.revokeSession(session.id);
+      return null;
+    }
+    if (!user.active) {
       await this.repo.revokeSession(session.id);
       return null;
     }

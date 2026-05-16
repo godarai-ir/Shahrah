@@ -198,6 +198,7 @@ export class ApiAuthRepository implements AuthRepository {
       email?: string;
       mobile?: string;
       role: string;
+      active?: boolean;
       created_at_iso: string;
       updated_at_iso: string;
       last_login_at_iso?: string;
@@ -217,6 +218,7 @@ export class ApiAuthRepository implements AuthRepository {
       email?: string;
       mobile?: string;
       role: string;
+      active?: boolean;
       created_at_iso: string;
       updated_at_iso: string;
       last_login_at_iso?: string;
@@ -234,6 +236,7 @@ export class ApiAuthRepository implements AuthRepository {
       email?: string;
       mobile?: string;
       role: string;
+      active?: boolean;
       created_at_iso: string;
       updated_at_iso: string;
       last_login_at_iso?: string;
@@ -259,6 +262,7 @@ export class ApiAuthRepository implements AuthRepository {
       email?: string;
       mobile?: string;
       role: string;
+      active?: boolean;
       created_at_iso: string;
       updated_at_iso: string;
       last_login_at_iso?: string;
@@ -295,6 +299,7 @@ function mapTenantUser(input: {
   email?: string;
   mobile?: string;
   role: string;
+  active?: boolean;
   created_at_iso: string;
   updated_at_iso: string;
   last_login_at_iso?: string;
@@ -305,6 +310,7 @@ function mapTenantUser(input: {
     email: input.email,
     mobile: input.mobile,
     role: input.role,
+    active: input.active ?? true,
     createdAtISO: input.created_at_iso,
     updatedAtISO: input.updated_at_iso,
     lastLoginAtISO: input.last_login_at_iso,

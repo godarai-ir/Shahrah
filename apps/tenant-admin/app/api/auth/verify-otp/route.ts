@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
   if (!result.ok) {
     return NextResponse.json(
       { error: { message: result.error } },
-      { status: 400 },
+      { status: result.status ?? 400 },
     );
   }
 
