@@ -8,12 +8,12 @@ import (
 )
 
 const (
-	roleProxyAdmin  = "proxy_admin"
-	roleTenantAdmin = "tenant_admin"
-	roleOrgAdmin    = "org_admin"
-	roleTeamAdmin   = "team_admin"
-	roleTeamMember  = "team_member"
-	roleTenantUser  = "tenant_user"
+	roleProxyAdmin     = "proxy_admin"
+	roleTenantAdmin    = "tenant_admin"
+	roleOrgAdmin       = "org_admin"
+	roleTeamAdmin      = "team_admin"
+	roleMember         = "member"
+	roleReadOnlyMember = "readonly_member"
 )
 
 var defaultTeamMemberPermissions = map[string]struct{}{
@@ -103,6 +103,10 @@ func CheckRouteAuthorization(method string, route string, authInfo *platform.Aut
 	switch {
 	case normalizedRoute == "/api/v1/me/permissions":
 		return nil
+	case strings.HasPrefix(normalizedRoute, "/api/v1/gateway-policies/"):
+		return checkPolicyRouteAuthorization(normalizedMethod, authInfo)
+	case strings.HasPrefix(normalizedRoute, "/api/v1/provider-catalog/"):
+		return checkProviderCatalogRouteAuthorization(normalizedMethod, normalizedRoute, authInfo)
 	case strings.HasPrefix(normalizedRoute, "/api/v1/org-units"):
 		return requireTenantAdmin(authInfo)
 	case strings.HasPrefix(normalizedRoute, "/api/v1/teams/") && strings.Contains(normalizedRoute, "/members"):
@@ -112,22 +116,21 @@ func CheckRouteAuthorization(method string, route string, authInfo *platform.Aut
 	case strings.HasPrefix(normalizedRoute, "/api/v1/wallet"):
 		return requireTenantAdmin(authInfo)
 	case strings.HasPrefix(normalizedRoute, "/api/v1/models"):
-		return requireTenantAdmin(authInfo)
+		return checkModelsRouteAuthorization(normalizedMethod, normalizedRoute, authInfo)
+	case strings.HasPrefix(normalizedRoute, "/api/v1/virtual-models"):
+		return checkVirtualModelsRouteAuthorization(normalizedMethod, authInfo)
 	case strings.HasPrefix(normalizedRoute, "/api/v1/tenant-provider-accounts"):
-		if normalizedMethod == "DELETE" && isProviderAccountDeleteRoute(normalizedRoute) {
-			return nil
-		}
-		return requireTenantAdmin(authInfo)
+		return checkProviderAccountRouteAuthorization(normalizedMethod, normalizedRoute, authInfo)
 	case strings.HasPrefix(normalizedRoute, "/api/v1/access-principals"):
-		return requireTeamAdmin(authInfo)
+		return checkAccessPrincipalRouteAuthorization(normalizedRoute, authInfo)
 	case strings.HasPrefix(normalizedRoute, "/api/v1/roles"):
 		return requireTenantAdmin(authInfo)
 	case normalizedRoute == "/api/v1/users/roles":
-		return requireTenantAdmin(authInfo)
+		return checkUserManagementRouteAuthorization(normalizedMethod, authInfo)
 	case normalizedRoute == "/api/v1/users/invitations/accept":
 		return requireTenantAdmin(authInfo)
 	case strings.HasPrefix(normalizedRoute, "/api/v1/users"):
-		return requireTenantAdmin(authInfo)
+		return checkUserManagementRouteAuthorization(normalizedMethod, authInfo)
 	case strings.HasPrefix(normalizedRoute, "/api/v1/keys"):
 		return checkKeyRouteAuthorization(normalizedMethod, normalizedRoute, authInfo)
 	case strings.HasPrefix(normalizedRoute, "/api/v1/personal-access-tokens"):
@@ -143,11 +146,168 @@ func checkPATRouteAuthorization(authInfo *platform.AuthContext) error {
 	}
 	role := normalizeRole(authInfo.Role)
 	switch role {
-	case roleProxyAdmin, roleTenantAdmin, roleOrgAdmin, roleTeamAdmin, roleTeamMember, roleTenantUser:
+	case roleProxyAdmin, roleTenantAdmin, roleOrgAdmin, roleTeamAdmin, roleMember, roleReadOnlyMember:
 		return nil
 	default:
 		return fmt.Errorf("insufficient permissions for personal access token route")
 	}
+}
+
+func checkPolicyRouteAuthorization(method string, authInfo *platform.AuthContext) error {
+	if IsTenantAdminOrHigher(authInfo) {
+		return nil
+	}
+	switch strings.ToUpper(strings.TrimSpace(method)) {
+	case "GET", "HEAD", "OPTIONS":
+		if hasPermission(authInfo, "policy:list") || hasPermission(authInfo, "policy:manage") {
+			return nil
+		}
+	default:
+		if hasPermission(authInfo, "policy:manage") {
+			return nil
+		}
+	}
+	return fmt.Errorf("insufficient permissions for policy management route")
+}
+
+func checkAccessPrincipalRouteAuthorization(route string, authInfo *platform.AuthContext) error {
+	if IsTeamAdminOrHigher(authInfo) {
+		return nil
+	}
+	kind := extractQueryParam(route, "kind")
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case "user":
+		if hasPermission(authInfo, "user:list") || hasPermission(authInfo, "user:manage") {
+			return nil
+		}
+	case "team":
+		if hasPermission(authInfo, "team:read") || hasPermission(authInfo, "team:manage") {
+			return nil
+		}
+	case "org_unit":
+		if hasPermission(authInfo, "org_unit:read") || hasPermission(authInfo, "org_unit:list") || hasPermission(authInfo, "org_unit:manage") {
+			return nil
+		}
+	default:
+		if hasPermission(authInfo, "user:list") || hasPermission(authInfo, "team:read") || hasPermission(authInfo, "org_unit:read") {
+			return nil
+		}
+	}
+	return fmt.Errorf("insufficient permissions for access principal search")
+}
+
+func checkUserManagementRouteAuthorization(method string, authInfo *platform.AuthContext) error {
+	if IsTenantAdminOrHigher(authInfo) {
+		return nil
+	}
+	switch strings.ToUpper(strings.TrimSpace(method)) {
+	case "GET", "HEAD", "OPTIONS":
+		if hasPermission(authInfo, "user:manage") {
+			return nil
+		}
+	default:
+		if hasPermission(authInfo, "user:manage") {
+			return nil
+		}
+	}
+	return fmt.Errorf("user manage permission required")
+}
+
+func checkModelsRouteAuthorization(method string, route string, authInfo *platform.AuthContext) error {
+	if IsTenantAdminOrHigher(authInfo) {
+		return nil
+	}
+	normalizedMethod := strings.ToUpper(strings.TrimSpace(method))
+	if normalizedMethod == "GET" || normalizedMethod == "HEAD" || normalizedMethod == "OPTIONS" {
+		if hasAnyPermission(authInfo,
+			"policy:list", "policy:manage",
+			"provider_account:read", "provider_account:manage", "provider_account:use_integrations",
+			"virtual_account:read", "virtual_account:manage",
+		) {
+			return nil
+		}
+		return fmt.Errorf("model list permission required")
+	}
+	if strings.HasSuffix(strings.TrimSpace(route), "/allowed") {
+		if hasAnyPermission(authInfo,
+			"policy:list", "policy:manage",
+			"provider_account:read", "provider_account:manage", "provider_account:use_integrations",
+			"virtual_account:read", "virtual_account:manage",
+		) {
+			return nil
+		}
+		return fmt.Errorf("model list permission required")
+	}
+	return fmt.Errorf("tenant admin privileges required")
+}
+
+func checkVirtualModelsRouteAuthorization(method string, authInfo *platform.AuthContext) error {
+	if IsTenantAdminOrHigher(authInfo) {
+		return nil
+	}
+	switch strings.ToUpper(strings.TrimSpace(method)) {
+	case "GET", "HEAD", "OPTIONS":
+		if hasAnyPermission(authInfo, "virtual_account:read", "virtual_account:manage", "policy:list", "policy:manage") {
+			return nil
+		}
+		return fmt.Errorf("virtual account read permission required")
+	default:
+		if hasAnyPermission(authInfo, "virtual_account:manage", "virtual_account:delete") {
+			return nil
+		}
+		return fmt.Errorf("virtual account manage permission required")
+	}
+}
+
+func checkProviderCatalogRouteAuthorization(method string, route string, authInfo *platform.AuthContext) error {
+	if IsTenantAdminOrHigher(authInfo) {
+		return nil
+	}
+	normalizedMethod := strings.ToUpper(strings.TrimSpace(method))
+	normalizedRoute := strings.TrimSpace(route)
+	if normalizedRoute == "/api/v1/provider-catalog/refresh" && normalizedMethod == "POST" {
+		if hasAnyPermission(authInfo, "provider_account:manage", "settings:manage") {
+			return nil
+		}
+		return fmt.Errorf("provider account manage permission required")
+	}
+	if normalizedMethod == "GET" || normalizedMethod == "HEAD" || normalizedMethod == "OPTIONS" {
+		if hasAnyPermission(authInfo, "provider_account:read", "provider_account:manage", "provider_account:use_integrations") {
+			return nil
+		}
+		return fmt.Errorf("provider account read permission required")
+	}
+	return fmt.Errorf("provider account manage permission required")
+}
+
+func checkProviderAccountRouteAuthorization(method string, route string, authInfo *platform.AuthContext) error {
+	if IsTenantAdminOrHigher(authInfo) {
+		return nil
+	}
+	normalizedMethod := strings.ToUpper(strings.TrimSpace(method))
+	normalizedRoute := strings.TrimSpace(route)
+	if normalizedMethod == "GET" || normalizedMethod == "HEAD" || normalizedMethod == "OPTIONS" {
+		if hasAnyPermission(authInfo, "provider_account:read", "provider_account:manage", "provider_account:use_integrations") {
+			return nil
+		}
+		return fmt.Errorf("provider account read permission required")
+	}
+	if normalizedMethod == "POST" && normalizedRoute == "/api/v1/tenant-provider-accounts" {
+		if hasAnyPermission(authInfo, "provider_account:create", "provider_account:manage") {
+			return nil
+		}
+		return fmt.Errorf("provider account create permission required")
+	}
+	if normalizedMethod == "DELETE" && isProviderAccountDeleteRoute(normalizedRoute) {
+		if hasAnyPermission(authInfo, "provider_account:delete", "provider_account:manage") {
+			return nil
+		}
+		return fmt.Errorf("provider account delete permission required")
+	}
+	if hasAnyPermission(authInfo, "provider_account:manage") {
+		return nil
+	}
+	return fmt.Errorf("provider account manage permission required")
 }
 
 func checkKeyRouteAuthorization(method string, route string, authInfo *platform.AuthContext) error {
@@ -228,12 +388,37 @@ func hasTeamMemberPermission(authInfo *platform.AuthContext, permission string) 
 	return false
 }
 
+func hasPermission(authInfo *platform.AuthContext, permission string) bool {
+	if authInfo == nil {
+		return false
+	}
+	permission = strings.TrimSpace(strings.ToLower(permission))
+	if permission == "" {
+		return false
+	}
+	for _, item := range authInfo.Permissions {
+		if strings.TrimSpace(strings.ToLower(item)) == permission {
+			return true
+		}
+	}
+	return false
+}
+
+func hasAnyPermission(authInfo *platform.AuthContext, permissions ...string) bool {
+	for _, permission := range permissions {
+		if hasPermission(authInfo, permission) {
+			return true
+		}
+	}
+	return false
+}
+
 func normalizeRole(role string) string {
 	switch strings.TrimSpace(strings.ToLower(role)) {
 	case "admin":
 		return roleTenantAdmin
 	case "user":
-		return roleTenantUser
+		return roleMember
 	default:
 		return strings.TrimSpace(strings.ToLower(role))
 	}
@@ -263,4 +448,22 @@ func isProviderAccountDeleteRoute(route string) bool {
 		return false
 	}
 	return !strings.Contains(rest, "/")
+}
+
+func extractQueryParam(route string, key string) string {
+	parts := strings.SplitN(strings.TrimSpace(route), "?", 2)
+	if len(parts) != 2 {
+		return ""
+	}
+	query := parts[1]
+	for _, pair := range strings.Split(query, "&") {
+		kv := strings.SplitN(pair, "=", 2)
+		if len(kv) != 2 {
+			continue
+		}
+		if strings.TrimSpace(strings.ToLower(kv[0])) == strings.TrimSpace(strings.ToLower(key)) {
+			return kv[1]
+		}
+	}
+	return ""
 }

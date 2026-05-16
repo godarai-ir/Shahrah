@@ -8,7 +8,6 @@ import (
 	"math/big"
 	"strings"
 	"time"
-
 )
 
 // TenantAdminCaptcha represents a captcha challenge.
@@ -278,7 +277,7 @@ func (s *Store) FindOrCreateTenantAdminUser(ctx context.Context, params FindOrCr
 
 	if channel == "mobile" {
 		err := s.pool.QueryRow(ctx, `
-			SELECT u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'tenant_member'), COALESCE(u.active, true),
+			SELECT u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'member'), COALESCE(u.active, true),
 			       u.created_at, u.updated_at
 			FROM users u
 			JOIN tenants t ON t.tenant_id = u.tenant_id
@@ -293,7 +292,7 @@ func (s *Store) FindOrCreateTenantAdminUser(ctx context.Context, params FindOrCr
 		}
 	} else {
 		err := s.pool.QueryRow(ctx, `
-			SELECT u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'tenant_member'), COALESCE(u.active, true),
+			SELECT u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'member'), COALESCE(u.active, true),
 			       u.created_at, u.updated_at
 			FROM users u
 			JOIN tenants t ON t.tenant_id = u.tenant_id
@@ -318,7 +317,7 @@ func (s *Store) GetTenantAdminUser(ctx context.Context, tenantID string, userID 
 
 	err := s.pool.QueryRow(ctx, `
 		SELECT u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''),
-		       COALESCE(u.role, 'tenant_member'), COALESCE(u.active, true), u.created_at, u.updated_at
+		       COALESCE(u.role, 'member'), COALESCE(u.active, true), u.created_at, u.updated_at
 		FROM users u
 		JOIN tenants t ON t.tenant_id = u.tenant_id
 		WHERE t.slug = $1 AND u.user_id::text = $2
@@ -352,13 +351,13 @@ func (s *Store) UpdateTenantAdminUserContact(ctx context.Context, params UpdateT
 			SET email = $1, updated_at = NOW()
 			FROM tenants t
 			WHERE t.slug = $2 AND u.tenant_id = t.tenant_id AND u.user_id::text = $3
-			RETURNING u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'tenant_member'), COALESCE(u.active, true), u.created_at, u.updated_at`
+			RETURNING u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'member'), COALESCE(u.active, true), u.created_at, u.updated_at`
 	} else {
 		query = `UPDATE users u
 			SET mobile = $1, updated_at = NOW()
 			FROM tenants t
 			WHERE t.slug = $2 AND u.tenant_id = t.tenant_id AND u.user_id::text = $3
-			RETURNING u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'tenant_member'), COALESCE(u.active, true), u.created_at, u.updated_at`
+			RETURNING u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'member'), COALESCE(u.active, true), u.created_at, u.updated_at`
 	}
 
 	err := s.pool.QueryRow(ctx, query, args...).Scan(&id, &slug, &email, &mobile, &role, &active, &createdAt, &updatedAt)
@@ -381,7 +380,7 @@ func (s *Store) TouchTenantAdminLastLogin(ctx context.Context, tenantID string, 
 		FROM tenants t
 		WHERE t.slug = $1 AND u.tenant_id = t.tenant_id AND u.user_id::text = $2
 		RETURNING u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''),
-		          COALESCE(u.role, 'tenant_member'), COALESCE(u.active, true), u.created_at, u.updated_at
+		          COALESCE(u.role, 'member'), COALESCE(u.active, true), u.created_at, u.updated_at
 	`, strings.TrimSpace(strings.ToLower(tenantID)), strings.TrimSpace(userID)).Scan(&id, &slug, &email, &mobile, &role, &active, &createdAt, &updatedAt)
 	if err != nil {
 		return nil, nil

@@ -25,6 +25,7 @@ type AuthContext struct {
 	KeyID                       string                          `json:"key_id"`
 	KeyAlias                    string                          `json:"key_alias,omitempty"`
 	Role                        string                          `json:"role"`
+	Permissions                 []string                        `json:"permissions,omitempty"`
 	KeyType                     string                          `json:"key_type,omitempty"`
 	TeamMemberPermissions       []string                        `json:"team_member_permissions,omitempty"`
 	AllowedModels               []string                        `json:"allowed_models,omitempty"`

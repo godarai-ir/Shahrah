@@ -20,6 +20,16 @@ type RoleListResponse = {
   data?: RoleDefinition[];
 };
 
+type PermissionDefinition = {
+  key: string;
+  group: string;
+  description?: string;
+};
+
+type MePermissionsResponse = {
+  catalog?: PermissionDefinition[];
+};
+
 export const dynamic = "force-dynamic";
 
 export default async function RolesPage() {
@@ -36,6 +46,14 @@ export default async function RolesPage() {
   const payload = (rolesResult.payload ?? {}) as RoleListResponse;
   const initialRoles = rolesResult.ok ? payload.data ?? [] : [];
   const initialError = rolesResult.ok ? null : rolesResult.errorMessage ?? "Request failed.";
+  const permissionsResult = await fetchControlPlaneJSON({
+    tenantSlug,
+    method: "GET",
+    path: "/api/v1/me/permissions",
+    userID: auth.user.id,
+  });
+  const permissionsPayload = (permissionsResult.payload ?? {}) as MePermissionsResponse;
+  const initialPermissionCatalog = permissionsResult.ok ? permissionsPayload.catalog ?? [] : [];
 
   const currentUser = {
     id: auth.user.id,
@@ -46,7 +64,11 @@ export default async function RolesPage() {
 
   return (
     <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
-      <RolesPermissionsManagement initialRoles={initialRoles} initialError={initialError} />
+      <RolesPermissionsManagement
+        initialRoles={initialRoles}
+        initialError={initialError}
+        initialPermissionCatalog={initialPermissionCatalog}
+      />
     </AdminShell>
   );
 }

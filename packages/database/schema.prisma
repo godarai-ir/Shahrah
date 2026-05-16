@@ -537,7 +537,7 @@ model tenant_admin_invitations {
   tenantSlug    String
   email         String?
   mobile        String?
-  role          String    @default("tenant_member")
+  role          String    @default("member")
   status        String    @default("pending")
   token_hash    String    @unique @db.VarChar(64)
   expires_at    DateTime  @db.Timestamptz(6)

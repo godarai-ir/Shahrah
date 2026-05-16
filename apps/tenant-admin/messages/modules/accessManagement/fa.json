@@ -1,104 +1,102 @@
 {
-  "title": "Access Management",
+  "title": "مدیریت دسترسی",
   "tabs": {
-    "users": "Users",
-    "teams": "Teams",
-    "externalAuth": "External Auth",
-    "personalAccessTokens": "Personal Access Tokens",
-    "virtualAccounts": "Virtual Accounts",
-    "roles": "Roles",
-    "auditLogs": "Audit Logs"
+    "users": "کاربران",
+    "teams": "تیم‌ها",
+    "personalAccessTokens": "توکن‌های دسترسی شخصی",
+    "virtualAccounts": "حساب‌های مجازی",
+    "roles": "نقش‌ها"
   },
-  "allUsers": "ALL USERS",
-  "searchPlaceholder": "Search...",
-  "inviteUser": "Invite User",
-  "inviteTitle": "Invite User",
-  "inviteDescription": "Invite user with email to this tenant.",
+  "allUsers": "همه کاربران",
+  "searchPlaceholder": "جستجو...",
+  "inviteUser": "دعوت کاربر",
+  "inviteTitle": "دعوت کاربر",
+  "inviteDescription": "کاربر را با ایمیل به این تننت دعوت کنید.",
   "form": {
-    "email": "Email",
+    "email": "ایمیل",
     "emailPlaceholder": "user@company.com",
-    "role": "Role"
+    "role": "نقش"
   },
   "roles": {
-    "member": "Member",
-    "tenantAdmin": "Tenant Admin"
+    "member": "عضو",
+    "tenantAdmin": "مدیر تننت"
   },
   "button": {
-    "createInvite": "Create Invite",
-    "inviting": "Inviting..."
+    "createInvite": "ایجاد دعوت‌نامه",
+    "inviting": "در حال دعوت..."
   },
   "table": {
-    "emailMobile": "EMAIL / MOBILE",
-    "displayName": "DISPLAY NAME",
-    "role": "ROLE",
-    "noUsersFound": "No users found."
+    "emailMobile": "ایمیل / موبایل",
+    "displayName": "نام نمایشی",
+    "role": "نقش",
+    "noUsersFound": "کاربری یافت نشد."
   },
   "status": {
-    "deactivated": "Deactivated"
+    "deactivated": "غیرفعال"
   },
   "actions": {
-    "changeRole": "Change Role",
-    "activate": "Activate",
-    "deactivate": "Deactivate"
+    "changeRole": "تغییر نقش",
+    "activate": "فعال‌سازی",
+    "deactivate": "غیرفعال‌سازی"
   },
   "roleForm": {
-    "title": "Change User Role",
-    "submit": "Update Role",
-    "submitting": "Updating..."
+    "title": "تغییر نقش کاربر",
+    "submit": "به‌روزرسانی نقش",
+    "submitting": "در حال به‌روزرسانی..."
   },
   "pagination": {
-    "showingResults": "Showing {from} to {to} of {total} results",
-    "rowsPerPage": "Rows per page",
-    "page": "Page",
-    "prev": "Prev",
-    "next": "Next"
+    "showingResults": "نمایش {from} تا {to} از {total} نتیجه",
+    "rowsPerPage": "تعداد ردیف در هر صفحه",
+    "page": "صفحه",
+    "prev": "قبلی",
+    "next": "بعدی"
   },
   "alerts": {
-    "invitationLink": "Invitation Link",
-    "error": "Error",
-    "success": "Success"
+    "invitationLink": "لینک دعوت‌نامه",
+    "error": "خطا",
+    "success": "موفق"
   },
   "messages": {
-    "loadUsersError": "Failed to load users.",
-    "provideEmail": "Email is required for invitation.",
-    "invitationSuccess": "Invitation created successfully.",
-    "inviteError": "Failed to invite user.",
-    "activateSuccess": "User activated.",
-    "deactivateSuccess": "User deactivated.",
-    "updateStatusError": "Failed to update user status.",
-    "roleAssignmentNeedsEmail": "This user has no email; role assignment by email is not possible.",
-    "roleAssignmentSuccess": "User role updated successfully.",
-    "roleAssignmentError": "Failed to update user role.",
-    "roleCreated": "Role created successfully.",
-    "roleCreateError": "Failed to create role.",
-    "roleUpdated": "Role updated successfully.",
-    "roleUpdateError": "Failed to update role."
+    "loadUsersError": "بارگذاری کاربران ناموفق بود.",
+    "provideEmail": "برای دعوت، ایمیل الزامی است.",
+    "invitationSuccess": "دعوت‌نامه با موفقیت ایجاد شد.",
+    "inviteError": "دعوت کاربر ناموفق بود.",
+    "activateSuccess": "کاربر فعال شد.",
+    "deactivateSuccess": "کاربر غیرفعال شد.",
+    "updateStatusError": "به‌روزرسانی وضعیت کاربر ناموفق بود.",
+    "roleAssignmentNeedsEmail": "این کاربر ایمیل ندارد؛ تخصیص نقش با ایمیل امکان‌پذیر نیست.",
+    "roleAssignmentSuccess": "نقش کاربر با موفقیت به‌روزرسانی شد.",
+    "roleAssignmentError": "به‌روزرسانی نقش کاربر ناموفق بود.",
+    "roleCreated": "نقش با موفقیت ایجاد شد.",
+    "roleCreateError": "ایجاد نقش ناموفق بود.",
+    "roleUpdated": "نقش با موفقیت به‌روزرسانی شد.",
+    "roleUpdateError": "به‌روزرسانی نقش ناموفق بود."
   },
   "rolesPage": {
-    "createTitle": "Create Custom Role",
-    "listTitle": "Roles",
-    "systemRole": "System",
-    "customRole": "Custom",
+    "createTitle": "ایجاد نقش سفارشی",
+    "listTitle": "نقش‌ها",
+    "systemRole": "سیستمی",
+    "customRole": "سفارشی",
     "form": {
-      "name": "Role name (slug)",
-      "displayName": "Display name",
-      "description": "Description",
-      "create": "Create Role",
-      "creating": "Creating..."
+      "name": "نام نقش (slug)",
+      "displayName": "نام نمایشی",
+      "description": "توضیحات",
+      "create": "ایجاد نقش",
+      "creating": "در حال ایجاد..."
     },
     "table": {
-      "name": "NAME",
-      "displayName": "DISPLAY NAME",
-      "scope": "TYPE",
-      "permissions": "PERMISSIONS",
-      "actions": "ACTIONS",
-      "empty": "No roles found."
+      "name": "نام",
+      "displayName": "نام نمایشی",
+      "scope": "نوع",
+      "permissions": "مجوزها",
+      "actions": "عملیات",
+      "empty": "نقشی یافت نشد."
     },
     "actions": {
-      "edit": "Edit",
-      "save": "Save",
-      "cancel": "Cancel",
-      "protected": "Protected"
+      "edit": "ویرایش",
+      "save": "ذخیره",
+      "cancel": "انصراف",
+      "protected": "محافظت‌شده"
     }
   }
 }

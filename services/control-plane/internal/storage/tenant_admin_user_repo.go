@@ -55,7 +55,7 @@ func (s *Store) ListTenantAdminUsers(ctx context.Context, tenantSlug string, que
 	}
 
 	rows, err := s.pool.Query(ctx, `
-		SELECT u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'tenant_member'),
+		SELECT u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'member'),
 		       COALESCE(u.active, true), u.created_at, u.updated_at,
 		       COALESCE(
 		         ARRAY_AGG(r.name ORDER BY r.name) FILTER (WHERE urb.is_active = true AND r.name IS NOT NULL),
@@ -106,6 +106,51 @@ func (s *Store) ListTenantAdminUsers(ctx context.Context, tenantSlug string, que
 	return items, total, nil
 }
 
+func (s *Store) GetTenantAdminUserRecord(ctx context.Context, tenantSlug string, userID string) (*platform.TenantAdminUser, error) {
+	tenantSlug = strings.TrimSpace(strings.ToLower(tenantSlug))
+	userID = strings.TrimSpace(userID)
+	if tenantSlug == "" || userID == "" {
+		return nil, pgx.ErrNoRows
+	}
+
+	var item platform.TenantAdminUser
+	var email, mobile, role string
+	var roles []string
+	if err := s.pool.QueryRow(ctx, `
+		SELECT u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'member'),
+		       COALESCE(u.active, true), u.created_at, u.updated_at,
+		       COALESCE(
+		         ARRAY_AGG(r.name ORDER BY r.name) FILTER (WHERE urb.is_active = true AND r.name IS NOT NULL),
+		         '{}'
+		       ) AS roles
+		FROM users u
+		JOIN tenants t ON t.tenant_id = u.tenant_id
+		LEFT JOIN user_role_bindings urb ON urb.tenant_id = u.tenant_id AND urb.user_id = u.user_id
+		LEFT JOIN roles r ON r.tenant_id = u.tenant_id AND r.role_id = urb.role_id
+		WHERE t.slug = $1
+		  AND u.user_id::text = $2
+		GROUP BY u.user_id, t.slug, u.email, u.mobile, u.role, u.active, u.created_at, u.updated_at
+		LIMIT 1
+	`, tenantSlug, userID).Scan(
+		&item.ID, &item.TenantSlug, &email, &mobile, &role, &item.Active, &item.CreatedAt, &item.UpdatedAt, &roles,
+	); err != nil {
+		return nil, err
+	}
+	if email != "" {
+		item.Email = email
+	}
+	if mobile != "" {
+		item.Mobile = mobile
+	}
+	item.Role = role
+	if len(roles) > 0 {
+		item.Roles = roles
+	} else if role != "" {
+		item.Roles = []string{role}
+	}
+	return &item, nil
+}
+
 func (s *Store) InviteTenantAdminUser(ctx context.Context, tenantID string, tenantSlug string, req platform.InviteTenantAdminUserRequest) (*platform.TenantAdminInvitation, string, error) {
 	tenantID = strings.TrimSpace(tenantID)
 	tenantSlug = strings.TrimSpace(strings.ToLower(tenantSlug))
@@ -113,7 +158,7 @@ func (s *Store) InviteTenantAdminUser(ctx context.Context, tenantID string, tena
 	mobile := strings.TrimSpace(req.Mobile)
 	role := strings.TrimSpace(strings.ToLower(req.Role))
 	if role == "" {
-		role = "tenant_member"
+		role = "member"
 	}
 	if email != "" && !IsValidEmailAddress(email) {
 		return nil, "", ErrInvalidInvitationEmail
@@ -130,7 +175,7 @@ func (s *Store) InviteTenantAdminUser(ctx context.Context, tenantID string, tena
 	var existingActive bool
 	var existingRole string
 	err = tx.QueryRow(ctx, `
-		SELECT COALESCE(u.active, true), COALESCE(u.role, 'tenant_member')
+		SELECT COALESCE(u.active, true), COALESCE(u.role, 'member')
 		FROM users u
 		WHERE u.tenant_id = $1::uuid
 		  AND (
@@ -247,7 +292,7 @@ func (s *Store) AcceptTenantAdminInvitation(ctx context.Context, tenantID string
 	var updatedAt time.Time
 	if err := tx.QueryRow(ctx, `
 		SELECT "invitation_id"::text, "tenant_id"::text, "tenantSlug",
-		       COALESCE("email", ''), COALESCE("mobile", ''), COALESCE("role", 'tenant_member'),
+		       COALESCE("email", ''), COALESCE("mobile", ''), COALESCE("role", 'member'),
 		       "status", "expires_at", "accepted_at", "created_at", "updated_at"
 		FROM "tenant_admin_invitations"
 		WHERE "token_hash" = $1
@@ -323,7 +368,7 @@ func (s *Store) SetTenantAdminUserActive(ctx context.Context, tenantSlug string,
 		WHERE t.slug = $1
 		  AND u.user_id::text = $2
 		  AND u.tenant_id = t.tenant_id
-		RETURNING u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'tenant_member'),
+		RETURNING u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'member'),
 		          COALESCE(u.active, true), u.created_at, u.updated_at
 	`, tenantSlug, userID, active)
 	if err != nil {
@@ -362,7 +407,7 @@ func upsertTenantAdminUserFromInvitation(ctx context.Context, tx pgx.Tx, tenantI
 	var currentRole string
 	var currentActive bool
 	err := tx.QueryRow(ctx, `
-		SELECT u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'tenant_member'),
+		SELECT u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'member'),
 		       COALESCE(u.active, true), u.created_at, u.updated_at
 		FROM users u
 		JOIN tenants t ON t.tenant_id = u.tenant_id

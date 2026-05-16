@@ -112,7 +112,7 @@ func (s *Store) ResolveTenantUserAuth(ctx context.Context, tenantID string, user
 	var role string
 	var active bool
 	if err := s.pool.QueryRow(ctx, `
-		SELECT COALESCE(role, 'tenant_user'), COALESCE(active, true)
+		SELECT COALESCE(role, 'member'), COALESCE(active, true)
 		FROM users
 		WHERE tenant_id = $1::uuid AND user_id = $2::uuid
 		LIMIT 1
@@ -123,7 +123,7 @@ func (s *Store) ResolveTenantUserAuth(ctx context.Context, tenantID string, user
 		return nil, pgx.ErrNoRows
 	}
 
-	resolvedRoles, _, err := s.GetEffectivePermissionsForUser(ctx, tenantID, userID, role)
+	resolvedRoles, resolvedPermissions, err := s.GetEffectivePermissionsForUser(ctx, tenantID, userID, role)
 	if err != nil {
 		return nil, err
 	}
@@ -133,9 +133,10 @@ func (s *Store) ResolveTenantUserAuth(ctx context.Context, tenantID string, user
 	}
 
 	return &platform.AuthContext{
-		TenantID: tenantID,
-		UserID:   userID,
-		Role:     strings.TrimSpace(strings.ToLower(effectiveRole)),
+		TenantID:    tenantID,
+		UserID:      userID,
+		Role:        strings.TrimSpace(strings.ToLower(effectiveRole)),
+		Permissions: resolvedPermissions,
 	}, nil
 }
 

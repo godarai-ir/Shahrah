@@ -196,16 +196,11 @@ var systemRolePermissions = map[string][]string{
 		"provider_account:read", "provider_account:use_integrations",
 		"settings:list",
 	},
-	"team_member": {
-		"team:read",
-		"virtual_account:read",
-		"provider_account:use_integrations",
+	"member": {
+		"user:list",
 		"settings:list",
 	},
-	"tenant_user": {
-		"team:read",
-		"virtual_account:read",
-		"provider_account:use_integrations",
+	"readonly_member": {
 		"settings:list",
 	},
 }
@@ -643,15 +638,17 @@ func (s *Store) GetEffectivePermissionsForUser(ctx context.Context, tenantID str
 	}
 
 	if len(roleNames) == 0 {
-		fallback := strings.TrimSpace(strings.ToLower(fallbackRole))
+		fallback := canonicalizeUserRoleName(fallbackRole)
 		if fallback == "" {
-			fallback = "tenant_user"
+			fallback = "member"
 		}
 		roleNames = []string{fallback}
 	}
+	roleNames = dedupeNonEmptyCanonicalRoles(roleNames)
 
 	permissionSet := make(map[string]struct{})
 	for _, roleName := range roleNames {
+		roleName = canonicalizeUserRoleName(roleName)
 		perms, ok := systemRolePermissions[roleName]
 		if !ok {
 			rolePermRows, rolePermErr := s.pool.Query(ctx, `
@@ -804,19 +801,20 @@ func normalizeResourceType(resourceType string) string {
 
 func derivePrimaryRole(roles []string) string {
 	if len(roles) == 0 {
-		return "tenant_user"
+		return "member"
 	}
 	priority := map[string]int{
-		"proxy_admin":  100,
-		"tenant_admin": 90,
-		"org_admin":    80,
-		"team_admin":   70,
-		"team_member":  60,
-		"tenant_user":  50,
+		"proxy_admin":     100,
+		"tenant_admin":    90,
+		"org_admin":       80,
+		"team_admin":      70,
+		"member":          60,
+		"readonly_member": 50,
 	}
 	best := roles[0]
 	bestRank := -1
 	for _, role := range roles {
+		role = canonicalizeUserRoleName(role)
 		rank, ok := priority[role]
 		if !ok {
 			rank = 10
@@ -827,6 +825,32 @@ func derivePrimaryRole(roles []string) string {
 		}
 	}
 	return best
+}
+
+func canonicalizeUserRoleName(role string) string {
+	switch strings.TrimSpace(strings.ToLower(role)) {
+	case "user":
+		return "member"
+	default:
+		return strings.TrimSpace(strings.ToLower(role))
+	}
+}
+
+func dedupeNonEmptyCanonicalRoles(items []string) []string {
+	seen := make(map[string]struct{}, len(items))
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		item = canonicalizeUserRoleName(item)
+		if item == "" {
+			continue
+		}
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = struct{}{}
+		out = append(out, item)
+	}
+	return out
 }
 
 func listPermissionCatalog() []PermissionCatalogItem {

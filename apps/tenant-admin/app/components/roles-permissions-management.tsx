@@ -2,8 +2,8 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
-import { BadgeCheck, BriefcaseBusiness, KeyRound, Plus, ShieldCheck, UserCircle2, Users } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { BadgeCheck, BriefcaseBusiness, KeyRound, Plus, UserCircle2, Users } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,7 @@ type Banner = {
 type RolesPermissionsManagementProps = {
   initialRoles: RoleDefinition[];
   initialError: string | null;
+  initialPermissionCatalog: PermissionItem[];
 };
 
 type PermissionItem = {
@@ -43,40 +44,12 @@ type PermissionItem = {
   description: string;
 };
 
-const permissionCatalog: PermissionItem[] = [
-  { key: "policy:list", group: "policies", description: "Allows listing and viewing policies" },
-  { key: "policy:manage", group: "policies", description: "Allows creating, updating, and deleting policies" },
-  { key: "role:list", group: "roles", description: "Allows listing and viewing roles" },
-  { key: "role:manage", group: "roles", description: "Allows creating, updating, and deleting roles" },
-  { key: "user:list", group: "users", description: "Allows listing and viewing users" },
-  { key: "user:manage", group: "users", description: "Allows creating, updating, and deleting users" },
-  { key: "team:create", group: "teams", description: "Allows creation of new teams" },
-  { key: "team:delete", group: "teams", description: "Allows deleting existing teams" },
-  { key: "team:manage", group: "teams", description: "Allows updating team configuration and members" },
-  { key: "team:read", group: "teams", description: "Allows viewing team details and members" },
-  { key: "org_unit:create", group: "organization_units", description: "Allows creation of new organization units" },
-  { key: "org_unit:delete", group: "organization_units", description: "Allows deleting existing organization units" },
-  { key: "org_unit:manage", group: "organization_units", description: "Allows updating organization unit configuration and members" },
-  { key: "org_unit:read", group: "organization_units", description: "Allows viewing organization unit details and members" },
-  { key: "org_unit:list", group: "organization_units", description: "Allows listing and viewing all organization units" },
-  { key: "virtual_account:create", group: "virtual_accounts", description: "Allows creation of new virtual accounts" },
-  { key: "virtual_account:read", group: "virtual_accounts", description: "Allows viewing virtual account details" },
-  { key: "virtual_account:manage", group: "virtual_accounts", description: "Allows updating virtual account configuration and tokens" },
-  { key: "virtual_account:delete", group: "virtual_accounts", description: "Allows deleting existing virtual accounts" },
-  { key: "provider_account:create", group: "provider_accounts", description: "Allows creation of new provider accounts" },
-  { key: "provider_account:delete", group: "provider_accounts", description: "Allows deleting existing provider accounts" },
-  { key: "provider_account:manage", group: "provider_accounts", description: "Allows updating provider account configuration" },
-  { key: "provider_account:read", group: "provider_accounts", description: "Allows viewing provider account details" },
-  { key: "provider_account:use_integrations", group: "provider_accounts", description: "Allows using integrations associated with provider accounts" },
-  { key: "settings:list", group: "settings", description: "Allows listing and viewing platform settings" },
-  { key: "settings:manage", group: "settings", description: "Allows updating platform settings" },
-];
-
 const protectedSystemRoles = new Set(["proxy_admin", "tenant_admin"]);
 const hiddenRolesInUI = new Set(["proxy_admin"]);
 
 export default function RolesPermissionsManagement(props: RolesPermissionsManagementProps) {
   const t = useTranslations("accessManagement");
+  const locale = useLocale();
 
   const [roles, setRoles] = useState<RoleDefinition[]>(
     props.initialRoles.filter((role) => !hiddenRolesInUI.has(role.name)),
@@ -105,24 +78,41 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
   });
 
   const groupedPermissions = useMemo(() => {
+    const index = new Map<string, PermissionItem>();
+    for (const permission of props.initialPermissionCatalog) {
+      if (!permission.key?.trim()) continue;
+      index.set(permission.key, permission);
+    }
+    for (const role of roles) {
+      for (const permissionKey of role.permissions ?? []) {
+        if (index.has(permissionKey)) continue;
+        const [rawGroup] = permissionKey.split(":");
+        index.set(permissionKey, {
+          key: permissionKey,
+          group: rawGroup ? `${rawGroup}s` : "other",
+          description: "",
+        });
+      }
+    }
+
     const out = new Map<string, PermissionItem[]>();
-    for (const permission of permissionCatalog) {
+    for (const permission of index.values()) {
       const list = out.get(permission.group) ?? [];
       list.push(permission);
       out.set(permission.group, list);
     }
-    return Array.from(out.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, []);
+    return Array.from(out.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([group, items]) => [group, items.sort((a, b) => a.key.localeCompare(b.key))] as [string, PermissionItem[]]);
+  }, [props.initialPermissionCatalog, roles]);
 
   const accessTabs = useMemo(
     () => [
       { href: "/users", label: t("tabs.users"), icon: UserCircle2, active: false },
       { href: "/teams", label: t("tabs.teams"), icon: Users, active: false },
-      { href: "#", label: t("tabs.externalAuth"), icon: ShieldCheck, active: false },
       { href: "/personal-access-tokens", label: t("tabs.personalAccessTokens"), icon: KeyRound, active: false },
       { href: "#", label: t("tabs.virtualAccounts"), icon: BriefcaseBusiness, active: false },
       { href: "/roles", label: t("tabs.roles"), icon: BadgeCheck, active: true },
-      { href: "#", label: t("tabs.auditLogs"), icon: ShieldCheck, active: false },
     ],
     [t],
   );
@@ -249,6 +239,7 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
           <PermissionPicker
             groupedPermissions={groupedPermissions}
             selected={createForm.permissions}
+            locale={locale}
             onToggle={(permission) =>
               setCreateForm((prev) => ({
                 ...prev,
@@ -322,6 +313,7 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
                           <PermissionPicker
                             groupedPermissions={groupedPermissions}
                             selected={editForm.permissions}
+                            locale={locale}
                             onToggle={(permission) =>
                               setEditForm((prev) => ({
                                 ...prev,
@@ -354,17 +346,19 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
 function PermissionPicker({
   groupedPermissions,
   selected,
+  locale,
   onToggle,
 }: {
   groupedPermissions: [string, PermissionItem[]][];
   selected: string[];
+  locale: string;
   onToggle: (permission: string) => void;
 }) {
   return (
     <div className="grid gap-3 rounded-md border p-3 md:grid-cols-2">
       {groupedPermissions.map(([group, items]) => (
         <div key={group} className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.replaceAll("_", " ")}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{translateGroupLabel(group, locale)}</p>
           {items.map((item) => (
             <label key={item.key} className="flex items-start gap-2 text-sm">
               <input
@@ -375,7 +369,7 @@ function PermissionPicker({
               />
               <span>
                 <span className="block font-medium">{item.key}</span>
-                <span className="block text-xs text-muted-foreground">{item.description}</span>
+                <span className="block text-xs text-muted-foreground">{translatePermissionDescription(item, locale)}</span>
               </span>
             </label>
           ))}
@@ -422,4 +416,59 @@ function extractMessage(payload: unknown): string | null {
 function normalizeError(error: unknown, fallback: string) {
   if (error instanceof Error) return error.message;
   return fallback;
+}
+
+function translateGroupLabel(group: string, locale: string): string {
+  if (!locale.startsWith("fa")) {
+    return group.replaceAll("_", " ");
+  }
+  const map: Record<string, string> = {
+    policies: "سیاست‌ها",
+    roles: "نقش‌ها",
+    users: "کاربران",
+    teams: "تیم‌ها",
+    organization_units: "واحدهای سازمانی",
+    virtual_accounts: "حساب‌های مجازی",
+    provider_accounts: "حساب‌های ارائه‌دهنده",
+    settings: "تنظیمات",
+    other: "سایر",
+  };
+  return map[group] ?? group.replaceAll("_", " ");
+}
+
+function translatePermissionDescription(item: PermissionItem, locale: string): string {
+  if (!locale.startsWith("fa")) {
+    return item.description || item.key;
+  }
+
+  const generated = generatePersianPermissionDescription(item.key);
+  if (generated) return generated;
+  return item.description || item.key;
+}
+
+function generatePersianPermissionDescription(permissionKey: string): string {
+  const [resourceRaw, actionRaw] = permissionKey.split(":");
+  const resourceMap: Record<string, string> = {
+    policy: "سیاست",
+    role: "نقش",
+    user: "کاربر",
+    team: "تیم",
+    org_unit: "واحد سازمانی",
+    virtual_account: "حساب مجازی",
+    provider_account: "حساب ارائه‌دهنده",
+    settings: "تنظیمات",
+  };
+  const actionMap: Record<string, string> = {
+    list: "مشاهده فهرست",
+    read: "مشاهده جزئیات",
+    create: "ایجاد",
+    manage: "مدیریت",
+    delete: "حذف",
+    use_integrations: "استفاده از یکپارچه‌سازی‌ها",
+  };
+
+  const resource = resourceMap[resourceRaw ?? ""];
+  const action = actionMap[actionRaw ?? ""];
+  if (!resource || !action) return "";
+  return `اجازه ${action} ${resource}`;
 }

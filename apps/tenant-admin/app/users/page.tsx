@@ -28,7 +28,7 @@ export const dynamic = "force-dynamic";
 export default async function UsersPage() {
   const auth = await requireAuth("/login?next=/users");
   const tenantSlug = auth.tenantSlug;
-  await requirePermissionOr403(tenantSlug, auth.user.id, ["user:list"]);
+  await requirePermissionOr403(tenantSlug, auth.user.id, ["user:manage"]);
 
   const usersResult = await fetchControlPlaneJSON({
     tenantSlug,
@@ -54,6 +54,7 @@ export default async function UsersPage() {
         initialUsers={initialUsers}
         initialTotal={initialTotal}
         initialError={initialError}
+        currentUserID={auth.user.id}
       />
     </AdminShell>
   );

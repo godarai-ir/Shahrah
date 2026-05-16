@@ -95,6 +95,7 @@ type UsersAccessManagementProps = {
   initialUsers: TenantAdminUser[];
   initialTotal: number;
   initialError: string | null;
+  currentUserID: string;
 };
 
 const PAGE_SIZE = 25;
@@ -115,7 +116,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   const [selectedUserForRole, setSelectedUserForRole] = useState<TenantAdminUser | null>(null);
   const [selectedRoleName, setSelectedRoleName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("tenant_member");
+  const [inviteRole, setInviteRole] = useState("member");
   const [banner, setBanner] = useState<Banner | null>(
     props.initialError
       ? {
@@ -148,11 +149,9 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
     () => [
       { href: "/users", label: t("tabs.users"), icon: UserCircle2, active: true },
       { href: "/teams", label: t("tabs.teams"), icon: Users, active: false },
-      { href: "#", label: t("tabs.externalAuth"), icon: ShieldCheck, active: false },
       { href: "/personal-access-tokens", label: t("tabs.personalAccessTokens"), icon: KeyRound, active: false },
       { href: "#", label: t("tabs.virtualAccounts"), icon: BriefcaseBusiness, active: false },
       { href: "/roles", label: t("tabs.roles"), icon: BadgeCheck, active: false },
-      { href: "#", label: t("tabs.auditLogs"), icon: ShieldCheck, active: false },
     ],
     [t],
   );
@@ -218,7 +217,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         message: t("messages.invitationSuccess"),
       });
       setInviteEmail("");
-      setInviteRole("tenant_member");
+      setInviteRole("member");
       await loadUsers(0, query.trim());
     } catch (error) {
       setBanner({
@@ -303,7 +302,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       return match.display_name;
     }
     if (normalized === "tenant_admin") return t("roles.tenantAdmin");
-    if (normalized === "tenant_member" || normalized === "team_member" || normalized === "tenant_user") {
+    if (normalized === "member") {
       return t("roles.member");
     }
     return roleName;
@@ -407,7 +406,8 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
                       onChange={(event) => setInviteRole(event.target.value)}
                       className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                     >
-                      <option value="tenant_member">{t("roles.member")}</option>
+                      <option value="member">{t("roles.member")}</option>
+                      <option value="readonly_member">Read-only Member</option>
                       <option value="tenant_admin">{t("roles.tenantAdmin")}</option>
                     </select>
                   </div>
@@ -444,6 +444,9 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
                 const active = user.active && user.role !== "deactivated";
                 const effectiveRole = user.roles?.[0] ?? user.role;
                 const effectiveRoleLabel = resolveRoleDisplayName(effectiveRole);
+                const isSelf = user.id === props.currentUserID;
+                const isTenantAdminRole = hasTenantAdminRole(user);
+                const canDeactivate = !isSelf && !isTenantAdminRole;
 
                 return (
                   <TableRow key={user.id}>
@@ -480,7 +483,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
                             {t("actions.changeRole")}
                           </DropdownMenuItem>
                           {active ? (
-                            <DropdownMenuItem onClick={() => void changeUserStatus(user.id, false)}>
+                            <DropdownMenuItem disabled={!canDeactivate} onClick={() => void changeUserStatus(user.id, false)}>
                               {t("actions.deactivate")}
                             </DropdownMenuItem>
                           ) : (
@@ -619,3 +622,11 @@ function normalizeError(error: unknown, fallback: string) {
   if (error instanceof Error) return error.message;
   return fallback;
 }
+
+function hasTenantAdminRole(user: TenantAdminUser): boolean {
+  if (user.role?.trim().toLowerCase() === "tenant_admin") {
+    return true;
+  }
+  return (user.roles ?? []).some((role) => role.trim().toLowerCase() === "tenant_admin");
+}
+

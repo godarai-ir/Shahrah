@@ -24,10 +24,10 @@ func TestCheckRouteAuthorization_TenantAdminAllowedOnManagement(t *testing.T) {
 
 func TestCheckRouteAuthorization_TenantUserDeniedOnManagement(t *testing.T) {
 	err := auth.CheckRouteAuthorization("GET", "/api/v1/users", &platform.AuthContext{
-		Role: "tenant_user",
+		Role: "member",
 	})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "tenant admin")
+	assert.Contains(t, err.Error(), "user manage permission required")
 }
 
 func TestCheckRouteAuthorization_TeamAdminAllowedOnKeyManagement(t *testing.T) {
@@ -55,7 +55,7 @@ func TestCheckRouteAuthorization_TeamMemberAllowedWithPermission(t *testing.T) {
 
 func TestCheckRouteAuthorization_LLMRouteAllowedForAuthenticatedKey(t *testing.T) {
 	err := auth.CheckRouteAuthorization("POST", "/v1/chat/completions", &platform.AuthContext{
-		Role: "tenant_user",
+		Role: "member",
 	})
 	assert.NoError(t, err)
 }
@@ -98,5 +98,5 @@ func TestCheckRouteAuthorization_TeamAdminDeniedOnRoleRoutes(t *testing.T) {
 		Role: "team_admin",
 	})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "tenant admin")
+	assert.Contains(t, err.Error(), "user manage permission required")
 }

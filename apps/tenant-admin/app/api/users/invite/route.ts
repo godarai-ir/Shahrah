@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     const email = typeof body.email === "string" ? body.email.trim() : "";
-    const role = typeof body.role === "string" ? body.role.trim() : "tenant_member";
+    const role = typeof body.role === "string" ? body.role.trim() : "member";
     const acceptInviteClientURL =
       typeof body.accept_invite_client_url === "string"
         ? body.accept_invite_client_url.trim()
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       path: "/api/v1/users/invite",
       body: {
         email,
-        role: role || "tenant_member",
+        role: role || "member",
         accept_invite_client_url: acceptInviteClientURL || undefined,
       },
     });
@@ -121,4 +121,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
 

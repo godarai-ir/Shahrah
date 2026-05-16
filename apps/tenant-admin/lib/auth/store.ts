@@ -451,7 +451,7 @@ async function getDefaultRoleForNewTenantUser(tenantSlug: string) {
     WHERE COALESCE(u.role, '') <> 'deactivated'
   `);
   const count = Number(rows[0]?.count ?? 0);
-  return count === 0 ? "tenant_admin" : "tenant_member";
+  return count === 0 ? "tenant_admin" : "member";
 }
 
 async function ensureTenantHasAdmin(input: {
@@ -757,8 +757,8 @@ function toPublicTenantUser(user: {
 
 function normalizeTenantRole(role: string | null | undefined) {
   const normalized = (role ?? "").trim().toLowerCase();
-  if (!normalized || normalized === "tenant_user") {
-    return "tenant_member";
+  if (!normalized || normalized === "user") {
+    return "member";
   }
   return normalized;
 }

@@ -295,7 +295,7 @@ func TestIntegration_TenantAdminInvitations_ValidationAndDedupe(t *testing.T) {
 	// 1) New email can be invited.
 	firstInvite, firstLink, err := store.InviteTenantAdminUser(ctx, defaultTenant.ID, defaultTenant.Slug, platform.InviteTenantAdminUserRequest{
 		Email: "new-user@tenant.test",
-		Role:  "tenant_member",
+		Role:  "member",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, firstInvite)
@@ -304,7 +304,7 @@ func TestIntegration_TenantAdminInvitations_ValidationAndDedupe(t *testing.T) {
 	// 2) Pending invitation is not duplicated.
 	secondInvite, secondLink, err := store.InviteTenantAdminUser(ctx, defaultTenant.ID, defaultTenant.Slug, platform.InviteTenantAdminUserRequest{
 		Email: "new-user@tenant.test",
-		Role:  "tenant_member",
+		Role:  "member",
 	})
 	assert.Nil(t, secondInvite)
 	assert.Empty(t, secondLink)
@@ -313,7 +313,7 @@ func TestIntegration_TenantAdminInvitations_ValidationAndDedupe(t *testing.T) {
 	// 3) Same email in another tenant does not block invitation in current tenant.
 	otherInvite, otherLink, err := store.InviteTenantAdminUser(ctx, otherTenant.ID, otherTenant.Slug, platform.InviteTenantAdminUserRequest{
 		Email: "new-user@tenant.test",
-		Role:  "tenant_member",
+		Role:  "member",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, otherInvite)
@@ -322,13 +322,13 @@ func TestIntegration_TenantAdminInvitations_ValidationAndDedupe(t *testing.T) {
 	// 4) Existing active member in same tenant cannot be invited (case-insensitive check).
 	_, err = pool.Exec(ctx, `
 		INSERT INTO users (user_id, tenant_id, user_alias, email, role, active, created_at, updated_at)
-		VALUES (gen_random_uuid(), $1::uuid, 'existing-member', 'User1@Tenant2.com', 'tenant_member', true, NOW(), NOW())
+		VALUES (gen_random_uuid(), $1::uuid, 'existing-member', 'User1@Tenant2.com', 'member', true, NOW(), NOW())
 	`, defaultTenant.ID)
 	require.NoError(t, err)
 
 	activeMemberInvite, _, err := store.InviteTenantAdminUser(ctx, defaultTenant.ID, defaultTenant.Slug, platform.InviteTenantAdminUserRequest{
 		Email: "user1@tenant2.com",
-		Role:  "tenant_member",
+		Role:  "member",
 	})
 	assert.Nil(t, activeMemberInvite)
 	assert.ErrorIs(t, err, storage.ErrTenantMemberAlreadyExists)
@@ -336,13 +336,13 @@ func TestIntegration_TenantAdminInvitations_ValidationAndDedupe(t *testing.T) {
 	// 5) Same email in another tenant still allowed.
 	_, err = pool.Exec(ctx, `
 		INSERT INTO users (user_id, tenant_id, user_alias, email, role, active, created_at, updated_at)
-		VALUES (gen_random_uuid(), $1::uuid, 'other-tenant-member', 'cross-tenant@example.com', 'tenant_member', true, NOW(), NOW())
+		VALUES (gen_random_uuid(), $1::uuid, 'other-tenant-member', 'cross-tenant@example.com', 'member', true, NOW(), NOW())
 	`, otherTenant.ID)
 	require.NoError(t, err)
 
 	crossTenantInvite, crossTenantLink, err := store.InviteTenantAdminUser(ctx, defaultTenant.ID, defaultTenant.Slug, platform.InviteTenantAdminUserRequest{
 		Email: "cross-tenant@example.com",
-		Role:  "tenant_member",
+		Role:  "member",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, crossTenantInvite)
@@ -357,7 +357,7 @@ func TestIntegration_TenantAdminInvitations_ValidationAndDedupe(t *testing.T) {
 
 	deactivatedInvite, _, err := store.InviteTenantAdminUser(ctx, defaultTenant.ID, defaultTenant.Slug, platform.InviteTenantAdminUserRequest{
 		Email: "deactivated@tenant.test",
-		Role:  "tenant_member",
+		Role:  "member",
 	})
 	assert.Nil(t, deactivatedInvite)
 	assert.ErrorIs(t, err, storage.ErrTenantMemberDeactivated)
@@ -366,7 +366,7 @@ func TestIntegration_TenantAdminInvitations_ValidationAndDedupe(t *testing.T) {
 	expiringEmail := "expired@tenant.test"
 	originalExpired, originalLink, err := store.InviteTenantAdminUser(ctx, defaultTenant.ID, defaultTenant.Slug, platform.InviteTenantAdminUserRequest{
 		Email: expiringEmail,
-		Role:  "tenant_member",
+		Role:  "member",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, originalExpired)
@@ -381,7 +381,7 @@ func TestIntegration_TenantAdminInvitations_ValidationAndDedupe(t *testing.T) {
 
 	reissued, reissuedLink, err := store.InviteTenantAdminUser(ctx, defaultTenant.ID, defaultTenant.Slug, platform.InviteTenantAdminUserRequest{
 		Email: expiringEmail,
-		Role:  "tenant_member",
+		Role:  "member",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, reissued)
@@ -415,7 +415,7 @@ func TestIntegration_InviteTenantUser_InvalidEmailRejectedWithoutSideEffects(t *
 		var before int
 		require.NoError(t, pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM tenant_admin_invitations`).Scan(&before))
 
-		body := fmt.Sprintf(`{"email":%q,"role":"tenant_member"}`, email)
+		body := fmt.Sprintf(`{"email":%q,"role":"member"}`, email)
 		resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/users/invite", "Bearer sk-master", body)
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "email=%q", email)
 
@@ -445,7 +445,7 @@ func TestIntegration_RoleCatalogAndUserRoleAssignment(t *testing.T) {
 	userEmail := "roles-user@tenant.test"
 	_, err := pool.Exec(ctx, `
 		INSERT INTO users (user_id, tenant_id, user_alias, email, role, active, created_at, updated_at)
-		SELECT $1::uuid, tenant_id, 'roles-user', $2, 'tenant_user', true, NOW(), NOW()
+		SELECT $1::uuid, tenant_id, 'roles-user', $2, 'member', true, NOW(), NOW()
 		FROM tenants WHERE slug = 'default'
 	`, userID, userEmail)
 	require.NoError(t, err)
@@ -525,7 +525,7 @@ func TestIntegration_UpdateUserRoles_ValidationAndAuth(t *testing.T) {
 	// unauthorized (invalid key)
 	unauthorized := performJSONRequest(t, app, http.MethodPatch, "http://localhost/api/v1/users/roles", "Bearer sk-invalid", `{
 		"email":"user@tenant.test",
-		"roles":["tenant_user"]
+		"roles":["member"]
 	}`)
 	assert.Equal(t, http.StatusUnauthorized, unauthorized.StatusCode)
 
@@ -539,7 +539,7 @@ func TestIntegration_UpdateUserRoles_ValidationAndAuth(t *testing.T) {
 	// unknown user
 	notFound := performJSONRequest(t, app, http.MethodPatch, "http://localhost/api/v1/users/roles", "Bearer sk-master", `{
 		"email":"missing@tenant.test",
-		"roles":["tenant_user"]
+		"roles":["member"]
 	}`)
 	assert.Equal(t, http.StatusNotFound, notFound.StatusCode)
 }
@@ -777,7 +777,7 @@ func TestIntegration_EffectiveModelsAccessMatrix_PAT_VAT_UserTeam(t *testing.T) 
 	for _, uid := range []string{userManagerID, userAID, userBID} {
 		_, err = pool.Exec(ctx, `
 			INSERT INTO users (user_id, tenant_id, user_alias, role, active, created_at, updated_at)
-			SELECT $1::uuid, tenant_id, 'member', 'tenant_member', true, NOW(), NOW()
+			SELECT $1::uuid, tenant_id, 'member', 'member', true, NOW(), NOW()
 			FROM tenants WHERE slug = 'default'
 		`, uid)
 		require.NoError(t, err)
@@ -937,7 +937,7 @@ func TestIntegration_EffectiveModels_PATKeyAllowlistIsApplied(t *testing.T) {
 
 	_, err := pool.Exec(ctx, `
 		INSERT INTO users (user_id, tenant_id, user_alias, role, active, created_at, updated_at)
-		SELECT $1::uuid, tenant_id, 'member', 'tenant_member', true, NOW(), NOW()
+		SELECT $1::uuid, tenant_id, 'member', 'member', true, NOW(), NOW()
 		FROM tenants WHERE slug = 'default'
 	`, userID)
 	require.NoError(t, err)
@@ -1020,7 +1020,7 @@ func TestIntegration_EffectiveModels_PATKeyAllowlistAcceptsFQN(t *testing.T) {
 
 	_, err := pool.Exec(ctx, `
 		INSERT INTO users (user_id, tenant_id, user_alias, role, active, created_at, updated_at)
-		SELECT $1::uuid, tenant_id, 'member', 'tenant_member', true, NOW(), NOW()
+		SELECT $1::uuid, tenant_id, 'member', 'member', true, NOW(), NOW()
 		FROM tenants WHERE slug = 'default'
 	`, userID)
 	require.NoError(t, err)
@@ -1176,7 +1176,7 @@ func TestIntegration_DeleteTenantProviderAccount_ForbiddenForNonManager(t *testi
 	for _, uid := range []string{managerUserID, nonManagerUserID} {
 		_, err = pool.Exec(ctx, `
 			INSERT INTO users (user_id, tenant_id, user_alias, role, active, created_at, updated_at)
-			SELECT $1::uuid, tenant_id, 'member', 'tenant_member', true, NOW(), NOW()
+			SELECT $1::uuid, tenant_id, 'member', 'member', true, NOW(), NOW()
 			FROM tenants WHERE slug = 'default'
 		`, uid)
 		require.NoError(t, err)

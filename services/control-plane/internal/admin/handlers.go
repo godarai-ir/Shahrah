@@ -118,6 +118,7 @@ type teamStore interface {
 
 type userStore interface {
 	ListTenantAdminUsers(ctx context.Context, tenantSlug string, query string, limit int, offset int) ([]platform.TenantAdminUser, int, error)
+	GetTenantAdminUserRecord(ctx context.Context, tenantSlug string, userID string) (*platform.TenantAdminUser, error)
 	InviteTenantAdminUser(ctx context.Context, tenantID string, tenantSlug string, req platform.InviteTenantAdminUserRequest) (*platform.TenantAdminInvitation, string, error)
 	AcceptTenantAdminInvitation(ctx context.Context, tenantID string, tenantSlug string, token string) (*platform.TenantAdminInvitation, *platform.TenantAdminUser, error)
 	SetTenantAdminUserActive(ctx context.Context, tenantSlug string, userID string, active bool) (*platform.TenantAdminUser, error)
@@ -686,7 +687,15 @@ func (h *Handlers) CreateModel(c *fiber.Ctx) error {
 
 // ListModels lists tenant-visible model aliases.
 func (h *Handlers) ListModels(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePermissionAnyOrTenantAdmin(c, "model list permission required", []string{
+		"policy:list",
+		"policy:manage",
+		"provider_account:read",
+		"provider_account:manage",
+		"provider_account:use_integrations",
+		"virtual_account:read",
+		"virtual_account:manage",
+	}); err != nil {
 		return err
 	}
 
@@ -732,7 +741,9 @@ func (h *Handlers) ListModels(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) CreateVirtualModel(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requirePermissionAnyOrTenantAdmin(c, "virtual account manage permission required", []string{
+		"virtual_account:manage",
+	}); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -755,7 +766,12 @@ func (h *Handlers) CreateVirtualModel(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) ListVirtualModels(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requirePermissionAnyOrTenantAdmin(c, "virtual account read permission required", []string{
+		"virtual_account:read",
+		"virtual_account:manage",
+		"policy:list",
+		"policy:manage",
+	}); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -770,7 +786,12 @@ func (h *Handlers) ListVirtualModels(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) GetVirtualModel(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requirePermissionAnyOrTenantAdmin(c, "virtual account read permission required", []string{
+		"virtual_account:read",
+		"virtual_account:manage",
+		"policy:list",
+		"policy:manage",
+	}); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -792,7 +813,9 @@ func (h *Handlers) GetVirtualModel(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) UpdateVirtualModel(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requirePermissionAnyOrTenantAdmin(c, "virtual account manage permission required", []string{
+		"virtual_account:manage",
+	}); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -822,7 +845,10 @@ func (h *Handlers) UpdateVirtualModel(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) DeleteVirtualModel(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePermissionAnyOrTenantAdmin(c, "virtual account delete permission required", []string{
+		"virtual_account:delete",
+		"virtual_account:manage",
+	}); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -896,7 +922,7 @@ func validateVirtualModelTargets(targets []platform.VirtualModelTarget) error {
 }
 
 func (h *Handlers) ListRateLimitRules(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePolicyListOrManage(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -939,7 +965,7 @@ func (h *Handlers) ListRateLimitRules(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) CreateRateLimitRule(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePolicyManage(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -964,7 +990,7 @@ func (h *Handlers) CreateRateLimitRule(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) GetRateLimitRule(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePolicyListOrManage(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -986,7 +1012,7 @@ func (h *Handlers) GetRateLimitRule(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) UpdateRateLimitRule(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePolicyManage(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -1015,7 +1041,7 @@ func (h *Handlers) UpdateRateLimitRule(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) DeleteRateLimitRule(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePolicyManage(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -1036,7 +1062,7 @@ func (h *Handlers) DeleteRateLimitRule(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) UpdateRateLimitRuleStatus(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePolicyManage(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -1137,7 +1163,7 @@ func parseUpdateRateLimitRuleRequest(c *fiber.Ctx) (platform.UpdateRateLimitRule
 }
 
 func (h *Handlers) ListBudgetLimitRules(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePolicyListOrManage(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -1180,7 +1206,7 @@ func (h *Handlers) ListBudgetLimitRules(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) CreateBudgetLimitRule(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePolicyManage(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -1205,7 +1231,7 @@ func (h *Handlers) CreateBudgetLimitRule(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) GetBudgetLimitRule(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePolicyListOrManage(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -1227,7 +1253,7 @@ func (h *Handlers) GetBudgetLimitRule(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) UpdateBudgetLimitRule(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePolicyManage(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -1256,7 +1282,7 @@ func (h *Handlers) UpdateBudgetLimitRule(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) DeleteBudgetLimitRule(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePolicyManage(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -1277,7 +1303,7 @@ func (h *Handlers) DeleteBudgetLimitRule(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) UpdateBudgetLimitRuleStatus(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePolicyManage(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -1426,7 +1452,11 @@ func (h *Handlers) TopUpWallet(c *fiber.Ctx) error {
 
 // ListProviderCatalog returns providers available for tenant model onboarding.
 func (h *Handlers) ListProviderCatalog(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePermissionAnyOrTenantAdmin(c, "provider account read permission required", []string{
+		"provider_account:read",
+		"provider_account:manage",
+		"provider_account:use_integrations",
+	}); err != nil {
 		return err
 	}
 
@@ -1439,7 +1469,10 @@ func (h *Handlers) ListProviderCatalog(c *fiber.Ctx) error {
 
 // RefreshProviderCatalogCache invalidates in-memory discovery cache.
 func (h *Handlers) RefreshProviderCatalogCache(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePermissionAnyOrTenantAdmin(c, "provider account manage permission required", []string{
+		"provider_account:manage",
+		"settings:manage",
+	}); err != nil {
 		return err
 	}
 	invalidateDiscoveryCache()
@@ -1451,7 +1484,11 @@ func (h *Handlers) RefreshProviderCatalogCache(c *fiber.Ctx) error {
 
 // GetProviderCatalogStats returns discovery/cache telemetry counters.
 func (h *Handlers) GetProviderCatalogStats(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePermissionAnyOrTenantAdmin(c, "provider account read permission required", []string{
+		"provider_account:read",
+		"provider_account:manage",
+		"provider_account:use_integrations",
+	}); err != nil {
 		return err
 	}
 	return c.JSON(fiber.Map{
@@ -1464,7 +1501,11 @@ func (h *Handlers) GetProviderCatalogStats(c *fiber.Ctx) error {
 
 // ListProviderModelsCatalog returns provider model catalog for step-2 selection.
 func (h *Handlers) ListProviderModelsCatalog(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePermissionAnyOrTenantAdmin(c, "provider account read permission required", []string{
+		"provider_account:read",
+		"provider_account:manage",
+		"provider_account:use_integrations",
+	}); err != nil {
 		return err
 	}
 
@@ -1484,7 +1525,10 @@ func (h *Handlers) ListProviderModelsCatalog(c *fiber.Ctx) error {
 
 // CreateTenantProviderAccount creates a tenant-scoped provider account definition.
 func (h *Handlers) CreateTenantProviderAccount(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePermissionAnyOrTenantAdmin(c, "provider account create permission required", []string{
+		"provider_account:create",
+		"provider_account:manage",
+	}); err != nil {
 		return err
 	}
 
@@ -1538,7 +1582,11 @@ func (h *Handlers) CreateTenantProviderAccount(c *fiber.Ctx) error {
 
 // ListTenantProviderAccounts returns all provider accounts configured for the tenant.
 func (h *Handlers) ListTenantProviderAccounts(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePermissionAnyOrTenantAdmin(c, "provider account read permission required", []string{
+		"provider_account:read",
+		"provider_account:manage",
+		"provider_account:use_integrations",
+	}); err != nil {
 		return err
 	}
 
@@ -1560,7 +1608,11 @@ func (h *Handlers) ListTenantProviderAccounts(c *fiber.Ctx) error {
 
 // GetTenantProviderAccount returns full account details for wizard editing.
 func (h *Handlers) GetTenantProviderAccount(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePermissionAnyOrTenantAdmin(c, "provider account read permission required", []string{
+		"provider_account:read",
+		"provider_account:manage",
+		"provider_account:use_integrations",
+	}); err != nil {
 		return err
 	}
 
@@ -1630,7 +1682,11 @@ func (h *Handlers) DeleteTenantProviderAccount(c *fiber.Ctx) error {
 
 // GetTenantProviderAccountEffectiveModels returns effective model access view for debugging/observability.
 func (h *Handlers) GetTenantProviderAccountEffectiveModels(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePermissionAnyOrTenantAdmin(c, "provider account read permission required", []string{
+		"provider_account:read",
+		"provider_account:manage",
+		"provider_account:use_integrations",
+	}); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -1667,7 +1723,9 @@ func (h *Handlers) GetTenantProviderAccountEffectiveModels(c *fiber.Ctx) error {
 
 // UpsertTenantProviderAccountModels replaces selected models for a provider account.
 func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePermissionAnyOrTenantAdmin(c, "provider account manage permission required", []string{
+		"provider_account:manage",
+	}); err != nil {
 		return err
 	}
 
@@ -1778,7 +1836,9 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 
 // UpdateTenantProviderAccountAccess replaces access control entries for one provider account.
 func (h *Handlers) UpdateTenantProviderAccountAccess(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePermissionAnyOrTenantAdmin(c, "provider account manage permission required", []string{
+		"provider_account:manage",
+	}); err != nil {
 		return err
 	}
 
@@ -1829,7 +1889,9 @@ func (h *Handlers) UpdateTenantProviderAccountAccess(c *fiber.Ctx) error {
 
 // TestTenantProviderAccountCredentials validates configured credentials (or virtual-key-only mode).
 func (h *Handlers) TestTenantProviderAccountCredentials(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePermissionAnyOrTenantAdmin(c, "provider account manage permission required", []string{
+		"provider_account:manage",
+	}); err != nil {
 		return err
 	}
 
@@ -1866,7 +1928,9 @@ func (h *Handlers) TestTenantProviderAccountCredentials(c *fiber.Ctx) error {
 
 // UpdateTenantProviderAccountCredentials updates auth mode / credential settings for a provider account.
 func (h *Handlers) UpdateTenantProviderAccountCredentials(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requirePermissionAnyOrTenantAdmin(c, "provider account manage permission required", []string{
+		"provider_account:manage",
+	}); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -1907,10 +1971,6 @@ func (h *Handlers) UpdateTenantProviderAccountCredentials(c *fiber.Ctx) error {
 
 // ListAccessPrincipals returns user/team/org-unit principals for access picker controls.
 func (h *Handlers) ListAccessPrincipals(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
-		return err
-	}
-
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
@@ -1925,6 +1985,9 @@ func (h *Handlers) ListAccessPrincipals(c *fiber.Ctx) error {
 	case "user", "team", "org_unit":
 	default:
 		return fiber.NewError(fiber.StatusBadRequest, "kind must be user, team or org_unit")
+	}
+	if err := requireAccessPrincipalSearchPermission(c, kind); err != nil {
+		return err
 	}
 	query := strings.TrimSpace(c.Query("q"))
 	limit := 20
@@ -2070,7 +2133,7 @@ func (h *Handlers) UpdateRole(c *fiber.Ctx) error {
 
 // UpdateUserRoles updates tenant role bindings for one user by email.
 func (h *Handlers) UpdateUserRoles(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requireUserManage(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -2129,12 +2192,12 @@ func (h *Handlers) GetCurrentUserPermissions(c *fiber.Ctx) error {
 
 	if len(permissions) == 0 {
 		fallbackPerms := map[string][]string{
-			"proxy_admin":  {"policy:list", "policy:manage", "role:list", "role:manage", "user:list", "user:manage", "team:create", "team:read", "team:manage", "team:delete", "org_unit:create", "org_unit:read", "org_unit:manage", "org_unit:delete", "org_unit:list", "virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete", "provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete", "provider_account:use_integrations", "settings:list", "settings:manage"},
-			"tenant_admin": {"policy:list", "policy:manage", "role:list", "role:manage", "user:list", "user:manage", "team:create", "team:read", "team:manage", "team:delete", "org_unit:create", "org_unit:read", "org_unit:manage", "org_unit:delete", "org_unit:list", "virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete", "provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete", "provider_account:use_integrations", "settings:list", "settings:manage"},
-			"org_admin":    {"policy:list", "role:list", "user:list", "user:manage", "org_unit:read", "org_unit:manage", "org_unit:list", "team:create", "team:read", "team:manage", "virtual_account:create", "virtual_account:read", "virtual_account:manage", "provider_account:read", "provider_account:use_integrations", "settings:list"},
-			"team_admin":   {"policy:list", "role:list", "user:list", "team:read", "team:manage", "virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete", "provider_account:read", "provider_account:use_integrations", "settings:list"},
-			"team_member":  {"team:read", "virtual_account:read", "provider_account:use_integrations", "settings:list"},
-			"tenant_user":  {"team:read", "virtual_account:read", "provider_account:use_integrations", "settings:list"},
+			"proxy_admin":     {"policy:list", "policy:manage", "role:list", "role:manage", "user:list", "user:manage", "team:create", "team:read", "team:manage", "team:delete", "org_unit:create", "org_unit:read", "org_unit:manage", "org_unit:delete", "org_unit:list", "virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete", "provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete", "provider_account:use_integrations", "settings:list", "settings:manage"},
+			"tenant_admin":    {"policy:list", "policy:manage", "role:list", "role:manage", "user:list", "user:manage", "team:create", "team:read", "team:manage", "team:delete", "org_unit:create", "org_unit:read", "org_unit:manage", "org_unit:delete", "org_unit:list", "virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete", "provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete", "provider_account:use_integrations", "settings:list", "settings:manage"},
+			"org_admin":       {"policy:list", "role:list", "user:list", "user:manage", "org_unit:read", "org_unit:manage", "org_unit:list", "team:create", "team:read", "team:manage", "virtual_account:create", "virtual_account:read", "virtual_account:manage", "provider_account:read", "provider_account:use_integrations", "settings:list"},
+			"team_admin":      {"policy:list", "role:list", "user:list", "team:read", "team:manage", "virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete", "provider_account:read", "provider_account:use_integrations", "settings:list"},
+			"member":          {"user:list", "settings:list"},
+			"readonly_member": {"settings:list"},
 		}
 		permissions = append(permissions, fallbackPerms[role]...)
 	}
@@ -2160,7 +2223,7 @@ func (h *Handlers) GetCurrentUserPermissions(c *fiber.Ctx) error {
 
 // ListTenantUsers lists tenant-admin users for the current tenant.
 func (h *Handlers) ListTenantUsers(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requireUserManage(c); err != nil {
 		return err
 	}
 
@@ -2217,7 +2280,7 @@ func (h *Handlers) ListTenantUsers(c *fiber.Ctx) error {
 
 // InviteTenantUser creates a tenant-admin invitation link.
 func (h *Handlers) InviteTenantUser(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requireUserManage(c); err != nil {
 		return err
 	}
 
@@ -2245,7 +2308,7 @@ func (h *Handlers) InviteTenantUser(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Please enter a valid email address.")
 	}
 	if req.Role == "" {
-		req.Role = "tenant_member"
+		req.Role = "member"
 	}
 
 	invitation, link, err := h.users.InviteTenantAdminUser(c.Context(), currentTenant.ID, currentTenant.Slug, req)
@@ -2327,7 +2390,7 @@ func (h *Handlers) DeactivateTenantUser(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) setTenantUserActive(c *fiber.Ctx, active bool) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requireUserManage(c); err != nil {
 		return err
 	}
 
@@ -2343,6 +2406,20 @@ func (h *Handlers) setTenantUserActive(c *fiber.Ctx, active bool) error {
 	if userID == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "userID is required")
 	}
+	authInfo := auth.GetAuthInfo(c)
+	if !active && authInfo != nil && strings.TrimSpace(authInfo.UserID) == userID {
+		return fiber.NewError(fiber.StatusForbidden, "you cannot deactivate your own account")
+	}
+	target, err := h.users.GetTenantAdminUserRecord(c.Context(), currentTenant.Slug, userID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "user not found")
+		}
+		return err
+	}
+	if !active && isTenantAdminUser(target) {
+		return fiber.NewError(fiber.StatusForbidden, "tenant admin user cannot be deactivated")
+	}
 	user, err := h.users.SetTenantAdminUserActive(c.Context(), currentTenant.Slug, userID, active)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -2351,6 +2428,21 @@ func (h *Handlers) setTenantUserActive(c *fiber.Ctx, active bool) error {
 		return err
 	}
 	return c.JSON(user)
+}
+
+func isTenantAdminUser(user *platform.TenantAdminUser) bool {
+	if user == nil {
+		return false
+	}
+	if strings.EqualFold(strings.TrimSpace(user.Role), "tenant_admin") {
+		return true
+	}
+	for _, role := range user.Roles {
+		if strings.EqualFold(strings.TrimSpace(role), "tenant_admin") {
+			return true
+		}
+	}
+	return false
 }
 
 func (h *Handlers) requireProviderAccountsStore() (providerAccountStore, error) {
@@ -3137,6 +3229,72 @@ func requireOrgAdminOrHigher(c *fiber.Ctx) error {
 		return nil
 	}
 	return fiber.NewError(fiber.StatusForbidden, "organization admin privileges required")
+}
+
+func requirePolicyListOrManage(c *fiber.Ctx) error {
+	return requirePermissionAnyOrTenantAdmin(c, "policy list permission required", []string{"policy:list", "policy:manage"})
+}
+
+func requirePolicyManage(c *fiber.Ctx) error {
+	return requirePermissionAnyOrTenantAdmin(c, "policy manage permission required", []string{"policy:manage"})
+}
+
+func requirePermissionAnyOrTenantAdmin(c *fiber.Ctx, errMsg string, permissions []string) error {
+	authInfo := auth.GetAuthInfo(c)
+	if auth.IsTenantAdminOrHigher(authInfo) {
+		return nil
+	}
+	if authInfo == nil {
+		return fiber.NewError(fiber.StatusForbidden, errMsg)
+	}
+	permissionSet := make(map[string]struct{}, len(authInfo.Permissions))
+	for _, permission := range authInfo.Permissions {
+		permissionSet[strings.TrimSpace(strings.ToLower(permission))] = struct{}{}
+	}
+	for _, permission := range permissions {
+		if _, ok := permissionSet[strings.TrimSpace(strings.ToLower(permission))]; ok {
+			return nil
+		}
+	}
+	return fiber.NewError(fiber.StatusForbidden, errMsg)
+}
+
+func requireAccessPrincipalSearchPermission(c *fiber.Ctx, kind string) error {
+	authInfo := auth.GetAuthInfo(c)
+	if auth.IsTeamAdminOrHigher(authInfo) {
+		return nil
+	}
+	if authInfo == nil {
+		return fiber.NewError(fiber.StatusForbidden, "insufficient permissions for principal search")
+	}
+	permissions := make(map[string]struct{}, len(authInfo.Permissions))
+	for _, permission := range authInfo.Permissions {
+		permissions[strings.TrimSpace(strings.ToLower(permission))] = struct{}{}
+	}
+	has := func(permission string) bool {
+		_, ok := permissions[strings.TrimSpace(strings.ToLower(permission))]
+		return ok
+	}
+
+	switch strings.TrimSpace(strings.ToLower(kind)) {
+	case "user":
+		if has("user:list") || has("user:manage") {
+			return nil
+		}
+	case "team":
+		if has("team:read") || has("team:manage") {
+			return nil
+		}
+	case "org_unit":
+		if has("org_unit:read") || has("org_unit:list") || has("org_unit:manage") {
+			return nil
+		}
+	}
+	return fiber.NewError(fiber.StatusForbidden, "insufficient permissions for principal search")
+}
+
+func requireUserManage(c *fiber.Ctx) error {
+	return requirePermissionAnyOrTenantAdmin(c, "user manage permission required", []string{"user:manage"})
 }
 
 func (h *Handlers) requireTenantAdminOrProviderAccountManager(c *fiber.Ctx, store providerAccountStore, tenantID string, accountID string) error {

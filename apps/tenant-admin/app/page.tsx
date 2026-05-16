@@ -1,6 +1,5 @@
 import TenantAdminDashboard from "@/app/components/tenant-admin-dashboard";
 import AdminShell from "@/app/components/admin-shell";
-import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 import { requireAuth } from "@/lib/auth/session";
 
@@ -55,7 +54,6 @@ export const dynamic = "force-dynamic";
 export default async function Home() {
   const auth = await requireAuth("/login");
   const tenantSlug = auth.tenantSlug;
-  await requirePermissionOr403(tenantSlug, auth.user.id, ["settings:list"]);
 
   const [walletResult, keysResult, modelsResult, txResult, allowedModelsResult] = await Promise.all([
     fetchControlPlaneJSON({

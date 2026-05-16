@@ -403,13 +403,13 @@ func TestIntegration_InviteTenantUserViaCanonicalInvitationEndpoint(t *testing.T
 	defer provider.Close()
 
 	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
-	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/users/invitations", "Bearer sk-master", `{"email":"new-user@tenant.test","role":"tenant_member"}`)
+	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/users/invitations", "Bearer sk-master", `{"email":"new-user@tenant.test","role":"member"}`)
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
 
 	var out platform.InviteTenantAdminUserResponse
 	decodeJSONBody(t, resp, &out)
 	assert.Equal(t, "new-user@tenant.test", out.Invitation.Email)
-	assert.Equal(t, "tenant_member", out.Invitation.Role)
+	assert.Equal(t, "member", out.Invitation.Role)
 }
 
 func TestIntegration_OrgUnitCRUD(t *testing.T) {
@@ -610,13 +610,13 @@ func TestIntegration_InviteTenantUser(t *testing.T) {
 	defer provider.Close()
 
 	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
-	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/users/invite", "Bearer sk-master", `{"email":"new-user@tenant.test","role":"tenant_member"}`)
+	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/users/invite", "Bearer sk-master", `{"email":"new-user@tenant.test","role":"member"}`)
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
 
 	var out platform.InviteTenantAdminUserResponse
 	decodeJSONBody(t, resp, &out)
 	assert.Equal(t, "new-user@tenant.test", out.Invitation.Email)
-	assert.Equal(t, "tenant_member", out.Invitation.Role)
+	assert.Equal(t, "member", out.Invitation.Role)
 	assert.NotEmpty(t, out.Link)
 }
 
@@ -629,7 +629,7 @@ func TestIntegration_AcceptTenantUserInvitation(t *testing.T) {
 
 	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
 
-	inviteResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/users/invite", "Bearer sk-master", `{"email":"accept-me@tenant.test","role":"tenant_member"}`)
+	inviteResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/users/invite", "Bearer sk-master", `{"email":"accept-me@tenant.test","role":"member"}`)
 	assert.Equal(t, http.StatusCreated, inviteResp.StatusCode)
 
 	acceptResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/users/invitations/accept", "Bearer sk-master", `{"token":"test-token"}`)
@@ -964,7 +964,7 @@ func (s *integrationModelStore) SetTenantAdminUserActive(ctx context.Context, te
 		}
 		if active {
 			if s.users[i].Role == "deactivated" {
-				s.users[i].Role = "tenant_member"
+				s.users[i].Role = "member"
 			}
 		} else {
 			s.users[i].Role = "deactivated"
@@ -1180,7 +1180,7 @@ func (s *integrationKeyStore) ResolveTenantUserAuth(ctx context.Context, tenantI
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	role := "tenant_user"
+	role := "member"
 	if strings.TrimSpace(userID) == "tenant-user-1" {
 		role = "tenant_admin"
 	}

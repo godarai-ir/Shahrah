@@ -177,7 +177,7 @@ export class InMemoryAuthRepository implements AuthRepository {
       tenantSlug: input.tenantSlug,
       email: input.channel === "email" ? input.identifier : undefined,
       mobile: input.channel === "mobile" ? input.identifier : undefined,
-      role: this.users.size === 0 ? "tenant_admin" : "tenant_member",
+      role: this.users.size === 0 ? "tenant_admin" : "member",
       active: true,
       createdAtISO: new Date().toISOString(),
       updatedAtISO: new Date().toISOString(),
