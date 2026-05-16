@@ -429,6 +429,121 @@ func TestIntegration_InviteTenantUser_InvalidEmailRejectedWithoutSideEffects(t *
 	}
 }
 
+func TestIntegration_RoleCatalogAndUserRoleAssignment(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if strings.TrimSpace(databaseURL) == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
+	resetPersistentState(t, pool)
+
+	ctx := context.Background()
+	userID := uuid.NewString()
+	userEmail := "roles-user@tenant.test"
+	_, err := pool.Exec(ctx, `
+		INSERT INTO users (user_id, tenant_id, user_alias, email, role, active, created_at, updated_at)
+		SELECT $1::uuid, tenant_id, 'roles-user', $2, 'tenant_user', true, NOW(), NOW()
+		FROM tenants WHERE slug = 'default'
+	`, userID, userEmail)
+	require.NoError(t, err)
+
+	listSystem := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/roles?limit=50&offset=0", "Bearer sk-master", "")
+	assert.Equal(t, http.StatusOK, listSystem.StatusCode)
+	var systemRoles platform.RoleListResponse
+	decodeJSONBody(t, listSystem, &systemRoles)
+	assert.GreaterOrEqual(t, len(systemRoles.Data), 6)
+
+	createRoleResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/roles", "Bearer sk-master", `{
+		"name":"billing_auditor",
+		"display_name":"Billing Auditor",
+		"description":"Read financial and trace data",
+		"permissions":["wallet:read","trace:list","trace:read","user:list"]
+	}`)
+	assert.Equal(t, http.StatusCreated, createRoleResp.StatusCode)
+	var customRole platform.RoleDefinition
+	decodeJSONBody(t, createRoleResp, &customRole)
+	assert.Equal(t, "billing_auditor", customRole.Name)
+	assert.False(t, customRole.IsSystem)
+
+	updateRoleResp := performJSONRequest(t, app, http.MethodPatch, "http://localhost/api/v1/roles/"+customRole.ID, "Bearer sk-master", `{
+		"display_name":"Billing & Trace Auditor",
+		"permissions":["wallet:read","trace:list","trace:read","user:list","team:read"]
+	}`)
+	assert.Equal(t, http.StatusOK, updateRoleResp.StatusCode)
+	var updatedRole platform.RoleDefinition
+	decodeJSONBody(t, updateRoleResp, &updatedRole)
+	assert.Equal(t, "Billing & Trace Auditor", updatedRole.DisplayName)
+	assert.Contains(t, updatedRole.Permissions, "team:read")
+
+	assignResp := performJSONRequest(t, app, http.MethodPatch, "http://localhost/api/v1/users/roles", "Bearer sk-master", fmt.Sprintf(`{
+		"email":"%s",
+		"roles":["billing_auditor","team_admin"],
+		"resourceType":"team"
+	}`, userEmail))
+	assert.Equal(t, http.StatusOK, assignResp.StatusCode)
+	var assignOut platform.UpdateUserRolesResponse
+	decodeJSONBody(t, assignResp, &assignOut)
+	assert.Equal(t, userEmail, assignOut.Email)
+	assert.ElementsMatch(t, []string{"billing_auditor", "team_admin"}, assignOut.Roles)
+	assert.Equal(t, "team", assignOut.ResourceType)
+
+	usersResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/users?query=roles-user@tenant.test", "Bearer sk-master", "")
+	assert.Equal(t, http.StatusOK, usersResp.StatusCode)
+	var users platform.TenantAdminUserListResponse
+	decodeJSONBody(t, usersResp, &users)
+	require.Len(t, users.Data, 1)
+	assert.ElementsMatch(t, []string{"billing_auditor", "team_admin"}, users.Data[0].Roles)
+	assert.Equal(t, "team_admin", users.Data[0].Role)
+
+	// Protected system role must not be mutable.
+	var tenantAdminRoleID string
+	require.NoError(t, pool.QueryRow(ctx, `
+		SELECT role_id::text
+		FROM roles
+		WHERE tenant_id = (SELECT tenant_id FROM tenants WHERE slug='default')
+		  AND name = 'tenant_admin'
+		LIMIT 1
+	`).Scan(&tenantAdminRoleID))
+	protectedUpdate := performJSONRequest(t, app, http.MethodPatch, "http://localhost/api/v1/roles/"+tenantAdminRoleID, "Bearer sk-master", `{"display_name":"Nope"}`)
+	assert.Equal(t, http.StatusForbidden, protectedUpdate.StatusCode)
+}
+
+func TestIntegration_UpdateUserRoles_ValidationAndAuth(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if strings.TrimSpace(databaseURL) == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
+	resetPersistentState(t, pool)
+
+	// unauthorized (invalid key)
+	unauthorized := performJSONRequest(t, app, http.MethodPatch, "http://localhost/api/v1/users/roles", "Bearer sk-invalid", `{
+		"email":"user@tenant.test",
+		"roles":["tenant_user"]
+	}`)
+	assert.Equal(t, http.StatusUnauthorized, unauthorized.StatusCode)
+
+	// validation error
+	validation := performJSONRequest(t, app, http.MethodPatch, "http://localhost/api/v1/users/roles", "Bearer sk-master", `{
+		"email":"",
+		"roles":[]
+	}`)
+	assert.Equal(t, http.StatusUnprocessableEntity, validation.StatusCode)
+
+	// unknown user
+	notFound := performJSONRequest(t, app, http.MethodPatch, "http://localhost/api/v1/users/roles", "Bearer sk-master", `{
+		"email":"missing@tenant.test",
+		"roles":["tenant_user"]
+	}`)
+	assert.Equal(t, http.StatusNotFound, notFound.StatusCode)
+}
+
 func TestIntegration_ConcurrentWalletDebitUsesRowLock(t *testing.T) {
 	databaseURL := os.Getenv("DATABASE_URL")
 	if strings.TrimSpace(databaseURL) == "" {

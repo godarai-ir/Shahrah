@@ -1,7 +1,8 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
 import AdminShell from "@/app/components/admin-shell";
+import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 
 type ResultPageProps = {
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function TopUpResultPage(props: ResultPageProps) {
   const auth = await requireAuth("/login");
+  await requirePermissionOr403(auth.tenantSlug, auth.user.id, ["settings:list"]);
   const t = await getTranslations("topupResult");
   const tenantSlug = auth.tenantSlug;
 

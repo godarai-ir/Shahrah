@@ -1,5 +1,6 @@
 import AdminShell from "@/app/components/admin-shell";
 import OrgUnitManagement from "@/app/components/org-unit-management";
+import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 
@@ -25,11 +26,13 @@ export const dynamic = "force-dynamic";
 export default async function OrgUnitsPage() {
   const auth = await requireAuth("/login?next=/org-units");
   const tenantSlug = auth.tenantSlug;
+  await requirePermissionOr403(tenantSlug, auth.user.id, ["org_unit:list", "org_unit:read"]);
 
   const orgUnitsResult = await fetchControlPlaneJSON({
     tenantSlug,
     method: "GET",
     path: "/api/v1/org-units?limit=25&offset=0",
+    userID: auth.user.id,
   });
 
   const payload = (orgUnitsResult.payload ?? {}) as OrgUnitListResponse;

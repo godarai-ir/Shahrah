@@ -13,6 +13,7 @@ export async function GET(
 
   const result = await fetchControlPlaneJSON({
     tenantSlug,
+    userID: auth.user.id,
     method: "GET",
     path: `/api/v1/teams/${teamID}/members`,
   });
@@ -39,6 +40,7 @@ export async function POST(
 
   const result = await fetchControlPlaneJSON({
     tenantSlug,
+    userID: auth.user.id,
     method: "POST",
     path: `/api/v1/teams/${teamID}/members`,
     body,
@@ -53,4 +55,5 @@ export async function POST(
 
   return NextResponse.json(result.payload, { status: 201 });
 }
+
 

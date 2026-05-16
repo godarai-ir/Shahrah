@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
+import { readAuthFromRequest } from "@/lib/auth/request-auth";
 import { resolveTenantSlugFromHeaders } from "@/lib/tenant";
 
 type ProxyOptions = {
-  request: Request;
+  request: NextRequest;
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   path: string;
   body?: unknown;
@@ -43,12 +44,20 @@ export async function proxyToControlPlane(options: ProxyOptions) {
       { status: 400 },
     );
   }
+  let resolvedUserID = options.userID?.trim() ?? "";
+  if (!resolvedUserID) {
+    const auth = await readAuthFromRequest(options.request);
+    if (auth.ok) {
+      resolvedUserID = auth.user.id;
+    }
+  }
+
   const upstream = await fetchControlPlaneJSON({
     tenantSlug,
     method: options.method,
     path: options.path,
     body: options.body,
-    userID: options.userID,
+    userID: resolvedUserID || undefined,
   });
 
   if (!upstream.ok) {

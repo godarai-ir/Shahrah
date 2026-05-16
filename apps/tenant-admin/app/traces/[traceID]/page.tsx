@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import AdminShell from "@/app/components/admin-shell";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 
@@ -98,6 +99,7 @@ export default async function TraceDetailPage({ params }: Params) {
   const t = await getTranslations("traces");
   const auth = await requireAuth("/login?next=/traces");
   const tenantSlug = auth.tenantSlug;
+  await requirePermissionOr403(tenantSlug, auth.user.id, ["settings:list"]);
   const { traceID } = await params;
   const normalized = traceID.trim();
 

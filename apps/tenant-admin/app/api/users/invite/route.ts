@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
 
     const upstream = await fetchControlPlaneJSON({
       tenantSlug: auth.tenantSlug,
+      userID: auth.user.id,
       method: "POST",
       path: "/api/v1/users/invite",
       body: {
@@ -120,3 +121,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+

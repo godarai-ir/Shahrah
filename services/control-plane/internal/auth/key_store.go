@@ -42,6 +42,10 @@ func (s *InMemoryKeyStore) GetKeyByHash(ctx context.Context, hash string) (*plat
 	return key, nil
 }
 
+func (s *InMemoryKeyStore) ResolveTenantUserAuth(ctx context.Context, tenantID string, userID string) (*platform.AuthContext, error) {
+	return nil, ErrInvalidAPIKey
+}
+
 func (s *InMemoryKeyStore) TouchKeyLastUsed(ctx context.Context, keyID string, usedAt time.Time) error {
 	return nil
 }

@@ -1,5 +1,6 @@
-﻿import AdminShell from "@/app/components/admin-shell";
+import AdminShell from "@/app/components/admin-shell";
 import ModelMetricsDashboard from "@/app/components/model-metrics-dashboard";
+import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,7 @@ type MetricsPageProps = {
 
 export default async function MetricsPage({ searchParams }: MetricsPageProps) {
   const auth = await requireAuth("/login?next=/metrics");
+  await requirePermissionOr403(auth.tenantSlug, auth.user.id, ["settings:list"]);
   const params = (await searchParams) ?? {};
   const currentUser = {
     id: auth.user.id,

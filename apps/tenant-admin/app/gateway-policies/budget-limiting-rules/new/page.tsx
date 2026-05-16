@@ -1,4 +1,5 @@
 import AdminShell from "@/app/components/admin-shell";
+import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { BudgetLimitRuleForm } from "@/features/gateway-policies/budget-limiting/BudgetLimitRuleForm";
 
@@ -6,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function Page() {
   const auth = await requireAuth("/login?next=/gateway-policies/budget-limiting-rules/new");
+  await requirePermissionOr403(auth.tenantSlug, auth.user.id, ["policy:manage"]);
   const tenantSlug = auth.tenantSlug;
   const currentUser = {
     id: auth.user.id,

@@ -1,0 +1,848 @@
+package storage
+
+import (
+	"context"
+	"errors"
+	"regexp"
+	"sort"
+	"strings"
+
+	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+)
+
+var (
+	ErrRoleNotFound          = errors.New("role not found")
+	ErrRoleImmutable         = errors.New("system role cannot be modified")
+	ErrInvalidRoleName       = errors.New("invalid role name")
+	ErrInvalidPermission     = errors.New("invalid permission")
+	ErrInvalidResourceType   = errors.New("invalid resource type")
+	ErrInvalidUserRoleUpdate = errors.New("invalid user role update payload")
+	ErrUserNotFound          = errors.New("user not found")
+)
+
+var roleNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{1,63}$`)
+
+type permissionMeta struct {
+	Group       string
+	Description string
+}
+
+type PermissionCatalogItem struct {
+	Key         string `json:"key"`
+	Group       string `json:"group"`
+	Description string `json:"description"`
+}
+
+func ListPermissionCatalog() []PermissionCatalogItem {
+	return listPermissionCatalog()
+}
+
+// permissionCatalog is the canonical source for valid permissions and UI metadata.
+// Description is intentionally required for UI rendering.
+var permissionCatalog = map[string]permissionMeta{
+	"policy:list": {
+		Group:       "policies",
+		Description: "Allows listing and viewing policies",
+	},
+	"policy:manage": {
+		Group:       "policies",
+		Description: "Allows creating, updating, and deleting policies",
+	},
+
+	"role:list": {
+		Group:       "roles",
+		Description: "Allows listing and viewing roles",
+	},
+	"role:manage": {
+		Group:       "roles",
+		Description: "Allows creating, updating, and deleting roles",
+	},
+
+	"user:list": {
+		Group:       "users",
+		Description: "Allows listing and viewing users",
+	},
+	"user:manage": {
+		Group:       "users",
+		Description: "Allows creating, updating, and deleting users",
+	},
+
+	"team:create": {
+		Group:       "teams",
+		Description: "Allows creation of new teams",
+	},
+	"team:delete": {
+		Group:       "teams",
+		Description: "Allows deleting existing teams",
+	},
+	"team:manage": {
+		Group:       "teams",
+		Description: "Allows updating team configuration and members",
+	},
+	"team:read": {
+		Group:       "teams",
+		Description: "Allows viewing team details and members",
+	},
+
+	"org_unit:create": {
+		Group:       "organization_units",
+		Description: "Allows creation of new organization units",
+	},
+	"org_unit:delete": {
+		Group:       "organization_units",
+		Description: "Allows deleting existing organization units",
+	},
+	"org_unit:manage": {
+		Group:       "organization_units",
+		Description: "Allows updating organization unit configuration and members",
+	},
+	"org_unit:read": {
+		Group:       "organization_units",
+		Description: "Allows viewing organization unit details and members",
+	},
+	"org_unit:list": {
+		Group:       "organization_units",
+		Description: "Allows listing and viewing all organization units",
+	},
+
+	"virtual_account:create": {
+		Group:       "virtual_accounts",
+		Description: "Allows creation of new virtual accounts",
+	},
+	"virtual_account:read": {
+		Group:       "virtual_accounts",
+		Description: "Allows viewing virtual account details",
+	},
+	"virtual_account:manage": {
+		Group:       "virtual_accounts",
+		Description: "Allows updating virtual account configuration and tokens",
+	},
+	"virtual_account:delete": {
+		Group:       "virtual_accounts",
+		Description: "Allows deleting existing virtual accounts",
+	},
+
+	"provider_account:create": {
+		Group:       "provider_accounts",
+		Description: "Allows creation of new provider accounts",
+	},
+	"provider_account:delete": {
+		Group:       "provider_accounts",
+		Description: "Allows deleting existing provider accounts",
+	},
+	"provider_account:manage": {
+		Group:       "provider_accounts",
+		Description: "Allows updating provider account configuration",
+	},
+	"provider_account:read": {
+		Group:       "provider_accounts",
+		Description: "Allows viewing provider account details",
+	},
+	"provider_account:use_integrations": {
+		Group:       "provider_accounts",
+		Description: "Allows using integrations associated with provider accounts",
+	},
+
+	"settings:list": {
+		Group:       "settings",
+		Description: "Allows listing and viewing platform settings",
+	},
+	"settings:manage": {
+		Group:       "settings",
+		Description: "Allows updating platform settings",
+	},
+}
+
+var systemRolePermissions = map[string][]string{
+	"proxy_admin": {
+		"policy:list", "policy:manage",
+		"role:list", "role:manage",
+		"user:list", "user:manage",
+		"team:create", "team:read", "team:manage", "team:delete",
+		"org_unit:create", "org_unit:read", "org_unit:manage", "org_unit:delete", "org_unit:list",
+		"virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete",
+		"provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete", "provider_account:use_integrations",
+		"settings:list", "settings:manage",
+	},
+	"tenant_admin": {
+		"policy:list", "policy:manage",
+		"role:list", "role:manage",
+		"user:list", "user:manage",
+		"team:create", "team:read", "team:manage", "team:delete",
+		"org_unit:create", "org_unit:read", "org_unit:manage", "org_unit:delete", "org_unit:list",
+		"virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete",
+		"provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete", "provider_account:use_integrations",
+		"settings:list", "settings:manage",
+	},
+	"org_admin": {
+		"policy:list",
+		"role:list",
+		"user:list", "user:manage",
+		"org_unit:read", "org_unit:manage", "org_unit:list",
+		"team:create", "team:read", "team:manage",
+		"virtual_account:create", "virtual_account:read", "virtual_account:manage",
+		"provider_account:read", "provider_account:use_integrations",
+		"settings:list",
+	},
+	"team_admin": {
+		"policy:list",
+		"role:list",
+		"user:list",
+		"team:read", "team:manage",
+		"virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete",
+		"provider_account:read", "provider_account:use_integrations",
+		"settings:list",
+	},
+	"team_member": {
+		"team:read",
+		"virtual_account:read",
+		"provider_account:use_integrations",
+		"settings:list",
+	},
+	"tenant_user": {
+		"team:read",
+		"virtual_account:read",
+		"provider_account:use_integrations",
+		"settings:list",
+	},
+}
+
+func (s *Store) ListRoles(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.RoleDefinition, int, error) {
+	query = strings.TrimSpace(strings.ToLower(query))
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	if err := s.ensureSystemRoles(ctx, tenantID); err != nil {
+		return nil, 0, err
+	}
+
+	like := "%" + query + "%"
+	var total int
+	if err := s.pool.QueryRow(ctx, `
+		SELECT COUNT(1)
+		FROM roles r
+		WHERE r.tenant_id = $1::uuid
+		  AND ($2 = '' OR LOWER(r.name) LIKE $3 OR LOWER(COALESCE(r.display_name, '')) LIKE $3)
+	`, tenantID, query, like).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	rows, err := s.pool.Query(ctx, `
+		SELECT r.role_id::text,
+		       r.tenant_id::text,
+		       r.name,
+		       COALESCE(r.display_name, ''),
+		       COALESCE(r.description, ''),
+		       COALESCE(r.is_system, false),
+		       COALESCE(ARRAY_AGG(rp.permission ORDER BY rp.permission) FILTER (WHERE rp.permission IS NOT NULL), '{}') AS permissions,
+		       r.created_at,
+		       r.updated_at
+		FROM roles r
+		LEFT JOIN role_permissions rp ON rp.role_id = r.role_id
+		WHERE r.tenant_id = $1::uuid
+		  AND ($2 = '' OR LOWER(r.name) LIKE $3 OR LOWER(COALESCE(r.display_name, '')) LIKE $3)
+		GROUP BY r.role_id
+		ORDER BY r.is_system DESC, r.updated_at DESC, r.created_at DESC
+		LIMIT $4 OFFSET $5
+	`, tenantID, query, like, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	items := make([]platform.RoleDefinition, 0, limit)
+	for rows.Next() {
+		var item platform.RoleDefinition
+		if err := rows.Scan(
+			&item.ID,
+			&item.TenantID,
+			&item.Name,
+			&item.DisplayName,
+			&item.Description,
+			&item.IsSystem,
+			&item.Permissions,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+		); err != nil {
+			return nil, 0, err
+		}
+		items = append(items, item)
+	}
+	return items, total, rows.Err()
+}
+
+func (s *Store) CreateRole(ctx context.Context, tenantID string, req platform.CreateRoleRequest) (*platform.RoleDefinition, error) {
+	if err := s.ensureSystemRoles(ctx, tenantID); err != nil {
+		return nil, err
+	}
+	name := strings.TrimSpace(strings.ToLower(req.Name))
+	if !roleNamePattern.MatchString(name) {
+		return nil, ErrInvalidRoleName
+	}
+	displayName := strings.TrimSpace(req.DisplayName)
+	if displayName == "" {
+		displayName = name
+	}
+	permissions, err := normalizePermissions(req.Permissions)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	roleID := uuid.NewString()
+	var item platform.RoleDefinition
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO roles (role_id, tenant_id, name, display_name, description, is_system, created_at, updated_at)
+		VALUES ($1::uuid, $2::uuid, $3, $4, NULLIF($5, ''), false, NOW(), NOW())
+		RETURNING role_id::text, tenant_id::text, name, display_name, COALESCE(description, ''), is_system, created_at, updated_at
+	`, roleID, tenantID, name, displayName, strings.TrimSpace(req.Description)).Scan(
+		&item.ID,
+		&item.TenantID,
+		&item.Name,
+		&item.DisplayName,
+		&item.Description,
+		&item.IsSystem,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return nil, ErrInvalidRoleName
+		}
+		return nil, err
+	}
+
+	for _, permission := range permissions {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO role_permissions (role_permission_id, tenant_id, role_id, permission, created_at, updated_at)
+			VALUES ($1::uuid, $2::uuid, $3::uuid, $4, NOW(), NOW())
+		`, uuid.NewString(), tenantID, roleID, permission); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	item.Permissions = permissions
+	return &item, nil
+}
+
+func (s *Store) UpdateRole(ctx context.Context, tenantID string, roleID string, req platform.UpdateRoleRequest) (*platform.RoleDefinition, error) {
+	if err := s.ensureSystemRoles(ctx, tenantID); err != nil {
+		return nil, err
+	}
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var current platform.RoleDefinition
+	if err := tx.QueryRow(ctx, `
+		SELECT role_id::text, tenant_id::text, name, COALESCE(display_name, ''), COALESCE(description, ''), COALESCE(is_system, false), created_at, updated_at
+		FROM roles
+		WHERE tenant_id = $1::uuid AND role_id = $2::uuid
+		LIMIT 1
+		FOR UPDATE
+	`, tenantID, roleID).Scan(
+		&current.ID,
+		&current.TenantID,
+		&current.Name,
+		&current.DisplayName,
+		&current.Description,
+		&current.IsSystem,
+		&current.CreatedAt,
+		&current.UpdatedAt,
+	); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrRoleNotFound
+		}
+		return nil, err
+	}
+	if current.IsSystem && (current.Name == "proxy_admin" || current.Name == "tenant_admin") {
+		return nil, ErrRoleImmutable
+	}
+
+	displayName := strings.TrimSpace(req.DisplayName)
+	if displayName == "" {
+		displayName = current.DisplayName
+	}
+	description := current.Description
+	if req.Description != "" {
+		description = strings.TrimSpace(req.Description)
+	}
+
+	if _, err := tx.Exec(ctx, `
+		UPDATE roles
+		SET display_name = $3,
+		    description = NULLIF($4, ''),
+		    updated_at = NOW()
+		WHERE tenant_id = $1::uuid AND role_id = $2::uuid
+	`, tenantID, roleID, displayName, description); err != nil {
+		return nil, err
+	}
+
+	permissions := current.Permissions
+	if req.Permissions != nil {
+		permissions, err = normalizePermissions(req.Permissions)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := tx.Exec(ctx, `
+			DELETE FROM role_permissions
+			WHERE tenant_id = $1::uuid AND role_id = $2::uuid
+		`, tenantID, roleID); err != nil {
+			return nil, err
+		}
+		for _, permission := range permissions {
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO role_permissions (role_permission_id, tenant_id, role_id, permission, created_at, updated_at)
+				VALUES ($1::uuid, $2::uuid, $3::uuid, $4, NOW(), NOW())
+			`, uuid.NewString(), tenantID, roleID, permission); err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		rows, err := tx.Query(ctx, `
+			SELECT permission
+			FROM role_permissions
+			WHERE tenant_id = $1::uuid AND role_id = $2::uuid
+			ORDER BY permission
+		`, tenantID, roleID)
+		if err != nil {
+			return nil, err
+		}
+		permissions = make([]string, 0)
+		for rows.Next() {
+			var permission string
+			if err := rows.Scan(&permission); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			permissions = append(permissions, permission)
+		}
+		rows.Close()
+	}
+
+	var updated platform.RoleDefinition
+	if err := tx.QueryRow(ctx, `
+		SELECT role_id::text, tenant_id::text, name, COALESCE(display_name, ''), COALESCE(description, ''), COALESCE(is_system, false), created_at, updated_at
+		FROM roles
+		WHERE tenant_id = $1::uuid AND role_id = $2::uuid
+		LIMIT 1
+	`, tenantID, roleID).Scan(
+		&updated.ID,
+		&updated.TenantID,
+		&updated.Name,
+		&updated.DisplayName,
+		&updated.Description,
+		&updated.IsSystem,
+		&updated.CreatedAt,
+		&updated.UpdatedAt,
+	); err != nil {
+		return nil, err
+	}
+	updated.Permissions = permissions
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return &updated, nil
+}
+
+func (s *Store) UpdateUserRoles(ctx context.Context, tenantID string, req platform.UpdateUserRolesRequest) (*platform.UpdateUserRolesResponse, error) {
+	if err := s.ensureSystemRoles(ctx, tenantID); err != nil {
+		return nil, err
+	}
+	email := strings.TrimSpace(strings.ToLower(req.Email))
+	if email == "" {
+		return nil, ErrInvalidUserRoleUpdate
+	}
+	roles := dedupeNonEmpty(req.Roles)
+	if len(roles) == 0 {
+		return nil, ErrInvalidUserRoleUpdate
+	}
+	resourceType := normalizeResourceType(req.ResourceType)
+	if resourceType == "" {
+		return nil, ErrInvalidResourceType
+	}
+
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var userID string
+	if err := tx.QueryRow(ctx, `
+		SELECT user_id::text
+		FROM users
+		WHERE tenant_id = $1::uuid
+		  AND LOWER(COALESCE(email, '')) = $2
+		LIMIT 1
+		FOR UPDATE
+	`, tenantID, email).Scan(&userID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+
+	type roleRow struct {
+		ID       string
+		Name     string
+		IsSystem bool
+	}
+	roleRows := make([]roleRow, 0, len(roles))
+	for _, roleName := range roles {
+		var row roleRow
+		if err := tx.QueryRow(ctx, `
+			SELECT role_id::text, name, COALESCE(is_system, false)
+			FROM roles
+			WHERE tenant_id = $1::uuid AND LOWER(name) = $2
+			LIMIT 1
+		`, tenantID, strings.ToLower(roleName)).Scan(&row.ID, &row.Name, &row.IsSystem); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, ErrRoleNotFound
+			}
+			return nil, err
+		}
+		roleRows = append(roleRows, row)
+	}
+
+	if _, err := tx.Exec(ctx, `
+		UPDATE user_role_bindings
+		SET is_active = false,
+		    updated_at = NOW()
+		WHERE tenant_id = $1::uuid AND user_id = $2::uuid AND is_active = true
+	`, tenantID, userID); err != nil {
+		return nil, err
+	}
+
+	grantedRoles := make([]string, 0, len(roleRows))
+	for _, row := range roleRows {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO user_role_bindings (binding_id, tenant_id, user_id, role_id, resource_type, resource_id, is_active, created_at, updated_at)
+			VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, NULL, true, NOW(), NOW())
+		`, uuid.NewString(), tenantID, userID, row.ID, resourceType); err != nil {
+			return nil, err
+		}
+		grantedRoles = append(grantedRoles, row.Name)
+	}
+	sort.Strings(grantedRoles)
+
+	primary := derivePrimaryRole(grantedRoles)
+	if _, err := tx.Exec(ctx, `
+		UPDATE users
+		SET role = $3,
+		    active = true,
+		    updated_at = NOW()
+		WHERE tenant_id = $1::uuid AND user_id = $2::uuid
+	`, tenantID, userID, primary); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return &platform.UpdateUserRolesResponse{
+		UserID:       userID,
+		Email:        email,
+		Roles:        grantedRoles,
+		ResourceType: resourceType,
+	}, nil
+}
+
+func (s *Store) ListUserRoleNamesByUserIDs(ctx context.Context, tenantID string, userIDs []string) (map[string][]string, error) {
+	out := make(map[string][]string, len(userIDs))
+	if len(userIDs) == 0 {
+		return out, nil
+	}
+	userUUIDs := make([]uuid.UUID, 0, len(userIDs))
+	for _, raw := range userIDs {
+		id, err := uuid.Parse(strings.TrimSpace(raw))
+		if err != nil {
+			continue
+		}
+		userUUIDs = append(userUUIDs, id)
+	}
+	if len(userUUIDs) == 0 {
+		return out, nil
+	}
+
+	rows, err := s.pool.Query(ctx, `
+		SELECT urb.user_id::text,
+		       COALESCE(ARRAY_AGG(r.name ORDER BY r.name) FILTER (WHERE r.name IS NOT NULL), '{}') AS roles
+		FROM user_role_bindings urb
+		JOIN roles r ON r.role_id = urb.role_id AND r.tenant_id = urb.tenant_id
+		WHERE urb.tenant_id = $1::uuid
+		  AND urb.is_active = true
+		  AND urb.user_id = ANY($2::uuid[])
+		GROUP BY urb.user_id
+	`, tenantID, userUUIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var userID string
+		var roles []string
+		if err := rows.Scan(&userID, &roles); err != nil {
+			return nil, err
+		}
+		out[userID] = roles
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) GetEffectivePermissionsForUser(ctx context.Context, tenantID string, userID string, fallbackRole string) ([]string, []string, error) {
+	if err := s.ensureSystemRoles(ctx, tenantID); err != nil {
+		return nil, nil, err
+	}
+
+	roleNames := make([]string, 0, 2)
+	rows, err := s.pool.Query(ctx, `
+		SELECT r.name
+		FROM user_role_bindings urb
+		JOIN roles r ON r.role_id = urb.role_id AND r.tenant_id = urb.tenant_id
+		WHERE urb.tenant_id = $1::uuid
+		  AND urb.user_id = $2::uuid
+		  AND urb.is_active = true
+		ORDER BY r.name
+	`, tenantID, userID)
+	if err != nil {
+		return nil, nil, err
+	}
+	for rows.Next() {
+		var roleName string
+		if err := rows.Scan(&roleName); err != nil {
+			rows.Close()
+			return nil, nil, err
+		}
+		roleNames = append(roleNames, strings.TrimSpace(strings.ToLower(roleName)))
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, nil, err
+	}
+
+	if len(roleNames) == 0 {
+		fallback := strings.TrimSpace(strings.ToLower(fallbackRole))
+		if fallback == "" {
+			fallback = "tenant_user"
+		}
+		roleNames = []string{fallback}
+	}
+
+	permissionSet := make(map[string]struct{})
+	for _, roleName := range roleNames {
+		perms, ok := systemRolePermissions[roleName]
+		if !ok {
+			rolePermRows, rolePermErr := s.pool.Query(ctx, `
+				SELECT rp.permission
+				FROM roles r
+				JOIN role_permissions rp ON rp.role_id = r.role_id AND rp.tenant_id = r.tenant_id
+				WHERE r.tenant_id = $1::uuid AND r.name = $2
+			`, tenantID, roleName)
+			if rolePermErr != nil {
+				return nil, nil, rolePermErr
+			}
+			for rolePermRows.Next() {
+				var permission string
+				if err := rolePermRows.Scan(&permission); err != nil {
+					rolePermRows.Close()
+					return nil, nil, err
+				}
+				permissionSet[strings.TrimSpace(strings.ToLower(permission))] = struct{}{}
+			}
+			rolePermRows.Close()
+			if err := rolePermRows.Err(); err != nil {
+				return nil, nil, err
+			}
+			continue
+		}
+		for _, permission := range perms {
+			permissionSet[permission] = struct{}{}
+		}
+	}
+
+	permissions := make([]string, 0, len(permissionSet))
+	for permission := range permissionSet {
+		permissions = append(permissions, permission)
+	}
+	sort.Strings(roleNames)
+	sort.Strings(permissions)
+
+	return roleNames, permissions, nil
+}
+
+func (s *Store) ensureSystemRoles(ctx context.Context, tenantID string) error {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	for roleName, permissions := range systemRolePermissions {
+		var roleID string
+		displayName := systemRoleDisplayName(roleName)
+		if err := tx.QueryRow(ctx, `
+			INSERT INTO roles (role_id, tenant_id, name, display_name, description, is_system, created_at, updated_at)
+			VALUES ($1::uuid, $2::uuid, $3, $4, $5, true, NOW(), NOW())
+			ON CONFLICT (tenant_id, name)
+			DO UPDATE SET
+				display_name = EXCLUDED.display_name,
+				updated_at = NOW()
+			RETURNING role_id::text
+		`, uuid.NewString(), tenantID, roleName, displayName, "System role").Scan(&roleID); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `
+			DELETE FROM role_permissions
+			WHERE tenant_id = $1::uuid AND role_id = $2::uuid
+		`, tenantID, roleID); err != nil {
+			return err
+		}
+		normalized, err := normalizePermissions(permissions)
+		if err != nil {
+			return err
+		}
+		for _, permission := range normalized {
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO role_permissions (role_permission_id, tenant_id, role_id, permission, created_at, updated_at)
+				VALUES ($1::uuid, $2::uuid, $3::uuid, $4, NOW(), NOW())
+			`, uuid.NewString(), tenantID, roleID, permission); err != nil {
+				return err
+			}
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
+func systemRoleDisplayName(roleName string) string {
+	parts := strings.Split(strings.ReplaceAll(strings.TrimSpace(roleName), "_", " "), " ")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if len(part) == 1 {
+			out = append(out, strings.ToUpper(part))
+			continue
+		}
+		out = append(out, strings.ToUpper(part[:1])+strings.ToLower(part[1:]))
+	}
+	return strings.Join(out, " ")
+}
+
+func normalizePermissions(input []string) ([]string, error) {
+	if len(input) == 0 {
+		return nil, ErrInvalidPermission
+	}
+	normalized := dedupeNonEmpty(input)
+	if len(normalized) == 0 {
+		return nil, ErrInvalidPermission
+	}
+	for _, permission := range normalized {
+		meta, ok := permissionCatalog[permission]
+		if !ok {
+			return nil, ErrInvalidPermission
+		}
+		if strings.TrimSpace(meta.Description) == "" {
+			return nil, ErrInvalidPermission
+		}
+	}
+	sort.Strings(normalized)
+	return normalized, nil
+}
+
+func dedupeNonEmpty(items []string) []string {
+	seen := make(map[string]struct{}, len(items))
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		item = strings.TrimSpace(strings.ToLower(item))
+		if item == "" {
+			continue
+		}
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = struct{}{}
+		out = append(out, item)
+	}
+	return out
+}
+
+func normalizeResourceType(resourceType string) string {
+	switch strings.TrimSpace(strings.ToLower(resourceType)) {
+	case "", "tenant":
+		return "tenant"
+	case "org_unit", "team", "workspace":
+		return strings.TrimSpace(strings.ToLower(resourceType))
+	default:
+		return ""
+	}
+}
+
+func derivePrimaryRole(roles []string) string {
+	if len(roles) == 0 {
+		return "tenant_user"
+	}
+	priority := map[string]int{
+		"proxy_admin":  100,
+		"tenant_admin": 90,
+		"org_admin":    80,
+		"team_admin":   70,
+		"team_member":  60,
+		"tenant_user":  50,
+	}
+	best := roles[0]
+	bestRank := -1
+	for _, role := range roles {
+		rank, ok := priority[role]
+		if !ok {
+			rank = 10
+		}
+		if rank > bestRank {
+			bestRank = rank
+			best = role
+		}
+	}
+	return best
+}
+
+func listPermissionCatalog() []PermissionCatalogItem {
+	items := make([]PermissionCatalogItem, 0, len(permissionCatalog))
+	for key, meta := range permissionCatalog {
+		items = append(items, PermissionCatalogItem{
+			Key:         key,
+			Group:       meta.Group,
+			Description: meta.Description,
+		})
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Group == items[j].Group {
+			return items[i].Key < items[j].Key
+		}
+		return items[i].Group < items[j].Group
+	})
+	return items
+}

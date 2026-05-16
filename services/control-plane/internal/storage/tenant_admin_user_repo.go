@@ -56,11 +56,18 @@ func (s *Store) ListTenantAdminUsers(ctx context.Context, tenantSlug string, que
 
 	rows, err := s.pool.Query(ctx, `
 		SELECT u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'tenant_member'),
-		       COALESCE(u.active, true), u.created_at, u.updated_at
+		       COALESCE(u.active, true), u.created_at, u.updated_at,
+		       COALESCE(
+		         ARRAY_AGG(r.name ORDER BY r.name) FILTER (WHERE urb.is_active = true AND r.name IS NOT NULL),
+		         '{}'
+		       ) AS roles
 		FROM users u
 		JOIN tenants t ON t.tenant_id = u.tenant_id
+		LEFT JOIN user_role_bindings urb ON urb.tenant_id = u.tenant_id AND urb.user_id = u.user_id
+		LEFT JOIN roles r ON r.tenant_id = u.tenant_id AND r.role_id = urb.role_id
 		WHERE t.slug = $1
 		  AND ($2 = '' OR LOWER(COALESCE(u.email, '')) LIKE $3 OR LOWER(COALESCE(u.mobile, '')) LIKE $3 OR LOWER(COALESCE(u.user_alias, '')) LIKE $3)
+		GROUP BY u.user_id, t.slug, u.email, u.mobile, u.role, u.active, u.created_at, u.updated_at
 		ORDER BY u.updated_at DESC, u.created_at DESC
 		LIMIT $4 OFFSET $5
 	`, tenantSlug, query, like, limit, offset)
@@ -74,7 +81,8 @@ func (s *Store) ListTenantAdminUsers(ctx context.Context, tenantSlug string, que
 		var item platform.TenantAdminUser
 		var email, mobile, role string
 		var active bool
-		if err := rows.Scan(&item.ID, &item.TenantSlug, &email, &mobile, &role, &active, &item.CreatedAt, &item.UpdatedAt); err != nil {
+		var roles []string
+		if err := rows.Scan(&item.ID, &item.TenantSlug, &email, &mobile, &role, &active, &item.CreatedAt, &item.UpdatedAt, &roles); err != nil {
 			return nil, 0, err
 		}
 		if email != "" {
@@ -84,6 +92,11 @@ func (s *Store) ListTenantAdminUsers(ctx context.Context, tenantSlug string, que
 			item.Mobile = mobile
 		}
 		item.Role = role
+		if len(roles) > 0 {
+			item.Roles = roles
+		} else if role != "" {
+			item.Roles = []string{role}
+		}
 		item.Active = active
 		items = append(items, item)
 	}
