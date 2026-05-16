@@ -49,6 +49,7 @@ type TenantAdminUser = {
   email?: string;
   mobile?: string;
   role: string;
+  roles?: string[];
   active: boolean;
   last_login_at?: string;
   created_at: string;
@@ -70,6 +71,20 @@ type InviteResponse = {
     role?: string;
   };
 };
+
+type RoleDefinition = {
+  id: string;
+  name: string;
+  display_name: string;
+  description?: string;
+  is_system: boolean;
+};
+
+type RoleListResponse = {
+  data?: RoleDefinition[];
+};
+
+const hiddenRolesInUI = new Set(["proxy_admin"]);
 
 type Banner = {
   kind: "success" | "error";
@@ -94,6 +109,11 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   const [isLoading, setIsLoading] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
   const [isUpdatingUserID, setIsUpdatingUserID] = useState<string | null>(null);
+  const [isAssigningRoleUserID, setIsAssigningRoleUserID] = useState<string | null>(null);
+  const [availableRoles, setAvailableRoles] = useState<RoleDefinition[]>([]);
+  const [roleFormOpen, setRoleFormOpen] = useState(false);
+  const [selectedUserForRole, setSelectedUserForRole] = useState<TenantAdminUser | null>(null);
+  const [selectedRoleName, setSelectedRoleName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("tenant_member");
   const [banner, setBanner] = useState<Banner | null>(
@@ -115,6 +135,10 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
+  useEffect(() => {
+    void loadRoles();
+  }, []);
+
   const from = total === 0 ? 0 : offset + 1;
   const to = Math.min(offset + users.length, total);
   const canPrev = offset > 0;
@@ -127,7 +151,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       { href: "#", label: t("tabs.externalAuth"), icon: ShieldCheck, active: false },
       { href: "/personal-access-tokens", label: t("tabs.personalAccessTokens"), icon: KeyRound, active: false },
       { href: "#", label: t("tabs.virtualAccounts"), icon: BriefcaseBusiness, active: false },
-      { href: "#", label: t("tabs.roles"), icon: BadgeCheck, active: false },
+      { href: "/roles", label: t("tabs.roles"), icon: BadgeCheck, active: false },
       { href: "#", label: t("tabs.auditLogs"), icon: ShieldCheck, active: false },
     ],
     [t],
@@ -153,6 +177,15 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       });
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function loadRoles() {
+    try {
+      const data = await requestJSON<RoleListResponse>("/api/roles?limit=200&offset=0");
+      setAvailableRoles((data.data ?? []).filter((role) => !hiddenRolesInUI.has(role.name)));
+    } catch {
+      // Ignore role loading failure for users table.
     }
   }
 
@@ -217,6 +250,63 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
     } finally {
       setIsUpdatingUserID(null);
     }
+  }
+
+  async function assignRole(user: TenantAdminUser, roleName: string) {
+    const email = (user.email ?? "").trim();
+    if (!email) {
+      setBanner({ kind: "error", message: t("messages.roleAssignmentNeedsEmail") });
+      return;
+    }
+    setIsAssigningRoleUserID(user.id);
+    setBanner(null);
+    try {
+      await requestJSON("/api/users/roles", {
+        method: "PATCH",
+        body: JSON.stringify({
+          email,
+          roles: [roleName],
+          resourceType: "tenant",
+        }),
+      });
+      setBanner({ kind: "success", message: t("messages.roleAssignmentSuccess") });
+      await loadUsers(offset, query.trim());
+    } catch (error) {
+      setBanner({
+        kind: "error",
+        message: normalizeError(error, t("messages.roleAssignmentError")),
+      });
+    } finally {
+      setIsAssigningRoleUserID(null);
+    }
+  }
+
+  function openRoleForm(user: TenantAdminUser) {
+    const currentRole = (user.roles?.[0] ?? user.role ?? "").trim();
+    setSelectedUserForRole(user);
+    setSelectedRoleName(currentRole);
+    setRoleFormOpen(true);
+  }
+
+  async function submitRoleForm(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedUserForRole || !selectedRoleName) return;
+    await assignRole(selectedUserForRole, selectedRoleName);
+    setRoleFormOpen(false);
+    setSelectedUserForRole(null);
+  }
+
+  function resolveRoleDisplayName(roleName: string) {
+    const normalized = roleName.trim().toLowerCase();
+    const match = availableRoles.find((item) => item.name.trim().toLowerCase() === normalized);
+    if (match?.display_name?.trim()) {
+      return match.display_name;
+    }
+    if (normalized === "tenant_admin") return t("roles.tenantAdmin");
+    if (normalized === "tenant_member" || normalized === "team_member" || normalized === "tenant_user") {
+      return t("roles.member");
+    }
+    return roleName;
   }
 
   return (
@@ -352,6 +442,8 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
                 const identity = user.email || user.mobile || user.id;
                 const displayName = guessDisplayName(identity);
                 const active = user.active && user.role !== "deactivated";
+                const effectiveRole = user.roles?.[0] ?? user.role;
+                const effectiveRoleLabel = resolveRoleDisplayName(effectiveRole);
 
                 return (
                   <TableRow key={user.id}>
@@ -366,11 +458,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
                     </TableCell>
                     <TableCell>
                       <Badge variant={active ? "secondary" : "outline"}>
-                        {active
-                          ? user.role === "tenant_admin"
-                            ? t("roles.tenantAdmin")
-                            : t("roles.member")
-                          : t("status.deactivated")}
+                        {active ? effectiveRoleLabel : t("status.deactivated")}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -385,6 +473,12 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            disabled={!user.email || availableRoles.length === 0 || isAssigningRoleUserID === user.id}
+                            onClick={() => openRoleForm(user)}
+                          >
+                            {t("actions.changeRole")}
+                          </DropdownMenuItem>
                           {active ? (
                             <DropdownMenuItem onClick={() => void changeUserStatus(user.id, false)}>
                               {t("actions.deactivate")}
@@ -431,6 +525,49 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
           </div>
         </div>
       </section>
+
+      <Sheet open={roleFormOpen} onOpenChange={setRoleFormOpen}>
+        <SheetContent side="right" className="w-[94vw] max-w-lg">
+          <SheetHeader>
+            <SheetTitle>{t("roleForm.title")}</SheetTitle>
+            <SheetDescription>
+              {selectedUserForRole?.email ?? selectedUserForRole?.mobile ?? selectedUserForRole?.id ?? ""}
+            </SheetDescription>
+          </SheetHeader>
+          <form className="mt-6 space-y-4" onSubmit={submitRoleForm}>
+            <div className="max-h-[56vh] space-y-3 overflow-auto pr-1">
+              {availableRoles.map((role) => (
+                <label key={role.id} className="block cursor-pointer rounded-md border p-3">
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="radio"
+                      name="role"
+                      value={role.name}
+                      checked={selectedRoleName === role.name}
+                      onChange={(event) => setSelectedRoleName(event.target.value)}
+                      className="mt-1"
+                    />
+                    <div>
+                      <p className="text-sm font-semibold">{role.display_name || role.name}</p>
+                      <p className="text-xs text-muted-foreground">{role.name}</p>
+                      {role.description?.trim() ? (
+                        <p className="mt-1 text-xs text-muted-foreground">{role.description}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </div>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={!selectedUserForRole || !selectedRoleName || isAssigningRoleUserID === selectedUserForRole?.id}
+            >
+              {isAssigningRoleUserID === selectedUserForRole?.id ? t("roleForm.submitting") : t("roleForm.submit")}
+            </Button>
+          </form>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import AdminShell from "@/app/components/admin-shell";
 import UsersAccessManagement from "@/app/components/users-access-management";
+import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 
@@ -27,6 +28,7 @@ export const dynamic = "force-dynamic";
 export default async function UsersPage() {
   const auth = await requireAuth("/login?next=/users");
   const tenantSlug = auth.tenantSlug;
+  await requirePermissionOr403(tenantSlug, auth.user.id, ["user:list"]);
 
   const usersResult = await fetchControlPlaneJSON({
     tenantSlug,

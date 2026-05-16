@@ -13,6 +13,7 @@ export async function GET(
 
   const result = await fetchControlPlaneJSON({
     tenantSlug,
+    userID: auth.user.id,
     method: "GET",
     path: `/api/v1/teams/${teamID}/permissions`,
   });
@@ -39,6 +40,7 @@ export async function PATCH(
 
   const result = await fetchControlPlaneJSON({
     tenantSlug,
+    userID: auth.user.id,
     method: "PATCH",
     path: `/api/v1/teams/${teamID}/permissions`,
     body,
@@ -53,4 +55,5 @@ export async function PATCH(
 
   return NextResponse.json(result.payload);
 }
+
 

@@ -1,5 +1,6 @@
 import AdminShell from "@/app/components/admin-shell";
 import VirtualModelManagement from "@/app/components/virtual-model-management";
+import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
@@ -7,6 +8,11 @@ export const dynamic = "force-dynamic";
 export default async function VirtualModelsPage() {
   const auth = await requireAuth("/login?next=/virtual-models");
   const tenantSlug = auth.tenantSlug;
+  await requirePermissionOr403(tenantSlug, auth.user.id, [
+    "virtual_account:read",
+    "virtual_account:manage",
+    "virtual_account:create",
+  ]);
 
   const currentUser = {
     id: auth.user.id,
@@ -21,4 +27,3 @@ export default async function VirtualModelsPage() {
     </AdminShell>
   );
 }
-

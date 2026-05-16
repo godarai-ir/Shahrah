@@ -1,5 +1,6 @@
 import AdminShell from "@/app/components/admin-shell";
 import TopUpPanel from "@/app/components/topup-panel";
+import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 
@@ -54,6 +55,7 @@ type TransactionListPayload = {
 export default async function TopUpPage() {
   const auth = await requireAuth("/login?next=/billing/topup");
   const tenantSlug = auth.tenantSlug;
+  await requirePermissionOr403(tenantSlug, auth.user.id, ["settings:list"]);
 
   let initialError: string | null = null;
   let initialWallet: Wallet | null = null;

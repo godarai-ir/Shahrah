@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -20,6 +21,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { canAnyPermission, type MePermissionsResponse } from "@/lib/authz";
 import { cn } from "@/lib/utils";
 
 type AdminShellProps = {
@@ -31,6 +33,14 @@ type AdminShellProps = {
     mobile?: string;
     role: string;
   };
+};
+
+type NavItem = {
+  href: string;
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  isActive: boolean;
+  requiredPermissions: string[];
 };
 
 function getInitials(input: string) {
@@ -58,106 +68,143 @@ export default function AdminShell({
 }: AdminShellProps) {
   const pathname = usePathname();
   const t = useTranslations("shell");
+  const [permissions, setPermissions] = useState<string[] | null>(null);
 
   const userIdentity =
     currentUser.email ?? currentUser.mobile ?? currentUser.id;
 
-  const navItems = [
+  useEffect(() => {
+    let mounted = true;
+    async function loadPermissions() {
+      try {
+        const response = await fetch("/api/me/permissions", { cache: "no-store" });
+        if (!response.ok) {
+          if (mounted) setPermissions([]);
+          return;
+        }
+        const payload = (await response.json()) as MePermissionsResponse;
+        if (mounted) {
+          setPermissions((payload.permissions ?? []).map((item) => item.trim().toLowerCase()));
+        }
+      } catch {
+        if (mounted) setPermissions([]);
+      }
+    }
+    void loadPermissions();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const navItems: NavItem[] = useMemo(() => [
     {
       href: "/",
       title: t("nav.dashboard"),
       icon: LayoutDashboard,
       isActive: pathname === "/",
+      requiredPermissions: ["settings:list"],
     },
     {
       href: "/billing/topup",
       title: t("nav.topup"),
       icon: CreditCard,
       isActive: pathname.startsWith("/billing/topup"),
+      requiredPermissions: ["settings:list"],
     },
     {
       href: "/provider-accounts",
       title: t("nav.providerAccounts"),
       icon: ShieldCheck,
       isActive: pathname.startsWith("/provider-accounts"),
+      requiredPermissions: ["provider_account:read", "provider_account:manage", "provider_account:create"],
     },
     {
       href: "/virtual-models",
       title: t("nav.virtualModels"),
       icon: Route,
       isActive: pathname.startsWith("/virtual-models"),
+      requiredPermissions: ["virtual_account:read", "virtual_account:manage", "virtual_account:create"],
     },
     {
       href: "/users",
       title: t("nav.accessManagement"),
       icon: Users,
-      isActive: pathname.startsWith("/users"),
+      isActive: pathname.startsWith("/users") || pathname.startsWith("/roles"),
+      requiredPermissions: ["user:list", "role:list"],
     },
     {
       href: "/traces",
       title: t("nav.traces"),
       icon: Activity,
       isActive: pathname.startsWith("/traces"),
+      requiredPermissions: ["settings:list"],
     },
     {
       href: "/metrics",
       title: t("nav.metrics"),
       icon: BarChart3,
       isActive: pathname.startsWith("/metrics"),
+      requiredPermissions: ["settings:list"],
     },
     {
       href: "/teams",
       title: t("nav.teams"),
       icon: Users,
       isActive: pathname.startsWith("/teams"),
+      requiredPermissions: ["team:read", "team:manage"],
     },
     {
       href: "/org-units",
       title: t("nav.orgUnits"),
       icon: Building2,
       isActive: pathname.startsWith("/org-units"),
+      requiredPermissions: ["org_unit:list", "org_unit:read"],
     },
     {
       href: "/gateway-policies/rate-limiting-rules",
       title: t("nav.rateLimitPolicies"),
       icon: ShieldCheck,
       isActive: pathname.startsWith("/gateway-policies/rate-limiting-rules"),
+      requiredPermissions: ["policy:list"],
     },
     {
       href: "/gateway-policies/budget-limiting-rules",
       title: t("nav.budgetLimitPolicies"),
       icon: ShieldCheck,
       isActive: pathname.startsWith("/gateway-policies/budget-limiting-rules"),
+      requiredPermissions: ["policy:list"],
     },
     {
       href: "/settings",
       title: t("nav.settings"),
       icon: Settings,
       isActive: pathname.startsWith("/settings"),
+      requiredPermissions: ["settings:list"],
     },
-  ];
+  ], [pathname, t]);
 
-  const currentPageLabel = navItems.find((item) => item.isActive)?.title ?? t("nav.dashboard");
+  const visibleNavItems = useMemo(() => {
+    if (permissions === null) return [];
+    return navItems.filter((item) => canAnyPermission(permissions, item.requiredPermissions));
+  }, [navItems, permissions]);
+
+  const currentPageLabel = visibleNavItems.find((item) => item.isActive)?.title ?? t("nav.dashboard");
 
   return (
     <div className="min-h-screen bg-background app-background">
       <div className="grid min-h-screen lg:grid-cols-[280px_1fr]">
-        {/* Desktop Sidebar */}
         <aside className="hidden lg:block">
           <SidebarContent
             tenantSlug={tenantSlug}
             currentUser={currentUser}
             userIdentity={userIdentity}
-            navItems={navItems}
+            navItems={visibleNavItems}
           />
         </aside>
 
-        {/* Main Content Area */}
         <div className="min-w-0">
-          {/* Mobile + Desktop Header */}
           <header className="sticky top-0 z-sticky border-b bg-background/80 px-4 py-3 backdrop-blur md:px-6">
             <div className="flex items-center gap-2 md:gap-3">
-              {/* Mobile Menu Trigger */}
               <Sheet>
                 <SheetTrigger asChild>
                   <Button variant="outline" size="icon" className="lg:hidden" aria-label={t("menu.open")}>
@@ -174,19 +221,17 @@ export default function AdminShell({
                     tenantSlug={tenantSlug}
                     currentUser={currentUser}
                     userIdentity={userIdentity}
-                    navItems={navItems}
+                    navItems={visibleNavItems}
                     className="border-none"
                   />
                 </SheetContent>
               </Sheet>
 
-              {/* Page Title */}
               <div className="min-w-0 flex-1">
                 <p className="text-xs text-muted-foreground">{t("tenant")}</p>
                 <h1 className="truncate text-base font-semibold md:text-lg">{currentPageLabel}</h1>
               </div>
 
-              {/* Search Bar — Desktop Only */}
               <div className="hidden w-full max-w-sm items-center gap-2 md:flex">
                 <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                 <Input
@@ -196,12 +241,10 @@ export default function AdminShell({
                 />
               </div>
 
-              {/* Theme Toggle */}
               <ThemeToggle />
             </div>
           </header>
 
-          {/* Page Content */}
           <main className="p-4 md:p-6">
             <div className="mx-auto w-full max-w-7xl animate-fade-in">{children}</div>
           </main>
@@ -218,12 +261,7 @@ type SidebarContentProps = {
   currentUser: {
     role: string;
   };
-  navItems: Array<{
-    href: string;
-    title: string;
-    icon: React.ComponentType<{ className?: string }>;
-    isActive: boolean;
-  }>;
+  navItems: NavItem[];
 };
 
 function SidebarContent({
@@ -237,7 +275,6 @@ function SidebarContent({
 
   return (
     <div className={cn("flex h-full flex-col bg-sidebar p-4", className)}>
-      {/* Brand Header */}
       <div className="flex items-center gap-3 rounded-xl border border-sidebar-border bg-sidebar p-3 shadow-xs">
         <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border border-sidebar-border bg-sidebar-accent p-1.5">
           <Image
@@ -255,7 +292,6 @@ function SidebarContent({
         </div>
       </div>
 
-      {/* Navigation */}
       <nav className="mt-6 grid gap-1.5" aria-label={t("nav.title")}>
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -280,10 +316,8 @@ function SidebarContent({
         })}
       </nav>
 
-      {/* Spacer */}
       <div className="flex-1" />
 
-      {/* User Profile Card */}
       <Separator className="my-4" />
 
       <div className="rounded-xl border border-sidebar-border bg-sidebar p-3 shadow-xs">

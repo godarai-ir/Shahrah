@@ -11,6 +11,7 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 // GetKeyByHash retrieves a key by its hashed token.
@@ -97,6 +98,45 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 	}
 
 	return &auth, nil
+}
+
+// ResolveTenantUserAuth builds an auth context for a tenant-bound user.
+// This is used when tenant-admin calls control-plane with master key + x-shahrah-user-id.
+func (s *Store) ResolveTenantUserAuth(ctx context.Context, tenantID string, userID string) (*platform.AuthContext, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	userID = strings.TrimSpace(userID)
+	if tenantID == "" || userID == "" {
+		return nil, fmt.Errorf("tenantID and userID are required")
+	}
+
+	var role string
+	var active bool
+	if err := s.pool.QueryRow(ctx, `
+		SELECT COALESCE(role, 'tenant_user'), COALESCE(active, true)
+		FROM users
+		WHERE tenant_id = $1::uuid AND user_id = $2::uuid
+		LIMIT 1
+	`, tenantID, userID).Scan(&role, &active); err != nil {
+		return nil, err
+	}
+	if !active || strings.EqualFold(role, "deactivated") {
+		return nil, pgx.ErrNoRows
+	}
+
+	resolvedRoles, _, err := s.GetEffectivePermissionsForUser(ctx, tenantID, userID, role)
+	if err != nil {
+		return nil, err
+	}
+	effectiveRole := role
+	if len(resolvedRoles) > 0 {
+		effectiveRole = derivePrimaryRole(resolvedRoles)
+	}
+
+	return &platform.AuthContext{
+		TenantID: tenantID,
+		UserID:   userID,
+		Role:     strings.TrimSpace(strings.ToLower(effectiveRole)),
+	}, nil
 }
 
 type runtimeAllowedModelPolicy struct {

@@ -13,6 +13,7 @@ export async function GET(
 
   const result = await fetchControlPlaneJSON({
     tenantSlug,
+    userID: auth.user.id,
     method: "GET",
     path: `/api/v1/org-units/${orgUnitID}`,
   });
@@ -40,6 +41,7 @@ export async function PATCH(
 
   const result = await fetchControlPlaneJSON({
     tenantSlug,
+    userID: auth.user.id,
     method: "PATCH",
     path: `/api/v1/org-units/${orgUnitID}`,
     body,
@@ -66,6 +68,7 @@ export async function DELETE(
 
   const result = await fetchControlPlaneJSON({
     tenantSlug,
+    userID: auth.user.id,
     method: "DELETE",
     path: `/api/v1/org-units/${orgUnitID}`,
   });
@@ -79,3 +82,4 @@ export async function DELETE(
 
   return new NextResponse(null, { status: 204 });
 }
+

@@ -74,3 +74,29 @@ func TestCheckRouteAuthorization_TeamMemberDeniedOnTeamMembershipRoutes(t *testi
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "team admin")
 }
+
+func TestCheckRouteAuthorization_TenantAdminAllowedOnRoleRoutes(t *testing.T) {
+	err := auth.CheckRouteAuthorization("GET", "/api/v1/roles", &platform.AuthContext{
+		Role: "tenant_admin",
+	})
+	assert.NoError(t, err)
+
+	err = auth.CheckRouteAuthorization("PATCH", "/api/v1/users/roles", &platform.AuthContext{
+		Role: "tenant_admin",
+	})
+	assert.NoError(t, err)
+}
+
+func TestCheckRouteAuthorization_TeamAdminDeniedOnRoleRoutes(t *testing.T) {
+	err := auth.CheckRouteAuthorization("POST", "/api/v1/roles", &platform.AuthContext{
+		Role: "team_admin",
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "tenant admin")
+
+	err = auth.CheckRouteAuthorization("PATCH", "/api/v1/users/roles", &platform.AuthContext{
+		Role: "team_admin",
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "tenant admin")
+}

@@ -15,6 +15,7 @@ export async function PATCH(
 
   const result = await fetchControlPlaneJSON({
     tenantSlug,
+    userID: auth.user.id,
     method: "PATCH",
     path: `/api/v1/org-units/${orgUnitID}/members/${userID}`,
     body,
@@ -41,6 +42,7 @@ export async function DELETE(
 
   const result = await fetchControlPlaneJSON({
     tenantSlug,
+    userID: auth.user.id,
     method: "DELETE",
     path: `/api/v1/org-units/${orgUnitID}/members/${userID}`,
   });
@@ -54,3 +56,4 @@ export async function DELETE(
 
   return new NextResponse(null, { status: 204 });
 }
+

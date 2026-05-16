@@ -1,5 +1,6 @@
 import AdminShell from "@/app/components/admin-shell";
 import PersonalAccessTokenManagement from "@/app/components/personal-access-token-management";
+import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 
@@ -29,6 +30,7 @@ export const dynamic = "force-dynamic";
 export default async function PersonalAccessTokensPage() {
   const auth = await requireAuth("/login?next=/personal-access-tokens");
   const tenantSlug = auth.tenantSlug;
+  await requirePermissionOr403(tenantSlug, auth.user.id, ["settings:list"]);
 
   const [patsResult, modelsResult] = await Promise.all([
     fetchControlPlaneJSON({

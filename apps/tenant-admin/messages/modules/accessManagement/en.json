@@ -37,8 +37,14 @@
     "deactivated": "Deactivated"
   },
   "actions": {
+    "changeRole": "Change Role",
     "activate": "Activate",
     "deactivate": "Deactivate"
+  },
+  "roleForm": {
+    "title": "Change User Role",
+    "submit": "Update Role",
+    "submitting": "Updating..."
   },
   "pagination": {
     "showingResults": "Showing {from} to {to} of {total} results",
@@ -59,6 +65,40 @@
     "inviteError": "Failed to invite user.",
     "activateSuccess": "User activated.",
     "deactivateSuccess": "User deactivated.",
-    "updateStatusError": "Failed to update user status."
+    "updateStatusError": "Failed to update user status.",
+    "roleAssignmentNeedsEmail": "This user has no email; role assignment by email is not possible.",
+    "roleAssignmentSuccess": "User role updated successfully.",
+    "roleAssignmentError": "Failed to update user role.",
+    "roleCreated": "Role created successfully.",
+    "roleCreateError": "Failed to create role.",
+    "roleUpdated": "Role updated successfully.",
+    "roleUpdateError": "Failed to update role."
+  },
+  "rolesPage": {
+    "createTitle": "Create Custom Role",
+    "listTitle": "Roles",
+    "systemRole": "System",
+    "customRole": "Custom",
+    "form": {
+      "name": "Role name (slug)",
+      "displayName": "Display name",
+      "description": "Description",
+      "create": "Create Role",
+      "creating": "Creating..."
+    },
+    "table": {
+      "name": "NAME",
+      "displayName": "DISPLAY NAME",
+      "scope": "TYPE",
+      "permissions": "PERMISSIONS",
+      "actions": "ACTIONS",
+      "empty": "No roles found."
+    },
+    "actions": {
+      "edit": "Edit",
+      "save": "Save",
+      "cancel": "Cancel",
+      "protected": "Protected"
+    }
   }
 }

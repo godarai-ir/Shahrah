@@ -1,5 +1,6 @@
 import AdminShell from "@/app/components/admin-shell";
 import TeamManagement from "@/app/components/team-management";
+import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 
@@ -38,17 +39,20 @@ export const dynamic = "force-dynamic";
 export default async function TeamsPage() {
   const auth = await requireAuth("/login?next=/teams");
   const tenantSlug = auth.tenantSlug;
+  await requirePermissionOr403(tenantSlug, auth.user.id, ["team:read", "team:manage"]);
 
   const [teamsResult, orgUnitsResult, allowedModelsResult] = await Promise.all([
     fetchControlPlaneJSON({
       tenantSlug,
       method: "GET",
       path: "/api/v1/teams?limit=25&offset=0",
+      userID: auth.user.id,
     }),
     fetchControlPlaneJSON({
       tenantSlug,
       method: "GET",
       path: "/api/v1/org-units?limit=200&offset=0",
+      userID: auth.user.id,
     }),
     fetchControlPlaneJSON({
       tenantSlug,

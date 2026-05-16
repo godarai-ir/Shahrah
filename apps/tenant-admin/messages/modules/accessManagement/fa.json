@@ -1,64 +1,104 @@
 {
-  "title": "مدیریت دسترسی",
+  "title": "Access Management",
   "tabs": {
-    "users": "کاربران",
-    "teams": "تیم‌ها",
-    "externalAuth": "احراز هویت خارجی",
-    "personalAccessTokens": "توکن‌های دسترسی شخصی",
-    "virtualAccounts": "حساب‌های مجازی",
-    "roles": "نقش‌ها",
-    "auditLogs": "تاریخچه حسابرسی"
+    "users": "Users",
+    "teams": "Teams",
+    "externalAuth": "External Auth",
+    "personalAccessTokens": "Personal Access Tokens",
+    "virtualAccounts": "Virtual Accounts",
+    "roles": "Roles",
+    "auditLogs": "Audit Logs"
   },
-  "allUsers": "همه کاربران",
-  "searchPlaceholder": "جستجو...",
-  "inviteUser": "دعوت کاربر",
-  "inviteTitle": "دعوت کاربر",
-  "inviteDescription": "کاربر را با ایمیل به این تننت دعوت کنید.",
+  "allUsers": "ALL USERS",
+  "searchPlaceholder": "Search...",
+  "inviteUser": "Invite User",
+  "inviteTitle": "Invite User",
+  "inviteDescription": "Invite user with email to this tenant.",
   "form": {
-    "email": "ایمیل",
+    "email": "Email",
     "emailPlaceholder": "user@company.com",
-    "role": "نقش"
+    "role": "Role"
   },
   "roles": {
-    "member": "عضو",
-    "tenantAdmin": "مدیر تننت"
+    "member": "Member",
+    "tenantAdmin": "Tenant Admin"
   },
   "button": {
-    "createInvite": "ایجاد دعوت",
-    "inviting": "در حال دعوت..."
+    "createInvite": "Create Invite",
+    "inviting": "Inviting..."
   },
   "table": {
-    "emailMobile": "ایمیل / شماره همراه",
-    "displayName": "نام نمایشی",
-    "role": "نقش",
-    "noUsersFound": "کاربری یافت نشد."
+    "emailMobile": "EMAIL / MOBILE",
+    "displayName": "DISPLAY NAME",
+    "role": "ROLE",
+    "noUsersFound": "No users found."
   },
   "status": {
-    "deactivated": "غیرفعال"
+    "deactivated": "Deactivated"
   },
   "actions": {
-    "activate": "فعال کردن",
-    "deactivate": "غیرفعال کردن"
+    "changeRole": "Change Role",
+    "activate": "Activate",
+    "deactivate": "Deactivate"
+  },
+  "roleForm": {
+    "title": "Change User Role",
+    "submit": "Update Role",
+    "submitting": "Updating..."
   },
   "pagination": {
-    "showingResults": "نمایش {from} تا {to} از {total} نتیجه",
-    "rowsPerPage": "سطر در هر صفحه",
-    "page": "صفحه",
-    "prev": "قبلی",
-    "next": "بعدی"
+    "showingResults": "Showing {from} to {to} of {total} results",
+    "rowsPerPage": "Rows per page",
+    "page": "Page",
+    "prev": "Prev",
+    "next": "Next"
   },
   "alerts": {
-    "invitationLink": "لینک دعوت",
-    "error": "خطا",
-    "success": "موفق"
+    "invitationLink": "Invitation Link",
+    "error": "Error",
+    "success": "Success"
   },
   "messages": {
-    "loadUsersError": "بارگیری کاربران ناموفق بود.",
-    "provideEmail": "ارائه ایمیل برای دعوت الزامی است.",
-    "invitationSuccess": "دعوت کاربر با موفقیت ایجاد شد.",
-    "inviteError": "دعوت کاربر ناموفق بود.",
-    "activateSuccess": "کاربر فعال شد.",
-    "deactivateSuccess": "کاربر غیرفعال شد.",
-    "updateStatusError": "به‌روزرسانی وضعیت کاربر ناموفق بود."
+    "loadUsersError": "Failed to load users.",
+    "provideEmail": "Email is required for invitation.",
+    "invitationSuccess": "Invitation created successfully.",
+    "inviteError": "Failed to invite user.",
+    "activateSuccess": "User activated.",
+    "deactivateSuccess": "User deactivated.",
+    "updateStatusError": "Failed to update user status.",
+    "roleAssignmentNeedsEmail": "This user has no email; role assignment by email is not possible.",
+    "roleAssignmentSuccess": "User role updated successfully.",
+    "roleAssignmentError": "Failed to update user role.",
+    "roleCreated": "Role created successfully.",
+    "roleCreateError": "Failed to create role.",
+    "roleUpdated": "Role updated successfully.",
+    "roleUpdateError": "Failed to update role."
+  },
+  "rolesPage": {
+    "createTitle": "Create Custom Role",
+    "listTitle": "Roles",
+    "systemRole": "System",
+    "customRole": "Custom",
+    "form": {
+      "name": "Role name (slug)",
+      "displayName": "Display name",
+      "description": "Description",
+      "create": "Create Role",
+      "creating": "Creating..."
+    },
+    "table": {
+      "name": "NAME",
+      "displayName": "DISPLAY NAME",
+      "scope": "TYPE",
+      "permissions": "PERMISSIONS",
+      "actions": "ACTIONS",
+      "empty": "No roles found."
+    },
+    "actions": {
+      "edit": "Edit",
+      "save": "Save",
+      "cancel": "Cancel",
+      "protected": "Protected"
+    }
   }
 }

@@ -1,5 +1,6 @@
 import AdminShell from "@/app/components/admin-shell";
 import TraceManagement from "@/app/components/trace-management";
+import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 
@@ -28,6 +29,7 @@ export const dynamic = "force-dynamic";
 export default async function TracesPage() {
   const auth = await requireAuth("/login?next=/traces");
   const tenantSlug = auth.tenantSlug;
+  await requirePermissionOr403(tenantSlug, auth.user.id, ["settings:list"]);
 
   const tracesResult = await fetchControlPlaneJSON({
     tenantSlug,

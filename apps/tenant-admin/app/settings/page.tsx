@@ -1,6 +1,7 @@
 import ProfileSettings from "@/app/components/profile-settings";
 import TracePrivacySettingsPanel from "@/app/components/trace-privacy-settings";
 import AdminShell from "@/app/components/admin-shell";
+import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 
@@ -9,6 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function SettingsPage() {
   const auth = await requireAuth("/login?next=/settings");
   const tenantSlug = auth.tenantSlug;
+  await requirePermissionOr403(tenantSlug, auth.user.id, ["settings:list"]);
   const tracePrivacyResult = await fetchControlPlaneJSON({
     tenantSlug,
     method: "GET",

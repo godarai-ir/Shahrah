@@ -1139,6 +1139,14 @@ func (noopKeyStore) RevokeAllPATs(ctx context.Context, tenantID string, userID s
 	return 0, nil
 }
 
+func (noopKeyStore) ResolveTenantUserAuth(ctx context.Context, tenantID string, userID string) (*platform.AuthContext, error) {
+	return &platform.AuthContext{
+		TenantID: tenantID,
+		UserID:   userID,
+		Role:     "tenant_admin",
+	}, nil
+}
+
 type integrationKeyStore struct {
 	mu                 sync.RWMutex
 	nextID             int
@@ -1166,6 +1174,21 @@ func (s *integrationKeyStore) GetKeyByHash(ctx context.Context, hash string) (*p
 	}
 	copy := *info
 	return &copy, nil
+}
+
+func (s *integrationKeyStore) ResolveTenantUserAuth(ctx context.Context, tenantID string, userID string) (*platform.AuthContext, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	role := "tenant_user"
+	if strings.TrimSpace(userID) == "tenant-user-1" {
+		role = "tenant_admin"
+	}
+	return &platform.AuthContext{
+		TenantID: tenantID,
+		UserID:   strings.TrimSpace(userID),
+		Role:     role,
+	}, nil
 }
 
 func (s *integrationKeyStore) CreateKey(ctx context.Context, params platform.CreateKeyParams) (*platform.CreatedKey, error) {

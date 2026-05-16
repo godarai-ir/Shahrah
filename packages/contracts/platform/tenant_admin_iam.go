@@ -9,6 +9,7 @@ type TenantAdminUser struct {
 	Email       string     `json:"email,omitempty"`
 	Mobile      string     `json:"mobile,omitempty"`
 	Role        string     `json:"role"`
+	Roles       []string   `json:"roles,omitempty"`
 	Active      bool       `json:"active"`
 	LastLoginAt *time.Time `json:"last_login_at,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`

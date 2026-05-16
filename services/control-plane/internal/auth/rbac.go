@@ -101,6 +101,8 @@ func CheckRouteAuthorization(method string, route string, authInfo *platform.Aut
 	}
 
 	switch {
+	case normalizedRoute == "/api/v1/me/permissions":
+		return nil
 	case strings.HasPrefix(normalizedRoute, "/api/v1/org-units"):
 		return requireTenantAdmin(authInfo)
 	case strings.HasPrefix(normalizedRoute, "/api/v1/teams/") && strings.Contains(normalizedRoute, "/members"):
@@ -118,6 +120,10 @@ func CheckRouteAuthorization(method string, route string, authInfo *platform.Aut
 		return requireTenantAdmin(authInfo)
 	case strings.HasPrefix(normalizedRoute, "/api/v1/access-principals"):
 		return requireTeamAdmin(authInfo)
+	case strings.HasPrefix(normalizedRoute, "/api/v1/roles"):
+		return requireTenantAdmin(authInfo)
+	case normalizedRoute == "/api/v1/users/roles":
+		return requireTenantAdmin(authInfo)
 	case normalizedRoute == "/api/v1/users/invitations/accept":
 		return requireTenantAdmin(authInfo)
 	case strings.HasPrefix(normalizedRoute, "/api/v1/users"):

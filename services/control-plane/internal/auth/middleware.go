@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
 )
@@ -22,6 +23,7 @@ var ErrInvalidAPIKey = errors.New("invalid API key")
 // KeyStore defines the interface for API key lookup.
 type KeyStore interface {
 	GetKeyByHash(ctx context.Context, hash string) (*platform.AuthContext, error)
+	ResolveTenantUserAuth(ctx context.Context, tenantID string, userID string) (*platform.AuthContext, error)
 }
 
 type keyLastUsedTracker interface {
@@ -80,9 +82,22 @@ func (m *AuthMiddleware) Middleware() fiber.Handler {
 
 		// Check master key
 		if m.masterKey != "" && apiKey == m.masterKey {
-			c.Locals(AuthContextKey{}, &platform.AuthContext{
+			resolved := &platform.AuthContext{
 				Role: roleProxyAdmin,
-			})
+			}
+			userID := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+			if userID != "" {
+				currentTenant := tenant.FromContext(c)
+				if currentTenant != nil {
+					userCtx, err := m.keyStore.ResolveTenantUserAuth(c.Context(), currentTenant.ID, userID)
+					if err == nil && userCtx != nil {
+						resolved = userCtx
+					} else if err != nil {
+						m.logger.Debug("failed to resolve user auth context for master key request", zap.Error(err), zap.String("tenant_id", currentTenant.ID), zap.String("user_id", userID))
+					}
+				}
+			}
+			c.Locals(AuthContextKey{}, resolved)
 			return c.Next()
 		}
 
