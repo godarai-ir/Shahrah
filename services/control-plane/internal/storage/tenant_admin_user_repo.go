@@ -351,6 +351,8 @@ func (s *Store) AcceptTenantAdminInvitation(ctx context.Context, tenantID string
 	if err := tx.Commit(ctx); err != nil {
 		return nil, nil, err
 	}
+	s.invalidateAuthzCacheForUser(invitation.TenantID, user.ID)
+	s.bumpAuthzTenantEpoch(invitation.TenantID)
 	return &invitation, user, nil
 }
 
@@ -368,7 +370,7 @@ func (s *Store) SetTenantAdminUserActive(ctx context.Context, tenantSlug string,
 		WHERE t.slug = $1
 		  AND u.user_id::text = $2
 		  AND u.tenant_id = t.tenant_id
-		RETURNING u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'member'),
+		RETURNING u.user_id::text, t.tenant_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'member'),
 		          COALESCE(u.active, true), u.created_at, u.updated_at
 	`, tenantSlug, userID, active)
 	if err != nil {
@@ -381,7 +383,8 @@ func (s *Store) SetTenantAdminUserActive(ctx context.Context, tenantSlug string,
 
 	var user platform.TenantAdminUser
 	var email, mobile, role string
-	if err := rows.Scan(&user.ID, &user.TenantSlug, &email, &mobile, &role, &user.Active, &user.CreatedAt, &user.UpdatedAt); err != nil {
+	var tenantID string
+	if err := rows.Scan(&user.ID, &tenantID, &user.TenantSlug, &email, &mobile, &role, &user.Active, &user.CreatedAt, &user.UpdatedAt); err != nil {
 		return nil, err
 	}
 	user.Role = role
@@ -398,6 +401,10 @@ func (s *Store) SetTenantAdminUserActive(ctx context.Context, tenantSlug string,
 		`, tenantSlug, userID); revokeErr != nil {
 			return nil, revokeErr
 		}
+	}
+	if strings.TrimSpace(tenantID) != "" {
+		s.invalidateAuthzCacheForUser(tenantID, user.ID)
+		s.bumpAuthzTenantEpoch(tenantID)
 	}
 	return &user, nil
 }

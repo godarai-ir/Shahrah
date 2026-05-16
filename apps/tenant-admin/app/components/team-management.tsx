@@ -1,22 +1,19 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
   AlertTriangle,
-  ChevronLeft,
-  KeyRound,
   MoreVertical,
   Plus,
   RefreshCw,
   Search,
-  ShieldCheck,
   Trash2,
-  UserCircle2,
   Users,
 } from "lucide-react";
 
+import AccessManagementHeader from "@/app/components/access-management-header";
+import { usePermissions } from "@/app/components/permissions-context";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,6 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { canAnyPermission } from "@/lib/authz";
 import { cn } from "@/lib/utils";
 
 type Team = {
@@ -113,7 +111,7 @@ export default function TeamManagement({
   currentUserRole: string;
 }) {
   const t = useTranslations("teams");
-  const tabT = useTranslations("accessManagement");
+  const permissions = usePermissions() ?? [];
   const [teams, setTeams] = useState(initialTeams);
   const [total, setTotal] = useState(initialTotal);
   const [orgUnits] = useState(initialOrgUnits);
@@ -145,8 +143,10 @@ export default function TeamManagement({
   const [memberPerms, setMemberPerms] = useState<string[]>(DEFAULT_PERMISSIONS);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
-  const canManage = ["tenant_admin", "proxy_admin", "org_admin", "team_admin"].includes(currentUserRole);
-  const canDelete = ["tenant_admin", "proxy_admin", "org_admin"].includes(currentUserRole);
+  const canManage = ["tenant_admin", "proxy_admin", "org_admin", "team_admin"].includes(currentUserRole)
+    || canAnyPermission(permissions, ["team:manage"]);
+  const canCreateTeam = canAnyPermission(permissions, ["team:create"]);
+  const canDelete = canAnyPermission(permissions, ["team:delete"]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -212,11 +212,17 @@ export default function TeamManagement({
   async function loadTeamDetails(teamID: string) {
     setDetailLoading(true);
     try {
-      const [team, memberPayload, userPayload] = await Promise.all([
+      const [team, memberPayload] = await Promise.all([
         requestJSON<Team>(`/api/teams/${encodeURIComponent(teamID)}`),
         requestJSON<ListResponse<TeamMember>>(`/api/teams/${encodeURIComponent(teamID)}/members`),
-        requestJSON<ListResponse<AccessPrincipalCandidate>>("/api/access-principals?kind=user&limit=100"),
       ]);
+      let userPayload: ListResponse<AccessPrincipalCandidate> = { data: [] };
+      try {
+        // Keep member labels visible for read-only users when principal search is permitted.
+        userPayload = await requestJSON<ListResponse<AccessPrincipalCandidate>>("/api/access-principals?kind=user&limit=100");
+      } catch {
+        // Ignore lookup failures so team details and member list still render.
+      }
       setSelectedTeam(team);
       setMembers(memberPayload.data ?? []);
       setUsers(userPayload.data ?? []);
@@ -385,35 +391,8 @@ export default function TeamManagement({
     <div className="space-y-5">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <span>{t("breadcrumb.tenant")}</span>
-            <ChevronLeft className="h-4 w-4" />
-            <span>{tabT("title")}</span>
-            <ChevronLeft className="h-4 w-4" />
-            <span className="text-foreground">{t("title")}</span>
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
+          <AccessManagementHeader activeTab="teams" />
           <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-          <nav className="border-b">
-            <ul className="flex flex-wrap items-center gap-5 pb-2">
-              <li><Link className="inline-flex items-center gap-2 border-b-2 border-transparent px-1 py-2 text-muted-foreground hover:text-foreground" href="/users"><UserCircle2 className="h-4 w-4" /><span className="text-sm font-semibold">{tabT("tabs.users")}</span></Link></li>
-              <li><Link className="inline-flex items-center gap-2 border-b-2 border-indigo-500 px-1 py-2 text-foreground" href="/teams" aria-current="page"><Users className="h-4 w-4" /><span className="text-sm font-semibold">{tabT("tabs.teams")}</span></Link></li>
-              <li><span className="inline-flex items-center gap-2 px-1 py-2 text-sm text-muted-foreground"><ShieldCheck className="h-4 w-4" />{tabT("tabs.roles")}</span></li>
-              <li><span className="inline-flex items-center gap-2 px-1 py-2 text-sm text-muted-foreground"><KeyRound className="h-4 w-4" />{tabT("tabs.personalAccessTokens")}</span></li>
-            </ul>
-          </nav>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" className="gap-2" onClick={() => void loadTeams(offset, query.trim())} disabled={isLoading}>
-            <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />{t("actions.refresh")}
-          </Button>
-          <Sheet open={createOpen} onOpenChange={setCreateOpen}>
-            <Button className="gap-2" onClick={() => { setCreateOpen(true); void loadAllowedModels(); }} disabled={!canManage}><Plus className="h-4 w-4" />{t("actions.new")}</Button>
-            <SheetContent side="right" className="w-[94vw] max-w-xl overflow-y-auto">
-              <SheetHeader><SheetTitle>{t("create.title")}</SheetTitle><SheetDescription>{t("create.description")}</SheetDescription></SheetHeader>
-              <TeamForm t={t} form={form} setForm={setForm} orgUnits={orgUnits} onSubmit={handleCreate} isSaving={isSaving} submitLabel={t("create.submit")} allowedModels={allowedModels} isLoadingAllowedModels={isLoadingAllowedModels} />
-            </SheetContent>
-          </Sheet>
         </div>
       </header>
 
@@ -421,6 +400,22 @@ export default function TeamManagement({
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
         <div className="space-y-4 rounded-xl border bg-card p-4">
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+            <Button variant="outline" className="gap-2" onClick={() => void loadTeams(offset, query.trim())} disabled={isLoading}>
+              <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+              {t("actions.refresh")}
+            </Button>
+            <Sheet open={createOpen} onOpenChange={setCreateOpen}>
+              <Button className="gap-2" onClick={() => { setCreateOpen(true); void loadAllowedModels(); }} disabled={!canCreateTeam}>
+                <Plus className="h-4 w-4" />
+                {t("actions.new")}
+              </Button>
+              <SheetContent side="right" className="w-[94vw] max-w-xl overflow-y-auto">
+                <SheetHeader><SheetTitle>{t("create.title")}</SheetTitle><SheetDescription>{t("create.description")}</SheetDescription></SheetHeader>
+                <TeamForm t={t} form={form} setForm={setForm} orgUnits={orgUnits} onSubmit={handleCreate} isSaving={isSaving} submitLabel={t("create.submit")} allowedModels={allowedModels} isLoadingAllowedModels={isLoadingAllowedModels} />
+              </SheetContent>
+            </Sheet>
+          </div>
           <div className="flex flex-wrap gap-2">
             <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("filters.search")} className="w-full pl-9 sm:w-64" /></div>
             <select value={orgFilter} onChange={(e) => setOrgFilter(e.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm"><option value="all">{t("filters.orgAll")}</option><option value="root">{t("table.tenantRoot")}</option>{orgUnits.map((org) => <option key={org.id} value={org.id}>{org.display_name || org.alias}</option>)}</select>
@@ -431,15 +426,13 @@ export default function TeamManagement({
 
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader><TableRow><TableHead>{t("table.team")}</TableHead><TableHead>{t("table.orgUnit")}</TableHead><TableHead>{t("table.workspaceType")}</TableHead><TableHead>{t("table.membersAdmins")}</TableHead><TableHead>{t("table.spend")}</TableHead><TableHead>{t("table.models")}</TableHead><TableHead>{t("table.status")}</TableHead><TableHead>{t("table.updated")}</TableHead><TableHead className="w-10 text-right"> </TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>{t("table.team")}</TableHead><TableHead>{t("table.orgUnit")}</TableHead><TableHead>{t("table.workspaceType")}</TableHead><TableHead>{t("table.models")}</TableHead><TableHead>{t("table.status")}</TableHead><TableHead>{t("table.updated")}</TableHead><TableHead className="w-10 text-right"> </TableHead></TableRow></TableHeader>
               <TableBody>
-                {filtered.length === 0 ? <TableRow><TableCell colSpan={9} className="py-10 text-center"><div className="mx-auto max-w-md space-y-2"><Users className="mx-auto h-9 w-9 text-muted-foreground" /><p className="font-medium">{t("empty.title")}</p><p className="text-sm text-muted-foreground">{t("empty.description")}</p></div></TableCell></TableRow> : filtered.map((team) => (
+                {filtered.length === 0 ? <TableRow><TableCell colSpan={7} className="py-10 text-center"><div className="mx-auto max-w-md space-y-2"><Users className="mx-auto h-9 w-9 text-muted-foreground" /><p className="font-medium">{t("empty.title")}</p><p className="text-sm text-muted-foreground">{t("empty.description")}</p></div></TableCell></TableRow> : filtered.map((team) => (
                   <TableRow key={team.id} className={cn("cursor-pointer", selectedTeamID === team.id && "bg-muted/50")} onClick={() => setSelectedTeamID(team.id)}>
                     <TableCell><div className="min-w-[180px]"><p className="truncate font-medium">{getTeamName(team)}</p><p className="truncate text-xs text-muted-foreground">{team.alias}</p></div></TableCell>
                     <TableCell>{getOrgUnitName(team, orgUnits, t)}</TableCell>
                     <TableCell><Badge variant="outline">{t(`workspace.${getWorkspaceType(team)}`)}</Badge></TableCell>
-                    <TableCell>{`${getMemberCount(team)}/${getAdminCount(team)}`}</TableCell>
-                    <TableCell>{formatMoney(getSpend(team))}</TableCell>
                     <TableCell>{getModelSummary(team, t)}</TableCell>
                     <TableCell><StatusBadge status={getStatus(team)} t={t} /></TableCell>
                     <TableCell>{formatDate(team.updated_at)}</TableCell>
@@ -447,7 +440,7 @@ export default function TeamManagement({
                       <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => { setForm(formFromTeam(team)); setEditOpen(true); void loadAllowedModels(team.id); }} disabled={!canManage}>{t("actions.edit")}</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => { setSelectedTeamID(team.id); setMembersOpen(true); void loadUsers(); }} disabled={!canManage}>{t("actions.members")}</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => { setSelectedTeamID(team.id); setDeleteOpen(true); }} disabled={!canDelete} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />{t("actions.delete")}</DropdownMenuItem>
+                        {canDelete ? <DropdownMenuItem onClick={() => { setSelectedTeamID(team.id); setDeleteOpen(true); }} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />{t("actions.delete")}</DropdownMenuItem> : null}
                       </DropdownMenuContent></DropdownMenu>
                     </TableCell>
                   </TableRow>
@@ -634,31 +627,36 @@ function getWorkspaceType(team: Team) {
 }
 function getMemberCount(team: Team) {
   const metadata = team.metadata ?? {};
-  return toNumber(
-    metadata.member_count ??
-    metadata.members_count ??
-    metadata.memberCount ??
-    metadata.membersCount ??
-    metadata.team_member_count ??
-    metadata.team_members_count ??
-    (team as Team & { member_count?: unknown }).member_count ??
-    (team as Team & { members_count?: unknown }).members_count ??
-    (team as Team & { memberCount?: unknown }).memberCount ??
+  return firstPositiveCount(
+    metadata.member_count,
+    metadata.members_count,
+    metadata.memberCount,
+    metadata.membersCount,
+    metadata.team_member_count,
+    metadata.team_members_count,
+    metadata.members,
+    metadata.team_members,
+    metadata.users,
+    (team as Team & { member_count?: unknown }).member_count,
+    (team as Team & { members_count?: unknown }).members_count,
+    (team as Team & { memberCount?: unknown }).memberCount,
     (team as Team & { membersCount?: unknown }).membersCount
   );
 }
 function getAdminCount(team: Team) {
   const metadata = team.metadata ?? {};
-  return toNumber(
-    metadata.admin_count ??
-    metadata.admins_count ??
-    metadata.adminCount ??
-    metadata.adminsCount ??
-    metadata.team_admin_count ??
-    metadata.team_admins_count ??
-    (team as Team & { admin_count?: unknown }).admin_count ??
-    (team as Team & { admins_count?: unknown }).admins_count ??
-    (team as Team & { adminCount?: unknown }).adminCount ??
+  return firstPositiveCount(
+    metadata.admin_count,
+    metadata.admins_count,
+    metadata.adminCount,
+    metadata.adminsCount,
+    metadata.team_admin_count,
+    metadata.team_admins_count,
+    metadata.admins,
+    metadata.team_admins,
+    (team as Team & { admin_count?: unknown }).admin_count,
+    (team as Team & { admins_count?: unknown }).admins_count,
+    (team as Team & { adminCount?: unknown }).adminCount,
     (team as Team & { adminsCount?: unknown }).adminsCount
   );
 }
@@ -692,9 +690,25 @@ function summarizePermissions(members: TeamMember[], t: ReturnType<typeof useTra
 }
 function modelsFromInput(value: string) { return value.split(",").map((item) => item.trim()).filter(Boolean); }
 function toNumber(value: unknown) { if (typeof value === "number" && Number.isFinite(value)) return value; if (typeof value === "string") { const parsed = Number(value.replace(/,/g, "")); return Number.isFinite(parsed) ? parsed : 0; } return 0; }
+function toCount(value: unknown) {
+  if (Array.isArray(value)) return value.length;
+  return toNumber(value);
+}
+function firstPositiveCount(...values: unknown[]) {
+  for (const value of values) {
+    const count = toCount(value);
+    if (count > 0) return count;
+  }
+  return 0;
+}
 function toText(value: unknown) { if (typeof value === "string") return value; if (typeof value === "number") return String(value); return ""; }
 function formatMoney(value: number) { if (value <= 0) return "-"; return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value); }
-function formatDate(value: string) { if (!value) return "-"; return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(value)); }
+function formatDate(value: string) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("fa-IR-u-ca-persian", { month: "short", day: "numeric" }).format(date);
+}
 
 function StatusBadge({ status, t }: { status: ReturnType<typeof getStatus>; t: ReturnType<typeof useTranslations> }) {
   if (status === "blocked") return <Badge variant="destructive">{t("status.blocked")}</Badge>;

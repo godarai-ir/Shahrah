@@ -108,6 +108,9 @@ func (s *Store) ResolveTenantUserAuth(ctx context.Context, tenantID string, user
 	if tenantID == "" || userID == "" {
 		return nil, fmt.Errorf("tenantID and userID are required")
 	}
+	if cached, ok := s.getAuthzCacheEntry(tenantID, userID); ok {
+		return cached, nil
+	}
 
 	var role string
 	var active bool
@@ -132,12 +135,14 @@ func (s *Store) ResolveTenantUserAuth(ctx context.Context, tenantID string, user
 		effectiveRole = derivePrimaryRole(resolvedRoles)
 	}
 
-	return &platform.AuthContext{
+	resolved := &platform.AuthContext{
 		TenantID:    tenantID,
 		UserID:      userID,
 		Role:        strings.TrimSpace(strings.ToLower(effectiveRole)),
 		Permissions: resolvedPermissions,
-	}, nil
+	}
+	s.setAuthzCacheEntry(tenantID, userID, *resolved)
+	return resolved, nil
 }
 
 type runtimeAllowedModelPolicy struct {

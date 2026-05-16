@@ -1,20 +1,14 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
-  BadgeCheck,
-  BriefcaseBusiness,
-  KeyRound,
   MoreVertical,
   Plus,
   Search,
-  ShieldCheck,
-  UserCircle2,
-  Users,
 } from "lucide-react";
 
+import AccessManagementHeader from "@/app/components/access-management-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -96,6 +90,7 @@ type UsersAccessManagementProps = {
   initialTotal: number;
   initialError: string | null;
   currentUserID: string;
+  canManageUsers: boolean;
 };
 
 const PAGE_SIZE = 25;
@@ -145,17 +140,6 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   const canPrev = offset > 0;
   const canNext = offset + users.length < total;
 
-  const accessTabs = useMemo(
-    () => [
-      { href: "/users", label: t("tabs.users"), icon: UserCircle2, active: true },
-      { href: "/teams", label: t("tabs.teams"), icon: Users, active: false },
-      { href: "/personal-access-tokens", label: t("tabs.personalAccessTokens"), icon: KeyRound, active: false },
-      { href: "#", label: t("tabs.virtualAccounts"), icon: BriefcaseBusiness, active: false },
-      { href: "/roles", label: t("tabs.roles"), icon: BadgeCheck, active: false },
-    ],
-    [t],
-  );
-
   async function loadUsers(nextOffset: number, q: string) {
     setIsLoading(true);
     try {
@@ -189,6 +173,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   }
 
   async function handleInvite(event: FormEvent<HTMLFormElement>) {
+    if (!props.canManageUsers) return;
     event.preventDefault();
     setBanner(null);
     setLastInviteLink(null);
@@ -230,6 +215,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   }
 
   async function changeUserStatus(userID: string, activate: boolean) {
+    if (!props.canManageUsers) return;
     setIsUpdatingUserID(userID);
     setBanner(null);
     try {
@@ -252,6 +238,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   }
 
   async function assignRole(user: TenantAdminUser, roleName: string) {
+    if (!props.canManageUsers) return;
     const email = (user.email ?? "").trim();
     if (!email) {
       setBanner({ kind: "error", message: t("messages.roleAssignmentNeedsEmail") });
@@ -281,6 +268,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   }
 
   function openRoleForm(user: TenantAdminUser) {
+    if (!props.canManageUsers) return;
     const currentRole = (user.roles?.[0] ?? user.role ?? "").trim();
     setSelectedUserForRole(user);
     setSelectedRoleName(currentRole);
@@ -310,32 +298,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
 
   return (
     <div className="space-y-5">
-      <header className="space-y-4">
-        <h1 className="text-4xl font-bold tracking-tight">{t("title")}</h1>
-        <nav className="border-b">
-          <ul className="flex flex-wrap items-center gap-5 pb-2">
-            {accessTabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <li key={tab.label}>
-                  <Link
-                    href={tab.href}
-                    className={`inline-flex items-center gap-2 border-b-2 px-1 py-2 ${
-                      tab.active
-                        ? "border-indigo-500 text-foreground"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
-                    }`}
-                    aria-current={tab.active ? "page" : undefined}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span className="text-sm font-semibold">{tab.label}</span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-      </header>
+      <AccessManagementHeader activeTab="users" />
 
       {banner ? (
         <Alert variant={banner.kind === "error" ? "destructive" : "default"}>
@@ -371,7 +334,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
 
             <Sheet>
               <SheetTrigger asChild>
-                <Button className="gap-2">
+                <Button className="gap-2" disabled={!props.canManageUsers}>
                   <Plus className="h-4 w-4" />
                   {t("inviteUser")}
                 </Button>
@@ -447,6 +410,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
                 const isSelf = user.id === props.currentUserID;
                 const isTenantAdminRole = hasTenantAdminRole(user);
                 const canDeactivate = !isSelf && !isTenantAdminRole;
+                const canChangeRole = !isSelf;
 
                 return (
                   <TableRow key={user.id}>
@@ -470,24 +434,24 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
                           <Button
                             variant="ghost"
                             size="icon"
-                            disabled={isUpdatingUserID === user.id}
+                            disabled={isSelf || isUpdatingUserID === user.id}
                           >
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
-                            disabled={!user.email || availableRoles.length === 0 || isAssigningRoleUserID === user.id}
+                            disabled={!props.canManageUsers || !canChangeRole || !user.email || availableRoles.length === 0 || isAssigningRoleUserID === user.id}
                             onClick={() => openRoleForm(user)}
                           >
                             {t("actions.changeRole")}
                           </DropdownMenuItem>
                           {active ? (
-                            <DropdownMenuItem disabled={!canDeactivate} onClick={() => void changeUserStatus(user.id, false)}>
+                            <DropdownMenuItem disabled={!props.canManageUsers || !canDeactivate} onClick={() => void changeUserStatus(user.id, false)}>
                               {t("actions.deactivate")}
                             </DropdownMenuItem>
                           ) : (
-                            <DropdownMenuItem onClick={() => void changeUserStatus(user.id, true)}>
+                            <DropdownMenuItem disabled={!props.canManageUsers} onClick={() => void changeUserStatus(user.id, true)}>
                               {t("actions.activate")}
                             </DropdownMenuItem>
                           )}
@@ -564,7 +528,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
             <Button
               type="submit"
               className="w-full"
-              disabled={!selectedUserForRole || !selectedRoleName || isAssigningRoleUserID === selectedUserForRole?.id}
+              disabled={!props.canManageUsers || !selectedUserForRole || !selectedRoleName || isAssigningRoleUserID === selectedUserForRole?.id}
             >
               {isAssigningRoleUserID === selectedUserForRole?.id ? t("roleForm.submitting") : t("roleForm.submit")}
             </Button>

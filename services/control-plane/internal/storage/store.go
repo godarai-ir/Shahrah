@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sync"
+	"time"
 
 	_ "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -16,6 +18,12 @@ type Store struct {
 	clickhouse      *sql.DB
 	clickhouseReady bool
 	logger          *zap.Logger
+
+	authzCacheMu         sync.RWMutex
+	authzCache           map[string]authzCacheEntry
+	authzTenantEpoch     map[string]uint64
+	authzCacheTTL        time.Duration
+	authzCacheMaxEntries int
 }
 
 // NewStore creates a new PostgreSQL store.
@@ -33,8 +41,12 @@ func NewStore(ctx context.Context, databaseURL string, logger *zap.Logger) (*Sto
 	}
 
 	store := &Store{
-		pool:   pool,
-		logger: logger,
+		pool:                 pool,
+		logger:               logger,
+		authzCache:           make(map[string]authzCacheEntry),
+		authzTenantEpoch:     make(map[string]uint64),
+		authzCacheTTL:        60 * time.Second,
+		authzCacheMaxEntries: 5000,
 	}
 	if err := store.initClickHouse(ctx); err != nil {
 		logger.Warn("clickhouse trace backend unavailable; continuing without trace storage", zap.Error(err))

@@ -1,5 +1,6 @@
 import AdminShell from "@/app/components/admin-shell";
 import UsersAccessManagement from "@/app/components/users-access-management";
+import { getCurrentMePermissions, getNormalizedPermissionSet } from "@/lib/auth/me-permissions";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
@@ -28,7 +29,11 @@ export const dynamic = "force-dynamic";
 export default async function UsersPage() {
   const auth = await requireAuth("/login?next=/users");
   const tenantSlug = auth.tenantSlug;
-  await requirePermissionOr403(tenantSlug, auth.user.id, ["user:manage"]);
+  await requirePermissionOr403(tenantSlug, auth.user.id, ["user:list", "user:manage"]);
+
+  const permissionsPayload = await getCurrentMePermissions(tenantSlug, auth.user.id);
+  const permissionSet = getNormalizedPermissionSet(permissionsPayload);
+  const canManageUsers = permissionSet.has("user:manage");
 
   const usersResult = await fetchControlPlaneJSON({
     tenantSlug,
@@ -55,6 +60,7 @@ export default async function UsersPage() {
         initialTotal={initialTotal}
         initialError={initialError}
         currentUserID={auth.user.id}
+        canManageUsers={canManageUsers}
       />
     </AdminShell>
   );

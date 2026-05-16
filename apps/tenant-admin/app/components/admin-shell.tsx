@@ -1,6 +1,5 @@
 import AdminShellClient from "@/app/components/admin-shell-client";
-import type { MePermissionsResponse } from "@/lib/authz";
-import { fetchControlPlaneJSON } from "@/lib/control-plane";
+import { getCurrentMePermissions } from "@/lib/auth/me-permissions";
 
 type AdminShellProps = {
   children: React.ReactNode;
@@ -31,15 +30,10 @@ export default async function AdminShell({
 }
 
 async function loadCurrentPermissions(tenantSlug: string, userID: string): Promise<string[]> {
-  const upstream = await fetchControlPlaneJSON({
-    tenantSlug,
-    method: "GET",
-    path: "/api/v1/me/permissions",
-    userID,
-  });
-  if (!upstream.ok) {
+  try {
+    const payload = await getCurrentMePermissions(tenantSlug, userID);
+    return (payload.permissions ?? []).map((item) => item.trim().toLowerCase());
+  } catch {
     return [];
   }
-  const payload = (upstream.payload ?? {}) as MePermissionsResponse;
-  return (payload.permissions ?? []).map((item) => item.trim().toLowerCase());
 }

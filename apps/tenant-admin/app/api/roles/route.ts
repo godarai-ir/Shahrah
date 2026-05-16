@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { invalidateAllMePermissionsCache, invalidateMePermissionsCache } from "@/lib/auth/me-permissions";
 import { readAuthFromRequest } from "@/lib/auth/request-auth";
 import { proxyToControlPlane } from "@/lib/control-plane";
 
@@ -54,10 +55,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return proxyToControlPlane({
+  const response = await proxyToControlPlane({
     request,
     method: "POST",
     path: "/api/v1/roles",
     body,
   });
+  if (response.ok) {
+    invalidateAllMePermissionsCache();
+    invalidateMePermissionsCache(auth.tenantSlug, auth.user.id);
+  }
+  return response;
 }

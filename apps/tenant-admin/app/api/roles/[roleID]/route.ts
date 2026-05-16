@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { invalidateAllMePermissionsCache, invalidateMePermissionsCache } from "@/lib/auth/me-permissions";
 import { readAuthFromRequest } from "@/lib/auth/request-auth";
 import { proxyToControlPlane } from "@/lib/control-plane";
 
@@ -37,10 +38,15 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     );
   }
 
-  return proxyToControlPlane({
+  const response = await proxyToControlPlane({
     request,
     method: "PATCH",
     path: `/api/v1/roles/${encodeURIComponent(normalizedRoleID)}`,
     body,
   });
+  if (response.ok) {
+    invalidateAllMePermissionsCache();
+    invalidateMePermissionsCache(auth.tenantSlug, auth.user.id);
+  }
+  return response;
 }

@@ -46,6 +46,7 @@ function Button({
   asChild = false,
   loading = false,
   children,
+  disabled,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
@@ -76,13 +77,15 @@ function Button({
     content = childElement ?? (asChild ? <span>{children}</span> : children);
   }
 
+  const isDisabled = Boolean(disabled || loading);
+
   return (
     <Comp
+      {...props}
       data-slot="button"
-      disabled={props.disabled || loading}
+      disabled={isDisabled}
       aria-busy={loading}
       className={cn(buttonVariants({ variant, size, className }))}
-      {...props}
     >
       {content}
     </Comp>

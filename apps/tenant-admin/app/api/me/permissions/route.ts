@@ -14,10 +14,13 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  return proxyToControlPlane({
+  const response = await proxyToControlPlane({
     request,
     method: "GET",
     path: "/api/v1/me/permissions",
     userID: auth.user.id,
   });
+  response.headers.set("Cache-Control", "private, max-age=30, stale-while-revalidate=90");
+  response.headers.set("Vary", "Cookie, Host, x-forwarded-host");
+  return response;
 }

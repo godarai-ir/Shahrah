@@ -2011,7 +2011,7 @@ func (h *Handlers) ListAccessPrincipals(c *fiber.Ctx) error {
 
 // ListRoles lists tenant-scoped role definitions.
 func (h *Handlers) ListRoles(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requirePermissionAnyOrTenantAdmin(c, "role list permission required", []string{"role:list", "role:manage", "user:manage"}); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -2064,7 +2064,7 @@ func (h *Handlers) ListRoles(c *fiber.Ctx) error {
 
 // CreateRole creates a custom tenant role.
 func (h *Handlers) CreateRole(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requireRoleManage(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -2095,7 +2095,7 @@ func (h *Handlers) CreateRole(c *fiber.Ctx) error {
 
 // UpdateRole updates one role definition.
 func (h *Handlers) UpdateRole(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requireRoleManage(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -2147,6 +2147,16 @@ func (h *Handlers) UpdateUserRoles(c *fiber.Ctx) error {
 	var req platform.UpdateUserRolesRequest
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, "invalid request body")
+	}
+	authInfo := auth.GetAuthInfo(c)
+	if authInfo != nil {
+		targetUserID, resolveErr := h.resolveTenantUserIDByEmail(c, currentTenant.Slug, req.Email)
+		if resolveErr != nil {
+			return resolveErr
+		}
+		if targetUserID != "" && strings.TrimSpace(authInfo.UserID) == targetUserID {
+			return fiber.NewError(fiber.StatusForbidden, "you cannot change your own role")
+		}
 	}
 	out, err := h.roles.UpdateUserRoles(c.Context(), currentTenant.ID, req)
 	if err != nil {
@@ -2223,7 +2233,7 @@ func (h *Handlers) GetCurrentUserPermissions(c *fiber.Ctx) error {
 
 // ListTenantUsers lists tenant-admin users for the current tenant.
 func (h *Handlers) ListTenantUsers(c *fiber.Ctx) error {
-	if err := requireUserManage(c); err != nil {
+	if err := requireUserListOrManage(c); err != nil {
 		return err
 	}
 
@@ -2334,10 +2344,6 @@ func (h *Handlers) InviteTenantUser(c *fiber.Ctx) error {
 
 // AcceptTenantUserInvitation accepts invite token and activates/creates user.
 func (h *Handlers) AcceptTenantUserInvitation(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
-		return err
-	}
-
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
@@ -2407,8 +2413,8 @@ func (h *Handlers) setTenantUserActive(c *fiber.Ctx, active bool) error {
 		return fiber.NewError(fiber.StatusBadRequest, "userID is required")
 	}
 	authInfo := auth.GetAuthInfo(c)
-	if !active && authInfo != nil && strings.TrimSpace(authInfo.UserID) == userID {
-		return fiber.NewError(fiber.StatusForbidden, "you cannot deactivate your own account")
+	if authInfo != nil && strings.TrimSpace(authInfo.UserID) == userID {
+		return fiber.NewError(fiber.StatusForbidden, "you cannot change your own account status")
 	}
 	target, err := h.users.GetTenantAdminUserRecord(c.Context(), currentTenant.Slug, userID)
 	if err != nil {
@@ -2473,7 +2479,7 @@ func appendUnique(values []string, candidate string) []string {
 }
 
 func (h *Handlers) ListOrgUnits(c *fiber.Ctx) error {
-	if err := requireOrgAdminOrHigher(c); err != nil {
+	if err := requireOrgUnitRead(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -2518,7 +2524,7 @@ func (h *Handlers) ListOrgUnits(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) ListTeams(c *fiber.Ctx) error {
-	if err := requireOrgAdminOrHigher(c); err != nil {
+	if err := requireTeamRead(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -2561,7 +2567,7 @@ func (h *Handlers) ListTeams(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) CreateTeam(c *fiber.Ctx) error {
-	if err := requireOrgAdminOrHigher(c); err != nil {
+	if err := requireTeamCreate(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -2587,7 +2593,7 @@ func (h *Handlers) CreateTeam(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) GetTeam(c *fiber.Ctx) error {
-	if err := requireOrgAdminOrHigher(c); err != nil {
+	if err := requireTeamRead(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -2612,7 +2618,7 @@ func (h *Handlers) GetTeam(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) UpdateTeam(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTeamManage(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -2641,7 +2647,7 @@ func (h *Handlers) UpdateTeam(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) DeleteTeam(c *fiber.Ctx) error {
-	if err := requireOrgAdminOrHigher(c); err != nil {
+	if err := requireTeamDelete(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -2665,7 +2671,7 @@ func (h *Handlers) DeleteTeam(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) GetTeamPermissions(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTeamRead(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -2690,7 +2696,7 @@ func (h *Handlers) GetTeamPermissions(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) UpdateTeamPermissions(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTeamManage(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -2719,7 +2725,7 @@ func (h *Handlers) UpdateTeamPermissions(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) CreateOrgUnit(c *fiber.Ctx) error {
-	if err := requireOrgAdminOrHigher(c); err != nil {
+	if err := requireOrgUnitCreate(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -2746,7 +2752,7 @@ func (h *Handlers) CreateOrgUnit(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) GetOrgUnit(c *fiber.Ctx) error {
-	if err := requireOrgAdminOrHigher(c); err != nil {
+	if err := requireOrgUnitRead(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -2771,7 +2777,7 @@ func (h *Handlers) GetOrgUnit(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) UpdateOrgUnit(c *fiber.Ctx) error {
-	if err := requireOrgAdminOrHigher(c); err != nil {
+	if err := requireOrgUnitManage(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -2800,7 +2806,7 @@ func (h *Handlers) UpdateOrgUnit(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) DeleteOrgUnit(c *fiber.Ctx) error {
-	if err := requireOrgAdminOrHigher(c); err != nil {
+	if err := requireOrgUnitDelete(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -2824,7 +2830,7 @@ func (h *Handlers) DeleteOrgUnit(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) ListOrgUnitMembers(c *fiber.Ctx) error {
-	if err := requireOrgAdminOrHigher(c); err != nil {
+	if err := requireOrgUnitRead(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -2846,7 +2852,7 @@ func (h *Handlers) ListOrgUnitMembers(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) AddOrgUnitMember(c *fiber.Ctx) error {
-	if err := requireOrgAdminOrHigher(c); err != nil {
+	if err := requireOrgUnitManage(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -2886,7 +2892,7 @@ func (h *Handlers) AddOrgUnitMember(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) UpdateOrgUnitMember(c *fiber.Ctx) error {
-	if err := requireOrgAdminOrHigher(c); err != nil {
+	if err := requireOrgUnitManage(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -2920,7 +2926,7 @@ func (h *Handlers) UpdateOrgUnitMember(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) DeleteOrgUnitMember(c *fiber.Ctx) error {
-	if err := requireOrgAdminOrHigher(c); err != nil {
+	if err := requireOrgUnitManage(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -2945,7 +2951,7 @@ func (h *Handlers) DeleteOrgUnitMember(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) ListTeamMembers(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTeamRead(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -2967,7 +2973,7 @@ func (h *Handlers) ListTeamMembers(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) AddTeamMember(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTeamManage(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -3001,7 +3007,7 @@ func (h *Handlers) AddTeamMember(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) UpdateTeamMember(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTeamManage(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -3032,7 +3038,7 @@ func (h *Handlers) UpdateTeamMember(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) DeleteTeamMember(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTeamManage(c); err != nil {
 		return err
 	}
 	currentTenant := tenant.FromContext(c)
@@ -3231,6 +3237,70 @@ func requireOrgAdminOrHigher(c *fiber.Ctx) error {
 	return fiber.NewError(fiber.StatusForbidden, "organization admin privileges required")
 }
 
+func requireOrgUnitCreate(c *fiber.Ctx) error {
+	authInfo := auth.GetAuthInfo(c)
+	if auth.IsOrgAdminOrHigher(authInfo) {
+		return nil
+	}
+	return requirePermissionAnyOrTenantAdmin(c, "org unit create permission required", []string{"org_unit:create", "org_unit:manage"})
+}
+
+func requireOrgUnitRead(c *fiber.Ctx) error {
+	authInfo := auth.GetAuthInfo(c)
+	if auth.IsOrgAdminOrHigher(authInfo) {
+		return nil
+	}
+	return requirePermissionAnyOrTenantAdmin(c, "org unit read permission required", []string{"org_unit:list", "org_unit:read", "org_unit:manage"})
+}
+
+func requireOrgUnitManage(c *fiber.Ctx) error {
+	authInfo := auth.GetAuthInfo(c)
+	if auth.IsOrgAdminOrHigher(authInfo) {
+		return nil
+	}
+	return requirePermissionAnyOrTenantAdmin(c, "org unit manage permission required", []string{"org_unit:manage"})
+}
+
+func requireOrgUnitDelete(c *fiber.Ctx) error {
+	authInfo := auth.GetAuthInfo(c)
+	if auth.IsOrgAdminOrHigher(authInfo) {
+		return nil
+	}
+	return requirePermissionAnyOrTenantAdmin(c, "org unit delete permission required", []string{"org_unit:delete", "org_unit:manage"})
+}
+
+func requireTeamRead(c *fiber.Ctx) error {
+	authInfo := auth.GetAuthInfo(c)
+	if auth.IsOrgAdminOrHigher(authInfo) {
+		return nil
+	}
+	return requirePermissionAnyOrTenantAdmin(c, "team read permission required", []string{"team:read", "team:manage"})
+}
+
+func requireTeamCreate(c *fiber.Ctx) error {
+	authInfo := auth.GetAuthInfo(c)
+	if auth.IsOrgAdminOrHigher(authInfo) {
+		return nil
+	}
+	return requirePermissionAnyOrTenantAdmin(c, "team create permission required", []string{"team:create", "team:manage"})
+}
+
+func requireTeamManage(c *fiber.Ctx) error {
+	authInfo := auth.GetAuthInfo(c)
+	if auth.IsTeamAdminOrHigher(authInfo) {
+		return nil
+	}
+	return requirePermissionAnyOrTenantAdmin(c, "team manage permission required", []string{"team:manage"})
+}
+
+func requireTeamDelete(c *fiber.Ctx) error {
+	authInfo := auth.GetAuthInfo(c)
+	if auth.IsOrgAdminOrHigher(authInfo) {
+		return nil
+	}
+	return requirePermissionAnyOrTenantAdmin(c, "team delete permission required", []string{"team:delete", "team:manage"})
+}
+
 func requirePolicyListOrManage(c *fiber.Ctx) error {
 	return requirePermissionAnyOrTenantAdmin(c, "policy list permission required", []string{"policy:list", "policy:manage"})
 }
@@ -3295,6 +3365,34 @@ func requireAccessPrincipalSearchPermission(c *fiber.Ctx, kind string) error {
 
 func requireUserManage(c *fiber.Ctx) error {
 	return requirePermissionAnyOrTenantAdmin(c, "user manage permission required", []string{"user:manage"})
+}
+
+func requireRoleManage(c *fiber.Ctx) error {
+	return requirePermissionAnyOrTenantAdmin(c, "role manage permission required", []string{"role:manage"})
+}
+
+func requireUserListOrManage(c *fiber.Ctx) error {
+	return requirePermissionAnyOrTenantAdmin(c, "user list permission required", []string{"user:list", "user:manage"})
+}
+
+func (h *Handlers) resolveTenantUserIDByEmail(c *fiber.Ctx, tenantSlug string, email string) (string, error) {
+	normalizedEmail := strings.TrimSpace(strings.ToLower(email))
+	if normalizedEmail == "" {
+		return "", nil
+	}
+	if h.users == nil {
+		return "", fiber.NewError(fiber.StatusNotImplemented, "user store not configured")
+	}
+	items, _, err := h.users.ListTenantAdminUsers(c.Context(), tenantSlug, normalizedEmail, 200, 0)
+	if err != nil {
+		return "", err
+	}
+	for _, item := range items {
+		if strings.TrimSpace(strings.ToLower(item.Email)) == normalizedEmail {
+			return strings.TrimSpace(item.ID), nil
+		}
+	}
+	return "", nil
 }
 
 func (h *Handlers) requireTenantAdminOrProviderAccountManager(c *fiber.Ctx, store providerAccountStore, tenantID string, accountID string) error {

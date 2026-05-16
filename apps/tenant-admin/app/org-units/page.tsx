@@ -26,7 +26,7 @@ export const dynamic = "force-dynamic";
 export default async function OrgUnitsPage() {
   const auth = await requireAuth("/login?next=/org-units");
   const tenantSlug = auth.tenantSlug;
-  await requirePermissionOr403(tenantSlug, auth.user.id, ["org_unit:list", "org_unit:read"]);
+  await requirePermissionOr403(tenantSlug, auth.user.id, ["org_unit:list", "org_unit:read", "org_unit:create", "org_unit:manage"]);
 
   const orgUnitsResult = await fetchControlPlaneJSON({
     tenantSlug,

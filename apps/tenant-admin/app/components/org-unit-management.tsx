@@ -47,6 +47,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { usePermissions } from "@/app/components/permissions-context";
+import { canAnyPermission } from "@/lib/authz";
 
 type OrgUnit = {
   id: string;
@@ -140,6 +142,7 @@ export default function OrgUnitManagement({
   currentUserRole,
 }: OrgUnitManagementProps) {
   const t = useTranslations("orgUnits");
+  const permissions = usePermissions() ?? [];
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>(initialOrgUnits);
   const [total, setTotal] = useState(initialTotal);
   const [query, setQuery] = useState("");
@@ -175,7 +178,9 @@ export default function OrgUnitManagement({
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  const canManage = ["tenant_admin", "proxy_admin", "org_admin"].includes(currentUserRole);
+  const canManage = ["tenant_admin", "proxy_admin", "org_admin"].includes(currentUserRole) || canAnyPermission(permissions, ["org_unit:manage"]);
+  const canCreateOrgUnit = canManage || canAnyPermission(permissions, ["org_unit:create"]);
+  const canDeleteOrgUnit = canManage || canAnyPermission(permissions, ["org_unit:delete"]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -195,7 +200,6 @@ export default function OrgUnitManagement({
   }, [selectedOrgUnitID]);
 
   useEffect(() => {
-    void loadUsers();
     void loadTeamCounts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -297,8 +301,9 @@ export default function OrgUnitManagement({
     try {
       const payload = await requestJSON<UserListResponse>("/api/access-principals?kind=user&limit=100");
       setUsers(payload.data ?? []);
-    } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.userLoadError")) });
+    } catch {
+      // Keep members management usable even when principal-search permissions are not granted.
+      setUsers([]);
     }
   }
 
@@ -481,7 +486,7 @@ export default function OrgUnitManagement({
   }
 
   function openCreate() {
-    if (!canManage) {
+    if (!canCreateOrgUnit) {
       setBanner({
         kind: "error",
         message: t("messages.permissionDenied"),
@@ -498,6 +503,7 @@ export default function OrgUnitManagement({
   }
 
   function openMembers() {
+    if (!canManage) return;
     setMemberOpen(true);
     setMemberUserID("");
     setMemberUserQuery("");
@@ -534,7 +540,7 @@ export default function OrgUnitManagement({
             {t("actions.refresh")}
           </Button>
           <Sheet open={createOpen} onOpenChange={setCreateOpen}>
-            <Button className="gap-2" type="button" onClick={openCreate}>
+            <Button className="gap-2" type="button" onClick={openCreate} disabled={!canCreateOrgUnit}>
               <Plus className="h-4 w-4" />
               {t("actions.new")}
             </Button>
@@ -685,6 +691,7 @@ export default function OrgUnitManagement({
                               <DropdownMenuItem onClick={openMembers}>{t("actions.manageMembers")}</DropdownMenuItem>
                               <DropdownMenuItem
                                 className="text-destructive"
+                                disabled={!canDeleteOrgUnit}
                                 onClick={() => {
                                   setSelectedOrgUnitID(orgUnit.id);
                                   setDeleteOpen(true);
@@ -753,7 +760,7 @@ export default function OrgUnitManagement({
                     size="sm"
                     className="gap-2 text-destructive"
                     onClick={() => setDeleteOpen(true)}
-                    disabled={!canManage}
+                    disabled={!canDeleteOrgUnit}
                   >
                     <Trash2 className="h-4 w-4" />
                     {t("actions.delete")}
@@ -1010,7 +1017,7 @@ export default function OrgUnitManagement({
                   placeholder={selectedOrgUnit.alias}
                 />
               </div>
-              <Button type="submit" variant="destructive" disabled={isSaving || !canManage} className="w-full">
+              <Button type="submit" variant="destructive" disabled={isSaving || !canDeleteOrgUnit} className="w-full">
                 {t("delete.submit")}
               </Button>
             </form>

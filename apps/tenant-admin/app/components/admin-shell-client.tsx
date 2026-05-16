@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Activity, BarChart3, Building2, CreditCard, LayoutDashboard, LogOut, Menu, Route, Search, Settings, ShieldCheck, Users } from "lucide-react";
+import { LogOut, Menu, Search } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +21,8 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { canAnyPermission } from "@/lib/authz";
+import { buildAdminNavItems, filterVisibleNavItems, type AdminNavItem } from "@/app/components/admin-shell-nav";
+import { PermissionsProvider } from "@/app/components/permissions-context";
 import { cn } from "@/lib/utils";
 
 type AdminShellClientProps = {
@@ -34,14 +35,6 @@ type AdminShellClientProps = {
     role: string;
   };
   permissions: string[];
-};
-
-type NavItem = {
-  href: string;
-  title: string;
-  icon: React.ComponentType<{ className?: string }>;
-  isActive: boolean;
-  requiredPermissions: string[];
 };
 
 function getInitials(input: string) {
@@ -74,113 +67,31 @@ export default function AdminShellClient({
   const userIdentity =
     currentUser.email ?? currentUser.mobile ?? currentUser.id;
 
-  const navItems: NavItem[] = useMemo(() => [
-    {
-      href: "/",
-      title: t("nav.dashboard"),
-      icon: LayoutDashboard,
-      isActive: pathname === "/",
-      requiredPermissions: [],
-    },
-    {
-      href: "/billing/topup",
-      title: t("nav.topup"),
-      icon: CreditCard,
-      isActive: pathname.startsWith("/billing/topup"),
-      requiredPermissions: ["settings:list"],
-    },
-    {
-      href: "/provider-accounts",
-      title: t("nav.providerAccounts"),
-      icon: ShieldCheck,
-      isActive: pathname.startsWith("/provider-accounts"),
-      requiredPermissions: ["provider_account:read", "provider_account:manage", "provider_account:create"],
-    },
-    {
-      href: "/virtual-models",
-      title: t("nav.virtualModels"),
-      icon: Route,
-      isActive: pathname.startsWith("/virtual-models"),
-      requiredPermissions: ["virtual_account:read", "virtual_account:manage", "virtual_account:create"],
-    },
-    {
-      href: "/users",
-      title: t("nav.accessManagement"),
-      icon: Users,
-      isActive: pathname.startsWith("/users") || pathname.startsWith("/roles"),
-      requiredPermissions: ["user:manage"],
-    },
-    {
-      href: "/traces",
-      title: t("nav.traces"),
-      icon: Activity,
-      isActive: pathname.startsWith("/traces"),
-      requiredPermissions: ["settings:list"],
-    },
-    {
-      href: "/metrics",
-      title: t("nav.metrics"),
-      icon: BarChart3,
-      isActive: pathname.startsWith("/metrics"),
-      requiredPermissions: ["settings:list"],
-    },
-    {
-      href: "/teams",
-      title: t("nav.teams"),
-      icon: Users,
-      isActive: pathname.startsWith("/teams"),
-      requiredPermissions: ["team:read", "team:manage"],
-    },
-    {
-      href: "/org-units",
-      title: t("nav.orgUnits"),
-      icon: Building2,
-      isActive: pathname.startsWith("/org-units"),
-      requiredPermissions: ["org_unit:list", "org_unit:read"],
-    },
-    {
-      href: "/gateway-policies/rate-limiting-rules",
-      title: t("nav.rateLimitPolicies"),
-      icon: ShieldCheck,
-      isActive: pathname.startsWith("/gateway-policies/rate-limiting-rules"),
-      requiredPermissions: ["policy:list"],
-    },
-    {
-      href: "/gateway-policies/budget-limiting-rules",
-      title: t("nav.budgetLimitPolicies"),
-      icon: ShieldCheck,
-      isActive: pathname.startsWith("/gateway-policies/budget-limiting-rules"),
-      requiredPermissions: ["policy:list"],
-    },
-    {
-      href: "/settings",
-      title: t("nav.settings"),
-      icon: Settings,
-      isActive: pathname.startsWith("/settings"),
-      requiredPermissions: ["settings:list"],
-    },
-  ], [pathname, t]);
+  const navItems = useMemo(() => buildAdminNavItems(pathname, t), [pathname, t]);
 
   const visibleNavItems = useMemo(() => {
-    return navItems.filter((item) => canAnyPermission(permissions, item.requiredPermissions));
+    return filterVisibleNavItems(navItems, permissions);
   }, [navItems, permissions]);
 
   const currentPageLabel = visibleNavItems.find((item) => item.isActive)?.title ?? t("nav.dashboard");
 
   return (
-    <div className="min-h-screen bg-background app-background">
+    <PermissionsProvider permissions={permissions}>
+      <div className="min-h-screen bg-background app-background">
       <div className="grid min-h-screen lg:grid-cols-[280px_1fr]">
         <aside className="hidden lg:block">
-          <SidebarContent
-            tenantSlug={tenantSlug}
-            currentUser={currentUser}
-            userIdentity={userIdentity}
-            navItems={visibleNavItems}
-          />
+          <div className="sticky top-0 h-screen">
+            <SidebarContent
+              tenantSlug={tenantSlug}
+              currentUser={currentUser}
+              userIdentity={userIdentity}
+              navItems={visibleNavItems}
+            />
+          </div>
         </aside>
 
         <div className="min-w-0">
-          <header className="sticky top-0 z-sticky border-b bg-background/80 px-4 py-3 backdrop-blur md:px-6">
+          <header className="sticky top-0 z-40 border-b bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/85 md:px-6">
             <div className="flex items-center gap-2 md:gap-3">
               <Sheet>
                 <SheetTrigger asChild>
@@ -222,12 +133,13 @@ export default function AdminShellClient({
             </div>
           </header>
 
-          <main className="p-4 md:p-6">
+          <main className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:p-6 md:pb-[max(1.5rem,env(safe-area-inset-bottom))]">
             <div className="mx-auto w-full max-w-7xl animate-fade-in">{children}</div>
           </main>
         </div>
       </div>
-    </div>
+      </div>
+    </PermissionsProvider>
   );
 }
 
@@ -238,7 +150,7 @@ type SidebarContentProps = {
   currentUser: {
     role: string;
   };
-  navItems: NavItem[];
+  navItems: AdminNavItem[];
 };
 
 function SidebarContent({
@@ -251,7 +163,7 @@ function SidebarContent({
   const t = useTranslations("shell");
 
   return (
-    <div className={cn("flex h-full flex-col bg-sidebar p-4", className)}>
+    <div className={cn("flex h-full min-h-0 flex-col overflow-y-auto bg-sidebar p-4", className)}>
       <div className="flex items-center gap-3 rounded-xl border border-sidebar-border bg-sidebar p-3 shadow-xs">
         <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border border-sidebar-border bg-sidebar-accent p-1.5">
           <Image

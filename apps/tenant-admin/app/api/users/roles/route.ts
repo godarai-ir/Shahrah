@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { invalidateAllMePermissionsCache, invalidateMePermissionsCache } from "@/lib/auth/me-permissions";
 import { readAuthFromRequest } from "@/lib/auth/request-auth";
 import { proxyToControlPlane } from "@/lib/control-plane";
 
@@ -21,11 +22,25 @@ export async function PATCH(request: NextRequest) {
       { status: 400 },
     );
   }
+  const payload = body as { email?: string };
+  const actorEmail = (auth.user.email ?? "").trim().toLowerCase();
+  const targetEmail = (payload.email ?? "").trim().toLowerCase();
+  if (actorEmail && targetEmail && actorEmail === targetEmail) {
+    return NextResponse.json(
+      { error: { message: "کاربر جاری مجاز به تغییر نقش خودش نیست." } },
+      { status: 403 },
+    );
+  }
 
-  return proxyToControlPlane({
+  const response = await proxyToControlPlane({
     request,
     method: "PATCH",
     path: "/api/v1/users/roles",
     body,
   });
+  if (response.ok) {
+    invalidateAllMePermissionsCache();
+    invalidateMePermissionsCache(auth.tenantSlug, auth.user.id);
+  }
+  return response;
 }

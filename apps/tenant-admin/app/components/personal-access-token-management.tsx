@@ -1,10 +1,10 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Check, Copy, KeyRound, Plus, RefreshCcw, Trash2 } from "lucide-react";
+import { Check, Copy, Plus, RefreshCcw, Trash2 } from "lucide-react";
 
+import AccessManagementHeader from "@/app/components/access-management-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -196,15 +196,7 @@ export default function PersonalAccessTokenManagement(props: {
 
   return (
     <div className="space-y-5">
-      <header className="space-y-4">
-        <h1 className="text-4xl font-bold tracking-tight">{t("title")}</h1>
-        <nav className="border-b">
-          <ul className="flex flex-wrap items-center gap-5 pb-2">
-            <li><Link href="/users" className="text-muted-foreground hover:text-foreground">{t("tabs.users")}</Link></li>
-            <li><span className="inline-flex items-center gap-2 border-b-2 border-indigo-500 px-1 py-2 text-sm font-semibold"><KeyRound className="h-4 w-4" />{t("tabs.pat")}</span></li>
-          </ul>
-        </nav>
-      </header>
+      <AccessManagementHeader activeTab="personalAccessTokens" />
 
       {banner ? (
         <Alert variant={banner.kind === "error" ? "destructive" : "default"}>

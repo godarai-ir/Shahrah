@@ -333,6 +333,7 @@ func (s *Store) CreateRole(ctx context.Context, tenantID string, req platform.Cr
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+	s.bumpAuthzTenantEpoch(tenantID)
 	item.Permissions = permissions
 	return &item, nil
 }
@@ -457,6 +458,7 @@ func (s *Store) UpdateRole(ctx context.Context, tenantID string, roleID string, 
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+	s.bumpAuthzTenantEpoch(tenantID)
 	return &updated, nil
 }
 
@@ -555,6 +557,8 @@ func (s *Store) UpdateUserRoles(ctx context.Context, tenantID string, req platfo
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+	s.invalidateAuthzCacheForUser(tenantID, userID)
+	s.bumpAuthzTenantEpoch(tenantID)
 	return &platform.UpdateUserRolesResponse{
 		UserID:       userID,
 		Email:        email,
