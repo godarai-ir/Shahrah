@@ -263,7 +263,7 @@ func checkModelsRouteAuthorization(method string, route string, authInfo *platfo
 	if normalizedMethod == "GET" || normalizedMethod == "HEAD" || normalizedMethod == "OPTIONS" {
 		if hasAnyPermission(authInfo,
 			"policy:list", "policy:manage",
-			"provider_account:read", "provider_account:manage", "provider_account:use_integrations",
+			"provider_account:read", "provider_account:manage", "provider_account:create",
 			"virtual_account:read", "virtual_account:manage",
 		) {
 			return nil
@@ -273,7 +273,7 @@ func checkModelsRouteAuthorization(method string, route string, authInfo *platfo
 	if strings.HasSuffix(strings.TrimSpace(route), "/allowed") {
 		if hasAnyPermission(authInfo,
 			"policy:list", "policy:manage",
-			"provider_account:read", "provider_account:manage", "provider_account:use_integrations",
+			"provider_account:read", "provider_account:manage", "provider_account:create",
 			"virtual_account:read", "virtual_account:manage",
 		) {
 			return nil
@@ -308,13 +308,13 @@ func checkProviderCatalogRouteAuthorization(method string, route string, authInf
 	normalizedMethod := strings.ToUpper(strings.TrimSpace(method))
 	normalizedRoute := strings.TrimSpace(route)
 	if normalizedRoute == "/api/v1/provider-catalog/refresh" && normalizedMethod == "POST" {
-		if hasAnyPermission(authInfo, "provider_account:manage", "settings:manage") {
+		if hasAnyPermission(authInfo, "provider_account:manage", "provider_account:create", "settings:manage") {
 			return nil
 		}
 		return fmt.Errorf("provider account manage permission required")
 	}
 	if normalizedMethod == "GET" || normalizedMethod == "HEAD" || normalizedMethod == "OPTIONS" {
-		if hasAnyPermission(authInfo, "provider_account:read", "provider_account:manage", "provider_account:use_integrations") {
+		if hasAnyPermission(authInfo, "provider_account:read", "provider_account:manage", "provider_account:create") {
 			return nil
 		}
 		return fmt.Errorf("provider account read permission required")
@@ -329,7 +329,7 @@ func checkProviderAccountRouteAuthorization(method string, route string, authInf
 	normalizedMethod := strings.ToUpper(strings.TrimSpace(method))
 	normalizedRoute := strings.TrimSpace(route)
 	if normalizedMethod == "GET" || normalizedMethod == "HEAD" || normalizedMethod == "OPTIONS" {
-		if hasAnyPermission(authInfo, "provider_account:read", "provider_account:manage", "provider_account:use_integrations") {
+		if hasAnyPermission(authInfo, "provider_account:read", "provider_account:manage", "provider_account:create") {
 			return nil
 		}
 		return fmt.Errorf("provider account read permission required")
@@ -341,12 +341,12 @@ func checkProviderAccountRouteAuthorization(method string, route string, authInf
 		return fmt.Errorf("provider account create permission required")
 	}
 	if normalizedMethod == "DELETE" && isProviderAccountDeleteRoute(normalizedRoute) {
-		if hasAnyPermission(authInfo, "provider_account:delete", "provider_account:manage") {
+		if hasAnyPermission(authInfo, "provider_account:delete", "provider_account:manage", "provider_account:create") {
 			return nil
 		}
 		return fmt.Errorf("provider account delete permission required")
 	}
-	if hasAnyPermission(authInfo, "provider_account:manage") {
+	if hasAnyPermission(authInfo, "provider_account:manage", "provider_account:create") {
 		return nil
 	}
 	return fmt.Errorf("provider account manage permission required")

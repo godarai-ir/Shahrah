@@ -65,7 +65,7 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       title: t("nav.virtualModels"),
       icon: Route,
       isActive: pathname.startsWith("/virtual-models"),
-      requiredPermissions: ["virtual_account:read", "virtual_account:manage", "virtual_account:create"],
+      requiredPermissions: ["virtual_account:read", "virtual_account:manage", "virtual_account:create", "provider_account:read"],
     },
     {
       key: "accessManagement",

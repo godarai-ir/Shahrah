@@ -37,6 +37,8 @@ type RoleFormState = {
   permissions: string[];
 };
 
+const REMOVED_PERMISSIONS = new Set(["provider_account:use_integrations"]);
+
 export default function RoleCreateManagement({ initialPermissionCatalog }: RoleCreateManagementProps) {
   const t = useTranslations("accessManagement");
   const locale = useLocale();
@@ -48,12 +50,17 @@ export default function RoleCreateManagement({ initialPermissionCatalog }: RoleC
   const [error, setError] = useState<string | null>(null);
   const [banner, setBanner] = useState<Banner | null>(null);
 
-  const groupedPermissions = useMemo(
-    () => groupPermissions(initialPermissionCatalog, query, locale),
-    [initialPermissionCatalog, query, locale],
+  const filteredPermissionCatalog = useMemo(
+    () => initialPermissionCatalog.filter((item) => !REMOVED_PERMISSIONS.has(item.key)),
+    [initialPermissionCatalog],
   );
 
-  const stats = useMemo(() => summarizeSelection(form.permissions, initialPermissionCatalog), [form.permissions, initialPermissionCatalog]);
+  const groupedPermissions = useMemo(
+    () => groupPermissions(filteredPermissionCatalog, query, locale),
+    [filteredPermissionCatalog, query, locale],
+  );
+
+  const stats = useMemo(() => summarizeSelection(form.permissions, filteredPermissionCatalog), [form.permissions, filteredPermissionCatalog]);
 
   function togglePermission(permission: string) {
     setForm((prev) => ({
@@ -346,7 +353,6 @@ function generatePersianPermissionDescription(permissionKey: string): string {
     create: "ایجاد",
     manage: "مدیریت",
     delete: "حذف",
-    use_integrations: "استفاده از یکپارچه‌سازی‌ها",
   };
 
   const resource = resourceMap[resourceRaw ?? ""];

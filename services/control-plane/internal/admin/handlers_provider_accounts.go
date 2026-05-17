@@ -11,56 +11,12 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (h *Handlers) GetWallet(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
-		return err
-	}
-
-	currentTenant := tenant.FromContext(c)
-	if currentTenant == nil {
-		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
-	}
-	wallet, err := h.wallets.GetWallet(c.Context(), currentTenant.ID)
-	if err != nil {
-		return err
-	}
-	return c.JSON(wallet)
-}
-
-type topUpRequest struct {
-	AmountIRR float64                `json:"amount_irr"`
-	Metadata  map[string]interface{} `json:"metadata"`
-}
-
-// TopUpWallet performs a stubbed immediate top-up.
-func (h *Handlers) TopUpWallet(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
-		return err
-	}
-
-	currentTenant := tenant.FromContext(c)
-	if currentTenant == nil {
-		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
-	}
-
-	var req topUpRequest
-	if err := c.BodyParser(&req); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
-	}
-
-	txn, err := h.wallets.TopUpWallet(c.Context(), currentTenant.ID, req.AmountIRR, req.Metadata)
-	if err != nil {
-		return err
-	}
-	return c.Status(fiber.StatusCreated).JSON(txn)
-}
-
 // ListProviderCatalog returns providers available for tenant model onboarding.
 func (h *Handlers) ListProviderCatalog(c *fiber.Ctx) error {
 	if err := requirePermissionAnyOrTenantAdmin(c, "provider account read permission required", []string{
 		"provider_account:read",
 		"provider_account:manage",
-		"provider_account:use_integrations",
+		"provider_account:create",
 	}); err != nil {
 		return err
 	}
@@ -76,6 +32,7 @@ func (h *Handlers) ListProviderCatalog(c *fiber.Ctx) error {
 func (h *Handlers) RefreshProviderCatalogCache(c *fiber.Ctx) error {
 	if err := requirePermissionAnyOrTenantAdmin(c, "provider account manage permission required", []string{
 		"provider_account:manage",
+		"provider_account:create",
 		"settings:manage",
 	}); err != nil {
 		return err
@@ -92,7 +49,7 @@ func (h *Handlers) GetProviderCatalogStats(c *fiber.Ctx) error {
 	if err := requirePermissionAnyOrTenantAdmin(c, "provider account read permission required", []string{
 		"provider_account:read",
 		"provider_account:manage",
-		"provider_account:use_integrations",
+		"provider_account:create",
 	}); err != nil {
 		return err
 	}
@@ -109,7 +66,7 @@ func (h *Handlers) ListProviderModelsCatalog(c *fiber.Ctx) error {
 	if err := requirePermissionAnyOrTenantAdmin(c, "provider account read permission required", []string{
 		"provider_account:read",
 		"provider_account:manage",
-		"provider_account:use_integrations",
+		"provider_account:create",
 	}); err != nil {
 		return err
 	}
@@ -132,7 +89,6 @@ func (h *Handlers) ListProviderModelsCatalog(c *fiber.Ctx) error {
 func (h *Handlers) CreateTenantProviderAccount(c *fiber.Ctx) error {
 	if err := requirePermissionAnyOrTenantAdmin(c, "provider account create permission required", []string{
 		"provider_account:create",
-		"provider_account:manage",
 	}); err != nil {
 		return err
 	}
@@ -190,7 +146,7 @@ func (h *Handlers) ListTenantProviderAccounts(c *fiber.Ctx) error {
 	if err := requirePermissionAnyOrTenantAdmin(c, "provider account read permission required", []string{
 		"provider_account:read",
 		"provider_account:manage",
-		"provider_account:use_integrations",
+		"provider_account:create",
 	}); err != nil {
 		return err
 	}
@@ -216,7 +172,7 @@ func (h *Handlers) GetTenantProviderAccount(c *fiber.Ctx) error {
 	if err := requirePermissionAnyOrTenantAdmin(c, "provider account read permission required", []string{
 		"provider_account:read",
 		"provider_account:manage",
-		"provider_account:use_integrations",
+		"provider_account:create",
 	}); err != nil {
 		return err
 	}
@@ -247,6 +203,11 @@ func (h *Handlers) GetTenantProviderAccount(c *fiber.Ctx) error {
 
 // DeleteTenantProviderAccount deletes one provider account for the tenant.
 func (h *Handlers) DeleteTenantProviderAccount(c *fiber.Ctx) error {
+	if err := requirePermissionAnyOrTenantAdmin(c, "provider account delete permission required", []string{
+		"provider_account:delete",
+	}); err != nil {
+		return err
+	}
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
@@ -272,10 +233,6 @@ func (h *Handlers) DeleteTenantProviderAccount(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotFound, "provider account not found")
 	}
 
-	if err := h.requireTenantAdminOrProviderAccountManager(c, store, currentTenant.ID, accountID); err != nil {
-		return err
-	}
-
 	if err := store.DeleteTenantProviderAccount(c.Context(), currentTenant.ID, accountID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
@@ -290,7 +247,7 @@ func (h *Handlers) GetTenantProviderAccountEffectiveModels(c *fiber.Ctx) error {
 	if err := requirePermissionAnyOrTenantAdmin(c, "provider account read permission required", []string{
 		"provider_account:read",
 		"provider_account:manage",
-		"provider_account:use_integrations",
+		"provider_account:create",
 	}); err != nil {
 		return err
 	}
@@ -330,6 +287,7 @@ func (h *Handlers) GetTenantProviderAccountEffectiveModels(c *fiber.Ctx) error {
 func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 	if err := requirePermissionAnyOrTenantAdmin(c, "provider account manage permission required", []string{
 		"provider_account:manage",
+		"provider_account:create",
 	}); err != nil {
 		return err
 	}
@@ -443,6 +401,7 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 func (h *Handlers) UpdateTenantProviderAccountAccess(c *fiber.Ctx) error {
 	if err := requirePermissionAnyOrTenantAdmin(c, "provider account manage permission required", []string{
 		"provider_account:manage",
+		"provider_account:create",
 	}); err != nil {
 		return err
 	}
@@ -496,6 +455,7 @@ func (h *Handlers) UpdateTenantProviderAccountAccess(c *fiber.Ctx) error {
 func (h *Handlers) TestTenantProviderAccountCredentials(c *fiber.Ctx) error {
 	if err := requirePermissionAnyOrTenantAdmin(c, "provider account manage permission required", []string{
 		"provider_account:manage",
+		"provider_account:create",
 	}); err != nil {
 		return err
 	}
@@ -535,6 +495,7 @@ func (h *Handlers) TestTenantProviderAccountCredentials(c *fiber.Ctx) error {
 func (h *Handlers) UpdateTenantProviderAccountCredentials(c *fiber.Ctx) error {
 	if err := requirePermissionAnyOrTenantAdmin(c, "provider account manage permission required", []string{
 		"provider_account:manage",
+		"provider_account:create",
 	}); err != nil {
 		return err
 	}

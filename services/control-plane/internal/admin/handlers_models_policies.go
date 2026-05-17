@@ -74,7 +74,7 @@ func (h *Handlers) ListModels(c *fiber.Ctx) error {
 		"policy:manage",
 		"provider_account:read",
 		"provider_account:manage",
-		"provider_account:use_integrations",
+		"provider_account:create",
 		"virtual_account:read",
 		"virtual_account:manage",
 	}); err != nil {

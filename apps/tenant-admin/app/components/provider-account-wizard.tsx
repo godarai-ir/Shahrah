@@ -26,6 +26,8 @@ import {
   type PrincipalSearchKind,
 } from "@/app/components/principal-search-input";
 import { PrincipalPicker } from "@/app/components/principal-picker";
+import { usePermissions } from "@/app/components/permissions-context";
+import { canPermission } from "@/lib/authz";
 
 type ProviderAuthMode =
   | "api_key"
@@ -148,6 +150,12 @@ type Readiness = "ready" | "needs_credentials" | "needs_access" | "pricing_incom
 export default function ProviderAccountWizard() {
   const t = useTranslations("providerAccounts");
   const ux = useTranslations("providerAccounts.ux");
+  const permissions = usePermissions();
+  const canCreateProviderAccount = permissions ? canPermission(permissions, "provider_account:create") : false;
+  const canDeleteProviderAccount = permissions ? canPermission(permissions, "provider_account:delete") : false;
+  const canManageProviderAccount = permissions
+    ? canPermission(permissions, "provider_account:manage") || canPermission(permissions, "provider_account:create")
+    : false;
 
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("overview");
   const [setupStep, setSetupStep] = useState<SetupStep>(1);
@@ -482,13 +490,21 @@ export default function ProviderAccountWizard() {
   );
 
   const openDeleteAccountDialog = useCallback((target: TenantProviderAccount) => {
+    if (!canDeleteProviderAccount) {
+      setBanner({ kind: "error", message: t("messages.insufficientPermissions") });
+      return;
+    }
     setDeleteTargetAccount(target);
     setDeleteAccountNameInput("");
     setDeleteDialogOpen(true);
-  }, []);
+  }, [canDeleteProviderAccount, t]);
 
   const handleDeleteAccount = useCallback(
     async (target: TenantProviderAccount) => {
+      if (!canDeleteProviderAccount) {
+        setBanner({ kind: "error", message: t("messages.insufficientPermissions") });
+        return;
+      }
       if (!target?.id) return;
       if (deleteAccountNameInput !== target.name) {
         setBanner({ kind: "error", message: t("messages.accountDeleteNameMismatch") });
@@ -540,10 +556,14 @@ export default function ProviderAccountWizard() {
         setDeletingAccountID("");
       }
     },
-    [accounts, deleteAccountNameInput, normalizeDeleteAccountError, selectedAccountID, t],
+    [accounts, canDeleteProviderAccount, deleteAccountNameInput, normalizeDeleteAccountError, selectedAccountID, t],
   );
 
   async function handleSaveCredentials(accountID = selectedAccountID) {
+    if (!canManageProviderAccount) {
+      setBanner({ kind: "error", message: t("messages.insufficientPermissions") });
+      return false;
+    }
     if (!accountID) {
       setBanner({ kind: "error", message: t("messages.selectAccountFirst") });
       return false;
@@ -616,6 +636,10 @@ export default function ProviderAccountWizard() {
   }
 
   function startSetup(providerID?: string) {
+    if (!canCreateProviderAccount) {
+      setBanner({ kind: "error", message: t("messages.insufficientPermissions") });
+      return;
+    }
     accountLoadRequestRef.current += 1;
     const nextProvider = providerID || selectedProviderID || visibleProviders[0]?.provider || "";
     setWorkspaceMode("setup");
@@ -711,6 +735,10 @@ export default function ProviderAccountWizard() {
 
   async function handleCreateAccount() {
     setBanner(null);
+    if (!canCreateProviderAccount) {
+      setBanner({ kind: "error", message: t("messages.insufficientPermissions") });
+      return;
+    }
     if (!provider || !name.trim()) {
       setBanner({ kind: "error", message: t("messages.validationProviderName") });
       return;
@@ -769,6 +797,10 @@ export default function ProviderAccountWizard() {
   }
 
   async function handleSaveModels(accountID = selectedAccountID): Promise<boolean> {
+    if (!canManageProviderAccount) {
+      setBanner({ kind: "error", message: t("messages.insufficientPermissions") });
+      return false;
+    }
     if (!accountID) {
       setBanner({ kind: "error", message: t("messages.selectAccountFirst") });
       return false;
@@ -832,6 +864,10 @@ export default function ProviderAccountWizard() {
   }
 
   async function handleSaveAccess(accountID = selectedAccountID): Promise<boolean> {
+    if (!canManageProviderAccount) {
+      setBanner({ kind: "error", message: t("messages.insufficientPermissions") });
+      return false;
+    }
     if (!accountID) {
       setBanner({ kind: "error", message: t("messages.selectAccountFirst") });
       return false;
@@ -883,6 +919,10 @@ export default function ProviderAccountWizard() {
   }
 
   async function handleActivateAccount() {
+    if (!canManageProviderAccount) {
+      setBanner({ kind: "error", message: t("messages.insufficientPermissions") });
+      return;
+    }
     if (!selectedAccountID) {
       setBanner({ kind: "error", message: t("messages.selectAccountFirst") });
       return;
@@ -1071,7 +1111,7 @@ export default function ProviderAccountWizard() {
                             variant="ghost"
                             className="text-destructive hover:text-destructive"
                             onClick={() => openDeleteAccountDialog(item)}
-                            disabled={isDeleting}
+                            disabled={isDeleting || !canDeleteProviderAccount}
                           >
                             <Trash2 className="me-1 h-4 w-4" />
                             {isDeleting ? ux("actions.loading") : ux("actions.deleteAccount")}
@@ -1083,7 +1123,7 @@ export default function ProviderAccountWizard() {
                 )}
 
                 <div className="flex gap-2 pt-2">
-                  <Button type="button" size="sm" className="flex-1" onClick={() => startSetup(selectedProviderID)}>
+                  <Button type="button" size="sm" className="flex-1" onClick={() => startSetup(selectedProviderID)} disabled={!canCreateProviderAccount}>
                     {ux("actions.addProviderAccount")}
                   </Button>
                   <Button type="button" size="sm" variant="outline" onClick={() => void handleRefreshCatalog()} disabled={isRefreshingCatalog}>
@@ -1136,7 +1176,7 @@ export default function ProviderAccountWizard() {
                         size="sm"
                         variant="destructive"
                         onClick={() => openDeleteAccountDialog(account)}
-                        disabled={deletingAccountID === account.id}
+                        disabled={deletingAccountID === account.id || !canDeleteProviderAccount}
                       >
                         <Trash2 className="me-2 h-4 w-4" />
                         {deletingAccountID === account.id ? ux("actions.loading") : ux("actions.deleteAccount")}
@@ -1158,6 +1198,7 @@ export default function ProviderAccountWizard() {
                       if (first) handleSelectAccount(first);
                     }}
                     hasAccount={selectedProviderAccounts.length > 0}
+                    createDisabled={!canCreateProviderAccount}
                   />
                 ) : null}
 
@@ -1289,7 +1330,7 @@ export default function ProviderAccountWizard() {
 
                         <div className="flex justify-between">
                           <Button type="button" variant="outline" onClick={() => setSetupStep(1)}>{ux("actions.back")}</Button>
-                          <Button type="button" onClick={() => void handleCreateAccount()} disabled={isLoading || !provider || !name.trim()}>
+                          <Button type="button" onClick={() => void handleCreateAccount()} disabled={!canCreateProviderAccount || isLoading || !provider || !name.trim()}>
                             {isLoading ? t("creating") : t("createProviderAccount")}
                           </Button>
                         </div>
@@ -1306,11 +1347,12 @@ export default function ProviderAccountWizard() {
                           modelSearchQuery={modelSearchQuery}
                           setModelSearchQuery={setModelSearchQuery}
                           isSaving={isSavingModels}
+                          canManage={canManageProviderAccount}
                           onSave={() => void handleSaveModels()}
                         />
                         <div className="flex justify-between">
                           <Button type="button" variant="outline" onClick={() => setSetupStep(2)}>{ux("actions.back")}</Button>
-                          <Button type="button" onClick={() => setSetupStep(4)} disabled={selectedModelCount === 0}>{ux("actions.continue")}</Button>
+                          <Button type="button" onClick={() => setSetupStep(4)} disabled={!canManageProviderAccount || selectedModelCount === 0}>{ux("actions.continue")}</Button>
                         </div>
                       </section>
                     ) : null}
@@ -1327,6 +1369,7 @@ export default function ProviderAccountWizard() {
                           principalSelectorLabels={principalSelectorLabels}
                           onSave={() => void handleSaveAccess()}
                           isSaving={isSavingAccess}
+                          canManage={canManageProviderAccount}
                           effectiveKeyType={effectiveKeyType}
                           setEffectiveKeyType={setEffectiveKeyType}
                           effectivePrincipal={effectivePrincipalSelection}
@@ -1337,7 +1380,7 @@ export default function ProviderAccountWizard() {
                         />
                         <div className="flex justify-between">
                           <Button type="button" variant="outline" onClick={() => setSetupStep(3)}>{ux("actions.back")}</Button>
-                          <Button type="button" onClick={() => setSetupStep(5)} disabled={managers.length === 0}>{ux("actions.continue")}</Button>
+                          <Button type="button" onClick={() => setSetupStep(5)} disabled={!canManageProviderAccount || managers.length === 0}>{ux("actions.continue")}</Button>
                         </div>
                       </section>
                     ) : null}
@@ -1359,7 +1402,7 @@ export default function ProviderAccountWizard() {
                         </Alert>
                         <div className="flex justify-between">
                           <Button type="button" variant="outline" onClick={() => setSetupStep(4)}>{ux("actions.back")}</Button>
-                          <Button type="button" onClick={() => void handleActivateAccount()} disabled={isActivating}>
+                          <Button type="button" onClick={() => void handleActivateAccount()} disabled={!canManageProviderAccount || isActivating}>
                             {isActivating ? ux("actions.activating") : ux("actions.activateAccount")}
                           </Button>
                         </div>
@@ -1404,6 +1447,7 @@ export default function ProviderAccountWizard() {
                         modelSearchQuery={modelSearchQuery}
                         setModelSearchQuery={setModelSearchQuery}
                         isSaving={isSavingModels}
+                        canManage={canManageProviderAccount}
                         onSave={() => void handleSaveModels()}
                       />
                     ) : null}
@@ -1419,6 +1463,7 @@ export default function ProviderAccountWizard() {
                         principalSelectorLabels={principalSelectorLabels}
                         onSave={() => void handleSaveAccess()}
                         isSaving={isSavingAccess}
+                        canManage={canManageProviderAccount}
                         effectiveKeyType={effectiveKeyType}
                         setEffectiveKeyType={setEffectiveKeyType}
                         effectivePrincipal={effectivePrincipalSelection}
@@ -1448,6 +1493,7 @@ export default function ProviderAccountWizard() {
                             id="credentialAuthMode"
                             className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                             value={authMode}
+                            disabled={!canManageProviderAccount}
                             onChange={(event) => setAuthMode(event.target.value as ProviderAuthMode)}
                           >
                             {(selectedProvider?.auth_modes ?? ["api_key"]).map((mode) => (
@@ -1461,6 +1507,7 @@ export default function ProviderAccountWizard() {
                               id="credentialVirtualOnly"
                               type="checkbox"
                               checked={allowVirtualOnly}
+                              disabled={!canManageProviderAccount}
                               onChange={(event) => setAllowVirtualOnly(event.target.checked)}
                             />
                             {t("fields.allowVirtualOnly")}
@@ -1489,7 +1536,7 @@ export default function ProviderAccountWizard() {
                           />
                         ) : null}
                         <div className="flex flex-wrap gap-2">
-                          <Button type="button" onClick={() => void handleSaveCredentials()} disabled={isSavingCredentials}>
+                          <Button type="button" onClick={() => void handleSaveCredentials()} disabled={!canManageProviderAccount || isSavingCredentials}>
                             {isSavingCredentials ? t("saving") : t("save")}
                           </Button>
                           <Button type="button" variant="outline" onClick={() => void handleTestCredentials()} disabled={isTesting}>
@@ -1635,13 +1682,14 @@ function EmptyOverview(props: {
   onStart: () => void;
   onOpenFirst: () => void;
   hasAccount: boolean;
+  createDisabled?: boolean;
 }) {
   return (
     <section className="space-y-3 rounded-lg border border-dashed p-6 text-center">
       <h3 className="text-lg font-semibold">{props.title}</h3>
       <p className="text-sm text-muted-foreground">{props.description}</p>
       <div className="flex flex-wrap items-center justify-center gap-2">
-        <Button type="button" onClick={props.onStart}>{props.setupLabel}</Button>
+        <Button type="button" onClick={props.onStart} disabled={props.createDisabled}>{props.setupLabel}</Button>
         {props.hasAccount ? (
           <Button type="button" variant="outline" onClick={props.onOpenFirst}>{props.openExistingLabel}</Button>
         ) : null}
@@ -1773,6 +1821,7 @@ function ModelsEditor(props: {
   modelSearchQuery: string;
   setModelSearchQuery: (value: string) => void;
   isSaving: boolean;
+  canManage: boolean;
   onSave: () => void;
 }) {
   const ux = useTranslations("providerAccounts.ux");
@@ -1783,7 +1832,7 @@ function ModelsEditor(props: {
           <h3 className="text-base font-semibold">{ux("tabs.models")}</h3>
           <p className="text-sm text-muted-foreground">{ux("models.description")}</p>
         </div>
-        <Button type="button" onClick={props.onSave} disabled={props.isSaving}>
+        <Button type="button" onClick={props.onSave} disabled={!props.canManage || props.isSaving}>
           {props.isSaving ? props.t("saving") : props.t("saveSelectedModels")}
         </Button>
       </div>
@@ -1818,7 +1867,7 @@ function ModelsEditor(props: {
               return next;
             });
           }}
-          disabled={props.filteredProviderModels.length === 0}
+          disabled={!props.canManage || props.filteredProviderModels.length === 0}
         >
           {props.t("step3.toggleSelectAll")}
         </Button>
@@ -1851,6 +1900,7 @@ function ModelsEditor(props: {
                     aria-label={`select-${model.model}`}
                     type="checkbox"
                     checked={draft.selected}
+                    disabled={!props.canManage}
                     onChange={(event) =>
                       props.setModelDrafts((prev) => ({
                         ...prev,
@@ -1871,6 +1921,7 @@ function ModelsEditor(props: {
                         key={`${model.model}-${capability}`}
                         type="button"
                         className={`rounded-full border px-2 py-1 text-xs ${checked ? "border-primary bg-primary/10" : "border-border"}`}
+                        disabled={!props.canManage}
                         onClick={() => {
                           props.setModelDrafts((prev) => {
                             const existing = prev[model.model] ?? draft;
@@ -1898,6 +1949,7 @@ function ModelsEditor(props: {
                   <select
                     className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
                     value={draft.pricingMode}
+                    disabled={!props.canManage}
                     onChange={(event) =>
                       props.setModelDrafts((prev) => ({
                         ...prev,
@@ -1918,6 +1970,7 @@ function ModelsEditor(props: {
                     <>
                       <Input
                         value={draft.inputPrice}
+                        disabled={!props.canManage}
                         onChange={(event) =>
                           props.setModelDrafts((prev) => ({
                             ...prev,
@@ -1928,6 +1981,7 @@ function ModelsEditor(props: {
                       />
                       <Input
                         value={draft.outputPrice}
+                        disabled={!props.canManage}
                         onChange={(event) =>
                           props.setModelDrafts((prev) => ({
                             ...prev,
@@ -1968,6 +2022,7 @@ function AccessEditor(props: {
   principalSelectorLabels: PrincipalEntitySelectLabels;
   onSave: () => void;
   isSaving: boolean;
+  canManage: boolean;
   effectiveKeyType: "pat" | "vat";
   setEffectiveKeyType: (value: "pat" | "vat") => void;
   effectivePrincipal: PrincipalEntitySelection | null;
@@ -1986,7 +2041,7 @@ function AccessEditor(props: {
           <h3 className="text-base font-semibold">{ux("tabs.access")}</h3>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">{ux("access.description")}</p>
         </div>
-        <Button type="button" onClick={props.onSave} disabled={props.isSaving} className="shrink-0">
+        <Button type="button" onClick={props.onSave} disabled={!props.canManage || props.isSaving} className="shrink-0">
           <ShieldCheck className="h-4 w-4" />
           {props.isSaving ? props.t("saving") : props.t("saveAccessControl")}
         </Button>
@@ -2000,6 +2055,7 @@ function AccessEditor(props: {
           principalSelectorLabels={props.principalSelectorLabels}
           selected={props.managers}
           setSelected={props.setManagers}
+          disabled={!props.canManage}
           allowEveryone={false}
           addLabel={props.t("principal.add")}
           removeLabel={props.t("principal.remove")}
@@ -2012,6 +2068,7 @@ function AccessEditor(props: {
           principalSelectorLabels={props.principalSelectorLabels}
           selected={props.users}
           setSelected={props.setUsers}
+          disabled={!props.canManage}
           allowEveryone
           addLabel={props.t("principal.add")}
           removeLabel={props.t("principal.remove")}

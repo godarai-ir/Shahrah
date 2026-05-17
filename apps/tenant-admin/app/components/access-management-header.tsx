@@ -31,17 +31,7 @@ const tabs: Array<{
   icon: ComponentType<{ className?: string }>;
   requiredPermissions: string[];
 }> = [
-  { key: "users", href: "/users", label: "کاربران", icon: UserCircle2, requiredPermissions: ["user:list", "user:manage"] },
-  { key: "teams", href: "/teams", label: "تیم‌ها", icon: Users, requiredPermissions: ["team:read", "team:manage"] },
-  {
-    key: "orgUnits",
-    href: "/org-units",
-    label: "واحدهای سازمانی",
-    icon: Building2,
-    requiredPermissions: ["org_unit:list", "org_unit:read", "org_unit:manage"],
-  },
-  // Always visible by requirement.
-  { key: "personalAccessTokens", href: "/personal-access-tokens", label: "کلیدهای دسترسی شخصی", icon: KeyRound, requiredPermissions: [] },
+  { key: "roles", href: "/roles", label: "نقش‌ها", icon: BadgeCheck, requiredPermissions: ["role:list", "role:manage"] },
   {
     key: "virtualAccounts",
     href: "/virtual-models",
@@ -49,7 +39,17 @@ const tabs: Array<{
     icon: BriefcaseBusiness,
     requiredPermissions: ["virtual_account:read", "virtual_account:manage", "virtual_account:create"],
   },
-  { key: "roles", href: "/roles", label: "نقش‌ها", icon: BadgeCheck, requiredPermissions: ["role:list", "role:manage"] },
+  // Always visible by requirement.
+  { key: "personalAccessTokens", href: "/personal-access-tokens", label: "کلیدهای دسترسی شخصی", icon: KeyRound, requiredPermissions: [] },
+  {
+    key: "orgUnits",
+    href: "/org-units",
+    label: "واحدهای سازمانی",
+    icon: Building2,
+    requiredPermissions: ["org_unit:list", "org_unit:read", "org_unit:manage"],
+  },
+  { key: "teams", href: "/teams", label: "تیم‌ها", icon: Users, requiredPermissions: ["team:read", "team:manage"] },
+  { key: "users", href: "/users", label: "کاربران", icon: UserCircle2, requiredPermissions: ["user:list", "user:manage"] },
 ];
 
 export default function AccessManagementHeader({ activeTab }: { activeTab: AccessTabKey }) {

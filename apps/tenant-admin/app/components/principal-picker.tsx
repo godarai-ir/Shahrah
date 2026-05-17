@@ -29,6 +29,7 @@ export function PrincipalPicker(props: {
   allowEveryone: boolean;
   addLabel: string;
   removeLabel: string;
+  disabled?: boolean;
 }) {
   const [candidate, setCandidate] = useState<PrincipalEntitySelection | null>(null);
 
@@ -79,7 +80,7 @@ export function PrincipalPicker(props: {
         <PrincipalEntitySelect
           id={props.id}
           selected={candidate}
-          onSelectedChange={setCandidate}
+          onSelectedChange={props.disabled ? () => {} : setCandidate}
           onSearch={props.onSearchPrincipal}
           labels={props.principalSelectorLabels}
           kinds={["user", "team", "org_unit"]}
@@ -90,7 +91,7 @@ export function PrincipalPicker(props: {
           type="button"
           variant="outline"
           onClick={addSelectedCandidate}
-          disabled={!candidate || candidate.type === "external_identity"}
+          disabled={props.disabled || !candidate || candidate.type === "external_identity"}
           className="w-full sm:w-auto"
         >
           <Plus className="h-4 w-4" />
@@ -104,8 +105,12 @@ export function PrincipalPicker(props: {
             key={`${item.type}-${item.principal_id ?? "everyone"}`}
             type="button"
             className="inline-flex max-w-full items-center gap-2 rounded-full border bg-background px-3 py-1.5 text-xs transition hover:border-destructive/40 hover:bg-destructive/5"
-            onClick={() => removePrincipal(item)}
+            onClick={() => {
+              if (props.disabled) return;
+              removePrincipal(item);
+            }}
             title={props.removeLabel}
+            disabled={props.disabled}
           >
             <span className="max-w-[240px] truncate">{item.display_name || item.principal_id || item.type}</span>
             <X className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />

@@ -36,6 +36,8 @@ type RoleEditManagementProps = {
   initialPermissionCatalog: PermissionItem[];
 };
 
+const REMOVED_PERMISSIONS = new Set(["provider_account:use_integrations"]);
+
 export default function RoleEditManagement({ initialRole, initialPermissionCatalog }: RoleEditManagementProps) {
   const t = useTranslations("accessManagement");
   const locale = useLocale();
@@ -49,19 +51,24 @@ export default function RoleEditManagement({ initialRole, initialPermissionCatal
   const [form, setForm] = useState({
     display_name: initialRole.display_name,
     description: initialRole.description ?? "",
-    permissions: initialRole.permissions ?? [],
+    permissions: (initialRole.permissions ?? []).filter((permission) => !REMOVED_PERMISSIONS.has(permission)),
   });
 
-  const groupedPermissions = useMemo(
-    () => groupPermissions(initialPermissionCatalog, query, locale),
-    [initialPermissionCatalog, query, locale],
+  const filteredPermissionCatalog = useMemo(
+    () => initialPermissionCatalog.filter((item) => !REMOVED_PERMISSIONS.has(item.key)),
+    [initialPermissionCatalog],
   );
 
-  const selectionStats = useMemo(() => summarizeSelection(form.permissions, initialPermissionCatalog), [form.permissions, initialPermissionCatalog]);
+  const groupedPermissions = useMemo(
+    () => groupPermissions(filteredPermissionCatalog, query, locale),
+    [filteredPermissionCatalog, query, locale],
+  );
+
+  const selectionStats = useMemo(() => summarizeSelection(form.permissions, filteredPermissionCatalog), [form.permissions, filteredPermissionCatalog]);
 
   const permissionMap = useMemo(
-    () => new Map(initialPermissionCatalog.map((item) => [item.key, item] as const)),
-    [initialPermissionCatalog],
+    () => new Map(filteredPermissionCatalog.map((item) => [item.key, item] as const)),
+    [filteredPermissionCatalog],
   );
 
   const selectedPermissionItems = useMemo(
@@ -431,7 +438,6 @@ function generatePersianPermissionDescription(permissionKey: string): string {
     create: "ایجاد",
     manage: "مدیریت",
     delete: "حذف",
-    use_integrations: "استفاده از یکپارچه‌سازی‌ها",
   };
 
   const resource = resourceMap[resourceRaw ?? ""];

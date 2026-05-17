@@ -141,10 +141,6 @@ var permissionCatalog = map[string]permissionMeta{
 		Group:       "provider_accounts",
 		Description: "Allows viewing provider account details",
 	},
-	"provider_account:use_integrations": {
-		Group:       "provider_accounts",
-		Description: "Allows using integrations associated with provider accounts",
-	},
 
 	"settings:list": {
 		Group:       "settings",
@@ -164,7 +160,7 @@ var systemRolePermissions = map[string][]string{
 		"team:create", "team:read", "team:manage", "team:delete",
 		"org_unit:create", "org_unit:read", "org_unit:manage", "org_unit:delete", "org_unit:list",
 		"virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete",
-		"provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete", "provider_account:use_integrations",
+		"provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete",
 		"settings:list", "settings:manage",
 	},
 	"tenant_admin": {
@@ -174,7 +170,7 @@ var systemRolePermissions = map[string][]string{
 		"team:create", "team:read", "team:manage", "team:delete",
 		"org_unit:create", "org_unit:read", "org_unit:manage", "org_unit:delete", "org_unit:list",
 		"virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete",
-		"provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete", "provider_account:use_integrations",
+		"provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete",
 		"settings:list", "settings:manage",
 	},
 	"org_admin": {
@@ -184,7 +180,7 @@ var systemRolePermissions = map[string][]string{
 		"org_unit:read", "org_unit:manage", "org_unit:list",
 		"team:create", "team:read", "team:manage",
 		"virtual_account:create", "virtual_account:read", "virtual_account:manage",
-		"provider_account:read", "provider_account:use_integrations",
+		"provider_account:read",
 		"settings:list",
 	},
 	"team_admin": {
@@ -193,7 +189,7 @@ var systemRolePermissions = map[string][]string{
 		"user:list",
 		"team:read", "team:manage",
 		"virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete",
-		"provider_account:read", "provider_account:use_integrations",
+		"provider_account:read",
 		"settings:list",
 	},
 	"member": {
