@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ModelLifecycleStatus {
+  DRAFT
+  PUBLISHED
+  DEPRECATED
+}
+
+model Provider {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  websiteUrl  String?
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  models      Model[]
+  syncJobRuns SyncJobRun[]
+}
+
+model Model {
+  id            String               @id @default(cuid())
+  providerId    String
+  slug          String
+  name          String
+  version       String               @default("1.0.0")
+  status        ModelLifecycleStatus @default(DRAFT)
+  description   String?
+  modality      String?
+  contextWindow Int?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  provider      Provider             @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  pricing       ModelPricing[]
+  capabilities  ModelCapability[]
+  benchmarks    ModelBenchmark[]
+
+  @@unique([providerId, slug, version])
+  @@index([status])
+}
+
+model ModelPricing {
+  id            String   @id @default(cuid())
+  modelId        String
+  currency       String   @default("USD")
+  inputPer1M     Float
+  outputPer1M    Float
+  cacheReadPer1M Float?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  model          Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
+}
+
+model ModelCapability {
+  id        String   @id @default(cuid())
+  modelId    String
+  name      String
+  value     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  model     Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@unique([modelId, name])
+}
+
+model ModelBenchmark {
+  id        String   @id @default(cuid())
+  modelId    String
+  benchmark String
+  score     Float
+  sourceUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  model     Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
+}
+
+model SyncJobRun {
+  id           String    @id @default(cuid())
+  providerId   String?
+  jobType      String
+  status       String
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
+  errorMessage String?
+  metadata     Json?
+  provider     Provider? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+}
+
