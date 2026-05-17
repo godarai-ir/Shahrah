@@ -53,5 +53,18 @@ API base: `http://localhost:3002/api/v1`
 ## Seed/import files
 - Sample import JSON: `seed/model-catalog.sample.json`
 - Seed script: `prisma/seed.ts`
+- YAML importer script: `scripts/import-models-from-yaml.ts`
+
+### Import from provider YAML folders
+- Import all providers under `D:\source\models\providers`:
+  - `pnpm --filter model-discovery import:providers:yaml`
+- Import specific providers:
+  - `pnpm --filter model-discovery import:providers:yaml -- --providers openai,anthropic`
+- Dry-run (parse + summarize only):
+  - `pnpm --filter model-discovery import:providers:yaml -- --providers openai --dry-run`
+- Optional sync cleanup (delete DB models missing from YAML for selected providers):
+  - `pnpm --filter model-discovery import:providers:yaml -- --providers openai --clear-missing`
+- Custom providers root:
+  - `pnpm --filter model-discovery import:providers:yaml -- --providers-root D:\source\models\providers`
 
 Seed data is demo/sample and pricing is not guaranteed current.

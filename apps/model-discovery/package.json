@@ -21,7 +21,8 @@
         "prisma:generate": "prisma generate",
         "prisma:migrate:dev": "prisma migrate dev",
         "prisma:studio": "prisma studio",
-        "prisma:seed": "tsx prisma/seed.ts"
+        "prisma:seed": "tsx prisma/seed.ts",
+        "import:providers:yaml": "tsx scripts/import-models-from-yaml.ts"
     },
     "dependencies": {
         "@nestjs/bullmq": "^11.0.4",
