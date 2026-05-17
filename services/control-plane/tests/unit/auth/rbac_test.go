@@ -31,14 +31,14 @@ func TestCheckRouteAuthorization_TenantUserDeniedOnManagement(t *testing.T) {
 }
 
 func TestCheckRouteAuthorization_TeamAdminAllowedOnKeyManagement(t *testing.T) {
-	err := auth.CheckRouteAuthorization("POST", "/api/v1/keys/pat", &platform.AuthContext{
+	err := auth.CheckRouteAuthorization("POST", "/api/v1/keys/vat", &platform.AuthContext{
 		Role: "team_admin",
 	})
 	assert.NoError(t, err)
 }
 
 func TestCheckRouteAuthorization_TeamMemberDeniedWithoutPermission(t *testing.T) {
-	err := auth.CheckRouteAuthorization("POST", "/api/v1/keys/pat", &platform.AuthContext{
+	err := auth.CheckRouteAuthorization("POST", "/api/v1/keys/vat", &platform.AuthContext{
 		Role: "team_member",
 	})
 	assert.Error(t, err)
@@ -46,7 +46,7 @@ func TestCheckRouteAuthorization_TeamMemberDeniedWithoutPermission(t *testing.T)
 }
 
 func TestCheckRouteAuthorization_TeamMemberAllowedWithPermission(t *testing.T) {
-	err := auth.CheckRouteAuthorization("POST", "/api/v1/keys/pat", &platform.AuthContext{
+	err := auth.CheckRouteAuthorization("POST", "/api/v1/keys/vat", &platform.AuthContext{
 		Role:                  "team_member",
 		TeamMemberPermissions: []string{"/key/generate"},
 	})
@@ -92,7 +92,7 @@ func TestCheckRouteAuthorization_TeamAdminDeniedOnRoleRoutes(t *testing.T) {
 		Role: "team_admin",
 	})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "tenant admin")
+	assert.Contains(t, err.Error(), "insufficient permissions for roles route")
 
 	err = auth.CheckRouteAuthorization("PATCH", "/api/v1/users/roles", &platform.AuthContext{
 		Role: "team_admin",

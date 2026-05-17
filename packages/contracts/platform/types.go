@@ -285,10 +285,8 @@ type ListPATResponse struct {
 }
 
 type CreatePATRequest struct {
-	Name          string   `json:"name"`
-	Models        []string `json:"models,omitempty"`
-	AllowedModels []string `json:"allowed_models,omitempty"`
-	ExpiresIn     string   `json:"expires_in,omitempty"`
+	Name      string `json:"name"`
+	ExpiresIn string `json:"expires_in,omitempty"`
 }
 
 type PATExistsResponse struct {

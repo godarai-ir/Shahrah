@@ -43,10 +43,11 @@ Apply migrations in this order:
 Example flow after the stack is running on `http://localhost:4000`:
 
 ```bash
-curl -s http://localhost:4000/api/v1/keys \
+curl -s http://localhost:4000/api/v1/personal-access-tokens \
   -H "Authorization: Bearer $MASTER_KEY" \
+  -H "x-shahrah-user-id: <tenant-user-id>" \
   -H "Content-Type: application/json" \
-  -d '{"key_alias":"tenant-key","models":["gpt-4o-mini"]}'
+  -d '{"name":"tenant-pat"}'
 
 curl -s http://localhost:4000/api/v1/models \
   -H "Authorization: Bearer $MASTER_KEY" \
@@ -84,6 +85,7 @@ Canonical PAT endpoints:
 Notes:
 
 - PATs are tenant-scoped and user-owned.
+- PAT model access is derived from Provider Account and Virtual Model access mappings.
 - Raw token is returned only on creation.
 - Revocation is soft (`revoked_at`) and revoked tokens are rejected by auth lookup.
 

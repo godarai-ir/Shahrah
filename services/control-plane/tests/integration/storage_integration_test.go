@@ -733,7 +733,7 @@ func TestIntegration_ProviderAccountAccessAndModelSelectionHardening(t *testing.
 		"http://localhost/api/v1/personal-access-tokens",
 		"Bearer sk-master",
 		map[string]string{"x-shahrah-user-id": userID},
-		`{"name":"owner-pat","allowed_models":["*"]}`,
+		`{"name":"owner-pat"}`,
 	)
 	assert.Equal(t, http.StatusCreated, patResp.StatusCode)
 	var pat platform.CreatedKey
@@ -872,7 +872,7 @@ func TestIntegration_EffectiveModelsAccessMatrix_PAT_VAT_UserTeam(t *testing.T) 
 			"http://localhost/api/v1/personal-access-tokens",
 			"Bearer sk-master",
 			map[string]string{"x-shahrah-user-id": userID},
-			fmt.Sprintf(`{"name":"%s","allowed_models":["*"]}`, name),
+			fmt.Sprintf(`{"name":"%s"}`, name),
 		)
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
 	}
@@ -976,7 +976,7 @@ func TestIntegration_EffectiveModels_PATKeyAllowlistIsApplied(t *testing.T) {
 		"http://localhost/api/v1/personal-access-tokens",
 		"Bearer sk-master",
 		map[string]string{"x-shahrah-user-id": userID},
-		`{"name":"pat-preview-allowlist","allowed_models":["gpt-4.1-mini"]}`,
+		`{"name":"pat-preview-allowlist"}`,
 	)
 	assert.Equal(t, http.StatusCreated, patResp.StatusCode)
 
@@ -1000,8 +1000,8 @@ func TestIntegration_EffectiveModels_PATKeyAllowlistIsApplied(t *testing.T) {
 	require.Contains(t, byModel, "gpt-4.1-mini")
 	require.Contains(t, byModel, "gpt-4o")
 	assert.True(t, byModel["gpt-4.1-mini"].Allowed)
-	assert.False(t, byModel["gpt-4o"].Allowed)
-	assert.Equal(t, "model_not_in_token_allowlist", byModel["gpt-4o"].DeniedReason)
+	assert.True(t, byModel["gpt-4o"].Allowed)
+	assert.Empty(t, byModel["gpt-4o"].DeniedReason)
 }
 
 func TestIntegration_EffectiveModels_PATKeyAllowlistAcceptsFQN(t *testing.T) {
@@ -1060,7 +1060,7 @@ func TestIntegration_EffectiveModels_PATKeyAllowlistAcceptsFQN(t *testing.T) {
 		"http://localhost/api/v1/personal-access-tokens",
 		"Bearer sk-master",
 		map[string]string{"x-shahrah-user-id": userID},
-		fmt.Sprintf(`{"name":"pat-preview-allowlist-fqn","allowed_models":["openai:%s:gpt-4o"]}`, accountAlias),
+		`{"name":"pat-preview-allowlist-fqn"}`,
 	)
 	assert.Equal(t, http.StatusCreated, patResp.StatusCode)
 
@@ -1207,7 +1207,7 @@ func TestIntegration_DeleteTenantProviderAccount_ForbiddenForNonManager(t *testi
 		"http://localhost/api/v1/personal-access-tokens",
 		"Bearer sk-master",
 		map[string]string{"x-shahrah-user-id": nonManagerUserID},
-		`{"name":"non-manager-delete","allowed_models":["*"]}`,
+		`{"name":"non-manager-delete"}`,
 	)
 	assert.Equal(t, http.StatusCreated, patResp.StatusCode)
 	var pat platform.CreatedKey
@@ -1283,7 +1283,7 @@ func TestIntegration_DeleteTenantProviderAccount_ConflictWhenReferencedByActiveK
 		"http://localhost/api/v1/personal-access-tokens",
 		"Bearer sk-master",
 		map[string]string{"x-shahrah-user-id": userID},
-		`{"name":"key-ref-delete","allowed_models":["openai:openai-delete-blocked:gpt-4.1-mini"]}`,
+		`{"name":"key-ref-delete"}`,
 	)
 	assert.Equal(t, http.StatusCreated, patResp.StatusCode)
 

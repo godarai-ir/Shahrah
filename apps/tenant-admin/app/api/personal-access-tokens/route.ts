@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 type CreatePATPayload = {
   name?: unknown;
   models?: unknown;
+  allowed_models?: unknown;
   expires_in?: unknown;
 };
 
@@ -50,16 +51,18 @@ export async function POST(request: NextRequest) {
   }
 
   const name = typeof body.name === "string" ? body.name.trim() : "";
-  const models = Array.isArray(body.models)
-    ? body.models.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean)
-    : [];
   const expiresIn = typeof body.expires_in === "string" ? body.expires_in.trim() : "";
 
   if (!name) {
     return NextResponse.json({ error: { message: "????? name ?????? ???." } }, { status: 400 });
   }
-  if (models.length === 0) {
-    return NextResponse.json({ error: { message: "????? ?? ??? ???? ????." } }, { status: 400 });
+  if ("models" in body || "allowed_models" in body) {
+    return NextResponse.json({
+      error: {
+        message:
+          "models/allowed_models are no longer accepted for PAT creation; access is controlled by Provider Account and Virtual Model access settings.",
+      },
+    }, { status: 400 });
   }
 
   return proxyToControlPlane({
@@ -69,7 +72,6 @@ export async function POST(request: NextRequest) {
     userID: auth.user.id,
     body: {
       name,
-      models,
       expires_in: expiresIn || undefined,
     },
   });

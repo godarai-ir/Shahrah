@@ -770,24 +770,6 @@ func (s *Store) ListTenantProviderAccountEffectiveModels(ctx context.Context, te
 		             OR (NULLIF($4, '') = 'vat' AND vt.team_id IS NOT NULL AND vt.team_id::text = NULLIF($3, ''))
 		           )
 		       ), false) AS has_candidate_keys,
-		       COALESCE((
-		         SELECT BOOL_OR(
-		           COALESCE(array_length(vt.models, 1), 0) = 0
-		           OR '*' = ANY(vt.models)
-		           OR m.model = ANY(vt.models)
-		           OR CONCAT(pa.provider, ':', pa.name, ':', m.model) = ANY(vt.models)
-		         )
-		         FROM verification_tokens vt
-		         WHERE vt.tenant_id = $5::uuid
-		           AND COALESCE(vt.key_type, CASE WHEN vt.team_id IS NULL THEN 'pat' ELSE 'vat' END) = NULLIF($4, '')
-		           AND vt.revoked_at IS NULL
-		           AND (vt.expires IS NULL OR vt.expires > NOW())
-		           AND COALESCE(vt.blocked, false) = false
-		           AND (
-		             (NULLIF($4, '') = 'pat' AND vt.user_id IS NOT NULL AND vt.user_id::text = NULLIF($2, ''))
-		             OR (NULLIF($4, '') = 'vat' AND vt.team_id IS NOT NULL AND vt.team_id::text = NULLIF($3, ''))
-		           )
-		       ), false) AS allowed_by_key_allowlist
 		FROM tenant_provider_account_models m
 		JOIN tenant_provider_accounts pa ON pa.account_id = m.account_id
 		WHERE m.account_id = $1
@@ -805,7 +787,6 @@ func (s *Store) ListTenantProviderAccountEffectiveModels(ctx context.Context, te
 		var pricingMode string
 		var allowedByAccess bool
 		var hasCandidateKeys bool
-		var allowedByKeyAllowlist bool
 		if err := rows.Scan(
 			&item.Model,
 			&item.Enabled,
@@ -814,21 +795,18 @@ func (s *Store) ListTenantProviderAccountEffectiveModels(ctx context.Context, te
 			&item.PricingResolved,
 			&allowedByAccess,
 			&hasCandidateKeys,
-			&allowedByKeyAllowlist,
 		); err != nil {
 			return nil, err
 		}
 		item.PricingMode = platform.PricingMode(pricingMode)
 		item.EffectiveCapabilities = stringsToModelTypes(types)
-		item.Allowed = allowedByAccess && hasCandidateKeys && allowedByKeyAllowlist
+		item.Allowed = allowedByAccess && hasCandidateKeys
 		if !item.Allowed {
 			switch {
 			case !allowedByAccess:
-				item.DeniedReason = "denied_by_policy"
+				item.DeniedReason = "denied_by_access_mapping"
 			case !hasCandidateKeys:
 				item.DeniedReason = "no_active_pat/vat"
-			case !allowedByKeyAllowlist:
-				item.DeniedReason = "model_not_in_token_allowlist"
 			}
 		}
 		items = append(items, item)

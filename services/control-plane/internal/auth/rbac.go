@@ -357,19 +357,8 @@ func checkKeyRouteAuthorization(method string, route string, authInfo *platform.
 		return nil
 	}
 
-	if method == "GET" && route == "/api/v1/keys" {
-		if hasTeamMemberPermission(authInfo, "/key/list") {
-			return nil
-		}
-	}
-	if method == "GET" && strings.HasPrefix(route, "/api/v1/keys/") {
-		if hasTeamMemberPermission(authInfo, "/key/info") {
-			return nil
-		}
-	}
-
 	switch {
-	case route == "/api/v1/keys" || route == "/api/v1/keys/pat" || route == "/api/v1/keys/vat":
+	case route == "/api/v1/keys/vat":
 		if method == "POST" && hasTeamMemberPermission(authInfo, "/key/generate") {
 			return nil
 		}

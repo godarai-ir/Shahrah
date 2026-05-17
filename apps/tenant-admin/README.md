@@ -9,7 +9,6 @@
 
 Current implementation is wired to existing control-plane management APIs:
 
-- `GET/POST /api/v1/keys`
 - `GET/POST /api/v1/models`
 - `GET /api/v1/wallet`
 - `POST /api/v1/wallet/topup/intents`
@@ -52,7 +51,7 @@ PAT UX flow in tenant-admin:
 
 1. User opens `/personal-access-tokens`.
 2. Frontend lists user-owned PATs and allows search/refresh.
-3. User creates a PAT with token name, allowed models, and optional expiry.
+3. User creates a PAT with token name and optional expiry.
 4. Raw token is displayed once in success panel; subsequent list responses never include raw token.
 5. User can revoke a single PAT or revoke all own PATs.
 

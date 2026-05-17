@@ -23,8 +23,6 @@
   "fields": {
     "name": "Token name",
     "namePlaceholder": "my-ci-token",
-    "models": "Allowed models (comma-separated)",
-    "modelsPlaceholder": "gpt-4o-mini,gpt-4.1-mini",
     "expiresIn": "Expires in (e.g. 30d, 720h)",
     "expiresInPlaceholder": "30d"
   },
@@ -50,7 +48,6 @@
   "table": {
     "name": "Name",
     "masked": "Masked Key",
-    "models": "Models",
     "createdAt": "Created At",
     "lastUsedAt": "Last Used",
     "expiresAt": "Expires At",
@@ -60,10 +57,11 @@
   },
   "create": {
     "title": "Create Personal Access Token",
-    "description": "Create a tenant-scoped token owned by your account."
+    "description": "Create a tenant-scoped token owned by your account.",
+    "accessHint": "Model access is controlled by your Provider Account and Virtual Model access settings."
   },
   "messages": {
-    "validation": "Token name and at least one model are required.",
+    "validation": "Token name is required.",
     "loadError": "Failed to load personal access tokens.",
     "createSuccess": "Personal access token created successfully.",
     "createError": "Failed to create personal access token.",

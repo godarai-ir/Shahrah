@@ -297,13 +297,6 @@ func (h *Handlers) createKey(c *fiber.Ctx, forcedKeyType string) error {
 		req.KeyType = forcedKeyType
 	}
 
-	normalizedModels, err := normalizeAndValidateModelFQNs(req.AllowedModels)
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-	req.AllowedModels = normalizedModels
-	req.Models = normalizedModels
-
 	req.TenantID = currentTenant.ID
 	switch req.KeyType {
 	case "", platform.KeyTypePAT:
@@ -317,18 +310,35 @@ func (h *Handlers) createKey(c *fiber.Ctx, forcedKeyType string) error {
 	if req.KeyType == platform.KeyTypeVAT && req.TeamID == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "team_id is required for vat")
 	}
+
+	// PAT no longer carries model-level allowlist. Keep backward compatibility by
+	// accepting empty model list for PAT while retaining explicit-model validation for VAT.
+	if req.KeyType == platform.KeyTypePAT && len(req.AllowedModels) == 0 {
+		req.Models = []string{}
+		req.AllowedModels = []string{}
+	} else {
+		normalizedModels, err := normalizeAndValidateModelFQNs(req.AllowedModels)
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+		req.AllowedModels = normalizedModels
+		req.Models = normalizedModels
+	}
+
 	scopeUserID := strings.TrimSpace(c.Get("x-shahrah-user-id"))
 	scopeTeamID := ""
 	if req.KeyType == platform.KeyTypeVAT {
 		scopeUserID = ""
 		scopeTeamID = strings.TrimSpace(req.TeamID)
 	}
-	scopeAllowedModels, err := h.keys.ListAllowedModelFQNs(c.Context(), currentTenant.ID, scopeUserID, scopeTeamID)
-	if err != nil {
-		return err
-	}
-	if err := ensureRequestedModelsInScope(req.AllowedModels, scopeAllowedModels); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	if len(req.AllowedModels) > 0 {
+		scopeAllowedModels, err := h.keys.ListAllowedModelFQNs(c.Context(), currentTenant.ID, scopeUserID, scopeTeamID)
+		if err != nil {
+			return err
+		}
+		if err := ensureRequestedModelsInScope(req.AllowedModels, scopeAllowedModels); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
 	}
 
 	created, err := h.keys.CreateKey(c.Context(), req)
@@ -338,32 +348,9 @@ func (h *Handlers) createKey(c *fiber.Ctx, forcedKeyType string) error {
 	return c.Status(fiber.StatusCreated).JSON(created)
 }
 
-// CreateKey creates a tenant-scoped key using the transitional endpoint.
-func (h *Handlers) CreateKey(c *fiber.Ctx) error {
-	return h.createKey(c, "")
-}
-
-// CreatePATKey creates a tenant-scoped PAT using the canonical endpoint.
-func (h *Handlers) CreatePATKey(c *fiber.Ctx) error {
-	return h.createKey(c, platform.KeyTypePAT)
-}
-
 // CreateVATKey creates a tenant-scoped VAT using the canonical endpoint.
 func (h *Handlers) CreateVATKey(c *fiber.Ctx) error {
 	return h.createKey(c, platform.KeyTypeVAT)
-}
-
-// ListKeys lists keys for the current tenant.
-func (h *Handlers) ListKeys(c *fiber.Ctx) error {
-	currentTenant := tenant.FromContext(c)
-	if currentTenant == nil {
-		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
-	}
-	items, err := h.keys.ListKeys(c.Context(), currentTenant.ID)
-	if err != nil {
-		return err
-	}
-	return c.JSON(fiber.Map{"data": items})
 }
 
 func (h *Handlers) ListPersonalAccessTokens(c *fiber.Ctx) error {
@@ -453,40 +440,14 @@ func (h *Handlers) CreatePersonalAccessToken(c *fiber.Ctx) error {
 	if req.Name == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "name is required")
 	}
-	if len(req.AllowedModels) == 0 && len(req.Models) > 0 {
-		req.AllowedModels = append([]string(nil), req.Models...)
-	}
-	models, err := normalizeRequestedModelIDs(req.AllowedModels)
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-	req.AllowedModels = models
-
-	scopeAllowedModels, err := h.keys.ListAllowedModelFQNs(c.Context(), currentTenant.ID, actorUserID, "")
-	if err != nil {
-		return err
-	}
-	scopeAllowedSet := make(map[string]struct{}, len(scopeAllowedModels))
-	for _, item := range scopeAllowedModels {
-		item = strings.TrimSpace(item)
-		if item == "" {
-			continue
+	var rawBody map[string]interface{}
+	if err := c.BodyParser(&rawBody); err == nil {
+		if _, ok := rawBody["models"]; ok {
+			return fiber.NewError(fiber.StatusBadRequest, "models/allowed_models are no longer accepted for PAT creation; access is controlled by Provider Account and Virtual Model access settings")
 		}
-		scopeAllowedSet[item] = struct{}{}
-	}
-	requestedFQNs, requestedAliases := splitRequestedModels(req.AllowedModels)
-	if len(requestedFQNs) > 0 {
-		if err := ensureRequestedModelsInScope(requestedFQNs, scopeAllowedModels); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		if _, ok := rawBody["allowed_models"]; ok {
+			return fiber.NewError(fiber.StatusBadRequest, "models/allowed_models are no longer accepted for PAT creation; access is controlled by Provider Account and Virtual Model access settings")
 		}
-	}
-	virtualModels, err := h.models.ListVirtualModelsForPrincipal(c.Context(), currentTenant.ID, actorUserID, "")
-	if err != nil {
-		return err
-	}
-	vmSnapshots, err := buildVirtualModelSnapshotsForAliases(requestedAliases, virtualModels, scopeAllowedSet)
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
 	exists, err := h.keys.PATExists(c.Context(), currentTenant.ID, actorUserID, req.Name)
@@ -497,21 +458,16 @@ func (h *Handlers) CreatePersonalAccessToken(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusConflict, "personal access token with this name already exists")
 	}
 
-	metadata := map[string]interface{}{}
-	if len(vmSnapshots) > 0 {
-		metadata["virtual_model_snapshots"] = vmSnapshots
-	}
-
 	created, err := h.keys.CreateKey(c.Context(), platform.CreateKeyParams{
 		TenantID:      currentTenant.ID,
 		KeyAlias:      req.Name,
 		Role:          platform.LegacyKeyRoleVirtualKey,
 		KeyType:       platform.KeyTypePAT,
-		Models:        req.AllowedModels,
-		AllowedModels: req.AllowedModels,
+		Models:        []string{},
+		AllowedModels: []string{},
 		UserID:        actorUserID,
 		ExpiresIn:     strings.TrimSpace(req.ExpiresIn),
-		Metadata:      metadata,
+		Metadata:      map[string]interface{}{},
 	})
 	if err != nil {
 		return err

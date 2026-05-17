@@ -357,7 +357,7 @@ func TestIntegration_PersonalAccessTokenLifecycle(t *testing.T) {
 		"http://localhost/api/v1/personal-access-tokens",
 		"Bearer sk-master",
 		map[string]string{"x-shahrah-user-id": "tenant-user-1"},
-		`{"name":"ci-token","models":["openai:default:gpt-4o-mini"],"expires_in":"30d"}`,
+		`{"name":"ci-token","expires_in":"30d"}`,
 	)
 	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
 	var created platform.CreatedKey

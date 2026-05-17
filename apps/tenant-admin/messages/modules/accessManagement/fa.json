@@ -3,9 +3,11 @@
   "tabs": {
     "users": "کاربران",
     "teams": "تیم‌ها",
+    "externalAuth": "احراز هویت خارجی",
     "personalAccessTokens": "توکن‌های دسترسی شخصی",
     "virtualAccounts": "حساب‌های مجازی",
-    "roles": "نقش‌ها"
+    "roles": "نقش‌ها",
+    "auditLogs": "گزارش‌های ممیزی"
   },
   "allUsers": "همه کاربران",
   "searchPlaceholder": "جستجو...",
@@ -26,7 +28,7 @@
     "inviting": "در حال دعوت..."
   },
   "table": {
-    "emailMobile": "ایمیل",
+    "emailMobile": "ایمیل / موبایل",
     "displayName": "نام نمایشی",
     "role": "نقش",
     "noUsersFound": "کاربری یافت نشد."

@@ -76,20 +76,54 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 	auth.AllowedModelPricingMode = make(map[string]string)
 	auth.AllowedModelPricingResolved = make(map[string]bool)
 	if enforceProviderPolicy {
-		intersected, aliasTypes := intersectAllowedModelPoliciesWithSnapshots(keyModels, runtimeModels, auth.VirtualModelSnapshots)
-		auth.AllowedModels = make([]string, 0, len(intersected)+len(aliasTypes))
-		for _, item := range intersected {
+		allowedSet := make(map[string]struct{}, len(runtimeModels))
+		auth.AllowedModels = make([]string, 0, len(runtimeModels))
+		for _, item := range dedupeRuntimePolicies(runtimeModels) {
 			auth.AllowedModels = append(auth.AllowedModels, item.Model)
+			allowedSet[item.Model] = struct{}{}
 			auth.AllowedModelTypes[item.Model] = append([]string(nil), item.Types...)
 			auth.AllowedModelPricingMode[item.Model] = item.PricingMode
 			auth.AllowedModelPricingResolved[item.Model] = item.PricingResolved
 		}
-		for alias, types := range aliasTypes {
-			if strings.TrimSpace(alias) == "" {
+		virtualModels, err := s.ListVirtualModelsForPrincipal(ctx, auth.TenantID, auth.UserID, auth.TeamID)
+		if err != nil {
+			return nil, err
+		}
+		for _, vm := range virtualModels {
+			alias := strings.TrimSpace(vm.Alias)
+			if alias == "" {
 				continue
 			}
+			typeSet := make(map[string]struct{})
+			valid := true
+			for _, target := range vm.Targets {
+				fqn := strings.TrimSpace(target.Model)
+				policy, ok := runtimePolicyByModel(runtimeModels, fqn)
+				if !ok {
+					valid = false
+					break
+				}
+				for _, t := range policy.Types {
+					t = strings.TrimSpace(t)
+					if t == "" {
+						continue
+					}
+					typeSet[t] = struct{}{}
+				}
+			}
+			if !valid {
+				continue
+			}
+			if _, exists := allowedSet[alias]; exists {
+				continue
+			}
+			allowedSet[alias] = struct{}{}
 			auth.AllowedModels = append(auth.AllowedModels, alias)
-			auth.AllowedModelTypes[alias] = append([]string(nil), types...)
+			aliasTypes := make([]string, 0, len(typeSet))
+			for t := range typeSet {
+				aliasTypes = append(aliasTypes, t)
+			}
+			auth.AllowedModelTypes[alias] = aliasTypes
 			auth.AllowedModelPricingMode[alias] = "virtual"
 			auth.AllowedModelPricingResolved[alias] = true
 		}
@@ -98,6 +132,16 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 	}
 
 	return &auth, nil
+}
+
+func runtimePolicyByModel(runtimeModels []runtimeAllowedModelPolicy, model string) (runtimeAllowedModelPolicy, bool) {
+	model = strings.TrimSpace(model)
+	for _, item := range runtimeModels {
+		if strings.TrimSpace(item.Model) == model {
+			return item, true
+		}
+	}
+	return runtimeAllowedModelPolicy{}, false
 }
 
 // ResolveTenantUserAuth builds an auth context for a tenant-bound user.

@@ -18,7 +18,6 @@ type PAT = {
   key_alias: string;
   key_name?: string;
   key_type?: string;
-  models?: string[];
   created_at?: string;
   expires_at?: string;
   last_used_at?: string;
@@ -30,7 +29,6 @@ type PATResponse = {
   key: string;
   key_alias: string;
   key_name?: string;
-  models?: string[];
   created_at?: string;
   expires_at?: string;
   last_used_at?: string;
@@ -55,16 +53,13 @@ const stableDateTimeFormatter = new Intl.DateTimeFormat("fa-IR", {
 export default function PersonalAccessTokenManagement(props: {
   initialTokens: PAT[];
   initialTotal: number;
-  initialModels: string[];
   initialError: string | null;
 }) {
   const t = useTranslations("personalAccessTokens");
   const [tokens, setTokens] = useState<PAT[]>(props.initialTokens);
   const [total, setTotal] = useState<number>(props.initialTotal);
   const [query, setQuery] = useState("");
-  const [modelQuery, setModelQuery] = useState("");
   const [name, setName] = useState("");
-  const [models, setModels] = useState<string[]>([]);
   const [expiresIn, setExpiresIn] = useState("30d");
   const [newSecret, setNewSecret] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -76,11 +71,7 @@ export default function PersonalAccessTokenManagement(props: {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteIntent, setDeleteIntent] = useState<DeleteIntent | null>(null);
   const [banner, setBanner] = useState<Banner | null>(props.initialError ? { kind: "error", message: props.initialError } : null);
-  const selectableModels = useMemo(() => {
-    const q = modelQuery.trim().toLowerCase();
-    if (!q) return props.initialModels;
-    return props.initialModels.filter((item) => item.toLowerCase().includes(q));
-  }, [modelQuery, props.initialModels]);
+  const createHint = useMemo(() => t("create.accessHint"), [t]);
 
   async function load() {
     setIsLoading(true);
@@ -102,7 +93,7 @@ export default function PersonalAccessTokenManagement(props: {
 
   async function createPAT(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!name.trim() || models.length === 0) {
+    if (!name.trim()) {
       setBanner({ kind: "error", message: t("messages.validation") });
       return;
     }
@@ -110,13 +101,12 @@ export default function PersonalAccessTokenManagement(props: {
     try {
       const created = await requestJSON<PATResponse>("/api/personal-access-tokens", {
         method: "POST",
-        body: JSON.stringify({ name: name.trim(), models, expires_in: expiresIn.trim() || undefined }),
+        body: JSON.stringify({ name: name.trim(), expires_in: expiresIn.trim() || undefined }),
       });
       setNewSecret(created.key);
       setSecretCopied(false);
       setSecretDialogOpen(true);
       setName("");
-      setModels([]);
       setExpiresIn("30d");
       setBanner({ kind: "success", message: t("messages.createSuccess") });
       await load();
@@ -225,30 +215,7 @@ export default function PersonalAccessTokenManagement(props: {
                   <label className="text-sm font-medium">{t("fields.name")}</label>
                   <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("fields.namePlaceholder")} />
                 </div>
-                <div className="grid gap-2">
-                  <label className="text-sm font-medium">{t("fields.models")}</label>
-                  <Input value={modelQuery} onChange={(e) => setModelQuery(e.target.value)} placeholder={t("searchPlaceholder")} />
-                  <div className="max-h-56 overflow-auto rounded-md border p-2">
-                    {selectableModels.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">{t("table.empty")}</p>
-                    ) : selectableModels.map((modelID) => (
-                      <label key={modelID} className="flex items-center gap-2 py-1 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={models.includes(modelID)}
-                          onChange={(event) => {
-                            if (event.target.checked) {
-                              setModels((prev) => Array.from(new Set([...prev, modelID])));
-                              return;
-                            }
-                            setModels((prev) => prev.filter((item) => item !== modelID));
-                          }}
-                        />
-                        <span className="font-mono text-xs">{modelID}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
+                <p className="text-xs text-muted-foreground">{createHint}</p>
                 <div className="grid gap-2">
                   <label className="text-sm font-medium">{t("fields.expiresIn")}</label>
                   <Input value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)} placeholder={t("fields.expiresInPlaceholder")} />
@@ -264,7 +231,6 @@ export default function PersonalAccessTokenManagement(props: {
             <TableRow>
               <TableHead>{t("table.name")}</TableHead>
               <TableHead>{t("table.masked")}</TableHead>
-              <TableHead>{t("table.models")}</TableHead>
               <TableHead>{t("table.createdAt")}</TableHead>
               <TableHead>{t("table.lastUsedAt")}</TableHead>
               <TableHead>{t("table.expiresAt")}</TableHead>
@@ -273,11 +239,10 @@ export default function PersonalAccessTokenManagement(props: {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {tokens.length === 0 ? <TableRow><TableCell colSpan={8}>{t("table.empty")}</TableCell></TableRow> : tokens.map((item) => (
+            {tokens.length === 0 ? <TableRow><TableCell colSpan={7}>{t("table.empty")}</TableCell></TableRow> : tokens.map((item) => (
               <TableRow key={item.id}>
                 <TableCell>{item.key_alias}</TableCell>
                 <TableCell>{item.key_name ?? "-"}</TableCell>
-                <TableCell>{(item.models ?? []).join(", ") || "-"}</TableCell>
                 <TableCell>{formatDate(item.created_at)}</TableCell>
                 <TableCell>{formatDate(item.last_used_at)}</TableCell>
                 <TableCell>{formatDate(item.expires_at)}</TableCell>
