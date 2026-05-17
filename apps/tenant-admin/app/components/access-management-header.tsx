@@ -1,12 +1,28 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { ComponentType } from "react";
-import { BadgeCheck, BriefcaseBusiness, Building2, KeyRound, UserCircle2, Users } from "lucide-react";
+import {
+  BadgeCheck,
+  BriefcaseBusiness,
+  Building2,
+  KeyRound,
+  UserCircle2,
+  Users,
+} from "lucide-react";
+
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { canAnyPermission } from "@/lib/authz";
 import { usePermissions } from "@/app/components/permissions-context";
 
-type AccessTabKey = "users" | "teams" | "orgUnits" | "personalAccessTokens" | "virtualAccounts" | "roles";
+type AccessTabKey =
+  | "users"
+  | "teams"
+  | "orgUnits"
+  | "personalAccessTokens"
+  | "virtualAccounts"
+  | "roles";
 
 const tabs: Array<{
   key: AccessTabKey;
@@ -17,45 +33,66 @@ const tabs: Array<{
 }> = [
   { key: "users", href: "/users", label: "کاربران", icon: UserCircle2, requiredPermissions: ["user:list", "user:manage"] },
   { key: "teams", href: "/teams", label: "تیم‌ها", icon: Users, requiredPermissions: ["team:read", "team:manage"] },
-  { key: "orgUnits", href: "/org-units", label: "واحدهای سازمانی", icon: Building2, requiredPermissions: ["org_unit:list", "org_unit:read", "org_unit:manage"] },
-  { key: "personalAccessTokens", href: "/personal-access-tokens", label: "کلیدهای دسترسی شخصی", icon: KeyRound, requiredPermissions: ["settings:list", "settings:manage"] },
-  { key: "virtualAccounts", href: "/virtual-models", label: "اکانت‌های مجازی", icon: BriefcaseBusiness, requiredPermissions: ["virtual_account:read", "virtual_account:manage", "virtual_account:create"] },
+  {
+    key: "orgUnits",
+    href: "/org-units",
+    label: "واحدهای سازمانی",
+    icon: Building2,
+    requiredPermissions: ["org_unit:list", "org_unit:read", "org_unit:manage"],
+  },
+  // Always visible by requirement.
+  { key: "personalAccessTokens", href: "/personal-access-tokens", label: "کلیدهای دسترسی شخصی", icon: KeyRound, requiredPermissions: [] },
+  {
+    key: "virtualAccounts",
+    href: "/virtual-models",
+    label: "اکانت‌های مجازی",
+    icon: BriefcaseBusiness,
+    requiredPermissions: ["virtual_account:read", "virtual_account:manage", "virtual_account:create"],
+  },
   { key: "roles", href: "/roles", label: "نقش‌ها", icon: BadgeCheck, requiredPermissions: ["role:list", "role:manage"] },
 ];
 
 export default function AccessManagementHeader({ activeTab }: { activeTab: AccessTabKey }) {
   const permissions = usePermissions();
-  const visibleTabs = permissions
-    ? tabs.filter((tab) => canAnyPermission(permissions, tab.requiredPermissions))
-    : tabs;
+  const pathname = usePathname();
 
   return (
     <header className="space-y-4">
       <h1 className="text-4xl font-bold tracking-tight">مدیریت دسترسی</h1>
-      <nav className="border-b">
-        <ul className="flex flex-wrap items-center gap-5 pb-2">
-          {visibleTabs.map((tab) => {
+      <Tabs value={activeTab} orientation="horizontal" className="w-full">
+        <TabsList variant="line" className="h-auto w-full justify-start gap-2 rounded-none border-b p-0">
+          {tabs.map((tab) => {
             const Icon = tab.icon;
-            const active = tab.key === activeTab;
-            return (
-              <li key={tab.key}>
-                <Link
-                  href={tab.href}
-                  className={`inline-flex items-center gap-2 border-b-2 px-1 py-2 ${
-                    active
-                      ? "border-indigo-500 text-foreground"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  }`}
-                  aria-current={active ? "page" : undefined}
+            const isActive = pathname === tab.href || activeTab === tab.key;
+            const canAccess =
+              tab.requiredPermissions.length === 0 ||
+              (permissions ? canAnyPermission(permissions, tab.requiredPermissions) : true);
+
+            if (!canAccess) {
+              return (
+                <TabsTrigger
+                  key={tab.key}
+                  value={tab.key}
+                  disabled
+                  className="rounded-none px-2 py-2 text-muted-foreground opacity-60 data-[state=active]:text-muted-foreground"
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="size-4" />
+                  <span className="text-sm font-semibold">{tab.label}</span>
+                </TabsTrigger>
+              );
+            }
+
+            return (
+              <TabsTrigger key={tab.key} value={tab.key} asChild className="rounded-none px-2 py-2 data-[state=active]:text-foreground">
+                <Link href={tab.href} aria-current={isActive ? "page" : undefined}>
+                  <Icon className="size-4" />
                   <span className="text-sm font-semibold">{tab.label}</span>
                 </Link>
-              </li>
+              </TabsTrigger>
             );
           })}
-        </ul>
-      </nav>
+        </TabsList>
+      </Tabs>
     </header>
   );
 }
