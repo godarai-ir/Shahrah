@@ -1,21 +1,38 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateProviderDto } from './dto/create-provider.dto';
-import { UpdateProviderDto } from './dto/update-provider.dto';
+import { PrismaService } from '../database/prisma.service';
+import { UpsertProviderDto } from './dto/upsert-provider.dto';
 
 @Injectable()
 export class ProvidersService {
   constructor(private readonly prisma: PrismaService) {}
-  create(dto: CreateProviderDto) {
-    return this.prisma.provider.create({ data: dto });
+
+  list() {
+    return this.prisma.provider.findMany({
+      orderBy: { name: 'asc' },
+      include: { models: true },
+    });
   }
-  findAll() {
-    return this.prisma.provider.findMany();
+
+  detail(slug: string) {
+    return this.prisma.provider.findUnique({
+      where: { slug },
+      include: {
+        models: {
+          include: {
+            pricing: { take: 1, orderBy: { effectiveFrom: 'desc' } },
+            capabilities: { include: { capability: true } },
+          },
+          orderBy: { releaseDate: 'desc' },
+        },
+      },
+    });
   }
-  update(id: string, dto: UpdateProviderDto) {
-    return this.prisma.provider.update({ where: { id }, data: dto });
-  }
-  remove(id: string) {
-    return this.prisma.provider.delete({ where: { id } });
+
+  upsert(dto: UpsertProviderDto) {
+    return this.prisma.provider.upsert({
+      where: { slug: dto.slug },
+      create: dto as any,
+      update: dto as any,
+    });
   }
 }

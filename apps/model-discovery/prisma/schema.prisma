@@ -1,95 +1,322 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
 }
 
-enum ModelLifecycleStatus {
-  DRAFT
-  PUBLISHED
-  DEPRECATED
+enum ProviderStatus {
+  active
+  preview
+  deprecated
+  unavailable
+}
+
+enum ModelStatus {
+  active
+  preview
+  deprecated
+  unavailable
+}
+
+enum LifecycleStatus {
+  draft
+  review
+  published
+  deprecated
+  archived
+}
+
+enum ModalityDirectionType {
+  input
+  output
+  both
 }
 
 model Provider {
-  id          String   @id @default(cuid())
-  slug        String   @unique
-  name        String
-  websiteUrl  String?
-  description String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  models      Model[]
-  syncJobRuns SyncJobRun[]
+  id                      String   @id @default(cuid())
+  slug                    String   @unique
+  name                    String
+  description             String?
+  websiteUrl              String?
+  docsUrl                 String?
+  logoUrl                 String?
+  status                  ProviderStatus @default(active)
+  privacyPolicyUrl        String?
+  loggingPolicySummary    String?
+  supportsByok            Boolean  @default(false)
+  supportsRegionalRouting Boolean  @default(false)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  models                  Model[]
+
+  @@index([slug])
 }
 
 model Model {
-  id            String               @id @default(cuid())
-  providerId    String
-  slug          String
-  name          String
-  version       String               @default("1.0.0")
-  status        ModelLifecycleStatus @default(DRAFT)
-  description   String?
-  modality      String?
-  contextWindow Int?
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
-  provider      Provider             @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  pricing       ModelPricing[]
-  capabilities  ModelCapability[]
-  benchmarks    ModelBenchmark[]
+  id               String   @id @default(cuid())
+  providerId       String
+  canonicalId      String   @unique
+  slug             String
+  displayName      String
+  shortDescription String?
+  longDescription  String?
+  status           ModelStatus @default(active)
+  lifecycleStatus  LifecycleStatus @default(draft)
+  categoryId       String?
+  contextWindow    Int?
+  maxOutputTokens  Int?
+  knowledgeCutoff  DateTime?
+  releaseDate      DateTime?
+  deprecatedAt     DateTime?
+  openSource       Boolean @default(false)
+  free             Boolean @default(false)
+  tokenizer        String?
+  license          String?
+  huggingFaceUrl   String?
+  modelCardUrl     String?
+  officialDocsUrl  String?
+  popularityScore  Float   @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  @@unique([providerId, slug, version])
+  provider         Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  category         Category? @relation(fields: [categoryId], references: [id])
+  versions         ModelVersion[]
+  pricing          ModelPricing[]
+  capabilities     ModelCapability[]
+  inputModalities  ModelInputModality[]
+  outputModalities ModelOutputModality[]
+  supportedParams  ModelSupportedParameter[]
+  regions          ModelRegion[]
+  benchmarks       ModelBenchmark[]
+  sources          SourceReference[]
+  changelog        ModelChangelog[]
+  tags             ModelTag[]
+
+  @@unique([providerId, slug])
+  @@index([providerId])
   @@index([status])
+  @@index([contextWindow])
+  @@index([maxOutputTokens])
+  @@index([slug])
+}
+
+model ModelVersion {
+  id          String   @id @default(cuid())
+  modelId      String
+  version     String
+  releaseDate DateTime?
+  notes       String?
+  status      ModelStatus @default(active)
+  createdAt   DateTime @default(now())
+
+  model       Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
 }
 
 model ModelPricing {
-  id            String   @id @default(cuid())
-  modelId        String
-  currency       String   @default("USD")
-  inputPer1M     Float
-  outputPer1M    Float
-  cacheReadPer1M Float?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  model          Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  id                              String   @id @default(cuid())
+  modelId                          String
+  regionId                         String?
+  currency                         String   @default("USD")
+  inputPricePerMillionTokens       Float?
+  outputPricePerMillionTokens      Float?
+  cachedInputPricePerMillionTokens Float?
+  imageInputPrice                  Float?
+  imageOutputPrice                 Float?
+  audioInputPrice                  Float?
+  audioOutputPrice                 Float?
+  requestPrice                     Float?
+  effectiveFrom                    DateTime?
+  effectiveTo                      DateTime?
+  sourceUrl                        String?
+  createdAt                        DateTime @default(now())
+  updatedAt                        DateTime @updatedAt
+
+  model                            Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  region                           Region? @relation(fields: [regionId], references: [id])
+
+  @@index([modelId])
+  @@index([effectiveFrom, effectiveTo])
+}
+
+model Capability {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?
+
+  models      ModelCapability[]
 }
 
 model ModelCapability {
-  id        String   @id @default(cuid())
-  modelId    String
-  name      String
-  value     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  model     Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  modelId      String
+  capabilityId String
 
-  @@unique([modelId, name])
+  model        Model      @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  capability   Capability @relation(fields: [capabilityId], references: [id], onDelete: Cascade)
+
+  @@id([modelId, capabilityId])
+}
+
+model Modality {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  name          String
+  directionType ModalityDirectionType
+
+  inputModels   ModelInputModality[]
+  outputModels  ModelOutputModality[]
+}
+
+model ModelInputModality {
+  modelId    String
+  modalityId String
+
+  model      Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  modality   Modality @relation(fields: [modalityId], references: [id], onDelete: Cascade)
+
+  @@id([modelId, modalityId])
+}
+
+model ModelOutputModality {
+  modelId    String
+  modalityId String
+
+  model      Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  modality   Modality @relation(fields: [modalityId], references: [id], onDelete: Cascade)
+
+  @@id([modelId, modalityId])
+}
+
+model SupportedParameter {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?
+
+  models      ModelSupportedParameter[]
+}
+
+model ModelSupportedParameter {
+  modelId               String
+  supportedParameterId  String
+
+  model                 Model              @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  supportedParameter    SupportedParameter @relation(fields: [supportedParameterId], references: [id], onDelete: Cascade)
+
+  @@id([modelId, supportedParameterId])
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?
+
+  models      Model[]
+}
+
+model Region {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+
+  models      ModelRegion[]
+  pricing     ModelPricing[]
+}
+
+model ModelRegion {
+  modelId     String
+  regionId    String
+
+  model       Model  @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  region      Region @relation(fields: [regionId], references: [id], onDelete: Cascade)
+
+  @@id([modelId, regionId])
+}
+
+model Benchmark {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?
+  maxScore    Float?
+  scoreType   String?
+
+  modelScores ModelBenchmark[]
 }
 
 model ModelBenchmark {
-  id        String   @id @default(cuid())
-  modelId    String
-  benchmark String
-  score     Float
-  sourceUrl String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  model     Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  id          String   @id @default(cuid())
+  modelId      String
+  benchmarkId  String
+  score       Float
+  percentile  Float?
+  sourceUrl   String?
+  evaluatedAt DateTime?
+  notes       String?
+
+  model       Model     @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  benchmark   Benchmark @relation(fields: [benchmarkId], references: [id], onDelete: Cascade)
+
+  @@index([modelId, benchmarkId])
 }
 
-model SyncJobRun {
-  id           String    @id @default(cuid())
-  providerId   String?
-  jobType      String
-  status       String
-  startedAt    DateTime  @default(now())
-  finishedAt   DateTime?
-  errorMessage String?
-  metadata     Json?
-  provider     Provider? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+model SourceReference {
+  id          String   @id @default(cuid())
+  modelId      String
+  title       String
+  url         String
+  sourceType  String?
+  fetchedAt   DateTime?
+  notes       String?
+
+  model       Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
 }
 
+model ModelChangelog {
+  id          String   @id @default(cuid())
+  modelId      String
+  changeType  String
+  title       String
+  description String?
+  changedAt   DateTime @default(now())
+  createdBy   String?
+
+  model       Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
+}
+
+model Tag {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+
+  models      ModelTag[]
+}
+
+model ModelTag {
+  modelId      String
+  tagId        String
+
+  model        Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  tag          Tag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([modelId, tagId])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  entityType  String
+  entityId    String
+  action      String
+  beforeJson  Json?
+  afterJson   Json?
+  actorId     String?
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId])
+}

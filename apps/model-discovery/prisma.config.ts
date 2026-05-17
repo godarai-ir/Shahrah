@@ -8,6 +8,6 @@ export default defineConfig({
   datasource: {
     url:
       process.env.DATABASE_URL ??
-      'postgresql://postgres:postgres@localhost:5432/model_discovery?schema=public',
+      'postgresql://postgres:postgres@127.0.0.1:5432/model_discovery?schema=public',
   },
 });

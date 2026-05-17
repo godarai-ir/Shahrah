@@ -1,0 +1,37 @@
+{
+  "meta": {
+    "note": "Sample/demo model catalog data. Prices are illustrative and not guaranteed current.",
+    "version": "1"
+  },
+  "providers": [
+    { "slug": "openai", "name": "OpenAI", "status": "active", "websiteUrl": "https://openai.com", "docsUrl": "https://platform.openai.com/docs", "supportsByok": true },
+    { "slug": "anthropic", "name": "Anthropic", "status": "active", "websiteUrl": "https://anthropic.com", "docsUrl": "https://docs.anthropic.com", "supportsByok": true }
+  ],
+  "models": [
+    {
+      "providerSlug": "openai",
+      "canonicalId": "openai/gpt-4.1-mini",
+      "slug": "gpt-4.1-mini",
+      "displayName": "GPT-4.1 Mini",
+      "status": "active",
+      "lifecycleStatus": "published",
+      "shortDescription": "Balanced fast model",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 32768,
+      "openSource": false,
+      "free": false,
+      "categorySlug": "programming",
+      "inputModalities": ["text", "image"],
+      "outputModalities": ["text"],
+      "supportedParameters": ["temperature", "top_p", "tools", "json_schema"],
+      "capabilities": ["vision", "tool_calling", "json_mode", "streaming"],
+      "regions": ["global", "us", "eu"],
+      "pricing": {
+        "currency": "USD",
+        "inputPricePerMillionTokens": 0.4,
+        "outputPricePerMillionTokens": 1.6,
+        "cachedInputPricePerMillionTokens": 0.1
+      }
+    }
+  ]
+}

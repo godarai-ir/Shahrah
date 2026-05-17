@@ -1,21 +1,13 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { AdminModule } from './admin/admin.module';
-import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
-import { CommonModule } from './common/common.module';
+import { CatalogModule } from './catalog/catalog.module';
+import { DatabaseModule } from './database/database.module';
+import { FacetsModule } from './facets/facets.module';
+import { ImportModule } from './import/import.module';
 import { IndexingModule } from './indexing/indexing.module';
-import { ModelBenchmarksModule } from './model-benchmarks/model-benchmarks.module';
-import { ModelCapabilitiesModule } from './model-capabilities/model-capabilities.module';
-import { ModelPricingModule } from './model-pricing/model-pricing.module';
-import { ModelsModule } from './models/models.module';
-import { PrismaModule } from './prisma/prisma.module';
 import { ProvidersModule } from './providers/providers.module';
-import { RedisModule } from './redis/redis.module';
-import { SearchModule } from './search/search.module';
-import { SyncJobsModule } from './sync-jobs/sync-jobs.module';
-import { TypesenseModule } from './typesense/typesense.module';
 
 @Module({
   imports: [
@@ -25,26 +17,18 @@ import { TypesenseModule } from './typesense/typesense.module';
       useFactory: (cfg: ConfigService) => ({
         connection: {
           host: cfg.get<string>('REDIS_HOST', '127.0.0.1'),
-          port: Number(cfg.get('REDIS_PORT', 6379)),
+          port: Number(cfg.get<number>('REDIS_PORT', 6379)),
           password: cfg.get<string>('REDIS_PASSWORD') || undefined,
         },
       }),
     }),
-    CommonModule,
-    PrismaModule,
-    RedisModule,
-    TypesenseModule,
+    DatabaseModule,
     AuthModule,
+    CatalogModule,
     ProvidersModule,
-    ModelsModule,
-    ModelPricingModule,
-    ModelCapabilitiesModule,
-    ModelBenchmarksModule,
-    SearchModule,
+    FacetsModule,
     IndexingModule,
-    SyncJobsModule,
-    AdminModule,
+    ImportModule,
   ],
-  controllers: [AppController],
 })
 export class AppModule {}

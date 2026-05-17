@@ -1,18 +1,16 @@
+import Link from 'next/link';
+
 export default function Home() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-stone-950 px-6 text-stone-50">
-      <div className="w-full max-w-3xl rounded-3xl border border-stone-800 bg-stone-900 p-10 shadow-2xl shadow-stone-950/40">
-        <p className="text-sm uppercase tracking-[0.3em] text-amber-300">
-          Shahrah
-        </p>
-        <h1 className="mt-4 text-4xl font-semibold tracking-tight">
-          Support Admin
-        </h1>
-        <p className="mt-4 max-w-2xl text-base leading-7 text-stone-300">
-          This app will become the internal operations panel for support,
-          customer triage, billing review, and synchronized tenant data.
-        </p>
+    <div className="space-y-6">
+      <h1 className="text-3xl font-semibold">Model Catalog Platform</h1>
+      <p className="text-zinc-400">Production-focused catalog experience for discovering, comparing, and managing LLM models.</p>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Link href="/models" className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 hover:border-cyan-500">Browse Models</Link>
+        <Link href="/providers" className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 hover:border-cyan-500">Provider Pages</Link>
+        <Link href="/compare" className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 hover:border-cyan-500">Model Compare</Link>
+        <Link href="/admin" className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 hover:border-cyan-500">Admin Panel</Link>
       </div>
-    </main>
+    </div>
   );
 }

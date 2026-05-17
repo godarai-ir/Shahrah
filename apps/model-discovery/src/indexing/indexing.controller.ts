@@ -5,17 +5,23 @@ import { Role } from '../common/enums/roles.enum';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { IndexingService } from './indexing.service';
-class IndexDto {
+
+class IndexOneDto {
   modelId!: string;
 }
+
 @ApiTags('indexing')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.Admin)
+@Roles(Role.admin)
 @Controller({ path: 'admin/indexing', version: '1' })
 export class IndexingController {
-  constructor(private readonly service: IndexingService) {}
-  @Post('models') enqueue(@Body() dto: IndexDto) {
-    return this.service.enqueue(dto.modelId);
+  constructor(private readonly indexing: IndexingService) {}
+
+  @Post('rebuild') rebuild() {
+    return this.indexing.enqueueFullReindex();
+  }
+  @Post('model') one(@Body() dto: IndexOneDto) {
+    return this.indexing.enqueueModelIndex(dto.modelId);
   }
 }

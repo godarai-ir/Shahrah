@@ -1,29 +1,32 @@
-# Support Admin
+# Support Admin / Catalog Frontend
 
-Internal Next.js application for Shahrah support and operations teams.
+Next.js UI for model discovery + admin workflows.
 
-## Purpose
+## Run
+- `pnpm --filter @shahrah/support-admin dev`
+- open `http://localhost:3000`
 
-- support ticket handling
-- customer 360 views
-- billing and operational review
-- synced tenant state from the main platform
+Configure API base with:
+- `NEXT_PUBLIC_MODEL_CATALOG_API_BASE` (default: `http://localhost:3002/api/v1`)
 
-## Environment
+## Routes
+Public:
+- `/`
+- `/models`
+- `/models/[providerSlug]/[modelSlug]`
+- `/providers`
+- `/providers/[providerSlug]`
+- `/compare`
+- `/categories/[categorySlug]`
 
-Create `apps/support-admin/.env.local`:
-
-```bash
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/sharah?sslmode=disable
-```
-
-## Commands
-
-Run from the repository root:
-
-```bash
-pnpm --filter @shahrah/support-admin prisma:generate
-pnpm --filter @shahrah/support-admin dev
-pnpm --filter @shahrah/support-admin build
-pnpm --filter @shahrah/support-admin lint
-```
+Admin:
+- `/admin`
+- `/admin/providers`
+- `/admin/models`
+- `/admin/models/new`
+- `/admin/models/[id]/edit`
+- `/admin/pricing`
+- `/admin/capabilities`
+- `/admin/import`
+- `/admin/indexing`
+- `/admin/audit-log`

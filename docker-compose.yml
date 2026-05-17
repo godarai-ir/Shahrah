@@ -1,0 +1,64 @@
+version: '3.9'
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: model_discovery
+    ports:
+      - '5432:5432'
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    ports:
+      - '6379:6379'
+
+  typesense:
+    image: typesense/typesense:29.1
+    command: '--data-dir /data --api-key=xyz --enable-cors'
+    ports:
+      - '8108:8108'
+    volumes:
+      - typesense_data:/data
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/model-discovery/Dockerfile
+    environment:
+      PORT: 3002
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/model_discovery?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: dev-secret
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: admin123
+      TYPESENSE_HOST: typesense
+      TYPESENSE_PORT: 8108
+      TYPESENSE_PROTOCOL: http
+      TYPESENSE_API_KEY: xyz
+      TYPESENSE_COLLECTION_MODELS: models
+    depends_on:
+      - postgres
+      - redis
+      - typesense
+    ports:
+      - '3002:3002'
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/support-admin/Dockerfile
+    environment:
+      NEXT_PUBLIC_MODEL_CATALOG_API_BASE: http://backend:3002/api/v1
+    depends_on:
+      - backend
+    ports:
+      - '3001:3000'
+
+volumes:
+  pg_data:
+  typesense_data:
