@@ -242,7 +242,7 @@ func (s *Store) ListVirtualModelsForPrincipal(ctx context.Context, tenantID stri
 			SELECT 1
 			FROM virtual_model_access vma
 			WHERE vma.virtual_model_id = vm.virtual_model_id
-			  AND vma.role IN ('manager', 'user')
+			  AND vma.role = 'user'
 			  AND (
 				vma.principal_type = 'everyone'
 				OR (vma.principal_type = 'user' AND vma.principal_id::text = NULLIF($2, ''))

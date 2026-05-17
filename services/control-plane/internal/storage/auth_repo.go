@@ -227,7 +227,7 @@ func (s *Store) listRuntimeAllowedModelsByProviderAccount(ctx context.Context, t
 		 AND m.enabled = true
 		JOIN tenant_provider_account_access ac
 		  ON ac.account_id = a.account_id
-		 AND ac.role IN ('manager', 'user')
+		 AND ac.role = 'user'
 		WHERE a.tenant_id = $1
 		  AND (
 			   ac.principal_type = 'everyone'

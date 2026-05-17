@@ -705,6 +705,7 @@ func (s *Store) ListTenantProviderAccountEffectiveModels(ctx context.Context, te
 		         SELECT 1
 		         FROM tenant_provider_account_access ac
 		         WHERE ac.account_id = m.account_id
+		           AND ac.role = 'user'
 		           AND ac.access_scope = 'account'
 		           AND (
 		             ac.principal_type = 'everyone'
@@ -769,7 +770,7 @@ func (s *Store) ListTenantProviderAccountEffectiveModels(ctx context.Context, te
 		             (NULLIF($4, '') = 'pat' AND vt.user_id IS NOT NULL AND vt.user_id::text = NULLIF($2, ''))
 		             OR (NULLIF($4, '') = 'vat' AND vt.team_id IS NOT NULL AND vt.team_id::text = NULLIF($3, ''))
 		           )
-		       ), false) AS has_candidate_keys,
+		       ), false) AS has_candidate_keys
 		FROM tenant_provider_account_models m
 		JOIN tenant_provider_accounts pa ON pa.account_id = m.account_id
 		WHERE m.account_id = $1
