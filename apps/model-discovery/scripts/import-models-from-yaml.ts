@@ -155,6 +155,61 @@ function normalizeRegion(raw: string): string {
   return slugify(val);
 }
 
+function inferOutputModalities(
+  mode: string,
+  supportedModes: string[],
+  existingOutputModalities: string[],
+): string[] {
+  if (existingOutputModalities.length > 0) return existingOutputModalities;
+
+  const inferred = new Set<string>();
+  const signals = [mode, ...supportedModes].map((x) => slugify(x));
+
+  for (const signal of signals) {
+    switch (signal) {
+      case 'chat':
+      case 'completion':
+      case 'responses':
+      case 'reasoning':
+      case 'unknown':
+        inferred.add('text');
+        break;
+      case 'image':
+      case 'image-generation':
+      case 'text-to-image':
+      case 'image-edit':
+        inferred.add('image');
+        break;
+      case 'video':
+      case 'video-generation':
+      case 'text-to-video':
+      case 'image-to-video':
+        inferred.add('video');
+        break;
+      case 'embedding':
+      case 'embeddings':
+        inferred.add('embedding');
+        break;
+      case 'text-to-speech':
+      case 'text-to-audio':
+      case 'audio-generation':
+        inferred.add('audio');
+        break;
+      case 'audio-transcription':
+      case 'speech-to-text':
+      case 'transcription':
+      case 'rerank':
+      case 'moderation':
+        inferred.add('text');
+        break;
+      default:
+        break;
+    }
+  }
+
+  return Array.from(inferred);
+}
+
 function perTokenToPerMillion(input: number | undefined): number | undefined {
   if (input === undefined) return undefined;
   return input * 1_000_000;
@@ -201,7 +256,7 @@ async function parseProviderDir(providerDir: string): Promise<ImportProviderBatc
 
     const features = asStringArray(doc['features']).map(slugify);
     const inputModalities = asStringArray(modalities?.['input']).map(slugify);
-    const outputModalities = asStringArray(modalities?.['output']).map(slugify);
+    const outputModalitiesRaw = asStringArray(modalities?.['output']).map(slugify);
     const sources = asStringArray(doc['sources']);
 
     const costs = Array.isArray(doc['costs']) ? doc['costs'] : [];
@@ -254,6 +309,11 @@ async function parseProviderDir(providerDir: string): Promise<ImportProviderBatc
 
     const supportedModes = asStringArray(doc['supportedModes']);
     const mode = typeof doc['mode'] === 'string' ? doc['mode'] : '';
+    const outputModalities = inferOutputModalities(
+      mode,
+      supportedModes,
+      outputModalitiesRaw,
+    );
     const summaryParts = [mode, ...supportedModes].filter(Boolean);
 
     models.push({

@@ -62,6 +62,10 @@ export class ModelsQueryDto {
   @ApiPropertyOptional()
   @Type(() => Number)
   @IsOptional()
+  min_input_price?: number;
+  @ApiPropertyOptional()
+  @Type(() => Number)
+  @IsOptional()
   max_input_price?: number;
   @ApiPropertyOptional()
   @Type(() => Number)

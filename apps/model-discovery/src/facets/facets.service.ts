@@ -18,8 +18,14 @@ export class FacetsService {
     ] = await Promise.all([
       this.prisma.provider.findMany({ select: { slug: true, name: true } }),
       this.prisma.category.findMany({ select: { slug: true, name: true } }),
-      this.prisma.modality.findMany({ select: { slug: true, name: true } }),
-      this.prisma.modality.findMany({ select: { slug: true, name: true } }),
+      this.prisma.modelInputModality.findMany({
+        distinct: ['modalityId'],
+        select: { modality: { select: { slug: true, name: true } } },
+      }),
+      this.prisma.modelOutputModality.findMany({
+        distinct: ['modalityId'],
+        select: { modality: { select: { slug: true, name: true } } },
+      }),
       this.prisma.supportedParameter.findMany({
         select: { slug: true, name: true },
       }),
@@ -31,8 +37,8 @@ export class FacetsService {
     return {
       providers,
       categories,
-      inputModalities,
-      outputModalities,
+      inputModalities: inputModalities.map((row) => row.modality),
+      outputModalities: outputModalities.map((row) => row.modality),
       supportedParameters,
       capabilities,
       regions,

@@ -62,12 +62,17 @@ export class CatalogService {
         ? { some: { region: { slug: query.region } } }
         : undefined,
       pricing:
-        query.max_input_price || query.max_output_price
+        query.min_input_price || query.max_input_price || query.max_output_price
           ? {
               some: {
-                inputPricePerMillionTokens: query.max_input_price
-                  ? { lte: query.max_input_price }
-                  : undefined,
+                inputPricePerMillionTokens:
+                  query.min_input_price !== undefined ||
+                  query.max_input_price !== undefined
+                    ? {
+                        gte: query.min_input_price,
+                        lte: query.max_input_price,
+                      }
+                    : undefined,
                 outputPricePerMillionTokens: query.max_output_price
                   ? { lte: query.max_output_price }
                   : undefined,
