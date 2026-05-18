@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiGet, resolveAssetUrl } from '@/lib/api';
 import { formatDisplayPrice } from '@/lib/display-settings';
 import { useDisplaySettings } from '@/components/display-settings-provider';
+import { CompareToggleButton } from '@/components/compare/compare-toggle-button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -136,7 +137,7 @@ export function ModelsExplorer() {
                   {resolveAssetUrl(m.modelSeries?.logoUrl) ? (
                     <img
                       src={resolveAssetUrl(m.modelSeries?.logoUrl) || ''}
-                      alt={m.modelSeries.name}
+                      alt={m.modelSeries?.name || 'Model series'}
                       className="h-4 w-4 rounded"
                     />
                   ) : null}
@@ -157,7 +158,10 @@ export function ModelsExplorer() {
             <div className="mt-3 flex flex-wrap gap-1">
               {m.capabilities.slice(0, 5).map((c) => <Badge key={c}>{c}</Badge>)}
             </div>
-            <Link href={`/models/${m.provider.slug}/${m.slug}`} className="mt-3 inline-block text-sm text-cyan-400 hover:text-cyan-300">View details</Link>
+            <div className="mt-3 flex items-center gap-2">
+              <Link href={`/models/${m.provider.slug}/${m.slug}`} className="inline-block text-sm text-cyan-400 hover:text-cyan-300">View details</Link>
+              <CompareToggleButton canonicalId={m.canonicalId} compact />
+            </div>
           </Card>
         ))}
       </div>

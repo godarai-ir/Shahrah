@@ -1,6 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import {
+  AudioLines,
+  Code2,
+  FileText,
+  Image as ImageIcon,
+  type LucideIcon,
+  Video,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +17,7 @@ import {
   formatDisplayPrice,
 } from "@/lib/display-settings";
 import { useDisplaySettings } from "@/components/display-settings-provider";
+import { CompareToggleButton } from "@/components/compare/compare-toggle-button";
 
 type Provider = {
   slug?: string | null;
@@ -121,6 +130,41 @@ function ChipList({ values, emptyLabel, initial = 10 }: { values: string[]; empt
   );
 }
 
+type ModalityMeta = {
+  icon: LucideIcon;
+  className: string;
+};
+
+function getModalityMeta(value: string): ModalityMeta {
+  const key = value.toLowerCase();
+  if (key.includes("text")) return { icon: FileText, className: "border-blue-500/40 bg-blue-500/10 text-blue-300" };
+  if (key.includes("image")) return { icon: ImageIcon, className: "border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-300" };
+  if (key.includes("audio") || key.includes("speech") || key.includes("voice")) {
+    return { icon: AudioLines, className: "border-amber-500/40 bg-amber-500/10 text-amber-300" };
+  }
+  if (key.includes("video")) return { icon: Video, className: "border-rose-500/40 bg-rose-500/10 text-rose-300" };
+  if (key.includes("embedding")) return { icon: Code2, className: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" };
+  return { icon: Code2, className: "border-zinc-600 bg-zinc-800/70 text-zinc-300" };
+}
+
+function ModalityIconList({ values, emptyLabel }: { values: string[]; emptyLabel: string }) {
+  if (values.length === 0) return <p className="text-sm text-zinc-500">{emptyLabel}</p>;
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {values.map((value) => {
+        const { icon: Icon, className } = getModalityMeta(value);
+        return (
+          <span key={value} className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${className}`}>
+            <Icon className="h-3.5 w-3.5" />
+            <span>{value}</span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 export function ModelDetailView({
   model,
   requestedCanonicalId,
@@ -151,14 +195,11 @@ export function ModelDetailView({
         return slug && name ? `${name} (${slug})` : (name || slug) as string;
       })
       .filter((x): x is string => Boolean(x));
-    const regions = (model?.regions ?? [])
-      .map((entry) => entry.region?.name || entry.region?.slug)
-      .filter((x): x is string => Boolean(x));
     const sortedPricing = [...(model?.pricing ?? [])].sort((a, b) =>
       (a.region?.slug || "global").localeCompare(b.region?.slug || "global"),
     );
 
-    return { inputModalities, outputModalities, capabilities, supportedParams, regions, sortedPricing };
+    return { inputModalities, outputModalities, capabilities, supportedParams, sortedPricing };
   }, [model]);
 
   async function copyText(text: string, field: "canonical" | "slug") {
@@ -189,10 +230,7 @@ export function ModelDetailView({
     ["capabilities", "Capabilities"],
     ["supported-parameters", "Supported Parameters"],
     ["pricing", "Pricing"],
-    ["regions", "Regions"],
     ["sources", "Sources"],
-    ["changelog", "Changelog"],
-    ["benchmarks", "Benchmarks"],
   ] as const;
 
   return (
@@ -215,6 +253,7 @@ export function ModelDetailView({
             <span className="rounded border border-zinc-800 bg-zinc-950 px-2 py-1">
               canonicalId: <code>{model.canonicalId}</code>
             </span>
+            <CompareToggleButton canonicalId={model.canonicalId} />
             <Button type="button" className="h-8 bg-zinc-800 px-2 py-1 text-xs text-zinc-100 hover:bg-zinc-700" onClick={() => copyText(model.canonicalId, "canonical")}>
               {copiedField === "canonical" ? "Copied" : "Copy canonicalId"}
             </Button>
@@ -240,16 +279,16 @@ export function ModelDetailView({
               <p className="text-base font-medium">{formatDisplayPrice(model.pricing?.[0]?.inputPricePerMillionTokens, settings)}</p>
             </div>
             <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
+              <p className="text-xs text-zinc-500">Baseline output price / 1M</p>
+              <p className="text-base font-medium">{formatDisplayPrice(model.pricing?.[0]?.outputPricePerMillionTokens, settings)}</p>
+            </div>
+            <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
               <p className="text-xs text-zinc-500">Modalities</p>
               <p className="text-base font-medium">{normalized.inputModalities.length} in / {normalized.outputModalities.length} out</p>
             </div>
             <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
               <p className="text-xs text-zinc-500">Capabilities</p>
               <p className="text-base font-medium">{normalized.capabilities.length}</p>
-            </div>
-            <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
-              <p className="text-xs text-zinc-500">Regions</p>
-              <p className="text-base font-medium">{normalized.regions.length}</p>
             </div>
           </div>
         </Card>
@@ -292,9 +331,9 @@ export function ModelDetailView({
           <Card>
             <SectionTitle id="modalities">Modalities</SectionTitle>
             <p className="mb-2 text-xs uppercase tracking-wide text-zinc-500">Input</p>
-            <ChipList values={normalized.inputModalities} emptyLabel="No input modalities." />
+            <ModalityIconList values={normalized.inputModalities} emptyLabel="No input modalities." />
             <p className="mb-2 mt-4 text-xs uppercase tracking-wide text-zinc-500">Output</p>
-            <ChipList values={normalized.outputModalities} emptyLabel="No output modalities." />
+            <ModalityIconList values={normalized.outputModalities} emptyLabel="No output modalities." />
           </Card>
 
           <Card>
@@ -337,11 +376,6 @@ export function ModelDetailView({
           </Card>
 
           <Card>
-            <SectionTitle id="regions">Regions</SectionTitle>
-            <ChipList values={normalized.regions} emptyLabel="No regions listed." />
-          </Card>
-
-          <Card>
             <SectionTitle id="sources">Sources</SectionTitle>
             {(model.sources ?? []).length === 0 ? (
               <p className="text-sm text-zinc-500">No sources.</p>
@@ -359,43 +393,6 @@ export function ModelDetailView({
             )}
           </Card>
 
-          <Card>
-            <SectionTitle id="changelog">Changelog</SectionTitle>
-            {(model.changelog ?? []).length === 0 ? (
-              <p className="text-sm text-zinc-500">No changelog entries.</p>
-            ) : (
-              <div className="space-y-2 text-sm">
-                {(model.changelog ?? []).map((entry, i) => (
-                  <div key={entry.id || `${entry.changedAt || "change"}-${i}`} className="rounded border border-zinc-800 bg-zinc-950 p-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium">{entry.title || "Change"}</span>
-                      <Badge className="border-zinc-700 text-zinc-300">{entry.changeType || EMPTY}</Badge>
-                    </div>
-                    <p className="mt-1 text-zinc-500">By {entry.createdBy || "unknown"} at {formatDisplayDate(entry.changedAt, settings)}</p>
-                    {entry.description ? <p className="mt-1 text-zinc-300">{entry.description}</p> : null}
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-
-          <Card className="xl:col-span-2">
-            <SectionTitle id="benchmarks">Benchmarks</SectionTitle>
-            {(model.benchmarks ?? []).length === 0 ? (
-              <p className="text-sm text-zinc-500">No benchmark data.</p>
-            ) : (
-              <div className="space-y-2 text-sm">
-                {(model.benchmarks ?? []).map((row, i) => (
-                  <div key={row.id || `${row.benchmark?.slug || "bench"}-${i}`} className="grid gap-2 rounded border border-zinc-800 bg-zinc-950 p-2 md:grid-cols-4">
-                    <div><span className="text-zinc-500">Benchmark:</span> {row.benchmark?.name || row.benchmark?.slug || EMPTY}</div>
-                    <div><span className="text-zinc-500">Score:</span> {fmtNumber(row.score)}</div>
-                    <div><span className="text-zinc-500">Percentile:</span> {fmtNumber(row.percentile)}</div>
-                    <div><span className="text-zinc-500">Evaluated:</span> {formatDisplayDate(row.evaluatedAt, settings)}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
         </div>
       </div>
 
