@@ -223,8 +223,59 @@
       "columns": {
         "model": "Model",
         "capabilities": "Capabilities",
+        "modalities": "Modalities",
+        "context": "Context",
         "pricingMode": "Pricing mode",
         "costConfig": "Cost config"
+      },
+      "filters": {
+        "minPrice": "Min price",
+        "maxPrice": "Max price",
+        "minContext": "Min context",
+        "allInputModalities": "All input modalities",
+        "allOutputModalities": "All output modalities",
+        "allFeatures": "All features"
+      },
+      "displayUnit": {
+        "currencyUsd": "USD",
+        "currencyToman": "Toman",
+        "perMillionTokens": "Per 1M tokens",
+        "perToken": "Per token"
+      },
+      "sort": {
+        "priceAsc": "Price asc",
+        "priceDesc": "Price desc",
+        "contextAsc": "Context asc",
+        "contextDesc": "Context desc"
+      },
+      "actions": {
+        "clearFilters": "Clear filters",
+        "compare": "Compare ({count})",
+        "editPricing": "Edit pricing",
+        "apply": "Apply",
+        "cancel": "Cancel",
+        "showMore": "Show more",
+        "showLess": "Show less"
+      },
+      "pricingSummary": {
+        "title": "Pricing summary"
+      },
+      "validation": {
+        "invalidInputPrice": "Input price must be a non-negative number.",
+        "invalidOutputPrice": "Output price must be a non-negative number."
+      },
+      "compare": {
+        "title": "Model Comparison",
+        "description": "Side-by-side comparison of selected models.",
+        "columns": {
+          "model": "Model",
+          "provider": "Provider",
+          "price": "Price (input/output)",
+          "context": "Context",
+          "inputModality": "Input",
+          "outputModality": "Output",
+          "features": "Features"
+        }
       },
       "pricing": {
         "public": "Public",

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { Copy, Eye, KeyRound, Layers3, ShieldCheck, Trash2, X } from "lucide-react";
 
@@ -19,6 +20,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   PrincipalEntitySelect,
   type PrincipalEntitySelection,
@@ -26,6 +29,7 @@ import {
   type PrincipalSearchKind,
 } from "@/app/components/principal-search-input";
 import { PrincipalPicker } from "@/app/components/principal-picker";
+import { ModelCard, type ModelCardData } from "@/app/components/model-card";
 import { usePermissions } from "@/app/components/permissions-context";
 import { canPermission } from "@/lib/authz";
 
@@ -70,6 +74,10 @@ type ProviderCatalogModel = {
   model: string;
   display_name: string;
   types: ModelType[];
+  context_window?: number;
+  input_modalities?: string[];
+  output_modalities?: string[];
+  features?: string[];
   public_pricing?: {
     input_usd_per_1m?: number;
     output_usd_per_1m?: number;
@@ -131,6 +139,15 @@ type ProviderCatalogStatsResponse = {
     counters?: Record<string, number>;
   };
 };
+type DisplaySettingsResponse = {
+  data?: {
+    currencyUnit?: "USD" | "IRR" | "TOMAN";
+    priceScale?: "PER_MILLION_TOKENS" | "PER_TOKEN";
+    exchangeRate?: {
+      usdToIrr?: number;
+    };
+  };
+};
 
 type Banner = {
   kind: "success" | "error";
@@ -150,6 +167,7 @@ type Readiness = "ready" | "needs_credentials" | "needs_access" | "pricing_incom
 export default function ProviderAccountWizard() {
   const t = useTranslations("providerAccounts");
   const ux = useTranslations("providerAccounts.ux");
+  const queryClient = useQueryClient();
   const permissions = usePermissions();
   const canCreateProviderAccount = permissions ? canPermission(permissions, "provider_account:create") : false;
   const canDeleteProviderAccount = permissions ? canPermission(permissions, "provider_account:delete") : false;
@@ -251,6 +269,14 @@ export default function ProviderAccountWizard() {
     [accounts, selectedProviderID],
   );
 
+  const providersQuery = useQuery({
+    queryKey: ["tenant-admin", "provider-catalog", "providers"],
+    queryFn: async () => {
+      const providerData = await requestJSON<ProvidersResponse>("/api/provider-catalog/providers");
+      return unwrapData<ProviderCatalogProvider[]>(providerData) ?? [];
+    },
+  });
+
   useEffect(() => {
     selectedProviderRef.current = selectedProviderID;
   }, [selectedProviderID]);
@@ -308,11 +334,18 @@ export default function ProviderAccountWizard() {
   const fetchProviderModels = useCallback(async (nextProvider: string) => {
     const normalized = nextProvider.trim().toLowerCase();
     if (!normalized) return [];
-    const response = await requestJSON<ProviderModelsResponse>(
-      `/api/provider-catalog/providers/${encodeURIComponent(normalized)}/models`,
-    );
-    return unwrapData<ProviderCatalogModel[]>(response) ?? [];
-  }, []);
+    return queryClient.fetchQuery({
+      queryKey: ["tenant-admin", "provider-catalog", "models", normalized],
+      queryFn: async () => {
+        const response = await requestJSON<ProviderModelsResponse>(
+          `/api/provider-catalog/providers/${encodeURIComponent(normalized)}/models`,
+        );
+        return unwrapData<ProviderCatalogModel[]>(response) ?? [];
+      },
+      staleTime: 1000 * 60 * 30,
+      gcTime: 1000 * 60 * 60 * 2,
+    });
+  }, [queryClient]);
 
   const loadProviderModels = useCallback(
     async (nextProvider: string) => {
@@ -346,12 +379,8 @@ export default function ProviderAccountWizard() {
     try {
       const currentProviderID = selectedProviderRef.current;
       const currentAccountID = selectedAccountRef.current;
-      const [providerData, accountData] = await Promise.all([
-        requestJSON<ProvidersResponse>("/api/provider-catalog/providers"),
-        requestJSON<AccountsResponse>("/api/tenant-provider-accounts"),
-      ]);
-
-      const providerItems = unwrapData<ProviderCatalogProvider[]>(providerData) ?? [];
+      const accountData = await requestJSON<AccountsResponse>("/api/tenant-provider-accounts");
+      const providerItems = providersQuery.data ?? [];
       const accountItems = unwrapData<TenantProviderAccount[]>(accountData) ?? [];
       setProviders(providerItems);
       setAccounts(accountItems);
@@ -379,7 +408,7 @@ export default function ProviderAccountWizard() {
     } finally {
       setIsLoading(false);
     }
-  }, [t]);
+  }, [providersQuery.data, t]);
 
   const loadCatalogStats = useCallback(async () => {
     try {
@@ -669,6 +698,7 @@ export default function ProviderAccountWizard() {
     setBanner(null);
     try {
       await requestJSON("/api/provider-catalog/refresh", { method: "POST" });
+      await queryClient.invalidateQueries({ queryKey: ["tenant-admin", "provider-catalog"] });
       await loadInitial();
       await loadCatalogStats();
       if (selectedProviderID) {
@@ -1825,6 +1855,222 @@ function ModelsEditor(props: {
   onSave: () => void;
 }) {
   const ux = useTranslations("providerAccounts.ux");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [minContext, setMinContext] = useState("");
+  const [inputModality, setInputModality] = useState("");
+  const [outputModality, setOutputModality] = useState("");
+  const [featureFilter, setFeatureFilter] = useState("");
+  const [sortBy, setSortBy] = useState<"price_asc" | "price_desc" | "context_asc" | "context_desc">("price_asc");
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [displayCurrency, setDisplayCurrency] = useState<"USD" | "TOMAN">("USD");
+  const [displayScale, setDisplayScale] = useState<"PER_MILLION_TOKENS" | "PER_TOKEN">("PER_MILLION_TOKENS");
+  const [usdToIrr, setUsdToIrr] = useState(0);
+  const [pricingEditor, setPricingEditor] = useState<{
+    open: boolean;
+    modelKey: string;
+    pricingMode: "public" | "private";
+    inputPrice: string;
+    outputPrice: string;
+    error: string;
+  }>({
+    open: false,
+    modelKey: "",
+    pricingMode: "public",
+    inputPrice: "",
+    outputPrice: "",
+    error: "",
+  });
+
+  const selectedModels = useMemo(
+    () => props.filteredProviderModels.filter((model) => props.modelDrafts[model.model]?.selected),
+    [props.filteredProviderModels, props.modelDrafts],
+  );
+
+  const allInputModalities = useMemo(
+    () => Array.from(new Set(props.filteredProviderModels.flatMap((model) => model.input_modalities ?? []))),
+    [props.filteredProviderModels],
+  );
+  const allOutputModalities = useMemo(
+    () => Array.from(new Set(props.filteredProviderModels.flatMap((model) => model.output_modalities ?? []))),
+    [props.filteredProviderModels],
+  );
+  const allFeatures = useMemo(
+    () => Array.from(new Set(props.filteredProviderModels.flatMap((model) => model.features ?? model.types ?? []))),
+    [props.filteredProviderModels],
+  );
+
+  const visibleModels = useMemo(() => {
+    const minPriceValue = toNumberOrUndefined(minPrice);
+    const maxPriceValue = toNumberOrUndefined(maxPrice);
+    const minContextValue = toNumberOrUndefined(minContext);
+    const filtered = props.filteredProviderModels.filter((model) => {
+      const inputPrice = model.public_pricing?.input_usd_per_1m;
+      const context = model.context_window;
+      if (typeof minPriceValue === "number" && (typeof inputPrice !== "number" || inputPrice < minPriceValue)) return false;
+      if (typeof maxPriceValue === "number" && (typeof inputPrice !== "number" || inputPrice > maxPriceValue)) return false;
+      if (typeof minContextValue === "number" && (typeof context !== "number" || context < minContextValue)) return false;
+      if (inputModality && !(model.input_modalities ?? []).includes(inputModality)) return false;
+      if (outputModality && !(model.output_modalities ?? []).includes(outputModality)) return false;
+      if (featureFilter && !(model.features ?? model.types ?? []).includes(featureFilter)) return false;
+      return true;
+    });
+
+    const sorted = [...filtered];
+    sorted.sort((a, b) => {
+      const aPrice = a.public_pricing?.input_usd_per_1m ?? Number.POSITIVE_INFINITY;
+      const bPrice = b.public_pricing?.input_usd_per_1m ?? Number.POSITIVE_INFINITY;
+      const aContext = a.context_window ?? 0;
+      const bContext = b.context_window ?? 0;
+      switch (sortBy) {
+        case "price_desc":
+          return bPrice - aPrice;
+        case "context_asc":
+          return aContext - bContext;
+        case "context_desc":
+          return bContext - aContext;
+        case "price_asc":
+        default:
+          return aPrice - bPrice;
+      }
+    });
+    return sorted;
+  }, [featureFilter, inputModality, maxPrice, minContext, minPrice, outputModality, props.filteredProviderModels, sortBy]);
+
+  const resetFilters = () => {
+    setMinPrice("");
+    setMaxPrice("");
+    setMinContext("");
+    setInputModality("");
+    setOutputModality("");
+    setFeatureFilter("");
+    setSortBy("price_asc");
+  };
+
+  const openPricingEditor = (model: ProviderCatalogModel) => {
+    const draft = props.modelDrafts[model.model] ?? {
+      selected: false,
+      types: model.types ?? [],
+      pricingMode: "public" as const,
+      inputPrice: model.public_pricing?.input_usd_per_1m?.toString() ?? "",
+      outputPrice: model.public_pricing?.output_usd_per_1m?.toString() ?? "",
+    };
+    setPricingEditor({
+      open: true,
+      modelKey: model.model,
+      pricingMode: draft.pricingMode,
+      inputPrice: draft.inputPrice,
+      outputPrice: draft.outputPrice,
+      error: "",
+    });
+  };
+
+  const applyPricingEditor = () => {
+    const inputNumber = toNumberOrUndefined(pricingEditor.inputPrice);
+    const outputNumber = toNumberOrUndefined(pricingEditor.outputPrice);
+    if (pricingEditor.pricingMode === "private") {
+      if (pricingEditor.inputPrice.trim() && (typeof inputNumber !== "number" || inputNumber < 0)) {
+        setPricingEditor((prev) => ({ ...prev, error: ux("models.validation.invalidInputPrice") }));
+        return;
+      }
+      if (pricingEditor.outputPrice.trim() && (typeof outputNumber !== "number" || outputNumber < 0)) {
+        setPricingEditor((prev) => ({ ...prev, error: ux("models.validation.invalidOutputPrice") }));
+        return;
+      }
+    }
+
+    props.setModelDrafts((prev) => {
+      const current = prev[pricingEditor.modelKey];
+      if (!current) return prev;
+      return {
+        ...prev,
+        [pricingEditor.modelKey]: {
+          ...current,
+          selected: true,
+          pricingMode: pricingEditor.pricingMode,
+          inputPrice: pricingEditor.inputPrice.trim(),
+          outputPrice: pricingEditor.outputPrice.trim(),
+        },
+      };
+    });
+    setPricingEditor((prev) => ({ ...prev, open: false, error: "" }));
+  };
+
+  const toModelCardData = (model: ProviderCatalogModel): ModelCardData => {
+    const caps = model.types ?? [];
+    const categories: ModelCardData["category"] = [];
+    if (caps.some((c) => c.toLowerCase().includes("vision") || c.toLowerCase().includes("image"))) categories.push("vision");
+    if (caps.some((c) => c.toLowerCase().includes("reason"))) categories.push("reasoning");
+    if (caps.some((c) => c.toLowerCase().includes("code"))) categories.push("code");
+    if (caps.some((c) => c.toLowerCase().includes("audio"))) categories.push("audio");
+    if (categories.length === 0) categories.push("chat");
+
+    return {
+      id: model.model,
+      name: model.display_name || model.model,
+      provider: {
+        id: model.provider,
+        name: model.provider,
+      },
+      description: `${ux("models.columns.modalities")}: ${(model.input_modalities ?? []).join(", ") || ux("models.na")} / ${(model.output_modalities ?? []).join(", ") || ux("models.na")}`,
+      category: categories,
+      status: "stable",
+      contextWindow: model.context_window,
+      maxOutputTokens: undefined,
+      pricing: {
+        inputPerMillion: model.public_pricing?.input_usd_per_1m,
+        outputPerMillion: model.public_pricing?.output_usd_per_1m,
+      },
+      latencyTier: "medium",
+      qualityTier: "good",
+      capabilities: caps,
+      tradeoffs: [],
+      metadata: {
+        modelId: model.model,
+        mode: "chat",
+      },
+    };
+  };
+
+  const buildModelDiscoveryDetailsHref = (model: ProviderCatalogModel): string => {
+    const base =
+      process.env.NEXT_PUBLIC_MODEL_DISCOVERY_APP_URL?.replace(/\/$/, "") ??
+      "http://localhost:3002";
+    const provider = encodeURIComponent(model.provider);
+    const canonical = model.model.startsWith(`${model.provider}/`)
+      ? model.model.slice(model.provider.length + 1)
+      : model.model;
+    const path = canonical
+      .split("/")
+      .filter(Boolean)
+      .map((part) => encodeURIComponent(part))
+      .join("/");
+    return `${base}/models/${provider}/${path || encodeURIComponent(model.model)}`;
+  };
+
+  useEffect(() => {
+    let canceled = false;
+    void (async () => {
+      try {
+        const payload = await requestJSON<DisplaySettingsResponse>("/api/provider-catalog/display-settings");
+        if (canceled) return;
+        const data = unwrapData<DisplaySettingsResponse["data"]>(payload) ?? payload.data;
+        if (!data) return;
+        if (data.currencyUnit === "TOMAN") setDisplayCurrency("TOMAN");
+        else setDisplayCurrency("USD");
+        if (data.priceScale === "PER_TOKEN" || data.priceScale === "PER_MILLION_TOKENS") {
+          setDisplayScale(data.priceScale);
+        }
+        setUsdToIrr(Number(data.exchangeRate?.usdToIrr ?? 0));
+      } catch {
+        // Keep defaults when display settings are unavailable.
+      }
+    })();
+    return () => {
+      canceled = true;
+    };
+  }, []);
+
   return (
     <section className="space-y-3 rounded-lg border p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1837,24 +2083,54 @@ function ModelsEditor(props: {
         </Button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
         <Input
           value={props.modelSearchQuery}
           onChange={(event) => props.setModelSearchQuery(event.target.value)}
           placeholder={props.t("step3.searchPlaceholder")}
-          className="max-w-sm"
         />
+        <Input value={minPrice} onChange={(event) => setMinPrice(event.target.value)} placeholder={ux("models.filters.minPrice")} />
+        <Input value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} placeholder={ux("models.filters.maxPrice")} />
+        <Input value={minContext} onChange={(event) => setMinContext(event.target.value)} placeholder={ux("models.filters.minContext")} />
+        <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={inputModality} onChange={(event) => setInputModality(event.target.value)}>
+          <option value="">{ux("models.filters.allInputModalities")}</option>
+          {allInputModalities.map((item) => <option key={item} value={item}>{item}</option>)}
+        </select>
+        <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={outputModality} onChange={(event) => setOutputModality(event.target.value)}>
+          <option value="">{ux("models.filters.allOutputModalities")}</option>
+          {allOutputModalities.map((item) => <option key={item} value={item}>{item}</option>)}
+        </select>
+        <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={featureFilter} onChange={(event) => setFeatureFilter(event.target.value)}>
+          <option value="">{ux("models.filters.allFeatures")}</option>
+          {allFeatures.map((item) => <option key={item} value={item}>{item}</option>)}
+        </select>
+        <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)}>
+          <option value="price_asc">{ux("models.sort.priceAsc")}</option>
+          <option value="price_desc">{ux("models.sort.priceDesc")}</option>
+          <option value="context_asc">{ux("models.sort.contextAsc")}</option>
+          <option value="context_desc">{ux("models.sort.contextDesc")}</option>
+        </select>
+        <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={displayCurrency} onChange={(event) => setDisplayCurrency(event.target.value as "USD" | "TOMAN")}>
+          <option value="USD">{ux("models.displayUnit.currencyUsd")}</option>
+          <option value="TOMAN">{ux("models.displayUnit.currencyToman")}</option>
+        </select>
+        <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={displayScale} onChange={(event) => setDisplayScale(event.target.value as "PER_MILLION_TOKENS" | "PER_TOKEN")}>
+          <option value="PER_MILLION_TOKENS">{ux("models.displayUnit.perMillionTokens")}</option>
+          <option value="PER_TOKEN">{ux("models.displayUnit.perToken")}</option>
+        </select>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"
           variant="outline"
           onClick={() => {
-            const allSelected = props.filteredProviderModels.length > 0 && props.filteredProviderModels.every((model) => {
+            const allSelected = visibleModels.length > 0 && visibleModels.every((model) => {
               const draft = props.modelDrafts[model.model];
               return Boolean(draft?.selected);
             });
             props.setModelDrafts((prev) => {
               const next = { ...prev };
-              for (const model of props.filteredProviderModels) {
+              for (const model of visibleModels) {
                 const draft = next[model.model] ?? {
                   selected: false,
                   types: model.types ?? [],
@@ -1867,24 +2143,21 @@ function ModelsEditor(props: {
               return next;
             });
           }}
-          disabled={!props.canManage || props.filteredProviderModels.length === 0}
+          disabled={!props.canManage || visibleModels.length === 0}
         >
           {props.t("step3.toggleSelectAll")}
         </Button>
+        <Button type="button" variant="outline" onClick={resetFilters}>{ux("models.actions.clearFilters")}</Button>
+        <Button type="button" variant="outline" disabled={selectedModels.length < 2} onClick={() => setCompareOpen(true)}>
+          {ux("models.actions.compare", { count: selectedModels.length })}
+        </Button>
       </div>
 
-      {props.filteredProviderModels.length === 0 ? (
+      {visibleModels.length === 0 ? (
         <p className="text-sm text-muted-foreground">{props.t("step3.empty")}</p>
       ) : (
-        <div className="overflow-hidden rounded-lg border">
-          <div className="grid grid-cols-[44px_1fr_1fr_160px_160px] border-b bg-muted/30 px-3 py-2 text-xs font-semibold text-muted-foreground">
-            <div />
-            <div>{ux("models.columns.model")}</div>
-            <div>{ux("models.columns.capabilities")}</div>
-            <div>{ux("models.columns.pricingMode")}</div>
-            <div>{ux("models.columns.costConfig")}</div>
-          </div>
-          {props.filteredProviderModels.map((model) => {
+        <div className="space-y-3">
+          {visibleModels.map((model) => {
             const draft = props.modelDrafts[model.model] ?? {
               selected: false,
               types: model.types ?? [],
@@ -1892,122 +2165,168 @@ function ModelsEditor(props: {
               inputPrice: model.public_pricing?.input_usd_per_1m?.toString() ?? "",
               outputPrice: model.public_pricing?.output_usd_per_1m?.toString() ?? "",
             };
-
             return (
-              <div key={model.model} className="grid grid-cols-[44px_1fr_1fr_160px_160px] items-start gap-2 border-b px-3 py-3 last:border-b-0">
-                <div>
-                  <input
-                    aria-label={`select-${model.model}`}
-                    type="checkbox"
-                    checked={draft.selected}
-                    disabled={!props.canManage}
-                    onChange={(event) =>
-                      props.setModelDrafts((prev) => ({
-                        ...prev,
-                        [model.model]: { ...draft, selected: event.target.checked },
-                      }))
+              <div key={model.model} className="space-y-2">
+                <div className="flex items-center justify-between gap-2 px-1">
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <input
+                      aria-label={`select-${model.model}`}
+                      type="checkbox"
+                      checked={draft.selected}
+                      disabled={!props.canManage}
+                      className="h-4 w-4"
+                      onChange={(event) =>
+                        props.setModelDrafts((prev) => ({
+                          ...prev,
+                          [model.model]: { ...draft, selected: event.target.checked },
+                        }))
+                      }
+                    />
+                    {ux("models.actions.compare", { count: draft.selected ? 1 : 0 })}
+                  </label>
+                  <Badge variant={draft.pricingMode === "private" ? "secondary" : "outline"}>
+                    {draft.pricingMode === "private" ? ux("models.pricing.private") : ux("models.pricing.public")}
+                  </Badge>
+                </div>
+                <ModelCard
+                  model={toModelCardData(model)}
+                  detailsHref={buildModelDiscoveryDetailsHref(model)}
+                  pricingDisplay={{
+                    currency: displayCurrency,
+                    scale: displayScale,
+                    usdToIrr,
+                  }}
+                  onViewDetails={() => openPricingEditor(model)}
+                  onCompare={() =>
+                    props.setModelDrafts((prev) => ({
+                      ...prev,
+                      [model.model]: { ...draft, selected: !draft.selected },
+                    }))
+                  }
+                />
+                <Popover
+                  open={pricingEditor.open && pricingEditor.modelKey === model.model}
+                  onOpenChange={(open) => {
+                    if (!open) {
+                      setPricingEditor((prev) => ({ ...prev, open: false, error: "" }));
+                    } else {
+                      openPricingEditor(model);
                     }
-                  />
-                </div>
-                <div className="min-w-0">
-                  <div className="truncate font-medium">{model.display_name || model.model}</div>
-                  <div className="text-xs text-muted-foreground">{model.model}</div>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {(model.types ?? []).map((capability) => {
-                    const checked = draft.types.includes(capability);
-                    return (
-                      <button
-                        key={`${model.model}-${capability}`}
-                        type="button"
-                        className={`rounded-full border px-2 py-1 text-xs ${checked ? "border-primary bg-primary/10" : "border-border"}`}
-                        disabled={!props.canManage}
-                        onClick={() => {
-                          props.setModelDrafts((prev) => {
-                            const existing = prev[model.model] ?? draft;
-                            const exists = existing.types.includes(capability);
-                            const nextTypes = exists
-                              ? existing.types.filter((item) => item !== capability)
-                              : [...existing.types, capability];
-                            return {
-                              ...prev,
-                              [model.model]: {
-                                ...existing,
-                                types: nextTypes,
-                                selected: true,
-                              },
-                            };
-                          });
-                        }}
-                      >
-                        {capability}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="space-y-2">
-                  <select
-                    className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                    value={draft.pricingMode}
-                    disabled={!props.canManage}
-                    onChange={(event) =>
-                      props.setModelDrafts((prev) => ({
-                        ...prev,
-                        [model.model]: {
-                          ...draft,
-                          selected: true,
-                          pricingMode: event.target.value as "public" | "private",
-                        },
-                      }))
-                    }
-                  >
-                    <option value="public">{ux("models.pricing.public")}</option>
-                    <option value="private">{ux("models.pricing.private")}</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  {draft.pricingMode === "private" ? (
-                    <>
-                      <Input
-                        value={draft.inputPrice}
-                        disabled={!props.canManage}
-                        onChange={(event) =>
-                          props.setModelDrafts((prev) => ({
-                            ...prev,
-                            [model.model]: { ...draft, selected: true, inputPrice: event.target.value },
-                          }))
-                        }
-                        placeholder={ux("models.placeholders.input")}
-                      />
-                      <Input
-                        value={draft.outputPrice}
-                        disabled={!props.canManage}
-                        onChange={(event) =>
-                          props.setModelDrafts((prev) => ({
-                            ...prev,
-                            [model.model]: { ...draft, selected: true, outputPrice: event.target.value },
-                          }))
-                        }
-                        placeholder={ux("models.placeholders.output")}
-                      />
-                    </>
-                  ) : (
-                    <div className="space-y-1 text-xs text-muted-foreground">
-                      <div>{ux("models.catalogPricing")}</div>
-                      <div>
-                        {ux("models.labels.input")}: {formatCostPerMillion(model.public_pricing?.input_usd_per_1m, ux("models.na"))}
-                      </div>
-                      <div>
-                        {ux("models.labels.output")}: {formatCostPerMillion(model.public_pricing?.output_usd_per_1m, ux("models.na"))}
-                      </div>
+                  }}
+                >
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={!props.canManage}
+                      aria-label={`${ux("models.actions.editPricing")} ${model.display_name || model.model}`}
+                      onClick={() => openPricingEditor(model)}
+                    >
+                      {ux("models.actions.editPricing")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-80 space-y-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">{ux("models.actions.editPricing")}</p>
+                      <p className="text-xs text-muted-foreground">{model.display_name || model.model}</p>
                     </div>
-                  )}
-                </div>
+                    <div className="space-y-2">
+                      <Label>{ux("models.columns.pricingMode")}</Label>
+                      <select
+                        className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                        value={pricingEditor.pricingMode}
+                        onChange={(event) =>
+                          setPricingEditor((prev) => ({
+                            ...prev,
+                            pricingMode: event.target.value as "public" | "private",
+                            error: "",
+                          }))
+                        }
+                      >
+                        <option value="public">{ux("models.pricing.public")}</option>
+                        <option value="private">{ux("models.pricing.private")}</option>
+                      </select>
+                    </div>
+                    {pricingEditor.pricingMode === "private" ? (
+                      <div className="space-y-2">
+                        <Input
+                          value={pricingEditor.inputPrice}
+                          onChange={(event) => setPricingEditor((prev) => ({ ...prev, inputPrice: event.target.value, error: "" }))}
+                          placeholder={ux("models.placeholders.input")}
+                        />
+                        <Input
+                          value={pricingEditor.outputPrice}
+                          onChange={(event) => setPricingEditor((prev) => ({ ...prev, outputPrice: event.target.value, error: "" }))}
+                          placeholder={ux("models.placeholders.output")}
+                        />
+                      </div>
+                    ) : (
+                      <div className="space-y-1 text-xs text-muted-foreground">
+                        <div>{ux("models.catalogPricing")}</div>
+                        <div>{ux("models.labels.input")}: {formatDisplayPrice(model.public_pricing?.input_usd_per_1m, { currency: displayCurrency, scale: displayScale, usdToIrr, naLabel: ux("models.na") })}</div>
+                        <div>{ux("models.labels.output")}: {formatDisplayPrice(model.public_pricing?.output_usd_per_1m, { currency: displayCurrency, scale: displayScale, usdToIrr, naLabel: ux("models.na") })}</div>
+                      </div>
+                    )}
+                    {pricingEditor.error ? (
+                      <p className="text-xs text-destructive">{pricingEditor.error}</p>
+                    ) : null}
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setPricingEditor((prev) => ({ ...prev, open: false, error: "" }))}
+                      >
+                        {ux("models.actions.cancel")}
+                      </Button>
+                      <Button type="button" size="sm" onClick={applyPricingEditor}>
+                        {ux("models.actions.apply")}
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
             );
           })}
         </div>
       )}
+      <Dialog open={compareOpen} onOpenChange={setCompareOpen}>
+        <DialogContent className="max-h-[85vh] max-w-5xl overflow-auto">
+          <DialogHeader>
+            <DialogTitle>{ux("models.compare.title")}</DialogTitle>
+            <DialogDescription>{ux("models.compare.description")}</DialogDescription>
+          </DialogHeader>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{ux("models.compare.columns.model")}</TableHead>
+                <TableHead>{ux("models.compare.columns.provider")}</TableHead>
+                <TableHead>{ux("models.compare.columns.price")}</TableHead>
+                <TableHead>{ux("models.compare.columns.context")}</TableHead>
+                <TableHead>{ux("models.compare.columns.inputModality")}</TableHead>
+                <TableHead>{ux("models.compare.columns.outputModality")}</TableHead>
+                <TableHead>{ux("models.compare.columns.features")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {selectedModels.map((model) => (
+                <TableRow key={`compare-${model.model}`}>
+                  <TableCell>{model.display_name || model.model}</TableCell>
+                  <TableCell>{model.provider}</TableCell>
+                  <TableCell>
+                    {formatDisplayPrice(model.public_pricing?.input_usd_per_1m, { currency: displayCurrency, scale: displayScale, usdToIrr, naLabel: ux("models.na") })} / {formatDisplayPrice(model.public_pricing?.output_usd_per_1m, { currency: displayCurrency, scale: displayScale, usdToIrr, naLabel: ux("models.na") })}
+                  </TableCell>
+                  <TableCell>{model.context_window ?? ux("models.na")}</TableCell>
+                  <TableCell>{(model.input_modalities ?? []).join(", ") || ux("models.na")}</TableCell>
+                  <TableCell>{(model.output_modalities ?? []).join(", ") || ux("models.na")}</TableCell>
+                  <TableCell>{(model.features ?? model.types ?? []).join(", ") || ux("models.na")}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
@@ -2363,8 +2682,35 @@ function stringsEqualFold(a: string, b: string): boolean {
   return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
-function formatCostPerMillion(value: number | undefined, naLabel: string): string {
-  if (typeof value !== "number" || !Number.isFinite(value)) return naLabel;
-  return `$${value} / 1M`;
+function formatDisplayPrice(
+  usdPerMillion: number | undefined,
+  options: {
+    currency: "USD" | "TOMAN";
+    scale: "PER_MILLION_TOKENS" | "PER_TOKEN";
+    usdToIrr: number;
+    naLabel: string;
+  },
+): string {
+  if (typeof usdPerMillion !== "number" || !Number.isFinite(usdPerMillion)) return options.naLabel;
+
+  let value = usdPerMillion;
+  if (options.scale === "PER_TOKEN") {
+    value = value / 1_000_000;
+  }
+
+  let suffix = options.scale === "PER_TOKEN" ? "/ token" : "/ 1M";
+  if (options.currency === "TOMAN") {
+    const tomanValue = (value * options.usdToIrr) / 10;
+    const formatted = new Intl.NumberFormat("en-US", {
+      maximumFractionDigits: options.scale === "PER_TOKEN" ? 2 : 0,
+    }).format(tomanValue);
+    suffix = options.scale === "PER_TOKEN" ? " toman / token" : " toman / 1M";
+    return `${formatted} ${suffix}`;
+  }
+
+  const formattedUsd = new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: options.scale === "PER_TOKEN" ? 8 : 6,
+  }).format(value);
+  return `$${formattedUsd} ${suffix}`;
 }
 

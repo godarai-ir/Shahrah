@@ -225,7 +225,9 @@
         "model": "مدل",
         "capabilities": "قابلیت‌ها",
         "pricingMode": "حالت قیمت‌گذاری",
-        "costConfig": "پیکربندی هزینه"
+        "costConfig": "پیکربندی هزینه",
+        "modalities": "مودالیتی‌ها",
+        "context": "کانتکست"
       },
       "pricing": {
         "public": "عمومی",
@@ -240,7 +242,56 @@
         "input": "ورودی",
         "output": "خروجی"
       },
-      "na": "نامشخص"
+      "na": "نامشخص",
+      "filters": {
+        "minPrice": "حداقل قیمت",
+        "maxPrice": "حداکثر قیمت",
+        "minContext": "حداقل کانتکست",
+        "allInputModalities": "همه ورودی‌ها",
+        "allOutputModalities": "همه خروجی‌ها",
+        "allFeatures": "همه قابلیت‌ها"
+      },
+      "sort": {
+        "priceAsc": "قیمت صعودی",
+        "priceDesc": "قیمت نزولی",
+        "contextAsc": "کانتکست صعودی",
+        "contextDesc": "کانتکست نزولی"
+      },
+      "actions": {
+        "clearFilters": "پاک کردن فیلترها",
+        "compare": "مقایسه ({count})",
+        "editPricing": "ویرایش قیمت",
+        "apply": "اعمال",
+        "cancel": "انصراف",
+        "showMore": "نمایش بیشتر",
+        "showLess": "نمایش کمتر"
+      },
+      "compare": {
+        "title": "مقایسه مدل‌ها",
+        "description": "مقایسه کنارهم مدل‌های انتخاب‌شده.",
+        "columns": {
+          "model": "مدل",
+          "provider": "ارائه‌دهنده",
+          "price": "قیمت (ورودی/خروجی)",
+          "context": "کانتکست",
+          "inputModality": "ورودی",
+          "outputModality": "خروجی",
+          "features": "قابلیت‌ها"
+        }
+      },
+      "pricingSummary": {
+        "title": "خلاصه قیمت"
+      },
+      "validation": {
+        "invalidInputPrice": "قیمت ورودی باید یک عدد بدون مقدار منفی باشد.",
+        "invalidOutputPrice": "قیمت خروجی باید یک عدد بدون مقدار منفی باشد."
+      },
+      "displayUnit": {
+        "currencyUsd": "دلار",
+        "currencyToman": "تومان",
+        "perMillionTokens": "به ازای ۱ میلیون توکن",
+        "perToken": "به ازای یک توکن"
+      }
     },
     "access": {
       "description": "مدیران می‌توانند تنظیمات حساب را تغییر دهند و کاربران می‌توانند مدل‌های فعال را مصرف کنند.",

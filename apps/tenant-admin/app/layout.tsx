@@ -3,6 +3,7 @@ import { JetBrains_Mono, Vazirmatn } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 
+import { QueryProvider } from "@/app/components/query-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 
 import "./globals.css";
@@ -46,9 +47,11 @@ export default async function RootLayout({
     >
       <body className="min-h-full bg-background text-foreground">
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <ThemeProvider defaultTheme="light" disableTransitionOnChange>
-            {children}
-          </ThemeProvider>
+          <QueryProvider>
+            <ThemeProvider defaultTheme="light" disableTransitionOnChange>
+              {children}
+            </ThemeProvider>
+          </QueryProvider>
         </NextIntlClientProvider>
       </body>
     </html>
