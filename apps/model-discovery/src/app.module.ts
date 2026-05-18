@@ -8,6 +8,7 @@ import { FacetsModule } from './facets/facets.module';
 import { ImportModule } from './import/import.module';
 import { IndexingModule } from './indexing/indexing.module';
 import { ProvidersModule } from './providers/providers.module';
+import { DisplaySettingsModule } from './display-settings/display-settings.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ProvidersModule } from './providers/providers.module';
     AuthModule,
     CatalogModule,
     ProvidersModule,
+    DisplaySettingsModule,
     FacetsModule,
     IndexingModule,
     ImportModule,

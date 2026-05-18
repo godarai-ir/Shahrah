@@ -4,6 +4,11 @@ import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  formatDisplayDate,
+  formatDisplayPrice,
+} from "@/lib/display-settings";
+import { useDisplaySettings } from "@/components/display-settings-provider";
 
 type Provider = {
   slug?: string | null;
@@ -61,18 +66,6 @@ const EMPTY = "-";
 function fmtNumber(value?: number | null): string {
   if (value === null || value === undefined) return EMPTY;
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
-}
-
-function fmtDate(value?: string | null): string {
-  if (!value) return EMPTY;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return EMPTY;
-  return new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(date);
-}
-
-function fmtPrice(value?: number | null, currency?: string | null): string {
-  if (value === null || value === undefined) return EMPTY;
-  return `${fmtNumber(value)} ${currency || "USD"}`;
 }
 
 function safeUrl(url?: string | null): string | null {
@@ -138,6 +131,7 @@ export function ModelDetailView({
   fetchError?: string | null;
 }) {
   const [copiedField, setCopiedField] = useState<"canonical" | "slug" | null>(null);
+  const { settings } = useDisplaySettings();
 
   const normalized = useMemo(() => {
     const inputModalities = (model?.inputModalities ?? [])
@@ -243,7 +237,7 @@ export function ModelDetailView({
             </div>
             <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
               <p className="text-xs text-zinc-500">Baseline input price / 1M</p>
-              <p className="text-base font-medium">{fmtPrice(model.pricing?.[0]?.inputPricePerMillionTokens, model.pricing?.[0]?.currency)}</p>
+              <p className="text-base font-medium">{formatDisplayPrice(model.pricing?.[0]?.inputPricePerMillionTokens, settings)}</p>
             </div>
             <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
               <p className="text-xs text-zinc-500">Modalities</p>
@@ -267,9 +261,9 @@ export function ModelDetailView({
             <KeyValue label="Slug" value={model.slug} />
             <KeyValue label="Status" value={model.status || EMPTY} />
             <KeyValue label="Lifecycle" value={model.lifecycleStatus || EMPTY} />
-            <KeyValue label="Release Date" value={fmtDate(model.releaseDate)} />
-            <KeyValue label="Deprecated At" value={fmtDate(model.deprecatedAt)} />
-            <KeyValue label="Knowledge Cutoff" value={fmtDate(model.knowledgeCutoff)} />
+            <KeyValue label="Release Date" value={formatDisplayDate(model.releaseDate, settings)} />
+            <KeyValue label="Deprecated At" value={formatDisplayDate(model.deprecatedAt, settings)} />
+            <KeyValue label="Knowledge Cutoff" value={formatDisplayDate(model.knowledgeCutoff, settings)} />
             <KeyValue label="Tokenizer" value={model.tokenizer || EMPTY} />
             <KeyValue label="License" value={model.license || EMPTY} />
           </Card>
@@ -322,10 +316,10 @@ export function ModelDetailView({
                 {normalized.sortedPricing.map((p) => (
                   <div key={p.id} className="grid gap-2 rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-sm md:grid-cols-5">
                     <div><span className="text-zinc-500">Region:</span> {p.region?.name || p.region?.slug || "global"}</div>
-                    <div><span className="text-zinc-500">Input:</span> {fmtPrice(p.inputPricePerMillionTokens, p.currency)}</div>
-                    <div><span className="text-zinc-500">Output:</span> {fmtPrice(p.outputPricePerMillionTokens, p.currency)}</div>
-                    <div><span className="text-zinc-500">Cached:</span> {fmtPrice(p.cachedInputPricePerMillionTokens, p.currency)}</div>
-                    <div><span className="text-zinc-500">Effective:</span> {fmtDate(p.effectiveFrom)}</div>
+                    <div><span className="text-zinc-500">Input:</span> {formatDisplayPrice(p.inputPricePerMillionTokens, settings)}</div>
+                    <div><span className="text-zinc-500">Output:</span> {formatDisplayPrice(p.outputPricePerMillionTokens, settings)}</div>
+                    <div><span className="text-zinc-500">Cached:</span> {formatDisplayPrice(p.cachedInputPricePerMillionTokens, settings)}</div>
+                    <div><span className="text-zinc-500">Effective:</span> {formatDisplayDate(p.effectiveFrom, settings)}</div>
                     <div className="md:col-span-5">
                       <span className="text-zinc-500">Source:</span>{" "}
                       {safeUrl(p.sourceUrl) ? (
@@ -377,7 +371,7 @@ export function ModelDetailView({
                       <span className="font-medium">{entry.title || "Change"}</span>
                       <Badge className="border-zinc-700 text-zinc-300">{entry.changeType || EMPTY}</Badge>
                     </div>
-                    <p className="mt-1 text-zinc-500">By {entry.createdBy || "unknown"} at {fmtDate(entry.changedAt)}</p>
+                    <p className="mt-1 text-zinc-500">By {entry.createdBy || "unknown"} at {formatDisplayDate(entry.changedAt, settings)}</p>
                     {entry.description ? <p className="mt-1 text-zinc-300">{entry.description}</p> : null}
                   </div>
                 ))}
@@ -396,7 +390,7 @@ export function ModelDetailView({
                     <div><span className="text-zinc-500">Benchmark:</span> {row.benchmark?.name || row.benchmark?.slug || EMPTY}</div>
                     <div><span className="text-zinc-500">Score:</span> {fmtNumber(row.score)}</div>
                     <div><span className="text-zinc-500">Percentile:</span> {fmtNumber(row.percentile)}</div>
-                    <div><span className="text-zinc-500">Evaluated:</span> {fmtDate(row.evaluatedAt)}</div>
+                    <div><span className="text-zinc-500">Evaluated:</span> {formatDisplayDate(row.evaluatedAt, settings)}</div>
                   </div>
                 ))}
               </div>
@@ -420,4 +414,3 @@ export function ModelDetailView({
     </div>
   );
 }
-

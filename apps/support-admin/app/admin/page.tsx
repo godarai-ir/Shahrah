@@ -12,6 +12,7 @@ export default function AdminHome() {
     ['/admin/import', 'Import JSON'],
     ['/admin/indexing', 'Indexing'],
     ['/admin/audit-log', 'Audit Log'],
+    ['/admin/settings/display', 'Display Settings'],
   ];
 
   return (

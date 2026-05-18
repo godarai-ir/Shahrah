@@ -338,6 +338,15 @@ exports.Prisma.AuditLogScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
+exports.Prisma.DisplaySettingScalarFieldEnum = {
+  id: 'id',
+  currencyUnit: 'currencyUnit',
+  dateCalendar: 'dateCalendar',
+  priceScale: 'priceScale',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -418,7 +427,8 @@ exports.Prisma.ModelName = {
   ModelChangelog: 'ModelChangelog',
   Tag: 'Tag',
   ModelTag: 'ModelTag',
-  AuditLog: 'AuditLog'
+  AuditLog: 'AuditLog',
+  DisplaySetting: 'DisplaySetting'
 };
 
 /**

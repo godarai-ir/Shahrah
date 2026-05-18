@@ -1,0 +1,10 @@
+CREATE TABLE "DisplaySetting" (
+  "id" TEXT NOT NULL DEFAULT 'default',
+  "currencyUnit" TEXT NOT NULL DEFAULT 'USD',
+  "dateCalendar" TEXT NOT NULL DEFAULT 'GREGORIAN',
+  "priceScale" TEXT NOT NULL DEFAULT 'PER_MILLION_TOKENS',
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL,
+
+  CONSTRAINT "DisplaySetting_pkey" PRIMARY KEY ("id")
+);

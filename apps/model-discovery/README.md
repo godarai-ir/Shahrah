@@ -36,6 +36,7 @@ API base: `http://localhost:3002/api/v1`
 - `GET /api/v1/supported-parameters`
 - `GET /api/v1/modalities`
 - `GET /api/v1/regions`
+- `GET /api/v1/settings/display`
 
 ## Admin auth (dev)
 - `POST /api/v1/auth/login`
@@ -49,6 +50,12 @@ API base: `http://localhost:3002/api/v1`
 - `POST /api/v1/admin/indexing/model`
 - `POST /api/v1/admin/import/catalog-json`
 - `POST /api/v1/providers/admin/upsert`
+- `PUT /api/v1/settings/display`
+
+## Display settings and exchange rate
+- `GET /api/v1/settings/display` returns display preferences plus cached `USD->IRR` exchange rate.
+- `PUT /api/v1/settings/display` updates settings (`currencyUnit`, `dateCalendar`, `priceScale`) and requires admin bearer token.
+- `EXCHANGE_RATE_API_URL` controls the exchange-rate source label. Current implementation is mocked but cache-ready for a real provider.
 
 ## Seed/import files
 - Sample import JSON: `seed/model-catalog.sample.json`

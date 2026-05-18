@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { apiGet, resolveAssetUrl } from '@/lib/api';
+import { formatDisplayPrice } from '@/lib/display-settings';
+import { useDisplaySettings } from '@/components/display-settings-provider';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -68,6 +70,7 @@ export function ModelsExplorer() {
 
   const modelsQ = useQuery({ queryKey: ['models', params], queryFn: () => apiGet<{ data: ModelRow[]; pagination: { total: number } }>(`/models?${params}`) });
   const facetsQ = useQuery({ queryKey: ['facets'], queryFn: () => apiGet<FacetsResponse>('/facets') });
+  const { settings } = useDisplaySettings();
 
   const providers = facetsQ.data?.providers ?? facetsQ.data?.data?.providers ?? [];
   const inputModalities =
@@ -149,7 +152,7 @@ export function ModelsExplorer() {
               <span>Provider: {m.provider.name}</span>
               <span>Context: {m.contextWindow ?? '-'}</span>
               <span>Max output: {m.maxOutputTokens ?? '-'}</span>
-              <span>Input $/1M: {m.pricing?.inputPerMillionTokens ?? '-'}</span>
+              <span>Input: {formatDisplayPrice(m.pricing?.inputPerMillionTokens, settings)}</span>
             </div>
             <div className="mt-3 flex flex-wrap gap-1">
               {m.capabilities.slice(0, 5).map((c) => <Badge key={c}>{c}</Badge>)}

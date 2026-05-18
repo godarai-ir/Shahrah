@@ -348,3 +348,12 @@ model AuditLog {
 
   @@index([entityType, entityId])
 }
+
+model DisplaySetting {
+  id           String   @id @default("default")
+  currencyUnit String   @default("USD")
+  dateCalendar String   @default("GREGORIAN")
+  priceScale   String   @default("PER_MILLION_TOKENS")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
