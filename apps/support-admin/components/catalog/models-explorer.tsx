@@ -91,25 +91,27 @@ export function ModelsExplorer() {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Input placeholder="Search model/provider/description" value={q} onChange={(e) => setQ(e.target.value)} />
-        <select className="rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm" value={provider} onChange={(e) => setProvider(e.target.value)}>
-          <option value="">All Providers</option>
-          {providers.map((p) => <option key={p.slug} value={p.slug}>{p.name}</option>)}
-        </select>
-        <select className="rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm" value={inputModality} onChange={(e) => setInputModality(e.target.value)}>
-          <option value="">All input modalities</option>
-          {inputModalities.map((m) => <option key={m.slug} value={m.slug}>{m.name}</option>)}
-        </select>
-        <select className="rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm" value={outputModality} onChange={(e) => setOutputModality(e.target.value)}>
-          <option value="">All output modalities</option>
-          {outputModalities.map((m) => <option key={m.slug} value={m.slug}>{m.name}</option>)}
-        </select>
-        <Input type="number" placeholder="Context min" value={minContextWindow} onChange={(e) => setMinContextWindow(e.target.value)} />
-        <Input type="number" placeholder="Context max" value={maxContextWindow} onChange={(e) => setMaxContextWindow(e.target.value)} />
-        <Input type="number" step="0.0001" placeholder="Prompt price min ($/1M)" value={minPromptPrice} onChange={(e) => setMinPromptPrice(e.target.value)} />
-        <Input type="number" step="0.0001" placeholder="Prompt price max ($/1M)" value={maxPromptPrice} onChange={(e) => setMaxPromptPrice(e.target.value)} />
-        <Button type="button" onClick={() => { setQ(''); setProvider(''); setInputModality(''); setOutputModality(''); setMinContextWindow(''); setMaxContextWindow(''); setMinPromptPrice(''); setMaxPromptPrice(''); }}>Clear Filters ({activeFilterCount})</Button>
+      <div className="sticky top-16 z-10 rounded-xl border border-zinc-800 bg-zinc-950/95 p-3 backdrop-blur">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <Input placeholder="Search model/provider/description" value={q} onChange={(e) => setQ(e.target.value)} />
+          <select className="rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm" value={provider} onChange={(e) => setProvider(e.target.value)}>
+            <option value="">All Providers</option>
+            {providers.map((p) => <option key={p.slug} value={p.slug}>{p.name}</option>)}
+          </select>
+          <select className="rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm" value={inputModality} onChange={(e) => setInputModality(e.target.value)}>
+            <option value="">All input modalities</option>
+            {inputModalities.map((m) => <option key={m.slug} value={m.slug}>{m.name}</option>)}
+          </select>
+          <select className="rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm" value={outputModality} onChange={(e) => setOutputModality(e.target.value)}>
+            <option value="">All output modalities</option>
+            {outputModalities.map((m) => <option key={m.slug} value={m.slug}>{m.name}</option>)}
+          </select>
+          <Input type="number" placeholder="Context min" value={minContextWindow} onChange={(e) => setMinContextWindow(e.target.value)} />
+          <Input type="number" placeholder="Context max" value={maxContextWindow} onChange={(e) => setMaxContextWindow(e.target.value)} />
+          <Input type="number" step="0.0001" placeholder="Prompt price min ($/1M)" value={minPromptPrice} onChange={(e) => setMinPromptPrice(e.target.value)} />
+          <Input type="number" step="0.0001" placeholder="Prompt price max ($/1M)" value={maxPromptPrice} onChange={(e) => setMaxPromptPrice(e.target.value)} />
+          <Button type="button" onClick={() => { setQ(''); setProvider(''); setInputModality(''); setOutputModality(''); setMinContextWindow(''); setMaxContextWindow(''); setMinPromptPrice(''); setMaxPromptPrice(''); }}>Clear Filters ({activeFilterCount})</Button>
+        </div>
       </div>
 
       <p className="text-sm text-zinc-400">{modelsQ.data?.pagination.total ?? 0} models found</p>
@@ -121,47 +123,48 @@ export function ModelsExplorer() {
 
       <div className="grid gap-3 lg:grid-cols-2">
         {modelsQ.data?.data.map((m) => (
-          <Card key={m.canonicalId}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-lg font-semibold">{m.name}</h3>
-                <p className="text-xs text-zinc-500">{m.canonicalId}</p>
-                <div className="mt-1 flex items-center gap-2 text-xs text-zinc-500">
-                  {resolveAssetUrl(m.provider.logoUrl) ? (
-                    <img
-                      src={resolveAssetUrl(m.provider.logoUrl) || ''}
-                      alt={m.provider.name}
-                      className="h-4 w-4 rounded"
-                    />
-                  ) : null}
-                  {resolveAssetUrl(m.modelSeries?.logoUrl) ? (
-                    <img
-                      src={resolveAssetUrl(m.modelSeries?.logoUrl) || ''}
-                      alt={m.modelSeries?.name || 'Model series'}
-                      className="h-4 w-4 rounded"
-                    />
-                  ) : null}
+          <Card key={m.canonicalId} className="group relative p-0">
+            <div className="absolute right-3 top-3 z-10">
+              <CompareToggleButton canonicalId={m.canonicalId} compact iconOnly />
+            </div>
+            <Link href={`/models/${m.provider.slug}/${m.slug}`} className="block rounded-xl p-4 pr-14 transition hover:bg-zinc-900/60 hover:ring-1 hover:ring-cyan-500/40">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-semibold">{m.name}</h3>
+                  <p className="text-xs text-zinc-500">{m.canonicalId}</p>
+                  <div className="mt-1 flex items-center gap-2 text-xs text-zinc-500">
+                    {resolveAssetUrl(m.provider.logoUrl) ? (
+                      <img
+                        src={resolveAssetUrl(m.provider.logoUrl) || ''}
+                        alt={m.provider.name}
+                        className="h-4 w-4 rounded"
+                      />
+                    ) : null}
+                    {resolveAssetUrl(m.modelSeries?.logoUrl) ? (
+                      <img
+                        src={resolveAssetUrl(m.modelSeries?.logoUrl) || ''}
+                        alt={m.modelSeries?.name || 'Model series'}
+                        className="h-4 w-4 rounded"
+                      />
+                    ) : null}
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  <Badge>{m.status}</Badge>
+                  {m.free ? <Badge className="border-emerald-400 text-emerald-300">free</Badge> : null}
                 </div>
               </div>
-              <div className="flex gap-1">
-                <Badge>{m.status}</Badge>
-                {m.free ? <Badge className="border-emerald-400 text-emerald-300">free</Badge> : null}
+              <p className="mt-2 text-sm text-zinc-300">{m.description || 'No description.'}</p>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-zinc-400">
+                <span>Provider: {m.provider.name}</span>
+                <span>Context: {m.contextWindow ?? '-'}</span>
+                <span>Max output: {m.maxOutputTokens ?? '-'}</span>
+                <span>Input: {formatDisplayPrice(m.pricing?.inputPerMillionTokens, settings)}</span>
               </div>
-            </div>
-            <p className="mt-2 text-sm text-zinc-300">{m.description || 'No description.'}</p>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-zinc-400">
-              <span>Provider: {m.provider.name}</span>
-              <span>Context: {m.contextWindow ?? '-'}</span>
-              <span>Max output: {m.maxOutputTokens ?? '-'}</span>
-              <span>Input: {formatDisplayPrice(m.pricing?.inputPerMillionTokens, settings)}</span>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-1">
-              {m.capabilities.slice(0, 5).map((c) => <Badge key={c}>{c}</Badge>)}
-            </div>
-            <div className="mt-3 flex items-center gap-2">
-              <Link href={`/models/${m.provider.slug}/${m.slug}`} className="inline-block text-sm text-cyan-400 hover:text-cyan-300">View details</Link>
-              <CompareToggleButton canonicalId={m.canonicalId} compact />
-            </div>
+              <div className="mt-3 flex flex-wrap gap-1">
+                {m.capabilities.slice(0, 5).map((c) => <Badge key={c}>{c}</Badge>)}
+              </div>
+            </Link>
           </Card>
         ))}
       </div>

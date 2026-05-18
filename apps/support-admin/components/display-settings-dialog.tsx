@@ -27,9 +27,13 @@ export function DisplaySettingsDialog() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button type="button" className="bg-zinc-900 text-zinc-100 hover:bg-zinc-800" aria-label="Open display settings">
-          <Settings data-icon="inline-start" />
-          Display
+        <Button
+          type="button"
+          className="h-9 w-9 bg-zinc-900 p-0 text-zinc-100 hover:bg-zinc-800"
+          aria-label="Open display settings"
+          title="Display settings"
+        >
+          <Settings className="h-4 w-4" />
         </Button>
       </DialogTrigger>
       <DialogContent>

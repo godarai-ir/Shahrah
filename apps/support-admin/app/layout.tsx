@@ -17,11 +17,9 @@ export const metadata: Metadata = {
 };
 
 const links = [
-  ['/', 'Home'],
   ['/models', 'Models'],
   ['/providers', 'Providers'],
   ['/compare', 'Compare'],
-  ['/admin', 'Admin'],
 ];
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
