@@ -1,15 +1,24 @@
-import { apiGet } from '@/lib/api';
+"use client";
+
+import { useEffect, useState } from 'react';
 
 type AuditRow = { id: string; action: string; entityType: string; entityId: string; createdAt: string };
 
-export default async function AdminAuditLogPage() {
-  let rows: AuditRow[] = [];
-  let error: string | null = null;
-  try {
-    rows = await apiGet<AuditRow[]>('/admin/models/audit-log');
-  } catch (err) {
-    error = err instanceof Error ? err.message : 'Failed to load audit log';
-  }
+export default function AdminAuditLogPage() {
+  const [rows, setRows] = useState<AuditRow[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      const res = await fetch('/api/admin/audit-log');
+      if (!res.ok) {
+        setError('Failed to load audit log');
+        return;
+      }
+      setRows(await res.json());
+    })();
+  }, []);
+
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">Audit Log</h1>

@@ -18,7 +18,7 @@ Production-focused Model Catalog backend (no LLM gateway/execution).
 1. `cp .env.example .env`
 2. `pnpm --filter model-discovery prisma:generate`
 3. `pnpm --filter model-discovery prisma:migrate:dev`
-4. `pnpm --filter model-discovery prisma:seed`
+4. Run your dedicated seed/import script (default sample seed is disabled)
 5. `pnpm --filter model-discovery start:dev`
 
 Swagger: `http://localhost:3002/docs`
@@ -52,7 +52,7 @@ API base: `http://localhost:3002/api/v1`
 
 ## Seed/import files
 - Sample import JSON: `seed/model-catalog.sample.json`
-- Seed script: `prisma/seed.ts`
+- Default seed script: `prisma/seed.ts` (disabled by design)
 - YAML importer script: `scripts/import-models-from-yaml.ts`
 
 ### Import from provider YAML folders
@@ -67,4 +67,4 @@ API base: `http://localhost:3002/api/v1`
 - Custom providers root:
   - `pnpm --filter model-discovery import:providers:yaml -- --providers-root D:\source\models\providers`
 
-Seed data is demo/sample and pricing is not guaranteed current.
+No sample seed data is created by default.

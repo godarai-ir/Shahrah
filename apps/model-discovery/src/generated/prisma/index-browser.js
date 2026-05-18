@@ -129,6 +129,7 @@ exports.Prisma.ProviderScalarFieldEnum = {
   docsUrl: 'docsUrl',
   logoUrl: 'logoUrl',
   status: 'status',
+  enabled: 'enabled',
   privacyPolicyUrl: 'privacyPolicyUrl',
   loggingPolicySummary: 'loggingPolicySummary',
   supportsByok: 'supportsByok',
@@ -146,8 +147,10 @@ exports.Prisma.ModelScalarFieldEnum = {
   shortDescription: 'shortDescription',
   longDescription: 'longDescription',
   status: 'status',
+  enabled: 'enabled',
   lifecycleStatus: 'lifecycleStatus',
   categoryId: 'categoryId',
+  modelSeriesId: 'modelSeriesId',
   contextWindow: 'contextWindow',
   maxOutputTokens: 'maxOutputTokens',
   knowledgeCutoff: 'knowledgeCutoff',
@@ -161,6 +164,25 @@ exports.Prisma.ModelScalarFieldEnum = {
   modelCardUrl: 'modelCardUrl',
   officialDocsUrl: 'officialDocsUrl',
   popularityScore: 'popularityScore',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ModelSeriesScalarFieldEnum = {
+  id: 'id',
+  slug: 'slug',
+  name: 'name',
+  logoUrl: 'logoUrl',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ProviderConnectionProfileScalarFieldEnum = {
+  id: 'id',
+  providerId: 'providerId',
+  providerType: 'providerType',
+  authMode: 'authMode',
+  configJson: 'configJson',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -321,6 +343,10 @@ exports.Prisma.SortOrder = {
   desc: 'desc'
 };
 
+exports.Prisma.JsonNullValueInput = {
+  JsonNull: Prisma.JsonNull
+};
+
 exports.Prisma.NullableJsonNullValueInput = {
   DbNull: Prisma.DbNull,
   JsonNull: Prisma.JsonNull
@@ -372,6 +398,8 @@ exports.ModalityDirectionType = exports.$Enums.ModalityDirectionType = {
 exports.Prisma.ModelName = {
   Provider: 'Provider',
   Model: 'Model',
+  ModelSeries: 'ModelSeries',
+  ProviderConnectionProfile: 'ProviderConnectionProfile',
   ModelVersion: 'ModelVersion',
   ModelPricing: 'ModelPricing',
   Capability: 'Capability',

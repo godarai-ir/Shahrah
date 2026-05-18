@@ -44,6 +44,7 @@ model Provider {
   docsUrl                 String?
   logoUrl                 String?
   status                  ProviderStatus @default(active)
+  enabled                 Boolean  @default(true)
   privacyPolicyUrl        String?
   loggingPolicySummary    String?
   supportsByok            Boolean  @default(false)
@@ -52,6 +53,7 @@ model Provider {
   updatedAt               DateTime @updatedAt
 
   models                  Model[]
+  connectionProfile       ProviderConnectionProfile?
 
   @@index([slug])
 }
@@ -65,8 +67,10 @@ model Model {
   shortDescription String?
   longDescription  String?
   status           ModelStatus @default(active)
+  enabled          Boolean @default(true)
   lifecycleStatus  LifecycleStatus @default(draft)
   categoryId       String?
+  modelSeriesId    String?
   contextWindow    Int?
   maxOutputTokens  Int?
   knowledgeCutoff  DateTime?
@@ -85,6 +89,7 @@ model Model {
 
   provider         Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
   category         Category? @relation(fields: [categoryId], references: [id])
+  modelSeries      ModelSeries? @relation(fields: [modelSeriesId], references: [id])
   versions         ModelVersion[]
   pricing          ModelPricing[]
   capabilities     ModelCapability[]
@@ -100,9 +105,32 @@ model Model {
   @@unique([providerId, slug])
   @@index([providerId])
   @@index([status])
+  @@index([enabled])
   @@index([contextWindow])
   @@index([maxOutputTokens])
   @@index([slug])
+}
+
+model ModelSeries {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  logoUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  models    Model[]
+}
+
+model ProviderConnectionProfile {
+  id           String   @id @default(cuid())
+  providerId   String   @unique
+  providerType String
+  authMode     String?
+  configJson   Json
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  provider     Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
 }
 
 model ModelVersion {

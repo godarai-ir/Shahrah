@@ -8,5 +8,6 @@ export class UpsertProviderDto {
   @IsOptional() @IsString() docsUrl?: string;
   @IsOptional() @IsString() logoUrl?: string;
   @IsOptional() @IsString() status?: string;
+  @IsOptional() @IsBoolean() enabled?: boolean;
   @IsOptional() @IsBoolean() supportsByok?: boolean;
 }

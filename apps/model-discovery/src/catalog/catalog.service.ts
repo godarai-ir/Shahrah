@@ -22,7 +22,11 @@ export class CatalogService {
 
   async listModels(query: ModelsQueryDto) {
     const where: any = {
-      provider: query.provider ? { slug: query.provider } : undefined,
+      enabled: true,
+      provider: {
+        ...(query.provider ? { slug: query.provider } : {}),
+        enabled: true,
+      },
       category: query.category ? { slug: query.category } : undefined,
       status: query.status as any,
       free: query.free_only || undefined,
@@ -87,6 +91,7 @@ export class CatalogService {
         where,
         include: {
           provider: true,
+          modelSeries: true,
           category: true,
           pricing: { take: 1, orderBy: { effectiveFrom: 'desc' } },
           inputModalities: { include: { modality: true } },
@@ -107,7 +112,18 @@ export class CatalogService {
       canonicalId: row.canonicalId,
       slug: row.slug,
       name: row.displayName,
-      provider: { slug: row.provider.slug, name: row.provider.name },
+      provider: {
+        slug: row.provider.slug,
+        name: row.provider.name,
+        logoUrl: row.provider.logoUrl,
+      },
+      modelSeries: row.modelSeries
+        ? {
+            slug: row.modelSeries.slug,
+            name: row.modelSeries.name,
+            logoUrl: row.modelSeries.logoUrl,
+          }
+        : null,
       description: row.shortDescription,
       status: row.status,
       contextWindow: row.contextWindow,
@@ -146,10 +162,11 @@ export class CatalogService {
   }
 
   async getModelByCanonicalId(canonicalId: string) {
-    return this.prisma.model.findUnique({
-      where: { canonicalId },
+    return this.prisma.model.findFirst({
+      where: { canonicalId, enabled: true, provider: { enabled: true } },
       include: {
         provider: true,
+        modelSeries: true,
         category: true,
         pricing: {
           include: { region: true },
@@ -169,7 +186,7 @@ export class CatalogService {
 
   compare(ids: string[]) {
     return this.prisma.model.findMany({
-      where: { canonicalId: { in: ids } },
+      where: { canonicalId: { in: ids }, enabled: true, provider: { enabled: true } },
       include: {
         provider: true,
         pricing: { take: 1, orderBy: { effectiveFrom: 'desc' } },
@@ -185,6 +202,7 @@ export class CatalogService {
 
   recent() {
     return this.prisma.model.findMany({
+      where: { enabled: true, provider: { enabled: true } },
       orderBy: { releaseDate: 'desc' },
       take: 20,
       include: { provider: true },
@@ -193,14 +211,14 @@ export class CatalogService {
 
   freeModels() {
     return this.prisma.model.findMany({
-      where: { free: true },
+      where: { free: true, enabled: true, provider: { enabled: true } },
       include: { provider: true, pricing: true },
     });
   }
 
   deprecatedModels() {
     return this.prisma.model.findMany({
-      where: { status: 'deprecated' },
+      where: { status: 'deprecated', enabled: true, provider: { enabled: true } },
       include: { provider: true },
     });
   }

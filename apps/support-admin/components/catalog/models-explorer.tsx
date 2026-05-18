@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { apiGet } from '@/lib/api';
+import { apiGet, resolveAssetUrl } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,8 @@ type ModelRow = {
   canonicalId: string;
   slug: string;
   name: string;
-  provider: { slug: string; name: string };
+  provider: { slug: string; name: string; logoUrl?: string | null };
+  modelSeries?: { slug: string; name: string; logoUrl?: string | null } | null;
   description?: string;
   status: string;
   contextWindow?: number;
@@ -121,6 +122,22 @@ export function ModelsExplorer() {
               <div>
                 <h3 className="text-lg font-semibold">{m.name}</h3>
                 <p className="text-xs text-zinc-500">{m.canonicalId}</p>
+                <div className="mt-1 flex items-center gap-2 text-xs text-zinc-500">
+                  {resolveAssetUrl(m.provider.logoUrl) ? (
+                    <img
+                      src={resolveAssetUrl(m.provider.logoUrl) || ''}
+                      alt={m.provider.name}
+                      className="h-4 w-4 rounded"
+                    />
+                  ) : null}
+                  {resolveAssetUrl(m.modelSeries?.logoUrl) ? (
+                    <img
+                      src={resolveAssetUrl(m.modelSeries?.logoUrl) || ''}
+                      alt={m.modelSeries.name}
+                      className="h-4 w-4 rounded"
+                    />
+                  ) : null}
+                </div>
               </div>
               <div className="flex gap-1">
                 <Badge>{m.status}</Badge>

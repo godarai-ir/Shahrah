@@ -1,4 +1,12 @@
 export const API_BASE = process.env.NEXT_PUBLIC_MODEL_CATALOG_API_BASE || 'http://localhost:3002/api/v1';
+export const API_ORIGIN = new URL(API_BASE).origin;
+
+export function resolveAssetUrl(path?: string | null): string | null {
+  if (!path) return null;
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  if (path.startsWith('/')) return `${API_ORIGIN}${path}`;
+  return `${API_ORIGIN}/${path}`;
+}
 
 export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;

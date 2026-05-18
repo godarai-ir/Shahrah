@@ -14,7 +14,9 @@ export class UpsertModelDto {
   @IsOptional() @IsString() shortDescription?: string;
   @IsOptional() @IsString() longDescription?: string;
   @IsOptional() @IsString() status?: string;
+  @IsOptional() @IsBoolean() enabled?: boolean;
   @IsOptional() @IsString() lifecycleStatus?: string;
+  @IsOptional() @IsString() modelSeriesSlug?: string;
   @IsOptional() @IsString() categorySlug?: string;
   @IsOptional() @IsInt() contextWindow?: number;
   @IsOptional() @IsInt() maxOutputTokens?: number;

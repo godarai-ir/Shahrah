@@ -24,6 +24,16 @@ export type Provider = $Result.DefaultSelection<Prisma.$ProviderPayload>
  */
 export type Model = $Result.DefaultSelection<Prisma.$ModelPayload>
 /**
+ * Model ModelSeries
+ * 
+ */
+export type ModelSeries = $Result.DefaultSelection<Prisma.$ModelSeriesPayload>
+/**
+ * Model ProviderConnectionProfile
+ * 
+ */
+export type ProviderConnectionProfile = $Result.DefaultSelection<Prisma.$ProviderConnectionProfilePayload>
+/**
  * Model ModelVersion
  * 
  */
@@ -320,6 +330,26 @@ export class PrismaClient<
     * ```
     */
   get model(): Prisma.ModelDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.modelSeries`: Exposes CRUD operations for the **ModelSeries** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more ModelSeries
+    * const modelSeries = await prisma.modelSeries.findMany()
+    * ```
+    */
+  get modelSeries(): Prisma.ModelSeriesDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.providerConnectionProfile`: Exposes CRUD operations for the **ProviderConnectionProfile** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more ProviderConnectionProfiles
+    * const providerConnectionProfiles = await prisma.providerConnectionProfile.findMany()
+    * ```
+    */
+  get providerConnectionProfile(): Prisma.ProviderConnectionProfileDelegate<ExtArgs, ClientOptions>;
 
   /**
    * `prisma.modelVersion`: Exposes CRUD operations for the **ModelVersion** model.
@@ -946,6 +976,8 @@ export namespace Prisma {
   export const ModelName: {
     Provider: 'Provider',
     Model: 'Model',
+    ModelSeries: 'ModelSeries',
+    ProviderConnectionProfile: 'ProviderConnectionProfile',
     ModelVersion: 'ModelVersion',
     ModelPricing: 'ModelPricing',
     Capability: 'Capability',
@@ -980,7 +1012,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "provider" | "model" | "modelVersion" | "modelPricing" | "capability" | "modelCapability" | "modality" | "modelInputModality" | "modelOutputModality" | "supportedParameter" | "modelSupportedParameter" | "category" | "region" | "modelRegion" | "benchmark" | "modelBenchmark" | "sourceReference" | "modelChangelog" | "tag" | "modelTag" | "auditLog"
+      modelProps: "provider" | "model" | "modelSeries" | "providerConnectionProfile" | "modelVersion" | "modelPricing" | "capability" | "modelCapability" | "modality" | "modelInputModality" | "modelOutputModality" | "supportedParameter" | "modelSupportedParameter" | "category" | "region" | "modelRegion" | "benchmark" | "modelBenchmark" | "sourceReference" | "modelChangelog" | "tag" | "modelTag" | "auditLog"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -1129,6 +1161,154 @@ export namespace Prisma {
           count: {
             args: Prisma.ModelCountArgs<ExtArgs>
             result: $Utils.Optional<ModelCountAggregateOutputType> | number
+          }
+        }
+      }
+      ModelSeries: {
+        payload: Prisma.$ModelSeriesPayload<ExtArgs>
+        fields: Prisma.ModelSeriesFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.ModelSeriesFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ModelSeriesPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.ModelSeriesFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ModelSeriesPayload>
+          }
+          findFirst: {
+            args: Prisma.ModelSeriesFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ModelSeriesPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.ModelSeriesFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ModelSeriesPayload>
+          }
+          findMany: {
+            args: Prisma.ModelSeriesFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ModelSeriesPayload>[]
+          }
+          create: {
+            args: Prisma.ModelSeriesCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ModelSeriesPayload>
+          }
+          createMany: {
+            args: Prisma.ModelSeriesCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.ModelSeriesCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ModelSeriesPayload>[]
+          }
+          delete: {
+            args: Prisma.ModelSeriesDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ModelSeriesPayload>
+          }
+          update: {
+            args: Prisma.ModelSeriesUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ModelSeriesPayload>
+          }
+          deleteMany: {
+            args: Prisma.ModelSeriesDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.ModelSeriesUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.ModelSeriesUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ModelSeriesPayload>[]
+          }
+          upsert: {
+            args: Prisma.ModelSeriesUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ModelSeriesPayload>
+          }
+          aggregate: {
+            args: Prisma.ModelSeriesAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateModelSeries>
+          }
+          groupBy: {
+            args: Prisma.ModelSeriesGroupByArgs<ExtArgs>
+            result: $Utils.Optional<ModelSeriesGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.ModelSeriesCountArgs<ExtArgs>
+            result: $Utils.Optional<ModelSeriesCountAggregateOutputType> | number
+          }
+        }
+      }
+      ProviderConnectionProfile: {
+        payload: Prisma.$ProviderConnectionProfilePayload<ExtArgs>
+        fields: Prisma.ProviderConnectionProfileFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.ProviderConnectionProfileFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ProviderConnectionProfilePayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.ProviderConnectionProfileFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ProviderConnectionProfilePayload>
+          }
+          findFirst: {
+            args: Prisma.ProviderConnectionProfileFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ProviderConnectionProfilePayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.ProviderConnectionProfileFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ProviderConnectionProfilePayload>
+          }
+          findMany: {
+            args: Prisma.ProviderConnectionProfileFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ProviderConnectionProfilePayload>[]
+          }
+          create: {
+            args: Prisma.ProviderConnectionProfileCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ProviderConnectionProfilePayload>
+          }
+          createMany: {
+            args: Prisma.ProviderConnectionProfileCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.ProviderConnectionProfileCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ProviderConnectionProfilePayload>[]
+          }
+          delete: {
+            args: Prisma.ProviderConnectionProfileDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ProviderConnectionProfilePayload>
+          }
+          update: {
+            args: Prisma.ProviderConnectionProfileUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ProviderConnectionProfilePayload>
+          }
+          deleteMany: {
+            args: Prisma.ProviderConnectionProfileDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.ProviderConnectionProfileUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.ProviderConnectionProfileUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ProviderConnectionProfilePayload>[]
+          }
+          upsert: {
+            args: Prisma.ProviderConnectionProfileUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ProviderConnectionProfilePayload>
+          }
+          aggregate: {
+            args: Prisma.ProviderConnectionProfileAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateProviderConnectionProfile>
+          }
+          groupBy: {
+            args: Prisma.ProviderConnectionProfileGroupByArgs<ExtArgs>
+            result: $Utils.Optional<ProviderConnectionProfileGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.ProviderConnectionProfileCountArgs<ExtArgs>
+            result: $Utils.Optional<ProviderConnectionProfileCountAggregateOutputType> | number
           }
         }
       }
@@ -2648,6 +2828,8 @@ export namespace Prisma {
   export type GlobalOmitConfig = {
     provider?: ProviderOmit
     model?: ModelOmit
+    modelSeries?: ModelSeriesOmit
+    providerConnectionProfile?: ProviderConnectionProfileOmit
     modelVersion?: ModelVersionOmit
     modelPricing?: ModelPricingOmit
     capability?: CapabilityOmit
@@ -2891,6 +3073,37 @@ export namespace Prisma {
    */
   export type ModelCountOutputTypeCountTagsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: ModelTagWhereInput
+  }
+
+
+  /**
+   * Count Type ModelSeriesCountOutputType
+   */
+
+  export type ModelSeriesCountOutputType = {
+    models: number
+  }
+
+  export type ModelSeriesCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    models?: boolean | ModelSeriesCountOutputTypeCountModelsArgs
+  }
+
+  // Custom InputTypes
+  /**
+   * ModelSeriesCountOutputType without action
+   */
+  export type ModelSeriesCountOutputTypeDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ModelSeriesCountOutputType
+     */
+    select?: ModelSeriesCountOutputTypeSelect<ExtArgs> | null
+  }
+
+  /**
+   * ModelSeriesCountOutputType without action
+   */
+  export type ModelSeriesCountOutputTypeCountModelsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: ModelWhereInput
   }
 
 
@@ -3152,6 +3365,7 @@ export namespace Prisma {
     docsUrl: string | null
     logoUrl: string | null
     status: $Enums.ProviderStatus | null
+    enabled: boolean | null
     privacyPolicyUrl: string | null
     loggingPolicySummary: string | null
     supportsByok: boolean | null
@@ -3169,6 +3383,7 @@ export namespace Prisma {
     docsUrl: string | null
     logoUrl: string | null
     status: $Enums.ProviderStatus | null
+    enabled: boolean | null
     privacyPolicyUrl: string | null
     loggingPolicySummary: string | null
     supportsByok: boolean | null
@@ -3186,6 +3401,7 @@ export namespace Prisma {
     docsUrl: number
     logoUrl: number
     status: number
+    enabled: number
     privacyPolicyUrl: number
     loggingPolicySummary: number
     supportsByok: number
@@ -3205,6 +3421,7 @@ export namespace Prisma {
     docsUrl?: true
     logoUrl?: true
     status?: true
+    enabled?: true
     privacyPolicyUrl?: true
     loggingPolicySummary?: true
     supportsByok?: true
@@ -3222,6 +3439,7 @@ export namespace Prisma {
     docsUrl?: true
     logoUrl?: true
     status?: true
+    enabled?: true
     privacyPolicyUrl?: true
     loggingPolicySummary?: true
     supportsByok?: true
@@ -3239,6 +3457,7 @@ export namespace Prisma {
     docsUrl?: true
     logoUrl?: true
     status?: true
+    enabled?: true
     privacyPolicyUrl?: true
     loggingPolicySummary?: true
     supportsByok?: true
@@ -3329,6 +3548,7 @@ export namespace Prisma {
     docsUrl: string | null
     logoUrl: string | null
     status: $Enums.ProviderStatus
+    enabled: boolean
     privacyPolicyUrl: string | null
     loggingPolicySummary: string | null
     supportsByok: boolean
@@ -3363,6 +3583,7 @@ export namespace Prisma {
     docsUrl?: boolean
     logoUrl?: boolean
     status?: boolean
+    enabled?: boolean
     privacyPolicyUrl?: boolean
     loggingPolicySummary?: boolean
     supportsByok?: boolean
@@ -3370,6 +3591,7 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     models?: boolean | Provider$modelsArgs<ExtArgs>
+    connectionProfile?: boolean | Provider$connectionProfileArgs<ExtArgs>
     _count?: boolean | ProviderCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["provider"]>
 
@@ -3382,6 +3604,7 @@ export namespace Prisma {
     docsUrl?: boolean
     logoUrl?: boolean
     status?: boolean
+    enabled?: boolean
     privacyPolicyUrl?: boolean
     loggingPolicySummary?: boolean
     supportsByok?: boolean
@@ -3399,6 +3622,7 @@ export namespace Prisma {
     docsUrl?: boolean
     logoUrl?: boolean
     status?: boolean
+    enabled?: boolean
     privacyPolicyUrl?: boolean
     loggingPolicySummary?: boolean
     supportsByok?: boolean
@@ -3416,6 +3640,7 @@ export namespace Prisma {
     docsUrl?: boolean
     logoUrl?: boolean
     status?: boolean
+    enabled?: boolean
     privacyPolicyUrl?: boolean
     loggingPolicySummary?: boolean
     supportsByok?: boolean
@@ -3424,9 +3649,10 @@ export namespace Prisma {
     updatedAt?: boolean
   }
 
-  export type ProviderOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "slug" | "name" | "description" | "websiteUrl" | "docsUrl" | "logoUrl" | "status" | "privacyPolicyUrl" | "loggingPolicySummary" | "supportsByok" | "supportsRegionalRouting" | "createdAt" | "updatedAt", ExtArgs["result"]["provider"]>
+  export type ProviderOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "slug" | "name" | "description" | "websiteUrl" | "docsUrl" | "logoUrl" | "status" | "enabled" | "privacyPolicyUrl" | "loggingPolicySummary" | "supportsByok" | "supportsRegionalRouting" | "createdAt" | "updatedAt", ExtArgs["result"]["provider"]>
   export type ProviderInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     models?: boolean | Provider$modelsArgs<ExtArgs>
+    connectionProfile?: boolean | Provider$connectionProfileArgs<ExtArgs>
     _count?: boolean | ProviderCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type ProviderIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {}
@@ -3436,6 +3662,7 @@ export namespace Prisma {
     name: "Provider"
     objects: {
       models: Prisma.$ModelPayload<ExtArgs>[]
+      connectionProfile: Prisma.$ProviderConnectionProfilePayload<ExtArgs> | null
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
@@ -3446,6 +3673,7 @@ export namespace Prisma {
       docsUrl: string | null
       logoUrl: string | null
       status: $Enums.ProviderStatus
+      enabled: boolean
       privacyPolicyUrl: string | null
       loggingPolicySummary: string | null
       supportsByok: boolean
@@ -3847,6 +4075,7 @@ export namespace Prisma {
   export interface Prisma__ProviderClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
     models<T extends Provider$modelsArgs<ExtArgs> = {}>(args?: Subset<T, Provider$modelsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ModelPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    connectionProfile<T extends Provider$connectionProfileArgs<ExtArgs> = {}>(args?: Subset<T, Provider$connectionProfileArgs<ExtArgs>>): Prisma__ProviderConnectionProfileClient<$Result.GetResult<Prisma.$ProviderConnectionProfilePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -3884,6 +4113,7 @@ export namespace Prisma {
     readonly docsUrl: FieldRef<"Provider", 'String'>
     readonly logoUrl: FieldRef<"Provider", 'String'>
     readonly status: FieldRef<"Provider", 'ProviderStatus'>
+    readonly enabled: FieldRef<"Provider", 'Boolean'>
     readonly privacyPolicyUrl: FieldRef<"Provider", 'String'>
     readonly loggingPolicySummary: FieldRef<"Provider", 'String'>
     readonly supportsByok: FieldRef<"Provider", 'Boolean'>
@@ -4307,6 +4537,25 @@ export namespace Prisma {
   }
 
   /**
+   * Provider.connectionProfile
+   */
+  export type Provider$connectionProfileArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionProfile
+     */
+    select?: ProviderConnectionProfileSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionProfile
+     */
+    omit?: ProviderConnectionProfileOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionProfileInclude<ExtArgs> | null
+    where?: ProviderConnectionProfileWhereInput
+  }
+
+  /**
    * Provider without action
    */
   export type ProviderDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -4358,8 +4607,10 @@ export namespace Prisma {
     shortDescription: string | null
     longDescription: string | null
     status: $Enums.ModelStatus | null
+    enabled: boolean | null
     lifecycleStatus: $Enums.LifecycleStatus | null
     categoryId: string | null
+    modelSeriesId: string | null
     contextWindow: number | null
     maxOutputTokens: number | null
     knowledgeCutoff: Date | null
@@ -4386,8 +4637,10 @@ export namespace Prisma {
     shortDescription: string | null
     longDescription: string | null
     status: $Enums.ModelStatus | null
+    enabled: boolean | null
     lifecycleStatus: $Enums.LifecycleStatus | null
     categoryId: string | null
+    modelSeriesId: string | null
     contextWindow: number | null
     maxOutputTokens: number | null
     knowledgeCutoff: Date | null
@@ -4414,8 +4667,10 @@ export namespace Prisma {
     shortDescription: number
     longDescription: number
     status: number
+    enabled: number
     lifecycleStatus: number
     categoryId: number
+    modelSeriesId: number
     contextWindow: number
     maxOutputTokens: number
     knowledgeCutoff: number
@@ -4456,8 +4711,10 @@ export namespace Prisma {
     shortDescription?: true
     longDescription?: true
     status?: true
+    enabled?: true
     lifecycleStatus?: true
     categoryId?: true
+    modelSeriesId?: true
     contextWindow?: true
     maxOutputTokens?: true
     knowledgeCutoff?: true
@@ -4484,8 +4741,10 @@ export namespace Prisma {
     shortDescription?: true
     longDescription?: true
     status?: true
+    enabled?: true
     lifecycleStatus?: true
     categoryId?: true
+    modelSeriesId?: true
     contextWindow?: true
     maxOutputTokens?: true
     knowledgeCutoff?: true
@@ -4512,8 +4771,10 @@ export namespace Prisma {
     shortDescription?: true
     longDescription?: true
     status?: true
+    enabled?: true
     lifecycleStatus?: true
     categoryId?: true
+    modelSeriesId?: true
     contextWindow?: true
     maxOutputTokens?: true
     knowledgeCutoff?: true
@@ -4627,8 +4888,10 @@ export namespace Prisma {
     shortDescription: string | null
     longDescription: string | null
     status: $Enums.ModelStatus
+    enabled: boolean
     lifecycleStatus: $Enums.LifecycleStatus
     categoryId: string | null
+    modelSeriesId: string | null
     contextWindow: number | null
     maxOutputTokens: number | null
     knowledgeCutoff: Date | null
@@ -4674,8 +4937,10 @@ export namespace Prisma {
     shortDescription?: boolean
     longDescription?: boolean
     status?: boolean
+    enabled?: boolean
     lifecycleStatus?: boolean
     categoryId?: boolean
+    modelSeriesId?: boolean
     contextWindow?: boolean
     maxOutputTokens?: boolean
     knowledgeCutoff?: boolean
@@ -4693,6 +4958,7 @@ export namespace Prisma {
     updatedAt?: boolean
     provider?: boolean | ProviderDefaultArgs<ExtArgs>
     category?: boolean | Model$categoryArgs<ExtArgs>
+    modelSeries?: boolean | Model$modelSeriesArgs<ExtArgs>
     versions?: boolean | Model$versionsArgs<ExtArgs>
     pricing?: boolean | Model$pricingArgs<ExtArgs>
     capabilities?: boolean | Model$capabilitiesArgs<ExtArgs>
@@ -4716,8 +4982,10 @@ export namespace Prisma {
     shortDescription?: boolean
     longDescription?: boolean
     status?: boolean
+    enabled?: boolean
     lifecycleStatus?: boolean
     categoryId?: boolean
+    modelSeriesId?: boolean
     contextWindow?: boolean
     maxOutputTokens?: boolean
     knowledgeCutoff?: boolean
@@ -4735,6 +5003,7 @@ export namespace Prisma {
     updatedAt?: boolean
     provider?: boolean | ProviderDefaultArgs<ExtArgs>
     category?: boolean | Model$categoryArgs<ExtArgs>
+    modelSeries?: boolean | Model$modelSeriesArgs<ExtArgs>
   }, ExtArgs["result"]["model"]>
 
   export type ModelSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -4746,8 +5015,10 @@ export namespace Prisma {
     shortDescription?: boolean
     longDescription?: boolean
     status?: boolean
+    enabled?: boolean
     lifecycleStatus?: boolean
     categoryId?: boolean
+    modelSeriesId?: boolean
     contextWindow?: boolean
     maxOutputTokens?: boolean
     knowledgeCutoff?: boolean
@@ -4765,6 +5036,7 @@ export namespace Prisma {
     updatedAt?: boolean
     provider?: boolean | ProviderDefaultArgs<ExtArgs>
     category?: boolean | Model$categoryArgs<ExtArgs>
+    modelSeries?: boolean | Model$modelSeriesArgs<ExtArgs>
   }, ExtArgs["result"]["model"]>
 
   export type ModelSelectScalar = {
@@ -4776,8 +5048,10 @@ export namespace Prisma {
     shortDescription?: boolean
     longDescription?: boolean
     status?: boolean
+    enabled?: boolean
     lifecycleStatus?: boolean
     categoryId?: boolean
+    modelSeriesId?: boolean
     contextWindow?: boolean
     maxOutputTokens?: boolean
     knowledgeCutoff?: boolean
@@ -4795,10 +5069,11 @@ export namespace Prisma {
     updatedAt?: boolean
   }
 
-  export type ModelOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "providerId" | "canonicalId" | "slug" | "displayName" | "shortDescription" | "longDescription" | "status" | "lifecycleStatus" | "categoryId" | "contextWindow" | "maxOutputTokens" | "knowledgeCutoff" | "releaseDate" | "deprecatedAt" | "openSource" | "free" | "tokenizer" | "license" | "huggingFaceUrl" | "modelCardUrl" | "officialDocsUrl" | "popularityScore" | "createdAt" | "updatedAt", ExtArgs["result"]["model"]>
+  export type ModelOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "providerId" | "canonicalId" | "slug" | "displayName" | "shortDescription" | "longDescription" | "status" | "enabled" | "lifecycleStatus" | "categoryId" | "modelSeriesId" | "contextWindow" | "maxOutputTokens" | "knowledgeCutoff" | "releaseDate" | "deprecatedAt" | "openSource" | "free" | "tokenizer" | "license" | "huggingFaceUrl" | "modelCardUrl" | "officialDocsUrl" | "popularityScore" | "createdAt" | "updatedAt", ExtArgs["result"]["model"]>
   export type ModelInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     provider?: boolean | ProviderDefaultArgs<ExtArgs>
     category?: boolean | Model$categoryArgs<ExtArgs>
+    modelSeries?: boolean | Model$modelSeriesArgs<ExtArgs>
     versions?: boolean | Model$versionsArgs<ExtArgs>
     pricing?: boolean | Model$pricingArgs<ExtArgs>
     capabilities?: boolean | Model$capabilitiesArgs<ExtArgs>
@@ -4815,10 +5090,12 @@ export namespace Prisma {
   export type ModelIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     provider?: boolean | ProviderDefaultArgs<ExtArgs>
     category?: boolean | Model$categoryArgs<ExtArgs>
+    modelSeries?: boolean | Model$modelSeriesArgs<ExtArgs>
   }
   export type ModelIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     provider?: boolean | ProviderDefaultArgs<ExtArgs>
     category?: boolean | Model$categoryArgs<ExtArgs>
+    modelSeries?: boolean | Model$modelSeriesArgs<ExtArgs>
   }
 
   export type $ModelPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -4826,6 +5103,7 @@ export namespace Prisma {
     objects: {
       provider: Prisma.$ProviderPayload<ExtArgs>
       category: Prisma.$CategoryPayload<ExtArgs> | null
+      modelSeries: Prisma.$ModelSeriesPayload<ExtArgs> | null
       versions: Prisma.$ModelVersionPayload<ExtArgs>[]
       pricing: Prisma.$ModelPricingPayload<ExtArgs>[]
       capabilities: Prisma.$ModelCapabilityPayload<ExtArgs>[]
@@ -4847,8 +5125,10 @@ export namespace Prisma {
       shortDescription: string | null
       longDescription: string | null
       status: $Enums.ModelStatus
+      enabled: boolean
       lifecycleStatus: $Enums.LifecycleStatus
       categoryId: string | null
+      modelSeriesId: string | null
       contextWindow: number | null
       maxOutputTokens: number | null
       knowledgeCutoff: Date | null
@@ -5260,6 +5540,7 @@ export namespace Prisma {
     readonly [Symbol.toStringTag]: "PrismaPromise"
     provider<T extends ProviderDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ProviderDefaultArgs<ExtArgs>>): Prisma__ProviderClient<$Result.GetResult<Prisma.$ProviderPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     category<T extends Model$categoryArgs<ExtArgs> = {}>(args?: Subset<T, Model$categoryArgs<ExtArgs>>): Prisma__CategoryClient<$Result.GetResult<Prisma.$CategoryPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    modelSeries<T extends Model$modelSeriesArgs<ExtArgs> = {}>(args?: Subset<T, Model$modelSeriesArgs<ExtArgs>>): Prisma__ModelSeriesClient<$Result.GetResult<Prisma.$ModelSeriesPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     versions<T extends Model$versionsArgs<ExtArgs> = {}>(args?: Subset<T, Model$versionsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ModelVersionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     pricing<T extends Model$pricingArgs<ExtArgs> = {}>(args?: Subset<T, Model$pricingArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ModelPricingPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     capabilities<T extends Model$capabilitiesArgs<ExtArgs> = {}>(args?: Subset<T, Model$capabilitiesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ModelCapabilityPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -5308,8 +5589,10 @@ export namespace Prisma {
     readonly shortDescription: FieldRef<"Model", 'String'>
     readonly longDescription: FieldRef<"Model", 'String'>
     readonly status: FieldRef<"Model", 'ModelStatus'>
+    readonly enabled: FieldRef<"Model", 'Boolean'>
     readonly lifecycleStatus: FieldRef<"Model", 'LifecycleStatus'>
     readonly categoryId: FieldRef<"Model", 'String'>
+    readonly modelSeriesId: FieldRef<"Model", 'String'>
     readonly contextWindow: FieldRef<"Model", 'Int'>
     readonly maxOutputTokens: FieldRef<"Model", 'Int'>
     readonly knowledgeCutoff: FieldRef<"Model", 'DateTime'>
@@ -5745,6 +6028,25 @@ export namespace Prisma {
   }
 
   /**
+   * Model.modelSeries
+   */
+  export type Model$modelSeriesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ModelSeries
+     */
+    select?: ModelSeriesSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ModelSeries
+     */
+    omit?: ModelSeriesOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ModelSeriesInclude<ExtArgs> | null
+    where?: ModelSeriesWhereInput
+  }
+
+  /**
    * Model.versions
    */
   export type Model$versionsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -6024,6 +6326,2179 @@ export namespace Prisma {
      * Choose, which related nodes to fetch as well
      */
     include?: ModelInclude<ExtArgs> | null
+  }
+
+
+  /**
+   * Model ModelSeries
+   */
+
+  export type AggregateModelSeries = {
+    _count: ModelSeriesCountAggregateOutputType | null
+    _min: ModelSeriesMinAggregateOutputType | null
+    _max: ModelSeriesMaxAggregateOutputType | null
+  }
+
+  export type ModelSeriesMinAggregateOutputType = {
+    id: string | null
+    slug: string | null
+    name: string | null
+    logoUrl: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type ModelSeriesMaxAggregateOutputType = {
+    id: string | null
+    slug: string | null
+    name: string | null
+    logoUrl: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type ModelSeriesCountAggregateOutputType = {
+    id: number
+    slug: number
+    name: number
+    logoUrl: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type ModelSeriesMinAggregateInputType = {
+    id?: true
+    slug?: true
+    name?: true
+    logoUrl?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type ModelSeriesMaxAggregateInputType = {
+    id?: true
+    slug?: true
+    name?: true
+    logoUrl?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type ModelSeriesCountAggregateInputType = {
+    id?: true
+    slug?: true
+    name?: true
+    logoUrl?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type ModelSeriesAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which ModelSeries to aggregate.
+     */
+    where?: ModelSeriesWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ModelSeries to fetch.
+     */
+    orderBy?: ModelSeriesOrderByWithRelationInput | ModelSeriesOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: ModelSeriesWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ModelSeries from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ModelSeries.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned ModelSeries
+    **/
+    _count?: true | ModelSeriesCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: ModelSeriesMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: ModelSeriesMaxAggregateInputType
+  }
+
+  export type GetModelSeriesAggregateType<T extends ModelSeriesAggregateArgs> = {
+        [P in keyof T & keyof AggregateModelSeries]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateModelSeries[P]>
+      : GetScalarType<T[P], AggregateModelSeries[P]>
+  }
+
+
+
+
+  export type ModelSeriesGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: ModelSeriesWhereInput
+    orderBy?: ModelSeriesOrderByWithAggregationInput | ModelSeriesOrderByWithAggregationInput[]
+    by: ModelSeriesScalarFieldEnum[] | ModelSeriesScalarFieldEnum
+    having?: ModelSeriesScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: ModelSeriesCountAggregateInputType | true
+    _min?: ModelSeriesMinAggregateInputType
+    _max?: ModelSeriesMaxAggregateInputType
+  }
+
+  export type ModelSeriesGroupByOutputType = {
+    id: string
+    slug: string
+    name: string
+    logoUrl: string | null
+    createdAt: Date
+    updatedAt: Date
+    _count: ModelSeriesCountAggregateOutputType | null
+    _min: ModelSeriesMinAggregateOutputType | null
+    _max: ModelSeriesMaxAggregateOutputType | null
+  }
+
+  type GetModelSeriesGroupByPayload<T extends ModelSeriesGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<ModelSeriesGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof ModelSeriesGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], ModelSeriesGroupByOutputType[P]>
+            : GetScalarType<T[P], ModelSeriesGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type ModelSeriesSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    slug?: boolean
+    name?: boolean
+    logoUrl?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    models?: boolean | ModelSeries$modelsArgs<ExtArgs>
+    _count?: boolean | ModelSeriesCountOutputTypeDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["modelSeries"]>
+
+  export type ModelSeriesSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    slug?: boolean
+    name?: boolean
+    logoUrl?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["modelSeries"]>
+
+  export type ModelSeriesSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    slug?: boolean
+    name?: boolean
+    logoUrl?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["modelSeries"]>
+
+  export type ModelSeriesSelectScalar = {
+    id?: boolean
+    slug?: boolean
+    name?: boolean
+    logoUrl?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type ModelSeriesOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "slug" | "name" | "logoUrl" | "createdAt" | "updatedAt", ExtArgs["result"]["modelSeries"]>
+  export type ModelSeriesInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    models?: boolean | ModelSeries$modelsArgs<ExtArgs>
+    _count?: boolean | ModelSeriesCountOutputTypeDefaultArgs<ExtArgs>
+  }
+  export type ModelSeriesIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {}
+  export type ModelSeriesIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {}
+
+  export type $ModelSeriesPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "ModelSeries"
+    objects: {
+      models: Prisma.$ModelPayload<ExtArgs>[]
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      slug: string
+      name: string
+      logoUrl: string | null
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["modelSeries"]>
+    composites: {}
+  }
+
+  type ModelSeriesGetPayload<S extends boolean | null | undefined | ModelSeriesDefaultArgs> = $Result.GetResult<Prisma.$ModelSeriesPayload, S>
+
+  type ModelSeriesCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<ModelSeriesFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: ModelSeriesCountAggregateInputType | true
+    }
+
+  export interface ModelSeriesDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['ModelSeries'], meta: { name: 'ModelSeries' } }
+    /**
+     * Find zero or one ModelSeries that matches the filter.
+     * @param {ModelSeriesFindUniqueArgs} args - Arguments to find a ModelSeries
+     * @example
+     * // Get one ModelSeries
+     * const modelSeries = await prisma.modelSeries.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends ModelSeriesFindUniqueArgs>(args: SelectSubset<T, ModelSeriesFindUniqueArgs<ExtArgs>>): Prisma__ModelSeriesClient<$Result.GetResult<Prisma.$ModelSeriesPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one ModelSeries that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {ModelSeriesFindUniqueOrThrowArgs} args - Arguments to find a ModelSeries
+     * @example
+     * // Get one ModelSeries
+     * const modelSeries = await prisma.modelSeries.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends ModelSeriesFindUniqueOrThrowArgs>(args: SelectSubset<T, ModelSeriesFindUniqueOrThrowArgs<ExtArgs>>): Prisma__ModelSeriesClient<$Result.GetResult<Prisma.$ModelSeriesPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first ModelSeries that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ModelSeriesFindFirstArgs} args - Arguments to find a ModelSeries
+     * @example
+     * // Get one ModelSeries
+     * const modelSeries = await prisma.modelSeries.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends ModelSeriesFindFirstArgs>(args?: SelectSubset<T, ModelSeriesFindFirstArgs<ExtArgs>>): Prisma__ModelSeriesClient<$Result.GetResult<Prisma.$ModelSeriesPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first ModelSeries that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ModelSeriesFindFirstOrThrowArgs} args - Arguments to find a ModelSeries
+     * @example
+     * // Get one ModelSeries
+     * const modelSeries = await prisma.modelSeries.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends ModelSeriesFindFirstOrThrowArgs>(args?: SelectSubset<T, ModelSeriesFindFirstOrThrowArgs<ExtArgs>>): Prisma__ModelSeriesClient<$Result.GetResult<Prisma.$ModelSeriesPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more ModelSeries that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ModelSeriesFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all ModelSeries
+     * const modelSeries = await prisma.modelSeries.findMany()
+     * 
+     * // Get first 10 ModelSeries
+     * const modelSeries = await prisma.modelSeries.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const modelSeriesWithIdOnly = await prisma.modelSeries.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends ModelSeriesFindManyArgs>(args?: SelectSubset<T, ModelSeriesFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ModelSeriesPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a ModelSeries.
+     * @param {ModelSeriesCreateArgs} args - Arguments to create a ModelSeries.
+     * @example
+     * // Create one ModelSeries
+     * const ModelSeries = await prisma.modelSeries.create({
+     *   data: {
+     *     // ... data to create a ModelSeries
+     *   }
+     * })
+     * 
+     */
+    create<T extends ModelSeriesCreateArgs>(args: SelectSubset<T, ModelSeriesCreateArgs<ExtArgs>>): Prisma__ModelSeriesClient<$Result.GetResult<Prisma.$ModelSeriesPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many ModelSeries.
+     * @param {ModelSeriesCreateManyArgs} args - Arguments to create many ModelSeries.
+     * @example
+     * // Create many ModelSeries
+     * const modelSeries = await prisma.modelSeries.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends ModelSeriesCreateManyArgs>(args?: SelectSubset<T, ModelSeriesCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many ModelSeries and returns the data saved in the database.
+     * @param {ModelSeriesCreateManyAndReturnArgs} args - Arguments to create many ModelSeries.
+     * @example
+     * // Create many ModelSeries
+     * const modelSeries = await prisma.modelSeries.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many ModelSeries and only return the `id`
+     * const modelSeriesWithIdOnly = await prisma.modelSeries.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends ModelSeriesCreateManyAndReturnArgs>(args?: SelectSubset<T, ModelSeriesCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ModelSeriesPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a ModelSeries.
+     * @param {ModelSeriesDeleteArgs} args - Arguments to delete one ModelSeries.
+     * @example
+     * // Delete one ModelSeries
+     * const ModelSeries = await prisma.modelSeries.delete({
+     *   where: {
+     *     // ... filter to delete one ModelSeries
+     *   }
+     * })
+     * 
+     */
+    delete<T extends ModelSeriesDeleteArgs>(args: SelectSubset<T, ModelSeriesDeleteArgs<ExtArgs>>): Prisma__ModelSeriesClient<$Result.GetResult<Prisma.$ModelSeriesPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one ModelSeries.
+     * @param {ModelSeriesUpdateArgs} args - Arguments to update one ModelSeries.
+     * @example
+     * // Update one ModelSeries
+     * const modelSeries = await prisma.modelSeries.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends ModelSeriesUpdateArgs>(args: SelectSubset<T, ModelSeriesUpdateArgs<ExtArgs>>): Prisma__ModelSeriesClient<$Result.GetResult<Prisma.$ModelSeriesPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more ModelSeries.
+     * @param {ModelSeriesDeleteManyArgs} args - Arguments to filter ModelSeries to delete.
+     * @example
+     * // Delete a few ModelSeries
+     * const { count } = await prisma.modelSeries.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends ModelSeriesDeleteManyArgs>(args?: SelectSubset<T, ModelSeriesDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more ModelSeries.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ModelSeriesUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many ModelSeries
+     * const modelSeries = await prisma.modelSeries.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends ModelSeriesUpdateManyArgs>(args: SelectSubset<T, ModelSeriesUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more ModelSeries and returns the data updated in the database.
+     * @param {ModelSeriesUpdateManyAndReturnArgs} args - Arguments to update many ModelSeries.
+     * @example
+     * // Update many ModelSeries
+     * const modelSeries = await prisma.modelSeries.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more ModelSeries and only return the `id`
+     * const modelSeriesWithIdOnly = await prisma.modelSeries.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends ModelSeriesUpdateManyAndReturnArgs>(args: SelectSubset<T, ModelSeriesUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ModelSeriesPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one ModelSeries.
+     * @param {ModelSeriesUpsertArgs} args - Arguments to update or create a ModelSeries.
+     * @example
+     * // Update or create a ModelSeries
+     * const modelSeries = await prisma.modelSeries.upsert({
+     *   create: {
+     *     // ... data to create a ModelSeries
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the ModelSeries we want to update
+     *   }
+     * })
+     */
+    upsert<T extends ModelSeriesUpsertArgs>(args: SelectSubset<T, ModelSeriesUpsertArgs<ExtArgs>>): Prisma__ModelSeriesClient<$Result.GetResult<Prisma.$ModelSeriesPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of ModelSeries.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ModelSeriesCountArgs} args - Arguments to filter ModelSeries to count.
+     * @example
+     * // Count the number of ModelSeries
+     * const count = await prisma.modelSeries.count({
+     *   where: {
+     *     // ... the filter for the ModelSeries we want to count
+     *   }
+     * })
+    **/
+    count<T extends ModelSeriesCountArgs>(
+      args?: Subset<T, ModelSeriesCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], ModelSeriesCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a ModelSeries.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ModelSeriesAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends ModelSeriesAggregateArgs>(args: Subset<T, ModelSeriesAggregateArgs>): Prisma.PrismaPromise<GetModelSeriesAggregateType<T>>
+
+    /**
+     * Group by ModelSeries.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ModelSeriesGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends ModelSeriesGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: ModelSeriesGroupByArgs['orderBy'] }
+        : { orderBy?: ModelSeriesGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, ModelSeriesGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetModelSeriesGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the ModelSeries model
+   */
+  readonly fields: ModelSeriesFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for ModelSeries.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__ModelSeriesClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    models<T extends ModelSeries$modelsArgs<ExtArgs> = {}>(args?: Subset<T, ModelSeries$modelsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ModelPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the ModelSeries model
+   */
+  interface ModelSeriesFieldRefs {
+    readonly id: FieldRef<"ModelSeries", 'String'>
+    readonly slug: FieldRef<"ModelSeries", 'String'>
+    readonly name: FieldRef<"ModelSeries", 'String'>
+    readonly logoUrl: FieldRef<"ModelSeries", 'String'>
+    readonly createdAt: FieldRef<"ModelSeries", 'DateTime'>
+    readonly updatedAt: FieldRef<"ModelSeries", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * ModelSeries findUnique
+   */
+  export type ModelSeriesFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ModelSeries
+     */
+    select?: ModelSeriesSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ModelSeries
+     */
+    omit?: ModelSeriesOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ModelSeriesInclude<ExtArgs> | null
+    /**
+     * Filter, which ModelSeries to fetch.
+     */
+    where: ModelSeriesWhereUniqueInput
+  }
+
+  /**
+   * ModelSeries findUniqueOrThrow
+   */
+  export type ModelSeriesFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ModelSeries
+     */
+    select?: ModelSeriesSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ModelSeries
+     */
+    omit?: ModelSeriesOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ModelSeriesInclude<ExtArgs> | null
+    /**
+     * Filter, which ModelSeries to fetch.
+     */
+    where: ModelSeriesWhereUniqueInput
+  }
+
+  /**
+   * ModelSeries findFirst
+   */
+  export type ModelSeriesFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ModelSeries
+     */
+    select?: ModelSeriesSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ModelSeries
+     */
+    omit?: ModelSeriesOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ModelSeriesInclude<ExtArgs> | null
+    /**
+     * Filter, which ModelSeries to fetch.
+     */
+    where?: ModelSeriesWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ModelSeries to fetch.
+     */
+    orderBy?: ModelSeriesOrderByWithRelationInput | ModelSeriesOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for ModelSeries.
+     */
+    cursor?: ModelSeriesWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ModelSeries from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ModelSeries.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of ModelSeries.
+     */
+    distinct?: ModelSeriesScalarFieldEnum | ModelSeriesScalarFieldEnum[]
+  }
+
+  /**
+   * ModelSeries findFirstOrThrow
+   */
+  export type ModelSeriesFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ModelSeries
+     */
+    select?: ModelSeriesSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ModelSeries
+     */
+    omit?: ModelSeriesOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ModelSeriesInclude<ExtArgs> | null
+    /**
+     * Filter, which ModelSeries to fetch.
+     */
+    where?: ModelSeriesWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ModelSeries to fetch.
+     */
+    orderBy?: ModelSeriesOrderByWithRelationInput | ModelSeriesOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for ModelSeries.
+     */
+    cursor?: ModelSeriesWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ModelSeries from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ModelSeries.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of ModelSeries.
+     */
+    distinct?: ModelSeriesScalarFieldEnum | ModelSeriesScalarFieldEnum[]
+  }
+
+  /**
+   * ModelSeries findMany
+   */
+  export type ModelSeriesFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ModelSeries
+     */
+    select?: ModelSeriesSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ModelSeries
+     */
+    omit?: ModelSeriesOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ModelSeriesInclude<ExtArgs> | null
+    /**
+     * Filter, which ModelSeries to fetch.
+     */
+    where?: ModelSeriesWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ModelSeries to fetch.
+     */
+    orderBy?: ModelSeriesOrderByWithRelationInput | ModelSeriesOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing ModelSeries.
+     */
+    cursor?: ModelSeriesWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ModelSeries from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ModelSeries.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of ModelSeries.
+     */
+    distinct?: ModelSeriesScalarFieldEnum | ModelSeriesScalarFieldEnum[]
+  }
+
+  /**
+   * ModelSeries create
+   */
+  export type ModelSeriesCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ModelSeries
+     */
+    select?: ModelSeriesSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ModelSeries
+     */
+    omit?: ModelSeriesOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ModelSeriesInclude<ExtArgs> | null
+    /**
+     * The data needed to create a ModelSeries.
+     */
+    data: XOR<ModelSeriesCreateInput, ModelSeriesUncheckedCreateInput>
+  }
+
+  /**
+   * ModelSeries createMany
+   */
+  export type ModelSeriesCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many ModelSeries.
+     */
+    data: ModelSeriesCreateManyInput | ModelSeriesCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * ModelSeries createManyAndReturn
+   */
+  export type ModelSeriesCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ModelSeries
+     */
+    select?: ModelSeriesSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the ModelSeries
+     */
+    omit?: ModelSeriesOmit<ExtArgs> | null
+    /**
+     * The data used to create many ModelSeries.
+     */
+    data: ModelSeriesCreateManyInput | ModelSeriesCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * ModelSeries update
+   */
+  export type ModelSeriesUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ModelSeries
+     */
+    select?: ModelSeriesSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ModelSeries
+     */
+    omit?: ModelSeriesOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ModelSeriesInclude<ExtArgs> | null
+    /**
+     * The data needed to update a ModelSeries.
+     */
+    data: XOR<ModelSeriesUpdateInput, ModelSeriesUncheckedUpdateInput>
+    /**
+     * Choose, which ModelSeries to update.
+     */
+    where: ModelSeriesWhereUniqueInput
+  }
+
+  /**
+   * ModelSeries updateMany
+   */
+  export type ModelSeriesUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update ModelSeries.
+     */
+    data: XOR<ModelSeriesUpdateManyMutationInput, ModelSeriesUncheckedUpdateManyInput>
+    /**
+     * Filter which ModelSeries to update
+     */
+    where?: ModelSeriesWhereInput
+    /**
+     * Limit how many ModelSeries to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * ModelSeries updateManyAndReturn
+   */
+  export type ModelSeriesUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ModelSeries
+     */
+    select?: ModelSeriesSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the ModelSeries
+     */
+    omit?: ModelSeriesOmit<ExtArgs> | null
+    /**
+     * The data used to update ModelSeries.
+     */
+    data: XOR<ModelSeriesUpdateManyMutationInput, ModelSeriesUncheckedUpdateManyInput>
+    /**
+     * Filter which ModelSeries to update
+     */
+    where?: ModelSeriesWhereInput
+    /**
+     * Limit how many ModelSeries to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * ModelSeries upsert
+   */
+  export type ModelSeriesUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ModelSeries
+     */
+    select?: ModelSeriesSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ModelSeries
+     */
+    omit?: ModelSeriesOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ModelSeriesInclude<ExtArgs> | null
+    /**
+     * The filter to search for the ModelSeries to update in case it exists.
+     */
+    where: ModelSeriesWhereUniqueInput
+    /**
+     * In case the ModelSeries found by the `where` argument doesn't exist, create a new ModelSeries with this data.
+     */
+    create: XOR<ModelSeriesCreateInput, ModelSeriesUncheckedCreateInput>
+    /**
+     * In case the ModelSeries was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<ModelSeriesUpdateInput, ModelSeriesUncheckedUpdateInput>
+  }
+
+  /**
+   * ModelSeries delete
+   */
+  export type ModelSeriesDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ModelSeries
+     */
+    select?: ModelSeriesSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ModelSeries
+     */
+    omit?: ModelSeriesOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ModelSeriesInclude<ExtArgs> | null
+    /**
+     * Filter which ModelSeries to delete.
+     */
+    where: ModelSeriesWhereUniqueInput
+  }
+
+  /**
+   * ModelSeries deleteMany
+   */
+  export type ModelSeriesDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which ModelSeries to delete
+     */
+    where?: ModelSeriesWhereInput
+    /**
+     * Limit how many ModelSeries to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * ModelSeries.models
+   */
+  export type ModelSeries$modelsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Model
+     */
+    select?: ModelSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Model
+     */
+    omit?: ModelOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ModelInclude<ExtArgs> | null
+    where?: ModelWhereInput
+    orderBy?: ModelOrderByWithRelationInput | ModelOrderByWithRelationInput[]
+    cursor?: ModelWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: ModelScalarFieldEnum | ModelScalarFieldEnum[]
+  }
+
+  /**
+   * ModelSeries without action
+   */
+  export type ModelSeriesDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ModelSeries
+     */
+    select?: ModelSeriesSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ModelSeries
+     */
+    omit?: ModelSeriesOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ModelSeriesInclude<ExtArgs> | null
+  }
+
+
+  /**
+   * Model ProviderConnectionProfile
+   */
+
+  export type AggregateProviderConnectionProfile = {
+    _count: ProviderConnectionProfileCountAggregateOutputType | null
+    _min: ProviderConnectionProfileMinAggregateOutputType | null
+    _max: ProviderConnectionProfileMaxAggregateOutputType | null
+  }
+
+  export type ProviderConnectionProfileMinAggregateOutputType = {
+    id: string | null
+    providerId: string | null
+    providerType: string | null
+    authMode: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type ProviderConnectionProfileMaxAggregateOutputType = {
+    id: string | null
+    providerId: string | null
+    providerType: string | null
+    authMode: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type ProviderConnectionProfileCountAggregateOutputType = {
+    id: number
+    providerId: number
+    providerType: number
+    authMode: number
+    configJson: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type ProviderConnectionProfileMinAggregateInputType = {
+    id?: true
+    providerId?: true
+    providerType?: true
+    authMode?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type ProviderConnectionProfileMaxAggregateInputType = {
+    id?: true
+    providerId?: true
+    providerType?: true
+    authMode?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type ProviderConnectionProfileCountAggregateInputType = {
+    id?: true
+    providerId?: true
+    providerType?: true
+    authMode?: true
+    configJson?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type ProviderConnectionProfileAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which ProviderConnectionProfile to aggregate.
+     */
+    where?: ProviderConnectionProfileWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ProviderConnectionProfiles to fetch.
+     */
+    orderBy?: ProviderConnectionProfileOrderByWithRelationInput | ProviderConnectionProfileOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: ProviderConnectionProfileWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ProviderConnectionProfiles from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ProviderConnectionProfiles.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned ProviderConnectionProfiles
+    **/
+    _count?: true | ProviderConnectionProfileCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: ProviderConnectionProfileMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: ProviderConnectionProfileMaxAggregateInputType
+  }
+
+  export type GetProviderConnectionProfileAggregateType<T extends ProviderConnectionProfileAggregateArgs> = {
+        [P in keyof T & keyof AggregateProviderConnectionProfile]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateProviderConnectionProfile[P]>
+      : GetScalarType<T[P], AggregateProviderConnectionProfile[P]>
+  }
+
+
+
+
+  export type ProviderConnectionProfileGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: ProviderConnectionProfileWhereInput
+    orderBy?: ProviderConnectionProfileOrderByWithAggregationInput | ProviderConnectionProfileOrderByWithAggregationInput[]
+    by: ProviderConnectionProfileScalarFieldEnum[] | ProviderConnectionProfileScalarFieldEnum
+    having?: ProviderConnectionProfileScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: ProviderConnectionProfileCountAggregateInputType | true
+    _min?: ProviderConnectionProfileMinAggregateInputType
+    _max?: ProviderConnectionProfileMaxAggregateInputType
+  }
+
+  export type ProviderConnectionProfileGroupByOutputType = {
+    id: string
+    providerId: string
+    providerType: string
+    authMode: string | null
+    configJson: JsonValue
+    createdAt: Date
+    updatedAt: Date
+    _count: ProviderConnectionProfileCountAggregateOutputType | null
+    _min: ProviderConnectionProfileMinAggregateOutputType | null
+    _max: ProviderConnectionProfileMaxAggregateOutputType | null
+  }
+
+  type GetProviderConnectionProfileGroupByPayload<T extends ProviderConnectionProfileGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<ProviderConnectionProfileGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof ProviderConnectionProfileGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], ProviderConnectionProfileGroupByOutputType[P]>
+            : GetScalarType<T[P], ProviderConnectionProfileGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type ProviderConnectionProfileSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    providerId?: boolean
+    providerType?: boolean
+    authMode?: boolean
+    configJson?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    provider?: boolean | ProviderDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["providerConnectionProfile"]>
+
+  export type ProviderConnectionProfileSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    providerId?: boolean
+    providerType?: boolean
+    authMode?: boolean
+    configJson?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    provider?: boolean | ProviderDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["providerConnectionProfile"]>
+
+  export type ProviderConnectionProfileSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    providerId?: boolean
+    providerType?: boolean
+    authMode?: boolean
+    configJson?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    provider?: boolean | ProviderDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["providerConnectionProfile"]>
+
+  export type ProviderConnectionProfileSelectScalar = {
+    id?: boolean
+    providerId?: boolean
+    providerType?: boolean
+    authMode?: boolean
+    configJson?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type ProviderConnectionProfileOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "providerId" | "providerType" | "authMode" | "configJson" | "createdAt" | "updatedAt", ExtArgs["result"]["providerConnectionProfile"]>
+  export type ProviderConnectionProfileInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    provider?: boolean | ProviderDefaultArgs<ExtArgs>
+  }
+  export type ProviderConnectionProfileIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    provider?: boolean | ProviderDefaultArgs<ExtArgs>
+  }
+  export type ProviderConnectionProfileIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    provider?: boolean | ProviderDefaultArgs<ExtArgs>
+  }
+
+  export type $ProviderConnectionProfilePayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "ProviderConnectionProfile"
+    objects: {
+      provider: Prisma.$ProviderPayload<ExtArgs>
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      providerId: string
+      providerType: string
+      authMode: string | null
+      configJson: Prisma.JsonValue
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["providerConnectionProfile"]>
+    composites: {}
+  }
+
+  type ProviderConnectionProfileGetPayload<S extends boolean | null | undefined | ProviderConnectionProfileDefaultArgs> = $Result.GetResult<Prisma.$ProviderConnectionProfilePayload, S>
+
+  type ProviderConnectionProfileCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<ProviderConnectionProfileFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: ProviderConnectionProfileCountAggregateInputType | true
+    }
+
+  export interface ProviderConnectionProfileDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['ProviderConnectionProfile'], meta: { name: 'ProviderConnectionProfile' } }
+    /**
+     * Find zero or one ProviderConnectionProfile that matches the filter.
+     * @param {ProviderConnectionProfileFindUniqueArgs} args - Arguments to find a ProviderConnectionProfile
+     * @example
+     * // Get one ProviderConnectionProfile
+     * const providerConnectionProfile = await prisma.providerConnectionProfile.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends ProviderConnectionProfileFindUniqueArgs>(args: SelectSubset<T, ProviderConnectionProfileFindUniqueArgs<ExtArgs>>): Prisma__ProviderConnectionProfileClient<$Result.GetResult<Prisma.$ProviderConnectionProfilePayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one ProviderConnectionProfile that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {ProviderConnectionProfileFindUniqueOrThrowArgs} args - Arguments to find a ProviderConnectionProfile
+     * @example
+     * // Get one ProviderConnectionProfile
+     * const providerConnectionProfile = await prisma.providerConnectionProfile.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends ProviderConnectionProfileFindUniqueOrThrowArgs>(args: SelectSubset<T, ProviderConnectionProfileFindUniqueOrThrowArgs<ExtArgs>>): Prisma__ProviderConnectionProfileClient<$Result.GetResult<Prisma.$ProviderConnectionProfilePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first ProviderConnectionProfile that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ProviderConnectionProfileFindFirstArgs} args - Arguments to find a ProviderConnectionProfile
+     * @example
+     * // Get one ProviderConnectionProfile
+     * const providerConnectionProfile = await prisma.providerConnectionProfile.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends ProviderConnectionProfileFindFirstArgs>(args?: SelectSubset<T, ProviderConnectionProfileFindFirstArgs<ExtArgs>>): Prisma__ProviderConnectionProfileClient<$Result.GetResult<Prisma.$ProviderConnectionProfilePayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first ProviderConnectionProfile that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ProviderConnectionProfileFindFirstOrThrowArgs} args - Arguments to find a ProviderConnectionProfile
+     * @example
+     * // Get one ProviderConnectionProfile
+     * const providerConnectionProfile = await prisma.providerConnectionProfile.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends ProviderConnectionProfileFindFirstOrThrowArgs>(args?: SelectSubset<T, ProviderConnectionProfileFindFirstOrThrowArgs<ExtArgs>>): Prisma__ProviderConnectionProfileClient<$Result.GetResult<Prisma.$ProviderConnectionProfilePayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more ProviderConnectionProfiles that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ProviderConnectionProfileFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all ProviderConnectionProfiles
+     * const providerConnectionProfiles = await prisma.providerConnectionProfile.findMany()
+     * 
+     * // Get first 10 ProviderConnectionProfiles
+     * const providerConnectionProfiles = await prisma.providerConnectionProfile.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const providerConnectionProfileWithIdOnly = await prisma.providerConnectionProfile.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends ProviderConnectionProfileFindManyArgs>(args?: SelectSubset<T, ProviderConnectionProfileFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ProviderConnectionProfilePayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a ProviderConnectionProfile.
+     * @param {ProviderConnectionProfileCreateArgs} args - Arguments to create a ProviderConnectionProfile.
+     * @example
+     * // Create one ProviderConnectionProfile
+     * const ProviderConnectionProfile = await prisma.providerConnectionProfile.create({
+     *   data: {
+     *     // ... data to create a ProviderConnectionProfile
+     *   }
+     * })
+     * 
+     */
+    create<T extends ProviderConnectionProfileCreateArgs>(args: SelectSubset<T, ProviderConnectionProfileCreateArgs<ExtArgs>>): Prisma__ProviderConnectionProfileClient<$Result.GetResult<Prisma.$ProviderConnectionProfilePayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many ProviderConnectionProfiles.
+     * @param {ProviderConnectionProfileCreateManyArgs} args - Arguments to create many ProviderConnectionProfiles.
+     * @example
+     * // Create many ProviderConnectionProfiles
+     * const providerConnectionProfile = await prisma.providerConnectionProfile.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends ProviderConnectionProfileCreateManyArgs>(args?: SelectSubset<T, ProviderConnectionProfileCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many ProviderConnectionProfiles and returns the data saved in the database.
+     * @param {ProviderConnectionProfileCreateManyAndReturnArgs} args - Arguments to create many ProviderConnectionProfiles.
+     * @example
+     * // Create many ProviderConnectionProfiles
+     * const providerConnectionProfile = await prisma.providerConnectionProfile.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many ProviderConnectionProfiles and only return the `id`
+     * const providerConnectionProfileWithIdOnly = await prisma.providerConnectionProfile.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends ProviderConnectionProfileCreateManyAndReturnArgs>(args?: SelectSubset<T, ProviderConnectionProfileCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ProviderConnectionProfilePayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a ProviderConnectionProfile.
+     * @param {ProviderConnectionProfileDeleteArgs} args - Arguments to delete one ProviderConnectionProfile.
+     * @example
+     * // Delete one ProviderConnectionProfile
+     * const ProviderConnectionProfile = await prisma.providerConnectionProfile.delete({
+     *   where: {
+     *     // ... filter to delete one ProviderConnectionProfile
+     *   }
+     * })
+     * 
+     */
+    delete<T extends ProviderConnectionProfileDeleteArgs>(args: SelectSubset<T, ProviderConnectionProfileDeleteArgs<ExtArgs>>): Prisma__ProviderConnectionProfileClient<$Result.GetResult<Prisma.$ProviderConnectionProfilePayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one ProviderConnectionProfile.
+     * @param {ProviderConnectionProfileUpdateArgs} args - Arguments to update one ProviderConnectionProfile.
+     * @example
+     * // Update one ProviderConnectionProfile
+     * const providerConnectionProfile = await prisma.providerConnectionProfile.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends ProviderConnectionProfileUpdateArgs>(args: SelectSubset<T, ProviderConnectionProfileUpdateArgs<ExtArgs>>): Prisma__ProviderConnectionProfileClient<$Result.GetResult<Prisma.$ProviderConnectionProfilePayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more ProviderConnectionProfiles.
+     * @param {ProviderConnectionProfileDeleteManyArgs} args - Arguments to filter ProviderConnectionProfiles to delete.
+     * @example
+     * // Delete a few ProviderConnectionProfiles
+     * const { count } = await prisma.providerConnectionProfile.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends ProviderConnectionProfileDeleteManyArgs>(args?: SelectSubset<T, ProviderConnectionProfileDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more ProviderConnectionProfiles.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ProviderConnectionProfileUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many ProviderConnectionProfiles
+     * const providerConnectionProfile = await prisma.providerConnectionProfile.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends ProviderConnectionProfileUpdateManyArgs>(args: SelectSubset<T, ProviderConnectionProfileUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more ProviderConnectionProfiles and returns the data updated in the database.
+     * @param {ProviderConnectionProfileUpdateManyAndReturnArgs} args - Arguments to update many ProviderConnectionProfiles.
+     * @example
+     * // Update many ProviderConnectionProfiles
+     * const providerConnectionProfile = await prisma.providerConnectionProfile.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more ProviderConnectionProfiles and only return the `id`
+     * const providerConnectionProfileWithIdOnly = await prisma.providerConnectionProfile.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends ProviderConnectionProfileUpdateManyAndReturnArgs>(args: SelectSubset<T, ProviderConnectionProfileUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ProviderConnectionProfilePayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one ProviderConnectionProfile.
+     * @param {ProviderConnectionProfileUpsertArgs} args - Arguments to update or create a ProviderConnectionProfile.
+     * @example
+     * // Update or create a ProviderConnectionProfile
+     * const providerConnectionProfile = await prisma.providerConnectionProfile.upsert({
+     *   create: {
+     *     // ... data to create a ProviderConnectionProfile
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the ProviderConnectionProfile we want to update
+     *   }
+     * })
+     */
+    upsert<T extends ProviderConnectionProfileUpsertArgs>(args: SelectSubset<T, ProviderConnectionProfileUpsertArgs<ExtArgs>>): Prisma__ProviderConnectionProfileClient<$Result.GetResult<Prisma.$ProviderConnectionProfilePayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of ProviderConnectionProfiles.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ProviderConnectionProfileCountArgs} args - Arguments to filter ProviderConnectionProfiles to count.
+     * @example
+     * // Count the number of ProviderConnectionProfiles
+     * const count = await prisma.providerConnectionProfile.count({
+     *   where: {
+     *     // ... the filter for the ProviderConnectionProfiles we want to count
+     *   }
+     * })
+    **/
+    count<T extends ProviderConnectionProfileCountArgs>(
+      args?: Subset<T, ProviderConnectionProfileCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], ProviderConnectionProfileCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a ProviderConnectionProfile.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ProviderConnectionProfileAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends ProviderConnectionProfileAggregateArgs>(args: Subset<T, ProviderConnectionProfileAggregateArgs>): Prisma.PrismaPromise<GetProviderConnectionProfileAggregateType<T>>
+
+    /**
+     * Group by ProviderConnectionProfile.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ProviderConnectionProfileGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends ProviderConnectionProfileGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: ProviderConnectionProfileGroupByArgs['orderBy'] }
+        : { orderBy?: ProviderConnectionProfileGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, ProviderConnectionProfileGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetProviderConnectionProfileGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the ProviderConnectionProfile model
+   */
+  readonly fields: ProviderConnectionProfileFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for ProviderConnectionProfile.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__ProviderConnectionProfileClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    provider<T extends ProviderDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ProviderDefaultArgs<ExtArgs>>): Prisma__ProviderClient<$Result.GetResult<Prisma.$ProviderPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the ProviderConnectionProfile model
+   */
+  interface ProviderConnectionProfileFieldRefs {
+    readonly id: FieldRef<"ProviderConnectionProfile", 'String'>
+    readonly providerId: FieldRef<"ProviderConnectionProfile", 'String'>
+    readonly providerType: FieldRef<"ProviderConnectionProfile", 'String'>
+    readonly authMode: FieldRef<"ProviderConnectionProfile", 'String'>
+    readonly configJson: FieldRef<"ProviderConnectionProfile", 'Json'>
+    readonly createdAt: FieldRef<"ProviderConnectionProfile", 'DateTime'>
+    readonly updatedAt: FieldRef<"ProviderConnectionProfile", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * ProviderConnectionProfile findUnique
+   */
+  export type ProviderConnectionProfileFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionProfile
+     */
+    select?: ProviderConnectionProfileSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionProfile
+     */
+    omit?: ProviderConnectionProfileOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionProfileInclude<ExtArgs> | null
+    /**
+     * Filter, which ProviderConnectionProfile to fetch.
+     */
+    where: ProviderConnectionProfileWhereUniqueInput
+  }
+
+  /**
+   * ProviderConnectionProfile findUniqueOrThrow
+   */
+  export type ProviderConnectionProfileFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionProfile
+     */
+    select?: ProviderConnectionProfileSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionProfile
+     */
+    omit?: ProviderConnectionProfileOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionProfileInclude<ExtArgs> | null
+    /**
+     * Filter, which ProviderConnectionProfile to fetch.
+     */
+    where: ProviderConnectionProfileWhereUniqueInput
+  }
+
+  /**
+   * ProviderConnectionProfile findFirst
+   */
+  export type ProviderConnectionProfileFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionProfile
+     */
+    select?: ProviderConnectionProfileSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionProfile
+     */
+    omit?: ProviderConnectionProfileOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionProfileInclude<ExtArgs> | null
+    /**
+     * Filter, which ProviderConnectionProfile to fetch.
+     */
+    where?: ProviderConnectionProfileWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ProviderConnectionProfiles to fetch.
+     */
+    orderBy?: ProviderConnectionProfileOrderByWithRelationInput | ProviderConnectionProfileOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for ProviderConnectionProfiles.
+     */
+    cursor?: ProviderConnectionProfileWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ProviderConnectionProfiles from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ProviderConnectionProfiles.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of ProviderConnectionProfiles.
+     */
+    distinct?: ProviderConnectionProfileScalarFieldEnum | ProviderConnectionProfileScalarFieldEnum[]
+  }
+
+  /**
+   * ProviderConnectionProfile findFirstOrThrow
+   */
+  export type ProviderConnectionProfileFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionProfile
+     */
+    select?: ProviderConnectionProfileSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionProfile
+     */
+    omit?: ProviderConnectionProfileOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionProfileInclude<ExtArgs> | null
+    /**
+     * Filter, which ProviderConnectionProfile to fetch.
+     */
+    where?: ProviderConnectionProfileWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ProviderConnectionProfiles to fetch.
+     */
+    orderBy?: ProviderConnectionProfileOrderByWithRelationInput | ProviderConnectionProfileOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for ProviderConnectionProfiles.
+     */
+    cursor?: ProviderConnectionProfileWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ProviderConnectionProfiles from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ProviderConnectionProfiles.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of ProviderConnectionProfiles.
+     */
+    distinct?: ProviderConnectionProfileScalarFieldEnum | ProviderConnectionProfileScalarFieldEnum[]
+  }
+
+  /**
+   * ProviderConnectionProfile findMany
+   */
+  export type ProviderConnectionProfileFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionProfile
+     */
+    select?: ProviderConnectionProfileSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionProfile
+     */
+    omit?: ProviderConnectionProfileOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionProfileInclude<ExtArgs> | null
+    /**
+     * Filter, which ProviderConnectionProfiles to fetch.
+     */
+    where?: ProviderConnectionProfileWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ProviderConnectionProfiles to fetch.
+     */
+    orderBy?: ProviderConnectionProfileOrderByWithRelationInput | ProviderConnectionProfileOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing ProviderConnectionProfiles.
+     */
+    cursor?: ProviderConnectionProfileWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ProviderConnectionProfiles from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ProviderConnectionProfiles.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of ProviderConnectionProfiles.
+     */
+    distinct?: ProviderConnectionProfileScalarFieldEnum | ProviderConnectionProfileScalarFieldEnum[]
+  }
+
+  /**
+   * ProviderConnectionProfile create
+   */
+  export type ProviderConnectionProfileCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionProfile
+     */
+    select?: ProviderConnectionProfileSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionProfile
+     */
+    omit?: ProviderConnectionProfileOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionProfileInclude<ExtArgs> | null
+    /**
+     * The data needed to create a ProviderConnectionProfile.
+     */
+    data: XOR<ProviderConnectionProfileCreateInput, ProviderConnectionProfileUncheckedCreateInput>
+  }
+
+  /**
+   * ProviderConnectionProfile createMany
+   */
+  export type ProviderConnectionProfileCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many ProviderConnectionProfiles.
+     */
+    data: ProviderConnectionProfileCreateManyInput | ProviderConnectionProfileCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * ProviderConnectionProfile createManyAndReturn
+   */
+  export type ProviderConnectionProfileCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionProfile
+     */
+    select?: ProviderConnectionProfileSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionProfile
+     */
+    omit?: ProviderConnectionProfileOmit<ExtArgs> | null
+    /**
+     * The data used to create many ProviderConnectionProfiles.
+     */
+    data: ProviderConnectionProfileCreateManyInput | ProviderConnectionProfileCreateManyInput[]
+    skipDuplicates?: boolean
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionProfileIncludeCreateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * ProviderConnectionProfile update
+   */
+  export type ProviderConnectionProfileUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionProfile
+     */
+    select?: ProviderConnectionProfileSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionProfile
+     */
+    omit?: ProviderConnectionProfileOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionProfileInclude<ExtArgs> | null
+    /**
+     * The data needed to update a ProviderConnectionProfile.
+     */
+    data: XOR<ProviderConnectionProfileUpdateInput, ProviderConnectionProfileUncheckedUpdateInput>
+    /**
+     * Choose, which ProviderConnectionProfile to update.
+     */
+    where: ProviderConnectionProfileWhereUniqueInput
+  }
+
+  /**
+   * ProviderConnectionProfile updateMany
+   */
+  export type ProviderConnectionProfileUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update ProviderConnectionProfiles.
+     */
+    data: XOR<ProviderConnectionProfileUpdateManyMutationInput, ProviderConnectionProfileUncheckedUpdateManyInput>
+    /**
+     * Filter which ProviderConnectionProfiles to update
+     */
+    where?: ProviderConnectionProfileWhereInput
+    /**
+     * Limit how many ProviderConnectionProfiles to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * ProviderConnectionProfile updateManyAndReturn
+   */
+  export type ProviderConnectionProfileUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionProfile
+     */
+    select?: ProviderConnectionProfileSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionProfile
+     */
+    omit?: ProviderConnectionProfileOmit<ExtArgs> | null
+    /**
+     * The data used to update ProviderConnectionProfiles.
+     */
+    data: XOR<ProviderConnectionProfileUpdateManyMutationInput, ProviderConnectionProfileUncheckedUpdateManyInput>
+    /**
+     * Filter which ProviderConnectionProfiles to update
+     */
+    where?: ProviderConnectionProfileWhereInput
+    /**
+     * Limit how many ProviderConnectionProfiles to update.
+     */
+    limit?: number
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionProfileIncludeUpdateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * ProviderConnectionProfile upsert
+   */
+  export type ProviderConnectionProfileUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionProfile
+     */
+    select?: ProviderConnectionProfileSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionProfile
+     */
+    omit?: ProviderConnectionProfileOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionProfileInclude<ExtArgs> | null
+    /**
+     * The filter to search for the ProviderConnectionProfile to update in case it exists.
+     */
+    where: ProviderConnectionProfileWhereUniqueInput
+    /**
+     * In case the ProviderConnectionProfile found by the `where` argument doesn't exist, create a new ProviderConnectionProfile with this data.
+     */
+    create: XOR<ProviderConnectionProfileCreateInput, ProviderConnectionProfileUncheckedCreateInput>
+    /**
+     * In case the ProviderConnectionProfile was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<ProviderConnectionProfileUpdateInput, ProviderConnectionProfileUncheckedUpdateInput>
+  }
+
+  /**
+   * ProviderConnectionProfile delete
+   */
+  export type ProviderConnectionProfileDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionProfile
+     */
+    select?: ProviderConnectionProfileSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionProfile
+     */
+    omit?: ProviderConnectionProfileOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionProfileInclude<ExtArgs> | null
+    /**
+     * Filter which ProviderConnectionProfile to delete.
+     */
+    where: ProviderConnectionProfileWhereUniqueInput
+  }
+
+  /**
+   * ProviderConnectionProfile deleteMany
+   */
+  export type ProviderConnectionProfileDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which ProviderConnectionProfiles to delete
+     */
+    where?: ProviderConnectionProfileWhereInput
+    /**
+     * Limit how many ProviderConnectionProfiles to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * ProviderConnectionProfile without action
+   */
+  export type ProviderConnectionProfileDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionProfile
+     */
+    select?: ProviderConnectionProfileSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionProfile
+     */
+    omit?: ProviderConnectionProfileOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionProfileInclude<ExtArgs> | null
   }
 
 
@@ -26520,6 +28995,7 @@ export namespace Prisma {
     docsUrl: 'docsUrl',
     logoUrl: 'logoUrl',
     status: 'status',
+    enabled: 'enabled',
     privacyPolicyUrl: 'privacyPolicyUrl',
     loggingPolicySummary: 'loggingPolicySummary',
     supportsByok: 'supportsByok',
@@ -26540,8 +29016,10 @@ export namespace Prisma {
     shortDescription: 'shortDescription',
     longDescription: 'longDescription',
     status: 'status',
+    enabled: 'enabled',
     lifecycleStatus: 'lifecycleStatus',
     categoryId: 'categoryId',
+    modelSeriesId: 'modelSeriesId',
     contextWindow: 'contextWindow',
     maxOutputTokens: 'maxOutputTokens',
     knowledgeCutoff: 'knowledgeCutoff',
@@ -26560,6 +29038,31 @@ export namespace Prisma {
   };
 
   export type ModelScalarFieldEnum = (typeof ModelScalarFieldEnum)[keyof typeof ModelScalarFieldEnum]
+
+
+  export const ModelSeriesScalarFieldEnum: {
+    id: 'id',
+    slug: 'slug',
+    name: 'name',
+    logoUrl: 'logoUrl',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type ModelSeriesScalarFieldEnum = (typeof ModelSeriesScalarFieldEnum)[keyof typeof ModelSeriesScalarFieldEnum]
+
+
+  export const ProviderConnectionProfileScalarFieldEnum: {
+    id: 'id',
+    providerId: 'providerId',
+    providerType: 'providerType',
+    authMode: 'authMode',
+    configJson: 'configJson',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type ProviderConnectionProfileScalarFieldEnum = (typeof ProviderConnectionProfileScalarFieldEnum)[keyof typeof ProviderConnectionProfileScalarFieldEnum]
 
 
   export const ModelVersionScalarFieldEnum: {
@@ -26778,6 +29281,13 @@ export namespace Prisma {
   export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
 
 
+  export const JsonNullValueInput: {
+    JsonNull: typeof JsonNull
+  };
+
+  export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
+
+
   export const NullableJsonNullValueInput: {
     DbNull: typeof DbNull,
     JsonNull: typeof JsonNull
@@ -26922,20 +29432,6 @@ export namespace Prisma {
 
 
   /**
-   * Reference to a field of type 'ModalityDirectionType'
-   */
-  export type EnumModalityDirectionTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ModalityDirectionType'>
-    
-
-
-  /**
-   * Reference to a field of type 'ModalityDirectionType[]'
-   */
-  export type ListEnumModalityDirectionTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ModalityDirectionType[]'>
-    
-
-
-  /**
    * Reference to a field of type 'Json'
    */
   export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Json'>
@@ -26946,6 +29442,20 @@ export namespace Prisma {
    * Reference to a field of type 'QueryMode'
    */
   export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'QueryMode'>
+    
+
+
+  /**
+   * Reference to a field of type 'ModalityDirectionType'
+   */
+  export type EnumModalityDirectionTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ModalityDirectionType'>
+    
+
+
+  /**
+   * Reference to a field of type 'ModalityDirectionType[]'
+   */
+  export type ListEnumModalityDirectionTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ModalityDirectionType[]'>
     
   /**
    * Deep Input Types
@@ -26964,6 +29474,7 @@ export namespace Prisma {
     docsUrl?: StringNullableFilter<"Provider"> | string | null
     logoUrl?: StringNullableFilter<"Provider"> | string | null
     status?: EnumProviderStatusFilter<"Provider"> | $Enums.ProviderStatus
+    enabled?: BoolFilter<"Provider"> | boolean
     privacyPolicyUrl?: StringNullableFilter<"Provider"> | string | null
     loggingPolicySummary?: StringNullableFilter<"Provider"> | string | null
     supportsByok?: BoolFilter<"Provider"> | boolean
@@ -26971,6 +29482,7 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"Provider"> | Date | string
     updatedAt?: DateTimeFilter<"Provider"> | Date | string
     models?: ModelListRelationFilter
+    connectionProfile?: XOR<ProviderConnectionProfileNullableScalarRelationFilter, ProviderConnectionProfileWhereInput> | null
   }
 
   export type ProviderOrderByWithRelationInput = {
@@ -26982,6 +29494,7 @@ export namespace Prisma {
     docsUrl?: SortOrderInput | SortOrder
     logoUrl?: SortOrderInput | SortOrder
     status?: SortOrder
+    enabled?: SortOrder
     privacyPolicyUrl?: SortOrderInput | SortOrder
     loggingPolicySummary?: SortOrderInput | SortOrder
     supportsByok?: SortOrder
@@ -26989,6 +29502,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     models?: ModelOrderByRelationAggregateInput
+    connectionProfile?: ProviderConnectionProfileOrderByWithRelationInput
   }
 
   export type ProviderWhereUniqueInput = Prisma.AtLeast<{
@@ -27003,6 +29517,7 @@ export namespace Prisma {
     docsUrl?: StringNullableFilter<"Provider"> | string | null
     logoUrl?: StringNullableFilter<"Provider"> | string | null
     status?: EnumProviderStatusFilter<"Provider"> | $Enums.ProviderStatus
+    enabled?: BoolFilter<"Provider"> | boolean
     privacyPolicyUrl?: StringNullableFilter<"Provider"> | string | null
     loggingPolicySummary?: StringNullableFilter<"Provider"> | string | null
     supportsByok?: BoolFilter<"Provider"> | boolean
@@ -27010,6 +29525,7 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"Provider"> | Date | string
     updatedAt?: DateTimeFilter<"Provider"> | Date | string
     models?: ModelListRelationFilter
+    connectionProfile?: XOR<ProviderConnectionProfileNullableScalarRelationFilter, ProviderConnectionProfileWhereInput> | null
   }, "id" | "slug">
 
   export type ProviderOrderByWithAggregationInput = {
@@ -27021,6 +29537,7 @@ export namespace Prisma {
     docsUrl?: SortOrderInput | SortOrder
     logoUrl?: SortOrderInput | SortOrder
     status?: SortOrder
+    enabled?: SortOrder
     privacyPolicyUrl?: SortOrderInput | SortOrder
     loggingPolicySummary?: SortOrderInput | SortOrder
     supportsByok?: SortOrder
@@ -27044,6 +29561,7 @@ export namespace Prisma {
     docsUrl?: StringNullableWithAggregatesFilter<"Provider"> | string | null
     logoUrl?: StringNullableWithAggregatesFilter<"Provider"> | string | null
     status?: EnumProviderStatusWithAggregatesFilter<"Provider"> | $Enums.ProviderStatus
+    enabled?: BoolWithAggregatesFilter<"Provider"> | boolean
     privacyPolicyUrl?: StringNullableWithAggregatesFilter<"Provider"> | string | null
     loggingPolicySummary?: StringNullableWithAggregatesFilter<"Provider"> | string | null
     supportsByok?: BoolWithAggregatesFilter<"Provider"> | boolean
@@ -27064,8 +29582,10 @@ export namespace Prisma {
     shortDescription?: StringNullableFilter<"Model"> | string | null
     longDescription?: StringNullableFilter<"Model"> | string | null
     status?: EnumModelStatusFilter<"Model"> | $Enums.ModelStatus
+    enabled?: BoolFilter<"Model"> | boolean
     lifecycleStatus?: EnumLifecycleStatusFilter<"Model"> | $Enums.LifecycleStatus
     categoryId?: StringNullableFilter<"Model"> | string | null
+    modelSeriesId?: StringNullableFilter<"Model"> | string | null
     contextWindow?: IntNullableFilter<"Model"> | number | null
     maxOutputTokens?: IntNullableFilter<"Model"> | number | null
     knowledgeCutoff?: DateTimeNullableFilter<"Model"> | Date | string | null
@@ -27083,6 +29603,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"Model"> | Date | string
     provider?: XOR<ProviderScalarRelationFilter, ProviderWhereInput>
     category?: XOR<CategoryNullableScalarRelationFilter, CategoryWhereInput> | null
+    modelSeries?: XOR<ModelSeriesNullableScalarRelationFilter, ModelSeriesWhereInput> | null
     versions?: ModelVersionListRelationFilter
     pricing?: ModelPricingListRelationFilter
     capabilities?: ModelCapabilityListRelationFilter
@@ -27105,8 +29626,10 @@ export namespace Prisma {
     shortDescription?: SortOrderInput | SortOrder
     longDescription?: SortOrderInput | SortOrder
     status?: SortOrder
+    enabled?: SortOrder
     lifecycleStatus?: SortOrder
     categoryId?: SortOrderInput | SortOrder
+    modelSeriesId?: SortOrderInput | SortOrder
     contextWindow?: SortOrderInput | SortOrder
     maxOutputTokens?: SortOrderInput | SortOrder
     knowledgeCutoff?: SortOrderInput | SortOrder
@@ -27124,6 +29647,7 @@ export namespace Prisma {
     updatedAt?: SortOrder
     provider?: ProviderOrderByWithRelationInput
     category?: CategoryOrderByWithRelationInput
+    modelSeries?: ModelSeriesOrderByWithRelationInput
     versions?: ModelVersionOrderByRelationAggregateInput
     pricing?: ModelPricingOrderByRelationAggregateInput
     capabilities?: ModelCapabilityOrderByRelationAggregateInput
@@ -27150,8 +29674,10 @@ export namespace Prisma {
     shortDescription?: StringNullableFilter<"Model"> | string | null
     longDescription?: StringNullableFilter<"Model"> | string | null
     status?: EnumModelStatusFilter<"Model"> | $Enums.ModelStatus
+    enabled?: BoolFilter<"Model"> | boolean
     lifecycleStatus?: EnumLifecycleStatusFilter<"Model"> | $Enums.LifecycleStatus
     categoryId?: StringNullableFilter<"Model"> | string | null
+    modelSeriesId?: StringNullableFilter<"Model"> | string | null
     contextWindow?: IntNullableFilter<"Model"> | number | null
     maxOutputTokens?: IntNullableFilter<"Model"> | number | null
     knowledgeCutoff?: DateTimeNullableFilter<"Model"> | Date | string | null
@@ -27169,6 +29695,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"Model"> | Date | string
     provider?: XOR<ProviderScalarRelationFilter, ProviderWhereInput>
     category?: XOR<CategoryNullableScalarRelationFilter, CategoryWhereInput> | null
+    modelSeries?: XOR<ModelSeriesNullableScalarRelationFilter, ModelSeriesWhereInput> | null
     versions?: ModelVersionListRelationFilter
     pricing?: ModelPricingListRelationFilter
     capabilities?: ModelCapabilityListRelationFilter
@@ -27191,8 +29718,10 @@ export namespace Prisma {
     shortDescription?: SortOrderInput | SortOrder
     longDescription?: SortOrderInput | SortOrder
     status?: SortOrder
+    enabled?: SortOrder
     lifecycleStatus?: SortOrder
     categoryId?: SortOrderInput | SortOrder
+    modelSeriesId?: SortOrderInput | SortOrder
     contextWindow?: SortOrderInput | SortOrder
     maxOutputTokens?: SortOrderInput | SortOrder
     knowledgeCutoff?: SortOrderInput | SortOrder
@@ -27227,8 +29756,10 @@ export namespace Prisma {
     shortDescription?: StringNullableWithAggregatesFilter<"Model"> | string | null
     longDescription?: StringNullableWithAggregatesFilter<"Model"> | string | null
     status?: EnumModelStatusWithAggregatesFilter<"Model"> | $Enums.ModelStatus
+    enabled?: BoolWithAggregatesFilter<"Model"> | boolean
     lifecycleStatus?: EnumLifecycleStatusWithAggregatesFilter<"Model"> | $Enums.LifecycleStatus
     categoryId?: StringNullableWithAggregatesFilter<"Model"> | string | null
+    modelSeriesId?: StringNullableWithAggregatesFilter<"Model"> | string | null
     contextWindow?: IntNullableWithAggregatesFilter<"Model"> | number | null
     maxOutputTokens?: IntNullableWithAggregatesFilter<"Model"> | number | null
     knowledgeCutoff?: DateTimeNullableWithAggregatesFilter<"Model"> | Date | string | null
@@ -27244,6 +29775,131 @@ export namespace Prisma {
     popularityScore?: FloatWithAggregatesFilter<"Model"> | number
     createdAt?: DateTimeWithAggregatesFilter<"Model"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Model"> | Date | string
+  }
+
+  export type ModelSeriesWhereInput = {
+    AND?: ModelSeriesWhereInput | ModelSeriesWhereInput[]
+    OR?: ModelSeriesWhereInput[]
+    NOT?: ModelSeriesWhereInput | ModelSeriesWhereInput[]
+    id?: StringFilter<"ModelSeries"> | string
+    slug?: StringFilter<"ModelSeries"> | string
+    name?: StringFilter<"ModelSeries"> | string
+    logoUrl?: StringNullableFilter<"ModelSeries"> | string | null
+    createdAt?: DateTimeFilter<"ModelSeries"> | Date | string
+    updatedAt?: DateTimeFilter<"ModelSeries"> | Date | string
+    models?: ModelListRelationFilter
+  }
+
+  export type ModelSeriesOrderByWithRelationInput = {
+    id?: SortOrder
+    slug?: SortOrder
+    name?: SortOrder
+    logoUrl?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    models?: ModelOrderByRelationAggregateInput
+  }
+
+  export type ModelSeriesWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    slug?: string
+    AND?: ModelSeriesWhereInput | ModelSeriesWhereInput[]
+    OR?: ModelSeriesWhereInput[]
+    NOT?: ModelSeriesWhereInput | ModelSeriesWhereInput[]
+    name?: StringFilter<"ModelSeries"> | string
+    logoUrl?: StringNullableFilter<"ModelSeries"> | string | null
+    createdAt?: DateTimeFilter<"ModelSeries"> | Date | string
+    updatedAt?: DateTimeFilter<"ModelSeries"> | Date | string
+    models?: ModelListRelationFilter
+  }, "id" | "slug">
+
+  export type ModelSeriesOrderByWithAggregationInput = {
+    id?: SortOrder
+    slug?: SortOrder
+    name?: SortOrder
+    logoUrl?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: ModelSeriesCountOrderByAggregateInput
+    _max?: ModelSeriesMaxOrderByAggregateInput
+    _min?: ModelSeriesMinOrderByAggregateInput
+  }
+
+  export type ModelSeriesScalarWhereWithAggregatesInput = {
+    AND?: ModelSeriesScalarWhereWithAggregatesInput | ModelSeriesScalarWhereWithAggregatesInput[]
+    OR?: ModelSeriesScalarWhereWithAggregatesInput[]
+    NOT?: ModelSeriesScalarWhereWithAggregatesInput | ModelSeriesScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"ModelSeries"> | string
+    slug?: StringWithAggregatesFilter<"ModelSeries"> | string
+    name?: StringWithAggregatesFilter<"ModelSeries"> | string
+    logoUrl?: StringNullableWithAggregatesFilter<"ModelSeries"> | string | null
+    createdAt?: DateTimeWithAggregatesFilter<"ModelSeries"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"ModelSeries"> | Date | string
+  }
+
+  export type ProviderConnectionProfileWhereInput = {
+    AND?: ProviderConnectionProfileWhereInput | ProviderConnectionProfileWhereInput[]
+    OR?: ProviderConnectionProfileWhereInput[]
+    NOT?: ProviderConnectionProfileWhereInput | ProviderConnectionProfileWhereInput[]
+    id?: StringFilter<"ProviderConnectionProfile"> | string
+    providerId?: StringFilter<"ProviderConnectionProfile"> | string
+    providerType?: StringFilter<"ProviderConnectionProfile"> | string
+    authMode?: StringNullableFilter<"ProviderConnectionProfile"> | string | null
+    configJson?: JsonFilter<"ProviderConnectionProfile">
+    createdAt?: DateTimeFilter<"ProviderConnectionProfile"> | Date | string
+    updatedAt?: DateTimeFilter<"ProviderConnectionProfile"> | Date | string
+    provider?: XOR<ProviderScalarRelationFilter, ProviderWhereInput>
+  }
+
+  export type ProviderConnectionProfileOrderByWithRelationInput = {
+    id?: SortOrder
+    providerId?: SortOrder
+    providerType?: SortOrder
+    authMode?: SortOrderInput | SortOrder
+    configJson?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    provider?: ProviderOrderByWithRelationInput
+  }
+
+  export type ProviderConnectionProfileWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    providerId?: string
+    AND?: ProviderConnectionProfileWhereInput | ProviderConnectionProfileWhereInput[]
+    OR?: ProviderConnectionProfileWhereInput[]
+    NOT?: ProviderConnectionProfileWhereInput | ProviderConnectionProfileWhereInput[]
+    providerType?: StringFilter<"ProviderConnectionProfile"> | string
+    authMode?: StringNullableFilter<"ProviderConnectionProfile"> | string | null
+    configJson?: JsonFilter<"ProviderConnectionProfile">
+    createdAt?: DateTimeFilter<"ProviderConnectionProfile"> | Date | string
+    updatedAt?: DateTimeFilter<"ProviderConnectionProfile"> | Date | string
+    provider?: XOR<ProviderScalarRelationFilter, ProviderWhereInput>
+  }, "id" | "providerId">
+
+  export type ProviderConnectionProfileOrderByWithAggregationInput = {
+    id?: SortOrder
+    providerId?: SortOrder
+    providerType?: SortOrder
+    authMode?: SortOrderInput | SortOrder
+    configJson?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: ProviderConnectionProfileCountOrderByAggregateInput
+    _max?: ProviderConnectionProfileMaxOrderByAggregateInput
+    _min?: ProviderConnectionProfileMinOrderByAggregateInput
+  }
+
+  export type ProviderConnectionProfileScalarWhereWithAggregatesInput = {
+    AND?: ProviderConnectionProfileScalarWhereWithAggregatesInput | ProviderConnectionProfileScalarWhereWithAggregatesInput[]
+    OR?: ProviderConnectionProfileScalarWhereWithAggregatesInput[]
+    NOT?: ProviderConnectionProfileScalarWhereWithAggregatesInput | ProviderConnectionProfileScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"ProviderConnectionProfile"> | string
+    providerId?: StringWithAggregatesFilter<"ProviderConnectionProfile"> | string
+    providerType?: StringWithAggregatesFilter<"ProviderConnectionProfile"> | string
+    authMode?: StringNullableWithAggregatesFilter<"ProviderConnectionProfile"> | string | null
+    configJson?: JsonWithAggregatesFilter<"ProviderConnectionProfile">
+    createdAt?: DateTimeWithAggregatesFilter<"ProviderConnectionProfile"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"ProviderConnectionProfile"> | Date | string
   }
 
   export type ModelVersionWhereInput = {
@@ -28334,6 +30990,7 @@ export namespace Prisma {
     docsUrl?: string | null
     logoUrl?: string | null
     status?: $Enums.ProviderStatus
+    enabled?: boolean
     privacyPolicyUrl?: string | null
     loggingPolicySummary?: string | null
     supportsByok?: boolean
@@ -28341,6 +30998,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     models?: ModelCreateNestedManyWithoutProviderInput
+    connectionProfile?: ProviderConnectionProfileCreateNestedOneWithoutProviderInput
   }
 
   export type ProviderUncheckedCreateInput = {
@@ -28352,6 +31010,7 @@ export namespace Prisma {
     docsUrl?: string | null
     logoUrl?: string | null
     status?: $Enums.ProviderStatus
+    enabled?: boolean
     privacyPolicyUrl?: string | null
     loggingPolicySummary?: string | null
     supportsByok?: boolean
@@ -28359,6 +31018,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     models?: ModelUncheckedCreateNestedManyWithoutProviderInput
+    connectionProfile?: ProviderConnectionProfileUncheckedCreateNestedOneWithoutProviderInput
   }
 
   export type ProviderUpdateInput = {
@@ -28370,6 +31030,7 @@ export namespace Prisma {
     docsUrl?: NullableStringFieldUpdateOperationsInput | string | null
     logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumProviderStatusFieldUpdateOperationsInput | $Enums.ProviderStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     privacyPolicyUrl?: NullableStringFieldUpdateOperationsInput | string | null
     loggingPolicySummary?: NullableStringFieldUpdateOperationsInput | string | null
     supportsByok?: BoolFieldUpdateOperationsInput | boolean
@@ -28377,6 +31038,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     models?: ModelUpdateManyWithoutProviderNestedInput
+    connectionProfile?: ProviderConnectionProfileUpdateOneWithoutProviderNestedInput
   }
 
   export type ProviderUncheckedUpdateInput = {
@@ -28388,6 +31050,7 @@ export namespace Prisma {
     docsUrl?: NullableStringFieldUpdateOperationsInput | string | null
     logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumProviderStatusFieldUpdateOperationsInput | $Enums.ProviderStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     privacyPolicyUrl?: NullableStringFieldUpdateOperationsInput | string | null
     loggingPolicySummary?: NullableStringFieldUpdateOperationsInput | string | null
     supportsByok?: BoolFieldUpdateOperationsInput | boolean
@@ -28395,6 +31058,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     models?: ModelUncheckedUpdateManyWithoutProviderNestedInput
+    connectionProfile?: ProviderConnectionProfileUncheckedUpdateOneWithoutProviderNestedInput
   }
 
   export type ProviderCreateManyInput = {
@@ -28406,6 +31070,7 @@ export namespace Prisma {
     docsUrl?: string | null
     logoUrl?: string | null
     status?: $Enums.ProviderStatus
+    enabled?: boolean
     privacyPolicyUrl?: string | null
     loggingPolicySummary?: string | null
     supportsByok?: boolean
@@ -28423,6 +31088,7 @@ export namespace Prisma {
     docsUrl?: NullableStringFieldUpdateOperationsInput | string | null
     logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumProviderStatusFieldUpdateOperationsInput | $Enums.ProviderStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     privacyPolicyUrl?: NullableStringFieldUpdateOperationsInput | string | null
     loggingPolicySummary?: NullableStringFieldUpdateOperationsInput | string | null
     supportsByok?: BoolFieldUpdateOperationsInput | boolean
@@ -28440,6 +31106,7 @@ export namespace Prisma {
     docsUrl?: NullableStringFieldUpdateOperationsInput | string | null
     logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumProviderStatusFieldUpdateOperationsInput | $Enums.ProviderStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     privacyPolicyUrl?: NullableStringFieldUpdateOperationsInput | string | null
     loggingPolicySummary?: NullableStringFieldUpdateOperationsInput | string | null
     supportsByok?: BoolFieldUpdateOperationsInput | boolean
@@ -28456,6 +31123,7 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     contextWindow?: number | null
     maxOutputTokens?: number | null
@@ -28474,6 +31142,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     provider: ProviderCreateNestedOneWithoutModelsInput
     category?: CategoryCreateNestedOneWithoutModelsInput
+    modelSeries?: ModelSeriesCreateNestedOneWithoutModelsInput
     versions?: ModelVersionCreateNestedManyWithoutModelInput
     pricing?: ModelPricingCreateNestedManyWithoutModelInput
     capabilities?: ModelCapabilityCreateNestedManyWithoutModelInput
@@ -28496,8 +31165,10 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     categoryId?: string | null
+    modelSeriesId?: string | null
     contextWindow?: number | null
     maxOutputTokens?: number | null
     knowledgeCutoff?: Date | string | null
@@ -28534,6 +31205,7 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
@@ -28552,6 +31224,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     provider?: ProviderUpdateOneRequiredWithoutModelsNestedInput
     category?: CategoryUpdateOneWithoutModelsNestedInput
+    modelSeries?: ModelSeriesUpdateOneWithoutModelsNestedInput
     versions?: ModelVersionUpdateManyWithoutModelNestedInput
     pricing?: ModelPricingUpdateManyWithoutModelNestedInput
     capabilities?: ModelCapabilityUpdateManyWithoutModelNestedInput
@@ -28574,8 +31247,10 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    modelSeriesId?: NullableStringFieldUpdateOperationsInput | string | null
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
     knowledgeCutoff?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -28613,8 +31288,10 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     categoryId?: string | null
+    modelSeriesId?: string | null
     contextWindow?: number | null
     maxOutputTokens?: number | null
     knowledgeCutoff?: Date | string | null
@@ -28640,6 +31317,7 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
@@ -28667,8 +31345,10 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    modelSeriesId?: NullableStringFieldUpdateOperationsInput | string | null
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
     knowledgeCutoff?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -28682,6 +31362,142 @@ export namespace Prisma {
     modelCardUrl?: NullableStringFieldUpdateOperationsInput | string | null
     officialDocsUrl?: NullableStringFieldUpdateOperationsInput | string | null
     popularityScore?: FloatFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ModelSeriesCreateInput = {
+    id?: string
+    slug: string
+    name: string
+    logoUrl?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    models?: ModelCreateNestedManyWithoutModelSeriesInput
+  }
+
+  export type ModelSeriesUncheckedCreateInput = {
+    id?: string
+    slug: string
+    name: string
+    logoUrl?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    models?: ModelUncheckedCreateNestedManyWithoutModelSeriesInput
+  }
+
+  export type ModelSeriesUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    slug?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    models?: ModelUpdateManyWithoutModelSeriesNestedInput
+  }
+
+  export type ModelSeriesUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    slug?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    models?: ModelUncheckedUpdateManyWithoutModelSeriesNestedInput
+  }
+
+  export type ModelSeriesCreateManyInput = {
+    id?: string
+    slug: string
+    name: string
+    logoUrl?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ModelSeriesUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    slug?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ModelSeriesUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    slug?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ProviderConnectionProfileCreateInput = {
+    id?: string
+    providerType: string
+    authMode?: string | null
+    configJson: JsonNullValueInput | InputJsonValue
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    provider: ProviderCreateNestedOneWithoutConnectionProfileInput
+  }
+
+  export type ProviderConnectionProfileUncheckedCreateInput = {
+    id?: string
+    providerId: string
+    providerType: string
+    authMode?: string | null
+    configJson: JsonNullValueInput | InputJsonValue
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ProviderConnectionProfileUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    providerType?: StringFieldUpdateOperationsInput | string
+    authMode?: NullableStringFieldUpdateOperationsInput | string | null
+    configJson?: JsonNullValueInput | InputJsonValue
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    provider?: ProviderUpdateOneRequiredWithoutConnectionProfileNestedInput
+  }
+
+  export type ProviderConnectionProfileUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    providerId?: StringFieldUpdateOperationsInput | string
+    providerType?: StringFieldUpdateOperationsInput | string
+    authMode?: NullableStringFieldUpdateOperationsInput | string | null
+    configJson?: JsonNullValueInput | InputJsonValue
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ProviderConnectionProfileCreateManyInput = {
+    id?: string
+    providerId: string
+    providerType: string
+    authMode?: string | null
+    configJson: JsonNullValueInput | InputJsonValue
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ProviderConnectionProfileUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    providerType?: StringFieldUpdateOperationsInput | string
+    authMode?: NullableStringFieldUpdateOperationsInput | string | null
+    configJson?: JsonNullValueInput | InputJsonValue
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ProviderConnectionProfileUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    providerId?: StringFieldUpdateOperationsInput | string
+    providerType?: StringFieldUpdateOperationsInput | string
+    authMode?: NullableStringFieldUpdateOperationsInput | string | null
+    configJson?: JsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -29825,6 +32641,11 @@ export namespace Prisma {
     none?: ModelWhereInput
   }
 
+  export type ProviderConnectionProfileNullableScalarRelationFilter = {
+    is?: ProviderConnectionProfileWhereInput | null
+    isNot?: ProviderConnectionProfileWhereInput | null
+  }
+
   export type SortOrderInput = {
     sort: SortOrder
     nulls?: NullsOrder
@@ -29843,6 +32664,7 @@ export namespace Prisma {
     docsUrl?: SortOrder
     logoUrl?: SortOrder
     status?: SortOrder
+    enabled?: SortOrder
     privacyPolicyUrl?: SortOrder
     loggingPolicySummary?: SortOrder
     supportsByok?: SortOrder
@@ -29860,6 +32682,7 @@ export namespace Prisma {
     docsUrl?: SortOrder
     logoUrl?: SortOrder
     status?: SortOrder
+    enabled?: SortOrder
     privacyPolicyUrl?: SortOrder
     loggingPolicySummary?: SortOrder
     supportsByok?: SortOrder
@@ -29877,6 +32700,7 @@ export namespace Prisma {
     docsUrl?: SortOrder
     logoUrl?: SortOrder
     status?: SortOrder
+    enabled?: SortOrder
     privacyPolicyUrl?: SortOrder
     loggingPolicySummary?: SortOrder
     supportsByok?: SortOrder
@@ -30010,6 +32834,11 @@ export namespace Prisma {
     isNot?: CategoryWhereInput | null
   }
 
+  export type ModelSeriesNullableScalarRelationFilter = {
+    is?: ModelSeriesWhereInput | null
+    isNot?: ModelSeriesWhereInput | null
+  }
+
   export type ModelVersionListRelationFilter = {
     every?: ModelVersionWhereInput
     some?: ModelVersionWhereInput
@@ -30134,8 +32963,10 @@ export namespace Prisma {
     shortDescription?: SortOrder
     longDescription?: SortOrder
     status?: SortOrder
+    enabled?: SortOrder
     lifecycleStatus?: SortOrder
     categoryId?: SortOrder
+    modelSeriesId?: SortOrder
     contextWindow?: SortOrder
     maxOutputTokens?: SortOrder
     knowledgeCutoff?: SortOrder
@@ -30168,8 +32999,10 @@ export namespace Prisma {
     shortDescription?: SortOrder
     longDescription?: SortOrder
     status?: SortOrder
+    enabled?: SortOrder
     lifecycleStatus?: SortOrder
     categoryId?: SortOrder
+    modelSeriesId?: SortOrder
     contextWindow?: SortOrder
     maxOutputTokens?: SortOrder
     knowledgeCutoff?: SortOrder
@@ -30196,8 +33029,10 @@ export namespace Prisma {
     shortDescription?: SortOrder
     longDescription?: SortOrder
     status?: SortOrder
+    enabled?: SortOrder
     lifecycleStatus?: SortOrder
     categoryId?: SortOrder
+    modelSeriesId?: SortOrder
     contextWindow?: SortOrder
     maxOutputTokens?: SortOrder
     knowledgeCutoff?: SortOrder
@@ -30285,6 +33120,110 @@ export namespace Prisma {
     _sum?: NestedFloatFilter<$PrismaModel>
     _min?: NestedFloatFilter<$PrismaModel>
     _max?: NestedFloatFilter<$PrismaModel>
+  }
+
+  export type ModelSeriesCountOrderByAggregateInput = {
+    id?: SortOrder
+    slug?: SortOrder
+    name?: SortOrder
+    logoUrl?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type ModelSeriesMaxOrderByAggregateInput = {
+    id?: SortOrder
+    slug?: SortOrder
+    name?: SortOrder
+    logoUrl?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type ModelSeriesMinOrderByAggregateInput = {
+    id?: SortOrder
+    slug?: SortOrder
+    name?: SortOrder
+    logoUrl?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+  export type JsonFilter<$PrismaModel = never> =
+    | PatchUndefined<
+        Either<Required<JsonFilterBase<$PrismaModel>>, Exclude<keyof Required<JsonFilterBase<$PrismaModel>>, 'path'>>,
+        Required<JsonFilterBase<$PrismaModel>>
+      >
+    | OptionalFlat<Omit<Required<JsonFilterBase<$PrismaModel>>, 'path'>>
+
+  export type JsonFilterBase<$PrismaModel = never> = {
+    equals?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
+    path?: string[]
+    mode?: QueryMode | EnumQueryModeFieldRefInput<$PrismaModel>
+    string_contains?: string | StringFieldRefInput<$PrismaModel>
+    string_starts_with?: string | StringFieldRefInput<$PrismaModel>
+    string_ends_with?: string | StringFieldRefInput<$PrismaModel>
+    array_starts_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    array_ends_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    array_contains?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    lt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    lte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    gt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    gte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    not?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
+  }
+
+  export type ProviderConnectionProfileCountOrderByAggregateInput = {
+    id?: SortOrder
+    providerId?: SortOrder
+    providerType?: SortOrder
+    authMode?: SortOrder
+    configJson?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type ProviderConnectionProfileMaxOrderByAggregateInput = {
+    id?: SortOrder
+    providerId?: SortOrder
+    providerType?: SortOrder
+    authMode?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type ProviderConnectionProfileMinOrderByAggregateInput = {
+    id?: SortOrder
+    providerId?: SortOrder
+    providerType?: SortOrder
+    authMode?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+  export type JsonWithAggregatesFilter<$PrismaModel = never> =
+    | PatchUndefined<
+        Either<Required<JsonWithAggregatesFilterBase<$PrismaModel>>, Exclude<keyof Required<JsonWithAggregatesFilterBase<$PrismaModel>>, 'path'>>,
+        Required<JsonWithAggregatesFilterBase<$PrismaModel>>
+      >
+    | OptionalFlat<Omit<Required<JsonWithAggregatesFilterBase<$PrismaModel>>, 'path'>>
+
+  export type JsonWithAggregatesFilterBase<$PrismaModel = never> = {
+    equals?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
+    path?: string[]
+    mode?: QueryMode | EnumQueryModeFieldRefInput<$PrismaModel>
+    string_contains?: string | StringFieldRefInput<$PrismaModel>
+    string_starts_with?: string | StringFieldRefInput<$PrismaModel>
+    string_ends_with?: string | StringFieldRefInput<$PrismaModel>
+    array_starts_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    array_ends_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    array_contains?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    lt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    lte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    gt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    gte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    not?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedJsonFilter<$PrismaModel>
+    _max?: NestedJsonFilter<$PrismaModel>
   }
 
   export type ModelScalarRelationFilter = {
@@ -30946,11 +33885,23 @@ export namespace Prisma {
     connect?: ModelWhereUniqueInput | ModelWhereUniqueInput[]
   }
 
+  export type ProviderConnectionProfileCreateNestedOneWithoutProviderInput = {
+    create?: XOR<ProviderConnectionProfileCreateWithoutProviderInput, ProviderConnectionProfileUncheckedCreateWithoutProviderInput>
+    connectOrCreate?: ProviderConnectionProfileCreateOrConnectWithoutProviderInput
+    connect?: ProviderConnectionProfileWhereUniqueInput
+  }
+
   export type ModelUncheckedCreateNestedManyWithoutProviderInput = {
     create?: XOR<ModelCreateWithoutProviderInput, ModelUncheckedCreateWithoutProviderInput> | ModelCreateWithoutProviderInput[] | ModelUncheckedCreateWithoutProviderInput[]
     connectOrCreate?: ModelCreateOrConnectWithoutProviderInput | ModelCreateOrConnectWithoutProviderInput[]
     createMany?: ModelCreateManyProviderInputEnvelope
     connect?: ModelWhereUniqueInput | ModelWhereUniqueInput[]
+  }
+
+  export type ProviderConnectionProfileUncheckedCreateNestedOneWithoutProviderInput = {
+    create?: XOR<ProviderConnectionProfileCreateWithoutProviderInput, ProviderConnectionProfileUncheckedCreateWithoutProviderInput>
+    connectOrCreate?: ProviderConnectionProfileCreateOrConnectWithoutProviderInput
+    connect?: ProviderConnectionProfileWhereUniqueInput
   }
 
   export type StringFieldUpdateOperationsInput = {
@@ -30987,6 +33938,16 @@ export namespace Prisma {
     deleteMany?: ModelScalarWhereInput | ModelScalarWhereInput[]
   }
 
+  export type ProviderConnectionProfileUpdateOneWithoutProviderNestedInput = {
+    create?: XOR<ProviderConnectionProfileCreateWithoutProviderInput, ProviderConnectionProfileUncheckedCreateWithoutProviderInput>
+    connectOrCreate?: ProviderConnectionProfileCreateOrConnectWithoutProviderInput
+    upsert?: ProviderConnectionProfileUpsertWithoutProviderInput
+    disconnect?: ProviderConnectionProfileWhereInput | boolean
+    delete?: ProviderConnectionProfileWhereInput | boolean
+    connect?: ProviderConnectionProfileWhereUniqueInput
+    update?: XOR<XOR<ProviderConnectionProfileUpdateToOneWithWhereWithoutProviderInput, ProviderConnectionProfileUpdateWithoutProviderInput>, ProviderConnectionProfileUncheckedUpdateWithoutProviderInput>
+  }
+
   export type ModelUncheckedUpdateManyWithoutProviderNestedInput = {
     create?: XOR<ModelCreateWithoutProviderInput, ModelUncheckedCreateWithoutProviderInput> | ModelCreateWithoutProviderInput[] | ModelUncheckedCreateWithoutProviderInput[]
     connectOrCreate?: ModelCreateOrConnectWithoutProviderInput | ModelCreateOrConnectWithoutProviderInput[]
@@ -31001,6 +33962,16 @@ export namespace Prisma {
     deleteMany?: ModelScalarWhereInput | ModelScalarWhereInput[]
   }
 
+  export type ProviderConnectionProfileUncheckedUpdateOneWithoutProviderNestedInput = {
+    create?: XOR<ProviderConnectionProfileCreateWithoutProviderInput, ProviderConnectionProfileUncheckedCreateWithoutProviderInput>
+    connectOrCreate?: ProviderConnectionProfileCreateOrConnectWithoutProviderInput
+    upsert?: ProviderConnectionProfileUpsertWithoutProviderInput
+    disconnect?: ProviderConnectionProfileWhereInput | boolean
+    delete?: ProviderConnectionProfileWhereInput | boolean
+    connect?: ProviderConnectionProfileWhereUniqueInput
+    update?: XOR<XOR<ProviderConnectionProfileUpdateToOneWithWhereWithoutProviderInput, ProviderConnectionProfileUpdateWithoutProviderInput>, ProviderConnectionProfileUncheckedUpdateWithoutProviderInput>
+  }
+
   export type ProviderCreateNestedOneWithoutModelsInput = {
     create?: XOR<ProviderCreateWithoutModelsInput, ProviderUncheckedCreateWithoutModelsInput>
     connectOrCreate?: ProviderCreateOrConnectWithoutModelsInput
@@ -31011,6 +33982,12 @@ export namespace Prisma {
     create?: XOR<CategoryCreateWithoutModelsInput, CategoryUncheckedCreateWithoutModelsInput>
     connectOrCreate?: CategoryCreateOrConnectWithoutModelsInput
     connect?: CategoryWhereUniqueInput
+  }
+
+  export type ModelSeriesCreateNestedOneWithoutModelsInput = {
+    create?: XOR<ModelSeriesCreateWithoutModelsInput, ModelSeriesUncheckedCreateWithoutModelsInput>
+    connectOrCreate?: ModelSeriesCreateOrConnectWithoutModelsInput
+    connect?: ModelSeriesWhereUniqueInput
   }
 
   export type ModelVersionCreateNestedManyWithoutModelInput = {
@@ -31211,6 +34188,16 @@ export namespace Prisma {
     delete?: CategoryWhereInput | boolean
     connect?: CategoryWhereUniqueInput
     update?: XOR<XOR<CategoryUpdateToOneWithWhereWithoutModelsInput, CategoryUpdateWithoutModelsInput>, CategoryUncheckedUpdateWithoutModelsInput>
+  }
+
+  export type ModelSeriesUpdateOneWithoutModelsNestedInput = {
+    create?: XOR<ModelSeriesCreateWithoutModelsInput, ModelSeriesUncheckedCreateWithoutModelsInput>
+    connectOrCreate?: ModelSeriesCreateOrConnectWithoutModelsInput
+    upsert?: ModelSeriesUpsertWithoutModelsInput
+    disconnect?: ModelSeriesWhereInput | boolean
+    delete?: ModelSeriesWhereInput | boolean
+    connect?: ModelSeriesWhereUniqueInput
+    update?: XOR<XOR<ModelSeriesUpdateToOneWithWhereWithoutModelsInput, ModelSeriesUpdateWithoutModelsInput>, ModelSeriesUncheckedUpdateWithoutModelsInput>
   }
 
   export type ModelVersionUpdateManyWithoutModelNestedInput = {
@@ -31519,6 +34506,62 @@ export namespace Prisma {
     update?: ModelTagUpdateWithWhereUniqueWithoutModelInput | ModelTagUpdateWithWhereUniqueWithoutModelInput[]
     updateMany?: ModelTagUpdateManyWithWhereWithoutModelInput | ModelTagUpdateManyWithWhereWithoutModelInput[]
     deleteMany?: ModelTagScalarWhereInput | ModelTagScalarWhereInput[]
+  }
+
+  export type ModelCreateNestedManyWithoutModelSeriesInput = {
+    create?: XOR<ModelCreateWithoutModelSeriesInput, ModelUncheckedCreateWithoutModelSeriesInput> | ModelCreateWithoutModelSeriesInput[] | ModelUncheckedCreateWithoutModelSeriesInput[]
+    connectOrCreate?: ModelCreateOrConnectWithoutModelSeriesInput | ModelCreateOrConnectWithoutModelSeriesInput[]
+    createMany?: ModelCreateManyModelSeriesInputEnvelope
+    connect?: ModelWhereUniqueInput | ModelWhereUniqueInput[]
+  }
+
+  export type ModelUncheckedCreateNestedManyWithoutModelSeriesInput = {
+    create?: XOR<ModelCreateWithoutModelSeriesInput, ModelUncheckedCreateWithoutModelSeriesInput> | ModelCreateWithoutModelSeriesInput[] | ModelUncheckedCreateWithoutModelSeriesInput[]
+    connectOrCreate?: ModelCreateOrConnectWithoutModelSeriesInput | ModelCreateOrConnectWithoutModelSeriesInput[]
+    createMany?: ModelCreateManyModelSeriesInputEnvelope
+    connect?: ModelWhereUniqueInput | ModelWhereUniqueInput[]
+  }
+
+  export type ModelUpdateManyWithoutModelSeriesNestedInput = {
+    create?: XOR<ModelCreateWithoutModelSeriesInput, ModelUncheckedCreateWithoutModelSeriesInput> | ModelCreateWithoutModelSeriesInput[] | ModelUncheckedCreateWithoutModelSeriesInput[]
+    connectOrCreate?: ModelCreateOrConnectWithoutModelSeriesInput | ModelCreateOrConnectWithoutModelSeriesInput[]
+    upsert?: ModelUpsertWithWhereUniqueWithoutModelSeriesInput | ModelUpsertWithWhereUniqueWithoutModelSeriesInput[]
+    createMany?: ModelCreateManyModelSeriesInputEnvelope
+    set?: ModelWhereUniqueInput | ModelWhereUniqueInput[]
+    disconnect?: ModelWhereUniqueInput | ModelWhereUniqueInput[]
+    delete?: ModelWhereUniqueInput | ModelWhereUniqueInput[]
+    connect?: ModelWhereUniqueInput | ModelWhereUniqueInput[]
+    update?: ModelUpdateWithWhereUniqueWithoutModelSeriesInput | ModelUpdateWithWhereUniqueWithoutModelSeriesInput[]
+    updateMany?: ModelUpdateManyWithWhereWithoutModelSeriesInput | ModelUpdateManyWithWhereWithoutModelSeriesInput[]
+    deleteMany?: ModelScalarWhereInput | ModelScalarWhereInput[]
+  }
+
+  export type ModelUncheckedUpdateManyWithoutModelSeriesNestedInput = {
+    create?: XOR<ModelCreateWithoutModelSeriesInput, ModelUncheckedCreateWithoutModelSeriesInput> | ModelCreateWithoutModelSeriesInput[] | ModelUncheckedCreateWithoutModelSeriesInput[]
+    connectOrCreate?: ModelCreateOrConnectWithoutModelSeriesInput | ModelCreateOrConnectWithoutModelSeriesInput[]
+    upsert?: ModelUpsertWithWhereUniqueWithoutModelSeriesInput | ModelUpsertWithWhereUniqueWithoutModelSeriesInput[]
+    createMany?: ModelCreateManyModelSeriesInputEnvelope
+    set?: ModelWhereUniqueInput | ModelWhereUniqueInput[]
+    disconnect?: ModelWhereUniqueInput | ModelWhereUniqueInput[]
+    delete?: ModelWhereUniqueInput | ModelWhereUniqueInput[]
+    connect?: ModelWhereUniqueInput | ModelWhereUniqueInput[]
+    update?: ModelUpdateWithWhereUniqueWithoutModelSeriesInput | ModelUpdateWithWhereUniqueWithoutModelSeriesInput[]
+    updateMany?: ModelUpdateManyWithWhereWithoutModelSeriesInput | ModelUpdateManyWithWhereWithoutModelSeriesInput[]
+    deleteMany?: ModelScalarWhereInput | ModelScalarWhereInput[]
+  }
+
+  export type ProviderCreateNestedOneWithoutConnectionProfileInput = {
+    create?: XOR<ProviderCreateWithoutConnectionProfileInput, ProviderUncheckedCreateWithoutConnectionProfileInput>
+    connectOrCreate?: ProviderCreateOrConnectWithoutConnectionProfileInput
+    connect?: ProviderWhereUniqueInput
+  }
+
+  export type ProviderUpdateOneRequiredWithoutConnectionProfileNestedInput = {
+    create?: XOR<ProviderCreateWithoutConnectionProfileInput, ProviderUncheckedCreateWithoutConnectionProfileInput>
+    connectOrCreate?: ProviderCreateOrConnectWithoutConnectionProfileInput
+    upsert?: ProviderUpsertWithoutConnectionProfileInput
+    connect?: ProviderWhereUniqueInput
+    update?: XOR<XOR<ProviderUpdateToOneWithWhereWithoutConnectionProfileInput, ProviderUpdateWithoutConnectionProfileInput>, ProviderUncheckedUpdateWithoutConnectionProfileInput>
   }
 
   export type ModelCreateNestedOneWithoutVersionsInput = {
@@ -32430,6 +35473,29 @@ export namespace Prisma {
     _min?: NestedFloatFilter<$PrismaModel>
     _max?: NestedFloatFilter<$PrismaModel>
   }
+  export type NestedJsonFilter<$PrismaModel = never> =
+    | PatchUndefined<
+        Either<Required<NestedJsonFilterBase<$PrismaModel>>, Exclude<keyof Required<NestedJsonFilterBase<$PrismaModel>>, 'path'>>,
+        Required<NestedJsonFilterBase<$PrismaModel>>
+      >
+    | OptionalFlat<Omit<Required<NestedJsonFilterBase<$PrismaModel>>, 'path'>>
+
+  export type NestedJsonFilterBase<$PrismaModel = never> = {
+    equals?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
+    path?: string[]
+    mode?: QueryMode | EnumQueryModeFieldRefInput<$PrismaModel>
+    string_contains?: string | StringFieldRefInput<$PrismaModel>
+    string_starts_with?: string | StringFieldRefInput<$PrismaModel>
+    string_ends_with?: string | StringFieldRefInput<$PrismaModel>
+    array_starts_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    array_ends_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    array_contains?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    lt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    lte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    gt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    gte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    not?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
+  }
 
   export type NestedFloatNullableWithAggregatesFilter<$PrismaModel = never> = {
     equals?: number | FloatFieldRefInput<$PrismaModel> | null
@@ -32495,6 +35561,7 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     contextWindow?: number | null
     maxOutputTokens?: number | null
@@ -32512,6 +35579,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     category?: CategoryCreateNestedOneWithoutModelsInput
+    modelSeries?: ModelSeriesCreateNestedOneWithoutModelsInput
     versions?: ModelVersionCreateNestedManyWithoutModelInput
     pricing?: ModelPricingCreateNestedManyWithoutModelInput
     capabilities?: ModelCapabilityCreateNestedManyWithoutModelInput
@@ -32533,8 +35601,10 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     categoryId?: string | null
+    modelSeriesId?: string | null
     contextWindow?: number | null
     maxOutputTokens?: number | null
     knowledgeCutoff?: Date | string | null
@@ -32573,6 +35643,29 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
+  export type ProviderConnectionProfileCreateWithoutProviderInput = {
+    id?: string
+    providerType: string
+    authMode?: string | null
+    configJson: JsonNullValueInput | InputJsonValue
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ProviderConnectionProfileUncheckedCreateWithoutProviderInput = {
+    id?: string
+    providerType: string
+    authMode?: string | null
+    configJson: JsonNullValueInput | InputJsonValue
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ProviderConnectionProfileCreateOrConnectWithoutProviderInput = {
+    where: ProviderConnectionProfileWhereUniqueInput
+    create: XOR<ProviderConnectionProfileCreateWithoutProviderInput, ProviderConnectionProfileUncheckedCreateWithoutProviderInput>
+  }
+
   export type ModelUpsertWithWhereUniqueWithoutProviderInput = {
     where: ModelWhereUniqueInput
     update: XOR<ModelUpdateWithoutProviderInput, ModelUncheckedUpdateWithoutProviderInput>
@@ -32601,8 +35694,10 @@ export namespace Prisma {
     shortDescription?: StringNullableFilter<"Model"> | string | null
     longDescription?: StringNullableFilter<"Model"> | string | null
     status?: EnumModelStatusFilter<"Model"> | $Enums.ModelStatus
+    enabled?: BoolFilter<"Model"> | boolean
     lifecycleStatus?: EnumLifecycleStatusFilter<"Model"> | $Enums.LifecycleStatus
     categoryId?: StringNullableFilter<"Model"> | string | null
+    modelSeriesId?: StringNullableFilter<"Model"> | string | null
     contextWindow?: IntNullableFilter<"Model"> | number | null
     maxOutputTokens?: IntNullableFilter<"Model"> | number | null
     knowledgeCutoff?: DateTimeNullableFilter<"Model"> | Date | string | null
@@ -32620,6 +35715,35 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"Model"> | Date | string
   }
 
+  export type ProviderConnectionProfileUpsertWithoutProviderInput = {
+    update: XOR<ProviderConnectionProfileUpdateWithoutProviderInput, ProviderConnectionProfileUncheckedUpdateWithoutProviderInput>
+    create: XOR<ProviderConnectionProfileCreateWithoutProviderInput, ProviderConnectionProfileUncheckedCreateWithoutProviderInput>
+    where?: ProviderConnectionProfileWhereInput
+  }
+
+  export type ProviderConnectionProfileUpdateToOneWithWhereWithoutProviderInput = {
+    where?: ProviderConnectionProfileWhereInput
+    data: XOR<ProviderConnectionProfileUpdateWithoutProviderInput, ProviderConnectionProfileUncheckedUpdateWithoutProviderInput>
+  }
+
+  export type ProviderConnectionProfileUpdateWithoutProviderInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    providerType?: StringFieldUpdateOperationsInput | string
+    authMode?: NullableStringFieldUpdateOperationsInput | string | null
+    configJson?: JsonNullValueInput | InputJsonValue
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ProviderConnectionProfileUncheckedUpdateWithoutProviderInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    providerType?: StringFieldUpdateOperationsInput | string
+    authMode?: NullableStringFieldUpdateOperationsInput | string | null
+    configJson?: JsonNullValueInput | InputJsonValue
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type ProviderCreateWithoutModelsInput = {
     id?: string
     slug: string
@@ -32629,12 +35753,14 @@ export namespace Prisma {
     docsUrl?: string | null
     logoUrl?: string | null
     status?: $Enums.ProviderStatus
+    enabled?: boolean
     privacyPolicyUrl?: string | null
     loggingPolicySummary?: string | null
     supportsByok?: boolean
     supportsRegionalRouting?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    connectionProfile?: ProviderConnectionProfileCreateNestedOneWithoutProviderInput
   }
 
   export type ProviderUncheckedCreateWithoutModelsInput = {
@@ -32646,12 +35772,14 @@ export namespace Prisma {
     docsUrl?: string | null
     logoUrl?: string | null
     status?: $Enums.ProviderStatus
+    enabled?: boolean
     privacyPolicyUrl?: string | null
     loggingPolicySummary?: string | null
     supportsByok?: boolean
     supportsRegionalRouting?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    connectionProfile?: ProviderConnectionProfileUncheckedCreateNestedOneWithoutProviderInput
   }
 
   export type ProviderCreateOrConnectWithoutModelsInput = {
@@ -32676,6 +35804,29 @@ export namespace Prisma {
   export type CategoryCreateOrConnectWithoutModelsInput = {
     where: CategoryWhereUniqueInput
     create: XOR<CategoryCreateWithoutModelsInput, CategoryUncheckedCreateWithoutModelsInput>
+  }
+
+  export type ModelSeriesCreateWithoutModelsInput = {
+    id?: string
+    slug: string
+    name: string
+    logoUrl?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ModelSeriesUncheckedCreateWithoutModelsInput = {
+    id?: string
+    slug: string
+    name: string
+    logoUrl?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ModelSeriesCreateOrConnectWithoutModelsInput = {
+    where: ModelSeriesWhereUniqueInput
+    create: XOR<ModelSeriesCreateWithoutModelsInput, ModelSeriesUncheckedCreateWithoutModelsInput>
   }
 
   export type ModelVersionCreateWithoutModelInput = {
@@ -32968,12 +36119,14 @@ export namespace Prisma {
     docsUrl?: NullableStringFieldUpdateOperationsInput | string | null
     logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumProviderStatusFieldUpdateOperationsInput | $Enums.ProviderStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     privacyPolicyUrl?: NullableStringFieldUpdateOperationsInput | string | null
     loggingPolicySummary?: NullableStringFieldUpdateOperationsInput | string | null
     supportsByok?: BoolFieldUpdateOperationsInput | boolean
     supportsRegionalRouting?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    connectionProfile?: ProviderConnectionProfileUpdateOneWithoutProviderNestedInput
   }
 
   export type ProviderUncheckedUpdateWithoutModelsInput = {
@@ -32985,12 +36138,14 @@ export namespace Prisma {
     docsUrl?: NullableStringFieldUpdateOperationsInput | string | null
     logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumProviderStatusFieldUpdateOperationsInput | $Enums.ProviderStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     privacyPolicyUrl?: NullableStringFieldUpdateOperationsInput | string | null
     loggingPolicySummary?: NullableStringFieldUpdateOperationsInput | string | null
     supportsByok?: BoolFieldUpdateOperationsInput | boolean
     supportsRegionalRouting?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    connectionProfile?: ProviderConnectionProfileUncheckedUpdateOneWithoutProviderNestedInput
   }
 
   export type CategoryUpsertWithoutModelsInput = {
@@ -33016,6 +36171,35 @@ export namespace Prisma {
     slug?: StringFieldUpdateOperationsInput | string
     name?: StringFieldUpdateOperationsInput | string
     description?: NullableStringFieldUpdateOperationsInput | string | null
+  }
+
+  export type ModelSeriesUpsertWithoutModelsInput = {
+    update: XOR<ModelSeriesUpdateWithoutModelsInput, ModelSeriesUncheckedUpdateWithoutModelsInput>
+    create: XOR<ModelSeriesCreateWithoutModelsInput, ModelSeriesUncheckedCreateWithoutModelsInput>
+    where?: ModelSeriesWhereInput
+  }
+
+  export type ModelSeriesUpdateToOneWithWhereWithoutModelsInput = {
+    where?: ModelSeriesWhereInput
+    data: XOR<ModelSeriesUpdateWithoutModelsInput, ModelSeriesUncheckedUpdateWithoutModelsInput>
+  }
+
+  export type ModelSeriesUpdateWithoutModelsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    slug?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ModelSeriesUncheckedUpdateWithoutModelsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    slug?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type ModelVersionUpsertWithWhereUniqueWithoutModelInput = {
@@ -33318,7 +36502,7 @@ export namespace Prisma {
     tagId?: StringFilter<"ModelTag"> | string
   }
 
-  export type ModelCreateWithoutVersionsInput = {
+  export type ModelCreateWithoutModelSeriesInput = {
     id?: string
     canonicalId: string
     slug: string
@@ -33326,6 +36510,7 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     contextWindow?: number | null
     maxOutputTokens?: number | null
@@ -33344,6 +36529,205 @@ export namespace Prisma {
     updatedAt?: Date | string
     provider: ProviderCreateNestedOneWithoutModelsInput
     category?: CategoryCreateNestedOneWithoutModelsInput
+    versions?: ModelVersionCreateNestedManyWithoutModelInput
+    pricing?: ModelPricingCreateNestedManyWithoutModelInput
+    capabilities?: ModelCapabilityCreateNestedManyWithoutModelInput
+    inputModalities?: ModelInputModalityCreateNestedManyWithoutModelInput
+    outputModalities?: ModelOutputModalityCreateNestedManyWithoutModelInput
+    supportedParams?: ModelSupportedParameterCreateNestedManyWithoutModelInput
+    regions?: ModelRegionCreateNestedManyWithoutModelInput
+    benchmarks?: ModelBenchmarkCreateNestedManyWithoutModelInput
+    sources?: SourceReferenceCreateNestedManyWithoutModelInput
+    changelog?: ModelChangelogCreateNestedManyWithoutModelInput
+    tags?: ModelTagCreateNestedManyWithoutModelInput
+  }
+
+  export type ModelUncheckedCreateWithoutModelSeriesInput = {
+    id?: string
+    providerId: string
+    canonicalId: string
+    slug: string
+    displayName: string
+    shortDescription?: string | null
+    longDescription?: string | null
+    status?: $Enums.ModelStatus
+    enabled?: boolean
+    lifecycleStatus?: $Enums.LifecycleStatus
+    categoryId?: string | null
+    contextWindow?: number | null
+    maxOutputTokens?: number | null
+    knowledgeCutoff?: Date | string | null
+    releaseDate?: Date | string | null
+    deprecatedAt?: Date | string | null
+    openSource?: boolean
+    free?: boolean
+    tokenizer?: string | null
+    license?: string | null
+    huggingFaceUrl?: string | null
+    modelCardUrl?: string | null
+    officialDocsUrl?: string | null
+    popularityScore?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    versions?: ModelVersionUncheckedCreateNestedManyWithoutModelInput
+    pricing?: ModelPricingUncheckedCreateNestedManyWithoutModelInput
+    capabilities?: ModelCapabilityUncheckedCreateNestedManyWithoutModelInput
+    inputModalities?: ModelInputModalityUncheckedCreateNestedManyWithoutModelInput
+    outputModalities?: ModelOutputModalityUncheckedCreateNestedManyWithoutModelInput
+    supportedParams?: ModelSupportedParameterUncheckedCreateNestedManyWithoutModelInput
+    regions?: ModelRegionUncheckedCreateNestedManyWithoutModelInput
+    benchmarks?: ModelBenchmarkUncheckedCreateNestedManyWithoutModelInput
+    sources?: SourceReferenceUncheckedCreateNestedManyWithoutModelInput
+    changelog?: ModelChangelogUncheckedCreateNestedManyWithoutModelInput
+    tags?: ModelTagUncheckedCreateNestedManyWithoutModelInput
+  }
+
+  export type ModelCreateOrConnectWithoutModelSeriesInput = {
+    where: ModelWhereUniqueInput
+    create: XOR<ModelCreateWithoutModelSeriesInput, ModelUncheckedCreateWithoutModelSeriesInput>
+  }
+
+  export type ModelCreateManyModelSeriesInputEnvelope = {
+    data: ModelCreateManyModelSeriesInput | ModelCreateManyModelSeriesInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type ModelUpsertWithWhereUniqueWithoutModelSeriesInput = {
+    where: ModelWhereUniqueInput
+    update: XOR<ModelUpdateWithoutModelSeriesInput, ModelUncheckedUpdateWithoutModelSeriesInput>
+    create: XOR<ModelCreateWithoutModelSeriesInput, ModelUncheckedCreateWithoutModelSeriesInput>
+  }
+
+  export type ModelUpdateWithWhereUniqueWithoutModelSeriesInput = {
+    where: ModelWhereUniqueInput
+    data: XOR<ModelUpdateWithoutModelSeriesInput, ModelUncheckedUpdateWithoutModelSeriesInput>
+  }
+
+  export type ModelUpdateManyWithWhereWithoutModelSeriesInput = {
+    where: ModelScalarWhereInput
+    data: XOR<ModelUpdateManyMutationInput, ModelUncheckedUpdateManyWithoutModelSeriesInput>
+  }
+
+  export type ProviderCreateWithoutConnectionProfileInput = {
+    id?: string
+    slug: string
+    name: string
+    description?: string | null
+    websiteUrl?: string | null
+    docsUrl?: string | null
+    logoUrl?: string | null
+    status?: $Enums.ProviderStatus
+    enabled?: boolean
+    privacyPolicyUrl?: string | null
+    loggingPolicySummary?: string | null
+    supportsByok?: boolean
+    supportsRegionalRouting?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    models?: ModelCreateNestedManyWithoutProviderInput
+  }
+
+  export type ProviderUncheckedCreateWithoutConnectionProfileInput = {
+    id?: string
+    slug: string
+    name: string
+    description?: string | null
+    websiteUrl?: string | null
+    docsUrl?: string | null
+    logoUrl?: string | null
+    status?: $Enums.ProviderStatus
+    enabled?: boolean
+    privacyPolicyUrl?: string | null
+    loggingPolicySummary?: string | null
+    supportsByok?: boolean
+    supportsRegionalRouting?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    models?: ModelUncheckedCreateNestedManyWithoutProviderInput
+  }
+
+  export type ProviderCreateOrConnectWithoutConnectionProfileInput = {
+    where: ProviderWhereUniqueInput
+    create: XOR<ProviderCreateWithoutConnectionProfileInput, ProviderUncheckedCreateWithoutConnectionProfileInput>
+  }
+
+  export type ProviderUpsertWithoutConnectionProfileInput = {
+    update: XOR<ProviderUpdateWithoutConnectionProfileInput, ProviderUncheckedUpdateWithoutConnectionProfileInput>
+    create: XOR<ProviderCreateWithoutConnectionProfileInput, ProviderUncheckedCreateWithoutConnectionProfileInput>
+    where?: ProviderWhereInput
+  }
+
+  export type ProviderUpdateToOneWithWhereWithoutConnectionProfileInput = {
+    where?: ProviderWhereInput
+    data: XOR<ProviderUpdateWithoutConnectionProfileInput, ProviderUncheckedUpdateWithoutConnectionProfileInput>
+  }
+
+  export type ProviderUpdateWithoutConnectionProfileInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    slug?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    websiteUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    docsUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumProviderStatusFieldUpdateOperationsInput | $Enums.ProviderStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
+    privacyPolicyUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    loggingPolicySummary?: NullableStringFieldUpdateOperationsInput | string | null
+    supportsByok?: BoolFieldUpdateOperationsInput | boolean
+    supportsRegionalRouting?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    models?: ModelUpdateManyWithoutProviderNestedInput
+  }
+
+  export type ProviderUncheckedUpdateWithoutConnectionProfileInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    slug?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    websiteUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    docsUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumProviderStatusFieldUpdateOperationsInput | $Enums.ProviderStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
+    privacyPolicyUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    loggingPolicySummary?: NullableStringFieldUpdateOperationsInput | string | null
+    supportsByok?: BoolFieldUpdateOperationsInput | boolean
+    supportsRegionalRouting?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    models?: ModelUncheckedUpdateManyWithoutProviderNestedInput
+  }
+
+  export type ModelCreateWithoutVersionsInput = {
+    id?: string
+    canonicalId: string
+    slug: string
+    displayName: string
+    shortDescription?: string | null
+    longDescription?: string | null
+    status?: $Enums.ModelStatus
+    enabled?: boolean
+    lifecycleStatus?: $Enums.LifecycleStatus
+    contextWindow?: number | null
+    maxOutputTokens?: number | null
+    knowledgeCutoff?: Date | string | null
+    releaseDate?: Date | string | null
+    deprecatedAt?: Date | string | null
+    openSource?: boolean
+    free?: boolean
+    tokenizer?: string | null
+    license?: string | null
+    huggingFaceUrl?: string | null
+    modelCardUrl?: string | null
+    officialDocsUrl?: string | null
+    popularityScore?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    provider: ProviderCreateNestedOneWithoutModelsInput
+    category?: CategoryCreateNestedOneWithoutModelsInput
+    modelSeries?: ModelSeriesCreateNestedOneWithoutModelsInput
     pricing?: ModelPricingCreateNestedManyWithoutModelInput
     capabilities?: ModelCapabilityCreateNestedManyWithoutModelInput
     inputModalities?: ModelInputModalityCreateNestedManyWithoutModelInput
@@ -33365,8 +36749,10 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     categoryId?: string | null
+    modelSeriesId?: string | null
     contextWindow?: number | null
     maxOutputTokens?: number | null
     knowledgeCutoff?: Date | string | null
@@ -33418,6 +36804,7 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
@@ -33436,6 +36823,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     provider?: ProviderUpdateOneRequiredWithoutModelsNestedInput
     category?: CategoryUpdateOneWithoutModelsNestedInput
+    modelSeries?: ModelSeriesUpdateOneWithoutModelsNestedInput
     pricing?: ModelPricingUpdateManyWithoutModelNestedInput
     capabilities?: ModelCapabilityUpdateManyWithoutModelNestedInput
     inputModalities?: ModelInputModalityUpdateManyWithoutModelNestedInput
@@ -33457,8 +36845,10 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    modelSeriesId?: NullableStringFieldUpdateOperationsInput | string | null
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
     knowledgeCutoff?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -33494,6 +36884,7 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     contextWindow?: number | null
     maxOutputTokens?: number | null
@@ -33512,6 +36903,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     provider: ProviderCreateNestedOneWithoutModelsInput
     category?: CategoryCreateNestedOneWithoutModelsInput
+    modelSeries?: ModelSeriesCreateNestedOneWithoutModelsInput
     versions?: ModelVersionCreateNestedManyWithoutModelInput
     capabilities?: ModelCapabilityCreateNestedManyWithoutModelInput
     inputModalities?: ModelInputModalityCreateNestedManyWithoutModelInput
@@ -33533,8 +36925,10 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     categoryId?: string | null
+    modelSeriesId?: string | null
     contextWindow?: number | null
     maxOutputTokens?: number | null
     knowledgeCutoff?: Date | string | null
@@ -33605,6 +36999,7 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
@@ -33623,6 +37018,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     provider?: ProviderUpdateOneRequiredWithoutModelsNestedInput
     category?: CategoryUpdateOneWithoutModelsNestedInput
+    modelSeries?: ModelSeriesUpdateOneWithoutModelsNestedInput
     versions?: ModelVersionUpdateManyWithoutModelNestedInput
     capabilities?: ModelCapabilityUpdateManyWithoutModelNestedInput
     inputModalities?: ModelInputModalityUpdateManyWithoutModelNestedInput
@@ -33644,8 +37040,10 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    modelSeriesId?: NullableStringFieldUpdateOperationsInput | string | null
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
     knowledgeCutoff?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -33740,6 +37138,7 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     contextWindow?: number | null
     maxOutputTokens?: number | null
@@ -33758,6 +37157,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     provider: ProviderCreateNestedOneWithoutModelsInput
     category?: CategoryCreateNestedOneWithoutModelsInput
+    modelSeries?: ModelSeriesCreateNestedOneWithoutModelsInput
     versions?: ModelVersionCreateNestedManyWithoutModelInput
     pricing?: ModelPricingCreateNestedManyWithoutModelInput
     inputModalities?: ModelInputModalityCreateNestedManyWithoutModelInput
@@ -33779,8 +37179,10 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     categoryId?: string | null
+    modelSeriesId?: string | null
     contextWindow?: number | null
     maxOutputTokens?: number | null
     knowledgeCutoff?: Date | string | null
@@ -33851,6 +37253,7 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
@@ -33869,6 +37272,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     provider?: ProviderUpdateOneRequiredWithoutModelsNestedInput
     category?: CategoryUpdateOneWithoutModelsNestedInput
+    modelSeries?: ModelSeriesUpdateOneWithoutModelsNestedInput
     versions?: ModelVersionUpdateManyWithoutModelNestedInput
     pricing?: ModelPricingUpdateManyWithoutModelNestedInput
     inputModalities?: ModelInputModalityUpdateManyWithoutModelNestedInput
@@ -33890,8 +37294,10 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    modelSeriesId?: NullableStringFieldUpdateOperationsInput | string | null
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
     knowledgeCutoff?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -34020,6 +37426,7 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     contextWindow?: number | null
     maxOutputTokens?: number | null
@@ -34038,6 +37445,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     provider: ProviderCreateNestedOneWithoutModelsInput
     category?: CategoryCreateNestedOneWithoutModelsInput
+    modelSeries?: ModelSeriesCreateNestedOneWithoutModelsInput
     versions?: ModelVersionCreateNestedManyWithoutModelInput
     pricing?: ModelPricingCreateNestedManyWithoutModelInput
     capabilities?: ModelCapabilityCreateNestedManyWithoutModelInput
@@ -34059,8 +37467,10 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     categoryId?: string | null
+    modelSeriesId?: string | null
     contextWindow?: number | null
     maxOutputTokens?: number | null
     knowledgeCutoff?: Date | string | null
@@ -34133,6 +37543,7 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
@@ -34151,6 +37562,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     provider?: ProviderUpdateOneRequiredWithoutModelsNestedInput
     category?: CategoryUpdateOneWithoutModelsNestedInput
+    modelSeries?: ModelSeriesUpdateOneWithoutModelsNestedInput
     versions?: ModelVersionUpdateManyWithoutModelNestedInput
     pricing?: ModelPricingUpdateManyWithoutModelNestedInput
     capabilities?: ModelCapabilityUpdateManyWithoutModelNestedInput
@@ -34172,8 +37584,10 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    modelSeriesId?: NullableStringFieldUpdateOperationsInput | string | null
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
     knowledgeCutoff?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -34236,6 +37650,7 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     contextWindow?: number | null
     maxOutputTokens?: number | null
@@ -34254,6 +37669,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     provider: ProviderCreateNestedOneWithoutModelsInput
     category?: CategoryCreateNestedOneWithoutModelsInput
+    modelSeries?: ModelSeriesCreateNestedOneWithoutModelsInput
     versions?: ModelVersionCreateNestedManyWithoutModelInput
     pricing?: ModelPricingCreateNestedManyWithoutModelInput
     capabilities?: ModelCapabilityCreateNestedManyWithoutModelInput
@@ -34275,8 +37691,10 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     categoryId?: string | null
+    modelSeriesId?: string | null
     contextWindow?: number | null
     maxOutputTokens?: number | null
     knowledgeCutoff?: Date | string | null
@@ -34349,6 +37767,7 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
@@ -34367,6 +37786,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     provider?: ProviderUpdateOneRequiredWithoutModelsNestedInput
     category?: CategoryUpdateOneWithoutModelsNestedInput
+    modelSeries?: ModelSeriesUpdateOneWithoutModelsNestedInput
     versions?: ModelVersionUpdateManyWithoutModelNestedInput
     pricing?: ModelPricingUpdateManyWithoutModelNestedInput
     capabilities?: ModelCapabilityUpdateManyWithoutModelNestedInput
@@ -34388,8 +37808,10 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    modelSeriesId?: NullableStringFieldUpdateOperationsInput | string | null
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
     knowledgeCutoff?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -34486,6 +37908,7 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     contextWindow?: number | null
     maxOutputTokens?: number | null
@@ -34504,6 +37927,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     provider: ProviderCreateNestedOneWithoutModelsInput
     category?: CategoryCreateNestedOneWithoutModelsInput
+    modelSeries?: ModelSeriesCreateNestedOneWithoutModelsInput
     versions?: ModelVersionCreateNestedManyWithoutModelInput
     pricing?: ModelPricingCreateNestedManyWithoutModelInput
     capabilities?: ModelCapabilityCreateNestedManyWithoutModelInput
@@ -34525,8 +37949,10 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     categoryId?: string | null
+    modelSeriesId?: string | null
     contextWindow?: number | null
     maxOutputTokens?: number | null
     knowledgeCutoff?: Date | string | null
@@ -34597,6 +38023,7 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
@@ -34615,6 +38042,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     provider?: ProviderUpdateOneRequiredWithoutModelsNestedInput
     category?: CategoryUpdateOneWithoutModelsNestedInput
+    modelSeries?: ModelSeriesUpdateOneWithoutModelsNestedInput
     versions?: ModelVersionUpdateManyWithoutModelNestedInput
     pricing?: ModelPricingUpdateManyWithoutModelNestedInput
     capabilities?: ModelCapabilityUpdateManyWithoutModelNestedInput
@@ -34636,8 +38064,10 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    modelSeriesId?: NullableStringFieldUpdateOperationsInput | string | null
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
     knowledgeCutoff?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -34698,6 +38128,7 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     contextWindow?: number | null
     maxOutputTokens?: number | null
@@ -34715,6 +38146,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     provider: ProviderCreateNestedOneWithoutModelsInput
+    modelSeries?: ModelSeriesCreateNestedOneWithoutModelsInput
     versions?: ModelVersionCreateNestedManyWithoutModelInput
     pricing?: ModelPricingCreateNestedManyWithoutModelInput
     capabilities?: ModelCapabilityCreateNestedManyWithoutModelInput
@@ -34737,7 +38169,9 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
+    modelSeriesId?: string | null
     contextWindow?: number | null
     maxOutputTokens?: number | null
     knowledgeCutoff?: Date | string | null
@@ -34898,6 +38332,7 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     contextWindow?: number | null
     maxOutputTokens?: number | null
@@ -34916,6 +38351,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     provider: ProviderCreateNestedOneWithoutModelsInput
     category?: CategoryCreateNestedOneWithoutModelsInput
+    modelSeries?: ModelSeriesCreateNestedOneWithoutModelsInput
     versions?: ModelVersionCreateNestedManyWithoutModelInput
     pricing?: ModelPricingCreateNestedManyWithoutModelInput
     capabilities?: ModelCapabilityCreateNestedManyWithoutModelInput
@@ -34937,8 +38373,10 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     categoryId?: string | null
+    modelSeriesId?: string | null
     contextWindow?: number | null
     maxOutputTokens?: number | null
     knowledgeCutoff?: Date | string | null
@@ -35009,6 +38447,7 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
@@ -35027,6 +38466,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     provider?: ProviderUpdateOneRequiredWithoutModelsNestedInput
     category?: CategoryUpdateOneWithoutModelsNestedInput
+    modelSeries?: ModelSeriesUpdateOneWithoutModelsNestedInput
     versions?: ModelVersionUpdateManyWithoutModelNestedInput
     pricing?: ModelPricingUpdateManyWithoutModelNestedInput
     capabilities?: ModelCapabilityUpdateManyWithoutModelNestedInput
@@ -35048,8 +38488,10 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    modelSeriesId?: NullableStringFieldUpdateOperationsInput | string | null
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
     knowledgeCutoff?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -35156,6 +38598,7 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     contextWindow?: number | null
     maxOutputTokens?: number | null
@@ -35174,6 +38617,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     provider: ProviderCreateNestedOneWithoutModelsInput
     category?: CategoryCreateNestedOneWithoutModelsInput
+    modelSeries?: ModelSeriesCreateNestedOneWithoutModelsInput
     versions?: ModelVersionCreateNestedManyWithoutModelInput
     pricing?: ModelPricingCreateNestedManyWithoutModelInput
     capabilities?: ModelCapabilityCreateNestedManyWithoutModelInput
@@ -35195,8 +38639,10 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     categoryId?: string | null
+    modelSeriesId?: string | null
     contextWindow?: number | null
     maxOutputTokens?: number | null
     knowledgeCutoff?: Date | string | null
@@ -35271,6 +38717,7 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
@@ -35289,6 +38736,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     provider?: ProviderUpdateOneRequiredWithoutModelsNestedInput
     category?: CategoryUpdateOneWithoutModelsNestedInput
+    modelSeries?: ModelSeriesUpdateOneWithoutModelsNestedInput
     versions?: ModelVersionUpdateManyWithoutModelNestedInput
     pricing?: ModelPricingUpdateManyWithoutModelNestedInput
     capabilities?: ModelCapabilityUpdateManyWithoutModelNestedInput
@@ -35310,8 +38758,10 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    modelSeriesId?: NullableStringFieldUpdateOperationsInput | string | null
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
     knowledgeCutoff?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -35376,6 +38826,7 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     contextWindow?: number | null
     maxOutputTokens?: number | null
@@ -35394,6 +38845,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     provider: ProviderCreateNestedOneWithoutModelsInput
     category?: CategoryCreateNestedOneWithoutModelsInput
+    modelSeries?: ModelSeriesCreateNestedOneWithoutModelsInput
     versions?: ModelVersionCreateNestedManyWithoutModelInput
     pricing?: ModelPricingCreateNestedManyWithoutModelInput
     capabilities?: ModelCapabilityCreateNestedManyWithoutModelInput
@@ -35415,8 +38867,10 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     categoryId?: string | null
+    modelSeriesId?: string | null
     contextWindow?: number | null
     maxOutputTokens?: number | null
     knowledgeCutoff?: Date | string | null
@@ -35468,6 +38922,7 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
@@ -35486,6 +38941,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     provider?: ProviderUpdateOneRequiredWithoutModelsNestedInput
     category?: CategoryUpdateOneWithoutModelsNestedInput
+    modelSeries?: ModelSeriesUpdateOneWithoutModelsNestedInput
     versions?: ModelVersionUpdateManyWithoutModelNestedInput
     pricing?: ModelPricingUpdateManyWithoutModelNestedInput
     capabilities?: ModelCapabilityUpdateManyWithoutModelNestedInput
@@ -35507,8 +38963,10 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    modelSeriesId?: NullableStringFieldUpdateOperationsInput | string | null
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
     knowledgeCutoff?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -35544,6 +39002,7 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     contextWindow?: number | null
     maxOutputTokens?: number | null
@@ -35562,6 +39021,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     provider: ProviderCreateNestedOneWithoutModelsInput
     category?: CategoryCreateNestedOneWithoutModelsInput
+    modelSeries?: ModelSeriesCreateNestedOneWithoutModelsInput
     versions?: ModelVersionCreateNestedManyWithoutModelInput
     pricing?: ModelPricingCreateNestedManyWithoutModelInput
     capabilities?: ModelCapabilityCreateNestedManyWithoutModelInput
@@ -35583,8 +39043,10 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     categoryId?: string | null
+    modelSeriesId?: string | null
     contextWindow?: number | null
     maxOutputTokens?: number | null
     knowledgeCutoff?: Date | string | null
@@ -35636,6 +39098,7 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
@@ -35654,6 +39117,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     provider?: ProviderUpdateOneRequiredWithoutModelsNestedInput
     category?: CategoryUpdateOneWithoutModelsNestedInput
+    modelSeries?: ModelSeriesUpdateOneWithoutModelsNestedInput
     versions?: ModelVersionUpdateManyWithoutModelNestedInput
     pricing?: ModelPricingUpdateManyWithoutModelNestedInput
     capabilities?: ModelCapabilityUpdateManyWithoutModelNestedInput
@@ -35675,8 +39139,10 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    modelSeriesId?: NullableStringFieldUpdateOperationsInput | string | null
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
     knowledgeCutoff?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -35746,6 +39212,7 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     contextWindow?: number | null
     maxOutputTokens?: number | null
@@ -35764,6 +39231,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     provider: ProviderCreateNestedOneWithoutModelsInput
     category?: CategoryCreateNestedOneWithoutModelsInput
+    modelSeries?: ModelSeriesCreateNestedOneWithoutModelsInput
     versions?: ModelVersionCreateNestedManyWithoutModelInput
     pricing?: ModelPricingCreateNestedManyWithoutModelInput
     capabilities?: ModelCapabilityCreateNestedManyWithoutModelInput
@@ -35785,8 +39253,10 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     categoryId?: string | null
+    modelSeriesId?: string | null
     contextWindow?: number | null
     maxOutputTokens?: number | null
     knowledgeCutoff?: Date | string | null
@@ -35855,6 +39325,7 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
@@ -35873,6 +39344,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     provider?: ProviderUpdateOneRequiredWithoutModelsNestedInput
     category?: CategoryUpdateOneWithoutModelsNestedInput
+    modelSeries?: ModelSeriesUpdateOneWithoutModelsNestedInput
     versions?: ModelVersionUpdateManyWithoutModelNestedInput
     pricing?: ModelPricingUpdateManyWithoutModelNestedInput
     capabilities?: ModelCapabilityUpdateManyWithoutModelNestedInput
@@ -35894,8 +39366,10 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    modelSeriesId?: NullableStringFieldUpdateOperationsInput | string | null
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
     knowledgeCutoff?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -35954,8 +39428,10 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
     categoryId?: string | null
+    modelSeriesId?: string | null
     contextWindow?: number | null
     maxOutputTokens?: number | null
     knowledgeCutoff?: Date | string | null
@@ -35981,6 +39457,7 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
@@ -35998,6 +39475,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     category?: CategoryUpdateOneWithoutModelsNestedInput
+    modelSeries?: ModelSeriesUpdateOneWithoutModelsNestedInput
     versions?: ModelVersionUpdateManyWithoutModelNestedInput
     pricing?: ModelPricingUpdateManyWithoutModelNestedInput
     capabilities?: ModelCapabilityUpdateManyWithoutModelNestedInput
@@ -36019,8 +39497,10 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    modelSeriesId?: NullableStringFieldUpdateOperationsInput | string | null
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
     knowledgeCutoff?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -36057,8 +39537,10 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    modelSeriesId?: NullableStringFieldUpdateOperationsInput | string | null
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
     knowledgeCutoff?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -36396,6 +39878,144 @@ export namespace Prisma {
     tagId?: StringFieldUpdateOperationsInput | string
   }
 
+  export type ModelCreateManyModelSeriesInput = {
+    id?: string
+    providerId: string
+    canonicalId: string
+    slug: string
+    displayName: string
+    shortDescription?: string | null
+    longDescription?: string | null
+    status?: $Enums.ModelStatus
+    enabled?: boolean
+    lifecycleStatus?: $Enums.LifecycleStatus
+    categoryId?: string | null
+    contextWindow?: number | null
+    maxOutputTokens?: number | null
+    knowledgeCutoff?: Date | string | null
+    releaseDate?: Date | string | null
+    deprecatedAt?: Date | string | null
+    openSource?: boolean
+    free?: boolean
+    tokenizer?: string | null
+    license?: string | null
+    huggingFaceUrl?: string | null
+    modelCardUrl?: string | null
+    officialDocsUrl?: string | null
+    popularityScore?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ModelUpdateWithoutModelSeriesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    canonicalId?: StringFieldUpdateOperationsInput | string
+    slug?: StringFieldUpdateOperationsInput | string
+    displayName?: StringFieldUpdateOperationsInput | string
+    shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
+    longDescription?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
+    lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
+    contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
+    maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
+    knowledgeCutoff?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    releaseDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    openSource?: BoolFieldUpdateOperationsInput | boolean
+    free?: BoolFieldUpdateOperationsInput | boolean
+    tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
+    license?: NullableStringFieldUpdateOperationsInput | string | null
+    huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    modelCardUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    officialDocsUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    popularityScore?: FloatFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    provider?: ProviderUpdateOneRequiredWithoutModelsNestedInput
+    category?: CategoryUpdateOneWithoutModelsNestedInput
+    versions?: ModelVersionUpdateManyWithoutModelNestedInput
+    pricing?: ModelPricingUpdateManyWithoutModelNestedInput
+    capabilities?: ModelCapabilityUpdateManyWithoutModelNestedInput
+    inputModalities?: ModelInputModalityUpdateManyWithoutModelNestedInput
+    outputModalities?: ModelOutputModalityUpdateManyWithoutModelNestedInput
+    supportedParams?: ModelSupportedParameterUpdateManyWithoutModelNestedInput
+    regions?: ModelRegionUpdateManyWithoutModelNestedInput
+    benchmarks?: ModelBenchmarkUpdateManyWithoutModelNestedInput
+    sources?: SourceReferenceUpdateManyWithoutModelNestedInput
+    changelog?: ModelChangelogUpdateManyWithoutModelNestedInput
+    tags?: ModelTagUpdateManyWithoutModelNestedInput
+  }
+
+  export type ModelUncheckedUpdateWithoutModelSeriesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    providerId?: StringFieldUpdateOperationsInput | string
+    canonicalId?: StringFieldUpdateOperationsInput | string
+    slug?: StringFieldUpdateOperationsInput | string
+    displayName?: StringFieldUpdateOperationsInput | string
+    shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
+    longDescription?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
+    lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
+    maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
+    knowledgeCutoff?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    releaseDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    openSource?: BoolFieldUpdateOperationsInput | boolean
+    free?: BoolFieldUpdateOperationsInput | boolean
+    tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
+    license?: NullableStringFieldUpdateOperationsInput | string | null
+    huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    modelCardUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    officialDocsUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    popularityScore?: FloatFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    versions?: ModelVersionUncheckedUpdateManyWithoutModelNestedInput
+    pricing?: ModelPricingUncheckedUpdateManyWithoutModelNestedInput
+    capabilities?: ModelCapabilityUncheckedUpdateManyWithoutModelNestedInput
+    inputModalities?: ModelInputModalityUncheckedUpdateManyWithoutModelNestedInput
+    outputModalities?: ModelOutputModalityUncheckedUpdateManyWithoutModelNestedInput
+    supportedParams?: ModelSupportedParameterUncheckedUpdateManyWithoutModelNestedInput
+    regions?: ModelRegionUncheckedUpdateManyWithoutModelNestedInput
+    benchmarks?: ModelBenchmarkUncheckedUpdateManyWithoutModelNestedInput
+    sources?: SourceReferenceUncheckedUpdateManyWithoutModelNestedInput
+    changelog?: ModelChangelogUncheckedUpdateManyWithoutModelNestedInput
+    tags?: ModelTagUncheckedUpdateManyWithoutModelNestedInput
+  }
+
+  export type ModelUncheckedUpdateManyWithoutModelSeriesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    providerId?: StringFieldUpdateOperationsInput | string
+    canonicalId?: StringFieldUpdateOperationsInput | string
+    slug?: StringFieldUpdateOperationsInput | string
+    displayName?: StringFieldUpdateOperationsInput | string
+    shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
+    longDescription?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
+    lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
+    maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
+    knowledgeCutoff?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    releaseDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    openSource?: BoolFieldUpdateOperationsInput | boolean
+    free?: BoolFieldUpdateOperationsInput | boolean
+    tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
+    license?: NullableStringFieldUpdateOperationsInput | string | null
+    huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    modelCardUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    officialDocsUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    popularityScore?: FloatFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type ModelCapabilityCreateManyCapabilityInput = {
     modelId: string
   }
@@ -36469,7 +40089,9 @@ export namespace Prisma {
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
+    enabled?: boolean
     lifecycleStatus?: $Enums.LifecycleStatus
+    modelSeriesId?: string | null
     contextWindow?: number | null
     maxOutputTokens?: number | null
     knowledgeCutoff?: Date | string | null
@@ -36495,6 +40117,7 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
@@ -36512,6 +40135,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     provider?: ProviderUpdateOneRequiredWithoutModelsNestedInput
+    modelSeries?: ModelSeriesUpdateOneWithoutModelsNestedInput
     versions?: ModelVersionUpdateManyWithoutModelNestedInput
     pricing?: ModelPricingUpdateManyWithoutModelNestedInput
     capabilities?: ModelCapabilityUpdateManyWithoutModelNestedInput
@@ -36534,7 +40158,9 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
+    modelSeriesId?: NullableStringFieldUpdateOperationsInput | string | null
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
     knowledgeCutoff?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -36572,7 +40198,9 @@ export namespace Prisma {
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
     lifecycleStatus?: EnumLifecycleStatusFieldUpdateOperationsInput | $Enums.LifecycleStatus
+    modelSeriesId?: NullableStringFieldUpdateOperationsInput | string | null
     contextWindow?: NullableIntFieldUpdateOperationsInput | number | null
     maxOutputTokens?: NullableIntFieldUpdateOperationsInput | number | null
     knowledgeCutoff?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null

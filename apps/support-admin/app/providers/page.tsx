@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { apiGet } from '@/lib/api';
+import { apiGet, resolveAssetUrl } from '@/lib/api';
 
-type ProviderRow = { slug: string; name: string; models?: Array<{ id: string }> };
+type ProviderRow = { slug: string; name: string; logoUrl?: string | null; models?: Array<{ id: string }> };
 
 export default async function ProvidersPage() {
   let providers: ProviderRow[] = [];
@@ -24,6 +24,13 @@ export default async function ProvidersPage() {
         {providers.map((p) => (
           <Link key={p.slug} href={`/providers/${p.slug}`} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 hover:border-cyan-500">
             <h2 className="text-lg font-medium">{p.name}</h2>
+            {resolveAssetUrl(p.logoUrl) ? (
+              <img
+                src={resolveAssetUrl(p.logoUrl) || ''}
+                alt={p.name}
+                className="mt-2 h-8 w-8 rounded"
+              />
+            ) : null}
             <p className="text-xs text-zinc-500">{p.slug}</p>
             <p className="mt-2 text-sm text-zinc-400">Active models: {p.models?.length ?? 0}</p>
           </Link>

@@ -6,6 +6,7 @@ export default function AdminHome() {
   const links = [
     ['/admin/providers', 'Providers'],
     ['/admin/models', 'Models'],
+    ['/admin/model-series', 'Model Series'],
     ['/admin/pricing', 'Pricing'],
     ['/admin/capabilities', 'Capabilities'],
     ['/admin/import', 'Import JSON'],
@@ -16,7 +17,16 @@ export default function AdminHome() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold">Admin</h1>
-      <p className="text-zinc-400">Use JWT from <code>/api/v1/auth/login</code> with configured admin credentials.</p>
+      <button
+        type="button"
+        className="rounded border border-zinc-700 px-3 py-1 text-sm text-zinc-300 hover:bg-zinc-900"
+        onClick={async () => {
+          await fetch('/api/auth/logout', { method: 'POST' });
+          window.location.href = '/login';
+        }}
+      >
+        Logout
+      </button>
       <div className="grid gap-3 md:grid-cols-3">
         {links.map(([href, label]) => <Link key={href} href={href} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 hover:border-cyan-500">{label}</Link>)}
       </div>
