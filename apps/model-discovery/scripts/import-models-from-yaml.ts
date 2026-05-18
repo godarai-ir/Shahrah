@@ -224,10 +224,7 @@ async function parseProviderDir(providerDir: string): Promise<ImportProviderBatc
     defaultDoc = asObject(parse(raw));
   }
 
-  const files = await fs.readdir(providerDir, { withFileTypes: true });
-  const yamlFiles = files
-    .filter((f) => f.isFile() && f.name.endsWith('.yaml') && f.name !== 'default.yaml')
-    .map((f) => join(providerDir, f.name));
+  const yamlFiles = await collectYamlFiles(providerDir);
 
   const providerName = titleCaseFromSlug(providerSlug);
   const docsUrl = asStringArray(defaultDoc?.['documentation'])[0];
@@ -346,6 +343,25 @@ async function parseProviderDir(providerDir: string): Promise<ImportProviderBatc
     docsUrl,
     models,
   };
+}
+
+async function collectYamlFiles(dir: string): Promise<string[]> {
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+  const files: string[] = [];
+
+  for (const entry of entries) {
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await collectYamlFiles(fullPath)));
+      continue;
+    }
+    if (!entry.isFile()) continue;
+    if (!entry.name.endsWith('.yaml')) continue;
+    if (entry.name === 'default.yaml') continue;
+    files.push(fullPath);
+  }
+
+  return files;
 }
 
 async function ensureCapability(slug: string): Promise<string> {
