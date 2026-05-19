@@ -67,7 +67,8 @@ services:
     build:
       context: ../../apps/model-discovery
       dockerfile: Dockerfile
-    command: ["sh", "-lc", "pnpm prisma migrate deploy"]
+      target: migrate
+    command: ["npx", "prisma", "migrate", "deploy"]
     environment:
       DATABASE_URL: ${MODEL_DISCOVERY_DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/model_discovery?schema=public}
     depends_on:
@@ -82,6 +83,7 @@ services:
       - "${SUPPORT_ADMIN_HOST_PORT:-3001}:3000"
     environment:
       NEXT_PUBLIC_MODEL_CATALOG_API_BASE: ${NEXT_PUBLIC_MODEL_CATALOG_API_BASE:-http://localhost:3002/api/v1}
+      MODEL_CATALOG_API_BASE_INTERNAL: ${MODEL_CATALOG_API_BASE_INTERNAL:-http://model-discovery:3002/api/v1}
     depends_on:
       model-discovery:
         condition: service_started

@@ -1,5 +1,5 @@
 .PHONY: help setup setup-full setup-local build run test-unit test-integration test-integration-db test fmt vet lint check docker-up docker-up-mailpit docker-up-pgadmin docker-down docker-migrate docker-logs docker-clean \
-	migrate-install migrate-up migrate-down migrate-reset migrate-status migrate-create docker-migrate-up
+	migrate-install migrate-up migrate-down migrate-reset migrate-status migrate-create docker-migrate-up docker-model-discovery-migrate
 
 CONTROL_PLANE_DIR := services/control-plane
 COMPOSE_FILE := infra/compose/local.yml
@@ -65,7 +65,7 @@ lint: ## Run golangci-lint for control-plane
 
 check: fmt vet lint test ## Run the default checks
 
-docker-up: ## Start the local backend stack (including Mailpit and pgAdmin)
+docker-up: docker-migrate-up docker-model-discovery-migrate ## Start the local backend stack (including Mailpit and pgAdmin)
 	$(DOCKER_COMPOSE) up -d postgres redis clickhouse mailpit pgadmin silk-road tunnel-server tunnel-client control-plane model-discovery support-admin
 
 
@@ -78,14 +78,16 @@ docker-up-pgadmin: ## Start only pgAdmin for Postgres administration
 docker-down: ## Stop local dependencies
 	$(DOCKER_COMPOSE) down
 
-docker-migrate: ## Run the main database bootstrap migrations
-	$(DOCKER_COMPOSE) exec postgres sh -lc "psql -U postgres -d llmproxy -f /docker-entrypoint-initdb.d/001_initial.sql && psql -U postgres -d llmproxy -f /docker-entrypoint-initdb.d/002_platform_foundations.sql"
+docker-migrate: docker-migrate-up ## Run the main database migrations
 
 docker-logs: ## Follow local compose logs
 	$(DOCKER_COMPOSE) logs -f
 
 docker-clean: ## Remove local compose resources
 	$(DOCKER_COMPOSE) down -v --remove-orphans
+
+docker-model-discovery-migrate: ## Run Prisma migrations for model-discovery service
+	$(DOCKER_COMPOSE) run --rm model-discovery-migrate
 
 # Install goose CLI
 migrate-install: ## Install goose CLI if missing
@@ -115,4 +117,4 @@ migrate-create: migrate-install ## Create a new goose SQL migration (name=...)
 
 # Docker-based migration (run migrations in docker-compose environment)
 docker-migrate-up: ## Run migrations in docker compose migrate service
-	docker compose -f infra/compose/local.yml run --rm migrate up
+	docker compose -f infra/compose/local.yml run --rm migrate

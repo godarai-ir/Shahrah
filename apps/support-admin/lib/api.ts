@@ -1,5 +1,12 @@
-export const API_BASE = process.env.NEXT_PUBLIC_MODEL_CATALOG_API_BASE || 'http://localhost:3002/api/v1';
-export const API_ORIGIN = new URL(API_BASE).origin;
+const PUBLIC_API_BASE =
+  process.env.NEXT_PUBLIC_MODEL_CATALOG_API_BASE ||
+  'http://localhost:3002/api/v1';
+const INTERNAL_API_BASE =
+  process.env.MODEL_CATALOG_API_BASE_INTERNAL || PUBLIC_API_BASE;
+
+export const API_BASE =
+  typeof window === 'undefined' ? INTERNAL_API_BASE : PUBLIC_API_BASE;
+export const API_ORIGIN = new URL(PUBLIC_API_BASE).origin;
 
 export function resolveAssetUrl(path?: string | null): string | null {
   if (!path) return null;

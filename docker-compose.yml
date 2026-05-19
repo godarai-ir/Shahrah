@@ -53,7 +53,8 @@ services:
       context: ./apps/support-admin
       dockerfile: Dockerfile
     environment:
-      NEXT_PUBLIC_MODEL_CATALOG_API_BASE: http://backend:3002/api/v1
+      NEXT_PUBLIC_MODEL_CATALOG_API_BASE: http://localhost:3002/api/v1
+      MODEL_CATALOG_API_BASE_INTERNAL: http://backend:3002/api/v1
     depends_on:
       - backend
     ports:
