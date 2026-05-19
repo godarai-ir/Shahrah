@@ -66,7 +66,7 @@ lint: ## Run golangci-lint for control-plane
 check: fmt vet lint test ## Run the default checks
 
 docker-up: ## Start the local backend stack (including Mailpit and pgAdmin)
-	$(DOCKER_COMPOSE) up -d postgres redis clickhouse mailpit pgadmin silk-road tunnel-server tunnel-client control-plane
+	$(DOCKER_COMPOSE) up -d postgres redis clickhouse mailpit pgadmin silk-road tunnel-server tunnel-client control-plane model-discovery support-admin
 
 
 docker-up-mailpit: ## Start only Mailpit for local email testing

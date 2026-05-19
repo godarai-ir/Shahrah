@@ -551,6 +551,14 @@ func localProviderCatalog() []platform.ProviderCatalogProvider {
 			SupportsVirtualKeys:     true,
 		},
 		{
+			Provider:                "ai21",
+			DisplayName:             "AI21",
+			Enabled:                 true,
+			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
+			SupportsBringYourOwnKey: true,
+			SupportsVirtualKeys:     true,
+		},
+		{
 			Provider:                "stability",
 			DisplayName:             "Stability AI",
 			Enabled:                 true,

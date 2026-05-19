@@ -251,11 +251,50 @@
       "actions": {
         "clearFilters": "Clear filters",
         "compare": "Compare ({count})",
+        "compareToggle": "Compare",
         "editPricing": "Edit pricing",
         "apply": "Apply",
         "cancel": "Cancel",
         "showMore": "Show more",
         "showLess": "Show less"
+      },
+      "card": {
+        "context": "Context",
+        "maxOutput": "Max output",
+        "latency": "Latency",
+        "quality": "Quality",
+        "pricing": "Pricing",
+        "pricingUnavailable": "Pricing unavailable",
+        "technicalMetadata": "Technical metadata",
+        "modelId": "Model ID",
+        "providerId": "Provider ID",
+        "apiMode": "API mode",
+        "releaseDate": "Release date",
+        "knowledgeCutoff": "Knowledge cutoff",
+        "regions": "Regions",
+        "rateLimitNotes": "Rate limit notes",
+        "license": "License",
+        "viewDetails": "View details",
+        "copyId": "Copy ID",
+        "copied": "Copied",
+        "lowerCost": "Lower cost",
+        "recommended": "Recommended",
+        "popular": "Popular",
+        "tradeOffs": "Trade-offs",
+        "cachedInput": "Cached input",
+        "image": "Image",
+        "audio": "Audio",
+        "statusStable": "Stable",
+        "statusPreview": "Preview",
+        "statusDeprecated": "Deprecated",
+        "statusNew": "New",
+        "categoryChat": "Chat",
+        "categoryReasoning": "Reasoning",
+        "categoryEmbedding": "Embedding",
+        "categoryVision": "Vision",
+        "categoryAudio": "Audio",
+        "categoryCode": "Code",
+        "categoryMultimodal": "Multimodal"
       },
       "pricingSummary": {
         "title": "Pricing summary"
@@ -274,7 +313,42 @@
           "context": "Context",
           "inputModality": "Input",
           "outputModality": "Output",
-          "features": "Features"
+          "features": "Features",
+          "attribute": "Attribute"
+        },
+        "rows": {
+          "inputPrice": "Input price",
+          "outputPrice": "Output price",
+          "context": "Context window",
+          "inputModality": "Input modalities",
+          "outputModality": "Output modalities",
+          "features": "Capabilities"
+        },
+        "sections": {
+          "pricing": "Pricing",
+          "capacity": "Capacity",
+          "modalities": "Modalities",
+          "capabilities": "Capabilities"
+        },
+        "kpis": {
+          "bestInput": "Best input price",
+          "bestOutput": "Best output price",
+          "largestContext": "Largest context",
+          "richestFeatures": "Most capabilities"
+        },
+        "sort": {
+          "label": "Sort by",
+          "inputAsc": "Input price: low to high",
+          "outputAsc": "Output price: low to high",
+          "contextDesc": "Context: high to low",
+          "nameAsc": "Model name: A-Z"
+        },
+        "toggles": {
+          "differencesOnly": "Show only differences",
+          "normalizedPricing": "Normalize pricing view"
+        },
+        "actions": {
+          "removeModel": "Remove from comparison"
         }
       },
       "pricing": {

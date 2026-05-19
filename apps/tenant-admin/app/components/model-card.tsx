@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
-  BarChart3,
   Brain,
   CheckCircle2,
   Clock,
@@ -79,6 +78,51 @@ type ModelCardProps = {
   };
   onViewDetails?: (model: ModelCardData) => void;
   onCompare?: (model: ModelCardData) => void;
+  isCompared?: boolean;
+  onComparedChange?: (checked: boolean) => void;
+  compareCheckboxLabel?: string;
+  pricingModeBadge?: string;
+  pricingAction?: ReactNode;
+  labels?: {
+    context?: string;
+    maxOutput?: string;
+    input?: string;
+    output?: string;
+    latency?: string;
+    quality?: string;
+    pricing?: string;
+    pricingUnavailable?: string;
+    technicalMetadata?: string;
+    modelId?: string;
+    providerId?: string;
+    apiMode?: string;
+    releaseDate?: string;
+    knowledgeCutoff?: string;
+    regions?: string;
+    rateLimitNotes?: string;
+    license?: string;
+    viewDetails?: string;
+    copyId?: string;
+    copied?: string;
+    lowerCost?: string;
+    recommended?: string;
+    popular?: string;
+    tradeOffs?: string;
+    cachedInput?: string;
+    image?: string;
+    audio?: string;
+    statusStable?: string;
+    statusPreview?: string;
+    statusDeprecated?: string;
+    statusNew?: string;
+    categoryChat?: string;
+    categoryReasoning?: string;
+    categoryEmbedding?: string;
+    categoryVision?: string;
+    categoryAudio?: string;
+    categoryCode?: string;
+    categoryMultimodal?: string;
+  };
   className?: string;
 };
 
@@ -90,6 +134,47 @@ export function ModelCard(props: ModelCardProps) {
     usdToIrr: 0,
   };
   const [copied, setCopied] = useState(false);
+  const labels = {
+    context: "Context",
+    maxOutput: "Max Output",
+    input: "Input",
+    output: "Output",
+    latency: "Latency",
+    quality: "Quality",
+    pricing: "Pricing",
+    pricingUnavailable: "Pricing unavailable",
+    technicalMetadata: "Technical metadata",
+    modelId: "Model ID",
+    providerId: "Provider ID",
+    apiMode: "API mode",
+    releaseDate: "Release date",
+    knowledgeCutoff: "Knowledge cutoff",
+    regions: "Regions",
+    rateLimitNotes: "Rate limit notes",
+    license: "License",
+    viewDetails: "View Details",
+    copyId: "Copy ID",
+    copied: "Copied",
+    lowerCost: "Lower cost",
+    recommended: "Recommended",
+    popular: "Popular",
+    tradeOffs: "Trade-offs",
+    cachedInput: "Cached input",
+    image: "Image",
+    audio: "Audio",
+    statusStable: "Stable",
+    statusPreview: "Preview",
+    statusDeprecated: "Deprecated",
+    statusNew: "New",
+    categoryChat: "Chat",
+    categoryReasoning: "Reasoning",
+    categoryEmbedding: "Embedding",
+    categoryVision: "Vision",
+    categoryAudio: "Audio",
+    categoryCode: "Code",
+    categoryMultimodal: "Multimodal",
+    ...props.labels,
+  };
 
   const primaryCategory = model.category[0] ?? "chat";
   const isDeprecated = model.status === "deprecated";
@@ -97,20 +182,20 @@ export function ModelCard(props: ModelCardProps) {
   const isCheap = (model.pricing?.inputPerMillion ?? Number.POSITIVE_INFINITY) <= 0.25;
 
   const metrics = [
-    { label: "Context", value: formatTokenCount(model.contextWindow), hint: "Maximum prompt context window." },
-    { label: "Max Output", value: formatTokenCount(model.maxOutputTokens), hint: "Maximum output token generation." },
+    { label: labels.context, value: formatTokenCount(model.contextWindow), hint: "Maximum prompt context window." },
+    { label: labels.maxOutput, value: formatTokenCount(model.maxOutputTokens), hint: "Maximum output token generation." },
     {
-      label: "Input",
+      label: labels.input,
       value: formatPriceWithDisplay(model.pricing?.inputPerMillion, pricingDisplay),
       hint: "Cost by selected currency/scale.",
     },
     {
-      label: "Output",
+      label: labels.output,
       value: formatPriceWithDisplay(model.pricing?.outputPerMillion, pricingDisplay),
       hint: "Cost by selected currency/scale.",
     },
-    { label: "Latency", value: model.latencyTier ? capitalize(model.latencyTier) : "N/A", hint: "Relative response speed." },
-    { label: "Quality", value: model.qualityTier ? capitalize(model.qualityTier) : "N/A", hint: "Relative output quality." },
+    { label: labels.latency, value: model.latencyTier ? capitalize(model.latencyTier) : "N/A", hint: "Relative response speed." },
+    { label: labels.quality, value: model.qualityTier ? capitalize(model.qualityTier) : "N/A", hint: "Relative output quality." },
   ];
 
   async function handleCopyModelId() {
@@ -148,15 +233,26 @@ export function ModelCard(props: ModelCardProps) {
             </p>
           </div>
           <div className="flex flex-wrap justify-end gap-1">
-            <Badge variant="secondary">{labelCategory(primaryCategory)}</Badge>
-            <Badge variant={statusVariant(model.status)}>{labelStatus(model.status)}</Badge>
+            <Badge variant="secondary">{labelCategory(primaryCategory, labels)}</Badge>
+            <Badge variant={statusVariant(model.status)}>{labelStatus(model.status, labels)}</Badge>
             {model.recommended ? (
               <Badge className="bg-primary/15 text-primary hover:bg-primary/20">
                 <Sparkles className="mr-1 h-3 w-3" />
-                Recommended
+                {labels.recommended}
               </Badge>
             ) : null}
-            {model.popular ? <Badge variant="outline">Popular</Badge> : null}
+            {model.popular ? <Badge variant="outline">{labels.popular}</Badge> : null}
+            {typeof props.isCompared === "boolean" && props.onComparedChange ? (
+              <label className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-xs">
+                <input
+                  type="checkbox"
+                  checked={props.isCompared}
+                  onChange={(event) => props.onComparedChange?.(event.target.checked)}
+                  className="h-3.5 w-3.5"
+                />
+                {props.compareCheckboxLabel ?? "مقایسه"}
+              </label>
+            ) : null}
           </div>
         </div>
         <p className="line-clamp-2 text-sm leading-5 text-foreground/90">{model.description}</p>
@@ -185,7 +281,7 @@ export function ModelCard(props: ModelCardProps) {
           <section className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2.5">
             <p className="mb-1 flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-300">
               <AlertTriangle className="h-3.5 w-3.5" />
-              Trade-offs
+              {labels.tradeOffs}
             </p>
             <ul className="space-y-0.5 text-xs text-amber-800 dark:text-amber-200">
               {model.tradeoffs.slice(0, 3).map((item) => (
@@ -196,29 +292,35 @@ export function ModelCard(props: ModelCardProps) {
         ) : null}
 
         <section className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">Pricing</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-medium text-muted-foreground">{labels.pricing}</p>
+            <div className="flex items-center gap-2">
+              {props.pricingModeBadge ? <Badge variant="outline">{props.pricingModeBadge}</Badge> : null}
+              {props.pricingAction}
+            </div>
+          </div>
           <div className="space-y-0.5 text-xs">
-            <p>{priceRow("Input", model.pricing?.inputPerMillion, pricingDisplay)}</p>
-            <p>{priceRow("Output", model.pricing?.outputPerMillion, pricingDisplay)}</p>
-            {model.pricing?.cachedInputPerMillion !== undefined ? <p>{priceRow("Cached input", model.pricing.cachedInputPerMillion, pricingDisplay)}</p> : null}
-            {model.pricing?.imagePerMillion !== undefined ? <p>{priceRow("Image", model.pricing.imagePerMillion, pricingDisplay)}</p> : null}
-            {model.pricing?.audioPerMillion !== undefined ? <p>{priceRow("Audio", model.pricing.audioPerMillion, pricingDisplay)}</p> : null}
-            {!hasAnyPricing(model.pricing) ? <p className="text-muted-foreground">Pricing unavailable</p> : null}
+            <p>{priceRow(labels.input, model.pricing?.inputPerMillion, pricingDisplay)}</p>
+            <p>{priceRow(labels.output, model.pricing?.outputPerMillion, pricingDisplay)}</p>
+            {model.pricing?.cachedInputPerMillion !== undefined ? <p>{priceRow(labels.cachedInput, model.pricing.cachedInputPerMillion, pricingDisplay)}</p> : null}
+            {model.pricing?.imagePerMillion !== undefined ? <p>{priceRow(labels.image, model.pricing.imagePerMillion, pricingDisplay)}</p> : null}
+            {model.pricing?.audioPerMillion !== undefined ? <p>{priceRow(labels.audio, model.pricing.audioPerMillion, pricingDisplay)}</p> : null}
+            {!hasAnyPricing(model.pricing) ? <p className="text-muted-foreground">{labels.pricingUnavailable}</p> : null}
           </div>
         </section>
 
         <details className="rounded-md border border-border/60 bg-muted/20 p-2.5">
-          <summary className="cursor-pointer text-xs font-medium text-muted-foreground">Technical metadata</summary>
+          <summary className="cursor-pointer text-xs font-medium text-muted-foreground">{labels.technicalMetadata}</summary>
           <Separator className="my-2" />
           <div className="space-y-1 text-xs">
-            <p><span className="text-muted-foreground">Model ID:</span> {model.metadata?.modelId ?? model.id}</p>
-            <p><span className="text-muted-foreground">Provider ID:</span> {model.provider.id}</p>
-            <p><span className="text-muted-foreground">API mode:</span> {model.metadata?.mode ?? "N/A"}</p>
-            <p><span className="text-muted-foreground">Release date:</span> {model.metadata?.releaseDate ?? "N/A"}</p>
-            <p><span className="text-muted-foreground">Knowledge cutoff:</span> {model.metadata?.knowledgeCutoff ?? "N/A"}</p>
-            <p><span className="text-muted-foreground">Regions:</span> {(model.metadata?.regions ?? []).join(", ") || "N/A"}</p>
-            <p><span className="text-muted-foreground">Rate limit notes:</span> {model.metadata?.rateLimitNotes ?? "N/A"}</p>
-            <p><span className="text-muted-foreground">License:</span> {model.metadata?.license ?? "N/A"}</p>
+            <p><span className="text-muted-foreground">{labels.modelId}:</span> {model.metadata?.modelId ?? model.id}</p>
+            <p><span className="text-muted-foreground">{labels.providerId}:</span> {model.provider.id}</p>
+            <p><span className="text-muted-foreground">{labels.apiMode}:</span> {model.metadata?.mode ?? "N/A"}</p>
+            <p><span className="text-muted-foreground">{labels.releaseDate}:</span> {model.metadata?.releaseDate ?? "N/A"}</p>
+            <p><span className="text-muted-foreground">{labels.knowledgeCutoff}:</span> {model.metadata?.knowledgeCutoff ?? "N/A"}</p>
+            <p><span className="text-muted-foreground">{labels.regions}:</span> {(model.metadata?.regions ?? []).join(", ") || "N/A"}</p>
+            <p><span className="text-muted-foreground">{labels.rateLimitNotes}:</span> {model.metadata?.rateLimitNotes ?? "N/A"}</p>
+            <p><span className="text-muted-foreground">{labels.license}:</span> {model.metadata?.license ?? "N/A"}</p>
           </div>
         </details>
       </CardContent>
@@ -228,22 +330,18 @@ export function ModelCard(props: ModelCardProps) {
           <Button asChild variant="outline" size="sm" className="gap-1">
             <Link href={props.detailsHref} target="_blank" rel="noreferrer">
               <ExternalLink className="h-3.5 w-3.5" />
-              View Details
+              {labels.viewDetails}
             </Link>
           </Button>
         ) : (
           <Button variant="outline" size="sm" className="gap-1" onClick={() => props.onViewDetails?.(model)}>
             <ExternalLink className="h-3.5 w-3.5" />
-            View Details
+            {labels.viewDetails}
           </Button>
         )}
         <Button variant="outline" size="sm" className="gap-1" onClick={handleCopyModelId}>
           {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-          {copied ? "Copied" : "Copy ID"}
-        </Button>
-        <Button variant="outline" size="sm" className="gap-1" onClick={() => props.onCompare?.(model)}>
-          <BarChart3 className="h-3.5 w-3.5" />
-          Compare
+          {copied ? labels.copied : labels.copyId}
         </Button>
       </CardFooter>
 
@@ -259,7 +357,7 @@ export function ModelCard(props: ModelCardProps) {
             {isCheap ? (
               <Badge variant="secondary" className="gap-1 text-[11px]">
                 <DollarSign className="h-3 w-3" />
-                Lower cost
+                {labels.lowerCost}
               </Badge>
             ) : null}
           </div>
@@ -269,20 +367,37 @@ export function ModelCard(props: ModelCardProps) {
   );
 }
 
-function labelCategory(value: ModelCardData["category"][number]) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
+function labelCategory(value: ModelCardData["category"][number], labels: NonNullable<ModelCardProps["labels"]>) {
+  switch (value) {
+    case "chat":
+      return labels.categoryChat;
+    case "reasoning":
+      return labels.categoryReasoning;
+    case "embedding":
+      return labels.categoryEmbedding;
+    case "vision":
+      return labels.categoryVision;
+    case "audio":
+      return labels.categoryAudio;
+    case "code":
+      return labels.categoryCode;
+    case "multimodal":
+      return labels.categoryMultimodal;
+    default:
+      return value;
+  }
 }
 
-function labelStatus(value: ModelCardData["status"]) {
+function labelStatus(value: ModelCardData["status"], labels: NonNullable<ModelCardProps["labels"]>) {
   switch (value) {
     case "stable":
-      return "Stable";
+      return labels.statusStable;
     case "preview":
-      return "Preview";
+      return labels.statusPreview;
     case "deprecated":
-      return "Deprecated";
+      return labels.statusDeprecated;
     case "new":
-      return "New";
+      return labels.statusNew;
     default:
       return value;
   }

@@ -1,7 +1,27 @@
-FROM node:20-alpine
+## syntax=docker/dockerfile:1.7
+FROM node:22-alpine AS builder
 WORKDIR /app
-COPY . .
-RUN corepack enable && pnpm install --frozen-lockfile
-RUN pnpm --filter @shahrah/support-admin build
+ENV NEXT_TELEMETRY_DISABLED=1
+
+COPY package.json ./
+COPY . ./
+
+RUN --mount=type=cache,id=npm-cache-support-admin,target=/root/.npm \
+    npm install
+RUN npm run build
+
+FROM node:22-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN addgroup -S nextjs && adduser -S nextjs -G nextjs
+
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+
+USER nextjs
 EXPOSE 3000
-CMD ["pnpm", "--filter", "@shahrah/support-admin", "start"]
+ENV PORT=3000
+CMD ["node", "server.js"]

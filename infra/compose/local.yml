@@ -16,7 +16,7 @@ services:
       MASTER_KEY: ${MASTER_KEY:-sk-dev-master-key-12345}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-sk-provider-placeholder}
       TUNNEL_CLIENT_URL: http://tunnel-client:8081
-      SHAHRAH_MODEL_DISCOVERY_URL: ${SHAHRAH_MODEL_DISCOVERY_URL:-http://silk-road:8083}
+      SHAHRAH_MODEL_DISCOVERY_URL: ${SHAHRAH_MODEL_DISCOVERY_URL:-http://model-discovery:3002}
       SHAHRAH_DISCOVERY_TOKEN: ${SHAHRAH_DISCOVERY_TOKEN:-}
       EMAIL_SENDING_ENABLED: ${EMAIL_SENDING_ENABLED:-true}
       SMTP_HOST: ${SMTP_HOST:-mailpit}
@@ -32,6 +32,58 @@ services:
       tunnel-client:
         condition: service_started
       mailpit:
+        condition: service_started
+    restart: unless-stopped
+
+  model-discovery:
+    build:
+      context: ../../apps/model-discovery
+      dockerfile: Dockerfile
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      DATABASE_URL: ${MODEL_DISCOVERY_DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/model_discovery?schema=public}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-s4M6gOMp77ss}
+      TYPESENSE_HOST: typesense
+      TYPESENSE_PORT: 8108
+      TYPESENSE_PROTOCOL: http
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY:-xyz}
+      MASTER_KEY: ${MASTER_KEY:-sk-dev-master-key-12345}
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret}
+      CORS_ORIGIN: ${MODEL_DISCOVERY_CORS_ORIGIN:-http://localhost:3000,http://localhost:3001,http://localhost:4000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      typesense:
+        condition: service_started
+    restart: unless-stopped
+
+  model-discovery-migrate:
+    build:
+      context: ../../apps/model-discovery
+      dockerfile: Dockerfile
+    command: ["sh", "-lc", "pnpm prisma migrate deploy"]
+    environment:
+      DATABASE_URL: ${MODEL_DISCOVERY_DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/model_discovery?schema=public}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  support-admin:
+    build:
+      context: ../../apps/support-admin
+      dockerfile: Dockerfile
+    ports:
+      - "${SUPPORT_ADMIN_HOST_PORT:-3001}:3000"
+    environment:
+      NEXT_PUBLIC_MODEL_CATALOG_API_BASE: ${NEXT_PUBLIC_MODEL_CATALOG_API_BASE:-http://localhost:3002/api/v1}
+    depends_on:
+      model-discovery:
         condition: service_started
     restart: unless-stopped
 
@@ -90,7 +142,9 @@ services:
       retries: 5
 
   migrate:
-    image: pressly/goose:latest
+    build:
+      context: ../../
+      dockerfile: infra/compose/images/goose.Dockerfile
     volumes:
       - ../../db/main/migrations:/migrations
     working_dir: /migrations
@@ -105,7 +159,7 @@ services:
       - "6379:6379"
     command: sh -c 'if [ -n "$$REDIS_PASSWORD" ]; then exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"; else exec redis-server --appendonly yes; fi'
     environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-s4M6gOMp77ss}
     volumes:
       - redisdata:/data
     healthcheck:
@@ -130,6 +184,19 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+
+  typesense:
+    image: typesense/typesense:${TYPESENSE_VERSION:-29.1}
+    ports:
+      - "${TYPESENSE_HOST_PORT:-8108}:8108"
+    environment:
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY:-xyz}
+      TYPESENSE_DATA_DIR: /data
+      TYPESENSE_ENABLE_CORS: "true"
+    command: ["--api-key=${TYPESENSE_API_KEY:-xyz}", "--data-dir=/data", "--enable-cors"]
+    volumes:
+      - typesensedata:/data
+    restart: unless-stopped
 
   mailpit:
     image: axllent/mailpit:latest
@@ -156,4 +223,5 @@ volumes:
   pgdata:
   redisdata:
   clickhousedata:
+  typesensedata:
   pgadmin_data:
