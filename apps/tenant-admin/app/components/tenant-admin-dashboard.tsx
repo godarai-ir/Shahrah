@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -23,6 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   PrincipalEntitySelect,
   type PrincipalEntitySelectLabels,
@@ -77,6 +80,9 @@ type AccessPrincipalResponse = {
 type AllowedModelResponse = {
   data?: Array<{ id: string }>;
 };
+type WalletTransactionListResponse = {
+  data?: WalletTransaction[];
+};
 
 type Banner = {
   kind: "success" | "error";
@@ -110,6 +116,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
 
   const [keys, setKeys] = useState<TenantKey[]>(props.initialKeys);
   const [wallet, setWallet] = useState<Wallet | null>(props.initialWallet);
+  const [transactions, setTransactions] = useState<WalletTransaction[]>(props.initialTransactions);
   const [lastCreatedKey, setLastCreatedKey] = useState<string | null>(null);
   const [banner, setBanner] = useState<Banner | null>(
     props.initialError
@@ -186,13 +193,15 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
   const loadDashboard = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [walletData, keysData] = await Promise.all([
+      const [walletData, keysData, txData] = await Promise.all([
         requestJSON<Wallet>("/api/wallet"),
         requestJSON<KeyListResponse>("/api/keys"),
+        requestJSON<WalletTransactionListResponse>("/api/wallet/transactions?limit=20"),
       ]);
 
       setWallet(walletData);
       setKeys(keysData.data ?? []);
+      setTransactions(txData.data ?? []);
     } catch (error) {
       setBanner({
         kind: "error",
@@ -323,8 +332,10 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
     }
   }
 
+  const isServiceAccountMode = keyMode === "service_account";
+
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <Card>
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -361,199 +372,261 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
         </Alert>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <SummaryCard
-          title={t("stats.balance")}
-          value={wallet ? formatIRR(wallet.balance_irr) : common("none")}
-          subtitle={t("stats.balanceHint")}
-        />
-        <SummaryCard
-          title={t("stats.pending")}
-          value={wallet ? formatIRR(wallet.pending_irr) : common("none")}
-          subtitle={t("stats.pendingHint")}
-        />
-        <SummaryCard
-          title={t("stats.keys")}
-          value={numberFormatter.format(keys.length)}
-          subtitle={t("stats.keysHint")}
-        />
-      </section>
+      <Tabs defaultValue="overview">
+        <TabsList variant="line" className="w-full justify-start overflow-x-auto">
+          <TabsTrigger value="overview">{t("title")}</TabsTrigger>
+          <TabsTrigger value="keys">{t("keys.title")}</TabsTrigger>
+          <TabsTrigger value="models">{t("models.title")}</TabsTrigger>
+        </TabsList>
 
-      <section className="grid gap-6 xl:grid-cols-2">
-        <Card id="keys">
-          <CardHeader>
-            <CardTitle>{t("keys.title")}</CardTitle>
-            <CardDescription>{t("keys.description")}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <form className="grid gap-3" onSubmit={handleCreateKey}>
-              <div className="grid gap-2">
-                <Label htmlFor="keyAlias">{t("keys.name")}</Label>
-                <Input
-                  id="keyAlias"
-                  value={keyAlias}
-                  onChange={(event) => setKeyAlias(event.target.value)}
-                  placeholder={t("keys.namePlaceholder")}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="keyModels">{t("keys.models")}</Label>
-                <Input
-                  id="keyModels"
-                  value={keyModelQuery}
-                  onChange={(event) => setKeyModelQuery(event.target.value)}
-                  placeholder={t("keys.modelsPlaceholder")}
-                />
-                <div className="max-h-56 overflow-auto rounded-md border p-2">
-                  {isLoadingAllowedModels ? (
-                    <p className="text-xs text-muted-foreground">Loading...</p>
-                  ) : filteredAllowedModels.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">{common("none")}</p>
-                  ) : (
-                    filteredAllowedModels.map((modelID) => (
-                      <label key={modelID} className="flex items-center gap-2 py-1 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={keySelectedModels.includes(modelID)}
-                          onChange={(event) => {
-                            if (event.target.checked) {
-                              setKeySelectedModels((prev) => Array.from(new Set([...prev, modelID])));
-                              return;
-                            }
-                            setKeySelectedModels((prev) => prev.filter((item) => item !== modelID));
-                          }}
-                        />
-                        <span className="font-mono text-xs">{modelID}</span>
-                      </label>
-                    ))
-                  )}
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="keyMode">Key type</Label>
-                <select
-                  id="keyMode"
-                  value={keyMode}
-                  onChange={(event) => {
-                    const nextMode =
-                      event.target.value === "service_account"
-                        ? "service_account"
-                        : "virtual_key";
-                    setKeyMode(nextMode);
-                    void loadAllowedModelsForScope(nextMode, keyTeamID);
-                  }}
-                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <option value="virtual_key">Virtual key</option>
-                  <option value="service_account">Service account (team)</option>
-                </select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="keyTeamID">Team ID (required for service account)</Label>
-                <PrincipalEntitySelect
-                  id="keyTeamID"
-                  selected={
-                    keyTeamID.trim()
-                      ? {
-                          type: "team",
-                          principal_id: keyTeamID.trim(),
-                          display_name: keyTeamID.trim(),
-                        }
-                      : null
-                  }
-                  onSelectedChange={(selection) => {
-                    const value = selection?.type === "team" ? (selection.principal_id ?? "") : "";
-                    setKeyTeamID(value);
-                    if (keyMode === "service_account") {
-                      void loadAllowedModelsForScope("service_account", value);
-                    }
-                  }}
-                  onSearch={searchPrincipals}
-                  labels={principalSelectorLabels}
-                  kinds={["team"]}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="keyOrgID">Organization ID (optional)</Label>
-                <Input
-                  id="keyOrgID"
-                  value={keyOrgID}
-                  onChange={(event) => setKeyOrgID(event.target.value)}
-                  placeholder="UUID organization_id"
-                />
-              </div>
+        <TabsContent value="overview" className="flex flex-col gap-6">
+          <section className="grid gap-4 md:grid-cols-3">
+            <SummaryCard
+              title={t("stats.balance")}
+              value={wallet ? formatIRR(wallet.balance_irr) : common("none")}
+              subtitle={t("stats.balanceHint")}
+            />
+            <SummaryCard
+              title={t("stats.pending")}
+              value={wallet ? formatIRR(wallet.pending_irr) : common("none")}
+              subtitle={t("stats.pendingHint")}
+            />
+            <SummaryCard
+              title={t("stats.keys")}
+              value={numberFormatter.format(keys.length)}
+              subtitle={t("stats.keysHint")}
+            />
+          </section>
 
-              <Button type="submit" disabled={isCreatingKey} className="w-fit">
-                {isCreatingKey ? t("keys.creating") : t("keys.create")}
-              </Button>
-            </form>
-
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("keys.table.name")}</TableHead>
-                  <TableHead>{t("keys.table.role")}</TableHead>
-                  <TableHead>Scope</TableHead>
-                  <TableHead>{t("keys.table.models")}</TableHead>
-                  <TableHead>{t("keys.table.key")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {keys.length === 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("transactions.title")}</CardTitle>
+              <CardDescription>{t("transactions.description")}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={5} className="text-muted-foreground">
-                      {t("keys.table.empty")}
-                    </TableCell>
+                    <TableHead>{t("transactions.columns.id")}</TableHead>
+                    <TableHead>{t("transactions.columns.type")}</TableHead>
+                    <TableHead>{t("transactions.columns.status")}</TableHead>
+                    <TableHead>{t("transactions.columns.amount")}</TableHead>
+                    <TableHead>{t("transactions.columns.createdAt")}</TableHead>
                   </TableRow>
-                ) : (
-                  keys.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>{item.key_alias}</TableCell>
-                      <TableCell>{item.role}</TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {item.team_id ? `team:${item.team_id}` : "tenant"}
-                      </TableCell>
-                      <TableCell>
-                        {(item.models ?? []).length > 0
-                          ? item.models.join("، ")
-                          : common("none")}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {item.key_name ?? t("keys.table.hidden")}
+                </TableHeader>
+                <TableBody>
+                  {transactions.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-muted-foreground">
+                        {t("transactions.empty")}
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                  ) : (
+                    transactions.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-mono text-xs">{item.id}</TableCell>
+                        <TableCell>{item.type}</TableCell>
+                        <TableCell>
+                          <Badge variant={item.status.toLowerCase() === "success" ? "secondary" : "outline"}>
+                            {item.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{formatIRR(item.amount_irr)}</TableCell>
+                        <TableCell>{formatDateTime(item.created_at)}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("models.title")}</CardTitle>
-            <CardDescription>{t("models.description")}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <form className="grid gap-3 sm:grid-cols-2" onSubmit={handleCreateModel}>
-              <InputField id="modelName" label={t("models.displayName")} value={modelName} onChange={setModelName} placeholder="gpt-4o-mini" />
-              <InputField id="provider" label={t("models.provider")} value={provider} onChange={setProvider} placeholder="openai" />
-              <InputField id="providerModel" label={t("models.providerModel")} value={providerModel} onChange={setProviderModel} placeholder="gpt-4o-mini" />
-              <InputField id="apiBase" label={t("models.apiBase")} value={apiBase} onChange={setApiBase} placeholder="http://provider.example/v1" />
-              <InputField id="apiKey" label={t("models.apiKey")} value={apiKey} onChange={setApiKey} placeholder="sk-provider" />
-              <InputField id="rpm" label={t("models.rpm")} value={rpm} onChange={setRPM} placeholder="250" />
-              <InputField id="tpm" label={t("models.tpm")} value={tpm} onChange={setTPM} placeholder="150000" />
-              <InputField id="weight" label={t("models.weight")} value={weight} onChange={setWeight} placeholder="1" />
+        <TabsContent value="keys">
+          <Card id="keys">
+            <CardHeader>
+              <CardTitle>{t("keys.title")}</CardTitle>
+              <CardDescription>{t("keys.description")}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-5">
+              <form className="grid gap-4" onSubmit={handleCreateKey}>
+                <div className="grid gap-2">
+                  <Label htmlFor="keyAlias">{t("keys.name")}</Label>
+                  <Input
+                    id="keyAlias"
+                    value={keyAlias}
+                    onChange={(event) => setKeyAlias(event.target.value)}
+                    placeholder={t("keys.namePlaceholder")}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="keyModels">{t("keys.models")}</Label>
+                  <Input
+                    id="keyModels"
+                    value={keyModelQuery}
+                    onChange={(event) => setKeyModelQuery(event.target.value)}
+                    placeholder={t("keys.modelsPlaceholder")}
+                  />
+                  <div className="flex max-h-56 flex-wrap gap-2 overflow-auto rounded-md border p-2">
+                    {isLoadingAllowedModels ? (
+                      <p className="text-xs text-muted-foreground">{common("loading")}</p>
+                    ) : filteredAllowedModels.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">{common("none")}</p>
+                    ) : (
+                      filteredAllowedModels.map((modelID) => {
+                        const isActive = keySelectedModels.includes(modelID);
+                        return (
+                          <Button
+                            key={modelID}
+                            type="button"
+                            size="sm"
+                            variant={isActive ? "default" : "outline"}
+                            onClick={() => {
+                              if (isActive) {
+                                setKeySelectedModels((prev) => prev.filter((item) => item !== modelID));
+                                return;
+                              }
+                              setKeySelectedModels((prev) => Array.from(new Set([...prev, modelID])));
+                            }}
+                            className="font-mono text-xs"
+                          >
+                            {modelID}
+                          </Button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between rounded-md border p-3">
+                  <div className="flex flex-col gap-1">
+                    <Label htmlFor="keyMode" className="cursor-pointer">
+                      Key type
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      {isServiceAccountMode ? "Service account (team)" : "Virtual key"}
+                    </p>
+                  </div>
+                  <Switch
+                    id="keyMode"
+                    checked={isServiceAccountMode}
+                    onCheckedChange={(checked) => {
+                      const nextMode = checked ? "service_account" : "virtual_key";
+                      setKeyMode(nextMode);
+                      void loadAllowedModelsForScope(nextMode, keyTeamID);
+                    }}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="keyTeamID">Team ID (required for service account)</Label>
+                  <PrincipalEntitySelect
+                    id="keyTeamID"
+                    selected={
+                      keyTeamID.trim()
+                        ? {
+                            type: "team",
+                            principal_id: keyTeamID.trim(),
+                            display_name: keyTeamID.trim(),
+                          }
+                        : null
+                    }
+                    onSelectedChange={(selection) => {
+                      const value = selection?.type === "team" ? (selection.principal_id ?? "") : "";
+                      setKeyTeamID(value);
+                      if (keyMode === "service_account") {
+                        void loadAllowedModelsForScope("service_account", value);
+                      }
+                    }}
+                    onSearch={searchPrincipals}
+                    labels={principalSelectorLabels}
+                    kinds={["team"]}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="keyOrgID">Organization ID (optional)</Label>
+                  <Input
+                    id="keyOrgID"
+                    value={keyOrgID}
+                    onChange={(event) => setKeyOrgID(event.target.value)}
+                    placeholder="UUID organization_id"
+                  />
+                </div>
 
-              <div className="sm:col-span-2">
-                <Button type="submit" disabled={isCreatingModel}>
-                  {isCreatingModel ? t("models.creating") : t("models.create")}
+                <Button type="submit" disabled={isCreatingKey} className="w-fit">
+                  {isCreatingKey ? t("keys.creating") : t("keys.create")}
                 </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      </section>
+              </form>
+
+              <Separator />
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("keys.table.name")}</TableHead>
+                    <TableHead>{t("keys.table.role")}</TableHead>
+                    <TableHead>Scope</TableHead>
+                    <TableHead>{t("keys.table.models")}</TableHead>
+                    <TableHead>{t("keys.table.key")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {keys.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-muted-foreground">
+                        {t("keys.table.empty")}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    keys.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>{item.key_alias}</TableCell>
+                        <TableCell>{item.role}</TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {item.team_id ? `team:${item.team_id}` : "tenant"}
+                        </TableCell>
+                        <TableCell>
+                          {(item.models ?? []).length > 0
+                            ? item.models.join("، ")
+                            : common("none")}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {item.key_name ?? t("keys.table.hidden")}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="models">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("models.title")}</CardTitle>
+              <CardDescription>{t("models.description")}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form className="grid gap-3 sm:grid-cols-2" onSubmit={handleCreateModel}>
+                <InputField id="modelName" label={t("models.displayName")} value={modelName} onChange={setModelName} placeholder="gpt-4o-mini" />
+                <InputField id="provider" label={t("models.provider")} value={provider} onChange={setProvider} placeholder="openai" />
+                <InputField id="providerModel" label={t("models.providerModel")} value={providerModel} onChange={setProviderModel} placeholder="gpt-4o-mini" />
+                <InputField id="apiBase" label={t("models.apiBase")} value={apiBase} onChange={setApiBase} placeholder="http://provider.example/v1" />
+                <InputField id="apiKey" label={t("models.apiKey")} value={apiKey} onChange={setApiKey} placeholder="sk-provider" />
+                <InputField id="rpm" label={t("models.rpm")} value={rpm} onChange={setRPM} placeholder="250" />
+                <InputField id="tpm" label={t("models.tpm")} value={tpm} onChange={setTPM} placeholder="150000" />
+                <InputField id="weight" label={t("models.weight")} value={weight} onChange={setWeight} placeholder="1" />
+
+                <div className="sm:col-span-2">
+                  <Button type="submit" disabled={isCreatingModel}>
+                    {isCreatingModel ? t("models.creating") : t("models.create")}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
@@ -648,5 +721,14 @@ function toNumberOrUndefined(value: string): number | undefined {
 
 function formatIRR(value: number): string {
   return `${numberFormatter.format(Math.round(value))} ریال`;
+}
+
+function formatDateTime(value: string): string {
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) return value;
+  return new Intl.DateTimeFormat("fa-IR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(timestamp));
 }
 

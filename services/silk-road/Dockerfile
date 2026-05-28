@@ -10,7 +10,7 @@ ENV GOWORK=off
 RUN go mod download
 RUN CGO_ENABLED=0 GOOS=linux go build -o /out/server ./cmd/server
 
-FROM alpine:3.19
+FROM alpine:3.23.4
 
 WORKDIR /app
 RUN apk --no-cache add ca-certificates

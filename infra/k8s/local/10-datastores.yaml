@@ -1,0 +1,319 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: shahrah-local
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      imagePullSecrets:
+        - name: regcred
+      containers:
+        - name: postgres
+          image: postgres:18
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+              name: postgres
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: shahrah-secret
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shahrah-secret
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: shahrah-secret
+                  key: POSTGRES_DB
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER"
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER"
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: pgdata
+          persistentVolumeClaim:
+            claimName: pgdata
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: shahrah-local
+spec:
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: shahrah-local
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      imagePullSecrets:
+        - name: regcred
+      containers:
+        - name: redis
+          image: redis:8-alpine
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              if [ -n "$REDIS_PASSWORD" ]; then
+                exec redis-server --appendonly yes --requirepass "$REDIS_PASSWORD";
+              else
+                exec redis-server --appendonly yes;
+              fi
+          ports:
+            - containerPort: 6379
+              name: redis
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shahrah-secret
+                  key: REDIS_PASSWORD
+          volumeMounts:
+            - name: redisdata
+              mountPath: /data
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - |
+                  if [ -n "$REDIS_PASSWORD" ]; then
+                    redis-cli -a "$REDIS_PASSWORD" ping;
+                  else
+                    redis-cli ping;
+                  fi
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - |
+                  if [ -n "$REDIS_PASSWORD" ]; then
+                    redis-cli -a "$REDIS_PASSWORD" ping;
+                  else
+                    redis-cli ping;
+                  fi
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: redisdata
+          persistentVolumeClaim:
+            claimName: redisdata
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: shahrah-local
+spec:
+  selector:
+    app: redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clickhouse
+  namespace: shahrah-local
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clickhouse
+  template:
+    metadata:
+      labels:
+        app: clickhouse
+    spec:
+      imagePullSecrets:
+        - name: regcred
+      containers:
+        - name: clickhouse
+          image: clickhouse/clickhouse-server:26.3
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8123
+              name: http
+            - containerPort: 9000
+              name: native
+          env:
+            - name: CLICKHOUSE_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: shahrah-config
+                  key: CLICKHOUSE_DB
+            - name: CLICKHOUSE_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: shahrah-config
+                  key: CLICKHOUSE_USER
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shahrah-secret
+                  key: CLICKHOUSE_PASSWORD
+          volumeMounts:
+            - name: clickhousedata
+              mountPath: /var/lib/clickhouse
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - clickhouse-client --query "SELECT 1"
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - clickhouse-client --query "SELECT 1"
+            initialDelaySeconds: 20
+            periodSeconds: 15
+      volumes:
+        - name: clickhousedata
+          persistentVolumeClaim:
+            claimName: clickhousedata
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clickhouse
+  namespace: shahrah-local
+spec:
+  selector:
+    app: clickhouse
+  ports:
+    - name: http
+      port: 8123
+      targetPort: 8123
+    - name: native
+      port: 9000
+      targetPort: 9000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: typesense
+  namespace: shahrah-local
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: typesense
+  template:
+    metadata:
+      labels:
+        app: typesense
+    spec:
+      imagePullSecrets:
+        - name: regcred
+      containers:
+        - name: typesense
+          image: typesense/typesense:29.1
+          imagePullPolicy: IfNotPresent
+          args:
+            - --api-key=$(TYPESENSE_API_KEY)
+            - --data-dir=/data
+            - --enable-cors
+          ports:
+            - containerPort: 8108
+              name: http
+          env:
+            - name: TYPESENSE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: shahrah-secret
+                  key: TYPESENSE_API_KEY
+            - name: TYPESENSE_DATA_DIR
+              valueFrom:
+                configMapKeyRef:
+                  name: shahrah-config
+                  key: TYPESENSE_DATA_DIR
+            - name: TYPESENSE_ENABLE_CORS
+              valueFrom:
+                configMapKeyRef:
+                  name: shahrah-config
+                  key: TYPESENSE_ENABLE_CORS
+          volumeMounts:
+            - name: typesensedata
+              mountPath: /data
+          readinessProbe:
+            tcpSocket:
+              port: 8108
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 8108
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: typesensedata
+          persistentVolumeClaim:
+            claimName: typesensedata
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: typesense
+  namespace: shahrah-local
+spec:
+  selector:
+    app: typesense
+  ports:
+    - name: http
+      port: 8108
+      targetPort: 8108

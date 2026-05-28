@@ -1,0 +1,35 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - 00-namespace.yaml
+  - 01-config.yaml
+  - 01-secret.yaml
+  - 02-storage.yaml
+  - 10-datastores.yaml
+  - 20-platform.yaml
+  - 30-apps.yaml
+  - 40-jobs.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+  - name: goose-migrations
+    namespace: shahrah-local
+    files:
+      - migrations/001_initial.sql
+      - migrations/002_users_entity_tenant_fields.sql
+      - migrations/003_drop_legacy_shahrah_sql_migrations.sql
+      - migrations/004_users_tenant_scoped_unique_identity.sql
+      - migrations/005_teams_add_tenant_id.sql
+      - migrations/006_teams_add_org_unit_and_workspace_type.sql
+      - migrations/007_organizations_add_tenant_id.sql
+      - migrations/008_remove_legacy_budget_guardrails.sql
+      - migrations/009_rate_limit_rules.sql
+      - migrations/010_budget_limit_rules.sql
+      - migrations/011_tenant_trace_privacy_settings.sql
+      - migrations/012_seed_exchange_rate_1850000.sql
+      - migrations/013_virtual_model_acl_org_unit.sql
+      - migrations/014_tenant_admin_invitation_pending_uniqueness.sql
+      - migrations/015_roles_and_permissions.sql
+      - migrations/016_merge_member_system_roles.sql

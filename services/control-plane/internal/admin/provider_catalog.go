@@ -25,10 +25,10 @@ var errDiscoveryNotFound = errors.New("discovery resource not found")
 const discoveryTimeout = 8 * time.Second
 
 type providerCatalogCache struct {
-	mu         sync.RWMutex
-	providers  []platform.ProviderCatalogProvider
+	mu          sync.RWMutex
+	providers   []platform.ProviderCatalogProvider
 	providersAt time.Time
-	models     map[string]cachedModels
+	models      map[string]cachedModels
 }
 
 type cachedModels struct {
@@ -50,6 +50,28 @@ type discoveryTelemetryCounters struct {
 }
 
 var discoveryTelemetry discoveryTelemetryCounters
+
+type discoveryProvider struct {
+	Slug                    string `json:"slug"`
+	Name                    string `json:"name"`
+	Enabled                 bool   `json:"enabled"`
+	SupportsByok            bool   `json:"supportsByok"`
+	SupportsRegionalRouting bool   `json:"supportsRegionalRouting"`
+}
+
+type modelDiscoveryPricing struct {
+	InputPerMillionTokens  *float64 `json:"inputPerMillionTokens"`
+	OutputPerMillionTokens *float64 `json:"outputPerMillionTokens"`
+}
+
+type modelDiscoveryModel struct {
+	CanonicalID      string                 `json:"canonicalId"`
+	Name             string                 `json:"name"`
+	Capabilities     []string               `json:"capabilities"`
+	InputModalities  []string               `json:"inputModalities"`
+	OutputModalities []string               `json:"outputModalities"`
+	Pricing          *modelDiscoveryPricing `json:"pricing"`
+}
 
 func discoveryProviderExists(ctx context.Context, provider string) (bool, error) {
 	items, err := discoveryProviders(ctx)
@@ -137,6 +159,10 @@ func discoveryProviderModels(ctx context.Context, provider string) ([]platform.P
 		return items, err
 	}
 	body, status, err := discoveryGET(ctx, baseURL+"/providers/"+url.PathEscape(normalizedProvider)+"/models")
+	if err == nil && status == http.StatusNotFound {
+		queryURL := baseURL + "/models?provider=" + url.QueryEscape(normalizedProvider) + "&limit=200"
+		body, status, err = discoveryGET(ctx, queryURL)
+	}
 	if err != nil {
 		atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
 		atomic.AddUint64(&discoveryTelemetry.discoveryFallback, 1)
@@ -401,6 +427,17 @@ func decodeProvidersPayload(body []byte) ([]platform.ProviderCatalogProvider, er
 	if len(wrapped.Providers) > 0 {
 		return wrapped.Providers, nil
 	}
+
+	var mdDirect []discoveryProvider
+	if err := json.Unmarshal(body, &mdDirect); err == nil && len(mdDirect) > 0 {
+		return mapDiscoveryProviders(mdDirect), nil
+	}
+	var mdWrapped struct {
+		Data []discoveryProvider `json:"data"`
+	}
+	if err := json.Unmarshal(body, &mdWrapped); err == nil && len(mdWrapped.Data) > 0 {
+		return mapDiscoveryProviders(mdWrapped.Data), nil
+	}
 	return nil, fmt.Errorf("discovery providers payload does not contain providers")
 }
 
@@ -427,7 +464,126 @@ func decodeProviderModelsPayload(body []byte) ([]platform.ProviderCatalogModel, 
 	if len(wrapped.Models) > 0 {
 		return wrapped.Models, nil
 	}
+
+	var modelsWrapped struct {
+		Data []modelDiscoveryModel `json:"data"`
+	}
+	if err := json.Unmarshal(body, &modelsWrapped); err == nil && len(modelsWrapped.Data) > 0 {
+		return mapDiscoveryModels(modelsWrapped.Data), nil
+	}
 	return nil, fmt.Errorf("discovery provider models payload does not contain models")
+}
+
+func mapDiscoveryProviders(items []discoveryProvider) []platform.ProviderCatalogProvider {
+	out := make([]platform.ProviderCatalogProvider, 0, len(items))
+	for _, item := range items {
+		provider := strings.TrimSpace(strings.ToLower(item.Slug))
+		if provider == "" {
+			continue
+		}
+		displayName := strings.TrimSpace(item.Name)
+		if displayName == "" {
+			displayName = provider
+		}
+		out = append(out, platform.ProviderCatalogProvider{
+			Provider:                provider,
+			DisplayName:             displayName,
+			Enabled:                 item.Enabled,
+			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
+			SupportsBringYourOwnKey: item.SupportsByok,
+			SupportsVirtualKeys:     true,
+		})
+	}
+	return out
+}
+
+func mapDiscoveryModels(items []modelDiscoveryModel) []platform.ProviderCatalogModel {
+	out := make([]platform.ProviderCatalogModel, 0, len(items))
+	for _, item := range items {
+		model := strings.TrimSpace(item.CanonicalID)
+		if model == "" {
+			continue
+		}
+		displayName := strings.TrimSpace(item.Name)
+		if displayName == "" {
+			displayName = model
+		}
+
+		types := make([]platform.ModelType, 0, len(item.Capabilities))
+		for _, capability := range item.Capabilities {
+			mt := mapCapabilityToModelType(capability)
+			if mt == "" {
+				continue
+			}
+			types = append(types, mt)
+		}
+
+		if len(types) == 0 {
+			for _, modality := range append(item.InputModalities, item.OutputModalities...) {
+				mt := mapModalityToModelType(modality)
+				if mt == "" {
+					continue
+				}
+				types = append(types, mt)
+			}
+		}
+
+		entry := platform.ProviderCatalogModel{
+			Model:       model,
+			DisplayName: displayName,
+			Types:       normalizeModelTypes(types),
+		}
+		if item.Pricing != nil {
+			entry.PublicPricing = &platform.ModelPrice{
+				InputUSDPer1M:  item.Pricing.InputPerMillionTokens,
+				OutputUSDPer1M: item.Pricing.OutputPerMillionTokens,
+			}
+		}
+		out = append(out, entry)
+	}
+	return out
+}
+
+func mapCapabilityToModelType(capability string) platform.ModelType {
+	switch strings.TrimSpace(strings.ToLower(capability)) {
+	case "chat", "reasoning", "agent":
+		return platform.ModelTypeChat
+	case "completion", "text":
+		return platform.ModelTypeCompletion
+	case "embedding":
+		return platform.ModelTypeEmbedding
+	case "realtime":
+		return platform.ModelTypeRealtime
+	case "image", "image_generation", "vision":
+		return platform.ModelTypeImageGeneration
+	case "audio", "speech", "tts", "text_to_speech":
+		return platform.ModelTypeTextToSpeech
+	case "transcription", "audio_transcription":
+		return platform.ModelTypeAudioTranscription
+	case "translation", "audio_translation":
+		return platform.ModelTypeAudioTranslation
+	case "moderation":
+		return platform.ModelTypeModeration
+	case "rerank":
+		return platform.ModelTypeRerank
+	case "search":
+		return platform.ModelTypeSearch
+	default:
+		return ""
+	}
+}
+
+func mapModalityToModelType(modality string) platform.ModelType {
+	switch strings.TrimSpace(strings.ToLower(modality)) {
+	case "text":
+		return platform.ModelTypeChat
+	case "image":
+		return platform.ModelTypeImageGeneration
+	case "audio":
+		return platform.ModelTypeAudioTranscription
+	default:
+		return ""
+	}
 }
 
 func normalizeProviders(items []platform.ProviderCatalogProvider) []platform.ProviderCatalogProvider {
@@ -814,9 +970,9 @@ func fillModelPricingFromRegistry(provider string, model string, current *platfo
 }
 
 type builtInModelEntry struct {
-	Model         string
-	Types         []platform.ModelType
-	InputUSDPer1M *float64
+	Model          string
+	Types          []platform.ModelType
+	InputUSDPer1M  *float64
 	OutputUSDPer1M *float64
 }
 

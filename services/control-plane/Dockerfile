@@ -23,7 +23,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=linux go build -mod=mod -o /out/server ./cmd/server
 
-FROM alpine:3.19
+FROM alpine:3.23.4
 
 WORKDIR /app
 RUN apk --no-cache add ca-certificates

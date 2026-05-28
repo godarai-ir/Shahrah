@@ -1,6 +1,8 @@
 ﻿"use client";
 
 import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
@@ -163,9 +165,14 @@ type ModelDraft = {
 
 type Readiness = "ready" | "needs_credentials" | "needs_access" | "pricing_incomplete";
 
-export default function ProviderAccountWizard() {
+type ProviderAccountWizardMode = "manage" | "create";
+
+export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWizardMode }) {
+  const mode = props?.mode ?? "manage";
+  const isCreateMode = mode === "create";
   const t = useTranslations("providerAccounts");
   const ux = useTranslations("providerAccounts.ux");
+  const router = useRouter();
   const queryClient = useQueryClient();
   const permissions = usePermissions();
   const canCreateProviderAccount = permissions ? canPermission(permissions, "provider_account:create") : false;
@@ -174,7 +181,7 @@ export default function ProviderAccountWizard() {
     ? canPermission(permissions, "provider_account:manage") || canPermission(permissions, "provider_account:create")
     : false;
 
-  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("overview");
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(isCreateMode ? "setup" : "overview");
   const [setupStep, setSetupStep] = useState<SetupStep>(1);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("models");
 
@@ -259,14 +266,36 @@ export default function ProviderAccountWizard() {
   );
 
   const selectedProvider = useMemo(
-    () => visibleProviders.find((item) => stringsEqualFold(item.provider, selectedProviderID)) ?? null,
-    [visibleProviders, selectedProviderID],
+    () => providers.find((item) => stringsEqualFold(item.provider, selectedProviderID)) ?? null,
+    [providers, selectedProviderID],
   );
 
   const selectedProviderAccounts = useMemo(
     () => accounts.filter((item) => stringsEqualFold(item.provider, selectedProviderID)),
     [accounts, selectedProviderID],
   );
+
+  const configuredProviders = useMemo(() => {
+    const uniqueProviders: TenantProviderAccount[] = [];
+    for (const accountItem of accounts) {
+      const alreadyIncluded = uniqueProviders.some((item) => stringsEqualFold(item.provider, accountItem.provider));
+      if (!alreadyIncluded) uniqueProviders.push(accountItem);
+    }
+    return uniqueProviders.map((accountItem) => {
+      const catalogProvider = providers.find((item) => stringsEqualFold(item.provider, accountItem.provider));
+      if (catalogProvider) return catalogProvider;
+      return {
+        provider: accountItem.provider,
+        display_name: accountItem.provider,
+        enabled: true,
+        auth_modes: ["api_key"],
+        supports_bring_your_own_key: true,
+        supports_virtual_keys: true,
+      } satisfies ProviderCatalogProvider;
+    });
+  }, [accounts, providers]);
+
+  const hasConfiguredProviders = configuredProviders.length > 0;
 
   const providersQuery = useQuery({
     queryKey: ["tenant-admin", "provider-catalog", "providers"],
@@ -388,9 +417,31 @@ export default function ProviderAccountWizard() {
         return Object.fromEntries(Object.entries(prev).filter(([id]) => activeIDs.has(id)));
       });
 
-      const initialProvider =
-        currentProviderID || accountItems[0]?.provider || providerItems[0]?.provider || "";
-      if (initialProvider) setSelectedProviderID(initialProvider);
+      if (isCreateMode) {
+        const createProviders = providerItems.filter(
+          (item) => item.enabled && stringsEqualFold(item.provider, "azure") === false,
+        );
+        const initialProvider = currentProviderID || createProviders[0]?.provider || "";
+        setSelectedProviderID(initialProvider);
+        setSelectedAccountID("");
+        setAccount(null);
+        setWorkspaceMode("setup");
+        setSetupStep(1);
+        setManagers([]);
+        setUsers([{ type: "everyone", display_name: t("principal.everyone") }]);
+        if (initialProvider) {
+          const providerItem = createProviders.find((item) => stringsEqualFold(item.provider, initialProvider));
+          setProvider(initialProvider);
+          setName(initialProvider);
+          setAuthMode(providerItem?.auth_modes?.[0] ?? "api_key");
+          setAllowVirtualOnly(false);
+          void loadProviderModels(initialProvider);
+        }
+        return;
+      }
+
+      const initialProvider = currentProviderID || accountItems[0]?.provider || "";
+      setSelectedProviderID(initialProvider);
 
       if (currentAccountID && accountItems.some((item) => item.id === currentAccountID)) return;
 
@@ -407,7 +458,7 @@ export default function ProviderAccountWizard() {
     } finally {
       setIsLoading(false);
     }
-  }, [providersQuery.data, t]);
+  }, [isCreateMode, loadProviderModels, providersQuery.data, t]);
 
   const loadCatalogStats = useCallback(async () => {
     try {
@@ -566,6 +617,7 @@ export default function ProviderAccountWizard() {
             setWorkspaceMode("workspace");
           } else {
             setSelectedAccountID("");
+            setSelectedProviderID("");
             setAccount(null);
             setProviderModels([]);
             setModelDrafts({});
@@ -661,35 +713,6 @@ export default function ProviderAccountWizard() {
     setAWSSecretAccessKey("");
     setAWSRegion("us-east-1");
     setGoogleServiceAccountJSON("");
-  }
-
-  function startSetup(providerID?: string) {
-    if (!canCreateProviderAccount) {
-      setBanner({ kind: "error", message: t("messages.insufficientPermissions") });
-      return;
-    }
-    accountLoadRequestRef.current += 1;
-    const nextProvider = providerID || selectedProviderID || visibleProviders[0]?.provider || "";
-    setWorkspaceMode("setup");
-    setSetupStep(1);
-    setSelectedAccountID("");
-    setAccount(null);
-    setManagers([]);
-    setUsers([{ type: "everyone", display_name: t("principal.everyone") }]);
-    setEffectiveModels([]);
-    setLastCredentialTestMessage("");
-    setModelSearchQuery("");
-    resetCredentialInputs();
-
-    if (nextProvider) {
-      const providerItem = visibleProviders.find((item) => stringsEqualFold(item.provider, nextProvider));
-      setSelectedProviderID(nextProvider);
-      setProvider(nextProvider);
-      setName(nextProvider);
-      setAuthMode(providerItem?.auth_modes?.[0] ?? "api_key");
-      setAllowVirtualOnly(false);
-      void loadProviderModels(nextProvider);
-    }
   }
 
   async function handleRefreshCatalog() {
@@ -963,6 +986,10 @@ export default function ProviderAccountWizard() {
       const accessOK = await handleSaveAccess(selectedAccountID);
       if (!accessOK) return;
       setSetupStep(5);
+      if (isCreateMode) {
+        router.push("/provider-accounts");
+        return;
+      }
       setWorkspaceMode("workspace");
       setActiveTab("models");
       setBanner({ kind: "success", message: ux("messages.accountActivated") });
@@ -1061,109 +1088,133 @@ export default function ProviderAccountWizard() {
         ) : null}
 
         <div className="grid gap-4 lg:grid-cols-12">
+          {!isCreateMode ? (
           <aside className="space-y-3 lg:col-span-4 xl:col-span-3">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">{ux("sidebar.connectedProviders")}</CardTitle>
-                <CardDescription>{ux("sidebar.connectedProvidersHint")}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {visibleProviders.map((item) => {
-                  const providerCount = accounts.filter((accountItem) => stringsEqualFold(accountItem.provider, item.provider)).length;
-                  const isSelected = stringsEqualFold(selectedProviderID, item.provider);
-                  return (
-                    <button
-                      key={item.provider}
-                      type="button"
-                      className={`w-full rounded-lg border px-3 py-2 text-start transition ${
-                        isSelected ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"
-                      }`}
-                      onClick={() => handleSelectProvider(item)}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <Image src={getProviderLogoPath(item.provider)} alt={item.display_name} width={18} height={18} />
-                          <span className="font-medium">{item.display_name}</span>
-                        </div>
-                        <Badge variant="secondary">{providerCount}</Badge>
-                      </div>
-                    </button>
-                  );
-                })}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">{ux("sidebar.providerAccounts")}</CardTitle>
-                <CardDescription>{selectedProvider?.display_name ?? ux("sidebar.selectProviderPrompt")}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {selectedProviderAccounts.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">{ux("sidebar.noAccountYet")}</p>
-                ) : (
-                  selectedProviderAccounts.map((item) => {
-                    const isSelected = item.id === selectedAccountID && workspaceMode === "workspace";
-                    const isDeleting = deletingAccountID === item.id;
-                    return (
-                      <div
-                        key={item.id}
-                        className={`w-full rounded-lg border px-2 py-2 ${
-                          isSelected ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            className="min-w-0 flex-1 text-start"
-                            onClick={() => handleSelectAccount(item)}
-                          >
-                            <div className="font-medium">{item.name}</div>
-                            <div className="text-xs text-muted-foreground">{item.auth_mode}</div>
-                          </button>
-                          <div className="shrink-0">
-                            <ReadinessBadge
-                              readiness={accountReadiness[item.id] ?? deriveAccountListReadiness(item)}
-                              labels={{
-                                ready: ux("readiness.ready"),
-                                needs_credentials: ux("readiness.needsCredentials"),
-                                needs_access: ux("readiness.needsAccess"),
-                                pricing_incomplete: ux("readiness.pricingIncomplete"),
-                              }}
-                            />
+            {hasConfiguredProviders ? (
+              <>
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">{ux("sidebar.connectedProviders")}</CardTitle>
+                    <CardDescription>{ux("sidebar.connectedProvidersHint")}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {configuredProviders.map((item) => {
+                      const providerCount = accounts.filter((accountItem) => stringsEqualFold(accountItem.provider, item.provider)).length;
+                      const isSelected = stringsEqualFold(selectedProviderID, item.provider);
+                      return (
+                        <button
+                          key={item.provider}
+                          type="button"
+                          className={`w-full rounded-lg border px-3 py-2 text-start transition ${
+                            isSelected ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"
+                          }`}
+                          onClick={() => handleSelectProvider(item)}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <Image src={getProviderLogoPath(item.provider)} alt={item.display_name} width={18} height={18} />
+                              <span className="font-medium">{item.display_name}</span>
+                            </div>
+                            <Badge variant="secondary">{providerCount}</Badge>
                           </div>
-                        </div>
-                        <div className="mt-2 flex justify-end">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => openDeleteAccountDialog(item)}
-                            disabled={isDeleting || !canDeleteProviderAccount}
+                        </button>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">{ux("sidebar.providerAccounts")}</CardTitle>
+                    <CardDescription>{selectedProvider?.display_name ?? ux("sidebar.selectProviderPrompt")}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {selectedProviderAccounts.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">{ux("sidebar.noAccountYet")}</p>
+                    ) : (
+                      selectedProviderAccounts.map((item) => {
+                        const isSelected = item.id === selectedAccountID && workspaceMode === "workspace";
+                        const isDeleting = deletingAccountID === item.id;
+                        return (
+                          <div
+                            key={item.id}
+                            className={`w-full rounded-lg border px-2 py-2 ${
+                              isSelected ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"
+                            }`}
                           >
-                            <Trash2 className="me-1 h-4 w-4" />
-                            {isDeleting ? ux("actions.loading") : ux("actions.deleteAccount")}
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                className="min-w-0 flex-1 text-start"
+                                onClick={() => handleSelectAccount(item)}
+                              >
+                                <div className="font-medium">{item.name}</div>
+                                <div className="text-xs text-muted-foreground">{item.auth_mode}</div>
+                              </button>
+                              <div className="shrink-0">
+                                <ReadinessBadge
+                                  readiness={accountReadiness[item.id] ?? deriveAccountListReadiness(item)}
+                                  labels={{
+                                    ready: ux("readiness.ready"),
+                                    needs_credentials: ux("readiness.needsCredentials"),
+                                    needs_access: ux("readiness.needsAccess"),
+                                    pricing_incomplete: ux("readiness.pricingIncomplete"),
+                                  }}
+                                />
+                              </div>
+                            </div>
+                            <div className="mt-2 flex justify-end">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => openDeleteAccountDialog(item)}
+                                disabled={isDeleting || !canDeleteProviderAccount}
+                              >
+                                <Trash2 className="me-1 h-4 w-4" />
+                                {isDeleting ? ux("actions.loading") : ux("actions.deleteAccount")}
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
 
-                <div className="flex gap-2 pt-2">
-                  <Button type="button" size="sm" className="flex-1" onClick={() => startSetup(selectedProviderID)} disabled={!canCreateProviderAccount}>
-                    {ux("actions.addProviderAccount")}
-                  </Button>
-                  <Button type="button" size="sm" variant="outline" onClick={() => void handleRefreshCatalog()} disabled={isRefreshingCatalog}>
-                    {isRefreshingCatalog ? ux("actions.refreshingCatalog") : ux("actions.refreshCatalog")}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                    <div className="flex gap-2 pt-2">
+                      <Button type="button" size="sm" className="flex-1" asChild disabled={!canCreateProviderAccount}>
+                        <Link href="/provider-accounts/new">{ux("actions.addProviderAccount")}</Link>
+                      </Button>
+                      <Button type="button" size="sm" variant="outline" onClick={() => void handleRefreshCatalog()} disabled={isRefreshingCatalog}>
+                        {isRefreshingCatalog ? ux("actions.refreshingCatalog") : ux("actions.refreshCatalog")}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">{ux("sidebar.providerAccounts")}</CardTitle>
+                  <CardDescription>{ux("overview.title")}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-muted-foreground">{ux("overview.description")}</p>
+                  <div className="flex gap-2">
+                    <Button type="button" size="sm" className="flex-1" asChild disabled={!canCreateProviderAccount}>
+                      <Link href="/provider-accounts/new">{ux("actions.setupNewAccount")}</Link>
+                    </Button>
+                    <Button type="button" size="sm" variant="outline" onClick={() => void handleRefreshCatalog()} disabled={isRefreshingCatalog}>
+                      {isRefreshingCatalog ? ux("actions.refreshingCatalog") : ux("actions.refreshCatalog")}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </aside>
+          ) : null}
 
-          <section className="space-y-4 lg:col-span-8 xl:col-span-9">
+          <section className={`space-y-4 ${isCreateMode ? "lg:col-span-12" : "lg:col-span-8 xl:col-span-9"}`}>
             <Card className="border-border/70">
               <CardHeader className="pb-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1221,7 +1272,7 @@ export default function ProviderAccountWizard() {
                     description={ux("overview.description")}
                     setupLabel={ux("actions.setupNewAccount")}
                     openExistingLabel={ux("actions.openExisting")}
-                    onStart={() => startSetup(selectedProviderID)}
+                    setupHref="/provider-accounts/new"
                     onOpenFirst={() => {
                       const first = selectedProviderAccounts[0];
                       if (first) handleSelectAccount(first);
@@ -1707,8 +1758,8 @@ function EmptyOverview(props: {
   title: string;
   description: string;
   setupLabel: string;
+  setupHref: string;
   openExistingLabel: string;
-  onStart: () => void;
   onOpenFirst: () => void;
   hasAccount: boolean;
   createDisabled?: boolean;
@@ -1718,7 +1769,9 @@ function EmptyOverview(props: {
       <h3 className="text-lg font-semibold">{props.title}</h3>
       <p className="text-sm text-muted-foreground">{props.description}</p>
       <div className="flex flex-wrap items-center justify-center gap-2">
-        <Button type="button" onClick={props.onStart} disabled={props.createDisabled}>{props.setupLabel}</Button>
+        <Button type="button" asChild disabled={props.createDisabled}>
+          <Link href={props.setupHref}>{props.setupLabel}</Link>
+        </Button>
         {props.hasAccount ? (
           <Button type="button" variant="outline" onClick={props.onOpenFirst}>{props.openExistingLabel}</Button>
         ) : null}

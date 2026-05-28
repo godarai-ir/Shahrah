@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shahrah-config
+  namespace: shahrah-local
+data:
+  SHAHRAH_MODEL_DISCOVERY_URL: http://model-discovery:3002/api/v1
+  MODEL_DISCOVERY_CORS_ORIGIN: http://localhost:3000,http://localhost:3001,http://localhost:4000
+  NEXT_PUBLIC_MODEL_CATALOG_API_BASE: http://localhost:3002/api/v1
+  MODEL_CATALOG_API_BASE_INTERNAL: http://model-discovery:3002/api/v1
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  CLICKHOUSE_DB: sharah_db
+  CLICKHOUSE_USER: sharah_user
+  CLICKHOUSE_HTTP_PORT: "8123"
+  CLICKHOUSE_NATIVE_PORT: "9000"
+  TYPESENSE_HOST: typesense
+  TYPESENSE_PORT: "8108"
+  TYPESENSE_PROTOCOL: http
+  TYPESENSE_DATA_DIR: /data
+  TYPESENSE_ENABLE_CORS: "true"
+  TUNNEL_CLIENT_ADDR: :8081
+  TUNNEL_SERVER_ADDR: :8082
+  TUNNEL_SERVER_URL: http://tunnel-server:8082
+  TUNNEL_CLIENT_URL: http://tunnel-client:8081
+  SILK_ROAD_ADDR: :8083
+  SILK_ROAD_URL: http://silk-road:8083
+  SMTP_HOST: mailpit
+  SMTP_PORT: "1025"
+  SMTP_FROM: no-reply@shahrah.local
+  EMAIL_SENDING_ENABLED: "true"
+  PGADMIN_DEFAULT_EMAIL: admin@example.com

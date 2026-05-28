@@ -16,7 +16,7 @@ services:
       MASTER_KEY: ${MASTER_KEY:-sk-dev-master-key-12345}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-sk-provider-placeholder}
       TUNNEL_CLIENT_URL: http://tunnel-client:8081
-      SHAHRAH_MODEL_DISCOVERY_URL: ${SHAHRAH_MODEL_DISCOVERY_URL:-http://model-discovery:3002}
+      SHAHRAH_MODEL_DISCOVERY_URL: ${SHAHRAH_MODEL_DISCOVERY_URL:-http://model-discovery:3002/api/v1}
       SHAHRAH_DISCOVERY_TOKEN: ${SHAHRAH_DISCOVERY_TOKEN:-}
       EMAIL_SENDING_ENABLED: ${EMAIL_SENDING_ENABLED:-true}
       SMTP_HOST: ${SMTP_HOST:-mailpit}
@@ -91,8 +91,8 @@ services:
 
   tunnel-client:
     build:
-      context: ../../
-      dockerfile: services/tunnel-client/Dockerfile
+      context: ../../services/tunnel-client
+      dockerfile: Dockerfile
     ports:
       - "8081:8081"
     environment:
@@ -105,8 +105,8 @@ services:
 
   tunnel-server:
     build:
-      context: ../../
-      dockerfile: services/tunnel-server/Dockerfile
+      context: ../../services/tunnel-server
+      dockerfile: Dockerfile
     ports:
       - "8082:8082"
     environment:

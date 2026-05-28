@@ -2,15 +2,12 @@ FROM golang:1.26.3-alpine AS builder
 
 WORKDIR /src
 
-COPY packages/contracts ./packages/contracts
-COPY services/tunnel-server ./services/tunnel-server
-
-WORKDIR /src/services/tunnel-server
+COPY . .
 ENV GOWORK=off
-RUN go mod download
+ENV GOFLAGS=-mod=vendor
 RUN CGO_ENABLED=0 GOOS=linux go build -o /out/server ./cmd/server
 
-FROM alpine:3.19
+FROM alpine:3.23.4
 
 WORKDIR /app
 RUN apk --no-cache add ca-certificates
