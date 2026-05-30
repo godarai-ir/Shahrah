@@ -1,0 +1,65 @@
+name: Promote To Production In GitOps
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Immutable tag to promote (e.g. sha-<full-commit-sha>)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-promotion
+  cancel-in-progress: false
+
+env:
+  GITOPS_REPO: Delpak/shahrah-gitops
+
+jobs:
+  promote:
+    name: Create GitOps Production PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate inputs and token
+        run: |
+          test -n "${{ inputs.image_tag }}"
+          test -n "${{ secrets.GITOPS_REPO_TOKEN }}"
+          case "${{ inputs.image_tag }}" in
+            sha-*) ;;
+            *) echo "image_tag must start with sha-"; exit 1 ;;
+          esac
+
+      - name: Checkout GitOps repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.GITOPS_REPO }}
+          token: ${{ secrets.GITOPS_REPO_TOKEN }}
+          path: gitops
+
+      - name: Update production imageTag
+        working-directory: gitops
+        run: |
+          sed -i "s/^  imageTag: .*/  imageTag: \"${{ inputs.image_tag }}\"/" helm/shahrah/values.production.yaml
+          grep -n "imageTag" helm/shahrah/values.production.yaml
+
+      - name: Create pull request in GitOps repo
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITOPS_REPO_TOKEN }}
+          path: gitops
+          commit-message: "chore(production): promote ${{ inputs.image_tag }}"
+          branch: "ci/production-${{ inputs.image_tag }}"
+          base: main
+          title: "chore(production): promote ${{ inputs.image_tag }}"
+          body: |
+            Manual production promotion.
+
+            - Promoted immutable image tag: `${{ inputs.image_tag }}`
+            - Updated `helm/shahrah/values.production.yaml` global imageTag
+          labels: |
+            gitops
+            production
+
