@@ -17,14 +17,6 @@ run:
   # List of build tags, all linters use it
   build-tags: []
 
-  # Which dirs to skip: issues from them won't be reported
-  skip-dirs:
-    - vendor/
-    - testdata/
-    - examples/
-
-  # Which files to skip
-  skip-files: []
 
 linters:
   disable-all: true
@@ -68,8 +60,9 @@ linters-settings:
     check-blank: true
 
   govet:
-    # Report about shadowed variables
-    check-shadowing: true
+    # Enable additional vet analyzers.
+    enable:
+      - shadow
 
   gofmt:
     # Simplify code: gofmt -s
