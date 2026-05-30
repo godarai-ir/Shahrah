@@ -6,7 +6,8 @@ This repository builds and pushes immutable container images, then proposes depl
 
 - `.github/workflows/gitops-staging-release.yml`
   - Trigger: push to `main`/`master` or manual run.
-  - Builds and pushes images with tag `sha-<full-commit-sha>`.
+  - Creates one shared `release_tag` (`sha-<full-commit-sha>`) per run.
+  - Builds and pushes all images with that exact shared tag.
   - Opens a PR in GitOps repo updating `helm/shahrah/values.staging.yaml` global `imageTag`.
 
 - `.github/workflows/gitops-promote-production.yml`

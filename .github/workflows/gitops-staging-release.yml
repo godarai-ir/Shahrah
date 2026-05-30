@@ -15,13 +15,23 @@ concurrency:
 env:
   REGISTRY_URL: ${{ secrets.ARVAN_REGISTRY_URL }}
   REGISTRY_NAMESPACE: ${{ secrets.ARVAN_REGISTRY_NAMESPACE }}
-  IMAGE_TAG: sha-${{ github.sha }}
   GITOPS_REPO: Delpak/shahrah-gitops
 
 jobs:
+  prepare-release:
+    name: Prepare Release Tag
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.release.outputs.release_tag }}
+    steps:
+      - name: Create shared release tag
+        id: release
+        run: echo "release_tag=sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
   build-and-push:
     name: Build And Push Images
     runs-on: ubuntu-latest
+    needs: [prepare-release]
     strategy:
       fail-fast: false
       matrix:
@@ -86,14 +96,14 @@ jobs:
           file: ${{ matrix.dockerfile }}
           target: ${{ matrix.target }}
           push: true
-          tags: ${{ env.REGISTRY_URL }}/${{ env.REGISTRY_NAMESPACE }}/${{ matrix.image }}:${{ env.IMAGE_TAG }}
+          tags: ${{ env.REGISTRY_URL }}/${{ env.REGISTRY_NAMESPACE }}/${{ matrix.image }}:${{ needs.prepare-release.outputs.release_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   update-gitops-staging:
     name: Create GitOps Staging PR
     runs-on: ubuntu-latest
-    needs: [build-and-push]
+    needs: [prepare-release, build-and-push]
     permissions:
       contents: read
     steps:
@@ -110,7 +120,7 @@ jobs:
       - name: Update staging imageTag
         working-directory: gitops
         run: |
-          sed -i "s/^  imageTag: .*/  imageTag: \"${IMAGE_TAG}\"/" helm/shahrah/values.staging.yaml
+          sed -i "s/^  imageTag: .*/  imageTag: \"${{ needs.prepare-release.outputs.release_tag }}\"/" helm/shahrah/values.staging.yaml
           grep -n "imageTag" helm/shahrah/values.staging.yaml
 
       - name: Create pull request in GitOps repo
@@ -118,14 +128,14 @@ jobs:
         with:
           token: ${{ secrets.GITOPS_REPO_TOKEN }}
           path: gitops
-          commit-message: "chore(staging): deploy ${IMAGE_TAG}"
+          commit-message: "chore(staging): deploy ${{ needs.prepare-release.outputs.release_tag }}"
           branch: "ci/staging-${{ github.sha }}"
           base: main
-          title: "chore(staging): deploy ${IMAGE_TAG}"
+          title: "chore(staging): deploy ${{ needs.prepare-release.outputs.release_tag }}"
           body: |
             Automated staging promotion from app repository commit `${{ github.sha }}`.
 
-            - Built and pushed immutable image tags: `${{ env.IMAGE_TAG }}`
+            - Built and pushed immutable image tags: `${{ needs.prepare-release.outputs.release_tag }}`
             - Updated `helm/shahrah/values.staging.yaml` global imageTag
           labels: |
             gitops
