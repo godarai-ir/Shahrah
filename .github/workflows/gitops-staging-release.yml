@@ -68,6 +68,22 @@ jobs:
             context: .
             dockerfile: infra/compose/images/goose.Dockerfile
             target: ""
+          - image: shahrah/docs
+            context: apps/docs
+            dockerfile: apps/docs/Dockerfile
+            target: ""
+          - image: shahrah/website
+            context: apps/website
+            dockerfile: apps/website/Dockerfile
+            target: ""
+          - image: shahrah/blog
+            context: apps/blog
+            dockerfile: apps/blog/Dockerfile
+            target: ""
+          - image: shahrah/tenant-admin
+            context: apps/tenant-admin
+            dockerfile: apps/tenant-admin/Dockerfile
+            target: ""
     steps:
       - name: Validate required secrets
         run: |

@@ -36,6 +36,10 @@ This repository builds and pushes immutable container images, then proposes depl
 - `shahrah/tunnel-client`
 - `shahrah/tunnel-server`
 - `shahrah/goose`
+- `shahrah/docs`
+- `shahrah/website`
+- `shahrah/blog`
+- `shahrah/tenant-admin`
 
 All are pushed as:
 
