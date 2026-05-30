@@ -17,12 +17,12 @@ This repository builds and pushes immutable container images, then proposes depl
 
 ## Required GitHub Secrets (app repo)
 
-- `ARVAN_REGISTRY_URL`  
-  Example: `registry-def882af9a-shahrah-local.apps.ir-central1.arvancaas.ir`
-- `ARVAN_REGISTRY_NAMESPACE`  
-  Example: `shahrah-local`
-- `ARVAN_REGISTRY_USERNAME`
-- `ARVAN_REGISTRY_PASSWORD`
+- `REGISTRY_URL`  
+  Example: `registry.distr.sh`
+- `REGISTRY_NAMESPACE`  
+  Example: `godar`
+- `REGISTRY_USERNAME`
+- `REGISTRY_PASSWORD`
 - `GITOPS_REPO_TOKEN`  
   PAT with `contents:write` + `pull_requests:write` on `Delpak/shahrah-gitops`.
 
@@ -39,7 +39,7 @@ This repository builds and pushes immutable container images, then proposes depl
 
 All are pushed as:
 
-`<ARVAN_REGISTRY_URL>/<ARVAN_REGISTRY_NAMESPACE>/<image>:sha-<commit>`
+`<REGISTRY_URL>/<REGISTRY_NAMESPACE>/<image>:sha-<commit>`
 
 ## Promotion policy
 

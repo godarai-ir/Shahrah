@@ -13,8 +13,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  REGISTRY_URL: ${{ secrets.ARVAN_REGISTRY_URL }}
-  REGISTRY_NAMESPACE: ${{ secrets.ARVAN_REGISTRY_NAMESPACE }}
+  REGISTRY_URL: ${{ secrets.REGISTRY_URL }}
+  REGISTRY_NAMESPACE: ${{ secrets.REGISTRY_NAMESPACE }}
   GITOPS_REPO: Delpak/shahrah-gitops
 
 jobs:
@@ -71,10 +71,10 @@ jobs:
     steps:
       - name: Validate required secrets
         run: |
-          test -n "${{ secrets.ARVAN_REGISTRY_URL }}"
-          test -n "${{ secrets.ARVAN_REGISTRY_USERNAME }}"
-          test -n "${{ secrets.ARVAN_REGISTRY_PASSWORD }}"
-          test -n "${{ secrets.ARVAN_REGISTRY_NAMESPACE }}"
+          test -n "${{ secrets.REGISTRY_URL }}"
+          test -n "${{ secrets.REGISTRY_USERNAME }}"
+          test -n "${{ secrets.REGISTRY_PASSWORD }}"
+          test -n "${{ secrets.REGISTRY_NAMESPACE }}"
 
       - name: Checkout app repository
         uses: actions/checkout@v4
@@ -86,8 +86,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY_URL }}
-          username: ${{ secrets.ARVAN_REGISTRY_USERNAME }}
-          password: ${{ secrets.ARVAN_REGISTRY_PASSWORD }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
 
       - name: Build and push image
         uses: docker/build-push-action@v6
