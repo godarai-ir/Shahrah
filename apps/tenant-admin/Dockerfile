@@ -1,23 +1,31 @@
-FROM node:20-alpine AS build
+FROM node:22-alpine AS deps
 WORKDIR /app
 
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json ./
+RUN npm install --no-audit --no-fund --package-lock=false
 
+FROM node:22-alpine AS build
+WORKDIR /app
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
-FROM node:20-alpine AS runtime
+FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN addgroup -S nextjs && adduser -S nextjs -G nextjs
 
-COPY --from=build /app/.next ./.next
-COPY --from=build /app/public ./public
-COPY --from=build /app/messages ./messages
-COPY --from=build /app/next.config.ts ./next.config.ts
+# standalone output contains the minimal traced runtime dependencies.
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/.next/static ./apps/tenant-admin/.next/static
+COPY --from=build /app/public ./apps/tenant-admin/public
+COPY --from=build /app/messages ./apps/tenant-admin/messages
 
+USER nextjs
 EXPOSE 3000
-CMD ["npm", "run", "start", "--", "-H", "0.0.0.0", "-p", "3000"]
+CMD ["node", "apps/tenant-admin/server.js"]

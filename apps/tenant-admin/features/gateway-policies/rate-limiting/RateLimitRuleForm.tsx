@@ -224,11 +224,12 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
   async function onSubmit(values: RateLimitRuleFormInput) {
     setIsSaving(true);
     setNotice(null);
-    const normalized: RateLimitRuleFormInput = {
-      ...values,
+    const parsed = rateLimitRuleSchema.parse(values);
+    const normalized = {
+      ...parsed,
       conditions: {
-        ...values.conditions,
-        conditions: values.conditions.conditions.map((c) => normalizeCondition(c as RateLimitCondition) as never),
+        ...parsed.conditions,
+        conditions: parsed.conditions.conditions.map((c) => normalizeCondition(c as RateLimitCondition) as never),
       },
     };
     try {

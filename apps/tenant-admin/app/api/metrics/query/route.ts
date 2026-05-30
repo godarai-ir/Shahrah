@@ -1,6 +1,8 @@
-﻿import { proxyToControlPlane } from "@/lib/control-plane";
+import { NextRequest } from "next/server";
 
-export async function POST(request: Request) {
+import { proxyToControlPlane } from "@/lib/control-plane";
+
+export async function POST(request: NextRequest) {
   let body: unknown = {};
   try {
     body = await request.json();
@@ -15,3 +17,5 @@ export async function POST(request: Request) {
     body,
   });
 }
+
+

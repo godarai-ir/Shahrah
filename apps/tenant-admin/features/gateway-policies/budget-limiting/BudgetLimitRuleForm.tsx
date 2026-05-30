@@ -202,11 +202,12 @@ export function BudgetLimitRuleForm({ initialRule }: { initialRule?: BudgetLimit
   async function onSubmit(values: BudgetLimitRuleFormInput) {
     setIsSaving(true);
     setNotice(null);
-    const normalized: BudgetLimitRuleFormInput = {
-      ...values,
+    const parsed = budgetLimitRuleSchema.parse(values);
+    const normalized = {
+      ...parsed,
       conditions: {
-        ...values.conditions,
-        conditions: values.conditions.conditions.map((c) => normalizeCondition(c as BudgetLimitCondition) as never),
+        ...parsed.conditions,
+        conditions: parsed.conditions.conditions.map((c) => normalizeCondition(c as BudgetLimitCondition) as never),
       },
     };
     try {

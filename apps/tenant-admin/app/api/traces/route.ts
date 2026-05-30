@@ -1,6 +1,8 @@
+import { NextRequest } from "next/server";
+
 import { proxyToControlPlane } from "@/lib/control-plane";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const params = new URLSearchParams();
 
@@ -22,3 +24,5 @@ export async function GET(request: Request) {
     path,
   });
 }
+
+

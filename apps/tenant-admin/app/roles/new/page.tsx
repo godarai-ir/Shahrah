@@ -22,7 +22,10 @@ export default async function NewRolePage() {
   await requirePermissionOr403(tenantSlug, auth.user.id, ["role:manage"]);
 
   const permissionsPayload = await getCurrentMePermissions(tenantSlug, auth.user.id) as MePermissionsResponse;
-  const initialPermissionCatalog = permissionsPayload.catalog ?? [];
+  const initialPermissionCatalog = (permissionsPayload.catalog ?? []).map((item) => ({
+    ...item,
+    description: item.description ?? "",
+  }));
 
   const currentUser = {
     id: auth.user.id,

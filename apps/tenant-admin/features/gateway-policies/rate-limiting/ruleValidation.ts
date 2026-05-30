@@ -81,4 +81,4 @@ export const rateLimitRuleSchema = z.object({
   expires_at: z.string().optional(),
 });
 
-export type RateLimitRuleFormInput = z.infer<typeof rateLimitRuleSchema>;
+export type RateLimitRuleFormInput = z.input<typeof rateLimitRuleSchema>;

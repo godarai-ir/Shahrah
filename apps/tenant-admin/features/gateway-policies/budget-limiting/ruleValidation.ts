@@ -89,4 +89,4 @@ export const budgetLimitRuleSchema = z.object({
     .default({ enabled: false }),
 });
 
-export type BudgetLimitRuleFormInput = z.infer<typeof budgetLimitRuleSchema>;
+export type BudgetLimitRuleFormInput = z.input<typeof budgetLimitRuleSchema>;

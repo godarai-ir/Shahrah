@@ -65,7 +65,10 @@ export default async function EditRolePage({ params }: PageProps) {
   }
 
   const permissionsPayload = await getCurrentMePermissions(tenantSlug, auth.user.id) as MePermissionsResponse;
-  const initialPermissionCatalog = permissionsPayload.catalog ?? [];
+  const initialPermissionCatalog = (permissionsPayload.catalog ?? []).map((item) => ({
+    ...item,
+    description: item.description ?? "",
+  }));
 
   const currentUser = {
     id: auth.user.id,
