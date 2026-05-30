@@ -47,11 +47,11 @@ jobs:
             dockerfile: services/silk-road/Dockerfile
             target: ""
           - image: shahrah/tunnel-client
-            context: services/tunnel-client
+            context: .
             dockerfile: services/tunnel-client/Dockerfile
             target: ""
           - image: shahrah/tunnel-server
-            context: services/tunnel-server
+            context: .
             dockerfile: services/tunnel-server/Dockerfile
             target: ""
           - image: shahrah/goose
@@ -130,4 +130,3 @@ jobs:
           labels: |
             gitops
             staging
-
