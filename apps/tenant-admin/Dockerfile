@@ -28,4 +28,4 @@ COPY --from=build /app/messages ./apps/tenant-admin/messages
 
 USER nextjs
 EXPOSE 3000
-CMD ["node", "apps/tenant-admin/server.js"]
+CMD ["node", "server.js"]
