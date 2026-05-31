@@ -250,3 +250,22 @@ test("reactivation restores access when user becomes active", async () => {
   assert.ok(ctx);
   assert.equal(ctx?.user.active, true);
 });
+
+test("tenant mismatch between hint and session revokes session", async () => {
+  const repo = new FakeAuthRepository();
+  repo.sessionUserID = "user-1";
+  repo.userByTenantAndID.set("tenant1:user-1", {
+    id: "user-1",
+    tenantSlug: "tenant1",
+    email: "user1@tenant1.com",
+    role: "member",
+    active: true,
+    createdAtISO: new Date().toISOString(),
+    updatedAtISO: new Date().toISOString(),
+  });
+  const service = new AuthService(repo);
+
+  const ctx = await service.getAuthContext("sess-1", "tenant2");
+  assert.equal(ctx, null);
+  assert.equal(repo.revokeCallCount, 1);
+});

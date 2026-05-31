@@ -149,8 +149,12 @@ export class AuthService {
     const session = await this.repo.getSession(sessionID);
     if (!session) return null;
 
-    const tenantSlug =
-      hintedTenantSlug === session.tenantSlug ? hintedTenantSlug : session.tenantSlug;
+    if (hintedTenantSlug && hintedTenantSlug !== session.tenantSlug) {
+      await this.repo.revokeSession(session.id);
+      return null;
+    }
+
+    const tenantSlug = session.tenantSlug;
 
     const user = await this.repo.getUser(tenantSlug, session.userID);
     if (!user) {

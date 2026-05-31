@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { readAuthFromRequest } from "@/lib/auth/request-auth";
-import { resolveTenantSlugFromHeaders } from "@/lib/tenant";
+import { assertTenantMatch, ensureTenantFromHeaders } from "@/lib/tenant";
 
 type ProxyOptions = {
   request: NextRequest;
@@ -36,28 +36,32 @@ export type ControlPlaneResponse = {
 };
 
 export async function proxyToControlPlane(options: ProxyOptions) {
-  let tenantSlug = resolveTenantSlugFromHeaders(
-    options.request.headers,
-    options.tenantSlug,
-  );
-  if (!tenantSlug) {
-    const auth = await readAuthFromRequest(options.request);
-    if (auth.ok) {
-      tenantSlug = auth.tenantSlug;
-    }
-  }
-  if (!tenantSlug) {
+  const tenantResolution = ensureTenantFromHeaders(options.request.headers, options.tenantSlug);
+  if (!tenantResolution.ok) {
     return NextResponse.json(
-      { error: { message: "Tenant host is required." } },
-      { status: 400 },
+      { error: { message: tenantResolution.message } },
+      { status: tenantResolution.status },
     );
   }
+
+  const tenantSlug = tenantResolution.tenantSlug;
   let resolvedUserID = options.userID?.trim() ?? "";
-  if (!resolvedUserID) {
-    const auth = await readAuthFromRequest(options.request);
-    if (auth.ok) {
+  const auth = await readAuthFromRequest(options.request);
+  if (auth.ok) {
+    if (!assertTenantMatch(tenantSlug, auth.tenantSlug)) {
+      return NextResponse.json(
+        { error: { message: "Tenant mismatch between host and authenticated session." } },
+        { status: 403 },
+      );
+    }
+    if (!resolvedUserID) {
       resolvedUserID = auth.user.id;
     }
+  } else if (!resolvedUserID && auth.status >= 500) {
+    return NextResponse.json(
+      { error: { message: auth.message } },
+      { status: auth.status },
+    );
   }
 
   const upstream = await fetchControlPlaneJSON({

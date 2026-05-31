@@ -1,3 +1,18 @@
+export type TenantResolutionSource =
+  | "resolved-header"
+  | "x-shahrah-tenant"
+  | "x-forwarded-host"
+  | "host"
+  | "fallback"
+  | "none";
+
+export type TenantResolutionContext = {
+  tenantSlug: string;
+  source: TenantResolutionSource;
+  hostTenantSlug: string;
+  ambiguous: boolean;
+};
+
 export function extractTenantSlugFromHost(host: string): string {
   const normalizedHost = normalizeHost(host);
   if (!normalizedHost) {
@@ -21,34 +36,120 @@ export function resolveTenantSlugFromHeaders(
   headers: Headers,
   fallbackTenant = "",
 ): string {
+  return resolveTenantContextFromHeaders(headers, fallbackTenant).tenantSlug;
+}
+
+export function resolveTenantContextFromHeaders(
+  headers: Headers,
+  fallbackTenant = "",
+): TenantResolutionContext {
   const envFallback =
     process.env.SHAHRAH_TENANT_SLUG ??
     process.env.TENANT_SLUG ??
     process.env.NEXT_PUBLIC_TENANT_SLUG ??
     "";
-  const effectiveFallback = fallbackTenant || envFallback;
-  const candidates = [
-    headers.get("x-shahrah-tenant"),
-    headers.get("x-forwarded-host"),
-    headers.get("host"),
-  ];
+  const effectiveFallback = normalizeTenantSlug(fallbackTenant || envFallback);
 
-  for (const candidate of candidates) {
-    if (!candidate) {
-      continue;
-    }
-    const slug = extractTenantSlugFromHost(candidate);
-    if (slug) {
-      return slug;
-    }
-
-    const rawHint = candidate.split(",")[0]?.trim().toLowerCase();
-    if (rawHint && isSlug(rawHint)) {
-      return rawHint;
-    }
+  const resolvedHeaderTenant = normalizeTenantSlug(headers.get("x-shahrah-tenant-resolved"));
+  if (resolvedHeaderTenant) {
+    return {
+      tenantSlug: resolvedHeaderTenant,
+      source: "resolved-header",
+      hostTenantSlug: resolvedHeaderTenant,
+      ambiguous: false,
+    };
   }
 
-  return effectiveFallback;
+  const hostTenantSlug = resolveFromHostHeader(headers.get("x-forwarded-host")) ||
+    resolveFromHostHeader(headers.get("host"));
+  const hintedTenantSlug = normalizeTenantSlug(headers.get("x-shahrah-tenant"));
+
+  if (hostTenantSlug && hintedTenantSlug && hostTenantSlug !== hintedTenantSlug) {
+    return {
+      tenantSlug: "",
+      source: "none",
+      hostTenantSlug,
+      ambiguous: true,
+    };
+  }
+
+  if (hintedTenantSlug) {
+    return {
+      tenantSlug: hintedTenantSlug,
+      source: "x-shahrah-tenant",
+      hostTenantSlug,
+      ambiguous: false,
+    };
+  }
+
+  const forwardedHostTenant = resolveFromHostHeader(headers.get("x-forwarded-host"));
+  if (forwardedHostTenant) {
+    return {
+      tenantSlug: forwardedHostTenant,
+      source: "x-forwarded-host",
+      hostTenantSlug: forwardedHostTenant,
+      ambiguous: false,
+    };
+  }
+
+  const hostTenant = resolveFromHostHeader(headers.get("host"));
+  if (hostTenant) {
+    return {
+      tenantSlug: hostTenant,
+      source: "host",
+      hostTenantSlug: hostTenant,
+      ambiguous: false,
+    };
+  }
+
+  if (effectiveFallback) {
+    return {
+      tenantSlug: effectiveFallback,
+      source: "fallback",
+      hostTenantSlug: "",
+      ambiguous: false,
+    };
+  }
+
+  return {
+    tenantSlug: "",
+    source: "none",
+    hostTenantSlug: "",
+    ambiguous: false,
+  };
+}
+
+export function ensureTenantFromHeaders(
+  headers: Headers,
+  fallbackTenant = "",
+): { ok: true; tenantSlug: string } | { ok: false; status: number; message: string } {
+  const resolved = resolveTenantContextFromHeaders(headers, fallbackTenant);
+  if (resolved.ambiguous) {
+    return {
+      ok: false,
+      status: 400,
+      message: "Ambiguous tenant context: host and tenant hint do not match.",
+    };
+  }
+  if (!resolved.tenantSlug) {
+    return {
+      ok: false,
+      status: 400,
+      message: "Tenant host is required.",
+    };
+  }
+  if (resolved.hostTenantSlug && resolved.hostTenantSlug !== resolved.tenantSlug) {
+    return {
+      ok: false,
+      status: 403,
+      message: "Tenant mismatch between host and request context.",
+    };
+  }
+  return { ok: true, tenantSlug: resolved.tenantSlug };
+}
+
+export function assertTenantMatch(expected: string, actual: string): boolean {
+  return normalizeTenantSlug(expected) !== "" && normalizeTenantSlug(expected) === normalizeTenantSlug(actual);
 }
 
 export function resolveRequestOriginFromHeaders(
@@ -68,6 +169,29 @@ export function resolveRequestOriginFromHeaders(
     "http";
 
   return `${protocol}://${host}`;
+}
+
+function resolveFromHostHeader(value: string | null): string {
+  if (!value) {
+    return "";
+  }
+  const fromHost = extractTenantSlugFromHost(value);
+  if (fromHost) {
+    return fromHost;
+  }
+  const rawHint = value.split(",")[0]?.trim().toLowerCase();
+  if (rawHint && isSlug(rawHint)) {
+    return rawHint;
+  }
+  return "";
+}
+
+function normalizeTenantSlug(value: string | null | undefined): string {
+  const normalized = value?.trim().toLowerCase() ?? "";
+  if (!normalized || !isSlug(normalized)) {
+    return "";
+  }
+  return normalized;
 }
 
 function normalizeHost(value: string): string {
