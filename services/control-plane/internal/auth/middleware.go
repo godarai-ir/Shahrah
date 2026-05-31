@@ -85,7 +85,8 @@ func (m *AuthMiddleware) Middleware() fiber.Handler {
 			resolved := &platform.AuthContext{
 				Role: roleProxyAdmin,
 			}
-			userID := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+			// Clone request header value to avoid retaining mutable fasthttp buffer data.
+			userID := strings.Clone(strings.TrimSpace(c.Get("x-shahrah-user-id")))
 			if userID != "" {
 				currentTenant := tenant.FromContext(c)
 				if currentTenant != nil {

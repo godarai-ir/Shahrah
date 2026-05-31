@@ -152,6 +152,16 @@ func (s *Store) ResolveTenantUserAuth(ctx context.Context, tenantID string, user
 	if tenantID == "" || userID == "" {
 		return nil, fmt.Errorf("tenantID and userID are required")
 	}
+	tenantUUID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, pgx.ErrNoRows
+	}
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, pgx.ErrNoRows
+	}
+	tenantID = tenantUUID.String()
+	userID = userUUID.String()
 	if cached, ok := s.getAuthzCacheEntry(tenantID, userID); ok {
 		return cached, nil
 	}

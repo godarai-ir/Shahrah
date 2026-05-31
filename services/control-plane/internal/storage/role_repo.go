@@ -610,31 +610,39 @@ func (s *Store) GetEffectivePermissionsForUser(ctx context.Context, tenantID str
 	if err := s.ensureSystemRoles(ctx, tenantID); err != nil {
 		return nil, nil, err
 	}
+	tenantID = strings.TrimSpace(tenantID)
+	userID = strings.TrimSpace(userID)
+	if parsedTenantID, err := uuid.Parse(tenantID); err == nil {
+		tenantID = parsedTenantID.String()
+	}
 
 	roleNames := make([]string, 0, 2)
-	rows, err := s.pool.Query(ctx, `
-		SELECT r.name
-		FROM user_role_bindings urb
-		JOIN roles r ON r.role_id = urb.role_id AND r.tenant_id = urb.tenant_id
-		WHERE urb.tenant_id = $1::uuid
-		  AND urb.user_id = $2::uuid
-		  AND urb.is_active = true
-		ORDER BY r.name
-	`, tenantID, userID)
-	if err != nil {
-		return nil, nil, err
-	}
-	for rows.Next() {
-		var roleName string
-		if err := rows.Scan(&roleName); err != nil {
-			rows.Close()
+	if parsedUserID, err := uuid.Parse(userID); err == nil {
+		userID = parsedUserID.String()
+		rows, queryErr := s.pool.Query(ctx, `
+			SELECT r.name
+			FROM user_role_bindings urb
+			JOIN roles r ON r.role_id = urb.role_id AND r.tenant_id = urb.tenant_id
+			WHERE urb.tenant_id = $1::uuid
+			  AND urb.user_id = $2::uuid
+			  AND urb.is_active = true
+			ORDER BY r.name
+		`, tenantID, userID)
+		if queryErr != nil {
+			return nil, nil, queryErr
+		}
+		for rows.Next() {
+			var roleName string
+			if err := rows.Scan(&roleName); err != nil {
+				rows.Close()
+				return nil, nil, err
+			}
+			roleNames = append(roleNames, strings.TrimSpace(strings.ToLower(roleName)))
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
 			return nil, nil, err
 		}
-		roleNames = append(roleNames, strings.TrimSpace(strings.ToLower(roleName)))
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return nil, nil, err
 	}
 
 	if len(roleNames) == 0 {
