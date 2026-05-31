@@ -1,9 +1,24 @@
-name: Build Images And Propose Staging Release
+name: Build Changed Images And Propose Staging Release
 
 on:
   push:
     branches: [main, master]
   workflow_dispatch:
+    inputs:
+      services:
+        description: "Comma-separated service IDs (optional). Example: model-discovery,support-admin"
+        required: false
+        type: string
+      release_type:
+        description: "Semver bump type for semver tags"
+        required: false
+        type: choice
+        default: auto
+        options:
+          - auto
+          - patch
+          - minor
+          - major
 
 permissions:
   contents: read
@@ -18,72 +33,325 @@ env:
   GITOPS_REPO: Delpak/shahrah-gitops
 
 jobs:
-  prepare-release:
-    name: Prepare Release Tag
+  detect-changes:
+    name: Detect Changed Services And Version Tags
     runs-on: ubuntu-latest
     outputs:
-      release_tag: ${{ steps.release.outputs.release_tag }}
+      release_tag: ${{ steps.detect.outputs.release_tag }}
+      matrix: ${{ steps.detect.outputs.matrix }}
+      changed_services: ${{ steps.detect.outputs.changed_services }}
+      build_summary: ${{ steps.detect.outputs.build_summary }}
     steps:
-      - name: Create shared release tag
-        id: release
-        run: echo "release_tag=sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+      - name: Checkout app repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Detect services
+        id: detect
+        env:
+          BASE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          MANUAL_SERVICES: ${{ github.event.inputs.services }}
+          MANUAL_BUMP: ${{ github.event.inputs.release_type }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import re
+          import subprocess
+
+          def sh(cmd):
+              return subprocess.check_output(cmd, text=True).strip()
+
+          services = [
+              {
+                  "id": "control-plane",
+                  "image": "shahrah/control-plane",
+                  "context": ".",
+                  "dockerfile": "services/control-plane/Dockerfile",
+                  "target": "",
+                  "values_path": "controlPlane.image.tag",
+                  "semver_prefix": "control-plane",
+                  "paths": ["services/control-plane/"],
+              },
+              {
+                  "id": "model-discovery",
+                  "image": "shahrah/model-discovery",
+                  "context": "apps/model-discovery",
+                  "dockerfile": "apps/model-discovery/Dockerfile",
+                  "target": "",
+                  "values_path": "modelDiscovery.image.tag",
+                  "semver_prefix": "model-discovery",
+                  "paths": ["apps/model-discovery/"],
+              },
+              {
+                  "id": "model-discovery-migrate",
+                  "image": "shahrah/model-discovery-migrate",
+                  "context": "apps/model-discovery",
+                  "dockerfile": "apps/model-discovery/Dockerfile",
+                  "target": "migrate",
+                  "values_path": "migrations.modelDiscovery.image.tag",
+                  "semver_prefix": "model-discovery",
+                  "paths": ["apps/model-discovery/"],
+              },
+              {
+                  "id": "support-admin",
+                  "image": "shahrah/support-admin",
+                  "context": "apps/support-admin",
+                  "dockerfile": "apps/support-admin/Dockerfile",
+                  "target": "",
+                  "values_path": "supportAdmin.image.tag",
+                  "semver_prefix": "support-admin",
+                  "paths": ["apps/support-admin/"],
+              },
+              {
+                  "id": "silk-road",
+                  "image": "shahrah/silk-road",
+                  "context": ".",
+                  "dockerfile": "services/silk-road/Dockerfile",
+                  "target": "",
+                  "values_path": "silkRoad.image.tag",
+                  "semver_prefix": "silk-road",
+                  "paths": ["services/silk-road/"],
+              },
+              {
+                  "id": "tunnel-client",
+                  "image": "shahrah/tunnel-client",
+                  "context": ".",
+                  "dockerfile": "services/tunnel-client/Dockerfile",
+                  "target": "",
+                  "values_path": "tunnelClient.image.tag",
+                  "semver_prefix": "tunnel-client",
+                  "paths": ["services/tunnel-client/"],
+              },
+              {
+                  "id": "tunnel-server",
+                  "image": "shahrah/tunnel-server",
+                  "context": ".",
+                  "dockerfile": "services/tunnel-server/Dockerfile",
+                  "target": "",
+                  "values_path": "tunnelServer.image.tag",
+                  "semver_prefix": "tunnel-server",
+                  "paths": ["services/tunnel-server/"],
+              },
+              {
+                  "id": "goose",
+                  "image": "shahrah/goose",
+                  "context": ".",
+                  "dockerfile": "infra/compose/images/goose.Dockerfile",
+                  "target": "",
+                  "values_path": "migrations.mainDb.image.tag",
+                  "semver_prefix": "goose",
+                  "paths": ["infra/compose/images/goose.Dockerfile", "db/"],
+              },
+              {
+                  "id": "docs",
+                  "image": "shahrah/docs",
+                  "context": "apps/docs",
+                  "dockerfile": "apps/docs/Dockerfile",
+                  "target": "",
+                  "values_path": "docs.image.tag",
+                  "semver_prefix": "docs",
+                  "paths": ["apps/docs/"],
+              },
+              {
+                  "id": "website",
+                  "image": "shahrah/website",
+                  "context": "apps/website",
+                  "dockerfile": "apps/website/Dockerfile",
+                  "target": "",
+                  "values_path": "website.image.tag",
+                  "semver_prefix": "website",
+                  "paths": ["apps/website/"],
+              },
+              {
+                  "id": "blog",
+                  "image": "shahrah/blog",
+                  "context": "apps/blog",
+                  "dockerfile": "apps/blog/Dockerfile",
+                  "target": "",
+                  "values_path": "blog.image.tag",
+                  "semver_prefix": "blog",
+                  "paths": ["apps/blog/"],
+              },
+              {
+                  "id": "tenant-admin",
+                  "image": "shahrah/tenant-admin",
+                  "context": "apps/tenant-admin",
+                  "dockerfile": "apps/tenant-admin/Dockerfile",
+                  "target": "",
+                  "values_path": "tenantAdmin.image.tag",
+                  "semver_prefix": "tenant-admin",
+                  "paths": ["apps/tenant-admin/"],
+              },
+          ]
+
+          id_to_service = {s["id"]: s for s in services}
+          all_service_ids = [s["id"] for s in services]
+
+          shared_paths = [
+              ".github/workflows/gitops-staging-release.yml",
+              "packages/",
+              "pnpm-lock.yaml",
+              "pnpm-workspace.yaml",
+              "package.json",
+              "turbo.json",
+          ]
+
+          manual_services = (os.getenv("MANUAL_SERVICES") or "").strip()
+          manual_bump = (os.getenv("MANUAL_BUMP") or "auto").strip()
+          event_name = os.getenv("EVENT_NAME", "")
+          base_sha = (os.getenv("BASE_SHA") or "").strip()
+          head_sha = (os.getenv("HEAD_SHA") or "").strip()
+
+          selected = []
+
+          def add_service(sid):
+              if sid not in selected:
+                  selected.append(sid)
+
+          if event_name == "workflow_dispatch" and manual_services:
+              for raw in manual_services.split(","):
+                  sid = raw.strip()
+                  if not sid:
+                      continue
+                  if sid == "all":
+                      selected = list(all_service_ids)
+                      break
+                  if sid not in id_to_service:
+                      raise SystemExit(f"Unknown service id: {sid}")
+                  add_service(sid)
+          else:
+              changed_files = []
+              full_build = False
+              if not base_sha or set(base_sha) == {"0"}:
+                  full_build = True
+              else:
+                  try:
+                      diff = sh(["git", "diff", "--name-only", base_sha, head_sha])
+                      changed_files = [line.strip() for line in diff.splitlines() if line.strip()]
+                  except Exception:
+                      full_build = True
+
+              if full_build:
+                  selected = list(all_service_ids)
+              else:
+                  shared_changed = False
+                  for f in changed_files:
+                      if any(f == p or f.startswith(p) for p in shared_paths):
+                          shared_changed = True
+                          break
+
+                  if shared_changed:
+                      selected = list(all_service_ids)
+                  else:
+                      for f in changed_files:
+                          for s in services:
+                              for p in s["paths"]:
+                                  if f == p or f.startswith(p):
+                                      add_service(s["id"])
+                                      break
+
+          # Derive global bump type for this change set.
+          def detect_bump_type():
+              if manual_bump and manual_bump != "auto":
+                  return manual_bump
+
+              if base_sha and set(base_sha) != {"0"}:
+                  try:
+                      msg = sh(["git", "log", "--format=%s%n%b", f"{base_sha}..{head_sha}"])
+                  except Exception:
+                      msg = sh(["git", "log", "-n", "50", "--format=%s%n%b", head_sha])
+              else:
+                  msg = sh(["git", "log", "-n", "50", "--format=%s%n%b", head_sha])
+
+              if "BREAKING CHANGE" in msg or re.search(r"^[a-z]+(\([^\)]+\))?!:", msg, re.M):
+                  return "major"
+              if re.search(r"^feat(\([^\)]+\))?:", msg, re.M):
+                  return "minor"
+              return "patch"
+
+          bump_type = detect_bump_type()
+
+          version_cache = {}
+
+          def latest_semver(prefix):
+              tags = sh(["git", "tag", "--list", f"{prefix}/v*"])
+              best = None
+              for t in [x.strip() for x in tags.splitlines() if x.strip()]:
+                  m = re.match(rf"^{re.escape(prefix)}/v(\d+)\.(\d+)\.(\d+)$", t)
+                  if not m:
+                      continue
+                  v = tuple(int(m.group(i)) for i in (1, 2, 3))
+                  if best is None or v > best:
+                      best = v
+              return best
+
+          def bump_semver(current, bump):
+              if current is None:
+                  if bump == "major":
+                      return (1, 0, 0)
+                  if bump == "minor":
+                      return (0, 1, 0)
+                  return (0, 1, 0)
+
+              major, minor, patch = current
+              if bump == "major":
+                  return (major + 1, 0, 0)
+              if bump == "minor":
+                  return (major, minor + 1, 0)
+              return (major, minor, patch + 1)
+
+          matrix = []
+          for sid in selected:
+              s = id_to_service[sid]
+              prefix = s["semver_prefix"]
+              if prefix not in version_cache:
+                  current = latest_semver(prefix)
+                  nxt = bump_semver(current, bump_type)
+                  version_cache[prefix] = f"v{nxt[0]}.{nxt[1]}.{nxt[2]}"
+              semver_tag = version_cache[prefix]
+              matrix.append({
+                  "id": s["id"],
+                  "image": s["image"],
+                  "context": s["context"],
+                  "dockerfile": s["dockerfile"],
+                  "target": s["target"],
+                  "values_path": s["values_path"],
+                  "semver_tag": semver_tag,
+              })
+
+          release_tag = f"sha-{head_sha}"
+          changed_services = ",".join([m["id"] for m in matrix])
+          summary = json.dumps(
+              {
+                  "release_tag": release_tag,
+                  "bump_type": bump_type,
+                  "services": [m["id"] for m in matrix],
+              },
+              separators=(",", ":"),
+          )
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"release_tag={release_tag}\n")
+              fh.write(f"matrix={json.dumps(matrix, separators=(',', ':'))}\n")
+              fh.write(f"changed_services={changed_services}\n")
+              fh.write(f"build_summary={summary}\n")
+
+          print(summary)
+          PY
 
   build-and-push:
-    name: Build And Push Images
+    name: Build And Push Changed Images
     runs-on: ubuntu-latest
-    needs: [prepare-release]
+    needs: [detect-changes]
+    if: ${{ needs.detect-changes.outputs.changed_services != '' }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - image: shahrah/control-plane
-            context: .
-            dockerfile: services/control-plane/Dockerfile
-            target: ""
-          - image: shahrah/model-discovery
-            context: apps/model-discovery
-            dockerfile: apps/model-discovery/Dockerfile
-            target: ""
-          - image: shahrah/model-discovery-migrate
-            context: apps/model-discovery
-            dockerfile: apps/model-discovery/Dockerfile
-            target: migrate
-          - image: shahrah/support-admin
-            context: apps/support-admin
-            dockerfile: apps/support-admin/Dockerfile
-            target: ""
-          - image: shahrah/silk-road
-            context: .
-            dockerfile: services/silk-road/Dockerfile
-            target: ""
-          - image: shahrah/tunnel-client
-            context: .
-            dockerfile: services/tunnel-client/Dockerfile
-            target: ""
-          - image: shahrah/tunnel-server
-            context: .
-            dockerfile: services/tunnel-server/Dockerfile
-            target: ""
-          - image: shahrah/goose
-            context: .
-            dockerfile: infra/compose/images/goose.Dockerfile
-            target: ""
-          - image: shahrah/docs
-            context: apps/docs
-            dockerfile: apps/docs/Dockerfile
-            target: ""
-          - image: shahrah/website
-            context: apps/website
-            dockerfile: apps/website/Dockerfile
-            target: ""
-          - image: shahrah/blog
-            context: apps/blog
-            dockerfile: apps/blog/Dockerfile
-            target: ""
-          - image: shahrah/tenant-admin
-            context: apps/tenant-admin
-            dockerfile: apps/tenant-admin/Dockerfile
-            target: ""
+        include: ${{ fromJSON(needs.detect-changes.outputs.matrix) }}
     steps:
       - name: Validate required secrets
         run: |
@@ -112,14 +380,17 @@ jobs:
           file: ${{ matrix.dockerfile }}
           target: ${{ matrix.target }}
           push: true
-          tags: ${{ env.REGISTRY_URL }}/${{ env.REGISTRY_NAMESPACE }}/${{ matrix.image }}:${{ needs.prepare-release.outputs.release_tag }}
+          tags: |
+            ${{ env.REGISTRY_URL }}/${{ env.REGISTRY_NAMESPACE }}/${{ matrix.image }}:${{ needs.detect-changes.outputs.release_tag }}
+            ${{ env.REGISTRY_URL }}/${{ env.REGISTRY_NAMESPACE }}/${{ matrix.image }}:${{ matrix.semver_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   update-gitops-staging:
     name: Create GitOps Staging PR
     runs-on: ubuntu-latest
-    needs: [prepare-release, build-and-push]
+    needs: [detect-changes, build-and-push]
+    if: ${{ needs.detect-changes.outputs.changed_services != '' }}
     permissions:
       contents: read
     steps:
@@ -133,26 +404,70 @@ jobs:
           token: ${{ secrets.GITOPS_REPO_TOKEN }}
           path: gitops
 
-      - name: Update staging imageTag
+      - name: Install PyYAML
+        run: python -m pip install pyyaml
+
+      - name: Update staging per-service image tags
+        env:
+          MATRIX_JSON: ${{ needs.detect-changes.outputs.matrix }}
+          RELEASE_TAG: ${{ needs.detect-changes.outputs.release_tag }}
         working-directory: gitops
         run: |
-          sed -i "s/^  imageTag: .*/  imageTag: \"${{ needs.prepare-release.outputs.release_tag }}\"/" helm/shahrah/values.staging.yaml
-          grep -n "imageTag" helm/shahrah/values.staging.yaml
+          python - <<'PY'
+          import json
+          import os
+          import yaml
+
+          matrix = json.loads(os.environ["MATRIX_JSON"])
+          release_tag = os.environ["RELEASE_TAG"]
+          path = "helm/shahrah/values.staging.yaml"
+
+          with open(path, "r", encoding="utf-8") as f:
+              data = yaml.safe_load(f)
+
+          for item in matrix:
+              keys = item["values_path"].split(".")
+              cur = data
+              for k in keys[:-1]:
+                  if k not in cur or cur[k] is None:
+                      cur[k] = {}
+                  cur = cur[k]
+              cur[keys[-1]] = release_tag
+
+          with open(path, "w", encoding="utf-8") as f:
+              yaml.safe_dump(data, f, sort_keys=False)
+
+          print("Updated tags:")
+          for item in matrix:
+              print(f"- {item['values_path']} = {release_tag}")
+          PY
 
       - name: Create pull request in GitOps repo
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITOPS_REPO_TOKEN }}
           path: gitops
-          commit-message: "chore(staging): deploy ${{ needs.prepare-release.outputs.release_tag }}"
+          commit-message: "chore(staging): deploy ${{ needs.detect-changes.outputs.release_tag }} for [${{ needs.detect-changes.outputs.changed_services }}]"
           branch: "ci/staging-${{ github.sha }}"
           base: main
-          title: "chore(staging): deploy ${{ needs.prepare-release.outputs.release_tag }}"
+          title: "chore(staging): deploy ${{ needs.detect-changes.outputs.release_tag }}"
           body: |
             Automated staging promotion from app repository commit `${{ github.sha }}`.
 
-            - Built and pushed immutable image tags: `${{ needs.prepare-release.outputs.release_tag }}`
-            - Updated `helm/shahrah/values.staging.yaml` global imageTag
+            Summary: `${{ needs.detect-changes.outputs.build_summary }}`
+
+            - Built and pushed immutable image tags: `${{ needs.detect-changes.outputs.release_tag }}`
+            - Built semver tags for changed services (best-effort Conventional Commits bump)
+            - Updated only changed service tags in `helm/shahrah/values.staging.yaml`
           labels: |
             gitops
             staging
+
+  no-op:
+    name: No Changed Services
+    runs-on: ubuntu-latest
+    needs: [detect-changes]
+    if: ${{ needs.detect-changes.outputs.changed_services == '' }}
+    steps:
+      - name: Print result
+        run: echo "No deployable service changes detected."

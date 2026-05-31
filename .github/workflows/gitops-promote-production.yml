@@ -1,10 +1,27 @@
-name: Promote To Production In GitOps
+name: Promote Service To Production In GitOps
 
 on:
   workflow_dispatch:
     inputs:
+      service_id:
+        description: "Service ID to promote"
+        required: true
+        type: choice
+        options:
+          - control-plane
+          - model-discovery
+          - model-discovery-migrate
+          - support-admin
+          - silk-road
+          - tunnel-client
+          - tunnel-server
+          - goose
+          - docs
+          - website
+          - blog
+          - tenant-admin
       image_tag:
-        description: "Immutable tag to promote (e.g. sha-<full-commit-sha>)"
+        description: "Immutable image tag to promote (e.g. sha-<full-commit-sha>)"
         required: true
         type: string
 
@@ -25,6 +42,7 @@ jobs:
     steps:
       - name: Validate inputs and token
         run: |
+          test -n "${{ inputs.service_id }}"
           test -n "${{ inputs.image_tag }}"
           test -n "${{ secrets.GITOPS_REPO_TOKEN }}"
           case "${{ inputs.image_tag }}" in
@@ -39,26 +57,72 @@ jobs:
           token: ${{ secrets.GITOPS_REPO_TOKEN }}
           path: gitops
 
-      - name: Update production imageTag
+      - name: Install PyYAML
+        run: python -m pip install pyyaml
+
+      - name: Update production service image tag
+        env:
+          SERVICE_ID: ${{ inputs.service_id }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
         working-directory: gitops
         run: |
-          sed -i "s/^  imageTag: .*/  imageTag: \"${{ inputs.image_tag }}\"/" helm/shahrah/values.production.yaml
-          grep -n "imageTag" helm/shahrah/values.production.yaml
+          python - <<'PY'
+          import os
+          import yaml
+
+          service_to_values_path = {
+              "control-plane": "controlPlane.image.tag",
+              "model-discovery": "modelDiscovery.image.tag",
+              "model-discovery-migrate": "migrations.modelDiscovery.image.tag",
+              "support-admin": "supportAdmin.image.tag",
+              "silk-road": "silkRoad.image.tag",
+              "tunnel-client": "tunnelClient.image.tag",
+              "tunnel-server": "tunnelServer.image.tag",
+              "goose": "migrations.mainDb.image.tag",
+              "docs": "docs.image.tag",
+              "website": "website.image.tag",
+              "blog": "blog.image.tag",
+              "tenant-admin": "tenantAdmin.image.tag",
+          }
+
+          sid = os.environ["SERVICE_ID"]
+          image_tag = os.environ["IMAGE_TAG"]
+          if sid not in service_to_values_path:
+              raise SystemExit(f"Unsupported service_id: {sid}")
+
+          path = "helm/shahrah/values.production.yaml"
+          with open(path, "r", encoding="utf-8") as f:
+              data = yaml.safe_load(f)
+
+          keys = service_to_values_path[sid].split(".")
+          cur = data
+          for k in keys[:-1]:
+              if k not in cur or cur[k] is None:
+                  cur[k] = {}
+              cur = cur[k]
+          cur[keys[-1]] = image_tag
+
+          with open(path, "w", encoding="utf-8") as f:
+              yaml.safe_dump(data, f, sort_keys=False)
+
+          print(f"Updated {service_to_values_path[sid]} = {image_tag}")
+          PY
 
       - name: Create pull request in GitOps repo
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITOPS_REPO_TOKEN }}
           path: gitops
-          commit-message: "chore(production): promote ${{ inputs.image_tag }}"
-          branch: "ci/production-${{ inputs.image_tag }}"
+          commit-message: "chore(production): promote ${{ inputs.service_id }} to ${{ inputs.image_tag }}"
+          branch: "ci/production-${{ inputs.service_id }}-${{ inputs.image_tag }}"
           base: main
-          title: "chore(production): promote ${{ inputs.image_tag }}"
+          title: "chore(production): promote ${{ inputs.service_id }} to ${{ inputs.image_tag }}"
           body: |
             Manual production promotion.
 
-            - Promoted immutable image tag: `${{ inputs.image_tag }}`
-            - Updated `helm/shahrah/values.production.yaml` global imageTag
+            - Service: `${{ inputs.service_id }}`
+            - Immutable image tag: `${{ inputs.image_tag }}`
+            - Updated only one key in `helm/shahrah/values.production.yaml`
           labels: |
             gitops
             production
