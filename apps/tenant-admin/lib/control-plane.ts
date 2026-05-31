@@ -9,6 +9,7 @@ type ProxyOptions = {
   path: string;
   body?: unknown;
   userID?: string;
+  tenantSlug?: string;
 };
 
 type ControlPlaneRequest = {
@@ -35,9 +36,16 @@ export type ControlPlaneResponse = {
 };
 
 export async function proxyToControlPlane(options: ProxyOptions) {
-  const tenantSlug = resolveTenantSlugFromHeaders(
+  let tenantSlug = resolveTenantSlugFromHeaders(
     options.request.headers,
+    options.tenantSlug,
   );
+  if (!tenantSlug) {
+    const auth = await readAuthFromRequest(options.request);
+    if (auth.ok) {
+      tenantSlug = auth.tenantSlug;
+    }
+  }
   if (!tenantSlug) {
     return NextResponse.json(
       { error: { message: "Tenant host is required." } },
