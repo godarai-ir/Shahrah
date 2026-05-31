@@ -18,6 +18,7 @@ type ControlPlaneRequest = {
   path: string;
   body?: unknown;
   userID?: string;
+  requestHeaders?: Headers;
 };
 
 type APIErrorPayload = {
@@ -70,6 +71,7 @@ export async function proxyToControlPlane(options: ProxyOptions) {
     path: options.path,
     body: options.body,
     userID: resolvedUserID || undefined,
+    requestHeaders: options.request.headers,
   });
 
   if (!upstream.ok) {
@@ -115,6 +117,8 @@ export async function fetchControlPlaneJSON(
   }
 
   const url = new URL(normalizePath(options.path), baseURL).toString();
+  const forwardedHost = resolveForwardedHost(options.requestHeaders);
+  const forwardedProto = resolveForwardedProto(options.requestHeaders);
 
   try {
     const upstream = await fetch(url, {
@@ -125,6 +129,8 @@ export async function fetchControlPlaneJSON(
         "Content-Type": "application/json",
         "x-shahrah-tenant": options.tenantSlug,
         ...(options.userID ? { "x-shahrah-user-id": options.userID } : {}),
+        ...(forwardedHost ? { "x-forwarded-host": forwardedHost } : {}),
+        ...(forwardedProto ? { "x-forwarded-proto": forwardedProto } : {}),
       },
       body: options.body ? JSON.stringify(options.body) : undefined,
       cache: "no-store",
@@ -204,4 +210,29 @@ function extractErrorMessage(payload: unknown): string | undefined {
     return value.error?.message ?? value.message;
   }
   return undefined;
+}
+
+function resolveForwardedHost(headers?: Headers): string {
+  if (!headers) {
+    return "";
+  }
+  const forwarded = firstHeaderValue(headers.get("x-forwarded-host"));
+  if (forwarded) {
+    return forwarded;
+  }
+  return firstHeaderValue(headers.get("host"));
+}
+
+function resolveForwardedProto(headers?: Headers): string {
+  if (!headers) {
+    return "";
+  }
+  return firstHeaderValue(headers.get("x-forwarded-proto")).toLowerCase();
+}
+
+function firstHeaderValue(value: string | null): string {
+  if (!value) {
+    return "";
+  }
+  return value.split(",")[0]?.trim() ?? "";
 }
