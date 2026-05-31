@@ -1,18 +1,21 @@
 const PUBLIC_API_BASE =
   process.env.NEXT_PUBLIC_MODEL_CATALOG_API_BASE ||
-  'http://localhost:3002/api/v1';
+  '/catalog/api/v1';
 const INTERNAL_API_BASE =
-  process.env.MODEL_CATALOG_API_BASE_INTERNAL || PUBLIC_API_BASE;
+  process.env.MODEL_CATALOG_API_BASE_INTERNAL || 'http://localhost:3002/api/v1';
 
 export const API_BASE =
   typeof window === 'undefined' ? INTERNAL_API_BASE : PUBLIC_API_BASE;
-export const API_ORIGIN = new URL(PUBLIC_API_BASE).origin;
+export const API_ORIGIN =
+  PUBLIC_API_BASE.startsWith('http://') || PUBLIC_API_BASE.startsWith('https://')
+    ? new URL(PUBLIC_API_BASE).origin
+    : '';
 
 export function resolveAssetUrl(path?: string | null): string | null {
   if (!path) return null;
   if (path.startsWith('http://') || path.startsWith('https://')) return path;
-  if (path.startsWith('/')) return `${API_ORIGIN}${path}`;
-  return `${API_ORIGIN}/${path}`;
+  if (path.startsWith('/')) return API_ORIGIN ? `${API_ORIGIN}${path}` : path;
+  return API_ORIGIN ? `${API_ORIGIN}/${path}` : `/${path}`;
 }
 
 export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
