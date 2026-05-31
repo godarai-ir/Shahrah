@@ -85,6 +85,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	}
 	authInfo.TenantID = currentTenant.ID
 	tracing.SetTenantForTrace(c, currentTenant.ID)
+	tenantSlug := strings.TrimSpace(currentTenant.Slug)
 
 	if !isModelAllowedForType(authInfo, requestedModel, platform.ModelTypeCompletion) {
 		emitDenyCounter(h.logger, denyReasonForModel(authInfo), requestedModel, currentTenant.ID)
@@ -178,12 +179,12 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 
 	// Execute request
 	if req.Stream {
-		return h.handleStream(c, chatReq, authInfo, estimated, tunnelReq, startTime)
+		return h.handleStream(c, chatReq, authInfo, estimated, tunnelReq, startTime, tenantSlug)
 	}
-	return h.handleSync(c, chatReq, authInfo, estimated, tunnelReq, startTime)
+	return h.handleSync(c, chatReq, authInfo, estimated, tunnelReq, startTime, tenantSlug)
 }
 
-func (h *CompletionsHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, start time.Time) error {
+func (h *CompletionsHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, start time.Time, tenantSlug string) error {
 	providerStart := time.Now()
 	providerAttrs := map[string]interface{}{
 		"provider":        tunnelReq.Deployment.Provider,
@@ -295,6 +296,7 @@ func (h *CompletionsHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCo
 				"key_type":    authInfo.KeyType,
 				"team_id":     authInfo.TeamID,
 				"org_unit_id": authInfo.OrgUnitID,
+				"tenant_slug": tenantSlug,
 			},
 		})
 	}()
@@ -307,7 +309,7 @@ func (h *CompletionsHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCo
 	return err
 }
 
-func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, start time.Time) error {
+func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, start time.Time, tenantSlug string) error {
 	providerStart := time.Now()
 	stream, err := h.tunnel.Stream(c.Context(), tunnelReq)
 	if err != nil {
@@ -382,6 +384,7 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 							"key_type":    authInfo.KeyType,
 							"team_id":     authInfo.TeamID,
 							"org_unit_id": authInfo.OrgUnitID,
+							"tenant_slug": tenantSlug,
 						},
 					})
 					return

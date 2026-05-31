@@ -219,6 +219,7 @@ func sanitizeMetadata(in map[string]interface{}) map[string]interface{} {
 		"key_type":    {},
 		"org_unit_id": {},
 		"team_id":     {},
+		"tenant_slug": {},
 	}
 	out := make(map[string]interface{}, len(in))
 	count := 0

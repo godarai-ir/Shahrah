@@ -3,6 +3,7 @@ package tenant
 import (
 	"context"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -74,18 +75,15 @@ func (m *Middleware) Handle() fiber.Handler {
 
 		host := c.Hostname()
 
-		// Allow header hint for local development
-		if host == "localhost" || strings.HasPrefix(host, "127.") {
-			if m.allowHeaderHint {
-				if hinted := strings.TrimSpace(c.Get("x-shahrah-tenant")); hinted != "" {
-					host = hinted + ".localhost"
-				}
+		// Allow header hint for local development and trusted internal hosts.
+		if m.allowHeaderHint && shouldUseTenantHeaderHint(host) {
+			if hinted := strings.TrimSpace(c.Get("x-shahrah-tenant")); hinted != "" {
+				host = hinted + ".localhost"
 			}
-			if host == "localhost" || strings.HasPrefix(host, "127.") {
-				if m.defaultTenant != "" {
-					host = m.defaultTenant + ".localhost"
-				}
-			}
+		}
+
+		if (host == "localhost" || strings.HasPrefix(host, "127.")) && m.defaultTenant != "" {
+			host = m.defaultTenant + ".localhost"
 		}
 
 		// Check cache first
@@ -162,4 +160,21 @@ func isActiveTenant(t *platform.Tenant) bool {
 		return false
 	}
 	return strings.EqualFold(t.Status, "active")
+}
+
+func shouldUseTenantHeaderHint(host string) bool {
+	normalized := strings.TrimSpace(strings.ToLower(host))
+	if normalized == "" {
+		return false
+	}
+	if parsedHost, _, err := net.SplitHostPort(normalized); err == nil {
+		normalized = parsedHost
+	}
+
+	return normalized == "localhost" ||
+		strings.HasPrefix(normalized, "127.") ||
+		normalized == "control-plane" ||
+		strings.HasPrefix(normalized, "control-plane.") ||
+		strings.HasSuffix(normalized, ".svc") ||
+		strings.Contains(normalized, ".svc.")
 }

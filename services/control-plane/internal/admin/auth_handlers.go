@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -41,6 +42,38 @@ func NewAuthHandlers(store AuthStore, otpNotifier OTPEmailSender) *AuthHandlers 
 		store:       store,
 		otpNotifier: otpNotifier,
 	}
+}
+
+var tenantSlugPattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
+
+func normalizeTenantSlug(value string) string {
+	return strings.TrimSpace(strings.ToLower(value))
+}
+
+func tenantSlugFromTrustedRequestContext(c *fiber.Ctx) string {
+	if currentTenant := tenant.FromContext(c); currentTenant != nil {
+		return normalizeTenantSlug(currentTenant.Slug)
+	}
+	return normalizeTenantSlug(c.Get("x-shahrah-tenant"))
+}
+
+func resolveTenantSlugForRequest(c *fiber.Ctx, requested string) (string, error) {
+	effective := tenantSlugFromTrustedRequestContext(c)
+	requested = normalizeTenantSlug(requested)
+
+	if effective == "" {
+		effective = requested
+	}
+	if effective == "" {
+		return "", fiber.NewError(fiber.StatusBadRequest, "tenant_slug is required")
+	}
+	if !tenantSlugPattern.MatchString(effective) {
+		return "", fiber.NewError(fiber.StatusBadRequest, "tenant_slug is invalid")
+	}
+	if requested != "" && requested != effective {
+		return "", fiber.NewError(fiber.StatusForbidden, "tenant_slug does not match request tenant")
+	}
+	return effective, nil
 }
 
 // CreateCaptcha handles POST /api/v1/auth/captcha/create
@@ -151,9 +184,13 @@ func (h *AuthHandlers) CreateOTPRequest(c *fiber.Ctx) error {
 	if body.TenantSlug == "" || body.Identifier == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant_slug and identifier are required")
 	}
+	tenantSlug, err := resolveTenantSlugForRequest(c, body.TenantSlug)
+	if err != nil {
+		return err
+	}
 
 	result, err := h.store.CreateTenantAdminOTPRequest(c.Context(), storage.TenantAdminOTPRequestParams{
-		TenantSlug:   body.TenantSlug,
+		TenantSlug:   tenantSlug,
 		Purpose:      body.Purpose,
 		Channel:      body.Channel,
 		Identifier:   body.Identifier,
@@ -170,8 +207,8 @@ func (h *AuthHandlers) CreateOTPRequest(c *fiber.Ctx) error {
 	delete(result, "otp_code")
 
 	if h.otpNotifier != nil && channel == "email" && otpCode != "" {
-		if err := h.otpNotifier.SendTenantAdminOTP(body.Identifier, body.TenantSlug, otpCode, 5); err != nil {
-			log.Printf("[control-plane][auth][otp-email] failed tenant=%s to=%s: %v", body.TenantSlug, destination, err)
+		if err := h.otpNotifier.SendTenantAdminOTP(body.Identifier, tenantSlug, otpCode, 5); err != nil {
+			log.Printf("[control-plane][auth][otp-email] failed tenant=%s to=%s: %v", tenantSlug, destination, err)
 		}
 	}
 
@@ -194,9 +231,13 @@ func (h *AuthHandlers) VerifyOTPRequest(c *fiber.Ctx) error {
 	if err := c.BodyParser(&body); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid request body")
 	}
+	tenantSlug, err := resolveTenantSlugForRequest(c, body.TenantSlug)
+	if err != nil {
+		return err
+	}
 
 	result, err := h.store.VerifyTenantAdminOTPRequest(c.Context(), storage.VerifyTenantAdminOTPRequestParams{
-		TenantSlug: body.TenantSlug,
+		TenantSlug: tenantSlug,
 		RequestID:  body.RequestID,
 		OTPCode:    body.OTPCode,
 		Purpose:    body.Purpose,
@@ -218,9 +259,13 @@ func (h *AuthHandlers) CreateSession(c *fiber.Ctx) error {
 	if err := c.BodyParser(&body); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid request body")
 	}
+	tenantSlug, err := resolveTenantSlugForRequest(c, body.TenantSlug)
+	if err != nil {
+		return err
+	}
 
 	result, err := h.store.CreateTenantAdminSession(c.Context(), storage.CreateTenantAdminSessionParams{
-		TenantSlug: body.TenantSlug,
+		TenantSlug: tenantSlug,
 		UserID:     body.UserID,
 	})
 	if err != nil {
@@ -272,9 +317,13 @@ func (h *AuthHandlers) FindOrCreateUser(c *fiber.Ctx) error {
 	if err := c.BodyParser(&body); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid request body")
 	}
+	tenantSlug, err := resolveTenantSlugForRequest(c, body.TenantSlug)
+	if err != nil {
+		return err
+	}
 
 	user, err := h.store.FindOrCreateTenantAdminUser(c.Context(), storage.FindOrCreateTenantAdminUserParams{
-		TenantSlug: body.TenantSlug,
+		TenantSlug: tenantSlug,
 		Channel:    body.Channel,
 		Identifier: body.Identifier,
 	})
@@ -291,11 +340,9 @@ func (h *AuthHandlers) FindOrCreateUser(c *fiber.Ctx) error {
 // GetUser handles GET /api/v1/auth/user/:id
 func (h *AuthHandlers) GetUser(c *fiber.Ctx) error {
 	userID := c.Params("id")
-	tenantSlug := c.Query("tenant_slug")
-
-	currentTenant := tenant.FromContext(c)
-	if currentTenant != nil && tenantSlug == "" {
-		tenantSlug = currentTenant.Slug
+	tenantSlug, err := resolveTenantSlugForRequest(c, c.Query("tenant_slug"))
+	if err != nil {
+		return err
 	}
 
 	user, err := h.store.GetTenantAdminUser(c.Context(), tenantSlug, userID)
@@ -320,9 +367,13 @@ func (h *AuthHandlers) UpdateUserContact(c *fiber.Ctx) error {
 	if err := c.BodyParser(&body); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid request body")
 	}
+	tenantSlug, err := resolveTenantSlugForRequest(c, body.TenantSlug)
+	if err != nil {
+		return err
+	}
 
 	user, err := h.store.UpdateTenantAdminUserContact(c.Context(), storage.UpdateTenantAdminUserContactParams{
-		TenantSlug: body.TenantSlug,
+		TenantSlug: tenantSlug,
 		UserID:     userID,
 		Field:      body.Field,
 		Value:      body.Value,
@@ -343,8 +394,12 @@ func (h *AuthHandlers) TouchLastLogin(c *fiber.Ctx) error {
 	if err := c.BodyParser(&body); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid request body")
 	}
+	tenantSlug, err := resolveTenantSlugForRequest(c, body.TenantSlug)
+	if err != nil {
+		return err
+	}
 
-	user, err := h.store.TouchTenantAdminLastLogin(c.Context(), body.TenantSlug, userID)
+	user, err := h.store.TouchTenantAdminLastLogin(c.Context(), tenantSlug, userID)
 	if err != nil || user == nil {
 		return c.SendStatus(fiber.StatusNotFound)
 	}

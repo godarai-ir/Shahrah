@@ -232,6 +232,36 @@ func TestTenantMiddleware_LocalDevHint(t *testing.T) {
 	assert.Equal(t, fiber.StatusNoContent, resp.StatusCode)
 }
 
+func TestTenantMiddleware_InternalServiceHint(t *testing.T) {
+	app := fiber.New()
+	cache := newMockCache()
+	store := &mockTenantStore{
+		tenantsByHost: make(map[string]*platform.Tenant),
+	}
+	store.addTenant("mytenant.localhost", newActiveTenant("tenant-1", "mytenant", "mytenant.localhost", "active"))
+
+	mw := tenantmw.NewMiddlewareWithCache(store, cache, tenantmw.MiddlewareConfig{
+		AllowHeaderHint: true,
+		CacheTTL:        5 * time.Minute,
+	})
+
+	app.Use(mw.Handle())
+	app.Get("/", func(c *fiber.Ctx) error {
+		current := tenantmw.FromContext(c)
+		assert.NotNil(t, current)
+		assert.Equal(t, "tenant-1", current.ID)
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+
+	req, err := http.NewRequest(http.MethodGet, "http://control-plane:4000/", nil)
+	assert.NoError(t, err)
+	req.Header.Set("x-shahrah-tenant", "mytenant")
+
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusNoContent, resp.StatusCode)
+}
+
 func TestTenantMiddleware_BypassesWalletTopUpCallback(t *testing.T) {
 	app := fiber.New()
 	cache := newMockCache()
