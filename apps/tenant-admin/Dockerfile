@@ -22,9 +22,10 @@ RUN addgroup -S nextjs && adduser -S nextjs -G nextjs
 
 # standalone output contains the minimal traced runtime dependencies.
 COPY --from=build /app/.next/standalone ./
-COPY --from=build /app/.next/static ./apps/tenant-admin/.next/static
-COPY --from=build /app/public ./apps/tenant-admin/public
-COPY --from=build /app/messages ./apps/tenant-admin/messages
+COPY --from=build /app/.next/static ./.next/static
+COPY --from=build /app/public ./public
+COPY --from=build /app/messages ./messages
+RUN chown -R nextjs:nextjs /app
 
 USER nextjs
 EXPOSE 3000
