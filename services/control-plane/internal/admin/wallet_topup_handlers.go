@@ -65,7 +65,7 @@ func (m *mockProvider) CreatePayment(c *fiber.Ctx, intent *platform.WalletTopUpI
 	auth := "mock_" + randomToken(12)
 	callbackURL := strings.TrimSpace(intent.CallbackURL)
 	if callbackURL == "" {
-		callbackURL = fmt.Sprintf("%s/api/v1/wallet/topup/callback/mock", c.BaseURL())
+		callbackURL = fmt.Sprintf("%s/api/v1/wallet/topup/callback/mock", resolveExternalBaseURL(c))
 	}
 	paymentURL := fmt.Sprintf("%s?authority=%s&status=ok", callbackURL, auth)
 	return &paymentCreateResult{
@@ -403,6 +403,32 @@ func fallbackUSDtoIRRRate() float64 {
 	return parsed
 }
 
+func resolveExternalBaseURL(c *fiber.Ctx) string {
+	forwardedHost := firstForwardedValue(c.Get("X-Forwarded-Host"))
+	forwardedProto := firstForwardedValue(c.Get("X-Forwarded-Proto"))
+	if forwardedHost != "" {
+		if forwardedProto == "" {
+			forwardedProto = "https"
+		}
+		return fmt.Sprintf("%s://%s", forwardedProto, forwardedHost)
+	}
+	return c.BaseURL()
+}
+
+func firstForwardedValue(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	parts := strings.Split(raw, ",")
+	for _, part := range parts {
+		value := strings.TrimSpace(part)
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
 func resolveUSDtoIRRRate(c *fiber.Ctx, store walletStore) (*platform.ExchangeRate, error) {
 	rate, err := store.GetLatestExchangeRate(c.Context())
 	if err == nil && rate != nil && rate.USDtoIRR > 0 {
@@ -463,7 +489,7 @@ func (h *Handlers) CreateWalletTopUpIntent(c *fiber.Ctx) error {
 		TaxAmountIRR: taxIRR,
 		FeeAmountIRR: feeIRR,
 		PayableIRR:   payable,
-		CallbackURL:  fmt.Sprintf("%s/api/v1/wallet/topup/callback/%s", c.BaseURL(), strings.ToLower(providerName)),
+		CallbackURL:  fmt.Sprintf("%s/api/v1/wallet/topup/callback/%s", resolveExternalBaseURL(c), strings.ToLower(providerName)),
 		ReturnURL:    returnURL,
 		Metadata:     req.Metadata,
 	})
