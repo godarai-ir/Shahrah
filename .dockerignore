@@ -44,6 +44,10 @@ plans/
 
 # Database assets not required by control-plane image build
 db/
+!db/
+!db/main/
+!db/main/migrations/
+!db/main/migrations/**
 infra/clickhouse/
 
 # Env and logs
