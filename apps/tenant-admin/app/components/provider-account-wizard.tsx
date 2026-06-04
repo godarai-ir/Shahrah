@@ -2252,7 +2252,7 @@ function ModelsEditor(props: {
   const buildModelDiscoveryDetailsHref = (model: ProviderCatalogModel): string => {
     const base =
       process.env.NEXT_PUBLIC_MODEL_DISCOVERY_APP_URL?.replace(/\/$/, "") ??
-      "http://localhost:3002";
+      "/catalog";
     const provider = encodeURIComponent(model.provider);
     const canonical = model.model.startsWith(`${model.provider}/`)
       ? model.model.slice(model.provider.length + 1)
