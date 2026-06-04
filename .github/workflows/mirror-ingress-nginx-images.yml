@@ -1,0 +1,46 @@
+name: Mirror Ingress Nginx Images
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY_URL: ${{ secrets.REGISTRY_URL }}
+  REGISTRY_NAMESPACE: ${{ secrets.REGISTRY_NAMESPACE }}
+  CONTROLLER_VERSION: v1.13.3
+  CERTGEN_VERSION: v1.6.3
+
+jobs:
+  mirror:
+    name: Mirror ingress-nginx images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate registry secrets
+        run: |
+          test -n "${{ secrets.REGISTRY_URL }}"
+          test -n "${{ secrets.REGISTRY_NAMESPACE }}"
+          test -n "${{ secrets.REGISTRY_USERNAME }}"
+          test -n "${{ secrets.REGISTRY_PASSWORD }}"
+
+      - name: Login to private registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ secrets.REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Mirror controller image
+        run: |
+          docker pull "registry.k8s.io/ingress-nginx/controller:${CONTROLLER_VERSION}"
+          docker tag "registry.k8s.io/ingress-nginx/controller:${CONTROLLER_VERSION}" \
+            "${REGISTRY_URL}/${REGISTRY_NAMESPACE}/ingress-nginx/controller:${CONTROLLER_VERSION}"
+          docker push "${REGISTRY_URL}/${REGISTRY_NAMESPACE}/ingress-nginx/controller:${CONTROLLER_VERSION}"
+
+      - name: Mirror webhook certgen image
+        run: |
+          docker pull "registry.k8s.io/ingress-nginx/kube-webhook-certgen:${CERTGEN_VERSION}"
+          docker tag "registry.k8s.io/ingress-nginx/kube-webhook-certgen:${CERTGEN_VERSION}" \
+            "${REGISTRY_URL}/${REGISTRY_NAMESPACE}/ingress-nginx/kube-webhook-certgen:${CERTGEN_VERSION}"
+          docker push "${REGISTRY_URL}/${REGISTRY_NAMESPACE}/ingress-nginx/kube-webhook-certgen:${CERTGEN_VERSION}"

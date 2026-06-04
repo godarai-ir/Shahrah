@@ -20,6 +20,7 @@ on:
           - website
           - blog
           - tenant-admin
+          - all
       image_tag:
         description: "Immutable image tag to promote (e.g. sha-<full-commit-sha>)"
         required: true
@@ -87,25 +88,28 @@ jobs:
 
           sid = os.environ["SERVICE_ID"]
           image_tag = os.environ["IMAGE_TAG"]
-          if sid not in service_to_values_path:
+          if sid != "all" and sid not in service_to_values_path:
               raise SystemExit(f"Unsupported service_id: {sid}")
 
           path = "helm/shahrah/values.production.yaml"
           with open(path, "r", encoding="utf-8") as f:
               data = yaml.safe_load(f)
 
-          keys = service_to_values_path[sid].split(".")
-          cur = data
-          for k in keys[:-1]:
-              if k not in cur or cur[k] is None:
-                  cur[k] = {}
-              cur = cur[k]
-          cur[keys[-1]] = image_tag
+          paths = service_to_values_path.values() if sid == "all" else [service_to_values_path[sid]]
+          for values_path in paths:
+              keys = values_path.split(".")
+              cur = data
+              for k in keys[:-1]:
+                  if k not in cur or cur[k] is None:
+                      cur[k] = {}
+                  cur = cur[k]
+              cur[keys[-1]] = image_tag
 
           with open(path, "w", encoding="utf-8") as f:
               yaml.safe_dump(data, f, sort_keys=False)
 
-          print(f"Updated {service_to_values_path[sid]} = {image_tag}")
+          for values_path in paths:
+              print(f"Updated {values_path} = {image_tag}")
           PY
 
       - name: Create pull request in GitOps repo
