@@ -2,6 +2,8 @@
 -- Source: generated from current live database schema (pg_dump --schema-only)
 
 -- +goose Up
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 --
 -- PostgreSQL database dump
 --
