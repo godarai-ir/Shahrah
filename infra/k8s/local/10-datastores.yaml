@@ -1,9 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-initdb
+  namespace: shahrah-local
+data:
+  01-create-model-discovery.sql: |
+    SELECT 'CREATE DATABASE model_discovery'
+    WHERE NOT EXISTS (
+      SELECT FROM pg_database WHERE datname = 'model_discovery'
+    )\gexec
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-headless
+  namespace: shahrah-local
+spec:
+  clusterIP: None
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: postgres
   namespace: shahrah-local
 spec:
+  serviceName: postgres-headless
   replicas: 1
   selector:
     matchLabels:
@@ -15,6 +42,8 @@ spec:
     spec:
       imagePullSecrets:
         - name: regcred
+      securityContext:
+        fsGroup: 999
       containers:
         - name: postgres
           image: postgres:18
@@ -38,15 +67,35 @@ spec:
                 secretKeyRef:
                   name: shahrah-secret
                   key: POSTGRES_DB
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
           volumeMounts:
             - name: pgdata
-              mountPath: /var/lib/postgresql
+              mountPath: /var/lib/postgresql/data
+            - name: postgres-initdb
+              mountPath: /docker-entrypoint-initdb.d/01-create-model-discovery.sql
+              subPath: 01-create-model-discovery.sql
+              readOnly: true
           readinessProbe:
             exec:
               command:
                 - sh
                 - -c
-                - pg_isready -U "$POSTGRES_USER"
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
             initialDelaySeconds: 5
             periodSeconds: 5
           livenessProbe:
@@ -54,13 +103,16 @@ spec:
               command:
                 - sh
                 - -c
-                - pg_isready -U "$POSTGRES_USER"
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
             initialDelaySeconds: 10
             periodSeconds: 10
       volumes:
         - name: pgdata
           persistentVolumeClaim:
             claimName: pgdata
+        - name: postgres-initdb
+          configMap:
+            name: postgres-initdb
 ---
 apiVersion: v1
 kind: Service
