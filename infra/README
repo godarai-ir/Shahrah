@@ -1,0 +1,1200 @@
+# Shahrah K3s Infrastructure Execution Plan
+
+This document is the execution-oriented plan for installing and configuring K3s on the Shahrah infrastructure, then preparing the cluster for Shahrah deployment.
+
+It replaces the earlier architecture-only notes with a practical runbook tied to the current repository state and the GitOps deployment model now in use.
+
+## 1. Scope
+
+This plan covers:
+
+1. Host and network preparation
+2. K3s installation and cluster bootstrap
+3. Load balancing, ingress, TLS, DNS, and storage setup
+4. Argo CD and GitOps bootstrap
+5. Registry, image build, and secret handling
+6. Shahrah deployment sequencing on K3s
+7. Gaps between the current repo manifests and the live GitOps deployment model
+
+This document does not assume the infrastructure is already configured correctly. Every item below should be verified during execution.
+
+---
+
+## 2. Current Repo State
+
+The repository already contains a local Kubernetes conversion at [infra/k8s/local/README.md](/d:/source/Shahrah/infra/k8s/local/README.md), plus manifests under [infra/k8s/local](/d:/source/Shahrah/infra/k8s/local).
+
+That stack is useful as a workload inventory, but it is not a production K3s deployment yet.
+
+Production deployment intent now lives in the separate GitOps repository at `D:\source\shahrah-gitops`.
+
+### 2.0 Source Of Truth Split
+
+Use the repositories like this:
+
+- `D:\source\Shahrah`
+  - application source code
+  - local/dev compose stack
+  - local k8s conversion used as workload reference
+  - infrastructure architecture and cluster preparation notes
+- `D:\source\shahrah-gitops`
+  - Argo CD bootstrap
+  - AppProject and Application manifests
+  - platform applications such as ingress and TLS integration
+  - Shahrah Helm chart and environment values
+  - production deployment source of truth
+
+This matters operationally:
+
+- build artifacts come from `Shahrah`
+- deployment intent comes from `shahrah-gitops`
+- cluster provisioning and node/network hardening remain documented here in `Shahrah/infra`
+
+### 2.1 What Exists Today
+
+The local manifests define these Shahrah workloads:
+
+- `control-plane`
+- `model-discovery`
+- `support-admin`
+- `silk-road`
+- `tunnel-server`
+- `tunnel-client`
+
+They also define these in-cluster stateful dependencies:
+
+- `postgres`
+- `redis`
+- `clickhouse`
+- `typesense`
+- `pgadmin`
+- `mailpit`
+
+Database and migration jobs already exist for:
+
+- main Postgres migrations via Goose
+- model-discovery Prisma migrations
+- ClickHouse analytics migrations in [infra/clickhouse/migrations](/d:/source/Shahrah/infra/clickhouse/migrations)
+
+### 2.2 What Exists In GitOps Today
+
+The GitOps repository already contains:
+
+- Argo CD root bootstrap in `bootstrap/app-of-apps.yaml`
+- Shahrah AppProject in `projects/shahrah-project.yaml`
+- production and staging Argo CD apps in `apps/`
+- production Helm values in `helm/shahrah/values.production.yaml`
+- platform apps for:
+  - `ingress-nginx`
+  - `cert-manager-webhook-arvancloud`
+  - TLS config under `platform/godarai-tls`
+
+The Helm chart includes a broader workload set than `infra/k8s/local`:
+
+- `control-plane`
+- `model-discovery`
+- `support-admin`
+- `silk-road`
+- `tunnel-server`
+- `tunnel-client`
+- `tenant-admin`
+- `website`
+- `blog`
+- `docs`
+
+### 2.3 Why `infra/k8s/local` Is Not Production-Ready
+
+The current `infra/k8s/local` stack is still development-oriented:
+
+- namespace is hardcoded to `shahrah-local`
+- secrets are committed as plain `Secret` values in [infra/k8s/local/01-secret.yaml](/d:/source/Shahrah/infra/k8s/local/01-secret.yaml)
+- images use `:local` or local registry assumptions
+- there are no production ingress resources
+- there is no Argo CD application layout yet
+- there are no Sealed Secrets or External Secrets manifests
+- there are no NetworkPolicies
+- stateful services are single replica with local-style PVC assumptions
+- `mailpit` and `pgadmin` are dev tools and should not be publicly exposed in production
+
+Treat `infra/k8s/local` as the source workload map, not as the final production overlay.
+
+### 2.4 Why This README Needed Revision
+
+The earlier rewrite still assumed production Kubernetes manifests should be organized primarily inside this repo under `infra/k8s/base` and `infra/k8s/overlays/prod`.
+
+That is no longer the primary deployment path.
+
+The actual production path is now:
+
+1. prepare infrastructure and K3s here
+2. install Argo CD in the cluster
+3. bootstrap `shahrah-gitops`
+4. let Argo CD deploy Shahrah from the Helm chart
+
+---
+
+## 3. Target Production Topology
+
+The intended production topology remains:
+
+- private K3s nodes on `10.10.0.0/24`
+- bastion host for administrative SSH access
+- two dedicated HAProxy load balancer nodes
+- floating public IPs in front of HAProxy
+- K3s control-plane API restricted to bastion or VPN
+- PostgreSQL restricted to approved private nodes only
+- Kubernetes ingress behind HAProxy
+
+The latest infrastructure diagram also clarifies that the current intended topology is:
+
+- a 3-node K3s cluster
+- every K3s node acts as both `control-plane` and `worker`
+- public traffic enters through the two active public IPs and lands on `lb-1` / `lb-2`
+- `HAProxy` is the intended public entry layer for ingress
+- PostgreSQL is external to the cluster
+- object storage / S3-compatible storage is external
+- backup storage is external
+- Longhorn-backed PVCs are intended for in-cluster persistent volumes
+
+### 3.1 Known Inventory To Verify Before Execution
+
+Current notes in this repo and the provided infrastructure diagram mention:
+
+- bastion public IPv4: `37.152.191.92`
+- load balancer private IPs:
+  - `lb-1`: `10.10.0.7`
+  - `lb-2`: `10.10.0.8`
+- example cluster node IPs:
+  - `node-1`: `10.10.0.21`
+  - `node-2`: `10.10.0.22`
+  - `node-3`: `10.10.0.23`
+- bastion private IP:
+  - `10.10.0.5`
+- floating IPs:
+  - `37.32.29.47`
+  - `37.32.31.156`
+- DNS:
+  - `godarai.ir`
+- private network:
+  - subnet: `10.10.0.0/24`
+  - gateway: `10.10.0.1`
+  - DHCP: disabled
+  - addressing model: static IPs
+
+Do not assume these are still correct. Verify them against the provider panel before executing this plan.
+
+### 3.2 Recommended Role Layout
+
+- `bastion`: SSH jump host only
+- `lb-1`, `lb-2`: load balancer / public entry role
+- `node-1`, `node-2`, `node-3`: K3s nodes, each running both `control-plane` and `worker`
+- external PostgreSQL host: preferred for production durability
+
+The diagram shows the current intended node sizing:
+
+- `bastion`: `1 vCPU`, `1 GB RAM`, `25 GB disk`
+- `lb-1` and `lb-2`: `1 vCPU`, `1 GB RAM`, `25 GB disk`
+- `node-1`: `4 vCPU`, `12 GB RAM`, `75 GB disk`
+- `node-2`: `4 vCPU`, `12 GB RAM`, `75 GB disk`
+- `node-3`: `4 vCPU`, `12 GB RAM`, `75 GB disk`
+
+This is materially better than the K3s minimums and is consistent with a small HA production cluster.
+
+### 3.3 Diagram-Derived Confirmed Design Points
+
+From the provided infrastructure diagram, these should now be treated as current design assumptions unless you override them:
+
+- K3s cluster nodes are multi-role nodes, not separate server/agent pools
+- ingress is intended to be multi-node
+- public/floating IPs are:
+  - `37.32.31.156`
+  - `37.32.29.47`
+- both public IPs are active
+- `lb-1` and `lb-2` already exist and are configured
+- the cluster uses Longhorn for PVC-backed storage
+- PostgreSQL is external and HA
+- PostgreSQL connectivity is currently labeled `ssl: off`
+
+Given the confirmed presence of configured `HAProxy` load balancers, `kube-vip` is not required for the ingress path and should be removed from the default design unless a separate control-plane VIP or `LoadBalancer` service feature is explicitly needed.
+
+---
+
+## 4. Execution Phases
+
+Work in this order:
+
+1. Validate infrastructure inventory and DNS ownership
+2. Harden hosts and apply firewall rules
+3. Configure HAProxy and floating-IP failover
+4. Install K3s server nodes
+5. Join K3s worker nodes
+6. Install baseline cluster services
+7. Install Argo CD
+8. Bootstrap the `shahrah-gitops` repository
+9. Build and publish Shahrah images
+10. Provision secrets and environment inputs expected by the Helm chart
+11. Let Argo CD sync platform and application apps
+12. Test traffic flow, failover, and recovery
+
+Do not start app deployment before phases 1 through 6 are complete.
+
+---
+
+## 5. Preflight Checklist
+
+Before installing K3s, confirm:
+
+- all nodes can reach each other on the private network
+- bastion can SSH to every private node
+- time sync is enabled on all nodes
+- each node has a unique hostname
+- container registry endpoint is chosen and reachable
+- persistent storage class strategy is chosen
+- domain DNS zone is under your control
+- floating IP failover method is supported by the provider
+- external PostgreSQL decision is made
+- backup destination is defined
+
+### 5.1 Required DNS Decisions
+
+Decide the production hostnames before deploying ingress:
+
+- `api.<domain>` for `control-plane`
+- `admin.<domain>` for `support-admin`
+- optional `catalog.<domain>` if `model-discovery` will be exposed directly
+
+Confirmed production domain decision:
+
+- base domain: `godarai.ir`
+- current GitOps public routing stays path-based on that same domain
+- `tenant-admin` stays wildcard-based on `*.godarai.ir`
+
+`model-discovery`, `silk-road`, `tunnel-server`, and `tunnel-client` should stay internal unless there is a clear public requirement.
+
+The current production values in `D:\source\shahrah-gitops\helm\shahrah\values.production.yaml` are already aligned to `godarai.ir`.
+
+That means the infrastructure plan, DNS, and certificate setup should follow `godarai.ir` unless you intentionally change the GitOps repo later.
+
+### 5.2 Required Infrastructure Decisions
+
+These choices must be made explicitly:
+
+- external PostgreSQL or in-cluster PostgreSQL
+- Longhorn vs provider block storage vs local-path for PVCs
+- private registry location
+- Argo CD now or later
+- Sealed Secrets vs External Secrets
+
+Recommended production baseline:
+
+- PostgreSQL: external, managed by infra team
+- PVC storage: Longhorn or provider CSI-backed storage
+- GitOps: Argo CD
+- secret management: Sealed Secrets first, External Secrets later if needed
+
+### 5.3 K3s Baseline Host Requirements
+
+Per the official K3s installation requirements, baseline node sizing for K3s itself is:
+
+- server node: minimum `2 vCPU` and `2 GB RAM`
+- agent node: minimum `1 vCPU` and `512 MB RAM`
+
+These numbers cover K3s and packaged components only. They do not include Shahrah workloads, ingress, observability, or stateful services.
+
+For this Shahrah production plan, do not size nodes at the bare minimum. Treat the K3s minimum as a floor, not a target.
+
+Recommended practical floor for this project:
+
+- server nodes: at least `2 vCPU` and `4 GB RAM`
+- worker nodes: at least `2 vCPU` and `4 GB RAM`
+- SSD-backed disks on all K3s nodes
+
+The currently drawn node sizing already exceeds this floor:
+
+- K3s nodes: `4 vCPU`, `12 GB RAM`, `75 GB disk`
+- bastion and load balancers: `1 vCPU`, `1 GB RAM`, `25 GB disk`
+
+### 5.4 K3s Host Identity Rules
+
+K3s requires unique hostnames for nodes.
+
+If automated provisioning might reuse hostnames, use one of these approaches:
+
+- assign stable unique hostnames yourself
+- install with `--with-node-id`
+- pass an explicit node name with `--node-name`
+
+Do not add two K3s nodes with the same hostname.
+
+### 5.5 Finalized Static Addressing
+
+The current finalized private addressing is:
+
+- `bastion`: `10.10.0.5`
+- `lb-1`: `10.10.0.7`
+- `lb-2`: `10.10.0.8`
+- `node-1`: `10.10.0.21`
+- `node-2`: `10.10.0.22`
+- `node-3`: `10.10.0.23`
+
+This is the correct direction for K3s and HAProxy. Do not revert these nodes back to dynamic DHCP allocation.
+
+Confirmed private interface naming:
+
+- `bastion`: not yet needed for K3s config templating
+- `lb-1`: `eth0`
+- `lb-2`: `eth0`
+- `node-1`: `eth1`
+- `node-2`: `eth1`
+- `node-3`: `eth1`
+
+Keepalived note:
+
+- if you use `auth_type PASS`, `auth_pass` must be at most `8` characters
+
+---
+
+## 6. Network and Firewall Policy
+
+### 6.1 Private Networks
+
+Recommended non-overlapping networks:
+
+```text
+Node Network:    10.10.0.0/24
+Pod CIDR:        10.42.0.0/16
+Service CIDR:    10.43.0.0/16
+```
+
+### 6.2 Public Exposure Rules
+
+Expose publicly only:
+
+- `80/tcp` to HAProxy nodes
+- `443/tcp` to HAProxy nodes
+- `22/tcp` to bastion from trusted admin IPs only
+
+Do not expose publicly:
+
+- K3s API `6443/tcp`
+- kubelet ports
+- Postgres `5432/tcp`
+- Redis `6379/tcp`
+- ClickHouse `8123/tcp` and `9000/tcp`
+- Typesense `8108/tcp`
+- Flannel VXLAN `8472/udp`
+- Flannel WireGuard `51820/udp` and `51821/udp` if that backend is used
+
+### 6.3 Inter-Node Access
+
+Allow between K3s nodes on the private network:
+
+- `6443/tcp` from agents to servers for K3s supervisor and Kubernetes API
+- `2379-2380/tcp` between server nodes when using HA with embedded etcd
+- `8472/udp` between all nodes when using Flannel VXLAN
+- `51820/udp` between all nodes when using Flannel WireGuard with IPv4
+- `51821/udp` between all nodes when using Flannel WireGuard with IPv6
+- `10250/tcp` between all nodes if metrics-server or kubelet metrics/API access is required
+- `5001/tcp` and `6443/tcp` between all nodes only if the embedded distributed registry (Spegel) is used
+- K3s overlay and node networking as required by the chosen CNI
+- NodePort range only if explicitly used
+
+K3s uses reverse tunneling for kubelet traffic, so you should not need to expose additional kubelet-facing ports publicly.
+
+If you use a custom CNI instead of Flannel, remove the Flannel-specific port assumptions and replace them with the CNI's actual requirements.
+
+If using default K3s networking, keep the node network interface explicit in config with:
+
+```yaml
+node-ip: 10.10.0.x
+advertise-address: 10.10.0.x
+flannel-iface: eth1
+cluster-cidr: 10.42.0.0/16
+service-cidr: 10.43.0.0/16
+```
+
+Replace `eth1` with the real private interface name on each server.
+
+### 6.4 Firewall Implementation Notes
+
+The K3s docs recommend disabling host firewalls such as `firewalld` or `ufw` unless you are prepared to manage the required rules carefully.
+
+For this infrastructure, keep the security boundary at the provider firewall/security-group layer and private network segmentation first.
+
+If host firewalls remain enabled:
+
+- allow the K3s-required inter-node ports listed above
+- allow the configured Pod CIDR and Service CIDR
+- update firewall rules if you change the default `10.42.0.0/16` pod CIDR or `10.43.0.0/16` service CIDR
+
+The network is now using static IPs for the critical infrastructure nodes.
+
+Keep this design. For K3s and HAProxy, stable node IPs are mandatory in practice. Dynamic address changes create avoidable failure modes in:
+
+- HAProxy backend definitions
+- K3s node registration
+- TLS SAN assumptions
+- firewall allowlists
+- external PostgreSQL allowlists
+
+---
+
+## 7. Host Preparation
+
+Run these tasks on every Linux node before K3s installation:
+
+1. Update packages and reboot if kernel updates require it
+2. Set hostname and `/etc/hosts` consistently
+3. Disable swap
+4. Ensure `open-iscsi` is installed if Longhorn will be used
+5. Enable time sync
+6. Confirm SSD-backed storage is available for K3s data
+7. Apply firewall rules
+8. If using Ubuntu/Debian with `ufw`, either disable it or add the required K3s rules
+9. If using RHEL-family systems with `firewalld`, either disable it or add the required K3s rules
+10. On RHEL 10, install `kernel-modules-extra`
+11. On older RHEL/CentOS releases prior to RHEL 8.4, disable `nm-cloud-setup` and reboot
+12. Create admin user and SSH keys
+13. Install `curl`, `jq`, `vim`, `htop`, `nfs-common` if needed
+
+Basic validation commands:
+
+```bash
+hostnamectl
+ip addr
+timedatectl
+free -h
+swapon --show
+```
+
+Expected result:
+
+- `swapon --show` returns no active swap devices
+- private IP is stable and matches the inventory sheet
+- hostname is unique in the cluster inventory
+
+### 7.1 OS-Specific Notes
+
+Only modern Linux systems should be used for K3s nodes.
+
+For this Shahrah plan, prefer:
+
+- Ubuntu LTS
+- Debian stable
+- RHEL-compatible releases that are known-good for your kernel and networking stack
+
+Avoid introducing Raspberry Pi-specific guidance or mixed ARM/x86 clusters here unless that is an explicit infrastructure decision.
+
+---
+
+## 8. HAProxy and Floating-IP Layer
+
+Configure `lb-1` and `lb-2` before K3s ingress cutover.
+
+### 8.1 HAProxy Responsibilities
+
+HAProxy should front:
+
+- HTTP `80`
+- HTTPS `443`
+- Kubernetes API `6443` on the private network only
+
+Backends should point to the K3s ingress controller endpoints, not directly to app pods.
+
+Chosen design for this infrastructure:
+
+- public `80/443` terminate or pass through via `lb-1` and `lb-2`
+- Kubernetes API `6443` is exposed only on a private fixed endpoint behind HAProxy
+- `6443` must not be exposed on the public floating IPs
+- `kube-vip` is not part of the default design
+
+### 8.2 Private Kubernetes API Endpoint
+
+Recommended final model:
+
+- create one private fixed endpoint for Kubernetes API, for example:
+  - a private VIP shared by `lb-1` and `lb-2` using Keepalived
+  - or another provider-supported private failover IP
+- point that endpoint to HAProxy listeners on `lb-1` and `lb-2`
+- HAProxy forwards to:
+  - `10.10.0.21:6443`
+  - `10.10.0.22:6443`
+  - `10.10.0.23:6443`
+
+Recommended naming:
+
+- hostname: `k3s-api.internal`
+
+Recommended private VIP:
+
+- `10.10.0.6`
+
+Why `10.10.0.6`:
+
+- same private subnet as the rest of the infra
+- adjacent to `bastion` `10.10.0.5`
+- adjacent to `lb-1` `10.10.0.7` and `lb-2` `10.10.0.8`
+- easy to remember and reserve in HAProxy/Keepalived config
+
+Recommended access scope:
+
+- bastion
+- cluster nodes
+- optional VPN subnet
+
+Do not expose this endpoint on public DNS.
+
+Temporary fallback if you do not yet have a private VIP:
+
+- use `lb-1` private IP as the bootstrap API endpoint temporarily
+- replace it with a true private VIP before calling the cluster production-ready
+
+Important operational note:
+
+- some VPS/private-network providers do not allow an unassigned private IP such as `10.10.0.6` to float via VRRP/Keepalived
+- if `10.10.0.6` is not reachable from `bastion` even though it appears on `lb-1`, assume the provider private network is blocking that VIP model
+- in that case, use `10.10.0.7` on `lb-1` as the K3s API bootstrap and operational endpoint until a provider-supported private failover mechanism exists
+
+### 8.3 Ingress Backend Strategy
+
+Use one of these patterns:
+
+1. HAProxy -> ingress controller `LoadBalancer` service IPs
+2. HAProxy -> ingress controller `NodePort` on selected K3s nodes
+
+Recommended with the current GitOps repo:
+
+1. deploy ingress-nginx
+2. expose ingress-nginx by `NodePort`
+3. configure HAProxy to target those NodePorts on all worker/server nodes that can run ingress pods
+
+This matches the current Argo CD app in `D:\source\shahrah-gitops\apps\ingress-nginx.yaml`, which configures:
+
+- HTTP NodePort: `30081`
+- HTTPS NodePort: `30444`
+
+### 8.4 Failover
+
+Use provider floating IP failover or Keepalived.
+
+The failover test is not optional. Validate:
+
+- active HAProxy node serves traffic
+- standby HAProxy node remains healthy
+- floating IP moves on failure
+- HTTPS still works after failover
+- private Kubernetes API endpoint remains reachable during load balancer failover
+
+---
+
+## 9. K3s Installation Plan
+
+Use embedded etcd for the K3s control plane unless there is a strong reason to use an external datastore.
+
+### 9.1 Server Node Config File
+
+Create `/etc/rancher/k3s/config.yaml` on each K3s server node.
+
+Example for `cp-1`:
+
+```yaml
+write-kubeconfig-mode: "0640"
+cluster-init: true
+node-ip: 10.10.0.21
+advertise-address: 10.10.0.21
+tls-san:
+  - k3s-api.internal
+  - 10.10.0.7
+  - 10.10.0.21
+  - 10.10.0.22
+  - 10.10.0.23
+flannel-iface: eth1
+cluster-cidr: 10.42.0.0/16
+service-cidr: 10.43.0.0/16
+disable:
+  - servicelb
+  - traefik
+```
+
+Why `disable: servicelb`:
+
+- the repo architecture already assumes dedicated HAProxy nodes
+- K3s `servicelb` is not the right public ingress strategy here
+- K3s `traefik` is not needed because ingress will be provided by `ingress-nginx` from GitOps
+
+### 9.2 Install First Server
+
+```bash
+curl -sfL https://get.k3s.io | sh -s - server
+sudo systemctl status k3s
+sudo cat /var/lib/rancher/k3s/server/node-token
+```
+
+Capture the server token and store it securely.
+
+### 9.3 Join Additional Servers
+
+On `cp-2` and `cp-3`, use a config like:
+
+```yaml
+server: https://k3s-api.internal:6443
+token: <server-node-token>
+node-ip: 10.10.0.22
+advertise-address: 10.10.0.22
+tls-san:
+  - k3s-api.internal
+  - 10.10.0.7
+  - 10.10.0.21
+  - 10.10.0.22
+  - 10.10.0.23
+flannel-iface: eth1
+cluster-cidr: 10.42.0.0/16
+service-cidr: 10.43.0.0/16
+disable:
+  - servicelb
+  - traefik
+```
+
+Then install:
+
+```bash
+curl -sfL https://get.k3s.io | sh -s - server
+```
+
+### 9.4 Join Worker Nodes
+
+On each agent:
+
+```yaml
+server: https://k3s-api.internal:6443
+token: <server-node-token>
+node-ip: 10.10.0.x
+flannel-iface: eth1
+```
+
+Install with:
+
+```bash
+curl -sfL https://get.k3s.io | sh -s - agent
+```
+
+### 9.5 Bootstrap Validation
+
+From bastion or an admin workstation with kubeconfig:
+
+```bash
+kubectl get nodes -o wide
+kubectl get pods -A
+kubectl cluster-info
+```
+
+Cluster is ready for the next phase only when:
+
+- all expected nodes are `Ready`
+- CoreDNS is healthy
+- metrics and DNS resolution work between nodes
+
+---
+
+## 10. Admin Access and Kubeconfig
+
+Do not leave the default kubeconfig broadly distributed.
+
+Recommended process:
+
+1. copy `/etc/rancher/k3s/k3s.yaml` from `cp-1` to bastion securely
+2. replace `127.0.0.1` with the private fixed API endpoint, preferably `k3s-api.internal:6443`
+3. use SSH tunnel or VPN for kubectl access
+4. restrict file permissions
+
+Example SSH tunnel from admin machine:
+
+```bash
+ssh -L 6443:k3s-api.internal:6443 <user>@37.152.191.92
+```
+
+Then point local kubeconfig at:
+
+```text
+https://127.0.0.1:6443
+```
+
+If a VPN is introduced later, move API access to VPN and remove ad hoc tunnels.
+
+Do not distribute kubeconfigs that point directly to one specific control-plane node unless it is only for short-lived bootstrap work.
+
+---
+
+## 11. Baseline Cluster Services
+
+Install these before Shahrah apps.
+
+### 11.1 Ingress Controller
+
+Install `ingress-nginx`.
+
+Requirements:
+
+- controller scheduled redundantly
+- service exposed in a way HAProxy can reach
+- health endpoint verified from both `lb-1` and `lb-2`
+
+The current GitOps app already expects `ingress-nginx` as an Argo CD-managed platform app, using NodePorts `30081` and `30444`.
+
+### 11.2 TLS Automation
+
+Install:
+
+- `cert-manager`
+- `cert-manager-webhook-arvancloud`
+- Let's Encrypt `ClusterIssuer`
+
+Expected result:
+
+- ingress resources can request certificates automatically
+- certificates renew without manual intervention
+
+The current GitOps repo already includes:
+
+- `apps/cert-manager-webhook-arvancloud.yaml`
+- `apps/godarai-tls.yaml`
+
+That means TLS is not just a future recommendation; it is part of the intended platform bootstrap.
+
+Important current gap:
+
+- the current `shahrah-gitops` bootstrap includes `cert-manager-webhook-arvancloud`
+- it does not currently include a separate Argo CD application for installing `cert-manager` itself
+- install `cert-manager` before expecting the webhook app or `godarai-tls` resources to become healthy
+
+### 11.3 Storage
+
+Choose and install one production storage layer:
+
+- Longhorn
+- provider CSI storage
+- another supported RWX/RWO strategy
+
+Do not rely on `local-path` for stateful production workloads unless you explicitly accept node-local failure risk.
+
+### 11.4 Observability
+
+Install at minimum:
+
+- Prometheus
+- Grafana
+- Loki
+- Alertmanager
+
+Optional but recommended:
+
+- OpenTelemetry collector
+- Jaeger or Tempo
+
+### 11.5 Secret Management
+
+Install one of:
+
+- Sealed Secrets
+- External Secrets Operator
+
+Recommended first step for this repo:
+
+- Sealed Secrets, because the current manifests already assume Git-stored Kubernetes resources and need an immediate replacement for plain committed secrets
+
+Note: the current GitOps chart is already configured with `secrets.create: false` and expects a pre-provisioned Kubernetes Secret named `shahrah-secret`. If you stay with this approach, secret delivery must be solved before Argo CD syncing the Shahrah application.
+
+---
+
+## 12. Shahrah Deployment Requirements
+
+### 12.1 Shahrah Workload Inventory
+
+Production Shahrah deployment currently depends on:
+
+- `control-plane`
+- `model-discovery`
+- `support-admin`
+- `silk-road`
+- `tunnel-server`
+- `tunnel-client`
+- `tenant-admin`
+- `website`
+- `blog`
+- `docs`
+- Postgres
+- Redis
+- ClickHouse
+- Typesense
+
+Development-only tools that should stay internal or be removed from production:
+
+- `mailpit`
+- `pgadmin`
+
+### 12.2 Image Build Inputs
+
+Current image sources in the repo:
+
+- `services/control-plane/Dockerfile`
+- `apps/model-discovery/Dockerfile`
+- `apps/support-admin/Dockerfile`
+- `services/tunnel-client/Dockerfile`
+- `services/tunnel-server/Dockerfile`
+- `services/silk-road/Dockerfile`
+- `infra/compose/images/goose.Dockerfile`
+
+### 12.3 Required Production Images
+
+Build and publish images with immutable tags, for example Git SHA tags:
+
+- `control-plane`
+- `model-discovery`
+- `model-discovery-migrate`
+- `support-admin`
+- `tunnel-client`
+- `tunnel-server`
+- `silk-road`
+- `goose`
+- `tenant-admin`
+- `website`
+- `blog`
+- `docs`
+
+Do not deploy production from `:latest` or `:local`.
+
+The GitOps Helm chart already expects immutable tags via `global.imageTag` and per-workload overrides.
+
+### 12.4 Required Secrets
+
+The current manifests show the minimum required secret set:
+
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`
+- `POSTGRES_DB`
+- `DATABASE_URL`
+- `MODEL_DISCOVERY_DATABASE_URL`
+- `CLICKHOUSE_DSN`
+- `REDIS_PASSWORD`
+- `CLICKHOUSE_PASSWORD`
+- `TYPESENSE_API_KEY`
+- `MASTER_KEY`
+- `OPENAI_API_KEY`
+- `JWT_SECRET`
+- `SHAHRAH_DISCOVERY_TOKEN`
+- `PGADMIN_DEFAULT_PASSWORD` if `pgadmin` is kept anywhere
+
+For production, also define:
+
+- registry pull credentials
+- TLS issuer email
+- backup credentials
+- alert routing credentials
+
+### 12.5 Required Config
+
+The current `ConfigMap` shows these core app settings:
+
+- `SHAHRAH_MODEL_DISCOVERY_URL`
+- `NEXT_PUBLIC_MODEL_CATALOG_API_BASE`
+- `MODEL_CATALOG_API_BASE_INTERNAL`
+- `REDIS_HOST`
+- `REDIS_PORT`
+- `TYPESENSE_HOST`
+- `TYPESENSE_PORT`
+- `TUNNEL_SERVER_URL`
+- `TUNNEL_CLIENT_URL`
+- `SILK_ROAD_URL`
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_FROM`
+
+Production values must use real internal service DNS or ingress hostnames, not localhost values from the local overlay.
+
+---
+
+## 13. GitOps Deployment Model
+
+Do not treat this repo as the place to hand-apply production manifests.
+
+The intended production deployment path is:
+
+1. K3s cluster is provisioned and reachable
+2. Argo CD is installed
+3. AppProject is applied from `shahrah-gitops`
+4. root app-of-apps is applied from `shahrah-gitops`
+5. Argo CD syncs platform apps
+6. Argo CD syncs `shahrah-production`
+
+### 13.1 GitOps Bootstrap Steps
+
+From the `shahrah-gitops` repo, the current documented/bootstrap flow is:
+
+```bash
+kubectl apply -f projects/shahrah-project.yaml
+kubectl apply -f bootstrap/app-of-apps.yaml
+```
+
+There is also a PowerShell helper:
+
+- `D:\source\shahrah-gitops\scripts\bootstrap.ps1`
+
+### 13.1.1 Chosen Repository Authentication Method
+
+For Argo CD access to `shahrah-gitops`, the selected method is:
+
+- `SSH deploy key`
+
+Operational decision:
+
+- keep the repo URL as `git@github.com:Delpak/shahrah-gitops.git`
+- create a dedicated read-only deploy key on GitHub for this one repo
+- store the private key as an Argo CD repository secret
+- use an unencrypted private key without passphrase for Argo CD
+- do not reuse a personal SSH key for Argo CD
+
+Supporting templates for this choice are kept in:
+
+- [infra/argocd/README.md](/d:/source/Shahrah/infra/argocd/README.md)
+- [infra/argocd/repo-shahrah-gitops.secret.yaml](/d:/source/Shahrah/infra/argocd/repo-shahrah-gitops.secret.yaml)
+- [infra/argocd/github-known-hosts.configmap.yaml](/d:/source/Shahrah/infra/argocd/github-known-hosts.configmap.yaml)
+
+### 13.2 What Argo CD Will Manage
+
+Current GitOps bootstrap is designed to manage:
+
+- `ingress-nginx`
+- `cert-manager-webhook-arvancloud`
+- `godarai-tls`
+- `shahrah-production`
+- `shahrah-staging`
+
+### 13.3 What The Helm Chart Already Handles
+
+The Shahrah Helm chart already includes:
+
+- Deployments
+- Services
+- Ingress resources
+- NetworkPolicy templates
+- PDB templates
+- HPA templates
+- main DB migration job
+- model-discovery migration job
+- optional in-cluster PostgreSQL
+
+This means the operational gap is not "write production manifests from scratch." The real gap is:
+
+- reconcile values with the real infrastructure
+- supply secrets safely
+- publish correct immutable image tags
+- decide which data services are in-cluster versus external
+
+---
+
+## 14. Recommended Deployment Sequence
+
+Deploy Shahrah in this order operationally:
+
+1. namespace and registry pull secret
+2. `shahrah-secret` provisioning
+3. external dependency readiness or in-cluster data service decision
+4. Argo CD sync of platform apps
+5. Argo CD sync of `shahrah-production`
+6. chart-managed Postgres if `postgres.enabled=true`
+7. chart-managed migration hooks
+8. core internal services
+9. user-facing services and ingress
+
+The internal dependency order still comes from the same workload relationships visible in:
+
+- [infra/k8s/local/10-datastores.yaml](/d:/source/Shahrah/infra/k8s/local/10-datastores.yaml)
+- [infra/k8s/local/20-platform.yaml](/d:/source/Shahrah/infra/k8s/local/20-platform.yaml)
+- [infra/k8s/local/30-apps.yaml](/d:/source/Shahrah/infra/k8s/local/30-apps.yaml)
+- [infra/k8s/local/40-jobs.yaml](/d:/source/Shahrah/infra/k8s/local/40-jobs.yaml)
+
+But the live production execution path is now mediated by Helm and Argo CD sync waves, not by manual `kubectl apply` ordering.
+
+---
+
+## 15. Database and Analytics Notes
+
+### 15.1 PostgreSQL
+
+Production recommendation:
+
+- run PostgreSQL outside the cluster if possible
+- restrict access to K3s node private IPs only
+- enable backups and restore tests
+- enable TLS for database connections if the provider or HA setup supports it
+
+Current application DSN shape provided for PostgreSQL is:
+
+```text
+postgres://base-user:PASSWORD@c781656f0ab24ceb9040b7f8bdbe5f6c.db.arvandbaas.ir:5432/default?sslmode=disable
+```
+
+Operational implication:
+
+- PostgreSQL is confirmed external
+- current connectivity is over `sslmode=disable`
+
+Recommended next step:
+
+- keep `sslmode=disable` only if ArvanDBaaS does not support TLS for this endpoint
+- if TLS is supported, switch to `sslmode=require` or the provider-recommended secure mode before production cutover
+
+If PostgreSQL must stay in-cluster temporarily:
+
+- pin it to stable worker nodes
+- use durable storage
+- define backup jobs before go-live
+
+### 15.2 ClickHouse
+
+ClickHouse exists in the current local stack and has migrations in [infra/clickhouse/migrations](/d:/source/Shahrah/infra/clickhouse/migrations).
+
+Before production deployment, decide:
+
+- in-cluster ClickHouse or external ClickHouse
+- retention policy ownership
+- backup and restore strategy
+
+### 15.3 Typesense
+
+Typesense is a required dependency for `model-discovery`.
+
+Production requirements:
+
+- persistent storage
+- API key rotation plan
+- internal-only exposure
+
+### 15.4 Longhorn and External Storage Split
+
+The infrastructure diagram implies this storage split:
+
+- Longhorn PVCs for in-cluster persistent workloads and internal tools
+- external PostgreSQL for primary relational data
+- external object storage / S3-compatible storage
+- external backup storage
+
+This is a sensible direction for Shahrah and should remain the default assumption unless infra ownership changes.
+
+---
+
+## 16. Ingress and Exposure Model
+
+Recommended public exposure depends on the final domain strategy.
+
+In the current GitOps production values, public exposure is configured on `godarai.ir`:
+
+- `control-plane` under `/api`
+- `website` under `/`
+- `blog` under `/blog`
+- `docs` under `/docs`
+- `model-discovery` under `/catalog/api/v1`
+- `support-admin` under `/catalog`
+- `tenant-admin` on `*.godarai.ir`
+
+Keep this domain model for the current rollout.
+
+Current rollout exposure pattern:
+
+- `control-plane` via `https://godarai.ir/api`
+- `support-admin` via `https://godarai.ir/catalog`
+- `website` via `https://godarai.ir/`
+- `blog` via `https://godarai.ir/blog`
+- `docs` via `https://godarai.ir/docs`
+- `tenant-admin` via tenant-aware subdomains on `*.godarai.ir`
+
+Recommended internal-only services:
+
+- `model-discovery`
+- `silk-road`
+- `tunnel-server`
+- `tunnel-client`
+- `postgres`
+- `redis`
+- `clickhouse`
+- `typesense`
+
+If `support-admin` needs browser access to `model-discovery`, prefer routing that through `control-plane` or a controlled internal API path rather than exposing raw internal services broadly.
+
+---
+
+## 17. GitOps Readiness Review
+
+Argo CD is no longer a recommendation for later; it is already the intended production deployment mechanism.
+
+What is already in place in `shahrah-gitops`:
+
+- AppProject
+- root app-of-apps
+- production and staging applications
+- Helm chart with environment values
+- ingress-nginx application
+- TLS integration application
+
+What still needs operational confirmation:
+
+1. Argo CD itself must be installed in the cluster
+2. repository access for `git@github.com:Delpak/shahrah-gitops.git` must work from Argo CD
+3. registry access via `regcred` must exist in target namespaces
+4. `shahrah-secret` must exist before sync
+5. production values must match the actual domain, DNS, and external services
+6. image tags must be updated per release
+
+---
+
+## 18. Go-Live Validation Checklist
+
+Before production cutover, verify:
+
+- `kubectl get nodes` shows all expected nodes ready
+- ingress-nginx is healthy on multiple nodes
+- HAProxy routes `80/443` correctly
+- TLS certificates issue successfully
+- app pods pull images without manual intervention
+- DB migration jobs complete successfully
+- `control-plane` health endpoint is reachable
+- `support-admin` loads successfully
+- `model-discovery` is reachable from dependent services
+- Redis, ClickHouse, and Typesense are reachable internally
+- pod restarts are stable across a rolling deployment
+- a load balancer failover test passes
+- a single node failure does not take down ingress
+
+---
+
+## 19. Immediate Work Needed
+
+To make Shahrah actually ready for K3s deployment with the current GitOps model, the next implementation steps should be:
+
+1. keep infrastructure DNS and certificates aligned with the current `godarai.ir` values
+2. install Argo CD on the K3s cluster
+3. ensure Argo CD can read `shahrah-gitops`
+4. create `regcred` in the target namespaces
+5. provision `shahrah-secret` using a safe secret delivery method
+6. decide whether `postgres.enabled` stays `true` in production
+7. decide whether Redis, ClickHouse, and Typesense are external or cluster-managed
+8. publish immutable image tags for all workloads included in the chart
+9. review and enable NetworkPolicies where the chart already provides hooks
+10. validate ingress NodePort routing from HAProxy to `30081` and `30444`
+
+---
+
+## 20. Final Recommendation
+
+The correct operational path is:
+
+1. build the K3s cluster first
+2. install ingress, cert-manager, storage, observability, and secret management
+3. install Argo CD
+4. bootstrap `shahrah-gitops`
+5. push versioned Shahrah images and update Helm values
+6. provision secrets and external dependencies expected by the chart
+7. let Argo CD deploy Shahrah
+8. validate failover, recovery, and backups before exposing production DNS
+
+The current repo already contains enough workload and infrastructure information to prepare the K3s cluster, while `shahrah-gitops` contains the actual production deployment mechanism. The remaining work is to reconcile those two cleanly and remove any mismatch between infrastructure reality and GitOps values.
