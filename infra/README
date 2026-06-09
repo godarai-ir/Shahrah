@@ -409,11 +409,14 @@ If using default K3s networking, keep the node network interface explicit in con
 node-ip: 10.10.0.x
 advertise-address: 10.10.0.x
 flannel-iface: eth1
+resolv-conf: /run/systemd/resolve/resolv.conf
 cluster-cidr: 10.42.0.0/16
 service-cidr: 10.43.0.0/16
 ```
 
 Replace `eth1` with the real private interface name on each server.
+
+If the nodes use `systemd-resolved` and `/etc/resolv.conf` points to the local stub resolver `127.0.0.53`, set `resolv-conf: /run/systemd/resolve/resolv.conf` in the K3s config. The K3s docs describe this as the correct resolver file to avoid pod/CoreDNS upstream resolution issues.
 
 ### 6.4 Firewall Implementation Notes
 
@@ -609,6 +612,7 @@ tls-san:
   - 10.10.0.22
   - 10.10.0.23
 flannel-iface: eth1
+resolv-conf: /run/systemd/resolve/resolv.conf
 cluster-cidr: 10.42.0.0/16
 service-cidr: 10.43.0.0/16
 disable:
@@ -648,6 +652,7 @@ tls-san:
   - 10.10.0.22
   - 10.10.0.23
 flannel-iface: eth1
+resolv-conf: /run/systemd/resolve/resolv.conf
 cluster-cidr: 10.42.0.0/16
 service-cidr: 10.43.0.0/16
 disable:
@@ -1015,6 +1020,11 @@ The internal dependency order still comes from the same workload relationships v
 
 But the live production execution path is now mediated by Helm and Argo CD sync waves, not by manual `kubectl apply` ordering.
 
+Temporary troubleshooting option:
+
+- if an external PostgreSQL connectivity issue blocks the migration hooks, you can set `migrations.enabled: false` in the production values temporarily to let the rest of the workloads sync for platform and UI testing
+- this is only a temporary bypass and does not replace running the real database migrations before production use
+
 ---
 
 ## 15. Database and Analytics Notes
@@ -1049,6 +1059,14 @@ If PostgreSQL must stay in-cluster temporarily:
 - pin it to stable worker nodes
 - use durable storage
 - define backup jobs before go-live
+
+If PostgreSQL remains external while the Shahrah Helm chart is used:
+
+- set `postgres.enabled: false` in production values
+- enable `externalServices.postgres.enabled: true`
+- point `externalServices.postgres.externalName` at the managed PostgreSQL hostname
+
+This is required because the chart's migration jobs wait on a Kubernetes service named `postgres` before running, even when the actual `DATABASE_URL` points to an external database.
 
 ### 15.2 ClickHouse
 

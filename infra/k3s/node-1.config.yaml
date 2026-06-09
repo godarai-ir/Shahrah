@@ -10,6 +10,7 @@ tls-san:
   - 10.10.0.22
   - 10.10.0.23
 flannel-iface: eth1
+resolv-conf: /run/systemd/resolve/resolv.conf
 cluster-cidr: 10.42.0.0/16
 service-cidr: 10.43.0.0/16
 disable:
