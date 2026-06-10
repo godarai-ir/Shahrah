@@ -1,0 +1,3 @@
+[mcp_servers.resend]
+type = "http"
+url = "https://resend.com/docs/mcp"
