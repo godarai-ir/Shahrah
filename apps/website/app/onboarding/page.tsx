@@ -73,7 +73,6 @@ export default function OnboardingPage() {
       const otp = await postOnboarding({
         action: "request_otp",
         tenant_slug: tenantSlug,
-        tenant_domain: `${tenantSlug}.localhost`,
         plan_slug: "free",
         email,
         mobile,

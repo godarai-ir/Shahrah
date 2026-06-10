@@ -41,7 +41,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const upstream = await callControlPlane(body);
+    const upstream = await callControlPlane(request, body);
     if (body.action === "request_otp" && upstream.status >= 200 && upstream.status < 300) {
       await sendOnboardingEmailIfPossible(body, upstream.payload);
     }
@@ -75,7 +75,7 @@ async function sendOnboardingEmailIfPossible(body: OnboardingBody, payload: unkn
   });
 }
 
-async function callControlPlane(body: OnboardingBody) {
+async function callControlPlane(request: Request, body: OnboardingBody) {
   const baseURL = process.env.SHAHRAH_CONTROL_PLANE_URL ?? "http://127.0.0.1:4000";
   let path = "";
   let init: RequestInit = { method: "POST" };
@@ -91,7 +91,7 @@ async function callControlPlane(body: OnboardingBody) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         tenant_slug: body.tenant_slug,
-        tenant_domain: body.tenant_domain,
+        tenant_domain: resolveTenantDomain(request, body),
         plan_slug: body.plan_slug ?? "free",
         email: body.email,
         mobile: body.mobile,
@@ -133,6 +133,31 @@ async function callControlPlane(body: OnboardingBody) {
   };
 }
 
+function resolveTenantDomain(request: Request, body: OnboardingBody) {
+  const slug = normalizeTenantSlug(body.tenant_slug);
+  if (!slug) {
+    return "";
+  }
+
+  const explicitDomain = normalizeHostname(body.tenant_domain);
+  if (explicitDomain && !isLocalhostDomain(explicitDomain)) {
+    return explicitDomain;
+  }
+
+  const baseDomain =
+    normalizeHostname(process.env.SHAHRAH_TENANT_BASE_DOMAIN) ||
+    normalizeHostname(process.env.TENANT_BASE_DOMAIN) ||
+    normalizeHostnameFromURL(process.env.NEXT_PUBLIC_SITE_URL) ||
+    normalizeHostname(request.headers.get("x-forwarded-host")) ||
+    normalizeHostname(request.headers.get("host"));
+
+  if (!baseDomain || isLocalhostDomain(baseDomain)) {
+    return `${slug}.localhost`;
+  }
+
+  return `${slug}.${stripWWW(baseDomain)}`;
+}
+
 function localizeUpstreamError(message: string | undefined, status: number) {
   const normalized = (message ?? "").toLowerCase();
   if (normalized.includes("invalid or reserved")) {
@@ -172,6 +197,39 @@ function safeParsePayload(text: string) {
   } catch {
     return { message: text };
   }
+}
+
+function normalizeTenantSlug(value: string | undefined) {
+  return (value ?? "").trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
+}
+
+function normalizeHostname(value: string | null | undefined) {
+  const first = (value ?? "").split(",")[0]?.trim().toLowerCase() ?? "";
+  if (!first) {
+    return "";
+  }
+  const withoutProtocol = first.replace(/^https?:\/\//, "");
+  const host = withoutProtocol.split("/")[0] ?? "";
+  return host.replace(/:\d+$/, "").replace(/\.$/, "");
+}
+
+function normalizeHostnameFromURL(value: string | undefined) {
+  if (!value) {
+    return "";
+  }
+  try {
+    return normalizeHostname(new URL(value).hostname);
+  } catch {
+    return normalizeHostname(value);
+  }
+}
+
+function stripWWW(hostname: string) {
+  return hostname.startsWith("www.") ? hostname.slice(4) : hostname;
+}
+
+function isLocalhostDomain(hostname: string) {
+  return hostname === "localhost" || hostname.endsWith(".localhost") || hostname.startsWith("127.");
 }
 
 function extractErrorMessage(payload: unknown) {
