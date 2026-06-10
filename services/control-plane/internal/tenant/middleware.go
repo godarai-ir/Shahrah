@@ -122,6 +122,7 @@ func (m *Middleware) Handle() fiber.Handler {
 func isTenantResolutionBypassed(path string) bool {
 	return path == "/health" ||
 		path == "/ready" ||
+		path == "/metrics" ||
 		strings.HasPrefix(path, "/api/v1/auth/") ||
 		strings.HasPrefix(path, "/api/v1/onboarding/") ||
 		strings.HasPrefix(path, "/api/v1/wallet/topup/callback/")

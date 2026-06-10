@@ -19,6 +19,8 @@ This directory contains the foundational documentation for **Shahrah** (شاهر
 | 9 | Shahrah Features (LiteLLM-Inspired) | [`09_shahrah_features.md`](09_shahrah_features.md) | ✅ Complete |
 | 10 | Performance & Availability Architecture | [`10_performance_availability.md`](10_performance_availability.md) | ✅ Complete |
 
+| 11 | Observability Platform Implementation Plan | [`observability-platform-implementation-plan.md`](observability-platform-implementation-plan.md) | âœ… Complete |
+
 ## Architecture Summary
 
 ```mermaid

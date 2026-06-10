@@ -64,6 +64,7 @@ func (m *AuthMiddleware) Middleware() fiber.Handler {
 		// Skip auth for public health, onboarding, and payment gateway callbacks.
 		if c.Path() == "/health" ||
 			c.Path() == "/ready" ||
+			c.Path() == "/metrics" ||
 			strings.HasPrefix(c.Path(), "/api/v1/onboarding/") ||
 			strings.HasPrefix(c.Path(), "/api/v1/wallet/topup/callback/") {
 			return c.Next()
