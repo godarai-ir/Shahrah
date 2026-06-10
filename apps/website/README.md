@@ -13,6 +13,16 @@ SMTP_SECURE=false
 SMTP_FROM=no-reply@shahrah.local
 ```
 
+Production email env:
+
+```bash
+NODE_ENV=production
+RESEND_API_KEY=replace-in-production-secret-store
+RESEND_FROM_EMAIL=notifications@your-verified-domain.example
+RESEND_FROM_NAME=Shahrah
+RESEND_REPLY_TO=support@your-verified-domain.example
+```
+
 For local email capture, run Mailpit:
 
 ```bash

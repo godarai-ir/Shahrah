@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     if (body.action === "request_otp" && upstream.status >= 200 && upstream.status < 300) {
       await sendOnboardingEmailIfPossible(body, upstream.payload);
     }
-    return NextResponse.json(upstream.payload, { status: upstream.status });
+    return NextResponse.json(sanitizeOnboardingPayload(upstream.payload), { status: upstream.status });
   } catch {
     return NextResponse.json(
       {
@@ -55,6 +55,19 @@ export async function POST(request: Request) {
       { status: 502 },
     );
   }
+}
+
+function sanitizeOnboardingPayload(payload: unknown) {
+  if (process.env.NODE_ENV !== "production") {
+    return payload;
+  }
+  if (!payload || typeof payload !== "object") {
+    return payload;
+  }
+
+  const rest = { ...(payload as Record<string, unknown>) };
+  delete rest.debug_otp;
+  return rest;
 }
 
 async function sendOnboardingEmailIfPossible(body: OnboardingBody, payload: unknown) {

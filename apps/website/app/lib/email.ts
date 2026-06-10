@@ -1,13 +1,20 @@
 import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
 type SendEmailInput = {
   to: string;
   subject: string;
   text: string;
   html?: string;
+  tags?: Array<{ name: string; value: string }>;
 };
 
 let cachedTransporter: nodemailer.Transporter | null = null;
+let cachedResendClient: Resend | null = null;
+
+function isProductionRuntime() {
+  return process.env.NODE_ENV === "production";
+}
 
 function getSMTPConfig() {
   return {
@@ -18,6 +25,21 @@ function getSMTPConfig() {
     pass: process.env.SMTP_PASS?.trim() || undefined,
     from: process.env.SMTP_FROM?.trim() || "no-reply@shahrah.local",
   };
+}
+
+function getResendConfig() {
+  const apiKey = process.env.RESEND_API_KEY?.trim() || "";
+  const fromEmail = process.env.RESEND_FROM_EMAIL?.trim() || "";
+  const fromName = process.env.RESEND_FROM_NAME?.trim() || "Shahrah";
+  const replyTo = process.env.RESEND_REPLY_TO?.trim() || undefined;
+
+  if (isProductionRuntime() && (!apiKey || !fromEmail)) {
+    throw new Error(
+      "RESEND_API_KEY and RESEND_FROM_EMAIL are required when NODE_ENV=production.",
+    );
+  }
+
+  return { apiKey, fromEmail, fromName, replyTo };
 }
 
 function getTransporter() {
@@ -35,12 +57,41 @@ function getTransporter() {
   return cachedTransporter;
 }
 
+function getResendClient() {
+  if (cachedResendClient) {
+    return cachedResendClient;
+  }
+
+  const config = getResendConfig();
+  cachedResendClient = new Resend(config.apiKey);
+  return cachedResendClient;
+}
+
 export function isEmailSendingEnabled() {
   return (process.env.EMAIL_SENDING_ENABLED ?? "true").toLowerCase() === "true";
 }
 
 export async function sendEmail(input: SendEmailInput) {
   if (!isEmailSendingEnabled()) {
+    return;
+  }
+
+  if (isProductionRuntime()) {
+    const config = getResendConfig();
+    const resend = getResendClient();
+    const { error } = await resend.emails.send({
+      from: `${config.fromName} <${config.fromEmail}>`,
+      to: [input.to],
+      subject: input.subject,
+      text: input.text,
+      html: input.html,
+      replyTo: config.replyTo ? [config.replyTo] : undefined,
+      tags: input.tags,
+    });
+
+    if (error) {
+      throw new Error(`Resend send failed: ${error.message}`);
+    }
     return;
   }
 
@@ -82,5 +133,10 @@ export async function sendOnboardingOTPEmail(input: {
     subject,
     text,
     html,
+    tags: [
+      { name: "app", value: "website" },
+      { name: "flow", value: "onboarding-otp" },
+      { name: "tenant", value: input.tenantSlug },
+    ],
   });
 }

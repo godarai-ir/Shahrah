@@ -37,7 +37,7 @@ Notes:
 
 - tenant-admin authentication always uses control-plane auth APIs.
 - tenant-admin has no direct database access and no Prisma dependency.
-- Email OTP is sent through configured SMTP (Mailpit in local setup).
+- Local/dev email delivery uses SMTP (Mailpit in local setup); production uses Resend when `NODE_ENV=production`.
 
 Wallet top-up UX flow in tenant-admin:
 
@@ -73,6 +73,16 @@ SMTP_HOST=127.0.0.1
 SMTP_PORT=1025
 SMTP_SECURE=false
 SMTP_FROM=no-reply@shahrah.local
+```
+
+Production email env:
+
+```bash
+NODE_ENV=production
+RESEND_API_KEY=replace-in-production-secret-store
+RESEND_FROM_EMAIL=notifications@your-verified-domain.example
+RESEND_FROM_NAME=Shahrah
+RESEND_REPLY_TO=support@your-verified-domain.example
 ```
 
 Tenants are not seeded and there is no default tenant. Create a tenant through

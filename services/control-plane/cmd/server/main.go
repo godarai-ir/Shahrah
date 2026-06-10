@@ -98,7 +98,7 @@ func main() {
 	}
 
 	adminHandlers := admin.New(store, store, store)
-	authHandlers := admin.NewAuthHandlers(store, admin.NewSMTPOTPEmailSenderFromEnv())
+	authHandlers := admin.NewAuthHandlers(store, admin.NewOTPEmailSenderFromEnv())
 	proxyHandler := proxy.NewChatCompletionHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
 	completionsHandler := proxy.NewCompletionsHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
 	modelsHandler := proxy.NewModelsHandler(store)
