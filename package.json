@@ -11,5 +11,23 @@
   },
   "devDependencies": {
     "turbo": "^2.9.6"
-  }
+  },
+  "version": "1.0.0",
+  "description": "Shahrah is now organized as a monorepo for the full platform: control plane, tunnel services, admin panels, docs, blog, SDKs, shared contracts, and infrastructure.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Delpak/Shahrah.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Delpak/Shahrah/issues"
+  },
+  "homepage": "https://github.com/Delpak/Shahrah#readme"
 }
