@@ -90,6 +90,57 @@ func buildTraceCompletionResponsePayload(resp contractsopenai.CompletionResponse
 	}
 }
 
+func buildTraceResponseRequestPayload(req contractsopenai.ResponseRequest) map[string]interface{} {
+	return map[string]interface{}{
+		"model":                req.Model,
+		"input":                req.Input,
+		"instructions":         req.Instructions,
+		"max_output_tokens":    req.MaxOutputTokens,
+		"temperature":          req.Temperature,
+		"top_p":                req.TopP,
+		"tools":                req.Tools,
+		"tool_choice":          req.ToolChoice,
+		"previous_response_id": req.PreviousResponseID,
+		"stream":               req.Stream,
+		"user":                 req.User,
+	}
+}
+
+func buildTraceResponsePayload(resp contractsopenai.Response) map[string]interface{} {
+	output := make([]map[string]interface{}, 0, len(resp.Output))
+	for _, item := range resp.Output {
+		content := make([]map[string]interface{}, 0, len(item.Content))
+		for _, block := range item.Content {
+			content = append(content, map[string]interface{}{
+				"type": block.Type,
+				"text": block.Text,
+			})
+		}
+		output = append(output, map[string]interface{}{
+			"id":      item.ID,
+			"type":    item.Type,
+			"role":    item.Role,
+			"status":  item.Status,
+			"content": content,
+		})
+	}
+
+	usage := map[string]interface{}{}
+	if resp.Usage != nil {
+		usage["input_tokens"] = resp.Usage.InputTokens
+		usage["output_tokens"] = resp.Usage.OutputTokens
+		usage["total_tokens"] = resp.Usage.TotalTokens
+	}
+
+	return map[string]interface{}{
+		"id":     resp.ID,
+		"model":  resp.Model,
+		"status": resp.Status,
+		"output": output,
+		"usage":  usage,
+	}
+}
+
 func buildTraceProviderErrorPayload(statusCode int, body []byte) map[string]interface{} {
 	payload := map[string]interface{}{
 		"status_code": statusCode,

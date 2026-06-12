@@ -91,6 +91,49 @@ func TestDispatchForwardsToDeploymentAPIBase(t *testing.T) {
 	}
 }
 
+func TestDispatchUsesOpenAIEndpointOverride(t *testing.T) {
+	t.Parallel()
+
+	var gotPath string
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":"resp_1","object":"response","output":[]}`))
+	}))
+	defer upstream.Close()
+
+	handler := NewHandler(nil)
+	payload := platform.TunnelRequest{
+		Deployment: platform.Deployment{
+			Provider: "openai",
+			APIBase:  upstream.URL,
+			APIKey:   "provider-secret",
+		},
+		RequestMetadata: map[string]interface{}{
+			"provider_endpoint_path": "/responses",
+		},
+		Body: []byte(`{"model":"gpt-4o","input":"hi"}`),
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+	if gotPath != "/responses" {
+		t.Fatalf("expected path /responses, got %q", gotPath)
+	}
+}
+
 func TestDispatchUsesAnthropicAdapterForSync(t *testing.T) {
 	t.Parallel()
 

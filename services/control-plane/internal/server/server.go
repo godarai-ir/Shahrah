@@ -41,6 +41,7 @@ type Dependencies struct {
 	AuthHandlers       *admin.AuthHandlers
 	ProxyHandler       *proxy.ChatCompletionHandler
 	CompletionsHandler *proxy.CompletionsHandler
+	ResponsesHandler   *proxy.ResponsesHandler
 	ModelsHandler      *proxy.ModelsHandler
 	Logger             *zap.Logger
 }
@@ -186,6 +187,9 @@ func registerProtectedRoutes(app *fiber.App, deps Dependencies) {
 	}
 	if deps.CompletionsHandler != nil {
 		v1.Post("/completions", deps.CompletionsHandler.Handle)
+	}
+	if deps.ResponsesHandler != nil {
+		v1.Post("/responses", deps.ResponsesHandler.Handle)
 	}
 	if deps.ModelsHandler != nil {
 		v1.Get("/models", deps.ModelsHandler.Handle)

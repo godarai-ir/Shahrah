@@ -2112,38 +2112,68 @@ function ModelsEditor(props: {
 
   const openCurlGuide = useCallback((modelValue: ProviderCatalogModel) => {
     const modelFqn = buildModelFqn(modelValue);
-    const bashCommand = [
-      `curl --location '${tenantBaseUrl}/v1/chat/completions' \\`,
-      `  --header 'Authorization: Bearer <PAT_TOKEN>' \\`,
-      `  --header 'Content-Type: application/json' \\`,
-      "  --data '{",
-      `    \"model\": \"${modelFqn}\",`,
-      '    "messages": [',
-      '      {"role":"user","content":"سلام، یک پاسخ کوتاه بده"}',
-      "    ]",
-      "  }'",
-    ].join("\n");
-    const powershellCommand = [
-      "$headers = @{",
-      '  Authorization = "Bearer <PAT_TOKEN>"',
-      '  "Content-Type" = "application/json"',
-      "}",
-      "",
-      "$body = @{",
-      `  model = "${modelFqn}"`,
-      "  messages = @(",
-      "    @{",
-      '      role = "user"',
-      '      content = "سلام، یک پاسخ کوتاه بده"',
-      "    }",
-      "  )",
-      "} | ConvertTo-Json -Depth 5",
-      "",
-      "Invoke-RestMethod -Method Post `",
-      `  -Uri "${tenantBaseUrl}/v1/chat/completions" \``,
-      "  -Headers $headers `",
-      "  -Body $body",
-    ].join("\n");
+    const normalizedProvider = (modelValue.provider || props.account?.provider || "").trim().toLowerCase();
+    const useResponsesApi = normalizedProvider === "openai";
+    const endpoint = useResponsesApi ? "/v1/responses" : "/v1/chat/completions";
+    const bashCommand = useResponsesApi
+      ? [
+          `curl --location '${tenantBaseUrl}${endpoint}' \\`,
+          `  --header 'Authorization: Bearer <PAT_TOKEN>' \\`,
+          `  --header 'Content-Type: application/json' \\`,
+          "  --data '{",
+          `    \"model\": \"${modelFqn}\",`,
+          '    "input": "سلام، یک پاسخ کوتاه بده"',
+          "  }'",
+        ].join("\n")
+      : [
+          `curl --location '${tenantBaseUrl}${endpoint}' \\`,
+          `  --header 'Authorization: Bearer <PAT_TOKEN>' \\`,
+          `  --header 'Content-Type: application/json' \\`,
+          "  --data '{",
+          `    \"model\": \"${modelFqn}\",`,
+          '    "messages": [',
+          '      {"role":"user","content":"سلام، یک پاسخ کوتاه بده"}',
+          "    ]",
+          "  }'",
+        ].join("\n");
+    const powershellCommand = useResponsesApi
+      ? [
+          "$headers = @{",
+          '  Authorization = "Bearer <PAT_TOKEN>"',
+          '  "Content-Type" = "application/json"',
+          "}",
+          "",
+          "$body = @{",
+          `  model = "${modelFqn}"`,
+          '  input = "سلام، یک پاسخ کوتاه بده"',
+          "} | ConvertTo-Json -Depth 5",
+          "",
+          "Invoke-RestMethod -Method Post `",
+          `  -Uri "${tenantBaseUrl}${endpoint}" \``,
+          "  -Headers $headers `",
+          "  -Body $body",
+        ].join("\n")
+      : [
+          "$headers = @{",
+          '  Authorization = "Bearer <PAT_TOKEN>"',
+          '  "Content-Type" = "application/json"',
+          "}",
+          "",
+          "$body = @{",
+          `  model = "${modelFqn}"`,
+          "  messages = @(",
+          "    @{",
+          '      role = "user"',
+          '      content = "سلام، یک پاسخ کوتاه بده"',
+          "    }",
+          "  )",
+          "} | ConvertTo-Json -Depth 5",
+          "",
+          "Invoke-RestMethod -Method Post `",
+          `  -Uri "${tenantBaseUrl}${endpoint}" \``,
+          "  -Headers $headers `",
+          "  -Body $body",
+        ].join("\n");
     setCurlGuideShell("powershell");
     setCurlGuide({
       modelName: modelValue.display_name || modelValue.model,
@@ -2153,7 +2183,7 @@ function ModelsEditor(props: {
         bash: bashCommand,
       },
     });
-  }, [buildModelFqn, tenantBaseUrl]);
+  }, [buildModelFqn, props.account?.provider, tenantBaseUrl]);
 
   const comparedModels = useMemo(
     () => props.filteredProviderModels.filter((model) => props.modelDrafts[model.model]?.compared),

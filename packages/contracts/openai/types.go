@@ -145,3 +145,68 @@ type Embedding struct {
 	Embedding []float64 `json:"embedding"`
 	Index     int       `json:"index"`
 }
+
+// ResponseRequest mirrors the subset of OpenAI's responses API used by Shahrah.
+type ResponseRequest struct {
+	Model              string                 `json:"model"`
+	Input              interface{}            `json:"input"`
+	Instructions       string                 `json:"instructions,omitempty"`
+	MaxOutputTokens    *int                   `json:"max_output_tokens,omitempty"`
+	Temperature        *float64               `json:"temperature,omitempty"`
+	TopP               *float64               `json:"top_p,omitempty"`
+	Tools              []ToolDefinition       `json:"tools,omitempty"`
+	ToolChoice         interface{}            `json:"tool_choice,omitempty"`
+	Metadata           map[string]interface{} `json:"metadata,omitempty"`
+	PreviousResponseID string                 `json:"previous_response_id,omitempty"`
+	Stream             bool                   `json:"stream,omitempty"`
+	User               string                 `json:"user,omitempty"`
+}
+
+// Response represents the normalized OpenAI responses payload returned by providers.
+type Response struct {
+	ID                string                 `json:"id"`
+	Object            string                 `json:"object"`
+	CreatedAt         int64                  `json:"created_at,omitempty"`
+	Model             string                 `json:"model"`
+	Status            string                 `json:"status,omitempty"`
+	Output            []ResponseOutput       `json:"output,omitempty"`
+	Usage             *ResponseUsage         `json:"usage,omitempty"`
+	Error             interface{}            `json:"error,omitempty"`
+	IncompleteDetails interface{}            `json:"incomplete_details,omitempty"`
+	Metadata          map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// ResponseOutput captures one output item returned by the responses API.
+type ResponseOutput struct {
+	ID      string                  `json:"id,omitempty"`
+	Type    string                  `json:"type,omitempty"`
+	Role    string                  `json:"role,omitempty"`
+	Status  string                  `json:"status,omitempty"`
+	Content []ResponseOutputContent `json:"content,omitempty"`
+}
+
+// ResponseOutputContent captures one content block inside an output item.
+type ResponseOutputContent struct {
+	Type        string        `json:"type,omitempty"`
+	Text        string        `json:"text,omitempty"`
+	Annotations []interface{} `json:"annotations,omitempty"`
+}
+
+// ResponseUsage mirrors token accounting in the OpenAI responses API.
+type ResponseUsage struct {
+	InputTokens   int                         `json:"input_tokens"`
+	OutputTokens  int                         `json:"output_tokens"`
+	TotalTokens   int                         `json:"total_tokens"`
+	InputDetails  *ResponseInputTokenDetails  `json:"input_tokens_details,omitempty"`
+	OutputDetails *ResponseOutputTokenDetails `json:"output_tokens_details,omitempty"`
+}
+
+// ResponseInputTokenDetails provides cached token detail for responses usage.
+type ResponseInputTokenDetails struct {
+	CachedTokens int `json:"cached_tokens,omitempty"`
+}
+
+// ResponseOutputTokenDetails provides reasoning token detail for responses usage.
+type ResponseOutputTokenDetails struct {
+	ReasoningTokens int `json:"reasoning_tokens,omitempty"`
+}

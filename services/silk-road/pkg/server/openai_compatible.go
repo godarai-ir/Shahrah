@@ -24,7 +24,7 @@ func (a *openAICompatibleAdapter) Dispatch(ctx context.Context, client *http.Cli
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, joinURL(target, "/chat/completions"), bytes.NewReader(payload.Body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, joinURL(target, openAICompatiblePath(payload)), bytes.NewReader(payload.Body))
 	if err != nil {
 		return nil, err
 	}
@@ -45,6 +45,21 @@ func (a *openAICompatibleAdapter) Dispatch(ctx context.Context, client *http.Cli
 		Headers:    resp.Header.Clone(),
 		Body:       resp.Body,
 	}, nil
+}
+
+func openAICompatiblePath(payload platform.TunnelRequest) string {
+	if payload.RequestMetadata != nil {
+		if raw, ok := payload.RequestMetadata["provider_endpoint_path"].(string); ok {
+			path := strings.TrimSpace(raw)
+			if path != "" {
+				if !strings.HasPrefix(path, "/") {
+					return "/" + path
+				}
+				return path
+			}
+		}
+	}
+	return "/chat/completions"
 }
 
 func resolveBaseURL(explicit string, fallback string) (string, error) {

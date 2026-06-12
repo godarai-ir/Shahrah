@@ -101,6 +101,7 @@ func main() {
 	authHandlers := admin.NewAuthHandlers(store, admin.NewOTPEmailSenderFromEnv())
 	proxyHandler := proxy.NewChatCompletionHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
 	completionsHandler := proxy.NewCompletionsHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
+	responsesHandler := proxy.NewResponsesHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
 	modelsHandler := proxy.NewModelsHandler(store)
 
 	traceCfg := tracing.LoadConfigFromEnv()
@@ -130,6 +131,7 @@ func main() {
 		AuthHandlers:       authHandlers,
 		ProxyHandler:       proxyHandler,
 		CompletionsHandler: completionsHandler,
+		ResponsesHandler:   responsesHandler,
 		ModelsHandler:      modelsHandler,
 		Logger:             logger,
 	})
