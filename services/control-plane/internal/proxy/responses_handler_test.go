@@ -143,3 +143,63 @@ func TestResponsesHandlerRejectsNonOpenAIProvider(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusNotImplemented, resp.StatusCode)
 }
+
+func TestResponsesHandlerCanonicalizesProviderPrefixedDeploymentModel(t *testing.T) {
+	mem, err := cache.NewMemoryCache(zap.NewNop())
+	require.NoError(t, err)
+	rt, err := router.NewRouter([]config.ModelDeployment{{
+		ModelName: "gpt-4o-mini",
+		ProviderEndpoint: config.ProviderEndpointConfig{
+			Provider: "openai",
+			Model:    "openai/gpt-4o-mini",
+			APIKey:   "test-key",
+		},
+	}}, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, mem, nil, zap.NewNop())
+	require.NoError(t, err)
+
+	payload := contractsopenai.Response{
+		ID:        "resp_2",
+		Object:    "response",
+		CreatedAt: time.Now().Unix(),
+		Model:     "gpt-4o-mini",
+		Status:    "completed",
+	}
+	body, err := json.Marshal(payload)
+	require.NoError(t, err)
+
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
+		StatusCode: fiber.StatusOK,
+		Headers:    map[string]string{"content-type": "application/json"},
+		Body:       body,
+	}}
+	h := NewResponsesHandler(rt, tunnel, &testBudgeter{}, &testWallets{}, &testLogs{}, zap.NewNop())
+
+	app := fiber.New()
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{
+			TenantID:  "tenant_a",
+			KeyID:     "key_1",
+			KeyType:   "pat",
+			Role:      "team_admin",
+			TokenHash: "hash_1",
+		})
+		c.Locals(tenant.ContextKey{}, &platform.Tenant{
+			ID:     "tenant_a",
+			Slug:   "a",
+			Status: "active",
+		})
+		return c.Next()
+	})
+	app.Post("/v1/responses", h.Handle)
+
+	req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"gpt-4o-mini","input":"hello"}`))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+
+	var outbound contractsopenai.ResponseRequest
+	err = json.Unmarshal(tunnel.lastReq.Body, &outbound)
+	require.NoError(t, err)
+	assert.Equal(t, "gpt-4o-mini", outbound.Model)
+}

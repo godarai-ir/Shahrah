@@ -255,3 +255,69 @@ func TestRouter_FQNWithoutExactDeploymentShouldNotUseWildcard(t *testing.T) {
 	assert.Nil(t, dep)
 	assert.Equal(t, llmrouter.ErrModelNotFound, err)
 }
+
+func TestRouter_FQNProviderAccountWithoutBYOKUsesSharedProviderKey(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+
+	modelList := []config.ModelDeployment{
+		{
+			ModelName: "*",
+			ProviderEndpoint: config.ProviderEndpointConfig{
+				Model:  "openai/*",
+				APIKey: "shared-openai-key",
+				RPM:    1000,
+			},
+			ModelInfo: map[string]interface{}{"id": "dep-openai"},
+		},
+	}
+
+	store := &staticDeploymentStore{
+		deployments: []platform.Deployment{
+			{
+				ID:        "provider-account:openai-1:gpt-5-nano",
+				TenantID:  "tenant-1",
+				ModelName: "openai:openai-daring-lotus:gpt-5-nano",
+				Provider:  "openai",
+				Model:     "gpt-5-nano",
+			},
+		},
+	}
+
+	r, err := llmrouter.NewRouter(modelList, config.RouterSettings{}, memCache, store, logger)
+	assert.NoError(t, err)
+
+	dep, err := r.Route(context.Background(), "tenant-1", "openai:openai-daring-lotus:gpt-5-nano")
+	assert.NoError(t, err)
+	assert.NotNil(t, dep)
+	assert.Equal(t, "provider-account:openai-1:gpt-5-nano", dep.ID)
+	assert.Equal(t, "openai", dep.Provider)
+	assert.Equal(t, "shared-openai-key", dep.Params.APIKey)
+}
+
+func TestRouter_CanonicalizesProviderPrefixedModelForProviderAccountDeployment(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+
+	store := &staticDeploymentStore{
+		deployments: []platform.Deployment{
+			{
+				ID:        "provider-account:openai-1:openai/gpt-4o-mini",
+				TenantID:  "tenant-1",
+				ModelName: "openai:openai-daring-lotus:gpt-4o-mini",
+				Provider:  "openai",
+				Model:     "openai/gpt-4o-mini",
+				APIKey:    "tenant-openai-key",
+			},
+		},
+	}
+
+	r, err := llmrouter.NewRouter(nil, config.RouterSettings{}, memCache, store, logger)
+	assert.NoError(t, err)
+
+	dep, err := r.Route(context.Background(), "tenant-1", "openai:openai-daring-lotus:gpt-4o-mini")
+	assert.NoError(t, err)
+	assert.NotNil(t, dep)
+	assert.Equal(t, "gpt-4o-mini", dep.Model)
+	assert.Equal(t, "gpt-4o-mini", dep.Params.Model)
+}
