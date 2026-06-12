@@ -79,6 +79,9 @@ func (h *Handlers) createKey(c *fiber.Ctx, forcedKeyType string) error {
 	if err := requireTeamAdminOrHigher(c); err != nil {
 		return err
 	}
+	if h.keys == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "key store not configured")
+	}
 
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
@@ -149,9 +152,35 @@ func (h *Handlers) createKey(c *fiber.Ctx, forcedKeyType string) error {
 	return c.Status(fiber.StatusCreated).JSON(created)
 }
 
+// CreateKey preserves the legacy PAT/VAT key creation endpoint.
+func (h *Handlers) CreateKey(c *fiber.Ctx) error {
+	return h.createKey(c, "")
+}
+
 // CreateVATKey creates a tenant-scoped VAT using the canonical endpoint.
 func (h *Handlers) CreateVATKey(c *fiber.Ctx) error {
 	return h.createKey(c, platform.KeyTypeVAT)
+}
+
+// ListKeys returns all tenant keys without exposing raw key material.
+func (h *Handlers) ListKeys(c *fiber.Ctx) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+	if h.keys == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "key store not configured")
+	}
+
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+
+	items, err := h.keys.ListKeys(c.Context(), currentTenant.ID)
+	if err != nil {
+		return err
+	}
+	return c.JSON(fiber.Map{"data": items})
 }
 
 func (h *Handlers) ListPersonalAccessTokens(c *fiber.Ctx) error {

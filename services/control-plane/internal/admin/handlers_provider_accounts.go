@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"errors"
 	"strconv"
 	"strings"
@@ -59,6 +60,26 @@ func (h *Handlers) GetProviderCatalogStats(c *fiber.Ctx) error {
 			"counters":      discoveryTelemetrySnapshot(),
 		},
 	})
+}
+
+// GetProviderCatalogDisplaySettings returns model-catalog display settings through control-plane.
+func (h *Handlers) GetProviderCatalogDisplaySettings(c *fiber.Ctx) error {
+	if err := requirePermissionAnyOrTenantAdmin(c, "provider account read permission required", []string{
+		"provider_account:read",
+		"provider_account:manage",
+		"provider_account:create",
+	}); err != nil {
+		return err
+	}
+
+	settings, err := discoveryDisplaySettings(c.Context())
+	if err != nil {
+		if errors.Is(err, errDiscoveryNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "provider catalog display settings not found")
+		}
+		return fiber.NewError(fiber.StatusBadGateway, err.Error())
+	}
+	return c.JSON(platform.ProviderCatalogDisplaySettingsResponse{Data: *settings})
 }
 
 // ListProviderModelsCatalog returns provider model catalog for step-2 selection.
@@ -198,6 +219,11 @@ func (h *Handlers) GetTenantProviderAccount(c *fiber.Ctx) error {
 		}
 		return err
 	}
+	if details != nil {
+		if enriched, enrichErr := enrichTenantProviderAccountModels(c.Context(), details.Account.Provider, details.Models); enrichErr == nil {
+			details.Models = enriched
+		}
+	}
 	return c.JSON(details)
 }
 
@@ -318,28 +344,9 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 		if req.Models[i].Model == "" {
 			return fiber.NewError(fiber.StatusBadRequest, "model is required for each item")
 		}
-		normalizedTypes := make([]platform.ModelType, 0, len(req.Models[i].Types))
-		for _, mt := range req.Models[i].Types {
-			trimmed := platform.ModelType(strings.TrimSpace(strings.ToLower(string(mt))))
-			if trimmed == "" {
-				continue
-			}
-			normalizedTypes = append(normalizedTypes, trimmed)
-		}
-		req.Models[i].Types = normalizedTypes
 		if req.Models[i].PricingMode == "" {
 			req.Models[i].PricingMode = platform.PricingModePublic
 		}
-	}
-	// Normalize duplicate model entries while preserving input order.
-	seenModels := make(map[string]struct{}, len(req.Models))
-	normalizedModels := make([]platform.TenantProviderAccountModel, 0, len(req.Models))
-	for _, item := range req.Models {
-		if _, ok := seenModels[item.Model]; ok {
-			continue
-		}
-		seenModels[item.Model] = struct{}{}
-		normalizedModels = append(normalizedModels, item)
 	}
 
 	details, err := store.GetTenantProviderAccountDetails(c.Context(), currentTenant.ID, accountID)
@@ -349,22 +356,21 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 		}
 		return mapProviderAccountStoreError(err)
 	}
-	invalidModels, invalidTypeModels, err := validateProviderModelsFromCatalog(c.Context(), details.Account.Provider, normalizedModels)
+	normalizedModels, invalidModels, err := resolveProviderAccountModelSelections(c.Context(), details.Account.Provider, req.Models)
 	if err != nil {
 		if errors.Is(err, errDiscoveryNotFound) {
 			return fiber.NewError(fiber.StatusBadRequest, "provider model catalog not found")
 		}
 		return fiber.NewError(fiber.StatusBadGateway, err.Error())
 	}
-	if len(invalidModels) > 0 || len(invalidTypeModels) > 0 {
+	if len(invalidModels) > 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": fiber.Map{
 				"type":    "validation_error",
-				"message": "one or more models are not valid for this provider account or requested capabilities",
+				"message": "one or more models are not valid for this provider account",
 				"details": fiber.Map{
-					"invalid_models":      invalidModels,
-					"invalid_model_types": invalidTypeModels,
-					"provider":            details.Account.Provider,
+					"invalid_models": invalidModels,
+					"provider":       details.Account.Provider,
 				},
 			},
 		})
@@ -449,6 +455,43 @@ func (h *Handlers) UpdateTenantProviderAccountAccess(c *fiber.Ctx) error {
 		return mapProviderAccountStoreError(err)
 	}
 	return c.JSON(fiber.Map{"access": access})
+}
+
+func enrichTenantProviderAccountModels(ctx context.Context, provider string, models []platform.TenantProviderAccountModel) ([]platform.TenantProviderAccountModel, error) {
+	catalog, err := discoveryProviderModels(ctx, provider)
+	if err != nil {
+		return nil, err
+	}
+	index := make(map[string]platform.ProviderCatalogModel, len(catalog))
+	for _, item := range catalog {
+		key := strings.TrimSpace(item.Model)
+		if key == "" {
+			continue
+		}
+		index[key] = item
+	}
+
+	out := make([]platform.TenantProviderAccountModel, 0, len(models))
+	for _, item := range models {
+		next := item
+		catalogModel, ok := index[strings.TrimSpace(item.Model)]
+		if ok {
+			if len(next.Types) == 0 {
+				next.Types = normalizeModelTypes(catalogModel.Types)
+			}
+			if len(next.InputModalities) == 0 {
+				next.InputModalities = normalizeStringList(catalogModel.InputModalities)
+			}
+			if len(next.OutputModalities) == 0 {
+				next.OutputModalities = normalizeStringList(catalogModel.OutputModalities)
+			}
+			if next.PublicPricing == nil {
+				next.PublicPricing = cloneModelPrice(catalogModel.PublicPricing)
+			}
+		}
+		out = append(out, next)
+	}
+	return out, nil
 }
 
 // TestTenantProviderAccountCredentials validates configured credentials (or virtual-key-only mode).

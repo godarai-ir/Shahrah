@@ -669,20 +669,31 @@ func TestIntegration_ProviderAccountAccessAndModelSelectionHardening(t *testing.
 
 	modelsResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/models", "Bearer sk-master", `{
 		"models":[
-			{"model":"gpt-4.1-mini","enabled":true},
-			{"model":"gpt-4.1-mini","enabled":true}
+			{"model":"gpt-4.1-mini"},
+			{"model":"gpt-4.1-mini"}
 		]
 	}`)
 	assert.Equal(t, http.StatusOK, modelsResp.StatusCode)
 	var modelsOut struct {
-		Data []platform.TenantProviderAccountModel `json:"data"`
+		Data []platform.TenantProviderAccountModelEffective `json:"data"`
 	}
 	decodeJSONBody(t, modelsResp, &modelsOut)
 	require.Len(t, modelsOut.Data, 1)
 	assert.Equal(t, "gpt-4.1-mini", modelsOut.Data[0].Model)
 
+	detailsResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID, "Bearer sk-master", "")
+	assert.Equal(t, http.StatusOK, detailsResp.StatusCode)
+	var details platform.TenantProviderAccountDetailsResponse
+	decodeJSONBody(t, detailsResp, &details)
+	require.Len(t, details.Models, 1)
+	assert.Equal(t, "gpt-4.1-mini", details.Models[0].Model)
+	assert.NotEmpty(t, details.Models[0].Types)
+	assert.NotEmpty(t, details.Models[0].InputModalities)
+	assert.NotEmpty(t, details.Models[0].OutputModalities)
+	assert.NotNil(t, details.Models[0].PublicPricing)
+
 	invalidModelResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/models", "Bearer sk-master", `{
-		"models":[{"model":"not-a-real-model","enabled":true}]
+		"models":[{"model":"not-a-real-model"}]
 	}`)
 	assert.Equal(t, http.StatusBadRequest, invalidModelResp.StatusCode)
 	var invalidModelErr map[string]interface{}
@@ -819,8 +830,8 @@ func TestIntegration_EffectiveModelsAccessMatrix_PAT_VAT_UserTeam(t *testing.T) 
 
 	modelsResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/models", "Bearer sk-master", `{
 		"models":[
-			{"model":"gpt-4.1-mini","enabled":true},
-			{"model":"gpt-4o","enabled":true}
+			{"model":"gpt-4.1-mini"},
+			{"model":"gpt-4o"}
 		]
 	}`)
 	assert.Equal(t, http.StatusOK, modelsResp.StatusCode)

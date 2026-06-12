@@ -78,6 +78,9 @@ type ModelCardProps = {
   };
   onViewDetails?: (model: ModelCardData) => void;
   onCompare?: (model: ModelCardData) => void;
+  isSelected?: boolean;
+  onSelectedChange?: (checked: boolean) => void;
+  selectedCheckboxLabel?: string;
   isCompared?: boolean;
   onComparedChange?: (checked: boolean) => void;
   compareCheckboxLabel?: string;
@@ -242,6 +245,17 @@ export function ModelCard(props: ModelCardProps) {
               </Badge>
             ) : null}
             {model.popular ? <Badge variant="outline">{labels.popular}</Badge> : null}
+            {typeof props.isSelected === "boolean" && props.onSelectedChange ? (
+              <label className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-xs">
+                <input
+                  type="checkbox"
+                  checked={props.isSelected}
+                  onChange={(event) => props.onSelectedChange?.(event.target.checked)}
+                  className="h-3.5 w-3.5"
+                />
+                {props.selectedCheckboxLabel ?? "Enabled"}
+              </label>
+            ) : null}
             {typeof props.isCompared === "boolean" && props.onComparedChange ? (
               <label className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-xs">
                 <input

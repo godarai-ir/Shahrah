@@ -67,6 +67,7 @@ type modelDiscoveryPricing struct {
 type modelDiscoveryModel struct {
 	CanonicalID      string                 `json:"canonicalId"`
 	Name             string                 `json:"name"`
+	ContextWindow    *int                   `json:"contextWindow"`
 	Capabilities     []string               `json:"capabilities"`
 	InputModalities  []string               `json:"inputModalities"`
 	OutputModalities []string               `json:"outputModalities"`
@@ -308,7 +309,7 @@ func discoveryTelemetrySnapshot() map[string]uint64 {
 	}
 }
 
-func validateProviderModelsFromCatalog(ctx context.Context, provider string, models []platform.TenantProviderAccountModel) ([]string, []string, error) {
+func resolveProviderAccountModelSelections(ctx context.Context, provider string, selections []platform.UpsertTenantProviderAccountModelSelection) ([]platform.TenantProviderAccountModel, []string, error) {
 	catalog, err := discoveryProviderModels(ctx, provider)
 	if err != nil {
 		return nil, nil, err
@@ -322,45 +323,40 @@ func validateProviderModelsFromCatalog(ctx context.Context, provider string, mod
 		allowed[model] = item
 	}
 	invalid := make([]string, 0)
-	invalidType := make([]string, 0)
-	seen := make(map[string]struct{})
-	seenType := make(map[string]struct{})
-	for _, item := range models {
+	seen := make(map[string]struct{}, len(selections))
+	resolved := make([]platform.TenantProviderAccountModel, 0, len(selections))
+	for _, item := range selections {
 		model := strings.TrimSpace(item.Model)
 		if model == "" {
 			continue
 		}
-		cm, ok := allowed[model]
-		if !ok {
-			if _, ok := seen[model]; !ok {
-				seen[model] = struct{}{}
-				invalid = append(invalid, model)
-			}
+		if _, ok := seen[model]; ok {
 			continue
 		}
-		if len(item.Types) > 0 && len(cm.Types) > 0 {
-			allowedTypes := map[platform.ModelType]struct{}{}
-			for _, t := range cm.Types {
-				allowedTypes[platform.ModelType(strings.TrimSpace(strings.ToLower(string(t))))] = struct{}{}
-			}
-			for _, mt := range item.Types {
-				normalizedMT := platform.ModelType(strings.TrimSpace(strings.ToLower(string(mt))))
-				if normalizedMT == "" {
-					continue
-				}
-				if _, ok := allowedTypes[normalizedMT]; !ok {
-					key := model + ":" + string(normalizedMT)
-					if _, dup := seenType[key]; !dup {
-						seenType[key] = struct{}{}
-						invalidType = append(invalidType, key)
-					}
-				}
-			}
+		seen[model] = struct{}{}
+		cm, ok := allowed[model]
+		if !ok {
+			invalid = append(invalid, model)
+			continue
 		}
+		pricingMode := item.PricingMode
+		if pricingMode == "" {
+			pricingMode = platform.PricingModePublic
+		}
+		resolved = append(resolved, platform.TenantProviderAccountModel{
+			Model:            model,
+			Enabled:          true,
+			Types:            normalizeModelTypes(cm.Types),
+			InputModalities:  normalizeStringList(cm.InputModalities),
+			OutputModalities: normalizeStringList(cm.OutputModalities),
+			PricingMode:      pricingMode,
+			PublicPricing:    cloneModelPrice(cm.PublicPricing),
+			PrivatePricing:   cloneModelPrice(item.PrivatePricing),
+			Settings:         map[string]interface{}{},
+		})
 	}
 	sort.Strings(invalid)
-	sort.Strings(invalidType)
-	return invalid, invalidType, nil
+	return resolved, invalid, nil
 }
 
 func getDiscoveryBaseURL() string {
@@ -529,9 +525,13 @@ func mapDiscoveryModels(items []modelDiscoveryModel) []platform.ProviderCatalogM
 		}
 
 		entry := platform.ProviderCatalogModel{
-			Model:       model,
-			DisplayName: displayName,
-			Types:       normalizeModelTypes(types),
+			Model:            model,
+			DisplayName:      displayName,
+			Types:            normalizeModelTypes(types),
+			ContextWindow:    item.ContextWindow,
+			InputModalities:  normalizeStringList(item.InputModalities),
+			OutputModalities: normalizeStringList(item.OutputModalities),
+			Features:         normalizeStringList(item.Capabilities),
 		}
 		if item.Pricing != nil {
 			entry.PublicPricing = &platform.ModelPrice{
@@ -542,6 +542,34 @@ func mapDiscoveryModels(items []modelDiscoveryModel) []platform.ProviderCatalogM
 		out = append(out, entry)
 	}
 	return out
+}
+
+func discoveryDisplaySettings(ctx context.Context) (*platform.ProviderCatalogDisplaySettings, error) {
+	baseURL := getDiscoveryBaseURL()
+	if baseURL == "" {
+		return nil, errDiscoveryNotFound
+	}
+	body, status, err := discoveryGET(ctx, baseURL+"/settings/display")
+	if err != nil {
+		return nil, err
+	}
+	if status == http.StatusNotFound {
+		return nil, errDiscoveryNotFound
+	}
+	if status >= http.StatusBadRequest {
+		return nil, fmt.Errorf("discovery display settings request failed with status %d", status)
+	}
+	var direct platform.ProviderCatalogDisplaySettings
+	if err := json.Unmarshal(body, &direct); err == nil && (direct.CurrencyUnit != "" || direct.PriceScale != "" || direct.ExchangeRate != nil) {
+		return &direct, nil
+	}
+	var wrapped struct {
+		Data platform.ProviderCatalogDisplaySettings `json:"data"`
+	}
+	if err := json.Unmarshal(body, &wrapped); err == nil && (wrapped.Data.CurrencyUnit != "" || wrapped.Data.PriceScale != "" || wrapped.Data.ExchangeRate != nil) {
+		return &wrapped.Data, nil
+	}
+	return nil, fmt.Errorf("discovery display settings payload does not contain settings")
 }
 
 func mapCapabilityToModelType(capability string) platform.ModelType {
@@ -865,10 +893,13 @@ func localProviderModels(provider string) ([]platform.ProviderCatalogModel, erro
 		input := pricing.InputPrice
 		output := pricing.OutputPrice
 		items = append(items, platform.ProviderCatalogModel{
-			Provider:    provider,
-			Model:       pricing.Model,
-			DisplayName: pricing.Model,
-			Types:       []platform.ModelType{platform.ModelTypeChat},
+			Provider:         provider,
+			Model:            pricing.Model,
+			DisplayName:      pricing.Model,
+			Types:            []platform.ModelType{platform.ModelTypeChat},
+			InputModalities:  []string{"text"},
+			OutputModalities: []string{"text"},
+			Features:         []string{"chat"},
 			PublicPricing: &platform.ModelPrice{
 				InputUSDPer1M:  &input,
 				OutputUSDPer1M: &output,
@@ -896,10 +927,13 @@ func builtinProviderModelCatalog(provider string) ([]platform.ProviderCatalogMod
 			continue
 		}
 		entry := platform.ProviderCatalogModel{
-			Provider:    provider,
-			Model:       model,
-			DisplayName: model,
-			Types:       normalizeModelTypes(item.Types),
+			Provider:         provider,
+			Model:            model,
+			DisplayName:      model,
+			Types:            normalizeModelTypes(item.Types),
+			InputModalities:  defaultInputModalitiesForTypes(item.Types),
+			OutputModalities: defaultOutputModalitiesForTypes(item.Types),
+			Features:         modelTypesToFeatures(item.Types),
 		}
 		if item.InputUSDPer1M != nil || item.OutputUSDPer1M != nil {
 			entry.PublicPricing = &platform.ModelPrice{
@@ -937,6 +971,76 @@ func normalizeModelTypes(types []platform.ModelType) []platform.ModelType {
 		out = append(out, normalized)
 	}
 	return out
+}
+
+func normalizeStringList(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, item := range values {
+		normalized := strings.TrimSpace(strings.ToLower(item))
+		if normalized == "" {
+			continue
+		}
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, normalized)
+	}
+	return out
+}
+
+func cloneModelPrice(price *platform.ModelPrice) *platform.ModelPrice {
+	if price == nil {
+		return nil
+	}
+	out := *price
+	return &out
+}
+
+func defaultInputModalitiesForTypes(types []platform.ModelType) []string {
+	mods := make([]string, 0, len(types))
+	for _, item := range normalizeModelTypes(types) {
+		switch item {
+		case platform.ModelTypeImageGeneration:
+			mods = append(mods, "text")
+		case platform.ModelTypeAudioTranscription, platform.ModelTypeAudioTranslation:
+			mods = append(mods, "audio")
+		default:
+			mods = append(mods, "text")
+		}
+	}
+	return normalizeStringList(mods)
+}
+
+func defaultOutputModalitiesForTypes(types []platform.ModelType) []string {
+	mods := make([]string, 0, len(types))
+	for _, item := range normalizeModelTypes(types) {
+		switch item {
+		case platform.ModelTypeEmbedding:
+			mods = append(mods, "embedding")
+		case platform.ModelTypeImageGeneration:
+			mods = append(mods, "image")
+		case platform.ModelTypeTextToSpeech:
+			mods = append(mods, "audio")
+		case platform.ModelTypeAudioTranscription, platform.ModelTypeAudioTranslation:
+			mods = append(mods, "text")
+		default:
+			mods = append(mods, "text")
+		}
+	}
+	return normalizeStringList(mods)
+}
+
+func modelTypesToFeatures(types []platform.ModelType) []string {
+	features := make([]string, 0, len(types))
+	for _, item := range normalizeModelTypes(types) {
+		features = append(features, string(item))
+	}
+	return normalizeStringList(features)
 }
 
 func fillModelPricingFromRegistry(provider string, model string, current *platform.ModelPrice) *platform.ModelPrice {

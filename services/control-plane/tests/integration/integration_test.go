@@ -650,19 +650,19 @@ func TestIntegration_ActivateDeactivateTenantUser(t *testing.T) {
 
 	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
 
-	deactivateResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/users/tenant-user-1/deactivate", "Bearer sk-master", "")
+	deactivateResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/users/tenant-user-2/deactivate", "Bearer sk-master", "")
 	assert.Equal(t, http.StatusOK, deactivateResp.StatusCode)
 	var deactivated platform.TenantAdminUser
 	decodeJSONBody(t, deactivateResp, &deactivated)
 	assert.False(t, deactivated.Active)
-	assert.Equal(t, "deactivated", deactivated.Role)
+	assert.Equal(t, "member", deactivated.Role)
 
-	activateResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/users/tenant-user-1/activate", "Bearer sk-master", "")
+	activateResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/users/tenant-user-2/activate", "Bearer sk-master", "")
 	assert.Equal(t, http.StatusOK, activateResp.StatusCode)
 	var activated platform.TenantAdminUser
 	decodeJSONBody(t, activateResp, &activated)
 	assert.True(t, activated.Active)
-	assert.NotEqual(t, "deactivated", activated.Role)
+	assert.Equal(t, "member", activated.Role)
 }
 
 func TestIntegration_LegacyCompletionsEnforcesAllowedModels(t *testing.T) {
@@ -910,6 +910,16 @@ func (s *integrationModelStore) ListTenantAdminUsers(ctx context.Context, tenant
 	return filtered[offset:end], total, nil
 }
 
+func (s *integrationModelStore) GetTenantAdminUserRecord(ctx context.Context, tenantSlug string, userID string) (*platform.TenantAdminUser, error) {
+	for i := range s.users {
+		if s.users[i].TenantSlug == tenantSlug && s.users[i].ID == userID {
+			copy := s.users[i]
+			return &copy, nil
+		}
+	}
+	return nil, pgx.ErrNoRows
+}
+
 func (s *integrationModelStore) InviteTenantAdminUser(ctx context.Context, tenantID string, tenantSlug string, req platform.InviteTenantAdminUserRequest) (*platform.TenantAdminInvitation, string, error) {
 	now := time.Now().UTC()
 	invitation := platform.TenantAdminInvitation{
@@ -961,13 +971,6 @@ func (s *integrationModelStore) SetTenantAdminUserActive(ctx context.Context, te
 	for i := range s.users {
 		if s.users[i].TenantSlug != tenantSlug || s.users[i].ID != userID {
 			continue
-		}
-		if active {
-			if s.users[i].Role == "deactivated" {
-				s.users[i].Role = "member"
-			}
-		} else {
-			s.users[i].Role = "deactivated"
 		}
 		s.users[i].Active = active
 		s.users[i].UpdatedAt = time.Now().UTC()
@@ -1726,6 +1729,15 @@ func newIntegrationApp(t *testing.T, logger *zap.Logger, memCache cache.Cache, p
 				TenantSlug: "default",
 				Email:      "owner@tenant.test",
 				Role:       "tenant_admin",
+				Active:     true,
+				CreatedAt:  time.Now().UTC(),
+				UpdatedAt:  time.Now().UTC(),
+			},
+			{
+				ID:         "tenant-user-2",
+				TenantSlug: "default",
+				Email:      "member@tenant.test",
+				Role:       "member",
 				Active:     true,
 				CreatedAt:  time.Now().UTC(),
 				UpdatedAt:  time.Now().UTC(),

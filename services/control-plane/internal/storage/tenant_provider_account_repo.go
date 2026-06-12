@@ -258,18 +258,24 @@ func (s *Store) UpsertTenantProviderAccountModels(ctx context.Context, tenantID 
 		if err != nil {
 			return nil, err
 		}
+		publicPricing, err := marshalModelPrice(item.PublicPricing)
+		if err != nil {
+			return nil, err
+		}
 		pricingMode := item.PricingMode
 		if pricingMode == "" {
 			pricingMode = platform.PricingModePublic
 		}
 		types := modelTypesToStrings(item.Types)
+		inputModalities := normalizeStringList(item.InputModalities)
+		outputModalities := normalizeStringList(item.OutputModalities)
 
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO tenant_provider_account_models (
-				account_id, model, enabled, types, pricing_mode, private_pricing, settings
+				account_id, model, enabled, types, input_modalities, output_modalities, pricing_mode, public_pricing, private_pricing, settings
 			)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
-		`, accountID, modelName, item.Enabled, types, string(pricingMode), privatePricing, settings); err != nil {
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		`, accountID, modelName, item.Enabled, types, inputModalities, outputModalities, string(pricingMode), publicPricing, privatePricing, settings); err != nil {
 			return nil, err
 		}
 		modelsChanged++
@@ -441,7 +447,15 @@ func (s *Store) getTenantProviderAccount(ctx context.Context, tenantID string, a
 
 func (s *Store) listTenantProviderAccountModels(ctx context.Context, accountID string) ([]platform.TenantProviderAccountModel, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT model, enabled, COALESCE(types, '{}'), pricing_mode, private_pricing::text, COALESCE(settings, '{}'::jsonb)
+		SELECT model,
+		       enabled,
+		       COALESCE(types, '{}'),
+		       COALESCE(input_modalities, '{}'),
+		       COALESCE(output_modalities, '{}'),
+		       pricing_mode,
+		       public_pricing::text,
+		       private_pricing::text,
+		       COALESCE(settings, '{}'::jsonb)
 		FROM tenant_provider_account_models
 		WHERE account_id = $1
 		ORDER BY created_at ASC, model ASC
@@ -455,20 +469,34 @@ func (s *Store) listTenantProviderAccountModels(ctx context.Context, accountID s
 	for rows.Next() {
 		var model platform.TenantProviderAccountModel
 		var types []string
+		var inputModalities []string
+		var outputModalities []string
+		var publicPricingText *string
 		var privatePricingText *string
 		var settingsRaw []byte
 		if err := rows.Scan(
 			&model.Model,
 			&model.Enabled,
 			&types,
+			&inputModalities,
+			&outputModalities,
 			&model.PricingMode,
+			&publicPricingText,
 			&privatePricingText,
 			&settingsRaw,
 		); err != nil {
 			return nil, err
 		}
 		model.Types = stringsToModelTypes(types)
+		model.InputModalities = normalizeStringList(inputModalities)
+		model.OutputModalities = normalizeStringList(outputModalities)
 		model.Settings = parseJSONObject(settingsRaw)
+		if publicPricingText != nil && strings.TrimSpace(*publicPricingText) != "" && strings.TrimSpace(*publicPricingText) != "null" {
+			var parsed platform.ModelPrice
+			if err := json.Unmarshal([]byte(*publicPricingText), &parsed); err == nil {
+				model.PublicPricing = &parsed
+			}
+		}
 		if privatePricingText != nil && strings.TrimSpace(*privatePricingText) != "" && strings.TrimSpace(*privatePricingText) != "null" {
 			var parsed platform.ModelPrice
 			if err := json.Unmarshal([]byte(*privatePricingText), &parsed); err == nil {
@@ -970,6 +998,23 @@ func stringsToModelTypes(values []string) []platform.ModelType {
 			continue
 		}
 		items = append(items, platform.ModelType(value))
+	}
+	return items
+}
+
+func normalizeStringList(values []string) []string {
+	items := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, item := range values {
+		value := strings.TrimSpace(item)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		items = append(items, value)
 	}
 	return items
 }

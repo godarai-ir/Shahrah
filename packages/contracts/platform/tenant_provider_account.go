@@ -86,6 +86,10 @@ type ProviderCatalogModel struct {
 	Model            string                 `json:"model"`
 	DisplayName      string                 `json:"display_name"`
 	Types            []ModelType            `json:"types"`
+	ContextWindow    *int                   `json:"context_window,omitempty"`
+	InputModalities  []string               `json:"input_modalities,omitempty"`
+	OutputModalities []string               `json:"output_modalities,omitempty"`
+	Features         []string               `json:"features,omitempty"`
 	PublicPricing    *ModelPrice            `json:"public_pricing,omitempty"`
 	SettingsSchema   map[string]interface{} `json:"settings_schema,omitempty"`
 	IsDeprecated     bool                   `json:"is_deprecated,omitempty"`
@@ -100,6 +104,23 @@ type ProviderCatalogListResponse struct {
 // ProviderModelCatalogListResponse contains models of one provider.
 type ProviderModelCatalogListResponse struct {
 	Data []ProviderCatalogModel `json:"data"`
+}
+
+type ProviderCatalogExchangeRate struct {
+	USDToIRR  float64 `json:"usdToIrr"`
+	FetchedAt string  `json:"fetchedAt,omitempty"`
+	Source    string  `json:"source,omitempty"`
+}
+
+type ProviderCatalogDisplaySettings struct {
+	CurrencyUnit string                       `json:"currencyUnit,omitempty"`
+	DateCalendar string                       `json:"dateCalendar,omitempty"`
+	PriceScale   string                       `json:"priceScale,omitempty"`
+	ExchangeRate *ProviderCatalogExchangeRate `json:"exchangeRate,omitempty"`
+}
+
+type ProviderCatalogDisplaySettingsResponse struct {
+	Data ProviderCatalogDisplaySettings `json:"data"`
 }
 
 // ProviderAccountCredentials captures credential input for account setup.
@@ -126,12 +147,15 @@ type TenantProviderAccount struct {
 
 // TenantProviderAccountModel is tenant-selected model config inside one account.
 type TenantProviderAccountModel struct {
-	Model          string                 `json:"model"`
-	Enabled        bool                   `json:"enabled"`
-	Types          []ModelType            `json:"types"`
-	PricingMode    PricingMode            `json:"pricing_mode"`
-	PrivatePricing *ModelPrice            `json:"private_pricing,omitempty"`
-	Settings       map[string]interface{} `json:"settings,omitempty"`
+	Model            string                 `json:"model"`
+	Enabled          bool                   `json:"enabled"`
+	Types            []ModelType            `json:"types"`
+	InputModalities  []string               `json:"input_modalities,omitempty"`
+	OutputModalities []string               `json:"output_modalities,omitempty"`
+	PricingMode      PricingMode            `json:"pricing_mode"`
+	PublicPricing    *ModelPrice            `json:"public_pricing,omitempty"`
+	PrivatePricing   *ModelPrice            `json:"private_pricing,omitempty"`
+	Settings         map[string]interface{} `json:"settings,omitempty"`
 }
 
 // AccessPrincipal is one user/team/everyone principal entry.
@@ -174,9 +198,16 @@ type CreateTenantProviderAccountRequest struct {
 	AllowVirtualKeysOnly bool                        `json:"allow_virtual_keys_only"`
 }
 
+// UpsertTenantProviderAccountModelSelection contains client-editable selection fields.
+type UpsertTenantProviderAccountModelSelection struct {
+	Model          string      `json:"model"`
+	PricingMode    PricingMode `json:"pricing_mode,omitempty"`
+	PrivatePricing *ModelPrice `json:"private_pricing,omitempty"`
+}
+
 // UpsertTenantProviderAccountModelsRequest saves selected models from step-2.
 type UpsertTenantProviderAccountModelsRequest struct {
-	Models []TenantProviderAccountModel `json:"models"`
+	Models []UpsertTenantProviderAccountModelSelection `json:"models"`
 }
 
 type TenantProviderAccountModelEffective struct {

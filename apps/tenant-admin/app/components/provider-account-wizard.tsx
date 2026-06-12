@@ -31,6 +31,13 @@ import {
 } from "@/app/components/principal-search-input";
 import { PrincipalPicker } from "@/app/components/principal-picker";
 import { ModelCard, type ModelCardData } from "@/app/components/model-card";
+import {
+  buildDefaultDrafts,
+  buildDraftsForAccount,
+  buildSelectedModelPayload,
+  clearVisibleModelSelection,
+  toggleVisibleModelSelection,
+} from "@/app/components/provider-account-wizard.models";
 import { usePermissions } from "@/app/components/permissions-context";
 import { canPermission } from "@/lib/authz";
 
@@ -99,7 +106,13 @@ type TenantProviderAccountModel = {
   model: string;
   enabled: boolean;
   types: ModelType[];
+  input_modalities?: string[];
+  output_modalities?: string[];
   pricing_mode: "public" | "private";
+  public_pricing?: {
+    input_usd_per_1m?: number;
+    output_usd_per_1m?: number;
+  };
   private_pricing?: {
     input_usd_per_1m?: number;
     output_usd_per_1m?: number;
@@ -156,8 +169,8 @@ type Banner = {
 };
 
 type ModelDraft = {
-  selected: boolean;
-  types: ModelType[];
+  enabled: boolean;
+  compared: boolean;
   pricingMode: "public" | "private";
   inputPrice: string;
   outputPrice: string;
@@ -324,7 +337,7 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
   }, [providerModels, modelSearchQuery]);
 
   const selectedModelCount = useMemo(
-    () => Object.values(modelDrafts).filter((draft) => draft.selected).length,
+    () => Object.values(modelDrafts).filter((draft) => draft.enabled).length,
     [modelDrafts],
   );
 
@@ -332,7 +345,7 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
     let unresolved = 0;
     for (const model of providerModels) {
       const draft = modelDrafts[model.model];
-      if (!draft?.selected) continue;
+      if (!draft?.enabled) continue;
       if (draft.pricingMode === "private") {
         const input = toNumberOrUndefined(draft.inputPrice);
         const output = toNumberOrUndefined(draft.outputPrice);
@@ -858,43 +871,14 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
       return false;
     }
 
-    const validationErrors: string[] = [];
-    const payloadModels = Object.entries(modelDrafts)
-      .filter(([, draft]) => draft.selected)
-      .map(([model, draft]) => ({
-        model,
-        enabled: true,
-        types: draft.types,
-        pricing_mode: draft.pricingMode,
-        private_pricing:
-          draft.pricingMode === "private"
-            ? {
-                input_usd_per_1m: toNumberOrUndefined(draft.inputPrice),
-                output_usd_per_1m: toNumberOrUndefined(draft.outputPrice),
-              }
-            : undefined,
-        settings: {},
-      }));
-
-    for (const item of payloadModels) {
-      if (!Array.isArray(item.types) || item.types.length === 0) {
-        validationErrors.push(`${item.model}: ${ux("messages.modelTypeRequired")}`);
-      }
-      if (item.pricing_mode === "private") {
-        const input = item.private_pricing?.input_usd_per_1m;
-        const output = item.private_pricing?.output_usd_per_1m;
-        if (typeof input !== "number" && typeof output !== "number") {
-          validationErrors.push(`${item.model}: ${ux("messages.privatePricingRequired")}`);
-        }
-      }
-    }
+    const { models: payloadModels, validationErrors } = buildSelectedModelPayload(modelDrafts);
 
     if (payloadModels.length === 0) {
       setBanner({ kind: "error", message: t("messages.selectAtLeastOneModel") });
       return false;
     }
     if (validationErrors.length > 0) {
-      setBanner({ kind: "error", message: validationErrors[0] });
+      setBanner({ kind: "error", message: `${validationErrors[0]}: ${ux("messages.privatePricingRequired")}` });
       return false;
     }
 
@@ -1953,8 +1937,8 @@ function ModelsEditor(props: {
     error: "",
   });
 
-  const selectedModels = useMemo(
-    () => props.filteredProviderModels.filter((model) => props.modelDrafts[model.model]?.selected),
+  const comparedModels = useMemo(
+    () => props.filteredProviderModels.filter((model) => props.modelDrafts[model.model]?.compared),
     [props.filteredProviderModels, props.modelDrafts],
   );
 
@@ -2034,7 +2018,7 @@ function ModelsEditor(props: {
   }, [filters.maxPrice, filters.minPrice]);
 
   const compareModels = useMemo(() => {
-    const items = [...selectedModels];
+    const items = [...comparedModels];
     items.sort((a, b) => {
       const aInput = a.public_pricing?.input_usd_per_1m ?? Number.POSITIVE_INFINITY;
       const bInput = b.public_pricing?.input_usd_per_1m ?? Number.POSITIVE_INFINITY;
@@ -2057,7 +2041,7 @@ function ModelsEditor(props: {
       }
     });
     return items;
-  }, [compareSortBy, selectedModels]);
+  }, [compareSortBy, comparedModels]);
 
   const compareKpis = useMemo(() => {
     const validInput = compareModels.filter((item) => typeof item.public_pricing?.input_usd_per_1m === "number");
@@ -2145,7 +2129,7 @@ function ModelsEditor(props: {
     props.setModelDrafts((prev) => {
       const draft = prev[modelKey];
       if (!draft) return prev;
-      return { ...prev, [modelKey]: { ...draft, selected: false } };
+      return { ...prev, [modelKey]: { ...draft, compared: false } };
     });
   };
 
@@ -2166,8 +2150,8 @@ function ModelsEditor(props: {
 
   const openPricingEditor = (model: ProviderCatalogModel) => {
     const draft = props.modelDrafts[model.model] ?? {
-      selected: false,
-      types: model.types ?? [],
+      enabled: false,
+      compared: false,
       pricingMode: "public" as const,
       inputPrice: model.public_pricing?.input_usd_per_1m?.toString() ?? "",
       outputPrice: model.public_pricing?.output_usd_per_1m?.toString() ?? "",
@@ -2203,7 +2187,7 @@ function ModelsEditor(props: {
         ...prev,
         [pricingEditor.modelKey]: {
           ...current,
-          selected: true,
+          enabled: true,
           pricingMode: pricingEditor.pricingMode,
           inputPrice: pricingEditor.inputPrice.trim(),
           outputPrice: pricingEditor.outputPrice.trim(),
@@ -2214,7 +2198,7 @@ function ModelsEditor(props: {
   };
 
   const toModelCardData = (model: ProviderCatalogModel): ModelCardData => {
-    const caps = model.types ?? [];
+    const caps = model.features ?? model.types ?? [];
     const categories: ModelCardData["category"] = [];
     if (caps.some((c) => c.toLowerCase().includes("vision") || c.toLowerCase().includes("image"))) categories.push("vision");
     if (caps.some((c) => c.toLowerCase().includes("reason"))) categories.push("reasoning");
@@ -2400,24 +2384,7 @@ function ModelsEditor(props: {
           type="button"
           variant="outline"
           onClick={() => {
-            const allSelected = visibleModels.length > 0 && visibleModels.every((model) => {
-              const draft = props.modelDrafts[model.model];
-              return Boolean(draft?.selected);
-            });
-            props.setModelDrafts((prev) => {
-              const next = { ...prev };
-              for (const model of visibleModels) {
-                const draft = next[model.model] ?? {
-                  selected: false,
-                  types: model.types ?? [],
-                  pricingMode: "public" as const,
-                  inputPrice: model.public_pricing?.input_usd_per_1m?.toString() ?? "",
-                  outputPrice: model.public_pricing?.output_usd_per_1m?.toString() ?? "",
-                };
-                next[model.model] = { ...draft, selected: !allSelected };
-              }
-              return next;
-            });
+            props.setModelDrafts((prev) => toggleVisibleModelSelection(visibleModels, prev));
           }}
           disabled={!props.canManage || visibleModels.length === 0}
         >
@@ -2428,15 +2395,7 @@ function ModelsEditor(props: {
           type="button"
           variant="outline"
           onClick={() => {
-            props.setModelDrafts((prev) => {
-              const next = { ...prev };
-              for (const model of visibleModels) {
-                const draft = next[model.model];
-                if (!draft) continue;
-                next[model.model] = { ...draft, selected: false };
-              }
-              return next;
-            });
+            props.setModelDrafts((prev) => clearVisibleModelSelection(visibleModels, prev));
           }}
           disabled={!props.canManage || visibleModels.length === 0}
         >
@@ -2447,9 +2406,9 @@ function ModelsEditor(props: {
           <RotateCcw className="h-4 w-4" />
           {ux("models.actions.clearFilters")}
         </Button>
-        <Button type="button" variant="outline" disabled={selectedModels.length < 2} onClick={() => setCompareOpen(true)}>
+        <Button type="button" variant="outline" disabled={comparedModels.length < 2} onClick={() => setCompareOpen(true)}>
           <GitCompare className="h-4 w-4" />
-          {ux("models.actions.compare", { count: selectedModels.length })}
+          {ux("models.actions.compare", { count: comparedModels.length })}
         </Button>
         <div className="ms-auto flex items-center gap-2 text-xs text-muted-foreground">
           <ArrowUpDown className="h-4 w-4" />
@@ -2463,8 +2422,8 @@ function ModelsEditor(props: {
         <div className="space-y-3">
           {visibleModels.map((model) => {
             const draft = props.modelDrafts[model.model] ?? {
-              selected: false,
-              types: model.types ?? [],
+              enabled: false,
+              compared: false,
               pricingMode: "public" as const,
               inputPrice: model.public_pricing?.input_usd_per_1m?.toString() ?? "",
               outputPrice: model.public_pricing?.output_usd_per_1m?.toString() ?? "",
@@ -2490,11 +2449,19 @@ function ModelsEditor(props: {
                         scale: displayScale,
                         usdToIrr,
                       }}
-                      isCompared={draft.selected}
+                      isSelected={draft.enabled}
+                      onSelectedChange={(checked) =>
+                        props.setModelDrafts((prev) => ({
+                          ...prev,
+                          [model.model]: { ...draft, enabled: checked },
+                        }))
+                      }
+                      selectedCheckboxLabel={ux("common.enabled")}
+                      isCompared={draft.compared}
                       onComparedChange={(checked) =>
                         props.setModelDrafts((prev) => ({
                           ...prev,
-                          [model.model]: { ...draft, selected: checked },
+                          [model.model]: { ...draft, compared: checked },
                         }))
                       }
                       compareCheckboxLabel={ux("models.actions.compareToggle")}
@@ -3029,54 +2996,6 @@ function buildPrincipalSelectorLabels(
     loading: ux("actions.loading"),
     empty: t("principal.searchHint"),
   };
-}
-
-function buildDefaultDrafts(
-  models: ProviderCatalogModel[],
-  current: Record<string, ModelDraft>,
-): Record<string, ModelDraft> {
-  const next: Record<string, ModelDraft> = {};
-  for (const model of models) {
-    next[model.model] =
-      current[model.model] ?? {
-        selected: false,
-        types: model.types ?? [],
-        pricingMode: "public",
-        inputPrice: model.public_pricing?.input_usd_per_1m?.toString() ?? "",
-        outputPrice: model.public_pricing?.output_usd_per_1m?.toString() ?? "",
-      };
-  }
-  return next;
-}
-
-function buildDraftsForAccount(
-  models: TenantProviderAccountModel[],
-  catalogModels: ProviderCatalogModel[],
-): Record<string, ModelDraft> {
-  const next = buildDefaultDrafts(catalogModels, {});
-  for (const item of models) {
-    next[item.model] = {
-      selected: item.enabled,
-      types: normalizeModelTypes(item.types),
-      pricingMode: item.pricing_mode ?? "public",
-      inputPrice: item.private_pricing?.input_usd_per_1m?.toString() ?? "",
-      outputPrice: item.private_pricing?.output_usd_per_1m?.toString() ?? "",
-    };
-  }
-  return next;
-}
-
-function normalizeModelTypes(types: string[] | ModelType[] | undefined): ModelType[] {
-  if (!Array.isArray(types)) return [];
-  const output: ModelType[] = [];
-  const seen = new Set<string>();
-  for (const item of types) {
-    const normalized = String(item ?? "").trim().toLowerCase();
-    if (!normalized || seen.has(normalized)) continue;
-    seen.add(normalized);
-    output.push(normalized);
-  }
-  return output;
 }
 
 async function requestJSON<T = unknown>(path: string, options?: RequestInit): Promise<T> {
