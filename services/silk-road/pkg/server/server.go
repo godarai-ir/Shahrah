@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
@@ -40,7 +41,7 @@ func NewHandler(client *http.Client) http.Handler {
 			return
 		}
 
-		resp, err := adapter.Dispatch(r.Context(), client, payload)
+		resp, err := adapter.Dispatch(r.Context(), clientForStream(client, payload.Stream), payload)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadGateway)
 			return
@@ -49,7 +50,7 @@ func NewHandler(client *http.Client) http.Handler {
 
 		copyHeaders(w.Header(), resp.Headers)
 		w.WriteHeader(resp.StatusCode)
-		_, _ = io.Copy(w, resp.Body)
+		relayBody(w, resp.Body, payload.Stream || responseIsEventStream(resp.Headers))
 	})
 
 	return mux
@@ -59,6 +60,52 @@ func copyHeaders(dst http.Header, src http.Header) {
 	for key, values := range src {
 		for _, value := range values {
 			dst.Add(key, value)
+		}
+	}
+}
+
+func clientForStream(base *http.Client, stream bool) *http.Client {
+	if !stream {
+		return base
+	}
+	if base == nil {
+		return &http.Client{}
+	}
+	clone := *base
+	clone.Timeout = 0
+	if clone.Transport == nil {
+		clone.Transport = http.DefaultTransport
+	}
+	return &clone
+}
+
+func responseIsEventStream(headers http.Header) bool {
+	return strings.Contains(strings.ToLower(headers.Get("Content-Type")), "text/event-stream")
+}
+
+func relayBody(w http.ResponseWriter, body io.Reader, flush bool) {
+	if !flush {
+		_, _ = io.Copy(w, body)
+		return
+	}
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		_, _ = io.Copy(w, body)
+		return
+	}
+
+	buf := make([]byte, 32*1024)
+	for {
+		n, err := body.Read(buf)
+		if n > 0 {
+			if _, writeErr := w.Write(buf[:n]); writeErr != nil {
+				return
+			}
+			flusher.Flush()
+		}
+		if err != nil {
+			return
 		}
 	}
 }

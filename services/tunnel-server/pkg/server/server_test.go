@@ -83,3 +83,52 @@ func TestDispatchForwardsTraceAndRequestHeaders(t *testing.T) {
 		t.Fatalf("expected body %q, got %q", string(payload.Body), string(gotReq.Body))
 	}
 }
+
+func TestDispatchStreamingFlushesSSE(t *testing.T) {
+	t.Parallel()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/dispatch" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("response writer does not support flushing")
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("data: hello\n\n"))
+		flusher.Flush()
+	}))
+	defer upstream.Close()
+
+	handler := NewHandler(upstream.URL, nil)
+	payload := platform.TunnelRequest{
+		RequestID: "req_stream",
+		TraceID:   "trace_stream",
+		Stream:    true,
+		Body:      []byte(`{"q":"ping"}`),
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	if !rec.Flushed {
+		t.Fatal("expected streaming response to flush SSE data")
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "text/event-stream" {
+		t.Fatalf("unexpected content type: %q", ct)
+	}
+	if !strings.Contains(rec.Body.String(), "data: hello") {
+		t.Fatalf("expected stream body to be relayed, got %q", rec.Body.String())
+	}
+}

@@ -71,7 +71,7 @@ func (t *HTTPTransport) Stream(ctx context.Context, req platform.TunnelRequest) 
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "text/event-stream")
 
-	resp, err := t.client.Do(httpReq)
+	resp, err := streamingHTTPClient(t.client).Do(httpReq)
 	if err != nil {
 		return nil, err
 	}
@@ -176,4 +176,16 @@ func flattenHeaders(in http.Header) map[string]string {
 		}
 	}
 	return out
+}
+
+func streamingHTTPClient(base *http.Client) *http.Client {
+	if base == nil {
+		return &http.Client{}
+	}
+	clone := *base
+	clone.Timeout = 0
+	if clone.Transport == nil {
+		clone.Transport = http.DefaultTransport
+	}
+	return &clone
 }
