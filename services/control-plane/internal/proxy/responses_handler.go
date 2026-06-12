@@ -378,8 +378,6 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 					_ = w.Flush()
 				}
 				return
-			case <-c.Context().Done():
-				return
 			}
 		}
 	})

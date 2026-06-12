@@ -500,8 +500,6 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 					_ = w.Flush()
 				}
 				return
-			case <-c.Context().Done():
-				return
 			}
 		}
 	})

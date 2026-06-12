@@ -458,7 +458,6 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 					_, _ = w.Write(bytes.Join([][]byte{[]byte("data: "), errorPayload, []byte("\n\n")}, nil))
 					_ = w.Flush()
 				}
-			case <-c.Context().Done():
 				return
 			}
 		}
