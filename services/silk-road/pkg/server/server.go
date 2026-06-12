@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -15,6 +14,7 @@ func NewHandler(client *http.Client) http.Handler {
 	if client == nil {
 		client = &http.Client{Timeout: 5 * time.Minute}
 	}
+	registry := newProviderRegistry()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -34,32 +34,20 @@ func NewHandler(client *http.Client) http.Handler {
 			return
 		}
 
-		target := payload.Deployment.APIBase
-		if target == "" {
-			target = "https://api.openai.com/v1"
-		}
-
-		req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, target+"/chat/completions", bytes.NewReader(payload.Body))
+		adapter, err := registry.adapterFor(payload.Deployment.Provider)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		req.Header.Set("Content-Type", "application/json")
-		if payload.Deployment.APIKey != "" {
-			req.Header.Set("Authorization", "Bearer "+payload.Deployment.APIKey)
-		}
-		if payload.Stream {
-			req.Header.Set("Accept", "text/event-stream")
-		}
 
-		resp, err := client.Do(req)
+		resp, err := adapter.Dispatch(r.Context(), client, payload)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadGateway)
 			return
 		}
 		defer resp.Body.Close()
 
-		copyHeaders(w.Header(), resp.Header)
+		copyHeaders(w.Header(), resp.Headers)
 		w.WriteHeader(resp.StatusCode)
 		_, _ = io.Copy(w, resp.Body)
 	})

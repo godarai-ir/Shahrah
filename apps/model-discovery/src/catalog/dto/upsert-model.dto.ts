@@ -1,4 +1,8 @@
 import {
+  ApiProperty,
+  ApiPropertyOptional,
+} from '@nestjs/swagger';
+import {
   IsArray,
   IsBoolean,
   IsInt,
@@ -6,32 +10,125 @@ import {
   IsString,
 } from 'class-validator';
 
+export class UpsertModelPricingDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  currency?: string;
+
+  @ApiPropertyOptional()
+  inputPricePerMillionTokens?: number;
+
+  @ApiPropertyOptional()
+  outputPricePerMillionTokens?: number;
+
+  @ApiPropertyOptional()
+  cachedInputPricePerMillionTokens?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  sourceUrl?: string;
+}
+
 export class UpsertModelDto {
-  @IsString() providerSlug!: string;
-  @IsString() canonicalId!: string;
-  @IsString() slug!: string;
-  @IsString() displayName!: string;
-  @IsOptional() @IsString() shortDescription?: string;
-  @IsOptional() @IsString() longDescription?: string;
-  @IsOptional() @IsString() status?: string;
-  @IsOptional() @IsBoolean() enabled?: boolean;
-  @IsOptional() @IsString() lifecycleStatus?: string;
-  @IsOptional() @IsString() modelSeriesSlug?: string;
-  @IsOptional() @IsString() categorySlug?: string;
-  @IsOptional() @IsInt() contextWindow?: number;
-  @IsOptional() @IsInt() maxOutputTokens?: number;
-  @IsOptional() @IsBoolean() openSource?: boolean;
-  @IsOptional() @IsBoolean() free?: boolean;
-  @IsOptional() @IsArray() inputModalities?: string[];
-  @IsOptional() @IsArray() outputModalities?: string[];
-  @IsOptional() @IsArray() supportedParameters?: string[];
-  @IsOptional() @IsArray() capabilities?: string[];
-  @IsOptional() @IsArray() regions?: string[];
-  @IsOptional() pricing?: {
-    currency?: string;
-    inputPricePerMillionTokens?: number;
-    outputPricePerMillionTokens?: number;
-    cachedInputPricePerMillionTokens?: number;
-    sourceUrl?: string;
-  };
+  @ApiProperty()
+  @IsString()
+  providerSlug!: string;
+
+  @ApiProperty()
+  @IsString()
+  canonicalId!: string;
+
+  @ApiProperty()
+  @IsString()
+  slug!: string;
+
+  @ApiProperty()
+  @IsString()
+  displayName!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  shortDescription?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  longDescription?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  lifecycleStatus?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  modelSeriesSlug?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  categorySlug?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  contextWindow?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  maxOutputTokens?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  openSource?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  free?: boolean;
+
+  @ApiPropertyOptional({ type: () => [String] })
+  @IsOptional()
+  @IsArray()
+  inputModalities?: string[];
+
+  @ApiPropertyOptional({ type: () => [String] })
+  @IsOptional()
+  @IsArray()
+  outputModalities?: string[];
+
+  @ApiPropertyOptional({ type: () => [String] })
+  @IsOptional()
+  @IsArray()
+  supportedParameters?: string[];
+
+  @ApiPropertyOptional({ type: () => [String] })
+  @IsOptional()
+  @IsArray()
+  capabilities?: string[];
+
+  @ApiPropertyOptional({ type: () => [String] })
+  @IsOptional()
+  @IsArray()
+  regions?: string[];
+
+  @ApiPropertyOptional({ type: () => UpsertModelPricingDto })
+  @IsOptional()
+  pricing?: UpsertModelPricingDto;
 }

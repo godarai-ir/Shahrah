@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	llmrouter "github.com/Delpak/shahrah/services/control-plane/internal/router"
@@ -149,4 +150,108 @@ func TestRouter_WeightedSelection_ShouldPreferHigherWeight(t *testing.T) {
 	// Expect > 80% to be high-weight (allowing some randomness)
 	highPercent := float64(highCount) / float64(iterations)
 	assert.Greater(t, highPercent, 0.80, "High-weight deployment should be selected >80% of the time")
+}
+
+func TestRouter_ShouldMatchProviderScopedWildcardBeforeGlobalWildcard(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+
+	modelList := []config.ModelDeployment{
+		{
+			ModelName: "anthropic/*",
+			ProviderEndpoint: config.ProviderEndpointConfig{
+				Model: "anthropic/*",
+				RPM:   500,
+			},
+			ModelInfo: map[string]interface{}{"id": "dep-anthropic"},
+		},
+		{
+			ModelName: "*",
+			ProviderEndpoint: config.ProviderEndpointConfig{
+				Model: "openai/*",
+				RPM:   1000,
+			},
+			ModelInfo: map[string]interface{}{"id": "dep-openai"},
+		},
+	}
+
+	r, err := llmrouter.NewRouter(modelList, config.RouterSettings{}, memCache, nil, logger)
+	assert.NoError(t, err)
+
+	dep, err := r.Route(context.Background(), "", "anthropic/claude-3-5-sonnet-latest")
+	assert.NoError(t, err)
+	assert.NotNil(t, dep)
+	assert.Equal(t, "dep-anthropic", dep.ID)
+	assert.Equal(t, "anthropic", dep.Provider)
+	assert.Equal(t, "*", dep.Model)
+}
+
+type staticDeploymentStore struct {
+	deployments []platform.Deployment
+}
+
+func (s *staticDeploymentStore) ListDeployments(_ context.Context, _ string) ([]platform.Deployment, error) {
+	return append([]platform.Deployment(nil), s.deployments...), nil
+}
+
+func TestRouter_FQNShouldNotFallBackToGlobalWildcard(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+
+	modelList := []config.ModelDeployment{
+		{
+			ModelName: "*",
+			ProviderEndpoint: config.ProviderEndpointConfig{
+				Model: "openai/*",
+				RPM:   1000,
+			},
+			ModelInfo: map[string]interface{}{"id": "dep-openai"},
+		},
+	}
+
+	store := &staticDeploymentStore{
+		deployments: []platform.Deployment{
+			{
+				ID:        "provider-account:anthropic-1:anthropic/claude-3-haiku-20240307",
+				TenantID:  "tenant-1",
+				ModelName: "anthropic:anthropic-sunny-zephyr:claude-3-haiku-20240307",
+				Provider:  "anthropic",
+				Model:     "anthropic/claude-3-haiku-20240307",
+				APIKey:    "sk-ant-test",
+			},
+		},
+	}
+
+	r, err := llmrouter.NewRouter(modelList, config.RouterSettings{}, memCache, store, logger)
+	assert.NoError(t, err)
+
+	dep, err := r.Route(context.Background(), "tenant-1", "anthropic:anthropic-sunny-zephyr:claude-3-haiku-20240307")
+	assert.NoError(t, err)
+	assert.NotNil(t, dep)
+	assert.Equal(t, "provider-account:anthropic-1:anthropic/claude-3-haiku-20240307", dep.ID)
+	assert.Equal(t, "anthropic", dep.Provider)
+}
+
+func TestRouter_FQNWithoutExactDeploymentShouldNotUseWildcard(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+
+	modelList := []config.ModelDeployment{
+		{
+			ModelName: "*",
+			ProviderEndpoint: config.ProviderEndpointConfig{
+				Model: "openai/*",
+				RPM:   1000,
+			},
+			ModelInfo: map[string]interface{}{"id": "dep-openai"},
+		},
+	}
+
+	r, err := llmrouter.NewRouter(modelList, config.RouterSettings{}, memCache, &staticDeploymentStore{}, logger)
+	assert.NoError(t, err)
+
+	dep, err := r.Route(context.Background(), "tenant-1", "anthropic:anthropic-sunny-zephyr:claude-3-haiku-20240307")
+	assert.Error(t, err)
+	assert.Nil(t, dep)
+	assert.Equal(t, llmrouter.ErrModelNotFound, err)
 }

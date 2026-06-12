@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/modelid"
 	"github.com/google/uuid"
 )
 
@@ -151,7 +152,7 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 		deps = append(deps, platform.Deployment{
 			ID:         "provider-account:" + accountID + ":" + model,
 			TenantID:   accountTenant,
-			ModelName:  provider + ":" + accountName + ":" + model,
+			ModelName:  modelid.BuildModelFQN(provider, accountName, model),
 			Provider:   provider,
 			Model:      model,
 			APIBase:    firstString(providerConfig, settings, "api_base", "base_url"),

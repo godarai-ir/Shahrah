@@ -253,6 +253,7 @@ func registerProtectedRoutes(app *fiber.App, deps Dependencies) {
 		api.Post("/provider-catalog/refresh", deps.AdminHandlers.RefreshProviderCatalogCache)
 		api.Get("/provider-catalog/stats", deps.AdminHandlers.GetProviderCatalogStats)
 		api.Get("/provider-catalog/display-settings", deps.AdminHandlers.GetProviderCatalogDisplaySettings)
+		api.Get("/provider-catalog/assets/:bucket/:fileName", deps.AdminHandlers.GetProviderCatalogAsset)
 		api.Get("/provider-catalog/providers/:provider/models", deps.AdminHandlers.ListProviderModelsCatalog)
 		api.Get("/access-principals", deps.AdminHandlers.ListAccessPrincipals)
 		api.Get("/roles", deps.AdminHandlers.ListRoles)

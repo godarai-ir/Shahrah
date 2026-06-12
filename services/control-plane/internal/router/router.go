@@ -177,12 +177,17 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 
 	_, ok := r.deployments[modelName]
 	if !ok {
-		// Check for wildcard matching
-		for _, dep := range r.deployments["*"] {
-			deployments = append(deployments, dep)
-		}
-		if deployments == nil {
-			return nil, ErrModelNotFound
+		if isModelFQN(modelName) {
+			if len(deployments) == 0 {
+				return nil, ErrModelNotFound
+			}
+		} else {
+			// Check for wildcard matching, preferring provider-scoped patterns like
+			// "anthropic/*" before the global "*" fallback.
+			deployments = append(deployments, r.matchWildcardDeployments(modelName)...)
+			if len(deployments) == 0 {
+				return nil, ErrModelNotFound
+			}
 		}
 	}
 
@@ -210,6 +215,34 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 		return nil, err
 	}
 	return r.applyBYOK(ctx, tenantID, modelName, selected), nil
+}
+
+func (r *Router) matchWildcardDeployments(modelName string) []*Deployment {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var matches []*Deployment
+	for pattern, patternDeployments := range r.deployments {
+		if pattern == "*" {
+			continue
+		}
+		prefix, ok := wildcardPrefix(pattern)
+		if !ok || !strings.HasPrefix(modelName, prefix) {
+			continue
+		}
+		matches = append(matches, patternDeployments...)
+	}
+	if len(matches) > 0 {
+		return matches
+	}
+	return append(matches, r.deployments["*"]...)
+}
+
+func wildcardPrefix(pattern string) (string, bool) {
+	if !strings.HasSuffix(pattern, "*") || pattern == "*" {
+		return "", false
+	}
+	return strings.TrimSuffix(pattern, "*"), true
 }
 
 func (r *Router) filterHealthy(ctx context.Context, deployments []*Deployment) []*Deployment {

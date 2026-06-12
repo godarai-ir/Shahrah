@@ -1,0 +1,1639 @@
+openapi: 3.0.0
+paths:
+  /api/v1/auth/login:
+    post:
+      operationId: OpenAPIAuthController_login_v1
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminLoginDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLoginResponse"
+      summary: Authenticate an admin user and return a bearer token.
+      tags:
+        - auth
+  /api/v1/providers:
+    get:
+      operationId: OpenAPIProvidersController_list_v1
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProviderCatalogEntry"
+      summary: List enabled providers in the discovery catalog.
+      tags: &a1
+        - providers
+  /api/v1/providers/{slug}:
+    get:
+      operationId: OpenAPIProvidersController_detail_v1
+      parameters:
+        - name: slug
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderDetailResponse"
+      summary: Return one enabled provider and its enabled models.
+      tags: *a1
+  /api/v1/providers/admin/list:
+    get:
+      operationId: OpenAPIProvidersController_listAllForAdmin_v1
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProviderCatalogEntry"
+      security:
+        - bearer: []
+      summary: List providers for admin management, including disabled ones.
+      tags: *a1
+  /api/v1/providers/admin/upsert:
+    post:
+      operationId: OpenAPIProvidersController_upsert_v1
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertProviderDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderCatalogEntry"
+      security:
+        - bearer: []
+      summary: Create or update a provider definition.
+      tags: *a1
+  /api/v1/providers/admin/enabled:
+    post:
+      operationId: OpenAPIProvidersController_setEnabled_v1
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - slug
+                - enabled
+              properties:
+                slug:
+                  type: string
+                enabled:
+                  type: boolean
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderCatalogEntry"
+      security:
+        - bearer: []
+      summary: Enable or disable a provider.
+      tags: *a1
+  /api/v1/providers/admin/connection-profile/upsert:
+    post:
+      operationId: OpenAPIProvidersController_upsertConnectionProfile_v1
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertProviderConnectionProfileDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderCatalogEntry"
+      security:
+        - bearer: []
+      summary: Create or update provider connection profile metadata.
+      tags: *a1
+  /api/v1/providers/admin/{slug}/connection-profile:
+    get:
+      operationId: OpenAPIProvidersController_getConnectionProfile_v1
+      parameters:
+        - name: slug
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderCatalogEntry"
+      security:
+        - bearer: []
+      summary: Return provider connection profile metadata.
+      tags: *a1
+  /api/v1/providers/admin/{slug}/logo:
+    post:
+      operationId: OpenAPIProvidersController_uploadProviderLogo_v1
+      parameters:
+        - name: slug
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/UploadFileDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderCatalogEntry"
+      security:
+        - bearer: []
+      summary: Upload a provider logo image.
+      tags: *a1
+  /api/v1/providers/assets/{bucket}/{fileName}:
+    get:
+      operationId: OpenAPIProvidersController_getAsset_v1
+      parameters:
+        - name: bucket
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: fileName
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Binary asset response.
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
+      summary: Serve a provider or model-series image asset.
+      tags: *a1
+  /api/v1/models:
+    get:
+      operationId: OpenAPICatalogController_list_v1
+      parameters:
+        - name: q
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: provider
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: category
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: input_modalities
+          required: false
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: output_modalities
+          required: false
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: supported_parameters
+          required: false
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: capabilities
+          required: false
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: min_context_window
+          required: false
+          in: query
+          schema:
+            type: number
+        - name: max_context_window
+          required: false
+          in: query
+          schema:
+            type: number
+        - name: min_output_tokens
+          required: false
+          in: query
+          schema:
+            type: number
+        - name: max_output_tokens
+          required: false
+          in: query
+          schema:
+            type: number
+        - name: min_input_price
+          required: false
+          in: query
+          schema:
+            type: number
+        - name: max_input_price
+          required: false
+          in: query
+          schema:
+            type: number
+        - name: max_output_price
+          required: false
+          in: query
+          schema:
+            type: number
+        - name: free_only
+          required: false
+          in: query
+          schema:
+            type: boolean
+        - name: open_source_only
+          required: false
+          in: query
+          schema:
+            type: boolean
+        - name: status
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: region
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: sort
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - newest
+              - name
+              - cheapest_input
+              - cheapest_output
+              - largest_context
+              - most_popular
+              - highest_benchmark_score
+        - name: page
+          required: false
+          in: query
+          schema:
+            minimum: 1
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogListResponse"
+      summary: List catalog models with provider, pricing, and filter metadata.
+      tags: &a2
+        - models
+  /api/v1/models/compare:
+    get:
+      operationId: OpenAPICatalogController_compare_v1
+      parameters:
+        - name: ids
+          required: true
+          in: query
+          description: Comma-separated canonical model ids.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CatalogModelDetailResponse"
+      summary: Compare multiple models by canonical id.
+      tags: *a2
+  /api/v1/models/recent:
+    get:
+      operationId: OpenAPICatalogController_recent_v1
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CatalogModelListItem"
+      summary: Return recently released enabled models.
+      tags: *a2
+  /api/v1/models/free:
+    get:
+      operationId: OpenAPICatalogController_free_v1
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CatalogModelDetailResponse"
+      summary: Return enabled free-to-use models.
+      tags: *a2
+  /api/v1/models/deprecated:
+    get:
+      operationId: OpenAPICatalogController_deprecated_v1
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CatalogModelDetailResponse"
+      summary: Return deprecated enabled models.
+      tags: *a2
+  /api/v1/models/{canonicalId}:
+    get:
+      operationId: OpenAPICatalogController_getOne_v1
+      parameters:
+        - name: canonicalId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogModelDetailResponse"
+      summary: Return one enabled model by canonical id.
+      tags: *a2
+  /api/v1/admin/models/upsert:
+    post:
+      operationId: OpenAPICatalogAdminController_upsert_v1
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertModelDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminModelRecord"
+      security: &a3
+        - bearer: []
+      summary: Create or update a model row and optional pricing snapshot.
+      tags: &a4
+        - admin
+  /api/v1/admin/models/audit-log:
+    get:
+      operationId: OpenAPICatalogAdminController_audit_v1
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditLogEntry"
+      security: *a3
+      summary: List recent admin audit log entries.
+      tags: *a4
+  /api/v1/admin/models:
+    get:
+      operationId: OpenAPICatalogAdminController_listAll_v1
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminModelRecord"
+      security: *a3
+      summary: List models for admin management.
+      tags: *a4
+  /api/v1/admin/models/{canonicalId}/enabled:
+    post:
+      operationId: OpenAPICatalogAdminController_setModelEnabled_v1
+      parameters:
+        - name: canonicalId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BooleanToggleDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminModelRecord"
+      security: *a3
+      summary: Enable or disable one model by canonical id.
+      tags: *a4
+  /api/v1/admin/models/series:
+    get:
+      operationId: OpenAPICatalogAdminController_listSeries_v1
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ModelSeriesRecord"
+      security: *a3
+      summary: List model series rows.
+      tags: *a4
+  /api/v1/admin/models/series/upsert:
+    post:
+      operationId: OpenAPICatalogAdminController_upsertSeries_v1
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertModelSeriesDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelSeriesRecord"
+      security: *a3
+      summary: Create or update a model series.
+      tags: *a4
+  /api/v1/admin/models/series/{slug}/logo:
+    post:
+      operationId: OpenAPICatalogAdminController_uploadSeriesLogo_v1
+      parameters:
+        - name: slug
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/UploadFileDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelSeriesRecord"
+      security: *a3
+      summary: Upload a model-series logo image.
+      tags: *a4
+  /api/v1/settings/display:
+    get:
+      operationId: OpenAPIDisplaySettingsController_getDisplaySettings_v1
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DisplaySettingsResponse"
+      summary: Return provider-catalog display settings.
+      tags: &a5
+        - settings
+    put:
+      operationId: OpenAPIDisplaySettingsController_updateDisplaySettings_v1
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDisplaySettingsDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DisplaySettingsResponse"
+      security:
+        - bearer: []
+      summary: Update provider-catalog display settings.
+      tags: *a5
+  /api/v1/facets:
+    get:
+      operationId: OpenAPIFacetsController_all_v1
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FacetsResponse"
+      summary: Return the aggregated filter option payload used by the catalog UI.
+      tags: &a6
+        - facets
+  /api/v1/categories:
+    get:
+      operationId: OpenAPIFacetsController_categories_v1
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FacetOption"
+      tags: *a6
+  /api/v1/capabilities:
+    get:
+      operationId: OpenAPIFacetsController_capabilities_v1
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FacetOption"
+      tags: *a6
+  /api/v1/supported-parameters:
+    get:
+      operationId: OpenAPIFacetsController_supportedParameters_v1
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FacetOption"
+      tags: *a6
+  /api/v1/modalities:
+    get:
+      operationId: OpenAPIFacetsController_modalities_v1
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FacetOption"
+      tags: *a6
+  /api/v1/regions:
+    get:
+      operationId: OpenAPIFacetsController_regions_v1
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FacetOption"
+      tags: *a6
+  /api/v1/admin/indexing/rebuild:
+    post:
+      operationId: OpenAPIIndexingController_rebuild_v1
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimpleAckResponse"
+      security: &a7
+        - bearer: []
+      summary: Queue a full catalog reindex job.
+      tags: &a8
+        - indexing
+  /api/v1/admin/indexing/model:
+    post:
+      operationId: OpenAPIIndexingController_one_v1
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IndexOneDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimpleAckResponse"
+      security: *a7
+      summary: Queue one model for reindexing.
+      tags: *a8
+  /api/v1/admin/import/catalog-json:
+    post:
+      operationId: OpenAPIImportController_importCatalog_v1
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportCatalogRequest"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportCatalogResponse"
+      security:
+        - bearer: []
+      summary: Import providers and models from JSON payload.
+      tags:
+        - import
+info:
+  title: Model Discovery API
+  description: Public and admin APIs for provider discovery, model catalog, and
+    display settings.
+  version: 1.0.0
+  contact: {}
+tags: []
+servers: []
+components:
+  securitySchemes:
+    bearer:
+      scheme: bearer
+      bearerFormat: JWT
+      type: http
+  schemas:
+    AdminLoginDto:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+      required:
+        - username
+        - password
+    AdminLoginResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+      required:
+        - accessToken
+    ProviderConnectionProfileResponse:
+      type: object
+      properties:
+        providerType:
+          type: string
+        authMode:
+          type: object
+        configJson:
+          type: object
+          additionalProperties: true
+      required:
+        - providerType
+        - configJson
+    ProviderCatalogEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type: object
+        websiteUrl:
+          type: object
+        docsUrl:
+          type: object
+        logoUrl:
+          type: object
+        status:
+          type: object
+        enabled:
+          type: boolean
+        supportsByok:
+          type: object
+        connectionProfile:
+          $ref: "#/components/schemas/ProviderConnectionProfileResponse"
+      required:
+        - id
+        - slug
+        - name
+        - enabled
+    FacetOption:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+      required:
+        - slug
+        - name
+    ModelPricingSnapshot:
+      type: object
+      properties:
+        currency:
+          type: object
+        inputPricePerMillionTokens:
+          type: object
+        outputPricePerMillionTokens:
+          type: object
+        cachedInputPricePerMillionTokens:
+          type: object
+        imageInputPrice:
+          type: object
+        imageOutputPrice:
+          type: object
+        audioInputPrice:
+          type: object
+        audioOutputPrice:
+          type: object
+        requestPrice:
+          type: object
+        sourceUrl:
+          type: object
+        effectiveFrom:
+          type: object
+        region:
+          $ref: "#/components/schemas/FacetOption"
+    CapabilityLink:
+      type: object
+      properties:
+        capability:
+          $ref: "#/components/schemas/FacetOption"
+      required:
+        - capability
+    ProviderDetailModel:
+      type: object
+      properties:
+        canonicalId:
+          type: string
+        slug:
+          type: string
+        displayName:
+          type: string
+        shortDescription:
+          type: object
+        status:
+          type: object
+        pricing:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModelPricingSnapshot"
+        capabilities:
+          type: array
+          items:
+            $ref: "#/components/schemas/CapabilityLink"
+      required:
+        - canonicalId
+        - slug
+        - displayName
+        - pricing
+        - capabilities
+    ProviderDetailResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type: object
+        websiteUrl:
+          type: object
+        docsUrl:
+          type: object
+        logoUrl:
+          type: object
+        status:
+          type: object
+        enabled:
+          type: boolean
+        supportsByok:
+          type: object
+        connectionProfile:
+          $ref: "#/components/schemas/ProviderConnectionProfileResponse"
+        models:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProviderDetailModel"
+      required:
+        - id
+        - slug
+        - name
+        - enabled
+        - models
+    UpsertProviderDto:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        websiteUrl:
+          type: string
+        docsUrl:
+          type: string
+        logoUrl:
+          type: string
+        status:
+          type: string
+        enabled:
+          type: boolean
+        supportsByok:
+          type: boolean
+      required:
+        - slug
+        - name
+    UpsertProviderConnectionProfileDto:
+      type: object
+      properties:
+        providerSlug:
+          type: string
+        providerType:
+          type: string
+        authMode:
+          type: string
+        configJson:
+          type: object
+          additionalProperties: true
+      required:
+        - providerSlug
+        - providerType
+        - configJson
+    UploadFileDto:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+      required:
+        - file
+    ProviderSummary:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        logoUrl:
+          type: object
+      required:
+        - slug
+        - name
+    ModelSeriesSummary:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        logoUrl:
+          type: object
+      required:
+        - slug
+        - name
+    CatalogModelListItem:
+      type: object
+      properties:
+        id:
+          type: string
+        canonicalId:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        provider:
+          $ref: "#/components/schemas/ProviderSummary"
+        modelSeries:
+          $ref: "#/components/schemas/ModelSeriesSummary"
+        description:
+          type: object
+        status:
+          type: object
+        contextWindow:
+          type: object
+        maxOutputTokens:
+          type: object
+        inputModalities:
+          type: array
+          items:
+            type: string
+        outputModalities:
+          type: array
+          items:
+            type: string
+        supportedParameters:
+          type: array
+          items:
+            type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+        pricing:
+          $ref: "#/components/schemas/ModelPricingSnapshot"
+        regions:
+          type: array
+          items:
+            type: string
+        openSource:
+          type: boolean
+        free:
+          type: boolean
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - canonicalId
+        - slug
+        - name
+        - provider
+        - inputModalities
+        - outputModalities
+        - supportedParameters
+        - capabilities
+        - regions
+        - openSource
+        - free
+        - createdAt
+        - updatedAt
+    CatalogListPagination:
+      type: object
+      properties:
+        page:
+          type: number
+        limit:
+          type: number
+        total:
+          type: number
+        totalPages:
+          type: number
+      required:
+        - page
+        - limit
+        - total
+        - totalPages
+    CatalogListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CatalogModelListItem"
+        pagination:
+          $ref: "#/components/schemas/CatalogListPagination"
+      required:
+        - data
+        - pagination
+    CategorySummary:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+      required:
+        - slug
+        - name
+    ModalityLink:
+      type: object
+      properties:
+        modality:
+          $ref: "#/components/schemas/FacetOption"
+      required:
+        - modality
+    SupportedParameterLink:
+      type: object
+      properties:
+        supportedParameter:
+          $ref: "#/components/schemas/FacetOption"
+      required:
+        - supportedParameter
+    RegionLink:
+      type: object
+      properties:
+        region:
+          $ref: "#/components/schemas/FacetOption"
+      required:
+        - region
+    ModelSourceReference:
+      type: object
+      properties:
+        title:
+          type: object
+        url:
+          type: string
+        sourceType:
+          type: object
+      required:
+        - url
+    ModelChangelogEntry:
+      type: object
+      properties:
+        changeType:
+          type: object
+        title:
+          type: object
+        description:
+          type: object
+        changedAt:
+          type: object
+        createdBy:
+          type: object
+    ModelBenchmarkResult:
+      type: object
+      properties:
+        benchmarkId:
+          type: object
+        score:
+          type: object
+        measuredAt:
+          type: object
+    CatalogModelDetailResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        canonicalId:
+          type: string
+        slug:
+          type: string
+        displayName:
+          type: string
+        provider:
+          $ref: "#/components/schemas/ProviderCatalogEntry"
+        modelSeries:
+          $ref: "#/components/schemas/ModelSeriesSummary"
+        category:
+          $ref: "#/components/schemas/CategorySummary"
+        shortDescription:
+          type: object
+        longDescription:
+          type: object
+        status:
+          type: object
+        lifecycleStatus:
+          type: object
+        contextWindow:
+          type: object
+        maxOutputTokens:
+          type: object
+        inputModalities:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModalityLink"
+        outputModalities:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModalityLink"
+        supportedParams:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupportedParameterLink"
+        capabilities:
+          type: array
+          items:
+            $ref: "#/components/schemas/CapabilityLink"
+        regions:
+          type: array
+          items:
+            $ref: "#/components/schemas/RegionLink"
+        pricing:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModelPricingSnapshot"
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModelSourceReference"
+        changelog:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModelChangelogEntry"
+        benchmarks:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModelBenchmarkResult"
+        openSource:
+          type: boolean
+        free:
+          type: boolean
+      required:
+        - id
+        - canonicalId
+        - slug
+        - displayName
+        - provider
+        - inputModalities
+        - outputModalities
+        - supportedParams
+        - capabilities
+        - regions
+        - pricing
+        - sources
+        - changelog
+        - benchmarks
+        - openSource
+        - free
+    UpsertModelPricingDto:
+      type: object
+      properties:
+        currency:
+          type: string
+        inputPricePerMillionTokens:
+          type: number
+        outputPricePerMillionTokens:
+          type: number
+        cachedInputPricePerMillionTokens:
+          type: number
+        sourceUrl:
+          type: string
+    UpsertModelDto:
+      type: object
+      properties:
+        providerSlug:
+          type: string
+        canonicalId:
+          type: string
+        slug:
+          type: string
+        displayName:
+          type: string
+        shortDescription:
+          type: string
+        longDescription:
+          type: string
+        status:
+          type: string
+        enabled:
+          type: boolean
+        lifecycleStatus:
+          type: string
+        modelSeriesSlug:
+          type: string
+        categorySlug:
+          type: string
+        contextWindow:
+          type: number
+        maxOutputTokens:
+          type: number
+        openSource:
+          type: boolean
+        free:
+          type: boolean
+        inputModalities:
+          type: array
+          items:
+            type: string
+        outputModalities:
+          type: array
+          items:
+            type: string
+        supportedParameters:
+          type: array
+          items:
+            type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+        regions:
+          type: array
+          items:
+            type: string
+        pricing:
+          $ref: "#/components/schemas/UpsertModelPricingDto"
+      required:
+        - providerSlug
+        - canonicalId
+        - slug
+        - displayName
+    AdminModelRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        canonicalId:
+          type: string
+        slug:
+          type: string
+        displayName:
+          type: string
+        status:
+          type: object
+        enabled:
+          type: boolean
+        lifecycleStatus:
+          type: object
+        contextWindow:
+          type: object
+        maxOutputTokens:
+          type: object
+        openSource:
+          type: boolean
+        free:
+          type: boolean
+        provider:
+          $ref: "#/components/schemas/ProviderSummary"
+        modelSeries:
+          $ref: "#/components/schemas/ModelSeriesSummary"
+      required:
+        - id
+        - canonicalId
+        - slug
+        - displayName
+        - enabled
+        - openSource
+        - free
+        - provider
+    AuditLogEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        entityType:
+          type: string
+        entityId:
+          type: string
+        action:
+          type: string
+        actorId:
+          type: object
+        beforeJson:
+          type: object
+          additionalProperties: true
+        afterJson:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+      required:
+        - id
+        - entityType
+        - entityId
+        - action
+        - createdAt
+    BooleanToggleDto:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+      required:
+        - enabled
+    ModelSeriesRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        logoUrl:
+          type: object
+      required:
+        - id
+        - slug
+        - name
+    UpsertModelSeriesDto:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+      required:
+        - slug
+        - name
+    ExchangeRateSnapshot:
+      type: object
+      properties:
+        usdToIrr:
+          type: number
+        fetchedAt:
+          type: string
+        source:
+          type: string
+      required:
+        - usdToIrr
+        - fetchedAt
+        - source
+    DisplaySettingsResponse:
+      type: object
+      properties:
+        currencyUnit:
+          type: string
+          enum:
+            - USD
+            - IRR
+            - TOMAN
+        dateCalendar:
+          type: string
+          enum:
+            - GREGORIAN
+            - SHAMSI
+        priceScale:
+          type: string
+          enum:
+            - PER_MILLION_TOKENS
+            - PER_TOKEN
+        exchangeRate:
+          $ref: "#/components/schemas/ExchangeRateSnapshot"
+      required:
+        - currencyUnit
+        - dateCalendar
+        - priceScale
+        - exchangeRate
+    UpdateDisplaySettingsDto:
+      type: object
+      properties:
+        currencyUnit:
+          type: string
+          enum:
+            - USD
+            - IRR
+            - TOMAN
+        dateCalendar:
+          type: string
+          enum:
+            - GREGORIAN
+            - SHAMSI
+        priceScale:
+          type: string
+          enum:
+            - PER_MILLION_TOKENS
+            - PER_TOKEN
+      required:
+        - currencyUnit
+        - dateCalendar
+        - priceScale
+    FacetsResponse:
+      type: object
+      properties:
+        providers:
+          type: array
+          items:
+            $ref: "#/components/schemas/FacetOption"
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/FacetOption"
+        capabilities:
+          type: array
+          items:
+            $ref: "#/components/schemas/FacetOption"
+        supportedParameters:
+          type: array
+          items:
+            $ref: "#/components/schemas/FacetOption"
+        inputModalities:
+          type: array
+          items:
+            $ref: "#/components/schemas/FacetOption"
+        outputModalities:
+          type: array
+          items:
+            $ref: "#/components/schemas/FacetOption"
+        regions:
+          type: array
+          items:
+            $ref: "#/components/schemas/FacetOption"
+      required:
+        - providers
+        - categories
+        - capabilities
+        - supportedParameters
+        - inputModalities
+        - outputModalities
+        - regions
+    SimpleAckResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required:
+        - ok
+    IndexOneDto:
+      type: object
+      properties:
+        modelId:
+          type: string
+      required:
+        - modelId
+    ImportProviderDto:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        websiteUrl:
+          type: string
+        docsUrl:
+          type: string
+        supportsByok:
+          type: boolean
+      required:
+        - slug
+        - name
+    ImportModelDto:
+      type: object
+      properties:
+        providerSlug:
+          type: string
+        canonicalId:
+          type: string
+        slug:
+          type: string
+        displayName:
+          type: string
+        status:
+          type: string
+        lifecycleStatus:
+          type: string
+        shortDescription:
+          type: string
+        contextWindow:
+          type: number
+        maxOutputTokens:
+          type: number
+        openSource:
+          type: boolean
+        free:
+          type: boolean
+        categorySlug:
+          type: string
+        inputModalities:
+          type: array
+          items:
+            type: string
+        outputModalities:
+          type: array
+          items:
+            type: string
+        supportedParameters:
+          type: array
+          items:
+            type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+        regions:
+          type: array
+          items:
+            type: string
+        sources:
+          type: array
+          items:
+            type: string
+        pricing:
+          oneOf:
+            - $ref: "#/components/schemas/ImportPricingDto"
+            - type: array
+              items:
+                $ref: "#/components/schemas/ImportPricingDto"
+      required:
+        - providerSlug
+        - canonicalId
+        - slug
+        - displayName
+    ImportCatalogRequest:
+      type: object
+      properties:
+        providers:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportProviderDto"
+        models:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportModelDto"
+      required:
+        - providers
+        - models
+    ImportCatalogResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        importedProviders:
+          type: number
+        importedModels:
+          type: number
+      required:
+        - ok

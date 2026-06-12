@@ -1,26 +1,32 @@
 package proxy
 
-import "strings"
+import (
+	"strings"
 
-// splitModelFQN parses a model in provider:account_alias:official_model_id format.
+	"github.com/Delpak/shahrah/services/control-plane/internal/modelid"
+)
+
+// splitModelFQN parses a model in provider:account_alias:model_id format.
 func splitModelFQN(input string) (provider string, accountAlias string, officialModel string, ok bool) {
-	parts := strings.Split(strings.TrimSpace(input), ":")
-	if len(parts) != 3 {
-		return "", "", "", false
+	return modelid.SplitModelFQN(input)
+}
+
+func normalizeModelIdentifier(model string) string {
+	model = strings.TrimSpace(model)
+	if model == "" {
+		return ""
 	}
-	provider = strings.TrimSpace(parts[0])
-	accountAlias = strings.TrimSpace(parts[1])
-	officialModel = strings.TrimSpace(parts[2])
-	if provider == "" || accountAlias == "" || officialModel == "" {
-		return "", "", "", false
+	provider, accountAlias, officialModel, ok := splitModelFQN(model)
+	if !ok {
+		return model
 	}
-	return provider, accountAlias, officialModel, true
+	return modelid.BuildModelFQN(provider, accountAlias, officialModel)
 }
 
 // modelRoutingCandidates returns route candidates for an inbound model id.
 // For strict tenant/account isolation, FQN values are routed only as-is.
 func modelRoutingCandidates(model string) []string {
-	model = strings.TrimSpace(model)
+	model = normalizeModelIdentifier(model)
 	if model == "" {
 		return nil
 	}
@@ -28,7 +34,7 @@ func modelRoutingCandidates(model string) []string {
 }
 
 func providerModelID(model string) string {
-	model = strings.TrimSpace(model)
+	model = normalizeModelIdentifier(model)
 	_, _, officialModel, ok := splitModelFQN(model)
 	if ok {
 		return officialModel

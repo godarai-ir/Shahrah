@@ -8,6 +8,7 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
+	"github.com/Delpak/shahrah/services/control-plane/internal/modelid"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 )
 
@@ -170,17 +171,7 @@ func (e *Executor) ExecuteSync(ctx context.Context, targets []platform.VirtualMo
 }
 
 func splitModelFQN(input string) (provider string, accountAlias string, officialModel string, ok bool) {
-	parts := strings.Split(strings.TrimSpace(input), ":")
-	if len(parts) != 3 {
-		return "", "", "", false
-	}
-	provider = strings.TrimSpace(parts[0])
-	accountAlias = strings.TrimSpace(parts[1])
-	officialModel = strings.TrimSpace(parts[2])
-	if provider == "" || accountAlias == "" || officialModel == "" {
-		return "", "", "", false
-	}
-	return provider, accountAlias, officialModel, true
+	return modelid.SplitModelFQN(input)
 }
 
 func containsInt(values []int, target int) bool {

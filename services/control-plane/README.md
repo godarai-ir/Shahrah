@@ -18,6 +18,23 @@ go run ./cmd/server
 go build ./cmd/server
 ```
 
+## Model Discovery Contract
+
+`control-plane` consumes `model-discovery` as an upstream API for provider-catalog flows.
+
+- Live Swagger UI: `http://localhost:3002/docs`
+- Live OpenAPI JSON: `http://localhost:3002/docs/openapi.json`
+- Shared contract notes: [docs/model-discovery-api-contract.md](/D:/source/Shahrah/docs/model-discovery-api-contract.md)
+- Contract test: [services/control-plane/internal/admin/provider_catalog_openapi_contract_test.go](/D:/source/Shahrah/services/control-plane/internal/admin/provider_catalog_openapi_contract_test.go)
+
+When changing `model-discovery` usage in `control-plane`:
+
+1. Regenerate the spec with `pnpm --dir apps/model-discovery openapi:export`.
+2. Update `control-plane` client logic.
+3. Extend or adjust the OpenAPI contract assertions for any new upstream endpoint or critical parameter constraint.
+
+Do not add undocumented fallback behavior that hides upstream contract drift.
+
 ## Required Configuration
 
 - `DATABASE_URL`: required, startup fails fast when missing or unreachable
@@ -30,6 +47,8 @@ go build ./cmd/server
 - `IDPAY_BASE_URL`: optional, default `https://api.idpay.ir/v1.1`
 - `IDPAY_SANDBOX`: optional (`true|false`)
 - `CLICKHOUSE_DSN`: required, used for all request trace storage/read APIs
+- `OPENAI_API_KEY`: optional, used by the default OpenAI entries in `configs/proxy_config.yaml`
+- `ANTHROPIC_API_KEY`: optional, used by the default Anthropic entries in `configs/proxy_config.yaml`
 
 ## Local Verification
 

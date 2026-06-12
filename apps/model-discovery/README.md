@@ -22,7 +22,18 @@ Production-focused Model Catalog backend (no LLM gateway/execution).
 5. `pnpm --filter model-discovery start:dev`
 
 Swagger: `http://localhost:3002/docs`
+OpenAPI JSON: `http://localhost:3002/docs/openapi.json`
+OpenAPI YAML: `http://localhost:3002/docs/openapi.yaml`
 API base: `http://localhost:3002/api/v1`
+
+Export the checked-in spec artifact with:
+
+- `pnpm --dir apps/model-discovery openapi:export`
+
+Exported files:
+
+- `apps/model-discovery/openapi/model-discovery.openapi.json`
+- `apps/model-discovery/openapi/model-discovery.openapi.yaml`
 
 ## Important endpoints
 - `GET /api/v1/models`

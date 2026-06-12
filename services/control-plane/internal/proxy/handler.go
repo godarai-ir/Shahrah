@@ -110,7 +110,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	if req.Model == "" {
 		return writeAPIError(c, fiber.StatusBadRequest, "Model is required", "invalid_request_error")
 	}
-	requestedModel := strings.TrimSpace(req.Model)
+	requestedModel := normalizeModelIdentifier(req.Model)
 	routeCandidates := modelRoutingCandidates(requestedModel)
 	if len(routeCandidates) == 0 {
 		return writeAPIError(c, fiber.StatusBadRequest, "Model is required", "invalid_request_error")

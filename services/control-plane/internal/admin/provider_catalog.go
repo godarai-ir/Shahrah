@@ -21,6 +21,7 @@ import (
 )
 
 var errDiscoveryNotFound = errors.New("discovery resource not found")
+var errDiscoveryUnavailable = errors.New("model-discovery service unavailable")
 
 const discoveryTimeout = 8 * time.Second
 
@@ -54,6 +55,7 @@ var discoveryTelemetry discoveryTelemetryCounters
 type discoveryProvider struct {
 	Slug                    string `json:"slug"`
 	Name                    string `json:"name"`
+	LogoURL                 string `json:"logoUrl"`
 	Enabled                 bool   `json:"enabled"`
 	SupportsByok            bool   `json:"supportsByok"`
 	SupportsRegionalRouting bool   `json:"supportsRegionalRouting"`
@@ -74,14 +76,26 @@ type modelDiscoveryModel struct {
 	Pricing          *modelDiscoveryPricing `json:"pricing"`
 }
 
+func normalizeProviderSlug(value string) string {
+	normalized := strings.TrimSpace(strings.ToLower(value))
+	switch normalized {
+	case "perplexity":
+		return "perplexity-ai"
+	case "zai":
+		return "xai"
+	default:
+		return normalized
+	}
+}
+
 func discoveryProviderExists(ctx context.Context, provider string) (bool, error) {
 	items, err := discoveryProviders(ctx)
 	if err != nil {
 		return false, err
 	}
-	normalized := strings.TrimSpace(strings.ToLower(provider))
+	normalized := normalizeProviderSlug(provider)
 	for _, item := range items {
-		if strings.TrimSpace(strings.ToLower(item.Provider)) == normalized {
+		if normalizeProviderSlug(item.Provider) == normalized {
 			return true, nil
 		}
 	}
@@ -96,53 +110,38 @@ func discoveryProviders(ctx context.Context) ([]platform.ProviderCatalogProvider
 	atomic.AddUint64(&discoveryTelemetry.providersCacheMiss, 1)
 	baseURL := getDiscoveryBaseURL()
 	if baseURL == "" {
-		items := localProviderCatalog()
-		setCachedProviders(items)
-		return items, nil
+		return nil, fmt.Errorf("%w: SHAHRAH_MODEL_DISCOVERY_URL is not configured; retry after restoring model-discovery connectivity", errDiscoveryUnavailable)
 	}
 	body, status, err := discoveryGET(ctx, baseURL+"/providers")
 	if err != nil {
 		atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
-		atomic.AddUint64(&discoveryTelemetry.discoveryFallback, 1)
-		items := localProviderCatalog()
-		setCachedProviders(items)
-		return items, nil
+		return nil, fmt.Errorf("%w: failed to fetch providers; retry after restoring model-discovery connectivity: %v", errDiscoveryUnavailable, err)
 	}
 	if status == http.StatusNotFound {
-		atomic.AddUint64(&discoveryTelemetry.discoveryFallback, 1)
-		items := localProviderCatalog()
-		setCachedProviders(items)
-		return items, nil
+		atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
+		return nil, fmt.Errorf("%w: /providers endpoint not found on model-discovery; retry after fixing service routing", errDiscoveryUnavailable)
 	}
 	if status >= http.StatusBadRequest {
 		atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
-		atomic.AddUint64(&discoveryTelemetry.discoveryFallback, 1)
-		items := localProviderCatalog()
-		setCachedProviders(items)
-		return items, nil
+		return nil, fmt.Errorf("%w: providers request failed with status %d; retry after restoring model-discovery connectivity", errDiscoveryUnavailable, status)
 	}
 
 	items, err := decodeProvidersPayload(body)
 	if err != nil {
 		atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
-		atomic.AddUint64(&discoveryTelemetry.discoveryFallback, 1)
-		items := localProviderCatalog()
-		setCachedProviders(items)
-		return items, nil
+		return nil, fmt.Errorf("%w: invalid providers payload; retry after fixing model-discovery response: %v", errDiscoveryUnavailable, err)
 	}
 	normalized := normalizeProviders(items)
 	if len(normalized) == 0 {
-		atomic.AddUint64(&discoveryTelemetry.discoveryFallback, 1)
-		items := localProviderCatalog()
-		setCachedProviders(items)
-		return items, nil
+		atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
+		return nil, fmt.Errorf("%w: model-discovery returned an empty provider catalog; retry after restoring discovery data", errDiscoveryUnavailable)
 	}
 	setCachedProviders(normalized)
 	return normalized, nil
 }
 
 func discoveryProviderModels(ctx context.Context, provider string) ([]platform.ProviderCatalogModel, error) {
-	normalizedProvider := strings.TrimSpace(strings.ToLower(provider))
+	normalizedProvider := normalizeProviderSlug(provider)
 	if normalizedProvider == "" {
 		return nil, fmt.Errorf("provider is required")
 	}
@@ -153,68 +152,90 @@ func discoveryProviderModels(ctx context.Context, provider string) ([]platform.P
 	atomic.AddUint64(&discoveryTelemetry.modelsCacheMiss, 1)
 	baseURL := getDiscoveryBaseURL()
 	if baseURL == "" {
-		items, err := localProviderModels(normalizedProvider)
-		if err == nil {
-			setCachedProviderModels(normalizedProvider, items)
-		}
-		return items, err
+		return nil, fmt.Errorf("%w: SHAHRAH_MODEL_DISCOVERY_URL is not configured; retry after restoring model-discovery connectivity", errDiscoveryUnavailable)
 	}
 	body, status, err := discoveryGET(ctx, baseURL+"/providers/"+url.PathEscape(normalizedProvider)+"/models")
 	if err == nil && status == http.StatusNotFound {
-		queryURL := baseURL + "/models?provider=" + url.QueryEscape(normalizedProvider) + "&limit=200"
-		body, status, err = discoveryGET(ctx, queryURL)
+		items, queryErr := discoveryProviderModelsByQuery(ctx, baseURL, normalizedProvider)
+		if queryErr != nil {
+			return nil, queryErr
+		}
+		setCachedProviderModels(normalizedProvider, items)
+		return items, nil
 	}
 	if err != nil {
 		atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
-		atomic.AddUint64(&discoveryTelemetry.discoveryFallback, 1)
-		items, errLocal := localProviderModels(normalizedProvider)
-		if errLocal == nil {
-			setCachedProviderModels(normalizedProvider, items)
-		}
-		return items, errLocal
+		return nil, fmt.Errorf("%w: failed to fetch models for provider %q; retry after restoring model-discovery connectivity: %v", errDiscoveryUnavailable, normalizedProvider, err)
 	}
 	if status == http.StatusNotFound {
-		atomic.AddUint64(&discoveryTelemetry.discoveryFallback, 1)
-		items, errLocal := localProviderModels(normalizedProvider)
-		if errLocal == nil {
-			setCachedProviderModels(normalizedProvider, items)
-		}
-		return items, errLocal
+		return nil, errDiscoveryNotFound
 	}
 	if status >= http.StatusBadRequest {
 		atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
-		atomic.AddUint64(&discoveryTelemetry.discoveryFallback, 1)
-		items, errLocal := localProviderModels(normalizedProvider)
-		if errLocal == nil {
-			setCachedProviderModels(normalizedProvider, items)
-		}
-		return items, errLocal
+		return nil, fmt.Errorf("%w: model request for provider %q failed with status %d; retry after restoring model-discovery connectivity", errDiscoveryUnavailable, normalizedProvider, status)
 	}
 
 	items, err := decodeProviderModelsPayload(body)
 	if err != nil {
 		atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
-		atomic.AddUint64(&discoveryTelemetry.discoveryFallback, 1)
-		items, errLocal := localProviderModels(normalizedProvider)
-		if errLocal == nil {
-			setCachedProviderModels(normalizedProvider, items)
-		}
-		return items, errLocal
+		return nil, fmt.Errorf("%w: invalid model payload for provider %q; retry after fixing model-discovery response: %v", errDiscoveryUnavailable, normalizedProvider, err)
 	}
 	for i := range items {
 		items[i].Provider = normalizedProvider
 		if items[i].Model == "" {
-			atomic.AddUint64(&discoveryTelemetry.discoveryFallback, 1)
-			items, errLocal := localProviderModels(normalizedProvider)
-			if errLocal == nil {
-				setCachedProviderModels(normalizedProvider, items)
-			}
-			return items, errLocal
+			atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
+			return nil, fmt.Errorf("%w: model-discovery returned an invalid model entry for provider %q; retry after fixing discovery data", errDiscoveryUnavailable, normalizedProvider)
 		}
 		items[i].Types = normalizeModelTypes(items[i].Types)
 		items[i].PublicPricing = fillModelPricingFromRegistry(normalizedProvider, items[i].Model, items[i].PublicPricing)
 	}
 	setCachedProviderModels(normalizedProvider, items)
+	return items, nil
+}
+
+func discoveryProviderModelsByQuery(ctx context.Context, baseURL string, provider string) ([]platform.ProviderCatalogModel, error) {
+	const pageSize = 100
+	const maxPages = 20
+
+	items := make([]platform.ProviderCatalogModel, 0, pageSize)
+	for page := 1; page <= maxPages; page++ {
+		queryURL := fmt.Sprintf("%s/models?provider=%s&limit=%d&page=%d", baseURL, url.QueryEscape(provider), pageSize, page)
+		body, status, err := discoveryGET(ctx, queryURL)
+		if err != nil {
+			atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
+			return nil, fmt.Errorf("%w: failed to fetch models for provider %q; retry after restoring model-discovery connectivity: %v", errDiscoveryUnavailable, provider, err)
+		}
+		if status == http.StatusNotFound {
+			return nil, errDiscoveryNotFound
+		}
+		if status >= http.StatusBadRequest {
+			atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
+			return nil, fmt.Errorf("%w: model request for provider %q failed with status %d; retry after restoring model-discovery connectivity", errDiscoveryUnavailable, provider, status)
+		}
+
+		pageItems, err := decodeProviderModelsPayload(body)
+		if err != nil {
+			atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
+			return nil, fmt.Errorf("%w: invalid model payload for provider %q; retry after fixing model-discovery response: %v", errDiscoveryUnavailable, provider, err)
+		}
+		if len(pageItems) == 0 {
+			break
+		}
+		items = append(items, pageItems...)
+		if len(pageItems) < pageSize {
+			break
+		}
+	}
+
+	for i := range items {
+		items[i].Provider = provider
+		if items[i].Model == "" {
+			atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
+			return nil, fmt.Errorf("%w: model-discovery returned an invalid model entry for provider %q; retry after fixing discovery data", errDiscoveryUnavailable, provider)
+		}
+		items[i].Types = normalizeModelTypes(items[i].Types)
+		items[i].PublicPricing = fillModelPricingFromRegistry(provider, items[i].Model, items[i].PublicPricing)
+	}
 	return items, nil
 }
 
@@ -372,9 +393,14 @@ func getDiscoveryBaseURL() string {
 }
 
 func discoveryGET(ctx context.Context, rawURL string) ([]byte, int, error) {
+	body, status, _, err := discoveryFetch(ctx, rawURL)
+	return body, status, err
+}
+
+func discoveryFetch(ctx context.Context, rawURL string) ([]byte, int, string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, "", err
 	}
 	req.Header.Set("Accept", "application/json")
 
@@ -389,15 +415,15 @@ func discoveryGET(ctx context.Context, rawURL string) ([]byte, int, error) {
 	client := &http.Client{Timeout: discoveryTimeout}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, "", err
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, resp.StatusCode, err
+		return nil, resp.StatusCode, "", err
 	}
-	return body, resp.StatusCode, nil
+	return body, resp.StatusCode, resp.Header.Get("Content-Type"), nil
 }
 
 func decodeProvidersPayload(body []byte) ([]platform.ProviderCatalogProvider, error) {
@@ -406,28 +432,28 @@ func decodeProvidersPayload(body []byte) ([]platform.ProviderCatalogProvider, er
 	}
 
 	var direct []platform.ProviderCatalogProvider
-	if err := json.Unmarshal(body, &direct); err == nil && len(direct) > 0 {
+	if err := json.Unmarshal(body, &direct); err == nil && hasCanonicalProviderEntries(direct) {
 		return direct, nil
-	}
-
-	var wrapped struct {
-		Data      []platform.ProviderCatalogProvider `json:"data"`
-		Providers []platform.ProviderCatalogProvider `json:"providers"`
-	}
-	if err := json.Unmarshal(body, &wrapped); err != nil {
-		return nil, fmt.Errorf("decode discovery providers payload: %w", err)
-	}
-	if len(wrapped.Data) > 0 {
-		return wrapped.Data, nil
-	}
-	if len(wrapped.Providers) > 0 {
-		return wrapped.Providers, nil
 	}
 
 	var mdDirect []discoveryProvider
 	if err := json.Unmarshal(body, &mdDirect); err == nil && len(mdDirect) > 0 {
 		return mapDiscoveryProviders(mdDirect), nil
 	}
+
+	var wrapped struct {
+		Data      []platform.ProviderCatalogProvider `json:"data"`
+		Providers []platform.ProviderCatalogProvider `json:"providers"`
+	}
+	if err := json.Unmarshal(body, &wrapped); err == nil {
+		if hasCanonicalProviderEntries(wrapped.Data) {
+			return wrapped.Data, nil
+		}
+		if hasCanonicalProviderEntries(wrapped.Providers) {
+			return wrapped.Providers, nil
+		}
+	}
+
 	var mdWrapped struct {
 		Data []discoveryProvider `json:"data"`
 	}
@@ -443,22 +469,26 @@ func decodeProviderModelsPayload(body []byte) ([]platform.ProviderCatalogModel, 
 	}
 
 	var direct []platform.ProviderCatalogModel
-	if err := json.Unmarshal(body, &direct); err == nil && len(direct) > 0 {
+	if err := json.Unmarshal(body, &direct); err == nil && hasCanonicalModelEntries(direct) {
 		return direct, nil
+	}
+
+	var mdDirect []modelDiscoveryModel
+	if err := json.Unmarshal(body, &mdDirect); err == nil && len(mdDirect) > 0 {
+		return mapDiscoveryModels(mdDirect), nil
 	}
 
 	var wrapped struct {
 		Data   []platform.ProviderCatalogModel `json:"data"`
 		Models []platform.ProviderCatalogModel `json:"models"`
 	}
-	if err := json.Unmarshal(body, &wrapped); err != nil {
-		return nil, fmt.Errorf("decode discovery provider models payload: %w", err)
-	}
-	if len(wrapped.Data) > 0 {
-		return wrapped.Data, nil
-	}
-	if len(wrapped.Models) > 0 {
-		return wrapped.Models, nil
+	if err := json.Unmarshal(body, &wrapped); err == nil {
+		if hasCanonicalModelEntries(wrapped.Data) {
+			return wrapped.Data, nil
+		}
+		if hasCanonicalModelEntries(wrapped.Models) {
+			return wrapped.Models, nil
+		}
 	}
 
 	var modelsWrapped struct {
@@ -470,10 +500,34 @@ func decodeProviderModelsPayload(body []byte) ([]platform.ProviderCatalogModel, 
 	return nil, fmt.Errorf("discovery provider models payload does not contain models")
 }
 
+func hasCanonicalProviderEntries(items []platform.ProviderCatalogProvider) bool {
+	if len(items) == 0 {
+		return false
+	}
+	for _, item := range items {
+		if strings.TrimSpace(item.Provider) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func hasCanonicalModelEntries(items []platform.ProviderCatalogModel) bool {
+	if len(items) == 0 {
+		return false
+	}
+	for _, item := range items {
+		if strings.TrimSpace(item.Model) != "" {
+			return true
+		}
+	}
+	return false
+}
+
 func mapDiscoveryProviders(items []discoveryProvider) []platform.ProviderCatalogProvider {
 	out := make([]platform.ProviderCatalogProvider, 0, len(items))
 	for _, item := range items {
-		provider := strings.TrimSpace(strings.ToLower(item.Slug))
+		provider := normalizeProviderSlug(item.Slug)
 		if provider == "" {
 			continue
 		}
@@ -484,6 +538,7 @@ func mapDiscoveryProviders(items []discoveryProvider) []platform.ProviderCatalog
 		out = append(out, platform.ProviderCatalogProvider{
 			Provider:                provider,
 			DisplayName:             displayName,
+			LogoURL:                 strings.TrimSpace(item.LogoURL),
 			Enabled:                 item.Enabled,
 			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
 			SupportsBringYourOwnKey: item.SupportsByok,
@@ -617,7 +672,7 @@ func mapModalityToModelType(modality string) platform.ModelType {
 func normalizeProviders(items []platform.ProviderCatalogProvider) []platform.ProviderCatalogProvider {
 	out := make([]platform.ProviderCatalogProvider, 0, len(items))
 	for _, item := range items {
-		item.Provider = strings.TrimSpace(strings.ToLower(item.Provider))
+		item.Provider = normalizeProviderSlug(item.Provider)
 		item.DisplayName = strings.TrimSpace(item.DisplayName)
 		if item.Provider == "" {
 			continue
@@ -634,323 +689,6 @@ func normalizeProviders(items []platform.ProviderCatalogProvider) []platform.Pro
 		out = append(out, item)
 	}
 	return out
-}
-
-func localProviderCatalog() []platform.ProviderCatalogProvider {
-	return []platform.ProviderCatalogProvider{
-		{
-			Provider:                "openai",
-			DisplayName:             "OpenAI",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "anthropic",
-			DisplayName:             "Anthropic",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "google",
-			DisplayName:             "Google",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey, platform.ProviderAuthModeGoogleServiceAccount},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "bedrock",
-			DisplayName:             "AWS Bedrock",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAWSSigV4},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "gemini",
-			DisplayName:             "Google Gemini",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey, platform.ProviderAuthModeGoogleServiceAccount},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "vertexai",
-			DisplayName:             "Google Vertex AI",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeGoogleServiceAccount},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "groq",
-			DisplayName:             "Groq",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "meta",
-			DisplayName:             "Meta",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "mistral",
-			DisplayName:             "Mistral",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "xai",
-			DisplayName:             "xAI",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "togetherai",
-			DisplayName:             "Together AI",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "cohere",
-			DisplayName:             "Cohere",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "ai21",
-			DisplayName:             "AI21",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "stability",
-			DisplayName:             "Stability AI",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "deepseek",
-			DisplayName:             "DeepSeek",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "alibaba",
-			DisplayName:             "Alibaba",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "bfl",
-			DisplayName:             "BFL (FLUX)",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "cloudflare",
-			DisplayName:             "Cloudflare",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "byteplus",
-			DisplayName:             "BytePlus",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "zai",
-			DisplayName:             "Z.AI",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "tavily",
-			DisplayName:             "Tavily",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "parallelai",
-			DisplayName:             "Parallel AI",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "exa",
-			DisplayName:             "Exa AI",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "dataforseo",
-			DisplayName:             "DataForSEO",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "perplexity",
-			DisplayName:             "Perplexity",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "google_pse",
-			DisplayName:             "Google PSE",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "firecrawl",
-			DisplayName:             "Firecrawl",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "moonshot",
-			DisplayName:             "Moonshot.ai",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "nvidia_nim",
-			DisplayName:             "Nvidia NIM",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-		{
-			Provider:                "minimax",
-			DisplayName:             "MiniMax",
-			Enabled:                 true,
-			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
-			SupportsBringYourOwnKey: true,
-			SupportsVirtualKeys:     true,
-		},
-	}
-}
-
-func localProviderModels(provider string) ([]platform.ProviderCatalogModel, error) {
-	if items, ok := builtinProviderModelCatalog(provider); ok {
-		return items, nil
-	}
-	items := make([]platform.ProviderCatalogModel, 0)
-	for _, pricing := range billing.PricingRegistry {
-		if strings.TrimSpace(strings.ToLower(pricing.Provider)) != provider {
-			continue
-		}
-		input := pricing.InputPrice
-		output := pricing.OutputPrice
-		items = append(items, platform.ProviderCatalogModel{
-			Provider:         provider,
-			Model:            pricing.Model,
-			DisplayName:      pricing.Model,
-			Types:            []platform.ModelType{platform.ModelTypeChat},
-			InputModalities:  []string{"text"},
-			OutputModalities: []string{"text"},
-			Features:         []string{"chat"},
-			PublicPricing: &platform.ModelPrice{
-				InputUSDPer1M:  &input,
-				OutputUSDPer1M: &output,
-			},
-		})
-	}
-	if len(items) == 0 {
-		return nil, errDiscoveryNotFound
-	}
-	sort.Slice(items, func(i, j int) bool {
-		return items[i].Model < items[j].Model
-	})
-	return items, nil
-}
-
-func builtinProviderModelCatalog(provider string) ([]platform.ProviderCatalogModel, bool) {
-	entries, ok := builtinProviderModels()[provider]
-	if !ok || len(entries) == 0 {
-		return nil, false
-	}
-	items := make([]platform.ProviderCatalogModel, 0, len(entries))
-	for _, item := range entries {
-		model := strings.TrimSpace(item.Model)
-		if model == "" {
-			continue
-		}
-		entry := platform.ProviderCatalogModel{
-			Provider:         provider,
-			Model:            model,
-			DisplayName:      model,
-			Types:            normalizeModelTypes(item.Types),
-			InputModalities:  defaultInputModalitiesForTypes(item.Types),
-			OutputModalities: defaultOutputModalitiesForTypes(item.Types),
-			Features:         modelTypesToFeatures(item.Types),
-		}
-		if item.InputUSDPer1M != nil || item.OutputUSDPer1M != nil {
-			entry.PublicPricing = &platform.ModelPrice{
-				InputUSDPer1M:  item.InputUSDPer1M,
-				OutputUSDPer1M: item.OutputUSDPer1M,
-			}
-		}
-		entry.PublicPricing = fillModelPricingFromRegistry(provider, model, entry.PublicPricing)
-		items = append(items, entry)
-	}
-	if len(items) == 0 {
-		return nil, false
-	}
-	sort.Slice(items, func(i, j int) bool {
-		return items[i].Model < items[j].Model
-	})
-	return items, true
 }
 
 func normalizeModelTypes(types []platform.ModelType) []platform.ModelType {
@@ -1001,48 +739,6 @@ func cloneModelPrice(price *platform.ModelPrice) *platform.ModelPrice {
 	return &out
 }
 
-func defaultInputModalitiesForTypes(types []platform.ModelType) []string {
-	mods := make([]string, 0, len(types))
-	for _, item := range normalizeModelTypes(types) {
-		switch item {
-		case platform.ModelTypeImageGeneration:
-			mods = append(mods, "text")
-		case platform.ModelTypeAudioTranscription, platform.ModelTypeAudioTranslation:
-			mods = append(mods, "audio")
-		default:
-			mods = append(mods, "text")
-		}
-	}
-	return normalizeStringList(mods)
-}
-
-func defaultOutputModalitiesForTypes(types []platform.ModelType) []string {
-	mods := make([]string, 0, len(types))
-	for _, item := range normalizeModelTypes(types) {
-		switch item {
-		case platform.ModelTypeEmbedding:
-			mods = append(mods, "embedding")
-		case platform.ModelTypeImageGeneration:
-			mods = append(mods, "image")
-		case platform.ModelTypeTextToSpeech:
-			mods = append(mods, "audio")
-		case platform.ModelTypeAudioTranscription, platform.ModelTypeAudioTranslation:
-			mods = append(mods, "text")
-		default:
-			mods = append(mods, "text")
-		}
-	}
-	return normalizeStringList(mods)
-}
-
-func modelTypesToFeatures(types []platform.ModelType) []string {
-	features := make([]string, 0, len(types))
-	for _, item := range normalizeModelTypes(types) {
-		features = append(features, string(item))
-	}
-	return normalizeStringList(features)
-}
-
 func fillModelPricingFromRegistry(provider string, model string, current *platform.ModelPrice) *platform.ModelPrice {
 	hasInput := current != nil && current.InputUSDPer1M != nil && *current.InputUSDPer1M > 0
 	hasOutput := current != nil && current.OutputUSDPer1M != nil && *current.OutputUSDPer1M > 0
@@ -1071,121 +767,4 @@ func fillModelPricingFromRegistry(provider string, model string, current *platfo
 		return nil
 	}
 	return out
-}
-
-type builtInModelEntry struct {
-	Model          string
-	Types          []platform.ModelType
-	InputUSDPer1M  *float64
-	OutputUSDPer1M *float64
-}
-
-func builtinProviderModels() map[string][]builtInModelEntry {
-	return map[string][]builtInModelEntry{
-		"openai": {
-			{Model: "gpt-4.1", Types: []platform.ModelType{platform.ModelTypeChat}},
-			{Model: "gpt-4.1-mini", Types: []platform.ModelType{platform.ModelTypeChat}},
-			{Model: "gpt-4o", Types: []platform.ModelType{platform.ModelTypeChat}},
-			{Model: "text-embedding-3-large", Types: []platform.ModelType{platform.ModelTypeEmbedding}},
-		},
-		"anthropic": {
-			{Model: "claude-3-5-sonnet-20240620", Types: []platform.ModelType{platform.ModelTypeChat}},
-			{Model: "claude-3-7-sonnet-latest", Types: []platform.ModelType{platform.ModelTypeChat}},
-			{Model: "claude-3-haiku-20240307", Types: []platform.ModelType{platform.ModelTypeChat}},
-		},
-		"google": {
-			{Model: "gemini-2.5-pro", Types: []platform.ModelType{platform.ModelTypeChat}},
-			{Model: "gemini-2.5-flash", Types: []platform.ModelType{platform.ModelTypeChat}},
-			{Model: "text-embedding-004", Types: []platform.ModelType{platform.ModelTypeEmbedding}},
-		},
-		"gemini": {
-			{Model: "gemini-2.5-pro", Types: []platform.ModelType{platform.ModelTypeChat}},
-			{Model: "gemini-2.5-flash", Types: []platform.ModelType{platform.ModelTypeChat}},
-		},
-		"groq": {
-			{Model: "llama-3.3-70b-versatile", Types: []platform.ModelType{platform.ModelTypeChat}},
-			{Model: "mixtral-8x7b-32768", Types: []platform.ModelType{platform.ModelTypeChat}},
-		},
-		"meta": {
-			{Model: "llama-3.3-70b-instruct", Types: []platform.ModelType{platform.ModelTypeChat}},
-			{Model: "llama-3.1-8b-instruct", Types: []platform.ModelType{platform.ModelTypeChat}},
-		},
-		"mistral": {
-			{Model: "mistral-large-latest", Types: []platform.ModelType{platform.ModelTypeChat}},
-			{Model: "ministral-8b-latest", Types: []platform.ModelType{platform.ModelTypeChat}},
-			{Model: "mistral-embed", Types: []platform.ModelType{platform.ModelTypeEmbedding}},
-		},
-		"xai": {
-			{Model: "grok-2-latest", Types: []platform.ModelType{platform.ModelTypeChat}},
-			{Model: "grok-beta", Types: []platform.ModelType{platform.ModelTypeChat}},
-		},
-		"cohere": {
-			{Model: "command-r-plus", Types: []platform.ModelType{platform.ModelTypeChat}},
-			{Model: "embed-english-v3.0", Types: []platform.ModelType{platform.ModelTypeEmbedding}},
-			{Model: "rerank-v3.5", Types: []platform.ModelType{platform.ModelTypeRerank}},
-		},
-		"stability": {
-			{Model: "stable-image-ultra", Types: []platform.ModelType{platform.ModelTypeImageGeneration}},
-			{Model: "stable-diffusion-3.5-large", Types: []platform.ModelType{platform.ModelTypeImageGeneration}},
-		},
-		"deepseek": {
-			{Model: "deepseek-chat", Types: []platform.ModelType{platform.ModelTypeChat}},
-			{Model: "deepseek-reasoner", Types: []platform.ModelType{platform.ModelTypeChat}},
-		},
-		"alibaba": {
-			{Model: "qwen-max", Types: []platform.ModelType{platform.ModelTypeChat}},
-			{Model: "qwen-plus", Types: []platform.ModelType{platform.ModelTypeChat}},
-			{Model: "text-embedding-v3", Types: []platform.ModelType{platform.ModelTypeEmbedding}},
-		},
-		"bfl": {
-			{Model: "flux-pro-1.1", Types: []platform.ModelType{platform.ModelTypeImageGeneration}},
-			{Model: "flux-dev", Types: []platform.ModelType{platform.ModelTypeImageGeneration}},
-		},
-		"cloudflare": {
-			{Model: "@cf/meta/llama-3.1-8b-instruct", Types: []platform.ModelType{platform.ModelTypeChat}},
-			{Model: "@cf/baai/bge-base-en-v1.5", Types: []platform.ModelType{platform.ModelTypeEmbedding}},
-		},
-		"byteplus": {
-			{Model: "doubao-pro-32k", Types: []platform.ModelType{platform.ModelTypeChat}},
-			{Model: "doubao-lite-32k", Types: []platform.ModelType{platform.ModelTypeChat}},
-		},
-		"zai": {
-			{Model: "glm-4-plus", Types: []platform.ModelType{platform.ModelTypeChat}},
-			{Model: "embedding-3", Types: []platform.ModelType{platform.ModelTypeEmbedding}},
-		},
-		"tavily": {
-			{Model: "tavily-search", Types: []platform.ModelType{platform.ModelTypeSearch}},
-		},
-		"parallelai": {
-			{Model: "parallel-chat", Types: []platform.ModelType{platform.ModelTypeChat}},
-		},
-		"exa": {
-			{Model: "exa-search", Types: []platform.ModelType{platform.ModelTypeSearch}},
-		},
-		"dataforseo": {
-			{Model: "dataforseo-serp-live", Types: []platform.ModelType{platform.ModelTypeSearch}},
-		},
-		"perplexity": {
-			{Model: "sonar-pro", Types: []platform.ModelType{platform.ModelTypeChat, platform.ModelTypeSearch}},
-			{Model: "sonar-small-online", Types: []platform.ModelType{platform.ModelTypeChat, platform.ModelTypeSearch}},
-		},
-		"google_pse": {
-			{Model: "google-custom-search", Types: []platform.ModelType{platform.ModelTypeSearch}},
-		},
-		"firecrawl": {
-			{Model: "firecrawl-search", Types: []platform.ModelType{platform.ModelTypeSearch}},
-		},
-		"moonshot": {
-			{Model: "moonshot-v1-8k", Types: []platform.ModelType{platform.ModelTypeChat}},
-			{Model: "moonshot-v1-32k", Types: []platform.ModelType{platform.ModelTypeChat}},
-		},
-		"nvidia_nim": {
-			{Model: "meta/llama-3.1-70b-instruct", Types: []platform.ModelType{platform.ModelTypeChat}},
-			{Model: "nvidia/nv-embedqa-e5-v5", Types: []platform.ModelType{platform.ModelTypeEmbedding}},
-		},
-		"minimax": {
-			{Model: "abab6.5-chat", Types: []platform.ModelType{platform.ModelTypeChat}},
-			{Model: "minimax-embedding", Types: []platform.ModelType{platform.ModelTypeEmbedding}},
-		},
-	}
 }

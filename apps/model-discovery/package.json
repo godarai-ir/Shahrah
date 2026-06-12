@@ -22,7 +22,8 @@
         "prisma:migrate:dev": "prisma migrate dev",
         "prisma:studio": "prisma studio",
         "prisma:seed": "tsx prisma/seed.ts",
-        "import:providers:yaml": "tsx scripts/import-models-from-yaml.ts"
+        "import:providers:yaml": "tsx scripts/import-models-from-yaml.ts",
+        "openapi:export": "node -r ts-node/register -r tsconfig-paths/register scripts/export-openapi.ts"
     },
     "dependencies": {
         "@nestjs/bullmq": "^11.0.4",

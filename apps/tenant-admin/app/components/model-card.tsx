@@ -84,8 +84,13 @@ type ModelCardProps = {
   isCompared?: boolean;
   onComparedChange?: (checked: boolean) => void;
   compareCheckboxLabel?: string;
+  stateBadge?: {
+    label: string;
+    tone: "active" | "inactive";
+  };
   pricingModeBadge?: string;
   pricingAction?: ReactNode;
+  footerActions?: ReactNode;
   labels?: {
     context?: string;
     maxOutput?: string;
@@ -218,6 +223,8 @@ export function ModelCard(props: ModelCardProps) {
         "group h-full rounded-xl border border-border/70 bg-card transition-colors hover:border-border",
         model.recommended && "ring-1 ring-primary/25",
         isDeprecated && "border-amber-500/50 bg-amber-500/5",
+        props.stateBadge?.tone === "active" && "border-emerald-500/50 bg-emerald-500/[0.08] shadow-sm shadow-emerald-500/10",
+        props.stateBadge?.tone === "inactive" && "border-border/70 bg-card",
         props.className,
       )}
     >
@@ -238,6 +245,18 @@ export function ModelCard(props: ModelCardProps) {
           <div className="flex flex-wrap justify-end gap-1">
             <Badge variant="secondary">{labelCategory(primaryCategory, labels)}</Badge>
             <Badge variant={statusVariant(model.status)}>{labelStatus(model.status, labels)}</Badge>
+            {props.stateBadge ? (
+              <Badge
+                className={cn(
+                  props.stateBadge.tone === "active"
+                    ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300"
+                    : "border-border/60 bg-muted/60 text-muted-foreground hover:bg-muted/70",
+                )}
+                variant="outline"
+              >
+                {props.stateBadge.label}
+              </Badge>
+            ) : null}
             {model.recommended ? (
               <Badge className="bg-primary/15 text-primary hover:bg-primary/20">
                 <Sparkles className="mr-1 h-3 w-3" />
@@ -339,7 +358,7 @@ export function ModelCard(props: ModelCardProps) {
         </details>
       </CardContent>
 
-      <CardFooter className="grid grid-cols-2 gap-2 pt-2 sm:grid-cols-3">
+      <CardFooter className="grid grid-cols-2 gap-2 pt-2 sm:grid-cols-4">
         {props.detailsHref ? (
           <Button asChild variant="outline" size="sm" className="gap-1">
             <Link href={props.detailsHref} target="_blank" rel="noreferrer">
@@ -357,6 +376,7 @@ export function ModelCard(props: ModelCardProps) {
           {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
           {copied ? labels.copied : labels.copyId}
         </Button>
+        {props.footerActions}
       </CardFooter>
 
       {(isFast || isCheap) && !isDeprecated ? (

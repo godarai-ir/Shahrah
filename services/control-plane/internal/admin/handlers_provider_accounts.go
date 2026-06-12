@@ -3,6 +3,8 @@ package admin
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -106,6 +108,52 @@ func (h *Handlers) ListProviderModelsCatalog(c *fiber.Ctx) error {
 	return c.JSON(platform.ProviderModelCatalogListResponse{Data: items})
 }
 
+// GetProviderCatalogAsset proxies provider logo assets from model-discovery.
+func (h *Handlers) GetProviderCatalogAsset(c *fiber.Ctx) error {
+	if err := requirePermissionAnyOrTenantAdmin(c, "provider account read permission required", []string{
+		"provider_account:read",
+		"provider_account:manage",
+		"provider_account:create",
+	}); err != nil {
+		return err
+	}
+
+	bucket := strings.TrimSpace(c.Params("bucket"))
+	fileName := strings.TrimSpace(c.Params("fileName"))
+	if bucket == "" || fileName == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "bucket and fileName are required")
+	}
+	if bucket != "provider-logos" && bucket != "model-series-logos" {
+		return fiber.NewError(fiber.StatusBadRequest, "unsupported provider catalog asset bucket")
+	}
+	if strings.Contains(fileName, "..") {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid provider catalog asset name")
+	}
+
+	baseURL := getDiscoveryBaseURL()
+	if baseURL == "" {
+		return fiber.NewError(fiber.StatusBadGateway, "model-discovery service unavailable")
+	}
+
+	rawURL := baseURL + "/providers/assets/" + url.PathEscape(bucket) + "/" + url.PathEscape(fileName)
+	body, status, contentType, err := discoveryFetch(c.Context(), rawURL)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadGateway, err.Error())
+	}
+	if status == fiber.StatusNotFound {
+		return fiber.NewError(fiber.StatusNotFound, "provider catalog asset not found")
+	}
+	if status >= fiber.StatusBadRequest {
+		return fiber.NewError(fiber.StatusBadGateway, "failed to load provider catalog asset")
+	}
+	if strings.TrimSpace(contentType) == "" {
+		contentType = http.DetectContentType(body)
+	}
+	c.Set(fiber.HeaderContentType, contentType)
+	c.Set(fiber.HeaderCacheControl, "public, max-age=3600")
+	return c.Status(status).Send(body)
+}
+
 // CreateTenantProviderAccount creates a tenant-scoped provider account definition.
 func (h *Handlers) CreateTenantProviderAccount(c *fiber.Ctx) error {
 	if err := requirePermissionAnyOrTenantAdmin(c, "provider account create permission required", []string{
@@ -127,7 +175,7 @@ func (h *Handlers) CreateTenantProviderAccount(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
-	req.Provider = strings.TrimSpace(strings.ToLower(req.Provider))
+	req.Provider = normalizeProviderSlug(req.Provider)
 	req.Name = strings.TrimSpace(req.Name)
 
 	if req.Provider == "" || req.Name == "" {

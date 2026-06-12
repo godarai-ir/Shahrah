@@ -30,6 +30,23 @@ model_list:
       model: openai/*
       api_key: ${OPENAI_API_KEY}
 
+  # Anthropic Claude Sonnet
+  - model_name: claude-3-5-sonnet-latest
+    provider_endpoint_config:
+      model: anthropic/claude-3-5-sonnet-latest
+      api_key: ${ANTHROPIC_API_KEY}
+      rpm: 500
+      timeout: 120
+    model_info:
+      id: "anthropic-claude35sonnet-1"
+      health_check_timeout: 30
+
+  # Wildcard: any anthropic model
+  - model_name: "anthropic/*"
+    provider_endpoint_config:
+      model: anthropic/*
+      api_key: ${ANTHROPIC_API_KEY}
+
 router_settings:
   routing_strategy: simple-shuffle
   redis_host: ${REDIS_HOST}

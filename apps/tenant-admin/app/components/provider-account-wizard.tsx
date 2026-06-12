@@ -4,9 +4,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { ArrowUpDown, CheckSquare, Copy, Eye, GitCompare, KeyRound, Layers3, RotateCcw, Search, ShieldCheck, Trash2, X } from "lucide-react";
+import { Highlight, themes } from "prism-react-renderer";
+import { Prism } from "prismjs";
+import "prismjs/components/prism-bash";
+import "prismjs/components/prism-powershell";
+import { ArrowUpDown, CheckSquare, Code2, Copy, Eye, GitCompare, KeyRound, Layers3, RotateCcw, Search, ShieldCheck, Trash2, X } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +27,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   PrincipalEntitySelect,
   type PrincipalEntitySelection,
@@ -40,6 +45,7 @@ import {
 } from "@/app/components/provider-account-wizard.models";
 import { usePermissions } from "@/app/components/permissions-context";
 import { canPermission } from "@/lib/authz";
+import { cn } from "@/lib/utils";
 
 type ProviderAuthMode =
   | "api_key"
@@ -71,6 +77,7 @@ type AccessPrincipalCandidate = {
 type ProviderCatalogProvider = {
   provider: string;
   display_name: string;
+  logo_url?: string;
   enabled: boolean;
   auth_modes: ProviderAuthMode[];
   supports_bring_your_own_key: boolean;
@@ -168,6 +175,14 @@ type Banner = {
   message: string;
 };
 
+type CurlGuideShell = "powershell" | "bash";
+
+type CurlGuide = {
+  modelName: string;
+  modelFqn: string;
+  commands: Record<CurlGuideShell, string>;
+};
+
 type ModelDraft = {
   enabled: boolean;
   compared: boolean;
@@ -179,6 +194,81 @@ type ModelDraft = {
 type Readiness = "ready" | "needs_credentials" | "needs_access" | "pricing_incomplete";
 
 type ProviderAccountWizardMode = "manage" | "create";
+
+const CURL_GUIDE_LANGUAGE: Record<CurlGuideShell, "powershell" | "bash"> = {
+  powershell: "powershell",
+  bash: "bash",
+};
+
+function CodeExampleBlock(props: {
+  code: string;
+  language: "powershell" | "bash";
+  shellLabel: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 shadow-[0_24px_80px_-32px_rgba(15,23,42,0.85)]",
+        props.className,
+      )}
+    >
+      <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/80 px-4 py-3 text-slate-200">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-rose-400" />
+            <span className="h-2.5 w-2.5 rounded-full bg-amber-300" />
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+          </div>
+          <Badge variant="secondary" className="border border-slate-700 bg-slate-800 px-2.5 py-0.5 font-mono text-[11px] text-slate-200">
+            {props.shellLabel}
+          </Badge>
+        </div>
+      </div>
+      <Highlight
+        code={props.code}
+        language={props.language}
+        prism={Prism}
+        theme={themes.nightOwl}
+      >
+        {({ className, style, tokens, getLineProps, getTokenProps }) => (
+          <pre
+            dir="ltr"
+            className={cn("custom-scrollbar overflow-x-auto p-4 text-left text-[13px] leading-7", className)}
+            style={{
+              ...style,
+              margin: 0,
+              background: "transparent",
+            }}
+          >
+            {tokens.map((line, lineIndex) => {
+              const lineProps = getLineProps({ line });
+              return (
+                <div
+                  key={`${props.language}-${lineIndex}`}
+                  {...lineProps}
+                  className={cn("table w-full table-fixed", lineProps.className)}
+                >
+                  <span className="table-cell w-10 select-none pe-4 text-right text-slate-500">
+                    {lineIndex + 1}
+                  </span>
+                  <span className="table-cell w-full">
+                    {line.length === 0
+                      ? "\n"
+                      : line.map((token, tokenIndex) => {
+                          const tokenProps = getTokenProps({ token });
+                          return <span key={`${lineIndex}-${tokenIndex}`} {...tokenProps} />;
+                        })}
+                  </span>
+                </div>
+              );
+            })}
+          </pre>
+        )}
+      </Highlight>
+    </div>
+  );
+}
 
 export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWizardMode }) {
   const mode = props?.mode ?? "manage";
@@ -231,6 +321,7 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
 
   const [provider, setProvider] = useState("");
   const [name, setName] = useState("");
+  const [isNameAutoGenerated, setIsNameAutoGenerated] = useState(true);
   const [authMode, setAuthMode] = useState<ProviderAuthMode>("api_key");
   const [allowVirtualOnly, setAllowVirtualOnly] = useState(false);
 
@@ -282,41 +373,29 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
     () => providers.find((item) => stringsEqualFold(item.provider, selectedProviderID)) ?? null,
     [providers, selectedProviderID],
   );
+  const activeProvider = useMemo(
+    () => providers.find((item) => stringsEqualFold(item.provider, provider)) ?? selectedProvider,
+    [providers, provider, selectedProvider],
+  );
 
   const selectedProviderAccounts = useMemo(
     () => accounts.filter((item) => stringsEqualFold(item.provider, selectedProviderID)),
     [accounts, selectedProviderID],
   );
+  const hasVisibleProviders = visibleProviders.length > 0;
+  const existingAccountNames = useMemo(() => accounts.map((item) => item.name), [accounts]);
 
-  const configuredProviders = useMemo(() => {
-    const uniqueProviders: TenantProviderAccount[] = [];
-    for (const accountItem of accounts) {
-      const alreadyIncluded = uniqueProviders.some((item) => stringsEqualFold(item.provider, accountItem.provider));
-      if (!alreadyIncluded) uniqueProviders.push(accountItem);
-    }
-    return uniqueProviders.map((accountItem) => {
-      const catalogProvider = providers.find((item) => stringsEqualFold(item.provider, accountItem.provider));
-      if (catalogProvider) return catalogProvider;
-      return {
-        provider: accountItem.provider,
-        display_name: accountItem.provider,
-        enabled: true,
-        auth_modes: ["api_key"],
-        supports_bring_your_own_key: true,
-        supports_virtual_keys: true,
-      } satisfies ProviderCatalogProvider;
+  const fetchProviders = useCallback(async () => {
+    return queryClient.fetchQuery({
+      queryKey: ["tenant-admin", "provider-catalog", "providers"],
+      queryFn: async () => {
+        const providerData = await requestJSON<ProvidersResponse>("/api/provider-catalog/providers");
+        return unwrapData<ProviderCatalogProvider[]>(providerData) ?? [];
+      },
+      staleTime: 1000 * 60 * 30,
+      gcTime: 1000 * 60 * 60 * 2,
     });
-  }, [accounts, providers]);
-
-  const hasConfiguredProviders = configuredProviders.length > 0;
-
-  const providersQuery = useQuery({
-    queryKey: ["tenant-admin", "provider-catalog", "providers"],
-    queryFn: async () => {
-      const providerData = await requestJSON<ProvidersResponse>("/api/provider-catalog/providers");
-      return unwrapData<ProviderCatalogProvider[]>(providerData) ?? [];
-    },
-  });
+  }, [queryClient]);
 
   useEffect(() => {
     selectedProviderRef.current = selectedProviderID;
@@ -420,9 +499,10 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
     try {
       const currentProviderID = selectedProviderRef.current;
       const currentAccountID = selectedAccountRef.current;
+      const providerItems = await fetchProviders();
       const accountData = await requestJSON<AccountsResponse>("/api/tenant-provider-accounts");
-      const providerItems = providersQuery.data ?? [];
       const accountItems = unwrapData<TenantProviderAccount[]>(accountData) ?? [];
+      const fetchedAccountNames = accountItems.map((item) => item.name);
       setProviders(providerItems);
       setAccounts(accountItems);
       setAccountReadiness((prev) => {
@@ -445,7 +525,8 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
         if (initialProvider) {
           const providerItem = createProviders.find((item) => stringsEqualFold(item.provider, initialProvider));
           setProvider(initialProvider);
-          setName(initialProvider);
+          setName(generateProviderAccountName(initialProvider, fetchedAccountNames));
+          setIsNameAutoGenerated(true);
           setAuthMode(providerItem?.auth_modes?.[0] ?? "api_key");
           setAllowVirtualOnly(false);
           void loadProviderModels(initialProvider);
@@ -471,7 +552,7 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
     } finally {
       setIsLoading(false);
     }
-  }, [isCreateMode, loadProviderModels, providersQuery.data, t]);
+  }, [fetchProviders, isCreateMode, loadProviderModels, t]);
 
   const loadCatalogStats = useCallback(async () => {
     try {
@@ -530,8 +611,9 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
         setAccount(payload.account);
         setAccounts((prev) => mergeAccountIntoList(prev, payload.account));
         setProviderModels(catalogModels);
-        setProvider(payload.account.provider);
+        setProvider(normalizeProviderSlug(payload.account.provider));
         setName(payload.account.name);
+        setIsNameAutoGenerated(false);
         setAuthMode(payload.account.auth_mode);
         setAllowVirtualOnly(payload.account.allows_virtual_keys_only);
         const cfg = payload.account.provider_config ?? {};
@@ -545,7 +627,7 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
         setSecretRef("");
         setManagers(payload.access?.managers ?? []);
         setUsers(payload.access?.users ?? []);
-        setSelectedProviderID(payload.account.provider);
+        setSelectedProviderID(normalizeProviderSlug(payload.account.provider));
         setSelectedAccountID(payload.account.id);
         setModelDrafts(buildDraftsForAccount(payload.models ?? [], catalogModels));
         setAccountReadiness((prev) => ({
@@ -626,7 +708,7 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
           const nextAccount = remainingAccounts.find((item) => stringsEqualFold(item.provider, target.provider)) ?? remainingAccounts[0];
           if (nextAccount) {
             setSelectedAccountID(nextAccount.id);
-            setSelectedProviderID(nextAccount.provider);
+            setSelectedProviderID(normalizeProviderSlug(nextAccount.provider));
             setWorkspaceMode("workspace");
           } else {
             setSelectedAccountID("");
@@ -748,11 +830,20 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
   }
 
   function handleSelectProvider(item: ProviderCatalogProvider) {
-    setSelectedProviderID(item.provider);
+    setSelectedProviderID(normalizeProviderSlug(item.provider));
     if (workspaceMode === "setup") {
-      setProvider(item.provider);
+      const nextProvider = normalizeProviderSlug(item.provider);
+      const shouldRegenerateName = shouldGenerateProviderAccountName({
+        currentName: name,
+        currentProvider: provider,
+        isAutoGenerated: isNameAutoGenerated,
+      });
+      setProvider(nextProvider);
       setAuthMode(item.auth_modes?.[0] ?? "api_key");
-      if (!name.trim()) setName(item.provider);
+      if (shouldRegenerateName) {
+        setName(generateProviderAccountName(nextProvider, existingAccountNames));
+        setIsNameAutoGenerated(true);
+      }
       void loadProviderModels(item.provider);
       return;
     }
@@ -766,7 +857,8 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
       setAccount(null);
       setWorkspaceMode("overview");
       setProvider(item.provider);
-      setName(item.provider);
+      setName(generateProviderAccountName(item.provider, existingAccountNames));
+      setIsNameAutoGenerated(true);
       setAuthMode(item.auth_modes?.[0] ?? "api_key");
       setAllowVirtualOnly(false);
       setManagers([]);
@@ -779,11 +871,12 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
   function handleSelectAccount(item: TenantProviderAccount) {
     const shouldReloadCurrentAccount = item.id === selectedAccountID && workspaceMode === "workspace";
     accountLoadRequestRef.current += 1;
-    setSelectedProviderID(item.provider);
+    setSelectedProviderID(normalizeProviderSlug(item.provider));
     setSelectedAccountID(item.id);
     setAccount(item);
-    setProvider(item.provider);
+    setProvider(normalizeProviderSlug(item.provider));
     setName(item.name);
+    setIsNameAutoGenerated(false);
     setAuthMode(item.auth_mode);
     setAllowVirtualOnly(item.allows_virtual_keys_only);
     resetCredentialInputs();
@@ -1074,15 +1167,15 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
         <div className="grid gap-4 lg:grid-cols-12">
           {!isCreateMode ? (
           <aside className="space-y-3 lg:col-span-4 xl:col-span-3">
-            {hasConfiguredProviders ? (
+            {hasVisibleProviders ? (
               <>
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base">{ux("sidebar.connectedProviders")}</CardTitle>
-                    <CardDescription>{ux("sidebar.connectedProvidersHint")}</CardDescription>
+                    <CardTitle className="text-base">{ux("sidebar.catalogProviders")}</CardTitle>
+                    <CardDescription>{ux("sidebar.catalogProvidersHint")}</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    {configuredProviders.map((item) => {
+                    {visibleProviders.map((item) => {
                       const providerCount = accounts.filter((accountItem) => stringsEqualFold(accountItem.provider, item.provider)).length;
                       const isSelected = stringsEqualFold(selectedProviderID, item.provider);
                       return (
@@ -1090,13 +1183,22 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
                           key={item.provider}
                           type="button"
                           className={`w-full rounded-lg border px-3 py-2 text-start transition ${
-                            isSelected ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"
+                            isSelected
+                              ? "border-primary bg-primary/10"
+                              : providerCount > 0
+                                ? "border-primary/30 bg-primary/[0.04] hover:border-primary/50"
+                                : "border-border hover:border-primary/40"
                           }`}
                           onClick={() => handleSelectProvider(item)}
                         >
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
-                              <Image src={getProviderLogoPath(item.provider)} alt={item.display_name} width={18} height={18} />
+                              <ProviderLogo
+                                key={`${item.provider}:${item.logo_url ?? ""}`}
+                                provider={item.provider}
+                                displayName={item.display_name}
+                                logoURL={item.logo_url}
+                              />
                               <span className="font-medium">{item.display_name}</span>
                             </div>
                             <Badge variant="secondary">{providerCount}</Badge>
@@ -1228,7 +1330,7 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
                         size="sm"
                         variant="outline"
                         onClick={() => {
-                          void navigator.clipboard.writeText(`${account.provider}/${account.name}`);
+                          void navigator.clipboard.writeText(`${account.provider}:${account.name}`);
                           setBanner({ kind: "success", message: ux("messages.fqnCopied") });
                         }}
                       >
@@ -1305,15 +1407,29 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
                                   isSelected ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"
                                 }`}
                                 onClick={() => {
-                                  setProvider(item.provider);
+                                  const nextProvider = normalizeProviderSlug(item.provider);
+                                  const shouldRegenerateName = shouldGenerateProviderAccountName({
+                                    currentName: name,
+                                    currentProvider: provider,
+                                    isAutoGenerated: isNameAutoGenerated,
+                                  });
+                                  setProvider(nextProvider);
                                   setAuthMode(item.auth_modes?.[0] ?? "api_key");
-                                  if (!name.trim()) setName(item.provider);
-                                  setSelectedProviderID(item.provider);
+                                  if (shouldRegenerateName) {
+                                    setName(generateProviderAccountName(nextProvider, existingAccountNames));
+                                    setIsNameAutoGenerated(true);
+                                  }
+                                  setSelectedProviderID(nextProvider);
                                   void loadProviderModels(item.provider);
                                 }}
                               >
                                 <div className="flex items-center gap-2">
-                                  <Image src={getProviderLogoPath(item.provider)} alt={item.display_name} width={18} height={18} />
+                                  <ProviderLogo
+                                    key={`${item.provider}:${item.logo_url ?? ""}`}
+                                    provider={item.provider}
+                                    displayName={item.display_name}
+                                    logoURL={item.logo_url}
+                                  />
                                   <span className="font-medium">{item.display_name}</span>
                                 </div>
                                 <div className="mt-2 text-xs text-muted-foreground">{ux("setup.authModes")}: {item.auth_modes.join(", ")}</div>
@@ -1336,10 +1452,36 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
 
                         <div className="grid gap-3 md:grid-cols-2">
                           <Field label={t("fields.provider")} id="provider">
-                            <Input id="provider" value={provider} onChange={(event) => setProvider(event.target.value)} />
+                            <div
+                              id="provider"
+                              className="flex min-h-10 items-center gap-3 rounded-md border border-input bg-muted/30 px-3 py-2 text-sm"
+                              aria-readonly="true"
+                            >
+                              <ProviderLogo
+                                key={`${activeProvider?.provider ?? provider}:${activeProvider?.logo_url ?? ""}`}
+                                provider={activeProvider?.provider ?? provider}
+                                displayName={activeProvider?.display_name ?? provider}
+                                logoURL={activeProvider?.logo_url}
+                                size={20}
+                              />
+                              <div className="min-w-0">
+                                <div className="truncate font-medium">{activeProvider?.display_name ?? provider}</div>
+                                {activeProvider?.display_name && !stringsEqualFold(activeProvider.display_name, provider) ? (
+                                  <div className="truncate text-xs text-muted-foreground">{provider}</div>
+                                ) : null}
+                              </div>
+                            </div>
                           </Field>
                           <Field label={t("fields.accountName")} id="accountName">
-                            <Input id="accountName" value={name} onChange={(event) => setName(event.target.value)} placeholder={ux("placeholders.accountName")} />
+                            <Input
+                              id="accountName"
+                              value={name}
+                              onChange={(event) => {
+                                setName(event.target.value);
+                                setIsNameAutoGenerated(false);
+                              }}
+                              placeholder={ux("placeholders.accountName")}
+                            />
                           </Field>
                         </div>
 
@@ -1405,6 +1547,8 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
                       <section className="space-y-4">
                         <ModelsEditor
                           t={t}
+                          account={account}
+                          setBanner={setBanner}
                           filteredProviderModels={filteredProviderModels}
                           modelDrafts={modelDrafts}
                           setModelDrafts={setModelDrafts}
@@ -1505,6 +1649,8 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
                     {activeTab === "models" ? (
                       <ModelsEditor
                         t={t}
+                        account={account}
+                        setBanner={setBanner}
                         filteredProviderModels={filteredProviderModels}
                         modelDrafts={modelDrafts}
                         setModelDrafts={setModelDrafts}
@@ -1881,6 +2027,8 @@ function EffectiveModelsTable(props: { models: EffectiveModelView[] }) {
 
 function ModelsEditor(props: {
   t: ReturnType<typeof useTranslations>;
+  account: TenantProviderAccount | null;
+  setBanner: React.Dispatch<React.SetStateAction<Banner | null>>;
   filteredProviderModels: ProviderCatalogModel[];
   modelDrafts: Record<string, ModelDraft>;
   setModelDrafts: React.Dispatch<React.SetStateAction<Record<string, ModelDraft>>>;
@@ -1921,6 +2069,8 @@ function ModelsEditor(props: {
   const [displayCurrency, setDisplayCurrency] = useState<"USD" | "TOMAN">("USD");
   const [displayScale, setDisplayScale] = useState<"PER_MILLION_TOKENS" | "PER_TOKEN">("PER_MILLION_TOKENS");
   const [usdToIrr, setUsdToIrr] = useState(0);
+  const [curlGuide, setCurlGuide] = useState<CurlGuide | null>(null);
+  const [curlGuideShell, setCurlGuideShell] = useState<CurlGuideShell>("powershell");
   const [pricingEditor, setPricingEditor] = useState<{
     open: boolean;
     modelKey: string;
@@ -1936,11 +2086,84 @@ function ModelsEditor(props: {
     outputPrice: "",
     error: "",
   });
+  const tenantBaseUrl = useMemo(() => {
+    if (typeof window === "undefined") {
+      return "http://tenant1.localhost:4000";
+    }
+    return `${window.location.protocol}//${window.location.hostname}:4000`;
+  }, []);
+
+  const normalizeProviderScopedModelName = useCallback((provider: string, modelName: string) => {
+    const normalizedProvider = provider.trim().toLowerCase();
+    const normalizedModelName = modelName.trim();
+    if (!normalizedProvider || !normalizedModelName) return normalizedModelName;
+    const prefix = `${normalizedProvider}/`;
+    if (normalizedModelName.toLowerCase().startsWith(prefix)) {
+      return normalizedModelName.slice(prefix.length);
+    }
+    return normalizedModelName;
+  }, []);
+
+  const buildModelFqn = useCallback((modelValue: ProviderCatalogModel) => {
+    if (!props.account) return modelValue.model;
+    const officialModel = normalizeProviderScopedModelName(props.account.provider, modelValue.model);
+    return `${props.account.provider}:${props.account.name}:${officialModel}`;
+  }, [normalizeProviderScopedModelName, props.account]);
+
+  const openCurlGuide = useCallback((modelValue: ProviderCatalogModel) => {
+    const modelFqn = buildModelFqn(modelValue);
+    const bashCommand = [
+      `curl --location '${tenantBaseUrl}/v1/chat/completions' \\`,
+      `  --header 'Authorization: Bearer <PAT_TOKEN>' \\`,
+      `  --header 'Content-Type: application/json' \\`,
+      "  --data '{",
+      `    \"model\": \"${modelFqn}\",`,
+      '    "messages": [',
+      '      {"role":"user","content":"سلام، یک پاسخ کوتاه بده"}',
+      "    ]",
+      "  }'",
+    ].join("\n");
+    const powershellCommand = [
+      "$headers = @{",
+      '  Authorization = "Bearer <PAT_TOKEN>"',
+      '  "Content-Type" = "application/json"',
+      "}",
+      "",
+      "$body = @{",
+      `  model = "${modelFqn}"`,
+      "  messages = @(",
+      "    @{",
+      '      role = "user"',
+      '      content = "سلام، یک پاسخ کوتاه بده"',
+      "    }",
+      "  )",
+      "} | ConvertTo-Json -Depth 5",
+      "",
+      "Invoke-RestMethod -Method Post `",
+      `  -Uri "${tenantBaseUrl}/v1/chat/completions" \``,
+      "  -Headers $headers `",
+      "  -Body $body",
+    ].join("\n");
+    setCurlGuideShell("powershell");
+    setCurlGuide({
+      modelName: modelValue.display_name || modelValue.model,
+      modelFqn,
+      commands: {
+        powershell: powershellCommand,
+        bash: bashCommand,
+      },
+    });
+  }, [buildModelFqn, tenantBaseUrl]);
 
   const comparedModels = useMemo(
     () => props.filteredProviderModels.filter((model) => props.modelDrafts[model.model]?.compared),
     [props.filteredProviderModels, props.modelDrafts],
   );
+  const enabledFilteredModelsCount = useMemo(
+    () => props.filteredProviderModels.filter((model) => props.modelDrafts[model.model]?.enabled).length,
+    [props.filteredProviderModels, props.modelDrafts],
+  );
+  const availableFilteredModelsCount = Math.max(props.filteredProviderModels.length - enabledFilteredModelsCount, 0);
 
   const allInputModalities = useMemo(
     () => Array.from(new Set(props.filteredProviderModels.flatMap((model) => model.input_modalities ?? []))),
@@ -1973,6 +2196,9 @@ function ModelsEditor(props: {
 
     const sorted = [...filtered];
     sorted.sort((a, b) => {
+      const aEnabled = props.modelDrafts[a.model]?.enabled ? 1 : 0;
+      const bEnabled = props.modelDrafts[b.model]?.enabled ? 1 : 0;
+      if (aEnabled !== bEnabled) return bEnabled - aEnabled;
       const aPrice = a.public_pricing?.input_usd_per_1m ?? Number.POSITIVE_INFINITY;
       const bPrice = b.public_pricing?.input_usd_per_1m ?? Number.POSITIVE_INFINITY;
       const aContext = a.context_window ?? 0;
@@ -1990,7 +2216,7 @@ function ModelsEditor(props: {
       }
     });
     return sorted;
-  }, [filters.featureFilter, filters.inputModality, filters.maxPrice, filters.minContext, filters.minPrice, filters.outputModality, filters.sortBy, props.filteredProviderModels]);
+  }, [filters.featureFilter, filters.inputModality, filters.maxPrice, filters.minContext, filters.minPrice, filters.outputModality, filters.sortBy, props.filteredProviderModels, props.modelDrafts]);
 
   const resetFilters = () => {
     setFilters((prev) => ({
@@ -2205,6 +2431,7 @@ function ModelsEditor(props: {
     if (caps.some((c) => c.toLowerCase().includes("code"))) categories.push("code");
     if (caps.some((c) => c.toLowerCase().includes("audio"))) categories.push("audio");
     if (categories.length === 0) categories.push("chat");
+    const modelFqn = buildModelFqn(model);
 
     return {
       id: model.model,
@@ -2227,7 +2454,7 @@ function ModelsEditor(props: {
       capabilities: caps,
       tradeoffs: [],
       metadata: {
-        modelId: model.model,
+        modelId: modelFqn,
         mode: "chat",
       },
     };
@@ -2282,6 +2509,18 @@ function ModelsEditor(props: {
         <Button type="button" onClick={props.onSave} disabled={!props.canManage || props.isSaving}>
           {props.isSaving ? props.t("saving") : props.t("saveSelectedModels")}
         </Button>
+      </div>
+
+      <div className="rounded-lg border border-border/70 bg-gradient-to-l from-background to-emerald-500/[0.05] p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline">{ux("models.summary.catalog", { count: props.filteredProviderModels.length })}</Badge>
+          <Badge className="border-emerald-500/30 bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300" variant="outline">
+            {ux("models.summary.enabled", { count: enabledFilteredModelsCount })}
+          </Badge>
+          <Badge variant="secondary">{ux("models.summary.available", { count: availableFilteredModelsCount })}</Badge>
+          <Badge variant="secondary">{ux("models.summary.showing", { visible: visibleModels.length, total: props.filteredProviderModels.length })}</Badge>
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground">{ux("models.catalogScopeHint")}</p>
       </div>
 
       <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 p-3">
@@ -2450,6 +2689,11 @@ function ModelsEditor(props: {
                         usdToIrr,
                       }}
                       isSelected={draft.enabled}
+                      stateBadge={
+                        draft.enabled
+                          ? { label: ux("models.state.enabledOnAccount"), tone: "active" as const }
+                          : { label: ux("models.state.availableToAdd"), tone: "inactive" as const }
+                      }
                       onSelectedChange={(checked) =>
                         props.setModelDrafts((prev) => ({
                           ...prev,
@@ -2466,6 +2710,13 @@ function ModelsEditor(props: {
                       }
                       compareCheckboxLabel={ux("models.actions.compareToggle")}
                       pricingModeBadge={draft.pricingMode === "private" ? ux("models.pricing.private") : ux("models.pricing.public")}
+                      className={draft.enabled ? "ring-1 ring-emerald-500/20" : undefined}
+                      footerActions={
+                        <Button type="button" variant="outline" size="sm" className="gap-1" onClick={() => openCurlGuide(model)}>
+                          <Code2 className="h-3.5 w-3.5" />
+                          {ux("models.card.curlGuide")}
+                        </Button>
+                      }
                       pricingAction={
                         <PopoverTrigger asChild>
                           <Button
@@ -2499,7 +2750,7 @@ function ModelsEditor(props: {
                         rateLimitNotes: ux("models.card.rateLimitNotes"),
                         license: ux("models.card.license"),
                         viewDetails: ux("models.card.viewDetails"),
-                        copyId: ux("models.card.copyId"),
+                        copyId: ux("models.card.copyFqn"),
                         copied: ux("models.card.copied"),
                         lowerCost: ux("models.card.lowerCost"),
                         recommended: ux("models.card.recommended"),
@@ -2755,6 +3006,77 @@ function ModelsEditor(props: {
               ))}
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={curlGuide !== null} onOpenChange={(open) => { if (!open) setCurlGuide(null); }}>
+        <DialogContent className="max-w-4xl overflow-hidden p-0">
+          <div className="border-b border-border/70 bg-[linear-gradient(135deg,color-mix(in_oklab,var(--primary)_10%,transparent),transparent_58%),linear-gradient(180deg,color-mix(in_oklab,var(--muted)_65%,transparent),transparent)] px-6 py-6">
+            <DialogHeader className="space-y-3">
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-2">
+                  <DialogTitle>{ux("models.curlGuide.title")}</DialogTitle>
+                  <DialogDescription>{ux("models.curlGuide.description", { model: curlGuide?.modelName ?? "" })}</DialogDescription>
+                </div>
+                <Badge className="border border-primary/20 bg-primary/10 text-primary">
+                  <Code2 className="me-1 h-3.5 w-3.5" />
+                  {ux("models.curlGuide.readyBadge")}
+                </Badge>
+              </div>
+            </DialogHeader>
+            <div className="mt-5 grid gap-3 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+              <div className="rounded-2xl border border-border/70 bg-background/80 p-4 shadow-sm backdrop-blur">
+                <div className="text-xs font-medium text-muted-foreground">{ux("models.curlGuide.modelFqnLabel")}</div>
+                <div dir="ltr" className="mt-2 break-all text-left font-mono text-sm text-foreground">{curlGuide?.modelFqn}</div>
+              </div>
+              <div className="rounded-2xl border border-border/70 bg-background/80 p-4 shadow-sm backdrop-blur">
+                <div className="text-xs font-medium text-muted-foreground">{ux("models.curlGuide.instructionsLabel")}</div>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{ux("models.curlGuide.instructions")}</p>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-5 px-6 py-6">
+            <Tabs value={curlGuideShell} onValueChange={(value) => setCurlGuideShell(value as CurlGuideShell)} className="space-y-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <TabsList className="h-auto w-full justify-start rounded-xl bg-muted/70 p-1 md:w-auto">
+                  <TabsTrigger value="powershell" className="min-w-32">{ux("models.curlGuide.shells.powershell")}</TabsTrigger>
+                  <TabsTrigger value="bash" className="min-w-24">{ux("models.curlGuide.shells.bash")}</TabsTrigger>
+                </TabsList>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full md:w-auto"
+                  onClick={() => {
+                    const command = curlGuide?.commands[curlGuideShell];
+                    if (!command) return;
+                    void navigator.clipboard.writeText(command);
+                    props.setBanner({ kind: "success", message: ux("messages.curlCopied") });
+                  }}
+                >
+                  <Copy className="me-2 h-4 w-4" />
+                  {ux("models.curlGuide.copyCommand")}
+                </Button>
+              </div>
+              <TabsContent value="powershell">
+                <CodeExampleBlock
+                  code={curlGuide?.commands.powershell ?? ""}
+                  language={CURL_GUIDE_LANGUAGE.powershell}
+                  shellLabel={ux("models.curlGuide.shells.powershell")}
+                />
+              </TabsContent>
+              <TabsContent value="bash">
+                <CodeExampleBlock
+                  code={curlGuide?.commands.bash ?? ""}
+                  language={CURL_GUIDE_LANGUAGE.bash}
+                  shellLabel={ux("models.curlGuide.shells.bash")}
+                />
+              </TabsContent>
+            </Tabs>
+          </div>
+          <DialogFooter className="border-t border-border/70 bg-muted/20 px-6 py-4">
+            <Button type="button" onClick={() => setCurlGuide(null)}>
+              {ux("models.curlGuide.close")}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </section>
@@ -3046,8 +3368,96 @@ function toNumberOrUndefined(value: string): number | undefined {
   return parsed;
 }
 
-function getProviderLogoPath(provider: string): string {
-  const key = provider.trim().toLowerCase();
+const FRIENDLY_ACCOUNT_ADJECTIVES = [
+  "amber",
+  "brisk",
+  "calm",
+  "clear",
+  "cobalt",
+  "daring",
+  "eager",
+  "ember",
+  "gentle",
+  "golden",
+  "lively",
+  "lucky",
+  "minty",
+  "nimble",
+  "pearl",
+  "rapid",
+  "silver",
+  "sunny",
+  "tidy",
+  "velvet",
+];
+
+const FRIENDLY_ACCOUNT_NOUNS = [
+  "anchor",
+  "breeze",
+  "comet",
+  "falcon",
+  "harbor",
+  "lighthouse",
+  "lollipop",
+  "lotus",
+  "meadow",
+  "nebula",
+  "oasis",
+  "orbit",
+  "pioneer",
+  "ribbon",
+  "sparrow",
+  "summit",
+  "tidal",
+  "voyager",
+  "willow",
+  "zephyr",
+];
+
+function ProviderLogo(props: { provider: string; displayName: string; logoURL?: string; size?: number }) {
+  const size = props.size ?? 18;
+  const fallbackSrc = getProviderFallbackLogoPath(props.provider);
+  const [hasError, setHasError] = useState(false);
+  const src = hasError ? fallbackSrc : getProviderLogoSrc(props.provider, props.logoURL);
+
+  return (
+    <Image
+      src={src}
+      alt={props.displayName}
+      width={size}
+      height={size}
+      className="shrink-0 rounded-sm object-contain"
+      unoptimized
+      onError={() => setHasError(true)}
+    />
+  );
+}
+
+function getProviderLogoSrc(provider: string, logoURL?: string): string {
+  const proxiedLogoURL = toTenantProviderAssetPath(logoURL);
+  if (proxiedLogoURL) return proxiedLogoURL;
+  return getProviderFallbackLogoPath(provider);
+}
+
+function toTenantProviderAssetPath(logoURL?: string): string {
+  const raw = logoURL?.trim() ?? "";
+  if (!raw) return "";
+  const candidate = (() => {
+    if (raw.startsWith("/")) return raw;
+    try {
+      return new URL(raw).pathname;
+    } catch {
+      return raw;
+    }
+  })();
+  const match = candidate.match(/^\/api\/v1\/providers\/assets\/([^/]+)\/([^/]+)$/i);
+  if (!match) return raw;
+  const [, bucket, fileName] = match;
+  return `/api/provider-catalog/assets/${encodeURIComponent(bucket)}/${encodeURIComponent(fileName)}`;
+}
+
+function getProviderFallbackLogoPath(provider: string): string {
+  const key = normalizeProviderSlug(provider);
   if (key.includes("openai")) return "/providers/openai.svg";
   if (key.includes("gemini") || key.includes("google")) return "/providers/google.svg";
   if (key.includes("vertex")) return "/providers/vertex.svg";
@@ -3060,8 +3470,51 @@ function getProviderLogoPath(provider: string): string {
   return "/globe.svg";
 }
 
+function shouldGenerateProviderAccountName(input: {
+  currentName: string;
+  currentProvider: string;
+  isAutoGenerated: boolean;
+}): boolean {
+  const currentName = input.currentName.trim().toLowerCase();
+  const currentProvider = normalizeProviderSlug(input.currentProvider);
+  if (!currentName) return true;
+  if (input.isAutoGenerated) return true;
+  if (!currentProvider) return false;
+  return currentName === currentProvider || currentName.startsWith(`${currentProvider}-`);
+}
+
+function generateProviderAccountName(provider: string, existingNames: string[]): string {
+  const normalizedProvider = normalizeProviderSlug(provider) || "provider";
+  const usedNames = new Set(existingNames.map((item) => item.trim().toLowerCase()).filter(Boolean));
+
+  for (let attempt = 0; attempt < 24; attempt += 1) {
+    const adjective = pickRandom(FRIENDLY_ACCOUNT_ADJECTIVES);
+    const noun = pickRandom(FRIENDLY_ACCOUNT_NOUNS);
+    const candidate = `${normalizedProvider}-${adjective}-${noun}`;
+    if (!usedNames.has(candidate.toLowerCase())) return candidate;
+  }
+
+  return `${normalizedProvider}-${pickRandom(FRIENDLY_ACCOUNT_ADJECTIVES)}-${Math.floor(100 + Math.random() * 900)}`;
+}
+
+function pickRandom(values: readonly string[]): string {
+  return values[Math.floor(Math.random() * values.length)] ?? "account";
+}
+
+function normalizeProviderSlug(value: string): string {
+  const normalized = value.trim().toLowerCase();
+  switch (normalized) {
+    case "perplexity":
+      return "perplexity-ai";
+    case "zai":
+      return "xai";
+    default:
+      return normalized;
+  }
+}
+
 function stringsEqualFold(a: string, b: string): boolean {
-  return a.trim().toLowerCase() === b.trim().toLowerCase();
+  return normalizeProviderSlug(a) === normalizeProviderSlug(b);
 }
 
 function formatDisplayPrice(

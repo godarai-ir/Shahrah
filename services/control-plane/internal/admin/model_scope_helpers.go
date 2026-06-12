@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/modelid"
 )
 
 func normalizeAndValidateModelFQNs(models []string) ([]string, error) {
@@ -16,7 +17,10 @@ func normalizeAndValidateModelFQNs(models []string) ([]string, error) {
 			continue
 		}
 		if !isModelFQN(model) {
-			return nil, errors.New("models must use provider:account_alias:official_model_id format")
+			return nil, errors.New("models must use provider:account_alias:model_id format")
+		}
+		if provider, accountAlias, officialModel, ok := modelid.SplitModelFQN(model); ok {
+			model = modelid.BuildModelFQN(provider, accountAlias, officialModel)
 		}
 		if _, ok := seen[model]; ok {
 			continue

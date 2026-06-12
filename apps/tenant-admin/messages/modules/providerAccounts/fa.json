@@ -74,8 +74,8 @@
     "everyone": "همه کاربران"
   },
   "messages": {
-    "initialLoadFailed": "بارگیری اولیه انجام نشد.",
-    "providerModelsLoadFailed": "دریافت لیست مدل‌ها از Discovery ناموفق بود.",
+    "initialLoadFailed": "بارگیری کاتالوگ پروایدر انجام نشد. بعد از در دسترس شدن model-discovery دوباره تلاش کنید.",
+    "providerModelsLoadFailed": "دریافت لیست مدل‌ها از model-discovery ناموفق بود. بعد از در دسترس شدن سرویس دوباره تلاش کنید.",
     "validationProviderName": "انتخاب ارائه‌دهنده و وارد کردن نام حساب الزامی است.",
     "accountCreateSuccess": "حساب ارائه‌دهنده با موفقیت ایجاد شد.",
     "accountCreateFailed": "ایجاد حساب ارائه‌دهنده انجام نشد.",
@@ -120,8 +120,8 @@
       "overviewHint": "یک حساب موجود را باز کنید یا حساب جدید بسازید."
     },
     "sidebar": {
-      "connectedProviders": "ارائه‌دهندگان متصل",
-      "connectedProvidersHint": "یک ارائه‌دهنده را انتخاب کنید و سپس محیط کاری حساب را باز کنید.",
+      "catalogProviders": "کاتالوگ ارائه‌دهندگان",
+      "catalogProvidersHint": "کل کاتالوگ discovery نمایش داده می‌شود و ارائه‌دهنده‌هایی که حساب دارند همچنان متمایز می‌مانند.",
       "providerAccounts": "حساب‌های ارائه‌دهنده",
       "selectProviderPrompt": "ارائه‌دهنده را انتخاب کنید",
       "noAccountYet": "هنوز حسابی برای این ارائه‌دهنده ثبت نشده است."
@@ -207,6 +207,7 @@
     },
     "messages": {
       "fqnCopied": "FQN حساب کپی شد.",
+      "curlCopied": "نمونه کد کپی شد.",
       "accountActivated": "حساب فعال شد و برای اعمال سیاست‌های Runtime آماده است.",
       "catalogRefreshSuccess": "کش کاتالوگ ارائه‌دهنده با موفقیت بازآوری شد.",
       "catalogRefreshFailed": "بازآوری کاتالوگ ارائه‌دهنده ناموفق بود.",
@@ -221,6 +222,17 @@
     },
     "models": {
       "description": "مدل‌ها، قابلیت‌ها و حالت قیمت‌گذاری را انتخاب کنید.",
+      "catalogScopeHint": "در این بخش کل کاتالوگ پروایدر نمایش داده می‌شود. مدل‌هایی که قبلاً روی این حساب فعال شده‌اند هایلایت می‌مانند و بقیه مدل‌ها همچنان برای افزودن در دسترس هستند.",
+      "state": {
+        "enabledOnAccount": "فعال روی حساب",
+        "availableToAdd": "قابل افزودن"
+      },
+      "summary": {
+        "catalog": "کاتالوگ: {count}",
+        "enabled": "فعال: {count}",
+        "available": "قابل افزودن: {count}",
+        "showing": "نمایش {visible} از {total}"
+      },
       "columns": {
         "model": "مدل",
         "capabilities": "قابلیت‌ها",
@@ -285,6 +297,8 @@
         "license": "مجوز",
         "viewDetails": "مشاهده جزئیات",
         "copyId": "کپی شناسه",
+        "copyFqn": "کپی FQN",
+        "curlGuide": "راهنمای cURL",
         "copied": "کپی شد",
         "lowerCost": "هزینه کمتر",
         "recommended": "پیشنهادی",
@@ -352,6 +366,20 @@
         "actions": {
           "removeModel": "\u062d\u0630\u0641 \u0627\u0632 \u0645\u0642\u0627\u06cc\u0633\u0647"
         }
+      },
+      "curlGuide": {
+        "title": "اتصال با cURL",
+        "description": "از این نمونه برای فراخوانی {model} از طریق شاهراه استفاده کنید.",
+        "readyBadge": "آماده اجرا",
+        "modelFqnLabel": "FQN مدل",
+        "instructionsLabel": "نکات اجرا",
+        "instructions": "مقدار PAT_TOKEN را با PAT کاربر جایگزین کنید و سپس درخواست را به درگاه tenant بفرستید.",
+        "copyCommand": "کپی نمونه فعال",
+        "shells": {
+          "powershell": "PowerShell",
+          "bash": "bash"
+        },
+        "close": "بستن"
       },
       "pricingSummary": {
         "title": "خلاصه قیمت"

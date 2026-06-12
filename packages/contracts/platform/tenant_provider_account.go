@@ -74,6 +74,7 @@ type ModelPrice struct {
 type ProviderCatalogProvider struct {
 	Provider                string             `json:"provider"`
 	DisplayName             string             `json:"display_name"`
+	LogoURL                 string             `json:"logo_url,omitempty"`
 	Enabled                 bool               `json:"enabled"`
 	AuthModes               []ProviderAuthMode `json:"auth_modes"`
 	SupportsBringYourOwnKey bool               `json:"supports_bring_your_own_key"`

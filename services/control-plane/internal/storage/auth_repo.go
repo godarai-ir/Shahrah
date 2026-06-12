@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/modelid"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -224,7 +225,9 @@ func (s *Store) listRuntimeAllowedModelsByProviderAccount(ctx context.Context, t
 	}
 
 	rows, err := s.pool.Query(ctx, `
-		SELECT DISTINCT CONCAT(a.provider, ':', a.name, ':', m.model) AS model_fqn,
+		SELECT a.provider,
+		       a.name,
+		       m.model,
 		       COALESCE(m.types, '{}'),
 		       COALESCE(m.pricing_mode, 'public'),
 		       CASE
@@ -290,10 +293,13 @@ func (s *Store) listRuntimeAllowedModelsByProviderAccount(ctx context.Context, t
 	models := make([]runtimeAllowedModelPolicy, 0)
 	for rows.Next() {
 		var item runtimeAllowedModelPolicy
-		if err := rows.Scan(&item.Model, &item.Types, &item.PricingMode, &item.PricingResolved); err != nil {
+		var provider string
+		var accountAlias string
+		var storedModel string
+		if err := rows.Scan(&provider, &accountAlias, &storedModel, &item.Types, &item.PricingMode, &item.PricingResolved); err != nil {
 			return nil, false, err
 		}
-		item.Model = strings.TrimSpace(item.Model)
+		item.Model = modelid.BuildModelFQN(provider, accountAlias, storedModel)
 		if item.Model != "" {
 			models = append(models, item)
 		}

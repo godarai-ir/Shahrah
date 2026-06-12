@@ -36,6 +36,15 @@ export type ControlPlaneResponse = {
   errorMessage?: string;
 };
 
+type ControlPlaneBinaryResponse = {
+  ok: boolean;
+  status: number;
+  body: ArrayBuffer;
+  contentType?: string;
+  cacheControl?: string;
+  errorMessage?: string;
+};
+
 export async function proxyToControlPlane(options: ProxyOptions) {
   const tenantResolution = ensureTenantFromHeaders(options.request.headers, options.tenantSlug);
   if (!tenantResolution.ok) {
@@ -93,6 +102,65 @@ export async function proxyToControlPlane(options: ProxyOptions) {
   }
 
   return NextResponse.json(upstream.payload, { status: upstream.status });
+}
+
+export async function proxyToControlPlaneBinary(options: ProxyOptions) {
+  const tenantResolution = ensureTenantFromHeaders(options.request.headers, options.tenantSlug);
+  if (!tenantResolution.ok) {
+    return NextResponse.json(
+      { error: { message: tenantResolution.message } },
+      { status: tenantResolution.status },
+    );
+  }
+
+  const tenantSlug = tenantResolution.tenantSlug;
+  let resolvedUserID = options.userID?.trim() ?? "";
+  const auth = await readAuthFromRequest(options.request);
+  if (auth.ok) {
+    if (!assertTenantMatch(tenantSlug, auth.tenantSlug)) {
+      return NextResponse.json(
+        { error: { message: "Tenant mismatch between host and authenticated session." } },
+        { status: 403 },
+      );
+    }
+    if (!resolvedUserID) {
+      resolvedUserID = auth.user.id;
+    }
+  } else if (!resolvedUserID && auth.status >= 500) {
+    return NextResponse.json(
+      { error: { message: auth.message } },
+      { status: auth.status },
+    );
+  }
+
+  const upstream = await fetchControlPlaneRaw({
+    tenantSlug,
+    method: options.method,
+    path: options.path,
+    body: options.body,
+    userID: resolvedUserID || undefined,
+    requestHeaders: options.request.headers,
+  });
+
+  if (!upstream.ok) {
+    return new NextResponse(
+      upstream.errorMessage ?? `Upstream asset request failed (${upstream.status})`,
+      {
+        status: upstream.status,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+        },
+      },
+    );
+  }
+
+  return new NextResponse(upstream.body, {
+    status: upstream.status,
+    headers: {
+      ...(upstream.contentType ? { "Content-Type": upstream.contentType } : {}),
+      ...(upstream.cacheControl ? { "Cache-Control": upstream.cacheControl } : {}),
+    },
+  });
 }
 
 export async function fetchControlPlaneJSON(
@@ -162,6 +230,79 @@ export async function fetchControlPlaneJSON(
           message,
         },
       },
+      errorMessage: message,
+    };
+  }
+}
+
+async function fetchControlPlaneRaw(
+  options: ControlPlaneRequest,
+): Promise<ControlPlaneBinaryResponse> {
+  const baseURL = getControlPlaneBaseURL();
+  const masterKey = process.env.SHAHRAH_MASTER_KEY ?? process.env.MASTER_KEY;
+
+  if (!masterKey) {
+    const message =
+      "Ø¨Ø±Ø§ÛŒ routeÙ‡Ø§ÛŒ tenant-admin Ø¨Ø§ÛŒØ¯ SHAHRAH_MASTER_KEY ÛŒØ§ MASTER_KEY ØªÙ†Ø¸ÛŒÙ… Ø´ÙˆØ¯.";
+    return {
+      ok: false,
+      status: 500,
+      body: new TextEncoder().encode(message).buffer as ArrayBuffer,
+      contentType: "text/plain; charset=utf-8",
+      errorMessage: message,
+    };
+  }
+
+  const url = new URL(normalizePath(options.path), baseURL).toString();
+  const forwardedHost = resolveForwardedHost(options.requestHeaders);
+  const forwardedProto = resolveForwardedProto(options.requestHeaders);
+
+  try {
+    const upstream = await fetch(url, {
+      method: options.method,
+      headers: {
+        Authorization: `Bearer ${masterKey}`,
+        Accept: "*/*",
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+        "x-shahrah-tenant": options.tenantSlug,
+        ...(options.userID ? { "x-shahrah-user-id": options.userID } : {}),
+        ...(forwardedHost ? { "x-forwarded-host": forwardedHost } : {}),
+        ...(forwardedProto ? { "x-forwarded-proto": forwardedProto } : {}),
+      },
+      body: options.body ? JSON.stringify(options.body) : undefined,
+      cache: "no-store",
+    });
+
+    const body = await upstream.arrayBuffer();
+    const contentType = upstream.headers.get("content-type") ?? "";
+    const cacheControl = upstream.headers.get("cache-control") ?? "";
+    let errorMessage: string | undefined;
+
+    if (!upstream.ok) {
+      const text = new TextDecoder().decode(body);
+      const payload = parsePayload(text, contentType);
+      errorMessage =
+        extractErrorMessage(payload) ?? `Ø®Ø·Ø§ÛŒ Ø³Ø±ÙˆÛŒØ³ Ø¨Ø§Ù„Ø§Ø¯Ø³ØªÛŒ: ${upstream.status}`;
+    }
+
+    return {
+      ok: upstream.ok,
+      status: upstream.status,
+      body,
+      contentType,
+      cacheControl,
+      errorMessage,
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Ø§ØªØµØ§Ù„ Ø¨Ù‡ API Ù…Ø¯ÛŒØ±ÛŒØª control-plane Ø¨Ø±Ù‚Ø±Ø§Ø± Ù†Ø´Ø¯.";
+    return {
+      ok: false,
+      status: 502,
+      body: new TextEncoder().encode(message).buffer as ArrayBuffer,
+      contentType: "text/plain; charset=utf-8",
       errorMessage: message,
     };
   }

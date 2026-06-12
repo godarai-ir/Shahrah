@@ -73,8 +73,8 @@
     "everyone": "All users"
   },
   "messages": {
-    "initialLoadFailed": "Initial loading failed.",
-    "providerModelsLoadFailed": "Failed to fetch model list from discovery.",
+    "initialLoadFailed": "Failed to load provider catalog. Retry after model-discovery is available.",
+    "providerModelsLoadFailed": "Failed to fetch model list from model-discovery. Retry after the service is available.",
     "validationProviderName": "Provider selection and account name are required.",
     "accountCreateSuccess": "Provider account created successfully.",
     "accountCreateFailed": "Failed to create provider account.",
@@ -119,8 +119,8 @@
       "overviewHint": "Select an account or create a new one."
     },
     "sidebar": {
-      "connectedProviders": "Connected Providers",
-      "connectedProvidersHint": "Choose a provider, then open account workspace.",
+      "catalogProviders": "Provider Catalog",
+      "catalogProvidersHint": "Browse the full discovery catalog. Providers with existing accounts stay highlighted.",
       "providerAccounts": "Provider Accounts",
       "selectProviderPrompt": "Select provider",
       "noAccountYet": "No account yet for this provider."
@@ -206,6 +206,7 @@
     },
     "messages": {
       "fqnCopied": "Account FQN copied.",
+      "curlCopied": "Code example copied.",
       "accountActivated": "Account activated and ready for runtime policy enforcement.",
       "catalogRefreshSuccess": "Provider catalog cache refreshed.",
       "catalogRefreshFailed": "Provider catalog refresh failed.",
@@ -220,6 +221,17 @@
     },
     "models": {
       "description": "Select models, capabilities, and pricing mode.",
+      "catalogScopeHint": "The full provider catalog is shown here. Models already enabled on this account stay highlighted, while the rest remain available to add.",
+      "state": {
+        "enabledOnAccount": "Enabled on account",
+        "availableToAdd": "Available to add"
+      },
+      "summary": {
+        "catalog": "Catalog: {count}",
+        "enabled": "Enabled: {count}",
+        "available": "Available: {count}",
+        "showing": "Showing {visible} of {total}"
+      },
       "columns": {
         "model": "Model",
         "capabilities": "Capabilities",
@@ -276,6 +288,8 @@
         "license": "License",
         "viewDetails": "View details",
         "copyId": "Copy ID",
+        "copyFqn": "Copy FQN",
+        "curlGuide": "cURL Guide",
         "copied": "Copied",
         "lowerCost": "Lower cost",
         "recommended": "Recommended",
@@ -295,6 +309,20 @@
         "categoryAudio": "Audio",
         "categoryCode": "Code",
         "categoryMultimodal": "Multimodal"
+      },
+      "curlGuide": {
+        "title": "Connect With cURL",
+        "description": "Use this example to call {model} through Shahrah.",
+        "readyBadge": "Ready to Run",
+        "modelFqnLabel": "Model FQN",
+        "instructionsLabel": "Execution notes",
+        "instructions": "Replace PAT_TOKEN with the user's PAT, then send the request to the tenant gateway.",
+        "copyCommand": "Copy active example",
+        "shells": {
+          "powershell": "PowerShell",
+          "bash": "bash"
+        },
+        "close": "Close"
       },
       "pricingSummary": {
         "title": "Pricing summary"

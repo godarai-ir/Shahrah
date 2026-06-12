@@ -61,7 +61,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	if req.Model == "" {
 		return writeAPIError(c, fiber.StatusBadRequest, "model is required", "invalid_request_error")
 	}
-	requestedModel := strings.TrimSpace(req.Model)
+	requestedModel := normalizeModelIdentifier(req.Model)
 	routeCandidates := modelRoutingCandidates(requestedModel)
 	if len(routeCandidates) == 0 {
 		return writeAPIError(c, fiber.StatusBadRequest, "model is required", "invalid_request_error")
