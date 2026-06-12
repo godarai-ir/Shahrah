@@ -46,3 +46,8 @@ Reason:
 
 - ingress will be provided by Argo CD-managed `ingress-nginx`
 - public traffic is already handled by dedicated HAProxy load balancers
+
+## Operator runbooks
+
+- `windows-kubectl-access.md`
+  - Windows and PowerShell access to the cluster through the bastion and private API load balancer
