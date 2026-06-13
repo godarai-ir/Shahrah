@@ -424,6 +424,7 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 
 	// Forward provider headers from stream
 	forwardProviderHeaders(c, stream.Headers())
+	virtualModelName := modelMetricVirtualName(c, req.Model)
 
 	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
 		defer stream.Close()
@@ -458,7 +459,7 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 						TenantID:           authInfo.TenantID,
 						RequestID:          tunnelReq.RequestID,
 						ModelName:          req.Model,
-						VirtualModelName:   modelMetricVirtualName(c, req.Model),
+						VirtualModelName:   virtualModelName,
 						ProviderName:       tunnelReq.Deployment.Provider,
 						ProviderModelName:  tunnelReq.Deployment.Model,
 						RequestType:        "chat_completions",

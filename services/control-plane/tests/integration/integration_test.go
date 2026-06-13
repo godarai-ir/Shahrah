@@ -139,6 +139,14 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 			walletStore,
 			logger,
 		),
+		ResponsesHandler: proxy.NewResponsesHandler(
+			llmRouter,
+			tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
+			billingSvc,
+			walletStore,
+			walletStore,
+			logger,
+		),
 		ModelsHandler: proxy.NewModelsHandler(modelStore),
 		Logger:        logger,
 	})
@@ -161,6 +169,56 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 	assert.Len(t, walletStore.requestLogs, 1)
 	assert.Len(t, walletStore.debits, 1)
 	assert.Greater(t, walletStore.wallet.BalanceIRR, 0.0)
+}
+
+func TestIntegration_EndToEndResponsesStreaming(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/v1/responses", r.URL.Path)
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		require.True(t, ok)
+		w.WriteHeader(http.StatusOK)
+		for _, frame := range []string{
+			"event: response.created\n",
+			"data: {\"type\":\"response.created\"}\n\n",
+			"data: {\"type\":\"response.output_text.delta\",\"delta\":\"Salam\"}\n\n",
+			"data: [DONE]\n\n",
+		} {
+			_, _ = w.Write([]byte(frame))
+			flusher.Flush()
+		}
+	}))
+	defer provider.Close()
+
+	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
+
+	createdKey := createVirtualKey(t, app, `{"key_alias":"stream-key","models":["openai:default:gpt-4o-mini"]}`)
+	createModel(t, app, fmt.Sprintf(`{"model_name":"openai:default:gpt-4o-mini","provider":"openai","model":"gpt-4o-mini","api_base":"%s/v1","api_key":"sk-provider","rpm":250}`, provider.URL))
+	topUpWallet(t, app, `{"amount_irr":1500000}`)
+
+	req := httptest.NewRequest(http.MethodPost, "http://localhost/v1/responses", strings.NewReader(`{"model":"openai:default:gpt-4o-mini","input":"hello","stream":true}`))
+	req.Header.Set("Authorization", "Bearer "+createdKey.Key)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "text/event-stream")
+
+	start := time.Now()
+	resp, err := app.Test(req, int((30 * time.Second).Milliseconds()))
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Less(t, time.Since(start), 5*time.Second)
+	assert.Equal(t, "text/event-stream", resp.Header.Get("Content-Type"))
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	bodyText := string(body)
+	assert.Contains(t, bodyText, "event: response.created")
+	assert.Contains(t, bodyText, `response.output_text.delta`)
+	assert.Contains(t, bodyText, "data: [DONE]")
+	assert.NotContains(t, strings.ToLower(bodyText), "empty reply")
+	assert.NotContains(t, strings.ToLower(bodyText), "socket hang up")
 }
 
 func TestIntegration_TenantOnboardingFlowViaManagementAPIs(t *testing.T) {
@@ -1776,6 +1834,14 @@ func newIntegrationApp(t *testing.T, logger *zap.Logger, memCache cache.Cache, p
 			logger,
 		),
 		CompletionsHandler: proxy.NewCompletionsHandler(
+			llmRouter,
+			tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
+			billingSvc,
+			walletStore,
+			walletStore,
+			logger,
+		),
+		ResponsesHandler: proxy.NewResponsesHandler(
 			llmRouter,
 			tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
 			billingSvc,

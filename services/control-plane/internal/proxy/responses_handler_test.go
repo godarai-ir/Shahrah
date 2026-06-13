@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -23,8 +26,10 @@ import (
 )
 
 type captureTunnel struct {
-	resp    *platform.TunnelResponse
-	lastReq platform.TunnelRequest
+	resp      *platform.TunnelResponse
+	stream    platform.TunnelStream
+	streamErr error
+	lastReq   platform.TunnelRequest
 }
 
 func (t *captureTunnel) Proxy(ctx context.Context, req platform.TunnelRequest) (*platform.TunnelResponse, error) {
@@ -34,6 +39,9 @@ func (t *captureTunnel) Proxy(ctx context.Context, req platform.TunnelRequest) (
 
 func (t *captureTunnel) Stream(ctx context.Context, req platform.TunnelRequest) (platform.TunnelStream, error) {
 	t.lastReq = req
+	if t.stream != nil || t.streamErr != nil {
+		return t.stream, t.streamErr
+	}
 	return nil, assert.AnError
 }
 
@@ -202,4 +210,104 @@ func TestResponsesHandlerCanonicalizesProviderPrefixedDeploymentModel(t *testing
 	err = json.Unmarshal(tunnel.lastReq.Body, &outbound)
 	require.NoError(t, err)
 	assert.Equal(t, "gpt-4o-mini", outbound.Model)
+}
+
+func TestResponsesHandlerStreamSuccess(t *testing.T) {
+	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 2, 0)
+	stream.chunks <- platform.TunnelChunk{Data: []byte("event: response.created\n")}
+	stream.chunks <- platform.TunnelChunk{Data: []byte("data: {\"type\":\"response.output_text.delta\",\"delta\":\"Salam\"}\n\n"), IsDone: true}
+	close(stream.chunks)
+
+	tunnel := &captureTunnel{stream: stream}
+	app, _ := newResponsesTestApp(t, "openai", tunnel)
+
+	req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"gpt-4o","input":"hello","stream":true}`))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+	assert.Equal(t, "text/event-stream", resp.Header.Get("Content-Type"))
+	assert.Equal(t, "/responses", tunnel.lastReq.RequestMetadata["provider_endpoint_path"])
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	bodyText := string(body)
+	assert.Contains(t, bodyText, "event: response.created")
+	assert.Contains(t, bodyText, `response.output_text.delta`)
+	assert.True(t, stream.closed)
+}
+
+func TestResponsesHandlerStreamErrorWritesStreamingErrorEvent(t *testing.T) {
+	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 0, 1)
+	stream.errors <- errors.New("responses stream failed")
+
+	tunnel := &captureTunnel{stream: stream}
+	app, _ := newResponsesTestApp(t, "openai", tunnel)
+
+	req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"gpt-4o","input":"hello","stream":true}`))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Contains(t, string(body), `"type":"streaming_error"`)
+	assert.True(t, stream.closed)
+}
+
+func TestResponsesHandlerStreamCloseFinalizesWithoutPanic(t *testing.T) {
+	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 1, 0)
+	stream.chunks <- platform.TunnelChunk{Data: []byte("data: {\"type\":\"response.output_text.delta\",\"delta\":\"Salam\"}\n\n")}
+	close(stream.chunks)
+
+	wallets := &testWallets{}
+	logs := &testLogs{}
+
+	mem, err := cache.NewMemoryCache(zap.NewNop())
+	require.NoError(t, err)
+	rt, err := router.NewRouter([]config.ModelDeployment{{
+		ModelName: "gpt-4o",
+		ProviderEndpoint: config.ProviderEndpointConfig{
+			Provider: "openai",
+			Model:    "gpt-4o",
+			APIKey:   "test-key",
+		},
+	}}, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, mem, nil, zap.NewNop())
+	require.NoError(t, err)
+
+	h := NewResponsesHandler(rt, &captureTunnel{stream: stream}, &testBudgeter{}, wallets, logs, zap.NewNop())
+	app := fiber.New()
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{
+			TenantID:  "tenant_a",
+			KeyID:     "key_1",
+			KeyAlias:  "test-key",
+			KeyType:   "pat",
+			Role:      "team_admin",
+			TokenHash: "hash_1",
+		})
+		c.Locals(tenant.ContextKey{}, &platform.Tenant{
+			ID:     "tenant_a",
+			Slug:   "a",
+			Status: "active",
+		})
+		return c.Next()
+	})
+	app.Post("/v1/responses", h.Handle)
+
+	req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"gpt-4o","input":"hello","stream":true}`))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Contains(t, string(body), `response.output_text.delta`)
+	assert.NotContains(t, strings.ToLower(string(body)), "panic")
+	assert.Len(t, wallets.debits, 1)
+	assert.Len(t, logs.loggedSpends, 1)
+	assert.True(t, stream.closed)
+	assert.Equal(t, "/responses", logs.loggedSpends[0].RequestMetadata["provider_endpoint_path"])
 }

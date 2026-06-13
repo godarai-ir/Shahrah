@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -75,9 +78,11 @@ func (m *mockBilling) FinalizeFromUsage(ctx context.Context, model string, usage
 type mockWalletStore struct {
 	transaction *platform.Transaction
 	err         error
+	debitCalls  []platform.UsageCostBreakdown
 }
 
 func (m *mockWalletStore) DebitWallet(ctx context.Context, tenantID string, breakdown platform.UsageCostBreakdown, requestID string) (*platform.Transaction, error) {
+	m.debitCalls = append(m.debitCalls, breakdown)
 	return m.transaction, m.err
 }
 
@@ -97,6 +102,32 @@ func (m *mockLogger) LogSpend(ctx context.Context, log platform.SpendLog) error 
 	return nil
 }
 
+type fakeTunnelStream struct {
+	headers map[string]string
+	chunks  chan platform.TunnelChunk
+	errors  chan error
+	closed  bool
+}
+
+func newFakeTunnelStream(headers map[string]string, chunkBuf int, errorBuf int) *fakeTunnelStream {
+	if headers == nil {
+		headers = map[string]string{}
+	}
+	return &fakeTunnelStream{
+		headers: headers,
+		chunks:  make(chan platform.TunnelChunk, chunkBuf),
+		errors:  make(chan error, errorBuf),
+	}
+}
+
+func (s *fakeTunnelStream) Chunks() <-chan platform.TunnelChunk { return s.chunks }
+func (s *fakeTunnelStream) Errors() <-chan error                { return s.errors }
+func (s *fakeTunnelStream) Headers() map[string]string          { return s.headers }
+func (s *fakeTunnelStream) Close() error {
+	s.closed = true
+	return nil
+}
+
 func newTestRouter(t *testing.T, logger *zap.Logger) *llmrouter.Router {
 	t.Helper()
 	memCache, err := mcache.NewMemoryCache(logger)
@@ -106,8 +137,9 @@ func newTestRouter(t *testing.T, logger *zap.Logger) *llmrouter.Router {
 		{
 			ModelName: "gpt-4",
 			ProviderEndpoint: config.ProviderEndpointConfig{
-				Model: "openai/gpt-4",
-				RPM:   1000,
+				Provider: "openai",
+				Model:    "openai/gpt-4",
+				RPM:      1000,
 			},
 			ModelInfo: map[string]interface{}{"id": "dep-1"},
 		},
@@ -153,11 +185,12 @@ func TestChatCompletionHandler_RoutesFQNThroughWildcardAsOfficialProviderModel(t
 
 	r, err := llmrouter.NewRouter([]config.ModelDeployment{
 		{
-			ModelName: "*",
+			ModelName: "openai:openai:gpt-4.1",
 			ProviderEndpoint: config.ProviderEndpointConfig{
-				Model:  "openai/*",
-				APIKey: "sk-provider",
-				RPM:    1000,
+				Provider: "openai",
+				Model:    "openai/*",
+				APIKey:   "sk-provider",
+				RPM:      1000,
 			},
 			ModelInfo: map[string]interface{}{"id": "dep-wildcard"},
 		},
@@ -774,6 +807,115 @@ func TestChatCompletionHandler_ShouldAcceptValidTopP(t *testing.T) {
 			assert.Equal(t, http.StatusOK, resp.StatusCode)
 		})
 	}
+}
+
+func TestChatCompletionHandler_StreamSuccessRelaysChunksWithoutPanic(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	r := newTestRouter(t, logger)
+
+	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 2, 0)
+	stream.chunks <- platform.TunnelChunk{Data: []byte("data: {\"id\":\"chatcmpl-stream\",\"object\":\"chat.completion.chunk\",\"created\":1234567890,\"model\":\"gpt-4\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Salam\"}}]}\n\n")}
+	stream.chunks <- platform.TunnelChunk{Data: []byte("data: [DONE]\n\n"), IsDone: true}
+	close(stream.chunks)
+
+	mTunnel := &mockTunnelTransport{stream: stream}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalCostIRR: 850, TotalTokens: 15}}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{}
+
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	app := setupTestApp(t, handler)
+
+	payload, _ := json.Marshal(map[string]interface{}{
+		"model":    "gpt-4",
+		"stream":   true,
+		"messages": []interface{}{map[string]interface{}{"role": "user", "content": "Hello"}},
+	})
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, "text/event-stream", resp.Header.Get("Content-Type"))
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	bodyText := string(body)
+	assert.Contains(t, bodyText, `"content":"Salam"`)
+	assert.Contains(t, bodyText, "data: [DONE]")
+	assert.True(t, stream.closed)
+	assert.Empty(t, mWallet.debitCalls)
+	assert.Empty(t, mLogs.loggedSpends)
+}
+
+func TestChatCompletionHandler_StreamCloseFinalizesWithoutPanic(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	r := newTestRouter(t, logger)
+
+	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 1, 0)
+	stream.chunks <- platform.TunnelChunk{Data: []byte("data: {\"id\":\"chatcmpl-stream\",\"object\":\"chat.completion.chunk\",\"created\":1234567890,\"model\":\"gpt-4\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Salam\"}}]}\n\n")}
+	close(stream.chunks)
+
+	mTunnel := &mockTunnelTransport{stream: stream}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalCostIRR: 850, TotalTokens: 15}}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{}
+
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	app := setupTestApp(t, handler)
+
+	payload, _ := json.Marshal(map[string]interface{}{
+		"model":    "gpt-4",
+		"stream":   true,
+		"messages": []interface{}{map[string]interface{}{"role": "user", "content": "Hello"}},
+	})
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Contains(t, string(body), `"content":"Salam"`)
+	assert.NotContains(t, strings.ToLower(string(body)), "panic")
+	assert.Len(t, mWallet.debitCalls, 1)
+	assert.Len(t, mLogs.loggedSpends, 1)
+	assert.True(t, stream.closed)
+}
+
+func TestChatCompletionHandler_StreamErrorWritesStreamingErrorEvent(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	r := newTestRouter(t, logger)
+
+	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 0, 1)
+	stream.errors <- errors.New("upstream stream failed")
+
+	mTunnel := &mockTunnelTransport{stream: stream}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalCostIRR: 850, TotalTokens: 15}}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{}
+
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	app := setupTestApp(t, handler)
+
+	payload, _ := json.Marshal(map[string]interface{}{
+		"model":    "gpt-4",
+		"stream":   true,
+		"messages": []interface{}{map[string]interface{}{"role": "user", "content": "Hello"}},
+	})
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
+	require.NoError(t, err)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Contains(t, string(body), `"type":"streaming_error"`)
+	assert.True(t, stream.closed)
 }
 
 // Ensure mock types satisfy interfaces at compile time.

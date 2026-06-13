@@ -104,3 +104,92 @@ func TestStreamSetsRequestStreamFlag(t *testing.T) {
 		t.Fatal("expected stream flag to be forced on outbound tunnel request")
 	}
 }
+
+func TestStreamReturnsErrorStreamForHTTPFailure(t *testing.T) {
+	t.Parallel()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Request-Id", "req_error")
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = w.Write([]byte(`{"error":"upstream failed"}`))
+	}))
+	defer upstream.Close()
+
+	transport := NewHTTPTransport(upstream.URL, time.Second)
+	stream, err := transport.Stream(context.Background(), platform.TunnelRequest{})
+	if err != nil {
+		t.Fatalf("stream request failed: %v", err)
+	}
+	defer stream.Close()
+
+	assertedHeaders := stream.Headers()
+	if assertedHeaders["X-Request-Id"] != "req_error" {
+		t.Fatalf("expected propagated error header, got %#v", assertedHeaders)
+	}
+
+	chunks := stream.Chunks()
+	chunk, ok := <-chunks
+	if !ok {
+		t.Fatal("expected one error chunk")
+	}
+	if !chunk.IsDone {
+		t.Fatal("expected error chunk to mark stream done")
+	}
+	if !strings.Contains(string(chunk.Data), `upstream failed`) {
+		t.Fatalf("unexpected error chunk body: %q", string(chunk.Data))
+	}
+}
+
+func TestStreamPreservesHeadersAndMultiEventFrames(t *testing.T) {
+	t.Parallel()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("response writer does not support flushing")
+		}
+
+		w.WriteHeader(http.StatusOK)
+		for _, frame := range []string{
+			"event: response.created\n",
+			"data: {\"type\":\"response.created\"}\n\n",
+			"data: {\"type\":\"response.output_text.delta\",\"delta\":\"Salam\"}\n\n",
+		} {
+			_, _ = w.Write([]byte(frame))
+			flusher.Flush()
+		}
+	}))
+	defer upstream.Close()
+
+	transport := NewHTTPTransport(upstream.URL, time.Second)
+	stream, err := transport.Stream(context.Background(), platform.TunnelRequest{})
+	if err != nil {
+		t.Fatalf("stream request failed: %v", err)
+	}
+	defer stream.Close()
+
+	if got := stream.Headers()["Content-Type"]; got != "text/event-stream" {
+		t.Fatalf("unexpected content type header: %q", got)
+	}
+	if got := stream.Headers()["Cache-Control"]; got != "no-cache" {
+		t.Fatalf("unexpected cache-control header: %q", got)
+	}
+
+	var sb strings.Builder
+	for chunk := range stream.Chunks() {
+		sb.Write(chunk.Data)
+		if chunk.IsDone {
+			break
+		}
+	}
+	body := sb.String()
+	if !strings.Contains(body, "event: response.created") {
+		t.Fatalf("expected event frame, got %q", body)
+	}
+	if !strings.Contains(body, `response.output_text.delta`) {
+		t.Fatalf("expected multi-event data frame, got %q", body)
+	}
+}

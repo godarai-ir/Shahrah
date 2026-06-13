@@ -140,3 +140,53 @@ func TestDispatchStreamingFlushesSSE(t *testing.T) {
 		t.Fatalf("expected stream body to be relayed, got %q", rec.Body.String())
 	}
 }
+
+func TestDispatchStreamingRelaysMultipleEventsWithoutTruncation(t *testing.T) {
+	t.Parallel()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/dispatch" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("response writer does not support flushing")
+		}
+		w.WriteHeader(http.StatusOK)
+		for _, frame := range []string{
+			"event: response.created\n",
+			"data: {\"type\":\"response.created\"}\n\n",
+			"data: [DONE]\n\n",
+		} {
+			_, _ = w.Write([]byte(frame))
+			flusher.Flush()
+		}
+	}))
+	defer upstream.Close()
+
+	handler := NewHandler(upstream.URL, nil)
+	payload := platform.TunnelRequest{
+		RequestID: "req_stream_multi",
+		TraceID:   "trace_stream_multi",
+		Stream:    true,
+		Body:      []byte(`{"hello":"world"}`),
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if !rec.Flushed {
+		t.Fatal("expected streaming response to flush SSE data")
+	}
+	bodyText := rec.Body.String()
+	if !strings.Contains(bodyText, "event: response.created") || !strings.Contains(bodyText, "data: [DONE]") {
+		t.Fatalf("expected full SSE relay without truncation, got %q", bodyText)
+	}
+}

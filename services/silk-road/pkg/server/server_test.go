@@ -335,6 +335,68 @@ func TestDispatchStreamingFlushesSSE(t *testing.T) {
 	}
 }
 
+func TestDispatchOpenAIResponsesStreamingRelaysMultipleEventsAndDone(t *testing.T) {
+	t.Parallel()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.Path; got != "/responses" {
+			t.Fatalf("expected /responses path, got %q", got)
+		}
+		if got := r.Header.Get("Accept"); got != "text/event-stream" {
+			t.Fatalf("unexpected Accept header: %q", got)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("response writer does not support flushing")
+		}
+		w.WriteHeader(http.StatusOK)
+		for _, frame := range []string{
+			"event: response.created\n",
+			"data: {\"type\":\"response.created\"}\n\n",
+			"data: [DONE]\n\n",
+		} {
+			_, _ = w.Write([]byte(frame))
+			flusher.Flush()
+		}
+	}))
+	defer upstream.Close()
+
+	handler := NewHandler(nil)
+	payload := platform.TunnelRequest{
+		Stream: true,
+		Deployment: platform.Deployment{
+			Provider: "openai",
+			APIBase:  upstream.URL,
+			APIKey:   "provider-secret",
+		},
+		RequestMetadata: map[string]interface{}{
+			"provider_endpoint_path": "/responses",
+		},
+		Body: []byte(`{"model":"gpt-4o-mini","input":"hello","stream":true}`),
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	bodyText := rec.Body.String()
+	if !strings.Contains(bodyText, "event: response.created") || !strings.Contains(bodyText, "data: [DONE]") {
+		t.Fatalf("expected complete SSE relay, got %q", bodyText)
+	}
+	if !rec.Flushed {
+		t.Fatal("expected streaming response to flush SSE data")
+	}
+}
+
 func TestCanonicalAnthropicModel(t *testing.T) {
 	t.Parallel()
 
