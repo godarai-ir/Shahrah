@@ -1,0 +1,168 @@
+﻿import type { PrincipalSearchKind } from "@/app/components/principal-search-input";
+export type ProviderAuthMode =
+  | "api_key"
+  | "azure_entra_cert"
+  | "aws_sigv4"
+  | "google_service_account"
+  | "no_credential";
+
+export type ModelType = string;
+
+export type PrincipalType = "user" | "team" | "org_unit" | "everyone";
+export type SetupStep = 1 | 2 | 3 | 4 | 5;
+export type WorkspaceTab = "models" | "access" | "credentials" | "observability";
+export type WorkspaceMode = "overview" | "setup" | "workspace";
+
+export type AccessPrincipal = {
+  type: PrincipalType;
+  principal_id?: string;
+  display_name?: string;
+};
+
+export type AccessPrincipalCandidate = {
+  type: PrincipalSearchKind;
+  principal_id: string;
+  display_name: string;
+  secondary?: string;
+};
+
+export type ProviderCatalogProvider = {
+  provider: string;
+  display_name: string;
+  logo_url?: string;
+  enabled: boolean;
+  auth_modes: ProviderAuthMode[];
+  supports_bring_your_own_key: boolean;
+  supports_virtual_keys: boolean;
+};
+
+export type ProviderCatalogModel = {
+  provider: string;
+  model: string;
+  display_name: string;
+  mode?: string[];
+  types: ModelType[];
+  context_window?: number;
+  input_modalities?: string[];
+  output_modalities?: string[];
+  capabilities?: string[];
+  features?: string[];
+  public_pricing?: {
+    input_usd_per_1m?: number;
+    output_usd_per_1m?: number;
+  };
+};
+
+export type TenantProviderAccount = {
+  id: string;
+  provider: string;
+  name: string;
+  auth_mode: ProviderAuthMode;
+  provider_config?: Record<string, unknown>;
+  has_credential: boolean;
+  allows_virtual_keys_only: boolean;
+};
+
+export type TenantProviderAccountModel = {
+  model: string;
+  enabled: boolean;
+  types: ModelType[];
+  input_modalities?: string[];
+  output_modalities?: string[];
+  pricing_mode: "public" | "private";
+  public_pricing?: {
+    input_usd_per_1m?: number;
+    output_usd_per_1m?: number;
+  };
+  private_pricing?: {
+    input_usd_per_1m?: number;
+    output_usd_per_1m?: number;
+  };
+  settings?: Record<string, unknown>;
+};
+
+export type AccountDetailsResponse = {
+  account: TenantProviderAccount;
+  models: TenantProviderAccountModel[];
+  access: {
+    managers: AccessPrincipal[];
+    users: AccessPrincipal[];
+  };
+};
+
+export type EffectiveModelView = {
+  model: string;
+  types?: string[];
+  effective_capabilities?: string[];
+  pricing_mode: "public" | "private";
+  pricing_resolved: boolean;
+  allowed: boolean;
+  denied_reason?: string;
+};
+
+export type EffectiveModelsResponse = {
+  data?: EffectiveModelView[];
+};
+
+export type ProvidersResponse = { data?: ProviderCatalogProvider[] };
+export type ProviderModelsResponse = { data?: ProviderCatalogModel[] };
+export type AccountsResponse = { data?: TenantProviderAccount[] };
+export type AccessPrincipalResponse = { data?: AccessPrincipalCandidate[] };
+export type ProviderCatalogStatsResponse = {
+  data?: {
+    cache_ttl_sec?: number;
+    counters?: Record<string, number>;
+  };
+};
+export type DisplaySettingsResponse = {
+  data?: {
+    currencyUnit?: "USD" | "IRR" | "TOMAN";
+    priceScale?: "PER_MILLION_TOKENS" | "PER_TOKEN";
+    exchangeRate?: {
+      usdToIrr?: number;
+    };
+  };
+};
+
+export type Banner = {
+  kind: "success" | "error";
+  message: string;
+};
+
+export type CurlGuideShell = "powershell" | "bash";
+
+export type CurlGuide = {
+  modelName: string;
+  modelFqn: string;
+  mode: SupportedCurlGuideMode;
+  commands: Record<CurlGuideShell, string>;
+};
+
+export type ModelDraft = {
+  enabled: boolean;
+  compared: boolean;
+  selectedCapabilities: string[];
+  pricingMode: "public" | "private";
+  inputPrice: string;
+  outputPrice: string;
+};
+
+export type Readiness = "ready" | "needs_credentials" | "needs_access" | "pricing_incomplete";
+
+export type ProviderAccountWizardMode = "manage" | "create";
+
+export const CURL_GUIDE_LANGUAGE: Record<CurlGuideShell, "powershell" | "bash"> = {
+  powershell: "powershell",
+  bash: "bash",
+};
+
+export type SupportedCurlGuideMode = "chat" | "completion" | "embedding" | "responses";
+
+export const SUPPORTED_CURL_GUIDE_MODES: SupportedCurlGuideMode[] = [
+  "chat",
+  "completion",
+  "responses",
+  "embedding",
+];
+
+

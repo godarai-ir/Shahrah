@@ -106,6 +106,11 @@ export class UpsertModelDto {
   @ApiPropertyOptional({ type: () => [String] })
   @IsOptional()
   @IsArray()
+  mode?: string[];
+
+  @ApiPropertyOptional({ type: () => [String] })
+  @IsOptional()
+  @IsArray()
   inputModalities?: string[];
 
   @ApiPropertyOptional({ type: () => [String] })

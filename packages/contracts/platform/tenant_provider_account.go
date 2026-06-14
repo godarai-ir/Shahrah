@@ -86,10 +86,12 @@ type ProviderCatalogModel struct {
 	Provider         string                 `json:"provider"`
 	Model            string                 `json:"model"`
 	DisplayName      string                 `json:"display_name"`
+	Modes            []string               `json:"mode,omitempty"`
 	Types            []ModelType            `json:"types"`
 	ContextWindow    *int                   `json:"context_window,omitempty"`
 	InputModalities  []string               `json:"input_modalities,omitempty"`
 	OutputModalities []string               `json:"output_modalities,omitempty"`
+	Capabilities     []string               `json:"capabilities,omitempty"`
 	Features         []string               `json:"features,omitempty"`
 	PublicPricing    *ModelPrice            `json:"public_pricing,omitempty"`
 	SettingsSchema   map[string]interface{} `json:"settings_schema,omitempty"`

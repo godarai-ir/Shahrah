@@ -69,6 +69,7 @@ type modelDiscoveryPricing struct {
 type modelDiscoveryModel struct {
 	CanonicalID      string                 `json:"canonicalId"`
 	Name             string                 `json:"name"`
+	Mode             []string               `json:"mode"`
 	ContextWindow    *int                   `json:"contextWindow"`
 	Capabilities     []string               `json:"capabilities"`
 	InputModalities  []string               `json:"inputModalities"`
@@ -582,9 +583,10 @@ func mapDiscoveryModels(items []modelDiscoveryModel) []platform.ProviderCatalogM
 			displayName = model
 		}
 
-		types := make([]platform.ModelType, 0, len(item.Capabilities))
-		for _, capability := range item.Capabilities {
-			mt := mapCapabilityToModelType(capability)
+		modes := normalizeStringList(item.Mode)
+		types := make([]platform.ModelType, 0, len(modes))
+		for _, mode := range modes {
+			mt := mapModeToModelType(mode)
 			if mt == "" {
 				continue
 			}
@@ -592,22 +594,18 @@ func mapDiscoveryModels(items []modelDiscoveryModel) []platform.ProviderCatalogM
 		}
 
 		if len(types) == 0 {
-			for _, modality := range append(item.InputModalities, item.OutputModalities...) {
-				mt := mapModalityToModelType(modality)
-				if mt == "" {
-					continue
-				}
-				types = append(types, mt)
-			}
+			types = append(types, inferModelTypesFromCapabilities(item.Capabilities)...)
 		}
 
 		entry := platform.ProviderCatalogModel{
 			Model:            model,
 			DisplayName:      displayName,
+			Modes:            modes,
 			Types:            normalizeModelTypes(types),
 			ContextWindow:    item.ContextWindow,
 			InputModalities:  normalizeStringList(item.InputModalities),
 			OutputModalities: normalizeStringList(item.OutputModalities),
+			Capabilities:     normalizeStringList(item.Capabilities),
 			Features:         normalizeStringList(item.Capabilities),
 		}
 		if item.Pricing != nil {
@@ -649,6 +647,45 @@ func discoveryDisplaySettings(ctx context.Context) (*platform.ProviderCatalogDis
 	return nil, fmt.Errorf("discovery display settings payload does not contain settings")
 }
 
+func mapModeToModelType(mode string) platform.ModelType {
+	switch strings.TrimSpace(strings.ToLower(mode)) {
+	case "chat":
+		return platform.ModelTypeChat
+	case "completion", "responses":
+		return platform.ModelTypeCompletion
+	case "embedding":
+		return platform.ModelTypeEmbedding
+	case "realtime":
+		return platform.ModelTypeRealtime
+	case "image":
+		return platform.ModelTypeImageGeneration
+	case "text_to_speech":
+		return platform.ModelTypeTextToSpeech
+	case "audio_transcription":
+		return platform.ModelTypeAudioTranscription
+	case "audio_translation":
+		return platform.ModelTypeAudioTranslation
+	case "moderation":
+		return platform.ModelTypeModeration
+	case "rerank":
+		return platform.ModelTypeRerank
+	default:
+		return ""
+	}
+}
+
+func inferModelTypesFromCapabilities(capabilities []string) []platform.ModelType {
+	types := make([]platform.ModelType, 0, len(capabilities))
+	for _, capability := range capabilities {
+		mt := mapCapabilityToModelType(capability)
+		if mt == "" {
+			continue
+		}
+		types = append(types, mt)
+	}
+	return normalizeModelTypes(types)
+}
+
 func mapCapabilityToModelType(capability string) platform.ModelType {
 	switch strings.TrimSpace(strings.ToLower(capability)) {
 	case "chat", "reasoning", "agent":
@@ -659,7 +696,7 @@ func mapCapabilityToModelType(capability string) platform.ModelType {
 		return platform.ModelTypeEmbedding
 	case "realtime":
 		return platform.ModelTypeRealtime
-	case "image", "image_generation", "vision":
+	case "vision", "image_generation":
 		return platform.ModelTypeImageGeneration
 	case "audio", "speech", "tts", "text_to_speech":
 		return platform.ModelTypeTextToSpeech
@@ -673,19 +710,6 @@ func mapCapabilityToModelType(capability string) platform.ModelType {
 		return platform.ModelTypeRerank
 	case "search":
 		return platform.ModelTypeSearch
-	default:
-		return ""
-	}
-}
-
-func mapModalityToModelType(modality string) platform.ModelType {
-	switch strings.TrimSpace(strings.ToLower(modality)) {
-	case "text":
-		return platform.ModelTypeChat
-	case "image":
-		return platform.ModelTypeImageGeneration
-	case "audio":
-		return platform.ModelTypeAudioTranscription
 	default:
 		return ""
 	}

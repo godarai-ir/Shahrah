@@ -231,6 +231,11 @@ paths:
           in: query
           schema:
             type: string
+        - name: mode
+          required: false
+          in: query
+          schema:
+            type: string
         - name: input_modalities
           required: false
           in: query
@@ -876,6 +881,10 @@ components:
           type: string
         displayName:
           type: string
+        mode:
+          type: array
+          items:
+            type: string
         shortDescription:
           type: object
         status:
@@ -892,6 +901,7 @@ components:
         - canonicalId
         - slug
         - displayName
+        - mode
         - pricing
         - capabilities
     ProviderDetailResponse:
@@ -1020,6 +1030,10 @@ components:
           type: object
         status:
           type: object
+        mode:
+          type: array
+          items:
+            type: string
         contextWindow:
           type: object
         maxOutputTokens:
@@ -1060,6 +1074,7 @@ components:
         - slug
         - name
         - provider
+        - mode
         - inputModalities
         - outputModalities
         - supportedParameters
@@ -1186,6 +1201,10 @@ components:
           type: object
         lifecycleStatus:
           type: object
+        mode:
+          type: array
+          items:
+            type: string
         contextWindow:
           type: object
         maxOutputTokens:
@@ -1236,6 +1255,7 @@ components:
         - slug
         - displayName
         - provider
+        - mode
         - inputModalities
         - outputModalities
         - supportedParams
@@ -1293,6 +1313,10 @@ components:
           type: boolean
         free:
           type: boolean
+        mode:
+          type: array
+          items:
+            type: string
         inputModalities:
           type: array
           items:
@@ -1337,6 +1361,10 @@ components:
           type: boolean
         lifecycleStatus:
           type: object
+        mode:
+          type: array
+          items:
+            type: string
         contextWindow:
           type: object
         maxOutputTokens:
@@ -1355,6 +1383,7 @@ components:
         - slug
         - displayName
         - enabled
+        - mode
         - openSource
         - free
         - provider
@@ -1575,6 +1604,10 @@ components:
           type: boolean
         free:
           type: boolean
+        mode:
+          type: array
+          items:
+            type: string
         categorySlug:
           type: string
         inputModalities:

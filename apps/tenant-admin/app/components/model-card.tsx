@@ -59,7 +59,7 @@ export interface ModelCardData {
   tradeoffs?: string[];
   metadata?: {
     modelId: string;
-    mode?: "chat" | "completion" | "embedding" | "image" | "audio";
+    mode?: string;
     releaseDate?: string;
     knowledgeCutoff?: string;
     regions?: string[];

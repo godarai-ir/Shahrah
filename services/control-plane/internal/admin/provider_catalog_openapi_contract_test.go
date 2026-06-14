@@ -42,6 +42,7 @@ func TestModelDiscoveryOpenAPIContract_MatchesControlPlaneUsage(t *testing.T) {
 
 	modelsGet := spec.Paths["/api/v1/models"]["get"]
 	assertOpenAPIQueryParam(t, modelsGet, "provider", "")
+	assertOpenAPIQueryParam(t, modelsGet, "mode", "")
 	assertOpenAPIQueryParam(t, modelsGet, "page", "")
 	assertOpenAPIQueryParam(t, modelsGet, "limit", "100")
 }

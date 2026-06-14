@@ -1,3 +1,6 @@
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
+
 import AdminShellClient from "@/app/components/admin-shell-client";
 import { getCurrentMePermissions } from "@/lib/auth/me-permissions";
 
@@ -17,15 +20,19 @@ export default async function AdminShell({
   tenantSlug,
   currentUser,
 }: AdminShellProps) {
+  const locale = await getLocale();
+  const messages = await getMessages();
   const permissions = await loadCurrentPermissions(tenantSlug, currentUser.id);
   return (
-    <AdminShellClient
-      tenantSlug={tenantSlug}
-      currentUser={currentUser}
-      permissions={permissions}
-    >
-      {children}
-    </AdminShellClient>
+    <NextIntlClientProvider locale={locale} messages={messages}>
+      <AdminShellClient
+        tenantSlug={tenantSlug}
+        currentUser={currentUser}
+        permissions={permissions}
+      >
+        {children}
+      </AdminShellClient>
+    </NextIntlClientProvider>
   );
 }
 

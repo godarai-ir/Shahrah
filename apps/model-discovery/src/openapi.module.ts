@@ -305,6 +305,9 @@ class CatalogModelListItem {
   @ApiPropertyOptional()
   status?: string | null;
 
+  @ApiProperty({ type: () => [String] })
+  mode!: string[];
+
   @ApiPropertyOptional()
   contextWindow?: number | null;
 
@@ -398,6 +401,9 @@ class CatalogModelDetailResponse {
   @ApiPropertyOptional()
   lifecycleStatus?: string | null;
 
+  @ApiProperty({ type: () => [String] })
+  mode!: string[];
+
   @ApiPropertyOptional()
   contextWindow?: number | null;
 
@@ -447,6 +453,9 @@ class ProviderDetailModel {
 
   @ApiProperty()
   displayName!: string;
+
+  @ApiProperty({ type: () => [String] })
+  mode!: string[];
 
   @ApiPropertyOptional()
   shortDescription?: string | null;
@@ -527,6 +536,9 @@ class AdminModelRecord {
 
   @ApiPropertyOptional()
   lifecycleStatus?: string | null;
+
+  @ApiProperty({ type: () => [String] })
+  mode!: string[];
 
   @ApiPropertyOptional()
   contextWindow?: number | null;
@@ -635,6 +647,9 @@ class ImportModelDto {
 
   @ApiPropertyOptional()
   free?: boolean;
+
+  @ApiPropertyOptional({ type: () => [String] })
+  mode?: string[];
 
   @ApiPropertyOptional()
   categorySlug?: string;
@@ -785,6 +800,7 @@ class OpenAPICatalogController {
   @ApiOperation({ summary: 'List catalog models with provider, pricing, and filter metadata.' })
   @ApiOkResponse({ type: CatalogListResponse })
   @ApiQuery({ name: 'provider', required: false, type: String })
+  @ApiQuery({ name: 'mode', required: false, type: String })
   @ApiQuery({ name: 'page', required: false, type: Number, schema: { minimum: 1 } })
   @ApiQuery({ name: 'limit', required: false, type: Number, schema: { minimum: 1, maximum: 100 } })
   list(@Query() _query: ModelsQueryDto) {

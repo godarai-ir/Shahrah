@@ -68,6 +68,7 @@ export class CatalogAdminController {
         maxOutputTokens: dto.maxOutputTokens,
         openSource: dto.openSource ?? false,
         free: dto.free ?? false,
+        mode: dto.mode?.length ? dto.mode : ['unknown'],
       },
       update: {
         providerId: provider.id,
@@ -84,6 +85,7 @@ export class CatalogAdminController {
         maxOutputTokens: dto.maxOutputTokens,
         openSource: dto.openSource,
         free: dto.free,
+        mode: dto.mode?.length ? dto.mode : undefined,
       },
     });
 

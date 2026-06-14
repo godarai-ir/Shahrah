@@ -20,6 +20,7 @@ func TestMapDiscoveryModels_PreservesGatewayAndUIFields(t *testing.T) {
 		{
 			CanonicalID:      "gpt-4.1-mini",
 			Name:             "GPT-4.1 Mini",
+			Mode:             []string{"chat", "embedding"},
 			ContextWindow:    &contextWindow,
 			Capabilities:     []string{"chat", "reasoning"},
 			InputModalities:  []string{"text"},
@@ -34,10 +35,12 @@ func TestMapDiscoveryModels_PreservesGatewayAndUIFields(t *testing.T) {
 	require.Len(t, items, 1)
 	assert.Equal(t, "gpt-4.1-mini", items[0].Model)
 	assert.Equal(t, "GPT-4.1 Mini", items[0].DisplayName)
-	assert.Equal(t, []platform.ModelType{platform.ModelTypeChat}, items[0].Types)
+	assert.Equal(t, []string{"chat", "embedding"}, items[0].Modes)
+	assert.Equal(t, []platform.ModelType{platform.ModelTypeChat, platform.ModelTypeEmbedding}, items[0].Types)
 	assert.Equal(t, &contextWindow, items[0].ContextWindow)
 	assert.Equal(t, []string{"text"}, items[0].InputModalities)
 	assert.Equal(t, []string{"text"}, items[0].OutputModalities)
+	assert.Equal(t, []string{"chat", "reasoning"}, items[0].Capabilities)
 	assert.Equal(t, []string{"chat", "reasoning"}, items[0].Features)
 	require.NotNil(t, items[0].PublicPricing)
 	assert.Equal(t, &inputPrice, items[0].PublicPricing.InputUSDPer1M)
@@ -53,7 +56,7 @@ func TestResolveProviderAccountModelSelections_ExpandsCatalogMetadata(t *testing
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"data":[{"model":"gpt-4.1-mini","display_name":"GPT-4.1 Mini","types":["chat"],"input_modalities":["text"],"output_modalities":["text"],"public_pricing":{"input_usd_per_1m":0.15,"output_usd_per_1m":0.6}}]}`))
+		_, _ = w.Write([]byte(`{"data":[{"canonicalId":"gpt-4.1-mini","name":"GPT-4.1 Mini","mode":["chat"],"capabilities":["chat","function_calling"],"inputModalities":["text"],"outputModalities":["text"],"pricing":{"inputPerMillionTokens":0.15,"outputPerMillionTokens":0.6}}]}`))
 	}))
 	defer server.Close()
 
@@ -90,7 +93,7 @@ func TestResolveProviderAccountModelSelections_RejectsInvalidCapabilities(t *tes
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"data":[{"model":"gpt-4.1-mini","display_name":"GPT-4.1 Mini","types":["chat","embedding"],"input_modalities":["text"],"output_modalities":["text"]},{"model":"gpt-4.1","display_name":"GPT-4.1","types":["chat"],"input_modalities":["text"],"output_modalities":["text"]}]}`))
+		_, _ = w.Write([]byte(`{"data":[{"canonicalId":"gpt-4.1-mini","name":"GPT-4.1 Mini","mode":["chat","embedding"],"capabilities":["chat"],"inputModalities":["text"],"outputModalities":["text"]},{"canonicalId":"gpt-4.1","name":"GPT-4.1","mode":["chat"],"capabilities":["chat"],"inputModalities":["text"],"outputModalities":["text"]}]}`))
 	}))
 	defer server.Close()
 
@@ -158,7 +161,7 @@ func TestDiscoveryProviderModels_NormalizesLegacyProviderSlug(t *testing.T) {
 			http.NotFound(w, r)
 		case r.URL.Path == "/models" && r.URL.Query().Get("provider") == "perplexity-ai":
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"data":[{"model":"sonar","display_name":"Sonar","types":["chat"],"input_modalities":["text"],"output_modalities":["text"]}]}`))
+			_, _ = w.Write([]byte(`{"data":[{"canonicalId":"sonar","name":"Sonar","mode":["chat"],"capabilities":["chat"],"inputModalities":["text"],"outputModalities":["text"]}]}`))
 		default:
 			http.NotFound(w, r)
 		}
@@ -201,13 +204,14 @@ func TestNormalizeProviders_ResolvesRelativeLogoURLAgainstDiscoveryBase(t *testi
 }
 
 func TestDecodeProviderModelsPayload_UsesDiscoveryShapeWhenCanonicalFieldsMissing(t *testing.T) {
-	body := []byte(`{"data":[{"canonicalId":"cerebras/llama-4-scout","name":"Llama 4 Scout","capabilities":["chat"],"inputModalities":["text"],"outputModalities":["text"]}]}`)
+	body := []byte(`{"data":[{"canonicalId":"cerebras/llama-4-scout","name":"Llama 4 Scout","mode":["chat"],"capabilities":["chat"],"inputModalities":["text"],"outputModalities":["text"]}]}`)
 
 	items, err := decodeProviderModelsPayload(body)
 	require.NoError(t, err)
 	require.Len(t, items, 1)
 	assert.Equal(t, "cerebras/llama-4-scout", items[0].Model)
 	assert.Equal(t, "Llama 4 Scout", items[0].DisplayName)
+	assert.Equal(t, []string{"chat"}, items[0].Modes)
 	assert.Equal(t, []platform.ModelType{platform.ModelTypeChat}, items[0].Types)
 }
 
@@ -218,7 +222,7 @@ func TestDiscoveryProviderModels_FallbackQueryUsesPaginationLimit100(t *testing.
 			http.NotFound(w, r)
 		case r.URL.Path == "/models" && r.URL.Query().Get("provider") == "azure-ai-foundry" && r.URL.Query().Get("limit") == "100" && r.URL.Query().Get("page") == "1":
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"data":[{"canonicalId":"azure-ai-foundry/model-a","name":"Model A","capabilities":["chat"],"inputModalities":["text"],"outputModalities":["text"]}]}`))
+			_, _ = w.Write([]byte(`{"data":[{"canonicalId":"azure-ai-foundry/model-a","name":"Model A","mode":["chat"],"capabilities":["chat"],"inputModalities":["text"],"outputModalities":["text"]}]}`))
 		default:
 			http.NotFound(w, r)
 		}

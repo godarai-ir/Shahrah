@@ -39,6 +39,7 @@ export class CatalogService {
         gte: query.min_output_tokens,
         lte: query.max_output_tokens,
       },
+      mode: query.mode?.length ? { hasSome: query.mode } : undefined,
       OR: query.q
         ? [
             { displayName: { contains: query.q, mode: 'insensitive' } },
@@ -126,6 +127,7 @@ export class CatalogService {
         : null,
       description: row.shortDescription,
       status: row.status,
+      mode: row.mode,
       contextWindow: row.contextWindow,
       maxOutputTokens: row.maxOutputTokens,
       inputModalities: row.inputModalities.map((m) => m.modality.slug),

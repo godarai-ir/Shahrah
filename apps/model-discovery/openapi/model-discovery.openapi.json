@@ -393,6 +393,14 @@
             }
           },
           {
+            "name": "mode",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "input_modalities",
             "required": false,
             "in": "query",
@@ -1460,6 +1468,12 @@
           "displayName": {
             "type": "string"
           },
+          "mode": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "shortDescription": {
             "type": "object"
           },
@@ -1483,6 +1497,7 @@
           "canonicalId",
           "slug",
           "displayName",
+          "mode",
           "pricing",
           "capabilities"
         ]
@@ -1672,6 +1687,12 @@
           "status": {
             "type": "object"
           },
+          "mode": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "contextWindow": {
             "type": "object"
           },
@@ -1730,6 +1751,7 @@
           "slug",
           "name",
           "provider",
+          "mode",
           "inputModalities",
           "outputModalities",
           "supportedParameters",
@@ -1917,6 +1939,12 @@
           "lifecycleStatus": {
             "type": "object"
           },
+          "mode": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "contextWindow": {
             "type": "object"
           },
@@ -1990,6 +2018,7 @@
           "slug",
           "displayName",
           "provider",
+          "mode",
           "inputModalities",
           "outputModalities",
           "supportedParams",
@@ -2071,6 +2100,12 @@
           "free": {
             "type": "boolean"
           },
+          "mode": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "inputModalities": {
             "type": "array",
             "items": {
@@ -2136,6 +2171,12 @@
           "lifecycleStatus": {
             "type": "object"
           },
+          "mode": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "contextWindow": {
             "type": "object"
           },
@@ -2161,6 +2202,7 @@
           "slug",
           "displayName",
           "enabled",
+          "mode",
           "openSource",
           "free",
           "provider"
@@ -2479,6 +2521,12 @@
           },
           "free": {
             "type": "boolean"
+          },
+          "mode": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "categorySlug": {
             "type": "string"

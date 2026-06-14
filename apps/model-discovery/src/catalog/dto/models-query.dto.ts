@@ -26,6 +26,10 @@ export class ModelsQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @Transform(({ value }) => toArray(value))
+  mode?: string[];
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) => toArray(value))
   input_modalities?: string[];
   @ApiPropertyOptional()
   @IsOptional()

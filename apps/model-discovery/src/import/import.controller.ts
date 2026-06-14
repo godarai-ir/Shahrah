@@ -42,6 +42,7 @@ const modelSchema = z.object({
   maxOutputTokens: z.number().int().optional(),
   openSource: z.boolean().optional(),
   free: z.boolean().optional(),
+  mode: z.array(z.string()).optional(),
   categorySlug: z.string().optional(),
   inputModalities: z.array(z.string()).optional(),
   outputModalities: z.array(z.string()).optional(),
@@ -147,6 +148,7 @@ export class ImportController {
           maxOutputTokens: row.maxOutputTokens,
           openSource: row.openSource ?? false,
           free: row.free ?? false,
+          mode: row.mode?.length ? row.mode : ['unknown'],
           categoryId,
         },
         update: {
@@ -160,6 +162,7 @@ export class ImportController {
           maxOutputTokens: row.maxOutputTokens,
           openSource: row.openSource,
           free: row.free,
+          mode: row.mode?.length ? row.mode : undefined,
           categoryId,
         },
       });
