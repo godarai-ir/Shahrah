@@ -3,7 +3,13 @@
 import Image from "next/image";
 import { FormEvent, useState } from "react";
 import { useTranslations } from "next-intl";
-import { AlertCircle, CheckCircle, RefreshCw } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle,
+  KeyRound,
+  RefreshCw,
+  ShieldCheck,
+} from "lucide-react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -117,168 +123,234 @@ export default function LoginForm({ initialCaptcha, redirectTo }: LoginFormProps
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center px-4 py-12 md:px-8 md:py-16">
-      {/* Background Gradient */}
-      <div className="absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute left-1/2 top-0 h-[500px] w-[800px] -translate-x-1/2 opacity-20 dark:opacity-10">
-          <div className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full w-full blur-[120px] rounded-full" />
-        </div>
-      </div>
-
-      <div className="mx-auto w-full max-w-md space-y-6 animate-fade-in">
-        {/* Theme Toggle */}
-        <div className="flex justify-start">
+    <main className="flex min-h-screen bg-background px-4 py-6 text-foreground sm:px-6 lg:px-8">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+        <header className="flex items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-card p-1.5 shadow-sm">
+              <Image
+                src="/brand/shahrah-logo.png"
+                alt={t("logoAlt")}
+                width={40}
+                height={40}
+                className="h-full w-full object-contain"
+                priority
+              />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground">Shahrah</p>
+              <p className="truncate text-xs text-muted-foreground">{t("subtitle")}</p>
+            </div>
+          </div>
           <ThemeToggle />
-        </div>
+        </header>
 
-        {/* Logo */}
-        <div className="flex flex-col items-center gap-3 text-center">
-          <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-border bg-card p-2 shadow-lg">
-            <Image
-              src="/brand/shahrah-logo.png"
-              alt={t("logoAlt")}
-              width={56}
-              height={56}
-              className="h-full w-full object-contain"
-              priority
-            />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">{t("title")}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
-          </div>
-        </div>
+        <div className="grid flex-1 items-center gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(24rem,28rem)]">
+          <section className="hidden min-w-0 flex-col gap-5 rounded-lg border border-border bg-muted/35 p-6 lg:order-2 lg:flex">
+            <div className="flex items-start gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-primary">
+                <ShieldCheck className="size-5" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <h1 className="text-2xl font-semibold tracking-normal">{t("title")}</h1>
+                <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+                  {t("subtitle")}
+                </p>
+              </div>
+            </div>
 
-        {/* Auth Card */}
-        <Card className="border-border/60 shadow-lg">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-lg">
-              {otpRequest ? t("otp.verifyTitle") : t("title")}
-            </CardTitle>
-            <CardDescription>
-              {otpRequest
-                ? t("otp.enterCode", { destination: otpRequest.destination_masked })
-                : t("subtitle")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            {notice && (
-              <Alert variant="success" icon={<CheckCircle className="h-4 w-4" />}>
-                <AlertDescription>{notice}</AlertDescription>
-              </Alert>
-            )}
-            {error && (
-              <Alert variant="destructive" icon={<AlertCircle className="h-4 w-4" />}>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            {otpRequest?.debug_otp && (
-              <Alert variant="warning">
-                <AlertDescription>
-                  {t("otp.devCode")}:{" "}
-                  <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">
-                    {otpRequest.debug_otp}
-                  </code>
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {!otpRequest ? (
-              <form className="grid gap-5" onSubmit={handleRequestOTP}>
-                {/* Identifier */}
-                <div className="grid gap-2">
-                  <Label htmlFor="identifier">{t("identifier")}</Label>
-                  <Input
-                    id="identifier"
-                    value={identifier}
-                    onChange={(event) => setIdentifier(event.target.value)}
-                    placeholder={t("identifierPlaceholder")}
-                    autoComplete="username"
-                    required
-                  />
+            <div className="grid gap-3 border-t border-border pt-5">
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
+                  <KeyRound className="size-4" aria-hidden="true" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{t("identifier")}</p>
+                  <p className="text-xs leading-5 text-muted-foreground">{t("otp.request")}</p>
                 </div>
+              </div>
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
+                  <ShieldCheck className="size-4" aria-hidden="true" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{t("otp.verifyTitle")}</p>
+                  <p className="text-xs leading-5 text-muted-foreground">{t("otp.verify")}</p>
+                </div>
+              </div>
+            </div>
+          </section>
 
-                {/* Captcha */}
-                <div className="grid gap-3">
-                  <Label>{t("captcha.label")}</Label>
-                  {captchaImage ? (
-                    <Image
-                      src={captchaImage}
-                      alt="captcha"
-                      width={170}
-                      height={56}
-                      unoptimized
-                      className="h-14 w-[170px] rounded-lg border border-border bg-secondary"
-                    />
-                  ) : (
-                    <div className="h-14 w-[170px] rounded-lg border border-border bg-secondary" />
-                  )}
-                  <div className="flex gap-2">
-                    <Input
-                      value={captchaAnswer}
-                      onChange={(event) => setCaptchaAnswer(event.target.value)}
-                      placeholder={t("captcha.answerPlaceholder")}
-                      autoComplete="off"
-                      required
-                      className="flex-1"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => void refreshCaptcha()}
-                      aria-label={t("captcha.refresh")}
-                    >
-                      <RefreshCw className="h-4 w-4" />
+          <div className="mx-auto w-full max-w-md animate-fade-in lg:order-1">
+            <div className="mb-4 flex flex-col gap-3 lg:hidden">
+              <div className="flex items-center gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-primary">
+                  <ShieldCheck className="size-5" aria-hidden="true" />
+                </span>
+                <div className="min-w-0">
+                  <h1 className="text-xl font-semibold tracking-normal">{t("title")}</h1>
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">{t("subtitle")}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-3 grid grid-cols-2 overflow-hidden rounded-lg border border-border bg-card text-xs font-medium">
+              <div
+                className={
+                  !otpRequest
+                    ? "bg-primary px-3 py-2 text-center text-primary-foreground"
+                    : "px-3 py-2 text-center text-muted-foreground"
+                }
+              >
+                {t("otp.request")}
+              </div>
+              <div
+                className={
+                  otpRequest
+                    ? "bg-primary px-3 py-2 text-center text-primary-foreground"
+                    : "px-3 py-2 text-center text-muted-foreground"
+                }
+              >
+                {t("otp.verifyTitle")}
+              </div>
+            </div>
+
+            <Card className="rounded-lg border-border shadow-sm">
+              <CardHeader className="border-b border-border pb-4">
+                <CardTitle className="text-base">
+                  {otpRequest ? t("otp.verifyTitle") : t("title")}
+                </CardTitle>
+                <CardDescription>
+                  {otpRequest
+                    ? t("otp.enterCode", { destination: otpRequest.destination_masked })
+                    : t("subtitle")}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5 pt-5 md:pt-5">
+                {notice && (
+                  <Alert variant="success" icon={<CheckCircle className="size-4" />}>
+                    <AlertDescription>{notice}</AlertDescription>
+                  </Alert>
+                )}
+                {error && (
+                  <Alert variant="destructive" icon={<AlertCircle className="size-4" />}>
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+
+                {otpRequest?.debug_otp && (
+                  <Alert variant="warning">
+                    <AlertDescription>
+                      {t("otp.devCode")}:{" "}
+                      <code
+                        dir="ltr"
+                        className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs"
+                      >
+                        {otpRequest.debug_otp}
+                      </code>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {!otpRequest ? (
+                  <form className="grid gap-5" onSubmit={handleRequestOTP}>
+                    <div className="grid gap-2">
+                      <Label htmlFor="identifier">{t("identifier")}</Label>
+                      <Input
+                        id="identifier"
+                        value={identifier}
+                        onChange={(event) => setIdentifier(event.target.value)}
+                        placeholder={t("identifierPlaceholder")}
+                        autoComplete="username"
+                        required
+                        className="text-start"
+                      />
+                    </div>
+
+                    <div className="grid gap-3">
+                      <Label htmlFor="captchaAnswer">{t("captcha.label")}</Label>
+                      <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/35 p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          {captchaImage ? (
+                            <Image
+                              src={captchaImage}
+                              alt={t("captcha.label")}
+                              width={170}
+                              height={56}
+                              unoptimized
+                              className="h-14 w-[170px] rounded-md border border-border bg-card object-contain"
+                            />
+                          ) : (
+                            <div className="h-14 w-[170px] rounded-md border border-border bg-card" />
+                          )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => void refreshCaptcha()}
+                            aria-label={t("captcha.refresh")}
+                          >
+                            <RefreshCw className="size-4" aria-hidden="true" />
+                          </Button>
+                        </div>
+                        <Input
+                          id="captchaAnswer"
+                          dir="ltr"
+                          value={captchaAnswer}
+                          onChange={(event) => setCaptchaAnswer(event.target.value)}
+                          placeholder={t("captcha.answerPlaceholder")}
+                          autoComplete="off"
+                          required
+                          className="text-start"
+                        />
+                      </div>
+                    </div>
+
+                    <Button type="submit" loading={loading} className="w-full">
+                      {loading ? t("otp.requesting") : t("otp.request")}
                     </Button>
-                  </div>
-                </div>
+                  </form>
+                ) : (
+                  <form className="grid gap-5" onSubmit={handleVerifyOTP}>
+                    <div className="grid gap-2">
+                      <Label htmlFor="otpCode">{t("otp.code")}</Label>
+                      <Input
+                        id="otpCode"
+                        dir="ltr"
+                        value={otpCode}
+                        onChange={(event) => setOTPCode(event.target.value)}
+                        placeholder={t("otp.codePlaceholder")}
+                        autoComplete="one-time-code"
+                        required
+                        maxLength={6}
+                        inputMode="numeric"
+                        className="font-mono text-start tracking-normal"
+                      />
+                    </div>
 
-                {/* Submit */}
-                <Button type="submit" loading={loading} className="w-full">
-                  {loading ? t("otp.requesting") : t("otp.request")}
-                </Button>
-              </form>
-            ) : (
-              <form className="grid gap-5" onSubmit={handleVerifyOTP}>
-                {/* OTP Code */}
-                <div className="grid gap-2">
-                  <Label htmlFor="otpCode">{t("otp.code")}</Label>
-                  <Input
-                    id="otpCode"
-                    value={otpCode}
-                    onChange={(event) => setOTPCode(event.target.value)}
-                    placeholder={t("otp.codePlaceholder")}
-                    autoComplete="one-time-code"
-                    required
-                    maxLength={6}
-                    inputMode="numeric"
-                  />
-                </div>
-
-                {/* Actions */}
-                <div className="flex flex-col-reverse gap-2 sm:flex-row">
-                  <Button type="submit" loading={loading} className="flex-1">
-                    {loading ? t("otp.verifying") : t("otp.verify")}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setOTPRequest(null);
-                      setOTPCode("");
-                      setNotice(null);
-                      void refreshCaptcha();
-                    }}
-                  >
-                    {t("otp.back")}
-                  </Button>
-                </div>
-              </form>
-            )}
-          </CardContent>
-        </Card>
+                    <div className="flex flex-col-reverse gap-2 sm:flex-row">
+                      <Button type="submit" loading={loading} className="flex-1">
+                        {loading ? t("otp.verifying") : t("otp.verify")}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setOTPRequest(null);
+                          setOTPCode("");
+                          setNotice(null);
+                          void refreshCaptcha();
+                        }}
+                      >
+                        {t("otp.back")}
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </main>
   );
