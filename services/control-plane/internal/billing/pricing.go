@@ -3,6 +3,8 @@ package billing
 import (
 	"fmt"
 	"strings"
+
+	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 )
 
 // ModelPricing defines pricing for a specific model
@@ -288,7 +290,25 @@ func modelPrice(model string) priceInfo {
 
 // estimatePromptTokens estimates prompt tokens from request (legacy function for service.go)
 func estimatePromptTokens(req interface{}) int {
-	// This is a simple estimate
-	// In production, use actual token counting
-	return 100 // placeholder estimate
+	switch v := req.(type) {
+	case contractsopenai.ChatCompletionRequest:
+		textTokens := 0
+		imageTokens := 0
+		for _, msg := range v.Messages {
+			textTokens += EstimateTokens(contractsopenai.ChatContentText(msg.Content))
+			imageTokens += contractsopenai.ChatContentImageCount(msg.Content) * 1024
+		}
+		if textTokens > 0 || imageTokens > 0 {
+			if textTokens < 100 {
+				textTokens = 100
+			}
+			return textTokens + imageTokens
+		}
+	case *contractsopenai.ChatCompletionRequest:
+		if v != nil {
+			return estimatePromptTokens(*v)
+		}
+	}
+
+	return 100
 }

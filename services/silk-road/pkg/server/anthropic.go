@@ -35,8 +35,15 @@ type anthropicMessage struct {
 }
 
 type anthropicContentBlock struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
+	Type   string                `json:"type"`
+	Text   string                `json:"text,omitempty"`
+	Source *anthropicImageSource `json:"source,omitempty"`
+}
+
+type anthropicImageSource struct {
+	Type      string `json:"type"`
+	MediaType string `json:"media_type"`
+	Data      string `json:"data"`
 }
 
 type anthropicResponse struct {
@@ -82,7 +89,10 @@ func (a *anthropicAdapter) Dispatch(ctx context.Context, client *http.Client, pa
 		return nil, fmt.Errorf("decode openai request: %w", err)
 	}
 
-	anthropicReq := convertToAnthropicRequest(openAIReq)
+	anthropicReq, err := convertToAnthropicRequest(openAIReq)
+	if err != nil {
+		return nil, fmt.Errorf("convert anthropic request: %w", err)
+	}
 	body, err := json.Marshal(anthropicReq)
 	if err != nil {
 		return nil, fmt.Errorf("encode anthropic request: %w", err)
@@ -256,7 +266,7 @@ func anthropicVersion(version string) string {
 	return strings.TrimSpace(version)
 }
 
-func convertToAnthropicRequest(req contractsopenai.ChatCompletionRequest) anthropicRequest {
+func convertToAnthropicRequest(req contractsopenai.ChatCompletionRequest) (anthropicRequest, error) {
 	anthReq := anthropicRequest{
 		Model:       canonicalAnthropicModel(req.Model),
 		MaxTokens:   4096,
@@ -266,19 +276,22 @@ func convertToAnthropicRequest(req contractsopenai.ChatCompletionRequest) anthro
 	}
 
 	for _, msg := range req.Messages {
+		blocks, err := anthropicBlocksFromContent(msg.Content)
+		if err != nil {
+			return anthropicRequest{}, err
+		}
 		if msg.Role == "system" {
-			anthReq.System = append(anthReq.System, anthropicContentBlock{
-				Type: "text",
-				Text: msg.Content,
-			})
+			for _, block := range blocks {
+				if block.Type != "text" {
+					return anthropicRequest{}, fmt.Errorf("system messages only support text content")
+				}
+				anthReq.System = append(anthReq.System, block)
+			}
 			continue
 		}
 		anthReq.Messages = append(anthReq.Messages, anthropicMessage{
-			Role: msg.Role,
-			Content: []anthropicContentBlock{{
-				Type: "text",
-				Text: msg.Content,
-			}},
+			Role:    msg.Role,
+			Content: blocks,
 		})
 	}
 
@@ -286,7 +299,45 @@ func convertToAnthropicRequest(req contractsopenai.ChatCompletionRequest) anthro
 		anthReq.MaxTokens = *req.MaxTokens
 	}
 
-	return anthReq
+	return anthReq, nil
+}
+
+func anthropicBlocksFromContent(content interface{}) ([]anthropicContentBlock, error) {
+	parts, ok, err := contractsopenai.ChatContentParts(content)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		text := contractsopenai.ChatContentText(content)
+		if text == "" {
+			text = " "
+		}
+		return []anthropicContentBlock{{Type: "text", Text: text}}, nil
+	}
+	blocks := make([]anthropicContentBlock, 0, len(parts))
+	for _, part := range parts {
+		switch part.Type {
+		case "text":
+			blocks = append(blocks, anthropicContentBlock{Type: "text", Text: part.Text})
+		case "image_url":
+			mediaType, data, err := contractsopenai.ParseImageDataURL(part.ImageURL.URL)
+			if err != nil {
+				return nil, err
+			}
+			blocks = append(blocks, anthropicContentBlock{
+				Type: "image",
+				Source: &anthropicImageSource{
+					Type:      "base64",
+					MediaType: mediaType,
+					Data:      data,
+				},
+			})
+		}
+	}
+	if len(blocks) == 0 {
+		blocks = append(blocks, anthropicContentBlock{Type: "text", Text: " "})
+	}
+	return blocks, nil
 }
 
 func canonicalAnthropicModel(model string) string {

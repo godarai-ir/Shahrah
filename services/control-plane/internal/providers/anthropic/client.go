@@ -252,14 +252,14 @@ func convertToAnthropicRequest(req contractsopenai.ChatCompletionRequest) anthro
 		if msg.Role == "system" {
 			anthReq.System = append(anthReq.System, anthropicContentBlock{
 				Type: "text",
-				Text: msg.Content,
+				Text: contractsopenai.ChatContentText(msg.Content),
 			})
 		} else {
 			anthReq.Messages = append(anthReq.Messages, anthropicMessage{
 				Role: msg.Role,
 				Content: []anthropicContentBlock{{
 					Type: "text",
-					Text: msg.Content,
+					Text: contractsopenai.ChatContentText(msg.Content),
 				}},
 			})
 		}

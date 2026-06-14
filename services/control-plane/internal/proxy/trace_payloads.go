@@ -14,7 +14,7 @@ func buildTraceChatRequestPayload(req contractsopenai.ChatCompletionRequest) map
 	for _, msg := range req.Messages {
 		messages = append(messages, map[string]interface{}{
 			"role":    msg.Role,
-			"content": msg.Content,
+			"content": contractsopenai.RedactChatContent(msg.Content),
 			"name":    msg.Name,
 		})
 	}
@@ -45,7 +45,7 @@ func buildTraceChatResponsePayload(resp contractsopenai.ChatCompletionResponse) 
 		content := ""
 		role := ""
 		if choice.Message != nil {
-			content = choice.Message.Content
+			content = contractsopenai.ChatContentText(choice.Message.Content)
 			role = choice.Message.Role
 		}
 		choices = append(choices, map[string]interface{}{
@@ -95,7 +95,7 @@ func buildTraceCompletionResponsePayload(resp contractsopenai.CompletionResponse
 func buildTraceResponseRequestPayload(req contractsopenai.ResponseRequest) map[string]interface{} {
 	return map[string]interface{}{
 		"model":                req.Model,
-		"input":                req.Input,
+		"input":                redactTraceValue(req.Input),
 		"instructions":         req.Instructions,
 		"max_output_tokens":    req.MaxOutputTokens,
 		"temperature":          req.Temperature,
@@ -105,6 +105,37 @@ func buildTraceResponseRequestPayload(req contractsopenai.ResponseRequest) map[s
 		"previous_response_id": req.PreviousResponseID,
 		"stream":               req.Stream,
 		"user":                 req.User,
+	}
+}
+
+func redactTraceValue(value interface{}) interface{} {
+	switch v := value.(type) {
+	case string:
+		return contractsopenai.RedactDataURL(v)
+	case []interface{}:
+		out := make([]interface{}, 0, len(v))
+		for _, item := range v {
+			out = append(out, redactTraceValue(item))
+		}
+		return out
+	case map[string]interface{}:
+		out := make(map[string]interface{}, len(v))
+		for key, item := range v {
+			if strings.EqualFold(key, "image_url") {
+				out[key] = redactTraceValue(item)
+				continue
+			}
+			if strings.EqualFold(key, "url") {
+				if s, ok := item.(string); ok {
+					out[key] = contractsopenai.RedactDataURL(s)
+					continue
+				}
+			}
+			out[key] = redactTraceValue(item)
+		}
+		return out
+	default:
+		return value
 	}
 }
 

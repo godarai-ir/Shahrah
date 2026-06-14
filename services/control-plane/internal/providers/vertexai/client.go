@@ -234,7 +234,7 @@ func convertToVertexRequest(req contractsopenai.ChatCompletionRequest) vertexReq
 		if role == "system" {
 			role = "system"
 		}
-		content += fmt.Sprintf("%s: %s\n", role, msg.Content)
+		content += fmt.Sprintf("%s: %s\n", role, contractsopenai.ChatContentText(msg.Content))
 	}
 
 	vertexReq := vertexRequest{

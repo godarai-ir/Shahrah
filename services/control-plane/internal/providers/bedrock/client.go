@@ -243,12 +243,12 @@ func convertToBedrockRequest(req contractsopenai.ChatCompletionRequest, model st
 	for _, msg := range req.Messages {
 		if msg.Role == "system" {
 			bedrockReq.System = append(bedrockReq.System, bedrockSystemMessage{
-				Text: msg.Content,
+				Text: contractsopenai.ChatContentText(msg.Content),
 			})
 		} else {
 			bedrockReq.Messages = append(bedrockReq.Messages, bedrockMessage{
 				Role:    msg.Role,
-				Content: msg.Content,
+				Content: contractsopenai.ChatContentText(msg.Content),
 			})
 		}
 	}

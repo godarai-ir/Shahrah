@@ -225,7 +225,7 @@ func (h *CompletionsHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCo
 	for _, choice := range chatResp.Choices {
 		if choice.Message != nil {
 			choices = append(choices, contractsopenai.CompletionChoice{
-				Text:         choice.Message.Content,
+				Text:         contractsopenai.ChatContentText(choice.Message.Content),
 				Index:        choice.Index,
 				FinishReason: choice.FinishReason,
 			})
@@ -418,7 +418,7 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 					var text string
 					for _, choice := range chatChunk.Choices {
 						if choice.Delta != nil {
-							text = choice.Delta.Content
+							text = contractsopenai.ChatContentText(choice.Delta.Content)
 							break
 						}
 					}

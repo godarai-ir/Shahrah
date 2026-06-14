@@ -209,6 +209,116 @@ func TestDispatchUsesAnthropicAdapterForSync(t *testing.T) {
 	}
 }
 
+func TestDispatchAnthropicAdapterConvertsImageDataURL(t *testing.T) {
+	t.Parallel()
+
+	var body map[string]any
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"id":"msg_123",
+			"type":"message",
+			"role":"assistant",
+			"model":"claude-3-haiku-20240307",
+			"content":[{"type":"text","text":"small icon"}],
+			"usage":{"input_tokens":12,"output_tokens":2},
+			"stop_reason":"end_turn"
+		}`))
+	}))
+	defer upstream.Close()
+
+	handler := NewHandler(nil)
+	payload := platform.TunnelRequest{
+		Deployment: platform.Deployment{
+			Provider: "anthropic",
+			APIBase:  upstream.URL,
+			APIKey:   "sk-ant-test",
+		},
+		Body: []byte(`{"model":"claude-3-haiku-20240307","messages":[{"role":"user","content":[{"type":"text","text":"describe"},{"type":"image_url","image_url":{"url":"data:image/png;base64,AAAA"}}]}]}`),
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(raw)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	messages := body["messages"].([]any)
+	content := messages[0].(map[string]any)["content"].([]any)
+	image := content[1].(map[string]any)
+	source := image["source"].(map[string]any)
+	if image["type"] != "image" || source["type"] != "base64" || source["media_type"] != "image/png" || source["data"] != "AAAA" {
+		t.Fatalf("unexpected anthropic image block: %#v", image)
+	}
+}
+
+func TestDispatchGeminiAdapterConvertsImageDataURL(t *testing.T) {
+	t.Parallel()
+
+	var gotPath string
+	var body map[string]any
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		defer r.Body.Close()
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"candidates":[{"content":{"role":"model","parts":[{"text":"small icon"}]},"finishReason":"STOP"}],
+			"usageMetadata":{"promptTokenCount":12,"candidatesTokenCount":2,"totalTokenCount":14}
+		}`))
+	}))
+	defer upstream.Close()
+
+	handler := NewHandler(nil)
+	payload := platform.TunnelRequest{
+		Deployment: platform.Deployment{
+			Provider: "gemini",
+			APIBase:  upstream.URL,
+			APIKey:   "gemini-key",
+		},
+		Body: []byte(`{"model":"gemini/gemini-1.5-flash","messages":[{"role":"user","content":[{"type":"text","text":"describe"},{"type":"image_url","image_url":{"url":"data:image/png;base64,AAAA"}}]}]}`),
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(raw)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	if gotPath != "/models/gemini-1.5-flash:generateContent" {
+		t.Fatalf("unexpected gemini path: %q", gotPath)
+	}
+	contents := body["contents"].([]any)
+	parts := contents[0].(map[string]any)["parts"].([]any)
+	inlineData := parts[1].(map[string]any)["inline_data"].(map[string]any)
+	if inlineData["mime_type"] != "image/png" || inlineData["data"] != "AAAA" {
+		t.Fatalf("unexpected gemini inline data: %#v", inlineData)
+	}
+	if !strings.Contains(rec.Body.String(), `"object":"chat.completion"`) {
+		t.Fatalf("unexpected response: %s", rec.Body.String())
+	}
+}
+
 func TestDispatchUsesAnthropicAdapterForStream(t *testing.T) {
 	t.Parallel()
 

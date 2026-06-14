@@ -125,6 +125,9 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		if msg.Role == "" {
 			return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("message[%d].role is required", i), "invalid_request_error")
 		}
+		if err := contractsopenai.ValidateChatMessageContent(msg.Content); err != nil {
+			return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("message[%d].content: %v", i, err), "invalid_request_error")
+		}
 	}
 	if req.Temperature != nil && (*req.Temperature < 0 || *req.Temperature > 2) {
 		return writeAPIError(c, fiber.StatusBadRequest, "temperature must be between 0 and 2", "invalid_request_error")
@@ -259,6 +262,12 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	if deployment == nil {
 		emitDenyCounter(h.logger, denyReasonUnknownModel, requestedModel, currentTenant.ID)
 		return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", requestedModel), "routing_error")
+	}
+	if chatRequestHasImage(req) && !supportsChatImageProvider(deployment.Provider) {
+		return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support image input through Shahrah chat completions", deployment.Provider), "invalid_request_error")
+	}
+	if err := validateProviderImageInput(req, deployment.Provider); err != nil {
+		return writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
 	}
 	if !isVirtual {
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": deployment.Provider, "deployment_id": deployment.ID})
@@ -580,4 +589,48 @@ func setRateLimitHeaders(c *fiber.Ctx, result *cache.RateLimitResult) {
 	c.Set("X-RateLimit-Limit", fmt.Sprintf("%d", result.Limit))
 	c.Set("X-RateLimit-Remaining", fmt.Sprintf("%d", remaining))
 	c.Set("X-RateLimit-Reset", fmt.Sprintf("%d", result.ResetAt.Unix()))
+}
+
+func chatRequestHasImage(req contractsopenai.ChatCompletionRequest) bool {
+	for _, msg := range req.Messages {
+		if contractsopenai.ChatContentHasImage(msg.Content) {
+			return true
+		}
+	}
+	return false
+}
+
+func supportsChatImageProvider(provider string) bool {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "anthropic", "gemini":
+		return true
+	default:
+		return false
+	}
+}
+
+func validateProviderImageInput(req contractsopenai.ChatCompletionRequest, provider string) error {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "anthropic", "gemini":
+	default:
+		return nil
+	}
+	for msgIndex, msg := range req.Messages {
+		parts, ok, err := contractsopenai.ChatContentParts(msg.Content)
+		if err != nil {
+			return fmt.Errorf("message[%d].content: %v", msgIndex, err)
+		}
+		if !ok {
+			continue
+		}
+		for partIndex, part := range parts {
+			if part.Type != "image_url" {
+				continue
+			}
+			if _, _, err := contractsopenai.ParseImageDataURL(part.ImageURL.URL); err != nil {
+				return fmt.Errorf("message[%d].content part[%d].image_url.url: %v", msgIndex, partIndex, err)
+			}
+		}
+	}
+	return nil
 }

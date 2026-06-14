@@ -244,7 +244,7 @@ func convertToGeminiRequest(req contractsopenai.ChatCompletionRequest, model str
 
 		geminiReq.Contents = append(geminiReq.Contents, geminiContent{
 			Role:  role,
-			Parts: []geminiPart{{Text: msg.Content}},
+			Parts: []geminiPart{{Text: contractsopenai.ChatContentText(msg.Content)}},
 		})
 	}
 

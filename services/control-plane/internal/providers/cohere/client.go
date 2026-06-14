@@ -226,17 +226,17 @@ func convertToCohereRequest(req contractsopenai.ChatCompletionRequest) cohereReq
 		if msg.Role == "user" {
 			if i == len(req.Messages)-1 {
 				// Last user message is the current prompt
-				message = msg.Content
+				message = contractsopenai.ChatContentText(msg.Content)
 			} else {
 				chatHistory = append(chatHistory, cohereMessage{
 					Role:    "User",
-					Message: msg.Content,
+					Message: contractsopenai.ChatContentText(msg.Content),
 				})
 			}
 		} else if msg.Role == "assistant" {
 			chatHistory = append(chatHistory, cohereMessage{
 				Role:    "Chatbot",
-				Message: msg.Content,
+				Message: contractsopenai.ChatContentText(msg.Content),
 			})
 		}
 	}

@@ -1,6 +1,10 @@
 package openai
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+	"strings"
+)
 
 // ChatCompletionRequest mirrors OpenAI's chat completion request format.
 type ChatCompletionRequest struct {
@@ -17,9 +21,239 @@ type ChatCompletionRequest struct {
 
 // ChatMessage represents a single message in a chat completion request.
 type ChatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content,omitempty"`
-	Name    string `json:"name,omitempty"`
+	Role    string      `json:"role"`
+	Content interface{} `json:"content,omitempty"`
+	Name    string      `json:"name,omitempty"`
+}
+
+// ChatContentPart represents one OpenAI-compatible multimodal message part.
+type ChatContentPart struct {
+	Type     string        `json:"type"`
+	Text     string        `json:"text,omitempty"`
+	ImageURL *ChatImageURL `json:"image_url,omitempty"`
+}
+
+// ChatImageURL contains an image URL or data URL for multimodal requests.
+type ChatImageURL struct {
+	URL    string `json:"url"`
+	Detail string `json:"detail,omitempty"`
+}
+
+// ValidateChatMessageContent checks the supported Shahrah chat content contract.
+func ValidateChatMessageContent(content interface{}) error {
+	_, _, err := ChatContentParts(content)
+	return err
+}
+
+// ChatContentText extracts text from either string content or text parts.
+func ChatContentText(content interface{}) string {
+	switch v := content.(type) {
+	case nil:
+		return ""
+	case string:
+		return strings.TrimSpace(v)
+	case []ChatContentPart:
+		parts := make([]string, 0, len(v))
+		for _, part := range v {
+			if part.Type == "text" && strings.TrimSpace(part.Text) != "" {
+				parts = append(parts, strings.TrimSpace(part.Text))
+			}
+		}
+		return strings.Join(parts, "\n")
+	default:
+		parts, ok, err := ChatContentParts(v)
+		if !ok || err != nil {
+			return ""
+		}
+		texts := make([]string, 0, len(parts))
+		for _, part := range parts {
+			if part.Type == "text" && strings.TrimSpace(part.Text) != "" {
+				texts = append(texts, strings.TrimSpace(part.Text))
+			}
+		}
+		return strings.Join(texts, "\n")
+	}
+}
+
+// ChatContentImageCount returns the number of image_url parts in content.
+func ChatContentImageCount(content interface{}) int {
+	parts, ok, err := ChatContentParts(content)
+	if !ok || err != nil {
+		return 0
+	}
+	count := 0
+	for _, part := range parts {
+		if part.Type == "image_url" {
+			count++
+		}
+	}
+	return count
+}
+
+// ChatContentHasImage reports whether content contains any image_url part.
+func ChatContentHasImage(content interface{}) bool {
+	return ChatContentImageCount(content) > 0
+}
+
+// ChatContentParts normalizes array content parts. The bool is false for plain string content.
+func ChatContentParts(content interface{}) ([]ChatContentPart, bool, error) {
+	switch v := content.(type) {
+	case nil:
+		return nil, false, nil
+	case string:
+		return nil, false, nil
+	case []ChatContentPart:
+		return validateChatContentParts(v)
+	case []interface{}:
+		parts := make([]ChatContentPart, 0, len(v))
+		for i, raw := range v {
+			part, err := chatContentPartFromValue(raw)
+			if err != nil {
+				return nil, true, fmt.Errorf("content part[%d]: %w", i, err)
+			}
+			parts = append(parts, part)
+		}
+		return validateChatContentParts(parts)
+	default:
+		return nil, false, fmt.Errorf("content must be a string or an array of content parts")
+	}
+}
+
+func validateChatContentParts(parts []ChatContentPart) ([]ChatContentPart, bool, error) {
+	for i, part := range parts {
+		part.Type = strings.TrimSpace(part.Type)
+		switch part.Type {
+		case "text":
+			if strings.TrimSpace(part.Text) == "" {
+				return nil, true, fmt.Errorf("content part[%d].text is required", i)
+			}
+		case "image_url":
+			if part.ImageURL == nil || strings.TrimSpace(part.ImageURL.URL) == "" {
+				return nil, true, fmt.Errorf("content part[%d].image_url.url is required", i)
+			}
+		default:
+			return nil, true, fmt.Errorf("content part[%d].type %q is not supported", i, part.Type)
+		}
+		parts[i] = part
+	}
+	return parts, true, nil
+}
+
+func chatContentPartFromValue(raw interface{}) (ChatContentPart, error) {
+	if part, ok := raw.(ChatContentPart); ok {
+		return part, nil
+	}
+	m, ok := raw.(map[string]interface{})
+	if !ok {
+		return ChatContentPart{}, fmt.Errorf("must be an object")
+	}
+	partType, _ := m["type"].(string)
+	part := ChatContentPart{Type: strings.TrimSpace(partType)}
+	switch part.Type {
+	case "text":
+		if text, ok := m["text"].(string); ok {
+			part.Text = text
+		}
+	case "image_url":
+		imageURL, ok := m["image_url"].(map[string]interface{})
+		if !ok {
+			return ChatContentPart{}, fmt.Errorf("image_url must be an object")
+		}
+		part.ImageURL = &ChatImageURL{}
+		if url, ok := imageURL["url"].(string); ok {
+			part.ImageURL.URL = url
+		}
+		if detail, ok := imageURL["detail"].(string); ok {
+			part.ImageURL.Detail = detail
+		}
+	}
+	return part, nil
+}
+
+// RedactChatContent returns trace-safe content with image data URLs redacted.
+func RedactChatContent(content interface{}) interface{} {
+	switch v := content.(type) {
+	case string:
+		return RedactDataURL(v)
+	case []ChatContentPart:
+		return redactChatContentParts(v)
+	default:
+		parts, ok, err := ChatContentParts(v)
+		if ok && err == nil {
+			return redactChatContentParts(parts)
+		}
+		return content
+	}
+}
+
+func redactChatContentParts(parts []ChatContentPart) []map[string]interface{} {
+	out := make([]map[string]interface{}, 0, len(parts))
+	for _, part := range parts {
+		item := map[string]interface{}{"type": part.Type}
+		if part.Type == "text" {
+			item["text"] = part.Text
+		}
+		if part.Type == "image_url" && part.ImageURL != nil {
+			imageURL := map[string]interface{}{"url": RedactDataURL(part.ImageURL.URL)}
+			if part.ImageURL.Detail != "" {
+				imageURL["detail"] = part.ImageURL.Detail
+			}
+			item["image_url"] = imageURL
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
+// RedactDataURL removes inline base64 payloads from data URLs.
+func RedactDataURL(value string) string {
+	trimmed := strings.TrimSpace(value)
+	lower := strings.ToLower(trimmed)
+	if !strings.HasPrefix(lower, "data:") {
+		return value
+	}
+	comma := strings.Index(trimmed, ",")
+	if comma < 0 {
+		return "data:[redacted]"
+	}
+	prefix := trimmed[:comma]
+	if strings.Contains(strings.ToLower(prefix), ";base64") {
+		return prefix + ",[redacted]"
+	}
+	return "data:[redacted]"
+}
+
+// ParseImageDataURL extracts media type and base64 data from an image data URL.
+func ParseImageDataURL(value string) (string, string, error) {
+	trimmed := strings.TrimSpace(value)
+	if !strings.HasPrefix(strings.ToLower(trimmed), "data:") {
+		return "", "", fmt.Errorf("image_url.url must be a data URL")
+	}
+	comma := strings.Index(trimmed, ",")
+	if comma < 0 {
+		return "", "", fmt.Errorf("data URL is missing payload")
+	}
+	meta := trimmed[len("data:"):comma]
+	data := strings.TrimSpace(trimmed[comma+1:])
+	metaParts := strings.Split(meta, ";")
+	mediaType := strings.TrimSpace(metaParts[0])
+	if mediaType == "" {
+		mediaType = "application/octet-stream"
+	}
+	base64Encoded := false
+	for _, part := range metaParts[1:] {
+		if strings.EqualFold(strings.TrimSpace(part), "base64") {
+			base64Encoded = true
+			break
+		}
+	}
+	if !base64Encoded {
+		return "", "", fmt.Errorf("data URL must be base64 encoded")
+	}
+	if data == "" {
+		return "", "", fmt.Errorf("data URL payload is empty")
+	}
+	return mediaType, data, nil
 }
 
 // ToolDefinition represents a function/tool definition.
