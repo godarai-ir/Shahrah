@@ -9,17 +9,18 @@ import { basename, join } from 'node:path';
 type StringRecord = Record<string, unknown>;
 
 type ModelMode =
-  | 'completion'
-  | 'chat'
-  | 'embedding'
   | 'audio_transcription'
+  | 'audio_translation'
+  | 'chat'
+  | 'completion'
+  | 'embedding'
   | 'image'
-  | 'video'
-  | 'rerank'
-  | 'text_to_speech'
-  | 'realtime'
-  | 'responses'
   | 'moderation'
+  | 'realtime'
+  | 'rerank'
+  | 'responses'
+  | 'text_to_speech'
+  | 'video'
   | 'unknown';
 
 type ImportModelRow = {
@@ -28,7 +29,7 @@ type ImportModelRow = {
   displayName: string;
   status: 'active' | 'preview' | 'deprecated' | 'unavailable';
   lifecycleStatus: 'draft' | 'review' | 'published' | 'deprecated' | 'archived';
-  mode: ModelMode;
+  mode: ModelMode[];
   shortDescription?: string;
   contextWindow?: number;
   maxOutputTokens?: number;
@@ -73,6 +74,54 @@ const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString }),
 });
 
+const knownModes = new Set<ModelMode>([
+  'audio_transcription',
+  'audio_translation',
+  'chat',
+  'completion',
+  'embedding',
+  'image',
+  'moderation',
+  'realtime',
+  'rerank',
+  'responses',
+  'text_to_speech',
+  'video',
+  'unknown',
+]);
+
+const supportedInputModalities = new Set([
+  'audio',
+  'code',
+  'doc',
+  'image',
+  'pdf',
+  'text',
+  'video',
+]);
+
+const supportedOutputModalities = new Set([
+  'audio',
+  'code',
+  'embedding',
+  'image',
+  'text',
+  'video',
+]);
+
+const supportedCapabilities = new Set([
+  'assistant_prefill',
+  'cache_control',
+  'code_execution',
+  'function_calling',
+  'json_output',
+  'parallel_function_calling',
+  'prompt_caching',
+  'structured_output',
+  'system_messages',
+  'tool_choice',
+]);
+
 function getArgValue(flag: string): string | undefined {
   const idx = process.argv.findIndex((x) => x === flag);
   if (idx < 0) return undefined;
@@ -89,6 +138,15 @@ function slugify(input: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
+}
+
+function normalizeTaxonomyValue(input: string): string {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_')
+    .replace(/[^a-z0-9_]+/g, '')
+    .replace(/^_+|_+$/g, '');
 }
 
 function titleCaseFromSlug(input: string): string {
@@ -166,6 +224,10 @@ function normalizeModeValue(input: unknown): ModelMode {
     case 'speech_to_text':
     case 'stt':
       return 'audio_transcription';
+    case 'audio_translation':
+    case 'translation':
+    case 'speech_translation':
+      return 'audio_translation';
     case 'image':
     case 'image_generation':
     case 'text_to_image':
@@ -199,6 +261,27 @@ function normalizeModeValue(input: unknown): ModelMode {
   }
 }
 
+function normalizeSupportedModes(input: unknown): ModelMode[] {
+  const modes = Array.from(
+    new Set(
+      asStringArray(input)
+        .map((value) => normalizeModeValue(value))
+        .filter((mode) => knownModes.has(mode) && mode !== 'unknown'),
+    ),
+  );
+  return modes.length > 0 ? modes : ['unknown'];
+}
+
+function filterSupportedValues(input: string[], allowed: Set<string>): string[] {
+  return Array.from(
+    new Set(
+      input
+        .map(normalizeTaxonomyValue)
+        .filter((value) => allowed.has(value)),
+    ),
+  );
+}
+
 function mapLifecycle(status: 'active' | 'preview' | 'deprecated' | 'unavailable') {
   if (status === 'deprecated') return 'deprecated';
   if (status === 'unavailable') return 'archived';
@@ -225,16 +308,14 @@ function normalizeRegion(raw: string): string {
 }
 
 function inferOutputModalities(
-  mode: ModelMode,
-  supportedModes: ModelMode[],
+  modes: ModelMode[],
   existingOutputModalities: string[],
 ): string[] {
   if (existingOutputModalities.length > 0) return existingOutputModalities;
 
   const inferred = new Set<string>();
-  const signals = [mode, ...supportedModes];
 
-  for (const signal of signals) {
+  for (const signal of modes) {
     switch (signal) {
       case 'chat':
       case 'completion':
@@ -255,6 +336,7 @@ function inferOutputModalities(
         inferred.add('audio');
         break;
       case 'audio_transcription':
+      case 'audio_translation':
       case 'rerank':
       case 'moderation':
       case 'realtime':
@@ -310,9 +392,18 @@ async function parseProviderDir(providerDir: string): Promise<ImportProviderBatc
     const removeParams = asStringArray(doc['removeParams']).map(slugify);
     for (const rm of removeParams) paramsCombined.delete(rm);
 
-    const features = asStringArray(doc['features']).map(slugify);
-    const inputModalities = asStringArray(modalities?.['input']).map(slugify);
-    const outputModalitiesRaw = asStringArray(modalities?.['output']).map(slugify);
+    const features = filterSupportedValues(
+      asStringArray(doc['features']),
+      supportedCapabilities,
+    );
+    const inputModalities = filterSupportedValues(
+      asStringArray(modalities?.['input']),
+      supportedInputModalities,
+    );
+    const outputModalitiesRaw = filterSupportedValues(
+      asStringArray(modalities?.['output']),
+      supportedOutputModalities,
+    );
     const sources = asStringArray(doc['sources']);
 
     const costs = Array.isArray(doc['costs']) ? doc['costs'] : [];
@@ -363,15 +454,8 @@ async function parseProviderDir(providerDir: string): Promise<ImportProviderBatc
         )
       : false;
 
-    const supportedModes = Array.from(
-      new Set(asStringArray(doc['supportedModes']).map((value) => normalizeModeValue(value))),
-    );
-    const mode = normalizeModeValue(doc['mode']);
-    const outputModalities = inferOutputModalities(
-      mode,
-      supportedModes,
-      outputModalitiesRaw,
-    );
+    const mode = normalizeSupportedModes(doc['supportedModes']);
+    const outputModalities = inferOutputModalities(mode, outputModalitiesRaw);
 
     models.push({
       canonicalId: `${providerSlug}/${modelId}`,
@@ -436,7 +520,7 @@ async function ensureCapability(slug: string): Promise<string> {
 async function ensureModality(slug: string): Promise<string> {
   const row = await prisma.modality.upsert({
     where: { slug },
-    create: { slug, name: titleCaseFromSlug(slug), directionType: 'both' },
+    create: { slug, name: titleCaseFromSlug(slug) },
     update: {},
   });
   return row.id;

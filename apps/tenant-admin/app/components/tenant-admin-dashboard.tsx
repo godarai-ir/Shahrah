@@ -1,6 +1,19 @@
 ﻿"use client";
 
-import { FormEvent, useCallback, useMemo, useState } from "react";
+import { type ComponentProps, FormEvent, useCallback, useMemo, useState } from "react";
+import {
+  Activity,
+  Bot,
+  Check,
+  Copy,
+  KeyRound,
+  type LucideIcon,
+  Plus,
+  RefreshCcw,
+  Server,
+  ShieldCheck,
+  WalletCards,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -15,7 +28,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import {
   Table,
@@ -73,6 +85,9 @@ type WalletTransaction = {
 type KeyListResponse = {
   data?: TenantKey[];
 };
+type ModelListResponse = {
+  data?: TenantModel[];
+};
 
 type AccessPrincipalResponse = {
   data?: PrincipalSearchOption[];
@@ -87,6 +102,18 @@ type WalletTransactionListResponse = {
 type Banner = {
   kind: "success" | "error";
   message: string;
+};
+
+type DashboardLabels = {
+  copied: string;
+  copyValue: string;
+  keyType: string;
+  virtualKey: string;
+  serviceAccount: string;
+  teamID: string;
+  organizationID: string;
+  scope: string;
+  aliases: string;
 };
 
 type TenantAdminDashboardProps = {
@@ -113,8 +140,10 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
   const principalsT = useTranslations("providerAccounts");
   const principalsUx = useTranslations("providerAccounts.ux");
   const principalSelectorLabels = buildDashboardPrincipalSelectorLabels(principalsT, principalsUx);
+  const labels = buildDashboardLabels(t);
 
   const [keys, setKeys] = useState<TenantKey[]>(props.initialKeys);
+  const [models, setModels] = useState<TenantModel[]>(props.initialModels);
   const [wallet, setWallet] = useState<Wallet | null>(props.initialWallet);
   const [transactions, setTransactions] = useState<WalletTransaction[]>(props.initialTransactions);
   const [lastCreatedKey, setLastCreatedKey] = useState<string | null>(null);
@@ -163,6 +192,13 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
     if (!q) return keyAllowedModels;
     return keyAllowedModels.filter((item) => item.toLowerCase().includes(q));
   }, [keyAllowedModels, keyModelQuery]);
+  const dashboardHealth = useMemo(() => {
+    if (wallet === null) return { variant: "warning" as const, label: common("notSet") };
+    if (wallet.balance_irr <= 0) return { variant: "destructive" as const, label: t("stats.balance") };
+    if (keys.length === 0) return { variant: "warning" as const, label: t("keys.title") };
+    if (models.length === 0) return { variant: "warning" as const, label: t("models.title") };
+    return { variant: "success" as const, label: t("messages.successTitle") };
+  }, [common, keys.length, models.length, t, wallet]);
 
   const loadAllowedModelsForScope = useCallback(async (mode: "virtual_key" | "service_account", teamID: string) => {
     const keyType = mode === "service_account" ? "vat" : "pat";
@@ -193,14 +229,16 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
   const loadDashboard = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [walletData, keysData, txData] = await Promise.all([
+      const [walletData, keysData, modelsData, txData] = await Promise.all([
         requestJSON<Wallet>("/api/wallet"),
         requestJSON<KeyListResponse>("/api/keys"),
+        requestJSON<ModelListResponse>("/api/models"),
         requestJSON<WalletTransactionListResponse>("/api/wallet/transactions?limit=20"),
       ]);
 
       setWallet(walletData);
       setKeys(keysData.data ?? []);
+      setModels(modelsData.data ?? []);
       setTransactions(txData.data ?? []);
     } catch (error) {
       setBanner({
@@ -336,116 +374,135 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      <Card>
-        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle>{t("title")}</CardTitle>
-            <CardDescription>{t("subtitle")}</CardDescription>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">{tenantSlug}.localhost</Badge>
-            <Badge variant="secondary">
-              {t("currentUser")}: {userIdentity}
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <Badge variant={dashboardHealth.variant}>{dashboardHealth.label}</Badge>
+            <Badge variant="outline" dir="ltr" className="font-mono">
+              {tenantSlug}.localhost
             </Badge>
-            <Button type="button" variant="outline" onClick={() => void loadDashboard()} disabled={isLoading}>
-              {isLoading ? t("refreshing") : common("refresh")}
-            </Button>
           </div>
-        </CardHeader>
-      </Card>
+          <h1 className="text-2xl font-semibold tracking-normal">{t("title")}</h1>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t("subtitle")}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <Badge variant="secondary" className="max-w-full justify-start">
+            <span className="shrink-0">{t("currentUser")}:</span>
+            <span dir="ltr" className="min-w-0 truncate font-mono">
+              {userIdentity}
+            </span>
+          </Badge>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void loadDashboard()}
+            disabled={isLoading}
+          >
+            <RefreshCcw aria-hidden="true" />
+            {isLoading ? t("refreshing") : common("refresh")}
+          </Button>
+        </div>
+      </header>
 
       {banner ? (
-        <Alert variant={banner.kind === "error" ? "destructive" : "default"}>
+        <Alert variant={banner.kind === "error" ? "destructive" : "success"}>
           <AlertTitle>{banner.kind === "error" ? t("messages.errorTitle") : t("messages.successTitle")}</AlertTitle>
           <AlertDescription>{banner.message}</AlertDescription>
         </Alert>
       ) : null}
 
       {lastCreatedKey ? (
-        <Alert className="border-primary/35 bg-primary/5">
+        <Alert variant="info">
           <AlertTitle>{t("keyCreatedTitle")}</AlertTitle>
           <AlertDescription>
-            <code className="mt-2 block overflow-x-auto rounded bg-muted px-3 py-2 text-xs font-mono">
+            <code dir="ltr" className="mt-2 block overflow-x-auto rounded-md border bg-muted px-3 py-2 text-xs font-mono">
               {lastCreatedKey}
             </code>
           </AlertDescription>
         </Alert>
       ) : null}
 
-      <Tabs defaultValue="overview">
-        <TabsList variant="line" className="w-full justify-start overflow-x-auto">
+      <section aria-label="Tenant summary" className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <SummaryCard
+          icon={WalletCards}
+          title={t("stats.balance")}
+          value={wallet ? formatIRR(wallet.balance_irr) : common("none")}
+          subtitle={t("stats.balanceHint")}
+          tone={wallet && wallet.balance_irr > 0 ? "success" : "warning"}
+        />
+        <SummaryCard
+          icon={Activity}
+          title={t("stats.pending")}
+          value={wallet ? formatIRR(wallet.pending_irr) : common("none")}
+          subtitle={t("stats.pendingHint")}
+          tone={wallet && wallet.pending_irr > 0 ? "warning" : "muted"}
+        />
+        <SummaryCard
+          icon={KeyRound}
+          title={t("stats.keys")}
+          value={numberFormatter.format(keys.length)}
+          subtitle={t("stats.keysHint")}
+          tone={keys.length > 0 ? "success" : "warning"}
+        />
+        <SummaryCard
+          icon={Bot}
+          title={t("models.title")}
+          value={numberFormatter.format(models.length)}
+          subtitle={t("models.description")}
+          tone={models.length > 0 ? "success" : "warning"}
+        />
+      </section>
+
+      <Tabs defaultValue="overview" className="gap-4">
+        <TabsList variant="line" className="w-full justify-start overflow-x-auto border-b border-border">
           <TabsTrigger value="overview">{t("title")}</TabsTrigger>
           <TabsTrigger value="keys">{t("keys.title")}</TabsTrigger>
           <TabsTrigger value="models">{t("models.title")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="flex flex-col gap-6">
-          <section className="grid gap-4 md:grid-cols-3">
-            <SummaryCard
-              title={t("stats.balance")}
-              value={wallet ? formatIRR(wallet.balance_irr) : common("none")}
-              subtitle={t("stats.balanceHint")}
-            />
-            <SummaryCard
-              title={t("stats.pending")}
-              value={wallet ? formatIRR(wallet.pending_irr) : common("none")}
-              subtitle={t("stats.pendingHint")}
-            />
-            <SummaryCard
-              title={t("stats.keys")}
-              value={numberFormatter.format(keys.length)}
-              subtitle={t("stats.keysHint")}
-            />
-          </section>
+          <section className="grid gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+            <DashboardPanel>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <ShieldCheck className="size-4 text-primary" aria-hidden="true" />
+                  {t("title")}
+                </CardTitle>
+                <CardDescription>{t("subtitle")}</CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-3">
+                <ReadinessItem
+                  label={t("stats.balance")}
+                  value={wallet ? formatIRR(wallet.balance_irr) : common("none")}
+                  state={wallet && wallet.balance_irr > 0 ? "success" : "warning"}
+                  statusLabel={wallet && wallet.balance_irr > 0 ? t("messages.successTitle") : common("notSet")}
+                />
+                <ReadinessItem
+                  label={t("keys.title")}
+                  value={numberFormatter.format(keys.length)}
+                  state={keys.length > 0 ? "success" : "warning"}
+                  statusLabel={keys.length > 0 ? t("messages.successTitle") : common("notSet")}
+                />
+                <ReadinessItem
+                  label={t("models.title")}
+                  value={numberFormatter.format(models.length)}
+                  state={models.length > 0 ? "success" : "warning"}
+                  statusLabel={models.length > 0 ? t("messages.successTitle") : common("notSet")}
+                />
+              </CardContent>
+            </DashboardPanel>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("transactions.title")}</CardTitle>
-              <CardDescription>{t("transactions.description")}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("transactions.columns.id")}</TableHead>
-                    <TableHead>{t("transactions.columns.type")}</TableHead>
-                    <TableHead>{t("transactions.columns.status")}</TableHead>
-                    <TableHead>{t("transactions.columns.amount")}</TableHead>
-                    <TableHead>{t("transactions.columns.createdAt")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {transactions.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-muted-foreground">
-                        {t("transactions.empty")}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    transactions.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-mono text-xs">{item.id}</TableCell>
-                        <TableCell>{item.type}</TableCell>
-                        <TableCell>
-                          <Badge variant={item.status.toLowerCase() === "success" ? "secondary" : "outline"}>
-                            {item.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{formatIRR(item.amount_irr)}</TableCell>
-                        <TableCell>{formatDateTime(item.created_at)}</TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+            <TransactionsTable transactions={transactions} t={t} common={common} labels={labels} />
+          </section>
         </TabsContent>
 
-        <TabsContent value="keys">
-          <Card id="keys">
+        <TabsContent value="keys" className="grid gap-4 xl:grid-cols-[minmax(320px,0.8fr)_minmax(0,1.2fr)]">
+          <DashboardPanel id="keys">
             <CardHeader>
-              <CardTitle>{t("keys.title")}</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Plus className="size-4 text-primary" aria-hidden="true" />
+                {t("keys.create")}
+              </CardTitle>
               <CardDescription>{t("keys.description")}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-5">
@@ -467,7 +524,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
                     onChange={(event) => setKeyModelQuery(event.target.value)}
                     placeholder={t("keys.modelsPlaceholder")}
                   />
-                  <div className="flex max-h-56 flex-wrap gap-2 overflow-auto rounded-md border p-2">
+                  <div className="flex max-h-56 min-h-24 flex-wrap content-start gap-2 overflow-auto rounded-md border border-border bg-muted/30 p-2">
                     {isLoadingAllowedModels ? (
                       <p className="text-xs text-muted-foreground">{common("loading")}</p>
                     ) : filteredAllowedModels.length === 0 ? (
@@ -488,7 +545,8 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
                               }
                               setKeySelectedModels((prev) => Array.from(new Set([...prev, modelID])));
                             }}
-                            className="font-mono text-xs"
+                            className="max-w-full font-mono text-xs"
+                            dir="ltr"
                           >
                             {modelID}
                           </Button>
@@ -497,13 +555,13 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center justify-between rounded-md border p-3">
+                <div className="flex items-center justify-between gap-4 rounded-md border border-border bg-muted/30 p-3">
                   <div className="flex flex-col gap-1">
                     <Label htmlFor="keyMode" className="cursor-pointer">
-                      Key type
+                      {labels.keyType}
                     </Label>
                     <p className="text-sm text-muted-foreground">
-                      {isServiceAccountMode ? "Service account (team)" : "Virtual key"}
+                      {isServiceAccountMode ? labels.serviceAccount : labels.virtualKey}
                     </p>
                   </div>
                   <Switch
@@ -517,7 +575,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="keyTeamID">Team ID (required for service account)</Label>
+                  <Label htmlFor="keyTeamID">{labels.teamID}</Label>
                   <PrincipalEntitySelect
                     id="keyTeamID"
                     selected={
@@ -542,7 +600,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="keyOrgID">Organization ID (optional)</Label>
+                  <Label htmlFor="keyOrgID">{labels.organizationID}</Label>
                   <Input
                     id="keyOrgID"
                     value={keyOrgID}
@@ -552,58 +610,23 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
                 </div>
 
                 <Button type="submit" disabled={isCreatingKey} className="w-fit">
+                  <KeyRound aria-hidden="true" />
                   {isCreatingKey ? t("keys.creating") : t("keys.create")}
                 </Button>
               </form>
-
-              <Separator />
-
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("keys.table.name")}</TableHead>
-                    <TableHead>{t("keys.table.role")}</TableHead>
-                    <TableHead>Scope</TableHead>
-                    <TableHead>{t("keys.table.models")}</TableHead>
-                    <TableHead>{t("keys.table.key")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {keys.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-muted-foreground">
-                        {t("keys.table.empty")}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    keys.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>{item.key_alias}</TableCell>
-                        <TableCell>{item.role}</TableCell>
-                        <TableCell className="font-mono text-xs">
-                          {item.team_id ? `team:${item.team_id}` : "tenant"}
-                        </TableCell>
-                        <TableCell>
-                          {(item.models ?? []).length > 0
-                            ? item.models.join("، ")
-                            : common("none")}
-                        </TableCell>
-                        <TableCell className="font-mono text-xs">
-                          {item.key_name ?? t("keys.table.hidden")}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
             </CardContent>
-          </Card>
+          </DashboardPanel>
+
+          <KeyInventoryTable keys={keys} t={t} common={common} labels={labels} />
         </TabsContent>
 
-        <TabsContent value="models">
-          <Card>
+        <TabsContent value="models" className="grid gap-4 xl:grid-cols-[minmax(320px,0.8fr)_minmax(0,1.2fr)]">
+          <DashboardPanel>
             <CardHeader>
-              <CardTitle>{t("models.title")}</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Server className="size-4 text-primary" aria-hidden="true" />
+                {t("models.create")}
+              </CardTitle>
               <CardDescription>{t("models.description")}</CardDescription>
             </CardHeader>
             <CardContent>
@@ -619,37 +642,328 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
 
                 <div className="sm:col-span-2">
                   <Button type="submit" disabled={isCreatingModel}>
+                    <Plus aria-hidden="true" />
                     {isCreatingModel ? t("models.creating") : t("models.create")}
                   </Button>
                 </div>
               </form>
             </CardContent>
-          </Card>
+          </DashboardPanel>
+
+          <ModelInventoryTable models={models} t={t} common={common} labels={labels} />
         </TabsContent>
       </Tabs>
     </div>
   );
 }
 
-function SummaryCard(props: { title: string; value: string; subtitle: string }) {
+function SummaryCard(props: {
+  title: string;
+  value: string;
+  subtitle: string;
+  icon: LucideIcon;
+  tone: "success" | "warning" | "muted";
+}) {
+  const Icon = props.icon;
+  const toneClassName = {
+    success: "bg-success/10 text-success",
+    warning: "bg-warning/10 text-warning",
+    muted: "bg-muted text-muted-foreground",
+  }[props.tone];
+
   return (
-    <Card>
-      <CardHeader className="gap-3">
-        <CardDescription>{props.title}</CardDescription>
-        <CardTitle className="text-2xl">{props.value}</CardTitle>
+    <DashboardPanel>
+      <CardHeader className="gap-3 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <CardDescription className="truncate">{props.title}</CardDescription>
+            <CardTitle className="mt-2 text-2xl">{props.value}</CardTitle>
+          </div>
+          <span className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${toneClassName}`}>
+            <Icon className="size-4" aria-hidden="true" />
+          </span>
+        </div>
         <CardDescription>{props.subtitle}</CardDescription>
       </CardHeader>
-    </Card>
+    </DashboardPanel>
   );
+}
+
+function DashboardPanel(props: ComponentProps<typeof Card>) {
+  return <Card {...props} className={`rounded-lg ${props.className ?? ""}`} />;
 }
 
 function InputField(props: { id: string; label: string; value: string; onChange: (value: string) => void; placeholder: string }) {
   return (
     <div className="grid gap-2">
       <Label htmlFor={props.id}>{props.label}</Label>
-      <Input id={props.id} value={props.value} onChange={(event) => props.onChange(event.target.value)} placeholder={props.placeholder} />
+      <Input
+        id={props.id}
+        value={props.value}
+        onChange={(event) => props.onChange(event.target.value)}
+        placeholder={props.placeholder}
+        dir={isTechnicalInput(props.id) ? "ltr" : undefined}
+        className={isTechnicalInput(props.id) ? "font-mono" : undefined}
+      />
     </div>
   );
+}
+
+function ReadinessItem(props: { label: string; value: string; state: "success" | "warning"; statusLabel: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2">
+      <div className="min-w-0">
+        <p className="text-sm font-medium">{props.label}</p>
+        <p className="mt-0.5 truncate text-xs text-muted-foreground">{props.value}</p>
+      </div>
+      <Badge variant={props.state}>{props.statusLabel}</Badge>
+    </div>
+  );
+}
+
+function TransactionsTable(props: {
+  transactions: WalletTransaction[];
+  t: ReturnType<typeof useTranslations>;
+  common: ReturnType<typeof useTranslations>;
+  labels: DashboardLabels;
+}) {
+  return (
+    <DashboardPanel>
+      <CardHeader>
+        <CardTitle className="text-base">{props.t("transactions.title")}</CardTitle>
+        <CardDescription>{props.t("transactions.description")}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="text-start">{props.t("transactions.columns.id")}</TableHead>
+              <TableHead className="text-start">{props.t("transactions.columns.type")}</TableHead>
+              <TableHead className="text-start">{props.t("transactions.columns.status")}</TableHead>
+              <TableHead className="text-end">{props.t("transactions.columns.amount")}</TableHead>
+              <TableHead className="text-start">{props.t("transactions.columns.createdAt")}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {props.transactions.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                  {props.t("transactions.empty")}
+                </TableCell>
+              </TableRow>
+            ) : (
+              props.transactions.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell>
+                    <CopyableCode value={item.id} labels={props.labels} className="max-w-48" />
+                  </TableCell>
+                  <TableCell>{item.type || props.common("none")}</TableCell>
+                  <TableCell>
+                    <TransactionStatusBadge status={item.status} />
+                  </TableCell>
+                  <TableCell className="text-end tabular-nums">{formatIRR(item.amount_irr)}</TableCell>
+                  <TableCell>{formatDateTime(item.created_at)}</TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </DashboardPanel>
+  );
+}
+
+function KeyInventoryTable(props: {
+  keys: TenantKey[];
+  t: ReturnType<typeof useTranslations>;
+  common: ReturnType<typeof useTranslations>;
+  labels: DashboardLabels;
+}) {
+  return (
+    <DashboardPanel>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <KeyRound className="size-4 text-primary" aria-hidden="true" />
+          {props.t("keys.title")}
+        </CardTitle>
+        <CardDescription>{props.t("keys.description")}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="text-start">{props.t("keys.table.name")}</TableHead>
+              <TableHead className="text-start">{props.t("keys.table.role")}</TableHead>
+              <TableHead className="text-start">{props.labels.scope}</TableHead>
+              <TableHead className="text-start">{props.t("keys.table.models")}</TableHead>
+              <TableHead className="text-start">{props.t("keys.table.key")}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {props.keys.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                  {props.t("keys.table.empty")}
+                </TableCell>
+              </TableRow>
+            ) : (
+              props.keys.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell className="font-medium">{item.key_alias}</TableCell>
+                  <TableCell>
+                    <Badge variant={item.blocked ? "destructive" : "secondary"}>{item.role}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <CopyableCode value={item.team_id ? `team:${item.team_id}` : "tenant"} labels={props.labels} className="max-w-48" />
+                  </TableCell>
+                  <TableCell>
+                    <ModelListValue models={item.models ?? []} emptyLabel={props.common("none")} />
+                  </TableCell>
+                  <TableCell>
+                    {item.key_name ? (
+                      <CopyableCode value={item.key_name} labels={props.labels} className="max-w-48" />
+                    ) : (
+                      <span className="text-muted-foreground">{props.t("keys.table.hidden")}</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </DashboardPanel>
+  );
+}
+
+function ModelInventoryTable(props: {
+  models: TenantModel[];
+  t: ReturnType<typeof useTranslations>;
+  common: ReturnType<typeof useTranslations>;
+  labels: DashboardLabels;
+}) {
+  return (
+    <DashboardPanel>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Bot className="size-4 text-primary" aria-hidden="true" />
+          {props.t("models.title")}
+        </CardTitle>
+        <CardDescription>{props.t("models.description")}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="text-start">{props.t("models.displayName")}</TableHead>
+              <TableHead className="text-start">{props.t("models.provider")}</TableHead>
+              <TableHead className="text-start">{props.labels.aliases}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {props.models.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={3} className="py-8 text-center text-muted-foreground">
+                  {props.common("none")}
+                </TableCell>
+              </TableRow>
+            ) : (
+              props.models.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell>
+                    <CopyableCode value={item.id} labels={props.labels} className="max-w-64" />
+                  </TableCell>
+                  <TableCell>{item.provider ? <Badge variant="outline">{item.provider}</Badge> : props.common("none")}</TableCell>
+                  <TableCell>
+                    <ModelListValue models={item.aliases ?? []} emptyLabel={props.common("none")} />
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </DashboardPanel>
+  );
+}
+
+function CopyableCode(props: { value: string; labels: DashboardLabels; className?: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(props.value);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1400);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <code dir="ltr" className={`block min-w-0 truncate font-mono text-xs ${props.className ?? ""}`}>
+        {props.value}
+      </code>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7 min-w-0 shrink-0 rounded-md"
+        aria-label={copied ? props.labels.copied : props.labels.copyValue}
+        onClick={() => void handleCopy()}
+      >
+        {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
+      </Button>
+    </span>
+  );
+}
+
+function TransactionStatusBadge({ status }: { status: string }) {
+  const normalized = status.toLowerCase();
+  if (["success", "succeeded", "paid", "completed"].includes(normalized)) {
+    return <Badge variant="success">{status}</Badge>;
+  }
+  if (["failed", "error", "rejected", "canceled", "cancelled"].includes(normalized)) {
+    return <Badge variant="destructive">{status}</Badge>;
+  }
+  if (["pending", "processing"].includes(normalized)) {
+    return <Badge variant="warning">{status}</Badge>;
+  }
+  return <Badge variant="outline">{status}</Badge>;
+}
+
+function ModelListValue({ models, emptyLabel }: { models: string[]; emptyLabel: string }) {
+  if (models.length === 0) return <span className="text-muted-foreground">{emptyLabel}</span>;
+  return (
+    <div className="flex max-w-sm flex-wrap gap-1.5">
+      {models.slice(0, 3).map((model) => (
+        <Badge key={model} variant="outline" dir="ltr" className="max-w-full truncate font-mono">
+          {model}
+        </Badge>
+      ))}
+      {models.length > 3 ? <Badge variant="secondary">+{numberFormatter.format(models.length - 3)}</Badge> : null}
+    </div>
+  );
+}
+
+function isTechnicalInput(id: string): boolean {
+  return ["modelName", "provider", "providerModel", "apiBase", "apiKey", "rpm", "tpm", "weight"].includes(id);
+}
+
+function buildDashboardLabels(t: ReturnType<typeof useTranslations>): DashboardLabels {
+  const isEnglish = t("title").trim().toLowerCase().includes("dashboard");
+  return {
+    copied: isEnglish ? "Copied" : "کپی شد",
+    copyValue: isEnglish ? "Copy value" : "کپی مقدار",
+    keyType: isEnglish ? "Key type" : "نوع کلید",
+    virtualKey: isEnglish ? "Virtual key" : "کلید مجازی",
+    serviceAccount: isEnglish ? "Service account (team)" : "اکانت سرویس (تیم)",
+    teamID: isEnglish ? "Team ID (required for service account)" : "شناسه تیم (برای اکانت سرویس الزامی است)",
+    organizationID: isEnglish ? "Organization ID (optional)" : "شناسه سازمان (اختیاری)",
+    scope: isEnglish ? "Scope" : "دامنه",
+    aliases: isEnglish ? "Aliases" : "نام‌های مستعار",
+  };
 }
 
 function buildDashboardPrincipalSelectorLabels(

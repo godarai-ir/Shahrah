@@ -77,7 +77,7 @@ export class ImportController {
   private async ensureModality(slug: string) {
     return this.prisma.modality.upsert({
       where: { slug },
-      create: { slug, name: slug, directionType: 'both' },
+      create: { slug, name: slug },
       update: {},
     });
   }

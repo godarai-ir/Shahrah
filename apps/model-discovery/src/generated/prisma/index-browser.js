@@ -233,8 +233,7 @@ exports.Prisma.ModelCapabilityScalarFieldEnum = {
 exports.Prisma.ModalityScalarFieldEnum = {
   id: 'id',
   slug: 'slug',
-  name: 'name',
-  directionType: 'directionType'
+  name: 'name'
 };
 
 exports.Prisma.ModelInputModalityScalarFieldEnum = {
@@ -384,21 +383,6 @@ exports.ProviderStatus = exports.$Enums.ProviderStatus = {
   unavailable: 'unavailable'
 };
 
-exports.ModelMode = exports.$Enums.ModelMode = {
-  completion: 'completion',
-  chat: 'chat',
-  embedding: 'embedding',
-  audio_transcription: 'audio_transcription',
-  image: 'image',
-  video: 'video',
-  rerank: 'rerank',
-  text_to_speech: 'text_to_speech',
-  realtime: 'realtime',
-  responses: 'responses',
-  moderation: 'moderation',
-  unknown: 'unknown'
-};
-
 exports.ModelStatus = exports.$Enums.ModelStatus = {
   active: 'active',
   preview: 'preview',
@@ -412,12 +396,6 @@ exports.LifecycleStatus = exports.$Enums.LifecycleStatus = {
   published: 'published',
   deprecated: 'deprecated',
   archived: 'archived'
-};
-
-exports.ModalityDirectionType = exports.$Enums.ModalityDirectionType = {
-  input: 'input',
-  output: 'output',
-  both: 'both'
 };
 
 exports.Prisma.ModelName = {

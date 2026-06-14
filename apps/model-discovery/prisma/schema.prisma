@@ -29,27 +29,6 @@ enum LifecycleStatus {
   archived
 }
 
-enum ModelMode {
-  completion
-  chat
-  embedding
-  audio_transcription
-  image
-  video
-  rerank
-  text_to_speech
-  realtime
-  responses
-  moderation
-  unknown
-}
-
-enum ModalityDirectionType {
-  input
-  output
-  both
-}
-
 model Provider {
   id                      String   @id @default(cuid())
   slug                    String   @unique
@@ -79,7 +58,7 @@ model Model {
   canonicalId      String   @unique
   slug             String
   displayName      String
-  mode             ModelMode @default(unknown)
+  mode             String[] @default(["unknown"])
   shortDescription String?
   longDescription  String?
   status           ModelStatus @default(active)
@@ -210,7 +189,6 @@ model Modality {
   id            String   @id @default(cuid())
   slug          String   @unique
   name          String
-  directionType ModalityDirectionType
 
   inputModels   ModelInputModality[]
   outputModels  ModelOutputModality[]
