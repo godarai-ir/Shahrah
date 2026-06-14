@@ -1,7 +1,9 @@
 package proxy
 
 import (
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
@@ -139,6 +141,76 @@ func buildTraceResponsePayload(resp contractsopenai.Response) map[string]interfa
 		"output": output,
 		"usage":  usage,
 	}
+}
+
+func buildTraceEmbeddingRequestPayload(req contractsopenai.EmbeddingRequest) map[string]interface{} {
+	inputType, inputCount, inputLengths, inputHashes := summarizeEmbeddingInput(req.Input)
+	return map[string]interface{}{
+		"model":           req.Model,
+		"input_type":      inputType,
+		"input_count":     inputCount,
+		"input_lengths":   inputLengths,
+		"input_hashes":    inputHashes,
+		"encoding_format": req.EncodingFormat,
+		"dimensions":      req.Dimensions,
+		"user":            req.User,
+	}
+}
+
+func buildTraceEmbeddingResponsePayload(resp contractsopenai.EmbeddingResponse) map[string]interface{} {
+	vectorDims := make([]int, 0, len(resp.Data))
+	for _, item := range resp.Data {
+		var dims []float64
+		if err := json.Unmarshal(item.Embedding, &dims); err == nil {
+			vectorDims = append(vectorDims, len(dims))
+			continue
+		}
+		vectorDims = append(vectorDims, 0)
+	}
+	usage := map[string]interface{}{}
+	if resp.Usage != nil {
+		usage["prompt_tokens"] = resp.Usage.PromptTokens
+		usage["total_tokens"] = resp.Usage.TotalTokens
+	}
+	return map[string]interface{}{
+		"model":         resp.Model,
+		"object":        resp.Object,
+		"embedding_cnt": len(resp.Data),
+		"vector_dims":   vectorDims,
+		"usage":         usage,
+	}
+}
+
+func summarizeEmbeddingInput(input interface{}) (string, int, []int, []string) {
+	switch v := input.(type) {
+	case string:
+		return "single", 1, []int{len(v)}, []string{hashTracePreview(v)}
+	case []string:
+		lengths := make([]int, 0, len(v))
+		hashes := make([]string, 0, len(v))
+		for _, item := range v {
+			lengths = append(lengths, len(item))
+			hashes = append(hashes, hashTracePreview(item))
+		}
+		return "batch", len(v), lengths, hashes
+	case []interface{}:
+		lengths := make([]int, 0, len(v))
+		hashes := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				lengths = append(lengths, len(s))
+				hashes = append(hashes, hashTracePreview(s))
+			}
+		}
+		return "batch", len(lengths), lengths, hashes
+	default:
+		return "unknown", 0, nil, nil
+	}
+}
+
+func hashTracePreview(input string) string {
+	sum := sha256.Sum256([]byte(input))
+	return fmt.Sprintf("%x", sum[:6])
 }
 
 func buildTraceProviderErrorPayload(statusCode int, body []byte) map[string]interface{} {

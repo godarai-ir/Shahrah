@@ -225,3 +225,26 @@ func EstimateUsage(responseContent string) *contractsopenai.Usage {
 		TotalTokens:      100 + EstimateTokens(responseContent),
 	}
 }
+
+func estimateEmbeddingPromptTokens(input interface{}) int {
+	switch v := input.(type) {
+	case string:
+		return EstimateTokens(v)
+	case []string:
+		total := 0
+		for _, item := range v {
+			total += EstimateTokens(item)
+		}
+		return total
+	case []interface{}:
+		total := 0
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				total += EstimateTokens(s)
+			}
+		}
+		return total
+	default:
+		return 0
+	}
+}

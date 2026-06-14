@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildDraftsForAccount,
   buildSelectedModelPayload,
   clearVisibleModelSelection,
   toggleVisibleModelSelection,
+  type WizardAccountModel,
   type WizardCatalogModel,
   type WizardModelDraft,
 } from "./provider-account-wizard.models";
@@ -11,10 +13,12 @@ import {
 const visibleModels: WizardCatalogModel[] = [
   {
     model: "gpt-4.1",
+    types: ["chat"],
     public_pricing: { input_usd_per_1m: 1, output_usd_per_1m: 2 },
   },
   {
     model: "gpt-4.1-mini",
+    types: ["chat", "embedding"],
     public_pricing: { input_usd_per_1m: 0.5, output_usd_per_1m: 1 },
   },
 ];
@@ -23,6 +27,7 @@ function makeDraft(partial: Partial<WizardModelDraft>): WizardModelDraft {
   return {
     enabled: false,
     compared: false,
+    selectedCapabilities: [],
     pricingMode: "public",
     inputPrice: "",
     outputPrice: "",
@@ -43,6 +48,8 @@ describe("provider-account-wizard model helpers", () => {
     expect(next["gpt-4.1-mini"].enabled).toBe(true);
     expect(next["gpt-4.1"].compared).toBe(true);
     expect(next["gpt-4.1-mini"].compared).toBe(false);
+    expect(next["gpt-4.1"].selectedCapabilities).toEqual(["chat"]);
+    expect(next["gpt-4.1-mini"].selectedCapabilities).toEqual([]);
   });
 
   it("clearVisibleModelSelection clears only enabled state", () => {
@@ -64,6 +71,7 @@ describe("provider-account-wizard model helpers", () => {
       "gpt-4.1": makeDraft({
         enabled: true,
         compared: false,
+        selectedCapabilities: ["chat", "embedding"],
         pricingMode: "private",
         inputPrice: "1.25",
         outputPrice: "",
@@ -81,6 +89,7 @@ describe("provider-account-wizard model helpers", () => {
     expect(result.models).toEqual([
       {
         model: "gpt-4.1",
+        effective_capabilities: ["chat", "embedding"],
         pricing_mode: "private",
         private_pricing: {
           input_usd_per_1m: 1.25,
@@ -94,6 +103,7 @@ describe("provider-account-wizard model helpers", () => {
     const drafts = {
       "gpt-4.1": makeDraft({
         enabled: true,
+        selectedCapabilities: ["chat"],
         pricingMode: "private",
         inputPrice: "",
         outputPrice: "",
@@ -103,6 +113,44 @@ describe("provider-account-wizard model helpers", () => {
     const result = buildSelectedModelPayload(drafts);
 
     expect(result.models).toHaveLength(1);
-    expect(result.validationErrors).toEqual(["gpt-4.1"]);
+    expect(result.validationErrors).toEqual([{ model: "gpt-4.1", reason: "private_pricing_required" }]);
+  });
+
+  it("buildSelectedModelPayload reports capability validation errors for enabled models", () => {
+    const drafts = {
+      "gpt-4.1": makeDraft({
+        enabled: true,
+        selectedCapabilities: [],
+        pricingMode: "public",
+      }),
+    };
+
+    const result = buildSelectedModelPayload(drafts);
+
+    expect(result.models).toEqual([
+      {
+        model: "gpt-4.1",
+        effective_capabilities: [],
+        pricing_mode: "public",
+        private_pricing: undefined,
+      },
+    ]);
+    expect(result.validationErrors).toEqual([{ model: "gpt-4.1", reason: "effective_capabilities_required" }]);
+  });
+
+  it("buildDraftsForAccount preserves saved capabilities", () => {
+    const accountModels: WizardAccountModel[] = [
+      {
+        model: "gpt-4.1-mini",
+        enabled: true,
+        types: ["Embedding", "chat", "embedding"],
+        pricing_mode: "public",
+      },
+    ];
+
+    const drafts = buildDraftsForAccount(accountModels, visibleModels);
+
+    expect(drafts["gpt-4.1-mini"].enabled).toBe(true);
+    expect(drafts["gpt-4.1-mini"].selectedCapabilities).toEqual(["embedding", "chat"]);
   });
 });

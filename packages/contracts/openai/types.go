@@ -1,5 +1,7 @@
 package openai
 
+import "encoding/json"
+
 // ChatCompletionRequest mirrors OpenAI's chat completion request format.
 type ChatCompletionRequest struct {
 	Model       string           `json:"model"`
@@ -128,22 +130,26 @@ type CompletionChoice struct {
 
 // EmbeddingRequest mirrors OpenAI's embedding request format.
 type EmbeddingRequest struct {
-	Model string      `json:"model"`
-	Input interface{} `json:"input"` // string or []string
+	Model          string      `json:"model"`
+	Input          interface{} `json:"input"`
+	EncodingFormat string      `json:"encoding_format,omitempty"`
+	Dimensions     *int        `json:"dimensions,omitempty"`
+	User           string      `json:"user,omitempty"`
 }
 
 // EmbeddingResponse mirrors OpenAI's embedding response format.
 type EmbeddingResponse struct {
 	Object string      `json:"object"`
 	Data   []Embedding `json:"data"`
+	Model  string      `json:"model,omitempty"`
 	Usage  *Usage      `json:"usage,omitempty"`
 }
 
 // Embedding represents a single embedding vector.
 type Embedding struct {
-	Object    string    `json:"object"`
-	Embedding []float64 `json:"embedding"`
-	Index     int       `json:"index"`
+	Object    string          `json:"object"`
+	Embedding json.RawMessage `json:"embedding"`
+	Index     int             `json:"index"`
 }
 
 // ResponseRequest mirrors the subset of OpenAI's responses API used by Shahrah.

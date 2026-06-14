@@ -58,15 +58,18 @@ func TestResolveProviderAccountModelSelections_ExpandsCatalogMetadata(t *testing
 	defer server.Close()
 
 	t.Setenv("SHAHRAH_MODEL_DISCOVERY_URL", server.URL)
+	invalidateDiscoveryCache()
 
-	items, invalid, err := resolveProviderAccountModelSelections(context.Background(), "openai", []platform.UpsertTenantProviderAccountModelSelection{
+	items, invalid, invalidCapabilities, err := resolveProviderAccountModelSelections(context.Background(), "openai", []platform.UpsertTenantProviderAccountModelSelection{
 		{
-			Model:       "gpt-4.1-mini",
-			PricingMode: platform.PricingModePublic,
+			Model:                 "gpt-4.1-mini",
+			EffectiveCapabilities: []platform.ModelType{platform.ModelTypeChat},
+			PricingMode:           platform.PricingModePublic,
 		},
 	})
 	require.NoError(t, err)
 	require.Empty(t, invalid)
+	require.Empty(t, invalidCapabilities)
 	require.Len(t, items, 1)
 
 	assert.Equal(t, "gpt-4.1-mini", items[0].Model)
@@ -78,6 +81,45 @@ func TestResolveProviderAccountModelSelections_ExpandsCatalogMetadata(t *testing
 	assert.Equal(t, &inputPrice, items[0].PublicPricing.InputUSDPer1M)
 	assert.Equal(t, &outputPrice, items[0].PublicPricing.OutputUSDPer1M)
 	assert.Equal(t, platform.PricingModePublic, items[0].PricingMode)
+}
+
+func TestResolveProviderAccountModelSelections_RejectsInvalidCapabilities(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/providers/openai/models" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[{"model":"gpt-4.1-mini","display_name":"GPT-4.1 Mini","types":["chat","embedding"],"input_modalities":["text"],"output_modalities":["text"]},{"model":"gpt-4.1","display_name":"GPT-4.1","types":["chat"],"input_modalities":["text"],"output_modalities":["text"]}]}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("SHAHRAH_MODEL_DISCOVERY_URL", server.URL)
+	invalidateDiscoveryCache()
+
+	items, invalid, invalidCapabilities, err := resolveProviderAccountModelSelections(context.Background(), "openai", []platform.UpsertTenantProviderAccountModelSelection{
+		{
+			Model:                 "gpt-4.1-mini",
+			EffectiveCapabilities: []platform.ModelType{platform.ModelTypeEmbedding},
+			PricingMode:           platform.PricingModePublic,
+		},
+		{
+			Model:                 "gpt-4.1",
+			EffectiveCapabilities: []platform.ModelType{platform.ModelTypeRerank},
+			PricingMode:           platform.PricingModePublic,
+		},
+		{
+			Model:                 "gpt-4.1-mini-2",
+			EffectiveCapabilities: []platform.ModelType{platform.ModelTypeRerank},
+			PricingMode:           platform.PricingModePublic,
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.Equal(t, []string{"gpt-4.1-mini-2"}, invalid)
+	require.Contains(t, invalidCapabilities, "gpt-4.1")
+	assert.Equal(t, []string{"rerank"}, invalidCapabilities["gpt-4.1"])
+	assert.Equal(t, []platform.ModelType{platform.ModelTypeEmbedding}, items[0].Types)
 }
 
 func TestDiscoveryProviders_FailsWithoutFallbackWhenDiscoveryUnavailable(t *testing.T) {

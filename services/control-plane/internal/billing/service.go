@@ -91,6 +91,31 @@ func (s *Service) EstimateCost(ctx context.Context, req openai.ChatCompletionReq
 	}, nil
 }
 
+// EstimateEmbeddingCost estimates cost for an embeddings request.
+func (s *Service) EstimateEmbeddingCost(ctx context.Context, req openai.EmbeddingRequest) (platform.UsageCostBreakdown, error) {
+	rate, err := s.store.GetLatestExchangeRate(ctx)
+	if err != nil {
+		rate = &s.defaultRate
+		_, _ = s.store.UpsertExchangeRate(ctx, s.defaultRate)
+	}
+
+	promptTokens := estimateEmbeddingPromptTokens(req.Input)
+	price := modelPrice(req.Model)
+	inputCost := (float64(promptTokens) / 1000.0) * price.Input
+
+	return platform.UsageCostBreakdown{
+		Model:         req.Model,
+		InputTokens:   promptTokens,
+		OutputTokens:  0,
+		TotalTokens:   promptTokens,
+		InputCostUSD:  inputCost,
+		OutputCostUSD: 0,
+		TotalCostUSD:  inputCost,
+		ExchangeRate:  rate.USDtoIRR,
+		TotalCostIRR:  inputCost * rate.USDtoIRR,
+	}, nil
+}
+
 // FinalizeFromUsage recalculates final spend from provider usage.
 func (s *Service) FinalizeFromUsage(ctx context.Context, model string, usage *openai.Usage, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error) {
 	if usage == nil {

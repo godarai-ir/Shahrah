@@ -241,6 +241,17 @@ func WriteAPIError(c *fiber.Ctx, status int, message string, errType string) err
 	})
 }
 
+func writeAPIErrorDetail(c *fiber.Ctx, status int, message string, errType string, param string, code string) error {
+	return c.Status(status).JSON(contractsopenai.APIError{
+		Error: contractsopenai.ErrorInfo{
+			Message: message,
+			Type:    errType,
+			Param:   param,
+			Code:    code,
+		},
+	})
+}
+
 // ContainsModel checks if a model is in the allowed models list
 func ContainsModel(allowed []string, model string) bool {
 	for _, m := range allowed {

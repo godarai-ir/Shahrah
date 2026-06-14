@@ -392,6 +392,10 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 		if req.Models[i].Model == "" {
 			return fiber.NewError(fiber.StatusBadRequest, "model is required for each item")
 		}
+		req.Models[i].EffectiveCapabilities = normalizeModelTypes(req.Models[i].EffectiveCapabilities)
+		if len(req.Models[i].EffectiveCapabilities) == 0 {
+			return fiber.NewError(fiber.StatusBadRequest, "effective_capabilities is required for each enabled model")
+		}
 		if req.Models[i].PricingMode == "" {
 			req.Models[i].PricingMode = platform.PricingModePublic
 		}
@@ -404,7 +408,7 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 		}
 		return mapProviderAccountStoreError(err)
 	}
-	normalizedModels, invalidModels, err := resolveProviderAccountModelSelections(c.Context(), details.Account.Provider, req.Models)
+	normalizedModels, invalidModels, invalidCapabilities, err := resolveProviderAccountModelSelections(c.Context(), details.Account.Provider, req.Models)
 	if err != nil {
 		if errors.Is(err, errDiscoveryNotFound) {
 			return fiber.NewError(fiber.StatusBadRequest, "provider model catalog not found")
@@ -419,6 +423,18 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 				"details": fiber.Map{
 					"invalid_models": invalidModels,
 					"provider":       details.Account.Provider,
+				},
+			},
+		})
+	}
+	if len(invalidCapabilities) > 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": fiber.Map{
+				"type":    "validation_error",
+				"message": "one or more model capabilities are not valid for this provider account",
+				"details": fiber.Map{
+					"invalid_capabilities": invalidCapabilities,
+					"provider":             details.Account.Provider,
 				},
 			},
 		})

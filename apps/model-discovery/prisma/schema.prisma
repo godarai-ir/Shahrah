@@ -29,6 +29,21 @@ enum LifecycleStatus {
   archived
 }
 
+enum ModelMode {
+  completion
+  chat
+  embedding
+  audio_transcription
+  image
+  video
+  rerank
+  text_to_speech
+  realtime
+  responses
+  moderation
+  unknown
+}
+
 enum ModalityDirectionType {
   input
   output
@@ -64,6 +79,7 @@ model Model {
   canonicalId      String   @unique
   slug             String
   displayName      String
+  mode             ModelMode @default(unknown)
   shortDescription String?
   longDescription  String?
   status           ModelStatus @default(active)

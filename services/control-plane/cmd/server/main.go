@@ -102,6 +102,7 @@ func main() {
 	proxyHandler := proxy.NewChatCompletionHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
 	completionsHandler := proxy.NewCompletionsHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
 	responsesHandler := proxy.NewResponsesHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
+	embeddingsHandler := proxy.NewEmbeddingsHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
 	modelsHandler := proxy.NewModelsHandler(store)
 
 	traceCfg := tracing.LoadConfigFromEnv()
@@ -132,6 +133,7 @@ func main() {
 		ProxyHandler:       proxyHandler,
 		CompletionsHandler: completionsHandler,
 		ResponsesHandler:   responsesHandler,
+		EmbeddingsHandler:  embeddingsHandler,
 		ModelsHandler:      modelsHandler,
 		Logger:             logger,
 	})

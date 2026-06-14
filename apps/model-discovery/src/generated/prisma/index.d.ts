@@ -169,6 +169,24 @@ export const LifecycleStatus: {
 export type LifecycleStatus = (typeof LifecycleStatus)[keyof typeof LifecycleStatus]
 
 
+export const ModelMode: {
+  completion: 'completion',
+  chat: 'chat',
+  embedding: 'embedding',
+  audio_transcription: 'audio_transcription',
+  image: 'image',
+  video: 'video',
+  rerank: 'rerank',
+  text_to_speech: 'text_to_speech',
+  realtime: 'realtime',
+  responses: 'responses',
+  moderation: 'moderation',
+  unknown: 'unknown'
+};
+
+export type ModelMode = (typeof ModelMode)[keyof typeof ModelMode]
+
+
 export const ModalityDirectionType: {
   input: 'input',
   output: 'output',
@@ -190,6 +208,10 @@ export const ModelStatus: typeof $Enums.ModelStatus
 export type LifecycleStatus = $Enums.LifecycleStatus
 
 export const LifecycleStatus: typeof $Enums.LifecycleStatus
+
+export type ModelMode = $Enums.ModelMode
+
+export const ModelMode: typeof $Enums.ModelMode
 
 export type ModalityDirectionType = $Enums.ModalityDirectionType
 
@@ -4695,6 +4717,7 @@ export namespace Prisma {
     canonicalId: string | null
     slug: string | null
     displayName: string | null
+    mode: $Enums.ModelMode | null
     shortDescription: string | null
     longDescription: string | null
     status: $Enums.ModelStatus | null
@@ -4725,6 +4748,7 @@ export namespace Prisma {
     canonicalId: string | null
     slug: string | null
     displayName: string | null
+    mode: $Enums.ModelMode | null
     shortDescription: string | null
     longDescription: string | null
     status: $Enums.ModelStatus | null
@@ -4755,6 +4779,7 @@ export namespace Prisma {
     canonicalId: number
     slug: number
     displayName: number
+    mode: number
     shortDescription: number
     longDescription: number
     status: number
@@ -4799,6 +4824,7 @@ export namespace Prisma {
     canonicalId?: true
     slug?: true
     displayName?: true
+    mode?: true
     shortDescription?: true
     longDescription?: true
     status?: true
@@ -4829,6 +4855,7 @@ export namespace Prisma {
     canonicalId?: true
     slug?: true
     displayName?: true
+    mode?: true
     shortDescription?: true
     longDescription?: true
     status?: true
@@ -4859,6 +4886,7 @@ export namespace Prisma {
     canonicalId?: true
     slug?: true
     displayName?: true
+    mode?: true
     shortDescription?: true
     longDescription?: true
     status?: true
@@ -4976,6 +5004,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode: $Enums.ModelMode
     shortDescription: string | null
     longDescription: string | null
     status: $Enums.ModelStatus
@@ -5025,6 +5054,7 @@ export namespace Prisma {
     canonicalId?: boolean
     slug?: boolean
     displayName?: boolean
+    mode?: boolean
     shortDescription?: boolean
     longDescription?: boolean
     status?: boolean
@@ -5070,6 +5100,7 @@ export namespace Prisma {
     canonicalId?: boolean
     slug?: boolean
     displayName?: boolean
+    mode?: boolean
     shortDescription?: boolean
     longDescription?: boolean
     status?: boolean
@@ -5103,6 +5134,7 @@ export namespace Prisma {
     canonicalId?: boolean
     slug?: boolean
     displayName?: boolean
+    mode?: boolean
     shortDescription?: boolean
     longDescription?: boolean
     status?: boolean
@@ -5136,6 +5168,7 @@ export namespace Prisma {
     canonicalId?: boolean
     slug?: boolean
     displayName?: boolean
+    mode?: boolean
     shortDescription?: boolean
     longDescription?: boolean
     status?: boolean
@@ -5160,7 +5193,7 @@ export namespace Prisma {
     updatedAt?: boolean
   }
 
-  export type ModelOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "providerId" | "canonicalId" | "slug" | "displayName" | "shortDescription" | "longDescription" | "status" | "enabled" | "lifecycleStatus" | "categoryId" | "modelSeriesId" | "contextWindow" | "maxOutputTokens" | "knowledgeCutoff" | "releaseDate" | "deprecatedAt" | "openSource" | "free" | "tokenizer" | "license" | "huggingFaceUrl" | "modelCardUrl" | "officialDocsUrl" | "popularityScore" | "createdAt" | "updatedAt", ExtArgs["result"]["model"]>
+  export type ModelOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "providerId" | "canonicalId" | "slug" | "displayName" | "mode" | "shortDescription" | "longDescription" | "status" | "enabled" | "lifecycleStatus" | "categoryId" | "modelSeriesId" | "contextWindow" | "maxOutputTokens" | "knowledgeCutoff" | "releaseDate" | "deprecatedAt" | "openSource" | "free" | "tokenizer" | "license" | "huggingFaceUrl" | "modelCardUrl" | "officialDocsUrl" | "popularityScore" | "createdAt" | "updatedAt", ExtArgs["result"]["model"]>
   export type ModelInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     provider?: boolean | ProviderDefaultArgs<ExtArgs>
     category?: boolean | Model$categoryArgs<ExtArgs>
@@ -5213,6 +5246,7 @@ export namespace Prisma {
       canonicalId: string
       slug: string
       displayName: string
+      mode: $Enums.ModelMode
       shortDescription: string | null
       longDescription: string | null
       status: $Enums.ModelStatus
@@ -5677,6 +5711,7 @@ export namespace Prisma {
     readonly canonicalId: FieldRef<"Model", 'String'>
     readonly slug: FieldRef<"Model", 'String'>
     readonly displayName: FieldRef<"Model", 'String'>
+    readonly mode: FieldRef<"Model", 'ModelMode'>
     readonly shortDescription: FieldRef<"Model", 'String'>
     readonly longDescription: FieldRef<"Model", 'String'>
     readonly status: FieldRef<"Model", 'ModelStatus'>
@@ -30117,6 +30152,7 @@ export namespace Prisma {
     canonicalId: 'canonicalId',
     slug: 'slug',
     displayName: 'displayName',
+    mode: 'mode',
     shortDescription: 'shortDescription',
     longDescription: 'longDescription',
     status: 'status',
@@ -30492,6 +30528,20 @@ export namespace Prisma {
 
 
   /**
+   * Reference to a field of type 'ModelMode'
+   */
+  export type EnumModelModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ModelMode'>
+    
+
+
+  /**
+   * Reference to a field of type 'ModelMode[]'
+   */
+  export type ListEnumModelModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ModelMode[]'>
+    
+
+
+  /**
    * Reference to a field of type 'ModelStatus'
    */
   export type EnumModelStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ModelStatus'>
@@ -30695,6 +30745,7 @@ export namespace Prisma {
     canonicalId?: StringFilter<"Model"> | string
     slug?: StringFilter<"Model"> | string
     displayName?: StringFilter<"Model"> | string
+    mode?: EnumModelModeFilter<"Model"> | $Enums.ModelMode
     shortDescription?: StringNullableFilter<"Model"> | string | null
     longDescription?: StringNullableFilter<"Model"> | string | null
     status?: EnumModelStatusFilter<"Model"> | $Enums.ModelStatus
@@ -30739,6 +30790,7 @@ export namespace Prisma {
     canonicalId?: SortOrder
     slug?: SortOrder
     displayName?: SortOrder
+    mode?: SortOrder
     shortDescription?: SortOrderInput | SortOrder
     longDescription?: SortOrderInput | SortOrder
     status?: SortOrder
@@ -30787,6 +30839,7 @@ export namespace Prisma {
     providerId?: StringFilter<"Model"> | string
     slug?: StringFilter<"Model"> | string
     displayName?: StringFilter<"Model"> | string
+    mode?: EnumModelModeFilter<"Model"> | $Enums.ModelMode
     shortDescription?: StringNullableFilter<"Model"> | string | null
     longDescription?: StringNullableFilter<"Model"> | string | null
     status?: EnumModelStatusFilter<"Model"> | $Enums.ModelStatus
@@ -30831,6 +30884,7 @@ export namespace Prisma {
     canonicalId?: SortOrder
     slug?: SortOrder
     displayName?: SortOrder
+    mode?: SortOrder
     shortDescription?: SortOrderInput | SortOrder
     longDescription?: SortOrderInput | SortOrder
     status?: SortOrder
@@ -30869,6 +30923,7 @@ export namespace Prisma {
     canonicalId?: StringWithAggregatesFilter<"Model"> | string
     slug?: StringWithAggregatesFilter<"Model"> | string
     displayName?: StringWithAggregatesFilter<"Model"> | string
+    mode?: EnumModelModeWithAggregatesFilter<"Model"> | $Enums.ModelMode
     shortDescription?: StringNullableWithAggregatesFilter<"Model"> | string | null
     longDescription?: StringNullableWithAggregatesFilter<"Model"> | string | null
     status?: EnumModelStatusWithAggregatesFilter<"Model"> | $Enums.ModelStatus
@@ -32293,6 +32348,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -32335,6 +32391,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -32375,6 +32432,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -32417,6 +32475,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -32458,6 +32517,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -32487,6 +32547,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -32515,6 +32576,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -34013,6 +34075,13 @@ export namespace Prisma {
     _max?: NestedDateTimeFilter<$PrismaModel>
   }
 
+  export type EnumModelModeFilter<$PrismaModel = never> = {
+    equals?: $Enums.ModelMode | EnumModelModeFieldRefInput<$PrismaModel>
+    in?: $Enums.ModelMode[] | ListEnumModelModeFieldRefInput<$PrismaModel>
+    notIn?: $Enums.ModelMode[] | ListEnumModelModeFieldRefInput<$PrismaModel>
+    not?: NestedEnumModelModeFilter<$PrismaModel> | $Enums.ModelMode
+  }
+
   export type EnumModelStatusFilter<$PrismaModel = never> = {
     equals?: $Enums.ModelStatus | EnumModelStatusFieldRefInput<$PrismaModel>
     in?: $Enums.ModelStatus[] | ListEnumModelStatusFieldRefInput<$PrismaModel>
@@ -34196,6 +34265,7 @@ export namespace Prisma {
     canonicalId?: SortOrder
     slug?: SortOrder
     displayName?: SortOrder
+    mode?: SortOrder
     shortDescription?: SortOrder
     longDescription?: SortOrder
     status?: SortOrder
@@ -34232,6 +34302,7 @@ export namespace Prisma {
     canonicalId?: SortOrder
     slug?: SortOrder
     displayName?: SortOrder
+    mode?: SortOrder
     shortDescription?: SortOrder
     longDescription?: SortOrder
     status?: SortOrder
@@ -34262,6 +34333,7 @@ export namespace Prisma {
     canonicalId?: SortOrder
     slug?: SortOrder
     displayName?: SortOrder
+    mode?: SortOrder
     shortDescription?: SortOrder
     longDescription?: SortOrder
     status?: SortOrder
@@ -34290,6 +34362,16 @@ export namespace Prisma {
     contextWindow?: SortOrder
     maxOutputTokens?: SortOrder
     popularityScore?: SortOrder
+  }
+
+  export type EnumModelModeWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.ModelMode | EnumModelModeFieldRefInput<$PrismaModel>
+    in?: $Enums.ModelMode[] | ListEnumModelModeFieldRefInput<$PrismaModel>
+    notIn?: $Enums.ModelMode[] | ListEnumModelModeFieldRefInput<$PrismaModel>
+    not?: NestedEnumModelModeWithAggregatesFilter<$PrismaModel> | $Enums.ModelMode
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumModelModeFilter<$PrismaModel>
+    _max?: NestedEnumModelModeFilter<$PrismaModel>
   }
 
   export type EnumModelStatusWithAggregatesFilter<$PrismaModel = never> = {
@@ -35405,6 +35487,10 @@ export namespace Prisma {
     connectOrCreate?: ModelTagCreateOrConnectWithoutModelInput | ModelTagCreateOrConnectWithoutModelInput[]
     createMany?: ModelTagCreateManyModelInputEnvelope
     connect?: ModelTagWhereUniqueInput | ModelTagWhereUniqueInput[]
+  }
+
+  export type EnumModelModeFieldUpdateOperationsInput = {
+    set?: $Enums.ModelMode
   }
 
   export type EnumModelStatusFieldUpdateOperationsInput = {
@@ -36624,6 +36710,13 @@ export namespace Prisma {
     _max?: NestedDateTimeFilter<$PrismaModel>
   }
 
+  export type NestedEnumModelModeFilter<$PrismaModel = never> = {
+    equals?: $Enums.ModelMode | EnumModelModeFieldRefInput<$PrismaModel>
+    in?: $Enums.ModelMode[] | ListEnumModelModeFieldRefInput<$PrismaModel>
+    notIn?: $Enums.ModelMode[] | ListEnumModelModeFieldRefInput<$PrismaModel>
+    not?: NestedEnumModelModeFilter<$PrismaModel> | $Enums.ModelMode
+  }
+
   export type NestedEnumModelStatusFilter<$PrismaModel = never> = {
     equals?: $Enums.ModelStatus | EnumModelStatusFieldRefInput<$PrismaModel>
     in?: $Enums.ModelStatus[] | ListEnumModelStatusFieldRefInput<$PrismaModel>
@@ -36658,6 +36751,16 @@ export namespace Prisma {
     gt?: number | FloatFieldRefInput<$PrismaModel>
     gte?: number | FloatFieldRefInput<$PrismaModel>
     not?: NestedFloatFilter<$PrismaModel> | number
+  }
+
+  export type NestedEnumModelModeWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.ModelMode | EnumModelModeFieldRefInput<$PrismaModel>
+    in?: $Enums.ModelMode[] | ListEnumModelModeFieldRefInput<$PrismaModel>
+    notIn?: $Enums.ModelMode[] | ListEnumModelModeFieldRefInput<$PrismaModel>
+    not?: NestedEnumModelModeWithAggregatesFilter<$PrismaModel> | $Enums.ModelMode
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumModelModeFilter<$PrismaModel>
+    _max?: NestedEnumModelModeFilter<$PrismaModel>
   }
 
   export type NestedEnumModelStatusWithAggregatesFilter<$PrismaModel = never> = {
@@ -36821,6 +36924,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -36861,6 +36965,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -36954,6 +37059,7 @@ export namespace Prisma {
     canonicalId?: StringFilter<"Model"> | string
     slug?: StringFilter<"Model"> | string
     displayName?: StringFilter<"Model"> | string
+    mode?: EnumModelModeFilter<"Model"> | $Enums.ModelMode
     shortDescription?: StringNullableFilter<"Model"> | string | null
     longDescription?: StringNullableFilter<"Model"> | string | null
     status?: EnumModelStatusFilter<"Model"> | $Enums.ModelStatus
@@ -37770,6 +37876,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -37811,6 +37918,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -37968,6 +38076,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -38009,6 +38118,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -38064,6 +38174,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -38105,6 +38216,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -38144,6 +38256,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -38185,6 +38298,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -38259,6 +38373,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -38300,6 +38415,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -38398,6 +38514,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -38439,6 +38556,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -38513,6 +38631,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -38554,6 +38673,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -38686,6 +38806,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -38727,6 +38848,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -38803,6 +38925,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -38844,6 +38967,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -38910,6 +39034,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -38951,6 +39076,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -39027,6 +39153,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -39068,6 +39195,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -39168,6 +39296,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -39209,6 +39338,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -39283,6 +39413,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -39324,6 +39455,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -39388,6 +39520,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -39429,6 +39562,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -39592,6 +39726,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -39633,6 +39768,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -39707,6 +39843,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -39748,6 +39885,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -39858,6 +39996,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -39899,6 +40038,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -39977,6 +40117,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -40018,6 +40159,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -40086,6 +40228,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -40127,6 +40270,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -40182,6 +40326,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -40223,6 +40368,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -40262,6 +40408,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -40303,6 +40450,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -40358,6 +40506,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -40399,6 +40548,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -40472,6 +40622,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -40513,6 +40664,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -40585,6 +40737,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -40626,6 +40779,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -40688,6 +40842,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -40717,6 +40872,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -40757,6 +40913,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -40797,6 +40954,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -41147,6 +41305,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -41175,6 +41334,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -41216,6 +41376,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -41256,6 +41417,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -41349,6 +41511,7 @@ export namespace Prisma {
     canonicalId: string
     slug: string
     displayName: string
+    mode?: $Enums.ModelMode
     shortDescription?: string | null
     longDescription?: string | null
     status?: $Enums.ModelStatus
@@ -41377,6 +41540,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -41418,6 +41582,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus
@@ -41458,6 +41623,7 @@ export namespace Prisma {
     canonicalId?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     displayName?: StringFieldUpdateOperationsInput | string
+    mode?: EnumModelModeFieldUpdateOperationsInput | $Enums.ModelMode
     shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
     longDescription?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumModelStatusFieldUpdateOperationsInput | $Enums.ModelStatus

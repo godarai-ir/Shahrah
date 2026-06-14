@@ -186,6 +186,7 @@ type CurlGuide = {
 type ModelDraft = {
   enabled: boolean;
   compared: boolean;
+  selectedCapabilities: string[];
   pricingMode: "public" | "private";
   inputPrice: string;
   outputPrice: string;
@@ -971,7 +972,12 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
       return false;
     }
     if (validationErrors.length > 0) {
-      setBanner({ kind: "error", message: `${validationErrors[0]}: ${ux("messages.privatePricingRequired")}` });
+      const firstError = validationErrors[0];
+      const reasonMessage =
+        firstError.reason === "effective_capabilities_required"
+          ? ux("messages.modelTypeRequired")
+          : ux("messages.privatePricingRequired");
+      setBanner({ kind: "error", message: `${firstError.model}: ${reasonMessage}` });
       return false;
     }
 
@@ -2408,6 +2414,7 @@ function ModelsEditor(props: {
     const draft = props.modelDrafts[model.model] ?? {
       enabled: false,
       compared: false,
+      selectedCapabilities: [],
       pricingMode: "public" as const,
       inputPrice: model.public_pricing?.input_usd_per_1m?.toString() ?? "",
       outputPrice: model.public_pricing?.output_usd_per_1m?.toString() ?? "",
@@ -2690,9 +2697,11 @@ function ModelsEditor(props: {
       ) : (
         <div className="space-y-3">
           {visibleModels.map((model) => {
+            const availableCapabilities = normalizeCapabilityList(model.types);
             const draft = props.modelDrafts[model.model] ?? {
               enabled: false,
               compared: false,
+              selectedCapabilities: availableCapabilities.length === 1 ? availableCapabilities : [],
               pricingMode: "public" as const,
               inputPrice: model.public_pricing?.input_usd_per_1m?.toString() ?? "",
               outputPrice: model.public_pricing?.output_usd_per_1m?.toString() ?? "",
@@ -2727,7 +2736,14 @@ function ModelsEditor(props: {
                       onSelectedChange={(checked) =>
                         props.setModelDrafts((prev) => ({
                           ...prev,
-                          [model.model]: { ...draft, enabled: checked },
+                          [model.model]: {
+                            ...draft,
+                            enabled: checked,
+                            selectedCapabilities:
+                              checked && draft.selectedCapabilities.length === 0 && availableCapabilities.length === 1
+                                ? availableCapabilities
+                                : draft.selectedCapabilities,
+                          },
                         }))
                       }
                       selectedCheckboxLabel={ux("common.enabled")}
@@ -2802,6 +2818,53 @@ function ModelsEditor(props: {
                         categoryMultimodal: ux("models.card.categoryMultimodal"),
                       }}
                     />
+                    {draft.enabled && availableCapabilities.length > 0 ? (
+                      <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium">{ux("models.columns.capabilities")}</p>
+                          <Badge variant="secondary">{draft.selectedCapabilities.length}/{availableCapabilities.length}</Badge>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {availableCapabilities.map((capability) => {
+                            const checked = draft.selectedCapabilities.includes(capability);
+                            return (
+                              <label
+                                key={`${model.model}-${capability}`}
+                                className={cn(
+                                  "inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-sm",
+                                  checked ? "border-emerald-500 bg-emerald-500/10 text-emerald-700" : "border-border bg-background",
+                                )}
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4"
+                                  checked={checked}
+                                  onChange={(event) =>
+                                    props.setModelDrafts((prev) => {
+                                      const current = prev[model.model] ?? draft;
+                                      const nextCapabilities = event.target.checked
+                                        ? [...current.selectedCapabilities, capability]
+                                        : current.selectedCapabilities.filter((item) => item !== capability);
+                                      return {
+                                        ...prev,
+                                        [model.model]: {
+                                          ...current,
+                                          selectedCapabilities: normalizeCapabilityList(nextCapabilities),
+                                        },
+                                      };
+                                    })
+                                  }
+                                />
+                                <span>{capability}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        {draft.selectedCapabilities.length === 0 ? (
+                          <p className="mt-2 text-xs text-destructive">{ux("messages.modelTypeRequired")}</p>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                   <PopoverContent align="start" className="w-80 space-y-3">
                     <div className="space-y-1">
@@ -3396,6 +3459,19 @@ function toNumberOrUndefined(value: string): number | undefined {
   const parsed = Number(raw);
   if (!Number.isFinite(parsed)) return undefined;
   return parsed;
+}
+
+function normalizeCapabilityList(values: string[] | undefined): string[] {
+  if (!Array.isArray(values)) return [];
+  const seen = new Set<string>();
+  const next: string[] = [];
+  for (const item of values) {
+    const normalized = item.trim().toLowerCase();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    next.push(normalized);
+  }
+  return next;
 }
 
 const FRIENDLY_ACCOUNT_ADJECTIVES = [

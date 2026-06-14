@@ -8,12 +8,27 @@ import { basename, join } from 'node:path';
 
 type StringRecord = Record<string, unknown>;
 
+type ModelMode =
+  | 'completion'
+  | 'chat'
+  | 'embedding'
+  | 'audio_transcription'
+  | 'image'
+  | 'video'
+  | 'rerank'
+  | 'text_to_speech'
+  | 'realtime'
+  | 'responses'
+  | 'moderation'
+  | 'unknown';
+
 type ImportModelRow = {
   canonicalId: string;
   slug: string;
   displayName: string;
   status: 'active' | 'preview' | 'deprecated' | 'unavailable';
   lifecycleStatus: 'draft' | 'review' | 'published' | 'deprecated' | 'archived';
+  mode: ModelMode;
   shortDescription?: string;
   contextWindow?: number;
   maxOutputTokens?: number;
@@ -120,14 +135,68 @@ function inferDateFromName(name: string): Date | undefined {
   return dt;
 }
 
-function mapModelStatus(rawStatus: unknown, isDeprecated: unknown): 'active' | 'preview' | 'deprecated' | 'unavailable' {
-  if (isDeprecated === true) return 'deprecated';
+function mapModelStatus(rawStatus: unknown): 'active' | 'preview' | 'deprecated' | 'unavailable' {
   const normalized = typeof rawStatus === 'string' ? rawStatus.toLowerCase() : '';
   if (normalized === 'active') return 'active';
   if (normalized === 'preview') return 'preview';
   if (normalized === 'deprecated') return 'deprecated';
   if (normalized === 'unavailable') return 'unavailable';
   return 'active';
+}
+
+function normalizeModeValue(input: unknown): ModelMode {
+  if (typeof input !== 'string' || input.trim() === '') return 'unknown';
+
+  const normalized = input
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+
+  switch (normalized) {
+    case 'completion':
+    case 'completions':
+      return 'completion';
+    case 'chat':
+      return 'chat';
+    case 'embedding':
+    case 'embeddings':
+      return 'embedding';
+    case 'audio_transcription':
+    case 'transcription':
+    case 'speech_to_text':
+    case 'stt':
+      return 'audio_transcription';
+    case 'image':
+    case 'image_generation':
+    case 'text_to_image':
+    case 'image_edit':
+      return 'image';
+    case 'video':
+    case 'video_generation':
+    case 'text_to_video':
+    case 'image_to_video':
+      return 'video';
+    case 'rerank':
+    case 'reranking':
+      return 'rerank';
+    case 'text_to_speech':
+    case 'tts':
+    case 'audio_generation':
+    case 'text_to_audio':
+      return 'text_to_speech';
+    case 'realtime':
+      return 'realtime';
+    case 'responses':
+    case 'response':
+      return 'responses';
+    case 'moderation':
+    case 'moderations':
+      return 'moderation';
+    case 'unknown':
+      return 'unknown';
+    default:
+      return 'unknown';
+  }
 }
 
 function mapLifecycle(status: 'active' | 'preview' | 'deprecated' | 'unavailable') {
@@ -156,50 +225,39 @@ function normalizeRegion(raw: string): string {
 }
 
 function inferOutputModalities(
-  mode: string,
-  supportedModes: string[],
+  mode: ModelMode,
+  supportedModes: ModelMode[],
   existingOutputModalities: string[],
 ): string[] {
   if (existingOutputModalities.length > 0) return existingOutputModalities;
 
   const inferred = new Set<string>();
-  const signals = [mode, ...supportedModes].map((x) => slugify(x));
+  const signals = [mode, ...supportedModes];
 
   for (const signal of signals) {
     switch (signal) {
       case 'chat':
       case 'completion':
       case 'responses':
-      case 'reasoning':
       case 'unknown':
         inferred.add('text');
         break;
       case 'image':
-      case 'image-generation':
-      case 'text-to-image':
-      case 'image-edit':
         inferred.add('image');
         break;
       case 'video':
-      case 'video-generation':
-      case 'text-to-video':
-      case 'image-to-video':
         inferred.add('video');
         break;
       case 'embedding':
-      case 'embeddings':
         inferred.add('embedding');
         break;
-      case 'text-to-speech':
-      case 'text-to-audio':
-      case 'audio-generation':
+      case 'text_to_speech':
         inferred.add('audio');
         break;
-      case 'audio-transcription':
-      case 'speech-to-text':
-      case 'transcription':
+      case 'audio_transcription':
       case 'rerank':
       case 'moderation':
+      case 'realtime':
         inferred.add('text');
         break;
       default:
@@ -239,8 +297,9 @@ async function parseProviderDir(providerDir: string): Promise<ImportProviderBatc
 
     const modelId = typeof doc['model'] === 'string' ? doc['model'] : undefined;
     if (!modelId) continue;
+    if (doc['isDeprecated'] === true) continue;
 
-    const status = mapModelStatus(doc['status'], doc['isDeprecated']);
+    const status = mapModelStatus(doc['status']);
     const lifecycleStatus = mapLifecycle(status);
     const limits = asObject(doc['limits']);
     const modalities = asObject(doc['modalities']);
@@ -304,14 +363,15 @@ async function parseProviderDir(providerDir: string): Promise<ImportProviderBatc
         )
       : false;
 
-    const supportedModes = asStringArray(doc['supportedModes']);
-    const mode = typeof doc['mode'] === 'string' ? doc['mode'] : '';
+    const supportedModes = Array.from(
+      new Set(asStringArray(doc['supportedModes']).map((value) => normalizeModeValue(value))),
+    );
+    const mode = normalizeModeValue(doc['mode']);
     const outputModalities = inferOutputModalities(
       mode,
       supportedModes,
       outputModalitiesRaw,
     );
-    const summaryParts = [mode, ...supportedModes].filter(Boolean);
 
     models.push({
       canonicalId: `${providerSlug}/${modelId}`,
@@ -319,7 +379,7 @@ async function parseProviderDir(providerDir: string): Promise<ImportProviderBatc
       displayName: titleCaseFromSlug(modelId),
       status,
       lifecycleStatus,
-      shortDescription: summaryParts.length > 0 ? `Modes: ${Array.from(new Set(summaryParts)).join(', ')}` : undefined,
+      mode,
       contextWindow: contextWindow ? Math.floor(contextWindow) : undefined,
       maxOutputTokens: maxOutputTokens ? Math.floor(maxOutputTokens) : undefined,
       releaseDate,
@@ -450,6 +510,7 @@ async function importProviderBatch(
         canonicalId: row.canonicalId,
         slug: row.slug,
         displayName: row.displayName,
+        mode: row.mode,
         status: row.status,
         lifecycleStatus: row.lifecycleStatus,
         shortDescription: row.shortDescription,
@@ -465,6 +526,7 @@ async function importProviderBatch(
         providerId: provider.id,
         slug: row.slug,
         displayName: row.displayName,
+        mode: row.mode,
         status: row.status,
         lifecycleStatus: row.lifecycleStatus,
         shortDescription: row.shortDescription,

@@ -144,6 +144,7 @@ exports.Prisma.ModelScalarFieldEnum = {
   canonicalId: 'canonicalId',
   slug: 'slug',
   displayName: 'displayName',
+  mode: 'mode',
   shortDescription: 'shortDescription',
   longDescription: 'longDescription',
   status: 'status',
@@ -381,6 +382,21 @@ exports.ProviderStatus = exports.$Enums.ProviderStatus = {
   preview: 'preview',
   deprecated: 'deprecated',
   unavailable: 'unavailable'
+};
+
+exports.ModelMode = exports.$Enums.ModelMode = {
+  completion: 'completion',
+  chat: 'chat',
+  embedding: 'embedding',
+  audio_transcription: 'audio_transcription',
+  image: 'image',
+  video: 'video',
+  rerank: 'rerank',
+  text_to_speech: 'text_to_speech',
+  realtime: 'realtime',
+  responses: 'responses',
+  moderation: 'moderation',
+  unknown: 'unknown'
 };
 
 exports.ModelStatus = exports.$Enums.ModelStatus = {

@@ -62,6 +62,11 @@ func (m *mockBilling) EstimateCost(ctx context.Context, req contractsopenai.Chat
 	return m.cost, m.estimateErr
 }
 
+func (m *mockBilling) EstimateEmbeddingCost(ctx context.Context, req contractsopenai.EmbeddingRequest) (platform.UsageCostBreakdown, error) {
+	m.estimateModel = req.Model
+	return m.cost, m.estimateErr
+}
+
 func (m *mockBilling) CheckRateLimit(ctx context.Context, auth *platform.AuthContext, model string, estimatedTokens int) (*mcache.RateLimitResult, error) {
 	return m.rateLimitRes, m.rateLimitErr
 }

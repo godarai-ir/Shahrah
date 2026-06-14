@@ -669,8 +669,8 @@ func TestIntegration_ProviderAccountAccessAndModelSelectionHardening(t *testing.
 
 	modelsResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/models", "Bearer sk-master", `{
 		"models":[
-			{"model":"gpt-4.1-mini"},
-			{"model":"gpt-4.1-mini"}
+			{"model":"gpt-4.1-mini","effective_capabilities":["chat"]},
+			{"model":"gpt-4.1-mini","effective_capabilities":["chat"]}
 		]
 	}`)
 	assert.Equal(t, http.StatusOK, modelsResp.StatusCode)
@@ -687,13 +687,13 @@ func TestIntegration_ProviderAccountAccessAndModelSelectionHardening(t *testing.
 	decodeJSONBody(t, detailsResp, &details)
 	require.Len(t, details.Models, 1)
 	assert.Equal(t, "gpt-4.1-mini", details.Models[0].Model)
-	assert.NotEmpty(t, details.Models[0].Types)
+	assert.Equal(t, []platform.ModelType{platform.ModelTypeChat}, details.Models[0].Types)
 	assert.NotEmpty(t, details.Models[0].InputModalities)
 	assert.NotEmpty(t, details.Models[0].OutputModalities)
 	assert.NotNil(t, details.Models[0].PublicPricing)
 
 	invalidModelResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/models", "Bearer sk-master", `{
-		"models":[{"model":"not-a-real-model"}]
+		"models":[{"model":"not-a-real-model","effective_capabilities":["chat"]}]
 	}`)
 	assert.Equal(t, http.StatusBadRequest, invalidModelResp.StatusCode)
 	var invalidModelErr map[string]interface{}
@@ -701,6 +701,11 @@ func TestIntegration_ProviderAccountAccessAndModelSelectionHardening(t *testing.
 	errObj, ok := invalidModelErr["error"].(map[string]interface{})
 	require.True(t, ok)
 	assert.Equal(t, "validation_error", errObj["type"])
+
+	invalidCapabilityResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/models", "Bearer sk-master", `{
+		"models":[{"model":"gpt-4.1-mini","effective_capabilities":["embedding"]}]
+	}`)
+	assert.Equal(t, http.StatusBadRequest, invalidCapabilityResp.StatusCode)
 
 	invalidPrincipalResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/access", "Bearer sk-master", fmt.Sprintf(`{
 		"access":{
@@ -830,8 +835,8 @@ func TestIntegration_EffectiveModelsAccessMatrix_PAT_VAT_UserTeam(t *testing.T) 
 
 	modelsResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/models", "Bearer sk-master", `{
 		"models":[
-			{"model":"gpt-4.1-mini"},
-			{"model":"gpt-4o"}
+			{"model":"gpt-4.1-mini","effective_capabilities":["chat"]},
+			{"model":"gpt-4o","effective_capabilities":["chat"]}
 		]
 	}`)
 	assert.Equal(t, http.StatusOK, modelsResp.StatusCode)
@@ -966,8 +971,8 @@ func TestIntegration_EffectiveModels_PATKeyAllowlistIsApplied(t *testing.T) {
 
 	modelsResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/models", "Bearer sk-master", `{
 		"models":[
-			{"model":"gpt-4.1-mini","enabled":true},
-			{"model":"gpt-4o","enabled":true}
+			{"model":"gpt-4.1-mini","enabled":true,"effective_capabilities":["chat"]},
+			{"model":"gpt-4o","enabled":true,"effective_capabilities":["chat"]}
 		]
 	}`)
 	assert.Equal(t, http.StatusOK, modelsResp.StatusCode)
@@ -1050,8 +1055,8 @@ func TestIntegration_EffectiveModels_PATKeyAllowlistAcceptsFQN(t *testing.T) {
 
 	modelsResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/models", "Bearer sk-master", `{
 		"models":[
-			{"model":"gpt-4.1-mini","enabled":true},
-			{"model":"gpt-4o","enabled":true}
+			{"model":"gpt-4.1-mini","enabled":true,"effective_capabilities":["chat"]},
+			{"model":"gpt-4o","enabled":true,"effective_capabilities":["chat"]}
 		]
 	}`)
 	assert.Equal(t, http.StatusOK, modelsResp.StatusCode)
@@ -1143,7 +1148,7 @@ func TestIntegration_DeleteTenantProviderAccount_Success(t *testing.T) {
 	require.NotEmpty(t, account.ID)
 
 	modelsResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/models", "Bearer sk-master", `{
-		"models":[{"model":"gpt-4.1-mini","enabled":true}]
+		"models":[{"model":"gpt-4.1-mini","enabled":true,"effective_capabilities":["chat"]}]
 	}`)
 	assert.Equal(t, http.StatusOK, modelsResp.StatusCode)
 
@@ -1275,7 +1280,7 @@ func TestIntegration_DeleteTenantProviderAccount_ConflictWhenReferencedByActiveK
 	decodeJSONBody(t, createResp, &account)
 
 	modelsResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/models", "Bearer sk-master", `{
-		"models":[{"model":"gpt-4.1-mini","enabled":true}]
+		"models":[{"model":"gpt-4.1-mini","enabled":true,"effective_capabilities":["chat"]}]
 	}`)
 	assert.Equal(t, http.StatusOK, modelsResp.StatusCode)
 

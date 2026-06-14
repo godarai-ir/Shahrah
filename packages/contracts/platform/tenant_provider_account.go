@@ -201,9 +201,10 @@ type CreateTenantProviderAccountRequest struct {
 
 // UpsertTenantProviderAccountModelSelection contains client-editable selection fields.
 type UpsertTenantProviderAccountModelSelection struct {
-	Model          string      `json:"model"`
-	PricingMode    PricingMode `json:"pricing_mode,omitempty"`
-	PrivatePricing *ModelPrice `json:"private_pricing,omitempty"`
+	Model                 string      `json:"model"`
+	EffectiveCapabilities []ModelType `json:"effective_capabilities,omitempty"`
+	PricingMode           PricingMode `json:"pricing_mode,omitempty"`
+	PrivatePricing        *ModelPrice `json:"private_pricing,omitempty"`
 }
 
 // UpsertTenantProviderAccountModelsRequest saves selected models from step-2.

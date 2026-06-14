@@ -30,6 +30,9 @@ type testBudgeter struct{}
 func (b *testBudgeter) EstimateCost(ctx context.Context, req contractsopenai.ChatCompletionRequest) (platform.UsageCostBreakdown, error) {
 	return platform.UsageCostBreakdown{Model: req.Model, TotalTokens: 32, InputTokens: 16, OutputTokens: 16, TotalCostUSD: 0.001, TotalCostIRR: 850}, nil
 }
+func (b *testBudgeter) EstimateEmbeddingCost(ctx context.Context, req contractsopenai.EmbeddingRequest) (platform.UsageCostBreakdown, error) {
+	return platform.UsageCostBreakdown{Model: req.Model, TotalTokens: 16, InputTokens: 16, OutputTokens: 0, TotalCostUSD: 0.001, TotalCostIRR: 850}, nil
+}
 func (b *testBudgeter) CheckRateLimit(ctx context.Context, auth *platform.AuthContext, model string, estimatedTokens int) (*cache.RateLimitResult, error) {
 	return &cache.RateLimitResult{Allowed: true, Current: 1, Limit: 100, ResetAt: time.Now().Add(time.Minute)}, nil
 }
@@ -37,6 +40,11 @@ func (b *testBudgeter) CheckBudget(ctx context.Context, auth *platform.AuthConte
 	return nil
 }
 func (b *testBudgeter) FinalizeFromUsage(ctx context.Context, model string, usage *contractsopenai.Usage, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error) {
+	if usage != nil {
+		estimated.InputTokens = usage.PromptTokens
+		estimated.OutputTokens = usage.CompletionTokens
+		estimated.TotalTokens = usage.TotalTokens
+	}
 	return estimated, nil
 }
 

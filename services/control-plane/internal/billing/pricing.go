@@ -42,6 +42,14 @@ var PricingRegistry = map[string]ModelPricing{
 		Provider: "openai", Model: "gpt-3.5-turbo",
 		InputPrice: 0.50, OutputPrice: 1.50, Currency: "USD",
 	},
+	"openai/text-embedding-3-small": {
+		Provider: "openai", Model: "text-embedding-3-small",
+		InputPrice: 0.02, OutputPrice: 0.00, Currency: "USD",
+	},
+	"openai/text-embedding-3-large": {
+		Provider: "openai", Model: "text-embedding-3-large",
+		InputPrice: 0.13, OutputPrice: 0.00, Currency: "USD",
+	},
 
 	// ========== ANTHROPIC ==========
 	// Claude 3.5 Family

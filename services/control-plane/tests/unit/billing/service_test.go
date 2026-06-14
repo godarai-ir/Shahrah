@@ -77,6 +77,24 @@ func TestBillingService_ShouldEstimateCostWithPer1KScaling(t *testing.T) {
 	assert.InDelta(t, expectedIRR, out.TotalCostIRR, 1e-6)
 }
 
+func TestBillingService_ShouldEstimateEmbeddingCost(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	svc := billing.NewService(memCache, walletStoreStub{
+		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1_000_000},
+		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
+	}, 850000, "test")
+
+	out, err := svc.EstimateEmbeddingCost(context.Background(), openai.EmbeddingRequest{
+		Model: "text-embedding-3-small",
+		Input: []string{"hello", "world"},
+	})
+	require.NoError(t, err)
+	assert.Greater(t, out.TotalTokens, 0)
+	assert.Equal(t, 0, out.OutputTokens)
+	assert.Greater(t, out.TotalCostIRR, 0.0)
+}
+
 func TestBillingService_ShouldFinalizeCostWithPer1KScaling(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)

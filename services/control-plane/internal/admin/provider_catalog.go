@@ -330,10 +330,10 @@ func discoveryTelemetrySnapshot() map[string]uint64 {
 	}
 }
 
-func resolveProviderAccountModelSelections(ctx context.Context, provider string, selections []platform.UpsertTenantProviderAccountModelSelection) ([]platform.TenantProviderAccountModel, []string, error) {
+func resolveProviderAccountModelSelections(ctx context.Context, provider string, selections []platform.UpsertTenantProviderAccountModelSelection) ([]platform.TenantProviderAccountModel, []string, map[string][]string, error) {
 	catalog, err := discoveryProviderModels(ctx, provider)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	allowed := make(map[string]platform.ProviderCatalogModel, len(catalog))
 	for _, item := range catalog {
@@ -344,6 +344,7 @@ func resolveProviderAccountModelSelections(ctx context.Context, provider string,
 		allowed[model] = item
 	}
 	invalid := make([]string, 0)
+	invalidCapabilities := make(map[string][]string)
 	seen := make(map[string]struct{}, len(selections))
 	resolved := make([]platform.TenantProviderAccountModel, 0, len(selections))
 	for _, item := range selections {
@@ -360,6 +361,27 @@ func resolveProviderAccountModelSelections(ctx context.Context, provider string,
 			invalid = append(invalid, model)
 			continue
 		}
+		requestedCapabilities := normalizeModelTypes(item.EffectiveCapabilities)
+		allowedCapabilities := normalizeModelTypes(cm.Types)
+		allowedSet := make(map[platform.ModelType]struct{}, len(allowedCapabilities))
+		for _, capability := range allowedCapabilities {
+			allowedSet[capability] = struct{}{}
+		}
+		if len(requestedCapabilities) == 0 {
+			invalidCapabilities[model] = []string{}
+			continue
+		}
+		disallowed := make([]string, 0)
+		for _, capability := range requestedCapabilities {
+			if _, ok := allowedSet[capability]; ok {
+				continue
+			}
+			disallowed = append(disallowed, string(capability))
+		}
+		if len(disallowed) > 0 {
+			invalidCapabilities[model] = disallowed
+			continue
+		}
 		pricingMode := item.PricingMode
 		if pricingMode == "" {
 			pricingMode = platform.PricingModePublic
@@ -367,7 +389,7 @@ func resolveProviderAccountModelSelections(ctx context.Context, provider string,
 		resolved = append(resolved, platform.TenantProviderAccountModel{
 			Model:            model,
 			Enabled:          true,
-			Types:            normalizeModelTypes(cm.Types),
+			Types:            requestedCapabilities,
 			InputModalities:  normalizeStringList(cm.InputModalities),
 			OutputModalities: normalizeStringList(cm.OutputModalities),
 			PricingMode:      pricingMode,
@@ -377,7 +399,7 @@ func resolveProviderAccountModelSelections(ctx context.Context, provider string,
 		})
 	}
 	sort.Strings(invalid)
-	return resolved, invalid, nil
+	return resolved, invalid, invalidCapabilities, nil
 }
 
 func getDiscoveryBaseURL() string {
