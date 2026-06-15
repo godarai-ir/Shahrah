@@ -57,3 +57,23 @@ func TestRedactChatContentRedactsDataURL(t *testing.T) {
 		t.Fatalf("unexpected redacted content: %s", got)
 	}
 }
+
+func TestModerationResponseRoundTrip(t *testing.T) {
+	payload := []byte(`{"id":"modr_1","model":"omni-moderation-latest","results":[{"flagged":true,"categories":{"self-harm/intent":true},"category_scores":{"self-harm/intent":0.98}}]}`)
+	var resp ModerationResponse
+	if err := json.Unmarshal(payload, &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if resp.ID != "modr_1" || resp.Model != "omni-moderation-latest" {
+		t.Fatalf("unexpected response metadata: %#v", resp)
+	}
+	if len(resp.Results) != 1 || !resp.Results[0].Flagged {
+		t.Fatalf("unexpected results: %#v", resp.Results)
+	}
+	if !resp.Results[0].Categories["self-harm/intent"] {
+		t.Fatalf("category not preserved: %#v", resp.Results[0].Categories)
+	}
+	if resp.Results[0].CategoryScores["self-harm/intent"] != 0.98 {
+		t.Fatalf("score not preserved: %#v", resp.Results[0].CategoryScores)
+	}
+}

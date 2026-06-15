@@ -386,6 +386,27 @@ type Embedding struct {
 	Index     int             `json:"index"`
 }
 
+// ModerationRequest mirrors OpenAI's moderation request format.
+type ModerationRequest struct {
+	Model string      `json:"model"`
+	Input interface{} `json:"input"`
+	User  string      `json:"user,omitempty"`
+}
+
+// ModerationResponse mirrors OpenAI's moderation response format.
+type ModerationResponse struct {
+	ID      string             `json:"id,omitempty"`
+	Model   string             `json:"model"`
+	Results []ModerationResult `json:"results"`
+}
+
+// ModerationResult contains category decisions and confidence scores.
+type ModerationResult struct {
+	Flagged        bool               `json:"flagged"`
+	Categories     map[string]bool    `json:"categories"`
+	CategoryScores map[string]float64 `json:"category_scores"`
+}
+
 // ResponseRequest mirrors the subset of OpenAI's responses API used by Shahrah.
 type ResponseRequest struct {
 	Model              string                 `json:"model"`

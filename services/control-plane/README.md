@@ -91,6 +91,47 @@ curl -s http://localhost:4000/v1/chat/completions \
 
 Successful inference should create a wallet debit plus request and spend log records for the issuing tenant.
 
+## OpenAI-Compatible Moderations
+
+Shahrah exposes moderation-capable models through:
+
+```bash
+curl -s http://localhost:4000/v1/moderations \
+  -H "Authorization: Bearer $TENANT_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"openai:default:omni-moderation-latest","input":"I want to check this text."}'
+```
+
+Example response:
+
+```json
+{
+  "id": "modr_example",
+  "model": "omni-moderation-latest",
+  "results": [
+    {
+      "flagged": false,
+      "categories": {
+        "sexual": false,
+        "hate": false,
+        "harassment": false,
+        "self-harm": false,
+        "violence": false
+      },
+      "category_scores": {
+        "sexual": 0.0001,
+        "hate": 0.0002,
+        "harassment": 0.0001,
+        "self-harm": 0,
+        "violence": 0.0003
+      }
+    }
+  ]
+}
+```
+
+A model is compatible with `/v1/moderations` only when the model-discovery `modes` array includes `"moderation"` and the tenant provider account/key exposes that model with moderation capability. Chat-only, completion-only, or embedding-only models are rejected on this endpoint. Moderation traces record metadata such as model, input count, input lengths, and short hashes; raw moderated text is not written to trace payloads.
+
 ## Personal Access Tokens (PAT)
 
 Canonical PAT endpoints:

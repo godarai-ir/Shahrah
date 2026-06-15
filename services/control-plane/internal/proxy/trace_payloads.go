@@ -212,6 +212,66 @@ func buildTraceEmbeddingResponsePayload(resp contractsopenai.EmbeddingResponse) 
 	}
 }
 
+func buildTraceModerationRequestPayload(req contractsopenai.ModerationRequest) map[string]interface{} {
+	inputType, inputCount, inputLengths, inputHashes := summarizeModerationInput(req.Input)
+	return map[string]interface{}{
+		"model":         req.Model,
+		"input_type":    inputType,
+		"input_count":   inputCount,
+		"input_lengths": inputLengths,
+		"input_hashes":  inputHashes,
+		"user":          req.User,
+	}
+}
+
+func buildTraceModerationResponsePayload(resp contractsopenai.ModerationResponse) map[string]interface{} {
+	results := make([]map[string]interface{}, 0, len(resp.Results))
+	flaggedCount := 0
+	for _, result := range resp.Results {
+		if result.Flagged {
+			flaggedCount++
+		}
+		results = append(results, map[string]interface{}{
+			"flagged":    result.Flagged,
+			"categories": result.Categories,
+		})
+	}
+	return map[string]interface{}{
+		"id":            resp.ID,
+		"model":         resp.Model,
+		"result_count":  len(resp.Results),
+		"flagged_count": flaggedCount,
+		"results":       results,
+	}
+}
+
+func summarizeModerationInput(input interface{}) (string, int, []int, []string) {
+	switch v := input.(type) {
+	case string:
+		return "single", 1, []int{len(v)}, []string{hashTracePreview(v)}
+	case []string:
+		lengths := make([]int, 0, len(v))
+		hashes := make([]string, 0, len(v))
+		for _, item := range v {
+			lengths = append(lengths, len(item))
+			hashes = append(hashes, hashTracePreview(item))
+		}
+		return "batch", len(v), lengths, hashes
+	case []interface{}:
+		lengths := make([]int, 0, len(v))
+		hashes := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				lengths = append(lengths, len(s))
+				hashes = append(hashes, hashTracePreview(s))
+			}
+		}
+		return "batch", len(lengths), lengths, hashes
+	default:
+		return "unknown", 0, nil, nil
+	}
+}
+
 func summarizeEmbeddingInput(input interface{}) (string, int, []int, []string) {
 	switch v := input.(type) {
 	case string:
