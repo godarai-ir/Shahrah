@@ -5,25 +5,32 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { LogOut, Menu, Search } from "lucide-react";
+import { LogOut, Search } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarRail,
+  SidebarSeparator,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { buildAdminNavItems, filterVisibleNavItems, type AdminNavItem } from "@/app/components/admin-shell-nav";
 import { PermissionsProvider } from "@/app/components/permissions-context";
-import { cn } from "@/lib/utils";
 
 type AdminShellClientProps = {
   children: React.ReactNode;
@@ -77,43 +84,18 @@ export default function AdminShellClient({
 
   return (
     <PermissionsProvider permissions={permissions}>
-      <div className="min-h-screen bg-background app-background">
-      <div className="grid min-h-screen lg:grid-cols-[280px_1fr]">
-        <aside className="hidden lg:block">
-          <div className="sticky top-0 h-screen">
-            <SidebarContent
-              tenantSlug={tenantSlug}
-              currentUser={currentUser}
-              userIdentity={userIdentity}
-              navItems={visibleNavItems}
-            />
-          </div>
-        </aside>
+      <SidebarProvider className="bg-background app-background">
+        <AdminSidebar
+          tenantSlug={tenantSlug}
+          currentUser={currentUser}
+          userIdentity={userIdentity}
+          navItems={visibleNavItems}
+        />
 
-        <div className="min-w-0">
-          <header className="sticky top-0 z-40 border-b bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/85 md:px-6">
-            <div className="flex items-center gap-2 md:gap-3">
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button variant="outline" size="icon" className="lg:hidden" aria-label={t("menu.open")}>
-                    <Menu className="h-5 w-5" />
-                    <span className="sr-only">{t("menu.open")}</span>
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="right" className="w-[86vw] max-w-sm p-0">
-                  <SheetHeader className="px-4 pt-4 text-right">
-                    <SheetTitle>{t("title")}</SheetTitle>
-                    <SheetDescription>{t("menu.description")}</SheetDescription>
-                  </SheetHeader>
-                  <SidebarContent
-                    tenantSlug={tenantSlug}
-                    currentUser={currentUser}
-                    userIdentity={userIdentity}
-                    navItems={visibleNavItems}
-                    className="border-none"
-                  />
-                </SheetContent>
-              </Sheet>
+        <SidebarInset className="min-w-0 bg-transparent">
+          <header className="sticky top-0 z-10 border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/85 md:px-6">
+            <div className="flex min-w-0 items-center gap-3">
+              <SidebarTrigger aria-label={t("menu.open")} />
 
               <div className="min-w-0 flex-1">
                 <p className="text-xs text-muted-foreground">{t("tenant")}</p>
@@ -121,7 +103,7 @@ export default function AdminShellClient({
               </div>
 
               <div className="hidden w-full max-w-sm items-center gap-2 md:flex">
-                <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                <Search className="size-4 text-muted-foreground" aria-hidden="true" />
                 <Input
                   placeholder={t("searchPlaceholder")}
                   aria-label={t("searchPlaceholder")}
@@ -133,18 +115,16 @@ export default function AdminShellClient({
             </div>
           </header>
 
-          <main className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:p-6 md:pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+          <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:p-6 md:pb-[max(1.5rem,env(safe-area-inset-bottom))]">
             <div className="mx-auto w-full max-w-7xl animate-fade-in">{children}</div>
-          </main>
-        </div>
-      </div>
-      </div>
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
     </PermissionsProvider>
   );
 }
 
 type SidebarContentProps = {
-  className?: string;
   tenantSlug: string;
   userIdentity: string;
   currentUser: {
@@ -153,8 +133,7 @@ type SidebarContentProps = {
   navItems: AdminNavItem[];
 };
 
-function SidebarContent({
-  className,
+function AdminSidebar({
   tenantSlug,
   userIdentity,
   currentUser,
@@ -163,78 +142,102 @@ function SidebarContent({
   const t = useTranslations("shell");
 
   return (
-    <div className={cn("flex h-full min-h-0 flex-col overflow-y-auto bg-sidebar p-4", className)}>
-      <div className="flex items-center gap-3 rounded-xl border border-sidebar-border bg-sidebar p-3 shadow-xs">
-        <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border border-sidebar-border bg-sidebar-accent p-1.5">
-          <Image
-            src="/brand/shahrah-logo.png"
-            alt={t("logoAlt")}
-            width={32}
-            height={32}
-            className="h-full w-full object-contain"
-            priority
-          />
-        </div>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-sidebar-foreground">{t("title")}</p>
-          <p className="truncate text-xs text-sidebar-accent-foreground">{tenantSlug}</p>
-        </div>
-      </div>
-
-      <nav className="mt-6 grid gap-1.5" aria-label={t("nav.title")}>
-        {navItems.map((item) => {
-          const Icon = item.icon;
-
-          return (
-            <Button
-              key={item.href}
-              variant={item.isActive ? "default" : "ghost"}
-              size="default"
-              className={cn(
-                "h-10 justify-start gap-3 px-3 transition-all duration-150",
-                item.isActive && "shadow-xs",
-              )}
+    <Sidebar side="right" collapsible="icon">
+      <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              size="lg"
+              tooltip={t("title")}
+              className="h-14 items-center gap-3 rounded-lg border border-sidebar-border bg-sidebar"
               asChild
             >
-              <Link href={item.href}>
-                <Icon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
-                <span className="truncate">{item.title}</span>
+              <Link href="/">
+                <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-sidebar-border bg-sidebar-accent p-1.5">
+                  <Image
+                    src="/brand/shahrah-logo.png"
+                    alt={t("logoAlt")}
+                    width={32}
+                    height={32}
+                    className="h-full w-full object-contain"
+                    priority
+                  />
+                </span>
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="truncate text-sm font-semibold">{t("title")}</span>
+                  <span className="truncate text-xs text-sidebar-foreground/70">{tenantSlug}</span>
+                </span>
               </Link>
-            </Button>
-          );
-        })}
-      </nav>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
 
-      <div className="flex-1" />
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>{t("nav.title")}</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu aria-label={t("nav.title")}>
+              {navItems.map((item) => {
+                const Icon = item.icon;
 
-      <Separator className="my-4" />
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      isActive={item.isActive}
+                      tooltip={item.title}
+                      asChild
+                    >
+                      <Link href={item.href}>
+                        <Icon aria-hidden="true" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
 
-      <div className="rounded-xl border border-sidebar-border bg-sidebar p-3 shadow-xs">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10">
-            <AvatarFallback className="text-xs font-semibold">
-              {getInitials(userIdentity)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-sidebar-foreground">{userIdentity}</p>
-            <Badge variant="secondary" className="mt-1 text-xs">
-              {currentUser.role}
-            </Badge>
-          </div>
-        </div>
+      <SidebarFooter>
+        <SidebarSeparator />
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <div className="flex items-center gap-3 rounded-lg border border-sidebar-border bg-sidebar p-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0">
+              <Avatar className="size-10">
+                <AvatarFallback className="text-xs font-semibold">
+                  {getInitials(userIdentity)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
+                <p className="truncate text-sm font-medium text-sidebar-foreground">{userIdentity}</p>
+                <Badge variant="secondary" className="mt-1 text-xs">
+                  {currentUser.role}
+                </Badge>
+              </div>
+            </div>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <form action="/logout" method="post">
+              <SidebarMenuButton asChild tooltip={t("logout")}>
+                <Button
+                  type="submit"
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start"
+                >
+                  <LogOut aria-hidden="true" />
+                  <span>{t("logout")}</span>
+                </Button>
+              </SidebarMenuButton>
+            </form>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
 
-        <form action="/logout" method="post" className="mt-3">
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full justify-start gap-2"
-          >
-            <LogOut className="h-4 w-4" aria-hidden="true" />
-            {t("logout")}
-          </Button>
-        </form>
-      </div>
-    </div>
+      <SidebarRail />
+    </Sidebar>
   );
 }
