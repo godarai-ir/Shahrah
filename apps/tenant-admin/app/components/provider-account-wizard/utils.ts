@@ -61,12 +61,20 @@ export function normalizeCapabilityList(values: string[] | undefined): string[] 
   return next;
 }
 
-export function getModelModes(model: Pick<ProviderCatalogModel, "mode">): string[] {
-  return normalizeCapabilityList(model.mode);
+export function getModelModes(model: Pick<ProviderCatalogModel, "mode" | "modes">): string[] {
+  return normalizeCapabilityList([...(model.mode ?? []), ...(model.modes ?? [])]);
 }
 
-export function resolveCurlGuideMode(model: Pick<ProviderCatalogModel, "mode">): SupportedCurlGuideMode {
-  const modes = getModelModes(model);
+export function resolveCurlGuideMode(
+  model: Pick<ProviderCatalogModel, "mode" | "modes" | "types" | "capabilities" | "features">,
+): SupportedCurlGuideMode {
+  const modes = [
+    ...getModelModes(model),
+    ...normalizeCapabilityList(model.types),
+    ...normalizeCapabilityList(model.capabilities),
+    ...normalizeCapabilityList(model.features),
+  ];
+  if (modes.some(isModerationCapability)) return "moderation";
   for (const mode of modes) {
     if (isSupportedCurlGuideMode(mode)) return mode;
   }
@@ -77,6 +85,11 @@ export function isSupportedCurlGuideMode(mode: string): mode is SupportedCurlGui
   return (SUPPORTED_CURL_GUIDE_MODES as string[]).includes(mode);
 }
 
+export function isModerationCapability(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return normalized === "moderation" || normalized.includes("moderation");
+}
+
 export function getCurlGuideEndpoint(mode: SupportedCurlGuideMode): string {
   switch (mode) {
     case "completion":
@@ -85,6 +98,8 @@ export function getCurlGuideEndpoint(mode: SupportedCurlGuideMode): string {
       return "/v1/embeddings";
     case "responses":
       return "/v1/responses";
+    case "moderation":
+      return "/v1/moderations";
     case "chat":
     default:
       return "/v1/chat/completions";
@@ -108,6 +123,11 @@ export function buildCurlGuidePayload(mode: SupportedCurlGuideMode, modelFqn: st
       return {
         model: modelFqn,
         input: "سلام، یک پاسخ کوتاه بده",
+      };
+    case "moderation":
+      return {
+        model: modelFqn,
+        input: "I want to check this text for policy violations.",
       };
     case "chat":
     default:
@@ -146,6 +166,7 @@ export function buildPowerShellCurlGuideCommand(input: {
   const modelFqn = input.modelFqn.replaceAll('"', '`"');
   const textPrompt = "سلام، یک پاسخ کوتاه بده";
   const embeddingInput = "سلام، این متن را برای جستجو برداری کن";
+  const moderationInput = "I want to check this text for policy violations.";
   const bodyLines = (() => {
     switch (input.mode) {
       case "completion":
@@ -168,6 +189,13 @@ export function buildPowerShellCurlGuideCommand(input: {
           "$body = @{",
           `  model = "${modelFqn}"`,
           `  input = "${textPrompt}"`,
+          "} | ConvertTo-Json -Depth 5",
+        ];
+      case "moderation":
+        return [
+          "$body = @{",
+          `  model = "${modelFqn}"`,
+          `  input = "${moderationInput}"`,
           "} | ConvertTo-Json -Depth 5",
         ];
       case "chat":
@@ -199,6 +227,38 @@ export function buildPowerShellCurlGuideCommand(input: {
     "  -Headers $headers `",
     "  -Body $body",
   ].join("\n");
+}
+
+export function buildCurlGuideSampleResponse(mode: SupportedCurlGuideMode, modelName: string): string | undefined {
+  if (mode !== "moderation") return undefined;
+
+  return JSON.stringify(
+    {
+      id: "modr_example",
+      model: modelName,
+      results: [
+        {
+          flagged: false,
+          categories: {
+            sexual: false,
+            hate: false,
+            harassment: false,
+            "self-harm": false,
+            violence: false,
+          },
+          category_scores: {
+            sexual: 0.0001,
+            hate: 0.0002,
+            harassment: 0.0001,
+            "self-harm": 0,
+            violence: 0.0003,
+          },
+        },
+      ],
+    },
+    null,
+    2,
+  );
 }
 
 export function getModelCapabilities(model: Pick<ProviderCatalogModel, "capabilities" | "features">): string[] {

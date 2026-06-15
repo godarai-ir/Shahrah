@@ -3,29 +3,30 @@
 import { Highlight, themes } from "prism-react-renderer";
 import { Prism } from "prismjs";
 import "prismjs/components/prism-bash";
+import "prismjs/components/prism-json";
 import "prismjs/components/prism-powershell";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 export function CodeExampleBlock(props: {
   code: string;
-  language: "powershell" | "bash";
+  language: "powershell" | "bash" | "json";
   shellLabel: string;
   className?: string;
 }) {
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 shadow-[0_24px_80px_-32px_rgba(15,23,42,0.85)]",
+        "flex max-w-full min-w-0 flex-col overflow-hidden rounded-lg border border-slate-800 bg-slate-950 shadow-[0_20px_64px_-32px_rgba(15,23,42,0.85)]",
         props.className,
       )}
     >
-      <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/80 px-4 py-3 text-slate-200">
+      <div className="flex shrink-0 items-center justify-between border-b border-slate-800 bg-slate-900/80 px-3 py-2.5 text-slate-200 sm:px-4 sm:py-3">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-rose-400" />
-            <span className="h-2.5 w-2.5 rounded-full bg-amber-300" />
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+            <span className="size-2 rounded-full bg-rose-400 sm:size-2.5" />
+            <span className="size-2 rounded-full bg-amber-300 sm:size-2.5" />
+            <span className="size-2 rounded-full bg-emerald-400 sm:size-2.5" />
           </div>
           <Badge variant="secondary" className="border border-slate-700 bg-slate-800 px-2.5 py-0.5 font-mono text-[11px] text-slate-200">
             {props.shellLabel}
@@ -41,7 +42,7 @@ export function CodeExampleBlock(props: {
         {({ className, style, tokens, getLineProps, getTokenProps }) => (
           <pre
             dir="ltr"
-            className={cn("custom-scrollbar overflow-x-auto p-4 text-left text-[13px] leading-7", className)}
+            className={cn("custom-scrollbar max-h-[min(22rem,42dvh)] min-w-0 overflow-auto p-3 text-left text-[12px] leading-6 sm:p-4 sm:text-[13px] sm:leading-7", className)}
             style={{
               ...style,
               margin: 0,
@@ -56,7 +57,7 @@ export function CodeExampleBlock(props: {
                   {...lineProps}
                   className={cn("table w-full table-fixed", lineProps.className)}
                 >
-                  <span className="table-cell w-10 select-none pe-4 text-right text-slate-500">
+                  <span className="table-cell w-8 select-none pe-3 text-right text-slate-500 sm:w-10 sm:pe-4">
                     {lineIndex + 1}
                   </span>
                   <span className="table-cell w-full">

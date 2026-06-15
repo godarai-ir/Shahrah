@@ -41,6 +41,7 @@ export type ProviderCatalogModel = {
   model: string;
   display_name: string;
   mode?: string[];
+  modes?: string[];
   types: ModelType[];
   context_window?: number;
   input_modalities?: string[];
@@ -136,6 +137,7 @@ export type CurlGuide = {
   modelFqn: string;
   mode: SupportedCurlGuideMode;
   commands: Record<CurlGuideShell, string>;
+  sampleResponse?: string;
 };
 
 export type ModelDraft = {
@@ -156,13 +158,14 @@ export const CURL_GUIDE_LANGUAGE: Record<CurlGuideShell, "powershell" | "bash"> 
   bash: "bash",
 };
 
-export type SupportedCurlGuideMode = "chat" | "completion" | "embedding" | "responses";
+export type SupportedCurlGuideMode = "chat" | "completion" | "embedding" | "responses" | "moderation";
 
 export const SUPPORTED_CURL_GUIDE_MODES: SupportedCurlGuideMode[] = [
   "chat",
   "completion",
   "responses",
   "embedding",
+  "moderation",
 ];
 
 

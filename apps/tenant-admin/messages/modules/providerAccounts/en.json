@@ -318,6 +318,7 @@
         "instructionsLabel": "Execution notes",
         "instructions": "Replace PAT_TOKEN with the user's PAT, then send the request to the tenant gateway.",
         "copyCommand": "Copy active example",
+        "sampleResponse": "Sample response",
         "shells": {
           "powershell": "PowerShell",
           "bash": "bash"

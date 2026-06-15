@@ -40,6 +40,7 @@ import { CURL_GUIDE_LANGUAGE } from "./types";
 import {
   buildBashCurlGuideCommand,
   buildCurlGuidePayload,
+  buildCurlGuideSampleResponse,
   buildPowerShellCurlGuideCommand,
   formatDisplayPrice,
   getCurlGuideEndpoint,
@@ -140,6 +141,7 @@ export function ModelsEditor(props: {
 
   const openCurlGuide = useCallback((modelValue: ProviderCatalogModel) => {
     const modelFqn = buildModelFqn(modelValue);
+    const officialModel = normalizeProviderScopedModelName(modelValue.provider, modelValue.model);
     const guideMode = resolveCurlGuideMode(modelValue);
     const endpoint = getCurlGuideEndpoint(guideMode);
     const bashCommand = buildBashCurlGuideCommand({
@@ -162,8 +164,9 @@ export function ModelsEditor(props: {
         powershell: powershellCommand,
         bash: bashCommand,
       },
+      sampleResponse: buildCurlGuideSampleResponse(guideMode, officialModel),
     });
-  }, [buildModelFqn, tenantBaseUrl]);
+  }, [buildModelFqn, normalizeProviderScopedModelName, tenantBaseUrl]);
 
   const comparedModels = useMemo(
     () => props.filteredProviderModels.filter((model) => props.modelDrafts[model.model]?.compared),
@@ -1082,37 +1085,37 @@ export function ModelsEditor(props: {
         </DialogContent>
       </Dialog>
       <Dialog open={curlGuide !== null} onOpenChange={(open) => { if (!open) setCurlGuide(null); }}>
-        <DialogContent className="max-w-4xl overflow-hidden p-0">
-          <div className="border-b border-border/70 bg-[linear-gradient(135deg,color-mix(in_oklab,var(--primary)_10%,transparent),transparent_58%),linear-gradient(180deg,color-mix(in_oklab,var(--muted)_65%,transparent),transparent)] px-6 py-6">
+        <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)]">
+          <div className="shrink-0 border-b border-border/70 bg-[linear-gradient(135deg,color-mix(in_oklab,var(--primary)_10%,transparent),transparent_58%),linear-gradient(180deg,color-mix(in_oklab,var(--muted)_65%,transparent),transparent)] px-4 py-4 sm:px-6 sm:py-6">
             <DialogHeader className="space-y-3">
-              <div className="flex items-center justify-between gap-4">
-                <div className="space-y-2">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 space-y-2">
                   <DialogTitle>{ux("models.curlGuide.title")}</DialogTitle>
                   <DialogDescription>{ux("models.curlGuide.description", { model: curlGuide?.modelName ?? "" })}</DialogDescription>
                 </div>
-                <Badge className="border border-primary/20 bg-primary/10 text-primary">
+                <Badge className="w-fit shrink-0 border border-primary/20 bg-primary/10 text-primary">
                   <Code2 className="me-1 h-3.5 w-3.5" />
                   {ux("models.curlGuide.readyBadge")}
                 </Badge>
               </div>
             </DialogHeader>
-            <div className="mt-5 grid gap-3 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-              <div className="rounded-2xl border border-border/70 bg-background/80 p-4 shadow-sm backdrop-blur">
+            <div className="mt-4 grid min-w-0 gap-3 md:mt-5 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+              <div className="min-w-0 rounded-lg border border-border/70 bg-background/80 p-3 shadow-sm backdrop-blur sm:p-4">
                 <div className="text-xs font-medium text-muted-foreground">{ux("models.curlGuide.modelFqnLabel")}</div>
                 <div dir="ltr" className="mt-2 break-all text-left font-mono text-sm text-foreground">{curlGuide?.modelFqn}</div>
               </div>
-              <div className="rounded-2xl border border-border/70 bg-background/80 p-4 shadow-sm backdrop-blur">
+              <div className="min-w-0 rounded-lg border border-border/70 bg-background/80 p-3 shadow-sm backdrop-blur sm:p-4">
                 <div className="text-xs font-medium text-muted-foreground">{ux("models.curlGuide.instructionsLabel")}</div>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">{ux("models.curlGuide.instructions")}</p>
               </div>
             </div>
           </div>
-          <div className="space-y-5 px-6 py-6">
-            <Tabs value={curlGuideShell} onValueChange={(value) => setCurlGuideShell(value as CurlGuideShell)} className="space-y-4">
+          <div className="custom-scrollbar flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
+            <Tabs value={curlGuideShell} onValueChange={(value) => setCurlGuideShell(value as CurlGuideShell)} className="min-w-0 space-y-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <TabsList className="h-auto w-full justify-start rounded-xl bg-muted/70 p-1 md:w-auto">
-                  <TabsTrigger value="powershell" className="min-w-32">{ux("models.curlGuide.shells.powershell")}</TabsTrigger>
-                  <TabsTrigger value="bash" className="min-w-24">{ux("models.curlGuide.shells.bash")}</TabsTrigger>
+                <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-lg bg-muted/70 p-1 md:w-auto">
+                  <TabsTrigger value="powershell" className="min-w-28 sm:min-w-32">{ux("models.curlGuide.shells.powershell")}</TabsTrigger>
+                  <TabsTrigger value="bash" className="min-w-20 sm:min-w-24">{ux("models.curlGuide.shells.bash")}</TabsTrigger>
                 </TabsList>
                 <Button
                   type="button"
@@ -1144,8 +1147,18 @@ export function ModelsEditor(props: {
                 />
               </TabsContent>
             </Tabs>
+            {curlGuide?.sampleResponse ? (
+              <div className="flex flex-col gap-3">
+                <div className="text-start text-sm font-medium text-foreground">{ux("models.curlGuide.sampleResponse")}</div>
+                <CodeExampleBlock
+                  code={curlGuide.sampleResponse}
+                  language="json"
+                  shellLabel="JSON"
+                />
+              </div>
+            ) : null}
           </div>
-          <DialogFooter className="border-t border-border/70 bg-muted/20 px-6 py-4">
+          <DialogFooter className="shrink-0 border-t border-border/70 bg-muted/20 px-4 py-3 sm:px-6 sm:py-4">
             <Button type="button" onClick={() => setCurlGuide(null)}>
               {ux("models.curlGuide.close")}
             </Button>

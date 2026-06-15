@@ -375,6 +375,7 @@
         "instructionsLabel": "نکات اجرا",
         "instructions": "مقدار PAT_TOKEN را با PAT کاربر جایگزین کنید و سپس درخواست را به درگاه tenant بفرستید.",
         "copyCommand": "کپی نمونه فعال",
+        "sampleResponse": "نمونه پاسخ",
         "shells": {
           "powershell": "PowerShell",
           "bash": "bash"
