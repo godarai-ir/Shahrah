@@ -1,4 +1,4 @@
-name: Build Changed Images And Propose Staging Release
+name: Build Changed Images And Propose Production Release
 
 on:
   push:
@@ -24,7 +24,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: staging-release-${{ github.ref }}
+  group: production-release-${{ github.ref }}
   cancel-in-progress: false
 
 env:
@@ -192,7 +192,7 @@ jobs:
           all_service_ids = [s["id"] for s in services]
 
           shared_paths = [
-              ".github/workflows/gitops-staging-release.yml",
+              ".github/workflows/gitops-production-release.yml",
               "packages/",
               "pnpm-lock.yaml",
               "pnpm-workspace.yaml",
@@ -289,6 +289,24 @@ jobs:
                       best = v
               return best
 
+          def latest_semver_for_commit(prefix, commit_sha):
+              tags = sh(["git", "tag", "--list", f"{prefix}/v*"])
+              best = None
+              for t in [x.strip() for x in tags.splitlines() if x.strip()]:
+                  m = re.match(rf"^{re.escape(prefix)}/v(\d+)\.(\d+)\.(\d+)$", t)
+                  if not m:
+                      continue
+                  try:
+                      tag_sha = sh(["git", "rev-parse", f"{t}^{{}}"])
+                  except Exception:
+                      continue
+                  if tag_sha != commit_sha:
+                      continue
+                  v = tuple(int(m.group(i)) for i in (1, 2, 3))
+                  if best is None or v > best:
+                      best = v
+              return best
+
           def bump_semver(current, bump):
               if current is None:
                   if bump == "major":
@@ -309,10 +327,20 @@ jobs:
               s = id_to_service[sid]
               prefix = s["semver_prefix"]
               if prefix not in version_cache:
-                  current = latest_semver(prefix)
-                  nxt = bump_semver(current, bump_type)
-                  version_cache[prefix] = f"v{nxt[0]}.{nxt[1]}.{nxt[2]}"
-              semver_tag = version_cache[prefix]
+                  existing_for_head = latest_semver_for_commit(prefix, head_sha)
+                  if existing_for_head is not None:
+                      version_cache[prefix] = {
+                          "tag": f"v{existing_for_head[0]}.{existing_for_head[1]}.{existing_for_head[2]}",
+                          "publish": False,
+                      }
+                  else:
+                      current = latest_semver(prefix)
+                      nxt = bump_semver(current, bump_type)
+                      version_cache[prefix] = {
+                          "tag": f"v{nxt[0]}.{nxt[1]}.{nxt[2]}",
+                          "publish": True,
+                      }
+              semver_tag = version_cache[prefix]["tag"]
               matrix.append({
                   "id": s["id"],
                   "image": s["image"],
@@ -320,7 +348,9 @@ jobs:
                   "dockerfile": s["dockerfile"],
                   "target": s["target"],
                   "values_path": s["values_path"],
+                  "semver_prefix": s["semver_prefix"],
                   "semver_tag": semver_tag,
+                  "publish_semver": version_cache[prefix]["publish"],
               })
 
           release_tag = f"sha-{head_sha}"
@@ -330,6 +360,7 @@ jobs:
                   "release_tag": release_tag,
                   "bump_type": bump_type,
                   "services": [m["id"] for m in matrix],
+                  "semver_tags": {m["id"]: m["semver_tag"] for m in matrix},
               },
               separators=(",", ":"),
           )
@@ -380,6 +411,23 @@ jobs:
           username: ${{ secrets.REGISTRY_USERNAME }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
 
+      - name: Compute image tags
+        id: image-tags
+        env:
+          IMAGE_REF: ${{ env.REGISTRY_URL }}/${{ env.REGISTRY_NAMESPACE }}/${{ matrix.image }}
+          SHA_TAG: ${{ needs.detect-changes.outputs.release_tag }}
+          SEMVER_TAG: ${{ matrix.semver_tag }}
+          PUBLISH_SEMVER: ${{ matrix.publish_semver }}
+        run: |
+          {
+            echo "tags<<EOF"
+            echo "${IMAGE_REF}:${SHA_TAG}"
+            if [ "${PUBLISH_SEMVER}" = "true" ]; then
+              echo "${IMAGE_REF}:${SEMVER_TAG}"
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Build and push image
         uses: docker/build-push-action@v7
         with:
@@ -387,16 +435,68 @@ jobs:
           file: ${{ matrix.dockerfile }}
           target: ${{ matrix.target }}
           push: true
-          tags: |
-            ${{ env.REGISTRY_URL }}/${{ env.REGISTRY_NAMESPACE }}/${{ matrix.image }}:${{ needs.detect-changes.outputs.release_tag }}
-            ${{ env.REGISTRY_URL }}/${{ env.REGISTRY_NAMESPACE }}/${{ matrix.image }}:${{ matrix.semver_tag }}
+          tags: ${{ steps.image-tags.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  update-gitops-staging:
-    name: Create GitOps Staging PR
+  tag-release:
+    name: Create Per-Service Git Tags
     runs-on: ubuntu-latest
     needs: [detect-changes, build-and-push]
+    if: ${{ needs.detect-changes.outputs.changed_services != '' }}
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout app repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Create immutable SemVer Git tags
+        env:
+          MATRIX_JSON: ${{ needs.detect-changes.outputs.matrix }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+
+          def run(cmd, check=True):
+              return subprocess.run(cmd, check=check, text=True, capture_output=True)
+
+          matrix = json.loads(os.environ["MATRIX_JSON"])
+          head_sha = os.environ["HEAD_SHA"]
+
+          tags = {}
+          for item in matrix:
+              tag = f"{item['semver_prefix']}/{item['semver_tag']}"
+              tags.setdefault(tag, []).append(item["id"])
+
+          for tag, service_ids in tags.items():
+              existing = run(["git", "rev-parse", "-q", "--verify", f"refs/tags/{tag}^{{}}"], check=False)
+              existing_sha = existing.stdout.strip()
+              if existing.returncode == 0:
+                  if existing_sha == head_sha:
+                      print(f"Tag already exists for this commit: {tag}")
+                      continue
+                  raise SystemExit(f"Refusing to reuse existing tag {tag}; it points to {existing_sha}, not {head_sha}")
+
+              message = f"Release {tag} for {', '.join(service_ids)}"
+              run(["git", "tag", "-a", tag, head_sha, "-m", message])
+              run(["git", "push", "origin", f"refs/tags/{tag}"])
+              print(f"Created tag {tag}")
+          PY
+
+  update-gitops-production:
+    name: Create GitOps Production PR
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-and-push, tag-release]
     if: ${{ needs.detect-changes.outputs.changed_services != '' }}
     permissions:
       contents: read
@@ -414,10 +514,9 @@ jobs:
       - name: Install PyYAML
         run: python -m pip install pyyaml
 
-      - name: Update staging per-service image tags
+      - name: Update production per-service image tags
         env:
           MATRIX_JSON: ${{ needs.detect-changes.outputs.matrix }}
-          RELEASE_TAG: ${{ needs.detect-changes.outputs.release_tag }}
         working-directory: gitops
         run: |
           python - <<'PY'
@@ -426,8 +525,7 @@ jobs:
           import yaml
 
           matrix = json.loads(os.environ["MATRIX_JSON"])
-          release_tag = os.environ["RELEASE_TAG"]
-          path = "helm/shahrah/values.staging.yaml"
+          path = "helm/shahrah/values.production.yaml"
 
           with open(path, "r", encoding="utf-8") as f:
               data = yaml.safe_load(f)
@@ -439,14 +537,14 @@ jobs:
                   if k not in cur or cur[k] is None:
                       cur[k] = {}
                   cur = cur[k]
-              cur[keys[-1]] = release_tag
+              cur[keys[-1]] = item["semver_tag"]
 
           with open(path, "w", encoding="utf-8") as f:
               yaml.safe_dump(data, f, sort_keys=False)
 
           print("Updated tags:")
           for item in matrix:
-              print(f"- {item['values_path']} = {release_tag}")
+              print(f"- {item['values_path']} = {item['semver_tag']}")
           PY
 
       - name: Create pull request in GitOps repo
@@ -454,21 +552,23 @@ jobs:
         with:
           token: ${{ secrets.GITOPS_REPO_TOKEN }}
           path: gitops
-          commit-message: "chore(staging): deploy ${{ needs.detect-changes.outputs.release_tag }} for [${{ needs.detect-changes.outputs.changed_services }}]"
-          branch: "ci/staging-${{ github.sha }}"
+          commit-message: "chore(production): deploy SemVer tags for [${{ needs.detect-changes.outputs.changed_services }}]"
+          branch: "ci/production-${{ github.sha }}"
           base: main
-          title: "chore(staging): deploy ${{ needs.detect-changes.outputs.release_tag }}"
+          title: "chore(production): deploy SemVer tags"
           body: |
-            Automated staging promotion from app repository commit `${{ github.sha }}`.
+            Automated production promotion from app repository commit `${{ github.sha }}`.
 
             Summary: `${{ needs.detect-changes.outputs.build_summary }}`
 
-            - Built and pushed immutable image tags: `${{ needs.detect-changes.outputs.release_tag }}`
+            - Published SemVer image tags for changed services when newly released
+            - Built and pushed traceability image tags: `${{ needs.detect-changes.outputs.release_tag }}`
+            - Created per-service Git tags for the SemVer releases
             - Built semver tags for changed services (best-effort Conventional Commits bump)
-            - Updated only changed service tags in `helm/shahrah/values.staging.yaml`
+            - Updated only changed service tags in `helm/shahrah/values.production.yaml` to SemVer values
           labels: |
             gitops
-            staging
+            production
 
   no-op:
     name: No Changed Services

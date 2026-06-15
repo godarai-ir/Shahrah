@@ -20,9 +20,8 @@ on:
           - website
           - blog
           - tenant-admin
-          - all
       image_tag:
-        description: "Immutable image tag to promote (e.g. sha-<full-commit-sha>)"
+        description: "SemVer image tag to promote (e.g. v1.2.3)"
         required: true
         type: string
 
@@ -46,10 +45,55 @@ jobs:
           test -n "${{ inputs.service_id }}"
           test -n "${{ inputs.image_tag }}"
           test -n "${{ secrets.GITOPS_REPO_TOKEN }}"
-          case "${{ inputs.image_tag }}" in
-            sha-*) ;;
-            *) echo "image_tag must start with sha-"; exit 1 ;;
-          esac
+          if ! echo "${{ inputs.image_tag }}" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "image_tag must match vMAJOR.MINOR.PATCH, for example v1.2.3"
+            exit 1
+          fi
+
+      - name: Checkout app repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Verify service release tag exists
+        env:
+          SERVICE_ID: ${{ inputs.service_id }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          python - <<'PY'
+          import os
+          import subprocess
+
+          service_to_prefix = {
+              "control-plane": "control-plane",
+              "model-discovery": "model-discovery",
+              "model-discovery-migrate": "model-discovery",
+              "support-admin": "support-admin",
+              "silk-road": "silk-road",
+              "tunnel-client": "tunnel-client",
+              "tunnel-server": "tunnel-server",
+              "goose": "goose",
+              "docs": "docs",
+              "website": "website",
+              "blog": "blog",
+              "tenant-admin": "tenant-admin",
+          }
+
+          sid = os.environ["SERVICE_ID"]
+          image_tag = os.environ["IMAGE_TAG"]
+          prefix = service_to_prefix[sid]
+          release_tag = f"{prefix}/{image_tag}"
+
+          result = subprocess.run(
+              ["git", "rev-parse", "-q", "--verify", f"refs/tags/{release_tag}^{{}}"],
+              text=True,
+              capture_output=True,
+          )
+          if result.returncode != 0:
+              raise SystemExit(f"Release tag does not exist: {release_tag}")
+
+          print(f"Verified release tag {release_tag} at {result.stdout.strip()}")
+          PY
 
       - name: Checkout GitOps repository
         uses: actions/checkout@v5
@@ -88,14 +132,14 @@ jobs:
 
           sid = os.environ["SERVICE_ID"]
           image_tag = os.environ["IMAGE_TAG"]
-          if sid != "all" and sid not in service_to_values_path:
+          if sid not in service_to_values_path:
               raise SystemExit(f"Unsupported service_id: {sid}")
 
           path = "helm/shahrah/values.production.yaml"
           with open(path, "r", encoding="utf-8") as f:
               data = yaml.safe_load(f)
 
-          paths = service_to_values_path.values() if sid == "all" else [service_to_values_path[sid]]
+          paths = [service_to_values_path[sid]]
           for values_path in paths:
               keys = values_path.split(".")
               cur = data
@@ -125,7 +169,7 @@ jobs:
             Manual production promotion.
 
             - Service: `${{ inputs.service_id }}`
-            - Immutable image tag: `${{ inputs.image_tag }}`
+            - SemVer image tag: `${{ inputs.image_tag }}`
             - Updated only one key in `helm/shahrah/values.production.yaml`
           labels: |
             gitops
