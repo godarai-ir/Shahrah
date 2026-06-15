@@ -5,6 +5,8 @@ import {
   buildCurlGuidePayload,
   buildCurlGuideSampleResponse,
   getCurlGuideEndpoint,
+  getPublicSiteOrigin,
+  getTenantApiBaseURLForOrigin,
   resolveCurlGuideMode,
 } from "./utils";
 
@@ -74,5 +76,20 @@ describe("provider account curl guide helpers", () => {
     expect(response).toContain('"id": "modr_example"');
     expect(response).toContain('"model": "omni-moderation-latest"');
     expect(response).toContain('"category_scores"');
+  });
+
+  it("keeps production tenant API URLs on the tenant subdomain without ports", () => {
+    expect(getTenantApiBaseURLForOrigin("http://tenant1.godarai.ir:4000")).toBe("https://tenant1.godarai.ir");
+    expect(getTenantApiBaseURLForOrigin("https://tenant2.godarai.ir")).toBe("https://tenant2.godarai.ir");
+  });
+
+  it("normalizes www to the root domain instead of treating it as a tenant", () => {
+    expect(getTenantApiBaseURLForOrigin("http://www.godarai.ir:4000")).toBe("https://godarai.ir");
+    expect(getPublicSiteOrigin("http://www.godarai.ir:4000")).toBe("https://godarai.ir");
+  });
+
+  it("builds public catalog origins on the root site instead of tenant subdomains", () => {
+    expect(getPublicSiteOrigin("https://delpak.godarai.ir")).toBe("https://godarai.ir");
+    expect(getPublicSiteOrigin("http://tenant1.localhost:3000")).toBe("http://localhost");
   });
 });

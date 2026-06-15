@@ -48,6 +48,7 @@ import {
   getModelDiscoveryCatalogBaseURL,
   getModelModes,
   getModelSelectionTypes,
+  getTenantApiBaseURL,
   normalizeCapabilityList,
   requestJSON,
   resolveCurlGuideMode,
@@ -116,10 +117,7 @@ export function ModelsEditor(props: {
     error: "",
   });
   const tenantBaseUrl = useMemo(() => {
-    if (typeof window === "undefined") {
-      return "http://tenant1.localhost:4000";
-    }
-    return `${window.location.protocol}//${window.location.hostname}:4000`;
+    return getTenantApiBaseURL();
   }, []);
 
   const normalizeProviderScopedModelName = useCallback((provider: string, modelName: string) => {
