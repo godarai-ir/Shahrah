@@ -1,23 +1,86 @@
 {
-  "title": "Model Metrics",
+  "title": "Model metrics",
+  "description": "Track request volume, latency, token usage, cost, and failures across gateway models.",
+  "badges": {
+    "datasource": "Model metrics"
+  },
+  "sections": {
+    "summary": "Metrics summary",
+    "charts": "Metrics charts"
+  },
+  "actions": {
+    "applyFilters": "Apply filters"
+  },
   "alerts": {
-    "errorTitle": "Error"
+    "errorTitle": "Metrics could not be loaded"
+  },
+  "values": {
+    "unknown": "Unknown"
   },
   "filters": {
-    "from": "From (RFC3339)",
-    "to": "To (RFC3339)",
+    "title": "Query filters",
+    "description": "Use a local date and time range while the gateway query keeps RFC3339 timestamps.",
+    "from": "From",
+    "to": "To",
     "model": "Model",
-    "viewBy": "View by",
-    "status": "Status"
+    "provider": "Provider",
+    "requestId": "Request ID",
+    "viewBy": "Group by",
+    "percentile": "Latency percentile",
+    "status": "Status",
+    "placeholders": {
+      "model": "openai/gpt-4.1-mini",
+      "provider": "openai",
+      "requestId": "req_..."
+    },
+    "viewByOptions": {
+      "modelName": "Model",
+      "virtualModelName": "Virtual model",
+      "userEmail": "User",
+      "virtualAccount": "Virtual account",
+      "team": "Team"
+    },
+    "percentiles": {
+      "p50": "P50",
+      "p75": "P75",
+      "p90": "P90",
+      "p99": "P99"
+    }
   },
   "cards": {
-    "totalRequests": "Total Requests",
-    "inputTokens": "Input Tokens",
-    "outputTokens": "Output Tokens",
-    "totalCost": "Total Cost (USD)"
+    "totalRequests": "Total requests",
+    "totalRequestsHint": "Requests matched by the current gateway filters.",
+    "inputTokens": "Input tokens",
+    "inputTokensHint": "Prompt tokens consumed in the selected range.",
+    "outputTokens": "Output tokens",
+    "outputTokensHint": "Completion tokens generated in the selected range.",
+    "totalCost": "Total cost",
+    "totalCostHint": "Estimated provider cost in USD."
+  },
+  "charts": {
+    "requests": {
+      "title": "Requests per second",
+      "description": "Traffic trend grouped by the selected model dimension."
+    },
+    "latency": {
+      "title": "Request latency ({percentile})",
+      "description": "Selected latency percentile in milliseconds."
+    },
+    "tokensCost": {
+      "title": "Tokens and cost over time",
+      "description": "Input/output token volume with estimated cost.",
+      "inputTokens": "Input tokens",
+      "outputTokens": "Output tokens",
+      "costUsd": "Cost USD"
+    },
+    "failures": {
+      "title": "Request failure breakdown",
+      "description": "Failed gateway requests grouped by error code.",
+      "count": "Failures"
+    }
   },
   "table": {
-    "title": "Aggregated Metrics",
-    "empty": "No metrics found for current filters."
+    "title": "Aggregated metrics",
+    "empty": "No metrics found for the current filters."
   }
 }

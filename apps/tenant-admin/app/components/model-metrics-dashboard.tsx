@@ -1,20 +1,36 @@
-﻿"use client";
+"use client";
 
-import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import type { EChartsOption } from "echarts";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ComposedChart,
+  Line,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  type ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const ReactECharts = dynamic(() => import("echarts-for-react"), { ssr: false });
-
 const VIEW_BY = ["modelName", "virtualModelName", "userEmail", "virtualAccount", "team"] as const;
 const PCTS = ["p50", "p75", "p90", "p99"] as const;
+const INTERVAL_SECONDS = 300;
+const MAX_SERIES = 5;
 
 type ViewBy = (typeof VIEW_BY)[number];
 type Pct = (typeof PCTS)[number];
@@ -28,6 +44,19 @@ type ModelMetricsDashboardProps = {
   initialRequestID?: string;
 };
 
+type Summary = {
+  totalRequests: number;
+  inputTokens: number;
+  outputTokens: number;
+  cost: number;
+};
+
+type SeriesPoint = {
+  timestamp: string;
+  label: string;
+  tooltipLabel: string;
+} & Record<string, number | string>;
+
 export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps) {
   const t = useTranslations("metrics");
   const common = useTranslations("common");
@@ -40,20 +69,72 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [from, setFrom] = useState(() => props.initialFrom?.trim() || new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString());
-  const [to, setTo] = useState(() => props.initialTo?.trim() || new Date().toISOString());
+  const [from, setFrom] = useState(() => normalizeInitialIso(props.initialFrom, Date.now() - 3 * 60 * 60 * 1000));
+  const [to, setTo] = useState(() => normalizeInitialIso(props.initialTo, Date.now()));
 
   const [distribution, setDistribution] = useState<Row[]>([]);
   const [timeseries, setTimeseries] = useState<Row[]>([]);
   const [errorBreakdown, setErrorBreakdown] = useState<Row[]>([]);
 
-  const summary = useMemo(() => {
+  const summary = useMemo<Summary>(() => {
     const totalRequests = distribution.reduce((acc, row) => acc + Number(row.countModelName ?? row.countAll ?? 0), 0);
     const inputTokens = distribution.reduce((acc, row) => acc + Number(row.sumInputTokens ?? 0), 0);
     const outputTokens = distribution.reduce((acc, row) => acc + Number(row.sumOutputTokens ?? 0), 0);
     const cost = distribution.reduce((acc, row) => acc + Number(row.sumCostInUSD ?? 0), 0);
     return { totalRequests, inputTokens, outputTokens, cost };
   }, [distribution]);
+
+  const chartData = useMemo(
+    () => buildChartData(timeseries, viewBy, pct, t("values.unknown")),
+    [timeseries, viewBy, pct, t],
+  );
+
+  const errorChartData = useMemo(
+    () =>
+      errorBreakdown.map((row) => ({
+        errorCode: String(row.errorCode ?? t("values.unknown")),
+        count: Number(row.countModelName ?? row.countAll ?? 0),
+      })),
+    [errorBreakdown, t],
+  );
+
+  const seriesConfig = useMemo<ChartConfig>(() => {
+    return chartData.series.reduce<ChartConfig>((config, series, index) => {
+      config[series.key] = {
+        label: series.label,
+        color: `var(--chart-${(index % 5) + 1})`,
+      };
+      return config;
+    }, {});
+  }, [chartData.series]);
+
+  const errorChartConfig = useMemo<ChartConfig>(
+    () => ({
+      count: {
+        label: t("charts.failures.count"),
+        color: "var(--destructive)",
+      },
+    }),
+    [t],
+  );
+
+  const tokenChartConfig = useMemo<ChartConfig>(
+    () => ({
+      inputTokens: {
+        label: t("charts.tokensCost.inputTokens"),
+        color: "var(--chart-1)",
+      },
+      outputTokens: {
+        label: t("charts.tokensCost.outputTokens"),
+        color: "var(--chart-2)",
+      },
+      costUsd: {
+        label: t("charts.tokensCost.costUsd"),
+        color: "var(--chart-4)",
+      },
+    }),
+    [t],
+  );
 
   async function runQuery() {
     setLoading(true);
@@ -85,7 +166,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
           ],
           groupBy: [viewBy],
           filters,
-        }),
+        }, common("requestError")),
         postMetricsQuery({
           startTs: from,
           endTs: to,
@@ -100,8 +181,8 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
           ],
           groupBy: [viewBy],
           filters,
-          intervalInSeconds: 300,
-        }),
+          intervalInSeconds: INTERVAL_SECONDS,
+        }, common("requestError")),
         postMetricsQuery({
           startTs: from,
           endTs: to,
@@ -110,7 +191,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
           aggregations: [{ type: "count", column: "modelName" }],
           groupBy: ["errorCode"],
           filters: [...filters, { fieldName: "statusCode", operator: "GREATER_THAN_EQUAL", value: 400 }],
-        }),
+        }, common("requestError")),
       ]);
 
       setDistribution(dist.data ?? []);
@@ -127,9 +208,6 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
   }
 
   useEffect(() => {
-    if (!(props.initialModel?.trim() || props.initialProvider?.trim() || props.initialRequestID?.trim())) {
-      return;
-    }
     const id = window.setTimeout(() => {
       void runQuery();
     }, 0);
@@ -137,130 +215,94 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const chartData = useMemo(() => buildSeries(timeseries, viewBy, pct), [timeseries, viewBy, pct]);
-
-  const rpsOption = useMemo<EChartsOption>(() => ({
-    backgroundColor: "transparent",
-    tooltip: { trigger: "axis" },
-    legend: { textStyle: { color: "#94a3b8" } },
-    grid: { left: 30, right: 20, top: 40, bottom: 28 },
-    xAxis: { type: "category", data: chartData.x, boundaryGap: false, axisLine: { lineStyle: { color: "#334155" } } },
-    yAxis: { type: "value", splitLine: { lineStyle: { color: "rgba(148,163,184,0.15)" } } },
-    series: chartData.series.map((s, i) => ({
-      name: s.name,
-      type: "line",
-      smooth: true,
-      showSymbol: false,
-      lineStyle: { width: 2 },
-      areaStyle: { opacity: 0.18 },
-      emphasis: { focus: "series" },
-      data: s.rps,
-      color: palette(i),
-    })),
-  }), [chartData]);
-
-  const latencyOption = useMemo<EChartsOption>(() => ({
-    tooltip: { trigger: "axis" },
-    legend: { textStyle: { color: "#94a3b8" } },
-    grid: { left: 30, right: 20, top: 40, bottom: 28 },
-    xAxis: { type: "category", data: chartData.x, boundaryGap: false },
-    yAxis: { type: "value" },
-    series: chartData.series.map((s, i) => ({
-      name: s.name,
-      type: "line",
-      smooth: 0.25,
-      showSymbol: false,
-      data: s.latency,
-      color: palette(i),
-      lineStyle: { width: 2.2, shadowBlur: 8, shadowColor: "rgba(0,0,0,0.2)" },
-    })),
-  }), [chartData]);
-
-  const tokenCostOption = useMemo<EChartsOption>(() => ({
-    tooltip: { trigger: "axis" },
-    legend: { textStyle: { color: "#94a3b8" } },
-    grid: { left: 30, right: 20, top: 40, bottom: 28 },
-    xAxis: { type: "category", data: chartData.x },
-    yAxis: [{ type: "value", name: "tokens" }, { type: "value", name: "USD" }],
-    series: [
-      {
-        name: "input tokens",
-        type: "bar",
-        stack: "tokens",
-        data: chartData.totalInput,
-        itemStyle: { color: "#22d3ee" },
-      },
-      {
-        name: "output tokens",
-        type: "bar",
-        stack: "tokens",
-        data: chartData.totalOutput,
-        itemStyle: { color: "#818cf8" },
-      },
-      {
-        name: "cost usd",
-        type: "line",
-        yAxisIndex: 1,
-        smooth: true,
-        data: chartData.totalCost,
-        itemStyle: { color: "#f59e0b" },
-        lineStyle: { width: 2.5 },
-      },
-    ],
-  }), [chartData]);
-
-  const errorBreakdownOption = useMemo<EChartsOption>(() => ({
-    tooltip: { trigger: "axis" },
-    xAxis: { type: "category", data: errorBreakdown.map((r) => String(r.errorCode ?? "unknown")) },
-    yAxis: { type: "value" },
-    series: [{
-      type: "bar",
-      data: errorBreakdown.map((r) => Number(r.countModelName ?? r.countAll ?? 0)),
-      itemStyle: { color: "#fb7185", borderRadius: [6, 6, 0, 0] },
-    }],
-  }), [errorBreakdown]);
-
   return (
-    <div className="space-y-6">
-      <Card>
+    <div className="flex flex-col gap-6">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <Badge variant="secondary">{t("badges.datasource")}</Badge>
+            <Badge variant="outline">{t(`filters.viewByOptions.${viewBy}`)}</Badge>
+          </div>
+          <h1 className="text-2xl font-semibold tracking-normal">{t("title")}</h1>
+          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{t("description")}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <Button type="button" variant="outline" onClick={() => void runQuery()} disabled={loading}>
+            {loading ? common("loading") : common("refresh")}
+          </Button>
+        </div>
+      </header>
+
+      <Card className="rounded-lg">
         <CardHeader>
-          <CardTitle>{t("title")}</CardTitle>
+          <CardTitle className="text-base">{t("filters.title")}</CardTitle>
+          <CardDescription>{t("filters.description")}</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-3">
-          <div className="grid gap-1.5">
-            <Label>{t("filters.from")}</Label>
-            <Input value={from} onChange={(e) => setFrom(e.target.value)} />
-          </div>
-          <div className="grid gap-1.5">
-            <Label>{t("filters.to")}</Label>
-            <Input value={to} onChange={(e) => setTo(e.target.value)} />
-          </div>
-          <div className="grid gap-1.5">
-            <Label>{t("filters.model")}</Label>
-            <Input value={modelFilter} onChange={(e) => setModelFilter(e.target.value)} />
-          </div>
-          <div className="grid gap-1.5">
-            <Label>Provider</Label>
-            <Input value={providerFilter} onChange={(e) => setProviderFilter(e.target.value)} />
-          </div>
-          <div className="grid gap-1.5">
-            <Label>Request ID</Label>
-            <Input value={requestIDFilter} onChange={(e) => setRequestIDFilter(e.target.value)} />
-          </div>
-          <div className="grid gap-1.5">
-            <Label>{t("filters.viewBy")}</Label>
-            <select className="h-10 rounded-md border bg-background px-3 text-sm" value={viewBy} onChange={(e) => setViewBy(e.target.value as ViewBy)}>
-              {VIEW_BY.map((v) => <option key={v} value={v}>{v}</option>)}
+        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <DateTimePicker id="metrics-from" label={t("filters.from")} value={from} onChange={setFrom} />
+          <DateTimePicker id="metrics-to" label={t("filters.to")} value={to} onChange={setTo} />
+          <Field id="metrics-model" label={t("filters.model")}>
+            <Input
+              id="metrics-model"
+              value={modelFilter}
+              onChange={(event) => setModelFilter(event.target.value)}
+              placeholder={t("filters.placeholders.model")}
+              dir="ltr"
+              className="font-mono"
+            />
+          </Field>
+          <Field id="metrics-provider" label={t("filters.provider")}>
+            <Input
+              id="metrics-provider"
+              value={providerFilter}
+              onChange={(event) => setProviderFilter(event.target.value)}
+              placeholder={t("filters.placeholders.provider")}
+              dir="ltr"
+              className="font-mono"
+            />
+          </Field>
+          <Field id="metrics-request-id" label={t("filters.requestId")}>
+            <Input
+              id="metrics-request-id"
+              value={requestIDFilter}
+              onChange={(event) => setRequestIDFilter(event.target.value)}
+              placeholder={t("filters.placeholders.requestId")}
+              dir="ltr"
+              className="font-mono"
+            />
+          </Field>
+          <Field id="metrics-view-by" label={t("filters.viewBy")}>
+            <select
+              id="metrics-view-by"
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+              value={viewBy}
+              onChange={(event) => setViewBy(event.target.value as ViewBy)}
+            >
+              {VIEW_BY.map((value) => (
+                <option key={value} value={value}>
+                  {t(`filters.viewByOptions.${value}`)}
+                </option>
+              ))}
             </select>
-          </div>
-          <div className="grid gap-1.5">
-            <Label>Percentile</Label>
-            <select className="h-10 rounded-md border bg-background px-3 text-sm" value={pct} onChange={(e) => setPct(e.target.value as Pct)}>
-              {PCTS.map((p) => <option key={p} value={p}>{p.toUpperCase()}</option>)}
+          </Field>
+          <Field id="metrics-percentile" label={t("filters.percentile")}>
+            <select
+              id="metrics-percentile"
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+              value={pct}
+              onChange={(event) => setPct(event.target.value as Pct)}
+            >
+              {PCTS.map((value) => (
+                <option key={value} value={value}>
+                  {t(`filters.percentiles.${value}`)}
+                </option>
+              ))}
             </select>
-          </div>
+          </Field>
           <div className="flex items-end">
-            <Button onClick={runQuery} disabled={loading}>{loading ? common("loading") : common("refresh")}</Button>
+            <Button type="button" onClick={() => void runQuery()} disabled={loading}>
+              {loading ? common("loading") : t("actions.applyFilters")}
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -272,50 +314,149 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
         </Alert>
       ) : null}
 
-      <div className="grid gap-3 md:grid-cols-4">
-        <MetricCard title={t("cards.totalRequests")} value={String(summary.totalRequests)} />
-        <MetricCard title={t("cards.inputTokens")} value={String(summary.inputTokens)} />
-        <MetricCard title={t("cards.outputTokens")} value={String(summary.outputTokens)} />
-        <MetricCard title={t("cards.totalCost")} value={summary.cost.toFixed(6)} />
-      </div>
+      <section aria-label={t("sections.summary")} className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard title={t("cards.totalRequests")} value={formatNumber(summary.totalRequests)} description={t("cards.totalRequestsHint")} />
+        <MetricCard title={t("cards.inputTokens")} value={formatNumber(summary.inputTokens)} description={t("cards.inputTokensHint")} />
+        <MetricCard title={t("cards.outputTokens")} value={formatNumber(summary.outputTokens)} description={t("cards.outputTokensHint")} />
+        <MetricCard title={t("cards.totalCost")} value={formatCurrency(summary.cost)} description={t("cards.totalCostHint")} />
+      </section>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <ChartCard title="Requests Per Second" option={rpsOption} />
-        <ChartCard title={`Request Latency (${pct.toUpperCase()})`} option={latencyOption} />
-        <ChartCard title="Tokens & Cost Over Time" option={tokenCostOption} />
-        <ChartCard title="Request Failures Breakdown" option={errorBreakdownOption} />
-      </div>
+      <section aria-label={t("sections.charts")} className="grid gap-4 xl:grid-cols-2">
+        <ChartCard title={t("charts.requests.title")} description={t("charts.requests.description")}>
+          <ChartContainer config={seriesConfig} className="h-[320px] w-full">
+            <AreaChart data={chartData.points} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} />
+              <YAxis tickLine={false} axisLine={false} width={42} />
+              <ChartTooltip content={<ChartTooltipContent labelFormatter={formatTooltipLabel} />} />
+              {chartData.series.map((series) => (
+                <Area
+                  key={series.key}
+                  dataKey={series.key}
+                  type="monotone"
+                  fill={`var(--color-${series.key})`}
+                  fillOpacity={0.16}
+                  stroke={`var(--color-${series.key})`}
+                  strokeWidth={2}
+                />
+              ))}
+            </AreaChart>
+          </ChartContainer>
+        </ChartCard>
+
+        <ChartCard title={t("charts.latency.title", { percentile: pct.toUpperCase() })} description={t("charts.latency.description")}>
+          <ChartContainer config={seriesConfig} className="h-[320px] w-full">
+            <AreaChart data={chartData.latencyPoints} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} />
+              <YAxis tickLine={false} axisLine={false} width={42} />
+              <ChartTooltip content={<ChartTooltipContent labelFormatter={formatTooltipLabel} />} />
+              {chartData.series.map((series) => (
+                <Area
+                  key={series.key}
+                  dataKey={series.key}
+                  type="monotone"
+                  fill={`var(--color-${series.key})`}
+                  fillOpacity={0.1}
+                  stroke={`var(--color-${series.key})`}
+                  strokeWidth={2}
+                />
+              ))}
+            </AreaChart>
+          </ChartContainer>
+        </ChartCard>
+
+        <ChartCard title={t("charts.tokensCost.title")} description={t("charts.tokensCost.description")}>
+          <ChartContainer config={tokenChartConfig} className="h-[320px] w-full">
+            <ComposedChart data={chartData.tokenCostPoints} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} />
+              <YAxis yAxisId="tokens" tickLine={false} axisLine={false} width={42} />
+              <YAxis yAxisId="cost" orientation="right" tickLine={false} axisLine={false} width={42} />
+              <ChartTooltip content={<ChartTooltipContent labelFormatter={formatTooltipLabel} />} />
+              <Bar yAxisId="tokens" dataKey="inputTokens" stackId="tokens" fill="var(--color-inputTokens)" radius={[4, 4, 0, 0]} />
+              <Bar yAxisId="tokens" dataKey="outputTokens" stackId="tokens" fill="var(--color-outputTokens)" radius={[4, 4, 0, 0]} />
+              <Line yAxisId="cost" dataKey="costUsd" type="monotone" stroke="var(--color-costUsd)" strokeWidth={2} dot={false} />
+            </ComposedChart>
+          </ChartContainer>
+        </ChartCard>
+
+        <ChartCard title={t("charts.failures.title")} description={t("charts.failures.description")}>
+          <ChartContainer config={errorChartConfig} className="h-[320px] w-full">
+            <BarChart data={errorChartData} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey="errorCode" tickLine={false} axisLine={false} minTickGap={24} />
+              <YAxis tickLine={false} axisLine={false} width={42} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Bar dataKey="count" fill="var(--color-count)" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ChartContainer>
+        </ChartCard>
+      </section>
     </div>
   );
 }
 
-function MetricCard({ title, value }: { title: string; value: string }) {
+function Field({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
   return (
-    <Card className="bg-gradient-to-br from-slate-950/60 via-slate-900/40 to-slate-950/70 border-slate-800">
-      <CardHeader>
-        <CardTitle className="text-sm text-slate-300">{title}</CardTitle>
+    <div className="grid gap-2">
+      <Label htmlFor={id}>{label}</Label>
+      {children}
+    </div>
+  );
+}
+
+function DateTimePicker({
+  id,
+  label,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <Field id={id} label={label}>
+      <Input
+        id={id}
+        type="datetime-local"
+        value={toDateTimeLocalValue(value)}
+        onChange={(event) => {
+          const next = fromDateTimeLocalValue(event.target.value);
+          if (next) onChange(next);
+        }}
+      />
+    </Field>
+  );
+}
+
+function MetricCard({ title, value, description }: { title: string; value: string; description: string }) {
+  return (
+    <Card className="rounded-lg">
+      <CardHeader className="gap-2 p-4">
+        <CardDescription>{title}</CardDescription>
+        <CardTitle className="text-2xl">{value}</CardTitle>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent>
-        <p className="text-2xl font-semibold tracking-tight text-slate-100">{value}</p>
-      </CardContent>
     </Card>
   );
 }
 
-function ChartCard({ title, option }: { title: string; option: EChartsOption }) {
+function ChartCard({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
   return (
-    <Card className="border-slate-800 bg-gradient-to-b from-slate-950/60 to-slate-900/50">
+    <Card className="rounded-lg">
       <CardHeader>
-        <CardTitle className="text-sm text-slate-200">{title}</CardTitle>
+        <CardTitle className="text-base">{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent>
-        <ReactECharts option={option} style={{ height: 330 }} notMerge lazyUpdate />
-      </CardContent>
+      <CardContent>{children}</CardContent>
     </Card>
   );
 }
 
-async function postMetricsQuery(body: Record<string, unknown>): Promise<{ data?: Row[] }> {
+async function postMetricsQuery(body: Record<string, unknown>, fallbackError: string): Promise<{ data?: Row[] }> {
   const res = await fetch("/api/metrics/query", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -323,50 +464,134 @@ async function postMetricsQuery(body: Record<string, unknown>): Promise<{ data?:
     cache: "no-store",
   });
   const payload = await res.json();
-  if (!res.ok) throw new Error(payload?.error?.message ?? `Request failed (${res.status})`);
+  if (!res.ok) throw new Error(payload?.error?.message ?? `${fallbackError} (${res.status})`);
   return payload as { data?: Row[] };
 }
 
-function buildSeries(rows: Row[], viewBy: ViewBy, pct: Pct) {
+function buildChartData(rows: Row[], viewBy: ViewBy, pct: Pct, unknownLabel: string) {
   const timeSet = new Set<string>();
   const grouped = new Map<string, Row[]>();
+
   for (const row of rows) {
-    const key = String(row[viewBy] ?? "unknown");
+    const key = String(row[viewBy] ?? unknownLabel);
     const ts = String(row.timestamp ?? "");
     if (!grouped.has(key)) grouped.set(key, []);
     grouped.get(key)!.push(row);
     if (ts) timeSet.add(ts);
   }
+
   const x = Array.from(timeSet).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
-  const series = Array.from(grouped.entries()).map(([name, items]) => {
-    const index = new Map<string, Row>();
-    for (const i of items) index.set(String(i.timestamp ?? ""), i);
-    const rps = x.map((ts) => Number(index.get(ts)?.countModelName ?? index.get(ts)?.countAll ?? 0) / 300);
+  const series = Array.from(grouped.entries())
+    .slice(0, MAX_SERIES)
+    .map(([label], index) => ({ label, key: `series${index}` }));
+
+  const points: SeriesPoint[] = x.map((timestamp) => {
+    const point: SeriesPoint = {
+      timestamp,
+      label: formatLocalTime(timestamp),
+      tooltipLabel: formatLocalDateTime(timestamp),
+    };
+
+    series.forEach((seriesItem) => {
+      const item = grouped.get(seriesItem.label)?.find((row) => String(row.timestamp ?? "") === timestamp);
+      point[seriesItem.key] = Number(item?.countModelName ?? item?.countAll ?? 0) / INTERVAL_SECONDS;
+    });
+
+    return point;
+  });
+
+  const latencyPoints: SeriesPoint[] = x.map((timestamp) => {
+    const point: SeriesPoint = {
+      timestamp,
+      label: formatLocalTime(timestamp),
+      tooltipLabel: formatLocalDateTime(timestamp),
+    };
     const latencyKey = `${pct}LatencyMs`;
-    const latency = x.map((ts) => Number(index.get(ts)?.[latencyKey] ?? 0));
-    return { name, rps, latency };
+
+    series.forEach((seriesItem) => {
+      const item = grouped.get(seriesItem.label)?.find((row) => String(row.timestamp ?? "") === timestamp);
+      point[seriesItem.key] = Number(item?.[latencyKey] ?? 0);
+    });
+
+    return point;
   });
 
-  const totalInput = x.map((ts) => {
-    let total = 0;
-    for (const [, items] of grouped) total += Number(items.find((r) => String(r.timestamp) === ts)?.sumInputTokens ?? 0);
-    return total;
-  });
-  const totalOutput = x.map((ts) => {
-    let total = 0;
-    for (const [, items] of grouped) total += Number(items.find((r) => String(r.timestamp) === ts)?.sumOutputTokens ?? 0);
-    return total;
-  });
-  const totalCost = x.map((ts) => {
-    let total = 0;
-    for (const [, items] of grouped) total += Number(items.find((r) => String(r.timestamp) === ts)?.sumCostInUSD ?? 0);
-    return Number(total.toFixed(6));
+  const tokenCostPoints = x.map((timestamp) => {
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let costUsd = 0;
+
+    for (const [, items] of grouped) {
+      const item = items.find((row) => String(row.timestamp ?? "") === timestamp);
+      inputTokens += Number(item?.sumInputTokens ?? 0);
+      outputTokens += Number(item?.sumOutputTokens ?? 0);
+      costUsd += Number(item?.sumCostInUSD ?? 0);
+    }
+
+    return {
+      timestamp,
+      label: formatLocalTime(timestamp),
+      tooltipLabel: formatLocalDateTime(timestamp),
+      inputTokens,
+      outputTokens,
+      costUsd: Number(costUsd.toFixed(6)),
+    };
   });
 
-  return { x, series, totalInput, totalOutput, totalCost };
+  return { points, latencyPoints, tokenCostPoints, series };
 }
 
-function palette(i: number) {
-  const colors = ["#22d3ee", "#818cf8", "#34d399", "#f59e0b", "#fb7185", "#a78bfa", "#38bdf8"];
-  return colors[i % colors.length];
+function formatTooltipLabel(value: unknown, payload: readonly unknown[]) {
+  const first = payload[0] as { payload?: { tooltipLabel?: string } } | undefined;
+  return first?.payload?.tooltipLabel ?? String(value ?? "");
+}
+
+function normalizeInitialIso(value: string | undefined, fallbackTime: number) {
+  const trimmed = value?.trim();
+  if (trimmed && !Number.isNaN(Date.parse(trimmed))) return new Date(trimmed).toISOString();
+  return new Date(fallbackTime).toISOString();
+}
+
+function toDateTimeLocalValue(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (part: number) => String(part).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function fromDateTimeLocalValue(value: string) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString();
+}
+
+function formatLocalTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function formatLocalDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat().format(value);
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 6,
+  }).format(value);
 }

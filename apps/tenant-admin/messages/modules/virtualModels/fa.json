@@ -48,9 +48,9 @@
     "model": "مدل ارائه‌دهنده",
     "retryAttempts": "دفعات تلاش",
     "retryDelay": "وقفه (ms)",
-    "timeout": "حداکثر مهلت (ثانیه)",
+    "timeout": "حداکثر مهلت (s)",
     "retryCodes": "کدهای تکرار",
-    "fallbackCodes": "کدهای پشتیبان"
+    "fallbackCodes": "کدهای فال‌بک"
   },
  "modes": {
   "title": "حالت‌های قابل ارائه",

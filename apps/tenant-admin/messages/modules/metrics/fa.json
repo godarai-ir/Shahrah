@@ -1,23 +1,86 @@
 {
-  "title": "Model Metrics",
+  "title": "متریک‌های مدل",
+  "description": "حجم درخواست، تاخیر، مصرف توکن، هزینه و خطاهای مدل‌ها را در مسیر Gateway پایش کنید.",
+  "badges": {
+    "datasource": "متریک مدل"
+  },
+  "sections": {
+    "summary": "خلاصه متریک‌ها",
+    "charts": "نمودارهای متریک"
+  },
+  "actions": {
+    "applyFilters": "اعمال فیلترها"
+  },
   "alerts": {
-    "errorTitle": "Error"
+    "errorTitle": "متریک‌ها بارگیری نشدند"
+  },
+  "values": {
+    "unknown": "نامشخص"
   },
   "filters": {
-    "from": "From (RFC3339)",
-    "to": "To (RFC3339)",
-    "model": "Model",
-    "viewBy": "View by",
-    "status": "Status"
+    "title": "فیلترهای کوئری",
+    "description": "بازه تاریخ و زمان را به وقت محلی انتخاب کنید؛ کوئری Gateway همچنان با RFC3339 ارسال می‌شود.",
+    "from": "از",
+    "to": "تا",
+    "model": "مدل",
+    "provider": "Provider",
+    "requestId": "Request ID",
+    "viewBy": "گروه‌بندی بر اساس",
+    "percentile": "صدک تاخیر",
+    "status": "وضعیت",
+    "placeholders": {
+      "model": "openai/gpt-4.1-mini",
+      "provider": "openai",
+      "requestId": "req_..."
+    },
+    "viewByOptions": {
+      "modelName": "مدل",
+      "virtualModelName": "مدل مجازی",
+      "userEmail": "کاربر",
+      "virtualAccount": "اکانت مجازی",
+      "team": "تیم"
+    },
+    "percentiles": {
+      "p50": "P50",
+      "p75": "P75",
+      "p90": "P90",
+      "p99": "P99"
+    }
   },
   "cards": {
-    "totalRequests": "Total Requests",
-    "inputTokens": "Input Tokens",
-    "outputTokens": "Output Tokens",
-    "totalCost": "Total Cost (USD)"
+    "totalRequests": "کل درخواست‌ها",
+    "totalRequestsHint": "درخواست‌های منطبق با فیلترهای فعلی Gateway.",
+    "inputTokens": "توکن ورودی",
+    "inputTokensHint": "توکن‌های پرامپت مصرف‌شده در بازه انتخابی.",
+    "outputTokens": "توکن خروجی",
+    "outputTokensHint": "توکن‌های تولیدشده در بازه انتخابی.",
+    "totalCost": "هزینه کل",
+    "totalCostHint": "برآورد هزینه Provider بر اساس دلار."
+  },
+  "charts": {
+    "requests": {
+      "title": "درخواست در ثانیه",
+      "description": "روند ترافیک بر اساس بُعد انتخاب‌شده مدل."
+    },
+    "latency": {
+      "title": "تاخیر درخواست ({percentile})",
+      "description": "صدک انتخاب‌شده تاخیر بر حسب میلی‌ثانیه."
+    },
+    "tokensCost": {
+      "title": "توکن و هزینه در طول زمان",
+      "description": "حجم توکن‌های ورودی و خروجی همراه با برآورد هزینه.",
+      "inputTokens": "توکن ورودی",
+      "outputTokens": "توکن خروجی",
+      "costUsd": "هزینه دلاری"
+    },
+    "failures": {
+      "title": "تفکیک خطاهای درخواست",
+      "description": "درخواست‌های ناموفق Gateway بر اساس کد خطا.",
+      "count": "خطاها"
+    }
   },
   "table": {
-    "title": "Aggregated Metrics",
-    "empty": "No metrics found for current filters."
+    "title": "متریک‌های تجمیعی",
+    "empty": "برای فیلترهای فعلی متریکی پیدا نشد."
   }
 }
