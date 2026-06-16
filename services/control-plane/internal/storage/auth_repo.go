@@ -95,24 +95,19 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 			if alias == "" {
 				continue
 			}
-			typeSet := make(map[string]struct{})
 			valid := true
 			for _, target := range vm.Targets {
 				fqn := normalizeModelFQN(target.Model)
-				policy, ok := runtimePolicyByModel(runtimeModels, fqn)
-				if !ok {
+				if _, ok := runtimePolicyByModel(runtimeModels, fqn); !ok {
 					valid = false
 					break
 				}
-				for _, t := range policy.Types {
-					t = strings.TrimSpace(t)
-					if t == "" {
-						continue
-					}
-					typeSet[t] = struct{}{}
-				}
 			}
 			if !valid {
+				continue
+			}
+			aliasTypes := normalizeStringList(vm.ExposedModes)
+			if len(aliasTypes) == 0 {
 				continue
 			}
 			if _, exists := allowedSet[alias]; exists {
@@ -120,10 +115,6 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 			}
 			allowedSet[alias] = struct{}{}
 			auth.AllowedModels = append(auth.AllowedModels, alias)
-			aliasTypes := make([]string, 0, len(typeSet))
-			for t := range typeSet {
-				aliasTypes = append(aliasTypes, t)
-			}
 			auth.AllowedModelTypes[alias] = aliasTypes
 			auth.AllowedModelPricingMode[alias] = "virtual"
 			auth.AllowedModelPricingResolved[alias] = true
@@ -401,29 +392,20 @@ func intersectAllowedModelPoliciesWithSnapshots(keyModels []string, runtimeModel
 		if len(snapshot.TargetFQNs) == 0 {
 			continue
 		}
-		typeSet := make(map[string]struct{})
 		valid := true
 		for _, fqn := range snapshot.TargetFQNs {
 			fqn = strings.TrimSpace(fqn)
-			policy, ok := runtimeSet[fqn]
-			if !ok {
+			if _, ok := runtimeSet[fqn]; !ok {
 				valid = false
 				break
-			}
-			for _, t := range policy.Types {
-				t = strings.TrimSpace(t)
-				if t == "" {
-					continue
-				}
-				typeSet[t] = struct{}{}
 			}
 		}
 		if !valid {
 			continue
 		}
-		types := make([]string, 0, len(typeSet))
-		for t := range typeSet {
-			types = append(types, t)
+		types := normalizeStringList(snapshot.ExposedModes)
+		if len(types) == 0 {
+			continue
 		}
 		aliasTypes[alias] = types
 	}

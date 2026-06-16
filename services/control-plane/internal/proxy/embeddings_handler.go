@@ -81,7 +81,11 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIErrorDetail(c, fiber.StatusBadRequest, "model is required", "invalid_request_error", "model", "invalid_model")
 	}
 	tracing.SetModelForTrace(c, requestedModel)
-	if !isModelAllowedForType(authInfo, requestedModel, platform.ModelTypeEmbedding) {
+	modelAccess := modelAccessForType(authInfo, requestedModel, platform.ModelTypeEmbedding)
+	if !modelAccess.Allowed {
+		if modelAccess.UnsupportedVMMode {
+			return writeUnsupportedModelModeError(c, requestedModel, platform.ModelTypeEmbedding, modelAccess.ExposedModes)
+		}
 		emitDenyCounter(h.logger, denyReasonForModel(authInfo), requestedModel, currentTenant.ID)
 		return writeAPIError(c, fiber.StatusForbidden, "Model access denied or unsupported for embeddings", "authorization_error")
 	}

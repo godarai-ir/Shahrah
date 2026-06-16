@@ -59,6 +59,15 @@
     "retryCodes": "Retry status codes",
     "fallbackCodes": "Fallback status codes"
   },
+  "modes": {
+    "title": "Exposed modes",
+    "description": "Only modes supported by every selected target can be exposed.",
+    "noCommonTitle": "No common mode",
+    "noCommonDescription": "These targets cannot be combined in one virtual model because they do not share a supported mode.",
+    "partialTitle": "Some target modes are incompatible",
+    "partialDescription": "These modes are supported by only part of the target chain and cannot be exposed together: {modes}.",
+    "endpointUnknown": "No mapped OpenAI-compatible endpoint"
+  },
   "preview": {
     "title": "Effective routing preview",
     "description": "Requests use this order until a target succeeds.",
@@ -83,6 +92,7 @@
     "modelRequired": "Each target must include a model.",
     "duplicateOrder": "Target order values must be unique.",
     "retryAttemptsRange": "Retry attempts must be between 0 and 5.",
-    "retryDelayRange": "Retry delay must be between 0 and 10000 ms."
+    "retryDelayRange": "Retry delay must be between 0 and 10000 ms.",
+    "noCommonModes": "Selected targets must share at least one supported mode."
   }
 }

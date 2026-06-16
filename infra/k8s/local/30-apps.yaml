@@ -193,6 +193,11 @@ spec:
                 secretKeyRef:
                   name: shahrah-secret
                   key: CLICKHOUSE_DSN
+            - name: METRICS_MODEL_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: shahrah-config
+                  key: METRICS_MODEL_ENABLED
             - name: REDIS_HOST
               valueFrom:
                 configMapKeyRef:

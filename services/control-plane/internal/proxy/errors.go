@@ -2,11 +2,13 @@ package proxy
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
+	"github.com/Delpak/shahrah/packages/contracts/platform"
 )
 
 // Error codes matching LiteLLM exception_mapping.md
@@ -250,6 +252,41 @@ func writeAPIErrorDetail(c *fiber.Ctx, status int, message string, errType strin
 			Code:    code,
 		},
 	})
+}
+
+func writeUnsupportedModelModeError(c *fiber.Ctx, model string, requestedMode platform.ModelType, exposedModes []string) error {
+	mode := strings.TrimSpace(string(requestedMode))
+	model = strings.TrimSpace(model)
+	message := fmt.Sprintf("Model %q does not expose requested mode %q. Exposed modes: %s.", model, mode, formatQuotedStringList(exposedModes))
+	return c.Status(fiber.StatusBadRequest).JSON(contractsopenai.APIError{
+		Error: contractsopenai.ErrorInfo{
+			Message: message,
+			Type:    "invalid_request_error",
+			Param:   "model",
+			Code:    "unsupported_model_mode",
+			Details: map[string]interface{}{
+				"requested_mode": mode,
+				"model":          model,
+				"exposed_modes":  exposedModes,
+				"reason":         "requested mode is not available on this virtual model",
+			},
+		},
+	})
+}
+
+func formatQuotedStringList(values []string) string {
+	if len(values) == 0 {
+		return "[]"
+	}
+	quoted := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		quoted = append(quoted, fmt.Sprintf("%q", value))
+	}
+	return "[" + strings.Join(quoted, ", ") + "]"
 }
 
 // ContainsModel checks if a model is in the allowed models list

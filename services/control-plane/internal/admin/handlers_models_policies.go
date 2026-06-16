@@ -142,6 +142,9 @@ func (h *Handlers) CreateVirtualModel(c *fiber.Ctx) error {
 	actor := strings.TrimSpace(c.Get("x-shahrah-user-id"))
 	item, err := h.models.CreateVirtualModel(c.Context(), currentTenant.ID, req, actor)
 	if err != nil {
+		if errors.Is(err, storage.ErrInvalidVirtualModelModes) {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
 		return err
 	}
 	return c.Status(fiber.StatusCreated).JSON(item)
@@ -220,6 +223,9 @@ func (h *Handlers) UpdateVirtualModel(c *fiber.Ctx) error {
 	if err != nil {
 		if errors.Is(err, storage.ErrVirtualModelNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "virtual model not found")
+		}
+		if errors.Is(err, storage.ErrInvalidVirtualModelModes) {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 		return err
 	}

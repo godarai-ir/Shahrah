@@ -3,15 +3,18 @@ package storage
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/modelid"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
 var (
-	ErrVirtualModelNotFound = errors.New("virtual model not found")
+	ErrVirtualModelNotFound     = errors.New("virtual model not found")
+	ErrInvalidVirtualModelModes = errors.New("invalid virtual model modes")
 )
 
 func (s *Store) CreateVirtualModel(ctx context.Context, tenantID string, req platform.CreateVirtualModelRequest, actor string) (*platform.VirtualModel, error) {
@@ -25,6 +28,10 @@ func (s *Store) CreateVirtualModel(ctx context.Context, tenantID string, req pla
 	if req.Enabled != nil {
 		enabled = *req.Enabled
 	}
+	exposedModes, err := s.resolveVirtualModelExposedModes(ctx, tenantID, req.Targets, req.ExposedModes)
+	if err != nil {
+		return nil, err
+	}
 
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -33,9 +40,9 @@ func (s *Store) CreateVirtualModel(ctx context.Context, tenantID string, req pla
 	defer tx.Rollback(ctx)
 
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO virtual_models (virtual_model_id, tenant_id, alias, routing_strategy, enabled, created_by, updated_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-	`, id, tenantID, alias, strategy, enabled, emptyToNil(actor), emptyToNil(actor)); err != nil {
+		INSERT INTO virtual_models (virtual_model_id, tenant_id, alias, routing_strategy, enabled, exposed_modes, created_by, updated_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`, id, tenantID, alias, strategy, enabled, exposedModes, emptyToNil(actor), emptyToNil(actor)); err != nil {
 		return nil, err
 	}
 
@@ -58,6 +65,7 @@ func (s *Store) CreateVirtualModel(ctx context.Context, tenantID string, req pla
 		Alias:           alias,
 		RoutingStrategy: strategy,
 		Enabled:         enabled,
+		ExposedModes:    exposedModes,
 		Version:         1,
 		Targets:         targets,
 		Access:          access,
@@ -69,7 +77,7 @@ func (s *Store) CreateVirtualModel(ctx context.Context, tenantID string, req pla
 
 func (s *Store) ListVirtualModels(ctx context.Context, tenantID string) ([]platform.VirtualModel, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT virtual_model_id::text, tenant_id::text, alias, routing_strategy, enabled, version,
+		SELECT virtual_model_id::text, tenant_id::text, alias, routing_strategy, enabled, COALESCE(exposed_modes, '{}'), version,
 		       COALESCE(created_by, ''), COALESCE(updated_by, ''), created_at, updated_at
 		FROM virtual_models
 		WHERE tenant_id = $1
@@ -83,7 +91,7 @@ func (s *Store) ListVirtualModels(ctx context.Context, tenantID string) ([]platf
 	out := make([]platform.VirtualModel, 0)
 	for rows.Next() {
 		var vm platform.VirtualModel
-		if err := rows.Scan(&vm.ID, &vm.TenantID, &vm.Alias, &vm.RoutingStrategy, &vm.Enabled, &vm.Version, &vm.CreatedBy, &vm.UpdatedBy, &vm.CreatedAt, &vm.UpdatedAt); err != nil {
+		if err := rows.Scan(&vm.ID, &vm.TenantID, &vm.Alias, &vm.RoutingStrategy, &vm.Enabled, &vm.ExposedModes, &vm.Version, &vm.CreatedBy, &vm.UpdatedBy, &vm.CreatedAt, &vm.UpdatedAt); err != nil {
 			return nil, err
 		}
 		targets, err := s.listVirtualModelTargets(ctx, vm.ID)
@@ -104,10 +112,10 @@ func (s *Store) ListVirtualModels(ctx context.Context, tenantID string) ([]platf
 func (s *Store) GetVirtualModel(ctx context.Context, tenantID string, id string) (*platform.VirtualModel, error) {
 	var vm platform.VirtualModel
 	err := s.pool.QueryRow(ctx, `
-		SELECT virtual_model_id::text, tenant_id::text, alias, routing_strategy, enabled, version,
+		SELECT virtual_model_id::text, tenant_id::text, alias, routing_strategy, enabled, COALESCE(exposed_modes, '{}'), version,
 		       COALESCE(created_by, ''), COALESCE(updated_by, ''), created_at, updated_at
 		FROM virtual_models WHERE tenant_id = $1 AND virtual_model_id = $2
-	`, tenantID, id).Scan(&vm.ID, &vm.TenantID, &vm.Alias, &vm.RoutingStrategy, &vm.Enabled, &vm.Version, &vm.CreatedBy, &vm.UpdatedBy, &vm.CreatedAt, &vm.UpdatedAt)
+	`, tenantID, id).Scan(&vm.ID, &vm.TenantID, &vm.Alias, &vm.RoutingStrategy, &vm.Enabled, &vm.ExposedModes, &vm.Version, &vm.CreatedBy, &vm.UpdatedBy, &vm.CreatedAt, &vm.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrVirtualModelNotFound
 	}
@@ -130,10 +138,10 @@ func (s *Store) GetVirtualModel(ctx context.Context, tenantID string, id string)
 func (s *Store) GetVirtualModelByAlias(ctx context.Context, tenantID string, alias string) (*platform.VirtualModel, error) {
 	var vm platform.VirtualModel
 	err := s.pool.QueryRow(ctx, `
-		SELECT virtual_model_id::text, tenant_id::text, alias, routing_strategy, enabled, version,
+		SELECT virtual_model_id::text, tenant_id::text, alias, routing_strategy, enabled, COALESCE(exposed_modes, '{}'), version,
 		       COALESCE(created_by, ''), COALESCE(updated_by, ''), created_at, updated_at
 		FROM virtual_models WHERE tenant_id = $1 AND alias = $2 AND enabled = TRUE
-	`, tenantID, strings.TrimSpace(alias)).Scan(&vm.ID, &vm.TenantID, &vm.Alias, &vm.RoutingStrategy, &vm.Enabled, &vm.Version, &vm.CreatedBy, &vm.UpdatedBy, &vm.CreatedAt, &vm.UpdatedAt)
+	`, tenantID, strings.TrimSpace(alias)).Scan(&vm.ID, &vm.TenantID, &vm.Alias, &vm.RoutingStrategy, &vm.Enabled, &vm.ExposedModes, &vm.Version, &vm.CreatedBy, &vm.UpdatedBy, &vm.CreatedAt, &vm.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrVirtualModelNotFound
 	}
@@ -170,6 +178,20 @@ func (s *Store) UpdateVirtualModel(ctx context.Context, tenantID string, id stri
 	if req.Enabled != nil {
 		enabled = *req.Enabled
 	}
+	targetsForModeValidation := curr.Targets
+	if len(req.Targets) > 0 {
+		targetsForModeValidation = req.Targets
+	}
+	exposedModesInput := []string(nil)
+	if req.ExposedModes != nil {
+		exposedModesInput = *req.ExposedModes
+	} else if len(req.Targets) == 0 && len(curr.ExposedModes) > 0 {
+		exposedModesInput = curr.ExposedModes
+	}
+	exposedModes, err := s.resolveVirtualModelExposedModes(ctx, tenantID, targetsForModeValidation, exposedModesInput)
+	if err != nil {
+		return nil, err
+	}
 
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -179,9 +201,9 @@ func (s *Store) UpdateVirtualModel(ctx context.Context, tenantID string, id stri
 
 	if _, err := tx.Exec(ctx, `
 		UPDATE virtual_models
-		SET alias = $3, routing_strategy = $4, enabled = $5, version = version + 1, updated_by = $6, updated_at = NOW()
+		SET alias = $3, routing_strategy = $4, enabled = $5, exposed_modes = $6, version = version + 1, updated_by = $7, updated_at = NOW()
 		WHERE tenant_id = $1 AND virtual_model_id = $2
-	`, tenantID, id, alias, strategy, enabled, emptyToNil(actor)); err != nil {
+	`, tenantID, id, alias, strategy, enabled, exposedModes, emptyToNil(actor)); err != nil {
 		return nil, err
 	}
 
@@ -491,4 +513,113 @@ func (s *Store) listVirtualModelTargets(ctx context.Context, vmID string) ([]pla
 		out = append(out, t)
 	}
 	return out, rows.Err()
+}
+
+func (s *Store) resolveVirtualModelExposedModes(ctx context.Context, tenantID string, targets []platform.VirtualModelTarget, requested []string) ([]string, error) {
+	intersection, err := s.virtualModelTargetModeIntersection(ctx, tenantID, targets)
+	if err != nil {
+		return nil, err
+	}
+	if len(intersection) == 0 {
+		return nil, fmt.Errorf("%w: virtual model targets do not share any supported modes", ErrInvalidVirtualModelModes)
+	}
+	requested = normalizeStringList(requested)
+	if len(requested) == 0 {
+		return intersection, nil
+	}
+	allowed := make(map[string]struct{}, len(intersection))
+	for _, mode := range intersection {
+		allowed[mode] = struct{}{}
+	}
+	for _, mode := range requested {
+		if _, ok := allowed[mode]; !ok {
+			return nil, fmt.Errorf("%w: exposed_modes must be a subset of target mode intersection", ErrInvalidVirtualModelModes)
+		}
+	}
+	return requested, nil
+}
+
+func (s *Store) virtualModelTargetModeIntersection(ctx context.Context, tenantID string, targets []platform.VirtualModelTarget) ([]string, error) {
+	if len(targets) == 0 {
+		return nil, fmt.Errorf("%w: at least one target is required", ErrInvalidVirtualModelModes)
+	}
+	var intersection []string
+	for i, target := range targets {
+		modes, err := s.supportedModesForVirtualModelTarget(ctx, tenantID, target)
+		if err != nil {
+			return nil, err
+		}
+		if len(modes) == 0 {
+			return nil, fmt.Errorf("%w: target %q has no supported_modes", ErrInvalidVirtualModelModes, strings.TrimSpace(target.Model))
+		}
+		if i == 0 {
+			intersection = modes
+			continue
+		}
+		intersection = intersectStringLists(intersection, modes)
+		if len(intersection) == 0 {
+			return nil, nil
+		}
+	}
+	return intersection, nil
+}
+
+func (s *Store) supportedModesForVirtualModelTarget(ctx context.Context, tenantID string, target platform.VirtualModelTarget) ([]string, error) {
+	provider, accountAlias, officialModel, ok := modelid.SplitModelFQN(strings.TrimSpace(target.Model))
+	if !ok {
+		return nil, fmt.Errorf("%w: target.model must use provider:account_alias:model_id format", ErrInvalidVirtualModelModes)
+	}
+
+	rows, err := s.pool.Query(ctx, `
+		SELECT m.model, COALESCE(m.types, '{}')
+		FROM tenant_provider_account_models m
+		JOIN tenant_provider_accounts a ON a.account_id = m.account_id
+		WHERE a.tenant_id = $1::uuid
+		  AND lower(a.provider) = lower($2)
+		  AND a.name = $3
+		  AND m.enabled = true
+	`, tenantID, provider, accountAlias)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var storedModel string
+		var modes []string
+		if err := rows.Scan(&storedModel, &modes); err != nil {
+			return nil, err
+		}
+		if modelid.MatchOfficialModel(provider, storedModel, officialModel) {
+			return normalizeStringList(modes), nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return nil, fmt.Errorf("%w: target %q is not an enabled provider account model", ErrInvalidVirtualModelModes, target.Model)
+}
+
+func intersectStringLists(a []string, b []string) []string {
+	bSet := make(map[string]struct{}, len(b))
+	for _, item := range b {
+		bSet[strings.TrimSpace(item)] = struct{}{}
+	}
+	out := make([]string, 0, len(a))
+	seen := make(map[string]struct{}, len(a))
+	for _, item := range a {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		if _, ok := bSet[item]; !ok {
+			continue
+		}
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = struct{}{}
+		out = append(out, item)
+	}
+	return out
 }

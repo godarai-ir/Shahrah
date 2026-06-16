@@ -138,7 +138,11 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	if req.MaxTokens != nil && *req.MaxTokens < 1 {
 		return writeAPIError(c, fiber.StatusBadRequest, "max_tokens must be at least 1", "invalid_request_error")
 	}
-	if !isModelAllowedForType(authInfo, requestedModel, platform.ModelTypeChat) {
+	modelAccess := modelAccessForType(authInfo, requestedModel, platform.ModelTypeChat)
+	if !modelAccess.Allowed {
+		if modelAccess.UnsupportedVMMode {
+			return writeUnsupportedModelModeError(c, requestedModel, platform.ModelTypeChat, modelAccess.ExposedModes)
+		}
 		emitDenyCounter(h.logger, denyReasonForModel(authInfo), requestedModel, currentTenant.ID)
 		return writeAPIError(c, fiber.StatusForbidden, "Model access denied or unsupported for chat completions", "authorization_error")
 	}

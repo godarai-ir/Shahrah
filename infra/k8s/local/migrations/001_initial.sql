@@ -661,6 +661,7 @@ CREATE TABLE public.virtual_models (
     alias character varying(255) NOT NULL,
     routing_strategy character varying(64) DEFAULT 'priority'::character varying NOT NULL,
     enabled boolean DEFAULT true NOT NULL,
+    exposed_modes text[] DEFAULT '{}'::text[] NOT NULL,
     version integer DEFAULT 1 NOT NULL,
     created_by character varying(255),
     updated_by character varying(255),

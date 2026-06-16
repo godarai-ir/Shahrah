@@ -62,6 +62,7 @@ func buildVirtualModelFromSnapshot(authInfo *platform.AuthContext, alias string)
 		RoutingStrategy: "priority",
 		Enabled:         true,
 		Version:         snapshot.Version,
+		ExposedModes:    append([]string(nil), snapshot.ExposedModes...),
 		Targets:         targets,
 	}, true
 }

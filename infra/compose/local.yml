@@ -10,6 +10,7 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/sharah_db?sslmode=disable
       CLICKHOUSE_DSN: ${CLICKHOUSE_DSN:-clickhouse://sharah_user:5r74Fq90EyWA@clickhouse:9000/sharah_db?dial_timeout=5s&read_timeout=10s}
+      METRICS_MODEL_ENABLED: ${METRICS_MODEL_ENABLED:-true}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-s4M6gOMp77ss}

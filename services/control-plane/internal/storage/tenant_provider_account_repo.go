@@ -488,6 +488,7 @@ func (s *Store) listTenantProviderAccountModels(ctx context.Context, accountID s
 			return nil, err
 		}
 		model.Types = stringsToModelTypes(types)
+		model.SupportedModes = append([]platform.ModelType(nil), model.Types...)
 		model.InputModalities = normalizeStringList(inputModalities)
 		model.OutputModalities = normalizeStringList(outputModalities)
 		model.Settings = parseJSONObject(settingsRaw)

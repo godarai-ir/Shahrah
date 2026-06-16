@@ -126,6 +126,7 @@ func buildVirtualModelSnapshotsForAliases(aliases []string, virtualModels []plat
 			VirtualModelID: vm.ID,
 			Version:        vm.Version,
 			TargetFQNs:     targetFQNs,
+			ExposedModes:   append([]string(nil), vm.ExposedModes...),
 		}
 	}
 	return out, nil

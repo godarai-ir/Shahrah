@@ -457,7 +457,7 @@ type UpdateVirtualModelRequest struct {
 	Alias           *string                             `json:"alias,omitempty"`
 	RoutingStrategy *string                             `json:"routing_strategy,omitempty"`
 	Enabled         *bool                               `json:"enabled,omitempty"`
-	ExposedModes    []string                            `json:"exposed_modes,omitempty"`
+	ExposedModes    *[]string                           `json:"exposed_modes,omitempty"`
 	Targets         []VirtualModelTarget                `json:"targets,omitempty"`
 	Access          *TenantProviderAccountAccessControl `json:"access,omitempty"`
 }

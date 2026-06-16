@@ -52,6 +52,15 @@
     "retryCodes": "کدهای تکرار",
     "fallbackCodes": "کدهای پشتیبان"
   },
+ "modes": {
+  "title": "حالت‌های قابل ارائه",
+  "description": "فقط حالت‌هایی که توسط همه مقصدهای انتخاب‌شده پشتیبانی می‌شوند، قابل ارائه هستند.",
+  "noCommonTitle": "هیچ حالت مشترکی وجود ندارد",
+  "noCommonDescription": "این مقصدها را نمی‌توان در یک مدل مجازی ترکیب کرد، چون هیچ حالت پشتیبانی‌شده مشترکی ندارند.",
+  "partialTitle": "برخی از حالت‌های مقصدها ناسازگار هستند",
+  "partialDescription": "این حالت‌ها فقط توسط بخشی از زنجیره مقصد پشتیبانی می‌شوند و نمی‌توان آن‌ها را هم‌زمان ارائه کرد: {modes}.",
+  "endpointUnknown": "هیچ endpoint سازگار با OpenAI نگاشت نشده است"
+},
   "preview": {
     "title": "پیش‌نمایش مسیریابی مؤثر",
     "description": "درخواست تا زمان موفقیت با این ترتیب ارسال می‌شود.",
@@ -75,14 +84,15 @@
     "duplicateOrder": "اولویت مقصد‌ها باید یکتا باشد.",
     "retryAttemptsRange": "دفعات تلاش باید بین ۰ تا ۵ باشد.",
     "retryDelayRange": "وقفه باید بین ۰ تا ۱۰۰۰۰ ms باشد.",
+    "noCommonModes": "Selected targets must share at least one supported mode.",
     "deleteSuccess": "مدل مجازی با موفقیت حذف شد.",
     "deleteError": "حذف مدل مجازی ناموفق بود."
   },
   "deleteDialog": {
-    "title": "\u062a\u0627\u06cc\u06cc\u062f \u062d\u0630\u0641",
-    "description": "\u0627\u0632 \u062d\u0630\u0641 VAT \"{alias}\" \u0645\u0637\u0645\u0626\u0646 \u0647\u0633\u062a\u06cc\u062f\u061f \u0627\u06cc\u0646 \u0639\u0645\u0644\u06cc\u0627\u062a \u0642\u0627\u0628\u0644 \u0628\u0627\u0632\u06af\u0634\u062a \u0646\u06cc\u0633\u062a.",
-    "cancel": "\u0627\u0646\u0635\u0631\u0627\u0641",
-    "confirm": "\u062d\u0630\u0641",
-    "deleting": "\u062f\u0631 \u062d\u0627\u0644 \u062d\u0630\u0641..."
-  }
+  "title": "تأیید حذف",
+  "description": "آیا از حذف «{alias}» مطمئن هستید؟ این عملیات قابل بازگشت نیست.",
+  "cancel": "انصراف",
+  "confirm": "حذف",
+  "deleting": "در حال حذف..."
+}
 }

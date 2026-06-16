@@ -87,7 +87,11 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	tracing.SetTenantForTrace(c, currentTenant.ID)
 	tenantSlug := strings.TrimSpace(currentTenant.Slug)
 
-	if !isModelAllowedForType(authInfo, requestedModel, platform.ModelTypeCompletion) {
+	modelAccess := modelAccessForType(authInfo, requestedModel, platform.ModelTypeCompletion)
+	if !modelAccess.Allowed {
+		if modelAccess.UnsupportedVMMode {
+			return writeUnsupportedModelModeError(c, requestedModel, platform.ModelTypeCompletion, modelAccess.ExposedModes)
+		}
 		emitDenyCounter(h.logger, denyReasonForModel(authInfo), requestedModel, currentTenant.ID)
 		return writeAPIError(c, fiber.StatusForbidden, "model access denied or unsupported for completions", "authorization_error")
 	}

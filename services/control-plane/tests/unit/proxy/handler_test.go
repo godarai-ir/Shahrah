@@ -576,6 +576,58 @@ func TestChatCompletionHandler_DeniesWhenAllowlistEnforcedAndEmpty(t *testing.T)
 	assert.Equal(t, fiber.StatusForbidden, resp.StatusCode)
 }
 
+func TestChatCompletionHandler_RejectsVirtualModelUnsupportedMode(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	r := newTestRouter(t, logger)
+	handler := proxy.NewChatCompletionHandler(
+		r,
+		&mockTunnelTransport{},
+		&mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 100}},
+		&mockWalletStore{},
+		&mockLogger{},
+		logger,
+	)
+
+	app := fiber.New()
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{
+			TokenHash:     "test-hash",
+			TenantID:      "tenant-1",
+			AllowedModels: []string{"creative/myCustomModel"},
+			AllowedModelTypes: map[string][]string{
+				"creative/myCustomModel": {"moderation"},
+			},
+			AllowedModelPricingMode: map[string]string{
+				"creative/myCustomModel": "virtual",
+			},
+		})
+		return c.Next()
+	})
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals(tenant.ContextKey{}, &platform.Tenant{ID: "tenant-1", Slug: "test-tenant"})
+		return c.Next()
+	})
+	app.Post("/v1/chat/completions", handler.Handle)
+
+	payload, _ := json.Marshal(map[string]interface{}{
+		"model":    "creative/myCustomModel",
+		"messages": []interface{}{map[string]interface{}{"role": "user", "content": "Hello"}},
+	})
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	var apiErr contractsopenai.APIError
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&apiErr))
+	assert.Equal(t, "unsupported_model_mode", apiErr.Error.Code)
+	assert.Equal(t, "chat", apiErr.Error.Details["requested_mode"])
+	assert.Equal(t, "creative/myCustomModel", apiErr.Error.Details["model"])
+	assert.Equal(t, "requested mode is not available on this virtual model", apiErr.Error.Details["reason"])
+}
+
 func TestChatCompletionHandler_ShouldTransformProviderError(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	r := newTestRouter(t, logger)

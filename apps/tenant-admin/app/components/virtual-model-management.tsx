@@ -38,6 +38,7 @@ type VirtualModel = {
   alias: string;
   routing_strategy: string;
   enabled: boolean;
+  exposed_modes?: string[];
   version: number;
   updated_at?: string;
   targets: VirtualModelTarget[];
@@ -50,7 +51,7 @@ type VirtualModel = {
 type VMResponse = { data?: VirtualModel[] };
 type VMDetail = VirtualModel;
 type TenantProviderAccount = { id: string; provider: string; name: string };
-type TenantProviderAccountModel = { model: string; enabled: boolean };
+type TenantProviderAccountModel = { model: string; enabled: boolean; types?: string[]; effective_capabilities?: string[]; supported_modes?: string[] };
 type AccountsResponse = { data?: TenantProviderAccount[] };
 type AccountDetailsResponse = {
   account?: TenantProviderAccount;
@@ -66,6 +67,7 @@ type FormState = {
   alias: string;
   routing_strategy: "priority";
   enabled: boolean;
+  exposed_modes: string[];
   targets: VirtualModelTarget[];
   access: {
     managers: PrincipalPickerItem[];
@@ -102,11 +104,26 @@ const DEFAULT_TARGET: VirtualModelTarget = {
   },
 };
 
+const MODE_ENDPOINTS: Record<string, string> = {
+  chat: "/v1/chat/completions, /v1/responses",
+  completion: "/v1/completions",
+  embedding: "/v1/embeddings",
+  moderation: "/v1/moderations",
+  image_generation: "/v1/images/generations",
+  text_to_speech: "/v1/audio/speech",
+  audio_transcription: "/v1/audio/transcriptions",
+  audio_translation: "/v1/audio/translations",
+  realtime: "/v1/realtime",
+  rerank: "/v1/rerank",
+  search: "/v1/search",
+};
+
 function makeDefaultForm(): FormState {
   return {
     alias: "",
     routing_strategy: "priority",
     enabled: true,
+    exposed_modes: [],
     targets: [{ ...DEFAULT_TARGET }],
     access: {
       managers: [],
@@ -128,12 +145,19 @@ export default function VirtualModelManagement() {
 
   const [items, setItems] = useState<VirtualModel[]>([]);
   const [providerAllowedModels, setProviderAllowedModels] = useState<ModelSelection[]>([]);
+  const [providerModelModes, setProviderModelModes] = useState<Record<string, string[]>>({});
   const [selectedID, setSelectedID] = useState<string>("");
   const [form, setForm] = useState<FormState>(() => makeDefaultForm());
   const [savedHash, setSavedHash] = useState(() => JSON.stringify(makeDefaultForm()));
 
   const isCreate = !form.id;
   const dirty = useMemo(() => JSON.stringify(form) !== savedHash, [form, savedHash]);
+  const modeSummary = useMemo(() => buildModeSummary(form.targets, providerModelModes), [form.targets, providerModelModes]);
+  const effectiveExposedModes = useMemo(() => {
+    const requested = normalizeModeList(form.exposed_modes);
+    if (requested.length === 0) return modeSummary.intersection;
+    return requested.filter((mode) => modeSummary.intersection.includes(mode));
+  }, [form.exposed_modes, modeSummary.intersection]);
 
   useEffect(() => {
     void loadList();
@@ -206,6 +230,7 @@ export default function VirtualModelManagement() {
         alias: data.alias,
         routing_strategy: "priority",
         enabled: data.enabled,
+        exposed_modes: normalizeModeList(data.exposed_modes),
         targets: normalizeTargets(data.targets),
         access: normalizeAccess(data.access),
       };
@@ -243,8 +268,28 @@ export default function VirtualModelManagement() {
         }),
       );
       setProviderAllowedModels(allSelections.flat());
+      const modeEntries = await Promise.all(
+        accounts.map(async (account) => {
+          const detailRes = await fetch(`/api/tenant-provider-accounts/${encodeURIComponent(account.id)}`, { cache: "no-store" });
+          const detailData = (await detailRes.json().catch(() => ({}))) as AccountDetailsResponse;
+          if (!detailRes.ok) return [] as Array<[string, string[]]>;
+          const payload = detailData.data ?? detailData;
+          return (payload.models ?? [])
+            .filter((item) => item.enabled)
+            .flatMap((item): Array<[string, string[]]> => {
+              const rawFQN = `${account.provider}:${account.name}:${item.model}`;
+              const modes = modesForProviderModel(item);
+              return [
+                [rawFQN, modes],
+                [canonicalModelFQN(rawFQN), modes],
+              ];
+            });
+        }),
+      );
+      setProviderModelModes(Object.fromEntries(modeEntries.flat()));
     } catch {
       setProviderAllowedModels([]);
+      setProviderModelModes({});
     }
   }
 
@@ -307,6 +352,10 @@ export default function VirtualModelManagement() {
       setNotice({ kind: "error", message: validationError });
       return;
     }
+    if (modeSummary.ready && modeSummary.intersection.length === 0) {
+      setNotice({ kind: "error", message: t("messages.noCommonModes") });
+      return;
+    }
     if (!form.enabled && !window.confirm(t("messages.disableConfirm"))) {
       return;
     }
@@ -316,6 +365,7 @@ export default function VirtualModelManagement() {
       alias: form.alias.trim(),
       routing_strategy: form.routing_strategy,
       enabled: form.enabled,
+      exposed_modes: effectiveExposedModes,
       targets: form.targets.map((target, idx) => ({
         ...target,
         order: idx + 1,
@@ -550,7 +600,7 @@ export default function VirtualModelManagement() {
                       id={`vm-target-${index}-provider-model`}
                       selected={
                         providerAllowedModels.find(
-                          (item) => item.name === target.model && item.secondary?.startsWith(`${target.provider}/`),
+                          (item) => sameModelFQN(item.name, target.model) && item.secondary?.startsWith(`${target.provider}/`),
                         ) ?? null
                       }
                       onSelectedChange={(value) => {
@@ -677,6 +727,61 @@ export default function VirtualModelManagement() {
                 </div>
               </div>
             ))}
+          </div>
+
+          <div className="flex flex-col gap-3 rounded-lg border p-3">
+            <div>
+              <p className="text-sm font-medium">{t("modes.title")}</p>
+              <p className="text-xs text-muted-foreground">{t("modes.description")}</p>
+            </div>
+            {modeSummary.ready && modeSummary.intersection.length === 0 ? (
+              <Alert variant="destructive">
+                <XCircle className="h-4 w-4" />
+                <AlertTitle>{t("modes.noCommonTitle")}</AlertTitle>
+                <AlertDescription>{t("modes.noCommonDescription")}</AlertDescription>
+              </Alert>
+            ) : modeSummary.ready ? (
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap gap-2">
+                  {modeSummary.intersection.map((mode) => {
+                    const selected = effectiveExposedModes.includes(mode);
+                    return (
+                      <Button
+                        key={mode}
+                        type="button"
+                        variant={selected ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => {
+                          setForm((prev) => {
+                            const current = normalizeModeList(prev.exposed_modes).length === 0 ? modeSummary.intersection : normalizeModeList(prev.exposed_modes);
+                            const next = current.includes(mode) ? current.filter((item) => item !== mode) : [...current, mode];
+                            return { ...prev, exposed_modes: next.length > 0 ? next : current };
+                          });
+                        }}
+                      >
+                        {mode}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <div className="flex flex-col gap-2">
+                  {effectiveExposedModes.map((mode) => (
+                    <div key={mode} className="flex flex-wrap items-center gap-2 text-xs">
+                      <Badge variant="secondary">{mode}</Badge>
+                      <span className="text-muted-foreground">{MODE_ENDPOINTS[mode] ?? t("modes.endpointUnknown")}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {modeSummary.partialModes.length > 0 ? (
+              <Alert>
+                <AlertTitle>{t("modes.partialTitle")}</AlertTitle>
+                <AlertDescription>
+                  {t("modes.partialDescription", { modes: modeSummary.partialModes.join(", ") })}
+                </AlertDescription>
+              </Alert>
+            ) : null}
           </div>
 
           <div className="rounded-lg border bg-muted/30 p-3">
@@ -906,4 +1011,56 @@ function validateForm(form: FormState, t: ReturnType<typeof useTranslations<"vir
     if (target.policy.retry.delay_ms < 0 || target.policy.retry.delay_ms > 10000) return t("messages.retryDelayRange");
   }
   return null;
+}
+
+function modesForProviderModel(model: TenantProviderAccountModel): string[] {
+  return normalizeModeList(model.supported_modes ?? model.effective_capabilities ?? model.types ?? []);
+}
+
+function normalizeModeList(values: string[] | undefined): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values ?? []) {
+    const mode = value.trim();
+    if (!mode || seen.has(mode)) continue;
+    seen.add(mode);
+    out.push(mode);
+  }
+  return out;
+}
+
+function buildModeSummary(targets: VirtualModelTarget[], modeMap: Record<string, string[]>) {
+  const selectedTargets = targets.filter((target) => target.model.trim());
+  if (selectedTargets.length === 0) {
+    return { intersection: [] as string[], partialModes: [] as string[], ready: false };
+  }
+  const targetModes = selectedTargets.map((target) => normalizeModeList(modeMap[target.model] ?? modeMap[canonicalModelFQN(target.model)]));
+  if (targetModes.some((modes) => modes.length === 0)) {
+    return { intersection: [] as string[], partialModes: [] as string[], ready: true };
+  }
+  const intersection = targetModes.reduce((acc, modes) => acc.filter((mode) => modes.includes(mode)));
+  const union = normalizeModeList(targetModes.flat());
+  return {
+    intersection,
+    partialModes: union.filter((mode) => !intersection.includes(mode)),
+    ready: true,
+  };
+}
+
+function sameModelFQN(left: string, right: string): boolean {
+  return canonicalModelFQN(left) === canonicalModelFQN(right);
+}
+
+function canonicalModelFQN(value: string): string {
+  const parts = value.trim().split(":");
+  if (parts.length !== 3) return value.trim();
+  const provider = parts[0].trim();
+  const account = parts[1].trim();
+  let model = parts[2].trim();
+  const prefix = `${provider.toLowerCase()}/`;
+  if (model.toLowerCase().startsWith(prefix)) {
+    model = model.slice(prefix.length).trim();
+  }
+  if (!provider || !account || !model) return value.trim();
+  return `${provider}:${account}:${model}`;
 }

@@ -153,6 +153,7 @@ type TenantProviderAccountModel struct {
 	Model            string                 `json:"model"`
 	Enabled          bool                   `json:"enabled"`
 	Types            []ModelType            `json:"types"`
+	SupportedModes   []ModelType            `json:"supported_modes,omitempty"`
 	InputModalities  []string               `json:"input_modalities,omitempty"`
 	OutputModalities []string               `json:"output_modalities,omitempty"`
 	PricingMode      PricingMode            `json:"pricing_mode"`
