@@ -30,14 +30,14 @@ func buildVirtualModelFromSnapshot(authInfo *platform.AuthContext, alias string)
 			continue
 		}
 		seen[targetFQN] = struct{}{}
-		provider, _, officialModel, ok := splitModelFQN(targetFQN)
+		provider, _, _, ok := splitModelFQN(targetFQN)
 		if !ok {
 			return nil, false
 		}
 		targets = append(targets, platform.VirtualModelTarget{
 			Order:    order,
 			Provider: provider,
-			Model:    officialModel,
+			Model:    targetFQN,
 			Policy: platform.VirtualModelPolicy{
 				Retry: platform.VirtualModelRetryPolicy{
 					Attempts:    2,

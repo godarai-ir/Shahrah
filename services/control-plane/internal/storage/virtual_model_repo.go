@@ -344,17 +344,21 @@ func insertVirtualModelTargets(ctx context.Context, tx pgx.Tx, vmID string, targ
 			fallbackCodes = []int{429, 500, 502, 503, 504}
 		}
 		fallbackCandidate := target.Policy.Fallback.Candidate
+		targetProvider := strings.ToLower(strings.TrimSpace(target.Provider))
+		targetModel := normalizeModelFQN(target.Model)
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO virtual_model_targets (
 				target_id, virtual_model_id, target_order, provider, model, timeout_sec,
 				retry_attempts, retry_delay_ms, retry_status_codes, fallback_status_codes, fallback_candidate
 			)
 			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-		`, tid, vmID, order, strings.ToLower(strings.TrimSpace(target.Provider)), strings.TrimSpace(target.Model), target.Policy.TimeoutSec, retryAttempts, retryDelay, retryCodes, fallbackCodes, fallbackCandidate); err != nil {
+		`, tid, vmID, order, targetProvider, targetModel, target.Policy.TimeoutSec, retryAttempts, retryDelay, retryCodes, fallbackCodes, fallbackCandidate); err != nil {
 			return nil, err
 		}
 		target.ID = tid
 		target.Order = order
+		target.Provider = targetProvider
+		target.Model = targetModel
 		target.Policy.Retry.Attempts = retryAttempts
 		target.Policy.Retry.DelayMS = retryDelay
 		target.Policy.Retry.StatusCodes = retryCodes

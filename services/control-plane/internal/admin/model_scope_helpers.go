@@ -72,7 +72,7 @@ func isVirtualModelInScope(vm platform.VirtualModel, scopeAllowedSet map[string]
 		return false
 	}
 	for _, target := range vm.Targets {
-		targetFQN := strings.TrimSpace(target.Model)
+		targetFQN := normalizeModelFQN(target.Model)
 		if targetFQN == "" {
 			return false
 		}
@@ -108,7 +108,7 @@ func buildVirtualModelSnapshotsForAliases(aliases []string, virtualModels []plat
 		targetFQNs := make([]string, 0, len(vm.Targets))
 		seenTargets := make(map[string]struct{}, len(vm.Targets))
 		for _, target := range vm.Targets {
-			fqn := strings.TrimSpace(target.Model)
+			fqn := normalizeModelFQN(target.Model)
 			if fqn == "" {
 				continue
 			}
@@ -142,6 +142,17 @@ func isModelFQN(model string) bool {
 		}
 	}
 	return true
+}
+
+func normalizeModelFQN(model string) string {
+	model = strings.TrimSpace(model)
+	if model == "" {
+		return ""
+	}
+	if provider, accountAlias, officialModel, ok := modelid.SplitModelFQN(model); ok {
+		return modelid.BuildModelFQN(provider, accountAlias, officialModel)
+	}
+	return model
 }
 
 func ensureRequestedModelsInScope(requested []string, allowed []string) error {

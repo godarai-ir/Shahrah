@@ -95,6 +95,7 @@ func (m *mockWalletStore) DebitWallet(ctx context.Context, tenantID string, brea
 type mockLogger struct {
 	loggedEntries []platform.RequestLogEntry
 	loggedSpends  []platform.SpendLog
+	virtualModels map[string]*platform.VirtualModel
 }
 
 func (m *mockLogger) LogRequest(ctx context.Context, entry platform.RequestLogEntry) error {
@@ -105,6 +106,15 @@ func (m *mockLogger) LogRequest(ctx context.Context, entry platform.RequestLogEn
 func (m *mockLogger) LogSpend(ctx context.Context, log platform.SpendLog) error {
 	m.loggedSpends = append(m.loggedSpends, log)
 	return nil
+}
+
+func (m *mockLogger) GetVirtualModelByAlias(ctx context.Context, tenantID string, alias string) (*platform.VirtualModel, error) {
+	if m.virtualModels != nil {
+		if vm := m.virtualModels[alias]; vm != nil {
+			return vm, nil
+		}
+	}
+	return nil, errors.New("virtual model not found")
 }
 
 type fakeTunnelStream struct {
@@ -253,6 +263,114 @@ func TestChatCompletionHandler_RoutesFQNThroughWildcardAsOfficialProviderModel(t
 	assert.Equal(t, "gpt-4.1", outbound.Model)
 	assert.Equal(t, "openai", mTunnel.lastRequest.Deployment.Provider)
 	assert.Equal(t, "sk-provider", mTunnel.lastRequest.Deployment.APIKey)
+}
+
+func TestChatCompletionHandler_VirtualModelSendsSelectedProviderModel(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, err := mcache.NewMemoryCache(logger)
+	require.NoError(t, err)
+
+	r, err := llmrouter.NewRouter([]config.ModelDeployment{
+		{
+			ModelName: "*",
+			ProviderEndpoint: config.ProviderEndpointConfig{
+				Provider: "openai",
+				Model:    "openai/*",
+				APIKey:   "sk-openai-wildcard",
+				RPM:      1000,
+			},
+			ModelInfo: map[string]interface{}{"id": "dep-wildcard"},
+		},
+		{
+			ModelName: "mistral-ai:mistral-ai-eager-harbor:ministral-8b-2512",
+			ProviderEndpoint: config.ProviderEndpointConfig{
+				Provider: "mistral-ai",
+				Model:    "mistral-ai/ministral-8b-2512",
+				APIKey:   "sk-mistral-provider",
+				RPM:      1000,
+			},
+			ModelInfo: map[string]interface{}{"id": "dep-mistral"},
+		},
+	}, config.RouterSettings{RoutingStrategy: "simple-shuffle", CooldownTime: 60}, memCache, nil, logger)
+	require.NoError(t, err)
+
+	validResponse := contractsopenai.ChatCompletionResponse{
+		ID:      "chatcmpl-virtual",
+		Object:  "chat.completion",
+		Created: 1234567890,
+		Model:   "ministral-8b-2512",
+		Choices: []contractsopenai.Choice{{
+			Index: 0,
+			Message: &contractsopenai.ChatMessage{
+				Role:    "assistant",
+				Content: "Hello from Mistral",
+			},
+			FinishReason: "stop",
+		}},
+		Usage: &contractsopenai.Usage{
+			PromptTokens:     10,
+			CompletionTokens: 5,
+			TotalTokens:      15,
+		},
+	}
+	respBody, _ := json.Marshal(validResponse)
+	mTunnel := &mockTunnelTransport{
+		response: &platform.TunnelResponse{
+			StatusCode: http.StatusOK,
+			Headers:    map[string]string{},
+			Body:       respBody,
+		},
+	}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 15}}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{
+		virtualModels: map[string]*platform.VirtualModel{
+			"mistral": {
+				ID:              "vm-mistral",
+				TenantID:        "tenant-1",
+				Alias:           "mistral",
+				RoutingStrategy: "priority",
+				Enabled:         true,
+				Targets: []platform.VirtualModelTarget{{
+					ID:       "target-1",
+					Order:    1,
+					Provider: "mistral-ai",
+					Model:    "mistral-ai:mistral-ai-eager-harbor:ministral-8b-2512",
+					Policy: platform.VirtualModelPolicy{
+						Retry: platform.VirtualModelRetryPolicy{
+							Attempts:    1,
+							StatusCodes: []int{429, 500},
+						},
+						Fallback: platform.VirtualModelFallbackPolicy{
+							StatusCodes: []int{429, 500},
+							Candidate:   true,
+						},
+					},
+				}},
+			},
+		},
+	}
+
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	app := setupTestApp(t, handler)
+
+	payload, _ := json.Marshal(map[string]interface{}{
+		"model":    "mistral",
+		"messages": []interface{}{map[string]interface{}{"role": "user", "content": "Hello"}},
+	})
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var outbound contractsopenai.ChatCompletionRequest
+	require.NoError(t, json.Unmarshal(mTunnel.lastRequest.Body, &outbound))
+	assert.Equal(t, "ministral-8b-2512", outbound.Model)
+	assert.Equal(t, "mistral-ai", mTunnel.lastRequest.Deployment.Provider)
+	assert.Equal(t, "ministral-8b-2512", mTunnel.lastRequest.Deployment.Model)
+	assert.Equal(t, "sk-mistral-provider", mTunnel.lastRequest.Deployment.APIKey)
 }
 
 func TestChatCompletionHandler_ShouldRejectEmptyMessages(t *testing.T) {

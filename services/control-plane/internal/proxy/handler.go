@@ -194,20 +194,20 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	var (
 		deployment *router.Deployment
 	)
-	for _, candidate := range routeCandidates {
-		deployment, err = h.llmRouter.Route(c.Context(), currentTenant.ID, candidate)
-		if err == nil {
-			break
-		}
-	}
 	isVirtual := false
-	if err != nil && h.vmEngine != nil && h.vmExec != nil && !req.Stream {
+	if h.vmEngine != nil && h.vmExec != nil && !req.Stream {
 		if snapshotVM, ok := buildVirtualModelFromSnapshot(authInfo, requestedModel); ok {
 			targets, selErr := h.vmEngine.SelectTargets(snapshotVM)
 			if selErr == nil {
 				resp, selectedDep, fallbackCount, failureReason, execErr := h.vmExec.ExecuteSync(c.Context(), targets, func(callCtx context.Context, dep *router.Deployment) (*platform.TunnelResponse, error) {
+					dep = h.resolveVirtualDeployment(callCtx, currentTenant.ID, dep)
 					tunnelReq := baseReq
 					tunnelReq.Deployment = toContractDeployment(dep)
+					payload, err := buildChatCompletionPayload(req, dep.Model, resolvedModel)
+					if err != nil {
+						return nil, err
+					}
+					tunnelReq.Body = payload
 					return h.tunnel.Proxy(callCtx, tunnelReq)
 				})
 				if execErr == nil && resp != nil && selectedDep != nil {
@@ -230,14 +230,20 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 			}
 		}
 	}
-	if deployment == nil && err != nil && h.vmResolver != nil && h.vmEngine != nil && h.vmExec != nil && !req.Stream {
+	if deployment == nil && h.vmResolver != nil && h.vmEngine != nil && h.vmExec != nil && !req.Stream {
 		vm, vmErr := h.vmResolver.Resolve(c.Context(), currentTenant.ID, requestedModel)
 		if vmErr == nil {
 			targets, selErr := h.vmEngine.SelectTargets(vm)
 			if selErr == nil {
 				resp, selectedDep, fallbackCount, failureReason, execErr := h.vmExec.ExecuteSync(c.Context(), targets, func(callCtx context.Context, dep *router.Deployment) (*platform.TunnelResponse, error) {
+					dep = h.resolveVirtualDeployment(callCtx, currentTenant.ID, dep)
 					tunnelReq := baseReq
 					tunnelReq.Deployment = toContractDeployment(dep)
+					payload, err := buildChatCompletionPayload(req, dep.Model, resolvedModel)
+					if err != nil {
+						return nil, err
+					}
+					tunnelReq.Body = payload
 					return h.tunnel.Proxy(callCtx, tunnelReq)
 				})
 				if execErr == nil && resp != nil && selectedDep != nil {
@@ -260,6 +266,14 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		}
 	}
 	if deployment == nil {
+		for _, candidate := range routeCandidates {
+			deployment, err = h.llmRouter.Route(c.Context(), currentTenant.ID, candidate)
+			if err == nil {
+				break
+			}
+		}
+	}
+	if deployment == nil {
 		emitDenyCounter(h.logger, denyReasonUnknownModel, requestedModel, currentTenant.ID)
 		return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", requestedModel), "routing_error")
 	}
@@ -272,13 +286,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	if !isVirtual {
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": deployment.Provider, "deployment_id": deployment.ID})
 	}
-	outboundReq := req
-	outboundModel := strings.TrimSpace(deployment.Model)
-	if outboundModel == "" || outboundModel == "*" {
-		outboundModel = resolvedModel
-	}
-	outboundReq.Model = outboundModel
-	payload, err := json.Marshal(outboundReq)
+	payload, err := buildChatCompletionPayload(req, deployment.Model, resolvedModel)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadRequest, "Failed to encode request", "invalid_request_error")
 	}
@@ -290,6 +298,32 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		return h.handleStream(c, req, authInfo, estimated, tunnelReq, startTime, tenantSlug)
 	}
 	return h.handleSync(c, req, authInfo, estimated, tunnelReq, startTime, tenantSlug)
+}
+
+func buildChatCompletionPayload(req contractsopenai.ChatCompletionRequest, deploymentModel string, fallbackModel string) ([]byte, error) {
+	outboundReq := req
+	outboundModel := strings.TrimSpace(deploymentModel)
+	if outboundModel == "" || outboundModel == "*" {
+		outboundModel = fallbackModel
+	}
+	outboundReq.Model = outboundModel
+	return json.Marshal(outboundReq)
+}
+
+func (h *ChatCompletionHandler) resolveVirtualDeployment(ctx context.Context, tenantID string, dep *router.Deployment) *router.Deployment {
+	if h == nil || h.llmRouter == nil || dep == nil {
+		return dep
+	}
+	modelName := strings.TrimSpace(dep.ModelName)
+	if modelName == "" {
+		return dep
+	}
+	resolved, err := h.llmRouter.Route(ctx, tenantID, modelName)
+	if err != nil || resolved == nil {
+		return dep
+	}
+	*dep = *resolved
+	return dep
 }
 
 func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, start time.Time, tenantSlug string) error {

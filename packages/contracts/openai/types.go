@@ -315,6 +315,7 @@ type ErrorInfo struct {
 	Type    string `json:"type"`
 	Param   string `json:"param,omitempty"`
 	Code    string `json:"code,omitempty"`
+	Details map[string]interface{} `json:"details,omitempty"`
 }
 
 // Model describes a tenant-visible model alias.

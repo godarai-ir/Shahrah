@@ -400,6 +400,7 @@ type VirtualModel struct {
 	Alias           string                             `json:"alias"`
 	RoutingStrategy string                             `json:"routing_strategy"`
 	Enabled         bool                               `json:"enabled"`
+	ExposedModes    []string                           `json:"exposed_modes"`
 	Version         int                                `json:"version"`
 	Targets         []VirtualModelTarget               `json:"targets"`
 	Access          TenantProviderAccountAccessControl `json:"access"`
@@ -415,6 +416,7 @@ type VirtualModelSnapshot struct {
 	VirtualModelID string   `json:"virtual_model_id"`
 	Version        int      `json:"version"`
 	TargetFQNs     []string `json:"target_fqns"`
+	ExposedModes   []string `json:"exposed_modes,omitempty"`
 }
 
 type VirtualModelTarget struct {
@@ -446,6 +448,7 @@ type CreateVirtualModelRequest struct {
 	Alias           string                             `json:"alias"`
 	RoutingStrategy string                             `json:"routing_strategy"`
 	Enabled         *bool                              `json:"enabled,omitempty"`
+	ExposedModes    []string                           `json:"exposed_modes,omitempty"`
 	Targets         []VirtualModelTarget               `json:"targets"`
 	Access          TenantProviderAccountAccessControl `json:"access"`
 }
@@ -454,6 +457,7 @@ type UpdateVirtualModelRequest struct {
 	Alias           *string                             `json:"alias,omitempty"`
 	RoutingStrategy *string                             `json:"routing_strategy,omitempty"`
 	Enabled         *bool                               `json:"enabled,omitempty"`
+	ExposedModes    []string                            `json:"exposed_modes,omitempty"`
 	Targets         []VirtualModelTarget                `json:"targets,omitempty"`
 	Access          *TenantProviderAccountAccessControl `json:"access,omitempty"`
 }

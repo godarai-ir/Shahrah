@@ -98,7 +98,7 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 			typeSet := make(map[string]struct{})
 			valid := true
 			for _, target := range vm.Targets {
-				fqn := strings.TrimSpace(target.Model)
+				fqn := normalizeModelFQN(target.Model)
 				policy, ok := runtimePolicyByModel(runtimeModels, fqn)
 				if !ok {
 					valid = false
@@ -136,9 +136,9 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 }
 
 func runtimePolicyByModel(runtimeModels []runtimeAllowedModelPolicy, model string) (runtimeAllowedModelPolicy, bool) {
-	model = strings.TrimSpace(model)
+	model = normalizeModelFQN(model)
 	for _, item := range runtimeModels {
-		if strings.TrimSpace(item.Model) == model {
+		if normalizeModelFQN(item.Model) == model {
 			return item, true
 		}
 	}
