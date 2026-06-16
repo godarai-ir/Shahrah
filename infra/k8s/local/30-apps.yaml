@@ -100,12 +100,16 @@ spec:
                   name: shahrah-config
                   key: MODEL_DISCOVERY_CORS_ORIGIN
           readinessProbe:
-            tcpSocket:
+            httpGet:
+              path: /api/v1/ready
               port: 3002
             initialDelaySeconds: 10
-            periodSeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
           livenessProbe:
-            tcpSocket:
+            httpGet:
+              path: /api/v1/health
               port: 3002
             initialDelaySeconds: 20
             periodSeconds: 10

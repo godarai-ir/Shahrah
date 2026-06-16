@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { DatabaseModule } from './database/database.module';
 import { FacetsModule } from './facets/facets.module';
+import { HealthModule } from './health/health.module';
 import { ImportModule } from './import/import.module';
 import { IndexingModule } from './indexing/indexing.module';
 import { ProvidersModule } from './providers/providers.module';
@@ -29,6 +30,7 @@ import { DisplaySettingsModule } from './display-settings/display-settings.modul
     ProvidersModule,
     DisplaySettingsModule,
     FacetsModule,
+    HealthModule,
     IndexingModule,
     ImportModule,
   ],
