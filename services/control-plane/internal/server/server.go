@@ -180,6 +180,10 @@ func registerPublicRoutes(app *fiber.App, deps Dependencies, httpMetrics *promme
 	app.Get("/health", healthHandler)
 	app.Get("/ready", readyHandler(deps))
 	app.Get("/metrics", httpMetrics.Handler())
+	if deps.AdminHandlers != nil {
+		app.Get("/api/v1/login-discovery/tenants", deps.AdminHandlers.DiscoverTenantsByIdentifier)
+		app.Get("/api/v1/login-discovery/tenant/:slug", deps.AdminHandlers.DiscoverTenantByName)
+	}
 }
 
 func registerProtectedRoutes(app *fiber.App, deps Dependencies) {
@@ -214,8 +218,6 @@ func registerProtectedRoutes(app *fiber.App, deps Dependencies) {
 		api.Get("/onboarding/tenant-slugs/:slug/availability", deps.AdminHandlers.CheckTenantSlugAvailability)
 		api.Post("/onboarding/otp", deps.AdminHandlers.RequestOnboardingOTP)
 		api.Post("/onboarding/otp/verify", deps.AdminHandlers.VerifyOnboardingOTP)
-		api.Get("/login-discovery/tenants", deps.AdminHandlers.DiscoverTenantsByIdentifier)
-		api.Get("/login-discovery/tenant/:slug", deps.AdminHandlers.DiscoverTenantByName)
 		api.Get("/keys", deps.AdminHandlers.ListKeys)
 		api.Post("/keys", deps.AdminHandlers.CreateKey)
 		api.Post("/keys/vat", deps.AdminHandlers.CreateVATKey)

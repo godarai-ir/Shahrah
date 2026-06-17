@@ -38,7 +38,7 @@ export function Documentation() {
             مستندات توسعه‌دهندگان
           </h1>
           <p className="text-xl text-slate-600 dark:text-gray-400 max-w-2xl mx-auto">
-            همه چیز را که برای یکپارچه‌سازی شاهراه نیاز دارید
+            همه چیز را که برای یکپارچه‌سازی گُدار AI نیاز دارید
           </p>
         </div>
 

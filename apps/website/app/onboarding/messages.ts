@@ -1,6 +1,6 @@
 export const onboardingMessages = {
   backToPlans: "بازگشت به پلن‌ها",
-  title: "فعال‌سازی تننت شاهراه",
+  title: "فعال‌سازی تننت گُدار AI",
   subtitle:
     "شناسه تننت را انتخاب کنید و کد تایید ارسال‌شده را تا پنج دقیقه وارد کنید.",
   detailsTitle: "اطلاعات تننت",

@@ -36,6 +36,9 @@ export async function POST(request: Request) {
     const upstream = await callControlPlane(
       `/api/v1/login-discovery/tenants?identifier=${encodeURIComponent(identifier)}`,
     );
+    if (!isSuccessfulStatus(upstream.status)) {
+      return upstreamErrorResponse(upstream);
+    }
     const payload = normalizeIdentifierPayload(upstream.payload, request);
     return NextResponse.json(payload, { status: upstream.status });
   }
@@ -50,6 +53,9 @@ export async function POST(request: Request) {
   const upstream = await callControlPlane(
     `/api/v1/login-discovery/tenant/${encodeURIComponent(tenantName)}`,
   );
+  if (!isSuccessfulStatus(upstream.status)) {
+    return upstreamErrorResponse(upstream);
+  }
   const payload = normalizeTenantPayload(upstream.payload, request);
   return NextResponse.json(payload, { status: upstream.status });
 }
@@ -116,6 +122,7 @@ function buildTenantLoginURL(slug: string, request: Request) {
   const protocol = process.env.NEXT_PUBLIC_TENANT_LOGIN_PROTOCOL || requestURL.protocol.replace(":", "");
   const baseHost =
     normalizeHost(process.env.TENANT_ADMIN_BASE_DOMAIN) ||
+    normalizeHost(process.env.NEXT_PUBLIC_TENANT_ADMIN_BASE_DOMAIN) ||
     normalizeHost(process.env.NEXT_PUBLIC_TENANT_BASE_DOMAIN) ||
     normalizeHost(process.env.SHAHRAH_TENANT_BASE_DOMAIN) ||
     normalizeHost(request.headers.get("x-forwarded-host")) ||
@@ -170,4 +177,27 @@ function safeParsePayload(text: string) {
   } catch {
     return { message: text };
   }
+}
+
+function isSuccessfulStatus(status: number) {
+  return status >= 200 && status < 300;
+}
+
+function upstreamErrorResponse(upstream: { status: number; payload: unknown }) {
+  const error = extractUpstreamError(upstream.payload);
+  const status = upstream.status >= 400 && upstream.status < 500 ? 502 : upstream.status;
+  return NextResponse.json({ error }, { status });
+}
+
+function extractUpstreamError(payload: unknown) {
+  if (payload && typeof payload === "object") {
+    const candidate = payload as { error?: unknown; message?: unknown };
+    if (typeof candidate.error === "string" && candidate.error.trim()) {
+      return candidate.error;
+    }
+    if (typeof candidate.message === "string" && candidate.message.trim()) {
+      return candidate.message;
+    }
+  }
+  return "We could not check workspaces right now. Please try again.";
 }

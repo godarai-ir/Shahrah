@@ -26,7 +26,7 @@ export function Hero() {
               <span className="flex h-2 w-2 rounded-full bg-indigo-500 animate-pulse"></span>
               دسترسی بدون محدودیت به مدل‌های روز دنیا
             </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold text-slate-900 dark:text-white leading-[1.35] sm:leading-[1.2] mb-4 sm:mb-6 font-sans text-balance">شاهراه؛ مسیر ساده و به‌صرفه برای دسترسی به <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500">مدل‌های هوش مصنوعی</span></h1>
+            <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold text-slate-900 dark:text-white leading-[1.35] sm:leading-[1.2] mb-4 sm:mb-6 font-sans text-balance">گُدار AI؛ مسیر ساده و به‌صرفه برای دسترسی به <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500">مدل‌های هوش مصنوعی</span></h1>
             <p className="mx-auto max-w-xl text-sm sm:text-lg text-slate-600 dark:text-gray-400 mb-6 sm:mb-8 leading-8 sm:leading-relaxed lg:mx-0">
               یک LLM Gateway برای کاربران و کسب‌وکارهای ایرانی — از درگاه پرداخت ایرانی تا مدیریت، بهینه‌سازی و استفاده از مدل‌های AI در مقیاس با کمترین هزینه و بالاترین پایداری.
             </p>
@@ -71,7 +71,7 @@ response = client.chat.completions.create({'\n'}
 {'  '}model=<span className="text-green-400">"gpt-4o"</span>,{'\n'}
 {'  '}messages=[{'{'}{'\n'}
 {'    '}<span className="text-blue-400">"role"</span>: <span className="text-green-400">"user"</span>,{'\n'}
-{'    '}<span className="text-blue-400">"content"</span>: <span className="text-green-400">"سلام! شاهراه چطور کار میکنه؟"</span>{'\n'}
+{'    '}<span className="text-blue-400">"content"</span>: <span className="text-green-400">"سلام! گُدار AI چطور کار میکنه؟"</span>{'\n'}
 {'  '}{'}'}]{'\n'}
 ){'\n\n'}
 <span className="text-yellow-400">print</span>(response.choices[<span className="text-orange-400">0</span>].message.content)

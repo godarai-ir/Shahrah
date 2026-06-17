@@ -37,7 +37,7 @@ export function UseCases() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-10 sm:mb-16">
           <h2 className="text-2xl sm:text-4xl font-bold text-slate-900 dark:text-white mb-4 leading-tight">
-            کاربردهای شاهراه
+            کاربردهای گُدار AI
           </h2>
           <p className="text-sm sm:text-lg text-slate-600 dark:text-gray-400 leading-7 sm:leading-relaxed">
             برای هر محصولی که به قدرت پردازش زبان طبیعی نیاز دارد.

@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import { UserPlus, Key, Send, Cpu, BarChart } from 'lucide-react';
 
 const steps = [
-  { icon: <UserPlus />, title: 'ثبت‌نام', desc: 'ساخت اکانت در پنل شاهراه' },
+  { icon: <UserPlus />, title: 'ثبت‌نام', desc: 'ساخت اکانت در پنل گُدار AI' },
   { icon: <Key />, title: 'دریافت API', desc: 'تولید کلید امن برای پروژه' },
   { icon: <Send />, title: 'ارسال درخواست', desc: 'اتصال به اندپوینت واحد' },
   { icon: <Cpu />, title: 'مدیریت هوشمند', desc: 'مسیریابی و اجرای درخواست' },
@@ -20,7 +20,7 @@ export function HowItWorks() {
             چگونه کار می‌کند؟
           </h2>
           <p className="text-sm sm:text-lg text-slate-600 dark:text-gray-400 leading-7 sm:leading-relaxed">
-            شروع کار با شاهراه تنها چند دقیقه زمان می‌برد.
+            شروع کار با گُدار AI تنها چند دقیقه زمان می‌برد.
           </p>
         </div>
 

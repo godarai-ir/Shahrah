@@ -2,12 +2,18 @@ package server
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"io"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/admin"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
+	tenantmw "github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
 	fiberlogger "github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/stretchr/testify/assert"
@@ -80,4 +86,89 @@ func TestNewFiberAppExposesPrometheusMetrics(t *testing.T) {
 	assert.Contains(t, payload, `shahrah_control_plane_http_requests_total{method="GET",route="/health",status_code="200"} 1`)
 	assert.Contains(t, payload, "shahrah_control_plane_http_request_duration_seconds")
 	assert.Contains(t, payload, "shahrah_control_plane_http_requests_in_flight")
+}
+
+func TestLoginDiscoveryRoutesArePublic(t *testing.T) {
+	t.Parallel()
+
+	store := publicLoginDiscoveryStore{}
+	app := NewFiberApp(&config.Config{}, Dependencies{
+		AdminHandlers:  admin.New(store, nil, nil),
+		TenantResolver: tenantmw.NewMiddleware(tenantLookupAlwaysFails{}, "", false),
+	})
+
+	resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/api/v1/login-discovery/tenant/tenant1", nil))
+	require.NoError(t, err)
+	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Contains(t, string(body), `"exists":true`)
+	assert.Contains(t, string(body), `"slug":"tenant1"`)
+}
+
+type tenantLookupAlwaysFails struct{}
+
+func (tenantLookupAlwaysFails) GetTenantByHost(context.Context, string) (*platform.Tenant, error) {
+	return nil, errors.New("tenant lookup should not run for public login discovery")
+}
+
+type publicLoginDiscoveryStore struct{}
+
+func (publicLoginDiscoveryStore) GetTenantBySlug(context.Context, string) (*platform.Tenant, error) {
+	return &platform.Tenant{
+		ID:        "tenant-1",
+		Slug:      "tenant1",
+		Domain:    "tenant1.localhost",
+		Status:    "active",
+		CreatedAt: time.Now(),
+	}, nil
+}
+
+func (publicLoginDiscoveryStore) ListTenantsByAdminIdentifier(context.Context, string, string) ([]platform.Tenant, error) {
+	return []platform.Tenant{}, nil
+}
+
+func (publicLoginDiscoveryStore) CreateKey(context.Context, platform.CreateKeyParams) (*platform.CreatedKey, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (publicLoginDiscoveryStore) ListKeys(context.Context, string) ([]platform.CreatedKey, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (publicLoginDiscoveryStore) ListAllowedModelFQNs(context.Context, string, string, string) ([]string, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (publicLoginDiscoveryStore) ListPATs(context.Context, string, string, string, int, int) ([]platform.CreatedKey, int, error) {
+	return nil, 0, errors.New("not implemented")
+}
+
+func (publicLoginDiscoveryStore) PATExists(context.Context, string, string, string) (bool, error) {
+	return false, errors.New("not implemented")
+}
+
+func (publicLoginDiscoveryStore) RevokePAT(context.Context, string, string, string, string) (bool, error) {
+	return false, errors.New("not implemented")
+}
+
+func (publicLoginDiscoveryStore) RevokeAllPATs(context.Context, string, string, string) (int64, error) {
+	return 0, errors.New("not implemented")
+}
+
+func (publicLoginDiscoveryStore) ListVATTokens(context.Context, string, string, string, int, int) ([]platform.CreatedKey, int, error) {
+	return nil, 0, errors.New("not implemented")
+}
+
+func (publicLoginDiscoveryStore) UpdateVATToken(context.Context, string, string, string, platform.UpdateVATTokenRequest) (*platform.CreatedKey, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (publicLoginDiscoveryStore) RevokeVATToken(context.Context, string, string, string, string, string) (bool, error) {
+	return false, errors.New("not implemented")
+}
+
+func (publicLoginDiscoveryStore) RotateVATToken(context.Context, string, string, string, string, string) (*platform.CreatedKey, error) {
+	return nil, errors.New("not implemented")
 }

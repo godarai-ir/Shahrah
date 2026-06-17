@@ -12,7 +12,7 @@ export function Solution() {
             یک درگاه واحد برای همه نیازهای شما
           </h2>
           <p className="text-sm sm:text-lg text-slate-600 dark:text-gray-400 leading-7 sm:leading-relaxed">
-            با شاهراه، پیچیدگی‌ها را حذف کنید. تمام درخواست‌های خود را به یک اندپوینت ارسال کنید و ما بقیه کارها را انجام می‌دهیم.
+            با گُدار AI، پیچیدگی‌ها را حذف کنید. تمام درخواست‌های خود را به یک اندپوینت ارسال کنید و ما بقیه کارها را انجام می‌دهیم.
           </p>
         </div>
 
@@ -49,7 +49,7 @@ export function Solution() {
               <div className="w-28 h-28 rounded-3xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-[0_0_30px_rgba(99,102,241,0.4)] flex items-center justify-center relative border-4 border-white dark:border-[#0B0F19]">
                 <Server className="w-12 h-12 text-white" />
                 <div className="absolute -bottom-10 whitespace-nowrap font-bold text-indigo-600 dark:text-indigo-400 text-lg">
-                  شاهراه Gateway
+                  گُدار AI Gateway
                 </div>
                 
                 {/* Ping rings */}

@@ -29,7 +29,7 @@ export function Navbar() {
           <div className="flex min-w-0 items-center gap-4 sm:gap-8">
             <Link href="/" className="flex min-w-0 items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center text-white font-bold text-xl">ش</div>
-              <span className="truncate font-bold text-lg sm:text-xl text-slate-900 dark:text-white">شاهراه</span>
+              <span className="truncate font-bold text-lg sm:text-xl text-slate-900 dark:text-white">گُدار AI</span>
             </Link>
             <div className="hidden md:flex items-center gap-6 h-16">
               <div className="relative group/features h-full flex items-center">

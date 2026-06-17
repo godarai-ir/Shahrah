@@ -585,8 +585,8 @@ function CTAMiniDashboard() {
 // ─── FAQ ──────────────────────────────────────────────────────────────────────
 const faqItems = [
   {
-    question: 'MCP Gateway شاهراه دقیقاً چه کاری انجام می‌دهد؟',
-    answer: 'شاهراه یک لایه مرکزی برای دسترسی Agentها به MCP Serverها و Toolها فراهم می‌کند. این لایه Authentication، Access Control، Tool Registry، Observability، Audit Logs، Analytics و Policy Enforcement را مدیریت می‌کند.',
+    question: 'MCP Gateway گُدار AI دقیقاً چه کاری انجام می‌دهد؟',
+    answer: 'گُدار AI یک لایه مرکزی برای دسترسی Agentها به MCP Serverها و Toolها فراهم می‌کند. این لایه Authentication، Access Control، Tool Registry، Observability، Audit Logs، Analytics و Policy Enforcement را مدیریت می‌کند.',
   },
   {
     question: 'آیا برای استفاده از MCP Gateway باید Agentها یا MCP Serverها را تغییر دهیم؟',
@@ -606,11 +606,11 @@ const faqItems = [
   },
   {
     question: 'آیا می‌توانیم Toolهای داخلی و Vendor Toolها را کنار هم مدیریت کنیم؟',
-    answer: 'بله. شاهراه می‌تواند Toolهای داخلی، Vendor Toolها و Partner Toolها را در یک Registry و تحت یک مدل Governance، Access Control، Observability و Policy مدیریت کند.',
+    answer: 'بله. گُدار AI می‌تواند Toolهای داخلی، Vendor Toolها و Partner Toolها را در یک Registry و تحت یک مدل Governance، Access Control، Observability و Policy مدیریت کند.',
   },
   {
-    question: 'آیا برای استفاده از شاهراه نیاز به پرداخت ارزی دارم؟',
-    answer: 'خیر. شاهراه برای تیم‌های ایرانی طراحی شده و هدف آن ساده‌کردن دسترسی به مدل‌ها، Agentها و Toolهای AI بدون نیاز به پرداخت ارزی مستقیم و بدون درگیری با محدودیت‌های رایج سرویس‌های خارجی است.',
+    question: 'آیا برای استفاده از گُدار AI نیاز به پرداخت ارزی دارم؟',
+    answer: 'خیر. گُدار AI برای تیم‌های ایرانی طراحی شده و هدف آن ساده‌کردن دسترسی به مدل‌ها، Agentها و Toolهای AI بدون نیاز به پرداخت ارزی مستقیم و بدون درگیری با محدودیت‌های رایج سرویس‌های خارجی است.',
   },
 ];
 
@@ -655,7 +655,7 @@ export function MCPGateway() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              با شاهراه، Agentها را به MCP Serverها و Toolهای داخلی یا خارجی متصل کنید، بدون اینکه دسترسی‌ها پراکنده شوند یا Credentialها در تیم‌ها پخش شوند. از یک لایه مرکزی، Authentication، Access Control، Observability، Policy Enforcement و مدیریت مصرف MCP را کنترل کنید؛ بدون درگیری با تحریم یا پرداخت ارزی مستقیم.
+              با گُدار AI، Agentها را به MCP Serverها و Toolهای داخلی یا خارجی متصل کنید، بدون اینکه دسترسی‌ها پراکنده شوند یا Credentialها در تیم‌ها پخش شوند. از یک لایه مرکزی، Authentication، Access Control، Observability، Policy Enforcement و مدیریت مصرف MCP را کنترل کنید؛ بدون درگیری با تحریم یا پرداخت ارزی مستقیم.
             </motion.p>
 
             <motion.div
@@ -694,7 +694,7 @@ export function MCPGateway() {
               ساخته‌شده برای تیم‌هایی که Agentها را به Toolهای واقعی متصل می‌کنند
             </h2>
             <p className="text-sm text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-              شاهراه به تیم‌های Backend، Platform، AI و امنیت کمک می‌کند MCP Serverها و Toolها را در یک لایه مرکزی مدیریت کنند؛ با دسترسی کنترل‌شده، رهگیری کامل، Policyهای اجرایی، مانیتورینگ مصرف و تجربه‌ای مناسب بازار ایران.
+              گُدار AI به تیم‌های Backend، Platform، AI و امنیت کمک می‌کند MCP Serverها و Toolها را در یک لایه مرکزی مدیریت کنند؛ با دسترسی کنترل‌شده، رهگیری کامل، Policyهای اجرایی، مانیتورینگ مصرف و تجربه‌ای مناسب بازار ایران.
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-3">
@@ -735,7 +735,7 @@ export function MCPGateway() {
                   پشتیبانی داخلی از انواع Authentication
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  شاهراه می‌تواند مسیر اتصال به MCP Serverها را با روش‌های مختلف Authentication مدیریت کند؛ از OAuth 2.1 و API Token تا Header Auth، JWT Validation، Identity Forwarding و Passthrough Headers. تیم شما می‌تواند ساختار Auth مناسب خود را داشته باشد، بدون اینکه Agentها یا Serverها را پیچیده‌تر کند.
+                  گُدار AI می‌تواند مسیر اتصال به MCP Serverها را با روش‌های مختلف Authentication مدیریت کند؛ از OAuth 2.1 و API Token تا Header Auth، JWT Validation، Identity Forwarding و Passthrough Headers. تیم شما می‌تواند ساختار Auth مناسب خود را داشته باشد، بدون اینکه Agentها یا Serverها را پیچیده‌تر کند.
                 </p>
                 <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-6">
                   اتصال امن به Toolها، بدون پخش شدن Credentialها در کد و تیم‌ها.
@@ -833,7 +833,7 @@ export function MCPGateway() {
                   Policy Enforcement در زمان اجرا
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  Policyها فقط برای گزارش نیستند. شاهراه می‌تواند قبل از اجرای Tool، دسترسی غیرمجاز را متوقف کند، PII را Redact کند، محتوای حساس را فیلتر کند یا درخواست‌های مشکوک را Block کند. این Policyها می‌توانند در مسیر LLM و MCP به‌صورت یکپارچه اجرا شوند.
+                  Policyها فقط برای گزارش نیستند. گُدار AI می‌تواند قبل از اجرای Tool، دسترسی غیرمجاز را متوقف کند، PII را Redact کند، محتوای حساس را فیلتر کند یا درخواست‌های مشکوک را Block کند. این Policyها می‌توانند در مسیر LLM و MCP به‌صورت یکپارچه اجرا شوند.
                 </p>
                 <p className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-6">
                   قبل از اجرای Tool، تصمیم بگیرید اجازه دارد یا نه.
@@ -853,7 +853,7 @@ export function MCPGateway() {
               یک Interface واحد برای تمام MCP Serverهای شما
             </h2>
             <p className="text-lg text-slate-400">
-              MCP Serverها می‌توانند داخلی، Vendor-based یا Partner-based باشند. شاهراه کمک می‌کند همه آن‌ها از یک مسیر امن، قابل‌کنترل و قابل‌مشاهده در اختیار Agentها قرار بگیرند.
+              MCP Serverها می‌توانند داخلی، Vendor-based یا Partner-based باشند. گُدار AI کمک می‌کند همه آن‌ها از یک مسیر امن، قابل‌کنترل و قابل‌مشاهده در اختیار Agentها قرار بگیرند.
             </p>
           </div>
 
@@ -881,7 +881,7 @@ export function MCPGateway() {
                 مقیاس‌دادن دسترسی MCP در کل سازمان
               </h3>
               <p className="text-slate-400 text-sm leading-relaxed mb-5 flex-1">
-                به‌جای اینکه هر تیم مسیر اتصال جداگانه بسازد، همه MCP Serverها را از طریق شاهراه در اختیار سازمان قرار دهید. کاربران با هویت سازمانی احراز هویت شوند، و تمام ترافیک از Gateway عبور کند.
+                به‌جای اینکه هر تیم مسیر اتصال جداگانه بسازد، همه MCP Serverها را از طریق گُدار AI در اختیار سازمان قرار دهید. کاربران با هویت سازمانی احراز هویت شوند، و تمام ترافیک از Gateway عبور کند.
               </p>
               <OrgScaleDiagram />
             </div>
@@ -917,7 +917,7 @@ export function MCPGateway() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              با MCP Gateway شاهراه چه چیزی می‌توانید بسازید؟
+              با MCP Gateway گُدار AI چه چیزی می‌توانید بسازید؟
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
               MCP Gateway به شما اجازه می‌دهد Toolها را از چند Server مختلف به Agentها متصل کنید، اما دسترسی، امنیت، مصرف و Policyها را در یک لایه مرکزی نگه دارید.
@@ -985,7 +985,7 @@ export function MCPGateway() {
               پلتفرم Context سازمانی برای AI بسازید
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              وقتی Agentها به داده‌ها و ابزارهای واقعی وصل می‌شوند، MCP به یک لایه کلیدی در AI stack تبدیل می‌شود. شاهراه کمک می‌کند این لایه را امن، قابل‌ممیزی و قابل‌مقیاس اجرا کنید.
+              وقتی Agentها به داده‌ها و ابزارهای واقعی وصل می‌شوند، MCP به یک لایه کلیدی در AI stack تبدیل می‌شود. گُدار AI کمک می‌کند این لایه را امن، قابل‌ممیزی و قابل‌مقیاس اجرا کنید.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -999,13 +999,13 @@ export function MCPGateway() {
               {
                 icon: Layers, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10', border: 'border-purple-200 dark:border-purple-500/20',
                 title: 'یک Control Plane برای LLM و MCP',
-                desc: 'مدل‌ها و Toolها را جدا از هم مدیریت نکنید. شاهراه می‌تواند Gateway، Observability و Policy را برای هر دو مسیر LLM و MCP در یک تجربه واحد فراهم کند.',
+                desc: 'مدل‌ها و Toolها را جدا از هم مدیریت نکنید. گُدار AI می‌تواند Gateway، Observability و Policy را برای هر دو مسیر LLM و MCP در یک تجربه واحد فراهم کند.',
                 tags: ['LLM Gateway', 'MCP Gateway', 'Unified Observability'],
               },
               {
                 icon: Settings, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', border: 'border-emerald-200 dark:border-emerald-500/20',
                 title: 'قابل‌استقرار متناسب با نیاز تیم شما',
-                desc: 'بسته به نیاز تیم، معماری شاهراه می‌تواند برای SaaS، Private Cloud، VPC یا Self-hosted در نظر گرفته شود تا کنترل و امنیت بیشتری فراهم شود.',
+                desc: 'بسته به نیاز تیم، معماری گُدار AI می‌تواند برای SaaS، Private Cloud، VPC یا Self-hosted در نظر گرفته شود تا کنترل و امنیت بیشتری فراهم شود.',
                 tags: ['SaaS', 'Private Cloud', 'VPC', 'Self-hosted'],
               },
             ].map((card, i) => (
@@ -1040,7 +1040,7 @@ export function MCPGateway() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              چرا MCP Gateway شاهراه برای تیم‌های ایرانی مهم‌تر است؟
+              چرا MCP Gateway گُدار AI برای تیم‌های ایرانی مهم‌تر است؟
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
               برای تیم‌های ایرانی، اتصال Agentها به Toolهای واقعی فقط مسئله فنی نیست؛ دسترسی پایدار، تحریم، پرداخت، امنیت داده، Credential Management و کنترل ابزارهای داخلی هم اهمیت دارد.
@@ -1051,22 +1051,22 @@ export function MCPGateway() {
               {
                 icon: Shield, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10', border: 'border-indigo-100 dark:border-indigo-500/20',
                 title: 'بدون محدودیت‌های تحریمی',
-                desc: 'با شاهراه، تیم شما برای اتصال Agentها به مدل‌ها و ابزارهای AI خارجی کمتر درگیر محدودیت‌های تحریم، مسدود شدن حساب یا قطع دسترسی مستقیم می‌شود.',
+                desc: 'با گُدار AI، تیم شما برای اتصال Agentها به مدل‌ها و ابزارهای AI خارجی کمتر درگیر محدودیت‌های تحریم، مسدود شدن حساب یا قطع دسترسی مستقیم می‌شود.',
               },
               {
                 icon: CreditCard, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', border: 'border-emerald-100 dark:border-emerald-500/20',
                 title: 'بدون پرداخت ارزی مستقیم',
-                desc: 'به‌جای درگیری با کارت اعتباری خارجی، پرداخت دلاری و حساب‌های بین‌المللی، مصرف مدل‌ها، Agentها و ابزارهای MCP را از طریق شاهراه و متناسب با نیاز بازار ایران مدیریت کنید.',
+                desc: 'به‌جای درگیری با کارت اعتباری خارجی، پرداخت دلاری و حساب‌های بین‌المللی، مصرف مدل‌ها، Agentها و ابزارهای MCP را از طریق گُدار AI و متناسب با نیاز بازار ایران مدیریت کنید.',
               },
               {
                 icon: Lock, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10', border: 'border-purple-100 dark:border-purple-500/20',
                 title: 'کنترل متمرکز روی Toolها، Credentialها و Policyها',
-                desc: 'به‌جای اتصال پراکنده Agentها به چند Server و Tool، شاهراه یک مسیر مرکزی برای MCP Registry، Access Control، Observability، Audit و Policy Enforcement فراهم می‌کند.',
+                desc: 'به‌جای اتصال پراکنده Agentها به چند Server و Tool، گُدار AI یک مسیر مرکزی برای MCP Registry، Access Control، Observability، Audit و Policy Enforcement فراهم می‌کند.',
               },
               {
                 icon: Globe, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10', border: 'border-amber-100 dark:border-amber-500/20',
                 title: 'مناسب برای داده فارسی و ابزارهای داخلی ایرانی',
-                desc: 'شاهراه می‌تواند برای سناریوهایی مثل داده فارسی، سیستم‌های داخلی، شماره تماس، کد ملی، منابع سازمانی، APIهای داخلی و Workflowهای تیم‌های ایرانی تنظیم شود.',
+                desc: 'گُدار AI می‌تواند برای سناریوهایی مثل داده فارسی، سیستم‌های داخلی، شماره تماس، کد ملی، منابع سازمانی، APIهای داخلی و Workflowهای تیم‌های ایرانی تنظیم شود.',
               },
             ].map((diff, i) => (
               <MagicCard
@@ -1094,7 +1094,7 @@ export function MCPGateway() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              MCP Gateway شاهراه برای چه سناریوهایی مناسب است؟
+              MCP Gateway گُدار AI برای چه سناریوهایی مناسب است؟
             </h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -1215,7 +1215,7 @@ export function MCPGateway() {
                 MCP-powered Agentهای خود را با اطمینان به Production ببرید
               </h2>
               <p className="text-lg text-indigo-200 mb-10 leading-relaxed">
-                با شاهراه، MCP Serverها، Toolها، Credentialها، Access Control، Observability، Audit Logs و Policyهای Runtime را از یک لایه مرکزی مدیریت کنید؛ بدون محدودیت‌های تحریمی و بدون نیاز به پرداخت ارزی مستقیم.
+                با گُدار AI، MCP Serverها، Toolها، Credentialها، Access Control، Observability، Audit Logs و Policyهای Runtime را از یک لایه مرکزی مدیریت کنید؛ بدون محدودیت‌های تحریمی و بدون نیاز به پرداخت ارزی مستقیم.
               </p>
               <div className="flex flex-col sm:flex-row items-start gap-4">
                 <Link href="/signup" className="w-full sm:w-auto px-8 py-4 bg-white text-indigo-700 hover:bg-indigo-50 rounded-xl font-bold text-lg shadow-[0_0_30px_rgba(0,0,0,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 group">

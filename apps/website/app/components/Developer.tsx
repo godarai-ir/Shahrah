@@ -36,7 +36,7 @@ console.log(response.choices[0].message.content);`;
               طراحی شده برای توسعه‌دهندگان
             </h2>
             <p className="text-sm sm:text-lg text-slate-600 dark:text-gray-400 mb-6 sm:mb-8 leading-7 sm:leading-relaxed">
-              شاهراه کاملاً با استاندارد OpenAI سازگار است. هیچ نیازی به یادگیری SDK جدید یا تغییرات گسترده در کدهای فعلی‌تان نیست. فقط Base URL را تغییر دهید.
+              گُدار AI کاملاً با استاندارد OpenAI سازگار است. هیچ نیازی به یادگیری SDK جدید یا تغییرات گسترده در کدهای فعلی‌تان نیست. فقط Base URL را تغییر دهید.
             </p>
             
             <ul className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">

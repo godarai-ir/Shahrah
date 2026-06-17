@@ -5,7 +5,7 @@ import { buildMetadata } from "@/app/lib/seo";
 
 export const metadata: Metadata = buildMetadata({
   title: "ورود",
-  description: "صفحه ورود کاربران شاهراه.",
+  description: "صفحه ورود کاربران گُدار AI.",
   path: "/login",
   noIndex: true,
 });

@@ -5,7 +5,7 @@ import { Calendar, Clock, ArrowLeft } from 'lucide-react';
 export function Blog() {
   const posts = [
     {
-      title: 'چگونه شاهراه هزینه‌های AI شما را تا ۷۰٪ کاهش می‌دهد',
+      title: 'چگونه گُدار AI هزینه‌های AI شما را تا ۷۰٪ کاهش می‌دهد',
       excerpt: 'با استفاده از مسیریابی هوشمند و بهینه‌سازی خودکار، می‌توانید هزینه‌های استفاده از مدل‌های هوش مصنوعی را به‌طور چشمگیری کاهش دهید.',
       date: '۱۴۰۳/۰۱/۱۵',
       readTime: '۵ دقیقه',
@@ -26,7 +26,7 @@ export function Blog() {
       category: 'امنیت',
     },
     {
-      title: 'معرفی قابلیت مسیریابی هوشمند در شاهراه',
+      title: 'معرفی قابلیت مسیریابی هوشمند در گُدار AI',
       excerpt: 'با مسیریابی هوشمند، درخواست‌های شما به‌طور خودکار به بهترین و مقرون‌به‌صرفه‌ترین مدل هدایت می‌شوند.',
       date: '۱۴۰۲/۱۲/۲۸',
       readTime: '۴ دقیقه',
@@ -53,7 +53,7 @@ export function Blog() {
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16">
           <h1 className="text-5xl font-bold mb-6 bg-gradient-to-l from-indigo-400 to-purple-500 bg-clip-text text-transparent">
-            وبلاگ شاهراه
+            وبلاگ گُدار AI
           </h1>
           <p className="text-xl text-slate-600 dark:text-gray-400 max-w-2xl mx-auto">
             آخرین اخبار، آموزش‌ها و بینش‌ها در حوزه هوش مصنوعی

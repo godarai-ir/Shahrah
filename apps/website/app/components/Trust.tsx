@@ -9,7 +9,7 @@ export function Trust() {
     <section className="py-16 sm:py-24 lg:py-32 relative overflow-hidden">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white mb-4 sm:mb-6 leading-relaxed">
-          شاهراه برای شرایط واقعی کاربران ایرانی طراحی شده است؛ تمرکز بر سادگی، پایداری و کاهش هزینه.
+          گُدار AI برای شرایط واقعی کاربران ایرانی طراحی شده است؛ تمرکز بر سادگی، پایداری و کاهش هزینه.
         </h2>
         <p className="text-sm sm:text-lg text-slate-600 dark:text-gray-400 mb-8 sm:mb-12 leading-7 sm:leading-relaxed">
           ما چالش‌های شما را می‌شناسیم و زیرساختی ساخته‌ایم تا شما فقط روی توسعه محصول خود تمرکز کنید.
@@ -37,7 +37,7 @@ export function Footer() {
           <div className="sm:col-span-2 md:col-span-1">
             <div className="flex items-center gap-2 mb-6">
               <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center text-white font-bold text-xl">ش</div>
-              <span className="font-bold text-xl text-slate-900 dark:text-white">شاهراه</span>
+              <span className="font-bold text-xl text-slate-900 dark:text-white">گُدار AI</span>
             </div>
             <p className="text-sm text-slate-500 dark:text-gray-400 leading-relaxed mb-6">
               یک LLM Gateway امن، سریع و به‌صرفه برای دسترسی به بهترین مدل‌های هوش مصنوعی دنیا، بدون محدودیت.
@@ -94,7 +94,7 @@ export function Footer() {
         
         <div className="border-t border-gray-200 dark:border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-right">
           <p className="text-sm text-slate-500 dark:text-gray-500">
-            © ۱۴۰۵ شاهراه. تمامی حقوق محفوظ است.
+            © ۱۴۰۵ گُدار AI. تمامی حقوق محفوظ است.
           </p>
           <div className="flex flex-col sm:flex-row items-center gap-4">
             <a

@@ -8,7 +8,7 @@ export function About() {
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16">
           <h1 className="text-5xl font-bold mb-6 bg-gradient-to-l from-indigo-400 to-purple-500 bg-clip-text text-transparent">
-            درباره شاهراه
+            درباره گُدار AI
           </h1>
           <p className="text-xl text-slate-600 dark:text-gray-400 max-w-2xl mx-auto">
             ما در حال ساختن پلی میان توسعه‌دهندگان ایرانی و دنیای هوش مصنوعی هستیم
@@ -19,7 +19,7 @@ export function About() {
           <div>
             <h2 className="text-3xl font-bold mb-6">ماموریت ما</h2>
             <p className="text-lg text-slate-600 dark:text-gray-400 leading-relaxed mb-4">
-              شاهراه با هدف حل یکی از بزرگترین چالش‌های توسعه‌دهندگان و کسب‌وکارهای ایرانی ایجاد شد:
+              گُدار AI با هدف حل یکی از بزرگترین چالش‌های توسعه‌دهندگان و کسب‌وکارهای ایرانی ایجاد شد:
               دسترسی آسان، مقرون‌به‌صرفه و بدون محدودیت به پیشرفته‌ترین مدل‌های هوش مصنوعی.
             </p>
             <p className="text-lg text-slate-600 dark:text-gray-400 leading-relaxed">
@@ -33,7 +33,7 @@ export function About() {
               از قدرت هوش مصنوعی برای ساخت محصولات و خدمات نوآورانه استفاده کند.
             </p>
             <p className="text-lg text-slate-600 dark:text-gray-400 leading-relaxed">
-              شاهراه قرار است به زیرساخت اصلی دسترسی به AI در ایران تبدیل شود.
+              گُدار AI قرار است به زیرساخت اصلی دسترسی به AI در ایران تبدیل شود.
             </p>
           </div>
         </div>

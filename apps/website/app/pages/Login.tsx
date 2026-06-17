@@ -40,9 +40,8 @@ export function Login() {
     if (typeof window === "undefined") {
       return ".godarai.ir";
     }
-    const configured = process.env.NEXT_PUBLIC_TENANT_BASE_DOMAIN;
-    const host = configured || window.location.host;
-    return `.${host.replace(/^www\./, "")}`;
+    const host = getConfiguredTenantBaseDomain() || window.location.host;
+    return `.${normalizeHostForDisplay(host)}`;
   }, []);
 
   async function handleIdentifierSubmit(event: FormEvent<HTMLFormElement>) {
@@ -316,6 +315,20 @@ function redirectToTenant(tenant: Tenant, identifier?: string) {
     url.searchParams.set("identifier", encodeBase64URL(identifier));
   }
   window.location.assign(url.toString());
+}
+
+function getConfiguredTenantBaseDomain() {
+  return process.env.NEXT_PUBLIC_TENANT_ADMIN_BASE_DOMAIN || process.env.NEXT_PUBLIC_TENANT_BASE_DOMAIN || "";
+}
+
+function normalizeHostForDisplay(host: string) {
+  return host
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .split("/")[0]
+    ?.replace(/^www\./, "")
+    .replace(/\.$/, "") ?? "";
 }
 
 function encodeBase64URL(value: string) {
