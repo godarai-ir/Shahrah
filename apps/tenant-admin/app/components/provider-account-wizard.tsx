@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   PrincipalEntitySelect,
   type PrincipalEntitySelection,
@@ -81,6 +82,62 @@ import {
 } from "@/app/components/provider-account-wizard/utils";
 import { usePermissions } from "@/app/components/permissions-context";
 import { canPermission } from "@/lib/authz";
+
+function ProviderAccountSidebarSkeleton() {
+  return (
+    <>
+      <Card>
+        <CardHeader className="pb-3">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-4 w-56" />
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-2">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={`provider-skeleton-${index}`} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="size-8 rounded-full" />
+                  <Skeleton className="h-4 w-28" />
+                </div>
+                <Skeleton className="h-5 w-8 rounded-full" />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <Skeleton className="h-5 w-36" />
+          <Skeleton className="h-4 w-44" />
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-2">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={`account-skeleton-${index}`} className="rounded-lg border px-2 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 flex-1 flex-col gap-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
+                  <Skeleton className="h-6 w-24 rounded-full" />
+                </div>
+                <div className="mt-2 flex justify-end">
+                  <Skeleton className="h-8 w-20" />
+                </div>
+              </div>
+            ))}
+            <div className="flex gap-2 pt-2">
+              <Skeleton className="h-8 flex-1" />
+              <Skeleton className="h-8 flex-1" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </>
+  );
+}
+
 export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWizardMode }) {
   const mode = props?.mode ?? "manage";
   const isCreateMode = mode === "create";
@@ -109,6 +166,7 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
   const [deleteTargetAccount, setDeleteTargetAccount] = useState<TenantProviderAccount | null>(null);
   const [deleteAccountNameInput, setDeleteAccountNameInput] = useState("");
   const [isLoadingEffective, setIsLoadingEffective] = useState(false);
+  const [isLoadingProviderModels, setIsLoadingProviderModels] = useState(false);
   const [isRefreshingCatalog, setIsRefreshingCatalog] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
   const [banner, setBanner] = useState<Banner | null>(null);
@@ -286,6 +344,7 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
         setModelDrafts({});
         return [];
       }
+      setIsLoadingProviderModels(true);
       try {
         const items = await fetchProviderModels(normalized);
         setProviderModels(items);
@@ -299,6 +358,8 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
           message: normalizeError(error, t("messages.providerModelsLoadFailed")),
         });
         return [];
+      } finally {
+        setIsLoadingProviderModels(false);
       }
     },
     [fetchProviderModels, t],
@@ -397,6 +458,7 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
       if (!accountID) return;
       const requestID = ++accountLoadRequestRef.current;
       setIsLoading(true);
+      setIsLoadingProviderModels(true);
       setBanner(null);
       try {
         const details = await requestJSON<AccountDetailsResponse>(
@@ -455,7 +517,10 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
           setBanner({ kind: "error", message: normalizeError(error, t("messages.accountLoadFailed")) });
         }
       } finally {
-        if (requestID === accountLoadRequestRef.current) setIsLoading(false);
+        if (requestID === accountLoadRequestRef.current) {
+          setIsLoading(false);
+          setIsLoadingProviderModels(false);
+        }
       }
     },
     [fetchProviderModels, t],
@@ -964,6 +1029,7 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
     { id: "observability", label: ux("tabs.observability"), icon: Eye },
   ];
   const principalSelectorLabels = buildPrincipalSelectorLabels(t, ux);
+  const isInitialSidebarLoading = !isCreateMode && isLoading && providers.length === 0 && accounts.length === 0;
 
   return (
     <Card id="tenant-provider-accounts" className="border-border/70 shadow-sm">
@@ -983,7 +1049,9 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
         <div className="grid gap-4 lg:grid-cols-12">
           {!isCreateMode ? (
           <aside className="space-y-3 lg:col-span-4 xl:col-span-3">
-            {hasVisibleProviders ? (
+            {isInitialSidebarLoading ? (
+              <ProviderAccountSidebarSkeleton />
+            ) : hasVisibleProviders ? (
               <>
                 <Card>
                   <CardHeader className="pb-3">
@@ -1371,6 +1439,7 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
                           modelSearchQuery={modelSearchQuery}
                           setModelSearchQuery={setModelSearchQuery}
                           isSaving={isSavingModels}
+                          isLoadingModels={isLoadingProviderModels}
                           canManage={canManageProviderAccount}
                           onSave={() => void handleSaveModels()}
                         />
@@ -1473,6 +1542,7 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
                         modelSearchQuery={modelSearchQuery}
                         setModelSearchQuery={setModelSearchQuery}
                         isSaving={isSavingModels}
+                        isLoadingModels={isLoadingProviderModels}
                         canManage={canManageProviderAccount}
                         onSave={() => void handleSaveModels()}
                       />

@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ModelCard, type ModelCardData } from "@/app/components/model-card";
 import {
@@ -55,6 +56,54 @@ import {
   toNumberOrUndefined,
   unwrapData,
 } from "./utils";
+
+function ModelCardsSkeleton() {
+  return (
+    <div className="flex flex-col gap-3">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <Card key={`model-card-skeleton-${index}`} className="overflow-hidden">
+          <CardHeader className="pb-3">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="size-9 rounded-md" />
+                  <div className="flex min-w-0 flex-1 flex-col gap-2">
+                    <Skeleton className="h-5 w-48 max-w-full" />
+                    <Skeleton className="h-4 w-64 max-w-full" />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Skeleton className="h-6 w-20 rounded-full" />
+                  <Skeleton className="h-6 w-24 rounded-full" />
+                  <Skeleton className="h-6 w-28 rounded-full" />
+                </div>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <Skeleton className="h-9 w-24" />
+                <Skeleton className="h-9 w-28" />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 md:grid-cols-3">
+              <Skeleton className="h-16" />
+              <Skeleton className="h-16" />
+              <Skeleton className="h-16" />
+            </div>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex gap-2">
+                <Skeleton className="h-5 w-24" />
+                <Skeleton className="h-5 w-24" />
+              </div>
+              <Skeleton className="h-9 w-32" />
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
 export function ModelsEditor(props: {
   t: ReturnType<typeof useTranslations>;
   account: TenantProviderAccount | null;
@@ -65,6 +114,7 @@ export function ModelsEditor(props: {
   modelSearchQuery: string;
   setModelSearchQuery: (value: string) => void;
   isSaving: boolean;
+  isLoadingModels: boolean;
   canManage: boolean;
   onSave: () => void;
 }) {
@@ -673,7 +723,9 @@ export function ModelsEditor(props: {
         </div>
       </div>
 
-      {visibleModels.length === 0 ? (
+      {props.isLoadingModels ? (
+        <ModelCardsSkeleton />
+      ) : visibleModels.length === 0 ? (
         <p className="text-sm text-muted-foreground">{props.t("step3.empty")}</p>
       ) : (
         <div className="space-y-3">
