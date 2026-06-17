@@ -28,7 +28,11 @@ func (a *openAICompatibleAdapter) Dispatch(ctx context.Context, client *http.Cli
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Content-Type", "application/json")
+	if contentType := strings.TrimSpace(payload.Headers["Content-Type"]); contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	} else {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	if payload.Deployment.APIKey != "" {
 		req.Header.Set("Authorization", "Bearer "+payload.Deployment.APIKey)
 	}

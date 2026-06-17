@@ -245,6 +245,113 @@ func buildTraceModerationResponsePayload(resp contractsopenai.ModerationResponse
 	}
 }
 
+func buildTraceImageRequestPayload(operation string, body []byte, contentType string, metadata map[string]interface{}) map[string]interface{} {
+	out := map[string]interface{}{
+		"operation":    operation,
+		"content_type": safeContentTypeFamily(contentType),
+	}
+	for k, v := range metadata {
+		out[k] = v
+	}
+	if !strings.HasPrefix(strings.ToLower(strings.TrimSpace(contentType)), "application/json") {
+		return out
+	}
+	var raw map[string]interface{}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return out
+	}
+	if prompt, ok := raw["prompt"].(string); ok {
+		out["prompt_length"] = len(prompt)
+		out["prompt_hash"] = hashTracePreview(prompt)
+	}
+	if image, ok := raw["image"]; ok {
+		out["image_source_type"] = traceImageSourceType(image)
+	}
+	return out
+}
+
+func buildTraceImageResponsePayload(body []byte) map[string]interface{} {
+	out := map[string]interface{}{}
+	var raw map[string]interface{}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		out["decode"] = "unavailable"
+		return out
+	}
+	if created, ok := raw["created"]; ok {
+		out["created"] = created
+	}
+	if usage, ok := raw["usage"].(map[string]interface{}); ok {
+		safeUsage := map[string]interface{}{}
+		for _, key := range []string{"cost_in_usd_ticks", "total_tokens", "input_tokens", "output_tokens"} {
+			if v, exists := usage[key]; exists {
+				safeUsage[key] = v
+			}
+		}
+		out["usage"] = safeUsage
+	}
+	if data, ok := raw["data"].([]interface{}); ok {
+		out["data_count"] = len(data)
+		formats := make([]string, 0, len(data))
+		for _, item := range data {
+			m, ok := item.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			switch {
+			case m["b64_json"] != nil:
+				formats = append(formats, "b64_json")
+			case m["url"] != nil:
+				formats = append(formats, "url")
+			}
+			if mt, ok := m["mime_type"].(string); ok && mt != "" {
+				out["mime_type"] = mt
+			}
+		}
+		out["data_formats"] = formats
+	}
+	return out
+}
+
+func safeContentTypeFamily(contentType string) string {
+	ct := strings.ToLower(strings.TrimSpace(contentType))
+	switch {
+	case strings.HasPrefix(ct, "multipart/form-data"):
+		return "multipart/form-data"
+	case strings.HasPrefix(ct, "application/json"):
+		return "application/json"
+	default:
+		if i := strings.Index(ct, ";"); i >= 0 {
+			return strings.TrimSpace(ct[:i])
+		}
+		return ct
+	}
+}
+
+func traceImageSourceType(value interface{}) string {
+	switch v := value.(type) {
+	case string:
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(v)), "http") {
+			return "url"
+		}
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(v)), "data:") {
+			return "data_url"
+		}
+		return "string"
+	case map[string]interface{}:
+		if t, ok := v["type"].(string); ok && strings.TrimSpace(t) != "" {
+			return strings.TrimSpace(t)
+		}
+		return "object"
+	case []interface{}:
+		return "array"
+	default:
+		if value == nil {
+			return ""
+		}
+		return "unknown"
+	}
+}
+
 func summarizeModerationInput(input interface{}) (string, int, []int, []string) {
 	switch v := input.(type) {
 	case string:

@@ -44,6 +44,7 @@ type Dependencies struct {
 	ResponsesHandler   *proxy.ResponsesHandler
 	EmbeddingsHandler  *proxy.EmbeddingsHandler
 	ModerationsHandler *proxy.ModerationsHandler
+	ImagesHandler      *proxy.ImagesHandler
 	ModelsHandler      *proxy.ModelsHandler
 	Logger             *zap.Logger
 }
@@ -198,6 +199,11 @@ func registerProtectedRoutes(app *fiber.App, deps Dependencies) {
 	}
 	if deps.ModerationsHandler != nil {
 		v1.Post("/moderations", deps.ModerationsHandler.Handle)
+	}
+	if deps.ImagesHandler != nil {
+		v1.Post("/images/generations", deps.ImagesHandler.HandleGenerations)
+		v1.Post("/images/edits", deps.ImagesHandler.HandleEdits)
+		v1.Post("/images/variations", deps.ImagesHandler.HandleVariations)
 	}
 	if deps.ModelsHandler != nil {
 		v1.Get("/models", deps.ModelsHandler.Handle)

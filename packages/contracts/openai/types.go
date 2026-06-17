@@ -472,3 +472,138 @@ type ResponseInputTokenDetails struct {
 type ResponseOutputTokenDetails struct {
 	ReasoningTokens int `json:"reasoning_tokens,omitempty"`
 }
+
+// ImageRequest mirrors the common OpenAI-compatible image request envelope while
+// leaving provider-specific fields in Extra for passthrough callers.
+type ImageRequest struct {
+	Model          string                 `json:"model"`
+	Prompt         string                 `json:"prompt,omitempty"`
+	Image          interface{}            `json:"image,omitempty"`
+	Mask           interface{}            `json:"mask,omitempty"`
+	N              *int                   `json:"n,omitempty"`
+	Size           string                 `json:"size,omitempty"`
+	Quality        string                 `json:"quality,omitempty"`
+	ResponseFormat string                 `json:"response_format,omitempty"`
+	User           string                 `json:"user,omitempty"`
+	Extra          map[string]interface{} `json:"-"`
+}
+
+func (r *ImageRequest) UnmarshalJSON(data []byte) error {
+	type alias ImageRequest
+	var a alias
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	for _, key := range []string{"model", "prompt", "image", "mask", "n", "size", "quality", "response_format", "user"} {
+		delete(raw, key)
+	}
+	*r = ImageRequest(a)
+	r.Extra = raw
+	return nil
+}
+
+func (r ImageRequest) MarshalJSON() ([]byte, error) {
+	type alias ImageRequest
+	base, err := structToMap(alias(r))
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range r.Extra {
+		base[k] = v
+	}
+	return json.Marshal(base)
+}
+
+// ImageResponse preserves standard OpenAI image response fields and accepts
+// provider-specific usage fields such as xAI cost_in_usd_ticks.
+type ImageResponse struct {
+	Created int64                  `json:"created,omitempty"`
+	Data    []ImageData            `json:"data,omitempty"`
+	Usage   map[string]interface{} `json:"usage,omitempty"`
+	Extra   map[string]interface{} `json:"-"`
+}
+
+func (r *ImageResponse) UnmarshalJSON(data []byte) error {
+	type alias ImageResponse
+	var a alias
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	for _, key := range []string{"created", "data", "usage"} {
+		delete(raw, key)
+	}
+	*r = ImageResponse(a)
+	r.Extra = raw
+	return nil
+}
+
+func (r ImageResponse) MarshalJSON() ([]byte, error) {
+	type alias ImageResponse
+	base, err := structToMap(alias(r))
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range r.Extra {
+		base[k] = v
+	}
+	return json.Marshal(base)
+}
+
+// ImageData is one generated/edited/variant image result.
+type ImageData struct {
+	URL           string                 `json:"url,omitempty"`
+	B64JSON       string                 `json:"b64_json,omitempty"`
+	RevisedPrompt string                 `json:"revised_prompt,omitempty"`
+	MimeType      string                 `json:"mime_type,omitempty"`
+	Extra         map[string]interface{} `json:"-"`
+}
+
+func (d *ImageData) UnmarshalJSON(data []byte) error {
+	type alias ImageData
+	var a alias
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	for _, key := range []string{"url", "b64_json", "revised_prompt", "mime_type"} {
+		delete(raw, key)
+	}
+	*d = ImageData(a)
+	d.Extra = raw
+	return nil
+}
+
+func (d ImageData) MarshalJSON() ([]byte, error) {
+	type alias ImageData
+	base, err := structToMap(alias(d))
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range d.Extra {
+		base[k] = v
+	}
+	return json.Marshal(base)
+}
+
+func structToMap(v interface{}) (map[string]interface{}, error) {
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]interface{}{}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}

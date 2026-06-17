@@ -158,7 +158,7 @@ export const CURL_GUIDE_LANGUAGE: Record<CurlGuideShell, "powershell" | "bash"> 
   bash: "bash",
 };
 
-export type SupportedCurlGuideMode = "chat" | "completion" | "embedding" | "responses" | "moderation";
+export type SupportedCurlGuideMode = "chat" | "completion" | "embedding" | "responses" | "moderation" | "image_generation";
 
 export const SUPPORTED_CURL_GUIDE_MODES: SupportedCurlGuideMode[] = [
   "chat",
@@ -166,6 +166,7 @@ export const SUPPORTED_CURL_GUIDE_MODES: SupportedCurlGuideMode[] = [
   "responses",
   "embedding",
   "moderation",
+  "image_generation",
 ];
 
 

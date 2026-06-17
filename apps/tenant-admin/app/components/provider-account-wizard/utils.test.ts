@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildBashCurlGuideCommand,
   buildCurlGuidePayload,
+  buildPowerShellCurlGuideCommand,
   buildCurlGuideSampleResponse,
   getCurlGuideEndpoint,
   getPublicSiteOrigin,
@@ -53,6 +54,100 @@ describe("provider account curl guide helpers", () => {
 
     expect(mode).toBe("chat");
     expect(getCurlGuideEndpoint(mode)).toBe("/v1/chat/completions");
+  });
+
+  it("keeps chat models on the chat completions sample", () => {
+    const modelFqn = "openai:default:gpt-4o-mini";
+    const mode = resolveCurlGuideMode({
+      provider: "openai",
+      model: "gpt-4o-mini",
+      display_name: "GPT-4o mini",
+      mode: ["chat"],
+      types: ["chat"],
+      capabilities: ["tools"],
+    });
+    const payload = buildCurlGuidePayload(mode, modelFqn);
+    const command = buildBashCurlGuideCommand({
+      baseUrl: "http://tenant1.localhost:4000",
+      endpoint: getCurlGuideEndpoint(mode),
+      payload,
+    });
+
+    expect(mode).toBe("chat");
+    expect(command).toContain("/v1/chat/completions");
+    expect(command).toContain(`"model": "${modelFqn}"`);
+    expect(command).toContain('"messages"');
+  });
+
+  it("uses the image generations endpoint for image generation mode", () => {
+    const modelFqn = "xai:prod:grok-imagine-image";
+    const mode = resolveCurlGuideMode({
+      provider: "xai",
+      model: "grok-imagine-image",
+      display_name: "Grok Imagine",
+      mode: ["image_generation"],
+      types: ["image_generation"],
+      capabilities: [],
+    });
+    const payload = buildCurlGuidePayload(mode, modelFqn);
+    const command = buildBashCurlGuideCommand({
+      baseUrl: "http://tenant1.localhost:4000",
+      endpoint: getCurlGuideEndpoint(mode),
+      payload,
+    });
+
+    expect(mode).toBe("image_generation");
+    expect(getCurlGuideEndpoint(mode)).toBe("/v1/images/generations");
+    expect(payload).toEqual({
+      model: modelFqn,
+      prompt: "A cinematic photo of Tehran at sunrise",
+      n: 1,
+      size: "1024x1024",
+      quality: "standard",
+      response_format: "url",
+    });
+    expect(command).toContain("/v1/images/generations");
+    expect(command).toContain("Authorization: Bearer <PAT_TOKEN>");
+    expect(command).toContain("Content-Type: application/json");
+    expect(command).toContain(`"model": "${modelFqn}"`);
+    expect(command).toContain('"prompt": "A cinematic photo of Tehran at sunrise"');
+    expect(command).toContain('"n": 1');
+    expect(command).toContain('"size": "1024x1024"');
+    expect(command).toContain('"response_format": "url"');
+  });
+
+  it("detects image mode generically without provider-specific branching", () => {
+    expect(resolveCurlGuideMode({
+      provider: "future-compatible-provider",
+      model: "future-image-model",
+      display_name: "Future Image Model",
+      types: ["image"],
+    })).toBe("image_generation");
+
+    expect(resolveCurlGuideMode({
+      provider: "another-provider",
+      model: "poster-maker",
+      display_name: "Poster Maker",
+      output_modalities: ["image"],
+      types: [],
+    })).toBe("image_generation");
+  });
+
+  it("builds PowerShell image generation samples with the selected model", () => {
+    const command = buildPowerShellCurlGuideCommand({
+      baseUrl: "http://tenant1.localhost:4000",
+      endpoint: getCurlGuideEndpoint("image_generation"),
+      mode: "image_generation",
+      modelFqn: "openai:default:gpt-image-1",
+    });
+
+    expect(command).toContain("/v1/images/generations");
+    expect(command).toContain('Authorization = "Bearer <PAT_TOKEN>"');
+    expect(command).toContain('model = "openai:default:gpt-image-1"');
+    expect(command).toContain('prompt = "A cinematic photo of Tehran at sunrise"');
+    expect(command).toContain("n = 1");
+    expect(command).toContain('size = "1024x1024"');
+    expect(command).toContain('response_format = "url"');
   });
 
   it("builds moderation request and response examples with the selected model", () => {

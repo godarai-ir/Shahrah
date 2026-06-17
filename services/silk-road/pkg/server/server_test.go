@@ -134,6 +134,93 @@ func TestDispatchUsesOpenAIEndpointOverride(t *testing.T) {
 	}
 }
 
+func TestDispatchOpenAICompatiblePreservesJSONContentTypeForImages(t *testing.T) {
+	t.Parallel()
+
+	var gotContentType string
+	var gotPath string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotContentType = r.Header.Get("Content-Type")
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"created":1,"data":[]}`))
+	}))
+	defer upstream.Close()
+
+	handler := NewHandler(nil)
+	payload := platform.TunnelRequest{
+		Deployment: platform.Deployment{Provider: "xai", APIBase: upstream.URL, APIKey: "provider-secret"},
+		Headers:    map[string]string{"Content-Type": "application/json"},
+		RequestMetadata: map[string]interface{}{
+			"provider_endpoint_path": "/images/generations",
+		},
+		Body: []byte(`{"model":"grok-imagine-image","prompt":"hi"}`),
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	if gotPath != "/images/generations" {
+		t.Fatalf("expected image path, got %q", gotPath)
+	}
+	if gotContentType != "application/json" {
+		t.Fatalf("unexpected content type: %q", gotContentType)
+	}
+}
+
+func TestDispatchOpenAICompatiblePreservesMultipartContentTypeForImages(t *testing.T) {
+	t.Parallel()
+
+	const multipartType = "multipart/form-data; boundary=shahrah-test-boundary"
+	var gotContentType string
+	var gotPath string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotContentType = r.Header.Get("Content-Type")
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"created":1,"data":[]}`))
+	}))
+	defer upstream.Close()
+
+	handler := NewHandler(nil)
+	payload := platform.TunnelRequest{
+		Deployment: platform.Deployment{Provider: "openai", APIBase: upstream.URL, APIKey: "provider-secret"},
+		Headers:    map[string]string{"Content-Type": multipartType},
+		RequestMetadata: map[string]interface{}{
+			"provider_endpoint_path": "/images/edits",
+		},
+		Body: []byte("--shahrah-test-boundary\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\ngpt-image-1\r\n--shahrah-test-boundary--\r\n"),
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	if gotPath != "/images/edits" {
+		t.Fatalf("expected image path, got %q", gotPath)
+	}
+	if gotContentType != multipartType {
+		t.Fatalf("unexpected content type: %q", gotContentType)
+	}
+}
+
 func TestDispatchUsesAnthropicAdapterForSync(t *testing.T) {
 	t.Parallel()
 

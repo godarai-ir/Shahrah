@@ -104,6 +104,7 @@ func main() {
 	responsesHandler := proxy.NewResponsesHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
 	embeddingsHandler := proxy.NewEmbeddingsHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
 	moderationsHandler := proxy.NewModerationsHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
+	imagesHandler := proxy.NewImagesHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
 	modelsHandler := proxy.NewModelsHandler(store)
 
 	traceCfg := tracing.LoadConfigFromEnv()
@@ -136,6 +137,7 @@ func main() {
 		ResponsesHandler:   responsesHandler,
 		EmbeddingsHandler:  embeddingsHandler,
 		ModerationsHandler: moderationsHandler,
+		ImagesHandler:      imagesHandler,
 		ModelsHandler:      modelsHandler,
 		Logger:             logger,
 	})

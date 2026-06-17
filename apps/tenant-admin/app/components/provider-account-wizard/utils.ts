@@ -66,7 +66,10 @@ export function getModelModes(model: Pick<ProviderCatalogModel, "mode" | "modes"
 }
 
 export function resolveCurlGuideMode(
-  model: Pick<ProviderCatalogModel, "mode" | "modes" | "types" | "capabilities" | "features">,
+  model: Pick<
+    ProviderCatalogModel,
+    "provider" | "model" | "display_name" | "mode" | "modes" | "types" | "capabilities" | "features" | "output_modalities"
+  >,
 ): SupportedCurlGuideMode {
   const modes = [
     ...getModelModes(model),
@@ -75,6 +78,9 @@ export function resolveCurlGuideMode(
     ...normalizeCapabilityList(model.features),
   ];
   if (modes.some(isModerationCapability)) return "moderation";
+  if ([...modes, ...normalizeCapabilityList(model.output_modalities)].some(isImageGenerationCapability)) {
+    return "image_generation";
+  }
   for (const mode of modes) {
     if (isSupportedCurlGuideMode(mode)) return mode;
   }
@@ -90,6 +96,11 @@ export function isModerationCapability(value: string): boolean {
   return normalized === "moderation" || normalized.includes("moderation");
 }
 
+export function isImageGenerationCapability(value: string): boolean {
+  const normalized = value.trim().toLowerCase().replaceAll("-", "_");
+  return normalized === "image" || normalized === "image_generation" || normalized === "image_generation_api";
+}
+
 export function getCurlGuideEndpoint(mode: SupportedCurlGuideMode): string {
   switch (mode) {
     case "completion":
@@ -100,6 +111,8 @@ export function getCurlGuideEndpoint(mode: SupportedCurlGuideMode): string {
       return "/v1/responses";
     case "moderation":
       return "/v1/moderations";
+    case "image_generation":
+      return "/v1/images/generations";
     case "chat":
     default:
       return "/v1/chat/completions";
@@ -128,6 +141,15 @@ export function buildCurlGuidePayload(mode: SupportedCurlGuideMode, modelFqn: st
       return {
         model: modelFqn,
         input: "I want to check this text for policy violations.",
+      };
+    case "image_generation":
+      return {
+        model: modelFqn,
+        prompt: "A cinematic photo of Tehran at sunrise",
+        n: 1,
+        size: "1024x1024",
+        quality: "standard",
+        response_format: "url",
       };
     case "chat":
     default:
@@ -167,6 +189,7 @@ export function buildPowerShellCurlGuideCommand(input: {
   const textPrompt = "سلام، یک پاسخ کوتاه بده";
   const embeddingInput = "سلام، این متن را برای جستجو برداری کن";
   const moderationInput = "I want to check this text for policy violations.";
+  const imagePrompt = "A cinematic photo of Tehran at sunrise";
   const bodyLines = (() => {
     switch (input.mode) {
       case "completion":
@@ -196,6 +219,17 @@ export function buildPowerShellCurlGuideCommand(input: {
           "$body = @{",
           `  model = "${modelFqn}"`,
           `  input = "${moderationInput}"`,
+          "} | ConvertTo-Json -Depth 5",
+        ];
+      case "image_generation":
+        return [
+          "$body = @{",
+          `  model = "${modelFqn}"`,
+          `  prompt = "${imagePrompt}"`,
+          "  n = 1",
+          '  size = "1024x1024"',
+          '  quality = "standard"',
+          '  response_format = "url"',
           "} | ConvertTo-Json -Depth 5",
         ];
       case "chat":
