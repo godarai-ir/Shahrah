@@ -22,6 +22,7 @@ type AuthContext struct {
 	OrgUnitID                   string                          `json:"org_unit_id,omitempty"`
 	TeamID                      string                          `json:"team_id,omitempty"`
 	UserID                      string                          `json:"user_id,omitempty"`
+	VirtualUserID               string                          `json:"virtual_user_id,omitempty"`
 	KeyID                       string                          `json:"key_id"`
 	KeyAlias                    string                          `json:"key_alias,omitempty"`
 	Role                        string                          `json:"role"`
@@ -197,6 +198,10 @@ type KeyStore interface {
 	PATExists(ctx context.Context, tenantID string, userID string, name string) (bool, error)
 	RevokePAT(ctx context.Context, tenantID string, userID string, keyID string, revokedByUserID string) (bool, error)
 	RevokeAllPATs(ctx context.Context, tenantID string, userID string, revokedByUserID string) (int64, error)
+	ListVATTokens(ctx context.Context, tenantID string, virtualUserID string, query string, limit int, offset int) ([]CreatedKey, int, error)
+	UpdateVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, req UpdateVATTokenRequest) (*CreatedKey, error)
+	RevokeVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, revokedByUserID string, reason string) (bool, error)
+	RotateVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, rotatedByUserID string, gracePeriod string) (*CreatedKey, error)
 }
 
 // BudgetEnforcer validates budgets and rate limits.
@@ -295,6 +300,31 @@ type PATExistsResponse struct {
 
 type RevokeAllPATResponse struct {
 	Revoked int64 `json:"revoked"`
+}
+
+type ListVATTokensResponse struct {
+	Data       []CreatedKey `json:"data"`
+	Total      int          `json:"total"`
+	Limit      int          `json:"limit"`
+	Offset     int          `json:"offset"`
+	NextOffset *int         `json:"next_offset,omitempty"`
+}
+
+type UpdateVATTokenRequest struct {
+	KeyAlias      string                 `json:"key_alias,omitempty"`
+	AllowedModels []string               `json:"allowed_models,omitempty"`
+	Models        []string               `json:"models,omitempty"`
+	ExpiresIn     string                 `json:"expires_in,omitempty"`
+	Blocked       *bool                  `json:"blocked,omitempty"`
+	Metadata      map[string]interface{} `json:"metadata,omitempty"`
+}
+
+type RevokeVATTokenRequest struct {
+	Reason string `json:"reason,omitempty"`
+}
+
+type RotateVATTokenRequest struct {
+	GracePeriod string `json:"grace_period,omitempty"`
 }
 
 const (

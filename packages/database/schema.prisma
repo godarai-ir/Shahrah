@@ -72,6 +72,7 @@ model Tenant {
   tenant_onboarding_requests tenant_onboarding_requests[]
   tenant_provider_accounts   TenantProviderAccount[]
   verification_tokens        VerificationToken[]
+  virtual_users              VirtualUser[]
   virtual_models             virtual_models[]
   wallet_topup_intents       wallet_topup_intents[]
   wallet_transactions        WalletTransaction[]
@@ -99,6 +100,7 @@ model Organization {
   teams                    Team[]
   users                    User[]
   verification_tokens      VerificationToken[]
+  virtual_users            VirtualUser[]
 
   @@map("organizations")
 }
@@ -142,6 +144,7 @@ model Team {
   organizations               Organization?       @relation(fields: [organization_id], references: [organization_id], onDelete: NoAction, onUpdate: NoAction)
   users                       User[]
   verification_tokens         VerificationToken[]
+  virtual_users               VirtualUser[]
 
   @@index([team_alias], map: "idx_team_alias")
   @@index([created_at], map: "idx_team_created_at")
@@ -241,6 +244,29 @@ model TeamMembership {
   @@map("team_memberships")
 }
 
+model VirtualUser {
+  virtual_user_id     String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String              @db.Uuid
+  team_id             String?             @db.Uuid
+  org_unit_id         String?             @db.Uuid
+  alias               String              @db.VarChar(255)
+  display_name        String?             @db.VarChar(255)
+  metadata            Json?               @default("{}")
+  active              Boolean             @default(true)
+  created_at          DateTime?           @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime?           @default(now()) @db.Timestamptz(6)
+  tenants             Tenant              @relation(fields: [tenant_id], references: [tenant_id], onDelete: Cascade, onUpdate: NoAction)
+  teams               Team?               @relation(fields: [team_id], references: [team_id], onDelete: SetNull, onUpdate: NoAction)
+  organizations       Organization?       @relation(fields: [org_unit_id], references: [organization_id], onDelete: SetNull, onUpdate: NoAction)
+  verification_tokens VerificationToken[]
+
+  @@unique([tenant_id, alias], map: "uq_virtual_users_tenant_alias")
+  @@index([tenant_id], map: "idx_virtual_users_tenant_id")
+  @@index([team_id], map: "idx_virtual_users_team_id")
+  @@index([org_unit_id], map: "idx_virtual_users_org_unit_id")
+  @@map("virtual_users")
+}
+
 model VerificationToken {
   id                    String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   token_hash            String        @unique @db.VarChar(64)
@@ -249,6 +275,7 @@ model VerificationToken {
   team_id               String?       @db.Uuid
   user_id               String?       @db.Uuid
   organization_id       String?       @db.Uuid
+  virtual_user_id       String?       @db.Uuid
   project_id            String?       @db.Uuid
   models                String[]      @default([])
   max_budget            Decimal?      @db.Decimal(10, 4)
@@ -270,16 +297,25 @@ model VerificationToken {
   revoked_at            DateTime?     @db.Timestamptz(6)
   revoked_by_user_id    String?
   key_type              String?       @db.VarChar(16)
+  rotated_from_token_id String?       @db.Uuid
+  rotation_grace_expires_at DateTime? @db.Timestamptz(6)
+  revoked_reason        String?
   organizations         Organization? @relation(fields: [organization_id], references: [organization_id], onDelete: NoAction, onUpdate: NoAction)
   projects              Project?      @relation(fields: [project_id], references: [project_id], onDelete: NoAction, onUpdate: NoAction)
+  rotated_from_token    VerificationToken? @relation("TokenRotation", fields: [rotated_from_token_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  rotated_tokens        VerificationToken[] @relation("TokenRotation")
   teams                 Team?         @relation(fields: [team_id], references: [team_id], onDelete: NoAction, onUpdate: NoAction)
   tenants               Tenant?       @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction)
   users                 User?         @relation(fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  virtual_users         VirtualUser?  @relation(fields: [virtual_user_id], references: [virtual_user_id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([key_type], map: "idx_vt_key_type")
   @@index([tenant_id], map: "idx_verification_tokens_tenant_id")
   @@index([organization_id], map: "idx_vt_org")
   @@index([team_id], map: "idx_vt_team")
+  @@index([tenant_id, key_type], map: "idx_vt_tenant_key_type")
+  @@index([tenant_id, revoked_at], map: "idx_vt_tenant_revoked_at")
+  @@index([tenant_id, virtual_user_id], map: "idx_vt_tenant_virtual_user")
   @@index([token_hash], map: "idx_vt_token_hash")
   @@index([user_id], map: "idx_vt_user")
   @@map("verification_tokens")

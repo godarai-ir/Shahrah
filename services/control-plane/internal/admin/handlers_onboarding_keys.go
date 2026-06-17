@@ -9,6 +9,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5"
 )
 
 func (h *Handlers) CheckTenantSlugAvailability(c *fiber.Ctx) error {
@@ -111,8 +112,41 @@ func (h *Handlers) createKey(c *fiber.Ctx, forcedKeyType string) error {
 	default:
 		return fiber.NewError(fiber.StatusBadRequest, "key_type must be pat or vat")
 	}
+	if req.KeyType == platform.KeyTypeVAT && req.TeamID == "" && req.VirtualUserID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "team_id or virtual_user_id is required for vat")
+	}
+	if req.KeyType == platform.KeyTypeVAT && req.VirtualUserID == "" && h.virtualUsers != nil {
+		virtualUser, err := h.ensureLegacyVATVirtualUser(c, currentTenant.ID, req)
+		if err != nil {
+			return err
+		}
+		req.VirtualUserID = virtualUser.ID
+		if req.OrgUnitID == "" {
+			req.OrgUnitID = virtualUser.OrgUnitID
+			req.OrgID = virtualUser.OrgUnitID
+		}
+	}
+	if req.KeyType == platform.KeyTypeVAT && req.VirtualUserID != "" && h.virtualUsers != nil {
+		virtualUser, err := h.virtualUsers.GetVirtualUser(c.Context(), currentTenant.ID, req.VirtualUserID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return fiber.NewError(fiber.StatusNotFound, "virtual user not found")
+			}
+			return err
+		}
+		if !virtualUser.Active {
+			return fiber.NewError(fiber.StatusConflict, "virtual user is inactive")
+		}
+		if req.TeamID == "" {
+			req.TeamID = virtualUser.TeamID
+		}
+		if req.OrgUnitID == "" {
+			req.OrgUnitID = virtualUser.OrgUnitID
+			req.OrgID = virtualUser.OrgUnitID
+		}
+	}
 	if req.KeyType == platform.KeyTypeVAT && req.TeamID == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "team_id is required for vat")
+		return fiber.NewError(fiber.StatusBadRequest, "virtual user team_id is required for vat")
 	}
 
 	// PAT no longer carries model-level allowlist. Keep backward compatibility by
@@ -162,6 +196,234 @@ func (h *Handlers) CreateVATKey(c *fiber.Ctx) error {
 	return h.createKey(c, platform.KeyTypeVAT)
 }
 
+func (h *Handlers) CreateVirtualUserToken(c *fiber.Ctx) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+	if h.keys == nil || h.virtualUsers == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "virtual user token store not configured")
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	virtualUserID := strings.TrimSpace(c.Params("virtualUserID"))
+	if virtualUserID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "virtualUserID is required")
+	}
+	virtualUser, err := h.virtualUsers.GetVirtualUser(c.Context(), currentTenant.ID, virtualUserID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "virtual user not found")
+		}
+		return err
+	}
+	if !virtualUser.Active {
+		return fiber.NewError(fiber.StatusConflict, "virtual user is inactive")
+	}
+
+	var req platform.CreateKeyParams
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	req.Normalize()
+	if req.KeyAlias == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "key_alias is required")
+	}
+	req.TenantID = currentTenant.ID
+	req.KeyType = platform.KeyTypeVAT
+	req.Role = platform.LegacyKeyRoleServiceAccount
+	req.VirtualUserID = virtualUser.ID
+	if req.TeamID == "" {
+		req.TeamID = virtualUser.TeamID
+	}
+	if req.OrgUnitID == "" {
+		req.OrgUnitID = virtualUser.OrgUnitID
+	}
+	if req.OrgID == "" {
+		req.OrgID = req.OrgUnitID
+	}
+	if req.TeamID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "virtual user team_id is required for vat")
+	}
+
+	normalizedModels, err := normalizeAndValidateModelFQNs(req.AllowedModels)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	req.AllowedModels = normalizedModels
+	req.Models = normalizedModels
+	if len(req.AllowedModels) > 0 {
+		scopeAllowedModels, err := h.keys.ListAllowedModelFQNs(c.Context(), currentTenant.ID, "", req.TeamID)
+		if err != nil {
+			return err
+		}
+		if err := ensureRequestedModelsInScope(req.AllowedModels, scopeAllowedModels); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	}
+
+	created, err := h.keys.CreateKey(c.Context(), req)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "virtual user not found")
+		}
+		return err
+	}
+	return c.Status(fiber.StatusCreated).JSON(created)
+}
+
+func (h *Handlers) ListVirtualUserTokens(c *fiber.Ctx) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+	if h.keys == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "virtual user token store not configured")
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	virtualUserID := strings.TrimSpace(c.Params("virtualUserID"))
+	if virtualUserID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "virtualUserID is required")
+	}
+	query := strings.TrimSpace(c.Query("query"))
+	limit, offset, err := parseLimitOffset(c, 25)
+	if err != nil {
+		return err
+	}
+	items, total, err := h.keys.ListVATTokens(c.Context(), currentTenant.ID, virtualUserID, query, limit, offset)
+	if err != nil {
+		return err
+	}
+	var nextOffset *int
+	if offset+len(items) < total {
+		next := offset + len(items)
+		nextOffset = &next
+	}
+	return c.JSON(platform.ListVATTokensResponse{Data: items, Total: total, Limit: limit, Offset: offset, NextOffset: nextOffset})
+}
+
+func (h *Handlers) UpdateVirtualUserToken(c *fiber.Ctx) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+	if h.keys == nil || h.virtualUsers == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "virtual user token store not configured")
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	virtualUserID, tokenID := strings.TrimSpace(c.Params("virtualUserID")), strings.TrimSpace(c.Params("tokenID"))
+	if virtualUserID == "" || tokenID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "virtualUserID and tokenID are required")
+	}
+	virtualUser, err := h.virtualUsers.GetVirtualUser(c.Context(), currentTenant.ID, virtualUserID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "virtual user not found")
+		}
+		return err
+	}
+	var req platform.UpdateVATTokenRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	models := req.AllowedModels
+	if len(models) == 0 {
+		models = req.Models
+	}
+	if models != nil {
+		normalizedModels, err := normalizeAndValidateModelFQNs(models)
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+		scopeAllowedModels, err := h.keys.ListAllowedModelFQNs(c.Context(), currentTenant.ID, "", virtualUser.TeamID)
+		if err != nil {
+			return err
+		}
+		if err := ensureRequestedModelsInScope(normalizedModels, scopeAllowedModels); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+		req.AllowedModels = normalizedModels
+		req.Models = normalizedModels
+	}
+	updated, err := h.keys.UpdateVATToken(c.Context(), currentTenant.ID, virtualUserID, tokenID, req)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "virtual user token not found")
+		}
+		return err
+	}
+	return c.JSON(updated)
+}
+
+func (h *Handlers) RevokeVirtualUserToken(c *fiber.Ctx) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+	if h.keys == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "virtual user token store not configured")
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	virtualUserID, tokenID := strings.TrimSpace(c.Params("virtualUserID")), strings.TrimSpace(c.Params("tokenID"))
+	if virtualUserID == "" || tokenID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "virtualUserID and tokenID are required")
+	}
+	var req platform.RevokeVATTokenRequest
+	if len(c.Body()) > 0 {
+		if err := c.BodyParser(&req); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+		}
+	}
+	actorUserID := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	revoked, err := h.keys.RevokeVATToken(c.Context(), currentTenant.ID, virtualUserID, tokenID, actorUserID, req.Reason)
+	if err != nil {
+		return err
+	}
+	if !revoked {
+		return fiber.NewError(fiber.StatusNotFound, "virtual user token not found")
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func (h *Handlers) RotateVirtualUserToken(c *fiber.Ctx) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+	if h.keys == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "virtual user token store not configured")
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	virtualUserID, tokenID := strings.TrimSpace(c.Params("virtualUserID")), strings.TrimSpace(c.Params("tokenID"))
+	if virtualUserID == "" || tokenID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "virtualUserID and tokenID are required")
+	}
+	var req platform.RotateVATTokenRequest
+	if len(c.Body()) > 0 {
+		if err := c.BodyParser(&req); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+		}
+	}
+	actorUserID := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	created, err := h.keys.RotateVATToken(c.Context(), currentTenant.ID, virtualUserID, tokenID, actorUserID, req.GracePeriod)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusNotFound, "virtual user token not found")
+		}
+		return err
+	}
+	return c.Status(fiber.StatusCreated).JSON(created)
+}
+
 // ListKeys returns all tenant keys without exposing raw key material.
 func (h *Handlers) ListKeys(c *fiber.Ctx) error {
 	if err := requireTeamAdminOrHigher(c); err != nil {
@@ -181,6 +443,62 @@ func (h *Handlers) ListKeys(c *fiber.Ctx) error {
 		return err
 	}
 	return c.JSON(fiber.Map{"data": items})
+}
+
+func parseLimitOffset(c *fiber.Ctx, defaultLimit int) (int, int, error) {
+	limit := defaultLimit
+	offset := 0
+	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
+		parsed, parseErr := strconv.Atoi(raw)
+		if parseErr != nil || parsed <= 0 {
+			return 0, 0, fiber.NewError(fiber.StatusBadRequest, "limit must be a positive number")
+		}
+		if parsed > 200 {
+			parsed = 200
+		}
+		limit = parsed
+	}
+	if raw := strings.TrimSpace(c.Query("offset")); raw != "" {
+		parsed, parseErr := strconv.Atoi(raw)
+		if parseErr != nil || parsed < 0 {
+			return 0, 0, fiber.NewError(fiber.StatusBadRequest, "offset must be zero or greater")
+		}
+		offset = parsed
+	}
+	return limit, offset, nil
+}
+
+func (h *Handlers) ensureLegacyVATVirtualUser(c *fiber.Ctx, tenantID string, req platform.CreateKeyParams) (*platform.VirtualUser, error) {
+	alias := "legacy-vat-" + strings.ToLower(strings.ReplaceAll(strings.TrimSpace(req.TeamID), " ", "-"))
+	if alias == "legacy-vat-" {
+		return nil, fiber.NewError(fiber.StatusBadRequest, "team_id is required for vat")
+	}
+	items, _, err := h.virtualUsers.ListVirtualUsers(c.Context(), tenantID, alias, 25, 0)
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range items {
+		if item.Alias == alias && item.TeamID == req.TeamID {
+			if !item.Active {
+				return nil, fiber.NewError(fiber.StatusConflict, "legacy vat virtual user is inactive")
+			}
+			copy := item
+			return &copy, nil
+		}
+	}
+	created, err := h.virtualUsers.CreateVirtualUser(c.Context(), tenantID, platform.CreateVirtualUserRequest{
+		Alias:       alias,
+		DisplayName: "Legacy VAT " + req.TeamID,
+		OrgUnitID:   req.OrgUnitID,
+		TeamID:      req.TeamID,
+		Metadata: map[string]interface{}{
+			"source": "legacy_vat_key_endpoint",
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return created, nil
 }
 
 func (h *Handlers) ListPersonalAccessTokens(c *fiber.Ctx) error {

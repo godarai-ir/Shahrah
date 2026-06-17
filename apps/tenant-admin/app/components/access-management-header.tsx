@@ -34,7 +34,7 @@ const tabs: Array<{
   { key: "roles", href: "/roles", label: "نقش‌ها", icon: BadgeCheck, requiredPermissions: ["role:list", "role:manage"] },
   {
     key: "virtualAccounts",
-    href: "/virtual-models",
+    href: "/virtual-users",
     label: "اکانت‌های مجازی",
     icon: BriefcaseBusiness,
     requiredPermissions: ["virtual_account:read", "virtual_account:manage", "virtual_account:create"],

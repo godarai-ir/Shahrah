@@ -10,6 +10,6 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
-    exclude: ["lib/auth/**/*.test.ts"],
+    exclude: ["lib/auth/**/*.test.ts", ".next/**"],
   },
 });

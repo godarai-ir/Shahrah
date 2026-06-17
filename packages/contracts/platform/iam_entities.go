@@ -97,8 +97,8 @@ type TeamListResponse struct {
 }
 
 type TeamPermissionsResponse struct {
-	TeamID                 string   `json:"team_id"`
-	TeamMemberPermissions  []string `json:"team_member_permissions"`
+	TeamID                string   `json:"team_id"`
+	TeamMemberPermissions []string `json:"team_member_permissions"`
 }
 
 type UpdateTeamPermissionsRequest struct {

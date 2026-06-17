@@ -12,6 +12,7 @@ const MESSAGE_NAMESPACES = [
   "settings",
   "providerAccounts",
   "virtualModels",
+  "virtualUsers",
   "accessManagement",
   "orgUnits",
   "teams",

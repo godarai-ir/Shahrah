@@ -536,6 +536,65 @@ func TestIntegration_VirtualUserCRUD(t *testing.T) {
 	assert.Equal(t, http.StatusNoContent, deleteResp.StatusCode)
 }
 
+func TestIntegration_VirtualUserTokenLifecycle(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer provider.Close()
+
+	app, keyStore, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
+
+	vuResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/virtual-users", "Bearer sk-master", `{"alias":"deploy-bot","display_name":"Deploy Bot","team_id":"team-ops","org_unit_id":"org-platform"}`)
+	assert.Equal(t, http.StatusCreated, vuResp.StatusCode)
+	var virtualUser platform.VirtualUser
+	decodeJSONBody(t, vuResp, &virtualUser)
+
+	createResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/virtual-users/"+virtualUser.ID+"/tokens", "Bearer sk-master", `{"key_alias":"deploy-token","allowed_models":["openai:default:gpt-4o-mini"]}`)
+	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
+	var created platform.CreatedKey
+	decodeJSONBody(t, createResp, &created)
+	assert.NotEmpty(t, created.Key)
+	assert.Equal(t, platform.KeyTypeVAT, created.KeyType)
+	assert.Equal(t, virtualUser.ID, created.VirtualUserID)
+	assert.Equal(t, "team-ops", created.TeamID)
+	assert.Equal(t, "org-platform", created.OrgUnitID)
+
+	authInfo, err := keyStore.GetKeyByHash(context.Background(), hashToken(created.Key))
+	require.NoError(t, err)
+	assert.Equal(t, virtualUser.ID, authInfo.VirtualUserID)
+	assert.False(t, authInfo.Blocked)
+
+	listResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/virtual-users/"+virtualUser.ID+"/tokens?limit=25&offset=0", "Bearer sk-master", "")
+	assert.Equal(t, http.StatusOK, listResp.StatusCode)
+	var listed platform.ListVATTokensResponse
+	decodeJSONBody(t, listResp, &listed)
+	require.Len(t, listed.Data, 1)
+	assert.Empty(t, listed.Data[0].Key)
+	assert.Equal(t, created.ID, listed.Data[0].ID)
+
+	rotateResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/virtual-users/"+virtualUser.ID+"/tokens/"+created.ID+"/rotate", "Bearer sk-master", `{}`)
+	assert.Equal(t, http.StatusCreated, rotateResp.StatusCode)
+	var rotated platform.CreatedKey
+	decodeJSONBody(t, rotateResp, &rotated)
+	assert.NotEmpty(t, rotated.Key)
+	assert.NotEqual(t, created.Key, rotated.Key)
+	assert.Equal(t, virtualUser.ID, rotated.VirtualUserID)
+
+	oldAuthInfo, err := keyStore.GetKeyByHash(context.Background(), hashToken(created.Key))
+	require.NoError(t, err)
+	assert.True(t, oldAuthInfo.Blocked)
+	newAuthInfo, err := keyStore.GetKeyByHash(context.Background(), hashToken(rotated.Key))
+	require.NoError(t, err)
+	assert.Equal(t, virtualUser.ID, newAuthInfo.VirtualUserID)
+	assert.False(t, newAuthInfo.Blocked)
+
+	revokeResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/virtual-users/"+virtualUser.ID+"/tokens/"+rotated.ID+"/revoke", "Bearer sk-master", `{"reason":"compromised"}`)
+	assert.Equal(t, http.StatusNoContent, revokeResp.StatusCode)
+	revokedAuthInfo, err := keyStore.GetKeyByHash(context.Background(), hashToken(rotated.Key))
+	require.NoError(t, err)
+	assert.True(t, revokedAuthInfo.Blocked)
+}
+
 func TestIntegration_OrgUnitMembershipCRUD(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
@@ -1200,6 +1259,22 @@ func (noopKeyStore) RevokeAllPATs(ctx context.Context, tenantID string, userID s
 	return 0, nil
 }
 
+func (noopKeyStore) ListVATTokens(ctx context.Context, tenantID string, virtualUserID string, query string, limit int, offset int) ([]platform.CreatedKey, int, error) {
+	return []platform.CreatedKey{}, 0, nil
+}
+
+func (noopKeyStore) UpdateVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, req platform.UpdateVATTokenRequest) (*platform.CreatedKey, error) {
+	return nil, pgx.ErrNoRows
+}
+
+func (noopKeyStore) RevokeVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, revokedByUserID string, reason string) (bool, error) {
+	return false, nil
+}
+
+func (noopKeyStore) RotateVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, rotatedByUserID string, gracePeriod string) (*platform.CreatedKey, error) {
+	return nil, pgx.ErrNoRows
+}
+
 func (noopKeyStore) ResolveTenantUserAuth(ctx context.Context, tenantID string, userID string) (*platform.AuthContext, error) {
 	return &platform.AuthContext{
 		TenantID: tenantID,
@@ -1285,6 +1360,7 @@ func (s *integrationKeyStore) CreateKey(ctx context.Context, params platform.Cre
 		OrgUnitID:      params.OrgUnitID,
 		TeamID:         params.TeamID,
 		UserID:         params.UserID,
+		VirtualUserID:  params.VirtualUserID,
 		KeyID:          created.ID,
 		KeyAlias:       params.KeyAlias,
 		Role:           params.Role,
@@ -1433,6 +1509,129 @@ func (s *integrationKeyStore) RevokeAllPATs(ctx context.Context, tenantID string
 		}
 	}
 	return count, nil
+}
+
+func (s *integrationKeyStore) ListVATTokens(ctx context.Context, tenantID string, virtualUserID string, query string, limit int, offset int) ([]platform.CreatedKey, int, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	filtered := make([]platform.CreatedKey, 0)
+	for _, item := range s.created {
+		if item.TenantID != tenantID || item.KeyType != platform.KeyTypeVAT || item.VirtualUserID != virtualUserID {
+			continue
+		}
+		if query != "" && !strings.Contains(strings.ToLower(item.KeyAlias), strings.ToLower(query)) {
+			continue
+		}
+		listItem := item
+		listItem.Key = ""
+		filtered = append(filtered, listItem)
+	}
+	total := len(filtered)
+	if offset >= total {
+		return []platform.CreatedKey{}, total, nil
+	}
+	if limit <= 0 {
+		limit = 25
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return filtered[offset:end], total, nil
+}
+
+func (s *integrationKeyStore) UpdateVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, req platform.UpdateVATTokenRequest) (*platform.CreatedKey, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.created {
+		if s.created[i].ID != keyID || s.created[i].TenantID != tenantID || s.created[i].VirtualUserID != virtualUserID || s.created[i].KeyType != platform.KeyTypeVAT {
+			continue
+		}
+		if strings.TrimSpace(req.KeyAlias) != "" {
+			s.created[i].KeyAlias = strings.TrimSpace(req.KeyAlias)
+		}
+		models := req.AllowedModels
+		if len(models) == 0 {
+			models = req.Models
+		}
+		if models != nil {
+			s.created[i].Models = append([]string(nil), models...)
+			s.created[i].AllowedModels = append([]string(nil), models...)
+		}
+		if req.Blocked != nil {
+			s.created[i].Blocked = *req.Blocked
+			if info, ok := s.byHash[s.created[i].TokenHash]; ok {
+				info.Blocked = *req.Blocked
+			}
+		}
+		copy := s.created[i]
+		copy.Key = ""
+		return &copy, nil
+	}
+	return nil, pgx.ErrNoRows
+}
+
+func (s *integrationKeyStore) RevokeVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, revokedByUserID string, reason string) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.created {
+		if s.created[i].ID == keyID && s.created[i].TenantID == tenantID && s.created[i].VirtualUserID == virtualUserID && s.created[i].KeyType == platform.KeyTypeVAT && s.created[i].RevokedAt == nil {
+			now := time.Now().UTC()
+			s.created[i].RevokedAt = &now
+			s.created[i].Blocked = true
+			if info, ok := s.byHash[s.created[i].TokenHash]; ok {
+				info.Blocked = true
+			}
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (s *integrationKeyStore) RotateVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, rotatedByUserID string, gracePeriod string) (*platform.CreatedKey, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.created {
+		if s.created[i].ID != keyID || s.created[i].TenantID != tenantID || s.created[i].VirtualUserID != virtualUserID || s.created[i].KeyType != platform.KeyTypeVAT {
+			continue
+		}
+		s.nextID++
+		rawKey := fmt.Sprintf("sk-managed-%03d", s.nextID)
+		keyHash := hashToken(rawKey)
+		created := s.created[i]
+		created.ID = fmt.Sprintf("key-%03d", s.nextID)
+		created.Key = rawKey
+		created.MaskedKey = maskToken(rawKey)
+		created.TokenHash = keyHash
+		created.Spend = 0
+		created.Blocked = false
+		created.RevokedAt = nil
+		s.created = append(s.created, created)
+		s.byHash[keyHash] = &platform.AuthContext{
+			TenantID:       created.TenantID,
+			OrganizationID: created.OrgID,
+			OrgUnitID:      created.OrgUnitID,
+			TeamID:         created.TeamID,
+			UserID:         created.UserID,
+			VirtualUserID:  created.VirtualUserID,
+			KeyID:          created.ID,
+			KeyAlias:       created.KeyAlias,
+			Role:           created.Role,
+			KeyType:        created.KeyType,
+			AllowedModels:  append([]string(nil), created.AllowedModels...),
+			TokenHash:      keyHash,
+		}
+		if strings.TrimSpace(gracePeriod) == "" {
+			now := time.Now().UTC()
+			s.created[i].RevokedAt = &now
+			s.created[i].Blocked = true
+			if info, ok := s.byHash[s.created[i].TokenHash]; ok {
+				info.Blocked = true
+			}
+		}
+		return &created, nil
+	}
+	return nil, pgx.ErrNoRows
 }
 
 func (s *integrationKeyStore) addSpend(tokenHash string, amount float64) {

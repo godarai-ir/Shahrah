@@ -1,0 +1,131 @@
+{
+  "searchPlaceholder": "Search service identities",
+  "alerts": {
+    "success": "Success",
+    "error": "Error",
+    "warning": "Warning"
+  },
+  "actions": {
+    "refresh": "Refresh",
+    "createUser": "Create virtual user",
+    "editUser": "Edit",
+    "deleteUser": "Delete",
+    "saveUser": "Save changes",
+    "createToken": "Create VAT",
+    "rotate": "Rotate",
+    "revoke": "Revoke",
+    "saving": "Saving..."
+  },
+  "common": {
+    "notSet": "Not set"
+  },
+  "usersTable": {
+    "identity": "Identity",
+    "team": "Team",
+    "status": "Status",
+    "empty": "No virtual users found."
+  },
+  "tokensTable": {
+    "name": "Name",
+    "masked": "Masked key",
+    "models": "Models",
+    "lastUsed": "Last used",
+    "status": "Status",
+    "actions": "Actions",
+    "empty": "No VATs issued for this virtual user."
+  },
+  "pagination": {
+    "range": "{from}-{to} of {total}",
+    "prev": "Previous",
+    "next": "Next"
+  },
+  "detail": {
+    "emptyTitle": "Select a virtual user",
+    "emptyDescription": "Choose a service identity to manage its production gateway tokens.",
+    "team": "Team",
+    "orgUnit": "Org unit",
+    "tokens": "Tokens"
+  },
+  "tokens": {
+    "title": "Virtual Account Tokens",
+    "inheritsAll": "Inherits scope",
+    "modelCount": "{first} + {count} models"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "blocked": "Blocked",
+    "revoked": "Revoked"
+  },
+  "fields": {
+    "alias": "Alias",
+    "displayName": "Display name",
+    "team": "Team",
+    "orgUnit": "Org unit",
+    "active": "Active",
+    "tokenName": "Token name",
+    "expiresIn": "Expires in",
+    "allowedModels": "Allowed models"
+  },
+  "createUser": {
+    "title": "Create virtual user",
+    "description": "Create a non-human identity for applications, CI/CD, or production services."
+  },
+  "editUser": {
+    "title": "Edit virtual user",
+    "description": "Update identity scope or deactivate it to block all issued VATs."
+  },
+  "deleteUser": {
+    "title": "Delete virtual user",
+    "description": "Type \"{alias}\" to delete this virtual user.",
+    "fallbackDescription": "Delete this virtual user.",
+    "confirmLabel": "Type {alias} to confirm",
+    "activeTokenWarningTitle": "Active VATs still exist"
+  },
+  "createToken": {
+    "title": "Create VAT",
+    "description": "Issue a gateway token for this service identity.",
+    "noModels": "No VAT model scope is available for this team.",
+    "modelHint": "Leave all unchecked to inherit the virtual user's full model scope."
+  },
+  "confirm": {
+    "rotateTitle": "Rotate VAT",
+    "rotateDescription": "Rotate \"{name}\"? The current token is revoked immediately and a new secret is shown once.",
+    "revokeTitle": "Revoke VAT",
+    "revokeDescription": "Revoke \"{name}\"? Existing applications using it will stop authenticating.",
+    "cancel": "Cancel",
+    "confirm": "Confirm"
+  },
+  "oneTime": {
+    "title": "Copy VAT now",
+    "description": "This raw token is shown once and cannot be retrieved later.",
+    "copyHint": "Store the token in your application secret manager before closing.",
+    "copy": "Copy token",
+    "copying": "Copying...",
+    "copied": "Copied",
+    "copyFailed": "Failed to copy token. Please copy it manually.",
+    "close": "Close"
+  },
+  "messages": {
+    "loadUsersError": "Failed to load virtual users.",
+    "loadTokensError": "Failed to load VATs.",
+    "createUserSuccess": "Virtual user created.",
+    "createUserError": "Failed to create virtual user.",
+    "updateUserSuccess": "Virtual user updated.",
+    "updateUserError": "Failed to update virtual user.",
+    "deleteUserSuccess": "Virtual user deleted.",
+    "deleteUserError": "Failed to delete virtual user.",
+    "deleteUserActiveTokenWarning": "{count} non-revoked VATs are still associated with this virtual user. Revoke them before deletion if running clients still use them.",
+    "deleteConfirmAlias": "Type the virtual user alias to confirm deletion.",
+    "createTokenSuccess": "VAT created.",
+    "createTokenError": "Failed to create VAT.",
+    "revokeSuccess": "VAT revoked.",
+    "rotateSuccess": "VAT rotated.",
+    "tokenActionError": "Token operation failed.",
+    "aliasRequired": "Alias is required.",
+    "aliasPattern": "Alias must start with a letter or number and use only letters, numbers, underscores, or hyphens.",
+    "tokenNameRequired": "Token name is required.",
+    "teamRequiredTitle": "Team scope required",
+    "teamRequired": "Assign this virtual user to a team before issuing a VAT."
+  }
+}

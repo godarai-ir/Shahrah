@@ -7,6 +7,7 @@ export type AdminNavKey =
   | "topup"
   | "providerAccounts"
   | "virtualModels"
+  | "virtualUsers"
   | "accessManagement"
   | "traces"
   | "metrics"
@@ -29,6 +30,9 @@ const ACCESS_SECTION_PERMISSIONS = [
   "user:manage",
   "team:read",
   "team:manage",
+  "virtual_account:read",
+  "virtual_account:manage",
+  "virtual_account:create",
   "role:list",
   "role:manage",
 ];
@@ -68,6 +72,14 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       requiredPermissions: ["virtual_account:read", "virtual_account:manage", "virtual_account:create", "provider_account:read"],
     },
     {
+      key: "virtualUsers",
+      href: "/virtual-users",
+      title: t("nav.virtualUsers"),
+      icon: Users,
+      isActive: pathname.startsWith("/virtual-users"),
+      requiredPermissions: ["virtual_account:read", "virtual_account:manage", "virtual_account:create"],
+    },
+    {
       key: "accessManagement",
       href: "/roles",
       title: t("nav.accessManagement"),
@@ -76,6 +88,7 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
         pathname.startsWith("/users")
         || pathname.startsWith("/roles")
         || pathname.startsWith("/teams")
+        || pathname.startsWith("/virtual-users")
         || pathname.startsWith("/personal-access-tokens"),
       requiredPermissions: ACCESS_SECTION_PERMISSIONS,
     },

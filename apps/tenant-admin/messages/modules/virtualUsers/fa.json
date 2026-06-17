@@ -1,0 +1,131 @@
+{
+  "searchPlaceholder": "جستجو در هویت‌های سرویس",
+  "alerts": {
+    "success": "موفق",
+    "error": "خطا",
+    "warning": "هشدار"
+  },
+  "actions": {
+    "refresh": "بازآوری",
+    "createUser": "ایجاد Virtual User",
+    "editUser": "ویرایش",
+    "deleteUser": "حذف",
+    "saveUser": "ذخیره تغییرات",
+    "createToken": "ایجاد VAT",
+    "rotate": "چرخش",
+    "revoke": "ابطال",
+    "saving": "در حال ذخیره..."
+  },
+  "common": {
+    "notSet": "تنظیم نشده"
+  },
+  "usersTable": {
+    "identity": "هویت",
+    "team": "تیم",
+    "status": "وضعیت",
+    "empty": "Virtual Userای پیدا نشد."
+  },
+  "tokensTable": {
+    "name": "نام",
+    "masked": "کلید ماسک‌شده",
+    "models": "مدل‌ها",
+    "lastUsed": "آخرین استفاده",
+    "status": "وضعیت",
+    "actions": "عملیات",
+    "empty": "برای این Virtual User هنوز VAT صادر نشده است."
+  },
+  "pagination": {
+    "range": "{from}-{to} از {total}",
+    "prev": "قبلی",
+    "next": "بعدی"
+  },
+  "detail": {
+    "emptyTitle": "یک Virtual User انتخاب کنید",
+    "emptyDescription": "یک هویت سرویس را انتخاب کنید تا توکن‌های production آن را مدیریت کنید.",
+    "team": "تیم",
+    "orgUnit": "واحد سازمانی",
+    "tokens": "توکن‌ها"
+  },
+  "tokens": {
+    "title": "Virtual Account Tokens",
+    "inheritsAll": "ارث‌بری از scope",
+    "modelCount": "{first} + {count} مدل"
+  },
+  "status": {
+    "active": "فعال",
+    "inactive": "غیرفعال",
+    "blocked": "مسدود",
+    "revoked": "باطل‌شده"
+  },
+  "fields": {
+    "alias": "شناسه",
+    "displayName": "نام نمایشی",
+    "team": "تیم",
+    "orgUnit": "واحد سازمانی",
+    "active": "فعال",
+    "tokenName": "نام توکن",
+    "expiresIn": "زمان انقضا",
+    "allowedModels": "مدل‌های مجاز"
+  },
+  "createUser": {
+    "title": "ایجاد Virtual User",
+    "description": "یک هویت غیرانسانی برای اپلیکیشن، CI/CD یا سرویس production بسازید."
+  },
+  "editUser": {
+    "title": "ویرایش Virtual User",
+    "description": "scope هویت را تغییر دهید یا با غیرفعال کردن آن همه VATهای صادرشده را مسدود کنید."
+  },
+  "deleteUser": {
+    "title": "حذف Virtual User",
+    "description": "برای حذف این Virtual User مقدار «{alias}» را وارد کنید.",
+    "fallbackDescription": "این Virtual User حذف شود.",
+    "confirmLabel": "برای تایید، {alias} را وارد کنید",
+    "activeTokenWarningTitle": "هنوز VAT فعال وجود دارد"
+  },
+  "createToken": {
+    "title": "ایجاد VAT",
+    "description": "برای این هویت سرویس یک gateway token صادر کنید.",
+    "noModels": "برای تیم این Virtual User مدل مجازی/پروایدر مجازی در دسترس نیست.",
+    "modelHint": "اگر هیچ مدلی انتخاب نشود، VAT کل scope مجاز Virtual User را به ارث می‌برد."
+  },
+  "confirm": {
+    "rotateTitle": "چرخش VAT",
+    "rotateDescription": "VAT «{name}» چرخانده شود؟ توکن فعلی بلافاصله باطل می‌شود و secret جدید فقط یک‌بار نمایش داده می‌شود.",
+    "revokeTitle": "ابطال VAT",
+    "revokeDescription": "VAT «{name}» باطل شود؟ اپلیکیشن‌هایی که از آن استفاده می‌کنند دیگر authenticate نمی‌شوند.",
+    "cancel": "انصراف",
+    "confirm": "تایید"
+  },
+  "oneTime": {
+    "title": "VAT را همین حالا کپی کنید",
+    "description": "مقدار خام این توکن فقط یک‌بار نمایش داده می‌شود و بعدا قابل بازیابی نیست.",
+    "copyHint": "قبل از بستن، توکن را در secret manager اپلیکیشن ذخیره کنید.",
+    "copy": "کپی توکن",
+    "copying": "در حال کپی...",
+    "copied": "کپی شد",
+    "copyFailed": "کپی توکن ناموفق بود. لطفا آن را دستی کپی کنید.",
+    "close": "بستن"
+  },
+  "messages": {
+    "loadUsersError": "بارگیری Virtual Userها ناموفق بود.",
+    "loadTokensError": "بارگیری VATها ناموفق بود.",
+    "createUserSuccess": "Virtual User ایجاد شد.",
+    "createUserError": "ایجاد Virtual User ناموفق بود.",
+    "updateUserSuccess": "Virtual User به‌روزرسانی شد.",
+    "updateUserError": "به‌روزرسانی Virtual User ناموفق بود.",
+    "deleteUserSuccess": "Virtual User حذف شد.",
+    "deleteUserError": "حذف Virtual User ناموفق بود.",
+    "deleteUserActiveTokenWarning": "{count} VAT ریووک‌نشده هنوز به این Virtual User وصل است. اگر کلاینتی هنوز از آن‌ها استفاده می‌کند، قبل از حذف revoke کنید.",
+    "deleteConfirmAlias": "برای تایید حذف، شناسه Virtual User را وارد کنید.",
+    "createTokenSuccess": "VAT ایجاد شد.",
+    "createTokenError": "ایجاد VAT ناموفق بود.",
+    "revokeSuccess": "VAT باطل شد.",
+    "rotateSuccess": "VAT چرخانده شد.",
+    "tokenActionError": "عملیات توکن ناموفق بود.",
+    "aliasRequired": "شناسه الزامی است.",
+    "aliasPattern": "شناسه باید با حرف یا عدد شروع شود و فقط شامل حرف، عدد، آندرلاین یا خط تیره باشد.",
+    "tokenNameRequired": "نام توکن الزامی است.",
+    "teamRequiredTitle": "scope تیم الزامی است",
+    "teamRequired": "قبل از صدور VAT، این Virtual User را به یک تیم وصل کنید."
+  }
+}

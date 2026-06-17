@@ -122,7 +122,12 @@ func TestIntegration_StorageSchemaContract(t *testing.T) {
 		},
 		"verification_tokens": {
 			"id", "tenant_id", "organization_id", "team_id", "key_alias", "key_name", "token_hash",
-			"models", "spend", "expires", "blocked", "created_at", "updated_at",
+			"models", "spend", "expires", "blocked", "virtual_user_id", "rotated_from_token_id",
+			"rotation_grace_expires_at", "revoked_reason", "created_at", "updated_at",
+		},
+		"virtual_users": {
+			"virtual_user_id", "tenant_id", "team_id", "org_unit_id", "alias", "display_name",
+			"metadata", "active", "created_at", "updated_at",
 		},
 		"model_deployments": {
 			"id", "tenant_id", "model_name", "provider", "model", "provider_config", "model_info", "rpm", "tpm", "timeout", "created_at",
@@ -151,6 +156,8 @@ func TestIntegration_StorageSchemaContract(t *testing.T) {
 	}
 
 	assertIndexForColumn(t, pool, "verification_tokens", "token_hash")
+	assertIndexForColumn(t, pool, "verification_tokens", "virtual_user_id")
+	assertIndexForColumn(t, pool, "virtual_users", "tenant_id")
 	assertIndexForColumn(t, pool, "wallets", "tenant_id")
 	assertIndexForColumn(t, pool, "tenants", "slug")
 	assertIndexForColumn(t, pool, "model_deployments", "tenant_id")
@@ -1389,6 +1396,7 @@ func resetPersistentState(t *testing.T, pool *pgxpool.Pool) {
 			exchange_rates,
 			request_logs,
 			spend_logs,
+			virtual_users,
 			verification_tokens,
 			model_deployments,
 			tenants

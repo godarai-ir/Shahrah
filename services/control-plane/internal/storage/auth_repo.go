@@ -28,6 +28,7 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 		       COALESCE(organization_id::text, ''),
 		       COALESCE(team_id::text, ''),
 		       COALESCE(user_id::text, ''),
+		       COALESCE(virtual_user_id::text, ''),
 		       COALESCE(key_alias, ''),
 		       COALESCE(token_hash, ''),
 		       COALESCE(models, '{}'),
@@ -36,10 +37,14 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 		       COALESCE(blocked, false),
 		       COALESCE(key_type, CASE WHEN team_id IS NULL THEN 'pat' ELSE 'vat' END),
 		       COALESCE(metadata, '{}'::jsonb)
-		FROM verification_tokens
-		WHERE token_hash = $1
+		FROM verification_tokens vt
+		LEFT JOIN virtual_users vu
+		  ON vu.virtual_user_id = vt.virtual_user_id
+		 AND vu.tenant_id = vt.tenant_id
+		WHERE vt.token_hash = $1
 		  AND revoked_at IS NULL
 		  AND (expires IS NULL OR expires > NOW())
+		  AND (vt.virtual_user_id IS NULL OR COALESCE(vu.active, false) = true)
 		LIMIT 1
 	`, hash).Scan(
 		&auth.KeyID,
@@ -47,6 +52,7 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 		&auth.OrganizationID,
 		&auth.TeamID,
 		&auth.UserID,
+		&auth.VirtualUserID,
 		&auth.KeyAlias,
 		&auth.TokenHash,
 		&keyModels,
@@ -495,6 +501,15 @@ func (s *Store) ListAllowedModelFQNs(ctx context.Context, tenantID string, userI
 // CreateKey creates a tenant-scoped virtual key.
 func (s *Store) CreateKey(ctx context.Context, params platform.CreateKeyParams) (*platform.CreatedKey, error) {
 	params.Normalize()
+	if params.KeyType == platform.KeyTypeVAT && params.VirtualUserID != "" {
+		teamID, orgID, err := s.resolveVATVirtualUserScope(ctx, params.TenantID, params.VirtualUserID, params.TeamID, params.OrgID)
+		if err != nil {
+			return nil, err
+		}
+		params.TeamID = teamID
+		params.OrgID = orgID
+		params.OrgUnitID = orgID
+	}
 
 	rawKey := "sk-" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	tokenHash := hashKey(rawKey)
@@ -522,7 +537,7 @@ func (s *Store) CreateKey(ctx context.Context, params platform.CreateKeyParams) 
 	_, err = s.pool.Exec(ctx, `
 		INSERT INTO verification_tokens (
 			id, tenant_id, token_hash, key_alias, key_name, models, team_id, organization_id, user_id,
-			expires, spend, blocked, key_type, created_by_user_id, metadata, created_at, updated_at
+			virtual_user_id, expires, spend, blocked, key_type, created_by_user_id, metadata, created_at, updated_at
 		)
 		VALUES (
 			$1, $2, $3, $4, $5, $6, NULLIF($7, '')::uuid, NULLIF($8, '')::uuid,
@@ -533,10 +548,10 @@ func (s *Store) CreateKey(ctx context.Context, params platform.CreateKeyParams) 
 				THEN $9::uuid
 				ELSE NULL
 			END,
-			$10, 0, false, $11, NULLIF($12, ''), $13, $14, $14
+			NULLIF($10, '')::uuid, $11, 0, false, $12, NULLIF($13, ''), $14, $15, $15
 		)
 	`, keyID, params.TenantID, tokenHash, params.KeyAlias, masked, params.Models,
-		params.TeamID, params.OrgID, params.UserID, expiresAt, params.KeyType, params.UserID, rawMetadata, now)
+		params.TeamID, params.OrgID, params.UserID, params.VirtualUserID, expiresAt, params.KeyType, params.UserID, rawMetadata, now)
 	if err != nil {
 		return nil, err
 	}
@@ -567,6 +582,7 @@ func (s *Store) ListKeys(ctx context.Context, tenantID string) ([]platform.Creat
 	rows, err := s.pool.Query(ctx, `
 		SELECT id::text, COALESCE(key_alias, ''), COALESCE(key_name, ''), tenant_id::text,
 		       COALESCE(models, '{}'), COALESCE(team_id::text, ''), COALESCE(organization_id::text, ''),
+		       COALESCE(virtual_user_id::text, ''),
 		       COALESCE(spend, 0), COALESCE(blocked, false), COALESCE(expires, NULL), token_hash,
 		       COALESCE(key_type, CASE WHEN team_id IS NULL THEN 'pat' ELSE 'vat' END),
 		       COALESCE(created_by_user_id, ''), COALESCE(created_at, NULL), COALESCE(last_used_at, NULL), COALESCE(revoked_at, NULL)
@@ -584,7 +600,7 @@ func (s *Store) ListKeys(ctx context.Context, tenantID string) ([]platform.Creat
 		var item platform.CreatedKey
 		var models []string
 		if err := rows.Scan(&item.ID, &item.KeyAlias, &item.MaskedKey, &item.TenantID, &models,
-			&item.TeamID, &item.OrgID,
+			&item.TeamID, &item.OrgID, &item.VirtualUserID,
 			&item.Spend, &item.Blocked, &item.ExpiresAt, &item.TokenHash, &item.KeyType,
 			&item.CreatedByUserID, &item.CreatedAt, &item.LastUsedAt, &item.RevokedAt); err != nil {
 			return nil, err
@@ -734,6 +750,284 @@ func (s *Store) RevokeAllPATs(ctx context.Context, tenantID string, userID strin
 		return 0, err
 	}
 	return tag.RowsAffected(), nil
+}
+
+func (s *Store) ListVATTokens(ctx context.Context, tenantID string, virtualUserID string, query string, limit int, offset int) ([]platform.CreatedKey, int, error) {
+	query = strings.TrimSpace(query)
+	virtualUserID = strings.TrimSpace(virtualUserID)
+	if limit <= 0 {
+		limit = 25
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	like := "%"
+	if query != "" {
+		like = "%" + strings.ToLower(query) + "%"
+	}
+
+	var total int
+	if err := s.pool.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM verification_tokens
+		WHERE tenant_id = $1::uuid
+		  AND virtual_user_id = $2::uuid
+		  AND key_type = 'vat'
+		  AND ($3 = '' OR LOWER(COALESCE(key_alias, '')) LIKE $4)
+	`, tenantID, virtualUserID, query, like).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	rows, err := s.pool.Query(ctx, `
+		SELECT id::text, COALESCE(key_alias, ''), COALESCE(key_name, ''), tenant_id::text,
+		       COALESCE(models, '{}'), COALESCE(team_id::text, ''), COALESCE(organization_id::text, ''),
+		       COALESCE(virtual_user_id::text, ''), COALESCE(spend, 0), COALESCE(blocked, false),
+		       COALESCE(expires, NULL), token_hash,
+		       COALESCE(key_type, 'vat'), COALESCE(created_by_user_id, ''),
+		       COALESCE(created_at, NULL), COALESCE(last_used_at, NULL), COALESCE(revoked_at, NULL)
+		FROM verification_tokens
+		WHERE tenant_id = $1::uuid
+		  AND virtual_user_id = $2::uuid
+		  AND key_type = 'vat'
+		  AND ($3 = '' OR LOWER(COALESCE(key_alias, '')) LIKE $4)
+		ORDER BY created_at DESC
+		LIMIT $5 OFFSET $6
+	`, tenantID, virtualUserID, query, like, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	items := make([]platform.CreatedKey, 0)
+	for rows.Next() {
+		item, err := scanCreatedKey(rows)
+		if err != nil {
+			return nil, 0, err
+		}
+		item.Key = ""
+		items = append(items, *item)
+	}
+	return items, total, rows.Err()
+}
+
+func (s *Store) UpdateVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, req platform.UpdateVATTokenRequest) (*platform.CreatedKey, error) {
+	keyAlias := strings.TrimSpace(req.KeyAlias)
+	models := req.AllowedModels
+	if len(models) == 0 {
+		models = req.Models
+	}
+	modelsChanged := models != nil
+	if models == nil {
+		models = []string{}
+	}
+
+	var expiresAt *time.Time
+	expiresChanged := strings.TrimSpace(req.ExpiresIn) != ""
+	if expiresChanged {
+		duration, err := parseDuration(strings.TrimSpace(req.ExpiresIn))
+		if err != nil {
+			return nil, err
+		}
+		exp := time.Now().UTC().Add(duration)
+		expiresAt = &exp
+	}
+
+	rawMetadata := []byte("{}")
+	metadataChanged := req.Metadata != nil
+	if metadataChanged {
+		encoded, err := json.Marshal(req.Metadata)
+		if err != nil {
+			return nil, err
+		}
+		rawMetadata = encoded
+	}
+
+	row := s.pool.QueryRow(ctx, `
+		UPDATE verification_tokens
+		SET key_alias = CASE WHEN $4 <> '' THEN $4 ELSE key_alias END,
+		    models = CASE WHEN $5 THEN $6 ELSE models END,
+		    expires = CASE WHEN $7 THEN $8 ELSE expires END,
+		    blocked = COALESCE($9, blocked),
+		    metadata = CASE WHEN $10 THEN $11::jsonb ELSE metadata END,
+		    updated_at = NOW()
+		WHERE id = $1::uuid
+		  AND tenant_id = $2::uuid
+		  AND virtual_user_id = $3::uuid
+		  AND key_type = 'vat'
+		RETURNING id::text, COALESCE(key_alias, ''), COALESCE(key_name, ''), tenant_id::text,
+		       COALESCE(models, '{}'), COALESCE(team_id::text, ''), COALESCE(organization_id::text, ''),
+		       COALESCE(virtual_user_id::text, ''), COALESCE(spend, 0), COALESCE(blocked, false),
+		       COALESCE(expires, NULL), token_hash,
+		       COALESCE(key_type, 'vat'), COALESCE(created_by_user_id, ''),
+		       COALESCE(created_at, NULL), COALESCE(last_used_at, NULL), COALESCE(revoked_at, NULL)
+	`, keyID, tenantID, virtualUserID, keyAlias, modelsChanged, models, expiresChanged, expiresAt, req.Blocked, metadataChanged, rawMetadata)
+	item, err := scanCreatedKey(row)
+	if err != nil {
+		return nil, err
+	}
+	return item, nil
+}
+
+func (s *Store) RevokeVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, revokedByUserID string, reason string) (bool, error) {
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE verification_tokens
+		SET revoked_at = NOW(),
+		    revoked_by_user_id = NULLIF($4, ''),
+		    revoked_reason = NULLIF($5, ''),
+		    blocked = true,
+		    updated_at = NOW()
+		WHERE id = $1::uuid
+		  AND tenant_id = $2::uuid
+		  AND virtual_user_id = $3::uuid
+		  AND key_type = 'vat'
+		  AND revoked_at IS NULL
+	`, keyID, tenantID, virtualUserID, strings.TrimSpace(revokedByUserID), strings.TrimSpace(reason))
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
+func (s *Store) RotateVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, rotatedByUserID string, gracePeriod string) (*platform.CreatedKey, error) {
+	current, err := s.getVATToken(ctx, tenantID, virtualUserID, keyID)
+	if err != nil {
+		return nil, err
+	}
+
+	rawKey := "sk-" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	tokenHash := hashKey(rawKey)
+	newID := uuid.NewString()
+	masked := maskKey(rawKey)
+	now := time.Now().UTC()
+	row := s.pool.QueryRow(ctx, `
+		INSERT INTO verification_tokens (
+			id, tenant_id, token_hash, key_alias, key_name, models, team_id, organization_id,
+			virtual_user_id, expires, spend, blocked, key_type, created_by_user_id,
+			metadata, rotated_from_token_id, created_at, updated_at
+		)
+		SELECT $1, tenant_id, $2, key_alias, $3, models, team_id, organization_id,
+		       virtual_user_id, expires, 0, false, 'vat', NULLIF($4, ''),
+		       COALESCE(metadata, '{}'::jsonb), id, $5, $5
+		FROM verification_tokens
+		WHERE id = $6::uuid
+		  AND tenant_id = $7::uuid
+		  AND virtual_user_id = $8::uuid
+		  AND key_type = 'vat'
+		RETURNING id::text, COALESCE(key_alias, ''), COALESCE(key_name, ''), tenant_id::text,
+		       COALESCE(models, '{}'), COALESCE(team_id::text, ''), COALESCE(organization_id::text, ''),
+		       COALESCE(virtual_user_id::text, ''), COALESCE(spend, 0), COALESCE(blocked, false),
+		       COALESCE(expires, NULL), token_hash,
+		       COALESCE(key_type, 'vat'), COALESCE(created_by_user_id, ''),
+		       COALESCE(created_at, NULL), COALESCE(last_used_at, NULL), COALESCE(revoked_at, NULL)
+	`, newID, tokenHash, masked, strings.TrimSpace(rotatedByUserID), now, keyID, tenantID, virtualUserID)
+	created, err := scanCreatedKey(row)
+	if err != nil {
+		return nil, err
+	}
+	created.Key = rawKey
+	created.MaskedKey = masked
+	created.Role = platform.LegacyKeyRoleServiceAccount
+	created.Models = append([]string(nil), current.Models...)
+	created.AllowedModels = append([]string(nil), current.AllowedModels...)
+
+	gracePeriod = strings.TrimSpace(gracePeriod)
+	if gracePeriod == "" {
+		_, err = s.RevokeVATToken(ctx, tenantID, virtualUserID, keyID, rotatedByUserID, "rotated")
+		return created, err
+	}
+	graceDuration, err := parseDuration(gracePeriod)
+	if err != nil {
+		return nil, err
+	}
+	graceExpires := now.Add(graceDuration)
+	_, err = s.pool.Exec(ctx, `
+		UPDATE verification_tokens
+		SET rotation_grace_expires_at = $4,
+		    updated_at = NOW()
+		WHERE id = $1::uuid
+		  AND tenant_id = $2::uuid
+		  AND virtual_user_id = $3::uuid
+		  AND key_type = 'vat'
+	`, keyID, tenantID, virtualUserID, graceExpires)
+	return created, err
+}
+
+func (s *Store) getVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string) (*platform.CreatedKey, error) {
+	row := s.pool.QueryRow(ctx, `
+		SELECT id::text, COALESCE(key_alias, ''), COALESCE(key_name, ''), tenant_id::text,
+		       COALESCE(models, '{}'), COALESCE(team_id::text, ''), COALESCE(organization_id::text, ''),
+		       COALESCE(virtual_user_id::text, ''), COALESCE(spend, 0), COALESCE(blocked, false),
+		       COALESCE(expires, NULL), token_hash,
+		       COALESCE(key_type, 'vat'), COALESCE(created_by_user_id, ''),
+		       COALESCE(created_at, NULL), COALESCE(last_used_at, NULL), COALESCE(revoked_at, NULL)
+		FROM verification_tokens
+		WHERE id = $1::uuid
+		  AND tenant_id = $2::uuid
+		  AND virtual_user_id = $3::uuid
+		  AND key_type = 'vat'
+	`, keyID, tenantID, virtualUserID)
+	return scanCreatedKey(row)
+}
+
+type createdKeyScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanCreatedKey(scanner createdKeyScanner) (*platform.CreatedKey, error) {
+	var item platform.CreatedKey
+	var models []string
+	if err := scanner.Scan(&item.ID, &item.KeyAlias, &item.MaskedKey, &item.TenantID, &models,
+		&item.TeamID, &item.OrgID, &item.VirtualUserID, &item.Spend, &item.Blocked,
+		&item.ExpiresAt, &item.TokenHash, &item.KeyType, &item.CreatedByUserID,
+		&item.CreatedAt, &item.LastUsedAt, &item.RevokedAt); err != nil {
+		return nil, err
+	}
+	item.Models = models
+	item.AllowedModels = append([]string(nil), models...)
+	item.Role = deriveKeyRole(item.TeamID)
+	if item.KeyType == "" {
+		item.KeyType = deriveKeyType(item.TeamID)
+	}
+	item.OrgUnitID = item.OrgID
+	return &item, nil
+}
+
+func (s *Store) resolveVATVirtualUserScope(ctx context.Context, tenantID string, virtualUserID string, requestedTeamID string, requestedOrgID string) (string, string, error) {
+	if _, err := uuid.Parse(strings.TrimSpace(virtualUserID)); err != nil {
+		return "", "", fmt.Errorf("virtual_user_id must be a UUID")
+	}
+	var teamID string
+	var orgID string
+	var active bool
+	if err := s.pool.QueryRow(ctx, `
+		SELECT COALESCE(team_id::text, ''), COALESCE(org_unit_id::text, ''), COALESCE(active, true)
+		FROM virtual_users
+		WHERE tenant_id = $1::uuid
+		  AND virtual_user_id = $2::uuid
+	`, strings.TrimSpace(tenantID), strings.TrimSpace(virtualUserID)).Scan(&teamID, &orgID, &active); err != nil {
+		return "", "", err
+	}
+	if !active {
+		return "", "", fmt.Errorf("virtual user is inactive")
+	}
+	requestedTeamID = strings.TrimSpace(requestedTeamID)
+	requestedOrgID = strings.TrimSpace(requestedOrgID)
+	if teamID != "" && requestedTeamID != "" && requestedTeamID != teamID {
+		return "", "", fmt.Errorf("team_id does not match virtual user scope")
+	}
+	if orgID != "" && requestedOrgID != "" && requestedOrgID != orgID {
+		return "", "", fmt.Errorf("org_unit_id does not match virtual user scope")
+	}
+	if requestedTeamID != "" {
+		teamID = requestedTeamID
+	}
+	if requestedOrgID != "" {
+		orgID = requestedOrgID
+	}
+	return teamID, orgID, nil
 }
 
 func deriveKeyRole(teamID string) string {
