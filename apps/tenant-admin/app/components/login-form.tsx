@@ -41,13 +41,14 @@ type OTPRequestResponse = {
 type LoginFormProps = {
   initialCaptcha: CaptchaChallenge;
   redirectTo: string;
+  initialIdentifier?: string;
 };
 
-export default function LoginForm({ initialCaptcha, redirectTo }: LoginFormProps) {
+export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifier = "" }: LoginFormProps) {
   const t = useTranslations("login");
   const common = useTranslations("common");
 
-  const [identifier, setIdentifier] = useState("");
+  const [identifier, setIdentifier] = useState(initialIdentifier);
   const [captchaID, setCaptchaID] = useState(initialCaptcha.captcha_id);
   const [captchaImage, setCaptchaImage] = useState(initialCaptcha.image_data_url);
   const [captchaAnswer, setCaptchaAnswer] = useState("");

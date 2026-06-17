@@ -96,10 +96,31 @@ export function Footer() {
           <p className="text-sm text-slate-500 dark:text-gray-500">
             © ۱۴۰۵ شاهراه. تمامی حقوق محفوظ است.
           </p>
-          <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-gray-400 bg-white dark:bg-[#111827] px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-800">
-            <span className="font-bold text-slate-900 dark:text-white">FA</span>
-            <span className="w-px h-4 bg-gray-300 dark:bg-gray-700"></span>
-            <span className="hover:text-slate-900 dark:hover:text-white cursor-pointer">EN</span>
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <a
+              referrerPolicy="origin"
+              target="_blank"
+              rel="noopener noreferrer"
+              href="https://trustseal.enamad.ir/?id=737580&Code=Dc476GaakpMUDp6MG3lSrtPK8uL9943N"
+              className="inline-flex shrink-0"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                referrerPolicy="origin"
+                src="https://trustseal.enamad.ir/logo.aspx?id=737580&Code=Dc476GaakpMUDp6MG3lSrtPK8uL9943N"
+                alt="GodarAi E-Namad Trust Seal"
+                style={{ cursor: "pointer" }}
+                width={125}
+                height={136}
+                className="h-auto max-w-full"
+                data-code="Dc476GaakpMUDp6MG3lSrtPK8uL9943N"
+              />
+            </a>
+            <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-gray-400 bg-white dark:bg-[#111827] px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-800">
+              <span className="font-bold text-slate-900 dark:text-white">FA</span>
+              <span className="w-px h-4 bg-gray-300 dark:bg-gray-700"></span>
+              <span className="hover:text-slate-900 dark:hover:text-white cursor-pointer">EN</span>
+            </div>
           </div>
         </div>
       </div>

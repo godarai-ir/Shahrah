@@ -153,6 +153,11 @@ type onboardingStore interface {
 	VerifyOnboardingOTPAndProvision(ctx context.Context, req storage.VerifyOnboardingOTPParams) (*storage.ProvisionedTenant, error)
 }
 
+type loginDiscoveryStore interface {
+	GetTenantBySlug(ctx context.Context, slug string) (*platform.Tenant, error)
+	ListTenantsByAdminIdentifier(ctx context.Context, channel string, identifier string) ([]platform.Tenant, error)
+}
+
 // Handlers serves bootstrap management APIs.
 type Handlers struct {
 	keys             keyStore
@@ -165,6 +170,7 @@ type Handlers struct {
 	virtualUsers     virtualUserStore
 	teams            teamStore
 	onboarding       onboardingStore
+	loginDiscovery   loginDiscoveryStore
 	traces           traceStore
 	metrics          metricsStore
 	tracePrivacy     tracePrivacyStore
@@ -180,6 +186,7 @@ func New(keys keyStore, models modelStore, wallets walletStore) *Handlers {
 	virtualUsers, _ := keys.(virtualUserStore)
 	teams, _ := keys.(teamStore)
 	onboarding, _ := keys.(onboardingStore)
+	loginDiscovery, _ := keys.(loginDiscoveryStore)
 	traces, _ := keys.(traceStore)
 	metrics, _ := keys.(metricsStore)
 	tracePrivacy, _ := keys.(tracePrivacyStore)
@@ -198,6 +205,7 @@ func New(keys keyStore, models modelStore, wallets walletStore) *Handlers {
 		virtualUsers:     virtualUsers,
 		teams:            teams,
 		onboarding:       onboarding,
+		loginDiscovery:   loginDiscovery,
 		traces:           traces,
 		metrics:          metrics,
 		tracePrivacy:     tracePrivacy,
@@ -233,6 +241,13 @@ func (h *Handlers) requireOnboardingStore() (onboardingStore, error) {
 		return nil, fiber.NewError(fiber.StatusNotImplemented, "onboarding store not configured")
 	}
 	return h.onboarding, nil
+}
+
+func (h *Handlers) requireLoginDiscoveryStore() (loginDiscoveryStore, error) {
+	if h.loginDiscovery == nil {
+		return nil, fiber.NewError(fiber.StatusNotImplemented, "login discovery store not configured")
+	}
+	return h.loginDiscovery, nil
 }
 
 func appendUnique(values []string, candidate string) []string {
