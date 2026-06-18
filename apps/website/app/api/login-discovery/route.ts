@@ -121,8 +121,7 @@ function buildTenantLoginURL(slug: string, request: Request) {
   const requestURL = new URL(request.url);
   const protocol = process.env.NEXT_PUBLIC_TENANT_LOGIN_PROTOCOL || requestURL.protocol.replace(":", "");
   const baseHost =
-    normalizeHost(process.env.TENANT_ADMIN_BASE_DOMAIN) ||
-    normalizeHost(process.env.NEXT_PUBLIC_TENANT_ADMIN_BASE_DOMAIN) ||
+    normalizeHost(process.env.SHAHRAH_BASE_DOMAIN) ||
     normalizeHost(process.env.NEXT_PUBLIC_TENANT_BASE_DOMAIN) ||
     normalizeHost(process.env.SHAHRAH_TENANT_BASE_DOMAIN) ||
     normalizeHost(request.headers.get("x-forwarded-host")) ||

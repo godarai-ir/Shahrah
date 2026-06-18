@@ -26,7 +26,7 @@ type TenantResponse = {
 
 const tenantNamePattern = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
-export function Login() {
+export function Login({ tenantBaseDomain = "" }: { tenantBaseDomain?: string }) {
   const [method, setMethod] = useState<LoginMethod>("identifier");
   const [identifier, setIdentifier] = useState("");
   const [tenantName, setTenantName] = useState("");
@@ -40,9 +40,9 @@ export function Login() {
     if (typeof window === "undefined") {
       return ".godarai.ir";
     }
-    const host = getConfiguredTenantBaseDomain() || window.location.host;
+    const host = tenantBaseDomain || window.location.host;
     return `.${normalizeHostForDisplay(host)}`;
-  }, []);
+  }, [tenantBaseDomain]);
 
   async function handleIdentifierSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -315,10 +315,6 @@ function redirectToTenant(tenant: Tenant, identifier?: string) {
     url.searchParams.set("identifier", encodeBase64URL(identifier));
   }
   window.location.assign(url.toString());
-}
-
-function getConfiguredTenantBaseDomain() {
-  return process.env.NEXT_PUBLIC_TENANT_ADMIN_BASE_DOMAIN || process.env.NEXT_PUBLIC_TENANT_BASE_DOMAIN || "";
 }
 
 function normalizeHostForDisplay(host: string) {

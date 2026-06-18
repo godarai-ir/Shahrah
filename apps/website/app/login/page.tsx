@@ -13,7 +13,7 @@ export const metadata: Metadata = buildMetadata({
 export default function Page() {
   return (
     <SiteShell>
-      <Login />
+      <Login tenantBaseDomain={process.env.SHAHRAH_BASE_DOMAIN ?? ""} />
     </SiteShell>
   );
 }
