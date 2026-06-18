@@ -6,7 +6,7 @@ const contentSecurityPolicy = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "img-src 'self' data: blob:",
+  "img-src 'self' data: blob: https://trustseal.enamad.ir",
   "font-src 'self' https://fonts.gstatic.com https://themes.webalite.com",
   `connect-src 'self'${isDevelopment ? " ws: wss:" : ""}`,
   "frame-ancestors 'none'",
