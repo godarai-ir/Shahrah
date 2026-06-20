@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { FormEvent, useState } from "react";
 import { useTranslations } from "next-intl";
+import { REGEXP_ONLY_DIGITS } from "input-otp";
 import {
   AlertCircle,
   CheckCircle,
@@ -22,6 +23,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
 
 type CaptchaChallenge = {
@@ -315,22 +321,38 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
                   <form className="grid gap-5" onSubmit={handleVerifyOTP}>
                     <div className="grid gap-2">
                       <Label htmlFor="otpCode">{t("otp.code")}</Label>
-                      <Input
+                      <InputOTP
                         id="otpCode"
                         dir="ltr"
+                        maxLength={6}
+                        pattern={REGEXP_ONLY_DIGITS}
                         value={otpCode}
-                        onChange={(event) => setOTPCode(event.target.value)}
-                        placeholder={t("otp.codePlaceholder")}
+                        onChange={setOTPCode}
+                        aria-label={t("otp.codePlaceholder")}
                         autoComplete="one-time-code"
                         required
-                        maxLength={6}
-                        inputMode="numeric"
-                        className="font-mono text-start tracking-normal"
-                      />
+                        disabled={loading}
+                        containerClassName="justify-center"
+                      >
+                        <InputOTPGroup dir="ltr" className="gap-2">
+                          {Array.from({ length: 6 }).map((_, index) => (
+                            <InputOTPSlot
+                              key={index}
+                              index={index}
+                              className="size-11 rounded-lg border bg-background text-base font-semibold shadow-xs"
+                            />
+                          ))}
+                        </InputOTPGroup>
+                      </InputOTP>
                     </div>
 
                     <div className="flex flex-col-reverse gap-2 sm:flex-row">
-                      <Button type="submit" loading={loading} className="flex-1">
+                      <Button
+                        type="submit"
+                        loading={loading}
+                        className="flex-1"
+                        disabled={otpCode.length !== 6}
+                      >
                         {loading ? t("otp.verifying") : t("otp.verify")}
                       </Button>
                       <Button
