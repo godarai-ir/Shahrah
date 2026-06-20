@@ -12,7 +12,7 @@
     "dashboard": "Dashboard",
     "topup": "Wallet Top-up",
     "settings": "Account Settings",
-    "providerAccounts": "Provider Accounts",
+    "providerAccounts": "LLM Integrations",
     "virtualModels": "Virtual Models",
     "virtualUsers": "Virtual Users & VATs",
     "accessManagement": "Access Management",

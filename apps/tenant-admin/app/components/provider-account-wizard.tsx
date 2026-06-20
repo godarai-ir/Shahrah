@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { Copy, Eye, KeyRound, Layers3, ShieldCheck, Trash2 } from "lucide-react";
+import { ChevronRight, Copy, ExternalLink, Eye, KeyRound, Layers3, ShieldCheck, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   PrincipalEntitySelect,
   type PrincipalEntitySelection,
@@ -44,6 +45,7 @@ import { Field } from "@/app/components/provider-account-wizard/field";
 import { ModelsEditor } from "@/app/components/provider-account-wizard/models-editor";
 import { EmptyOverview, ReadinessBadge, SummaryKPI } from "@/app/components/provider-account-wizard/overview";
 import { buildPrincipalSelectorLabels } from "@/app/components/provider-account-wizard/principal-labels";
+import { PROVIDER_DOCS_URLS } from "@/app/components/provider-account-wizard/provider-docs";
 import { ProviderLogo } from "@/app/components/provider-account-wizard/provider-logo";
 import type {
   AccessPrincipal,
@@ -69,6 +71,12 @@ import type {
   WorkspaceTab,
 } from "@/app/components/provider-account-wizard/types";
 import {
+  CreateFlowStepIndicator,
+  type CreateWizardSectionID,
+  ProviderAccountSidebarSkeleton,
+  WizardPanel,
+} from "@/app/components/provider-account-wizard/wizard-layout";
+import {
   extractMessageFromPayload,
   generateProviderAccountName,
   normalizeError,
@@ -83,64 +91,15 @@ import {
 import { usePermissions } from "@/app/components/permissions-context";
 import { canPermission } from "@/lib/authz";
 
-function ProviderAccountSidebarSkeleton() {
-  return (
-    <>
-      <Card>
-        <CardHeader className="pb-3">
-          <Skeleton className="h-5 w-40" />
-          <Skeleton className="h-4 w-56" />
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col gap-2">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div key={`provider-skeleton-${index}`} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <Skeleton className="size-8 rounded-full" />
-                  <Skeleton className="h-4 w-28" />
-                </div>
-                <Skeleton className="h-5 w-8 rounded-full" />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <Skeleton className="h-5 w-36" />
-          <Skeleton className="h-4 w-44" />
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col gap-2">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <div key={`account-skeleton-${index}`} className="rounded-lg border px-2 py-2">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex min-w-0 flex-1 flex-col gap-2">
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-3 w-20" />
-                  </div>
-                  <Skeleton className="h-6 w-24 rounded-full" />
-                </div>
-                <div className="mt-2 flex justify-end">
-                  <Skeleton className="h-8 w-20" />
-                </div>
-              </div>
-            ))}
-            <div className="flex gap-2 pt-2">
-              <Skeleton className="h-8 flex-1" />
-              <Skeleton className="h-8 flex-1" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </>
-  );
-}
-
-export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWizardMode }) {
+export default function ProviderAccountWizard(props?: {
+  mode?: ProviderAccountWizardMode;
+  initialProvider?: string;
+  initialAccountID?: string;
+}) {
   const mode = props?.mode ?? "manage";
   const isCreateMode = mode === "create";
+  const initialProvider = normalizeProviderSlug(props?.initialProvider ?? "");
+  const initialAccountID = props?.initialAccountID?.trim() ?? "";
   const t = useTranslations("providerAccounts");
   const ux = useTranslations("providerAccounts.ux");
   const router = useRouter();
@@ -180,19 +139,19 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
   const [accountReadiness, setAccountReadiness] = useState<Record<string, Readiness>>({});
   const [providerModels, setProviderModels] = useState<ProviderCatalogModel[]>([]);
 
-  const [selectedProviderID, setSelectedProviderID] = useState("");
-  const [selectedAccountID, setSelectedAccountID] = useState("");
-  const selectedProviderRef = useRef("");
-  const selectedAccountRef = useRef("");
+  const [selectedProviderID, setSelectedProviderID] = useState(initialProvider);
+  const [selectedAccountID, setSelectedAccountID] = useState(initialAccountID);
+  const selectedProviderRef = useRef(initialProvider);
+  const selectedAccountRef = useRef(initialAccountID);
   const accountLoadRequestRef = useRef(0);
 
   const [account, setAccount] = useState<TenantProviderAccount | null>(null);
 
-  const [provider, setProvider] = useState("");
+  const [provider, setProvider] = useState(initialProvider);
   const [name, setName] = useState("");
   const [isNameAutoGenerated, setIsNameAutoGenerated] = useState(true);
   const [authMode, setAuthMode] = useState<ProviderAuthMode>("api_key");
-  const [allowVirtualOnly, setAllowVirtualOnly] = useState(false);
+  const [allowVirtualOnly, setAllowVirtualOnly] = useState(isCreateMode);
 
   const [apiKey, setAPIKey] = useState("");
   const [secretRef, setSecretRef] = useState("");
@@ -215,6 +174,67 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
   const [effectivePrincipalSelection, setEffectivePrincipalSelection] = useState<PrincipalEntitySelection | null>(null);
   const [effectiveModels, setEffectiveModels] = useState<EffectiveModelView[]>([]);
   const [lastCredentialTestMessage, setLastCredentialTestMessage] = useState("");
+  const [createCredentialTestResult, setCreateCredentialTestResult] = useState<Banner | null>(null);
+  const [activeCreateSection, setActiveCreateSection] = useState<CreateWizardSectionID>("details");
+  const createFlowScrollAreaRef = useRef<HTMLDivElement | null>(null);
+  const createSectionRefs = useRef<Record<CreateWizardSectionID, HTMLElement | null>>({
+    details: null,
+    models: null,
+    access: null,
+    review: null,
+  });
+
+  const scrollToCreateSection = useCallback((sectionID: CreateWizardSectionID) => {
+    setActiveCreateSection(sectionID);
+    createSectionRefs.current[sectionID]?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
+  useEffect(() => {
+    if (!isCreateMode || !provider) return;
+    const viewport = createFlowScrollAreaRef.current?.querySelector<HTMLElement>("[data-slot='scroll-area-viewport']");
+    if (!viewport) return;
+
+    const sectionIDs: CreateWizardSectionID[] = ["details", "models", "access", "review"];
+    const syncActiveSection = () => {
+      const viewportTop = viewport.getBoundingClientRect().top;
+      let nextSection: CreateWizardSectionID | null = null;
+      let nearestDistance = Number.POSITIVE_INFINITY;
+
+      for (const sectionID of sectionIDs) {
+        const node = createSectionRefs.current[sectionID];
+        if (!node) continue;
+        const rect = node.getBoundingClientRect();
+        const isInView = rect.bottom > viewportTop && rect.top < viewportTop + viewport.clientHeight;
+        if (!isInView) continue;
+        const distance = Math.abs(rect.top - viewportTop);
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nextSection = sectionID;
+        }
+      }
+
+      if (nextSection) {
+        setActiveCreateSection((current) => (current === nextSection ? current : nextSection));
+      }
+    };
+
+    const frame = window.requestAnimationFrame(syncActiveSection);
+    viewport.addEventListener("scroll", syncActiveSection, { passive: true });
+    window.addEventListener("resize", syncActiveSection);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      viewport.removeEventListener("scroll", syncActiveSection);
+      window.removeEventListener("resize", syncActiveSection);
+    };
+  }, [isCreateMode, provider]);
+
+  useEffect(() => {
+    if (!isCreateMode || banner?.kind !== "success") return;
+    toast.success(banner.message, { duration: 3500 });
+    const timeout = window.setTimeout(() => setBanner(null), 0);
+    return () => window.clearTimeout(timeout);
+  }, [banner, isCreateMode]);
 
   const handleEffectivePrincipalChange = useCallback((selection: PrincipalEntitySelection | null) => {
     setEffectivePrincipalSelection(selection);
@@ -391,7 +411,7 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
         setSelectedAccountID("");
         setAccount(null);
         setWorkspaceMode("setup");
-        setSetupStep(1);
+        setSetupStep(currentProviderID ? 2 : 1);
         setManagers([]);
         setUsers([{ type: "everyone", display_name: t("principal.everyone") }]);
         if (initialProvider) {
@@ -400,16 +420,30 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
           setName(generateProviderAccountName(initialProvider, fetchedAccountNames));
           setIsNameAutoGenerated(true);
           setAuthMode(providerItem?.auth_modes?.[0] ?? "api_key");
-          setAllowVirtualOnly(false);
+          setAllowVirtualOnly(true);
           void loadProviderModels(initialProvider);
         }
         return;
       }
 
-      const initialProvider = currentProviderID || accountItems[0]?.provider || "";
+      const initialAccount = currentAccountID
+        ? accountItems.find((item) => item.id === currentAccountID) ?? null
+        : null;
+      const initialProvider = currentProviderID || initialAccount?.provider || accountItems[0]?.provider || "";
       setSelectedProviderID(initialProvider);
 
-      if (currentAccountID && accountItems.some((item) => item.id === currentAccountID)) return;
+      if (initialAccount) {
+        setSelectedAccountID(initialAccount.id);
+        setAccount(initialAccount);
+        setProvider(normalizeProviderSlug(initialAccount.provider));
+        setName(initialAccount.name);
+        setIsNameAutoGenerated(false);
+        setAuthMode(initialAccount.auth_mode);
+        setAllowVirtualOnly(initialAccount.allows_virtual_keys_only);
+        setWorkspaceMode("workspace");
+        setActiveTab("models");
+        return;
+      }
 
       const firstProviderAccount = accountItems.find((item) => stringsEqualFold(item.provider, initialProvider));
       if (firstProviderAccount) {
@@ -624,8 +658,8 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
     const credentials: Record<string, unknown> = {};
 
     if (authMode === "api_key") {
-      if (apiKey.trim()) credentials.api_key = apiKey.trim();
-      if (secretRef.trim()) credentials.secret_ref = secretRef.trim();
+      if (!allowVirtualOnly && apiKey.trim()) credentials.api_key = apiKey.trim();
+      if (!isCreateMode && secretRef.trim()) credentials.secret_ref = secretRef.trim();
     }
     if (authMode === "azure_entra_cert") {
       providerConfig.azure_tenant_id = azureTenantID.trim() || undefined;
@@ -767,23 +801,24 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
     if (shouldReloadCurrentAccount) void handleLoadAccount(item.id);
   }
 
-  async function handleCreateAccount() {
+  async function handleCreateAccount(options: { advanceToModels?: boolean; successMessage?: string } = {}) {
+    const advanceToModels = options.advanceToModels ?? true;
     setBanner(null);
     if (!canCreateProviderAccount) {
       setBanner({ kind: "error", message: t("messages.insufficientPermissions") });
-      return;
+      return null;
     }
     if (!provider || !name.trim()) {
       setBanner({ kind: "error", message: t("messages.validationProviderName") });
-      return;
+      return null;
     }
 
     const providerConfig: Record<string, unknown> = {};
     const credentials: Record<string, unknown> = {};
 
     if (authMode === "api_key") {
-      if (apiKey.trim()) credentials.api_key = apiKey.trim();
-      if (secretRef.trim()) credentials.secret_ref = secretRef.trim();
+      if (!allowVirtualOnly && apiKey.trim()) credentials.api_key = apiKey.trim();
+      if (!isCreateMode && secretRef.trim()) credentials.secret_ref = secretRef.trim();
     }
     if (authMode === "azure_entra_cert") {
       providerConfig.azure_tenant_id = azureTenantID.trim() || undefined;
@@ -821,13 +856,85 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
       setAccount(newAccount);
       await loadInitial();
       await handleLoadAccount(newAccount.id);
-      setSetupStep(3);
-      setBanner({ kind: "success", message: t("messages.accountCreateSuccess") });
+      if (advanceToModels) {
+        setSetupStep(3);
+        setActiveCreateSection("models");
+        window.setTimeout(() => {
+          createSectionRefs.current.models?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 0);
+      }
+      setBanner({ kind: "success", message: options.successMessage ?? t("messages.accountCreateSuccess") });
+      return newAccount.id;
     } catch (error) {
       setBanner({ kind: "error", message: normalizeError(error, t("messages.accountCreateFailed")) });
+      return null;
     } finally {
       setIsLoading(false);
     }
+  }
+
+  async function handleCreateCredentialTest() {
+    setCreateCredentialTestResult(null);
+    if (allowVirtualOnly) return;
+    if (!apiKey.trim()) {
+      setCreateCredentialTestResult({
+        kind: "error",
+        message: ux("integrations.wizard.apiKeyRequiredForTest"),
+      });
+      return;
+    }
+
+    let accountID = selectedAccountID;
+    if (accountID) {
+      const saved = await handleSaveCredentials(accountID);
+      if (!saved) return;
+    } else {
+      const createdID = await handleCreateAccount({
+        advanceToModels: false,
+        successMessage: ux("integrations.wizard.accountSavedBeforeTest"),
+      });
+      if (!createdID) return;
+      accountID = createdID;
+    }
+
+    setIsTesting(true);
+    try {
+      const result = await requestJSON<{ success: boolean; message?: string }>(
+        `/api/tenant-provider-accounts/${encodeURIComponent(accountID)}/test-credentials`,
+        { method: "POST", body: JSON.stringify({}) },
+      );
+      const payload = unwrapData<{ success: boolean; message?: string }>(result) ?? result;
+      const rawMessage =
+        payload.message ?? (payload.success ? t("messages.credentialValid") : t("messages.credentialInvalid"));
+      const message = payload.success
+        ? ux("integrations.wizard.connectionTestSuccess", { message: rawMessage })
+        : ux("integrations.wizard.connectionTestFailed", { message: rawMessage });
+      setLastCredentialTestMessage(rawMessage);
+      setCreateCredentialTestResult({ kind: payload.success ? "success" : "error", message });
+    } catch (error) {
+      const message = normalizeError(error, t("messages.credentialTestFailed"));
+      setCreateCredentialTestResult({
+        kind: "error",
+        message: ux("integrations.wizard.connectionTestFailed", { message }),
+      });
+    } finally {
+      setIsTesting(false);
+    }
+  }
+
+  async function handleContinueFromCreateDetails() {
+    if (!selectedAccountID) {
+      await handleCreateAccount();
+      return;
+    }
+
+    const saved = await handleSaveCredentials(selectedAccountID);
+    if (!saved) return;
+    setSetupStep(3);
+    setActiveCreateSection("models");
+    window.setTimeout(() => {
+      createSectionRefs.current.models?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
   }
 
   async function handleSaveModels(accountID = selectedAccountID): Promise<boolean> {
@@ -871,6 +978,13 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
     } finally {
       setIsSavingModels(false);
     }
+  }
+
+  async function handleFinishCreateFlow() {
+    const saved = await handleSaveModels(selectedAccountID);
+    if (!saved || !selectedAccountID) return;
+    setBanner({ kind: "success", message: ux("messages.integrationCreated") });
+    router.push(`/provider-accounts?account=${encodeURIComponent(selectedAccountID)}`);
   }
 
   async function handleSaveAccess(accountID = selectedAccountID): Promise<boolean> {
@@ -1030,6 +1144,325 @@ export default function ProviderAccountWizard(props?: { mode?: ProviderAccountWi
   ];
   const principalSelectorLabels = buildPrincipalSelectorLabels(t, ux);
   const isInitialSidebarLoading = !isCreateMode && isLoading && providers.length === 0 && accounts.length === 0;
+  const providerDocsURL = PROVIDER_DOCS_URLS[normalizeProviderSlug(provider)] ?? "";
+  const createProviderDescription =
+    activeProvider && "description" in activeProvider && typeof activeProvider.description === "string"
+      ? activeProvider.description
+      : ux("integrations.providerDescriptionFallback");
+  const createHeaderProviderName = activeProvider?.display_name ?? provider;
+  const createWizardSteps: Array<{ id: CreateWizardSectionID; number: number; title: string }> = [
+    { id: "details", number: 1, title: ux("integrations.wizard.integrationDetails") },
+    { id: "models", number: 2, title: ux("integrations.wizard.modelProvisioning") },
+    { id: "access", number: 3, title: ux("integrations.wizard.accessPermissions") },
+    { id: "review", number: 4, title: ux("integrations.wizard.reviewConfirm") },
+  ];
+
+  if (isCreateMode) {
+    return (
+      <main className="-m-4 flex min-h-[calc(100dvh-4rem)] md:-m-6 lg:h-[calc(100dvh-5.25rem)] lg:min-h-[560px]">
+        <section className="flex w-full flex-col overflow-hidden rounded-xl border border-border bg-background">
+          <header className="flex h-14 shrink-0 items-center border-b border-border px-4">
+            <div className="flex min-w-0 items-center gap-2 text-xl">
+              <span className="text-muted-foreground">{ux("integrations.pageTitle")}</span>
+              <ChevronRight className="size-4 text-muted-foreground rtl:rotate-180" />
+              {provider ? (
+                <span className="flex min-w-0 items-center gap-2 font-semibold" dir="ltr">
+                  <ProviderLogo
+                    provider={activeProvider?.provider ?? provider}
+                    displayName={createHeaderProviderName}
+                    logoURL={activeProvider?.logo_url}
+                    size={18}
+                  />
+                  <span className="truncate">{createHeaderProviderName}</span>
+                </span>
+              ) : (
+                <span className="font-semibold">{ux("setup.selectProviderTitle")}</span>
+              )}
+            </div>
+          </header>
+
+          {banner && banner.kind !== "success" ? (
+            <div className="shrink-0 px-4 pt-3">
+              <Alert variant={banner.kind === "error" ? "destructive" : "default"}>
+                <AlertTitle>{banner.kind === "error" ? t("errorTitle") : t("successTitle")}</AlertTitle>
+                <AlertDescription>{banner.message}</AlertDescription>
+              </Alert>
+            </div>
+          ) : null}
+
+          <div className="grid flex-1 gap-6 overflow-hidden px-4 py-6 lg:min-h-0 lg:grid-cols-[180px_minmax(0,1fr)]">
+            <aside className="min-h-0 lg:self-stretch">
+              <ScrollArea className="min-h-[12rem] lg:h-full [&_[data-slot=scroll-area-viewport]]:overscroll-contain">
+                <div className="flex flex-col gap-5 py-2">
+                {createWizardSteps.map((step) => {
+                  const isComplete =
+                    (step.id === "details" && !!selectedAccountID) ||
+                    (step.id === "models" && selectedModelCount > 0);
+                  return (
+                    <CreateFlowStepIndicator
+                      key={step.id}
+                      number={step.number}
+                      title={step.title}
+                      state={activeCreateSection === step.id ? "active" : isComplete ? "complete" : "idle"}
+                      onClick={() => scrollToCreateSection(step.id)}
+                    />
+                  );
+                })}
+                </div>
+              </ScrollArea>
+            </aside>
+
+            <ScrollArea
+              ref={createFlowScrollAreaRef}
+              className="min-h-[640px] min-w-0 lg:h-full lg:min-h-0 [&_[data-slot=scroll-area-viewport]]:overscroll-contain"
+            >
+              <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 pb-2">
+                {!provider ? (
+                  <WizardPanel
+                    title={ux("setup.selectProviderTitle")}
+                    description={ux("setup.selectProviderDesc")}
+                    footer={
+                      <Button type="button" onClick={() => setSetupStep(2)} disabled={!provider}>
+                        {ux("actions.continue")}
+                      </Button>
+                    }
+                  >
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                      {visibleProviders.map((item) => {
+                        const isSelected = stringsEqualFold(item.provider, provider);
+                        return (
+                          <button
+                            key={item.provider}
+                            type="button"
+                            className={`rounded-xl border p-4 text-start transition ${isSelected ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"}`}
+                            onClick={() => {
+                              const nextProvider = normalizeProviderSlug(item.provider);
+                              setProvider(nextProvider);
+                              setAuthMode(item.auth_modes?.[0] ?? "api_key");
+                              setName(generateProviderAccountName(nextProvider, existingAccountNames));
+                              setIsNameAutoGenerated(true);
+                              setSelectedProviderID(nextProvider);
+                              setAllowVirtualOnly(true);
+                              setAPIKey("");
+                              setCreateCredentialTestResult(null);
+                              void loadProviderModels(item.provider);
+                            }}
+                          >
+                            <ProviderLogo
+                              provider={item.provider}
+                              displayName={item.display_name}
+                              logoURL={item.logo_url}
+                            />
+                            <p className="mt-4 font-medium" dir="ltr">{item.display_name}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </WizardPanel>
+                ) : (
+                  <>
+                    <WizardPanel
+                    id="connection-details"
+                    setSectionNode={(node) => {
+                      createSectionRefs.current.details = node;
+                    }}
+                    title={ux("integrations.wizard.detailsTitle")}
+                    description={ux("integrations.wizard.detailsDescription")}
+                    footer={
+                      <Button type="button" onClick={() => void handleContinueFromCreateDetails()} disabled={!canCreateProviderAccount || isLoading || isSavingCredentials || !provider || !name.trim()}>
+                        {isLoading || isSavingCredentials ? t("saving") : ux("integrations.wizard.nextStep")}
+                      </Button>
+                    }
+                  >
+                    <div className="flex flex-col gap-8">
+                      <div className="flex items-start gap-3 rounded-lg border border-border bg-background p-4">
+                        <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border bg-card">
+                          <ProviderLogo
+                            provider={activeProvider?.provider ?? provider}
+                            displayName={activeProvider?.display_name ?? provider}
+                            logoURL={activeProvider?.logo_url}
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="truncate text-base font-semibold" dir="ltr">{activeProvider?.display_name ?? provider}</h3>
+                          <p className="mt-1 text-sm leading-6 text-muted-foreground">{createProviderDescription}</p>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-5">
+                        <Field label={t("fields.accountName")} id="accountName">
+                          <Input
+                            id="accountName"
+                            value={name}
+                            onChange={(event) => {
+                              setName(event.target.value);
+                              setIsNameAutoGenerated(false);
+                            }}
+                            placeholder={ux("placeholders.accountName")}
+                          />
+                        </Field>
+                      </div>
+
+                      <div className="rounded-lg border border-border bg-background p-4">
+                        <div className="space-y-1">
+                          <h3 className="text-base font-semibold">{ux("integrations.wizard.useOwnApiKeyQuestion")}</h3>
+                          <p className="text-sm leading-6 text-muted-foreground">{ux("integrations.wizard.useOwnApiKeyDescription")}</p>
+                        </div>
+
+                        <div className="mt-4 grid gap-3 md:grid-cols-2">
+                          <label className={`flex cursor-pointer gap-3 rounded-lg border p-4 transition ${!allowVirtualOnly ? "border-primary bg-primary/10" : "border-border hover:bg-muted/40"}`}>
+                            <input
+                              type="radio"
+                              name="create-own-api-key"
+                              className="mt-1"
+                              checked={!allowVirtualOnly}
+                              onChange={() => {
+                                setAllowVirtualOnly(false);
+                                setCreateCredentialTestResult(null);
+                              }}
+                            />
+                            <span className="min-w-0">
+                              <span className="block text-sm font-medium">{ux("integrations.wizard.useOwnApiKeyYes")}</span>
+                            </span>
+                          </label>
+                          <label className={`flex cursor-pointer gap-3 rounded-lg border p-4 transition ${allowVirtualOnly ? "border-primary bg-primary/10" : "border-border hover:bg-muted/40"}`}>
+                            <input
+                              type="radio"
+                              name="create-own-api-key"
+                              className="mt-1"
+                              checked={allowVirtualOnly}
+                              onChange={() => {
+                                setAllowVirtualOnly(true);
+                                setCreateCredentialTestResult(null);
+                              }}
+                            />
+                            <span className="min-w-0">
+                              <span className="block text-sm font-medium">{ux("integrations.wizard.useOwnApiKeyNo")}</span>
+                              <span className="mt-1 block text-sm leading-6 text-muted-foreground">
+                                {ux("integrations.wizard.useOwnApiKeyNoDescription")}
+                              </span>
+                            </span>
+                          </label>
+                        </div>
+
+                        {!allowVirtualOnly ? (
+                          <div className="mt-5 space-y-4">
+                            {providerDocsURL ? (
+                              <div className="flex justify-end">
+                                <Button type="button" variant="link" asChild className="h-auto px-0">
+                                  <a href={providerDocsURL} target="_blank" rel="noreferrer">
+                                    {ux("integrations.wizard.grabApiKey")}
+                                    <ExternalLink data-icon="inline-end" />
+                                  </a>
+                                </Button>
+                              </div>
+                            ) : null}
+                            <Field label={ux("integrations.wizard.apiKeyLabel")} id="providerApiKey">
+                              <Input
+                                id="providerApiKey"
+                                value={apiKey}
+                                onChange={(event) => {
+                                  setAPIKey(event.target.value);
+                                  setCreateCredentialTestResult(null);
+                                }}
+                                placeholder={ux("placeholders.apiKey")}
+                              />
+                            </Field>
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              <p className="text-sm leading-6 text-muted-foreground">
+                                {ux("integrations.wizard.testConnectionDescription")}
+                              </p>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => void handleCreateCredentialTest()}
+                                disabled={!canCreateProviderAccount || isLoading || isSavingCredentials || isTesting}
+                              >
+                                {isTesting || isSavingCredentials || isLoading
+                                  ? ux("integrations.wizard.testingConnection")
+                                  : ux("integrations.wizard.testConnection")}
+                              </Button>
+                            </div>
+                            {createCredentialTestResult ? (
+                              <Alert variant={createCredentialTestResult.kind === "error" ? "destructive" : "default"}>
+                                <AlertTitle>
+                                  {createCredentialTestResult.kind === "error"
+                                    ? ux("integrations.wizard.connectionTestFailedTitle")
+                                    : ux("integrations.wizard.connectionTestSuccessTitle")}
+                                </AlertTitle>
+                                <AlertDescription>{createCredentialTestResult.message}</AlertDescription>
+                              </Alert>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </WizardPanel>
+
+                  <WizardPanel
+                    id="model-provisioning"
+                    setSectionNode={(node) => {
+                      createSectionRefs.current.models = node;
+                    }}
+                    title={ux("integrations.wizard.modelsHeaderTitle")}
+                    description={ux("integrations.wizard.modelsHeaderDescription")}
+                    footer={
+                      <Button
+                        type="button"
+                        onClick={() => void handleFinishCreateFlow()}
+                        disabled={!canManageProviderAccount || !selectedAccountID || selectedModelCount === 0 || isSavingModels}
+                      >
+                        {isSavingModels ? t("saving") : ux("integrations.wizard.createIntegration")}
+                      </Button>
+                    }
+                  >
+                    <ModelsEditor
+                      t={t}
+                      account={account}
+                      setBanner={setBanner}
+                      filteredProviderModels={filteredProviderModels}
+                      modelDrafts={modelDrafts}
+                      setModelDrafts={setModelDrafts}
+                      modelSearchQuery={modelSearchQuery}
+                      setModelSearchQuery={setModelSearchQuery}
+                      isSaving={isSavingModels}
+                      isLoadingModels={isLoadingProviderModels}
+                      canManage={canManageProviderAccount}
+                      onSave={() => void handleSaveModels()}
+                      variant="compact"
+                    />
+                  </WizardPanel>
+
+                  <WizardPanel
+                    id="access-permissions"
+                    setSectionNode={(node) => {
+                      createSectionRefs.current.access = node;
+                    }}
+                    title={ux("integrations.wizard.accessPermissions")}
+                    description={ux("integrations.wizard.accessPermissionsDescription")}
+                  >
+                    <div className="h-full min-h-64" />
+                  </WizardPanel>
+
+                  <WizardPanel
+                    id="review-confirm"
+                    setSectionNode={(node) => {
+                      createSectionRefs.current.review = node;
+                    }}
+                    title={ux("integrations.wizard.reviewConfirm")}
+                    description={ux("integrations.wizard.reviewConfirmDescription")}
+                  >
+                    <div className="h-full min-h-64" />
+                  </WizardPanel>
+                  </>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <Card id="tenant-provider-accounts" className="border-border/70 shadow-sm">

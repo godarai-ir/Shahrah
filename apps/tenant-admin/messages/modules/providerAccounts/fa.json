@@ -1,6 +1,6 @@
 {
-  "title": "حساب‌های ارائه‌دهنده مدل",
-  "description": "اتصال حساب‌های ارائه‌دهنده، فعال‌سازی مدل‌ها و مدیریت دسترسی مصرف",
+  "title": "LLM Integrations",
+  "description": "Providerهای هوش مصنوعی را وصل کنید، مدل‌ها را provision کنید و دسترسی tenant را برای routing از مسیر Godar مدیریت کنید.",
   "errorTitle": "خطا",
   "successTitle": "موفق",
   "existingAccount": "حساب ارائه‌دهنده",
@@ -211,6 +211,7 @@
       "accountActivated": "حساب فعال شد و برای اعمال سیاست‌های Runtime آماده است.",
       "catalogRefreshSuccess": "کش کاتالوگ ارائه‌دهنده با موفقیت بازآوری شد.",
       "catalogRefreshFailed": "بازآوری کاتالوگ ارائه‌دهنده ناموفق بود.",
+      "integrationCreated": "Integration با موفقیت ایجاد شد. اکنون می‌توانید PAT یا VAT بسازید.",
       "modelTypeRequired": "حداقل یک نوع مدل الزامی است",
       "privatePricingRequired": "برای قیمت‌گذاری خصوصی، هزینه ورودی یا خروجی الزامی است"
     },
@@ -287,6 +288,13 @@
         "pricing": "قیمت‌گذاری",
         "pricingUnavailable": "قیمت موجود نیست",
         "technicalMetadata": "فراداده فنی",
+        "inputFormats": "فرمت‌های ورودی",
+        "outputFormats": "فرمت‌های خروجی",
+        "capabilities": "قابلیت‌ها",
+        "invocationModes": "حالت‌های فراخوانی",
+        "fqn": "FQN مدل",
+        "customPricing": "قیمت تعدیلی",
+        "pricingPerMillion": "هزینه (یک میلیون توکن)",
         "modelId": "شناسه مدل",
         "providerId": "شناسه ارائه‌دهنده",
         "apiMode": "حالت API",
@@ -432,6 +440,102 @@
       "awsRegion": "مثال: us-east-1",
       "secretRefGoogle": "مثال: vault://gcp-service-account",
       "googleServiceJson": "{\"type\":\"service_account\", ...}"
+    },
+    "integrations": {
+      "pageTitle": "اتصال جدید به",
+      "providerDescriptionFallback": "این Provider را وصل کنید تا ترافیک tenant از مسیر Godar با credential، مدل و دسترسی مدیریت‌شده route شود.",
+      "wizard": {
+        "integrationDetails": "تنظیمات پایه اتصال",
+        "modelProvisioning": "گزینش مدل‌ها",
+        "accessPermissions": "مجوزهای دسترسی",
+        "reviewConfirm": "مرور و تایید",
+        "detailsTitle": "تنظیمات پایه اتصال",
+        "detailsDescription": "نام حساب، روش احراز هویت و اعتبارنامه‌های Provider را برای این اتصال تنظیم کنید.",
+        "nextStep": "مرحله بعد",
+        "grabApiKey": "دریافت API Key",
+        "useOwnApiKeyQuestion": "آیا مایل هستید از کلید اختصاصی خودتان استفاده کنید؟",
+        "useOwnApiKeyDescription": "در صورت استفاده از کلید اختصاصی، اتصال با اعتبارنامه Provider شما ساخته و قابل تست می‌شود.",
+        "useOwnApiKeyYes": "بله، از API Key خودم استفاده می‌کنم",
+        "useOwnApiKeyNo": "خیر",
+        "useOwnApiKeyNoDescription": "داشتن API Key الزامی نیست و می‌توانید از کلید گدار AI استفاده کنید.",
+        "apiKeyLabel": "API Key",
+        "apiKeyRequiredForTest": "برای تست اتصال، ابتدا API Key اختصاصی خود را وارد کنید.",
+        "testConnection": "تست اتصال",
+        "testingConnection": "در حال تست اتصال...",
+        "testConnectionDescription": "پس از ذخیره اعتبارنامه، اتصال بررسی می‌شود و نتیجه همین‌جا نمایش داده می‌شود.",
+        "accountSavedBeforeTest": "تنظیمات اتصال ذخیره شد. اکنون تست اتصال انجام می‌شود.",
+        "connectionTestSuccessTitle": "اتصال معتبر است",
+        "connectionTestFailedTitle": "تست اتصال ناموفق بود",
+        "connectionTestSuccess": "کلید واردشده معتبر است. پیام سرویس: {message}",
+        "connectionTestFailed": "کلید واردشده تایید نشد یا اتصال برقرار نشد. پیام سرویس: {message}",
+        "optionalFields": "فیلدهای اختیاری",
+        "advancedOptions": "تنظیمات پیشرفته",
+        "modelsHeaderTitle": "گزینش مدل‌ها",
+        "modelsHeaderDescription": "مدل‌های Provider را که باید برای این اتصال فعال شوند انتخاب کنید. بعدا هم می‌توانید تغییرشان دهید.",
+        "accessPermissionsDescription": "پیکربندی سیاست دسترسی در مرحله بعدی تکمیل می‌شود.",
+        "reviewConfirmDescription": "مرور نهایی و تایید در مرحله بعدی تکمیل می‌شود.",
+        "requestModel": "درخواست مدل",
+        "addModel": "افزودن مدل",
+        "modelsTitle": "مدل‌ها ({count})",
+        "selectedCount": "منتخب: {count}",
+        "selectAll": "انتخاب همه",
+        "selectedOnly": "فقط منتخب‌ها",
+        "deselectAll": "لغو انتخاب همه",
+        "autoEnableTitle": "مدل‌های جدید این Provider به‌صورت خودکار فعال شوند",
+        "autoEnableDescription": "اگر این گزینه فعال باشد، مدل‌های جدید این Provider به‌صورت پیش‌فرض روی این Integration در دسترس می‌شوند و بعدا می‌توانید غیرفعالشان کنید.",
+        "createIntegration": "ایجاد Integration"
+      }
+    }
+  },
+  "integrations": {
+    "pageTitle": "اتصال به ارائه‌دهندگان خدمات هوش مصنوعی",
+    "pageDescription": "ارائه‌دهنده‌های هوش مصنوعی را متصل کنید، وضعیت اتصال‌ها را ببینید و دسترسی مدل‌ها را مدیریت کنید.",
+    "tabs": {
+      "all": "همه",
+      "connected": "متصل"
+    },
+    "searchPlaceholder": "جستجوی در بین ارائه‌دهندگان خدمات هوش مصنوعی",
+    "providerFilter": "AI Providers",
+    "workspaceFilter": "Workspaces",
+    "providerDescriptionFallback": "برای اتصال این Provider، ترافیک tenant از مسیر Godar با credential، مدل و دسترسی مدیریت‌شده route می‌شود.",
+    "integrationDescriptionFallback": "Integration متصل به tenant برای مدل‌های provision شده Provider.",
+    "connectedCount": "{count} متصل",
+    "modelCount": "{count} مدل کاتالوگ",
+    "card": {
+      "activeStatus": "فعال",
+      "modelMetricLabel": "تعداد مدل‌ها",
+      "connectionMetricLabel": "وضعیت اتصال",
+      "modelUnit": "مدل",
+      "activeAccountCount": "اتصال",
+      "noConnection": "بدون اتصال",
+      "connectionRequired": "اتصال جدید مورد نیاز است",
+      "createConnection": "ایجاد اتصال جدید"
+    },
+    "actions": {
+      "connect": "اتصال",
+      "connectProvider": "اتصال Provider",
+      "manageConnections": "مدیریت اتصال‌ها",
+      "copyIdentifier": "کپی slug",
+      "editIntegration": "ویرایش Integration",
+      "manageModels": "مدیریت مدل‌ها",
+      "viewDocs": "مشاهده Docs",
+      "disconnect": "قطع اتصال",
+      "disconnecting": "در حال قطع اتصال...",
+      "readDocs": "مطالعه docs اتصال",
+      "reload": "بارگیری دوباره"
+    },
+    "empty": {
+      "connectedTitle": "هنوز هیچ LLM integrationای متصل نیست",
+      "connectedDescription": "اولین Provider را وصل کنید تا requestها از مسیر Godar route شوند.",
+      "providersTitle": "ارائه‌دهنده‌ای پیدا نشد",
+      "providersDescription": "جست‌وجو و فیلترها را تغییر دهید یا کاتالوگ ارائه‌دهنده‌ها را دوباره بارگیری کنید."
+    },
+    "messages": {
+      "loadFailed": "بارگیری LLM Integrationها ناموفق بود.",
+      "identifierCopied": "شناسه Integration کپی شد.",
+      "disconnectConfirm": "Integration «{name}» قطع شود؟",
+      "disconnectSuccess": "Integration قطع شد.",
+      "disconnectFailed": "قطع Integration ناموفق بود."
     }
   }
 }

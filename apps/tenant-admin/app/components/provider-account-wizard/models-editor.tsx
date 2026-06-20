@@ -2,12 +2,13 @@
 
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowUpDown, CheckSquare, Code2, Copy, GitCompare, RotateCcw, Search, Trash2, X } from "lucide-react";
+import { ArrowUpDown, CheckSquare, Code2, Copy, GitCompare, RotateCcw, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +20,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ModelCard, type ModelCardData } from "@/app/components/model-card";
 import {
@@ -28,6 +38,19 @@ import {
 } from "@/app/components/provider-account-wizard.models";
 import { cn } from "@/lib/utils";
 import { CodeExampleBlock } from "./code-example-block";
+import {
+  buildModelDiscoveryDetailsHref,
+  createInitialModelFilters,
+  filterAndSortProviderModels,
+  getActiveModelFilterChips,
+  getBestCompareMarkers,
+  getCompareKpis,
+  hasInvalidModelPriceRange,
+  normalizeProviderScopedModelName,
+  sortComparedModels,
+  type CompareSortMode,
+  type ModelFilterState,
+} from "./model-editor-utils";
 import type {
   Banner,
   CurlGuide,
@@ -46,7 +69,6 @@ import {
   formatDisplayPrice,
   getCurlGuideEndpoint,
   getModelCapabilities,
-  getModelDiscoveryCatalogBaseURL,
   getModelModes,
   getModelSelectionTypes,
   getTenantApiBaseURL,
@@ -117,33 +139,13 @@ export function ModelsEditor(props: {
   isLoadingModels: boolean;
   canManage: boolean;
   onSave: () => void;
+  variant?: "default" | "compact";
 }) {
   const ux = useTranslations("providerAccounts.ux");
-  type ModelFilterState = {
-    search: string;
-    minPrice: string;
-    maxPrice: string;
-    minContext: string;
-    inputModality: string;
-    outputModality: string;
-    featureFilter: string;
-    sortBy: "price_asc" | "price_desc" | "context_asc" | "context_desc";
-  };
-
-  const initialFilters: ModelFilterState = {
-    search: props.modelSearchQuery,
-    minPrice: "",
-    maxPrice: "",
-    minContext: "",
-    inputModality: "",
-    outputModality: "",
-    featureFilter: "",
-    sortBy: "price_asc",
-  };
-
-  const [filters, setFilters] = useState<ModelFilterState>(initialFilters);
+  const initialFilters = useMemo(() => createInitialModelFilters(props.modelSearchQuery), [props.modelSearchQuery]);
+  const [filters, setFilters] = useState<ModelFilterState>(() => createInitialModelFilters(props.modelSearchQuery));
   const [compareOpen, setCompareOpen] = useState(false);
-  const [compareSortBy, setCompareSortBy] = useState<"input_asc" | "output_asc" | "context_desc" | "name_asc">("input_asc");
+  const [compareSortBy, setCompareSortBy] = useState<CompareSortMode>("input_asc");
   const [compareDiffOnly, setCompareDiffOnly] = useState(false);
   const [compareNormalizedPricing, setCompareNormalizedPricing] = useState(true);
   const [displayCurrency, setDisplayCurrency] = useState<"USD" | "TOMAN">("USD");
@@ -151,6 +153,8 @@ export function ModelsEditor(props: {
   const [usdToIrr, setUsdToIrr] = useState(0);
   const [curlGuide, setCurlGuide] = useState<CurlGuide | null>(null);
   const [curlGuideShell, setCurlGuideShell] = useState<CurlGuideShell>("powershell");
+  const [autoEnableNewModels, setAutoEnableNewModels] = useState(true);
+  const [showSelectedOnly, setShowSelectedOnly] = useState(false);
   const [pricingEditor, setPricingEditor] = useState<{
     open: boolean;
     modelKey: string;
@@ -169,23 +173,62 @@ export function ModelsEditor(props: {
   const tenantBaseUrl = useMemo(() => {
     return getTenantApiBaseURL();
   }, []);
-
-  const normalizeProviderScopedModelName = useCallback((provider: string, modelName: string) => {
-    const normalizedProvider = provider.trim().toLowerCase();
-    const normalizedModelName = modelName.trim();
-    if (!normalizedProvider || !normalizedModelName) return normalizedModelName;
-    const prefix = `${normalizedProvider}/`;
-    if (normalizedModelName.toLowerCase().startsWith(prefix)) {
-      return normalizedModelName.slice(prefix.length);
-    }
-    return normalizedModelName;
-  }, []);
+  const modelCardLabels = useMemo(
+    () => ({
+      context: ux("models.card.context"),
+      maxOutput: ux("models.card.maxOutput"),
+      input: ux("models.labels.input"),
+      output: ux("models.labels.output"),
+      latency: ux("models.card.latency"),
+      quality: ux("models.card.quality"),
+      pricing: ux("models.card.pricing"),
+      pricingUnavailable: ux("models.card.pricingUnavailable"),
+      technicalMetadata: ux("models.card.technicalMetadata"),
+      inputFormats: ux("models.card.inputFormats"),
+      outputFormats: ux("models.card.outputFormats"),
+      capabilities: ux("models.card.capabilities"),
+      invocationModes: ux("models.card.invocationModes"),
+      fqn: ux("models.card.fqn"),
+      customPricing: ux("models.card.customPricing"),
+      pricingPerMillion: ux("models.card.pricingPerMillion"),
+      modelId: ux("models.card.modelId"),
+      providerId: ux("models.card.providerId"),
+      apiMode: ux("models.card.apiMode"),
+      releaseDate: ux("models.card.releaseDate"),
+      knowledgeCutoff: ux("models.card.knowledgeCutoff"),
+      regions: ux("models.card.regions"),
+      rateLimitNotes: ux("models.card.rateLimitNotes"),
+      license: ux("models.card.license"),
+      viewDetails: ux("models.card.viewDetails"),
+      copyId: ux("models.card.copyFqn"),
+      copied: ux("models.card.copied"),
+      lowerCost: ux("models.card.lowerCost"),
+      recommended: ux("models.card.recommended"),
+      popular: ux("models.card.popular"),
+      tradeOffs: ux("models.card.tradeOffs"),
+      cachedInput: ux("models.card.cachedInput"),
+      image: ux("models.card.image"),
+      audio: ux("models.card.audio"),
+      statusStable: ux("models.card.statusStable"),
+      statusPreview: ux("models.card.statusPreview"),
+      statusDeprecated: ux("models.card.statusDeprecated"),
+      statusNew: ux("models.card.statusNew"),
+      categoryChat: ux("models.card.categoryChat"),
+      categoryReasoning: ux("models.card.categoryReasoning"),
+      categoryEmbedding: ux("models.card.categoryEmbedding"),
+      categoryVision: ux("models.card.categoryVision"),
+      categoryAudio: ux("models.card.categoryAudio"),
+      categoryCode: ux("models.card.categoryCode"),
+      categoryMultimodal: ux("models.card.categoryMultimodal"),
+    }),
+    [ux],
+  );
 
   const buildModelFqn = useCallback((modelValue: ProviderCatalogModel) => {
     if (!props.account) return modelValue.model;
     const officialModel = normalizeProviderScopedModelName(props.account.provider, modelValue.model);
     return `${props.account.provider}:${props.account.name}:${officialModel}`;
-  }, [normalizeProviderScopedModelName, props.account]);
+  }, [props.account]);
 
   const openCurlGuide = useCallback((modelValue: ProviderCatalogModel) => {
     const modelFqn = buildModelFqn(modelValue);
@@ -214,7 +257,7 @@ export function ModelsEditor(props: {
       },
       sampleResponse: buildCurlGuideSampleResponse(guideMode, officialModel),
     });
-  }, [buildModelFqn, normalizeProviderScopedModelName, tenantBaseUrl]);
+  }, [buildModelFqn, tenantBaseUrl]);
 
   const comparedModels = useMemo(
     () => props.filteredProviderModels.filter((model) => props.modelDrafts[model.model]?.compared),
@@ -225,6 +268,7 @@ export function ModelsEditor(props: {
     [props.filteredProviderModels, props.modelDrafts],
   );
   const availableFilteredModelsCount = Math.max(props.filteredProviderModels.length - enabledFilteredModelsCount, 0);
+  const selectedOnlyActive = showSelectedOnly && enabledFilteredModelsCount > 0;
 
   const allInputModalities = useMemo(
     () => Array.from(new Set(props.filteredProviderModels.flatMap((model) => model.input_modalities ?? []))),
@@ -239,45 +283,21 @@ export function ModelsEditor(props: {
     [props.filteredProviderModels],
   );
 
-  const visibleModels = useMemo(() => {
-    const minPriceValue = toNumberOrUndefined(filters.minPrice);
-    const maxPriceValue = toNumberOrUndefined(filters.maxPrice);
-    const minContextValue = toNumberOrUndefined(filters.minContext);
-    const filtered = props.filteredProviderModels.filter((model) => {
-      const inputPrice = model.public_pricing?.input_usd_per_1m;
-      const context = model.context_window;
-      if (typeof minPriceValue === "number" && (typeof inputPrice !== "number" || inputPrice < minPriceValue)) return false;
-      if (typeof maxPriceValue === "number" && (typeof inputPrice !== "number" || inputPrice > maxPriceValue)) return false;
-      if (typeof minContextValue === "number" && (typeof context !== "number" || context < minContextValue)) return false;
-      if (filters.inputModality && !(model.input_modalities ?? []).includes(filters.inputModality)) return false;
-      if (filters.outputModality && !(model.output_modalities ?? []).includes(filters.outputModality)) return false;
-      if (filters.featureFilter && !getModelCapabilities(model).includes(filters.featureFilter)) return false;
-      return true;
-    });
-
-    const sorted = [...filtered];
-    sorted.sort((a, b) => {
-      const aEnabled = props.modelDrafts[a.model]?.enabled ? 1 : 0;
-      const bEnabled = props.modelDrafts[b.model]?.enabled ? 1 : 0;
-      if (aEnabled !== bEnabled) return bEnabled - aEnabled;
-      const aPrice = a.public_pricing?.input_usd_per_1m ?? Number.POSITIVE_INFINITY;
-      const bPrice = b.public_pricing?.input_usd_per_1m ?? Number.POSITIVE_INFINITY;
-      const aContext = a.context_window ?? 0;
-      const bContext = b.context_window ?? 0;
-      switch (filters.sortBy) {
-        case "price_desc":
-          return bPrice - aPrice;
-        case "context_asc":
-          return aContext - bContext;
-        case "context_desc":
-          return bContext - aContext;
-        case "price_asc":
-        default:
-          return aPrice - bPrice;
-      }
-    });
-    return sorted;
-  }, [filters.featureFilter, filters.inputModality, filters.maxPrice, filters.minContext, filters.minPrice, filters.outputModality, filters.sortBy, props.filteredProviderModels, props.modelDrafts]);
+  const visibleModels = useMemo(
+    () =>
+      filterAndSortProviderModels({
+        models: props.filteredProviderModels,
+        filters,
+        isSelectedOnly: selectedOnlyActive,
+        isModelEnabled: (modelKey) => Boolean(props.modelDrafts[modelKey]?.enabled),
+      }),
+    [filters, props.filteredProviderModels, props.modelDrafts, selectedOnlyActive],
+  );
+  const visibleSelectedModelsCount = useMemo(
+    () => visibleModels.filter((model) => props.modelDrafts[model.model]?.enabled).length,
+    [props.modelDrafts, visibleModels],
+  );
+  const allVisibleModelsSelected = visibleModels.length > 0 && visibleSelectedModelsCount === visibleModels.length;
 
   const resetFilters = () => {
     setFilters((prev) => ({
@@ -286,74 +306,26 @@ export function ModelsEditor(props: {
     }));
   };
 
-  const activeFilters = useMemo(() => {
-    const chips: Array<{ key: keyof ModelFilterState; label: string }> = [];
-    if (filters.minPrice.trim()) chips.push({ key: "minPrice", label: `${ux("models.filters.minPrice")}: ${filters.minPrice}` });
-    if (filters.maxPrice.trim()) chips.push({ key: "maxPrice", label: `${ux("models.filters.maxPrice")}: ${filters.maxPrice}` });
-    if (filters.minContext.trim()) chips.push({ key: "minContext", label: `${ux("models.filters.minContext")}: ${filters.minContext}` });
-    if (filters.inputModality.trim()) chips.push({ key: "inputModality", label: `${ux("models.filters.allInputModalities")}: ${filters.inputModality}` });
-    if (filters.outputModality.trim()) chips.push({ key: "outputModality", label: `${ux("models.filters.allOutputModalities")}: ${filters.outputModality}` });
-    if (filters.featureFilter.trim()) chips.push({ key: "featureFilter", label: `${ux("models.filters.allFeatures")}: ${filters.featureFilter}` });
-    return chips;
-  }, [filters.featureFilter, filters.inputModality, filters.maxPrice, filters.minContext, filters.minPrice, filters.outputModality, ux]);
+  const activeFilters = useMemo(
+    () =>
+      getActiveModelFilterChips(filters, {
+        minPrice: ux("models.filters.minPrice"),
+        maxPrice: ux("models.filters.maxPrice"),
+        minContext: ux("models.filters.minContext"),
+        allInputModalities: ux("models.filters.allInputModalities"),
+        allOutputModalities: ux("models.filters.allOutputModalities"),
+        allFeatures: ux("models.filters.allFeatures"),
+      }),
+    [filters, ux],
+  );
 
-  const hasInvalidPriceRange = useMemo(() => {
-    const min = toNumberOrUndefined(filters.minPrice);
-    const max = toNumberOrUndefined(filters.maxPrice);
-    if (typeof min !== "number" || typeof max !== "number") return false;
-    return min > max;
-  }, [filters.maxPrice, filters.minPrice]);
+  const hasInvalidPriceRange = useMemo(() => hasInvalidModelPriceRange(filters), [filters]);
 
-  const compareModels = useMemo(() => {
-    const items = [...comparedModels];
-    items.sort((a, b) => {
-      const aInput = a.public_pricing?.input_usd_per_1m ?? Number.POSITIVE_INFINITY;
-      const bInput = b.public_pricing?.input_usd_per_1m ?? Number.POSITIVE_INFINITY;
-      const aOutput = a.public_pricing?.output_usd_per_1m ?? Number.POSITIVE_INFINITY;
-      const bOutput = b.public_pricing?.output_usd_per_1m ?? Number.POSITIVE_INFINITY;
-      const aContext = a.context_window ?? 0;
-      const bContext = b.context_window ?? 0;
-      const aName = (a.display_name || a.model).toLowerCase();
-      const bName = (b.display_name || b.model).toLowerCase();
-      switch (compareSortBy) {
-        case "output_asc":
-          return aOutput - bOutput;
-        case "context_desc":
-          return bContext - aContext;
-        case "name_asc":
-          return aName.localeCompare(bName);
-        case "input_asc":
-        default:
-          return aInput - bInput;
-      }
-    });
-    return items;
-  }, [compareSortBy, comparedModels]);
+  const compareModels = useMemo(() => sortComparedModels(comparedModels, compareSortBy), [compareSortBy, comparedModels]);
 
-  const compareKpis = useMemo(() => {
-    const validInput = compareModels.filter((item) => typeof item.public_pricing?.input_usd_per_1m === "number");
-    const validOutput = compareModels.filter((item) => typeof item.public_pricing?.output_usd_per_1m === "number");
-    const validContext = compareModels.filter((item) => typeof item.context_window === "number");
-    const cheapestInput = validInput.sort((a, b) => (a.public_pricing?.input_usd_per_1m ?? 0) - (b.public_pricing?.input_usd_per_1m ?? 0))[0];
-    const cheapestOutput = validOutput.sort((a, b) => (a.public_pricing?.output_usd_per_1m ?? 0) - (b.public_pricing?.output_usd_per_1m ?? 0))[0];
-    const largestContext = validContext.sort((a, b) => (b.context_window ?? 0) - (a.context_window ?? 0))[0];
-    const maxFeatures = compareModels.reduce((best, item) => {
-      const count = getModelCapabilities(item).length;
-      return count > best.count ? { model: item, count } : best;
-    }, { model: null as ProviderCatalogModel | null, count: -1 });
-    return { cheapestInput, cheapestOutput, largestContext, mostFeatures: maxFeatures.model };
-  }, [compareModels]);
+  const compareKpis = useMemo(() => getCompareKpis(compareModels), [compareModels]);
 
-  const bestMarkers = useMemo(() => {
-    const minInput = Math.min(...compareModels.map((item) => item.public_pricing?.input_usd_per_1m ?? Number.POSITIVE_INFINITY));
-    const minOutput = Math.min(...compareModels.map((item) => item.public_pricing?.output_usd_per_1m ?? Number.POSITIVE_INFINITY));
-    const maxContext = Math.max(...compareModels.map((item) => item.context_window ?? 0));
-    return {
-      input: Number.isFinite(minInput) ? minInput : null,
-      output: Number.isFinite(minOutput) ? minOutput : null,
-      context: maxContext > 0 ? maxContext : null,
-    };
-  }, [compareModels]);
+  const bestMarkers = useMemo(() => getBestCompareMarkers(compareModels), [compareModels]);
 
   const compareRows = useMemo(() => {
     const rows = [
@@ -485,12 +457,112 @@ export function ModelsEditor(props: {
     setPricingEditor((prev) => ({ ...prev, open: false, error: "" }));
   };
 
-  const toModelCardData = (model: ProviderCatalogModel): ModelCardData => {
+  const renderPricingEditorContent = (model: ProviderCatalogModel) => (
+    <PopoverContent align="start" className="w-72 p-3">
+      <div className="flex flex-col gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium">{ux("models.actions.editPricing")}</p>
+          <p className="truncate text-xs text-muted-foreground" dir="ltr" title={model.display_name || model.model}>
+            {model.display_name || model.model}
+          </p>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>{ux("models.columns.pricingMode")}</Label>
+          <Select
+            value={pricingEditor.pricingMode}
+            onValueChange={(value) =>
+              setPricingEditor((prev) => ({
+                ...prev,
+                pricingMode: value as "public" | "private",
+                error: "",
+              }))
+            }
+          >
+            <SelectTrigger className="h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="public">{ux("models.pricing.public")}</SelectItem>
+                <SelectItem value="private">{ux("models.pricing.private")}</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </div>
+        {pricingEditor.pricingMode === "private" ? (
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <Label>{ux("models.labels.input")}</Label>
+              <Input
+                className="h-8"
+                value={pricingEditor.inputPrice}
+                onChange={(event) => setPricingEditor((prev) => ({ ...prev, inputPrice: event.target.value, error: "" }))}
+                placeholder={ux("models.placeholders.input")}
+                dir="ltr"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>{ux("models.labels.output")}</Label>
+              <Input
+                className="h-8"
+                value={pricingEditor.outputPrice}
+                onChange={(event) => setPricingEditor((prev) => ({ ...prev, outputPrice: event.target.value, error: "" }))}
+                placeholder={ux("models.placeholders.output")}
+                dir="ltr"
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-md border border-border/70 bg-muted/30 p-2 text-xs text-muted-foreground">
+            <div className="font-medium text-foreground">{ux("models.catalogPricing")}</div>
+            <div className="mt-1 flex items-center justify-between gap-2">
+              <span>{ux("models.labels.input")}</span>
+              <span dir="ltr">
+                {formatDisplayPrice(model.public_pricing?.input_usd_per_1m, { currency: displayCurrency, scale: displayScale, usdToIrr, naLabel: ux("models.na") })}
+              </span>
+            </div>
+            <div className="mt-1 flex items-center justify-between gap-2">
+              <span>{ux("models.labels.output")}</span>
+              <span dir="ltr">
+                {formatDisplayPrice(model.public_pricing?.output_usd_per_1m, { currency: displayCurrency, scale: displayScale, usdToIrr, naLabel: ux("models.na") })}
+              </span>
+            </div>
+          </div>
+        )}
+        {pricingEditor.error ? (
+          <p className="text-xs text-destructive">{pricingEditor.error}</p>
+        ) : null}
+        <div className="flex justify-end gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setPricingEditor((prev) => ({ ...prev, open: false, error: "" }))}
+          >
+            {ux("models.actions.cancel")}
+          </Button>
+          <Button type="button" size="sm" onClick={applyPricingEditor}>
+            {ux("models.actions.apply")}
+          </Button>
+        </div>
+      </div>
+    </PopoverContent>
+  );
+
+  const toModelCardData = (model: ProviderCatalogModel, draft?: ModelDraft): ModelCardData => {
     const modes = getModelModes(model);
     const caps = getModelCapabilities(model);
     const selectionTypes = getModelSelectionTypes(model);
     const inputModalities = normalizeCapabilityList(model.input_modalities);
     const outputModalities = normalizeCapabilityList(model.output_modalities);
+    const privateInputPrice = toNumberOrUndefined(draft?.inputPrice ?? "");
+    const privateOutputPrice = toNumberOrUndefined(draft?.outputPrice ?? "");
+    const inputPrice = draft?.pricingMode === "private" && typeof privateInputPrice === "number"
+      ? privateInputPrice
+      : model.public_pricing?.input_usd_per_1m;
+    const outputPrice = draft?.pricingMode === "private" && typeof privateOutputPrice === "number"
+      ? privateOutputPrice
+      : model.public_pricing?.output_usd_per_1m;
     const categories: ModelCardData["category"] = [];
     if (modes.includes("embedding") || selectionTypes.includes("embedding")) categories.push("embedding");
     if (caps.some((c) => c.toLowerCase().includes("vision") || c.toLowerCase().includes("image")) || inputModalities.includes("image") || outputModalities.includes("image")) categories.push("vision");
@@ -514,34 +586,22 @@ export function ModelsEditor(props: {
       contextWindow: model.context_window,
       maxOutputTokens: undefined,
       pricing: {
-        inputPerMillion: model.public_pricing?.input_usd_per_1m,
-        outputPerMillion: model.public_pricing?.output_usd_per_1m,
+        inputPerMillion: inputPrice,
+        outputPerMillion: outputPrice,
       },
       latencyTier: "medium",
       qualityTier: "good",
       capabilities: caps,
+      inputModalities,
+      outputModalities,
+      invocationModes: modes.length ? modes : selectionTypes,
       tradeoffs: [],
       metadata: {
         modelId: modelFqn,
+        fqn: modelFqn,
         mode: modes.join(", ") || undefined,
       },
     };
-  };
-
-  const buildModelDiscoveryDetailsHref = (model: ProviderCatalogModel): string => {
-    const base =
-      process.env.NEXT_PUBLIC_MODEL_DISCOVERY_APP_URL?.replace(/\/$/, "") ??
-      getModelDiscoveryCatalogBaseURL();
-    const provider = encodeURIComponent(model.provider);
-    const canonical = model.model.startsWith(`${model.provider}/`)
-      ? model.model.slice(model.provider.length + 1)
-      : model.model;
-    const path = canonical
-      .split("/")
-      .filter(Boolean)
-      .map((part) => encodeURIComponent(part))
-      .join("/");
-    return `${base}/models/${provider}/${path || encodeURIComponent(model.model)}`;
   };
 
   useEffect(() => {
@@ -566,6 +626,186 @@ export function ModelsEditor(props: {
       canceled = true;
     };
   }, []);
+
+  if (props.variant === "compact") {
+    return (
+      <section className="flex flex-col gap-5">
+        <div className="min-w-0 overflow-hidden rounded-lg border border-border bg-background p-4">
+          <div className="flex flex-col gap-4">
+            <div dir="rtl" className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0 text-right">
+                <h3 dir="rtl" className="text-base font-semibold">
+                  {ux("integrations.wizard.modelsTitle", { count: props.filteredProviderModels.length })}
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {ux("integrations.wizard.selectedCount", { count: enabledFilteredModelsCount })}
+                </p>
+              </div>
+              <div className="relative w-full lg:max-w-md">
+                <Search className="pointer-events-none absolute end-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  dir="rtl"
+                  value={filters.search}
+                  onChange={(event) => setFilters((prev) => ({ ...prev, search: event.target.value }))}
+                  placeholder={props.t("step3.searchPlaceholder")}
+                  className="h-10 pe-9 text-right placeholder:text-right"
+                />
+              </div>
+            </div>
+            <div
+              dir="rtl"
+              className="flex flex-col gap-3 rounded-md border border-border/70 bg-muted/20 p-3 text-right sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="secondary">
+                  {ux("models.summary.showing", { visible: visibleModels.length, total: props.filteredProviderModels.length })}
+                </Badge>
+                <Badge variant={enabledFilteredModelsCount > 0 ? "default" : "outline"}>
+                  {ux("integrations.wizard.selectedCount", { count: enabledFilteredModelsCount })}
+                </Badge>
+              </div>
+              <div className="flex flex-wrap items-center gap-4 text-sm">
+                <label
+                  htmlFor="compact-select-all-models"
+                  className="inline-flex cursor-pointer flex-row items-center gap-2 text-foreground has-[:disabled]:pointer-events-none has-[:disabled]:opacity-50"
+                >
+                  <Checkbox
+                    id="compact-select-all-models"
+                    checked={allVisibleModelsSelected}
+                    disabled={!props.canManage || visibleModels.length === 0}
+                    onCheckedChange={(checked) =>
+                      props.setModelDrafts((prev) =>
+                        checked === true
+                          ? toggleVisibleModelSelection(visibleModels, prev)
+                          : clearVisibleModelSelection(visibleModels, prev),
+                      )
+                    }
+                  />
+                  <span>{ux("integrations.wizard.selectAll")}</span>
+                </label>
+                <label
+                  htmlFor="compact-selected-only-models"
+                  className="inline-flex cursor-pointer flex-row items-center gap-2 text-foreground has-[:disabled]:pointer-events-none has-[:disabled]:opacity-50"
+                >
+                  <Checkbox
+                    id="compact-selected-only-models"
+                    checked={selectedOnlyActive}
+                    disabled={enabledFilteredModelsCount === 0}
+                    onCheckedChange={(checked) => setShowSelectedOnly(checked === true)}
+                  />
+                  <span>{ux("integrations.wizard.selectedOnly")}</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {props.isLoadingModels ? (
+            <div className="mt-4 grid min-w-0 gap-3">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <Skeleton key={`compact-model-skeleton-${index}`} className="h-24 rounded-xl" />
+              ))}
+            </div>
+          ) : visibleModels.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">{props.t("step3.empty")}</p>
+          ) : (
+            <div className="mt-4 grid min-w-0 gap-3">
+              {visibleModels.map((model) => {
+                const availableCapabilities = getModelSelectionTypes(model);
+                const draft = props.modelDrafts[model.model] ?? {
+                  enabled: false,
+                  compared: false,
+                  selectedCapabilities: availableCapabilities.length === 1 ? availableCapabilities : [],
+                  pricingMode: "public" as const,
+                  inputPrice: model.public_pricing?.input_usd_per_1m?.toString() ?? "",
+                  outputPrice: model.public_pricing?.output_usd_per_1m?.toString() ?? "",
+                };
+
+                return (
+                  <Popover
+                    key={model.model}
+                    open={pricingEditor.open && pricingEditor.modelKey === model.model}
+                    onOpenChange={(open) => {
+                      if (!open) {
+                        setPricingEditor((prev) => ({ ...prev, open: false, error: "" }));
+                      } else {
+                        openPricingEditor(model);
+                      }
+                    }}
+                  >
+                    <div className="min-w-0">
+                      <ModelCard
+                        model={toModelCardData(model, draft)}
+                        detailsHref={buildModelDiscoveryDetailsHref(model)}
+                        pricingDisplay={{
+                          currency: displayCurrency,
+                          scale: displayScale,
+                          usdToIrr,
+                        }}
+                        isSelected={draft.enabled}
+                        onSelectedChange={(checked) =>
+                          props.setModelDrafts((prev) => ({
+                            ...prev,
+                            [model.model]: {
+                              ...draft,
+                              enabled: checked,
+                              selectedCapabilities:
+                                checked && draft.selectedCapabilities.length === 0 && availableCapabilities.length === 1
+                                  ? availableCapabilities
+                                  : draft.selectedCapabilities,
+                            },
+                          }))
+                        }
+                        selectedCheckboxLabel={ux("common.enabled")}
+                        stateBadge={
+                          draft.enabled
+                            ? { label: ux("models.state.enabledOnAccount"), tone: "active" as const }
+                            : { label: ux("models.state.availableToAdd"), tone: "inactive" as const }
+                        }
+                        pricingModeBadge={draft.pricingMode === "private" ? ux("models.pricing.private") : ux("models.pricing.public")}
+                        hasCustomPricing={draft.pricingMode === "private"}
+                        className={draft.enabled ? "border-emerald-500/70" : undefined}
+                        pricingAction={
+                          <PopoverTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="size-7"
+                              disabled={!props.canManage}
+                              aria-label={`${ux("models.actions.editPricing")} ${model.display_name || model.model}`}
+                              onClick={() => openPricingEditor(model)}
+                            >
+                              <SlidersHorizontal className="h-3.5 w-3.5" />
+                            </Button>
+                          </PopoverTrigger>
+                        }
+                        footerActions={
+                          <Button type="button" variant="outline" size="sm" className="gap-1" onClick={() => openCurlGuide(model)}>
+                            <Code2 className="h-3.5 w-3.5" />
+                            {ux("models.card.curlGuide")}
+                          </Button>
+                        }
+                        labels={modelCardLabels}
+                      />
+                    </div>
+                    {renderPricingEditorContent(model)}
+                  </Popover>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-start gap-3 rounded-xl border border-border bg-background p-4">
+          <Switch checked={autoEnableNewModels} onCheckedChange={setAutoEnableNewModels} aria-label={ux("integrations.wizard.autoEnableTitle")} />
+          <div className="space-y-1">
+            <p className="text-sm font-medium">{ux("integrations.wizard.autoEnableTitle")}</p>
+            <p className="text-sm text-muted-foreground">{ux("integrations.wizard.autoEnableDescription")}</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="space-y-3 rounded-lg border p-4">
@@ -751,9 +991,9 @@ export function ModelsEditor(props: {
                     }
                   }}
                 >
-                  <div className="space-y-2">
+                  <div className="min-w-0 space-y-2">
                     <ModelCard
-                      model={toModelCardData(model)}
+                      model={toModelCardData(model, draft)}
                       detailsHref={buildModelDiscoveryDetailsHref(model)}
                       pricingDisplay={{
                         currency: displayCurrency,
@@ -789,7 +1029,8 @@ export function ModelsEditor(props: {
                       }
                       compareCheckboxLabel={ux("models.actions.compareToggle")}
                       pricingModeBadge={draft.pricingMode === "private" ? ux("models.pricing.private") : ux("models.pricing.public")}
-                      className={draft.enabled ? "ring-1 ring-emerald-500/20" : undefined}
+                      hasCustomPricing={draft.pricingMode === "private"}
+                      className={draft.enabled ? "border-emerald-500/70" : undefined}
                       footerActions={
                         <Button type="button" variant="outline" size="sm" className="gap-1" onClick={() => openCurlGuide(model)}>
                           <Code2 className="h-3.5 w-3.5" />
@@ -801,55 +1042,17 @@ export function ModelsEditor(props: {
                           <Button
                             type="button"
                             variant="outline"
-                            size="sm"
+                            size="icon"
+                            className="size-7"
                             disabled={!props.canManage}
                             aria-label={`${ux("models.actions.editPricing")} ${model.display_name || model.model}`}
                             onClick={() => openPricingEditor(model)}
                           >
-                            {ux("models.actions.editPricing")}
+                            <SlidersHorizontal className="h-3.5 w-3.5" />
                           </Button>
                         </PopoverTrigger>
                       }
-                      labels={{
-                        context: ux("models.card.context"),
-                        maxOutput: ux("models.card.maxOutput"),
-                        input: ux("models.labels.input"),
-                        output: ux("models.labels.output"),
-                        latency: ux("models.card.latency"),
-                        quality: ux("models.card.quality"),
-                        pricing: ux("models.card.pricing"),
-                        pricingUnavailable: ux("models.card.pricingUnavailable"),
-                        technicalMetadata: ux("models.card.technicalMetadata"),
-                        modelId: ux("models.card.modelId"),
-                        providerId: ux("models.card.providerId"),
-                        apiMode: ux("models.card.apiMode"),
-                        releaseDate: ux("models.card.releaseDate"),
-                        knowledgeCutoff: ux("models.card.knowledgeCutoff"),
-                        regions: ux("models.card.regions"),
-                        rateLimitNotes: ux("models.card.rateLimitNotes"),
-                        license: ux("models.card.license"),
-                        viewDetails: ux("models.card.viewDetails"),
-                        copyId: ux("models.card.copyFqn"),
-                        copied: ux("models.card.copied"),
-                        lowerCost: ux("models.card.lowerCost"),
-                        recommended: ux("models.card.recommended"),
-                        popular: ux("models.card.popular"),
-                        tradeOffs: ux("models.card.tradeOffs"),
-                        cachedInput: ux("models.card.cachedInput"),
-                        image: ux("models.card.image"),
-                        audio: ux("models.card.audio"),
-                        statusStable: ux("models.card.statusStable"),
-                        statusPreview: ux("models.card.statusPreview"),
-                        statusDeprecated: ux("models.card.statusDeprecated"),
-                        statusNew: ux("models.card.statusNew"),
-                        categoryChat: ux("models.card.categoryChat"),
-                        categoryReasoning: ux("models.card.categoryReasoning"),
-                        categoryEmbedding: ux("models.card.categoryEmbedding"),
-                        categoryVision: ux("models.card.categoryVision"),
-                        categoryAudio: ux("models.card.categoryAudio"),
-                        categoryCode: ux("models.card.categoryCode"),
-                        categoryMultimodal: ux("models.card.categoryMultimodal"),
-                      }}
+                      labels={modelCardLabels}
                     />
                     {draft.enabled && availableCapabilities.length > 0 ? (
                       <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
@@ -899,65 +1102,7 @@ export function ModelsEditor(props: {
                       </div>
                     ) : null}
                   </div>
-                  <PopoverContent align="start" className="w-80 space-y-3">
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium">{ux("models.actions.editPricing")}</p>
-                      <p className="text-xs text-muted-foreground">{model.display_name || model.model}</p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>{ux("models.columns.pricingMode")}</Label>
-                      <select
-                        className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                        value={pricingEditor.pricingMode}
-                        onChange={(event) =>
-                          setPricingEditor((prev) => ({
-                            ...prev,
-                            pricingMode: event.target.value as "public" | "private",
-                            error: "",
-                          }))
-                        }
-                      >
-                        <option value="public">{ux("models.pricing.public")}</option>
-                        <option value="private">{ux("models.pricing.private")}</option>
-                      </select>
-                    </div>
-                    {pricingEditor.pricingMode === "private" ? (
-                      <div className="space-y-2">
-                        <Input
-                          value={pricingEditor.inputPrice}
-                          onChange={(event) => setPricingEditor((prev) => ({ ...prev, inputPrice: event.target.value, error: "" }))}
-                          placeholder={ux("models.placeholders.input")}
-                        />
-                        <Input
-                          value={pricingEditor.outputPrice}
-                          onChange={(event) => setPricingEditor((prev) => ({ ...prev, outputPrice: event.target.value, error: "" }))}
-                          placeholder={ux("models.placeholders.output")}
-                        />
-                      </div>
-                    ) : (
-                      <div className="space-y-1 text-xs text-muted-foreground">
-                        <div>{ux("models.catalogPricing")}</div>
-                        <div>{ux("models.labels.input")}: {formatDisplayPrice(model.public_pricing?.input_usd_per_1m, { currency: displayCurrency, scale: displayScale, usdToIrr, naLabel: ux("models.na") })}</div>
-                        <div>{ux("models.labels.output")}: {formatDisplayPrice(model.public_pricing?.output_usd_per_1m, { currency: displayCurrency, scale: displayScale, usdToIrr, naLabel: ux("models.na") })}</div>
-                      </div>
-                    )}
-                    {pricingEditor.error ? (
-                      <p className="text-xs text-destructive">{pricingEditor.error}</p>
-                    ) : null}
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setPricingEditor((prev) => ({ ...prev, open: false, error: "" }))}
-                      >
-                        {ux("models.actions.cancel")}
-                      </Button>
-                      <Button type="button" size="sm" onClick={applyPricingEditor}>
-                        {ux("models.actions.apply")}
-                      </Button>
-                    </div>
-                  </PopoverContent>
+                  {renderPricingEditorContent(model)}
                 </Popover>
             );
           })}
@@ -1028,7 +1173,7 @@ export function ModelsEditor(props: {
                   className="sticky top-0 z-10 grid border-b bg-background"
                   style={{ gridTemplateColumns: `240px repeat(${compareModels.length}, minmax(220px, 1fr))` }}
                 >
-                  <div className="sticky left-0 z-20 border-e bg-background p-3 text-sm font-semibold">{ux("models.compare.columns.attribute")}</div>
+                  <div className="sticky start-0 z-20 border-e bg-background p-3 text-sm font-semibold">{ux("models.compare.columns.attribute")}</div>
                   {compareModels.map((model) => (
                     <div key={`compare-head-${model.model}`} className="border-s px-3 py-3">
                       <div className="flex items-start justify-between gap-2">
@@ -1055,12 +1200,12 @@ export function ModelsEditor(props: {
                       className="grid border-b bg-muted/40"
                       style={{ gridTemplateColumns: `240px repeat(${compareModels.length}, minmax(220px, 1fr))` }}
                     >
-                      <div className="sticky left-0 z-[1] border-e bg-muted/50 p-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{sectionLabel}</div>
+                      <div className="sticky start-0 z-[1] border-e bg-muted/50 p-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{sectionLabel}</div>
                       {compareModels.map((model) => <div key={`${sectionKey}-${model.model}`} className="border-s p-2" />)}
                     </div>
                     {visibleCompareRows.filter((row) => row.section === sectionKey).map((row) => (
                       <div key={row.key} className="grid border-b" style={{ gridTemplateColumns: `240px repeat(${compareModels.length}, minmax(220px, 1fr))` }}>
-                        <div className="sticky left-0 z-[1] border-e bg-background p-3 text-sm font-medium">{row.label}</div>
+                        <div className="sticky start-0 z-[1] border-e bg-background p-3 text-sm font-medium">{row.label}</div>
                         {row.values.map((value, index) => {
                           const model = compareModels[index];
                           const isBestInput = row.key === "input" && typeof value === "number" && value === bestMarkers.input;

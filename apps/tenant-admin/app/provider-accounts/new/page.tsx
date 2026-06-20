@@ -5,7 +5,14 @@ import { requireAuth } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function NewProviderAccountPage() {
+type NewProviderAccountPageProps = {
+  searchParams?: Promise<{
+    provider?: string;
+  }>;
+};
+
+export default async function NewProviderAccountPage({ searchParams }: NewProviderAccountPageProps) {
+  const params = (await searchParams) ?? {};
   const auth = await requireAuth("/login?next=/provider-accounts/new");
   const tenantSlug = auth.tenantSlug;
   await requirePermissionOr403(tenantSlug, auth.user.id, ["provider_account:create"]);
@@ -19,7 +26,7 @@ export default async function NewProviderAccountPage() {
 
   return (
     <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
-      <ProviderAccountWizard mode="create" />
+      <ProviderAccountWizard mode="create" initialProvider={params.provider} />
     </AdminShell>
   );
 }

@@ -29,6 +29,9 @@ export type AccessPrincipalCandidate = {
 export type ProviderCatalogProvider = {
   provider: string;
   display_name: string;
+  description?: string;
+  docs_url?: string;
+  docsUrl?: string;
   logo_url?: string;
   enabled: boolean;
   auth_modes: ProviderAuthMode[];

@@ -5,6 +5,7 @@ import { getLocale, getMessages } from "next-intl/server";
 
 import { QueryProvider } from "@/app/components/query-provider";
 import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
 
 import "./globals.css";
 
@@ -50,6 +51,7 @@ export default async function RootLayout({
           <QueryProvider>
             <ThemeProvider defaultTheme="light" disableTransitionOnChange>
               {children}
+              <Toaster position="top-center" richColors />
             </ThemeProvider>
           </QueryProvider>
         </NextIntlClientProvider>

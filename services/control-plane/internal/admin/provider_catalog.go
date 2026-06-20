@@ -55,6 +55,8 @@ var discoveryTelemetry discoveryTelemetryCounters
 type discoveryProvider struct {
 	Slug                    string `json:"slug"`
 	Name                    string `json:"name"`
+	Description             string `json:"description"`
+	DocsURL                 string `json:"docsUrl"`
 	LogoURL                 string `json:"logoUrl"`
 	Enabled                 bool   `json:"enabled"`
 	SupportsByok            bool   `json:"supportsByok"`
@@ -561,6 +563,8 @@ func mapDiscoveryProviders(items []discoveryProvider) []platform.ProviderCatalog
 		out = append(out, platform.ProviderCatalogProvider{
 			Provider:                provider,
 			DisplayName:             displayName,
+			Description:             strings.TrimSpace(item.Description),
+			DocsURL:                 strings.TrimSpace(item.DocsURL),
 			LogoURL:                 strings.TrimSpace(item.LogoURL),
 			Enabled:                 item.Enabled,
 			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
@@ -729,6 +733,8 @@ func normalizeProviders(items []platform.ProviderCatalogProvider) []platform.Pro
 		if item.DisplayName == "" {
 			item.DisplayName = item.Provider
 		}
+		item.Description = strings.TrimSpace(item.Description)
+		item.DocsURL = strings.TrimSpace(item.DocsURL)
 		if len(item.AuthModes) == 0 {
 			item.AuthModes = []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey}
 		}

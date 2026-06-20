@@ -1,6 +1,6 @@
 {
-  "title": "Model Provider Accounts",
-  "description": "Connect provider accounts, enable models, and manage usage access at tenant level.",
+  "title": "LLM Integrations",
+  "description": "Connect AI providers, provision models, and manage tenant access for Godar routing.",
   "errorTitle": "Error",
   "successTitle": "Success",
   "existingAccount": "Provider account",
@@ -210,6 +210,7 @@
       "accountActivated": "Account activated and ready for runtime policy enforcement.",
       "catalogRefreshSuccess": "Provider catalog cache refreshed.",
       "catalogRefreshFailed": "Provider catalog refresh failed.",
+      "integrationCreated": "Integration created successfully. You can now create your PAT or VAT.",
       "modelTypeRequired": "at least one model type is required",
       "privatePricingRequired": "private pricing requires input and/or output price"
     },
@@ -278,6 +279,13 @@
         "pricing": "Pricing",
         "pricingUnavailable": "Pricing unavailable",
         "technicalMetadata": "Technical metadata",
+        "inputFormats": "Input formats",
+        "outputFormats": "Output formats",
+        "capabilities": "Capabilities",
+        "invocationModes": "Invocation modes",
+        "fqn": "Model FQN",
+        "customPricing": "Adjusted pricing",
+        "pricingPerMillion": "Cost (1M tokens)",
         "modelId": "Model ID",
         "providerId": "Provider ID",
         "apiMode": "API mode",
@@ -431,6 +439,102 @@
       "awsRegion": "Example: us-east-1",
       "secretRefGoogle": "Example: vault://gcp-service-account",
       "googleServiceJson": "{\"type\":\"service_account\", ...}"
+    },
+    "integrations": {
+      "pageTitle": "New connection to",
+      "providerDescriptionFallback": "Connect this provider to route tenant traffic through Godar with managed credentials, model provisioning, and access control.",
+      "wizard": {
+        "integrationDetails": "Basic connection settings",
+        "modelProvisioning": "Model selection",
+        "accessPermissions": "Access permissions",
+        "reviewConfirm": "Review and confirm",
+        "detailsTitle": "Basic connection settings",
+        "detailsDescription": "Configure the account name, authentication method, and provider credentials for this connection.",
+        "nextStep": "Next Step",
+        "grabApiKey": "Grab API Key",
+        "useOwnApiKeyQuestion": "Do you want to use your own API key?",
+        "useOwnApiKeyDescription": "When enabled, this connection stores and validates the provider credential you supply.",
+        "useOwnApiKeyYes": "Yes, use my API key",
+        "useOwnApiKeyNo": "No",
+        "useOwnApiKeyNoDescription": "An API key is not required. You can use the Godar AI key instead.",
+        "apiKeyLabel": "API Key",
+        "apiKeyRequiredForTest": "Enter your own API key before testing the connection.",
+        "testConnection": "Test connection",
+        "testingConnection": "Testing connection...",
+        "testConnectionDescription": "The credential is saved before validation, then the result is shown here.",
+        "accountSavedBeforeTest": "Connection settings were saved. Testing the connection now.",
+        "connectionTestSuccessTitle": "Connection is valid",
+        "connectionTestFailedTitle": "Connection test failed",
+        "connectionTestSuccess": "The entered key is valid. Service message: {message}",
+        "connectionTestFailed": "The entered key was not verified or the connection failed. Service message: {message}",
+        "optionalFields": "Optional Fields",
+        "advancedOptions": "Advanced Options",
+        "modelsHeaderTitle": "Model selection",
+        "modelsHeaderDescription": "Pick the provider models that should be enabled for this connection. You can change them later.",
+        "accessPermissionsDescription": "Access policy configuration will be added in the next iteration.",
+        "reviewConfirmDescription": "Final review and confirmation will be added in the next iteration.",
+        "requestModel": "Request a Model",
+        "addModel": "Add Model",
+        "modelsTitle": "Models ({count})",
+        "selectedCount": "Selected: {count}",
+        "selectAll": "Select All",
+        "selectedOnly": "Selected only",
+        "deselectAll": "Deselect All",
+        "autoEnableTitle": "Automatically enable new models from this provider",
+        "autoEnableDescription": "If you enable this option, new models from this provider will be available on this integration by default. You can disable them later.",
+        "createIntegration": "Create Integration"
+      }
+    }
+  },
+  "integrations": {
+    "pageTitle": "Connect AI Service Providers",
+    "pageDescription": "Connect AI providers, review connection status, and manage model access for this tenant.",
+    "tabs": {
+      "all": "All",
+      "connected": "Connected"
+    },
+    "searchPlaceholder": "Search providers or integrations...",
+    "providerFilter": "AI Providers",
+    "workspaceFilter": "Workspaces",
+    "providerDescriptionFallback": "Connect this provider to route tenant traffic through Godar with managed credentials, model provisioning, and access control.",
+    "integrationDescriptionFallback": "Tenant-connected LLM integration for provisioned provider models.",
+    "connectedCount": "{count} connected",
+    "modelCount": "{count} catalog models",
+    "card": {
+      "activeStatus": "Active",
+      "modelMetricLabel": "Model count",
+      "connectionMetricLabel": "Connection status",
+      "modelUnit": "models",
+      "activeAccountCount": "connection",
+      "noConnection": "No connection",
+      "connectionRequired": "New connection required",
+      "createConnection": "Create new connection"
+    },
+    "actions": {
+      "connect": "Connect",
+      "connectProvider": "Connect Provider",
+      "manageConnections": "Manage connections",
+      "copyIdentifier": "Copy slug",
+      "editIntegration": "Edit Integration",
+      "manageModels": "Manage Models",
+      "viewDocs": "View Docs",
+      "disconnect": "Disconnect",
+      "disconnecting": "Disconnecting...",
+      "readDocs": "Read integration docs",
+      "reload": "Reload"
+    },
+    "empty": {
+      "connectedTitle": "No LLM integrations connected yet",
+      "connectedDescription": "Connect your first provider to start routing requests through Godar.",
+      "providersTitle": "No providers found",
+      "providersDescription": "Adjust search and filters, or reload the provider catalog."
+    },
+    "messages": {
+      "loadFailed": "Failed to load LLM integrations.",
+      "identifierCopied": "Integration identifier copied.",
+      "disconnectConfirm": "Disconnect integration \"{name}\"?",
+      "disconnectSuccess": "Integration disconnected.",
+      "disconnectFailed": "Failed to disconnect integration."
     }
   }
 }
