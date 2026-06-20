@@ -1275,7 +1275,7 @@ export default function ProviderAccountWizard(props?: {
                     }
                   >
                     <div className="flex flex-col gap-8">
-                      <div className="flex items-start gap-3 rounded-lg border border-border bg-background p-4">
+                      <div dir="rtl" className="flex items-start gap-3 text-right">
                         <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border bg-card">
                           <ProviderLogo
                             provider={activeProvider?.provider ?? provider}
@@ -1284,7 +1284,7 @@ export default function ProviderAccountWizard(props?: {
                           />
                         </div>
                         <div className="min-w-0">
-                          <h3 className="truncate text-base font-semibold" dir="ltr">{activeProvider?.display_name ?? provider}</h3>
+                          <h3 className="truncate text-base font-semibold" dir="auto">{activeProvider?.display_name ?? provider}</h3>
                           <p className="mt-1 text-sm leading-6 text-muted-foreground">{createProviderDescription}</p>
                         </div>
                       </div>
@@ -1303,14 +1303,14 @@ export default function ProviderAccountWizard(props?: {
                         </Field>
                       </div>
 
-                      <div className="rounded-lg border border-border bg-background p-4">
+                      <div dir="rtl" className="text-right">
                         <div className="space-y-1">
                           <h3 className="text-base font-semibold">{ux("integrations.wizard.useOwnApiKeyQuestion")}</h3>
                           <p className="text-sm leading-6 text-muted-foreground">{ux("integrations.wizard.useOwnApiKeyDescription")}</p>
                         </div>
 
                         <div className="mt-4 grid gap-3 md:grid-cols-2">
-                          <label className={`flex cursor-pointer gap-3 rounded-lg border p-4 transition ${!allowVirtualOnly ? "border-primary bg-primary/10" : "border-border hover:bg-muted/40"}`}>
+                          <label className={`flex cursor-pointer gap-3 rounded-lg border p-4 text-right transition ${!allowVirtualOnly ? "border-primary bg-primary/10" : "border-border hover:bg-muted/40"}`}>
                             <input
                               type="radio"
                               name="create-own-api-key"
@@ -1325,7 +1325,7 @@ export default function ProviderAccountWizard(props?: {
                               <span className="block text-sm font-medium">{ux("integrations.wizard.useOwnApiKeyYes")}</span>
                             </span>
                           </label>
-                          <label className={`flex cursor-pointer gap-3 rounded-lg border p-4 transition ${allowVirtualOnly ? "border-primary bg-primary/10" : "border-border hover:bg-muted/40"}`}>
+                          <label className={`flex cursor-pointer gap-3 rounded-lg border p-4 text-right transition ${allowVirtualOnly ? "border-primary bg-primary/10" : "border-border hover:bg-muted/40"}`}>
                             <input
                               type="radio"
                               name="create-own-api-key"

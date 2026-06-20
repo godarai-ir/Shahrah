@@ -113,7 +113,7 @@ export function WizardPanel({
       ref={setSectionNode}
       className="flex h-[min(640px,calc(100dvh-13.5rem))] min-h-[420px] scroll-mt-3 flex-col gap-3"
     >
-      <header className="flex flex-col gap-3 px-1 sm:flex-row sm:items-end sm:justify-between">
+      <header dir="rtl" className="flex flex-col gap-3 px-1 text-right sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <h2 className="text-lg font-semibold">{title}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{description}</p>
