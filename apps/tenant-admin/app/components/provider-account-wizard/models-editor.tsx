@@ -29,7 +29,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ModelCard, type ModelCardData } from "@/app/components/model-card";
 import {
@@ -153,7 +152,6 @@ export function ModelsEditor(props: {
   const [usdToIrr, setUsdToIrr] = useState(0);
   const [curlGuide, setCurlGuide] = useState<CurlGuide | null>(null);
   const [curlGuideShell, setCurlGuideShell] = useState<CurlGuideShell>("powershell");
-  const [autoEnableNewModels, setAutoEnableNewModels] = useState(true);
   const [showSelectedOnly, setShowSelectedOnly] = useState(false);
   const [pricingEditor, setPricingEditor] = useState<{
     open: boolean;
@@ -182,6 +180,7 @@ export function ModelsEditor(props: {
       latency: ux("models.card.latency"),
       quality: ux("models.card.quality"),
       pricing: ux("models.card.pricing"),
+      priceInputOutput: ux("models.card.priceInputOutput"),
       pricingUnavailable: ux("models.card.pricingUnavailable"),
       technicalMetadata: ux("models.card.technicalMetadata"),
       inputFormats: ux("models.card.inputFormats"),
@@ -630,8 +629,7 @@ export function ModelsEditor(props: {
   if (props.variant === "compact") {
     return (
       <section className="flex flex-col gap-5">
-        <div className="min-w-0 overflow-hidden rounded-lg border border-border bg-background p-4">
-          <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4">
             <div dir="rtl" className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0 text-right">
                 <h3 dir="rtl" className="text-base font-semibold">
@@ -697,111 +695,102 @@ export function ModelsEditor(props: {
                 </label>
               </div>
             </div>
-          </div>
 
-          {props.isLoadingModels ? (
-            <div className="mt-4 grid min-w-0 gap-3">
-              {Array.from({ length: 8 }).map((_, index) => (
-                <Skeleton key={`compact-model-skeleton-${index}`} className="h-24 rounded-xl" />
-              ))}
-            </div>
-          ) : visibleModels.length === 0 ? (
-            <p className="mt-4 text-sm text-muted-foreground">{props.t("step3.empty")}</p>
-          ) : (
-            <div className="mt-4 grid min-w-0 gap-3">
-              {visibleModels.map((model) => {
-                const availableCapabilities = getModelSelectionTypes(model);
-                const draft = props.modelDrafts[model.model] ?? {
-                  enabled: false,
-                  compared: false,
-                  selectedCapabilities: availableCapabilities.length === 1 ? availableCapabilities : [],
-                  pricingMode: "public" as const,
-                  inputPrice: model.public_pricing?.input_usd_per_1m?.toString() ?? "",
-                  outputPrice: model.public_pricing?.output_usd_per_1m?.toString() ?? "",
-                };
+            {props.isLoadingModels ? (
+              <div className="grid min-w-0 gap-3">
+                {Array.from({ length: 8 }).map((_, index) => (
+                  <Skeleton key={`compact-model-skeleton-${index}`} className="h-24 rounded-xl" />
+                ))}
+              </div>
+            ) : visibleModels.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{props.t("step3.empty")}</p>
+            ) : (
+              <div className="grid min-w-0 gap-3">
+                {visibleModels.map((model) => {
+                  const availableCapabilities = getModelSelectionTypes(model);
+                  const draft = props.modelDrafts[model.model] ?? {
+                    enabled: false,
+                    compared: false,
+                    selectedCapabilities: availableCapabilities.length === 1 ? availableCapabilities : [],
+                    pricingMode: "public" as const,
+                    inputPrice: model.public_pricing?.input_usd_per_1m?.toString() ?? "",
+                    outputPrice: model.public_pricing?.output_usd_per_1m?.toString() ?? "",
+                  };
 
-                return (
-                  <Popover
-                    key={model.model}
-                    open={pricingEditor.open && pricingEditor.modelKey === model.model}
-                    onOpenChange={(open) => {
-                      if (!open) {
-                        setPricingEditor((prev) => ({ ...prev, open: false, error: "" }));
-                      } else {
-                        openPricingEditor(model);
-                      }
-                    }}
-                  >
-                    <div className="min-w-0">
-                      <ModelCard
-                        model={toModelCardData(model, draft)}
-                        detailsHref={buildModelDiscoveryDetailsHref(model)}
-                        pricingDisplay={{
-                          currency: displayCurrency,
-                          scale: displayScale,
-                          usdToIrr,
-                        }}
-                        isSelected={draft.enabled}
-                        onSelectedChange={(checked) =>
-                          props.setModelDrafts((prev) => ({
-                            ...prev,
-                            [model.model]: {
-                              ...draft,
-                              enabled: checked,
-                              selectedCapabilities:
-                                checked && draft.selectedCapabilities.length === 0 && availableCapabilities.length === 1
-                                  ? availableCapabilities
-                                  : draft.selectedCapabilities,
-                            },
-                          }))
+                  return (
+                    <Popover
+                      key={model.model}
+                      open={pricingEditor.open && pricingEditor.modelKey === model.model}
+                      onOpenChange={(open) => {
+                        if (!open) {
+                          setPricingEditor((prev) => ({ ...prev, open: false, error: "" }));
+                        } else {
+                          openPricingEditor(model);
                         }
-                        selectedCheckboxLabel={ux("common.enabled")}
-                        stateBadge={
-                          draft.enabled
-                            ? { label: ux("models.state.enabledOnAccount"), tone: "active" as const }
-                            : { label: ux("models.state.availableToAdd"), tone: "inactive" as const }
-                        }
-                        pricingModeBadge={draft.pricingMode === "private" ? ux("models.pricing.private") : ux("models.pricing.public")}
-                        hasCustomPricing={draft.pricingMode === "private"}
-                        className={draft.enabled ? "border-emerald-500/70" : undefined}
-                        pricingAction={
-                          <PopoverTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="size-7"
-                              disabled={!props.canManage}
-                              aria-label={`${ux("models.actions.editPricing")} ${model.display_name || model.model}`}
-                              onClick={() => openPricingEditor(model)}
-                            >
-                              <SlidersHorizontal className="h-3.5 w-3.5" />
+                      }}
+                    >
+                      <div className="min-w-0">
+                        <ModelCard
+                          model={toModelCardData(model, draft)}
+                          detailsHref={buildModelDiscoveryDetailsHref(model)}
+                          pricingDisplay={{
+                            currency: displayCurrency,
+                            scale: displayScale,
+                            usdToIrr,
+                          }}
+                          isSelected={draft.enabled}
+                          onSelectedChange={(checked) =>
+                            props.setModelDrafts((prev) => ({
+                              ...prev,
+                              [model.model]: {
+                                ...draft,
+                                enabled: checked,
+                                selectedCapabilities:
+                                  checked && draft.selectedCapabilities.length === 0 && availableCapabilities.length === 1
+                                    ? availableCapabilities
+                                    : draft.selectedCapabilities,
+                              },
+                            }))
+                          }
+                          selectedCheckboxLabel={ux("common.enabled")}
+                          stateBadge={
+                            draft.enabled
+                              ? { label: ux("models.state.enabledOnAccount"), tone: "active" as const }
+                              : { label: ux("models.state.availableToAdd"), tone: "inactive" as const }
+                          }
+                          pricingModeBadge={draft.pricingMode === "private" ? ux("models.pricing.private") : ux("models.pricing.public")}
+                          hasCustomPricing={draft.pricingMode === "private"}
+                          className={draft.enabled ? "border-emerald-500/70" : undefined}
+                          pricingAction={
+                            <PopoverTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="size-7"
+                                disabled={!props.canManage}
+                                aria-label={`${ux("models.actions.editPricing")} ${model.display_name || model.model}`}
+                                onClick={() => openPricingEditor(model)}
+                              >
+                                <SlidersHorizontal className="h-3.5 w-3.5" />
+                              </Button>
+                            </PopoverTrigger>
+                          }
+                          footerActions={
+                            <Button type="button" variant="outline" size="sm" className="gap-1" onClick={() => openCurlGuide(model)}>
+                              <Code2 className="h-3.5 w-3.5" />
+                              {ux("models.card.curlGuide")}
                             </Button>
-                          </PopoverTrigger>
-                        }
-                        footerActions={
-                          <Button type="button" variant="outline" size="sm" className="gap-1" onClick={() => openCurlGuide(model)}>
-                            <Code2 className="h-3.5 w-3.5" />
-                            {ux("models.card.curlGuide")}
-                          </Button>
-                        }
-                        labels={modelCardLabels}
-                      />
-                    </div>
-                    {renderPricingEditorContent(model)}
-                  </Popover>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-start gap-3 rounded-xl border border-border bg-background p-4">
-          <Switch checked={autoEnableNewModels} onCheckedChange={setAutoEnableNewModels} aria-label={ux("integrations.wizard.autoEnableTitle")} />
-          <div className="space-y-1">
-            <p className="text-sm font-medium">{ux("integrations.wizard.autoEnableTitle")}</p>
-            <p className="text-sm text-muted-foreground">{ux("integrations.wizard.autoEnableDescription")}</p>
-          </div>
+                          }
+                          labels={modelCardLabels}
+                        />
+                      </div>
+                      {renderPricingEditorContent(model)}
+                    </Popover>
+                  );
+                })}
+              </div>
+            )}
         </div>
       </section>
     );

@@ -66,13 +66,15 @@ export function CreateFlowStepIndicator(props: {
   title: string;
   state: "active" | "complete" | "idle";
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={props.onClick}
+      disabled={props.disabled}
       dir="rtl"
-      className="group flex w-full flex-row items-center justify-start gap-2 rounded-lg px-1 py-2 text-right transition hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
+      className="group flex w-full flex-row items-center justify-start gap-2 rounded-lg px-1 py-2 text-right transition hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent"
     >
       <div
         className={
@@ -111,7 +113,7 @@ export function WizardPanel({
     <section
       id={id}
       ref={setSectionNode}
-      className="flex h-[min(640px,calc(100dvh-13.5rem))] min-h-[420px] scroll-mt-3 flex-col gap-3"
+      className="flex h-[min(640px,calc(100dvh-13.5rem))] min-h-[420px] flex-col gap-3"
     >
       <header dir="rtl" className="flex flex-col gap-3 px-1 text-right sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
@@ -125,7 +127,7 @@ export function WizardPanel({
           <div className="p-4 pb-6 sm:p-5 sm:pb-7">{children}</div>
         </ScrollArea>
         {footer ? (
-          <footer className="flex shrink-0 justify-end border-t border-border bg-card/95 px-5 py-3 shadow-[0_-8px_18px_rgba(15,23,42,0.04)]">
+          <footer className="flex shrink-0 flex-wrap justify-between gap-2 border-t border-border bg-card/95 px-5 py-3 shadow-[0_-8px_18px_rgba(15,23,42,0.04)]">
             {footer}
           </footer>
         ) : null}

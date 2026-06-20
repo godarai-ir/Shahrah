@@ -194,7 +194,8 @@
       "hasCredential": "دارای اعتبارنامه",
       "virtualOnly": "فقط Virtual-Key",
       "lastTest": "آخرین آزمون",
-      "notTested": "در این نشست هنوز آزمونی اجرا نشده است"
+      "notTested": "در این نشست هنوز آزمونی اجرا نشده است",
+      "editStoredApiKey": "جایگزینی API Key ذخیره‌شده"
     },
     "observability": {
       "desc": "پیش از ترافیک واقعی، نتیجه سیاست مؤثر و دلایل رد شدن درخواست را بررسی کنید.",
@@ -286,6 +287,7 @@
         "latency": "تأخیر",
         "quality": "کیفیت",
         "pricing": "قیمت‌گذاری",
+        "priceInputOutput": "هزینه ورودی / هزینه خروجی",
         "pricingUnavailable": "قیمت موجود نیست",
         "technicalMetadata": "فراداده فنی",
         "inputFormats": "فرمت‌های ورودی",

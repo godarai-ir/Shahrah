@@ -31,12 +31,13 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 
 	var account platform.TenantProviderAccount
 	var providerCfgRaw []byte
+	var credentialRaw []byte
 	err = s.pool.QueryRow(ctx, `
 		INSERT INTO tenant_provider_accounts (
 			tenant_id, provider, name, auth_mode, provider_config, credential_data, has_credential, allow_virtual_keys_only
 		)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING account_id::text, tenant_id::text, provider, name, auth_mode, provider_config, has_credential, allow_virtual_keys_only, created_at, updated_at
+		RETURNING account_id::text, tenant_id::text, provider, name, auth_mode, provider_config, COALESCE(credential_data, '{}'::jsonb), has_credential, allow_virtual_keys_only, created_at, updated_at
 	`, tenantID, req.Provider, req.Name, string(req.AuthMode), providerCfg, credentialData, hasCredential, req.AllowVirtualKeysOnly).Scan(
 		&account.ID,
 		&account.TenantID,
@@ -44,6 +45,7 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 		&account.Name,
 		&account.AuthMode,
 		&providerCfgRaw,
+		&credentialRaw,
 		&account.HasCredential,
 		&account.AllowsVirtualKeysOnly,
 		&account.CreatedAt,
@@ -54,6 +56,7 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 	}
 
 	account.ProviderConfig = parseJSONObject(providerCfgRaw)
+	account.CredentialHint = credentialHintFromMap(parseJSONObject(credentialRaw))
 	if s.logger != nil {
 		s.logger.Info("provider_account.created",
 			zap.String("tenant_id", tenantID),
@@ -68,7 +71,7 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 // ListTenantProviderAccounts lists provider accounts scoped to one tenant.
 func (s *Store) ListTenantProviderAccounts(ctx context.Context, tenantID string) ([]platform.TenantProviderAccount, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT account_id::text, tenant_id::text, provider, name, auth_mode, provider_config,
+		SELECT account_id::text, tenant_id::text, provider, name, auth_mode, provider_config, COALESCE(credential_data, '{}'::jsonb),
 		       has_credential, allow_virtual_keys_only, created_at, updated_at
 		FROM tenant_provider_accounts
 		WHERE tenant_id = $1
@@ -83,6 +86,7 @@ func (s *Store) ListTenantProviderAccounts(ctx context.Context, tenantID string)
 	for rows.Next() {
 		var account platform.TenantProviderAccount
 		var providerCfgRaw []byte
+		var credentialRaw []byte
 		if err := rows.Scan(
 			&account.ID,
 			&account.TenantID,
@@ -90,6 +94,7 @@ func (s *Store) ListTenantProviderAccounts(ctx context.Context, tenantID string)
 			&account.Name,
 			&account.AuthMode,
 			&providerCfgRaw,
+			&credentialRaw,
 			&account.HasCredential,
 			&account.AllowsVirtualKeysOnly,
 			&account.CreatedAt,
@@ -98,6 +103,7 @@ func (s *Store) ListTenantProviderAccounts(ctx context.Context, tenantID string)
 			return nil, err
 		}
 		account.ProviderConfig = parseJSONObject(providerCfgRaw)
+		account.CredentialHint = credentialHintFromMap(parseJSONObject(credentialRaw))
 		items = append(items, account)
 	}
 	return items, rows.Err()
@@ -385,44 +391,70 @@ func insertAccessRules(ctx context.Context, tx pgx.Tx, tenantID string, accountI
 	return nil
 }
 
-// TestTenantProviderAccountCredentials validates whether the account can proceed.
+// TestTenantProviderAccountCredentials validates whether the account can reach its upstream provider.
 func (s *Store) TestTenantProviderAccountCredentials(ctx context.Context, tenantID string, accountID string, req platform.TestTenantProviderAccountCredentialsRequest) (*platform.TestTenantProviderAccountCredentialsResponse, error) {
-	var hasCredential bool
-	var allowVirtualOnly bool
+	var (
+		provider         string
+		authMode         string
+		providerCfgRaw   []byte
+		credentialRaw    []byte
+		hasCredential    bool
+		allowVirtualOnly bool
+	)
 
 	err := s.pool.QueryRow(ctx, `
-		SELECT has_credential, allow_virtual_keys_only
+		SELECT provider, auth_mode, provider_config, COALESCE(credential_data, '{}'::jsonb), has_credential, allow_virtual_keys_only
 		FROM tenant_provider_accounts
 		WHERE tenant_id = $1 AND account_id = $2
-	`, tenantID, accountID).Scan(&hasCredential, &allowVirtualOnly)
+	`, tenantID, accountID).Scan(&provider, &authMode, &providerCfgRaw, &credentialRaw, &hasCredential, &allowVirtualOnly)
 	if err != nil {
 		return nil, err
 	}
 
-	if hasCredential {
-		return &platform.TestTenantProviderAccountCredentialsResponse{
-			Success: true,
-			Message: "credential is present and can be used",
-		}, nil
-	}
 	if allowVirtualOnly {
 		return &platform.TestTenantProviderAccountCredentialsResponse{
 			Success: true,
-			Message: "virtual-key-only mode enabled",
+			Message: "virtual-key-only mode is enabled; no provider credential is required",
 		}, nil
 	}
 
+	if !hasCredential {
+		return &platform.TestTenantProviderAccountCredentialsResponse{
+			Success: false,
+			Message: "credential is missing; provide an API key or enable virtual-key-only mode",
+		}, nil
+	}
+
+	if platform.ProviderAuthMode(strings.TrimSpace(authMode)) != platform.ProviderAuthModeAPIKey {
+		return &platform.TestTenantProviderAccountCredentialsResponse{
+			Success: false,
+			Message: "connection validation is only implemented for API key provider accounts",
+		}, nil
+	}
+
+	credentials := parseJSONObject(credentialRaw)
+	apiKey, _ := credentials["api_key"].(string)
+	apiKey = strings.TrimSpace(apiKey)
+	if apiKey == "" || isMaskedCredentialValue(apiKey) {
+		return &platform.TestTenantProviderAccountCredentialsResponse{
+			Success: false,
+			Message: "API key is missing or masked; enter a new provider API key before testing",
+		}, nil
+	}
+
+	result := validateProviderAPIKey(ctx, provider, apiKey, parseJSONObject(providerCfgRaw), nil)
 	return &platform.TestTenantProviderAccountCredentialsResponse{
-		Success: false,
-		Message: "credential is missing; provide BYOK or enable virtual-key-only mode",
+		Success: result.Success,
+		Message: result.Message,
 	}, nil
 }
 
 func (s *Store) getTenantProviderAccount(ctx context.Context, tenantID string, accountID string) (*platform.TenantProviderAccount, error) {
 	var account platform.TenantProviderAccount
 	var providerCfgRaw []byte
+	var credentialRaw []byte
 	err := s.pool.QueryRow(ctx, `
-		SELECT account_id::text, tenant_id::text, provider, name, auth_mode, provider_config,
+		SELECT account_id::text, tenant_id::text, provider, name, auth_mode, provider_config, COALESCE(credential_data, '{}'::jsonb),
 		       has_credential, allow_virtual_keys_only, created_at, updated_at
 		FROM tenant_provider_accounts
 		WHERE tenant_id = $1 AND account_id = $2
@@ -433,6 +465,7 @@ func (s *Store) getTenantProviderAccount(ctx context.Context, tenantID string, a
 		&account.Name,
 		&account.AuthMode,
 		&providerCfgRaw,
+		&credentialRaw,
 		&account.HasCredential,
 		&account.AllowsVirtualKeysOnly,
 		&account.CreatedAt,
@@ -442,6 +475,7 @@ func (s *Store) getTenantProviderAccount(ctx context.Context, tenantID string, a
 		return nil, err
 	}
 	account.ProviderConfig = parseJSONObject(providerCfgRaw)
+	account.CredentialHint = credentialHintFromMap(parseJSONObject(credentialRaw))
 	return &account, nil
 }
 

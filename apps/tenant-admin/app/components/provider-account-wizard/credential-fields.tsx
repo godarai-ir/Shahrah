@@ -1,7 +1,9 @@
 ﻿"use client";
 
 import { useTranslations } from "next-intl";
+import { Pencil } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { ProviderAuthMode } from "./types";
@@ -10,6 +12,9 @@ export function CredentialFields(props: {
   authMode: ProviderAuthMode;
   apiKey: string;
   setAPIKey: (value: string) => void;
+  apiKeyTouched?: boolean;
+  setAPIKeyTouched?: (value: boolean) => void;
+  apiKeyHint?: string;
   secretRef: string;
   setSecretRef: (value: string) => void;
   azureTenantID: string;
@@ -27,6 +32,19 @@ export function CredentialFields(props: {
   t: ReturnType<typeof useTranslations>;
 }) {
   const ux = useTranslations("providerAccounts.ux");
+  const hasStoredAPIKey = props.authMode === "api_key" && !props.apiKeyTouched && !!props.apiKeyHint;
+
+  function handleEditStoredAPIKey() {
+    if (!hasStoredAPIKey) return;
+    props.setAPIKeyTouched?.(true);
+    props.setAPIKey("");
+  }
+
+  function handleAPIKeyChange(value: string) {
+    props.setAPIKeyTouched?.(true);
+    props.setAPIKey(value);
+  }
+
   return (
     <Card className="border-border/70">
       <CardHeader>
@@ -37,7 +55,30 @@ export function CredentialFields(props: {
         {props.authMode === "api_key" ? (
           <div className="grid gap-3 md:grid-cols-2">
             <Field label={props.t("fields.apiKeyOptional")} id="providerApiKey">
-              <Input id="providerApiKey" value={props.apiKey} onChange={(event) => props.setAPIKey(event.target.value)} placeholder={ux("placeholders.apiKey")} />
+              {hasStoredAPIKey ? (
+                <div className="flex h-10 items-center justify-between gap-2 rounded-md border border-input bg-muted/30 px-3">
+                  <span className="min-w-0 truncate font-mono text-sm text-foreground" dir="ltr">
+                    {props.apiKeyHint}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    onClick={handleEditStoredAPIKey}
+                    aria-label={ux("credentials.editStoredApiKey")}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <Input
+                  id="providerApiKey"
+                  value={props.apiKey}
+                  onChange={(event) => handleAPIKeyChange(event.target.value)}
+                  placeholder={ux("placeholders.apiKey")}
+                />
+              )}
             </Field>
             <Field label={props.t("fields.secretRefOptional")} id="providerSecretRef">
               <Input id="providerSecretRef" value={props.secretRef} onChange={(event) => props.setSecretRef(event.target.value)} placeholder={ux("placeholders.secretRefProvider")} />

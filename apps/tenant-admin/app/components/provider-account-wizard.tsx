@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { ChevronRight, Copy, ExternalLink, Eye, KeyRound, Layers3, ShieldCheck, Trash2 } from "lucide-react";
+import { ChevronRight, Copy, ExternalLink, Eye, KeyRound, Layers3, Pencil, ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -154,6 +154,8 @@ export default function ProviderAccountWizard(props?: {
   const [allowVirtualOnly, setAllowVirtualOnly] = useState(isCreateMode);
 
   const [apiKey, setAPIKey] = useState("");
+  const [apiKeyTouched, setAPIKeyTouched] = useState(false);
+  const [apiKeyTestSucceeded, setAPIKeyTestSucceeded] = useState(false);
   const [secretRef, setSecretRef] = useState("");
   const [azureTenantID, setAzureTenantID] = useState("");
   const [azureClientID, setAzureClientID] = useState("");
@@ -176,58 +178,6 @@ export default function ProviderAccountWizard(props?: {
   const [lastCredentialTestMessage, setLastCredentialTestMessage] = useState("");
   const [createCredentialTestResult, setCreateCredentialTestResult] = useState<Banner | null>(null);
   const [activeCreateSection, setActiveCreateSection] = useState<CreateWizardSectionID>("details");
-  const createFlowScrollAreaRef = useRef<HTMLDivElement | null>(null);
-  const createSectionRefs = useRef<Record<CreateWizardSectionID, HTMLElement | null>>({
-    details: null,
-    models: null,
-    access: null,
-    review: null,
-  });
-
-  const scrollToCreateSection = useCallback((sectionID: CreateWizardSectionID) => {
-    setActiveCreateSection(sectionID);
-    createSectionRefs.current[sectionID]?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, []);
-
-  useEffect(() => {
-    if (!isCreateMode || !provider) return;
-    const viewport = createFlowScrollAreaRef.current?.querySelector<HTMLElement>("[data-slot='scroll-area-viewport']");
-    if (!viewport) return;
-
-    const sectionIDs: CreateWizardSectionID[] = ["details", "models", "access", "review"];
-    const syncActiveSection = () => {
-      const viewportTop = viewport.getBoundingClientRect().top;
-      let nextSection: CreateWizardSectionID | null = null;
-      let nearestDistance = Number.POSITIVE_INFINITY;
-
-      for (const sectionID of sectionIDs) {
-        const node = createSectionRefs.current[sectionID];
-        if (!node) continue;
-        const rect = node.getBoundingClientRect();
-        const isInView = rect.bottom > viewportTop && rect.top < viewportTop + viewport.clientHeight;
-        if (!isInView) continue;
-        const distance = Math.abs(rect.top - viewportTop);
-        if (distance < nearestDistance) {
-          nearestDistance = distance;
-          nextSection = sectionID;
-        }
-      }
-
-      if (nextSection) {
-        setActiveCreateSection((current) => (current === nextSection ? current : nextSection));
-      }
-    };
-
-    const frame = window.requestAnimationFrame(syncActiveSection);
-    viewport.addEventListener("scroll", syncActiveSection, { passive: true });
-    window.addEventListener("resize", syncActiveSection);
-
-    return () => {
-      window.cancelAnimationFrame(frame);
-      viewport.removeEventListener("scroll", syncActiveSection);
-      window.removeEventListener("resize", syncActiveSection);
-    };
-  }, [isCreateMode, provider]);
 
   useEffect(() => {
     if (!isCreateMode || banner?.kind !== "success") return;
@@ -339,6 +289,8 @@ export default function ProviderAccountWizard(props?: {
     if (selectedModelCount > 0 && unresolvedPricingCount > 0) return "pricing_incomplete";
     return "ready";
   }, [account, managers.length, selectedModelCount, unresolvedPricingCount]);
+  const storedAPIKeyHint = account?.credential_hint ?? "";
+  const shouldShowStoredAPIKey = authMode === "api_key" && apiKeyTestSucceeded && !apiKeyTouched && !!storedAPIKeyHint;
 
   const fetchProviderModels = useCallback(async (nextProvider: string) => {
     const normalized = nextProvider.trim().toLowerCase();
@@ -531,6 +483,8 @@ export default function ProviderAccountWizard(props?: {
         setAWSSecretAccessKey(typeof cfg.aws_secret_access_key === "string" ? cfg.aws_secret_access_key : "");
         setGoogleServiceAccountJSON(typeof cfg.google_service_account_json === "string" ? cfg.google_service_account_json : "");
         setAPIKey("");
+        setAPIKeyTouched(false);
+        setAPIKeyTestSucceeded(false);
         setSecretRef("");
         setManagers(payload.access?.managers ?? []);
         setUsers(payload.access?.users ?? []);
@@ -692,6 +646,8 @@ export default function ProviderAccountWizard(props?: {
       );
       setBanner({ kind: "success", message: t("messages.accountLoadSuccess") });
       await handleLoadAccount(accountID);
+      setAPIKeyTouched(false);
+      setAPIKeyTestSucceeded(false);
       return true;
     } catch (error) {
       setBanner({ kind: "error", message: normalizeError(error, t("messages.accountLoadFailed")) });
@@ -711,6 +667,8 @@ export default function ProviderAccountWizard(props?: {
 
   function resetCredentialInputs() {
     setAPIKey("");
+    setAPIKeyTouched(false);
+    setAPIKeyTestSucceeded(false);
     setSecretRef("");
     setAzureTenantID("");
     setAzureClientID("");
@@ -859,9 +817,6 @@ export default function ProviderAccountWizard(props?: {
       if (advanceToModels) {
         setSetupStep(3);
         setActiveCreateSection("models");
-        window.setTimeout(() => {
-          createSectionRefs.current.models?.scrollIntoView({ behavior: "smooth", block: "start" });
-        }, 0);
       }
       setBanner({ kind: "success", message: options.successMessage ?? t("messages.accountCreateSuccess") });
       return newAccount.id;
@@ -875,6 +830,7 @@ export default function ProviderAccountWizard(props?: {
 
   async function handleCreateCredentialTest() {
     setCreateCredentialTestResult(null);
+    setAPIKeyTestSucceeded(false);
     if (allowVirtualOnly) return;
     if (!apiKey.trim()) {
       setCreateCredentialTestResult({
@@ -911,7 +867,10 @@ export default function ProviderAccountWizard(props?: {
         : ux("integrations.wizard.connectionTestFailed", { message: rawMessage });
       setLastCredentialTestMessage(rawMessage);
       setCreateCredentialTestResult({ kind: payload.success ? "success" : "error", message });
+      setAPIKeyTouched(!payload.success);
+      setAPIKeyTestSucceeded(payload.success);
     } catch (error) {
+      setAPIKeyTestSucceeded(false);
       const message = normalizeError(error, t("messages.credentialTestFailed"));
       setCreateCredentialTestResult({
         kind: "error",
@@ -932,9 +891,6 @@ export default function ProviderAccountWizard(props?: {
     if (!saved) return;
     setSetupStep(3);
     setActiveCreateSection("models");
-    window.setTimeout(() => {
-      createSectionRefs.current.models?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 0);
   }
 
   async function handleSaveModels(accountID = selectedAccountID): Promise<boolean> {
@@ -981,10 +937,19 @@ export default function ProviderAccountWizard(props?: {
   }
 
   async function handleFinishCreateFlow() {
+    await handleActivateAccount();
+  }
+
+  async function handleContinueFromCreateModels() {
     const saved = await handleSaveModels(selectedAccountID);
-    if (!saved || !selectedAccountID) return;
-    setBanner({ kind: "success", message: ux("messages.integrationCreated") });
-    router.push(`/provider-accounts?account=${encodeURIComponent(selectedAccountID)}`);
+    if (!saved) return;
+    setActiveCreateSection("access");
+  }
+
+  async function handleContinueFromCreateAccess() {
+    const saved = await handleSaveAccess(selectedAccountID);
+    if (!saved) return;
+    setActiveCreateSection("review");
   }
 
   async function handleSaveAccess(accountID = selectedAccountID): Promise<boolean> {
@@ -1023,6 +988,14 @@ export default function ProviderAccountWizard(props?: {
       setBanner({ kind: "error", message: t("messages.selectAccountFirst") });
       return;
     }
+    if (!allowVirtualOnly && apiKeyTouched) {
+      if (!apiKey.trim()) {
+        setBanner({ kind: "error", message: t("messages.credentialInvalid") });
+        return;
+      }
+      const saved = await handleSaveCredentials(selectedAccountID);
+      if (!saved) return;
+    }
     setIsTesting(true);
     try {
       const result = await requestJSON<{ success: boolean; message?: string }>(
@@ -1034,8 +1007,11 @@ export default function ProviderAccountWizard(props?: {
         payload.message ?? (payload.success ? t("messages.credentialValid") : t("messages.credentialInvalid"));
       setLastCredentialTestMessage(nextMessage);
       setBanner({ kind: payload.success ? "success" : "error", message: nextMessage });
+      setAPIKeyTouched(!payload.success);
+      setAPIKeyTestSucceeded(payload.success);
       await loadInitial();
     } catch (error) {
+      setAPIKeyTestSucceeded(false);
       setBanner({ kind: "error", message: normalizeError(error, t("messages.credentialTestFailed")) });
     } finally {
       setIsTesting(false);
@@ -1156,6 +1132,18 @@ export default function ProviderAccountWizard(props?: {
     { id: "access", number: 3, title: ux("integrations.wizard.accessPermissions") },
     { id: "review", number: 4, title: ux("integrations.wizard.reviewConfirm") },
   ];
+  const activeCreateStepIndex = createWizardSteps.findIndex((step) => step.id === activeCreateSection);
+  const createStepState = (stepID: CreateWizardSectionID) => {
+    if (activeCreateSection === stepID) return "active";
+    if (stepID === "details" && !!selectedAccountID) return "complete";
+    if (stepID === "models" && selectedModelCount > 0) return "complete";
+    if (stepID === "access" && managers.length > 0) return "complete";
+    return "idle";
+  };
+  const canOpenCreateStep = (stepID: CreateWizardSectionID) => {
+    const stepIndex = createWizardSteps.findIndex((step) => step.id === stepID);
+    return stepIndex >= 0 && stepIndex <= activeCreateStepIndex;
+  };
 
   if (isCreateMode) {
     return (
@@ -1190,21 +1178,23 @@ export default function ProviderAccountWizard(props?: {
             </div>
           ) : null}
 
-          <div className="grid flex-1 gap-6 overflow-hidden px-4 py-6 lg:min-h-0 lg:grid-cols-[180px_minmax(0,1fr)]">
+          <div className="grid flex-1 gap-y-6 overflow-hidden px-4 py-6 lg:min-h-0 lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-x-10 xl:gap-x-12">
             <aside className="min-h-0 lg:self-stretch">
               <ScrollArea className="min-h-[12rem] lg:h-full [&_[data-slot=scroll-area-viewport]]:overscroll-contain">
                 <div className="flex flex-col gap-5 py-2">
                 {createWizardSteps.map((step) => {
-                  const isComplete =
-                    (step.id === "details" && !!selectedAccountID) ||
-                    (step.id === "models" && selectedModelCount > 0);
+                  const stepState = createStepState(step.id);
+                  const isStepOpenable = canOpenCreateStep(step.id);
                   return (
                     <CreateFlowStepIndicator
                       key={step.id}
                       number={step.number}
                       title={step.title}
-                      state={activeCreateSection === step.id ? "active" : isComplete ? "complete" : "idle"}
-                      onClick={() => scrollToCreateSection(step.id)}
+                      state={stepState}
+                      disabled={!isStepOpenable}
+                      onClick={() => {
+                        if (isStepOpenable) setActiveCreateSection(step.id);
+                      }}
                     />
                   );
                 })}
@@ -1212,19 +1202,21 @@ export default function ProviderAccountWizard(props?: {
               </ScrollArea>
             </aside>
 
-            <ScrollArea
-              ref={createFlowScrollAreaRef}
-              className="min-h-[640px] min-w-0 lg:h-full lg:min-h-0 [&_[data-slot=scroll-area-viewport]]:overscroll-contain"
-            >
+            <div className="min-h-[640px] min-w-0 lg:ms-2 lg:h-full lg:min-h-0">
               <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 pb-2">
                 {!provider ? (
                   <WizardPanel
                     title={ux("setup.selectProviderTitle")}
                     description={ux("setup.selectProviderDesc")}
                     footer={
-                      <Button type="button" onClick={() => setSetupStep(2)} disabled={!provider}>
-                        {ux("actions.continue")}
-                      </Button>
+                      <>
+                        <Button type="button" variant="outline" asChild>
+                          <Link href="/provider-accounts">{ux("actions.cancelDelete")}</Link>
+                        </Button>
+                        <Button type="button" onClick={() => setSetupStep(2)} disabled={!provider}>
+                          {ux("actions.continue")}
+                        </Button>
+                      </>
                     }
                   >
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -1261,17 +1253,20 @@ export default function ProviderAccountWizard(props?: {
                   </WizardPanel>
                 ) : (
                   <>
-                    <WizardPanel
+                    {activeCreateSection === "details" ? (
+                      <WizardPanel
                     id="connection-details"
-                    setSectionNode={(node) => {
-                      createSectionRefs.current.details = node;
-                    }}
                     title={ux("integrations.wizard.detailsTitle")}
                     description={ux("integrations.wizard.detailsDescription")}
                     footer={
-                      <Button type="button" onClick={() => void handleContinueFromCreateDetails()} disabled={!canCreateProviderAccount || isLoading || isSavingCredentials || !provider || !name.trim()}>
-                        {isLoading || isSavingCredentials ? t("saving") : ux("integrations.wizard.nextStep")}
-                      </Button>
+                      <>
+                        <Button type="button" variant="outline" asChild>
+                          <Link href="/provider-accounts">{ux("actions.cancelDelete")}</Link>
+                        </Button>
+                        <Button type="button" onClick={() => void handleContinueFromCreateDetails()} disabled={!canCreateProviderAccount || isLoading || isSavingCredentials || !provider || !name.trim()}>
+                          {isLoading || isSavingCredentials ? t("saving") : ux("integrations.wizard.nextStep")}
+                        </Button>
+                      </>
                     }
                   >
                     <div className="flex flex-col gap-8">
@@ -1358,15 +1353,40 @@ export default function ProviderAccountWizard(props?: {
                               </div>
                             ) : null}
                             <Field label={ux("integrations.wizard.apiKeyLabel")} id="providerApiKey">
-                              <Input
-                                id="providerApiKey"
-                                value={apiKey}
-                                onChange={(event) => {
-                                  setAPIKey(event.target.value);
-                                  setCreateCredentialTestResult(null);
-                                }}
-                                placeholder={ux("placeholders.apiKey")}
-                              />
+                              {shouldShowStoredAPIKey ? (
+                                <div className="flex h-10 items-center justify-between gap-2 rounded-md border border-input bg-muted/30 px-3">
+                                  <span className="min-w-0 truncate font-mono text-sm text-foreground" dir="ltr">
+                                    {storedAPIKeyHint}
+                                  </span>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 shrink-0"
+                                    onClick={() => {
+                                      setAPIKeyTouched(true);
+                                      setAPIKeyTestSucceeded(false);
+                                      setAPIKey("");
+                                      setCreateCredentialTestResult(null);
+                                    }}
+                                    aria-label={ux("credentials.editStoredApiKey")}
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Input
+                                  id="providerApiKey"
+                                  value={apiKey}
+                                  onChange={(event) => {
+                                    setAPIKey(event.target.value);
+                                    setAPIKeyTouched(true);
+                                    setAPIKeyTestSucceeded(false);
+                                    setCreateCredentialTestResult(null);
+                                  }}
+                                  placeholder={ux("placeholders.apiKey")}
+                                />
+                              )}
                             </Field>
                             <div className="flex flex-wrap items-center justify-between gap-3">
                               <p className="text-sm leading-6 text-muted-foreground">
@@ -1398,22 +1418,26 @@ export default function ProviderAccountWizard(props?: {
                       </div>
                     </div>
                   </WizardPanel>
+                    ) : null}
 
-                  <WizardPanel
+                  {activeCreateSection === "models" ? (
+                    <WizardPanel
                     id="model-provisioning"
-                    setSectionNode={(node) => {
-                      createSectionRefs.current.models = node;
-                    }}
                     title={ux("integrations.wizard.modelsHeaderTitle")}
                     description={ux("integrations.wizard.modelsHeaderDescription")}
                     footer={
-                      <Button
-                        type="button"
-                        onClick={() => void handleFinishCreateFlow()}
-                        disabled={!canManageProviderAccount || !selectedAccountID || selectedModelCount === 0 || isSavingModels}
-                      >
-                        {isSavingModels ? t("saving") : ux("integrations.wizard.createIntegration")}
-                      </Button>
+                      <>
+                        <Button type="button" variant="outline" onClick={() => setActiveCreateSection("details")}>
+                          {ux("actions.back")}
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={() => void handleContinueFromCreateModels()}
+                          disabled={!canManageProviderAccount || !selectedAccountID || selectedModelCount === 0 || isSavingModels}
+                        >
+                          {isSavingModels ? t("saving") : ux("actions.continue")}
+                        </Button>
+                      </>
                     }
                   >
                     <ModelsEditor
@@ -1432,32 +1456,86 @@ export default function ProviderAccountWizard(props?: {
                       variant="compact"
                     />
                   </WizardPanel>
+                  ) : null}
 
-                  <WizardPanel
+                  {activeCreateSection === "access" ? (
+                    <WizardPanel
                     id="access-permissions"
-                    setSectionNode={(node) => {
-                      createSectionRefs.current.access = node;
-                    }}
                     title={ux("integrations.wizard.accessPermissions")}
                     description={ux("integrations.wizard.accessPermissionsDescription")}
+                    footer={
+                      <>
+                        <Button type="button" variant="outline" onClick={() => setActiveCreateSection("models")}>
+                          {ux("actions.back")}
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={() => void handleContinueFromCreateAccess()}
+                          disabled={!canManageProviderAccount || !selectedAccountID || managers.length === 0 || isSavingAccess}
+                        >
+                          {isSavingAccess ? t("saving") : ux("actions.continue")}
+                        </Button>
+                      </>
+                    }
                   >
-                    <div className="h-full min-h-64" />
+                    <AccessEditor
+                      t={t}
+                      managers={managers}
+                      setManagers={setManagers}
+                      users={users}
+                      setUsers={setUsers}
+                      onSearchPrincipal={searchPrincipalCandidates}
+                      principalSelectorLabels={principalSelectorLabels}
+                      onSave={() => void handleSaveAccess()}
+                      isSaving={isSavingAccess}
+                      canManage={canManageProviderAccount}
+                      effectiveKeyType={effectiveKeyType}
+                      setEffectiveKeyType={setEffectiveKeyType}
+                      effectivePrincipal={effectivePrincipalSelection}
+                      setEffectivePrincipal={handleEffectivePrincipalChange}
+                      effectiveModels={effectiveModels}
+                      isLoadingEffective={isLoadingEffective}
+                      onLoadEffective={() => void loadEffectiveModelsPreview()}
+                    />
                   </WizardPanel>
+                  ) : null}
 
-                  <WizardPanel
+                  {activeCreateSection === "review" ? (
+                    <WizardPanel
                     id="review-confirm"
-                    setSectionNode={(node) => {
-                      createSectionRefs.current.review = node;
-                    }}
                     title={ux("integrations.wizard.reviewConfirm")}
                     description={ux("integrations.wizard.reviewConfirmDescription")}
+                    footer={
+                      <>
+                        <Button type="button" variant="outline" onClick={() => setActiveCreateSection("access")}>
+                          {ux("actions.back")}
+                        </Button>
+                        <Button type="button" onClick={() => void handleFinishCreateFlow()} disabled={!canManageProviderAccount || isActivating}>
+                          {isActivating ? ux("actions.activating") : ux("actions.activateAccount")}
+                        </Button>
+                      </>
+                    }
                   >
-                    <div className="h-full min-h-64" />
+                    <div className="space-y-4">
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                        <SummaryKPI label={ux("kpi.credentialStatus")} value={account?.has_credential || allowVirtualOnly ? ux("readiness.ready") : ux("readiness.needsCredentials")} />
+                        <SummaryKPI label={ux("kpi.enabledModels")} value={selectedModelCount.toString()} />
+                        <SummaryKPI label={ux("kpi.unresolvedPricing")} value={unresolvedPricingCount.toString()} />
+                        <SummaryKPI label={ux("kpi.managersUsers")} value={`${managers.length} / ${users.length}`} />
+                      </div>
+                      <Alert>
+                        <AlertTitle>{ux("review.activationCheckTitle")}</AlertTitle>
+                        <AlertDescription>
+                          {ux("microcopy.pricingPolicy")}
+                        </AlertDescription>
+                      </Alert>
+                    </div>
                   </WizardPanel>
+                  ) : null}
                   </>
                 )}
               </div>
-            </ScrollArea>
+            </div>
           </div>
         </section>
       </main>
@@ -1833,6 +1911,15 @@ export default function ProviderAccountWizard(props?: {
                             authMode={authMode}
                             apiKey={apiKey}
                             setAPIKey={setAPIKey}
+                            apiKeyTouched={apiKeyTouched}
+                            setAPIKeyTouched={(value) => {
+                              setAPIKeyTouched(value);
+                              if (value) {
+                                setAPIKeyTestSucceeded(false);
+                                setCreateCredentialTestResult(null);
+                              }
+                            }}
+                            apiKeyHint={apiKeyTestSucceeded ? account?.credential_hint : undefined}
                             secretRef={secretRef}
                             setSecretRef={setSecretRef}
                             azureTenantID={azureTenantID}
@@ -2047,6 +2134,16 @@ export default function ProviderAccountWizard(props?: {
                             authMode={authMode}
                             apiKey={apiKey}
                             setAPIKey={setAPIKey}
+                            apiKeyTouched={apiKeyTouched}
+                            setAPIKeyTouched={(value) => {
+                              setAPIKeyTouched(value);
+                              if (value) {
+                                setAPIKeyTestSucceeded(false);
+                                setLastCredentialTestMessage("");
+                                setCreateCredentialTestResult(null);
+                              }
+                            }}
+                            apiKeyHint={apiKeyTestSucceeded ? account.credential_hint : undefined}
                             secretRef={secretRef}
                             setSecretRef={setSecretRef}
                             azureTenantID={azureTenantID}

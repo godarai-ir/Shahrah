@@ -32,7 +32,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
@@ -109,6 +109,7 @@ type ModelCardProps = {
     latency?: string;
     quality?: string;
     pricing?: string;
+    priceInputOutput?: string;
     pricingUnavailable?: string;
     technicalMetadata?: string;
     inputFormats?: string;
@@ -167,6 +168,7 @@ export function ModelCard(props: ModelCardProps) {
     latency: "Latency",
     quality: "Quality",
     pricing: "Pricing",
+    priceInputOutput: "Input cost / Output cost",
     pricingUnavailable: "Pricing unavailable",
     technicalMetadata: "Technical metadata",
     inputFormats: "Input formats",
@@ -279,7 +281,7 @@ export function ModelCard(props: ModelCardProps) {
             ) : null}
             {props.pricingModeBadge ? <Badge variant="secondary">{props.pricingModeBadge}</Badge> : null}
             {typeof props.isSelected === "boolean" && props.onSelectedChange ? (
-              <label className="inline-flex min-h-8 cursor-pointer items-center gap-2 rounded-md border border-border/70 bg-background px-2.5 text-sm font-medium">
+              <label className="inline-flex min-h-8 cursor-pointer items-center gap-2 px-1 text-sm font-medium">
                 <span>{props.selectedCheckboxLabel ?? "Enabled"}</span>
                 <Switch
                   checked={props.isSelected}
@@ -301,47 +303,51 @@ export function ModelCard(props: ModelCardProps) {
             ) : null}
           </div>
         </div>
-        <div className="flex flex-wrap gap-1.5 pt-1">
-          {model.category.map((category) => (
-            <Badge key={category} variant="secondary">{labelCategory(category, labels)}</Badge>
-          ))}
-          {props.hasCustomPricing ? (
-            <Badge className="gap-1 border-amber-500/40 bg-amber-500/15 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300" variant="outline">
-              <SlidersHorizontal className="h-3 w-3" />
-              {labels.customPricing}
-            </Badge>
-          ) : null}
-          {model.recommended ? (
-            <Badge className="gap-1 bg-primary/15 text-primary hover:bg-primary/20">
-              <Sparkles className="h-3 w-3" />
-              {labels.recommended}
-            </Badge>
-          ) : null}
-          {model.popular ? <Badge variant="outline">{labels.popular}</Badge> : null}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+          <div className="flex min-w-0 flex-wrap gap-1.5">
+            {model.category.map((category) => (
+              <Badge key={category} variant="secondary">{labelCategory(category, labels)}</Badge>
+            ))}
+            {props.hasCustomPricing ? (
+              <Badge className="gap-1 border-amber-500/40 bg-amber-500/15 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300" variant="outline">
+                <SlidersHorizontal className="h-3 w-3" />
+                {labels.customPricing}
+              </Badge>
+            ) : null}
+            {model.recommended ? (
+              <Badge className="gap-1 bg-primary/15 text-primary hover:bg-primary/20">
+                <Sparkles className="h-3 w-3" />
+                {labels.recommended}
+              </Badge>
+            ) : null}
+            {model.popular ? <Badge variant="outline">{labels.popular}</Badge> : null}
+          </div>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" className="gap-1" onClick={handleCopyModelId}>
+              {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? labels.copied : labels.copyId}
+            </Button>
+            {props.footerActions}
+          </div>
         </div>
       </CardHeader>
 
       <CardContent className="flex flex-col gap-2 px-3 py-1.5">
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCell label={labels.context} value={formatTokenCount(model.contextWindow)} />
-          <MetricCell label={labels.input} value={formatPriceValueOnly(model.pricing?.inputPerMillion, perMillionPricingDisplay)} />
-          <div className="min-w-0 rounded-md border border-border/60 bg-muted/20 px-2.5 py-2">
-            <div className="flex min-w-0 items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="truncate text-xs text-muted-foreground">{labels.output}</p>
-                <p className="truncate text-sm font-semibold" dir="ltr">{formatPriceValueOnly(model.pricing?.outputPerMillion, perMillionPricingDisplay)}</p>
-              </div>
-              {props.pricingAction ? <div className="shrink-0">{props.pricingAction}</div> : null}
-            </div>
-          </div>
+          <PriceMetricCell
+            label={labels.priceInputOutput}
+            inputValue={formatPriceValueOnly(model.pricing?.inputPerMillion, perMillionPricingDisplay)}
+            outputValue={formatPriceValueOnly(model.pricing?.outputPerMillion, perMillionPricingDisplay)}
+            inputLabel={labels.input}
+            outputLabel={labels.output}
+            action={props.pricingAction}
+          />
+          <IconListCell label={labels.inputFormats} values={model.inputModalities} emptyLabel="N/A" />
+          <IconListCell label={labels.outputFormats} values={model.outputModalities} emptyLabel="N/A" />
         </div>
 
-        <section className="grid gap-2 rounded-md border border-border/60 bg-muted/20 p-2 sm:grid-cols-2">
-          <IconList label={labels.inputFormats} values={model.inputModalities} emptyLabel="N/A" />
-          <IconList label={labels.outputFormats} values={model.outputModalities} emptyLabel="N/A" />
-        </section>
-
-        <section className="space-y-1">
+        <section className="flex flex-col gap-1">
           <p className="text-xs font-medium text-muted-foreground">{labels.capabilities}</p>
           <div className="flex flex-wrap gap-1">
             {model.capabilities.length > 0 ? (
@@ -357,7 +363,7 @@ export function ModelCard(props: ModelCardProps) {
           </div>
         </section>
 
-        <section className="space-y-1">
+        <section className="flex flex-col gap-1">
           <p className="text-xs font-medium text-muted-foreground">{labels.invocationModes}</p>
           <div className="flex flex-wrap gap-1">
             {invocationModes.length > 0 ? (
@@ -379,7 +385,7 @@ export function ModelCard(props: ModelCardProps) {
               <AlertTriangle className="h-3.5 w-3.5" />
               {labels.tradeOffs}
             </p>
-            <ul className="space-y-0.5 text-xs text-amber-800 dark:text-amber-200">
+            <ul className="flex flex-col gap-0.5 text-xs text-amber-800 dark:text-amber-200">
               {model.tradeoffs.slice(0, 3).map((item) => (
                 <li key={item}>- {item}</li>
               ))}
@@ -387,14 +393,6 @@ export function ModelCard(props: ModelCardProps) {
           </section>
         ) : null}
       </CardContent>
-
-      <CardFooter className="flex min-w-0 flex-wrap items-center justify-between gap-2 px-3 pb-3 pt-1">
-        <Button variant="outline" size="sm" className="gap-1" onClick={handleCopyModelId}>
-          {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-          {copied ? labels.copied : labels.copyId}
-        </Button>
-        <div className="flex flex-wrap items-center gap-2">{props.footerActions}</div>
-      </CardFooter>
 
       {isFast && !isDeprecated ? (
         <div className="px-3 pb-3">
@@ -410,10 +408,48 @@ export function ModelCard(props: ModelCardProps) {
   );
 }
 
+function IconListCell(props: { label: string; values?: string[]; emptyLabel: string }) {
+  return (
+    <div className="min-w-0 rounded-md border border-border/60 bg-muted/20 px-2.5 py-2">
+      <IconList label={props.label} values={props.values} emptyLabel={props.emptyLabel} />
+    </div>
+  );
+}
+
+function PriceMetricCell(props: {
+  label: string;
+  inputLabel: string;
+  outputLabel: string;
+  inputValue: string;
+  outputValue: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="min-w-0 rounded-md border border-border/60 bg-muted/20 px-2.5 py-2">
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs text-muted-foreground">{props.label}</p>
+          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold" dir="ltr">
+            <span className="truncate">{props.inputValue}</span>
+            <span className="text-muted-foreground">/</span>
+            <span className="truncate">{props.outputValue}</span>
+          </div>
+          <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+            <span>{props.inputLabel}</span>
+            <span>/</span>
+            <span>{props.outputLabel}</span>
+          </div>
+        </div>
+        {props.action ? <div className="shrink-0">{props.action}</div> : null}
+      </div>
+    </div>
+  );
+}
+
 function IconList(props: { label: string; values?: string[]; emptyLabel: string }) {
   return (
-    <div className="space-y-2">
-      <p className="text-xs font-medium text-muted-foreground">{props.label}</p>
+    <div className="flex min-w-0 flex-col gap-2">
+      <p className="truncate text-xs font-medium text-muted-foreground">{props.label}</p>
       <div className="flex flex-wrap gap-1.5">
         {props.values?.length ? (
           props.values.map((value) => (

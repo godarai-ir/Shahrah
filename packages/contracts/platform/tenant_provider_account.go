@@ -145,6 +145,7 @@ type TenantProviderAccount struct {
 	AuthMode              ProviderAuthMode       `json:"auth_mode"`
 	ProviderConfig        map[string]interface{} `json:"provider_config,omitempty"`
 	HasCredential         bool                   `json:"has_credential"`
+	CredentialHint        string                 `json:"credential_hint,omitempty"`
 	AllowsVirtualKeysOnly bool                   `json:"allows_virtual_keys_only"`
 	CreatedAt             time.Time              `json:"created_at"`
 	UpdatedAt             time.Time              `json:"updated_at"`

@@ -193,7 +193,8 @@
       "hasCredential": "Has credential",
       "virtualOnly": "Virtual-key-only",
       "lastTest": "Last test",
-      "notTested": "Not tested in this session"
+      "notTested": "Not tested in this session",
+      "editStoredApiKey": "Replace stored API key"
     },
     "observability": {
       "desc": "Inspect effective model resolution and runtime deny reasons before real traffic.",
@@ -277,6 +278,7 @@
         "latency": "Latency",
         "quality": "Quality",
         "pricing": "Pricing",
+        "priceInputOutput": "Input cost / Output cost",
         "pricingUnavailable": "Pricing unavailable",
         "technicalMetadata": "Technical metadata",
         "inputFormats": "Input formats",

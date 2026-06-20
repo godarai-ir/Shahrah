@@ -64,6 +64,7 @@ export type TenantProviderAccount = {
   auth_mode: ProviderAuthMode;
   provider_config?: Record<string, unknown>;
   has_credential: boolean;
+  credential_hint?: string;
   allows_virtual_keys_only: boolean;
 };
 
