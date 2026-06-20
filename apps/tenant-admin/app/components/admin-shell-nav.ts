@@ -1,4 +1,17 @@
-import { Activity, BarChart3, Building2, CreditCard, LayoutDashboard, Route, Settings, ShieldCheck, Users } from "lucide-react";
+import {
+  Activity,
+  BarChart3,
+  Building2,
+  CircleDollarSign,
+  CreditCard,
+  Gauge,
+  LayoutDashboard,
+  Plug,
+  Route,
+  Settings,
+  UserCog,
+  Users,
+} from "lucide-react";
 
 import { canAnyPermission } from "../../lib/authz";
 
@@ -59,7 +72,7 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       key: "providerAccounts",
       href: "/provider-accounts",
       title: t("nav.providerAccounts"),
-      icon: ShieldCheck,
+      icon: Plug,
       isActive: pathname.startsWith("/provider-accounts"),
       requiredPermissions: ["provider_account:read", "provider_account:manage", "provider_account:create"],
     },
@@ -83,12 +96,11 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       key: "accessManagement",
       href: "/roles",
       title: t("nav.accessManagement"),
-      icon: Users,
+      icon: UserCog,
       isActive:
         pathname.startsWith("/users")
         || pathname.startsWith("/roles")
         || pathname.startsWith("/teams")
-        || pathname.startsWith("/virtual-users")
         || pathname.startsWith("/personal-access-tokens"),
       requiredPermissions: ACCESS_SECTION_PERMISSIONS,
     },
@@ -120,7 +132,7 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       key: "rateLimitPolicies",
       href: "/gateway-policies/rate-limiting-rules",
       title: t("nav.rateLimitPolicies"),
-      icon: ShieldCheck,
+      icon: Gauge,
       isActive: pathname.startsWith("/gateway-policies/rate-limiting-rules"),
       requiredPermissions: ["policy:list"],
     },
@@ -128,7 +140,7 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       key: "budgetLimitPolicies",
       href: "/gateway-policies/budget-limiting-rules",
       title: t("nav.budgetLimitPolicies"),
-      icon: ShieldCheck,
+      icon: CircleDollarSign,
       isActive: pathname.startsWith("/gateway-policies/budget-limiting-rules"),
       requiredPermissions: ["policy:list"],
     },

@@ -3,26 +3,37 @@
   "tenant": "مدیریت تننت",
   "searchPlaceholder": "جستجو در پنل...",
   "logout": "خروج",
+  "profile": {
+    "menu": "\u0645\u0646\u0648\u06cc \u067e\u0631\u0648\u0641\u0627\u06cc\u0644",
+    "account": "\u062d\u0633\u0627\u0628 \u06a9\u0627\u0631\u0628\u0631\u06cc"
+  },
   "menu": {
     "open": "باز کردن منو",
     "description": "مسیریابی و دسترسی سریع به ابزارهای پنل"
   },
+  "navGroups": {
+    "overview": "نمای کلی",
+    "runtime": "Gateway Runtime",
+    "observability": "پایش",
+    "governance": "کنترل و سیاست‌ها",
+    "access": "دسترسی"
+  },
   "nav": {
     "title": "مسیریابی اصلی",
     "dashboard": "داشبورد",
-    "topup": "شارژ کیف پول",
+    "topup": "کیف پول",
     "settings": "تنظیمات حساب",
-    "providerAccounts": "LLM Integrations",
+    "providerAccounts": "اتصال‌دهنده‌های LLM",
     "virtualModels": "مدل‌های مجازی",
-    "virtualUsers": "Virtual Users و VAT",
+    "virtualUsers": "مصرف‌کننده‌ها و VAT",
     "accessManagement": "مدیریت دسترسی",
-    "orgUnits": "واحدهای سازمانی",
+    "orgUnits": "واحدها",
     "teams": "تیم‌ها",
-    "traces": "Request Traces",
-    "metrics": "Model Metrics",
+    "traces": "ردگیری درخواست‌ها",
+    "metrics": "متریک مدل‌ها",
     "gatewayPolicies": "سیاست‌های گیت‌وی",
-    "rateLimitPolicies": "قوانین محدودیت نرخ",
-    "budgetLimitPolicies": "قوانین محدودیت بودجه"
+    "rateLimitPolicies": "سیاست‌های نرخ",
+    "budgetLimitPolicies": "سیاست‌های بودجه"
   },
   "logoAlt": "لوگوی شاهراه"
 }

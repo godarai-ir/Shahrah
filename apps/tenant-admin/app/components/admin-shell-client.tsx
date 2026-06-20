@@ -3,18 +3,23 @@
 import { useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { LogOut, Search } from "lucide-react";
+import { LogOut, User } from "lucide-react";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -25,7 +30,6 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarRail,
-  SidebarSeparator,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -44,23 +48,31 @@ type AdminShellClientProps = {
   permissions: string[];
 };
 
-function getInitials(input: string) {
-  const value = input.trim();
-  if (!value) {
-    return "TA";
-  }
-
-  if (value.includes("@")) {
-    return value.slice(0, 2).toUpperCase();
-  }
-
-  const parts = value.split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) {
-    return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
-  }
-
-  return value.slice(0, 2).toUpperCase();
-}
+const SIDEBAR_NAV_GROUPS: Array<{
+  labelKey: string;
+  itemKeys: AdminNavItem["key"][];
+}> = [
+  {
+    labelKey: "navGroups.overview",
+    itemKeys: ["dashboard", "topup"],
+  },
+  {
+    labelKey: "navGroups.runtime",
+    itemKeys: ["providerAccounts", "virtualModels", "virtualUsers"],
+  },
+  {
+    labelKey: "navGroups.observability",
+    itemKeys: ["traces", "metrics"],
+  },
+  {
+    labelKey: "navGroups.governance",
+    itemKeys: ["rateLimitPolicies", "budgetLimitPolicies"],
+  },
+  {
+    labelKey: "navGroups.access",
+    itemKeys: ["accessManagement", "orgUnits"],
+  },
+];
 
 export default function AdminShellClient({
   children,
@@ -80,19 +92,21 @@ export default function AdminShellClient({
     return filterVisibleNavItems(navItems, permissions);
   }, [navItems, permissions]);
 
+  const sidebarNavItems = useMemo(() => {
+    return visibleNavItems.filter((item) => item.key !== "settings");
+  }, [visibleNavItems]);
+
   const currentPageLabel = visibleNavItems.find((item) => item.isActive)?.title ?? t("nav.dashboard");
 
   return (
     <PermissionsProvider permissions={permissions}>
-      <SidebarProvider className="bg-background app-background">
+      <SidebarProvider className="bg-background">
         <AdminSidebar
           tenantSlug={tenantSlug}
-          currentUser={currentUser}
-          userIdentity={userIdentity}
-          navItems={visibleNavItems}
+          navItems={sidebarNavItems}
         />
 
-        <SidebarInset className="min-w-0 bg-transparent">
+        <SidebarInset className="min-w-0 rounded-none bg-background">
           <header className="sticky top-0 z-10 border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/85 md:px-6">
             <div className="flex min-w-0 items-center gap-3">
               <SidebarTrigger aria-label={t("menu.open")} />
@@ -102,21 +116,15 @@ export default function AdminShellClient({
                 <h1 className="truncate text-base font-semibold md:text-lg">{currentPageLabel}</h1>
               </div>
 
-              <div className="hidden w-full max-w-sm items-center gap-2 md:flex">
-                <Search className="size-4 text-muted-foreground" aria-hidden="true" />
-                <Input
-                  placeholder={t("searchPlaceholder")}
-                  aria-label={t("searchPlaceholder")}
-                  className="max-w-xs"
-                />
+              <div className="flex shrink-0 items-center gap-2">
+                <ThemeToggle />
+                <UserProfileMenu userIdentity={userIdentity} currentUser={currentUser} />
               </div>
-
-              <ThemeToggle />
             </div>
           </header>
 
-          <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:p-6 md:pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-            <div className="mx-auto w-full max-w-7xl animate-fade-in">{children}</div>
+          <div className="min-w-0 flex-1 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:p-3 md:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <div className="w-full animate-fade-in">{children}</div>
           </div>
         </SidebarInset>
       </SidebarProvider>
@@ -124,22 +132,90 @@ export default function AdminShellClient({
   );
 }
 
-type SidebarContentProps = {
-  tenantSlug: string;
+type UserProfileMenuProps = {
   userIdentity: string;
   currentUser: {
     role: string;
   };
+};
+
+function UserProfileMenu({ userIdentity, currentUser }: UserProfileMenuProps) {
+  const router = useRouter();
+  const t = useTranslations("shell");
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.replace("/login");
+    router.refresh();
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="shrink-0"
+          aria-label={t("profile.menu")}
+        >
+          <User data-icon="inline-start" aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" dir="rtl" className="w-56 text-right">
+        <DropdownMenuLabel className="flex flex-col items-start gap-1">
+          <span dir="ltr" className="max-w-full truncate text-sm font-medium">
+            {userIdentity}
+          </span>
+          <Badge variant="secondary" className="w-fit text-xs" dir="ltr">
+            {currentUser.role}
+          </Badge>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild className="justify-start">
+          <Link href="/settings">
+            <User data-icon="inline-start" aria-hidden="true" />
+            <span>{t("profile.account")}</span>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="text-destructive focus:text-destructive"
+          onSelect={(event) => {
+            event.preventDefault();
+            void handleLogout();
+          }}
+        >
+          <LogOut data-icon="inline-start" aria-hidden="true" />
+          <span>{t("logout")}</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+type SidebarContentProps = {
+  tenantSlug: string;
   navItems: AdminNavItem[];
 };
 
 function AdminSidebar({
   tenantSlug,
-  userIdentity,
-  currentUser,
   navItems,
 }: SidebarContentProps) {
   const t = useTranslations("shell");
+  const navItemsByKey = useMemo(() => {
+    return new Map(navItems.map((item) => [item.key, item]));
+  }, [navItems]);
+
+  const navGroups = useMemo(() => {
+    return SIDEBAR_NAV_GROUPS.map((group) => ({
+      ...group,
+      items: group.itemKeys
+        .map((key) => navItemsByKey.get(key))
+        .filter((item): item is AdminNavItem => Boolean(item)),
+    })).filter((group) => group.items.length > 0);
+  }, [navItemsByKey]);
 
   return (
     <Sidebar side="right" collapsible="icon">
@@ -149,11 +225,11 @@ function AdminSidebar({
             <SidebarMenuButton
               size="lg"
               tooltip={t("title")}
-              className="h-14 items-center gap-3 rounded-lg border border-sidebar-border bg-sidebar"
+              className="h-12 items-center gap-2 rounded-lg border border-sidebar-border bg-sidebar"
               asChild
             >
               <Link href="/">
-                <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-sidebar-border bg-sidebar-accent p-1.5">
+                <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-sidebar-border bg-sidebar-accent p-1">
                   <Image
                     src="/brand/shahrah-logo.png"
                     alt={t("logoAlt")}
@@ -174,68 +250,34 @@ function AdminSidebar({
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>{t("nav.title")}</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu aria-label={t("nav.title")}>
-              {navItems.map((item) => {
-                const Icon = item.icon;
+        {navGroups.map((group) => (
+          <SidebarGroup key={group.labelKey} className="py-1">
+            <SidebarGroupLabel>{t(group.labelKey)}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu aria-label={t(group.labelKey)}>
+                {group.items.map((item) => {
+                  const Icon = item.icon;
 
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      isActive={item.isActive}
-                      tooltip={item.title}
-                      asChild
-                    >
-                      <Link href={item.href}>
-                        <Icon aria-hidden="true" />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        isActive={item.isActive}
+                        tooltip={item.title}
+                        asChild
+                      >
+                        <Link href={item.href}>
+                          <Icon aria-hidden="true" />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
-
-      <SidebarFooter>
-        <SidebarSeparator />
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <div className="flex items-center gap-3 rounded-lg border border-sidebar-border bg-sidebar p-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0">
-              <Avatar className="size-10">
-                <AvatarFallback className="text-xs font-semibold">
-                  {getInitials(userIdentity)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
-                <p className="truncate text-sm font-medium text-sidebar-foreground">{userIdentity}</p>
-                <Badge variant="secondary" className="mt-1 text-xs">
-                  {currentUser.role}
-                </Badge>
-              </div>
-            </div>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <form action="/logout" method="post">
-              <SidebarMenuButton asChild tooltip={t("logout")}>
-                <Button
-                  type="submit"
-                  variant="outline"
-                  size="sm"
-                  className="w-full justify-start"
-                >
-                  <LogOut aria-hidden="true" />
-                  <span>{t("logout")}</span>
-                </Button>
-              </SidebarMenuButton>
-            </form>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
 
       <SidebarRail />
     </Sidebar>

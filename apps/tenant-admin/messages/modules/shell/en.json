@@ -3,25 +3,36 @@
   "tenant": "Tenant Workspace",
   "searchPlaceholder": "Search in panel...",
   "logout": "Sign out",
+  "profile": {
+    "menu": "Profile menu",
+    "account": "Account"
+  },
   "menu": {
     "open": "Open menu",
     "description": "Quick navigation and panel shortcuts"
   },
+  "navGroups": {
+    "overview": "Overview",
+    "runtime": "Gateway Runtime",
+    "observability": "Observability",
+    "governance": "Governance",
+    "access": "Access"
+  },
   "nav": {
     "title": "Primary navigation",
     "dashboard": "Dashboard",
-    "topup": "Wallet Top-up",
+    "topup": "Wallet",
     "settings": "Account Settings",
-    "providerAccounts": "LLM Integrations",
+    "providerAccounts": "LLM Connectors",
     "virtualModels": "Virtual Models",
-    "virtualUsers": "Virtual Users & VATs",
+    "virtualUsers": "Consumers & VAT",
     "accessManagement": "Access Management",
-    "traces": "Request Traces",
+    "traces": "Request Trace",
     "metrics": "Model Metrics",
     "gatewayPolicies": "Gateway Policies",
-    "rateLimitPolicies": "Rate Limit Policies",
-    "budgetLimitPolicies": "Budget Limit Policies",
-    "orgUnits": "Organization Units",
+    "rateLimitPolicies": "Rate Policies",
+    "budgetLimitPolicies": "Budget Policies",
+    "orgUnits": "Org Units",
     "teams": "Teams"
   },
   "logoAlt": "Shahrah logo"

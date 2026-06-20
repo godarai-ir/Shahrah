@@ -146,17 +146,6 @@ body {
 }
 
 /* ========================================
-   BACKGROUND GRADIENT — subtle brand touch
-   ======================================== */
-
-.app-background {
-  background:
-    radial-gradient(circle at 12% 10%, color-mix(in oklab, var(--primary-glow) 50%, transparent), transparent 40%),
-    radial-gradient(circle at 88% 8%, color-mix(in oklab, var(--accent) 20%, transparent), transparent 35%),
-    var(--background);
-}
-
-/* ========================================
    UTILITY CLASSES
    ======================================== */
 
