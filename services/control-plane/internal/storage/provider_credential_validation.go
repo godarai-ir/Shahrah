@@ -93,6 +93,8 @@ func providerCredentialProbeFor(provider string, providerConfig map[string]inter
 		return bearerModelsProbe(configString(providerConfig, "api_base", "https://api.groq.com/openai/v1")), true
 	case "mistral":
 		return bearerModelsProbe(configString(providerConfig, "api_base", "https://api.mistral.ai/v1")), true
+	case "sambanova", "samba-nova":
+		return bearerModelsProbe(configString(providerConfig, "api_base", "https://api.sambanova.ai/v1")), true
 	case "togetherai", "together-ai", "together":
 		return bearerModelsProbe(configString(providerConfig, "api_base", "https://api.together.ai/v1")), true
 	default:

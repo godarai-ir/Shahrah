@@ -28,6 +28,24 @@ func TestValidateProviderAPIKeyCallsProviderModelsEndpoint(t *testing.T) {
 	assert.Contains(t, result.Message, "accepted")
 }
 
+func TestValidateProviderAPIKeySupportsSambaNova(t *testing.T) {
+	var gotAuth string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		assert.Equal(t, "/models", r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[]}`))
+	}))
+	defer server.Close()
+
+	result := validateProviderAPIKey(context.Background(), "sambanova", "sbnv-real-key-1234", map[string]interface{}{
+		"api_base": server.URL,
+	}, server.Client())
+
+	assert.True(t, result.Success)
+	assert.Equal(t, "Bearer sbnv-real-key-1234", gotAuth)
+}
+
 func TestValidateProviderAPIKeyRejectsInvalidProviderKey(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
