@@ -170,7 +170,6 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
             { type: "sum", column: "inputTokens" },
             { type: "sum", column: "outputTokens" },
             { type: "sum", column: "costInUSD" },
-            { type: pct, column: "latencyMs" },
           ],
           groupBy: [viewBy],
           filters,
@@ -182,7 +181,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
           type: "timeseries",
           aggregations: [
             { type: "count", column: "modelName" },
-            { type: pct, column: "latencyMs" },
+            ...PCTS.map((percentile) => ({ type: percentile, column: "latencyMs" })),
             { type: "sum", column: "inputTokens" },
             { type: "sum", column: "outputTokens" },
             { type: "sum", column: "costInUSD" },
@@ -306,20 +305,6 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
               ))}
             </select>
           </Field>
-          <Field id="metrics-percentile" label={t("filters.percentile")}>
-            <select
-              id="metrics-percentile"
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-              value={pct}
-              onChange={(event) => setPct(event.target.value as Pct)}
-            >
-              {PCTS.map((value) => (
-                <option key={value} value={value}>
-                  {t(`filters.percentiles.${value}`)}
-                </option>
-              ))}
-            </select>
-          </Field>
           <div className="flex items-end">
             <Button type="button" onClick={() => void runQuery()} disabled={loading}>
               {loading ? common("loading") : t("actions.applyFilters")}
@@ -371,7 +356,26 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
           </ChartContainer>
         </ChartCard>
 
-        <ChartCard title={t("charts.latency.title", { percentile: pct.toUpperCase() })} description={t("charts.latency.description")}>
+        <ChartCard
+          title={t("charts.latency.title", { percentile: pct.toUpperCase() })}
+          description={t("charts.latency.description")}
+          action={
+            <Field id="metrics-percentile" label={t("filters.percentile")}>
+              <select
+                id="metrics-percentile"
+                className="h-10 min-w-28 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                value={pct}
+                onChange={(event) => setPct(event.target.value as Pct)}
+              >
+                {PCTS.map((value) => (
+                  <option key={value} value={value}>
+                    {t(`filters.percentiles.${value}`)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          }
+        >
           <ChartContainer config={seriesConfig} className="h-[320px] w-full">
             <AreaChart data={chartData.latencyPoints} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} />
@@ -471,12 +475,25 @@ function MetricCard({ title, value, description }: { title: string; value: strin
   );
 }
 
-function ChartCard({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+function ChartCard({
+  title,
+  description,
+  action,
+  children,
+}: {
+  title: string;
+  description: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <Card className="rounded-lg">
-      <CardHeader>
-        <CardTitle className="text-base">{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+      <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <CardTitle className="text-base">{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
+        </div>
+        {action ? <div className="shrink-0">{action}</div> : null}
       </CardHeader>
       <CardContent>{children}</CardContent>
     </Card>
