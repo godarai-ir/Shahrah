@@ -87,6 +87,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
   const common = useTranslations("common");
 
   const [viewBy, setViewBy] = useState<ViewBy>("modelName");
+  const [displayViewBy, setDisplayViewBy] = useState<ViewBy>("modelName");
   const didRunInitialQuery = useRef(false);
   const [pct, setPct] = useState<Pct>("p99");
   const [modelFilter, setModelFilter] = useState(props.initialModel ?? "");
@@ -126,8 +127,8 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
   }, [distribution]);
 
   const chartData = useMemo(
-    () => buildChartData(timeseries, viewBy, pct, t("values.unknown"), locale, from, to),
-    [timeseries, viewBy, pct, t, locale, from, to],
+    () => buildChartData(timeseries, displayViewBy, pct, t("values.unknown"), locale, from, to),
+    [timeseries, displayViewBy, pct, t, locale, from, to],
   );
 
   const errorChartData = useMemo(
@@ -176,10 +177,14 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
     }),
     [t],
   );
+  const requestChartTitle = t("charts.requests.titleByView", {
+    dimension: t(`filters.viewByOptions.${displayViewBy}`),
+  });
 
   async function runQuery(
     range?: { from: string; to: string },
     filterOverride?: { model: string; provider: string; requestID: string },
+    viewByOverride?: ViewBy,
   ) {
     const resolvedRange = range ?? resolveSelectedRange(rangePreset, from, to);
     const queryFrom = resolvedRange.from;
@@ -187,6 +192,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
     const queryModelFilter = filterOverride?.model ?? modelFilter;
     const queryProviderFilter = filterOverride?.provider ?? providerFilter;
     const queryRequestIDFilter = filterOverride?.requestID ?? requestIDFilter;
+    const queryViewBy = viewByOverride ?? viewBy;
     if (!queryFrom || !queryTo) return;
     if (queryFrom !== from) setFrom(queryFrom);
     if (queryTo !== to) setTo(queryTo);
@@ -217,7 +223,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
             { type: "sum", column: "outputTokens" },
             { type: "sum", column: "costInUSD" },
           ],
-          groupBy: [viewBy],
+          groupBy: [queryViewBy],
           filters,
         }, common("requestError")),
         postMetricsQuery({
@@ -232,7 +238,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
             { type: "sum", column: "outputTokens" },
             { type: "sum", column: "costInUSD" },
           ],
-          groupBy: [viewBy],
+          groupBy: [queryViewBy],
           filters,
           intervalInSeconds: INTERVAL_SECONDS,
         }, common("requestError")),
@@ -247,6 +253,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
         }, common("requestError")),
       ]);
 
+      setDisplayViewBy(queryViewBy);
       setDistribution(dist.data ?? []);
       setTimeseries(ts.data ?? []);
       setErrorBreakdown(errb.data ?? []);
@@ -294,6 +301,11 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
     setViewBy("modelName");
     setPct("p99");
     void runQuery(nextRange, { model: "", provider: "", requestID: "" });
+  }
+
+  function handleViewByChange(nextViewBy: ViewBy) {
+    setViewBy(nextViewBy);
+    void runQuery(undefined, undefined, nextViewBy);
   }
 
   useEffect(() => {
@@ -391,7 +403,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
               id="metrics-view-by"
               options={viewByOptions}
               value={viewBy}
-              onValueChange={(value) => setViewBy(value as ViewBy)}
+              onValueChange={(value) => handleViewByChange(value as ViewBy)}
               placeholder={t("filters.viewBy")}
               emptyText={t("filters.emptyOptions")}
               searchable={false}
@@ -432,7 +444,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
       </section>
 
       <section aria-label={t("sections.charts")} className="grid gap-3 xl:grid-cols-2">
-        <ChartCard title={t("charts.requests.title")}>
+        <ChartCard title={requestChartTitle}>
           <ChartContainer config={seriesConfig} className="h-[240px] w-full md:h-[260px]">
             <AreaChart data={chartData.points} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} />

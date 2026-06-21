@@ -75,6 +75,7 @@
   "charts": {
     "requests": {
       "title": "Requests per second",
+      "titleByView": "Requests by {dimension}",
       "description": "Traffic trend grouped by the selected model dimension."
     },
     "latency": {
