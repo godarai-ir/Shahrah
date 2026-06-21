@@ -22,6 +22,35 @@ func TestCheckRouteAuthorization_TenantAdminAllowedOnManagement(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestCheckRouteAuthorization_SettingsListAllowedOnWalletReads(t *testing.T) {
+	for _, route := range []string{
+		"/api/v1/wallet",
+		"/api/v1/wallet/transactions?limit=20",
+		"/api/v1/wallet/topup/settings",
+	} {
+		err := auth.CheckRouteAuthorization("GET", route, &platform.AuthContext{
+			Role:        "member",
+			Permissions: []string{"settings:list"},
+		})
+		assert.NoError(t, err, route)
+	}
+}
+
+func TestCheckRouteAuthorization_WalletMutationsRequireManagePermission(t *testing.T) {
+	err := auth.CheckRouteAuthorization("POST", "/api/v1/wallet/topup/intents", &platform.AuthContext{
+		Role:        "member",
+		Permissions: []string{"settings:list"},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "tenant admin privileges required")
+
+	err = auth.CheckRouteAuthorization("POST", "/api/v1/wallet/topup/intents", &platform.AuthContext{
+		Role:        "member",
+		Permissions: []string{"settings:manage"},
+	})
+	assert.NoError(t, err)
+}
+
 func TestCheckRouteAuthorization_TenantUserDeniedOnManagement(t *testing.T) {
 	err := auth.CheckRouteAuthorization("GET", "/api/v1/users", &platform.AuthContext{
 		Role: "member",

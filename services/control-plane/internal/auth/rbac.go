@@ -114,7 +114,7 @@ func CheckRouteAuthorization(method string, route string, authInfo *platform.Aut
 	case strings.HasPrefix(normalizedRoute, "/api/v1/virtual-users"):
 		return requireTeamAdmin(authInfo)
 	case strings.HasPrefix(normalizedRoute, "/api/v1/wallet"):
-		return requireTenantAdmin(authInfo)
+		return checkWalletRouteAuthorization(normalizedMethod, normalizedRoute, authInfo)
 	case strings.HasPrefix(normalizedRoute, "/api/v1/models"):
 		return checkModelsRouteAuthorization(normalizedMethod, normalizedRoute, authInfo)
 	case strings.HasPrefix(normalizedRoute, "/api/v1/virtual-models"):
@@ -151,6 +151,30 @@ func checkPATRouteAuthorization(authInfo *platform.AuthContext) error {
 	default:
 		return fmt.Errorf("insufficient permissions for personal access token route")
 	}
+}
+
+func checkWalletRouteAuthorization(method string, route string, authInfo *platform.AuthContext) error {
+	if IsTenantAdminOrHigher(authInfo) {
+		return nil
+	}
+	normalizedMethod := strings.ToUpper(strings.TrimSpace(method))
+	normalizedRoute := strings.TrimSpace(route)
+	switch normalizedMethod {
+	case "GET", "HEAD", "OPTIONS":
+		if hasAnyPermission(authInfo, "settings:list", "settings:manage") {
+			return nil
+		}
+		return fmt.Errorf("settings list permission required")
+	case "PUT", "PATCH":
+		if normalizedRoute == "/api/v1/wallet/topup/settings" && hasPermission(authInfo, "settings:manage") {
+			return nil
+		}
+	case "POST":
+		if (normalizedRoute == "/api/v1/wallet/topup" || normalizedRoute == "/api/v1/wallet/topup/intents") && hasPermission(authInfo, "settings:manage") {
+			return nil
+		}
+	}
+	return fmt.Errorf("tenant admin privileges required")
 }
 
 func checkPolicyRouteAuthorization(method string, authInfo *platform.AuthContext) error {

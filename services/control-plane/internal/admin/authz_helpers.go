@@ -18,6 +18,14 @@ func requireTenantAdminOrHigher(c *fiber.Ctx) error {
 	return fiber.NewError(fiber.StatusForbidden, "tenant admin privileges required")
 }
 
+func requireWalletRead(c *fiber.Ctx) error {
+	return requirePermissionAnyOrTenantAdmin(c, "settings list permission required", []string{"settings:list", "settings:manage"})
+}
+
+func requireWalletManage(c *fiber.Ctx) error {
+	return requirePermissionAnyOrTenantAdmin(c, "tenant admin privileges required", []string{"settings:manage"})
+}
+
 func requireTeamAdminOrHigher(c *fiber.Ctx) error {
 	authInfo := auth.GetAuthInfo(c)
 	if auth.IsTeamAdminOrHigher(authInfo) {

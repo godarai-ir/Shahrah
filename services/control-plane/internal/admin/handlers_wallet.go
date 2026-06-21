@@ -6,7 +6,7 @@ import (
 )
 
 func (h *Handlers) GetWallet(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requireWalletRead(c); err != nil {
 		return err
 	}
 
@@ -28,7 +28,7 @@ type topUpRequest struct {
 
 // TopUpWallet performs a stubbed immediate top-up.
 func (h *Handlers) TopUpWallet(c *fiber.Ctx) error {
-	if err := requireTenantAdminOrHigher(c); err != nil {
+	if err := requireWalletManage(c); err != nil {
 		return err
 	}
 
