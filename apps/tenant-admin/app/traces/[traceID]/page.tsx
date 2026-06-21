@@ -1,12 +1,34 @@
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import type { ReactNode } from "react";
+import {
+  Activity,
+  AlertTriangle,
+  ArrowRight,
+  BarChart3,
+  Clock,
+  Coins,
+  Database,
+  FileJson,
+  Gauge,
+  Hash,
+  Layers,
+  RefreshCw,
+  Route,
+  Server,
+  Timer,
+  type LucideIcon,
+} from "lucide-react";
+import { getLocale, getTranslations } from "next-intl/server";
 
 import AdminShell from "@/app/components/admin-shell";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
+import { cn } from "@/lib/utils";
 
 type RequestTraceV2 = {
   trace_id: string;
@@ -92,11 +114,15 @@ type SpanResponse = { data?: TraceSpan[] };
 type AttemptResponse = { data?: TraceAttempt[] };
 
 type Params = { params: Promise<{ traceID: string }> };
+type MetadataSource = "span" | "usage";
+type MetadataRow = { source: MetadataSource; key: string; value: string };
+type BadgeVariant = "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "info";
 
 export const dynamic = "force-dynamic";
 
 export default async function TraceDetailPage({ params }: Params) {
   const t = await getTranslations("traces");
+  const locale = await getLocale();
   const auth = await requireAuth("/login?next=/traces");
   const tenantSlug = auth.tenantSlug;
   await requirePermissionOr403(tenantSlug, auth.user.id, ["settings:list"]);
@@ -131,7 +157,10 @@ export default async function TraceDetailPage({ params }: Params) {
   const attempts = attemptsResult.ok ? attemptsPayload.data ?? [] : [];
   const sortedSpans = sortSpans(spans);
   const waterfallRows = buildWaterfallRows(sortedSpans);
+  const hasNonZeroSpanOffset = waterfallRows.some((row) => row.offsetMS > 0);
+  const timelineTotalMS = waterfallRows[0]?.totalMS ?? 0;
   const rootSpan = sortedSpans.find((span) => span.name === "gateway.request" && span.kind === "server");
+  const providerSpan = sortedSpans.find((span) => span.name === "provider.call");
 
   const currentUser = {
     id: auth.user.id,
@@ -140,103 +169,258 @@ export default async function TraceDetailPage({ params }: Params) {
     role: auth.user.role,
   };
 
-  const metadataRows = buildMetadataRows(rootSpan?.attributes, detail?.usage?.metadata);
-  const errorRows = buildErrorRows(detail, sortedSpans, t);
+  const errorRows = buildErrorRows(detail, sortedSpans, t, locale);
+  const emptyLabel = t("detail.values.empty");
+  const msLabel = t("detail.units.ms");
+  const metadataRows = buildMetadataRows(rootSpan?.attributes, detail?.usage?.metadata).filter((row) => shouldShowMetadataRow(row, detail));
+  const requestID = distinctValue(detail?.trace.request_id, detail?.trace.trace_id);
+  const providerModel = distinctValue(detail?.metric?.provider_model_name, detail?.trace.model);
+  const metricErrorType = detail?.metric?.error_type;
+  const usageLatency = detail?.metric?.latency_ms ?? detail?.usage?.response_time_ms;
+  const showUsageLatency = typeof usageLatency === "number" && !isNearNumber(usageLatency, providerSpan?.duration_ms, 25);
+  const showAttemptRoutingFields = attempts.length > 1 || attempts.some((attempt) => hasText(attempt.retry_reason) || hasText(attempt.fallback_reason));
+  const showAttemptFallbackField = attempts.some((attempt) => hasText(attempt.fallback_reason));
+  const metadataSourceLabels: Record<MetadataSource, string> = {
+    span: t("detail.metadata.sources.span"),
+    usage: t("detail.metadata.sources.usage"),
+  };
 
   return (
     <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">{t("detail.title")}</h1>
-          <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-muted-foreground">{t("detail.kicker")}</p>
+            <h1 className="text-xl font-semibold">{t("detail.title")}</h1>
+            <p className="mt-1 break-all font-mono text-xs text-muted-foreground">{normalized || emptyLabel}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             {detail ? (
-              <Link href={buildMetricsLink(detail.trace)} className="text-sm text-primary underline-offset-2 hover:underline">
-                {t("detail.actions.openInMetrics")}
-              </Link>
+              <Button asChild variant="outline" size="sm">
+                <Link href={buildMetricsLink(detail.trace)}>
+                  <BarChart3 data-icon="inline-start" />
+                  {t("detail.actions.openInMetrics")}
+                </Link>
+              </Button>
             ) : null}
-            <Link href="/traces" className="text-sm text-primary underline-offset-2 hover:underline">
-              {t("detail.actions.backToTraces")}
-            </Link>
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/traces">
+                <ArrowRight data-icon="inline-start" />
+                {t("detail.actions.backToTraces")}
+              </Link>
+            </Button>
           </div>
         </div>
 
         {!detail ? (
           <Card>
-            <CardHeader>
-              <CardTitle>{t("detail.notFound.title")}</CardTitle>
+            <CardHeader className="gap-1 px-4 py-3 md:px-4 md:py-3">
+              <CardTitle className="text-base tracking-normal">{t("detail.notFound.title")}</CardTitle>
               <CardDescription>{traceResult.errorMessage ?? t("detail.notFound.description")}</CardDescription>
             </CardHeader>
           </Card>
         ) : (
           <>
             <Card>
-              <CardHeader>
-                <CardTitle className="font-mono text-sm">{detail.trace.trace_id}</CardTitle>
-                <CardDescription>{t("detail.summary.title")}</CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-2 text-sm md:grid-cols-4">
-                <p><strong>{t("detail.summary.requestId")}:</strong> {detail.trace.request_id || "-"}</p>
-                <p><strong>{t("detail.summary.route")}:</strong> {detail.trace.route}</p>
-                <p><strong>{t("detail.summary.model")}:</strong> {detail.trace.model || "-"}</p>
-                <p><strong>{t("detail.summary.provider")}:</strong> {detail.trace.provider || "-"}</p>
-                <p><strong>{t("detail.summary.status")}:</strong> <Badge variant={detail.trace.status_code >= 500 ? "destructive" : "secondary"}>{detail.trace.status_code}</Badge></p>
-                <p><strong>{t("detail.summary.duration")}:</strong> {detail.trace.duration_ms} {t("detail.units.ms")}</p>
-                <p><strong>{t("detail.summary.started")}:</strong> {new Date(detail.trace.started_at).toLocaleString()}</p>
-                <p><strong>{t("detail.summary.sampled")}:</strong> {detail.trace.sampled ? t("detail.values.yes") : t("detail.values.no")}</p>
-                <p><strong>{t("detail.summary.attempts")}:</strong> {detail.summary.attempts_count}</p>
-                <p><strong>{t("detail.summary.spans")}:</strong> {detail.summary.spans_count}</p>
-                <p><strong>{t("detail.summary.errors")}:</strong> {detail.summary.errors_count}</p>
-                <p><strong>{t("detail.summary.errorCode")}:</strong> {detail.trace.error_code || "-"}</p>
+              <SectionHeader
+                icon={Activity}
+                title={t("detail.summary.title")}
+                description={t("detail.summary.description")}
+              />
+              <CardContent className="flex flex-col gap-4 px-4 pb-4 text-sm md:px-4 md:pb-4">
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                  <MetricItem
+                    icon={Gauge}
+                    label={t("detail.summary.status")}
+                    value={
+                      <Badge variant={statusCodeBadgeVariant(detail.trace.status_code)}>
+                        {formatNumber(detail.trace.status_code, locale)}
+                      </Badge>
+                    }
+                  />
+                  <MetricItem
+                    icon={Clock}
+                    label={t("detail.summary.duration")}
+                    value={formatDuration(detail.trace.duration_ms, msLabel, locale)}
+                  />
+                  <MetricItem
+                    icon={RefreshCw}
+                    label={t("detail.summary.attempts")}
+                    value={formatNumber(detail.summary.attempts_count, locale)}
+                  />
+                  <MetricItem
+                    icon={Layers}
+                    label={t("detail.summary.spans")}
+                    value={formatNumber(detail.summary.spans_count, locale)}
+                  />
+                  <MetricItem
+                    icon={AlertTriangle}
+                    label={t("detail.summary.errors")}
+                    value={formatNumber(detail.summary.errors_count, locale)}
+                    valueClassName={detail.summary.errors_count > 0 ? "text-destructive" : undefined}
+                  />
+                </div>
+                <dl className="grid gap-x-4 gap-y-3 md:grid-cols-2 xl:grid-cols-4">
+                  {requestID ? (
+                    <CompactField
+                      icon={Hash}
+                      label={t("detail.summary.requestId")}
+                      value={requestID}
+                      mono
+                      allowWrap
+                    />
+                  ) : null}
+                  <CompactField icon={Route} label={t("detail.summary.route")} value={detail.trace.route} mono allowWrap />
+                  <CompactField icon={Server} label={t("detail.summary.provider")} value={displayValue(detail.trace.provider, emptyLabel)} />
+                  <CompactField icon={Gauge} label={t("detail.summary.model")} value={displayValue(detail.trace.model, emptyLabel)} />
+                  <CompactField
+                    icon={Clock}
+                    label={t("detail.summary.started")}
+                    value={formatLocalDateTime(detail.trace.started_at, locale, emptyLabel)}
+                  />
+                  {hasText(detail.trace.error_code) ? (
+                    <CompactField
+                      icon={AlertTriangle}
+                      label={t("detail.summary.errorCode")}
+                      value={detail.trace.error_code}
+                      mono
+                      allowWrap
+                    />
+                  ) : null}
+                </dl>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle>{t("detail.usage.title")}</CardTitle>
-                <CardDescription>{t("detail.usage.description")}</CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-2 text-sm md:grid-cols-4">
-                <p><strong>{t("detail.usage.inputTokens")}:</strong> {detail.usage?.input_tokens ?? detail.metric?.input_tokens ?? 0}</p>
-                <p><strong>{t("detail.usage.outputTokens")}:</strong> {detail.usage?.output_tokens ?? detail.metric?.output_tokens ?? 0}</p>
-                <p><strong>{t("detail.usage.totalTokens")}:</strong> {detail.usage?.total_tokens ?? 0}</p>
-                <p><strong>{t("detail.usage.costUsd")}:</strong> {formatCost(detail.usage?.cost_usd ?? detail.metric?.cost_usd)}</p>
-                <p><strong>{t("detail.usage.costIrr")}:</strong> {formatNumber(detail.usage?.cost_irr)}</p>
-                <p><strong>{t("detail.usage.requestType")}:</strong> {detail.metric?.request_type || "-"}</p>
-                <p><strong>{t("detail.usage.providerModel")}:</strong> {detail.metric?.provider_model_name || "-"}</p>
-                <p><strong>{t("detail.usage.errorType")}:</strong> {detail.metric?.error_type || "-"}</p>
-                <p><strong>{t("detail.usage.latency")}:</strong> {detail.metric?.latency_ms ?? detail.usage?.response_time_ms ?? 0} {t("detail.units.ms")}</p>
-                <p><strong>{t("detail.usage.ttft")}:</strong> {detail.metric?.ttft_ms ?? "-"} {t("detail.units.ms")}</p>
-                <p><strong>{t("detail.usage.itl")}:</strong> {detail.metric?.itl_ms ?? "-"} {t("detail.units.ms")}</p>
-                <p><strong>{t("detail.usage.tpot")}:</strong> {detail.metric?.tpot_ms ?? "-"} {t("detail.units.ms")}</p>
+              <SectionHeader icon={Coins} title={t("detail.usage.title")} description={t("detail.usage.description")} />
+              <CardContent className="px-4 pb-4 md:px-4 md:pb-4">
+                <dl className="grid gap-x-4 gap-y-3 text-sm md:grid-cols-2 xl:grid-cols-4">
+                  <CompactField
+                    icon={Hash}
+                    label={t("detail.usage.inputTokens")}
+                    value={formatNumber(detail.usage?.input_tokens ?? detail.metric?.input_tokens ?? 0, locale)}
+                  />
+                  <CompactField
+                    icon={Hash}
+                    label={t("detail.usage.outputTokens")}
+                    value={formatNumber(detail.usage?.output_tokens ?? detail.metric?.output_tokens ?? 0, locale)}
+                  />
+                  <CompactField
+                    icon={Hash}
+                    label={t("detail.usage.totalTokens")}
+                    value={formatNumber(detail.usage?.total_tokens ?? 0, locale)}
+                  />
+                  <CompactField
+                    icon={Coins}
+                    label={t("detail.usage.costUsd")}
+                    value={formatCostUSD(detail.usage?.cost_usd ?? detail.metric?.cost_usd, locale, emptyLabel)}
+                  />
+                  <CompactField
+                    icon={Coins}
+                    label={t("detail.usage.costIrr")}
+                    value={formatOptionalNumber(detail.usage?.cost_irr, locale, emptyLabel)}
+                  />
+                  <CompactField
+                    icon={Route}
+                    label={t("detail.usage.requestType")}
+                    value={displayValue(detail.metric?.request_type, emptyLabel)}
+                  />
+                  {providerModel ? (
+                    <CompactField
+                      icon={Server}
+                      label={t("detail.usage.providerModel")}
+                      value={providerModel}
+                    />
+                  ) : null}
+                  {isMeaningfulError(metricErrorType) ? (
+                    <CompactField
+                      icon={AlertTriangle}
+                      label={t("detail.usage.errorType")}
+                      value={metricErrorType}
+                      mono
+                      allowWrap
+                    />
+                  ) : null}
+                  {showUsageLatency && typeof usageLatency === "number" ? (
+                    <CompactField
+                      icon={Timer}
+                      label={t("detail.usage.latency")}
+                      value={formatDuration(usageLatency, msLabel, locale)}
+                    />
+                  ) : null}
+                  <CompactField
+                    icon={Timer}
+                    label={t("detail.usage.ttft")}
+                    value={formatOptionalDuration(detail.metric?.ttft_ms, msLabel, locale, emptyLabel)}
+                  />
+                  <CompactField
+                    icon={Timer}
+                    label={t("detail.usage.itl")}
+                    value={formatOptionalDuration(detail.metric?.itl_ms, msLabel, locale, emptyLabel)}
+                  />
+                  <CompactField
+                    icon={Timer}
+                    label={t("detail.usage.tpot")}
+                    value={formatOptionalDuration(detail.metric?.tpot_ms, msLabel, locale, emptyLabel)}
+                  />
+                </dl>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle>{t("detail.attempts.title")}</CardTitle>
-                <CardDescription>{attemptsResult.ok ? t("detail.attempts.count", { count: attempts.length }) : attemptsResult.errorMessage ?? t("detail.attempts.loadFailed")}</CardDescription>
-              </CardHeader>
-              <CardContent>
+              <SectionHeader
+                icon={RefreshCw}
+                title={t("detail.attempts.title")}
+                description={attemptsResult.ok ? t("detail.attempts.count", { count: attempts.length }) : attemptsResult.errorMessage ?? t("detail.attempts.loadFailed")}
+              />
+              <CardContent className="px-4 pb-4 md:px-4 md:pb-4">
                 {attempts.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">{t("detail.attempts.empty")}</p>
+                  <EmptyText>{t("detail.attempts.empty")}</EmptyText>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="flex flex-col gap-2">
                     {attempts.map((attempt, idx) => (
-                      <div key={`${attempt.trace_id}:${attempt.attempt_no}`} className="rounded-lg border p-3">
-                        <div className="flex items-center justify-between">
-                          <p className="font-medium">
-                            {t("detail.attempts.attempt")} #{attempt.attempt_no} - {attempt.provider || "-"} - {attempt.model || "-"}
-                          </p>
-                          <Badge variant={attempt.status === "error" ? "destructive" : "secondary"}>{attempt.status}</Badge>
+                      <article key={`${attempt.trace_id}:${attempt.attempt_no}`} className="rounded-md border p-3">
+                        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                          <p className="font-medium">{t("detail.attempts.heading", { number: formatNumber(attempt.attempt_no, locale) })}</p>
+                          <Badge variant={textStatusBadgeVariant(attempt.status)}>{attempt.status}</Badge>
                         </div>
-                        <div className="mt-2 grid gap-1 text-sm md:grid-cols-3">
-                          <p><strong>{t("detail.attempts.duration")}:</strong> {attempt.duration_ms} {t("detail.units.ms")}</p>
-                          <p><strong>{t("detail.attempts.started")}:</strong> {new Date(attempt.started_at).toLocaleString()}</p>
-                          <p><strong>{t("detail.attempts.fallback")}:</strong> {attempt.fallback_reason || "-"}</p>
-                        </div>
-                        {attempt.retry_reason ? <p className="mt-2 text-xs text-muted-foreground"><strong>{t("detail.attempts.retryReason")}:</strong> {attempt.retry_reason}</p> : null}
-                        {idx < attempts.length - 1 ? <p className="mt-2 text-xs text-muted-foreground">{t("detail.attempts.nextAttempt")}</p> : null}
-                      </div>
+                        <dl className="mt-3 grid gap-x-4 gap-y-2 text-sm md:grid-cols-3 xl:grid-cols-5">
+                          {showAttemptRoutingFields ? (
+                            <>
+                              <CompactField icon={Server} label={t("detail.summary.provider")} value={displayValue(attempt.provider, emptyLabel)} />
+                              {hasText(attempt.model) ? (
+                                <CompactField icon={Gauge} label={t("detail.summary.model")} value={attempt.model} />
+                              ) : null}
+                            </>
+                          ) : null}
+                          <CompactField
+                            icon={Clock}
+                            label={t("detail.attempts.duration")}
+                            value={formatDuration(attempt.duration_ms, msLabel, locale)}
+                          />
+                          <CompactField
+                            icon={Clock}
+                            label={t("detail.attempts.started")}
+                            value={formatLocalDateTime(attempt.started_at, locale, emptyLabel)}
+                          />
+                          {showAttemptFallbackField ? (
+                            <CompactField
+                              icon={RefreshCw}
+                              label={t("detail.attempts.fallback")}
+                              value={displayValue(attempt.fallback_reason, emptyLabel)}
+                              allowWrap
+                            />
+                          ) : null}
+                        </dl>
+                        {attempt.retry_reason ? (
+                          <div className="mt-3">
+                            <CompactField icon={RefreshCw} label={t("detail.attempts.retryReason")} value={attempt.retry_reason} allowWrap />
+                          </div>
+                        ) : null}
+                        {idx < attempts.length - 1 ? (
+                          <p className="mt-2 text-xs text-muted-foreground">{t("detail.attempts.nextAttempt")}</p>
+                        ) : null}
+                      </article>
                     ))}
                   </div>
                 )}
@@ -244,29 +428,53 @@ export default async function TraceDetailPage({ params }: Params) {
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle>{t("detail.timeline.title")}</CardTitle>
-                <CardDescription>{timelineResult.ok ? t("detail.timeline.count", { count: sortedSpans.length }) : timelineResult.errorMessage ?? t("detail.timeline.loadFailed")}</CardDescription>
-              </CardHeader>
-              <CardContent>
+              <SectionHeader
+                icon={Activity}
+                title={t("detail.timeline.title")}
+                description={timelineResult.ok ? undefined : timelineResult.errorMessage ?? t("detail.timeline.loadFailed")}
+              />
+              <CardContent className="px-4 pb-4 md:px-4 md:pb-4">
                 {waterfallRows.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">{t("detail.timeline.empty")}</p>
+                  <EmptyText>{t("detail.timeline.empty")}</EmptyText>
                 ) : (
-                  <div className="space-y-3">
-                    {waterfallRows.map((row) => (
-                      <div key={row.span.span_id} className="grid grid-cols-12 items-center gap-3">
-                        <div className="col-span-4 md:col-span-3">
-                          <p className="text-sm font-medium">{row.span.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {row.span.kind} - {row.span.duration_ms} {t("detail.units.ms")} - {row.offsetMS} {t("detail.units.ms")}
-                          </p>
+                  <div className="flex flex-col gap-1">
+                    <div className="rounded-md bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
+                      {hasNonZeroSpanOffset ? t("detail.timeline.waterfallHint") : t("detail.timeline.durationHint")}
+                    </div>
+                    <div className="grid gap-2 px-2 md:grid-cols-[minmax(14rem,18rem)_1fr]">
+                      <div className="hidden md:block" />
+                      <TimelineAxis totalMS={timelineTotalMS} msLabel={msLabel} locale={locale} />
+                    </div>
+                    {waterfallRows.map((row, idx) => (
+                      <div key={row.span.span_id} className="grid gap-2 px-2 py-1 md:grid-cols-[minmax(14rem,18rem)_1fr] md:items-center">
+                        <div className="min-w-0">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <TimelineStepMarker index={idx} kind={row.span.kind} total={waterfallRows.length} locale={locale} />
+                            <Badge variant={textStatusBadgeVariant(row.span.status)}>{row.span.status}</Badge>
+                            <p className="truncate text-sm font-medium">{row.span.name}</p>
+                          </div>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 pe-9 text-xs text-muted-foreground">
+                            <span>{formatDuration(row.span.duration_ms, msLabel, locale)}</span>
+                          </div>
                         </div>
-                        <div className="col-span-8 md:col-span-9">
-                          <div className="relative h-7 rounded-md bg-muted">
+                        <div dir="ltr">
+                          <div className="relative h-8 rounded-md bg-muted">
+                            <TimelineGridLines />
                             <div
-                              className="absolute top-0 h-7 rounded-md bg-primary/70"
+                              className="absolute top-1 h-6 rounded-md bg-primary/70"
                               style={{ left: `${row.leftPct}%`, width: `${row.widthPct}%` }}
                             />
+                            {row.widthPct >= 12 ? (
+                              <span
+                                className="absolute top-1/2 -translate-y-1/2 truncate px-2 text-[11px] font-medium text-primary-foreground"
+                                style={{
+                                  left: `${row.leftPct}%`,
+                                  width: `${row.widthPct}%`,
+                                }}
+                              >
+                                {formatDuration(row.span.duration_ms, msLabel, locale)}
+                              </span>
+                            ) : null}
                           </div>
                         </div>
                       </div>
@@ -276,45 +484,57 @@ export default async function TraceDetailPage({ params }: Params) {
               </CardContent>
             </Card>
 
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid gap-4 lg:grid-cols-2">
               <Card>
-                <CardHeader>
-                  <CardTitle>{t("detail.metadata.title")}</CardTitle>
-                  <CardDescription>{t("detail.metadata.description")}</CardDescription>
-                </CardHeader>
-                <CardContent>
+                <SectionHeader icon={Database} title={t("detail.metadata.title")} description={t("detail.metadata.description")} />
+                <CardContent className="px-4 pb-4 md:px-4 md:pb-4">
                   {metadataRows.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">{t("detail.metadata.empty")}</p>
+                    <EmptyText>{t("detail.metadata.empty")}</EmptyText>
                   ) : (
-                    <div className="space-y-2">
-                      {metadataRows.map((row) => (
-                        <div key={row.key} className="grid grid-cols-12 gap-2 border-b py-2 text-xs">
-                          <p className="col-span-4 font-mono text-muted-foreground">{row.key}</p>
-                          <p className="col-span-8 break-all font-mono">{row.value}</p>
-                        </div>
-                      ))}
-                    </div>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{t("detail.metadata.columns.source")}</TableHead>
+                          <TableHead>{t("detail.metadata.columns.key")}</TableHead>
+                          <TableHead>{t("detail.metadata.columns.value")}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {metadataRows.map((row) => (
+                          <TableRow key={`${row.source}:${row.key}`}>
+                            <TableCell className="whitespace-nowrap text-xs text-muted-foreground">{metadataSourceLabels[row.source]}</TableCell>
+                            <TableCell className="max-w-[12rem] break-all font-mono text-xs text-muted-foreground">{row.key}</TableCell>
+                            <TableCell className="max-w-[20rem] break-all font-mono text-xs">{row.value}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   )}
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader>
-                  <CardTitle>{t("detail.errors.title")}</CardTitle>
-                  <CardDescription>{t("detail.errors.description")}</CardDescription>
-                </CardHeader>
-                <CardContent>
+                <SectionHeader icon={FileJson} title={t("detail.errors.title")} description={t("detail.errors.description")} />
+                <CardContent className="px-4 pb-4 md:px-4 md:pb-4">
                   {errorRows.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">{t("detail.errors.empty")}</p>
+                    <EmptyText>{t("detail.errors.empty")}</EmptyText>
                   ) : (
-                    <div className="space-y-3">
-                      {errorRows.map((row, idx) => (
-                        <div key={`${row.source}:${idx}`} className="rounded-md border p-3">
-                          <p className="text-sm font-medium">{row.source}</p>
-                          <p className="text-xs text-muted-foreground mt-1">{row.message}</p>
-                        </div>
-                      ))}
-                    </div>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{t("detail.errors.columns.source")}</TableHead>
+                          <TableHead>{t("detail.errors.columns.message")}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {errorRows.map((row, idx) => (
+                          <TableRow key={`${row.source}:${idx}`}>
+                            <TableCell className="whitespace-nowrap text-xs font-medium">{row.source}</TableCell>
+                            <TableCell className="max-w-[24rem] break-words text-xs text-muted-foreground">{row.message}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   )}
                 </CardContent>
               </Card>
@@ -344,43 +564,44 @@ function buildWaterfallRows(spans: TraceSpan[]) {
     const offsetMS = Math.max(0, spanStart - startMS);
     const leftPct = (offsetMS / totalMS) * 100;
     const widthPct = Math.max(1.5, (Math.max(span.duration_ms, 1) / totalMS) * 100);
-    return { span, offsetMS, leftPct, widthPct };
+    return { span, offsetMS, leftPct, widthPct, totalMS };
   });
 }
 
 function buildMetadataRows(
   rootAttributes?: Record<string, unknown>,
   usageMetadata?: Record<string, unknown>,
-): Array<{ key: string; value: string }> {
-  const out: Array<{ key: string; value: string }> = [];
+): MetadataRow[] {
+  const out: MetadataRow[] = [];
   for (const [key, value] of Object.entries(rootAttributes ?? {})) {
-    out.push({ key: `span.${key}`, value: stringifyValue(value) });
+    out.push({ source: "span", key, value: stringifyValue(value) });
   }
   for (const [key, value] of Object.entries(usageMetadata ?? {})) {
-    out.push({ key: `usage.${key}`, value: stringifyValue(value) });
+    out.push({ source: "usage", key, value: stringifyValue(value) });
   }
-  return out.sort((a, b) => a.key.localeCompare(b.key));
+  return out.sort((a, b) => `${a.source}.${a.key}`.localeCompare(`${b.source}.${b.key}`));
 }
 
 function buildErrorRows(
   detail: TraceDetailV2Response | null,
   spans: TraceSpan[],
   t: Awaited<ReturnType<typeof getTranslations>>,
+  locale: string,
 ): Array<{ source: string; message: string }> {
   if (!detail) return [];
   const out: Array<{ source: string; message: string }> = [];
-  if (detail.trace.error_code) {
-    out.push({ source: "trace.error_code", message: detail.trace.error_code });
+  if (hasText(detail.trace.error_code)) {
+    out.push({ source: t("detail.errors.sources.traceErrorCode"), message: detail.trace.error_code });
   }
-  if (detail.metric?.error_type) {
-    out.push({ source: "metric.error_type", message: detail.metric.error_type });
+  if (isMeaningfulError(detail.metric?.error_type)) {
+    out.push({ source: t("detail.errors.sources.metricErrorType"), message: detail.metric?.error_type ?? "" });
   }
   for (const span of spans) {
     if (span.status !== "error") continue;
     const hint = spanErrorHint(span.attributes);
     out.push({
-      source: `span.${span.name}`,
-      message: hint || t("detail.errors.statusErrorDuration", { duration: span.duration_ms }),
+      source: t("detail.errors.sources.span", { name: span.name }),
+      message: hint || t("detail.errors.statusErrorDuration", { duration: formatDuration(span.duration_ms, t("detail.units.ms"), locale) }),
     });
   }
   return out;
@@ -406,14 +627,249 @@ function stringifyValue(value: unknown): string {
   }
 }
 
-function formatCost(v?: number) {
-  if (typeof v !== "number") return "-";
-  return v.toFixed(8);
+function shouldShowMetadataRow(row: MetadataRow, detail: TraceDetailV2Response | null) {
+  const key = row.key.trim().toLowerCase();
+  if (row.source === "span" && ["http.method", "http.route", "sampled"].includes(key)) {
+    return false;
+  }
+  if (row.source === "usage" && ["model", "request_id", "trace_id"].includes(key)) {
+    return false;
+  }
+  if (detail && row.source === "usage" && key === "provider_model_name" && sameText(row.value, detail.metric?.provider_model_name)) {
+    return false;
+  }
+  return true;
 }
 
-function formatNumber(v?: number) {
-  if (typeof v !== "number") return "-";
-  return v.toLocaleString();
+function distinctValue(value: string | undefined, duplicate: string | undefined) {
+  if (!hasText(value)) return "";
+  return sameText(value, duplicate) ? "" : value.trim();
+}
+
+function hasText(value: string | undefined): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function sameText(a: string | undefined, b: string | undefined) {
+  if (!hasText(a) || !hasText(b)) return false;
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+function isMeaningfulError(value: string | undefined): value is string {
+  if (!hasText(value)) return false;
+  const normalized = value.trim().toLowerCase();
+  return !["-", "none", "null", "ok", "success"].includes(normalized);
+}
+
+function isNearNumber(a: number | undefined, b: number | undefined, tolerance: number) {
+  if (typeof a !== "number" || typeof b !== "number") return false;
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
+  return Math.abs(a - b) <= tolerance;
+}
+
+function formatNumber(value: number, locale: string) {
+  return new Intl.NumberFormat(locale).format(value);
+}
+
+function formatOptionalNumber(value: number | undefined, locale: string, fallback: string) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return formatNumber(value, locale);
+}
+
+function formatCostUSD(value: number | undefined, locale: string, fallback: string) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 8,
+  }).format(value);
+}
+
+function formatDuration(value: number, msLabel: string, locale: string) {
+  if (!Number.isFinite(value)) return `0 ${msLabel}`;
+  return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(value)} ${msLabel}`;
+}
+
+function formatOptionalDuration(value: number | undefined, msLabel: string, locale: string, fallback: string) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return formatDuration(value, msLabel, locale);
+}
+
+function formatLocalDateTime(value: string, locale: string, fallback: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return fallback;
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: "Asia/Tehran",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(date);
+}
+
+function displayValue(value: string | undefined, fallback: string) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : fallback;
+}
+
+function statusCodeBadgeVariant(statusCode: number): BadgeVariant {
+  if (statusCode >= 500) return "destructive";
+  if (statusCode >= 400) return "warning";
+  if (statusCode >= 300) return "info";
+  return "success";
+}
+
+function textStatusBadgeVariant(status: string): BadgeVariant {
+  const normalized = status.trim().toLowerCase();
+  if (["error", "failed", "failure"].includes(normalized)) return "destructive";
+  if (["retry", "fallback", "timeout"].includes(normalized)) return "warning";
+  if (["ok", "success", "succeeded", "complete", "completed"].includes(normalized)) return "success";
+  return "secondary";
+}
+
+function SectionHeader({
+  icon: Icon,
+  title,
+  description,
+  meta,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description?: ReactNode;
+  meta?: ReactNode;
+}) {
+  return (
+    <CardHeader className="flex-row items-start justify-between gap-3 px-4 py-3 md:px-4 md:py-3">
+      <div className="flex min-w-0 items-start gap-2">
+        <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <div className="min-w-0">
+          <CardTitle className="text-sm tracking-normal md:text-base">{title}</CardTitle>
+          {description ? <CardDescription className="mt-1 text-xs leading-normal">{description}</CardDescription> : null}
+        </div>
+      </div>
+      {meta ? <div className="shrink-0">{meta}</div> : null}
+    </CardHeader>
+  );
+}
+
+function MetricItem({
+  icon: Icon,
+  label,
+  value,
+  valueClassName,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: ReactNode;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="min-w-0 rounded-md bg-muted/40 px-3 py-2">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Icon className="size-4 shrink-0" aria-hidden="true" />
+        <span className="truncate">{label}</span>
+      </div>
+      <div className={cn("mt-1 truncate text-sm font-semibold", valueClassName)}>{value}</div>
+    </div>
+  );
+}
+
+function CompactField({
+  icon: Icon,
+  label,
+  value,
+  mono = false,
+  allowWrap = false,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: ReactNode;
+  mono?: boolean;
+  allowWrap?: boolean;
+}) {
+  return (
+    <div className="flex min-w-0 items-start gap-2">
+      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <div className="min-w-0">
+        <dt className="text-xs text-muted-foreground">{label}</dt>
+        <dd className={cn("text-sm font-medium", mono && "font-mono", allowWrap ? "break-all" : "truncate")}>{value}</dd>
+      </div>
+    </div>
+  );
+}
+
+function EmptyText({ children }: { children: ReactNode }) {
+  return <p className="rounded-md bg-muted/40 px-3 py-2 text-sm text-muted-foreground">{children}</p>;
+}
+
+function TimelineStepMarker({
+  index,
+  kind,
+  total,
+  locale,
+}: {
+  index: number;
+  kind: string;
+  total: number;
+  locale: string;
+}) {
+  return (
+    <span className="relative flex shrink-0 items-center gap-1.5">
+      {index < total - 1 ? (
+        <span className="absolute right-3 top-6 h-7 border-r border-border" aria-hidden="true" />
+      ) : null}
+      <span className="flex size-6 items-center justify-center rounded-full border bg-background text-[11px] font-semibold">
+        {formatNumber(index + 1, locale)}
+      </span>
+      <Badge variant={spanKindBadgeVariant(kind)}>{kind}</Badge>
+    </span>
+  );
+}
+
+function spanKindBadgeVariant(kind: string): BadgeVariant {
+  const normalized = kind.trim().toLowerCase();
+  if (normalized === "server") return "info";
+  if (normalized === "client") return "warning";
+  if (normalized === "internal") return "secondary";
+  return "outline";
+}
+
+function TimelineAxis({ totalMS, msLabel, locale }: { totalMS: number; msLabel: string; locale: string }) {
+  const ticks = [0, 25, 50, 75, 100];
+  return (
+    <div dir="ltr" className="hidden md:block">
+      <div className="relative h-6">
+        {ticks.map((tick) => (
+          <span
+            key={tick}
+            className={cn(
+              "absolute top-0 text-[11px] text-muted-foreground",
+              tick === 0 ? "translate-x-0" : tick === 100 ? "-translate-x-full" : "-translate-x-1/2",
+            )}
+            style={{ left: `${tick}%` }}
+          >
+            {formatDuration((totalMS * tick) / 100, msLabel, locale)}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TimelineGridLines() {
+  return (
+    <>
+      {[25, 50, 75].map((tick) => (
+        <span
+          key={tick}
+          className="absolute top-0 h-full border-l border-background/80"
+          style={{ left: `${tick}%` }}
+          aria-hidden="true"
+        />
+      ))}
+    </>
+  );
 }
 
 function buildMetricsLink(trace: RequestTraceV2) {

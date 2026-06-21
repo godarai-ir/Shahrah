@@ -138,6 +138,7 @@
   },
   "detail": {
     "title": "استودیوی رهگیری",
+    "kicker": "جزئیات رهگیری",
     "actions": {
       "openInMetrics": "باز کردن در متریک‌ها",
       "backToTraces": "بازگشت به رهگیری‌ها"
@@ -151,10 +152,13 @@
     },
     "values": {
       "yes": "بله",
-      "no": "خیر"
+      "no": "خیر",
+      "empty": "-"
     },
     "summary": {
       "title": "خلاصه درخواست",
+      "description": "وضعیت درگاه، مسیر، زمان‌بندی و شمارش اسپن‌ها.",
+      "traceId": "شناسه Trace",
       "requestId": "شناسه درخواست",
       "route": "اندپوینت",
       "model": "مدل",
@@ -190,6 +194,7 @@
       "loadFailed": "بارگذاری تلاش‌ها ناموفق بود.",
       "empty": "تلاشی از ارائه‌دهنده برای این رهگیری موجود نیست.",
       "attempt": "تلاش",
+      "heading": "تلاش {number}",
       "duration": "مدت",
       "started": "شروع",
       "fallback": "Fallback",
@@ -199,19 +204,44 @@
     "timeline": {
       "title": "خط زمانی آبشاری",
       "count": "{count} اسپن",
+      "countWithMode": "{count} اسپن - {mode}",
       "loadFailed": "بارگذاری اسپن‌ها ناموفق بود.",
-      "empty": "اسپن زمانی برای این رهگیری موجود نیست."
+      "empty": "اسپن زمانی برای این رهگیری موجود نیست.",
+      "waterfallHint": "نوارها اختلاف شروع هر اسپن و مدت آن را در پنجره زمانی رهگیری نشان می‌دهند.",
+      "durationHint": "زمان شروع اسپن‌ها در داده رهگیری یکسان است؛ بنابراین نوارها فقط مدت هر اسپن را مقایسه می‌کنند.",
+      "modes": {
+        "waterfall": "آبشاری",
+        "duration": "مقایسه مدت"
+      }
     },
     "metadata": {
       "title": "بازرس فراداده",
       "description": "ویژگی‌های ریشه رهگیری و فراداده درخواست.",
-      "empty": "فراداده‌ای برای این رهگیری ثبت نشده است."
+      "empty": "فراداده‌ای برای این رهگیری ثبت نشده است.",
+      "columns": {
+        "source": "منبع",
+        "key": "کلید",
+        "value": "مقدار"
+      },
+      "sources": {
+        "span": "اسپن",
+        "usage": "مصرف"
+      }
     },
     "errors": {
       "title": "بازرس خطا",
       "description": "سیگنال‌های خطا در سطح رهگیری و اسپن.",
       "empty": "خطایی برای این رهگیری ثبت نشده است.",
-      "statusErrorDuration": "status=error duration={duration}ms"
+      "statusErrorDuration": "اسپن پس از {duration} با وضعیت خطا پایان یافت.",
+      "columns": {
+        "source": "منبع",
+        "message": "پیام"
+      },
+      "sources": {
+        "traceErrorCode": "کد خطای رهگیری",
+        "metricErrorType": "نوع خطای متریک",
+        "span": "اسپن {name}"
+      }
     }
   }
 }

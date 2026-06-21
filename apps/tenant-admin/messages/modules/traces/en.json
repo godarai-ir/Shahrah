@@ -138,6 +138,7 @@
   },
   "detail": {
     "title": "Trace Studio",
+    "kicker": "Trace detail",
     "actions": {
       "openInMetrics": "Open in metrics",
       "backToTraces": "Back to traces"
@@ -151,10 +152,13 @@
     },
     "values": {
       "yes": "yes",
-      "no": "no"
+      "no": "no",
+      "empty": "-"
     },
     "summary": {
       "title": "Request summary",
+      "description": "Gateway status, routing context, timing, and span counts.",
+      "traceId": "Trace ID",
       "requestId": "Request ID",
       "route": "Endpoint",
       "model": "Model",
@@ -190,6 +194,7 @@
       "loadFailed": "Failed to load attempts.",
       "empty": "No provider attempts available for this trace.",
       "attempt": "Attempt",
+      "heading": "Attempt {number}",
       "duration": "Duration",
       "started": "Started",
       "fallback": "Fallback",
@@ -199,19 +204,44 @@
     "timeline": {
       "title": "Waterfall Timeline",
       "count": "{count} span(s)",
+      "countWithMode": "{count} span(s) - {mode}",
       "loadFailed": "Failed to load spans.",
-      "empty": "No timeline spans available for this trace."
+      "empty": "No timeline spans available for this trace.",
+      "waterfallHint": "Bars show each span's start offset and duration across the trace window.",
+      "durationHint": "Span start times are identical in the trace data, so bars compare duration only.",
+      "modes": {
+        "waterfall": "waterfall",
+        "duration": "duration comparison"
+      }
     },
     "metadata": {
       "title": "Metadata Inspector",
       "description": "Root trace attributes and request metadata.",
-      "empty": "No metadata captured for this trace."
+      "empty": "No metadata captured for this trace.",
+      "columns": {
+        "source": "Source",
+        "key": "Key",
+        "value": "Value"
+      },
+      "sources": {
+        "span": "Span",
+        "usage": "Usage"
+      }
     },
     "errors": {
       "title": "Error Inspector",
       "description": "Trace-level and span-level failure signals.",
       "empty": "No errors captured for this trace.",
-      "statusErrorDuration": "status=error duration={duration}ms"
+      "statusErrorDuration": "Span ended with error status after {duration}.",
+      "columns": {
+        "source": "Source",
+        "message": "Message"
+      },
+      "sources": {
+        "traceErrorCode": "Trace error code",
+        "metricErrorType": "Metric error type",
+        "span": "Span {name}"
+      }
     }
   }
 }
