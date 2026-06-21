@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Calendar, RotateCcw } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import {
   Area,
@@ -15,7 +16,6 @@ import {
 } from "recharts";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -24,17 +24,30 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 const VIEW_BY = ["modelName", "virtualModelName", "userEmail", "virtualAccount", "team"] as const;
 const PCTS = ["p50", "p75", "p90", "p99"] as const;
+const RANGE_PRESETS = ["last15m", "last1h", "last24h", "yesterday", "last3d", "last7d", "last14d", "last30d", "custom"] as const;
 const INTERVAL_SECONDS = 300;
 const MAX_SERIES = 5;
 const DEFAULT_RANGE_MS = 24 * 60 * 60 * 1000;
+const ALL_MODELS_VALUE = "__all_models__";
+const ALL_PROVIDERS_VALUE = "__all_providers__";
 
 type ViewBy = (typeof VIEW_BY)[number];
 type Pct = (typeof PCTS)[number];
+type RangePreset = (typeof RANGE_PRESETS)[number];
 type Row = Record<string, unknown>;
 
 type ModelMetricsDashboardProps = {
@@ -50,6 +63,16 @@ type Summary = {
   inputTokens: number;
   outputTokens: number;
   cost: number;
+};
+
+type MetricComboboxOption = {
+  value: string;
+  label: string;
+};
+
+type ModelMetricsFacetsResponse = {
+  models?: unknown;
+  providers?: unknown;
 };
 
 type SeriesPoint = {
@@ -69,6 +92,12 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
   const [modelFilter, setModelFilter] = useState(props.initialModel ?? "");
   const [providerFilter, setProviderFilter] = useState(props.initialProvider ?? "");
   const [requestIDFilter, setRequestIDFilter] = useState(props.initialRequestID ?? "");
+  const [rangePreset, setRangePreset] = useState<RangePreset>(() =>
+    props.initialFrom || props.initialTo ? "custom" : "last24h",
+  );
+  const [historicalModels, setHistoricalModels] = useState<string[]>([]);
+  const [historicalProviders, setHistoricalProviders] = useState<string[]>([]);
+  const [loadingOptions, setLoadingOptions] = useState(false);
   const [loading, setLoading] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +108,14 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
   const [distribution, setDistribution] = useState<Row[]>([]);
   const [timeseries, setTimeseries] = useState<Row[]>([]);
   const [errorBreakdown, setErrorBreakdown] = useState<Row[]>([]);
+
+  const rangeOptions = useMemo(() => RANGE_PRESETS.map((value) => ({ value, label: t(`filters.rangePresets.${value}`) })), [t]);
+  const modelOptions = useMemo(() => historicalModels.map((value) => ({ value, label: value })), [historicalModels]);
+  const providerOptions = useMemo(() => historicalProviders.map((value) => ({ value, label: value })), [historicalProviders]);
+  const viewByOptions = useMemo(() => VIEW_BY.map((value) => ({ value, label: t(`filters.viewByOptions.${value}`) })), [t]);
+  const pctOptions = useMemo(() => PCTS.map((value) => ({ value, label: t(`filters.percentiles.${value}`) })), [t]);
+  const modelComboboxOptions = useMemo(() => [{ value: ALL_MODELS_VALUE, label: t("filters.placeholders.model") }, ...modelOptions], [modelOptions, t]);
+  const providerComboboxOptions = useMemo(() => [{ value: ALL_PROVIDERS_VALUE, label: t("filters.placeholders.provider") }, ...providerOptions], [providerOptions, t]);
 
   const summary = useMemo<Summary>(() => {
     const totalRequests = distribution.reduce((acc, row) => acc + metricNumber(row, "countModelName", "countAll"), 0);
@@ -140,23 +177,32 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
     [t],
   );
 
-  async function runQuery(range?: { from: string; to: string }) {
-    const queryFrom = range?.from ?? from;
-    const queryTo = range?.to ?? to;
+  async function runQuery(
+    range?: { from: string; to: string },
+    filterOverride?: { model: string; provider: string; requestID: string },
+  ) {
+    const resolvedRange = range ?? resolveSelectedRange(rangePreset, from, to);
+    const queryFrom = resolvedRange.from;
+    const queryTo = resolvedRange.to;
+    const queryModelFilter = filterOverride?.model ?? modelFilter;
+    const queryProviderFilter = filterOverride?.provider ?? providerFilter;
+    const queryRequestIDFilter = filterOverride?.requestID ?? requestIDFilter;
     if (!queryFrom || !queryTo) return;
+    if (queryFrom !== from) setFrom(queryFrom);
+    if (queryTo !== to) setTo(queryTo);
 
     setLoading(true);
     setError(null);
     try {
       const filters: Array<Record<string, unknown>> = [];
-      if (modelFilter.trim()) {
-        filters.push({ fieldName: "modelName", operator: "STRING_CONTAINS", value: modelFilter.trim() });
+      if (queryModelFilter.trim()) {
+        filters.push({ fieldName: "modelName", operator: "STRING_CONTAINS", value: queryModelFilter.trim() });
       }
-      if (providerFilter.trim()) {
-        filters.push({ fieldName: "providerName", operator: "EQUAL", value: providerFilter.trim() });
+      if (queryProviderFilter.trim()) {
+        filters.push({ fieldName: "providerName", operator: "EQUAL", value: queryProviderFilter.trim() });
       }
-      if (requestIDFilter.trim()) {
-        filters.push({ fieldName: "requestID", operator: "EQUAL", value: requestIDFilter.trim() });
+      if (queryRequestIDFilter.trim()) {
+        filters.push({ fieldName: "requestID", operator: "EQUAL", value: queryRequestIDFilter.trim() });
       }
 
       const [dist, ts, errb] = await Promise.all([
@@ -215,6 +261,41 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
     }
   }
 
+  async function loadMetricFacets() {
+    setLoadingOptions(true);
+    try {
+      const payload = await requestJSON<ModelMetricsFacetsResponse>("/api/metrics/facets", common("requestError"));
+      setHistoricalModels(normalizeStringList(payload.models));
+      setHistoricalProviders(normalizeStringList(payload.providers));
+    } catch {
+      setHistoricalModels([]);
+      setHistoricalProviders([]);
+    } finally {
+      setLoadingOptions(false);
+    }
+  }
+
+  function handleRangePresetChange(nextPreset: RangePreset) {
+    setRangePreset(nextPreset);
+    if (nextPreset === "custom") return;
+    const nextRange = rangeForPreset(nextPreset);
+    setFrom(nextRange.from);
+    setTo(nextRange.to);
+  }
+
+  function resetFilters() {
+    const nextRange = rangeForPreset("last24h");
+    setRangePreset("last24h");
+    setFrom(nextRange.from);
+    setTo(nextRange.to);
+    setModelFilter("");
+    setProviderFilter("");
+    setRequestIDFilter("");
+    setViewBy("modelName");
+    setPct("p99");
+    void runQuery(nextRange, { model: "", provider: "", requestID: "" });
+  }
+
   useEffect(() => {
     const id = window.setTimeout(() => {
       if (didRunInitialQuery.current) return;
@@ -223,9 +304,9 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
       let queryTo = to;
       let queryFrom = from;
       if (!queryTo || !queryFrom) {
-        const now = Date.now();
-        queryTo = new Date(now).toISOString();
-        queryFrom = new Date(now - DEFAULT_RANGE_MS).toISOString();
+        const defaultRange = rangeForPreset("last24h");
+        queryTo = defaultRange.to;
+        queryFrom = defaultRange.from;
         setTo(queryTo);
         setFrom(queryFrom);
       }
@@ -235,21 +316,20 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      void loadMetricFacets();
+    }, 0);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <Badge variant="secondary">{t("badges.datasource")}</Badge>
-            <Badge variant="outline">{t(`filters.viewByOptions.${viewBy}`)}</Badge>
-          </div>
           <h1 className="text-2xl font-semibold tracking-normal">{t("title")}</h1>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{t("description")}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-          <Button type="button" variant="outline" onClick={() => void runQuery()} disabled={loading}>
-            {loading ? common("loading") : common("refresh")}
-          </Button>
         </div>
       </header>
 
@@ -259,26 +339,43 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
           <CardDescription>{t("filters.description")}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <DateTimePicker id="metrics-from" label={t("filters.from")} value={from} onChange={setFrom} />
-          <DateTimePicker id="metrics-to" label={t("filters.to")} value={to} onChange={setTo} />
+          <Field id="metrics-range-preset" label={t("filters.timeRange")}>
+            <MetricCombobox
+              id="metrics-range-preset"
+              options={rangeOptions}
+              value={rangePreset}
+              onValueChange={(value) => handleRangePresetChange(value as RangePreset)}
+              placeholder={t("filters.timeRange")}
+              emptyText={t("filters.emptyOptions")}
+              searchable={false}
+            />
+          </Field>
+          {rangePreset === "custom" ? (
+            <>
+              <DateTimePicker id="metrics-from" label={t("filters.from")} value={from} onChange={setFrom} />
+              <DateTimePicker id="metrics-to" label={t("filters.to")} value={to} onChange={setTo} />
+            </>
+          ) : null}
           <Field id="metrics-model" label={t("filters.model")}>
-            <Input
+            <MetricCombobox
               id="metrics-model"
-              value={modelFilter}
-              onChange={(event) => setModelFilter(event.target.value)}
-              placeholder={t("filters.placeholders.model")}
-              dir="ltr"
-              className="font-mono"
+              options={modelComboboxOptions}
+              value={modelFilter || ALL_MODELS_VALUE}
+              onValueChange={(value) => setModelFilter(value === ALL_MODELS_VALUE ? "" : value)}
+              placeholder={loadingOptions ? common("loading") : t("filters.search")}
+              emptyText={t("filters.emptyOptions")}
+              mono
             />
           </Field>
           <Field id="metrics-provider" label={t("filters.provider")}>
-            <Input
+            <MetricCombobox
               id="metrics-provider"
-              value={providerFilter}
-              onChange={(event) => setProviderFilter(event.target.value)}
-              placeholder={t("filters.placeholders.provider")}
-              dir="ltr"
-              className="font-mono"
+              options={providerComboboxOptions}
+              value={providerFilter || ALL_PROVIDERS_VALUE}
+              onValueChange={(value) => setProviderFilter(value === ALL_PROVIDERS_VALUE ? "" : value)}
+              placeholder={loadingOptions ? common("loading") : t("filters.search")}
+              emptyText={t("filters.emptyOptions")}
+              mono
             />
           </Field>
           <Field id="metrics-request-id" label={t("filters.requestId")}>
@@ -292,23 +389,26 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
             />
           </Field>
           <Field id="metrics-view-by" label={t("filters.viewBy")}>
-            <select
+            <MetricCombobox
               id="metrics-view-by"
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+              options={viewByOptions}
               value={viewBy}
-              onChange={(event) => setViewBy(event.target.value as ViewBy)}
-            >
-              {VIEW_BY.map((value) => (
-                <option key={value} value={value}>
-                  {t(`filters.viewByOptions.${value}`)}
-                </option>
-              ))}
-            </select>
+              onValueChange={(value) => setViewBy(value as ViewBy)}
+              placeholder={t("filters.viewBy")}
+              emptyText={t("filters.emptyOptions")}
+              searchable={false}
+            />
           </Field>
           <div className="flex items-end">
-            <Button type="button" onClick={() => void runQuery()} disabled={loading}>
-              {loading ? common("loading") : t("actions.applyFilters")}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" onClick={() => void runQuery()} disabled={loading}>
+                {loading ? common("loading") : t("actions.applyFilters")}
+              </Button>
+              <Button type="button" variant="outline" onClick={resetFilters} disabled={loading}>
+                <RotateCcw data-icon="inline-start" aria-hidden="true" />
+                {t("actions.reset")}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -361,18 +461,16 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
           description={t("charts.latency.description")}
           action={
             <Field id="metrics-percentile" label={t("filters.percentile")}>
-              <select
+              <MetricCombobox
                 id="metrics-percentile"
-                className="h-10 min-w-28 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                options={pctOptions}
                 value={pct}
-                onChange={(event) => setPct(event.target.value as Pct)}
-              >
-                {PCTS.map((value) => (
-                  <option key={value} value={value}>
-                    {t(`filters.percentiles.${value}`)}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(value) => setPct(value as Pct)}
+                placeholder={t("filters.percentile")}
+                emptyText={t("filters.emptyOptions")}
+                searchable={false}
+                className="min-w-28"
+              />
             </Field>
           }
         >
@@ -450,16 +548,79 @@ function DateTimePicker({
 }) {
   return (
     <Field id={id} label={label}>
-      <Input
-        id={id}
-        type="datetime-local"
-        value={toDateTimeLocalValue(value)}
-        onChange={(event) => {
-          const next = fromDateTimeLocalValue(event.target.value);
-          if (next) onChange(next);
-        }}
-      />
+      <div className="relative">
+        <Calendar className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+        <Input
+          id={id}
+          type="datetime-local"
+          value={toDateTimeLocalValue(value)}
+          onChange={(event) => {
+            const next = fromDateTimeLocalValue(event.target.value);
+            if (next) onChange(next);
+          }}
+          className="pl-9"
+        />
+      </div>
     </Field>
+  );
+}
+
+function MetricCombobox({
+  id,
+  options,
+  value,
+  onValueChange,
+  placeholder,
+  emptyText,
+  searchable = true,
+  className,
+  mono = false,
+}: {
+  id: string;
+  options: MetricComboboxOption[];
+  value: string;
+  onValueChange: (value: string) => void;
+  placeholder: string;
+  emptyText: string;
+  searchable?: boolean;
+  className?: string;
+  mono?: boolean;
+}) {
+  const selectedOption = options.find((option) => option.value === value) ?? null;
+
+  return (
+    <Combobox
+      items={options}
+      value={selectedOption}
+      onValueChange={(option) => {
+        if (option) onValueChange(option.value);
+      }}
+      itemToStringValue={(option) => option.label}
+    >
+      <ComboboxInput
+        id={id}
+        dir="rtl"
+        placeholder={placeholder}
+        readOnly={!searchable}
+        className={cn(
+          "w-full bg-background [&_[data-slot=input-group-control]]:min-w-0 [&_[data-slot=input-group-control]]:text-right [&_[data-slot=input-group-control]]:focus-visible:outline-none",
+          mono && "[&_[data-slot=input-group-control]]:font-mono",
+          className,
+        )}
+      />
+      <ComboboxContent align="start" className="text-right" dir="rtl">
+        <ComboboxEmpty>{emptyText}</ComboboxEmpty>
+        <ComboboxList>
+          {(option) => (
+            <ComboboxItem key={option.value} value={option} className={cn("text-right", mono && "font-mono")} dir="rtl">
+              <span className="min-w-0 truncate" dir="auto">
+                {option.label}
+              </span>
+            </ComboboxItem>
+          )}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
   );
 }
 
@@ -595,6 +756,22 @@ export function buildChartData(
   return { points, latencyPoints, tokenCostPoints, series };
 }
 
+async function requestJSON<T>(path: string, fallbackError: string): Promise<T> {
+  const res = await fetch(path, { cache: "no-store" });
+  const text = await res.text();
+  const payload = text.trim() ? JSON.parse(text) : {};
+  if (!res.ok) throw new Error(extractMessageFromPayload(payload) ?? `${fallbackError} (${res.status})`);
+  return payload as T;
+}
+
+function extractMessageFromPayload(payload: unknown): string | null {
+  if (typeof payload === "string") return payload;
+  if (!payload || typeof payload !== "object") return null;
+  const candidate = payload as { error?: { message?: string } | string; message?: string };
+  if (typeof candidate.error === "string") return candidate.error;
+  return candidate.error?.message ?? candidate.message ?? null;
+}
+
 export function metricNumber(row: Row | undefined, ...keys: string[]) {
   const value = metricValue(row, keys);
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
@@ -666,6 +843,49 @@ function normalizeInitialIso(value: string | undefined) {
   const trimmed = value?.trim();
   if (trimmed && !Number.isNaN(Date.parse(trimmed))) return new Date(trimmed).toISOString();
   return "";
+}
+
+function resolveSelectedRange(preset: RangePreset, from: string, to: string) {
+  if (preset === "custom") return { from, to };
+  return rangeForPreset(preset);
+}
+
+function rangeForPreset(preset: Exclude<RangePreset, "custom">) {
+  const now = new Date();
+  if (preset === "yesterday") {
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - 1);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    return { from: start.toISOString(), to: end.toISOString() };
+  }
+
+  const durationMs = {
+    last15m: 15 * 60 * 1000,
+    last1h: 60 * 60 * 1000,
+    last24h: DEFAULT_RANGE_MS,
+    last3d: 3 * DEFAULT_RANGE_MS,
+    last7d: 7 * DEFAULT_RANGE_MS,
+    last14d: 14 * DEFAULT_RANGE_MS,
+    last30d: 30 * DEFAULT_RANGE_MS,
+  }[preset];
+
+  return {
+    from: new Date(now.getTime() - durationMs).toISOString(),
+    to: now.toISOString(),
+  };
+}
+
+export function normalizeStringList(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return Array.from(
+    new Set(
+      value
+        .map((item) => (typeof item === "string" ? item.trim() : ""))
+        .filter(Boolean),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
 }
 
 function toDateTimeLocalValue(value: string) {

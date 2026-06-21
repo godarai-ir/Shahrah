@@ -51,3 +51,8 @@ type MetricsQueryRequest struct {
 	Filters           []MetricsFilter      `json:"filters,omitempty"`
 	IntervalInSeconds int                  `json:"intervalInSeconds,omitempty"`
 }
+
+type ModelMetricsFacets struct {
+	Models    []string `json:"models"`
+	Providers []string `json:"providers"`
+}

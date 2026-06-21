@@ -189,6 +189,49 @@ func (s *Store) queryModelMetrics(ctx context.Context, tenantID string, req plat
 	return s.queryModelMetricsDistribution(ctx, tenantID, req)
 }
 
+func (s *Store) listModelMetricsFacets(ctx context.Context, tenantID string) (*platform.ModelMetricsFacets, error) {
+	models, err := queryDistinctMetricValues(ctx, s.clickhouse, "model_name", tenantID)
+	if err != nil {
+		return nil, err
+	}
+	providers, err := queryDistinctMetricValues(ctx, s.clickhouse, "provider_name", tenantID)
+	if err != nil {
+		return nil, err
+	}
+	return &platform.ModelMetricsFacets{
+		Models:    models,
+		Providers: providers,
+	}, nil
+}
+
+func queryDistinctMetricValues(ctx context.Context, db *sql.DB, column string, tenantID string) ([]string, error) {
+	query := fmt.Sprintf(`
+		SELECT DISTINCT %s
+		FROM gateway_model_events
+		WHERE tenant_id = ? AND %s != ''
+		ORDER BY %s ASC
+		LIMIT 5000
+	`, column, column, column)
+	rows, err := db.QueryContext(ctx, query, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	values := make([]string, 0, 128)
+	for rows.Next() {
+		var value string
+		if err := rows.Scan(&value); err != nil {
+			return nil, err
+		}
+		value = strings.TrimSpace(value)
+		if value != "" {
+			values = append(values, value)
+		}
+	}
+	return values, rows.Err()
+}
+
 func (s *Store) queryModelMetricsDistribution(ctx context.Context, tenantID string, req platform.MetricsQueryRequest) ([]map[string]interface{}, error) {
 	selects := make([]string, 0, len(req.GroupBy)+len(req.Aggregations))
 	groupBy := make([]string, 0, len(req.GroupBy))

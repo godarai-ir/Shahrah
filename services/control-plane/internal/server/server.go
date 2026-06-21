@@ -314,6 +314,7 @@ func registerProtectedRoutes(app *fiber.App, deps Dependencies) {
 		api.Get("/traces", deps.AdminHandlers.ListRequestTraces)
 		api.Get("/traces/:traceID", deps.AdminHandlers.GetRequestTrace)
 		api.Get("/traces/:traceID/spans", deps.AdminHandlers.ListRequestTraceSpans)
+		api.Get("/metrics/facets", deps.AdminHandlers.ListModelMetricsFacets)
 		api.Post("/metrics/query", deps.AdminHandlers.QueryModelMetrics)
 		api.Get("/settings/trace-privacy", deps.AdminHandlers.GetTenantTracePrivacySettings)
 		api.Put("/settings/trace-privacy", deps.AdminHandlers.UpdateTenantTracePrivacySettings)

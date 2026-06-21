@@ -16,7 +16,8 @@ import (
 )
 
 type metricsStoreMock struct {
-	fn func(ctx context.Context, tenantID string, req platform.MetricsQueryRequest) ([]map[string]interface{}, error)
+	fn       func(ctx context.Context, tenantID string, req platform.MetricsQueryRequest) ([]map[string]interface{}, error)
+	facetsFn func(ctx context.Context, tenantID string) (*platform.ModelMetricsFacets, error)
 }
 
 func (m *metricsStoreMock) QueryModelMetrics(ctx context.Context, tenantID string, req platform.MetricsQueryRequest) ([]map[string]interface{}, error) {
@@ -24,6 +25,13 @@ func (m *metricsStoreMock) QueryModelMetrics(ctx context.Context, tenantID strin
 		return m.fn(ctx, tenantID, req)
 	}
 	return []map[string]interface{}{}, nil
+}
+
+func (m *metricsStoreMock) ListModelMetricsFacets(ctx context.Context, tenantID string) (*platform.ModelMetricsFacets, error) {
+	if m.facetsFn != nil {
+		return m.facetsFn(ctx, tenantID)
+	}
+	return &platform.ModelMetricsFacets{}, nil
 }
 
 func setupMetricsTestApp(h *Handlers) *fiber.App {
@@ -34,6 +42,7 @@ func setupMetricsTestApp(h *Handlers) *fiber.App {
 		return c.Next()
 	})
 	app.Post("/api/v1/metrics/query", h.QueryModelMetrics)
+	app.Get("/api/v1/metrics/facets", h.ListModelMetricsFacets)
 	return app
 }
 
@@ -82,4 +91,28 @@ func TestQueryModelMetrics_InvalidDatasource(t *testing.T) {
 	resp, err := app.Test(req)
 	assert.NoError(t, err)
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+}
+
+func TestListModelMetricsFacets_UsesTenantContext(t *testing.T) {
+	mock := &metricsStoreMock{
+		facetsFn: func(_ context.Context, tenantID string) (*platform.ModelMetricsFacets, error) {
+			assert.Equal(t, "tenant_a", tenantID)
+			return &platform.ModelMetricsFacets{
+				Models:    []string{"historical-model"},
+				Providers: []string{"historical-provider"},
+			}, nil
+		},
+	}
+	h := &Handlers{metrics: mock}
+	app := setupMetricsTestApp(h)
+
+	req := httptest.NewRequest("GET", "/api/v1/metrics/facets", nil)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+
+	var body platform.ModelMetricsFacets
+	assert.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
+	assert.Equal(t, []string{"historical-model"}, body.Models)
+	assert.Equal(t, []string{"historical-provider"}, body.Providers)
 }

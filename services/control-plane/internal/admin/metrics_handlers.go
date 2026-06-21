@@ -90,3 +90,25 @@ func (h *Handlers) QueryModelMetrics(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{"data": items})
 }
+
+func (h *Handlers) ListModelMetricsFacets(c *fiber.Ctx) error {
+	if err := requireTeamAdminOrHigher(c); err != nil {
+		return err
+	}
+	if h.metrics == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "metrics store not configured")
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+
+	facets, err := h.metrics.ListModelMetricsFacets(c.Context(), currentTenant.ID)
+	if err != nil {
+		if errors.Is(err, storage.ErrMetricsStoreUnavailable) {
+			return fiber.NewError(fiber.StatusNotImplemented, "metrics store not configured")
+		}
+		return err
+	}
+	return c.JSON(facets)
+}

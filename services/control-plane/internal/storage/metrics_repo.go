@@ -22,3 +22,10 @@ func (s *Store) QueryModelMetrics(ctx context.Context, tenantID string, req plat
 	}
 	return s.queryModelMetrics(ctx, tenantID, req)
 }
+
+func (s *Store) ListModelMetricsFacets(ctx context.Context, tenantID string) (*platform.ModelMetricsFacets, error) {
+	if !s.clickhouseReady || s.clickhouse == nil {
+		return nil, ErrMetricsStoreUnavailable
+	}
+	return s.listModelMetricsFacets(ctx, tenantID)
+}

@@ -140,6 +140,7 @@ type traceStore interface {
 
 type metricsStore interface {
 	QueryModelMetrics(ctx context.Context, tenantID string, req platform.MetricsQueryRequest) ([]map[string]interface{}, error)
+	ListModelMetricsFacets(ctx context.Context, tenantID string) (*platform.ModelMetricsFacets, error)
 }
 
 type tracePrivacyStore interface {

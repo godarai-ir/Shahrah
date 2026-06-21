@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildChartData } from "./model-metrics-dashboard";
+import { buildChartData, normalizeStringList } from "./model-metrics-dashboard";
 
 describe("buildChartData", () => {
   it("uses raw request counts for the request chart", () => {
@@ -40,5 +40,14 @@ describe("buildChartData", () => {
     );
 
     expect(data.points[0].label).toContain("Jun 21");
+  });
+});
+
+describe("metrics filter option helpers", () => {
+  it("dedupes and sorts historical facet values", () => {
+    expect(normalizeStringList(["openai:gpt-4o", " anthropic/claude-3-5 ", "openai:gpt-4o", 42, ""])).toEqual([
+      "anthropic/claude-3-5",
+      "openai:gpt-4o",
+    ]);
   });
 });

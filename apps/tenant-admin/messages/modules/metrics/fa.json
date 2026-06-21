@@ -9,7 +9,8 @@
     "charts": "نمودارهای متریک"
   },
   "actions": {
-    "applyFilters": "اعمال فیلترها"
+    "applyFilters": "اعمال فیلترها",
+    "reset": "بازنشانی"
   },
   "alerts": {
     "errorTitle": "متریک‌ها بارگیری نشدند"
@@ -25,13 +26,27 @@
     "model": "مدل",
     "provider": "Provider",
     "requestId": "Request ID",
+    "timeRange": "بازه زمانی",
     "viewBy": "گروه‌بندی بر اساس",
     "percentile": "صدک تاخیر",
     "status": "وضعیت",
+    "search": "جستجو...",
+    "emptyOptions": "گزینه‌ای پیدا نشد.",
     "placeholders": {
-      "model": "openai/gpt-4.1-mini",
-      "provider": "openai",
+      "model": "همه مدل‌ها",
+      "provider": "همه Providerها",
       "requestId": "req_..."
+    },
+    "rangePresets": {
+      "last15m": "۱۵ دقیقه اخیر",
+      "last1h": "یک ساعت اخیر",
+      "last24h": "۲۴ ساعت اخیر",
+      "yesterday": "دیروز",
+      "last3d": "۳ روز اخیر",
+      "last7d": "۷ روز اخیر",
+      "last14d": "۱۴ روز اخیر",
+      "last30d": "۳۰ روز اخیر",
+      "custom": "سفارشی"
     },
     "viewByOptions": {
       "modelName": "مدل",

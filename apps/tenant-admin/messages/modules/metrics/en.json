@@ -9,7 +9,8 @@
     "charts": "Metrics charts"
   },
   "actions": {
-    "applyFilters": "Apply filters"
+    "applyFilters": "Apply filters",
+    "reset": "Reset"
   },
   "alerts": {
     "errorTitle": "Metrics could not be loaded"
@@ -25,13 +26,27 @@
     "model": "Model",
     "provider": "Provider",
     "requestId": "Request ID",
+    "timeRange": "Time range",
     "viewBy": "Group by",
     "percentile": "Latency percentile",
     "status": "Status",
+    "search": "Search...",
+    "emptyOptions": "No options found.",
     "placeholders": {
-      "model": "openai/gpt-4.1-mini",
-      "provider": "openai",
+      "model": "All models",
+      "provider": "All providers",
       "requestId": "req_..."
+    },
+    "rangePresets": {
+      "last15m": "Last 15 minutes",
+      "last1h": "Last hour",
+      "last24h": "Last 24 hours",
+      "yesterday": "Yesterday",
+      "last3d": "Last 3 days",
+      "last7d": "Last 7 days",
+      "last14d": "Last 14 days",
+      "last30d": "Last 30 days",
+      "custom": "Custom"
     },
     "viewByOptions": {
       "modelName": "Model",
