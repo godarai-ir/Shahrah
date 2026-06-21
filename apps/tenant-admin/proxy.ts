@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { resolveTenantContextFromHeaders } from "@/lib/tenant";
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   if (isBypassedPath(pathname)) {
     return NextResponse.next();
