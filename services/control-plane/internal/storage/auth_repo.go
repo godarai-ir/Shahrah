@@ -23,27 +23,27 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 	var rawMetadata []byte
 
 	err := s.pool.QueryRow(ctx, `
-		SELECT id::text,
-		       tenant_id::text,
-		       COALESCE(organization_id::text, ''),
-		       COALESCE(team_id::text, ''),
-		       COALESCE(user_id::text, ''),
-		       COALESCE(virtual_user_id::text, ''),
-		       COALESCE(key_alias, ''),
-		       COALESCE(token_hash, ''),
-		       COALESCE(models, '{}'),
-		       COALESCE(spend, 0),
-		       COALESCE(expires, NULL),
-		       COALESCE(blocked, false),
-		       COALESCE(key_type, CASE WHEN team_id IS NULL THEN 'pat' ELSE 'vat' END),
-		       COALESCE(metadata, '{}'::jsonb)
+		SELECT vt.id::text,
+		       vt.tenant_id::text,
+		       COALESCE(vt.organization_id::text, ''),
+		       COALESCE(vt.team_id::text, ''),
+		       COALESCE(vt.user_id::text, ''),
+		       COALESCE(vt.virtual_user_id::text, ''),
+		       COALESCE(vt.key_alias, ''),
+		       COALESCE(vt.token_hash, ''),
+		       COALESCE(vt.models, '{}'),
+		       COALESCE(vt.spend, 0),
+		       COALESCE(vt.expires, NULL),
+		       COALESCE(vt.blocked, false),
+		       COALESCE(vt.key_type, CASE WHEN vt.team_id IS NULL THEN 'pat' ELSE 'vat' END),
+		       COALESCE(vt.metadata, '{}'::jsonb)
 		FROM verification_tokens vt
 		LEFT JOIN virtual_users vu
 		  ON vu.virtual_user_id = vt.virtual_user_id
 		 AND vu.tenant_id = vt.tenant_id
 		WHERE vt.token_hash = $1
-		  AND revoked_at IS NULL
-		  AND (expires IS NULL OR expires > NOW())
+		  AND vt.revoked_at IS NULL
+		  AND (vt.expires IS NULL OR vt.expires > NOW())
 		  AND (vt.virtual_user_id IS NULL OR COALESCE(vu.active, false) = true)
 		LIMIT 1
 	`, hash).Scan(
@@ -241,7 +241,23 @@ func (s *Store) listRuntimeAllowedModelsByProviderAccount(ctx context.Context, t
 		WHERE a.tenant_id = $1
 		  AND (
 			   ac.principal_type = 'everyone'
-			OR (ac.principal_type = 'team' AND ac.principal_id = NULLIF($2, ''))
+			OR (
+				ac.principal_type = 'team'
+				AND ac.principal_id IS NOT NULL
+				AND (
+					ac.principal_id::text = NULLIF($2, '')
+					OR (
+						NULLIF($3, '') IS NOT NULL
+						AND EXISTS (
+							SELECT 1
+							FROM team_memberships tm
+							WHERE tm.tenant_id = $1::uuid
+							  AND tm.team_id::text = ac.principal_id::text
+							  AND tm.user_id::text = NULLIF($3, '')
+						)
+					)
+				)
+			)
 			OR (ac.principal_type = 'user' AND ac.principal_id = NULLIF($3, ''))
 			OR (
 				ac.principal_type = 'org_unit'

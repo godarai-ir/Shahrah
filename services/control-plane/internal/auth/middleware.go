@@ -11,6 +11,7 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 )
 
@@ -109,11 +110,29 @@ func (m *AuthMiddleware) Middleware() fiber.Handler {
 		// Look up key in store
 		keyInfo, err := m.keyStore.GetKeyByHash(c.Context(), hash)
 		if err != nil {
-			m.logger.Debug("Key lookup failed", zap.Error(err))
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			if isInvalidAPIKeyLookup(err) {
+				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+					"error": map[string]interface{}{
+						"message": "Invalid API key",
+						"type":    "authentication_error",
+					},
+				})
+			}
+			m.logger.Error("API key lookup failed", zap.Error(err))
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": map[string]interface{}{
-					"message": "Invalid API key",
-					"type":    "authentication_error",
+					"message": "Authentication lookup failed",
+					"type":    "server_error",
+				},
+			})
+		}
+
+		if keyInfo == nil {
+			m.logger.Error("API key lookup returned nil auth context")
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": map[string]interface{}{
+					"message": "Authentication lookup failed",
+					"type":    "server_error",
 				},
 			})
 		}
@@ -162,6 +181,10 @@ func (m *AuthMiddleware) Middleware() fiber.Handler {
 
 		return c.Next()
 	}
+}
+
+func isInvalidAPIKeyLookup(err error) bool {
+	return errors.Is(err, ErrInvalidAPIKey) || errors.Is(err, pgx.ErrNoRows)
 }
 
 // GetAuthInfo retrieves auth info from Fiber context.

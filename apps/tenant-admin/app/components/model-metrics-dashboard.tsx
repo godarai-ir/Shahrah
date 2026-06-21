@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import {
   Area,
   AreaChart,
@@ -31,6 +31,7 @@ const VIEW_BY = ["modelName", "virtualModelName", "userEmail", "virtualAccount",
 const PCTS = ["p50", "p75", "p90", "p99"] as const;
 const INTERVAL_SECONDS = 300;
 const MAX_SERIES = 5;
+const DEFAULT_RANGE_MS = 24 * 60 * 60 * 1000;
 
 type ViewBy = (typeof VIEW_BY)[number];
 type Pct = (typeof PCTS)[number];
@@ -58,42 +59,45 @@ type SeriesPoint = {
 } & Record<string, number | string>;
 
 export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps) {
+  const locale = useLocale();
   const t = useTranslations("metrics");
   const common = useTranslations("common");
 
   const [viewBy, setViewBy] = useState<ViewBy>("modelName");
+  const didRunInitialQuery = useRef(false);
   const [pct, setPct] = useState<Pct>("p99");
   const [modelFilter, setModelFilter] = useState(props.initialModel ?? "");
   const [providerFilter, setProviderFilter] = useState(props.initialProvider ?? "");
   const [requestIDFilter, setRequestIDFilter] = useState(props.initialRequestID ?? "");
   const [loading, setLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [from, setFrom] = useState(() => normalizeInitialIso(props.initialFrom, Date.now() - 3 * 60 * 60 * 1000));
-  const [to, setTo] = useState(() => normalizeInitialIso(props.initialTo, Date.now()));
+  const [from, setFrom] = useState(() => normalizeInitialIso(props.initialFrom));
+  const [to, setTo] = useState(() => normalizeInitialIso(props.initialTo));
 
   const [distribution, setDistribution] = useState<Row[]>([]);
   const [timeseries, setTimeseries] = useState<Row[]>([]);
   const [errorBreakdown, setErrorBreakdown] = useState<Row[]>([]);
 
   const summary = useMemo<Summary>(() => {
-    const totalRequests = distribution.reduce((acc, row) => acc + Number(row.countModelName ?? row.countAll ?? 0), 0);
-    const inputTokens = distribution.reduce((acc, row) => acc + Number(row.sumInputTokens ?? 0), 0);
-    const outputTokens = distribution.reduce((acc, row) => acc + Number(row.sumOutputTokens ?? 0), 0);
-    const cost = distribution.reduce((acc, row) => acc + Number(row.sumCostInUSD ?? 0), 0);
+    const totalRequests = distribution.reduce((acc, row) => acc + metricNumber(row, "countModelName", "countAll"), 0);
+    const inputTokens = distribution.reduce((acc, row) => acc + metricNumber(row, "sumInputTokens"), 0);
+    const outputTokens = distribution.reduce((acc, row) => acc + metricNumber(row, "sumOutputTokens"), 0);
+    const cost = distribution.reduce((acc, row) => acc + metricNumber(row, "sumCostInUSD", "sumCostUsd"), 0);
     return { totalRequests, inputTokens, outputTokens, cost };
   }, [distribution]);
 
   const chartData = useMemo(
-    () => buildChartData(timeseries, viewBy, pct, t("values.unknown")),
-    [timeseries, viewBy, pct, t],
+    () => buildChartData(timeseries, viewBy, pct, t("values.unknown"), locale, from, to),
+    [timeseries, viewBy, pct, t, locale, from, to],
   );
 
   const errorChartData = useMemo(
     () =>
       errorBreakdown.map((row) => ({
-        errorCode: String(row.errorCode ?? t("values.unknown")),
-        count: Number(row.countModelName ?? row.countAll ?? 0),
+        errorCode: metricString(row, "errorCode", "statusCode") || t("values.unknown"),
+        count: metricNumber(row, "countModelName", "countAll"),
       })),
     [errorBreakdown, t],
   );
@@ -136,7 +140,11 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
     [t],
   );
 
-  async function runQuery() {
+  async function runQuery(range?: { from: string; to: string }) {
+    const queryFrom = range?.from ?? from;
+    const queryTo = range?.to ?? to;
+    if (!queryFrom || !queryTo) return;
+
     setLoading(true);
     setError(null);
     try {
@@ -153,8 +161,8 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
 
       const [dist, ts, errb] = await Promise.all([
         postMetricsQuery({
-          startTs: from,
-          endTs: to,
+          startTs: queryFrom,
+          endTs: queryTo,
           datasource: "modelMetrics",
           type: "distribution",
           aggregations: [
@@ -168,8 +176,8 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
           filters,
         }, common("requestError")),
         postMetricsQuery({
-          startTs: from,
-          endTs: to,
+          startTs: queryFrom,
+          endTs: queryTo,
           datasource: "modelMetrics",
           type: "timeseries",
           aggregations: [
@@ -184,8 +192,8 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
           intervalInSeconds: INTERVAL_SECONDS,
         }, common("requestError")),
         postMetricsQuery({
-          startTs: from,
-          endTs: to,
+          startTs: queryFrom,
+          endTs: queryTo,
           datasource: "modelMetrics",
           type: "distribution",
           aggregations: [{ type: "count", column: "modelName" }],
@@ -203,13 +211,26 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
       setTimeseries([]);
       setErrorBreakdown([]);
     } finally {
+      setHasLoaded(true);
       setLoading(false);
     }
   }
 
   useEffect(() => {
     const id = window.setTimeout(() => {
-      void runQuery();
+      if (didRunInitialQuery.current) return;
+      didRunInitialQuery.current = true;
+
+      let queryTo = to;
+      let queryFrom = from;
+      if (!queryTo || !queryFrom) {
+        const now = Date.now();
+        queryTo = new Date(now).toISOString();
+        queryFrom = new Date(now - DEFAULT_RANGE_MS).toISOString();
+        setTo(queryTo);
+        setFrom(queryFrom);
+      }
+      void runQuery({ from: queryFrom, to: queryTo });
     }, 0);
     return () => window.clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -314,11 +335,17 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
         </Alert>
       ) : null}
 
+      {hasLoaded && !loading && !error && distribution.length === 0 ? (
+        <Alert>
+          <AlertDescription>{t("table.empty")}</AlertDescription>
+        </Alert>
+      ) : null}
+
       <section aria-label={t("sections.summary")} className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard title={t("cards.totalRequests")} value={formatNumber(summary.totalRequests)} description={t("cards.totalRequestsHint")} />
-        <MetricCard title={t("cards.inputTokens")} value={formatNumber(summary.inputTokens)} description={t("cards.inputTokensHint")} />
-        <MetricCard title={t("cards.outputTokens")} value={formatNumber(summary.outputTokens)} description={t("cards.outputTokensHint")} />
-        <MetricCard title={t("cards.totalCost")} value={formatCurrency(summary.cost)} description={t("cards.totalCostHint")} />
+        <MetricCard title={t("cards.totalRequests")} value={formatNumber(summary.totalRequests, locale)} description={t("cards.totalRequestsHint")} />
+        <MetricCard title={t("cards.inputTokens")} value={formatNumber(summary.inputTokens, locale)} description={t("cards.inputTokensHint")} />
+        <MetricCard title={t("cards.outputTokens")} value={formatNumber(summary.outputTokens, locale)} description={t("cards.outputTokensHint")} />
+        <MetricCard title={t("cards.totalCost")} value={formatCurrency(summary.cost, locale)} description={t("cards.totalCostHint")} />
       </section>
 
       <section aria-label={t("sections.charts")} className="grid gap-4 xl:grid-cols-2">
@@ -327,7 +354,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
             <AreaChart data={chartData.points} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} />
               <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} />
-              <YAxis tickLine={false} axisLine={false} width={42} />
+              <YAxis tickLine={false} axisLine={false} width={42} allowDecimals={false} />
               <ChartTooltip content={<ChartTooltipContent labelFormatter={formatTooltipLabel} />} />
               {chartData.series.map((series) => (
                 <Area
@@ -468,19 +495,28 @@ async function postMetricsQuery(body: Record<string, unknown>, fallbackError: st
   return payload as { data?: Row[] };
 }
 
-function buildChartData(rows: Row[], viewBy: ViewBy, pct: Pct, unknownLabel: string) {
+export function buildChartData(
+  rows: Row[],
+  viewBy: ViewBy,
+  pct: Pct,
+  unknownLabel: string,
+  locale?: string,
+  rangeFrom?: string,
+  rangeTo?: string,
+) {
   const timeSet = new Set<string>();
   const grouped = new Map<string, Row[]>();
 
   for (const row of rows) {
-    const key = String(row[viewBy] ?? unknownLabel);
-    const ts = String(row.timestamp ?? "");
+    const key = metricString(row, viewBy) || unknownLabel;
+    const ts = metricString(row, "timestamp");
     if (!grouped.has(key)) grouped.set(key, []);
     grouped.get(key)!.push(row);
     if (ts) timeSet.add(ts);
   }
 
   const x = Array.from(timeSet).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+  const labelMode = getAxisLabelMode(x, rangeFrom, rangeTo);
   const series = Array.from(grouped.entries())
     .slice(0, MAX_SERIES)
     .map(([label], index) => ({ label, key: `series${index}` }));
@@ -488,13 +524,13 @@ function buildChartData(rows: Row[], viewBy: ViewBy, pct: Pct, unknownLabel: str
   const points: SeriesPoint[] = x.map((timestamp) => {
     const point: SeriesPoint = {
       timestamp,
-      label: formatLocalTime(timestamp),
-      tooltipLabel: formatLocalDateTime(timestamp),
+      label: formatAxisLabel(timestamp, labelMode, locale),
+      tooltipLabel: formatLocalDateTime(timestamp, locale),
     };
 
     series.forEach((seriesItem) => {
-      const item = grouped.get(seriesItem.label)?.find((row) => String(row.timestamp ?? "") === timestamp);
-      point[seriesItem.key] = Number(item?.countModelName ?? item?.countAll ?? 0) / INTERVAL_SECONDS;
+      const item = grouped.get(seriesItem.label)?.find((row) => metricString(row, "timestamp") === timestamp);
+      point[seriesItem.key] = metricNumber(item, "countModelName", "countAll");
     });
 
     return point;
@@ -503,14 +539,15 @@ function buildChartData(rows: Row[], viewBy: ViewBy, pct: Pct, unknownLabel: str
   const latencyPoints: SeriesPoint[] = x.map((timestamp) => {
     const point: SeriesPoint = {
       timestamp,
-      label: formatLocalTime(timestamp),
-      tooltipLabel: formatLocalDateTime(timestamp),
+      label: formatAxisLabel(timestamp, labelMode, locale),
+      tooltipLabel: formatLocalDateTime(timestamp, locale),
     };
     const latencyKey = `${pct}LatencyMs`;
+    const latencyKeyAlt = `${pct}LatencyMS`;
 
     series.forEach((seriesItem) => {
-      const item = grouped.get(seriesItem.label)?.find((row) => String(row.timestamp ?? "") === timestamp);
-      point[seriesItem.key] = Number(item?.[latencyKey] ?? 0);
+      const item = grouped.get(seriesItem.label)?.find((row) => metricString(row, "timestamp") === timestamp);
+      point[seriesItem.key] = metricNumber(item, latencyKey, latencyKeyAlt);
     });
 
     return point;
@@ -522,16 +559,16 @@ function buildChartData(rows: Row[], viewBy: ViewBy, pct: Pct, unknownLabel: str
     let costUsd = 0;
 
     for (const [, items] of grouped) {
-      const item = items.find((row) => String(row.timestamp ?? "") === timestamp);
-      inputTokens += Number(item?.sumInputTokens ?? 0);
-      outputTokens += Number(item?.sumOutputTokens ?? 0);
-      costUsd += Number(item?.sumCostInUSD ?? 0);
+      const item = items.find((row) => metricString(row, "timestamp") === timestamp);
+      inputTokens += metricNumber(item, "sumInputTokens");
+      outputTokens += metricNumber(item, "sumOutputTokens");
+      costUsd += metricNumber(item, "sumCostInUSD", "sumCostUsd");
     }
 
     return {
       timestamp,
-      label: formatLocalTime(timestamp),
-      tooltipLabel: formatLocalDateTime(timestamp),
+      label: formatAxisLabel(timestamp, labelMode, locale),
+      tooltipLabel: formatLocalDateTime(timestamp, locale),
       inputTokens,
       outputTokens,
       costUsd: Number(costUsd.toFixed(6)),
@@ -541,15 +578,77 @@ function buildChartData(rows: Row[], viewBy: ViewBy, pct: Pct, unknownLabel: str
   return { points, latencyPoints, tokenCostPoints, series };
 }
 
+export function metricNumber(row: Row | undefined, ...keys: string[]) {
+  const value = metricValue(row, keys);
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (typeof value === "bigint") return Number(value);
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
+function metricString(row: Row | undefined, ...keys: string[]) {
+  const value = metricValue(row, keys);
+  if (value == null) return "";
+  if (value instanceof Date) return value.toISOString();
+  return String(value);
+}
+
+function metricValue(row: Row | undefined, keys: string[]) {
+  if (!row) return undefined;
+  const candidates = new Set<string>();
+  for (const key of keys) {
+    candidates.add(key);
+    candidates.add(key.toLowerCase());
+    candidates.add(toSnakeCase(key));
+    for (const alias of metricAliases[key] ?? []) {
+      candidates.add(alias);
+      candidates.add(alias.toLowerCase());
+    }
+  }
+  for (const key of candidates) {
+    if (Object.prototype.hasOwnProperty.call(row, key)) {
+      return row[key];
+    }
+  }
+  return undefined;
+}
+
+function toSnakeCase(value: string) {
+  return value.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+}
+
+const metricAliases: Record<string, string[]> = {
+  modelName: ["model_name", "view_model_name"],
+  virtualModelName: ["virtual_model_name", "view_virtual_model_name"],
+  userEmail: ["user_email", "view_user_email"],
+  virtualAccount: ["virtual_account", "virtual_account_name", "view_virtual_account_name"],
+  team: ["team_name", "view_team_name"],
+  errorCode: ["error_code", "status_code"],
+  timestamp: ["bucket_ts"],
+  countModelName: ["count_model_name", "countmodelname", "request_count"],
+  countAll: ["count_all", "countall"],
+  sumInputTokens: ["sum_input_tokens", "suminputtokens", "input_tokens_sum"],
+  sumOutputTokens: ["sum_output_tokens", "sumoutputtokens", "output_tokens_sum"],
+  sumCostInUSD: ["sum_cost_in_usd", "sumcostinusd", "sum_cost_usd", "cost_usd_sum"],
+  sumCostUsd: ["sum_cost_usd", "sumcostusd", "cost_usd_sum"],
+  p50LatencyMs: ["p50_latency_ms", "p50latencyms", "latency_p50"],
+  p75LatencyMs: ["p75_latency_ms", "p75latencyms", "latency_p75"],
+  p90LatencyMs: ["p90_latency_ms", "p90latencyms", "latency_p90"],
+  p99LatencyMs: ["p99_latency_ms", "p99latencyms", "latency_p99"],
+};
+
 function formatTooltipLabel(value: unknown, payload: readonly unknown[]) {
   const first = payload[0] as { payload?: { tooltipLabel?: string } } | undefined;
   return first?.payload?.tooltipLabel ?? String(value ?? "");
 }
 
-function normalizeInitialIso(value: string | undefined, fallbackTime: number) {
+function normalizeInitialIso(value: string | undefined) {
   const trimmed = value?.trim();
   if (trimmed && !Number.isNaN(Date.parse(trimmed))) return new Date(trimmed).toISOString();
-  return new Date(fallbackTime).toISOString();
+  return "";
 }
 
 function toDateTimeLocalValue(value: string) {
@@ -566,30 +665,62 @@ function fromDateTimeLocalValue(value: string) {
   return date.toISOString();
 }
 
-function formatLocalTime(value: string) {
+type AxisLabelMode = "time" | "dateTime";
+
+function getAxisLabelMode(timestamps: string[], rangeFrom?: string, rangeTo?: string): AxisLabelMode {
+  const rangeStart = parseTime(rangeFrom);
+  const rangeEnd = parseTime(rangeTo);
+  if (rangeStart != null && rangeEnd != null && rangeEnd - rangeStart >= 24 * 60 * 60 * 1000) {
+    return "dateTime";
+  }
+
+  const first = parseTime(timestamps[0]);
+  const last = parseTime(timestamps[timestamps.length - 1]);
+  if (first != null && last != null && last - first >= 24 * 60 * 60 * 1000) {
+    return "dateTime";
+  }
+
+  return "time";
+}
+
+function parseTime(value: string | undefined) {
+  if (!value) return undefined;
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? undefined : time;
+}
+
+function formatAxisLabel(value: string, mode: AxisLabelMode, locale?: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat(undefined, {
+  if (mode === "dateTime") {
+    return new Intl.DateTimeFormat(locale, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date);
+  }
+  return new Intl.DateTimeFormat(locale, {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
 }
 
-function formatLocalDateTime(value: string) {
+function formatLocalDateTime(value: string, locale?: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
 }
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat().format(value);
+function formatNumber(value: number, locale: string) {
+  return new Intl.NumberFormat(locale).format(value);
 }
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat(undefined, {
+function formatCurrency(value: number, locale: string) {
+  return new Intl.NumberFormat(locale, {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: 6,

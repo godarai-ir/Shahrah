@@ -887,7 +887,7 @@ func TestIntegration_EffectiveModelsAccessMatrix_PAT_VAT_UserTeam(t *testing.T) 
 		require.True(t, found, "model %s not found in effective-models response", model)
 	}
 
-	createPAT := func(userID string, name string) {
+	createPAT := func(userID string, name string) platform.CreatedKey {
 		resp := performJSONRequestWithHeaders(
 			t,
 			app,
@@ -898,6 +898,10 @@ func TestIntegration_EffectiveModelsAccessMatrix_PAT_VAT_UserTeam(t *testing.T) 
 			fmt.Sprintf(`{"name":"%s"}`, name),
 		)
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
+		var created platform.CreatedKey
+		decodeJSONBody(t, resp, &created)
+		require.NotEmpty(t, created.Key)
+		return created
 	}
 	createVAT := func(teamID string, name string) {
 		resp := performJSONRequest(
@@ -911,10 +915,27 @@ func TestIntegration_EffectiveModelsAccessMatrix_PAT_VAT_UserTeam(t *testing.T) 
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
 	}
 	createPAT(userManagerID, "pat-manager")
-	createPAT(userAID, "pat-user-a")
-	createPAT(userBID, "pat-user-b")
+	patUserA := createPAT(userAID, "pat-user-a")
+	patUserB := createPAT(userBID, "pat-user-b")
 	createVAT(teamAID, "vat-team-a")
 	createVAT(teamBID, "vat-team-b")
+
+	assertRuntimeModels := func(key string, expectedIDs ...string) {
+		resp := performJSONRequest(t, app, http.MethodGet, "http://localhost/v1/models", "Bearer "+key, "")
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		var out contractsopenai.ModelListResponse
+		decodeJSONBody(t, resp, &out)
+		ids := make(map[string]struct{}, len(out.Data))
+		for _, item := range out.Data {
+			ids[item.ID] = struct{}{}
+		}
+		for _, id := range expectedIDs {
+			assert.Contains(t, ids, id)
+		}
+		if len(expectedIDs) == 0 {
+			assert.Empty(t, out.Data)
+		}
+	}
 
 	// Scenario 1: everyone can access (PAT/VAT should both allow).
 	setAccess(`[{"type":"everyone"}]`)
@@ -932,6 +953,8 @@ func TestIntegration_EffectiveModelsAccessMatrix_PAT_VAT_UserTeam(t *testing.T) 
 	assertAllowed("vat", "", teamAID, "gpt-4.1-mini", true)
 	assertAllowed("vat", "", teamBID, "gpt-4.1-mini", false)
 	assertAllowed("pat", userAID, "", "gpt-4.1-mini", true)
+	assertRuntimeModels(patUserA.Key, "openai:openai-access-matrix:gpt-4.1-mini")
+	assertRuntimeModels(patUserB.Key)
 
 	// Scenario 4: mixed user/team access (OR semantics).
 	setAccess(fmt.Sprintf(`[
