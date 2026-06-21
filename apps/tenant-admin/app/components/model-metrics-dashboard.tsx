@@ -325,20 +325,18 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
   }, []);
 
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div className="flex flex-col gap-3">
+      <header className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-normal">{t("title")}</h1>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{t("description")}</p>
+          <h1 className="text-xl font-semibold tracking-normal">{t("title")}</h1>
         </div>
       </header>
 
       <Card className="rounded-lg">
-        <CardHeader>
-          <CardTitle className="text-base">{t("filters.title")}</CardTitle>
-          <CardDescription>{t("filters.description")}</CardDescription>
+        <CardHeader className="sr-only">
+          <CardTitle>{t("filters.title")}</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <CardContent className="grid gap-2 p-3 pt-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6 md:p-3 md:pt-3">
           <Field id="metrics-range-preset" label={t("filters.timeRange")}>
             <MetricCombobox
               id="metrics-range-preset"
@@ -385,7 +383,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
               onChange={(event) => setRequestIDFilter(event.target.value)}
               placeholder={t("filters.placeholders.requestId")}
               dir="ltr"
-              className="font-mono"
+              className="h-8 px-2 text-xs font-mono"
             />
           </Field>
           <Field id="metrics-view-by" label={t("filters.viewBy")}>
@@ -399,12 +397,12 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
               searchable={false}
             />
           </Field>
-          <div className="flex items-end">
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" onClick={() => void runQuery()} disabled={loading}>
+          <div className="flex items-end 2xl:col-span-2">
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:justify-end">
+              <Button type="button" size="sm" onClick={() => void runQuery()} disabled={loading}>
                 {loading ? common("loading") : t("actions.applyFilters")}
               </Button>
-              <Button type="button" variant="outline" onClick={resetFilters} disabled={loading}>
+              <Button type="button" variant="outline" size="sm" onClick={resetFilters} disabled={loading}>
                 <RotateCcw data-icon="inline-start" aria-hidden="true" />
                 {t("actions.reset")}
               </Button>
@@ -426,20 +424,20 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
         </Alert>
       ) : null}
 
-      <section aria-label={t("sections.summary")} className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard title={t("cards.totalRequests")} value={formatNumber(summary.totalRequests, locale)} description={t("cards.totalRequestsHint")} />
-        <MetricCard title={t("cards.inputTokens")} value={formatNumber(summary.inputTokens, locale)} description={t("cards.inputTokensHint")} />
-        <MetricCard title={t("cards.outputTokens")} value={formatNumber(summary.outputTokens, locale)} description={t("cards.outputTokensHint")} />
-        <MetricCard title={t("cards.totalCost")} value={formatCurrency(summary.cost, locale)} description={t("cards.totalCostHint")} />
+      <section aria-label={t("sections.summary")} className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard title={t("cards.totalRequests")} value={formatNumber(summary.totalRequests, locale)} />
+        <MetricCard title={t("cards.inputTokens")} value={formatNumber(summary.inputTokens, locale)} />
+        <MetricCard title={t("cards.outputTokens")} value={formatNumber(summary.outputTokens, locale)} />
+        <MetricCard title={t("cards.totalCost")} value={formatCurrency(summary.cost, locale)} />
       </section>
 
-      <section aria-label={t("sections.charts")} className="grid gap-4 xl:grid-cols-2">
-        <ChartCard title={t("charts.requests.title")} description={t("charts.requests.description")}>
-          <ChartContainer config={seriesConfig} className="h-[320px] w-full">
-            <AreaChart data={chartData.points} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
+      <section aria-label={t("sections.charts")} className="grid gap-3 xl:grid-cols-2">
+        <ChartCard title={t("charts.requests.title")}>
+          <ChartContainer config={seriesConfig} className="h-[240px] w-full md:h-[260px]">
+            <AreaChart data={chartData.points} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} />
               <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} />
-              <YAxis tickLine={false} axisLine={false} width={42} allowDecimals={false} />
+              <YAxis tickLine={false} axisLine={false} width={36} allowDecimals={false} />
               <ChartTooltip content={<ChartTooltipContent labelFormatter={formatTooltipLabel} />} />
               {chartData.series.map((series) => (
                 <Area
@@ -458,9 +456,8 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
 
         <ChartCard
           title={t("charts.latency.title", { percentile: pct.toUpperCase() })}
-          description={t("charts.latency.description")}
           action={
-            <Field id="metrics-percentile" label={t("filters.percentile")}>
+            <Field id="metrics-percentile" label={t("filters.percentile")} className="w-32">
               <MetricCombobox
                 id="metrics-percentile"
                 options={pctOptions}
@@ -469,16 +466,15 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
                 placeholder={t("filters.percentile")}
                 emptyText={t("filters.emptyOptions")}
                 searchable={false}
-                className="min-w-28"
               />
             </Field>
           }
         >
-          <ChartContainer config={seriesConfig} className="h-[320px] w-full">
-            <AreaChart data={chartData.latencyPoints} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
+          <ChartContainer config={seriesConfig} className="h-[240px] w-full md:h-[260px]">
+            <AreaChart data={chartData.latencyPoints} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} />
               <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} />
-              <YAxis tickLine={false} axisLine={false} width={42} />
+              <YAxis tickLine={false} axisLine={false} width={36} />
               <ChartTooltip content={<ChartTooltipContent labelFormatter={formatTooltipLabel} />} />
               {chartData.series.map((series) => (
                 <Area
@@ -495,13 +491,13 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
           </ChartContainer>
         </ChartCard>
 
-        <ChartCard title={t("charts.tokensCost.title")} description={t("charts.tokensCost.description")}>
-          <ChartContainer config={tokenChartConfig} className="h-[320px] w-full">
-            <ComposedChart data={chartData.tokenCostPoints} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
+        <ChartCard title={t("charts.tokensCost.title")}>
+          <ChartContainer config={tokenChartConfig} className="h-[240px] w-full md:h-[260px]">
+            <ComposedChart data={chartData.tokenCostPoints} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} />
               <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} />
-              <YAxis yAxisId="tokens" tickLine={false} axisLine={false} width={42} />
-              <YAxis yAxisId="cost" orientation="right" tickLine={false} axisLine={false} width={42} />
+              <YAxis yAxisId="tokens" tickLine={false} axisLine={false} width={36} />
+              <YAxis yAxisId="cost" orientation="right" tickLine={false} axisLine={false} width={36} />
               <ChartTooltip content={<ChartTooltipContent labelFormatter={formatTooltipLabel} />} />
               <Bar yAxisId="tokens" dataKey="inputTokens" stackId="tokens" fill="var(--color-inputTokens)" radius={[4, 4, 0, 0]} />
               <Bar yAxisId="tokens" dataKey="outputTokens" stackId="tokens" fill="var(--color-outputTokens)" radius={[4, 4, 0, 0]} />
@@ -510,12 +506,12 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
           </ChartContainer>
         </ChartCard>
 
-        <ChartCard title={t("charts.failures.title")} description={t("charts.failures.description")}>
-          <ChartContainer config={errorChartConfig} className="h-[320px] w-full">
-            <BarChart data={errorChartData} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
+        <ChartCard title={t("charts.failures.title")}>
+          <ChartContainer config={errorChartConfig} className="h-[240px] w-full md:h-[260px]">
+            <BarChart data={errorChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} />
               <XAxis dataKey="errorCode" tickLine={false} axisLine={false} minTickGap={24} />
-              <YAxis tickLine={false} axisLine={false} width={42} />
+              <YAxis tickLine={false} axisLine={false} width={36} />
               <ChartTooltip content={<ChartTooltipContent />} />
               <Bar dataKey="count" fill="var(--color-count)" radius={[4, 4, 0, 0]} />
             </BarChart>
@@ -526,10 +522,22 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
   );
 }
 
-function Field({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
+function Field({
+  id,
+  label,
+  children,
+  className,
+}: {
+  id: string;
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="grid gap-2">
-      <Label htmlFor={id}>{label}</Label>
+    <div className={cn("grid min-w-0 gap-1", className)}>
+      <Label htmlFor={id} className="text-xs text-muted-foreground">
+        {label}
+      </Label>
       {children}
     </div>
   );
@@ -549,7 +557,7 @@ function DateTimePicker({
   return (
     <Field id={id} label={label}>
       <div className="relative">
-        <Calendar className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+        <Calendar className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
         <Input
           id={id}
           type="datetime-local"
@@ -558,7 +566,7 @@ function DateTimePicker({
             const next = fromDateTimeLocalValue(event.target.value);
             if (next) onChange(next);
           }}
-          className="pl-9"
+          className="h-8 px-2 pl-8 text-xs"
         />
       </div>
     </Field>
@@ -603,7 +611,7 @@ function MetricCombobox({
         placeholder={placeholder}
         readOnly={!searchable}
         className={cn(
-          "w-full bg-background [&_[data-slot=input-group-control]]:min-w-0 [&_[data-slot=input-group-control]]:text-right [&_[data-slot=input-group-control]]:focus-visible:outline-none",
+          "h-8 w-full bg-background [&_[data-slot=input-group-control]]:min-w-0 [&_[data-slot=input-group-control]]:text-right [&_[data-slot=input-group-control]]:text-xs",
           mono && "[&_[data-slot=input-group-control]]:font-mono",
           className,
         )}
@@ -624,13 +632,14 @@ function MetricCombobox({
   );
 }
 
-function MetricCard({ title, value, description }: { title: string; value: string; description: string }) {
+function MetricCard({ title, value }: { title: string; value: string }) {
   return (
     <Card className="rounded-lg">
-      <CardHeader className="gap-2 p-4">
-        <CardDescription>{title}</CardDescription>
-        <CardTitle className="text-2xl">{value}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+      <CardHeader className="gap-1 p-3 md:p-3">
+        <CardDescription className="text-xs leading-none">{title}</CardDescription>
+        <CardTitle className="truncate text-xl leading-tight tabular-nums" dir="auto">
+          {value}
+        </CardTitle>
       </CardHeader>
     </Card>
   );
@@ -638,25 +647,22 @@ function MetricCard({ title, value, description }: { title: string; value: strin
 
 function ChartCard({
   title,
-  description,
   action,
   children,
 }: {
   title: string;
-  description: string;
   action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <Card className="rounded-lg">
-      <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <CardHeader className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between md:p-3">
         <div className="min-w-0">
-          <CardTitle className="text-base">{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
+          <CardTitle className="truncate text-sm">{title}</CardTitle>
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
       </CardHeader>
-      <CardContent>{children}</CardContent>
+      <CardContent className="px-3 pb-3 md:px-3 md:pb-3">{children}</CardContent>
     </Card>
   );
 }
