@@ -16,7 +16,8 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ModelEntitySelect, type ModelSelection } from "@/app/components/model-entity-select";
 import { PrincipalPicker, type PrincipalPickerItem } from "@/app/components/principal-picker";
-import { type PrincipalEntitySelectLabels, type PrincipalSearchKind } from "@/app/components/principal-search-input";
+import { type PrincipalSearchKind } from "@/app/components/principal-search-input";
+import { buildPrincipalSelectorLabels } from "@/app/components/provider-account-wizard/principal-labels";
 import { cn } from "@/lib/utils";
 
 type VirtualModelPolicy = {
@@ -118,7 +119,7 @@ const MODE_ENDPOINTS: Record<string, string> = {
   search: "/v1/search",
 };
 
-function makeDefaultForm(): FormState {
+function makeDefaultForm(everyoneLabel: string): FormState {
   return {
     alias: "",
     routing_strategy: "priority",
@@ -127,7 +128,7 @@ function makeDefaultForm(): FormState {
     targets: [{ ...DEFAULT_TARGET }],
     access: {
       managers: [],
-      users: [{ type: "everyone", display_name: "Everyone" }],
+      users: [{ type: "everyone", display_name: everyoneLabel }],
     },
   };
 }
@@ -135,6 +136,9 @@ function makeDefaultForm(): FormState {
 export default function VirtualModelManagement() {
   const t = useTranslations("virtualModels");
   const tc = useTranslations("common");
+  const principalT = useTranslations("providerAccounts");
+  const principalUx = useTranslations("providerAccounts.ux");
+  const defaultEveryoneLabel = principalT("principal.everyone");
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -147,8 +151,8 @@ export default function VirtualModelManagement() {
   const [providerAllowedModels, setProviderAllowedModels] = useState<ModelSelection[]>([]);
   const [providerModelModes, setProviderModelModes] = useState<Record<string, string[]>>({});
   const [selectedID, setSelectedID] = useState<string>("");
-  const [form, setForm] = useState<FormState>(() => makeDefaultForm());
-  const [savedHash, setSavedHash] = useState(() => JSON.stringify(makeDefaultForm()));
+  const [form, setForm] = useState<FormState>(() => makeDefaultForm(defaultEveryoneLabel));
+  const [savedHash, setSavedHash] = useState(() => JSON.stringify(makeDefaultForm(defaultEveryoneLabel)));
 
   const isCreate = !form.id;
   const dirty = useMemo(() => JSON.stringify(form) !== savedHash, [form, savedHash]);
@@ -181,18 +185,7 @@ export default function VirtualModelManagement() {
     return items.filter((item) => item.alias.toLowerCase().includes(q));
   }, [items, query]);
 
-  const principalSelectorLabels = useMemo<PrincipalEntitySelectLabels>(() => ({
-    users: "Users",
-    teams: "Teams",
-    orgUnits: "Org Units",
-    virtualAccounts: "Virtual Accounts",
-    externalIdentities: "External Identities",
-    everyone: "Everyone",
-    searchPlaceholder: "Search principals...",
-    triggerPlaceholder: "Select principal",
-    loading: "Loading...",
-    empty: "No results",
-  }), []);
+  const principalSelectorLabels = buildPrincipalSelectorLabels(principalT, principalUx);
 
   async function loadList(options?: { skipDirtyConfirmOnAutoload?: boolean }) {
     setIsLoading(true);
@@ -232,7 +225,7 @@ export default function VirtualModelManagement() {
         enabled: data.enabled,
         exposed_modes: normalizeModeList(data.exposed_modes),
         targets: normalizeTargets(data.targets),
-        access: normalizeAccess(data.access),
+        access: normalizeAccess(data.access, defaultEveryoneLabel),
       };
       setSelectedID(id);
       setForm(mapped);
@@ -298,7 +291,7 @@ export default function VirtualModelManagement() {
       const confirmed = window.confirm(t("messages.unsavedConfirm"));
       if (!confirmed) return;
     }
-    const next = makeDefaultForm();
+    const next = makeDefaultForm(defaultEveryoneLabel);
     setSelectedID("");
     setForm(next);
     setSavedHash(JSON.stringify(next));
@@ -420,7 +413,7 @@ export default function VirtualModelManagement() {
       const data = (await res.json().catch(() => ({}))) as Partial<VirtualModel>;
       if (!res.ok) throw new Error(readError(data, t("messages.deleteError")));
 
-      const next = makeDefaultForm();
+      const next = makeDefaultForm(defaultEveryoneLabel);
       setSelectedID("");
       setForm(next);
       setSavedHash(JSON.stringify(next));
@@ -982,13 +975,13 @@ function normalizeTargets(targets: VirtualModelTarget[] | undefined): VirtualMod
     .sort((a, b) => a.order - b.order);
 }
 
-function normalizeAccess(access: VirtualModel["access"] | undefined): FormState["access"] {
+function normalizeAccess(access: VirtualModel["access"] | undefined, everyoneLabel: string): FormState["access"] {
   const managers = (access?.managers ?? []).filter(Boolean);
   const users = (access?.users ?? []).filter(Boolean);
   if (managers.length === 0 && users.length === 0) {
     return {
       managers: [],
-      users: [{ type: "everyone", display_name: "Everyone" }],
+      users: [{ type: "everyone", display_name: everyoneLabel }],
     };
   }
   return {
