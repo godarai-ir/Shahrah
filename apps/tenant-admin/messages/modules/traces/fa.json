@@ -1,32 +1,54 @@
 {
-  "title": "Request Traces",
-  "description": "ردیابی درخواست‌های تننت و مشاهده جزئیات spanها.",
+  "title": "رهگیری درخواست‌ها",
+  "description": "بررسی Traceهای درخواست‌های تننت و جزئیات spanها.",
   "alerts": {
     "errorTitle": "خطا"
   },
   "filters": {
-    "traceId": "Trace ID",
-    "requestId": "Request ID",
-    "model": "Model",
+    "title": "فیلترهای Trace",
+    "traceId": "شناسه Trace",
+    "requestId": "شناسه Request",
+    "model": "مدل",
     "provider": "Provider",
-    "route": "Route",
-    "statusCode": "Status Code",
-    "errorCode": "Error Code",
-    "from": "From (RFC3339)",
-    "to": "To (RFC3339)",
+    "route": "اندپوینت",
+    "statusCode": "کد وضعیت",
+    "errorCode": "کد خطا",
+    "from": "از",
+    "to": "تا",
+    "timeRange": "بازه زمانی",
+    "search": "جستجو...",
+    "emptyOptions": "گزینه‌ای پیدا نشد.",
     "placeholders": {
+      "traceId": "trace_...",
+      "requestId": "req_...",
+      "model": "gpt-mini",
+      "provider": "openai",
+      "allModels": "همه مدل‌ها",
+      "allProviders": "همه Providerها",
+      "route": "v1/chat/completions",
       "statusCode": "200",
       "errorCode": "provider_error",
       "from": "2026-01-01T00:00:00Z",
       "to": "2026-01-01T23:59:59Z"
+    },
+    "rangePresets": {
+      "last15m": "۱۵ دقیقه اخیر",
+      "last1h": "یک ساعت اخیر",
+      "last24h": "۲۴ ساعت اخیر",
+      "yesterday": "دیروز",
+      "last3d": "۳ روز اخیر",
+      "last7d": "۷ روز اخیر",
+      "last14d": "۱۴ روز اخیر",
+      "last30d": "۳۰ روز اخیر",
+      "custom": "سفارشی"
     }
   },
   "actions": {
-    "apply": "اعمال فیلتر",
-    "clear": "پاک‌کردن",
+    "apply": "اعمال",
+    "clear": "بازنشانی",
     "last1h": "۱ ساعت اخیر",
     "last24h": "۲۴ ساعت اخیر",
-    "removeFilter": "x"
+    "removeFilter": "حذف"
   },
   "activeFilters": {
     "none": "فیلتر فعالی وجود ندارد",
@@ -34,39 +56,77 @@
     "requestId": "request_id",
     "model": "model",
     "provider": "provider",
-    "route": "route",
+    "route": "endpoint",
     "status": "status",
     "errorCode": "error_code",
     "from": "from",
-    "to": "to"
+    "to": "to",
+    "timeRange": "بازه زمانی",
+    "removeLabel": "حذف فیلتر {label}: {value}"
+  },
+  "summary": {
+    "title": "خلاصه Traceها",
+    "totalRequests": "کل درخواست‌ها",
+    "visibleRows": "ردیف‌های قابل مشاهده",
+    "errorRate": "نرخ خطا",
+    "avgDuration": "میانگین مدت",
+    "currentFilters": "بر اساس فیلترهای فعلی",
+    "currentPage": "{count} ردیف در این صفحه",
+    "failureCount": "{count} خطا",
+    "pageAverage": "میانگین صفحه فعلی"
+  },
+  "breakdown": {
+    "title": "تفکیک Traceها",
+    "providers": "Providerها",
+    "models": "مدل‌ها",
+    "routes": "اندپوینت‌ها",
+    "errorCodes": "کدهای خطا",
+    "statusCodes": "کدهای وضعیت",
+    "select": "فیلتر با {label}: {value} ({count})"
   },
   "facets": {
-    "title": "ویژگی‌ها",
-    "description": "با کلیک روی هر ویژگی، لیست فورا بر اساس آن فیلتر می‌شود.",
+    "title": "تفکیک‌ها",
+    "description": "با کلیک روی هر مورد، فهرست همان لحظه بر اساس آن فیلتر می‌شود.",
     "providers": "Providerها",
-    "models": "Modelها",
-    "routes": "Routeها",
+    "models": "مدل‌ها",
+    "routes": "اندپوینت‌ها",
     "errorCodes": "کدهای خطا",
     "statusCodes": "کدهای وضعیت",
     "noData": "داده‌ای موجود نیست",
     "empty": "(خالی)"
   },
   "list": {
-    "title": "لیست Traceها",
+    "title": "فهرست Traceها",
     "columns": {
-      "traceId": "Trace ID",
-      "requestId": "Request ID",
-      "route": "Route",
-      "model": "Model",
+      "trace": "Trace",
+      "context": "Provider / مدل",
+      "traceId": "شناسه Trace",
+      "requestId": "شناسه Request",
+      "route": "اندپوینت",
+      "model": "مدل",
       "provider": "Provider",
-      "status": "Status",
-      "duration": "Duration",
-      "startedAt": "Started At",
-      "attempts": "Attempts",
-      "error": "Error"
+      "status": "وضعیت",
+      "duration": "مدت",
+      "startedAt": "شروع",
+      "attempts": "تلاش‌ها",
+      "error": "خطا"
+    },
+    "actions": {
+      "openTrace": "باز کردن Trace {traceId}",
+      "columns": "ستون‌ها",
+      "columnsMenu": "ستون‌های قابل نمایش"
+    },
+    "meta": {
+      "requestId": "Request {id}",
+      "attempts": "{count} تلاش",
+      "attemptsShort": "{count}x"
+    },
+    "sort": {
+      "label": "مرتب‌سازی بر اساس {column}"
     },
     "units": {
       "ms": "ms",
+      "s": "s",
       "utc": "UTC"
     },
     "empty": "Trace‌ای برای فیلترهای فعلی یافت نشد."
@@ -96,7 +156,7 @@
     "summary": {
       "title": "خلاصه درخواست",
       "requestId": "شناسه درخواست",
-      "route": "مسیر",
+      "route": "اندپوینت",
       "model": "مدل",
       "provider": "ارائه‌دهنده",
       "status": "وضعیت",

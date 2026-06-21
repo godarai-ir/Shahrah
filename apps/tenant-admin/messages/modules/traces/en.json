@@ -5,20 +5,42 @@
     "errorTitle": "Error"
   },
   "filters": {
+    "title": "Trace filters",
     "traceId": "Trace ID",
     "requestId": "Request ID",
     "model": "Model",
     "provider": "Provider",
-    "route": "Route",
+    "route": "Endpoint",
     "statusCode": "Status Code",
     "errorCode": "Error Code",
     "from": "From (RFC3339)",
     "to": "To (RFC3339)",
+    "timeRange": "Time range",
+    "search": "Search...",
+    "emptyOptions": "No options found.",
     "placeholders": {
+      "traceId": "trace_...",
+      "requestId": "req_...",
+      "model": "gpt-mini",
+      "provider": "openai",
+      "allModels": "All models",
+      "allProviders": "All providers",
+      "route": "v1/chat/completions",
       "statusCode": "200",
       "errorCode": "provider_error",
       "from": "2026-01-01T00:00:00Z",
       "to": "2026-01-01T23:59:59Z"
+    },
+    "rangePresets": {
+      "last15m": "Last 15 minutes",
+      "last1h": "Last hour",
+      "last24h": "Last 24 hours",
+      "yesterday": "Yesterday",
+      "last3d": "Last 3 days",
+      "last7d": "Last 7 days",
+      "last14d": "Last 14 days",
+      "last30d": "Last 30 days",
+      "custom": "Custom"
     }
   },
   "actions": {
@@ -34,18 +56,40 @@
     "requestId": "request_id",
     "model": "model",
     "provider": "provider",
-    "route": "route",
+    "route": "endpoint",
     "status": "status",
     "errorCode": "error_code",
     "from": "from",
-    "to": "to"
+    "to": "to",
+    "timeRange": "time range",
+    "removeLabel": "Remove {label} filter: {value}"
+  },
+  "summary": {
+    "title": "Trace summary",
+    "totalRequests": "Total requests",
+    "visibleRows": "Visible rows",
+    "errorRate": "Error rate",
+    "avgDuration": "Avg duration",
+    "currentFilters": "Current filter set",
+    "currentPage": "{count} rows on this page",
+    "failureCount": "{count} failures",
+    "pageAverage": "Current page average"
+  },
+  "breakdown": {
+    "title": "Trace breakdowns",
+    "providers": "Providers",
+    "models": "Models",
+    "routes": "Endpoints",
+    "errorCodes": "Error codes",
+    "statusCodes": "Status codes",
+    "select": "Filter by {label}: {value} ({count})"
   },
   "facets": {
     "title": "Facets",
     "description": "Click any facet to pivot the list immediately.",
     "providers": "Providers",
     "models": "Models",
-    "routes": "Routes",
+    "routes": "Endpoints",
     "errorCodes": "Error Codes",
     "statusCodes": "Status Codes",
     "noData": "No data",
@@ -54,9 +98,11 @@
   "list": {
     "title": "Trace List",
     "columns": {
+      "trace": "Trace",
+      "context": "Provider / Model",
       "traceId": "Trace ID",
       "requestId": "Request ID",
-      "route": "Route",
+      "route": "Endpoint",
       "model": "Model",
       "provider": "Provider",
       "status": "Status",
@@ -65,8 +111,22 @@
       "attempts": "Attempts",
       "error": "Error"
     },
+    "actions": {
+      "openTrace": "Open trace {traceId}",
+      "columns": "Columns",
+      "columnsMenu": "Visible columns"
+    },
+    "meta": {
+      "requestId": "req {id}",
+      "attempts": "{count} attempts",
+      "attemptsShort": "{count}x"
+    },
+    "sort": {
+      "label": "Sort by {column}"
+    },
     "units": {
       "ms": "ms",
+      "s": "s",
       "utc": "UTC"
     },
     "empty": "No traces found for current filters."
@@ -96,7 +156,7 @@
     "summary": {
       "title": "Request summary",
       "requestId": "Request ID",
-      "route": "Route",
+      "route": "Endpoint",
       "model": "Model",
       "provider": "Provider",
       "status": "Status",
