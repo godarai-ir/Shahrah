@@ -1,10 +1,10 @@
 'use client';
 
-import { motion, AnimatePresence } from 'motion/react';
 import { Moon, Sun, Menu, X, ArrowLeft, ChevronDown, Activity, Network, ShieldCheck, TerminalSquare, Bot, Lock, Server } from 'lucide-react';
 import { useTheme } from './ThemeProvider';
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 const features = [
   { name: 'پایش و مشاهده‌پذیری', description: 'ثبت لاگ، ردیابی و پایش متریک‌های کلیدی', icon: Activity, href: '/features/observability' },
@@ -28,7 +28,14 @@ export function Navbar() {
           {/* Logo & Menu */}
           <div className="flex min-w-0 items-center gap-4 sm:gap-8">
             <Link href="/" className="flex min-w-0 items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center text-white font-bold text-xl">ش</div>
+              <Image
+                src="/mini_logo.svg"
+                alt=""
+                aria-hidden="true"
+                width={36}
+                height={36}
+                className="h-9 w-9 shrink-0 rounded-lg"
+              />
               <span className="truncate font-bold text-lg sm:text-xl text-slate-900 dark:text-white">گُدار AI</span>
             </Link>
             <div className="hidden md:flex items-center gap-6 h-16">
@@ -71,7 +78,7 @@ export function Navbar() {
             <Link href="/login" className="text-sm font-medium text-slate-600 transition-colors hover:text-indigo-500 dark:text-gray-300 dark:hover:text-indigo-400">
               ورود
             </Link>
-            <Link href="/signup" className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium transition-all shadow-[0_0_15px_rgba(99,102,241,0.3)] hover:shadow-[0_0_25px_rgba(99,102,241,0.5)]">
+            <Link href="/onboarding" className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium transition-all shadow-[0_0_15px_rgba(99,102,241,0.3)] hover:shadow-[0_0_25px_rgba(99,102,241,0.5)]">
               شروع کنید
               <ArrowLeft className="w-4 h-4" />
             </Link>
@@ -140,7 +147,7 @@ export function Navbar() {
             <Link href="/contact" className="block min-h-11 py-3 text-sm font-medium text-slate-600 dark:text-gray-300" onClick={() => setIsOpen(false)}>تماس</Link>
             <div className="border-t border-gray-200 dark:border-gray-800 pt-4 flex flex-col gap-4">
               <Link href="/login" className="block min-h-12 rounded-lg border border-gray-200 px-4 py-3 text-center text-sm font-medium text-slate-700 dark:border-gray-800 dark:text-gray-200" onClick={() => setIsOpen(false)}>ورود</Link>
-              <Link href="/signup" className="block min-h-12 rounded-lg bg-indigo-500 px-4 py-3 text-center text-sm font-medium text-white" onClick={() => setIsOpen(false)}>شروع کنید</Link>
+              <Link href="/onboarding" className="block min-h-12 rounded-lg bg-indigo-500 px-4 py-3 text-center text-sm font-medium text-white" onClick={() => setIsOpen(false)}>شروع کنید</Link>
             </div>
           </div>
         </div>

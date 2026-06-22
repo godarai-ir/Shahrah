@@ -3,6 +3,7 @@
 import { motion } from 'motion/react';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export function Trust() {
   return (
@@ -36,7 +37,14 @@ export function Footer() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 mb-12">
           <div className="sm:col-span-2 md:col-span-1">
             <div className="flex items-center gap-2 mb-6">
-              <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center text-white font-bold text-xl">ش</div>
+              <Image
+                src="/mini_logo.svg"
+                alt=""
+                aria-hidden="true"
+                width={36}
+                height={36}
+                className="h-9 w-9 shrink-0 rounded-lg"
+              />
               <span className="font-bold text-xl text-slate-900 dark:text-white">گُدار AI</span>
             </div>
             <p className="text-sm text-slate-500 dark:text-gray-400 leading-relaxed mb-6">
