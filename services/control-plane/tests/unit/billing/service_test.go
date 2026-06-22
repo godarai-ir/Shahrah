@@ -3,6 +3,7 @@ package billing_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
@@ -26,6 +27,30 @@ func (s walletStoreStub) GetLatestExchangeRate(ctx context.Context) (*platform.E
 }
 func (s walletStoreStub) UpsertExchangeRate(ctx context.Context, rate platform.ExchangeRate) (*platform.ExchangeRate, error) {
 	return &rate, nil
+}
+
+type entitlementWalletStoreStub struct {
+	walletStoreStub
+	effective *platform.EffectiveEntitlementsResponse
+	used      float64
+}
+
+func (s *entitlementWalletStoreStub) ResolveEffectiveEntitlements(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementsResponse, error) {
+	return s.effective, nil
+}
+
+func (s *entitlementWalletStoreStub) CheckAndIncrementTenantUsageCounter(ctx context.Context, tenantID string, featureKey string, limit float64, increment float64, now time.Time) (*platform.UsageCounter, bool, error) {
+	allowed := s.used+increment <= limit
+	if allowed {
+		s.used += increment
+	}
+	return &platform.UsageCounter{
+		FeatureKey:  featureKey,
+		WindowStart: now,
+		WindowEnd:   now.Add(30 * 24 * time.Hour),
+		Used:        s.used,
+		Limit:       &limit,
+	}, allowed, nil
 }
 
 func TestBillingService_ShouldEstimateCost(t *testing.T) {
@@ -164,4 +189,75 @@ func TestBillingService_ShouldSkipLegacyRateLimits(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Nil(t, res)
 	}
+}
+
+func TestBillingService_ShouldAllowWhenSubscriptionQuotaRemains(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	store := &entitlementWalletStoreStub{
+		walletStoreStub: walletStoreStub{
+			wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000000},
+			rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
+		},
+		used: 4,
+		effective: &platform.EffectiveEntitlementsResponse{
+			Subscription: &platform.TenantSubscription{Status: "active"},
+			Features: map[string]interface{}{
+				platform.FeatureGatewayRequestsMonthly: float64(5),
+			},
+		},
+	}
+	svc := billing.NewService(memCache, store, 850000, "test")
+
+	res, err := svc.CheckRateLimit(context.Background(), &platform.AuthContext{TenantID: "tenant-1"}, "gpt-4", 500)
+	require.NoError(t, err)
+	require.NotNil(t, res)
+	assert.True(t, res.Allowed)
+	assert.Equal(t, int64(5), res.Current)
+	assert.Equal(t, int64(5), res.Limit)
+}
+
+func TestBillingService_ShouldRejectWhenSubscriptionQuotaIsConsumed(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	store := &entitlementWalletStoreStub{
+		walletStoreStub: walletStoreStub{
+			wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000000},
+			rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
+		},
+		used: 5,
+		effective: &platform.EffectiveEntitlementsResponse{
+			Subscription: &platform.TenantSubscription{Status: "active"},
+			Features: map[string]interface{}{
+				platform.FeatureGatewayRequestsMonthly: float64(5),
+			},
+		},
+	}
+	svc := billing.NewService(memCache, store, 850000, "test")
+
+	res, err := svc.CheckRateLimit(context.Background(), &platform.AuthContext{TenantID: "tenant-1"}, "gpt-4", 500)
+	assert.ErrorIs(t, err, billing.ErrRateLimitExceeded)
+	require.NotNil(t, res)
+	assert.False(t, res.Allowed)
+	assert.Equal(t, int64(5), res.Current)
+}
+
+func TestBillingService_ShouldRejectInactiveSubscription(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	store := &entitlementWalletStoreStub{
+		walletStoreStub: walletStoreStub{
+			wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000000},
+			rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
+		},
+		effective: &platform.EffectiveEntitlementsResponse{
+			Subscription: &platform.TenantSubscription{Status: "canceled"},
+			Features:     map[string]interface{}{},
+		},
+	}
+	svc := billing.NewService(memCache, store, 850000, "test")
+
+	res, err := svc.CheckRateLimit(context.Background(), &platform.AuthContext{TenantID: "tenant-1"}, "gpt-4", 500)
+	assert.ErrorIs(t, err, billing.ErrSubscriptionInactive)
+	assert.Nil(t, res)
 }

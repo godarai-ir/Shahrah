@@ -360,6 +360,9 @@ func (h *Handlers) CreateRateLimitRule(c *fiber.Ctx) error {
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+	if err := h.requireEntitlementEnabled(c, currentTenant.ID, platform.FeatureRateLimitRulesEnabled); err != nil {
+		return err
+	}
 	req, err := parseCreateRateLimitRuleRequest(c)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
@@ -600,6 +603,9 @@ func (h *Handlers) CreateBudgetLimitRule(c *fiber.Ctx) error {
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+	if err := h.requireEntitlementEnabled(c, currentTenant.ID, platform.FeatureBudgetLimitRulesEnabled); err != nil {
+		return err
 	}
 	var req platform.CreateBudgetLimitRuleRequest
 	if err := c.BodyParser(&req); err != nil {

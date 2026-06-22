@@ -8,22 +8,29 @@ import (
 	"time"
 
 	_ "github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
 // Store provides PostgreSQL-backed persistence for the control-plane.
 type Store struct {
-	pool            *pgxpool.Pool
-	clickhouse      *sql.DB
-	clickhouseReady bool
-	logger          *zap.Logger
+	pool             *pgxpool.Pool
+	clickhouse       *sql.DB
+	clickhouseReady  bool
+	logger           *zap.Logger
+	entitlementCache cache.Cache
 
 	authzCacheMu         sync.RWMutex
 	authzCache           map[string]authzCacheEntry
 	authzTenantEpoch     map[string]uint64
 	authzCacheTTL        time.Duration
 	authzCacheMaxEntries int
+}
+
+// SetEntitlementCache attaches the shared control-plane cache used by entitlement resolution.
+func (s *Store) SetEntitlementCache(c cache.Cache) {
+	s.entitlementCache = c
 }
 
 // NewStore creates a new PostgreSQL store.

@@ -159,6 +159,36 @@ type loginDiscoveryStore interface {
 	ListTenantsByAdminIdentifier(ctx context.Context, channel string, identifier string) ([]platform.Tenant, error)
 }
 
+type planStore interface {
+	ListFeatureCatalog(ctx context.Context) ([]platform.FeatureDefinition, error)
+	ListPublicCommercialPlans(ctx context.Context) ([]platform.CommercialPlan, error)
+	ListPlatformCommercialPlans(ctx context.Context) ([]platform.CommercialPlan, error)
+	CreateCommercialPlan(ctx context.Context, req platform.CreateCommercialPlanRequest) (*platform.CommercialPlan, error)
+	UpdateCommercialPlan(ctx context.Context, planSlug string, req platform.UpdateCommercialPlanRequest) (*platform.CommercialPlan, error)
+	DeactivateCommercialPlan(ctx context.Context, planSlug string) error
+	CreatePlanVersion(ctx context.Context, planSlug string, req platform.CreatePlanVersionRequest) (*platform.PlanVersion, error)
+	PublishPlanVersion(ctx context.Context, planSlug string, version int) (*platform.PlanVersion, error)
+	UpsertPlanEntitlement(ctx context.Context, planSlug string, version int, req platform.UpsertPlanEntitlementRequest) (*platform.PlanEntitlement, error)
+	UpsertPlanPrice(ctx context.Context, planSlug string, version int, req platform.UpsertPlanPriceRequest) (*platform.PlanPrice, error)
+	GetTenantSubscription(ctx context.Context, tenantID string) (*platform.TenantSubscription, error)
+	ChangeTenantSubscription(ctx context.Context, tenantID string, req platform.ChangeTenantSubscriptionRequest) (*platform.TenantSubscription, error)
+	PrepareTenantSubscriptionChange(ctx context.Context, tenantID string, req platform.ChangeTenantSubscriptionRequest, callbackURL string, returnURL string) (*platform.SubscriptionChangeResult, error)
+	AttachSubscriptionPaymentGatewayData(ctx context.Context, publicID string, authority string, paymentURL string, raw map[string]interface{}) error
+	GetSubscriptionPaymentIntentByAuthority(ctx context.Context, authority string) (*platform.SubscriptionPaymentIntent, error)
+	CompleteSubscriptionPaymentByAuthority(ctx context.Context, authority string, verifyRaw map[string]interface{}, refID string, gatewayTxnID string, cardMask string, payerPhone string) (*platform.SubscriptionPaymentIntent, *platform.TenantSubscription, bool, error)
+	MarkSubscriptionPaymentFailedByAuthority(ctx context.Context, authority string, reason string, raw map[string]interface{}) error
+	ResolveEffectiveEntitlements(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementsResponse, error)
+	UpsertTenantSubscription(ctx context.Context, req platform.UpsertTenantSubscriptionRequest, actor string) (*platform.TenantSubscription, error)
+	UpsertTenantEntitlementOverride(ctx context.Context, req platform.UpsertTenantEntitlementOverrideRequest) (*platform.TenantEntitlementOverride, error)
+	DeleteTenantEntitlementOverride(ctx context.Context, tenantID string, featureKey string, actor string) error
+	CountActiveTenantUsers(ctx context.Context, tenantID string) (int, error)
+}
+
+type entitlementResolverStore interface {
+	ResolveEffectiveEntitlements(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementsResponse, error)
+	CountActiveTenantUsers(ctx context.Context, tenantID string) (int, error)
+}
+
 // Handlers serves bootstrap management APIs.
 type Handlers struct {
 	keys             keyStore
@@ -176,6 +206,8 @@ type Handlers struct {
 	metrics          metricsStore
 	tracePrivacy     tracePrivacyStore
 	roles            roleStore
+	plans            planStore
+	entitlements     entitlementResolverStore
 }
 
 // New creates a management handlers bundle.
@@ -192,6 +224,8 @@ func New(keys keyStore, models modelStore, wallets walletStore) *Handlers {
 	metrics, _ := keys.(metricsStore)
 	tracePrivacy, _ := keys.(tracePrivacyStore)
 	roles, _ := keys.(roleStore)
+	plans, _ := keys.(planStore)
+	entitlements, _ := keys.(entitlementResolverStore)
 	if tracePrivacy == nil {
 		tracePrivacy, _ = wallets.(tracePrivacyStore)
 	}
@@ -211,6 +245,8 @@ func New(keys keyStore, models modelStore, wallets walletStore) *Handlers {
 		metrics:          metrics,
 		tracePrivacy:     tracePrivacy,
 		roles:            roles,
+		plans:            plans,
+		entitlements:     entitlements,
 	}
 }
 

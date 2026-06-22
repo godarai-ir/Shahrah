@@ -100,7 +100,10 @@ func (s *Store) CreateOnboardingOTP(ctx context.Context, p CreateOnboardingOTPPa
 	p.Mobile = strings.TrimSpace(p.Mobile)
 	p.CustomerName = strings.TrimSpace(p.CustomerName)
 	if p.PlanSlug == "" {
-		p.PlanSlug = "free"
+		p.PlanSlug = "developer"
+	}
+	if p.PlanSlug == "free" {
+		p.PlanSlug = "developer"
 	}
 	if p.TenantDomain == "" {
 		p.TenantDomain = p.TenantSlug
@@ -274,17 +277,17 @@ func (s *Store) VerifyOnboardingOTPAndProvision(ctx context.Context, p VerifyOnb
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	var tenantSlug, tenantDomain, email, mobile string
+	var tenantSlug, tenantDomain, planSlug, email, mobile string
 	var otp string
 	var attempts int
 	var expiresAt time.Time
 	if err := tx.QueryRow(ctx, `
-		SELECT tenant_slug, tenant_domain, COALESCE(email, ''), COALESCE(mobile, ''),
+		SELECT tenant_slug, tenant_domain, COALESCE(plan_slug, 'developer'), COALESCE(email, ''), COALESCE(mobile, ''),
 		       otp_code, attempts, expires_at
 		FROM tenant_onboarding_requests
 		WHERE request_id = $1::uuid AND status = 'pending'
 		FOR UPDATE
-	`, requestID).Scan(&tenantSlug, &tenantDomain, &email, &mobile, &otp, &attempts, &expiresAt); err != nil {
+	`, requestID).Scan(&tenantSlug, &tenantDomain, &planSlug, &email, &mobile, &otp, &attempts, &expiresAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrOnboardingNotFound
 		}
@@ -325,6 +328,36 @@ func (s *Store) VerifyOnboardingOTPAndProvision(ctx context.Context, p VerifyOnb
 		VALUES ($1::uuid, 0, 0)
 	`, created.ID); err != nil {
 		return nil, err
+	}
+	requestedPlanSlug := strings.TrimSpace(strings.ToLower(planSlug))
+	if requestedPlanSlug == "" || requestedPlanSlug == "free" {
+		requestedPlanSlug = "developer"
+	}
+	planSlug = "developer"
+	subscriptionResult, err := tx.Exec(ctx, `
+		INSERT INTO tenant_subscriptions (
+			tenant_id, plan_id, version_id, status, billing_interval,
+			current_period_start, current_period_end, price_snapshot_json, metadata
+		)
+		SELECT $1::uuid, p.plan_id, pv.version_id, 'active', 'monthly',
+		       NOW(), NOW() + INTERVAL '1 month',
+		       jsonb_build_object(
+		           'currency', COALESCE(pp.currency, 'IRR'),
+		           'amount_minor', COALESCE(pp.amount_minor, 0),
+		           'billing_interval', 'monthly',
+		           'discount_percent', COALESCE(pp.discount_percent, 0)
+		       ),
+		       jsonb_build_object('source', 'onboarding', 'requested_plan_slug', $3::text)
+		FROM commercial_plans p
+		JOIN plan_versions pv ON pv.plan_id = p.plan_id AND pv.status = 'published'
+		LEFT JOIN plan_prices pp ON pp.version_id = pv.version_id AND pp.billing_interval = 'monthly'
+		WHERE p.slug = $2
+	`, created.ID, planSlug, requestedPlanSlug)
+	if err != nil {
+		return nil, err
+	}
+	if subscriptionResult.RowsAffected() == 0 {
+		return nil, ErrPlanNotFound
 	}
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO users (

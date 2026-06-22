@@ -11,7 +11,6 @@ import (
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
-	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
@@ -110,11 +109,7 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
 	setRateLimitHeaders(c, rateLimit)
 	if err != nil {
-		status := fiber.StatusTooManyRequests
-		if err == billing.ErrBudgetExceeded {
-			status = fiber.StatusPaymentRequired
-		}
-		return writeAPIError(c, status, err.Error(), "rate_limit_error")
+		return writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error")
 	}
 	if err := h.billing.CheckBudget(c.Context(), authInfo, estimated); err != nil {
 		return writeAPIError(c, fiber.StatusPaymentRequired, err.Error(), "budget_exceeded")

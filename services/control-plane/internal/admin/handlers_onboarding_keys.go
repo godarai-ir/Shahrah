@@ -108,6 +108,9 @@ func (h *Handlers) createKey(c *fiber.Ctx, forcedKeyType string) error {
 		req.KeyType = platform.KeyTypePAT
 		req.Role = platform.LegacyKeyRoleVirtualKey
 	case platform.KeyTypeVAT:
+		if err := h.requireVATEnabled(c, currentTenant.ID); err != nil {
+			return err
+		}
 		req.Role = platform.LegacyKeyRoleServiceAccount
 	default:
 		return fiber.NewError(fiber.StatusBadRequest, "key_type must be pat or vat")
@@ -210,6 +213,9 @@ func (h *Handlers) CreateVirtualUserToken(c *fiber.Ctx) error {
 	virtualUserID := strings.TrimSpace(c.Params("virtualUserID"))
 	if virtualUserID == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "virtualUserID is required")
+	}
+	if err := h.requireVATEnabled(c, currentTenant.ID); err != nil {
+		return err
 	}
 	virtualUser, err := h.virtualUsers.GetVirtualUser(c.Context(), currentTenant.ID, virtualUserID)
 	if err != nil {

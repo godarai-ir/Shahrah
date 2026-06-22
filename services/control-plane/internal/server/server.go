@@ -76,7 +76,7 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 	}
 	app.Use(httpMetrics.Middleware())
 
-	registerPublicRoutes(app, deps, httpMetrics)
+	registerPublicRoutes(app, cfg, deps, httpMetrics)
 
 	if deps.TenantResolver != nil {
 		app.Use(deps.TenantResolver.Handle())
@@ -176,13 +176,31 @@ func sanitizeLogValue(v string) string {
 	return v
 }
 
-func registerPublicRoutes(app *fiber.App, deps Dependencies, httpMetrics *prommetrics.HTTPMetrics) {
+func registerPublicRoutes(app *fiber.App, cfg *config.Config, deps Dependencies, httpMetrics *prommetrics.HTTPMetrics) {
 	app.Get("/health", healthHandler)
 	app.Get("/ready", readyHandler(deps))
 	app.Get("/metrics", httpMetrics.Handler())
 	if deps.AdminHandlers != nil {
 		app.Get("/api/v1/login-discovery/tenants", deps.AdminHandlers.DiscoverTenantsByIdentifier)
 		app.Get("/api/v1/login-discovery/tenant/:slug", deps.AdminHandlers.DiscoverTenantByName)
+		app.Get("/api/v1/commercial-plans", deps.AdminHandlers.ListPublicCommercialPlans)
+		app.Get("/api/v1/subscription/payment/callback/:provider", deps.AdminHandlers.SubscriptionPaymentCallback)
+		app.Post("/api/v1/subscription/payment/callback/:provider", deps.AdminHandlers.SubscriptionPaymentCallback)
+		platformAdmin := app.Group("/api/v1/platform", platformAdminAuthMiddleware(cfg.GeneralSettings.MasterKey))
+		platformAdmin.Get("/features", deps.AdminHandlers.ListPlatformFeatureCatalog)
+		platformAdmin.Get("/commercial-plans", deps.AdminHandlers.ListPlatformCommercialPlans)
+		platformAdmin.Post("/commercial-plans", deps.AdminHandlers.CreatePlatformCommercialPlan)
+		platformAdmin.Patch("/commercial-plans/:slug", deps.AdminHandlers.UpdatePlatformCommercialPlan)
+		platformAdmin.Delete("/commercial-plans/:slug", deps.AdminHandlers.DeactivatePlatformCommercialPlan)
+		platformAdmin.Post("/commercial-plans/:slug/versions", deps.AdminHandlers.CreatePlatformPlanVersion)
+		platformAdmin.Post("/commercial-plans/:slug/versions/:version/publish", deps.AdminHandlers.PublishPlatformPlanVersion)
+		platformAdmin.Post("/commercial-plans/:slug/versions/:version/entitlements", deps.AdminHandlers.UpsertPlatformPlanEntitlement)
+		platformAdmin.Put("/commercial-plans/:slug/versions/:version/entitlements/:featureKey", deps.AdminHandlers.UpsertPlatformPlanEntitlement)
+		platformAdmin.Post("/commercial-plans/:slug/versions/:version/prices", deps.AdminHandlers.UpsertPlatformPlanPrice)
+		platformAdmin.Put("/commercial-plans/:slug/versions/:version/prices/:interval", deps.AdminHandlers.UpsertPlatformPlanPrice)
+		platformAdmin.Put("/tenant-subscriptions", deps.AdminHandlers.UpsertPlatformTenantSubscription)
+		platformAdmin.Put("/tenant-entitlement-overrides", deps.AdminHandlers.UpsertPlatformTenantEntitlementOverride)
+		platformAdmin.Delete("/tenant-entitlement-overrides/:tenantID/:featureKey", deps.AdminHandlers.DeletePlatformTenantEntitlementOverride)
 	}
 }
 
@@ -218,6 +236,9 @@ func registerProtectedRoutes(app *fiber.App, deps Dependencies) {
 		api.Get("/onboarding/tenant-slugs/:slug/availability", deps.AdminHandlers.CheckTenantSlugAvailability)
 		api.Post("/onboarding/otp", deps.AdminHandlers.RequestOnboardingOTP)
 		api.Post("/onboarding/otp/verify", deps.AdminHandlers.VerifyOnboardingOTP)
+		api.Get("/subscription", deps.AdminHandlers.GetTenantSubscription)
+		api.Post("/subscription/change", deps.AdminHandlers.ChangeTenantSubscription)
+		api.Get("/entitlements", deps.AdminHandlers.GetTenantEntitlements)
 		api.Get("/keys", deps.AdminHandlers.ListKeys)
 		api.Post("/keys", deps.AdminHandlers.CreateKey)
 		api.Post("/keys/vat", deps.AdminHandlers.CreateVATKey)
@@ -351,6 +372,33 @@ func healthHandler(c *fiber.Ctx) error {
 		"status":  "healthy",
 		"version": "0.2.0",
 	})
+}
+
+func platformAdminAuthMiddleware(masterKey string) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		if strings.TrimSpace(masterKey) == "" {
+			return fiber.NewError(fiber.StatusUnauthorized, "platform admin master key is not configured")
+		}
+		apiKey := extractPlatformAdminAPIKey(c)
+		if apiKey == "" || apiKey != masterKey {
+			return fiber.NewError(fiber.StatusUnauthorized, "platform admin authentication required")
+		}
+		return c.Next()
+	}
+}
+
+func extractPlatformAdminAPIKey(c *fiber.Ctx) string {
+	authHeader := strings.TrimSpace(c.Get("Authorization"))
+	if authHeader != "" {
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			return strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
+		}
+		return authHeader
+	}
+	if key := strings.TrimSpace(c.Get("api-key")); key != "" {
+		return key
+	}
+	return strings.TrimSpace(c.Get("x-api-key"))
 }
 
 func readyHandler(deps Dependencies) fiber.Handler {

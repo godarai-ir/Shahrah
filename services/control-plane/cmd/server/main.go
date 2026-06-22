@@ -61,6 +61,7 @@ func main() {
 		dualCache, _ = cache.NewMemoryCache(logger)
 	}
 	defer dualCache.Close()
+	store.SetEntitlementCache(dualCache)
 
 	llmRouter, err := router.NewRouter(cfg.ModelList, cfg.RouterSettings, dualCache, store, logger)
 	if err != nil {
@@ -73,6 +74,9 @@ func main() {
 		CacheTTL:        5 * time.Minute,
 	})
 	billingService := billing.NewService(dualCache, store, cfg.BillingSettings.DefaultUSDtoIRR, cfg.BillingSettings.RateSource)
+	subscriptionProcessor := billing.NewSubscriptionProcessor(store, logger, time.Minute)
+	subscriptionProcessor.Start()
+	defer subscriptionProcessor.Stop()
 	tunnelClient := tunneltransport.NewHTTPTransport(cfg.TunnelSettings.ClientURL, time.Duration(cfg.TunnelSettings.Timeout)*time.Second)
 
 	metricsCfg := metricsobs.LoadConfigFromEnv()

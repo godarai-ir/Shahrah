@@ -77,6 +77,9 @@ func (h *Handlers) CreateRole(c *fiber.Ctx) error {
 	if h.roles == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "role store not configured")
 	}
+	if err := h.requireEntitlementEnabled(c, currentTenant.ID, platform.FeatureRBACEnabled); err != nil {
+		return err
+	}
 
 	var req platform.CreateRoleRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -304,6 +307,15 @@ func (h *Handlers) InviteTenantUser(c *fiber.Ctx) error {
 	if h.users == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "user store not configured")
 	}
+	if h.entitlements != nil {
+		currentUsers, err := h.entitlements.CountActiveTenantUsers(c.Context(), currentTenant.ID)
+		if err != nil {
+			return err
+		}
+		if err := h.requireEntitlementLimitAvailable(c, currentTenant.ID, platform.FeatureUsersMax, currentUsers, 1); err != nil {
+			return err
+		}
+	}
 
 	var req platform.InviteTenantAdminUserRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -353,6 +365,15 @@ func (h *Handlers) AcceptTenantUserInvitation(c *fiber.Ctx) error {
 	}
 	if h.users == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "user store not configured")
+	}
+	if h.entitlements != nil {
+		currentUsers, err := h.entitlements.CountActiveTenantUsers(c.Context(), currentTenant.ID)
+		if err != nil {
+			return err
+		}
+		if err := h.requireEntitlementLimitAvailable(c, currentTenant.ID, platform.FeatureUsersMax, currentUsers, 1); err != nil {
+			return err
+		}
 	}
 
 	var req platform.AcceptTenantAdminInvitationRequest

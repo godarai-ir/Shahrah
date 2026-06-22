@@ -26,7 +26,8 @@ type OnboardingOTPPayload = {
 
 const errorMessages = {
   invalidRequest: "درخواست فعال‌سازی نامعتبر است.",
-  controlPlaneFailed: "ارتباط با سرویس فعال‌سازی برقرار نشد.",
+  controlPlaneUnavailable: "ارتباط با سرویس فعال‌سازی برقرار نشد.",
+  controlPlaneFailed: "سرویس فعال‌سازی با خطای داخلی روبه‌رو شد.",
   slugInvalid: "شناسه تننت نامعتبر یا رزروشده است.",
   slugTaken: "این شناسه تننت در حال حاضر قابل انتخاب نیست.",
   requestNotFound: "درخواست فعال‌سازی پیدا نشد.",
@@ -40,21 +41,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: errorMessages.invalidRequest }, { status: 400 });
   }
 
+  let upstream: Awaited<ReturnType<typeof callControlPlane>>;
   try {
-    const upstream = await callControlPlane(request, body);
-    if (body.action === "request_otp" && upstream.status >= 200 && upstream.status < 300) {
-      await sendOnboardingEmailIfPossible(body, upstream.payload);
-    }
-    return NextResponse.json(sanitizeOnboardingPayload(upstream.payload), { status: upstream.status });
+    upstream = await callControlPlane(request, body);
   } catch {
     return NextResponse.json(
       {
         ok: false,
-        error: errorMessages.controlPlaneFailed,
+        error: errorMessages.controlPlaneUnavailable,
       },
       { status: 502 },
     );
   }
+
+  if (body.action === "request_otp" && upstream.status >= 200 && upstream.status < 300) {
+    try {
+      await sendOnboardingEmailIfPossible(body, upstream.payload);
+    } catch {
+      // The OTP response still contains debug_otp in development; do not fail the activation flow.
+    }
+  }
+
+  return NextResponse.json(sanitizeOnboardingPayload(upstream.payload), { status: upstream.status });
 }
 
 function sanitizeOnboardingPayload(payload: unknown) {
@@ -105,7 +113,7 @@ async function callControlPlane(request: Request, body: OnboardingBody) {
       body: JSON.stringify({
         tenant_slug: body.tenant_slug,
         tenant_domain: resolveTenantDomain(request, body),
-        plan_slug: body.plan_slug ?? "free",
+        plan_slug: body.plan_slug ?? "developer",
         email: body.email,
         mobile: body.mobile,
         customer_name: body.customer_name,
@@ -193,6 +201,12 @@ function localizeUpstreamError(message: string | undefined, status: number) {
   }
   if (status === 410) {
     return errorMessages.requestExpired;
+  }
+  if (status >= 500) {
+    if (message && message !== "Internal Server Error") {
+      return message;
+    }
+    return errorMessages.controlPlaneFailed;
   }
   return errorMessages.controlPlaneFailed;
 }

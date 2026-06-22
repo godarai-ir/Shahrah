@@ -73,8 +73,9 @@ func TestIntegration_PostgresBackedOnboardingFlow(t *testing.T) {
 
 	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
 	resetPersistentState(t, pool)
+	seedDefaultTenantSubscription(t, pool, "developer")
 
-	createdKey := createVirtualKey(t, app, `{"key_alias":"db-tenant-key","models":["gpt-4o-mini"]}`)
+	createdKey := createVirtualKey(t, app, `{"key_alias":"db-tenant-key"}`)
 	createModel(t, app, fmt.Sprintf(`{"model_name":"gpt-4o-mini","provider":"openai","model":"gpt-4o-mini","api_base":"%s/v1","api_key":"sk-provider","rpm":200}`, provider.URL))
 	topUpWallet(t, app, `{"amount_irr":1500000}`)
 
@@ -82,16 +83,16 @@ func TestIntegration_PostgresBackedOnboardingFlow(t *testing.T) {
 	assert.Equal(t, http.StatusOK, modelsResp.StatusCode)
 
 	completionResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/v1/chat/completions", "Bearer "+createdKey.Key, `{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hello from postgres"}]}`)
-	assert.Equal(t, http.StatusOK, completionResp.StatusCode)
+	require.Equal(t, http.StatusOK, completionResp.StatusCode)
 
 	var completion contractsopenai.ChatCompletionResponse
 	decodeJSONBody(t, completionResp, &completion)
 	assert.Equal(t, "db-backed flow succeeded", completion.Choices[0].Message.Content)
 
 	ctx := context.Background()
-	var keySpend float64
-	require.NoError(t, pool.QueryRow(ctx, `SELECT spend FROM verification_tokens WHERE token_hash = $1`, hashToken(createdKey.Key)).Scan(&keySpend))
-	assert.Greater(t, keySpend, 0.0)
+	var spendCostIRR float64
+	require.NoError(t, pool.QueryRow(ctx, `SELECT cost_irr FROM spend_logs WHERE token_hash = $1`, hashToken(createdKey.Key)).Scan(&spendCostIRR))
+	assert.Greater(t, spendCostIRR, 0.0)
 
 	assertCount(t, pool, `SELECT COUNT(*) FROM model_deployments`, 1)
 	assertCount(t, pool, `SELECT COUNT(*) FROM wallet_transactions WHERE tx_type = 'DEPOSIT'`, 1)
@@ -148,6 +149,29 @@ func TestIntegration_StorageSchemaContract(t *testing.T) {
 			"request_id", "token_hash", "tenant_id", "organization_id", "team_id", "model",
 			"input_tokens", "output_tokens", "total_tokens", "cost_usd", "cost_irr",
 			"response_time_ms", "status", "request_metadata", "completion_start_time", "completion_end_time",
+		},
+		"commercial_plans": {
+			"plan_id", "slug", "display_name", "description", "sort_order", "active", "created_at", "updated_at",
+		},
+		"plan_versions": {
+			"version_id", "plan_id", "version", "status", "effective_from", "published_at", "created_at", "updated_at",
+		},
+		"feature_catalog": {
+			"feature_key", "value_type", "default_value", "allow_override", "category", "description",
+		},
+		"plan_entitlements": {"entitlement_id", "version_id", "feature_key", "value_json"},
+		"plan_prices":       {"price_id", "version_id", "billing_interval", "currency", "amount_minor", "discount_percent"},
+		"tenant_subscriptions": {
+			"subscription_id", "tenant_id", "plan_id", "version_id", "status", "billing_interval",
+			"current_period_start", "current_period_end", "pending_version_id", "price_snapshot_json",
+		},
+		"tenant_entitlement_overrides": {"override_id", "tenant_id", "feature_key", "value_json", "reason", "expires_at", "created_by"},
+		"tenant_usage_counters":        {"counter_id", "tenant_id", "feature_key", "window_start", "window_end", "used"},
+		"subscription_events":          {"event_id", "tenant_id", "subscription_id", "event_type", "actor", "payload"},
+		"subscription_payment_intents": {
+			"payment_intent_id", "public_id", "tenant_id", "plan_id", "version_id", "billing_interval",
+			"provider", "status", "currency", "amount_minor", "price_snapshot_json", "authority",
+			"payment_url", "callback_url", "return_url", "completed_subscription_id",
 		},
 	}
 
@@ -270,6 +294,50 @@ func TestIntegration_OnboardingExpiredOTPIsRejected(t *testing.T) {
 		OTPCode:   otp.DebugOTP,
 	})
 	assert.ErrorIs(t, err, storage.ErrOnboardingExpired)
+}
+
+func TestIntegration_OnboardingVerifyProvisionsDeveloperSubscription(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if strings.TrimSpace(databaseURL) == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+
+	logger, _ := zap.NewDevelopment()
+	ctx := context.Background()
+	store, err := storage.NewStore(ctx, databaseURL, logger)
+	require.NoError(t, err)
+	t.Cleanup(store.Close)
+
+	pool, err := pgxpool.New(ctx, databaseURL)
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	resetPersistentState(t, pool)
+
+	otp, err := store.CreateOnboardingOTP(ctx, storage.CreateOnboardingOTPParams{
+		TenantSlug: "verified-otp",
+		PlanSlug:   "team",
+		Email:      "owner@example.com",
+	})
+	require.NoError(t, err)
+
+	provisioned, err := store.VerifyOnboardingOTPAndProvision(ctx, storage.VerifyOnboardingOTPParams{
+		RequestID: otp.RequestID,
+		OTPCode:   otp.DebugOTP,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, provisioned)
+	assert.Equal(t, "verified-otp", provisioned.Tenant.Slug)
+
+	var planSlug, requestedPlanSlug string
+	require.NoError(t, pool.QueryRow(ctx, `
+		SELECT p.slug, COALESCE(ts.metadata->>'requested_plan_slug', '')
+		FROM tenant_subscriptions ts
+		JOIN commercial_plans p ON p.plan_id = ts.plan_id
+		WHERE ts.tenant_id = $1::uuid AND ts.status = 'active'
+	`, provisioned.Tenant.ID).Scan(&planSlug, &requestedPlanSlug))
+	assert.Equal(t, "developer", planSlug)
+	assert.Equal(t, "team", requestedPlanSlug)
 }
 
 func TestIntegration_TenantAdminInvitations_ValidationAndDedupe(t *testing.T) {
@@ -1433,6 +1501,28 @@ func resetPersistentState(t *testing.T, pool *pgxpool.Pool) {
 		ON CONFLICT (slug) DO NOTHING
 	`)
 	require.NoError(t, err)
+}
+
+func seedDefaultTenantSubscription(t *testing.T, pool *pgxpool.Pool, planSlug string) {
+	t.Helper()
+
+	cmd, err := pool.Exec(context.Background(), `
+		INSERT INTO tenant_subscriptions (
+			tenant_id, plan_id, version_id, status, billing_interval,
+			current_period_start, current_period_end, price_snapshot_json, metadata
+		)
+		SELECT t.tenant_id, p.plan_id, pv.version_id, 'active', 'monthly',
+		       NOW(), NOW() + INTERVAL '30 days', '{}'::jsonb,
+		       jsonb_build_object('source', 'integration')
+		FROM tenants t
+		JOIN commercial_plans p ON p.slug = $1
+		JOIN plan_versions pv ON pv.plan_id = p.plan_id AND pv.status = 'published'
+		WHERE t.slug = 'default'
+		ORDER BY pv.version DESC
+		LIMIT 1
+	`, planSlug)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, cmd.RowsAffected())
 }
 
 func assertCount(t *testing.T, pool *pgxpool.Pool, query string, expected int) {

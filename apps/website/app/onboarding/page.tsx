@@ -73,7 +73,7 @@ export default function OnboardingPage() {
       const otp = await postOnboarding({
         action: "request_otp",
         tenant_slug: tenantSlug,
-        plan_slug: "free",
+        plan_slug: requestedPlanSlug(),
         email,
         mobile,
         metadata: { source: "website-onboarding" },
@@ -397,6 +397,11 @@ function mapOnboardingError(status: number, payload: OnboardingPayload, fallback
     return t.errors.expired;
   }
   return normalizeError(payload, fallback);
+}
+
+function requestedPlanSlug() {
+  const requested = new URLSearchParams(window.location.search).get("plan")?.trim().toLowerCase();
+  return requested && ["developer", "team", "growth", "enterprise"].includes(requested) ? requested : "developer";
 }
 
 function formatRemaining(totalSeconds: number) {

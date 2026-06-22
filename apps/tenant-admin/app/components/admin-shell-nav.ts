@@ -1,5 +1,6 @@
 import {
   Activity,
+  BadgeCheck,
   BarChart3,
   Building2,
   CircleDollarSign,
@@ -18,6 +19,7 @@ import { canAnyPermission } from "../../lib/authz";
 export type AdminNavKey =
   | "dashboard"
   | "topup"
+  | "plan"
   | "providerAccounts"
   | "virtualModels"
   | "virtualUsers"
@@ -66,6 +68,14 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       title: t("nav.topup"),
       icon: CreditCard,
       isActive: pathname.startsWith("/billing/topup"),
+      requiredPermissions: ["settings:list"],
+    },
+    {
+      key: "plan",
+      href: "/billing/plan",
+      title: t("nav.plan"),
+      icon: BadgeCheck,
+      isActive: pathname.startsWith("/billing/plan"),
       requiredPermissions: ["settings:list"],
     },
     {

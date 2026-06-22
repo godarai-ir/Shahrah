@@ -88,6 +88,24 @@ func TestNewFiberAppExposesPrometheusMetrics(t *testing.T) {
 	assert.Contains(t, payload, "shahrah_control_plane_http_requests_in_flight")
 }
 
+func TestPlatformAdminAuthMiddlewareRequiresMasterKey(t *testing.T) {
+	t.Parallel()
+	app := fiber.New()
+	app.Get("/platform", platformAdminAuthMiddleware("master-secret"), func(c *fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+
+	missing, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/platform", nil))
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusUnauthorized, missing.StatusCode)
+
+	request := httptest.NewRequest(fiber.MethodGet, "/platform", nil)
+	request.Header.Set("Authorization", "Bearer master-secret")
+	allowed, err := app.Test(request)
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusNoContent, allowed.StatusCode)
+}
+
 func TestLoginDiscoveryRoutesArePublic(t *testing.T) {
 	t.Parallel()
 

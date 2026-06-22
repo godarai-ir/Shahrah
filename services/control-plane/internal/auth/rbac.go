@@ -103,6 +103,10 @@ func CheckRouteAuthorization(method string, route string, authInfo *platform.Aut
 	switch {
 	case normalizedRoute == "/api/v1/me/permissions":
 		return nil
+	case normalizedRoute == "/api/v1/subscription" || normalizedRoute == "/api/v1/entitlements":
+		return checkSubscriptionRouteAuthorization(normalizedMethod, authInfo)
+	case normalizedRoute == "/api/v1/subscription/change":
+		return checkSubscriptionRouteAuthorization(normalizedMethod, authInfo)
 	case strings.HasPrefix(normalizedRoute, "/api/v1/gateway-policies/"):
 		return checkPolicyRouteAuthorization(normalizedMethod, authInfo)
 	case strings.HasPrefix(normalizedRoute, "/api/v1/provider-catalog/"):
@@ -138,6 +142,23 @@ func CheckRouteAuthorization(method string, route string, authInfo *platform.Aut
 	default:
 		return requireTenantAdmin(authInfo)
 	}
+}
+
+func checkSubscriptionRouteAuthorization(method string, authInfo *platform.AuthContext) error {
+	if IsTenantAdminOrHigher(authInfo) {
+		return nil
+	}
+	switch strings.ToUpper(strings.TrimSpace(method)) {
+	case "GET", "HEAD", "OPTIONS":
+		if hasAnyPermission(authInfo, "settings:list", "settings:manage") {
+			return nil
+		}
+	default:
+		if hasPermission(authInfo, "settings:manage") {
+			return nil
+		}
+	}
+	return fmt.Errorf("settings permission required")
 }
 
 func checkPATRouteAuthorization(authInfo *platform.AuthContext) error {

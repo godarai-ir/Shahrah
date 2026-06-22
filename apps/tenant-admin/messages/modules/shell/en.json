@@ -22,6 +22,7 @@
     "title": "Primary navigation",
     "dashboard": "Dashboard",
     "topup": "Wallet",
+    "plan": "Plan",
     "settings": "Account Settings",
     "providerAccounts": "LLM Connectors",
     "virtualModels": "Virtual Models",

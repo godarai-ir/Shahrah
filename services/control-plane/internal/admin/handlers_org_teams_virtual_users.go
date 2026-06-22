@@ -110,6 +110,9 @@ func (h *Handlers) CreateTeam(c *fiber.Ctx) error {
 	if h.teams == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "team store not configured")
 	}
+	if err := h.requireEntitlementEnabled(c, currentTenant.ID, platform.FeatureTeamsEnabled); err != nil {
+		return err
+	}
 	var req platform.CreateTeamRequest
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
@@ -268,6 +271,9 @@ func (h *Handlers) CreateOrgUnit(c *fiber.Ctx) error {
 	if h.orgUnits == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "org unit store not configured")
 	}
+	if err := h.requireEntitlementEnabled(c, currentTenant.ID, platform.FeatureOrgUnitsEnabled); err != nil {
+		return err
+	}
 	var req platform.CreateOrgUnitRequest
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
@@ -294,6 +300,9 @@ func (h *Handlers) GetOrgUnit(c *fiber.Ctx) error {
 	}
 	if h.orgUnits == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "org unit store not configured")
+	}
+	if err := h.requireEntitlementEnabled(c, currentTenant.ID, platform.FeatureOrgUnitsEnabled); err != nil {
+		return err
 	}
 	orgUnitID := strings.TrimSpace(c.Params("orgUnitID"))
 	if orgUnitID == "" {
@@ -494,6 +503,9 @@ func (h *Handlers) ListTeamMembers(c *fiber.Ctx) error {
 	if h.memberships == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "membership store not configured")
 	}
+	if err := h.requireEntitlementEnabled(c, currentTenant.ID, platform.FeatureTeamsEnabled); err != nil {
+		return err
+	}
 	teamID := strings.TrimSpace(c.Params("teamID"))
 	if teamID == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "teamID is required")
@@ -648,6 +660,9 @@ func (h *Handlers) CreateVirtualUser(c *fiber.Ctx) error {
 	}
 	if h.virtualUsers == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "virtual user store not configured")
+	}
+	if err := h.requireVATEnabled(c, currentTenant.ID); err != nil {
+		return err
 	}
 	var req platform.CreateVirtualUserRequest
 	if err := c.BodyParser(&req); err != nil {

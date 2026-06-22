@@ -96,7 +96,7 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
 	setRateLimitHeaders(c, rateLimit)
 	if err != nil {
-		return writeAPIError(c, fiber.StatusTooManyRequests, err.Error(), "rate_limit_error")
+		return writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error")
 	}
 	if err := h.billing.CheckBudget(c.Context(), authInfo, estimated); err != nil {
 		return writeAPIError(c, fiber.StatusPaymentRequired, err.Error(), "budget_exceeded")

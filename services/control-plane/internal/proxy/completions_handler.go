@@ -125,7 +125,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
 	setRateLimitHeaders(c, rateLimit)
 	if err != nil {
-		return writeAPIError(c, fiber.StatusTooManyRequests, "rate limit exceeded", "rate_limit_error")
+		return writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error")
 	}
 
 	// Check budget

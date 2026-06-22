@@ -403,6 +403,14 @@ func fallbackUSDtoIRRRate() float64 {
 	return parsed
 }
 
+func defaultSubscriptionPaymentProvider() string {
+	provider := strings.TrimSpace(strings.ToLower(os.Getenv("SUBSCRIPTION_PAYMENT_PROVIDER")))
+	if provider == "" {
+		provider = "mock"
+	}
+	return provider
+}
+
 func resolveExternalBaseURL(c *fiber.Ctx) string {
 	forwardedHost := firstForwardedValue(c.Get("X-Forwarded-Host"))
 	forwardedProto := firstForwardedValue(c.Get("X-Forwarded-Proto"))
@@ -435,8 +443,8 @@ func resolveUSDtoIRRRate(c *fiber.Ctx, store walletStore) (*platform.ExchangeRat
 		return rate, nil
 	}
 	return &platform.ExchangeRate{
-		USDtoIRR: fallbackUSDtoIRRRate(),
-		Source:   "static-fallback",
+		USDtoIRR:  fallbackUSDtoIRRRate(),
+		Source:    "static-fallback",
 		FetchedAt: time.Now(),
 	}, nil
 }
