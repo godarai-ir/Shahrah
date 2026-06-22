@@ -12,6 +12,7 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/jackc/pgx/v5"
+	"go.uber.org/zap"
 )
 
 func (s *Store) initClickHouse(ctx context.Context) error {
@@ -61,8 +62,7 @@ func (s *Store) ensureClickHouseTraceSchema(ctx context.Context) error {
 			sampled UInt8
 		) ENGINE = MergeTree
 		PARTITION BY toDate(started_at)
-		ORDER BY (tenant_id, started_at, trace_id)
-		TTL toDate(started_at) + INTERVAL 7 DAY`,
+		ORDER BY (tenant_id, started_at, trace_id)`,
 		`CREATE TABLE IF NOT EXISTS request_spans_ch (
 			span_id String,
 			trace_id String,
@@ -76,15 +76,48 @@ func (s *Store) ensureClickHouseTraceSchema(ctx context.Context) error {
 			attributes_json String
 		) ENGINE = MergeTree
 		PARTITION BY toDate(started_at)
-		ORDER BY (tenant_id, trace_id, started_at, span_id)
-		TTL toDate(started_at) + INTERVAL 7 DAY`,
+		ORDER BY (tenant_id, trace_id, started_at, span_id)`,
 	}
 	for _, stmt := range stmts {
 		if _, err := s.clickhouse.ExecContext(ctx, stmt); err != nil {
 			return err
 		}
 	}
+	s.removeLegacyClickHouseTraceTTLs(ctx)
 	return nil
+}
+
+func (s *Store) removeLegacyClickHouseTraceTTLs(ctx context.Context) {
+	for _, table := range []string{"request_traces_ch", "request_spans_ch"} {
+		hasTTL, err := s.clickHouseTableHasTTL(ctx, table)
+		if err != nil {
+			s.logger.Warn("clickhouse trace ttl inspection failed", zap.String("table", table), zap.Error(err))
+			hasTTL = true
+		}
+		if !hasTTL {
+			continue
+		}
+		if _, err := s.clickhouse.ExecContext(ctx, "ALTER TABLE "+table+" REMOVE TTL"); err != nil {
+			s.logger.Warn("clickhouse trace ttl removal failed", zap.String("table", table), zap.Error(err))
+		}
+	}
+}
+
+func (s *Store) clickHouseTableHasTTL(ctx context.Context, table string) (bool, error) {
+	var createQuery string
+	err := s.clickhouse.QueryRowContext(ctx, `
+		SELECT create_table_query
+		FROM system.tables
+		WHERE database = currentDatabase() AND name = ?
+		LIMIT 1
+	`, table).Scan(&createQuery)
+	if err != nil {
+		if errorsIsNoRows(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return strings.Contains(strings.ToUpper(createQuery), "TTL"), nil
 }
 
 func (s *Store) exportToClickHouse(ctx context.Context, batch []tracing.SpanEvent) error {

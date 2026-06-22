@@ -8,6 +8,7 @@ const (
 	FeatureTeamsEnabled            = "teams.enabled"
 	FeatureRateLimitRulesEnabled   = "rate_limit_rules.enabled"
 	FeatureBudgetLimitRulesEnabled = "budget_limit_rules.enabled"
+	FeatureTracesRetentionDays     = "traces.retention_days"
 	FeatureVATEnabled              = "auth.vat.enabled"
 	FeatureRBACEnabled             = "rbac.enabled"
 	FeatureOrgUnitsEnabled         = "org_units.enabled"

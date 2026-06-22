@@ -37,6 +37,10 @@ type Config struct {
 	PayloadEncryptKey string
 	PayloadMaxBytes   int
 	PIIHashSalt       string
+
+	RetentionCleanupEnabled  bool
+	RetentionCleanupInterval time.Duration
+	RetentionCleanupTimeout  time.Duration
 }
 
 func LoadConfigFromEnv() Config {
@@ -61,6 +65,10 @@ func LoadConfigFromEnv() Config {
 		PayloadEncryptKey: strings.TrimSpace(os.Getenv("TRACE_PAYLOAD_ENCRYPTION_KEY")),
 		PayloadMaxBytes:   16 * 1024,
 		PIIHashSalt:       strings.TrimSpace(os.Getenv("TRACE_PII_HASH_SALT")),
+
+		RetentionCleanupEnabled:  true,
+		RetentionCleanupInterval: time.Hour,
+		RetentionCleanupTimeout:  30 * time.Second,
 	}
 
 	if v := os.Getenv("TRACE_DEFAULT_SAMPLE_RATE"); v != "" {
@@ -128,5 +136,27 @@ func LoadConfigFromEnv() Config {
 			cfg.PayloadMaxBytes = parsed
 		}
 	}
+	if v := strings.TrimSpace(os.Getenv("TRACE_RETENTION_CLEANUP_ENABLED")); v != "" {
+		cfg.RetentionCleanupEnabled = parseEnvBool(v)
+	}
+	if v := os.Getenv("TRACE_RETENTION_CLEANUP_INTERVAL_MS"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			cfg.RetentionCleanupInterval = time.Duration(parsed) * time.Millisecond
+		}
+	}
+	if v := os.Getenv("TRACE_RETENTION_CLEANUP_TIMEOUT_MS"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			cfg.RetentionCleanupTimeout = time.Duration(parsed) * time.Millisecond
+		}
+	}
 	return cfg
+}
+
+func parseEnvBool(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "true", "yes", "y", "on":
+		return true
+	default:
+		return false
+	}
 }

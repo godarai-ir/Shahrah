@@ -128,6 +128,9 @@ func main() {
 		defer cancelStop()
 		_ = traceProcessor.Stop(stopCtx)
 	}()
+	traceRetentionCleaner := tracing.NewRetentionCleaner(traceCfg, store, logger)
+	traceRetentionCleaner.Start()
+	defer traceRetentionCleaner.Stop()
 
 	app := server.NewFiberApp(cfg, server.Dependencies{
 		AuthMiddleware:     authMiddleware,
