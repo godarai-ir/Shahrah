@@ -9,6 +9,16 @@ data:
     WHERE NOT EXISTS (
       SELECT FROM pg_database WHERE datname = 'model_discovery'
     )\gexec
+  02-create-support-admin.sh: |
+    #!/bin/sh
+    set -eu
+    : "${SUPPORT_ADMIN_DB_PASSWORD:?SUPPORT_ADMIN_DB_PASSWORD is required}"
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --set=support_password="$SUPPORT_ADMIN_DB_PASSWORD" <<'EOSQL'
+    SELECT format('CREATE ROLE support_admin LOGIN PASSWORD %L', :'support_password')
+    WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'support_admin')\gexec
+    SELECT 'CREATE DATABASE support_admin OWNER support_admin'
+    WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'support_admin')\gexec
+    EOSQL
 ---
 apiVersion: v1
 kind: Service
@@ -67,6 +77,11 @@ spec:
                 secretKeyRef:
                   name: shahrah-secret
                   key: POSTGRES_DB
+            - name: SUPPORT_ADMIN_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shahrah-secret
+                  key: SUPPORT_ADMIN_DB_PASSWORD
           securityContext:
             runAsNonRoot: true
             runAsUser: 999
@@ -89,6 +104,10 @@ spec:
             - name: postgres-initdb
               mountPath: /docker-entrypoint-initdb.d/01-create-model-discovery.sql
               subPath: 01-create-model-discovery.sql
+              readOnly: true
+            - name: postgres-initdb
+              mountPath: /docker-entrypoint-initdb.d/02-create-support-admin.sh
+              subPath: 02-create-support-admin.sh
               readOnly: true
           readinessProbe:
             exec:

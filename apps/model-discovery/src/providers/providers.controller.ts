@@ -7,6 +7,7 @@ import {
   ParseBoolPipe,
   Post,
   Query,
+  Req,
   Res,
   UploadedFile,
   UseGuards,
@@ -17,10 +18,10 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { existsSync } from 'fs';
 import { join, resolve } from 'path';
 import type { Response } from 'express';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { Roles } from '../common/decorators/roles.decorator';
-import { Role } from '../common/enums/roles.enum';
-import { RolesGuard } from '../common/guards/roles.guard';
+import type { AuthenticatedRequest } from '../common/authenticated-request';
+import { Scopes } from '../common/decorators/scopes.decorator';
+import { ScopesGuard } from '../common/guards/scopes.guard';
+import { ServiceAccountGuard } from '../common/guards/service-account.guard';
 import { UpsertProviderDto } from './dto/upsert-provider.dto';
 import { ProvidersService } from './providers.service';
 import { UpsertProviderConnectionProfileDto } from './dto/upsert-provider-connection-profile.dto';
@@ -41,53 +42,54 @@ export class ProvidersController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.admin)
+  @UseGuards(ServiceAccountGuard, ScopesGuard)
+  @Scopes('catalog:read')
   @Get('admin/list')
   listAllForAdmin() {
     return this.providers.listAllForAdmin();
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.admin)
+  @UseGuards(ServiceAccountGuard, ScopesGuard)
+  @Scopes('provider:write')
   @Post('admin/upsert')
-  upsert(@Body() body: UpsertProviderDto) {
-    return this.providers.upsert(body);
+  upsert(@Body() body: UpsertProviderDto, @Req() request: AuthenticatedRequest) {
+    return this.providers.upsert(body, request.user);
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.admin)
+  @UseGuards(ServiceAccountGuard, ScopesGuard)
+  @Scopes('provider:write')
   @Post('admin/enabled')
-  setEnabled(@Body('slug') slug: string, @Body('enabled', ParseBoolPipe) enabled: boolean) {
-    return this.providers.updateEnabled(slug, enabled);
+  setEnabled(@Body('slug') slug: string, @Body('enabled', ParseBoolPipe) enabled: boolean, @Req() request: AuthenticatedRequest) {
+    return this.providers.updateEnabled(slug, enabled, request.user);
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.admin)
+  @UseGuards(ServiceAccountGuard, ScopesGuard)
+  @Scopes('provider:write')
   @Post('admin/connection-profile/upsert')
-  upsertConnectionProfile(@Body() body: UpsertProviderConnectionProfileDto) {
-    return this.providers.upsertConnectionProfile(body);
+  upsertConnectionProfile(@Body() body: UpsertProviderConnectionProfileDto, @Req() request: AuthenticatedRequest) {
+    return this.providers.upsertConnectionProfile(body, request.user);
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.admin)
+  @UseGuards(ServiceAccountGuard, ScopesGuard)
+  @Scopes('catalog:read')
   @Get('admin/:slug/connection-profile')
   getConnectionProfile(@Param('slug') slug: string) {
     return this.providers.getConnectionProfile(slug);
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.admin)
+  @UseGuards(ServiceAccountGuard, ScopesGuard)
+  @Scopes('provider:write')
   @Post('admin/:slug/logo')
   @UseInterceptors(FileInterceptor('file'))
   uploadProviderLogo(
     @Param('slug') slug: string,
-    @UploadedFile() file?: any,
+    @UploadedFile() file: any,
+    @Req() request: AuthenticatedRequest,
   ) {
     if (!file) throw new BadRequestException('file is required');
     if (!file.mimetype.startsWith('image/')) {
@@ -96,7 +98,7 @@ export class ProvidersController {
     if (file.size > 2 * 1024 * 1024) {
       throw new BadRequestException('file size must be <= 2MB');
     }
-    return this.providers.saveProviderLogo(slug, file);
+    return this.providers.saveProviderLogo(slug, file, request.user);
   }
 
   @Get('assets/:bucket/:fileName')

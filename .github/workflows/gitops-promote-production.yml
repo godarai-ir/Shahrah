@@ -12,6 +12,7 @@ on:
           - model-discovery
           - model-discovery-migrate
           - support-admin
+          - support-admin-migrate
           - silk-road
           - tunnel-client
           - tunnel-server
@@ -69,6 +70,7 @@ jobs:
               "model-discovery": "model-discovery",
               "model-discovery-migrate": "model-discovery",
               "support-admin": "support-admin",
+              "support-admin-migrate": "support-admin",
               "silk-road": "silk-road",
               "tunnel-client": "tunnel-client",
               "tunnel-server": "tunnel-server",
@@ -120,6 +122,7 @@ jobs:
               "model-discovery": "modelDiscovery.image.tag",
               "model-discovery-migrate": "migrations.modelDiscovery.image.tag",
               "support-admin": "supportAdmin.image.tag",
+              "support-admin-migrate": "migrations.supportAdmin.image.tag",
               "silk-road": "silkRoad.image.tag",
               "tunnel-client": "tunnelClient.image.tag",
               "tunnel-server": "tunnelServer.image.tag",

@@ -1,10 +1,10 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
-import { Roles } from '../common/decorators/roles.decorator';
-import { Role } from '../common/enums/roles.enum';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
+import { auditActor, type AuthenticatedRequest } from '../common/authenticated-request';
+import { Scopes } from '../common/decorators/scopes.decorator';
+import { ScopesGuard } from '../common/guards/scopes.guard';
+import { ServiceAccountGuard } from '../common/guards/service-account.guard';
 import { PrismaService } from '../database/prisma.service';
 import { IndexingService } from '../indexing/indexing.service';
 
@@ -59,8 +59,8 @@ const importSchema = z.object({
 
 @ApiTags('import')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.admin)
+@UseGuards(ServiceAccountGuard, ScopesGuard)
+@Scopes('import:execute')
 @Controller({ path: 'admin/import', version: '1' })
 export class ImportController {
   constructor(
@@ -100,7 +100,7 @@ export class ImportController {
   }
 
   @Post('catalog-json')
-  async importCatalog(@Body() body: unknown) {
+  async importCatalog(@Body() body: unknown, @Req() request: AuthenticatedRequest) {
     const parsed = importSchema.safeParse(body);
     if (!parsed.success) {
       return {
@@ -267,7 +267,7 @@ export class ImportController {
           modelId: model.id,
           changeType: 'import',
           title: 'Imported via JSON',
-          createdBy: 'admin',
+          createdBy: request.user.actorId ?? request.user.serviceAccountName,
         },
       });
       await this.prisma.auditLog.create({
@@ -276,7 +276,7 @@ export class ImportController {
           entityId: model.id,
           action: 'import',
           afterJson: model as any,
-          actorId: 'admin',
+          ...auditActor(request),
         },
       });
     }

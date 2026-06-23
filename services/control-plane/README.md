@@ -39,6 +39,7 @@ Do not add undocumented fallback behavior that hides upstream contract drift.
 
 - `DATABASE_URL`: required, startup fails fast when missing or unreachable
 - `MASTER_KEY`: required for `/api/v1/*` management APIs
+- `SHAHRAH_DISCOVERY_TOKEN`: optional dedicated model-discovery service credential; never falls back to `MASTER_KEY`. Leave unset while control-plane only consumes public catalog endpoints.
 - `TUNNEL_CLIENT_URL`: control-plane hop into the tunnel client
 - `REDIS_HOST` and `REDIS_PASSWORD`: optional, memory cache is used when Redis is not configured
 - `ZARINPAL_MERCHANT_ID`: required when `provider=zarinpal`
@@ -49,6 +50,8 @@ Do not add undocumented fallback behavior that hides upstream contract drift.
 - `CLICKHOUSE_DSN`: required, used for all request trace storage/read APIs
 - `OPENAI_API_KEY`: optional, used by the default OpenAI entries in `configs/proxy_config.yaml`
 - `ANTHROPIC_API_KEY`: optional, used by the default Anthropic entries in `configs/proxy_config.yaml`
+
+Platform workloads use database-backed service credentials instead of `MASTER_KEY`. Provision `support-admin` with `platform:read`, `platform:catalog:write`, and `platform:tenant:write` using `go run ./services/control-plane/cmd/platform-service-account`.
 
 ## Local Verification
 

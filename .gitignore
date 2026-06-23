@@ -6,6 +6,9 @@
 *.dylib
 bin/
 dist/
+apps/support-admin/generated/
+_tmp_*
+pnpm-lock.yaml.*
 
 # Test binary, built with `go test -c`
 *.test
@@ -250,6 +253,7 @@ pnpm-lock.yaml
 .turbo/cache/f901f74fbe769d07-meta.json
 .turbo/cache/f901f74fbe769d07.tar.zst
 apps/tenant-admin/.turbo/turbo-lint.log
+*.go.[0-9]*
 apps/blog/.turbo/turbo-lint.log
 apps/blog/.turbo/turbo-lint.log
 apps/tenant-admin/.turbo/turbo-lint.log

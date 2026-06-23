@@ -1,6 +1,7 @@
 "use client";
 
 import Link from 'next/link';
+import { withBasePath } from '@/lib/auth-constants';
 
 export default function AdminHome() {
   const links = [
@@ -22,8 +23,8 @@ export default function AdminHome() {
         type="button"
         className="rounded border border-zinc-700 px-3 py-1 text-sm text-zinc-300 hover:bg-zinc-900"
         onClick={async () => {
-          await fetch('/api/auth/logout', { method: 'POST' });
-          window.location.href = '/login';
+          await fetch(withBasePath('/api/auth/logout'), { method: 'POST' });
+          window.location.href = withBasePath('/login');
         }}
       >
         Logout

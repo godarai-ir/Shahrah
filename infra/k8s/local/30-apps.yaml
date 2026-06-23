@@ -321,6 +321,12 @@ spec:
             - sh
             - -c
             - until nc -z model-discovery 3002; do echo waiting for model-discovery; sleep 2; done
+        - name: wait-for-control-plane
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - until nc -z control-plane 4000; do echo waiting for control-plane; sleep 2; done
       containers:
         - name: support-admin
           image: registry-def882af9a-shahrah-local.apps.ir-central1.arvancaas.ir/shahrah-local/support-admin:latest
@@ -339,6 +345,31 @@ spec:
                 configMapKeyRef:
                   name: shahrah-config
                   key: MODEL_CATALOG_API_BASE_INTERNAL
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: shahrah-secret
+                  key: SUPPORT_ADMIN_DATABASE_URL
+            - name: MODEL_DISCOVERY_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: shahrah-secret
+                  key: MODEL_DISCOVERY_SERVICE_TOKEN
+            - name: CONTROL_PLANE_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: shahrah-secret
+                  key: CONTROL_PLANE_SERVICE_TOKEN
+            - name: SHAHRAH_CONTROL_PLANE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: shahrah-config
+                  key: SHAHRAH_CONTROL_PLANE_URL
+            - name: SUPPORT_ADMIN_ORIGIN
+              valueFrom:
+                configMapKeyRef:
+                  name: shahrah-config
+                  key: SUPPORT_ADMIN_ORIGIN
           readinessProbe:
             tcpSocket:
               port: 3000

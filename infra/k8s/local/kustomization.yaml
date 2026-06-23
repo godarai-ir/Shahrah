@@ -33,3 +33,4 @@ configMapGenerator:
       - migrations/014_tenant_admin_invitation_pending_uniqueness.sql
       - migrations/015_roles_and_permissions.sql
       - migrations/016_merge_member_system_roles.sql
+      - migrations/023_platform_service_accounts.sql

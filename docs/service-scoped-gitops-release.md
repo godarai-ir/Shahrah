@@ -23,6 +23,7 @@ Workflow file: `.github/workflows/gitops-staging-release.yml`
 - `model-discovery`
 - `model-discovery-migrate`
 - `support-admin`
+- `support-admin-migrate`
 - `silk-road`
 - `tunnel-client`
 - `tunnel-server`
@@ -65,6 +66,9 @@ If no tag exists, the initial generated version starts at `v0.1.0`.
 - A change under `apps/model-discovery/**` should only build:
   - `model-discovery`
   - `model-discovery-migrate`
+- A change under `apps/support-admin/**` should only build:
+  - `support-admin`
+  - `support-admin-migrate`
 - GitOps PR should only change:
   - `modelDiscovery.image.tag`
   - `migrations.modelDiscovery.image.tag`

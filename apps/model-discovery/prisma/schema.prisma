@@ -338,9 +338,36 @@ model AuditLog {
   beforeJson  Json?
   afterJson   Json?
   actorId     String?
+  actorRole   String?
+  serviceAccountId String?
+  requestId   String?
   createdAt   DateTime @default(now())
 
   @@index([entityType, entityId])
+}
+
+model ServiceAccount {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  scopes      String[]
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  credentials ServiceAccountCredential[]
+}
+
+model ServiceAccountCredential {
+  id               String   @id
+  serviceAccountId String
+  secretHash       String
+  expiresAt        DateTime?
+  revokedAt        DateTime?
+  lastUsedAt       DateTime?
+  createdAt        DateTime @default(now())
+  serviceAccount   ServiceAccount @relation(fields: [serviceAccountId], references: [id], onDelete: Cascade)
+
+  @@index([serviceAccountId])
+  @@index([expiresAt])
 }
 
 model DisplaySetting {

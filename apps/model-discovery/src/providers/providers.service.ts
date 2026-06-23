@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { mkdirSync, writeFileSync } from 'fs';
 import { extname, join } from 'path';
 import { PrismaService } from '../database/prisma.service';
+import { auditPrincipal, type ServicePrincipal } from '../common/authenticated-request';
 import { UpsertProviderDto } from './dto/upsert-provider.dto';
 import { UpsertProviderConnectionProfileDto } from './dto/upsert-provider-connection-profile.dto';
 
@@ -44,41 +45,67 @@ export class ProvidersService {
     });
   }
 
-  upsert(dto: UpsertProviderDto) {
-    return this.prisma.provider.upsert({
-      where: { slug: dto.slug },
-      create: dto as any,
-      update: dto as any,
+  async upsert(dto: UpsertProviderDto, principal: ServicePrincipal) {
+    return this.prisma.$transaction(async (tx) => {
+      const before = await tx.provider.findUnique({ where: { slug: dto.slug } });
+      const provider = await tx.provider.upsert({
+        where: { slug: dto.slug },
+        create: dto as any,
+        update: dto as any,
+      });
+      await tx.auditLog.create({ data: {
+        entityType: 'provider', entityId: provider.id,
+        action: before ? 'update' : 'create', beforeJson: before as any,
+        afterJson: provider as any, ...auditPrincipal(principal),
+      } });
+      return provider;
     });
   }
 
-  updateEnabled(slug: string, enabled: boolean) {
-    return this.prisma.provider.update({
-      where: { slug },
-      data: { enabled },
+  async updateEnabled(slug: string, enabled: boolean, principal: ServicePrincipal) {
+    return this.prisma.$transaction(async (tx) => {
+      const before = await tx.provider.findUniqueOrThrow({ where: { slug } });
+      const provider = await tx.provider.update({ where: { slug }, data: { enabled } });
+      await tx.auditLog.create({ data: {
+        entityType: 'provider', entityId: provider.id, action: 'set_enabled',
+        beforeJson: before as any, afterJson: provider as any, ...auditPrincipal(principal),
+      } });
+      return provider;
     });
   }
 
-  upsertConnectionProfile(dto: UpsertProviderConnectionProfileDto) {
-    return this.prisma.provider.update({
-      where: { slug: dto.providerSlug },
-      data: {
-        connectionProfile: {
-          upsert: {
-            create: {
-              providerType: dto.providerType,
-              authMode: dto.authMode,
-              configJson: dto.configJson as any,
-            },
-            update: {
-              providerType: dto.providerType,
-              authMode: dto.authMode,
-              configJson: dto.configJson as any,
+  async upsertConnectionProfile(dto: UpsertProviderConnectionProfileDto, principal: ServicePrincipal) {
+    return this.prisma.$transaction(async (tx) => {
+      const provider = await tx.provider.update({
+        where: { slug: dto.providerSlug },
+        data: {
+          connectionProfile: {
+            upsert: {
+              create: {
+                providerType: dto.providerType,
+                authMode: dto.authMode,
+                configJson: dto.configJson as any,
+              },
+              update: {
+                providerType: dto.providerType,
+                authMode: dto.authMode,
+                configJson: dto.configJson as any,
+              },
             },
           },
         },
-      },
-      include: { connectionProfile: true },
+        include: { connectionProfile: true },
+      });
+      await tx.auditLog.create({ data: {
+        entityType: 'provider_connection_profile', entityId: provider.id,
+        action: 'upsert',
+        afterJson: {
+          providerType: dto.providerType,
+          authMode: dto.authMode ?? null,
+        },
+        ...auditPrincipal(principal),
+      } });
+      return provider;
     });
   }
 
@@ -89,7 +116,7 @@ export class ProvidersService {
     });
   }
 
-  saveProviderLogo(providerSlug: string, file: any) {
+  async saveProviderLogo(providerSlug: string, file: any, principal: ServicePrincipal) {
     const uploadsDir = join(process.cwd(), 'uploads', 'provider-logos');
     mkdirSync(uploadsDir, { recursive: true });
     const ext = extname(file.originalname || '').toLowerCase() || '.png';
@@ -97,9 +124,16 @@ export class ProvidersService {
     const absPath = join(uploadsDir, fileName);
     writeFileSync(absPath, file.buffer);
     const logoUrl = `/api/v1/providers/assets/provider-logos/${fileName}`;
-    return this.prisma.provider.update({
-      where: { slug: providerSlug },
-      data: { logoUrl },
+    return this.prisma.$transaction(async (tx) => {
+      const provider = await tx.provider.update({
+        where: { slug: providerSlug },
+        data: { logoUrl },
+      });
+      await tx.auditLog.create({ data: {
+        entityType: 'provider', entityId: provider.id, action: 'logo_update',
+        afterJson: provider as any, ...auditPrincipal(principal),
+      } });
+      return provider;
     });
   }
 }

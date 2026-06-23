@@ -26,6 +26,23 @@ OpenAPI JSON: `http://localhost:3002/docs/openapi.json`
 OpenAPI YAML: `http://localhost:3002/docs/openapi.yaml`
 API base: `http://localhost:3002/api/v1`
 
+## Protected endpoint authentication
+
+Admin endpoints accept only an opaque service-account bearer key. Human credentials and support-admin browser sessions are intentionally not valid here.
+
+Create or rotate the `support-admin` credential after applying Prisma migrations:
+
+```powershell
+$env:DATABASE_URL = "postgresql://.../model_discovery?schema=public"
+pnpm --filter model-discovery service-account:create -- --name=support-admin --scopes=catalog:read,catalog:write,provider:write,import:execute,indexing:execute,display-settings:write
+```
+
+The command prints the credential once. Store it as `MODEL_DISCOVERY_SERVICE_TOKEN` in the `support-admin` secret store. Rotation is additive: deploy the new credential first, then revoke the previous key ID:
+
+```powershell
+pnpm --filter model-discovery service-account:revoke -- --key-id=<key-id>
+```
+
 Export the checked-in spec artifact with:
 
 - `pnpm --dir apps/model-discovery openapi:export`

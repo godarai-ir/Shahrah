@@ -14,6 +14,11 @@ ENV PRISMA_SKIP_POSTINSTALL_GENERATE=
 RUN npm run prisma:generate
 RUN npm run build
 
+FROM deps AS migrate
+COPY . ./
+ENV PRISMA_SKIP_POSTINSTALL_GENERATE=
+RUN npm run prisma:generate
+
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production

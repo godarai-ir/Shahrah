@@ -6,6 +6,7 @@ import {
   Param,
   ParseBoolPipe,
   Post,
+  Req,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -16,23 +17,23 @@ import { randomUUID } from 'crypto';
 import { mkdirSync, writeFileSync } from 'fs';
 import { extname, join } from 'path';
 import { PrismaService } from '../database/prisma.service';
-import { Roles } from '../common/decorators/roles.decorator';
-import { Role } from '../common/enums/roles.enum';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
+import { auditActor, type AuthenticatedRequest } from '../common/authenticated-request';
+import { Scopes } from '../common/decorators/scopes.decorator';
+import { ScopesGuard } from '../common/guards/scopes.guard';
+import { ServiceAccountGuard } from '../common/guards/service-account.guard';
 import { UpsertModelDto } from './dto/upsert-model.dto';
 import { UpsertModelSeriesDto } from './dto/upsert-model-series.dto';
 
 @ApiTags('admin')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.admin)
+@UseGuards(ServiceAccountGuard, ScopesGuard)
 @Controller({ path: 'admin/models', version: '1' })
 export class CatalogAdminController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Post('upsert')
-  async upsert(@Body() dto: UpsertModelDto) {
+  @Scopes('catalog:write')
+  async upsert(@Body() dto: UpsertModelDto, @Req() request: AuthenticatedRequest) {
     const provider = await this.prisma.provider.findUniqueOrThrow({
       where: { slug: dto.providerSlug },
     });
@@ -111,7 +112,7 @@ export class CatalogAdminController {
         action: before ? 'update' : 'create',
         beforeJson: before as any,
         afterJson: model as any,
-        actorId: 'admin',
+        ...auditActor(request),
       },
     });
 
@@ -119,6 +120,7 @@ export class CatalogAdminController {
   }
 
   @Get('audit-log')
+  @Scopes('catalog:read')
   audit() {
     return this.prisma.auditLog.findMany({
       orderBy: { createdAt: 'desc' },
@@ -127,6 +129,7 @@ export class CatalogAdminController {
   }
 
   @Get()
+  @Scopes('catalog:read')
   listAll() {
     return this.prisma.model.findMany({
       orderBy: [{ providerId: 'asc' }, { displayName: 'asc' }],
@@ -136,17 +139,28 @@ export class CatalogAdminController {
   }
 
   @Post(':canonicalId/enabled')
+  @Scopes('catalog:write')
   async setModelEnabled(
     @Param('canonicalId') canonicalId: string,
     @Body('enabled', ParseBoolPipe) enabled: boolean,
+    @Req() request: AuthenticatedRequest,
   ) {
-    return this.prisma.model.update({
-      where: { canonicalId: decodeURIComponent(canonicalId) },
-      data: { enabled },
+    const decodedId = decodeURIComponent(canonicalId);
+    return this.prisma.$transaction(async (tx) => {
+      const before = await tx.model.findUniqueOrThrow({ where: { canonicalId: decodedId } });
+      const model = await tx.model.update({
+        where: { canonicalId: decodedId }, data: { enabled },
+      });
+      await tx.auditLog.create({ data: {
+        entityType: 'model', entityId: model.id, action: 'set_enabled',
+        beforeJson: before as any, afterJson: model as any, ...auditActor(request),
+      } });
+      return model;
     });
   }
 
   @Get('series')
+  @Scopes('catalog:read')
   listSeries() {
     return this.prisma.modelSeries.findMany({
       orderBy: { name: 'asc' },
@@ -154,19 +168,29 @@ export class CatalogAdminController {
   }
 
   @Post('series/upsert')
-  upsertSeries(@Body() body: UpsertModelSeriesDto) {
-    return this.prisma.modelSeries.upsert({
-      where: { slug: body.slug },
-      create: body,
-      update: { name: body.name },
+  @Scopes('catalog:write')
+  upsertSeries(@Body() body: UpsertModelSeriesDto, @Req() request: AuthenticatedRequest) {
+    return this.prisma.$transaction(async (tx) => {
+      const before = await tx.modelSeries.findUnique({ where: { slug: body.slug } });
+      const series = await tx.modelSeries.upsert({
+        where: { slug: body.slug }, create: body, update: { name: body.name },
+      });
+      await tx.auditLog.create({ data: {
+        entityType: 'model_series', entityId: series.id,
+        action: before ? 'update' : 'create', beforeJson: before as any,
+        afterJson: series as any, ...auditActor(request),
+      } });
+      return series;
     });
   }
 
   @Post('series/:slug/logo')
+  @Scopes('catalog:write')
   @UseInterceptors(FileInterceptor('file'))
-  uploadSeriesLogo(
+  async uploadSeriesLogo(
     @Param('slug') slug: string,
-    @UploadedFile() file?: any,
+    @UploadedFile() file: any,
+    @Req() request: AuthenticatedRequest,
   ) {
     if (!file) throw new BadRequestException('file is required');
     if (!file.mimetype.startsWith('image/')) {
@@ -181,9 +205,13 @@ export class CatalogAdminController {
     const fileName = `${slug}-${randomUUID()}${ext}`;
     writeFileSync(join(uploadsDir, fileName), file.buffer);
     const logoUrl = `/api/v1/providers/assets/model-series-logos/${fileName}`;
-    return this.prisma.modelSeries.update({
-      where: { slug },
-      data: { logoUrl },
+    return this.prisma.$transaction(async (tx) => {
+      const series = await tx.modelSeries.update({ where: { slug }, data: { logoUrl } });
+      await tx.auditLog.create({ data: {
+        entityType: 'model_series', entityId: series.id, action: 'logo_update',
+        afterJson: series as any, ...auditActor(request),
+      } });
+      return series;
     });
   }
 }

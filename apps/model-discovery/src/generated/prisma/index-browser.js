@@ -335,6 +335,28 @@ exports.Prisma.AuditLogScalarFieldEnum = {
   beforeJson: 'beforeJson',
   afterJson: 'afterJson',
   actorId: 'actorId',
+  actorRole: 'actorRole',
+  serviceAccountId: 'serviceAccountId',
+  requestId: 'requestId',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.ServiceAccountScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  scopes: 'scopes',
+  active: 'active',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ServiceAccountCredentialScalarFieldEnum = {
+  id: 'id',
+  serviceAccountId: 'serviceAccountId',
+  secretHash: 'secretHash',
+  expiresAt: 'expiresAt',
+  revokedAt: 'revokedAt',
+  lastUsedAt: 'lastUsedAt',
   createdAt: 'createdAt'
 };
 
@@ -422,6 +444,8 @@ exports.Prisma.ModelName = {
   Tag: 'Tag',
   ModelTag: 'ModelTag',
   AuditLog: 'AuditLog',
+  ServiceAccount: 'ServiceAccount',
+  ServiceAccountCredential: 'ServiceAccountCredential',
   DisplaySetting: 'DisplaySetting'
 };
 

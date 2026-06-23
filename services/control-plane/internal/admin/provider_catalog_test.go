@@ -135,6 +135,41 @@ func TestDiscoveryProviders_FailsWithoutFallbackWhenDiscoveryUnavailable(t *test
 	assert.ErrorIs(t, err, errDiscoveryUnavailable)
 }
 
+func TestDiscoveryFetch_DoesNotForwardMasterKey(t *testing.T) {
+	var authorization string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authorization = r.Header.Get("Authorization")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[]}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("SHAHRAH_DISCOVERY_TOKEN", "")
+	t.Setenv("MASTER_KEY", "must-not-leave-control-plane")
+
+	_, status, _, err := discoveryFetch(context.Background(), server.URL)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, status)
+	assert.Empty(t, authorization)
+}
+
+func TestDiscoveryFetch_ForwardsExplicitDiscoveryToken(t *testing.T) {
+	var authorization string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authorization = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	t.Setenv("SHAHRAH_DISCOVERY_TOKEN", "explicit-discovery-service-token")
+	t.Setenv("MASTER_KEY", "must-not-leave-control-plane")
+
+	_, status, _, err := discoveryFetch(context.Background(), server.URL)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusNoContent, status)
+	assert.Equal(t, "Bearer explicit-discovery-service-token", authorization)
+}
+
 func TestDiscoveryProviderExists_NormalizesLegacyProviderSlug(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/providers" {

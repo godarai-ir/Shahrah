@@ -86,10 +86,29 @@ services:
     environment:
       NEXT_PUBLIC_MODEL_CATALOG_API_BASE: ${NEXT_PUBLIC_MODEL_CATALOG_API_BASE:-http://localhost:3002/api/v1}
       MODEL_CATALOG_API_BASE_INTERNAL: ${MODEL_CATALOG_API_BASE_INTERNAL:-http://model-discovery:3002/api/v1}
+      DATABASE_URL: ${SUPPORT_ADMIN_DATABASE_URL:-postgresql://support_admin:local-support-admin-only@postgres:5432/support_admin?schema=public}
+      MODEL_DISCOVERY_SERVICE_TOKEN: ${MODEL_DISCOVERY_SERVICE_TOKEN:-}
+      CONTROL_PLANE_SERVICE_TOKEN: ${CONTROL_PLANE_SERVICE_TOKEN:-}
+      SHAHRAH_CONTROL_PLANE_URL: ${SHAHRAH_CONTROL_PLANE_URL:-http://control-plane:4000}
+      SUPPORT_ADMIN_ORIGIN: ${SUPPORT_ADMIN_ORIGIN:-http://localhost:3001}
     depends_on:
       model-discovery:
         condition: service_started
+      control-plane:
+        condition: service_started
     restart: unless-stopped
+
+  support-admin-migrate:
+    build:
+      context: ../../apps/support-admin
+      dockerfile: Dockerfile
+      target: migrate
+    command: ["npx", "prisma", "migrate", "deploy"]
+    environment:
+      DATABASE_URL: ${SUPPORT_ADMIN_DATABASE_URL:-postgresql://support_admin:local-support-admin-only@postgres:5432/support_admin?schema=public}
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   tunnel-client:
     build:
@@ -137,9 +156,11 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: sharah_db
+      SUPPORT_ADMIN_DB_PASSWORD: ${SUPPORT_ADMIN_DB_PASSWORD:-local-support-admin-only}
     volumes:
       - pgdata:/var/lib/postgresql
       - ./postgres/initdb/01-create-model-discovery.sql:/docker-entrypoint-initdb.d/01-create-model-discovery.sql:ro
+      - ./postgres/initdb/02-create-support-admin.sh:/docker-entrypoint-initdb.d/02-create-support-admin.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s

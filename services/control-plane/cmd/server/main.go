@@ -133,20 +133,21 @@ func main() {
 	defer traceRetentionCleaner.Stop()
 
 	app := server.NewFiberApp(cfg, server.Dependencies{
-		AuthMiddleware:     authMiddleware,
-		TenantResolver:     tenantMiddleware,
-		TracingMiddleware:  tracing.Middleware(traceQueue, traceSampler, traceCfg.SlowRequest.Milliseconds(), tracePrivacy),
-		TraceHealth:        reliableExporter,
-		AdminHandlers:      adminHandlers,
-		AuthHandlers:       authHandlers,
-		ProxyHandler:       proxyHandler,
-		CompletionsHandler: completionsHandler,
-		ResponsesHandler:   responsesHandler,
-		EmbeddingsHandler:  embeddingsHandler,
-		ModerationsHandler: moderationsHandler,
-		ImagesHandler:      imagesHandler,
-		ModelsHandler:      modelsHandler,
-		Logger:             logger,
+		AuthMiddleware:          authMiddleware,
+		TenantResolver:          tenantMiddleware,
+		TracingMiddleware:       tracing.Middleware(traceQueue, traceSampler, traceCfg.SlowRequest.Milliseconds(), tracePrivacy),
+		TraceHealth:             reliableExporter,
+		AdminHandlers:           adminHandlers,
+		AuthHandlers:            authHandlers,
+		ProxyHandler:            proxyHandler,
+		CompletionsHandler:      completionsHandler,
+		ResponsesHandler:        responsesHandler,
+		EmbeddingsHandler:       embeddingsHandler,
+		ModerationsHandler:      moderationsHandler,
+		ImagesHandler:           imagesHandler,
+		ModelsHandler:           modelsHandler,
+		Logger:                  logger,
+		PlatformServiceAccounts: store,
 	})
 
 	runCtx, cancel := context.WithCancel(context.Background())

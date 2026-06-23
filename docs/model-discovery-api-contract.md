@@ -47,9 +47,8 @@ Public catalog requests currently go through:
 
 - [apps/support-admin/lib/api.ts](/D:/source/Shahrah/apps/support-admin/lib/api.ts)
 
-Admin requests currently go through Next route handlers that proxy to `model-discovery`, for example:
+Admin requests go through Next route handlers that validate the local support-admin session and proxy with a scoped `model-discovery` service credential, for example:
 
-- [apps/support-admin/app/api/auth/login/route.ts](/D:/source/Shahrah/apps/support-admin/app/api/auth/login/route.ts)
 - [apps/support-admin/app/api/admin/providers/route.ts](/D:/source/Shahrah/apps/support-admin/app/api/admin/providers/route.ts)
 - [apps/support-admin/app/api/admin/models/route.ts](/D:/source/Shahrah/apps/support-admin/app/api/admin/models/route.ts)
 
@@ -60,6 +59,7 @@ Rules for future changes:
 3. Use the repo artifact in PR review to verify that route/path/query/body expectations still match.
 4. If `support-admin` starts consuming a new endpoint, add that endpoint to its README notes.
 5. Do not guess response fields from UI usage; confirm them in the spec.
+6. Never forward a human credential or browser session to `model-discovery`; use `MODEL_DISCOVERY_SERVICE_TOKEN`.
 
 ## Control Plane Rules
 

@@ -3,6 +3,7 @@
 
 generator client {
   provider = "prisma-client-js"
+  output   = "../generated/prisma"
 }
 
 datasource db {
@@ -15,12 +16,51 @@ datasource db {
 // Support Admin-specific models can be added here
 
 model SupportAdminUser {
-  id          String    @id @default(cuid())
-  email       String?   @unique
-  role        String    @default("support_agent")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  lastLoginAt DateTime?
+  id               String    @id @default(cuid())
+  email            String    @unique
+  passwordHash     String
+  role             String    @default("support_agent")
+  status           String    @default("active")
+  failedLoginCount Int       @default(0)
+  lockedUntil      DateTime?
+  passwordChangedAt DateTime @default(now())
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  lastLoginAt      DateTime?
+  sessions         SupportAdminSession[]
 
   @@map("support_admin_users")
+}
+
+model SupportAdminSession {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  userId     String
+  expiresAt  DateTime
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  user       SupportAdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("support_admin_sessions")
+}
+
+// Denormalized, eventually-consistent support view. Tenant databases remain the source of truth.
+model SupportTenantProjection {
+  tenantId          String    @id
+  slug              String    @unique
+  displayName       String?
+  status            String
+  plan               String?
+  walletStatus       String?
+  lastActivityAt     DateTime?
+  sourceUpdatedAt    DateTime
+  projectionVersion BigInt
+  projectedAt        DateTime  @default(now())
+  deletedAt          DateTime?
+
+  @@index([status])
+  @@index([lastActivityAt])
+  @@map("support_tenant_projections")
 }

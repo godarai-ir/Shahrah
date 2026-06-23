@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 
-import { getAdminTokenFromCookie } from '@/lib/admin-auth';
+import { requireAdminSession } from '@/lib/admin-auth';
+import { isSameOriginRequest } from '@/lib/server/request-security';
 
 type RouteContext = {
   params: Promise<{ path?: string[] }>;
@@ -13,6 +15,7 @@ export async function GET(_request: Request, context: RouteContext) {
 }
 
 export async function POST(request: Request, context: RouteContext) {
+  if (!isSameOriginRequest(request)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   return proxyControlPlanePlatform(context, {
     method: 'POST',
     body: await request.text(),
@@ -21,6 +24,7 @@ export async function POST(request: Request, context: RouteContext) {
 }
 
 export async function PUT(request: Request, context: RouteContext) {
+  if (!isSameOriginRequest(request)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   return proxyControlPlanePlatform(context, {
     method: 'PUT',
     body: await request.text(),
@@ -28,7 +32,8 @@ export async function PUT(request: Request, context: RouteContext) {
   });
 }
 
-export async function DELETE(_request: Request, context: RouteContext) {
+export async function DELETE(request: Request, context: RouteContext) {
+  if (!isSameOriginRequest(request)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   return proxyControlPlanePlatform(context, { method: 'DELETE' });
 }
 
@@ -36,14 +41,14 @@ async function proxyControlPlanePlatform(
   context: RouteContext,
   init: { method: 'GET' | 'POST' | 'PUT' | 'DELETE'; body?: string; contentType?: string },
 ) {
-  const adminToken = await getAdminTokenFromCookie();
-  if (!adminToken) {
+  const session = await requireAdminSession('platform:admin');
+  if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const masterKey = process.env.SHAHRAH_MASTER_KEY ?? process.env.MASTER_KEY;
-  if (!masterKey) {
-    return NextResponse.json({ error: 'SHAHRAH_MASTER_KEY or MASTER_KEY is required.' }, { status: 500 });
+  const serviceToken = process.env.CONTROL_PLANE_SERVICE_TOKEN;
+  if (!serviceToken) {
+    return NextResponse.json({ error: 'CONTROL_PLANE_SERVICE_TOKEN is required.' }, { status: 503 });
   }
 
   const { path = [] } = await context.params;
@@ -54,7 +59,10 @@ async function proxyControlPlanePlatform(
   const response = await fetch(url, {
     method: init.method,
     headers: {
-      authorization: `Bearer ${masterKey}`,
+      authorization: `Bearer ${serviceToken}`,
+      'x-shahrah-actor-id': session.userId,
+      'x-shahrah-actor-role': session.role,
+      'x-request-id': randomUUID(),
       accept: 'application/json',
       ...(init.body ? { 'content-type': init.contentType ?? 'application/json' } : {}),
     },

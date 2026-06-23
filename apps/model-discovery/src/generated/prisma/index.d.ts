@@ -129,6 +129,16 @@ export type ModelTag = $Result.DefaultSelection<Prisma.$ModelTagPayload>
  */
 export type AuditLog = $Result.DefaultSelection<Prisma.$AuditLogPayload>
 /**
+ * Model ServiceAccount
+ * 
+ */
+export type ServiceAccount = $Result.DefaultSelection<Prisma.$ServiceAccountPayload>
+/**
+ * Model ServiceAccountCredential
+ * 
+ */
+export type ServiceAccountCredential = $Result.DefaultSelection<Prisma.$ServiceAccountCredentialPayload>
+/**
  * Model DisplaySetting
  * 
  */
@@ -532,6 +542,26 @@ export class PrismaClient<
     * ```
     */
   get auditLog(): Prisma.AuditLogDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.serviceAccount`: Exposes CRUD operations for the **ServiceAccount** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more ServiceAccounts
+    * const serviceAccounts = await prisma.serviceAccount.findMany()
+    * ```
+    */
+  get serviceAccount(): Prisma.ServiceAccountDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.serviceAccountCredential`: Exposes CRUD operations for the **ServiceAccountCredential** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more ServiceAccountCredentials
+    * const serviceAccountCredentials = await prisma.serviceAccountCredential.findMany()
+    * ```
+    */
+  get serviceAccountCredential(): Prisma.ServiceAccountCredentialDelegate<ExtArgs, ClientOptions>;
 
   /**
    * `prisma.displaySetting`: Exposes CRUD operations for the **DisplaySetting** model.
@@ -999,6 +1029,8 @@ export namespace Prisma {
     Tag: 'Tag',
     ModelTag: 'ModelTag',
     AuditLog: 'AuditLog',
+    ServiceAccount: 'ServiceAccount',
+    ServiceAccountCredential: 'ServiceAccountCredential',
     DisplaySetting: 'DisplaySetting'
   };
 
@@ -1015,7 +1047,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "provider" | "model" | "modelSeries" | "providerConnectionProfile" | "modelVersion" | "modelPricing" | "capability" | "modelCapability" | "modality" | "modelInputModality" | "modelOutputModality" | "supportedParameter" | "modelSupportedParameter" | "category" | "region" | "modelRegion" | "benchmark" | "modelBenchmark" | "sourceReference" | "modelChangelog" | "tag" | "modelTag" | "auditLog" | "displaySetting"
+      modelProps: "provider" | "model" | "modelSeries" | "providerConnectionProfile" | "modelVersion" | "modelPricing" | "capability" | "modelCapability" | "modality" | "modelInputModality" | "modelOutputModality" | "supportedParameter" | "modelSupportedParameter" | "category" | "region" | "modelRegion" | "benchmark" | "modelBenchmark" | "sourceReference" | "modelChangelog" | "tag" | "modelTag" | "auditLog" | "serviceAccount" | "serviceAccountCredential" | "displaySetting"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -2721,6 +2753,154 @@ export namespace Prisma {
           }
         }
       }
+      ServiceAccount: {
+        payload: Prisma.$ServiceAccountPayload<ExtArgs>
+        fields: Prisma.ServiceAccountFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.ServiceAccountFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ServiceAccountPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.ServiceAccountFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ServiceAccountPayload>
+          }
+          findFirst: {
+            args: Prisma.ServiceAccountFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ServiceAccountPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.ServiceAccountFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ServiceAccountPayload>
+          }
+          findMany: {
+            args: Prisma.ServiceAccountFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ServiceAccountPayload>[]
+          }
+          create: {
+            args: Prisma.ServiceAccountCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ServiceAccountPayload>
+          }
+          createMany: {
+            args: Prisma.ServiceAccountCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.ServiceAccountCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ServiceAccountPayload>[]
+          }
+          delete: {
+            args: Prisma.ServiceAccountDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ServiceAccountPayload>
+          }
+          update: {
+            args: Prisma.ServiceAccountUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ServiceAccountPayload>
+          }
+          deleteMany: {
+            args: Prisma.ServiceAccountDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.ServiceAccountUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.ServiceAccountUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ServiceAccountPayload>[]
+          }
+          upsert: {
+            args: Prisma.ServiceAccountUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ServiceAccountPayload>
+          }
+          aggregate: {
+            args: Prisma.ServiceAccountAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateServiceAccount>
+          }
+          groupBy: {
+            args: Prisma.ServiceAccountGroupByArgs<ExtArgs>
+            result: $Utils.Optional<ServiceAccountGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.ServiceAccountCountArgs<ExtArgs>
+            result: $Utils.Optional<ServiceAccountCountAggregateOutputType> | number
+          }
+        }
+      }
+      ServiceAccountCredential: {
+        payload: Prisma.$ServiceAccountCredentialPayload<ExtArgs>
+        fields: Prisma.ServiceAccountCredentialFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.ServiceAccountCredentialFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ServiceAccountCredentialPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.ServiceAccountCredentialFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ServiceAccountCredentialPayload>
+          }
+          findFirst: {
+            args: Prisma.ServiceAccountCredentialFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ServiceAccountCredentialPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.ServiceAccountCredentialFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ServiceAccountCredentialPayload>
+          }
+          findMany: {
+            args: Prisma.ServiceAccountCredentialFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ServiceAccountCredentialPayload>[]
+          }
+          create: {
+            args: Prisma.ServiceAccountCredentialCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ServiceAccountCredentialPayload>
+          }
+          createMany: {
+            args: Prisma.ServiceAccountCredentialCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.ServiceAccountCredentialCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ServiceAccountCredentialPayload>[]
+          }
+          delete: {
+            args: Prisma.ServiceAccountCredentialDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ServiceAccountCredentialPayload>
+          }
+          update: {
+            args: Prisma.ServiceAccountCredentialUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ServiceAccountCredentialPayload>
+          }
+          deleteMany: {
+            args: Prisma.ServiceAccountCredentialDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.ServiceAccountCredentialUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.ServiceAccountCredentialUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ServiceAccountCredentialPayload>[]
+          }
+          upsert: {
+            args: Prisma.ServiceAccountCredentialUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ServiceAccountCredentialPayload>
+          }
+          aggregate: {
+            args: Prisma.ServiceAccountCredentialAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateServiceAccountCredential>
+          }
+          groupBy: {
+            args: Prisma.ServiceAccountCredentialGroupByArgs<ExtArgs>
+            result: $Utils.Optional<ServiceAccountCredentialGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.ServiceAccountCredentialCountArgs<ExtArgs>
+            result: $Utils.Optional<ServiceAccountCredentialCountAggregateOutputType> | number
+          }
+        }
+      }
       DisplaySetting: {
         payload: Prisma.$DisplaySettingPayload<ExtArgs>
         fields: Prisma.DisplaySettingFieldRefs
@@ -2926,6 +3106,8 @@ export namespace Prisma {
     tag?: TagOmit
     modelTag?: ModelTagOmit
     auditLog?: AuditLogOmit
+    serviceAccount?: ServiceAccountOmit
+    serviceAccountCredential?: ServiceAccountCredentialOmit
     displaySetting?: DisplaySettingOmit
   }
 
@@ -3417,6 +3599,37 @@ export namespace Prisma {
    */
   export type TagCountOutputTypeCountModelsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: ModelTagWhereInput
+  }
+
+
+  /**
+   * Count Type ServiceAccountCountOutputType
+   */
+
+  export type ServiceAccountCountOutputType = {
+    credentials: number
+  }
+
+  export type ServiceAccountCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    credentials?: boolean | ServiceAccountCountOutputTypeCountCredentialsArgs
+  }
+
+  // Custom InputTypes
+  /**
+   * ServiceAccountCountOutputType without action
+   */
+  export type ServiceAccountCountOutputTypeDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccountCountOutputType
+     */
+    select?: ServiceAccountCountOutputTypeSelect<ExtArgs> | null
+  }
+
+  /**
+   * ServiceAccountCountOutputType without action
+   */
+  export type ServiceAccountCountOutputTypeCountCredentialsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: ServiceAccountCredentialWhereInput
   }
 
 
@@ -28031,6 +28244,9 @@ export namespace Prisma {
     entityId: string | null
     action: string | null
     actorId: string | null
+    actorRole: string | null
+    serviceAccountId: string | null
+    requestId: string | null
     createdAt: Date | null
   }
 
@@ -28040,6 +28256,9 @@ export namespace Prisma {
     entityId: string | null
     action: string | null
     actorId: string | null
+    actorRole: string | null
+    serviceAccountId: string | null
+    requestId: string | null
     createdAt: Date | null
   }
 
@@ -28051,6 +28270,9 @@ export namespace Prisma {
     beforeJson: number
     afterJson: number
     actorId: number
+    actorRole: number
+    serviceAccountId: number
+    requestId: number
     createdAt: number
     _all: number
   }
@@ -28062,6 +28284,9 @@ export namespace Prisma {
     entityId?: true
     action?: true
     actorId?: true
+    actorRole?: true
+    serviceAccountId?: true
+    requestId?: true
     createdAt?: true
   }
 
@@ -28071,6 +28296,9 @@ export namespace Prisma {
     entityId?: true
     action?: true
     actorId?: true
+    actorRole?: true
+    serviceAccountId?: true
+    requestId?: true
     createdAt?: true
   }
 
@@ -28082,6 +28310,9 @@ export namespace Prisma {
     beforeJson?: true
     afterJson?: true
     actorId?: true
+    actorRole?: true
+    serviceAccountId?: true
+    requestId?: true
     createdAt?: true
     _all?: true
   }
@@ -28166,6 +28397,9 @@ export namespace Prisma {
     beforeJson: JsonValue | null
     afterJson: JsonValue | null
     actorId: string | null
+    actorRole: string | null
+    serviceAccountId: string | null
+    requestId: string | null
     createdAt: Date
     _count: AuditLogCountAggregateOutputType | null
     _min: AuditLogMinAggregateOutputType | null
@@ -28194,6 +28428,9 @@ export namespace Prisma {
     beforeJson?: boolean
     afterJson?: boolean
     actorId?: boolean
+    actorRole?: boolean
+    serviceAccountId?: boolean
+    requestId?: boolean
     createdAt?: boolean
   }, ExtArgs["result"]["auditLog"]>
 
@@ -28205,6 +28442,9 @@ export namespace Prisma {
     beforeJson?: boolean
     afterJson?: boolean
     actorId?: boolean
+    actorRole?: boolean
+    serviceAccountId?: boolean
+    requestId?: boolean
     createdAt?: boolean
   }, ExtArgs["result"]["auditLog"]>
 
@@ -28216,6 +28456,9 @@ export namespace Prisma {
     beforeJson?: boolean
     afterJson?: boolean
     actorId?: boolean
+    actorRole?: boolean
+    serviceAccountId?: boolean
+    requestId?: boolean
     createdAt?: boolean
   }, ExtArgs["result"]["auditLog"]>
 
@@ -28227,10 +28470,13 @@ export namespace Prisma {
     beforeJson?: boolean
     afterJson?: boolean
     actorId?: boolean
+    actorRole?: boolean
+    serviceAccountId?: boolean
+    requestId?: boolean
     createdAt?: boolean
   }
 
-  export type AuditLogOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "entityType" | "entityId" | "action" | "beforeJson" | "afterJson" | "actorId" | "createdAt", ExtArgs["result"]["auditLog"]>
+  export type AuditLogOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "entityType" | "entityId" | "action" | "beforeJson" | "afterJson" | "actorId" | "actorRole" | "serviceAccountId" | "requestId" | "createdAt", ExtArgs["result"]["auditLog"]>
 
   export type $AuditLogPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "AuditLog"
@@ -28243,6 +28489,9 @@ export namespace Prisma {
       beforeJson: Prisma.JsonValue | null
       afterJson: Prisma.JsonValue | null
       actorId: string | null
+      actorRole: string | null
+      serviceAccountId: string | null
+      requestId: string | null
       createdAt: Date
     }, ExtArgs["result"]["auditLog"]>
     composites: {}
@@ -28674,6 +28923,9 @@ export namespace Prisma {
     readonly beforeJson: FieldRef<"AuditLog", 'Json'>
     readonly afterJson: FieldRef<"AuditLog", 'Json'>
     readonly actorId: FieldRef<"AuditLog", 'String'>
+    readonly actorRole: FieldRef<"AuditLog", 'String'>
+    readonly serviceAccountId: FieldRef<"AuditLog", 'String'>
+    readonly requestId: FieldRef<"AuditLog", 'String'>
     readonly createdAt: FieldRef<"AuditLog", 'DateTime'>
   }
     
@@ -29043,6 +29295,2179 @@ export namespace Prisma {
      * Omit specific fields from the AuditLog
      */
     omit?: AuditLogOmit<ExtArgs> | null
+  }
+
+
+  /**
+   * Model ServiceAccount
+   */
+
+  export type AggregateServiceAccount = {
+    _count: ServiceAccountCountAggregateOutputType | null
+    _min: ServiceAccountMinAggregateOutputType | null
+    _max: ServiceAccountMaxAggregateOutputType | null
+  }
+
+  export type ServiceAccountMinAggregateOutputType = {
+    id: string | null
+    name: string | null
+    active: boolean | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type ServiceAccountMaxAggregateOutputType = {
+    id: string | null
+    name: string | null
+    active: boolean | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type ServiceAccountCountAggregateOutputType = {
+    id: number
+    name: number
+    scopes: number
+    active: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type ServiceAccountMinAggregateInputType = {
+    id?: true
+    name?: true
+    active?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type ServiceAccountMaxAggregateInputType = {
+    id?: true
+    name?: true
+    active?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type ServiceAccountCountAggregateInputType = {
+    id?: true
+    name?: true
+    scopes?: true
+    active?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type ServiceAccountAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which ServiceAccount to aggregate.
+     */
+    where?: ServiceAccountWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ServiceAccounts to fetch.
+     */
+    orderBy?: ServiceAccountOrderByWithRelationInput | ServiceAccountOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: ServiceAccountWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ServiceAccounts from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ServiceAccounts.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned ServiceAccounts
+    **/
+    _count?: true | ServiceAccountCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: ServiceAccountMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: ServiceAccountMaxAggregateInputType
+  }
+
+  export type GetServiceAccountAggregateType<T extends ServiceAccountAggregateArgs> = {
+        [P in keyof T & keyof AggregateServiceAccount]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateServiceAccount[P]>
+      : GetScalarType<T[P], AggregateServiceAccount[P]>
+  }
+
+
+
+
+  export type ServiceAccountGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: ServiceAccountWhereInput
+    orderBy?: ServiceAccountOrderByWithAggregationInput | ServiceAccountOrderByWithAggregationInput[]
+    by: ServiceAccountScalarFieldEnum[] | ServiceAccountScalarFieldEnum
+    having?: ServiceAccountScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: ServiceAccountCountAggregateInputType | true
+    _min?: ServiceAccountMinAggregateInputType
+    _max?: ServiceAccountMaxAggregateInputType
+  }
+
+  export type ServiceAccountGroupByOutputType = {
+    id: string
+    name: string
+    scopes: string[]
+    active: boolean
+    createdAt: Date
+    updatedAt: Date
+    _count: ServiceAccountCountAggregateOutputType | null
+    _min: ServiceAccountMinAggregateOutputType | null
+    _max: ServiceAccountMaxAggregateOutputType | null
+  }
+
+  type GetServiceAccountGroupByPayload<T extends ServiceAccountGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<ServiceAccountGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof ServiceAccountGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], ServiceAccountGroupByOutputType[P]>
+            : GetScalarType<T[P], ServiceAccountGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type ServiceAccountSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    name?: boolean
+    scopes?: boolean
+    active?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    credentials?: boolean | ServiceAccount$credentialsArgs<ExtArgs>
+    _count?: boolean | ServiceAccountCountOutputTypeDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["serviceAccount"]>
+
+  export type ServiceAccountSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    name?: boolean
+    scopes?: boolean
+    active?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["serviceAccount"]>
+
+  export type ServiceAccountSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    name?: boolean
+    scopes?: boolean
+    active?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["serviceAccount"]>
+
+  export type ServiceAccountSelectScalar = {
+    id?: boolean
+    name?: boolean
+    scopes?: boolean
+    active?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type ServiceAccountOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "scopes" | "active" | "createdAt" | "updatedAt", ExtArgs["result"]["serviceAccount"]>
+  export type ServiceAccountInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    credentials?: boolean | ServiceAccount$credentialsArgs<ExtArgs>
+    _count?: boolean | ServiceAccountCountOutputTypeDefaultArgs<ExtArgs>
+  }
+  export type ServiceAccountIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {}
+  export type ServiceAccountIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {}
+
+  export type $ServiceAccountPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "ServiceAccount"
+    objects: {
+      credentials: Prisma.$ServiceAccountCredentialPayload<ExtArgs>[]
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      name: string
+      scopes: string[]
+      active: boolean
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["serviceAccount"]>
+    composites: {}
+  }
+
+  type ServiceAccountGetPayload<S extends boolean | null | undefined | ServiceAccountDefaultArgs> = $Result.GetResult<Prisma.$ServiceAccountPayload, S>
+
+  type ServiceAccountCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<ServiceAccountFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: ServiceAccountCountAggregateInputType | true
+    }
+
+  export interface ServiceAccountDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['ServiceAccount'], meta: { name: 'ServiceAccount' } }
+    /**
+     * Find zero or one ServiceAccount that matches the filter.
+     * @param {ServiceAccountFindUniqueArgs} args - Arguments to find a ServiceAccount
+     * @example
+     * // Get one ServiceAccount
+     * const serviceAccount = await prisma.serviceAccount.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends ServiceAccountFindUniqueArgs>(args: SelectSubset<T, ServiceAccountFindUniqueArgs<ExtArgs>>): Prisma__ServiceAccountClient<$Result.GetResult<Prisma.$ServiceAccountPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one ServiceAccount that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {ServiceAccountFindUniqueOrThrowArgs} args - Arguments to find a ServiceAccount
+     * @example
+     * // Get one ServiceAccount
+     * const serviceAccount = await prisma.serviceAccount.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends ServiceAccountFindUniqueOrThrowArgs>(args: SelectSubset<T, ServiceAccountFindUniqueOrThrowArgs<ExtArgs>>): Prisma__ServiceAccountClient<$Result.GetResult<Prisma.$ServiceAccountPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first ServiceAccount that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ServiceAccountFindFirstArgs} args - Arguments to find a ServiceAccount
+     * @example
+     * // Get one ServiceAccount
+     * const serviceAccount = await prisma.serviceAccount.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends ServiceAccountFindFirstArgs>(args?: SelectSubset<T, ServiceAccountFindFirstArgs<ExtArgs>>): Prisma__ServiceAccountClient<$Result.GetResult<Prisma.$ServiceAccountPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first ServiceAccount that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ServiceAccountFindFirstOrThrowArgs} args - Arguments to find a ServiceAccount
+     * @example
+     * // Get one ServiceAccount
+     * const serviceAccount = await prisma.serviceAccount.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends ServiceAccountFindFirstOrThrowArgs>(args?: SelectSubset<T, ServiceAccountFindFirstOrThrowArgs<ExtArgs>>): Prisma__ServiceAccountClient<$Result.GetResult<Prisma.$ServiceAccountPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more ServiceAccounts that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ServiceAccountFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all ServiceAccounts
+     * const serviceAccounts = await prisma.serviceAccount.findMany()
+     * 
+     * // Get first 10 ServiceAccounts
+     * const serviceAccounts = await prisma.serviceAccount.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const serviceAccountWithIdOnly = await prisma.serviceAccount.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends ServiceAccountFindManyArgs>(args?: SelectSubset<T, ServiceAccountFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ServiceAccountPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a ServiceAccount.
+     * @param {ServiceAccountCreateArgs} args - Arguments to create a ServiceAccount.
+     * @example
+     * // Create one ServiceAccount
+     * const ServiceAccount = await prisma.serviceAccount.create({
+     *   data: {
+     *     // ... data to create a ServiceAccount
+     *   }
+     * })
+     * 
+     */
+    create<T extends ServiceAccountCreateArgs>(args: SelectSubset<T, ServiceAccountCreateArgs<ExtArgs>>): Prisma__ServiceAccountClient<$Result.GetResult<Prisma.$ServiceAccountPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many ServiceAccounts.
+     * @param {ServiceAccountCreateManyArgs} args - Arguments to create many ServiceAccounts.
+     * @example
+     * // Create many ServiceAccounts
+     * const serviceAccount = await prisma.serviceAccount.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends ServiceAccountCreateManyArgs>(args?: SelectSubset<T, ServiceAccountCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many ServiceAccounts and returns the data saved in the database.
+     * @param {ServiceAccountCreateManyAndReturnArgs} args - Arguments to create many ServiceAccounts.
+     * @example
+     * // Create many ServiceAccounts
+     * const serviceAccount = await prisma.serviceAccount.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many ServiceAccounts and only return the `id`
+     * const serviceAccountWithIdOnly = await prisma.serviceAccount.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends ServiceAccountCreateManyAndReturnArgs>(args?: SelectSubset<T, ServiceAccountCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ServiceAccountPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a ServiceAccount.
+     * @param {ServiceAccountDeleteArgs} args - Arguments to delete one ServiceAccount.
+     * @example
+     * // Delete one ServiceAccount
+     * const ServiceAccount = await prisma.serviceAccount.delete({
+     *   where: {
+     *     // ... filter to delete one ServiceAccount
+     *   }
+     * })
+     * 
+     */
+    delete<T extends ServiceAccountDeleteArgs>(args: SelectSubset<T, ServiceAccountDeleteArgs<ExtArgs>>): Prisma__ServiceAccountClient<$Result.GetResult<Prisma.$ServiceAccountPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one ServiceAccount.
+     * @param {ServiceAccountUpdateArgs} args - Arguments to update one ServiceAccount.
+     * @example
+     * // Update one ServiceAccount
+     * const serviceAccount = await prisma.serviceAccount.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends ServiceAccountUpdateArgs>(args: SelectSubset<T, ServiceAccountUpdateArgs<ExtArgs>>): Prisma__ServiceAccountClient<$Result.GetResult<Prisma.$ServiceAccountPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more ServiceAccounts.
+     * @param {ServiceAccountDeleteManyArgs} args - Arguments to filter ServiceAccounts to delete.
+     * @example
+     * // Delete a few ServiceAccounts
+     * const { count } = await prisma.serviceAccount.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends ServiceAccountDeleteManyArgs>(args?: SelectSubset<T, ServiceAccountDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more ServiceAccounts.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ServiceAccountUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many ServiceAccounts
+     * const serviceAccount = await prisma.serviceAccount.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends ServiceAccountUpdateManyArgs>(args: SelectSubset<T, ServiceAccountUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more ServiceAccounts and returns the data updated in the database.
+     * @param {ServiceAccountUpdateManyAndReturnArgs} args - Arguments to update many ServiceAccounts.
+     * @example
+     * // Update many ServiceAccounts
+     * const serviceAccount = await prisma.serviceAccount.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more ServiceAccounts and only return the `id`
+     * const serviceAccountWithIdOnly = await prisma.serviceAccount.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends ServiceAccountUpdateManyAndReturnArgs>(args: SelectSubset<T, ServiceAccountUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ServiceAccountPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one ServiceAccount.
+     * @param {ServiceAccountUpsertArgs} args - Arguments to update or create a ServiceAccount.
+     * @example
+     * // Update or create a ServiceAccount
+     * const serviceAccount = await prisma.serviceAccount.upsert({
+     *   create: {
+     *     // ... data to create a ServiceAccount
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the ServiceAccount we want to update
+     *   }
+     * })
+     */
+    upsert<T extends ServiceAccountUpsertArgs>(args: SelectSubset<T, ServiceAccountUpsertArgs<ExtArgs>>): Prisma__ServiceAccountClient<$Result.GetResult<Prisma.$ServiceAccountPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of ServiceAccounts.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ServiceAccountCountArgs} args - Arguments to filter ServiceAccounts to count.
+     * @example
+     * // Count the number of ServiceAccounts
+     * const count = await prisma.serviceAccount.count({
+     *   where: {
+     *     // ... the filter for the ServiceAccounts we want to count
+     *   }
+     * })
+    **/
+    count<T extends ServiceAccountCountArgs>(
+      args?: Subset<T, ServiceAccountCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], ServiceAccountCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a ServiceAccount.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ServiceAccountAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends ServiceAccountAggregateArgs>(args: Subset<T, ServiceAccountAggregateArgs>): Prisma.PrismaPromise<GetServiceAccountAggregateType<T>>
+
+    /**
+     * Group by ServiceAccount.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ServiceAccountGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends ServiceAccountGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: ServiceAccountGroupByArgs['orderBy'] }
+        : { orderBy?: ServiceAccountGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, ServiceAccountGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetServiceAccountGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the ServiceAccount model
+   */
+  readonly fields: ServiceAccountFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for ServiceAccount.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__ServiceAccountClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    credentials<T extends ServiceAccount$credentialsArgs<ExtArgs> = {}>(args?: Subset<T, ServiceAccount$credentialsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ServiceAccountCredentialPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the ServiceAccount model
+   */
+  interface ServiceAccountFieldRefs {
+    readonly id: FieldRef<"ServiceAccount", 'String'>
+    readonly name: FieldRef<"ServiceAccount", 'String'>
+    readonly scopes: FieldRef<"ServiceAccount", 'String[]'>
+    readonly active: FieldRef<"ServiceAccount", 'Boolean'>
+    readonly createdAt: FieldRef<"ServiceAccount", 'DateTime'>
+    readonly updatedAt: FieldRef<"ServiceAccount", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * ServiceAccount findUnique
+   */
+  export type ServiceAccountFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccount
+     */
+    select?: ServiceAccountSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ServiceAccount
+     */
+    omit?: ServiceAccountOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ServiceAccountInclude<ExtArgs> | null
+    /**
+     * Filter, which ServiceAccount to fetch.
+     */
+    where: ServiceAccountWhereUniqueInput
+  }
+
+  /**
+   * ServiceAccount findUniqueOrThrow
+   */
+  export type ServiceAccountFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccount
+     */
+    select?: ServiceAccountSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ServiceAccount
+     */
+    omit?: ServiceAccountOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ServiceAccountInclude<ExtArgs> | null
+    /**
+     * Filter, which ServiceAccount to fetch.
+     */
+    where: ServiceAccountWhereUniqueInput
+  }
+
+  /**
+   * ServiceAccount findFirst
+   */
+  export type ServiceAccountFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccount
+     */
+    select?: ServiceAccountSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ServiceAccount
+     */
+    omit?: ServiceAccountOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ServiceAccountInclude<ExtArgs> | null
+    /**
+     * Filter, which ServiceAccount to fetch.
+     */
+    where?: ServiceAccountWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ServiceAccounts to fetch.
+     */
+    orderBy?: ServiceAccountOrderByWithRelationInput | ServiceAccountOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for ServiceAccounts.
+     */
+    cursor?: ServiceAccountWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ServiceAccounts from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ServiceAccounts.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of ServiceAccounts.
+     */
+    distinct?: ServiceAccountScalarFieldEnum | ServiceAccountScalarFieldEnum[]
+  }
+
+  /**
+   * ServiceAccount findFirstOrThrow
+   */
+  export type ServiceAccountFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccount
+     */
+    select?: ServiceAccountSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ServiceAccount
+     */
+    omit?: ServiceAccountOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ServiceAccountInclude<ExtArgs> | null
+    /**
+     * Filter, which ServiceAccount to fetch.
+     */
+    where?: ServiceAccountWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ServiceAccounts to fetch.
+     */
+    orderBy?: ServiceAccountOrderByWithRelationInput | ServiceAccountOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for ServiceAccounts.
+     */
+    cursor?: ServiceAccountWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ServiceAccounts from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ServiceAccounts.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of ServiceAccounts.
+     */
+    distinct?: ServiceAccountScalarFieldEnum | ServiceAccountScalarFieldEnum[]
+  }
+
+  /**
+   * ServiceAccount findMany
+   */
+  export type ServiceAccountFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccount
+     */
+    select?: ServiceAccountSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ServiceAccount
+     */
+    omit?: ServiceAccountOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ServiceAccountInclude<ExtArgs> | null
+    /**
+     * Filter, which ServiceAccounts to fetch.
+     */
+    where?: ServiceAccountWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ServiceAccounts to fetch.
+     */
+    orderBy?: ServiceAccountOrderByWithRelationInput | ServiceAccountOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing ServiceAccounts.
+     */
+    cursor?: ServiceAccountWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ServiceAccounts from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ServiceAccounts.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of ServiceAccounts.
+     */
+    distinct?: ServiceAccountScalarFieldEnum | ServiceAccountScalarFieldEnum[]
+  }
+
+  /**
+   * ServiceAccount create
+   */
+  export type ServiceAccountCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccount
+     */
+    select?: ServiceAccountSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ServiceAccount
+     */
+    omit?: ServiceAccountOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ServiceAccountInclude<ExtArgs> | null
+    /**
+     * The data needed to create a ServiceAccount.
+     */
+    data: XOR<ServiceAccountCreateInput, ServiceAccountUncheckedCreateInput>
+  }
+
+  /**
+   * ServiceAccount createMany
+   */
+  export type ServiceAccountCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many ServiceAccounts.
+     */
+    data: ServiceAccountCreateManyInput | ServiceAccountCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * ServiceAccount createManyAndReturn
+   */
+  export type ServiceAccountCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccount
+     */
+    select?: ServiceAccountSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the ServiceAccount
+     */
+    omit?: ServiceAccountOmit<ExtArgs> | null
+    /**
+     * The data used to create many ServiceAccounts.
+     */
+    data: ServiceAccountCreateManyInput | ServiceAccountCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * ServiceAccount update
+   */
+  export type ServiceAccountUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccount
+     */
+    select?: ServiceAccountSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ServiceAccount
+     */
+    omit?: ServiceAccountOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ServiceAccountInclude<ExtArgs> | null
+    /**
+     * The data needed to update a ServiceAccount.
+     */
+    data: XOR<ServiceAccountUpdateInput, ServiceAccountUncheckedUpdateInput>
+    /**
+     * Choose, which ServiceAccount to update.
+     */
+    where: ServiceAccountWhereUniqueInput
+  }
+
+  /**
+   * ServiceAccount updateMany
+   */
+  export type ServiceAccountUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update ServiceAccounts.
+     */
+    data: XOR<ServiceAccountUpdateManyMutationInput, ServiceAccountUncheckedUpdateManyInput>
+    /**
+     * Filter which ServiceAccounts to update
+     */
+    where?: ServiceAccountWhereInput
+    /**
+     * Limit how many ServiceAccounts to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * ServiceAccount updateManyAndReturn
+   */
+  export type ServiceAccountUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccount
+     */
+    select?: ServiceAccountSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the ServiceAccount
+     */
+    omit?: ServiceAccountOmit<ExtArgs> | null
+    /**
+     * The data used to update ServiceAccounts.
+     */
+    data: XOR<ServiceAccountUpdateManyMutationInput, ServiceAccountUncheckedUpdateManyInput>
+    /**
+     * Filter which ServiceAccounts to update
+     */
+    where?: ServiceAccountWhereInput
+    /**
+     * Limit how many ServiceAccounts to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * ServiceAccount upsert
+   */
+  export type ServiceAccountUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccount
+     */
+    select?: ServiceAccountSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ServiceAccount
+     */
+    omit?: ServiceAccountOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ServiceAccountInclude<ExtArgs> | null
+    /**
+     * The filter to search for the ServiceAccount to update in case it exists.
+     */
+    where: ServiceAccountWhereUniqueInput
+    /**
+     * In case the ServiceAccount found by the `where` argument doesn't exist, create a new ServiceAccount with this data.
+     */
+    create: XOR<ServiceAccountCreateInput, ServiceAccountUncheckedCreateInput>
+    /**
+     * In case the ServiceAccount was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<ServiceAccountUpdateInput, ServiceAccountUncheckedUpdateInput>
+  }
+
+  /**
+   * ServiceAccount delete
+   */
+  export type ServiceAccountDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccount
+     */
+    select?: ServiceAccountSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ServiceAccount
+     */
+    omit?: ServiceAccountOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ServiceAccountInclude<ExtArgs> | null
+    /**
+     * Filter which ServiceAccount to delete.
+     */
+    where: ServiceAccountWhereUniqueInput
+  }
+
+  /**
+   * ServiceAccount deleteMany
+   */
+  export type ServiceAccountDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which ServiceAccounts to delete
+     */
+    where?: ServiceAccountWhereInput
+    /**
+     * Limit how many ServiceAccounts to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * ServiceAccount.credentials
+   */
+  export type ServiceAccount$credentialsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccountCredential
+     */
+    select?: ServiceAccountCredentialSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ServiceAccountCredential
+     */
+    omit?: ServiceAccountCredentialOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ServiceAccountCredentialInclude<ExtArgs> | null
+    where?: ServiceAccountCredentialWhereInput
+    orderBy?: ServiceAccountCredentialOrderByWithRelationInput | ServiceAccountCredentialOrderByWithRelationInput[]
+    cursor?: ServiceAccountCredentialWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: ServiceAccountCredentialScalarFieldEnum | ServiceAccountCredentialScalarFieldEnum[]
+  }
+
+  /**
+   * ServiceAccount without action
+   */
+  export type ServiceAccountDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccount
+     */
+    select?: ServiceAccountSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ServiceAccount
+     */
+    omit?: ServiceAccountOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ServiceAccountInclude<ExtArgs> | null
+  }
+
+
+  /**
+   * Model ServiceAccountCredential
+   */
+
+  export type AggregateServiceAccountCredential = {
+    _count: ServiceAccountCredentialCountAggregateOutputType | null
+    _min: ServiceAccountCredentialMinAggregateOutputType | null
+    _max: ServiceAccountCredentialMaxAggregateOutputType | null
+  }
+
+  export type ServiceAccountCredentialMinAggregateOutputType = {
+    id: string | null
+    serviceAccountId: string | null
+    secretHash: string | null
+    expiresAt: Date | null
+    revokedAt: Date | null
+    lastUsedAt: Date | null
+    createdAt: Date | null
+  }
+
+  export type ServiceAccountCredentialMaxAggregateOutputType = {
+    id: string | null
+    serviceAccountId: string | null
+    secretHash: string | null
+    expiresAt: Date | null
+    revokedAt: Date | null
+    lastUsedAt: Date | null
+    createdAt: Date | null
+  }
+
+  export type ServiceAccountCredentialCountAggregateOutputType = {
+    id: number
+    serviceAccountId: number
+    secretHash: number
+    expiresAt: number
+    revokedAt: number
+    lastUsedAt: number
+    createdAt: number
+    _all: number
+  }
+
+
+  export type ServiceAccountCredentialMinAggregateInputType = {
+    id?: true
+    serviceAccountId?: true
+    secretHash?: true
+    expiresAt?: true
+    revokedAt?: true
+    lastUsedAt?: true
+    createdAt?: true
+  }
+
+  export type ServiceAccountCredentialMaxAggregateInputType = {
+    id?: true
+    serviceAccountId?: true
+    secretHash?: true
+    expiresAt?: true
+    revokedAt?: true
+    lastUsedAt?: true
+    createdAt?: true
+  }
+
+  export type ServiceAccountCredentialCountAggregateInputType = {
+    id?: true
+    serviceAccountId?: true
+    secretHash?: true
+    expiresAt?: true
+    revokedAt?: true
+    lastUsedAt?: true
+    createdAt?: true
+    _all?: true
+  }
+
+  export type ServiceAccountCredentialAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which ServiceAccountCredential to aggregate.
+     */
+    where?: ServiceAccountCredentialWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ServiceAccountCredentials to fetch.
+     */
+    orderBy?: ServiceAccountCredentialOrderByWithRelationInput | ServiceAccountCredentialOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: ServiceAccountCredentialWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ServiceAccountCredentials from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ServiceAccountCredentials.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned ServiceAccountCredentials
+    **/
+    _count?: true | ServiceAccountCredentialCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: ServiceAccountCredentialMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: ServiceAccountCredentialMaxAggregateInputType
+  }
+
+  export type GetServiceAccountCredentialAggregateType<T extends ServiceAccountCredentialAggregateArgs> = {
+        [P in keyof T & keyof AggregateServiceAccountCredential]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateServiceAccountCredential[P]>
+      : GetScalarType<T[P], AggregateServiceAccountCredential[P]>
+  }
+
+
+
+
+  export type ServiceAccountCredentialGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: ServiceAccountCredentialWhereInput
+    orderBy?: ServiceAccountCredentialOrderByWithAggregationInput | ServiceAccountCredentialOrderByWithAggregationInput[]
+    by: ServiceAccountCredentialScalarFieldEnum[] | ServiceAccountCredentialScalarFieldEnum
+    having?: ServiceAccountCredentialScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: ServiceAccountCredentialCountAggregateInputType | true
+    _min?: ServiceAccountCredentialMinAggregateInputType
+    _max?: ServiceAccountCredentialMaxAggregateInputType
+  }
+
+  export type ServiceAccountCredentialGroupByOutputType = {
+    id: string
+    serviceAccountId: string
+    secretHash: string
+    expiresAt: Date | null
+    revokedAt: Date | null
+    lastUsedAt: Date | null
+    createdAt: Date
+    _count: ServiceAccountCredentialCountAggregateOutputType | null
+    _min: ServiceAccountCredentialMinAggregateOutputType | null
+    _max: ServiceAccountCredentialMaxAggregateOutputType | null
+  }
+
+  type GetServiceAccountCredentialGroupByPayload<T extends ServiceAccountCredentialGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<ServiceAccountCredentialGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof ServiceAccountCredentialGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], ServiceAccountCredentialGroupByOutputType[P]>
+            : GetScalarType<T[P], ServiceAccountCredentialGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type ServiceAccountCredentialSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    serviceAccountId?: boolean
+    secretHash?: boolean
+    expiresAt?: boolean
+    revokedAt?: boolean
+    lastUsedAt?: boolean
+    createdAt?: boolean
+    serviceAccount?: boolean | ServiceAccountDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["serviceAccountCredential"]>
+
+  export type ServiceAccountCredentialSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    serviceAccountId?: boolean
+    secretHash?: boolean
+    expiresAt?: boolean
+    revokedAt?: boolean
+    lastUsedAt?: boolean
+    createdAt?: boolean
+    serviceAccount?: boolean | ServiceAccountDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["serviceAccountCredential"]>
+
+  export type ServiceAccountCredentialSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    serviceAccountId?: boolean
+    secretHash?: boolean
+    expiresAt?: boolean
+    revokedAt?: boolean
+    lastUsedAt?: boolean
+    createdAt?: boolean
+    serviceAccount?: boolean | ServiceAccountDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["serviceAccountCredential"]>
+
+  export type ServiceAccountCredentialSelectScalar = {
+    id?: boolean
+    serviceAccountId?: boolean
+    secretHash?: boolean
+    expiresAt?: boolean
+    revokedAt?: boolean
+    lastUsedAt?: boolean
+    createdAt?: boolean
+  }
+
+  export type ServiceAccountCredentialOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "serviceAccountId" | "secretHash" | "expiresAt" | "revokedAt" | "lastUsedAt" | "createdAt", ExtArgs["result"]["serviceAccountCredential"]>
+  export type ServiceAccountCredentialInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    serviceAccount?: boolean | ServiceAccountDefaultArgs<ExtArgs>
+  }
+  export type ServiceAccountCredentialIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    serviceAccount?: boolean | ServiceAccountDefaultArgs<ExtArgs>
+  }
+  export type ServiceAccountCredentialIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    serviceAccount?: boolean | ServiceAccountDefaultArgs<ExtArgs>
+  }
+
+  export type $ServiceAccountCredentialPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "ServiceAccountCredential"
+    objects: {
+      serviceAccount: Prisma.$ServiceAccountPayload<ExtArgs>
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      serviceAccountId: string
+      secretHash: string
+      expiresAt: Date | null
+      revokedAt: Date | null
+      lastUsedAt: Date | null
+      createdAt: Date
+    }, ExtArgs["result"]["serviceAccountCredential"]>
+    composites: {}
+  }
+
+  type ServiceAccountCredentialGetPayload<S extends boolean | null | undefined | ServiceAccountCredentialDefaultArgs> = $Result.GetResult<Prisma.$ServiceAccountCredentialPayload, S>
+
+  type ServiceAccountCredentialCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<ServiceAccountCredentialFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: ServiceAccountCredentialCountAggregateInputType | true
+    }
+
+  export interface ServiceAccountCredentialDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['ServiceAccountCredential'], meta: { name: 'ServiceAccountCredential' } }
+    /**
+     * Find zero or one ServiceAccountCredential that matches the filter.
+     * @param {ServiceAccountCredentialFindUniqueArgs} args - Arguments to find a ServiceAccountCredential
+     * @example
+     * // Get one ServiceAccountCredential
+     * const serviceAccountCredential = await prisma.serviceAccountCredential.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends ServiceAccountCredentialFindUniqueArgs>(args: SelectSubset<T, ServiceAccountCredentialFindUniqueArgs<ExtArgs>>): Prisma__ServiceAccountCredentialClient<$Result.GetResult<Prisma.$ServiceAccountCredentialPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one ServiceAccountCredential that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {ServiceAccountCredentialFindUniqueOrThrowArgs} args - Arguments to find a ServiceAccountCredential
+     * @example
+     * // Get one ServiceAccountCredential
+     * const serviceAccountCredential = await prisma.serviceAccountCredential.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends ServiceAccountCredentialFindUniqueOrThrowArgs>(args: SelectSubset<T, ServiceAccountCredentialFindUniqueOrThrowArgs<ExtArgs>>): Prisma__ServiceAccountCredentialClient<$Result.GetResult<Prisma.$ServiceAccountCredentialPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first ServiceAccountCredential that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ServiceAccountCredentialFindFirstArgs} args - Arguments to find a ServiceAccountCredential
+     * @example
+     * // Get one ServiceAccountCredential
+     * const serviceAccountCredential = await prisma.serviceAccountCredential.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends ServiceAccountCredentialFindFirstArgs>(args?: SelectSubset<T, ServiceAccountCredentialFindFirstArgs<ExtArgs>>): Prisma__ServiceAccountCredentialClient<$Result.GetResult<Prisma.$ServiceAccountCredentialPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first ServiceAccountCredential that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ServiceAccountCredentialFindFirstOrThrowArgs} args - Arguments to find a ServiceAccountCredential
+     * @example
+     * // Get one ServiceAccountCredential
+     * const serviceAccountCredential = await prisma.serviceAccountCredential.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends ServiceAccountCredentialFindFirstOrThrowArgs>(args?: SelectSubset<T, ServiceAccountCredentialFindFirstOrThrowArgs<ExtArgs>>): Prisma__ServiceAccountCredentialClient<$Result.GetResult<Prisma.$ServiceAccountCredentialPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more ServiceAccountCredentials that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ServiceAccountCredentialFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all ServiceAccountCredentials
+     * const serviceAccountCredentials = await prisma.serviceAccountCredential.findMany()
+     * 
+     * // Get first 10 ServiceAccountCredentials
+     * const serviceAccountCredentials = await prisma.serviceAccountCredential.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const serviceAccountCredentialWithIdOnly = await prisma.serviceAccountCredential.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends ServiceAccountCredentialFindManyArgs>(args?: SelectSubset<T, ServiceAccountCredentialFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ServiceAccountCredentialPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a ServiceAccountCredential.
+     * @param {ServiceAccountCredentialCreateArgs} args - Arguments to create a ServiceAccountCredential.
+     * @example
+     * // Create one ServiceAccountCredential
+     * const ServiceAccountCredential = await prisma.serviceAccountCredential.create({
+     *   data: {
+     *     // ... data to create a ServiceAccountCredential
+     *   }
+     * })
+     * 
+     */
+    create<T extends ServiceAccountCredentialCreateArgs>(args: SelectSubset<T, ServiceAccountCredentialCreateArgs<ExtArgs>>): Prisma__ServiceAccountCredentialClient<$Result.GetResult<Prisma.$ServiceAccountCredentialPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many ServiceAccountCredentials.
+     * @param {ServiceAccountCredentialCreateManyArgs} args - Arguments to create many ServiceAccountCredentials.
+     * @example
+     * // Create many ServiceAccountCredentials
+     * const serviceAccountCredential = await prisma.serviceAccountCredential.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends ServiceAccountCredentialCreateManyArgs>(args?: SelectSubset<T, ServiceAccountCredentialCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many ServiceAccountCredentials and returns the data saved in the database.
+     * @param {ServiceAccountCredentialCreateManyAndReturnArgs} args - Arguments to create many ServiceAccountCredentials.
+     * @example
+     * // Create many ServiceAccountCredentials
+     * const serviceAccountCredential = await prisma.serviceAccountCredential.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many ServiceAccountCredentials and only return the `id`
+     * const serviceAccountCredentialWithIdOnly = await prisma.serviceAccountCredential.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends ServiceAccountCredentialCreateManyAndReturnArgs>(args?: SelectSubset<T, ServiceAccountCredentialCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ServiceAccountCredentialPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a ServiceAccountCredential.
+     * @param {ServiceAccountCredentialDeleteArgs} args - Arguments to delete one ServiceAccountCredential.
+     * @example
+     * // Delete one ServiceAccountCredential
+     * const ServiceAccountCredential = await prisma.serviceAccountCredential.delete({
+     *   where: {
+     *     // ... filter to delete one ServiceAccountCredential
+     *   }
+     * })
+     * 
+     */
+    delete<T extends ServiceAccountCredentialDeleteArgs>(args: SelectSubset<T, ServiceAccountCredentialDeleteArgs<ExtArgs>>): Prisma__ServiceAccountCredentialClient<$Result.GetResult<Prisma.$ServiceAccountCredentialPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one ServiceAccountCredential.
+     * @param {ServiceAccountCredentialUpdateArgs} args - Arguments to update one ServiceAccountCredential.
+     * @example
+     * // Update one ServiceAccountCredential
+     * const serviceAccountCredential = await prisma.serviceAccountCredential.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends ServiceAccountCredentialUpdateArgs>(args: SelectSubset<T, ServiceAccountCredentialUpdateArgs<ExtArgs>>): Prisma__ServiceAccountCredentialClient<$Result.GetResult<Prisma.$ServiceAccountCredentialPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more ServiceAccountCredentials.
+     * @param {ServiceAccountCredentialDeleteManyArgs} args - Arguments to filter ServiceAccountCredentials to delete.
+     * @example
+     * // Delete a few ServiceAccountCredentials
+     * const { count } = await prisma.serviceAccountCredential.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends ServiceAccountCredentialDeleteManyArgs>(args?: SelectSubset<T, ServiceAccountCredentialDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more ServiceAccountCredentials.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ServiceAccountCredentialUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many ServiceAccountCredentials
+     * const serviceAccountCredential = await prisma.serviceAccountCredential.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends ServiceAccountCredentialUpdateManyArgs>(args: SelectSubset<T, ServiceAccountCredentialUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more ServiceAccountCredentials and returns the data updated in the database.
+     * @param {ServiceAccountCredentialUpdateManyAndReturnArgs} args - Arguments to update many ServiceAccountCredentials.
+     * @example
+     * // Update many ServiceAccountCredentials
+     * const serviceAccountCredential = await prisma.serviceAccountCredential.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more ServiceAccountCredentials and only return the `id`
+     * const serviceAccountCredentialWithIdOnly = await prisma.serviceAccountCredential.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends ServiceAccountCredentialUpdateManyAndReturnArgs>(args: SelectSubset<T, ServiceAccountCredentialUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ServiceAccountCredentialPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one ServiceAccountCredential.
+     * @param {ServiceAccountCredentialUpsertArgs} args - Arguments to update or create a ServiceAccountCredential.
+     * @example
+     * // Update or create a ServiceAccountCredential
+     * const serviceAccountCredential = await prisma.serviceAccountCredential.upsert({
+     *   create: {
+     *     // ... data to create a ServiceAccountCredential
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the ServiceAccountCredential we want to update
+     *   }
+     * })
+     */
+    upsert<T extends ServiceAccountCredentialUpsertArgs>(args: SelectSubset<T, ServiceAccountCredentialUpsertArgs<ExtArgs>>): Prisma__ServiceAccountCredentialClient<$Result.GetResult<Prisma.$ServiceAccountCredentialPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of ServiceAccountCredentials.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ServiceAccountCredentialCountArgs} args - Arguments to filter ServiceAccountCredentials to count.
+     * @example
+     * // Count the number of ServiceAccountCredentials
+     * const count = await prisma.serviceAccountCredential.count({
+     *   where: {
+     *     // ... the filter for the ServiceAccountCredentials we want to count
+     *   }
+     * })
+    **/
+    count<T extends ServiceAccountCredentialCountArgs>(
+      args?: Subset<T, ServiceAccountCredentialCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], ServiceAccountCredentialCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a ServiceAccountCredential.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ServiceAccountCredentialAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends ServiceAccountCredentialAggregateArgs>(args: Subset<T, ServiceAccountCredentialAggregateArgs>): Prisma.PrismaPromise<GetServiceAccountCredentialAggregateType<T>>
+
+    /**
+     * Group by ServiceAccountCredential.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ServiceAccountCredentialGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends ServiceAccountCredentialGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: ServiceAccountCredentialGroupByArgs['orderBy'] }
+        : { orderBy?: ServiceAccountCredentialGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, ServiceAccountCredentialGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetServiceAccountCredentialGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the ServiceAccountCredential model
+   */
+  readonly fields: ServiceAccountCredentialFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for ServiceAccountCredential.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__ServiceAccountCredentialClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    serviceAccount<T extends ServiceAccountDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ServiceAccountDefaultArgs<ExtArgs>>): Prisma__ServiceAccountClient<$Result.GetResult<Prisma.$ServiceAccountPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the ServiceAccountCredential model
+   */
+  interface ServiceAccountCredentialFieldRefs {
+    readonly id: FieldRef<"ServiceAccountCredential", 'String'>
+    readonly serviceAccountId: FieldRef<"ServiceAccountCredential", 'String'>
+    readonly secretHash: FieldRef<"ServiceAccountCredential", 'String'>
+    readonly expiresAt: FieldRef<"ServiceAccountCredential", 'DateTime'>
+    readonly revokedAt: FieldRef<"ServiceAccountCredential", 'DateTime'>
+    readonly lastUsedAt: FieldRef<"ServiceAccountCredential", 'DateTime'>
+    readonly createdAt: FieldRef<"ServiceAccountCredential", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * ServiceAccountCredential findUnique
+   */
+  export type ServiceAccountCredentialFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccountCredential
+     */
+    select?: ServiceAccountCredentialSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ServiceAccountCredential
+     */
+    omit?: ServiceAccountCredentialOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ServiceAccountCredentialInclude<ExtArgs> | null
+    /**
+     * Filter, which ServiceAccountCredential to fetch.
+     */
+    where: ServiceAccountCredentialWhereUniqueInput
+  }
+
+  /**
+   * ServiceAccountCredential findUniqueOrThrow
+   */
+  export type ServiceAccountCredentialFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccountCredential
+     */
+    select?: ServiceAccountCredentialSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ServiceAccountCredential
+     */
+    omit?: ServiceAccountCredentialOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ServiceAccountCredentialInclude<ExtArgs> | null
+    /**
+     * Filter, which ServiceAccountCredential to fetch.
+     */
+    where: ServiceAccountCredentialWhereUniqueInput
+  }
+
+  /**
+   * ServiceAccountCredential findFirst
+   */
+  export type ServiceAccountCredentialFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccountCredential
+     */
+    select?: ServiceAccountCredentialSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ServiceAccountCredential
+     */
+    omit?: ServiceAccountCredentialOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ServiceAccountCredentialInclude<ExtArgs> | null
+    /**
+     * Filter, which ServiceAccountCredential to fetch.
+     */
+    where?: ServiceAccountCredentialWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ServiceAccountCredentials to fetch.
+     */
+    orderBy?: ServiceAccountCredentialOrderByWithRelationInput | ServiceAccountCredentialOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for ServiceAccountCredentials.
+     */
+    cursor?: ServiceAccountCredentialWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ServiceAccountCredentials from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ServiceAccountCredentials.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of ServiceAccountCredentials.
+     */
+    distinct?: ServiceAccountCredentialScalarFieldEnum | ServiceAccountCredentialScalarFieldEnum[]
+  }
+
+  /**
+   * ServiceAccountCredential findFirstOrThrow
+   */
+  export type ServiceAccountCredentialFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccountCredential
+     */
+    select?: ServiceAccountCredentialSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ServiceAccountCredential
+     */
+    omit?: ServiceAccountCredentialOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ServiceAccountCredentialInclude<ExtArgs> | null
+    /**
+     * Filter, which ServiceAccountCredential to fetch.
+     */
+    where?: ServiceAccountCredentialWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ServiceAccountCredentials to fetch.
+     */
+    orderBy?: ServiceAccountCredentialOrderByWithRelationInput | ServiceAccountCredentialOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for ServiceAccountCredentials.
+     */
+    cursor?: ServiceAccountCredentialWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ServiceAccountCredentials from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ServiceAccountCredentials.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of ServiceAccountCredentials.
+     */
+    distinct?: ServiceAccountCredentialScalarFieldEnum | ServiceAccountCredentialScalarFieldEnum[]
+  }
+
+  /**
+   * ServiceAccountCredential findMany
+   */
+  export type ServiceAccountCredentialFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccountCredential
+     */
+    select?: ServiceAccountCredentialSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ServiceAccountCredential
+     */
+    omit?: ServiceAccountCredentialOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ServiceAccountCredentialInclude<ExtArgs> | null
+    /**
+     * Filter, which ServiceAccountCredentials to fetch.
+     */
+    where?: ServiceAccountCredentialWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ServiceAccountCredentials to fetch.
+     */
+    orderBy?: ServiceAccountCredentialOrderByWithRelationInput | ServiceAccountCredentialOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing ServiceAccountCredentials.
+     */
+    cursor?: ServiceAccountCredentialWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ServiceAccountCredentials from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ServiceAccountCredentials.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of ServiceAccountCredentials.
+     */
+    distinct?: ServiceAccountCredentialScalarFieldEnum | ServiceAccountCredentialScalarFieldEnum[]
+  }
+
+  /**
+   * ServiceAccountCredential create
+   */
+  export type ServiceAccountCredentialCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccountCredential
+     */
+    select?: ServiceAccountCredentialSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ServiceAccountCredential
+     */
+    omit?: ServiceAccountCredentialOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ServiceAccountCredentialInclude<ExtArgs> | null
+    /**
+     * The data needed to create a ServiceAccountCredential.
+     */
+    data: XOR<ServiceAccountCredentialCreateInput, ServiceAccountCredentialUncheckedCreateInput>
+  }
+
+  /**
+   * ServiceAccountCredential createMany
+   */
+  export type ServiceAccountCredentialCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many ServiceAccountCredentials.
+     */
+    data: ServiceAccountCredentialCreateManyInput | ServiceAccountCredentialCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * ServiceAccountCredential createManyAndReturn
+   */
+  export type ServiceAccountCredentialCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccountCredential
+     */
+    select?: ServiceAccountCredentialSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the ServiceAccountCredential
+     */
+    omit?: ServiceAccountCredentialOmit<ExtArgs> | null
+    /**
+     * The data used to create many ServiceAccountCredentials.
+     */
+    data: ServiceAccountCredentialCreateManyInput | ServiceAccountCredentialCreateManyInput[]
+    skipDuplicates?: boolean
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ServiceAccountCredentialIncludeCreateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * ServiceAccountCredential update
+   */
+  export type ServiceAccountCredentialUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccountCredential
+     */
+    select?: ServiceAccountCredentialSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ServiceAccountCredential
+     */
+    omit?: ServiceAccountCredentialOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ServiceAccountCredentialInclude<ExtArgs> | null
+    /**
+     * The data needed to update a ServiceAccountCredential.
+     */
+    data: XOR<ServiceAccountCredentialUpdateInput, ServiceAccountCredentialUncheckedUpdateInput>
+    /**
+     * Choose, which ServiceAccountCredential to update.
+     */
+    where: ServiceAccountCredentialWhereUniqueInput
+  }
+
+  /**
+   * ServiceAccountCredential updateMany
+   */
+  export type ServiceAccountCredentialUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update ServiceAccountCredentials.
+     */
+    data: XOR<ServiceAccountCredentialUpdateManyMutationInput, ServiceAccountCredentialUncheckedUpdateManyInput>
+    /**
+     * Filter which ServiceAccountCredentials to update
+     */
+    where?: ServiceAccountCredentialWhereInput
+    /**
+     * Limit how many ServiceAccountCredentials to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * ServiceAccountCredential updateManyAndReturn
+   */
+  export type ServiceAccountCredentialUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccountCredential
+     */
+    select?: ServiceAccountCredentialSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the ServiceAccountCredential
+     */
+    omit?: ServiceAccountCredentialOmit<ExtArgs> | null
+    /**
+     * The data used to update ServiceAccountCredentials.
+     */
+    data: XOR<ServiceAccountCredentialUpdateManyMutationInput, ServiceAccountCredentialUncheckedUpdateManyInput>
+    /**
+     * Filter which ServiceAccountCredentials to update
+     */
+    where?: ServiceAccountCredentialWhereInput
+    /**
+     * Limit how many ServiceAccountCredentials to update.
+     */
+    limit?: number
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ServiceAccountCredentialIncludeUpdateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * ServiceAccountCredential upsert
+   */
+  export type ServiceAccountCredentialUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccountCredential
+     */
+    select?: ServiceAccountCredentialSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ServiceAccountCredential
+     */
+    omit?: ServiceAccountCredentialOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ServiceAccountCredentialInclude<ExtArgs> | null
+    /**
+     * The filter to search for the ServiceAccountCredential to update in case it exists.
+     */
+    where: ServiceAccountCredentialWhereUniqueInput
+    /**
+     * In case the ServiceAccountCredential found by the `where` argument doesn't exist, create a new ServiceAccountCredential with this data.
+     */
+    create: XOR<ServiceAccountCredentialCreateInput, ServiceAccountCredentialUncheckedCreateInput>
+    /**
+     * In case the ServiceAccountCredential was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<ServiceAccountCredentialUpdateInput, ServiceAccountCredentialUncheckedUpdateInput>
+  }
+
+  /**
+   * ServiceAccountCredential delete
+   */
+  export type ServiceAccountCredentialDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccountCredential
+     */
+    select?: ServiceAccountCredentialSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ServiceAccountCredential
+     */
+    omit?: ServiceAccountCredentialOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ServiceAccountCredentialInclude<ExtArgs> | null
+    /**
+     * Filter which ServiceAccountCredential to delete.
+     */
+    where: ServiceAccountCredentialWhereUniqueInput
+  }
+
+  /**
+   * ServiceAccountCredential deleteMany
+   */
+  export type ServiceAccountCredentialDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which ServiceAccountCredentials to delete
+     */
+    where?: ServiceAccountCredentialWhereInput
+    /**
+     * Limit how many ServiceAccountCredentials to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * ServiceAccountCredential without action
+   */
+  export type ServiceAccountCredentialDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ServiceAccountCredential
+     */
+    select?: ServiceAccountCredentialSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ServiceAccountCredential
+     */
+    omit?: ServiceAccountCredentialOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ServiceAccountCredentialInclude<ExtArgs> | null
   }
 
 
@@ -30354,10 +32779,38 @@ export namespace Prisma {
     beforeJson: 'beforeJson',
     afterJson: 'afterJson',
     actorId: 'actorId',
+    actorRole: 'actorRole',
+    serviceAccountId: 'serviceAccountId',
+    requestId: 'requestId',
     createdAt: 'createdAt'
   };
 
   export type AuditLogScalarFieldEnum = (typeof AuditLogScalarFieldEnum)[keyof typeof AuditLogScalarFieldEnum]
+
+
+  export const ServiceAccountScalarFieldEnum: {
+    id: 'id',
+    name: 'name',
+    scopes: 'scopes',
+    active: 'active',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type ServiceAccountScalarFieldEnum = (typeof ServiceAccountScalarFieldEnum)[keyof typeof ServiceAccountScalarFieldEnum]
+
+
+  export const ServiceAccountCredentialScalarFieldEnum: {
+    id: 'id',
+    serviceAccountId: 'serviceAccountId',
+    secretHash: 'secretHash',
+    expiresAt: 'expiresAt',
+    revokedAt: 'revokedAt',
+    lastUsedAt: 'lastUsedAt',
+    createdAt: 'createdAt'
+  };
+
+  export type ServiceAccountCredentialScalarFieldEnum = (typeof ServiceAccountCredentialScalarFieldEnum)[keyof typeof ServiceAccountCredentialScalarFieldEnum]
 
 
   export const DisplaySettingScalarFieldEnum: {
@@ -32010,6 +34463,9 @@ export namespace Prisma {
     beforeJson?: JsonNullableFilter<"AuditLog">
     afterJson?: JsonNullableFilter<"AuditLog">
     actorId?: StringNullableFilter<"AuditLog"> | string | null
+    actorRole?: StringNullableFilter<"AuditLog"> | string | null
+    serviceAccountId?: StringNullableFilter<"AuditLog"> | string | null
+    requestId?: StringNullableFilter<"AuditLog"> | string | null
     createdAt?: DateTimeFilter<"AuditLog"> | Date | string
   }
 
@@ -32021,6 +34477,9 @@ export namespace Prisma {
     beforeJson?: SortOrderInput | SortOrder
     afterJson?: SortOrderInput | SortOrder
     actorId?: SortOrderInput | SortOrder
+    actorRole?: SortOrderInput | SortOrder
+    serviceAccountId?: SortOrderInput | SortOrder
+    requestId?: SortOrderInput | SortOrder
     createdAt?: SortOrder
   }
 
@@ -32035,6 +34494,9 @@ export namespace Prisma {
     beforeJson?: JsonNullableFilter<"AuditLog">
     afterJson?: JsonNullableFilter<"AuditLog">
     actorId?: StringNullableFilter<"AuditLog"> | string | null
+    actorRole?: StringNullableFilter<"AuditLog"> | string | null
+    serviceAccountId?: StringNullableFilter<"AuditLog"> | string | null
+    requestId?: StringNullableFilter<"AuditLog"> | string | null
     createdAt?: DateTimeFilter<"AuditLog"> | Date | string
   }, "id">
 
@@ -32046,6 +34508,9 @@ export namespace Prisma {
     beforeJson?: SortOrderInput | SortOrder
     afterJson?: SortOrderInput | SortOrder
     actorId?: SortOrderInput | SortOrder
+    actorRole?: SortOrderInput | SortOrder
+    serviceAccountId?: SortOrderInput | SortOrder
+    requestId?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     _count?: AuditLogCountOrderByAggregateInput
     _max?: AuditLogMaxOrderByAggregateInput
@@ -32063,7 +34528,135 @@ export namespace Prisma {
     beforeJson?: JsonNullableWithAggregatesFilter<"AuditLog">
     afterJson?: JsonNullableWithAggregatesFilter<"AuditLog">
     actorId?: StringNullableWithAggregatesFilter<"AuditLog"> | string | null
+    actorRole?: StringNullableWithAggregatesFilter<"AuditLog"> | string | null
+    serviceAccountId?: StringNullableWithAggregatesFilter<"AuditLog"> | string | null
+    requestId?: StringNullableWithAggregatesFilter<"AuditLog"> | string | null
     createdAt?: DateTimeWithAggregatesFilter<"AuditLog"> | Date | string
+  }
+
+  export type ServiceAccountWhereInput = {
+    AND?: ServiceAccountWhereInput | ServiceAccountWhereInput[]
+    OR?: ServiceAccountWhereInput[]
+    NOT?: ServiceAccountWhereInput | ServiceAccountWhereInput[]
+    id?: StringFilter<"ServiceAccount"> | string
+    name?: StringFilter<"ServiceAccount"> | string
+    scopes?: StringNullableListFilter<"ServiceAccount">
+    active?: BoolFilter<"ServiceAccount"> | boolean
+    createdAt?: DateTimeFilter<"ServiceAccount"> | Date | string
+    updatedAt?: DateTimeFilter<"ServiceAccount"> | Date | string
+    credentials?: ServiceAccountCredentialListRelationFilter
+  }
+
+  export type ServiceAccountOrderByWithRelationInput = {
+    id?: SortOrder
+    name?: SortOrder
+    scopes?: SortOrder
+    active?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    credentials?: ServiceAccountCredentialOrderByRelationAggregateInput
+  }
+
+  export type ServiceAccountWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    name?: string
+    AND?: ServiceAccountWhereInput | ServiceAccountWhereInput[]
+    OR?: ServiceAccountWhereInput[]
+    NOT?: ServiceAccountWhereInput | ServiceAccountWhereInput[]
+    scopes?: StringNullableListFilter<"ServiceAccount">
+    active?: BoolFilter<"ServiceAccount"> | boolean
+    createdAt?: DateTimeFilter<"ServiceAccount"> | Date | string
+    updatedAt?: DateTimeFilter<"ServiceAccount"> | Date | string
+    credentials?: ServiceAccountCredentialListRelationFilter
+  }, "id" | "name">
+
+  export type ServiceAccountOrderByWithAggregationInput = {
+    id?: SortOrder
+    name?: SortOrder
+    scopes?: SortOrder
+    active?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: ServiceAccountCountOrderByAggregateInput
+    _max?: ServiceAccountMaxOrderByAggregateInput
+    _min?: ServiceAccountMinOrderByAggregateInput
+  }
+
+  export type ServiceAccountScalarWhereWithAggregatesInput = {
+    AND?: ServiceAccountScalarWhereWithAggregatesInput | ServiceAccountScalarWhereWithAggregatesInput[]
+    OR?: ServiceAccountScalarWhereWithAggregatesInput[]
+    NOT?: ServiceAccountScalarWhereWithAggregatesInput | ServiceAccountScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"ServiceAccount"> | string
+    name?: StringWithAggregatesFilter<"ServiceAccount"> | string
+    scopes?: StringNullableListFilter<"ServiceAccount">
+    active?: BoolWithAggregatesFilter<"ServiceAccount"> | boolean
+    createdAt?: DateTimeWithAggregatesFilter<"ServiceAccount"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"ServiceAccount"> | Date | string
+  }
+
+  export type ServiceAccountCredentialWhereInput = {
+    AND?: ServiceAccountCredentialWhereInput | ServiceAccountCredentialWhereInput[]
+    OR?: ServiceAccountCredentialWhereInput[]
+    NOT?: ServiceAccountCredentialWhereInput | ServiceAccountCredentialWhereInput[]
+    id?: StringFilter<"ServiceAccountCredential"> | string
+    serviceAccountId?: StringFilter<"ServiceAccountCredential"> | string
+    secretHash?: StringFilter<"ServiceAccountCredential"> | string
+    expiresAt?: DateTimeNullableFilter<"ServiceAccountCredential"> | Date | string | null
+    revokedAt?: DateTimeNullableFilter<"ServiceAccountCredential"> | Date | string | null
+    lastUsedAt?: DateTimeNullableFilter<"ServiceAccountCredential"> | Date | string | null
+    createdAt?: DateTimeFilter<"ServiceAccountCredential"> | Date | string
+    serviceAccount?: XOR<ServiceAccountScalarRelationFilter, ServiceAccountWhereInput>
+  }
+
+  export type ServiceAccountCredentialOrderByWithRelationInput = {
+    id?: SortOrder
+    serviceAccountId?: SortOrder
+    secretHash?: SortOrder
+    expiresAt?: SortOrderInput | SortOrder
+    revokedAt?: SortOrderInput | SortOrder
+    lastUsedAt?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    serviceAccount?: ServiceAccountOrderByWithRelationInput
+  }
+
+  export type ServiceAccountCredentialWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    AND?: ServiceAccountCredentialWhereInput | ServiceAccountCredentialWhereInput[]
+    OR?: ServiceAccountCredentialWhereInput[]
+    NOT?: ServiceAccountCredentialWhereInput | ServiceAccountCredentialWhereInput[]
+    serviceAccountId?: StringFilter<"ServiceAccountCredential"> | string
+    secretHash?: StringFilter<"ServiceAccountCredential"> | string
+    expiresAt?: DateTimeNullableFilter<"ServiceAccountCredential"> | Date | string | null
+    revokedAt?: DateTimeNullableFilter<"ServiceAccountCredential"> | Date | string | null
+    lastUsedAt?: DateTimeNullableFilter<"ServiceAccountCredential"> | Date | string | null
+    createdAt?: DateTimeFilter<"ServiceAccountCredential"> | Date | string
+    serviceAccount?: XOR<ServiceAccountScalarRelationFilter, ServiceAccountWhereInput>
+  }, "id">
+
+  export type ServiceAccountCredentialOrderByWithAggregationInput = {
+    id?: SortOrder
+    serviceAccountId?: SortOrder
+    secretHash?: SortOrder
+    expiresAt?: SortOrderInput | SortOrder
+    revokedAt?: SortOrderInput | SortOrder
+    lastUsedAt?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    _count?: ServiceAccountCredentialCountOrderByAggregateInput
+    _max?: ServiceAccountCredentialMaxOrderByAggregateInput
+    _min?: ServiceAccountCredentialMinOrderByAggregateInput
+  }
+
+  export type ServiceAccountCredentialScalarWhereWithAggregatesInput = {
+    AND?: ServiceAccountCredentialScalarWhereWithAggregatesInput | ServiceAccountCredentialScalarWhereWithAggregatesInput[]
+    OR?: ServiceAccountCredentialScalarWhereWithAggregatesInput[]
+    NOT?: ServiceAccountCredentialScalarWhereWithAggregatesInput | ServiceAccountCredentialScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"ServiceAccountCredential"> | string
+    serviceAccountId?: StringWithAggregatesFilter<"ServiceAccountCredential"> | string
+    secretHash?: StringWithAggregatesFilter<"ServiceAccountCredential"> | string
+    expiresAt?: DateTimeNullableWithAggregatesFilter<"ServiceAccountCredential"> | Date | string | null
+    revokedAt?: DateTimeNullableWithAggregatesFilter<"ServiceAccountCredential"> | Date | string | null
+    lastUsedAt?: DateTimeNullableWithAggregatesFilter<"ServiceAccountCredential"> | Date | string | null
+    createdAt?: DateTimeWithAggregatesFilter<"ServiceAccountCredential"> | Date | string
   }
 
   export type DisplaySettingWhereInput = {
@@ -33655,6 +36248,9 @@ export namespace Prisma {
     beforeJson?: NullableJsonNullValueInput | InputJsonValue
     afterJson?: NullableJsonNullValueInput | InputJsonValue
     actorId?: string | null
+    actorRole?: string | null
+    serviceAccountId?: string | null
+    requestId?: string | null
     createdAt?: Date | string
   }
 
@@ -33666,6 +36262,9 @@ export namespace Prisma {
     beforeJson?: NullableJsonNullValueInput | InputJsonValue
     afterJson?: NullableJsonNullValueInput | InputJsonValue
     actorId?: string | null
+    actorRole?: string | null
+    serviceAccountId?: string | null
+    requestId?: string | null
     createdAt?: Date | string
   }
 
@@ -33677,6 +36276,9 @@ export namespace Prisma {
     beforeJson?: NullableJsonNullValueInput | InputJsonValue
     afterJson?: NullableJsonNullValueInput | InputJsonValue
     actorId?: NullableStringFieldUpdateOperationsInput | string | null
+    actorRole?: NullableStringFieldUpdateOperationsInput | string | null
+    serviceAccountId?: NullableStringFieldUpdateOperationsInput | string | null
+    requestId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -33688,6 +36290,9 @@ export namespace Prisma {
     beforeJson?: NullableJsonNullValueInput | InputJsonValue
     afterJson?: NullableJsonNullValueInput | InputJsonValue
     actorId?: NullableStringFieldUpdateOperationsInput | string | null
+    actorRole?: NullableStringFieldUpdateOperationsInput | string | null
+    serviceAccountId?: NullableStringFieldUpdateOperationsInput | string | null
+    requestId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -33699,6 +36304,9 @@ export namespace Prisma {
     beforeJson?: NullableJsonNullValueInput | InputJsonValue
     afterJson?: NullableJsonNullValueInput | InputJsonValue
     actorId?: string | null
+    actorRole?: string | null
+    serviceAccountId?: string | null
+    requestId?: string | null
     createdAt?: Date | string
   }
 
@@ -33710,6 +36318,9 @@ export namespace Prisma {
     beforeJson?: NullableJsonNullValueInput | InputJsonValue
     afterJson?: NullableJsonNullValueInput | InputJsonValue
     actorId?: NullableStringFieldUpdateOperationsInput | string | null
+    actorRole?: NullableStringFieldUpdateOperationsInput | string | null
+    serviceAccountId?: NullableStringFieldUpdateOperationsInput | string | null
+    requestId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -33721,6 +36332,145 @@ export namespace Prisma {
     beforeJson?: NullableJsonNullValueInput | InputJsonValue
     afterJson?: NullableJsonNullValueInput | InputJsonValue
     actorId?: NullableStringFieldUpdateOperationsInput | string | null
+    actorRole?: NullableStringFieldUpdateOperationsInput | string | null
+    serviceAccountId?: NullableStringFieldUpdateOperationsInput | string | null
+    requestId?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ServiceAccountCreateInput = {
+    id?: string
+    name: string
+    scopes?: ServiceAccountCreatescopesInput | string[]
+    active?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    credentials?: ServiceAccountCredentialCreateNestedManyWithoutServiceAccountInput
+  }
+
+  export type ServiceAccountUncheckedCreateInput = {
+    id?: string
+    name: string
+    scopes?: ServiceAccountCreatescopesInput | string[]
+    active?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    credentials?: ServiceAccountCredentialUncheckedCreateNestedManyWithoutServiceAccountInput
+  }
+
+  export type ServiceAccountUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    scopes?: ServiceAccountUpdatescopesInput | string[]
+    active?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    credentials?: ServiceAccountCredentialUpdateManyWithoutServiceAccountNestedInput
+  }
+
+  export type ServiceAccountUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    scopes?: ServiceAccountUpdatescopesInput | string[]
+    active?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    credentials?: ServiceAccountCredentialUncheckedUpdateManyWithoutServiceAccountNestedInput
+  }
+
+  export type ServiceAccountCreateManyInput = {
+    id?: string
+    name: string
+    scopes?: ServiceAccountCreatescopesInput | string[]
+    active?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ServiceAccountUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    scopes?: ServiceAccountUpdatescopesInput | string[]
+    active?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ServiceAccountUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    scopes?: ServiceAccountUpdatescopesInput | string[]
+    active?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ServiceAccountCredentialCreateInput = {
+    id: string
+    secretHash: string
+    expiresAt?: Date | string | null
+    revokedAt?: Date | string | null
+    lastUsedAt?: Date | string | null
+    createdAt?: Date | string
+    serviceAccount: ServiceAccountCreateNestedOneWithoutCredentialsInput
+  }
+
+  export type ServiceAccountCredentialUncheckedCreateInput = {
+    id: string
+    serviceAccountId: string
+    secretHash: string
+    expiresAt?: Date | string | null
+    revokedAt?: Date | string | null
+    lastUsedAt?: Date | string | null
+    createdAt?: Date | string
+  }
+
+  export type ServiceAccountCredentialUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    secretHash?: StringFieldUpdateOperationsInput | string
+    expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    revokedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    lastUsedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    serviceAccount?: ServiceAccountUpdateOneRequiredWithoutCredentialsNestedInput
+  }
+
+  export type ServiceAccountCredentialUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    serviceAccountId?: StringFieldUpdateOperationsInput | string
+    secretHash?: StringFieldUpdateOperationsInput | string
+    expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    revokedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    lastUsedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ServiceAccountCredentialCreateManyInput = {
+    id: string
+    serviceAccountId: string
+    secretHash: string
+    expiresAt?: Date | string | null
+    revokedAt?: Date | string | null
+    lastUsedAt?: Date | string | null
+    createdAt?: Date | string
+  }
+
+  export type ServiceAccountCredentialUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    secretHash?: StringFieldUpdateOperationsInput | string
+    expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    revokedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    lastUsedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ServiceAccountCredentialUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    serviceAccountId?: StringFieldUpdateOperationsInput | string
+    secretHash?: StringFieldUpdateOperationsInput | string
+    expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    revokedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    lastUsedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -35025,6 +37775,9 @@ export namespace Prisma {
     beforeJson?: SortOrder
     afterJson?: SortOrder
     actorId?: SortOrder
+    actorRole?: SortOrder
+    serviceAccountId?: SortOrder
+    requestId?: SortOrder
     createdAt?: SortOrder
   }
 
@@ -35034,6 +37787,9 @@ export namespace Prisma {
     entityId?: SortOrder
     action?: SortOrder
     actorId?: SortOrder
+    actorRole?: SortOrder
+    serviceAccountId?: SortOrder
+    requestId?: SortOrder
     createdAt?: SortOrder
   }
 
@@ -35043,6 +37799,9 @@ export namespace Prisma {
     entityId?: SortOrder
     action?: SortOrder
     actorId?: SortOrder
+    actorRole?: SortOrder
+    serviceAccountId?: SortOrder
+    requestId?: SortOrder
     createdAt?: SortOrder
   }
   export type JsonNullableWithAggregatesFilter<$PrismaModel = never> =
@@ -35070,6 +37829,76 @@ export namespace Prisma {
     _count?: NestedIntNullableFilter<$PrismaModel>
     _min?: NestedJsonNullableFilter<$PrismaModel>
     _max?: NestedJsonNullableFilter<$PrismaModel>
+  }
+
+  export type ServiceAccountCredentialListRelationFilter = {
+    every?: ServiceAccountCredentialWhereInput
+    some?: ServiceAccountCredentialWhereInput
+    none?: ServiceAccountCredentialWhereInput
+  }
+
+  export type ServiceAccountCredentialOrderByRelationAggregateInput = {
+    _count?: SortOrder
+  }
+
+  export type ServiceAccountCountOrderByAggregateInput = {
+    id?: SortOrder
+    name?: SortOrder
+    scopes?: SortOrder
+    active?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type ServiceAccountMaxOrderByAggregateInput = {
+    id?: SortOrder
+    name?: SortOrder
+    active?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type ServiceAccountMinOrderByAggregateInput = {
+    id?: SortOrder
+    name?: SortOrder
+    active?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type ServiceAccountScalarRelationFilter = {
+    is?: ServiceAccountWhereInput
+    isNot?: ServiceAccountWhereInput
+  }
+
+  export type ServiceAccountCredentialCountOrderByAggregateInput = {
+    id?: SortOrder
+    serviceAccountId?: SortOrder
+    secretHash?: SortOrder
+    expiresAt?: SortOrder
+    revokedAt?: SortOrder
+    lastUsedAt?: SortOrder
+    createdAt?: SortOrder
+  }
+
+  export type ServiceAccountCredentialMaxOrderByAggregateInput = {
+    id?: SortOrder
+    serviceAccountId?: SortOrder
+    secretHash?: SortOrder
+    expiresAt?: SortOrder
+    revokedAt?: SortOrder
+    lastUsedAt?: SortOrder
+    createdAt?: SortOrder
+  }
+
+  export type ServiceAccountCredentialMinOrderByAggregateInput = {
+    id?: SortOrder
+    serviceAccountId?: SortOrder
+    secretHash?: SortOrder
+    expiresAt?: SortOrder
+    revokedAt?: SortOrder
+    lastUsedAt?: SortOrder
+    createdAt?: SortOrder
   }
 
   export type DisplaySettingCountOrderByAggregateInput = {
@@ -36446,6 +39275,71 @@ export namespace Prisma {
     upsert?: TagUpsertWithoutModelsInput
     connect?: TagWhereUniqueInput
     update?: XOR<XOR<TagUpdateToOneWithWhereWithoutModelsInput, TagUpdateWithoutModelsInput>, TagUncheckedUpdateWithoutModelsInput>
+  }
+
+  export type ServiceAccountCreatescopesInput = {
+    set: string[]
+  }
+
+  export type ServiceAccountCredentialCreateNestedManyWithoutServiceAccountInput = {
+    create?: XOR<ServiceAccountCredentialCreateWithoutServiceAccountInput, ServiceAccountCredentialUncheckedCreateWithoutServiceAccountInput> | ServiceAccountCredentialCreateWithoutServiceAccountInput[] | ServiceAccountCredentialUncheckedCreateWithoutServiceAccountInput[]
+    connectOrCreate?: ServiceAccountCredentialCreateOrConnectWithoutServiceAccountInput | ServiceAccountCredentialCreateOrConnectWithoutServiceAccountInput[]
+    createMany?: ServiceAccountCredentialCreateManyServiceAccountInputEnvelope
+    connect?: ServiceAccountCredentialWhereUniqueInput | ServiceAccountCredentialWhereUniqueInput[]
+  }
+
+  export type ServiceAccountCredentialUncheckedCreateNestedManyWithoutServiceAccountInput = {
+    create?: XOR<ServiceAccountCredentialCreateWithoutServiceAccountInput, ServiceAccountCredentialUncheckedCreateWithoutServiceAccountInput> | ServiceAccountCredentialCreateWithoutServiceAccountInput[] | ServiceAccountCredentialUncheckedCreateWithoutServiceAccountInput[]
+    connectOrCreate?: ServiceAccountCredentialCreateOrConnectWithoutServiceAccountInput | ServiceAccountCredentialCreateOrConnectWithoutServiceAccountInput[]
+    createMany?: ServiceAccountCredentialCreateManyServiceAccountInputEnvelope
+    connect?: ServiceAccountCredentialWhereUniqueInput | ServiceAccountCredentialWhereUniqueInput[]
+  }
+
+  export type ServiceAccountUpdatescopesInput = {
+    set?: string[]
+    push?: string | string[]
+  }
+
+  export type ServiceAccountCredentialUpdateManyWithoutServiceAccountNestedInput = {
+    create?: XOR<ServiceAccountCredentialCreateWithoutServiceAccountInput, ServiceAccountCredentialUncheckedCreateWithoutServiceAccountInput> | ServiceAccountCredentialCreateWithoutServiceAccountInput[] | ServiceAccountCredentialUncheckedCreateWithoutServiceAccountInput[]
+    connectOrCreate?: ServiceAccountCredentialCreateOrConnectWithoutServiceAccountInput | ServiceAccountCredentialCreateOrConnectWithoutServiceAccountInput[]
+    upsert?: ServiceAccountCredentialUpsertWithWhereUniqueWithoutServiceAccountInput | ServiceAccountCredentialUpsertWithWhereUniqueWithoutServiceAccountInput[]
+    createMany?: ServiceAccountCredentialCreateManyServiceAccountInputEnvelope
+    set?: ServiceAccountCredentialWhereUniqueInput | ServiceAccountCredentialWhereUniqueInput[]
+    disconnect?: ServiceAccountCredentialWhereUniqueInput | ServiceAccountCredentialWhereUniqueInput[]
+    delete?: ServiceAccountCredentialWhereUniqueInput | ServiceAccountCredentialWhereUniqueInput[]
+    connect?: ServiceAccountCredentialWhereUniqueInput | ServiceAccountCredentialWhereUniqueInput[]
+    update?: ServiceAccountCredentialUpdateWithWhereUniqueWithoutServiceAccountInput | ServiceAccountCredentialUpdateWithWhereUniqueWithoutServiceAccountInput[]
+    updateMany?: ServiceAccountCredentialUpdateManyWithWhereWithoutServiceAccountInput | ServiceAccountCredentialUpdateManyWithWhereWithoutServiceAccountInput[]
+    deleteMany?: ServiceAccountCredentialScalarWhereInput | ServiceAccountCredentialScalarWhereInput[]
+  }
+
+  export type ServiceAccountCredentialUncheckedUpdateManyWithoutServiceAccountNestedInput = {
+    create?: XOR<ServiceAccountCredentialCreateWithoutServiceAccountInput, ServiceAccountCredentialUncheckedCreateWithoutServiceAccountInput> | ServiceAccountCredentialCreateWithoutServiceAccountInput[] | ServiceAccountCredentialUncheckedCreateWithoutServiceAccountInput[]
+    connectOrCreate?: ServiceAccountCredentialCreateOrConnectWithoutServiceAccountInput | ServiceAccountCredentialCreateOrConnectWithoutServiceAccountInput[]
+    upsert?: ServiceAccountCredentialUpsertWithWhereUniqueWithoutServiceAccountInput | ServiceAccountCredentialUpsertWithWhereUniqueWithoutServiceAccountInput[]
+    createMany?: ServiceAccountCredentialCreateManyServiceAccountInputEnvelope
+    set?: ServiceAccountCredentialWhereUniqueInput | ServiceAccountCredentialWhereUniqueInput[]
+    disconnect?: ServiceAccountCredentialWhereUniqueInput | ServiceAccountCredentialWhereUniqueInput[]
+    delete?: ServiceAccountCredentialWhereUniqueInput | ServiceAccountCredentialWhereUniqueInput[]
+    connect?: ServiceAccountCredentialWhereUniqueInput | ServiceAccountCredentialWhereUniqueInput[]
+    update?: ServiceAccountCredentialUpdateWithWhereUniqueWithoutServiceAccountInput | ServiceAccountCredentialUpdateWithWhereUniqueWithoutServiceAccountInput[]
+    updateMany?: ServiceAccountCredentialUpdateManyWithWhereWithoutServiceAccountInput | ServiceAccountCredentialUpdateManyWithWhereWithoutServiceAccountInput[]
+    deleteMany?: ServiceAccountCredentialScalarWhereInput | ServiceAccountCredentialScalarWhereInput[]
+  }
+
+  export type ServiceAccountCreateNestedOneWithoutCredentialsInput = {
+    create?: XOR<ServiceAccountCreateWithoutCredentialsInput, ServiceAccountUncheckedCreateWithoutCredentialsInput>
+    connectOrCreate?: ServiceAccountCreateOrConnectWithoutCredentialsInput
+    connect?: ServiceAccountWhereUniqueInput
+  }
+
+  export type ServiceAccountUpdateOneRequiredWithoutCredentialsNestedInput = {
+    create?: XOR<ServiceAccountCreateWithoutCredentialsInput, ServiceAccountUncheckedCreateWithoutCredentialsInput>
+    connectOrCreate?: ServiceAccountCreateOrConnectWithoutCredentialsInput
+    upsert?: ServiceAccountUpsertWithoutCredentialsInput
+    connect?: ServiceAccountWhereUniqueInput
+    update?: XOR<XOR<ServiceAccountUpdateToOneWithWhereWithoutCredentialsInput, ServiceAccountUpdateWithoutCredentialsInput>, ServiceAccountUncheckedUpdateWithoutCredentialsInput>
   }
 
   export type NestedStringFilter<$PrismaModel = never> = {
@@ -40672,6 +43566,115 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
   }
 
+  export type ServiceAccountCredentialCreateWithoutServiceAccountInput = {
+    id: string
+    secretHash: string
+    expiresAt?: Date | string | null
+    revokedAt?: Date | string | null
+    lastUsedAt?: Date | string | null
+    createdAt?: Date | string
+  }
+
+  export type ServiceAccountCredentialUncheckedCreateWithoutServiceAccountInput = {
+    id: string
+    secretHash: string
+    expiresAt?: Date | string | null
+    revokedAt?: Date | string | null
+    lastUsedAt?: Date | string | null
+    createdAt?: Date | string
+  }
+
+  export type ServiceAccountCredentialCreateOrConnectWithoutServiceAccountInput = {
+    where: ServiceAccountCredentialWhereUniqueInput
+    create: XOR<ServiceAccountCredentialCreateWithoutServiceAccountInput, ServiceAccountCredentialUncheckedCreateWithoutServiceAccountInput>
+  }
+
+  export type ServiceAccountCredentialCreateManyServiceAccountInputEnvelope = {
+    data: ServiceAccountCredentialCreateManyServiceAccountInput | ServiceAccountCredentialCreateManyServiceAccountInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type ServiceAccountCredentialUpsertWithWhereUniqueWithoutServiceAccountInput = {
+    where: ServiceAccountCredentialWhereUniqueInput
+    update: XOR<ServiceAccountCredentialUpdateWithoutServiceAccountInput, ServiceAccountCredentialUncheckedUpdateWithoutServiceAccountInput>
+    create: XOR<ServiceAccountCredentialCreateWithoutServiceAccountInput, ServiceAccountCredentialUncheckedCreateWithoutServiceAccountInput>
+  }
+
+  export type ServiceAccountCredentialUpdateWithWhereUniqueWithoutServiceAccountInput = {
+    where: ServiceAccountCredentialWhereUniqueInput
+    data: XOR<ServiceAccountCredentialUpdateWithoutServiceAccountInput, ServiceAccountCredentialUncheckedUpdateWithoutServiceAccountInput>
+  }
+
+  export type ServiceAccountCredentialUpdateManyWithWhereWithoutServiceAccountInput = {
+    where: ServiceAccountCredentialScalarWhereInput
+    data: XOR<ServiceAccountCredentialUpdateManyMutationInput, ServiceAccountCredentialUncheckedUpdateManyWithoutServiceAccountInput>
+  }
+
+  export type ServiceAccountCredentialScalarWhereInput = {
+    AND?: ServiceAccountCredentialScalarWhereInput | ServiceAccountCredentialScalarWhereInput[]
+    OR?: ServiceAccountCredentialScalarWhereInput[]
+    NOT?: ServiceAccountCredentialScalarWhereInput | ServiceAccountCredentialScalarWhereInput[]
+    id?: StringFilter<"ServiceAccountCredential"> | string
+    serviceAccountId?: StringFilter<"ServiceAccountCredential"> | string
+    secretHash?: StringFilter<"ServiceAccountCredential"> | string
+    expiresAt?: DateTimeNullableFilter<"ServiceAccountCredential"> | Date | string | null
+    revokedAt?: DateTimeNullableFilter<"ServiceAccountCredential"> | Date | string | null
+    lastUsedAt?: DateTimeNullableFilter<"ServiceAccountCredential"> | Date | string | null
+    createdAt?: DateTimeFilter<"ServiceAccountCredential"> | Date | string
+  }
+
+  export type ServiceAccountCreateWithoutCredentialsInput = {
+    id?: string
+    name: string
+    scopes?: ServiceAccountCreatescopesInput | string[]
+    active?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ServiceAccountUncheckedCreateWithoutCredentialsInput = {
+    id?: string
+    name: string
+    scopes?: ServiceAccountCreatescopesInput | string[]
+    active?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ServiceAccountCreateOrConnectWithoutCredentialsInput = {
+    where: ServiceAccountWhereUniqueInput
+    create: XOR<ServiceAccountCreateWithoutCredentialsInput, ServiceAccountUncheckedCreateWithoutCredentialsInput>
+  }
+
+  export type ServiceAccountUpsertWithoutCredentialsInput = {
+    update: XOR<ServiceAccountUpdateWithoutCredentialsInput, ServiceAccountUncheckedUpdateWithoutCredentialsInput>
+    create: XOR<ServiceAccountCreateWithoutCredentialsInput, ServiceAccountUncheckedCreateWithoutCredentialsInput>
+    where?: ServiceAccountWhereInput
+  }
+
+  export type ServiceAccountUpdateToOneWithWhereWithoutCredentialsInput = {
+    where?: ServiceAccountWhereInput
+    data: XOR<ServiceAccountUpdateWithoutCredentialsInput, ServiceAccountUncheckedUpdateWithoutCredentialsInput>
+  }
+
+  export type ServiceAccountUpdateWithoutCredentialsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    scopes?: ServiceAccountUpdatescopesInput | string[]
+    active?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ServiceAccountUncheckedUpdateWithoutCredentialsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    scopes?: ServiceAccountUpdatescopesInput | string[]
+    active?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type ModelCreateManyProviderInput = {
     id?: string
     canonicalId: string
@@ -41628,6 +44631,42 @@ export namespace Prisma {
 
   export type ModelTagUncheckedUpdateManyWithoutTagInput = {
     modelId?: StringFieldUpdateOperationsInput | string
+  }
+
+  export type ServiceAccountCredentialCreateManyServiceAccountInput = {
+    id: string
+    secretHash: string
+    expiresAt?: Date | string | null
+    revokedAt?: Date | string | null
+    lastUsedAt?: Date | string | null
+    createdAt?: Date | string
+  }
+
+  export type ServiceAccountCredentialUpdateWithoutServiceAccountInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    secretHash?: StringFieldUpdateOperationsInput | string
+    expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    revokedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    lastUsedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ServiceAccountCredentialUncheckedUpdateWithoutServiceAccountInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    secretHash?: StringFieldUpdateOperationsInput | string
+    expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    revokedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    lastUsedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ServiceAccountCredentialUncheckedUpdateManyWithoutServiceAccountInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    secretHash?: StringFieldUpdateOperationsInput | string
+    expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    revokedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    lastUsedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
 

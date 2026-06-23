@@ -1,6 +1,9 @@
 package server
 
 import (
+	"crypto/sha256"
+	"crypto/subtle"
+	"errors"
 	"io"
 	"sort"
 	"strings"
@@ -33,20 +36,21 @@ var redactedLogHeaders = map[string]struct{}{
 
 // Dependencies contains the concrete services required by the control-plane server.
 type Dependencies struct {
-	AuthMiddleware     *auth.AuthMiddleware
-	TenantResolver     *tenant.Middleware
-	TracingMiddleware  fiber.Handler
-	TraceHealth        TraceHealthReporter
-	AdminHandlers      *admin.Handlers
-	AuthHandlers       *admin.AuthHandlers
-	ProxyHandler       *proxy.ChatCompletionHandler
-	CompletionsHandler *proxy.CompletionsHandler
-	ResponsesHandler   *proxy.ResponsesHandler
-	EmbeddingsHandler  *proxy.EmbeddingsHandler
-	ModerationsHandler *proxy.ModerationsHandler
-	ImagesHandler      *proxy.ImagesHandler
-	ModelsHandler      *proxy.ModelsHandler
-	Logger             *zap.Logger
+	AuthMiddleware          *auth.AuthMiddleware
+	TenantResolver          *tenant.Middleware
+	TracingMiddleware       fiber.Handler
+	TraceHealth             TraceHealthReporter
+	AdminHandlers           *admin.Handlers
+	AuthHandlers            *admin.AuthHandlers
+	ProxyHandler            *proxy.ChatCompletionHandler
+	CompletionsHandler      *proxy.CompletionsHandler
+	ResponsesHandler        *proxy.ResponsesHandler
+	EmbeddingsHandler       *proxy.EmbeddingsHandler
+	ModerationsHandler      *proxy.ModerationsHandler
+	ImagesHandler           *proxy.ImagesHandler
+	ModelsHandler           *proxy.ModelsHandler
+	Logger                  *zap.Logger
+	PlatformServiceAccounts auth.PlatformServiceAccountStore
 }
 
 type TraceHealthReporter interface {
@@ -186,7 +190,7 @@ func registerPublicRoutes(app *fiber.App, cfg *config.Config, deps Dependencies,
 		app.Get("/api/v1/commercial-plans", deps.AdminHandlers.ListPublicCommercialPlans)
 		app.Get("/api/v1/subscription/payment/callback/:provider", deps.AdminHandlers.SubscriptionPaymentCallback)
 		app.Post("/api/v1/subscription/payment/callback/:provider", deps.AdminHandlers.SubscriptionPaymentCallback)
-		platformAdmin := app.Group("/api/v1/platform", platformAdminAuthMiddleware(cfg.GeneralSettings.MasterKey))
+		platformAdmin := app.Group("/api/v1/platform", platformAdminAuthMiddleware(cfg.GeneralSettings.MasterKey, deps.PlatformServiceAccounts))
 		platformAdmin.Get("/features", deps.AdminHandlers.ListPlatformFeatureCatalog)
 		platformAdmin.Get("/commercial-plans", deps.AdminHandlers.ListPlatformCommercialPlans)
 		platformAdmin.Post("/commercial-plans", deps.AdminHandlers.CreatePlatformCommercialPlan)
@@ -374,17 +378,47 @@ func healthHandler(c *fiber.Ctx) error {
 	})
 }
 
-func platformAdminAuthMiddleware(masterKey string) fiber.Handler {
+func platformAdminAuthMiddleware(masterKey string, serviceAccounts auth.PlatformServiceAccountStore) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		if strings.TrimSpace(masterKey) == "" {
-			return fiber.NewError(fiber.StatusUnauthorized, "platform admin master key is not configured")
-		}
 		apiKey := extractPlatformAdminAPIKey(c)
-		if apiKey == "" || apiKey != masterKey {
+		if apiKey == "" {
 			return fiber.NewError(fiber.StatusUnauthorized, "platform admin authentication required")
+		}
+		if strings.TrimSpace(masterKey) != "" && secureTokenEqual(apiKey, masterKey) {
+			return c.Next()
+		}
+		if serviceAccounts == nil {
+			return fiber.NewError(fiber.StatusUnauthorized, "platform admin authentication required")
+		}
+		credential, err := serviceAccounts.GetPlatformServiceAccountByTokenHash(c.Context(), auth.HashKey(apiKey))
+		if errors.Is(err, auth.ErrInvalidPlatformServiceCredential) {
+			return fiber.NewError(fiber.StatusUnauthorized, "platform admin authentication required")
+		}
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "platform service authentication lookup failed")
+		}
+		requiredScope := requiredPlatformScope(c.Method(), c.Path())
+		if credential == nil || !auth.HasPlatformScope(credential.Scopes, requiredScope) {
+			return fiber.NewError(fiber.StatusForbidden, "platform service account lacks required scope")
 		}
 		return c.Next()
 	}
+}
+
+func requiredPlatformScope(method string, path string) string {
+	if method == fiber.MethodGet || method == fiber.MethodHead || method == fiber.MethodOptions {
+		return auth.PlatformScopeRead
+	}
+	if strings.Contains(path, "/tenant-subscriptions") || strings.Contains(path, "/tenant-entitlement-overrides") {
+		return auth.PlatformScopeTenantWrite
+	}
+	return auth.PlatformScopeCatalogWrite
+}
+
+func secureTokenEqual(left string, right string) bool {
+	leftHash := sha256.Sum256([]byte(left))
+	rightHash := sha256.Sum256([]byte(right))
+	return subtle.ConstantTimeCompare(leftHash[:], rightHash[:]) == 1
 }
 
 func extractPlatformAdminAPIKey(c *fiber.Ctx) string {

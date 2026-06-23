@@ -18,19 +18,6 @@ import { UpsertProviderDto } from './providers/dto/upsert-provider.dto';
 import { UpsertModelDto } from './catalog/dto/upsert-model.dto';
 import { UpsertModelSeriesDto } from './catalog/dto/upsert-model-series.dto';
 
-class AdminLoginDto {
-  @ApiProperty()
-  username!: string;
-
-  @ApiProperty()
-  password!: string;
-}
-
-class AdminLoginResponse {
-  @ApiProperty()
-  accessToken!: string;
-}
-
 class BooleanToggleDto {
   @ApiProperty()
   enabled!: boolean;
@@ -700,18 +687,6 @@ class ImportCatalogResponse {
   importedModels?: number;
 }
 
-@ApiTags('auth')
-@Controller({ path: 'auth', version: '1' })
-class OpenAPIAuthController {
-  @Post('login')
-  @ApiOperation({ summary: 'Authenticate an admin user and return a bearer token.' })
-  @ApiBody({ type: AdminLoginDto })
-  @ApiOkResponse({ type: AdminLoginResponse })
-  login() {
-    return undefined;
-  }
-}
-
 @ApiTags('providers')
 @Controller({ path: 'providers', version: '1' })
 class OpenAPIProvidersController {
@@ -999,7 +974,6 @@ class OpenAPIImportController {
 
 @Module({
   controllers: [
-    OpenAPIAuthController,
     OpenAPIProvidersController,
     OpenAPICatalogController,
     OpenAPICatalogAdminController,

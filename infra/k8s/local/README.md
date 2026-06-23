@@ -60,6 +60,7 @@ Example build commands from repo root:
 docker build -t shahrah/control-plane:local -f services/control-plane/Dockerfile .
 docker build -t registry-def882af9a-shahrah-local.apps.ir-central1.arvancaas.ir/shahrah-local/model-discovery:latest -f apps/model-discovery/Dockerfile apps/model-discovery --push
 docker build -t shahrah/model-discovery-migrate:local --target migrate -f apps/model-discovery/Dockerfile apps/model-discovery
+docker build -t shahrah/support-admin-migrate:local --target migrate -f apps/support-admin/Dockerfile apps/support-admin
 docker build -t shahrah/support-admin:local -f apps/support-admin/Dockerfile apps/support-admin
 docker build -t registry-def882af9a-shahrah-local.apps.ir-central1.arvancaas.ir/shahrah-local/tunnel-client:latest -f services/tunnel-client/Dockerfile services/tunnel-client --push
 docker build -t shahrah/tunnel-server:local -f services/tunnel-server/Dockerfile services/tunnel-server

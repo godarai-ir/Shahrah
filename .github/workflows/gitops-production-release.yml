@@ -107,6 +107,16 @@ jobs:
                   "paths": ["apps/support-admin/"],
               },
               {
+                  "id": "support-admin-migrate",
+                  "image": "shahrah/support-admin-migrate",
+                  "context": "apps/support-admin",
+                  "dockerfile": "apps/support-admin/Dockerfile",
+                  "target": "migrate",
+                  "values_path": "migrations.supportAdmin.image.tag",
+                  "semver_prefix": "support-admin",
+                  "paths": ["apps/support-admin/"],
+              },
+              {
                   "id": "silk-road",
                   "image": "shahrah/silk-road",
                   "context": ".",

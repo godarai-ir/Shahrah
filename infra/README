@@ -889,6 +889,10 @@ The current manifests show the minimum required secret set:
 - `SHAHRAH_DISCOVERY_TOKEN`
 - `PGADMIN_DEFAULT_PASSWORD` if `pgadmin` is kept anywhere
 
+`SHAHRAH_DISCOVERY_TOKEN` is optional while control-plane consumes only public catalog endpoints. If protected discovery access is introduced, provision a dedicated `control-plane` service account; never reuse `MASTER_KEY`.
+
+`support-admin` uses its own `support_admin` database and database role. Its `DATABASE_URL` must never point at `sharah_db` or a tenant database. Access to tenant source-of-truth data is through a scoped `CONTROL_PLANE_SERVICE_TOKEN`.
+
 For production, also define:
 
 - registry pull credentials

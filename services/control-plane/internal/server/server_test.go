@@ -12,6 +12,7 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/admin"
+	controlauth "github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	tenantmw "github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
@@ -91,7 +92,7 @@ func TestNewFiberAppExposesPrometheusMetrics(t *testing.T) {
 func TestPlatformAdminAuthMiddlewareRequiresMasterKey(t *testing.T) {
 	t.Parallel()
 	app := fiber.New()
-	app.Get("/platform", platformAdminAuthMiddleware("master-secret"), func(c *fiber.Ctx) error {
+	app.Get("/platform", platformAdminAuthMiddleware("master-secret", nil), func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
@@ -104,6 +105,40 @@ func TestPlatformAdminAuthMiddlewareRequiresMasterKey(t *testing.T) {
 	allowed, err := app.Test(request)
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusNoContent, allowed.StatusCode)
+}
+
+type platformServiceAccountStoreStub struct {
+	credential *controlauth.PlatformServiceAccountCredential
+	err        error
+}
+
+func (s platformServiceAccountStoreStub) GetPlatformServiceAccountByTokenHash(context.Context, string) (*controlauth.PlatformServiceAccountCredential, error) {
+	return s.credential, s.err
+}
+
+func TestPlatformAdminAuthMiddlewareEnforcesServiceAccountScopes(t *testing.T) {
+	t.Parallel()
+	store := platformServiceAccountStoreStub{credential: &controlauth.PlatformServiceAccountCredential{
+		CredentialID: "credential-1",
+		AccountName:  "support-admin",
+		Scopes:       []string{controlauth.PlatformScopeRead},
+	}}
+	app := fiber.New()
+	app.Use(platformAdminAuthMiddleware("master-secret", store))
+	app.Get("/api/v1/platform/features", func(c *fiber.Ctx) error { return c.SendStatus(fiber.StatusNoContent) })
+	app.Post("/api/v1/platform/commercial-plans", func(c *fiber.Ctx) error { return c.SendStatus(fiber.StatusNoContent) })
+
+	readRequest := httptest.NewRequest(fiber.MethodGet, "/api/v1/platform/features", nil)
+	readRequest.Header.Set("Authorization", "Bearer service-token")
+	readResponse, err := app.Test(readRequest)
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusNoContent, readResponse.StatusCode)
+
+	writeRequest := httptest.NewRequest(fiber.MethodPost, "/api/v1/platform/commercial-plans", nil)
+	writeRequest.Header.Set("Authorization", "Bearer service-token")
+	writeResponse, err := app.Test(writeRequest)
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusForbidden, writeResponse.StatusCode)
 }
 
 func TestLoginDiscoveryRoutesArePublic(t *testing.T) {

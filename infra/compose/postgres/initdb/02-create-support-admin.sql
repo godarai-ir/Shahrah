@@ -1,0 +1,1 @@
+-- Superseded by 02-create-support-admin.sh so the password is injected at runtime.

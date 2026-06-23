@@ -430,9 +430,6 @@ func discoveryFetch(ctx context.Context, rawURL string) ([]byte, int, string, er
 	req.Header.Set("Accept", "application/json")
 
 	token := strings.TrimSpace(os.Getenv("SHAHRAH_DISCOVERY_TOKEN"))
-	if token == "" {
-		token = strings.TrimSpace(os.Getenv("MASTER_KEY"))
-	}
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}

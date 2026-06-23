@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
-import { getAdminTokenFromCookie } from '@/lib/admin-auth';
+import { getAdminSession } from '@/lib/admin-auth';
 
 export async function GET() {
-  const token = await getAdminTokenFromCookie();
-  return NextResponse.json({ authenticated: Boolean(token) });
+  const session = await getAdminSession();
+  if (!session) return NextResponse.json({ authenticated: false }, { status: 401 });
+  return NextResponse.json({
+    authenticated: true,
+    user: { id: session.userId, email: session.email, role: session.role },
+  });
 }

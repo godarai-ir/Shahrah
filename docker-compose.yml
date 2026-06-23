@@ -6,10 +6,12 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: model_discovery
+      SUPPORT_ADMIN_DB_PASSWORD: ${SUPPORT_ADMIN_DB_PASSWORD:-local-support-admin-only}
     ports:
       - '5432:5432'
     volumes:
       - pg_data:/var/lib/postgresql/data
+      - ./infra/compose/postgres/initdb/02-create-support-admin.sh:/docker-entrypoint-initdb.d/02-create-support-admin.sh:ro
 
   redis:
     image: redis:7
@@ -33,9 +35,6 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/model_discovery?schema=public
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      JWT_SECRET: dev-secret
-      ADMIN_USERNAME: admin
-      ADMIN_PASSWORD: admin123
       TYPESENSE_HOST: typesense
       TYPESENSE_PORT: 8108
       TYPESENSE_PROTOCOL: http
@@ -55,10 +54,26 @@ services:
     environment:
       NEXT_PUBLIC_MODEL_CATALOG_API_BASE: http://localhost:3002/api/v1
       MODEL_CATALOG_API_BASE_INTERNAL: http://backend:3002/api/v1
+      DATABASE_URL: postgresql://support_admin:${SUPPORT_ADMIN_DB_PASSWORD:-local-support-admin-only}@postgres:5432/support_admin?schema=public
+      MODEL_DISCOVERY_SERVICE_TOKEN: ${MODEL_DISCOVERY_SERVICE_TOKEN:-}
+      CONTROL_PLANE_SERVICE_TOKEN: ${CONTROL_PLANE_SERVICE_TOKEN:-}
+      SHAHRAH_CONTROL_PLANE_URL: ${SHAHRAH_CONTROL_PLANE_URL:-http://127.0.0.1:4000}
+      SUPPORT_ADMIN_ORIGIN: ${SUPPORT_ADMIN_ORIGIN:-http://localhost:3001}
     depends_on:
       - backend
     ports:
       - '3001:3000'
+
+  support-admin-migrate:
+    build:
+      context: ./apps/support-admin
+      dockerfile: Dockerfile
+      target: migrate
+    command: ["npx", "prisma", "migrate", "deploy"]
+    environment:
+      DATABASE_URL: postgresql://support_admin:${SUPPORT_ADMIN_DB_PASSWORD:-local-support-admin-only}@postgres:5432/support_admin?schema=public
+    depends_on:
+      - postgres
 
 volumes:
   pg_data:
