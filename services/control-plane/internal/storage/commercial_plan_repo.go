@@ -347,12 +347,13 @@ func (s *Store) GetTenantSubscription(ctx context.Context, tenantID string) (*pl
 		SELECT ts.subscription_id::text, ts.tenant_id::text, ts.plan_id::text, p.slug, p.display_name,
 		       ts.version_id::text, pv.version, ts.status, ts.billing_interval,
 		       ts.current_period_start, ts.current_period_end, ts.cancel_at_period_end,
+		       ts.trial_started_at, ts.trial_ends_at, ts.converted_at,
 		       COALESCE(ts.pending_version_id::text, ''), ts.price_snapshot_json, ts.metadata,
 		       ts.created_at, ts.updated_at
 		FROM tenant_subscriptions ts
 		JOIN commercial_plans p ON p.plan_id = ts.plan_id
 		JOIN plan_versions pv ON pv.version_id = ts.version_id
-		WHERE ts.tenant_id = $1::uuid AND ts.status IN ('active', 'past_due')
+		WHERE ts.tenant_id = $1::uuid AND ts.status IN ('trialing', 'active', 'past_due')
 		ORDER BY ts.updated_at DESC
 		LIMIT 1
 	`, tenantID)
@@ -391,7 +392,7 @@ func (s *Store) ChangeTenantSubscription(ctx context.Context, tenantID string, r
 		if err := s.pool.QueryRow(ctx, `SELECT sort_order FROM commercial_plans WHERE plan_id = $1::uuid`, target.ID).Scan(&targetOrder); err != nil {
 			return nil, err
 		}
-		if targetOrder < currentOrder {
+		if current.Status != "trialing" && targetOrder < currentOrder {
 			if _, err := s.pool.Exec(ctx, `
 				UPDATE tenant_subscriptions
 				SET pending_version_id = $2::uuid,
@@ -465,7 +466,7 @@ func (s *Store) upsertTenantSubscription(ctx context.Context, req platform.Upser
 	if _, err := tx.Exec(ctx, `
 		UPDATE tenant_subscriptions
 		SET status = 'canceled', updated_at = NOW()
-		WHERE tenant_id = $1::uuid AND status IN ('active', 'past_due')
+		WHERE tenant_id = $1::uuid AND status IN ('trialing', 'active', 'past_due')
 	`, req.TenantID); err != nil {
 		return nil, err
 	}
@@ -804,6 +805,7 @@ func (s *Store) ProcessSubscriptionTransitions(ctx context.Context, now time.Tim
 	type transition struct {
 		subscriptionID  string
 		tenantID        string
+		status          string
 		interval        string
 		periodEnd       time.Time
 		cancelAtEnd     bool
@@ -811,11 +813,11 @@ func (s *Store) ProcessSubscriptionTransitions(ctx context.Context, now time.Tim
 		pendingInterval string
 	}
 	rows, err := tx.Query(ctx, `
-		SELECT subscription_id::text, tenant_id::text, billing_interval, current_period_end,
+		SELECT subscription_id::text, tenant_id::text, status, billing_interval, current_period_end,
 		       cancel_at_period_end, COALESCE(pending_version_id::text, ''),
 		       COALESCE(metadata->>'pending_billing_interval', '')
 		FROM tenant_subscriptions
-		WHERE status IN ('active', 'past_due') AND current_period_end <= $1
+		WHERE status IN ('trialing', 'active', 'past_due') AND current_period_end <= $1
 		ORDER BY current_period_end ASC
 		LIMIT $2
 		FOR UPDATE SKIP LOCKED
@@ -826,7 +828,7 @@ func (s *Store) ProcessSubscriptionTransitions(ctx context.Context, now time.Tim
 	items := []transition{}
 	for rows.Next() {
 		var item transition
-		if err := rows.Scan(&item.subscriptionID, &item.tenantID, &item.interval, &item.periodEnd, &item.cancelAtEnd, &item.pendingVersion, &item.pendingInterval); err != nil {
+		if err := rows.Scan(&item.subscriptionID, &item.tenantID, &item.status, &item.interval, &item.periodEnd, &item.cancelAtEnd, &item.pendingVersion, &item.pendingInterval); err != nil {
 			rows.Close()
 			return 0, err
 		}
@@ -891,10 +893,14 @@ func (s *Store) ProcessSubscriptionTransitions(ctx context.Context, now time.Tim
 			if _, err := tx.Exec(ctx, `UPDATE tenant_subscriptions SET status = 'expired', updated_at = NOW() WHERE subscription_id = $1::uuid`, item.subscriptionID); err != nil {
 				return 0, err
 			}
+			eventType := "subscription_expired"
+			if item.status == "trialing" {
+				eventType = "trial_expired"
+			}
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO subscription_events (tenant_id, subscription_id, event_type, actor, payload)
-				VALUES ($1::uuid, $2::uuid, 'subscription_expired', 'system', '{}'::jsonb)
-			`, item.tenantID, item.subscriptionID); err != nil {
+				VALUES ($1::uuid, $2::uuid, $3, 'system', '{}'::jsonb)
+			`, item.tenantID, item.subscriptionID, eventType); err != nil {
 				return 0, err
 			}
 		}
@@ -1096,6 +1102,7 @@ func scanTenantSubscription(rows pgx.Rows) (*platform.TenantSubscription, error)
 		&item.ID, &item.TenantID, &item.PlanID, &item.PlanSlug, &item.PlanDisplayName,
 		&item.VersionID, &item.Version, &item.Status, &item.BillingInterval,
 		&item.CurrentPeriodStart, &item.CurrentPeriodEnd, &item.CancelAtPeriodEnd,
+		&item.TrialStartedAt, &item.TrialEndsAt, &item.ConvertedAt,
 		&pending, &priceRaw, &metadataRaw, &item.CreatedAt, &item.UpdatedAt,
 	); err != nil {
 		return nil, err

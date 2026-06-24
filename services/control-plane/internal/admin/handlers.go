@@ -160,6 +160,8 @@ type loginDiscoveryStore interface {
 }
 
 type planStore interface {
+	GetCommercialSignupSettings(ctx context.Context) (*platform.CommercialSignupSettings, error)
+	UpdateCommercialSignupSettings(ctx context.Context, credit int64, actor string) (*platform.CommercialSignupSettings, error)
 	ListFeatureCatalog(ctx context.Context) ([]platform.FeatureDefinition, error)
 	ListPublicCommercialPlans(ctx context.Context) ([]platform.CommercialPlan, error)
 	ListPlatformCommercialPlans(ctx context.Context) ([]platform.CommercialPlan, error)

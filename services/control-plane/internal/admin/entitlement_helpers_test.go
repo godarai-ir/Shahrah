@@ -35,7 +35,9 @@ func TestEntitlementGateRejectsDisabledVAT(t *testing.T) {
 }
 
 func TestEntitlementGateAllowsTeamRateLimitRules(t *testing.T) {
-	h := &Handlers{entitlements: entitlementResolverMock{effective: activeEntitlements(map[string]interface{}{platform.FeatureRateLimitRulesEnabled: true})}}
+	effective := activeEntitlements(map[string]interface{}{platform.FeatureRateLimitRulesEnabled: true})
+	effective.Subscription.Status = "trialing"
+	h := &Handlers{entitlements: entitlementResolverMock{effective: effective}}
 	app := fiber.New()
 	app.Post("/rules", func(c *fiber.Ctx) error {
 		if err := h.requireEntitlementEnabled(c, "tenant-1", platform.FeatureRateLimitRulesEnabled); err != nil {

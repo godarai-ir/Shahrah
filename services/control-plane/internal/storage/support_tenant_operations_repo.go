@@ -28,7 +28,7 @@ func (s *Store) ListSupportTenants(ctx context.Context, query, status, plan stri
 		       ROUND(COALESCE(w.balance_irr, 0))::bigint, ROUND(COALESCE(w.pending_irr, 0))::bigint,
 		       COALESCE(tuc.used, 0)::double precision
 		FROM tenants t
-		LEFT JOIN tenant_subscriptions ts ON ts.tenant_id = t.tenant_id AND ts.status IN ('active', 'past_due')
+		LEFT JOIN tenant_subscriptions ts ON ts.tenant_id = t.tenant_id AND ts.status IN ('trialing', 'active', 'past_due')
 		LEFT JOIN commercial_plans cp ON cp.plan_id = ts.plan_id
 		LEFT JOIN wallets w ON w.tenant_id = t.tenant_id
 		LEFT JOIN LATERAL (
@@ -67,7 +67,7 @@ func (s *Store) GetSupportTenantSummary(ctx context.Context, tenantID string) (*
 		       ROUND(COALESCE(w.balance_irr, 0))::bigint, ROUND(COALESCE(w.pending_irr, 0))::bigint,
 		       COALESCE(tuc.used, 0)::double precision
 		FROM tenants t
-		LEFT JOIN tenant_subscriptions ts ON ts.tenant_id = t.tenant_id AND ts.status IN ('active', 'past_due')
+		LEFT JOIN tenant_subscriptions ts ON ts.tenant_id = t.tenant_id AND ts.status IN ('trialing', 'active', 'past_due')
 		LEFT JOIN commercial_plans cp ON cp.plan_id = ts.plan_id
 		LEFT JOIN wallets w ON w.tenant_id = t.tenant_id
 		LEFT JOIN LATERAL (
@@ -278,7 +278,7 @@ func (s *Store) SetTenantSubscriptionCancellation(ctx context.Context, tenantID 
 	if err := tx.QueryRow(ctx, `
 		SELECT subscription_id::text, cancel_at_period_end
 		FROM tenant_subscriptions
-		WHERE tenant_id::text = $1 AND status IN ('active', 'past_due')
+		WHERE tenant_id::text = $1 AND status IN ('trialing', 'active', 'past_due')
 		FOR UPDATE
 	`, tenantID).Scan(&subscriptionID, &current); err != nil {
 		return nil, err

@@ -7,6 +7,7 @@ const links = [
   ['/admin/providers', 'Providers'],
   ['/admin/models', 'Models'],
   ['/admin/pricing', 'Pricing'],
+	['/admin/settings/commercial', 'Signup Settings'],
   ['/admin/audit-log', 'Audit Log'],
 ];
 

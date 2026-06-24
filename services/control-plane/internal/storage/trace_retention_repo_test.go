@@ -11,7 +11,7 @@ func TestTraceRetentionPoliciesSQL_UsesEffectiveEntitlementPrecedence(t *testing
 	normalized := strings.ToLower(strings.Join(strings.Fields(traceRetentionPoliciesSQL), " "))
 
 	assert.Contains(t, normalized, "from tenants")
-	assert.Contains(t, normalized, "where ts.status in ('active', 'past_due')")
+	assert.Contains(t, normalized, "where ts.status in ('trialing', 'active', 'past_due')")
 	assert.Contains(t, normalized, "where fc.feature_key = $1")
 	assert.Contains(t, normalized, "and pe.feature_key = $1")
 	assert.Contains(t, normalized, "and o.feature_key = $1")

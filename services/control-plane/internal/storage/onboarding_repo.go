@@ -120,6 +120,19 @@ func (s *Store) CreateOnboardingOTP(ctx context.Context, p CreateOnboardingOTPPa
 		return nil, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	var planExists bool
+	if err := tx.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM commercial_plans p
+			JOIN plan_versions pv ON pv.plan_id = p.plan_id AND pv.status = 'published'
+			WHERE p.slug = $1 AND p.active = true
+		)
+	`, p.PlanSlug).Scan(&planExists); err != nil {
+		return nil, err
+	}
+	if !planExists {
+		return nil, ErrPlanNotFound
+	}
 
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, p.TenantSlug); err != nil {
 		return nil, err
@@ -323,41 +336,69 @@ func (s *Store) VerifyOnboardingOTPAndProvision(ctx context.Context, p VerifyOnb
 	`, tenantSlug, tenantDomain).Scan(&created.ID, &created.Slug, &created.Domain, &created.Status, &created.CreatedAt); err != nil {
 		return nil, err
 	}
-	if _, err := tx.Exec(ctx, `
+	var walletID string
+	if err := tx.QueryRow(ctx, `
 		INSERT INTO wallets (tenant_id, balance_irr, pending_irr)
-		VALUES ($1::uuid, 0, 0)
-	`, created.ID); err != nil {
+		SELECT $1::uuid, signup_credit_irr::double precision, 0
+		FROM commercial_signup_settings WHERE settings_id = true
+		RETURNING wallet_id::text
+	`, created.ID).Scan(&walletID); err != nil {
 		return nil, err
 	}
 	requestedPlanSlug := strings.TrimSpace(strings.ToLower(planSlug))
 	if requestedPlanSlug == "" || requestedPlanSlug == "free" {
 		requestedPlanSlug = "developer"
 	}
-	planSlug = "developer"
 	subscriptionResult, err := tx.Exec(ctx, `
 		INSERT INTO tenant_subscriptions (
 			tenant_id, plan_id, version_id, status, billing_interval,
-			current_period_start, current_period_end, price_snapshot_json, metadata
+			current_period_start, current_period_end, trial_started_at, trial_ends_at,
+			price_snapshot_json, metadata
 		)
-		SELECT $1::uuid, p.plan_id, pv.version_id, 'active', 'monthly',
-		       NOW(), NOW() + INTERVAL '1 month',
+		SELECT $1::uuid, p.plan_id, pv.version_id, 'trialing', 'monthly',
+		       t.created_at, t.created_at + make_interval(days => settings.trial_days),
+		       t.created_at, t.created_at + make_interval(days => settings.trial_days),
 		       jsonb_build_object(
-		           'currency', COALESCE(pp.currency, 'IRR'),
-		           'amount_minor', COALESCE(pp.amount_minor, 0),
+		           'currency', 'IRR',
+		           'amount_minor', 0,
 		           'billing_interval', 'monthly',
-		           'discount_percent', COALESCE(pp.discount_percent, 0)
+		           'discount_percent', 100,
+		           'regular_amount_minor', COALESCE(pp.amount_minor, 0)
 		       ),
-		       jsonb_build_object('source', 'onboarding', 'requested_plan_slug', $3::text)
+		       jsonb_build_object('source', 'onboarding', 'trial_days', settings.trial_days)
 		FROM commercial_plans p
 		JOIN plan_versions pv ON pv.plan_id = p.plan_id AND pv.status = 'published'
 		LEFT JOIN plan_prices pp ON pp.version_id = pv.version_id AND pp.billing_interval = 'monthly'
-		WHERE p.slug = $2
-	`, created.ID, planSlug, requestedPlanSlug)
+		JOIN tenants t ON t.tenant_id = $1::uuid
+		CROSS JOIN commercial_signup_settings settings
+		WHERE p.slug = $2 AND p.active = true AND settings.settings_id = true
+	`, created.ID, requestedPlanSlug)
 	if err != nil {
 		return nil, err
 	}
 	if subscriptionResult.RowsAffected() == 0 {
 		return nil, ErrPlanNotFound
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO subscription_events (tenant_id, subscription_id, event_type, actor, payload)
+		SELECT tenant_id, subscription_id, 'trial_started', 'onboarding',
+		       jsonb_build_object('plan_slug', $2::text, 'trial_ends_at', trial_ends_at)
+		FROM tenant_subscriptions
+		WHERE tenant_id = $1::uuid AND status = 'trialing'
+	`, created.ID, requestedPlanSlug); err != nil {
+		return nil, err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO wallet_transactions (
+			wallet_id, tenant_id, tx_type, amount_irr, status, description, metadata
+		)
+		SELECT $1::uuid, $2::uuid, 'SIGNUP_CREDIT', signup_credit_irr::double precision,
+		       'COMPLETED', 'Promotional signup credit',
+		       jsonb_build_object('source', 'onboarding', 'plan_slug', $3::text)
+		FROM commercial_signup_settings
+		WHERE settings_id = true AND signup_credit_irr > 0
+	`, walletID, created.ID, requestedPlanSlug); err != nil {
+		return nil, err
 	}
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO users (

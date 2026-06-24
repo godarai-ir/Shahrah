@@ -193,6 +193,8 @@ func registerPublicRoutes(app *fiber.App, cfg *config.Config, deps Dependencies,
 		platformAdmin := app.Group("/api/v1/platform", platformAdminAuthMiddleware(cfg.GeneralSettings.MasterKey, deps.PlatformServiceAccounts))
 		platformAdmin.Get("/features", deps.AdminHandlers.ListPlatformFeatureCatalog)
 		platformAdmin.Get("/commercial-plans", deps.AdminHandlers.ListPlatformCommercialPlans)
+		platformAdmin.Get("/commercial-signup-settings", deps.AdminHandlers.GetPlatformCommercialSignupSettings)
+		platformAdmin.Put("/commercial-signup-settings", deps.AdminHandlers.UpdatePlatformCommercialSignupSettings)
 		platformAdmin.Post("/commercial-plans", deps.AdminHandlers.CreatePlatformCommercialPlan)
 		platformAdmin.Patch("/commercial-plans/:slug", deps.AdminHandlers.UpdatePlatformCommercialPlan)
 		platformAdmin.Delete("/commercial-plans/:slug", deps.AdminHandlers.DeactivatePlatformCommercialPlan)

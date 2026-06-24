@@ -20,7 +20,7 @@ const traceRetentionPoliciesSQL = `
 			ts.tenant_id,
 			ts.version_id
 		FROM tenant_subscriptions ts
-		WHERE ts.status IN ('active', 'past_due')
+		WHERE ts.status IN ('trialing', 'active', 'past_due')
 		ORDER BY ts.tenant_id, ts.updated_at DESC
 	),
 	base_values AS (

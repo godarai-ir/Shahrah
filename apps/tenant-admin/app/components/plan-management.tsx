@@ -28,6 +28,7 @@ type TenantSubscription = {
   status: string;
   billing_interval: string;
   current_period_end?: string;
+	trial_ends_at?: string;
 };
 
 type EffectiveEntitlements = {
@@ -119,6 +120,11 @@ export default function PlanManagement({
           {message}
         </div>
       ) : null}
+		{subscription?.status === "trialing" ? (
+			<div className="rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-foreground">
+				Your {subscription.plan_display_name ?? subscription.plan_slug} trial is active until {formatDate(subscription.trial_ends_at)}. Choose the same plan below to continue with a paid subscription without changing your tenant.
+			</div>
+		) : null}
 
       <section className="grid gap-4 lg:grid-cols-2">
         <Card className="rounded-lg">
@@ -129,6 +135,7 @@ export default function PlanManagement({
             <Metric label="Plan" value={subscription?.plan_display_name ?? subscription?.plan_slug ?? "Unavailable"} />
             <Metric label="Interval" value={subscription?.billing_interval ?? "Unavailable"} />
             <Metric label="Period end" value={formatDate(subscription?.current_period_end)} />
+							{subscription?.status === "trialing" ? <Metric label="Trial ends" value={formatDate(subscription.trial_ends_at)} /> : null}
           </CardContent>
         </Card>
         <Card className="rounded-lg">

@@ -36,7 +36,7 @@ func (s *Store) PrepareTenantSubscriptionChange(ctx context.Context, tenantID st
 		if err := s.pool.QueryRow(ctx, `SELECT sort_order FROM commercial_plans WHERE plan_id = $1::uuid`, current.PlanID).Scan(&currentOrder); err != nil {
 			return nil, err
 		}
-		if target.SortOrder < currentOrder {
+		if current.Status != "trialing" && target.SortOrder < currentOrder {
 			subscription, err := s.ChangeTenantSubscription(ctx, tenantID, req)
 			if err != nil {
 				return nil, err
@@ -155,14 +155,14 @@ func (s *Store) CompleteSubscriptionPaymentByAuthority(ctx context.Context, auth
 	}
 
 	now := time.Now().UTC()
-	var currentID, currentPlanID string
+	var currentID, currentPlanID, currentStatus string
 	var currentEnd time.Time
 	currentErr := tx.QueryRow(ctx, `
-		SELECT subscription_id::text, plan_id::text, current_period_end
+		SELECT subscription_id::text, plan_id::text, status, current_period_end
 		FROM tenant_subscriptions
-		WHERE tenant_id = $1::uuid AND status IN ('active', 'past_due')
+		WHERE tenant_id = $1::uuid AND status IN ('trialing', 'active', 'past_due')
 		ORDER BY updated_at DESC LIMIT 1 FOR UPDATE
-	`, intent.TenantID).Scan(&currentID, &currentPlanID, &currentEnd)
+	`, intent.TenantID).Scan(&currentID, &currentPlanID, &currentStatus, &currentEnd)
 	if currentErr != nil && !errors.Is(currentErr, pgx.ErrNoRows) {
 		return nil, nil, false, currentErr
 	}
@@ -170,6 +170,9 @@ func (s *Store) CompleteSubscriptionPaymentByAuthority(ctx context.Context, auth
 	subscriptionID := currentID
 	eventType := "subscription_renewed"
 	if currentErr == nil && currentPlanID == intent.PlanID {
+		if currentStatus == "trialing" {
+			eventType = "trial_converted"
+		}
 		periodBase := currentEnd
 		if periodBase.Before(now) {
 			periodBase = now
@@ -177,10 +180,11 @@ func (s *Store) CompleteSubscriptionPaymentByAuthority(ctx context.Context, auth
 		if _, err := tx.Exec(ctx, `
 			UPDATE tenant_subscriptions
 			SET version_id = $2::uuid, status = 'active', billing_interval = $3,
-			    current_period_end = $4, cancel_at_period_end = false, pending_version_id = NULL,
+			    current_period_start = $6, current_period_end = $4, converted_at = COALESCE(converted_at, $7),
+			    cancel_at_period_end = false, pending_version_id = NULL,
 			    price_snapshot_json = $5, updated_at = NOW()
 			WHERE subscription_id = $1::uuid
-		`, currentID, intent.VersionID, intent.BillingInterval, addBillingInterval(periodBase, intent.BillingInterval), mustJSON(intent.PriceSnapshot)); err != nil {
+		`, currentID, intent.VersionID, intent.BillingInterval, addBillingInterval(periodBase, intent.BillingInterval), mustJSON(intent.PriceSnapshot), periodBase, now); err != nil {
 			return nil, nil, false, err
 		}
 	} else {

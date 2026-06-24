@@ -63,7 +63,7 @@ func (s *Service) CheckRateLimit(ctx context.Context, auth *platform.AuthContext
 	if err != nil {
 		return nil, ErrSubscriptionInactive
 	}
-	if effective.Subscription == nil || effective.Subscription.Status != "active" {
+	if effective.Subscription == nil || (effective.Subscription.Status != "active" && effective.Subscription.Status != "trialing") {
 		return nil, ErrSubscriptionInactive
 	}
 	limit, limited := entitlementNumber(effective.Features[platform.FeatureGatewayRequestsMonthly])

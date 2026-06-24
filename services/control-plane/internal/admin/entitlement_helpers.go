@@ -19,7 +19,7 @@ func (h *Handlers) requireEntitlementEnabled(c *fiber.Ctx, tenantID string, feat
 	if err != nil {
 		return mapPlanStoreError(err)
 	}
-	if entitlements == nil || entitlements.Subscription == nil || strings.TrimSpace(entitlements.Subscription.Status) != "active" {
+	if entitlements == nil || entitlements.Subscription == nil || !subscriptionEntitlementsUsable(entitlements.Subscription.Status) {
 		return fiber.NewError(fiber.StatusForbidden, "active subscription required")
 	}
 	enabled, ok := entitlementBool(entitlements.Features[featureKey])
@@ -40,7 +40,7 @@ func (h *Handlers) requireEntitlementLimitAvailable(c *fiber.Ctx, tenantID strin
 	if err != nil {
 		return mapPlanStoreError(err)
 	}
-	if entitlements == nil || entitlements.Subscription == nil || strings.TrimSpace(entitlements.Subscription.Status) != "active" {
+	if entitlements == nil || entitlements.Subscription == nil || !subscriptionEntitlementsUsable(entitlements.Subscription.Status) {
 		return fiber.NewError(fiber.StatusForbidden, "active subscription required")
 	}
 	limit, limited := entitlementNumber(entitlements.Features[featureKey])
@@ -51,6 +51,15 @@ func (h *Handlers) requireEntitlementLimitAvailable(c *fiber.Ctx, tenantID strin
 		return fiber.NewError(fiber.StatusForbidden, fmt.Sprintf("feature %s limit exceeded for this plan", featureKey))
 	}
 	return nil
+}
+
+func subscriptionEntitlementsUsable(status string) bool {
+	switch strings.TrimSpace(status) {
+	case "active", "trialing":
+		return true
+	default:
+		return false
+	}
 }
 
 func entitlementBool(value interface{}) (bool, bool) {

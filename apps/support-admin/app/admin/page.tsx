@@ -14,6 +14,7 @@ export default function AdminHome() {
     ['/admin/indexing', 'Indexing'],
     ['/admin/audit-log', 'Audit Log'],
     ['/admin/settings/display', 'Display Settings'],
+		['/admin/settings/commercial', 'Commercial Signup Settings'],
   ];
 
   return (

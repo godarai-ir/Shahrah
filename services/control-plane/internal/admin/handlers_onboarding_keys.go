@@ -41,6 +41,8 @@ func (h *Handlers) RequestOnboardingOTP(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusBadRequest, "tenant slug is invalid or reserved")
 		case errors.Is(err, storage.ErrTenantSlugTaken):
 			return fiber.NewError(fiber.StatusConflict, "tenant slug is already taken")
+		case errors.Is(err, storage.ErrPlanNotFound):
+			return fiber.NewError(fiber.StatusBadRequest, "selected commercial plan is unavailable")
 		default:
 			return err
 		}
@@ -69,6 +71,8 @@ func (h *Handlers) VerifyOnboardingOTP(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusGone, "onboarding request expired")
 		case errors.Is(err, storage.ErrOnboardingOTPFailed):
 			return fiber.NewError(fiber.StatusBadRequest, "invalid onboarding otp")
+		case errors.Is(err, storage.ErrPlanNotFound):
+			return fiber.NewError(fiber.StatusBadRequest, "selected commercial plan is unavailable")
 		default:
 			return err
 		}

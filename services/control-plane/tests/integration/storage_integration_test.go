@@ -163,8 +163,9 @@ func TestIntegration_StorageSchemaContract(t *testing.T) {
 		"plan_prices":       {"price_id", "version_id", "billing_interval", "currency", "amount_minor", "discount_percent"},
 		"tenant_subscriptions": {
 			"subscription_id", "tenant_id", "plan_id", "version_id", "status", "billing_interval",
-			"current_period_start", "current_period_end", "pending_version_id", "price_snapshot_json",
+			"current_period_start", "current_period_end", "trial_started_at", "trial_ends_at", "converted_at", "pending_version_id", "price_snapshot_json",
 		},
+		"commercial_signup_settings":   {"settings_id", "trial_days", "signup_credit_irr", "updated_by", "updated_at"},
 		"tenant_entitlement_overrides": {"override_id", "tenant_id", "feature_key", "value_json", "reason", "expires_at", "created_by"},
 		"tenant_usage_counters":        {"counter_id", "tenant_id", "feature_key", "window_start", "window_end", "used"},
 		"subscription_events":          {"event_id", "tenant_id", "subscription_id", "event_type", "actor", "payload"},
@@ -275,7 +276,6 @@ func TestIntegration_OnboardingExpiredOTPIsRejected(t *testing.T) {
 	t.Cleanup(pool.Close)
 
 	resetPersistentState(t, pool)
-
 	otp, err := store.CreateOnboardingOTP(ctx, storage.CreateOnboardingOTPParams{
 		TenantSlug: "expired-otp",
 		Email:      "owner@example.com",
@@ -296,7 +296,7 @@ func TestIntegration_OnboardingExpiredOTPIsRejected(t *testing.T) {
 	assert.ErrorIs(t, err, storage.ErrOnboardingExpired)
 }
 
-func TestIntegration_OnboardingVerifyProvisionsDeveloperSubscription(t *testing.T) {
+func TestIntegration_OnboardingVerifyProvisionsSelectedPlanTrialAndCredit(t *testing.T) {
 	databaseURL := os.Getenv("DATABASE_URL")
 	if strings.TrimSpace(databaseURL) == "" {
 		t.Skip("DATABASE_URL not set")
@@ -313,6 +313,8 @@ func TestIntegration_OnboardingVerifyProvisionsDeveloperSubscription(t *testing.
 	t.Cleanup(pool.Close)
 
 	resetPersistentState(t, pool)
+	_, err = store.UpdateCommercialSignupSettings(ctx, 2000000, "integration-test")
+	require.NoError(t, err)
 
 	otp, err := store.CreateOnboardingOTP(ctx, storage.CreateOnboardingOTPParams{
 		TenantSlug: "verified-otp",
@@ -329,15 +331,26 @@ func TestIntegration_OnboardingVerifyProvisionsDeveloperSubscription(t *testing.
 	require.NotNil(t, provisioned)
 	assert.Equal(t, "verified-otp", provisioned.Tenant.Slug)
 
-	var planSlug, requestedPlanSlug string
+	var planSlug, status string
+	var trialDays int
 	require.NoError(t, pool.QueryRow(ctx, `
-		SELECT p.slug, COALESCE(ts.metadata->>'requested_plan_slug', '')
+		SELECT p.slug, ts.status, EXTRACT(DAY FROM ts.trial_ends_at - ts.trial_started_at)::int
 		FROM tenant_subscriptions ts
 		JOIN commercial_plans p ON p.plan_id = ts.plan_id
-		WHERE ts.tenant_id = $1::uuid AND ts.status = 'active'
-	`, provisioned.Tenant.ID).Scan(&planSlug, &requestedPlanSlug))
-	assert.Equal(t, "developer", planSlug)
-	assert.Equal(t, "team", requestedPlanSlug)
+		WHERE ts.tenant_id = $1::uuid AND ts.status = 'trialing'
+	`, provisioned.Tenant.ID).Scan(&planSlug, &status, &trialDays))
+	assert.Equal(t, "team", planSlug)
+	assert.Equal(t, "trialing", status)
+	assert.Equal(t, 15, trialDays)
+
+	var balance, credit float64
+	require.NoError(t, pool.QueryRow(ctx, `SELECT balance_irr FROM wallets WHERE tenant_id = $1::uuid`, provisioned.Tenant.ID).Scan(&balance))
+	require.NoError(t, pool.QueryRow(ctx, `
+		SELECT amount_irr FROM wallet_transactions
+		WHERE tenant_id = $1::uuid AND tx_type = 'SIGNUP_CREDIT'
+	`, provisioned.Tenant.ID).Scan(&credit))
+	assert.Equal(t, float64(2000000), balance)
+	assert.Equal(t, float64(2000000), credit)
 }
 
 func TestIntegration_TenantAdminInvitations_ValidationAndDedupe(t *testing.T) {

@@ -98,6 +98,7 @@ function controlPlanePermission(path: string[], method: string): AdminPermission
   }
   if (joined === 'tenants' && method === 'GET') return 'tenant:read';
   if (joined === 'tenant-subscriptions') return 'subscription:write';
+	if (joined === 'commercial-signup-settings') return method === 'GET' ? 'catalog:read' : 'platform:admin';
   if (method === 'GET') return 'catalog:read';
   if (joined.startsWith('commercial-plans') || joined.startsWith('features') || joined.startsWith('tenant-entitlement-overrides')) return 'catalog:write';
   return 'platform:admin';

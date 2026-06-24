@@ -328,7 +328,7 @@ function PlanCard({ definition, plan, interval }: { definition: PlanDefinition; 
       </ul>
 
       <Link href={`/onboarding?plan=${encodeURIComponent(definition.slug)}`} className={`mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 ${isGrowth ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-slate-100 text-slate-950 hover:bg-slate-200 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700'}`}>
-        {isEnterprise ? 'تماس با فروش' : 'انتخاب این پلن'}
+        {isEnterprise ? 'تماس با فروش' : '۱۵ روز رایگان شروع کنید'}
         <ArrowLeft aria-hidden="true" className="size-4" />
       </Link>
     </article>

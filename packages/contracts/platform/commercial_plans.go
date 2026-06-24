@@ -82,12 +82,26 @@ type TenantSubscription struct {
 	BillingInterval    string                 `json:"billing_interval"`
 	CurrentPeriodStart time.Time              `json:"current_period_start"`
 	CurrentPeriodEnd   time.Time              `json:"current_period_end"`
+	TrialStartedAt     *time.Time             `json:"trial_started_at,omitempty"`
+	TrialEndsAt        *time.Time             `json:"trial_ends_at,omitempty"`
+	ConvertedAt        *time.Time             `json:"converted_at,omitempty"`
 	CancelAtPeriodEnd  bool                   `json:"cancel_at_period_end"`
 	PendingVersionID   string                 `json:"pending_version_id,omitempty"`
 	PriceSnapshot      map[string]interface{} `json:"price_snapshot,omitempty"`
 	Metadata           map[string]interface{} `json:"metadata,omitempty"`
 	CreatedAt          time.Time              `json:"created_at"`
 	UpdatedAt          time.Time              `json:"updated_at"`
+}
+
+type CommercialSignupSettings struct {
+	TrialDays       int       `json:"trial_days"`
+	SignupCreditIRR int64     `json:"signup_credit_irr"`
+	UpdatedBy       string    `json:"updated_by,omitempty"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+type UpdateCommercialSignupSettingsRequest struct {
+	SignupCreditIRR *int64 `json:"signup_credit_irr"`
 }
 
 type TenantEntitlementOverride struct {

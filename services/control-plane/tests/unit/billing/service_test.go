@@ -191,7 +191,7 @@ func TestBillingService_ShouldSkipLegacyRateLimits(t *testing.T) {
 	}
 }
 
-func TestBillingService_ShouldAllowWhenSubscriptionQuotaRemains(t *testing.T) {
+func TestBillingService_ShouldAllowTrialWhenSubscriptionQuotaRemains(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
 	store := &entitlementWalletStoreStub{
@@ -201,7 +201,7 @@ func TestBillingService_ShouldAllowWhenSubscriptionQuotaRemains(t *testing.T) {
 		},
 		used: 4,
 		effective: &platform.EffectiveEntitlementsResponse{
-			Subscription: &platform.TenantSubscription{Status: "active"},
+			Subscription: &platform.TenantSubscription{Status: "trialing"},
 			Features: map[string]interface{}{
 				platform.FeatureGatewayRequestsMonthly: float64(5),
 			},
