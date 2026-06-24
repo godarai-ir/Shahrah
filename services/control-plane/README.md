@@ -50,6 +50,8 @@ Do not add undocumented fallback behavior that hides upstream contract drift.
 - `CLICKHOUSE_DSN`: required, used for all request trace storage/read APIs
 - `OPENAI_API_KEY`: optional, used by the default OpenAI entries in `configs/proxy_config.yaml`
 - `ANTHROPIC_API_KEY`: optional, used by the default Anthropic entries in `configs/proxy_config.yaml`
+- `SHAHRAH_SMART_CACHE_EMBEDDING_BASE_URL`: ArvanCloud BGE-M3 OpenAI-compatible base URL ending in `/v1`; treat the complete opaque URL as a secret
+- `SHAHRAH_SMART_CACHE_EMBEDDING_API_KEY`: bearer credential for the Iran-hosted BGE-M3 endpoint
 
 Platform workloads use database-backed service credentials instead of `MASTER_KEY`. Provision `support-admin` with `platform:read`, `platform:catalog:write`, and `platform:tenant:write` using `go run ./services/control-plane/cmd/platform-service-account`.
 
@@ -93,6 +95,28 @@ curl -s http://localhost:4000/v1/chat/completions \
 ```
 
 Successful inference should create a wallet debit plus request and spend log records for the issuing tenant.
+
+## Gateway Response Caching
+
+Response caching is disabled by default and can be enabled with `response_cache.enabled` in `configs/proxy_config.yaml`. Clients opt in per non-streaming chat request:
+
+```bash
+curl -s http://localhost:4000/v1/chat/completions \
+  -H "Authorization: Bearer $TENANT_KEY" \
+  -H "Content-Type: application/json" \
+  -H 'x-shahrah-cache-config: {"type":"simple","ttl":600,"namespace":"production"}' \
+  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hello"}]}'
+```
+
+Use `type: smart` with an optional `similarity_threshold` from `0.80` through `1.0` for semantic matching. Smart caching first checks the exact request and then embeds only the final user text with the Iran-hosted ArvanCloud `Bge-m3` service. All prior messages and request parameters remain exact-match constraints. Streaming, multimodal, and tool requests bypass smart caching.
+
+Response headers are:
+
+- `x-shahrah-cache-status`: `hit`, `miss`, `bypass`, or `error`
+- `x-shahrah-cached-trace-id`: source trace on a hit
+- `x-shahrah-cache-similarity-score`: smart semantic hits only
+
+Entries are isolated by tenant, virtual key/account, namespace, logical model, virtual-model version, and embedding generation. Cache or embedding failures fail open to normal inference. Cache hits do not call the provider or debit the tenant wallet. The complete ArvanCloud base URL and API key must come from runtime secrets and must never be logged or committed.
 
 ## OpenAI-Compatible Moderations
 

@@ -16,6 +16,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
+	"github.com/Delpak/shahrah/services/control-plane/internal/responsecache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/Delpak/shahrah/services/control-plane/internal/virtualmodels"
@@ -45,16 +46,22 @@ type usageLogger interface {
 
 // ChatCompletionHandler handles chat completion requests.
 type ChatCompletionHandler struct {
-	llmRouter  *router.Router
-	tunnel     platform.TunnelTransport
-	billing    budgeter
-	wallets    walletStore
-	logs       usageLogger
-	logger     *zap.Logger
-	vmResolver virtualmodels.VirtualModelResolver
-	vmEngine   virtualmodels.RoutingEngine
-	vmExec     virtualmodels.FallbackExecutor
-	emitMetric func(input metricsobs.BuildInput)
+	llmRouter     *router.Router
+	tunnel        platform.TunnelTransport
+	billing       budgeter
+	wallets       walletStore
+	logs          usageLogger
+	logger        *zap.Logger
+	vmResolver    virtualmodels.VirtualModelResolver
+	vmEngine      virtualmodels.RoutingEngine
+	vmExec        virtualmodels.FallbackExecutor
+	emitMetric    func(input metricsobs.BuildInput)
+	responseCache *responsecache.Service
+}
+
+// SetResponseCache enables opt-in response caching without changing existing constructor callers.
+func (h *ChatCompletionHandler) SetResponseCache(service *responsecache.Service) {
+	h.responseCache = service
 }
 
 // NewChatCompletionHandler creates a new handler.
@@ -145,6 +152,18 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		emitDenyCounter(h.logger, denyReasonForModel(authInfo), requestedModel, currentTenant.ID)
 		return writeAPIError(c, fiber.StatusForbidden, "Model access denied or unsupported for chat completions", "authorization_error")
 	}
+	var cacheConfig *responsecache.RequestConfig
+	if rawCacheConfig := strings.TrimSpace(c.Get("x-shahrah-cache-config")); rawCacheConfig != "" && h.responseCache != nil {
+		parsed, parseErr := h.responseCache.ParseHeader(rawCacheConfig)
+		if parseErr != nil {
+			return writeAPIError(c, fiber.StatusBadRequest, parseErr.Error(), "invalid_request_error")
+		}
+		cacheConfig = &parsed
+		if !h.responseCache.Enabled() || req.Stream {
+			c.Set("x-shahrah-cache-status", "bypass")
+			cacheConfig = nil
+		}
+	}
 	authStart := time.Now()
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "auth.validate", "internal", authStart, fiber.StatusOK, map[string]interface{}{"model": requestedModel})
 
@@ -160,6 +179,45 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	setRateLimitHeaders(c, rateLimit)
 	if err != nil {
 		return writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error")
+	}
+	var cachePending *responsecache.Pending
+	if cacheConfig != nil {
+		keyID := strings.TrimSpace(authInfo.KeyID)
+		if keyID == "" {
+			keyID = strings.TrimSpace(authInfo.TokenHash)
+		}
+		cacheScope := responsecache.Scope{
+			TenantID:     currentTenant.ID,
+			KeyID:        keyID,
+			Model:        requestedModel,
+			ModelVersion: h.virtualModelCacheVersion(c.Context(), authInfo, currentTenant.ID, requestedModel),
+		}
+		cacheResult, pending, lookupErr := h.responseCache.Lookup(c.Context(), cacheScope, req, *cacheConfig)
+		cachePending = pending
+		c.Set("x-shahrah-cache-status", cacheResult.Status)
+		c.Locals("response_cache_status", cacheResult.Status)
+		c.Locals("response_cache_type", cacheConfig.Type)
+		c.Locals("response_cache_embedding_latency_ms", cacheResult.EmbeddingLatencyMS)
+		if lookupErr != nil {
+			h.logger.Warn("Response cache lookup failed", zap.String("cache_type", cacheConfig.Type), zap.Error(lookupErr))
+		} else if cacheResult.Entry != nil {
+			return h.handleCacheHit(c, req, authInfo, cacheResult, startTime, tenantSlug)
+		}
+		if cacheResult.Status != "bypass" {
+			release, waited, acquireErr := h.responseCache.AcquireMiss(c.Context(), cachePending)
+			if acquireErr != nil {
+				return writeAPIError(c, fiber.StatusRequestTimeout, "Request canceled while waiting for response cache", "request_canceled")
+			}
+			defer release()
+			if waited {
+				secondResult, secondPending, secondErr := h.responseCache.Lookup(c.Context(), cacheScope, req, *cacheConfig)
+				cachePending = secondPending
+				if secondErr == nil && secondResult.Entry != nil {
+					c.Set("x-shahrah-cache-status", "hit")
+					return h.handleCacheHit(c, req, authInfo, secondResult, startTime, tenantSlug)
+				}
+			}
+		}
 	}
 	if err := h.billing.CheckBudget(c.Context(), authInfo, estimated); err != nil {
 		return writeAPIError(c, fiber.StatusPaymentRequired, err.Error(), "budget_exceeded")
@@ -183,10 +241,10 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		Headers: map[string]string{
 			"Content-Type": "application/json",
 		},
-		RequestMetadata: map[string]interface{}{
+		RequestMetadata: enrichResponseCacheMetadata(c, map[string]interface{}{
 			"tenant_slug": strings.TrimSpace(c.Get("x-shahrah-tenant")),
 			"model":       requestedModel,
-		},
+		}),
 	}
 
 	routeStart := time.Now()
@@ -296,7 +354,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	if req.Stream {
 		return h.handleStream(c, req, authInfo, estimated, tunnelReq, startTime, tenantSlug)
 	}
-	return h.handleSync(c, req, authInfo, estimated, tunnelReq, startTime, tenantSlug)
+	return h.handleSync(c, req, authInfo, estimated, tunnelReq, startTime, tenantSlug, cachePending)
 }
 
 func buildChatCompletionPayload(req contractsopenai.ChatCompletionRequest, deploymentModel string, fallbackModel string) ([]byte, error) {
@@ -325,7 +383,7 @@ func (h *ChatCompletionHandler) resolveVirtualDeployment(ctx context.Context, te
 	return dep
 }
 
-func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, start time.Time, tenantSlug string) error {
+func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, start time.Time, tenantSlug string, cachePending *responsecache.Pending) error {
 	providerStart := time.Now()
 	providerAttrs := map[string]interface{}{
 		"provider":        tunnelReq.Deployment.Provider,
@@ -368,6 +426,14 @@ func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.Cha
 	}
 	if _, err := h.wallets.DebitWallet(c.Context(), authInfo.TenantID, finalCost, tunnelReq.RequestID); err != nil {
 		return writeAPIError(c, fiber.StatusPaymentRequired, err.Error(), "budget_exceeded")
+	}
+	if cachePending != nil && h.responseCache != nil {
+		cachedBody, marshalErr := json.Marshal(completion)
+		if marshalErr == nil {
+			if cacheErr := h.responseCache.Store(c.Context(), cachePending, cachedBody, tunnelReq.TraceID, tunnelReq.Deployment.Provider, tunnelReq.Deployment.Model); cacheErr != nil {
+				h.logger.Warn("Response cache store failed", zap.Error(cacheErr))
+			}
+		}
 	}
 
 	responseTimeMS := int(time.Since(start).Milliseconds())
@@ -419,13 +485,13 @@ func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.Cha
 		InputTokens:        finalCost.InputTokens,
 		OutputTokens:       finalCost.OutputTokens,
 		CostUSD:            finalCost.TotalCostUSD,
-		Metadata: map[string]interface{}{
+		Metadata: enrichResponseCacheMetadata(c, map[string]interface{}{
 			"endpoint":    "/v1/chat/completions",
 			"key_type":    authInfo.KeyType,
 			"team_id":     authInfo.TeamID,
 			"org_unit_id": authInfo.OrgUnitID,
 			"tenant_slug": tenantSlug,
-		},
+		}),
 	})
 
 	// Forward allowed provider response headers
@@ -440,6 +506,48 @@ func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.Cha
 		"response_payload": buildTraceChatResponsePayload(completion),
 	})
 	return err
+}
+
+func (h *ChatCompletionHandler) handleCacheHit(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, authInfo *platform.AuthContext, result responsecache.Result, start time.Time, tenantSlug string) error {
+	entry := result.Entry
+	requestID := tracing.TraceIDFromContext(c)
+	if requestID == "" {
+		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
+	}
+	responseTimeMS := int(time.Since(start).Milliseconds())
+	metadata := map[string]interface{}{
+		"endpoint": "/v1/chat/completions", "cache_status": "hit", "cache_similarity": result.Similarity,
+		"cache_type": result.CacheType, "cache_embedding_latency_ms": result.EmbeddingLatencyMS,
+		"cached_trace_id": entry.TraceID, "tenant_slug": tenantSlug, "key_type": authInfo.KeyType,
+	}
+	_ = h.logs.LogRequest(c.Context(), platform.RequestLogEntry{
+		RequestID: requestID, TokenHash: authInfo.TokenHash, TenantID: authInfo.TenantID, Model: req.Model,
+		Status: "success", CostUSD: 0, ResponseTimeMS: responseTimeMS,
+		RequestBody: map[string]interface{}{"model": req.Model}, ResponseBody: map[string]interface{}{"cache_status": "hit"},
+	})
+	_ = h.logs.LogSpend(c.Context(), platform.SpendLog{
+		RequestID: requestID, TokenHash: authInfo.TokenHash, TenantID: authInfo.TenantID,
+		OrganizationID: authInfo.OrganizationID, TeamID: authInfo.TeamID, Model: req.Model,
+		CostUSD: 0, CostIRR: 0, ResponseTimeMS: responseTimeMS, Status: "success",
+		RequestMetadata: metadata, CompletionStart: start, CompletionEnd: time.Now(),
+	})
+	h.emitModelMetric(metricsobs.BuildInput{
+		TS: time.Now().UTC(), TenantID: authInfo.TenantID, RequestID: requestID, ModelName: req.Model,
+		ProviderName: entry.Provider, ProviderModelName: entry.ProviderModel, RequestType: "chat_completions",
+		UserID: authInfo.UserID, VirtualAccountID: authInfo.KeyID, VirtualAccountName: authInfo.KeyAlias,
+		TeamIDs: nonEmptySlice([]string{authInfo.TeamID}), StatusCode: fiber.StatusOK, LatencyMS: responseTimeMS,
+		CostUSD: 0, Metadata: metadata,
+	})
+	c.Set("Content-Type", fiber.MIMEApplicationJSON)
+	c.Set("x-shahrah-cache-status", "hit")
+	c.Set("x-shahrah-cached-trace-id", entry.TraceID)
+	if result.Semantic {
+		c.Set("x-shahrah-cache-similarity-score", fmt.Sprintf("%.6f", result.Similarity))
+	}
+	c.Set("x-shahrah-trace-id", requestID)
+	c.Set("x-shahrah-cost-usd", "0.00000000")
+	c.Set("x-shahrah-cost-irr", "0.00")
+	return c.Status(fiber.StatusOK).Send(entry.Response)
 }
 
 func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, start time.Time, tenantSlug string) error {
@@ -584,12 +692,46 @@ func nonEmptySlice(in []string) []string {
 	return out
 }
 
+func enrichResponseCacheMetadata(c *fiber.Ctx, metadata map[string]interface{}) map[string]interface{} {
+	if metadata == nil {
+		metadata = make(map[string]interface{})
+	}
+	if c == nil {
+		return metadata
+	}
+	if value := c.Locals("response_cache_status"); value != nil {
+		metadata["cache_status"] = value
+	}
+	if value := c.Locals("response_cache_type"); value != nil {
+		metadata["cache_type"] = value
+	}
+	if value := c.Locals("response_cache_embedding_latency_ms"); value != nil {
+		metadata["cache_embedding_latency_ms"] = value
+	}
+	return metadata
+}
+
 func billingModelForDeployment(requestedModel string, deployment platform.Deployment) string {
 	model := strings.TrimSpace(deployment.Model)
 	if model != "" {
 		return model
 	}
 	return strings.TrimSpace(requestedModel)
+}
+
+func (h *ChatCompletionHandler) virtualModelCacheVersion(ctx context.Context, authInfo *platform.AuthContext, tenantID, model string) string {
+	if authInfo == nil {
+		return ""
+	}
+	if snapshot, ok := authInfo.VirtualModelSnapshots[model]; ok {
+		return fmt.Sprintf("%s:%d", snapshot.VirtualModelID, snapshot.Version)
+	}
+	if h.vmResolver != nil {
+		if virtualModel, err := h.vmResolver.Resolve(ctx, tenantID, model); err == nil && virtualModel != nil {
+			return fmt.Sprintf("%s:%d", virtualModel.ID, virtualModel.Version)
+		}
+	}
+	return ""
 }
 
 func toContractDeployment(dep *router.Deployment) platform.Deployment {

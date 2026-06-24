@@ -56,6 +56,25 @@ router_settings:
   cooldown_time: 60
   num_retries: 3
 
+# Opt-in gateway response caching. The ArvanCloud URL can contain an opaque
+# credential-like path and must only be supplied through runtime secrets.
+response_cache:
+  enabled: true
+  key_prefix: "shahrah:response-cache"
+  default_ttl_seconds: 600
+  min_ttl_seconds: 1
+  max_ttl_seconds: 86400
+  max_response_bytes: 1048576
+  max_semantic_candidates: 500
+  embedding_provider: "arvancloud"
+  embedding_model: "Bge-m3"
+  embedding_revision: "v1"
+  embedding_base_url: ${SHAHRAH_SMART_CACHE_EMBEDDING_BASE_URL}
+  embedding_api_key: ${SHAHRAH_SMART_CACHE_EMBEDDING_API_KEY}
+  embedding_dimensions: 1024
+  embedding_timeout_seconds: 10
+  embedding_max_batch_size: 16
+
 tenant_settings:
   base_domain: "shahrah.local"
   allow_header_hint: true

@@ -12,12 +12,32 @@ import (
 
 // Config represents the top-level configuration.
 type Config struct {
-	ModelList       []ModelDeployment `mapstructure:"model_list"`
-	RouterSettings  RouterSettings    `mapstructure:"router_settings"`
-	GeneralSettings GeneralSettings   `mapstructure:"general_settings"`
-	TenantSettings  TenantSettings    `mapstructure:"tenant_settings"`
-	TunnelSettings  TunnelSettings    `mapstructure:"tunnel_settings"`
-	BillingSettings BillingSettings   `mapstructure:"billing_settings"`
+	ModelList       []ModelDeployment     `mapstructure:"model_list"`
+	RouterSettings  RouterSettings        `mapstructure:"router_settings"`
+	ResponseCache   ResponseCacheSettings `mapstructure:"response_cache"`
+	GeneralSettings GeneralSettings       `mapstructure:"general_settings"`
+	TenantSettings  TenantSettings        `mapstructure:"tenant_settings"`
+	TunnelSettings  TunnelSettings        `mapstructure:"tunnel_settings"`
+	BillingSettings BillingSettings       `mapstructure:"billing_settings"`
+}
+
+// ResponseCacheSettings controls opt-in exact and semantic response caching.
+type ResponseCacheSettings struct {
+	Enabled               bool   `mapstructure:"enabled"`
+	KeyPrefix             string `mapstructure:"key_prefix"`
+	DefaultTTLSeconds     int    `mapstructure:"default_ttl_seconds"`
+	MinTTLSeconds         int    `mapstructure:"min_ttl_seconds"`
+	MaxTTLSeconds         int    `mapstructure:"max_ttl_seconds"`
+	MaxResponseBytes      int    `mapstructure:"max_response_bytes"`
+	MaxSemanticCandidates int    `mapstructure:"max_semantic_candidates"`
+	EmbeddingProvider     string `mapstructure:"embedding_provider"`
+	EmbeddingModel        string `mapstructure:"embedding_model"`
+	EmbeddingRevision     string `mapstructure:"embedding_revision"`
+	EmbeddingBaseURL      string `mapstructure:"embedding_base_url"`
+	EmbeddingAPIKey       string `mapstructure:"embedding_api_key"`
+	EmbeddingDimensions   int    `mapstructure:"embedding_dimensions"`
+	EmbeddingTimeoutSec   int    `mapstructure:"embedding_timeout_seconds"`
+	EmbeddingMaxBatchSize int    `mapstructure:"embedding_max_batch_size"`
 }
 
 // ModelDeployment represents a single model deployment configuration.
@@ -105,6 +125,19 @@ func LoadConfig(logger *zap.Logger) (*Config, error) {
 	v.SetDefault("router_settings.routing_strategy", "simple-shuffle")
 	v.SetDefault("router_settings.cooldown_time", 60.0)
 	v.SetDefault("router_settings.num_retries", 3)
+	v.SetDefault("response_cache.enabled", false)
+	v.SetDefault("response_cache.key_prefix", "shahrah:response-cache")
+	v.SetDefault("response_cache.default_ttl_seconds", 600)
+	v.SetDefault("response_cache.min_ttl_seconds", 1)
+	v.SetDefault("response_cache.max_ttl_seconds", 86400)
+	v.SetDefault("response_cache.max_response_bytes", 1048576)
+	v.SetDefault("response_cache.max_semantic_candidates", 500)
+	v.SetDefault("response_cache.embedding_provider", "arvancloud")
+	v.SetDefault("response_cache.embedding_model", "Bge-m3")
+	v.SetDefault("response_cache.embedding_revision", "v1")
+	v.SetDefault("response_cache.embedding_dimensions", 1024)
+	v.SetDefault("response_cache.embedding_timeout_seconds", 10)
+	v.SetDefault("response_cache.embedding_max_batch_size", 16)
 	v.SetDefault("tenant_settings.base_domain", "shahrah.local")
 	v.SetDefault("tenant_settings.allow_header_hint", true)
 	v.SetDefault("tunnel_settings.client_url", "http://127.0.0.1:8081")
@@ -161,6 +194,8 @@ func resolveEnvVars(cfg *Config, logger *zap.Logger) error {
 
 	cfg.RouterSettings.RedisHost = resolveString(cfg.RouterSettings.RedisHost)
 	cfg.RouterSettings.RedisPassword = resolveString(cfg.RouterSettings.RedisPassword)
+	cfg.ResponseCache.EmbeddingBaseURL = resolveString(cfg.ResponseCache.EmbeddingBaseURL)
+	cfg.ResponseCache.EmbeddingAPIKey = resolveString(cfg.ResponseCache.EmbeddingAPIKey)
 	cfg.GeneralSettings.MasterKey = resolveString(cfg.GeneralSettings.MasterKey)
 	cfg.GeneralSettings.DatabaseURL = resolveString(cfg.GeneralSettings.DatabaseURL)
 	cfg.TunnelSettings.ClientURL = resolveString(cfg.TunnelSettings.ClientURL)

@@ -18,6 +18,7 @@ import (
 	mcache "github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
+	"github.com/Delpak/shahrah/services/control-plane/internal/responsecache"
 	llmrouter "github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
@@ -33,11 +34,59 @@ type mockTunnelTransport struct {
 	proxyErr    error
 	streamErr   error
 	lastRequest platform.TunnelRequest
+	proxyCalls  int
 }
 
 func (m *mockTunnelTransport) Proxy(ctx context.Context, req platform.TunnelRequest) (*platform.TunnelResponse, error) {
 	m.lastRequest = req
+	m.proxyCalls++
 	return m.response, m.proxyErr
+}
+
+func TestChatCompletionHandler_SimpleCacheHitSkipsProviderAndWallet(t *testing.T) {
+	logger := zap.NewNop()
+	store, err := mcache.NewMemoryCache(logger)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = store.Close() })
+	r := newTestRouter(t, logger)
+	providerBody, err := json.Marshal(contractsopenai.ChatCompletionResponse{
+		ID: "chatcmpl-cache", Object: "chat.completion", Model: "gpt-4",
+		Choices: []contractsopenai.Choice{{Index: 0, Message: &contractsopenai.ChatMessage{Role: "assistant", Content: "cached"}, FinishReason: "stop"}},
+		Usage:   &contractsopenai.Usage{PromptTokens: 2, CompletionTokens: 1, TotalTokens: 3},
+	})
+	require.NoError(t, err)
+	tunnel := &mockTunnelTransport{response: &platform.TunnelResponse{StatusCode: http.StatusOK, Body: providerBody}}
+	billing := &mockBilling{cost: platform.UsageCostBreakdown{TotalTokens: 3, TotalCostUSD: 0.01}}
+	wallet := &mockWalletStore{}
+	logs := &mockLogger{}
+	handler := proxy.NewChatCompletionHandler(r, tunnel, billing, wallet, logs, logger)
+	service, err := responsecache.NewService(store, nil, responsecache.Config{
+		Enabled: true, DefaultTTL: time.Minute, MinTTL: time.Second, MaxTTL: time.Hour, MaxResponseBytes: 1024,
+	})
+	require.NoError(t, err)
+	handler.SetResponseCache(service)
+	app := setupTestApp(t, handler)
+
+	makeRequest := func() *http.Response {
+		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4","messages":[{"role":"user","content":"hello"}]}`))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("x-shahrah-cache-config", `{"type":"simple","ttl":60}`)
+		resp, requestErr := app.Test(req)
+		require.NoError(t, requestErr)
+		return resp
+	}
+
+	first := makeRequest()
+	assert.Equal(t, http.StatusOK, first.StatusCode)
+	assert.Equal(t, "miss", first.Header.Get("x-shahrah-cache-status"))
+	second := makeRequest()
+	assert.Equal(t, http.StatusOK, second.StatusCode)
+	assert.Equal(t, "hit", second.Header.Get("x-shahrah-cache-status"))
+	assert.NotEmpty(t, second.Header.Get("x-shahrah-cached-trace-id"))
+	assert.Equal(t, 1, tunnel.proxyCalls)
+	assert.Len(t, wallet.debitCalls, 1)
+	require.Len(t, logs.loggedSpends, 2)
+	assert.Zero(t, logs.loggedSpends[1].CostUSD)
 }
 
 func (m *mockTunnelTransport) Stream(ctx context.Context, req platform.TunnelRequest) (platform.TunnelStream, error) {

@@ -83,6 +83,18 @@ func (d *DualCache) Set(ctx context.Context, key string, value interface{}, ttl 
 	d.redis.Set(ctx, key, value, ttl)
 }
 
+// DistributedGet bypasses the node-local layer for coordination data that
+// must remain coherent across gateway instances.
+func (d *DualCache) DistributedGet(ctx context.Context, key string) (string, error) {
+	return d.redis.Get(ctx, key).Result()
+}
+
+// DistributedSet bypasses the node-local layer for coordination data that
+// must remain coherent across gateway instances.
+func (d *DualCache) DistributedSet(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
+	return d.redis.Set(ctx, key, value, ttl).Err()
+}
+
 // Delete removes a value from both memory and Redis.
 func (d *DualCache) Delete(ctx context.Context, key string) {
 	d.memory.Delete(ctx, key)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -20,6 +21,7 @@ import (
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
+	"github.com/Delpak/shahrah/services/control-plane/internal/responsecache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/server"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
@@ -61,6 +63,7 @@ func main() {
 		dualCache, _ = cache.NewMemoryCache(logger)
 	}
 	defer dualCache.Close()
+	_, sharedResponseCacheAvailable := dualCache.(*cache.DualCache)
 	store.SetEntitlementCache(dualCache)
 
 	llmRouter, err := router.NewRouter(cfg.ModelList, cfg.RouterSettings, dualCache, store, logger)
@@ -104,6 +107,33 @@ func main() {
 	adminHandlers := admin.New(store, store, store)
 	authHandlers := admin.NewAuthHandlers(store, admin.NewOTPEmailSenderFromEnv())
 	proxyHandler := proxy.NewChatCompletionHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
+	var responseEmbedder responsecache.Embedder
+	if cfg.ResponseCache.Enabled && sharedResponseCacheAvailable && strings.TrimSpace(cfg.ResponseCache.EmbeddingBaseURL) != "" && strings.TrimSpace(cfg.ResponseCache.EmbeddingAPIKey) != "" {
+		embedder, embedderErr := responsecache.NewArvanCloudBGEEmbedder(&http.Client{Timeout: time.Duration(cfg.ResponseCache.EmbeddingTimeoutSec) * time.Second}, responsecache.ArvanCloudConfig{
+			BaseURL: cfg.ResponseCache.EmbeddingBaseURL, APIKey: cfg.ResponseCache.EmbeddingAPIKey,
+			Model: cfg.ResponseCache.EmbeddingModel, Revision: cfg.ResponseCache.EmbeddingRevision,
+			Dimensions: cfg.ResponseCache.EmbeddingDimensions, MaxBatchSize: cfg.ResponseCache.EmbeddingMaxBatchSize,
+		})
+		if embedderErr != nil {
+			logger.Warn("Smart response cache embedder is unavailable", zap.Error(embedderErr))
+		} else {
+			responseEmbedder = embedder
+		}
+	} else if cfg.ResponseCache.Enabled && !sharedResponseCacheAvailable {
+		logger.Warn("Smart response cache disabled because shared Redis is unavailable")
+	}
+	responseCache, responseCacheErr := responsecache.NewService(dualCache, responseEmbedder, responsecache.Config{
+		Enabled: cfg.ResponseCache.Enabled, KeyPrefix: cfg.ResponseCache.KeyPrefix,
+		DefaultTTL:            time.Duration(cfg.ResponseCache.DefaultTTLSeconds) * time.Second,
+		MinTTL:                time.Duration(cfg.ResponseCache.MinTTLSeconds) * time.Second,
+		MaxTTL:                time.Duration(cfg.ResponseCache.MaxTTLSeconds) * time.Second,
+		MaxResponseBytes:      cfg.ResponseCache.MaxResponseBytes,
+		MaxSemanticCandidates: cfg.ResponseCache.MaxSemanticCandidates,
+	})
+	if responseCacheErr != nil {
+		logger.Fatal("Failed to initialize response cache", zap.Error(responseCacheErr))
+	}
+	proxyHandler.SetResponseCache(responseCache)
 	completionsHandler := proxy.NewCompletionsHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
 	responsesHandler := proxy.NewResponsesHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
 	embeddingsHandler := proxy.NewEmbeddingsHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
