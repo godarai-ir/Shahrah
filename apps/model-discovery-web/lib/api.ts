@@ -1,6 +1,6 @@
 const PUBLIC_API_BASE =
   process.env.NEXT_PUBLIC_MODEL_DISCOVERY_API_BASE ||
-  '/api/v1';
+  '/catalog/api/v1';
 const INTERNAL_API_BASE =
   process.env.MODEL_DISCOVERY_API_BASE_INTERNAL || 'http://localhost:3002/api/v1';
 
