@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useId, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { ArrowLeft, Check, Info, Minus, Sparkles } from 'lucide-react';
+import { ArrowLeft, Check, ChevronDown, Info, Minus, Sparkles } from 'lucide-react';
 
 export type PublicPlanPrice = {
   billing_interval: 'monthly' | 'quarterly' | 'yearly';
@@ -174,6 +174,49 @@ const comparisonSections: Array<{
   },
 ];
 
+const pricingFaqs = [
+  {
+    question: 'گُدار AI چیست و هزینه آن شامل چه چیزی می‌شود؟',
+    answer: 'گُدار AI یک درگاه یکپارچه برای اتصال، مدیریت و پایش مدل‌های هوش مصنوعی است. هزینه پلن، امکانات پلتفرم و سقف استفاده درج‌شده در جدول مقایسه را پوشش می‌دهد؛ هزینه مصرف مدل‌ها بر اساس سرویس‌دهنده و میزان استفاده شما جداگانه محاسبه می‌شود.',
+  },
+  {
+    question: 'کدام پلن برای تیم ما مناسب‌تر است؟',
+    answer: 'برای نمونه‌سازی و پروژه‌های کوچک از پلن توسعه‌دهنده شروع کنید. پلن تیم برای محصول‌های عملیاتی، پلن رشد برای حجم بالاتر و کنترل‌های پیشرفته، و پلن سازمانی برای استقرار اختصاصی، ساختارهای بزرگ و نیازهای سفارشی طراحی شده است.',
+  },
+  {
+    question: 'آیا می‌توانیم قبل از خرید، گُدار AI را آزمایش کنیم؟',
+    answer: 'بله. پلن‌های غیرسازمانی با دوره آزمایشی ۱۵روزه ارائه می‌شوند تا اتصال API، مدل‌ها و جریان کاری خود را پیش از تصمیم نهایی ارزیابی کنید.',
+  },
+  {
+    question: 'پرداخت ماهانه، سه‌ماهه و سالانه چه تفاوتی دارند؟',
+    answer: 'امکانات هر پلن ثابت است و تفاوت اصلی در دوره صورتحساب و تخفیف احتمالی همان دوره است. با انتخاب گزینه‌های بالای کارت‌ها، قیمت به‌روز هر دوره را می‌بینید.',
+  },
+  {
+    question: 'اگر از سقف درخواست پلن عبور کنیم چه می‌شود؟',
+    answer: 'سقف درخواست هر پلن در جدول مشخص است. پیش از رسیدن به سقف می‌توانید مصرف را پایش کنید و برای ارتقای پلن یا تنظیم ظرفیت مناسب با تیم گُدار AI هماهنگ شوید؛ شرایط ادامه سرویس و هزینه مازاد بر اساس قرارداد پلن شما تعیین می‌شود.',
+  },
+  {
+    question: 'آیا برای تیم‌ها و محیط‌های مختلف می‌توان محدودیت جداگانه تعریف کرد؟',
+    answer: 'بله. از پلن تیم به بالا می‌توانید برای کنترل هزینه و نرخ درخواست قانون تعریف کنید. امکانات دقیق مدیریت تیم، نقش‌ها و واحدهای سازمانی بسته به پلن متفاوت است و در جدول مقایسه آمده است.',
+  },
+  {
+    question: 'کلیدهای سرویس‌دهنده‌های مدل چگونه محافظت می‌شوند؟',
+    answer: 'اپلیکیشن‌های شما با توکن دسترسی گُدار AI کار می‌کنند و لازم نیست کلید اصلی سرویس‌دهنده را در اختیار هر کاربر یا سرویس بگذارید. امکان مدیریت توکن‌های شخصی و مجازی و کنترل دسترسی مبتنی بر نقش، مطابق پلن انتخابی در دسترس است.',
+  },
+  {
+    question: 'آیا امکان استقرار در زیرساخت خودمان وجود دارد؟',
+    answer: 'بله. در پلن سازمانی می‌توانید درباره استقرار در محل یا ابر خصوصی (VPC)، نگهداری داده و الزامات شبکه با تیم ما هماهنگ کنید. جزئیات معماری و تعهدات اجرایی متناسب با نیاز سازمان تعیین می‌شود.',
+  },
+  {
+    question: 'آیا بعداً می‌توانیم پلن را تغییر دهیم؟',
+    answer: 'بله. با تغییر حجم درخواست، تعداد کاربران یا نیازهای امنیتی می‌توانید برای ارتقا یا تغییر پلن اقدام کنید. زمان اعمال تغییر و نحوه محاسبه صورتحساب بر اساس دوره پرداخت فعلی شما مشخص می‌شود.',
+  },
+  {
+    question: 'برای پرسش‌های فنی یا انتخاب پلن از کجا کمک بگیریم؟',
+    answer: 'از صفحه تماس با ما یا ایمیل support@godarai.ir با تیم گُدار AI در ارتباط باشید. برای پلن سازمانی، بررسی نیازهای فنی، ظرفیت، استقرار و آنبوردینگ به‌صورت اختصاصی انجام می‌شود.',
+  },
+] as const;
+
 type PlanDefinition = (typeof planDefinitions)[number];
 
 export function CommercialPricing({ plans }: { plans: PublicCommercialPlan[] }) {
@@ -265,6 +308,41 @@ export function CommercialPricing({ plans }: { plans: PublicCommercialPlan[] }) 
             </div>
           </div>
           <p className="mt-3 text-sm text-slate-500 dark:text-slate-400 md:hidden">برای مشاهده همه ستون‌ها، جدول را به طرفین بکشید.</p>
+        </div>
+      </section>
+
+      <section aria-labelledby="pricing-faq" className="relative px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
+        <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 mx-auto h-96 max-w-5xl bg-[radial-gradient(circle_at_50%_0%,rgba(99,102,241,0.09),transparent_65%)]" />
+        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.72fr_1.28fr] lg:gap-16">
+          <div className="lg:sticky lg:top-24 lg:self-start">
+            <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">پرسش‌های پرتکرار</p>
+            <h2 id="pricing-faq" className="mt-2 text-3xl font-bold leading-[1.45] text-slate-950 dark:text-white sm:text-4xl">
+              پیش از انتخاب پلن بدانید
+            </h2>
+            <p className="mt-4 max-w-md leading-8 text-slate-600 dark:text-slate-300">
+              پاسخ کوتاه به پرسش‌های رایج درباره هزینه، محدودیت‌ها، امنیت و استقرار گُدار AI.
+            </p>
+            <Link href="/contact" className="mt-6 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-indigo-600 transition-colors hover:text-indigo-700 focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
+              پاسخ پرسشتان را پیدا نکردید؟
+              <ArrowLeft aria-hidden="true" className="size-4" />
+            </Link>
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white px-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:px-7">
+            {pricingFaqs.map((item, index) => (
+              <details key={item.question} className="group border-b border-slate-200 last:border-b-0 dark:border-slate-800" open={index === 0}>
+                <summary className="flex min-h-20 cursor-pointer list-none items-center justify-between gap-5 py-5 text-right font-bold leading-7 text-slate-950 marker:content-none focus-visible:rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:text-white [&::-webkit-details-marker]:hidden">
+                  <span>{item.question}</span>
+                  <span className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500 transition-colors group-open:bg-indigo-50 group-open:text-indigo-600 dark:bg-slate-800 dark:text-slate-400 dark:group-open:bg-indigo-500/15 dark:group-open:text-indigo-300">
+                    <ChevronDown aria-hidden="true" className="size-4 transition-transform duration-200 group-open:rotate-180" />
+                  </span>
+                </summary>
+                <p className="max-w-3xl pb-6 pl-12 text-sm leading-8 text-slate-600 dark:text-slate-300 sm:text-base">
+                  {item.answer}
+                </p>
+              </details>
+            ))}
+          </div>
         </div>
       </section>
 
