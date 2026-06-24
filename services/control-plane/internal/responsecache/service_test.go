@@ -6,6 +6,7 @@ import (
 	"time"
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
+	"github.com/Delpak/shahrah/packages/contracts/platform"
 	basecache "github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -64,11 +65,13 @@ func TestSimpleCacheExactHitAndIsolation(t *testing.T) {
 	result, pending, err := service.Lookup(context.Background(), scope, req, cfg)
 	require.NoError(t, err)
 	assert.Equal(t, "miss", result.Status)
-	require.NoError(t, service.Store(context.Background(), pending, []byte(`{"id":"cached"}`), "trace-original", "openai", "gpt-4"))
+	require.NoError(t, service.Store(context.Background(), pending, []byte(`{"id":"cached"}`), "trace-original", "openai", "gpt-4", platform.UsageCostBreakdown{InputTokens: 10, OutputTokens: 5, TotalCostUSD: 0.01, TotalCostIRR: 8500, ExchangeRate: 850000}, "test-pricing-v1"))
 	result, _, err = service.Lookup(context.Background(), scope, req, cfg)
 	require.NoError(t, err)
 	require.NotNil(t, result.Entry)
 	assert.Equal(t, "trace-original", result.Entry.TraceID)
+	assert.Equal(t, 0.01, result.Entry.CostSnapshot.CostUSD)
+	assert.Equal(t, "test-pricing-v1", result.Entry.CostSnapshot.PricingVersion)
 	result, _, err = service.Lookup(context.Background(), Scope{TenantID: "tenant-1", KeyID: "key-2", Model: "gpt-4"}, req, cfg)
 	require.NoError(t, err)
 	assert.Nil(t, result.Entry)
@@ -84,7 +87,7 @@ func TestSmartCacheMatchesOnlyFinalUserText(t *testing.T) {
 	base := contractsopenai.ChatCompletionRequest{Model: "gpt-4", Messages: []contractsopenai.ChatMessage{{Role: "system", Content: "helpful"}, {Role: "user", Content: "reset my password"}}}
 	_, pending, err := service.Lookup(context.Background(), scope, base, cfg)
 	require.NoError(t, err)
-	require.NoError(t, service.Store(context.Background(), pending, []byte(`{"id":"cached"}`), "trace", "openai", "gpt-4"))
+	require.NoError(t, service.Store(context.Background(), pending, []byte(`{"id":"cached"}`), "trace", "openai", "gpt-4", platform.UsageCostBreakdown{TotalCostUSD: 0.01}, "test-pricing-v1"))
 	paraphrase := base
 	paraphrase.Messages = append([]contractsopenai.ChatMessage(nil), base.Messages...)
 	paraphrase.Messages[1].Content = "password recovery"

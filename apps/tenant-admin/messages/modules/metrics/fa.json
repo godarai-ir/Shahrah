@@ -70,7 +70,15 @@
     "outputTokens": "توکن خروجی",
     "outputTokensHint": "توکن‌های تولیدشده در بازه انتخابی.",
     "totalCost": "هزینه کل",
-    "totalCostHint": "برآورد هزینه Provider بر اساس دلار."
+    "totalCostHint": "برآورد هزینه Provider بر اساس دلار.",
+    "avoidedCost": "هزینه برآوردی صرفه‌جویی‌شده",
+    "avoidedCostHint": "هزینه ناخالص Provider که بر اساس قیمت ثبت‌شده پاسخ اصلی محاسبه شده است؛ هزینه embedding و زیرساخت لحاظ نشده است.",
+    "costWithoutCache": "هزینه بدون کش",
+    "savingsRate": "نرخ صرفه‌جویی",
+    "cacheHits": "پاسخ‌های کش‌شده",
+    "cacheHitRate": "نرخ موفقیت کش",
+    "cachedTokens": "توکن‌های ارائه‌شده از کش",
+    "cachedTokensHint": "توکن‌های ورودی و خروجی پاسخ اصلی که از طریق کش ارائه شده‌اند."
   },
   "charts": {
     "requests": {
@@ -93,7 +101,26 @@
       "title": "تفکیک خطاهای درخواست",
       "description": "درخواست‌های ناموفق Gateway بر اساس کد خطا.",
       "count": "خطاها"
+    },
+    "savings": {
+      "title": "هزینه واقعی و صرفه‌جویی برآوردی",
+      "actualCost": "هزینه واقعی",
+      "simpleSavings": "صرفه‌جویی کش ساده",
+      "smartSavings": "صرفه‌جویی کش هوشمند"
     }
+  },
+  "cacheModes": {
+    "simple": "کش ساده",
+    "smart": "کش هوشمند"
+  },
+  "cacheTable": {
+    "title": "اثربخشی کش",
+    "description": "هزینه ناخالص برآوردی Provider که بر اساس مصرف توکن و قیمت ثبت‌شده پاسخ اصلی صرفه‌جویی شده است.",
+    "mode": "نوع کش",
+    "exactHits": "تطبیق دقیق",
+    "semanticHits": "تطبیق معنایی",
+    "hitRate": "نرخ موفقیت",
+    "avoidedCost": "هزینه برآوردی صرفه‌جویی‌شده"
   },
   "table": {
     "title": "متریک‌های تجمیعی",

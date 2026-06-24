@@ -430,7 +430,7 @@ func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.Cha
 	if cachePending != nil && h.responseCache != nil {
 		cachedBody, marshalErr := json.Marshal(completion)
 		if marshalErr == nil {
-			if cacheErr := h.responseCache.Store(c.Context(), cachePending, cachedBody, tunnelReq.TraceID, tunnelReq.Deployment.Provider, tunnelReq.Deployment.Model); cacheErr != nil {
+			if cacheErr := h.responseCache.Store(c.Context(), cachePending, cachedBody, tunnelReq.TraceID, tunnelReq.Deployment.Provider, tunnelReq.Deployment.Model, finalCost, "gateway-pricing-v1"); cacheErr != nil {
 				h.logger.Warn("Response cache store failed", zap.Error(cacheErr))
 			}
 		}
@@ -485,6 +485,8 @@ func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.Cha
 		InputTokens:        finalCost.InputTokens,
 		OutputTokens:       finalCost.OutputTokens,
 		CostUSD:            finalCost.TotalCostUSD,
+		CacheMode:          cacheMetricString(c, "response_cache_type"),
+		CacheStatus:        cacheMetricString(c, "response_cache_status"),
 		Metadata: enrichResponseCacheMetadata(c, map[string]interface{}{
 			"endpoint":    "/v1/chat/completions",
 			"key_type":    authInfo.KeyType,
@@ -536,7 +538,13 @@ func (h *ChatCompletionHandler) handleCacheHit(c *fiber.Ctx, req contractsopenai
 		ProviderName: entry.Provider, ProviderModelName: entry.ProviderModel, RequestType: "chat_completions",
 		UserID: authInfo.UserID, VirtualAccountID: authInfo.KeyID, VirtualAccountName: authInfo.KeyAlias,
 		TeamIDs: nonEmptySlice([]string{authInfo.TeamID}), StatusCode: fiber.StatusOK, LatencyMS: responseTimeMS,
-		CostUSD: 0, Metadata: metadata,
+		CostUSD:   0,
+		CacheMode: result.CacheType, CacheStatus: "hit", CacheMatch: cacheMatchForResult(result),
+		CacheSimilarity: cacheSimilarityForResult(result), CacheOriginRequestID: entry.TraceID,
+		AvoidedInputTokens: entry.CostSnapshot.InputTokens, AvoidedOutputTokens: entry.CostSnapshot.OutputTokens,
+		AvoidedCostUSD: entry.CostSnapshot.CostUSD, AvoidedCostIRR: entry.CostSnapshot.CostIRR,
+		PricingVersion: entry.CostSnapshot.PricingVersion,
+		Metadata:       metadata,
 	})
 	c.Set("Content-Type", fiber.MIMEApplicationJSON)
 	c.Set("x-shahrah-cache-status", "hit")
@@ -709,6 +717,29 @@ func enrichResponseCacheMetadata(c *fiber.Ctx, metadata map[string]interface{}) 
 		metadata["cache_embedding_latency_ms"] = value
 	}
 	return metadata
+}
+
+func cacheMetricString(c *fiber.Ctx, key string) string {
+	if c == nil {
+		return ""
+	}
+	value, _ := c.Locals(key).(string)
+	return value
+}
+
+func cacheMatchForResult(result responsecache.Result) string {
+	if result.Semantic {
+		return "semantic"
+	}
+	return "exact"
+}
+
+func cacheSimilarityForResult(result responsecache.Result) *float64 {
+	if !result.Semantic {
+		return nil
+	}
+	score := result.Similarity
+	return &score
 }
 
 func billingModelForDeployment(requestedModel string, deployment platform.Deployment) string {

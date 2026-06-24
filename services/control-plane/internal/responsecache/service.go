@@ -14,10 +14,11 @@ import (
 	"time"
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
+	"github.com/Delpak/shahrah/packages/contracts/platform"
 	basecache "github.com/Delpak/shahrah/services/control-plane/internal/cache"
 )
 
-const schemaVersion = "v1"
+const schemaVersion = "v2"
 
 var namespacePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
 
@@ -58,6 +59,19 @@ type Entry struct {
 	ParameterHash string            `json:"parameter_hash,omitempty"`
 	Embedding     []float32         `json:"embedding,omitempty"`
 	EmbeddingID   EmbeddingIdentity `json:"embedding_identity,omitempty"`
+	CostSnapshot  CacheCostSnapshot `json:"cost_snapshot"`
+}
+
+// CacheCostSnapshot is the immutable, auditable counterfactual used to report
+// the provider cost avoided by each subsequent cache hit.
+type CacheCostSnapshot struct {
+	InputTokens    int       `json:"input_tokens"`
+	OutputTokens   int       `json:"output_tokens"`
+	CostUSD        float64   `json:"cost_usd"`
+	CostIRR        float64   `json:"cost_irr"`
+	ExchangeRate   float64   `json:"exchange_rate"`
+	PricingVersion string    `json:"pricing_version"`
+	CalculatedAt   time.Time `json:"calculated_at"`
 }
 
 type Result struct {
@@ -272,13 +286,22 @@ func (s *Service) AcquireMiss(ctx context.Context, pending *Pending) (func(), bo
 	}
 }
 
-func (s *Service) Store(ctx context.Context, pending *Pending, response []byte, traceID, provider, providerModel string) error {
+func (s *Service) Store(ctx context.Context, pending *Pending, response []byte, traceID, provider, providerModel string, cost platform.UsageCostBreakdown, pricingVersion string) error {
 	if pending == nil || len(response) == 0 || len(response) > s.cfg.MaxResponseBytes {
 		return errors.New("response is empty, oversized, or cache context is missing")
 	}
 	ttl := time.Duration(pending.config.TTL) * time.Second
 	now := time.Now().UTC()
-	entry := Entry{Version: schemaVersion, Response: append(json.RawMessage(nil), response...), TraceID: traceID, CreatedAt: now, ExpiresAt: now.Add(ttl), Provider: provider, ProviderModel: providerModel, ExactHash: pending.exactHash, ParameterHash: pending.parameterHash, Embedding: pending.embedding}
+	entry := Entry{
+		Version: schemaVersion, Response: append(json.RawMessage(nil), response...), TraceID: traceID,
+		CreatedAt: now, ExpiresAt: now.Add(ttl), Provider: provider, ProviderModel: providerModel,
+		ExactHash: pending.exactHash, ParameterHash: pending.parameterHash, Embedding: pending.embedding,
+		CostSnapshot: CacheCostSnapshot{
+			InputTokens: cost.InputTokens, OutputTokens: cost.OutputTokens, CostUSD: cost.TotalCostUSD,
+			CostIRR: cost.TotalCostIRR, ExchangeRate: cost.ExchangeRate,
+			PricingVersion: pricingVersion, CalculatedAt: now,
+		},
+	}
 	if len(pending.embedding) > 0 && s.embedder != nil {
 		entry.EmbeddingID = s.embedder.Identity()
 	}

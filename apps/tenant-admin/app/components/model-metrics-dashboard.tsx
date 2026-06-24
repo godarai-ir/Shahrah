@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
 const VIEW_BY = ["modelName", "virtualModelName", "userEmail", "virtualAccount", "team"] as const;
@@ -63,6 +64,20 @@ type Summary = {
   inputTokens: number;
   outputTokens: number;
   cost: number;
+  avoidedCost: number;
+  costWithoutCache: number;
+  savingsRate: number;
+  cacheHits: number;
+  cacheHitRate: number;
+  avoidedTokens: number;
+};
+
+type CacheBreakdownItem = {
+  mode: string;
+  exactHits: number;
+  semanticHits: number;
+  misses: number;
+  avoidedCost: number;
 };
 
 type MetricComboboxOption = {
@@ -109,6 +124,8 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
   const [distribution, setDistribution] = useState<Row[]>([]);
   const [timeseries, setTimeseries] = useState<Row[]>([]);
   const [errorBreakdown, setErrorBreakdown] = useState<Row[]>([]);
+  const [cacheBreakdown, setCacheBreakdown] = useState<Row[]>([]);
+  const [cacheTimeseries, setCacheTimeseries] = useState<Row[]>([]);
 
   const rangeOptions = useMemo(() => RANGE_PRESETS.map((value) => ({ value, label: t(`filters.rangePresets.${value}`) })), [t]);
   const modelOptions = useMemo(() => historicalModels.map((value) => ({ value, label: value })), [historicalModels]);
@@ -123,8 +140,36 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
     const inputTokens = distribution.reduce((acc, row) => acc + metricNumber(row, "sumInputTokens"), 0);
     const outputTokens = distribution.reduce((acc, row) => acc + metricNumber(row, "sumOutputTokens"), 0);
     const cost = distribution.reduce((acc, row) => acc + metricNumber(row, "sumCostInUSD", "sumCostUsd"), 0);
-    return { totalRequests, inputTokens, outputTokens, cost };
-  }, [distribution]);
+    const avoidedCost = distribution.reduce((acc, row) => acc + metricNumber(row, "sumAvoidedCostUSD"), 0);
+    const avoidedTokens = distribution.reduce(
+      (acc, row) => acc + metricNumber(row, "sumAvoidedInputTokens") + metricNumber(row, "sumAvoidedOutputTokens"),
+      0,
+    );
+    const costWithoutCache = cost + avoidedCost;
+    const cacheHits = cacheBreakdown.reduce(
+      (acc, row) => acc + (metricString(row, "cacheStatus") === "hit" ? metricNumber(row, "countModelName", "countAll") : 0),
+      0,
+    );
+    const cacheMisses = cacheBreakdown.reduce(
+      (acc, row) => acc + (metricString(row, "cacheStatus") === "miss" ? metricNumber(row, "countModelName", "countAll") : 0),
+      0,
+    );
+    return {
+      totalRequests,
+      inputTokens,
+      outputTokens,
+      cost,
+      avoidedCost,
+      costWithoutCache,
+      savingsRate: costWithoutCache > 0 ? avoidedCost / costWithoutCache : 0,
+      cacheHits,
+      cacheHitRate: cacheHits + cacheMisses > 0 ? cacheHits / (cacheHits + cacheMisses) : 0,
+      avoidedTokens,
+    };
+  }, [distribution, cacheBreakdown]);
+
+  const cacheBreakdownItems = useMemo(() => buildCacheBreakdown(cacheBreakdown), [cacheBreakdown]);
+  const savingsChartData = useMemo(() => buildSavingsChartData(cacheTimeseries, locale, from, to), [cacheTimeseries, locale, from, to]);
 
   const chartData = useMemo(
     () => buildChartData(timeseries, displayViewBy, pct, t("values.unknown"), locale, from, to),
@@ -177,6 +222,14 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
     }),
     [t],
   );
+  const savingsChartConfig = useMemo<ChartConfig>(
+    () => ({
+      actualCost: { label: t("charts.savings.actualCost"), color: "var(--chart-1)" },
+      simpleSavings: { label: t("charts.savings.simpleSavings"), color: "var(--chart-2)" },
+      smartSavings: { label: t("charts.savings.smartSavings"), color: "var(--chart-3)" },
+    }),
+    [t],
+  );
   const requestChartTitle = t("charts.requests.titleByView", {
     dimension: t(`filters.viewByOptions.${displayViewBy}`),
   });
@@ -211,7 +264,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
         filters.push({ fieldName: "requestID", operator: "EQUAL", value: queryRequestIDFilter.trim() });
       }
 
-      const [dist, ts, errb] = await Promise.all([
+      const [dist, ts, errb, cacheDist, cacheTs] = await Promise.all([
         postMetricsQuery({
           startTs: queryFrom,
           endTs: queryTo,
@@ -222,6 +275,9 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
             { type: "sum", column: "inputTokens" },
             { type: "sum", column: "outputTokens" },
             { type: "sum", column: "costInUSD" },
+            { type: "sum", column: "avoidedCostUSD" },
+            { type: "sum", column: "avoidedInputTokens" },
+            { type: "sum", column: "avoidedOutputTokens" },
           ],
           groupBy: [queryViewBy],
           filters,
@@ -237,6 +293,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
             { type: "sum", column: "inputTokens" },
             { type: "sum", column: "outputTokens" },
             { type: "sum", column: "costInUSD" },
+            { type: "sum", column: "avoidedCostUSD" },
           ],
           groupBy: [queryViewBy],
           filters,
@@ -251,17 +308,46 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
           groupBy: ["errorCode"],
           filters: [...filters, { fieldName: "statusCode", operator: "GREATER_THAN_EQUAL", value: 400 }],
         }, common("requestError")),
+        postMetricsQuery({
+          startTs: queryFrom,
+          endTs: queryTo,
+          datasource: "modelMetrics",
+          type: "distribution",
+          aggregations: [
+            { type: "count", column: "modelName" },
+            { type: "sum", column: "avoidedCostUSD" },
+          ],
+          groupBy: ["cacheMode", "cacheStatus", "cacheMatch"],
+          filters,
+        }, common("requestError")),
+        postMetricsQuery({
+          startTs: queryFrom,
+          endTs: queryTo,
+          datasource: "modelMetrics",
+          type: "timeseries",
+          aggregations: [
+            { type: "sum", column: "costInUSD" },
+            { type: "sum", column: "avoidedCostUSD" },
+          ],
+          groupBy: ["cacheMode"],
+          filters,
+          intervalInSeconds: INTERVAL_SECONDS,
+        }, common("requestError")),
       ]);
 
       setDisplayViewBy(queryViewBy);
       setDistribution(dist.data ?? []);
       setTimeseries(ts.data ?? []);
       setErrorBreakdown(errb.data ?? []);
+      setCacheBreakdown(cacheDist.data ?? []);
+      setCacheTimeseries(cacheTs.data ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : common("requestError"));
       setDistribution([]);
       setTimeseries([]);
       setErrorBreakdown([]);
+      setCacheBreakdown([]);
+      setCacheTimeseries([]);
     } finally {
       setHasLoaded(true);
       setLoading(false);
@@ -436,11 +522,17 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
         </Alert>
       ) : null}
 
-      <section aria-label={t("sections.summary")} className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      <section aria-label={t("sections.summary")} className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
         <MetricCard title={t("cards.totalRequests")} value={formatNumber(summary.totalRequests, locale)} />
         <MetricCard title={t("cards.inputTokens")} value={formatNumber(summary.inputTokens, locale)} />
         <MetricCard title={t("cards.outputTokens")} value={formatNumber(summary.outputTokens, locale)} />
         <MetricCard title={t("cards.totalCost")} value={formatCurrency(summary.cost, locale)} />
+        <MetricCard title={t("cards.avoidedCost")} value={formatCurrency(summary.avoidedCost, locale)} hint={t("cards.avoidedCostHint")} />
+        <MetricCard title={t("cards.costWithoutCache")} value={formatCurrency(summary.costWithoutCache, locale)} />
+        <MetricCard title={t("cards.savingsRate")} value={formatPercent(summary.savingsRate, locale)} />
+        <MetricCard title={t("cards.cacheHits")} value={formatNumber(summary.cacheHits, locale)} />
+        <MetricCard title={t("cards.cacheHitRate")} value={formatPercent(summary.cacheHitRate, locale)} />
+        <MetricCard title={t("cards.cachedTokens")} value={formatNumber(summary.avoidedTokens, locale)} hint={t("cards.cachedTokensHint")} />
       </section>
 
       <section aria-label={t("sections.charts")} className="grid gap-3 xl:grid-cols-2">
@@ -529,7 +621,56 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
             </BarChart>
           </ChartContainer>
         </ChartCard>
+
+        <ChartCard title={t("charts.savings.title")}>
+          <ChartContainer config={savingsChartConfig} className="h-[240px] w-full md:h-[260px]">
+            <BarChart data={savingsChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} />
+              <YAxis tickLine={false} axisLine={false} width={44} />
+              <ChartTooltip content={<ChartTooltipContent labelFormatter={formatTooltipLabel} />} />
+              <Bar dataKey="actualCost" stackId="cost" fill="var(--color-actualCost)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="simpleSavings" stackId="cost" fill="var(--color-simpleSavings)" />
+              <Bar dataKey="smartSavings" stackId="cost" fill="var(--color-smartSavings)" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ChartContainer>
+        </ChartCard>
       </section>
+
+      <Card className="rounded-lg">
+        <CardHeader className="gap-1 p-3 md:p-3">
+          <CardTitle className="text-sm">{t("cacheTable.title")}</CardTitle>
+          <CardDescription className="text-xs">{t("cacheTable.description")}</CardDescription>
+        </CardHeader>
+        <CardContent className="px-3 pb-3">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("cacheTable.mode")}</TableHead>
+                <TableHead>{t("cacheTable.exactHits")}</TableHead>
+                <TableHead>{t("cacheTable.semanticHits")}</TableHead>
+                <TableHead>{t("cacheTable.hitRate")}</TableHead>
+                <TableHead>{t("cacheTable.avoidedCost")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {cacheBreakdownItems.map((item) => {
+                const hits = item.exactHits + item.semanticHits;
+                const hitRate = hits + item.misses > 0 ? hits / (hits + item.misses) : 0;
+                return (
+                  <TableRow key={item.mode}>
+                    <TableCell>{t(`cacheModes.${item.mode}`)}</TableCell>
+                    <TableCell>{formatNumber(item.exactHits, locale)}</TableCell>
+                    <TableCell>{formatNumber(item.semanticHits, locale)}</TableCell>
+                    <TableCell>{formatPercent(hitRate, locale)}</TableCell>
+                    <TableCell>{formatCurrency(item.avoidedCost, locale)}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -644,7 +785,7 @@ function MetricCombobox({
   );
 }
 
-function MetricCard({ title, value }: { title: string; value: string }) {
+function MetricCard({ title, value, hint }: { title: string; value: string; hint?: string }) {
   return (
     <Card className="rounded-lg">
       <CardHeader className="gap-1 p-3 md:p-3">
@@ -652,6 +793,7 @@ function MetricCard({ title, value }: { title: string; value: string }) {
         <CardTitle className="truncate text-xl leading-tight tabular-nums" dir="auto">
           {value}
         </CardTitle>
+        {hint ? <CardDescription className="text-xs leading-snug">{hint}</CardDescription> : null}
       </CardHeader>
     </Card>
   );
@@ -774,6 +916,54 @@ export function buildChartData(
   return { points, latencyPoints, tokenCostPoints, series };
 }
 
+export function buildCacheBreakdown(rows: Row[]): CacheBreakdownItem[] {
+  const items = new Map<string, CacheBreakdownItem>([
+    ["simple", { mode: "simple", exactHits: 0, semanticHits: 0, misses: 0, avoidedCost: 0 }],
+    ["smart", { mode: "smart", exactHits: 0, semanticHits: 0, misses: 0, avoidedCost: 0 }],
+  ]);
+  for (const row of rows) {
+    const mode = metricString(row, "cacheMode");
+    const item = items.get(mode);
+    if (!item) continue;
+    const status = metricString(row, "cacheStatus");
+    const match = metricString(row, "cacheMatch");
+    const count = metricNumber(row, "countModelName", "countAll");
+    if (status === "hit" && match === "semantic") item.semanticHits += count;
+    if (status === "hit" && match === "exact") item.exactHits += count;
+    if (status === "miss") item.misses += count;
+    item.avoidedCost += metricNumber(row, "sumAvoidedCostUSD");
+  }
+  return Array.from(items.values());
+}
+
+export function buildSavingsChartData(rows: Row[], locale?: string, rangeFrom?: string, rangeTo?: string) {
+  const buckets = new Map<string, { actualCost: number; simpleSavings: number; smartSavings: number }>();
+  for (const row of rows) {
+    const timestamp = metricString(row, "timestamp");
+    if (!timestamp) continue;
+    const bucket = buckets.get(timestamp) ?? { actualCost: 0, simpleSavings: 0, smartSavings: 0 };
+    bucket.actualCost += metricNumber(row, "sumCostInUSD", "sumCostUsd");
+    const avoided = metricNumber(row, "sumAvoidedCostUSD");
+    const mode = metricString(row, "cacheMode");
+    if (mode === "simple") bucket.simpleSavings += avoided;
+    if (mode === "smart") bucket.smartSavings += avoided;
+    buckets.set(timestamp, bucket);
+  }
+  const timestamps = Array.from(buckets.keys()).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+  const labelMode = getAxisLabelMode(timestamps, rangeFrom, rangeTo);
+  return timestamps.map((timestamp) => {
+    const bucket = buckets.get(timestamp)!;
+    return {
+      timestamp,
+      label: formatAxisLabel(timestamp, labelMode, locale),
+      tooltipLabel: formatLocalDateTime(timestamp, locale),
+      actualCost: Number(bucket.actualCost.toFixed(8)),
+      simpleSavings: Number(bucket.simpleSavings.toFixed(8)),
+      smartSavings: Number(bucket.smartSavings.toFixed(8)),
+    };
+  });
+}
+
 async function requestJSON<T>(path: string, fallbackError: string): Promise<T> {
   const res = await fetch(path, { cache: "no-store" });
   const text = await res.text();
@@ -846,6 +1036,12 @@ const metricAliases: Record<string, string[]> = {
   sumOutputTokens: ["sum_output_tokens", "sumoutputtokens", "output_tokens_sum"],
   sumCostInUSD: ["sum_cost_in_usd", "sumcostinusd", "sum_cost_usd", "cost_usd_sum"],
   sumCostUsd: ["sum_cost_usd", "sumcostusd", "cost_usd_sum"],
+  cacheMode: ["cache_mode"],
+  cacheStatus: ["cache_status"],
+  cacheMatch: ["cache_match"],
+  sumAvoidedInputTokens: ["sum_avoided_input_tokens", "sumavoidedinputtokens"],
+  sumAvoidedOutputTokens: ["sum_avoided_output_tokens", "sumavoidedoutputtokens"],
+  sumAvoidedCostUSD: ["sum_avoided_cost_usd", "sumavoidedcostusd"],
   p50LatencyMs: ["p50_latency_ms", "p50latencyms", "latency_p50"],
   p75LatencyMs: ["p75_latency_ms", "p75latencyms", "latency_p75"],
   p90LatencyMs: ["p90_latency_ms", "p90latencyms", "latency_p90"],
@@ -980,4 +1176,8 @@ function formatCurrency(value: number, locale: string) {
     currency: "USD",
     maximumFractionDigits: 6,
   }).format(value);
+}
+
+function formatPercent(value: number, locale: string) {
+  return new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 1 }).format(value);
 }

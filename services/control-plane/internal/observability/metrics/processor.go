@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -154,58 +155,88 @@ func (p *Processor) BuildEvent(input BuildInput) platform.ModelMetricEvent {
 		errorType = input.ErrorType
 	}
 	return platform.ModelMetricEvent{
-		TS:                 input.TS.UTC(),
-		TenantID:           input.TenantID,
-		RequestID:          input.RequestID,
-		ModelName:          input.ModelName,
-		VirtualModelName:   input.VirtualModelName,
-		ProviderName:       input.ProviderName,
-		ProviderModelName:  input.ProviderModelName,
-		RequestType:        input.RequestType,
-		UserID:             input.UserID,
-		UserEmail:          input.UserEmail,
-		VirtualAccountID:   input.VirtualAccountID,
-		VirtualAccountName: input.VirtualAccountName,
-		TeamIDs:            input.TeamIDs,
-		TeamNames:          input.TeamNames,
-		StatusCode:         input.StatusCode,
-		ErrorType:          errorType,
-		LatencyMS:          input.LatencyMS,
-		TTFTMS:             input.TTFTMS,
-		ITLMS:              input.ITLMS,
-		TPOTMS:             input.TPOTMS,
-		InputTokens:        input.InputTokens,
-		OutputTokens:       input.OutputTokens,
-		CostUSD:            input.CostUSD,
-		Metadata:           sanitizeMetadata(input.Metadata),
+		TS:                   input.TS.UTC(),
+		TenantID:             input.TenantID,
+		RequestID:            input.RequestID,
+		ModelName:            input.ModelName,
+		VirtualModelName:     input.VirtualModelName,
+		ProviderName:         input.ProviderName,
+		ProviderModelName:    input.ProviderModelName,
+		RequestType:          input.RequestType,
+		UserID:               input.UserID,
+		UserEmail:            input.UserEmail,
+		VirtualAccountID:     input.VirtualAccountID,
+		VirtualAccountName:   input.VirtualAccountName,
+		TeamIDs:              input.TeamIDs,
+		TeamNames:            input.TeamNames,
+		StatusCode:           input.StatusCode,
+		ErrorType:            errorType,
+		LatencyMS:            input.LatencyMS,
+		TTFTMS:               input.TTFTMS,
+		ITLMS:                input.ITLMS,
+		TPOTMS:               input.TPOTMS,
+		InputTokens:          input.InputTokens,
+		OutputTokens:         input.OutputTokens,
+		CostUSD:              input.CostUSD,
+		CacheMode:            normalizedCacheValue(input.CacheMode),
+		CacheStatus:          normalizedCacheValue(input.CacheStatus),
+		CacheMatch:           normalizedCacheValue(input.CacheMatch),
+		CacheSimilarity:      input.CacheSimilarity,
+		CacheOriginRequestID: input.CacheOriginRequestID,
+		AvoidedInputTokens:   input.AvoidedInputTokens,
+		AvoidedOutputTokens:  input.AvoidedOutputTokens,
+		AvoidedCostUSD:       input.AvoidedCostUSD,
+		AvoidedCostIRR:       input.AvoidedCostIRR,
+		EmbeddingCostUSD:     input.EmbeddingCostUSD,
+		PricingVersion:       input.PricingVersion,
+		Metadata:             sanitizeMetadata(input.Metadata),
 	}
 }
 
 type BuildInput struct {
-	TS                 time.Time
-	TenantID           string
-	RequestID          string
-	ModelName          string
-	VirtualModelName   string
-	ProviderName       string
-	ProviderModelName  string
-	RequestType        string
-	UserID             string
-	UserEmail          string
-	VirtualAccountID   string
-	VirtualAccountName string
-	TeamIDs            []string
-	TeamNames          []string
-	StatusCode         int
-	ErrorType          string
-	LatencyMS          int
-	TTFTMS             *int
-	ITLMS              *int
-	TPOTMS             *int
-	InputTokens        int
-	OutputTokens       int
-	CostUSD            float64
-	Metadata           map[string]interface{}
+	TS                   time.Time
+	TenantID             string
+	RequestID            string
+	ModelName            string
+	VirtualModelName     string
+	ProviderName         string
+	ProviderModelName    string
+	RequestType          string
+	UserID               string
+	UserEmail            string
+	VirtualAccountID     string
+	VirtualAccountName   string
+	TeamIDs              []string
+	TeamNames            []string
+	StatusCode           int
+	ErrorType            string
+	LatencyMS            int
+	TTFTMS               *int
+	ITLMS                *int
+	TPOTMS               *int
+	InputTokens          int
+	OutputTokens         int
+	CostUSD              float64
+	CacheMode            string
+	CacheStatus          string
+	CacheMatch           string
+	CacheSimilarity      *float64
+	CacheOriginRequestID string
+	AvoidedInputTokens   int
+	AvoidedOutputTokens  int
+	AvoidedCostUSD       float64
+	AvoidedCostIRR       float64
+	EmbeddingCostUSD     float64
+	PricingVersion       string
+	Metadata             map[string]interface{}
+}
+
+func normalizedCacheValue(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return "none"
+	}
+	return value
 }
 
 func sanitizeMetadata(in map[string]interface{}) map[string]interface{} {

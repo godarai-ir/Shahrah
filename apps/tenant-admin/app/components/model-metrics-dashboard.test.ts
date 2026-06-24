@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildChartData, normalizeStringList } from "./model-metrics-dashboard";
+import { buildCacheBreakdown, buildChartData, buildSavingsChartData, normalizeStringList } from "./model-metrics-dashboard";
 
 describe("buildChartData", () => {
   it("uses raw request counts for the request chart", () => {
@@ -40,6 +40,29 @@ describe("buildChartData", () => {
     );
 
     expect(data.points[0].label).toContain("Jun 21");
+  });
+});
+
+describe("cache savings helpers", () => {
+  it("separates simple exact and smart semantic savings", () => {
+    const breakdown = buildCacheBreakdown([
+      { cache_mode: "simple", cache_status: "hit", cache_match: "exact", count_model_name: 3, sum_avoided_cost_usd: 1.25 },
+      { cache_mode: "smart", cache_status: "hit", cache_match: "semantic", count_model_name: 2, sum_avoided_cost_usd: 2.5 },
+      { cache_mode: "smart", cache_status: "miss", cache_match: "none", count_model_name: 4, sum_avoided_cost_usd: 0 },
+    ]);
+
+    expect(breakdown[0]).toMatchObject({ mode: "simple", exactHits: 3, semanticHits: 0, avoidedCost: 1.25 });
+    expect(breakdown[1]).toMatchObject({ mode: "smart", exactHits: 0, semanticHits: 2, misses: 4, avoidedCost: 2.5 });
+  });
+
+  it("builds actual, simple, and smart cost series", () => {
+    const points = buildSavingsChartData([
+      { timestamp: "2026-06-21T08:30:00.000Z", cache_mode: "none", sum_cost_usd: 2, sum_avoided_cost_usd: 0 },
+      { timestamp: "2026-06-21T08:30:00.000Z", cache_mode: "simple", sum_cost_usd: 0, sum_avoided_cost_usd: 1 },
+      { timestamp: "2026-06-21T08:30:00.000Z", cache_mode: "smart", sum_cost_usd: 0, sum_avoided_cost_usd: 3 },
+    ]);
+
+    expect(points[0]).toMatchObject({ actualCost: 2, simpleSavings: 1, smartSavings: 3 });
   });
 });
 

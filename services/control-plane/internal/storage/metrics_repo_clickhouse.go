@@ -39,6 +39,17 @@ func (s *Store) ensureClickHouseMetricsSchema(ctx context.Context) error {
 		  input_tokens UInt32,
 		  output_tokens UInt32,
 		  cost_usd Decimal(18, 8),
+		  cache_mode LowCardinality(String) DEFAULT 'none',
+		  cache_status LowCardinality(String) DEFAULT 'none',
+		  cache_match LowCardinality(String) DEFAULT 'none',
+		  cache_similarity Nullable(Float32),
+		  cache_origin_request_id Nullable(String),
+		  avoided_input_tokens UInt32 DEFAULT 0,
+		  avoided_output_tokens UInt32 DEFAULT 0,
+		  avoided_cost_usd Decimal(18, 8) DEFAULT 0,
+		  avoided_cost_irr Decimal(24, 2) DEFAULT 0,
+		  embedding_cost_usd Decimal(18, 8) DEFAULT 0,
+		  pricing_version String DEFAULT '',
 		  metadata_json String
 		)
 		ENGINE = MergeTree
@@ -46,6 +57,17 @@ func (s *Store) ensureClickHouseMetricsSchema(ctx context.Context) error {
 		ORDER BY (tenant_id, ts, model_name, ifNull(virtual_model_name, ''))
 		TTL toDate(ts) + INTERVAL 90 DAY
 		SETTINGS index_granularity = 8192, allow_nullable_key = 1`,
+		`ALTER TABLE gateway_model_events ADD COLUMN IF NOT EXISTS cache_mode LowCardinality(String) DEFAULT 'none'`,
+		`ALTER TABLE gateway_model_events ADD COLUMN IF NOT EXISTS cache_status LowCardinality(String) DEFAULT 'none'`,
+		`ALTER TABLE gateway_model_events ADD COLUMN IF NOT EXISTS cache_match LowCardinality(String) DEFAULT 'none'`,
+		`ALTER TABLE gateway_model_events ADD COLUMN IF NOT EXISTS cache_similarity Nullable(Float32)`,
+		`ALTER TABLE gateway_model_events ADD COLUMN IF NOT EXISTS cache_origin_request_id Nullable(String)`,
+		`ALTER TABLE gateway_model_events ADD COLUMN IF NOT EXISTS avoided_input_tokens UInt32 DEFAULT 0`,
+		`ALTER TABLE gateway_model_events ADD COLUMN IF NOT EXISTS avoided_output_tokens UInt32 DEFAULT 0`,
+		`ALTER TABLE gateway_model_events ADD COLUMN IF NOT EXISTS avoided_cost_usd Decimal(18, 8) DEFAULT 0`,
+		`ALTER TABLE gateway_model_events ADD COLUMN IF NOT EXISTS avoided_cost_irr Decimal(24, 2) DEFAULT 0`,
+		`ALTER TABLE gateway_model_events ADD COLUMN IF NOT EXISTS embedding_cost_usd Decimal(18, 8) DEFAULT 0`,
+		`ALTER TABLE gateway_model_events ADD COLUMN IF NOT EXISTS pricing_version String DEFAULT ''`,
 		`CREATE TABLE IF NOT EXISTS gateway_model_metrics_1m
 		(
 		  bucket_ts DateTime('UTC'),
@@ -141,9 +163,12 @@ func (s *Store) insertModelMetricEvent(ctx context.Context, ev platform.ModelMet
 		(
 			ts, tenant_id, request_id, model_name, virtual_model_name, provider_name, provider_model_name,
 			request_type, user_id, user_email, virtual_account_id, virtual_account_name, team_ids, team_names,
-			status_code, error_type, latency_ms, ttft_ms, itl_ms, tpot_ms, input_tokens, output_tokens, cost_usd, metadata_json
+			status_code, error_type, latency_ms, ttft_ms, itl_ms, tpot_ms, input_tokens, output_tokens, cost_usd,
+			cache_mode, cache_status, cache_match, cache_similarity, cache_origin_request_id,
+			avoided_input_tokens, avoided_output_tokens, avoided_cost_usd, avoided_cost_irr,
+			embedding_cost_usd, pricing_version, metadata_json
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	metaRaw := "{}"
 	if ev.Metadata != nil {
@@ -177,6 +202,17 @@ func (s *Store) insertModelMetricEvent(ctx context.Context, ev platform.ModelMet
 		ev.InputTokens,
 		ev.OutputTokens,
 		ev.CostUSD,
+		ev.CacheMode,
+		ev.CacheStatus,
+		ev.CacheMatch,
+		floatPtrToNull(ev.CacheSimilarity),
+		nullIfEmpty(ev.CacheOriginRequestID),
+		ev.AvoidedInputTokens,
+		ev.AvoidedOutputTokens,
+		ev.AvoidedCostUSD,
+		ev.AvoidedCostIRR,
+		ev.EmbeddingCostUSD,
+		ev.PricingVersion,
 		metaRaw,
 	)
 	return err
@@ -428,6 +464,16 @@ func mapAggregationColumn(col string) (string, error) {
 		return "input_tokens", nil
 	case "outputTokens":
 		return "output_tokens", nil
+	case "avoidedInputTokens":
+		return "avoided_input_tokens", nil
+	case "avoidedOutputTokens":
+		return "avoided_output_tokens", nil
+	case "avoidedCostUSD":
+		return "avoided_cost_usd", nil
+	case "avoidedCostIRR":
+		return "avoided_cost_irr", nil
+	case "embeddingCostUSD":
+		return "embedding_cost_usd", nil
 	case "latencyMs":
 		return "latency_ms", nil
 	case "timeToFirstTokenMs":
@@ -462,6 +508,12 @@ func mapMetricsGroupBy(g string) (string, error) {
 		return "request_type", nil
 	case g == "providerModelName":
 		return "provider_model_name", nil
+	case g == "cacheMode":
+		return "cache_mode", nil
+	case g == "cacheStatus":
+		return "cache_status", nil
+	case g == "cacheMatch":
+		return "cache_match", nil
 	default:
 		return "", fmt.Errorf("unsupported groupBy field: %s", g)
 	}
@@ -497,6 +549,14 @@ func mapFilterField(f string) (string, error) {
 		return "status_code", nil
 	case "errorType":
 		return "error_type", nil
+	case "cacheMode":
+		return "cache_mode", nil
+	case "cacheStatus":
+		return "cache_status", nil
+	case "cacheMatch":
+		return "cache_match", nil
+	case "cacheSimilarity":
+		return "cache_similarity", nil
 	default:
 		return "", fmt.Errorf("unsupported filter field: %s", f)
 	}
@@ -546,6 +606,13 @@ func nullIfEmpty(v string) interface{} {
 }
 
 func intPtrToNull(v *int) interface{} {
+	if v == nil {
+		return nil
+	}
+	return *v
+}
+
+func floatPtrToNull(v *float64) interface{} {
 	if v == nil {
 		return nil
 	}

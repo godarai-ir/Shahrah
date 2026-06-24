@@ -70,7 +70,15 @@
     "outputTokens": "Output tokens",
     "outputTokensHint": "Completion tokens generated in the selected range.",
     "totalCost": "Total cost",
-    "totalCostHint": "Estimated provider cost in USD."
+    "totalCostHint": "Estimated provider cost in USD.",
+    "avoidedCost": "Estimated cost avoided",
+    "avoidedCostHint": "Gross provider cost avoided using the original pricing snapshot; embedding and infrastructure costs are excluded.",
+    "costWithoutCache": "Cost without caching",
+    "savingsRate": "Savings rate",
+    "cacheHits": "Cache hits",
+    "cacheHitRate": "Cache hit rate",
+    "cachedTokens": "Tokens served from cache",
+    "cachedTokensHint": "Original input and output tokens represented by cache hits."
   },
   "charts": {
     "requests": {
@@ -93,7 +101,26 @@
       "title": "Request failure breakdown",
       "description": "Failed gateway requests grouped by error code.",
       "count": "Failures"
+    },
+    "savings": {
+      "title": "Actual cost and estimated savings",
+      "actualCost": "Actual cost",
+      "simpleSavings": "Simple-cache savings",
+      "smartSavings": "Smart-cache savings"
     }
+  },
+  "cacheModes": {
+    "simple": "Simple cache",
+    "smart": "Smart cache"
+  },
+  "cacheTable": {
+    "title": "Caching effectiveness",
+    "description": "Gross estimated provider cost avoided, based on the cached response's original token usage and pricing snapshot.",
+    "mode": "Mode",
+    "exactHits": "Exact hits",
+    "semanticHits": "Semantic hits",
+    "hitRate": "Hit rate",
+    "avoidedCost": "Estimated cost avoided"
   },
   "table": {
     "title": "Aggregated metrics",

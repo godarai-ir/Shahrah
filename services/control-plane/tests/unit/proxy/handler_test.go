@@ -17,6 +17,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	mcache "github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
+	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
 	"github.com/Delpak/shahrah/services/control-plane/internal/responsecache"
 	llmrouter "github.com/Delpak/shahrah/services/control-plane/internal/router"
@@ -56,10 +57,13 @@ func TestChatCompletionHandler_SimpleCacheHitSkipsProviderAndWallet(t *testing.T
 	})
 	require.NoError(t, err)
 	tunnel := &mockTunnelTransport{response: &platform.TunnelResponse{StatusCode: http.StatusOK, Body: providerBody}}
-	billing := &mockBilling{cost: platform.UsageCostBreakdown{TotalTokens: 3, TotalCostUSD: 0.01}}
+	billing := &mockBilling{cost: platform.UsageCostBreakdown{InputTokens: 2, OutputTokens: 1, TotalTokens: 3, TotalCostUSD: 0.01, TotalCostIRR: 8500, ExchangeRate: 850000}}
 	wallet := &mockWalletStore{}
 	logs := &mockLogger{}
-	handler := proxy.NewChatCompletionHandler(r, tunnel, billing, wallet, logs, logger)
+	metricInputs := make([]metricsobs.BuildInput, 0, 2)
+	handler := proxy.NewChatCompletionHandler(r, tunnel, billing, wallet, logs, logger, func(input metricsobs.BuildInput) {
+		metricInputs = append(metricInputs, input)
+	})
 	service, err := responsecache.NewService(store, nil, responsecache.Config{
 		Enabled: true, DefaultTTL: time.Minute, MinTTL: time.Second, MaxTTL: time.Hour, MaxResponseBytes: 1024,
 	})
@@ -87,6 +91,13 @@ func TestChatCompletionHandler_SimpleCacheHitSkipsProviderAndWallet(t *testing.T
 	assert.Len(t, wallet.debitCalls, 1)
 	require.Len(t, logs.loggedSpends, 2)
 	assert.Zero(t, logs.loggedSpends[1].CostUSD)
+	require.Len(t, metricInputs, 2)
+	assert.Equal(t, "simple", metricInputs[1].CacheMode)
+	assert.Equal(t, "hit", metricInputs[1].CacheStatus)
+	assert.Equal(t, "exact", metricInputs[1].CacheMatch)
+	assert.Equal(t, 0.01, metricInputs[1].AvoidedCostUSD)
+	assert.Equal(t, 8500.0, metricInputs[1].AvoidedCostIRR)
+	assert.Equal(t, 2, metricInputs[1].AvoidedInputTokens)
 }
 
 func (m *mockTunnelTransport) Stream(ctx context.Context, req platform.TunnelRequest) (platform.TunnelStream, error) {
