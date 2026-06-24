@@ -168,6 +168,21 @@ function draftFingerprint(draft: ProviderDraft): string {
   });
 }
 
+function connectionFingerprint(draft: ProviderDraft): string {
+  const config = (() => {
+    try {
+      return JSON.stringify(JSON.parse(draft.configJson || '{}'));
+    } catch {
+      return draft.configJson;
+    }
+  })();
+  return JSON.stringify({
+    providerType: draft.providerType,
+    authMode: draft.authMode,
+    config,
+  });
+}
+
 export default function AdminProvidersPage() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [drafts, setDrafts] = useState<Record<string, ProviderDraft>>({});
@@ -216,6 +231,11 @@ export default function AdminProvidersPage() {
   const hasChanges = Boolean(
     selectedDraft && selectedInitial && draftFingerprint(selectedDraft) !== draftFingerprint(selectedInitial),
   );
+  const hasConnectionChanges = Boolean(
+    selectedDraft
+      && selectedInitial
+      && connectionFingerprint(selectedDraft) !== connectionFingerprint(selectedInitial),
+  );
   const prettyJsonHtml = useMemo(() => {
     if (!selectedDraft) return '';
     try {
@@ -232,22 +252,24 @@ export default function AdminProvidersPage() {
 
   const saveProviderSettings = async () => {
     if (!selectedProvider || !selectedDraft) return;
-    const parseError = (() => {
-      try {
-        JSON.parse(selectedDraft.configJson || '{}');
-        return null;
-      } catch {
-        return 'Connection JSON is not valid.';
+    if (hasConnectionChanges) {
+      const parseError = (() => {
+        try {
+          JSON.parse(selectedDraft.configJson || '{}');
+          return null;
+        } catch {
+          return 'Connection JSON is not valid.';
+        }
+      })();
+      if (parseError) {
+        setMessage(parseError);
+        return;
       }
-    })();
-    if (parseError) {
-      setMessage(parseError);
-      return;
-    }
-    const validationError = validateConnectionConfig(selectedProviderKind, selectedDraft.configJson);
-    if (validationError) {
-      setMessage(validationError);
-      return;
+      const validationError = validateConnectionConfig(selectedProviderKind, selectedDraft.configJson);
+      if (validationError) {
+        setMessage(validationError);
+        return;
+      }
     }
     setSaving(true);
     setMessage('');
@@ -265,16 +287,18 @@ export default function AdminProvidersPage() {
         enabled: selectedProvider.enabled,
       }),
     });
-    await fetch('/api/admin/providers/connection-profile', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        providerSlug: selectedProvider.slug,
-        providerType: selectedDraft.providerType,
-        authMode: selectedDraft.authMode || undefined,
-        configJson: JSON.parse(selectedDraft.configJson || '{}'),
-      }),
-    });
+    if (hasConnectionChanges) {
+      await fetch('/api/admin/providers/connection-profile', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          providerSlug: selectedProvider.slug,
+          providerType: selectedDraft.providerType,
+          authMode: selectedDraft.authMode || undefined,
+          configJson: JSON.parse(selectedDraft.configJson || '{}'),
+        }),
+      });
+    }
     if (selectedDraft.logoFile) {
       const fd = new FormData();
       fd.append('slug', selectedProvider.slug);
