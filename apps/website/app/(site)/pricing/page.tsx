@@ -3,9 +3,9 @@ import { CommercialPricing, type PublicCommercialPlan } from '@/app/pages/Commer
 import { buildMetadata } from "@/app/lib/seo";
 
 export const metadata: Metadata = buildMetadata({
-  title: "Pricing",
+  title: "قیمت‌گذاری",
   description:
-    "View Shahrah pricing plans for startups and enterprises with predictable AI gateway costs.",
+    "پلن‌های گُدار AI را برای تیم‌های توسعه، کسب‌وکارهای در حال رشد و سازمان‌ها مقایسه کنید.",
   path: "/pricing",
 });
 
