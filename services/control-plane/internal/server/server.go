@@ -205,6 +205,17 @@ func registerPublicRoutes(app *fiber.App, cfg *config.Config, deps Dependencies,
 		platformAdmin.Put("/tenant-subscriptions", deps.AdminHandlers.UpsertPlatformTenantSubscription)
 		platformAdmin.Put("/tenant-entitlement-overrides", deps.AdminHandlers.UpsertPlatformTenantEntitlementOverride)
 		platformAdmin.Delete("/tenant-entitlement-overrides/:tenantID/:featureKey", deps.AdminHandlers.DeletePlatformTenantEntitlementOverride)
+		platformAdmin.Get("/tenants", deps.AdminHandlers.ListPlatformTenants)
+		platformAdmin.Get("/tenants/:tenantID", deps.AdminHandlers.GetPlatformTenant)
+		platformAdmin.Get("/tenants/:tenantID/events", deps.AdminHandlers.ListPlatformTenantEvents)
+		platformAdmin.Get("/tenants/:tenantID/wallet", deps.AdminHandlers.GetPlatformTenantWallet)
+		platformAdmin.Get("/tenants/:tenantID/wallet/transactions", deps.AdminHandlers.ListPlatformTenantWalletTransactions)
+		platformAdmin.Post("/tenants/:tenantID/wallet/adjustments", deps.AdminHandlers.AdjustPlatformTenantWallet)
+		platformAdmin.Post("/tenants/:tenantID/suspend", deps.AdminHandlers.SuspendPlatformTenant)
+		platformAdmin.Post("/tenants/:tenantID/reactivate", deps.AdminHandlers.ReactivatePlatformTenant)
+		platformAdmin.Post("/tenants/:tenantID/subscription/cancel-at-period-end", deps.AdminHandlers.SchedulePlatformTenantSubscriptionCancellation)
+		platformAdmin.Delete("/tenants/:tenantID/subscription/cancel-at-period-end", deps.AdminHandlers.ReversePlatformTenantSubscriptionCancellation)
+		platformAdmin.Get("/tenants/:tenantID/billing/payment-intents", deps.AdminHandlers.ListPlatformTenantSubscriptionPaymentIntents)
 	}
 }
 
@@ -409,7 +420,7 @@ func requiredPlatformScope(method string, path string) string {
 	if method == fiber.MethodGet || method == fiber.MethodHead || method == fiber.MethodOptions {
 		return auth.PlatformScopeRead
 	}
-	if strings.Contains(path, "/tenant-subscriptions") || strings.Contains(path, "/tenant-entitlement-overrides") {
+	if strings.Contains(path, "/tenant-subscriptions") || strings.Contains(path, "/tenant-entitlement-overrides") || strings.Contains(path, "/tenants/") {
 		return auth.PlatformScopeTenantWrite
 	}
 	return auth.PlatformScopeCatalogWrite

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 
-import { requireAdminSession } from '@/lib/admin-auth';
+import { type AdminPermission, requireAdminSession } from '@/lib/admin-auth';
 import { isSameOriginRequest } from '@/lib/server/request-security';
 
 type RouteContext = {
@@ -10,8 +10,8 @@ type RouteContext = {
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(_request: Request, context: RouteContext) {
-  return proxyControlPlanePlatform(context, { method: 'GET' });
+export async function GET(request: Request, context: RouteContext) {
+	return proxyControlPlanePlatform(context, { method: 'GET', search: new URL(request.url).search });
 }
 
 export async function POST(request: Request, context: RouteContext) {
@@ -34,14 +34,21 @@ export async function PUT(request: Request, context: RouteContext) {
 
 export async function DELETE(request: Request, context: RouteContext) {
   if (!isSameOriginRequest(request)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  return proxyControlPlanePlatform(context, { method: 'DELETE' });
+  const body = await request.text();
+  return proxyControlPlanePlatform(context, {
+    method: 'DELETE',
+    body,
+    contentType: request.headers.get('content-type') ?? 'application/json',
+  });
 }
 
 async function proxyControlPlanePlatform(
   context: RouteContext,
-  init: { method: 'GET' | 'POST' | 'PUT' | 'DELETE'; body?: string; contentType?: string },
+	init: { method: 'GET' | 'POST' | 'PUT' | 'DELETE'; body?: string; contentType?: string; search?: string },
 ) {
-  const session = await requireAdminSession('platform:admin');
+  const { path = [] } = await context.params;
+  const permission = controlPlanePermission(path, init.method);
+  const session = await requireAdminSession(permission);
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -51,10 +58,10 @@ async function proxyControlPlanePlatform(
     return NextResponse.json({ error: 'CONTROL_PLANE_SERVICE_TOKEN is required.' }, { status: 503 });
   }
 
-  const { path = [] } = await context.params;
   const baseURL = process.env.SHAHRAH_CONTROL_PLANE_URL ?? 'http://127.0.0.1:4000';
   const upstreamPath = path.map(encodeURIComponent).join('/');
-  const url = new URL(`/api/v1/platform/${upstreamPath}`, ensureTrailingSlash(baseURL));
+	const url = new URL(`/api/v1/platform/${upstreamPath}`, ensureTrailingSlash(baseURL));
+	url.search = init.search ?? '';
 
   const response = await fetch(url, {
     method: init.method,
@@ -74,6 +81,26 @@ async function proxyControlPlanePlatform(
     status: response.status,
     headers: { 'content-type': response.headers.get('content-type') ?? 'application/json' },
   });
+}
+
+function controlPlanePermission(path: string[], method: string): AdminPermission {
+  const joined = path.join('/');
+  if (joined.startsWith('tenants/')) {
+    if (method === 'GET') {
+      if (joined.includes('/wallet')) return 'wallet:read';
+      if (joined.includes('/billing')) return 'billing:read';
+      if (joined.includes('/events')) return 'audit:read';
+      return 'tenant:read';
+    }
+    if (joined.includes('/wallet/adjustments')) return 'wallet:adjust';
+    if (joined.endsWith('/suspend') || joined.endsWith('/reactivate')) return 'tenant:status:write';
+    if (joined.includes('/subscription/')) return 'subscription:write';
+  }
+  if (joined === 'tenants' && method === 'GET') return 'tenant:read';
+  if (joined === 'tenant-subscriptions') return 'subscription:write';
+  if (method === 'GET') return 'catalog:read';
+  if (joined.startsWith('commercial-plans') || joined.startsWith('features') || joined.startsWith('tenant-entitlement-overrides')) return 'catalog:write';
+  return 'platform:admin';
 }
 
 function ensureTrailingSlash(value: string): string {

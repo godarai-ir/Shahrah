@@ -13,7 +13,16 @@ export type AdminPermission =
   | 'import:execute'
   | 'indexing:execute'
   | 'display-settings:write'
-  | 'platform:admin';
+  | 'platform:admin'
+  | 'tenant:read'
+  | 'tenant:status:write'
+  | 'subscription:read'
+  | 'subscription:write'
+  | 'usage:read'
+  | 'wallet:read'
+  | 'wallet:adjust'
+  | 'billing:read'
+  | 'audit:read';
 
 export type AdminSession = {
   sessionId: string;
@@ -26,13 +35,15 @@ export type AdminSession = {
 const ROLE_PERMISSIONS: Record<string, readonly AdminPermission[]> = {
   super_admin: [
     'catalog:read', 'catalog:write', 'provider:write', 'import:execute',
-    'indexing:execute', 'display-settings:write', 'platform:admin',
+    'indexing:execute', 'display-settings:write', 'platform:admin', 'tenant:read',
+    'tenant:status:write', 'subscription:read', 'subscription:write', 'usage:read',
+    'wallet:read', 'wallet:adjust', 'billing:read', 'audit:read',
   ],
   catalog_admin: [
     'catalog:read', 'catalog:write', 'provider:write', 'import:execute',
     'indexing:execute', 'display-settings:write',
   ],
-  support_agent: ['catalog:read'],
+  support_agent: ['catalog:read', 'tenant:read', 'subscription:read', 'usage:read', 'wallet:read', 'billing:read', 'audit:read'],
 };
 
 function tokenHash(token: string): string {

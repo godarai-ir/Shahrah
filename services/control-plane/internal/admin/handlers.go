@@ -189,6 +189,17 @@ type entitlementResolverStore interface {
 	CountActiveTenantUsers(ctx context.Context, tenantID string) (int, error)
 }
 
+type supportTenantOperationsStore interface {
+	ListSupportTenants(ctx context.Context, query, status, plan string, limit, offset int) ([]platform.SupportTenantSummary, error)
+	GetSupportTenantSummary(ctx context.Context, tenantID string) (*platform.SupportTenantSummary, error)
+	GetTenantOwnerContact(ctx context.Context, tenantID string) (*platform.TenantOwnerContact, error)
+	ListTenantEvents(ctx context.Context, tenantID string, limit, offset int) ([]platform.TenantEvent, error)
+	AdjustTenantWallet(ctx context.Context, tenantID string, req platform.WalletAdjustmentRequest, actor platform.SupportActor) (*platform.WalletAdjustmentResult, error)
+	ChangeTenantStatus(ctx context.Context, tenantID, target, reason string, actor platform.SupportActor) (*platform.SupportTenantSummary, error)
+	SetTenantSubscriptionCancellation(ctx context.Context, tenantID string, cancel bool, reason string, actor platform.SupportActor) (*platform.TenantSubscription, error)
+	ListTenantSubscriptionPaymentIntents(ctx context.Context, tenantID string, limit, offset int) ([]platform.SubscriptionPaymentIntent, error)
+}
+
 // Handlers serves bootstrap management APIs.
 type Handlers struct {
 	keys             keyStore
@@ -208,6 +219,7 @@ type Handlers struct {
 	roles            roleStore
 	plans            planStore
 	entitlements     entitlementResolverStore
+	supportTenants   supportTenantOperationsStore
 }
 
 // New creates a management handlers bundle.
@@ -226,6 +238,7 @@ func New(keys keyStore, models modelStore, wallets walletStore) *Handlers {
 	roles, _ := keys.(roleStore)
 	plans, _ := keys.(planStore)
 	entitlements, _ := keys.(entitlementResolverStore)
+	supportTenants, _ := keys.(supportTenantOperationsStore)
 	if tracePrivacy == nil {
 		tracePrivacy, _ = wallets.(tracePrivacyStore)
 	}
@@ -247,6 +260,7 @@ func New(keys keyStore, models modelStore, wallets walletStore) *Handlers {
 		roles:            roles,
 		plans:            plans,
 		entitlements:     entitlements,
+		supportTenants:   supportTenants,
 	}
 }
 

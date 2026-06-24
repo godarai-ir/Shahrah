@@ -3,6 +3,7 @@ import { DisplaySettingsProvider } from '@/components/display-settings-provider'
 
 const links = [
   ['/admin', 'Overview'],
+  ['/admin/tenants', 'Tenants'],
   ['/admin/providers', 'Providers'],
   ['/admin/models', 'Models'],
   ['/admin/pricing', 'Pricing'],

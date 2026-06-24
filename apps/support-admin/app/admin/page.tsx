@@ -5,6 +5,7 @@ import Link from 'next/link';
 export default function AdminHome() {
   const links = [
     ['/admin/providers', 'Providers'],
+    ['/admin/tenants', 'Tenants'],
     ['/admin/models', 'Models'],
     ['/admin/model-series', 'Model Series'],
     ['/admin/pricing', 'Pricing'],
