@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     secure: process.env.SUPPORT_ADMIN_COOKIE_SECURE
       ? process.env.SUPPORT_ADMIN_COOKIE_SECURE === 'true'
       : process.env.NODE_ENV === 'production',
-    path: process.env.SUPPORT_ADMIN_COOKIE_PATH ?? '/catalog',
+    path: process.env.SUPPORT_ADMIN_COOKIE_PATH ?? '/',
     maxAge: 0,
   });
   return response;

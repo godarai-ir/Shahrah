@@ -1,72 +1,70 @@
-# Support Admin / Catalog Frontend
+# Support Admin
 
-Next.js UI for model discovery + admin workflows.
+Internal Next.js application for Shahrah operations, support, and privileged catalog administration. It is deployed at the root of its own admin origin and has no Next.js `basePath`.
+
+## Ownership
+
+This app owns:
+
+- Human authentication, opaque sessions, and RBAC
+- Model and provider administration
+- Import, indexing, and audit operations
+- Display-setting mutations
+- Tenant support and commercial operations through control-plane
+
+Public model browsing, provider discovery, and comparison belong to `apps/model-discovery-web`.
 
 ## Run
-- `pnpm --filter @shahrah/support-admin dev`
-- open `http://localhost:3000`
 
-Configure API base with:
-- `NEXT_PUBLIC_MODEL_CATALOG_API_BASE` (default: `http://localhost:3002/api/v1`)
-- `MODEL_CATALOG_API_BASE_INTERNAL` for server-to-server requests
-- `DATABASE_URL` for the separate support-admin-owned database (never the tenant/control-plane database)
-- `MODEL_DISCOVERY_SERVICE_TOKEN` for protected model-discovery requests
-- `CONTROL_PLANE_SERVICE_TOKEN` for scoped platform and tenant support APIs
-- `SUPPORT_ADMIN_ORIGIN` as the exact production origin used for CSRF validation
+From the repository root:
+
+```powershell
+pnpm --filter @shahrah/support-admin dev
+```
+
+The local app listens on `http://localhost:3001`. Running `pnpm dev` at the repository root starts `tenant-admin`, not this application. Use `pnpm dev:support-admin` from the root to avoid routing `/api/admin/*` to the wrong Next.js app.
+
+Environment variables:
+
+- `DATABASE_URL`: support-admin-owned database
+- `MODEL_DISCOVERY_API_BASE_INTERNAL`: model-discovery API base; default `http://localhost:3002/api/v1`
+- `MODEL_DISCOVERY_SERVICE_TOKEN`: scoped credential for protected model-discovery operations
+- `CONTROL_PLANE_SERVICE_TOKEN`: scoped credential for platform and tenant support APIs
+- `SHAHRAH_CONTROL_PLANE_URL`: internal control-plane origin
+- `SUPPORT_ADMIN_ORIGIN`: exact externally visible origin used for CSRF validation
+- `SUPPORT_ADMIN_COOKIE_PATH`: optional cookie path override; default `/`
+
+The former `NEXT_PUBLIC_MODEL_CATALOG_API_BASE` setting is obsolete and should be removed from local and deployment secrets.
 
 ## Authentication
 
-Human authentication is owned by `support-admin`. Passwords are scrypt-hashed and the browser receives only an opaque, revocable session cookie. `model-discovery` never receives a user's password or session.
+Passwords are scrypt-hashed and browsers receive only opaque, revocable session cookies. Human credentials and browser sessions are never forwarded to model-discovery.
 
-After applying the database migration, provision or rotate an operator account without placing the password on the command line:
+After applying migrations, provision or rotate an operator account without placing the password on the command line:
 
 ```powershell
 $env:DATABASE_URL = "postgresql://.../support_admin?schema=public"
 $env:SUPPORT_ADMIN_INITIAL_PASSWORD = "use-a-secret-manager-value"
-pnpm --filter @shahrah/support-admin admin:user:create -- --email=emailtord@gmail.com --role=super_admin
+pnpm --filter @shahrah/support-admin admin:user:create -- --email=operator@example.com --role=super_admin
 ```
 
-Supported roles are `super_admin`, `catalog_admin`, and read-only `support_agent`. Updating an existing user with this command revokes all of that user's sessions.
+Supported roles are `super_admin`, `catalog_admin`, and read-only `support_agent`. Updating a user with this command revokes that user's sessions.
 
-`support-admin` must not connect directly to tenant databases. Tenant source-of-truth reads and mutations go through control-plane; local cross-tenant data is a minimal, eventually-consistent projection only.
-
-## Model Discovery Contract
-
-`support-admin` is a direct client of `model-discovery`.
-
-- Live Swagger UI: `http://localhost:3002/docs`
-- Live OpenAPI JSON: `http://localhost:3002/docs/openapi.json`
-- Exported repo spec: [docs/model-discovery-api-contract.md](/D:/source/Shahrah/docs/model-discovery-api-contract.md)
-
-Current client entrypoints:
-
-- Public catalog client: [apps/support-admin/lib/api.ts](/D:/source/Shahrah/apps/support-admin/lib/api.ts)
-- Local login/session handler: [apps/support-admin/app/api/auth/login/route.ts](/D:/source/Shahrah/apps/support-admin/app/api/auth/login/route.ts)
-- Admin providers proxy: [apps/support-admin/app/api/admin/providers/route.ts](/D:/source/Shahrah/apps/support-admin/app/api/admin/providers/route.ts)
-- Admin models proxy: [apps/support-admin/app/api/admin/models/route.ts](/D:/source/Shahrah/apps/support-admin/app/api/admin/models/route.ts)
-
-Implementation rule:
-
-- Before changing any `model-discovery` request or response handling in `support-admin`, read the spec first and verify the route shape against the exported artifact.
+Support-admin must not connect directly to tenant databases. Tenant source-of-truth reads and mutations go through control-plane.
 
 ## Routes
-Public:
-- `/`
-- `/models`
-- `/models/[providerSlug]/[modelSlug]`
-- `/providers`
-- `/providers/[providerSlug]`
-- `/compare`
-- `/categories/[categorySlug]`
 
-Admin:
+- `/` redirects to `/admin`
+- `/login`
 - `/admin`
 - `/admin/providers`
 - `/admin/models`
-- `/admin/models/new`
-- `/admin/models/[id]/edit`
+- `/admin/model-series`
 - `/admin/pricing`
 - `/admin/capabilities`
 - `/admin/import`
 - `/admin/indexing`
 - `/admin/audit-log`
+- `/admin/settings/display`
+
+Privileged model-discovery requests pass through authenticated Next route handlers using `MODEL_DISCOVERY_SERVICE_TOKEN`. Provider assets are also proxied through an authenticated support-admin route so the internal service origin is not exposed to the browser.

@@ -6,6 +6,7 @@ import {
   buildPowerShellCurlGuideCommand,
   buildCurlGuideSampleResponse,
   getCurlGuideEndpoint,
+  getModelDiscoveryCatalogBaseURLForOrigin,
   getPublicSiteOrigin,
   getTenantApiBaseURLForOrigin,
   resolveCurlGuideMode,
@@ -186,5 +187,7 @@ describe("provider account curl guide helpers", () => {
   it("builds public catalog origins on the root site instead of tenant subdomains", () => {
     expect(getPublicSiteOrigin("https://delpak.godarai.ir")).toBe("https://godarai.ir");
     expect(getPublicSiteOrigin("http://tenant1.localhost:3000")).toBe("http://localhost");
+    expect(getModelDiscoveryCatalogBaseURLForOrigin("https://delpak.godarai.ir")).toBe("https://catalog.godarai.ir");
+    expect(getModelDiscoveryCatalogBaseURLForOrigin("http://tenant1.localhost:3000")).toBe("http://localhost:3003");
   });
 });

@@ -375,9 +375,19 @@ export function toTenantProviderAssetPath(logoURL?: string): string {
 }
 
 export function getModelDiscoveryCatalogBaseURL(): string {
-  if (typeof window === "undefined") return "/catalog";
+  if (typeof window === "undefined") return "http://localhost:3003";
 
-  return `${getPublicSiteOrigin(window.location.origin)}/catalog`;
+  return getModelDiscoveryCatalogBaseURLForOrigin(window.location.origin);
+}
+
+export function getModelDiscoveryCatalogBaseURLForOrigin(origin: string): string {
+  const publicOrigin = new URL(getPublicSiteOrigin(origin));
+  if (isLocalHostname(publicOrigin.hostname)) {
+    publicOrigin.port = "3003";
+    return publicOrigin.origin;
+  }
+  publicOrigin.hostname = `catalog.${publicOrigin.hostname}`;
+  return publicOrigin.origin;
 }
 
 export function getTenantApiBaseURL(): string {

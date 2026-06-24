@@ -11,12 +11,14 @@ RUN --mount=type=cache,id=npm-cache-support-admin,target=/root/.npm \
 FROM deps AS builder
 COPY . ./
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=
+ENV DATABASE_URL=postgresql://support_admin:placeholder@localhost:5432/support_admin?schema=public
 RUN npm run prisma:generate
 RUN npm run build
 
 FROM deps AS migrate
 COPY . ./
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=
+ENV DATABASE_URL=postgresql://support_admin:placeholder@localhost:5432/support_admin?schema=public
 RUN npm run prisma:generate
 
 FROM node:22-alpine AS runner

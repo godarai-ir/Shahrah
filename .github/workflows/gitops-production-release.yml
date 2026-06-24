@@ -97,6 +97,16 @@ jobs:
                   "paths": ["apps/model-discovery/"],
               },
               {
+                  "id": "model-discovery-web",
+                  "image": "shahrah/model-discovery-web",
+                  "context": "apps/model-discovery-web",
+                  "dockerfile": "apps/model-discovery-web/Dockerfile",
+                  "target": "",
+                  "values_path": "modelDiscoveryWeb.image.tag",
+                  "semver_prefix": "model-discovery-web",
+                  "paths": ["apps/model-discovery-web/"],
+              },
+              {
                   "id": "support-admin",
                   "image": "shahrah/support-admin",
                   "context": "apps/support-admin",

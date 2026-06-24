@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Model Discovery Web
 
-## Getting Started
+Public Next.js frontend for browsing, searching, and comparing the Shahrah model catalog.
 
-First, run the development server:
+## Ownership
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+This app owns public model and provider discovery, model details, comparisons, categories, facets, and user-local display preferences. It does not own human administration, tenant operations, service credentials, or catalog mutations.
+
+The backend and source of truth is `apps/model-discovery`.
+
+## Run
+
+From the repository root:
+
+```powershell
+pnpm --filter @shahrah/model-discovery-web dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The local app listens on `http://localhost:3003`; `support-admin` uses port `3001` and `model-discovery` uses port `3002`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The development server uses `http://localhost:3002/api/v1` for server-side model-discovery requests by default. Browser requests use the same-origin read-only proxy under `/api/v1`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Environment variables:
 
-## Learn More
+- `MODEL_DISCOVERY_API_BASE_INTERNAL`: server-to-server API base; default `http://localhost:3002/api/v1`
+- `NEXT_PUBLIC_MODEL_DISCOVERY_API_BASE`: optional browser-visible API base; default `/api/v1`
 
-To learn more about Next.js, take a look at the following resources:
+No model-discovery service-account credential belongs in this application.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Public routes
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `/`
+- `/models`
+- `/models/[providerSlug]/[...modelSlug]`
+- `/providers`
+- `/providers/[providerSlug]`
+- `/compare`
+- `/categories/[categorySlug]`
 
-## Deploy on Vercel
+The same-origin `/api/v1/[...path]` route only proxies allow-listed public GET endpoints. Paths containing `admin` are rejected.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## API contract
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Before changing request or response handling, verify it against:
+
+- `docs/model-discovery-api-contract.md`
+- `apps/model-discovery/openapi/model-discovery.openapi.json`
+
+Legacy public URLs under `/catalog/*` should be redirected by the deployment ingress to this application while old links are retired.

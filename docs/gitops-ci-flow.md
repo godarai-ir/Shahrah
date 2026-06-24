@@ -79,6 +79,7 @@ Manual promotion intentionally updates one service at a time. A single SemVer ta
 - `shahrah/control-plane`
 - `shahrah/model-discovery`
 - `shahrah/model-discovery-migrate` (`migrate` target)
+- `shahrah/model-discovery-web`
 - `shahrah/support-admin`
 - `shahrah/silk-road`
 - `shahrah/tunnel-client`

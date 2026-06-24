@@ -48,6 +48,7 @@ The following images come from compose `build:` entries and must exist in your c
 - `shahrah/control-plane:latest`
 - `shahrah/model-discovery:latest`
 - `shahrah/model-discovery-migrate:latest`
+- `shahrah/model-discovery-web:latest`
 - `shahrah/support-admin:latest`
 - `compose-tunnel-client:latest`
 - `shahrah/tunnel-server:latest`
@@ -60,6 +61,7 @@ Example build commands from repo root:
 docker build -t shahrah/control-plane:local -f services/control-plane/Dockerfile .
 docker build -t registry-def882af9a-shahrah-local.apps.ir-central1.arvancaas.ir/shahrah-local/model-discovery:latest -f apps/model-discovery/Dockerfile apps/model-discovery --push
 docker build -t shahrah/model-discovery-migrate:local --target migrate -f apps/model-discovery/Dockerfile apps/model-discovery
+docker build -t shahrah/model-discovery-web:local -f apps/model-discovery-web/Dockerfile apps/model-discovery-web
 docker build -t shahrah/support-admin-migrate:local --target migrate -f apps/support-admin/Dockerfile apps/support-admin
 docker build -t shahrah/support-admin:local -f apps/support-admin/Dockerfile apps/support-admin
 docker build -t registry-def882af9a-shahrah-local.apps.ir-central1.arvancaas.ir/shahrah-local/tunnel-client:latest -f services/tunnel-client/Dockerfile services/tunnel-client --push
@@ -72,6 +74,7 @@ docker build -t shahrah/goose:local -f infra/compose/images/goose.Dockerfile .
 docker tag shahrah/control-plane:local          $REG/$NS/control-plane:local
 docker tag shahrah/model-discovery:local        $REG/$NS/model-discovery:local
 docker tag shahrah/model-discovery-migrate:local $REG/$NS/model-discovery-migrate:local
+docker tag shahrah/model-discovery-web:local    $REG/$NS/model-discovery-web:local
 docker tag shahrah/support-admin:local          $REG/$NS/support-admin:local
 docker tag shahrah/tunnel-client:local          $REG/$NS/tunnel-client:local
 docker tag shahrah/tunnel-server:local          $REG/$NS/tunnel-server:local
@@ -81,6 +84,7 @@ docker tag shahrah/goose:local                  $REG/$NS/goose:local
 docker push $REG/$NS/control-plane:local
 docker push $REG/$NS/model-discovery:local
 docker push $REG/$NS/model-discovery-migrate:local
+docker push $REG/$NS/model-discovery-web:local
 docker push $REG/$NS/support-admin:local
 docker push $REG/$NS/tunnel-client:local
 docker push $REG/$NS/tunnel-server:local
@@ -93,6 +97,7 @@ All services are `ClusterIP` by default. Use port-forward when needed:
 ```bash
 kubectl -n shahrah-local port-forward svc/control-plane 4000:4000
 kubectl -n shahrah-local port-forward svc/model-discovery 3002:3002
+kubectl -n shahrah-local port-forward svc/model-discovery-web 3003:3000
 kubectl -n shahrah-local port-forward svc/support-admin 3001:3000
 kubectl -n shahrah-local port-forward svc/mailpit 8025:8025
 kubectl -n shahrah-local port-forward svc/pgadmin 5050:80

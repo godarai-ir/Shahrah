@@ -34,18 +34,23 @@ When changing any `model-discovery` API route, method, query parameter, request 
 1. Update the Nest controller/DTO behavior.
 2. Regenerate the OpenAPI artifact.
 3. Review the diff in `apps/model-discovery/openapi/`.
-4. Update consuming code in `support-admin` and/or `control-plane`.
+4. Update consuming code in `model-discovery-web`, `support-admin`, and/or `control-plane`.
 5. Update contract tests where the consumer depends on specific fields or constraints.
 
 Do not merge API changes based on tribal knowledge or memory of the route shape.
 
+## Model Discovery Web Rules
+
+`model-discovery-web` owns the public read-only catalog client:
+
+- [apps/model-discovery-web/lib/api.ts](/D:/source/Shahrah/apps/model-discovery-web/lib/api.ts)
+- [apps/model-discovery-web/app/api/v1/[...path]/route.ts](/D:/source/Shahrah/apps/model-discovery-web/app/api/v1/[...path]/route.ts)
+
+The same-origin proxy only forwards allow-listed public GET endpoints. It must never receive or forward `MODEL_DISCOVERY_SERVICE_TOKEN`.
+
 ## Support Admin Rules
 
 `support-admin` is a direct client of `model-discovery`.
-
-Public catalog requests currently go through:
-
-- [apps/support-admin/lib/api.ts](/D:/source/Shahrah/apps/support-admin/lib/api.ts)
 
 Admin requests go through Next route handlers that validate the local support-admin session and proxy with a scoped `model-discovery` service credential, for example:
 
@@ -57,7 +62,7 @@ Rules for future changes:
 1. Before adding or changing a request, read the spec first.
 2. Prefer the live `openapi.json` while implementing locally.
 3. Use the repo artifact in PR review to verify that route/path/query/body expectations still match.
-4. If `support-admin` starts consuming a new endpoint, add that endpoint to its README notes.
+4. If either web application starts consuming a new endpoint, add that endpoint to the owning app's README notes.
 5. Do not guess response fields from UI usage; confirm them in the spec.
 6. Never forward a human credential or browser session to `model-discovery`; use `MODEL_DISCOVERY_SERVICE_TOKEN`.
 
@@ -82,4 +87,4 @@ Before merging changes that touch the `model-discovery` contract, confirm:
 
 1. `pnpm --dir apps/model-discovery openapi:export`
 2. `go test ./services/control-plane/internal/admin`
-3. `support-admin` routes and clients still point to documented `model-discovery` endpoints
+3. `model-discovery-web` public clients and `support-admin` admin proxies still point to documented `model-discovery` endpoints

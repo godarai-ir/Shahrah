@@ -261,7 +261,7 @@ Decide the production hostnames before deploying ingress:
 
 - `api.<domain>` for `control-plane`
 - `admin.<domain>` for `support-admin`
-- optional `catalog.<domain>` if `model-discovery` will be exposed directly
+- `catalog.<domain>` for `model-discovery-web`
 
 Confirmed production domain decision:
 
@@ -269,7 +269,7 @@ Confirmed production domain decision:
 - current GitOps public routing stays path-based on that same domain
 - `tenant-admin` stays wildcard-based on `*.godarai.ir`
 
-`model-discovery`, `silk-road`, `tunnel-server`, and `tunnel-client` should stay internal unless there is a clear public requirement.
+`model-discovery`, `silk-road`, `tunnel-server`, and `tunnel-client` stay internal. `model-discovery-web` exposes only the public read contract.
 
 The current production values in `D:\source\shahrah-gitops\helm\shahrah\values.production.yaml` are already aligned to `godarai.ir`.
 
@@ -819,6 +819,7 @@ Production Shahrah deployment currently depends on:
 
 - `control-plane`
 - `model-discovery`
+- `model-discovery-web`
 - `support-admin`
 - `silk-road`
 - `tunnel-server`
@@ -843,6 +844,7 @@ Current image sources in the repo:
 
 - `services/control-plane/Dockerfile`
 - `apps/model-discovery/Dockerfile`
+- `apps/model-discovery-web/Dockerfile`
 - `apps/support-admin/Dockerfile`
 - `services/tunnel-client/Dockerfile`
 - `services/tunnel-server/Dockerfile`
@@ -856,6 +858,7 @@ Build and publish images with immutable tags, for example Git SHA tags:
 - `control-plane`
 - `model-discovery`
 - `model-discovery-migrate`
+- `model-discovery-web`
 - `support-admin`
 - `tunnel-client`
 - `tunnel-server`
@@ -905,8 +908,7 @@ For production, also define:
 The current `ConfigMap` shows these core app settings:
 
 - `SHAHRAH_MODEL_DISCOVERY_URL`
-- `NEXT_PUBLIC_MODEL_CATALOG_API_BASE`
-- `MODEL_CATALOG_API_BASE_INTERNAL`
+- `MODEL_DISCOVERY_API_BASE_INTERNAL`
 - `REDIS_HOST`
 - `REDIS_PORT`
 - `TYPESENSE_HOST`
@@ -1109,22 +1111,23 @@ This is a sensible direction for Shahrah and should remain the default assumptio
 
 Recommended public exposure depends on the final domain strategy.
 
-In the current GitOps production values, public exposure is configured on `godarai.ir`:
+The target production exposure is:
 
 - `control-plane` under `/api`
 - `website` under `/`
 - `blog` under `/blog`
 - `docs` under `/docs`
-- `model-discovery` under `/catalog/api/v1`
-- `support-admin` under `/catalog`
+- `model-discovery-web` on the dedicated catalog origin
+- `support-admin` on the dedicated admin origin, rooted at `/`
 - `tenant-admin` on `*.godarai.ir`
 
-Keep this domain model for the current rollout.
+The GitOps Helm chart must add `modelDiscoveryWeb` and the dedicated catalog/admin ingress hosts before these application releases are promoted.
 
 Current rollout exposure pattern:
 
 - `control-plane` via `https://godarai.ir/api`
-- `support-admin` via `https://godarai.ir/catalog`
+- `model-discovery-web` via `https://catalog.godarai.ir/`
+- `support-admin` via `https://admin.godarai.ir/`
 - `website` via `https://godarai.ir/`
 - `blog` via `https://godarai.ir/blog`
 - `docs` via `https://godarai.ir/docs`
@@ -1141,7 +1144,7 @@ Recommended internal-only services:
 - `clickhouse`
 - `typesense`
 
-If `support-admin` needs browser access to `model-discovery`, prefer routing that through `control-plane` or a controlled internal API path rather than exposing raw internal services broadly.
+Legacy `https://godarai.ir/catalog/*` routes must redirect to `https://catalog.godarai.ir/*` during migration. Support-admin browser asset requests use its authenticated internal proxy rather than exposing model-discovery directly.
 
 ---
 
@@ -1181,6 +1184,7 @@ Before production cutover, verify:
 - DB migration jobs complete successfully
 - `control-plane` health endpoint is reachable
 - `support-admin` loads successfully
+- `model-discovery-web` loads and can reach public catalog endpoints
 - `model-discovery` is reachable from dependent services
 - Redis, ClickHouse, and Typesense are reachable internally
 - pod restarts are stable across a rolling deployment

@@ -10,6 +10,7 @@ RUN --mount=type=cache,id=npm-cache-model-discovery,target=/root/.npm \
 FROM deps AS builder
 COPY . .
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=
+ENV DATABASE_URL=postgresql://postgres:postgres@localhost:5432/model_discovery?schema=public
 RUN npm run prisma:generate
 RUN npm run build
 RUN npm prune --omit=dev

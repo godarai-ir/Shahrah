@@ -5,6 +5,9 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "pnpm --filter @shahrah/tenant-admin dev",
+    "dev:model-discovery": "pnpm --filter model-discovery start:dev",
+    "dev:model-discovery-web": "pnpm --filter @shahrah/model-discovery-web dev",
+    "dev:support-admin": "pnpm --filter @shahrah/support-admin dev",
     "dev:all": "turbo run dev --parallel",
     "lint": "turbo run lint",
     "test": "turbo run test"

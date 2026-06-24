@@ -23,7 +23,7 @@ type FormData = z.infer<typeof schema>;
 
 export default function AdminModelCreatePage() {
   const { register, handleSubmit, formState } = useForm<FormData>({
-    resolver: zodResolver(schema) as Resolver<FormData>,
+    resolver: zodResolver(schema as never) as Resolver<FormData>,
   });
   const onSubmit = async (v: FormData) => {
     await fetch('/api/admin/models', {

@@ -11,6 +11,7 @@ on:
           - control-plane
           - model-discovery
           - model-discovery-migrate
+          - model-discovery-web
           - support-admin
           - support-admin-migrate
           - silk-road
@@ -69,6 +70,7 @@ jobs:
               "control-plane": "control-plane",
               "model-discovery": "model-discovery",
               "model-discovery-migrate": "model-discovery",
+              "model-discovery-web": "model-discovery-web",
               "support-admin": "support-admin",
               "support-admin-migrate": "support-admin",
               "silk-road": "silk-road",
@@ -121,6 +123,7 @@ jobs:
               "control-plane": "controlPlane.image.tag",
               "model-discovery": "modelDiscovery.image.tag",
               "model-discovery-migrate": "migrations.modelDiscovery.image.tag",
+              "model-discovery-web": "modelDiscoveryWeb.image.tag",
               "support-admin": "supportAdmin.image.tag",
               "support-admin-migrate": "migrations.supportAdmin.image.tag",
               "silk-road": "silkRoad.image.tag",

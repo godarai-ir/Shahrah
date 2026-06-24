@@ -22,6 +22,7 @@ Workflow file: `.github/workflows/gitops-staging-release.yml`
 - `control-plane`
 - `model-discovery`
 - `model-discovery-migrate`
+- `model-discovery-web`
 - `support-admin`
 - `support-admin-migrate`
 - `silk-road`
@@ -53,6 +54,7 @@ Semver discovery uses tags in this repository in the format:
 
 Examples:
 - `model-discovery/v0.8.3`
+- `model-discovery-web/v0.8.3`
 - `support-admin/v1.2.0`
 
 If no tag exists, the initial generated version starts at `v0.1.0`.
@@ -69,9 +71,12 @@ If no tag exists, the initial generated version starts at `v0.1.0`.
 - A change under `apps/support-admin/**` should only build:
   - `support-admin`
   - `support-admin-migrate`
+- A change under `apps/model-discovery-web/**` should only build:
+  - `model-discovery-web`
 - GitOps PR should only change:
   - `modelDiscovery.image.tag`
   - `migrations.modelDiscovery.image.tag`
+  - `modelDiscoveryWeb.image.tag` when the public web app is selected
 - ArgoCD should only roll related workloads.
 
 ## Rollback

@@ -300,6 +300,67 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: model-discovery-web
+  namespace: shahrah-local
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: model-discovery-web
+  template:
+    metadata:
+      labels:
+        app: model-discovery-web
+    spec:
+      imagePullSecrets:
+        - name: regcred
+      initContainers:
+        - name: wait-for-model-discovery
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - until nc -z model-discovery 3002; do echo waiting for model-discovery; sleep 2; done
+      containers:
+        - name: model-discovery-web
+          image: shahrah/model-discovery-web:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: MODEL_DISCOVERY_API_BASE_INTERNAL
+              valueFrom:
+                configMapKeyRef:
+                  name: shahrah-config
+                  key: MODEL_DISCOVERY_API_BASE_INTERNAL
+          readinessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: model-discovery-web
+  namespace: shahrah-local
+spec:
+  selector:
+    app: model-discovery-web
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
   name: support-admin
   namespace: shahrah-local
 spec:
@@ -335,16 +396,11 @@ spec:
             - containerPort: 3000
               name: http
           env:
-            - name: NEXT_PUBLIC_MODEL_CATALOG_API_BASE
+            - name: MODEL_DISCOVERY_API_BASE_INTERNAL
               valueFrom:
                 configMapKeyRef:
                   name: shahrah-config
-                  key: NEXT_PUBLIC_MODEL_CATALOG_API_BASE
-            - name: MODEL_CATALOG_API_BASE_INTERNAL
-              valueFrom:
-                configMapKeyRef:
-                  name: shahrah-config
-                  key: MODEL_CATALOG_API_BASE_INTERNAL
+                  key: MODEL_DISCOVERY_API_BASE_INTERNAL
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:

@@ -16,7 +16,7 @@
 6. Provision the model-discovery service key using `service-account:create`.
 7. Provision the control-plane service key using `go run ./services/control-plane/cmd/platform-service-account`.
 8. Inject the keys as `MODEL_DISCOVERY_SERVICE_TOKEN` and `CONTROL_PLANE_SERVICE_TOKEN`, then restart support-admin.
-9. Verify `/catalog/api/auth/me` and one read-only admin request before enabling mutations.
+9. Verify `/api/auth/me` and one read-only admin request on the dedicated support-admin origin before enabling mutations.
 
 Provisioning never accepts a password or generated service secret on the command line. The user password is read from `SUPPORT_ADMIN_INITIAL_PASSWORD`; workload secrets are randomly generated and displayed once.
 
