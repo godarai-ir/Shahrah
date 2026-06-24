@@ -6,6 +6,7 @@ type SendEmailInput = {
   subject: string;
   text: string;
   html?: string;
+  replyTo?: string;
   tags?: Array<{ name: string; value: string }>;
 };
 
@@ -85,7 +86,7 @@ export async function sendEmail(input: SendEmailInput) {
       subject: input.subject,
       text: input.text,
       html: input.html,
-      replyTo: config.replyTo ? [config.replyTo] : undefined,
+      replyTo: input.replyTo ? [input.replyTo] : config.replyTo ? [config.replyTo] : undefined,
       tags: input.tags,
     });
 
@@ -103,6 +104,56 @@ export async function sendEmail(input: SendEmailInput) {
     subject: input.subject,
     text: input.text,
     html: input.html,
+    replyTo: input.replyTo,
+  });
+}
+
+export async function sendContactEmail(input: {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}) {
+  const text = [
+    `Name: ${input.name}`,
+    `Email: ${input.email}`,
+    `Subject: ${input.subject}`,
+    "",
+    input.message,
+  ].join("\n");
+
+  const html = `
+<div style="font-family: Tahoma, Arial, sans-serif; line-height: 1.8; color: #111827;">
+  <h2>${escapeHTML(input.subject)}</h2>
+  <p><strong>Name:</strong> ${escapeHTML(input.name)}</p>
+  <p><strong>Email:</strong> ${escapeHTML(input.email)}</p>
+  <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+  <p style="white-space: pre-wrap;">${escapeHTML(input.message)}</p>
+</div>`;
+
+  await sendEmail({
+    to: "support@godarai.ir",
+    subject: `[Website contact] ${input.subject}`,
+    text,
+    html,
+    replyTo: input.email,
+    tags: [
+      { name: "app", value: "website" },
+      { name: "flow", value: "contact" },
+    ],
+  });
+}
+
+function escapeHTML(value: string) {
+  return value.replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+    return entities[character];
   });
 }
 
