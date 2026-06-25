@@ -153,6 +153,17 @@ type tracePrivacyStore interface {
 	UpsertTenantTracePrivacySettings(ctx context.Context, tenantID, capturePolicy, updatedByUserID string) (*platform.TenantTracePrivacySettings, error)
 }
 
+type promptStore interface {
+	CreatePrompt(ctx context.Context, tenantID string, tenantSlug string, req platform.CreatePromptRequest, actor string) (*platform.PromptVersion, error)
+	CreatePromptVersion(ctx context.Context, tenantID string, tenantSlug string, promptID string, req platform.CreatePromptVersionRequest, actor string) (*platform.PromptVersion, error)
+	ListPrompts(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.Prompt, int, error)
+	GetPrompt(ctx context.Context, tenantID string, promptID string) (*platform.Prompt, error)
+	DeletePrompt(ctx context.Context, tenantID string, promptID string) error
+	ListPromptVersions(ctx context.Context, tenantID string, promptID string, limit int, offset int) ([]platform.PromptVersion, int, error)
+	GetPromptVersion(ctx context.Context, tenantID string, versionID string) (*platform.PromptVersion, error)
+	GetPromptVersionByFQN(ctx context.Context, tenantID string, fqn string) (*platform.PromptVersion, error)
+}
+
 type onboardingStore interface {
 	CheckTenantSlugAvailability(ctx context.Context, slug string) (*storage.TenantSlugAvailability, error)
 	CreateOnboardingOTP(ctx context.Context, req storage.CreateOnboardingOTPParams) (*storage.OnboardingOTP, error)
@@ -223,6 +234,7 @@ type Handlers struct {
 	traces           traceStore
 	metrics          metricsStore
 	tracePrivacy     tracePrivacyStore
+	prompts          promptStore
 	roles            roleStore
 	plans            planStore
 	entitlements     entitlementResolverStore
@@ -242,6 +254,7 @@ func New(keys keyStore, models modelStore, wallets walletStore) *Handlers {
 	traces, _ := keys.(traceStore)
 	metrics, _ := keys.(metricsStore)
 	tracePrivacy, _ := keys.(tracePrivacyStore)
+	prompts, _ := keys.(promptStore)
 	roles, _ := keys.(roleStore)
 	plans, _ := keys.(planStore)
 	entitlements, _ := keys.(entitlementResolverStore)
@@ -264,6 +277,7 @@ func New(keys keyStore, models modelStore, wallets walletStore) *Handlers {
 		traces:           traces,
 		metrics:          metrics,
 		tracePrivacy:     tracePrivacy,
+		prompts:          prompts,
 		roles:            roles,
 		plans:            plans,
 		entitlements:     entitlements,

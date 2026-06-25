@@ -1,0 +1,114 @@
+{
+  "title": "پرامپت‌ها",
+  "description": "پرامپت‌های گفت‌وگویی قابل استفاده مجدد بسازید، نسخه‌های آن‌ها را مدیریت کنید و با متغیرها به درخواست‌های Gateway وصل کنید.",
+  "alerts": {
+    "error": "عملیات ناموفق بود",
+    "success": "انجام شد"
+  },
+  "metrics": {
+    "prompts": "پرامپت",
+    "versions": "نسخه"
+  },
+  "status": {
+    "versioned": "نسخه‌دار",
+    "noModel": "بدون مدل",
+    "notSelected": "انتخاب نشده",
+    "notSet": "ثبت نشده"
+  },
+  "list": {
+    "title": "کتابخانه پرامپت",
+    "description": "یک پرامپت را برای بررسی، تست یا انتشار نسخه جدید انتخاب کنید.",
+    "searchPlaceholder": "جست‌وجوی پرامپت‌ها",
+    "version": "نسخه {version}"
+  },
+  "empty": {
+    "title": "هنوز پرامپتی ساخته نشده است",
+    "description": "اولین پرامپت را بسازید تا در درخواست‌های Gateway از آن استفاده کنید.",
+    "searchTitle": "پرامپتی مطابق جست‌وجو پیدا نشد",
+    "searchDescription": "عبارت جست‌وجو را تغییر دهید یا پرامپت جدید بسازید."
+  },
+  "actions": {
+    "refresh": "به‌روزرسانی",
+    "newPrompt": "پرامپت جدید",
+    "createPrompt": "ساخت پرامپت",
+    "saveVersion": "ذخیره نسخه",
+    "delete": "حذف",
+    "cancel": "انصراف",
+    "confirmDelete": "حذف پرامپت",
+    "copySnippet": "کپی نمونه کد",
+    "render": "نمایش پیش‌نمایش",
+    "copyJSON": "کپی JSON"
+  },
+  "tabs": {
+    "compose": "متن پرامپت",
+    "settings": "تنظیمات",
+    "versions": "نسخه‌ها",
+    "test": "تست"
+  },
+  "editor": {
+    "createTitle": "ساخت پرامپت",
+    "createDescription": "پیام‌ها و مقدارهای پیش‌فرض یک پرامپت جدید را تعریف کنید.",
+    "versionTitle": "انتشار نسخه جدید",
+    "versionDescription": "فیلدهای پیشنویس را ویرایش کنید و برای ساخت نسخه ثابت بعدی ذخیره کنید."
+  },
+  "form": {
+    "name": "نام",
+    "nameHint": "حروف، عدد، خط تیره و زیرخط",
+    "model": "مدل پیش‌فرض",
+    "modelHint": "اختیاری",
+    "description": "توضیح",
+    "systemMessage": "پیام سیستم",
+    "userMessage": "پیام کاربر",
+    "variableHint": "متغیرها را داخل دو آکولاد بنویسید",
+    "commitMessage": "پیام تغییر",
+    "commitPlaceholder": "در این نسخه چه تغییری کرده است؟",
+    "variables": "JSON متغیرها",
+    "parameters": "JSON پارامترها",
+    "metadata": "JSON متادیتا",
+    "renderVariables": "متغیرهای پیش‌نمایش",
+    "variablesHint": "متغیرهای قالب و مقدارهای پیش‌فرض",
+    "parametersHint": "پارامترهای مدل که همراه پرامپت ارسال می‌شوند",
+    "metadataHint": "برچسب‌های عملیاتی این پرامپت",
+    "renderVariablesHint": "مقدارهایی که فقط برای این پیش‌نمایش استفاده می‌شوند"
+  },
+  "versions": {
+    "emptyTitle": "اولین نسخه را ذخیره کنید",
+    "emptyDescription": "تاریخچه نسخه‌ها بعد از ساخت پرامپت نمایش داده می‌شود.",
+    "version": "نسخه {version}",
+    "fqn": "FQN پرامپت",
+    "model": "مدل",
+    "createdAt": "زمان ساخت",
+    "commit": "تغییر"
+  },
+  "preview": {
+    "title": "خروجی پیش‌نمایش",
+    "rendered": "رندر شد",
+    "default": "JSON نسخه"
+  },
+  "validation": {
+    "name": "نام فقط می‌تواند شامل حروف، عدد، خط تیره و زیرخط باشد.",
+    "messages": "حداقل یک پیام سیستم یا کاربر وارد کنید.",
+    "jsonObject": "{label} باید یک آبجکت JSON باشد.",
+    "jsonSyntax": "{label} JSON معتبر نیست."
+  },
+  "messages": {
+    "loadError": "بارگذاری پرامپت‌ها ناموفق بود.",
+    "versionsLoadError": "بارگذاری نسخه‌ها ناموفق بود.",
+    "createError": "ساخت پرامپت ناموفق بود.",
+    "versionSaveError": "ذخیره نسخه پرامپت ناموفق بود.",
+    "saveError": "ذخیره پرامپت ناموفق بود.",
+    "created": "پرامپت ساخته شد.",
+    "versionSaved": "نسخه پرامپت ذخیره شد.",
+    "deleteError": "حذف پرامپت ناموفق بود.",
+    "deleted": "پرامپت حذف شد.",
+    "selectVersion": "ابتدا یک نسخه پرامپت انتخاب کنید.",
+    "renderError": "رندر پرامپت ناموفق بود.",
+    "snippetCopied": "نمونه کد استفاده کپی شد.",
+    "jsonCopied": "JSON کپی شد.",
+    "valueCopied": "مقدار کپی شد."
+  },
+  "deleteDialog": {
+    "title": "پرامپت حذف شود؟",
+    "description": "پرامپت «{name}» و همه نسخه‌های آن حذف می‌شود. درخواست‌های Gateway که از FQN آن استفاده می‌کنند خطا می‌گیرند."
+  }
+}

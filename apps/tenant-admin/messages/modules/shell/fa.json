@@ -26,6 +26,7 @@
     "settings": "تنظیمات حساب",
     "providerAccounts": "اتصال‌دهنده‌های LLM",
     "virtualModels": "مدل‌های مجازی",
+    "prompts": "رجیستری پرامپت",
     "virtualUsers": "مصرف‌کننده‌ها و VAT",
     "accessManagement": "مدیریت دسترسی",
     "orgUnits": "واحدها",

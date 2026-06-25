@@ -33,4 +33,16 @@ configMapGenerator:
       - migrations/014_tenant_admin_invitation_pending_uniqueness.sql
       - migrations/015_roles_and_permissions.sql
       - migrations/016_merge_member_system_roles.sql
+      - migrations/017_tenant_provider_account_model_gateway_metadata.sql
+      - migrations/018_canonicalize_virtual_model_target_fqns.sql
+      - migrations/019_virtual_model_exposed_modes.sql
+      - migrations/020_vat_virtual_user_tokens.sql
+      - migrations/021_commercial_plans_entitlements.sql
+      - migrations/022_support_admin_auth.sql
       - migrations/023_platform_service_accounts.sql
+      - migrations/024_support_tenant_operations.sql
+      - migrations/025_subscription_trials_signup_credit.sql
+      - migrations/026_tenant_guardrails.sql
+      - migrations/027_prompts.sql
+      - migrations/028_prompts_slug_constraint.sql
+      - migrations/029_prompt_version_manifest.sql

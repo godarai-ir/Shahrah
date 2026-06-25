@@ -58,7 +58,7 @@ const SIDEBAR_NAV_GROUPS: Array<{
   },
   {
     labelKey: "navGroups.runtime",
-    itemKeys: ["providerAccounts", "virtualModels", "virtualUsers"],
+    itemKeys: ["providerAccounts", "virtualModels", "prompts", "virtualUsers"],
   },
   {
     labelKey: "navGroups.observability",

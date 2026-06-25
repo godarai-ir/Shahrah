@@ -89,6 +89,18 @@ func TestNewFiberAppExposesPrometheusMetrics(t *testing.T) {
 	assert.Contains(t, payload, "shahrah_control_plane_http_requests_in_flight")
 }
 
+func TestNewFiberAppRegistersPromptRoutes(t *testing.T) {
+	t.Parallel()
+
+	app := NewFiberApp(&config.Config{}, Dependencies{
+		AdminHandlers: admin.New(publicLoginDiscoveryStore{}, nil, nil),
+	})
+
+	resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/api/v1/prompts", nil))
+	require.NoError(t, err)
+	require.NotEqual(t, fiber.StatusNotFound, resp.StatusCode)
+}
+
 func TestPlatformAdminAuthMiddlewareRequiresMasterKey(t *testing.T) {
 	t.Parallel()
 	app := fiber.New()

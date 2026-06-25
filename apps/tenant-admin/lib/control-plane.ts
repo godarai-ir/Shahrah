@@ -10,6 +10,7 @@ type ProxyOptions = {
   body?: unknown;
   userID?: string;
   tenantSlug?: string;
+  upstreamHeaders?: HeadersInit;
 };
 
 type ControlPlaneRequest = {
@@ -19,6 +20,7 @@ type ControlPlaneRequest = {
   body?: unknown;
   userID?: string;
   requestHeaders?: Headers;
+  upstreamHeaders?: HeadersInit;
 };
 
 type APIErrorPayload = {
@@ -81,6 +83,7 @@ export async function proxyToControlPlane(options: ProxyOptions) {
     body: options.body,
     userID: resolvedUserID || undefined,
     requestHeaders: options.request.headers,
+    upstreamHeaders: options.upstreamHeaders,
   });
 
   if (!upstream.ok) {
@@ -140,6 +143,7 @@ export async function proxyToControlPlaneBinary(options: ProxyOptions) {
     body: options.body,
     userID: resolvedUserID || undefined,
     requestHeaders: options.request.headers,
+    upstreamHeaders: options.upstreamHeaders,
   });
 
   if (!upstream.ok) {
@@ -187,6 +191,7 @@ export async function fetchControlPlaneJSON(
   const url = new URL(normalizePath(options.path), baseURL).toString();
   const forwardedHost = resolveForwardedHost(options.requestHeaders);
   const forwardedProto = resolveForwardedProto(options.requestHeaders);
+  const upstreamHeaders = new Headers(options.upstreamHeaders ?? {});
 
   try {
     const upstream = await fetch(url, {
@@ -199,6 +204,7 @@ export async function fetchControlPlaneJSON(
         ...(options.userID ? { "x-shahrah-user-id": options.userID } : {}),
         ...(forwardedHost ? { "x-forwarded-host": forwardedHost } : {}),
         ...(forwardedProto ? { "x-forwarded-proto": forwardedProto } : {}),
+        ...Object.fromEntries(upstreamHeaders.entries()),
       },
       body: options.body ? JSON.stringify(options.body) : undefined,
       cache: "no-store",
@@ -256,6 +262,7 @@ async function fetchControlPlaneRaw(
   const url = new URL(normalizePath(options.path), baseURL).toString();
   const forwardedHost = resolveForwardedHost(options.requestHeaders);
   const forwardedProto = resolveForwardedProto(options.requestHeaders);
+  const upstreamHeaders = new Headers(options.upstreamHeaders ?? {});
 
   try {
     const upstream = await fetch(url, {
@@ -268,6 +275,7 @@ async function fetchControlPlaneRaw(
         ...(options.userID ? { "x-shahrah-user-id": options.userID } : {}),
         ...(forwardedHost ? { "x-forwarded-host": forwardedHost } : {}),
         ...(forwardedProto ? { "x-forwarded-proto": forwardedProto } : {}),
+        ...Object.fromEntries(upstreamHeaders.entries()),
       },
       body: options.body ? JSON.stringify(options.body) : undefined,
       cache: "no-store",

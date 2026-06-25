@@ -1,0 +1,114 @@
+{
+  "title": "Prompts",
+  "description": "Create reusable chat prompts, version them intentionally, and attach them to gateway requests with variables.",
+  "alerts": {
+    "error": "Action failed",
+    "success": "Done"
+  },
+  "metrics": {
+    "prompts": "Prompts",
+    "versions": "Versions"
+  },
+  "status": {
+    "versioned": "Versioned",
+    "noModel": "No model",
+    "notSelected": "Not selected",
+    "notSet": "Not set"
+  },
+  "list": {
+    "title": "Prompt library",
+    "description": "Select a prompt to review, test, or publish a new version.",
+    "searchPlaceholder": "Search prompts",
+    "version": "v{version}"
+  },
+  "empty": {
+    "title": "No prompts yet",
+    "description": "Create the first prompt to reuse it from gateway requests.",
+    "searchTitle": "No matching prompts",
+    "searchDescription": "Change the search query or create a new prompt."
+  },
+  "actions": {
+    "refresh": "Refresh",
+    "newPrompt": "New prompt",
+    "createPrompt": "Create prompt",
+    "saveVersion": "Save version",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "confirmDelete": "Delete prompt",
+    "copySnippet": "Copy snippet",
+    "copyJSON": "Copy JSON",
+    "render": "Render preview"
+  },
+  "tabs": {
+    "compose": "Compose",
+    "settings": "Settings",
+    "versions": "Versions",
+    "test": "Test"
+  },
+  "editor": {
+    "createTitle": "Create prompt",
+    "createDescription": "Define the reusable messages and defaults for a new prompt.",
+    "versionTitle": "Publish a new version",
+    "versionDescription": "Edit the draft fields, then save to create the next immutable version."
+  },
+  "form": {
+    "name": "Name",
+    "nameHint": "Letters, numbers, dashes, underscores",
+    "model": "Default model",
+    "modelHint": "Optional",
+    "description": "Description",
+    "systemMessage": "System message",
+    "userMessage": "User message",
+    "variableHint": "Use named variables in double braces",
+    "commitMessage": "Commit message",
+    "commitPlaceholder": "What changed in this version?",
+    "variables": "Variables JSON",
+    "variablesHint": "Template variables and fallback values",
+    "parameters": "Parameters JSON",
+    "parametersHint": "Model parameters passed with the prompt",
+    "metadata": "Metadata JSON",
+    "metadataHint": "Operational tags for this prompt",
+    "renderVariables": "Render variables",
+    "renderVariablesHint": "Values used only for this preview"
+  },
+  "versions": {
+    "emptyTitle": "Save the first version",
+    "emptyDescription": "Version history appears after the prompt is created.",
+    "version": "Version {version}",
+    "fqn": "Prompt FQN",
+    "model": "Model",
+    "createdAt": "Created",
+    "commit": "Commit"
+  },
+  "preview": {
+    "title": "Preview output",
+    "rendered": "Rendered",
+    "default": "Version JSON"
+  },
+  "validation": {
+    "name": "Name must contain only letters, numbers, hyphens, and underscores.",
+    "messages": "Add at least one system or user message.",
+    "jsonObject": "{label} must be a JSON object.",
+    "jsonSyntax": "{label} is not valid JSON."
+  },
+  "messages": {
+    "loadError": "Prompts could not be loaded.",
+    "versionsLoadError": "Versions could not be loaded.",
+    "createError": "Prompt could not be created.",
+    "versionSaveError": "Prompt version could not be saved.",
+    "saveError": "Prompt could not be saved.",
+    "created": "Prompt created.",
+    "versionSaved": "Prompt version saved.",
+    "deleteError": "Prompt could not be deleted.",
+    "deleted": "Prompt deleted.",
+    "valueCopied": "Value copied.",
+    "jsonCopied": "JSON copied.",
+    "selectVersion": "Select a prompt version first.",
+    "renderError": "Prompt could not be rendered.",
+    "snippetCopied": "Usage snippet copied."
+  },
+  "deleteDialog": {
+    "title": "Delete prompt?",
+    "description": "This will delete \"{name}\" and all of its versions. Existing gateway requests using its FQN will fail."
+  }
+}

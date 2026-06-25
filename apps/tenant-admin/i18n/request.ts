@@ -23,6 +23,7 @@ const MESSAGE_NAMESPACES = [
   "rateLimitRules",
   "budgetLimitRules",
   "guardrails",
+  "prompts",
 ] as const;
 
 async function loadMessages(locale: "fa" | "en") {

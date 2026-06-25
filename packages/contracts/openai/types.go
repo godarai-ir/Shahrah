@@ -8,15 +8,19 @@ import (
 
 // ChatCompletionRequest mirrors OpenAI's chat completion request format.
 type ChatCompletionRequest struct {
-	Model       string           `json:"model"`
-	Messages    []ChatMessage    `json:"messages"`
-	Stream      bool             `json:"stream,omitempty"`
-	Temperature *float64         `json:"temperature,omitempty"`
-	TopP        *float64         `json:"top_p,omitempty"`
-	MaxTokens   *int             `json:"max_tokens,omitempty"`
-	Tools       []ToolDefinition `json:"tools,omitempty"`
-	ToolChoice  interface{}      `json:"tool_choice,omitempty"`
-	User        string           `json:"user,omitempty"`
+	Model            string                 `json:"model"`
+	Messages         []ChatMessage          `json:"messages"`
+	Stream           bool                   `json:"stream,omitempty"`
+	Temperature      *float64               `json:"temperature,omitempty"`
+	TopP             *float64               `json:"top_p,omitempty"`
+	MaxTokens        *int                   `json:"max_tokens,omitempty"`
+	ResponseFormat   interface{}            `json:"response_format,omitempty"`
+	Tools            []ToolDefinition       `json:"tools,omitempty"`
+	ToolChoice       interface{}            `json:"tool_choice,omitempty"`
+	Metadata         map[string]interface{} `json:"metadata,omitempty"`
+	User             string                 `json:"user,omitempty"`
+	PromptVersionFQN string                 `json:"prompt_version_fqn,omitempty"`
+	PromptVariables  map[string]string      `json:"prompt_variables,omitempty"`
 }
 
 // ChatMessage represents a single message in a chat completion request.

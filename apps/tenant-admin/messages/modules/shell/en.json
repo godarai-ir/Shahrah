@@ -26,6 +26,7 @@
     "settings": "Account Settings",
     "providerAccounts": "LLM Connectors",
     "virtualModels": "Virtual Models",
+    "prompts": "Prompt Registry",
     "virtualUsers": "Consumers & VAT",
     "accessManagement": "Access Management",
     "traces": "Request Trace",

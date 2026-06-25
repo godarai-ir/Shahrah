@@ -5,6 +5,7 @@ import {
   Building2,
   CircleDollarSign,
   CreditCard,
+  FileText,
   Gauge,
   LayoutDashboard,
   Plug,
@@ -23,6 +24,7 @@ export type AdminNavKey =
   | "plan"
   | "providerAccounts"
   | "virtualModels"
+  | "prompts"
   | "virtualUsers"
   | "accessManagement"
   | "traces"
@@ -95,6 +97,14 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       icon: Route,
       isActive: pathname.startsWith("/virtual-models"),
       requiredPermissions: ["virtual_account:read", "virtual_account:manage", "virtual_account:create", "provider_account:read"],
+    },
+    {
+      key: "prompts",
+      href: "/prompts",
+      title: t("nav.prompts"),
+      icon: FileText,
+      isActive: pathname.startsWith("/prompts"),
+      requiredPermissions: ["policy:list", "policy:manage"],
     },
     {
       key: "virtualUsers",

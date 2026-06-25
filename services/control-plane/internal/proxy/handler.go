@@ -17,6 +17,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/guardrails"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
+	"github.com/Delpak/shahrah/services/control-plane/internal/prompts"
 	"github.com/Delpak/shahrah/services/control-plane/internal/responsecache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
@@ -49,6 +50,10 @@ type guardrailResolver interface {
 	ListEnabledTenantGuardrailsBySlugs(ctx context.Context, tenantID string, slugs []string) ([]platform.TenantGuardrail, error)
 }
 
+type promptResolver interface {
+	GetPromptVersionByFQN(ctx context.Context, tenantID string, fqn string) (*platform.PromptVersion, error)
+}
+
 // ChatCompletionHandler handles chat completion requests.
 type ChatCompletionHandler struct {
 	llmRouter     *router.Router
@@ -64,6 +69,7 @@ type ChatCompletionHandler struct {
 	responseCache *responsecache.Service
 	guardrails    *guardrails.Engine
 	guardrailRepo guardrailResolver
+	prompts       promptResolver
 }
 
 // SetResponseCache enables opt-in response caching without changing existing constructor callers.
@@ -93,6 +99,7 @@ func NewChatCompletionHandler(llmRouter *router.Router, tunnel platform.TunnelTr
 		metricEmitter = emitMetric[0]
 	}
 	guardrailRepo, _ := logs.(guardrailResolver)
+	promptRepo, _ := logs.(promptResolver)
 	return &ChatCompletionHandler{
 		llmRouter:     llmRouter,
 		tunnel:        tunnel,
@@ -105,6 +112,7 @@ func NewChatCompletionHandler(llmRouter *router.Router, tunnel platform.TunnelTr
 		vmExec:        exec,
 		emitMetric:    metricEmitter,
 		guardrailRepo: guardrailRepo,
+		prompts:       promptRepo,
 	}
 }
 
@@ -127,6 +135,27 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	var req contractsopenai.ChatCompletionRequest
 	if err := c.BodyParser(&req); err != nil {
 		return writeAPIError(c, fiber.StatusBadRequest, "Invalid request body", "invalid_request_error")
+	}
+	promptMetadata := map[string]interface{}{}
+	if strings.TrimSpace(req.PromptVersionFQN) != "" {
+		if h.prompts == nil {
+			return writeAPIError(c, fiber.StatusNotImplemented, "Prompt store is not configured", "invalid_request_error")
+		}
+		promptVersion, err := h.prompts.GetPromptVersionByFQN(c.Context(), currentTenant.ID, req.PromptVersionFQN)
+		if err != nil {
+			return writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
+		}
+		rendered, err := prompts.Render(*promptVersion, req.PromptVariables, req.Messages, req.Model)
+		if err != nil {
+			return writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
+		}
+		req.Model = rendered.Model
+		req.Messages = rendered.Messages
+		promptMetadata["prompt_id"] = rendered.PromptID
+		promptMetadata["prompt_version_id"] = rendered.PromptVersionID
+		promptMetadata["prompt_fqn"] = rendered.PromptFQN
+		promptMetadata["prompt_version"] = promptVersion.Version
+		c.Locals("prompt_metadata", promptMetadata)
 	}
 	if req.Model == "" {
 		return writeAPIError(c, fiber.StatusBadRequest, "Model is required", "invalid_request_error")
@@ -280,6 +309,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 			"model":       requestedModel,
 		}),
 	}
+	baseReq.RequestMetadata = enrichPromptMetadata(c, baseReq.RequestMetadata)
 
 	routeStart := time.Now()
 	var (
@@ -398,6 +428,8 @@ func buildChatCompletionPayload(req contractsopenai.ChatCompletionRequest, deplo
 		outboundModel = fallbackModel
 	}
 	outboundReq.Model = outboundModel
+	outboundReq.PromptVersionFQN = ""
+	outboundReq.PromptVariables = nil
 	return json.Marshal(outboundReq)
 }
 
@@ -790,6 +822,20 @@ func enrichResponseCacheMetadata(c *fiber.Ctx, metadata map[string]interface{}) 
 	}
 	if value := c.Locals("response_cache_embedding_latency_ms"); value != nil {
 		metadata["cache_embedding_latency_ms"] = value
+	}
+	return metadata
+}
+
+func enrichPromptMetadata(c *fiber.Ctx, metadata map[string]interface{}) map[string]interface{} {
+	if metadata == nil {
+		metadata = make(map[string]interface{})
+	}
+	if c == nil {
+		return metadata
+	}
+	raw, _ := c.Locals("prompt_metadata").(map[string]interface{})
+	for key, value := range raw {
+		metadata[key] = value
 	}
 	return metadata
 }
