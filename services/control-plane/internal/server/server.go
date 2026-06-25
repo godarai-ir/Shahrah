@@ -73,7 +73,7 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
 		AllowMethods: "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-		AllowHeaders: "Origin, Content-Type, Accept, Authorization, api-key, x-api-key, x-shahrah-tenant",
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization, api-key, x-api-key, x-shahrah-tenant, x-shahrah-guardrails, x-shahrah-guardrails-scope, x-tfy-guardrails, x-tfy-guardrails-scope",
 	}))
 	if deps.TracingMiddleware != nil {
 		app.Use(deps.TracingMiddleware)
@@ -314,6 +314,11 @@ func registerProtectedRoutes(app *fiber.App, deps Dependencies) {
 		api.Put("/gateway-policies/budget-limit-rules/:id", deps.AdminHandlers.UpdateBudgetLimitRule)
 		api.Delete("/gateway-policies/budget-limit-rules/:id", deps.AdminHandlers.DeleteBudgetLimitRule)
 		api.Patch("/gateway-policies/budget-limit-rules/:id/status", deps.AdminHandlers.UpdateBudgetLimitRuleStatus)
+		api.Get("/guardrails", deps.AdminHandlers.ListTenantGuardrails)
+		api.Post("/guardrails", deps.AdminHandlers.CreateTenantGuardrail)
+		api.Get("/guardrails/:slug", deps.AdminHandlers.GetTenantGuardrail)
+		api.Put("/guardrails/:slug", deps.AdminHandlers.UpdateTenantGuardrail)
+		api.Delete("/guardrails/:slug", deps.AdminHandlers.DeleteTenantGuardrail)
 		api.Get("/provider-catalog/providers", deps.AdminHandlers.ListProviderCatalog)
 		api.Post("/provider-catalog/refresh", deps.AdminHandlers.RefreshProviderCatalogCache)
 		api.Get("/provider-catalog/stats", deps.AdminHandlers.GetProviderCatalogStats)

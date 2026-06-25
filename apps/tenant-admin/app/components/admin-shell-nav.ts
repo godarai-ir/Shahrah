@@ -10,6 +10,7 @@ import {
   Plug,
   Route,
   Settings,
+  ShieldCheck,
   UserCog,
   Users,
 } from "lucide-react";
@@ -29,6 +30,7 @@ export type AdminNavKey =
   | "orgUnits"
   | "rateLimitPolicies"
   | "budgetLimitPolicies"
+  | "guardrails"
   | "settings";
 
 export type AdminNavItem = {
@@ -152,6 +154,14 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       title: t("nav.budgetLimitPolicies"),
       icon: CircleDollarSign,
       isActive: pathname.startsWith("/gateway-policies/budget-limiting-rules"),
+      requiredPermissions: ["policy:list"],
+    },
+    {
+      key: "guardrails",
+      href: "/guardrails",
+      title: t("nav.guardrails"),
+      icon: ShieldCheck,
+      isActive: pathname.startsWith("/guardrails"),
       requiredPermissions: ["policy:list"],
     },
     {

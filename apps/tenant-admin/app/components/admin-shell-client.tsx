@@ -66,7 +66,7 @@ const SIDEBAR_NAV_GROUPS: Array<{
   },
   {
     labelKey: "navGroups.governance",
-    itemKeys: ["rateLimitPolicies", "budgetLimitPolicies"],
+    itemKeys: ["rateLimitPolicies", "budgetLimitPolicies", "guardrails"],
   },
   {
     labelKey: "navGroups.access",

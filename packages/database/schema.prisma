@@ -71,6 +71,7 @@ model Tenant {
   tenantAdminInvitations     tenant_admin_invitations[]
   tenant_onboarding_requests tenant_onboarding_requests[]
   tenant_provider_accounts   TenantProviderAccount[]
+  tenant_guardrails          TenantGuardrail[]
   verification_tokens        VerificationToken[]
   virtual_users              VirtualUser[]
   virtual_models             virtual_models[]
@@ -452,6 +453,29 @@ model Guardrail {
   updated_at            DateTime? @default(now()) @db.Timestamptz(6)
 
   @@map("guardrails")
+}
+
+model TenantGuardrail {
+  guardrail_id   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id      String    @db.Uuid
+  slug           String    @db.VarChar(96)
+  name           String    @db.VarChar(255)
+  description    String?
+  guardrail_type String    @db.VarChar(64)
+  operation      String    @default("validate") @db.VarChar(32)
+  enforcement    String    @default("enforce") @db.VarChar(32)
+  enabled        Boolean   @default(true)
+  config_json    Json      @default("{}")
+  created_by     String?   @db.VarChar(255)
+  updated_by     String?   @db.VarChar(255)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime  @default(now()) @db.Timestamptz(6)
+  tenants        Tenant    @relation(fields: [tenant_id], references: [tenant_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([tenant_id, slug], map: "uq_tenant_guardrails_tenant_slug")
+  @@index([tenant_id], map: "idx_tenant_guardrails_tenant")
+  @@index([tenant_id, enabled], map: "idx_tenant_guardrails_tenant_enabled")
+  @@map("tenant_guardrails")
 }
 
 model Policy {

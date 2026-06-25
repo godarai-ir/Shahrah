@@ -14,6 +14,7 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
+	"github.com/Delpak/shahrah/services/control-plane/internal/guardrails"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/responsecache"
@@ -44,6 +45,10 @@ type usageLogger interface {
 	LogSpend(ctx context.Context, log platform.SpendLog) error
 }
 
+type guardrailResolver interface {
+	ListEnabledTenantGuardrailsBySlugs(ctx context.Context, tenantID string, slugs []string) ([]platform.TenantGuardrail, error)
+}
+
 // ChatCompletionHandler handles chat completion requests.
 type ChatCompletionHandler struct {
 	llmRouter     *router.Router
@@ -57,11 +62,18 @@ type ChatCompletionHandler struct {
 	vmExec        virtualmodels.FallbackExecutor
 	emitMetric    func(input metricsobs.BuildInput)
 	responseCache *responsecache.Service
+	guardrails    *guardrails.Engine
+	guardrailRepo guardrailResolver
 }
 
 // SetResponseCache enables opt-in response caching without changing existing constructor callers.
 func (h *ChatCompletionHandler) SetResponseCache(service *responsecache.Service) {
 	h.responseCache = service
+}
+
+// SetGuardrails enables per-request LLM guardrail evaluation.
+func (h *ChatCompletionHandler) SetGuardrails(engine *guardrails.Engine) {
+	h.guardrails = engine
 }
 
 // NewChatCompletionHandler creates a new handler.
@@ -80,17 +92,19 @@ func NewChatCompletionHandler(llmRouter *router.Router, tunnel platform.TunnelTr
 	if len(emitMetric) > 0 {
 		metricEmitter = emitMetric[0]
 	}
+	guardrailRepo, _ := logs.(guardrailResolver)
 	return &ChatCompletionHandler{
-		llmRouter:  llmRouter,
-		tunnel:     tunnel,
-		billing:    billing,
-		wallets:    wallets,
-		logs:       logs,
-		logger:     logger,
-		vmResolver: resolver,
-		vmEngine:   engine,
-		vmExec:     exec,
-		emitMetric: metricEmitter,
+		llmRouter:     llmRouter,
+		tunnel:        tunnel,
+		billing:       billing,
+		wallets:       wallets,
+		logs:          logs,
+		logger:        logger,
+		vmResolver:    resolver,
+		vmEngine:      engine,
+		vmExec:        exec,
+		emitMetric:    metricEmitter,
+		guardrailRepo: guardrailRepo,
 	}
 }
 
@@ -151,6 +165,26 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		}
 		emitDenyCounter(h.logger, denyReasonForModel(authInfo), requestedModel, currentTenant.ID)
 		return writeAPIError(c, fiber.StatusForbidden, "Model access denied or unsupported for chat completions", "authorization_error")
+	}
+	guardrailSelection, err := h.parseGuardrails(c)
+	if err != nil {
+		return writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
+	}
+	if h.guardrails != nil && !guardrailSelection.Empty() {
+		guardrailOverrides, resolveErr := h.resolveTenantGuardrails(c.Context(), currentTenant.ID, guardrailSelection)
+		if resolveErr != nil {
+			return writeAPIError(c, fiber.StatusBadGateway, "Failed to resolve guardrails", "guardrail_resolution_error")
+		}
+		c.Locals("guardrail_overrides", guardrailOverrides)
+		inputResult, inputErr := h.guardrails.ApplyInputWithGuardrails(req, guardrailSelection, guardrailOverrides)
+		h.recordGuardrailChecks(c, inputResult.Checks)
+		if inputErr != nil {
+			return writeGuardrailError(c, fiber.StatusBadRequest, "Request blocked by GodarAI guardrail", inputResult.Checks)
+		}
+		req = inputResult.Request
+	}
+	if req.Stream && len(guardrailSelection.LLMOutput) > 0 {
+		return writeAPIError(c, fiber.StatusBadRequest, "Streaming with output guardrails is not supported in this MVP", "invalid_request_error")
 	}
 	var cacheConfig *responsecache.RequestConfig
 	if rawCacheConfig := strings.TrimSpace(c.Get("x-shahrah-cache-config")); rawCacheConfig != "" && h.responseCache != nil {
@@ -354,7 +388,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	if req.Stream {
 		return h.handleStream(c, req, authInfo, estimated, tunnelReq, startTime, tenantSlug)
 	}
-	return h.handleSync(c, req, authInfo, estimated, tunnelReq, startTime, tenantSlug, cachePending)
+	return h.handleSync(c, req, authInfo, estimated, tunnelReq, startTime, tenantSlug, cachePending, guardrailSelection)
 }
 
 func buildChatCompletionPayload(req contractsopenai.ChatCompletionRequest, deploymentModel string, fallbackModel string) ([]byte, error) {
@@ -383,7 +417,7 @@ func (h *ChatCompletionHandler) resolveVirtualDeployment(ctx context.Context, te
 	return dep
 }
 
-func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, start time.Time, tenantSlug string, cachePending *responsecache.Pending) error {
+func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, start time.Time, tenantSlug string, cachePending *responsecache.Pending, guardrailSelection guardrails.RequestSelection) error {
 	providerStart := time.Now()
 	providerAttrs := map[string]interface{}{
 		"provider":        tunnelReq.Deployment.Provider,
@@ -426,6 +460,47 @@ func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.Cha
 	}
 	if _, err := h.wallets.DebitWallet(c.Context(), authInfo.TenantID, finalCost, tunnelReq.RequestID); err != nil {
 		return writeAPIError(c, fiber.StatusPaymentRequired, err.Error(), "budget_exceeded")
+	}
+	if h.guardrails != nil && len(guardrailSelection.LLMOutput) > 0 {
+		guardrailOverrides, _ := c.Locals("guardrail_overrides").(map[string]guardrails.Guardrail)
+		outputResult, outputErr := h.guardrails.ApplyOutputWithGuardrails(completion, guardrailSelection, guardrailOverrides)
+		h.recordGuardrailChecks(c, outputResult.Checks)
+		if outputErr != nil {
+			responseTimeMS := int(time.Since(start).Milliseconds())
+			_ = h.logs.LogRequest(c.Context(), platform.RequestLogEntry{
+				RequestID:      tunnelReq.RequestID,
+				TokenHash:      authInfo.TokenHash,
+				TenantID:       authInfo.TenantID,
+				Model:          req.Model,
+				Status:         "blocked",
+				CostUSD:        finalCost.TotalCostUSD,
+				ResponseTimeMS: responseTimeMS,
+				RequestBody:    map[string]interface{}{"model": req.Model},
+				ResponseBody:   map[string]interface{}{"guardrail_status": "blocked"},
+			})
+			_ = h.logs.LogSpend(c.Context(), platform.SpendLog{
+				RequestID:       tunnelReq.RequestID,
+				TokenHash:       authInfo.TokenHash,
+				TenantID:        authInfo.TenantID,
+				OrganizationID:  authInfo.OrganizationID,
+				TeamID:          authInfo.TeamID,
+				Model:           req.Model,
+				InputTokens:     finalCost.InputTokens,
+				OutputTokens:    finalCost.OutputTokens,
+				TotalTokens:     finalCost.TotalTokens,
+				CostUSD:         finalCost.TotalCostUSD,
+				CostIRR:         finalCost.TotalCostIRR,
+				ResponseTimeMS:  responseTimeMS,
+				Status:          "blocked",
+				RequestMetadata: enrichPricingMetadata(tunnelReq.RequestMetadata, authInfo, req.Model),
+				CompletionStart: start,
+				CompletionEnd:   time.Now(),
+			})
+			return writeGuardrailError(c, fiber.StatusBadRequest, "Response blocked by Shahrah guardrail", outputResult.Checks)
+		}
+		if outputResult.Response != nil {
+			completion = *outputResult.Response
+		}
 	}
 	if cachePending != nil && h.responseCache != nil {
 		cachedBody, marshalErr := json.Marshal(completion)

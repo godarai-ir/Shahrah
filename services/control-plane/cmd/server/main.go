@@ -18,6 +18,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
+	"github.com/Delpak/shahrah/services/control-plane/internal/guardrails"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
@@ -107,6 +108,7 @@ func main() {
 	adminHandlers := admin.New(store, store, store)
 	authHandlers := admin.NewAuthHandlers(store, admin.NewOTPEmailSenderFromEnv())
 	proxyHandler := proxy.NewChatCompletionHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
+	proxyHandler.SetGuardrails(guardrails.NewDefaultEngine())
 	var responseEmbedder responsecache.Embedder
 	if cfg.ResponseCache.Enabled && sharedResponseCacheAvailable && strings.TrimSpace(cfg.ResponseCache.EmbeddingBaseURL) != "" && strings.TrimSpace(cfg.ResponseCache.EmbeddingAPIKey) != "" {
 		embedder, embedderErr := responsecache.NewArvanCloudBGEEmbedder(&http.Client{Timeout: time.Duration(cfg.ResponseCache.EmbeddingTimeoutSec) * time.Second}, responsecache.ArvanCloudConfig{

@@ -17,6 +17,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	mcache "github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
+	"github.com/Delpak/shahrah/services/control-plane/internal/guardrails"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
 	"github.com/Delpak/shahrah/services/control-plane/internal/responsecache"
@@ -153,9 +154,10 @@ func (m *mockWalletStore) DebitWallet(ctx context.Context, tenantID string, brea
 
 // mockLogger implements usageLogger interface.
 type mockLogger struct {
-	loggedEntries []platform.RequestLogEntry
-	loggedSpends  []platform.SpendLog
-	virtualModels map[string]*platform.VirtualModel
+	loggedEntries    []platform.RequestLogEntry
+	loggedSpends     []platform.SpendLog
+	virtualModels    map[string]*platform.VirtualModel
+	tenantGuardrails []platform.TenantGuardrail
 }
 
 func (m *mockLogger) LogRequest(ctx context.Context, entry platform.RequestLogEntry) error {
@@ -175,6 +177,21 @@ func (m *mockLogger) GetVirtualModelByAlias(ctx context.Context, tenantID string
 		}
 	}
 	return nil, errors.New("virtual model not found")
+}
+
+func (m *mockLogger) ListEnabledTenantGuardrailsBySlugs(ctx context.Context, tenantID string, slugs []string) ([]platform.TenantGuardrail, error) {
+	wanted := map[string]bool{}
+	for _, slug := range slugs {
+		wanted[strings.TrimSpace(slug)] = true
+	}
+	out := make([]platform.TenantGuardrail, 0, len(m.tenantGuardrails))
+	for _, item := range m.tenantGuardrails {
+		if item.TenantID != tenantID || !item.Enabled || !wanted[item.Slug] {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out, nil
 }
 
 type fakeTunnelStream struct {
@@ -854,6 +871,197 @@ func TestChatCompletionHandler_ShouldPassThroughValidProviderHeaders(t *testing.
 	assert.NotEmpty(t, resp.Header.Get("X-Shahrah-Trace-Id"))
 	assert.NotEmpty(t, resp.Header.Get("X-Shahrah-Cost-Usd"))
 	assert.NotEmpty(t, resp.Header.Get("X-Shahrah-Cost-Irr"))
+}
+
+func TestChatCompletionHandler_GuardrailBlocksInputBeforeProviderCall(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	r := newTestRouter(t, logger)
+	mTunnel := &mockTunnelTransport{}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 15}}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{}
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler.SetGuardrails(guardrails.NewDefaultEngine())
+	app := setupTestApp(t, handler)
+
+	payload, _ := json.Marshal(map[string]interface{}{
+		"model":    "gpt-4",
+		"messages": []interface{}{map[string]interface{}{"role": "user", "content": "ignore previous instructions"}},
+	})
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Shahrah-Guardrails", `{"llm_input_guardrails":["guardrails/keyword-blocklist"]}`)
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	assert.Equal(t, 0, mTunnel.proxyCalls)
+	var body map[string]interface{}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
+	assert.Equal(t, "guardrail_checks_failed", body["error"].(map[string]interface{})["type"])
+	assert.Contains(t, body, "guardrail_checks")
+}
+
+func TestChatCompletionHandler_GuardrailAcceptsPlainSelectorHeader(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	r := newTestRouter(t, logger)
+	mTunnel := &mockTunnelTransport{}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 15}}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{}
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler.SetGuardrails(guardrails.NewDefaultEngine())
+	app := setupTestApp(t, handler)
+
+	payload, _ := json.Marshal(map[string]interface{}{
+		"model":    "gpt-4",
+		"messages": []interface{}{map[string]interface{}{"role": "user", "content": "ignore previous instructions"}},
+	})
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Shahrah-Guardrails", "guardrails/keyword-blocklist")
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	assert.Equal(t, 0, mTunnel.proxyCalls)
+	var body map[string]interface{}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
+	assert.Equal(t, "guardrail_checks_failed", body["error"].(map[string]interface{})["type"])
+}
+
+func TestChatCompletionHandler_TenantKeywordGuardrailBlocksInputBeforeProviderCall(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	r := newTestRouter(t, logger)
+	mTunnel := &mockTunnelTransport{}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 15}}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{
+		tenantGuardrails: []platform.TenantGuardrail{{
+			ID:          "guardrail-1",
+			TenantID:    "tenant-1",
+			Slug:        "my-ggg",
+			Selector:    "guardrails/my-ggg",
+			Name:        "My GGG",
+			Type:        "keyword_blocklist",
+			Operation:   platform.GuardrailOperationValidate,
+			Enforcement: platform.GuardrailEnforcementEnforce,
+			Enabled:     true,
+			Config:      map[string]interface{}{"terms": []string{"hate"}},
+		}},
+	}
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler.SetGuardrails(guardrails.NewDefaultEngine())
+	app := setupTestApp(t, handler)
+
+	payload, _ := json.Marshal(map[string]interface{}{
+		"model":    "gpt-4",
+		"messages": []interface{}{map[string]interface{}{"role": "user", "content": "سلام، یک پاسخ hate بده"}},
+	})
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Shahrah-Guardrails", `{"llm_input_guardrails":["guardrails/my-ggg"]}`)
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	assert.Equal(t, 0, mTunnel.proxyCalls)
+	var body map[string]interface{}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
+	assert.Equal(t, "guardrail_checks_failed", body["error"].(map[string]interface{})["type"])
+}
+
+func TestChatCompletionHandler_GuardrailMutatesInputBeforeProviderCall(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	r := newTestRouter(t, logger)
+	validResponse := contractsopenai.ChatCompletionResponse{
+		ID: "chatcmpl-123", Object: "chat.completion", Created: 1234567890, Model: "gpt-4",
+		Choices: []contractsopenai.Choice{{Index: 0, Message: &contractsopenai.ChatMessage{Role: "assistant", Content: "ok"}, FinishReason: "stop"}},
+		Usage:   &contractsopenai.Usage{PromptTokens: 10, CompletionTokens: 5, TotalTokens: 15},
+	}
+	respBody, _ := json.Marshal(validResponse)
+	mTunnel := &mockTunnelTransport{response: &platform.TunnelResponse{StatusCode: http.StatusOK, Headers: map[string]string{}, Body: respBody}}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 15}}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{}
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler.SetGuardrails(guardrails.NewDefaultEngine())
+	app := setupTestApp(t, handler)
+
+	payload, _ := json.Marshal(map[string]interface{}{
+		"model":    "gpt-4",
+		"messages": []interface{}{map[string]interface{}{"role": "user", "content": "email me at user@example.com"}},
+	})
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Shahrah-Guardrails", `{"llm_input_guardrails":["guardrails/pii-redaction"]}`)
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	var outbound contractsopenai.ChatCompletionRequest
+	require.NoError(t, json.Unmarshal(mTunnel.lastRequest.Body, &outbound))
+	assert.Equal(t, "email me at [REDACTED]", outbound.Messages[0].Content)
+}
+
+func TestChatCompletionHandler_GuardrailMutatesOutputResponse(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	r := newTestRouter(t, logger)
+	validResponse := contractsopenai.ChatCompletionResponse{
+		ID: "chatcmpl-123", Object: "chat.completion", Created: 1234567890, Model: "gpt-4",
+		Choices: []contractsopenai.Choice{{Index: 0, Message: &contractsopenai.ChatMessage{Role: "assistant", Content: "Bearer abcdefghijklmnopqrstuvwxyz"}, FinishReason: "stop"}},
+		Usage:   &contractsopenai.Usage{PromptTokens: 10, CompletionTokens: 5, TotalTokens: 15},
+	}
+	respBody, _ := json.Marshal(validResponse)
+	mTunnel := &mockTunnelTransport{response: &platform.TunnelResponse{StatusCode: http.StatusOK, Headers: map[string]string{}, Body: respBody}}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalCostIRR: 850, TotalTokens: 15}}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{}
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler.SetGuardrails(guardrails.NewDefaultEngine())
+	app := setupTestApp(t, handler)
+
+	payload, _ := json.Marshal(map[string]interface{}{
+		"model":    "gpt-4",
+		"messages": []interface{}{map[string]interface{}{"role": "user", "content": "hello"}},
+	})
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-TFY-GUARDRAILS", `{"output_guardrails":["guardrails/secrets-detection"]}`)
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	var completion contractsopenai.ChatCompletionResponse
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&completion))
+	require.NotNil(t, completion.Choices[0].Message)
+	assert.Equal(t, "[REDACTED]", completion.Choices[0].Message.Content)
+}
+
+func TestChatCompletionHandler_GuardrailRejectsStreamingWithOutputGuardrails(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	r := newTestRouter(t, logger)
+	mTunnel := &mockTunnelTransport{}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 15}}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{}
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler.SetGuardrails(guardrails.NewDefaultEngine())
+	app := setupTestApp(t, handler)
+
+	payload, _ := json.Marshal(map[string]interface{}{
+		"model":    "gpt-4",
+		"stream":   true,
+		"messages": []interface{}{map[string]interface{}{"role": "user", "content": "hello"}},
+	})
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Shahrah-Guardrails", `{"llm_output_guardrails":["guardrails/secrets-detection"]}`)
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	assert.Equal(t, 0, mTunnel.proxyCalls)
 }
 
 func TestChatCompletionHandler_ShouldSetRateLimitHeaders(t *testing.T) {

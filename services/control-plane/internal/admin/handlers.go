@@ -44,6 +44,11 @@ type modelStore interface {
 	UpdateBudgetLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string, req platform.UpdateBudgetLimitRuleRequest) (*platform.BudgetLimitRule, error)
 	UpdateBudgetLimitRuleStatusByRuleID(ctx context.Context, tenantID string, ruleID string, enabled bool) (*platform.BudgetLimitRule, error)
 	DeleteBudgetLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string) error
+	CreateTenantGuardrail(ctx context.Context, tenantID string, req platform.CreateTenantGuardrailRequest, actor string) (*platform.TenantGuardrail, error)
+	ListTenantGuardrails(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.TenantGuardrail, int, error)
+	GetTenantGuardrailBySlug(ctx context.Context, tenantID string, slug string) (*platform.TenantGuardrail, error)
+	UpdateTenantGuardrailBySlug(ctx context.Context, tenantID string, slug string, req platform.UpdateTenantGuardrailRequest, actor string) (*platform.TenantGuardrail, error)
+	DeleteTenantGuardrailBySlug(ctx context.Context, tenantID string, slug string) error
 }
 
 type walletStore interface {

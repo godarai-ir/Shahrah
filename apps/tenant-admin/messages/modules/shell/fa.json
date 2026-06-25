@@ -34,7 +34,8 @@
     "metrics": "متریک مدل‌ها",
     "gatewayPolicies": "سیاست‌های گیت‌وی",
     "rateLimitPolicies": "سیاست‌های نرخ",
-    "budgetLimitPolicies": "سیاست‌های بودجه"
+    "budgetLimitPolicies": "سیاست‌های بودجه",
+    "guardrails": "گاردریل‌ها"
   },
   "logoAlt": "لوگوی شاهراه"
 }

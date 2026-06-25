@@ -33,6 +33,7 @@
     "gatewayPolicies": "Gateway Policies",
     "rateLimitPolicies": "Rate Policies",
     "budgetLimitPolicies": "Budget Policies",
+    "guardrails": "Guardrails",
     "orgUnits": "Org Units",
     "teams": "Teams"
   },

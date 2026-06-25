@@ -1007,6 +1007,30 @@ func (s *integrationModelStore) DeleteBudgetLimitRuleByRuleID(ctx context.Contex
 	return pgx.ErrNoRows
 }
 
+func (s *integrationModelStore) CreateTenantGuardrail(ctx context.Context, tenantID string, req platform.CreateTenantGuardrailRequest, actor string) (*platform.TenantGuardrail, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *integrationModelStore) ListTenantGuardrails(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.TenantGuardrail, int, error) {
+	return []platform.TenantGuardrail{}, 0, nil
+}
+
+func (s *integrationModelStore) GetTenantGuardrailBySlug(ctx context.Context, tenantID string, slug string) (*platform.TenantGuardrail, error) {
+	return nil, pgx.ErrNoRows
+}
+
+func (s *integrationModelStore) UpdateTenantGuardrailBySlug(ctx context.Context, tenantID string, slug string, req platform.UpdateTenantGuardrailRequest, actor string) (*platform.TenantGuardrail, error) {
+	return nil, pgx.ErrNoRows
+}
+
+func (s *integrationModelStore) DeleteTenantGuardrailBySlug(ctx context.Context, tenantID string, slug string) error {
+	return pgx.ErrNoRows
+}
+
+func (s *integrationModelStore) ListEnabledTenantGuardrailsBySlugs(ctx context.Context, tenantID string, slugs []string) ([]platform.TenantGuardrail, error) {
+	return nil, nil
+}
+
 func (s *integrationModelStore) ListTenantAdminUsers(ctx context.Context, tenantSlug string, query string, limit int, offset int) ([]platform.TenantAdminUser, int, error) {
 	filtered := make([]platform.TenantAdminUser, 0, len(s.users))
 	for _, item := range s.users {

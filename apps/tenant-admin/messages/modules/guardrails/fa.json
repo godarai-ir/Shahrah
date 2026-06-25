@@ -1,0 +1,85 @@
+{
+  "title": "گاردریل‌ها",
+  "description": "می‌توانید گاردریل‌های هوشمند برای کنترل، ایمن‌سازی و پایش درخواست‌ها و پاسخ‌های مدل‌های زبانی ایجاد کنید.",
+  "searchPlaceholder": "جست‌وجو بر اساس نام یا شناسه",
+  "empty": "هنوز گاردریلی ایجاد نشده است.",
+  "emptySearch": "گاردریلی مطابق با جست‌وجوی شما پیدا نشد.",
+  "alerts": {
+    "error": "خطا",
+    "success": "موفق"
+  },
+  "actions": {
+    "new": "گاردریل جدید",
+    "edit": "ویرایش",
+    "delete": "حذف",
+    "copySelector": "کپی selector",
+    "save": "ذخیره",
+    "saving": "در حال ذخیره...",
+    "cancel": "انصراف"
+  },
+  "table": {
+    "name": "نام",
+    "type": "نوع",
+    "execution": "اجرا",
+    "status": "وضعیت",
+    "updatedAt": "آخرین تغییر",
+    "actions": "عملیات"
+  },
+  "form": {
+    "addTitle": "گاردریل جدید",
+    "editTitle": "ویرایش گاردریل",
+    "description": "راهنمای عملی برای استفاده از این گاردریل را از اینجا بخوانید.",
+    "name": "نام",
+    "identifier": "شناسه",
+    "notes": "توضیح",
+    "type": "نوع",
+    "operation": "نوع اقدام",
+    "enforcement": "شیوه اعمال",
+    "terms": "عبارت‌های مسدود",
+    "patterns": "Regex patterns",
+    "redactionText": "متن جایگزین",
+    "enabled": "فعال"
+  },
+  "types": {
+    "keyword_blocklist": "عبارت‌های مسدود",
+    "regex": "Regex",
+    "secrets_detection": "تشخیص Secret",
+    "basic_pii": "PII پایه"
+  },
+  "operations": {
+    "validate": "اعتبارسنجی",
+    "mutate": "اصلاح محتوا"
+  },
+  "enforcement": {
+    "enforce": "اعمال سخت‌گیرانه",
+    "audit": "فقط پایش",
+    "enforce_ignore_error": "اعمال با عبور در خطا"
+  },
+  "status": {
+    "enabled": "فعال",
+    "disabled": "غیرفعال"
+  },
+  "validation": {
+    "slug": "شناسه باید ۲ تا ۹۶ کاراکتر و شامل حرف، عدد، خط تیره یا زیرخط باشد.",
+    "name": "نام الزامی است.",
+    "terms": "حداقل یک عبارت مسدود وارد کنید.",
+    "patterns": "حداقل یک regex pattern وارد کنید."
+  },
+  "messages": {
+    "loadError": "بارگذاری گاردریل‌ها ناموفق بود.",
+    "saveSuccess": "گاردریل ذخیره شد.",
+    "saveError": "ذخیره گاردریل ناموفق بود.",
+    "deleteSuccess": "گاردریل حذف شد.",
+    "deleteError": "حذف گاردریل ناموفق بود.",
+    "duplicate": "این شناسه قبلاً استفاده شده است.",
+    "invalid": "تنظیمات گاردریل را بررسی و دوباره تلاش کنید.",
+    "forbidden": "برای مدیریت گاردریل‌ها دسترسی ندارید.",
+    "notFound": "گاردریل پیدا نشد.",
+    "serverError": "خطای سرور. دوباره تلاش کنید."
+  },
+  "deleteDialog": {
+    "title": "گاردریل حذف شود؟",
+    "description": "گاردریل «{name}» حذف می‌شود و درخواست‌های ارسالی به LLM ها بدون این گاردریل پردازش می‌شوند.",
+    "deleting": "در حال حذف..."
+  }
+}

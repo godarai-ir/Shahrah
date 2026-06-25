@@ -1,0 +1,85 @@
+{
+  "title": "Guardrails",
+  "description": "Create intelligent guardrails to control, secure, and monitor LLM requests and responses.",
+  "searchPlaceholder": "Search by name or identifier",
+  "empty": "No guardrails have been created yet.",
+  "emptySearch": "No guardrails match your search.",
+  "alerts": {
+    "error": "Error",
+    "success": "Success"
+  },
+  "actions": {
+    "new": "New guardrail",
+    "edit": "Edit",
+    "delete": "Delete",
+    "copySelector": "Copy selector",
+    "save": "Save",
+    "saving": "Saving...",
+    "cancel": "Cancel"
+  },
+  "table": {
+    "name": "Name",
+    "type": "Type",
+    "execution": "Execution",
+    "status": "Status",
+    "updatedAt": "Last updated",
+    "actions": "Actions"
+  },
+  "form": {
+    "addTitle": "New guardrail",
+    "editTitle": "Edit guardrail",
+    "description": "Read the practical guide for using this guardrail here.",
+    "name": "Name",
+    "identifier": "Identifier",
+    "notes": "Description",
+    "type": "Type",
+    "operation": "Action",
+    "enforcement": "Enforcement mode",
+    "terms": "Blocked terms",
+    "patterns": "Regex patterns",
+    "redactionText": "Replacement text",
+    "enabled": "Enabled"
+  },
+  "types": {
+    "keyword_blocklist": "Blocked terms",
+    "regex": "Regex",
+    "secrets_detection": "Secrets detection",
+    "basic_pii": "Basic PII"
+  },
+  "operations": {
+    "validate": "Validate",
+    "mutate": "Rewrite content"
+  },
+  "enforcement": {
+    "enforce": "Strict enforcement",
+    "audit": "Monitor only",
+    "enforce_ignore_error": "Enforce, allow on error"
+  },
+  "status": {
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
+  "validation": {
+    "slug": "Identifier must be 2-96 characters and may include letters, numbers, dashes, or underscores.",
+    "name": "Name is required.",
+    "terms": "Add at least one blocked term.",
+    "patterns": "Add at least one regex pattern."
+  },
+  "messages": {
+    "loadError": "Failed to load guardrails.",
+    "saveSuccess": "Guardrail saved.",
+    "saveError": "Failed to save guardrail.",
+    "deleteSuccess": "Guardrail deleted.",
+    "deleteError": "Failed to delete guardrail.",
+    "duplicate": "This identifier is already in use.",
+    "invalid": "Check the guardrail settings and try again.",
+    "forbidden": "You do not have permission to manage guardrails.",
+    "notFound": "Guardrail not found.",
+    "serverError": "Server error. Try again."
+  },
+  "deleteDialog": {
+    "title": "Delete guardrail?",
+    "description": "This will delete \"{name}\". LLM requests will be processed without this guardrail.",
+    "deleting": "Deleting..."
+  }
+}

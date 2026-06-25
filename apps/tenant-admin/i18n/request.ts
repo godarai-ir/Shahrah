@@ -22,6 +22,7 @@ const MESSAGE_NAMESPACES = [
   "invite",
   "rateLimitRules",
   "budgetLimitRules",
+  "guardrails",
 ] as const;
 
 async function loadMessages(locale: "fa" | "en") {
