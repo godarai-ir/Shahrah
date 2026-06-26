@@ -37,14 +37,54 @@
     "enforcement": "Enforcement mode",
     "terms": "Blocked terms",
     "patterns": "Regex patterns",
+    "pattern": "Regex pattern",
+    "replacement": "Replacement",
     "redactionText": "Replacement text",
+    "min": "Minimum",
+    "max": "Maximum",
+    "schema": "JSON schema",
+    "keys": "Keys",
+    "keyMode": "Key check",
+    "languages": "Code languages",
+    "codeMode": "Code rule",
+    "tokenRegex": "Token capture regex",
+    "issuer": "Issuer",
+    "audience": "Audience",
+    "sharedSecret": "Shared secret",
+    "inlineJwks": "Inline JWKS",
+    "jwksUri": "JWKS URI",
+    "introspectionUrl": "Introspection endpoint",
+    "introspectionAuthHeader": "Introspection auth header",
+    "maxBytes": "Max image size",
+    "allowedHosts": "Allowed hosts",
+    "timeoutMs": "Timeout (ms)",
+    "allowPrivateNetworks": "Allow private network URLs",
     "enabled": "Enabled"
   },
   "types": {
     "keyword_blocklist": "Blocked terms",
     "regex": "Regex",
     "secrets_detection": "Secrets detection",
-    "basic_pii": "Basic PII"
+    "basic_pii": "Basic PII",
+    "jwt_validation": "JWT validation",
+    "regex_replace": "Regex replace",
+    "sentence_count": "Sentence count",
+    "word_count": "Word count",
+    "character_count": "Character count",
+    "json_schema": "JSON schema",
+    "json_keys": "JSON keys",
+    "contains_code": "Contains code",
+    "not_null": "Not null",
+    "inline_image_urls": "Inline image URLs"
+  },
+  "keyModes": {
+    "any": "Any key",
+    "all": "All keys",
+    "none": "No keys"
+  },
+  "codeModes": {
+    "must_contain": "Must contain code",
+    "must_not_contain": "Must not contain code"
   },
   "operations": {
     "validate": "Validate",
@@ -63,7 +103,12 @@
     "slug": "Identifier must be 2-96 characters and may include letters, numbers, dashes, or underscores.",
     "name": "Name is required.",
     "terms": "Add at least one blocked term.",
-    "patterns": "Add at least one regex pattern."
+    "patterns": "Add at least one regex pattern.",
+    "pattern": "Add a regex pattern.",
+    "range": "Set a minimum or maximum value.",
+    "json": "Enter valid JSON.",
+    "keys": "Add at least one key.",
+    "jwtVerifier": "Add a shared secret, inline JWKS, JWKS URI, or introspection endpoint."
   },
   "messages": {
     "loadError": "Failed to load guardrails.",

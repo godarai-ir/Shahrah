@@ -3,6 +3,7 @@ package guardrails
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -119,10 +120,30 @@ func NewFromTenantGuardrail(item platform.TenantGuardrail) Guardrail {
 		}
 	case "regex":
 		return newPatternGuardrailFromPatterns(item.Slug, operation, enforcement, "Sensitive pattern matched", replacement, stringSliceFromConfig(item.Config, "patterns"))
+	case "regex_replace":
+		return newRegexReplaceGuardrail(item.Slug, enforcement, stringFromConfig(item.Config, "pattern", ""), stringFromConfig(item.Config, "replacement", replacement), boolFromConfig(item.Config, "case_sensitive", true))
 	case "secrets_detection":
 		return newSecretsDetectionGuardrail(item.Slug, operation, enforcement, replacement)
 	case "basic_pii":
 		return newBasicPIIGuardrail(item.Slug, operation, enforcement, replacement)
+	case "sentence_count":
+		return newCountGuardrail(item.Slug, "sentence", enforcement, intFromConfig(item.Config, "min", -1), intFromConfig(item.Config, "max", -1))
+	case "word_count":
+		return newCountGuardrail(item.Slug, "word", enforcement, intFromConfig(item.Config, "min", -1), intFromConfig(item.Config, "max", -1))
+	case "character_count":
+		return newCountGuardrail(item.Slug, "character", enforcement, intFromConfig(item.Config, "min", -1), intFromConfig(item.Config, "max", -1))
+	case "json_schema":
+		return newJSONSchemaGuardrail(item.Slug, enforcement, mapFromConfig(item.Config, "schema"))
+	case "json_keys":
+		return newJSONKeysGuardrail(item.Slug, enforcement, stringSliceFromConfig(item.Config, "keys"), stringFromConfig(item.Config, "mode", "all"))
+	case "contains_code":
+		return newContainsCodeGuardrail(item.Slug, enforcement, stringSliceFromConfig(item.Config, "languages"), boolFromConfig(item.Config, "must_contain", true))
+	case "not_null":
+		return newNotNullGuardrail(item.Slug, enforcement)
+	case "jwt_validation":
+		return newJWTValidationGuardrail(item.Slug, enforcement, item.Config)
+	case "inline_image_urls":
+		return newInlineImageURLsGuardrail(item.Slug, enforcement, item.Config)
 	default:
 		return nil
 	}
@@ -341,6 +362,48 @@ func stringFromConfig(config map[string]interface{}, key string, fallback string
 		return value
 	}
 	return fallback
+}
+
+func boolFromConfig(config map[string]interface{}, key string, fallback bool) bool {
+	if value, ok := config[key].(bool); ok {
+		return value
+	}
+	return fallback
+}
+
+func intFromConfig(config map[string]interface{}, key string, fallback int) int {
+	switch value := config[key].(type) {
+	case int:
+		return value
+	case int64:
+		return int(value)
+	case float64:
+		return int(value)
+	case json.Number:
+		parsed, err := value.Int64()
+		if err == nil {
+			return int(parsed)
+		}
+	}
+	return fallback
+}
+
+func mapFromConfig(config map[string]interface{}, key string) map[string]interface{} {
+	if value, ok := config[key].(map[string]interface{}); ok {
+		return value
+	}
+	return nil
+}
+
+func regexpFromConfig(pattern string, caseSensitive bool) (*regexp.Regexp, error) {
+	pattern = strings.TrimSpace(pattern)
+	if pattern == "" {
+		return nil, fmt.Errorf("regex pattern is required")
+	}
+	if !caseSensitive && !strings.HasPrefix(pattern, "(?i)") {
+		pattern = "(?i)" + pattern
+	}
+	return regexp.Compile(pattern)
 }
 
 func shouldBlockOnViolation(g Guardrail, eval EvaluationResult) bool {

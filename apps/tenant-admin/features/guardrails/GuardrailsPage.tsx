@@ -43,8 +43,46 @@ const emptyForm: GuardrailFormInput = {
   enabled: true,
   terms: "",
   patterns: "",
+  pattern: "",
+  replacement: "[***]",
   redactionText: "[***]",
+  min: "",
+  max: "",
+  schema: '{\n  "type": "object"\n}',
+  keys: "",
+  keyMode: "all",
+  languages: "",
+  codeMode: "must_contain",
+  tokenRegex: "",
+  issuer: "",
+  audience: "",
+  sharedSecret: "",
+  inlineJwks: "",
+  jwksUri: "",
+  introspectionUrl: "",
+  introspectionAuthHeader: "",
+  maxBytes: "1048576",
+  allowedHosts: "",
+  timeoutMs: "3000",
+  allowPrivateNetworks: false,
 };
+
+const guardrailTypes: GuardrailType[] = [
+  "keyword_blocklist",
+  "regex",
+  "regex_replace",
+  "secrets_detection",
+  "basic_pii",
+  "jwt_validation",
+  "sentence_count",
+  "word_count",
+  "character_count",
+  "json_schema",
+  "json_keys",
+  "contains_code",
+  "not_null",
+  "inline_image_urls",
+];
 
 function formatDateTime(value: string, locale: string) {
   const date = new Date(value);
@@ -67,10 +105,55 @@ function lines(value: string) {
 }
 
 function labelForType(type: GuardrailType, t: ReturnType<typeof useTranslations<"guardrails">>) {
-  if (type === "keyword_blocklist") return t("types.keyword_blocklist");
-  if (type === "regex") return t("types.regex");
-  if (type === "secrets_detection") return t("types.secrets_detection");
-  return t("types.basic_pii");
+  return t(`types.${type}`);
+}
+
+function numberOrUndefined(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function parseJSONOrEmpty(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  return JSON.parse(trimmed) as unknown;
+}
+
+function stringFromConfig(config: Record<string, unknown>, key: string, fallback = "") {
+  const value = config[key];
+  return typeof value === "string" ? value : fallback;
+}
+
+function numberStringFromConfig(config: Record<string, unknown>, key: string) {
+  const value = config[key];
+  return typeof value === "number" ? String(value) : "";
+}
+
+function listStringFromConfig(config: Record<string, unknown>, key: string) {
+  const value = config[key];
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string").join("\n") : "";
+}
+
+function jsonStringFromConfig(config: Record<string, unknown>, key: string, fallback: string) {
+  const value = config[key];
+  if (!value || typeof value !== "object") return fallback;
+  return JSON.stringify(value, null, 2);
+}
+
+function isValidateOnlyType(type: GuardrailType) {
+  return ["keyword_blocklist", "sentence_count", "word_count", "character_count", "json_schema", "json_keys", "contains_code", "not_null", "jwt_validation"].includes(type);
+}
+
+function isMutateOnlyType(type: GuardrailType) {
+  return type === "regex_replace" || type === "inline_image_urls";
+}
+
+function operationForType(type: GuardrailType, operation: GuardrailFormInput["operation"]) {
+  if (isValidateOnlyType(type)) return "validate";
+  if (isMutateOnlyType(type)) return "mutate";
+  return operation;
 }
 
 function labelForOperation(operation: GuardrailFormInput["operation"], t: ReturnType<typeof useTranslations<"guardrails">>) {
@@ -99,9 +182,30 @@ function formFromGuardrail(item: TenantGuardrail): GuardrailFormInput {
     operation: item.operation,
     enforcement: item.enforcement,
     enabled: item.enabled,
-    terms: Array.isArray(item.config.terms) ? item.config.terms.join("\n") : "",
-    patterns: Array.isArray(item.config.patterns) ? item.config.patterns.join("\n") : "",
+    terms: listStringFromConfig(item.config, "terms"),
+    patterns: listStringFromConfig(item.config, "patterns"),
+    pattern: stringFromConfig(item.config, "pattern"),
+    replacement: stringFromConfig(item.config, "replacement", "[***]"),
     redactionText: typeof item.config.redaction_text === "string" ? item.config.redaction_text : "[***]",
+    min: numberStringFromConfig(item.config, "min"),
+    max: numberStringFromConfig(item.config, "max"),
+    schema: jsonStringFromConfig(item.config, "schema", '{\n  "type": "object"\n}'),
+    keys: listStringFromConfig(item.config, "keys"),
+    keyMode: item.config.mode === "any" || item.config.mode === "none" ? item.config.mode : "all",
+    languages: listStringFromConfig(item.config, "languages"),
+    codeMode: item.config.mode === "must_not_contain" ? "must_not_contain" : "must_contain",
+    tokenRegex: stringFromConfig(item.config, "token_regex"),
+    issuer: stringFromConfig(item.config, "issuer"),
+    audience: stringFromConfig(item.config, "audience"),
+    sharedSecret: stringFromConfig(item.config, "shared_secret"),
+    inlineJwks: jsonStringFromConfig(item.config, "inline_jwks", ""),
+    jwksUri: stringFromConfig(item.config, "jwks_uri"),
+    introspectionUrl: stringFromConfig(item.config, "introspection_url"),
+    introspectionAuthHeader: stringFromConfig(item.config, "introspection_auth_header"),
+    maxBytes: numberStringFromConfig(item.config, "max_bytes") || "1048576",
+    allowedHosts: listStringFromConfig(item.config, "allowed_hosts"),
+    timeoutMs: numberStringFromConfig(item.config, "timeout_ms") || "3000",
+    allowPrivateNetworks: item.config.allow_private_networks === true,
   };
 }
 
@@ -113,7 +217,41 @@ function buildPayload(form: GuardrailFormInput, mode: "create" | "edit"): Guardr
   } else if (type === "regex") {
     config.patterns = lines(form.patterns);
     config.redaction_text = form.redactionText.trim() || "[***]";
-  } else {
+  } else if (type === "regex_replace") {
+    config.pattern = form.pattern.trim();
+    config.replacement = form.replacement;
+    config.case_sensitive = true;
+  } else if (type === "sentence_count" || type === "word_count" || type === "character_count") {
+    const min = numberOrUndefined(form.min);
+    const max = numberOrUndefined(form.max);
+    if (min !== undefined) config.min = min;
+    if (max !== undefined) config.max = max;
+  } else if (type === "json_schema") {
+    config.schema = parseJSONOrEmpty(form.schema);
+  } else if (type === "json_keys") {
+    config.keys = lines(form.keys);
+    config.mode = form.keyMode;
+  } else if (type === "contains_code") {
+    config.languages = lines(form.languages);
+    config.mode = form.codeMode;
+    config.must_contain = form.codeMode === "must_contain";
+  } else if (type === "jwt_validation") {
+    if (form.tokenRegex.trim()) config.token_regex = form.tokenRegex.trim();
+    if (form.issuer.trim()) config.issuer = form.issuer.trim();
+    if (form.audience.trim()) config.audience = form.audience.trim();
+    if (form.sharedSecret.trim()) config.shared_secret = form.sharedSecret.trim();
+    if (form.inlineJwks.trim()) config.inline_jwks = parseJSONOrEmpty(form.inlineJwks);
+    if (form.jwksUri.trim()) config.jwks_uri = form.jwksUri.trim();
+    if (form.introspectionUrl.trim()) config.introspection_url = form.introspectionUrl.trim();
+    if (form.introspectionAuthHeader.trim()) config.introspection_auth_header = form.introspectionAuthHeader.trim();
+  } else if (type === "inline_image_urls") {
+    const maxBytes = numberOrUndefined(form.maxBytes);
+    const timeoutMs = numberOrUndefined(form.timeoutMs);
+    if (maxBytes !== undefined) config.max_bytes = maxBytes;
+    if (timeoutMs !== undefined) config.timeout_ms = timeoutMs;
+    config.allowed_hosts = lines(form.allowedHosts);
+    config.allow_private_networks = form.allowPrivateNetworks;
+  } else if (type !== "not_null") {
     config.redaction_text = form.redactionText.trim() || "[***]";
   }
 
@@ -122,7 +260,7 @@ function buildPayload(form: GuardrailFormInput, mode: "create" | "edit"): Guardr
     name: form.name.trim(),
     description: form.description.trim(),
     type,
-    operation: type === "keyword_blocklist" ? "validate" : form.operation,
+    operation: operationForType(type, form.operation),
     enforcement: form.enforcement,
     enabled: form.enabled,
     config,
@@ -139,6 +277,29 @@ function validateForm(form: GuardrailFormInput, t: ReturnType<typeof useTranslat
   }
   if (form.type === "regex" && lines(form.patterns).length === 0) {
     return t("validation.patterns");
+  }
+  if (form.type === "regex_replace" && !form.pattern.trim()) return t("validation.pattern");
+  if ((form.type === "sentence_count" || form.type === "word_count" || form.type === "character_count") && !form.min.trim() && !form.max.trim()) {
+    return t("validation.range");
+  }
+  if (form.type === "json_schema") {
+    try {
+      parseJSONOrEmpty(form.schema);
+    } catch {
+      return t("validation.json");
+    }
+  }
+  if (form.type === "json_keys" && lines(form.keys).length === 0) return t("validation.keys");
+  if (form.type === "jwt_validation") {
+    const hasVerifier = form.sharedSecret.trim() || form.inlineJwks.trim() || form.jwksUri.trim() || form.introspectionUrl.trim();
+    if (!hasVerifier) return t("validation.jwtVerifier");
+    if (form.inlineJwks.trim()) {
+      try {
+        parseJSONOrEmpty(form.inlineJwks);
+      } catch {
+        return t("validation.json");
+      }
+    }
   }
   return "";
 }
@@ -388,23 +549,34 @@ export function GuardrailsPage() {
             <div className="grid gap-3 md:grid-cols-3">
               <div className="flex flex-col gap-2">
                 <Label>{t("form.type")}</Label>
-                <Select dir={direction} value={form.type} onValueChange={(value) => setForm({ ...form, type: value as GuardrailType, operation: value === "keyword_blocklist" ? "validate" : form.operation })}>
+                <Select
+                  dir={direction}
+                  value={form.type}
+                  onValueChange={(value) => {
+                    const nextType = value as GuardrailType;
+                    setForm({ ...form, type: nextType, operation: operationForType(nextType, form.operation) });
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent dir={direction}>
                     <SelectGroup>
-                      <SelectItem value="keyword_blocklist">{t("types.keyword_blocklist")}</SelectItem>
-                      <SelectItem value="regex">{t("types.regex")}</SelectItem>
-                      <SelectItem value="secrets_detection">{t("types.secrets_detection")}</SelectItem>
-                      <SelectItem value="basic_pii">{t("types.basic_pii")}</SelectItem>
+                      {guardrailTypes.map((type) => (
+                        <SelectItem key={type} value={type}>{t(`types.${type}`)}</SelectItem>
+                      ))}
                     </SelectGroup>
                   </SelectContent>
                 </Select>
               </div>
               <div className="flex flex-col gap-2">
                 <Label>{t("form.operation")}</Label>
-                <Select dir={direction} value={form.type === "keyword_blocklist" ? "validate" : form.operation} disabled={form.type === "keyword_blocklist"} onValueChange={(value) => setForm({ ...form, operation: value as GuardrailFormInput["operation"] })}>
+                <Select
+                  dir={direction}
+                  value={operationForType(form.type, form.operation)}
+                  disabled={isValidateOnlyType(form.type) || isMutateOnlyType(form.type)}
+                  onValueChange={(value) => setForm({ ...form, operation: value as GuardrailFormInput["operation"] })}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -459,7 +631,159 @@ export function GuardrailsPage() {
               </div>
             ) : null}
 
-            {form.type !== "keyword_blocklist" ? (
+            {form.type === "regex_replace" ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="guardrail-pattern">{t("form.pattern")}</Label>
+                  <Textarea
+                    id="guardrail-pattern"
+                    dir="ltr"
+                    value={form.pattern}
+                    placeholder="(?i)password\\s*[:=]\\s*\\S+"
+                    onChange={(event) => setForm({ ...form, pattern: event.target.value })}
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="guardrail-replacement">{t("form.replacement")}</Label>
+                  <Input id="guardrail-replacement" dir="ltr" value={form.replacement} onChange={(event) => setForm({ ...form, replacement: event.target.value })} />
+                </div>
+              </div>
+            ) : null}
+
+            {form.type === "sentence_count" || form.type === "word_count" || form.type === "character_count" ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="guardrail-min">{t("form.min")}</Label>
+                  <Input id="guardrail-min" dir="ltr" inputMode="numeric" value={form.min} onChange={(event) => setForm({ ...form, min: event.target.value })} />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="guardrail-max">{t("form.max")}</Label>
+                  <Input id="guardrail-max" dir="ltr" inputMode="numeric" value={form.max} onChange={(event) => setForm({ ...form, max: event.target.value })} />
+                </div>
+              </div>
+            ) : null}
+
+            {form.type === "json_schema" ? (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="guardrail-schema">{t("form.schema")}</Label>
+                <Textarea id="guardrail-schema" dir="ltr" className="min-h-40 font-mono" value={form.schema} onChange={(event) => setForm({ ...form, schema: event.target.value })} />
+              </div>
+            ) : null}
+
+            {form.type === "json_keys" ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="guardrail-keys">{t("form.keys")}</Label>
+                  <Textarea id="guardrail-keys" dir="ltr" value={form.keys} placeholder="answer&#10;confidence" onChange={(event) => setForm({ ...form, keys: event.target.value })} />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label>{t("form.keyMode")}</Label>
+                  <Select dir={direction} value={form.keyMode} onValueChange={(value) => setForm({ ...form, keyMode: value as GuardrailFormInput["keyMode"] })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent dir={direction}>
+                      <SelectGroup>
+                        <SelectItem value="all">{t("keyModes.all")}</SelectItem>
+                        <SelectItem value="any">{t("keyModes.any")}</SelectItem>
+                        <SelectItem value="none">{t("keyModes.none")}</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            ) : null}
+
+            {form.type === "contains_code" ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="guardrail-languages">{t("form.languages")}</Label>
+                  <Textarea id="guardrail-languages" dir="ltr" value={form.languages} placeholder="sql&#10;python&#10;typescript" onChange={(event) => setForm({ ...form, languages: event.target.value })} />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label>{t("form.codeMode")}</Label>
+                  <Select dir={direction} value={form.codeMode} onValueChange={(value) => setForm({ ...form, codeMode: value as GuardrailFormInput["codeMode"] })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent dir={direction}>
+                      <SelectGroup>
+                        <SelectItem value="must_contain">{t("codeModes.must_contain")}</SelectItem>
+                        <SelectItem value="must_not_contain">{t("codeModes.must_not_contain")}</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            ) : null}
+
+            {form.type === "jwt_validation" ? (
+              <div className="flex flex-col gap-3">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="guardrail-token-regex">{t("form.tokenRegex")}</Label>
+                    <Input id="guardrail-token-regex" dir="ltr" value={form.tokenRegex} placeholder="Bearer capture regex" onChange={(event) => setForm({ ...form, tokenRegex: event.target.value })} />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="guardrail-shared-secret">{t("form.sharedSecret")}</Label>
+                    <Input id="guardrail-shared-secret" dir="ltr" value={form.sharedSecret} onChange={(event) => setForm({ ...form, sharedSecret: event.target.value })} />
+                  </div>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="guardrail-issuer">{t("form.issuer")}</Label>
+                    <Input id="guardrail-issuer" dir="ltr" value={form.issuer} onChange={(event) => setForm({ ...form, issuer: event.target.value })} />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="guardrail-audience">{t("form.audience")}</Label>
+                    <Input id="guardrail-audience" dir="ltr" value={form.audience} onChange={(event) => setForm({ ...form, audience: event.target.value })} />
+                  </div>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="guardrail-jwks-uri">{t("form.jwksUri")}</Label>
+                    <Input id="guardrail-jwks-uri" dir="ltr" value={form.jwksUri} onChange={(event) => setForm({ ...form, jwksUri: event.target.value })} />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="guardrail-introspection">{t("form.introspectionUrl")}</Label>
+                    <Input id="guardrail-introspection" dir="ltr" value={form.introspectionUrl} onChange={(event) => setForm({ ...form, introspectionUrl: event.target.value })} />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="guardrail-introspection-auth">{t("form.introspectionAuthHeader")}</Label>
+                  <Input id="guardrail-introspection-auth" dir="ltr" value={form.introspectionAuthHeader} placeholder="Bearer ..." onChange={(event) => setForm({ ...form, introspectionAuthHeader: event.target.value })} />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="guardrail-inline-jwks">{t("form.inlineJwks")}</Label>
+                  <Textarea id="guardrail-inline-jwks" dir="ltr" className="min-h-32 font-mono" value={form.inlineJwks} onChange={(event) => setForm({ ...form, inlineJwks: event.target.value })} />
+                </div>
+              </div>
+            ) : null}
+
+            {form.type === "inline_image_urls" ? (
+              <div className="flex flex-col gap-3">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="guardrail-max-bytes">{t("form.maxBytes")}</Label>
+                    <Input id="guardrail-max-bytes" dir="ltr" inputMode="numeric" value={form.maxBytes} onChange={(event) => setForm({ ...form, maxBytes: event.target.value })} />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="guardrail-timeout">{t("form.timeoutMs")}</Label>
+                    <Input id="guardrail-timeout" dir="ltr" inputMode="numeric" value={form.timeoutMs} onChange={(event) => setForm({ ...form, timeoutMs: event.target.value })} />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="guardrail-allowed-hosts">{t("form.allowedHosts")}</Label>
+                  <Textarea id="guardrail-allowed-hosts" dir="ltr" value={form.allowedHosts} placeholder="cdn.example.com&#10;images.example.com" onChange={(event) => setForm({ ...form, allowedHosts: event.target.value })} />
+                </div>
+                <div className="flex items-center justify-between rounded-lg border px-3 py-2">
+                  <Label htmlFor="guardrail-private-networks">{t("form.allowPrivateNetworks")}</Label>
+                  <Switch id="guardrail-private-networks" checked={form.allowPrivateNetworks} onCheckedChange={(checked) => setForm({ ...form, allowPrivateNetworks: checked })} />
+                </div>
+              </div>
+            ) : null}
+
+            {form.type !== "keyword_blocklist" && form.type !== "regex_replace" && form.type !== "sentence_count" && form.type !== "word_count" && form.type !== "character_count" && form.type !== "json_schema" && form.type !== "json_keys" && form.type !== "contains_code" && form.type !== "not_null" && form.type !== "jwt_validation" && form.type !== "inline_image_urls" ? (
               <div className="flex flex-col gap-2">
                 <Label htmlFor="guardrail-redaction">{t("form.redactionText")}</Label>
                 <Input id="guardrail-redaction" dir="ltr" value={form.redactionText} onChange={(event) => setForm({ ...form, redactionText: event.target.value })} />

@@ -198,10 +198,12 @@ func validateUpdateTenantGuardrailRequest(req platform.UpdateTenantGuardrailRequ
 
 func validateTenantGuardrailType(value string) error {
 	switch value {
-	case "keyword_blocklist", "regex", "secrets_detection", "basic_pii":
+	case "keyword_blocklist", "regex", "secrets_detection", "basic_pii",
+		"jwt_validation", "regex_replace", "sentence_count", "word_count", "character_count",
+		"json_schema", "json_keys", "contains_code", "not_null", "inline_image_urls":
 		return nil
 	default:
-		return errors.New("type must be keyword_blocklist, regex, secrets_detection, or basic_pii")
+		return errors.New("unsupported guardrail type")
 	}
 }
 
@@ -213,6 +215,16 @@ func validateTenantGuardrailOperation(value platform.GuardrailOperation, guardra
 	}
 	if guardrailType == "keyword_blocklist" && value != platform.GuardrailOperationValidate {
 		return errors.New("keyword_blocklist only supports validate operation")
+	}
+	switch guardrailType {
+	case "sentence_count", "word_count", "character_count", "json_schema", "json_keys", "contains_code", "not_null", "jwt_validation":
+		if value != platform.GuardrailOperationValidate {
+			return errors.New("this guardrail type only supports validate operation")
+		}
+	case "regex_replace", "inline_image_urls":
+		if value != platform.GuardrailOperationMutate {
+			return errors.New("this guardrail type only supports mutate operation")
+		}
 	}
 	return nil
 }
@@ -242,8 +254,76 @@ func validateTenantGuardrailConfig(guardrailType string, config map[string]inter
 				return errors.New("config.patterns contains an invalid regex")
 			}
 		}
+	case "regex_replace":
+		pattern := strings.TrimSpace(stringFromAny(config["pattern"]))
+		if pattern == "" {
+			return errors.New("config.pattern is required")
+		}
+		if _, err := regexp.Compile(pattern); err != nil {
+			return errors.New("config.pattern contains an invalid regex")
+		}
+	case "sentence_count", "word_count", "character_count":
+		min, hasMin := intFromAny(config["min"])
+		max, hasMax := intFromAny(config["max"])
+		if !hasMin && !hasMax {
+			return errors.New("config.min or config.max is required")
+		}
+		if hasMin && min < 0 {
+			return errors.New("config.min must be zero or greater")
+		}
+		if hasMax && max < 0 {
+			return errors.New("config.max must be zero or greater")
+		}
+		if hasMin && hasMax && min > max {
+			return errors.New("config.min must be less than or equal to config.max")
+		}
+	case "json_schema":
+		schema, ok := config["schema"].(map[string]interface{})
+		if !ok || len(schema) == 0 {
+			return errors.New("config.schema is required")
+		}
+	case "json_keys":
+		if len(stringListFromConfig(config, "keys")) == 0 {
+			return errors.New("config.keys must contain at least one key")
+		}
+		mode := strings.TrimSpace(stringFromAny(config["mode"]))
+		if mode == "" {
+			mode = "all"
+		}
+		if mode != "any" && mode != "all" && mode != "none" {
+			return errors.New("config.mode must be any, all, or none")
+		}
+	case "contains_code":
+		mode := strings.TrimSpace(stringFromAny(config["mode"]))
+		if mode != "" && mode != "must_contain" && mode != "must_not_contain" {
+			return errors.New("config.mode must be must_contain or must_not_contain")
+		}
+	case "jwt_validation":
+		inlineJWKS, hasInlineJWKS := config["inline_jwks"].(map[string]interface{})
+		hasInlineJWKS = hasInlineJWKS && jwksHasKeys(inlineJWKS)
+		if strings.TrimSpace(stringFromAny(config["shared_secret"])) == "" &&
+			strings.TrimSpace(stringFromAny(config["jwks_uri"])) == "" &&
+			!hasInlineJWKS &&
+			strings.TrimSpace(stringFromAny(config["introspection_url"])) == "" {
+			return errors.New("JWT validation requires shared_secret, inline_jwks, jwks_uri, or introspection_url")
+		}
+	case "inline_image_urls":
+		if max, ok := intFromAny(config["max_bytes"]); ok && max <= 0 {
+			return errors.New("config.max_bytes must be positive")
+		}
 	}
 	return nil
+}
+
+func jwksHasKeys(jwks map[string]interface{}) bool {
+	switch keys := jwks["keys"].(type) {
+	case []interface{}:
+		return len(keys) > 0
+	case []map[string]interface{}:
+		return len(keys) > 0
+	default:
+		return false
+	}
 }
 
 func stringListFromConfig(config map[string]interface{}, key string) []string {
@@ -272,5 +352,25 @@ func stringListFromConfig(config map[string]interface{}, key string) []string {
 		return out
 	default:
 		return nil
+	}
+}
+
+func stringFromAny(value interface{}) string {
+	if text, ok := value.(string); ok {
+		return text
+	}
+	return ""
+}
+
+func intFromAny(value interface{}) (int, bool) {
+	switch typed := value.(type) {
+	case int:
+		return typed, true
+	case int64:
+		return int(typed), true
+	case float64:
+		return int(typed), true
+	default:
+		return 0, false
 	}
 }
