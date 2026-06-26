@@ -4,14 +4,17 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import {
+  Braces,
   Clipboard,
   Copy,
   Download,
   FileCode2,
   GitCompare,
   History,
+  MessageSquareText,
   PencilLine,
   Play,
+  Settings2,
 } from "lucide-react";
 
 import { normalizeError, requestJSON, unwrapData } from "@/app/components/provider-account-wizard/utils";
@@ -27,6 +30,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
   SheetContent,
@@ -95,6 +100,9 @@ export default function PromptDetailPage(props: PromptDetailPageProps) {
     () => (selectedVersion ? serializePromptSpec(selectedVersion) : ""),
     [selectedVersion],
   );
+
+  const isSelectedLatestVersion =
+    Boolean(selectedVersion) && typeof prompt?.latest_version === "number" && selectedVersion?.version === prompt.latest_version;
 
   const filteredVersions = useMemo(() => {
     const query = versionSearch.trim().toLowerCase();
@@ -193,77 +201,92 @@ export default function PromptDetailPage(props: PromptDetailPageProps) {
 
   return (
     <div dir={pageDir} className="flex flex-col gap-5">
-      <section className="flex flex-col gap-3 rounded-xl border bg-card p-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div className="text-xs text-muted-foreground">{t("detail.breadcrumb", { name: prompt?.name || t("header.title") })}</div>
-            <h2 className="text-2xl font-semibold">{prompt?.name || t("header.title")}</h2>
-            <p className="text-sm text-muted-foreground">{t("detail.description")}</p>
+      <section className="relative overflow-hidden rounded-2xl border bg-card">
+        <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-br from-primary/10 via-transparent to-transparent" />
+        <div className="relative flex flex-col gap-5 p-5">
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_392px]">
+            <div className="min-w-0 flex flex-col gap-4">
+              <div className="text-xs text-muted-foreground">{t("detail.breadcrumb", { name: prompt?.name || t("header.title") })}</div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="min-w-0 break-words text-3xl font-semibold tracking-tight">{prompt?.name || t("header.title")}</h2>
+                {selectedVersion ? (
+                  <>
+                    <Badge variant={isSelectedLatestVersion ? "success" : "secondary"}>
+                      {isSelectedLatestVersion ? t("detail.status.latest") : t("detail.status.previous")}
+                    </Badge>
+                    <Badge variant="outline">{t("detail.readOnlyBadge")}</Badge>
+                  </>
+                ) : null}
+              </div>
+              <p className="max-w-3xl text-sm text-muted-foreground">
+                {selectedDescriptor?.description || prompt?.description || t("detail.description")}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary">{selectedVersion ? t("list.versionValue", { version: selectedVersion.version }) : t("detail.empty")}</Badge>
+                <Badge variant="outline">{selectedDescriptor?.model || t("list.columns.model")}</Badge>
+              </div>
+            </div>
+
+            <div className="rounded-xl border bg-background/80 p-4 shadow-sm backdrop-blur">
+              <div className="flex flex-col gap-2">
+                <Button type="button" onClick={() => router.push(`/prompts/${props.promptID}/edit?intent=try`)}>
+                  <Play data-icon="inline-start" />
+                  {t("actions.tryPrompt")}
+                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" size="sm" variant="outline" onClick={() => setHistoryOpen(true)}>
+                    <History data-icon="inline-start" />
+                    {t("actions.versionHistory")}
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => void copySelectedFqn()} disabled={!selectedVersion?.fqn}>
+                    <Clipboard data-icon="inline-start" />
+                    {t("actions.copyFqn")}
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => router.push(`/prompts/${props.promptID}/edit?intent=create-version`)}>
+                    <FileCode2 data-icon="inline-start" />
+                    {t("actions.createVersion")}
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => router.push(`/prompts/${props.promptID}/edit?intent=edit-latest`)}>
+                    <PencilLine data-icon="inline-start" />
+                    {t("actions.editLatestVersion")}
+                  </Button>
+                </div>
+              </div>
+
+              <Separator className="my-4" />
+
+              <div className="grid gap-3">
+                <DetailStat
+                  label={t("detail.summary.activeVersion")}
+                  value={selectedVersion ? t("list.versionValue", { version: selectedVersion.version }) : "-"}
+                />
+                <DetailStat
+                  label={t("list.columns.model")}
+                  value={selectedDescriptor?.model || "-"}
+                  technical
+                />
+                <DetailStat
+                  label={t("versions.selectedFqn")}
+                  value={selectedVersion?.fqn || "-"}
+                  technical
+                />
+              </div>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={() => void copySelectedFqn()} disabled={!selectedVersion?.fqn}>
-              <Clipboard />
-              {t("actions.copyFqn")}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => router.push(`/prompts/${props.promptID}/edit?intent=try`)}>
-              <Play />
-              {t("actions.tryPrompt")}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => setHistoryOpen(true)}>
-              <History />
-              {t("actions.versionHistory")}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => router.push(`/prompts/${props.promptID}/edit?intent=create-version`)}>
-              <FileCode2 />
-              {t("actions.createVersion")}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => router.push(`/prompts/${props.promptID}/edit?intent=edit-latest`)}>
-              <PencilLine />
-              {t("actions.editLatestVersion")}
-            </Button>
-          </div>
+
+          {notice ? (
+            <Alert variant={notice.kind === "error" ? "destructive" : "default"}>
+              <AlertTitle>{notice.kind === "error" ? t("notice.errorTitle") : t("notice.successTitle")}</AlertTitle>
+              <AlertDescription>{notice.message}</AlertDescription>
+            </Alert>
+          ) : null}
         </div>
-
-        {notice ? (
-          <Alert variant={notice.kind === "error" ? "destructive" : "default"}>
-            <AlertTitle>{notice.kind === "error" ? t("notice.errorTitle") : t("notice.successTitle")}</AlertTitle>
-            <AlertDescription>{notice.message}</AlertDescription>
-          </Alert>
-        ) : null}
-
-        <Card className="shadow-none">
-          <CardContent className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-5">
-            <SummaryItem label={t("builder.fields.name")} value={prompt?.name || "-"} />
-            <SummaryItem
-              label={t("list.columns.latestVersion")}
-              value={typeof prompt?.latest_version === "number" ? t("list.versionValue", { version: prompt.latest_version }) : "-"}
-            />
-            <SummaryItem label={t("list.columns.updatedAt")} value={formatDate(prompt?.updated_at, locale)} />
-            <SummaryItem
-              label={t("list.columns.createdBy")}
-              value={userLabelByID[prompt?.created_by ?? ""] || prompt?.created_by || "-"}
-            />
-            <SummaryItem label={t("detail.summary.promptId")} value={prompt?.id || "-"} valueClassName="font-mono text-xs" />
-            <SummaryItem label={t("list.columns.model")} value={selectedDescriptor?.model || "-"} />
-            <SummaryItem label={t("versions.selectedFqn")} value={selectedVersion?.fqn || "-"} valueClassName="font-mono text-xs" />
-            <SummaryItem label={t("detail.summary.createdAt")} value={formatDate(selectedVersion?.created_at, locale)} />
-            <SummaryItem
-              label={t("detail.summary.versionAuthor")}
-              value={userLabelByID[selectedVersion?.created_by ?? ""] || selectedVersion?.created_by || "-"}
-            />
-            <SummaryItem
-              label={t("builder.fields.description")}
-              value={selectedDescriptor?.description || "-"}
-              className="xl:col-span-2"
-            />
-          </CardContent>
-        </Card>
       </section>
 
       {isLoading ? (
         <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">{t("detail.loading")}</div>
       ) : selectedVersion ? (
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as PromptDetailTab)} className="gap-4">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as PromptDetailTab)} className="rounded-2xl border bg-card p-4">
           <TabsList variant="line" className="h-auto w-full justify-start gap-2 rounded-none border-b p-0">
             <TabsTrigger value="prompt" className="rounded-none px-2 py-2 data-[state=active]:text-foreground">
               {t("detail.tabs.prompt")}
@@ -280,7 +303,14 @@ export default function PromptDetailPage(props: PromptDetailPageProps) {
           </TabsList>
 
           <TabsContent value="prompt" forceMount>
-            <PromptContent descriptor={selectedDescriptor} t={t} />
+            <PromptContent
+              descriptor={selectedDescriptor}
+              locale={locale}
+              prompt={prompt}
+              selectedVersion={selectedVersion}
+              t={t}
+              userLabelByID={userLabelByID}
+            />
           </TabsContent>
 
           <TabsContent value="spec" forceMount>
@@ -288,7 +318,7 @@ export default function PromptDetailPage(props: PromptDetailPageProps) {
               actions={
                 <>
                   <Button type="button" variant="outline" size="sm" onClick={() => void copyText(selectedSpec, t("messages.specCopied"))}>
-                    <Copy />
+                    <Copy data-icon="inline-start" />
                     {t("actions.copy")}
                   </Button>
                   <Button
@@ -297,7 +327,7 @@ export default function PromptDetailPage(props: PromptDetailPageProps) {
                     size="sm"
                     onClick={() => downloadText(`${selectedVersion.name || "prompt"}-v${selectedVersion.version}.json`, selectedSpec)}
                   >
-                    <Download />
+                    <Download data-icon="inline-start" />
                     {t("actions.download")}
                   </Button>
                 </>
@@ -305,6 +335,7 @@ export default function PromptDetailPage(props: PromptDetailPageProps) {
               code={selectedSpec}
               description={t("detail.specDescription")}
               language="json"
+              displayLanguage="JSON"
               title={t("detail.tabs.spec")}
             />
           </TabsContent>
@@ -318,13 +349,14 @@ export default function PromptDetailPage(props: PromptDetailPageProps) {
                   size="sm"
                   onClick={() => void copyText(buildSdkSnippet(selectedVersion), t("messages.snippetCopied"))}
                 >
-                  <Copy />
+                  <Copy data-icon="inline-start" />
                   {t("actions.copy")}
                 </Button>
               }
               code={buildSdkSnippet(selectedVersion)}
               description={t("detail.sdkDescription")}
               language="python"
+              displayLanguage="Python"
               title={t("detail.tabs.sdk")}
             />
           </TabsContent>
@@ -356,6 +388,7 @@ export default function PromptDetailPage(props: PromptDetailPageProps) {
         }}
         search={versionSearch}
         setSearch={setVersionSearch}
+        locale={locale}
         t={t}
         userLabelByID={userLabelByID}
         versions={filteredVersions}
@@ -391,25 +424,13 @@ export default function PromptDetailPage(props: PromptDetailPageProps) {
   }
 }
 
-function SummaryItem(props: {
-  label: string;
-  value: string;
-  className?: string;
-  valueClassName?: string;
-}) {
-  return (
-    <div className={cn("space-y-1", props.className)}>
-      <div className="text-xs text-muted-foreground">{props.label}</div>
-      <div className={cn("text-sm font-medium", props.valueClassName)} dir={props.valueClassName?.includes("font-mono") ? "ltr" : "auto"}>
-        {props.value}
-      </div>
-    </div>
-  );
-}
-
 function PromptContent(props: {
   descriptor: ReturnType<typeof describePromptMessage> | null;
+  locale: string;
+  prompt: Prompt | null;
+  selectedVersion: PromptVersion;
   t: PromptTranslationFn;
+  userLabelByID: Record<string, string>;
 }) {
   if (!props.descriptor) return null;
 
@@ -427,97 +448,22 @@ function PromptContent(props: {
   }
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
-      <div className="space-y-5">
-        <Card className="shadow-none">
-          <CardHeader>
-            <CardTitle className="text-base">{props.t("config.title")}</CardTitle>
-            <CardDescription>{props.descriptor.versionLabel}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Section title={props.t("config.model.title")}>
-              <div className="font-medium">{props.descriptor.model || "-"}</div>
-            </Section>
-            <Section title={props.t("config.modelSettings.title")}>
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="outline">{props.descriptor.modelSettings.stream ? props.t("common.enabled") : props.t("common.disabled")}</Badge>
-                {typeof props.descriptor.modelSettings.temperature === "number" ? <Badge variant="outline">temp {props.descriptor.modelSettings.temperature}</Badge> : null}
-                {typeof props.descriptor.modelSettings.top_p === "number" ? <Badge variant="outline">top_p {props.descriptor.modelSettings.top_p}</Badge> : null}
-                {typeof props.descriptor.modelSettings.max_tokens === "number" ? <Badge variant="outline">max_tokens {props.descriptor.modelSettings.max_tokens}</Badge> : null}
-              </div>
-            </Section>
-            <Section title={props.t("config.variables.title", { count: props.descriptor.variableNames.length })}>
-              {props.descriptor.variableNames.length === 0 ? (
-                <div className="text-sm text-muted-foreground">{props.t("config.variables.empty")}</div>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {props.descriptor.variableNames.map((name) => (
-                    <Badge key={name} variant="outline">{name}</Badge>
-                  ))}
-                </div>
-              )}
-            </Section>
-            <Section title={props.t("config.cache.title")}>
-              {cachePills.length === 0 ? (
-                <div className="text-sm text-muted-foreground">{props.t("config.cache.empty")}</div>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {cachePills.map((pill) => (
-                    <Badge key={pill} variant="outline">{pill}</Badge>
-                  ))}
-                </div>
-              )}
-            </Section>
-            <Section title={props.t("config.inputGuardrails.title", { count: props.descriptor.guardrails?.input?.length ?? 0 })}>
-              <div className="text-sm text-muted-foreground">
-                {(props.descriptor.guardrails?.input?.length ?? 0) > 0
-                  ? props.descriptor.guardrails?.input?.join(", ")
-                  : props.t("config.inputGuardrails.empty")}
-              </div>
-            </Section>
-            <Section title={props.t("config.outputGuardrails.title", { count: props.descriptor.guardrails?.output?.length ?? 0 })}>
-              <div className="text-sm text-muted-foreground">
-                {(props.descriptor.guardrails?.output?.length ?? 0) > 0
-                  ? props.descriptor.guardrails?.output?.join(", ")
-                  : props.t("config.outputGuardrails.empty")}
-              </div>
-            </Section>
-            <Section title={props.t("config.structuredOutput.title")}>
-              {structuredPills.length === 0 ? (
-                <div className="text-sm text-muted-foreground">{props.t("config.structuredOutput.empty")}</div>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {structuredPills.map((pill) => (
-                    <Badge key={pill} variant="outline">{pill}</Badge>
-                  ))}
-                </div>
-              )}
-            </Section>
-            <Section title={props.t("config.metadata.title")}>
-              {Object.keys(props.descriptor.metadata).length === 0 ? (
-                <div className="text-sm text-muted-foreground">{props.t("config.metadata.empty")}</div>
-              ) : (
-                <div className="space-y-2">
-                  {Object.entries(props.descriptor.metadata).map(([key, value]) => (
-                    <div key={key} className="rounded-md border bg-muted/20 px-3 py-2 text-sm">
-                      <div className="font-medium">{key}</div>
-                      <div dir="ltr" className="mt-1 font-mono text-xs text-muted-foreground">{JSON.stringify(value)}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Section>
-          </CardContent>
-        </Card>
-      </div>
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="flex min-w-0 flex-col gap-5">
+        <Alert>
+          <AlertTitle>{props.t("detail.readOnlyTitle", { version: props.selectedVersion.version })}</AlertTitle>
+          <AlertDescription>{props.t("detail.readOnlyDescription")}</AlertDescription>
+        </Alert>
 
-      <div className="space-y-5">
         <Card className="shadow-none">
           <CardHeader>
-            <CardTitle className="text-base">{props.t("builder.systemPrompt.title")}</CardTitle>
+            <div className="flex items-center gap-2">
+              <MessageSquareText className="size-4 text-muted-foreground" />
+              <CardTitle className="text-base">{props.t("builder.systemPrompt.title")}</CardTitle>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="rounded-lg border bg-muted/20 p-4 text-sm" dir="auto">
+            <div className="rounded-lg border bg-muted/20 p-5 text-sm leading-7" dir="auto">
               {props.descriptor.systemPrompt || "-"}
             </div>
           </CardContent>
@@ -528,18 +474,18 @@ function PromptContent(props: {
             <CardTitle className="text-base">{props.t("builder.conversation.title")}</CardTitle>
             <CardDescription>{props.t("builder.conversation.description")}</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="flex flex-col gap-3">
             {props.descriptor.conversationMessages.length === 0 ? (
               <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">{props.t("builder.conversation.empty")}</div>
             ) : (
               props.descriptor.conversationMessages.map((message, index) => (
-                <div key={`${message.role}-${index}`} className="rounded-lg border p-4">
+                <div key={`${message.role}-${index}`} className="rounded-lg border bg-background p-4">
                   <div className="mb-2">
                     <Badge variant={message.role === "assistant" ? "secondary" : "outline"}>
                       {message.role === "assistant" ? props.t("roles.assistant") : props.t("roles.user")}
                     </Badge>
                   </div>
-                  <div className="text-sm" dir="auto">
+                  <div className="text-sm leading-7" dir="auto">
                     {typeof message.content === "string" ? message.content : JSON.stringify(message.content)}
                   </div>
                 </div>
@@ -548,13 +494,167 @@ function PromptContent(props: {
           </CardContent>
         </Card>
       </div>
+
+      <div className="flex min-w-0 flex-col gap-5 xl:sticky xl:top-6">
+        <Card className="shadow-none">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Settings2 className="size-4 text-muted-foreground" />
+              <CardTitle className="text-base">{props.t("detail.versionConfiguration")}</CardTitle>
+            </div>
+            <CardDescription>{props.descriptor.versionLabel}</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-5">
+            <Section title={props.t("config.model.title")}>
+              <div className="rounded-md border bg-muted/20 px-3 py-2 font-mono text-xs" dir="ltr">{props.descriptor.model || "-"}</div>
+            </Section>
+            <Section title={props.t("config.modelSettings.title")}>
+              <div className="grid grid-cols-2 gap-2">
+                <CompactFact label={props.t("config.modelSettings.stream")} value={props.descriptor.modelSettings.stream ? props.t("common.enabled") : props.t("common.disabled")} />
+                <CompactFact label={props.t("config.modelSettings.temperature")} value={formatOptionalNumber(props.descriptor.modelSettings.temperature)} />
+                <CompactFact label={props.t("config.modelSettings.topP")} value={formatOptionalNumber(props.descriptor.modelSettings.top_p)} />
+                <CompactFact label={props.t("config.modelSettings.maxTokens")} value={formatOptionalNumber(props.descriptor.modelSettings.max_tokens)} />
+              </div>
+            </Section>
+            <Section title={props.t("config.variables.title", { count: props.descriptor.variableNames.length })}>
+              {props.descriptor.variableNames.length === 0 ? (
+                <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">{props.t("config.variables.empty")}</div>
+              ) : (
+                <div className="overflow-hidden rounded-md border">
+                  <div className="grid grid-cols-[minmax(0,1fr)_96px] bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground">
+                    <span>{props.t("detail.variableName")}</span>
+                    <span>{props.t("detail.variableType")}</span>
+                  </div>
+                  {props.descriptor.variableNames.map((name) => (
+                    <div key={name} className="grid grid-cols-[minmax(0,1fr)_96px] border-t px-3 py-2 text-sm">
+                      <span className="truncate font-mono text-xs" dir="ltr" title={name}>{name}</span>
+                      <span className="text-xs text-muted-foreground">string</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Section>
+            <Section title={props.t("detail.advancedSettings")}>
+              <div className="flex flex-col gap-3">
+                <PillGroup emptyLabel={props.t("config.cache.empty")} pills={cachePills} title={props.t("config.cache.title")} />
+                <PillGroup
+                  emptyLabel={props.t("config.inputGuardrails.empty")}
+                  pills={props.descriptor.guardrails?.input ?? []}
+                  title={props.t("config.inputGuardrails.title", { count: props.descriptor.guardrails?.input?.length ?? 0 })}
+                />
+                <PillGroup
+                  emptyLabel={props.t("config.outputGuardrails.empty")}
+                  pills={props.descriptor.guardrails?.output ?? []}
+                  title={props.t("config.outputGuardrails.title", { count: props.descriptor.guardrails?.output?.length ?? 0 })}
+                />
+                <PillGroup emptyLabel={props.t("config.structuredOutput.empty")} pills={structuredPills} title={props.t("config.structuredOutput.title")} />
+              </div>
+            </Section>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-none">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Braces className="size-4 text-muted-foreground" />
+              <CardTitle className="text-base">{props.t("detail.technicalDetails")}</CardTitle>
+            </div>
+            <CardDescription>{props.t("detail.technicalDescription")}</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <TechnicalFact label={props.t("detail.summary.promptId")} value={props.prompt?.id || "-"} />
+            <TechnicalFact label={props.t("versions.selectedFqn")} value={props.selectedVersion.fqn || "-"} />
+            <TechnicalFact label={props.t("list.columns.updatedAt")} value={formatDate(props.prompt?.updated_at, props.locale)} />
+            <TechnicalFact label={props.t("detail.summary.createdAt")} value={formatDate(props.selectedVersion.created_at, props.locale)} />
+            <TechnicalFact
+              label={props.t("detail.summary.versionAuthor")}
+              value={props.userLabelByID[props.selectedVersion.created_by ?? ""] || props.selectedVersion.created_by || "-"}
+            />
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-none">
+          <CardHeader>
+            <CardTitle className="text-base">{props.t("config.metadata.title")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {Object.keys(props.descriptor.metadata).length === 0 ? (
+              <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">{props.t("config.metadata.empty")}</div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {Object.entries(props.descriptor.metadata).map(([key, value]) => (
+                  <div key={key} className="rounded-md border bg-muted/20 px-3 py-2 text-sm">
+                    <div className="font-medium">{key}</div>
+                    <div dir="ltr" className="mt-1 font-mono text-xs text-muted-foreground">{JSON.stringify(value)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
 
+function CompactFact(props: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border bg-muted/20 px-3 py-2">
+      <div className="text-xs text-muted-foreground">{props.label}</div>
+      <div className="mt-1 truncate text-sm font-medium" dir="ltr" title={props.value}>{props.value}</div>
+    </div>
+  );
+}
+
+function TechnicalFact(props: { label: string; value: string }) {
+  return (
+    <div className="grid gap-1 rounded-md border bg-muted/20 px-3 py-2">
+      <div className="text-xs text-muted-foreground">{props.label}</div>
+      <div className="truncate font-mono text-xs" dir="ltr" title={props.value}>{props.value}</div>
+    </div>
+  );
+}
+
+function DetailStat(props: { label: string; technical?: boolean; value: string }) {
+  return (
+    <div className="grid gap-1 rounded-lg border bg-muted/20 px-3 py-2">
+      <div className="text-xs text-muted-foreground">{props.label}</div>
+      <div
+        className={cn("truncate text-sm font-medium", props.technical && "font-mono text-xs")}
+        dir={props.technical ? "ltr" : "auto"}
+        title={props.value}
+      >
+        {props.value}
+      </div>
+    </div>
+  );
+}
+
+function PillGroup(props: { emptyLabel: string; pills: string[]; title: string }) {
+  const pills = props.pills.filter(Boolean);
+  return (
+    <div className="rounded-md border p-3">
+      <div className="mb-2 text-xs font-medium text-muted-foreground">{props.title}</div>
+      {pills.length === 0 ? (
+        <div className="text-sm text-muted-foreground">{props.emptyLabel}</div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {pills.map((pill) => (
+            <Badge key={pill} variant="outline">{pill}</Badge>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatOptionalNumber(value: unknown): string {
+  return typeof value === "number" ? `${value}` : "-";
+}
+
 function Section(props: { title: string; children: React.ReactNode }) {
   return (
-    <section className="space-y-2">
+    <section className="flex flex-col gap-2">
       <div className="text-sm font-medium">{props.title}</div>
       {props.children}
     </section>
@@ -566,6 +666,7 @@ function CodePanel(props: {
   code: string;
   description: string;
   language: "bash" | "json" | "python";
+  displayLanguage: string;
   title: string;
 }) {
   return (
@@ -573,7 +674,10 @@ function CodePanel(props: {
       <CardHeader className="border-b">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <CardTitle className="text-base">{props.title}</CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-base">{props.title}</CardTitle>
+              <Badge variant="outline" className="font-mono">{props.displayLanguage}</Badge>
+            </div>
             <CardDescription>{props.description}</CardDescription>
           </div>
           <div className="flex flex-wrap gap-2">{props.actions}</div>
@@ -595,48 +699,48 @@ function GatewayContent(props: {
   const nonStreamingSnippet = buildGatewaySnippet(props.selectedVersion, false);
 
   return (
-    <Card className="shadow-none">
-      <CardHeader className="border-b">
-        <CardTitle className="text-base">{props.t("detail.tabs.gateway")}</CardTitle>
-        <CardDescription>{props.t("detail.gatewayDescription")}</CardDescription>
-      </CardHeader>
-      <CardContent className="p-4">
-        <Tabs defaultValue="non-stream" className="gap-4">
-          <TabsList>
-            <TabsTrigger value="non-stream">{props.t("detail.gateway.nonStream")}</TabsTrigger>
-            <TabsTrigger value="stream">{props.t("detail.gateway.stream")}</TabsTrigger>
-          </TabsList>
-          <TabsContent value="non-stream" forceMount>
-            <CodePanel
-              actions={
-                <Button type="button" variant="outline" size="sm" onClick={() => props.onCopy(nonStreamingSnippet)}>
-                  <Copy />
-                  {props.t("actions.copy")}
-                </Button>
-              }
-              code={nonStreamingSnippet}
-              description={props.t("detail.gateway.nonStreamDescription")}
-              language="bash"
-              title={props.t("detail.gateway.nonStream")}
-            />
-          </TabsContent>
-          <TabsContent value="stream" forceMount>
-            <CodePanel
-              actions={
-                <Button type="button" variant="outline" size="sm" onClick={() => props.onCopy(streamingSnippet)}>
-                  <Copy />
-                  {props.t("actions.copy")}
-                </Button>
-              }
-              code={streamingSnippet}
-              description={props.t("detail.gateway.streamDescription")}
-              language="bash"
-              title={props.t("detail.gateway.stream")}
-            />
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+    <div className="flex flex-col gap-4">
+      <div>
+        <h3 className="text-base font-semibold">{props.t("detail.tabs.gateway")}</h3>
+        <p className="text-sm text-muted-foreground">{props.t("detail.gatewayDescription")}</p>
+      </div>
+      <Tabs defaultValue="non-stream" className="gap-4">
+        <TabsList>
+          <TabsTrigger value="non-stream">{props.t("detail.gateway.nonStream")}</TabsTrigger>
+          <TabsTrigger value="stream">{props.t("detail.gateway.stream")}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="non-stream" forceMount>
+          <CodePanel
+            actions={
+              <Button type="button" variant="outline" size="sm" onClick={() => props.onCopy(nonStreamingSnippet)}>
+                <Copy data-icon="inline-start" />
+                {props.t("actions.copy")}
+              </Button>
+            }
+            code={nonStreamingSnippet}
+            description={props.t("detail.gateway.nonStreamDescription")}
+            language="bash"
+            displayLanguage="cURL"
+            title={props.t("detail.gateway.nonStream")}
+          />
+        </TabsContent>
+        <TabsContent value="stream" forceMount>
+          <CodePanel
+            actions={
+              <Button type="button" variant="outline" size="sm" onClick={() => props.onCopy(streamingSnippet)}>
+                <Copy data-icon="inline-start" />
+                {props.t("actions.copy")}
+              </Button>
+            }
+            code={streamingSnippet}
+            description={props.t("detail.gateway.streamDescription")}
+            language="bash"
+            displayLanguage="cURL"
+            title={props.t("detail.gateway.stream")}
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }
 
@@ -649,6 +753,7 @@ function PromptVersionHistorySheet(props: {
   onSelectVersion: (version: PromptVersion) => void;
   search: string;
   setSearch: (value: string) => void;
+  locale: string;
   t: PromptTranslationFn;
   userLabelByID: Record<string, string>;
   versions: PromptVersion[];
@@ -657,55 +762,57 @@ function PromptVersionHistorySheet(props: {
     <Sheet open={props.isOpen} onOpenChange={(open) => { if (!open) props.onClose(); }}>
       <SheetContent side="right" className="w-[94vw] max-w-xl overflow-y-auto">
         <SheetHeader>
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-start justify-between gap-3">
             <div>
               <SheetTitle>{props.t("actions.versionHistory")}</SheetTitle>
               <SheetDescription>{props.t("detail.historyDescription")}</SheetDescription>
             </div>
             <Button type="button" variant="outline" size="sm" onClick={props.onCompareOpen}>
-              <GitCompare />
+              <GitCompare data-icon="inline-start" />
               {props.t("actions.compareVersions")}
             </Button>
           </div>
         </SheetHeader>
-        <div className="mt-6 space-y-4">
-          <div className="flex gap-2">
+        <div className="mt-6 flex flex-col gap-4">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Input
               value={props.search}
               onChange={(event) => props.setSearch(event.target.value)}
               placeholder={props.t("detail.historySearchPlaceholder")}
             />
-            <Button type="button" onClick={props.onCreateVersion}>
+            <Button type="button" className="shrink-0" onClick={props.onCreateVersion}>
               {props.t("actions.createVersion")}
             </Button>
           </div>
-          <div className="space-y-2">
-            {props.versions.map((version) => (
-              <button
-                key={version.id}
-                type="button"
-                className={cn(
-                  "w-full rounded-lg border p-4 text-start transition hover:bg-accent",
-                  version.id === props.currentVersionID && "border-primary/40 bg-primary/5",
-                )}
-                onClick={() => props.onSelectVersion(version)}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="font-medium">{props.t("versions.versionValue", { version: version.version })}</div>
-                  <div className="text-xs text-muted-foreground">{formatDate(version.created_at, "en")}</div>
-                </div>
-                <div className="mt-1 text-sm text-muted-foreground">
-                  {props.userLabelByID[version.created_by ?? ""] || version.created_by || "-"}
-                </div>
-                <div className="mt-2 truncate text-xs text-muted-foreground" dir="ltr">
-                  {version.commit_message || version.fqn}
-                </div>
-              </button>
-            ))}
-            {props.versions.length === 0 ? (
-              <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">{props.t("versions.empty")}</div>
-            ) : null}
-          </div>
+          <ScrollArea className="h-[min(60dvh,28rem)] pr-3">
+            <div className="flex flex-col gap-2">
+              {props.versions.map((version) => (
+                <button
+                  key={version.id}
+                  type="button"
+                  className={cn(
+                    "w-full rounded-xl border p-4 text-start transition hover:bg-accent",
+                    version.id === props.currentVersionID && "border-primary/40 bg-primary/5",
+                  )}
+                  onClick={() => props.onSelectVersion(version)}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="font-medium">{props.t("versions.versionValue", { version: version.version })}</div>
+                    <div className="text-xs text-muted-foreground">{formatDate(version.created_at, props.locale)}</div>
+                  </div>
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    {props.userLabelByID[version.created_by ?? ""] || version.created_by || "-"}
+                  </div>
+                  <div className="mt-2 truncate text-xs text-muted-foreground" dir="ltr">
+                    {version.commit_message || version.fqn}
+                  </div>
+                </button>
+              ))}
+              {props.versions.length === 0 ? (
+                <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">{props.t("versions.empty")}</div>
+              ) : null}
+            </div>
+          </ScrollArea>
         </div>
       </SheetContent>
     </Sheet>
@@ -732,9 +839,9 @@ function PromptCompareDialog(props: {
           <DialogTitle>{props.t("detail.compareTitle")}</DialogTitle>
           <DialogDescription>{props.t("detail.compareDescription")}</DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 overflow-auto p-6">
+        <div className="flex flex-col gap-4 overflow-auto p-6">
           <div className="grid gap-3 md:grid-cols-2">
-            <label className="space-y-2 text-sm">
+            <label className="flex flex-col gap-2 text-sm">
               <span className="font-medium">{props.t("detail.compareBaseVersion")}</span>
               <select
                 value={props.baseVersionID}
@@ -748,7 +855,7 @@ function PromptCompareDialog(props: {
                 ))}
               </select>
             </label>
-            <label className="space-y-2 text-sm">
+            <label className="flex flex-col gap-2 text-sm">
               <span className="font-medium">{props.t("detail.compareTargetVersion")}</span>
               <select
                 value={props.targetVersionID}

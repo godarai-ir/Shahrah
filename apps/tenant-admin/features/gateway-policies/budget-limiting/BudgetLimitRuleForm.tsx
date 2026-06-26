@@ -113,7 +113,11 @@ export function BudgetLimitRuleForm({ initialRule }: { initialRule?: BudgetLimit
     [initialRule],
   );
 
-  const form = useForm<BudgetLimitRuleFormInput>({ resolver: zodResolver(budgetLimitRuleSchema), mode: "onChange", defaultValues });
+  const form = useForm<BudgetLimitRuleFormInput>({
+    resolver: zodResolver(budgetLimitRuleSchema as never),
+    mode: "onChange",
+    defaultValues,
+  });
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "conditions.conditions" });
   const watchedConditions = form.watch("conditions.conditions");
   const metadataIndexes = fields.map((f, i) => ({ f, i })).filter((x) => form.watch(`conditions.conditions.${x.i}.field`) === "metadata").map((x) => x.i);

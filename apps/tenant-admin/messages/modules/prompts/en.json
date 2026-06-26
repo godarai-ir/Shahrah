@@ -138,11 +138,25 @@
     "empty": "No saved prompt version is available yet.",
     "tabs": {
       "prompt": "Prompt",
-      "spec": "Spec",
-      "sdk": "Use Via SDK",
-      "gateway": "Use Via AI Gateway"
+      "spec": "Technical Spec",
+      "sdk": "SDK Example",
+      "gateway": "Gateway API Example"
+    },
+    "readOnlyBadge": "Read-only",
+    "readOnlyTitle": "Version {version} is read-only",
+    "readOnlyDescription": "Create a new version to change this prompt. Saved versions stay immutable for runtime safety.",
+    "versionConfiguration": "Version Configuration",
+    "technicalDetails": "Technical Details",
+    "technicalDescription": "Identifiers and audit fields for the selected saved version.",
+    "advancedSettings": "Advanced Settings",
+    "variableName": "Variable",
+    "variableType": "Type",
+    "status": {
+      "latest": "Latest version",
+      "previous": "Previous version"
     },
     "summary": {
+      "activeVersion": "Selected Version",
       "promptId": "Prompt ID",
       "createdAt": "Version Created",
       "versionAuthor": "Version Author"

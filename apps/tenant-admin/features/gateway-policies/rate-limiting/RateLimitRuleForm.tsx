@@ -157,7 +157,11 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
     [initialRule],
   );
 
-  const form = useForm<RateLimitRuleFormInput>({ resolver: zodResolver(rateLimitRuleSchema), mode: "onChange", defaultValues });
+  const form = useForm<RateLimitRuleFormInput>({
+    resolver: zodResolver(rateLimitRuleSchema as never),
+    mode: "onChange",
+    defaultValues,
+  });
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "conditions.conditions" });
   const watchedConditions = form.watch("conditions.conditions");
   const selectedWindowUnit = form.watch("limit.window.unit");

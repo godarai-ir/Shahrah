@@ -37,7 +37,7 @@ export function buildSdkSnippet(version: PromptVersion): string {
   const promptVariables =
     variableNames.length === 0
       ? "{}"
-      : `{\n${variableNames.map((name) => `        "${name}": "value"`).join(",\n")}\n    }`;
+      : `{\n${variableNames.map((name) => `        "${name}": ${JSON.stringify(sampleVariableValue(name))}`).join(",\n")}\n    }`;
 
   return `from openai import OpenAI
 
@@ -61,7 +61,7 @@ print(response.choices[0].message.content)`;
 export function buildGatewaySnippet(version: PromptVersion, stream: boolean): string {
   const manifest = getPromptManifest(version);
   const model = manifest.model ?? version.model ?? "";
-  const variableEntries = Object.keys(manifest.variables ?? {}).map((name) => `    "${name}": "value"`);
+  const variableEntries = Object.keys(manifest.variables ?? {}).map((name) => `    "${name}": ${JSON.stringify(sampleVariableValue(name))}`);
   const promptVariables = variableEntries.length === 0 ? "  {}" : `  {\n${variableEntries.join(",\n")}\n  }`;
 
   return `curl --location 'https://TENANT.shahrah.ir/v1/chat/completions' \\
@@ -76,6 +76,17 @@ export function buildGatewaySnippet(version: PromptVersion, stream: boolean): st
     "prompt_variables": ${promptVariables}
   }
 }'`;
+}
+
+function sampleVariableValue(name: string): string {
+  const normalized = name.toLowerCase();
+  if (normalized.includes("order")) return "ORD-10293";
+  if (normalized.includes("user") || normalized.includes("customer") || normalized.includes("name")) return "Ali Rezaei";
+  if (normalized.includes("email")) return "customer@example.com";
+  if (normalized.includes("phone") || normalized.includes("mobile")) return "+989120000000";
+  if (normalized.includes("date")) return "2026-06-26";
+  if (normalized.includes("city")) return "Tehran";
+  return `sample_${name}`;
 }
 
 export function describePromptMessage(version: PromptVersion, t: PromptTranslationFn) {

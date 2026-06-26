@@ -1,4 +1,5 @@
 import type { ProviderCatalogModel, ProviderCatalogProvider } from "@/app/components/provider-account-wizard/types";
+import type { TranslationValues } from "next-intl";
 
 import {
   buildPromptUsageSnippet,
@@ -192,7 +193,7 @@ export type BuilderState = {
   metadataRows: MetadataRow[];
 };
 
-export type PromptTranslationFn = (key: string, values?: Record<string, string | number | boolean>) => string;
+export type PromptTranslationFn = (key: string, values?: TranslationValues) => string;
 
 export type PromptCatalogState = {
   models: GatewayModel[];
