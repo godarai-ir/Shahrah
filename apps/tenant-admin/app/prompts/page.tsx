@@ -1,5 +1,5 @@
 import AdminShell from "@/app/components/admin-shell";
-import PromptManagement from "@/app/components/prompt-management";
+import PromptRegistryListPage from "@/app/components/prompt-registry-list-page";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 
@@ -18,7 +18,7 @@ export default async function PromptsPage() {
 
   return (
     <AdminShell tenantSlug={auth.tenantSlug} currentUser={currentUser}>
-      <PromptManagement />
+      <PromptRegistryListPage />
     </AdminShell>
   );
 }

@@ -1,114 +1,285 @@
 {
-  "title": "Prompts",
-  "description": "Create reusable chat prompts, version them intentionally, and attach them to gateway requests with variables.",
-  "alerts": {
-    "error": "Action failed",
-    "success": "Done"
+  "title": "Prompt Registry",
+  "header": {
+    "title": "Prompt Registry",
+    "description": "Create reusable prompt templates, version them intentionally, and execute them through Shahrah Gateway."
   },
-  "metrics": {
-    "prompts": "Prompts",
-    "versions": "Versions"
+  "notice": {
+    "errorTitle": "Action failed",
+    "successTitle": "Done"
   },
-  "status": {
-    "versioned": "Versioned",
-    "noModel": "No model",
-    "notSelected": "Not selected",
-    "notSet": "Not set"
-  },
-  "list": {
-    "title": "Prompt library",
-    "description": "Select a prompt to review, test, or publish a new version.",
-    "searchPlaceholder": "Search prompts",
-    "version": "v{version}"
-  },
-  "empty": {
-    "title": "No prompts yet",
-    "description": "Create the first prompt to reuse it from gateway requests.",
-    "searchTitle": "No matching prompts",
-    "searchDescription": "Change the search query or create a new prompt."
+  "common": {
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "strict": "strict",
+    "nonStrict": "non-strict",
+    "simple": "simple",
+    "smart": "smart",
+    "jsonSchema": "json_schema",
+    "jsonObject": "json_object"
   },
   "actions": {
+    "createPrompt": "Create Prompt",
     "refresh": "Refresh",
-    "newPrompt": "New prompt",
-    "createPrompt": "Create prompt",
-    "saveVersion": "Save version",
+    "copy": "Copy",
+    "download": "Download",
+    "openMenu": "Open menu",
+    "tryPrompt": "Try Prompt",
+    "createVersion": "Create New Version",
+    "editLatestVersion": "Edit Latest Version",
+    "versionHistory": "Version History",
+    "compareVersions": "Compare Versions",
+    "selectModel": "Select model",
+    "configure": "Configure",
+    "select": "Select",
     "delete": "Delete",
-    "cancel": "Cancel",
-    "confirmDelete": "Delete prompt",
-    "copySnippet": "Copy snippet",
-    "copyJSON": "Copy JSON",
-    "render": "Render preview"
+    "remove": "Remove",
+    "addMetadata": "Add metadata",
+    "copyFqn": "Copy FQN",
+    "copySnippet": "Copy SDK snippet",
+    "saveNewVersion": "Save New Version",
+    "saveNewPrompt": "Save New Prompt",
+    "addMessage": "Add message",
+    "run": "Run",
+    "close": "Close"
   },
-  "tabs": {
-    "compose": "Compose",
-    "settings": "Settings",
-    "versions": "Versions",
-    "test": "Test"
+  "list": {
+    "title": "All Prompts",
+    "description": "Browse saved prompts and load any version back into the playground.",
+    "searchPlaceholder": "Search prompts",
+    "emptyRows": "No rows",
+    "versionValue": "v{version}",
+    "columns": {
+      "name": "Name",
+      "latestVersion": "Latest Version",
+      "model": "Model",
+      "description": "Description",
+      "updatedAt": "Updated",
+      "createdBy": "Created By",
+      "actions": "Actions"
+    }
   },
-  "editor": {
-    "createTitle": "Create prompt",
-    "createDescription": "Define the reusable messages and defaults for a new prompt.",
-    "versionTitle": "Publish a new version",
-    "versionDescription": "Edit the draft fields, then save to create the next immutable version."
+  "pagination": {
+    "showing": "Showing {from}-{to} of {total}",
+    "rowsPerPage": "Rows per page",
+    "previous": "Previous",
+    "next": "Next"
   },
-  "form": {
-    "name": "Name",
-    "nameHint": "Letters, numbers, dashes, underscores",
-    "model": "Default model",
-    "modelHint": "Optional",
-    "description": "Description",
-    "systemMessage": "System message",
-    "userMessage": "User message",
-    "variableHint": "Use named variables in double braces",
-    "commitMessage": "Commit message",
-    "commitPlaceholder": "What changed in this version?",
-    "variables": "Variables JSON",
-    "variablesHint": "Template variables and fallback values",
-    "parameters": "Parameters JSON",
-    "parametersHint": "Model parameters passed with the prompt",
-    "metadata": "Metadata JSON",
-    "metadataHint": "Operational tags for this prompt",
-    "renderVariables": "Render variables",
-    "renderVariablesHint": "Values used only for this preview"
+  "config": {
+    "title": "Configuration",
+    "description": "Pick a model, configure runtime behavior, and prepare reusable template defaults.",
+    "model": {
+      "title": "Selected model",
+      "placeholder": "Choose a Shahrah model alias or virtual model",
+      "contextBadge": "ctx {count}"
+    },
+    "modelSettings": {
+      "title": "Model settings",
+      "stream": "Stream",
+      "temperature": "Temperature",
+      "topP": "Top P",
+      "maxTokens": "Max tokens"
+    },
+    "variables": {
+      "title": "Input variables ({count})",
+      "detectedHelpPrefix": "Detected from",
+      "detectedHelpSuffix": "placeholders in messages.",
+      "empty": "No variables detected yet.",
+      "valuePlaceholder": "Value for {name}"
+    },
+    "cache": {
+      "title": "Cache config",
+      "description": "Maps directly to Shahrah's `x-shahrah-cache-config` header.",
+      "empty": "Cache is disabled.",
+      "summary": {
+        "type": "type {value}",
+        "ttl": "ttl {value}s",
+        "namespace": "ns {value}",
+        "similarity": "similarity {value}"
+      }
+    },
+    "inputGuardrails": {
+      "title": "Input guardrails ({count})",
+      "description": "Apply tenant guardrails before the request reaches the model.",
+      "empty": "No input guardrails"
+    },
+    "outputGuardrails": {
+      "title": "Output guardrails ({count})",
+      "description": "Apply tenant guardrails after the model response is received.",
+      "empty": "No output guardrails"
+    },
+    "structuredOutput": {
+      "title": "Structured output",
+      "description": "Optional OpenAI-compatible `response_format` configuration.",
+      "empty": "Structured output is disabled."
+    },
+    "metadata": {
+      "title": "Metadata",
+      "empty": "No metadata rows added yet.",
+      "keyPlaceholder": "key",
+      "valuePlaceholder": "value"
+    },
+    "logging": {
+      "title": "Logging",
+      "description": "Prompt-level log storage toggles are deferred in this v1 because Shahrah already enforces request and spend logging at gateway level."
+    }
   },
   "versions": {
-    "emptyTitle": "Save the first version",
-    "emptyDescription": "Version history appears after the prompt is created.",
-    "version": "Version {version}",
-    "fqn": "Prompt FQN",
-    "model": "Model",
-    "createdAt": "Created",
-    "commit": "Commit"
+    "title": "Versions",
+    "description": "Immutable prompt versions remain the canonical saved runtime artifact.",
+    "empty": "Save a prompt first to start building version history.",
+    "versionValue": "Version {version}",
+    "selectedFqn": "Selected FQN"
   },
-  "preview": {
-    "title": "Preview output",
-    "rendered": "Rendered",
-    "default": "Version JSON"
+  "detail": {
+    "breadcrumb": "Prompt Registry > {name}",
+    "description": "Read prompt details, inspect saved versions, and copy usage examples without entering edit mode.",
+    "loading": "Loading prompt details...",
+    "empty": "No saved prompt version is available yet.",
+    "tabs": {
+      "prompt": "Prompt",
+      "spec": "Spec",
+      "sdk": "Use Via SDK",
+      "gateway": "Use Via AI Gateway"
+    },
+    "summary": {
+      "promptId": "Prompt ID",
+      "createdAt": "Version Created",
+      "versionAuthor": "Version Author"
+    },
+    "specDescription": "Serialized manifest for the selected version.",
+    "sdkDescription": "Copy an SDK example wired to the selected prompt version FQN.",
+    "gatewayDescription": "Gateway-oriented examples for the selected prompt version.",
+    "gateway": {
+      "stream": "Stream",
+      "nonStream": "Non-stream",
+      "streamDescription": "Streaming request example for the selected version.",
+      "nonStreamDescription": "Non-streaming request example for the selected version."
+    },
+    "historyDescription": "Switch the selected version or open the compare flow.",
+    "historySearchPlaceholder": "Search version no.",
+    "compareTitle": "Version Difference",
+    "compareDescription": "Compare two saved prompt specs side by side.",
+    "compareBaseVersion": "Left version",
+    "compareTargetVersion": "Right version"
   },
-  "validation": {
-    "name": "Name must contain only letters, numbers, hyphens, and underscores.",
-    "messages": "Add at least one system or user message.",
-    "jsonObject": "{label} must be a JSON object.",
-    "jsonSyntax": "{label} is not valid JSON."
+  "builder": {
+    "breadcrumbExisting": "Prompt Registry > {name}",
+    "breadcrumbNew": "Prompt Registry > New Prompt",
+    "titleExisting": "Edit prompt and save a new version",
+    "titleNew": "New prompt playground",
+    "description": "Build the reusable template on the left, then run it through Shahrah Gateway before saving.",
+    "fields": {
+      "name": "Prompt name",
+      "namePlaceholder": "booking_greeting",
+      "commitMessage": "Commit message",
+      "commitMessagePlaceholder": "What changed in this version?",
+      "description": "Description"
+    },
+    "systemPrompt": {
+      "title": "SYSTEM PROMPT",
+      "descriptionPrefix": "Use reusable placeholders such as",
+      "descriptionSuffix": ".",
+      "default": "You are a helpful assistant."
+    },
+    "conversation": {
+      "title": "Conversation template",
+      "description": "Add reusable user or assistant turns that should be versioned with the prompt.",
+      "empty": "No conversation messages yet.",
+      "composerPlaceholder": "Enter reusable message text..."
+    }
+  },
+  "playground": {
+    "title": "Playground response",
+    "description": "Run the current draft through Shahrah Gateway before saving.",
+    "empty": "Response will appear here.",
+    "usage": {
+      "prompt": "prompt {count}",
+      "completion": "completion {count}",
+      "total": "total {count}"
+    }
+  },
+  "dialogs": {
+    "model": {
+      "title": "Select model",
+      "description": "Choose a real Shahrah model alias or virtual model that is already routable by the gateway.",
+      "searchPlaceholder": "Search models",
+      "empty": "No models available for this provider."
+    },
+    "cache": {
+      "title": "Cache Config",
+      "description": "Configure Shahrah response cache using the same contract as `x-shahrah-cache-config`.",
+      "enableTitle": "Enable cache",
+      "enableDescription": "Use `simple` for exact-match and `smart` for semantic cache.",
+      "fields": {
+        "type": "Cache type",
+        "ttl": "TTL seconds",
+        "namespace": "Namespace",
+        "similarity": "Similarity threshold"
+      }
+    },
+    "guardrails": {
+      "inputTitle": "Input Guardrails",
+      "outputTitle": "Output Guardrails",
+      "inputDescription": "Attach tenant guardrails that validate or mutate the request before model execution.",
+      "outputDescription": "Attach tenant guardrails that validate or mutate the model response after execution.",
+      "streamingDisabledTitle": "Streaming must be disabled",
+      "streamingAlreadyDisabledTitle": "Streaming is already disabled",
+      "streamingDisabledDescription": "Shahrah currently rejects output guardrails when streaming is enabled. Disable stream in model settings before running or saving.",
+      "streamingAlreadyDisabledDescription": "Shahrah currently accepts output guardrails only when streaming is disabled.",
+      "scope": "Scope",
+      "scopeLast": "last",
+      "scopeAll": "all"
+    },
+    "structured": {
+      "title": "Structured Output",
+      "description": "Configure OpenAI-compatible `response_format` for structured output.",
+      "enableTitle": "Enable structured output",
+      "enableDescription": "Unsupported models should be handled explicitly by the UI and backend response.",
+      "fields": {
+        "format": "Format",
+        "strict": "Strict",
+        "schema": "JSON Schema"
+      }
+    }
+  },
+  "roles": {
+    "user": "User",
+    "assistant": "Assistant"
   },
   "messages": {
-    "loadError": "Prompts could not be loaded.",
-    "versionsLoadError": "Versions could not be loaded.",
-    "createError": "Prompt could not be created.",
-    "versionSaveError": "Prompt version could not be saved.",
-    "saveError": "Prompt could not be saved.",
-    "created": "Prompt created.",
+    "loadPromptsError": "Prompts could not be loaded.",
+    "loadModelsError": "Models could not be loaded.",
+    "loadGuardrailsError": "Guardrails could not be loaded.",
+    "loadVersionsError": "Prompt versions could not be loaded.",
+    "savePromptError": "Prompt could not be saved.",
+    "runPromptError": "Prompt execution failed.",
+    "promptCreated": "Prompt created.",
+    "promptDeleted": "Prompt deleted.",
     "versionSaved": "Prompt version saved.",
-    "deleteError": "Prompt could not be deleted.",
-    "deleted": "Prompt deleted.",
-    "valueCopied": "Value copied.",
-    "jsonCopied": "JSON copied.",
-    "selectVersion": "Select a prompt version first.",
-    "renderError": "Prompt could not be rendered.",
+    "deletePromptError": "Prompt could not be deleted.",
+    "deletePromptConfirm": "Delete \"{name}\"?",
+    "fqnUnavailable": "No FQN is available for this prompt yet.",
+    "fqnCopied": "Prompt FQN copied.",
+    "specCopied": "Prompt spec copied.",
     "snippetCopied": "Usage snippet copied."
   },
-  "deleteDialog": {
-    "title": "Delete prompt?",
-    "description": "This will delete \"{name}\" and all of its versions. Existing gateway requests using its FQN will fail."
+  "validation": {
+    "streamingConflictTitle": "Streaming conflict",
+    "invalidName": "Prompt name must contain only letters, numbers, hyphens, and underscores.",
+    "modelRequired": "Select a model before saving.",
+    "temperatureRange": "Temperature must be between 0 and 2.",
+    "topPRange": "Top P must be between 0 and 1.",
+    "maxTokensMin": "Max tokens must be at least 1.",
+    "structuredSchemaObject": "Structured output schema must be a JSON object.",
+    "structuredSchemaInvalidJson": "Structured output schema is not valid JSON.",
+    "outputGuardrailsRequireStreamingOff": "Output guardrails require streaming to be disabled.",
+    "messagesRequired": "Add at least one system, user, or assistant message.",
+    "cacheTtl": "Cache TTL must be a positive integer.",
+    "smartCacheSimilarity": "Smart cache similarity threshold must be between 0.8 and 1.",
+    "metadataKeyRequired": "Metadata keys cannot be empty.",
+    "metadataKeyDuplicate": "Duplicate metadata key: {key}",
+    "runtimeVariablesMissing": "Provide runtime values for: {names}",
+    "renderVariablesMissing": "Missing values for: {names}"
   }
 }
