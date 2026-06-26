@@ -1,67 +1,67 @@
-# AGENTS.md — `apps/tenant-admin`
+# tenant-admin AGENTS
 
 ## Purpose
-This file defines **mandatory** quality rules for UI copy, Persian translations, and i18n behavior in `tenant-admin`.
-Any agent working in this app must follow these rules by default without needing extra user reminders.
+Private tenant-facing admin console for Shahrah. This app owns:
+
+- virtual models and provider accounts
+- virtual users and access tokens
+- teams and org units
+- billing top-up and plan views
+- trace inspection and privacy settings
+- account settings and profile updates
+
+This is a Next.js App Router app with `next-intl` for UI copy.
 
 ## Non-Negotiable Defaults
+
 1. Never ship hardcoded user-facing strings in components.
-2. Always use `next-intl` keys (`useTranslations(...)`) for UI text, labels, helper text, buttons, empty states, and messages.
-3. Preserve domain language for **LLM Models + Providers** (not generic wording).
-4. Treat copywriting quality as product behavior, not as a cosmetic task.
+2. Use `next-intl` keys (`useTranslations(...)`) for labels, helper text, buttons, empty states, and messages.
+3. Keep the product language precise for LLM models, providers, accounts, and access policy flows.
+4. Treat copy quality as product behavior, not decoration.
 
 ## i18n Source of Truth
-1. Primary locale is currently `fa` (see `i18n/request.ts`).
-2. Source of truth is namespace modules under `messages/modules/<namespace>/<locale>.json`.
+
+1. Primary locale is `fa` (`i18n/request.ts`).
+2. Source of truth is `messages/modules/<namespace>/<locale>.json`.
 3. Keep `fa` and `en` structurally aligned per namespace.
-4. When adding a new key in one locale, add the corresponding key in the other locale in the same change.
+4. Add both locales in the same change whenever a key changes.
 
-## Copywriting Style (Product)
-Use precise product terms:
-- `Provider account`
-- `Connection validation`
-- `Enable models`
-- `Usage access policy`
-- `Account managers`
-- `Users allowed to consume models`
+## Current UI Flows
 
-Prefer short, operational, UI-native wording. Avoid verbose prose.
+- Provider account setup uses a 3-step flow: provider selection, provider-specific connection fields, then models plus access policy.
+- Billing top-up lives under `/billing/topup` and the result page is `/billing/topup/result`.
+- PAT management lives under `/personal-access-tokens`.
+- Traces live under `/traces` and `/traces/[traceID]`.
+- Core admin areas include `/virtual-models`, `/virtual-users`, `/teams`, `/settings`, and `/billing/plan`.
 
-## Persian (`fa`) Quality Rules
-1. Use natural Persian product copy, not literal word-by-word translation.
-2. Keep technical terms where appropriate (`API Key`, `Secret`, `Discovery`, `Provider`).
-3. Avoid mixed/awkward phrasing and inconsistent terminology across pages.
-4. Keep action verbs clear and consistent across buttons/messages.
+## Integration Rules
+
+1. Use control-plane APIs through the app routes in this app.
+2. Do not add direct database or Prisma access here.
+3. Keep local email delivery on SMTP/Mailpit and production email on Resend.
 
 ## Encoding and Corruption Guardrails
-1. Files must be UTF-8.
-2. Do not allow mojibake (`Ø...`, `Ù...`, replacement chars `�`) or `????` strings.
+
+1. Files must stay UTF-8.
+2. Do not introduce mojibake, replacement characters, or `????` strings.
 3. Before finalizing i18n changes, scan locale files for corrupted strings.
 
-## UX Text Consistency
-For each workflow, ensure:
-1. Step titles, descriptions, CTA labels, and validation messages form one coherent flow.
-2. Error and success tones are consistent across all steps.
-3. Empty states are explicit and actionable.
+## Implementation Checklist for i18n Edits
 
-## Provider-Specific Forms
-For provider connection setup:
-1. Step 1: provider selection only.
-2. Step 2: provider-specific connection fields based on auth mode.
-3. Step 3: models + access policy.
-4. Text must reflect this flow exactly in both language files.
+1. Update `messages/modules/<namespace>/fa.json`.
+2. Mirror the same structure in `messages/modules/<namespace>/en.json`.
+3. Replace any new hardcoded UI text with translation keys.
+4. Run `pnpm --filter @shahrah/tenant-admin lint`.
+5. Run `pnpm --filter @shahrah/tenant-admin validate:i18n`.
+6. Verify no corrupted locale values remain.
 
-## Implementation Checklist (Required on i18n edits)
-1. Add/update keys in `messages/modules/<namespace>/fa.json`.
-2. Mirror structure in `messages/modules/<namespace>/en.json`.
-3. Replace any newly introduced hardcoded UI text with translation keys.
-4. Run lint for `tenant-admin`.
-5. Run `npm run validate:i18n` for namespace parity and JSON integrity.
-6. Verify no corrupted locale values.
+## Commands
 
-## PR/Delivery Notes
-When reporting i18n work:
-1. List changed message namespaces.
-2. Mention if any keys were renamed or moved.
-3. Confirm hardcoded strings were not introduced.
-4. Confirm corruption scan passed.
+Run from the repository root:
+
+```bash
+pnpm --filter @shahrah/tenant-admin dev
+pnpm --filter @shahrah/tenant-admin build
+pnpm --filter @shahrah/tenant-admin lint
+pnpm --filter @shahrah/tenant-admin validate:i18n
+```

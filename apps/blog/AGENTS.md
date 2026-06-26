@@ -1,7 +1,27 @@
-# Blog Agent Notes
+# Blog AGENTS
 
-- This app uses Astro for the Shahrah blog.
-- Run commands from the repository root with `pnpm --filter @shahrah/blog ...`.
-- Keep this app focused on editorial and marketing content, not API reference docs.
-- Replace framework starter content with Shahrah-specific layouts and content collections over time.
-- Avoid introducing a separate workspace; this app belongs to the root monorepo workspace.
+Astro site for Shahrah's marketing and technical blog.
+
+## Purpose
+
+- product announcements
+- tutorials and deep dives
+- company updates
+- editorial content only
+
+Keep API reference docs and product documentation out of this app.
+
+## Working Rules
+
+1. Use the monorepo workspace only; do not create a separate workspace or lockfile.
+2. Run commands from the repository root with `pnpm --filter @shahrah/blog ...`.
+3. Keep content Shahrah-specific instead of starter-template content.
+4. Treat this as the canonical blog app for the platform.
+
+## Commands
+
+```bash
+pnpm --filter @shahrah/blog dev
+pnpm --filter @shahrah/blog build
+pnpm --filter @shahrah/blog lint
+```

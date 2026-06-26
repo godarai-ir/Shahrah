@@ -1,7 +1,27 @@
-# Docs Agent Notes
+# Docs AGENTS
 
-- This app uses Docusaurus for Shahrah documentation.
-- Run commands from the repository root with `pnpm --filter @shahrah/docs ...`.
-- Keep this app focused on documentation, not product marketing.
-- The built-in Docusaurus blog should remain disabled because `apps/blog` is the canonical blog app.
-- Replace framework starter content with Shahrah-specific docs as soon as real content is available.
+Docusaurus documentation site for Shahrah.
+
+## Purpose
+
+- developer onboarding
+- API reference
+- SDK guides
+- billing and platform documentation
+
+Keep this app focused on docs, not product marketing.
+
+## Working Rules
+
+1. Run commands from the repository root with `pnpm --filter @shahrah/docs ...`.
+2. Keep the built-in Docusaurus blog disabled because `apps/blog` is the canonical blog app.
+3. Replace starter content with Shahrah-specific documentation as soon as real content is available.
+4. Prefer docs that explain current platform behavior over speculative future plans.
+
+## Commands
+
+```bash
+pnpm --filter @shahrah/docs dev
+pnpm --filter @shahrah/docs build
+pnpm --filter @shahrah/docs lint
+```
