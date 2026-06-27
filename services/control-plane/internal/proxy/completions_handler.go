@@ -32,21 +32,34 @@ type CompletionsHandler struct {
 	emitMetric func(input metricsobs.BuildInput)
 }
 
+func NewCompletionsHandlerWithDependencies(deps BaseHandlerDependencies) *CompletionsHandler {
+	return &CompletionsHandler{
+		llmRouter:  deps.Router,
+		tunnel:     deps.Tunnel,
+		billing:    deps.Billing,
+		wallets:    deps.Wallets,
+		logs:       deps.logger(),
+		logger:     deps.Logger,
+		emitMetric: deps.metricEmitter(),
+	}
+}
+
 // NewCompletionsHandler creates a new legacy completions handler.
 func NewCompletionsHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, wallets walletStore, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *CompletionsHandler {
 	var metricEmitter func(input metricsobs.BuildInput)
 	if len(emitMetric) > 0 {
 		metricEmitter = emitMetric[0]
 	}
-	return &CompletionsHandler{
-		llmRouter:  llmRouter,
-		tunnel:     tunnel,
-		billing:    billing,
-		wallets:    wallets,
-		logs:       logs,
-		logger:     logger,
-		emitMetric: metricEmitter,
-	}
+	return NewCompletionsHandlerWithDependencies(BaseHandlerDependencies{
+		Router:        llmRouter,
+		Tunnel:        tunnel,
+		Billing:       billing,
+		Wallets:       wallets,
+		RequestLogger: logs,
+		SpendLogger:   logs,
+		Logger:        logger,
+		EmitMetric:    metricEmitter,
+	})
 }
 
 // Handle processes a legacy text completion request.
@@ -247,7 +260,7 @@ func (h *CompletionsHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCo
 		h.logger.Error("failed to debit wallet", zap.Error(err))
 	}
 	setCostHeaders(c, finalCost)
-	c.Set(apiheaders.HeaderTraceID, tunnelReq.RequestID)
+	setTraceHeaders(c, tunnelReq.RequestID)
 
 	// Log asynchronously
 	responseTimeMS := int(time.Since(start).Milliseconds())
@@ -336,7 +349,7 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 	c.Set("Cache-Control", "no-cache")
 	c.Set("Connection", "keep-alive")
 	c.Set("X-Accel-Buffering", "no")
-	c.Set(apiheaders.HeaderTraceID, tunnelReq.TraceID)
+	setTraceHeaders(c, tunnelReq.TraceID)
 
 	// Forward provider headers from stream
 	forwardProviderHeaders(c, stream.Headers())
@@ -484,6 +497,13 @@ func (h *CompletionsHandler) emitModelMetric(input metricsobs.BuildInput) {
 func setCostHeaders(c *fiber.Ctx, cost platform.UsageCostBreakdown) {
 	c.Set(apiheaders.HeaderCostUSD, fmt.Sprintf("%.8f", cost.TotalCostUSD))
 	c.Set(apiheaders.HeaderCostIRR, fmt.Sprintf("%.2f", cost.TotalCostIRR))
+	c.Set(apiheaders.LegacyHeaderCostUSD, fmt.Sprintf("%.8f", cost.TotalCostUSD))
+	c.Set(apiheaders.LegacyHeaderCostIRR, fmt.Sprintf("%.2f", cost.TotalCostIRR))
+}
+
+func setTraceHeaders(c *fiber.Ctx, traceID string) {
+	c.Set(apiheaders.HeaderTraceID, traceID)
+	c.Set(apiheaders.LegacyHeaderTraceID, traceID)
 }
 
 // mustMarshalJSON marshals to JSON or panics.

@@ -18,6 +18,8 @@ const (
 	HeaderCacheSimilarity      = "x-godarai-cache-similarity-score"
 	HeaderCostUSD              = "x-godarai-cost-usd"
 	HeaderCostIRR              = "x-godarai-cost-irr"
+	LegacyHeaderCostUSD        = "x-shahrah-cost-usd"
+	LegacyHeaderCostIRR        = "x-shahrah-cost-irr"
 	HeaderGuardrails           = "x-godarai-guardrails"
 	LegacyHeaderGuardrails     = "x-shahrah-guardrails"
 	HeaderGuardrailsScope      = "x-godarai-guardrails-scope"

@@ -321,7 +321,18 @@ func TestChatCompletionHandler_RoutesFQNThroughWildcardAsOfficialProviderModel(t
 	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandlerWithDependencies(proxy.ChatCompletionDependencies{
+		Base: proxy.BaseHandlerDependencies{
+			Router:        r,
+			Tunnel:        mTunnel,
+			Billing:       mBilling,
+			Wallets:       mWallet,
+			RequestLogger: mLogs,
+			SpendLogger:   mLogs,
+			Logger:        logger,
+		},
+		VirtualModelStore: mLogs,
+	})
 	app := setupTestApp(t, handler)
 
 	payload, _ := json.Marshal(map[string]interface{}{
@@ -429,7 +440,18 @@ func TestChatCompletionHandler_VirtualModelSendsSelectedProviderModel(t *testing
 		},
 	}
 
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandlerWithDependencies(proxy.ChatCompletionDependencies{
+		Base: proxy.BaseHandlerDependencies{
+			Router:        r,
+			Tunnel:        mTunnel,
+			Billing:       mBilling,
+			Wallets:       mWallet,
+			RequestLogger: mLogs,
+			SpendLogger:   mLogs,
+			Logger:        logger,
+		},
+		VirtualModelStore: mLogs,
+	})
 	app := setupTestApp(t, handler)
 
 	payload, _ := json.Marshal(map[string]interface{}{

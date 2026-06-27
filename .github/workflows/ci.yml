@@ -58,8 +58,8 @@ jobs:
         run: go mod download
         working-directory: ${{ env.CONTROL_PLANE_DIR }}
 
-      - name: Run unit tests
-        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./tests/unit/...
+      - name: Run full module tests
+        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
         working-directory: ${{ env.CONTROL_PLANE_DIR }}
 
       - name: Upload coverage to Codecov

@@ -8,6 +8,9 @@ RUN apk --no-cache add git
 
 COPY packages/contracts ./packages/contracts
 COPY services/control-plane/go.mod services/control-plane/go.sum ./services/control-plane/
+COPY services/silk-road/go.mod ./services/silk-road/go.mod
+COPY services/tunnel-client/go.mod ./services/tunnel-client/go.mod
+COPY services/tunnel-server/go.mod ./services/tunnel-server/go.mod
 
 WORKDIR /src/services/control-plane
 ENV GOWORK=off
@@ -17,6 +20,9 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 WORKDIR /src
 COPY services/control-plane ./services/control-plane
+COPY services/silk-road ./services/silk-road
+COPY services/tunnel-client ./services/tunnel-client
+COPY services/tunnel-server ./services/tunnel-server
 
 WORKDIR /src/services/control-plane
 RUN --mount=type=cache,target=/go/pkg/mod \

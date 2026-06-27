@@ -43,14 +43,27 @@ func NewModerationsHandler(llmRouter *router.Router, tunnel platform.TunnelTrans
 	if len(emitMetric) > 0 {
 		metricEmitter = emitMetric[0]
 	}
+	return NewModerationsHandlerWithDependencies(BaseHandlerDependencies{
+		Router:        llmRouter,
+		Tunnel:        tunnel,
+		Billing:       billing,
+		Wallets:       wallets,
+		RequestLogger: logs,
+		SpendLogger:   logs,
+		Logger:        logger,
+		EmitMetric:    metricEmitter,
+	})
+}
+
+func NewModerationsHandlerWithDependencies(deps BaseHandlerDependencies) *ModerationsHandler {
 	return &ModerationsHandler{
-		llmRouter:  llmRouter,
-		tunnel:     tunnel,
-		billing:    billing,
-		wallets:    wallets,
-		logs:       logs,
-		logger:     logger,
-		emitMetric: metricEmitter,
+		llmRouter:  deps.Router,
+		tunnel:     deps.Tunnel,
+		billing:    deps.Billing,
+		wallets:    deps.Wallets,
+		logs:       deps.logger(),
+		logger:     deps.Logger,
+		emitMetric: deps.metricEmitter(),
 	}
 }
 
@@ -265,9 +278,8 @@ func (h *ModerationsHandler) handleSync(c *fiber.Ctx, req contractsopenai.Modera
 	})
 
 	forwardProviderHeaders(c, resp.Headers)
-	c.Set(apiheaders.HeaderTraceID, tunnelReq.TraceID)
-	c.Set(apiheaders.HeaderCostUSD, fmt.Sprintf("%.8f", finalCost.TotalCostUSD))
-	c.Set(apiheaders.HeaderCostIRR, fmt.Sprintf("%.2f", finalCost.TotalCostIRR))
+	setTraceHeaders(c, tunnelReq.TraceID)
+	setCostHeaders(c, finalCost)
 
 	responseStart := time.Now()
 	err = c.Status(resp.StatusCode).JSON(response)

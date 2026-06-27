@@ -39,7 +39,28 @@ func NewImagesHandler(llmRouter *router.Router, tunnel platform.TunnelTransport,
 	if len(emitMetric) > 0 {
 		metricEmitter = emitMetric[0]
 	}
-	return &ImagesHandler{llmRouter: llmRouter, tunnel: tunnel, billing: billing, wallets: wallets, logs: logs, logger: logger, emitMetric: metricEmitter}
+	return NewImagesHandlerWithDependencies(BaseHandlerDependencies{
+		Router:        llmRouter,
+		Tunnel:        tunnel,
+		Billing:       billing,
+		Wallets:       wallets,
+		RequestLogger: logs,
+		SpendLogger:   logs,
+		Logger:        logger,
+		EmitMetric:    metricEmitter,
+	})
+}
+
+func NewImagesHandlerWithDependencies(deps BaseHandlerDependencies) *ImagesHandler {
+	return &ImagesHandler{
+		llmRouter:  deps.Router,
+		tunnel:     deps.Tunnel,
+		billing:    deps.Billing,
+		wallets:    deps.Wallets,
+		logs:       deps.logger(),
+		logger:     deps.Logger,
+		emitMetric: deps.metricEmitter(),
+	}
 }
 
 func (h *ImagesHandler) HandleGenerations(c *fiber.Ctx) error {
@@ -251,9 +272,8 @@ func (h *ImagesHandler) handleSync(c *fiber.Ctx, requestedModel string, estimate
 	})
 
 	forwardProviderHeaders(c, resp.Headers)
-	c.Set(apiheaders.HeaderTraceID, tunnelReq.TraceID)
-	c.Set(apiheaders.HeaderCostUSD, fmt.Sprintf("%.8f", finalCost.TotalCostUSD))
-	c.Set(apiheaders.HeaderCostIRR, fmt.Sprintf("%.2f", finalCost.TotalCostIRR))
+	setTraceHeaders(c, tunnelReq.TraceID)
+	setCostHeaders(c, finalCost)
 	responseStart := time.Now()
 	err = c.Status(resp.StatusCode).Send(resp.Body)
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "response.write", "internal", responseStart, resp.StatusCode, map[string]interface{}{

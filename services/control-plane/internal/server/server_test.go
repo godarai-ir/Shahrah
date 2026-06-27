@@ -93,7 +93,10 @@ func TestNewFiberAppRegistersPromptRoutes(t *testing.T) {
 	t.Parallel()
 
 	app := NewFiberApp(&config.Config{}, Dependencies{
-		AdminHandlers: admin.New(publicLoginDiscoveryStore{}, nil, nil),
+		AdminHandlers: admin.New(admin.Dependencies{
+			Keys:           publicLoginDiscoveryStore{},
+			LoginDiscovery: publicLoginDiscoveryStore{},
+		}),
 	})
 
 	resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/api/v1/prompts", nil))
@@ -104,7 +107,7 @@ func TestNewFiberAppRegistersPromptRoutes(t *testing.T) {
 func TestPlatformAdminAuthMiddlewareRequiresMasterKey(t *testing.T) {
 	t.Parallel()
 	app := fiber.New()
-	app.Get("/platform", platformAdminAuthMiddleware("master-secret", nil), func(c *fiber.Ctx) error {
+	app.Get("/platform", controlauth.PlatformAdminAuthMiddleware("master-secret", nil), func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
@@ -136,7 +139,7 @@ func TestPlatformAdminAuthMiddlewareEnforcesServiceAccountScopes(t *testing.T) {
 		Scopes:       []string{controlauth.PlatformScopeRead},
 	}}
 	app := fiber.New()
-	app.Use(platformAdminAuthMiddleware("master-secret", store))
+	app.Use(controlauth.PlatformAdminAuthMiddleware("master-secret", store))
 	app.Get("/api/v1/platform/features", func(c *fiber.Ctx) error { return c.SendStatus(fiber.StatusNoContent) })
 	app.Post("/api/v1/platform/commercial-plans", func(c *fiber.Ctx) error { return c.SendStatus(fiber.StatusNoContent) })
 
@@ -158,7 +161,7 @@ func TestLoginDiscoveryRoutesArePublic(t *testing.T) {
 
 	store := publicLoginDiscoveryStore{}
 	app := NewFiberApp(&config.Config{}, Dependencies{
-		AdminHandlers:  admin.New(store, nil, nil),
+		AdminHandlers:  admin.New(admin.Dependencies{Keys: store, LoginDiscovery: store}),
 		TenantResolver: tenantmw.NewMiddleware(tenantLookupAlwaysFails{}, "", false),
 	})
 

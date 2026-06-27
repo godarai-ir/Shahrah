@@ -119,36 +119,30 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 	}, memCache, modelStore, logger)
 	assert.NoError(t, err)
 
+	baseProxyDeps := proxy.BaseHandlerDependencies{
+		Router:        llmRouter,
+		Tunnel:        tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
+		Billing:       billingSvc,
+		Wallets:       walletStore,
+		RequestLogger: walletStore,
+		SpendLogger:   walletStore,
+		Logger:        logger,
+	}
 	app := controlserver.NewFiberApp(&config.Config{}, controlserver.Dependencies{
 		AuthMiddleware: auth.NewAuthMiddleware(authStore, "sk-master", logger),
 		TenantResolver: tenantmw.NewMiddleware(tenantStore, "default", true),
-		AdminHandlers:  admin.New(noopKeyStore{}, modelStore, walletStore),
-		ProxyHandler: proxy.NewChatCompletionHandler(
-			llmRouter,
-			tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
-			billingSvc,
-			walletStore,
-			walletStore,
-			logger,
-		),
-		CompletionsHandler: proxy.NewCompletionsHandler(
-			llmRouter,
-			tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
-			billingSvc,
-			walletStore,
-			walletStore,
-			logger,
-		),
-		ResponsesHandler: proxy.NewResponsesHandler(
-			llmRouter,
-			tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
-			billingSvc,
-			walletStore,
-			walletStore,
-			logger,
-		),
-		ModelsHandler: proxy.NewModelsHandler(modelStore),
-		Logger:        logger,
+		AdminHandlers: admin.New(admin.Dependencies{
+			Keys:    noopKeyStore{},
+			Models:  modelStore,
+			Wallets: walletStore,
+		}),
+		ProxyHandler: proxy.NewChatCompletionHandlerWithDependencies(proxy.ChatCompletionDependencies{
+			Base: baseProxyDeps,
+		}),
+		CompletionsHandler: proxy.NewCompletionsHandlerWithDependencies(baseProxyDeps),
+		ResponsesHandler:   proxy.NewResponsesHandlerWithDependencies(baseProxyDeps),
+		ModelsHandler:      proxy.NewModelsHandler(modelStore),
+		Logger:             logger,
 	})
 
 	reqBody := `{"model":"gpt-3.5-turbo","messages":[{"role":"user","content":"hi"}]}`
@@ -2044,36 +2038,34 @@ func newIntegrationApp(t *testing.T, logger *zap.Logger, memCache cache.Cache, p
 	}, memCache, modelStore, logger)
 	require.NoError(t, err)
 
+	baseProxyDeps := proxy.BaseHandlerDependencies{
+		Router:        llmRouter,
+		Tunnel:        tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
+		Billing:       billingSvc,
+		Wallets:       walletStore,
+		RequestLogger: walletStore,
+		SpendLogger:   walletStore,
+		Logger:        logger,
+	}
 	app := controlserver.NewFiberApp(&config.Config{}, controlserver.Dependencies{
 		AuthMiddleware: auth.NewAuthMiddleware(keyStore, "sk-master", logger),
 		TenantResolver: tenantmw.NewMiddleware(tenantStore, "default", true),
-		AdminHandlers:  admin.New(keyStore, modelStore, walletStore),
-		ProxyHandler: proxy.NewChatCompletionHandler(
-			llmRouter,
-			tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
-			billingSvc,
-			walletStore,
-			walletStore,
-			logger,
-		),
-		CompletionsHandler: proxy.NewCompletionsHandler(
-			llmRouter,
-			tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
-			billingSvc,
-			walletStore,
-			walletStore,
-			logger,
-		),
-		ResponsesHandler: proxy.NewResponsesHandler(
-			llmRouter,
-			tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
-			billingSvc,
-			walletStore,
-			walletStore,
-			logger,
-		),
-		ModelsHandler: proxy.NewModelsHandler(modelStore),
-		Logger:        logger,
+		AdminHandlers: admin.New(admin.Dependencies{
+			Keys:         keyStore,
+			Models:       modelStore,
+			Wallets:      walletStore,
+			OrgUnits:     keyStore,
+			Memberships:  keyStore,
+			VirtualUsers: keyStore,
+			Users:        modelStore,
+		}),
+		ProxyHandler: proxy.NewChatCompletionHandlerWithDependencies(proxy.ChatCompletionDependencies{
+			Base: baseProxyDeps,
+		}),
+		CompletionsHandler: proxy.NewCompletionsHandlerWithDependencies(baseProxyDeps),
+		ResponsesHandler:   proxy.NewResponsesHandlerWithDependencies(baseProxyDeps),
+		ModelsHandler:      proxy.NewModelsHandler(modelStore),
+		Logger:             logger,
 	})
 
 	walletStore.onSpend = keyStore.addSpend

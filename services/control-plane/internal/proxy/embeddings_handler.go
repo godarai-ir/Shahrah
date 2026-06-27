@@ -43,14 +43,27 @@ func NewEmbeddingsHandler(llmRouter *router.Router, tunnel platform.TunnelTransp
 	if len(emitMetric) > 0 {
 		metricEmitter = emitMetric[0]
 	}
+	return NewEmbeddingsHandlerWithDependencies(BaseHandlerDependencies{
+		Router:        llmRouter,
+		Tunnel:        tunnel,
+		Billing:       billing,
+		Wallets:       wallets,
+		RequestLogger: logs,
+		SpendLogger:   logs,
+		Logger:        logger,
+		EmitMetric:    metricEmitter,
+	})
+}
+
+func NewEmbeddingsHandlerWithDependencies(deps BaseHandlerDependencies) *EmbeddingsHandler {
 	return &EmbeddingsHandler{
-		llmRouter:  llmRouter,
-		tunnel:     tunnel,
-		billing:    billing,
-		wallets:    wallets,
-		logs:       logs,
-		logger:     logger,
-		emitMetric: metricEmitter,
+		llmRouter:  deps.Router,
+		tunnel:     deps.Tunnel,
+		billing:    deps.Billing,
+		wallets:    deps.Wallets,
+		logs:       deps.logger(),
+		logger:     deps.Logger,
+		emitMetric: deps.metricEmitter(),
 	}
 }
 
@@ -271,9 +284,8 @@ func (h *EmbeddingsHandler) handleSync(c *fiber.Ctx, req contractsopenai.Embeddi
 	})
 
 	forwardProviderHeaders(c, resp.Headers)
-	c.Set(apiheaders.HeaderTraceID, tunnelReq.TraceID)
-	c.Set(apiheaders.HeaderCostUSD, fmt.Sprintf("%.8f", finalCost.TotalCostUSD))
-	c.Set(apiheaders.HeaderCostIRR, fmt.Sprintf("%.2f", finalCost.TotalCostIRR))
+	setTraceHeaders(c, tunnelReq.TraceID)
+	setCostHeaders(c, finalCost)
 
 	responseStart := time.Now()
 	err = c.Status(resp.StatusCode).JSON(response)

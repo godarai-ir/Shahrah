@@ -105,9 +105,44 @@ func main() {
 		defer reconciler.Stop()
 	}
 
-	adminHandlers := admin.New(store, store, store)
+	adminHandlers := admin.New(admin.Dependencies{
+		Keys:             store,
+		Models:           store,
+		Wallets:          store,
+		ProviderAccounts: store,
+		OrgUnits:         store,
+		Memberships:      store,
+		Users:            store,
+		VirtualUsers:     store,
+		Teams:            store,
+		Onboarding:       store,
+		LoginDiscovery:   store,
+		Traces:           store,
+		Metrics:          store,
+		TracePrivacy:     store,
+		Prompts:          store,
+		Roles:            store,
+		Plans:            store,
+		Entitlements:     store,
+		SupportTenants:   store,
+	})
 	authHandlers := admin.NewAuthHandlers(store, admin.NewOTPEmailSenderFromEnv())
-	proxyHandler := proxy.NewChatCompletionHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
+	baseProxyDeps := proxy.BaseHandlerDependencies{
+		Router:        llmRouter,
+		Tunnel:        tunnelClient,
+		Billing:       billingService,
+		Wallets:       store,
+		RequestLogger: store,
+		SpendLogger:   store,
+		Logger:        logger,
+		EmitMetric:    emitMetric,
+	}
+	proxyHandler := proxy.NewChatCompletionHandlerWithDependencies(proxy.ChatCompletionDependencies{
+		Base:              baseProxyDeps,
+		VirtualModelStore: store,
+		GuardrailResolver: store,
+		PromptResolver:    store,
+	})
 	proxyHandler.SetGuardrails(guardrails.NewDefaultEngine())
 	var responseEmbedder responsecache.Embedder
 	if cfg.ResponseCache.Enabled && sharedResponseCacheAvailable && strings.TrimSpace(cfg.ResponseCache.EmbeddingBaseURL) != "" && strings.TrimSpace(cfg.ResponseCache.EmbeddingAPIKey) != "" {
@@ -136,11 +171,11 @@ func main() {
 		logger.Fatal("Failed to initialize response cache", zap.Error(responseCacheErr))
 	}
 	proxyHandler.SetResponseCache(responseCache)
-	completionsHandler := proxy.NewCompletionsHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
-	responsesHandler := proxy.NewResponsesHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
-	embeddingsHandler := proxy.NewEmbeddingsHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
-	moderationsHandler := proxy.NewModerationsHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
-	imagesHandler := proxy.NewImagesHandler(llmRouter, tunnelClient, billingService, store, store, logger, emitMetric)
+	completionsHandler := proxy.NewCompletionsHandlerWithDependencies(baseProxyDeps)
+	responsesHandler := proxy.NewResponsesHandlerWithDependencies(baseProxyDeps)
+	embeddingsHandler := proxy.NewEmbeddingsHandlerWithDependencies(baseProxyDeps)
+	moderationsHandler := proxy.NewModerationsHandlerWithDependencies(baseProxyDeps)
+	imagesHandler := proxy.NewImagesHandlerWithDependencies(baseProxyDeps)
 	modelsHandler := proxy.NewModelsHandler(store)
 
 	traceCfg := tracing.LoadConfigFromEnv()

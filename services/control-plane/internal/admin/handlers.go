@@ -218,6 +218,28 @@ type supportTenantOperationsStore interface {
 	ListTenantSubscriptionPaymentIntents(ctx context.Context, tenantID string, limit, offset int) ([]platform.SubscriptionPaymentIntent, error)
 }
 
+type Dependencies struct {
+	Keys             keyStore
+	Models           modelStore
+	Wallets          walletStore
+	ProviderAccounts providerAccountStore
+	OrgUnits         orgUnitStore
+	Memberships      membershipStore
+	Users            userStore
+	VirtualUsers     virtualUserStore
+	Teams            teamStore
+	Onboarding       onboardingStore
+	LoginDiscovery   loginDiscoveryStore
+	Traces           traceStore
+	Metrics          metricsStore
+	TracePrivacy     tracePrivacyStore
+	Prompts          promptStore
+	Roles            roleStore
+	Plans            planStore
+	Entitlements     entitlementResolverStore
+	SupportTenants   supportTenantOperationsStore
+}
+
 // Handlers serves bootstrap management APIs.
 type Handlers struct {
 	keys             keyStore
@@ -242,46 +264,27 @@ type Handlers struct {
 }
 
 // New creates a management handlers bundle.
-func New(keys keyStore, models modelStore, wallets walletStore) *Handlers {
-	accounts, _ := models.(providerAccountStore)
-	orgUnits, _ := keys.(orgUnitStore)
-	memberships, _ := keys.(membershipStore)
-	users, _ := models.(userStore)
-	virtualUsers, _ := keys.(virtualUserStore)
-	teams, _ := keys.(teamStore)
-	onboarding, _ := keys.(onboardingStore)
-	loginDiscovery, _ := keys.(loginDiscoveryStore)
-	traces, _ := keys.(traceStore)
-	metrics, _ := keys.(metricsStore)
-	tracePrivacy, _ := keys.(tracePrivacyStore)
-	prompts, _ := keys.(promptStore)
-	roles, _ := keys.(roleStore)
-	plans, _ := keys.(planStore)
-	entitlements, _ := keys.(entitlementResolverStore)
-	supportTenants, _ := keys.(supportTenantOperationsStore)
-	if tracePrivacy == nil {
-		tracePrivacy, _ = wallets.(tracePrivacyStore)
-	}
+func New(deps Dependencies) *Handlers {
 	return &Handlers{
-		keys:             keys,
-		models:           models,
-		wallets:          wallets,
-		providerAccounts: accounts,
-		orgUnits:         orgUnits,
-		memberships:      memberships,
-		users:            users,
-		virtualUsers:     virtualUsers,
-		teams:            teams,
-		onboarding:       onboarding,
-		loginDiscovery:   loginDiscovery,
-		traces:           traces,
-		metrics:          metrics,
-		tracePrivacy:     tracePrivacy,
-		prompts:          prompts,
-		roles:            roles,
-		plans:            plans,
-		entitlements:     entitlements,
-		supportTenants:   supportTenants,
+		keys:             deps.Keys,
+		models:           deps.Models,
+		wallets:          deps.Wallets,
+		providerAccounts: deps.ProviderAccounts,
+		orgUnits:         deps.OrgUnits,
+		memberships:      deps.Memberships,
+		users:            deps.Users,
+		virtualUsers:     deps.VirtualUsers,
+		teams:            deps.Teams,
+		onboarding:       deps.Onboarding,
+		loginDiscovery:   deps.LoginDiscovery,
+		traces:           deps.Traces,
+		metrics:          deps.Metrics,
+		tracePrivacy:     deps.TracePrivacy,
+		prompts:          deps.Prompts,
+		roles:            deps.Roles,
+		plans:            deps.Plans,
+		entitlements:     deps.Entitlements,
+		supportTenants:   deps.SupportTenants,
 	}
 }
 

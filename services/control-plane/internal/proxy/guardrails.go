@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"

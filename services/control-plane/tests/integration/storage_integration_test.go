@@ -1461,28 +1461,43 @@ func newPersistentIntegrationApp(t *testing.T, logger *zap.Logger, memCache cach
 	require.NoError(t, err)
 
 	billingSvc := billing.NewService(memCache, store, 850000, "test")
+	baseProxyDeps := proxy.BaseHandlerDependencies{
+		Router:        llmRouter,
+		Tunnel:        tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
+		Billing:       billingSvc,
+		Wallets:       store,
+		RequestLogger: store,
+		SpendLogger:   store,
+		Logger:        logger,
+	}
 	app := controlserver.NewFiberApp(&config.Config{}, controlserver.Dependencies{
 		AuthMiddleware: auth.NewAuthMiddleware(store, "sk-master", logger),
 		TenantResolver: tenantmw.NewMiddleware(store, "default", true),
-		AdminHandlers:  admin.New(store, store, store),
-		ProxyHandler: proxy.NewChatCompletionHandler(
-			llmRouter,
-			tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
-			billingSvc,
-			store,
-			store,
-			logger,
-		),
-		CompletionsHandler: proxy.NewCompletionsHandler(
-			llmRouter,
-			tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
-			billingSvc,
-			store,
-			store,
-			logger,
-		),
-		ModelsHandler: proxy.NewModelsHandler(store),
-		Logger:        logger,
+		AdminHandlers: admin.New(admin.Dependencies{
+			Keys:             store,
+			Models:           store,
+			Wallets:          store,
+			ProviderAccounts: store,
+			OrgUnits:         store,
+			Memberships:      store,
+			Users:            store,
+			VirtualUsers:     store,
+			Teams:            store,
+			Onboarding:       store,
+			LoginDiscovery:   store,
+			Traces:           store,
+			Metrics:          store,
+			TracePrivacy:     store,
+			Prompts:          store,
+			Roles:            store,
+			Plans:            store,
+			Entitlements:     store,
+			SupportTenants:   store,
+		}),
+		ProxyHandler:       proxy.NewChatCompletionHandlerWithDependencies(proxy.ChatCompletionDependencies{Base: baseProxyDeps, VirtualModelStore: store, GuardrailResolver: store, PromptResolver: store}),
+		CompletionsHandler: proxy.NewCompletionsHandlerWithDependencies(baseProxyDeps),
+		ModelsHandler:      proxy.NewModelsHandler(store),
+		Logger:             logger,
 	})
 
 	return app, pool

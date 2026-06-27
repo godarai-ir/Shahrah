@@ -83,38 +83,42 @@ func (h *ChatCompletionHandler) SetGuardrails(engine *guardrails.Engine) {
 	h.guardrails = engine
 }
 
+func NewChatCompletionHandlerWithDependencies(deps ChatCompletionDependencies) *ChatCompletionHandler {
+	resolver, engine, exec := newChatVirtualModelDeps(deps.VirtualModelStore)
+	return &ChatCompletionHandler{
+		llmRouter:     deps.Base.Router,
+		tunnel:        deps.Base.Tunnel,
+		billing:       deps.Base.Billing,
+		wallets:       deps.Base.Wallets,
+		logs:          deps.Base.logger(),
+		logger:        deps.Base.Logger,
+		vmResolver:    resolver,
+		vmEngine:      engine,
+		vmExec:        exec,
+		emitMetric:    deps.Base.metricEmitter(),
+		guardrailRepo: deps.GuardrailResolver,
+		prompts:       deps.PromptResolver,
+	}
+}
+
 // NewChatCompletionHandler creates a new handler.
 func NewChatCompletionHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, wallets walletStore, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *ChatCompletionHandler {
-	var resolver virtualmodels.VirtualModelResolver
-	var engine virtualmodels.RoutingEngine
-	var exec virtualmodels.FallbackExecutor
-	if repo, ok := logs.(interface {
-		GetVirtualModelByAlias(ctx context.Context, tenantID string, alias string) (*platform.VirtualModel, error)
-	}); ok {
-		resolver = virtualmodels.NewResolver(repo)
-		engine = virtualmodels.NewPriorityRoutingEngine()
-		exec = virtualmodels.NewExecutor(virtualmodels.NewDefaultErrorNormalizer())
-	}
 	var metricEmitter func(input metricsobs.BuildInput)
 	if len(emitMetric) > 0 {
 		metricEmitter = emitMetric[0]
 	}
-	guardrailRepo, _ := logs.(guardrailResolver)
-	promptRepo, _ := logs.(promptResolver)
-	return &ChatCompletionHandler{
-		llmRouter:     llmRouter,
-		tunnel:        tunnel,
-		billing:       billing,
-		wallets:       wallets,
-		logs:          logs,
-		logger:        logger,
-		vmResolver:    resolver,
-		vmEngine:      engine,
-		vmExec:        exec,
-		emitMetric:    metricEmitter,
-		guardrailRepo: guardrailRepo,
-		prompts:       promptRepo,
-	}
+	return NewChatCompletionHandlerWithDependencies(ChatCompletionDependencies{
+		Base: BaseHandlerDependencies{
+			Router:        llmRouter,
+			Tunnel:        tunnel,
+			Billing:       billing,
+			Wallets:       wallets,
+			RequestLogger: logs,
+			SpendLogger:   logs,
+			Logger:        logger,
+			EmitMetric:    metricEmitter,
+		},
+	})
 }
 
 // Handle processes a chat completion request.
@@ -607,9 +611,8 @@ func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.Cha
 	// Forward allowed provider response headers
 	forwardProviderHeaders(c, resp.Headers)
 
-	c.Set(apiheaders.HeaderTraceID, tunnelReq.TraceID)
-	c.Set(apiheaders.HeaderCostUSD, fmt.Sprintf("%.8f", finalCost.TotalCostUSD))
-	c.Set(apiheaders.HeaderCostIRR, fmt.Sprintf("%.2f", finalCost.TotalCostIRR))
+	setTraceHeaders(c, tunnelReq.TraceID)
+	setCostHeaders(c, finalCost)
 	responseStart := time.Now()
 	err = c.Status(resp.StatusCode).JSON(completion)
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "response.write", "internal", responseStart, resp.StatusCode, map[string]interface{}{
@@ -660,9 +663,8 @@ func (h *ChatCompletionHandler) handleCacheHit(c *fiber.Ctx, req contractsopenai
 	if result.Semantic {
 		c.Set(apiheaders.HeaderCacheSimilarity, fmt.Sprintf("%.6f", result.Similarity))
 	}
-	c.Set(apiheaders.HeaderTraceID, requestID)
-	c.Set(apiheaders.HeaderCostUSD, "0.00000000")
-	c.Set(apiheaders.HeaderCostIRR, "0.00")
+	setTraceHeaders(c, requestID)
+	setCostHeaders(c, platform.UsageCostBreakdown{})
 	return c.Status(fiber.StatusOK).Send(entry.Response)
 }
 
@@ -687,7 +689,7 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 	c.Set("Content-Type", "text/event-stream")
 	c.Set("Cache-Control", "no-cache")
 	c.Set("Connection", "keep-alive")
-	c.Set(apiheaders.HeaderTraceID, tunnelReq.TraceID)
+	setTraceHeaders(c, tunnelReq.TraceID)
 
 	// Forward provider headers from stream
 	forwardProviderHeaders(c, stream.Headers())

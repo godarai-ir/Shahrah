@@ -31,21 +31,34 @@ type ResponsesHandler struct {
 	emitMetric func(input metricsobs.BuildInput)
 }
 
+func NewResponsesHandlerWithDependencies(deps BaseHandlerDependencies) *ResponsesHandler {
+	return &ResponsesHandler{
+		llmRouter:  deps.Router,
+		tunnel:     deps.Tunnel,
+		billing:    deps.Billing,
+		wallets:    deps.Wallets,
+		logs:       deps.logger(),
+		logger:     deps.Logger,
+		emitMetric: deps.metricEmitter(),
+	}
+}
+
 // NewResponsesHandler creates a new responses handler.
 func NewResponsesHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, wallets walletStore, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *ResponsesHandler {
 	var metricEmitter func(input metricsobs.BuildInput)
 	if len(emitMetric) > 0 {
 		metricEmitter = emitMetric[0]
 	}
-	return &ResponsesHandler{
-		llmRouter:  llmRouter,
-		tunnel:     tunnel,
-		billing:    billing,
-		wallets:    wallets,
-		logs:       logs,
-		logger:     logger,
-		emitMetric: metricEmitter,
-	}
+	return NewResponsesHandlerWithDependencies(BaseHandlerDependencies{
+		Router:        llmRouter,
+		Tunnel:        tunnel,
+		Billing:       billing,
+		Wallets:       wallets,
+		RequestLogger: logs,
+		SpendLogger:   logs,
+		Logger:        logger,
+		EmitMetric:    metricEmitter,
+	})
 }
 
 // Handle processes an OpenAI responses request.
@@ -270,9 +283,8 @@ func (h *ResponsesHandler) handleSync(c *fiber.Ctx, req contractsopenai.Response
 	})
 
 	forwardProviderHeaders(c, resp.Headers)
-	c.Set(apiheaders.HeaderTraceID, tunnelReq.TraceID)
-	c.Set(apiheaders.HeaderCostUSD, fmt.Sprintf("%.8f", finalCost.TotalCostUSD))
-	c.Set(apiheaders.HeaderCostIRR, fmt.Sprintf("%.2f", finalCost.TotalCostIRR))
+	setTraceHeaders(c, tunnelReq.TraceID)
+	setCostHeaders(c, finalCost)
 	responseStart := time.Now()
 	err = c.Status(resp.StatusCode).JSON(response)
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "response.write", "internal", responseStart, resp.StatusCode, map[string]interface{}{
@@ -302,7 +314,7 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 	c.Set("Content-Type", "text/event-stream")
 	c.Set("Cache-Control", "no-cache")
 	c.Set("Connection", "keep-alive")
-	c.Set(apiheaders.HeaderTraceID, tunnelReq.TraceID)
+	setTraceHeaders(c, tunnelReq.TraceID)
 	forwardProviderHeaders(c, stream.Headers())
 
 	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
