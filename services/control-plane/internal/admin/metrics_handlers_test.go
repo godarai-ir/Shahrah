@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -118,7 +119,7 @@ func TestListModelMetricsFacets_UsesTenantContext(t *testing.T) {
 	h := &Handlers{metrics: mock}
 	app := setupMetricsTestApp(h)
 
-	req := httptest.NewRequest("GET", "/api/v1/metrics/facets", nil)
+	req := httptest.NewRequest("GET", "/api/v1/metrics/facets", http.NoBody)
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)

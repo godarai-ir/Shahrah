@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -75,13 +76,13 @@ func TestNewFiberAppExposesPrometheusMetrics(t *testing.T) {
 
 	app := NewFiberApp(&config.Config{}, Dependencies{})
 
-	healthResp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/health", nil))
+	healthResp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/health", http.NoBody))
 	defer closeResponseBody(t, healthResp)
 
 	require.NoError(t, err)
 	require.Equal(t, fiber.StatusOK, healthResp.StatusCode)
 
-	metricsResp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/metrics", nil))
+	metricsResp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/metrics", http.NoBody))
 	defer closeResponseBody(t, metricsResp)
 
 	require.NoError(t, err)
@@ -107,7 +108,7 @@ func TestNewFiberAppRegistersPromptRoutes(t *testing.T) {
 		}),
 	})
 
-	resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/api/v1/prompts", nil))
+	resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/api/v1/prompts", http.NoBody))
 	defer closeResponseBody(t, resp)
 
 	require.NoError(t, err)
@@ -122,13 +123,13 @@ func TestPlatformAdminAuthMiddlewareRequiresMasterKey(t *testing.T) {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	missing, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/platform", nil))
+	missing, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/platform", http.NoBody))
 	defer closeResponseBody(t, missing)
 
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusUnauthorized, missing.StatusCode)
 
-	request := httptest.NewRequest(fiber.MethodGet, "/platform", nil)
+	request := httptest.NewRequest(fiber.MethodGet, "/platform", http.NoBody)
 	request.Header.Set("Authorization", "Bearer master-secret")
 
 	allowed, err := app.Test(request)
@@ -160,7 +161,7 @@ func TestPlatformAdminAuthMiddlewareEnforcesServiceAccountScopes(t *testing.T) {
 	app.Get("/api/v1/platform/features", func(c *fiber.Ctx) error { return c.SendStatus(fiber.StatusNoContent) })
 	app.Post("/api/v1/platform/commercial-plans", func(c *fiber.Ctx) error { return c.SendStatus(fiber.StatusNoContent) })
 
-	readRequest := httptest.NewRequest(fiber.MethodGet, "/api/v1/platform/features", nil)
+	readRequest := httptest.NewRequest(fiber.MethodGet, "/api/v1/platform/features", http.NoBody)
 	readRequest.Header.Set("Authorization", "Bearer service-token")
 
 	readResponse, err := app.Test(readRequest)
@@ -169,7 +170,7 @@ func TestPlatformAdminAuthMiddlewareEnforcesServiceAccountScopes(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusNoContent, readResponse.StatusCode)
 
-	writeRequest := httptest.NewRequest(fiber.MethodPost, "/api/v1/platform/commercial-plans", nil)
+	writeRequest := httptest.NewRequest(fiber.MethodPost, "/api/v1/platform/commercial-plans", http.NoBody)
 	writeRequest.Header.Set("Authorization", "Bearer service-token")
 
 	writeResponse, err := app.Test(writeRequest)
@@ -188,7 +189,7 @@ func TestLoginDiscoveryRoutesArePublic(t *testing.T) {
 		TenantResolver: tenantmw.NewMiddleware(tenantLookupAlwaysFails{}, "", false),
 	})
 
-	resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/api/v1/login-discovery/tenant/tenant1", nil))
+	resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/api/v1/login-discovery/tenant/tenant1", http.NoBody))
 	defer closeResponseBody(t, resp)
 
 	require.NoError(t, err)

@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -119,7 +120,7 @@ func TestGetRequestTrace_UsesTenantContextIsolation(t *testing.T) {
 	h := &Handlers{traces: mock}
 	app := setupTraceTestApp(h)
 
-	req := httptest.NewRequest("GET", "/api/v1/traces/trace_1", nil)
+	req := httptest.NewRequest("GET", "/api/v1/traces/trace_1", http.NoBody)
 	// Attempted override should be ignored; only tenant context must be used.
 	req.Header.Set("x-shahrah-tenant", "tenant_b")
 
@@ -142,7 +143,7 @@ func TestGetRequestTrace_CrossTenantReturnsNotFound(t *testing.T) {
 	h := &Handlers{traces: mock}
 	app := setupTraceTestApp(h)
 
-	req := httptest.NewRequest("GET", "/api/v1/traces/foreign_trace", nil)
+	req := httptest.NewRequest("GET", "/api/v1/traces/foreign_trace", http.NoBody)
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
@@ -163,7 +164,7 @@ func TestListTraceSpans_CrossTenantReturnsNotFound(t *testing.T) {
 	h := &Handlers{traces: mock}
 	app := setupTraceTestApp(h)
 
-	req := httptest.NewRequest("GET", "/api/v1/traces/foreign_trace/spans", nil)
+	req := httptest.NewRequest("GET", "/api/v1/traces/foreign_trace/spans", http.NoBody)
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
@@ -194,7 +195,7 @@ func TestListTraceSpans_ReturnsTenantScopedData(t *testing.T) {
 	h := &Handlers{traces: mock}
 	app := setupTraceTestApp(h)
 
-	req := httptest.NewRequest("GET", "/api/v1/traces/trace_1/spans", nil)
+	req := httptest.NewRequest("GET", "/api/v1/traces/trace_1/spans", http.NoBody)
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)

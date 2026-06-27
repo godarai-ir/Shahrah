@@ -41,7 +41,10 @@ type Service struct {
 
 // NewService creates a billing enforcement service.
 func NewService(c cache.Cache, store walletStore, defaultUSDtoIRR float64, source string) *Service {
-	entitlements, _ := store.(entitlementStore)
+	var entitlements entitlementStore
+	if resolvedEntitlements, ok := store.(entitlementStore); ok {
+		entitlements = resolvedEntitlements
+	}
 
 	return &Service{
 		cache:        c,
@@ -130,7 +133,7 @@ func (s *Service) EstimateCost(ctx context.Context, req openai.ChatCompletionReq
 	rate, err := s.store.GetLatestExchangeRate(ctx)
 	if err != nil {
 		rate = &s.defaultRate
-		_, _ = s.store.UpsertExchangeRate(ctx, s.defaultRate)
+		s.persistDefaultExchangeRate(ctx)
 	}
 
 	promptTokens := estimatePromptTokens(req)
@@ -163,7 +166,7 @@ func (s *Service) EstimateEmbeddingCost(ctx context.Context, req openai.Embeddin
 	rate, err := s.store.GetLatestExchangeRate(ctx)
 	if err != nil {
 		rate = &s.defaultRate
-		_, _ = s.store.UpsertExchangeRate(ctx, s.defaultRate)
+		s.persistDefaultExchangeRate(ctx)
 	}
 
 	promptTokens := estimateEmbeddingPromptTokens(req.Input)
@@ -210,4 +213,15 @@ func (s *Service) FinalizeFromUsage(ctx context.Context, model string, usage *op
 		ExchangeRate:  rate.USDtoIRR,
 		TotalCostIRR:  totalUSD * rate.USDtoIRR,
 	}, nil
+}
+
+func (s *Service) persistDefaultExchangeRate(ctx context.Context) {
+	if s == nil || s.store == nil {
+		return
+	}
+
+	_, err := s.store.UpsertExchangeRate(ctx, s.defaultRate)
+	if err != nil {
+		return
+	}
 }

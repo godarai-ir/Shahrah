@@ -46,7 +46,7 @@ func (t *HTTPTransport) Proxy(ctx context.Context, req platform.TunnelRequest) (
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer closeBody(resp.Body)
 
 	out := &platform.TunnelResponse{
 		StatusCode: resp.StatusCode,
@@ -87,7 +87,7 @@ func (t *HTTPTransport) Stream(ctx context.Context, req platform.TunnelRequest) 
 	// Check for error status from upstream (e.g., 4xx/5xx from provider)
 	if resp.StatusCode >= http.StatusBadRequest {
 		respBody, readErr := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		closeBody(resp.Body)
 
 		if readErr != nil {
 			return nil, readErr
@@ -108,7 +108,7 @@ func (t *HTTPTransport) Stream(ctx context.Context, req platform.TunnelRequest) 
 	}
 
 	go func() {
-		defer resp.Body.Close()
+		defer closeBody(resp.Body)
 		defer close(stream.chunks)
 		defer close(stream.errors)
 
@@ -146,7 +146,7 @@ func (t *HTTPTransport) Healthy(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer closeBody(resp.Body)
 
 	if resp.StatusCode >= http.StatusBadRequest {
 		return fmt.Errorf("tunnel client unhealthy: %d", resp.StatusCode)
@@ -210,4 +210,14 @@ func streamingHTTPClient(base *http.Client) *http.Client {
 	}
 
 	return &clone
+}
+
+func closeBody(body io.Closer) {
+	if body == nil {
+		return
+	}
+
+	if err := body.Close(); err != nil {
+		return
+	}
 }

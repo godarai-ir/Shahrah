@@ -41,7 +41,10 @@ func main() {
 		for i := 0; i < *runs; i++ {
 			durMS, err := doQuery(client, *baseURL, *tenant, *auth, c)
 			if err != nil {
-				writeReport(*out, results, err)
+				if reportErr := writeReport(*out, results, err); reportErr != nil {
+					fmt.Println("write report failed:", reportErr)
+				}
+
 				fmt.Println("benchmark failed:", err)
 				os.Exit(1)
 			}
@@ -71,8 +74,17 @@ func doQuery(client *http.Client, baseURL, tenant, auth string, c queryCase) (fl
 		"groupBy":           []string{"modelName"},
 		"intervalInSeconds": c.Interval,
 	}
-	raw, _ := json.Marshal(reqBody)
-	req, _ := http.NewRequest(http.MethodPost, baseURL+"/api/v1/metrics/query", bytes.NewReader(raw))
+
+	raw, err := json.Marshal(reqBody)
+	if err != nil {
+		return 0, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, baseURL+"/api/v1/metrics/query", bytes.NewReader(raw))
+	if err != nil {
+		return 0, err
+	}
+
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("x-shahrah-tenant", tenant)
 
@@ -86,7 +98,7 @@ func doQuery(client *http.Client, baseURL, tenant, auth string, c queryCase) (fl
 	if err != nil {
 		return 0, err
 	}
-	defer resp.Body.Close()
+	defer closeBody(resp.Body)
 
 	if resp.StatusCode >= 400 {
 		return 0, fmt.Errorf("status %d", resp.StatusCode)
@@ -126,6 +138,16 @@ func writeReport(path string, results map[string][]float64, benchErr error) erro
 	}
 
 	return os.WriteFile(path, md.Bytes(), 0o644)
+}
+
+func closeBody(body interface{ Close() error }) {
+	if body == nil {
+		return
+	}
+
+	if err := body.Close(); err != nil {
+		return
+	}
 }
 
 func percentile(values []float64, p int) float64 {

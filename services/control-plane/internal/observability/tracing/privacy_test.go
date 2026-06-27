@@ -2,6 +2,7 @@ package tracing
 
 import (
 	"encoding/base64"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
@@ -107,7 +108,7 @@ func TestRecordStepSpan_AppliesPrivacyPolicy(t *testing.T) {
 		return c.SendStatus(200)
 	})
 
-	req := httptest.NewRequest("GET", "/x", nil)
+	req := httptest.NewRequest("GET", "/x", http.NoBody)
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)

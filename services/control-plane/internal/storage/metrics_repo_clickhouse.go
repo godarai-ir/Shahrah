@@ -393,7 +393,7 @@ func buildMetricsWhere(tenantID string, req platform.MetricsQueryRequest) (strin
 
 	args := []interface{}{tenantID, req.StartTS.UTC(), req.EndTS.UTC()}
 	for _, f := range req.Filters {
-		col := ""
+		var col string
 		if f.MetadataKey != "" {
 			col = fmt.Sprintf("JSONExtractString(metadata_json, '%s')", sanitizeMetadataKey(f.MetadataKey))
 		} else {

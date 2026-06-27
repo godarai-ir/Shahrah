@@ -109,7 +109,7 @@ func (e *ArvanCloudBGEEmbedder) Embed(ctx context.Context, texts []string) ([][]
 		// ArvanCloud model URL may itself be credential-bearing, so do not wrap it.
 		return nil, errors.New("embedding request failed")
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(resp.Body)
 
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxEmbeddingResponseBytes+1))
 	if err != nil {
@@ -194,4 +194,14 @@ func CosineSimilarity(a, b []float32) (float64, error) {
 	}
 
 	return score, nil
+}
+
+func closeResponseBody(body io.Closer) {
+	if body == nil {
+		return
+	}
+
+	if err := body.Close(); err != nil {
+		return
+	}
 }

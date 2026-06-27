@@ -202,7 +202,12 @@ func GetAuthInfo(c *fiber.Ctx) *platform.AuthContext {
 		return nil
 	}
 
-	return val.(*platform.AuthContext)
+	authInfo, ok := val.(*platform.AuthContext)
+	if !ok {
+		return nil
+	}
+
+	return authInfo
 }
 
 func (m *AuthMiddleware) extractAPIKey(c *fiber.Ctx) string {

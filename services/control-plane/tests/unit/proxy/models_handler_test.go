@@ -3,6 +3,7 @@ package proxy_test
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -55,7 +56,7 @@ func TestModelsHandler_FiltersByAllowedModels(t *testing.T) {
 	})
 	app.Get("/v1/models", handler.Handle)
 
-	req := httptest.NewRequest("GET", "/v1/models", nil)
+	req := httptest.NewRequest("GET", "/v1/models", http.NoBody)
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
@@ -92,7 +93,7 @@ func TestModelsHandler_EnforcedAllowlistEmptyReturnsNoModels(t *testing.T) {
 	})
 	app.Get("/v1/models", handler.Handle)
 
-	req := httptest.NewRequest("GET", "/v1/models", nil)
+	req := httptest.NewRequest("GET", "/v1/models", http.NoBody)
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)

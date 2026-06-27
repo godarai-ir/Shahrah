@@ -55,7 +55,11 @@ func Middleware(queue *Queue, sampler *Sampler, slowMS int64, privacy ...*Privac
 
 		err := c.Next()
 
-		start, _ := c.Locals(LocalStartTimeKey).(time.Time)
+		start := time.Time{}
+		if startedAt, ok := c.Locals(LocalStartTimeKey).(time.Time); ok {
+			start = startedAt
+		}
+
 		if start.IsZero() {
 			start = time.Now()
 		}
@@ -63,7 +67,11 @@ func Middleware(queue *Queue, sampler *Sampler, slowMS int64, privacy ...*Privac
 		durationMS := time.Since(start).Milliseconds()
 		statusCode := c.Response().StatusCode()
 
-		tenantID, _ := c.Locals(LocalTenantIDKey).(string)
+		tenantID := ""
+		if scopedTenantID, ok := c.Locals(LocalTenantIDKey).(string); ok {
+			tenantID = scopedTenantID
+		}
+
 		if tenantID == "" {
 			tenantID = apiheaders.GetTenant(c)
 		}
@@ -78,7 +86,11 @@ func Middleware(queue *Queue, sampler *Sampler, slowMS int64, privacy ...*Privac
 		c.Locals(LocalSampledKey, shouldSample)
 
 		if shouldSample {
-			model, _ := c.Locals(LocalModelKey).(string)
+			model := ""
+			if scopedModel, ok := c.Locals(LocalModelKey).(string); ok {
+				model = scopedModel
+			}
+
 			root := SpanEvent{
 				TraceID:      traceID,
 				SpanID:       RootSpanIDFromContext(c),
@@ -111,7 +123,11 @@ func rootSpanID(traceID string) string {
 }
 
 func nextSpanID(c *fiber.Ctx, traceID string) string {
-	cur, _ := c.Locals(LocalSpanSeqKey).(int64)
+	cur := int64(0)
+	if currentSeq, ok := c.Locals(LocalSpanSeqKey).(int64); ok {
+		cur = currentSeq
+	}
+
 	cur++
 	c.Locals(LocalSpanSeqKey, cur)
 
@@ -128,7 +144,11 @@ func RecordStepSpan(c *fiber.Ctx, queue *Queue, parentSpanID, name, kind string,
 		return
 	}
 
-	tenantID, _ := c.Locals(LocalTenantIDKey).(string)
+	tenantID := ""
+	if scopedTenantID, ok := c.Locals(LocalTenantIDKey).(string); ok {
+		tenantID = scopedTenantID
+	}
+
 	if tenantID == "" {
 		tenantID = apiheaders.GetTenant(c)
 	}
@@ -167,7 +187,11 @@ func appendStepSpan(c *fiber.Ctx, ev SpanEvent) {
 		return
 	}
 
-	buffer, _ := c.Locals(LocalStepBufferKey).([]SpanEvent)
+	buffer := []SpanEvent(nil)
+	if currentBuffer, ok := c.Locals(LocalStepBufferKey).([]SpanEvent); ok {
+		buffer = currentBuffer
+	}
+
 	buffer = append(buffer, ev)
 	c.Locals(LocalStepBufferKey, buffer)
 }
@@ -177,7 +201,11 @@ func flushStepBuffer(c *fiber.Ctx, queue *Queue) {
 		return
 	}
 
-	buffer, _ := c.Locals(LocalStepBufferKey).([]SpanEvent)
+	buffer := []SpanEvent(nil)
+	if currentBuffer, ok := c.Locals(LocalStepBufferKey).([]SpanEvent); ok {
+		buffer = currentBuffer
+	}
+
 	for _, ev := range buffer {
 		ev.Sampled = true
 		_ = queue.Enqueue(ev)
@@ -243,7 +271,11 @@ func SetModelForTrace(c *fiber.Ctx, model string) {
 }
 
 func DurationMS(c *fiber.Ctx) int64 {
-	start, _ := c.Locals(LocalStartTimeKey).(time.Time)
+	start := time.Time{}
+	if startedAt, ok := c.Locals(LocalStartTimeKey).(time.Time); ok {
+		start = startedAt
+	}
+
 	if start.IsZero() {
 		return 0
 	}

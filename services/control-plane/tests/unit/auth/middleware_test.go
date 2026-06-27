@@ -101,7 +101,7 @@ func TestAuthMiddleware_ShouldReturnServerError_WhenKeyLookupFailsInternally(t *
 		return c.SendStatus(fiber.StatusOK)
 	})
 
-	req, err := http.NewRequest(http.MethodGet, "/v1/models", nil)
+	req, err := http.NewRequest(http.MethodGet, "/v1/models", http.NoBody)
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer sk-test")
 
@@ -134,7 +134,7 @@ func TestAuthMiddleware_ShouldReturnInvalidAPIKey_WhenKeyIsNotFound(t *testing.T
 		return c.SendStatus(fiber.StatusOK)
 	})
 
-	req, err := http.NewRequest(http.MethodGet, "/v1/models", nil)
+	req, err := http.NewRequest(http.MethodGet, "/v1/models", http.NoBody)
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer sk-test")
 

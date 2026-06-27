@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -29,7 +30,7 @@ func TestEntitlementGateRejectsDisabledVAT(t *testing.T) {
 	app := fiber.New()
 	app.Post("/vat", func(c *fiber.Ctx) error { return h.requireVATEnabled(c, "tenant-1") })
 
-	resp, err := app.Test(httptest.NewRequest(fiber.MethodPost, "/vat", nil))
+	resp, err := app.Test(httptest.NewRequest(fiber.MethodPost, "/vat", http.NoBody))
 	defer closeResponseBody(t, resp)
 
 	require.NoError(t, err)
@@ -49,7 +50,7 @@ func TestEntitlementGateAllowsTeamRateLimitRules(t *testing.T) {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	resp, err := app.Test(httptest.NewRequest(fiber.MethodPost, "/rules", nil))
+	resp, err := app.Test(httptest.NewRequest(fiber.MethodPost, "/rules", http.NoBody))
 	defer closeResponseBody(t, resp)
 
 	require.NoError(t, err)
@@ -72,13 +73,13 @@ func TestEntitlementLimitUsesEffectiveOverrideValue(t *testing.T) {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	allowed, err := app.Test(httptest.NewRequest(fiber.MethodPost, "/users/9", nil))
+	allowed, err := app.Test(httptest.NewRequest(fiber.MethodPost, "/users/9", http.NoBody))
 	defer closeResponseBody(t, allowed)
 
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusNoContent, allowed.StatusCode)
 
-	denied, err := app.Test(httptest.NewRequest(fiber.MethodPost, "/users/10", nil))
+	denied, err := app.Test(httptest.NewRequest(fiber.MethodPost, "/users/10", http.NoBody))
 	defer closeResponseBody(t, denied)
 
 	require.NoError(t, err)

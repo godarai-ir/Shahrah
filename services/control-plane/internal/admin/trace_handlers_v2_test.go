@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -44,7 +45,7 @@ func TestGetTraceFacetsV2_UsesTenantContextIsolation(t *testing.T) {
 		},
 	}
 	app := setupTraceV2TestApp(&Handlers{traces: mock})
-	req := httptest.NewRequest("GET", "/api/v2/traces/facets", nil)
+	req := httptest.NewRequest("GET", "/api/v2/traces/facets", http.NoBody)
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
@@ -80,7 +81,7 @@ func TestListRequestTracesV2_UsesTenantContextIsolation(t *testing.T) {
 	}
 	app := setupTraceV2TestApp(&Handlers{traces: mock})
 
-	req := httptest.NewRequest("GET", "/api/v2/traces?provider=openai&request_id=req_123&error_code=provider_error", nil)
+	req := httptest.NewRequest("GET", "/api/v2/traces?provider=openai&request_id=req_123&error_code=provider_error", http.NoBody)
 	req.Header.Set("x-shahrah-tenant", "tenant_b")
 
 	resp, err := app.Test(req)
@@ -108,7 +109,7 @@ func TestGetRequestTraceV2_NotFound(t *testing.T) {
 	}
 	app := setupTraceV2TestApp(&Handlers{traces: mock})
 
-	req := httptest.NewRequest("GET", "/api/v2/traces/trace_missing", nil)
+	req := httptest.NewRequest("GET", "/api/v2/traces/trace_missing", http.NoBody)
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
@@ -136,7 +137,7 @@ func TestListRequestTraceAttemptsV2_ReturnsTenantScopedData(t *testing.T) {
 	}
 	app := setupTraceV2TestApp(&Handlers{traces: mock})
 
-	req := httptest.NewRequest("GET", "/api/v2/traces/trace_1/attempts", nil)
+	req := httptest.NewRequest("GET", "/api/v2/traces/trace_1/attempts", http.NoBody)
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)

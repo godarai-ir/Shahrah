@@ -263,7 +263,14 @@ func (r *Router) MarkFailed(ctx context.Context, deployment *Deployment, reason 
 		zap.String("deployment_id", deployment.ID),
 		zap.String("reason", reason),
 	)
-	r.cooldowns.Add(ctx, deployment.ID, reason)
+
+	if addErr := r.cooldowns.Add(ctx, deployment.ID, reason); addErr != nil {
+		r.logger.Warn("failed to add deployment cooldown",
+			zap.String("deployment_id", deployment.ID),
+			zap.String("reason", reason),
+			zap.Error(addErr),
+		)
+	}
 }
 
 // weightedRandomPick selects a deployment based on weights.

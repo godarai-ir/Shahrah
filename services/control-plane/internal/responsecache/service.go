@@ -370,7 +370,11 @@ func (s *Service) Store(ctx context.Context, pending *Pending, response []byte, 
 			}
 		}
 
-		indexRaw, _ := json.Marshal(filtered)
+		indexRaw, marshalErr := json.Marshal(filtered)
+		if marshalErr != nil {
+			return marshalErr
+		}
+
 		if shared, ok := s.store.(distributedStore); ok {
 			if err := shared.DistributedSet(ctx, pending.semanticKey, string(indexRaw), s.cfg.MaxTTL); err != nil {
 				return err

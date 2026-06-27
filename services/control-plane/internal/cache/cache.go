@@ -265,6 +265,9 @@ func (d *DualCache) CheckSlidingWindowRateLimitWithWeight(ctx context.Context, k
 
 // Close closes both memory and Redis caches.
 func (d *DualCache) Close() error {
-	d.memory.Close()
+	if err := d.memory.Close(); err != nil {
+		return err
+	}
+
 	return d.redis.Close()
 }

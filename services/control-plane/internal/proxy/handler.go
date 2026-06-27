@@ -585,7 +585,11 @@ func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.Cha
 	}
 
 	if h.guardrails != nil && len(guardrailSelection.LLMOutput) > 0 {
-		guardrailOverrides, _ := c.Locals("guardrail_overrides").(map[string]guardrails.Guardrail)
+		guardrailOverrides := map[string]guardrails.Guardrail(nil)
+		if overrides, ok := c.Locals("guardrail_overrides").(map[string]guardrails.Guardrail); ok {
+			guardrailOverrides = overrides
+		}
+
 		outputResult, outputErr := h.guardrails.ApplyOutputWithGuardrails(completion, guardrailSelection, guardrailOverrides)
 		h.recordGuardrailChecks(c, outputResult.Checks)
 

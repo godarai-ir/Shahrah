@@ -82,7 +82,7 @@ func (g *countGuardrail) Enforcement() Enforcement { return g.enforcement }
 
 func (g *countGuardrail) Evaluate(input EvaluationInput) (EvaluationResult, error) {
 	for _, text := range input.Texts {
-		count := 0
+		var count int
 
 		switch g.unit {
 		case "sentence":
@@ -146,8 +146,9 @@ func (g *jsonSchemaGuardrail) Enforcement() Enforcement { return g.enforcement }
 func (g *jsonSchemaGuardrail) Evaluate(input EvaluationInput) (EvaluationResult, error) {
 	for _, text := range input.Texts {
 		var value interface{}
-		if err := json.Unmarshal([]byte(text), &value); err != nil {
-			return EvaluationResult{Texts: input.Texts, Blocked: true, Reason: "Response is not valid JSON"}, nil
+
+		if !isJSONText(text, &value) {
+			return blockedEvaluation(input.Texts, "Response is not valid JSON"), nil
 		}
 
 		if !validateMinimalJSONSchema(value, g.schema) {
@@ -163,11 +164,16 @@ func validateMinimalJSONSchema(value interface{}, schema map[string]interface{})
 		return true
 	}
 
-	if schemaType, _ := schema["type"].(string); schemaType != "" && !jsonValueMatchesType(value, schemaType) {
+	schemaType, hasSchemaType := schema["type"].(string)
+	if hasSchemaType && schemaType != "" && !jsonValueMatchesType(value, schemaType) {
 		return false
 	}
 
-	obj, _ := value.(map[string]interface{})
+	var obj map[string]interface{}
+	if objectValue, ok := value.(map[string]interface{}); ok {
+		obj = objectValue
+	}
+
 	for _, key := range stringSliceFromConfig(schema, "required") {
 		if obj == nil {
 			return false
@@ -180,13 +186,14 @@ func validateMinimalJSONSchema(value interface{}, schema map[string]interface{})
 
 	props := mapFromConfig(schema, "properties")
 	for key, rawProp := range props {
-		prop, _ := rawProp.(map[string]interface{})
-		if prop == nil || obj == nil {
+		prop, propOK := rawProp.(map[string]interface{})
+		if !propOK || prop == nil || obj == nil {
 			continue
 		}
 
 		if child, ok := obj[key]; ok {
-			if childType, _ := prop["type"].(string); childType != "" && !jsonValueMatchesType(child, childType) {
+			childType, hasChildType := prop["type"].(string)
+			if hasChildType && childType != "" && !jsonValueMatchesType(child, childType) {
 				return false
 			}
 		}
@@ -245,8 +252,9 @@ func (g *jsonKeysGuardrail) Enforcement() Enforcement { return g.enforcement }
 func (g *jsonKeysGuardrail) Evaluate(input EvaluationInput) (EvaluationResult, error) {
 	for _, text := range input.Texts {
 		var obj map[string]interface{}
-		if err := json.Unmarshal([]byte(text), &obj); err != nil {
-			return EvaluationResult{Texts: input.Texts, Blocked: true, Reason: "Response is not valid JSON"}, nil
+
+		if !isJSONText(text, &obj) {
+			return blockedEvaluation(input.Texts, "Response is not valid JSON"), nil
 		}
 
 		matches := 0
@@ -257,7 +265,7 @@ func (g *jsonKeysGuardrail) Evaluate(input EvaluationInput) (EvaluationResult, e
 			}
 		}
 
-		pass := false
+		var pass bool
 
 		switch g.mode {
 		case "any":
@@ -414,8 +422,8 @@ func (g *jwtValidationGuardrail) Evaluate(input EvaluationInput) (EvaluationResu
 			return EvaluationResult{Texts: input.Texts, Blocked: true, Reason: "JWT token is missing"}, nil
 		}
 
-		if err := g.validateToken(match[1]); err != nil {
-			return EvaluationResult{Texts: input.Texts, Blocked: true, Reason: "JWT validation failed"}, nil
+		if !g.isValidToken(match[1]) {
+			return blockedEvaluation(input.Texts, "JWT validation failed"), nil
 		}
 	}
 
@@ -461,8 +469,16 @@ func (g *jwtValidationGuardrail) validateToken(token string) error {
 		return introspectToken(g.introspection, g.introspectAuth, token)
 	}
 
-	alg, _ := header["alg"].(string)
-	kid, _ := header["kid"].(string)
+	alg := ""
+	if headerAlg, ok := header["alg"].(string); ok {
+		alg = headerAlg
+	}
+
+	kid := ""
+	if headerKID, ok := header["kid"].(string); ok {
+		kid = headerKID
+	}
+
 	signed := []byte(parts[0] + "." + parts[1])
 
 	sig, err := base64.RawURLEncoding.DecodeString(parts[2])
@@ -552,7 +568,11 @@ func verifyHMACJWT(alg string, secret []byte, signed []byte, sig []byte) error {
 		return errors.New("unsupported HMAC algorithm")
 	}
 
-	_, _ = mac.Write(signed)
+	_, writeErr := mac.Write(signed)
+	if writeErr != nil {
+		return writeErr
+	}
+
 	if !hmac.Equal(sig, mac.Sum(nil)) {
 		return errors.New("invalid JWT signature")
 	}
@@ -572,7 +592,7 @@ func fetchJWKS(rawURL string) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer closeReadCloser(resp.Body)
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("JWKS fetch failed")
@@ -587,10 +607,14 @@ func fetchJWKS(rawURL string) (map[string]interface{}, error) {
 }
 
 func rsaPublicKeyFromJWKS(jwks map[string]interface{}, kid string) (*rsa.PublicKey, error) {
-	keys, _ := jwks["keys"].([]interface{})
+	keys, keysOK := jwks["keys"].([]interface{})
+	if !keysOK {
+		return nil, errors.New("JWKS payload missing keys")
+	}
+
 	for _, raw := range keys {
-		key, _ := raw.(map[string]interface{})
-		if key == nil {
+		key, keyOK := raw.(map[string]interface{})
+		if !keyOK || key == nil {
 			continue
 		}
 
@@ -612,8 +636,16 @@ func rsaPublicKeyFromJWKS(jwks map[string]interface{}, kid string) (*rsa.PublicK
 			}
 		}
 
-		nText, _ := key["n"].(string)
-		eText, _ := key["e"].(string)
+		nText := ""
+		if value, ok := key["n"].(string); ok {
+			nText = value
+		}
+
+		eText := ""
+		if value, ok := key["e"].(string); ok {
+			eText = value
+		}
+
 		nBytes, nErr := base64.RawURLEncoding.DecodeString(nText)
 
 		eBytes, eErr := base64.RawURLEncoding.DecodeString(eText)
@@ -650,7 +682,7 @@ func introspectToken(endpoint string, authHeader string, token string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer closeReadCloser(resp.Body)
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return errors.New("introspection request failed")
@@ -792,7 +824,7 @@ func (g *inlineImageURLsGuardrail) fetchImageDataURL(raw string) (string, error)
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer closeReadCloser(resp.Body)
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return "", errors.New("image fetch failed")
@@ -800,7 +832,11 @@ func (g *inlineImageURLsGuardrail) fetchImageDataURL(raw string) (string, error)
 
 	contentType := resp.Header.Get("content-type")
 
-	mediaType, _, _ := mime.ParseMediaType(contentType)
+	mediaType, _, parseErr := mime.ParseMediaType(contentType)
+	if parseErr != nil {
+		return "", errors.New("invalid image content type")
+	}
+
 	if !strings.HasPrefix(mediaType, "image/") {
 		return "", errors.New("URL did not return an image")
 	}
@@ -846,4 +882,26 @@ func rejectPrivateHost(host string) error {
 	}
 
 	return nil
+}
+
+func blockedEvaluation(texts []string, reason string) EvaluationResult {
+	return EvaluationResult{Texts: texts, Blocked: true, Reason: reason}
+}
+
+func isJSONText(text string, target interface{}) bool {
+	return json.Unmarshal([]byte(text), target) == nil
+}
+
+func (g *jwtValidationGuardrail) isValidToken(token string) bool {
+	return g.validateToken(token) == nil
+}
+
+func closeReadCloser(closer io.Closer) {
+	if closer == nil {
+		return
+	}
+
+	if err := closer.Close(); err != nil {
+		return
+	}
 }

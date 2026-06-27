@@ -8,6 +8,8 @@ import (
 	"math/big"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // TenantAdminCaptcha represents a captcha challenge.
@@ -72,11 +74,16 @@ func (s *Store) ConsumeTenantAdminCaptcha(ctx context.Context, id string, answer
 		expiresAt    time.Time
 	)
 
-	err := s.pool.QueryRow(ctx, `
+	queryErr := s.pool.QueryRow(ctx, `
 		SELECT answer, "expiresAt" FROM tenant_admin_captchas WHERE id = $1
 	`, id).Scan(&storedAnswer, &expiresAt)
-	if err != nil {
-		return false, nil
+
+	if hasInvalidOTPRequest(queryErr) {
+		if queryErr == pgx.ErrNoRows {
+			return false, nil
+		}
+
+		return false, queryErr
 	}
 
 	_, _ = s.pool.Exec(ctx, `DELETE FROM tenant_admin_captchas WHERE id = $1`, id)
@@ -143,7 +150,7 @@ func (s *Store) VerifyTenantAdminOTPRequest(ctx context.Context, params VerifyTe
 		otpCode string
 	)
 
-	err := s.pool.QueryRow(ctx, `
+	queryErr := s.pool.QueryRow(ctx, `
 		SELECT id, "tenantSlug", purpose, channel, identifier, "userID",
 		       "pendingValue", "otpCode", attempts, "expiresAt", "createdAt"
 		FROM tenant_admin_otp_requests WHERE id = $1
@@ -152,7 +159,9 @@ func (s *Store) VerifyTenantAdminOTPRequest(ctx context.Context, params VerifyTe
 		&record.Identifier, &record.UserID, &record.PendingValue,
 		&otpCode, &record.Attempts, &record.ExpiresAt, &record.CreatedAt,
 	)
-	if err != nil {
+
+	invalidRequest := queryErr != nil
+	if invalidRequest {
 		return map[string]interface{}{"ok": false, "error": "درخواست OTP معتبر نیست یا منقضی شده است."}, nil
 	}
 
@@ -243,12 +252,16 @@ func (s *Store) CreateTenantAdminSession(ctx context.Context, params CreateTenan
 func (s *Store) GetTenantAdminSession(ctx context.Context, id string) (map[string]interface{}, error) {
 	var session TenantAdminSession
 
-	err := s.pool.QueryRow(ctx, `
+	queryErr := s.pool.QueryRow(ctx, `
 		SELECT id, "tenantSlug", "userID", "expiresAt", "createdAt"
 		FROM tenant_admin_sessions WHERE id = $1
 	`, id).Scan(&session.ID, &session.TenantSlug, &session.UserID, &session.ExpiresAt, &session.CreatedAt)
-	if err != nil {
-		return nil, nil
+	if queryErr != nil {
+		if queryErr == pgx.ErrNoRows {
+			return nil, nil
+		}
+
+		return nil, queryErr
 	}
 
 	if time.Now().After(session.ExpiresAt) {
@@ -333,7 +346,7 @@ func (s *Store) GetTenantAdminUser(ctx context.Context, tenantID string, userID 
 		createdAt, updatedAt          time.Time
 	)
 
-	err := s.pool.QueryRow(ctx, `
+	queryErr := s.pool.QueryRow(ctx, `
 		SELECT u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''),
 		       COALESCE(u.role, 'member'), COALESCE(u.active, true), u.created_at, u.updated_at
 		FROM users u
@@ -341,8 +354,12 @@ func (s *Store) GetTenantAdminUser(ctx context.Context, tenantID string, userID 
 		WHERE t.slug = $1 AND u.user_id::text = $2
 		LIMIT 1
 	`, strings.TrimSpace(strings.ToLower(tenantID)), strings.TrimSpace(userID)).Scan(&id, &slug, &email, &mobile, &role, &active, &createdAt, &updatedAt)
-	if err != nil {
-		return nil, nil
+	if queryErr != nil {
+		if queryErr == pgx.ErrNoRows {
+			return nil, nil
+		}
+
+		return nil, queryErr
 	}
 
 	return buildTenantAdminUserMap(slug, id, email, mobile, role, active, createdAt, updatedAt), nil
@@ -364,7 +381,7 @@ func (s *Store) UpdateTenantAdminUserContact(ctx context.Context, params UpdateT
 		createdAt, updatedAt          time.Time
 	)
 
-	query := ""
+	var query string
 
 	args := []interface{}{params.Value, strings.TrimSpace(strings.ToLower(params.TenantSlug)), params.UserID}
 	if params.Field == "email" {
@@ -397,7 +414,7 @@ func (s *Store) TouchTenantAdminLastLogin(ctx context.Context, tenantID string, 
 		createdAt, updatedAt          time.Time
 	)
 
-	err := s.pool.QueryRow(ctx, `
+	queryErr := s.pool.QueryRow(ctx, `
 		UPDATE users u
 		SET updated_at = NOW()
 		FROM tenants t
@@ -405,8 +422,12 @@ func (s *Store) TouchTenantAdminLastLogin(ctx context.Context, tenantID string, 
 		RETURNING u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''),
 		          COALESCE(u.role, 'member'), COALESCE(u.active, true), u.created_at, u.updated_at
 	`, strings.TrimSpace(strings.ToLower(tenantID)), strings.TrimSpace(userID)).Scan(&id, &slug, &email, &mobile, &role, &active, &createdAt, &updatedAt)
-	if err != nil {
-		return nil, nil
+	if queryErr != nil {
+		if queryErr == pgx.ErrNoRows {
+			return nil, nil
+		}
+
+		return nil, queryErr
 	}
 
 	result := buildTenantAdminUserMap(slug, id, email, mobile, role, active, createdAt, updatedAt)
@@ -435,6 +456,10 @@ func buildTenantAdminUserMap(
 		"created_at_iso": createdAt.Format(time.RFC3339),
 		"updated_at_iso": updatedAt.Format(time.RFC3339),
 	}
+}
+
+func hasInvalidOTPRequest(err error) bool {
+	return err != nil
 }
 
 // Helper functions.

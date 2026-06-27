@@ -117,7 +117,7 @@ func TestTenantMiddleware_CacheHit(t *testing.T) {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	req, err := http.NewRequest(http.MethodGet, "http://acme.localhost/", nil)
+	req, err := http.NewRequest(http.MethodGet, "http://acme.localhost/", http.NoBody)
 	assert.NoError(t, err)
 
 	resp, err := app.Test(req)
@@ -152,7 +152,7 @@ func TestTenantMiddleware_CacheMiss(t *testing.T) {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	req, err := http.NewRequest(http.MethodGet, "http://acme.localhost/", nil)
+	req, err := http.NewRequest(http.MethodGet, "http://acme.localhost/", http.NoBody)
 	assert.NoError(t, err)
 
 	resp, err := app.Test(req)
@@ -184,7 +184,7 @@ func TestTenantMiddleware_TenantNotFound_ReturnsNotFound(t *testing.T) {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	req, err := http.NewRequest(http.MethodGet, "http://unknown.localhost/", nil)
+	req, err := http.NewRequest(http.MethodGet, "http://unknown.localhost/", http.NoBody)
 	assert.NoError(t, err)
 
 	resp, err := app.Test(req)
@@ -214,7 +214,7 @@ func TestTenantMiddleware_TenantSuspended(t *testing.T) {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	req, err := http.NewRequest(http.MethodGet, "http://suspended.localhost/", nil)
+	req, err := http.NewRequest(http.MethodGet, "http://suspended.localhost/", http.NoBody)
 	assert.NoError(t, err)
 
 	resp, err := app.Test(req)
@@ -246,7 +246,7 @@ func TestTenantMiddleware_LocalDevHint(t *testing.T) {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	req, err := http.NewRequest(http.MethodGet, "http://localhost/", nil)
+	req, err := http.NewRequest(http.MethodGet, "http://localhost/", http.NoBody)
 	assert.NoError(t, err)
 	req.Header.Set(apiheaders.HeaderTenant, "mytenant")
 
@@ -279,7 +279,7 @@ func TestTenantMiddleware_InternalServiceHint(t *testing.T) {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	req, err := http.NewRequest(http.MethodGet, "http://control-plane:4000/", nil)
+	req, err := http.NewRequest(http.MethodGet, "http://control-plane:4000/", http.NoBody)
 	assert.NoError(t, err)
 	req.Header.Set(apiheaders.LegacyHeaderTenant, "mytenant")
 
@@ -308,7 +308,7 @@ func TestTenantMiddleware_BypassesWalletTopUpCallback(t *testing.T) {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:4000/api/v1/wallet/topup/callback/mock?authority=mock_123&status=ok", nil)
+	req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:4000/api/v1/wallet/topup/callback/mock?authority=mock_123&status=ok", http.NoBody)
 	assert.NoError(t, err)
 
 	resp, err := app.Test(req)
@@ -340,7 +340,7 @@ func TestTenantMiddleware_NoCache_StillWorks(t *testing.T) {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	req, err := http.NewRequest(http.MethodGet, "http://acme.localhost/", nil)
+	req, err := http.NewRequest(http.MethodGet, "http://acme.localhost/", http.NoBody)
 	assert.NoError(t, err)
 
 	resp, err := app.Test(req)
@@ -428,7 +428,7 @@ func TestFromContext_NilLocals(t *testing.T) {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	req, err := http.NewRequest(http.MethodGet, "/", nil)
+	req, err := http.NewRequest(http.MethodGet, "/", http.NoBody)
 	assert.NoError(t, err)
 
 	resp, err := app.Test(req)
@@ -449,7 +449,7 @@ func TestFromContext_WrongType(t *testing.T) {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	req, err := http.NewRequest(http.MethodGet, "/", nil)
+	req, err := http.NewRequest(http.MethodGet, "/", http.NoBody)
 	assert.NoError(t, err)
 
 	resp, err := app.Test(req)

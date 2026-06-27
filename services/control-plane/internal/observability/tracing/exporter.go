@@ -114,7 +114,7 @@ func (w *WAL) Append(batch DurableBatch) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer closeFile(f)
 
 	enc := json.NewEncoder(f)
 
@@ -133,7 +133,7 @@ func (w *WAL) Drain() ([]DurableBatch, error) {
 
 		return nil, err
 	}
-	defer f.Close()
+	defer closeFile(f)
 
 	out := make([]DurableBatch, 0, 64)
 
@@ -181,7 +181,7 @@ func (w *WAL) BacklogSize() (int, error) {
 
 		return 0, err
 	}
-	defer f.Close()
+	defer closeFile(f)
 
 	count := 0
 
@@ -197,6 +197,16 @@ func (w *WAL) BacklogSize() (int, error) {
 	}
 
 	return count, nil
+}
+
+func closeFile(f *os.File) {
+	if f == nil {
+		return
+	}
+
+	if err := f.Close(); err != nil {
+		return
+	}
 }
 
 type ReliableExporter struct {

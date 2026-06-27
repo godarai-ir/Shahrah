@@ -414,11 +414,13 @@ func (s *Store) UpdateRole(ctx context.Context, tenantID string, roleID string, 
 
 	permissions := make([]string, len(current.Permissions))
 	copy(permissions, current.Permissions)
+
 	if req.Permissions != nil {
 		normalizedPermissions, normalizeErr := normalizePermissions(req.Permissions)
 		if normalizeErr != nil {
 			return nil, normalizeErr
 		}
+
 		permissions = normalizedPermissions
 
 		if _, err := tx.Exec(ctx, `

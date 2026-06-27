@@ -1,6 +1,7 @@
 package tracing_test
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -21,7 +22,7 @@ func TestMiddlewarePropagatesTraceID(t *testing.T) {
 		return c.SendStatus(200)
 	})
 
-	req := httptest.NewRequest("GET", "/x", nil)
+	req := httptest.NewRequest("GET", "/x", http.NoBody)
 	req.Header.Set(apiheaders.HeaderTraceID, "trace_abc")
 
 	resp, err := app.Test(req)
@@ -42,7 +43,7 @@ func TestMiddlewareGeneratesTraceIDWhenMissing(t *testing.T) {
 		return c.SendStatus(200)
 	})
 
-	req := httptest.NewRequest("GET", "/x", nil)
+	req := httptest.NewRequest("GET", "/x", http.NoBody)
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
@@ -50,7 +51,7 @@ func TestMiddlewareGeneratesTraceIDWhenMissing(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, resp.Header.Get(apiheaders.HeaderTraceID))
 
-	req = httptest.NewRequest("GET", "/x", nil)
+	req = httptest.NewRequest("GET", "/x", http.NoBody)
 	req.Header.Set(apiheaders.LegacyHeaderTraceID, "trace_legacy")
 
 	resp, err = app.Test(req)
@@ -72,7 +73,7 @@ func TestMiddleware_DropsRootAndStepWhenUnsampled(t *testing.T) {
 		return c.SendStatus(200)
 	})
 
-	req := httptest.NewRequest("GET", "/x", nil)
+	req := httptest.NewRequest("GET", "/x", http.NoBody)
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
@@ -94,7 +95,7 @@ func TestMiddleware_EnqueuesRootAndStepsForErrorRequest(t *testing.T) {
 		return c.SendStatus(fiber.StatusInternalServerError)
 	})
 
-	req := httptest.NewRequest("GET", "/x", nil)
+	req := httptest.NewRequest("GET", "/x", http.NoBody)
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
@@ -123,7 +124,7 @@ func TestRecordStepSpan_DefaultsParentToRootSpan(t *testing.T) {
 		return c.SendStatus(200)
 	})
 
-	req := httptest.NewRequest("GET", "/x", nil)
+	req := httptest.NewRequest("GET", "/x", http.NoBody)
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
