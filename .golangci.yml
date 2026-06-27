@@ -1,175 +1,115 @@
-# Configuration for golangci-lint
-# https://golangci-lint.run/usage/configuration/
+version: "2"
 
 run:
-  # Timeout for analysis, e.g. 30s, 5m
   timeout: 5m
-
-  # Exit code when at least one issue was found
   issues-exit-code: 1
-
-  # Include test files or not
   tests: true
-
-  # Allow multiple parallel golangci-lint instances
   allow-parallel-runners: true
-
-  # List of build tags, all linters use it
   build-tags: []
 
-
 linters:
-  disable-all: true
+  default: none
   enable:
-    # Default linters
-    - errcheck      # unchecked errors
-    - gosimple      # simplify code
-    - govet         # suspicious constructs
-    - ineffassign   # ineffectual assignments
-    - staticcheck   # advanced static analysis
-    - typecheck     # type checking
-    - unused        # unused constants/functions/variables
-
-    # Additional useful linters
-    - gofmt         # formatting
-    - goimports     # import formatting
-    - misspell      # spelling mistakes
-    - nolintlint    # poorly formatted nolint directives
-    - bodyclose     # unclosed HTTP response bodies
-    - nilerr        # returns nil when error
-    - unconvert     # unnecessary type conversions
-    - whitespace    # trailing whitespace
-    - wsl           # whitespace linter
-    - gocritic      # diagnostic checks
-    - godot         # comment formatting
-    - revive        # drop-in replacement for golint
-    - makezero      # slice operations
-    - prealloc      # slice preallocation
-    - tparallel     # parallel tests
-    - wastedassign  # wasted assignments
-    - exportloopref # exported loop refs
-    - dupl          # code clone detection
-    - gocyclo       # cyclomatic complexity
-    - lll           # line length
-
-linters-settings:
-  errcheck:
-    # Report about not checking of errors in type assertions
-    check-type-assertions: true
-    # Report about assignment of errors to blank identifier
-    check-blank: true
-
-  govet:
-    # Enable additional vet analyzers.
-    enable:
-      - shadow
-
-  gofmt:
-    # Simplify code: gofmt -s
-    simplify: true
-
-  goimports:
-    # Put imports beginning with prefix after 3rd-party packages
-    local-prefixes: github.com/BerriAI/go-llm-proxy
-
-  misspell:
-    # Correct spellings using locale preferences
-    locale: US
-    # Extra words to ignore
-    ignore-words: []
-
-  godot:
-    # Comments to be checked: declarations, toplevel, or all
-    scope: declarations
-    # Check that each sentence ends with a period
-    period: true
-    # Check that each sentence starts with a capital letter
-    capital: false
-
-  gocritic:
-    # Enable all checks
-    enabled-checks: []
-    # Disable specific checks
-    disabled-checks:
-      - unnamedResult
-    # Enable specific checks
-    enabled-tags:
-      - diagnostic
-      - style
-      - performance
-      - experimental
-      - opinionated
-
-  revive:
-    # Maximum number of open files at the same time
-    max-open-files: 2000
-    # When set to false, ignores files with "GENERATED" header
-    ignore-generated-header: true
-    severity: warning
+    - bodyclose
+    - dupl
+    - errcheck
+    - gocritic
+    - gocyclo
+    - godot
+    - govet
+    - ineffassign
+    - lll
+    - makezero
+    - misspell
+    - nilerr
+    - nolintlint
+    - prealloc
+    - revive
+    - staticcheck
+    - tparallel
+    - unconvert
+    - unused
+    - wastedassign
+    - whitespace
+    - wsl_v5
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+    govet:
+      enable:
+        - shadow
+    misspell:
+      locale: US
+    godot:
+      scope: declarations
+      period: true
+      capital: false
+    gocritic:
+      enabled-checks: []
+      disabled-checks:
+        - unnamedResult
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+        - experimental
+        - opinionated
+    revive:
+      severity: warning
+      rules:
+        - name: exported
+        - name: if-return
+        - name: var-declaration
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unused-parameter
+        - name: unreachable-code
+        - name: redefines-builtin-id
+    gocyclo:
+      min-complexity: 15
+    lll:
+      line-length: 150
+      tab-width: 4
+    makezero:
+      always: false
+    prealloc:
+      simple: true
+      range-loops: true
+      for-loops: false
+  exclusions:
+    generated: disable
     rules:
-      - name: exported
-      - name: if-return
-      - name: var-declaration
-      - name: package-comments
-      - name: range
-      - name: receiver-naming
-      - name: time-naming
-      - name: unexported-return
-      - name: indent-error-flow
-      - name: errorf
-      - name: empty-block
-      - name: superfluous-else
-      - name: unused-parameter
-      - name: unreachable-code
-      - name: redefines-builtin-id
+      - path: _test\.go
+        linters:
+          - dupl
+          - errcheck
+          - gocyclo
+      - linters:
+          - lll
+        source: "^//go:"
+      - linters:
+          - lll
+        source: "^//.*"
 
-  gocyclo:
-    # Minimal complexity of function to report
-    min-complexity: 15
-
-  lll:
-    # Max line length, lines longer will be reported
-    line-length: 150
-    # Tab width in spaces
-    tab-width: 4
-
-  makezero:
-    # Allow only slices initialized with zero length
-    always: false
-
-  prealloc:
-    # Report preallocation suggestions on simple loops
-    simple: true
-    # Report preallocation suggestions on range loops
-    range-loops: true
-    # Report preallocation suggestions on for loops
-    for-loops: false
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      local-prefixes:
+        - github.com/BerriAI/go-llm-proxy
 
 issues:
-  # Maximum count of issues with the same text
   max-same-issues: 10
-  # Maximum issues count per linter
   max-issues-per-linter: 50
-  # Include generated files
-  exclude-generated: disable
-  # Exclude patterns
-  exclude-rules:
-    # Exclude some linters from running on tests files
-    - path: _test\.go
-      linters:
-        - gocyclo
-        - errcheck
-        - dupl
-        - gosec
-        - funlen
-    # Exclude lll for struct tags
-    - linters:
-        - lll
-      source: "^//go:"
-    # Exclude go generate directives
-    - linters:
-        - lll
-      source: "^//.*"
-
-  # Don't include issues excluded by default
-  exclude-use-default: false
