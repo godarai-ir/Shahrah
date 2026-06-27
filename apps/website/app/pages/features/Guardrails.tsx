@@ -49,7 +49,7 @@ function GuardrailsDashboard() {
         <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
         <div className="mx-auto flex items-center gap-2 px-3 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 font-medium font-sans">
           <ShieldCheck className="w-3 h-3" />
-          Shahrah LLM Guardrails
+          GodarAI LLM Guardrails
         </div>
       </div>
 
@@ -772,7 +772,7 @@ export function Guardrails() {
               <h3 className="font-bold text-white mb-2" style={{ fontFamily: 'var(--font-heading)' }}>Bring Your Own Guardrails</h3>
               <p className="text-slate-400 text-sm mb-5">اگر تیم شما از سیستم داخلی، ابزار امنیتی یا سرویس ارزیابی اختصاصی استفاده می‌کند، آن را از طریق Webhook یا API به گُدار AI متصل کنید.</p>
               <div className="space-y-2 font-sans text-xs">
-                {['Shahrah Gateway', 'Webhook / API', 'Internal Guardrail Service', 'Security Tool', 'Policy Engine', 'Final Decision'].map((node, i) => (
+                {['GodarAI Gateway', 'Webhook / API', 'Internal Guardrail Service', 'Security Tool', 'Policy Engine', 'Final Decision'].map((node, i) => (
                   <div key={i} className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full shrink-0 ${
                       i === 0 ? 'bg-indigo-400' :

@@ -5,7 +5,7 @@ import { buildMetadata } from "@/app/lib/seo";
 export const metadata: Metadata = buildMetadata({
   title: "Dashboard Overview",
   description:
-    "Explore Shahrah dashboard capabilities for monitoring requests, usage, and AI model performance.",
+    "Explore GodarAI dashboard capabilities for monitoring requests, usage, and AI model performance.",
   path: "/dashboard",
 });
 

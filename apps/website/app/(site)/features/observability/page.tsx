@@ -5,7 +5,7 @@ import { buildMetadata } from "@/app/lib/seo";
 export const metadata: Metadata = buildMetadata({
   title: "Observability Feature",
   description:
-    "Track logs, traces, and key metrics across your AI stack with Shahrah observability features.",
+    "Track logs, traces, and key metrics across your AI stack with GodarAI observability features.",
   path: "/features/observability",
 });
 

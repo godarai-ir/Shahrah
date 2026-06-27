@@ -5,7 +5,7 @@ import { buildMetadata } from "@/app/lib/seo";
 export const metadata: Metadata = buildMetadata({
   title: "Privacy Policy",
   description:
-    "Read Shahrah privacy policy and how we handle, protect, and process user data responsibly.",
+    "Read GodarAI privacy policy and how we handle, protect, and process user data responsibly.",
   path: "/privacy",
 });
 

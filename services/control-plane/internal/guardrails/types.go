@@ -229,7 +229,7 @@ func (e *Engine) ApplyInputWithGuardrails(req contractsopenai.ChatCompletionRequ
 			if shouldBlockOnError(g) {
 				result.Blocked = true
 				result.Reason = check.Reason
-				return result, &ViolationError{Message: "Request blocked by Shahrah guardrail", Checks: result.Checks}
+				return result, &ViolationError{Message: "Request blocked by GodarAI guardrail", Checks: result.Checks}
 			}
 			continue
 		}
@@ -237,7 +237,7 @@ func (e *Engine) ApplyInputWithGuardrails(req contractsopenai.ChatCompletionRequ
 		if shouldBlockOnViolation(g, eval) {
 			result.Blocked = true
 			result.Reason = check.Reason
-			return result, &ViolationError{Message: "Request blocked by Shahrah guardrail", Checks: result.Checks}
+			return result, &ViolationError{Message: "Request blocked by GodarAI guardrail", Checks: result.Checks}
 		}
 		if eval.Mutated && g.Operation() == OperationMutate {
 			outTexts = eval.Texts
@@ -265,7 +265,7 @@ func (e *Engine) ApplyOutputWithGuardrails(resp contractsopenai.ChatCompletionRe
 			if shouldBlockOnError(g) {
 				result.Blocked = true
 				result.Reason = check.Reason
-				return result, &ViolationError{Message: "Response blocked by Shahrah guardrail", Checks: result.Checks}
+				return result, &ViolationError{Message: "Response blocked by GodarAI guardrail", Checks: result.Checks}
 			}
 			continue
 		}
@@ -273,7 +273,7 @@ func (e *Engine) ApplyOutputWithGuardrails(resp contractsopenai.ChatCompletionRe
 		if shouldBlockOnViolation(g, eval) {
 			result.Blocked = true
 			result.Reason = check.Reason
-			return result, &ViolationError{Message: "Response blocked by Shahrah guardrail", Checks: result.Checks}
+			return result, &ViolationError{Message: "Response blocked by GodarAI guardrail", Checks: result.Checks}
 		}
 		if eval.Mutated && g.Operation() == OperationMutate {
 			outTexts = eval.Texts

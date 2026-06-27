@@ -22,7 +22,7 @@ const jetBrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "شاهراه | پنل مدیریت تننت",
+  title: "گُدارAI | پنل مدیریت تننت",
   description: "پنل فارسی مدیریت تننت برای کلیدها، مدل‌ها، کیف پول و تنظیمات حساب.",
   icons: {
     icon: [{ url: "/icon.png", type: "image/png" }],

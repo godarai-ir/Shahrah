@@ -322,7 +322,7 @@
       },
       "curlGuide": {
         "title": "Connect With cURL",
-        "description": "Use this example to call {model} through Shahrah.",
+        "description": "Use this example to call {model} through GodarAI.",
         "readyBadge": "Ready to Run",
         "modelFqnLabel": "Model FQN",
         "instructionsLabel": "Execution notes",

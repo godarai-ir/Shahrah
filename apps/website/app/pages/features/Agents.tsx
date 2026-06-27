@@ -40,7 +40,7 @@ function AgentsDashboard() {
         <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
         <div className="mx-auto flex items-center gap-2 px-3 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 font-medium font-sans">
           <Bot className="w-3 h-3" />
-          Shahrah AI Agents
+          GodarAI AI Agents
         </div>
       </div>
 
@@ -317,7 +317,7 @@ function GatewayDiagram() {
         <ChevronRight className="w-4 h-4 text-slate-400 rotate-90" />
         {/* Gateway */}
         <div className="px-6 py-3 rounded-xl bg-slate-900 dark:bg-slate-950 border border-indigo-500/40 text-white font-bold flex items-center gap-2 shadow-[0_0_20px_rgba(99,102,241,0.15)]">
-          <Shield className="w-3.5 h-3.5 text-indigo-400" /> Shahrah Gateway
+          <Shield className="w-3.5 h-3.5 text-indigo-400" /> GodarAI Gateway
         </div>
         <div className="flex items-center gap-2">
           <div className="w-px h-4 bg-slate-300 dark:bg-slate-700" />

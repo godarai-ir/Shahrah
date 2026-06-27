@@ -14,6 +14,7 @@ import (
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	mcache "github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
@@ -75,7 +76,7 @@ func TestChatCompletionHandler_SimpleCacheHitSkipsProviderAndWallet(t *testing.T
 	makeRequest := func() *http.Response {
 		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4","messages":[{"role":"user","content":"hello"}]}`))
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("x-shahrah-cache-config", `{"type":"simple","ttl":60}`)
+		req.Header.Set(apiheaders.HeaderCacheConfig, `{"type":"simple","ttl":60}`)
 		resp, requestErr := app.Test(req)
 		require.NoError(t, requestErr)
 		return resp
@@ -83,11 +84,11 @@ func TestChatCompletionHandler_SimpleCacheHitSkipsProviderAndWallet(t *testing.T
 
 	first := makeRequest()
 	assert.Equal(t, http.StatusOK, first.StatusCode)
-	assert.Equal(t, "miss", first.Header.Get("x-shahrah-cache-status"))
+	assert.Equal(t, "miss", first.Header.Get(apiheaders.HeaderCacheStatus))
 	second := makeRequest()
 	assert.Equal(t, http.StatusOK, second.StatusCode)
-	assert.Equal(t, "hit", second.Header.Get("x-shahrah-cache-status"))
-	assert.NotEmpty(t, second.Header.Get("x-shahrah-cached-trace-id"))
+	assert.Equal(t, "hit", second.Header.Get(apiheaders.HeaderCacheStatus))
+	assert.NotEmpty(t, second.Header.Get(apiheaders.HeaderCachedTraceID))
 	assert.Equal(t, 1, tunnel.proxyCalls)
 	assert.Len(t, wallet.debitCalls, 1)
 	require.Len(t, logs.loggedSpends, 2)
@@ -867,10 +868,10 @@ func TestChatCompletionHandler_ShouldPassThroughValidProviderHeaders(t *testing.
 	assert.Empty(t, resp.Header.Get("X-Some-Other-Header"))
 	assert.Empty(t, resp.Header.Get("X-Internal-Secret-Header"))
 
-	// Verify Shahrah headers are added
-	assert.NotEmpty(t, resp.Header.Get("X-Shahrah-Trace-Id"))
-	assert.NotEmpty(t, resp.Header.Get("X-Shahrah-Cost-Usd"))
-	assert.NotEmpty(t, resp.Header.Get("X-Shahrah-Cost-Irr"))
+	// Verify GodarAI headers are added
+	assert.NotEmpty(t, resp.Header.Get("X-GodarAI-Trace-Id"))
+	assert.NotEmpty(t, resp.Header.Get("X-GodarAI-Cost-Usd"))
+	assert.NotEmpty(t, resp.Header.Get("X-GodarAI-Cost-Irr"))
 }
 
 func TestChatCompletionHandler_GuardrailBlocksInputBeforeProviderCall(t *testing.T) {
@@ -890,7 +891,7 @@ func TestChatCompletionHandler_GuardrailBlocksInputBeforeProviderCall(t *testing
 	})
 	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Shahrah-Guardrails", `{"llm_input_guardrails":["guardrails/keyword-blocklist"]}`)
+	req.Header.Set("X-GodarAI-Guardrails", `{"llm_input_guardrails":["guardrails/keyword-blocklist"]}`)
 
 	resp, err := app.Test(req)
 	require.NoError(t, err)
@@ -960,7 +961,7 @@ func TestChatCompletionHandler_TenantKeywordGuardrailBlocksInputBeforeProviderCa
 	})
 	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Shahrah-Guardrails", `{"llm_input_guardrails":["guardrails/my-ggg"]}`)
+	req.Header.Set("X-GodarAI-Guardrails", `{"llm_input_guardrails":["guardrails/my-ggg"]}`)
 
 	resp, err := app.Test(req)
 	require.NoError(t, err)
@@ -994,7 +995,7 @@ func TestChatCompletionHandler_GuardrailMutatesInputBeforeProviderCall(t *testin
 	})
 	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Shahrah-Guardrails", `{"llm_input_guardrails":["guardrails/pii-redaction"]}`)
+	req.Header.Set("X-GodarAI-Guardrails", `{"llm_input_guardrails":["guardrails/pii-redaction"]}`)
 
 	resp, err := app.Test(req)
 	require.NoError(t, err)
@@ -1056,7 +1057,7 @@ func TestChatCompletionHandler_GuardrailRejectsStreamingWithOutputGuardrails(t *
 	})
 	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Shahrah-Guardrails", `{"llm_output_guardrails":["guardrails/secrets-detection"]}`)
+	req.Header.Set("X-GodarAI-Guardrails", `{"llm_output_guardrails":["guardrails/secrets-detection"]}`)
 
 	resp, err := app.Test(req)
 	require.NoError(t, err)

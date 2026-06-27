@@ -6,12 +6,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
 
 const (
-	TraceIDHeader      = "x-shahrah-trace-id"
+	TraceIDHeader      = apiheaders.HeaderTraceID
 	TraceParentHeader  = "traceparent"
 	TraceStateHeader   = "tracestate"
 	LocalTraceIDKey    = "shahrah.trace_id"
@@ -60,7 +61,7 @@ func Middleware(queue *Queue, sampler *Sampler, slowMS int64, privacy ...*Privac
 		statusCode := c.Response().StatusCode()
 		tenantID, _ := c.Locals(LocalTenantIDKey).(string)
 		if tenantID == "" {
-			tenantID = c.Get("x-shahrah-tenant")
+			tenantID = apiheaders.GetTenant(c)
 		}
 
 		shouldSample := sampler.ShouldSample(DecisionInput{
@@ -121,7 +122,7 @@ func RecordStepSpan(c *fiber.Ctx, queue *Queue, parentSpanID, name, kind string,
 	}
 	tenantID, _ := c.Locals(LocalTenantIDKey).(string)
 	if tenantID == "" {
-		tenantID = c.Get("x-shahrah-tenant")
+		tenantID = apiheaders.GetTenant(c)
 	}
 	if strings.TrimSpace(parentSpanID) == "" {
 		parentSpanID = RootSpanIDFromContext(c)
@@ -171,10 +172,7 @@ func flushStepBuffer(c *fiber.Ctx, queue *Queue) {
 }
 
 func resolveTraceID(c *fiber.Ctx) string {
-	if v := strings.TrimSpace(c.Get(TraceIDHeader)); v != "" {
-		return v
-	}
-	if v := strings.TrimSpace(c.Get("x-trace-id")); v != "" {
+	if v := apiheaders.GetTraceID(c); v != "" {
 		return v
 	}
 	if tp := strings.TrimSpace(c.Get(TraceParentHeader)); tp != "" {

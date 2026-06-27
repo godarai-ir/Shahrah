@@ -6,7 +6,7 @@ const sans = IBM_Plex_Sans({ subsets: ['latin'], variable: '--font-sans', weight
 const mono = IBM_Plex_Mono({ subsets: ['latin'], variable: '--font-mono', weight: ['400','500'] });
 
 export const metadata: Metadata = {
-  title: 'Shahrah Support Admin',
+  title: 'GodarAI Support Admin',
   description: 'Internal operations and support administration',
 };
 

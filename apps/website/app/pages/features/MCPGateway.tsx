@@ -42,7 +42,7 @@ function MCPGatewayDashboard() {
         <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
         <div className="mx-auto flex items-center gap-2 px-3 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 font-medium font-sans">
           <Server className="w-3 h-3" />
-          Shahrah MCP Gateway
+          GodarAI MCP Gateway
         </div>
       </div>
 
@@ -482,7 +482,7 @@ function InternalSharingDiagram() {
         </div>
         <ChevronRight className="w-4 h-4 text-slate-400 rotate-90" />
         <div className="px-6 py-3 rounded-xl bg-slate-900 border border-indigo-500/40 text-white font-bold flex items-center gap-2 shadow-[0_0_15px_rgba(99,102,241,0.15)] w-full justify-center">
-          <Shield className="w-3.5 h-3.5 text-indigo-400" /> Shahrah MCP Gateway
+          <Shield className="w-3.5 h-3.5 text-indigo-400" /> GodarAI MCP Gateway
           <span className="text-[9px] text-indigo-300 bg-indigo-500/20 px-1.5 py-0.5 rounded-full font-sans">Credential Vault</span>
         </div>
         <div className="grid grid-cols-3 gap-2 w-full text-[10px]">
@@ -531,7 +531,7 @@ function OrgScaleDiagram() {
         ))}
         <div className="p-2.5 rounded-xl bg-slate-900 border border-indigo-500/30 text-center">
           <div className="text-[10px] font-bold text-white flex items-center justify-center gap-1.5">
-            <Shield className="w-3 h-3 text-indigo-400" /> Shahrah MCP Gateway
+            <Shield className="w-3 h-3 text-indigo-400" /> GodarAI MCP Gateway
           </div>
           <div className="flex justify-center gap-2 mt-1.5">
             {['Identity Layer', 'Policy Layer'].map(l => (

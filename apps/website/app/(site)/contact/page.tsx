@@ -5,7 +5,7 @@ import { buildMetadata } from "@/app/lib/seo";
 export const metadata: Metadata = buildMetadata({
   title: "Contact",
   description:
-    "Contact Shahrah for sales, partnerships, or product questions about our AI gateway platform.",
+    "Contact GodarAI for sales, partnerships, or product questions about our AI gateway platform.",
   path: "/contact",
 });
 

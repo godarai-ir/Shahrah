@@ -5,7 +5,7 @@ import { buildMetadata } from "@/app/lib/seo";
 export const metadata: Metadata = buildMetadata({
   title: "Guardrails Feature",
   description:
-    "Apply safety and policy controls on prompts and model outputs with Shahrah guardrails.",
+    "Apply safety and policy controls on prompts and model outputs with GodarAI guardrails.",
   path: "/features/guardrails",
 });
 

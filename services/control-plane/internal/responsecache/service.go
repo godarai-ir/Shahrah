@@ -137,11 +137,11 @@ func (s *Service) ParseHeader(raw string) (RequestConfig, error) {
 	decoder := json.NewDecoder(strings.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&cfg); err != nil {
-		return cfg, fmt.Errorf("invalid x-shahrah-cache-config: %w", err)
+		return cfg, fmt.Errorf("invalid x-godarai-cache-config: %w", err)
 	}
 	var trailing interface{}
 	if err := decoder.Decode(&trailing); err != io.EOF {
-		return cfg, errors.New("invalid x-shahrah-cache-config: multiple JSON values")
+		return cfg, errors.New("invalid x-godarai-cache-config: multiple JSON values")
 	}
 	cfg.Type = strings.ToLower(strings.TrimSpace(cfg.Type))
 	if cfg.Type != "simple" && cfg.Type != "smart" {

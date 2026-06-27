@@ -2,10 +2,10 @@ package proxy
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
 	"github.com/Delpak/shahrah/services/control-plane/internal/guardrails"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/gofiber/fiber/v2"
@@ -69,14 +69,8 @@ func (h *ChatCompletionHandler) parseGuardrails(c *fiber.Ctx) (guardrails.Reques
 	if c == nil {
 		return guardrails.RequestSelection{}, nil
 	}
-	raw := strings.TrimSpace(c.Get("x-shahrah-guardrails"))
-	if raw == "" {
-		raw = strings.TrimSpace(c.Get("x-tfy-guardrails"))
-	}
-	scope := strings.TrimSpace(c.Get("x-shahrah-guardrails-scope"))
-	if scope == "" {
-		scope = strings.TrimSpace(c.Get("x-tfy-guardrails-scope"))
-	}
+	raw := apiheaders.GetGuardrails(c)
+	scope := apiheaders.GetGuardrailsScope(c)
 	return guardrails.ParseSelection(raw, scope)
 }
 

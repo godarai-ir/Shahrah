@@ -5,7 +5,7 @@ import { buildMetadata } from "@/app/lib/seo";
 export const metadata: Metadata = buildMetadata({
   title: "Prompt Engineering",
   description:
-    "Prompt engineering workflows are available within Shahrah AI Gateway features.",
+    "Prompt engineering workflows are available within GodarAI AI Gateway features.",
   path: "/features/prompt-engineering",
   noIndex: true,
 });

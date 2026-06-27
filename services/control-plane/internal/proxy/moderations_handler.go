@@ -8,6 +8,7 @@ import (
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
@@ -160,7 +161,7 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 		},
 		Body: payload,
 		RequestMetadata: map[string]interface{}{
-			"tenant_slug":            strings.TrimSpace(c.Get("x-shahrah-tenant")),
+			"tenant_slug":            apiheaders.GetTenant(c),
 			"model":                  requestedModel,
 			"provider_endpoint_path": "/moderations",
 			"input_count":            moderationInputCount(req.Input),
@@ -264,9 +265,9 @@ func (h *ModerationsHandler) handleSync(c *fiber.Ctx, req contractsopenai.Modera
 	})
 
 	forwardProviderHeaders(c, resp.Headers)
-	c.Set("x-shahrah-trace-id", tunnelReq.TraceID)
-	c.Set("x-shahrah-cost-usd", fmt.Sprintf("%.8f", finalCost.TotalCostUSD))
-	c.Set("x-shahrah-cost-irr", fmt.Sprintf("%.2f", finalCost.TotalCostIRR))
+	c.Set(apiheaders.HeaderTraceID, tunnelReq.TraceID)
+	c.Set(apiheaders.HeaderCostUSD, fmt.Sprintf("%.8f", finalCost.TotalCostUSD))
+	c.Set(apiheaders.HeaderCostIRR, fmt.Sprintf("%.2f", finalCost.TotalCostIRR))
 
 	responseStart := time.Now()
 	err = c.Status(resp.StatusCode).JSON(response)

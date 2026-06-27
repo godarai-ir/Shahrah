@@ -74,7 +74,7 @@ func newResendOTPEmailSenderFromEnv() OTPEmailSender {
 		enabled:   enabled,
 		apiKey:    strings.TrimSpace(os.Getenv("RESEND_API_KEY")),
 		fromEmail: strings.TrimSpace(os.Getenv("RESEND_FROM_EMAIL")),
-		fromName:  defaultIfEmpty(strings.TrimSpace(os.Getenv("RESEND_FROM_NAME")), "Shahrah"),
+		fromName:  defaultIfEmpty(strings.TrimSpace(os.Getenv("RESEND_FROM_NAME")), "GodarAI"),
 		replyTo:   strings.TrimSpace(os.Getenv("RESEND_REPLY_TO")),
 		client: resend.NewCustomClient(&http.Client{
 			Timeout: 10 * time.Second,
@@ -92,7 +92,7 @@ func (s *smtpOTPEmailSender) SendTenantAdminOTP(to string, tenantSlug string, ot
 		return nil
 	}
 
-	subject := "Shahrah OTP Code"
+	subject := "GodarAI OTP Code"
 	body := strings.Join([]string{
 		fmt.Sprintf("Your one-time code for tenant \"%s\" is: %s", tenantSlug, otpCode),
 		fmt.Sprintf("This code expires in %d minutes.", expiresInMinutes),
@@ -131,7 +131,7 @@ func (s *resendOTPEmailSender) SendTenantAdminOTP(to string, tenantSlug string, 
 		return fmt.Errorf("RESEND_API_KEY and RESEND_FROM_EMAIL are required when NODE_ENV=production")
 	}
 
-	subject := "Shahrah OTP Code"
+	subject := "GodarAI OTP Code"
 	text := strings.Join([]string{
 		fmt.Sprintf("Your one-time code for tenant \"%s\" is: %s", tenantSlug, otpCode),
 		fmt.Sprintf("This code expires in %d minutes.", expiresInMinutes),
@@ -139,7 +139,7 @@ func (s *resendOTPEmailSender) SendTenantAdminOTP(to string, tenantSlug string, 
 	}, "\n")
 	html := fmt.Sprintf(`
 <div style="font-family: sans-serif; line-height: 1.6;">
-  <h2>Shahrah OTP Code</h2>
+  <h2>GodarAI OTP Code</h2>
   <p>Your one-time code for tenant <strong>%s</strong> is:</p>
   <p style="font-size: 24px; font-weight: bold; letter-spacing: 3px;">%s</p>
   <p>This code expires in %d minutes.</p>

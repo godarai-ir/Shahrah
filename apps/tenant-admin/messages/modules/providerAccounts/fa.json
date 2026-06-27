@@ -379,7 +379,7 @@
       },
       "curlGuide": {
         "title": "اتصال با cURL",
-        "description": "از این نمونه برای فراخوانی {model} از طریق شاهراه استفاده کنید.",
+        "description": "از این نمونه برای فراخوانی {model} از طریق گُدارAI استفاده کنید.",
         "readyBadge": "آماده اجرا",
         "modelFqnLabel": "FQN مدل",
         "instructionsLabel": "نکات اجرا",

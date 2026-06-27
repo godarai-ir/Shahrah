@@ -48,7 +48,7 @@ function GatewayDashboard() {
         <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
         <div className="mx-auto flex items-center gap-2 px-3 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 font-medium font-sans">
           <Network className="w-3 h-3" />
-          Shahrah AI Gateway
+          GodarAI AI Gateway
         </div>
       </div>
 
@@ -297,7 +297,7 @@ function ConnectionDiagram() {
         <div className="w-px h-4 bg-indigo-300 dark:bg-indigo-700" />
         {/* Gateway */}
         <div className="w-40 py-2 px-4 rounded-xl bg-gradient-to-l from-indigo-600 to-purple-600 text-white text-center font-bold text-[11px] shadow-lg shadow-indigo-500/20">
-          🛡️ Shahrah Gateway
+          🛡️ GodarAI Gateway
         </div>
         {/* Fork lines */}
         <div className="flex items-start gap-6 relative">

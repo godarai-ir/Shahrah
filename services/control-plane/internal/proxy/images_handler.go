@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
@@ -141,7 +142,7 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
 	requestMetadata := map[string]interface{}{
-		"tenant_slug":            strings.TrimSpace(c.Get("x-shahrah-tenant")),
+		"tenant_slug":            apiheaders.GetTenant(c),
 		"model":                  requestedModel,
 		"provider_endpoint_path": op.Path,
 		"operation":              op.Name,
@@ -250,9 +251,9 @@ func (h *ImagesHandler) handleSync(c *fiber.Ctx, requestedModel string, estimate
 	})
 
 	forwardProviderHeaders(c, resp.Headers)
-	c.Set("x-shahrah-trace-id", tunnelReq.TraceID)
-	c.Set("x-shahrah-cost-usd", fmt.Sprintf("%.8f", finalCost.TotalCostUSD))
-	c.Set("x-shahrah-cost-irr", fmt.Sprintf("%.2f", finalCost.TotalCostIRR))
+	c.Set(apiheaders.HeaderTraceID, tunnelReq.TraceID)
+	c.Set(apiheaders.HeaderCostUSD, fmt.Sprintf("%.8f", finalCost.TotalCostUSD))
+	c.Set(apiheaders.HeaderCostIRR, fmt.Sprintf("%.2f", finalCost.TotalCostIRR))
 	responseStart := time.Now()
 	err = c.Status(resp.StatusCode).Send(resp.Body)
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "response.write", "internal", responseStart, resp.StatusCode, map[string]interface{}{

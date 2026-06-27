@@ -145,7 +145,7 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
               />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-foreground">Shahrah</p>
+              <p className="text-sm font-semibold text-foreground">GodarAI</p>
               <p className="truncate text-xs text-muted-foreground">{t("subtitle")}</p>
             </div>
           </div>

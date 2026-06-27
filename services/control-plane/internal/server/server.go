@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/services/control-plane/internal/admin"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	prommetrics "github.com/Delpak/shahrah/services/control-plane/internal/observability/prometheus"
@@ -73,7 +74,7 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
 		AllowMethods: "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-		AllowHeaders: "Origin, Content-Type, Accept, Authorization, api-key, x-api-key, x-shahrah-tenant, x-shahrah-guardrails, x-shahrah-guardrails-scope, x-tfy-guardrails, x-tfy-guardrails-scope",
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization, api-key, x-api-key, " + apiheaders.HeaderTenant + ", " + apiheaders.LegacyHeaderTenant + ", " + apiheaders.HeaderGuardrails + ", " + apiheaders.LegacyHeaderGuardrails + ", " + apiheaders.HeaderGuardrailsScope + ", " + apiheaders.LegacyHeaderGuardrailScope + ", x-tfy-guardrails, x-tfy-guardrails-scope",
 	}))
 	if deps.TracingMiddleware != nil {
 		app.Use(deps.TracingMiddleware)

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -77,7 +78,7 @@ func (m *Middleware) Handle() fiber.Handler {
 
 		// Allow header hint for local development and trusted internal hosts.
 		if m.allowHeaderHint && shouldUseTenantHeaderHint(host) {
-			if hinted := strings.TrimSpace(c.Get("x-shahrah-tenant")); hinted != "" {
+			if hinted := apiheaders.GetTenant(c); hinted != "" {
 				host = hinted + ".localhost"
 			}
 		}

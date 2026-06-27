@@ -2,7 +2,7 @@
   "title": "Prompt Registry",
   "header": {
     "title": "Prompt Registry",
-    "description": "Create reusable prompt templates, version them intentionally, and execute them through Shahrah Gateway."
+    "description": "Create reusable prompt templates, version them intentionally, and execute them through GodarAI Gateway."
   },
   "notice": {
     "errorTitle": "Action failed",
@@ -70,7 +70,7 @@
     "description": "Pick a model, configure runtime behavior, and prepare reusable template defaults.",
     "model": {
       "title": "Selected model",
-      "placeholder": "Choose a Shahrah model alias or virtual model",
+      "placeholder": "Choose a GodarAI model alias or virtual model",
       "contextBadge": "ctx {count}"
     },
     "modelSettings": {
@@ -89,7 +89,7 @@
     },
     "cache": {
       "title": "Cache config",
-      "description": "Maps directly to Shahrah's `x-shahrah-cache-config` header.",
+      "description": "Maps directly to GodarAI's `x-godarai-cache-config` header.",
       "empty": "Cache is disabled.",
       "summary": {
         "type": "type {value}",
@@ -121,7 +121,7 @@
     },
     "logging": {
       "title": "Logging",
-      "description": "Prompt-level log storage toggles are deferred in this v1 because Shahrah already enforces request and spend logging at gateway level."
+      "description": "Prompt-level log storage toggles are deferred in this v1 because GodarAI already enforces request and spend logging at gateway level."
     }
   },
   "versions": {
@@ -182,7 +182,7 @@
     "breadcrumbNew": "Prompt Registry > New Prompt",
     "titleExisting": "Edit prompt and save a new version",
     "titleNew": "New prompt playground",
-    "description": "Build the reusable template on the left, then run it through Shahrah Gateway before saving.",
+    "description": "Build the reusable template on the left, then run it through GodarAI Gateway before saving.",
     "fields": {
       "name": "Prompt name",
       "namePlaceholder": "booking_greeting",
@@ -205,7 +205,7 @@
   },
   "playground": {
     "title": "Playground response",
-    "description": "Run the current draft through Shahrah Gateway before saving.",
+    "description": "Run the current draft through GodarAI Gateway before saving.",
     "empty": "Response will appear here.",
     "usage": {
       "prompt": "prompt {count}",
@@ -216,13 +216,13 @@
   "dialogs": {
     "model": {
       "title": "Select model",
-      "description": "Choose a real Shahrah model alias or virtual model that is already routable by the gateway.",
+      "description": "Choose a real GodarAI model alias or virtual model that is already routable by the gateway.",
       "searchPlaceholder": "Search models",
       "empty": "No models available for this provider."
     },
     "cache": {
       "title": "Cache Config",
-      "description": "Configure Shahrah response cache using the same contract as `x-shahrah-cache-config`.",
+      "description": "Configure GodarAI response cache using the same contract as `x-godarai-cache-config`.",
       "enableTitle": "Enable cache",
       "enableDescription": "Use `simple` for exact-match and `smart` for semantic cache.",
       "fields": {
@@ -239,8 +239,8 @@
       "outputDescription": "Attach tenant guardrails that validate or mutate the model response after execution.",
       "streamingDisabledTitle": "Streaming must be disabled",
       "streamingAlreadyDisabledTitle": "Streaming is already disabled",
-      "streamingDisabledDescription": "Shahrah currently rejects output guardrails when streaming is enabled. Disable stream in model settings before running or saving.",
-      "streamingAlreadyDisabledDescription": "Shahrah currently accepts output guardrails only when streaming is disabled.",
+      "streamingDisabledDescription": "GodarAI currently rejects output guardrails when streaming is enabled. Disable stream in model settings before running or saving.",
+      "streamingAlreadyDisabledDescription": "GodarAI currently accepts output guardrails only when streaming is disabled.",
       "scope": "Scope",
       "scopeLast": "last",
       "scopeAll": "all"

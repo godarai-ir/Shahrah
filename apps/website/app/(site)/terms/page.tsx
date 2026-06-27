@@ -5,7 +5,7 @@ import { buildMetadata } from "@/app/lib/seo";
 export const metadata: Metadata = buildMetadata({
   title: "Terms of Service",
   description:
-    "Review Shahrah terms of service, acceptable use policies, and legal agreements.",
+    "Review GodarAI terms of service, acceptable use policies, and legal agreements.",
   path: "/terms",
 });
 

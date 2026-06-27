@@ -11,6 +11,7 @@ import (
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
@@ -246,7 +247,7 @@ func (h *CompletionsHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCo
 		h.logger.Error("failed to debit wallet", zap.Error(err))
 	}
 	setCostHeaders(c, finalCost)
-	c.Set("x-shahrah-trace-id", tunnelReq.RequestID)
+	c.Set(apiheaders.HeaderTraceID, tunnelReq.RequestID)
 
 	// Log asynchronously
 	responseTimeMS := int(time.Since(start).Milliseconds())
@@ -335,7 +336,7 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 	c.Set("Cache-Control", "no-cache")
 	c.Set("Connection", "keep-alive")
 	c.Set("X-Accel-Buffering", "no")
-	c.Set("x-shahrah-trace-id", tunnelReq.TraceID)
+	c.Set(apiheaders.HeaderTraceID, tunnelReq.TraceID)
 
 	// Forward provider headers from stream
 	forwardProviderHeaders(c, stream.Headers())
@@ -481,8 +482,8 @@ func (h *CompletionsHandler) emitModelMetric(input metricsobs.BuildInput) {
 
 // setCostHeaders sets cost-related response headers.
 func setCostHeaders(c *fiber.Ctx, cost platform.UsageCostBreakdown) {
-	c.Set("x-shahrah-cost-usd", fmt.Sprintf("%.8f", cost.TotalCostUSD))
-	c.Set("x-shahrah-cost-irr", fmt.Sprintf("%.2f", cost.TotalCostIRR))
+	c.Set(apiheaders.HeaderCostUSD, fmt.Sprintf("%.8f", cost.TotalCostUSD))
+	c.Set(apiheaders.HeaderCostIRR, fmt.Sprintf("%.2f", cost.TotalCostIRR))
 }
 
 // mustMarshalJSON marshals to JSON or panics.

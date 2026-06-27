@@ -32,7 +32,7 @@ function getSMTPConfig() {
 function getResendConfig() {
   const apiKey = process.env.RESEND_API_KEY?.trim() || "";
   const fromEmail = process.env.RESEND_FROM_EMAIL?.trim() || "";
-  const fromName = process.env.RESEND_FROM_NAME?.trim() || "Shahrah";
+  const fromName = process.env.RESEND_FROM_NAME?.trim() || "GodarAI";
   const replyTo = process.env.RESEND_REPLY_TO?.trim() || undefined;
 
   if (isProductionRuntime() && (!apiKey || !fromEmail)) {
@@ -114,7 +114,7 @@ export async function sendOTPEmail(input: {
   expiresInMinutes: number;
   tenantSlug: string;
 }) {
-  const subject = "Shahrah OTP Code";
+  const subject = "GodarAI OTP Code";
   const text = [
     `Your one-time code for tenant "${input.tenantSlug}" is: ${input.otpCode}`,
     `This code expires in ${input.expiresInMinutes} minutes.`,
@@ -123,7 +123,7 @@ export async function sendOTPEmail(input: {
 
   const html = `
 <div style="font-family: sans-serif; line-height: 1.6;">
-  <h2>Shahrah OTP Code</h2>
+  <h2>GodarAI OTP Code</h2>
   <p>Your one-time code for tenant <strong>${input.tenantSlug}</strong> is:</p>
   <p style="font-size: 24px; font-weight: bold; letter-spacing: 3px;">${input.otpCode}</p>
   <p>This code expires in ${input.expiresInMinutes} minutes.</p>

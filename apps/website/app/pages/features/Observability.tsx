@@ -88,7 +88,7 @@ export function Observability() {
                 <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
                 <div className="mx-auto flex items-center gap-2 px-3 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 font-medium font-sans">
                   <Activity className="w-3 h-3" />
-                  Shahrah Observability
+                  GodarAI Observability
                 </div>
               </div>
               
@@ -343,7 +343,7 @@ export function Observability() {
                 Observability فوری، بدون سربار فنی
               </h2>
               <p className="text-lg text-slate-400 mb-10">
-                Shahrah به شما کمک می‌کند عملکرد AI app خود را در سطح Frameworkها، Promptها، Tool Callها، Agentها و تأمین‌کننده‌ها مانیتور کنید؛ بدون اینکه تیم فنی درگیر پیاده‌سازی پیچیده شود.
+                گُدارAI به شما کمک می‌کند عملکرد AI app خود را در سطح Frameworkها، Promptها، Tool Callها، Agentها و تأمین‌کننده‌ها مانیتور کنید؛ بدون اینکه تیم فنی درگیر پیاده‌سازی پیچیده شود.
               </p>
               
               <div className="space-y-8">

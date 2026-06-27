@@ -5,7 +5,7 @@ import { buildMetadata } from "@/app/lib/seo";
 export const metadata: Metadata = buildMetadata({
   title: "Documentation",
   description:
-    "Get started with Shahrah API documentation, integration guides, and implementation references.",
+    "Get started with GodarAI API documentation, integration guides, and implementation references.",
   path: "/docs",
 });
 

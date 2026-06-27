@@ -65,7 +65,7 @@ func newGeminiAdapter() providerAdapter {
 
 func (a *geminiAdapter) Dispatch(ctx context.Context, client *http.Client, payload platform.TunnelRequest) (*adapterResponse, error) {
 	if payload.Stream {
-		return nil, fmt.Errorf("gemini streaming is not supported through Shahrah chat completions")
+		return nil, fmt.Errorf("gemini streaming is not supported through GodarAI chat completions")
 	}
 	target, err := resolveBaseURL(payload.Deployment.APIBase, "https://generativelanguage.googleapis.com/v1")
 	if err != nil {

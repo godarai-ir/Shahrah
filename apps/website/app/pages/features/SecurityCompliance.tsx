@@ -54,7 +54,7 @@ function SecurityDashboard() {
         <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
         <div className="mx-auto flex items-center gap-2 px-3 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 font-medium font-sans">
           <Shield className="w-3 h-3" />
-          Shahrah Security & Compliance
+          GodarAI Security & Compliance
         </div>
       </div>
 

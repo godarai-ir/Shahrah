@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     template: "%s | GodarAI",
   },
   description:
-    "Shahrah is an AI gateway for Iranian teams to access, manage, and monitor leading language models with stable local infrastructure.",
+    "GodarAI is an AI gateway for Iranian teams to access, manage, and monitor leading language models with stable local infrastructure.",
   applicationName: "GodarAI",
   manifest: "/site.webmanifest",
   icons: {
@@ -26,9 +26,9 @@ export const metadata: Metadata = {
   openGraph: {
     title: "GodarAI | AI Gateway for Iranian Teams",
     description:
-      "Route, monitor, and secure AI model usage with Shahrah's LLM gateway built for Iranian developers and businesses.",
+      "Route, monitor, and secure AI model usage with GodarAI's LLM gateway built for Iranian developers and businesses.",
     url: "/",
-    siteName: "Shahrah",
+    siteName: "GodarAI",
     locale: "fa_IR",
     type: "website",
   },

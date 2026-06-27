@@ -31,7 +31,7 @@ function getSMTPConfig() {
 function getResendConfig() {
   const apiKey = process.env.RESEND_API_KEY?.trim() || "";
   const fromEmail = process.env.RESEND_FROM_EMAIL?.trim() || "";
-  const fromName = process.env.RESEND_FROM_NAME?.trim() || "Shahrah";
+  const fromName = process.env.RESEND_FROM_NAME?.trim() || "GodarAI";
   const replyTo = process.env.RESEND_REPLY_TO?.trim() || undefined;
 
   if (isProductionRuntime() && (!apiKey || !fromEmail)) {

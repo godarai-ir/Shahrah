@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
 	tenantmw "github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
@@ -225,7 +226,7 @@ func TestTenantMiddleware_LocalDevHint(t *testing.T) {
 
 	req, err := http.NewRequest(http.MethodGet, "http://localhost/", nil)
 	assert.NoError(t, err)
-	req.Header.Set("x-shahrah-tenant", "mytenant")
+	req.Header.Set(apiheaders.HeaderTenant, "mytenant")
 
 	resp, err := app.Test(req)
 	assert.NoError(t, err)
@@ -255,7 +256,7 @@ func TestTenantMiddleware_InternalServiceHint(t *testing.T) {
 
 	req, err := http.NewRequest(http.MethodGet, "http://control-plane:4000/", nil)
 	assert.NoError(t, err)
-	req.Header.Set("x-shahrah-tenant", "mytenant")
+	req.Header.Set(apiheaders.LegacyHeaderTenant, "mytenant")
 
 	resp, err := app.Test(req)
 	assert.NoError(t, err)

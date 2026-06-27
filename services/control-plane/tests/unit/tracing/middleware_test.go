@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
@@ -21,11 +22,11 @@ func TestMiddlewarePropagatesTraceID(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/x", nil)
-	req.Header.Set("x-shahrah-trace-id", "trace_abc")
+	req.Header.Set(apiheaders.HeaderTraceID, "trace_abc")
 	resp, err := app.Test(req)
 	assert.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
-	assert.Equal(t, "trace_abc", resp.Header.Get("x-shahrah-trace-id"))
+	assert.Equal(t, "trace_abc", resp.Header.Get(apiheaders.HeaderTraceID))
 	assert.Equal(t, 1, q.Len())
 }
 
@@ -41,7 +42,13 @@ func TestMiddlewareGeneratesTraceIDWhenMissing(t *testing.T) {
 	req := httptest.NewRequest("GET", "/x", nil)
 	resp, err := app.Test(req)
 	assert.NoError(t, err)
-	assert.NotEmpty(t, resp.Header.Get("x-shahrah-trace-id"))
+	assert.NotEmpty(t, resp.Header.Get(apiheaders.HeaderTraceID))
+
+	req = httptest.NewRequest("GET", "/x", nil)
+	req.Header.Set(apiheaders.LegacyHeaderTraceID, "trace_legacy")
+	resp, err = app.Test(req)
+	assert.NoError(t, err)
+	assert.Equal(t, "trace_legacy", resp.Header.Get(apiheaders.HeaderTraceID))
 }
 
 func TestMiddleware_DropsRootAndStepWhenUnsampled(t *testing.T) {

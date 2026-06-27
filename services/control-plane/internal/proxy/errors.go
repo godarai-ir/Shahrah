@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
 	"github.com/gofiber/fiber/v2"
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
@@ -219,7 +220,8 @@ func forwardProviderHeaders(c *fiber.Ctx, headers map[string]string) {
 		"x-ratelimit-reset":              "X-Ratelimit-Reset",
 		"cf-ray":                         "Cf-Ray",
 		"x-correlation-id":               "X-Correlation-Id",
-		"x-shahrah-trace-id":             "X-Shahrah-Trace-Id",
+		apiheaders.HeaderTraceID:         "X-GodarAI-Trace-Id",
+		apiheaders.LegacyHeaderTraceID:   "X-GodarAI-Trace-Id",
 		"x-trace-id":                     "X-Trace-Id",
 		"traceparent":                    "Traceparent",
 		// Also handle mixed-case input that some providers may send

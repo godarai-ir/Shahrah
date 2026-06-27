@@ -130,7 +130,7 @@ func (p *zarinpalProvider) CreatePayment(c *fiber.Ctx, intent *platform.WalletTo
 		"merchant_id":  merchantID,
 		"amount":       int64(intent.PayableIRR),
 		"callback_url": intent.CallbackURL,
-		"description":  fmt.Sprintf("Shahrah wallet topup %s", intent.PublicID),
+		"description":  fmt.Sprintf("GodarAI wallet topup %s", intent.PublicID),
 		"metadata": map[string]interface{}{
 			"mobile": "",
 			"email":  "",
@@ -242,10 +242,10 @@ func (p *idpayProvider) CreatePayment(c *fiber.Ctx, intent *platform.WalletTopUp
 	reqPayload := map[string]interface{}{
 		"order_id": orderID,
 		"amount":   int64(intent.PayableIRR),
-		"name":     "Shahrah User",
+		"name":     "GodarAI User",
 		"phone":    "",
 		"mail":     "",
-		"desc":     "Shahrah wallet top-up",
+		"desc":     "GodarAI wallet top-up",
 		"callback": intent.CallbackURL,
 	}
 	headers := map[string]string{

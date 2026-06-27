@@ -12,6 +12,7 @@ import (
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/guardrails"
@@ -216,14 +217,14 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusBadRequest, "Streaming with output guardrails is not supported in this MVP", "invalid_request_error")
 	}
 	var cacheConfig *responsecache.RequestConfig
-	if rawCacheConfig := strings.TrimSpace(c.Get("x-shahrah-cache-config")); rawCacheConfig != "" && h.responseCache != nil {
+	if rawCacheConfig := apiheaders.GetCacheConfig(c); rawCacheConfig != "" && h.responseCache != nil {
 		parsed, parseErr := h.responseCache.ParseHeader(rawCacheConfig)
 		if parseErr != nil {
 			return writeAPIError(c, fiber.StatusBadRequest, parseErr.Error(), "invalid_request_error")
 		}
 		cacheConfig = &parsed
 		if !h.responseCache.Enabled() || req.Stream {
-			c.Set("x-shahrah-cache-status", "bypass")
+			c.Set(apiheaders.HeaderCacheStatus, "bypass")
 			cacheConfig = nil
 		}
 	}
@@ -257,7 +258,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		}
 		cacheResult, pending, lookupErr := h.responseCache.Lookup(c.Context(), cacheScope, req, *cacheConfig)
 		cachePending = pending
-		c.Set("x-shahrah-cache-status", cacheResult.Status)
+		c.Set(apiheaders.HeaderCacheStatus, cacheResult.Status)
 		c.Locals("response_cache_status", cacheResult.Status)
 		c.Locals("response_cache_type", cacheConfig.Type)
 		c.Locals("response_cache_embedding_latency_ms", cacheResult.EmbeddingLatencyMS)
@@ -276,7 +277,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 				secondResult, secondPending, secondErr := h.responseCache.Lookup(c.Context(), cacheScope, req, *cacheConfig)
 				cachePending = secondPending
 				if secondErr == nil && secondResult.Entry != nil {
-					c.Set("x-shahrah-cache-status", "hit")
+					c.Set(apiheaders.HeaderCacheStatus, "hit")
 					return h.handleCacheHit(c, req, authInfo, secondResult, startTime, tenantSlug)
 				}
 			}
@@ -305,7 +306,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 			"Content-Type": "application/json",
 		},
 		RequestMetadata: enrichResponseCacheMetadata(c, map[string]interface{}{
-			"tenant_slug": strings.TrimSpace(c.Get("x-shahrah-tenant")),
+			"tenant_slug": apiheaders.GetTenant(c),
 			"model":       requestedModel,
 		}),
 	}
@@ -399,7 +400,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", requestedModel), "routing_error")
 	}
 	if chatRequestHasImage(req) && !supportsChatImageProvider(deployment.Provider) {
-		return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support image input through Shahrah chat completions", deployment.Provider), "invalid_request_error")
+		return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support image input through GodarAI chat completions", deployment.Provider), "invalid_request_error")
 	}
 	if err := validateProviderImageInput(req, deployment.Provider); err != nil {
 		return writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
@@ -528,7 +529,7 @@ func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.Cha
 				CompletionStart: start,
 				CompletionEnd:   time.Now(),
 			})
-			return writeGuardrailError(c, fiber.StatusBadRequest, "Response blocked by Shahrah guardrail", outputResult.Checks)
+			return writeGuardrailError(c, fiber.StatusBadRequest, "Response blocked by GodarAI guardrail", outputResult.Checks)
 		}
 		if outputResult.Response != nil {
 			completion = *outputResult.Response
@@ -606,9 +607,9 @@ func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.Cha
 	// Forward allowed provider response headers
 	forwardProviderHeaders(c, resp.Headers)
 
-	c.Set("x-shahrah-trace-id", tunnelReq.TraceID)
-	c.Set("x-shahrah-cost-usd", fmt.Sprintf("%.8f", finalCost.TotalCostUSD))
-	c.Set("x-shahrah-cost-irr", fmt.Sprintf("%.2f", finalCost.TotalCostIRR))
+	c.Set(apiheaders.HeaderTraceID, tunnelReq.TraceID)
+	c.Set(apiheaders.HeaderCostUSD, fmt.Sprintf("%.8f", finalCost.TotalCostUSD))
+	c.Set(apiheaders.HeaderCostIRR, fmt.Sprintf("%.2f", finalCost.TotalCostIRR))
 	responseStart := time.Now()
 	err = c.Status(resp.StatusCode).JSON(completion)
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "response.write", "internal", responseStart, resp.StatusCode, map[string]interface{}{
@@ -654,14 +655,14 @@ func (h *ChatCompletionHandler) handleCacheHit(c *fiber.Ctx, req contractsopenai
 		Metadata:       metadata,
 	})
 	c.Set("Content-Type", fiber.MIMEApplicationJSON)
-	c.Set("x-shahrah-cache-status", "hit")
-	c.Set("x-shahrah-cached-trace-id", entry.TraceID)
+	c.Set(apiheaders.HeaderCacheStatus, "hit")
+	c.Set(apiheaders.HeaderCachedTraceID, entry.TraceID)
 	if result.Semantic {
-		c.Set("x-shahrah-cache-similarity-score", fmt.Sprintf("%.6f", result.Similarity))
+		c.Set(apiheaders.HeaderCacheSimilarity, fmt.Sprintf("%.6f", result.Similarity))
 	}
-	c.Set("x-shahrah-trace-id", requestID)
-	c.Set("x-shahrah-cost-usd", "0.00000000")
-	c.Set("x-shahrah-cost-irr", "0.00")
+	c.Set(apiheaders.HeaderTraceID, requestID)
+	c.Set(apiheaders.HeaderCostUSD, "0.00000000")
+	c.Set(apiheaders.HeaderCostIRR, "0.00")
 	return c.Status(fiber.StatusOK).Send(entry.Response)
 }
 
@@ -686,7 +687,7 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 	c.Set("Content-Type", "text/event-stream")
 	c.Set("Cache-Control", "no-cache")
 	c.Set("Connection", "keep-alive")
-	c.Set("x-shahrah-trace-id", tunnelReq.TraceID)
+	c.Set(apiheaders.HeaderTraceID, tunnelReq.TraceID)
 
 	// Forward provider headers from stream
 	forwardProviderHeaders(c, stream.Headers())
