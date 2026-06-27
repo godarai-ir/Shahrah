@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	// Default Gemini API endpoint
+	// Default Gemini API endpoint.
 	defaultAPIBase = "https://generativelanguage.googleapis.com/v1"
 	defaultTimeout = 600 * time.Second
 )
@@ -71,10 +71,11 @@ func (c *Client) AuthHeaders() map[string]string {
 	if c.apiKey != "" {
 		headers["Authorization"] = "Bearer " + c.apiKey
 	}
+
 	return headers
 }
 
-// Gemini request/response types
+// Gemini request/response types.
 type geminiRequest struct {
 	Contents         []geminiContent        `json:"contents"`
 	SafetySettings   []geminiSafetySetting  `json:"safetySettings,omitempty"`
@@ -135,6 +136,7 @@ func (c *Client) Complete(ctx context.Context, req contractsopenai.ChatCompletio
 
 	// Use API key in query params
 	endpoint := fmt.Sprintf("%s/models/%s:generateContent?key=%s", c.apiBase, c.model, c.apiKey)
+
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -142,15 +144,19 @@ func (c *Client) Complete(ctx context.Context, req contractsopenai.ChatCompletio
 
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := c.httpClient.Do(httpReq) //nolint:bodyclose // the streaming goroutine owns and closes resp.Body.
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer providers.Close(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Gemini API error (status %d): %s", resp.StatusCode, string(bodyBytes))
+		bodyBytes, readErr := providers.ReadAllAndClose(resp)
+		if readErr != nil {
+			return nil, fmt.Errorf("failed to read gemini error response: %w", readErr)
+		}
+
+		return nil, fmt.Errorf("gemini API error (status %d): %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	var geminiResp geminiResponse
@@ -173,6 +179,7 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 	}
 
 	endpoint := fmt.Sprintf("%s/models/%s:streamGenerateContent?key=%s", c.apiBase, c.model, c.apiKey)
+
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create request: %w", err)
@@ -180,14 +187,18 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := c.httpClient.Do(httpReq) //nolint:bodyclose // the streaming goroutine owns and closes resp.Body.
 	if err != nil {
 		return nil, nil, fmt.Errorf("request failed: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, nil, fmt.Errorf("Gemini API error (status %d): %s", resp.StatusCode, string(bodyBytes))
+		bodyBytes, readErr := providers.ReadAllAndClose(resp)
+		if readErr != nil {
+			return nil, nil, fmt.Errorf("failed to read gemini error response: %w", readErr)
+		}
+
+		return nil, nil, fmt.Errorf("gemini API error (status %d): %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	streamChan := make(chan contractsopenai.StreamChunk)
@@ -195,7 +206,7 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 
 	go func() {
 		defer close(streamChan)
-		defer resp.Body.Close()
+		defer providers.Close(resp.Body)
 
 		reader := bufio.NewReader(resp.Body)
 		for {
@@ -204,7 +215,9 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 				if err != io.EOF {
 					errorChan <- fmt.Errorf("stream read error: %w", err)
 				}
+
 				close(errorChan)
+
 				return
 			}
 
@@ -226,7 +239,7 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 	return streamChan, errorChan, nil
 }
 
-// convertToGeminiRequest converts OpenAI request to Gemini format
+// convertToGeminiRequest converts OpenAI request to Gemini format.
 func convertToGeminiRequest(req contractsopenai.ChatCompletionRequest, model string) geminiRequest {
 	geminiReq := geminiRequest{
 		Contents: make([]geminiContent, 0, len(req.Messages)),
@@ -238,6 +251,7 @@ func convertToGeminiRequest(req contractsopenai.ChatCompletionRequest, model str
 		if role == "system" {
 			role = "user" // Gemini treats system as user with model instruction
 		}
+
 		if role == "assistant" {
 			role = "model"
 		}
@@ -261,7 +275,7 @@ func convertToGeminiRequest(req contractsopenai.ChatCompletionRequest, model str
 	return geminiReq
 }
 
-// convertToOpenAIResponse converts Gemini response to OpenAI format
+// convertToOpenAIResponse converts Gemini response to OpenAI format.
 func convertToOpenAIResponse(resp geminiResponse, model string) *contractsopenai.ChatCompletionResponse {
 	content := ""
 	finishReason := "stop"
@@ -270,6 +284,7 @@ func convertToOpenAIResponse(resp geminiResponse, model string) *contractsopenai
 		for _, part := range candidate.Content.Parts {
 			content += part.Text
 		}
+
 		finishReason = candidate.FinishReason
 	}
 
@@ -301,12 +316,12 @@ func convertToOpenAIResponse(resp geminiResponse, model string) *contractsopenai
 	return openaiResp
 }
 
-// SetModel sets the Gemini model name
+// SetModel sets the Gemini model name.
 func (c *Client) SetModel(model string) {
 	c.model = model
 }
 
-// Register the adapter
+// Register the adapter.
 func init() {
 	providers.Register("gemini", func(cfg providers.ProviderConfig) providers.Provider {
 		return NewClient(cfg)

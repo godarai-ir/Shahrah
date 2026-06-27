@@ -27,6 +27,7 @@ func TestValidateCreateBudgetLimitRuleRequest(t *testing.T) {
 
 func TestValidateUpdateBudgetLimitRuleRequest(t *testing.T) {
 	priority := -1
+
 	err := validateUpdateBudgetLimitRuleRequest(platform.UpdateBudgetLimitRuleRequest{
 		Priority: &priority,
 	})

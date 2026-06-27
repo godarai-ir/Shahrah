@@ -13,6 +13,7 @@ func TestParseFQN(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseFQN returned error: %v", err)
 	}
+
 	if got.Type != TypeChatPrompt || got.TenantSlug != "tenant-a" || got.PromptSlug != "support_reply" || got.Version != 3 {
 		t.Fatalf("unexpected FQN parse result: %+v", got)
 	}
@@ -26,21 +27,26 @@ func TestRenderSubstitutesVariablesAndAppendsMessages(t *testing.T) {
 			{Role: "user", Content: "Issue: {{issue}}"},
 		},
 	}
+
 	rendered, err := Render(version, map[string]string{"customer_name": "Ali", "issue": "late invoice"}, []contractsopenai.ChatMessage{
 		{Role: "user", Content: "Use a short tone."},
 	}, "")
 	if err != nil {
 		t.Fatalf("Render returned error: %v", err)
 	}
+
 	if rendered.Model != "gpt-4o-mini" {
 		t.Fatalf("expected prompt model, got %q", rendered.Model)
 	}
+
 	if len(rendered.Messages) != 3 {
 		t.Fatalf("expected 3 messages, got %d", len(rendered.Messages))
 	}
+
 	if rendered.Messages[0].Content != "Answer for Ali." || rendered.Messages[1].Content != "Issue: late invoice" {
 		t.Fatalf("variables were not substituted: %+v", rendered.Messages)
 	}
+
 	if rendered.Messages[2].Content != "Use a short tone." {
 		t.Fatalf("request messages were not appended: %+v", rendered.Messages)
 	}
@@ -54,6 +60,7 @@ func TestRenderRequestModelOverridesPromptModel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Render returned error: %v", err)
 	}
+
 	if rendered.Model != "gpt-4.1-mini" {
 		t.Fatalf("expected request model override, got %q", rendered.Model)
 	}
@@ -71,6 +78,7 @@ func TestRenderMissingVariables(t *testing.T) {
 func TestValidateManifestRejectsInvalidCacheAndStreamingOutputGuardrails(t *testing.T) {
 	stream := true
 	threshold := 0.7
+
 	err := ValidateManifest(platform.PromptManifest{
 		Type:     TypeChatPrompt,
 		Name:     "support_reply",
@@ -89,6 +97,7 @@ func TestValidateManifestRejectsInvalidCacheAndStreamingOutputGuardrails(t *test
 	}
 
 	validThreshold := 0.9
+
 	err = ValidateManifest(platform.PromptManifest{
 		Type:     TypeChatPrompt,
 		Name:     "support_reply",
@@ -122,9 +131,11 @@ func TestRenderFallsBackToManifestMessages(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Render returned error: %v", err)
 	}
+
 	if len(rendered.Messages) != 1 || rendered.Messages[0].Content != "Hello Sara" {
 		t.Fatalf("expected manifest messages fallback, got %+v", rendered.Messages)
 	}
+
 	if rendered.Model != "gpt-4.1-mini" {
 		t.Fatalf("expected manifest model fallback, got %q", rendered.Model)
 	}

@@ -30,6 +30,7 @@ type CreateTopUpIntentParams struct {
 
 func (s *Store) GetWalletTopUpSettings(ctx context.Context) (*platform.WalletTopUpSettings, error) {
 	var out platform.WalletTopUpSettings
+
 	err := s.pool.QueryRow(ctx, `
 		INSERT INTO wallet_topup_settings (settings_id)
 		VALUES (TRUE)
@@ -39,11 +40,13 @@ func (s *Store) GetWalletTopUpSettings(ctx context.Context) (*platform.WalletTop
 	if err != nil {
 		return nil, err
 	}
+
 	return &out, nil
 }
 
 func (s *Store) UpdateWalletTopUpSettings(ctx context.Context, minUSD, maxUSD, taxPercent, feePercent float64) (*platform.WalletTopUpSettings, error) {
 	var out platform.WalletTopUpSettings
+
 	err := s.pool.QueryRow(ctx, `
 		UPDATE wallet_topup_settings
 		SET min_amount_usd = $1,
@@ -57,12 +60,15 @@ func (s *Store) UpdateWalletTopUpSettings(ctx context.Context, minUSD, maxUSD, t
 	if err != nil {
 		return nil, err
 	}
+
 	return &out, nil
 }
 
 func (s *Store) CreateWalletTopUpIntent(ctx context.Context, p CreateTopUpIntentParams) (*platform.WalletTopUpIntent, error) {
 	metaRaw, _ := json.Marshal(p.Metadata)
+
 	var out platform.WalletTopUpIntent
+
 	err := s.pool.QueryRow(ctx, `
 		INSERT INTO wallet_topup_intents (
 			tenant_id, provider, status,
@@ -115,11 +121,13 @@ func (s *Store) CreateWalletTopUpIntent(ctx context.Context, p CreateTopUpIntent
 	if err != nil {
 		return nil, err
 	}
+
 	return &out, nil
 }
 
 func (s *Store) AttachWalletTopUpGatewayData(ctx context.Context, intentPublicID, authority, paymentURL string, raw map[string]interface{}) error {
 	rawPayload, _ := json.Marshal(raw)
+
 	res, err := s.pool.Exec(ctx, `
 		UPDATE wallet_topup_intents
 		SET authority = $2,
@@ -131,21 +139,26 @@ func (s *Store) AttachWalletTopUpGatewayData(ctx context.Context, intentPublicID
 	if err != nil {
 		return err
 	}
+
 	if res.RowsAffected() == 0 {
 		return ErrTopUpIntentNotFound
 	}
+
 	return nil
 }
 
 func (s *Store) GetWalletTopUpIntentByAuthority(ctx context.Context, authority string) (*platform.WalletTopUpIntent, error) {
-	var out platform.WalletTopUpIntent
-	var walletTxID *string
-	var completedAt *time.Time
-	var dbRefID *string
-	var dbGatewayTxnID *string
-	var dbCardMask *string
-	var dbPayerPhone *string
-	var dbFailureReason *string
+	var (
+		out             platform.WalletTopUpIntent
+		walletTxID      *string
+		completedAt     *time.Time
+		dbRefID         *string
+		dbGatewayTxnID  *string
+		dbCardMask      *string
+		dbPayerPhone    *string
+		dbFailureReason *string
+	)
+
 	err := s.pool.QueryRow(ctx, `
 		SELECT
 			topup_intent_id::text,
@@ -212,25 +225,33 @@ func (s *Store) GetWalletTopUpIntentByAuthority(ctx context.Context, authority s
 	if err != nil {
 		return nil, err
 	}
+
 	if walletTxID != nil {
 		out.WalletTxID = *walletTxID
 	}
+
 	if dbRefID != nil {
 		out.RefID = *dbRefID
 	}
+
 	if dbGatewayTxnID != nil {
 		out.GatewayTxnID = *dbGatewayTxnID
 	}
+
 	if dbCardMask != nil {
 		out.CardMask = *dbCardMask
 	}
+
 	if dbPayerPhone != nil {
 		out.PayerPhone = *dbPayerPhone
 	}
+
 	if dbFailureReason != nil {
 		out.FailureReason = *dbFailureReason
 	}
+
 	out.CompletedAt = completedAt
+
 	return &out, nil
 }
 
@@ -241,16 +262,18 @@ func (s *Store) CompleteWalletTopUpByAuthority(ctx context.Context, authority st
 	}
 	defer tx.Rollback(ctx)
 
-	var intent platform.WalletTopUpIntent
-	var meta map[string]interface{}
-	var raw map[string]interface{}
-	var walletTxID *string
-	var completedAt *time.Time
-	var dbRefID *string
-	var dbGatewayTxnID *string
-	var dbCardMask *string
-	var dbPayerPhone *string
-	var dbFailureReason *string
+	var (
+		intent          platform.WalletTopUpIntent
+		meta            map[string]interface{}
+		raw             map[string]interface{}
+		walletTxID      *string
+		completedAt     *time.Time
+		dbRefID         *string
+		dbGatewayTxnID  *string
+		dbCardMask      *string
+		dbPayerPhone    *string
+		dbFailureReason *string
+	)
 	if err := tx.QueryRow(ctx, `
 		SELECT
 			topup_intent_id::text,
@@ -316,32 +339,41 @@ func (s *Store) CompleteWalletTopUpByAuthority(ctx context.Context, authority st
 	); err != nil {
 		return nil, false, err
 	}
+
 	intent.Metadata = meta
+
 	intent.RawPayload = raw
 	if walletTxID != nil {
 		intent.WalletTxID = *walletTxID
 	}
+
 	if dbRefID != nil {
 		intent.RefID = *dbRefID
 	}
+
 	if dbGatewayTxnID != nil {
 		intent.GatewayTxnID = *dbGatewayTxnID
 	}
+
 	if dbCardMask != nil {
 		intent.CardMask = *dbCardMask
 	}
+
 	if dbPayerPhone != nil {
 		intent.PayerPhone = *dbPayerPhone
 	}
+
 	if dbFailureReason != nil {
 		intent.FailureReason = *dbFailureReason
 	}
+
 	intent.CompletedAt = completedAt
 
 	if string(intent.Status) == string(platform.WalletTopUpStatusCompleted) {
 		if err := tx.Commit(ctx); err != nil {
 			return nil, false, err
 		}
+
 		return &intent, true, nil
 	}
 
@@ -408,11 +440,13 @@ func (s *Store) CompleteWalletTopUpByAuthority(ctx context.Context, authority st
 	intent.WalletTxID = walletTxIDOut
 	now := time.Now()
 	intent.CompletedAt = &now
+
 	return &intent, false, nil
 }
 
 func (s *Store) MarkWalletTopUpFailedByAuthority(ctx context.Context, authority string, reason string, raw map[string]interface{}) error {
 	rawPayload, _ := json.Marshal(raw)
+
 	res, err := s.pool.Exec(ctx, `
 		UPDATE wallet_topup_intents
 		SET status = CASE WHEN status = 'COMPLETED' THEN status ELSE 'FAILED' END,
@@ -424,9 +458,11 @@ func (s *Store) MarkWalletTopUpFailedByAuthority(ctx context.Context, authority 
 	if err != nil {
 		return err
 	}
+
 	if res.RowsAffected() == 0 {
 		return ErrTopUpIntentNotFound
 	}
+
 	return nil
 }
 
@@ -434,6 +470,7 @@ func (s *Store) ListWalletTransactions(ctx context.Context, tenantID string, lim
 	if limit <= 0 || limit > 100 {
 		limit = 50
 	}
+
 	rows, err := s.pool.Query(ctx, `
 		SELECT transaction_id::text, wallet_id::text, tenant_id::text, tx_type, amount_irr, amount_usd, exchange_rate, status, description, metadata, created_at
 		FROM wallet_transactions
@@ -447,16 +484,20 @@ func (s *Store) ListWalletTransactions(ctx context.Context, tenantID string, lim
 	defer rows.Close()
 
 	out := make([]platform.Transaction, 0)
+
 	for rows.Next() {
 		var item platform.Transaction
 		if err := rows.Scan(&item.ID, &item.WalletID, &item.TenantID, &item.Type, &item.AmountIRR, &item.AmountUSD, &item.ExchangeRate, &item.Status, &item.Description, &item.Metadata, &item.CreatedAt); err != nil {
 			return nil, err
 		}
+
 		out = append(out, item)
 	}
+
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+
 	return out, nil
 }
 

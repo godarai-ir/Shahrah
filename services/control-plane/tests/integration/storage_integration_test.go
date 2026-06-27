@@ -90,6 +90,7 @@ func TestIntegration_PostgresBackedOnboardingFlow(t *testing.T) {
 	assert.Equal(t, "db-backed flow succeeded", completion.Choices[0].Message.Content)
 
 	ctx := context.Background()
+
 	var spendCostIRR float64
 	require.NoError(t, pool.QueryRow(ctx, `SELECT cost_irr FROM spend_logs WHERE token_hash = $1`, hashToken(createdKey.Key)).Scan(&spendCostIRR))
 	assert.Greater(t, spendCostIRR, 0.0)
@@ -276,6 +277,7 @@ func TestIntegration_OnboardingExpiredOTPIsRejected(t *testing.T) {
 	t.Cleanup(pool.Close)
 
 	resetPersistentState(t, pool)
+
 	otp, err := store.CreateOnboardingOTP(ctx, storage.CreateOnboardingOTPParams{
 		TenantSlug: "expired-otp",
 		Email:      "owner@example.com",
@@ -313,6 +315,7 @@ func TestIntegration_OnboardingVerifyProvisionsSelectedPlanTrialAndCredit(t *tes
 	t.Cleanup(pool.Close)
 
 	resetPersistentState(t, pool)
+
 	_, err = store.UpdateCommercialSignupSettings(ctx, 2000000, "integration-test")
 	require.NoError(t, err)
 
@@ -331,8 +334,10 @@ func TestIntegration_OnboardingVerifyProvisionsSelectedPlanTrialAndCredit(t *tes
 	require.NotNil(t, provisioned)
 	assert.Equal(t, "verified-otp", provisioned.Tenant.Slug)
 
-	var planSlug, status string
-	var trialDays int
+	var (
+		planSlug, status string
+		trialDays        int
+	)
 	require.NoError(t, pool.QueryRow(ctx, `
 		SELECT p.slug, ts.status, EXTRACT(DAY FROM ts.trial_ends_at - ts.trial_started_at)::int
 		FROM tenant_subscriptions ts
@@ -540,6 +545,7 @@ func TestIntegration_RoleCatalogAndUserRoleAssignment(t *testing.T) {
 
 	listSystem := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/roles?limit=50&offset=0", "Bearer sk-master", "")
 	assert.Equal(t, http.StatusOK, listSystem.StatusCode)
+
 	var systemRoles platform.RoleListResponse
 	decodeJSONBody(t, listSystem, &systemRoles)
 	assert.GreaterOrEqual(t, len(systemRoles.Data), 6)
@@ -551,6 +557,7 @@ func TestIntegration_RoleCatalogAndUserRoleAssignment(t *testing.T) {
 		"permissions":["wallet:read","trace:list","trace:read","user:list"]
 	}`)
 	assert.Equal(t, http.StatusCreated, createRoleResp.StatusCode)
+
 	var customRole platform.RoleDefinition
 	decodeJSONBody(t, createRoleResp, &customRole)
 	assert.Equal(t, "billing_auditor", customRole.Name)
@@ -561,6 +568,7 @@ func TestIntegration_RoleCatalogAndUserRoleAssignment(t *testing.T) {
 		"permissions":["wallet:read","trace:list","trace:read","user:list","team:read"]
 	}`)
 	assert.Equal(t, http.StatusOK, updateRoleResp.StatusCode)
+
 	var updatedRole platform.RoleDefinition
 	decodeJSONBody(t, updateRoleResp, &updatedRole)
 	assert.Equal(t, "Billing & Trace Auditor", updatedRole.DisplayName)
@@ -572,6 +580,7 @@ func TestIntegration_RoleCatalogAndUserRoleAssignment(t *testing.T) {
 		"resourceType":"team"
 	}`, userEmail))
 	assert.Equal(t, http.StatusOK, assignResp.StatusCode)
+
 	var assignOut platform.UpdateUserRolesResponse
 	decodeJSONBody(t, assignResp, &assignOut)
 	assert.Equal(t, userEmail, assignOut.Email)
@@ -580,6 +589,7 @@ func TestIntegration_RoleCatalogAndUserRoleAssignment(t *testing.T) {
 
 	usersResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/users?query=roles-user@tenant.test", "Bearer sk-master", "")
 	assert.Equal(t, http.StatusOK, usersResp.StatusCode)
+
 	var users platform.TenantAdminUserListResponse
 	decodeJSONBody(t, usersResp, &users)
 	require.Len(t, users.Data, 1)
@@ -657,6 +667,7 @@ func TestIntegration_ConcurrentWalletDebitUsesRowLock(t *testing.T) {
 	require.NoError(t, err)
 
 	const workers = 20
+
 	debit := platform.UsageCostBreakdown{
 		Model:        "gpt-4o-mini",
 		TotalTokens:  1000,
@@ -677,20 +688,23 @@ func TestIntegration_ConcurrentWalletDebitUsesRowLock(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			_, err := store.DebitWallet(ctx, tenant.ID, debit, fmt.Sprintf("req-race-%d", i))
+
+			_, debitErr := store.DebitWallet(ctx, tenant.ID, debit, fmt.Sprintf("req-race-%d", i))
 
 			mu.Lock()
 			defer mu.Unlock()
+
 			switch {
-			case err == nil:
+			case debitErr == nil:
 				successes++
-			case errors.Is(err, storage.ErrInsufficientWalletBalance):
+			case errors.Is(debitErr, storage.ErrInsufficientWalletBalance):
 				insufficient++
 			default:
-				otherErrors = append(otherErrors, err)
+				otherErrors = append(otherErrors, debitErr)
 			}
 		}(i)
 	}
+
 	wg.Wait()
 
 	require.Empty(t, otherErrors)
@@ -751,6 +765,7 @@ func TestIntegration_ProviderAccountAccessAndModelSelectionHardening(t *testing.
 		"credentials":{"api_key":"sk-provider-demo"}
 	}`)
 	assert.Equal(t, http.StatusCreated, createAccountResp.StatusCode)
+
 	var account platform.TenantProviderAccount
 	decodeJSONBody(t, createAccountResp, &account)
 	require.NotEmpty(t, account.ID)
@@ -762,6 +777,7 @@ func TestIntegration_ProviderAccountAccessAndModelSelectionHardening(t *testing.
 		]
 	}`)
 	assert.Equal(t, http.StatusOK, modelsResp.StatusCode)
+
 	var modelsOut struct {
 		Data []platform.TenantProviderAccountModelEffective `json:"data"`
 	}
@@ -771,6 +787,7 @@ func TestIntegration_ProviderAccountAccessAndModelSelectionHardening(t *testing.
 
 	detailsResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID, "Bearer sk-master", "")
 	assert.Equal(t, http.StatusOK, detailsResp.StatusCode)
+
 	var details platform.TenantProviderAccountDetailsResponse
 	decodeJSONBody(t, detailsResp, &details)
 	require.Len(t, details.Models, 1)
@@ -784,6 +801,7 @@ func TestIntegration_ProviderAccountAccessAndModelSelectionHardening(t *testing.
 		"models":[{"model":"not-a-real-model","effective_capabilities":["chat"]}]
 	}`)
 	assert.Equal(t, http.StatusBadRequest, invalidModelResp.StatusCode)
+
 	var invalidModelErr map[string]interface{}
 	decodeJSONBody(t, invalidModelResp, &invalidModelErr)
 	errObj, ok := invalidModelErr["error"].(map[string]interface{})
@@ -810,6 +828,7 @@ func TestIntegration_ProviderAccountAccessAndModelSelectionHardening(t *testing.
 		}
 	}`, userID, userID, teamID, teamID))
 	assert.Equal(t, http.StatusOK, validAccessResp.StatusCode)
+
 	var accessOut struct {
 		Access platform.TenantProviderAccountAccessControl `json:"access"`
 	}
@@ -840,12 +859,14 @@ func TestIntegration_ProviderAccountAccessAndModelSelectionHardening(t *testing.
 		`{"name":"owner-pat"}`,
 	)
 	assert.Equal(t, http.StatusCreated, patResp.StatusCode)
+
 	var pat platform.CreatedKey
 	decodeJSONBody(t, patResp, &pat)
 	require.NotEmpty(t, pat.Key)
 
 	listModelsResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/v1/models", "Bearer "+pat.Key, "")
 	assert.Equal(t, http.StatusOK, listModelsResp.StatusCode)
+
 	var listOut contractsopenai.ModelListResponse
 	decodeJSONBody(t, listModelsResp, &listOut)
 	require.Len(t, listOut.Data, 1)
@@ -895,6 +916,7 @@ func TestIntegration_EffectiveModelsAccessMatrix_PAT_VAT_UserTeam(t *testing.T) 
 		`, tid, orgID)
 		require.NoError(t, err)
 	}
+
 	_, err = pool.Exec(ctx, `
 		INSERT INTO team_memberships (tenant_id, team_id, user_id, role, created_at, updated_at)
 		SELECT t.tenant_id, t.team_id, $2::uuid, 'team_member', NOW(), NOW()
@@ -917,6 +939,7 @@ func TestIntegration_EffectiveModelsAccessMatrix_PAT_VAT_UserTeam(t *testing.T) 
 		"credentials":{"api_key":"sk-provider-demo"}
 	}`)
 	assert.Equal(t, http.StatusCreated, createAccountResp.StatusCode)
+
 	var account platform.TenantProviderAccount
 	decodeJSONBody(t, createAccountResp, &account)
 	require.NotEmpty(t, account.ID)
@@ -956,15 +979,20 @@ func TestIntegration_EffectiveModelsAccessMatrix_PAT_VAT_UserTeam(t *testing.T) 
 		)
 		resp := performJSONRequest(t, app, http.MethodGet, url, "Bearer sk-master", "")
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
 		var out platform.EffectiveModelsResponse
 		decodeJSONBody(t, resp, &out)
+
 		found := false
+
 		for _, item := range out.Data {
 			if item.Model == model {
 				found = true
+
 				assert.Equal(t, expected, item.Allowed, "key_type=%s user_id=%s team_id=%s model=%s", keyType, userID, teamID, model)
 			}
 		}
+
 		require.True(t, found, "model %s not found in effective-models response", model)
 	}
 
@@ -979,9 +1007,11 @@ func TestIntegration_EffectiveModelsAccessMatrix_PAT_VAT_UserTeam(t *testing.T) 
 			fmt.Sprintf(`{"name":"%s"}`, name),
 		)
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
+
 		var created platform.CreatedKey
 		decodeJSONBody(t, resp, &created)
 		require.NotEmpty(t, created.Key)
+
 		return created
 	}
 	createVAT := func(teamID string, name string) {
@@ -995,24 +1025,30 @@ func TestIntegration_EffectiveModelsAccessMatrix_PAT_VAT_UserTeam(t *testing.T) 
 		)
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
 	}
+
 	createPAT(userManagerID, "pat-manager")
 	patUserA := createPAT(userAID, "pat-user-a")
 	patUserB := createPAT(userBID, "pat-user-b")
+
 	createVAT(teamAID, "vat-team-a")
 	createVAT(teamBID, "vat-team-b")
 
 	assertRuntimeModels := func(key string, expectedIDs ...string) {
 		resp := performJSONRequest(t, app, http.MethodGet, "http://localhost/v1/models", "Bearer "+key, "")
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
 		var out contractsopenai.ModelListResponse
 		decodeJSONBody(t, resp, &out)
+
 		ids := make(map[string]struct{}, len(out.Data))
 		for _, item := range out.Data {
 			ids[item.ID] = struct{}{}
 		}
+
 		for _, id := range expectedIDs {
 			assert.Contains(t, ids, id)
 		}
+
 		if len(expectedIDs) == 0 {
 			assert.Empty(t, out.Data)
 		}
@@ -1076,6 +1112,7 @@ func TestIntegration_EffectiveModels_PATKeyAllowlistIsApplied(t *testing.T) {
 		"credentials":{"api_key":"sk-provider-demo"}
 	}`)
 	assert.Equal(t, http.StatusCreated, createAccountResp.StatusCode)
+
 	var account platform.TenantProviderAccount
 	decodeJSONBody(t, createAccountResp, &account)
 	require.NotEmpty(t, account.ID)
@@ -1116,6 +1153,7 @@ func TestIntegration_EffectiveModels_PATKeyAllowlistIsApplied(t *testing.T) {
 		"",
 	)
 	assert.Equal(t, http.StatusOK, effectiveResp.StatusCode)
+
 	var out platform.EffectiveModelsResponse
 	decodeJSONBody(t, effectiveResp, &out)
 	require.NotEmpty(t, out.Data)
@@ -1124,6 +1162,7 @@ func TestIntegration_EffectiveModels_PATKeyAllowlistIsApplied(t *testing.T) {
 	for _, item := range out.Data {
 		byModel[item.Model] = item
 	}
+
 	require.Contains(t, byModel, "gpt-4.1-mini")
 	require.Contains(t, byModel, "gpt-4o")
 	assert.True(t, byModel["gpt-4.1-mini"].Allowed)
@@ -1160,6 +1199,7 @@ func TestIntegration_EffectiveModels_PATKeyAllowlistAcceptsFQN(t *testing.T) {
 		"credentials":{"api_key":"sk-provider-demo"}
 	}`, accountAlias))
 	assert.Equal(t, http.StatusCreated, createAccountResp.StatusCode)
+
 	var account platform.TenantProviderAccount
 	decodeJSONBody(t, createAccountResp, &account)
 	require.NotEmpty(t, account.ID)
@@ -1200,6 +1240,7 @@ func TestIntegration_EffectiveModels_PATKeyAllowlistAcceptsFQN(t *testing.T) {
 		"",
 	)
 	assert.Equal(t, http.StatusOK, effectiveResp.StatusCode)
+
 	var out platform.EffectiveModelsResponse
 	decodeJSONBody(t, effectiveResp, &out)
 	require.NotEmpty(t, out.Data)
@@ -1208,6 +1249,7 @@ func TestIntegration_EffectiveModels_PATKeyAllowlistAcceptsFQN(t *testing.T) {
 	for _, item := range out.Data {
 		byModel[item.Model] = item
 	}
+
 	require.Contains(t, byModel, "gpt-4o")
 	assert.True(t, byModel["gpt-4o"].Allowed)
 	assert.Empty(t, byModel["gpt-4o"].DeniedReason)
@@ -1254,6 +1296,7 @@ func TestIntegration_DeleteTenantProviderAccount_Success(t *testing.T) {
 		"credentials":{"api_key":"sk-provider-demo"}
 	}`)
 	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
+
 	var account platform.TenantProviderAccount
 	decodeJSONBody(t, createResp, &account)
 	require.NotEmpty(t, account.ID)
@@ -1300,6 +1343,7 @@ func TestIntegration_DeleteTenantProviderAccount_ForbiddenForNonManager(t *testi
 		FROM tenants WHERE slug = 'default'
 	`, orgID)
 	require.NoError(t, err)
+
 	for _, uid := range []string{managerUserID, nonManagerUserID} {
 		_, err = pool.Exec(ctx, `
 			INSERT INTO users (user_id, tenant_id, user_alias, role, active, created_at, updated_at)
@@ -1316,6 +1360,7 @@ func TestIntegration_DeleteTenantProviderAccount_ForbiddenForNonManager(t *testi
 		"credentials":{"api_key":"sk-provider-demo"}
 	}`)
 	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
+
 	var account platform.TenantProviderAccount
 	decodeJSONBody(t, createResp, &account)
 
@@ -1337,6 +1382,7 @@ func TestIntegration_DeleteTenantProviderAccount_ForbiddenForNonManager(t *testi
 		`{"name":"non-manager-delete"}`,
 	)
 	assert.Equal(t, http.StatusCreated, patResp.StatusCode)
+
 	var pat platform.CreatedKey
 	decodeJSONBody(t, patResp, &pat)
 	require.NotEmpty(t, pat.Key)
@@ -1387,6 +1433,7 @@ func TestIntegration_DeleteTenantProviderAccount_ConflictWhenReferencedByActiveK
 		"credentials":{"api_key":"sk-provider-demo"}
 	}`)
 	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
+
 	var account platform.TenantProviderAccount
 	decodeJSONBody(t, createResp, &account)
 
@@ -1420,7 +1467,9 @@ func TestIntegration_DeleteTenantProviderAccount_ConflictWhenReferencedByActiveK
 
 func createIntegrationTenant(t *testing.T, pool *pgxpool.Pool, slug string) *platform.Tenant {
 	t.Helper()
+
 	var tenant platform.Tenant
+
 	err := pool.QueryRow(context.Background(), `
 		INSERT INTO tenants (slug, domain, status)
 		VALUES ($1, $2, 'active')
@@ -1432,6 +1481,7 @@ func createIntegrationTenant(t *testing.T, pool *pgxpool.Pool, slug string) *pla
 		VALUES ($1::uuid, 0, 0)
 	`, tenant.ID)
 	require.NoError(t, err)
+
 	return &tenant
 }
 
@@ -1555,6 +1605,7 @@ func seedDefaultTenantSubscription(t *testing.T, pool *pgxpool.Pool, planSlug st
 
 func assertCount(t *testing.T, pool *pgxpool.Pool, query string, expected int) {
 	t.Helper()
+
 	var count int
 	require.NoError(t, pool.QueryRow(context.Background(), query).Scan(&count))
 	assert.Equal(t, expected, count, query)
@@ -1569,14 +1620,17 @@ func assertColumnsExist(t *testing.T, pool *pgxpool.Pool, table string, required
 		WHERE table_schema = 'public' AND table_name = $1
 	`, table)
 	require.NoError(t, err)
+
 	defer rows.Close()
 
 	existing := make(map[string]struct{})
+
 	for rows.Next() {
 		var name string
 		require.NoError(t, rows.Scan(&name))
 		existing[name] = struct{}{}
 	}
+
 	require.NoError(t, rows.Err())
 
 	for _, col := range required {
@@ -1589,6 +1643,7 @@ func assertIndexForColumn(t *testing.T, pool *pgxpool.Pool, table, column string
 	t.Helper()
 
 	var count int
+
 	err := pool.QueryRow(context.Background(), `
 		SELECT COUNT(*)
 		FROM pg_indexes

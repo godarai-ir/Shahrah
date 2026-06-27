@@ -139,6 +139,7 @@ func TestRouter_WeightedSelection_ShouldPreferHigherWeight(t *testing.T) {
 	for i := 0; i < iterations; i++ {
 		dep, err := r.Route(context.Background(), "", "gpt-3.5-turbo")
 		assert.NoError(t, err)
+
 		if dep.ID == "dep-high" {
 			highCount++
 		} else {

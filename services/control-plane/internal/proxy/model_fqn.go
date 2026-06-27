@@ -16,10 +16,12 @@ func normalizeModelIdentifier(model string) string {
 	if model == "" {
 		return ""
 	}
+
 	provider, accountAlias, officialModel, ok := splitModelFQN(model)
 	if !ok {
 		return model
 	}
+
 	return modelid.BuildModelFQN(provider, accountAlias, officialModel)
 }
 
@@ -30,14 +32,17 @@ func modelRoutingCandidates(model string) []string {
 	if model == "" {
 		return nil
 	}
+
 	return []string{model}
 }
 
 func providerModelID(model string) string {
 	model = normalizeModelIdentifier(model)
+
 	_, _, officialModel, ok := splitModelFQN(model)
 	if ok {
 		return officialModel
 	}
+
 	return model
 }

@@ -73,9 +73,11 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 		AllowMethods: "GET, POST, PUT, PATCH, DELETE, OPTIONS",
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization, api-key, x-api-key, " + apiheaders.HeaderTenant + ", " + apiheaders.LegacyHeaderTenant + ", " + apiheaders.HeaderGuardrails + ", " + apiheaders.LegacyHeaderGuardrails + ", " + apiheaders.HeaderGuardrailsScope + ", " + apiheaders.LegacyHeaderGuardrailScope + ", x-tfy-guardrails, x-tfy-guardrails-scope",
 	}))
+
 	if deps.TracingMiddleware != nil {
 		app.Use(deps.TracingMiddleware)
 	}
+
 	app.Use(httpMetrics.Middleware())
 
 	registerPublicRoutes(app, cfg, deps, httpMetrics)
@@ -83,11 +85,13 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 	if deps.TenantResolver != nil {
 		app.Use(deps.TenantResolver.Handle())
 	}
+
 	if deps.AuthMiddleware != nil {
 		app.Use(deps.AuthMiddleware.Middleware())
 	}
 
 	registerProtectedRoutes(app, deps)
+
 	return app
 }
 
@@ -111,6 +115,7 @@ func buildHTTPLoggerConfig(output io.Writer) fiberlogger.Config {
 				if err := c.Context().Err(); err != nil {
 					return output.WriteString(sanitizeLogValue(err.Error()))
 				}
+
 				return 0, nil
 			},
 		},
@@ -118,24 +123,29 @@ func buildHTTPLoggerConfig(output io.Writer) fiberlogger.Config {
 	if output != nil {
 		cfg.Output = output
 	}
+
 	return cfg
 }
 
 func requestHeaders(c *fiber.Ctx) map[string][]string {
 	out := map[string][]string{}
+
 	c.Request().Header.VisitAll(func(key, value []byte) {
 		k := string(key)
 		out[k] = append(out[k], string(value))
 	})
+
 	return out
 }
 
 func responseHeaders(c *fiber.Ctx) map[string][]string {
 	out := map[string][]string{}
+
 	c.Response().Header.VisitAll(func(key, value []byte) {
 		k := string(key)
 		out[k] = append(out[k], string(value))
 	})
+
 	return out
 }
 
@@ -143,10 +153,12 @@ func formatHeaderLogValue(headers map[string][]string) string {
 	if len(headers) == 0 {
 		return ""
 	}
+
 	keys := make([]string, 0, len(headers))
 	for key := range headers {
 		keys = append(keys, key)
 	}
+
 	sort.Strings(keys)
 
 	parts := make([]string, 0, len(keys))
@@ -156,6 +168,7 @@ func formatHeaderLogValue(headers map[string][]string) string {
 			parts = append(parts, key+"="+sanitizeHeaderValue(key, value))
 		}
 	}
+
 	return sanitizeLogValue(strings.Join(parts, ";"))
 }
 
@@ -163,6 +176,7 @@ func sanitizeHeaderValue(key string, value string) string {
 	if _, ok := redactedLogHeaders[strings.ToLower(strings.TrimSpace(key))]; ok {
 		return "[REDACTED]"
 	}
+
 	return sanitizeLogValue(value)
 }
 
@@ -171,10 +185,12 @@ func sanitizeLogValue(v string) string {
 	if v == "" {
 		return ""
 	}
+
 	v = strings.ReplaceAll(v, "\\", "\\\\")
 	v = strings.ReplaceAll(v, "\"", "\\\"")
 	v = strings.ReplaceAll(v, "\r", "\\r")
 	v = strings.ReplaceAll(v, "\n", "\\n")
+
 	return v
 }
 
@@ -194,6 +210,7 @@ func readyHandler(deps Dependencies) fiber.Handler {
 		if deps.TraceHealth != nil {
 			resp["tracing"] = deps.TraceHealth.ReadinessReport()
 		}
+
 		return c.JSON(resp)
 	}
 }

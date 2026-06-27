@@ -150,6 +150,7 @@ func LoadConfig(logger *zap.Logger) (*Config, error) {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
 			return nil, fmt.Errorf("error reading config file: %w", err)
 		}
+
 		logger.Warn("No config file found, using environment variables only")
 	}
 
@@ -178,10 +179,12 @@ func resolveEnvVars(cfg *Config, logger *zap.Logger) error {
 	resolveString := func(s string) string {
 		return re.ReplaceAllStringFunc(s, func(match string) string {
 			key := match[2 : len(match)-1]
+
 			val := os.Getenv(key)
 			if val == "" {
 				logger.Warn("Environment variable not set", zap.String("key", key))
 			}
+
 			return val
 		})
 	}

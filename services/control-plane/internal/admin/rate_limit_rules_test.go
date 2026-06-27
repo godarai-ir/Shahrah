@@ -23,6 +23,7 @@ func TestValidateCreateRateLimitRuleRequest(t *testing.T) {
 
 func TestValidateUpdateRateLimitRuleRequest(t *testing.T) {
 	priority := -1
+
 	err := validateUpdateRateLimitRuleRequest(platform.UpdateRateLimitRuleRequest{
 		Priority: &priority,
 	})

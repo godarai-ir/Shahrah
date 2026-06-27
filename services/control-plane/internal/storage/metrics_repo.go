@@ -13,6 +13,7 @@ func (s *Store) InsertModelMetricEvent(ctx context.Context, ev platform.ModelMet
 	if !s.clickhouseReady || s.clickhouse == nil {
 		return ErrMetricsStoreUnavailable
 	}
+
 	return s.insertModelMetricEvent(ctx, ev)
 }
 
@@ -20,6 +21,7 @@ func (s *Store) QueryModelMetrics(ctx context.Context, tenantID string, req plat
 	if !s.clickhouseReady || s.clickhouse == nil {
 		return nil, ErrMetricsStoreUnavailable
 	}
+
 	return s.queryModelMetrics(ctx, tenantID, req)
 }
 
@@ -27,5 +29,6 @@ func (s *Store) ListModelMetricsFacets(ctx context.Context, tenantID string) (*p
 	if !s.clickhouseReady || s.clickhouse == nil {
 		return nil, ErrMetricsStoreUnavailable
 	}
+
 	return s.listModelMetricsFacets(ctx, tenantID)
 }

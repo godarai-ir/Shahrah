@@ -33,10 +33,12 @@ func (t *HTTPTransport) Proxy(ctx context.Context, req platform.TunnelRequest) (
 	if err != nil {
 		return nil, err
 	}
+
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, t.baseURL+"/dispatch", bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
+
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("X-Shahrah-Trace-ID", req.TraceID)
 
@@ -50,27 +52,33 @@ func (t *HTTPTransport) Proxy(ctx context.Context, req platform.TunnelRequest) (
 		StatusCode: resp.StatusCode,
 		Headers:    flattenHeaders(resp.Header),
 	}
+
 	out.Body, err = io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
+
 	return out, nil
 }
 
 // Stream sends a streaming tunnel request.
 func (t *HTTPTransport) Stream(ctx context.Context, req platform.TunnelRequest) (platform.TunnelStream, error) {
 	req.Stream = true
+
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
+
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, t.baseURL+"/dispatch", bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
+
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "text/event-stream")
 
+	//nolint:bodyclose // streamRelay takes ownership of resp.Body and closes it.
 	resp, err := streamingHTTPClient(t.client).Do(httpReq)
 	if err != nil {
 		return nil, err
@@ -80,9 +88,11 @@ func (t *HTTPTransport) Stream(ctx context.Context, req platform.TunnelRequest) 
 	if resp.StatusCode >= http.StatusBadRequest {
 		respBody, readErr := io.ReadAll(resp.Body)
 		resp.Body.Close()
+
 		if readErr != nil {
 			return nil, readErr
 		}
+
 		return &errorStream{
 			statusCode: resp.StatusCode,
 			headers:    flattenHeaders(resp.Header),
@@ -108,12 +118,15 @@ func (t *HTTPTransport) Stream(ctx context.Context, req platform.TunnelRequest) 
 			if len(line) > 0 {
 				stream.chunks <- platform.TunnelChunk{Data: append([]byte(nil), line...)}
 			}
+
 			if err != nil {
 				if err == io.EOF {
 					stream.chunks <- platform.TunnelChunk{IsDone: true}
 					return
 				}
+
 				stream.errors <- err
+
 				return
 			}
 		}
@@ -124,18 +137,21 @@ func (t *HTTPTransport) Stream(ctx context.Context, req platform.TunnelRequest) 
 
 // Healthy checks the tunnel-client health endpoint.
 func (t *HTTPTransport) Healthy(ctx context.Context) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, t.baseURL+"/health", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, t.baseURL+"/health", http.NoBody)
 	if err != nil {
 		return err
 	}
+
 	resp, err := t.client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
+
 	if resp.StatusCode >= http.StatusBadRequest {
 		return fmt.Errorf("tunnel client unhealthy: %d", resp.StatusCode)
 	}
+
 	return nil
 }
 
@@ -161,7 +177,9 @@ type errorStream struct {
 func (e *errorStream) Chunks() <-chan platform.TunnelChunk {
 	ch := make(chan platform.TunnelChunk, 1)
 	ch <- platform.TunnelChunk{Data: e.body, IsDone: true}
+
 	close(ch)
+
 	return ch
 }
 func (e *errorStream) Errors() <-chan error       { return nil }
@@ -175,6 +193,7 @@ func flattenHeaders(in http.Header) map[string]string {
 			out[key] = values[0]
 		}
 	}
+
 	return out
 }
 
@@ -182,10 +201,13 @@ func streamingHTTPClient(base *http.Client) *http.Client {
 	if base == nil {
 		return &http.Client{}
 	}
+
 	clone := *base
+
 	clone.Timeout = 0
 	if clone.Transport == nil {
 		clone.Transport = http.DefaultTransport
 	}
+
 	return &clone
 }

@@ -22,10 +22,12 @@ func (e *testEmbedder) Embed(_ context.Context, texts []string) ([][]float32, er
 	if e.err != nil {
 		return nil, e.err
 	}
+
 	result := make([][]float32, len(texts))
 	for i, text := range texts {
 		result[i] = e.vectors[text]
 	}
+
 	return result, nil
 }
 func (e *testEmbedder) Identity() EmbeddingIdentity {
@@ -34,11 +36,14 @@ func (e *testEmbedder) Identity() EmbeddingIdentity {
 
 func newTestService(t *testing.T, embedder Embedder) *Service {
 	t.Helper()
+
 	store, err := basecache.NewMemoryCache(zap.NewNop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
+
 	service, err := NewService(store, embedder, Config{Enabled: true, DefaultTTL: time.Minute, MinTTL: time.Second, MaxTTL: time.Hour, MaxResponseBytes: 1024, MaxSemanticCandidates: 10})
 	require.NoError(t, err)
+
 	return service
 }
 
@@ -48,6 +53,7 @@ func TestParseHeaderValidation(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0.9, cfg.SimilarityThreshold)
 	assert.Equal(t, 60, cfg.TTL)
+
 	for _, raw := range []string{
 		`{"type":"unknown"}`, `{"type":"simple","similarity_threshold":0.9}`,
 		`{"type":"smart","unknown":true}`, `{"type":"smart"} {"type":"smart"}`,
@@ -88,6 +94,7 @@ func TestSmartCacheMatchesOnlyFinalUserText(t *testing.T) {
 	_, pending, err := service.Lookup(context.Background(), scope, base, cfg)
 	require.NoError(t, err)
 	require.NoError(t, service.Store(context.Background(), pending, []byte(`{"id":"cached"}`), "trace", "openai", "gpt-4", platform.UsageCostBreakdown{TotalCostUSD: 0.01}, "test-pricing-v1"))
+
 	paraphrase := base
 	paraphrase.Messages = append([]contractsopenai.ChatMessage(nil), base.Messages...)
 	paraphrase.Messages[1].Content = "password recovery"
@@ -95,6 +102,7 @@ func TestSmartCacheMatchesOnlyFinalUserText(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result.Entry)
 	assert.GreaterOrEqual(t, result.Similarity, 0.9)
+
 	unrelated := paraphrase
 	unrelated.Messages = append([]contractsopenai.ChatMessage(nil), paraphrase.Messages...)
 	unrelated.Messages[1].Content = "weather"
@@ -121,8 +129,10 @@ func TestAcquireMissWaitsAndRespectsCancellation(t *testing.T) {
 	release, waited, err := service.AcquireMiss(context.Background(), pending)
 	require.NoError(t, err)
 	assert.False(t, waited)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
+
 	_, waited, err = service.AcquireMiss(ctx, pending)
 	assert.ErrorIs(t, err, context.Canceled)
 	assert.False(t, waited)

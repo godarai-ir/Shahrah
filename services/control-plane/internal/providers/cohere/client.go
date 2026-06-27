@@ -70,7 +70,7 @@ func (c *Client) AuthHeaders() map[string]string {
 	}
 }
 
-// Cohere request/response types
+// Cohere request/response types.
 type cohereRequest struct {
 	Model       string          `json:"model"`
 	Message     string          `json:"message"`
@@ -110,6 +110,7 @@ func (c *Client) Complete(ctx context.Context, req contractsopenai.ChatCompletio
 	}
 
 	endpoint := c.apiBase + "/chat"
+
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -118,15 +119,19 @@ func (c *Client) Complete(ctx context.Context, req contractsopenai.ChatCompletio
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := c.httpClient.Do(httpReq) //nolint:bodyclose // the streaming goroutine owns and closes resp.Body.
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer providers.Close(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Cohere API error (status %d): %s", resp.StatusCode, string(bodyBytes))
+		bodyBytes, readErr := providers.ReadAllAndClose(resp)
+		if readErr != nil {
+			return nil, fmt.Errorf("failed to read cohere error response: %w", readErr)
+		}
+
+		return nil, fmt.Errorf("cohere API error (status %d): %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	var cohereResp cohereResponse
@@ -149,6 +154,7 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 	}
 
 	endpoint := c.apiBase + "/chat"
+
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create request: %w", err)
@@ -157,14 +163,18 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := c.httpClient.Do(httpReq) //nolint:bodyclose // the streaming goroutine owns and closes resp.Body.
 	if err != nil {
 		return nil, nil, fmt.Errorf("request failed: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, nil, fmt.Errorf("Cohere API error (status %d): %s", resp.StatusCode, string(bodyBytes))
+		bodyBytes, readErr := providers.ReadAllAndClose(resp)
+		if readErr != nil {
+			return nil, nil, fmt.Errorf("failed to read cohere error response: %w", readErr)
+		}
+
+		return nil, nil, fmt.Errorf("cohere API error (status %d): %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	streamChan := make(chan contractsopenai.StreamChunk)
@@ -172,7 +182,7 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 
 	go func() {
 		defer close(streamChan)
-		defer resp.Body.Close()
+		defer providers.Close(resp.Body)
 
 		reader := bufio.NewReader(resp.Body)
 		for {
@@ -181,7 +191,9 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 				if err != io.EOF {
 					errorChan <- fmt.Errorf("stream read error: %w", err)
 				}
+
 				close(errorChan)
+
 				return
 			}
 
@@ -208,6 +220,7 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 				if err := json.Unmarshal([]byte(data), &chunk); err != nil {
 					continue
 				}
+
 				streamChan <- chunk
 			}
 		}
@@ -216,14 +229,15 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 	return streamChan, errorChan, nil
 }
 
-// convertToCohereRequest converts OpenAI request to Cohere format
+// convertToCohereRequest converts OpenAI request to Cohere format.
 func convertToCohereRequest(req contractsopenai.ChatCompletionRequest) cohereRequest {
 	// Build message from last user message
 	message := ""
 	chatHistory := make([]cohereMessage, 0, len(req.Messages))
 
 	for i, msg := range req.Messages {
-		if msg.Role == "user" {
+		switch msg.Role {
+		case "user":
 			if i == len(req.Messages)-1 {
 				// Last user message is the current prompt
 				message = contractsopenai.ChatContentText(msg.Content)
@@ -233,7 +247,7 @@ func convertToCohereRequest(req contractsopenai.ChatCompletionRequest) cohereReq
 					Message: contractsopenai.ChatContentText(msg.Content),
 				})
 			}
-		} else if msg.Role == "assistant" {
+		case "assistant":
 			chatHistory = append(chatHistory, cohereMessage{
 				Role:    "Chatbot",
 				Message: contractsopenai.ChatContentText(msg.Content),
@@ -257,7 +271,7 @@ func convertToCohereRequest(req contractsopenai.ChatCompletionRequest) cohereReq
 	return cohereReq
 }
 
-// convertToOpenAIResponse converts Cohere response to OpenAI format
+// convertToOpenAIResponse converts Cohere response to OpenAI format.
 func convertToOpenAIResponse(resp cohereResponse, model string) *contractsopenai.ChatCompletionResponse {
 	finishReason := resp.FinishReason
 	if finishReason == "" {
@@ -287,7 +301,7 @@ func convertToOpenAIResponse(resp cohereResponse, model string) *contractsopenai
 	return openaiResp
 }
 
-// Register the adapter
+// Register the adapter.
 func init() {
 	providers.Register("cohere", func(cfg providers.ProviderConfig) providers.Provider {
 		return NewClient(cfg)

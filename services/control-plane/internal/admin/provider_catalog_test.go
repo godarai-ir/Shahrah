@@ -50,11 +50,13 @@ func TestMapDiscoveryModels_PreservesGatewayAndUIFields(t *testing.T) {
 func TestResolveProviderAccountModelSelections_ExpandsCatalogMetadata(t *testing.T) {
 	inputPrice := 0.15
 	outputPrice := 0.6
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/providers/openai/models" {
 			http.NotFound(w, r)
 			return
 		}
+
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"data":[{"canonicalId":"gpt-4.1-mini","name":"GPT-4.1 Mini","mode":["chat"],"capabilities":["chat","function_calling"],"inputModalities":["text"],"outputModalities":["text"],"pricing":{"inputPerMillionTokens":0.15,"outputPerMillionTokens":0.6}}]}`))
 	}))
@@ -92,6 +94,7 @@ func TestResolveProviderAccountModelSelections_RejectsInvalidCapabilities(t *tes
 			http.NotFound(w, r)
 			return
 		}
+
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"data":[{"canonicalId":"gpt-4.1-mini","name":"GPT-4.1 Mini","mode":["chat","embedding"],"capabilities":["chat"],"inputModalities":["text"],"outputModalities":["text"]},{"canonicalId":"gpt-4.1","name":"GPT-4.1","mode":["chat"],"capabilities":["chat"],"inputModalities":["text"],"outputModalities":["text"]}]}`))
 	}))
@@ -137,6 +140,7 @@ func TestDiscoveryProviders_FailsWithoutFallbackWhenDiscoveryUnavailable(t *test
 
 func TestDiscoveryFetch_DoesNotForwardMasterKey(t *testing.T) {
 	var authorization string
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authorization = r.Header.Get("Authorization")
 		w.Header().Set("Content-Type", "application/json")
@@ -155,8 +159,10 @@ func TestDiscoveryFetch_DoesNotForwardMasterKey(t *testing.T) {
 
 func TestDiscoveryFetch_ForwardsExplicitDiscoveryToken(t *testing.T) {
 	var authorization string
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authorization = r.Header.Get("Authorization")
+
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
@@ -176,6 +182,7 @@ func TestDiscoveryProviderExists_NormalizesLegacyProviderSlug(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
+
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"data":[{"provider":"perplexity-ai","display_name":"Perplexity","enabled":true,"auth_modes":["api_key"],"supports_bring_your_own_key":true,"supports_virtual_keys":true}]}`))
 	}))

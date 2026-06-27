@@ -25,6 +25,7 @@ import (
 
 func newImagesTestApp(t *testing.T, modelName string, provider string, deploymentModel string, tunnel *captureTunnel, logs *testLogs, allowedTypes []string, emitMetric ...func(input metricsobs.BuildInput)) (*fiber.App, *tracing.Queue) {
 	t.Helper()
+
 	mem, err := cache.NewMemoryCache(zap.NewNop())
 	require.NoError(t, err)
 	rt, err := router.NewRouter([]config.ModelDeployment{{
@@ -36,15 +37,19 @@ func newImagesTestApp(t *testing.T, modelName string, provider string, deploymen
 		},
 	}}, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, mem, nil, zap.NewNop())
 	require.NoError(t, err)
+
 	if logs == nil {
 		logs = &testLogs{}
 	}
+
 	h := NewImagesHandler(rt, tunnel, &testBudgeter{}, &testWallets{}, logs, zap.NewNop(), emitMetric...)
 	q := tracing.NewQueue(64)
 	s := tracing.NewSampler(1.0, 1500)
+
 	if allowedTypes == nil {
 		allowedTypes = []string{"image_generation"}
 	}
+
 	app := fiber.New()
 	app.Use(tracing.Middleware(q, s, 1500))
 	app.Use(func(c *fiber.Ctx) error {
@@ -59,11 +64,13 @@ func newImagesTestApp(t *testing.T, modelName string, provider string, deploymen
 			},
 		})
 		c.Locals(tenant.ContextKey{}, &platform.Tenant{ID: "tenant_a", Slug: "a", Status: "active"})
+
 		return c.Next()
 	})
 	app.Post("/v1/images/generations", h.HandleGenerations)
 	app.Post("/v1/images/edits", h.HandleEdits)
 	app.Post("/v1/images/variations", h.HandleVariations)
+
 	return app, q
 }
 
@@ -78,7 +85,10 @@ func TestImagesHandlerJSONGeneration(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/images/generations", bytes.NewBufferString(`{"model":"openai:acct:gpt-image-1","prompt":"paint a bridge","n":2,"size":"1024x1024","quality":"high","response_format":"url"}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.Equal(t, "/images/generations", tunnel.lastReq.RequestMetadata["provider_endpoint_path"])
@@ -97,7 +107,10 @@ func TestImagesHandlerJSONEdit(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/images/edits", bytes.NewBufferString(`{"model":"grok-imagine-image","prompt":"make it brighter","image":{"url":"https://example.com/private/path/image.png","type":"image_url"}}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.Equal(t, "/images/edits", tunnel.lastReq.RequestMetadata["provider_endpoint_path"])
@@ -111,7 +124,10 @@ func TestImagesHandlerMultipartEdit(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/images/edits", bytes.NewReader(body))
 	req.Header.Set("Content-Type", contentType)
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.Equal(t, contentType, tunnel.lastReq.Headers["Content-Type"])
@@ -126,7 +142,10 @@ func TestImagesHandlerMultipartVariation(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/images/variations", bytes.NewReader(body))
 	req.Header.Set("Content-Type", contentType)
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.Equal(t, "/images/variations", tunnel.lastReq.RequestMetadata["provider_endpoint_path"])
@@ -139,7 +158,10 @@ func TestImagesHandlerMissingModel(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/images/generations", bytes.NewBufferString(`{"prompt":"missing model"}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 }
@@ -150,7 +172,10 @@ func TestImagesHandlerDeniedModelType(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/images/generations", bytes.NewBufferString(`{"model":"gpt-4o-mini","prompt":"no"}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusForbidden, resp.StatusCode)
 }
@@ -165,7 +190,10 @@ func TestImagesHandlerProviderErrorPassthrough(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/images/generations", bytes.NewBufferString(`{"model":"grok-imagine-image","prompt":"x"}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 	bodyBytes, err := io.ReadAll(resp.Body)
@@ -183,7 +211,10 @@ func TestImagesHandlerTraceRedaction(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/images/edits", bytes.NewBufferString(`{"model":"grok-imagine-image","prompt":"secret prompt","image":{"url":"https://private.example/secret.png","type":"image_url"}}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
@@ -199,20 +230,26 @@ func TestImagesHandlerTraceRedaction(t *testing.T) {
 
 func buildMultipartBody(t *testing.T, fields map[string]string, files map[string][]byte) ([]byte, string) {
 	t.Helper()
+
 	var buf bytes.Buffer
+
 	w := multipart.NewWriter(&buf)
 	for k, v := range fields {
 		require.NoError(t, w.WriteField(k, v))
 	}
+
 	for name, data := range files {
 		part, err := w.CreateFormFile(name, name+".png")
 		require.NoError(t, err)
 		_, err = part.Write(data)
 		require.NoError(t, err)
 	}
+
 	require.NoError(t, w.Close())
+
 	if !strings.Contains(w.FormDataContentType(), "boundary=") {
 		t.Fatalf("missing multipart boundary")
 	}
+
 	return buf.Bytes(), w.FormDataContentType()
 }

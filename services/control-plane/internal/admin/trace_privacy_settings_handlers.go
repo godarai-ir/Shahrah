@@ -17,10 +17,12 @@ func (h *Handlers) GetTenantTracePrivacySettings(c *fiber.Ctx) error {
 	if err := requireTeamAdminOrHigher(c); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	if h.tracePrivacy == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "trace privacy store not configured")
 	}
@@ -33,8 +35,10 @@ func (h *Handlers) GetTenantTracePrivacySettings(c *fiber.Ctx) error {
 				"capture_policy": "metadata-only",
 			})
 		}
+
 		return err
 	}
+
 	return c.JSON(item)
 }
 
@@ -42,10 +46,12 @@ func (h *Handlers) UpdateTenantTracePrivacySettings(c *fiber.Ctx) error {
 	if err := requireTeamAdminOrHigher(c); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	if h.tracePrivacy == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "trace privacy store not configured")
 	}
@@ -54,16 +60,20 @@ func (h *Handlers) UpdateTenantTracePrivacySettings(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
+
 	req.CapturePolicy = strings.TrimSpace(strings.ToLower(req.CapturePolicy))
 	switch req.CapturePolicy {
 	case "none", "metadata-only", "sampled-redacted", "full-secure":
 	default:
 		return fiber.NewError(fiber.StatusBadRequest, "capture_policy must be one of: none, metadata-only, sampled-redacted, full-secure")
 	}
+
 	updatedBy := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+
 	item, err := h.tracePrivacy.UpsertTenantTracePrivacySettings(c.Context(), currentTenant.ID, req.CapturePolicy, updatedBy)
 	if err != nil {
 		return err
 	}
+
 	return c.JSON(item)
 }

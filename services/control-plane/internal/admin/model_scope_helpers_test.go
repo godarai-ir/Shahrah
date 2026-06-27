@@ -41,6 +41,7 @@ func TestBuildVirtualModelSnapshotsForAliases_NormalizesTargetFQNs(t *testing.T)
 	if err != nil {
 		t.Fatalf("expected snapshot build to succeed: %v", err)
 	}
+
 	targets := snapshots["mistral"].TargetFQNs
 	if len(targets) != 1 || targets[0] != "mistral-ai:mistral-ai-eager-harbor:ministral-8b-2512" {
 		t.Fatalf("expected canonical target FQN, got %#v", targets)

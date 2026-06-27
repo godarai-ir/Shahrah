@@ -38,12 +38,15 @@ func NewRetentionCleaner(cfg Config, store RetentionStore, logger *zap.Logger) *
 	if cfg.RetentionCleanupInterval <= 0 {
 		cfg.RetentionCleanupInterval = time.Hour
 	}
+
 	if cfg.RetentionCleanupTimeout <= 0 {
 		cfg.RetentionCleanupTimeout = 30 * time.Second
 	}
+
 	if logger == nil {
 		logger = zap.NewNop()
 	}
+
 	return &RetentionCleaner{
 		cfg:    cfg,
 		store:  store,
@@ -56,8 +59,10 @@ func (c *RetentionCleaner) Start() {
 	if c == nil || !c.cfg.RetentionCleanupEnabled || c.store == nil {
 		return
 	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
+
 	c.done = make(chan struct{})
 	go c.run(ctx)
 }
@@ -66,6 +71,7 @@ func (c *RetentionCleaner) Stop() {
 	if c == nil || c.cancel == nil || c.done == nil {
 		return
 	}
+
 	c.once.Do(func() {
 		c.cancel()
 		<-c.done
@@ -74,9 +80,12 @@ func (c *RetentionCleaner) Stop() {
 
 func (c *RetentionCleaner) run(ctx context.Context) {
 	defer close(c.done)
+
 	c.runWithTimeout(ctx)
+
 	ticker := time.NewTicker(c.cfg.RetentionCleanupInterval)
 	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -90,6 +99,7 @@ func (c *RetentionCleaner) run(ctx context.Context) {
 func (c *RetentionCleaner) runWithTimeout(parent context.Context) {
 	ctx, cancel := context.WithTimeout(parent, c.cfg.RetentionCleanupTimeout)
 	defer cancel()
+
 	if err := c.runOnce(ctx); err != nil {
 		c.logger.Warn("trace retention cleanup finished with errors", zap.Error(err))
 	}
@@ -101,13 +111,17 @@ func (c *RetentionCleaner) runOnce(ctx context.Context) error {
 		c.logger.Warn("trace retention policy query failed", zap.Error(err))
 		return err
 	}
+
 	now := c.now().UTC()
+
 	var cleanupErr error
+
 	for _, policy := range policies {
 		tenantID := strings.TrimSpace(policy.TenantID)
 		if tenantID == "" || policy.RetentionDays == nil {
 			continue
 		}
+
 		cutoff := now.AddDate(0, 0, -*policy.RetentionDays)
 		if err := c.store.DeleteTraceDataBefore(ctx, tenantID, cutoff); err != nil {
 			c.logger.Warn(
@@ -118,8 +132,10 @@ func (c *RetentionCleaner) runOnce(ctx context.Context) error {
 				zap.Error(err),
 			)
 			cleanupErr = errors.Join(cleanupErr, err)
+
 			continue
 		}
+
 		c.logger.Debug(
 			"tenant trace retention cleanup scheduled",
 			zap.String("tenant_id", tenantID),
@@ -127,6 +143,7 @@ func (c *RetentionCleaner) runOnce(ctx context.Context) error {
 			zap.Time("cutoff", cutoff),
 		)
 	}
+
 	return cleanupErr
 }
 
@@ -140,27 +157,32 @@ func ParseTraceRetentionDays(value interface{}) (*int, bool) {
 		if v > maxIntValue() {
 			return nil, false
 		}
+
 		return positiveRetentionDays(int(v))
 	case float64:
 		if v != math.Trunc(v) || v > float64(maxIntValue()) {
 			return nil, false
 		}
+
 		return positiveRetentionDays(int(v))
 	case json.Number:
 		parsed, err := v.Int64()
 		if err != nil || parsed > maxIntValue() {
 			return nil, false
 		}
+
 		return positiveRetentionDays(int(parsed))
 	case string:
 		raw := strings.TrimSpace(strings.ToLower(v))
 		if raw == "" || raw == "null" || raw == "unlimited" {
 			return nil, true
 		}
+
 		parsed, err := strconv.Atoi(raw)
 		if err != nil {
 			return nil, false
 		}
+
 		return positiveRetentionDays(parsed)
 	default:
 		return nil, false
@@ -171,6 +193,7 @@ func positiveRetentionDays(value int) (*int, bool) {
 	if value <= 0 {
 		return nil, false
 	}
+
 	return &value, true
 }
 

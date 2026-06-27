@@ -30,6 +30,8 @@ func TestEntitlementGateRejectsDisabledVAT(t *testing.T) {
 	app.Post("/vat", func(c *fiber.Ctx) error { return h.requireVATEnabled(c, "tenant-1") })
 
 	resp, err := app.Test(httptest.NewRequest(fiber.MethodPost, "/vat", nil))
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusForbidden, resp.StatusCode)
 }
@@ -43,10 +45,13 @@ func TestEntitlementGateAllowsTeamRateLimitRules(t *testing.T) {
 		if err := h.requireEntitlementEnabled(c, "tenant-1", platform.FeatureRateLimitRulesEnabled); err != nil {
 			return err
 		}
+
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
 	resp, err := app.Test(httptest.NewRequest(fiber.MethodPost, "/rules", nil))
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusNoContent, resp.StatusCode)
 }
@@ -59,17 +64,23 @@ func TestEntitlementLimitUsesEffectiveOverrideValue(t *testing.T) {
 		if c.Params("used") == "10" {
 			used = 10
 		}
+
 		if err := h.requireEntitlementLimitAvailable(c, "tenant-1", platform.FeatureUsersMax, used, 1); err != nil {
 			return err
 		}
+
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
 	allowed, err := app.Test(httptest.NewRequest(fiber.MethodPost, "/users/9", nil))
+	defer closeResponseBody(t, allowed)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusNoContent, allowed.StatusCode)
 
 	denied, err := app.Test(httptest.NewRequest(fiber.MethodPost, "/users/10", nil))
+	defer closeResponseBody(t, denied)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusForbidden, denied.StatusCode)
 }

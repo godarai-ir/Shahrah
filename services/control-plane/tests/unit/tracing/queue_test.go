@@ -11,6 +11,7 @@ func TestQueueDropsWhenFull(t *testing.T) {
 	q := tracing.NewQueue(1)
 	ok1 := q.Enqueue(tracing.SpanEvent{TraceID: "1"})
 	ok2 := q.Enqueue(tracing.SpanEvent{TraceID: "2"})
+
 	assert.True(t, ok1)
 	assert.False(t, ok2)
 

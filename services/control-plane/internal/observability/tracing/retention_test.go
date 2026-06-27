@@ -93,5 +93,6 @@ func (s *fakeRetentionStore) DeleteTraceDataBefore(_ context.Context, tenantID s
 	if err := s.failures[tenantID]; err != nil {
 		return err
 	}
+
 	return nil
 }

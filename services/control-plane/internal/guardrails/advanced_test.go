@@ -115,6 +115,7 @@ func TestInlineImageURLsGuardrailMutatesTextURL(t *testing.T) {
 		_, _ = w.Write([]byte{0x89, 'P', 'N', 'G'})
 	}))
 	t.Cleanup(server.Close)
+
 	g := NewFromTenantGuardrail(platform.TenantGuardrail{
 		Slug:        "inline-images",
 		Type:        "inline_image_urls",
@@ -131,13 +132,16 @@ func TestInlineImageURLsGuardrailMutatesTextURL(t *testing.T) {
 
 func signedTestJWT(t *testing.T, header map[string]interface{}, claims map[string]interface{}, secret string) string {
 	t.Helper()
+
 	encode := func(value interface{}) string {
 		raw, err := json.Marshal(value)
 		require.NoError(t, err)
+
 		return base64.RawURLEncoding.EncodeToString(raw)
 	}
 	signed := encode(header) + "." + encode(claims)
 	mac := hmac.New(sha256.New, []byte(secret))
 	_, _ = mac.Write([]byte(signed))
+
 	return signed + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }

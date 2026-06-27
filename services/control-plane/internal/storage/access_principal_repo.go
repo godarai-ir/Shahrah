@@ -12,9 +12,11 @@ func (s *Store) SearchAccessPrincipals(ctx context.Context, tenantID string, kin
 	normalizedKind := strings.TrimSpace(strings.ToLower(kind))
 	normalizedQuery := strings.TrimSpace(query)
 	normalizedTenantID := strings.TrimSpace(tenantID)
+
 	if limit <= 0 {
 		limit = 20
 	}
+
 	if limit > 100 {
 		limit = 100
 	}
@@ -33,6 +35,7 @@ func (s *Store) SearchAccessPrincipals(ctx context.Context, tenantID string, kin
 
 func (s *Store) searchUserPrincipals(ctx context.Context, tenantID string, query string, limit int) ([]platform.AccessPrincipalCandidate, error) {
 	like := "%" + query + "%"
+
 	rows, err := s.pool.Query(ctx, `
 		SELECT user_id::text AS id,
 		       COALESCE(NULLIF(user_alias, ''), NULLIF(email, ''), NULLIF(mobile, ''), user_id::text) AS alias,
@@ -49,20 +52,26 @@ func (s *Store) searchUserPrincipals(ctx context.Context, tenantID string, query
 	defer rows.Close()
 
 	items := make([]platform.AccessPrincipalCandidate, 0)
+
 	for rows.Next() {
-		var id string
-		var alias string
-		var email string
+		var (
+			id    string
+			alias string
+			email string
+		)
 		if err := rows.Scan(&id, &alias, &email); err != nil {
 			return nil, err
 		}
+
 		displayName := strings.TrimSpace(email)
 		if displayName == "" {
 			displayName = strings.TrimSpace(alias)
 		}
+
 		if displayName == "" {
 			displayName = id
 		}
+
 		secondary := strings.TrimSpace(alias)
 		if secondary == displayName {
 			secondary = ""
@@ -75,11 +84,13 @@ func (s *Store) searchUserPrincipals(ctx context.Context, tenantID string, query
 			Secondary:   secondary,
 		})
 	}
+
 	return items, rows.Err()
 }
 
 func (s *Store) searchTeamPrincipals(ctx context.Context, tenantID string, query string, limit int) ([]platform.AccessPrincipalCandidate, error) {
 	like := "%" + query + "%"
+
 	rows, err := s.pool.Query(ctx, `
 		SELECT team_id::text, COALESCE(team_alias, ''), COALESCE(organization_alias, '')
 		FROM teams
@@ -95,17 +106,22 @@ func (s *Store) searchTeamPrincipals(ctx context.Context, tenantID string, query
 	defer rows.Close()
 
 	items := make([]platform.AccessPrincipalCandidate, 0)
+
 	for rows.Next() {
-		var id string
-		var alias string
-		var orgAlias string
+		var (
+			id       string
+			alias    string
+			orgAlias string
+		)
 		if err := rows.Scan(&id, &alias, &orgAlias); err != nil {
 			return nil, err
 		}
+
 		displayName := strings.TrimSpace(alias)
 		if displayName == "" {
 			displayName = id
 		}
+
 		secondary := strings.TrimSpace(orgAlias)
 
 		items = append(items, platform.AccessPrincipalCandidate{
@@ -115,11 +131,13 @@ func (s *Store) searchTeamPrincipals(ctx context.Context, tenantID string, query
 			Secondary:   secondary,
 		})
 	}
+
 	return items, rows.Err()
 }
 
 func (s *Store) searchOrgUnitPrincipals(ctx context.Context, tenantID string, query string, limit int) ([]platform.AccessPrincipalCandidate, error) {
 	like := "%" + query + "%"
+
 	rows, err := s.pool.Query(ctx, `
 		SELECT organization_id::text, COALESCE(organization_alias, '')
 		FROM organizations
@@ -134,21 +152,27 @@ func (s *Store) searchOrgUnitPrincipals(ctx context.Context, tenantID string, qu
 	defer rows.Close()
 
 	items := make([]platform.AccessPrincipalCandidate, 0)
+
 	for rows.Next() {
-		var id string
-		var alias string
+		var (
+			id    string
+			alias string
+		)
 		if err := rows.Scan(&id, &alias); err != nil {
 			return nil, err
 		}
+
 		displayName := strings.TrimSpace(alias)
 		if displayName == "" {
 			displayName = id
 		}
+
 		items = append(items, platform.AccessPrincipalCandidate{
 			Type:        platform.PrincipalTypeOrgUnit,
 			PrincipalID: id,
 			DisplayName: displayName,
 		})
 	}
+
 	return items, rows.Err()
 }

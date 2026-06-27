@@ -31,17 +31,22 @@ func (s *Store) ResolveProviderAccountAPIKey(ctx context.Context, tenantID strin
 	defer rows.Close()
 
 	for rows.Next() {
-		var apiKey string
-		var storedModel string
+		var (
+			apiKey      string
+			storedModel string
+		)
 		if err := rows.Scan(&apiKey, &storedModel); err != nil {
 			return "", err
 		}
+
 		if modelid.MatchOfficialModel(provider, storedModel, model) {
 			return strings.TrimSpace(apiKey), nil
 		}
 	}
+
 	if err := rows.Err(); err != nil {
 		return "", err
 	}
+
 	return "", nil
 }

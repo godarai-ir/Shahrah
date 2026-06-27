@@ -203,20 +203,25 @@ var systemRolePermissions = map[string][]string{
 
 func (s *Store) ListRoles(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.RoleDefinition, int, error) {
 	query = strings.TrimSpace(strings.ToLower(query))
+
 	if limit <= 0 {
 		limit = 50
 	}
+
 	if limit > 200 {
 		limit = 200
 	}
+
 	if offset < 0 {
 		offset = 0
 	}
+
 	if err := s.ensureSystemRoles(ctx, tenantID); err != nil {
 		return nil, 0, err
 	}
 
 	like := "%" + query + "%"
+
 	var total int
 	if err := s.pool.QueryRow(ctx, `
 		SELECT COUNT(1)
@@ -251,6 +256,7 @@ func (s *Store) ListRoles(ctx context.Context, tenantID string, query string, li
 	defer rows.Close()
 
 	items := make([]platform.RoleDefinition, 0, limit)
+
 	for rows.Next() {
 		var item platform.RoleDefinition
 		if err := rows.Scan(
@@ -266,8 +272,10 @@ func (s *Store) ListRoles(ctx context.Context, tenantID string, query string, li
 		); err != nil {
 			return nil, 0, err
 		}
+
 		items = append(items, item)
 	}
+
 	return items, total, rows.Err()
 }
 
@@ -275,14 +283,17 @@ func (s *Store) CreateRole(ctx context.Context, tenantID string, req platform.Cr
 	if err := s.ensureSystemRoles(ctx, tenantID); err != nil {
 		return nil, err
 	}
+
 	name := strings.TrimSpace(strings.ToLower(req.Name))
 	if !roleNamePattern.MatchString(name) {
 		return nil, ErrInvalidRoleName
 	}
+
 	displayName := strings.TrimSpace(req.DisplayName)
 	if displayName == "" {
 		displayName = name
 	}
+
 	permissions, err := normalizePermissions(req.Permissions)
 	if err != nil {
 		return nil, err
@@ -295,6 +306,7 @@ func (s *Store) CreateRole(ctx context.Context, tenantID string, req platform.Cr
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	roleID := uuid.NewString()
+
 	var item platform.RoleDefinition
 	if err := tx.QueryRow(ctx, `
 		INSERT INTO roles (role_id, tenant_id, name, display_name, description, is_system, created_at, updated_at)
@@ -314,6 +326,7 @@ func (s *Store) CreateRole(ctx context.Context, tenantID string, req platform.Cr
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			return nil, ErrInvalidRoleName
 		}
+
 		return nil, err
 	}
 
@@ -329,8 +342,11 @@ func (s *Store) CreateRole(ctx context.Context, tenantID string, req platform.Cr
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+
 	s.bumpAuthzTenantEpoch(tenantID)
+
 	item.Permissions = permissions
+
 	return &item, nil
 }
 
@@ -338,6 +354,7 @@ func (s *Store) UpdateRole(ctx context.Context, tenantID string, roleID string, 
 	if err := s.ensureSystemRoles(ctx, tenantID); err != nil {
 		return nil, err
 	}
+
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, err
@@ -345,7 +362,8 @@ func (s *Store) UpdateRole(ctx context.Context, tenantID string, roleID string, 
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	var current platform.RoleDefinition
-	if err := tx.QueryRow(ctx, `
+
+	queryErr := tx.QueryRow(ctx, `
 		SELECT role_id::text, tenant_id::text, name, COALESCE(display_name, ''), COALESCE(description, ''), COALESCE(is_system, false), created_at, updated_at
 		FROM roles
 		WHERE tenant_id = $1::uuid AND role_id = $2::uuid
@@ -360,12 +378,15 @@ func (s *Store) UpdateRole(ctx context.Context, tenantID string, roleID string, 
 		&current.IsSystem,
 		&current.CreatedAt,
 		&current.UpdatedAt,
-	); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+	)
+	if queryErr != nil {
+		if errors.Is(queryErr, pgx.ErrNoRows) {
 			return nil, ErrRoleNotFound
 		}
-		return nil, err
+
+		return nil, queryErr
 	}
+
 	if current.IsSystem && (current.Name == "proxy_admin" || current.Name == "tenant_admin") {
 		return nil, ErrRoleImmutable
 	}
@@ -374,33 +395,39 @@ func (s *Store) UpdateRole(ctx context.Context, tenantID string, roleID string, 
 	if displayName == "" {
 		displayName = current.DisplayName
 	}
+
 	description := current.Description
 	if req.Description != "" {
 		description = strings.TrimSpace(req.Description)
 	}
 
-	if _, err := tx.Exec(ctx, `
+	_, execErr := tx.Exec(ctx, `
 		UPDATE roles
 		SET display_name = $3,
 		    description = NULLIF($4, ''),
 		    updated_at = NOW()
 		WHERE tenant_id = $1::uuid AND role_id = $2::uuid
-	`, tenantID, roleID, displayName, description); err != nil {
-		return nil, err
+	`, tenantID, roleID, displayName, description)
+	if execErr != nil {
+		return nil, execErr
 	}
 
-	permissions := current.Permissions
+	permissions := make([]string, len(current.Permissions))
+	copy(permissions, current.Permissions)
 	if req.Permissions != nil {
-		permissions, err = normalizePermissions(req.Permissions)
-		if err != nil {
-			return nil, err
+		normalizedPermissions, normalizeErr := normalizePermissions(req.Permissions)
+		if normalizeErr != nil {
+			return nil, normalizeErr
 		}
+		permissions = normalizedPermissions
+
 		if _, err := tx.Exec(ctx, `
 			DELETE FROM role_permissions
 			WHERE tenant_id = $1::uuid AND role_id = $2::uuid
 		`, tenantID, roleID); err != nil {
 			return nil, err
 		}
+
 		for _, permission := range permissions {
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO role_permissions (role_permission_id, tenant_id, role_id, permission, created_at, updated_at)
@@ -419,15 +446,19 @@ func (s *Store) UpdateRole(ctx context.Context, tenantID string, roleID string, 
 		if err != nil {
 			return nil, err
 		}
+
 		permissions = make([]string, 0)
+
 		for rows.Next() {
 			var permission string
 			if err := rows.Scan(&permission); err != nil {
 				rows.Close()
 				return nil, err
 			}
+
 			permissions = append(permissions, permission)
 		}
+
 		rows.Close()
 	}
 
@@ -449,12 +480,15 @@ func (s *Store) UpdateRole(ctx context.Context, tenantID string, roleID string, 
 	); err != nil {
 		return nil, err
 	}
+
 	updated.Permissions = permissions
 
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+
 	s.bumpAuthzTenantEpoch(tenantID)
+
 	return &updated, nil
 }
 
@@ -462,14 +496,17 @@ func (s *Store) UpdateUserRoles(ctx context.Context, tenantID string, req platfo
 	if err := s.ensureSystemRoles(ctx, tenantID); err != nil {
 		return nil, err
 	}
+
 	email := strings.TrimSpace(strings.ToLower(req.Email))
 	if email == "" {
 		return nil, ErrInvalidUserRoleUpdate
 	}
+
 	roles := dedupeNonEmpty(req.Roles)
 	if len(roles) == 0 {
 		return nil, ErrInvalidUserRoleUpdate
 	}
+
 	resourceType := normalizeResourceType(req.ResourceType)
 	if resourceType == "" {
 		return nil, ErrInvalidResourceType
@@ -493,6 +530,7 @@ func (s *Store) UpdateUserRoles(ctx context.Context, tenantID string, req platfo
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
+
 		return nil, err
 	}
 
@@ -501,6 +539,7 @@ func (s *Store) UpdateUserRoles(ctx context.Context, tenantID string, req platfo
 		Name     string
 		IsSystem bool
 	}
+
 	roleRows := make([]roleRow, 0, len(roles))
 	for _, roleName := range roles {
 		var row roleRow
@@ -513,8 +552,10 @@ func (s *Store) UpdateUserRoles(ctx context.Context, tenantID string, req platfo
 			if errors.Is(err, pgx.ErrNoRows) {
 				return nil, ErrRoleNotFound
 			}
+
 			return nil, err
 		}
+
 		roleRows = append(roleRows, row)
 	}
 
@@ -535,8 +576,10 @@ func (s *Store) UpdateUserRoles(ctx context.Context, tenantID string, req platfo
 		`, uuid.NewString(), tenantID, userID, row.ID, resourceType); err != nil {
 			return nil, err
 		}
+
 		grantedRoles = append(grantedRoles, row.Name)
 	}
+
 	sort.Strings(grantedRoles)
 
 	primary := derivePrimaryRole(grantedRoles)
@@ -553,8 +596,10 @@ func (s *Store) UpdateUserRoles(ctx context.Context, tenantID string, req platfo
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+
 	s.invalidateAuthzCacheForUser(tenantID, userID)
 	s.bumpAuthzTenantEpoch(tenantID)
+
 	return &platform.UpdateUserRolesResponse{
 		UserID:       userID,
 		Email:        email,
@@ -568,14 +613,17 @@ func (s *Store) ListUserRoleNamesByUserIDs(ctx context.Context, tenantID string,
 	if len(userIDs) == 0 {
 		return out, nil
 	}
+
 	userUUIDs := make([]uuid.UUID, 0, len(userIDs))
 	for _, raw := range userIDs {
 		id, err := uuid.Parse(strings.TrimSpace(raw))
 		if err != nil {
 			continue
 		}
+
 		userUUIDs = append(userUUIDs, id)
 	}
+
 	if len(userUUIDs) == 0 {
 		return out, nil
 	}
@@ -596,13 +644,17 @@ func (s *Store) ListUserRoleNamesByUserIDs(ctx context.Context, tenantID string,
 	defer rows.Close()
 
 	for rows.Next() {
-		var userID string
-		var roles []string
+		var (
+			userID string
+			roles  []string
+		)
 		if err := rows.Scan(&userID, &roles); err != nil {
 			return nil, err
 		}
+
 		out[userID] = roles
 	}
+
 	return out, rows.Err()
 }
 
@@ -610,15 +662,19 @@ func (s *Store) GetEffectivePermissionsForUser(ctx context.Context, tenantID str
 	if err := s.ensureSystemRoles(ctx, tenantID); err != nil {
 		return nil, nil, err
 	}
+
 	tenantID = strings.TrimSpace(tenantID)
 	userID = strings.TrimSpace(userID)
+
 	if parsedTenantID, err := uuid.Parse(tenantID); err == nil {
 		tenantID = parsedTenantID.String()
 	}
 
 	roleNames := make([]string, 0, 2)
+
 	if parsedUserID, err := uuid.Parse(userID); err == nil {
 		userID = parsedUserID.String()
+
 		rows, queryErr := s.pool.Query(ctx, `
 			SELECT r.name
 			FROM user_role_bindings urb
@@ -631,15 +687,19 @@ func (s *Store) GetEffectivePermissionsForUser(ctx context.Context, tenantID str
 		if queryErr != nil {
 			return nil, nil, queryErr
 		}
+
 		for rows.Next() {
 			var roleName string
 			if err := rows.Scan(&roleName); err != nil {
 				rows.Close()
 				return nil, nil, err
 			}
+
 			roleNames = append(roleNames, strings.TrimSpace(strings.ToLower(roleName)))
 		}
+
 		rows.Close()
+
 		if err := rows.Err(); err != nil {
 			return nil, nil, err
 		}
@@ -650,13 +710,17 @@ func (s *Store) GetEffectivePermissionsForUser(ctx context.Context, tenantID str
 		if fallback == "" {
 			fallback = "member"
 		}
+
 		roleNames = []string{fallback}
 	}
+
 	roleNames = dedupeNonEmptyCanonicalRoles(roleNames)
 
 	permissionSet := make(map[string]struct{})
+
 	for _, roleName := range roleNames {
 		roleName = canonicalizeUserRoleName(roleName)
+
 		perms, ok := systemRolePermissions[roleName]
 		if !ok {
 			rolePermRows, rolePermErr := s.pool.Query(ctx, `
@@ -668,20 +732,26 @@ func (s *Store) GetEffectivePermissionsForUser(ctx context.Context, tenantID str
 			if rolePermErr != nil {
 				return nil, nil, rolePermErr
 			}
+
 			for rolePermRows.Next() {
 				var permission string
 				if err := rolePermRows.Scan(&permission); err != nil {
 					rolePermRows.Close()
 					return nil, nil, err
 				}
+
 				permissionSet[strings.TrimSpace(strings.ToLower(permission))] = struct{}{}
 			}
+
 			rolePermRows.Close()
+
 			if err := rolePermRows.Err(); err != nil {
 				return nil, nil, err
 			}
+
 			continue
 		}
+
 		for _, permission := range perms {
 			permissionSet[permission] = struct{}{}
 		}
@@ -691,6 +761,7 @@ func (s *Store) GetEffectivePermissionsForUser(ctx context.Context, tenantID str
 	for permission := range permissionSet {
 		permissions = append(permissions, permission)
 	}
+
 	sort.Strings(roleNames)
 	sort.Strings(permissions)
 
@@ -706,6 +777,7 @@ func (s *Store) ensureSystemRoles(ctx context.Context, tenantID string) error {
 
 	for roleName, permissions := range systemRolePermissions {
 		var roleID string
+
 		displayName := systemRoleDisplayName(roleName)
 		if err := tx.QueryRow(ctx, `
 			INSERT INTO roles (role_id, tenant_id, name, display_name, description, is_system, created_at, updated_at)
@@ -718,16 +790,19 @@ func (s *Store) ensureSystemRoles(ctx context.Context, tenantID string) error {
 		`, uuid.NewString(), tenantID, roleName, displayName, "System role").Scan(&roleID); err != nil {
 			return err
 		}
+
 		if _, err := tx.Exec(ctx, `
 			DELETE FROM role_permissions
 			WHERE tenant_id = $1::uuid AND role_id = $2::uuid
 		`, tenantID, roleID); err != nil {
 			return err
 		}
+
 		normalized, err := normalizePermissions(permissions)
 		if err != nil {
 			return err
 		}
+
 		for _, permission := range normalized {
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO role_permissions (role_permission_id, tenant_id, role_id, permission, created_at, updated_at)
@@ -743,18 +818,22 @@ func (s *Store) ensureSystemRoles(ctx context.Context, tenantID string) error {
 
 func systemRoleDisplayName(roleName string) string {
 	parts := strings.Split(strings.ReplaceAll(strings.TrimSpace(roleName), "_", " "), " ")
+
 	out := make([]string, 0, len(parts))
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
 		if part == "" {
 			continue
 		}
+
 		if len(part) == 1 {
 			out = append(out, strings.ToUpper(part))
 			continue
 		}
+
 		out = append(out, strings.ToUpper(part[:1])+strings.ToLower(part[1:]))
 	}
+
 	return strings.Join(out, " ")
 }
 
@@ -762,37 +841,46 @@ func normalizePermissions(input []string) ([]string, error) {
 	if len(input) == 0 {
 		return nil, ErrInvalidPermission
 	}
+
 	normalized := dedupeNonEmpty(input)
 	if len(normalized) == 0 {
 		return nil, ErrInvalidPermission
 	}
+
 	for _, permission := range normalized {
 		meta, ok := permissionCatalog[permission]
 		if !ok {
 			return nil, ErrInvalidPermission
 		}
+
 		if strings.TrimSpace(meta.Description) == "" {
 			return nil, ErrInvalidPermission
 		}
 	}
+
 	sort.Strings(normalized)
+
 	return normalized, nil
 }
 
 func dedupeNonEmpty(items []string) []string {
 	seen := make(map[string]struct{}, len(items))
+
 	out := make([]string, 0, len(items))
 	for _, item := range items {
 		item = strings.TrimSpace(strings.ToLower(item))
 		if item == "" {
 			continue
 		}
+
 		if _, ok := seen[item]; ok {
 			continue
 		}
+
 		seen[item] = struct{}{}
 		out = append(out, item)
 	}
+
 	return out
 }
 
@@ -811,6 +899,7 @@ func derivePrimaryRole(roles []string) string {
 	if len(roles) == 0 {
 		return "member"
 	}
+
 	priority := map[string]int{
 		"proxy_admin":     100,
 		"tenant_admin":    90,
@@ -821,17 +910,21 @@ func derivePrimaryRole(roles []string) string {
 	}
 	best := roles[0]
 	bestRank := -1
+
 	for _, role := range roles {
 		role = canonicalizeUserRoleName(role)
+
 		rank, ok := priority[role]
 		if !ok {
 			rank = 10
 		}
+
 		if rank > bestRank {
 			bestRank = rank
 			best = role
 		}
 	}
+
 	return best
 }
 
@@ -846,18 +939,22 @@ func canonicalizeUserRoleName(role string) string {
 
 func dedupeNonEmptyCanonicalRoles(items []string) []string {
 	seen := make(map[string]struct{}, len(items))
+
 	out := make([]string, 0, len(items))
 	for _, item := range items {
 		item = canonicalizeUserRoleName(item)
 		if item == "" {
 			continue
 		}
+
 		if _, ok := seen[item]; ok {
 			continue
 		}
+
 		seen[item] = struct{}{}
 		out = append(out, item)
 	}
+
 	return out
 }
 
@@ -870,11 +967,14 @@ func listPermissionCatalog() []PermissionCatalogItem {
 			Description: meta.Description,
 		})
 	}
+
 	sort.Slice(items, func(i, j int) bool {
 		if items[i].Group == items[j].Group {
 			return items[i].Key < items[j].Key
 		}
+
 		return items[i].Group < items[j].Group
 	})
+
 	return items
 }

@@ -14,10 +14,12 @@ func (h *Handlers) GetWallet(c *fiber.Ctx) error {
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	wallet, err := h.wallets.GetWallet(c.Context(), currentTenant.ID)
 	if err != nil {
 		return err
 	}
+
 	return c.JSON(wallet)
 }
 
@@ -46,5 +48,6 @@ func (h *Handlers) TopUpWallet(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	return c.Status(fiber.StatusCreated).JSON(txn)
 }

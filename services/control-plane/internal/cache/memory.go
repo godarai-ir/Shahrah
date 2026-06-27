@@ -10,11 +10,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// cacheEntry is a generic wrapper for cache values with metadata.
-type cacheEntry struct {
-	value any
-}
-
 // MemoryCache implements Cache using Ristretto v2 with generics.
 type MemoryCache struct {
 	cache          *ristretto.Cache[string, any]
@@ -44,6 +39,7 @@ func NewMemoryCache(logger *zap.Logger) (*MemoryCache, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create ristretto v2 cache: %w", err)
 	}
+
 	return &MemoryCache{
 		cache:          cache,
 		logger:         logger,
@@ -58,6 +54,7 @@ func (m *MemoryCache) Get(ctx context.Context, key string) (interface{}, bool) {
 	if !found {
 		return nil, false
 	}
+
 	return val, true
 }
 
@@ -82,6 +79,7 @@ func (m *MemoryCache) Increment(ctx context.Context, key string, value int64, tt
 	if !found {
 		m.cache.SetWithTTL(key, value, 1, ttl)
 		m.cache.Wait()
+
 		return value, nil
 	}
 
@@ -94,6 +92,7 @@ func (m *MemoryCache) Increment(ctx context.Context, key string, value int64, tt
 	newVal := intVal + value
 	m.cache.SetWithTTL(key, newVal, 1, ttl)
 	m.cache.Wait()
+
 	return newVal, nil
 }
 
@@ -112,6 +111,7 @@ func (m *MemoryCache) CheckRateLimit(ctx context.Context, key string, limit int6
 	defer m.mu.Unlock()
 
 	now := time.Now()
+
 	counter, exists := m.fixedWindows[key]
 	if !exists || now.After(counter.expiresAt) {
 		counter = fixedWindowCounter{
@@ -131,6 +131,7 @@ func (m *MemoryCache) CheckRateLimit(ctx context.Context, key string, limit int6
 
 	counter.count++
 	m.fixedWindows[key] = counter
+
 	return &RateLimitResult{
 		Allowed: true,
 		Current: counter.count,
@@ -154,6 +155,7 @@ func (m *MemoryCache) CheckSlidingWindowRateLimitWithWeight(ctx context.Context,
 			ResetAt: time.Now().Add(window),
 		}, nil
 	}
+
 	if weight < 1 {
 		weight = 1
 	}
@@ -167,7 +169,9 @@ func (m *MemoryCache) CheckSlidingWindowRateLimitWithWeight(ctx context.Context,
 	entries := m.slidingWindows[key]
 
 	pruned := make([]slidingWindowEntry, 0, len(entries))
+
 	var total int64
+
 	for _, ts := range entries {
 		if ts.tsMS > cutoffMS {
 			pruned = append(pruned, ts)
@@ -180,7 +184,9 @@ func (m *MemoryCache) CheckSlidingWindowRateLimitWithWeight(ctx context.Context,
 		if len(pruned) > 0 {
 			resetAt = time.UnixMilli(pruned[0].tsMS).Add(window)
 		}
+
 		m.slidingWindows[key] = pruned
+
 		return &RateLimitResult{
 			Allowed: false,
 			Current: total,
@@ -191,6 +197,7 @@ func (m *MemoryCache) CheckSlidingWindowRateLimitWithWeight(ctx context.Context,
 
 	pruned = append(pruned, slidingWindowEntry{tsMS: nowMS, weight: weight})
 	m.slidingWindows[key] = pruned
+
 	return &RateLimitResult{
 		Allowed: true,
 		Current: total + weight,

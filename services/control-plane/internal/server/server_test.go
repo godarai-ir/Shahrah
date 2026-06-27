@@ -25,6 +25,7 @@ func TestHTTPLoggerRedactsSensitiveHeadersAndOmitsBodies(t *testing.T) {
 	t.Parallel()
 
 	var logBuf bytes.Buffer
+
 	app := fiber.New()
 	app.Use(fiberlogger.New(buildHTTPLoggerConfig(&logBuf)))
 	app.Post("/test", func(c *fiber.Ctx) error {
@@ -38,6 +39,8 @@ func TestHTTPLoggerRedactsSensitiveHeadersAndOmitsBodies(t *testing.T) {
 	req.Header.Set("X-API-Key", "super-secret-api-key")
 
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	require.Equal(t, fiber.StatusOK, resp.StatusCode)
 
@@ -73,15 +76,20 @@ func TestNewFiberAppExposesPrometheusMetrics(t *testing.T) {
 	app := NewFiberApp(&config.Config{}, Dependencies{})
 
 	healthResp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/health", nil))
+	defer closeResponseBody(t, healthResp)
+
 	require.NoError(t, err)
 	require.Equal(t, fiber.StatusOK, healthResp.StatusCode)
 
 	metricsResp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/metrics", nil))
+	defer closeResponseBody(t, metricsResp)
+
 	require.NoError(t, err)
 	require.Equal(t, fiber.StatusOK, metricsResp.StatusCode)
 
 	body, err := io.ReadAll(metricsResp.Body)
 	require.NoError(t, err)
+
 	payload := string(body)
 	assert.Contains(t, payload, "shahrah_control_plane_http_requests_total")
 	assert.Contains(t, payload, `shahrah_control_plane_http_requests_total{method="GET",route="/health",status_code="200"} 1`)
@@ -100,24 +108,32 @@ func TestNewFiberAppRegistersPromptRoutes(t *testing.T) {
 	})
 
 	resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/api/v1/prompts", nil))
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	require.NotEqual(t, fiber.StatusNotFound, resp.StatusCode)
 }
 
 func TestPlatformAdminAuthMiddlewareRequiresMasterKey(t *testing.T) {
 	t.Parallel()
+
 	app := fiber.New()
 	app.Get("/platform", controlauth.PlatformAdminAuthMiddleware("master-secret", nil), func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
 	missing, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/platform", nil))
+	defer closeResponseBody(t, missing)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusUnauthorized, missing.StatusCode)
 
 	request := httptest.NewRequest(fiber.MethodGet, "/platform", nil)
 	request.Header.Set("Authorization", "Bearer master-secret")
+
 	allowed, err := app.Test(request)
+	defer closeResponseBody(t, allowed)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusNoContent, allowed.StatusCode)
 }
@@ -133,6 +149,7 @@ func (s platformServiceAccountStoreStub) GetPlatformServiceAccountByTokenHash(co
 
 func TestPlatformAdminAuthMiddlewareEnforcesServiceAccountScopes(t *testing.T) {
 	t.Parallel()
+
 	store := platformServiceAccountStoreStub{credential: &controlauth.PlatformServiceAccountCredential{
 		CredentialID: "credential-1",
 		AccountName:  "support-admin",
@@ -145,13 +162,19 @@ func TestPlatformAdminAuthMiddlewareEnforcesServiceAccountScopes(t *testing.T) {
 
 	readRequest := httptest.NewRequest(fiber.MethodGet, "/api/v1/platform/features", nil)
 	readRequest.Header.Set("Authorization", "Bearer service-token")
+
 	readResponse, err := app.Test(readRequest)
+	defer closeResponseBody(t, readResponse)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusNoContent, readResponse.StatusCode)
 
 	writeRequest := httptest.NewRequest(fiber.MethodPost, "/api/v1/platform/commercial-plans", nil)
 	writeRequest.Header.Set("Authorization", "Bearer service-token")
+
 	writeResponse, err := app.Test(writeRequest)
+	defer closeResponseBody(t, writeResponse)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusForbidden, writeResponse.StatusCode)
 }
@@ -166,6 +189,8 @@ func TestLoginDiscoveryRoutesArePublic(t *testing.T) {
 	})
 
 	resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/api/v1/login-discovery/tenant/tenant1", nil))
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	require.Equal(t, fiber.StatusOK, resp.StatusCode)
 

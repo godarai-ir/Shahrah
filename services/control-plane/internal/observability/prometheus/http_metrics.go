@@ -60,6 +60,7 @@ func NewHTTPMetrics() *HTTPMetrics {
 func (m *HTTPMetrics) Middleware() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		start := time.Now()
+
 		m.inflight.Inc()
 		defer m.inflight.Dec()
 
@@ -89,8 +90,10 @@ func routeLabel(c *fiber.Ctx) string {
 			return path
 		}
 	}
+
 	if path := c.Path(); path != "" {
 		return path
 	}
+
 	return "unmatched"
 }

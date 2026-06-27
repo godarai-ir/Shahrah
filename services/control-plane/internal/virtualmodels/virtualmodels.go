@@ -53,9 +53,11 @@ func (r *Resolver) Resolve(ctx context.Context, tenantID, alias string) (*platfo
 	if err != nil {
 		return nil, err
 	}
+
 	if !vm.Enabled {
 		return nil, ErrDisabledVirtualModel
 	}
+
 	return vm, nil
 }
 
@@ -75,11 +77,14 @@ func (e *PriorityRoutingEngine) SelectTargets(vm *platform.VirtualModel) ([]plat
 		if strings.TrimSpace(t.Provider) == "" || strings.TrimSpace(t.Model) == "" {
 			continue
 		}
+
 		out = append(out, t)
 	}
+
 	if len(out) == 0 {
 		return nil, ErrNoEligibleTargets
 	}
+
 	return out, nil
 }
 
@@ -108,28 +113,35 @@ func NewExecutor(normalizer ErrorNormalizer) *Executor {
 func (e *Executor) ExecuteSync(ctx context.Context, targets []platform.VirtualModelTarget, doCall func(ctx context.Context, dep *router.Deployment) (*platform.TunnelResponse, error)) (*platform.TunnelResponse, *router.Deployment, int, string, error) {
 	fallbackCount := 0
 	lastReason := ""
+
 	for idx, target := range targets {
 		if idx > 0 {
 			fallbackCount++
 		}
+
 		if !target.Policy.Fallback.Candidate && idx > 0 {
 			continue
 		}
+
 		retries := target.Policy.Retry.Attempts
 		if retries <= 0 {
 			retries = 1
 		}
+
 		delay := time.Duration(target.Policy.Retry.DelayMS) * time.Millisecond
 
 		for attempt := 1; attempt <= retries; attempt++ {
 			provider := strings.TrimSpace(target.Provider)
+
 			modelForProvider := strings.TrimSpace(target.Model)
 			if p, _, official, ok := splitModelFQN(target.Model); ok {
 				if provider == "" {
 					provider = p
 				}
+
 				modelForProvider = official
 			}
+
 			dep := &router.Deployment{
 				ID:        target.ID,
 				ModelName: target.Model,
@@ -140,33 +152,43 @@ func (e *Executor) ExecuteSync(ctx context.Context, targets []platform.VirtualMo
 				},
 				Healthy: true,
 			}
+
 			resp, err := doCall(ctx, dep)
 			if err != nil {
 				lastReason = err.Error()
+
 				if attempt < retries {
 					if delay > 0 {
 						time.Sleep(delay)
 					}
+
 					continue
 				}
+
 				break
 			}
+
 			if resp.StatusCode < 400 {
 				return resp, dep, fallbackCount, lastReason, nil
 			}
+
 			if e.normalizer.ShouldRetryOnStatus(resp.StatusCode, target) && attempt < retries {
 				if delay > 0 {
 					time.Sleep(delay)
 				}
+
 				continue
 			}
+
 			lastReason = "status_error"
 			if !e.normalizer.ShouldFallbackOnStatus(resp.StatusCode, target) {
 				return resp, dep, fallbackCount, lastReason, nil
 			}
+
 			break
 		}
 	}
+
 	return nil, nil, fallbackCount, lastReason, ErrFallbackExhausted
 }
 
@@ -180,5 +202,6 @@ func containsInt(values []int, target int) bool {
 			return true
 		}
 	}
+
 	return false
 }

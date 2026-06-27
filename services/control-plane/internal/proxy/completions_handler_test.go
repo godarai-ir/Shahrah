@@ -45,6 +45,7 @@ func (b *testBudgeter) FinalizeFromUsage(ctx context.Context, model string, usag
 		estimated.OutputTokens = usage.CompletionTokens
 		estimated.TotalTokens = usage.TotalTokens
 	}
+
 	return estimated, nil
 }
 
@@ -64,6 +65,7 @@ func (w *testWallets) DebitWallet(ctx context.Context, tenantID string, breakdow
 		Breakdown: breakdown,
 		RequestID: requestID,
 	})
+
 	return &platform.Transaction{}, nil
 }
 
@@ -92,12 +94,15 @@ func newFakeTunnelStream(headers map[string]string, chunkBuf int, errorBuf int) 
 	if headers == nil {
 		headers = map[string]string{}
 	}
+
 	if chunkBuf < 0 {
 		chunkBuf = 0
 	}
+
 	if errorBuf < 0 {
 		errorBuf = 0
 	}
+
 	return &fakeTunnelStream{
 		headers: headers,
 		chunks:  make(chan platform.TunnelChunk, chunkBuf),
@@ -126,6 +131,7 @@ func (t *testTunnel) Stream(ctx context.Context, req platform.TunnelRequest) (pl
 	if t.stream != nil {
 		return t.stream, nil
 	}
+
 	return nil, assert.AnError
 }
 func (t *testTunnel) Healthy(ctx context.Context) error { return nil }
@@ -164,9 +170,11 @@ func newCompletionsTestApp(t *testing.T, tunnelResp *platform.TunnelResponse) (*
 			Slug:   "a",
 			Status: "active",
 		})
+
 		return c.Next()
 	})
 	app.Post("/v1/completions", h.Handle)
+
 	return app, q
 }
 
@@ -191,15 +199,20 @@ func TestCompletionsTracingLifecycle_SyncSuccess(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/completions", bytes.NewBufferString(`{"model":"gpt-4","prompt":"hello"}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	events := q.DequeueBatch(20)
+
 	names := make([]string, 0, len(events))
 	for _, ev := range events {
 		names = append(names, ev.Name)
 	}
+
 	assert.Contains(t, names, "gateway.request")
 	assert.Contains(t, names, "auth.validate")
 	assert.Contains(t, names, "quota.check")
@@ -217,18 +230,25 @@ func TestCompletionsTracingLifecycle_ProviderErrorIncludesProviderSpan(t *testin
 
 	req := httptest.NewRequest("POST", "/v1/completions", bytes.NewBufferString(`{"model":"gpt-4","prompt":"hello"}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusBadGateway, resp.StatusCode)
 
 	events := q.DequeueBatch(20)
+
 	var sawProvider bool
+
 	for _, ev := range events {
 		if ev.Name == "provider.call" {
 			sawProvider = true
+
 			assert.Equal(t, fiber.StatusBadGateway, ev.StatusCode)
 		}
 	}
+
 	assert.True(t, sawProvider)
 }
 
@@ -263,16 +283,20 @@ func newCompletionsStreamingApp(t *testing.T, tunnel platform.TunnelTransport, w
 			Slug:   "a",
 			Status: "active",
 		})
+
 		return c.Next()
 	})
 	app.Post("/v1/completions", h.Handle)
+
 	return app
 }
 
 func TestCompletionsHandlerStreamTransformsChatChunksAndDone(t *testing.T) {
 	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 3, 0)
 	stream.chunks <- platform.TunnelChunk{Data: []byte("data: {\"id\":\"chatcmpl-stream\",\"object\":\"chat.completion.chunk\",\"created\":123,\"model\":\"gpt-4\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Salam\"}}]}\n\n")}
+
 	stream.chunks <- platform.TunnelChunk{Data: []byte("data: [DONE]\n\n")}
+
 	close(stream.chunks)
 
 	wallets := &testWallets{}
@@ -281,7 +305,10 @@ func TestCompletionsHandlerStreamTransformsChatChunksAndDone(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/completions", bytes.NewBufferString(`{"model":"gpt-4","prompt":"hello","stream":true}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.Equal(t, "text/event-stream", resp.Header.Get("Content-Type"))
@@ -289,6 +316,7 @@ func TestCompletionsHandlerStreamTransformsChatChunksAndDone(t *testing.T) {
 
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
+
 	bodyText := string(body)
 	assert.Contains(t, bodyText, `"object":"text_completion"`)
 	assert.Contains(t, bodyText, `"text":"Salam"`)
@@ -305,7 +333,10 @@ func TestCompletionsHandlerStreamErrorWritesStreamingErrorEvent(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/completions", bytes.NewBufferString(`{"model":"gpt-4","prompt":"hello","stream":true}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
@@ -318,6 +349,7 @@ func TestCompletionsHandlerStreamErrorWritesStreamingErrorEvent(t *testing.T) {
 func TestCompletionsHandlerStreamCloseFinalizesWithoutPanic(t *testing.T) {
 	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 1, 0)
 	stream.chunks <- platform.TunnelChunk{Data: []byte("data: {\"id\":\"chatcmpl-stream\",\"object\":\"chat.completion.chunk\",\"created\":123,\"model\":\"gpt-4\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Salam\"}}]}\n\n")}
+
 	close(stream.chunks)
 
 	wallets := &testWallets{}
@@ -326,7 +358,10 @@ func TestCompletionsHandlerStreamCloseFinalizesWithoutPanic(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/completions", bytes.NewBufferString(`{"model":"gpt-4","prompt":"hello","stream":true}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
@@ -345,18 +380,24 @@ func TestCompletionsHandlerStreamCloseFinalizesWithoutPanic(t *testing.T) {
 func TestCompletionsHandlerStreamPassesThroughUnparseableChunk(t *testing.T) {
 	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 2, 0)
 	stream.chunks <- platform.TunnelChunk{Data: []byte("event: response.created\n")}
+
 	stream.chunks <- platform.TunnelChunk{Data: []byte("data: {\"raw\":true}\n\n"), IsDone: true}
+
 	close(stream.chunks)
 
 	app := newCompletionsStreamingApp(t, &testTunnel{stream: stream}, &testWallets{}, &testLogs{})
 
 	req := httptest.NewRequest("POST", "/v1/completions", bytes.NewBufferString(`{"model":"gpt-4","prompt":"hello","stream":true}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
+
 	bodyText := string(body)
 	assert.True(t, strings.Contains(bodyText, "event: response.created") || strings.Contains(bodyText, "data: {\"raw\":true}"))
 }

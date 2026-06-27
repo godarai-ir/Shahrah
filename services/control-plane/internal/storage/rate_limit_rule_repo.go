@@ -14,34 +14,42 @@ func (s *Store) CreateRateLimitRule(ctx context.Context, tenantID string, req pl
 	if req.Enabled != nil {
 		enabled = *req.Enabled
 	}
+
 	priority := 100
 	if req.Priority != nil {
 		priority = *req.Priority
 	}
+
 	conflict := platform.RateLimitConflictMostRestrictive
 	if req.ConflictBehavior != "" {
 		conflict = req.ConflictBehavior
 	}
+
 	response := platform.RateLimitResponseReturn429
 	if req.ResponseBehavior != "" {
 		response = req.ResponseBehavior
 	}
+
 	softLimit := false
 	if req.SoftLimit != nil {
 		softLimit = *req.SoftLimit
 	}
+
 	retryAfter := true
 	if req.RetryAfterHeader != nil {
 		retryAfter = *req.RetryAfterHeader
 	}
+
 	conditionsJSON, err := marshalJSONObject(req.Conditions)
 	if err != nil {
 		return nil, err
 	}
+
 	limitJSON, err := marshalJSONObject(req.Limit)
 	if err != nil {
 		return nil, err
 	}
+
 	rows, err := s.pool.Query(ctx, `
 		INSERT INTO rate_limit_rules (
 			id, tenant_id, rule_id, name, description, enabled, priority, conditions_json, limit_json,
@@ -57,9 +65,11 @@ func (s *Store) CreateRateLimitRule(ctx context.Context, tenantID string, req pl
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, pgx.ErrNoRows
 	}
+
 	return scanRateLimitRule(rows)
 }
 
@@ -67,14 +77,18 @@ func (s *Store) ListRateLimitRules(ctx context.Context, tenantID string, query s
 	if limit <= 0 {
 		limit = 50
 	}
+
 	if limit > 200 {
 		limit = 200
 	}
+
 	if offset < 0 {
 		offset = 0
 	}
+
 	q := strings.TrimSpace(strings.ToLower(query))
 	like := "%" + q + "%"
+
 	var total int
 	if err := s.pool.QueryRow(ctx, `
 		SELECT COUNT(1)
@@ -84,6 +98,7 @@ func (s *Store) ListRateLimitRules(ctx context.Context, tenantID string, query s
 	`, tenantID, q, like).Scan(&total); err != nil {
 		return nil, 0, err
 	}
+
 	rows, err := s.pool.Query(ctx, `
 		SELECT id::text, tenant_id::text, rule_id, COALESCE(name,''), COALESCE(description,''), enabled, priority,
 		       conditions_json, limit_json, conflict_behavior, response_behavior, soft_limit, retry_after_header,
@@ -98,14 +113,18 @@ func (s *Store) ListRateLimitRules(ctx context.Context, tenantID string, query s
 		return nil, 0, err
 	}
 	defer rows.Close()
+
 	items := make([]platform.RateLimitRule, 0, limit)
+
 	for rows.Next() {
 		item, scanErr := scanRateLimitRule(rows)
 		if scanErr != nil {
 			return nil, 0, scanErr
 		}
+
 		items = append(items, *item)
 	}
+
 	return items, total, rows.Err()
 }
 
@@ -122,9 +141,11 @@ func (s *Store) GetRateLimitRuleByRuleID(ctx context.Context, tenantID string, r
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, pgx.ErrNoRows
 	}
+
 	return scanRateLimitRule(rows)
 }
 
@@ -133,62 +154,77 @@ func (s *Store) UpdateRateLimitRuleByRuleID(ctx context.Context, tenantID string
 	if err != nil {
 		return nil, err
 	}
+
 	name := current.Name
 	if req.Name != nil {
 		name = strings.TrimSpace(*req.Name)
 	}
+
 	description := current.Description
 	if req.Description != nil {
 		description = strings.TrimSpace(*req.Description)
 	}
+
 	enabled := current.Enabled
 	if req.Enabled != nil {
 		enabled = *req.Enabled
 	}
+
 	priority := current.Priority
 	if req.Priority != nil {
 		priority = *req.Priority
 	}
+
 	conditions := current.Conditions
 	if req.Conditions != nil {
 		conditions = req.Conditions
 	}
+
 	limit := current.Limit
 	if req.Limit != nil {
 		limit = req.Limit
 	}
+
 	conflict := current.ConflictBehavior
 	if req.ConflictBehavior != nil {
 		conflict = *req.ConflictBehavior
 	}
+
 	response := current.ResponseBehavior
 	if req.ResponseBehavior != nil {
 		response = *req.ResponseBehavior
 	}
+
 	softLimit := current.SoftLimit
 	if req.SoftLimit != nil {
 		softLimit = *req.SoftLimit
 	}
+
 	retryAfter := current.RetryAfterHeader
 	if req.RetryAfterHeader != nil {
 		retryAfter = *req.RetryAfterHeader
 	}
+
 	effectiveFrom := current.EffectiveFrom
 	if req.EffectiveFrom != nil {
 		effectiveFrom = req.EffectiveFrom
 	}
+
 	expiresAt := current.ExpiresAt
 	if req.ExpiresAt != nil {
 		expiresAt = req.ExpiresAt
 	}
+
 	conditionsJSON, err := marshalJSONObject(conditions)
 	if err != nil {
 		return nil, err
 	}
+
 	limitJSON, err := marshalJSONObject(limit)
 	if err != nil {
 		return nil, err
 	}
+
 	rows, err := s.pool.Query(ctx, `
 		UPDATE rate_limit_rules
 		SET name = NULLIF($3, ''),
@@ -213,9 +249,11 @@ func (s *Store) UpdateRateLimitRuleByRuleID(ctx context.Context, tenantID string
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, pgx.ErrNoRows
 	}
+
 	return scanRateLimitRule(rows)
 }
 
@@ -232,9 +270,11 @@ func (s *Store) UpdateRateLimitRuleStatusByRuleID(ctx context.Context, tenantID 
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, pgx.ErrNoRows
 	}
+
 	return scanRateLimitRule(rows)
 }
 
@@ -246,20 +286,24 @@ func (s *Store) DeleteRateLimitRuleByRuleID(ctx context.Context, tenantID string
 	if err != nil {
 		return err
 	}
+
 	if result.RowsAffected() == 0 {
 		return pgx.ErrNoRows
 	}
+
 	return nil
 }
 
 func scanRateLimitRule(rows pgx.Rows) (*platform.RateLimitRule, error) {
-	var item platform.RateLimitRule
-	var name string
-	var description string
-	var conditionsBytes []byte
-	var limitBytes []byte
-	var conflict string
-	var response string
+	var (
+		item            platform.RateLimitRule
+		name            string
+		description     string
+		conditionsBytes []byte
+		limitBytes      []byte
+		conflict        string
+		response        string
+	)
 	if err := rows.Scan(
 		&item.ID,
 		&item.TenantID,
@@ -281,11 +325,13 @@ func scanRateLimitRule(rows pgx.Rows) (*platform.RateLimitRule, error) {
 	); err != nil {
 		return nil, err
 	}
+
 	item.Name = name
 	item.Description = description
 	item.Conditions = parseJSONObject(conditionsBytes)
 	item.Limit = parseJSONObject(limitBytes)
 	item.ConflictBehavior = platform.RateLimitConflictBehavior(conflict)
 	item.ResponseBehavior = platform.RateLimitResponseBehavior(response)
+
 	return &item, nil
 }

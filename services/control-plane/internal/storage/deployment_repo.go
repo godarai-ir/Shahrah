@@ -15,6 +15,7 @@ func (s *Store) CreateDeployment(ctx context.Context, dep platform.Deployment) (
 	if dep.ID == "" {
 		dep.ID = uuid.NewString()
 	}
+
 	params, err := json.Marshal(map[string]interface{}{
 		"model":       dep.Model,
 		"api_key":     dep.APIKey,
@@ -29,6 +30,7 @@ func (s *Store) CreateDeployment(ctx context.Context, dep platform.Deployment) (
 	if err != nil {
 		return nil, err
 	}
+
 	info, err := json.Marshal(dep.ModelInfo)
 	if err != nil {
 		return nil, err
@@ -62,15 +64,21 @@ func (s *Store) ListDeployments(ctx context.Context, tenantID string) ([]platfor
 	defer rows.Close()
 
 	var deps []platform.Deployment
+
 	for rows.Next() {
-		var dep platform.Deployment
-		var paramsRaw []byte
-		var infoRaw []byte
-		if err := rows.Scan(&dep.ID, &dep.TenantID, &dep.ModelName, &dep.Provider, &dep.Model, &paramsRaw, &infoRaw); err != nil {
-			return nil, err
+		var (
+			dep       platform.Deployment
+			paramsRaw []byte
+			infoRaw   []byte
+		)
+
+		scanErr := rows.Scan(&dep.ID, &dep.TenantID, &dep.ModelName, &dep.Provider, &dep.Model, &paramsRaw, &infoRaw)
+		if scanErr != nil {
+			return nil, scanErr
 		}
+
 		var params map[string]interface{}
-		if err := json.Unmarshal(paramsRaw, &params); err == nil {
+		if jsonErr := json.Unmarshal(paramsRaw, &params); jsonErr == nil {
 			dep.APIBase = toString(params["api_base"])
 			dep.APIKey = toString(params["api_key"])
 			dep.APIVersion = toString(params["api_version"])
@@ -80,20 +88,26 @@ func (s *Store) ListDeployments(ctx context.Context, tenantID string) ([]platfor
 			dep.Weight = toFloat64(params["weight"])
 			dep.TimeoutSec = toFloat64(params["timeout"])
 		}
+
 		if len(infoRaw) > 0 {
 			_ = json.Unmarshal(infoRaw, &dep.ModelInfo)
 		}
+
 		deps = append(deps, dep)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
+
+	rowsErr := rows.Err()
+	if rowsErr != nil {
+		return nil, rowsErr
 	}
 
 	providerAccountDeps, err := s.listProviderAccountDeployments(ctx, tenantID)
 	if err != nil {
 		return nil, err
 	}
+
 	deps = append(deps, providerAccountDeps...)
+
 	return deps, nil
 }
 
@@ -124,6 +138,7 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 	defer rows.Close()
 
 	deps := make([]platform.Deployment, 0)
+
 	for rows.Next() {
 		var (
 			accountID     string
@@ -141,6 +156,7 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 
 		provider = strings.TrimSpace(provider)
 		accountName = strings.TrimSpace(accountName)
+
 		model = strings.TrimSpace(model)
 		if provider == "" || accountName == "" || model == "" {
 			continue
@@ -170,6 +186,7 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 			},
 		})
 	}
+
 	return deps, rows.Err()
 }
 
@@ -178,10 +195,12 @@ func firstString(primary map[string]interface{}, secondary map[string]interface{
 		if v := strings.TrimSpace(toString(primary[key])); v != "" {
 			return v
 		}
+
 		if v := strings.TrimSpace(toString(secondary[key])); v != "" {
 			return v
 		}
 	}
+
 	return ""
 }
 
@@ -190,10 +209,12 @@ func firstInt64(primary map[string]interface{}, secondary map[string]interface{}
 		if v := toInt64(primary[key]); v != 0 {
 			return v
 		}
+
 		if v := toInt64(secondary[key]); v != 0 {
 			return v
 		}
 	}
+
 	return 0
 }
 
@@ -202,9 +223,11 @@ func firstFloat64(primary map[string]interface{}, secondary map[string]interface
 		if v := toFloat64(primary[key]); v != 0 {
 			return v
 		}
+
 		if v := toFloat64(secondary[key]); v != 0 {
 			return v
 		}
 	}
+
 	return 0
 }

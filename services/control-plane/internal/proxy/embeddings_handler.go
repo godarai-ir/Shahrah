@@ -43,6 +43,7 @@ func NewEmbeddingsHandler(llmRouter *router.Router, tunnel platform.TunnelTransp
 	if len(emitMetric) > 0 {
 		metricEmitter = emitMetric[0]
 	}
+
 	return NewEmbeddingsHandlerWithDependencies(BaseHandlerDependencies{
 		Router:        llmRouter,
 		Tunnel:        tunnel,
@@ -69,6 +70,7 @@ func NewEmbeddingsHandlerWithDependencies(deps BaseHandlerDependencies) *Embeddi
 
 func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 	startTime := time.Now()
+
 	authInfo := auth.GetAuthInfo(c)
 	if authInfo == nil {
 		return writeAPIError(c, fiber.StatusUnauthorized, "Authentication required", "authentication_error")
@@ -78,6 +80,7 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 	if currentTenant == nil {
 		return writeAPIError(c, fiber.StatusBadRequest, "Tenant resolution required", "invalid_request_error")
 	}
+
 	authInfo.TenantID = currentTenant.ID
 	tracing.SetTenantForTrace(c, currentTenant.ID)
 	tenantSlug := strings.TrimSpace(currentTenant.Slug)
@@ -87,20 +90,27 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 		if vErr, ok := err.(*embeddingValidationError); ok {
 			return writeAPIErrorDetail(c, fiber.StatusBadRequest, vErr.Message, "invalid_request_error", vErr.Param, vErr.Code)
 		}
+
 		return writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
 	}
+
 	requestedModel := normalizeModelIdentifier(req.Model)
+
 	routeCandidates := modelRoutingCandidates(requestedModel)
 	if len(routeCandidates) == 0 {
 		return writeAPIErrorDetail(c, fiber.StatusBadRequest, "model is required", "invalid_request_error", "model", "invalid_model")
 	}
+
 	tracing.SetModelForTrace(c, requestedModel)
+
 	modelAccess := modelAccessForType(authInfo, requestedModel, platform.ModelTypeEmbedding)
 	if !modelAccess.Allowed {
 		if modelAccess.UnsupportedVMMode {
 			return writeUnsupportedModelModeError(c, requestedModel, platform.ModelTypeEmbedding, modelAccess.ExposedModes)
 		}
+
 		emitDenyCounter(h.logger, denyReasonForModel(authInfo), requestedModel, currentTenant.ID)
+
 		return writeAPIError(c, fiber.StatusForbidden, "Model access denied or unsupported for embeddings", "authorization_error")
 	}
 
@@ -110,25 +120,33 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 	estimateReq := req
 	estimateReq.Model = providerModelID(requestedModel)
 	quotaStart := time.Now()
+
 	estimated, err := h.billing.EstimateEmbeddingCost(c.Context(), estimateReq)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to estimate request cost", "billing_error")
 	}
+
 	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
 	setRateLimitHeaders(c, rateLimit)
+
 	if err != nil {
 		return writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error")
 	}
-	if err := h.billing.CheckBudget(c.Context(), authInfo, estimated); err != nil {
-		return writeAPIError(c, fiber.StatusPaymentRequired, err.Error(), "budget_exceeded")
+
+	budgetErr := h.billing.CheckBudget(c.Context(), authInfo, estimated)
+	if budgetErr != nil {
+		return writeAPIError(c, fiber.StatusPaymentRequired, budgetErr.Error(), "budget_exceeded")
 	}
+
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "quota.check", "internal", quotaStart, fiber.StatusOK, map[string]interface{}{"estimated_tokens": estimated.TotalTokens})
 
-	if err := h.tunnel.Healthy(c.Context()); err != nil {
+	tunnelErr := h.tunnel.Healthy(c.Context())
+	if tunnelErr != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Tunnel path unavailable", "tunnel_unavailable")
 	}
 
 	routeStart := time.Now()
+
 	var dep *router.Deployment
 	for _, candidate := range routeCandidates {
 		dep, err = h.llmRouter.Route(c.Context(), currentTenant.ID, candidate)
@@ -136,20 +154,25 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 			break
 		}
 	}
+
 	if err != nil || dep == nil {
 		emitDenyCounter(h.logger, denyReasonUnknownModel, requestedModel, currentTenant.ID)
 		return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", requestedModel), "routing_error")
 	}
+
 	if !supportsEmbeddingsProvider(dep.Provider) {
 		return writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Embeddings API is not enabled for provider: %s", dep.Provider), "invalid_request_error")
 	}
+
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
 
 	outboundReq := req
+
 	outboundModel := strings.TrimSpace(dep.Model)
 	if outboundModel == "" || outboundModel == "*" {
 		outboundModel = providerModelID(requestedModel)
 	}
+
 	outboundReq.Model = providerModelID(outboundModel)
 
 	payload, err := json.Marshal(outboundReq)
@@ -161,6 +184,7 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 	if requestID == "" {
 		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
+
 	tunnelReq := platform.TunnelRequest{
 		RequestID:  requestID,
 		TenantID:   currentTenant.ID,
@@ -192,25 +216,33 @@ func (h *EmbeddingsHandler) handleSync(c *fiber.Ctx, req contractsopenai.Embeddi
 		"provider":        tunnelReq.Deployment.Provider,
 		"request_payload": buildTraceEmbeddingRequestPayload(req),
 	}
+
 	resp, err := h.tunnel.Proxy(c.Context(), tunnelReq)
 	if err != nil {
 		providerAttrs["error"] = err.Error()
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, providerAttrs)
+
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}
+
 	if resp.StatusCode >= httpErrorFloor {
 		providerAttrs["response_payload"] = buildTraceProviderErrorPayload(resp.StatusCode, resp.Body)
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
+
 		return transformProviderError(c, resp.StatusCode, resp.Body, resp.Headers)
 	}
 
 	var response contractsopenai.EmbeddingResponse
-	if err := json.Unmarshal(resp.Body, &response); err != nil {
+
+	unmarshalErr := json.Unmarshal(resp.Body, &response)
+	if unmarshalErr != nil {
 		providerAttrs["error"] = "failed to decode provider response"
 		providerAttrs["response_payload"] = buildTraceProviderErrorPayload(fiber.StatusBadGateway, resp.Body)
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, providerAttrs)
+
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to decode provider response", "api_error")
 	}
+
 	providerAttrs["response_payload"] = buildTraceEmbeddingResponsePayload(response)
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
 
@@ -218,8 +250,9 @@ func (h *EmbeddingsHandler) handleSync(c *fiber.Ctx, req contractsopenai.Embeddi
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize usage", "billing_error")
 	}
-	if _, err := h.wallets.DebitWallet(c.Context(), authInfo.TenantID, finalCost, tunnelReq.RequestID); err != nil {
-		return writeAPIError(c, fiber.StatusPaymentRequired, err.Error(), "budget_exceeded")
+
+	if _, debitErr := h.wallets.DebitWallet(c.Context(), authInfo.TenantID, finalCost, tunnelReq.RequestID); debitErr != nil {
+		return writeAPIError(c, fiber.StatusPaymentRequired, debitErr.Error(), "budget_exceeded")
 	}
 
 	responseTimeMS := int(time.Since(start).Milliseconds())
@@ -292,6 +325,7 @@ func (h *EmbeddingsHandler) handleSync(c *fiber.Ctx, req contractsopenai.Embeddi
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "response.write", "internal", responseStart, resp.StatusCode, map[string]interface{}{
 		"response_payload": buildTraceEmbeddingResponsePayload(response),
 	})
+
 	return err
 }
 
@@ -299,17 +333,21 @@ func (h *EmbeddingsHandler) emitModelMetric(input metricsobs.BuildInput) {
 	if h.emitMetric == nil {
 		return
 	}
+
 	h.emitMetric(input)
 }
 
 func parseEmbeddingRequest(body []byte) (contractsopenai.EmbeddingRequest, error) {
-	var req contractsopenai.EmbeddingRequest
-	var raw map[string]json.RawMessage
+	var (
+		req contractsopenai.EmbeddingRequest
+		raw map[string]json.RawMessage
+	)
 	if err := json.Unmarshal(body, &raw); err != nil {
-		return req, fmt.Errorf("Invalid request body")
+		return req, fmt.Errorf("invalid request body")
 	}
+
 	if err := json.Unmarshal(body, &req); err != nil {
-		return req, fmt.Errorf("Invalid request body")
+		return req, fmt.Errorf("invalid request body")
 	}
 
 	req.Model = strings.TrimSpace(req.Model)
@@ -319,33 +357,41 @@ func parseEmbeddingRequest(body []byte) (contractsopenai.EmbeddingRequest, error
 	if _, ok := raw["stream"]; ok {
 		return req, apiFieldError("stream is not supported for embeddings", "stream", "unsupported_parameter")
 	}
+
 	for _, field := range []string{"messages", "temperature", "max_tokens", "tools", "tool_choice", "max_output_tokens"} {
 		if _, ok := raw[field]; ok {
 			return req, apiFieldError(fmt.Sprintf("%s is not supported for embeddings", field), field, "unsupported_parameter")
 		}
 	}
+
 	if req.Model == "" {
 		return req, apiFieldError("model is required", "model", "invalid_model")
 	}
+
 	normalizedInput, err := normalizeEmbeddingInput(req.Input)
 	if err != nil {
 		return req, err
 	}
+
 	req.Input = normalizedInput
 	if req.EncodingFormat == "" {
 		req.EncodingFormat = "float"
 	}
+
 	if req.EncodingFormat != "float" && req.EncodingFormat != "base64" {
 		return req, apiFieldError("encoding_format must be either 'float' or 'base64'", "encoding_format", "invalid_encoding_format")
 	}
+
 	if req.Dimensions != nil {
 		if *req.Dimensions <= 0 {
 			return req, apiFieldError("dimensions must be a positive integer", "dimensions", "invalid_dimensions")
 		}
+
 		if !modelSupportsCustomDimensions(req.Model) {
 			return req, apiFieldError("dimensions is not supported for the selected embedding model", "dimensions", "unsupported_parameter")
 		}
 	}
+
 	return req, nil
 }
 
@@ -355,27 +401,33 @@ func normalizeEmbeddingInput(input interface{}) (interface{}, error) {
 		if strings.TrimSpace(v) == "" {
 			return nil, apiFieldError("input is required and must be a non-empty string or a non-empty array of strings", "input", "invalid_input")
 		}
+
 		return v, nil
 	case []interface{}:
 		if len(v) == 0 {
 			return nil, apiFieldError("input is required and must be a non-empty string or a non-empty array of strings", "input", "invalid_input")
 		}
+
 		out := make([]string, 0, len(v))
 		for _, item := range v {
 			s, ok := item.(string)
 			if !ok {
 				return nil, apiFieldError("token-array inputs are not supported yet; input must be a string or array of strings", "input", "unsupported_input_type")
 			}
+
 			if strings.TrimSpace(s) == "" {
 				return nil, apiFieldError("input array items must be non-empty strings", "input", "invalid_input")
 			}
+
 			out = append(out, s)
 		}
+
 		return out, nil
 	default:
 		if input == nil {
 			return nil, apiFieldError("input is required and must be a non-empty string or a non-empty array of strings", "input", "invalid_input")
 		}
+
 		return nil, apiFieldError("token-array inputs are not supported yet; input must be a string or array of strings", "input", "unsupported_input_type")
 	}
 }
@@ -415,6 +467,7 @@ func embeddingEncodingValue(v string) string {
 	if strings.TrimSpace(v) == "" {
 		return "float"
 	}
+
 	return v
 }
 
@@ -426,8 +479,10 @@ func embeddingResponseVectorDimensions(resp contractsopenai.EmbeddingResponse) [
 			out = append(out, len(values))
 			continue
 		}
+
 		out = append(out, 0)
 	}
+
 	return out
 }
 
@@ -436,6 +491,8 @@ func withEmbeddingMetadata(input map[string]interface{}, vectorDimensions []int)
 	for k, v := range input {
 		out[k] = v
 	}
+
 	out["vector_dimensions"] = vectorDimensions
+
 	return out
 }

@@ -39,13 +39,16 @@ func (s *Store) ListFeatureCatalog(ctx context.Context) ([]platform.FeatureDefin
 	defer rows.Close()
 
 	items := []platform.FeatureDefinition{}
+
 	for rows.Next() {
 		item, err := scanFeatureDefinition(rows)
 		if err != nil {
 			return nil, err
 		}
+
 		items = append(items, *item)
 	}
+
 	return items, rows.Err()
 }
 
@@ -62,10 +65,12 @@ func (s *Store) listCommercialPlans(ctx context.Context, publishedOnly bool) ([]
 	if publishedOnly {
 		conditions = append(conditions, "p.active = true", "pv.status = 'published'")
 	}
+
 	whereClause := ""
 	if len(conditions) > 0 {
 		whereClause = "WHERE " + strings.Join(conditions, " AND ")
 	}
+
 	rows, err := s.pool.Query(ctx, fmt.Sprintf(`
 		SELECT p.plan_id::text, p.slug, p.display_name, COALESCE(p.description, ''), p.sort_order, p.active, p.created_at, p.updated_at,
 		       pv.version_id::text, pv.version, pv.status, pv.effective_from, pv.published_at, pv.created_at, pv.updated_at
@@ -81,16 +86,21 @@ func (s *Store) listCommercialPlans(ctx context.Context, publishedOnly bool) ([]
 
 	byID := map[string]*platform.CommercialPlan{}
 	order := []string{}
+
 	for rows.Next() {
-		var plan platform.CommercialPlan
-		var version platform.PlanVersion
+		var (
+			plan    platform.CommercialPlan
+			version platform.PlanVersion
+		)
 		if err := rows.Scan(
 			&plan.ID, &plan.Slug, &plan.DisplayName, &plan.Description, &plan.SortOrder, &plan.Active, &plan.CreatedAt, &plan.UpdatedAt,
 			&version.ID, &version.Version, &version.Status, &version.EffectiveFrom, &version.PublishedAt, &version.CreatedAt, &version.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
+
 		version.PlanID = plan.ID
+
 		existing := byID[plan.ID]
 		if existing == nil {
 			copy := plan
@@ -99,41 +109,50 @@ func (s *Store) listCommercialPlans(ctx context.Context, publishedOnly bool) ([]
 			order = append(order, plan.ID)
 			existing = &copy
 		}
+
 		existing.Versions = append(existing.Versions, version)
 		if publishedOnly || version.Status == "published" {
 			prices, err := s.listPlanPricesForVersion(ctx, version.ID)
 			if err != nil {
 				return nil, err
 			}
+
 			features, err := s.listPlanFeatureMapForVersion(ctx, version.ID)
 			if err != nil {
 				return nil, err
 			}
+
 			existing.Prices = prices
 			existing.Features = features
 		}
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
+
+	rowsErr := rows.Err()
+	if rowsErr != nil {
+		return nil, rowsErr
 	}
 
 	out := make([]platform.CommercialPlan, 0, len(order))
 	for _, id := range order {
 		out = append(out, *byID[id])
 	}
+
 	return out, nil
 }
 
 func (s *Store) CreateCommercialPlan(ctx context.Context, req platform.CreateCommercialPlanRequest) (*platform.CommercialPlan, error) {
 	slug := normalizePlanSlug(req.Slug)
+
 	displayName := strings.TrimSpace(req.DisplayName)
 	if displayName == "" {
 		displayName = slug
 	}
+
 	active := true
 	if req.Active != nil {
 		active = *req.Active
 	}
+
 	sortOrder := req.SortOrder
 	if sortOrder == 0 {
 		sortOrder = 100
@@ -149,11 +168,13 @@ func (s *Store) CreateCommercialPlan(ctx context.Context, req platform.CreateCom
 	); err != nil {
 		return nil, err
 	}
+
 	return &item, nil
 }
 
 func (s *Store) UpdateCommercialPlan(ctx context.Context, planSlug string, req platform.UpdateCommercialPlanRequest) (*platform.CommercialPlan, error) {
 	var item platform.CommercialPlan
+
 	err := s.pool.QueryRow(ctx, `
 		UPDATE commercial_plans
 		SET display_name = COALESCE($2, display_name),
@@ -169,9 +190,11 @@ func (s *Store) UpdateCommercialPlan(ctx context.Context, planSlug string, req p
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrPlanNotFound
 	}
+
 	if err != nil {
 		return nil, err
 	}
+
 	return &item, nil
 }
 
@@ -180,9 +203,11 @@ func (s *Store) DeactivateCommercialPlan(ctx context.Context, planSlug string) e
 	if err != nil {
 		return err
 	}
+
 	if result.RowsAffected() == 0 {
 		return ErrPlanNotFound
 	}
+
 	return nil
 }
 
@@ -191,10 +216,12 @@ func (s *Store) CreatePlanVersion(ctx context.Context, planSlug string, req plat
 	if err != nil {
 		return nil, err
 	}
+
 	version := req.Version
 	if version <= 0 {
-		if err := s.pool.QueryRow(ctx, `SELECT COALESCE(MAX(version), 0) + 1 FROM plan_versions WHERE plan_id = $1::uuid`, planID).Scan(&version); err != nil {
-			return nil, err
+		queryErr := s.pool.QueryRow(ctx, `SELECT COALESCE(MAX(version), 0) + 1 FROM plan_versions WHERE plan_id = $1::uuid`, planID).Scan(&version)
+		if queryErr != nil {
+			return nil, queryErr
 		}
 	}
 
@@ -226,6 +253,7 @@ func (s *Store) CreatePlanVersion(ctx context.Context, planSlug string, req plat
 		`, item.ID, planID, *req.CopyFromVersion); err != nil {
 			return nil, err
 		}
+
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO plan_prices (version_id, billing_interval, currency, amount_minor, discount_percent)
 			SELECT $1::uuid, billing_interval, currency, amount_minor, discount_percent
@@ -241,6 +269,7 @@ func (s *Store) CreatePlanVersion(ctx context.Context, planSlug string, req plat
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+
 	return &item, nil
 }
 
@@ -249,10 +278,12 @@ func (s *Store) PublishPlanVersion(ctx context.Context, planSlug string, version
 	if err != nil {
 		return nil, err
 	}
+
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, err
 	}
+
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	if _, err := tx.Exec(ctx, `
@@ -275,11 +306,14 @@ func (s *Store) PublishPlanVersion(ctx context.Context, planSlug string, version
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrPlanVersionNotFound
 		}
+
 		return nil, err
 	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+
 	return &item, nil
 }
 
@@ -288,13 +322,16 @@ func (s *Store) UpsertPlanEntitlement(ctx context.Context, planSlug string, vers
 	if err != nil {
 		return nil, err
 	}
+
 	if status != "draft" {
 		return nil, ErrPlanVersionPublished
 	}
+
 	valueBytes, err := marshalJSONValue(req.Value)
 	if err != nil {
 		return nil, err
 	}
+
 	rows, err := s.pool.Query(ctx, `
 		INSERT INTO plan_entitlements (version_id, feature_key, value_json, created_at, updated_at)
 		VALUES ($1::uuid, $2, $3, NOW(), NOW())
@@ -306,9 +343,11 @@ func (s *Store) UpsertPlanEntitlement(ctx context.Context, planSlug string, vers
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, pgx.ErrNoRows
 	}
+
 	return scanPlanEntitlement(rows)
 }
 
@@ -317,13 +356,16 @@ func (s *Store) UpsertPlanPrice(ctx context.Context, planSlug string, version in
 	if err != nil {
 		return nil, err
 	}
+
 	if status != "draft" {
 		return nil, ErrPlanVersionPublished
 	}
+
 	currency := strings.TrimSpace(strings.ToUpper(req.Currency))
 	if currency == "" {
 		currency = "IRR"
 	}
+
 	rows, err := s.pool.Query(ctx, `
 		INSERT INTO plan_prices (version_id, billing_interval, currency, amount_minor, discount_percent, created_at, updated_at)
 		VALUES ($1::uuid, $2, $3, $4, $5, NOW(), NOW())
@@ -336,9 +378,11 @@ func (s *Store) UpsertPlanPrice(ctx context.Context, planSlug string, version in
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, pgx.ErrNoRows
 	}
+
 	return scanPlanPrice(rows)
 }
 
@@ -361,9 +405,11 @@ func (s *Store) GetTenantSubscription(ctx context.Context, tenantID string) (*pl
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, ErrSubscriptionNotFound
 	}
+
 	return scanTenantSubscription(rows)
 }
 
@@ -372,13 +418,16 @@ func (s *Store) ChangeTenantSubscription(ctx context.Context, tenantID string, r
 	if req.PlanSlug == "free" {
 		req.PlanSlug = "developer"
 	}
+
 	if req.BillingInterval == "" {
 		req.BillingInterval = "monthly"
 	}
+
 	target, err := s.publishedPlanBySlug(ctx, req.PlanSlug)
 	if err != nil {
 		return nil, err
 	}
+
 	current, currentErr := s.GetTenantSubscription(ctx, tenantID)
 	if currentErr != nil && !errors.Is(currentErr, ErrSubscriptionNotFound) {
 		return nil, currentErr
@@ -389,9 +438,11 @@ func (s *Store) ChangeTenantSubscription(ctx context.Context, tenantID string, r
 		if err := s.pool.QueryRow(ctx, `SELECT sort_order FROM commercial_plans WHERE plan_id = $1::uuid`, current.PlanID).Scan(&currentOrder); err != nil {
 			return nil, err
 		}
+
 		if err := s.pool.QueryRow(ctx, `SELECT sort_order FROM commercial_plans WHERE plan_id = $1::uuid`, target.ID).Scan(&targetOrder); err != nil {
 			return nil, err
 		}
+
 		if current.Status != "trialing" && targetOrder < currentOrder {
 			if _, err := s.pool.Exec(ctx, `
 				UPDATE tenant_subscriptions
@@ -406,13 +457,16 @@ func (s *Store) ChangeTenantSubscription(ctx context.Context, tenantID string, r
 			})); err != nil {
 				return nil, err
 			}
+
 			_ = s.insertSubscriptionEvent(ctx, tenantID, current.ID, "downgrade_scheduled", "tenant", map[string]interface{}{
 				"target_plan_slug": req.PlanSlug,
 			})
 			s.invalidateTenantEntitlements(ctx, tenantID)
+
 			return s.GetTenantSubscription(ctx, tenantID)
 		}
 	}
+
 	return s.upsertTenantSubscription(ctx, platform.UpsertTenantSubscriptionRequest{
 		TenantID:        tenantID,
 		PlanSlug:        req.PlanSlug,
@@ -431,28 +485,36 @@ func (s *Store) upsertTenantSubscription(ctx context.Context, req platform.Upser
 	if req.PlanSlug == "free" || req.PlanSlug == "" {
 		req.PlanSlug = "developer"
 	}
+
 	interval := normalizeBillingInterval(req.BillingInterval)
+
 	status := strings.TrimSpace(req.Status)
 	if status == "" {
 		status = "active"
 	}
+
 	target, err := s.publishedPlanBySlug(ctx, req.PlanSlug)
 	if err != nil {
 		return nil, err
 	}
+
 	now := time.Now().UTC()
+
 	periodStart := now
 	if req.PeriodStart != nil {
 		periodStart = *req.PeriodStart
 	}
+
 	periodEnd := addBillingInterval(periodStart, interval)
 	if req.PeriodEnd != nil {
 		periodEnd = *req.PeriodEnd
 	}
+
 	priceSnapshot, err := s.priceSnapshotForVersion(ctx, target.Versions[0].ID, interval)
 	if err != nil {
 		return nil, err
 	}
+
 	if req.Metadata == nil {
 		req.Metadata = map[string]interface{}{}
 	}
@@ -482,14 +544,17 @@ func (s *Store) upsertTenantSubscription(ctx context.Context, req platform.Upser
 	`, subscriptionID, req.TenantID, target.ID, target.Versions[0].ID, status, interval, periodStart, periodEnd, mustJSON(priceSnapshot), mustJSON(req.Metadata)); err != nil {
 		return nil, err
 	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+
 	s.invalidateTenantEntitlements(ctx, req.TenantID)
 	_ = s.insertSubscriptionEvent(ctx, req.TenantID, subscriptionID, "subscription_changed", actor, map[string]interface{}{
 		"plan_slug":        req.PlanSlug,
 		"billing_interval": interval,
 	})
+
 	return s.GetTenantSubscription(ctx, req.TenantID)
 }
 
@@ -499,10 +564,13 @@ func (s *Store) ResolveEffectiveEntitlements(ctx context.Context, tenantID strin
 		if err != nil {
 			return nil, err
 		}
+
 		cached.UsageCounters = usageCounters
 		cached.ResolvedAt = time.Now().UTC()
+
 		return cached, nil
 	}
+
 	subscription, err := s.GetTenantSubscription(ctx, tenantID)
 	if err != nil {
 		return nil, err
@@ -547,22 +615,32 @@ func (s *Store) ResolveEffectiveEntitlements(ctx context.Context, tenantID strin
 
 	features := map[string]interface{}{}
 	overrides := map[string]interface{}{}
+
 	for rows.Next() {
-		var key string
-		var raw []byte
-		var override bool
-		if err := rows.Scan(&key, &raw, &override); err != nil {
-			return nil, err
+		var (
+			key      string
+			raw      []byte
+			override bool
+		)
+
+		scanErr := rows.Scan(&key, &raw, &override)
+		if scanErr != nil {
+			return nil, scanErr
 		}
+
 		value := parseJSONValue(raw)
+
 		features[key] = value
 		if override {
 			overrides[key] = value
 		}
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
+
+	rowsErr := rows.Err()
+	if rowsErr != nil {
+		return nil, rowsErr
 	}
+
 	resolved := &platform.EffectiveEntitlementsResponse{
 		TenantID:     tenantID,
 		Subscription: subscription,
@@ -571,11 +649,14 @@ func (s *Store) ResolveEffectiveEntitlements(ctx context.Context, tenantID strin
 		ResolvedAt:   time.Now().UTC(),
 	}
 	s.cacheEntitlements(ctx, resolved)
+
 	usageCounters, err := s.listCurrentUsageCounters(ctx, tenantID, features)
 	if err != nil {
 		return nil, err
 	}
+
 	resolved.UsageCounters = usageCounters
+
 	return resolved, nil
 }
 
@@ -583,11 +664,14 @@ func (s *Store) getCachedEntitlements(ctx context.Context, tenantID string) (*pl
 	if s.entitlementCache == nil {
 		return nil, false
 	}
+
 	value, ok := s.entitlementCache.Get(ctx, entitlementCacheKey(tenantID))
 	if !ok {
 		return nil, false
 	}
+
 	var raw []byte
+
 	switch cached := value.(type) {
 	case string:
 		raw = []byte(cached)
@@ -596,11 +680,13 @@ func (s *Store) getCachedEntitlements(ctx context.Context, tenantID string) (*pl
 	default:
 		return nil, false
 	}
+
 	var out platform.EffectiveEntitlementsResponse
 	if err := json.Unmarshal(raw, &out); err != nil {
 		s.entitlementCache.Delete(ctx, entitlementCacheKey(tenantID))
 		return nil, false
 	}
+
 	return &out, true
 }
 
@@ -608,12 +694,15 @@ func (s *Store) cacheEntitlements(ctx context.Context, resolved *platform.Effect
 	if s.entitlementCache == nil || resolved == nil {
 		return
 	}
+
 	copy := *resolved
 	copy.UsageCounters = nil
+
 	raw, err := json.Marshal(&copy)
 	if err != nil {
 		return
 	}
+
 	s.entitlementCache.Set(ctx, entitlementCacheKey(resolved.TenantID), string(raw), entitlementCacheTTL)
 }
 
@@ -642,16 +731,20 @@ func (s *Store) listCurrentUsageCounters(ctx context.Context, tenantID string, f
 	defer rows.Close()
 
 	items := []platform.UsageCounter{}
+
 	for rows.Next() {
 		var item platform.UsageCounter
 		if err := rows.Scan(&item.FeatureKey, &item.WindowStart, &item.WindowEnd, &item.Used); err != nil {
 			return nil, err
 		}
+
 		if limit, ok := numericFeatureLimit(features[item.FeatureKey]); ok {
 			item.Limit = &limit
 		}
+
 		items = append(items, item)
 	}
+
 	return items, rows.Err()
 }
 
@@ -660,13 +753,16 @@ func (s *Store) UpsertTenantEntitlementOverride(ctx context.Context, req platfor
 	if err != nil {
 		return nil, err
 	}
+
 	if !allowOverride {
 		return nil, ErrFeatureOverrideForbidden
 	}
+
 	valueBytes, err := marshalJSONValue(req.Value)
 	if err != nil {
 		return nil, err
 	}
+
 	rows, err := s.pool.Query(ctx, `
 		INSERT INTO tenant_entitlement_overrides (
 			tenant_id, feature_key, value_json, reason, active, expires_at, created_by, created_at, updated_at
@@ -686,18 +782,22 @@ func (s *Store) UpsertTenantEntitlementOverride(ctx context.Context, req platfor
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, pgx.ErrNoRows
 	}
+
 	item, err := scanTenantEntitlementOverride(rows)
 	if err != nil {
 		return nil, err
 	}
+
 	s.invalidateTenantEntitlements(ctx, req.TenantID)
 	_ = s.insertSubscriptionEvent(ctx, req.TenantID, "", "entitlement_override_upserted", req.CreatedBy, map[string]interface{}{
 		"feature_key": req.FeatureKey,
 		"reason":      req.Reason,
 	})
+
 	return item, nil
 }
 
@@ -710,13 +810,16 @@ func (s *Store) DeleteTenantEntitlementOverride(ctx context.Context, tenantID st
 	if err != nil {
 		return err
 	}
+
 	if result.RowsAffected() == 0 {
 		return pgx.ErrNoRows
 	}
+
 	s.invalidateTenantEntitlements(ctx, tenantID)
 	_ = s.insertSubscriptionEvent(ctx, tenantID, "", "entitlement_override_deleted", actor, map[string]interface{}{
 		"feature_key": featureKey,
 	})
+
 	return nil
 }
 
@@ -763,8 +866,10 @@ func (s *Store) CheckAndIncrementTenantUsageCounter(ctx context.Context, tenantI
 		if err := tx.Commit(ctx); err != nil {
 			return nil, false, err
 		}
+
 		return counter, false, nil
 	}
+
 	if err := tx.QueryRow(ctx, `
 		UPDATE tenant_usage_counters
 		SET used = used + $4, updated_at = NOW()
@@ -773,9 +878,11 @@ func (s *Store) CheckAndIncrementTenantUsageCounter(ctx context.Context, tenantI
 	`, tenantID, featureKey, windowStart, increment).Scan(&counter.Used); err != nil {
 		return nil, false, err
 	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, false, err
 	}
+
 	return counter, true, nil
 }
 
@@ -788,6 +895,7 @@ func (s *Store) CountActiveTenantUsers(ctx context.Context, tenantID string) (in
 	`, tenantID).Scan(&count); err != nil {
 		return 0, err
 	}
+
 	return count, nil
 }
 
@@ -796,10 +904,12 @@ func (s *Store) ProcessSubscriptionTransitions(ctx context.Context, now time.Tim
 	if limit <= 0 || limit > 1000 {
 		limit = 100
 	}
+
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return 0, err
 	}
+
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	type transition struct {
@@ -812,6 +922,7 @@ func (s *Store) ProcessSubscriptionTransitions(ctx context.Context, now time.Tim
 		pendingVersion  string
 		pendingInterval string
 	}
+
 	rows, err := tx.Query(ctx, `
 		SELECT subscription_id::text, tenant_id::text, status, billing_interval, current_period_end,
 		       cancel_at_period_end, COALESCE(pending_version_id::text, ''),
@@ -825,19 +936,24 @@ func (s *Store) ProcessSubscriptionTransitions(ctx context.Context, now time.Tim
 	if err != nil {
 		return 0, err
 	}
+
 	items := []transition{}
+
 	for rows.Next() {
 		var item transition
 		if err := rows.Scan(&item.subscriptionID, &item.tenantID, &item.status, &item.interval, &item.periodEnd, &item.cancelAtEnd, &item.pendingVersion, &item.pendingInterval); err != nil {
 			rows.Close()
 			return 0, err
 		}
+
 		items = append(items, item)
 	}
+
 	if err := rows.Err(); err != nil {
 		rows.Close()
 		return 0, err
 	}
+
 	rows.Close()
 
 	tenantIDs := make([]string, 0, len(items))
@@ -847,14 +963,20 @@ func (s *Store) ProcessSubscriptionTransitions(ctx context.Context, now time.Tim
 			if item.pendingInterval == "" {
 				interval = normalizeBillingInterval(item.interval)
 			}
+
 			var planID string
 			if err := tx.QueryRow(ctx, `SELECT plan_id::text FROM plan_versions WHERE version_id = $1::uuid`, item.pendingVersion).Scan(&planID); err != nil {
 				return 0, err
 			}
+
 			priceSnapshot := map[string]interface{}{"billing_interval": interval, "currency": "IRR", "amount_minor": 0, "discount_percent": 0}
-			var currency string
-			var amount *float64
-			var discount float64
+
+			var (
+				currency string
+				amount   *float64
+				discount float64
+			)
+
 			err := tx.QueryRow(ctx, `
 				SELECT currency, amount_minor::double precision, discount_percent::double precision
 				FROM plan_prices
@@ -862,6 +984,7 @@ func (s *Store) ProcessSubscriptionTransitions(ctx context.Context, now time.Tim
 			`, item.pendingVersion, interval).Scan(&currency, &amount, &discount)
 			if err == nil {
 				priceSnapshot["currency"] = currency
+
 				priceSnapshot["discount_percent"] = discount
 				if amount != nil {
 					priceSnapshot["amount_minor"] = *amount
@@ -869,11 +992,14 @@ func (s *Store) ProcessSubscriptionTransitions(ctx context.Context, now time.Tim
 			} else if !errors.Is(err, pgx.ErrNoRows) {
 				return 0, err
 			}
+
 			if _, err := tx.Exec(ctx, `UPDATE tenant_subscriptions SET status = 'canceled', updated_at = NOW() WHERE subscription_id = $1::uuid`, item.subscriptionID); err != nil {
 				return 0, err
 			}
+
 			newSubscriptionID := uuid.NewString()
 			periodStart := now.UTC()
+
 			periodEnd := addBillingInterval(periodStart, interval)
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO tenant_subscriptions (
@@ -883,6 +1009,7 @@ func (s *Store) ProcessSubscriptionTransitions(ctx context.Context, now time.Tim
 			`, newSubscriptionID, item.tenantID, planID, item.pendingVersion, interval, periodStart, periodEnd, mustJSON(priceSnapshot)); err != nil {
 				return 0, err
 			}
+
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO subscription_events (tenant_id, subscription_id, event_type, actor, payload)
 				VALUES ($1::uuid, $2::uuid, 'downgrade_applied', 'system', $3)
@@ -893,10 +1020,12 @@ func (s *Store) ProcessSubscriptionTransitions(ctx context.Context, now time.Tim
 			if _, err := tx.Exec(ctx, `UPDATE tenant_subscriptions SET status = 'expired', updated_at = NOW() WHERE subscription_id = $1::uuid`, item.subscriptionID); err != nil {
 				return 0, err
 			}
+
 			eventType := "subscription_expired"
 			if item.status == "trialing" {
 				eventType = "trial_expired"
 			}
+
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO subscription_events (tenant_id, subscription_id, event_type, actor, payload)
 				VALUES ($1::uuid, $2::uuid, $3, 'system', '{}'::jsonb)
@@ -904,14 +1033,18 @@ func (s *Store) ProcessSubscriptionTransitions(ctx context.Context, now time.Tim
 				return 0, err
 			}
 		}
+
 		tenantIDs = append(tenantIDs, item.tenantID)
 	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return 0, err
 	}
+
 	for _, tenantID := range tenantIDs {
 		s.invalidateTenantEntitlements(ctx, tenantID)
 	}
+
 	return len(items), nil
 }
 
@@ -921,8 +1054,10 @@ func (s *Store) planIDBySlug(ctx context.Context, slug string) (string, error) {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return "", ErrPlanNotFound
 		}
+
 		return "", err
 	}
+
 	return id, nil
 }
 
@@ -938,13 +1073,16 @@ func (s *Store) planVersionBySlugAndNumber(ctx context.Context, slug string, ver
 		return "", "", err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return "", "", ErrPlanVersionNotFound
 	}
+
 	var id, status string
 	if err := rows.Scan(&id, &status); err != nil {
 		return "", "", err
 	}
+
 	return id, status, nil
 }
 
@@ -953,6 +1091,7 @@ func (s *Store) publishedPlanBySlug(ctx context.Context, slug string) (*platform
 	if err != nil {
 		return nil, err
 	}
+
 	normalized := normalizePlanSlug(slug)
 	for _, plan := range plans {
 		if plan.Slug == normalized {
@@ -960,6 +1099,7 @@ func (s *Store) publishedPlanBySlug(ctx context.Context, slug string) (*platform
 			return &copy, nil
 		}
 	}
+
 	return nil, ErrPlanNotFound
 }
 
@@ -974,14 +1114,18 @@ func (s *Store) listPlanPricesForVersion(ctx context.Context, versionID string) 
 		return nil, err
 	}
 	defer rows.Close()
+
 	out := []platform.PlanPrice{}
+
 	for rows.Next() {
 		item, err := scanPlanPrice(rows)
 		if err != nil {
 			return nil, err
 		}
+
 		out = append(out, *item)
 	}
+
 	return out, rows.Err()
 }
 
@@ -996,15 +1140,21 @@ func (s *Store) listPlanFeatureMapForVersion(ctx context.Context, versionID stri
 		return nil, err
 	}
 	defer rows.Close()
+
 	out := map[string]interface{}{}
+
 	for rows.Next() {
-		var key string
-		var raw []byte
+		var (
+			key string
+			raw []byte
+		)
 		if err := rows.Scan(&key, &raw); err != nil {
 			return nil, err
 		}
+
 		out[key] = parseJSONValue(raw)
 	}
+
 	return out, rows.Err()
 }
 
@@ -1019,6 +1169,7 @@ func (s *Store) priceSnapshotForVersion(ctx context.Context, versionID string, i
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return map[string]interface{}{
 			"billing_interval": interval,
@@ -1027,12 +1178,16 @@ func (s *Store) priceSnapshotForVersion(ctx context.Context, versionID string, i
 			"discount_percent": 0,
 		}, nil
 	}
-	var billingInterval, currency string
-	var amount *float64
-	var discount float64
+
+	var (
+		billingInterval, currency string
+		amount                    *float64
+		discount                  float64
+	)
 	if err := rows.Scan(&billingInterval, &currency, &amount, &discount); err != nil {
 		return nil, err
 	}
+
 	out := map[string]interface{}{
 		"billing_interval": billingInterval,
 		"currency":         currency,
@@ -1041,6 +1196,7 @@ func (s *Store) priceSnapshotForVersion(ctx context.Context, versionID string, i
 	if amount != nil {
 		out["amount_minor"] = *amount
 	}
+
 	return out, nil
 }
 
@@ -1050,8 +1206,10 @@ func (s *Store) featureAllowsOverride(ctx context.Context, key string) (bool, er
 		if errors.Is(err, pgx.ErrNoRows) {
 			return false, ErrFeatureNotFound
 		}
+
 		return false, err
 	}
+
 	return allow, nil
 }
 
@@ -1060,44 +1218,59 @@ func (s *Store) insertSubscriptionEvent(ctx context.Context, tenantID string, su
 		INSERT INTO subscription_events (tenant_id, subscription_id, event_type, actor, payload, created_at)
 		VALUES ($1::uuid, $2::uuid, $3, NULLIF($4, ''), $5, NOW())
 	`, nullUUID(tenantID), nullUUID(subscriptionID), strings.TrimSpace(eventType), strings.TrimSpace(actor), mustJSON(payload))
+
 	return err
 }
 
 func scanFeatureDefinition(rows pgx.Rows) (*platform.FeatureDefinition, error) {
-	var item platform.FeatureDefinition
-	var raw []byte
+	var (
+		item platform.FeatureDefinition
+		raw  []byte
+	)
 	if err := rows.Scan(&item.Key, &item.ValueType, &raw, &item.AllowOverride, &item.Category, &item.Description, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		return nil, err
 	}
+
 	item.DefaultValue = parseJSONValue(raw)
+
 	return &item, nil
 }
 
 func scanPlanEntitlement(rows pgx.Rows) (*platform.PlanEntitlement, error) {
-	var item platform.PlanEntitlement
-	var raw []byte
+	var (
+		item platform.PlanEntitlement
+		raw  []byte
+	)
 	if err := rows.Scan(&item.ID, &item.VersionID, &item.FeatureKey, &raw, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		return nil, err
 	}
+
 	item.Value = parseJSONValue(raw)
+
 	return &item, nil
 }
 
 func scanPlanPrice(rows pgx.Rows) (*platform.PlanPrice, error) {
-	var item platform.PlanPrice
-	var amount *float64
+	var (
+		item   platform.PlanPrice
+		amount *float64
+	)
 	if err := rows.Scan(&item.ID, &item.VersionID, &item.BillingInterval, &item.Currency, &amount, &item.DiscountPercent, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		return nil, err
 	}
+
 	item.AmountMinor = amount
+
 	return &item, nil
 }
 
 func scanTenantSubscription(rows pgx.Rows) (*platform.TenantSubscription, error) {
-	var item platform.TenantSubscription
-	var pending string
-	var priceRaw []byte
-	var metadataRaw []byte
+	var (
+		item        platform.TenantSubscription
+		pending     string
+		priceRaw    []byte
+		metadataRaw []byte
+	)
 	if err := rows.Scan(
 		&item.ID, &item.TenantID, &item.PlanID, &item.PlanSlug, &item.PlanDisplayName,
 		&item.VersionID, &item.Version, &item.Status, &item.BillingInterval,
@@ -1107,22 +1280,28 @@ func scanTenantSubscription(rows pgx.Rows) (*platform.TenantSubscription, error)
 	); err != nil {
 		return nil, err
 	}
+
 	item.PendingVersionID = pending
 	item.PriceSnapshot = parseJSONMap(priceRaw)
 	item.Metadata = parseJSONMap(metadataRaw)
+
 	return &item, nil
 }
 
 func scanTenantEntitlementOverride(rows pgx.Rows) (*platform.TenantEntitlementOverride, error) {
-	var item platform.TenantEntitlementOverride
-	var raw []byte
+	var (
+		item platform.TenantEntitlementOverride
+		raw  []byte
+	)
 	if err := rows.Scan(
 		&item.ID, &item.TenantID, &item.FeatureKey, &raw, &item.Reason, &item.Active,
 		&item.ExpiresAt, &item.CreatedBy, &item.CreatedAt, &item.UpdatedAt,
 	); err != nil {
 		return nil, err
 	}
+
 	item.Value = parseJSONValue(raw)
+
 	return &item, nil
 }
 
@@ -1134,6 +1313,7 @@ func stringValue(value *string) string {
 	if value == nil {
 		return ""
 	}
+
 	return strings.TrimSpace(*value)
 }
 
@@ -1163,6 +1343,7 @@ func marshalJSONValue(value interface{}) ([]byte, error) {
 	if value == nil {
 		return []byte("null"), nil
 	}
+
 	return json.Marshal(value)
 }
 
@@ -1170,12 +1351,16 @@ func parseJSONValue(raw []byte) interface{} {
 	if len(raw) == 0 {
 		return nil
 	}
+
 	var out interface{}
+
 	decoder := json.NewDecoder(strings.NewReader(string(raw)))
 	decoder.UseNumber()
+
 	if err := decoder.Decode(&out); err != nil {
 		return nil
 	}
+
 	return normalizeJSONNumbers(out)
 }
 
@@ -1184,6 +1369,7 @@ func parseJSONMap(raw []byte) map[string]interface{} {
 	if out, ok := parsed.(map[string]interface{}); ok {
 		return out
 	}
+
 	return map[string]interface{}{}
 }
 
@@ -1202,7 +1388,9 @@ func numericFeatureLimit(value interface{}) (float64, bool) {
 		if raw == "" || raw == "custom" || raw == "unlimited" || raw == "null" {
 			return 0, false
 		}
+
 		parsed, err := strconv.ParseFloat(raw, 64)
+
 		return parsed, err == nil && parsed >= 0
 	default:
 		return 0, false
@@ -1215,19 +1403,23 @@ func normalizeJSONNumbers(value interface{}) interface{} {
 		if i, err := v.Int64(); err == nil {
 			return i
 		}
+
 		if f, err := v.Float64(); err == nil {
 			return f
 		}
+
 		return string(v)
 	case map[string]interface{}:
 		for key, item := range v {
 			v[key] = normalizeJSONNumbers(item)
 		}
+
 		return v
 	case []interface{}:
 		for i, item := range v {
 			v[i] = normalizeJSONNumbers(item)
 		}
+
 		return v
 	default:
 		return v
@@ -1238,6 +1430,8 @@ func mustJSON(value map[string]interface{}) []byte {
 	if value == nil {
 		value = map[string]interface{}{}
 	}
+
 	raw, _ := json.Marshal(value)
+
 	return raw
 }

@@ -33,6 +33,7 @@ func (m *traceStoreMock) GetRequestTrace(ctx context.Context, tenantID string, t
 	if m.getFn != nil {
 		return m.getFn(ctx, tenantID, traceID)
 	}
+
 	return nil, pgx.ErrNoRows
 }
 
@@ -40,6 +41,7 @@ func (m *traceStoreMock) ListTraceSpans(ctx context.Context, tenantID string, tr
 	if m.listSpansFn != nil {
 		return m.listSpansFn(ctx, tenantID, traceID)
 	}
+
 	return nil, pgx.ErrNoRows
 }
 
@@ -47,6 +49,7 @@ func (m *traceStoreMock) ListRequestTracesV2(ctx context.Context, params platfor
 	if m.listV2Fn != nil {
 		return m.listV2Fn(ctx, params)
 	}
+
 	return []platform.RequestTraceV2{}, 0, nil
 }
 
@@ -54,6 +57,7 @@ func (m *traceStoreMock) GetRequestTraceV2(ctx context.Context, tenantID string,
 	if m.getV2Fn != nil {
 		return m.getV2Fn(ctx, tenantID, traceID)
 	}
+
 	return nil, pgx.ErrNoRows
 }
 
@@ -61,6 +65,7 @@ func (m *traceStoreMock) ListTraceTimelineV2(ctx context.Context, tenantID strin
 	if m.listTimelineV2Fn != nil {
 		return m.listTimelineV2Fn(ctx, tenantID, traceID)
 	}
+
 	return nil, pgx.ErrNoRows
 }
 
@@ -68,6 +73,7 @@ func (m *traceStoreMock) ListTraceAttemptsV2(ctx context.Context, tenantID strin
 	if m.listAttemptsV2Fn != nil {
 		return m.listAttemptsV2Fn(ctx, tenantID, traceID)
 	}
+
 	return nil, pgx.ErrNoRows
 }
 
@@ -75,6 +81,7 @@ func (m *traceStoreMock) GetTraceFacetsV2(ctx context.Context, params platform.L
 	if m.getFacetsV2Fn != nil {
 		return m.getFacetsV2Fn(ctx, params)
 	}
+
 	return &platform.TraceFacetsV2{}, nil
 }
 
@@ -83,10 +90,12 @@ func setupTraceTestApp(h *Handlers) *fiber.App {
 	app.Use(func(c *fiber.Ctx) error {
 		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{Role: "team_admin"})
 		c.Locals(tenant.ContextKey{}, &platform.Tenant{ID: "tenant_a", Slug: "a", Status: "active"})
+
 		return c.Next()
 	})
 	app.Get("/api/v1/traces/:traceID", h.GetRequestTrace)
 	app.Get("/api/v1/traces/:traceID/spans", h.ListRequestTraceSpans)
+
 	return app
 }
 
@@ -95,6 +104,7 @@ func TestGetRequestTrace_UsesTenantContextIsolation(t *testing.T) {
 		getFn: func(_ context.Context, tenantID string, traceID string) (*platform.RequestTrace, error) {
 			assert.Equal(t, "tenant_a", tenantID)
 			assert.Equal(t, "trace_1", traceID)
+
 			return &platform.RequestTrace{
 				TraceID:    "trace_1",
 				TenantID:   "tenant_a",
@@ -112,7 +122,10 @@ func TestGetRequestTrace_UsesTenantContextIsolation(t *testing.T) {
 	req := httptest.NewRequest("GET", "/api/v1/traces/trace_1", nil)
 	// Attempted override should be ignored; only tenant context must be used.
 	req.Header.Set("x-shahrah-tenant", "tenant_b")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	assert.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 }
@@ -122,6 +135,7 @@ func TestGetRequestTrace_CrossTenantReturnsNotFound(t *testing.T) {
 		getFn: func(_ context.Context, tenantID string, traceID string) (*platform.RequestTrace, error) {
 			assert.Equal(t, "tenant_a", tenantID)
 			assert.Equal(t, "foreign_trace", traceID)
+
 			return nil, pgx.ErrNoRows
 		},
 	}
@@ -129,7 +143,10 @@ func TestGetRequestTrace_CrossTenantReturnsNotFound(t *testing.T) {
 	app := setupTraceTestApp(h)
 
 	req := httptest.NewRequest("GET", "/api/v1/traces/foreign_trace", nil)
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	assert.NoError(t, err)
 	assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
 }
@@ -139,6 +156,7 @@ func TestListTraceSpans_CrossTenantReturnsNotFound(t *testing.T) {
 		listSpansFn: func(_ context.Context, tenantID string, traceID string) ([]platform.TraceSpan, error) {
 			assert.Equal(t, "tenant_a", tenantID)
 			assert.Equal(t, "foreign_trace", traceID)
+
 			return nil, pgx.ErrNoRows
 		},
 	}
@@ -146,7 +164,10 @@ func TestListTraceSpans_CrossTenantReturnsNotFound(t *testing.T) {
 	app := setupTraceTestApp(h)
 
 	req := httptest.NewRequest("GET", "/api/v1/traces/foreign_trace/spans", nil)
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	assert.NoError(t, err)
 	assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
 }
@@ -156,6 +177,7 @@ func TestListTraceSpans_ReturnsTenantScopedData(t *testing.T) {
 		listSpansFn: func(_ context.Context, tenantID string, traceID string) ([]platform.TraceSpan, error) {
 			assert.Equal(t, "tenant_a", tenantID)
 			assert.Equal(t, "trace_1", traceID)
+
 			return []platform.TraceSpan{{
 				SpanID:       "span_1",
 				TraceID:      "trace_1",
@@ -173,11 +195,15 @@ func TestListTraceSpans_ReturnsTenantScopedData(t *testing.T) {
 	app := setupTraceTestApp(h)
 
 	req := httptest.NewRequest("GET", "/api/v1/traces/trace_1/spans", nil)
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	assert.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var payload platform.TraceSpansResponse
+
 	err = json.NewDecoder(resp.Body).Decode(&payload)
 	assert.NoError(t, err)
 	assert.Len(t, payload.Data, 1)

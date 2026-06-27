@@ -5,11 +5,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 func (s *Store) ensureClickHouseMetricsSchema(ctx context.Context) error {
@@ -154,6 +154,7 @@ func (s *Store) ensureClickHouseMetricsSchema(ctx context.Context) error {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -170,12 +171,15 @@ func (s *Store) insertModelMetricEvent(ctx context.Context, ev platform.ModelMet
 		)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
+
 	metaRaw := "{}"
+
 	if ev.Metadata != nil {
 		if b, err := json.Marshal(ev.Metadata); err == nil {
 			metaRaw = string(b)
 		}
 	}
+
 	_, err := s.clickhouse.ExecContext(
 		ctx,
 		insertSQL,
@@ -215,6 +219,7 @@ func (s *Store) insertModelMetricEvent(ctx context.Context, ev platform.ModelMet
 		ev.PricingVersion,
 		metaRaw,
 	)
+
 	return err
 }
 
@@ -222,6 +227,7 @@ func (s *Store) queryModelMetrics(ctx context.Context, tenantID string, req plat
 	if req.Type == "timeseries" {
 		return s.queryModelMetricsTimeseries(ctx, tenantID, req)
 	}
+
 	return s.queryModelMetricsDistribution(ctx, tenantID, req)
 }
 
@@ -230,10 +236,12 @@ func (s *Store) listModelMetricsFacets(ctx context.Context, tenantID string) (*p
 	if err != nil {
 		return nil, err
 	}
+
 	providers, err := queryDistinctMetricValues(ctx, s.clickhouse, "provider_name", tenantID)
 	if err != nil {
 		return nil, err
 	}
+
 	return &platform.ModelMetricsFacets{
 		Models:    models,
 		Providers: providers,
@@ -248,6 +256,7 @@ func queryDistinctMetricValues(ctx context.Context, db *sql.DB, column string, t
 		ORDER BY %s ASC
 		LIMIT 5000
 	`, column, column, column)
+
 	rows, err := db.QueryContext(ctx, query, tenantID)
 	if err != nil {
 		return nil, err
@@ -255,34 +264,41 @@ func queryDistinctMetricValues(ctx context.Context, db *sql.DB, column string, t
 	defer rows.Close()
 
 	values := make([]string, 0, 128)
+
 	for rows.Next() {
 		var value string
 		if err := rows.Scan(&value); err != nil {
 			return nil, err
 		}
+
 		value = strings.TrimSpace(value)
 		if value != "" {
 			values = append(values, value)
 		}
 	}
+
 	return values, rows.Err()
 }
 
 func (s *Store) queryModelMetricsDistribution(ctx context.Context, tenantID string, req platform.MetricsQueryRequest) ([]map[string]interface{}, error) {
 	selects := make([]string, 0, len(req.GroupBy)+len(req.Aggregations))
+
 	groupBy := make([]string, 0, len(req.GroupBy))
 	for _, g := range req.GroupBy {
 		col, err := mapMetricsGroupBy(g)
 		if err != nil {
 			return nil, err
 		}
+
 		selects = append(selects, fmt.Sprintf("%s AS %s", col, sanitizeAlias(g)))
 		groupBy = append(groupBy, col)
 	}
+
 	aggs, err := buildAggregations(req.Aggregations)
 	if err != nil {
 		return nil, err
 	}
+
 	selects = append(selects, aggs...)
 	if len(selects) == 0 {
 		selects = append(selects, "count() AS countAll")
@@ -292,10 +308,12 @@ func (s *Store) queryModelMetricsDistribution(ctx context.Context, tenantID stri
 	if err != nil {
 		return nil, err
 	}
+
 	query := fmt.Sprintf("SELECT %s FROM gateway_model_events WHERE %s", strings.Join(selects, ", "), where)
 	if len(groupBy) > 0 {
 		query += " GROUP BY " + strings.Join(groupBy, ", ")
 	}
+
 	query += " ORDER BY count() DESC LIMIT 1000"
 
 	return queryRowsAsMaps(ctx, s.clickhouse, query, args...)
@@ -306,31 +324,39 @@ func (s *Store) queryModelMetricsTimeseries(ctx context.Context, tenantID string
 	if interval <= 0 {
 		interval = 300
 	}
+
 	selects := []string{fmt.Sprintf("toStartOfInterval(ts, INTERVAL %d second) AS timestamp", interval)}
 	groupBy := []string{"timestamp"}
+
 	for _, g := range req.GroupBy {
 		col, err := mapMetricsGroupBy(g)
 		if err != nil {
 			return nil, err
 		}
+
 		selects = append(selects, fmt.Sprintf("%s AS %s", col, sanitizeAlias(g)))
 		groupBy = append(groupBy, col)
 	}
+
 	aggs, err := buildAggregations(req.Aggregations)
 	if err != nil {
 		return nil, err
 	}
+
 	selects = append(selects, aggs...)
+
 	where, args, err := buildMetricsWhere(tenantID, req)
 	if err != nil {
 		return nil, err
 	}
+
 	query := fmt.Sprintf(
 		"SELECT %s FROM gateway_model_events WHERE %s GROUP BY %s ORDER BY timestamp ASC LIMIT 5000",
 		strings.Join(selects, ", "),
 		where,
 		strings.Join(groupBy, ", "),
 	)
+
 	return queryRowsAsMaps(ctx, s.clickhouse, query, args...)
 }
 
@@ -339,11 +365,13 @@ func buildAggregations(aggs []platform.MetricsAggregation) ([]string, error) {
 	if len(aggs) == 0 {
 		return []string{"count() AS countAll"}, nil
 	}
+
 	for _, agg := range aggs {
 		col, err := mapAggregationColumn(agg.Column)
 		if err != nil {
 			return nil, err
 		}
+
 		switch agg.Type {
 		case "count":
 			out = append(out, fmt.Sprintf("count(%s) AS count%s", col, toPascal(agg.Column)))
@@ -356,11 +384,13 @@ func buildAggregations(aggs []platform.MetricsAggregation) ([]string, error) {
 			return nil, fmt.Errorf("unsupported aggregation type: %s", agg.Type)
 		}
 	}
+
 	return out, nil
 }
 
 func buildMetricsWhere(tenantID string, req platform.MetricsQueryRequest) (string, []interface{}, error) {
 	where := []string{"tenant_id = ?", "ts >= ?", "ts <= ?"}
+
 	args := []interface{}{tenantID, req.StartTS.UTC(), req.EndTS.UTC()}
 	for _, f := range req.Filters {
 		col := ""
@@ -371,8 +401,10 @@ func buildMetricsWhere(tenantID string, req platform.MetricsQueryRequest) (strin
 			if err != nil {
 				return "", nil, err
 			}
+
 			col = mapped
 		}
+
 		op := strings.ToUpper(strings.TrimSpace(f.Operator))
 		switch op {
 		case "EQUAL":
@@ -383,6 +415,7 @@ func buildMetricsWhere(tenantID string, req platform.MetricsQueryRequest) (strin
 			if !ok || len(values) == 0 {
 				return "", nil, fmt.Errorf("IN filter requires non-empty array value")
 			}
+
 			where = append(where, col+" IN ("+strings.TrimRight(strings.Repeat("?,", len(values)), ",")+")")
 			args = append(args, values...)
 		case "NOT_IN":
@@ -390,6 +423,7 @@ func buildMetricsWhere(tenantID string, req platform.MetricsQueryRequest) (strin
 			if !ok || len(values) == 0 {
 				return "", nil, fmt.Errorf("NOT_IN filter requires non-empty array value")
 			}
+
 			where = append(where, col+" NOT IN ("+strings.TrimRight(strings.Repeat("?,", len(values)), ",")+")")
 			args = append(args, values...)
 		case "STRING_CONTAINS":
@@ -418,6 +452,7 @@ func buildMetricsWhere(tenantID string, req platform.MetricsQueryRequest) (strin
 			if !ok || len(values) != 2 {
 				return "", nil, fmt.Errorf("BETWEEN filter requires two values")
 			}
+
 			where = append(where, col+" BETWEEN ? AND ?")
 			args = append(args, values[0], values[1])
 		case "ARRAY_HAS_ANY":
@@ -425,6 +460,7 @@ func buildMetricsWhere(tenantID string, req platform.MetricsQueryRequest) (strin
 			if !ok || len(values) == 0 {
 				return "", nil, fmt.Errorf("ARRAY_HAS_ANY requires non-empty string array")
 			}
+
 			where = append(where, fmt.Sprintf("hasAny(%s, ?)", col))
 			args = append(args, values)
 		case "ARRAY_HAS_NONE":
@@ -432,16 +468,19 @@ func buildMetricsWhere(tenantID string, req platform.MetricsQueryRequest) (strin
 			if !ok || len(values) == 0 {
 				return "", nil, fmt.Errorf("ARRAY_HAS_NONE requires non-empty string array")
 			}
+
 			where = append(where, fmt.Sprintf("NOT hasAny(%s, ?)", col))
 			args = append(args, values)
 		case "IS_NULL":
 			isNull := false
+
 			switch v := f.Value.(type) {
 			case bool:
 				isNull = v
 			case string:
 				isNull = strings.EqualFold(v, "true")
 			}
+
 			if isNull {
 				where = append(where, "("+col+" IS NULL OR "+col+" = '')")
 			} else {
@@ -451,6 +490,7 @@ func buildMetricsWhere(tenantID string, req platform.MetricsQueryRequest) (strin
 			return "", nil, fmt.Errorf("unsupported filter operator: %s", op)
 		}
 	}
+
 	return strings.Join(where, " AND "), args, nil
 }
 
@@ -573,16 +613,20 @@ func queryRowsAsMaps(ctx context.Context, db *sql.DB, query string, args ...inte
 	if err != nil {
 		return nil, err
 	}
+
 	out := make([]map[string]interface{}, 0, 128)
 	for rows.Next() {
 		values := make([]interface{}, len(cols))
+
 		scanTargets := make([]interface{}, len(cols))
 		for i := range values {
 			scanTargets[i] = &values[i]
 		}
+
 		if err := rows.Scan(scanTargets...); err != nil {
 			return nil, err
 		}
+
 		item := make(map[string]interface{}, len(cols))
 		for i, col := range cols {
 			switch v := values[i].(type) {
@@ -592,8 +636,10 @@ func queryRowsAsMaps(ctx context.Context, db *sql.DB, query string, args ...inte
 				item[col] = v
 			}
 		}
+
 		out = append(out, item)
 	}
+
 	return out, rows.Err()
 }
 
@@ -602,6 +648,7 @@ func nullIfEmpty(v string) interface{} {
 	if v == "" {
 		return nil
 	}
+
 	return v
 }
 
@@ -609,6 +656,7 @@ func intPtrToNull(v *int) interface{} {
 	if v == nil {
 		return nil
 	}
+
 	return *v
 }
 
@@ -616,6 +664,7 @@ func floatPtrToNull(v *float64) interface{} {
 	if v == nil {
 		return nil
 	}
+
 	return *v
 }
 
@@ -624,29 +673,35 @@ func toPascal(input string) string {
 		return r == '_' || r == '-' || r == '.'
 	})
 	if len(parts) == 0 {
-		return strings.Title(input)
+		return cases.Title(language.Und).String(input)
 	}
+
 	for i := range parts {
 		if parts[i] == "" {
 			continue
 		}
+
 		parts[i] = strings.ToUpper(parts[i][:1]) + parts[i][1:]
 	}
+
 	return strings.Join(parts, "")
 }
 
 func sanitizeAlias(v string) string {
 	v = strings.TrimSpace(v)
 	v = strings.ReplaceAll(v, ".", "_")
+
 	v = strings.ReplaceAll(v, "-", "_")
 	if v == "" {
 		return "group"
 	}
+
 	return v
 }
 
 func sanitizeMetadataKey(v string) string {
 	v = strings.TrimSpace(v)
+
 	allowed := map[string]struct{}{
 		"environment": {},
 		"feature":     {},
@@ -658,6 +713,7 @@ func sanitizeMetadataKey(v string) string {
 	if _, ok := allowed[v]; ok {
 		return v
 	}
+
 	return "environment"
 }
 
@@ -670,6 +726,7 @@ func interfaceSlice(v interface{}) ([]interface{}, bool) {
 		for _, s := range t {
 			out = append(out, s)
 		}
+
 		return out, true
 	default:
 		return nil, false
@@ -685,27 +742,9 @@ func stringSlice(v interface{}) ([]string, bool) {
 		for _, i := range t {
 			out = append(out, fmt.Sprintf("%v", i))
 		}
+
 		return out, true
 	default:
 		return nil, false
-	}
-}
-
-func parseRFC3339(v string) (time.Time, error) {
-	return time.Parse(time.RFC3339, strings.TrimSpace(v))
-}
-
-func intFromAny(v interface{}) (int, error) {
-	switch t := v.(type) {
-	case int:
-		return t, nil
-	case int64:
-		return int(t), nil
-	case float64:
-		return int(t), nil
-	case string:
-		return strconv.Atoi(strings.TrimSpace(t))
-	default:
-		return 0, fmt.Errorf("cannot parse integer from %T", v)
 	}
 }

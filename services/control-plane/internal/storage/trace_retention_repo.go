@@ -72,12 +72,16 @@ func (s *Store) ListTraceRetentionPolicies(ctx context.Context) ([]tracing.Trace
 	defer rows.Close()
 
 	out := []tracing.TraceRetentionPolicy{}
+
 	for rows.Next() {
-		var tenantID string
-		var raw []byte
+		var (
+			tenantID string
+			raw      []byte
+		)
 		if err := rows.Scan(&tenantID, &raw); err != nil {
 			return nil, err
 		}
+
 		days, ok := tracing.ParseTraceRetentionDays(parseJSONValue(raw))
 		if !ok {
 			s.logger.Warn(
@@ -86,13 +90,16 @@ func (s *Store) ListTraceRetentionPolicies(ctx context.Context) ([]tracing.Trace
 				zap.String("feature_key", platform.FeatureTracesRetentionDays),
 				zap.ByteString("value_json", raw),
 			)
+
 			continue
 		}
+
 		out = append(out, tracing.TraceRetentionPolicy{
 			TenantID:      tenantID,
 			RetentionDays: days,
 		})
 	}
+
 	return out, rows.Err()
 }
 
@@ -101,10 +108,12 @@ func (s *Store) DeleteTraceDataBefore(ctx context.Context, tenantID string, cuto
 	if !s.clickhouseReady || s.clickhouse == nil {
 		return ErrTraceStoreUnavailable
 	}
+
 	tenantID = strings.TrimSpace(tenantID)
 	if tenantID == "" || cutoff.IsZero() {
 		return nil
 	}
+
 	cutoff = cutoff.UTC()
 	if _, err := s.clickhouse.ExecContext(ctx, `
 		ALTER TABLE request_spans_ch
@@ -112,11 +121,13 @@ func (s *Store) DeleteTraceDataBefore(ctx context.Context, tenantID string, cuto
 	`, tenantID, cutoff); err != nil {
 		return err
 	}
+
 	if _, err := s.clickhouse.ExecContext(ctx, `
 		ALTER TABLE request_traces_ch
 		DELETE WHERE tenant_id = ? AND started_at < ?
 	`, tenantID, cutoff); err != nil {
 		return err
 	}
+
 	return nil
 }

@@ -99,14 +99,17 @@ func NewRouter(modelList []config.ModelDeployment, settings config.RouterSetting
 				"togetherai/", "cohere/", "vertexai/", "gemini/", "bedrock/",
 			}
 			found := false
+
 			for _, prefix := range providerPrefixes {
 				if len(modelParts) > len(prefix) && strings.HasPrefix(modelParts, prefix) {
 					deployment.Provider = strings.TrimSuffix(prefix, "/")
 					deployment.Model = strings.TrimPrefix(modelParts, prefix)
 					found = true
+
 					break
 				}
 			}
+
 			if !found {
 				deployment.Provider = "openai" // explicit default - not silent
 				deployment.Model = modelParts
@@ -149,10 +152,12 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 				if dep.ModelName != modelName && dep.ModelName != "*" {
 					continue
 				}
+
 				hydrated := r.hydrateDynamicDeployment(dep)
 				if hydrated == nil {
 					continue
 				}
+
 				deployments = append(deployments, hydrated)
 			}
 		}
@@ -186,10 +191,12 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 					if err != nil {
 						return nil, err
 					}
+
 					return r.applyBYOK(ctx, tenantID, modelName, selected), nil
 				}
 			}
 		}
+
 		return nil, ErrNoHealthyDeployments
 	}
 
@@ -197,6 +204,7 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 	if err != nil {
 		return nil, err
 	}
+
 	return r.applyBYOK(ctx, tenantID, modelName, selected), nil
 }
 
@@ -205,19 +213,24 @@ func (r *Router) matchWildcardDeployments(modelName string) []*Deployment {
 	defer r.mu.RUnlock()
 
 	var matches []*Deployment
+
 	for pattern, patternDeployments := range r.deployments {
 		if pattern == "*" {
 			continue
 		}
+
 		prefix, ok := wildcardPrefix(pattern)
 		if !ok || !strings.HasPrefix(modelName, prefix) {
 			continue
 		}
+
 		matches = append(matches, patternDeployments...)
 	}
+
 	if len(matches) > 0 {
 		return matches
 	}
+
 	return append(matches, r.deployments["*"]...)
 }
 
@@ -225,18 +238,22 @@ func wildcardPrefix(pattern string) (string, bool) {
 	if !strings.HasSuffix(pattern, "*") || pattern == "*" {
 		return "", false
 	}
+
 	return strings.TrimSuffix(pattern, "*"), true
 }
 
 func (r *Router) filterHealthy(ctx context.Context, deployments []*Deployment) []*Deployment {
 	var healthy []*Deployment
+
 	for _, d := range deployments {
 		if !d.Healthy || r.cooldowns.IsCoolingDown(ctx, d.ID) {
 			r.logger.Debug("Skipping deployment", zap.String("id", d.ID), zap.Bool("healthy", d.Healthy))
 			continue
 		}
+
 		healthy = append(healthy, d)
 	}
+
 	return healthy
 }
 
@@ -261,6 +278,7 @@ func weightedRandomPick(deployments []*Deployment) *Deployment {
 	}
 
 	r := rand.Float64() * totalWeight
+
 	cumulative := 0.0
 	for _, d := range deployments {
 		cumulative += d.Weight
@@ -268,6 +286,7 @@ func weightedRandomPick(deployments []*Deployment) *Deployment {
 			return d
 		}
 	}
+
 	return deployments[len(deployments)-1]
 }
 
@@ -275,9 +294,11 @@ func fallbackWeight(dep platform.Deployment) float64 {
 	if dep.TPM > 0 {
 		return float64(dep.TPM)
 	}
+
 	if dep.RPM > 0 {
 		return float64(dep.RPM)
 	}
+
 	return dep.Weight
 }
 
@@ -285,6 +306,7 @@ func isProviderAccountDeploymentWithoutRuntimeCredential(dep platform.Deployment
 	if !strings.HasPrefix(strings.TrimSpace(dep.ID), "provider-account:") {
 		return false
 	}
+
 	return strings.TrimSpace(dep.APIKey) == "" && strings.TrimSpace(dep.APIBase) == ""
 }
 
@@ -309,15 +331,19 @@ func (r *Router) hydrateDynamicDeployment(dep platform.Deployment) *Deployment {
 			if strings.TrimSpace(params.APIKey) == "" {
 				params.APIKey = shared.Params.APIKey
 			}
+
 			if strings.TrimSpace(params.APIBase) == "" {
 				params.APIBase = shared.Params.APIBase
 			}
+
 			if strings.TrimSpace(params.APIVersion) == "" {
 				params.APIVersion = shared.Params.APIVersion
 			}
+
 			if strings.TrimSpace(params.RegionName) == "" {
 				params.RegionName = shared.Params.RegionName
 			}
+
 			if params.Timeout == 0 {
 				params.Timeout = shared.Params.Timeout
 			}
@@ -359,6 +385,7 @@ func (r *Router) hydrateDynamicDeployment(dep platform.Deployment) *Deployment {
 func (r *Router) findSharedProviderDeployment(provider string, model string) *Deployment {
 	provider = strings.TrimSpace(strings.ToLower(provider))
 	model = strings.TrimSpace(model)
+
 	if provider == "" {
 		return nil
 	}
@@ -367,19 +394,23 @@ func (r *Router) findSharedProviderDeployment(provider string, model string) *De
 	defer r.mu.RUnlock()
 
 	var wildcard *Deployment
+
 	for _, deployments := range r.deployments {
 		for _, dep := range deployments {
 			if dep == nil || strings.TrimSpace(strings.ToLower(dep.Provider)) != provider {
 				continue
 			}
+
 			if strings.EqualFold(strings.TrimSpace(dep.Model), model) {
 				return dep
 			}
+
 			if strings.TrimSpace(dep.Model) == "*" && wildcard == nil {
 				wildcard = dep
 			}
 		}
 	}
+
 	return wildcard
 }
 
@@ -387,20 +418,25 @@ func (r *Router) applyBYOK(ctx context.Context, tenantID, modelName string, dep 
 	if dep == nil || r.store == nil || strings.TrimSpace(tenantID) == "" {
 		return dep
 	}
+
 	if !isModelFQN(modelName) {
 		return dep
 	}
+
 	resolver, ok := r.store.(byokCredentialResolver)
 	if !ok {
 		return dep
 	}
+
 	apiKey, err := resolver.ResolveProviderAccountAPIKey(ctx, tenantID, modelName)
 	if err != nil || strings.TrimSpace(apiKey) == "" {
 		return dep
 	}
+
 	cloned := *dep
 	cloned.Params = dep.Params
 	cloned.Params.APIKey = apiKey
+
 	return &cloned
 }
 
@@ -409,6 +445,7 @@ func isModelFQN(model string) bool {
 	if len(parts) != 3 {
 		return false
 	}
+
 	return strings.TrimSpace(parts[0]) != "" && strings.TrimSpace(parts[1]) != "" && strings.TrimSpace(parts[2]) != ""
 }
 
@@ -417,5 +454,6 @@ func canonicalProviderModel(provider string, model string) string {
 	if model == "" {
 		return ""
 	}
+
 	return modelid.CanonicalOfficialModel(provider, model)
 }

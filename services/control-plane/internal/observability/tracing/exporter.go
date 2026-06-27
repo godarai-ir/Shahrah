@@ -43,16 +43,17 @@ func NewOTLPExporter(cfg Config, logger *zap.Logger) (*OTLPExporter, error) {
 	if cfg.OTLPEndpoint == "" {
 		return nil, errors.New("TRACE_OTLP_ENDPOINT is required")
 	}
-	opts := []grpc.DialOption{grpc.WithBlock()}
+
+	opts := []grpc.DialOption{}
 	if cfg.OTLPInsecure {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.ExportTimeout)
-	defer cancel()
-	conn, err := grpc.DialContext(ctx, cfg.OTLPEndpoint, opts...)
+
+	conn, err := grpc.NewClient(cfg.OTLPEndpoint, opts...)
 	if err != nil {
 		return nil, err
 	}
+
 	return &OTLPExporter{
 		cfg:    cfg,
 		client: tracev1.NewTraceServiceClient(conn),
@@ -65,6 +66,7 @@ func (e *OTLPExporter) Close() error {
 	if e.conn != nil {
 		return e.conn.Close()
 	}
+
 	return nil
 }
 
@@ -72,8 +74,10 @@ func (e *OTLPExporter) Export(ctx context.Context, batch []SpanEvent) error {
 	if len(batch) == 0 {
 		return nil
 	}
+
 	req := toOTLPRequest(e.cfg.OTLPServiceName, batch)
 	_, err := e.client.Export(ctx, req)
+
 	return err
 }
 
@@ -105,6 +109,7 @@ func (w *WAL) Append(batch DurableBatch) error {
 	if err := os.MkdirAll(filepath.Dir(w.path), 0o755); err != nil {
 		return err
 	}
+
 	f, err := os.OpenFile(w.path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
@@ -112,6 +117,7 @@ func (w *WAL) Append(batch DurableBatch) error {
 	defer f.Close()
 
 	enc := json.NewEncoder(f)
+
 	return enc.Encode(batch)
 }
 
@@ -124,34 +130,42 @@ func (w *WAL) Drain() ([]DurableBatch, error) {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
+
 		return nil, err
 	}
 	defer f.Close()
 
 	out := make([]DurableBatch, 0, 64)
+
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
 		line := sc.Bytes()
 		if len(line) == 0 {
 			continue
 		}
+
 		var b DurableBatch
 		if err := json.Unmarshal(line, &b); err != nil {
 			continue
 		}
+
 		if len(b.Events) > 0 {
 			out = append(out, b)
 		}
 	}
+
 	if err := sc.Err(); err != nil {
 		return nil, err
 	}
+
 	if err := os.Truncate(w.path, 0); err != nil {
 		return nil, err
 	}
+
 	if _, err := os.OpenFile(w.path, os.O_WRONLY, 0o644); err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
+
 	return out, nil
 }
 
@@ -164,20 +178,24 @@ func (w *WAL) BacklogSize() (int, error) {
 		if os.IsNotExist(err) {
 			return 0, nil
 		}
+
 		return 0, err
 	}
 	defer f.Close()
 
 	count := 0
+
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
 		if len(sc.Bytes()) > 0 {
 			count++
 		}
 	}
+
 	if err := sc.Err(); err != nil {
 		return 0, err
 	}
+
 	return count, nil
 }
 
@@ -192,8 +210,10 @@ type ReliableExporter struct {
 }
 
 func NewReliableExporter(cfg Config, secondary Exporter, logger *zap.Logger) (*ReliableExporter, error) {
-	var primary *OTLPExporter
-	var err error
+	var (
+		primary *OTLPExporter
+		err     error
+	)
 	if cfg.OTLPEndpoint != "" {
 		primary, err = NewOTLPExporter(cfg, logger)
 		if err != nil {
@@ -215,15 +235,18 @@ func NewReliableExporter(cfg Config, secondary Exporter, logger *zap.Logger) (*R
 		stopReplayCh: make(chan struct{}),
 	}
 	re.startReplayLoop()
+
 	return re, nil
 }
 
 func (e *ReliableExporter) Close() error {
 	close(e.stopReplayCh)
 	e.wg.Wait()
+
 	if e.primary != nil {
 		return e.primary.Close()
 	}
+
 	return nil
 }
 
@@ -234,6 +257,7 @@ func (e *ReliableExporter) Export(ctx context.Context, batch []SpanEvent) error 
 
 	if err := e.exportPrimaryWithRetry(ctx, batch); err != nil {
 		e.logger.Warn("otlp export failed after retries; writing to wal", zap.Error(err), zap.Int("batch", len(batch)))
+
 		if e.wal != nil {
 			_ = e.wal.Append(DurableBatch{Events: batch, CreatedAt: time.Now().UTC()})
 		}
@@ -246,6 +270,7 @@ func (e *ReliableExporter) Export(ctx context.Context, batch []SpanEvent) error 
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -253,13 +278,17 @@ func (e *ReliableExporter) exportPrimaryWithRetry(ctx context.Context, batch []S
 	if e.primary == nil {
 		return nil
 	}
+
 	var lastErr error
+
 	for attempt := 1; attempt <= e.cfg.RetryMaxAttempts; attempt++ {
 		err := e.primary.Export(ctx, batch)
 		if err == nil {
 			return nil
 		}
+
 		lastErr = err
+
 		sleep := backoffDelay(attempt, e.cfg.RetryBaseDelay, e.cfg.RetryMaxDelay)
 		select {
 		case <-ctx.Done():
@@ -267,6 +296,7 @@ func (e *ReliableExporter) exportPrimaryWithRetry(ctx context.Context, batch []S
 		case <-time.After(sleep):
 		}
 	}
+
 	return lastErr
 }
 
@@ -274,11 +304,14 @@ func (e *ReliableExporter) startReplayLoop() {
 	if e.wal == nil || e.primary == nil {
 		return
 	}
+
 	e.wg.Add(1)
 	go func() {
 		defer e.wg.Done()
+
 		ticker := time.NewTicker(e.cfg.WALReplayInterval)
 		defer ticker.Stop()
+
 		for {
 			select {
 			case <-e.stopReplayCh:
@@ -295,18 +328,23 @@ func (e *ReliableExporter) replayOnce() {
 	if err != nil || len(batches) == 0 {
 		return
 	}
+
 	failed := make([]DurableBatch, 0, len(batches))
 	for _, b := range batches {
 		ctx, cancel := context.WithTimeout(context.Background(), e.cfg.ExportTimeout)
 		err := e.exportPrimaryWithRetry(ctx, b.Events)
+
 		cancel()
+
 		if err != nil {
 			failed = append(failed, b)
 		}
 	}
+
 	for _, b := range failed {
 		_ = e.wal.Append(b)
 	}
+
 	if len(failed) > 0 {
 		e.logger.Warn("wal replay incomplete", zap.Int("failed_batches", len(failed)))
 	}
@@ -324,12 +362,14 @@ func (e *ReliableExporter) ReadinessReport() map[string]interface{} {
 	if e.primary != nil && e.primary.conn != nil {
 		st := e.primary.conn.GetState()
 		reachable := st == connectivity.Ready
+
 		report["otlp_reachable"] = reachable
 		if !reachable {
 			report["telemetry_degraded"] = true
 			report["otlp_state"] = st.String()
 		}
 	}
+
 	if e.wal != nil {
 		if n, err := e.wal.BacklogSize(); err == nil {
 			report["wal_backlog_size"] = n
@@ -349,12 +389,16 @@ func backoffDelay(attempt int, base, max time.Duration) time.Duration {
 	if attempt < 1 {
 		attempt = 1
 	}
+
 	exp := float64(base) * math.Pow(2, float64(attempt-1))
+
 	d := time.Duration(exp)
 	if d > max {
 		d = max
 	}
+
 	jitter := time.Duration(rand.Int63n(int64(d / 5)))
+
 	return d + jitter
 }
 
@@ -384,11 +428,14 @@ func (p *Processor) Start() {
 
 func (p *Processor) Stop(ctx context.Context) error {
 	close(p.stopCh)
+
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
+
 		p.wg.Wait()
 	}()
+
 	select {
 	case <-done:
 		return nil
@@ -399,8 +446,10 @@ func (p *Processor) Stop(ctx context.Context) error {
 
 func (p *Processor) loop() {
 	defer p.wg.Done()
+
 	ticker := time.NewTicker(p.cfg.FlushInterval)
 	defer ticker.Stop()
+
 	for {
 		select {
 		case <-p.stopCh:
@@ -417,12 +466,15 @@ func (p *Processor) flush() {
 	if len(batch) == 0 {
 		return
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), p.cfg.ExportTimeout)
 	defer cancel()
+
 	if err := p.exporter.Export(ctx, batch); err != nil {
 		p.logger.Warn("trace export failed", zap.Error(err), zap.Int("batch", len(batch)))
 		return
 	}
+
 	p.logger.Debug("trace batch exported", zap.Int("batch", len(batch)))
 }
 
@@ -435,10 +487,12 @@ func toOTLPRequest(serviceName string, batch []SpanEvent) *tracev1.ExportTraceSe
 	scopeSpans := make([]*otlptracev1.ScopeSpans, 0, len(batch))
 	for i, ev := range batch {
 		spanID := fmt.Sprintf("%016x", i+1)
+
 		statusCode := otlptracev1.Status_STATUS_CODE_OK
 		if ev.StatusCode >= 500 {
 			statusCode = otlptracev1.Status_STATUS_CODE_ERROR
 		}
+
 		span := &otlptracev1.Span{
 			TraceId:           traceIDBytes(ev.TraceID),
 			SpanId:            spanIDBytes(spanID),
@@ -459,6 +513,7 @@ func toOTLPRequest(serviceName string, batch []SpanEvent) *tracev1.ExportTraceSe
 			Spans: []*otlptracev1.Span{span},
 		})
 	}
+
 	return &tracev1.ExportTraceServiceRequest{
 		ResourceSpans: []*otlptracev1.ResourceSpans{{
 			Resource: &resourcev1.Resource{
@@ -484,10 +539,12 @@ func boolVal(v bool) *commonv1.AnyValue {
 func traceIDBytes(traceID string) []byte {
 	b := make([]byte, 16)
 	copy(b, []byte(traceID))
+
 	return b
 }
 func spanIDBytes(spanID string) []byte {
 	b := make([]byte, 8)
 	copy(b, []byte(spanID))
+
 	return b
 }

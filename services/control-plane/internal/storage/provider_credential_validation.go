@@ -44,16 +44,18 @@ func validateProviderAPIKey(ctx context.Context, provider string, apiKey string,
 		httpClient = &http.Client{Timeout: providerCredentialValidationTimeout}
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, probe.url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, probe.url, http.NoBody)
 	if err != nil {
 		return providerCredentialValidationResult{
 			Success: false,
 			Message: "provider validation endpoint is not configured correctly",
 		}
 	}
+
 	for name, value := range probe.headers(trimmedKey) {
 		req.Header.Set(name, value)
 	}
+
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := httpClient.Do(req)
@@ -61,6 +63,7 @@ func validateProviderAPIKey(ctx context.Context, provider string, apiKey string,
 		if ctx.Err() != nil {
 			return providerCredentialValidationResult{Success: false, Message: "provider validation timed out"}
 		}
+
 		return providerCredentialValidationResult{Success: false, Message: "network error while contacting provider validation endpoint"}
 	}
 	defer resp.Body.Close()
@@ -113,6 +116,7 @@ func bearerModelsProbe(apiBase string) providerCredentialProbe {
 
 func classifyProviderValidationStatus(status int, body []byte, apiKey string) string {
 	detail := sanitizedProviderError(body, apiKey)
+
 	switch status {
 	case http.StatusUnauthorized:
 		return appendProviderDetail("provider rejected the API key as invalid", detail)
@@ -126,6 +130,7 @@ func classifyProviderValidationStatus(status int, body []byte, apiKey string) st
 		if status >= http.StatusInternalServerError {
 			return appendProviderDetail("provider validation endpoint returned a server error", detail)
 		}
+
 		return appendProviderDetail(fmt.Sprintf("provider validation failed with HTTP %d", status), detail)
 	}
 }
@@ -134,6 +139,7 @@ func appendProviderDetail(message string, detail string) string {
 	if strings.TrimSpace(detail) == "" {
 		return message
 	}
+
 	return message + ": " + detail
 }
 
@@ -147,6 +153,7 @@ func sanitizedProviderError(body []byte, apiKey string) string {
 	if err := json.Unmarshal(body, &payload); err == nil {
 		text = firstProviderErrorMessage(payload)
 	}
+
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return ""
@@ -154,10 +161,12 @@ func sanitizedProviderError(body []byte, apiKey string) string {
 
 	text = strings.ReplaceAll(text, apiKey, "[redacted]")
 	text = bearerTokenPattern.ReplaceAllString(text, "Bearer [redacted]")
+
 	text = apiKeyPattern.ReplaceAllString(text, "[redacted]")
 	if len(text) > 180 {
 		text = strings.TrimSpace(text[:180]) + "..."
 	}
+
 	return text
 }
 
@@ -165,6 +174,7 @@ func firstProviderErrorMessage(payload map[string]interface{}) string {
 	if message, ok := payload["message"].(string); ok {
 		return message
 	}
+
 	if errorValue, ok := payload["error"]; ok {
 		switch typed := errorValue.(type) {
 		case string:
@@ -173,17 +183,21 @@ func firstProviderErrorMessage(payload map[string]interface{}) string {
 			if message, ok := typed["message"].(string); ok {
 				return message
 			}
+
 			if detail, ok := typed["detail"].(string); ok {
 				return detail
 			}
+
 			if code, ok := typed["code"].(string); ok {
 				return code
 			}
 		}
 	}
+
 	if detail, ok := payload["detail"].(string); ok {
 		return detail
 	}
+
 	return ""
 }
 
@@ -196,12 +210,15 @@ func credentialHintFromMap(credentials map[string]interface{}) string {
 	if apiKey, ok := credentials["api_key"].(string); ok {
 		return maskCredentialHint(apiKey)
 	}
+
 	if secretRef, ok := credentials["secret_ref"].(string); ok && strings.TrimSpace(secretRef) != "" {
 		return "secret_ref:" + maskCredentialHint(secretRef)
 	}
+
 	if _, ok := credentials["raw"]; ok {
 		return "configured"
 	}
+
 	return ""
 }
 
@@ -210,6 +227,7 @@ func maskCredentialHint(value string) string {
 	if trimmed == "" {
 		return ""
 	}
+
 	if isMaskedCredentialValue(trimmed) {
 		return trimmed
 	}
@@ -218,9 +236,11 @@ func maskCredentialHint(value string) string {
 	if strings.HasPrefix(trimmed, "sk-") || strings.HasPrefix(trimmed, "gsk_") || strings.HasPrefix(trimmed, "gsk-") {
 		prefixLen = 3
 	}
+
 	if len(trimmed) <= prefixLen+4 {
 		return "••••"
 	}
+
 	return trimmed[:prefixLen] + "••••••••" + trimmed[len(trimmed)-4:]
 }
 
@@ -236,5 +256,6 @@ func configString(config map[string]interface{}, key string, fallback string) st
 			return strings.TrimSpace(value)
 		}
 	}
+
 	return fallback
 }

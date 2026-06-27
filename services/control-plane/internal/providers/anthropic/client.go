@@ -79,7 +79,7 @@ func (c *Client) AuthHeaders() map[string]string {
 	}
 }
 
-// Anthropic API request/response types
+// Anthropic API request/response types.
 type anthropicRequest struct {
 	Model       string                  `json:"model"`
 	Messages    []anthropicMessage      `json:"messages"`
@@ -126,6 +126,7 @@ func (c *Client) Complete(ctx context.Context, req contractsopenai.ChatCompletio
 	}
 
 	endpoint := c.apiBase + "/v1/messages"
+
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -135,15 +136,19 @@ func (c *Client) Complete(ctx context.Context, req contractsopenai.ChatCompletio
 	httpReq.Header.Set("x-api-key", c.apiKey)
 	httpReq.Header.Set("anthropic-version", c.apiVersion)
 
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := c.httpClient.Do(httpReq) //nolint:bodyclose // the streaming goroutine owns and closes resp.Body.
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer providers.Close(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Anthropic API error (status %d): %s", resp.StatusCode, string(bodyBytes))
+		bodyBytes, readErr := providers.ReadAllAndClose(resp)
+		if readErr != nil {
+			return nil, fmt.Errorf("failed to read anthropic error response: %w", readErr)
+		}
+
+		return nil, fmt.Errorf("anthropic API error (status %d): %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	var anthResp anthropicResponse
@@ -166,6 +171,7 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 	}
 
 	endpoint := c.apiBase + "/v1/messages"
+
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create request: %w", err)
@@ -175,14 +181,18 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 	httpReq.Header.Set("x-api-key", c.apiKey)
 	httpReq.Header.Set("anthropic-version", c.apiVersion)
 
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := c.httpClient.Do(httpReq) //nolint:bodyclose // the streaming goroutine owns and closes resp.Body.
 	if err != nil {
 		return nil, nil, fmt.Errorf("request failed: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, nil, fmt.Errorf("Anthropic API error (status %d): %s", resp.StatusCode, string(bodyBytes))
+		bodyBytes, readErr := providers.ReadAllAndClose(resp)
+		if readErr != nil {
+			return nil, nil, fmt.Errorf("failed to read anthropic error response: %w", readErr)
+		}
+
+		return nil, nil, fmt.Errorf("anthropic API error (status %d): %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	streamChan := make(chan contractsopenai.StreamChunk)
@@ -190,7 +200,7 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 
 	go func() {
 		defer close(streamChan)
-		defer resp.Body.Close()
+		defer providers.Close(resp.Body)
 
 		reader := bufio.NewReader(resp.Body)
 		for {
@@ -199,7 +209,9 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 				if err != io.EOF {
 					errorChan <- fmt.Errorf("stream read error: %w", err)
 				}
+
 				close(errorChan)
+
 				return
 			}
 
@@ -217,6 +229,7 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 			if !strings.HasPrefix(line, "data: ") {
 				continue
 			}
+
 			data := strings.TrimPrefix(line, "data: ")
 
 			// Check for [DONE]
@@ -238,7 +251,7 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 	return streamChan, errorChan, nil
 }
 
-// convertToAnthropicRequest converts OpenAI request to Anthropic format
+// convertToAnthropicRequest converts OpenAI request to Anthropic format.
 func convertToAnthropicRequest(req contractsopenai.ChatCompletionRequest) anthropicRequest {
 	anthReq := anthropicRequest{
 		Model:       req.Model,
@@ -273,7 +286,7 @@ func convertToAnthropicRequest(req contractsopenai.ChatCompletionRequest) anthro
 	return anthReq
 }
 
-// convertToOpenAIResponse converts Anthropic response to OpenAI format
+// convertToOpenAIResponse converts Anthropic response to OpenAI format.
 func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsopenai.ChatCompletionResponse {
 	content := ""
 	for _, block := range resp.Content {
@@ -303,7 +316,7 @@ func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsope
 	return openaiResp
 }
 
-// Register the adapter
+// Register the adapter.
 func init() {
 	providers.Register("anthropic", func(cfg providers.ProviderConfig) providers.Provider {
 		return NewClient(cfg)

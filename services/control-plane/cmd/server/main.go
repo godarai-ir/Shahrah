@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -42,11 +41,13 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed to load configuration", zap.Error(err))
 	}
+
 	if strings.TrimSpace(cfg.GeneralSettings.DatabaseURL) == "" {
 		logger.Fatal("Missing required database configuration", zap.String("field", "general_settings.database_url"))
 	}
 
 	ctx := context.Background()
+
 	store, err := storage.NewStore(ctx, cfg.GeneralSettings.DatabaseURL, logger)
 	if err != nil {
 		logger.Fatal("Failed to initialize storage", zap.Error(err))
@@ -64,6 +65,7 @@ func main() {
 		dualCache, _ = cache.NewMemoryCache(logger)
 	}
 	defer dualCache.Close()
+
 	_, sharedResponseCacheAvailable := dualCache.(*cache.DualCache)
 	store.SetEntitlementCache(dualCache)
 
@@ -79,28 +81,38 @@ func main() {
 	})
 	billingService := billing.NewService(dualCache, store, cfg.BillingSettings.DefaultUSDtoIRR, cfg.BillingSettings.RateSource)
 	subscriptionProcessor := billing.NewSubscriptionProcessor(store, logger, time.Minute)
+
 	subscriptionProcessor.Start()
 	defer subscriptionProcessor.Stop()
+
 	tunnelClient := tunneltransport.NewHTTPTransport(cfg.TunnelSettings.ClientURL, time.Duration(cfg.TunnelSettings.Timeout)*time.Second)
 
 	metricsCfg := metricsobs.LoadConfigFromEnv()
-	var emitMetric func(input metricsobs.BuildInput)
-	var reconciler *metricsobs.CostReconciler
+
+	var (
+		emitMetric func(input metricsobs.BuildInput)
+		reconciler *metricsobs.CostReconciler
+	)
+
 	if metricsCfg.Enabled {
 		metricsQueue := metricsobs.NewQueue(metricsCfg.QueueCapacity)
 		metricsProcessor := metricsobs.NewProcessor(metricsCfg, metricsQueue, store, logger)
 		metricsProcessor.Start()
+
 		defer func() {
 			stopCtx, cancelStop := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancelStop()
+
 			_ = metricsProcessor.Stop(stopCtx)
 		}()
+
 		emitMetric = func(input metricsobs.BuildInput) {
 			event := metricsProcessor.BuildEvent(input)
 			_ = metricsQueue.Enqueue(event)
 		}
 
 		reconciler = metricsobs.NewCostReconciler(metricsobs.LoadReconcileConfigFromEnv(), &costReconcileAdapter{store: store}, logger)
+
 		reconciler.Start()
 		defer reconciler.Stop()
 	}
@@ -144,7 +156,9 @@ func main() {
 		PromptResolver:    store,
 	})
 	proxyHandler.SetGuardrails(guardrails.NewDefaultEngine())
+
 	var responseEmbedder responsecache.Embedder
+
 	if cfg.ResponseCache.Enabled && sharedResponseCacheAvailable && strings.TrimSpace(cfg.ResponseCache.EmbeddingBaseURL) != "" && strings.TrimSpace(cfg.ResponseCache.EmbeddingAPIKey) != "" {
 		embedder, embedderErr := responsecache.NewArvanCloudBGEEmbedder(&http.Client{Timeout: time.Duration(cfg.ResponseCache.EmbeddingTimeoutSec) * time.Second}, responsecache.ArvanCloudConfig{
 			BaseURL: cfg.ResponseCache.EmbeddingBaseURL, APIKey: cfg.ResponseCache.EmbeddingAPIKey,
@@ -159,6 +173,7 @@ func main() {
 	} else if cfg.ResponseCache.Enabled && !sharedResponseCacheAvailable {
 		logger.Warn("Smart response cache disabled because shared Redis is unavailable")
 	}
+
 	responseCache, responseCacheErr := responsecache.NewService(dualCache, responseEmbedder, responsecache.Config{
 		Enabled: cfg.ResponseCache.Enabled, KeyPrefix: cfg.ResponseCache.KeyPrefix,
 		DefaultTTL:            time.Duration(cfg.ResponseCache.DefaultTTLSeconds) * time.Second,
@@ -170,7 +185,9 @@ func main() {
 	if responseCacheErr != nil {
 		logger.Fatal("Failed to initialize response cache", zap.Error(responseCacheErr))
 	}
+
 	proxyHandler.SetResponseCache(responseCache)
+
 	completionsHandler := proxy.NewCompletionsHandlerWithDependencies(baseProxyDeps)
 	responsesHandler := proxy.NewResponsesHandlerWithDependencies(baseProxyDeps)
 	embeddingsHandler := proxy.NewEmbeddingsHandlerWithDependencies(baseProxyDeps)
@@ -183,19 +200,25 @@ func main() {
 	traceSampler := tracing.NewSampler(traceCfg.DefaultSampleRate, traceCfg.SlowRequest.Milliseconds())
 	tracePrivacy := tracing.NewPrivacyManager(traceCfg)
 	tracePrivacy.SetTenantPolicyResolver(newTenantTracePolicyResolver(store))
+
 	reliableExporter, err := tracing.NewReliableExporter(traceCfg, store, logger)
 	if err != nil {
 		logger.Fatal("Failed to initialize tracing exporter", zap.Error(err))
 	}
 	defer reliableExporter.Close()
+
 	traceProcessor := tracing.NewProcessor(traceCfg, traceQueue, reliableExporter, logger)
 	traceProcessor.Start()
+
 	defer func() {
 		stopCtx, cancelStop := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancelStop()
+
 		_ = traceProcessor.Stop(stopCtx)
 	}()
+
 	traceRetentionCleaner := tracing.NewRetentionCleaner(traceCfg, store, logger)
+
 	traceRetentionCleaner.Start()
 	defer traceRetentionCleaner.Stop()
 
@@ -223,12 +246,15 @@ func main() {
 	go func() {
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
 		select {
 		case <-sigCh:
 			logger.Info("Shutting down gracefully...")
+
 			if err := app.ShutdownWithTimeout(10 * time.Second); err != nil {
 				logger.Error("Server shutdown failed", zap.Error(err))
 			}
+
 			cancel()
 		case <-runCtx.Done():
 			return
@@ -268,29 +294,35 @@ func (r *tenantTracePolicyResolver) ResolveTenantPolicy(tenantID string) (tracin
 	if tenantID == "" {
 		return "", false
 	}
+
 	now := time.Now()
+
 	r.mu.RLock()
 	cached, ok := r.cache[tenantID]
 	r.mu.RUnlock()
+
 	if ok && now.Before(cached.expiresAt) {
 		return cached.policy, true
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
 	defer cancel()
+
 	policy, exists, err := r.store.ResolveTenantTraceCapturePolicy(ctx, tenantID)
 	if err != nil || !exists {
-		if err != nil && !errors.Is(err, context.DeadlineExceeded) {
-			// Fail open to global policy.
-		}
+		// Fail open to the global policy when lookup fails or times out.
 		return "", false
 	}
+
 	out := tracing.ParseCapturePolicy(policy)
+
 	r.mu.Lock()
 	r.cache[tenantID] = tenantPolicyCache{
 		policy:    out,
 		expiresAt: now.Add(r.ttl),
 	}
 	r.mu.Unlock()
+
 	return out, true
 }
 
@@ -303,10 +335,12 @@ func (a *costReconcileAdapter) ListSpendCostByTenantAndDay(ctx context.Context, 
 	if err != nil {
 		return nil, err
 	}
+
 	out := make([]metricsobs.ReconcileTenantCostRow, 0, len(rows))
 	for _, r := range rows {
 		out = append(out, metricsobs.ReconcileTenantCostRow{TenantID: r.TenantID, CostUSD: r.CostUSD})
 	}
+
 	return out, nil
 }
 
@@ -315,9 +349,11 @@ func (a *costReconcileAdapter) ListMetricsCostByTenantAndDay(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
+
 	out := make([]metricsobs.ReconcileTenantCostRow, 0, len(rows))
 	for _, r := range rows {
 		out = append(out, metricsobs.ReconcileTenantCostRow{TenantID: r.TenantID, CostUSD: r.CostUSD})
 	}
+
 	return out, nil
 }

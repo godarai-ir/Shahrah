@@ -15,6 +15,7 @@ var ErrInsufficientWalletBalance = errors.New("insufficient wallet balance")
 // GetWallet retrieves or creates the tenant wallet.
 func (s *Store) GetWallet(ctx context.Context, tenantID string) (*platform.Wallet, error) {
 	var wallet platform.Wallet
+
 	err := s.pool.QueryRow(ctx, `
 		INSERT INTO wallets (tenant_id, balance_irr, pending_irr)
 		VALUES ($1, 0, 0)
@@ -24,6 +25,7 @@ func (s *Store) GetWallet(ctx context.Context, tenantID string) (*platform.Walle
 	if err != nil {
 		return nil, err
 	}
+
 	return &wallet, nil
 }
 
@@ -50,6 +52,7 @@ func (s *Store) TopUpWallet(ctx context.Context, tenantID string, amountIRR floa
 	}
 
 	metaRaw, _ := json.Marshal(metadata)
+
 	var out platform.Transaction
 	if err := tx.QueryRow(ctx, `
 		INSERT INTO wallet_transactions (
@@ -62,11 +65,13 @@ func (s *Store) TopUpWallet(ctx context.Context, tenantID string, amountIRR floa
 	); err != nil {
 		return nil, err
 	}
+
 	out.Metadata = metadata
 
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+
 	return &out, nil
 }
 
@@ -119,5 +124,6 @@ func (s *Store) DebitWallet(ctx context.Context, tenantID string, breakdown plat
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+
 	return &txn, nil
 }

@@ -18,20 +18,10 @@ func buildTraceChatRequestPayload(req contractsopenai.ChatCompletionRequest) map
 			"name":    msg.Name,
 		})
 	}
+
 	return map[string]interface{}{
 		"model":       req.Model,
 		"messages":    messages,
-		"max_tokens":  req.MaxTokens,
-		"temperature": req.Temperature,
-		"top_p":       req.TopP,
-		"stream":      req.Stream,
-	}
-}
-
-func buildTraceCompletionRequestPayload(req contractsopenai.CompletionRequest) map[string]interface{} {
-	return map[string]interface{}{
-		"model":       req.Model,
-		"prompt":      normalizePrompt(req.Prompt),
 		"max_tokens":  req.MaxTokens,
 		"temperature": req.Temperature,
 		"top_p":       req.TopP,
@@ -44,10 +34,12 @@ func buildTraceChatResponsePayload(resp contractsopenai.ChatCompletionResponse) 
 	for _, choice := range resp.Choices {
 		content := ""
 		role := ""
+
 		if choice.Message != nil {
 			content = contractsopenai.ChatContentText(choice.Message.Content)
 			role = choice.Message.Role
 		}
+
 		choices = append(choices, map[string]interface{}{
 			"index":         choice.Index,
 			"role":          role,
@@ -55,12 +47,14 @@ func buildTraceChatResponsePayload(resp contractsopenai.ChatCompletionResponse) 
 			"finish_reason": choice.FinishReason,
 		})
 	}
+
 	usage := map[string]interface{}{}
 	if resp.Usage != nil {
 		usage["prompt_tokens"] = resp.Usage.PromptTokens
 		usage["completion_tokens"] = resp.Usage.CompletionTokens
 		usage["total_tokens"] = resp.Usage.TotalTokens
 	}
+
 	return map[string]interface{}{
 		"id":      resp.ID,
 		"model":   resp.Model,
@@ -78,12 +72,14 @@ func buildTraceCompletionResponsePayload(resp contractsopenai.CompletionResponse
 			"finish_reason": choice.FinishReason,
 		})
 	}
+
 	usage := map[string]interface{}{}
 	if resp.Usage != nil {
 		usage["prompt_tokens"] = resp.Usage.PromptTokens
 		usage["completion_tokens"] = resp.Usage.CompletionTokens
 		usage["total_tokens"] = resp.Usage.TotalTokens
 	}
+
 	return map[string]interface{}{
 		"id":      resp.ID,
 		"model":   resp.Model,
@@ -117,6 +113,7 @@ func redactTraceValue(value interface{}) interface{} {
 		for _, item := range v {
 			out = append(out, redactTraceValue(item))
 		}
+
 		return out
 	case map[string]interface{}:
 		out := make(map[string]interface{}, len(v))
@@ -125,14 +122,17 @@ func redactTraceValue(value interface{}) interface{} {
 				out[key] = redactTraceValue(item)
 				continue
 			}
+
 			if strings.EqualFold(key, "url") {
 				if s, ok := item.(string); ok {
 					out[key] = contractsopenai.RedactDataURL(s)
 					continue
 				}
 			}
+
 			out[key] = redactTraceValue(item)
 		}
+
 		return out
 	default:
 		return value
@@ -149,6 +149,7 @@ func buildTraceResponsePayload(resp contractsopenai.Response) map[string]interfa
 				"text": block.Text,
 			})
 		}
+
 		output = append(output, map[string]interface{}{
 			"id":      item.ID,
 			"type":    item.Type,
@@ -176,6 +177,7 @@ func buildTraceResponsePayload(resp contractsopenai.Response) map[string]interfa
 
 func buildTraceEmbeddingRequestPayload(req contractsopenai.EmbeddingRequest) map[string]interface{} {
 	inputType, inputCount, inputLengths, inputHashes := summarizeEmbeddingInput(req.Input)
+
 	return map[string]interface{}{
 		"model":           req.Model,
 		"input_type":      inputType,
@@ -196,13 +198,16 @@ func buildTraceEmbeddingResponsePayload(resp contractsopenai.EmbeddingResponse) 
 			vectorDims = append(vectorDims, len(dims))
 			continue
 		}
+
 		vectorDims = append(vectorDims, 0)
 	}
+
 	usage := map[string]interface{}{}
 	if resp.Usage != nil {
 		usage["prompt_tokens"] = resp.Usage.PromptTokens
 		usage["total_tokens"] = resp.Usage.TotalTokens
 	}
+
 	return map[string]interface{}{
 		"model":         resp.Model,
 		"object":        resp.Object,
@@ -214,6 +219,7 @@ func buildTraceEmbeddingResponsePayload(resp contractsopenai.EmbeddingResponse) 
 
 func buildTraceModerationRequestPayload(req contractsopenai.ModerationRequest) map[string]interface{} {
 	inputType, inputCount, inputLengths, inputHashes := summarizeModerationInput(req.Input)
+
 	return map[string]interface{}{
 		"model":         req.Model,
 		"input_type":    inputType,
@@ -227,15 +233,18 @@ func buildTraceModerationRequestPayload(req contractsopenai.ModerationRequest) m
 func buildTraceModerationResponsePayload(resp contractsopenai.ModerationResponse) map[string]interface{} {
 	results := make([]map[string]interface{}, 0, len(resp.Results))
 	flaggedCount := 0
+
 	for _, result := range resp.Results {
 		if result.Flagged {
 			flaggedCount++
 		}
+
 		results = append(results, map[string]interface{}{
 			"flagged":    result.Flagged,
 			"categories": result.Categories,
 		})
 	}
+
 	return map[string]interface{}{
 		"id":            resp.ID,
 		"model":         resp.Model,
@@ -253,62 +262,78 @@ func buildTraceImageRequestPayload(operation string, body []byte, contentType st
 	for k, v := range metadata {
 		out[k] = v
 	}
+
 	if !strings.HasPrefix(strings.ToLower(strings.TrimSpace(contentType)), "application/json") {
 		return out
 	}
+
 	var raw map[string]interface{}
 	if err := json.Unmarshal(body, &raw); err != nil {
 		return out
 	}
+
 	if prompt, ok := raw["prompt"].(string); ok {
 		out["prompt_length"] = len(prompt)
 		out["prompt_hash"] = hashTracePreview(prompt)
 	}
+
 	if image, ok := raw["image"]; ok {
 		out["image_source_type"] = traceImageSourceType(image)
 	}
+
 	return out
 }
 
 func buildTraceImageResponsePayload(body []byte) map[string]interface{} {
 	out := map[string]interface{}{}
+
 	var raw map[string]interface{}
 	if err := json.Unmarshal(body, &raw); err != nil {
 		out["decode"] = "unavailable"
 		return out
 	}
+
 	if created, ok := raw["created"]; ok {
 		out["created"] = created
 	}
+
 	if usage, ok := raw["usage"].(map[string]interface{}); ok {
 		safeUsage := map[string]interface{}{}
+
 		for _, key := range []string{"cost_in_usd_ticks", "total_tokens", "input_tokens", "output_tokens"} {
 			if v, exists := usage[key]; exists {
 				safeUsage[key] = v
 			}
 		}
+
 		out["usage"] = safeUsage
 	}
+
 	if data, ok := raw["data"].([]interface{}); ok {
 		out["data_count"] = len(data)
+
 		formats := make([]string, 0, len(data))
 		for _, item := range data {
 			m, ok := item.(map[string]interface{})
 			if !ok {
 				continue
 			}
+
 			switch {
 			case m["b64_json"] != nil:
 				formats = append(formats, "b64_json")
 			case m["url"] != nil:
 				formats = append(formats, "url")
 			}
+
 			if mt, ok := m["mime_type"].(string); ok && mt != "" {
 				out["mime_type"] = mt
 			}
 		}
+
 		out["data_formats"] = formats
 	}
+
 	return out
 }
 
@@ -323,6 +348,7 @@ func safeContentTypeFamily(contentType string) string {
 		if i := strings.Index(ct, ";"); i >= 0 {
 			return strings.TrimSpace(ct[:i])
 		}
+
 		return ct
 	}
 }
@@ -333,14 +359,17 @@ func traceImageSourceType(value interface{}) string {
 		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(v)), "http") {
 			return "url"
 		}
+
 		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(v)), "data:") {
 			return "data_url"
 		}
+
 		return "string"
 	case map[string]interface{}:
 		if t, ok := v["type"].(string); ok && strings.TrimSpace(t) != "" {
 			return strings.TrimSpace(t)
 		}
+
 		return "object"
 	case []interface{}:
 		return "array"
@@ -348,6 +377,7 @@ func traceImageSourceType(value interface{}) string {
 		if value == nil {
 			return ""
 		}
+
 		return "unknown"
 	}
 }
@@ -358,14 +388,17 @@ func summarizeModerationInput(input interface{}) (string, int, []int, []string) 
 		return "single", 1, []int{len(v)}, []string{hashTracePreview(v)}
 	case []string:
 		lengths := make([]int, 0, len(v))
+
 		hashes := make([]string, 0, len(v))
 		for _, item := range v {
 			lengths = append(lengths, len(item))
 			hashes = append(hashes, hashTracePreview(item))
 		}
+
 		return "batch", len(v), lengths, hashes
 	case []interface{}:
 		lengths := make([]int, 0, len(v))
+
 		hashes := make([]string, 0, len(v))
 		for _, item := range v {
 			if s, ok := item.(string); ok {
@@ -373,6 +406,7 @@ func summarizeModerationInput(input interface{}) (string, int, []int, []string) 
 				hashes = append(hashes, hashTracePreview(s))
 			}
 		}
+
 		return "batch", len(lengths), lengths, hashes
 	default:
 		return "unknown", 0, nil, nil
@@ -385,14 +419,17 @@ func summarizeEmbeddingInput(input interface{}) (string, int, []int, []string) {
 		return "single", 1, []int{len(v)}, []string{hashTracePreview(v)}
 	case []string:
 		lengths := make([]int, 0, len(v))
+
 		hashes := make([]string, 0, len(v))
 		for _, item := range v {
 			lengths = append(lengths, len(item))
 			hashes = append(hashes, hashTracePreview(item))
 		}
+
 		return "batch", len(v), lengths, hashes
 	case []interface{}:
 		lengths := make([]int, 0, len(v))
+
 		hashes := make([]string, 0, len(v))
 		for _, item := range v {
 			if s, ok := item.(string); ok {
@@ -400,6 +437,7 @@ func summarizeEmbeddingInput(input interface{}) (string, int, []int, []string) {
 				hashes = append(hashes, hashTracePreview(s))
 			}
 		}
+
 		return "batch", len(lengths), lengths, hashes
 	default:
 		return "unknown", 0, nil, nil
@@ -418,15 +456,19 @@ func buildTraceProviderErrorPayload(statusCode int, body []byte) map[string]inte
 	if len(body) == 0 {
 		return payload
 	}
+
 	var decoded interface{}
 	if err := json.Unmarshal(body, &decoded); err == nil {
 		payload["body"] = decoded
 		return payload
 	}
+
 	bodyText := strings.TrimSpace(string(body))
 	if len(bodyText) > 2048 {
 		bodyText = bodyText[:2048]
 	}
+
 	payload["body"] = bodyText
+
 	return payload
 }

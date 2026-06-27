@@ -78,6 +78,7 @@ func (e *ViolationError) Error() string {
 	if strings.TrimSpace(e.Message) == "" {
 		return "guardrail checks failed"
 	}
+
 	return e.Message
 }
 
@@ -106,10 +107,12 @@ func NewFromTenantGuardrail(item platform.TenantGuardrail) Guardrail {
 	if operation == "" {
 		operation = OperationValidate
 	}
+
 	enforcement := Enforcement(item.Enforcement)
 	if enforcement == "" {
 		enforcement = EnforcementEnforce
 	}
+
 	replacement := stringFromConfig(item.Config, "redaction_text", defaultRedaction)
 	switch normalizeSelectorKey(item.Type) {
 	case "keyword_blocklist":
@@ -163,9 +166,10 @@ func NewDefaultEngine() *Engine {
 	} {
 		e.Register(g)
 	}
+
 	e.registry["pii_redaction"] = e.registry["basic_pii"]
 	e.registry["pii_detection"] = e.registry["basic_pii"]
-	e.registry["secrets_detection"] = e.registry["secrets_detection"]
+
 	return e
 }
 
@@ -173,11 +177,13 @@ func (e *Engine) Register(g Guardrail) {
 	if e == nil || g == nil {
 		return
 	}
+
 	e.registry[normalizeSelectorKey(g.Name())] = g
 }
 
 func ParseSelection(rawGuardrails string, rawScope string) (RequestSelection, error) {
 	var sel RequestSelection
+
 	scope := strings.ToLower(strings.TrimSpace(rawScope))
 	switch Scope(scope) {
 	case "", ScopeAll:
@@ -187,14 +193,17 @@ func ParseSelection(rawGuardrails string, rawScope string) (RequestSelection, er
 	default:
 		return sel, fmt.Errorf("guardrails scope must be all or last")
 	}
+
 	rawGuardrails = strings.TrimSpace(rawGuardrails)
 	if rawGuardrails == "" {
 		return sel, nil
 	}
+
 	if !strings.HasPrefix(rawGuardrails, "{") && !strings.HasPrefix(rawGuardrails, "[") {
 		sel.LLMInput = parseSelectorList(rawGuardrails)
 		return sel, nil
 	}
+
 	var payload struct {
 		LLMInput          []string `json:"llm_input_guardrails"`
 		LLMOutput         []string `json:"llm_output_guardrails"`
@@ -206,8 +215,10 @@ func ParseSelection(rawGuardrails string, rawScope string) (RequestSelection, er
 	if err := json.Unmarshal([]byte(rawGuardrails), &payload); err != nil {
 		return sel, fmt.Errorf("invalid guardrails header: %w", err)
 	}
+
 	sel.LLMInput = uniqueSelectors(append(payload.LLMInput, payload.InputAlias...))
 	sel.LLMOutput = uniqueSelectors(append(payload.LLMOutput, payload.OutputAlias...))
+
 	return sel, nil
 }
 
@@ -220,7 +231,9 @@ func (e *Engine) ApplyInputWithGuardrails(req contractsopenai.ChatCompletionRequ
 	if e == nil || len(sel.LLMInput) == 0 {
 		return result, nil
 	}
+
 	texts, refs := inputTexts(req, sel.Scope)
+
 	outTexts := append([]string(nil), texts...)
 	for _, selector := range sel.LLMInput {
 		g, check, eval, err := e.evaluate(selector, HookLLMInput, outTexts, overrides)
@@ -229,21 +242,27 @@ func (e *Engine) ApplyInputWithGuardrails(req contractsopenai.ChatCompletionRequ
 			if shouldBlockOnError(g) {
 				result.Blocked = true
 				result.Reason = check.Reason
+
 				return result, &ViolationError{Message: "Request blocked by GodarAI guardrail", Checks: result.Checks}
 			}
+
 			continue
 		}
+
 		result.Checks["llm_input_guardrails"] = append(result.Checks["llm_input_guardrails"], check)
 		if shouldBlockOnViolation(g, eval) {
 			result.Blocked = true
 			result.Reason = check.Reason
+
 			return result, &ViolationError{Message: "Request blocked by GodarAI guardrail", Checks: result.Checks}
 		}
+
 		if eval.Mutated && g.Operation() == OperationMutate {
 			outTexts = eval.Texts
 			applyInputTexts(&result.Request, refs, outTexts)
 		}
 	}
+
 	return result, nil
 }
 
@@ -256,7 +275,9 @@ func (e *Engine) ApplyOutputWithGuardrails(resp contractsopenai.ChatCompletionRe
 	if e == nil || len(sel.LLMOutput) == 0 {
 		return result, nil
 	}
+
 	texts, refs := outputTexts(resp)
+
 	outTexts := append([]string(nil), texts...)
 	for _, selector := range sel.LLMOutput {
 		g, check, eval, err := e.evaluate(selector, HookLLMOutput, outTexts, overrides)
@@ -265,40 +286,52 @@ func (e *Engine) ApplyOutputWithGuardrails(resp contractsopenai.ChatCompletionRe
 			if shouldBlockOnError(g) {
 				result.Blocked = true
 				result.Reason = check.Reason
+
 				return result, &ViolationError{Message: "Response blocked by GodarAI guardrail", Checks: result.Checks}
 			}
+
 			continue
 		}
+
 		result.Checks["llm_output_guardrails"] = append(result.Checks["llm_output_guardrails"], check)
 		if shouldBlockOnViolation(g, eval) {
 			result.Blocked = true
 			result.Reason = check.Reason
+
 			return result, &ViolationError{Message: "Response blocked by GodarAI guardrail", Checks: result.Checks}
 		}
+
 		if eval.Mutated && g.Operation() == OperationMutate {
 			outTexts = eval.Texts
 			applyOutputTexts(result.Response, refs, outTexts)
 		}
 	}
+
 	return result, nil
 }
 
 func (e *Engine) evaluate(selector string, hook Hook, texts []string, overrides map[string]Guardrail) (Guardrail, Check, EvaluationResult, error) {
 	start := time.Now()
+
 	g := e.resolve(selector, overrides)
 	if g == nil {
 		check := Check{Selector: selector, Status: "error", Operation: OperationValidate, Enforcement: EnforcementEnforce, Reason: "Unknown guardrail selector", Error: "unknown_selector"}
 		check.LatencyMS = time.Since(start).Milliseconds()
+
 		return nil, check, EvaluationResult{}, fmt.Errorf("unknown guardrail selector %q", selector)
 	}
+
 	eval, err := g.Evaluate(EvaluationInput{Hook: hook, Selector: selector, Texts: texts})
+
 	check := Check{Selector: selector, Operation: g.Operation(), Enforcement: g.Enforcement(), LatencyMS: time.Since(start).Milliseconds(), Mutated: eval.Mutated}
 	if err != nil {
 		check.Status = "error"
 		check.Reason = "Guardrail execution failed"
 		check.Error = err.Error()
+
 		return g, check, eval, err
 	}
+
 	if eval.Blocked {
 		check.Status = "blocked"
 		check.Reason = eval.Reason
@@ -308,9 +341,11 @@ func (e *Engine) evaluate(selector string, hook Hook, texts []string, overrides 
 	} else {
 		check.Status = "passed"
 	}
+
 	if g.Enforcement() == EnforcementAudit && eval.Blocked {
 		check.Status = "flagged"
 	}
+
 	return g, check, eval, nil
 }
 
@@ -318,24 +353,31 @@ func (e *Engine) resolve(selector string, overrides map[string]Guardrail) Guardr
 	if e == nil {
 		return nil
 	}
+
 	selector = strings.TrimSpace(selector)
 	if selector == "" {
 		return nil
 	}
+
 	parts := strings.Split(selector, "/")
+
 	candidate := parts[len(parts)-1]
 	if g := overrides[normalizeSelectorKey(candidate)]; g != nil {
 		return g
 	}
+
 	if g := overrides[normalizeSelectorKey(selector)]; g != nil {
 		return g
 	}
+
 	if g := e.registry[normalizeSelectorKey(candidate)]; g != nil {
 		return g
 	}
+
 	if g := e.registry[normalizeSelectorKey(selector)]; g != nil {
 		return g
 	}
+
 	return nil
 }
 
@@ -351,6 +393,7 @@ func stringSliceFromConfig(config map[string]interface{}, key string) []string {
 				out = append(out, text)
 			}
 		}
+
 		return uniqueSelectors(out)
 	default:
 		return nil
@@ -361,6 +404,7 @@ func stringFromConfig(config map[string]interface{}, key string, fallback string
 	if value, ok := config[key].(string); ok && strings.TrimSpace(value) != "" {
 		return value
 	}
+
 	return fallback
 }
 
@@ -368,6 +412,7 @@ func boolFromConfig(config map[string]interface{}, key string, fallback bool) bo
 	if value, ok := config[key].(bool); ok {
 		return value
 	}
+
 	return fallback
 }
 
@@ -385,6 +430,7 @@ func intFromConfig(config map[string]interface{}, key string, fallback int) int 
 			return int(parsed)
 		}
 	}
+
 	return fallback
 }
 
@@ -392,6 +438,7 @@ func mapFromConfig(config map[string]interface{}, key string) map[string]interfa
 	if value, ok := config[key].(map[string]interface{}); ok {
 		return value
 	}
+
 	return nil
 }
 
@@ -400,9 +447,11 @@ func regexpFromConfig(pattern string, caseSensitive bool) (*regexp.Regexp, error
 	if pattern == "" {
 		return nil, fmt.Errorf("regex pattern is required")
 	}
+
 	if !caseSensitive && !strings.HasPrefix(pattern, "(?i)") {
 		pattern = "(?i)" + pattern
 	}
+
 	return regexp.Compile(pattern)
 }
 
@@ -417,25 +466,30 @@ func shouldBlockOnError(g Guardrail) bool {
 func normalizeSelectorKey(value string) string {
 	value = strings.ToLower(strings.TrimSpace(value))
 	value = strings.ReplaceAll(value, "-", "_")
+
 	return value
 }
 
 func uniqueSelectors(in []string) []string {
 	out := make([]string, 0, len(in))
 	seen := map[string]bool{}
+
 	for _, value := range in {
 		value = strings.TrimSpace(value)
 		if value == "" || seen[value] {
 			continue
 		}
+
 		seen[value] = true
 		out = append(out, value)
 	}
+
 	return out
 }
 
 func parseSelectorList(raw string) []string {
 	raw = strings.ReplaceAll(raw, "\n", ",")
 	raw = strings.ReplaceAll(raw, ";", ",")
+
 	return uniqueSelectors(strings.Split(raw, ","))
 }

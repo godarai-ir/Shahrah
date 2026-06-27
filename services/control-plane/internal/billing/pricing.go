@@ -7,7 +7,7 @@ import (
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 )
 
-// ModelPricing defines pricing for a specific model
+// ModelPricing defines pricing for a specific model.
 type ModelPricing struct {
 	Provider    string  // provider name (openai, anthropic, etc.)
 	Model       string  // model name
@@ -17,7 +17,7 @@ type ModelPricing struct {
 	LastUpdated string  // last updated date
 }
 
-// PricingRegistry contains all model pricing data
+// PricingRegistry contains all model pricing data.
 var PricingRegistry = map[string]ModelPricing{
 	// ========== OPENAI ==========
 	// GPT-4o Family
@@ -196,7 +196,7 @@ var PricingRegistry = map[string]ModelPricing{
 	},
 }
 
-// GetPricing retrieves pricing for a provider/model combination
+// GetPricing retrieves pricing for a provider/model combination.
 func GetPricing(provider, model string) (ModelPricing, bool) {
 	// Try exact match first
 	key := provider + "/" + model
@@ -206,9 +206,10 @@ func GetPricing(provider, model string) (ModelPricing, bool) {
 
 	// Try prefix match (provider with model substring)
 	lowerProvider := strings.ToLower(provider)
+
 	for k, pricing := range PricingRegistry {
 		parts := strings.SplitN(k, "/", 2)
-		if len(parts) == 2 && strings.ToLower(parts[0]) == lowerProvider {
+		if len(parts) == 2 && strings.EqualFold(parts[0], lowerProvider) {
 			// Check if model contains the requested model or vice versa
 			if strings.Contains(strings.ToLower(parts[1]), strings.ToLower(model)) ||
 				strings.Contains(strings.ToLower(model), strings.ToLower(parts[1])) {
@@ -227,7 +228,7 @@ func GetPricing(provider, model string) (ModelPricing, bool) {
 	}, false
 }
 
-// CalculateCost calculates the cost for a given usage
+// CalculateCost calculates the cost for a given usage.
 func CalculateCost(provider, model string, promptTokens, completionTokens int) (float64, bool) {
 	pricing, found := GetPricing(provider, model)
 
@@ -237,7 +238,7 @@ func CalculateCost(provider, model string, promptTokens, completionTokens int) (
 	return inputCost + outputCost, found
 }
 
-// GetAllProviders returns list of all providers in the registry
+// GetAllProviders returns list of all providers in the registry.
 func GetAllProviders() []string {
 	seen := make(map[string]bool)
 	providers := []string{}
@@ -253,23 +254,24 @@ func GetAllProviders() []string {
 	return providers
 }
 
-// FormatPrice formats a price for display
+// FormatPrice formats a price for display.
 func FormatPrice(price float64) string {
 	return fmt.Sprintf("$%.4f", price)
 }
 
-// priceInfo holds pricing info with per-token prices
+// priceInfo holds pricing info with per-token prices.
 type priceInfo struct {
 	Input  float64 // per 1K token
 	Output float64 // per 1K token
 }
 
-// modelPrice returns pricing for a given model (legacy function for service.go)
+// modelPrice returns pricing for a given model (legacy function for service.go).
 func modelPrice(model string) priceInfo {
 	// Try to find pricing in registry
 	parts := strings.SplitN(model, "/", 2)
 	provider := "openai"
 	modelName := model
+
 	if len(parts) == 2 {
 		provider = parts[0]
 		modelName = parts[1]
@@ -288,20 +290,23 @@ func modelPrice(model string) priceInfo {
 	}
 }
 
-// estimatePromptTokens estimates prompt tokens from request (legacy function for service.go)
+// estimatePromptTokens estimates prompt tokens from request (legacy function for service.go).
 func estimatePromptTokens(req interface{}) int {
 	switch v := req.(type) {
 	case contractsopenai.ChatCompletionRequest:
 		textTokens := 0
 		imageTokens := 0
+
 		for _, msg := range v.Messages {
 			textTokens += EstimateTokens(contractsopenai.ChatContentText(msg.Content))
 			imageTokens += contractsopenai.ChatContentImageCount(msg.Content) * 1024
 		}
+
 		if textTokens > 0 || imageTokens > 0 {
 			if textTokens < 100 {
 				textTokens = 100
 			}
+
 			return textTokens + imageTokens
 		}
 	case *contractsopenai.ChatCompletionRequest:

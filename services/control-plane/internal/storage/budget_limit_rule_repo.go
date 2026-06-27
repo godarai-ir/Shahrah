@@ -14,22 +14,27 @@ func (s *Store) CreateBudgetLimitRule(ctx context.Context, tenantID string, req 
 	if req.Enabled != nil {
 		enabled = *req.Enabled
 	}
+
 	priority := 100
 	if req.Priority != nil {
 		priority = *req.Priority
 	}
+
 	blockOnExceed := true
 	if req.BlockOnBudgetExceed != nil {
 		blockOnExceed = *req.BlockOnBudgetExceed
 	}
+
 	conditionsJSON, err := marshalJSONObject(req.Conditions)
 	if err != nil {
 		return nil, err
 	}
+
 	alertsJSON, err := marshalJSONObject(req.Alerts)
 	if err != nil {
 		return nil, err
 	}
+
 	rows, err := s.pool.Query(ctx, `
 		INSERT INTO budget_limit_rules (
 			id, tenant_id, rule_id, name, description, enabled, priority, conditions_json,
@@ -44,9 +49,11 @@ func (s *Store) CreateBudgetLimitRule(ctx context.Context, tenantID string, req 
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, pgx.ErrNoRows
 	}
+
 	return scanBudgetLimitRule(rows)
 }
 
@@ -54,14 +61,18 @@ func (s *Store) ListBudgetLimitRules(ctx context.Context, tenantID string, query
 	if limit <= 0 {
 		limit = 50
 	}
+
 	if limit > 200 {
 		limit = 200
 	}
+
 	if offset < 0 {
 		offset = 0
 	}
+
 	q := strings.TrimSpace(strings.ToLower(query))
 	like := "%" + q + "%"
+
 	var total int
 	if err := s.pool.QueryRow(ctx, `
 		SELECT COUNT(1)
@@ -71,6 +82,7 @@ func (s *Store) ListBudgetLimitRules(ctx context.Context, tenantID string, query
 	`, tenantID, q, like).Scan(&total); err != nil {
 		return nil, 0, err
 	}
+
 	rows, err := s.pool.Query(ctx, `
 		SELECT id::text, tenant_id::text, rule_id, COALESCE(name,''), COALESCE(description,''), enabled, priority,
 		       conditions_json, limit_to, unit, budget_applies_per, block_on_budget_exceed, alerts_json, created_at, updated_at
@@ -84,14 +96,18 @@ func (s *Store) ListBudgetLimitRules(ctx context.Context, tenantID string, query
 		return nil, 0, err
 	}
 	defer rows.Close()
+
 	items := make([]platform.BudgetLimitRule, 0, limit)
+
 	for rows.Next() {
 		item, scanErr := scanBudgetLimitRule(rows)
 		if scanErr != nil {
 			return nil, 0, scanErr
 		}
+
 		items = append(items, *item)
 	}
+
 	return items, total, rows.Err()
 }
 
@@ -107,9 +123,11 @@ func (s *Store) GetBudgetLimitRuleByRuleID(ctx context.Context, tenantID string,
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, pgx.ErrNoRows
 	}
+
 	return scanBudgetLimitRule(rows)
 }
 
@@ -118,54 +136,67 @@ func (s *Store) UpdateBudgetLimitRuleByRuleID(ctx context.Context, tenantID stri
 	if err != nil {
 		return nil, err
 	}
+
 	name := current.Name
 	if req.Name != nil {
 		name = strings.TrimSpace(*req.Name)
 	}
+
 	description := current.Description
 	if req.Description != nil {
 		description = strings.TrimSpace(*req.Description)
 	}
+
 	enabled := current.Enabled
 	if req.Enabled != nil {
 		enabled = *req.Enabled
 	}
+
 	priority := current.Priority
 	if req.Priority != nil {
 		priority = *req.Priority
 	}
+
 	conditions := current.Conditions
 	if req.Conditions != nil {
 		conditions = req.Conditions
 	}
+
 	limitTo := current.LimitTo
 	if req.LimitTo != nil {
 		limitTo = *req.LimitTo
 	}
+
 	unit := current.Unit
 	if req.Unit != nil {
 		unit = *req.Unit
 	}
+
 	budgetAppliesPer := current.BudgetAppliesPer
 	if req.BudgetAppliesPer != nil {
 		budgetAppliesPer = req.BudgetAppliesPer
 	}
+
 	blockOnExceed := current.BlockOnBudgetExceed
 	if req.BlockOnBudgetExceed != nil {
 		blockOnExceed = *req.BlockOnBudgetExceed
 	}
+
 	alerts := current.Alerts
 	if req.Alerts != nil {
 		alerts = req.Alerts
 	}
+
 	conditionsJSON, err := marshalJSONObject(conditions)
 	if err != nil {
 		return nil, err
 	}
+
 	alertsJSON, err := marshalJSONObject(alerts)
 	if err != nil {
 		return nil, err
 	}
+
 	rows, err := s.pool.Query(ctx, `
 		UPDATE budget_limit_rules
 		SET name = NULLIF($3, ''),
@@ -187,9 +218,11 @@ func (s *Store) UpdateBudgetLimitRuleByRuleID(ctx context.Context, tenantID stri
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, pgx.ErrNoRows
 	}
+
 	return scanBudgetLimitRule(rows)
 }
 
@@ -205,9 +238,11 @@ func (s *Store) UpdateBudgetLimitRuleStatusByRuleID(ctx context.Context, tenantI
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, pgx.ErrNoRows
 	}
+
 	return scanBudgetLimitRule(rows)
 }
 
@@ -219,20 +254,24 @@ func (s *Store) DeleteBudgetLimitRuleByRuleID(ctx context.Context, tenantID stri
 	if err != nil {
 		return err
 	}
+
 	if result.RowsAffected() == 0 {
 		return pgx.ErrNoRows
 	}
+
 	return nil
 }
 
 func scanBudgetLimitRule(rows pgx.Rows) (*platform.BudgetLimitRule, error) {
-	var item platform.BudgetLimitRule
-	var name string
-	var description string
-	var conditionsBytes []byte
-	var alertsBytes []byte
-	var budgetAppliesPer *string
-	var unit string
+	var (
+		item             platform.BudgetLimitRule
+		name             string
+		description      string
+		conditionsBytes  []byte
+		alertsBytes      []byte
+		budgetAppliesPer *string
+		unit             string
+	)
 	if err := rows.Scan(
 		&item.ID,
 		&item.TenantID,
@@ -252,12 +291,14 @@ func scanBudgetLimitRule(rows pgx.Rows) (*platform.BudgetLimitRule, error) {
 	); err != nil {
 		return nil, err
 	}
+
 	item.Name = name
 	item.Description = description
 	item.Conditions = parseJSONObject(conditionsBytes)
 	item.Alerts = parseJSONObject(alertsBytes)
 	item.Unit = platform.BudgetLimitUnit(unit)
 	item.BudgetAppliesPer = budgetAppliesPer
+
 	return &item, nil
 }
 
@@ -265,5 +306,6 @@ func derefString(value *string) string {
 	if value == nil {
 		return ""
 	}
+
 	return *value
 }

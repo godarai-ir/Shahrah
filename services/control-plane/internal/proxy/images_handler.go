@@ -39,6 +39,7 @@ func NewImagesHandler(llmRouter *router.Router, tunnel platform.TunnelTransport,
 	if len(emitMetric) > 0 {
 		metricEmitter = emitMetric[0]
 	}
+
 	return NewImagesHandlerWithDependencies(BaseHandlerDependencies{
 		Router:        llmRouter,
 		Tunnel:        tunnel,
@@ -77,36 +78,46 @@ func (h *ImagesHandler) HandleVariations(c *fiber.Ctx) error {
 
 func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 	startTime := time.Now()
+
 	authInfo := auth.GetAuthInfo(c)
 	if authInfo == nil {
 		return writeAPIError(c, fiber.StatusUnauthorized, "Authentication required", "authentication_error")
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return writeAPIError(c, fiber.StatusBadRequest, "Tenant resolution required", "invalid_request_error")
 	}
+
 	authInfo.TenantID = currentTenant.ID
 	tracing.SetTenantForTrace(c, currentTenant.ID)
 	tenantSlug := strings.TrimSpace(currentTenant.Slug)
 
 	contentType := strings.TrimSpace(c.Get(fiber.HeaderContentType))
 	body := append([]byte(nil), c.Body()...)
+
 	requestedModel, metadata, err := extractImageRequestMetadata(c, body, contentType, op)
 	if err != nil {
 		return writeAPIErrorDetail(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error", "model", "invalid_model")
 	}
+
 	requestedModel = normalizeModelIdentifier(requestedModel)
+
 	routeCandidates := modelRoutingCandidates(requestedModel)
 	if len(routeCandidates) == 0 {
 		return writeAPIErrorDetail(c, fiber.StatusBadRequest, "model is required", "invalid_request_error", "model", "invalid_model")
 	}
+
 	tracing.SetModelForTrace(c, requestedModel)
+
 	modelAccess := modelAccessForType(authInfo, requestedModel, platform.ModelTypeImageGeneration)
 	if !modelAccess.Allowed {
 		if modelAccess.UnsupportedVMMode {
 			return writeUnsupportedModelModeError(c, requestedModel, platform.ModelTypeImageGeneration, modelAccess.ExposedModes)
 		}
+
 		emitDenyCounter(h.logger, denyReasonForModel(authInfo), requestedModel, currentTenant.ID)
+
 		return writeAPIError(c, fiber.StatusForbidden, "Model access denied or unsupported for image generation", "authorization_error")
 	}
 
@@ -117,19 +128,25 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 	quotaStart := time.Now()
 	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
 	setRateLimitHeaders(c, rateLimit)
+
 	if err != nil {
 		return writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error")
 	}
-	if err := h.billing.CheckBudget(c.Context(), authInfo, estimated); err != nil {
-		return writeAPIError(c, fiber.StatusPaymentRequired, err.Error(), "budget_exceeded")
+
+	budgetErr := h.billing.CheckBudget(c.Context(), authInfo, estimated)
+	if budgetErr != nil {
+		return writeAPIError(c, fiber.StatusPaymentRequired, budgetErr.Error(), "budget_exceeded")
 	}
+
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "quota.check", "internal", quotaStart, fiber.StatusOK, map[string]interface{}{"estimated_tokens": estimated.TotalTokens})
 
-	if err := h.tunnel.Healthy(c.Context()); err != nil {
+	tunnelErr := h.tunnel.Healthy(c.Context())
+	if tunnelErr != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Tunnel path unavailable", "tunnel_unavailable")
 	}
 
 	routeStart := time.Now()
+
 	var dep *router.Deployment
 	for _, candidate := range routeCandidates {
 		dep, err = h.llmRouter.Route(c.Context(), currentTenant.ID, candidate)
@@ -137,23 +154,28 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 			break
 		}
 	}
+
 	if err != nil || dep == nil {
 		emitDenyCounter(h.logger, denyReasonUnknownModel, requestedModel, currentTenant.ID)
 		return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", requestedModel), "routing_error")
 	}
+
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
 
 	outboundBody := body
+
 	if isJSONContentType(contentType) {
 		outboundModel := strings.TrimSpace(dep.Model)
 		if outboundModel == "" || outboundModel == "*" {
 			outboundModel = providerModelID(requestedModel)
 		}
+
 		outboundBody, err = rewriteJSONModel(body, providerModelID(outboundModel))
 		if err != nil {
 			return writeAPIError(c, fiber.StatusBadRequest, "Invalid request body", "invalid_request_error")
 		}
 	}
+
 	if contentType == "" {
 		contentType = "application/json"
 	}
@@ -162,6 +184,7 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 	if requestID == "" {
 		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
+
 	requestMetadata := map[string]interface{}{
 		"tenant_slug":            apiheaders.GetTenant(c),
 		"model":                  requestedModel,
@@ -172,6 +195,7 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 	for k, v := range metadata {
 		requestMetadata[k] = v
 	}
+
 	tunnelReq := platform.TunnelRequest{
 		RequestID:  requestID,
 		TenantID:   currentTenant.ID,
@@ -194,25 +218,33 @@ func (h *ImagesHandler) handleSync(c *fiber.Ctx, requestedModel string, estimate
 		"provider":        tunnelReq.Deployment.Provider,
 		"request_payload": buildTraceImageRequestPayload(op.Name, tunnelReq.Body, contentType, tunnelReq.RequestMetadata),
 	}
+
 	resp, err := h.tunnel.Proxy(c.Context(), tunnelReq)
 	if err != nil {
 		providerAttrs["error"] = err.Error()
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, providerAttrs)
+
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}
+
 	if resp.StatusCode >= httpErrorFloor {
 		providerAttrs["response_payload"] = buildTraceProviderErrorPayload(resp.StatusCode, resp.Body)
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
+
 		return transformProviderError(c, resp.StatusCode, resp.Body, resp.Headers)
 	}
+
 	providerAttrs["response_payload"] = buildTraceImageResponsePayload(resp.Body)
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
 
 	finalCost := estimated
 	finalCost.Model = billingModelForDeployment(requestedModel, tunnelReq.Deployment)
+
 	metadata := enrichPricingMetadata(withImageResponseMetadata(tunnelReq.RequestMetadata, resp.Body), auth.GetAuthInfo(c), requestedModel)
-	if _, err := h.wallets.DebitWallet(c.Context(), auth.GetAuthInfo(c).TenantID, finalCost, tunnelReq.RequestID); err != nil {
-		return writeAPIError(c, fiber.StatusPaymentRequired, err.Error(), "budget_exceeded")
+
+	_, debitErr := h.wallets.DebitWallet(c.Context(), auth.GetAuthInfo(c).TenantID, finalCost, tunnelReq.RequestID)
+	if debitErr != nil {
+		return writeAPIError(c, fiber.StatusPaymentRequired, debitErr.Error(), "budget_exceeded")
 	}
 
 	authInfo := auth.GetAuthInfo(c)
@@ -274,11 +306,13 @@ func (h *ImagesHandler) handleSync(c *fiber.Ctx, requestedModel string, estimate
 	forwardProviderHeaders(c, resp.Headers)
 	setTraceHeaders(c, tunnelReq.TraceID)
 	setCostHeaders(c, finalCost)
+
 	responseStart := time.Now()
 	err = c.Status(resp.StatusCode).Send(resp.Body)
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "response.write", "internal", responseStart, resp.StatusCode, map[string]interface{}{
 		"response_payload": buildTraceImageResponsePayload(resp.Body),
 	})
+
 	return err
 }
 
@@ -286,6 +320,7 @@ func (h *ImagesHandler) emitModelMetric(input metricsobs.BuildInput) {
 	if h.emitMetric == nil {
 		return
 	}
+
 	h.emitMetric(input)
 }
 
@@ -294,23 +329,30 @@ func extractImageRequestMetadata(c *fiber.Ctx, body []byte, contentType string, 
 	if isJSONContentType(contentType) || strings.TrimSpace(contentType) == "" {
 		var raw map[string]interface{}
 		if err := json.Unmarshal(body, &raw); err != nil {
-			return "", metadata, fmt.Errorf("Invalid request body")
+			return "", metadata, fmt.Errorf("invalid request body")
 		}
+
 		model, _ := raw["model"].(string)
 		fillImageJSONMetadata(metadata, raw, op)
+
 		if strings.TrimSpace(model) == "" {
 			return "", metadata, fmt.Errorf("model is required")
 		}
+
 		return strings.TrimSpace(model), metadata, nil
 	}
+
 	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(contentType)), "multipart/form-data") {
 		model := strings.TrimSpace(c.FormValue("model"))
 		fillImageMultipartMetadata(c, metadata, op)
+
 		if model == "" {
 			return "", metadata, fmt.Errorf("model is required")
 		}
+
 		return model, metadata, nil
 	}
+
 	return "", metadata, fmt.Errorf("unsupported content type")
 }
 
@@ -319,17 +361,21 @@ func fillImageJSONMetadata(metadata map[string]interface{}, raw map[string]inter
 		metadata["prompt_length"] = len(prompt)
 		metadata["prompt_hash"] = hashTracePreview(prompt)
 	}
+
 	for _, key := range []string{"size", "quality", "response_format"} {
 		if v, ok := raw[key].(string); ok && strings.TrimSpace(v) != "" {
 			metadata[key] = strings.TrimSpace(v)
 		}
 	}
+
 	if n := imageNumber(raw["n"]); n > 0 {
 		metadata["n"] = n
 	}
+
 	if _, ok := raw["image"]; ok {
 		metadata["image_source_type"] = traceImageSourceType(raw["image"])
 	}
+
 	if op.Name == "edits" || op.Name == "variations" {
 		metadata["file_count"] = 0
 	}
@@ -341,25 +387,31 @@ func fillImageMultipartMetadata(c *fiber.Ctx, metadata map[string]interface{}, o
 			metadata[key] = v
 		}
 	}
+
 	if prompt := c.FormValue("prompt"); prompt != "" {
 		metadata["prompt_length"] = len(prompt)
 		metadata["prompt_hash"] = hashTracePreview(prompt)
 	}
+
 	if n, err := strconv.Atoi(strings.TrimSpace(c.FormValue("n"))); err == nil && n > 0 {
 		metadata["n"] = n
 	}
+
 	form, err := c.MultipartForm()
 	if err != nil || form == nil {
 		return
 	}
+
 	fileCount := 0
 	for _, files := range form.File {
 		fileCount += len(files)
 	}
+
 	metadata["file_count"] = fileCount
 	if fileCount > 0 {
 		metadata["image_source_type"] = "multipart_file"
 	}
+
 	_ = op
 }
 
@@ -372,7 +424,9 @@ func rewriteJSONModel(body []byte, model string) ([]byte, error) {
 	if err := json.Unmarshal(body, &raw); err != nil {
 		return nil, err
 	}
+
 	raw["model"] = model
+
 	return json.Marshal(raw)
 }
 
@@ -388,10 +442,12 @@ func withImageResponseMetadata(input map[string]interface{}, body []byte) map[st
 	for k, v := range input {
 		out[k] = v
 	}
+
 	out["response_summary"] = buildTraceImageResponsePayload(body)
 	if ticks, ok := imageUsageCostTicks(body); ok {
 		out["provider_cost_in_usd_ticks"] = ticks
 	}
+
 	return out
 }
 
@@ -400,10 +456,12 @@ func imageUsageCostTicks(body []byte) (int64, bool) {
 	if err := json.Unmarshal(body, &raw); err != nil {
 		return 0, false
 	}
+
 	usage, ok := raw["usage"].(map[string]interface{})
 	if !ok {
 		return 0, false
 	}
+
 	switch v := usage["cost_in_usd_ticks"].(type) {
 	case float64:
 		return int64(v), true

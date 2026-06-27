@@ -17,22 +17,27 @@ func (h *ChatCompletionHandler) resolveTenantGuardrails(ctx context.Context, ten
 	if h == nil || h.guardrailRepo == nil {
 		return out, nil
 	}
+
 	slugs := guardrailSlugsFromSelection(selection)
 	if len(slugs) == 0 {
 		return out, nil
 	}
+
 	items, err := h.guardrailRepo.ListEnabledTenantGuardrailsBySlugs(ctx, tenantID, slugs)
 	if err != nil {
 		return nil, err
 	}
+
 	for _, item := range items {
 		g := guardrails.NewFromTenantGuardrail(item)
 		if g == nil {
 			continue
 		}
+
 		out[normalizeGuardrailSelectorKey(item.Slug)] = g
 		out[normalizeGuardrailSelectorKey(item.Selector)] = g
 	}
+
 	return out, nil
 }
 
@@ -46,14 +51,17 @@ func guardrailSlugsFromSelection(selection guardrails.RequestSelection) []string
 	all = append(all, selection.LLMOutput...)
 	out := []string{}
 	seen := map[string]bool{}
+
 	for _, selector := range all {
 		slug := guardrailSlugFromSelector(selector)
 		if slug == "" || seen[slug] {
 			continue
 		}
+
 		seen[slug] = true
 		out = append(out, slug)
 	}
+
 	return out
 }
 
@@ -62,7 +70,9 @@ func guardrailSlugFromSelector(selector string) string {
 	if selector == "" {
 		return ""
 	}
+
 	parts := strings.Split(selector, "/")
+
 	return strings.TrimSpace(parts[len(parts)-1])
 }
 
@@ -70,8 +80,10 @@ func (h *ChatCompletionHandler) parseGuardrails(c *fiber.Ctx) (guardrails.Reques
 	if c == nil {
 		return guardrails.RequestSelection{}, nil
 	}
+
 	raw := apiheaders.GetGuardrails(c)
 	scope := apiheaders.GetGuardrailsScope(c)
+
 	return guardrails.ParseSelection(raw, scope)
 }
 
@@ -79,12 +91,14 @@ func (h *ChatCompletionHandler) recordGuardrailChecks(c *fiber.Ctx, checks map[s
 	if c == nil || len(checks) == 0 {
 		return
 	}
+
 	for hook, hookChecks := range checks {
 		for _, check := range hookChecks {
 			status := fiber.StatusOK
 			if check.Status == "blocked" || check.Status == "error" {
 				status = fiber.StatusBadRequest
 			}
+
 			tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "guardrail."+hook, "internal", time.Now(), status, map[string]interface{}{
 				"selector":    check.Selector,
 				"status":      check.Status,

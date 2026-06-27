@@ -60,14 +60,17 @@ func ValidateTenantSlug(slug string) bool {
 	if len(slug) < 1 || len(slug) > 63 {
 		return false
 	}
+
 	if _, reserved := reservedTenantSlugs[slug]; reserved {
 		return false
 	}
+
 	for _, c := range slug {
-		if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-') {
+		if (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '-' {
 			return false
 		}
 	}
+
 	return slug[0] != '-' && slug[len(slug)-1] != '-'
 }
 
@@ -77,5 +80,6 @@ func isNumericPort(s string) bool {
 			return false
 		}
 	}
+
 	return len(s) > 0
 }

@@ -59,6 +59,7 @@ func loadModelDiscoveryOpenAPI(t *testing.T) openAPIDocument {
 
 	var spec openAPIDocument
 	require.NoError(t, json.Unmarshal(body, &spec))
+
 	return spec
 }
 
@@ -78,12 +79,15 @@ func assertOpenAPIQueryParam(t *testing.T, operation openAPIOperation, name stri
 		if parameter.In != "query" || parameter.Name != name {
 			continue
 		}
+
 		if maximum != "" {
 			require.NotNilf(t, parameter.Schema.Maximum, "expected query parameter %s to define a maximum", name)
 			assert.Equal(t, maximum, trimFloat(*parameter.Schema.Maximum))
 		}
+
 		return
 	}
+
 	t.Fatalf("expected query parameter %s in OpenAPI operation", name)
 }
 

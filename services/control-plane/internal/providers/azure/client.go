@@ -16,9 +16,9 @@ import (
 )
 
 const (
-	// Default API base for Azure OpenAI
+	// Default API base for Azure OpenAI.
 	defaultAPIBase = "https://%s.openai.azure.com/openai/deployments/%s"
-	// Default API version
+	// Default API version.
 	defaultAPIVersion = "2024-02-15"
 	defaultTimeout    = 600 * time.Second
 )
@@ -108,6 +108,7 @@ func (c *Client) Complete(ctx context.Context, req contractsopenai.ChatCompletio
 	}
 
 	endpoint := c.apiBase + "/chat/completions?api-version=" + c.apiVersion
+
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -116,15 +117,19 @@ func (c *Client) Complete(ctx context.Context, req contractsopenai.ChatCompletio
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("api-key", c.apiKey)
 
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := c.httpClient.Do(httpReq) //nolint:bodyclose // the streaming goroutine owns and closes resp.Body.
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer providers.Close(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Azure API error (status %d): %s", resp.StatusCode, string(bodyBytes))
+		bodyBytes, readErr := providers.ReadAllAndClose(resp)
+		if readErr != nil {
+			return nil, fmt.Errorf("failed to read azure error response: %w", readErr)
+		}
+
+		return nil, fmt.Errorf("azure API error (status %d): %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	var result contractsopenai.ChatCompletionResponse
@@ -156,6 +161,7 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 	}
 
 	endpoint := c.apiBase + "/chat/completions?api-version=" + c.apiVersion
+
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create request: %w", err)
@@ -164,14 +170,18 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("api-key", c.apiKey)
 
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := c.httpClient.Do(httpReq) //nolint:bodyclose // the streaming goroutine owns and closes resp.Body.
 	if err != nil {
 		return nil, nil, fmt.Errorf("request failed: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, nil, fmt.Errorf("Azure API error (status %d): %s", resp.StatusCode, string(bodyBytes))
+		bodyBytes, readErr := providers.ReadAllAndClose(resp)
+		if readErr != nil {
+			return nil, nil, fmt.Errorf("failed to read azure error response: %w", readErr)
+		}
+
+		return nil, nil, fmt.Errorf("azure API error (status %d): %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	streamChan := make(chan contractsopenai.StreamChunk)
@@ -179,7 +189,7 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 
 	go func() {
 		defer close(streamChan)
-		defer resp.Body.Close()
+		defer providers.Close(resp.Body)
 
 		reader := bufio.NewReader(resp.Body)
 		for {
@@ -188,7 +198,9 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 				if err != io.EOF {
 					errorChan <- fmt.Errorf("stream read error: %w", err)
 				}
+
 				close(errorChan)
+
 				return
 			}
 
@@ -206,6 +218,7 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 			if !strings.HasPrefix(line, "data: ") {
 				continue
 			}
+
 			data := strings.TrimPrefix(line, "data: ")
 
 			// Check for [DONE]
@@ -227,7 +240,7 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 	return streamChan, errorChan, nil
 }
 
-// Register the adapter
+// Register the adapter.
 func init() {
 	providers.Register("azure", func(cfg providers.ProviderConfig) providers.Provider {
 		return NewClient(cfg)

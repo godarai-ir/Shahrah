@@ -61,13 +61,17 @@ func (s *Store) CreateTenantAdminCaptcha(ctx context.Context) (string, string, t
 	if err != nil {
 		return "", "", time.Time{}, fmt.Errorf("create captcha: %w", err)
 	}
+
 	return id, answer, expiresAt, nil
 }
 
 // ConsumeTenantAdminCaptcha verifies and deletes the captcha.
 func (s *Store) ConsumeTenantAdminCaptcha(ctx context.Context, id string, answer string) (bool, error) {
-	var storedAnswer string
-	var expiresAt time.Time
+	var (
+		storedAnswer string
+		expiresAt    time.Time
+	)
+
 	err := s.pool.QueryRow(ctx, `
 		SELECT answer, "expiresAt" FROM tenant_admin_captchas WHERE id = $1
 	`, id).Scan(&storedAnswer, &expiresAt)
@@ -134,8 +138,10 @@ type VerifyTenantAdminOTPRequestParams struct {
 
 // VerifyTenantAdminOTPRequest verifies an OTP request.
 func (s *Store) VerifyTenantAdminOTPRequest(ctx context.Context, params VerifyTenantAdminOTPRequestParams) (map[string]interface{}, error) {
-	var record TenantAdminOTPRequest
-	var otpCode string
+	var (
+		record  TenantAdminOTPRequest
+		otpCode string
+	)
 
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, "tenantSlug", purpose, channel, identifier, "userID",
@@ -153,12 +159,15 @@ func (s *Store) VerifyTenantAdminOTPRequest(ctx context.Context, params VerifyTe
 	if record.TenantSlug != params.TenantSlug {
 		return map[string]interface{}{"ok": false, "error": "این درخواست OTP مربوط به Tenant فعلی نیست."}, nil
 	}
+
 	if record.Purpose != params.Purpose {
-		return map[string]interface{}{"ok": false, "error": "کاربرد OTP با درخواست فعلی هم‌خوانی ندارد."}, nil
+		return map[string]interface{}{"ok": false, "error": "کاربرد OTP با درخواست فعلی هم\u200cخوانی ندارد."}, nil
 	}
+
 	if params.UserID != nil && (record.UserID == nil || *record.UserID != *params.UserID) {
 		return map[string]interface{}{"ok": false, "error": "این درخواست OTP متعلق به کاربر فعلی نیست."}, nil
 	}
+
 	if time.Now().After(record.ExpiresAt) {
 		_, _ = s.pool.Exec(ctx, `DELETE FROM tenant_admin_otp_requests WHERE id = $1`, params.RequestID)
 		return map[string]interface{}{"ok": false, "error": "کد OTP منقضی شده است."}, nil
@@ -170,7 +179,9 @@ func (s *Store) VerifyTenantAdminOTPRequest(ctx context.Context, params VerifyTe
 			_, _ = s.pool.Exec(ctx, `DELETE FROM tenant_admin_otp_requests WHERE id = $1`, params.RequestID)
 			return map[string]interface{}{"ok": false, "error": "تعداد تلاش بیش از حد مجاز است. دوباره OTP بگیرید."}, nil
 		}
+
 		_, _ = s.pool.Exec(ctx, `UPDATE tenant_admin_otp_requests SET attempts = $1 WHERE id = $2`, nextAttempts, params.RequestID)
+
 		return map[string]interface{}{"ok": false, "error": "کد OTP اشتباه است."}, nil
 	}
 
@@ -210,6 +221,7 @@ func (s *Store) CreateTenantAdminSession(ctx context.Context, params CreateTenan
 
 	expiresAt := time.Now().Add(tenantAdminSessionTTL)
 	now := time.Now()
+
 	_, err = s.pool.Exec(ctx, `
 		INSERT INTO tenant_admin_sessions (id, "tenantSlug", "userID", "expiresAt")
 		VALUES ($1, $2, $3, $4)
@@ -268,9 +280,12 @@ type FindOrCreateTenantAdminUserParams struct {
 
 // FindOrCreateTenantAdminUser finds an active tenant user for login.
 func (s *Store) FindOrCreateTenantAdminUser(ctx context.Context, params FindOrCreateTenantAdminUserParams) (map[string]interface{}, error) {
-	var id, slug, email, mobile, role string
-	var active bool
-	var createdAt, updatedAt time.Time
+	var (
+		id, slug, email, mobile, role string
+		active                        bool
+		createdAt, updatedAt          time.Time
+	)
+
 	tenantSlug := strings.TrimSpace(strings.ToLower(params.TenantSlug))
 	channel := strings.TrimSpace(strings.ToLower(params.Channel))
 	identifier := strings.TrimSpace(params.Identifier)
@@ -306,14 +321,17 @@ func (s *Store) FindOrCreateTenantAdminUser(ctx context.Context, params FindOrCr
 			return buildTenantAdminUserMap(slug, id, email, mobile, role, active, createdAt, updatedAt), nil
 		}
 	}
+
 	return nil, fmt.Errorf("tenant member not found")
 }
 
 // GetTenantAdminUser retrieves a user by ID.
 func (s *Store) GetTenantAdminUser(ctx context.Context, tenantID string, userID string) (map[string]interface{}, error) {
-	var id, slug, email, mobile, role string
-	var active bool
-	var createdAt, updatedAt time.Time
+	var (
+		id, slug, email, mobile, role string
+		active                        bool
+		createdAt, updatedAt          time.Time
+	)
 
 	err := s.pool.QueryRow(ctx, `
 		SELECT u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''),
@@ -340,11 +358,14 @@ type UpdateTenantAdminUserContactParams struct {
 
 // UpdateTenantAdminUserContact updates a user's contact field.
 func (s *Store) UpdateTenantAdminUserContact(ctx context.Context, params UpdateTenantAdminUserContactParams) (map[string]interface{}, error) {
-	var id, slug, email, mobile, role string
-	var active bool
-	var createdAt, updatedAt time.Time
+	var (
+		id, slug, email, mobile, role string
+		active                        bool
+		createdAt, updatedAt          time.Time
+	)
 
 	query := ""
+
 	args := []interface{}{params.Value, strings.TrimSpace(strings.ToLower(params.TenantSlug)), params.UserID}
 	if params.Field == "email" {
 		query = `UPDATE users u
@@ -370,9 +391,11 @@ func (s *Store) UpdateTenantAdminUserContact(ctx context.Context, params UpdateT
 
 // TouchTenantAdminLastLogin updates the user's last login timestamp.
 func (s *Store) TouchTenantAdminLastLogin(ctx context.Context, tenantID string, userID string) (map[string]interface{}, error) {
-	var id, slug, email, mobile, role string
-	var active bool
-	var createdAt, updatedAt time.Time
+	var (
+		id, slug, email, mobile, role string
+		active                        bool
+		createdAt, updatedAt          time.Time
+	)
 
 	err := s.pool.QueryRow(ctx, `
 		UPDATE users u
@@ -388,6 +411,7 @@ func (s *Store) TouchTenantAdminLastLogin(ctx context.Context, tenantID string, 
 
 	result := buildTenantAdminUserMap(slug, id, email, mobile, role, active, createdAt, updatedAt)
 	result["last_login_at_iso"] = time.Now().Format(time.RFC3339)
+
 	return result, nil
 }
 
@@ -413,29 +437,34 @@ func buildTenantAdminUserMap(
 	}
 }
 
-// Helper functions
+// Helper functions.
 func generateTenantAdminID() string {
 	b := make([]byte, 16)
 	_, _ = rand.Read(b)
+
 	return hex.EncodeToString(b)
 }
 
 func generateTenantAdminSessionID() (string, error) {
 	b := make([]byte, 24)
+
 	_, err := rand.Read(b)
 	if err != nil {
 		return "", err
 	}
+
 	return hex.EncodeToString(b), nil
 }
 
 func generateCaptchaAnswer(length int) string {
 	const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
 	result := make([]byte, length)
 	for i := range result {
 		n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(alphabet))))
 		result[i] = alphabet[n.Int64()]
 	}
+
 	return string(result)
 }
 
@@ -448,21 +477,27 @@ func maskTenantAdminIdentifier(channel, identifier string) string {
 	if channel == "email" {
 		parts := strings.SplitN(strings.ToLower(identifier), "@", 2)
 		local := parts[0]
+
 		domain := ""
 		if len(parts) > 1 {
 			domain = parts[1]
 		}
+
 		if local == "" {
 			return "***@" + domain
 		}
+
 		if len(local) <= 2 {
 			return string(local[0]) + "***@" + domain
 		}
+
 		return local[:2] + "***@" + domain
 	}
+
 	compact := strings.ReplaceAll(identifier, " ", "")
 	if len(compact) <= 4 {
 		return "***"
 	}
+
 	return compact[:3] + "****" + compact[len(compact)-3:]
 }

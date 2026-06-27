@@ -18,6 +18,7 @@ func NewQueue(capacity int) *Queue {
 	if capacity <= 0 {
 		capacity = 8192
 	}
+
 	return &Queue{ch: make(chan platform.ModelMetricEvent, capacity)}
 }
 
@@ -26,6 +27,7 @@ func (q *Queue) Enqueue(ev platform.ModelMetricEvent) bool {
 	case q.ch <- ev:
 		q.enqueued.Add(1)
 		q.updateHighWater()
+
 		return true
 	default:
 		q.dropped.Add(1)
@@ -37,16 +39,19 @@ func (q *Queue) DequeueBatch(max int) []platform.ModelMetricEvent {
 	if max <= 0 {
 		max = 128
 	}
+
 	out := make([]platform.ModelMetricEvent, 0, max)
 	for i := 0; i < max; i++ {
 		select {
 		case ev := <-q.ch:
 			out = append(out, ev)
+
 			q.dequeued.Add(1)
 		default:
 			return out
 		}
 	}
+
 	return out
 }
 
@@ -57,6 +62,7 @@ func (q *Queue) updateHighWater() {
 		if cur <= prev {
 			return
 		}
+
 		if q.highWater.CompareAndSwap(prev, cur) {
 			return
 		}

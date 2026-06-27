@@ -49,6 +49,7 @@ func NewResponsesHandler(llmRouter *router.Router, tunnel platform.TunnelTranspo
 	if len(emitMetric) > 0 {
 		metricEmitter = emitMetric[0]
 	}
+
 	return NewResponsesHandlerWithDependencies(BaseHandlerDependencies{
 		Router:        llmRouter,
 		Tunnel:        tunnel,
@@ -64,6 +65,7 @@ func NewResponsesHandler(llmRouter *router.Router, tunnel platform.TunnelTranspo
 // Handle processes an OpenAI responses request.
 func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 	startTime := time.Now()
+
 	authInfo := auth.GetAuthInfo(c)
 	if authInfo == nil {
 		return writeAPIError(c, fiber.StatusUnauthorized, "Authentication required", "authentication_error")
@@ -73,6 +75,7 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 	if currentTenant == nil {
 		return writeAPIError(c, fiber.StatusBadRequest, "Tenant resolution required", "invalid_request_error")
 	}
+
 	authInfo.TenantID = currentTenant.ID
 	tracing.SetTenantForTrace(c, currentTenant.ID)
 	tenantSlug := strings.TrimSpace(currentTenant.Slug)
@@ -81,33 +84,44 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return writeAPIError(c, fiber.StatusBadRequest, "Invalid request body", "invalid_request_error")
 	}
+
 	if strings.TrimSpace(req.Model) == "" {
 		return writeAPIError(c, fiber.StatusBadRequest, "Model is required", "invalid_request_error")
 	}
+
 	requestedModel := normalizeModelIdentifier(req.Model)
+
 	routeCandidates := modelRoutingCandidates(requestedModel)
 	if len(routeCandidates) == 0 {
 		return writeAPIError(c, fiber.StatusBadRequest, "Model is required", "invalid_request_error")
 	}
+
 	tracing.SetModelForTrace(c, requestedModel)
+
 	if !hasResponseInput(req.Input, req.Instructions) {
 		return writeAPIError(c, fiber.StatusBadRequest, "input is required", "invalid_request_error")
 	}
+
 	if req.Temperature != nil && (*req.Temperature < 0 || *req.Temperature > 2) {
 		return writeAPIError(c, fiber.StatusBadRequest, "temperature must be between 0 and 2", "invalid_request_error")
 	}
+
 	if req.TopP != nil && (*req.TopP < 0 || *req.TopP > 1) {
 		return writeAPIError(c, fiber.StatusBadRequest, "top_p must be between 0 and 1", "invalid_request_error")
 	}
+
 	if req.MaxOutputTokens != nil && *req.MaxOutputTokens < 1 {
 		return writeAPIError(c, fiber.StatusBadRequest, "max_output_tokens must be at least 1", "invalid_request_error")
 	}
+
 	modelAccess := modelAccessForType(authInfo, requestedModel, platform.ModelTypeChat)
 	if !modelAccess.Allowed {
 		if modelAccess.UnsupportedVMMode {
 			return writeUnsupportedModelModeError(c, requestedModel, platform.ModelTypeChat, modelAccess.ExposedModes)
 		}
+
 		emitDenyCounter(h.logger, denyReasonForModel(authInfo), requestedModel, currentTenant.ID)
+
 		return writeAPIError(c, fiber.StatusForbidden, "Model access denied or unsupported for responses", "authorization_error")
 	}
 
@@ -116,25 +130,33 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 
 	estimateReq := responseRequestToChatCompletion(req, requestedModel)
 	quotaStart := time.Now()
+
 	estimated, err := h.billing.EstimateCost(c.Context(), estimateReq)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to estimate request cost", "billing_error")
 	}
+
 	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
 	setRateLimitHeaders(c, rateLimit)
+
 	if err != nil {
 		return writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error")
 	}
-	if err := h.billing.CheckBudget(c.Context(), authInfo, estimated); err != nil {
-		return writeAPIError(c, fiber.StatusPaymentRequired, err.Error(), "budget_exceeded")
+
+	budgetErr := h.billing.CheckBudget(c.Context(), authInfo, estimated)
+	if budgetErr != nil {
+		return writeAPIError(c, fiber.StatusPaymentRequired, budgetErr.Error(), "budget_exceeded")
 	}
+
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "quota.check", "internal", quotaStart, fiber.StatusOK, map[string]interface{}{"estimated_tokens": estimated.TotalTokens})
 
-	if err := h.tunnel.Healthy(c.Context()); err != nil {
+	tunnelErr := h.tunnel.Healthy(c.Context())
+	if tunnelErr != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Tunnel path unavailable", "tunnel_unavailable")
 	}
 
 	routeStart := time.Now()
+
 	var dep *router.Deployment
 	for _, candidate := range routeCandidates {
 		dep, err = h.llmRouter.Route(c.Context(), currentTenant.ID, candidate)
@@ -142,20 +164,25 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 			break
 		}
 	}
+
 	if err != nil || dep == nil {
 		emitDenyCounter(h.logger, denyReasonUnknownModel, requestedModel, currentTenant.ID)
 		return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", requestedModel), "routing_error")
 	}
+
 	if !supportsResponsesProvider(dep.Provider) {
 		return writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Responses API is not enabled for provider: %s", dep.Provider), "invalid_request_error")
 	}
+
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
 
 	outboundReq := req
+
 	outboundModel := strings.TrimSpace(dep.Model)
 	if outboundModel == "" || outboundModel == "*" {
 		outboundModel = providerModelID(requestedModel)
 	}
+
 	outboundReq.Model = outboundModel
 
 	payload, err := json.Marshal(outboundReq)
@@ -167,6 +194,7 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 	if requestID == "" {
 		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
+
 	tunnelReq := platform.TunnelRequest{
 		RequestID:  requestID,
 		TenantID:   currentTenant.ID,
@@ -187,6 +215,7 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 	if req.Stream {
 		return h.handleStream(c, req, authInfo, estimated, tunnelReq, startTime, tenantSlug)
 	}
+
 	return h.handleSync(c, req, authInfo, estimated, tunnelReq, startTime, tenantSlug)
 }
 
@@ -196,25 +225,33 @@ func (h *ResponsesHandler) handleSync(c *fiber.Ctx, req contractsopenai.Response
 		"provider":        tunnelReq.Deployment.Provider,
 		"request_payload": buildTraceResponseRequestPayload(req),
 	}
+
 	resp, err := h.tunnel.Proxy(c.Context(), tunnelReq)
 	if err != nil {
 		providerAttrs["error"] = err.Error()
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, providerAttrs)
+
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}
+
 	if resp.StatusCode >= httpErrorFloor {
 		providerAttrs["response_payload"] = buildTraceProviderErrorPayload(resp.StatusCode, resp.Body)
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
+
 		return transformProviderError(c, resp.StatusCode, resp.Body, resp.Headers)
 	}
 
 	var response contractsopenai.Response
-	if err := json.Unmarshal(resp.Body, &response); err != nil {
+
+	unmarshalErr := json.Unmarshal(resp.Body, &response)
+	if unmarshalErr != nil {
 		providerAttrs["error"] = "failed to decode provider response"
 		providerAttrs["response_payload"] = buildTraceProviderErrorPayload(fiber.StatusBadGateway, resp.Body)
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, providerAttrs)
+
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to decode provider response", "api_error")
 	}
+
 	providerAttrs["response_payload"] = buildTraceResponsePayload(response)
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
 
@@ -222,8 +259,10 @@ func (h *ResponsesHandler) handleSync(c *fiber.Ctx, req contractsopenai.Response
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize usage", "billing_error")
 	}
-	if _, err := h.wallets.DebitWallet(c.Context(), authInfo.TenantID, finalCost, tunnelReq.RequestID); err != nil {
-		return writeAPIError(c, fiber.StatusPaymentRequired, err.Error(), "budget_exceeded")
+
+	_, debitErr := h.wallets.DebitWallet(c.Context(), authInfo.TenantID, finalCost, tunnelReq.RequestID)
+	if debitErr != nil {
+		return writeAPIError(c, fiber.StatusPaymentRequired, debitErr.Error(), "budget_exceeded")
 	}
 
 	responseTimeMS := int(time.Since(start).Milliseconds())
@@ -285,16 +324,19 @@ func (h *ResponsesHandler) handleSync(c *fiber.Ctx, req contractsopenai.Response
 	forwardProviderHeaders(c, resp.Headers)
 	setTraceHeaders(c, tunnelReq.TraceID)
 	setCostHeaders(c, finalCost)
+
 	responseStart := time.Now()
 	err = c.Status(resp.StatusCode).JSON(response)
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "response.write", "internal", responseStart, resp.StatusCode, map[string]interface{}{
 		"response_payload": buildTraceResponsePayload(response),
 	})
+
 	return err
 }
 
 func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.ResponseRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, start time.Time, tenantSlug string) error {
 	providerStart := time.Now()
+
 	stream, err := h.tunnel.Stream(c.Context(), tunnelReq)
 	if err != nil {
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, map[string]interface{}{
@@ -303,8 +345,10 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 			"stream":          true,
 			"error":           err.Error(),
 		})
+
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}
+
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusOK, map[string]interface{}{
 		"provider":        tunnelReq.Deployment.Provider,
 		"request_payload": buildTraceResponseRequestPayload(req),
@@ -369,12 +413,15 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 							"tenant_slug": tenantSlug,
 						},
 					})
+
 					return
 				}
+
 				if len(chunk.Data) > 0 {
 					_, _ = w.Write(chunk.Data)
 					_ = w.Flush()
 				}
+
 				if chunk.IsDone {
 					return
 				}
@@ -389,12 +436,15 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 					_, _ = w.Write(bytes.Join([][]byte{[]byte("data: "), errorPayload, []byte("\n\n")}, nil))
 					_ = w.Flush()
 				}
+
 				return
 			}
 		}
 	})
+
 	responseStart := time.Now()
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "response.write", "internal", responseStart, fiber.StatusOK, map[string]interface{}{"stream": true})
+
 	return nil
 }
 
@@ -402,6 +452,7 @@ func (h *ResponsesHandler) emitModelMetric(input metricsobs.BuildInput) {
 	if h.emitMetric == nil {
 		return
 	}
+
 	h.emitMetric(input)
 }
 
@@ -413,6 +464,7 @@ func hasResponseInput(input interface{}, instructions string) bool {
 	if strings.TrimSpace(instructions) != "" {
 		return true
 	}
+
 	switch v := input.(type) {
 	case nil:
 		return false
@@ -432,13 +484,16 @@ func responseRequestToChatCompletion(req contractsopenai.ResponseRequest, model 
 	if content == "" {
 		content = strings.TrimSpace(req.Instructions)
 	}
+
 	messages := []contractsopenai.ChatMessage{}
 	if strings.TrimSpace(req.Instructions) != "" {
 		messages = append(messages, contractsopenai.ChatMessage{Role: "system", Content: strings.TrimSpace(req.Instructions)})
 	}
+
 	if strings.TrimSpace(content) != "" {
 		messages = append(messages, contractsopenai.ChatMessage{Role: "user", Content: content})
 	}
+
 	if len(messages) == 0 {
 		messages = append(messages, contractsopenai.ChatMessage{Role: "user", Content: " "})
 	}
@@ -467,17 +522,21 @@ func flattenResponseInput(input interface{}) string {
 				parts = append(parts, text)
 			}
 		}
+
 		return strings.TrimSpace(strings.Join(parts, "\n"))
 	case map[string]interface{}:
 		if text, ok := v["text"].(string); ok && strings.TrimSpace(text) != "" {
 			return strings.TrimSpace(text)
 		}
+
 		if content, ok := v["content"]; ok {
 			return flattenResponseInput(content)
 		}
+
 		if inputText, ok := v["input_text"].(string); ok && strings.TrimSpace(inputText) != "" {
 			return strings.TrimSpace(inputText)
 		}
+
 		return ""
 	default:
 		return ""
@@ -488,6 +547,7 @@ func responseUsageToOpenAI(usage *contractsopenai.ResponseUsage) *contractsopena
 	if usage == nil {
 		return nil
 	}
+
 	return &contractsopenai.Usage{
 		PromptTokens:     usage.InputTokens,
 		CompletionTokens: usage.OutputTokens,

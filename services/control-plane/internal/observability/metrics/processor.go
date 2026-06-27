@@ -46,11 +46,14 @@ func (p *Processor) Start() {
 
 func (p *Processor) Stop(ctx context.Context) error {
 	close(p.stopCh)
+
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
+
 		p.wg.Wait()
 	}()
+
 	select {
 	case <-done:
 		return nil
@@ -61,8 +64,10 @@ func (p *Processor) Stop(ctx context.Context) error {
 
 func (p *Processor) loop() {
 	defer p.wg.Done()
+
 	ticker := time.NewTicker(p.cfg.FlushInterval)
 	defer ticker.Stop()
+
 	for {
 		select {
 		case <-p.stopCh:
@@ -90,16 +95,22 @@ func (p *Processor) flush() {
 
 func (p *Processor) insertWithRetry(ev platform.ModelMetricEvent) error {
 	var lastErr error
+
 	for attempt := 1; attempt <= p.cfg.RetryMaxAttempts; attempt++ {
 		ctx, cancel := context.WithTimeout(context.Background(), p.cfg.ExportTimeout)
 		err := p.exporter.InsertModelMetricEvent(ctx, ev)
+
 		cancel()
+
 		if err == nil {
 			return nil
 		}
+
 		lastErr = err
+
 		time.Sleep(backoffDelay(attempt, p.cfg.RetryBaseDelay, p.cfg.RetryMaxDelay))
 	}
+
 	return lastErr
 }
 
@@ -107,21 +118,26 @@ func (p *Processor) appendDLQ(ev platform.ModelMetricEvent) error {
 	if p.cfg.DLQPath == "" {
 		return nil
 	}
+
 	if err := os.MkdirAll(filepath.Dir(p.cfg.DLQPath), 0o755); err != nil {
 		return err
 	}
+
 	f, err := os.OpenFile(p.cfg.DLQPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
+
 	b, err := json.Marshal(ev)
 	if err != nil {
 		return err
 	}
+
 	if _, err := f.Write(append(b, '\n')); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -129,12 +145,16 @@ func backoffDelay(attempt int, base, max time.Duration) time.Duration {
 	if attempt < 1 {
 		attempt = 1
 	}
+
 	exp := float64(base) * math.Pow(2, float64(attempt-1))
+
 	d := time.Duration(exp)
 	if d > max {
 		d = max
 	}
+
 	jitter := time.Duration(rand.Int63n(int64(d / 5)))
+
 	return d + jitter
 }
 
@@ -151,9 +171,11 @@ func (p *Processor) BuildEvent(input BuildInput) platform.ModelMetricEvent {
 	} else if input.StatusCode >= 400 {
 		errorType = "client_error"
 	}
+
 	if input.ErrorType != "" {
 		errorType = input.ErrorType
 	}
+
 	return platform.ModelMetricEvent{
 		TS:                   input.TS.UTC(),
 		TenantID:             input.TenantID,
@@ -236,6 +258,7 @@ func normalizedCacheValue(value string) string {
 	if value == "" {
 		return "none"
 	}
+
 	return value
 }
 
@@ -243,6 +266,7 @@ func sanitizeMetadata(in map[string]interface{}) map[string]interface{} {
 	if len(in) == 0 {
 		return map[string]interface{}{}
 	}
+
 	allowed := map[string]struct{}{
 		"environment": {},
 		"feature":     {},
@@ -254,13 +278,16 @@ func sanitizeMetadata(in map[string]interface{}) map[string]interface{} {
 	}
 	out := make(map[string]interface{}, len(in))
 	count := 0
+
 	for k, v := range in {
 		if _, ok := allowed[k]; !ok {
 			continue
 		}
+
 		if len(k) > 64 {
 			continue
 		}
+
 		switch t := v.(type) {
 		case string:
 			if len(t) > 256 {
@@ -271,10 +298,12 @@ func sanitizeMetadata(in map[string]interface{}) map[string]interface{} {
 		default:
 			out[k] = fmt.Sprintf("%v", t)
 		}
+
 		count++
 		if count >= 16 {
 			break
 		}
 	}
+
 	return out
 }

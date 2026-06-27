@@ -22,14 +22,17 @@ func main() {
 	scopesCSV := flag.String("scopes", "", "comma-separated scopes")
 	expiresAtValue := flag.String("expires-at", "", "optional RFC3339 expiry")
 	revokeKeyID := flag.String("revoke-key-id", "", "revoke an existing credential instead of creating one")
+
 	flag.Parse()
 
 	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
 	if databaseURL == "" {
 		fatal("DATABASE_URL is required")
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
 		fatal("connect to database: %v", err)
@@ -37,18 +40,21 @@ func main() {
 	defer pool.Close()
 
 	if keyID := strings.TrimSpace(*revokeKeyID); keyID != "" {
-		result, err := pool.Exec(ctx, `
+		result, execErr := pool.Exec(ctx, `
 			UPDATE platform_service_account_credentials
 			SET active = false, revoked_at = NOW()
 			WHERE credential_id = $1 AND revoked_at IS NULL
 		`, keyID)
-		if err != nil {
-			fatal("revoke credential: %v", err)
+		if execErr != nil {
+			fatal("revoke credential: %v", execErr)
 		}
+
 		if result.RowsAffected() != 1 {
 			fatal("active credential was not found")
 		}
+
 		fmt.Printf("Platform service credential %s was revoked.\n", keyID)
+
 		return
 	}
 
@@ -56,16 +62,20 @@ func main() {
 	if !validName(accountName) {
 		fatal("--name must contain 3-64 lowercase letters, numbers, or hyphens")
 	}
+
 	scopes, err := parseScopes(*scopesCSV)
 	if err != nil {
 		fatal("%v", err)
 	}
+
 	var expiresAt *time.Time
+
 	if value := strings.TrimSpace(*expiresAtValue); value != "" {
-		parsed, err := time.Parse(time.RFC3339, value)
-		if err != nil || !parsed.After(time.Now()) {
+		parsed, parseErr := time.Parse(time.RFC3339, value)
+		if parseErr != nil || !parsed.After(time.Now()) {
 			fatal("--expires-at must be a future RFC3339 timestamp")
 		}
+
 		expiresAt = &parsed
 	}
 
@@ -73,6 +83,7 @@ func main() {
 	secret := randomToken(32)
 	token := "cp_sa_" + keyID + "." + secret
 	hash := sha256.Sum256([]byte(token))
+
 	_, err = pool.Exec(ctx, `
 		INSERT INTO platform_service_account_credentials
 			(credential_id, account_name, token_hash, scopes, expires_at)
@@ -92,24 +103,31 @@ func parseScopes(raw string) ([]string, error) {
 		auth.PlatformScopeTenantWrite: {}, auth.PlatformScopeAll: {},
 	}
 	seen := map[string]struct{}{}
+
 	for _, value := range strings.Split(raw, ",") {
 		scope := strings.TrimSpace(value)
 		if scope == "" {
 			continue
 		}
+
 		if _, ok := allowed[scope]; !ok {
 			return nil, fmt.Errorf("unsupported scope %q", scope)
 		}
+
 		seen[scope] = struct{}{}
 	}
+
 	if len(seen) == 0 {
 		return nil, fmt.Errorf("--scopes must contain at least one supported scope")
 	}
+
 	out := make([]string, 0, len(seen))
 	for scope := range seen {
 		out = append(out, scope)
 	}
+
 	sort.Strings(out)
+
 	return out, nil
 }
 
@@ -117,11 +135,13 @@ func validName(value string) bool {
 	if len(value) < 3 || len(value) > 64 {
 		return false
 	}
+
 	for _, char := range value {
 		if (char < 'a' || char > 'z') && (char < '0' || char > '9') && char != '-' {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -130,6 +150,7 @@ func randomToken(size int) string {
 	if _, err := rand.Read(value); err != nil {
 		fatal("generate credential: %v", err)
 	}
+
 	return base64.RawURLEncoding.EncodeToString(value)
 }
 

@@ -27,7 +27,7 @@ type Client struct {
 	httpClient *http.Client
 }
 
-// Register the adapter
+// Register the adapter.
 func init() {
 	providers.Register("openai", func(cfg providers.ProviderConfig) providers.Provider {
 		return NewClient(cfg)
@@ -75,15 +75,19 @@ func (c *Client) Complete(ctx context.Context, req contractsopenai.ChatCompletio
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := c.httpClient.Do(httpReq) //nolint:bodyclose // the streaming goroutine owns and closes resp.Body.
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer providers.Close(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(bodyBytes))
+		bodyBytes, readErr := providers.ReadAllAndClose(resp)
+		if readErr != nil {
+			return nil, fmt.Errorf("failed to read provider error response: %w", readErr)
+		}
+
+		return nil, fmt.Errorf("api error (status %d): %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	var result contractsopenai.ChatCompletionResponse
@@ -112,7 +116,7 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 	httpReq.Header.Set("Accept", "text/event-stream")
 
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := c.httpClient.Do(httpReq) //nolint:bodyclose // the streaming goroutine owns and closes resp.Body.
 	if err != nil {
 		return nil, nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -121,7 +125,7 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 	errCh := make(chan error, 1)
 
 	go func() {
-		defer resp.Body.Close()
+		defer providers.Close(resp.Body)
 		defer close(chunkCh)
 		defer close(errCh)
 
@@ -132,7 +136,9 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 				if err == io.EOF {
 					return
 				}
+
 				errCh <- fmt.Errorf("read error: %w", err)
+
 				return
 			}
 

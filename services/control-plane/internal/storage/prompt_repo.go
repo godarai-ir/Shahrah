@@ -19,6 +19,7 @@ func (s *Store) CreatePrompt(ctx context.Context, tenantID string, tenantSlug st
 	if err := prompts.ValidateManifest(req.Manifest); err != nil {
 		return nil, err
 	}
+
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -27,7 +28,9 @@ func (s *Store) CreatePrompt(ctx context.Context, tenantID string, tenantSlug st
 
 	slug := prompts.NormalizeSlug(req.Manifest.Name)
 	description := strings.TrimSpace(req.Manifest.Description)
+
 	var promptID string
+
 	err = tx.QueryRow(ctx, `
 		INSERT INTO prompts (tenant_id, name, slug, description, latest_version, created_by)
 		VALUES ($1::uuid, $2, $3, $4, 0, $5)
@@ -41,6 +44,7 @@ func (s *Store) CreatePrompt(ctx context.Context, tenantID string, tenantSlug st
 	if err != nil {
 		return nil, err
 	}
+
 	if _, err := tx.Exec(ctx, `
 		UPDATE prompts
 		SET latest_version = 1, updated_at = NOW(), description = $3
@@ -48,9 +52,11 @@ func (s *Store) CreatePrompt(ctx context.Context, tenantID string, tenantSlug st
 	`, tenantID, promptID, description); err != nil {
 		return nil, err
 	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+
 	return item, nil
 }
 
@@ -58,6 +64,7 @@ func (s *Store) CreatePromptVersion(ctx context.Context, tenantID string, tenant
 	if err := prompts.ValidateManifest(req.Manifest); err != nil {
 		return nil, err
 	}
+
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -65,22 +72,28 @@ func (s *Store) CreatePromptVersion(ctx context.Context, tenantID string, tenant
 	defer tx.Rollback(ctx)
 
 	var latest int
-	if err := tx.QueryRow(ctx, `
+
+	queryErr := tx.QueryRow(ctx, `
 		SELECT latest_version
 		FROM prompts
 		WHERE tenant_id = $1::uuid AND id = $2::uuid
 		FOR UPDATE
-	`, tenantID, promptID).Scan(&latest); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+	`, tenantID, promptID).Scan(&latest)
+	if queryErr != nil {
+		if errors.Is(queryErr, pgx.ErrNoRows) {
 			return nil, ErrPromptNotFound
 		}
-		return nil, err
+
+		return nil, queryErr
 	}
+
 	nextVersion := latest + 1
+
 	item, err := insertPromptVersion(ctx, tx, tenantID, tenantSlug, promptID, nextVersion, req.Manifest, req.CommitMessage, actor)
 	if err != nil {
 		return nil, err
 	}
+
 	if _, err := tx.Exec(ctx, `
 		UPDATE prompts
 		SET name = $3, slug = $4, description = $5, latest_version = $6, updated_at = NOW()
@@ -88,9 +101,11 @@ func (s *Store) CreatePromptVersion(ctx context.Context, tenantID string, tenant
 	`, tenantID, promptID, req.Manifest.Name, prompts.NormalizeSlug(req.Manifest.Name), strings.TrimSpace(req.Manifest.Description), nextVersion); err != nil {
 		return nil, err
 	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+
 	return item, nil
 }
 
@@ -99,27 +114,35 @@ func insertPromptVersion(ctx context.Context, tx pgx.Tx, tenantID string, tenant
 	if err != nil {
 		return nil, err
 	}
+
 	variables, err := marshalJSONObjectString(manifest.Variables)
 	if err != nil {
 		return nil, err
 	}
+
 	parameters, err := marshalJSONObject(manifest.Parameters)
 	if err != nil {
 		return nil, err
 	}
+
 	metadata, err := marshalJSONObject(manifest.Metadata)
 	if err != nil {
 		return nil, err
 	}
+
 	manifestJSON, err := marshalJSONObject(promptManifestToJSONObject(manifest))
 	if err != nil {
 		return nil, err
 	}
+
 	slug := prompts.NormalizeSlug(manifest.Name)
 	fqn := prompts.BuildFQN(tenantSlug, slug, version)
 
-	var item platform.PromptVersion
-	var messagesRaw, variablesRaw, parametersRaw, metadataRaw, manifestRaw []byte
+	var (
+		item                                                               platform.PromptVersion
+		messagesRaw, variablesRaw, parametersRaw, metadataRaw, manifestRaw []byte
+	)
+
 	err = tx.QueryRow(ctx, `
 		INSERT INTO prompt_versions (
 			tenant_id, prompt_id, version, fqn, version_alias, name, description, messages,
@@ -136,36 +159,44 @@ func insertPromptVersion(ctx context.Context, tx pgx.Tx, tenantID string, tenant
 	if err != nil {
 		return nil, err
 	}
+
 	item.Messages = parsePromptMessages(messagesRaw)
 	item.Variables = parseStringMap(variablesRaw)
 	item.Parameters = parseJSONObject(parametersRaw)
 	item.Metadata = parseJSONObject(metadataRaw)
 	item.Manifest = parsePromptManifest(manifestRaw, item)
+
 	return &item, nil
 }
 
 func (s *Store) ListPrompts(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.Prompt, int, error) {
 	query = strings.TrimSpace(query)
+
 	if limit <= 0 {
 		limit = 50
 	}
+
 	if offset < 0 {
 		offset = 0
 	}
+
 	args := []interface{}{tenantID, limit, offset}
 	countArgs := []interface{}{tenantID}
 	filter := ""
 	countFilter := ""
+
 	if query != "" {
 		args = append(args, "%"+query+"%")
 		countArgs = append(countArgs, "%"+query+"%")
 		filter = " AND (p.name ILIKE $4 OR p.slug ILIKE $4 OR p.description ILIKE $4)"
 		countFilter = " AND (p.name ILIKE $2 OR p.slug ILIKE $2 OR p.description ILIKE $2)"
 	}
+
 	var total int
 	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM prompts p WHERE p.tenant_id = $1::uuid`+countFilter, countArgs...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
+
 	rows, err := s.pool.Query(ctx, `
 		SELECT p.id::text, p.tenant_id::text, p.name, p.slug, p.description, p.latest_version, p.created_by, p.created_at, p.updated_at,
 		       pv.id::text, pv.prompt_id::text, COALESCE(pv.version, 0), COALESCE(pv.fqn, ''), COALESCE(pv.version_alias, ''),
@@ -188,14 +219,18 @@ func (s *Store) ListPrompts(ctx context.Context, tenantID string, query string, 
 		return nil, 0, err
 	}
 	defer rows.Close()
+
 	items := []platform.Prompt{}
+
 	for rows.Next() {
 		item, err := scanPromptWithLatest(rows)
 		if err != nil {
 			return nil, 0, err
 		}
+
 		items = append(items, item)
 	}
+
 	return items, total, rows.Err()
 }
 
@@ -220,13 +255,16 @@ func (s *Store) GetPrompt(ctx context.Context, tenantID string, promptID string)
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, ErrPromptNotFound
 	}
+
 	item, err := scanPromptWithLatest(rows)
 	if err != nil {
 		return nil, err
 	}
+
 	return &item, rows.Err()
 }
 
@@ -235,9 +273,11 @@ func (s *Store) DeletePrompt(ctx context.Context, tenantID string, promptID stri
 	if err != nil {
 		return err
 	}
+
 	if cmd.RowsAffected() == 0 {
 		return ErrPromptNotFound
 	}
+
 	return nil
 }
 
@@ -245,13 +285,16 @@ func (s *Store) ListPromptVersions(ctx context.Context, tenantID string, promptI
 	if limit <= 0 {
 		limit = 50
 	}
+
 	if offset < 0 {
 		offset = 0
 	}
+
 	var total int
 	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM prompt_versions WHERE tenant_id = $1::uuid AND prompt_id = $2::uuid`, tenantID, promptID).Scan(&total); err != nil {
 		return nil, 0, err
 	}
+
 	rows, err := s.pool.Query(ctx, `
 		SELECT id::text, tenant_id::text, prompt_id::text, version, fqn, version_alias, name, description,
 		       messages, variables, model, parameters, metadata, manifest, commit_message, created_by, created_at
@@ -264,14 +307,18 @@ func (s *Store) ListPromptVersions(ctx context.Context, tenantID string, promptI
 		return nil, 0, err
 	}
 	defer rows.Close()
+
 	items := []platform.PromptVersion{}
+
 	for rows.Next() {
 		item, err := scanPromptVersion(rows)
 		if err != nil {
 			return nil, 0, err
 		}
+
 		items = append(items, item)
 	}
+
 	return items, total, rows.Err()
 }
 
@@ -282,13 +329,16 @@ func (s *Store) GetPromptVersion(ctx context.Context, tenantID string, versionID
 		FROM prompt_versions
 		WHERE tenant_id = $1::uuid AND id = $2::uuid
 	`, tenantID, versionID)
+
 	item, err := scanPromptVersion(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrPromptNotFound
 		}
+
 		return nil, err
 	}
+
 	return &item, nil
 }
 
@@ -296,19 +346,23 @@ func (s *Store) GetPromptVersionByFQN(ctx context.Context, tenantID string, fqn 
 	if _, err := prompts.ParseFQN(fqn); err != nil {
 		return nil, err
 	}
+
 	row := s.pool.QueryRow(ctx, `
 		SELECT id::text, tenant_id::text, prompt_id::text, version, fqn, version_alias, name, description,
 		       messages, variables, model, parameters, metadata, manifest, commit_message, created_by, created_at
 		FROM prompt_versions
 		WHERE tenant_id = $1::uuid AND fqn = $2
 	`, tenantID, strings.TrimSpace(fqn))
+
 	item, err := scanPromptVersion(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrPromptNotFound
 		}
+
 		return nil, err
 	}
+
 	return &item, nil
 }
 
@@ -317,27 +371,33 @@ type rowScanner interface {
 }
 
 func scanPromptVersion(row rowScanner) (platform.PromptVersion, error) {
-	var item platform.PromptVersion
-	var messagesRaw, variablesRaw, parametersRaw, metadataRaw, manifestRaw []byte
+	var (
+		item                                                               platform.PromptVersion
+		messagesRaw, variablesRaw, parametersRaw, metadataRaw, manifestRaw []byte
+	)
 	if err := row.Scan(
 		&item.ID, &item.TenantID, &item.PromptID, &item.Version, &item.FQN, &item.VersionAlias, &item.Name, &item.Description,
 		&messagesRaw, &variablesRaw, &item.Model, &parametersRaw, &metadataRaw, &manifestRaw, &item.CommitMessage, &item.CreatedBy, &item.CreatedAt,
 	); err != nil {
 		return platform.PromptVersion{}, err
 	}
+
 	item.Messages = parsePromptMessages(messagesRaw)
 	item.Variables = parseStringMap(variablesRaw)
 	item.Parameters = parseJSONObject(parametersRaw)
 	item.Metadata = parseJSONObject(metadataRaw)
 	item.Manifest = parsePromptManifest(manifestRaw, item)
+
 	return item, nil
 }
 
 func scanPromptWithLatest(row rowScanner) (platform.Prompt, error) {
-	var item platform.Prompt
-	var latest platform.PromptVersion
-	var messagesRaw, variablesRaw, parametersRaw, metadataRaw, manifestRaw []byte
-	var latestCreatedAt interface{}
+	var (
+		item                                                               platform.Prompt
+		latest                                                             platform.PromptVersion
+		messagesRaw, variablesRaw, parametersRaw, metadataRaw, manifestRaw []byte
+		latestCreatedAt                                                    interface{}
+	)
 	if err := row.Scan(
 		&item.ID, &item.TenantID, &item.Name, &item.Slug, &item.Description, &item.LatestVersion, &item.CreatedBy, &item.CreatedAt, &item.UpdatedAt,
 		&latest.ID, &latest.PromptID, &latest.Version, &latest.FQN, &latest.VersionAlias, &latest.Name, &latest.Description,
@@ -345,6 +405,7 @@ func scanPromptWithLatest(row rowScanner) (platform.Prompt, error) {
 	); err != nil {
 		return platform.Prompt{}, err
 	}
+
 	if latest.ID != "" {
 		latest.TenantID = item.TenantID
 		latest.Messages = parsePromptMessages(messagesRaw)
@@ -354,6 +415,7 @@ func scanPromptWithLatest(row rowScanner) (platform.Prompt, error) {
 		latest.Manifest = parsePromptManifest(manifestRaw, latest)
 		item.Latest = &latest
 	}
+
 	return item, nil
 }
 
@@ -361,6 +423,7 @@ func marshalJSONObjectString(input map[string]string) ([]byte, error) {
 	if len(input) == 0 {
 		return []byte("{}"), nil
 	}
+
 	return json.Marshal(input)
 }
 
@@ -368,10 +431,12 @@ func parseStringMap(raw []byte) map[string]string {
 	if len(raw) == 0 {
 		return map[string]string{}
 	}
+
 	var out map[string]string
 	if err := json.Unmarshal(raw, &out); err != nil || out == nil {
 		return map[string]string{}
 	}
+
 	return out
 }
 
@@ -379,10 +444,12 @@ func parsePromptMessages(raw []byte) []contractsopenai.ChatMessage {
 	if len(raw) == 0 {
 		return []contractsopenai.ChatMessage{}
 	}
+
 	var out []contractsopenai.ChatMessage
 	if err := json.Unmarshal(raw, &out); err != nil {
 		return []contractsopenai.ChatMessage{}
 	}
+
 	return out
 }
 
@@ -401,18 +468,23 @@ func promptManifestToJSONObject(manifest platform.PromptManifest) map[string]int
 	if manifest.ModelSettings != nil {
 		raw["model_settings"] = manifest.ModelSettings
 	}
+
 	if manifest.Logging != nil {
 		raw["logging"] = manifest.Logging
 	}
+
 	if manifest.Cache != nil {
 		raw["cache"] = manifest.Cache
 	}
+
 	if manifest.Guardrails != nil {
 		raw["guardrails"] = manifest.Guardrails
 	}
+
 	if manifest.Structured != nil {
 		raw["structured_output"] = manifest.Structured
 	}
+
 	return raw
 }
 
@@ -423,33 +495,43 @@ func parsePromptManifest(raw []byte, fallback platform.PromptVersion) platform.P
 			if strings.TrimSpace(manifest.Type) == "" {
 				manifest.Type = prompts.TypeChatPrompt
 			}
+
 			if strings.TrimSpace(manifest.Name) == "" {
 				manifest.Name = fallback.Name
 			}
+
 			if strings.TrimSpace(manifest.Description) == "" {
 				manifest.Description = fallback.Description
 			}
+
 			if len(manifest.Messages) == 0 {
 				manifest.Messages = fallback.Messages
 			}
+
 			if manifest.Variables == nil {
 				manifest.Variables = fallback.Variables
 			}
+
 			if strings.TrimSpace(manifest.Model) == "" {
 				manifest.Model = fallback.Model
 			}
+
 			if manifest.Parameters == nil {
 				manifest.Parameters = fallback.Parameters
 			}
+
 			if manifest.Metadata == nil {
 				manifest.Metadata = fallback.Metadata
 			}
+
 			if strings.TrimSpace(manifest.VersionAlias) == "" {
 				manifest.VersionAlias = fallback.VersionAlias
 			}
+
 			return manifest
 		}
 	}
+
 	return platform.PromptManifest{
 		Type:         prompts.TypeChatPrompt,
 		Name:         fallback.Name,
@@ -467,5 +549,6 @@ func PromptStorageErrorMessage(err error) string {
 	if errors.Is(err, ErrPromptNotFound) {
 		return "prompt not found"
 	}
+
 	return fmt.Sprintf("%v", err)
 }

@@ -12,6 +12,7 @@ func emitDenyCounter(logger *zap.Logger, reason string, model string, tenantID s
 	if logger == nil {
 		return
 	}
+
 	logger.Warn("proxy.request_denied",
 		zap.String("counter", "proxy_request_denied_total"),
 		zap.String("reason", reason),

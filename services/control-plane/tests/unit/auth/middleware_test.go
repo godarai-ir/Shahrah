@@ -106,7 +106,10 @@ func TestAuthMiddleware_ShouldReturnServerError_WhenKeyLookupFailsInternally(t *
 	req.Header.Set("Authorization", "Bearer sk-test")
 
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
+
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
@@ -136,7 +139,10 @@ func TestAuthMiddleware_ShouldReturnInvalidAPIKey_WhenKeyIsNotFound(t *testing.T
 	req.Header.Set("Authorization", "Bearer sk-test")
 
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
+
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)

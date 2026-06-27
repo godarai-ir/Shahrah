@@ -12,7 +12,7 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 )
 
-// Error codes matching LiteLLM exception_mapping.md
+// Error codes matching LiteLLM exception_mapping.md.
 const (
 	ErrBadRequest         = 400
 	ErrAuthentication     = 401
@@ -24,7 +24,7 @@ const (
 	ErrServiceUnavailable = 503
 )
 
-// ErrorTypeMap maps HTTP status codes to OpenAI error types
+// ErrorTypeMap maps HTTP status codes to OpenAI error types.
 var ErrorTypeMap = map[int]string{
 	ErrBadRequest:         "invalid_request_error",
 	ErrAuthentication:     "authentication_error",
@@ -37,7 +37,7 @@ var ErrorTypeMap = map[int]string{
 }
 
 // TransformProviderError transforms a provider error to OpenAI envelope format
-// This version matches existing handler code signatures - takes 4 args including headers
+// This version matches existing handler code signatures - takes 4 args including headers.
 func TransformProviderError(c *fiber.Ctx, status int, body []byte, headers map[string]string) error {
 	// Forward provider headers before writing error response
 	forwardProviderHeaders(c, headers)
@@ -55,109 +55,10 @@ func TransformProviderError(c *fiber.Ctx, status int, body []byte, headers map[s
 	return WriteAPIError(c, status, message, errType)
 }
 
-// transformProviderError is an alias for TransformProviderError (for backward compatibility)
+// transformProviderError is an alias for TransformProviderError (for backward compatibility).
 var transformProviderError = TransformProviderError
 
-// parseOpenAIError parses OpenAI/Azure/Groq/Mistral/Together AI error format
-func parseOpenAIError(body []byte) string {
-	if len(body) == 0 {
-		return "Provider returned an empty response"
-	}
-
-	var errResp struct {
-		Error struct {
-			Message string `json:"message"`
-		} `json:"error"`
-	}
-
-	if err := json.Unmarshal(body, &errResp); err == nil && errResp.Error.Message != "" {
-		return errResp.Error.Message
-	}
-
-	var altErrResp struct {
-		Message string `json:"message"`
-	}
-	if err := json.Unmarshal(body, &altErrResp); err == nil && altErrResp.Message != "" {
-		return altErrResp.Message
-	}
-
-	return string(body)
-}
-
-// parseAnthropicError parses Anthropic error format
-func parseAnthropicError(body []byte) string {
-	if len(body) == 0 {
-		return "Provider returned an empty response"
-	}
-
-	var errResp struct {
-		Type  string `json:"type"`
-		Error struct {
-			Message string `json:"message"`
-		} `json:"error"`
-	}
-
-	if err := json.Unmarshal(body, &errResp); err == nil && errResp.Error.Message != "" {
-		return errResp.Error.Message
-	}
-
-	var simpleErr struct {
-		Error string `json:"error"`
-	}
-	if err := json.Unmarshal(body, &simpleErr); err == nil && simpleErr.Error != "" {
-		return simpleErr.Error
-	}
-
-	return string(body)
-}
-
-// parseBedrockError parses AWS Bedrock error format
-func parseBedrockError(body []byte) string {
-	if len(body) == 0 {
-		return "Provider returned an empty response"
-	}
-
-	var errResp struct {
-		Message string `json:"message"`
-		Type    string `json:"type"`
-	}
-
-	if err := json.Unmarshal(body, &errResp); err == nil && errResp.Message != "" {
-		return errResp.Message
-	}
-
-	return string(body)
-}
-
-// parseGoogleError parses Google (Vertex AI/Gemini) error format
-func parseGoogleError(body []byte) string {
-	if len(body) == 0 {
-		return "Provider returned an empty response"
-	}
-
-	var errResp struct {
-		Error struct {
-			Code    int    `json:"code"`
-			Message string `json:"message"`
-			Status  string `json:"status"`
-		} `json:"error"`
-	}
-
-	if err := json.Unmarshal(body, &errResp); err == nil && errResp.Error.Message != "" {
-		return errResp.Error.Message
-	}
-
-	var altErr struct {
-		ErrorMessage string `json:"error_message"`
-	}
-	if err := json.Unmarshal(body, &altErr); err == nil && altErr.ErrorMessage != "" {
-		return altErr.ErrorMessage
-	}
-
-	return string(body)
-}
-
-// parseGenericError tries to extract a message from any error format
+// parseGenericError tries to extract a message from any error format.
 func parseGenericError(body []byte) string {
 	if len(body) == 0 {
 		return "Provider returned an empty response"
@@ -174,6 +75,7 @@ func parseGenericError(body []byte) string {
 			if msg, ok := errObj["message"].(string); ok && msg != "" {
 				return msg
 			}
+
 			if msg, ok := errObj["error"].(string); ok && msg != "" {
 				return msg
 			}
@@ -182,6 +84,7 @@ func parseGenericError(body []byte) string {
 		if msg, ok := generic["error"].(string); ok && msg != "" {
 			return msg
 		}
+
 		if msg, ok := generic["error_message"].(string); ok && msg != "" {
 			return msg
 		}
@@ -190,15 +93,16 @@ func parseGenericError(body []byte) string {
 	if len(body) > 200 {
 		return strings.TrimSpace(string(body[:200])) + "..."
 	}
+
 	return strings.TrimSpace(string(body))
 }
 
-// Aliases for backward compatibility with existing handler code
+// Aliases for backward compatibility with existing handler code.
 var writeAPIError = WriteAPIError
 var containsModel = ContainsModel
 
 // forwardProviderHeaders forwards relevant provider headers to the client
-// Uses case-insensitive matching to handle providers that send headers in any case
+// Uses case-insensitive matching to handle providers that send headers in any case.
 func forwardProviderHeaders(c *fiber.Ctx, headers map[string]string) {
 	if headers == nil {
 		return
@@ -235,7 +139,7 @@ func forwardProviderHeaders(c *fiber.Ctx, headers map[string]string) {
 	}
 }
 
-// WriteAPIError writes an API error response in OpenAI format
+// WriteAPIError writes an API error response in OpenAI format.
 func WriteAPIError(c *fiber.Ctx, status int, message string, errType string) error {
 	return c.Status(status).JSON(contractsopenai.APIError{
 		Error: contractsopenai.ErrorInfo{
@@ -260,6 +164,7 @@ func writeUnsupportedModelModeError(c *fiber.Ctx, model string, requestedMode pl
 	mode := strings.TrimSpace(string(requestedMode))
 	model = strings.TrimSpace(model)
 	message := fmt.Sprintf("Model %q does not expose requested mode %q. Exposed modes: %s.", model, mode, formatQuotedStringList(exposedModes))
+
 	return c.Status(fiber.StatusBadRequest).JSON(contractsopenai.APIError{
 		Error: contractsopenai.ErrorInfo{
 			Message: message,
@@ -280,23 +185,27 @@ func formatQuotedStringList(values []string) string {
 	if len(values) == 0 {
 		return "[]"
 	}
+
 	quoted := make([]string, 0, len(values))
 	for _, value := range values {
 		value = strings.TrimSpace(value)
 		if value == "" {
 			continue
 		}
+
 		quoted = append(quoted, fmt.Sprintf("%q", value))
 	}
+
 	return "[" + strings.Join(quoted, ", ") + "]"
 }
 
-// ContainsModel checks if a model is in the allowed models list
+// ContainsModel checks if a model is in the allowed models list.
 func ContainsModel(allowed []string, model string) bool {
 	for _, m := range allowed {
 		if m == "*" || m == model {
 			return true
 		}
 	}
+
 	return false
 }

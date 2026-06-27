@@ -22,26 +22,35 @@ func TestIntegration_CommercialPlanSeedOverrideAndMonthlyQuota(t *testing.T) {
 	if strings.TrimSpace(databaseURL) == "" {
 		t.Skip("DATABASE_URL not set")
 	}
+
 	ctx := context.Background()
 	logger := zap.NewNop()
 	store, err := storage.NewStore(ctx, databaseURL, logger)
 	require.NoError(t, err)
+
 	defer store.Close()
+
 	pool, err := pgxpool.New(ctx, databaseURL)
 	require.NoError(t, err)
+
 	defer pool.Close()
+
 	mem, err := cache.NewMemoryCache(logger)
 	require.NoError(t, err)
+
 	defer mem.Close()
+
 	store.SetEntitlementCache(mem)
 	resetPersistentState(t, pool)
 
 	plans, err := store.ListPublicCommercialPlans(ctx)
 	require.NoError(t, err)
+
 	slugs := planSlugs(plans)
 	for _, expected := range []string{"developer", "team", "growth", "enterprise"} {
 		assert.Contains(t, slugs, expected)
 	}
+
 	features, err := store.ListFeatureCatalog(ctx)
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, len(features), 20)
@@ -69,6 +78,7 @@ func TestIntegration_CommercialPlanSeedOverrideAndMonthlyQuota(t *testing.T) {
 	_, allowed, err = store.CheckAndIncrementTenantUsageCounter(ctx, tenant.ID, platform.FeatureGatewayRequestsMonthly, 1, 1, january)
 	require.NoError(t, err)
 	assert.False(t, allowed)
+
 	february := time.Date(2026, time.February, 1, 0, 0, 1, 0, time.UTC)
 	_, allowed, err = store.CheckAndIncrementTenantUsageCounter(ctx, tenant.ID, platform.FeatureGatewayRequestsMonthly, 1, 1, february)
 	require.NoError(t, err)
@@ -80,14 +90,19 @@ func TestIntegration_PublishedVersionAndPeriodEndDowngrade(t *testing.T) {
 	if strings.TrimSpace(databaseURL) == "" {
 		t.Skip("DATABASE_URL not set")
 	}
+
 	ctx := context.Background()
 	logger := zap.NewNop()
 	store, err := storage.NewStore(ctx, databaseURL, logger)
 	require.NoError(t, err)
+
 	defer store.Close()
+
 	pool, err := pgxpool.New(ctx, databaseURL)
 	require.NoError(t, err)
+
 	defer pool.Close()
+
 	resetPersistentState(t, pool)
 
 	planSlug := "publish-test-" + uuid.NewString()[:8]
@@ -97,10 +112,12 @@ func TestIntegration_PublishedVersionAndPeriodEndDowngrade(t *testing.T) {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM subscription_payment_intents WHERE plan_id IN (SELECT plan_id FROM commercial_plans WHERE slug = $1)`, planSlug)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM commercial_plans WHERE slug = $1`, planSlug)
 	})
+
 	version, err := store.CreatePlanVersion(ctx, planSlug, platform.CreatePlanVersionRequest{Version: 1})
 	require.NoError(t, err)
 	_, err = store.UpsertPlanEntitlement(ctx, planSlug, version.Version, platform.UpsertPlanEntitlementRequest{FeatureKey: platform.FeatureUsersMax, Value: 5})
 	require.NoError(t, err)
+
 	amount := float64(120000)
 	_, err = store.UpsertPlanPrice(ctx, planSlug, version.Version, platform.UpsertPlanPriceRequest{BillingInterval: "yearly", Currency: "IRR", AmountMinor: &amount, DiscountPercent: 20})
 	require.NoError(t, err)
@@ -118,6 +135,7 @@ func TestIntegration_PublishedVersionAndPeriodEndDowngrade(t *testing.T) {
 	assert.Equal(t, "payment_required", paymentChange.Mode)
 	assert.Equal(t, float64(120000), paymentChange.PaymentIntent.AmountMinor)
 	assert.Equal(t, float64(20), paymentChange.PaymentIntent.DiscountPercent)
+
 	authority := "test_" + uuid.NewString()
 	require.NoError(t, store.AttachSubscriptionPaymentGatewayData(ctx, paymentChange.PaymentIntent.PublicID, authority, "http://localhost/pay", map[string]interface{}{"test": true}))
 	_, paidSubscription, alreadyProcessed, err := store.CompleteSubscriptionPaymentByAuthority(ctx, authority, map[string]interface{}{"status": "ok"}, "ref-1", "txn-1", "", "")
@@ -125,9 +143,11 @@ func TestIntegration_PublishedVersionAndPeriodEndDowngrade(t *testing.T) {
 	assert.False(t, alreadyProcessed)
 	require.NotNil(t, paidSubscription)
 	assert.Equal(t, planSlug, paidSubscription.PlanSlug)
+
 	_, _, alreadyProcessed, err = store.CompleteSubscriptionPaymentByAuthority(ctx, authority, map[string]interface{}{"status": "ok"}, "ref-1", "txn-1", "", "")
 	require.NoError(t, err)
 	assert.True(t, alreadyProcessed)
+
 	_, err = store.UpsertTenantSubscription(ctx, platform.UpsertTenantSubscriptionRequest{TenantID: tenant.ID, PlanSlug: "growth", BillingInterval: "monthly"}, "test")
 	require.NoError(t, err)
 	scheduled, err := store.ChangeTenantSubscription(ctx, tenant.ID, platform.ChangeTenantSubscriptionRequest{PlanSlug: "developer", BillingInterval: "monthly"})
@@ -139,6 +159,7 @@ func TestIntegration_PublishedVersionAndPeriodEndDowngrade(t *testing.T) {
 	processed, err := store.ProcessSubscriptionTransitions(ctx, time.Now().UTC(), 10)
 	require.NoError(t, err)
 	assert.Equal(t, 1, processed)
+
 	current, err := store.GetTenantSubscription(ctx, tenant.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "developer", current.PlanSlug)
@@ -149,5 +170,6 @@ func planSlugs(plans []platform.CommercialPlan) []string {
 	for _, plan := range plans {
 		out = append(out, plan.Slug)
 	}
+
 	return out
 }

@@ -27,7 +27,7 @@ type Client struct {
 	httpClient *http.Client
 }
 
-// Register the adapter
+// Register the adapter.
 func init() {
 	providers.Register("mistral", func(cfg providers.ProviderConfig) providers.Provider {
 		return NewClient(cfg)
@@ -85,6 +85,7 @@ func (c *Client) Complete(ctx context.Context, req contractsopenai.ChatCompletio
 	}
 
 	endpoint := c.apiBase + "/chat/completions"
+
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -93,15 +94,19 @@ func (c *Client) Complete(ctx context.Context, req contractsopenai.ChatCompletio
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := c.httpClient.Do(httpReq) //nolint:bodyclose // the streaming goroutine owns and closes resp.Body.
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer providers.Close(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Mistral API error (status %d): %s", resp.StatusCode, string(bodyBytes))
+		bodyBytes, readErr := providers.ReadAllAndClose(resp)
+		if readErr != nil {
+			return nil, fmt.Errorf("failed to read mistral error response: %w", readErr)
+		}
+
+		return nil, fmt.Errorf("mistral API error (status %d): %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	var result contractsopenai.ChatCompletionResponse
@@ -123,6 +128,7 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 	}
 
 	endpoint := c.apiBase + "/chat/completions"
+
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create request: %w", err)
@@ -131,14 +137,18 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := c.httpClient.Do(httpReq) //nolint:bodyclose // the streaming goroutine owns and closes resp.Body.
 	if err != nil {
 		return nil, nil, fmt.Errorf("request failed: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, nil, fmt.Errorf("Mistral API error (status %d): %s", resp.StatusCode, string(bodyBytes))
+		bodyBytes, readErr := providers.ReadAllAndClose(resp)
+		if readErr != nil {
+			return nil, nil, fmt.Errorf("failed to read mistral error response: %w", readErr)
+		}
+
+		return nil, nil, fmt.Errorf("mistral API error (status %d): %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	streamChan := make(chan contractsopenai.StreamChunk)
@@ -146,7 +156,7 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 
 	go func() {
 		defer close(streamChan)
-		defer resp.Body.Close()
+		defer providers.Close(resp.Body)
 
 		reader := bufio.NewReader(resp.Body)
 		for {
@@ -155,7 +165,9 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 				if err != io.EOF {
 					errorChan <- fmt.Errorf("stream read error: %w", err)
 				}
+
 				close(errorChan)
+
 				return
 			}
 
@@ -173,6 +185,7 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 			if !strings.HasPrefix(line, "data: ") {
 				continue
 			}
+
 			data := strings.TrimPrefix(line, "data: ")
 
 			// Check for [DONE]

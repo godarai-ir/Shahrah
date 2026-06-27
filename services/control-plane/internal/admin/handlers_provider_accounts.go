@@ -28,6 +28,7 @@ func (h *Handlers) ListProviderCatalog(c *fiber.Ctx) error {
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadGateway, err.Error())
 	}
+
 	return c.JSON(platform.ProviderCatalogListResponse{Data: items})
 }
 
@@ -40,7 +41,9 @@ func (h *Handlers) RefreshProviderCatalogCache(c *fiber.Ctx) error {
 	}); err != nil {
 		return err
 	}
+
 	invalidateDiscoveryCache()
+
 	return c.JSON(fiber.Map{
 		"ok":      true,
 		"message": "provider catalog cache invalidated",
@@ -56,6 +59,7 @@ func (h *Handlers) GetProviderCatalogStats(c *fiber.Ctx) error {
 	}); err != nil {
 		return err
 	}
+
 	return c.JSON(fiber.Map{
 		"data": fiber.Map{
 			"cache_ttl_sec": int64(discoveryCacheTTL().Seconds()),
@@ -79,8 +83,10 @@ func (h *Handlers) GetProviderCatalogDisplaySettings(c *fiber.Ctx) error {
 		if errors.Is(err, errDiscoveryNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "provider catalog display settings not found")
 		}
+
 		return fiber.NewError(fiber.StatusBadGateway, err.Error())
 	}
+
 	return c.JSON(platform.ProviderCatalogDisplaySettingsResponse{Data: *settings})
 }
 
@@ -98,13 +104,16 @@ func (h *Handlers) ListProviderModelsCatalog(c *fiber.Ctx) error {
 	if provider == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "provider is required")
 	}
+
 	items, err := discoveryProviderModels(c.Context(), provider)
 	if err != nil {
 		if errors.Is(err, errDiscoveryNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "provider model catalog not found")
 		}
+
 		return fiber.NewError(fiber.StatusBadGateway, err.Error())
 	}
+
 	return c.JSON(platform.ProviderModelCatalogListResponse{Data: items})
 }
 
@@ -119,13 +128,16 @@ func (h *Handlers) GetProviderCatalogAsset(c *fiber.Ctx) error {
 	}
 
 	bucket := strings.TrimSpace(c.Params("bucket"))
+
 	fileName := strings.TrimSpace(c.Params("fileName"))
 	if bucket == "" || fileName == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "bucket and fileName are required")
 	}
+
 	if bucket != "provider-logos" && bucket != "model-series-logos" {
 		return fiber.NewError(fiber.StatusBadRequest, "unsupported provider catalog asset bucket")
 	}
+
 	if strings.Contains(fileName, "..") {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid provider catalog asset name")
 	}
@@ -136,21 +148,27 @@ func (h *Handlers) GetProviderCatalogAsset(c *fiber.Ctx) error {
 	}
 
 	rawURL := baseURL + "/providers/assets/" + url.PathEscape(bucket) + "/" + url.PathEscape(fileName)
+
 	body, status, contentType, err := discoveryFetch(c.Context(), rawURL)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadGateway, err.Error())
 	}
+
 	if status == fiber.StatusNotFound {
 		return fiber.NewError(fiber.StatusNotFound, "provider catalog asset not found")
 	}
+
 	if status >= fiber.StatusBadRequest {
 		return fiber.NewError(fiber.StatusBadGateway, "failed to load provider catalog asset")
 	}
+
 	if strings.TrimSpace(contentType) == "" {
 		contentType = http.DetectContentType(body)
 	}
+
 	c.Set(fiber.HeaderContentType, contentType)
 	c.Set(fiber.HeaderCacheControl, "public, max-age=3600")
+
 	return c.Status(status).Send(body)
 }
 
@@ -166,28 +184,35 @@ func (h *Handlers) CreateTenantProviderAccount(c *fiber.Ctx) error {
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	store, err := h.requireProviderAccountsStore()
 	if err != nil {
 		return err
 	}
 
 	var req platform.CreateTenantProviderAccountRequest
-	if err := c.BodyParser(&req); err != nil {
+
+	parseErr := c.BodyParser(&req)
+	if parseErr != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
+
 	req.Provider = normalizeProviderSlug(req.Provider)
 	req.Name = strings.TrimSpace(req.Name)
 
 	if req.Provider == "" || req.Name == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "provider and name are required")
 	}
+
 	if req.AuthMode == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "auth_mode is required")
 	}
+
 	exists, err := discoveryProviderExists(c.Context(), req.Provider)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadGateway, err.Error())
 	}
+
 	if !exists {
 		return fiber.NewError(fiber.StatusBadRequest, "unsupported provider from discovery service")
 	}
@@ -196,10 +221,12 @@ func (h *Handlers) CreateTenantProviderAccount(c *fiber.Ctx) error {
 	if err != nil {
 		return mapProviderAccountStoreError(err)
 	}
+
 	actor := strings.TrimSpace(c.Get("x-shahrah-user-id"))
 	if actor == "" {
 		actor = "unknown"
 	}
+
 	c.Context().SetUserValue("audit.provider_account_event", map[string]interface{}{
 		"event":      "provider_account_created",
 		"tenant_id":  currentTenant.ID,
@@ -207,6 +234,7 @@ func (h *Handlers) CreateTenantProviderAccount(c *fiber.Ctx) error {
 		"provider":   account.Provider,
 		"actor":      actor,
 	})
+
 	return c.Status(fiber.StatusCreated).JSON(account)
 }
 
@@ -224,6 +252,7 @@ func (h *Handlers) ListTenantProviderAccounts(c *fiber.Ctx) error {
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	store, err := h.requireProviderAccountsStore()
 	if err != nil {
 		return err
@@ -233,6 +262,7 @@ func (h *Handlers) ListTenantProviderAccounts(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	return c.JSON(platform.TenantProviderAccountListResponse{Data: items})
 }
 
@@ -250,6 +280,7 @@ func (h *Handlers) GetTenantProviderAccount(c *fiber.Ctx) error {
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	store, err := h.requireProviderAccountsStore()
 	if err != nil {
 		return err
@@ -265,13 +296,16 @@ func (h *Handlers) GetTenantProviderAccount(c *fiber.Ctx) error {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
 		}
+
 		return err
 	}
+
 	if details != nil {
 		if enriched, enrichErr := enrichTenantProviderAccountModels(c.Context(), details.Account.Provider, details.Models); enrichErr == nil {
 			details.Models = enriched
 		}
 	}
+
 	return c.JSON(details)
 }
 
@@ -282,10 +316,12 @@ func (h *Handlers) DeleteTenantProviderAccount(c *fiber.Ctx) error {
 	}); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	store, err := h.requireProviderAccountsStore()
 	if err != nil {
 		return err
@@ -301,8 +337,10 @@ func (h *Handlers) DeleteTenantProviderAccount(c *fiber.Ctx) error {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
 		}
+
 		return mapProviderAccountStoreError(err)
 	}
+
 	if details == nil {
 		return fiber.NewError(fiber.StatusNotFound, "provider account not found")
 	}
@@ -311,8 +349,10 @@ func (h *Handlers) DeleteTenantProviderAccount(c *fiber.Ctx) error {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
 		}
+
 		return mapProviderAccountStoreError(err)
 	}
+
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
@@ -325,25 +365,31 @@ func (h *Handlers) GetTenantProviderAccountEffectiveModels(c *fiber.Ctx) error {
 	}); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	store, err := h.requireProviderAccountsStore()
 	if err != nil {
 		return err
 	}
+
 	accountID := strings.TrimSpace(c.Params("accountID"))
 	if accountID == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "accountID is required")
 	}
+
 	keyType := strings.TrimSpace(strings.ToLower(c.Query("key_type")))
 	if keyType == "" {
 		keyType = platform.KeyTypePAT
 	}
+
 	if keyType != platform.KeyTypePAT && keyType != platform.KeyTypeVAT {
 		return fiber.NewError(fiber.StatusBadRequest, "key_type must be pat or vat")
 	}
+
 	userID := strings.TrimSpace(c.Query("user_id"))
 	teamID := strings.TrimSpace(c.Query("team_id"))
 
@@ -352,8 +398,10 @@ func (h *Handlers) GetTenantProviderAccountEffectiveModels(c *fiber.Ctx) error {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
 		}
+
 		return err
 	}
+
 	return c.JSON(platform.EffectiveModelsResponse{Data: items})
 }
 
@@ -370,6 +418,7 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	store, err := h.requireProviderAccountsStore()
 	if err != nil {
 		return err
@@ -381,21 +430,27 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 	}
 
 	var req platform.UpsertTenantProviderAccountModelsRequest
-	if err := c.BodyParser(&req); err != nil {
+
+	parseErr := c.BodyParser(&req)
+	if parseErr != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
+
 	if len(req.Models) == 0 {
 		return fiber.NewError(fiber.StatusBadRequest, "at least one model must be selected")
 	}
+
 	for i := range req.Models {
 		req.Models[i].Model = strings.TrimSpace(req.Models[i].Model)
 		if req.Models[i].Model == "" {
 			return fiber.NewError(fiber.StatusBadRequest, "model is required for each item")
 		}
+
 		req.Models[i].EffectiveCapabilities = normalizeModelTypes(req.Models[i].EffectiveCapabilities)
 		if len(req.Models[i].EffectiveCapabilities) == 0 {
 			return fiber.NewError(fiber.StatusBadRequest, "effective_capabilities is required for each enabled model")
 		}
+
 		if req.Models[i].PricingMode == "" {
 			req.Models[i].PricingMode = platform.PricingModePublic
 		}
@@ -406,15 +461,19 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
 		}
+
 		return mapProviderAccountStoreError(err)
 	}
+
 	normalizedModels, invalidModels, invalidCapabilities, err := resolveProviderAccountModelSelections(c.Context(), details.Account.Provider, req.Models)
 	if err != nil {
 		if errors.Is(err, errDiscoveryNotFound) {
 			return fiber.NewError(fiber.StatusBadRequest, "provider model catalog not found")
 		}
+
 		return fiber.NewError(fiber.StatusBadGateway, err.Error())
 	}
+
 	if len(invalidModels) > 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": fiber.Map{
@@ -427,6 +486,7 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 			},
 		})
 	}
+
 	if len(invalidCapabilities) > 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": fiber.Map{
@@ -451,8 +511,10 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
 		}
+
 		return mapProviderAccountStoreError(err)
 	}
+
 	out := make([]platform.TenantProviderAccountModelEffective, 0, len(items))
 	for _, item := range items {
 		resolved := item.PricingMode == platform.PricingModePublic || item.PrivatePricing != nil
@@ -464,6 +526,7 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 			PricingResolved:       resolved,
 		})
 	}
+
 	return c.JSON(platform.TenantProviderAccountModelsUpsertResponse{Data: out})
 }
 
@@ -480,6 +543,7 @@ func (h *Handlers) UpdateTenantProviderAccountAccess(c *fiber.Ctx) error {
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	store, err := h.requireProviderAccountsStore()
 	if err != nil {
 		return err
@@ -491,21 +555,27 @@ func (h *Handlers) UpdateTenantProviderAccountAccess(c *fiber.Ctx) error {
 	}
 
 	var req platform.UpdateTenantProviderAccountAccessRequest
-	if err := c.BodyParser(&req); err != nil {
+
+	parseErr := c.BodyParser(&req)
+	if parseErr != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
+
 	if len(req.Access.Managers) == 0 {
 		return fiber.NewError(fiber.StatusBadRequest, "at least one manager is required")
 	}
+
 	for _, item := range req.Access.Managers {
 		if item.Type == platform.PrincipalTypeEveryone {
 			return fiber.NewError(fiber.StatusBadRequest, "manager role only supports user/team principals")
 		}
 	}
+
 	for _, rule := range req.Access.Rules {
 		if rule.Role == platform.AccessRoleManager && rule.Principal.Type == platform.PrincipalTypeEveryone {
 			return fiber.NewError(fiber.StatusBadRequest, "manager role only supports user/team principals")
 		}
+
 		if rule.AccessScope == platform.AccessScopeModel && strings.TrimSpace(rule.Model) == "" {
 			return fiber.NewError(fiber.StatusBadRequest, "model is required when access_scope=model")
 		}
@@ -516,8 +586,10 @@ func (h *Handlers) UpdateTenantProviderAccountAccess(c *fiber.Ctx) error {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
 		}
+
 		return mapProviderAccountStoreError(err)
 	}
+
 	return c.JSON(fiber.Map{"access": access})
 }
 
@@ -526,35 +598,43 @@ func enrichTenantProviderAccountModels(ctx context.Context, provider string, mod
 	if err != nil {
 		return nil, err
 	}
+
 	index := make(map[string]platform.ProviderCatalogModel, len(catalog))
 	for _, item := range catalog {
 		key := strings.TrimSpace(item.Model)
 		if key == "" {
 			continue
 		}
+
 		index[key] = item
 	}
 
 	out := make([]platform.TenantProviderAccountModel, 0, len(models))
 	for _, item := range models {
 		next := item
+
 		catalogModel, ok := index[strings.TrimSpace(item.Model)]
 		if ok {
 			if len(next.Types) == 0 {
 				next.Types = normalizeModelTypes(catalogModel.Types)
 			}
+
 			if len(next.InputModalities) == 0 {
 				next.InputModalities = normalizeStringList(catalogModel.InputModalities)
 			}
+
 			if len(next.OutputModalities) == 0 {
 				next.OutputModalities = normalizeStringList(catalogModel.OutputModalities)
 			}
+
 			if next.PublicPricing == nil {
 				next.PublicPricing = cloneModelPrice(catalogModel.PublicPricing)
 			}
 		}
+
 		out = append(out, next)
 	}
+
 	return out, nil
 }
 
@@ -571,6 +651,7 @@ func (h *Handlers) TestTenantProviderAccountCredentials(c *fiber.Ctx) error {
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	store, err := h.requireProviderAccountsStore()
 	if err != nil {
 		return err
@@ -583,7 +664,8 @@ func (h *Handlers) TestTenantProviderAccountCredentials(c *fiber.Ctx) error {
 
 	var req platform.TestTenantProviderAccountCredentialsRequest
 	if len(c.Body()) > 0 {
-		if err := c.BodyParser(&req); err != nil {
+		parseErr := c.BodyParser(&req)
+		if parseErr != nil {
 			return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 		}
 	}
@@ -593,8 +675,10 @@ func (h *Handlers) TestTenantProviderAccountCredentials(c *fiber.Ctx) error {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
 		}
+
 		return err
 	}
+
 	return c.JSON(result)
 }
 
@@ -606,10 +690,12 @@ func (h *Handlers) UpdateTenantProviderAccountCredentials(c *fiber.Ctx) error {
 	}); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	store, err := h.requireProviderAccountsStore()
 	if err != nil {
 		return err
@@ -621,12 +707,16 @@ func (h *Handlers) UpdateTenantProviderAccountCredentials(c *fiber.Ctx) error {
 	}
 
 	var req platform.UpdateTenantProviderAccountCredentialsRequest
-	if err := c.BodyParser(&req); err != nil {
+
+	parseErr := c.BodyParser(&req)
+	if parseErr != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
+
 	if req.AuthMode != "" {
 		req.AuthMode = platform.ProviderAuthMode(strings.TrimSpace(strings.ToLower(string(req.AuthMode))))
 	}
+
 	if req.Credentials != nil {
 		req.Credentials.APIKey = strings.TrimSpace(req.Credentials.APIKey)
 		req.Credentials.SecretRef = strings.TrimSpace(req.Credentials.SecretRef)
@@ -637,8 +727,10 @@ func (h *Handlers) UpdateTenantProviderAccountCredentials(c *fiber.Ctx) error {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
 		}
+
 		return mapProviderAccountStoreError(err)
 	}
+
 	return c.JSON(account)
 }
 
@@ -648,6 +740,7 @@ func (h *Handlers) ListAccessPrincipals(c *fiber.Ctx) error {
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	store, err := h.requireProviderAccountsStore()
 	if err != nil {
 		return err
@@ -659,19 +752,25 @@ func (h *Handlers) ListAccessPrincipals(c *fiber.Ctx) error {
 	default:
 		return fiber.NewError(fiber.StatusBadRequest, "kind must be user, team or org_unit")
 	}
-	if err := requireAccessPrincipalSearchPermission(c, kind); err != nil {
-		return err
+
+	permissionErr := requireAccessPrincipalSearchPermission(c, kind)
+	if permissionErr != nil {
+		return permissionErr
 	}
+
 	query := strings.TrimSpace(c.Query("q"))
 	limit := 20
+
 	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
 		parsed, parseErr := strconv.Atoi(raw)
 		if parseErr != nil || parsed <= 0 {
 			return fiber.NewError(fiber.StatusBadRequest, "limit must be a positive number")
 		}
+
 		if parsed > 100 {
 			parsed = 100
 		}
+
 		limit = parsed
 	}
 
@@ -679,5 +778,6 @@ func (h *Handlers) ListAccessPrincipals(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	return c.JSON(platform.AccessPrincipalListResponse{Data: items})
 }

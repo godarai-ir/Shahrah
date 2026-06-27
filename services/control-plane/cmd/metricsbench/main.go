@@ -24,6 +24,7 @@ func main() {
 	auth := flag.String("auth", "", "Bearer token")
 	out := flag.String("out", "./tmp/model-metrics-benchmark.md", "output markdown path")
 	runs := flag.Int("runs", 20, "runs per case")
+
 	flag.Parse()
 
 	now := time.Now().UTC()
@@ -35,6 +36,7 @@ func main() {
 
 	results := make(map[string][]float64)
 	client := &http.Client{Timeout: 15 * time.Second}
+
 	for _, c := range cases {
 		for i := 0; i < *runs; i++ {
 			durMS, err := doQuery(client, *baseURL, *tenant, *auth, c)
@@ -43,13 +45,16 @@ func main() {
 				fmt.Println("benchmark failed:", err)
 				os.Exit(1)
 			}
+
 			results[c.Name] = append(results[c.Name], durMS)
 		}
 	}
+
 	if err := writeReport(*out, results, nil); err != nil {
 		fmt.Println("write report failed:", err)
 		os.Exit(1)
 	}
+
 	fmt.Println("benchmark report written:", *out)
 }
 
@@ -70,38 +75,47 @@ func doQuery(client *http.Client, baseURL, tenant, auth string, c queryCase) (fl
 	req, _ := http.NewRequest(http.MethodPost, baseURL+"/api/v1/metrics/query", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("x-shahrah-tenant", tenant)
+
 	if auth != "" {
 		req.Header.Set("Authorization", "Bearer "+auth)
 	}
+
 	start := time.Now()
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return 0, err
 	}
 	defer resp.Body.Close()
+
 	if resp.StatusCode >= 400 {
 		return 0, fmt.Errorf("status %d", resp.StatusCode)
 	}
+
 	return float64(time.Since(start).Milliseconds()), nil
 }
 
 func writeReport(path string, results map[string][]float64, benchErr error) error {
 	var md bytes.Buffer
 	md.WriteString("# Model Metrics Benchmark Report\n\n")
-	md.WriteString(fmt.Sprintf("Generated at: `%s`\n\n", time.Now().UTC().Format(time.RFC3339)))
+	fmt.Fprintf(&md, "Generated at: `%s`\n\n", time.Now().UTC().Format(time.RFC3339))
+
 	if benchErr != nil {
-		md.WriteString(fmt.Sprintf("Benchmark error: `%v`\n\n", benchErr))
+		fmt.Fprintf(&md, "Benchmark error: `%v`\n\n", benchErr)
 	}
+
 	md.WriteString("| Window | p50 (ms) | p95 (ms) | p99 (ms) | samples |\n")
 	md.WriteString("|---|---:|---:|---:|---:|\n")
+
 	for _, k := range []string{"3h", "24h", "7d"} {
 		values := append([]float64(nil), results[k]...)
 		sort.Float64s(values)
 		p50 := percentile(values, 50)
 		p95 := percentile(values, 95)
 		p99 := percentile(values, 99)
-		md.WriteString(fmt.Sprintf("| %s | %.2f | %.2f | %.2f | %d |\n", k, p50, p95, p99, len(values)))
+		fmt.Fprintf(&md, "| %s | %.2f | %.2f | %.2f | %d |\n", k, p50, p95, p99, len(values))
 	}
+
 	md.WriteString("\n## SLO Check\n")
 	md.WriteString("- Target p95 3h < 800ms\n")
 	md.WriteString("- Target p95 24h < 1500ms\n")
@@ -110,6 +124,7 @@ func writeReport(path string, results map[string][]float64, benchErr error) erro
 	if err := os.MkdirAll("./tmp", 0o755); err != nil {
 		return err
 	}
+
 	return os.WriteFile(path, md.Bytes(), 0o644)
 }
 
@@ -117,12 +132,15 @@ func percentile(values []float64, p int) float64 {
 	if len(values) == 0 {
 		return 0
 	}
+
 	idx := int(float64(len(values)-1) * float64(p) / 100.0)
 	if idx < 0 {
 		idx = 0
 	}
+
 	if idx >= len(values) {
 		idx = len(values) - 1
 	}
+
 	return values[idx]
 }

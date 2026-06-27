@@ -293,14 +293,17 @@ func isTenantAdminUser(user *platform.TenantAdminUser) bool {
 	if user == nil {
 		return false
 	}
+
 	if strings.EqualFold(strings.TrimSpace(user.Role), "tenant_admin") {
 		return true
 	}
+
 	for _, role := range user.Roles {
 		if strings.EqualFold(strings.TrimSpace(role), "tenant_admin") {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -308,6 +311,7 @@ func (h *Handlers) requireProviderAccountsStore() (providerAccountStore, error) 
 	if h.providerAccounts == nil {
 		return nil, fiber.NewError(fiber.StatusNotImplemented, "provider account store not configured")
 	}
+
 	return h.providerAccounts, nil
 }
 
@@ -315,6 +319,7 @@ func (h *Handlers) requireOnboardingStore() (onboardingStore, error) {
 	if h.onboarding == nil {
 		return nil, fiber.NewError(fiber.StatusNotImplemented, "onboarding store not configured")
 	}
+
 	return h.onboarding, nil
 }
 
@@ -322,6 +327,7 @@ func (h *Handlers) requireLoginDiscoveryStore() (loginDiscoveryStore, error) {
 	if h.loginDiscovery == nil {
 		return nil, fiber.NewError(fiber.StatusNotImplemented, "login discovery store not configured")
 	}
+
 	return h.loginDiscovery, nil
 }
 
@@ -330,10 +336,12 @@ func appendUnique(values []string, candidate string) []string {
 	if candidate == "" {
 		return values
 	}
+
 	for _, existing := range values {
 		if existing == candidate {
 			return values
 		}
 	}
+
 	return append(values, candidate)
 }

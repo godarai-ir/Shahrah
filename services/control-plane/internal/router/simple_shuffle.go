@@ -26,6 +26,7 @@ func (s *SimpleShuffle) SelectDeployment(deployments []*Deployment, model string
 
 	// Check if weights are configured for weighted random selection
 	hasWeight := false
+
 	for _, d := range deployments {
 		if d.Weight > 0 {
 			hasWeight = true

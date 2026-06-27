@@ -100,7 +100,9 @@ func (m *AuthMiddleware) Middleware() fiber.Handler {
 					}
 				}
 			}
+
 			c.Locals(AuthContextKey{}, resolved)
+
 			return c.Next()
 		}
 
@@ -118,7 +120,9 @@ func (m *AuthMiddleware) Middleware() fiber.Handler {
 					},
 				})
 			}
+
 			m.logger.Error("API key lookup failed", zap.Error(err))
+
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": map[string]interface{}{
 					"message": "Authentication lookup failed",
@@ -129,6 +133,7 @@ func (m *AuthMiddleware) Middleware() fiber.Handler {
 
 		if keyInfo == nil {
 			m.logger.Error("API key lookup returned nil auth context")
+
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": map[string]interface{}{
 					"message": "Authentication lookup failed",
@@ -159,6 +164,7 @@ func (m *AuthMiddleware) Middleware() fiber.Handler {
 
 		// Store auth info in context
 		c.Locals(AuthContextKey{}, keyInfo)
+
 		if err := CheckRouteAuthorization(c.Method(), c.Path(), keyInfo); err != nil {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 				"error": map[string]interface{}{
@@ -167,10 +173,12 @@ func (m *AuthMiddleware) Middleware() fiber.Handler {
 				},
 			})
 		}
+
 		m.logger.Debug("Authentication successful",
 			zap.String("key_alias", keyInfo.KeyAlias),
 			zap.String("role", keyInfo.Role),
 		)
+
 		if keyInfo.KeyID != "" {
 			if tracker, ok := m.keyStore.(keyLastUsedTracker); ok {
 				if err := tracker.TouchKeyLastUsed(c.Context(), keyInfo.KeyID, time.Now().UTC()); err != nil {
@@ -193,6 +201,7 @@ func GetAuthInfo(c *fiber.Ctx) *platform.AuthContext {
 	if val == nil {
 		return nil
 	}
+
 	return val.(*platform.AuthContext)
 }
 
@@ -203,6 +212,7 @@ func (m *AuthMiddleware) extractAPIKey(c *fiber.Ctx) string {
 		if strings.HasPrefix(auth, "Bearer ") {
 			return strings.TrimPrefix(auth, "Bearer ")
 		}
+
 		return auth
 	}
 

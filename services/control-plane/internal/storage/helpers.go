@@ -9,6 +9,7 @@ func toString(v interface{}) string {
 	if v == nil {
 		return ""
 	}
+
 	switch val := v.(type) {
 	case string:
 		return val
@@ -53,6 +54,7 @@ func emptyToNil(v string) interface{} {
 	if v == "" {
 		return nil
 	}
+
 	return v
 }
 
@@ -60,5 +62,6 @@ func nullUUID(v string) interface{} {
 	if v == "" {
 		return nil
 	}
+
 	return v
 }

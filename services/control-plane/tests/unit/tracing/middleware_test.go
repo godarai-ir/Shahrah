@@ -23,7 +23,10 @@ func TestMiddlewarePropagatesTraceID(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/x", nil)
 	req.Header.Set(apiheaders.HeaderTraceID, "trace_abc")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	assert.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Equal(t, "trace_abc", resp.Header.Get(apiheaders.HeaderTraceID))
@@ -40,13 +43,19 @@ func TestMiddlewareGeneratesTraceIDWhenMissing(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/x", nil)
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	assert.NoError(t, err)
 	assert.NotEmpty(t, resp.Header.Get(apiheaders.HeaderTraceID))
 
 	req = httptest.NewRequest("GET", "/x", nil)
 	req.Header.Set(apiheaders.LegacyHeaderTraceID, "trace_legacy")
+
 	resp, err = app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	assert.NoError(t, err)
 	assert.Equal(t, "trace_legacy", resp.Header.Get(apiheaders.HeaderTraceID))
 }
@@ -59,11 +68,15 @@ func TestMiddleware_DropsRootAndStepWhenUnsampled(t *testing.T) {
 	app.Get("/x", func(c *fiber.Ctx) error {
 		start := time.Now().Add(-5 * time.Millisecond)
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "quota.check", "internal", start, fiber.StatusOK, map[string]interface{}{"estimated_tokens": 42})
+
 		return c.SendStatus(200)
 	})
 
 	req := httptest.NewRequest("GET", "/x", nil)
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Equal(t, 0, q.Len())
@@ -77,11 +90,15 @@ func TestMiddleware_EnqueuesRootAndStepsForErrorRequest(t *testing.T) {
 	app.Get("/x", func(c *fiber.Ctx) error {
 		start := time.Now().Add(-5 * time.Millisecond)
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", start, fiber.StatusInternalServerError, map[string]interface{}{"provider": "openai"})
+
 		return c.SendStatus(fiber.StatusInternalServerError)
 	})
 
 	req := httptest.NewRequest("GET", "/x", nil)
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
 	assert.Equal(t, 2, q.Len())
@@ -102,11 +119,15 @@ func TestRecordStepSpan_DefaultsParentToRootSpan(t *testing.T) {
 	app.Get("/x", func(c *fiber.Ctx) error {
 		start := time.Now().Add(-5 * time.Millisecond)
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", start, fiber.StatusOK, nil)
+
 		return c.SendStatus(200)
 	})
 
 	req := httptest.NewRequest("GET", "/x", nil)
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 

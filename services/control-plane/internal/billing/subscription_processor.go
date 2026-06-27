@@ -26,11 +26,13 @@ func NewSubscriptionProcessor(store subscriptionTransitionStore, logger *zap.Log
 	if interval <= 0 {
 		interval = time.Minute
 	}
+
 	return &SubscriptionProcessor{store: store, logger: logger, interval: interval, done: make(chan struct{})}
 }
 
 func (p *SubscriptionProcessor) Start() {
 	ctx, cancel := context.WithCancel(context.Background())
+
 	p.cancel = cancel
 	go p.run(ctx)
 }
@@ -40,15 +42,19 @@ func (p *SubscriptionProcessor) Stop() {
 		if p.cancel != nil {
 			p.cancel()
 		}
+
 		<-p.done
 	})
 }
 
 func (p *SubscriptionProcessor) run(ctx context.Context) {
 	defer close(p.done)
+
 	p.process(ctx)
+
 	ticker := time.NewTicker(p.interval)
 	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -66,11 +72,13 @@ func (p *SubscriptionProcessor) process(ctx context.Context, now ...time.Time) {
 	if len(now) > 0 {
 		current = now[0].UTC()
 	}
+
 	processed, err := p.store.ProcessSubscriptionTransitions(ctx, current, 100)
 	if err != nil {
 		p.logger.Error("subscription lifecycle processing failed", zap.Error(err))
 		return
 	}
+
 	if processed > 0 {
 		p.logger.Info("subscription lifecycle transitions applied", zap.Int("count", processed))
 	}

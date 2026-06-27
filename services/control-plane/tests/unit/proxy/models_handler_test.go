@@ -36,6 +36,7 @@ func TestModelsHandler_FiltersByAllowedModels(t *testing.T) {
 			TenantID:      "tenant-1",
 			AllowedModels: []string{"gpt-4o-mini"},
 		})
+
 		return c.Next()
 	})
 	app.Use(func(c *fiber.Ctx) error {
@@ -55,7 +56,10 @@ func TestModelsHandler_FiltersByAllowedModels(t *testing.T) {
 	app.Get("/v1/models", handler.Handle)
 
 	req := httptest.NewRequest("GET", "/v1/models", nil)
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
@@ -73,6 +77,7 @@ func TestModelsHandler_EnforcedAllowlistEmptyReturnsNoModels(t *testing.T) {
 			AllowedModels:         []string{},
 			EnforceModelAllowlist: true,
 		})
+
 		return c.Next()
 	})
 	app.Use(func(c *fiber.Ctx) error {
@@ -88,7 +93,10 @@ func TestModelsHandler_EnforcedAllowlistEmptyReturnsNoModels(t *testing.T) {
 	app.Get("/v1/models", handler.Handle)
 
 	req := httptest.NewRequest("GET", "/v1/models", nil)
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 

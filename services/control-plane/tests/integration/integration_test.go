@@ -68,8 +68,10 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 
 	silkRoad := httptest.NewServer(silkserver.NewHandler(nil))
 	defer silkRoad.Close()
+
 	tunnelServer := httptest.NewServer(tserverserver.NewHandler(silkRoad.URL, nil))
 	defer tunnelServer.Close()
+
 	tunnelClient := httptest.NewServer(tclientserver.NewHandler(tunnelServer.URL, nil))
 	defer tunnelClient.Close()
 
@@ -149,7 +151,10 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "http://localhost/v1/chat/completions", strings.NewReader(reqBody))
 	req.Header.Set("Authorization", "Bearer sk-integration-key")
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req, int((30 * time.Second).Milliseconds()))
+	defer closeResponseBody(t, resp)
+
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -175,6 +180,7 @@ func TestIntegration_EndToEndResponsesStreaming(t *testing.T) {
 		flusher, ok := w.(http.Flusher)
 		require.True(t, ok)
 		w.WriteHeader(http.StatusOK)
+
 		for _, frame := range []string{
 			"event: response.created\n",
 			"data: {\"type\":\"response.created\"}\n\n",
@@ -182,6 +188,7 @@ func TestIntegration_EndToEndResponsesStreaming(t *testing.T) {
 			"data: [DONE]\n\n",
 		} {
 			_, _ = w.Write([]byte(frame))
+
 			flusher.Flush()
 		}
 	}))
@@ -199,7 +206,10 @@ func TestIntegration_EndToEndResponsesStreaming(t *testing.T) {
 	req.Header.Set("Accept", "text/event-stream")
 
 	start := time.Now()
+
 	resp, err := app.Test(req, int((30 * time.Second).Milliseconds()))
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Less(t, time.Since(start), 5*time.Second)
@@ -207,6 +217,7 @@ func TestIntegration_EndToEndResponsesStreaming(t *testing.T) {
 
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
+
 	bodyText := string(body)
 	assert.Contains(t, bodyText, "event: response.created")
 	assert.Contains(t, bodyText, `response.output_text.delta`)
@@ -255,6 +266,7 @@ func TestIntegration_TenantOnboardingFlowViaManagementAPIs(t *testing.T) {
 
 	keysResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/keys", "Bearer sk-master", "")
 	assert.Equal(t, http.StatusOK, keysResp.StatusCode)
+
 	var listedKeys struct {
 		Data []platform.CreatedKey `json:"data"`
 	}
@@ -265,6 +277,7 @@ func TestIntegration_TenantOnboardingFlowViaManagementAPIs(t *testing.T) {
 
 	modelsResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/v1/models", "Bearer "+createdKey.Key, "")
 	assert.Equal(t, http.StatusOK, modelsResp.StatusCode)
+
 	var modelList contractsopenai.ModelListResponse
 	decodeJSONBody(t, modelsResp, &modelList)
 	require.Len(t, modelList.Data, 1)
@@ -273,6 +286,7 @@ func TestIntegration_TenantOnboardingFlowViaManagementAPIs(t *testing.T) {
 
 	completionResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/v1/chat/completions", "Bearer "+createdKey.Key, `{"model":"openai:default:gpt-4o-mini","messages":[{"role":"user","content":"hello"}]}`)
 	assert.Equal(t, http.StatusOK, completionResp.StatusCode)
+
 	var completion contractsopenai.ChatCompletionResponse
 	decodeJSONBody(t, completionResp, &completion)
 	assert.Equal(t, "provisioned flow succeeded", completion.Choices[0].Message.Content)
@@ -363,6 +377,7 @@ func TestIntegration_CreateServiceAccountKey(t *testing.T) {
 
 	keysResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/keys", "Bearer sk-master", "")
 	assert.Equal(t, http.StatusOK, keysResp.StatusCode)
+
 	var listedKeys struct {
 		Data []platform.CreatedKey `json:"data"`
 	}
@@ -397,6 +412,7 @@ func TestIntegration_CreateVATKeyViaCanonicalEndpoint(t *testing.T) {
 func TestIntegration_PersonalAccessTokenLifecycle(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
+
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
 
@@ -412,6 +428,7 @@ func TestIntegration_PersonalAccessTokenLifecycle(t *testing.T) {
 		`{"name":"ci-token","expires_in":"30d"}`,
 	)
 	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
+
 	var created platform.CreatedKey
 	decodeJSONBody(t, createResp, &created)
 	assert.NotEmpty(t, created.Key)
@@ -427,6 +444,7 @@ func TestIntegration_PersonalAccessTokenLifecycle(t *testing.T) {
 		"",
 	)
 	assert.Equal(t, http.StatusOK, listResp.StatusCode)
+
 	var listed platform.ListPATResponse
 	decodeJSONBody(t, listResp, &listed)
 	require.Len(t, listed.Data, 1)
@@ -467,6 +485,7 @@ func TestIntegration_InviteTenantUserViaCanonicalInvitationEndpoint(t *testing.T
 func TestIntegration_OrgUnitCRUD(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
+
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
 
@@ -474,6 +493,7 @@ func TestIntegration_OrgUnitCRUD(t *testing.T) {
 
 	createResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/org-units", "Bearer sk-master", `{"alias":"engineering","display_name":"Engineering"}`)
 	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
+
 	var created platform.OrgUnit
 	decodeJSONBody(t, createResp, &created)
 	assert.Equal(t, "engineering", created.Alias)
@@ -481,12 +501,14 @@ func TestIntegration_OrgUnitCRUD(t *testing.T) {
 
 	listResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/org-units?limit=20&offset=0", "Bearer sk-master", "")
 	assert.Equal(t, http.StatusOK, listResp.StatusCode)
+
 	var listed platform.OrgUnitListResponse
 	decodeJSONBody(t, listResp, &listed)
 	require.Len(t, listed.Data, 1)
 
 	updateResp := performJSONRequest(t, app, http.MethodPatch, "http://localhost/api/v1/org-units/"+created.ID, "Bearer sk-master", `{"display_name":"Platform Engineering"}`)
 	assert.Equal(t, http.StatusOK, updateResp.StatusCode)
+
 	var updated platform.OrgUnit
 	decodeJSONBody(t, updateResp, &updated)
 	assert.Equal(t, "Platform Engineering", updated.DisplayName)
@@ -498,6 +520,7 @@ func TestIntegration_OrgUnitCRUD(t *testing.T) {
 func TestIntegration_VirtualUserCRUD(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
+
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
 
@@ -505,6 +528,7 @@ func TestIntegration_VirtualUserCRUD(t *testing.T) {
 
 	createResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/virtual-users", "Bearer sk-master", `{"alias":"ci-cd","display_name":"CI/CD Service","team_id":"team-ops"}`)
 	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
+
 	var created platform.VirtualUser
 	decodeJSONBody(t, createResp, &created)
 	assert.Equal(t, "ci-cd", created.Alias)
@@ -515,6 +539,7 @@ func TestIntegration_VirtualUserCRUD(t *testing.T) {
 
 	updateResp := performJSONRequest(t, app, http.MethodPatch, "http://localhost/api/v1/virtual-users/"+created.ID, "Bearer sk-master", `{"display_name":"CI Service","active":false}`)
 	assert.Equal(t, http.StatusOK, updateResp.StatusCode)
+
 	var updated platform.VirtualUser
 	decodeJSONBody(t, updateResp, &updated)
 	assert.Equal(t, "CI Service", updated.DisplayName)
@@ -522,6 +547,7 @@ func TestIntegration_VirtualUserCRUD(t *testing.T) {
 
 	listResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/virtual-users?limit=20&offset=0", "Bearer sk-master", "")
 	assert.Equal(t, http.StatusOK, listResp.StatusCode)
+
 	var listed platform.VirtualUserListResponse
 	decodeJSONBody(t, listResp, &listed)
 	require.Len(t, listed.Data, 1)
@@ -533,6 +559,7 @@ func TestIntegration_VirtualUserCRUD(t *testing.T) {
 func TestIntegration_VirtualUserTokenLifecycle(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
+
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
 
@@ -540,11 +567,13 @@ func TestIntegration_VirtualUserTokenLifecycle(t *testing.T) {
 
 	vuResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/virtual-users", "Bearer sk-master", `{"alias":"deploy-bot","display_name":"Deploy Bot","team_id":"team-ops","org_unit_id":"org-platform"}`)
 	assert.Equal(t, http.StatusCreated, vuResp.StatusCode)
+
 	var virtualUser platform.VirtualUser
 	decodeJSONBody(t, vuResp, &virtualUser)
 
 	createResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/virtual-users/"+virtualUser.ID+"/tokens", "Bearer sk-master", `{"key_alias":"deploy-token","allowed_models":["openai:default:gpt-4o-mini"]}`)
 	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
+
 	var created platform.CreatedKey
 	decodeJSONBody(t, createResp, &created)
 	assert.NotEmpty(t, created.Key)
@@ -560,6 +589,7 @@ func TestIntegration_VirtualUserTokenLifecycle(t *testing.T) {
 
 	listResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/virtual-users/"+virtualUser.ID+"/tokens?limit=25&offset=0", "Bearer sk-master", "")
 	assert.Equal(t, http.StatusOK, listResp.StatusCode)
+
 	var listed platform.ListVATTokensResponse
 	decodeJSONBody(t, listResp, &listed)
 	require.Len(t, listed.Data, 1)
@@ -568,6 +598,7 @@ func TestIntegration_VirtualUserTokenLifecycle(t *testing.T) {
 
 	rotateResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/virtual-users/"+virtualUser.ID+"/tokens/"+created.ID+"/rotate", "Bearer sk-master", `{}`)
 	assert.Equal(t, http.StatusCreated, rotateResp.StatusCode)
+
 	var rotated platform.CreatedKey
 	decodeJSONBody(t, rotateResp, &rotated)
 	assert.NotEmpty(t, rotated.Key)
@@ -577,6 +608,7 @@ func TestIntegration_VirtualUserTokenLifecycle(t *testing.T) {
 	oldAuthInfo, err := keyStore.GetKeyByHash(context.Background(), hashToken(created.Key))
 	require.NoError(t, err)
 	assert.True(t, oldAuthInfo.Blocked)
+
 	newAuthInfo, err := keyStore.GetKeyByHash(context.Background(), hashToken(rotated.Key))
 	require.NoError(t, err)
 	assert.Equal(t, virtualUser.ID, newAuthInfo.VirtualUserID)
@@ -584,6 +616,7 @@ func TestIntegration_VirtualUserTokenLifecycle(t *testing.T) {
 
 	revokeResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/virtual-users/"+virtualUser.ID+"/tokens/"+rotated.ID+"/revoke", "Bearer sk-master", `{"reason":"compromised"}`)
 	assert.Equal(t, http.StatusNoContent, revokeResp.StatusCode)
+
 	revokedAuthInfo, err := keyStore.GetKeyByHash(context.Background(), hashToken(rotated.Key))
 	require.NoError(t, err)
 	assert.True(t, revokedAuthInfo.Blocked)
@@ -592,29 +625,34 @@ func TestIntegration_VirtualUserTokenLifecycle(t *testing.T) {
 func TestIntegration_OrgUnitMembershipCRUD(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
+
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
 
 	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
 	orgResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/org-units", "Bearer sk-master", `{"alias":"engineering"}`)
 	assert.Equal(t, http.StatusCreated, orgResp.StatusCode)
+
 	var org platform.OrgUnit
 	decodeJSONBody(t, orgResp, &org)
 
 	addResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/org-units/"+org.ID+"/members", "Bearer sk-master", `{"user_id":"user-1","role":"org_admin"}`)
 	assert.Equal(t, http.StatusCreated, addResp.StatusCode)
+
 	var added platform.OrgUnitMembership
 	decodeJSONBody(t, addResp, &added)
 	assert.Equal(t, "org_admin", added.Role)
 
 	listResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/org-units/"+org.ID+"/members", "Bearer sk-master", "")
 	assert.Equal(t, http.StatusOK, listResp.StatusCode)
+
 	var listed platform.OrgUnitMembershipListResponse
 	decodeJSONBody(t, listResp, &listed)
 	require.Len(t, listed.Data, 1)
 
 	updateResp := performJSONRequest(t, app, http.MethodPatch, "http://localhost/api/v1/org-units/"+org.ID+"/members/user-1", "Bearer sk-master", `{"role":"member"}`)
 	assert.Equal(t, http.StatusOK, updateResp.StatusCode)
+
 	var updated platform.OrgUnitMembership
 	decodeJSONBody(t, updateResp, &updated)
 	assert.Equal(t, "member", updated.Role)
@@ -626,6 +664,7 @@ func TestIntegration_OrgUnitMembershipCRUD(t *testing.T) {
 func TestIntegration_TeamMembershipCRUD(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
+
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
 
@@ -633,6 +672,7 @@ func TestIntegration_TeamMembershipCRUD(t *testing.T) {
 
 	addResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/teams/team-ops/members", "Bearer sk-master", `{"user_id":"user-1","role":"team_member","team_member_permissions":["/key/generate"]}`)
 	assert.Equal(t, http.StatusCreated, addResp.StatusCode)
+
 	var added platform.TeamMembership
 	decodeJSONBody(t, addResp, &added)
 	assert.Equal(t, "team_member", added.Role)
@@ -640,12 +680,14 @@ func TestIntegration_TeamMembershipCRUD(t *testing.T) {
 
 	listResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/teams/team-ops/members", "Bearer sk-master", "")
 	assert.Equal(t, http.StatusOK, listResp.StatusCode)
+
 	var listed platform.TeamMembershipListResponse
 	decodeJSONBody(t, listResp, &listed)
 	require.Len(t, listed.Data, 1)
 
 	updateResp := performJSONRequest(t, app, http.MethodPatch, "http://localhost/api/v1/teams/team-ops/members/user-1", "Bearer sk-master", `{"role":"team_admin","team_member_permissions":["/key/generate","/key/update"]}`)
 	assert.Equal(t, http.StatusOK, updateResp.StatusCode)
+
 	var updated platform.TeamMembership
 	decodeJSONBody(t, updateResp, &updated)
 	assert.Equal(t, "team_admin", updated.Role)
@@ -658,6 +700,7 @@ func TestIntegration_TeamMembershipCRUD(t *testing.T) {
 func TestIntegration_RBACDeniesTeamMemberOnVirtualUsers(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
+
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
 
@@ -678,6 +721,7 @@ func TestIntegration_RBACDeniesTeamMemberOnVirtualUsers(t *testing.T) {
 func TestIntegration_RBACAllowsTeamAdminOnTeamMembers(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
+
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
 
@@ -763,6 +807,7 @@ func TestIntegration_ActivateDeactivateTenantUser(t *testing.T) {
 
 	deactivateResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/users/tenant-user-2/deactivate", "Bearer sk-master", "")
 	assert.Equal(t, http.StatusOK, deactivateResp.StatusCode)
+
 	var deactivated platform.TenantAdminUser
 	decodeJSONBody(t, deactivateResp, &deactivated)
 	assert.False(t, deactivated.Active)
@@ -770,6 +815,7 @@ func TestIntegration_ActivateDeactivateTenantUser(t *testing.T) {
 
 	activateResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/users/tenant-user-2/activate", "Bearer sk-master", "")
 	assert.Equal(t, http.StatusOK, activateResp.StatusCode)
+
 	var activated platform.TenantAdminUser
 	decodeJSONBody(t, activateResp, &activated)
 	assert.True(t, activated.Active)
@@ -878,6 +924,7 @@ func (s *integrationModelStore) CreateVirtualModel(ctx context.Context, tenantID
 		UpdatedAt:       time.Now().UTC(),
 	}
 	s.virtualModels = append(s.virtualModels, vm)
+
 	return &vm, nil
 }
 
@@ -888,6 +935,7 @@ func (s *integrationModelStore) ListVirtualModels(ctx context.Context, tenantID 
 			out = append(out, vm)
 		}
 	}
+
 	return out, nil
 }
 
@@ -902,6 +950,7 @@ func (s *integrationModelStore) GetVirtualModel(ctx context.Context, tenantID st
 			return &copy, nil
 		}
 	}
+
 	return nil, storage.ErrVirtualModelNotFound
 }
 
@@ -911,24 +960,31 @@ func (s *integrationModelStore) UpdateVirtualModel(ctx context.Context, tenantID
 		if vm.TenantID != tenantID || vm.ID != id {
 			continue
 		}
+
 		if req.Alias != nil {
 			vm.Alias = *req.Alias
 		}
+
 		if req.RoutingStrategy != nil {
 			vm.RoutingStrategy = *req.RoutingStrategy
 		}
+
 		if req.Enabled != nil {
 			vm.Enabled = *req.Enabled
 		}
+
 		if len(req.Targets) > 0 {
 			vm.Targets = req.Targets
 		}
+
 		vm.UpdatedBy = actor
 		vm.Version++
 		vm.UpdatedAt = time.Now().UTC()
 		copy := *vm
+
 		return &copy, nil
 	}
+
 	return nil, storage.ErrVirtualModelNotFound
 }
 
@@ -939,6 +995,7 @@ func (s *integrationModelStore) GetVirtualModelByAlias(ctx context.Context, tena
 			return &copy, nil
 		}
 	}
+
 	return nil, storage.ErrVirtualModelNotFound
 }
 
@@ -950,6 +1007,7 @@ func (s *integrationModelStore) DeleteVirtualModel(ctx context.Context, tenantID
 			return nil
 		}
 	}
+
 	return storage.ErrVirtualModelNotFound
 }
 
@@ -1031,6 +1089,7 @@ func (s *integrationModelStore) ListTenantAdminUsers(ctx context.Context, tenant
 		if item.TenantSlug != tenantSlug {
 			continue
 		}
+
 		filtered = append(filtered, item)
 	}
 
@@ -1038,10 +1097,12 @@ func (s *integrationModelStore) ListTenantAdminUsers(ctx context.Context, tenant
 	if offset >= total {
 		return []platform.TenantAdminUser{}, total, nil
 	}
+
 	end := offset + limit
 	if end > total {
 		end = total
 	}
+
 	return filtered[offset:end], total, nil
 }
 
@@ -1052,6 +1113,7 @@ func (s *integrationModelStore) GetTenantAdminUserRecord(ctx context.Context, te
 			return &copy, nil
 		}
 	}
+
 	return nil, pgx.ErrNoRows
 }
 
@@ -1071,6 +1133,7 @@ func (s *integrationModelStore) InviteTenantAdminUser(ctx context.Context, tenan
 	}
 	s.invitations = append(s.invitations, invitation)
 	s.inviteToken = "test-token"
+
 	return &invitation, "https://tenant.app.sharah.ir/invite/accept?token=test-token", nil
 }
 
@@ -1079,9 +1142,11 @@ func (s *integrationModelStore) AcceptTenantAdminInvitation(ctx context.Context,
 		if s.invitations[i].TenantID != tenantID || s.invitations[i].TenantSlug != tenantSlug {
 			continue
 		}
+
 		if token != s.inviteToken {
 			continue
 		}
+
 		now := time.Now().UTC()
 		s.invitations[i].Status = "accepted"
 		s.invitations[i].AcceptedAt = &now
@@ -1097,8 +1162,10 @@ func (s *integrationModelStore) AcceptTenantAdminInvitation(ctx context.Context,
 			UpdatedAt:  now,
 		}
 		s.users = append(s.users, user)
+
 		return &s.invitations[i], &user, nil
 	}
+
 	return nil, nil, pgx.ErrNoRows
 }
 
@@ -1107,10 +1174,13 @@ func (s *integrationModelStore) SetTenantAdminUserActive(ctx context.Context, te
 		if s.users[i].TenantSlug != tenantSlug || s.users[i].ID != userID {
 			continue
 		}
+
 		s.users[i].Active = active
 		s.users[i].UpdatedAt = time.Now().UTC()
+
 		return &s.users[i], nil
 	}
+
 	return nil, pgx.ErrNoRows
 }
 
@@ -1138,6 +1208,7 @@ func (s *integrationWalletStore) DebitWallet(ctx context.Context, tenantID strin
 	s.wallet.BalanceIRR -= breakdown.TotalCostIRR
 	usd := breakdown.TotalCostUSD
 	rate := breakdown.ExchangeRate
+
 	return &platform.Transaction{
 		TenantID:     tenantID,
 		Type:         "CONSUMPTION",
@@ -1167,6 +1238,7 @@ func (s *integrationWalletStore) UpdateWalletTopUpSettings(ctx context.Context, 
 	s.settings.TaxPercent = taxPercent
 	s.settings.FeePercent = feePercent
 	s.settings.UpdatedAt = time.Now()
+
 	return &s.settings, nil
 }
 
@@ -1210,6 +1282,7 @@ func (s *integrationWalletStore) GetWalletTopUpIntentByAuthority(ctx context.Con
 
 func (s *integrationWalletStore) CompleteWalletTopUpByAuthority(ctx context.Context, authority string, verifyRaw map[string]interface{}, refID, gatewayTxnID, cardMask, payerPhone string) (*platform.WalletTopUpIntent, bool, error) {
 	s.wallet.BalanceIRR += 1000
+
 	return &platform.WalletTopUpIntent{
 		PublicID:     "intent-public-1",
 		ReturnURL:    "https://default.app.sharah.ir/billing/topup/result",
@@ -1240,6 +1313,7 @@ func (s *integrationWalletStore) LogSpend(ctx context.Context, log platform.Spen
 	if s.onSpend != nil {
 		s.onSpend(log.TokenHash, log.CostUSD)
 	}
+
 	return nil
 }
 
@@ -1326,7 +1400,9 @@ func (s *integrationKeyStore) GetKeyByHash(ctx context.Context, hash string) (*p
 	if !ok {
 		return nil, auth.ErrInvalidAPIKey
 	}
+
 	copy := *info
+
 	return &copy, nil
 }
 
@@ -1338,6 +1414,7 @@ func (s *integrationKeyStore) ResolveTenantUserAuth(ctx context.Context, tenantI
 	if strings.TrimSpace(userID) == "tenant-user-1" {
 		role = "tenant_admin"
 	}
+
 	return &platform.AuthContext{
 		TenantID: tenantID,
 		UserID:   strings.TrimSpace(userID),
@@ -1350,6 +1427,7 @@ func (s *integrationKeyStore) CreateKey(ctx context.Context, params platform.Cre
 	defer s.mu.Unlock()
 
 	params.Normalize()
+
 	s.nextID++
 	rawKey := fmt.Sprintf("sk-managed-%03d", s.nextID)
 	keyHash := hashToken(rawKey)
@@ -1386,18 +1464,21 @@ func (s *integrationKeyStore) CreateKey(ctx context.Context, params platform.Cre
 		AllowedModels:  append([]string(nil), params.AllowedModels...),
 		TokenHash:      keyHash,
 	}
+
 	return &created, nil
 }
 
 func (s *integrationKeyStore) TouchKeyLastUsed(ctx context.Context, keyID string, usedAt time.Time) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	for i := range s.created {
 		if s.created[i].ID == keyID {
 			ts := usedAt
 			s.created[i].LastUsedAt = &ts
 		}
 	}
+
 	return nil
 }
 
@@ -1410,10 +1491,12 @@ func (s *integrationKeyStore) ListKeys(ctx context.Context, tenantID string) ([]
 		if item.TenantID != tenantID {
 			continue
 		}
+
 		listItem := item
 		listItem.Key = ""
 		out = append(out, listItem)
 	}
+
 	return out, nil
 }
 
@@ -1423,28 +1506,35 @@ func (s *integrationKeyStore) ListAllowedModelFQNs(ctx context.Context, tenantID
 
 	models := make([]string, 0)
 	seen := make(map[string]struct{})
+
 	for _, item := range s.created {
 		if item.TenantID != tenantID {
 			continue
 		}
+
 		if userID != "" && item.UserID != userID {
 			continue
 		}
+
 		if teamID != "" && item.TeamID != teamID {
 			continue
 		}
+
 		for _, model := range item.AllowedModels {
 			model = strings.TrimSpace(model)
 			if model == "" {
 				continue
 			}
+
 			if _, ok := seen[model]; ok {
 				continue
 			}
+
 			seen[model] = struct{}{}
 			models = append(models, model)
 		}
 	}
+
 	if len(models) == 0 {
 		// Integration fallback for bootstrap flows that create keys before provider-account policy is seeded.
 		return []string{
@@ -1453,166 +1543,208 @@ func (s *integrationKeyStore) ListAllowedModelFQNs(ctx context.Context, tenantID
 			"openai:default:gpt-4o-mini",
 		}, nil
 	}
+
 	return models, nil
 }
 
 func (s *integrationKeyStore) ListPATs(ctx context.Context, tenantID string, userID string, query string, limit int, offset int) ([]platform.CreatedKey, int, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
 	filtered := make([]platform.CreatedKey, 0)
+
 	for _, item := range s.created {
 		if item.TenantID != tenantID || item.KeyType != platform.KeyTypePAT || item.CreatedByUserID != userID || item.RevokedAt != nil {
 			continue
 		}
+
 		if query != "" && !strings.Contains(strings.ToLower(item.KeyAlias), strings.ToLower(query)) {
 			continue
 		}
+
 		listItem := item
 		listItem.Key = ""
 		filtered = append(filtered, listItem)
 	}
+
 	total := len(filtered)
 	if offset >= total {
 		return []platform.CreatedKey{}, total, nil
 	}
+
 	if limit <= 0 {
 		limit = 25
 	}
+
 	end := offset + limit
 	if end > total {
 		end = total
 	}
+
 	return filtered[offset:end], total, nil
 }
 
 func (s *integrationKeyStore) PATExists(ctx context.Context, tenantID string, userID string, name string) (bool, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
 	for _, item := range s.created {
 		if item.TenantID == tenantID && item.KeyType == platform.KeyTypePAT && item.CreatedByUserID == userID && item.KeyAlias == name && item.RevokedAt == nil {
 			return true, nil
 		}
 	}
+
 	return false, nil
 }
 
 func (s *integrationKeyStore) RevokePAT(ctx context.Context, tenantID string, userID string, keyID string, revokedByUserID string) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	for i := range s.created {
 		if s.created[i].ID == keyID && s.created[i].TenantID == tenantID && s.created[i].KeyType == platform.KeyTypePAT && s.created[i].CreatedByUserID == userID && s.created[i].RevokedAt == nil {
 			now := time.Now().UTC()
+
 			s.created[i].RevokedAt = &now
 			if info, ok := s.byHash[s.created[i].TokenHash]; ok {
 				info.Blocked = true
 			}
+
 			return true, nil
 		}
 	}
+
 	return false, nil
 }
 
 func (s *integrationKeyStore) RevokeAllPATs(ctx context.Context, tenantID string, userID string, revokedByUserID string) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	var count int64
+
 	for i := range s.created {
 		if s.created[i].TenantID == tenantID && s.created[i].KeyType == platform.KeyTypePAT && s.created[i].CreatedByUserID == userID && s.created[i].RevokedAt == nil {
 			now := time.Now().UTC()
+
 			s.created[i].RevokedAt = &now
 			if info, ok := s.byHash[s.created[i].TokenHash]; ok {
 				info.Blocked = true
 			}
+
 			count++
 		}
 	}
+
 	return count, nil
 }
 
 func (s *integrationKeyStore) ListVATTokens(ctx context.Context, tenantID string, virtualUserID string, query string, limit int, offset int) ([]platform.CreatedKey, int, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
 	filtered := make([]platform.CreatedKey, 0)
+
 	for _, item := range s.created {
 		if item.TenantID != tenantID || item.KeyType != platform.KeyTypeVAT || item.VirtualUserID != virtualUserID {
 			continue
 		}
+
 		if query != "" && !strings.Contains(strings.ToLower(item.KeyAlias), strings.ToLower(query)) {
 			continue
 		}
+
 		listItem := item
 		listItem.Key = ""
 		filtered = append(filtered, listItem)
 	}
+
 	total := len(filtered)
 	if offset >= total {
 		return []platform.CreatedKey{}, total, nil
 	}
+
 	if limit <= 0 {
 		limit = 25
 	}
+
 	end := offset + limit
 	if end > total {
 		end = total
 	}
+
 	return filtered[offset:end], total, nil
 }
 
 func (s *integrationKeyStore) UpdateVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, req platform.UpdateVATTokenRequest) (*platform.CreatedKey, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	for i := range s.created {
 		if s.created[i].ID != keyID || s.created[i].TenantID != tenantID || s.created[i].VirtualUserID != virtualUserID || s.created[i].KeyType != platform.KeyTypeVAT {
 			continue
 		}
+
 		if strings.TrimSpace(req.KeyAlias) != "" {
 			s.created[i].KeyAlias = strings.TrimSpace(req.KeyAlias)
 		}
+
 		models := req.AllowedModels
 		if len(models) == 0 {
 			models = req.Models
 		}
+
 		if models != nil {
 			s.created[i].Models = append([]string(nil), models...)
 			s.created[i].AllowedModels = append([]string(nil), models...)
 		}
+
 		if req.Blocked != nil {
 			s.created[i].Blocked = *req.Blocked
 			if info, ok := s.byHash[s.created[i].TokenHash]; ok {
 				info.Blocked = *req.Blocked
 			}
 		}
+
 		copy := s.created[i]
 		copy.Key = ""
+
 		return &copy, nil
 	}
+
 	return nil, pgx.ErrNoRows
 }
 
 func (s *integrationKeyStore) RevokeVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, revokedByUserID string, reason string) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	for i := range s.created {
 		if s.created[i].ID == keyID && s.created[i].TenantID == tenantID && s.created[i].VirtualUserID == virtualUserID && s.created[i].KeyType == platform.KeyTypeVAT && s.created[i].RevokedAt == nil {
 			now := time.Now().UTC()
 			s.created[i].RevokedAt = &now
+
 			s.created[i].Blocked = true
 			if info, ok := s.byHash[s.created[i].TokenHash]; ok {
 				info.Blocked = true
 			}
+
 			return true, nil
 		}
 	}
+
 	return false, nil
 }
 
 func (s *integrationKeyStore) RotateVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, rotatedByUserID string, gracePeriod string) (*platform.CreatedKey, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	for i := range s.created {
 		if s.created[i].ID != keyID || s.created[i].TenantID != tenantID || s.created[i].VirtualUserID != virtualUserID || s.created[i].KeyType != platform.KeyTypeVAT {
 			continue
 		}
+
 		s.nextID++
 		rawKey := fmt.Sprintf("sk-managed-%03d", s.nextID)
 		keyHash := hashToken(rawKey)
@@ -1639,16 +1771,20 @@ func (s *integrationKeyStore) RotateVATToken(ctx context.Context, tenantID strin
 			AllowedModels:  append([]string(nil), created.AllowedModels...),
 			TokenHash:      keyHash,
 		}
+
 		if strings.TrimSpace(gracePeriod) == "" {
 			now := time.Now().UTC()
 			s.created[i].RevokedAt = &now
+
 			s.created[i].Blocked = true
 			if info, ok := s.byHash[s.created[i].TokenHash]; ok {
 				info.Blocked = true
 			}
 		}
+
 		return &created, nil
 	}
+
 	return nil, pgx.ErrNoRows
 }
 
@@ -1659,6 +1795,7 @@ func (s *integrationKeyStore) addSpend(tokenHash string, amount float64) {
 	if info, ok := s.byHash[tokenHash]; ok {
 		info.Spend += amount
 	}
+
 	for i := range s.created {
 		if s.created[i].TokenHash == tokenHash {
 			s.created[i].Spend += amount
@@ -1669,6 +1806,7 @@ func (s *integrationKeyStore) addSpend(tokenHash string, amount float64) {
 func (s *integrationKeyStore) CreateOrgUnit(ctx context.Context, tenantID string, req platform.CreateOrgUnitRequest) (*platform.OrgUnit, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	item := platform.OrgUnit{
 		ID:          fmt.Sprintf("org-%03d", len(s.orgUnits)+1),
 		TenantID:    tenantID,
@@ -1679,103 +1817,127 @@ func (s *integrationKeyStore) CreateOrgUnit(ctx context.Context, tenantID string
 		UpdatedAt:   time.Now().UTC(),
 	}
 	s.orgUnits = append(s.orgUnits, item)
+
 	return &item, nil
 }
 
 func (s *integrationKeyStore) ListOrgUnits(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.OrgUnit, int, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
 	filtered := make([]platform.OrgUnit, 0, len(s.orgUnits))
 	for _, item := range s.orgUnits {
 		if item.TenantID != tenantID {
 			continue
 		}
+
 		if query != "" && !strings.Contains(strings.ToLower(item.Alias), strings.ToLower(query)) {
 			continue
 		}
+
 		filtered = append(filtered, item)
 	}
+
 	total := len(filtered)
 	if offset >= total {
 		return []platform.OrgUnit{}, total, nil
 	}
+
 	end := offset + limit
 	if end > total {
 		end = total
 	}
+
 	return filtered[offset:end], total, nil
 }
 
 func (s *integrationKeyStore) GetOrgUnit(ctx context.Context, tenantID string, orgUnitID string) (*platform.OrgUnit, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
 	for _, item := range s.orgUnits {
 		if item.TenantID == tenantID && item.ID == orgUnitID {
 			copy := item
 			return &copy, nil
 		}
 	}
+
 	return nil, pgx.ErrNoRows
 }
 
 func (s *integrationKeyStore) UpdateOrgUnit(ctx context.Context, tenantID string, orgUnitID string, req platform.UpdateOrgUnitRequest) (*platform.OrgUnit, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	for i := range s.orgUnits {
 		if s.orgUnits[i].TenantID != tenantID || s.orgUnits[i].ID != orgUnitID {
 			continue
 		}
+
 		if req.Alias != "" {
 			s.orgUnits[i].Alias = req.Alias
 		}
+
 		if req.DisplayName != "" {
 			s.orgUnits[i].DisplayName = req.DisplayName
 		}
+
 		if req.Metadata != nil {
 			s.orgUnits[i].Metadata = req.Metadata
 		}
+
 		s.orgUnits[i].UpdatedAt = time.Now().UTC()
 		copy := s.orgUnits[i]
+
 		return &copy, nil
 	}
+
 	return nil, pgx.ErrNoRows
 }
 
 func (s *integrationKeyStore) DeleteOrgUnit(ctx context.Context, tenantID string, orgUnitID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	for i := range s.orgUnits {
 		if s.orgUnits[i].TenantID == tenantID && s.orgUnits[i].ID == orgUnitID {
 			s.orgUnits = append(s.orgUnits[:i], s.orgUnits[i+1:]...)
 			return nil
 		}
 	}
+
 	return pgx.ErrNoRows
 }
 
 func (s *integrationKeyStore) ListOrgUnitMemberships(ctx context.Context, tenantID string, orgUnitID string) ([]platform.OrgUnitMembership, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
 	items := make([]platform.OrgUnitMembership, 0)
+
 	for _, item := range s.orgUnitMemberships {
 		if item.TenantID == tenantID && item.OrgUnitID == orgUnitID {
 			items = append(items, item)
 		}
 	}
+
 	return items, nil
 }
 
 func (s *integrationKeyStore) AddOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, req platform.CreateOrgUnitMembershipRequest) (*platform.OrgUnitMembership, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	for i := range s.orgUnitMemberships {
 		if s.orgUnitMemberships[i].TenantID == tenantID && s.orgUnitMemberships[i].OrgUnitID == orgUnitID && s.orgUnitMemberships[i].UserID == req.UserID {
 			s.orgUnitMemberships[i].Role = req.Role
 			s.orgUnitMemberships[i].UpdatedAt = time.Now().UTC()
 			copy := s.orgUnitMemberships[i]
+
 			return &copy, nil
 		}
 	}
+
 	item := platform.OrgUnitMembership{
 		ID:        fmt.Sprintf("oum-%03d", len(s.orgUnitMemberships)+1),
 		TenantID:  tenantID,
@@ -1786,59 +1948,71 @@ func (s *integrationKeyStore) AddOrgUnitMembership(ctx context.Context, tenantID
 		UpdatedAt: time.Now().UTC(),
 	}
 	s.orgUnitMemberships = append(s.orgUnitMemberships, item)
+
 	return &item, nil
 }
 
 func (s *integrationKeyStore) UpdateOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, userID string, req platform.UpdateOrgUnitMembershipRequest) (*platform.OrgUnitMembership, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	for i := range s.orgUnitMemberships {
 		if s.orgUnitMemberships[i].TenantID == tenantID && s.orgUnitMemberships[i].OrgUnitID == orgUnitID && s.orgUnitMemberships[i].UserID == userID {
 			s.orgUnitMemberships[i].Role = req.Role
 			s.orgUnitMemberships[i].UpdatedAt = time.Now().UTC()
 			copy := s.orgUnitMemberships[i]
+
 			return &copy, nil
 		}
 	}
+
 	return nil, pgx.ErrNoRows
 }
 
 func (s *integrationKeyStore) DeleteOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, userID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	for i := range s.orgUnitMemberships {
 		if s.orgUnitMemberships[i].TenantID == tenantID && s.orgUnitMemberships[i].OrgUnitID == orgUnitID && s.orgUnitMemberships[i].UserID == userID {
 			s.orgUnitMemberships = append(s.orgUnitMemberships[:i], s.orgUnitMemberships[i+1:]...)
 			return nil
 		}
 	}
+
 	return pgx.ErrNoRows
 }
 
 func (s *integrationKeyStore) ListTeamMemberships(ctx context.Context, tenantID string, teamID string) ([]platform.TeamMembership, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
 	items := make([]platform.TeamMembership, 0)
+
 	for _, item := range s.teamMemberships {
 		if item.TenantID == tenantID && item.TeamID == teamID {
 			items = append(items, item)
 		}
 	}
+
 	return items, nil
 }
 
 func (s *integrationKeyStore) AddTeamMembership(ctx context.Context, tenantID string, teamID string, req platform.CreateTeamMembershipRequest) (*platform.TeamMembership, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	for i := range s.teamMemberships {
 		if s.teamMemberships[i].TenantID == tenantID && s.teamMemberships[i].TeamID == teamID && s.teamMemberships[i].UserID == req.UserID {
 			s.teamMemberships[i].Role = req.Role
 			s.teamMemberships[i].TeamMemberPermissions = append([]string(nil), req.TeamMemberPermissions...)
 			s.teamMemberships[i].UpdatedAt = time.Now().UTC()
 			copy := s.teamMemberships[i]
+
 			return &copy, nil
 		}
 	}
+
 	item := platform.TeamMembership{
 		ID:                    fmt.Sprintf("tm-%03d", len(s.teamMemberships)+1),
 		TenantID:              tenantID,
@@ -1850,43 +2024,52 @@ func (s *integrationKeyStore) AddTeamMembership(ctx context.Context, tenantID st
 		UpdatedAt:             time.Now().UTC(),
 	}
 	s.teamMemberships = append(s.teamMemberships, item)
+
 	return &item, nil
 }
 
 func (s *integrationKeyStore) UpdateTeamMembership(ctx context.Context, tenantID string, teamID string, userID string, req platform.UpdateTeamMembershipRequest) (*platform.TeamMembership, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	for i := range s.teamMemberships {
 		if s.teamMemberships[i].TenantID == tenantID && s.teamMemberships[i].TeamID == teamID && s.teamMemberships[i].UserID == userID {
 			if req.Role != "" {
 				s.teamMemberships[i].Role = req.Role
 			}
+
 			if req.TeamMemberPermissions != nil {
 				s.teamMemberships[i].TeamMemberPermissions = append([]string(nil), req.TeamMemberPermissions...)
 			}
+
 			s.teamMemberships[i].UpdatedAt = time.Now().UTC()
 			copy := s.teamMemberships[i]
+
 			return &copy, nil
 		}
 	}
+
 	return nil, pgx.ErrNoRows
 }
 
 func (s *integrationKeyStore) DeleteTeamMembership(ctx context.Context, tenantID string, teamID string, userID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	for i := range s.teamMemberships {
 		if s.teamMemberships[i].TenantID == tenantID && s.teamMemberships[i].TeamID == teamID && s.teamMemberships[i].UserID == userID {
 			s.teamMemberships = append(s.teamMemberships[:i], s.teamMemberships[i+1:]...)
 			return nil
 		}
 	}
+
 	return pgx.ErrNoRows
 }
 
 func (s *integrationKeyStore) CreateVirtualUser(ctx context.Context, tenantID string, req platform.CreateVirtualUserRequest) (*platform.VirtualUser, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	item := platform.VirtualUser{
 		ID:          fmt.Sprintf("vu-%03d", len(s.virtualUsers)+1),
 		TenantID:    tenantID,
@@ -1900,86 +2083,107 @@ func (s *integrationKeyStore) CreateVirtualUser(ctx context.Context, tenantID st
 		UpdatedAt:   time.Now().UTC(),
 	}
 	s.virtualUsers = append(s.virtualUsers, item)
+
 	return &item, nil
 }
 
 func (s *integrationKeyStore) ListVirtualUsers(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.VirtualUser, int, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
 	filtered := make([]platform.VirtualUser, 0, len(s.virtualUsers))
 	for _, item := range s.virtualUsers {
 		if item.TenantID != tenantID {
 			continue
 		}
+
 		if query != "" && !strings.Contains(strings.ToLower(item.Alias), strings.ToLower(query)) {
 			continue
 		}
+
 		filtered = append(filtered, item)
 	}
+
 	total := len(filtered)
 	if offset >= total {
 		return []platform.VirtualUser{}, total, nil
 	}
+
 	end := offset + limit
 	if end > total {
 		end = total
 	}
+
 	return filtered[offset:end], total, nil
 }
 
 func (s *integrationKeyStore) GetVirtualUser(ctx context.Context, tenantID string, virtualUserID string) (*platform.VirtualUser, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
 	for _, item := range s.virtualUsers {
 		if item.TenantID == tenantID && item.ID == virtualUserID {
 			copy := item
 			return &copy, nil
 		}
 	}
+
 	return nil, pgx.ErrNoRows
 }
 
 func (s *integrationKeyStore) UpdateVirtualUser(ctx context.Context, tenantID string, virtualUserID string, req platform.UpdateVirtualUserRequest) (*platform.VirtualUser, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	for i := range s.virtualUsers {
 		if s.virtualUsers[i].TenantID != tenantID || s.virtualUsers[i].ID != virtualUserID {
 			continue
 		}
+
 		if req.Alias != "" {
 			s.virtualUsers[i].Alias = req.Alias
 		}
+
 		if req.DisplayName != "" {
 			s.virtualUsers[i].DisplayName = req.DisplayName
 		}
+
 		if req.TeamID != "" {
 			s.virtualUsers[i].TeamID = req.TeamID
 		}
+
 		if req.OrgUnitID != "" {
 			s.virtualUsers[i].OrgUnitID = req.OrgUnitID
 		}
+
 		if req.Active != nil {
 			s.virtualUsers[i].Active = *req.Active
 		}
+
 		if req.Metadata != nil {
 			s.virtualUsers[i].Metadata = req.Metadata
 		}
+
 		s.virtualUsers[i].UpdatedAt = time.Now().UTC()
 		copy := s.virtualUsers[i]
+
 		return &copy, nil
 	}
+
 	return nil, pgx.ErrNoRows
 }
 
 func (s *integrationKeyStore) DeleteVirtualUser(ctx context.Context, tenantID string, virtualUserID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	for i := range s.virtualUsers {
 		if s.virtualUsers[i].TenantID == tenantID && s.virtualUsers[i].ID == virtualUserID {
 			s.virtualUsers = append(s.virtualUsers[:i], s.virtualUsers[i+1:]...)
 			return nil
 		}
 	}
+
 	return pgx.ErrNoRows
 }
 
@@ -2069,6 +2273,7 @@ func newIntegrationApp(t *testing.T, logger *zap.Logger, memCache cache.Cache, p
 	})
 
 	walletStore.onSpend = keyStore.addSpend
+
 	return app, keyStore, modelStore, walletStore
 }
 
@@ -2076,8 +2281,10 @@ func createVirtualKey(t *testing.T, app *fiber.App, body string) platform.Create
 	t.Helper()
 	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/keys", "Bearer sk-master", body)
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+
 	var out platform.CreatedKey
 	decodeJSONBody(t, resp, &out)
+
 	return out
 }
 
@@ -2085,8 +2292,10 @@ func createModel(t *testing.T, app *fiber.App, body string) platform.Deployment 
 	t.Helper()
 	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/models", "Bearer sk-master", body)
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+
 	var out platform.Deployment
 	decodeJSONBody(t, resp, &out)
+
 	return out
 }
 
@@ -2094,49 +2303,66 @@ func topUpWallet(t *testing.T, app *fiber.App, body string) platform.Transaction
 	t.Helper()
 	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/wallet/topup", "Bearer sk-master", body)
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+
 	var out platform.Transaction
 	decodeJSONBody(t, resp, &out)
+
 	return out
 }
 
-func performJSONRequest(t *testing.T, app *fiber.App, method string, url string, authz string, body string) *http.Response {
+func performJSONRequest(t *testing.T, app *fiber.App, method string, url string, authz string, body string) *testResponse {
 	t.Helper()
+
 	var reader io.Reader
 	if body != "" {
 		reader = strings.NewReader(body)
 	}
+
 	req := httptest.NewRequest(method, url, reader)
 	req.Header.Set("Authorization", authz)
+
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
+
 	resp, err := app.Test(req, int((30 * time.Second).Milliseconds()))
 	require.NoError(t, err)
-	return resp
+	t.Cleanup(func() { closeResponseBody(t, resp) })
+
+	return &testResponse{Response: resp}
 }
 
-func performJSONRequestWithHeaders(t *testing.T, app *fiber.App, method string, url string, authz string, headers map[string]string, body string) *http.Response {
+func performJSONRequestWithHeaders(t *testing.T, app *fiber.App, method string, url string, authz string, headers map[string]string, body string) *testResponse {
 	t.Helper()
+
 	var reader io.Reader
 	if body != "" {
 		reader = strings.NewReader(body)
 	}
+
 	req := httptest.NewRequest(method, url, reader)
 	req.Header.Set("Authorization", authz)
+
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
+
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
+
 	resp, err := app.Test(req, int((30 * time.Second).Milliseconds()))
 	require.NoError(t, err)
-	return resp
+	t.Cleanup(func() { closeResponseBody(t, resp) })
+
+	return &testResponse{Response: resp}
 }
 
-func decodeJSONBody(t *testing.T, resp *http.Response, target interface{}) {
+func decodeJSONBody(t *testing.T, resp *testResponse, target interface{}) {
 	t.Helper()
+
 	defer resp.Body.Close()
+
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.NoError(t, json.Unmarshal(body, target), string(body))
@@ -2151,5 +2377,6 @@ func maskToken(token string) string {
 	if len(token) <= 8 {
 		return token
 	}
+
 	return token[:5] + "..." + token[len(token)-4:]
 }

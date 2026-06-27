@@ -86,9 +86,11 @@ func (s *Store) CheckTenantSlugAvailability(ctx context.Context, slug string) (*
 	`, slug).Scan(&exists); err != nil {
 		return nil, err
 	}
+
 	if exists {
 		return &TenantSlugAvailability{Slug: slug, Available: false, Reason: "taken"}, nil
 	}
+
 	return &TenantSlugAvailability{Slug: slug, Available: true}, nil
 }
 
@@ -98,19 +100,24 @@ func (s *Store) CreateOnboardingOTP(ctx context.Context, p CreateOnboardingOTPPa
 	p.PlanSlug = strings.TrimSpace(strings.ToLower(p.PlanSlug))
 	p.Email = strings.TrimSpace(strings.ToLower(p.Email))
 	p.Mobile = strings.TrimSpace(p.Mobile)
+
 	p.CustomerName = strings.TrimSpace(p.CustomerName)
 	if p.PlanSlug == "" {
 		p.PlanSlug = "developer"
 	}
+
 	if p.PlanSlug == "free" {
 		p.PlanSlug = "developer"
 	}
+
 	if p.TenantDomain == "" {
 		p.TenantDomain = p.TenantSlug
 	}
+
 	if !tenant.ValidateTenantSlug(p.TenantSlug) {
 		return nil, ErrTenantSlugInvalid
 	}
+
 	if p.Email == "" && p.Mobile == "" {
 		return nil, errors.New("email or mobile is required")
 	}
@@ -120,37 +127,47 @@ func (s *Store) CreateOnboardingOTP(ctx context.Context, p CreateOnboardingOTPPa
 		return nil, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+
 	var planExists bool
-	if err := tx.QueryRow(ctx, `
+
+	planErr := tx.QueryRow(ctx, `
 		SELECT EXISTS (
 			SELECT 1 FROM commercial_plans p
 			JOIN plan_versions pv ON pv.plan_id = p.plan_id AND pv.status = 'published'
 			WHERE p.slug = $1 AND p.active = true
 		)
-	`, p.PlanSlug).Scan(&planExists); err != nil {
-		return nil, err
+	`, p.PlanSlug).Scan(&planExists)
+	if planErr != nil {
+		return nil, planErr
 	}
+
 	if !planExists {
 		return nil, ErrPlanNotFound
 	}
 
-	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, p.TenantSlug); err != nil {
-		return nil, err
+	_, lockErr := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, p.TenantSlug)
+	if lockErr != nil {
+		return nil, lockErr
 	}
-	if _, err := tx.Exec(ctx, `
+
+	_, expireErr := tx.Exec(ctx, `
 		UPDATE tenant_onboarding_requests
 		SET status = 'expired', updated_at = NOW()
 		WHERE status = 'pending' AND expires_at <= NOW()
-	`); err != nil {
-		return nil, err
+	`)
+	if expireErr != nil {
+		return nil, expireErr
 	}
 
 	var tenantExists bool
-	if err := tx.QueryRow(ctx, `
+
+	tenantErr := tx.QueryRow(ctx, `
 		SELECT EXISTS (SELECT 1 FROM tenants WHERE slug = $1)
-	`, p.TenantSlug).Scan(&tenantExists); err != nil {
-		return nil, err
+	`, p.TenantSlug).Scan(&tenantExists)
+	if tenantErr != nil {
+		return nil, tenantErr
 	}
+
 	if tenantExists {
 		return nil, ErrTenantSlugTaken
 	}
@@ -159,10 +176,13 @@ func (s *Store) CreateOnboardingOTP(ctx context.Context, p CreateOnboardingOTPPa
 	if err != nil {
 		return nil, err
 	}
+
 	if existing != nil {
-		if err := tx.Commit(ctx); err != nil {
-			return nil, err
+		commitErr := tx.Commit(ctx)
+		if commitErr != nil {
+			return nil, commitErr
 		}
+
 		return existing, nil
 	}
 
@@ -170,12 +190,14 @@ func (s *Store) CreateOnboardingOTP(ctx context.Context, p CreateOnboardingOTPPa
 	if err != nil {
 		return nil, err
 	}
+
 	metadata, err := json.Marshal(p.Metadata)
 	if err != nil {
 		return nil, err
 	}
 
 	requestID := uuid.NewString()
+
 	expiresAt := time.Now().UTC().Add(onboardingOTPTTL)
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO tenant_onboarding_requests (
@@ -185,16 +207,19 @@ func (s *Store) CreateOnboardingOTP(ctx context.Context, p CreateOnboardingOTPPa
 	`, requestID, p.TenantSlug, p.TenantDomain, p.PlanSlug, p.Email, p.Mobile, p.CustomerName, code, expiresAt, string(metadata)); err != nil {
 		return nil, err
 	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 
 	channel := "email"
+
 	destination := p.Email
 	if destination == "" {
 		channel = "mobile"
 		destination = p.Mobile
 	}
+
 	s.logger.Info("onboarding otp generated")
 
 	return &OnboardingOTP{
@@ -213,6 +238,7 @@ func (s *Store) expirePendingOnboardingRequests(ctx context.Context) error {
 		SET status = 'expired', updated_at = NOW()
 		WHERE status = 'pending' AND expires_at <= NOW()
 	`)
+
 	return err
 }
 
@@ -229,24 +255,32 @@ func findActiveOnboardingRequestForSlug(ctx context.Context, tx pgx.Tx, p Create
 	defer rows.Close()
 
 	now := time.Now().UTC()
+
 	var taken bool
+
 	for rows.Next() {
-		var requestID, tenantSlug, email, mobile string
-		var expiresAt time.Time
+		var (
+			requestID, tenantSlug, email, mobile string
+			expiresAt                            time.Time
+		)
 		if err := rows.Scan(&requestID, &tenantSlug, &email, &mobile, &expiresAt); err != nil {
 			return nil, err
 		}
+
 		if sameOnboardingRequester(email, mobile, p.Email, p.Mobile) {
 			channel := "email"
+
 			destination := email
 			if destination == "" {
 				channel = "mobile"
 				destination = mobile
 			}
+
 			remaining := int(time.Until(expiresAt).Seconds())
 			if remaining < 1 && expiresAt.After(now) {
 				remaining = 1
 			}
+
 			return &OnboardingOTP{
 				RequestID:         requestID,
 				TenantSlug:        tenantSlug,
@@ -256,14 +290,18 @@ func findActiveOnboardingRequestForSlug(ctx context.Context, tx pgx.Tx, p Create
 				AlreadyPending:    true,
 			}, rows.Err()
 		}
+
 		taken = true
 	}
+
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+
 	if taken {
 		return nil, ErrTenantSlugTaken
 	}
+
 	return nil, nil
 }
 
@@ -271,14 +309,17 @@ func sameOnboardingRequester(existingEmail, existingMobile, requestedEmail, requ
 	if existingEmail != "" && requestedEmail != "" && existingEmail == requestedEmail {
 		return true
 	}
+
 	if existingMobile != "" && requestedMobile != "" && existingMobile == requestedMobile {
 		return true
 	}
+
 	return false
 }
 
 func (s *Store) VerifyOnboardingOTPAndProvision(ctx context.Context, p VerifyOnboardingOTPParams) (*ProvisionedTenant, error) {
 	requestID := strings.TrimSpace(p.RequestID)
+
 	otpCode := strings.TrimSpace(p.OTPCode)
 	if requestID == "" || otpCode == "" {
 		return nil, ErrOnboardingNotFound
@@ -290,65 +331,83 @@ func (s *Store) VerifyOnboardingOTPAndProvision(ctx context.Context, p VerifyOnb
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	var tenantSlug, tenantDomain, planSlug, email, mobile string
-	var otp string
-	var attempts int
-	var expiresAt time.Time
-	if err := tx.QueryRow(ctx, `
+	var (
+		tenantSlug, tenantDomain, planSlug, email, mobile string
+		otp                                               string
+		attempts                                          int
+		expiresAt                                         time.Time
+	)
+
+	requestErr := tx.QueryRow(ctx, `
 		SELECT tenant_slug, tenant_domain, COALESCE(plan_slug, 'developer'), COALESCE(email, ''), COALESCE(mobile, ''),
 		       otp_code, attempts, expires_at
 		FROM tenant_onboarding_requests
 		WHERE request_id = $1::uuid AND status = 'pending'
 		FOR UPDATE
-	`, requestID).Scan(&tenantSlug, &tenantDomain, &planSlug, &email, &mobile, &otp, &attempts, &expiresAt); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+	`, requestID).Scan(&tenantSlug, &tenantDomain, &planSlug, &email, &mobile, &otp, &attempts, &expiresAt)
+	if requestErr != nil {
+		if errors.Is(requestErr, pgx.ErrNoRows) {
 			return nil, ErrOnboardingNotFound
 		}
-		return nil, err
+
+		return nil, requestErr
 	}
+
 	if time.Now().UTC().After(expiresAt) {
 		_, _ = tx.Exec(ctx, `
 			UPDATE tenant_onboarding_requests
 			SET status = 'expired', updated_at = NOW()
 			WHERE request_id = $1::uuid
 		`, requestID)
+
 		return nil, ErrOnboardingExpired
 	}
+
 	if otpCode != otp {
 		nextAttempts := attempts + 1
+
 		status := "pending"
 		if nextAttempts >= maxOnboardingAttempts {
 			status = "canceled"
 		}
+
 		_, _ = tx.Exec(ctx, `
 			UPDATE tenant_onboarding_requests
 			SET attempts = $2, status = $3, updated_at = NOW()
 			WHERE request_id = $1::uuid
 		`, requestID, nextAttempts, status)
+
 		return nil, ErrOnboardingOTPFailed
 	}
 
 	var created platform.Tenant
-	if err := tx.QueryRow(ctx, `
+
+	tenantCreateErr := tx.QueryRow(ctx, `
 		INSERT INTO tenants (slug, domain, status)
 		VALUES ($1, $2, 'active')
 		RETURNING tenant_id::text, slug, domain, status, created_at
-	`, tenantSlug, tenantDomain).Scan(&created.ID, &created.Slug, &created.Domain, &created.Status, &created.CreatedAt); err != nil {
-		return nil, err
+	`, tenantSlug, tenantDomain).Scan(&created.ID, &created.Slug, &created.Domain, &created.Status, &created.CreatedAt)
+	if tenantCreateErr != nil {
+		return nil, tenantCreateErr
 	}
+
 	var walletID string
-	if err := tx.QueryRow(ctx, `
+
+	walletErr := tx.QueryRow(ctx, `
 		INSERT INTO wallets (tenant_id, balance_irr, pending_irr)
 		SELECT $1::uuid, signup_credit_irr::double precision, 0
 		FROM commercial_signup_settings WHERE settings_id = true
 		RETURNING wallet_id::text
-	`, created.ID).Scan(&walletID); err != nil {
-		return nil, err
+	`, created.ID).Scan(&walletID)
+	if walletErr != nil {
+		return nil, walletErr
 	}
+
 	requestedPlanSlug := strings.TrimSpace(strings.ToLower(planSlug))
 	if requestedPlanSlug == "" || requestedPlanSlug == "free" {
 		requestedPlanSlug = "developer"
 	}
+
 	subscriptionResult, err := tx.Exec(ctx, `
 		INSERT INTO tenant_subscriptions (
 			tenant_id, plan_id, version_id, status, billing_interval,
@@ -376,9 +435,11 @@ func (s *Store) VerifyOnboardingOTPAndProvision(ctx context.Context, p VerifyOnb
 	if err != nil {
 		return nil, err
 	}
+
 	if subscriptionResult.RowsAffected() == 0 {
 		return nil, ErrPlanNotFound
 	}
+
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO subscription_events (tenant_id, subscription_id, event_type, actor, payload)
 		SELECT tenant_id, subscription_id, 'trial_started', 'onboarding',
@@ -388,6 +449,7 @@ func (s *Store) VerifyOnboardingOTPAndProvision(ctx context.Context, p VerifyOnb
 	`, created.ID, requestedPlanSlug); err != nil {
 		return nil, err
 	}
+
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO wallet_transactions (
 			wallet_id, tenant_id, tx_type, amount_irr, status, description, metadata
@@ -400,6 +462,7 @@ func (s *Store) VerifyOnboardingOTPAndProvision(ctx context.Context, p VerifyOnb
 	`, walletID, created.ID, requestedPlanSlug); err != nil {
 		return nil, err
 	}
+
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO users (
 			user_id, tenant_id, user_alias, email, mobile, role, active, created_at, updated_at
@@ -411,6 +474,7 @@ func (s *Store) VerifyOnboardingOTPAndProvision(ctx context.Context, p VerifyOnb
 	`, uuid.NewString(), created.ID, strings.TrimSpace(email), strings.TrimSpace(email), strings.TrimSpace(mobile)); err != nil {
 		return nil, err
 	}
+
 	if _, err := tx.Exec(ctx, `
 		UPDATE tenant_onboarding_requests
 		SET status = 'verified', verified_at = NOW(), tenant_id = $2::uuid, updated_at = NOW()
@@ -418,9 +482,11 @@ func (s *Store) VerifyOnboardingOTPAndProvision(ctx context.Context, p VerifyOnb
 	`, requestID, created.ID); err != nil {
 		return nil, err
 	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+
 	return &ProvisionedTenant{Tenant: created, LoginURL: fmt.Sprintf("https://%s/login", created.Domain)}, nil
 }
 
@@ -430,13 +496,16 @@ func normalizeOnboardingSlug(slug string) string {
 
 func numericOTP(length int) (string, error) {
 	var b strings.Builder
+
 	for i := 0; i < length; i++ {
 		n, err := rand.Int(rand.Reader, big.NewInt(10))
 		if err != nil {
 			return "", err
 		}
+
 		b.WriteString(n.String())
 	}
+
 	return b.String(), nil
 }
 
@@ -446,14 +515,18 @@ func maskDestination(channel string, value string) string {
 		if len(parts) != 2 {
 			return "***"
 		}
+
 		local := parts[0]
 		if len(local) <= 2 {
 			return local[:1] + "***@" + parts[1]
 		}
+
 		return local[:2] + "***@" + parts[1]
 	}
+
 	if len(value) <= 6 {
 		return "***"
 	}
+
 	return value[:3] + "****" + value[len(value)-3:]
 }

@@ -15,12 +15,14 @@ func (s *Store) LogRequest(ctx context.Context, entry platform.RequestLogEntry) 
 		INSERT INTO request_logs (request_id, token_hash, tenant_id, model, request_body, response_body, status, cost, response_time_ms)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`, entry.RequestID, emptyToNil(entry.TokenHash), nullUUID(entry.TenantID), entry.Model, reqRaw, respRaw, entry.Status, entry.CostUSD, entry.ResponseTimeMS)
+
 	return err
 }
 
 // LogSpend writes the spend log entry.
 func (s *Store) LogSpend(ctx context.Context, log platform.SpendLog) error {
 	metaRaw, _ := json.Marshal(log.RequestMetadata)
+
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err

@@ -59,6 +59,7 @@ func TestPrivacyManager_SampledRedacted(t *testing.T) {
 	prompt, ok := redacted["prompt"].(string)
 	require.True(t, ok)
 	assert.True(t, strings.Contains(prompt, "[redacted sha256="))
+
 	email, ok := redacted["email"].(string)
 	require.True(t, ok)
 	assert.True(t, strings.Contains(email, "[redacted sha256="))
@@ -102,17 +103,23 @@ func TestRecordStepSpan_AppliesPrivacyPolicy(t *testing.T) {
 		RecordStepSpan(c, QueueFromContext(c), "", "provider.call", "client", start, fiber.StatusOK, map[string]interface{}{
 			"request_payload": map[string]interface{}{"prompt": "hello"},
 		})
+
 		return c.SendStatus(200)
 	})
 
 	req := httptest.NewRequest("GET", "/x", nil)
-	_, err := app.Test(req)
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
+
 	batch := queue.DequeueBatch(10)
 	require.Len(t, batch, 2)
 	step := batch[1]
 	_, hasRaw := step.Attributes["request_payload"]
 	assert.False(t, hasRaw)
+
 	_, hasMeta := step.Attributes["request_payload_meta"]
 	assert.True(t, hasMeta)
 }

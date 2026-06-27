@@ -20,14 +20,17 @@ var (
 func (s *Store) CreateVirtualModel(ctx context.Context, tenantID string, req platform.CreateVirtualModelRequest, actor string) (*platform.VirtualModel, error) {
 	id := uuid.NewString()
 	alias := strings.TrimSpace(req.Alias)
+
 	strategy := strings.TrimSpace(strings.ToLower(req.RoutingStrategy))
 	if strategy == "" {
 		strategy = "priority"
 	}
+
 	enabled := true
 	if req.Enabled != nil {
 		enabled = *req.Enabled
 	}
+
 	exposedModes, err := s.resolveVirtualModelExposedModes(ctx, tenantID, req.Targets, req.ExposedModes)
 	if err != nil {
 		return nil, err
@@ -39,17 +42,19 @@ func (s *Store) CreateVirtualModel(ctx context.Context, tenantID string, req pla
 	}
 	defer tx.Rollback(ctx)
 
-	if _, err := tx.Exec(ctx, `
+	_, insertErr := tx.Exec(ctx, `
 		INSERT INTO virtual_models (virtual_model_id, tenant_id, alias, routing_strategy, enabled, exposed_modes, created_by, updated_by)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	`, id, tenantID, alias, strategy, enabled, exposedModes, emptyToNil(actor), emptyToNil(actor)); err != nil {
-		return nil, err
+	`, id, tenantID, alias, strategy, enabled, exposedModes, emptyToNil(actor), emptyToNil(actor))
+	if insertErr != nil {
+		return nil, insertErr
 	}
 
 	targets, err := insertVirtualModelTargets(ctx, tx, id, req.Targets)
 	if err != nil {
 		return nil, err
 	}
+
 	access, err := upsertVirtualModelAccess(ctx, tx, tenantID, id, req.Access)
 	if err != nil {
 		return nil, err
@@ -72,6 +77,7 @@ func (s *Store) CreateVirtualModel(ctx context.Context, tenantID string, req pla
 		CreatedBy:       actor,
 		UpdatedBy:       actor,
 	}
+
 	return out, nil
 }
 
@@ -89,28 +95,34 @@ func (s *Store) ListVirtualModels(ctx context.Context, tenantID string) ([]platf
 	defer rows.Close()
 
 	out := make([]platform.VirtualModel, 0)
+
 	for rows.Next() {
 		var vm platform.VirtualModel
 		if err := rows.Scan(&vm.ID, &vm.TenantID, &vm.Alias, &vm.RoutingStrategy, &vm.Enabled, &vm.ExposedModes, &vm.Version, &vm.CreatedBy, &vm.UpdatedBy, &vm.CreatedAt, &vm.UpdatedAt); err != nil {
 			return nil, err
 		}
+
 		targets, err := s.listVirtualModelTargets(ctx, vm.ID)
 		if err != nil {
 			return nil, err
 		}
+
 		access, err := s.listVirtualModelAccess(ctx, vm.ID)
 		if err != nil {
 			return nil, err
 		}
+
 		vm.Targets = targets
 		vm.Access = access
 		out = append(out, vm)
 	}
+
 	return out, rows.Err()
 }
 
 func (s *Store) GetVirtualModel(ctx context.Context, tenantID string, id string) (*platform.VirtualModel, error) {
 	var vm platform.VirtualModel
+
 	err := s.pool.QueryRow(ctx, `
 		SELECT virtual_model_id::text, tenant_id::text, alias, routing_strategy, enabled, COALESCE(exposed_modes, '{}'), version,
 		       COALESCE(created_by, ''), COALESCE(updated_by, ''), created_at, updated_at
@@ -119,24 +131,30 @@ func (s *Store) GetVirtualModel(ctx context.Context, tenantID string, id string)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrVirtualModelNotFound
 	}
+
 	if err != nil {
 		return nil, err
 	}
+
 	targets, err := s.listVirtualModelTargets(ctx, vm.ID)
 	if err != nil {
 		return nil, err
 	}
+
 	access, err := s.listVirtualModelAccess(ctx, vm.ID)
 	if err != nil {
 		return nil, err
 	}
+
 	vm.Targets = targets
 	vm.Access = access
+
 	return &vm, nil
 }
 
 func (s *Store) GetVirtualModelByAlias(ctx context.Context, tenantID string, alias string) (*platform.VirtualModel, error) {
 	var vm platform.VirtualModel
+
 	err := s.pool.QueryRow(ctx, `
 		SELECT virtual_model_id::text, tenant_id::text, alias, routing_strategy, enabled, COALESCE(exposed_modes, '{}'), version,
 		       COALESCE(created_by, ''), COALESCE(updated_by, ''), created_at, updated_at
@@ -145,19 +163,24 @@ func (s *Store) GetVirtualModelByAlias(ctx context.Context, tenantID string, ali
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrVirtualModelNotFound
 	}
+
 	if err != nil {
 		return nil, err
 	}
+
 	targets, err := s.listVirtualModelTargets(ctx, vm.ID)
 	if err != nil {
 		return nil, err
 	}
+
 	access, err := s.listVirtualModelAccess(ctx, vm.ID)
 	if err != nil {
 		return nil, err
 	}
+
 	vm.Targets = targets
 	vm.Access = access
+
 	return &vm, nil
 }
 
@@ -166,28 +189,34 @@ func (s *Store) UpdateVirtualModel(ctx context.Context, tenantID string, id stri
 	if err != nil {
 		return nil, err
 	}
+
 	alias := curr.Alias
 	if req.Alias != nil {
 		alias = strings.TrimSpace(*req.Alias)
 	}
+
 	strategy := curr.RoutingStrategy
 	if req.RoutingStrategy != nil {
 		strategy = strings.TrimSpace(strings.ToLower(*req.RoutingStrategy))
 	}
+
 	enabled := curr.Enabled
 	if req.Enabled != nil {
 		enabled = *req.Enabled
 	}
+
 	targetsForModeValidation := curr.Targets
 	if len(req.Targets) > 0 {
 		targetsForModeValidation = req.Targets
 	}
+
 	exposedModesInput := []string(nil)
 	if req.ExposedModes != nil {
 		exposedModesInput = *req.ExposedModes
 	} else if len(req.Targets) == 0 && len(curr.ExposedModes) > 0 {
 		exposedModesInput = curr.ExposedModes
 	}
+
 	exposedModes, err := s.resolveVirtualModelExposedModes(ctx, tenantID, targetsForModeValidation, exposedModesInput)
 	if err != nil {
 		return nil, err
@@ -199,31 +228,37 @@ func (s *Store) UpdateVirtualModel(ctx context.Context, tenantID string, id stri
 	}
 	defer tx.Rollback(ctx)
 
-	if _, err := tx.Exec(ctx, `
+	_, updateErr := tx.Exec(ctx, `
 		UPDATE virtual_models
 		SET alias = $3, routing_strategy = $4, enabled = $5, exposed_modes = $6, version = version + 1, updated_by = $7, updated_at = NOW()
 		WHERE tenant_id = $1 AND virtual_model_id = $2
-	`, tenantID, id, alias, strategy, enabled, exposedModes, emptyToNil(actor)); err != nil {
-		return nil, err
+	`, tenantID, id, alias, strategy, enabled, exposedModes, emptyToNil(actor))
+	if updateErr != nil {
+		return nil, updateErr
 	}
 
 	if len(req.Targets) > 0 {
-		if _, err := tx.Exec(ctx, `DELETE FROM virtual_model_targets WHERE virtual_model_id = $1`, id); err != nil {
-			return nil, err
+		_, deleteTargetsErr := tx.Exec(ctx, `DELETE FROM virtual_model_targets WHERE virtual_model_id = $1`, id)
+		if deleteTargetsErr != nil {
+			return nil, deleteTargetsErr
 		}
+
 		if _, err := insertVirtualModelTargets(ctx, tx, id, req.Targets); err != nil {
 			return nil, err
 		}
 	}
+
 	if req.Access != nil {
-		if _, err := upsertVirtualModelAccess(ctx, tx, tenantID, id, *req.Access); err != nil {
-			return nil, err
+		_, accessErr := upsertVirtualModelAccess(ctx, tx, tenantID, id, *req.Access)
+		if accessErr != nil {
+			return nil, accessErr
 		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+
 	return s.GetVirtualModel(ctx, tenantID, id)
 }
 
@@ -234,17 +269,21 @@ func (s *Store) DeleteVirtualModel(ctx context.Context, tenantID string, id stri
 	}
 	defer tx.Rollback(ctx)
 
-	if _, err := tx.Exec(ctx, `DELETE FROM virtual_model_targets WHERE virtual_model_id = $1`, id); err != nil {
-		return err
+	_, deleteTargetsErr := tx.Exec(ctx, `DELETE FROM virtual_model_targets WHERE virtual_model_id = $1`, id)
+	if deleteTargetsErr != nil {
+		return deleteTargetsErr
 	}
-	if _, err := tx.Exec(ctx, `DELETE FROM virtual_model_access WHERE virtual_model_id = $1`, id); err != nil {
-		return err
+
+	_, deleteAccessErr := tx.Exec(ctx, `DELETE FROM virtual_model_access WHERE virtual_model_id = $1`, id)
+	if deleteAccessErr != nil {
+		return deleteAccessErr
 	}
 
 	res, err := tx.Exec(ctx, `DELETE FROM virtual_models WHERE tenant_id = $1 AND virtual_model_id = $2`, tenantID, id)
 	if err != nil {
 		return err
 	}
+
 	if res.RowsAffected() == 0 {
 		return ErrVirtualModelNotFound
 	}
@@ -255,6 +294,7 @@ func (s *Store) DeleteVirtualModel(ctx context.Context, tenantID string, id stri
 func (s *Store) ListVirtualModelsForPrincipal(ctx context.Context, tenantID string, userID string, teamID string) ([]platform.VirtualModel, error) {
 	normalizedUserID := strings.TrimSpace(userID)
 	normalizedTeamID := strings.TrimSpace(teamID)
+
 	rows, err := s.pool.Query(ctx, `
 		SELECT vm.virtual_model_id::text
 		FROM virtual_models vm
@@ -324,17 +364,21 @@ func (s *Store) ListVirtualModelsForPrincipal(ctx context.Context, tenantID stri
 	defer rows.Close()
 
 	out := make([]platform.VirtualModel, 0)
+
 	for rows.Next() {
 		var vmID string
 		if err := rows.Scan(&vmID); err != nil {
 			return nil, err
 		}
+
 		vm, err := s.GetVirtualModel(ctx, tenantID, vmID)
 		if err != nil {
 			return nil, err
 		}
+
 		out = append(out, *vm)
 	}
+
 	return out, rows.Err()
 }
 
@@ -345,28 +389,35 @@ func insertVirtualModelTargets(ctx context.Context, tx pgx.Tx, vmID string, targ
 		if tid == "" {
 			tid = uuid.NewString()
 		}
+
 		order := target.Order
 		if order <= 0 {
 			order = i + 1
 		}
+
 		retryAttempts := target.Policy.Retry.Attempts
 		if retryAttempts <= 0 {
 			retryAttempts = 2
 		}
+
 		retryDelay := target.Policy.Retry.DelayMS
 		if retryDelay < 0 {
 			retryDelay = 0
 		}
+
 		retryCodes := target.Policy.Retry.StatusCodes
 		if len(retryCodes) == 0 {
 			retryCodes = []int{429, 500, 502, 503}
 		}
+
 		fallbackCodes := target.Policy.Fallback.StatusCodes
 		if len(fallbackCodes) == 0 {
 			fallbackCodes = []int{429, 500, 502, 503, 504}
 		}
+
 		fallbackCandidate := target.Policy.Fallback.Candidate
 		targetProvider := strings.ToLower(strings.TrimSpace(target.Provider))
+
 		targetModel := normalizeModelFQN(target.Model)
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO virtual_model_targets (
@@ -377,6 +428,7 @@ func insertVirtualModelTargets(ctx context.Context, tx pgx.Tx, vmID string, targ
 		`, tid, vmID, order, targetProvider, targetModel, target.Policy.TimeoutSec, retryAttempts, retryDelay, retryCodes, fallbackCodes, fallbackCandidate); err != nil {
 			return nil, err
 		}
+
 		target.ID = tid
 		target.Order = order
 		target.Provider = targetProvider
@@ -388,6 +440,7 @@ func insertVirtualModelTargets(ctx context.Context, tx pgx.Tx, vmID string, targ
 		target.Policy.Fallback.Candidate = fallbackCandidate
 		out = append(out, target)
 	}
+
 	return out, nil
 }
 
@@ -395,14 +448,18 @@ func upsertVirtualModelAccess(ctx context.Context, tx pgx.Tx, tenantID string, v
 	if _, err := tx.Exec(ctx, `DELETE FROM virtual_model_access WHERE virtual_model_id = $1`, vmID); err != nil {
 		return platform.TenantProviderAccountAccessControl{}, err
 	}
+
 	normalized := normalizeVirtualModelAccess(access)
+
 	seen := make(map[string]struct{})
 	if err := insertVirtualModelAccessRows(ctx, tx, tenantID, vmID, platform.AccessRoleManager, normalized.Managers, seen); err != nil {
 		return platform.TenantProviderAccountAccessControl{}, err
 	}
+
 	if err := insertVirtualModelAccessRows(ctx, tx, tenantID, vmID, platform.AccessRoleUser, normalized.Users, seen); err != nil {
 		return platform.TenantProviderAccountAccessControl{}, err
 	}
+
 	return normalized, nil
 }
 
@@ -414,6 +471,7 @@ func normalizeVirtualModelAccess(access platform.TenantProviderAccountAccessCont
 	if len(normalized.Users) == 0 && len(normalized.Managers) == 0 {
 		normalized.Users = []platform.AccessPrincipal{{Type: platform.PrincipalTypeEveryone}}
 	}
+
 	return normalized
 }
 
@@ -423,11 +481,14 @@ func insertVirtualModelAccessRows(ctx context.Context, tx pgx.Tx, tenantID strin
 		if err != nil {
 			return err
 		}
+
 		key := string(role) + "|" + string(normalized.Type) + "|" + normalized.PrincipalID
 		if _, exists := seen[key]; exists {
 			continue
 		}
+
 		seen[key] = struct{}{}
+
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO virtual_model_access (
 				virtual_model_id, role, principal_type, principal_id, display_name
@@ -437,6 +498,7 @@ func insertVirtualModelAccessRows(ctx context.Context, tx pgx.Tx, tenantID strin
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -456,15 +518,20 @@ func (s *Store) listVirtualModelAccess(ctx context.Context, vmID string) (platfo
 		Managers: make([]platform.AccessPrincipal, 0),
 		Users:    make([]platform.AccessPrincipal, 0),
 	}
+
 	for rows.Next() {
-		var role string
-		var principal platform.AccessPrincipal
+		var (
+			role      string
+			principal platform.AccessPrincipal
+		)
 		if err := rows.Scan(&role, &principal.Type, &principal.PrincipalID, &principal.DisplayName); err != nil {
 			return platform.TenantProviderAccountAccessControl{}, err
 		}
+
 		if principal.Type == platform.PrincipalTypeEveryone {
 			principal.PrincipalID = ""
 		}
+
 		switch platform.AccessRole(strings.TrimSpace(role)) {
 		case platform.AccessRoleManager:
 			access.Managers = append(access.Managers, principal)
@@ -472,12 +539,15 @@ func (s *Store) listVirtualModelAccess(ctx context.Context, vmID string) (platfo
 			access.Users = append(access.Users, principal)
 		}
 	}
+
 	if err := rows.Err(); err != nil {
 		return platform.TenantProviderAccountAccessControl{}, err
 	}
+
 	if len(access.Managers) == 0 && len(access.Users) == 0 {
 		access.Users = []platform.AccessPrincipal{{Type: platform.PrincipalTypeEveryone}}
 	}
+
 	return access, nil
 }
 
@@ -493,7 +563,9 @@ func (s *Store) listVirtualModelTargets(ctx context.Context, vmID string) ([]pla
 		return nil, err
 	}
 	defer rows.Close()
+
 	out := make([]platform.VirtualModelTarget, 0)
+
 	for rows.Next() {
 		var t platform.VirtualModelTarget
 		if err := rows.Scan(
@@ -510,8 +582,10 @@ func (s *Store) listVirtualModelTargets(ctx context.Context, vmID string) ([]pla
 		); err != nil {
 			return nil, err
 		}
+
 		out = append(out, t)
 	}
+
 	return out, rows.Err()
 }
 
@@ -520,22 +594,27 @@ func (s *Store) resolveVirtualModelExposedModes(ctx context.Context, tenantID st
 	if err != nil {
 		return nil, err
 	}
+
 	if len(intersection) == 0 {
 		return nil, fmt.Errorf("%w: virtual model targets do not share any supported modes", ErrInvalidVirtualModelModes)
 	}
+
 	requested = normalizeStringList(requested)
 	if len(requested) == 0 {
 		return intersection, nil
 	}
+
 	allowed := make(map[string]struct{}, len(intersection))
 	for _, mode := range intersection {
 		allowed[mode] = struct{}{}
 	}
+
 	for _, mode := range requested {
 		if _, ok := allowed[mode]; !ok {
 			return nil, fmt.Errorf("%w: exposed_modes must be a subset of target mode intersection", ErrInvalidVirtualModelModes)
 		}
 	}
+
 	return requested, nil
 }
 
@@ -543,24 +622,30 @@ func (s *Store) virtualModelTargetModeIntersection(ctx context.Context, tenantID
 	if len(targets) == 0 {
 		return nil, fmt.Errorf("%w: at least one target is required", ErrInvalidVirtualModelModes)
 	}
+
 	var intersection []string
+
 	for i, target := range targets {
 		modes, err := s.supportedModesForVirtualModelTarget(ctx, tenantID, target)
 		if err != nil {
 			return nil, err
 		}
+
 		if len(modes) == 0 {
 			return nil, fmt.Errorf("%w: target %q has no supported_modes", ErrInvalidVirtualModelModes, strings.TrimSpace(target.Model))
 		}
+
 		if i == 0 {
 			intersection = modes
 			continue
 		}
+
 		intersection = intersectStringLists(intersection, modes)
 		if len(intersection) == 0 {
 			return nil, nil
 		}
 	}
+
 	return intersection, nil
 }
 
@@ -585,18 +670,23 @@ func (s *Store) supportedModesForVirtualModelTarget(ctx context.Context, tenantI
 	defer rows.Close()
 
 	for rows.Next() {
-		var storedModel string
-		var modes []string
+		var (
+			storedModel string
+			modes       []string
+		)
 		if err := rows.Scan(&storedModel, &modes); err != nil {
 			return nil, err
 		}
+
 		if modelid.MatchOfficialModel(provider, storedModel, officialModel) {
 			return normalizeStringList(modes), nil
 		}
 	}
+
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+
 	return nil, fmt.Errorf("%w: target %q is not an enabled provider account model", ErrInvalidVirtualModelModes, target.Model)
 }
 
@@ -605,21 +695,27 @@ func intersectStringLists(a []string, b []string) []string {
 	for _, item := range b {
 		bSet[strings.TrimSpace(item)] = struct{}{}
 	}
+
 	out := make([]string, 0, len(a))
+
 	seen := make(map[string]struct{}, len(a))
 	for _, item := range a {
 		item = strings.TrimSpace(item)
 		if item == "" {
 			continue
 		}
+
 		if _, ok := bSet[item]; !ok {
 			continue
 		}
+
 		if _, ok := seen[item]; ok {
 			continue
 		}
+
 		seen[item] = struct{}{}
 		out = append(out, item)
 	}
+
 	return out
 }

@@ -42,6 +42,7 @@ func (t *captureTunnel) Stream(ctx context.Context, req platform.TunnelRequest) 
 	if t.stream != nil || t.streamErr != nil {
 		return t.stream, t.streamErr
 	}
+
 	return nil, assert.AnError
 }
 
@@ -81,9 +82,11 @@ func newResponsesTestApp(t *testing.T, provider string, tunnel *captureTunnel) (
 			Slug:   "a",
 			Status: "active",
 		})
+
 		return c.Next()
 	})
 	app.Post("/v1/responses", h.Handle)
+
 	return app, q
 }
 
@@ -122,16 +125,21 @@ func TestResponsesHandlerSyncSuccess(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"gpt-4o","input":"hello"}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.Equal(t, "/responses", tunnel.lastReq.RequestMetadata["provider_endpoint_path"])
 
 	events := q.DequeueBatch(20)
+
 	names := make([]string, 0, len(events))
 	for _, ev := range events {
 		names = append(names, ev.Name)
 	}
+
 	assert.Contains(t, names, "gateway.request")
 	assert.Contains(t, names, "provider.call")
 	assert.Contains(t, names, "response.write")
@@ -147,7 +155,10 @@ func TestResponsesHandlerRejectsNonOpenAIProvider(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"gpt-4o","input":"hello"}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusNotImplemented, resp.StatusCode)
 }
@@ -196,17 +207,22 @@ func TestResponsesHandlerCanonicalizesProviderPrefixedDeploymentModel(t *testing
 			Slug:   "a",
 			Status: "active",
 		})
+
 		return c.Next()
 	})
 	app.Post("/v1/responses", h.Handle)
 
 	req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"gpt-4o-mini","input":"hello"}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var outbound contractsopenai.ResponseRequest
+
 	err = json.Unmarshal(tunnel.lastReq.Body, &outbound)
 	require.NoError(t, err)
 	assert.Equal(t, "gpt-4o-mini", outbound.Model)
@@ -215,7 +231,9 @@ func TestResponsesHandlerCanonicalizesProviderPrefixedDeploymentModel(t *testing
 func TestResponsesHandlerStreamSuccess(t *testing.T) {
 	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 2, 0)
 	stream.chunks <- platform.TunnelChunk{Data: []byte("event: response.created\n")}
+
 	stream.chunks <- platform.TunnelChunk{Data: []byte("data: {\"type\":\"response.output_text.delta\",\"delta\":\"Salam\"}\n\n"), IsDone: true}
+
 	close(stream.chunks)
 
 	tunnel := &captureTunnel{stream: stream}
@@ -223,7 +241,10 @@ func TestResponsesHandlerStreamSuccess(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"gpt-4o","input":"hello","stream":true}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.Equal(t, "text/event-stream", resp.Header.Get("Content-Type"))
@@ -231,6 +252,7 @@ func TestResponsesHandlerStreamSuccess(t *testing.T) {
 
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
+
 	bodyText := string(body)
 	assert.Contains(t, bodyText, "event: response.created")
 	assert.Contains(t, bodyText, `response.output_text.delta`)
@@ -246,7 +268,10 @@ func TestResponsesHandlerStreamErrorWritesStreamingErrorEvent(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"gpt-4o","input":"hello","stream":true}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
@@ -259,6 +284,7 @@ func TestResponsesHandlerStreamErrorWritesStreamingErrorEvent(t *testing.T) {
 func TestResponsesHandlerStreamCloseFinalizesWithoutPanic(t *testing.T) {
 	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 1, 0)
 	stream.chunks <- platform.TunnelChunk{Data: []byte("data: {\"type\":\"response.output_text.delta\",\"delta\":\"Salam\"}\n\n")}
+
 	close(stream.chunks)
 
 	wallets := &testWallets{}
@@ -292,13 +318,17 @@ func TestResponsesHandlerStreamCloseFinalizesWithoutPanic(t *testing.T) {
 			Slug:   "a",
 			Status: "active",
 		})
+
 		return c.Next()
 	})
 	app.Post("/v1/responses", h.Handle)
 
 	req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"gpt-4o","input":"hello","stream":true}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 

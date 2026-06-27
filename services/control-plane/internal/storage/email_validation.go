@@ -25,6 +25,7 @@ func IsValidEmailAddress(raw string) bool {
 
 	local := email[:at]
 	domain := email[at+1:]
+
 	if !emailLocalPartPattern.MatchString(local) {
 		return false
 	}
@@ -33,10 +34,12 @@ func IsValidEmailAddress(raw string) bool {
 	if len(parts) < 2 {
 		return false
 	}
+
 	for _, label := range parts {
 		if label == "" || len(label) > 63 || !emailDomainLabelRegex.MatchString(label) {
 			return false
 		}
+
 		if strings.HasPrefix(label, "-") || strings.HasSuffix(label, "-") {
 			return false
 		}

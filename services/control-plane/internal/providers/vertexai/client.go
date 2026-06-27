@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	// Default Vertex AI endpoint
+	// Default Vertex AI endpoint.
 	defaultAPIBase = "https://%s-aiplatform.googleapis.com/v1"
 	defaultTimeout = 600 * time.Second
 )
@@ -40,6 +40,7 @@ func NewClient(cfg providers.ProviderConfig) providers.Provider {
 		if region == "" {
 			region = "us-central1"
 		}
+
 		apiBase = fmt.Sprintf(defaultAPIBase, region)
 	}
 
@@ -80,10 +81,11 @@ func (c *Client) AuthHeaders() map[string]string {
 	if c.apiKey != "" {
 		headers["Authorization"] = "Bearer " + c.apiKey
 	}
+
 	return headers
 }
 
-// Vertex AI request/response types
+// Vertex AI request/response types.
 type vertexRequest struct {
 	Instances  []vertexInstance `json:"instances"`
 	Parameters vertexParameters `json:"parameters,omitempty"`
@@ -127,25 +129,31 @@ func (c *Client) Complete(ctx context.Context, req contractsopenai.ChatCompletio
 
 	endpoint := fmt.Sprintf("%s/projects/%s/locations/%s/publishers/google/models/%s:predict",
 		c.apiBase, c.project, c.location, c.model)
+
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
+
 	if c.apiKey != "" {
 		httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 	}
 
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := c.httpClient.Do(httpReq) //nolint:bodyclose // the streaming goroutine owns and closes resp.Body.
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer providers.Close(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Vertex AI API error (status %d): %s", resp.StatusCode, string(bodyBytes))
+		bodyBytes, readErr := providers.ReadAllAndClose(resp)
+		if readErr != nil {
+			return nil, fmt.Errorf("failed to read vertex AI error response: %w", readErr)
+		}
+
+		return nil, fmt.Errorf("vertex AI API error (status %d): %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	var vertexResp vertexResponse
@@ -169,24 +177,30 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 
 	endpoint := fmt.Sprintf("%s/projects/%s/locations/%s/publishers/google/models/%s:streamPredict",
 		c.apiBase, c.project, c.location, c.model)
+
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
+
 	if c.apiKey != "" {
 		httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 	}
 
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := c.httpClient.Do(httpReq) //nolint:bodyclose // the streaming goroutine owns and closes resp.Body.
 	if err != nil {
 		return nil, nil, fmt.Errorf("request failed: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, nil, fmt.Errorf("Vertex AI API error (status %d): %s", resp.StatusCode, string(bodyBytes))
+		bodyBytes, readErr := providers.ReadAllAndClose(resp)
+		if readErr != nil {
+			return nil, nil, fmt.Errorf("failed to read vertex AI error response: %w", readErr)
+		}
+
+		return nil, nil, fmt.Errorf("vertex AI API error (status %d): %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	streamChan := make(chan contractsopenai.StreamChunk)
@@ -194,7 +208,7 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 
 	go func() {
 		defer close(streamChan)
-		defer resp.Body.Close()
+		defer providers.Close(resp.Body)
 
 		reader := bufio.NewReader(resp.Body)
 		for {
@@ -203,7 +217,9 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 				if err != io.EOF {
 					errorChan <- fmt.Errorf("stream read error: %w", err)
 				}
+
 				close(errorChan)
+
 				return
 			}
 
@@ -225,15 +241,17 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 	return streamChan, errorChan, nil
 }
 
-// convertToVertexRequest converts OpenAI request to Vertex AI format
+// convertToVertexRequest converts OpenAI request to Vertex AI format.
 func convertToVertexRequest(req contractsopenai.ChatCompletionRequest) vertexRequest {
 	// Build messages content
 	content := ""
+
 	for _, msg := range req.Messages {
 		role := msg.Role
 		if role == "system" {
 			role = "system"
 		}
+
 		content += fmt.Sprintf("%s: %s\n", role, contractsopenai.ChatContentText(msg.Content))
 	}
 
@@ -258,7 +276,7 @@ func convertToVertexRequest(req contractsopenai.ChatCompletionRequest) vertexReq
 	return vertexReq
 }
 
-// convertToOpenAIResponse converts Vertex response to OpenAI format
+// convertToOpenAIResponse converts Vertex response to OpenAI format.
 func convertToOpenAIResponse(resp vertexResponse, model string) *contractsopenai.ChatCompletionResponse {
 	content := ""
 	for _, pred := range resp.Predictions {
@@ -293,17 +311,17 @@ func convertToOpenAIResponse(resp vertexResponse, model string) *contractsopenai
 	return openaiResp
 }
 
-// SetModel sets the Vertex AI model name
+// SetModel sets the Vertex AI model name.
 func (c *Client) SetModel(model string) {
 	c.model = model
 }
 
-// SetProject sets the Google Cloud project
+// SetProject sets the Google Cloud project.
 func (c *Client) SetProject(project string) {
 	c.project = project
 }
 
-// Register the adapter
+// Register the adapter.
 func init() {
 	providers.Register("vertexai", func(cfg providers.ProviderConfig) providers.Provider {
 		return NewClient(cfg)

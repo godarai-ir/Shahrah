@@ -32,17 +32,21 @@ var (
 func (s *Store) ListTenantAdminUsers(ctx context.Context, tenantSlug string, query string, limit int, offset int) ([]platform.TenantAdminUser, int, error) {
 	tenantSlug = strings.TrimSpace(strings.ToLower(tenantSlug))
 	query = strings.TrimSpace(strings.ToLower(query))
+
 	if limit <= 0 {
 		limit = 50
 	}
+
 	if limit > 200 {
 		limit = 200
 	}
+
 	if offset < 0 {
 		offset = 0
 	}
 
 	like := "%" + query + "%"
+
 	var total int
 	if err := s.pool.QueryRow(ctx, `
 		SELECT COUNT(1)
@@ -77,45 +81,57 @@ func (s *Store) ListTenantAdminUsers(ctx context.Context, tenantSlug string, que
 	defer rows.Close()
 
 	items := make([]platform.TenantAdminUser, 0, limit)
+
 	for rows.Next() {
-		var item platform.TenantAdminUser
-		var email, mobile, role string
-		var active bool
-		var roles []string
+		var (
+			item                platform.TenantAdminUser
+			email, mobile, role string
+			active              bool
+			roles               []string
+		)
 		if err := rows.Scan(&item.ID, &item.TenantSlug, &email, &mobile, &role, &active, &item.CreatedAt, &item.UpdatedAt, &roles); err != nil {
 			return nil, 0, err
 		}
+
 		if email != "" {
 			item.Email = email
 		}
+
 		if mobile != "" {
 			item.Mobile = mobile
 		}
+
 		item.Role = role
 		if len(roles) > 0 {
 			item.Roles = roles
 		} else if role != "" {
 			item.Roles = []string{role}
 		}
+
 		item.Active = active
 		items = append(items, item)
 	}
+
 	if err := rows.Err(); err != nil {
 		return nil, 0, err
 	}
+
 	return items, total, nil
 }
 
 func (s *Store) GetTenantAdminUserRecord(ctx context.Context, tenantSlug string, userID string) (*platform.TenantAdminUser, error) {
 	tenantSlug = strings.TrimSpace(strings.ToLower(tenantSlug))
+
 	userID = strings.TrimSpace(userID)
 	if tenantSlug == "" || userID == "" {
 		return nil, pgx.ErrNoRows
 	}
 
-	var item platform.TenantAdminUser
-	var email, mobile, role string
-	var roles []string
+	var (
+		item                platform.TenantAdminUser
+		email, mobile, role string
+		roles               []string
+	)
 	if err := s.pool.QueryRow(ctx, `
 		SELECT u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'member'),
 		       COALESCE(u.active, true), u.created_at, u.updated_at,
@@ -136,18 +152,22 @@ func (s *Store) GetTenantAdminUserRecord(ctx context.Context, tenantSlug string,
 	); err != nil {
 		return nil, err
 	}
+
 	if email != "" {
 		item.Email = email
 	}
+
 	if mobile != "" {
 		item.Mobile = mobile
 	}
+
 	item.Role = role
 	if len(roles) > 0 {
 		item.Roles = roles
 	} else if role != "" {
 		item.Roles = []string{role}
 	}
+
 	return &item, nil
 }
 
@@ -156,10 +176,12 @@ func (s *Store) InviteTenantAdminUser(ctx context.Context, tenantID string, tena
 	tenantSlug = strings.TrimSpace(strings.ToLower(tenantSlug))
 	email := strings.TrimSpace(strings.ToLower(req.Email))
 	mobile := strings.TrimSpace(req.Mobile)
+
 	role := strings.TrimSpace(strings.ToLower(req.Role))
 	if role == "" {
 		role = "member"
 	}
+
 	if email != "" && !IsValidEmailAddress(email) {
 		return nil, "", ErrInvalidInvitationEmail
 	}
@@ -172,8 +194,11 @@ func (s *Store) InviteTenantAdminUser(ctx context.Context, tenantID string, tena
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	var existingActive bool
-	var existingRole string
+	var (
+		existingActive bool
+		existingRole   string
+	)
+
 	err = tx.QueryRow(ctx, `
 		SELECT COALESCE(u.active, true), COALESCE(u.role, 'member')
 		FROM users u
@@ -190,12 +215,13 @@ func (s *Store) InviteTenantAdminUser(ctx context.Context, tenantID string, tena
 		if !existingActive || strings.EqualFold(existingRole, "deactivated") {
 			return nil, "", ErrTenantMemberDeactivated
 		}
+
 		return nil, "", ErrTenantMemberAlreadyExists
 	case !errors.Is(err, pgx.ErrNoRows):
 		return nil, "", err
 	}
 
-	if _, err := tx.Exec(ctx, `
+	_, cleanupErr := tx.Exec(ctx, `
 		DELETE FROM tenant_admin_invitations
 		WHERE tenant_id = $1::uuid
 		  AND status = 'pending'
@@ -204,11 +230,13 @@ func (s *Store) InviteTenantAdminUser(ctx context.Context, tenantID string, tena
 			($3 <> '' AND LOWER(COALESCE(email, '')) = LOWER($3))
 			OR ($4 <> '' AND COALESCE(mobile, '') = $4)
 		  )
-	`, tenantID, now, email, mobile); err != nil {
-		return nil, "", err
+	`, tenantID, now, email, mobile)
+	if cleanupErr != nil {
+		return nil, "", cleanupErr
 	}
 
 	var pendingID string
+
 	err = tx.QueryRow(ctx, `
 		SELECT invitation_id::text
 		FROM tenant_admin_invitations
@@ -231,6 +259,7 @@ func (s *Store) InviteTenantAdminUser(ctx context.Context, tenantID string, tena
 
 	expiresAt := now.Add(invitationTTL)
 	invitationID := uuid.NewString()
+
 	token, tokenHash, err := generateInviteToken()
 	if err != nil {
 		return nil, "", err
@@ -269,12 +298,14 @@ func (s *Store) InviteTenantAdminUser(ctx context.Context, tenantID string, tena
 	}
 
 	link := buildInviteAcceptLink(req.AcceptInviteClientURL, tenantSlug, token)
+
 	return invitation, link, nil
 }
 
 func (s *Store) AcceptTenantAdminInvitation(ctx context.Context, tenantID string, tenantSlug string, token string) (*platform.TenantAdminInvitation, *platform.TenantAdminUser, error) {
 	tenantID = strings.TrimSpace(tenantID)
 	tenantSlug = strings.TrimSpace(strings.ToLower(tenantSlug))
+
 	tokenHash, err := tokenHashFromInviteToken(token)
 	if err != nil {
 		return nil, nil, ErrInvalidInvitationToken
@@ -286,11 +317,14 @@ func (s *Store) AcceptTenantAdminInvitation(ctx context.Context, tenantID string
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	var invitation platform.TenantAdminInvitation
-	var status string
-	var acceptedAt *time.Time
-	var updatedAt time.Time
-	if err := tx.QueryRow(ctx, `
+	var (
+		invitation platform.TenantAdminInvitation
+		status     string
+		acceptedAt *time.Time
+		updatedAt  time.Time
+	)
+
+	queryErr := tx.QueryRow(ctx, `
 		SELECT "invitation_id"::text, "tenant_id"::text, "tenantSlug",
 		       COALESCE("email", ''), COALESCE("mobile", ''), COALESCE("role", 'member'),
 		       "status", "expires_at", "accepted_at", "created_at", "updated_at"
@@ -309,13 +343,15 @@ func (s *Store) AcceptTenantAdminInvitation(ctx context.Context, tenantID string
 		&acceptedAt,
 		&invitation.CreatedAt,
 		&updatedAt,
-	); err != nil {
-		return nil, nil, err
+	)
+	if queryErr != nil {
+		return nil, nil, queryErr
 	}
 
 	if invitation.TenantID != tenantID || invitation.TenantSlug != tenantSlug {
 		return nil, nil, pgx.ErrNoRows
 	}
+
 	if status != "pending" {
 		return nil, nil, ErrInvitationAlreadyUsed
 	}
@@ -327,6 +363,7 @@ func (s *Store) AcceptTenantAdminInvitation(ctx context.Context, tenantID string
 			SET "status" = 'expired', "updated_at" = $2
 			WHERE "invitation_id" = $1::uuid
 		`, invitation.InvitationID, now)
+
 		return nil, nil, ErrInvitationExpired
 	}
 
@@ -351,13 +388,16 @@ func (s *Store) AcceptTenantAdminInvitation(ctx context.Context, tenantID string
 	if err := tx.Commit(ctx); err != nil {
 		return nil, nil, err
 	}
+
 	s.invalidateAuthzCacheForUser(invitation.TenantID, user.ID)
 	s.bumpAuthzTenantEpoch(invitation.TenantID)
+
 	return &invitation, user, nil
 }
 
 func (s *Store) SetTenantAdminUserActive(ctx context.Context, tenantSlug string, userID string, active bool) (*platform.TenantAdminUser, error) {
 	tenantSlug = strings.TrimSpace(strings.ToLower(tenantSlug))
+
 	userID = strings.TrimSpace(userID)
 	if tenantSlug == "" || userID == "" {
 		return nil, pgx.ErrNoRows
@@ -377,23 +417,29 @@ func (s *Store) SetTenantAdminUserActive(ctx context.Context, tenantSlug string,
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, pgx.ErrNoRows
 	}
 
-	var user platform.TenantAdminUser
-	var email, mobile, role string
-	var tenantID string
+	var (
+		user                platform.TenantAdminUser
+		email, mobile, role string
+		tenantID            string
+	)
 	if err := rows.Scan(&user.ID, &tenantID, &user.TenantSlug, &email, &mobile, &role, &user.Active, &user.CreatedAt, &user.UpdatedAt); err != nil {
 		return nil, err
 	}
+
 	user.Role = role
 	if email != "" {
 		user.Email = email
 	}
+
 	if mobile != "" {
 		user.Mobile = mobile
 	}
+
 	if !active {
 		if _, revokeErr := s.pool.Exec(ctx, `
 			DELETE FROM tenant_admin_sessions
@@ -402,17 +448,22 @@ func (s *Store) SetTenantAdminUserActive(ctx context.Context, tenantSlug string,
 			return nil, revokeErr
 		}
 	}
+
 	if strings.TrimSpace(tenantID) != "" {
 		s.invalidateAuthzCacheForUser(tenantID, user.ID)
 		s.bumpAuthzTenantEpoch(tenantID)
 	}
+
 	return &user, nil
 }
 
 func upsertTenantAdminUserFromInvitation(ctx context.Context, tx pgx.Tx, tenantID string, tenantSlug string, email string, mobile string, role string) (*platform.TenantAdminUser, error) {
-	var user platform.TenantAdminUser
-	var currentRole string
-	var currentActive bool
+	var (
+		user          platform.TenantAdminUser
+		currentRole   string
+		currentActive bool
+	)
+
 	err := tx.QueryRow(ctx, `
 		SELECT u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'member'),
 		       COALESCE(u.active, true), u.created_at, u.updated_at
@@ -432,36 +483,45 @@ func upsertTenantAdminUserFromInvitation(ctx context.Context, tx pgx.Tx, tenantI
 		if strings.TrimSpace(nextRole) == "" || strings.EqualFold(nextRole, "internal_user") || strings.EqualFold(nextRole, "deactivated") {
 			nextRole = role
 		}
-		if err := tx.QueryRow(ctx, `
+
+		updateErr := tx.QueryRow(ctx, `
 			UPDATE users
 			SET role = $2, active = true, updated_at = NOW()
 			WHERE user_id::text = $1
 			RETURNING updated_at
-		`, user.ID, nextRole).Scan(&user.UpdatedAt); err != nil {
-			return nil, err
+		`, user.ID, nextRole).Scan(&user.UpdatedAt)
+		if updateErr != nil {
+			return nil, updateErr
 		}
+
 		user.Role = nextRole
 		user.Active = true
+
 		return &user, nil
 	case errors.Is(err, pgx.ErrNoRows):
 		newUserID := uuid.NewString()
-		if err := tx.QueryRow(ctx, `
+
+		insertErr := tx.QueryRow(ctx, `
 			INSERT INTO users (user_id, tenant_id, user_alias, email, mobile, role, active, created_at, updated_at)
 			VALUES ($1::uuid, $2::uuid, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), $6, true, NOW(), NOW())
 			RETURNING created_at, updated_at
-		`, newUserID, tenantID, strings.TrimSpace(email), strings.TrimSpace(email), strings.TrimSpace(mobile), role).Scan(&user.CreatedAt, &user.UpdatedAt); err != nil {
+		`, newUserID, tenantID, strings.TrimSpace(email), strings.TrimSpace(email), strings.TrimSpace(mobile), role).Scan(&user.CreatedAt, &user.UpdatedAt)
+		if insertErr != nil {
 			var pgErr *pgconn.PgError
-			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			if errors.As(insertErr, &pgErr) && pgErr.Code == "23505" {
 				return nil, ErrInvitationContactTaken
 			}
-			return nil, err
+
+			return nil, insertErr
 		}
+
 		user.ID = newUserID
 		user.TenantSlug = tenantSlug
 		user.Email = strings.TrimSpace(email)
 		user.Mobile = strings.TrimSpace(mobile)
 		user.Role = role
 		user.Active = true
+
 		return &user, nil
 	default:
 		return nil, err
@@ -473,6 +533,7 @@ func buildInviteAcceptLink(rawBaseURL string, tenantSlug string, token string) s
 	if baseURL == "" {
 		baseURL = fmt.Sprintf("https://%s.app.sharah.ir/invite/accept", tenantSlug)
 	}
+
 	parsed, err := url.Parse(baseURL)
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
 		parsed = &url.URL{
@@ -481,9 +542,11 @@ func buildInviteAcceptLink(rawBaseURL string, tenantSlug string, token string) s
 			Path:   "/invite/accept",
 		}
 	}
+
 	q := parsed.Query()
 	q.Set("token", token)
 	parsed.RawQuery = q.Encode()
+
 	return parsed.String()
 }
 
@@ -492,6 +555,7 @@ func generateInviteToken() (token string, hash string, err error) {
 	sum := sha256.Sum256([]byte(raw))
 	hash = fmt.Sprintf("%x", sum[:])
 	token = base64.RawURLEncoding.EncodeToString([]byte(raw))
+
 	return token, hash, nil
 }
 
@@ -500,6 +564,8 @@ func tokenHashFromInviteToken(token string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	sum := sha256.Sum256(decoded)
+
 	return fmt.Sprintf("%x", sum[:]), nil
 }

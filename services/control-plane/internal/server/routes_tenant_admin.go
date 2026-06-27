@@ -10,9 +10,11 @@ func registerProtectedRoutes(app *fiber.App, deps Dependencies) {
 
 func registerTenantAdminRoutes(app *fiber.App, deps Dependencies) {
 	api := app.Group("/api/v1")
+
 	if deps.AdminHandlers == nil {
 		return
 	}
+
 	api.Get("/onboarding/tenant-slugs/:slug/availability", deps.AdminHandlers.CheckTenantSlugAvailability)
 	api.Post("/onboarding/otp", deps.AdminHandlers.RequestOnboardingOTP)
 	api.Post("/onboarding/otp/verify", deps.AdminHandlers.VerifyOnboardingOTP)
@@ -145,6 +147,7 @@ func registerTenantAdminAuthRoutes(app *fiber.App, deps Dependencies) {
 	if deps.AuthHandlers == nil {
 		return
 	}
+
 	authGroup := app.Group("/api/v1/auth")
 	authGroup.Post("/captcha/create", deps.AuthHandlers.CreateCaptcha)
 	authGroup.Post("/captcha/consume", deps.AuthHandlers.ConsumeCaptcha)

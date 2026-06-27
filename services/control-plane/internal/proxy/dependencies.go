@@ -47,6 +47,7 @@ func (l usageLoggers) LogRequest(ctx context.Context, entry platform.RequestLogE
 	if l.requests == nil {
 		return nil
 	}
+
 	return l.requests.LogRequest(ctx, entry)
 }
 
@@ -54,6 +55,7 @@ func (l usageLoggers) LogSpend(ctx context.Context, log platform.SpendLog) error
 	if l.spend == nil {
 		return nil
 	}
+
 	return l.spend.LogSpend(ctx, log)
 }
 
@@ -74,5 +76,6 @@ func newChatVirtualModelDeps(store interface {
 	if store == nil {
 		return nil, nil, nil
 	}
+
 	return virtualmodels.NewResolver(store), virtualmodels.NewPriorityRoutingEngine(), virtualmodels.NewExecutor(virtualmodels.NewDefaultErrorNormalizer())
 }

@@ -27,9 +27,11 @@ func (h *Handlers) QueryModelMetrics(c *fiber.Ctx) error {
 	if err := requireTeamAdminOrHigher(c); err != nil {
 		return err
 	}
+
 	if h.metrics == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "metrics store not configured")
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
@@ -44,20 +46,25 @@ func (h *Handlers) QueryModelMetrics(c *fiber.Ctx) error {
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "startTs must be RFC3339")
 	}
+
 	endTS, err := time.Parse(time.RFC3339, strings.TrimSpace(raw.EndTS))
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "endTs must be RFC3339")
 	}
+
 	if !startTS.Before(endTS) {
 		return fiber.NewError(fiber.StatusBadRequest, "startTs must be before endTs")
 	}
+
 	if strings.TrimSpace(raw.Datasource) != "modelMetrics" {
 		return fiber.NewError(fiber.StatusBadRequest, "datasource must be modelMetrics")
 	}
+
 	queryType := strings.TrimSpace(strings.ToLower(raw.Type))
 	if queryType != "distribution" && queryType != "timeseries" {
 		return fiber.NewError(fiber.StatusBadRequest, "type must be distribution or timeseries")
 	}
+
 	req := platform.MetricsQueryRequest{
 		StartTS:           startTS,
 		EndTS:             endTS,
@@ -73,11 +80,14 @@ func (h *Handlers) QueryModelMetrics(c *fiber.Ctx) error {
 	normalizedFilters := make([]platform.MetricsFilter, 0, len(req.Filters))
 	for _, f := range req.Filters {
 		b, _ := json.Marshal(f.Value)
+
 		var generic interface{}
+
 		_ = json.Unmarshal(b, &generic)
 		f.Value = generic
 		normalizedFilters = append(normalizedFilters, f)
 	}
+
 	req.Filters = normalizedFilters
 
 	items, err := h.metrics.QueryModelMetrics(c.Context(), currentTenant.ID, req)
@@ -85,6 +95,7 @@ func (h *Handlers) QueryModelMetrics(c *fiber.Ctx) error {
 		if errors.Is(err, storage.ErrMetricsStoreUnavailable) {
 			return fiber.NewError(fiber.StatusNotImplemented, "metrics store not configured")
 		}
+
 		return err
 	}
 
@@ -95,9 +106,11 @@ func (h *Handlers) ListModelMetricsFacets(c *fiber.Ctx) error {
 	if err := requireTeamAdminOrHigher(c); err != nil {
 		return err
 	}
+
 	if h.metrics == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "metrics store not configured")
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
@@ -108,7 +121,9 @@ func (h *Handlers) ListModelMetricsFacets(c *fiber.Ctx) error {
 		if errors.Is(err, storage.ErrMetricsStoreUnavailable) {
 			return fiber.NewError(fiber.StatusNotImplemented, "metrics store not configured")
 		}
+
 		return err
 	}
+
 	return c.JSON(facets)
 }

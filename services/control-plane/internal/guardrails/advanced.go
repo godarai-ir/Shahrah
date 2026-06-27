@@ -37,6 +37,7 @@ func newRegexReplaceGuardrail(name string, enforcement Enforcement, pattern stri
 	if err != nil {
 		compiled = regexp.MustCompile(`a\Ab`)
 	}
+
 	return &regexReplaceGuardrail{name: name, enforcement: enforcement, pattern: compiled, replacement: replacement}
 }
 
@@ -47,6 +48,7 @@ func (g *regexReplaceGuardrail) Enforcement() Enforcement { return g.enforcement
 func (g *regexReplaceGuardrail) Evaluate(input EvaluationInput) (EvaluationResult, error) {
 	out := append([]string(nil), input.Texts...)
 	mutated := false
+
 	for i, text := range out {
 		next := g.pattern.ReplaceAllString(text, g.replacement)
 		if next != text {
@@ -54,9 +56,11 @@ func (g *regexReplaceGuardrail) Evaluate(input EvaluationInput) (EvaluationResul
 			mutated = true
 		}
 	}
+
 	if !mutated {
 		return EvaluationResult{Texts: out}, nil
 	}
+
 	return EvaluationResult{Texts: out, Mutated: true, Reason: "Regex replacement applied"}, nil
 }
 
@@ -79,6 +83,7 @@ func (g *countGuardrail) Enforcement() Enforcement { return g.enforcement }
 func (g *countGuardrail) Evaluate(input EvaluationInput) (EvaluationResult, error) {
 	for _, text := range input.Texts {
 		count := 0
+
 		switch g.unit {
 		case "sentence":
 			count = sentenceCount(text)
@@ -87,34 +92,40 @@ func (g *countGuardrail) Evaluate(input EvaluationInput) (EvaluationResult, erro
 		default:
 			count = len([]rune(text))
 		}
+
 		if (g.min >= 0 && count < g.min) || (g.max >= 0 && count > g.max) {
 			return EvaluationResult{Texts: input.Texts, Blocked: true, Reason: fmt.Sprintf("%s count is outside allowed range", g.unit)}, nil
 		}
 	}
+
 	return EvaluationResult{Texts: input.Texts}, nil
 }
 
 func sentenceCount(text string) int {
 	count := 0
 	seen := false
+
 	for _, r := range text {
 		if unicode.IsLetter(r) || unicode.IsDigit(r) {
 			seen = true
 		}
+
 		if strings.ContainsRune(".!?؟۔", r) && seen {
 			count++
 			seen = false
 		}
 	}
+
 	if seen {
 		count++
 	}
+
 	return count
 }
 
 func wordCount(text string) int {
 	return len(strings.FieldsFunc(text, func(r rune) bool {
-		return !(unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '-')
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_' && r != '-'
 	}))
 }
 
@@ -138,10 +149,12 @@ func (g *jsonSchemaGuardrail) Evaluate(input EvaluationInput) (EvaluationResult,
 		if err := json.Unmarshal([]byte(text), &value); err != nil {
 			return EvaluationResult{Texts: input.Texts, Blocked: true, Reason: "Response is not valid JSON"}, nil
 		}
+
 		if !validateMinimalJSONSchema(value, g.schema) {
 			return EvaluationResult{Texts: input.Texts, Blocked: true, Reason: "JSON schema validation failed"}, nil
 		}
 	}
+
 	return EvaluationResult{Texts: input.Texts}, nil
 }
 
@@ -149,30 +162,36 @@ func validateMinimalJSONSchema(value interface{}, schema map[string]interface{})
 	if len(schema) == 0 {
 		return true
 	}
+
 	if schemaType, _ := schema["type"].(string); schemaType != "" && !jsonValueMatchesType(value, schemaType) {
 		return false
 	}
+
 	obj, _ := value.(map[string]interface{})
 	for _, key := range stringSliceFromConfig(schema, "required") {
 		if obj == nil {
 			return false
 		}
+
 		if _, ok := obj[key]; !ok {
 			return false
 		}
 	}
+
 	props := mapFromConfig(schema, "properties")
 	for key, rawProp := range props {
 		prop, _ := rawProp.(map[string]interface{})
 		if prop == nil || obj == nil {
 			continue
 		}
+
 		if child, ok := obj[key]; ok {
 			if childType, _ := prop["type"].(string); childType != "" && !jsonValueMatchesType(child, childType) {
 				return false
 			}
 		}
 	}
+
 	return true
 }
 
@@ -215,6 +234,7 @@ func newJSONKeysGuardrail(name string, enforcement Enforcement, keys []string, m
 	if mode == "" {
 		mode = "all"
 	}
+
 	return &jsonKeysGuardrail{name: name, enforcement: enforcement, keys: keys, mode: mode}
 }
 
@@ -228,13 +248,17 @@ func (g *jsonKeysGuardrail) Evaluate(input EvaluationInput) (EvaluationResult, e
 		if err := json.Unmarshal([]byte(text), &obj); err != nil {
 			return EvaluationResult{Texts: input.Texts, Blocked: true, Reason: "Response is not valid JSON"}, nil
 		}
+
 		matches := 0
+
 		for _, key := range g.keys {
 			if _, ok := obj[key]; ok {
 				matches++
 			}
 		}
+
 		pass := false
+
 		switch g.mode {
 		case "any":
 			pass = matches > 0
@@ -243,10 +267,12 @@ func (g *jsonKeysGuardrail) Evaluate(input EvaluationInput) (EvaluationResult, e
 		default:
 			pass = matches == len(g.keys)
 		}
+
 		if !pass {
 			return EvaluationResult{Texts: input.Texts, Blocked: true, Reason: "JSON keys validation failed"}, nil
 		}
 	}
+
 	return EvaluationResult{Texts: input.Texts}, nil
 }
 
@@ -272,6 +298,7 @@ func (g *containsCodeGuardrail) Evaluate(input EvaluationInput) (EvaluationResul
 			return EvaluationResult{Texts: input.Texts, Blocked: true, Reason: "Code content validation failed"}, nil
 		}
 	}
+
 	return EvaluationResult{Texts: input.Texts}, nil
 }
 
@@ -281,12 +308,14 @@ func containsCode(text string, languages []string) bool {
 		if len(languages) == 0 {
 			return true
 		}
+
 		for _, lang := range languages {
 			if strings.Contains(lower, "```"+strings.ToLower(strings.TrimSpace(lang))) {
 				return true
 			}
 		}
 	}
+
 	checks := map[string][]string{
 		"sql":        {"select ", " from ", "insert into ", "update ", "delete from "},
 		"python":     {"def ", "import ", "print(", "lambda "},
@@ -295,9 +324,11 @@ func containsCode(text string, languages []string) bool {
 		"go":         {"func ", "package ", ":= "},
 		"shell":      {"#!/bin/", "curl ", "export "},
 	}
+
 	if len(languages) == 0 {
 		languages = []string{"sql", "python", "typescript", "javascript", "go", "shell"}
 	}
+
 	for _, lang := range languages {
 		for _, marker := range checks[strings.ToLower(strings.TrimSpace(lang))] {
 			if strings.Contains(lower, marker) {
@@ -305,6 +336,7 @@ func containsCode(text string, languages []string) bool {
 			}
 		}
 	}
+
 	return false
 }
 
@@ -325,12 +357,14 @@ func (g *notNullGuardrail) Evaluate(input EvaluationInput) (EvaluationResult, er
 	if len(input.Texts) == 0 {
 		return EvaluationResult{Texts: input.Texts, Blocked: true, Reason: "Response content is empty"}, nil
 	}
+
 	for _, text := range input.Texts {
 		trimmed := strings.TrimSpace(text)
 		if trimmed == "" || strings.EqualFold(trimmed, "null") || strings.EqualFold(trimmed, "undefined") {
 			return EvaluationResult{Texts: input.Texts, Blocked: true, Reason: "Response content is empty"}, nil
 		}
 	}
+
 	return EvaluationResult{Texts: input.Texts}, nil
 }
 
@@ -349,10 +383,12 @@ type jwtValidationGuardrail struct {
 
 func newJWTValidationGuardrail(name string, enforcement Enforcement, config map[string]interface{}) Guardrail {
 	pattern := stringFromConfig(config, "token_regex", `(?i)bearer\s+([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)`)
+
 	compiled, err := regexp.Compile(pattern)
 	if err != nil {
 		compiled = regexp.MustCompile(`(?i)bearer\s+([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)`)
 	}
+
 	return &jwtValidationGuardrail{
 		name:           name,
 		enforcement:    enforcement,
@@ -377,10 +413,12 @@ func (g *jwtValidationGuardrail) Evaluate(input EvaluationInput) (EvaluationResu
 		if len(match) < 2 {
 			return EvaluationResult{Texts: input.Texts, Blocked: true, Reason: "JWT token is missing"}, nil
 		}
+
 		if err := g.validateToken(match[1]); err != nil {
 			return EvaluationResult{Texts: input.Texts, Blocked: true, Reason: "JWT validation failed"}, nil
 		}
 	}
+
 	return EvaluationResult{Texts: input.Texts}, nil
 }
 
@@ -389,38 +427,53 @@ func (g *jwtValidationGuardrail) validateToken(token string) error {
 	if len(parts) != 3 {
 		return errors.New("invalid JWT format")
 	}
+
 	headerBytes, err := base64.RawURLEncoding.DecodeString(parts[0])
 	if err != nil {
 		return err
 	}
+
 	payloadBytes, err := base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil {
 		return err
 	}
-	var header map[string]interface{}
-	var claims map[string]interface{}
-	if err := json.Unmarshal(headerBytes, &header); err != nil {
-		return err
+
+	var (
+		header map[string]interface{}
+		claims map[string]interface{}
+	)
+
+	headerErr := json.Unmarshal(headerBytes, &header)
+	if headerErr != nil {
+		return headerErr
 	}
-	if err := json.Unmarshal(payloadBytes, &claims); err != nil {
-		return err
+
+	claimsErr := json.Unmarshal(payloadBytes, &claims)
+	if claimsErr != nil {
+		return claimsErr
 	}
+
 	if !validateJWTClaims(claims, g.issuer, g.audience) {
 		return errors.New("invalid JWT claims")
 	}
+
 	if g.introspection != "" {
 		return introspectToken(g.introspection, g.introspectAuth, token)
 	}
+
 	alg, _ := header["alg"].(string)
 	kid, _ := header["kid"].(string)
 	signed := []byte(parts[0] + "." + parts[1])
+
 	sig, err := base64.RawURLEncoding.DecodeString(parts[2])
 	if err != nil {
 		return err
 	}
+
 	if strings.HasPrefix(alg, "HS") && g.sharedSecret != "" {
 		return verifyHMACJWT(alg, []byte(g.sharedSecret), signed, sig)
 	}
+
 	if strings.HasPrefix(alg, "RS") {
 		jwks := g.inlineJWKS
 		if len(jwks) == 0 && g.jwksURI != "" {
@@ -429,20 +482,27 @@ func (g *jwtValidationGuardrail) validateToken(token string) error {
 				return err
 			}
 		}
+
 		key, err := rsaPublicKeyFromJWKS(jwks, kid)
 		if err != nil {
 			return err
 		}
+
 		hash := crypto.SHA256
-		if alg == "RS384" {
+
+		switch alg {
+		case "RS384":
 			hash = crypto.SHA384
-		} else if alg == "RS512" {
+		case "RS512":
 			hash = crypto.SHA512
 		}
+
 		h := hash.New()
 		_, _ = h.Write(signed)
+
 		return rsa.VerifyPKCS1v15(key, hash, h.Sum(nil), sig)
 	}
+
 	return errors.New("unsupported JWT algorithm")
 }
 
@@ -451,15 +511,19 @@ func validateJWTClaims(claims map[string]interface{}, issuer string, audience st
 	if exp, ok := claims["exp"].(float64); ok && now >= exp {
 		return false
 	}
+
 	if nbf, ok := claims["nbf"].(float64); ok && now < nbf {
 		return false
 	}
+
 	if issuer != "" && claims["iss"] != issuer {
 		return false
 	}
+
 	if audience == "" {
 		return true
 	}
+
 	switch aud := claims["aud"].(type) {
 	case string:
 		return aud == audience
@@ -470,11 +534,13 @@ func validateJWTClaims(claims map[string]interface{}, issuer string, audience st
 			}
 		}
 	}
+
 	return false
 }
 
 func verifyHMACJWT(alg string, secret []byte, signed []byte, sig []byte) error {
 	var mac hashWriter
+
 	switch alg {
 	case "HS256":
 		mac = hmac.New(sha256.New, secret)
@@ -485,10 +551,12 @@ func verifyHMACJWT(alg string, secret []byte, signed []byte, sig []byte) error {
 	default:
 		return errors.New("unsupported HMAC algorithm")
 	}
+
 	_, _ = mac.Write(signed)
 	if !hmac.Equal(sig, mac.Sum(nil)) {
 		return errors.New("invalid JWT signature")
 	}
+
 	return nil
 }
 
@@ -499,18 +567,22 @@ type hashWriter interface {
 
 func fetchJWKS(rawURL string) (map[string]interface{}, error) {
 	client := http.Client{Timeout: 3 * time.Second}
+
 	resp, err := client.Get(rawURL)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("JWKS fetch failed")
 	}
+
 	var jwks map[string]interface{}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 256*1024)).Decode(&jwks); err != nil {
 		return nil, err
 	}
+
 	return jwks, nil
 }
 
@@ -521,9 +593,11 @@ func rsaPublicKeyFromJWKS(jwks map[string]interface{}, kid string) (*rsa.PublicK
 		if key == nil {
 			continue
 		}
+
 		if kid != "" && key["kid"] != kid {
 			continue
 		}
+
 		if certs, ok := key["x5c"].([]interface{}); ok && len(certs) > 0 {
 			if certText, ok := certs[0].(string); ok {
 				der, err := base64.StdEncoding.DecodeString(certText)
@@ -537,49 +611,62 @@ func rsaPublicKeyFromJWKS(jwks map[string]interface{}, kid string) (*rsa.PublicK
 				}
 			}
 		}
+
 		nText, _ := key["n"].(string)
 		eText, _ := key["e"].(string)
 		nBytes, nErr := base64.RawURLEncoding.DecodeString(nText)
+
 		eBytes, eErr := base64.RawURLEncoding.DecodeString(eText)
 		if nErr != nil || eErr != nil {
 			continue
 		}
+
 		e := 0
 		for _, b := range eBytes {
 			e = e<<8 + int(b)
 		}
+
 		return &rsa.PublicKey{N: new(big.Int).SetBytes(nBytes), E: e}, nil
 	}
+
 	return nil, errors.New("matching JWKS key not found")
 }
 
 func introspectToken(endpoint string, authHeader string, token string) error {
 	client := http.Client{Timeout: 3 * time.Second}
+
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, endpoint, strings.NewReader(url.Values{"token": {token}}.Encode()))
 	if err != nil {
 		return err
 	}
+
 	req.Header.Set("content-type", "application/x-www-form-urlencoded")
+
 	if strings.TrimSpace(authHeader) != "" {
 		req.Header.Set("authorization", authHeader)
 	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return errors.New("introspection request failed")
 	}
+
 	var payload struct {
 		Active bool `json:"active"`
 	}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 64*1024)).Decode(&payload); err != nil {
 		return err
 	}
+
 	if !payload.Active {
 		return errors.New("token is inactive")
 	}
+
 	return nil
 }
 
@@ -598,6 +685,7 @@ func newInlineImageURLsGuardrail(name string, enforcement Enforcement, config ma
 	if maxBytes <= 0 {
 		maxBytes = 1024 * 1024
 	}
+
 	return &inlineImageURLsGuardrail{
 		name:           name,
 		enforcement:    enforcement,
@@ -616,37 +704,47 @@ func (g *inlineImageURLsGuardrail) Enforcement() Enforcement { return g.enforcem
 func (g *inlineImageURLsGuardrail) Evaluate(input EvaluationInput) (EvaluationResult, error) {
 	out := append([]string(nil), input.Texts...)
 	mutated := false
+
 	for i, text := range out {
 		next, changed, err := g.inlineImages(text)
 		if err != nil {
 			return EvaluationResult{Texts: out}, err
 		}
+
 		if changed {
 			out[i] = next
 			mutated = true
 		}
 	}
+
 	if !mutated {
 		return EvaluationResult{Texts: out}, nil
 	}
+
 	return EvaluationResult{Texts: out, Mutated: true, Reason: "Image URLs converted to inline data"}, nil
 }
 
 func (g *inlineImageURLsGuardrail) inlineImages(text string) (string, bool, error) {
 	changed := false
+
 	var firstErr error
+
 	out := g.urlPattern.ReplaceAllStringFunc(text, func(raw string) string {
 		if firstErr != nil {
 			return raw
 		}
+
 		dataURL, err := g.fetchImageDataURL(raw)
 		if err != nil {
 			firstErr = err
 			return raw
 		}
+
 		changed = true
+
 		return dataURL
 	})
+
 	return out, changed, firstErr
 }
 
@@ -655,53 +753,69 @@ func (g *inlineImageURLsGuardrail) fetchImageDataURL(raw string) (string, error)
 	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
 		return "", errors.New("invalid image URL")
 	}
+
 	if parsed.User != nil {
 		return "", errors.New("image URL credentials are not allowed")
 	}
+
 	if !g.hostAllowed(parsed.Hostname()) {
 		return "", errors.New("image URL host is not allowed")
 	}
+
 	if !g.allowPrivate {
-		if err := rejectPrivateHost(parsed.Hostname()); err != nil {
-			return "", err
+		privateHostErr := rejectPrivateHost(parsed.Hostname())
+		if privateHostErr != nil {
+			return "", privateHostErr
 		}
 	}
+
 	client := http.Client{
 		Timeout: g.requestTimeout,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if req.URL == nil || req.URL.User != nil || (req.URL.Scheme != "http" && req.URL.Scheme != "https") {
 				return errors.New("invalid image URL redirect")
 			}
+
 			if !g.hostAllowed(req.URL.Hostname()) {
 				return errors.New("image URL redirect host is not allowed")
 			}
+
 			if !g.allowPrivate {
 				return rejectPrivateHost(req.URL.Hostname())
 			}
+
 			return nil
 		},
 	}
+
 	resp, err := client.Get(raw)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return "", errors.New("image fetch failed")
 	}
+
 	contentType := resp.Header.Get("content-type")
+
 	mediaType, _, _ := mime.ParseMediaType(contentType)
 	if !strings.HasPrefix(mediaType, "image/") {
 		return "", errors.New("URL did not return an image")
 	}
+
 	var buf bytes.Buffer
+
 	_, err = io.Copy(&buf, io.LimitReader(resp.Body, g.maxBytes+1))
 	if err != nil {
 		return "", err
 	}
+
 	if int64(buf.Len()) > g.maxBytes {
 		return "", errors.New("image exceeds max size")
 	}
+
 	return "data:" + mediaType + ";base64," + base64.StdEncoding.EncodeToString(buf.Bytes()), nil
 }
 
@@ -709,11 +823,13 @@ func (g *inlineImageURLsGuardrail) hostAllowed(hostname string) bool {
 	if len(g.allowedHosts) == 0 {
 		return true
 	}
+
 	for _, host := range g.allowedHosts {
 		if strings.EqualFold(hostname, strings.TrimSpace(host)) {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -722,10 +838,12 @@ func rejectPrivateHost(host string) error {
 	if err != nil {
 		return err
 	}
+
 	for _, ip := range ips {
 		if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
 			return errors.New("private image URL hosts are not allowed")
 		}
 	}
+
 	return nil
 }

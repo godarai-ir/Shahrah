@@ -32,6 +32,7 @@ func GetFirst(c *fiber.Ctx, keys ...string) string {
 			return value
 		}
 	}
+
 	return ""
 }
 

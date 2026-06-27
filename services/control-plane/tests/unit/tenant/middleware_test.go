@@ -24,15 +24,18 @@ type mockTenantStore struct {
 func (s *mockTenantStore) GetTenantByHost(ctx context.Context, host string) (*platform.Tenant, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	if t, ok := s.tenantsByHost[host]; ok {
 		return t, nil
 	}
+
 	return nil, errors.New("tenant not found")
 }
 
 func (s *mockTenantStore) addTenant(host string, t *platform.Tenant) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	s.tenantsByHost[host] = t
 }
 
@@ -56,14 +59,17 @@ func newMockCache() *mockCache {
 func (c *mockCache) Get(ctx context.Context, key string) (interface{}, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	c.gets++
 	val, ok := c.data[key]
+
 	return val, ok
 }
 
 func (c *mockCache) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	c.sets++
 	c.data[key] = value
 	c.ttls[key] = ttl
@@ -72,6 +78,7 @@ func (c *mockCache) Set(ctx context.Context, key string, value interface{}, ttl 
 func (c *mockCache) Delete(ctx context.Context, key string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	c.deletes++
 	delete(c.data, key)
 }
@@ -106,12 +113,16 @@ func TestTenantMiddleware_CacheHit(t *testing.T) {
 		current := tenantmw.FromContext(c)
 		assert.NotNil(t, current)
 		assert.Equal(t, "tenant-1", current.ID)
+
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
 	req, err := http.NewRequest(http.MethodGet, "http://acme.localhost/", nil)
 	assert.NoError(t, err)
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	assert.NoError(t, err)
 	assert.Equal(t, fiber.StatusNoContent, resp.StatusCode)
 
@@ -137,12 +148,16 @@ func TestTenantMiddleware_CacheMiss(t *testing.T) {
 		current := tenantmw.FromContext(c)
 		assert.NotNil(t, current)
 		assert.Equal(t, "tenant-1", current.ID)
+
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
 	req, err := http.NewRequest(http.MethodGet, "http://acme.localhost/", nil)
 	assert.NoError(t, err)
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	assert.NoError(t, err)
 	assert.Equal(t, fiber.StatusNoContent, resp.StatusCode)
 
@@ -171,7 +186,10 @@ func TestTenantMiddleware_TenantNotFound_ReturnsNotFound(t *testing.T) {
 
 	req, err := http.NewRequest(http.MethodGet, "http://unknown.localhost/", nil)
 	assert.NoError(t, err)
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	assert.NoError(t, err)
 	assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
 
@@ -198,7 +216,10 @@ func TestTenantMiddleware_TenantSuspended(t *testing.T) {
 
 	req, err := http.NewRequest(http.MethodGet, "http://suspended.localhost/", nil)
 	assert.NoError(t, err)
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	assert.NoError(t, err)
 	assert.Equal(t, fiber.StatusForbidden, resp.StatusCode)
 }
@@ -221,6 +242,7 @@ func TestTenantMiddleware_LocalDevHint(t *testing.T) {
 		current := tenantmw.FromContext(c)
 		assert.NotNil(t, current)
 		assert.Equal(t, "tenant-1", current.ID)
+
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
@@ -229,6 +251,8 @@ func TestTenantMiddleware_LocalDevHint(t *testing.T) {
 	req.Header.Set(apiheaders.HeaderTenant, "mytenant")
 
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	assert.NoError(t, err)
 	assert.Equal(t, fiber.StatusNoContent, resp.StatusCode)
 }
@@ -251,6 +275,7 @@ func TestTenantMiddleware_InternalServiceHint(t *testing.T) {
 		current := tenantmw.FromContext(c)
 		assert.NotNil(t, current)
 		assert.Equal(t, "tenant-1", current.ID)
+
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
@@ -259,6 +284,8 @@ func TestTenantMiddleware_InternalServiceHint(t *testing.T) {
 	req.Header.Set(apiheaders.LegacyHeaderTenant, "mytenant")
 
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	assert.NoError(t, err)
 	assert.Equal(t, fiber.StatusNoContent, resp.StatusCode)
 }
@@ -285,6 +312,8 @@ func TestTenantMiddleware_BypassesWalletTopUpCallback(t *testing.T) {
 	assert.NoError(t, err)
 
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	assert.NoError(t, err)
 	assert.Equal(t, fiber.StatusNoContent, resp.StatusCode)
 	assert.Empty(t, store.tenantsByHost)
@@ -307,12 +336,16 @@ func TestTenantMiddleware_NoCache_StillWorks(t *testing.T) {
 		current := tenantmw.FromContext(c)
 		assert.NotNil(t, current)
 		assert.Equal(t, "tenant-1", current.ID)
+
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
 	req, err := http.NewRequest(http.MethodGet, "http://acme.localhost/", nil)
 	assert.NoError(t, err)
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	assert.NoError(t, err)
 	assert.Equal(t, fiber.StatusNoContent, resp.StatusCode)
 }
@@ -397,7 +430,10 @@ func TestFromContext_NilLocals(t *testing.T) {
 
 	req, err := http.NewRequest(http.MethodGet, "/", nil)
 	assert.NoError(t, err)
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	assert.NoError(t, err)
 	assert.Equal(t, fiber.StatusNoContent, resp.StatusCode)
 }
@@ -415,7 +451,10 @@ func TestFromContext_WrongType(t *testing.T) {
 
 	req, err := http.NewRequest(http.MethodGet, "/", nil)
 	assert.NoError(t, err)
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	assert.NoError(t, err)
 	assert.Equal(t, fiber.StatusNoContent, resp.StatusCode)
 }

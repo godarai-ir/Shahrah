@@ -21,6 +21,7 @@ func (r repo) GetVirtualModelByAlias(ctx context.Context, tenantID string, alias
 	if r.err != nil {
 		return nil, r.err
 	}
+
 	return r.vm, nil
 }
 
@@ -73,6 +74,7 @@ func TestExecutorFallbackOn429(t *testing.T) {
 		if attempt == 1 {
 			return &platform.TunnelResponse{StatusCode: 429}, nil
 		}
+
 		return &platform.TunnelResponse{StatusCode: 200, Body: []byte(`{}`)}, nil
 	})
 	require.NoError(t, err)

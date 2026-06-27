@@ -77,17 +77,21 @@ func NewPrivacyManager(cfg Config) *PrivacyManager {
 	if m.maxPayload <= 0 {
 		m.maxPayload = 16 * 1024
 	}
+
 	if cfg.CapturePolicy != CapturePolicyFullSecure {
 		return m
 	}
+
 	store, err := newEncryptedBlobStore(cfg.PayloadBlobDir, cfg.PayloadEncryptKey)
 	if err != nil {
 		// Fail open: fallback to redacted capture if secure mode can't initialize.
 		m.policy = CapturePolicySampledRedacted
 		return m
 	}
+
 	m.blobStore = store
 	m.secureReady = true
+
 	return m
 }
 
@@ -100,23 +104,29 @@ func (m *PrivacyManager) ResolvePolicyForTenant(tenantID string) CapturePolicy {
 	if tenantID == "" || m.resolver == nil {
 		return m.policy
 	}
+
 	now := time.Now()
+
 	m.cacheMu.RLock()
 	cached, ok := m.cache[tenantID]
 	m.cacheMu.RUnlock()
+
 	if ok && now.Before(cached.expiresAt) {
 		return cached.policy
 	}
+
 	resolved, found := m.resolver.ResolveTenantPolicy(tenantID)
 	if !found {
 		resolved = m.policy
 	}
+
 	m.cacheMu.Lock()
 	m.cache[tenantID] = tenantPolicyCacheItem{
 		policy:    resolved,
 		expiresAt: now.Add(m.cacheTTL),
 	}
 	m.cacheMu.Unlock()
+
 	return resolved
 }
 
@@ -124,6 +134,7 @@ func (m *PrivacyManager) Apply(traceID, spanID, spanName string, attrs map[strin
 	if len(attrs) == 0 {
 		return attrs
 	}
+
 	out := cloneMap(attrs)
 	requestPayload, hasReq := out[payloadRequestKey]
 	responsePayload, hasResp := out[payloadResponseKey]
@@ -134,6 +145,7 @@ func (m *PrivacyManager) Apply(traceID, spanID, spanName string, attrs map[strin
 	if len(effectivePolicy) > 0 {
 		policy = effectivePolicy[0]
 	}
+
 	switch policy {
 	case CapturePolicyNone:
 		// Drop request/response payloads entirely.
@@ -141,6 +153,7 @@ func (m *PrivacyManager) Apply(traceID, spanID, spanName string, attrs map[strin
 		if hasReq {
 			out["request_payload_meta"] = payloadMeta(requestPayload, m.maxPayload)
 		}
+
 		if hasResp {
 			out["response_payload_meta"] = payloadMeta(responsePayload, m.maxPayload)
 		}
@@ -149,6 +162,7 @@ func (m *PrivacyManager) Apply(traceID, spanID, spanName string, attrs map[strin
 			out["request_payload_meta"] = payloadMeta(requestPayload, m.maxPayload)
 			out["request_payload_redacted"] = m.redactValue("request_payload", requestPayload)
 		}
+
 		if hasResp {
 			out["response_payload_meta"] = payloadMeta(responsePayload, m.maxPayload)
 			out["response_payload_redacted"] = m.redactValue("response_payload", responsePayload)
@@ -156,6 +170,7 @@ func (m *PrivacyManager) Apply(traceID, spanID, spanName string, attrs map[strin
 	case CapturePolicyFullSecure:
 		if hasReq {
 			out["request_payload_meta"] = payloadMeta(requestPayload, m.maxPayload)
+
 			ref, err := m.storePayload(traceID, spanID, spanName, "request", requestPayload)
 			if err == nil {
 				out["request_payload_blob_ref"] = ref.BlobRef
@@ -167,8 +182,10 @@ func (m *PrivacyManager) Apply(traceID, spanID, spanName string, attrs map[strin
 				out["privacy_warning"] = "request payload secure storage unavailable"
 			}
 		}
+
 		if hasResp {
 			out["response_payload_meta"] = payloadMeta(responsePayload, m.maxPayload)
+
 			ref, err := m.storePayload(traceID, spanID, spanName, "response", responsePayload)
 			if err == nil {
 				out["response_payload_blob_ref"] = ref.BlobRef
@@ -189,13 +206,16 @@ func (m *PrivacyManager) storePayload(traceID, spanID, spanName, kind string, pa
 	if m.blobStore == nil {
 		return nil, fmt.Errorf("blob store unavailable")
 	}
+
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
 	}
+
 	if len(raw) > m.maxPayload {
 		raw = raw[:m.maxPayload]
 	}
+
 	return m.blobStore.store(traceID, spanID, spanName, kind, raw)
 }
 
@@ -204,6 +224,7 @@ func (m *PrivacyManager) sanitizeMap(in map[string]interface{}) map[string]inter
 	for k, v := range in {
 		out[k] = m.sanitizeValue(k, v)
 	}
+
 	return out
 }
 
@@ -216,11 +237,13 @@ func (m *PrivacyManager) sanitizeValue(key string, value interface{}) interface{
 		for _, item := range v {
 			out = append(out, m.sanitizeValue(key, item))
 		}
+
 		return out
 	case string:
 		if looksSensitiveKey(key) || looksSensitiveValue(v) {
 			return m.maskedString(v)
 		}
+
 		return truncateString(v, 1024)
 	default:
 		return value
@@ -234,12 +257,14 @@ func (m *PrivacyManager) redactValue(key string, value interface{}) interface{} 
 		for k, item := range v {
 			out[k] = m.redactValue(k, item)
 		}
+
 		return out
 	case []interface{}:
 		out := make([]interface{}, 0, len(v))
 		for _, item := range v {
 			out = append(out, m.redactValue(key, item))
 		}
+
 		return out
 	case string:
 		return m.maskedString(v)
@@ -247,6 +272,7 @@ func (m *PrivacyManager) redactValue(key string, value interface{}) interface{} 
 		if looksSensitiveKey(key) {
 			return m.maskedString(fmt.Sprintf("%v", value))
 		}
+
 		return value
 	}
 }
@@ -254,6 +280,7 @@ func (m *PrivacyManager) redactValue(key string, value interface{}) interface{} 
 func (m *PrivacyManager) maskedString(raw string) string {
 	trimmed := truncateString(strings.TrimSpace(raw), 256)
 	sum := sha256.Sum256([]byte(m.piiHashSalt + "|" + raw))
+
 	return fmt.Sprintf("[redacted sha256=%s len=%d preview=%q]", hex.EncodeToString(sum[:])[:12], len(raw), trimmed)
 }
 
@@ -262,7 +289,9 @@ func payloadMeta(payload interface{}, max int) map[string]interface{} {
 	if err != nil {
 		return map[string]interface{}{"present": true, "marshal_error": true}
 	}
+
 	sha := sha256.Sum256(raw)
+
 	return map[string]interface{}{
 		"present":       true,
 		"bytes":         len(raw),
@@ -276,6 +305,7 @@ func cloneMap(in map[string]interface{}) map[string]interface{} {
 	for k, v := range in {
 		out[k] = v
 	}
+
 	return out
 }
 
@@ -283,6 +313,7 @@ func truncateString(s string, max int) string {
 	if max <= 0 || len(s) <= max {
 		return s
 	}
+
 	return s[:max]
 }
 
@@ -297,6 +328,7 @@ func looksSensitiveKey(key string) bool {
 	if k == "" {
 		return false
 	}
+
 	sensitiveParts := []string{
 		"password", "secret", "token", "api_key", "authorization", "auth",
 		"email", "mobile", "phone", "national", "ssn", "prompt", "content",
@@ -307,6 +339,7 @@ func looksSensitiveKey(key string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -326,14 +359,17 @@ func newEncryptedBlobStore(baseDir, key string) (*encryptedBlobStore, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	block, err := aes.NewCipher(decodedKey)
 	if err != nil {
 		return nil, err
 	}
+
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
 		return nil, err
 	}
+
 	return &encryptedBlobStore{
 		baseDir: strings.TrimSpace(baseDir),
 		gcm:     gcm,
@@ -344,22 +380,27 @@ func (s *encryptedBlobStore) store(traceID, spanID, spanName, kind string, plain
 	if strings.TrimSpace(s.baseDir) == "" {
 		return nil, fmt.Errorf("empty blob dir")
 	}
+
 	if err := os.MkdirAll(s.baseDir, 0o700); err != nil {
 		return nil, err
 	}
+
 	nonce := make([]byte, s.gcm.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 		return nil, err
 	}
+
 	aad := []byte(traceID + "|" + spanID + "|" + spanName + "|" + kind)
 	ciphertext := s.gcm.Seal(nil, nonce, plain, aad)
 	sum := sha256.Sum256(plain)
 	blobID := fmt.Sprintf("%s_%s_%s_%d", sanitizeFilePart(traceID), sanitizeFilePart(spanID), kind, time.Now().UnixNano())
 	path := filepath.Join(s.baseDir, blobID+".bin")
+
 	content := append(nonce, ciphertext...)
 	if err := os.WriteFile(path, content, 0o600); err != nil {
 		return nil, err
 	}
+
 	return &blobRef{
 		BlobRef: path,
 		SHA256:  hex.EncodeToString(sum[:]),
@@ -370,10 +411,12 @@ func (s *encryptedBlobStore) store(traceID, spanID, spanName, kind string, plain
 func sanitizeFilePart(s string) string {
 	s = strings.TrimSpace(s)
 	s = strings.ReplaceAll(s, string(filepath.Separator), "_")
+
 	s = strings.ReplaceAll(s, ":", "_")
 	if s == "" {
 		return "empty"
 	}
+
 	return s
 }
 
@@ -382,13 +425,16 @@ func decodeKeyMaterial(raw string) ([]byte, error) {
 	if raw == "" {
 		return nil, fmt.Errorf("missing TRACE_PAYLOAD_ENCRYPTION_KEY")
 	}
+
 	if decoded, err := base64.StdEncoding.DecodeString(raw); err == nil {
 		if len(decoded) == 32 {
 			return decoded, nil
 		}
 	}
+
 	if len(raw) == 32 {
 		return []byte(raw), nil
 	}
+
 	return nil, fmt.Errorf("TRACE_PAYLOAD_ENCRYPTION_KEY must be 32-byte raw or base64")
 }

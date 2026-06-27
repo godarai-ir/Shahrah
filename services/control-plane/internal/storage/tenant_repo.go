@@ -17,6 +17,7 @@ func (s *Store) GetTenantByHost(ctx context.Context, host string) (*platform.Ten
 	}
 
 	var tenant platform.Tenant
+
 	err := s.pool.QueryRow(ctx, `
 		SELECT tenant_id::text, slug, domain, status, created_at
 		FROM tenants
@@ -26,6 +27,7 @@ func (s *Store) GetTenantByHost(ctx context.Context, host string) (*platform.Ten
 	if err == nil {
 		return &tenant, nil
 	}
+
 	return nil, err
 }
 
@@ -36,6 +38,7 @@ func (s *Store) GetTenantBySlug(ctx context.Context, slug string) (*platform.Ten
 	}
 
 	var tenant platform.Tenant
+
 	err := s.pool.QueryRow(ctx, `
 		SELECT tenant_id::text, slug, domain, status, created_at
 		FROM tenants
@@ -45,17 +48,20 @@ func (s *Store) GetTenantBySlug(ctx context.Context, slug string) (*platform.Ten
 	if err == nil {
 		return &tenant, nil
 	}
+
 	return nil, err
 }
 
 func (s *Store) ListTenantsByAdminIdentifier(ctx context.Context, channel string, identifier string) ([]platform.Tenant, error) {
 	channel = strings.TrimSpace(strings.ToLower(channel))
+
 	identifier = strings.TrimSpace(identifier)
 	if channel == "" || identifier == "" {
 		return []platform.Tenant{}, nil
 	}
 
 	var condition string
+
 	switch channel {
 	case "email":
 		condition = "LOWER(COALESCE(u.email, '')) = LOWER($1)"
@@ -80,16 +86,20 @@ func (s *Store) ListTenantsByAdminIdentifier(ctx context.Context, channel string
 	defer rows.Close()
 
 	items := make([]platform.Tenant, 0)
+
 	for rows.Next() {
 		var tenant platform.Tenant
 		if err := rows.Scan(&tenant.ID, &tenant.Slug, &tenant.Domain, &tenant.Status, &tenant.CreatedAt); err != nil {
 			return nil, err
 		}
+
 		items = append(items, tenant)
 	}
+
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+
 	return items, nil
 }
 
@@ -98,15 +108,19 @@ func tenantSlugFromHost(host string) string {
 	if host == "" {
 		return ""
 	}
+
 	if parsedHost, _, err := net.SplitHostPort(host); err == nil {
 		host = parsedHost
 	}
+
 	if ip := net.ParseIP(host); ip != nil {
 		return ""
 	}
+
 	parts := strings.Split(host, ".")
 	if len(parts) == 0 {
 		return ""
 	}
+
 	return parts[0]
 }

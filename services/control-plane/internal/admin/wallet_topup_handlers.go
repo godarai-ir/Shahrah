@@ -63,11 +63,14 @@ type unsupportedProvider struct{ name string }
 
 func (m *mockProvider) CreatePayment(c *fiber.Ctx, intent *platform.WalletTopUpIntent) (*paymentCreateResult, error) {
 	auth := "mock_" + randomToken(12)
+
 	callbackURL := strings.TrimSpace(intent.CallbackURL)
 	if callbackURL == "" {
 		callbackURL = fmt.Sprintf("%s/api/v1/wallet/topup/callback/mock", resolveExternalBaseURL(c))
 	}
+
 	paymentURL := fmt.Sprintf("%s?authority=%s&status=ok", callbackURL, auth)
+
 	return &paymentCreateResult{
 		Authority:  auth,
 		PaymentURL: paymentURL,
@@ -83,6 +86,7 @@ func (m *mockProvider) VerifyPayment(c *fiber.Ctx, authority string) (*paymentVe
 	if status == "failed" || status == "cancel" || status == "canceled" {
 		return &paymentVerifyResult{Success: false, Failure: "payment canceled by user", Raw: map[string]interface{}{"status": status}}, nil
 	}
+
 	return &paymentVerifyResult{
 		Success:      true,
 		RefID:        "mock_ref_" + randomToken(8),
@@ -122,10 +126,12 @@ func (p *zarinpalProvider) CreatePayment(c *fiber.Ctx, intent *platform.WalletTo
 	if merchantID == "" {
 		return nil, errors.New("ZARINPAL_MERCHANT_ID is not set")
 	}
+
 	baseURL := strings.TrimSpace(os.Getenv("ZARINPAL_BASE_URL"))
 	if baseURL == "" {
 		baseURL = "https://api.zarinpal.com"
 	}
+
 	reqPayload := map[string]interface{}{
 		"merchant_id":  merchantID,
 		"amount":       int64(intent.PayableIRR),
@@ -136,13 +142,16 @@ func (p *zarinpalProvider) CreatePayment(c *fiber.Ctx, intent *platform.WalletTo
 			"email":  "",
 		},
 	}
+
 	respBody, statusCode, err := postJSON(baseURL+"/pg/v4/payment/request.json", reqPayload, nil)
 	if err != nil {
 		return nil, err
 	}
+
 	if statusCode >= 400 {
 		return nil, fmt.Errorf("zarinpal payment request failed with status %d", statusCode)
 	}
+
 	var decoded struct {
 		Data struct {
 			Authority string `json:"authority"`
@@ -153,9 +162,11 @@ func (p *zarinpalProvider) CreatePayment(c *fiber.Ctx, intent *platform.WalletTo
 	if err := json.Unmarshal(respBody, &decoded); err != nil {
 		return nil, err
 	}
+
 	if decoded.Data.Authority == "" {
 		return nil, fmt.Errorf("zarinpal authority missing")
 	}
+
 	return &paymentCreateResult{
 		Authority:  decoded.Data.Authority,
 		PaymentURL: "https://www.zarinpal.com/pg/StartPay/" + decoded.Data.Authority,
@@ -179,31 +190,39 @@ func (p *zarinpalProvider) VerifyPayment(c *fiber.Ctx, authority string) (*payme
 			},
 		}, nil
 	}
+
 	intent := c.Locals("topup_intent")
+
 	topup, _ := intent.(*platform.WalletTopUpIntent)
 	if topup == nil {
 		return nil, errors.New("topup intent not loaded")
 	}
+
 	merchantID := strings.TrimSpace(os.Getenv("ZARINPAL_MERCHANT_ID"))
 	if merchantID == "" {
 		return nil, errors.New("ZARINPAL_MERCHANT_ID is not set")
 	}
+
 	baseURL := strings.TrimSpace(os.Getenv("ZARINPAL_BASE_URL"))
 	if baseURL == "" {
 		baseURL = "https://api.zarinpal.com"
 	}
+
 	verifyPayload := map[string]interface{}{
 		"merchant_id": merchantID,
 		"amount":      int64(topup.PayableIRR),
 		"authority":   authority,
 	}
+
 	respBody, statusCode, err := postJSON(baseURL+"/pg/v4/payment/verify.json", verifyPayload, nil)
 	if err != nil {
 		return nil, err
 	}
+
 	if statusCode >= 400 {
 		return nil, fmt.Errorf("zarinpal verify failed with status %d", statusCode)
 	}
+
 	var decoded struct {
 		Data struct {
 			Code  int   `json:"code"`
@@ -214,7 +233,9 @@ func (p *zarinpalProvider) VerifyPayment(c *fiber.Ctx, authority string) (*payme
 	if err := json.Unmarshal(respBody, &decoded); err != nil {
 		return nil, err
 	}
+
 	ok := decoded.Data.Code == 100 || decoded.Data.Code == 101
+
 	return &paymentVerifyResult{
 		Success:      ok,
 		RefID:        fmt.Sprintf("%d", decoded.Data.RefID),
@@ -234,10 +255,12 @@ func (p *idpayProvider) CreatePayment(c *fiber.Ctx, intent *platform.WalletTopUp
 	if apiKey == "" {
 		return nil, errors.New("IDPAY_API_KEY is not set")
 	}
+
 	baseURL := strings.TrimSpace(os.Getenv("IDPAY_BASE_URL"))
 	if baseURL == "" {
 		baseURL = "https://api.idpay.ir/v1.1"
 	}
+
 	orderID := "topup_" + intent.PublicID
 	reqPayload := map[string]interface{}{
 		"order_id": orderID,
@@ -248,6 +271,7 @@ func (p *idpayProvider) CreatePayment(c *fiber.Ctx, intent *platform.WalletTopUp
 		"desc":     "GodarAI wallet top-up",
 		"callback": intent.CallbackURL,
 	}
+
 	headers := map[string]string{
 		"X-API-KEY":    apiKey,
 		"Content-Type": "application/json",
@@ -255,13 +279,16 @@ func (p *idpayProvider) CreatePayment(c *fiber.Ctx, intent *platform.WalletTopUp
 	if strings.EqualFold(strings.TrimSpace(os.Getenv("IDPAY_SANDBOX")), "true") {
 		headers["X-SANDBOX"] = "1"
 	}
+
 	respBody, statusCode, err := postJSON(baseURL+"/payment", reqPayload, headers)
 	if err != nil {
 		return nil, err
 	}
+
 	if statusCode >= 400 {
 		return nil, fmt.Errorf("idpay payment request failed with status %d", statusCode)
 	}
+
 	var decoded struct {
 		ID      string `json:"id"`
 		Link    string `json:"link"`
@@ -270,9 +297,11 @@ func (p *idpayProvider) CreatePayment(c *fiber.Ctx, intent *platform.WalletTopUp
 	if err := json.Unmarshal(respBody, &decoded); err != nil {
 		return nil, err
 	}
+
 	if decoded.ID == "" || decoded.Link == "" {
 		return nil, errors.New("idpay response missing id/link")
 	}
+
 	return &paymentCreateResult{
 		Authority:  decoded.ID,
 		PaymentURL: decoded.Link,
@@ -289,19 +318,24 @@ func (p *idpayProvider) VerifyPayment(c *fiber.Ctx, authority string) (*paymentV
 	if apiKey == "" {
 		return nil, errors.New("IDPAY_API_KEY is not set")
 	}
+
 	intent := c.Locals("topup_intent")
+
 	topup, _ := intent.(*platform.WalletTopUpIntent)
 	if topup == nil {
 		return nil, errors.New("topup intent not loaded")
 	}
+
 	baseURL := strings.TrimSpace(os.Getenv("IDPAY_BASE_URL"))
 	if baseURL == "" {
 		baseURL = "https://api.idpay.ir/v1.1"
 	}
+
 	reqPayload := map[string]interface{}{
 		"id":       authority,
 		"order_id": "topup_" + topup.PublicID,
 	}
+
 	headers := map[string]string{
 		"X-API-KEY":    apiKey,
 		"Content-Type": "application/json",
@@ -309,13 +343,16 @@ func (p *idpayProvider) VerifyPayment(c *fiber.Ctx, authority string) (*paymentV
 	if strings.EqualFold(strings.TrimSpace(os.Getenv("IDPAY_SANDBOX")), "true") {
 		headers["X-SANDBOX"] = "1"
 	}
+
 	respBody, statusCode, err := postJSON(baseURL+"/payment/verify", reqPayload, headers)
 	if err != nil {
 		return nil, err
 	}
+
 	if statusCode >= 400 {
 		return nil, fmt.Errorf("idpay verify failed with status %d", statusCode)
 	}
+
 	var decoded struct {
 		Status  int   `json:"status"`
 		TrackID int64 `json:"track_id"`
@@ -329,7 +366,9 @@ func (p *idpayProvider) VerifyPayment(c *fiber.Ctx, authority string) (*paymentV
 	if err := json.Unmarshal(respBody, &decoded); err != nil {
 		return nil, err
 	}
+
 	ok := decoded.Status == 100
+
 	return &paymentVerifyResult{
 		Success:      ok,
 		RefID:        fmt.Sprintf("%d", decoded.TrackID),
@@ -350,24 +389,31 @@ func postJSON(url string, payload interface{}, headers map[string]string) ([]byt
 	if err != nil {
 		return nil, 0, err
 	}
+
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return nil, 0, err
 	}
+
 	req.Header.Set("Content-Type", "application/json")
+
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
+
 	client := &http.Client{Timeout: 20 * time.Second}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, 0, err
 	}
 	defer resp.Body.Close()
+
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, resp.StatusCode, err
 	}
+
 	return respBody, resp.StatusCode, nil
 }
 
@@ -375,10 +421,12 @@ func randomToken(n int) string {
 	if n <= 0 {
 		return ""
 	}
+
 	b := make([]byte, (n+1)/2)
 	if _, err := rand.Read(b); err != nil {
 		return "fallbacktoken"
 	}
+
 	return hex.EncodeToString(b)[:n]
 }
 
@@ -387,19 +435,23 @@ func calculateIRR(amountUSD, exchangeRate, taxPercent, feePercent float64) (amou
 	taxIRR = amountIRR * (taxPercent / 100)
 	feeIRR = amountIRR * (feePercent / 100)
 	payable = amountIRR + taxIRR + feeIRR
+
 	return
 }
 
 func fallbackUSDtoIRRRate() float64 {
 	const defaultRate = 1850000.0
+
 	raw := strings.TrimSpace(os.Getenv("BILLING_SETTINGS_DEFAULT_USD_TO_IRR"))
 	if raw == "" {
 		return defaultRate
 	}
+
 	parsed, err := strconv.ParseFloat(raw, 64)
 	if err != nil || math.IsNaN(parsed) || math.IsInf(parsed, 0) || parsed <= 0 {
 		return defaultRate
 	}
+
 	return parsed
 }
 
@@ -408,18 +460,22 @@ func defaultSubscriptionPaymentProvider() string {
 	if provider == "" {
 		provider = "mock"
 	}
+
 	return provider
 }
 
 func resolveExternalBaseURL(c *fiber.Ctx) string {
 	forwardedHost := firstForwardedValue(c.Get("X-Forwarded-Host"))
+
 	forwardedProto := firstForwardedValue(c.Get("X-Forwarded-Proto"))
 	if forwardedHost != "" {
 		if forwardedProto == "" {
 			forwardedProto = "https"
 		}
+
 		return fmt.Sprintf("%s://%s", forwardedProto, forwardedHost)
 	}
+
 	return c.BaseURL()
 }
 
@@ -427,6 +483,7 @@ func firstForwardedValue(raw string) string {
 	if raw == "" {
 		return ""
 	}
+
 	parts := strings.Split(raw, ",")
 	for _, part := range parts {
 		value := strings.TrimSpace(part)
@@ -434,6 +491,7 @@ func firstForwardedValue(raw string) string {
 			return value
 		}
 	}
+
 	return ""
 }
 
@@ -442,6 +500,7 @@ func resolveUSDtoIRRRate(c *fiber.Ctx, store walletStore) (*platform.ExchangeRat
 	if err == nil && rate != nil && rate.USDtoIRR > 0 {
 		return rate, nil
 	}
+
 	return &platform.ExchangeRate{
 		USDtoIRR:  fallbackUSDtoIRRRate(),
 		Source:    "static-fallback",
@@ -459,6 +518,7 @@ func (h *Handlers) CreateWalletTopUpIntent(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
+
 	if req.AmountUSD <= 0 {
 		return fiber.NewError(fiber.StatusBadRequest, "amount_usd must be greater than 0")
 	}
@@ -467,6 +527,7 @@ func (h *Handlers) CreateWalletTopUpIntent(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	if req.AmountUSD < settings.MinAmountUSD || req.AmountUSD > settings.MaxAmountUSD {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("amount_usd must be between %.2f and %.2f", settings.MinAmountUSD, settings.MaxAmountUSD))
 	}
@@ -480,12 +541,14 @@ func (h *Handlers) CreateWalletTopUpIntent(c *fiber.Ctx) error {
 	if returnURL == "" {
 		returnURL = fmt.Sprintf("https://%s.app.sharah.ir/billing/topup/result", currentTenant.Slug)
 	}
+
 	providerName := strings.TrimSpace(req.Provider)
 	if providerName == "" {
 		providerName = "mock"
 	}
 
 	amountIRR, taxIRR, feeIRR, payable := calculateIRR(req.AmountUSD, rate.USDtoIRR, settings.TaxPercent, settings.FeePercent)
+
 	intent, err := h.wallets.CreateWalletTopUpIntent(c.Context(), storage.CreateTopUpIntentParams{
 		TenantID:     currentTenant.ID,
 		Provider:     providerName,
@@ -506,10 +569,12 @@ func (h *Handlers) CreateWalletTopUpIntent(c *fiber.Ctx) error {
 	}
 
 	provider := selectProvider(providerName)
+
 	payRes, err := provider.CreatePayment(c, intent)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadGateway, err.Error())
 	}
+
 	if err := h.wallets.AttachWalletTopUpGatewayData(c.Context(), intent.PublicID, payRes.Authority, payRes.PaymentURL, payRes.Raw); err != nil {
 		return err
 	}
@@ -517,35 +582,43 @@ func (h *Handlers) CreateWalletTopUpIntent(c *fiber.Ctx) error {
 	intent.Authority = payRes.Authority
 	intent.PaymentURL = payRes.PaymentURL
 	intent.RawPayload = payRes.Raw
+
 	return c.Status(fiber.StatusCreated).JSON(intent)
 }
 
 func (h *Handlers) WalletTopUpCallback(c *fiber.Ctx) error {
 	providerName := strings.ToLower(strings.TrimSpace(c.Params("provider")))
+
 	authority := strings.TrimSpace(c.Query("authority"))
 	if authority == "" {
 		authority = strings.TrimSpace(c.FormValue("authority"))
 	}
+
 	if authority == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "authority is required")
 	}
+
 	intent, err := h.wallets.GetWalletTopUpIntentByAuthority(c.Context(), authority)
 	if err == nil && intent != nil {
 		c.Locals("topup_intent", intent)
 	}
 
 	provider := selectProvider(providerName)
+
 	verifyRes, err := provider.VerifyPayment(c, authority)
 	if err != nil {
 		_ = h.wallets.MarkWalletTopUpFailedByAuthority(c.Context(), authority, err.Error(), map[string]interface{}{"provider": providerName})
 		return h.redirectTopUpResult(c, authority, "failed", "verify_error")
 	}
+
 	if !verifyRes.Success {
 		reason := verifyRes.Failure
 		if reason == "" {
 			reason = "payment failed"
 		}
+
 		_ = h.wallets.MarkWalletTopUpFailedByAuthority(c.Context(), authority, reason, verifyRes.Raw)
+
 		return h.redirectTopUpResult(c, authority, "failed", "payment_failed")
 	}
 
@@ -554,6 +627,7 @@ func (h *Handlers) WalletTopUpCallback(c *fiber.Ctx) error {
 		if errors.Is(err, storage.ErrTopUpIntentNotFound) {
 			return h.redirectTopUpResult(c, authority, "failed", "intent_not_found")
 		}
+
 		return h.redirectTopUpResult(c, authority, "failed", "commit_failed")
 	}
 
@@ -561,6 +635,7 @@ func (h *Handlers) WalletTopUpCallback(c *fiber.Ctx) error {
 	if alreadyProcessed {
 		status = "success"
 	}
+
 	return c.Redirect(fmt.Sprintf("%s?status=%s&intent_id=%s&authority=%s&ref_id=%s", intent.ReturnURL, status, intent.PublicID, authority, intent.RefID), fiber.StatusFound)
 }
 
@@ -569,6 +644,7 @@ func (h *Handlers) redirectTopUpResult(c *fiber.Ctx, authority, status, reason s
 	if err != nil || intent == nil || strings.TrimSpace(intent.ReturnURL) == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": status, "reason": reason, "authority": authority})
 	}
+
 	return c.Redirect(fmt.Sprintf("%s?status=%s&authority=%s&reason=%s", intent.ReturnURL, status, authority, reason), fiber.StatusFound)
 }
 
@@ -577,11 +653,14 @@ func (h *Handlers) ListWalletTransactions(c *fiber.Ctx) error {
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	limit := c.QueryInt("limit", 50)
+
 	items, err := h.wallets.ListWalletTransactions(c.Context(), currentTenant.ID, limit)
 	if err != nil {
 		return err
 	}
+
 	return c.JSON(fiber.Map{"data": items})
 }
 
@@ -590,6 +669,7 @@ func (h *Handlers) GetWalletTopUpSettings(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	return c.JSON(settings)
 }
 
@@ -598,18 +678,23 @@ func (h *Handlers) UpdateWalletTopUpSettings(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
+
 	if req.MinAmountUSD <= 0 {
 		return fiber.NewError(fiber.StatusBadRequest, "min_amount_usd must be greater than 0")
 	}
+
 	if req.MaxAmountUSD < req.MinAmountUSD {
 		return fiber.NewError(fiber.StatusBadRequest, "max_amount_usd must be greater than or equal to min_amount_usd")
 	}
+
 	if req.TaxPercent < 0 || req.FeePercent < 0 {
 		return fiber.NewError(fiber.StatusBadRequest, "tax_percent and fee_percent must be non-negative")
 	}
+
 	settings, err := h.wallets.UpdateWalletTopUpSettings(c.Context(), req.MinAmountUSD, req.MaxAmountUSD, req.TaxPercent, req.FeePercent)
 	if err != nil {
 		return err
 	}
+
 	return c.JSON(settings)
 }

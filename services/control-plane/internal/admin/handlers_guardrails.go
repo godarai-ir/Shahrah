@@ -18,36 +18,46 @@ func (h *Handlers) ListTenantGuardrails(c *fiber.Ctx) error {
 	if err := requirePolicyListOrManage(c); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	query := strings.TrimSpace(c.Query("query"))
 	limit := 50
 	offset := 0
+
 	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
 		parsed, parseErr := strconv.Atoi(raw)
 		if parseErr != nil || parsed <= 0 {
 			return fiber.NewError(fiber.StatusBadRequest, "limit must be a positive number")
 		}
+
 		limit = parsed
 	}
+
 	if raw := strings.TrimSpace(c.Query("offset")); raw != "" {
 		parsed, parseErr := strconv.Atoi(raw)
 		if parseErr != nil || parsed < 0 {
 			return fiber.NewError(fiber.StatusBadRequest, "offset must be zero or greater")
 		}
+
 		offset = parsed
 	}
+
 	items, total, err := h.models.ListTenantGuardrails(c.Context(), currentTenant.ID, query, limit, offset)
 	if err != nil {
 		return err
 	}
+
 	var nextOffset *int
+
 	if offset+len(items) < total {
 		n := offset + len(items)
 		nextOffset = &n
 	}
+
 	return c.JSON(platform.TenantGuardrailListResponse{
 		Data:       items,
 		Total:      total,
@@ -61,22 +71,28 @@ func (h *Handlers) CreateTenantGuardrail(c *fiber.Ctx) error {
 	if err := requirePolicyManage(c); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	var req platform.CreateTenantGuardrailRequest
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
+
 	if err := validateCreateTenantGuardrailRequest(req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
+
 	actor := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+
 	item, err := h.models.CreateTenantGuardrail(c.Context(), currentTenant.ID, req, actor)
 	if err != nil {
 		return mapProviderAccountStoreError(err)
 	}
+
 	return c.Status(fiber.StatusCreated).JSON(item)
 }
 
@@ -84,21 +100,26 @@ func (h *Handlers) GetTenantGuardrail(c *fiber.Ctx) error {
 	if err := requirePolicyListOrManage(c); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	slug := strings.TrimSpace(c.Params("slug"))
 	if slug == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "slug is required")
 	}
+
 	item, err := h.models.GetTenantGuardrailBySlug(c.Context(), currentTenant.ID, slug)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "guardrail not found")
 		}
+
 		return err
 	}
+
 	return c.JSON(item)
 }
 
@@ -106,29 +127,37 @@ func (h *Handlers) UpdateTenantGuardrail(c *fiber.Ctx) error {
 	if err := requirePolicyManage(c); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	slug := strings.TrimSpace(c.Params("slug"))
 	if slug == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "slug is required")
 	}
+
 	var req platform.UpdateTenantGuardrailRequest
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
+
 	if err := validateUpdateTenantGuardrailRequest(req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
+
 	actor := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+
 	item, err := h.models.UpdateTenantGuardrailBySlug(c.Context(), currentTenant.ID, slug, req, actor)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "guardrail not found")
 		}
+
 		return mapProviderAccountStoreError(err)
 	}
+
 	return c.JSON(item)
 }
 
@@ -136,20 +165,25 @@ func (h *Handlers) DeleteTenantGuardrail(c *fiber.Ctx) error {
 	if err := requirePolicyManage(c); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	slug := strings.TrimSpace(c.Params("slug"))
 	if slug == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "slug is required")
 	}
+
 	if err := h.models.DeleteTenantGuardrailBySlug(c.Context(), currentTenant.ID, slug); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "guardrail not found")
 		}
+
 		return err
 	}
+
 	return c.JSON(fiber.Map{"success": true})
 }
 
@@ -157,18 +191,23 @@ func validateCreateTenantGuardrailRequest(req platform.CreateTenantGuardrailRequ
 	if !tenantGuardrailSlugPattern.MatchString(strings.TrimSpace(req.Slug)) {
 		return errors.New("slug must start with a letter or number and contain 2-96 letters, numbers, dashes, or underscores")
 	}
+
 	if strings.TrimSpace(req.Name) == "" {
 		return errors.New("name is required")
 	}
+
 	if err := validateTenantGuardrailType(strings.TrimSpace(req.Type)); err != nil {
 		return err
 	}
+
 	if err := validateTenantGuardrailOperation(req.Operation, strings.TrimSpace(req.Type)); err != nil {
 		return err
 	}
+
 	if err := validateTenantGuardrailEnforcement(req.Enforcement); err != nil {
 		return err
 	}
+
 	return validateTenantGuardrailConfig(strings.TrimSpace(req.Type), req.Config)
 }
 
@@ -180,19 +219,23 @@ func validateUpdateTenantGuardrailRequest(req platform.UpdateTenantGuardrailRequ
 			return err
 		}
 	}
+
 	if req.Operation != nil {
 		if err := validateTenantGuardrailOperation(*req.Operation, guardrailType); err != nil {
 			return err
 		}
 	}
+
 	if req.Enforcement != nil {
 		if err := validateTenantGuardrailEnforcement(*req.Enforcement); err != nil {
 			return err
 		}
 	}
+
 	if req.Config != nil && guardrailType != "" {
 		return validateTenantGuardrailConfig(guardrailType, req.Config)
 	}
+
 	return nil
 }
 
@@ -213,9 +256,11 @@ func validateTenantGuardrailOperation(value platform.GuardrailOperation, guardra
 	default:
 		return errors.New("operation must be validate or mutate")
 	}
+
 	if guardrailType == "keyword_blocklist" && value != platform.GuardrailOperationValidate {
 		return errors.New("keyword_blocklist only supports validate operation")
 	}
+
 	switch guardrailType {
 	case "sentence_count", "word_count", "character_count", "json_schema", "json_keys", "contains_code", "not_null", "jwt_validation":
 		if value != platform.GuardrailOperationValidate {
@@ -226,6 +271,7 @@ func validateTenantGuardrailOperation(value platform.GuardrailOperation, guardra
 			return errors.New("this guardrail type only supports mutate operation")
 		}
 	}
+
 	return nil
 }
 
@@ -249,6 +295,7 @@ func validateTenantGuardrailConfig(guardrailType string, config map[string]inter
 		if len(patterns) == 0 {
 			return errors.New("config.patterns must contain at least one regex")
 		}
+
 		for _, pattern := range patterns {
 			if _, err := regexp.Compile(pattern); err != nil {
 				return errors.New("config.patterns contains an invalid regex")
@@ -259,21 +306,26 @@ func validateTenantGuardrailConfig(guardrailType string, config map[string]inter
 		if pattern == "" {
 			return errors.New("config.pattern is required")
 		}
+
 		if _, err := regexp.Compile(pattern); err != nil {
 			return errors.New("config.pattern contains an invalid regex")
 		}
 	case "sentence_count", "word_count", "character_count":
 		min, hasMin := intFromAny(config["min"])
+
 		max, hasMax := intFromAny(config["max"])
 		if !hasMin && !hasMax {
 			return errors.New("config.min or config.max is required")
 		}
+
 		if hasMin && min < 0 {
 			return errors.New("config.min must be zero or greater")
 		}
+
 		if hasMax && max < 0 {
 			return errors.New("config.max must be zero or greater")
 		}
+
 		if hasMin && hasMax && min > max {
 			return errors.New("config.min must be less than or equal to config.max")
 		}
@@ -286,10 +338,12 @@ func validateTenantGuardrailConfig(guardrailType string, config map[string]inter
 		if len(stringListFromConfig(config, "keys")) == 0 {
 			return errors.New("config.keys must contain at least one key")
 		}
+
 		mode := strings.TrimSpace(stringFromAny(config["mode"]))
 		if mode == "" {
 			mode = "all"
 		}
+
 		if mode != "any" && mode != "all" && mode != "none" {
 			return errors.New("config.mode must be any, all, or none")
 		}
@@ -300,6 +354,7 @@ func validateTenantGuardrailConfig(guardrailType string, config map[string]inter
 		}
 	case "jwt_validation":
 		inlineJWKS, hasInlineJWKS := config["inline_jwks"].(map[string]interface{})
+
 		hasInlineJWKS = hasInlineJWKS && jwksHasKeys(inlineJWKS)
 		if strings.TrimSpace(stringFromAny(config["shared_secret"])) == "" &&
 			strings.TrimSpace(stringFromAny(config["jwks_uri"])) == "" &&
@@ -312,6 +367,7 @@ func validateTenantGuardrailConfig(guardrailType string, config map[string]inter
 			return errors.New("config.max_bytes must be positive")
 		}
 	}
+
 	return nil
 }
 
@@ -331,6 +387,7 @@ func stringListFromConfig(config map[string]interface{}, key string) []string {
 	if !ok {
 		return nil
 	}
+
 	switch values := raw.(type) {
 	case []string:
 		out := make([]string, 0, len(values))
@@ -339,6 +396,7 @@ func stringListFromConfig(config map[string]interface{}, key string) []string {
 				out = append(out, trimmed)
 			}
 		}
+
 		return out
 	case []interface{}:
 		out := make([]string, 0, len(values))
@@ -349,6 +407,7 @@ func stringListFromConfig(config map[string]interface{}, key string) []string {
 				}
 			}
 		}
+
 		return out
 	default:
 		return nil
@@ -359,6 +418,7 @@ func stringFromAny(value interface{}) string {
 	if text, ok := value.(string); ok {
 		return text
 	}
+
 	return ""
 }
 

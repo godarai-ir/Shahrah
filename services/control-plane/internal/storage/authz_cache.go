@@ -25,17 +25,21 @@ func (s *Store) getAuthzCacheEntry(tenantID string, userID string) (*platform.Au
 	entry, ok := s.authzCache[key]
 	currentEpoch := s.authzTenantEpoch[strings.TrimSpace(strings.ToLower(tenantID))]
 	s.authzCacheMu.RUnlock()
+
 	if !ok {
 		return nil, false
 	}
+
 	if now.After(entry.expiresAt) || entry.epoch != currentEpoch {
 		s.authzCacheMu.Lock()
 		delete(s.authzCache, key)
 		s.authzCacheMu.Unlock()
+
 		return nil, false
 	}
 
 	copyAuth := entry.auth
+
 	return &copyAuth, true
 }
 
@@ -53,6 +57,7 @@ func (s *Store) setAuthzCacheEntry(tenantID string, userID string, auth platform
 				delete(s.authzCache, cacheKey)
 			}
 		}
+
 		if len(s.authzCache) >= s.authzCacheMaxEntries {
 			for cacheKey := range s.authzCache {
 				delete(s.authzCache, cacheKey)
@@ -77,6 +82,7 @@ func (s *Store) invalidateAuthzCacheForUser(tenantID string, userID string) {
 
 func (s *Store) bumpAuthzTenantEpoch(tenantID string) {
 	tenantKey := strings.TrimSpace(strings.ToLower(tenantID))
+
 	s.authzCacheMu.Lock()
 	s.authzTenantEpoch[tenantKey] = s.authzTenantEpoch[tenantKey] + 1
 	s.authzCacheMu.Unlock()

@@ -40,9 +40,11 @@ func newModerationsTestApp(t *testing.T, modelName string, provider string, depl
 	if logs == nil {
 		logs = &testLogs{}
 	}
+
 	if allowedTypes == nil {
 		allowedTypes = []string{"moderation"}
 	}
+
 	h := NewModerationsHandler(rt, tunnel, &testBudgeter{}, &testWallets{}, logs, zap.NewNop(), emitMetric...)
 	q := tracing.NewQueue(64)
 	s := tracing.NewSampler(1.0, 1500)
@@ -65,9 +67,11 @@ func newModerationsTestApp(t *testing.T, modelName string, provider string, depl
 			Slug:   "a",
 			Status: "active",
 		})
+
 		return c.Next()
 	})
 	app.Post("/v1/moderations", h.Handle)
+
 	return app, q
 }
 
@@ -94,12 +98,16 @@ func TestModerationsHandlerSingleStringInput(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/moderations", bytes.NewBufferString(`{"model":"openai:acct:omni-moderation-latest","input":"hello"}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.Equal(t, "/moderations", tunnel.lastReq.RequestMetadata["provider_endpoint_path"])
 
 	var outbound contractsopenai.ModerationRequest
+
 	err = json.Unmarshal(tunnel.lastReq.Body, &outbound)
 	require.NoError(t, err)
 	assert.Equal(t, "omni-moderation-latest", outbound.Model)
@@ -120,11 +128,15 @@ func TestModerationsHandlerBatchInputPreservesOrder(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/moderations", bytes.NewBufferString(`{"model":"omni-moderation-latest","input":["first","second"]}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var outbound contractsopenai.ModerationRequest
+
 	err = json.Unmarshal(tunnel.lastReq.Body, &outbound)
 	require.NoError(t, err)
 	assert.Equal(t, []interface{}{"first", "second"}, outbound.Input)
@@ -154,11 +166,15 @@ func TestModerationsHandlerValidationErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			req := httptest.NewRequest("POST", "/v1/moderations", bytes.NewBufferString(tc.body))
 			req.Header.Set("Content-Type", "application/json")
+
 			resp, err := app.Test(req)
+			defer closeResponseBody(t, resp)
+
 			require.NoError(t, err)
 			assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
 			var apiErr contractsopenai.APIError
+
 			err = json.NewDecoder(resp.Body).Decode(&apiErr)
 			require.NoError(t, err)
 			assert.Equal(t, tc.param, apiErr.Error.Param)
@@ -177,7 +193,10 @@ func TestModerationsHandlerRejectsNonModerationModel(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/moderations", bytes.NewBufferString(`{"model":"gpt-4o-mini","input":"hello"}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusForbidden, resp.StatusCode)
 }
@@ -192,11 +211,15 @@ func TestModerationsHandlerProviderErrorNormalized(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/moderations", bytes.NewBufferString(`{"model":"omni-moderation-latest","input":"hello"}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
 	var apiErr contractsopenai.APIError
+
 	err = json.NewDecoder(resp.Body).Decode(&apiErr)
 	require.NoError(t, err)
 	assert.Equal(t, "upstream rejected input", apiErr.Error.Message)
@@ -212,7 +235,10 @@ func TestModerationsHandlerRejectsUnsupportedProvider(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/moderations", bytes.NewBufferString(`{"model":"omni-moderation-latest","input":"hello"}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusNotImplemented, resp.StatusCode)
 }
@@ -236,14 +262,19 @@ func TestModerationsHandlerEmitsMetricMetadata(t *testing.T) {
 		Headers:    map[string]string{"content-type": "application/json"},
 		Body:       []byte(`{"id":"modr_1","model":"omni-moderation-latest","results":[{"flagged":true,"categories":{"violence":true},"category_scores":{"violence":0.99}}]}`),
 	}}
+
 	var metric metricsobs.BuildInput
+
 	app, _ := newModerationsTestApp(t, "omni-moderation-latest", "openai", "omni-moderation-latest", tunnel, nil, nil, func(input metricsobs.BuildInput) {
 		metric = input
 	})
 
 	req := httptest.NewRequest("POST", "/v1/moderations", bytes.NewBufferString(`{"model":"omni-moderation-latest","input":"hello"}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.Equal(t, "moderations", metric.RequestType)
@@ -261,15 +292,20 @@ func TestModerationsHandlerTraceLifecycle(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/moderations", strings.NewReader(`{"model":"omni-moderation-latest","input":"hello"}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	events := q.DequeueBatch(20)
+
 	names := make([]string, 0, len(events))
 	for _, ev := range events {
 		names = append(names, ev.Name)
 	}
+
 	assert.Contains(t, names, "gateway.request")
 	assert.Contains(t, names, "auth.validate")
 	assert.Contains(t, names, "quota.check")

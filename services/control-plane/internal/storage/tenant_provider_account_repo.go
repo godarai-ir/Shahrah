@@ -24,14 +24,18 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 	if err != nil {
 		return nil, err
 	}
+
 	credentialData, hasCredential, err := marshalCredentialData(req.Credentials)
 	if err != nil {
 		return nil, err
 	}
 
-	var account platform.TenantProviderAccount
-	var providerCfgRaw []byte
-	var credentialRaw []byte
+	var (
+		account        platform.TenantProviderAccount
+		providerCfgRaw []byte
+		credentialRaw  []byte
+	)
+
 	err = s.pool.QueryRow(ctx, `
 		INSERT INTO tenant_provider_accounts (
 			tenant_id, provider, name, auth_mode, provider_config, credential_data, has_credential, allow_virtual_keys_only
@@ -56,6 +60,7 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 	}
 
 	account.ProviderConfig = parseJSONObject(providerCfgRaw)
+
 	account.CredentialHint = credentialHintFromMap(parseJSONObject(credentialRaw))
 	if s.logger != nil {
 		s.logger.Info("provider_account.created",
@@ -65,6 +70,7 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 			zap.String("name", account.Name),
 		)
 	}
+
 	return &account, nil
 }
 
@@ -83,10 +89,13 @@ func (s *Store) ListTenantProviderAccounts(ctx context.Context, tenantID string)
 	defer rows.Close()
 
 	items := make([]platform.TenantProviderAccount, 0)
+
 	for rows.Next() {
-		var account platform.TenantProviderAccount
-		var providerCfgRaw []byte
-		var credentialRaw []byte
+		var (
+			account        platform.TenantProviderAccount
+			providerCfgRaw []byte
+			credentialRaw  []byte
+		)
 		if err := rows.Scan(
 			&account.ID,
 			&account.TenantID,
@@ -102,10 +111,12 @@ func (s *Store) ListTenantProviderAccounts(ctx context.Context, tenantID string)
 		); err != nil {
 			return nil, err
 		}
+
 		account.ProviderConfig = parseJSONObject(providerCfgRaw)
 		account.CredentialHint = credentialHintFromMap(parseJSONObject(credentialRaw))
 		items = append(items, account)
 	}
+
 	return items, rows.Err()
 }
 
@@ -120,6 +131,7 @@ func (s *Store) GetTenantProviderAccountDetails(ctx context.Context, tenantID st
 	if err != nil {
 		return nil, err
 	}
+
 	access, err := s.listTenantProviderAccountAccess(ctx, accountID)
 	if err != nil {
 		return nil, err
@@ -147,12 +159,14 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 		currentHasCredential bool
 		currentVirtualOnly   bool
 	)
-	if err := tx.QueryRow(ctx, `
+
+	queryErr := tx.QueryRow(ctx, `
 		SELECT auth_mode, provider_config, COALESCE(credential_data, '{}'::jsonb), has_credential, allow_virtual_keys_only
 		FROM tenant_provider_accounts
 		WHERE tenant_id = $1 AND account_id = $2
-	`, tenantID, accountID).Scan(&currentAuthMode, &currentProviderCfg, &currentCredentialRaw, &currentHasCredential, &currentVirtualOnly); err != nil {
-		return nil, err
+	`, tenantID, accountID).Scan(&currentAuthMode, &currentProviderCfg, &currentCredentialRaw, &currentHasCredential, &currentVirtualOnly)
+	if queryErr != nil {
+		return nil, queryErr
 	}
 
 	nextAuthMode := strings.TrimSpace(currentAuthMode)
@@ -164,40 +178,50 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 	if req.ProviderConfig != nil {
 		nextProviderCfg = req.ProviderConfig
 	}
+
 	nextProviderCfgRaw, err := marshalJSONObject(nextProviderCfg)
 	if err != nil {
 		return nil, err
 	}
 
 	nextCredentialMap := parseJSONObject(currentCredentialRaw)
+
 	if req.Credentials != nil {
 		if req.Credentials.APIKey != "" {
 			nextCredentialMap["api_key"] = strings.TrimSpace(req.Credentials.APIKey)
 		}
+
 		if req.Credentials.SecretRef != "" {
 			nextCredentialMap["secret_ref"] = strings.TrimSpace(req.Credentials.SecretRef)
 		}
+
 		if len(req.Credentials.Raw) > 0 {
 			nextCredentialMap["raw"] = req.Credentials.Raw
 		}
+
 		if req.Credentials.SkipRequired {
 			nextCredentialMap["skip_required"] = true
 		}
 	}
+
 	nextCredentialRaw, err := marshalJSONObject(nextCredentialMap)
 	if err != nil {
 		return nil, err
 	}
+
 	nextHasCredential := false
 	if v, ok := nextCredentialMap["api_key"].(string); ok && strings.TrimSpace(v) != "" {
 		nextHasCredential = true
 	}
+
 	if v, ok := nextCredentialMap["secret_ref"].(string); ok && strings.TrimSpace(v) != "" {
 		nextHasCredential = true
 	}
+
 	if _, ok := nextCredentialMap["raw"]; ok {
 		nextHasCredential = true
 	}
+
 	if req.Credentials == nil {
 		nextHasCredential = currentHasCredential
 		nextCredentialRaw = currentCredentialRaw
@@ -208,7 +232,7 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 		nextVirtualOnly = *req.AllowVirtualKeysOnly
 	}
 
-	if _, err := tx.Exec(ctx, `
+	_, execErr := tx.Exec(ctx, `
 		UPDATE tenant_provider_accounts
 		SET auth_mode = $3,
 		    provider_config = $4,
@@ -217,12 +241,14 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 		    allow_virtual_keys_only = $7,
 		    updated_at = NOW()
 		WHERE tenant_id = $1 AND account_id = $2
-	`, tenantID, accountID, nextAuthMode, nextProviderCfgRaw, nextCredentialRaw, nextHasCredential, nextVirtualOnly); err != nil {
-		return nil, err
+	`, tenantID, accountID, nextAuthMode, nextProviderCfgRaw, nextCredentialRaw, nextHasCredential, nextVirtualOnly)
+	if execErr != nil {
+		return nil, execErr
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return nil, err
+	commitErr := tx.Commit(ctx)
+	if commitErr != nil {
+		return nil, commitErr
 	}
 
 	return s.getTenantProviderAccount(ctx, tenantID, accountID)
@@ -236,65 +262,78 @@ func (s *Store) UpsertTenantProviderAccountModels(ctx context.Context, tenantID 
 	}
 	defer tx.Rollback(ctx)
 
-	if _, err := ensureTenantProviderAccountExists(ctx, tx, tenantID, accountID); err != nil {
-		return nil, err
+	_, existsErr := ensureTenantProviderAccountExists(ctx, tx, tenantID, accountID)
+	if existsErr != nil {
+		return nil, existsErr
 	}
 
-	if _, err := tx.Exec(ctx, `DELETE FROM tenant_provider_account_models WHERE account_id = $1`, accountID); err != nil {
-		return nil, err
+	_, deleteErr := tx.Exec(ctx, `DELETE FROM tenant_provider_account_models WHERE account_id = $1`, accountID)
+	if deleteErr != nil {
+		return nil, deleteErr
 	}
 
 	seenModel := make(map[string]struct{}, len(models))
 	modelsChanged := 0
+
 	for _, item := range models {
 		modelName := strings.TrimSpace(item.Model)
 		if modelName == "" {
 			return nil, fmt.Errorf("model is required")
 		}
+
 		if _, ok := seenModel[modelName]; ok {
 			continue
 		}
+
 		seenModel[modelName] = struct{}{}
 
-		settings, err := marshalJSONObject(item.Settings)
-		if err != nil {
-			return nil, err
+		settings, settingsErr := marshalJSONObject(item.Settings)
+		if settingsErr != nil {
+			return nil, settingsErr
 		}
-		privatePricing, err := marshalModelPrice(item.PrivatePricing)
-		if err != nil {
-			return nil, err
+
+		privatePricing, privatePricingErr := marshalModelPrice(item.PrivatePricing)
+		if privatePricingErr != nil {
+			return nil, privatePricingErr
 		}
-		publicPricing, err := marshalModelPrice(item.PublicPricing)
-		if err != nil {
-			return nil, err
+
+		publicPricing, publicPricingErr := marshalModelPrice(item.PublicPricing)
+		if publicPricingErr != nil {
+			return nil, publicPricingErr
 		}
+
 		pricingMode := item.PricingMode
 		if pricingMode == "" {
 			pricingMode = platform.PricingModePublic
 		}
+
 		types := modelTypesToStrings(item.Types)
 		inputModalities := normalizeStringList(item.InputModalities)
 		outputModalities := normalizeStringList(item.OutputModalities)
 
-		if _, err := tx.Exec(ctx, `
+		_, insertErr := tx.Exec(ctx, `
 			INSERT INTO tenant_provider_account_models (
 				account_id, model, enabled, types, input_modalities, output_modalities, pricing_mode, public_pricing, private_pricing, settings
 			)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-		`, accountID, modelName, item.Enabled, types, inputModalities, outputModalities, string(pricingMode), publicPricing, privatePricing, settings); err != nil {
-			return nil, err
+		`, accountID, modelName, item.Enabled, types, inputModalities, outputModalities, string(pricingMode), publicPricing, privatePricing, settings)
+		if insertErr != nil {
+			return nil, insertErr
 		}
+
 		modelsChanged++
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return nil, err
+	commitErr := tx.Commit(ctx)
+	if commitErr != nil {
+		return nil, commitErr
 	}
 
 	items, err := s.listTenantProviderAccountModels(ctx, accountID)
 	if err != nil {
 		return nil, err
 	}
+
 	if s.logger != nil {
 		s.logger.Info("provider_account.models_replaced",
 			zap.String("tenant_id", tenantID),
@@ -302,6 +341,7 @@ func (s *Store) UpsertTenantProviderAccountModels(ctx context.Context, tenantID 
 			zap.Int("models_count", modelsChanged),
 		)
 	}
+
 	return items, nil
 }
 
@@ -313,33 +353,43 @@ func (s *Store) UpdateTenantProviderAccountAccess(ctx context.Context, tenantID 
 	}
 	defer tx.Rollback(ctx)
 
-	if _, err := ensureTenantProviderAccountExists(ctx, tx, tenantID, accountID); err != nil {
-		return nil, err
+	_, existsErr := ensureTenantProviderAccountExists(ctx, tx, tenantID, accountID)
+	if existsErr != nil {
+		return nil, existsErr
 	}
 
-	if _, err := tx.Exec(ctx, `DELETE FROM tenant_provider_account_access WHERE account_id = $1`, accountID); err != nil {
-		return nil, err
+	_, deleteErr := tx.Exec(ctx, `DELETE FROM tenant_provider_account_access WHERE account_id = $1`, accountID)
+	if deleteErr != nil {
+		return nil, deleteErr
 	}
 
 	seen := make(map[string]struct{})
-	if err := insertAccessRows(ctx, tx, tenantID, accountID, platform.AccessRoleManager, access.Managers, seen); err != nil {
-		return nil, err
-	}
-	if err := insertAccessRows(ctx, tx, tenantID, accountID, platform.AccessRoleUser, access.Users, seen); err != nil {
-		return nil, err
-	}
-	if err := insertAccessRules(ctx, tx, tenantID, accountID, access.Rules, seen); err != nil {
-		return nil, err
+
+	managerErr := insertAccessRows(ctx, tx, tenantID, accountID, platform.AccessRoleManager, access.Managers, seen)
+	if managerErr != nil {
+		return nil, managerErr
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return nil, err
+	userErr := insertAccessRows(ctx, tx, tenantID, accountID, platform.AccessRoleUser, access.Users, seen)
+	if userErr != nil {
+		return nil, userErr
+	}
+
+	rulesErr := insertAccessRules(ctx, tx, tenantID, accountID, access.Rules, seen)
+	if rulesErr != nil {
+		return nil, rulesErr
+	}
+
+	commitErr := tx.Commit(ctx)
+	if commitErr != nil {
+		return nil, commitErr
 	}
 
 	result, err := s.listTenantProviderAccountAccess(ctx, accountID)
 	if err != nil {
 		return nil, err
 	}
+
 	if s.logger != nil {
 		s.logger.Info("provider_account.access_replaced",
 			zap.String("tenant_id", tenantID),
@@ -348,6 +398,7 @@ func (s *Store) UpdateTenantProviderAccountAccess(ctx context.Context, tenantID 
 			zap.Int("users_count", len(result.Users)),
 		)
 	}
+
 	return &result, nil
 }
 
@@ -357,14 +408,17 @@ func insertAccessRules(ctx context.Context, tx pgx.Tx, tenantID string, accountI
 		if role != platform.AccessRoleManager && role != platform.AccessRoleUser {
 			continue
 		}
+
 		scope := rule.AccessScope
 		if scope == "" {
 			scope = platform.AccessScopeAccount
 		}
+
 		model := strings.TrimSpace(rule.Model)
 		if scope == platform.AccessScopeModel && model == "" {
 			continue
 		}
+
 		if scope == platform.AccessScopeAccount {
 			model = ""
 		}
@@ -373,10 +427,12 @@ func insertAccessRules(ctx context.Context, tx pgx.Tx, tenantID string, accountI
 		if err != nil {
 			return err
 		}
+
 		key := strings.Join([]string{string(role), string(scope), model, string(normalized.Type), normalized.PrincipalID}, "|")
 		if _, ok := seen[key]; ok {
 			continue
 		}
+
 		seen[key] = struct{}{}
 
 		if _, err := tx.Exec(ctx, `
@@ -388,6 +444,7 @@ func insertAccessRules(ctx context.Context, tx pgx.Tx, tenantID string, accountI
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -434,6 +491,7 @@ func (s *Store) TestTenantProviderAccountCredentials(ctx context.Context, tenant
 
 	credentials := parseJSONObject(credentialRaw)
 	apiKey, _ := credentials["api_key"].(string)
+
 	apiKey = strings.TrimSpace(apiKey)
 	if apiKey == "" || isMaskedCredentialValue(apiKey) {
 		return &platform.TestTenantProviderAccountCredentialsResponse{
@@ -443,6 +501,7 @@ func (s *Store) TestTenantProviderAccountCredentials(ctx context.Context, tenant
 	}
 
 	result := validateProviderAPIKey(ctx, provider, apiKey, parseJSONObject(providerCfgRaw), nil)
+
 	return &platform.TestTenantProviderAccountCredentialsResponse{
 		Success: result.Success,
 		Message: result.Message,
@@ -450,9 +509,12 @@ func (s *Store) TestTenantProviderAccountCredentials(ctx context.Context, tenant
 }
 
 func (s *Store) getTenantProviderAccount(ctx context.Context, tenantID string, accountID string) (*platform.TenantProviderAccount, error) {
-	var account platform.TenantProviderAccount
-	var providerCfgRaw []byte
-	var credentialRaw []byte
+	var (
+		account        platform.TenantProviderAccount
+		providerCfgRaw []byte
+		credentialRaw  []byte
+	)
+
 	err := s.pool.QueryRow(ctx, `
 		SELECT account_id::text, tenant_id::text, provider, name, auth_mode, provider_config, COALESCE(credential_data, '{}'::jsonb),
 		       has_credential, allow_virtual_keys_only, created_at, updated_at
@@ -474,8 +536,10 @@ func (s *Store) getTenantProviderAccount(ctx context.Context, tenantID string, a
 	if err != nil {
 		return nil, err
 	}
+
 	account.ProviderConfig = parseJSONObject(providerCfgRaw)
 	account.CredentialHint = credentialHintFromMap(parseJSONObject(credentialRaw))
+
 	return &account, nil
 }
 
@@ -500,14 +564,17 @@ func (s *Store) listTenantProviderAccountModels(ctx context.Context, accountID s
 	defer rows.Close()
 
 	items := make([]platform.TenantProviderAccountModel, 0)
+
 	for rows.Next() {
-		var model platform.TenantProviderAccountModel
-		var types []string
-		var inputModalities []string
-		var outputModalities []string
-		var publicPricingText *string
-		var privatePricingText *string
-		var settingsRaw []byte
+		var (
+			model              platform.TenantProviderAccountModel
+			types              []string
+			inputModalities    []string
+			outputModalities   []string
+			publicPricingText  *string
+			privatePricingText *string
+			settingsRaw        []byte
+		)
 		if err := rows.Scan(
 			&model.Model,
 			&model.Enabled,
@@ -521,23 +588,27 @@ func (s *Store) listTenantProviderAccountModels(ctx context.Context, accountID s
 		); err != nil {
 			return nil, err
 		}
+
 		model.Types = stringsToModelTypes(types)
 		model.SupportedModes = append([]platform.ModelType(nil), model.Types...)
 		model.InputModalities = normalizeStringList(inputModalities)
 		model.OutputModalities = normalizeStringList(outputModalities)
 		model.Settings = parseJSONObject(settingsRaw)
+
 		if publicPricingText != nil && strings.TrimSpace(*publicPricingText) != "" && strings.TrimSpace(*publicPricingText) != "null" {
 			var parsed platform.ModelPrice
 			if err := json.Unmarshal([]byte(*publicPricingText), &parsed); err == nil {
 				model.PublicPricing = &parsed
 			}
 		}
+
 		if privatePricingText != nil && strings.TrimSpace(*privatePricingText) != "" && strings.TrimSpace(*privatePricingText) != "null" {
 			var parsed platform.ModelPrice
 			if err := json.Unmarshal([]byte(*privatePricingText), &parsed); err == nil {
 				model.PrivatePricing = &parsed
 			}
 		}
+
 		items = append(items, model)
 	}
 
@@ -561,17 +632,22 @@ func (s *Store) listTenantProviderAccountAccess(ctx context.Context, accountID s
 		Users:    make([]platform.AccessPrincipal, 0),
 		Rules:    make([]platform.TenantProviderAccountAccessRule, 0),
 	}
+
 	for rows.Next() {
-		var role platform.AccessRole
-		var scope platform.AccessScope
-		var model string
-		var principal platform.AccessPrincipal
+		var (
+			role      platform.AccessRole
+			scope     platform.AccessScope
+			model     string
+			principal platform.AccessPrincipal
+		)
 		if err := rows.Scan(&role, &scope, &model, &principal.Type, &principal.PrincipalID, &principal.DisplayName); err != nil {
 			return platform.TenantProviderAccountAccessControl{}, err
 		}
+
 		if principal.Type == platform.PrincipalTypeEveryone {
 			principal.PrincipalID = ""
 		}
+
 		rule := platform.TenantProviderAccountAccessRule{
 			Role:        role,
 			Principal:   principal,
@@ -581,7 +657,9 @@ func (s *Store) listTenantProviderAccountAccess(ctx context.Context, accountID s
 		if rule.AccessScope == "" {
 			rule.AccessScope = platform.AccessScopeAccount
 		}
+
 		access.Rules = append(access.Rules, rule)
+
 		switch role {
 		case platform.AccessRoleManager:
 			access.Managers = append(access.Managers, principal)
@@ -596,6 +674,7 @@ func (s *Store) listTenantProviderAccountAccess(ctx context.Context, accountID s
 // IsTenantProviderAccountManager returns true when the given user/team is in manager bucket for the account.
 func (s *Store) IsTenantProviderAccountManager(ctx context.Context, tenantID string, accountID string, userID string, teamID string) (bool, error) {
 	normalizedUserID := strings.TrimSpace(userID)
+
 	normalizedTeamID := strings.TrimSpace(teamID)
 	if normalizedUserID == "" && normalizedTeamID == "" {
 		return false, nil
@@ -640,6 +719,7 @@ func (s *Store) IsTenantProviderAccountManager(ctx context.Context, tenantID str
 	`, tenantID, accountID, normalizedUserID, normalizedTeamID).Scan(&allowed); err != nil {
 		return false, err
 	}
+
 	return allowed, nil
 }
 
@@ -655,16 +735,19 @@ func (s *Store) DeleteTenantProviderAccount(ctx context.Context, tenantID string
 		accountName string
 		provider    string
 	)
-	if err := tx.QueryRow(ctx, `
+
+	accountErr := tx.QueryRow(ctx, `
 		SELECT name, provider
 		FROM tenant_provider_accounts
 		WHERE tenant_id = $1::uuid AND account_id = $2::uuid
-	`, tenantID, accountID).Scan(&accountName, &provider); err != nil {
-		return err
+	`, tenantID, accountID).Scan(&accountName, &provider)
+	if accountErr != nil {
+		return accountErr
 	}
 
 	var hasActiveKeyReference bool
-	if err := tx.QueryRow(ctx, `
+
+	refErr := tx.QueryRow(ctx, `
 		SELECT EXISTS (
 			SELECT 1
 			FROM verification_tokens vt
@@ -676,9 +759,11 @@ func (s *Store) DeleteTenantProviderAccount(ctx context.Context, tenantID string
 			    OR m.model ILIKE ($2 || ':' || $3)
 			  )
 		)
-	`, tenantID, strings.TrimSpace(provider), strings.TrimSpace(accountName)).Scan(&hasActiveKeyReference); err != nil {
-		return err
+	`, tenantID, strings.TrimSpace(provider), strings.TrimSpace(accountName)).Scan(&hasActiveKeyReference)
+	if refErr != nil {
+		return refErr
 	}
+
 	if hasActiveKeyReference {
 		return ErrProviderAccountDependencyConflict
 	}
@@ -690,6 +775,7 @@ func (s *Store) DeleteTenantProviderAccount(ctx context.Context, tenantID string
 	if err != nil {
 		return err
 	}
+
 	if cmd.RowsAffected() == 0 {
 		return pgx.ErrNoRows
 	}
@@ -706,6 +792,7 @@ func (s *Store) DeleteTenantProviderAccount(ctx context.Context, tenantID string
 			zap.String("name", accountName),
 		)
 	}
+
 	return nil
 }
 
@@ -718,6 +805,7 @@ func ensureTenantProviderAccountExists(ctx context.Context, tx pgx.Tx, tenantID 
 	`, tenantID, accountID).Scan(&exists); err != nil {
 		return false, err
 	}
+
 	return exists, nil
 }
 
@@ -727,10 +815,12 @@ func insertAccessRows(ctx context.Context, tx pgx.Tx, tenantID string, accountID
 		if err != nil {
 			return err
 		}
+
 		key := string(role) + "|" + string(normalized.Type) + "|" + normalized.PrincipalID
 		if _, ok := seen[key]; ok {
 			continue
 		}
+
 		seen[key] = struct{}{}
 
 		if _, err := tx.Exec(ctx, `
@@ -742,6 +832,7 @@ func insertAccessRows(ctx context.Context, tx pgx.Tx, tenantID string, accountID
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -751,6 +842,7 @@ func (s *Store) ListTenantProviderAccountEffectiveModels(ctx context.Context, te
 	if _, err := s.getTenantProviderAccount(ctx, tenantID, accountID); err != nil {
 		return nil, err
 	}
+
 	normalizedKeyType := strings.TrimSpace(strings.ToLower(keyType))
 	normalizedUserID := strings.TrimSpace(userID)
 	normalizedTeamID := strings.TrimSpace(teamID)
@@ -845,12 +937,15 @@ func (s *Store) ListTenantProviderAccountEffectiveModels(ctx context.Context, te
 	defer rows.Close()
 
 	items := make([]platform.EffectiveModelView, 0)
+
 	for rows.Next() {
-		var item platform.EffectiveModelView
-		var types []string
-		var pricingMode string
-		var allowedByAccess bool
-		var hasCandidateKeys bool
+		var (
+			item             platform.EffectiveModelView
+			types            []string
+			pricingMode      string
+			allowedByAccess  bool
+			hasCandidateKeys bool
+		)
 		if err := rows.Scan(
 			&item.Model,
 			&item.Enabled,
@@ -862,8 +957,10 @@ func (s *Store) ListTenantProviderAccountEffectiveModels(ctx context.Context, te
 		); err != nil {
 			return nil, err
 		}
+
 		item.PricingMode = platform.PricingMode(pricingMode)
 		item.EffectiveCapabilities = stringsToModelTypes(types)
+
 		item.Allowed = allowedByAccess && hasCandidateKeys
 		if !item.Allowed {
 			switch {
@@ -873,11 +970,14 @@ func (s *Store) ListTenantProviderAccountEffectiveModels(ctx context.Context, te
 				item.DeniedReason = "no_active_pat/vat"
 			}
 		}
+
 		items = append(items, item)
 	}
+
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+
 	return items, nil
 }
 
@@ -895,19 +995,23 @@ func normalizeAccessPrincipal(ctx context.Context, tx pgx.Tx, tenantID string, r
 		if role == platform.AccessRoleManager {
 			return platform.AccessPrincipal{}, fmt.Errorf("manager role only supports user/team/org_unit principals")
 		}
+
 		principal.PrincipalID = ""
 	default:
 		return platform.AccessPrincipal{}, fmt.Errorf("unsupported principal type: %s", principal.Type)
 	}
+
 	if principal.Type == platform.PrincipalTypeUser || principal.Type == platform.PrincipalTypeTeam || principal.Type == platform.PrincipalTypeOrgUnit {
 		ok, err := principalExistsForTenant(ctx, tx, tenantID, principal.Type, principal.PrincipalID)
 		if err != nil {
 			return platform.AccessPrincipal{}, err
 		}
+
 		if !ok {
 			return platform.AccessPrincipal{}, fmt.Errorf("%w: %s principal %q is not found in tenant", ErrInvalidAccessPrincipal, principal.Type, principal.PrincipalID)
 		}
 	}
+
 	return principal, nil
 }
 
@@ -924,6 +1028,7 @@ func principalExistsForTenant(ctx context.Context, tx pgx.Tx, tenantID string, p
 		`, tenantID, principalID).Scan(&exists); err != nil {
 			return false, err
 		}
+
 		return exists, nil
 	case platform.PrincipalTypeUser:
 		var exists bool
@@ -937,6 +1042,7 @@ func principalExistsForTenant(ctx context.Context, tx pgx.Tx, tenantID string, p
 		`, tenantID, principalID).Scan(&exists); err != nil {
 			return false, err
 		}
+
 		return exists, nil
 	case platform.PrincipalTypeOrgUnit:
 		var exists bool
@@ -950,6 +1056,7 @@ func principalExistsForTenant(ctx context.Context, tx pgx.Tx, tenantID string, p
 		`, tenantID, principalID).Scan(&exists); err != nil {
 			return false, err
 		}
+
 		return exists, nil
 	default:
 		return false, nil
@@ -965,15 +1072,19 @@ func marshalCredentialData(input *platform.ProviderAccountCredentials) ([]byte, 
 	if apiKey := strings.TrimSpace(input.APIKey); apiKey != "" {
 		payload["api_key"] = apiKey
 	}
+
 	if secretRef := strings.TrimSpace(input.SecretRef); secretRef != "" {
 		payload["secret_ref"] = secretRef
 	}
+
 	if len(input.Raw) > 0 {
 		payload["raw"] = input.Raw
 	}
+
 	if input.SkipRequired {
 		payload["skip_required"] = true
 	}
+
 	if len(payload) == 0 {
 		return nil, false, nil
 	}
@@ -982,9 +1093,11 @@ func marshalCredentialData(input *platform.ProviderAccountCredentials) ([]byte, 
 	if err != nil {
 		return nil, false, err
 	}
+
 	_, hasAPIKey := payload["api_key"]
 	_, hasSecretRef := payload["secret_ref"]
 	_, hasRaw := payload["raw"]
+
 	return raw, hasAPIKey || hasSecretRef || hasRaw, nil
 }
 
@@ -992,6 +1105,7 @@ func marshalJSONObject(input map[string]interface{}) ([]byte, error) {
 	if len(input) == 0 {
 		return []byte("{}"), nil
 	}
+
 	return json.Marshal(input)
 }
 
@@ -999,10 +1113,12 @@ func parseJSONObject(raw []byte) map[string]interface{} {
 	if len(raw) == 0 {
 		return map[string]interface{}{}
 	}
+
 	var out map[string]interface{}
 	if err := json.Unmarshal(raw, &out); err != nil || out == nil {
 		return map[string]interface{}{}
 	}
+
 	return out
 }
 
@@ -1010,6 +1126,7 @@ func marshalModelPrice(price *platform.ModelPrice) ([]byte, error) {
 	if price == nil {
 		return nil, nil
 	}
+
 	return json.Marshal(price)
 }
 
@@ -1020,8 +1137,10 @@ func modelTypesToStrings(types []platform.ModelType) []string {
 		if value == "" {
 			continue
 		}
+
 		items = append(items, value)
 	}
+
 	return items
 }
 
@@ -1032,24 +1151,30 @@ func stringsToModelTypes(values []string) []platform.ModelType {
 		if value == "" {
 			continue
 		}
+
 		items = append(items, platform.ModelType(value))
 	}
+
 	return items
 }
 
 func normalizeStringList(values []string) []string {
 	items := make([]string, 0, len(values))
+
 	seen := make(map[string]struct{}, len(values))
 	for _, item := range values {
 		value := strings.TrimSpace(item)
 		if value == "" {
 			continue
 		}
+
 		if _, ok := seen[value]; ok {
 			continue
 		}
+
 		seen[value] = struct{}{}
 		items = append(items, value)
 	}
+
 	return items
 }

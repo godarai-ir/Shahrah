@@ -31,6 +31,7 @@ func IsTenantAdminOrHigher(authInfo *platform.AuthContext) bool {
 	if authInfo == nil {
 		return false
 	}
+
 	switch normalizeRole(authInfo.Role) {
 	case roleProxyAdmin, roleTenantAdmin:
 		return true
@@ -44,6 +45,7 @@ func IsOrgAdminOrHigher(authInfo *platform.AuthContext) bool {
 	if authInfo == nil {
 		return false
 	}
+
 	switch normalizeRole(authInfo.Role) {
 	case roleProxyAdmin, roleTenantAdmin, roleOrgAdmin:
 		return true
@@ -57,6 +59,7 @@ func IsTeamAdminOrHigher(authInfo *platform.AuthContext) bool {
 	if authInfo == nil {
 		return false
 	}
+
 	switch normalizeRole(authInfo.Role) {
 	case roleProxyAdmin, roleTenantAdmin, roleOrgAdmin, roleTeamAdmin:
 		return true
@@ -67,11 +70,12 @@ func IsTeamAdminOrHigher(authInfo *platform.AuthContext) bool {
 
 // IsOrgAdminOrHigherForOrgUnit returns true when caller can manage the given OrgUnit.
 // For org_admin: checks if they are member of the OrgUnit
-// For tenant_admin/proxy_admin: always returns true
+// For tenant_admin/proxy_admin: always returns true.
 func IsOrgAdminOrHigherForOrgUnit(authInfo *platform.AuthContext, orgUnitID string) bool {
 	if authInfo == nil {
 		return false
 	}
+
 	normalizedRole := normalizeRole(authInfo.Role)
 	// proxy_admin and tenant_admin can manage any OrgUnit
 	if normalizedRole == roleProxyAdmin || normalizedRole == roleTenantAdmin {
@@ -81,6 +85,7 @@ func IsOrgAdminOrHigherForOrgUnit(authInfo *platform.AuthContext, orgUnitID stri
 	if normalizedRole == roleOrgAdmin {
 		return authInfo.OrgUnitID == orgUnitID
 	}
+
 	return false
 }
 
@@ -89,6 +94,7 @@ func CheckRouteAuthorization(method string, route string, authInfo *platform.Aut
 	if authInfo == nil {
 		return fmt.Errorf("authentication required")
 	}
+
 	if IsProxyAdmin(authInfo.Role) {
 		return nil
 	}
@@ -148,6 +154,7 @@ func checkSubscriptionRouteAuthorization(method string, authInfo *platform.AuthC
 	if IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
+
 	switch strings.ToUpper(strings.TrimSpace(method)) {
 	case "GET", "HEAD", "OPTIONS":
 		if hasAnyPermission(authInfo, "settings:list", "settings:manage") {
@@ -158,6 +165,7 @@ func checkSubscriptionRouteAuthorization(method string, authInfo *platform.AuthC
 			return nil
 		}
 	}
+
 	return fmt.Errorf("settings permission required")
 }
 
@@ -165,6 +173,7 @@ func checkPATRouteAuthorization(authInfo *platform.AuthContext) error {
 	if authInfo == nil {
 		return fmt.Errorf("authentication required")
 	}
+
 	role := normalizeRole(authInfo.Role)
 	switch role {
 	case roleProxyAdmin, roleTenantAdmin, roleOrgAdmin, roleTeamAdmin, roleMember, roleReadOnlyMember:
@@ -178,13 +187,16 @@ func checkWalletRouteAuthorization(method string, route string, authInfo *platfo
 	if IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
+
 	normalizedMethod := strings.ToUpper(strings.TrimSpace(method))
 	normalizedRoute := strings.TrimSpace(route)
+
 	switch normalizedMethod {
 	case "GET", "HEAD", "OPTIONS":
 		if hasAnyPermission(authInfo, "settings:list", "settings:manage") {
 			return nil
 		}
+
 		return fmt.Errorf("settings list permission required")
 	case "PUT", "PATCH":
 		if normalizedRoute == "/api/v1/wallet/topup/settings" && hasPermission(authInfo, "settings:manage") {
@@ -195,6 +207,7 @@ func checkWalletRouteAuthorization(method string, route string, authInfo *platfo
 			return nil
 		}
 	}
+
 	return fmt.Errorf("tenant admin privileges required")
 }
 
@@ -202,6 +215,7 @@ func checkPolicyRouteAuthorization(method string, authInfo *platform.AuthContext
 	if IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
+
 	switch strings.ToUpper(strings.TrimSpace(method)) {
 	case "GET", "HEAD", "OPTIONS":
 		if hasPermission(authInfo, "policy:list") || hasPermission(authInfo, "policy:manage") {
@@ -212,6 +226,7 @@ func checkPolicyRouteAuthorization(method string, authInfo *platform.AuthContext
 			return nil
 		}
 	}
+
 	return fmt.Errorf("insufficient permissions for policy management route")
 }
 
@@ -219,6 +234,7 @@ func checkAccessPrincipalRouteAuthorization(route string, authInfo *platform.Aut
 	if IsTeamAdminOrHigher(authInfo) {
 		return nil
 	}
+
 	kind := extractQueryParam(route, "kind")
 	switch strings.ToLower(strings.TrimSpace(kind)) {
 	case "user":
@@ -238,6 +254,7 @@ func checkAccessPrincipalRouteAuthorization(route string, authInfo *platform.Aut
 			return nil
 		}
 	}
+
 	return fmt.Errorf("insufficient permissions for access principal search")
 }
 
@@ -245,6 +262,7 @@ func checkUserManagementRouteAuthorization(method string, authInfo *platform.Aut
 	if IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
+
 	switch strings.ToUpper(strings.TrimSpace(method)) {
 	case "GET", "HEAD", "OPTIONS":
 		if hasPermission(authInfo, "user:manage") {
@@ -255,6 +273,7 @@ func checkUserManagementRouteAuthorization(method string, authInfo *platform.Aut
 			return nil
 		}
 	}
+
 	return fmt.Errorf("user manage permission required")
 }
 
@@ -262,6 +281,7 @@ func checkRolesRouteAuthorization(method string, authInfo *platform.AuthContext)
 	if IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
+
 	switch strings.ToUpper(strings.TrimSpace(method)) {
 	case "GET", "HEAD", "OPTIONS":
 		if hasPermission(authInfo, "role:list") || hasPermission(authInfo, "role:manage") || hasPermission(authInfo, "user:manage") {
@@ -272,6 +292,7 @@ func checkRolesRouteAuthorization(method string, authInfo *platform.AuthContext)
 			return nil
 		}
 	}
+
 	return fmt.Errorf("insufficient permissions for roles route")
 }
 
@@ -279,6 +300,7 @@ func checkOrgUnitRouteAuthorization(method string, authInfo *platform.AuthContex
 	if IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
+
 	switch strings.ToUpper(strings.TrimSpace(method)) {
 	case "GET", "HEAD", "OPTIONS":
 		if hasPermission(authInfo, "org_unit:read") || hasPermission(authInfo, "org_unit:list") || hasPermission(authInfo, "org_unit:manage") {
@@ -297,6 +319,7 @@ func checkOrgUnitRouteAuthorization(method string, authInfo *platform.AuthContex
 			return nil
 		}
 	}
+
 	return fmt.Errorf("insufficient permissions for org unit route")
 }
 
@@ -304,6 +327,7 @@ func checkModelsRouteAuthorization(method string, route string, authInfo *platfo
 	if IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
+
 	normalizedMethod := strings.ToUpper(strings.TrimSpace(method))
 	if normalizedMethod == "GET" || normalizedMethod == "HEAD" || normalizedMethod == "OPTIONS" {
 		if hasAnyPermission(authInfo,
@@ -313,8 +337,10 @@ func checkModelsRouteAuthorization(method string, route string, authInfo *platfo
 		) {
 			return nil
 		}
+
 		return fmt.Errorf("model list permission required")
 	}
+
 	if strings.HasSuffix(strings.TrimSpace(route), "/allowed") {
 		if hasAnyPermission(authInfo,
 			"policy:list", "policy:manage",
@@ -323,8 +349,10 @@ func checkModelsRouteAuthorization(method string, route string, authInfo *platfo
 		) {
 			return nil
 		}
+
 		return fmt.Errorf("model list permission required")
 	}
+
 	return fmt.Errorf("tenant admin privileges required")
 }
 
@@ -332,16 +360,19 @@ func checkVirtualModelsRouteAuthorization(method string, authInfo *platform.Auth
 	if IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
+
 	switch strings.ToUpper(strings.TrimSpace(method)) {
 	case "GET", "HEAD", "OPTIONS":
 		if hasAnyPermission(authInfo, "virtual_account:read", "virtual_account:manage", "policy:list", "policy:manage") {
 			return nil
 		}
+
 		return fmt.Errorf("virtual account read permission required")
 	default:
 		if hasAnyPermission(authInfo, "virtual_account:manage", "virtual_account:delete") {
 			return nil
 		}
+
 		return fmt.Errorf("virtual account manage permission required")
 	}
 }
@@ -350,20 +381,26 @@ func checkProviderCatalogRouteAuthorization(method string, route string, authInf
 	if IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
+
 	normalizedMethod := strings.ToUpper(strings.TrimSpace(method))
+
 	normalizedRoute := strings.TrimSpace(route)
 	if normalizedRoute == "/api/v1/provider-catalog/refresh" && normalizedMethod == "POST" {
 		if hasAnyPermission(authInfo, "provider_account:manage", "provider_account:create", "settings:manage") {
 			return nil
 		}
+
 		return fmt.Errorf("provider account manage permission required")
 	}
+
 	if normalizedMethod == "GET" || normalizedMethod == "HEAD" || normalizedMethod == "OPTIONS" {
 		if hasAnyPermission(authInfo, "provider_account:read", "provider_account:manage", "provider_account:create") {
 			return nil
 		}
+
 		return fmt.Errorf("provider account read permission required")
 	}
+
 	return fmt.Errorf("provider account manage permission required")
 }
 
@@ -371,29 +408,38 @@ func checkProviderAccountRouteAuthorization(method string, route string, authInf
 	if IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
+
 	normalizedMethod := strings.ToUpper(strings.TrimSpace(method))
 	normalizedRoute := strings.TrimSpace(route)
+
 	if normalizedMethod == "GET" || normalizedMethod == "HEAD" || normalizedMethod == "OPTIONS" {
 		if hasAnyPermission(authInfo, "provider_account:read", "provider_account:manage", "provider_account:create") {
 			return nil
 		}
+
 		return fmt.Errorf("provider account read permission required")
 	}
+
 	if normalizedMethod == "POST" && normalizedRoute == "/api/v1/tenant-provider-accounts" {
 		if hasAnyPermission(authInfo, "provider_account:create", "provider_account:manage") {
 			return nil
 		}
+
 		return fmt.Errorf("provider account create permission required")
 	}
+
 	if normalizedMethod == "DELETE" && isProviderAccountDeleteRoute(normalizedRoute) {
 		if hasAnyPermission(authInfo, "provider_account:delete", "provider_account:manage", "provider_account:create") {
 			return nil
 		}
+
 		return fmt.Errorf("provider account delete permission required")
 	}
+
 	if hasAnyPermission(authInfo, "provider_account:manage", "provider_account:create") {
 		return nil
 	}
+
 	return fmt.Errorf("provider account manage permission required")
 }
 
@@ -431,6 +477,7 @@ func requireTenantAdmin(authInfo *platform.AuthContext) error {
 	if IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
+
 	return fmt.Errorf("tenant admin privileges required")
 }
 
@@ -438,6 +485,7 @@ func requireTeamAdmin(authInfo *platform.AuthContext) error {
 	if IsTeamAdminOrHigher(authInfo) {
 		return nil
 	}
+
 	return fmt.Errorf("team admin privileges required")
 }
 
@@ -445,22 +493,27 @@ func hasTeamMemberPermission(authInfo *platform.AuthContext, permission string) 
 	if authInfo == nil {
 		return false
 	}
+
 	if IsTeamAdminOrHigher(authInfo) {
 		return true
 	}
+
 	permission = strings.TrimSpace(permission)
 	if permission == "" {
 		return false
 	}
+
 	if len(authInfo.TeamMemberPermissions) == 0 {
 		_, ok := defaultTeamMemberPermissions[permission]
 		return ok
 	}
+
 	for _, item := range authInfo.TeamMemberPermissions {
 		if strings.TrimSpace(item) == permission {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -468,15 +521,18 @@ func hasPermission(authInfo *platform.AuthContext, permission string) bool {
 	if authInfo == nil {
 		return false
 	}
+
 	permission = strings.TrimSpace(strings.ToLower(permission))
 	if permission == "" {
 		return false
 	}
+
 	for _, item := range authInfo.Permissions {
 		if strings.TrimSpace(strings.ToLower(item)) == permission {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -486,6 +542,7 @@ func hasAnyPermission(authInfo *platform.AuthContext, permissions ...string) boo
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -505,9 +562,11 @@ func normalizeRoute(route string) string {
 	if trimmed == "" {
 		return "/"
 	}
+
 	if !strings.HasPrefix(trimmed, "/") {
 		return "/" + trimmed
 	}
+
 	return trimmed
 }
 
@@ -516,13 +575,16 @@ func isProviderAccountDeleteRoute(route string) bool {
 	if trimmed == "/api/v1/tenant-provider-accounts" {
 		return false
 	}
+
 	if !strings.HasPrefix(trimmed, "/api/v1/tenant-provider-accounts/") {
 		return false
 	}
+
 	rest := strings.TrimPrefix(trimmed, "/api/v1/tenant-provider-accounts/")
 	if rest == "" {
 		return false
 	}
+
 	return !strings.Contains(rest, "/")
 }
 
@@ -531,15 +593,18 @@ func extractQueryParam(route string, key string) string {
 	if len(parts) != 2 {
 		return ""
 	}
+
 	query := parts[1]
 	for _, pair := range strings.Split(query, "&") {
 		kv := strings.SplitN(pair, "=", 2)
 		if len(kv) != 2 {
 			continue
 		}
+
 		if strings.TrimSpace(strings.ToLower(kv[0])) == strings.TrimSpace(strings.ToLower(key)) {
 			return kv[1]
 		}
 	}
+
 	return ""
 }

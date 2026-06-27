@@ -20,30 +20,39 @@ func (s *Store) initClickHouse(ctx context.Context) error {
 	if dsn == "" {
 		return fmt.Errorf("CLICKHOUSE_DSN is required for trace storage")
 	}
+
 	db, err := sql.Open("clickhouse", dsn)
 	if err != nil {
 		return err
 	}
+
 	db.SetMaxOpenConns(16)
 	db.SetMaxIdleConns(8)
 	db.SetConnMaxLifetime(15 * time.Minute)
+
 	if err := db.PingContext(ctx); err != nil {
 		_ = db.Close()
 		return err
 	}
+
 	s.clickhouse = db
 	if err := s.ensureClickHouseTraceSchema(ctx); err != nil {
 		_ = db.Close()
 		s.clickhouse = nil
+
 		return err
 	}
+
 	if err := s.ensureClickHouseMetricsSchema(ctx); err != nil {
 		_ = db.Close()
 		s.clickhouse = nil
+
 		return err
 	}
+
 	s.clickhouseReady = true
 	s.logger.Info("clickhouse trace backend enabled")
+
 	return nil
 }
 
@@ -83,7 +92,9 @@ func (s *Store) ensureClickHouseTraceSchema(ctx context.Context) error {
 			return err
 		}
 	}
+
 	s.removeLegacyClickHouseTraceTTLs(ctx)
+
 	return nil
 }
 
@@ -92,11 +103,14 @@ func (s *Store) removeLegacyClickHouseTraceTTLs(ctx context.Context) {
 		hasTTL, err := s.clickHouseTableHasTTL(ctx, table)
 		if err != nil {
 			s.logger.Warn("clickhouse trace ttl inspection failed", zap.String("table", table), zap.Error(err))
+
 			hasTTL = true
 		}
+
 		if !hasTTL {
 			continue
 		}
+
 		if _, err := s.clickhouse.ExecContext(ctx, "ALTER TABLE "+table+" REMOVE TTL"); err != nil {
 			s.logger.Warn("clickhouse trace ttl removal failed", zap.String("table", table), zap.Error(err))
 		}
@@ -105,6 +119,7 @@ func (s *Store) removeLegacyClickHouseTraceTTLs(ctx context.Context) {
 
 func (s *Store) clickHouseTableHasTTL(ctx context.Context, table string) (bool, error) {
 	var createQuery string
+
 	err := s.clickhouse.QueryRowContext(ctx, `
 		SELECT create_table_query
 		FROM system.tables
@@ -115,8 +130,10 @@ func (s *Store) clickHouseTableHasTTL(ctx context.Context, table string) (bool, 
 		if errorsIsNoRows(err) {
 			return false, nil
 		}
+
 		return false, err
 	}
+
 	return strings.Contains(strings.ToUpper(createQuery), "TTL"), nil
 }
 
@@ -124,26 +141,33 @@ func (s *Store) exportToClickHouse(ctx context.Context, batch []tracing.SpanEven
 	if len(batch) == 0 {
 		return nil
 	}
-	const traceInsertSQL = `
+
+	const (
+		traceInsertSQL = `
 		INSERT INTO request_traces_ch
 		(trace_id, tenant_id, request_id, model, route, status_code, started_at, duration_ms, error_code, sampled)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	const spanInsertSQL = `
+		spanInsertSQL = `
 		INSERT INTO request_spans_ch
 		(span_id, trace_id, tenant_id, parent_span_id, name, kind, started_at, duration_ms, status, attributes_json)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
+	)
+
 	for _, ev := range batch {
 		if strings.TrimSpace(ev.TraceID) == "" || strings.TrimSpace(ev.TenantID) == "" {
 			continue
 		}
+
 		errorCode := ""
 		status := "ok"
+
 		if ev.StatusCode >= 500 {
 			errorCode = "upstream_error"
 			status = "error"
 		}
+
 		model := strings.TrimSpace(ev.Model)
 		if model == "" && ev.Attributes != nil {
 			if raw, ok := ev.Attributes["model"]; ok {
@@ -152,8 +176,10 @@ func (s *Store) exportToClickHouse(ctx context.Context, batch []tracing.SpanEven
 				}
 			}
 		}
+
 		if isRootRequestSpan(ev) {
 			requestID := ev.TraceID
+
 			_, err := s.clickhouse.ExecContext(
 				ctx,
 				traceInsertSQL,
@@ -181,20 +207,26 @@ func (s *Store) exportToClickHouse(ctx context.Context, batch []tracing.SpanEven
 		for k, v := range ev.Attributes {
 			attrs[k] = v
 		}
+
 		attrsRaw, _ := json.Marshal(attrs)
+
 		spanID := ev.SpanID
 		if strings.TrimSpace(spanID) == "" {
 			spanID = fmt.Sprintf("%s:%d", ev.TraceID, ev.StartedAt.UnixNano())
 		}
+
 		parentSpanID := ev.ParentSpanID
+
 		spanName := ev.Name
 		if strings.TrimSpace(spanName) == "" {
 			spanName = "gateway.request"
 		}
+
 		spanKind := ev.Kind
 		if strings.TrimSpace(spanKind) == "" {
 			spanKind = "server"
 		}
+
 		_, err := s.clickhouse.ExecContext(
 			ctx,
 			spanInsertSQL,
@@ -213,6 +245,7 @@ func (s *Store) exportToClickHouse(ctx context.Context, batch []tracing.SpanEven
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -220,35 +253,43 @@ func (s *Store) listRequestTracesFromClickHouse(ctx context.Context, params plat
 	if params.Limit <= 0 {
 		params.Limit = 50
 	}
+
 	if params.Limit > 200 {
 		params.Limit = 200
 	}
+
 	if params.Offset < 0 {
 		params.Offset = 0
 	}
 
 	where := []string{"tenant_id = ?"}
+
 	args := []interface{}{params.TenantID}
 	if params.TraceID != "" {
 		where = append(where, "trace_id = ?")
 		args = append(args, params.TraceID)
 	}
+
 	if params.Route != "" {
 		where = append(where, "route = ?")
 		args = append(args, params.Route)
 	}
+
 	if params.Model != "" {
 		where = append(where, "model = ?")
 		args = append(args, params.Model)
 	}
+
 	if params.StatusCode != nil {
 		where = append(where, "status_code = ?")
 		args = append(args, int32(*params.StatusCode))
 	}
+
 	if params.From != nil {
 		where = append(where, "started_at >= ?")
 		args = append(args, params.From.UTC())
 	}
+
 	if params.To != nil {
 		where = append(where, "started_at <= ?")
 		args = append(args, params.To.UTC())
@@ -257,6 +298,7 @@ func (s *Store) listRequestTracesFromClickHouse(ctx context.Context, params plat
 	whereSQL := strings.Join(where, " AND ")
 	dedupSubquery := buildTraceDedupeSubquery(whereSQL)
 	countQ := fmt.Sprintf(`SELECT count() FROM (%s)`, dedupSubquery)
+
 	var total uint64
 	if err := s.clickhouse.QueryRowContext(ctx, countQ, args...).Scan(&total); err != nil {
 		return nil, 0, err
@@ -268,7 +310,9 @@ func (s *Store) listRequestTracesFromClickHouse(ctx context.Context, params plat
 		ORDER BY started_at DESC
 		LIMIT ? OFFSET ?
 	`, dedupSubquery)
+
 	args = append(args, params.Limit, params.Offset)
+
 	rows, err := s.clickhouse.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, 0, err
@@ -276,9 +320,12 @@ func (s *Store) listRequestTracesFromClickHouse(ctx context.Context, params plat
 	defer rows.Close()
 
 	items := make([]platform.RequestTrace, 0, params.Limit)
+
 	for rows.Next() {
-		var item platform.RequestTrace
-		var sampled uint8
+		var (
+			item    platform.RequestTrace
+			sampled uint8
+		)
 		if err := rows.Scan(
 			&item.TraceID,
 			&item.TenantID,
@@ -293,15 +340,20 @@ func (s *Store) listRequestTracesFromClickHouse(ctx context.Context, params plat
 		); err != nil {
 			return nil, 0, err
 		}
+
 		item.Sampled = sampled == 1
 		items = append(items, item)
 	}
+
 	return items, int(total), rows.Err()
 }
 
 func (s *Store) getRequestTraceFromClickHouse(ctx context.Context, tenantID, traceID string) (*platform.RequestTrace, error) {
-	var item platform.RequestTrace
-	var sampled uint8
+	var (
+		item    platform.RequestTrace
+		sampled uint8
+	)
+
 	err := s.clickhouse.QueryRowContext(ctx, `
 		SELECT trace_id, tenant_id, request_id, model, route, status_code, started_at, duration_ms, error_code, sampled
 		FROM (`+buildTraceDedupeSubquery("tenant_id = ? AND trace_id = ?")+`)
@@ -322,9 +374,12 @@ func (s *Store) getRequestTraceFromClickHouse(ctx context.Context, tenantID, tra
 		if errorsIsNoRows(err) {
 			return nil, pgx.ErrNoRows
 		}
+
 		return nil, err
 	}
+
 	item.Sampled = sampled == 1
+
 	return &item, nil
 }
 
@@ -332,6 +387,7 @@ func (s *Store) listTraceSpansFromClickHouse(ctx context.Context, tenantID, trac
 	if _, err := s.getRequestTraceFromClickHouse(ctx, tenantID, traceID); err != nil {
 		return nil, err
 	}
+
 	rows, err := s.clickhouse.QueryContext(ctx, `
 		SELECT span_id, trace_id, parent_span_id, name, kind, started_at, duration_ms, status, attributes_json
 		FROM request_spans_ch
@@ -344,9 +400,12 @@ func (s *Store) listTraceSpansFromClickHouse(ctx context.Context, tenantID, trac
 	defer rows.Close()
 
 	out := make([]platform.TraceSpan, 0, 8)
+
 	for rows.Next() {
-		var item platform.TraceSpan
-		var attrsRaw string
+		var (
+			item     platform.TraceSpan
+			attrsRaw string
+		)
 		if err := rows.Scan(
 			&item.SpanID,
 			&item.TraceID,
@@ -360,14 +419,18 @@ func (s *Store) listTraceSpansFromClickHouse(ctx context.Context, tenantID, trac
 		); err != nil {
 			return nil, err
 		}
+
 		if strings.TrimSpace(attrsRaw) != "" {
 			_ = json.Unmarshal([]byte(attrsRaw), &item.Attributes)
 		}
+
 		if item.Attributes == nil {
 			item.Attributes = map[string]interface{}{}
 		}
+
 		out = append(out, item)
 	}
+
 	return out, rows.Err()
 }
 
@@ -375,12 +438,15 @@ func (s *Store) listRequestTracesV2FromClickHouse(ctx context.Context, params pl
 	if params.Limit <= 0 {
 		params.Limit = 50
 	}
+
 	if params.Limit > 200 {
 		params.Limit = 200
 	}
+
 	if params.Offset < 0 {
 		params.Offset = 0
 	}
+
 	sortBy := normalizeTraceSortBy(params.SortBy)
 	sortOrder := normalizeSortOrder(params.SortOrder)
 
@@ -404,10 +470,12 @@ func (s *Store) listRequestTracesV2FromClickHouse(ctx context.Context, params pl
 	`
 	outerWhere := []string{"1 = 1"}
 	outerArgs := []interface{}{}
+
 	if strings.TrimSpace(params.Provider) != "" {
 		outerWhere = append(outerWhere, "p.provider = ?")
 		outerArgs = append(outerArgs, strings.TrimSpace(params.Provider))
 	}
+
 	baseFrom := fmt.Sprintf(`
 		FROM (%s) t
 		LEFT JOIN (%s) p ON t.trace_id = p.trace_id
@@ -415,9 +483,11 @@ func (s *Store) listRequestTracesV2FromClickHouse(ctx context.Context, params pl
 	`, dedupSubquery, providerSubquery, attemptsSubquery)
 
 	countQ := fmt.Sprintf(`SELECT count() %s WHERE %s`, baseFrom, strings.Join(outerWhere, " AND "))
+
 	countArgs := append([]interface{}{}, baseArgs...)
 	countArgs = append(countArgs, params.TenantID, params.TenantID)
 	countArgs = append(countArgs, outerArgs...)
+
 	var total uint64
 	if err := s.clickhouse.QueryRowContext(ctx, countQ, countArgs...).Scan(&total); err != nil {
 		return nil, 0, err
@@ -442,10 +512,12 @@ func (s *Store) listRequestTracesV2FromClickHouse(ctx context.Context, params pl
 		ORDER BY %s %s
 		LIMIT ? OFFSET ?
 	`, baseFrom, strings.Join(outerWhere, " AND "), sortBy, sortOrder)
+
 	args := append([]interface{}{}, baseArgs...)
 	args = append(args, params.TenantID, params.TenantID)
 	args = append(args, outerArgs...)
 	args = append(args, params.Limit, params.Offset)
+
 	rows, err := s.clickhouse.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, 0, err
@@ -453,10 +525,13 @@ func (s *Store) listRequestTracesV2FromClickHouse(ctx context.Context, params pl
 	defer rows.Close()
 
 	items := make([]platform.RequestTraceV2, 0, params.Limit)
+
 	for rows.Next() {
-		var item platform.RequestTraceV2
-		var sampled uint8
-		var attempts int32
+		var (
+			item     platform.RequestTraceV2
+			sampled  uint8
+			attempts int32
+		)
 		if err := rows.Scan(
 			&item.TraceID,
 			&item.TenantID,
@@ -473,10 +548,12 @@ func (s *Store) listRequestTracesV2FromClickHouse(ctx context.Context, params pl
 		); err != nil {
 			return nil, 0, err
 		}
+
 		item.Sampled = sampled == 1
 		item.Attempts = int(attempts)
 		items = append(items, item)
 	}
+
 	return items, int(total), rows.Err()
 }
 
@@ -485,24 +562,30 @@ func (s *Store) getRequestTraceV2FromClickHouse(ctx context.Context, tenantID, t
 	if err != nil {
 		return nil, err
 	}
+
 	spans, err := s.listTraceSpansFromClickHouse(ctx, tenantID, traceID)
 	if err != nil {
 		return nil, err
 	}
+
 	attempts, err := s.listTraceAttemptsV2FromClickHouse(ctx, tenantID, traceID)
 	if err != nil {
 		return nil, err
 	}
+
 	errorsCount := 0
+
 	for _, span := range spans {
 		if strings.EqualFold(span.Status, "error") {
 			errorsCount++
 		}
 	}
+
 	provider := ""
 	if len(attempts) > 0 {
 		provider = attempts[0].Provider
 	}
+
 	detail := &platform.RequestTraceDetailV2{
 		Trace: platform.RequestTraceV2{
 			TraceID:    trace.TraceID,
@@ -524,19 +607,24 @@ func (s *Store) getRequestTraceV2FromClickHouse(ctx context.Context, tenantID, t
 			ErrorsCount:   errorsCount,
 		},
 	}
+
 	usage, err := s.getTraceUsageFromPostgres(ctx, tenantID, trace.RequestID)
 	if err != nil {
 		return nil, err
 	}
+
 	detail.Usage = usage
+
 	metric, err := s.getTraceMetricFromClickHouse(ctx, tenantID, trace.RequestID)
 	if err != nil {
 		return nil, err
 	}
+
 	detail.Metric = metric
 	if detail.Trace.Provider == "" && metric != nil {
 		detail.Trace.Provider = metric.ProviderName
 	}
+
 	return detail, nil
 }
 
@@ -544,6 +632,7 @@ func (s *Store) listTraceAttemptsV2FromClickHouse(ctx context.Context, tenantID,
 	if _, err := s.getRequestTraceFromClickHouse(ctx, tenantID, traceID); err != nil {
 		return nil, err
 	}
+
 	rows, err := s.clickhouse.QueryContext(ctx, `
 		SELECT started_at, duration_ms, status, attributes_json
 		FROM request_spans_ch
@@ -556,6 +645,7 @@ func (s *Store) listTraceAttemptsV2FromClickHouse(ctx context.Context, tenantID,
 	defer rows.Close()
 
 	out := make([]platform.TraceAttemptV2, 0, 4)
+
 	for rows.Next() {
 		var (
 			startedAt time.Time
@@ -566,10 +656,12 @@ func (s *Store) listTraceAttemptsV2FromClickHouse(ctx context.Context, tenantID,
 		if err := rows.Scan(&startedAt, &duration, &status, &attrsRaw); err != nil {
 			return nil, err
 		}
+
 		attrs := map[string]interface{}{}
 		if strings.TrimSpace(attrsRaw) != "" {
 			_ = json.Unmarshal([]byte(attrsRaw), &attrs)
 		}
+
 		item := platform.TraceAttemptV2{
 			AttemptNo:  len(out) + 1,
 			TraceID:    traceID,
@@ -581,19 +673,24 @@ func (s *Store) listTraceAttemptsV2FromClickHouse(ctx context.Context, tenantID,
 		if v, ok := attrs["provider"].(string); ok {
 			item.Provider = strings.TrimSpace(v)
 		}
+
 		if v, ok := attrs["model"].(string); ok {
 			item.Model = strings.TrimSpace(v)
 		} else if v, ok := attrs["selected_model"].(string); ok {
 			item.Model = strings.TrimSpace(v)
 		}
+
 		if v, ok := attrs["retry_reason"].(string); ok {
 			item.RetryReason = strings.TrimSpace(v)
 		}
+
 		if v, ok := attrs["failure_reason"].(string); ok {
 			item.FallbackReason = strings.TrimSpace(v)
 		}
+
 		out = append(out, item)
 	}
+
 	return out, rows.Err()
 }
 
@@ -618,15 +715,18 @@ func (s *Store) getTraceFacetsV2FromClickHouse(ctx context.Context, params platf
 	`
 	outerWhere := []string{"1 = 1"}
 	outerArgs := []interface{}{}
+
 	if strings.TrimSpace(params.Provider) != "" {
 		outerWhere = append(outerWhere, "p.provider = ?")
 		outerArgs = append(outerArgs, strings.TrimSpace(params.Provider))
 	}
+
 	baseFrom := fmt.Sprintf(`
 		FROM (%s) t
 		LEFT JOIN (%s) p ON t.trace_id = p.trace_id
 		LEFT JOIN (%s) a ON t.trace_id = a.trace_id
 	`, dedupSubquery, providerSubquery, attemptsSubquery)
+
 	sharedArgs := append([]interface{}{}, baseArgs...)
 	sharedArgs = append(sharedArgs, params.TenantID, params.TenantID)
 	sharedArgs = append(sharedArgs, outerArgs...)
@@ -636,18 +736,22 @@ func (s *Store) getTraceFacetsV2FromClickHouse(ctx context.Context, params platf
 	if err != nil {
 		return nil, err
 	}
+
 	models, err := queryFacetStringRows(ctx, s.clickhouse, buildTraceFacetStringQuery(baseFrom, whereSQL, "coalesce(t.model, '')"), sharedArgs...)
 	if err != nil {
 		return nil, err
 	}
+
 	routes, err := queryFacetStringRows(ctx, s.clickhouse, buildTraceFacetStringQuery(baseFrom, whereSQL, "coalesce(t.route, '')"), sharedArgs...)
 	if err != nil {
 		return nil, err
 	}
+
 	errorCodes, err := queryFacetStringRows(ctx, s.clickhouse, buildTraceFacetStringQuery(baseFrom, whereSQL, "coalesce(t.error_code, '')"), sharedArgs...)
 	if err != nil {
 		return nil, err
 	}
+
 	statuses, err := queryFacetStatusRows(ctx, s.clickhouse, buildTraceFacetStatusQuery(baseFrom, whereSQL), sharedArgs...)
 	if err != nil {
 		return nil, err
@@ -666,6 +770,7 @@ func (s *Store) getTraceUsageFromPostgres(ctx context.Context, tenantID, request
 	if strings.TrimSpace(requestID) == "" {
 		return nil, nil
 	}
+
 	var (
 		model          sql.NullString
 		inputTokens    sql.NullInt64
@@ -677,6 +782,7 @@ func (s *Store) getTraceUsageFromPostgres(ctx context.Context, tenantID, request
 		status         sql.NullString
 		metaRaw        []byte
 	)
+
 	err := s.pool.QueryRow(ctx, `
 		SELECT
 			model,
@@ -707,8 +813,10 @@ func (s *Store) getTraceUsageFromPostgres(ctx context.Context, tenantID, request
 		if errorsIsNoRows(err) {
 			return nil, nil
 		}
+
 		return nil, err
 	}
+
 	item := &platform.TraceUsageV2{
 		Model:          model.String,
 		InputTokens:    int(inputTokens.Int64),
@@ -719,11 +827,13 @@ func (s *Store) getTraceUsageFromPostgres(ctx context.Context, tenantID, request
 		ResponseTimeMS: int(responseTimeMS.Int64),
 		Status:         status.String,
 	}
+
 	if len(metaRaw) > 0 {
 		meta := map[string]interface{}{}
 		_ = json.Unmarshal(metaRaw, &meta)
 		item.Metadata = meta
 	}
+
 	return item, nil
 }
 
@@ -731,6 +841,7 @@ func (s *Store) getTraceMetricFromClickHouse(ctx context.Context, tenantID, requ
 	if strings.TrimSpace(requestID) == "" {
 		return nil, nil
 	}
+
 	var (
 		requestType   sql.NullString
 		providerName  sql.NullString
@@ -745,6 +856,7 @@ func (s *Store) getTraceMetricFromClickHouse(ctx context.Context, tenantID, requ
 		tpotMS        sql.NullInt64
 		virtualModel  sql.NullString
 	)
+
 	err := s.clickhouse.QueryRowContext(ctx, `
 		SELECT
 			request_type,
@@ -781,8 +893,10 @@ func (s *Store) getTraceMetricFromClickHouse(ctx context.Context, tenantID, requ
 		if errorsIsNoRows(err) {
 			return nil, nil
 		}
+
 		return nil, err
 	}
+
 	item := &platform.TraceMetricV2{
 		RequestType:      requestType.String,
 		ProviderName:     providerName.String,
@@ -794,18 +908,22 @@ func (s *Store) getTraceMetricFromClickHouse(ctx context.Context, tenantID, requ
 		CostUSD:          costUSD,
 		VirtualModelName: virtualModel.String,
 	}
+
 	if ttftMS.Valid {
 		v := int(ttftMS.Int64)
 		item.TTFTMS = &v
 	}
+
 	if itlMS.Valid {
 		v := int(itlMS.Int64)
 		item.ITLMS = &v
 	}
+
 	if tpotMS.Valid {
 		v := int(tpotMS.Int64)
 		item.TPOTMS = &v
 	}
+
 	return item, nil
 }
 
@@ -817,6 +935,7 @@ func queryFacetStringRows(ctx context.Context, db *sql.DB, query string, args ..
 	defer rows.Close()
 
 	out := make([]platform.TraceFacetBucketV2, 0, 8)
+
 	for rows.Next() {
 		var (
 			value sql.NullString
@@ -825,11 +944,13 @@ func queryFacetStringRows(ctx context.Context, db *sql.DB, query string, args ..
 		if err := rows.Scan(&value, &count); err != nil {
 			return nil, err
 		}
+
 		out = append(out, platform.TraceFacetBucketV2{
 			Value: strings.TrimSpace(value.String),
 			Count: int(count),
 		})
 	}
+
 	return out, rows.Err()
 }
 
@@ -841,6 +962,7 @@ func queryFacetStatusRows(ctx context.Context, db *sql.DB, query string, args ..
 	defer rows.Close()
 
 	out := make([]platform.TraceStatusFacetBucketV2, 0, 8)
+
 	for rows.Next() {
 		var (
 			statusCode int32
@@ -849,49 +971,60 @@ func queryFacetStatusRows(ctx context.Context, db *sql.DB, query string, args ..
 		if err := rows.Scan(&statusCode, &count); err != nil {
 			return nil, err
 		}
+
 		out = append(out, platform.TraceStatusFacetBucketV2{
 			StatusCode: int(statusCode),
 			Count:      int(count),
 		})
 	}
+
 	return out, rows.Err()
 }
 
 func buildTraceV2BaseWhere(params platform.ListRequestTracesV2Params) (string, []interface{}) {
 	where := []string{"tenant_id = ?"}
+
 	args := []interface{}{params.TenantID}
 	if params.TraceID != "" {
 		where = append(where, "trace_id = ?")
 		args = append(args, params.TraceID)
 	}
+
 	if params.RequestID != "" {
 		where = append(where, "request_id = ?")
 		args = append(args, params.RequestID)
 	}
+
 	if params.Route != "" {
 		where = append(where, "route = ?")
 		args = append(args, params.Route)
 	}
+
 	if params.Model != "" {
 		where = append(where, "model = ?")
 		args = append(args, params.Model)
 	}
+
 	if params.StatusCode != nil {
 		where = append(where, "status_code = ?")
 		args = append(args, int32(*params.StatusCode))
 	}
+
 	if params.ErrorCode != "" {
 		where = append(where, "error_code = ?")
 		args = append(args, params.ErrorCode)
 	}
+
 	if params.From != nil {
 		where = append(where, "started_at >= ?")
 		args = append(args, params.From.UTC())
 	}
+
 	if params.To != nil {
 		where = append(where, "started_at <= ?")
 		args = append(args, params.To.UTC())
 	}
+
 	return strings.Join(where, " AND "), args
 }
 
@@ -934,6 +1067,7 @@ func normalizeSortOrder(order string) string {
 	if strings.EqualFold(strings.TrimSpace(order), "asc") {
 		return "ASC"
 	}
+
 	return "DESC"
 }
 
@@ -941,6 +1075,7 @@ func boolToUint8(v bool) uint8 {
 	if v {
 		return 1
 	}
+
 	return 0
 }
 

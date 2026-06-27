@@ -47,16 +47,20 @@ func (h *ModelsHandler) Handle(c *fiber.Ctx) error {
 		if id == "" {
 			id = dep.ID
 		}
+
 		if !isModelAllowed(authInfo, id) {
 			continue
 		}
+
 		model := byAlias[id]
 		model.ID = id
 		model.Object = "model"
+
 		model.OwnedBy = "shahrah"
 		if model.Provider == "" {
 			model.Provider = dep.Provider
 		}
+
 		model.Aliases = appendUniqueModelAlias(model.Aliases, dep.ModelName)
 		model.Aliases = appendUniqueModelAlias(model.Aliases, dep.Model)
 		byAlias[id] = model
@@ -66,10 +70,12 @@ func (h *ModelsHandler) Handle(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	for _, vm := range virtualModels {
 		if !isModelAllowed(authInfo, vm.Alias) {
 			continue
 		}
+
 		model := byAlias[vm.Alias]
 		model.ID = vm.Alias
 		model.Object = "model"
@@ -98,10 +104,12 @@ func appendUniqueModelAlias(values []string, candidate string) []string {
 	if candidate == "" {
 		return values
 	}
+
 	for _, existing := range values {
 		if existing == candidate {
 			return values
 		}
 	}
+
 	return append(values, candidate)
 }

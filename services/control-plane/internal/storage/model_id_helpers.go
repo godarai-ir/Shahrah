@@ -11,9 +11,11 @@ func normalizeModelFQN(model string) string {
 	if model == "" {
 		return ""
 	}
+
 	provider, accountAlias, officialModel, ok := modelid.SplitModelFQN(model)
 	if !ok {
 		return model
 	}
+
 	return modelid.BuildModelFQN(provider, accountAlias, officialModel)
 }

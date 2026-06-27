@@ -15,17 +15,21 @@ func (h *Handlers) requireEntitlementEnabled(c *fiber.Ctx, tenantID string, feat
 	if h.entitlements == nil {
 		return nil
 	}
+
 	entitlements, err := h.entitlements.ResolveEffectiveEntitlements(c.Context(), tenantID)
 	if err != nil {
 		return mapPlanStoreError(err)
 	}
+
 	if entitlements == nil || entitlements.Subscription == nil || !subscriptionEntitlementsUsable(entitlements.Subscription.Status) {
 		return fiber.NewError(fiber.StatusForbidden, "active subscription required")
 	}
+
 	enabled, ok := entitlementBool(entitlements.Features[featureKey])
 	if !ok || !enabled {
 		return fiber.NewError(fiber.StatusForbidden, fmt.Sprintf("feature %s is not enabled for this plan", featureKey))
 	}
+
 	return nil
 }
 
@@ -33,23 +37,29 @@ func (h *Handlers) requireEntitlementLimitAvailable(c *fiber.Ctx, tenantID strin
 	if h.entitlements == nil {
 		return nil
 	}
+
 	if requested < 1 {
 		requested = 1
 	}
+
 	entitlements, err := h.entitlements.ResolveEffectiveEntitlements(c.Context(), tenantID)
 	if err != nil {
 		return mapPlanStoreError(err)
 	}
+
 	if entitlements == nil || entitlements.Subscription == nil || !subscriptionEntitlementsUsable(entitlements.Subscription.Status) {
 		return fiber.NewError(fiber.StatusForbidden, "active subscription required")
 	}
+
 	limit, limited := entitlementNumber(entitlements.Features[featureKey])
 	if !limited {
 		return nil
 	}
+
 	if float64(used+requested) > limit {
 		return fiber.NewError(fiber.StatusForbidden, fmt.Sprintf("feature %s limit exceeded for this plan", featureKey))
 	}
+
 	return nil
 }
 
@@ -89,16 +99,19 @@ func entitlementNumber(value interface{}) (float64, bool) {
 		if err != nil {
 			return 0, false
 		}
+
 		return normalizeEntitlementLimit(parsed)
 	case string:
 		raw := strings.TrimSpace(strings.ToLower(v))
 		if raw == "" || raw == "custom" || raw == "unlimited" || raw == "null" {
 			return 0, false
 		}
+
 		parsed, err := strconv.ParseFloat(raw, 64)
 		if err != nil {
 			return 0, false
 		}
+
 		return normalizeEntitlementLimit(parsed)
 	default:
 		return 0, false
@@ -109,6 +122,7 @@ func normalizeEntitlementLimit(value float64) (float64, bool) {
 	if value < 0 || math.IsInf(value, 0) || math.IsNaN(value) {
 		return 0, false
 	}
+
 	return value, true
 }
 

@@ -19,7 +19,9 @@ func TestStreamIgnoresClientTimeoutWhileBodyIsOpen(t *testing.T) {
 		if r.URL.Path != "/dispatch" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
+
 		w.Header().Set("Content-Type", "text/event-stream")
+
 		flusher, ok := w.(http.Flusher)
 		if !ok {
 			t.Fatal("response writer does not support flushing")
@@ -27,16 +29,19 @@ func TestStreamIgnoresClientTimeoutWhileBodyIsOpen(t *testing.T) {
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("data: first\n\n"))
+
 		flusher.Flush()
 
 		time.Sleep(50 * time.Millisecond)
 
 		_, _ = w.Write([]byte("data: second\n\n"))
+
 		flusher.Flush()
 	}))
 	defer upstream.Close()
 
 	transport := NewHTTPTransport(upstream.URL, 20*time.Millisecond)
+
 	stream, err := transport.Stream(context.Background(), platform.TunnelRequest{
 		RequestID: "req_stream_timeout",
 		TraceID:   "trace_stream_timeout",
@@ -48,6 +53,7 @@ func TestStreamIgnoresClientTimeoutWhileBodyIsOpen(t *testing.T) {
 	defer stream.Close()
 
 	var sb strings.Builder
+
 	timeout := time.After(300 * time.Millisecond)
 
 	for {
@@ -57,13 +63,17 @@ func TestStreamIgnoresClientTimeoutWhileBodyIsOpen(t *testing.T) {
 				if !strings.Contains(sb.String(), "data: first") || !strings.Contains(sb.String(), "data: second") {
 					t.Fatalf("expected both stream chunks, got %q", sb.String())
 				}
+
 				return
 			}
+
 			sb.Write(chunk.Data)
+
 			if chunk.IsDone {
 				if !strings.Contains(sb.String(), "data: first") || !strings.Contains(sb.String(), "data: second") {
 					t.Fatalf("expected both stream chunks, got %q", sb.String())
 				}
+
 				return
 			}
 		case err := <-stream.Errors():
@@ -80,17 +90,21 @@ func TestStreamSetsRequestStreamFlag(t *testing.T) {
 	t.Parallel()
 
 	var payload platform.TunnelRequest
+
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
+
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 			t.Fatalf("decode body: %v", err)
 		}
+
 		w.Header().Set("Content-Type", "text/event-stream")
 		_, _ = w.Write([]byte("data: ok\n\n"))
 	}))
 	defer upstream.Close()
 
 	transport := NewHTTPTransport(upstream.URL, time.Second)
+
 	stream, err := transport.Stream(context.Background(), platform.TunnelRequest{})
 	if err != nil {
 		t.Fatalf("stream request failed: %v", err)
@@ -117,6 +131,7 @@ func TestStreamReturnsErrorStreamForHTTPFailure(t *testing.T) {
 	defer upstream.Close()
 
 	transport := NewHTTPTransport(upstream.URL, time.Second)
+
 	stream, err := transport.Stream(context.Background(), platform.TunnelRequest{})
 	if err != nil {
 		t.Fatalf("stream request failed: %v", err)
@@ -129,13 +144,16 @@ func TestStreamReturnsErrorStreamForHTTPFailure(t *testing.T) {
 	}
 
 	chunks := stream.Chunks()
+
 	chunk, ok := <-chunks
 	if !ok {
 		t.Fatal("expected one error chunk")
 	}
+
 	if !chunk.IsDone {
 		t.Fatal("expected error chunk to mark stream done")
 	}
+
 	if !strings.Contains(string(chunk.Data), `upstream failed`) {
 		t.Fatalf("unexpected error chunk body: %q", string(chunk.Data))
 	}
@@ -147,24 +165,28 @@ func TestStreamPreservesHeadersAndMultiEventFrames(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
+
 		flusher, ok := w.(http.Flusher)
 		if !ok {
 			t.Fatal("response writer does not support flushing")
 		}
 
 		w.WriteHeader(http.StatusOK)
+
 		for _, frame := range []string{
 			"event: response.created\n",
 			"data: {\"type\":\"response.created\"}\n\n",
 			"data: {\"type\":\"response.output_text.delta\",\"delta\":\"Salam\"}\n\n",
 		} {
 			_, _ = w.Write([]byte(frame))
+
 			flusher.Flush()
 		}
 	}))
 	defer upstream.Close()
 
 	transport := NewHTTPTransport(upstream.URL, time.Second)
+
 	stream, err := transport.Stream(context.Background(), platform.TunnelRequest{})
 	if err != nil {
 		t.Fatalf("stream request failed: %v", err)
@@ -174,6 +196,7 @@ func TestStreamPreservesHeadersAndMultiEventFrames(t *testing.T) {
 	if got := stream.Headers()["Content-Type"]; got != "text/event-stream" {
 		t.Fatalf("unexpected content type header: %q", got)
 	}
+
 	if got := stream.Headers()["Cache-Control"]; got != "no-cache" {
 		t.Fatalf("unexpected cache-control header: %q", got)
 	}
@@ -181,14 +204,17 @@ func TestStreamPreservesHeadersAndMultiEventFrames(t *testing.T) {
 	var sb strings.Builder
 	for chunk := range stream.Chunks() {
 		sb.Write(chunk.Data)
+
 		if chunk.IsDone {
 			break
 		}
 	}
+
 	body := sb.String()
 	if !strings.Contains(body, "event: response.created") {
 		t.Fatalf("expected event frame, got %q", body)
 	}
+
 	if !strings.Contains(body, `response.output_text.delta`) {
 		t.Fatalf("expected multi-event data frame, got %q", body)
 	}

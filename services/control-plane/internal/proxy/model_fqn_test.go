@@ -4,6 +4,7 @@ import "testing"
 
 func TestNormalizeModelIdentifier_CanonicalizesLegacyProviderScopedFQN(t *testing.T) {
 	got := normalizeModelIdentifier("openai:openai-daring-lotus:openai/gpt-4o-mini")
+
 	want := "openai:openai-daring-lotus:gpt-4o-mini"
 	if got != want {
 		t.Fatalf("expected %q, got %q", want, got)
@@ -16,4 +17,3 @@ func TestProviderModelID_ReturnsCanonicalOfficialModel(t *testing.T) {
 		t.Fatalf("expected canonical official model, got %q", got)
 	}
 }
-

@@ -11,6 +11,7 @@ import (
 
 func (s *Store) GetTenantTracePrivacySettings(ctx context.Context, tenantID string) (*platform.TenantTracePrivacySettings, error) {
 	var out platform.TenantTracePrivacySettings
+
 	err := s.pool.QueryRow(ctx, `
 		SELECT tenant_id::text, capture_policy, updated_at, COALESCE(updated_by_user_id::text, '')
 		FROM tenant_trace_privacy_settings
@@ -20,11 +21,13 @@ func (s *Store) GetTenantTracePrivacySettings(ctx context.Context, tenantID stri
 	if err != nil {
 		return nil, err
 	}
+
 	return &out, nil
 }
 
 func (s *Store) UpsertTenantTracePrivacySettings(ctx context.Context, tenantID, capturePolicy, updatedByUserID string) (*platform.TenantTracePrivacySettings, error) {
 	var out platform.TenantTracePrivacySettings
+
 	err := s.pool.QueryRow(ctx, `
 		INSERT INTO tenant_trace_privacy_settings (tenant_id, capture_policy, updated_by_user_id, updated_at)
 		VALUES ($1, $2, NULLIF($3, '')::uuid, NOW())
@@ -37,6 +40,7 @@ func (s *Store) UpsertTenantTracePrivacySettings(ctx context.Context, tenantID, 
 	if err != nil {
 		return nil, err
 	}
+
 	return &out, nil
 }
 
@@ -45,6 +49,7 @@ func (s *Store) ResolveTenantTraceCapturePolicy(ctx context.Context, tenantID st
 		policy    string
 		updatedAt time.Time
 	)
+
 	err := s.pool.QueryRow(ctx, `
 		SELECT capture_policy, updated_at
 		FROM tenant_trace_privacy_settings
@@ -55,8 +60,11 @@ func (s *Store) ResolveTenantTraceCapturePolicy(ctx context.Context, tenantID st
 		if errors.Is(err, pgx.ErrNoRows) {
 			return "", false, nil
 		}
+
 		return "", false, err
 	}
+
 	_ = updatedAt
+
 	return policy, true, nil
 }

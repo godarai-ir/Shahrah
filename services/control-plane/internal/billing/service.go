@@ -42,6 +42,7 @@ type Service struct {
 // NewService creates a billing enforcement service.
 func NewService(c cache.Cache, store walletStore, defaultUSDtoIRR float64, source string) *Service {
 	entitlements, _ := store.(entitlementStore)
+
 	return &Service{
 		cache:        c,
 		store:        store,
@@ -59,21 +60,26 @@ func (s *Service) CheckRateLimit(ctx context.Context, auth *platform.AuthContext
 	if s.entitlements == nil || auth == nil || auth.TenantID == "" {
 		return nil, nil
 	}
+
 	effective, err := s.entitlements.ResolveEffectiveEntitlements(ctx, auth.TenantID)
 	if err != nil {
 		return nil, ErrSubscriptionInactive
 	}
+
 	if effective.Subscription == nil || (effective.Subscription.Status != "active" && effective.Subscription.Status != "trialing") {
 		return nil, ErrSubscriptionInactive
 	}
+
 	limit, limited := entitlementNumber(effective.Features[platform.FeatureGatewayRequestsMonthly])
 	if !limited {
 		return nil, nil
 	}
+
 	counter, allowed, err := s.entitlements.CheckAndIncrementTenantUsageCounter(ctx, auth.TenantID, platform.FeatureGatewayRequestsMonthly, limit, 1, time.Now().UTC())
 	if err != nil {
 		return nil, err
 	}
+
 	result := &cache.RateLimitResult{
 		Allowed: allowed,
 		Current: int64(counter.Used),
@@ -83,6 +89,7 @@ func (s *Service) CheckRateLimit(ctx context.Context, auth *platform.AuthContext
 	if !allowed {
 		return result, ErrRateLimitExceeded
 	}
+
 	return result, nil
 }
 
@@ -92,9 +99,11 @@ func (s *Service) CheckBudget(ctx context.Context, auth *platform.AuthContext, b
 	if err != nil {
 		return err
 	}
+
 	if wallet.BalanceIRR < breakdown.TotalCostIRR {
 		return ErrBudgetExceeded
 	}
+
 	return nil
 }
 
@@ -125,6 +134,7 @@ func (s *Service) EstimateCost(ctx context.Context, req openai.ChatCompletionReq
 	}
 
 	promptTokens := estimatePromptTokens(req)
+
 	outputTokens := 256
 	if req.MaxTokens != nil && *req.MaxTokens > 0 {
 		outputTokens = *req.MaxTokens

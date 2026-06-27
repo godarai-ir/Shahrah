@@ -43,6 +43,7 @@ type mockTunnelTransport struct {
 func (m *mockTunnelTransport) Proxy(ctx context.Context, req platform.TunnelRequest) (*platform.TunnelResponse, error) {
 	m.lastRequest = req
 	m.proxyCalls++
+
 	return m.response, m.proxyErr
 }
 
@@ -58,6 +59,7 @@ func TestChatCompletionHandler_SimpleCacheHitSkipsProviderAndWallet(t *testing.T
 		Usage:   &contractsopenai.Usage{PromptTokens: 2, CompletionTokens: 1, TotalTokens: 3},
 	})
 	require.NoError(t, err)
+
 	tunnel := &mockTunnelTransport{response: &platform.TunnelResponse{StatusCode: http.StatusOK, Body: providerBody}}
 	billing := &mockBilling{cost: platform.UsageCostBreakdown{InputTokens: 2, OutputTokens: 1, TotalTokens: 3, TotalCostUSD: 0.01, TotalCostIRR: 8500, ExchangeRate: 850000}}
 	wallet := &mockWalletStore{}
@@ -73,18 +75,21 @@ func TestChatCompletionHandler_SimpleCacheHitSkipsProviderAndWallet(t *testing.T
 	handler.SetResponseCache(service)
 	app := setupTestApp(t, handler)
 
-	makeRequest := func() *http.Response {
+	makeRequest := func() *testResponse {
 		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4","messages":[{"role":"user","content":"hello"}]}`))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set(apiheaders.HeaderCacheConfig, `{"type":"simple","ttl":60}`)
 		resp, requestErr := app.Test(req)
 		require.NoError(t, requestErr)
-		return resp
+		t.Cleanup(func() { closeResponseBody(t, resp) })
+
+		return &testResponse{Response: resp}
 	}
 
 	first := makeRequest()
 	assert.Equal(t, http.StatusOK, first.StatusCode)
 	assert.Equal(t, "miss", first.Header.Get(apiheaders.HeaderCacheStatus))
+
 	second := makeRequest()
 	assert.Equal(t, http.StatusOK, second.StatusCode)
 	assert.Equal(t, "hit", second.Header.Get(apiheaders.HeaderCacheStatus))
@@ -177,6 +182,7 @@ func (m *mockLogger) GetVirtualModelByAlias(ctx context.Context, tenantID string
 			return vm, nil
 		}
 	}
+
 	return nil, errors.New("virtual model not found")
 }
 
@@ -185,13 +191,16 @@ func (m *mockLogger) ListEnabledTenantGuardrailsBySlugs(ctx context.Context, ten
 	for _, slug := range slugs {
 		wanted[strings.TrimSpace(slug)] = true
 	}
+
 	out := make([]platform.TenantGuardrail, 0, len(m.tenantGuardrails))
 	for _, item := range m.tenantGuardrails {
 		if item.TenantID != tenantID || !item.Enabled || !wanted[item.Slug] {
 			continue
 		}
+
 		out = append(out, item)
 	}
+
 	return out, nil
 }
 
@@ -206,6 +215,7 @@ func newFakeTunnelStream(headers map[string]string, chunkBuf int, errorBuf int) 
 	if headers == nil {
 		headers = map[string]string{}
 	}
+
 	return &fakeTunnelStream{
 		headers: headers,
 		chunks:  make(chan platform.TunnelChunk, chunkBuf),
@@ -223,6 +233,7 @@ func (s *fakeTunnelStream) Close() error {
 
 func newTestRouter(t *testing.T, logger *zap.Logger) *llmrouter.Router {
 	t.Helper()
+
 	memCache, err := mcache.NewMemoryCache(logger)
 	require.NoError(t, err)
 
@@ -246,11 +257,13 @@ func newTestRouter(t *testing.T, logger *zap.Logger) *llmrouter.Router {
 
 	r, err := llmrouter.NewRouter(modelList, settings, memCache, nil, logger)
 	require.NoError(t, err)
+
 	return r
 }
 
 func setupTestApp(t *testing.T, handler *proxy.ChatCompletionHandler) *fiber.App {
 	t.Helper()
+
 	app := fiber.New()
 	app.Use(func(c *fiber.Ctx) error {
 		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{
@@ -258,6 +271,7 @@ func setupTestApp(t *testing.T, handler *proxy.ChatCompletionHandler) *fiber.App
 			TenantID:      "tenant-1",
 			AllowedModels: []string{"*"},
 		})
+
 		return c.Next()
 	})
 	app.Use(func(c *fiber.Ctx) error {
@@ -265,9 +279,11 @@ func setupTestApp(t *testing.T, handler *proxy.ChatCompletionHandler) *fiber.App
 			ID:   "tenant-1",
 			Slug: "test-tenant",
 		})
+
 		return c.Next()
 	})
 	app.Post("/v1/chat/completions", handler.Handle)
+
 	return app
 }
 
@@ -343,6 +359,8 @@ func TestChatCompletionHandler_RoutesFQNThroughWildcardAsOfficialProviderModel(t
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, "gpt-4.1", mBilling.estimateModel)
@@ -462,6 +480,8 @@ func TestChatCompletionHandler_VirtualModelSendsSelectedProviderModel(t *testing
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -494,10 +514,13 @@ func TestChatCompletionHandler_ShouldRejectEmptyMessages(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
 	var apiErr contractsopenai.APIError
+
 	err = json.NewDecoder(resp.Body).Decode(&apiErr)
 	require.NoError(t, err)
 	assert.Contains(t, apiErr.Error.Message, "messages array must not be empty")
@@ -526,10 +549,13 @@ func TestChatCompletionHandler_ShouldRejectMissingMessageRole(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
 	var apiErr contractsopenai.APIError
+
 	err = json.NewDecoder(resp.Body).Decode(&apiErr)
 	require.NoError(t, err)
 	assert.Contains(t, apiErr.Error.Message, "message[0].role is required")
@@ -560,10 +586,13 @@ func TestChatCompletionHandler_ShouldRejectInvalidTemperature(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 
 			resp, err := app.Test(req)
+			defer closeResponseBody(t, resp)
+
 			require.NoError(t, err)
 			assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
 			var apiErr contractsopenai.APIError
+
 			err = json.NewDecoder(resp.Body).Decode(&apiErr)
 			require.NoError(t, err)
 			assert.Contains(t, apiErr.Error.Message, "temperature must be between 0 and 2")
@@ -596,10 +625,13 @@ func TestChatCompletionHandler_ShouldRejectInvalidTopP(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 
 			resp, err := app.Test(req)
+			defer closeResponseBody(t, resp)
+
 			require.NoError(t, err)
 			assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
 			var apiErr contractsopenai.APIError
+
 			err = json.NewDecoder(resp.Body).Decode(&apiErr)
 			require.NoError(t, err)
 			assert.Contains(t, apiErr.Error.Message, "top_p must be between 0 and 1")
@@ -629,10 +661,13 @@ func TestChatCompletionHandler_ShouldRejectInvalidMaxTokens(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
 	var apiErr contractsopenai.APIError
+
 	err = json.NewDecoder(resp.Body).Decode(&apiErr)
 	require.NoError(t, err)
 	assert.Contains(t, apiErr.Error.Message, "max_tokens must be at least 1")
@@ -655,6 +690,7 @@ func TestChatCompletionHandler_DeniesWhenAllowlistEnforcedAndEmpty(t *testing.T)
 			AllowedModels:         []string{},
 			EnforceModelAllowlist: true,
 		})
+
 		return c.Next()
 	})
 	app.Use(func(c *fiber.Ctx) error {
@@ -672,6 +708,8 @@ func TestChatCompletionHandler_DeniesWhenAllowlistEnforcedAndEmpty(t *testing.T)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusForbidden, resp.StatusCode)
 }
@@ -701,6 +739,7 @@ func TestChatCompletionHandler_RejectsVirtualModelUnsupportedMode(t *testing.T) 
 				"creative/myCustomModel": "virtual",
 			},
 		})
+
 		return c.Next()
 	})
 	app.Use(func(c *fiber.Ctx) error {
@@ -717,6 +756,8 @@ func TestChatCompletionHandler_RejectsVirtualModelUnsupportedMode(t *testing.T) 
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
@@ -761,10 +802,13 @@ func TestChatCompletionHandler_ShouldTransformProviderError(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 
 	var apiErr contractsopenai.APIError
+
 	err = json.NewDecoder(resp.Body).Decode(&apiErr)
 	require.NoError(t, err)
 	assert.Equal(t, "server_error", apiErr.Error.Type)
@@ -804,10 +848,13 @@ func TestChatCompletionHandler_ShouldTransformRateLimitError(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
 
 	var apiErr contractsopenai.APIError
+
 	err = json.NewDecoder(resp.Body).Decode(&apiErr)
 	require.NoError(t, err)
 	assert.Equal(t, "rate_limit_error", apiErr.Error.Type)
@@ -874,6 +921,8 @@ func TestChatCompletionHandler_ShouldPassThroughValidProviderHeaders(t *testing.
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -916,9 +965,12 @@ func TestChatCompletionHandler_GuardrailBlocksInputBeforeProviderCall(t *testing
 	req.Header.Set("X-GodarAI-Guardrails", `{"llm_input_guardrails":["guardrails/keyword-blocklist"]}`)
 
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	assert.Equal(t, 0, mTunnel.proxyCalls)
+
 	var body map[string]interface{}
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
 	assert.Equal(t, "guardrail_checks_failed", body["error"].(map[string]interface{})["type"])
@@ -945,9 +997,12 @@ func TestChatCompletionHandler_GuardrailAcceptsPlainSelectorHeader(t *testing.T)
 	req.Header.Set("X-Shahrah-Guardrails", "guardrails/keyword-blocklist")
 
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	assert.Equal(t, 0, mTunnel.proxyCalls)
+
 	var body map[string]interface{}
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
 	assert.Equal(t, "guardrail_checks_failed", body["error"].(map[string]interface{})["type"])
@@ -986,9 +1041,12 @@ func TestChatCompletionHandler_TenantKeywordGuardrailBlocksInputBeforeProviderCa
 	req.Header.Set("X-GodarAI-Guardrails", `{"llm_input_guardrails":["guardrails/my-ggg"]}`)
 
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	assert.Equal(t, 0, mTunnel.proxyCalls)
+
 	var body map[string]interface{}
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
 	assert.Equal(t, "guardrail_checks_failed", body["error"].(map[string]interface{})["type"])
@@ -1020,8 +1078,11 @@ func TestChatCompletionHandler_GuardrailMutatesInputBeforeProviderCall(t *testin
 	req.Header.Set("X-GodarAI-Guardrails", `{"llm_input_guardrails":["guardrails/pii-redaction"]}`)
 
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
 	var outbound contractsopenai.ChatCompletionRequest
 	require.NoError(t, json.Unmarshal(mTunnel.lastRequest.Body, &outbound))
 	assert.Equal(t, "email me at [REDACTED]", outbound.Messages[0].Content)
@@ -1053,8 +1114,11 @@ func TestChatCompletionHandler_GuardrailMutatesOutputResponse(t *testing.T) {
 	req.Header.Set("X-TFY-GUARDRAILS", `{"output_guardrails":["guardrails/secrets-detection"]}`)
 
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
 	var completion contractsopenai.ChatCompletionResponse
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&completion))
 	require.NotNil(t, completion.Choices[0].Message)
@@ -1082,6 +1146,8 @@ func TestChatCompletionHandler_GuardrailRejectsStreamingWithOutputGuardrails(t *
 	req.Header.Set("X-GodarAI-Guardrails", `{"llm_output_guardrails":["guardrails/secrets-detection"]}`)
 
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	assert.Equal(t, 0, mTunnel.proxyCalls)
@@ -1146,6 +1212,8 @@ func TestChatCompletionHandler_ShouldSetRateLimitHeaders(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, "10", resp.Header.Get("X-Ratelimit-Limit"))
@@ -1208,6 +1276,8 @@ func TestChatCompletionHandler_ShouldAcceptValidTemperature(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 
 			resp, err := app.Test(req)
+			defer closeResponseBody(t, resp)
+
 			require.NoError(t, err)
 			assert.Equal(t, http.StatusOK, resp.StatusCode)
 		})
@@ -1269,6 +1339,8 @@ func TestChatCompletionHandler_ShouldAcceptValidTopP(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 
 			resp, err := app.Test(req)
+			defer closeResponseBody(t, resp)
+
 			require.NoError(t, err)
 			assert.Equal(t, http.StatusOK, resp.StatusCode)
 		})
@@ -1317,6 +1389,8 @@ func TestChatCompletionHandler_AcceptsMultimodalChatContent(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Contains(t, string(mTunnel.lastRequest.Body), `"image_url"`)
@@ -1357,8 +1431,11 @@ func TestChatCompletionHandler_RejectsImageInputForUnsupportedProvider(t *testin
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
 	var apiErr contractsopenai.APIError
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&apiErr))
 	assert.Contains(t, apiErr.Error.Message, "does not support image input")
@@ -1370,7 +1447,9 @@ func TestChatCompletionHandler_StreamSuccessRelaysChunksWithoutPanic(t *testing.
 
 	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 2, 0)
 	stream.chunks <- platform.TunnelChunk{Data: []byte("data: {\"id\":\"chatcmpl-stream\",\"object\":\"chat.completion.chunk\",\"created\":1234567890,\"model\":\"gpt-4\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Salam\"}}]}\n\n")}
+
 	stream.chunks <- platform.TunnelChunk{Data: []byte("data: [DONE]\n\n"), IsDone: true}
+
 	close(stream.chunks)
 
 	mTunnel := &mockTunnelTransport{stream: stream}
@@ -1390,12 +1469,15 @@ func TestChatCompletionHandler_StreamSuccessRelaysChunksWithoutPanic(t *testing.
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, "text/event-stream", resp.Header.Get("Content-Type"))
 
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
+
 	bodyText := string(body)
 	assert.Contains(t, bodyText, `"content":"Salam"`)
 	assert.Contains(t, bodyText, "data: [DONE]")
@@ -1410,6 +1492,7 @@ func TestChatCompletionHandler_StreamCloseFinalizesWithoutPanic(t *testing.T) {
 
 	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 1, 0)
 	stream.chunks <- platform.TunnelChunk{Data: []byte("data: {\"id\":\"chatcmpl-stream\",\"object\":\"chat.completion.chunk\",\"created\":1234567890,\"model\":\"gpt-4\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Salam\"}}]}\n\n")}
+
 	close(stream.chunks)
 
 	mTunnel := &mockTunnelTransport{stream: stream}
@@ -1429,6 +1512,8 @@ func TestChatCompletionHandler_StreamCloseFinalizesWithoutPanic(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -1465,6 +1550,8 @@ func TestChatCompletionHandler_StreamErrorWritesStreamingErrorEvent(t *testing.T
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 
 	body, err := io.ReadAll(resp.Body)

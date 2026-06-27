@@ -12,7 +12,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/providers/openai"
 )
 
-// TestOpenAIAdapter_Complete tests the OpenAI adapter's Complete method
+// TestOpenAIAdapter_Complete tests the OpenAI adapter's Complete method.
 func TestOpenAIAdapter_Complete(t *testing.T) {
 	// Create a mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -73,15 +73,17 @@ func TestOpenAIAdapter_Complete(t *testing.T) {
 	if resp == nil {
 		t.Fatal("Expected response, got nil")
 	}
+
 	if resp.ID != "chatcmpl-test" {
 		t.Errorf("Expected ID 'chatcmpl-test', got '%s'", resp.ID)
 	}
+
 	if len(resp.Choices) != 1 {
 		t.Errorf("Expected 1 choice, got %d", len(resp.Choices))
 	}
 }
 
-// TestOpenAIAdapter_StreamComplete tests the OpenAI adapter's StreamComplete method
+// TestOpenAIAdapter_StreamComplete tests the OpenAI adapter's StreamComplete method.
 func TestOpenAIAdapter_StreamComplete(t *testing.T) {
 	// Create a mock server for streaming
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -102,6 +104,7 @@ func TestOpenAIAdapter_StreamComplete(t *testing.T) {
 			if err != nil {
 				break
 			}
+
 			w.(http.Flusher).Flush()
 		}
 	}))
@@ -130,6 +133,7 @@ func TestOpenAIAdapter_StreamComplete(t *testing.T) {
 
 	// Collect chunks
 	chunksReceived := 0
+
 	for {
 		select {
 		case _, ok := <-streamChan:
@@ -137,6 +141,7 @@ func TestOpenAIAdapter_StreamComplete(t *testing.T) {
 				// Stream closed
 				return
 			}
+
 			chunksReceived++
 		case err := <-errorChan:
 			if err != nil {
@@ -146,12 +151,13 @@ func TestOpenAIAdapter_StreamComplete(t *testing.T) {
 			if chunksReceived == 0 {
 				t.Error("Expected at least one chunk")
 			}
+
 			return
 		}
 	}
 }
 
-// TestProviderRegistry tests the provider registry
+// TestProviderRegistry tests the provider registry.
 func TestProviderRegistry(t *testing.T) {
 	// Test that providers are registered
 	supported := providers.Supported()
@@ -164,9 +170,11 @@ func TestProviderRegistry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected to get openai provider, got error: %v", err)
 	}
+
 	if provider == nil {
 		t.Fatal("Expected provider, got nil")
 	}
+
 	if provider.Name() != "openai" {
 		t.Errorf("Expected 'openai', got '%s'", provider.Name())
 	}
@@ -181,6 +189,7 @@ func TestProviderRegistry(t *testing.T) {
 	if !providers.IsSupported("openai") {
 		t.Error("Expected openai to be supported")
 	}
+
 	if providers.IsSupported("unsupported") {
 		t.Error("Expected unsupported to not be supported")
 	}

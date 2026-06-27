@@ -50,6 +50,7 @@ func NewCompletionsHandler(llmRouter *router.Router, tunnel platform.TunnelTrans
 	if len(emitMetric) > 0 {
 		metricEmitter = emitMetric[0]
 	}
+
 	return NewCompletionsHandlerWithDependencies(BaseHandlerDependencies{
 		Router:        llmRouter,
 		Tunnel:        tunnel,
@@ -75,13 +76,17 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	if req.Model == "" {
 		return writeAPIError(c, fiber.StatusBadRequest, "model is required", "invalid_request_error")
 	}
+
 	requestedModel := normalizeModelIdentifier(req.Model)
+
 	routeCandidates := modelRoutingCandidates(requestedModel)
 	if len(routeCandidates) == 0 {
 		return writeAPIError(c, fiber.StatusBadRequest, "model is required", "invalid_request_error")
 	}
+
 	resolvedModel := providerModelID(requestedModel)
 	tracing.SetModelForTrace(c, requestedModel)
+
 	if req.Prompt == "" {
 		return writeAPIError(c, fiber.StatusBadRequest, "prompt is required", "invalid_request_error")
 	}
@@ -97,6 +102,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	if currentTenant == nil {
 		return writeAPIError(c, fiber.StatusBadRequest, "tenant resolution required", "invalid_request_error")
 	}
+
 	authInfo.TenantID = currentTenant.ID
 	tracing.SetTenantForTrace(c, currentTenant.ID)
 	tenantSlug := strings.TrimSpace(currentTenant.Slug)
@@ -106,9 +112,12 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 		if modelAccess.UnsupportedVMMode {
 			return writeUnsupportedModelModeError(c, requestedModel, platform.ModelTypeCompletion, modelAccess.ExposedModes)
 		}
+
 		emitDenyCounter(h.logger, denyReasonForModel(authInfo), requestedModel, currentTenant.ID)
+
 		return writeAPIError(c, fiber.StatusForbidden, "model access denied or unsupported for completions", "authorization_error")
 	}
+
 	authStart := time.Now()
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "auth.validate", "internal", authStart, fiber.StatusOK, map[string]interface{}{"model": requestedModel})
 
@@ -126,6 +135,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	estimated, err := h.billing.EstimateCost(c.Context(), chatReq)
 	if err != nil {
 		h.logger.Error("failed to estimate cost", zap.Error(err))
+
 		estimated = platform.UsageCostBreakdown{
 			Model:        req.Model,
 			TotalTokens:  512,
@@ -138,18 +148,22 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	// Check rate limit
 	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
 	setRateLimitHeaders(c, rateLimit)
+
 	if err != nil {
 		return writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error")
 	}
 
 	// Check budget
-	if err := h.billing.CheckBudget(c.Context(), authInfo, estimated); err != nil {
-		return writeAPIError(c, fiber.StatusPaymentRequired, err.Error(), "budget_exceeded")
+	budgetErr := h.billing.CheckBudget(c.Context(), authInfo, estimated)
+	if budgetErr != nil {
+		return writeAPIError(c, fiber.StatusPaymentRequired, budgetErr.Error(), "budget_exceeded")
 	}
+
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "quota.check", "internal", quotaStart, fiber.StatusOK, map[string]interface{}{"estimated_tokens": estimated.TotalTokens})
 
 	// Route to deployment
 	routeStart := time.Now()
+
 	var (
 		dep *router.Deployment
 	)
@@ -159,15 +173,19 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 			break
 		}
 	}
+
 	if err != nil {
 		emitDenyCounter(h.logger, denyReasonUnknownModel, requestedModel, currentTenant.ID)
 		return writeAPIError(c, fiber.StatusInternalServerError, "no available deployments", "internal_error")
 	}
+
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
+
 	outboundModel := strings.TrimSpace(dep.Model)
 	if outboundModel == "" || outboundModel == "*" {
 		outboundModel = resolvedModel
 	}
+
 	chatReq.Model = outboundModel
 
 	// Build tunnel request
@@ -199,6 +217,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	if req.Stream {
 		return h.handleStream(c, chatReq, authInfo, estimated, tunnelReq, startTime, tenantSlug)
 	}
+
 	return h.handleSync(c, chatReq, authInfo, estimated, tunnelReq, startTime, tenantSlug)
 }
 
@@ -208,26 +227,33 @@ func (h *CompletionsHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCo
 		"provider":        tunnelReq.Deployment.Provider,
 		"request_payload": buildTraceChatRequestPayload(req),
 	}
+
 	resp, err := h.tunnel.Proxy(c.Context(), tunnelReq)
 	if err != nil {
 		providerAttrs["error"] = err.Error()
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, providerAttrs)
+
 		return writeAPIError(c, fiber.StatusBadGateway, "provider request failed", "bad_gateway")
 	}
 
 	if resp.StatusCode >= httpErrorFloor {
 		providerAttrs["response_payload"] = buildTraceProviderErrorPayload(resp.StatusCode, resp.Body)
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
+
 		return transformProviderError(c, resp.StatusCode, resp.Body, resp.Headers)
 	}
+
 	forwardProviderHeaders(c, resp.Headers)
 
 	// Transform chat completion response to legacy completion format
 	var chatResp contractsopenai.ChatCompletionResponse
-	if err := json.Unmarshal(resp.Body, &chatResp); err != nil {
+
+	unmarshalErr := json.Unmarshal(resp.Body, &chatResp)
+	if unmarshalErr != nil {
 		providerAttrs["error"] = "failed to decode provider response"
 		providerAttrs["response_payload"] = buildTraceProviderErrorPayload(fiber.StatusBadGateway, resp.Body)
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, providerAttrs)
+
 		return c.Status(fiber.StatusOK).Send(resp.Body)
 	}
 
@@ -249,6 +275,7 @@ func (h *CompletionsHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCo
 			})
 		}
 	}
+
 	completionResp.Choices = choices
 	completionResp.Usage = chatResp.Usage
 	providerAttrs["response_payload"] = buildTraceCompletionResponsePayload(completionResp)
@@ -256,9 +283,10 @@ func (h *CompletionsHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCo
 
 	// Finalize billing
 	finalCost, _ := h.billing.FinalizeFromUsage(c.Context(), req.Model, chatResp.Usage, estimated)
-	if _, err := h.wallets.DebitWallet(c.Context(), authInfo.TenantID, finalCost, tunnelReq.RequestID); err != nil {
-		h.logger.Error("failed to debit wallet", zap.Error(err))
+	if _, debitErr := h.wallets.DebitWallet(c.Context(), authInfo.TenantID, finalCost, tunnelReq.RequestID); debitErr != nil {
+		h.logger.Error("failed to debit wallet", zap.Error(debitErr))
 	}
+
 	setCostHeaders(c, finalCost)
 	setTraceHeaders(c, tunnelReq.RequestID)
 
@@ -324,11 +352,13 @@ func (h *CompletionsHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCo
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "response.write", "internal", responseStart, resp.StatusCode, map[string]interface{}{
 		"response_payload": buildTraceCompletionResponsePayload(completionResp),
 	})
+
 	return err
 }
 
 func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, start time.Time, tenantSlug string) error {
 	providerStart := time.Now()
+
 	stream, err := h.tunnel.Stream(c.Context(), tunnelReq)
 	if err != nil {
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, map[string]interface{}{
@@ -337,8 +367,10 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 			"stream":          true,
 			"error":           err.Error(),
 		})
+
 		return writeAPIError(c, fiber.StatusBadGateway, "stream failed", "bad_gateway")
 	}
+
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusOK, map[string]interface{}{
 		"provider":        tunnelReq.Deployment.Provider,
 		"request_payload": buildTraceChatRequestPayload(req),
@@ -405,6 +437,7 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 							"tenant_slug": tenantSlug,
 						},
 					})
+
 					return
 				}
 
@@ -412,8 +445,9 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 				if len(chunk.Data) > 0 {
 					raw := bytes.TrimSpace(chunk.Data)
 					if bytes.Equal(raw, []byte("data: [DONE]")) || bytes.Equal(raw, []byte("[DONE]")) {
-						_, _ = w.Write([]byte("data: [DONE]\n\n"))
+						_, _ = w.WriteString("data: [DONE]\n\n")
 						_ = w.Flush()
+
 						return
 					}
 
@@ -426,14 +460,17 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 					if err := json.Unmarshal(normalized, &chatChunk); err != nil {
 						_, _ = w.Write(chunk.Data)
 						if !bytes.HasSuffix(chunk.Data, []byte("\n\n")) {
-							_, _ = w.Write([]byte("\n\n"))
+							_, _ = w.WriteString("\n\n")
 						}
+
 						_ = w.Flush()
+
 						continue
 					}
 
 					// Extract text from chat delta
 					var text string
+
 					for _, choice := range chatChunk.Choices {
 						if choice.Delta != nil {
 							text = contractsopenai.ChatContentText(choice.Delta.Content)
@@ -452,15 +489,16 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 							},
 						}
 						data, _ := json.Marshal(legacyChunk)
-						_, _ = w.Write([]byte("data: "))
+						_, _ = w.WriteString("data: ")
 						_, _ = w.Write(data)
-						_, _ = w.Write([]byte("\n\n"))
+						_, _ = w.WriteString("\n\n")
 						_ = w.Flush()
 					}
 
 					if chunk.IsDone {
-						_, _ = w.Write([]byte("data: [DONE]\n\n"))
+						_, _ = w.WriteString("data: [DONE]\n\n")
 						_ = w.Flush()
+
 						return
 					}
 				}
@@ -476,10 +514,12 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 					_, _ = w.Write(bytes.Join([][]byte{[]byte("data: "), errorPayload, []byte("\n\n")}, nil))
 					_ = w.Flush()
 				}
+
 				return
 			}
 		}
 	})
+
 	responseStart := time.Now()
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "response.write", "internal", responseStart, fiber.StatusOK, map[string]interface{}{"stream": true})
 
@@ -490,6 +530,7 @@ func (h *CompletionsHandler) emitModelMetric(input metricsobs.BuildInput) {
 	if h.emitMetric == nil {
 		return
 	}
+
 	h.emitMetric(input)
 }
 
@@ -512,24 +553,6 @@ func mustMarshalJSON(v interface{}) []byte {
 	if err != nil {
 		panic(err)
 	}
-	return data
-}
 
-func normalizePrompt(prompt interface{}) string {
-	switch p := prompt.(type) {
-	case string:
-		return p
-	case []string:
-		return strings.TrimSpace(strings.Join(p, "\n"))
-	case []interface{}:
-		parts := make([]string, 0, len(p))
-		for _, item := range p {
-			if s, ok := item.(string); ok && strings.TrimSpace(s) != "" {
-				parts = append(parts, s)
-			}
-		}
-		return strings.TrimSpace(strings.Join(parts, "\n"))
-	default:
-		return ""
-	}
+	return data
 }

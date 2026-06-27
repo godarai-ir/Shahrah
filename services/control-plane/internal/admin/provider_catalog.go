@@ -96,12 +96,14 @@ func discoveryProviderExists(ctx context.Context, provider string) (bool, error)
 	if err != nil {
 		return false, err
 	}
+
 	normalized := normalizeProviderSlug(provider)
 	for _, item := range items {
 		if normalizeProviderSlug(item.Provider) == normalized {
 			return true, nil
 		}
 	}
+
 	return false, nil
 }
 
@@ -110,20 +112,25 @@ func discoveryProviders(ctx context.Context) ([]platform.ProviderCatalogProvider
 		atomic.AddUint64(&discoveryTelemetry.providersCacheHit, 1)
 		return cached, nil
 	}
+
 	atomic.AddUint64(&discoveryTelemetry.providersCacheMiss, 1)
+
 	baseURL := getDiscoveryBaseURL()
 	if baseURL == "" {
 		return nil, fmt.Errorf("%w: SHAHRAH_MODEL_DISCOVERY_URL is not configured; retry after restoring model-discovery connectivity", errDiscoveryUnavailable)
 	}
+
 	body, status, err := discoveryGET(ctx, baseURL+"/providers")
 	if err != nil {
 		atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
 		return nil, fmt.Errorf("%w: failed to fetch providers; retry after restoring model-discovery connectivity: %v", errDiscoveryUnavailable, err)
 	}
+
 	if status == http.StatusNotFound {
 		atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
 		return nil, fmt.Errorf("%w: /providers endpoint not found on model-discovery; retry after fixing service routing", errDiscoveryUnavailable)
 	}
+
 	if status >= http.StatusBadRequest {
 		atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
 		return nil, fmt.Errorf("%w: providers request failed with status %d; retry after restoring model-discovery connectivity", errDiscoveryUnavailable, status)
@@ -134,12 +141,15 @@ func discoveryProviders(ctx context.Context) ([]platform.ProviderCatalogProvider
 		atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
 		return nil, fmt.Errorf("%w: invalid providers payload; retry after fixing model-discovery response: %v", errDiscoveryUnavailable, err)
 	}
+
 	normalized := normalizeProviders(items)
 	if len(normalized) == 0 {
 		atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
 		return nil, fmt.Errorf("%w: model-discovery returned an empty provider catalog; retry after restoring discovery data", errDiscoveryUnavailable)
 	}
+
 	setCachedProviders(normalized)
+
 	return normalized, nil
 }
 
@@ -148,31 +158,40 @@ func discoveryProviderModels(ctx context.Context, provider string) ([]platform.P
 	if normalizedProvider == "" {
 		return nil, fmt.Errorf("provider is required")
 	}
+
 	if cached, ok := getCachedProviderModels(normalizedProvider); ok {
 		atomic.AddUint64(&discoveryTelemetry.modelsCacheHit, 1)
 		return cached, nil
 	}
+
 	atomic.AddUint64(&discoveryTelemetry.modelsCacheMiss, 1)
+
 	baseURL := getDiscoveryBaseURL()
 	if baseURL == "" {
 		return nil, fmt.Errorf("%w: SHAHRAH_MODEL_DISCOVERY_URL is not configured; retry after restoring model-discovery connectivity", errDiscoveryUnavailable)
 	}
+
 	body, status, err := discoveryGET(ctx, baseURL+"/providers/"+url.PathEscape(normalizedProvider)+"/models")
 	if err == nil && status == http.StatusNotFound {
 		items, queryErr := discoveryProviderModelsByQuery(ctx, baseURL, normalizedProvider)
 		if queryErr != nil {
 			return nil, queryErr
 		}
+
 		setCachedProviderModels(normalizedProvider, items)
+
 		return items, nil
 	}
+
 	if err != nil {
 		atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
 		return nil, fmt.Errorf("%w: failed to fetch models for provider %q; retry after restoring model-discovery connectivity: %v", errDiscoveryUnavailable, normalizedProvider, err)
 	}
+
 	if status == http.StatusNotFound {
 		return nil, errDiscoveryNotFound
 	}
+
 	if status >= http.StatusBadRequest {
 		atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
 		return nil, fmt.Errorf("%w: model request for provider %q failed with status %d; retry after restoring model-discovery connectivity", errDiscoveryUnavailable, normalizedProvider, status)
@@ -183,34 +202,43 @@ func discoveryProviderModels(ctx context.Context, provider string) ([]platform.P
 		atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
 		return nil, fmt.Errorf("%w: invalid model payload for provider %q; retry after fixing model-discovery response: %v", errDiscoveryUnavailable, normalizedProvider, err)
 	}
+
 	for i := range items {
 		items[i].Provider = normalizedProvider
 		if items[i].Model == "" {
 			atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
 			return nil, fmt.Errorf("%w: model-discovery returned an invalid model entry for provider %q; retry after fixing discovery data", errDiscoveryUnavailable, normalizedProvider)
 		}
+
 		items[i].Types = normalizeModelTypes(items[i].Types)
 		items[i].PublicPricing = fillModelPricingFromRegistry(normalizedProvider, items[i].Model, items[i].PublicPricing)
 	}
+
 	setCachedProviderModels(normalizedProvider, items)
+
 	return items, nil
 }
 
 func discoveryProviderModelsByQuery(ctx context.Context, baseURL string, provider string) ([]platform.ProviderCatalogModel, error) {
-	const pageSize = 100
-	const maxPages = 20
+	const (
+		pageSize = 100
+		maxPages = 20
+	)
 
 	items := make([]platform.ProviderCatalogModel, 0, pageSize)
 	for page := 1; page <= maxPages; page++ {
 		queryURL := fmt.Sprintf("%s/models?provider=%s&limit=%d&page=%d", baseURL, url.QueryEscape(provider), pageSize, page)
+
 		body, status, err := discoveryGET(ctx, queryURL)
 		if err != nil {
 			atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
 			return nil, fmt.Errorf("%w: failed to fetch models for provider %q; retry after restoring model-discovery connectivity: %v", errDiscoveryUnavailable, provider, err)
 		}
+
 		if status == http.StatusNotFound {
 			return nil, errDiscoveryNotFound
 		}
+
 		if status >= http.StatusBadRequest {
 			atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
 			return nil, fmt.Errorf("%w: model request for provider %q failed with status %d; retry after restoring model-discovery connectivity", errDiscoveryUnavailable, provider, status)
@@ -221,9 +249,11 @@ func discoveryProviderModelsByQuery(ctx context.Context, baseURL string, provide
 			atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
 			return nil, fmt.Errorf("%w: invalid model payload for provider %q; retry after fixing model-discovery response: %v", errDiscoveryUnavailable, provider, err)
 		}
+
 		if len(pageItems) == 0 {
 			break
 		}
+
 		items = append(items, pageItems...)
 		if len(pageItems) < pageSize {
 			break
@@ -236,15 +266,18 @@ func discoveryProviderModelsByQuery(ctx context.Context, baseURL string, provide
 			atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
 			return nil, fmt.Errorf("%w: model-discovery returned an invalid model entry for provider %q; retry after fixing discovery data", errDiscoveryUnavailable, provider)
 		}
+
 		items[i].Types = normalizeModelTypes(items[i].Types)
 		items[i].PublicPricing = fillModelPricingFromRegistry(provider, items[i].Model, items[i].PublicPricing)
 	}
+
 	return items, nil
 }
 
 func invalidateDiscoveryCache() {
 	discoveryCache.mu.Lock()
 	defer discoveryCache.mu.Unlock()
+
 	discoveryCache.providers = nil
 	discoveryCache.providersAt = time.Time{}
 	discoveryCache.models = make(map[string]cachedModels)
@@ -255,22 +288,28 @@ func getCachedProviders() ([]platform.ProviderCatalogProvider, bool) {
 	if ttl <= 0 {
 		return nil, false
 	}
+
 	discoveryCache.mu.RLock()
 	defer discoveryCache.mu.RUnlock()
+
 	if len(discoveryCache.providers) == 0 || discoveryCache.providersAt.IsZero() {
 		return nil, false
 	}
+
 	if time.Since(discoveryCache.providersAt) > ttl {
 		return nil, false
 	}
+
 	out := make([]platform.ProviderCatalogProvider, len(discoveryCache.providers))
 	copy(out, discoveryCache.providers)
+
 	return out, true
 }
 
 func setCachedProviders(items []platform.ProviderCatalogProvider) {
 	discoveryCache.mu.Lock()
 	defer discoveryCache.mu.Unlock()
+
 	out := make([]platform.ProviderCatalogProvider, len(items))
 	copy(out, items)
 	discoveryCache.providers = out
@@ -282,23 +321,29 @@ func getCachedProviderModels(provider string) ([]platform.ProviderCatalogModel, 
 	if ttl <= 0 {
 		return nil, false
 	}
+
 	discoveryCache.mu.RLock()
 	defer discoveryCache.mu.RUnlock()
+
 	entry, ok := discoveryCache.models[provider]
 	if !ok || len(entry.items) == 0 || entry.at.IsZero() {
 		return nil, false
 	}
+
 	if time.Since(entry.at) > ttl {
 		return nil, false
 	}
+
 	out := make([]platform.ProviderCatalogModel, len(entry.items))
 	copy(out, entry.items)
+
 	return out, true
 }
 
 func setCachedProviderModels(provider string, items []platform.ProviderCatalogModel) {
 	discoveryCache.mu.Lock()
 	defer discoveryCache.mu.Unlock()
+
 	out := make([]platform.ProviderCatalogModel, len(items))
 	copy(out, items)
 	discoveryCache.models[provider] = cachedModels{
@@ -312,13 +357,16 @@ func discoveryCacheTTL() time.Duration {
 	if raw == "" {
 		return 5 * time.Minute
 	}
+
 	n, err := strconv.Atoi(raw)
 	if err != nil || n < 0 {
 		return 5 * time.Minute
 	}
+
 	if n == 0 {
 		return 0
 	}
+
 	return time.Duration(n) * time.Second
 }
 
@@ -338,57 +386,73 @@ func resolveProviderAccountModelSelections(ctx context.Context, provider string,
 	if err != nil {
 		return nil, nil, nil, err
 	}
+
 	allowed := make(map[string]platform.ProviderCatalogModel, len(catalog))
 	for _, item := range catalog {
 		model := strings.TrimSpace(item.Model)
 		if model == "" {
 			continue
 		}
+
 		allowed[model] = item
 	}
+
 	invalid := make([]string, 0)
 	invalidCapabilities := make(map[string][]string)
 	seen := make(map[string]struct{}, len(selections))
+
 	resolved := make([]platform.TenantProviderAccountModel, 0, len(selections))
 	for _, item := range selections {
 		model := strings.TrimSpace(item.Model)
 		if model == "" {
 			continue
 		}
+
 		if _, ok := seen[model]; ok {
 			continue
 		}
+
 		seen[model] = struct{}{}
+
 		cm, ok := allowed[model]
 		if !ok {
 			invalid = append(invalid, model)
 			continue
 		}
+
 		requestedCapabilities := normalizeModelTypes(item.EffectiveCapabilities)
 		allowedCapabilities := normalizeModelTypes(cm.Types)
+
 		allowedSet := make(map[platform.ModelType]struct{}, len(allowedCapabilities))
 		for _, capability := range allowedCapabilities {
 			allowedSet[capability] = struct{}{}
 		}
+
 		if len(requestedCapabilities) == 0 {
 			invalidCapabilities[model] = []string{}
 			continue
 		}
+
 		disallowed := make([]string, 0)
+
 		for _, capability := range requestedCapabilities {
 			if _, ok := allowedSet[capability]; ok {
 				continue
 			}
+
 			disallowed = append(disallowed, string(capability))
 		}
+
 		if len(disallowed) > 0 {
 			invalidCapabilities[model] = disallowed
 			continue
 		}
+
 		pricingMode := item.PricingMode
 		if pricingMode == "" {
 			pricingMode = platform.PricingModePublic
 		}
+
 		resolved = append(resolved, platform.TenantProviderAccountModel{
 			Model:            model,
 			Enabled:          true,
@@ -401,7 +465,9 @@ func resolveProviderAccountModelSelections(ctx context.Context, provider string,
 			Settings:         map[string]interface{}{},
 		})
 	}
+
 	sort.Strings(invalid)
+
 	return resolved, invalid, invalidCapabilities, nil
 }
 
@@ -410,10 +476,13 @@ func getDiscoveryBaseURL() string {
 	if baseURL == "" {
 		baseURL = strings.TrimSpace(os.Getenv("SHAHRAH_DISCOVERY_URL"))
 	}
+
 	if baseURL == "" {
 		return ""
 	}
+
 	baseURL = strings.TrimSuffix(baseURL, "/")
+
 	return baseURL
 }
 
@@ -423,10 +492,11 @@ func discoveryGET(ctx context.Context, rawURL string) ([]byte, int, error) {
 }
 
 func discoveryFetch(ctx context.Context, rawURL string) ([]byte, int, string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, http.NoBody)
 	if err != nil {
 		return nil, 0, "", err
 	}
+
 	req.Header.Set("Accept", "application/json")
 
 	token := strings.TrimSpace(os.Getenv("SHAHRAH_DISCOVERY_TOKEN"))
@@ -435,6 +505,7 @@ func discoveryFetch(ctx context.Context, rawURL string) ([]byte, int, string, er
 	}
 
 	client := &http.Client{Timeout: discoveryTimeout}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, 0, "", err
@@ -445,6 +516,7 @@ func discoveryFetch(ctx context.Context, rawURL string) ([]byte, int, string, er
 	if err != nil {
 		return nil, resp.StatusCode, "", err
 	}
+
 	return body, resp.StatusCode, resp.Header.Get("Content-Type"), nil
 }
 
@@ -471,6 +543,7 @@ func decodeProvidersPayload(body []byte) ([]platform.ProviderCatalogProvider, er
 		if hasCanonicalProviderEntries(wrapped.Data) {
 			return wrapped.Data, nil
 		}
+
 		if hasCanonicalProviderEntries(wrapped.Providers) {
 			return wrapped.Providers, nil
 		}
@@ -482,6 +555,7 @@ func decodeProvidersPayload(body []byte) ([]platform.ProviderCatalogProvider, er
 	if err := json.Unmarshal(body, &mdWrapped); err == nil && len(mdWrapped.Data) > 0 {
 		return mapDiscoveryProviders(mdWrapped.Data), nil
 	}
+
 	return nil, fmt.Errorf("discovery providers payload does not contain providers")
 }
 
@@ -508,6 +582,7 @@ func decodeProviderModelsPayload(body []byte) ([]platform.ProviderCatalogModel, 
 		if hasCanonicalModelEntries(wrapped.Data) {
 			return wrapped.Data, nil
 		}
+
 		if hasCanonicalModelEntries(wrapped.Models) {
 			return wrapped.Models, nil
 		}
@@ -519,6 +594,7 @@ func decodeProviderModelsPayload(body []byte) ([]platform.ProviderCatalogModel, 
 	if err := json.Unmarshal(body, &modelsWrapped); err == nil && len(modelsWrapped.Data) > 0 {
 		return mapDiscoveryModels(modelsWrapped.Data), nil
 	}
+
 	return nil, fmt.Errorf("discovery provider models payload does not contain models")
 }
 
@@ -526,11 +602,13 @@ func hasCanonicalProviderEntries(items []platform.ProviderCatalogProvider) bool 
 	if len(items) == 0 {
 		return false
 	}
+
 	for _, item := range items {
 		if strings.TrimSpace(item.Provider) != "" {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -538,11 +616,13 @@ func hasCanonicalModelEntries(items []platform.ProviderCatalogModel) bool {
 	if len(items) == 0 {
 		return false
 	}
+
 	for _, item := range items {
 		if strings.TrimSpace(item.Model) != "" {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -553,10 +633,12 @@ func mapDiscoveryProviders(items []discoveryProvider) []platform.ProviderCatalog
 		if provider == "" {
 			continue
 		}
+
 		displayName := strings.TrimSpace(item.Name)
 		if displayName == "" {
 			displayName = provider
 		}
+
 		out = append(out, platform.ProviderCatalogProvider{
 			Provider:                provider,
 			DisplayName:             displayName,
@@ -569,6 +651,7 @@ func mapDiscoveryProviders(items []discoveryProvider) []platform.ProviderCatalog
 			SupportsVirtualKeys:     true,
 		})
 	}
+
 	return out
 }
 
@@ -579,18 +662,21 @@ func mapDiscoveryModels(items []modelDiscoveryModel) []platform.ProviderCatalogM
 		if model == "" {
 			continue
 		}
+
 		displayName := strings.TrimSpace(item.Name)
 		if displayName == "" {
 			displayName = model
 		}
 
 		modes := normalizeStringList(item.Mode)
+
 		types := make([]platform.ModelType, 0, len(modes))
 		for _, mode := range modes {
 			mt := mapModeToModelType(mode)
 			if mt == "" {
 				continue
 			}
+
 			types = append(types, mt)
 		}
 
@@ -615,8 +701,10 @@ func mapDiscoveryModels(items []modelDiscoveryModel) []platform.ProviderCatalogM
 				OutputUSDPer1M: item.Pricing.OutputPerMillionTokens,
 			}
 		}
+
 		out = append(out, entry)
 	}
+
 	return out
 }
 
@@ -625,26 +713,32 @@ func discoveryDisplaySettings(ctx context.Context) (*platform.ProviderCatalogDis
 	if baseURL == "" {
 		return nil, errDiscoveryNotFound
 	}
+
 	body, status, err := discoveryGET(ctx, baseURL+"/settings/display")
 	if err != nil {
 		return nil, err
 	}
+
 	if status == http.StatusNotFound {
 		return nil, errDiscoveryNotFound
 	}
+
 	if status >= http.StatusBadRequest {
 		return nil, fmt.Errorf("discovery display settings request failed with status %d", status)
 	}
+
 	var direct platform.ProviderCatalogDisplaySettings
 	if err := json.Unmarshal(body, &direct); err == nil && (direct.CurrencyUnit != "" || direct.PriceScale != "" || direct.ExchangeRate != nil) {
 		return &direct, nil
 	}
+
 	var wrapped struct {
 		Data platform.ProviderCatalogDisplaySettings `json:"data"`
 	}
 	if err := json.Unmarshal(body, &wrapped); err == nil && (wrapped.Data.CurrencyUnit != "" || wrapped.Data.PriceScale != "" || wrapped.Data.ExchangeRate != nil) {
 		return &wrapped.Data, nil
 	}
+
 	return nil, fmt.Errorf("discovery display settings payload does not contain settings")
 }
 
@@ -682,8 +776,10 @@ func inferModelTypesFromCapabilities(capabilities []string) []platform.ModelType
 		if mt == "" {
 			continue
 		}
+
 		types = append(types, mt)
 	}
+
 	return normalizeModelTypes(types)
 }
 
@@ -720,23 +816,30 @@ func normalizeProviders(items []platform.ProviderCatalogProvider) []platform.Pro
 	out := make([]platform.ProviderCatalogProvider, 0, len(items))
 	for _, item := range items {
 		item.Provider = normalizeProviderSlug(item.Provider)
+
 		item.DisplayName = strings.TrimSpace(item.DisplayName)
 		if item.Provider == "" {
 			continue
 		}
+
 		if item.Provider == "azure" {
 			continue
 		}
+
 		if item.DisplayName == "" {
 			item.DisplayName = item.Provider
 		}
+
 		item.Description = strings.TrimSpace(item.Description)
+
 		item.DocsURL = strings.TrimSpace(item.DocsURL)
 		if len(item.AuthModes) == 0 {
 			item.AuthModes = []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey}
 		}
+
 		out = append(out, item)
 	}
+
 	return out
 }
 
@@ -744,19 +847,24 @@ func normalizeModelTypes(types []platform.ModelType) []platform.ModelType {
 	if len(types) == 0 {
 		return nil
 	}
+
 	out := make([]platform.ModelType, 0, len(types))
+
 	seen := make(map[platform.ModelType]struct{}, len(types))
 	for _, item := range types {
 		normalized := platform.ModelType(strings.TrimSpace(strings.ToLower(string(item))))
 		if normalized == "" {
 			continue
 		}
+
 		if _, ok := seen[normalized]; ok {
 			continue
 		}
+
 		seen[normalized] = struct{}{}
 		out = append(out, normalized)
 	}
+
 	return out
 }
 
@@ -764,19 +872,24 @@ func normalizeStringList(values []string) []string {
 	if len(values) == 0 {
 		return nil
 	}
+
 	out := make([]string, 0, len(values))
+
 	seen := make(map[string]struct{}, len(values))
 	for _, item := range values {
 		normalized := strings.TrimSpace(strings.ToLower(item))
 		if normalized == "" {
 			continue
 		}
+
 		if _, ok := seen[normalized]; ok {
 			continue
 		}
+
 		seen[normalized] = struct{}{}
 		out = append(out, normalized)
 	}
+
 	return out
 }
 
@@ -784,12 +897,15 @@ func cloneModelPrice(price *platform.ModelPrice) *platform.ModelPrice {
 	if price == nil {
 		return nil
 	}
+
 	out := *price
+
 	return &out
 }
 
 func fillModelPricingFromRegistry(provider string, model string, current *platform.ModelPrice) *platform.ModelPrice {
 	hasInput := current != nil && current.InputUSDPer1M != nil && *current.InputUSDPer1M > 0
+
 	hasOutput := current != nil && current.OutputUSDPer1M != nil && *current.OutputUSDPer1M > 0
 	if hasInput && hasOutput {
 		return current
@@ -804,16 +920,20 @@ func fillModelPricingFromRegistry(provider string, model string, current *platfo
 	if current != nil {
 		*out = *current
 	}
+
 	if (out.InputUSDPer1M == nil || *out.InputUSDPer1M <= 0) && pricing.InputPrice > 0 {
 		v := pricing.InputPrice
 		out.InputUSDPer1M = &v
 	}
+
 	if (out.OutputUSDPer1M == nil || *out.OutputUSDPer1M <= 0) && pricing.OutputPrice > 0 {
 		v := pricing.OutputPrice
 		out.OutputUSDPer1M = &v
 	}
+
 	if out.InputUSDPer1M == nil && out.OutputUSDPer1M == nil {
 		return nil
 	}
+
 	return out
 }

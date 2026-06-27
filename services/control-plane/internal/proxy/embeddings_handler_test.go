@@ -38,6 +38,7 @@ func newEmbeddingsTestApp(t *testing.T, modelName string, provider string, deplo
 	if logs == nil {
 		logs = &testLogs{}
 	}
+
 	h := NewEmbeddingsHandler(rt, tunnel, &testBudgeter{}, &testWallets{}, logs, zap.NewNop())
 	q := tracing.NewQueue(64)
 	s := tracing.NewSampler(1.0, 1500)
@@ -60,9 +61,11 @@ func newEmbeddingsTestApp(t *testing.T, modelName string, provider string, deplo
 			Slug:   "a",
 			Status: "active",
 		})
+
 		return c.Next()
 	})
 	app.Post("/v1/embeddings", h.Handle)
+
 	return app, q
 }
 
@@ -90,12 +93,16 @@ func TestEmbeddingsHandlerSingleStringInput(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/embeddings", bytes.NewBufferString(`{"model":"openai:acct:text-embedding-3-small","input":"hello","dimensions":1536}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.Equal(t, "/embeddings", tunnel.lastReq.RequestMetadata["provider_endpoint_path"])
 
 	var outbound contractsopenai.EmbeddingRequest
+
 	err = json.Unmarshal(tunnel.lastReq.Body, &outbound)
 	require.NoError(t, err)
 	assert.Equal(t, "text-embedding-3-small", outbound.Model)
@@ -105,12 +112,15 @@ func TestEmbeddingsHandlerSingleStringInput(t *testing.T) {
 	assert.Equal(t, "/embeddings", logs.loggedSpends[0].RequestMetadata["provider_endpoint_path"])
 
 	events := q.DequeueBatch(20)
+
 	var sawProvider bool
+
 	for _, ev := range events {
 		if ev.Name == "provider.call" {
 			sawProvider = true
 		}
 	}
+
 	assert.True(t, sawProvider)
 }
 
@@ -136,11 +146,15 @@ func TestEmbeddingsHandlerBatchInputPreservesOrder(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/embeddings", bytes.NewBufferString(`{"model":"text-embedding-3-small","input":["first","second"]}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var decoded contractsopenai.EmbeddingResponse
+
 	err = json.NewDecoder(resp.Body).Decode(&decoded)
 	require.NoError(t, err)
 	require.Len(t, decoded.Data, 2)
@@ -171,11 +185,15 @@ func TestEmbeddingsHandlerValidationErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			req := httptest.NewRequest("POST", "/v1/embeddings", bytes.NewBufferString(tc.body))
 			req.Header.Set("Content-Type", "application/json")
+
 			resp, err := app.Test(req)
+			defer closeResponseBody(t, resp)
+
 			require.NoError(t, err)
 			assert.Equal(t, tc.status, resp.StatusCode)
 
 			var apiErr contractsopenai.APIError
+
 			err = json.NewDecoder(resp.Body).Decode(&apiErr)
 			require.NoError(t, err)
 			assert.Equal(t, tc.param, apiErr.Error.Param)
@@ -193,11 +211,15 @@ func TestEmbeddingsHandlerProviderErrorNormalized(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/embeddings", bytes.NewBufferString(`{"model":"text-embedding-3-small","input":"hello"}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
 	var apiErr contractsopenai.APIError
+
 	err = json.NewDecoder(resp.Body).Decode(&apiErr)
 	require.NoError(t, err)
 	assert.Equal(t, "upstream rejected dimensions", apiErr.Error.Message)
@@ -213,7 +235,10 @@ func TestEmbeddingsHandlerRejectsUnsupportedProvider(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/embeddings", bytes.NewBufferString(`{"model":"text-embedding-3-small","input":"hello"}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusNotImplemented, resp.StatusCode)
 }
@@ -241,15 +266,20 @@ func TestEmbeddingsHandlerTraceLifecycle(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/embeddings", bytes.NewBufferString(`{"model":"text-embedding-3-small","input":"hello","user":"user-1"}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	events := q.DequeueBatch(20)
+
 	names := make([]string, 0, len(events))
 	for _, ev := range events {
 		names = append(names, ev.Name)
 	}
+
 	assert.Contains(t, names, "gateway.request")
 	assert.Contains(t, names, "auth.validate")
 	assert.Contains(t, names, "quota.check")
@@ -282,7 +312,10 @@ func TestEmbeddingsHandlerUsageRecordIncludesVectorDimensions(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/embeddings", bytes.NewBufferString(`{"model":"text-embedding-3-small","input":["one","two"]}`))
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 

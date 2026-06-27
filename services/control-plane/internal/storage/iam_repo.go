@@ -15,13 +15,17 @@ func (s *Store) CreateOrgUnit(ctx context.Context, tenantID string, req platform
 	if err != nil {
 		return nil, err
 	}
+
 	rawMetadata, err := marshalJSONObject(metadata)
 	if err != nil {
 		return nil, err
 	}
 
-	var item platform.OrgUnit
-	var metadataBytes []byte
+	var (
+		item          platform.OrgUnit
+		metadataBytes []byte
+	)
+
 	err = s.pool.QueryRow(ctx, `
 		INSERT INTO organizations (organization_id, tenant_id, organization_alias, metadata, created_at, updated_at)
 		VALUES ($1, $2::uuid, $3, $4, NOW(), NOW())
@@ -37,22 +41,28 @@ func (s *Store) CreateOrgUnit(ctx context.Context, tenantID string, req platform
 	if err != nil {
 		return nil, err
 	}
+
 	item.Metadata = parseJSONObject(metadataBytes)
 	item.DisplayName = extractDisplayName(item.Metadata, item.Alias)
+
 	return &item, nil
 }
 
 func (s *Store) ListOrgUnits(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.OrgUnit, int, error) {
 	query = strings.TrimSpace(strings.ToLower(query))
+
 	if limit <= 0 {
 		limit = 50
 	}
+
 	if limit > 200 {
 		limit = 200
 	}
+
 	if offset < 0 {
 		offset = 0
 	}
+
 	like := "%" + query + "%"
 
 	var total int
@@ -79,13 +89,16 @@ func (s *Store) ListOrgUnits(ctx context.Context, tenantID string, query string,
 	defer rows.Close()
 
 	items := make([]platform.OrgUnit, 0, limit)
+
 	for rows.Next() {
 		item, err := scanOrgUnit(rows)
 		if err != nil {
 			return nil, 0, err
 		}
+
 		items = append(items, *item)
 	}
+
 	return items, total, rows.Err()
 }
 
@@ -100,9 +113,11 @@ func (s *Store) GetOrgUnit(ctx context.Context, tenantID string, orgUnitID strin
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, pgx.ErrNoRows
 	}
+
 	return scanOrgUnit(rows)
 }
 
@@ -116,18 +131,22 @@ func (s *Store) UpdateOrgUnit(ctx context.Context, tenantID string, orgUnitID st
 	if trimmed := strings.TrimSpace(req.Alias); trimmed != "" {
 		alias = trimmed
 	}
+
 	displayName := current.DisplayName
 	if strings.TrimSpace(req.DisplayName) != "" {
 		displayName = strings.TrimSpace(req.DisplayName)
 	}
+
 	metadata := current.Metadata
 	if req.Metadata != nil {
 		metadata = req.Metadata
 	}
+
 	mergedMetadata, err := mergeDisplayNameMetadata(metadata, displayName)
 	if err != nil {
 		return nil, err
 	}
+
 	rawMetadata, err := marshalJSONObject(mergedMetadata)
 	if err != nil {
 		return nil, err
@@ -145,9 +164,11 @@ func (s *Store) UpdateOrgUnit(ctx context.Context, tenantID string, orgUnitID st
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, pgx.ErrNoRows
 	}
+
 	return scanOrgUnit(rows)
 }
 
@@ -159,9 +180,11 @@ func (s *Store) DeleteOrgUnit(ctx context.Context, tenantID string, orgUnitID st
 	if err != nil {
 		return err
 	}
+
 	if command.RowsAffected() == 0 {
 		return pgx.ErrNoRows
 	}
+
 	return nil
 }
 
@@ -170,10 +193,12 @@ func (s *Store) CreateTeam(ctx context.Context, tenantID string, req platform.Cr
 	if err != nil {
 		return nil, err
 	}
+
 	rawMetadata, err := marshalJSONObject(metadata)
 	if err != nil {
 		return nil, err
 	}
+
 	workspaceType := strings.TrimSpace(req.WorkspaceType)
 	if workspaceType == "" {
 		workspaceType = "general"
@@ -190,23 +215,29 @@ func (s *Store) CreateTeam(ctx context.Context, tenantID string, req platform.Cr
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, pgx.ErrNoRows
 	}
+
 	return scanTeam(rows)
 }
 
 func (s *Store) ListTeams(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.Team, int, error) {
 	query = strings.TrimSpace(strings.ToLower(query))
+
 	if limit <= 0 {
 		limit = 50
 	}
+
 	if limit > 200 {
 		limit = 200
 	}
+
 	if offset < 0 {
 		offset = 0
 	}
+
 	like := "%" + query + "%"
 
 	var total int
@@ -235,13 +266,16 @@ func (s *Store) ListTeams(ctx context.Context, tenantID string, query string, li
 	defer rows.Close()
 
 	items := make([]platform.Team, 0, limit)
+
 	for rows.Next() {
 		item, err := scanTeam(rows)
 		if err != nil {
 			return nil, 0, err
 		}
+
 		items = append(items, *item)
 	}
+
 	return items, total, rows.Err()
 }
 
@@ -258,9 +292,11 @@ func (s *Store) GetTeam(ctx context.Context, tenantID string, teamID string) (*p
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, pgx.ErrNoRows
 	}
+
 	return scanTeam(rows)
 }
 
@@ -269,38 +305,47 @@ func (s *Store) UpdateTeam(ctx context.Context, tenantID string, teamID string, 
 	if err != nil {
 		return nil, err
 	}
+
 	alias := current.Alias
 	if trimmed := strings.TrimSpace(req.Alias); trimmed != "" {
 		alias = trimmed
 	}
+
 	displayName := current.DisplayName
 	if trimmed := strings.TrimSpace(req.DisplayName); trimmed != "" {
 		displayName = trimmed
 	}
+
 	workspaceType := current.WorkspaceType
 	if trimmed := strings.TrimSpace(req.WorkspaceType); trimmed != "" {
 		workspaceType = trimmed
 	}
+
 	orgUnitID := current.OrgUnitID
 	if req.OrgUnitID != "" {
 		orgUnitID = strings.TrimSpace(req.OrgUnitID)
 	}
+
 	allowedModels := current.AllowedModels
 	if req.AllowedModels != nil {
 		allowedModels = req.AllowedModels
 	}
+
 	metadata := current.Metadata
 	if req.Metadata != nil {
 		metadata = req.Metadata
 	}
+
 	mergedMetadata, err := mergeDisplayNameMetadata(metadata, displayName)
 	if err != nil {
 		return nil, err
 	}
+
 	rawMetadata, err := marshalJSONObject(mergedMetadata)
 	if err != nil {
 		return nil, err
 	}
+
 	rows, err := s.pool.Query(ctx, `
 		UPDATE teams
 		SET team_alias = $3,
@@ -318,9 +363,11 @@ func (s *Store) UpdateTeam(ctx context.Context, tenantID string, teamID string, 
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, pgx.ErrNoRows
 	}
+
 	return scanTeam(rows)
 }
 
@@ -332,9 +379,11 @@ func (s *Store) DeleteTeam(ctx context.Context, tenantID string, teamID string) 
 	if err != nil {
 		return err
 	}
+
 	if command.RowsAffected() == 0 {
 		return pgx.ErrNoRows
 	}
+
 	return nil
 }
 
@@ -348,6 +397,7 @@ func (s *Store) GetTeamPermissions(ctx context.Context, tenantID string, teamID 
 	`, tenantID, teamID).Scan(&permissions); err != nil {
 		return nil, err
 	}
+
 	return &platform.TeamPermissionsResponse{
 		TeamID:                teamID,
 		TeamMemberPermissions: permissions,
@@ -365,6 +415,7 @@ func (s *Store) UpdateTeamPermissions(ctx context.Context, tenantID string, team
 	`, tenantID, teamID, req.TeamMemberPermissions).Scan(&permissions); err != nil {
 		return nil, err
 	}
+
 	return &platform.TeamPermissionsResponse{
 		TeamID:                teamID,
 		TeamMemberPermissions: permissions,
@@ -376,6 +427,7 @@ func (s *Store) CreateVirtualUser(ctx context.Context, tenantID string, req plat
 	if err != nil {
 		return nil, err
 	}
+
 	rows, err := s.pool.Query(ctx, `
 		INSERT INTO virtual_users (virtual_user_id, tenant_id, team_id, org_unit_id, alias, display_name, metadata, active, created_at, updated_at)
 		VALUES ($1, $2::uuid, NULLIF($3, '')::uuid, NULLIF($4, '')::uuid, $5, NULLIF($6, ''), $7, true, NOW(), NOW())
@@ -385,23 +437,29 @@ func (s *Store) CreateVirtualUser(ctx context.Context, tenantID string, req plat
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, pgx.ErrNoRows
 	}
+
 	return scanVirtualUser(rows)
 }
 
 func (s *Store) ListVirtualUsers(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.VirtualUser, int, error) {
 	query = strings.TrimSpace(strings.ToLower(query))
+
 	if limit <= 0 {
 		limit = 50
 	}
+
 	if limit > 200 {
 		limit = 200
 	}
+
 	if offset < 0 {
 		offset = 0
 	}
+
 	like := "%" + query + "%"
 
 	var total int
@@ -428,13 +486,16 @@ func (s *Store) ListVirtualUsers(ctx context.Context, tenantID string, query str
 	defer rows.Close()
 
 	items := make([]platform.VirtualUser, 0, limit)
+
 	for rows.Next() {
 		item, err := scanVirtualUser(rows)
 		if err != nil {
 			return nil, 0, err
 		}
+
 		items = append(items, *item)
 	}
+
 	return items, total, rows.Err()
 }
 
@@ -449,9 +510,11 @@ func (s *Store) GetVirtualUser(ctx context.Context, tenantID string, virtualUser
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, pgx.ErrNoRows
 	}
+
 	return scanVirtualUser(rows)
 }
 
@@ -460,34 +523,42 @@ func (s *Store) UpdateVirtualUser(ctx context.Context, tenantID string, virtualU
 	if err != nil {
 		return nil, err
 	}
+
 	alias := current.Alias
 	if trimmed := strings.TrimSpace(req.Alias); trimmed != "" {
 		alias = trimmed
 	}
+
 	displayName := current.DisplayName
 	if req.DisplayName != "" {
 		displayName = strings.TrimSpace(req.DisplayName)
 	}
+
 	teamID := current.TeamID
 	if req.TeamID != "" {
 		teamID = strings.TrimSpace(req.TeamID)
 	}
+
 	orgUnitID := current.OrgUnitID
 	if req.OrgUnitID != "" {
 		orgUnitID = strings.TrimSpace(req.OrgUnitID)
 	}
+
 	active := current.Active
 	if req.Active != nil {
 		active = *req.Active
 	}
+
 	metadata := current.Metadata
 	if req.Metadata != nil {
 		metadata = req.Metadata
 	}
+
 	rawMetadata, err := marshalJSONObject(metadata)
 	if err != nil {
 		return nil, err
 	}
+
 	rows, err := s.pool.Query(ctx, `
 		UPDATE virtual_users
 		SET alias = $3,
@@ -504,9 +575,11 @@ func (s *Store) UpdateVirtualUser(ctx context.Context, tenantID string, virtualU
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, pgx.ErrNoRows
 	}
+
 	return scanVirtualUser(rows)
 }
 
@@ -518,9 +591,11 @@ func (s *Store) DeleteVirtualUser(ctx context.Context, tenantID string, virtualU
 	if err != nil {
 		return err
 	}
+
 	if command.RowsAffected() == 0 {
 		return pgx.ErrNoRows
 	}
+
 	return nil
 }
 
@@ -537,13 +612,16 @@ func (s *Store) ListOrgUnitMemberships(ctx context.Context, tenantID string, org
 	defer rows.Close()
 
 	items := make([]platform.OrgUnitMembership, 0)
+
 	for rows.Next() {
 		var item platform.OrgUnitMembership
 		if err := rows.Scan(&item.ID, &item.TenantID, &item.OrgUnitID, &item.UserID, &item.Role, &item.CreatedAt, &item.UpdatedAt); err != nil {
 			return nil, err
 		}
+
 		items = append(items, item)
 	}
+
 	return items, rows.Err()
 }
 
@@ -563,13 +641,16 @@ func (s *Store) AddOrgUnitMembership(ctx context.Context, tenantID string, orgUn
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, pgx.ErrNoRows
 	}
+
 	var item platform.OrgUnitMembership
 	if err := rows.Scan(&item.ID, &item.TenantID, &item.OrgUnitID, &item.UserID, &item.Role, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		return nil, err
 	}
+
 	return &item, nil
 }
 
@@ -589,9 +670,11 @@ func (s *Store) ensurePlatformUserForMembership(ctx context.Context, tenantID st
 	`, tenantID, userID).Scan(&exists); err != nil {
 		return err
 	}
+
 	if !exists {
 		return pgx.ErrNoRows
 	}
+
 	return nil
 }
 
@@ -606,13 +689,16 @@ func (s *Store) UpdateOrgUnitMembership(ctx context.Context, tenantID string, or
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, pgx.ErrNoRows
 	}
+
 	var item platform.OrgUnitMembership
 	if err := rows.Scan(&item.ID, &item.TenantID, &item.OrgUnitID, &item.UserID, &item.Role, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		return nil, err
 	}
+
 	return &item, nil
 }
 
@@ -624,9 +710,11 @@ func (s *Store) DeleteOrgUnitMembership(ctx context.Context, tenantID string, or
 	if err != nil {
 		return err
 	}
+
 	if command.RowsAffected() == 0 {
 		return pgx.ErrNoRows
 	}
+
 	return nil
 }
 
@@ -642,14 +730,18 @@ func (s *Store) ListTeamMemberships(ctx context.Context, tenantID string, teamID
 		return nil, err
 	}
 	defer rows.Close()
+
 	items := make([]platform.TeamMembership, 0)
+
 	for rows.Next() {
 		var item platform.TeamMembership
 		if err := rows.Scan(&item.ID, &item.TenantID, &item.TeamID, &item.UserID, &item.Role, &item.TeamMemberPermissions, &item.Spend, &item.CreatedAt, &item.UpdatedAt); err != nil {
 			return nil, err
 		}
+
 		items = append(items, item)
 	}
+
 	return items, rows.Err()
 }
 
@@ -666,13 +758,16 @@ func (s *Store) AddTeamMembership(ctx context.Context, tenantID string, teamID s
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, pgx.ErrNoRows
 	}
+
 	var item platform.TeamMembership
 	if err := rows.Scan(&item.ID, &item.TenantID, &item.TeamID, &item.UserID, &item.Role, &item.TeamMemberPermissions, &item.Spend, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		return nil, err
 	}
+
 	return &item, nil
 }
 
@@ -688,21 +783,28 @@ func (s *Store) UpdateTeamMembership(ctx context.Context, tenantID string, teamI
 		return nil, err
 	}
 	defer currentRows.Close()
+
 	if !currentRows.Next() {
 		return nil, pgx.ErrNoRows
 	}
+
 	var current platform.TeamMembership
-	if err := currentRows.Scan(&current.ID, &current.TenantID, &current.TeamID, &current.UserID, &current.Role, &current.TeamMemberPermissions, &current.Spend, &current.CreatedAt, &current.UpdatedAt); err != nil {
-		return nil, err
+
+	scanErr := currentRows.Scan(&current.ID, &current.TenantID, &current.TeamID, &current.UserID, &current.Role, &current.TeamMemberPermissions, &current.Spend, &current.CreatedAt, &current.UpdatedAt)
+	if scanErr != nil {
+		return nil, scanErr
 	}
+
 	role := current.Role
 	if trimmed := strings.TrimSpace(req.Role); trimmed != "" {
 		role = trimmed
 	}
+
 	perms := current.TeamMemberPermissions
 	if req.TeamMemberPermissions != nil {
 		perms = req.TeamMemberPermissions
 	}
+
 	rows, err := s.pool.Query(ctx, `
 		UPDATE team_memberships
 		SET role = $4, team_member_permissions = $5, updated_at = NOW()
@@ -714,13 +816,16 @@ func (s *Store) UpdateTeamMembership(ctx context.Context, tenantID string, teamI
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, pgx.ErrNoRows
 	}
+
 	var item platform.TeamMembership
 	if err := rows.Scan(&item.ID, &item.TenantID, &item.TeamID, &item.UserID, &item.Role, &item.TeamMemberPermissions, &item.Spend, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		return nil, err
 	}
+
 	return &item, nil
 }
 
@@ -732,40 +837,52 @@ func (s *Store) DeleteTeamMembership(ctx context.Context, tenantID string, teamI
 	if err != nil {
 		return err
 	}
+
 	if command.RowsAffected() == 0 {
 		return pgx.ErrNoRows
 	}
+
 	return nil
 }
 
 func scanOrgUnit(rows pgx.Rows) (*platform.OrgUnit, error) {
-	var item platform.OrgUnit
-	var metadataBytes []byte
+	var (
+		item          platform.OrgUnit
+		metadataBytes []byte
+	)
 	if err := rows.Scan(&item.ID, &item.TenantID, &item.Alias, &metadataBytes, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		return nil, err
 	}
+
 	item.Metadata = parseJSONObject(metadataBytes)
 	item.DisplayName = extractDisplayName(item.Metadata, item.Alias)
+
 	return &item, nil
 }
 
 func scanVirtualUser(rows pgx.Rows) (*platform.VirtualUser, error) {
-	var item platform.VirtualUser
-	var displayName string
-	var metadataBytes []byte
+	var (
+		item          platform.VirtualUser
+		displayName   string
+		metadataBytes []byte
+	)
 	if err := rows.Scan(&item.ID, &item.TenantID, &item.TeamID, &item.OrgUnitID, &item.Alias, &displayName, &item.Active, &metadataBytes, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		return nil, err
 	}
+
 	item.DisplayName = strings.TrimSpace(displayName)
 	item.Metadata = parseJSONObject(metadataBytes)
+
 	return &item, nil
 }
 
 func scanTeam(rows pgx.Rows) (*platform.Team, error) {
-	var item platform.Team
-	var metadataBytes []byte
-	var teamMemberPermissions []string
-	var spend string
+	var (
+		item                  platform.Team
+		metadataBytes         []byte
+		teamMemberPermissions []string
+		spend                 string
+	)
 	if err := rows.Scan(
 		&item.ID,
 		&item.TenantID,
@@ -781,33 +898,42 @@ func scanTeam(rows pgx.Rows) (*platform.Team, error) {
 	); err != nil {
 		return nil, err
 	}
+
 	item.Metadata = parseJSONObject(metadataBytes)
+
 	item.DisplayName = extractDisplayName(item.Metadata, item.Alias)
 	if item.Metadata == nil {
 		item.Metadata = map[string]interface{}{}
 	}
+
 	if spend != "" {
 		item.Metadata["spend"] = spend
 	}
+
 	item.Metadata["team_member_permissions"] = teamMemberPermissions
 	item.Metadata["allowed_models"] = item.AllowedModels
+
 	return &item, nil
 }
 
 func mergeDisplayNameMetadata(metadata map[string]interface{}, displayName string) (map[string]interface{}, error) {
 	cloned := make(map[string]interface{})
+
 	if metadata != nil {
 		raw, err := json.Marshal(metadata)
 		if err != nil {
 			return nil, err
 		}
+
 		if err := json.Unmarshal(raw, &cloned); err != nil {
 			return nil, err
 		}
 	}
+
 	if trimmed := strings.TrimSpace(displayName); trimmed != "" {
 		cloned["display_name"] = trimmed
 	}
+
 	return cloned, nil
 }
 
@@ -819,16 +945,6 @@ func extractDisplayName(metadata map[string]interface{}, fallback string) string
 			}
 		}
 	}
-	return strings.TrimSpace(fallback)
-}
 
-func normalizePlatformUserRole(role string) string {
-	switch strings.TrimSpace(strings.ToLower(role)) {
-	case "tenant_admin", "proxy_admin", "org_admin":
-		return "org_admin"
-	case "team_admin":
-		return "team_admin"
-	default:
-		return "internal_user"
-	}
+	return strings.TrimSpace(fallback)
 }

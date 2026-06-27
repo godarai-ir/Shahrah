@@ -54,6 +54,7 @@ func tenantSlugFromTrustedRequestContext(c *fiber.Ctx) string {
 	if currentTenant := tenant.FromContext(c); currentTenant != nil {
 		return normalizeTenantSlug(currentTenant.Slug)
 	}
+
 	return normalizeTenantSlug(c.Get("x-shahrah-tenant"))
 }
 
@@ -64,19 +65,23 @@ func resolveTenantSlugForRequest(c *fiber.Ctx, requested string) (string, error)
 	if effective == "" {
 		effective = requested
 	}
+
 	if effective == "" {
 		return "", fiber.NewError(fiber.StatusBadRequest, "tenant_slug is required")
 	}
+
 	if !tenantSlugPattern.MatchString(effective) {
 		return "", fiber.NewError(fiber.StatusBadRequest, "tenant_slug is invalid")
 	}
+
 	if requested != "" && requested != effective {
 		return "", fiber.NewError(fiber.StatusForbidden, "tenant_slug does not match request tenant")
 	}
+
 	return effective, nil
 }
 
-// CreateCaptcha handles POST /api/v1/auth/captcha/create
+// CreateCaptcha handles POST /api/v1/auth/captcha/create.
 func (h *AuthHandlers) CreateCaptcha(c *fiber.Ctx) error {
 	id, answer, expiresAt, err := h.store.CreateTenantAdminCaptcha(c.Context())
 	if err != nil {
@@ -96,45 +101,42 @@ func buildCaptchaDataURL(answer string) string {
 	height := 56
 
 	var chars strings.Builder
+
 	runes := []rune(answer)
 	for i, ch := range runes {
 		x := 16 + i*30 + rng.Intn(5)
 		y := 34 + rng.Intn(12)
 		rot := -24 + rng.Intn(49)
 		fontSize := 24 + rng.Intn(8)
-		chars.WriteString(fmt.Sprintf(
-			`<text x="%d" y="%d" transform="rotate(%d %d %d)" font-size="%d" fill="#0f172a" font-family="monospace" font-weight="700">%s</text>`,
+		fmt.Fprintf(&chars, `<text x="%d" y="%d" transform="rotate(%d %d %d)" font-size="%d" fill="#0f172a" font-family="monospace" font-weight="700">%s</text>`,
 			x,
 			y,
 			rot,
 			x,
 			y,
 			fontSize,
-			string(ch),
-		))
+			string(ch))
 	}
 
 	var noise strings.Builder
+
 	for i := 0; i < 10; i++ {
 		x1 := rng.Intn(width)
 		y1 := rng.Intn(height)
 		x2 := rng.Intn(width)
 		y2 := rng.Intn(height)
 		opacity := 0.20 + rng.Float64()*0.35
-		noise.WriteString(fmt.Sprintf(
-			`<line x1="%d" y1="%d" x2="%d" y2="%d" stroke="#334155" stroke-opacity="%.2f" stroke-width="1"/>`,
-			x1, y1, x2, y2, opacity,
-		))
+		fmt.Fprintf(&noise, `<line x1="%d" y1="%d" x2="%d" y2="%d" stroke="#334155" stroke-opacity="%.2f" stroke-width="1"/>`,
+			x1, y1, x2, y2, opacity)
 	}
+
 	for i := 0; i < 28; i++ {
 		cx := rng.Intn(width)
 		cy := rng.Intn(height)
 		r := 1 + rng.Intn(2)
 		opacity := 0.15 + rng.Float64()*0.35
-		noise.WriteString(fmt.Sprintf(
-			`<circle cx="%d" cy="%d" r="%d" fill="#475569" fill-opacity="%.2f"/>`,
-			cx, cy, r, opacity,
-		))
+		fmt.Fprintf(&noise, `<circle cx="%d" cy="%d" r="%d" fill="#475569" fill-opacity="%.2f"/>`,
+			cx, cy, r, opacity)
 	}
 
 	svg := fmt.Sprintf(`<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">
@@ -142,10 +144,11 @@ func buildCaptchaDataURL(answer string) string {
 %s
 %s
 </svg>`, width, height, width, height, width, height, noise.String(), chars.String())
+
 	return "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString([]byte(svg))
 }
 
-// ConsumeCaptcha handles POST /api/v1/auth/captcha/consume
+// ConsumeCaptcha handles POST /api/v1/auth/captcha/consume.
 func (h *AuthHandlers) ConsumeCaptcha(c *fiber.Ctx) error {
 	var body struct {
 		CaptchaID string `json:"captcha_id"`
@@ -167,7 +170,7 @@ func (h *AuthHandlers) ConsumeCaptcha(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"ok": true})
 }
 
-// CreateOTPRequest handles POST /api/v1/auth/otp/request
+// CreateOTPRequest handles POST /api/v1/auth/otp/request.
 func (h *AuthHandlers) CreateOTPRequest(c *fiber.Ctx) error {
 	var body struct {
 		TenantSlug   string  `json:"tenant_slug"`
@@ -184,6 +187,7 @@ func (h *AuthHandlers) CreateOTPRequest(c *fiber.Ctx) error {
 	if body.TenantSlug == "" || body.Identifier == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant_slug and identifier are required")
 	}
+
 	tenantSlug, err := resolveTenantSlugForRequest(c, body.TenantSlug)
 	if err != nil {
 		return err
@@ -219,7 +223,7 @@ func (h *AuthHandlers) CreateOTPRequest(c *fiber.Ctx) error {
 	return c.JSON(result)
 }
 
-// VerifyOTPRequest handles POST /api/v1/auth/otp/verify
+// VerifyOTPRequest handles POST /api/v1/auth/otp/verify.
 func (h *AuthHandlers) VerifyOTPRequest(c *fiber.Ctx) error {
 	var body struct {
 		TenantSlug string  `json:"tenant_slug"`
@@ -231,6 +235,7 @@ func (h *AuthHandlers) VerifyOTPRequest(c *fiber.Ctx) error {
 	if err := c.BodyParser(&body); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid request body")
 	}
+
 	tenantSlug, err := resolveTenantSlugForRequest(c, body.TenantSlug)
 	if err != nil {
 		return err
@@ -250,7 +255,7 @@ func (h *AuthHandlers) VerifyOTPRequest(c *fiber.Ctx) error {
 	return c.JSON(result)
 }
 
-// CreateSession handles POST /api/v1/auth/session
+// CreateSession handles POST /api/v1/auth/session.
 func (h *AuthHandlers) CreateSession(c *fiber.Ctx) error {
 	var body struct {
 		TenantSlug string `json:"tenant_slug"`
@@ -259,6 +264,7 @@ func (h *AuthHandlers) CreateSession(c *fiber.Ctx) error {
 	if err := c.BodyParser(&body); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid request body")
 	}
+
 	tenantSlug, err := resolveTenantSlugForRequest(c, body.TenantSlug)
 	if err != nil {
 		return err
@@ -275,7 +281,7 @@ func (h *AuthHandlers) CreateSession(c *fiber.Ctx) error {
 	return c.JSON(result)
 }
 
-// GetSession handles GET /api/v1/auth/session/:id
+// GetSession handles GET /api/v1/auth/session/:id.
 func (h *AuthHandlers) GetSession(c *fiber.Ctx) error {
 	sessionID := c.Params("id")
 	if sessionID == "" {
@@ -286,6 +292,7 @@ func (h *AuthHandlers) GetSession(c *fiber.Ctx) error {
 	if err != nil {
 		return fiber.NewError(fiber.StatusNotFound, "Session not found")
 	}
+
 	if session == nil {
 		return c.SendStatus(fiber.StatusNotFound)
 	}
@@ -293,7 +300,7 @@ func (h *AuthHandlers) GetSession(c *fiber.Ctx) error {
 	return c.JSON(session)
 }
 
-// RevokeSession handles DELETE /api/v1/auth/session/:id
+// RevokeSession handles DELETE /api/v1/auth/session/:id.
 func (h *AuthHandlers) RevokeSession(c *fiber.Ctx) error {
 	sessionID := c.Params("id")
 	if sessionID == "" {
@@ -307,7 +314,7 @@ func (h *AuthHandlers) RevokeSession(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
-// FindOrCreateUser handles POST /api/v1/auth/user/find-or-create
+// FindOrCreateUser handles POST /api/v1/auth/user/find-or-create.
 func (h *AuthHandlers) FindOrCreateUser(c *fiber.Ctx) error {
 	var body struct {
 		TenantSlug string `json:"tenant_slug"`
@@ -317,6 +324,7 @@ func (h *AuthHandlers) FindOrCreateUser(c *fiber.Ctx) error {
 	if err := c.BodyParser(&body); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid request body")
 	}
+
 	tenantSlug, err := resolveTenantSlugForRequest(c, body.TenantSlug)
 	if err != nil {
 		return err
@@ -331,15 +339,17 @@ func (h *AuthHandlers) FindOrCreateUser(c *fiber.Ctx) error {
 		if strings.Contains(strings.ToLower(err.Error()), "tenant member not found") {
 			return fiber.NewError(fiber.StatusForbidden, "You do not have access to this tenant.")
 		}
+
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to find or create user")
 	}
 
 	return c.JSON(user)
 }
 
-// GetUser handles GET /api/v1/auth/user/:id
+// GetUser handles GET /api/v1/auth/user/:id.
 func (h *AuthHandlers) GetUser(c *fiber.Ctx) error {
 	userID := c.Params("id")
+
 	tenantSlug, err := resolveTenantSlugForRequest(c, c.Query("tenant_slug"))
 	if err != nil {
 		return err
@@ -349,6 +359,7 @@ func (h *AuthHandlers) GetUser(c *fiber.Ctx) error {
 	if err != nil {
 		return fiber.NewError(fiber.StatusNotFound, "User not found")
 	}
+
 	if user == nil {
 		return c.SendStatus(fiber.StatusNotFound)
 	}
@@ -356,9 +367,10 @@ func (h *AuthHandlers) GetUser(c *fiber.Ctx) error {
 	return c.JSON(user)
 }
 
-// UpdateUserContact handles POST /api/v1/auth/user/:id/update-contact
+// UpdateUserContact handles POST /api/v1/auth/user/:id/update-contact.
 func (h *AuthHandlers) UpdateUserContact(c *fiber.Ctx) error {
 	userID := c.Params("id")
+
 	var body struct {
 		TenantSlug string `json:"tenant_slug"`
 		Field      string `json:"field"`
@@ -367,6 +379,7 @@ func (h *AuthHandlers) UpdateUserContact(c *fiber.Ctx) error {
 	if err := c.BodyParser(&body); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid request body")
 	}
+
 	tenantSlug, err := resolveTenantSlugForRequest(c, body.TenantSlug)
 	if err != nil {
 		return err
@@ -385,15 +398,17 @@ func (h *AuthHandlers) UpdateUserContact(c *fiber.Ctx) error {
 	return c.JSON(user)
 }
 
-// TouchLastLogin handles POST /api/v1/auth/user/:id/touch-last-login
+// TouchLastLogin handles POST /api/v1/auth/user/:id/touch-last-login.
 func (h *AuthHandlers) TouchLastLogin(c *fiber.Ctx) error {
 	userID := c.Params("id")
+
 	var body struct {
 		TenantSlug string `json:"tenant_slug"`
 	}
 	if err := c.BodyParser(&body); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid request body")
 	}
+
 	tenantSlug, err := resolveTenantSlugForRequest(c, body.TenantSlug)
 	if err != nil {
 		return err

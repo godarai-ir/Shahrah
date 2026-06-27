@@ -16,9 +16,9 @@ import (
 )
 
 const (
-	// Default Bedrock runtime endpoint
+	// Default Bedrock runtime endpoint.
 	defaultAPIBase = "https://bedrock-runtime.%s.amazonaws.com"
-	// Default timeout
+	// Default timeout.
 	defaultTimeout = 600 * time.Second
 )
 
@@ -40,6 +40,7 @@ func NewClient(cfg providers.ProviderConfig) providers.Provider {
 		if region == "" {
 			region = "us-east-1"
 		}
+
 		apiBase = fmt.Sprintf(defaultAPIBase, region)
 	}
 
@@ -81,10 +82,11 @@ func (c *Client) AuthHeaders() map[string]string {
 	if c.apiKey != "" {
 		headers["x-api-key"] = c.apiKey
 	}
+
 	return headers
 }
 
-// Bedrock request/response types for Converse API
+// Bedrock request/response types for Converse API.
 type bedrockRequest struct {
 	Messages        []bedrockMessage       `json:"messages"`
 	InferenceConfig bedrockInferenceConfig `json:"inferenceConfig,omitempty"`
@@ -135,25 +137,31 @@ func (c *Client) Complete(ctx context.Context, req contractsopenai.ChatCompletio
 	}
 
 	endpoint := fmt.Sprintf("%s/model/%s/invoke", c.apiBase, c.model)
+
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
+
 	if c.apiKey != "" {
 		httpReq.Header.Set("x-api-key", c.apiKey)
 	}
 
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := c.httpClient.Do(httpReq) //nolint:bodyclose // the streaming goroutine owns and closes resp.Body.
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer providers.Close(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Bedrock API error (status %d): %s", resp.StatusCode, string(bodyBytes))
+		bodyBytes, readErr := providers.ReadAllAndClose(resp)
+		if readErr != nil {
+			return nil, fmt.Errorf("failed to read bedrock error response: %w", readErr)
+		}
+
+		return nil, fmt.Errorf("bedrock API error (status %d): %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	var bedrockResp bedrockResponse
@@ -176,6 +184,7 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 
 	// Note: Bedrock streaming uses different endpoint
 	endpoint := fmt.Sprintf("%s/model/%s/invoke", c.apiBase, c.model)
+
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create request: %w", err)
@@ -183,18 +192,23 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "application/jsonl")
+
 	if c.apiKey != "" {
 		httpReq.Header.Set("x-api-key", c.apiKey)
 	}
 
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := c.httpClient.Do(httpReq) //nolint:bodyclose // the streaming goroutine owns and closes resp.Body.
 	if err != nil {
 		return nil, nil, fmt.Errorf("request failed: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, nil, fmt.Errorf("Bedrock API error (status %d): %s", resp.StatusCode, string(bodyBytes))
+		bodyBytes, readErr := providers.ReadAllAndClose(resp)
+		if readErr != nil {
+			return nil, nil, fmt.Errorf("failed to read bedrock error response: %w", readErr)
+		}
+
+		return nil, nil, fmt.Errorf("bedrock API error (status %d): %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	streamChan := make(chan contractsopenai.StreamChunk)
@@ -202,7 +216,7 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 
 	go func() {
 		defer close(streamChan)
-		defer resp.Body.Close()
+		defer providers.Close(resp.Body)
 
 		reader := bufio.NewReader(resp.Body)
 		for {
@@ -211,7 +225,9 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 				if err != io.EOF {
 					errorChan <- fmt.Errorf("stream read error: %w", err)
 				}
+
 				close(errorChan)
+
 				return
 			}
 
@@ -233,7 +249,7 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 	return streamChan, errorChan, nil
 }
 
-// convertToBedrockRequest converts OpenAI request to Bedrock format
+// convertToBedrockRequest converts OpenAI request to Bedrock format.
 func convertToBedrockRequest(req contractsopenai.ChatCompletionRequest, model string) bedrockRequest {
 	bedrockReq := bedrockRequest{
 		Messages: make([]bedrockMessage, 0, len(req.Messages)),
@@ -271,7 +287,7 @@ func convertToBedrockRequest(req contractsopenai.ChatCompletionRequest, model st
 	return bedrockReq
 }
 
-// convertToOpenAIResponse converts Bedrock response to OpenAI format
+// convertToOpenAIResponse converts Bedrock response to OpenAI format.
 func convertToOpenAIResponse(resp bedrockResponse, model string) *contractsopenai.ChatCompletionResponse {
 	openaiResp := &contractsopenai.ChatCompletionResponse{
 		ID:      fmt.Sprintf("chatcmpl-%d", time.Now().Unix()),
@@ -302,12 +318,12 @@ func convertToOpenAIResponse(resp bedrockResponse, model string) *contractsopena
 	return openaiResp
 }
 
-// SetModel sets the Bedrock model name
+// SetModel sets the Bedrock model name.
 func (c *Client) SetModel(model string) {
 	c.model = model
 }
 
-// Register the adapter
+// Register the adapter.
 func init() {
 	providers.Register("bedrock", func(cfg providers.ProviderConfig) providers.Provider {
 		return NewClient(cfg)

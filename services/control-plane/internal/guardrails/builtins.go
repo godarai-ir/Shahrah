@@ -23,23 +23,29 @@ func (g *patternGuardrail) Enforcement() Enforcement { return g.enforcement }
 func (g *patternGuardrail) Evaluate(input EvaluationInput) (EvaluationResult, error) {
 	out := append([]string(nil), input.Texts...)
 	matched := false
+
 	for i, text := range out {
 		for _, pattern := range g.patterns {
 			if !pattern.MatchString(text) {
 				continue
 			}
+
 			matched = true
+
 			if g.operation == OperationMutate {
 				out[i] = pattern.ReplaceAllString(out[i], g.replacement)
 			}
 		}
 	}
+
 	if !matched {
 		return EvaluationResult{Texts: out}, nil
 	}
+
 	if g.operation == OperationMutate {
 		return EvaluationResult{Texts: out, Mutated: true, Reason: g.reason}, nil
 	}
+
 	return EvaluationResult{Texts: out, Blocked: true, Reason: g.reason}, nil
 }
 
@@ -71,6 +77,7 @@ func (g *keywordBlocklistGuardrail) Evaluate(input EvaluationInput) (EvaluationR
 			}
 		}
 	}
+
 	return EvaluationResult{Texts: input.Texts}, nil
 }
 
@@ -128,11 +135,13 @@ func newPatternGuardrailFromPatterns(name string, operation Operation, enforceme
 		if raw == "" {
 			continue
 		}
+
 		pattern, err := regexp.Compile(raw)
 		if err == nil {
 			patterns = append(patterns, pattern)
 		}
 	}
+
 	return &patternGuardrail{
 		name:        name,
 		operation:   operation,

@@ -33,10 +33,12 @@ func Middleware(queue *Queue, sampler *Sampler, slowMS int64, privacy ...*Privac
 	if len(privacy) > 0 {
 		privacyManager = privacy[0]
 	}
+
 	if privacyManager == nil {
 		cfg := LoadConfigFromEnv()
 		privacyManager = NewPrivacyManager(cfg)
 	}
+
 	return func(c *fiber.Ctx) error {
 		traceID := resolveTraceID(c)
 		c.Locals(LocalTraceIDKey, traceID)
@@ -57,8 +59,10 @@ func Middleware(queue *Queue, sampler *Sampler, slowMS int64, privacy ...*Privac
 		if start.IsZero() {
 			start = time.Now()
 		}
+
 		durationMS := time.Since(start).Milliseconds()
 		statusCode := c.Response().StatusCode()
+
 		tenantID, _ := c.Locals(LocalTenantIDKey).(string)
 		if tenantID == "" {
 			tenantID = apiheaders.GetTenant(c)
@@ -72,6 +76,7 @@ func Middleware(queue *Queue, sampler *Sampler, slowMS int64, privacy ...*Privac
 		})
 
 		c.Locals(LocalSampledKey, shouldSample)
+
 		if shouldSample {
 			model, _ := c.Locals(LocalModelKey).(string)
 			root := SpanEvent{
@@ -109,6 +114,7 @@ func nextSpanID(c *fiber.Ctx, traceID string) string {
 	cur, _ := c.Locals(LocalSpanSeqKey).(int64)
 	cur++
 	c.Locals(LocalSpanSeqKey, cur)
+
 	return fmt.Sprintf("%s:%d", traceID, cur)
 }
 
@@ -116,23 +122,29 @@ func RecordStepSpan(c *fiber.Ctx, queue *Queue, parentSpanID, name, kind string,
 	if c == nil || queue == nil || startedAt.IsZero() {
 		return
 	}
+
 	traceID := TraceIDFromContext(c)
 	if strings.TrimSpace(traceID) == "" {
 		return
 	}
+
 	tenantID, _ := c.Locals(LocalTenantIDKey).(string)
 	if tenantID == "" {
 		tenantID = apiheaders.GetTenant(c)
 	}
+
 	if strings.TrimSpace(parentSpanID) == "" {
 		parentSpanID = RootSpanIDFromContext(c)
 	}
+
 	spanID := nextSpanID(c, traceID)
+
 	privacy := PrivacyFromContext(c)
 	if privacy != nil {
 		policy := privacy.ResolvePolicyForTenant(tenantID)
 		attrs = privacy.Apply(traceID, spanID, name, attrs, policy)
 	}
+
 	appendStepSpan(c, SpanEvent{
 		TraceID:      traceID,
 		SpanID:       spanID,
@@ -154,6 +166,7 @@ func appendStepSpan(c *fiber.Ctx, ev SpanEvent) {
 	if c == nil {
 		return
 	}
+
 	buffer, _ := c.Locals(LocalStepBufferKey).([]SpanEvent)
 	buffer = append(buffer, ev)
 	c.Locals(LocalStepBufferKey, buffer)
@@ -163,11 +176,13 @@ func flushStepBuffer(c *fiber.Ctx, queue *Queue) {
 	if c == nil || queue == nil {
 		return
 	}
+
 	buffer, _ := c.Locals(LocalStepBufferKey).([]SpanEvent)
 	for _, ev := range buffer {
 		ev.Sampled = true
 		_ = queue.Enqueue(ev)
 	}
+
 	c.Locals(LocalStepBufferKey, []SpanEvent{})
 }
 
@@ -175,12 +190,14 @@ func resolveTraceID(c *fiber.Ctx) string {
 	if v := apiheaders.GetTraceID(c); v != "" {
 		return v
 	}
+
 	if tp := strings.TrimSpace(c.Get(TraceParentHeader)); tp != "" {
 		parts := strings.Split(tp, "-")
 		if len(parts) >= 2 && parts[1] != "" {
 			return parts[1]
 		}
 	}
+
 	return "trace_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 }
 
@@ -188,6 +205,7 @@ func propagateW3CHeaders(c *fiber.Ctx) {
 	if tp := strings.TrimSpace(c.Get(TraceParentHeader)); tp != "" {
 		c.Set(TraceParentHeader, tp)
 	}
+
 	if ts := strings.TrimSpace(c.Get(TraceStateHeader)); ts != "" {
 		c.Set(TraceStateHeader, ts)
 	}
@@ -198,6 +216,7 @@ func normalizeRoute(path string) string {
 	if path == "" {
 		return defaultUnknownPath
 	}
+
 	return path
 }
 
@@ -207,6 +226,7 @@ func TraceIDFromContext(c *fiber.Ctx) string {
 			return traceID
 		}
 	}
+
 	return strings.TrimSpace(c.Get(TraceIDHeader))
 }
 
@@ -218,6 +238,7 @@ func SetModelForTrace(c *fiber.Ctx, model string) {
 	if c == nil {
 		return
 	}
+
 	c.Locals(LocalModelKey, strings.TrimSpace(model))
 }
 
@@ -226,6 +247,7 @@ func DurationMS(c *fiber.Ctx) int64 {
 	if start.IsZero() {
 		return 0
 	}
+
 	return time.Since(start).Milliseconds()
 }
 
@@ -237,11 +259,13 @@ func QueueFromContext(c *fiber.Ctx) *Queue {
 	if c == nil {
 		return nil
 	}
+
 	if v := c.Locals(LocalQueueKey); v != nil {
 		if q, ok := v.(*Queue); ok {
 			return q
 		}
 	}
+
 	return nil
 }
 
@@ -249,15 +273,18 @@ func RootSpanIDFromContext(c *fiber.Ctx) string {
 	if c == nil {
 		return ""
 	}
+
 	if v := c.Locals(LocalRootSpanIDKey); v != nil {
 		if root, ok := v.(string); ok && strings.TrimSpace(root) != "" {
 			return root
 		}
 	}
+
 	traceID := TraceIDFromContext(c)
 	if strings.TrimSpace(traceID) == "" {
 		return ""
 	}
+
 	return rootSpanID(traceID)
 }
 
@@ -265,10 +292,12 @@ func PrivacyFromContext(c *fiber.Ctx) *PrivacyManager {
 	if c == nil {
 		return nil
 	}
+
 	if v := c.Locals(LocalPrivacyKey); v != nil {
 		if p, ok := v.(*PrivacyManager); ok {
 			return p
 		}
 	}
+
 	return nil
 }

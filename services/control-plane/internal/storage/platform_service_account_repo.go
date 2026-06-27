@@ -10,6 +10,7 @@ import (
 
 func (s *Store) GetPlatformServiceAccountByTokenHash(ctx context.Context, tokenHash string) (*auth.PlatformServiceAccountCredential, error) {
 	var credential auth.PlatformServiceAccountCredential
+
 	err := s.pool.QueryRow(ctx, `
 		SELECT credential_id, account_name, scopes
 		FROM platform_service_account_credentials
@@ -22,6 +23,7 @@ func (s *Store) GetPlatformServiceAccountByTokenHash(ctx context.Context, tokenH
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, auth.ErrInvalidPlatformServiceCredential
 	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -32,5 +34,6 @@ func (s *Store) GetPlatformServiceAccountByTokenHash(ctx context.Context, tokenH
 		WHERE credential_id = $1
 		  AND (last_used_at IS NULL OR last_used_at < NOW() - INTERVAL '5 minutes')
 	`, credential.CredentialID)
+
 	return &credential, nil
 }

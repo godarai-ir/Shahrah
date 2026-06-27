@@ -38,6 +38,7 @@ func NewOTPEmailSenderFromEnv() OTPEmailSender {
 	if strings.EqualFold(strings.TrimSpace(os.Getenv("NODE_ENV")), "production") {
 		return newResendOTPEmailSenderFromEnv()
 	}
+
 	return newSMTPOTPEmailSenderFromEnv()
 }
 
@@ -48,6 +49,7 @@ func newSMTPOTPEmailSenderFromEnv() OTPEmailSender {
 	}
 
 	port := 1025
+
 	if raw := strings.TrimSpace(os.Getenv("SMTP_PORT")); raw != "" {
 		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
 			port = parsed
@@ -110,6 +112,7 @@ func (s *smtpOTPEmailSender) SendTenantAdminOTP(to string, tenantSlug string, ot
 	}, "\r\n")
 
 	addr := fmt.Sprintf("%s:%d", s.host, s.port)
+
 	var auth smtp.Auth
 	if s.user != "" && s.pass != "" {
 		auth = smtp.PlainAuth("", s.user, s.pass, s.host)
@@ -127,6 +130,7 @@ func (s *resendOTPEmailSender) SendTenantAdminOTP(to string, tenantSlug string, 
 	if to == "" {
 		return nil
 	}
+
 	if s.apiKey == "" || s.fromEmail == "" {
 		return fmt.Errorf("RESEND_API_KEY and RESEND_FROM_EMAIL are required when NODE_ENV=production")
 	}
@@ -164,11 +168,13 @@ func (s *resendOTPEmailSender) SendTenantAdminOTP(to string, tenantSlug string, 
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
 func sanitizeResendTagValue(value string) string {
 	var builder strings.Builder
+
 	for _, r := range strings.TrimSpace(value) {
 		switch {
 		case r >= 'a' && r <= 'z':
@@ -181,9 +187,11 @@ func sanitizeResendTagValue(value string) string {
 			builder.WriteRune(r)
 		}
 	}
+
 	if builder.Len() == 0 {
 		return "unknown"
 	}
+
 	return builder.String()
 }
 
@@ -191,5 +199,6 @@ func defaultIfEmpty(value string, fallback string) string {
 	if value == "" {
 		return fallback
 	}
+
 	return value
 }

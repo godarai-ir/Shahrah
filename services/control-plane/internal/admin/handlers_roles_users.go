@@ -17,10 +17,12 @@ func (h *Handlers) ListRoles(c *fiber.Ctx) error {
 	if err := requirePermissionAnyOrTenantAdmin(c, "role list permission required", []string{"role:list", "role:manage", "user:manage"}); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	if h.roles == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "role store not configured")
 	}
@@ -28,21 +30,26 @@ func (h *Handlers) ListRoles(c *fiber.Ctx) error {
 	query := strings.TrimSpace(c.Query("query"))
 	limit := 50
 	offset := 0
+
 	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
 		parsed, parseErr := strconv.Atoi(raw)
 		if parseErr != nil || parsed <= 0 {
 			return fiber.NewError(fiber.StatusBadRequest, "limit must be a positive number")
 		}
+
 		if parsed > 200 {
 			parsed = 200
 		}
+
 		limit = parsed
 	}
+
 	if raw := strings.TrimSpace(c.Query("offset")); raw != "" {
 		parsed, parseErr := strconv.Atoi(raw)
 		if parseErr != nil || parsed < 0 {
 			return fiber.NewError(fiber.StatusBadRequest, "offset must be zero or greater")
 		}
+
 		offset = parsed
 	}
 
@@ -50,7 +57,9 @@ func (h *Handlers) ListRoles(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	var nextOffset *int
+
 	if offset+len(items) < total {
 		n := offset + len(items)
 		nextOffset = &n
@@ -70,13 +79,16 @@ func (h *Handlers) CreateRole(c *fiber.Ctx) error {
 	if err := requireRoleManage(c); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	if h.roles == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "role store not configured")
 	}
+
 	if err := h.requireEntitlementEnabled(c, currentTenant.ID, platform.FeatureRBACEnabled); err != nil {
 		return err
 	}
@@ -85,6 +97,7 @@ func (h *Handlers) CreateRole(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, "invalid request body")
 	}
+
 	item, err := h.roles.CreateRole(c.Context(), currentTenant.ID, req)
 	if err != nil {
 		switch {
@@ -96,6 +109,7 @@ func (h *Handlers) CreateRole(c *fiber.Ctx) error {
 			return err
 		}
 	}
+
 	return c.Status(fiber.StatusCreated).JSON(item)
 }
 
@@ -104,10 +118,12 @@ func (h *Handlers) UpdateRole(c *fiber.Ctx) error {
 	if err := requireRoleManage(c); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	if h.roles == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "role store not configured")
 	}
@@ -121,6 +137,7 @@ func (h *Handlers) UpdateRole(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, "invalid request body")
 	}
+
 	item, err := h.roles.UpdateRole(c.Context(), currentTenant.ID, roleID, req)
 	if err != nil {
 		switch {
@@ -134,6 +151,7 @@ func (h *Handlers) UpdateRole(c *fiber.Ctx) error {
 			return err
 		}
 	}
+
 	return c.JSON(item)
 }
 
@@ -142,10 +160,12 @@ func (h *Handlers) UpdateUserRoles(c *fiber.Ctx) error {
 	if err := requireUserManage(c); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	if h.roles == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "role store not configured")
 	}
@@ -154,16 +174,19 @@ func (h *Handlers) UpdateUserRoles(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, "invalid request body")
 	}
+
 	authInfo := auth.GetAuthInfo(c)
 	if authInfo != nil {
 		targetUserID, resolveErr := h.resolveTenantUserIDByEmail(c, currentTenant.Slug, req.Email)
 		if resolveErr != nil {
 			return resolveErr
 		}
+
 		if targetUserID != "" && strings.TrimSpace(authInfo.UserID) == targetUserID {
 			return fiber.NewError(fiber.StatusForbidden, "you cannot change your own role")
 		}
 	}
+
 	out, err := h.roles.UpdateUserRoles(c.Context(), currentTenant.ID, req)
 	if err != nil {
 		switch {
@@ -177,6 +200,7 @@ func (h *Handlers) UpdateUserRoles(c *fiber.Ctx) error {
 			return err
 		}
 	}
+
 	return c.JSON(out)
 }
 
@@ -186,6 +210,7 @@ func (h *Handlers) GetCurrentUserPermissions(c *fiber.Ctx) error {
 	if authInfo == nil {
 		return fiber.NewError(fiber.StatusUnauthorized, "authentication required")
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
@@ -200,9 +225,11 @@ func (h *Handlers) GetCurrentUserPermissions(c *fiber.Ctx) error {
 		if err != nil {
 			return err
 		}
+
 		if len(resolvedRoles) > 0 {
 			roles = resolvedRoles
 		}
+
 		permissions = resolvedPermissions
 	}
 
@@ -219,6 +246,7 @@ func (h *Handlers) GetCurrentUserPermissions(c *fiber.Ctx) error {
 	}
 
 	catalogItems := storage.ListPermissionCatalog()
+
 	catalog := make([]platform.PermissionDefinition, 0, len(catalogItems))
 	for _, item := range catalogItems {
 		catalog = append(catalog, platform.PermissionDefinition{
@@ -247,6 +275,7 @@ func (h *Handlers) ListTenantUsers(c *fiber.Ctx) error {
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	if h.users == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "user store not configured")
 	}
@@ -260,9 +289,11 @@ func (h *Handlers) ListTenantUsers(c *fiber.Ctx) error {
 		if parseErr != nil || parsed <= 0 {
 			return fiber.NewError(fiber.StatusBadRequest, "limit must be a positive number")
 		}
+
 		if parsed > 200 {
 			parsed = 200
 		}
+
 		limit = parsed
 	}
 
@@ -271,6 +302,7 @@ func (h *Handlers) ListTenantUsers(c *fiber.Ctx) error {
 		if parseErr != nil || parsed < 0 {
 			return fiber.NewError(fiber.StatusBadRequest, "offset must be zero or greater")
 		}
+
 		offset = parsed
 	}
 
@@ -280,6 +312,7 @@ func (h *Handlers) ListTenantUsers(c *fiber.Ctx) error {
 	}
 
 	var nextOffset *int
+
 	if offset+len(items) < total {
 		n := offset + len(items)
 		nextOffset = &n
@@ -304,14 +337,17 @@ func (h *Handlers) InviteTenantUser(c *fiber.Ctx) error {
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	if h.users == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "user store not configured")
 	}
+
 	if h.entitlements != nil {
 		currentUsers, err := h.entitlements.CountActiveTenantUsers(c.Context(), currentTenant.ID)
 		if err != nil {
 			return err
 		}
+
 		if err := h.requireEntitlementLimitAvailable(c, currentTenant.ID, platform.FeatureUsersMax, currentUsers, 1); err != nil {
 			return err
 		}
@@ -321,6 +357,7 @@ func (h *Handlers) InviteTenantUser(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
+
 	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
 	req.Mobile = strings.TrimSpace(req.Mobile)
 	req.Role = strings.TrimSpace(strings.ToLower(req.Role))
@@ -329,9 +366,11 @@ func (h *Handlers) InviteTenantUser(c *fiber.Ctx) error {
 	if req.Email == "" && req.Mobile == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "either email or mobile is required")
 	}
+
 	if req.Email != "" && !storage.IsValidEmailAddress(req.Email) {
 		return fiber.NewError(fiber.StatusBadRequest, "Please enter a valid email address.")
 	}
+
 	if req.Role == "" {
 		req.Role = "member"
 	}
@@ -351,6 +390,7 @@ func (h *Handlers) InviteTenantUser(c *fiber.Ctx) error {
 			return err
 		}
 	}
+
 	return c.Status(fiber.StatusCreated).JSON(platform.InviteTenantAdminUserResponse{
 		Invitation: *invitation,
 		Link:       link,
@@ -363,14 +403,17 @@ func (h *Handlers) AcceptTenantUserInvitation(c *fiber.Ctx) error {
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	if h.users == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "user store not configured")
 	}
+
 	if h.entitlements != nil {
 		currentUsers, err := h.entitlements.CountActiveTenantUsers(c.Context(), currentTenant.ID)
 		if err != nil {
 			return err
 		}
+
 		if err := h.requireEntitlementLimitAvailable(c, currentTenant.ID, platform.FeatureUsersMax, currentUsers, 1); err != nil {
 			return err
 		}
@@ -380,6 +423,7 @@ func (h *Handlers) AcceptTenantUserInvitation(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
+
 	req.Token = strings.TrimSpace(req.Token)
 	if req.Token == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "token is required")
@@ -428,6 +472,7 @@ func (h *Handlers) setTenantUserActive(c *fiber.Ctx, active bool) error {
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	if h.users == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "user store not configured")
 	}
@@ -436,26 +481,33 @@ func (h *Handlers) setTenantUserActive(c *fiber.Ctx, active bool) error {
 	if userID == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "userID is required")
 	}
+
 	authInfo := auth.GetAuthInfo(c)
 	if authInfo != nil && strings.TrimSpace(authInfo.UserID) == userID {
 		return fiber.NewError(fiber.StatusForbidden, "you cannot change your own account status")
 	}
+
 	target, err := h.users.GetTenantAdminUserRecord(c.Context(), currentTenant.Slug, userID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "user not found")
 		}
+
 		return err
 	}
+
 	if !active && isTenantAdminUser(target) {
 		return fiber.NewError(fiber.StatusForbidden, "tenant admin user cannot be deactivated")
 	}
+
 	user, err := h.users.SetTenantAdminUserActive(c.Context(), currentTenant.Slug, userID, active)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "user not found")
 		}
+
 		return err
 	}
+
 	return c.JSON(user)
 }

@@ -18,6 +18,7 @@ func TestCacheSavingsMetricMappings(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, expected, actual)
 	}
+
 	for input, expected := range map[string]string{
 		"cacheMode": "cache_mode", "cacheStatus": "cache_status", "cacheMatch": "cache_match",
 	} {

@@ -7,28 +7,29 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/openai"
 )
 
-// ProviderFactory creates a provider adapter instance
+// ProviderFactory creates a provider adapter instance.
 type ProviderFactory func(cfg ProviderConfig) Provider
 
-// ProviderRegistry maps provider names to adapter factories
+// ProviderRegistry maps provider names to adapter factories.
 type ProviderRegistry struct {
 	mu        sync.RWMutex
 	factories map[string]ProviderFactory
 }
 
-// Global registry instance
+// Global registry instance.
 var global = &ProviderRegistry{
 	factories: make(map[string]ProviderFactory),
 }
 
-// Register adds a provider adapter factory to the registry
+// Register adds a provider adapter factory to the registry.
 func Register(name string, factory ProviderFactory) {
 	global.mu.Lock()
 	defer global.mu.Unlock()
+
 	global.factories[name] = factory
 }
 
-// Get retrieves a provider adapter by name
+// Get retrieves a provider adapter by name.
 func Get(name string, cfg ProviderConfig) (Provider, error) {
 	global.mu.RLock()
 	factory, ok := global.factories[name]
@@ -37,10 +38,11 @@ func Get(name string, cfg ProviderConfig) (Provider, error) {
 	if !ok {
 		return nil, fmt.Errorf("unsupported provider: %s", name)
 	}
+
 	return factory(cfg), nil
 }
 
-// Supported returns list of supported provider names
+// Supported returns list of supported provider names.
 func Supported() []string {
 	global.mu.RLock()
 	defer global.mu.RUnlock()
@@ -49,18 +51,20 @@ func Supported() []string {
 	for name := range global.factories {
 		names = append(names, name)
 	}
+
 	return names
 }
 
-// IsSupported checks if a provider is registered
+// IsSupported checks if a provider is registered.
 func IsSupported(name string) bool {
 	global.mu.RLock()
 	_, ok := global.factories[name]
 	global.mu.RUnlock()
+
 	return ok
 }
 
-// NewProviderConfig creates a ProviderConfig from provider endpoint config
+// NewProviderConfig creates a ProviderConfig from provider endpoint config.
 func NewProviderConfig(endpointCfg map[string]interface{}) ProviderConfig {
 	cfg := ProviderConfig{}
 
@@ -68,15 +72,19 @@ func NewProviderConfig(endpointCfg map[string]interface{}) ProviderConfig {
 	if v, ok := endpointCfg["api_key"].(string); ok {
 		cfg.APIKey = v
 	}
+
 	if v, ok := endpointCfg["api_base"].(string); ok {
 		cfg.APIBase = v
 	}
+
 	if v, ok := endpointCfg["api_version"].(string); ok {
 		cfg.APIVersion = v
 	}
+
 	if v, ok := endpointCfg["region"].(string); ok {
 		cfg.Region = v
 	}
+
 	if v, ok := endpointCfg["timeout"].(float64); ok {
 		cfg.Timeout = v
 	}
@@ -85,7 +93,7 @@ func NewProviderConfig(endpointCfg map[string]interface{}) ProviderConfig {
 }
 
 // ProviderAdapter is the interface all LLM provider adapters must implement
-// This extends the base Provider interface with adapter-specific methods
+// This extends the base Provider interface with adapter-specific methods.
 type ProviderAdapter interface {
 	Provider
 	// BaseURL returns the provider's API base URL
@@ -96,16 +104,16 @@ type ProviderAdapter interface {
 	AuthHeaders() map[string]string
 }
 
-// TransformRequest transforms an OpenAI request to provider-specific format
+// TransformRequest transforms an OpenAI request to provider-specific format.
 type TransformRequest func(req openai.ChatCompletionRequest) (map[string]interface{}, error)
 
-// TransformResponse transforms a provider response to OpenAI format
+// TransformResponse transforms a provider response to OpenAI format.
 type TransformResponse func(resp []byte) (*openai.ChatCompletionResponse, error)
 
-// StreamParser parses streaming responses
+// StreamParser parses streaming responses.
 type StreamParser func(data []byte) ([]openai.StreamChunk, error)
 
-// AdapterConfig holds provider-specific adapter configuration
+// AdapterConfig holds provider-specific adapter configuration.
 type AdapterConfig struct {
 	BaseURL         string
 	EndpointPath    string

@@ -51,19 +51,24 @@ func NewArvanCloudBGEEmbedder(client *http.Client, cfg ArvanCloudConfig) (*Arvan
 	if client == nil {
 		return nil, errors.New("embedding HTTP client is required")
 	}
+
 	cfg.BaseURL = strings.TrimRight(strings.TrimSpace(cfg.BaseURL), "/")
 	cfg.APIKey = strings.TrimSpace(cfg.APIKey)
+
 	cfg.Model = strings.TrimSpace(cfg.Model)
 	if cfg.BaseURL == "" || cfg.APIKey == "" || cfg.Model == "" {
 		return nil, errors.New("embedding base URL, API key, and model are required")
 	}
+
 	parsed, err := url.ParseRequestURI(cfg.BaseURL)
 	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
 		return nil, errors.New("embedding base URL must be an absolute HTTP(S) URL")
 	}
+
 	if cfg.MaxBatchSize <= 0 {
 		cfg.MaxBatchSize = 16
 	}
+
 	return &ArvanCloudBGEEmbedder{client: client, cfg: cfg, url: cfg.BaseURL + "/embeddings"}, nil
 }
 
@@ -75,19 +80,23 @@ func (e *ArvanCloudBGEEmbedder) Embed(ctx context.Context, texts []string) ([][]
 	if len(texts) == 0 || len(texts) > e.cfg.MaxBatchSize {
 		return nil, fmt.Errorf("embedding batch size must be between 1 and %d", e.cfg.MaxBatchSize)
 	}
+
 	for _, input := range texts {
 		if strings.TrimSpace(input) == "" {
 			return nil, errors.New("embedding input must not be empty")
 		}
 	}
+
 	body, err := json.Marshal(map[string]interface{}{"model": e.cfg.Model, "input": texts, "encoding_format": "float"})
 	if err != nil {
 		return nil, fmt.Errorf("encode embedding request: %w", err)
 	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, e.url, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("create embedding request: %w", err)
 	}
+
 	req.Header.Set("Authorization", "Bearer "+e.cfg.APIKey)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -101,16 +110,20 @@ func (e *ArvanCloudBGEEmbedder) Embed(ctx context.Context, texts []string) ([][]
 		return nil, errors.New("embedding request failed")
 	}
 	defer resp.Body.Close()
+
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxEmbeddingResponseBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("read embedding response: %w", err)
 	}
+
 	if len(raw) > maxEmbeddingResponseBytes {
 		return nil, errors.New("embedding response exceeds size limit")
 	}
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("embedding provider returned HTTP %d", resp.StatusCode)
 	}
+
 	var payload struct {
 		Data []struct {
 			Index     int       `json:"index"`
@@ -120,25 +133,33 @@ func (e *ArvanCloudBGEEmbedder) Embed(ctx context.Context, texts []string) ([][]
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		return nil, fmt.Errorf("decode embedding response: %w", err)
 	}
+
 	if len(payload.Data) != len(texts) {
 		return nil, fmt.Errorf("embedding response count %d does not match input count %d", len(payload.Data), len(texts))
 	}
+
 	sort.Slice(payload.Data, func(i, j int) bool { return payload.Data[i].Index < payload.Data[j].Index })
+
 	vectors := make([][]float32, len(texts))
+
 	for i, item := range payload.Data {
 		if item.Index != i {
 			return nil, errors.New("embedding response contains invalid or duplicate indexes")
 		}
+
 		if len(item.Embedding) == 0 || (e.cfg.Dimensions > 0 && len(item.Embedding) != e.cfg.Dimensions) {
 			return nil, fmt.Errorf("embedding %d has unexpected dimensions: %d", i, len(item.Embedding))
 		}
+
 		for _, value := range item.Embedding {
 			if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
 				return nil, fmt.Errorf("embedding %d contains a non-finite value", i)
 			}
 		}
+
 		vectors[i] = item.Embedding
 	}
+
 	return vectors, nil
 }
 
@@ -147,24 +168,30 @@ func CosineSimilarity(a, b []float32) (float64, error) {
 	if len(a) == 0 || len(a) != len(b) {
 		return 0, errors.New("embedding vectors must be non-empty and have equal dimensions")
 	}
+
 	var dot, normA, normB float64
+
 	for i := range a {
 		av, bv := float64(a[i]), float64(b[i])
 		if math.IsNaN(av) || math.IsInf(av, 0) || math.IsNaN(bv) || math.IsInf(bv, 0) {
 			return 0, errors.New("embedding vector contains a non-finite value")
 		}
+
 		dot += av * bv
 		normA += av * av
 		normB += bv * bv
 	}
+
 	if normA == 0 || normB == 0 {
 		return 0, errors.New("embedding vector has zero norm")
 	}
+
 	score := dot / (math.Sqrt(normA) * math.Sqrt(normB))
 	if score > 1 {
 		score = 1
 	} else if score < -1 {
 		score = -1
 	}
+
 	return score, nil
 }

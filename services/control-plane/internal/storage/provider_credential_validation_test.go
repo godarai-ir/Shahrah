@@ -11,6 +11,7 @@ import (
 
 func TestValidateProviderAPIKeyCallsProviderModelsEndpoint(t *testing.T) {
 	var gotAuth string
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
 		assert.Equal(t, "/models", r.URL.Path)
@@ -30,6 +31,7 @@ func TestValidateProviderAPIKeyCallsProviderModelsEndpoint(t *testing.T) {
 
 func TestValidateProviderAPIKeySupportsSambaNova(t *testing.T) {
 	var gotAuth string
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
 		assert.Equal(t, "/models", r.URL.Path)
@@ -80,11 +82,13 @@ func TestValidateProviderAPIKeyClassifiesForbiddenAndQuota(t *testing.T) {
 			}, server.Client())
 
 			assert.False(t, result.Success)
+
 			if status == http.StatusForbidden {
 				assert.Contains(t, result.Message, "denied access")
 			} else {
 				assert.Contains(t, result.Message, "quota")
 			}
+
 			assert.Contains(t, result.Message, "provider detail")
 		})
 	}

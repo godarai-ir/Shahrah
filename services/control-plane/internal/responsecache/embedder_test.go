@@ -20,6 +20,7 @@ func TestArvanCloudBGEEmbedder(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/v1/embeddings", r.URL.Path)
 		assert.Equal(t, "Bearer secret", r.Header.Get("Authorization"))
+
 		var request struct {
 			Model string   `json:"model"`
 			Input []string `json:"input"`
@@ -27,6 +28,7 @@ func TestArvanCloudBGEEmbedder(t *testing.T) {
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&request))
 		assert.Equal(t, "Bge-m3", request.Model)
 		assert.Equal(t, []string{"one", "two"}, request.Input)
+
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{"data": []interface{}{
 			map[string]interface{}{"index": 1, "embedding": []float32{0, 1}},
 			map[string]interface{}{"index": 0, "embedding": []float32{1, 0}},
@@ -48,6 +50,7 @@ func TestArvanCloudBGEEmbedderRejectsDimensionMismatch(t *testing.T) {
 		_, _ = w.Write([]byte(`{"data":[{"index":0,"embedding":[1]}]}`))
 	}))
 	defer server.Close()
+
 	embedder, err := NewArvanCloudBGEEmbedder(server.Client(), ArvanCloudConfig{BaseURL: server.URL, APIKey: "secret", Model: "Bge-m3", Dimensions: 2})
 	require.NoError(t, err)
 	_, err = embedder.Embed(context.Background(), []string{"text"})
@@ -75,6 +78,7 @@ func TestCosineSimilarity(t *testing.T) {
 	score, err = CosineSimilarity([]float32{1, 0}, []float32{0, 1})
 	require.NoError(t, err)
 	assert.InDelta(t, 0, score, 1e-9)
+
 	_, err = CosineSimilarity([]float32{float32(math.Inf(1))}, []float32{1})
 	assert.Error(t, err)
 }

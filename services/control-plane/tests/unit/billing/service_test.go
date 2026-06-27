@@ -44,6 +44,7 @@ func (s *entitlementWalletStoreStub) CheckAndIncrementTenantUsageCounter(ctx con
 	if allowed {
 		s.used += increment
 	}
+
 	return &platform.UsageCounter{
 		FeatureKey:  featureKey,
 		WindowStart: now,

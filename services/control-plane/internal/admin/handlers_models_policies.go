@@ -64,6 +64,7 @@ func (h *Handlers) CreateModel(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	return c.Status(fiber.StatusCreated).JSON(dep)
 }
 
@@ -97,13 +98,16 @@ func (h *Handlers) ListModels(c *fiber.Ctx) error {
 		if id == "" {
 			id = dep.ID
 		}
+
 		model := byAlias[id]
 		model.ID = id
 		model.Object = "model"
+
 		model.OwnedBy = "shahrah"
 		if model.Provider == "" {
 			model.Provider = dep.Provider
 		}
+
 		model.Aliases = appendUnique(model.Aliases, dep.ModelName)
 		model.Aliases = appendUnique(model.Aliases, dep.Model)
 		byAlias[id] = model
@@ -119,6 +123,7 @@ func (h *Handlers) ListModels(c *fiber.Ctx) error {
 			Aliases:  item.Aliases,
 		})
 	}
+
 	return c.JSON(openai.ModelListResponse{Object: "list", Data: data})
 }
 
@@ -128,25 +133,32 @@ func (h *Handlers) CreateVirtualModel(c *fiber.Ctx) error {
 	}); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	var req platform.CreateVirtualModelRequest
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
+
 	if err := validateCreateVirtualModelRequest(req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
+
 	actor := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+
 	item, err := h.models.CreateVirtualModel(c.Context(), currentTenant.ID, req, actor)
 	if err != nil {
 		if errors.Is(err, storage.ErrInvalidVirtualModelModes) {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
+
 		return err
 	}
+
 	return c.Status(fiber.StatusCreated).JSON(item)
 }
 
@@ -159,14 +171,17 @@ func (h *Handlers) ListVirtualModels(c *fiber.Ctx) error {
 	}); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	items, err := h.models.ListVirtualModels(c.Context(), currentTenant.ID)
 	if err != nil {
 		return err
 	}
+
 	return c.JSON(fiber.Map{"data": items})
 }
 
@@ -179,21 +194,26 @@ func (h *Handlers) GetVirtualModel(c *fiber.Ctx) error {
 	}); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	id := strings.TrimSpace(c.Params("id"))
 	if id == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "id is required")
 	}
+
 	item, err := h.models.GetVirtualModel(c.Context(), currentTenant.ID, id)
 	if err != nil {
 		if errors.Is(err, storage.ErrVirtualModelNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "virtual model not found")
 		}
+
 		return err
 	}
+
 	return c.JSON(item)
 }
 
@@ -203,32 +223,41 @@ func (h *Handlers) UpdateVirtualModel(c *fiber.Ctx) error {
 	}); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	id := strings.TrimSpace(c.Params("id"))
 	if id == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "id is required")
 	}
+
 	var req platform.UpdateVirtualModelRequest
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
+
 	if err := validateUpdateVirtualModelRequest(req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
+
 	actor := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+
 	item, err := h.models.UpdateVirtualModel(c.Context(), currentTenant.ID, id, req, actor)
 	if err != nil {
 		if errors.Is(err, storage.ErrVirtualModelNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "virtual model not found")
 		}
+
 		if errors.Is(err, storage.ErrInvalidVirtualModelModes) {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
+
 		return err
 	}
+
 	return c.JSON(item)
 }
 
@@ -239,20 +268,25 @@ func (h *Handlers) DeleteVirtualModel(c *fiber.Ctx) error {
 	}); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	id := strings.TrimSpace(c.Params("id"))
 	if id == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "id is required")
 	}
+
 	if err := h.models.DeleteVirtualModel(c.Context(), currentTenant.ID, id); err != nil {
 		if errors.Is(err, storage.ErrVirtualModelNotFound) || errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "virtual model not found")
 		}
+
 		return err
 	}
+
 	return c.JSON(fiber.Map{"success": true})
 }
 
@@ -260,15 +294,19 @@ func validateCreateVirtualModelRequest(req platform.CreateVirtualModelRequest) e
 	if strings.TrimSpace(req.Alias) == "" {
 		return errors.New("alias is required")
 	}
+
 	if strings.TrimSpace(req.RoutingStrategy) == "" {
 		req.RoutingStrategy = "priority"
 	}
+
 	if strings.ToLower(strings.TrimSpace(req.RoutingStrategy)) != "priority" {
 		return errors.New("routing_strategy must be priority in MVP")
 	}
+
 	if len(req.Targets) == 0 {
 		return errors.New("at least one target is required")
 	}
+
 	return validateVirtualModelTargets(req.Targets)
 }
 
@@ -276,9 +314,11 @@ func validateUpdateVirtualModelRequest(req platform.UpdateVirtualModelRequest) e
 	if req.RoutingStrategy != nil && strings.ToLower(strings.TrimSpace(*req.RoutingStrategy)) != "priority" {
 		return errors.New("routing_strategy must be priority in MVP")
 	}
+
 	if len(req.Targets) > 0 {
 		return validateVirtualModelTargets(req.Targets)
 	}
+
 	return nil
 }
 
@@ -289,23 +329,29 @@ func validateVirtualModelTargets(targets []platform.VirtualModelTarget) error {
 		if strings.TrimSpace(t.Provider) == "" {
 			return errors.New("target.provider is required")
 		}
+
 		if strings.TrimSpace(t.Model) == "" {
 			return errors.New("target.model is required")
 		}
+
 		if t.Order <= 0 {
 			return errors.New("target.order must be greater than 0")
 		}
+
 		if _, exists := seenOrders[t.Order]; exists {
 			return errors.New("target.order must be unique")
 		}
+
 		seenOrders[t.Order] = struct{}{}
 		if t.Policy.Retry.Attempts < 0 || t.Policy.Retry.Attempts > 5 {
 			return errors.New("target.retry.attempts must be between 0 and 5")
 		}
+
 		if t.Policy.Retry.DelayMS < 0 || t.Policy.Retry.DelayMS > 10000 {
 			return errors.New("target.retry.delay_ms must be between 0 and 10000")
 		}
 	}
+
 	return nil
 }
 
@@ -313,36 +359,46 @@ func (h *Handlers) ListRateLimitRules(c *fiber.Ctx) error {
 	if err := requirePolicyListOrManage(c); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	query := strings.TrimSpace(c.Query("query"))
 	limit := 50
 	offset := 0
+
 	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
 		parsed, parseErr := strconv.Atoi(raw)
 		if parseErr != nil || parsed <= 0 {
 			return fiber.NewError(fiber.StatusBadRequest, "limit must be a positive number")
 		}
+
 		limit = parsed
 	}
+
 	if raw := strings.TrimSpace(c.Query("offset")); raw != "" {
 		parsed, parseErr := strconv.Atoi(raw)
 		if parseErr != nil || parsed < 0 {
 			return fiber.NewError(fiber.StatusBadRequest, "offset must be zero or greater")
 		}
+
 		offset = parsed
 	}
+
 	items, total, err := h.models.ListRateLimitRules(c.Context(), currentTenant.ID, query, limit, offset)
 	if err != nil {
 		return err
 	}
+
 	var nextOffset *int
+
 	if offset+len(items) < total {
 		n := offset + len(items)
 		nextOffset = &n
 	}
+
 	return c.JSON(platform.RateLimitRuleListResponse{
 		Data:       items,
 		Total:      total,
@@ -356,27 +412,35 @@ func (h *Handlers) CreateRateLimitRule(c *fiber.Ctx) error {
 	if err := requirePolicyManage(c); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	if err := h.requireEntitlementEnabled(c, currentTenant.ID, platform.FeatureRateLimitRulesEnabled); err != nil {
 		return err
 	}
+
 	req, err := parseCreateRateLimitRuleRequest(c)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
-	if err := validateCreateRateLimitRuleRequest(req); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+
+	validateErr := validateCreateRateLimitRuleRequest(req)
+	if validateErr != nil {
+		return fiber.NewError(fiber.StatusBadRequest, validateErr.Error())
 	}
+
 	item, err := h.models.CreateRateLimitRule(c.Context(), currentTenant.ID, req)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusUnprocessableEntity, "ثبت قانون انجام نشد. لطفا فیلدهای قانون و شرایط را دوباره بررسی کنید.")
 		}
+
 		return mapProviderAccountStoreError(err)
 	}
+
 	return c.Status(fiber.StatusCreated).JSON(item)
 }
 
@@ -384,21 +448,26 @@ func (h *Handlers) GetRateLimitRule(c *fiber.Ctx) error {
 	if err := requirePolicyListOrManage(c); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	ruleID := strings.TrimSpace(c.Params("id"))
 	if ruleID == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "id is required")
 	}
+
 	item, err := h.models.GetRateLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "rate limit rule not found")
 		}
+
 		return err
 	}
+
 	return c.JSON(item)
 }
 
@@ -406,28 +475,36 @@ func (h *Handlers) UpdateRateLimitRule(c *fiber.Ctx) error {
 	if err := requirePolicyManage(c); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	ruleID := strings.TrimSpace(c.Params("id"))
 	if ruleID == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "id is required")
 	}
+
 	req, err := parseUpdateRateLimitRuleRequest(c)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
-	if err := validateUpdateRateLimitRuleRequest(req); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+
+	validateErr := validateUpdateRateLimitRuleRequest(req)
+	if validateErr != nil {
+		return fiber.NewError(fiber.StatusBadRequest, validateErr.Error())
 	}
+
 	item, err := h.models.UpdateRateLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID, req)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "rate limit rule not found")
 		}
+
 		return mapProviderAccountStoreError(err)
 	}
+
 	return c.JSON(item)
 }
 
@@ -435,20 +512,25 @@ func (h *Handlers) DeleteRateLimitRule(c *fiber.Ctx) error {
 	if err := requirePolicyManage(c); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	ruleID := strings.TrimSpace(c.Params("id"))
 	if ruleID == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "id is required")
 	}
+
 	if err := h.models.DeleteRateLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "rate limit rule not found")
 		}
+
 		return err
 	}
+
 	return c.JSON(fiber.Map{"success": true})
 }
 
@@ -456,25 +538,31 @@ func (h *Handlers) UpdateRateLimitRuleStatus(c *fiber.Ctx) error {
 	if err := requirePolicyManage(c); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	ruleID := strings.TrimSpace(c.Params("id"))
 	if ruleID == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "id is required")
 	}
+
 	var req platform.UpdateRateLimitRuleStatusRequest
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
+
 	item, err := h.models.UpdateRateLimitRuleStatusByRuleID(c.Context(), currentTenant.ID, ruleID, req.Enabled)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "rate limit rule not found")
 		}
+
 		return err
 	}
+
 	return c.JSON(item)
 }
 
@@ -482,9 +570,11 @@ func validateCreateRateLimitRuleRequest(req platform.CreateRateLimitRuleRequest)
 	if strings.TrimSpace(req.RuleID) == "" {
 		return errors.New("rule_id is required")
 	}
+
 	if len(req.Limit) == 0 {
 		return errors.New("limit is required")
 	}
+
 	return nil
 }
 
@@ -492,6 +582,7 @@ func validateUpdateRateLimitRuleRequest(req platform.UpdateRateLimitRuleRequest)
 	if req.Priority != nil && *req.Priority < 0 {
 		return errors.New("priority cannot be negative")
 	}
+
 	return nil
 }
 
@@ -500,14 +591,17 @@ func parseCreateRateLimitRuleRequest(c *fiber.Ctx) (platform.CreateRateLimitRule
 	if err := c.BodyParser(&raw); err != nil {
 		return platform.CreateRateLimitRuleRequest{}, err
 	}
+
 	effectiveFrom, err := parseOptionalTimeValue(raw["effective_from"])
 	if err != nil {
 		return platform.CreateRateLimitRuleRequest{}, err
 	}
+
 	expiresAt, err := parseOptionalTimeValue(raw["expires_at"])
 	if err != nil {
 		return platform.CreateRateLimitRuleRequest{}, err
 	}
+
 	raw["effective_from"] = nil
 	raw["expires_at"] = nil
 
@@ -515,12 +609,15 @@ func parseCreateRateLimitRuleRequest(c *fiber.Ctx) (platform.CreateRateLimitRule
 	if err != nil {
 		return platform.CreateRateLimitRuleRequest{}, err
 	}
+
 	var req platform.CreateRateLimitRuleRequest
 	if err := json.Unmarshal(encoded, &req); err != nil {
 		return platform.CreateRateLimitRuleRequest{}, err
 	}
+
 	req.EffectiveFrom = effectiveFrom
 	req.ExpiresAt = expiresAt
+
 	return req, nil
 }
 
@@ -529,14 +626,17 @@ func parseUpdateRateLimitRuleRequest(c *fiber.Ctx) (platform.UpdateRateLimitRule
 	if err := c.BodyParser(&raw); err != nil {
 		return platform.UpdateRateLimitRuleRequest{}, err
 	}
+
 	effectiveFrom, err := parseOptionalTimeValue(raw["effective_from"])
 	if err != nil {
 		return platform.UpdateRateLimitRuleRequest{}, err
 	}
+
 	expiresAt, err := parseOptionalTimeValue(raw["expires_at"])
 	if err != nil {
 		return platform.UpdateRateLimitRuleRequest{}, err
 	}
+
 	raw["effective_from"] = nil
 	raw["expires_at"] = nil
 
@@ -544,12 +644,15 @@ func parseUpdateRateLimitRuleRequest(c *fiber.Ctx) (platform.UpdateRateLimitRule
 	if err != nil {
 		return platform.UpdateRateLimitRuleRequest{}, err
 	}
+
 	var req platform.UpdateRateLimitRuleRequest
 	if err := json.Unmarshal(encoded, &req); err != nil {
 		return platform.UpdateRateLimitRuleRequest{}, err
 	}
+
 	req.EffectiveFrom = effectiveFrom
 	req.ExpiresAt = expiresAt
+
 	return req, nil
 }
 
@@ -557,36 +660,46 @@ func (h *Handlers) ListBudgetLimitRules(c *fiber.Ctx) error {
 	if err := requirePolicyListOrManage(c); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	query := strings.TrimSpace(c.Query("query"))
 	limit := 50
 	offset := 0
+
 	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
 		parsed, parseErr := strconv.Atoi(raw)
 		if parseErr != nil || parsed <= 0 {
 			return fiber.NewError(fiber.StatusBadRequest, "limit must be a positive number")
 		}
+
 		limit = parsed
 	}
+
 	if raw := strings.TrimSpace(c.Query("offset")); raw != "" {
 		parsed, parseErr := strconv.Atoi(raw)
 		if parseErr != nil || parsed < 0 {
 			return fiber.NewError(fiber.StatusBadRequest, "offset must be zero or greater")
 		}
+
 		offset = parsed
 	}
+
 	items, total, err := h.models.ListBudgetLimitRules(c.Context(), currentTenant.ID, query, limit, offset)
 	if err != nil {
 		return err
 	}
+
 	var nextOffset *int
+
 	if offset+len(items) < total {
 		n := offset + len(items)
 		nextOffset = &n
 	}
+
 	return c.JSON(platform.BudgetLimitRuleListResponse{
 		Data:       items,
 		Total:      total,
@@ -600,27 +713,34 @@ func (h *Handlers) CreateBudgetLimitRule(c *fiber.Ctx) error {
 	if err := requirePolicyManage(c); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	if err := h.requireEntitlementEnabled(c, currentTenant.ID, platform.FeatureBudgetLimitRulesEnabled); err != nil {
 		return err
 	}
+
 	var req platform.CreateBudgetLimitRuleRequest
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
+
 	if err := validateCreateBudgetLimitRuleRequest(req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
+
 	item, err := h.models.CreateBudgetLimitRule(c.Context(), currentTenant.ID, req)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusUnprocessableEntity, "failed to create budget limit rule")
 		}
+
 		return mapProviderAccountStoreError(err)
 	}
+
 	return c.Status(fiber.StatusCreated).JSON(item)
 }
 
@@ -628,21 +748,26 @@ func (h *Handlers) GetBudgetLimitRule(c *fiber.Ctx) error {
 	if err := requirePolicyListOrManage(c); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	ruleID := strings.TrimSpace(c.Params("id"))
 	if ruleID == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "id is required")
 	}
+
 	item, err := h.models.GetBudgetLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "budget limit rule not found")
 		}
+
 		return err
 	}
+
 	return c.JSON(item)
 }
 
@@ -650,28 +775,35 @@ func (h *Handlers) UpdateBudgetLimitRule(c *fiber.Ctx) error {
 	if err := requirePolicyManage(c); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	ruleID := strings.TrimSpace(c.Params("id"))
 	if ruleID == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "id is required")
 	}
+
 	var req platform.UpdateBudgetLimitRuleRequest
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
+
 	if err := validateUpdateBudgetLimitRuleRequest(req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
+
 	item, err := h.models.UpdateBudgetLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID, req)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "budget limit rule not found")
 		}
+
 		return mapProviderAccountStoreError(err)
 	}
+
 	return c.JSON(item)
 }
 
@@ -679,20 +811,25 @@ func (h *Handlers) DeleteBudgetLimitRule(c *fiber.Ctx) error {
 	if err := requirePolicyManage(c); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	ruleID := strings.TrimSpace(c.Params("id"))
 	if ruleID == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "id is required")
 	}
+
 	if err := h.models.DeleteBudgetLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "budget limit rule not found")
 		}
+
 		return err
 	}
+
 	return c.JSON(fiber.Map{"success": true})
 }
 
@@ -700,25 +837,31 @@ func (h *Handlers) UpdateBudgetLimitRuleStatus(c *fiber.Ctx) error {
 	if err := requirePolicyManage(c); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	ruleID := strings.TrimSpace(c.Params("id"))
 	if ruleID == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "id is required")
 	}
+
 	var req platform.UpdateBudgetLimitRuleStatusRequest
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
+
 	item, err := h.models.UpdateBudgetLimitRuleStatusByRuleID(c.Context(), currentTenant.ID, ruleID, req.Enabled)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "budget limit rule not found")
 		}
+
 		return err
 	}
+
 	return c.JSON(item)
 }
 
@@ -726,22 +869,27 @@ func validateCreateBudgetLimitRuleRequest(req platform.CreateBudgetLimitRuleRequ
 	if strings.TrimSpace(req.RuleID) == "" {
 		return errors.New("rule_id is required")
 	}
+
 	if req.LimitTo <= 0 {
 		return errors.New("limit_to must be greater than zero")
 	}
+
 	switch req.Unit {
 	case platform.BudgetLimitCostPerDay, platform.BudgetLimitCostPerWeek, platform.BudgetLimitCostPerMonth:
 	default:
 		return errors.New("unit is invalid")
 	}
+
 	if req.Priority != nil && *req.Priority < 0 {
 		return errors.New("priority cannot be negative")
 	}
+
 	if req.BudgetAppliesPer != nil && strings.TrimSpace(*req.BudgetAppliesPer) != "" {
 		if err := validateBudgetAppliesPer(*req.BudgetAppliesPer); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -749,9 +897,11 @@ func validateUpdateBudgetLimitRuleRequest(req platform.UpdateBudgetLimitRuleRequ
 	if req.Priority != nil && *req.Priority < 0 {
 		return errors.New("priority cannot be negative")
 	}
+
 	if req.LimitTo != nil && *req.LimitTo <= 0 {
 		return errors.New("limit_to must be greater than zero")
 	}
+
 	if req.Unit != nil {
 		switch *req.Unit {
 		case platform.BudgetLimitCostPerDay, platform.BudgetLimitCostPerWeek, platform.BudgetLimitCostPerMonth:
@@ -759,11 +909,13 @@ func validateUpdateBudgetLimitRuleRequest(req platform.UpdateBudgetLimitRuleRequ
 			return errors.New("unit is invalid")
 		}
 	}
+
 	if req.BudgetAppliesPer != nil && strings.TrimSpace(*req.BudgetAppliesPer) != "" {
 		if err := validateBudgetAppliesPer(*req.BudgetAppliesPer); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -773,9 +925,11 @@ func validateBudgetAppliesPer(value string) error {
 	case string(platform.BudgetAppliesPerUser), string(platform.BudgetAppliesPerModel), string(platform.BudgetAppliesPerVirtualAccount):
 		return nil
 	}
+
 	if strings.HasPrefix(normalized, "metadata.") && len(strings.TrimPrefix(normalized, "metadata.")) > 0 {
 		return nil
 	}
+
 	return errors.New("budget_applies_per is invalid")
 }
 
@@ -783,16 +937,19 @@ func parseOptionalTimeValue(value interface{}) (*time.Time, error) {
 	if value == nil {
 		return nil, nil
 	}
+
 	switch v := value.(type) {
 	case string:
 		trimmed := strings.TrimSpace(v)
 		if trimmed == "" {
 			return nil, nil
 		}
+
 		parsed, err := time.Parse(time.RFC3339, trimmed)
 		if err != nil {
 			return nil, err
 		}
+
 		return &parsed, nil
 	default:
 		return nil, nil

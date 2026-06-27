@@ -21,6 +21,7 @@ func TestBuildTraceChatRequestPayloadRedactsImageDataURL(t *testing.T) {
 	payload := buildTraceChatRequestPayload(req)
 	messages := payload["messages"].([]map[string]interface{})
 	content := messages[0]["content"].([]map[string]interface{})
+
 	imageURL := content[1]["image_url"].(map[string]interface{})
 	if got := imageURL["url"]; got != "data:image/png;base64,[redacted]" {
 		t.Fatalf("image url = %#v", got)

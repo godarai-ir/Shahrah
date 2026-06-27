@@ -26,6 +26,7 @@ func NewInMemoryKeyStore() *InMemoryKeyStore {
 func (s *InMemoryKeyStore) AddKey(hash string, info *platform.AuthContext) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	s.keys[hash] = info
 }
 

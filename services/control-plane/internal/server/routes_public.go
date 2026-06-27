@@ -23,6 +23,7 @@ func registerPublicAdminRoutes(app *fiber.App, deps Dependencies) {
 	if deps.AdminHandlers == nil {
 		return
 	}
+
 	app.Get("/api/v1/login-discovery/tenants", deps.AdminHandlers.DiscoverTenantsByIdentifier)
 	app.Get("/api/v1/login-discovery/tenant/:slug", deps.AdminHandlers.DiscoverTenantByName)
 	app.Get("/api/v1/commercial-plans", deps.AdminHandlers.ListPublicCommercialPlans)
@@ -34,6 +35,7 @@ func registerPlatformAdminRoutes(app *fiber.App, cfg *config.Config, deps Depend
 	if deps.AdminHandlers == nil {
 		return
 	}
+
 	platformAdmin := app.Group("/api/v1/platform", auth.PlatformAdminAuthMiddleware(cfg.GeneralSettings.MasterKey, deps.PlatformServiceAccounts))
 	platformAdmin.Get("/features", deps.AdminHandlers.ListPlatformFeatureCatalog)
 	platformAdmin.Get("/commercial-plans", deps.AdminHandlers.ListPlatformCommercialPlans)

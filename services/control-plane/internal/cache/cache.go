@@ -3,7 +3,6 @@ package cache
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -35,7 +34,6 @@ type DualCache struct {
 	memory *MemoryCache
 	redis  *redis.Client
 	logger *zap.Logger
-	mu     sync.RWMutex
 }
 
 // NewDualCache creates a new dual cache (memory + Redis).
@@ -207,15 +205,18 @@ func (d *DualCache) CheckRateLimit(ctx context.Context, key string, limit int64,
 	}
 
 	windowMS := window.Milliseconds()
+
 	result, err := d.redis.Eval(ctx, fixedWindowRateLimitScript, []string{key}, limit, windowMS).Int64Slice()
 	if err != nil {
 		return d.memory.CheckRateLimit(ctx, key, limit, window)
 	}
+
 	if len(result) < 3 {
 		return nil, fmt.Errorf("unexpected redis rate-limit result length: %d", len(result))
 	}
 
 	resetIn := time.Duration(result[2]) * time.Millisecond
+
 	return &RateLimitResult{
 		Allowed: result[0] == 1,
 		Current: result[1],
@@ -242,15 +243,18 @@ func (d *DualCache) CheckSlidingWindowRateLimitWithWeight(ctx context.Context, k
 
 	windowMS := window.Milliseconds()
 	nowMS := time.Now().UnixMilli()
+
 	result, err := d.redis.Eval(ctx, slidingWindowRateLimitScript, []string{key}, limit, windowMS, nowMS, weight).Int64Slice()
 	if err != nil {
 		return d.memory.CheckSlidingWindowRateLimitWithWeight(ctx, key, limit, weight, window)
 	}
+
 	if len(result) < 3 {
 		return nil, fmt.Errorf("unexpected redis sliding-window result length: %d", len(result))
 	}
 
 	resetIn := time.Duration(result[2]) * time.Millisecond
+
 	return &RateLimitResult{
 		Allowed: result[0] == 1,
 		Current: result[1],

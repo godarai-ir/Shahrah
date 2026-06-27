@@ -30,5 +30,6 @@ func HasPlatformScope(scopes []string, required string) bool {
 			return true
 		}
 	}
+
 	return false
 }

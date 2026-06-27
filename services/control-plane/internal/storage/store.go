@@ -39,10 +39,12 @@ func NewStore(ctx context.Context, databaseURL string, logger *zap.Logger) (*Sto
 	if err != nil {
 		return nil, fmt.Errorf("parse database config: %w", err)
 	}
+
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("connect database: %w", err)
 	}
+
 	if err := pool.Ping(ctx); err != nil {
 		return nil, fmt.Errorf("ping database: %w", err)
 	}
@@ -58,6 +60,7 @@ func NewStore(ctx context.Context, databaseURL string, logger *zap.Logger) (*Sto
 	if err := store.initClickHouse(ctx); err != nil {
 		logger.Warn("clickhouse trace backend unavailable; continuing without trace storage", zap.Error(err))
 	}
+
 	return store, nil
 }
 
@@ -66,5 +69,6 @@ func (s *Store) Close() {
 	if s.clickhouse != nil {
 		_ = s.clickhouse.Close()
 	}
+
 	s.pool.Close()
 }

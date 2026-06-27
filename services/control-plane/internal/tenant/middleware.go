@@ -59,6 +59,7 @@ func NewMiddlewareWithCache(store Store, c Cache, cfg MiddlewareConfig) *Middlew
 	if cacheTTL <= 0 {
 		cacheTTL = 5 * time.Minute
 	}
+
 	return &Middleware{
 		store:           store,
 		cache:           c,
@@ -116,6 +117,7 @@ func (m *Middleware) Handle() fiber.Handler {
 		}
 
 		c.Locals(ContextKey{}, tenant)
+
 		return c.Next()
 	}
 }
@@ -135,6 +137,7 @@ func (m *Middleware) InvalidateTenant(ctx context.Context, slug string, tenantID
 	if m.cache == nil {
 		return
 	}
+
 	m.cache.Delete(ctx, cacheKeyForHost(slug))
 	m.cache.Delete(ctx, cacheKeyForID(tenantID))
 }
@@ -146,6 +149,7 @@ func FromContext(c *fiber.Ctx) *platform.Tenant {
 			return tenant
 		}
 	}
+
 	return nil
 }
 
@@ -161,6 +165,7 @@ func isActiveTenant(t *platform.Tenant) bool {
 	if t == nil {
 		return false
 	}
+
 	return strings.EqualFold(t.Status, "active")
 }
 
@@ -169,6 +174,7 @@ func shouldUseTenantHeaderHint(host string) bool {
 	if normalized == "" {
 		return false
 	}
+
 	if parsedHost, _, err := net.SplitHostPort(normalized); err == nil {
 		normalized = parsedHost
 	}
