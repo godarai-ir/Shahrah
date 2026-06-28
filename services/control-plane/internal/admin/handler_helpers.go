@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
@@ -121,7 +122,9 @@ func handleScopedEnabledUpdate(
 	var req struct {
 		Enabled bool `json:"enabled"`
 	}
-	if err := c.BodyParser(&req); err != nil {
+
+	parseErr := c.BodyParser(&req)
+	if parseErr != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
 
@@ -192,6 +195,7 @@ func handleTenantMembershipDelete(
 	}
 
 	parentID := strings.TrimSpace(c.Params(parentParam))
+
 	userID := strings.TrimSpace(c.Params("userID"))
 	if parentID == "" || userID == "" {
 		return fiber.NewError(fiber.StatusBadRequest, parentParam+" and userID are required")
@@ -206,4 +210,102 @@ func handleTenantMembershipDelete(
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func handleTenantListResponse[T any, R any](
+	c *fiber.Ctx,
+	require func(*fiber.Ctx) error,
+	maxLimit int,
+	tenantIDFn func(*platform.Tenant) string,
+	fetch func(context.Context, string, string, int, int) ([]T, int, error),
+	buildResponse func([]T, int, int, int) R,
+) error {
+	if err := require(c); err != nil {
+		return err
+	}
+
+	currentTenant, err := currentTenantOrErr(c)
+	if err != nil {
+		return err
+	}
+
+	params, err := parseTenantListParams(c, maxLimit)
+	if err != nil {
+		return err
+	}
+
+	items, total, err := fetch(c.Context(), tenantIDFn(currentTenant), params.Query, params.Limit, params.Offset)
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(buildResponse(items, total, params.Limit, params.Offset))
+}
+
+func handleTraceByID[T any](
+	c *fiber.Ctx,
+	require func(*fiber.Ctx) error,
+	fetch func(context.Context, string, string) (T, error),
+	buildResponse func(T) interface{},
+) error {
+	if err := require(c); err != nil {
+		return err
+	}
+
+	currentTenant, err := currentTenantOrErr(c)
+	if err != nil {
+		return err
+	}
+
+	traceID := strings.TrimSpace(c.Params("traceID"))
+	if traceID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "traceID is required")
+	}
+
+	item, err := fetch(c.Context(), currentTenant.ID, traceID)
+	if err != nil {
+		return traceLookupError(err)
+	}
+
+	return c.JSON(buildResponse(item))
+}
+
+func handleTraceCollection[T any](
+	c *fiber.Ctx,
+	require func(*fiber.Ctx) error,
+	fetch func(context.Context, string, string) ([]T, error),
+	buildResponse func([]T) interface{},
+) error {
+	if err := require(c); err != nil {
+		return err
+	}
+
+	currentTenant, err := currentTenantOrErr(c)
+	if err != nil {
+		return err
+	}
+
+	traceID := strings.TrimSpace(c.Params("traceID"))
+	if traceID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "traceID is required")
+	}
+
+	items, err := fetch(c.Context(), currentTenant.ID, traceID)
+	if err != nil {
+		return traceLookupError(err)
+	}
+
+	return c.JSON(buildResponse(items))
+}
+
+func traceLookupError(err error) error {
+	if errors.Is(err, storage.ErrTraceStoreUnavailable) {
+		return fiber.NewError(fiber.StatusNotImplemented, "trace store not configured")
+	}
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return fiber.NewError(fiber.StatusNotFound, "trace not found")
+	}
+
+	return err
 }

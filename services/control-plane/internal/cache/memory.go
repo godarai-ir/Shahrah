@@ -49,7 +49,7 @@ func NewMemoryCache(logger *zap.Logger) (*MemoryCache, error) {
 }
 
 // Get retrieves a value from the cache with proper type handling.
-func (m *MemoryCache) Get(ctx context.Context, key string) (interface{}, bool) {
+func (m *MemoryCache) Get(_ context.Context, key string) (interface{}, bool) {
 	val, found := m.cache.Get(key)
 	if !found {
 		return nil, false
@@ -59,19 +59,19 @@ func (m *MemoryCache) Get(ctx context.Context, key string) (interface{}, bool) {
 }
 
 // Set stores a value in the cache with TTL support.
-func (m *MemoryCache) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) {
+func (m *MemoryCache) Set(_ context.Context, key string, value interface{}, ttl time.Duration) {
 	// Ristretto v2 uses SetWithTTL with cost parameter
 	m.cache.SetWithTTL(key, value, 1, ttl)
 	m.cache.Wait()
 }
 
 // Delete removes a value from the cache.
-func (m *MemoryCache) Delete(ctx context.Context, key string) {
+func (m *MemoryCache) Delete(_ context.Context, key string) {
 	m.cache.Del(key)
 }
 
 // Increment safely increments an int64 value in the cache.
-func (m *MemoryCache) Increment(ctx context.Context, key string, value int64, ttl time.Duration) (int64, error) {
+func (m *MemoryCache) Increment(_ context.Context, key string, value int64, ttl time.Duration) (int64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -97,7 +97,7 @@ func (m *MemoryCache) Increment(ctx context.Context, key string, value int64, tt
 }
 
 // CheckRateLimit checks a fixed-window counter in memory.
-func (m *MemoryCache) CheckRateLimit(ctx context.Context, key string, limit int64, window time.Duration) (*RateLimitResult, error) {
+func (m *MemoryCache) CheckRateLimit(_ context.Context, key string, limit int64, window time.Duration) (*RateLimitResult, error) {
 	if limit <= 0 {
 		return &RateLimitResult{
 			Allowed: true,
@@ -146,7 +146,7 @@ func (m *MemoryCache) CheckSlidingWindowRateLimit(ctx context.Context, key strin
 }
 
 // CheckSlidingWindowRateLimitWithWeight checks a true sliding-window log in memory with weighted entries.
-func (m *MemoryCache) CheckSlidingWindowRateLimitWithWeight(ctx context.Context, key string, limit int64, weight int64, window time.Duration) (*RateLimitResult, error) {
+func (m *MemoryCache) CheckSlidingWindowRateLimitWithWeight(_ context.Context, key string, limit, weight int64, window time.Duration) (*RateLimitResult, error) {
 	if limit <= 0 {
 		return &RateLimitResult{
 			Allowed: true,

@@ -62,132 +62,135 @@ func NewAuthMiddleware(keyStore KeyStore, masterKey string, logger *zap.Logger) 
 // Middleware returns the Fiber middleware handler.
 func (m *AuthMiddleware) Middleware() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		// Skip auth for public health, onboarding, and payment gateway callbacks.
-		if c.Path() == "/health" ||
-			c.Path() == "/ready" ||
-			c.Path() == "/metrics" ||
-			strings.HasPrefix(c.Path(), "/api/v1/onboarding/") ||
-			strings.HasPrefix(c.Path(), "/api/v1/wallet/topup/callback/") {
+		path := c.Path()
+		if shouldSkipAuth(path) {
 			return c.Next()
 		}
 
-		// Extract API key from headers
 		apiKey := m.extractAPIKey(c)
 		if apiKey == "" {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": map[string]interface{}{
-					"message": "Missing API key. Pass it using the `Authorization` header",
-					"type":    "authentication_error",
-				},
-			})
+			return writeAuthError(c, fiber.StatusUnauthorized, "Missing API key. Pass it using the `Authorization` header", "authentication_error")
 		}
 
-		// Check master key
 		if m.masterKey != "" && apiKey == m.masterKey {
-			resolved := &platform.AuthContext{
-				Role: roleProxyAdmin,
-			}
-			// Clone request header value to avoid retaining mutable fasthttp buffer data.
-			userID := strings.Clone(strings.TrimSpace(c.Get("x-shahrah-user-id")))
-			if userID != "" {
-				currentTenant := tenant.FromContext(c)
-				if currentTenant != nil {
-					userCtx, err := m.keyStore.ResolveTenantUserAuth(c.Context(), currentTenant.ID, userID)
-					if err == nil && userCtx != nil {
-						resolved = userCtx
-					} else if err != nil {
-						m.logger.Debug("failed to resolve user auth context for master key request", zap.Error(err), zap.String("tenant_id", currentTenant.ID), zap.String("user_id", userID))
-					}
-				}
-			}
-
-			c.Locals(AuthContextKey{}, resolved)
-
-			return c.Next()
+			return m.handleMasterKeyRequest(c)
 		}
 
-		// Hash the key for lookup
-		hash := HashKey(apiKey)
+		return m.authenticateAPIKey(c, apiKey)
+	}
+}
 
-		// Look up key in store
-		keyInfo, err := m.keyStore.GetKeyByHash(c.Context(), hash)
-		if err != nil {
-			if isInvalidAPIKeyLookup(err) {
-				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-					"error": map[string]interface{}{
-						"message": "Invalid API key",
-						"type":    "authentication_error",
-					},
-				})
-			}
+func shouldSkipAuth(path string) bool {
+	return path == "/health" ||
+		path == "/ready" ||
+		path == "/metrics" ||
+		strings.HasPrefix(path, "/api/v1/onboarding/") ||
+		strings.HasPrefix(path, "/api/v1/wallet/topup/callback/")
+}
 
-			m.logger.Error("API key lookup failed", zap.Error(err))
+func writeAuthError(c *fiber.Ctx, status int, message, errType string) error {
+	return c.Status(status).JSON(fiber.Map{
+		"error": map[string]interface{}{
+			"message": message,
+			"type":    errType,
+		},
+	})
+}
 
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": map[string]interface{}{
-					"message": "Authentication lookup failed",
-					"type":    "server_error",
-				},
-			})
-		}
-
-		if keyInfo == nil {
-			m.logger.Error("API key lookup returned nil auth context")
-
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": map[string]interface{}{
-					"message": "Authentication lookup failed",
-					"type":    "server_error",
-				},
-			})
-		}
-
-		// Check if key is blocked
-		if keyInfo.Blocked {
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-				"error": map[string]interface{}{
-					"message": "API key has been blocked",
-					"type":    "authorization_error",
-				},
-			})
-		}
-
-		// Check expiration
-		if keyInfo.ExpiresAt != nil && time.Now().After(*keyInfo.ExpiresAt) {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": map[string]interface{}{
-					"message": "API key has expired",
-					"type":    "authentication_error",
-				},
-			})
-		}
-
-		// Store auth info in context
-		c.Locals(AuthContextKey{}, keyInfo)
-
-		if err := CheckRouteAuthorization(c.Method(), c.Path(), keyInfo); err != nil {
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-				"error": map[string]interface{}{
-					"message": err.Error(),
-					"type":    "authorization_error",
-				},
-			})
-		}
-
-		m.logger.Debug("Authentication successful",
-			zap.String("key_alias", keyInfo.KeyAlias),
-			zap.String("role", keyInfo.Role),
-		)
-
-		if keyInfo.KeyID != "" {
-			if tracker, ok := m.keyStore.(keyLastUsedTracker); ok {
-				if err := tracker.TouchKeyLastUsed(c.Context(), keyInfo.KeyID, time.Now().UTC()); err != nil {
-					m.logger.Debug("Failed to touch key last-used timestamp", zap.Error(err), zap.String("key_id", keyInfo.KeyID))
-				}
+func (m *AuthMiddleware) handleMasterKeyRequest(c *fiber.Ctx) error {
+	resolved := &platform.AuthContext{Role: roleProxyAdmin}
+	// Clone request header value to avoid retaining mutable fasthttp buffer data.
+	userID := strings.Clone(strings.TrimSpace(c.Get("x-shahrah-user-id")))
+	if userID != "" {
+		currentTenant := tenant.FromContext(c)
+		if currentTenant != nil {
+			userCtx, err := m.keyStore.ResolveTenantUserAuth(c.Context(), currentTenant.ID, userID)
+			if err == nil && userCtx != nil {
+				resolved = userCtx
+			} else if err != nil {
+				m.logger.Debug("failed to resolve user auth context for master key request", zap.Error(err), zap.String("tenant_id", currentTenant.ID), zap.String("user_id", userID))
 			}
 		}
+	}
 
-		return c.Next()
+	c.Locals(AuthContextKey{}, resolved)
+
+	return c.Next()
+}
+
+func (m *AuthMiddleware) authenticateAPIKey(c *fiber.Ctx, apiKey string) error {
+	keyInfo, err := m.lookupAuthContext(c, apiKey)
+	if err != nil {
+		return err
+	}
+
+	if err := m.authorizeAndStoreAuthContext(c, keyInfo); err != nil {
+		return err
+	}
+
+	m.logger.Debug("Authentication successful",
+		zap.String("key_alias", keyInfo.KeyAlias),
+		zap.String("role", keyInfo.Role),
+	)
+
+	m.touchKeyLastUsed(c, keyInfo)
+
+	return c.Next()
+}
+
+func (m *AuthMiddleware) lookupAuthContext(c *fiber.Ctx, apiKey string) (*platform.AuthContext, error) {
+	hash := HashKey(apiKey)
+
+	keyInfo, err := m.keyStore.GetKeyByHash(c.Context(), hash)
+	if err != nil {
+		if isInvalidAPIKeyLookup(err) {
+			return nil, writeAuthError(c, fiber.StatusUnauthorized, "Invalid API key", "authentication_error")
+		}
+
+		m.logger.Error("API key lookup failed", zap.Error(err))
+
+		return nil, writeAuthError(c, fiber.StatusInternalServerError, "Authentication lookup failed", "server_error")
+	}
+
+	if keyInfo == nil {
+		m.logger.Error("API key lookup returned nil auth context")
+
+		return nil, writeAuthError(c, fiber.StatusInternalServerError, "Authentication lookup failed", "server_error")
+	}
+
+	return keyInfo, nil
+}
+
+func (m *AuthMiddleware) authorizeAndStoreAuthContext(c *fiber.Ctx, keyInfo *platform.AuthContext) error {
+	if keyInfo.Blocked {
+		return writeAuthError(c, fiber.StatusForbidden, "API key has been blocked", "authorization_error")
+	}
+
+	if keyInfo.ExpiresAt != nil && time.Now().After(*keyInfo.ExpiresAt) {
+		return writeAuthError(c, fiber.StatusUnauthorized, "API key has expired", "authentication_error")
+	}
+
+	c.Locals(AuthContextKey{}, keyInfo)
+
+	if err := CheckRouteAuthorization(c.Method(), c.Path(), keyInfo); err != nil {
+		return writeAuthError(c, fiber.StatusForbidden, err.Error(), "authorization_error")
+	}
+
+	return nil
+}
+
+func (m *AuthMiddleware) touchKeyLastUsed(c *fiber.Ctx, keyInfo *platform.AuthContext) {
+	if keyInfo.KeyID == "" {
+		return
+	}
+
+	tracker, ok := m.keyStore.(keyLastUsedTracker)
+	if !ok {
+		return
+	}
+
+	if err := tracker.TouchKeyLastUsed(c.Context(), keyInfo.KeyID, time.Now().UTC()); err != nil {
+		m.logger.Debug("Failed to touch key last-used timestamp", zap.Error(err), zap.String("key_id", keyInfo.KeyID))
 	}
 }
 

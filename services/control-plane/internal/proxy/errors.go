@@ -1,3 +1,4 @@
+// Package proxy hosts OpenAI-compatible request handlers for the control plane.
 package proxy
 
 import (

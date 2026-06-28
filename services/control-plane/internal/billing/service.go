@@ -59,7 +59,7 @@ func NewService(c cache.Cache, store walletStore, defaultUSDtoIRR float64, sourc
 
 // CheckRateLimit validates per-minute request and token limits.
 // Returns the primary rate-limit result to expose in response headers.
-func (s *Service) CheckRateLimit(ctx context.Context, auth *platform.AuthContext, model string, estimatedTokens int) (*cache.RateLimitResult, error) {
+func (s *Service) CheckRateLimit(ctx context.Context, auth *platform.AuthContext, _ string, _ int) (*cache.RateLimitResult, error) {
 	if s.entitlements == nil || auth == nil || auth.TenantID == "" {
 		return nil, nil
 	}

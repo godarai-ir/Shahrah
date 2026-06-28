@@ -1,3 +1,4 @@
+// Package proxy hosts OpenAI-compatible request handlers for the control plane.
 package proxy
 
 import (
@@ -21,10 +22,12 @@ type ModelsHandler struct {
 	models deploymentLister
 }
 
+// NewModelsHandler creates a new models handler.
 func NewModelsHandler(models deploymentLister) *ModelsHandler {
 	return &ModelsHandler{models: models}
 }
 
+// Handle serves the model list endpoint.
 func (h *ModelsHandler) Handle(c *fiber.Ctx) error {
 	authInfo := auth.GetAuthInfo(c)
 	if authInfo == nil {

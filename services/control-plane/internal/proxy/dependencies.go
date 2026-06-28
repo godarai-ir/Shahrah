@@ -1,3 +1,4 @@
+// Package proxy hosts OpenAI-compatible request handlers for the control plane.
 package proxy
 
 import (
@@ -10,14 +11,17 @@ import (
 	"go.uber.org/zap"
 )
 
+// RequestLogger persists request lifecycle records.
 type RequestLogger interface {
 	LogRequest(ctx context.Context, entry platform.RequestLogEntry) error
 }
 
+// SpendLogger persists spend records.
 type SpendLogger interface {
 	LogSpend(ctx context.Context, log platform.SpendLog) error
 }
 
+// BaseHandlerDependencies groups shared proxy handler dependencies.
 type BaseHandlerDependencies struct {
 	Router        *router.Router
 	Tunnel        platform.TunnelTransport
@@ -29,6 +33,7 @@ type BaseHandlerDependencies struct {
 	EmitMetric    func(input metricsobs.BuildInput)
 }
 
+// ChatCompletionDependencies extends the base wiring for chat completion routing.
 type ChatCompletionDependencies struct {
 	Base              BaseHandlerDependencies
 	VirtualModelStore interface {

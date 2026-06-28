@@ -1,3 +1,4 @@
+// Package types contains shared top-level control-plane types.
 package types
 
 import "time"

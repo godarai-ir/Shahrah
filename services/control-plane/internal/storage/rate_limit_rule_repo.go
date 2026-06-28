@@ -74,32 +74,14 @@ func (s *Store) CreateRateLimitRule(ctx context.Context, tenantID string, req pl
 }
 
 func (s *Store) ListRateLimitRules(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.RateLimitRule, int, error) {
-	if limit <= 0 {
-		limit = 50
-	}
+	q, like, limit, offset := normalizePagedQuery(query, limit, offset)
 
-	if limit > 200 {
-		limit = 200
-	}
-
-	if offset < 0 {
-		offset = 0
-	}
-
-	q := strings.TrimSpace(strings.ToLower(query))
-	like := "%" + q + "%"
-
-	var total int
-	if err := s.pool.QueryRow(ctx, `
+	return listSearchResults(ctx, s.pool, `
 		SELECT COUNT(1)
 		FROM rate_limit_rules
 		WHERE tenant_id = $1::uuid
 		  AND ($2 = '' OR LOWER(rule_id) LIKE $3 OR LOWER(COALESCE(name,'')) LIKE $3 OR LOWER(COALESCE(description,'')) LIKE $3)
-	`, tenantID, q, like).Scan(&total); err != nil {
-		return nil, 0, err
-	}
-
-	rows, err := s.pool.Query(ctx, `
+	`, []any{tenantID, q, like}, `
 		SELECT id::text, tenant_id::text, rule_id, COALESCE(name,''), COALESCE(description,''), enabled, priority,
 		       conditions_json, limit_json, conflict_behavior, response_behavior, soft_limit, retry_after_header,
 		       effective_from, expires_at, created_at, updated_at
@@ -108,24 +90,7 @@ func (s *Store) ListRateLimitRules(ctx context.Context, tenantID string, query s
 		  AND ($2 = '' OR LOWER(rule_id) LIKE $3 OR LOWER(COALESCE(name,'')) LIKE $3 OR LOWER(COALESCE(description,'')) LIKE $3)
 		ORDER BY priority ASC, updated_at DESC
 		LIMIT $4 OFFSET $5
-	`, tenantID, q, like, limit, offset)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer rows.Close()
-
-	items := make([]platform.RateLimitRule, 0, limit)
-
-	for rows.Next() {
-		item, scanErr := scanRateLimitRule(rows)
-		if scanErr != nil {
-			return nil, 0, scanErr
-		}
-
-		items = append(items, *item)
-	}
-
-	return items, total, rows.Err()
+	`, []any{tenantID, q, like, limit, offset}, limit, scanRateLimitRule)
 }
 
 func (s *Store) GetRateLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string) (*platform.RateLimitRule, error) {
@@ -155,25 +120,10 @@ func (s *Store) UpdateRateLimitRuleByRuleID(ctx context.Context, tenantID string
 		return nil, err
 	}
 
-	name := current.Name
-	if req.Name != nil {
-		name = strings.TrimSpace(*req.Name)
-	}
-
-	description := current.Description
-	if req.Description != nil {
-		description = strings.TrimSpace(*req.Description)
-	}
-
-	enabled := current.Enabled
-	if req.Enabled != nil {
-		enabled = *req.Enabled
-	}
-
-	priority := current.Priority
-	if req.Priority != nil {
-		priority = *req.Priority
-	}
+	name := optionalTrimmedString(req.Name, current.Name)
+	description := optionalTrimmedString(req.Description, current.Description)
+	enabled := optionalBool(req.Enabled, current.Enabled)
+	priority := optionalInt(req.Priority, current.Priority)
 
 	conditions := current.Conditions
 	if req.Conditions != nil {
@@ -185,25 +135,10 @@ func (s *Store) UpdateRateLimitRuleByRuleID(ctx context.Context, tenantID string
 		limit = req.Limit
 	}
 
-	conflict := current.ConflictBehavior
-	if req.ConflictBehavior != nil {
-		conflict = *req.ConflictBehavior
-	}
-
-	response := current.ResponseBehavior
-	if req.ResponseBehavior != nil {
-		response = *req.ResponseBehavior
-	}
-
-	softLimit := current.SoftLimit
-	if req.SoftLimit != nil {
-		softLimit = *req.SoftLimit
-	}
-
-	retryAfter := current.RetryAfterHeader
-	if req.RetryAfterHeader != nil {
-		retryAfter = *req.RetryAfterHeader
-	}
+	conflict := optionalRateLimitConflictBehavior(req.ConflictBehavior, current.ConflictBehavior)
+	response := optionalRateLimitResponseBehavior(req.ResponseBehavior, current.ResponseBehavior)
+	softLimit := optionalBool(req.SoftLimit, current.SoftLimit)
+	retryAfter := optionalBool(req.RetryAfterHeader, current.RetryAfterHeader)
 
 	effectiveFrom := current.EffectiveFrom
 	if req.EffectiveFrom != nil {
@@ -255,6 +190,22 @@ func (s *Store) UpdateRateLimitRuleByRuleID(ctx context.Context, tenantID string
 	}
 
 	return scanRateLimitRule(rows)
+}
+
+func optionalRateLimitConflictBehavior(value *platform.RateLimitConflictBehavior, fallback platform.RateLimitConflictBehavior) platform.RateLimitConflictBehavior {
+	if value == nil {
+		return fallback
+	}
+
+	return *value
+}
+
+func optionalRateLimitResponseBehavior(value *platform.RateLimitResponseBehavior, fallback platform.RateLimitResponseBehavior) platform.RateLimitResponseBehavior {
+	if value == nil {
+		return fallback
+	}
+
+	return *value
 }
 
 func (s *Store) UpdateRateLimitRuleStatusByRuleID(ctx context.Context, tenantID string, ruleID string, enabled bool) (*platform.RateLimitRule, error) {

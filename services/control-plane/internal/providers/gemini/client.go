@@ -1,3 +1,4 @@
+// Package gemini implements the Google Gemini provider adapter.
 package gemini
 
 import (
@@ -240,7 +241,7 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 }
 
 // convertToGeminiRequest converts OpenAI request to Gemini format.
-func convertToGeminiRequest(req contractsopenai.ChatCompletionRequest, model string) geminiRequest {
+func convertToGeminiRequest(req contractsopenai.ChatCompletionRequest, _ string) geminiRequest {
 	geminiReq := geminiRequest{
 		Contents: make([]geminiContent, 0, len(req.Messages)),
 	}
@@ -304,7 +305,7 @@ func convertToOpenAIResponse(resp geminiResponse, model string) *contractsopenai
 	}
 
 	// Estimate usage
-	if len(content) > 0 {
+	if content != "" {
 		estimatedTokens := len(content) / 4
 		openaiResp.Usage = &contractsopenai.Usage{
 			PromptTokens:     100,
@@ -323,7 +324,5 @@ func (c *Client) SetModel(model string) {
 
 // Register the adapter.
 func init() {
-	providers.Register("gemini", func(cfg providers.ProviderConfig) providers.Provider {
-		return NewClient(cfg)
-	})
+	providers.Register("gemini", NewClient)
 }

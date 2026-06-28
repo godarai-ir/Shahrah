@@ -19,7 +19,7 @@ func (s *SimpleShuffle) Name() string {
 }
 
 // SelectDeployment selects a random deployment from healthy ones.
-func (s *SimpleShuffle) SelectDeployment(deployments []*Deployment, model string) (*Deployment, error) {
+func (s *SimpleShuffle) SelectDeployment(deployments []*Deployment, _ string) (*Deployment, error) {
 	if len(deployments) == 0 {
 		return nil, errors.New("no healthy deployments")
 	}

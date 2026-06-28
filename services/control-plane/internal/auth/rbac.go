@@ -90,7 +90,7 @@ func IsOrgAdminOrHigherForOrgUnit(authInfo *platform.AuthContext, orgUnitID stri
 }
 
 // CheckRouteAuthorization validates whether the current auth context can access the given route.
-func CheckRouteAuthorization(method string, route string, authInfo *platform.AuthContext) error {
+func CheckRouteAuthorization(method, route string, authInfo *platform.AuthContext) error {
 	if authInfo == nil {
 		return fmt.Errorf("authentication required")
 	}
@@ -106,47 +106,92 @@ func CheckRouteAuthorization(method string, route string, authInfo *platform.Aut
 		return nil
 	}
 
-	switch {
-	case normalizedRoute == "/api/v1/me/permissions":
-		return nil
-	case normalizedRoute == "/api/v1/subscription" || normalizedRoute == "/api/v1/entitlements":
-		return checkSubscriptionRouteAuthorization(normalizedMethod, authInfo)
-	case normalizedRoute == "/api/v1/subscription/change":
-		return checkSubscriptionRouteAuthorization(normalizedMethod, authInfo)
-	case strings.HasPrefix(normalizedRoute, "/api/v1/gateway-policies/"):
-		return checkPolicyRouteAuthorization(normalizedMethod, authInfo)
-	case strings.HasPrefix(normalizedRoute, "/api/v1/provider-catalog/"):
-		return checkProviderCatalogRouteAuthorization(normalizedMethod, normalizedRoute, authInfo)
-	case strings.HasPrefix(normalizedRoute, "/api/v1/org-units"):
-		return checkOrgUnitRouteAuthorization(normalizedMethod, authInfo)
-	case strings.HasPrefix(normalizedRoute, "/api/v1/teams/") && strings.Contains(normalizedRoute, "/members"):
-		return requireTeamAdmin(authInfo)
-	case strings.HasPrefix(normalizedRoute, "/api/v1/virtual-users"):
-		return requireTeamAdmin(authInfo)
-	case strings.HasPrefix(normalizedRoute, "/api/v1/wallet"):
-		return checkWalletRouteAuthorization(normalizedMethod, normalizedRoute, authInfo)
-	case strings.HasPrefix(normalizedRoute, "/api/v1/models"):
-		return checkModelsRouteAuthorization(normalizedMethod, normalizedRoute, authInfo)
-	case strings.HasPrefix(normalizedRoute, "/api/v1/virtual-models"):
-		return checkVirtualModelsRouteAuthorization(normalizedMethod, authInfo)
-	case strings.HasPrefix(normalizedRoute, "/api/v1/tenant-provider-accounts"):
-		return checkProviderAccountRouteAuthorization(normalizedMethod, normalizedRoute, authInfo)
-	case strings.HasPrefix(normalizedRoute, "/api/v1/access-principals"):
-		return checkAccessPrincipalRouteAuthorization(normalizedRoute, authInfo)
-	case strings.HasPrefix(normalizedRoute, "/api/v1/roles"):
-		return checkRolesRouteAuthorization(normalizedMethod, authInfo)
-	case normalizedRoute == "/api/v1/users/roles":
-		return checkUserManagementRouteAuthorization(normalizedMethod, authInfo)
-	case normalizedRoute == "/api/v1/users/invitations/accept":
-		return nil
-	case strings.HasPrefix(normalizedRoute, "/api/v1/users"):
-		return checkUserManagementRouteAuthorization(normalizedMethod, authInfo)
-	case strings.HasPrefix(normalizedRoute, "/api/v1/keys"):
-		return checkKeyRouteAuthorization(normalizedMethod, normalizedRoute, authInfo)
-	case strings.HasPrefix(normalizedRoute, "/api/v1/personal-access-tokens"):
-		return checkPATRouteAuthorization(authInfo)
+	if handled, err := checkAPIV1RouteAuthorization(normalizedMethod, normalizedRoute, authInfo); handled {
+		return err
+	}
+
+	return requireTenantAdmin(authInfo)
+}
+
+func checkAPIV1RouteAuthorization(method, route string, authInfo *platform.AuthContext) (bool, error) {
+	if handled, err := checkAPIV1PublicRouteAuthorization(method, route, authInfo); handled {
+		return true, err
+	}
+
+	if handled, err := checkAPIV1PolicyRouteAuthorization(method, route, authInfo); handled {
+		return true, err
+	}
+
+	if handled, err := checkAPIV1OrganizationRouteAuthorization(method, route, authInfo); handled {
+		return true, err
+	}
+
+	if handled, err := checkAPIV1ModelRouteAuthorization(method, route, authInfo); handled {
+		return true, err
+	}
+
+	return false, nil
+}
+
+func checkAPIV1PublicRouteAuthorization(method, route string, authInfo *platform.AuthContext) (bool, error) {
+	switch route {
+	case "/api/v1/me/permissions", "/api/v1/users/invitations/accept":
+		return true, nil
+	case "/api/v1/subscription", "/api/v1/entitlements", "/api/v1/subscription/change":
+		return true, checkSubscriptionRouteAuthorization(method, authInfo)
 	default:
-		return requireTenantAdmin(authInfo)
+		return false, nil
+	}
+}
+
+func checkAPIV1PolicyRouteAuthorization(method, route string, authInfo *platform.AuthContext) (bool, error) {
+	switch {
+	case strings.HasPrefix(route, "/api/v1/gateway-policies/"):
+		return true, checkPolicyRouteAuthorization(method, authInfo)
+	case strings.HasPrefix(route, "/api/v1/provider-catalog/"):
+		return true, checkProviderCatalogRouteAuthorization(method, route, authInfo)
+	default:
+		return false, nil
+	}
+}
+
+func checkAPIV1OrganizationRouteAuthorization(method, route string, authInfo *platform.AuthContext) (bool, error) {
+	switch {
+	case strings.HasPrefix(route, "/api/v1/org-units"):
+		return true, checkOrgUnitRouteAuthorization(method, authInfo)
+	case strings.HasPrefix(route, "/api/v1/teams/") && strings.Contains(route, "/members"):
+		return true, requireTeamAdmin(authInfo)
+	case strings.HasPrefix(route, "/api/v1/virtual-users"):
+		return true, requireTeamAdmin(authInfo)
+	default:
+		return false, nil
+	}
+}
+
+func checkAPIV1ModelRouteAuthorization(method, route string, authInfo *platform.AuthContext) (bool, error) {
+	switch {
+	case strings.HasPrefix(route, "/api/v1/wallet"):
+		return true, checkWalletRouteAuthorization(method, route, authInfo)
+	case strings.HasPrefix(route, "/api/v1/models"):
+		return true, checkModelsRouteAuthorization(method, route, authInfo)
+	case strings.HasPrefix(route, "/api/v1/virtual-models"):
+		return true, checkVirtualModelsRouteAuthorization(method, authInfo)
+	case strings.HasPrefix(route, "/api/v1/tenant-provider-accounts"):
+		return true, checkProviderAccountRouteAuthorization(method, route, authInfo)
+	case strings.HasPrefix(route, "/api/v1/access-principals"):
+		return true, checkAccessPrincipalRouteAuthorization(route, authInfo)
+	case strings.HasPrefix(route, "/api/v1/roles"):
+		return true, checkRolesRouteAuthorization(method, authInfo)
+	case route == "/api/v1/users/roles":
+		return true, checkUserManagementRouteAuthorization(method, authInfo)
+	case strings.HasPrefix(route, "/api/v1/users"):
+		return true, checkUserManagementRouteAuthorization(method, authInfo)
+	case strings.HasPrefix(route, "/api/v1/keys"):
+		return true, checkKeyRouteAuthorization(method, route, authInfo)
+	case strings.HasPrefix(route, "/api/v1/personal-access-tokens"):
+		return true, checkPATRouteAuthorization(authInfo)
+	default:
+		return false, nil
 	}
 }
 
@@ -183,7 +228,7 @@ func checkPATRouteAuthorization(authInfo *platform.AuthContext) error {
 	}
 }
 
-func checkWalletRouteAuthorization(method string, route string, authInfo *platform.AuthContext) error {
+func checkWalletRouteAuthorization(method, route string, authInfo *platform.AuthContext) error {
 	if IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
@@ -323,7 +368,7 @@ func checkOrgUnitRouteAuthorization(method string, authInfo *platform.AuthContex
 	return fmt.Errorf("insufficient permissions for org unit route")
 }
 
-func checkModelsRouteAuthorization(method string, route string, authInfo *platform.AuthContext) error {
+func checkModelsRouteAuthorization(method, route string, authInfo *platform.AuthContext) error {
 	if IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
@@ -377,7 +422,7 @@ func checkVirtualModelsRouteAuthorization(method string, authInfo *platform.Auth
 	}
 }
 
-func checkProviderCatalogRouteAuthorization(method string, route string, authInfo *platform.AuthContext) error {
+func checkProviderCatalogRouteAuthorization(method, route string, authInfo *platform.AuthContext) error {
 	if IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
@@ -404,7 +449,7 @@ func checkProviderCatalogRouteAuthorization(method string, route string, authInf
 	return fmt.Errorf("provider account manage permission required")
 }
 
-func checkProviderAccountRouteAuthorization(method string, route string, authInfo *platform.AuthContext) error {
+func checkProviderAccountRouteAuthorization(method, route string, authInfo *platform.AuthContext) error {
 	if IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
@@ -443,7 +488,7 @@ func checkProviderAccountRouteAuthorization(method string, route string, authInf
 	return fmt.Errorf("provider account manage permission required")
 }
 
-func checkKeyRouteAuthorization(method string, route string, authInfo *platform.AuthContext) error {
+func checkKeyRouteAuthorization(method, route string, authInfo *platform.AuthContext) error {
 	if IsTeamAdminOrHigher(authInfo) {
 		return nil
 	}
@@ -588,7 +633,7 @@ func isProviderAccountDeleteRoute(route string) bool {
 	return !strings.Contains(rest, "/")
 }
 
-func extractQueryParam(route string, key string) string {
+func extractQueryParam(route, key string) string {
 	parts := strings.SplitN(strings.TrimSpace(route), "?", 2)
 	if len(parts) != 2 {
 		return ""

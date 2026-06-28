@@ -1,3 +1,4 @@
+// Package mistral implements the Mistral provider adapter.
 package mistral
 
 import (
@@ -29,9 +30,7 @@ type Client struct {
 
 // Register the adapter.
 func init() {
-	providers.Register("mistral", func(cfg providers.ProviderConfig) providers.Provider {
-		return NewClient(cfg)
-	})
+	providers.Register("mistral", NewClient)
 }
 
 // NewClient creates a new Mistral AI client.

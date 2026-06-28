@@ -1,3 +1,4 @@
+// Package metrics includes cost reconciliation helpers for model usage accounting.
 package metrics
 
 import (
@@ -11,16 +12,19 @@ import (
 	"go.uber.org/zap"
 )
 
+// CostReconcileStore exposes the data needed for cost reconciliation.
 type CostReconcileStore interface {
 	ListSpendCostByTenantAndDay(ctx context.Context, day time.Time) ([]ReconcileTenantCostRow, error)
 	ListMetricsCostByTenantAndDay(ctx context.Context, day time.Time) ([]ReconcileTenantCostRow, error)
 }
 
+// ReconcileTenantCostRow is a per-tenant daily cost row.
 type ReconcileTenantCostRow struct {
 	TenantID string
 	CostUSD  float64
 }
 
+// ReconcileConfig controls the reconciliation worker.
 type ReconcileConfig struct {
 	Enabled              bool
 	Interval             time.Duration
@@ -29,6 +33,7 @@ type ReconcileConfig struct {
 	RunForPreviousDayUTC bool
 }
 
+// LoadReconcileConfigFromEnv builds the reconciliation configuration from environment variables.
 func LoadReconcileConfigFromEnv() ReconcileConfig {
 	return ReconcileConfig{
 		Enabled:              os.Getenv("METRICS_RECONCILE_ENABLED") == "true",
@@ -39,6 +44,7 @@ func LoadReconcileConfigFromEnv() ReconcileConfig {
 	}
 }
 
+// CostReconciler compares recorded spend against model metrics.
 type CostReconciler struct {
 	cfg    ReconcileConfig
 	store  CostReconcileStore
@@ -46,6 +52,7 @@ type CostReconciler struct {
 	stopCh chan struct{}
 }
 
+// NewCostReconciler creates a reconciliation worker.
 func NewCostReconciler(cfg ReconcileConfig, store CostReconcileStore, logger *zap.Logger) *CostReconciler {
 	return &CostReconciler{
 		cfg:    cfg,
@@ -55,6 +62,7 @@ func NewCostReconciler(cfg ReconcileConfig, store CostReconcileStore, logger *za
 	}
 }
 
+// Start launches the reconciliation loop if enabled.
 func (r *CostReconciler) Start() {
 	if !r.cfg.Enabled {
 		return
@@ -62,6 +70,7 @@ func (r *CostReconciler) Start() {
 	go r.loop()
 }
 
+// Stop stops the reconciliation loop.
 func (r *CostReconciler) Stop() { close(r.stopCh) }
 
 func (r *CostReconciler) loop() {

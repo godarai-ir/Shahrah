@@ -1,3 +1,4 @@
+// Package openai implements the OpenAI provider adapter.
 package openai
 
 import (

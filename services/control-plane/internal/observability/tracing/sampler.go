@@ -1,3 +1,4 @@
+// Package tracing provides request tracing, privacy, and export configuration.
 package tracing
 
 import (
@@ -5,6 +6,7 @@ import (
 	"hash/fnv"
 )
 
+// DecisionInput captures the minimum fields needed for sampling.
 type DecisionInput struct {
 	TenantID   string
 	RequestID  string
@@ -12,11 +14,13 @@ type DecisionInput struct {
 	DurationMS int64
 }
 
+// Sampler decides whether a trace should be sampled.
 type Sampler struct {
 	defaultRate float64
 	slowMS      int64
 }
 
+// NewSampler creates a sampler with rate and slow-request overrides.
 func NewSampler(defaultRate float64, slowRequestMS int64) *Sampler {
 	if defaultRate < 0 {
 		defaultRate = 0
@@ -32,6 +36,7 @@ func NewSampler(defaultRate float64, slowRequestMS int64) *Sampler {
 	}
 }
 
+// ShouldSample returns true when the request should be traced.
 func (s *Sampler) ShouldSample(in DecisionInput) bool {
 	if in.StatusCode >= 500 || in.DurationMS >= s.slowMS {
 		return true

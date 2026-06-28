@@ -22,6 +22,7 @@ type SubscriptionProcessor struct {
 	once     sync.Once
 }
 
+// NewSubscriptionProcessor creates a background worker for subscription transitions.
 func NewSubscriptionProcessor(store subscriptionTransitionStore, logger *zap.Logger, interval time.Duration) *SubscriptionProcessor {
 	if interval <= 0 {
 		interval = time.Minute
@@ -30,6 +31,7 @@ func NewSubscriptionProcessor(store subscriptionTransitionStore, logger *zap.Log
 	return &SubscriptionProcessor{store: store, logger: logger, interval: interval, done: make(chan struct{})}
 }
 
+// Start launches the subscription processor loop.
 func (p *SubscriptionProcessor) Start() {
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -37,6 +39,7 @@ func (p *SubscriptionProcessor) Start() {
 	go p.run(ctx)
 }
 
+// Stop waits for the processor to shut down.
 func (p *SubscriptionProcessor) Stop() {
 	p.once.Do(func() {
 		if p.cancel != nil {

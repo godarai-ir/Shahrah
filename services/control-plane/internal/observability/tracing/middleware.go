@@ -1,3 +1,4 @@
+// Package tracing provides request tracing, privacy, and export configuration.
 package tracing
 
 import (
@@ -12,6 +13,7 @@ import (
 )
 
 const (
+	// TraceIDHeader is the public trace identifier header.
 	TraceIDHeader      = apiheaders.HeaderTraceID
 	TraceParentHeader  = "traceparent"
 	TraceStateHeader   = "tracestate"
@@ -28,6 +30,7 @@ const (
 	defaultUnknownPath = "unknown"
 )
 
+// Middleware installs tracing context and request-span capture.
 func Middleware(queue *Queue, sampler *Sampler, slowMS int64, privacy ...*PrivacyManager) fiber.Handler {
 	var privacyManager *PrivacyManager
 	if len(privacy) > 0 {
@@ -134,6 +137,7 @@ func nextSpanID(c *fiber.Ctx, traceID string) string {
 	return fmt.Sprintf("%s:%d", traceID, cur)
 }
 
+// RecordStepSpan records a child span for the active request.
 func RecordStepSpan(c *fiber.Ctx, queue *Queue, parentSpanID, name, kind string, startedAt time.Time, statusCode int, attrs map[string]interface{}) {
 	if c == nil || queue == nil || startedAt.IsZero() {
 		return
@@ -248,6 +252,7 @@ func normalizeRoute(path string) string {
 	return path
 }
 
+// TraceIDFromContext returns the active trace identifier.
 func TraceIDFromContext(c *fiber.Ctx) string {
 	if v := c.Locals(LocalTraceIDKey); v != nil {
 		if traceID, ok := v.(string); ok && traceID != "" {
@@ -258,10 +263,12 @@ func TraceIDFromContext(c *fiber.Ctx) string {
 	return strings.TrimSpace(c.Get(TraceIDHeader))
 }
 
+// SetTenantForTrace stores the tenant identifier for the current trace.
 func SetTenantForTrace(c *fiber.Ctx, tenantID string) {
 	c.Locals(LocalTenantIDKey, tenantID)
 }
 
+// SetModelForTrace stores the active model for the current trace.
 func SetModelForTrace(c *fiber.Ctx, model string) {
 	if c == nil {
 		return
@@ -270,6 +277,7 @@ func SetModelForTrace(c *fiber.Ctx, model string) {
 	c.Locals(LocalModelKey, strings.TrimSpace(model))
 }
 
+// DurationMS returns the elapsed request duration in milliseconds.
 func DurationMS(c *fiber.Ctx) int64 {
 	start := time.Time{}
 	if startedAt, ok := c.Locals(LocalStartTimeKey).(time.Time); ok {
@@ -283,10 +291,12 @@ func DurationMS(c *fiber.Ctx) int64 {
 	return time.Since(start).Milliseconds()
 }
 
+// StatusCodeString returns the response status code as text.
 func StatusCodeString(c *fiber.Ctx) string {
 	return strconv.Itoa(c.Response().StatusCode())
 }
 
+// QueueFromContext returns the tracing queue stored on the request.
 func QueueFromContext(c *fiber.Ctx) *Queue {
 	if c == nil {
 		return nil
@@ -301,6 +311,7 @@ func QueueFromContext(c *fiber.Ctx) *Queue {
 	return nil
 }
 
+// RootSpanIDFromContext returns the root span id for the request.
 func RootSpanIDFromContext(c *fiber.Ctx) string {
 	if c == nil {
 		return ""
@@ -320,6 +331,7 @@ func RootSpanIDFromContext(c *fiber.Ctx) string {
 	return rootSpanID(traceID)
 }
 
+// PrivacyFromContext returns the privacy manager stored on the request.
 func PrivacyFromContext(c *fiber.Ctx) *PrivacyManager {
 	if c == nil {
 		return nil

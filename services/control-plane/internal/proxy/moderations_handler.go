@@ -1,3 +1,4 @@
+// Package proxy hosts OpenAI-compatible request handlers for the control plane.
 package proxy
 
 import (
@@ -18,6 +19,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// ModerationsHandler serves moderation requests.
 type ModerationsHandler struct {
 	llmRouter  *router.Router
 	tunnel     platform.TunnelTransport
@@ -38,6 +40,7 @@ func (e *moderationValidationError) Error() string {
 	return e.Message
 }
 
+// NewModerationsHandler creates a new moderations handler.
 func NewModerationsHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, wallets walletStore, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *ModerationsHandler {
 	var metricEmitter func(input metricsobs.BuildInput)
 	if len(emitMetric) > 0 {
@@ -56,6 +59,7 @@ func NewModerationsHandler(llmRouter *router.Router, tunnel platform.TunnelTrans
 	})
 }
 
+// NewModerationsHandlerWithDependencies creates a moderations handler from explicit dependencies.
 func NewModerationsHandlerWithDependencies(deps BaseHandlerDependencies) *ModerationsHandler {
 	return &ModerationsHandler{
 		llmRouter:  deps.Router,
@@ -68,6 +72,7 @@ func NewModerationsHandlerWithDependencies(deps BaseHandlerDependencies) *Modera
 	}
 }
 
+// Handle processes a moderations request.
 func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 	startTime := time.Now()
 

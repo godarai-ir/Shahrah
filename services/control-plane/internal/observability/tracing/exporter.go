@@ -1,3 +1,4 @@
+// Package tracing provides request tracing, privacy, and export configuration.
 package tracing
 
 import (
@@ -23,15 +24,18 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+// Exporter persists batches of span events.
 type Exporter interface {
 	Export(ctx context.Context, batch []SpanEvent) error
 }
 
+// DurableBatch is a write-ahead batch of span events.
 type DurableBatch struct {
 	Events    []SpanEvent `json:"events"`
 	CreatedAt time.Time   `json:"created_at"`
 }
 
+// OTLPExporter sends batches to an OTLP collector.
 type OTLPExporter struct {
 	cfg    Config
 	client tracev1.TraceServiceClient
@@ -39,6 +43,7 @@ type OTLPExporter struct {
 	logger *zap.Logger
 }
 
+// NewOTLPExporter creates an OTLP exporter.
 func NewOTLPExporter(cfg Config, logger *zap.Logger) (*OTLPExporter, error) {
 	if cfg.OTLPEndpoint == "" {
 		return nil, errors.New("TRACE_OTLP_ENDPOINT is required")
@@ -62,6 +67,7 @@ func NewOTLPExporter(cfg Config, logger *zap.Logger) (*OTLPExporter, error) {
 	}, nil
 }
 
+// Close closes the OTLP connection.
 func (e *OTLPExporter) Close() error {
 	if e.conn != nil {
 		return e.conn.Close()
@@ -70,6 +76,7 @@ func (e *OTLPExporter) Close() error {
 	return nil
 }
 
+// Export sends a span batch to the OTLP collector.
 func (e *OTLPExporter) Export(ctx context.Context, batch []SpanEvent) error {
 	if len(batch) == 0 {
 		return nil
@@ -81,27 +88,33 @@ func (e *OTLPExporter) Export(ctx context.Context, batch []SpanEvent) error {
 	return err
 }
 
+// StoreExporter adapts another exporter implementation.
 type StoreExporter struct {
 	store Exporter
 }
 
+// NewStoreExporter creates a store-backed exporter adapter.
 func NewStoreExporter(store Exporter) *StoreExporter {
 	return &StoreExporter{store: store}
 }
 
+// Export forwards the batch to the wrapped exporter.
 func (e *StoreExporter) Export(ctx context.Context, batch []SpanEvent) error {
 	return e.store.Export(ctx, batch)
 }
 
+// WAL stores durable span batches on disk.
 type WAL struct {
 	path string
 	mu   sync.Mutex
 }
 
+// NewWAL creates a write-ahead log at the given path.
 func NewWAL(path string) *WAL {
 	return &WAL{path: path}
 }
 
+// Append writes a batch to the WAL.
 func (w *WAL) Append(batch DurableBatch) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -121,6 +134,7 @@ func (w *WAL) Append(batch DurableBatch) error {
 	return enc.Encode(batch)
 }
 
+// Drain reads all persisted batches from the WAL.
 func (w *WAL) Drain() ([]DurableBatch, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -399,7 +413,7 @@ func (e *ReliableExporter) ReadinessReport() map[string]interface{} {
 	return report
 }
 
-func backoffDelay(attempt int, base, max time.Duration) time.Duration {
+func backoffDelay(attempt int, base, maxDelay time.Duration) time.Duration {
 	if attempt < 1 {
 		attempt = 1
 	}
@@ -407,8 +421,8 @@ func backoffDelay(attempt int, base, max time.Duration) time.Duration {
 	exp := float64(base) * math.Pow(2, float64(attempt-1))
 
 	d := time.Duration(exp)
-	if d > max {
-		d = max
+	if d > maxDelay {
+		d = maxDelay
 	}
 
 	jitter := time.Duration(rand.Int63n(int64(d / 5)))

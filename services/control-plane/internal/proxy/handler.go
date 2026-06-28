@@ -1,3 +1,4 @@
+// Package proxy hosts OpenAI-compatible request handlers for the control plane.
 package proxy
 
 import (
@@ -56,6 +57,7 @@ type promptResolver interface {
 }
 
 // ChatCompletionHandler handles chat completion requests.
+// ChatCompletionHandler serves chat completion requests.
 type ChatCompletionHandler struct {
 	llmRouter     *router.Router
 	tunnel        platform.TunnelTransport
@@ -83,6 +85,7 @@ func (h *ChatCompletionHandler) SetGuardrails(engine *guardrails.Engine) {
 	h.guardrails = engine
 }
 
+// NewChatCompletionHandlerWithDependencies creates a chat handler from explicit dependencies.
 func NewChatCompletionHandlerWithDependencies(deps ChatCompletionDependencies) *ChatCompletionHandler {
 	resolver, engine, exec := newChatVirtualModelDeps(deps.VirtualModelStore)
 
@@ -102,7 +105,7 @@ func NewChatCompletionHandlerWithDependencies(deps ChatCompletionDependencies) *
 	}
 }
 
-// NewChatCompletionHandler creates a new handler.
+// NewChatCompletionHandler creates a new chat completion handler.
 func NewChatCompletionHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, wallets walletStore, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *ChatCompletionHandler {
 	var metricEmitter func(input metricsobs.BuildInput)
 	if len(emitMetric) > 0 {

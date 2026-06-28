@@ -1,3 +1,4 @@
+// Package groq implements the Groq provider adapter.
 package groq
 
 import (

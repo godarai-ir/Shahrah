@@ -1,3 +1,4 @@
+// Package vertexai implements the Vertex AI provider adapter.
 package vertexai
 
 import (
@@ -299,7 +300,7 @@ func convertToOpenAIResponse(resp vertexResponse, model string) *contractsopenai
 	}
 
 	// Estimate usage
-	if len(content) > 0 {
+	if content != "" {
 		estimatedTokens := len(content) / 4
 		openaiResp.Usage = &contractsopenai.Usage{
 			PromptTokens:     100,
@@ -323,7 +324,5 @@ func (c *Client) SetProject(project string) {
 
 // Register the adapter.
 func init() {
-	providers.Register("vertexai", func(cfg providers.ProviderConfig) providers.Provider {
-		return NewClient(cfg)
-	})
+	providers.Register("vertexai", NewClient)
 }

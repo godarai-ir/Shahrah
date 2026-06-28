@@ -1,3 +1,4 @@
+// Package tracing provides request tracing, privacy, and export configuration.
 package tracing
 
 import (
@@ -5,6 +6,7 @@ import (
 	"time"
 )
 
+// SpanEvent is the internal tracing event payload.
 type SpanEvent struct {
 	TraceID      string
 	SpanID       string
@@ -23,6 +25,7 @@ type SpanEvent struct {
 	Attributes   map[string]interface{}
 }
 
+// Queue buffers span events before export.
 type Queue struct {
 	ch        chan SpanEvent
 	dropped   atomic.Int64
@@ -31,6 +34,7 @@ type Queue struct {
 	highWater atomic.Int64
 }
 
+// NewQueue creates a tracing queue with the given capacity.
 func NewQueue(capacity int) *Queue {
 	if capacity <= 0 {
 		capacity = defaultQueueCap
@@ -39,6 +43,7 @@ func NewQueue(capacity int) *Queue {
 	return &Queue{ch: make(chan SpanEvent, capacity)}
 }
 
+// Enqueue appends a span event if capacity is available.
 func (q *Queue) Enqueue(ev SpanEvent) bool {
 	select {
 	case q.ch <- ev:
@@ -52,13 +57,13 @@ func (q *Queue) Enqueue(ev SpanEvent) bool {
 	}
 }
 
-func (q *Queue) DequeueBatch(max int) []SpanEvent {
-	if max <= 0 {
-		max = defaultBatchSize
+func (q *Queue) DequeueBatch(limit int) []SpanEvent {
+	if limit <= 0 {
+		limit = defaultBatchSize
 	}
 
-	out := make([]SpanEvent, 0, max)
-	for i := 0; i < max; i++ {
+	out := make([]SpanEvent, 0, limit)
+	for i := 0; i < limit; i++ {
 		select {
 		case ev := <-q.ch:
 			out = append(out, ev)
@@ -72,8 +77,10 @@ func (q *Queue) DequeueBatch(max int) []SpanEvent {
 	return out
 }
 
+// Len returns the current queue depth.
 func (q *Queue) Len() int { return len(q.ch) }
 
+// Metrics returns queue counters for observability.
 func (q *Queue) Metrics() map[string]int64 {
 	return map[string]int64{
 		"enqueued":   q.enqueued.Load(),

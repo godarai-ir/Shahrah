@@ -17,7 +17,7 @@ type repo struct {
 	err error
 }
 
-func (r repo) GetVirtualModelByAlias(ctx context.Context, tenantID string, alias string) (*platform.VirtualModel, error) {
+func (r repo) GetVirtualModelByAlias(ctx context.Context, tenantID, alias string) (*platform.VirtualModel, error) {
 	if r.err != nil {
 		return nil, r.err
 	}

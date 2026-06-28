@@ -1,3 +1,4 @@
+// Package proxy hosts OpenAI-compatible request handlers for the control plane.
 package proxy
 
 import (
@@ -31,6 +32,7 @@ type ResponsesHandler struct {
 	emitMetric func(input metricsobs.BuildInput)
 }
 
+// NewResponsesHandlerWithDependencies creates a responses handler from explicit dependencies.
 func NewResponsesHandlerWithDependencies(deps BaseHandlerDependencies) *ResponsesHandler {
 	return &ResponsesHandler{
 		llmRouter:  deps.Router,

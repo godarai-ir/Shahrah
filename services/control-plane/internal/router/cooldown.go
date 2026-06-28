@@ -1,3 +1,4 @@
+// Package router includes deployment routing helpers and caches.
 package router
 
 import (
@@ -20,7 +21,7 @@ func NewCooldownCache(c cache.Cache, ttl time.Duration) *CooldownCache {
 }
 
 // Add marks a deployment as cooling down.
-func (c *CooldownCache) Add(ctx context.Context, deploymentID string, reason string) error {
+func (c *CooldownCache) Add(ctx context.Context, deploymentID, reason string) error {
 	c.cache.Set(ctx, fmt.Sprintf("cooldown:%s", deploymentID), reason, c.ttl)
 	c.cache.Set(ctx, fmt.Sprintf("cooldown_expires:%s", deploymentID), time.Now().Add(c.ttl), c.ttl)
 

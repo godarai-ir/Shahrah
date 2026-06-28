@@ -1,3 +1,4 @@
+// Package tenant resolves tenant context from requests and caches.
 package tenant
 
 import (
@@ -43,6 +44,7 @@ type Middleware struct {
 }
 
 // NewMiddleware creates a new tenant middleware without caching.
+//
 // Deprecated: Use NewMiddlewareWithCache instead.
 func NewMiddleware(store Store, defaultTenant string, allowHeaderHint bool) *Middleware {
 	return &Middleware{
@@ -133,7 +135,7 @@ func isTenantResolutionBypassed(path string) bool {
 
 // InvalidateTenant removes the cached tenant entries.
 // Call this after updating a tenant via admin API.
-func (m *Middleware) InvalidateTenant(ctx context.Context, slug string, tenantID string) {
+func (m *Middleware) InvalidateTenant(ctx context.Context, slug, tenantID string) {
 	if m.cache == nil {
 		return
 	}

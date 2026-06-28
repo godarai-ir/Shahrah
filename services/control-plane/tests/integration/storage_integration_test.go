@@ -1522,7 +1522,9 @@ func newPersistentIntegrationApp(t *testing.T, logger *zap.Logger, memCache cach
 	}
 	app := controlserver.NewFiberApp(&config.Config{}, controlserver.Dependencies{
 		AuthMiddleware: auth.NewAuthMiddleware(store, "sk-master", logger),
-		TenantResolver: tenantmw.NewMiddleware(store, "default", true),
+		TenantResolver: tenantmw.NewMiddlewareWithCache(store, nil, tenantmw.MiddlewareConfig{
+			AllowHeaderHint: true,
+		}),
 		AdminHandlers: admin.New(admin.Dependencies{
 			Keys:             store,
 			Models:           store,

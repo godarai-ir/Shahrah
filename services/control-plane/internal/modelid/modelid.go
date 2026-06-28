@@ -1,10 +1,11 @@
+// Package modelid contains helpers for parsing and canonicalizing model identifiers.
 package modelid
 
 import "strings"
 
 // SplitModelFQN parses provider:account_alias:model_id and canonicalizes
 // the official model id by removing a redundant provider/ prefix when present.
-func SplitModelFQN(input string) (provider string, accountAlias string, officialModel string, ok bool) {
+func SplitModelFQN(input string) (provider, accountAlias, officialModel string, ok bool) {
 	parts := strings.Split(strings.TrimSpace(input), ":")
 	if len(parts) != 3 {
 		return "", "", "", false
@@ -21,7 +22,8 @@ func SplitModelFQN(input string) (provider string, accountAlias string, official
 	return provider, accountAlias, officialModel, true
 }
 
-func CanonicalOfficialModel(provider string, officialModel string) string {
+// CanonicalOfficialModel removes a redundant provider prefix from a model id.
+func CanonicalOfficialModel(provider, officialModel string) string {
 	provider = strings.TrimSpace(provider)
 
 	officialModel = strings.TrimSpace(officialModel)
@@ -39,7 +41,8 @@ func CanonicalOfficialModel(provider string, officialModel string) string {
 	return officialModel
 }
 
-func BuildModelFQN(provider string, accountAlias string, officialModel string) string {
+// BuildModelFQN builds the canonical provider:account:model identifier.
+func BuildModelFQN(provider, accountAlias, officialModel string) string {
 	provider = strings.TrimSpace(provider)
 	accountAlias = strings.TrimSpace(accountAlias)
 
@@ -51,6 +54,7 @@ func BuildModelFQN(provider string, accountAlias string, officialModel string) s
 	return provider + ":" + accountAlias + ":" + officialModel
 }
 
-func MatchOfficialModel(provider string, left string, right string) bool {
+// MatchOfficialModel compares two model identifiers after canonicalization.
+func MatchOfficialModel(provider, left, right string) bool {
 	return strings.EqualFold(CanonicalOfficialModel(provider, left), CanonicalOfficialModel(provider, right))
 }

@@ -1,3 +1,4 @@
+// Package azure implements the Azure OpenAI provider adapter.
 package azure
 
 import (
@@ -242,7 +243,5 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 
 // Register the adapter.
 func init() {
-	providers.Register("azure", func(cfg providers.ProviderConfig) providers.Provider {
-		return NewClient(cfg)
-	})
+	providers.Register("azure", NewClient)
 }

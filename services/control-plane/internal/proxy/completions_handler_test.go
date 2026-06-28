@@ -27,19 +27,19 @@ import (
 
 type testBudgeter struct{}
 
-func (b *testBudgeter) EstimateCost(ctx context.Context, req contractsopenai.ChatCompletionRequest) (platform.UsageCostBreakdown, error) {
+func (b *testBudgeter) EstimateCost(_ context.Context, req contractsopenai.ChatCompletionRequest) (platform.UsageCostBreakdown, error) {
 	return platform.UsageCostBreakdown{Model: req.Model, TotalTokens: 32, InputTokens: 16, OutputTokens: 16, TotalCostUSD: 0.001, TotalCostIRR: 850}, nil
 }
-func (b *testBudgeter) EstimateEmbeddingCost(ctx context.Context, req contractsopenai.EmbeddingRequest) (platform.UsageCostBreakdown, error) {
+func (b *testBudgeter) EstimateEmbeddingCost(_ context.Context, req contractsopenai.EmbeddingRequest) (platform.UsageCostBreakdown, error) {
 	return platform.UsageCostBreakdown{Model: req.Model, TotalTokens: 16, InputTokens: 16, OutputTokens: 0, TotalCostUSD: 0.001, TotalCostIRR: 850}, nil
 }
-func (b *testBudgeter) CheckRateLimit(ctx context.Context, auth *platform.AuthContext, model string, estimatedTokens int) (*cache.RateLimitResult, error) {
+func (b *testBudgeter) CheckRateLimit(_ context.Context, _ *platform.AuthContext, _ string, _ int) (*cache.RateLimitResult, error) {
 	return &cache.RateLimitResult{Allowed: true, Current: 1, Limit: 100, ResetAt: time.Now().Add(time.Minute)}, nil
 }
-func (b *testBudgeter) CheckBudget(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown) error {
+func (b *testBudgeter) CheckBudget(_ context.Context, _ *platform.AuthContext, _ platform.UsageCostBreakdown) error {
 	return nil
 }
-func (b *testBudgeter) FinalizeFromUsage(ctx context.Context, model string, usage *contractsopenai.Usage, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error) {
+func (b *testBudgeter) FinalizeFromUsage(_ context.Context, _ string, usage *contractsopenai.Usage, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error) {
 	if usage != nil {
 		estimated.InputTokens = usage.PromptTokens
 		estimated.OutputTokens = usage.CompletionTokens
@@ -59,7 +59,7 @@ type testWallets struct {
 	debits []walletDebitCall
 }
 
-func (w *testWallets) DebitWallet(ctx context.Context, tenantID string, breakdown platform.UsageCostBreakdown, requestID string) (*platform.Transaction, error) {
+func (w *testWallets) DebitWallet(_ context.Context, tenantID string, breakdown platform.UsageCostBreakdown, requestID string) (*platform.Transaction, error) {
 	w.debits = append(w.debits, walletDebitCall{
 		TenantID:  tenantID,
 		Breakdown: breakdown,
@@ -74,11 +74,11 @@ type testLogs struct {
 	loggedSpends  []platform.SpendLog
 }
 
-func (l *testLogs) LogRequest(ctx context.Context, entry platform.RequestLogEntry) error {
+func (l *testLogs) LogRequest(_ context.Context, entry platform.RequestLogEntry) error {
 	l.loggedEntries = append(l.loggedEntries, entry)
 	return nil
 }
-func (l *testLogs) LogSpend(ctx context.Context, log platform.SpendLog) error {
+func (l *testLogs) LogSpend(_ context.Context, log platform.SpendLog) error {
 	l.loggedSpends = append(l.loggedSpends, log)
 	return nil
 }
@@ -124,17 +124,17 @@ type testTunnel struct {
 	stream platform.TunnelStream
 }
 
-func (t *testTunnel) Proxy(ctx context.Context, req platform.TunnelRequest) (*platform.TunnelResponse, error) {
+func (t *testTunnel) Proxy(_ context.Context, _ platform.TunnelRequest) (*platform.TunnelResponse, error) {
 	return t.resp, t.err
 }
-func (t *testTunnel) Stream(ctx context.Context, req platform.TunnelRequest) (platform.TunnelStream, error) {
+func (t *testTunnel) Stream(_ context.Context, _ platform.TunnelRequest) (platform.TunnelStream, error) {
 	if t.stream != nil {
 		return t.stream, nil
 	}
 
 	return nil, assert.AnError
 }
-func (t *testTunnel) Healthy(ctx context.Context) error { return nil }
+func (t *testTunnel) Healthy(_ context.Context) error { return nil }
 
 func newCompletionsTestApp(t *testing.T, tunnelResp *platform.TunnelResponse) (*fiber.App, *tracing.Queue) {
 	t.Helper()

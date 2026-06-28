@@ -1,3 +1,4 @@
+// Package main provides a small benchmark CLI for metrics ingestion.
 package main
 
 import (

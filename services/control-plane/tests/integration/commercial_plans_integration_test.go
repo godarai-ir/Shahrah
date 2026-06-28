@@ -167,8 +167,8 @@ func TestIntegration_PublishedVersionAndPeriodEndDowngrade(t *testing.T) {
 
 func planSlugs(plans []platform.CommercialPlan) []string {
 	out := make([]string, 0, len(plans))
-	for _, plan := range plans {
-		out = append(out, plan.Slug)
+	for i := range plans {
+		out = append(out, plans[i].Slug)
 	}
 
 	return out

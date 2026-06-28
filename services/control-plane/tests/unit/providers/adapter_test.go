@@ -86,7 +86,7 @@ func TestOpenAIAdapter_Complete(t *testing.T) {
 // TestOpenAIAdapter_StreamComplete tests the OpenAI adapter's StreamComplete method.
 func TestOpenAIAdapter_StreamComplete(t *testing.T) {
 	// Create a mock server for streaming
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
 		w.WriteHeader(http.StatusOK)

@@ -1,3 +1,4 @@
+// Package providers contains shared helpers for provider adapter implementations.
 package providers
 
 import (

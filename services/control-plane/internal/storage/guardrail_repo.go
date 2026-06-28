@@ -44,32 +44,14 @@ func (s *Store) CreateTenantGuardrail(ctx context.Context, tenantID string, req 
 }
 
 func (s *Store) ListTenantGuardrails(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.TenantGuardrail, int, error) {
-	if limit <= 0 {
-		limit = 50
-	}
+	q, like, limit, offset := normalizePagedQuery(query, limit, offset)
 
-	if limit > 200 {
-		limit = 200
-	}
-
-	if offset < 0 {
-		offset = 0
-	}
-
-	q := strings.TrimSpace(strings.ToLower(query))
-	like := "%" + q + "%"
-
-	var total int
-	if err := s.pool.QueryRow(ctx, `
+	return listSearchResults(ctx, s.pool, `
 		SELECT COUNT(1)
 		FROM tenant_guardrails
 		WHERE tenant_id = $1::uuid
 		  AND ($2 = '' OR LOWER(slug) LIKE $3 OR LOWER(name) LIKE $3 OR LOWER(COALESCE(description, '')) LIKE $3)
-	`, tenantID, q, like).Scan(&total); err != nil {
-		return nil, 0, err
-	}
-
-	rows, err := s.pool.Query(ctx, `
+	`, []any{tenantID, q, like}, `
 		SELECT guardrail_id::text, tenant_id::text, slug, name, COALESCE(description, ''), guardrail_type,
 		       operation, enforcement, enabled, config_json, COALESCE(created_by, ''), COALESCE(updated_by, ''),
 		       created_at, updated_at
@@ -78,24 +60,7 @@ func (s *Store) ListTenantGuardrails(ctx context.Context, tenantID string, query
 		  AND ($2 = '' OR LOWER(slug) LIKE $3 OR LOWER(name) LIKE $3 OR LOWER(COALESCE(description, '')) LIKE $3)
 		ORDER BY updated_at DESC
 		LIMIT $4 OFFSET $5
-	`, tenantID, q, like, limit, offset)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer rows.Close()
-
-	items := make([]platform.TenantGuardrail, 0, limit)
-
-	for rows.Next() {
-		item, scanErr := scanTenantGuardrail(rows)
-		if scanErr != nil {
-			return nil, 0, scanErr
-		}
-
-		items = append(items, *item)
-	}
-
-	return items, total, rows.Err()
+	`, []any{tenantID, q, like, limit, offset}, limit, scanTenantGuardrail)
 }
 
 func (s *Store) GetTenantGuardrailBySlug(ctx context.Context, tenantID string, slug string) (*platform.TenantGuardrail, error) {

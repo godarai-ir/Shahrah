@@ -883,10 +883,7 @@ func cloneModelPrice(price *platform.ModelPrice) *platform.ModelPrice {
 }
 
 func fillModelPricingFromRegistry(provider string, model string, current *platform.ModelPrice) *platform.ModelPrice {
-	hasInput := current != nil && current.InputUSDPer1M != nil && *current.InputUSDPer1M > 0
-
-	hasOutput := current != nil && current.OutputUSDPer1M != nil && *current.OutputUSDPer1M > 0
-	if hasInput && hasOutput {
+	if hasPositiveModelPrice(current, true) && hasPositiveModelPrice(current, false) {
 		return current
 	}
 
@@ -900,19 +897,43 @@ func fillModelPricingFromRegistry(provider string, model string, current *platfo
 		*out = *current
 	}
 
-	if (out.InputUSDPer1M == nil || *out.InputUSDPer1M <= 0) && pricing.InputPrice > 0 {
-		v := pricing.InputPrice
-		out.InputUSDPer1M = &v
-	}
-
-	if (out.OutputUSDPer1M == nil || *out.OutputUSDPer1M <= 0) && pricing.OutputPrice > 0 {
-		v := pricing.OutputPrice
-		out.OutputUSDPer1M = &v
-	}
+	assignModelPriceIfMissing(out, true, pricing.InputPrice)
+	assignModelPriceIfMissing(out, false, pricing.OutputPrice)
 
 	if out.InputUSDPer1M == nil && out.OutputUSDPer1M == nil {
 		return nil
 	}
 
 	return out
+}
+
+func hasPositiveModelPrice(price *platform.ModelPrice, input bool) bool {
+	if price == nil {
+		return false
+	}
+
+	value := price.OutputUSDPer1M
+	if input {
+		value = price.InputUSDPer1M
+	}
+
+	return value != nil && *value > 0
+}
+
+func assignModelPriceIfMissing(price *platform.ModelPrice, input bool, value float64) {
+	if value <= 0 {
+		return
+	}
+
+	target := &price.OutputUSDPer1M
+	if input {
+		target = &price.InputUSDPer1M
+	}
+
+	if *target != nil && **target > 0 {
+		return
+	}
+
+	v := value
+	*target = &v
 }

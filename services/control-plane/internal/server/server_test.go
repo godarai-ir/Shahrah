@@ -186,7 +186,7 @@ func TestLoginDiscoveryRoutesArePublic(t *testing.T) {
 	store := publicLoginDiscoveryStore{}
 	app := NewFiberApp(&config.Config{}, Dependencies{
 		AdminHandlers:  admin.New(admin.Dependencies{Keys: store, LoginDiscovery: store}),
-		TenantResolver: tenantmw.NewMiddleware(tenantLookupAlwaysFails{}, "", false),
+		TenantResolver: tenantmw.NewMiddlewareWithCache(tenantLookupAlwaysFails{}, nil, tenantmw.MiddlewareConfig{}),
 	})
 
 	resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/api/v1/login-discovery/tenant/tenant1", http.NoBody))

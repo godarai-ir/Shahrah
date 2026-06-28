@@ -1,3 +1,4 @@
+// Package metrics configures model-metrics collection and export.
 package metrics
 
 import (
@@ -7,6 +8,7 @@ import (
 	"time"
 )
 
+// Config controls the metrics queue, flush, and retry behavior.
 type Config struct {
 	Enabled          bool
 	QueueCapacity    int
@@ -19,6 +21,7 @@ type Config struct {
 	DLQPath          string
 }
 
+// LoadConfigFromEnv builds the metrics configuration from environment variables.
 func LoadConfigFromEnv() Config {
 	cfg := Config{
 		Enabled:          strings.EqualFold(strings.TrimSpace(os.Getenv("METRICS_MODEL_ENABLED")), "true"),
@@ -31,51 +34,42 @@ func LoadConfigFromEnv() Config {
 		RetryMaxDelay:    2 * time.Second,
 		DLQPath:          "./tmp/model-metrics-dlq.jsonl",
 	}
-	if v := os.Getenv("METRICS_MODEL_QUEUE_CAPACITY"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
-			cfg.QueueCapacity = parsed
-		}
-	}
-
-	if v := os.Getenv("METRICS_MODEL_BATCH_SIZE"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
-			cfg.BatchSize = parsed
-		}
-	}
-
-	if v := os.Getenv("METRICS_MODEL_FLUSH_INTERVAL_MS"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
-			cfg.FlushInterval = time.Duration(parsed) * time.Millisecond
-		}
-	}
-
-	if v := os.Getenv("METRICS_MODEL_EXPORT_TIMEOUT_MS"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
-			cfg.ExportTimeout = time.Duration(parsed) * time.Millisecond
-		}
-	}
-
-	if v := os.Getenv("METRICS_MODEL_RETRY_MAX_ATTEMPTS"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
-			cfg.RetryMaxAttempts = parsed
-		}
-	}
-
-	if v := os.Getenv("METRICS_MODEL_RETRY_BASE_DELAY_MS"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
-			cfg.RetryBaseDelay = time.Duration(parsed) * time.Millisecond
-		}
-	}
-
-	if v := os.Getenv("METRICS_MODEL_RETRY_MAX_DELAY_MS"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
-			cfg.RetryMaxDelay = time.Duration(parsed) * time.Millisecond
-		}
-	}
-
-	if v := strings.TrimSpace(os.Getenv("METRICS_MODEL_DLQ_PATH")); v != "" {
-		cfg.DLQPath = v
-	}
+	cfg.QueueCapacity = intEnvOrDefault("METRICS_MODEL_QUEUE_CAPACITY", cfg.QueueCapacity)
+	cfg.BatchSize = intEnvOrDefault("METRICS_MODEL_BATCH_SIZE", cfg.BatchSize)
+	cfg.FlushInterval = durationMillisEnvOrDefault("METRICS_MODEL_FLUSH_INTERVAL_MS", cfg.FlushInterval)
+	cfg.ExportTimeout = durationMillisEnvOrDefault("METRICS_MODEL_EXPORT_TIMEOUT_MS", cfg.ExportTimeout)
+	cfg.RetryMaxAttempts = intEnvOrDefault("METRICS_MODEL_RETRY_MAX_ATTEMPTS", cfg.RetryMaxAttempts)
+	cfg.RetryBaseDelay = durationMillisEnvOrDefault("METRICS_MODEL_RETRY_BASE_DELAY_MS", cfg.RetryBaseDelay)
+	cfg.RetryMaxDelay = durationMillisEnvOrDefault("METRICS_MODEL_RETRY_MAX_DELAY_MS", cfg.RetryMaxDelay)
+	cfg.DLQPath = stringEnvOrDefault("METRICS_MODEL_DLQ_PATH", cfg.DLQPath)
 
 	return cfg
+}
+
+func intEnvOrDefault(key string, fallback int) int {
+	if v := os.Getenv(key); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			return parsed
+		}
+	}
+
+	return fallback
+}
+
+func durationMillisEnvOrDefault(key string, fallback time.Duration) time.Duration {
+	if v := os.Getenv(key); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			return time.Duration(parsed) * time.Millisecond
+		}
+	}
+
+	return fallback
+}
+
+func stringEnvOrDefault(key, fallback string) string {
+	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+		return v
+	}
+
+	return fallback
 }

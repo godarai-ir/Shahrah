@@ -1,3 +1,4 @@
+// Package bedrock implements the AWS Bedrock provider adapter.
 package bedrock
 
 import (
@@ -250,7 +251,7 @@ func (c *Client) StreamComplete(ctx context.Context, req contractsopenai.ChatCom
 }
 
 // convertToBedrockRequest converts OpenAI request to Bedrock format.
-func convertToBedrockRequest(req contractsopenai.ChatCompletionRequest, model string) bedrockRequest {
+func convertToBedrockRequest(req contractsopenai.ChatCompletionRequest, _ string) bedrockRequest {
 	bedrockReq := bedrockRequest{
 		Messages: make([]bedrockMessage, 0, len(req.Messages)),
 	}
@@ -306,7 +307,7 @@ func convertToOpenAIResponse(resp bedrockResponse, model string) *contractsopena
 
 	// Estimate usage (Bedrock doesn't always return usage)
 	// Use approximate token count based on content length
-	if len(resp.Output.Message.Content) > 0 {
+	if resp.Output.Message.Content != "" {
 		estimatedTokens := len(resp.Output.Message.Content) / 4 // rough estimate
 		openaiResp.Usage = &contractsopenai.Usage{
 			PromptTokens:     100, // estimated
@@ -325,7 +326,5 @@ func (c *Client) SetModel(model string) {
 
 // Register the adapter.
 func init() {
-	providers.Register("bedrock", func(cfg providers.ProviderConfig) providers.Provider {
-		return NewClient(cfg)
-	})
+	providers.Register("bedrock", NewClient)
 }

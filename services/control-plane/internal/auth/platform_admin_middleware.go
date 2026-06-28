@@ -44,7 +44,7 @@ func PlatformAdminAuthMiddleware(masterKey string, serviceAccounts PlatformServi
 	}
 }
 
-func RequiredPlatformScope(method string, path string) string {
+func RequiredPlatformScope(method, path string) string {
 	if method == fiber.MethodGet || method == fiber.MethodHead || method == fiber.MethodOptions {
 		return PlatformScopeRead
 	}
@@ -73,7 +73,7 @@ func ExtractPlatformAdminAPIKey(c *fiber.Ctx) string {
 	return strings.TrimSpace(c.Get("x-api-key"))
 }
 
-func secureTokenEqual(left string, right string) bool {
+func secureTokenEqual(left, right string) bool {
 	leftHash := sha256.Sum256([]byte(left))
 	rightHash := sha256.Sum256([]byte(right))
 

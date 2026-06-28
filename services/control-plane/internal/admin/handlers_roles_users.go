@@ -267,35 +267,20 @@ func (h *Handlers) GetCurrentUserPermissions(c *fiber.Ctx) error {
 
 // ListTenantUsers lists tenant-admin users for the current tenant.
 func (h *Handlers) ListTenantUsers(c *fiber.Ctx) error {
-	if err := requireUserListOrManage(c); err != nil {
-		return err
-	}
-
-	currentTenant := tenant.FromContext(c)
-	if currentTenant == nil {
-		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
-	}
-
 	if h.users == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "user store not configured")
 	}
 
-	params, err := parseTenantListParams(c, 200)
-	if err != nil {
-		return err
-	}
-
-	items, total, err := h.users.ListTenantAdminUsers(c.Context(), currentTenant.Slug, params.Query, params.Limit, params.Offset)
-	if err != nil {
-		return err
-	}
-
-	return c.JSON(platform.TenantAdminUserListResponse{
-		Data:       items,
-		Total:      total,
-		Limit:      params.Limit,
-		Offset:     params.Offset,
-		NextOffset: buildNextOffset(params.Offset, len(items), total),
+	return handleTenantListResponse(c, requireUserListOrManage, 200, func(currentTenant *platform.Tenant) string {
+		return currentTenant.Slug
+	}, h.users.ListTenantAdminUsers, func(items []platform.TenantAdminUser, total, limit, offset int) platform.TenantAdminUserListResponse {
+		return platform.TenantAdminUserListResponse{
+			Data:       items,
+			Total:      total,
+			Limit:      limit,
+			Offset:     offset,
+			NextOffset: buildNextOffset(offset, len(items), total),
+		}
 	})
 }
 

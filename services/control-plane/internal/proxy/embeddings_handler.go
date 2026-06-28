@@ -1,3 +1,4 @@
+// Package proxy hosts OpenAI-compatible request handlers for the control plane.
 package proxy
 
 import (
@@ -18,6 +19,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// EmbeddingsHandler serves embeddings requests.
 type EmbeddingsHandler struct {
 	llmRouter  *router.Router
 	tunnel     platform.TunnelTransport
@@ -38,6 +40,7 @@ func (e *embeddingValidationError) Error() string {
 	return e.Message
 }
 
+// NewEmbeddingsHandler creates a new embeddings handler.
 func NewEmbeddingsHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, wallets walletStore, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *EmbeddingsHandler {
 	var metricEmitter func(input metricsobs.BuildInput)
 	if len(emitMetric) > 0 {
@@ -56,6 +59,7 @@ func NewEmbeddingsHandler(llmRouter *router.Router, tunnel platform.TunnelTransp
 	})
 }
 
+// NewEmbeddingsHandlerWithDependencies creates an embeddings handler from explicit dependencies.
 func NewEmbeddingsHandlerWithDependencies(deps BaseHandlerDependencies) *EmbeddingsHandler {
 	return &EmbeddingsHandler{
 		llmRouter:  deps.Router,
@@ -68,6 +72,7 @@ func NewEmbeddingsHandlerWithDependencies(deps BaseHandlerDependencies) *Embeddi
 	}
 }
 
+// Handle processes an embeddings request.
 func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 	startTime := time.Now()
 

@@ -16,10 +16,12 @@ import (
 	"go.uber.org/zap"
 )
 
+// Exporter persists metric events to the backing store.
 type Exporter interface {
 	InsertModelMetricEvent(ctx context.Context, ev platform.ModelMetricEvent) error
 }
 
+// Processor buffers and exports metric events with retries and DLQ fallback.
 type Processor struct {
 	cfg      Config
 	queue    *Queue
@@ -29,6 +31,7 @@ type Processor struct {
 	wg       sync.WaitGroup
 }
 
+// NewProcessor creates a metrics processor.
 func NewProcessor(cfg Config, queue *Queue, exporter Exporter, logger *zap.Logger) *Processor {
 	return &Processor{
 		cfg:      cfg,
@@ -39,11 +42,13 @@ func NewProcessor(cfg Config, queue *Queue, exporter Exporter, logger *zap.Logge
 	}
 }
 
+// Start launches the processor loop.
 func (p *Processor) Start() {
 	p.wg.Add(1)
 	go p.loop()
 }
 
+// Stop waits for the processor loop to drain.
 func (p *Processor) Stop(ctx context.Context) error {
 	close(p.stopCh)
 
@@ -144,7 +149,7 @@ func (p *Processor) appendDLQ(ev platform.ModelMetricEvent) error {
 	return nil
 }
 
-func backoffDelay(attempt int, base, max time.Duration) time.Duration {
+func backoffDelay(attempt int, base, maxDelay time.Duration) time.Duration {
 	if attempt < 1 {
 		attempt = 1
 	}
@@ -152,8 +157,8 @@ func backoffDelay(attempt int, base, max time.Duration) time.Duration {
 	exp := float64(base) * math.Pow(2, float64(attempt-1))
 
 	d := time.Duration(exp)
-	if d > max {
-		d = max
+	if d > maxDelay {
+		d = maxDelay
 	}
 
 	jitter := time.Duration(rand.Int63n(int64(d / 5)))
@@ -171,6 +176,7 @@ func closeDLQFile(f *os.File) {
 	}
 }
 
+// BuildEvent converts structured input into a metric event payload.
 func (p *Processor) BuildEvent(input BuildInput) platform.ModelMetricEvent {
 	errorType := "none"
 	if input.StatusCode >= 500 {
@@ -228,6 +234,7 @@ func (p *Processor) BuildEvent(input BuildInput) platform.ModelMetricEvent {
 	}
 }
 
+// BuildInput collects the fields required to build a metric event.
 type BuildInput struct {
 	TS                   time.Time
 	TenantID             string

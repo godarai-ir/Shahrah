@@ -1,3 +1,4 @@
+// Package config loads and validates control-plane configuration.
 package config
 
 import (

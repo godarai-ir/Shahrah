@@ -1,3 +1,4 @@
+// Package cache provides local and distributed cache primitives for the control plane.
 package cache
 
 import (
@@ -231,7 +232,7 @@ func (d *DualCache) CheckSlidingWindowRateLimit(ctx context.Context, key string,
 }
 
 // CheckSlidingWindowRateLimitWithWeight checks a true sliding-window rate limit with weighted entries.
-func (d *DualCache) CheckSlidingWindowRateLimitWithWeight(ctx context.Context, key string, limit int64, weight int64, window time.Duration) (*RateLimitResult, error) {
+func (d *DualCache) CheckSlidingWindowRateLimitWithWeight(ctx context.Context, key string, limit, weight int64, window time.Duration) (*RateLimitResult, error) {
 	if limit <= 0 {
 		return &RateLimitResult{
 			Allowed: true,

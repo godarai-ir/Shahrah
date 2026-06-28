@@ -91,12 +91,15 @@ func (h *Handlers) CreateTeam(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotImplemented, "team store not configured")
 	}
 
-	if err := h.requireEntitlementEnabled(c, currentTenant.ID, platform.FeatureTeamsEnabled); err != nil {
-		return err
+	entitlementErr := h.requireEntitlementEnabled(c, currentTenant.ID, platform.FeatureTeamsEnabled)
+	if entitlementErr != nil {
+		return entitlementErr
 	}
 
 	var req platform.CreateTeamRequest
-	if err := c.BodyParser(&req); err != nil {
+
+	parseErr := c.BodyParser(&req)
+	if parseErr != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
 
@@ -610,35 +613,20 @@ func (h *Handlers) DeleteTeamMember(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) ListVirtualUsers(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
-		return err
-	}
-
-	currentTenant := tenant.FromContext(c)
-	if currentTenant == nil {
-		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
-	}
-
 	if h.virtualUsers == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "virtual user store not configured")
 	}
 
-	params, err := parseTenantListParams(c, 200)
-	if err != nil {
-		return err
-	}
-
-	items, total, err := h.virtualUsers.ListVirtualUsers(c.Context(), currentTenant.ID, params.Query, params.Limit, params.Offset)
-	if err != nil {
-		return err
-	}
-
-	return c.JSON(platform.VirtualUserListResponse{
-		Data:       items,
-		Total:      total,
-		Limit:      params.Limit,
-		Offset:     params.Offset,
-		NextOffset: buildNextOffset(params.Offset, len(items), total),
+	return handleTenantListResponse(c, requireTeamAdminOrHigher, 200, func(currentTenant *platform.Tenant) string {
+		return currentTenant.ID
+	}, h.virtualUsers.ListVirtualUsers, func(items []platform.VirtualUser, total, limit, offset int) platform.VirtualUserListResponse {
+		return platform.VirtualUserListResponse{
+			Data:       items,
+			Total:      total,
+			Limit:      limit,
+			Offset:     offset,
+			NextOffset: buildNextOffset(offset, len(items), total),
+		}
 	})
 }
 

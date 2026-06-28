@@ -132,7 +132,9 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 	}
 	app := controlserver.NewFiberApp(&config.Config{}, controlserver.Dependencies{
 		AuthMiddleware: auth.NewAuthMiddleware(authStore, "sk-master", logger),
-		TenantResolver: tenantmw.NewMiddleware(tenantStore, "default", true),
+		TenantResolver: tenantmw.NewMiddlewareWithCache(tenantStore, nil, tenantmw.MiddlewareConfig{
+			AllowHeaderHint: true,
+		}),
 		AdminHandlers: admin.New(admin.Dependencies{
 			Keys:    noopKeyStore{},
 			Models:  modelStore,
@@ -946,8 +948,8 @@ func (s *integrationModelStore) ListVirtualModelsForPrincipal(ctx context.Contex
 func (s *integrationModelStore) GetVirtualModel(ctx context.Context, tenantID string, id string) (*platform.VirtualModel, error) {
 	for _, vm := range s.virtualModels {
 		if vm.TenantID == tenantID && vm.ID == id {
-			copy := vm
-			return &copy, nil
+			cloned := vm
+			return &cloned, nil
 		}
 	}
 
@@ -980,9 +982,9 @@ func (s *integrationModelStore) UpdateVirtualModel(ctx context.Context, tenantID
 		vm.UpdatedBy = actor
 		vm.Version++
 		vm.UpdatedAt = time.Now().UTC()
-		copy := *vm
+		cloned := *vm
 
-		return &copy, nil
+		return &cloned, nil
 	}
 
 	return nil, storage.ErrVirtualModelNotFound
@@ -991,8 +993,8 @@ func (s *integrationModelStore) UpdateVirtualModel(ctx context.Context, tenantID
 func (s *integrationModelStore) GetVirtualModelByAlias(ctx context.Context, tenantID string, alias string) (*platform.VirtualModel, error) {
 	for _, vm := range s.virtualModels {
 		if vm.TenantID == tenantID && vm.Alias == alias && vm.Enabled {
-			copy := vm
-			return &copy, nil
+			cloned := vm
+			return &cloned, nil
 		}
 	}
 
@@ -1109,8 +1111,8 @@ func (s *integrationModelStore) ListTenantAdminUsers(ctx context.Context, tenant
 func (s *integrationModelStore) GetTenantAdminUserRecord(ctx context.Context, tenantSlug string, userID string) (*platform.TenantAdminUser, error) {
 	for i := range s.users {
 		if s.users[i].TenantSlug == tenantSlug && s.users[i].ID == userID {
-			copy := s.users[i]
-			return &copy, nil
+			cloned := s.users[i]
+			return &cloned, nil
 		}
 	}
 
@@ -1401,9 +1403,9 @@ func (s *integrationKeyStore) GetKeyByHash(ctx context.Context, hash string) (*p
 		return nil, auth.ErrInvalidAPIKey
 	}
 
-	copy := *info
+	cloned := *info
 
-	return &copy, nil
+	return &cloned, nil
 }
 
 func (s *integrationKeyStore) ResolveTenantUserAuth(ctx context.Context, tenantID string, userID string) (*platform.AuthContext, error) {
@@ -1706,10 +1708,10 @@ func (s *integrationKeyStore) UpdateVATToken(ctx context.Context, tenantID strin
 			}
 		}
 
-		copy := s.created[i]
-		copy.Key = ""
+		cloned := s.created[i]
+		cloned.Key = ""
 
-		return &copy, nil
+		return &cloned, nil
 	}
 
 	return nil, pgx.ErrNoRows
@@ -1857,8 +1859,8 @@ func (s *integrationKeyStore) GetOrgUnit(ctx context.Context, tenantID string, o
 
 	for _, item := range s.orgUnits {
 		if item.TenantID == tenantID && item.ID == orgUnitID {
-			copy := item
-			return &copy, nil
+			cloned := item
+			return &cloned, nil
 		}
 	}
 
@@ -1887,9 +1889,9 @@ func (s *integrationKeyStore) UpdateOrgUnit(ctx context.Context, tenantID string
 		}
 
 		s.orgUnits[i].UpdatedAt = time.Now().UTC()
-		copy := s.orgUnits[i]
+		cloned := s.orgUnits[i]
 
-		return &copy, nil
+		return &cloned, nil
 	}
 
 	return nil, pgx.ErrNoRows
@@ -1932,9 +1934,9 @@ func (s *integrationKeyStore) AddOrgUnitMembership(ctx context.Context, tenantID
 		if s.orgUnitMemberships[i].TenantID == tenantID && s.orgUnitMemberships[i].OrgUnitID == orgUnitID && s.orgUnitMemberships[i].UserID == req.UserID {
 			s.orgUnitMemberships[i].Role = req.Role
 			s.orgUnitMemberships[i].UpdatedAt = time.Now().UTC()
-			copy := s.orgUnitMemberships[i]
+			cloned := s.orgUnitMemberships[i]
 
-			return &copy, nil
+			return &cloned, nil
 		}
 	}
 
@@ -1960,9 +1962,9 @@ func (s *integrationKeyStore) UpdateOrgUnitMembership(ctx context.Context, tenan
 		if s.orgUnitMemberships[i].TenantID == tenantID && s.orgUnitMemberships[i].OrgUnitID == orgUnitID && s.orgUnitMemberships[i].UserID == userID {
 			s.orgUnitMemberships[i].Role = req.Role
 			s.orgUnitMemberships[i].UpdatedAt = time.Now().UTC()
-			copy := s.orgUnitMemberships[i]
+			cloned := s.orgUnitMemberships[i]
 
-			return &copy, nil
+			return &cloned, nil
 		}
 	}
 
@@ -2007,9 +2009,9 @@ func (s *integrationKeyStore) AddTeamMembership(ctx context.Context, tenantID st
 			s.teamMemberships[i].Role = req.Role
 			s.teamMemberships[i].TeamMemberPermissions = append([]string(nil), req.TeamMemberPermissions...)
 			s.teamMemberships[i].UpdatedAt = time.Now().UTC()
-			copy := s.teamMemberships[i]
+			cloned := s.teamMemberships[i]
 
-			return &copy, nil
+			return &cloned, nil
 		}
 	}
 
@@ -2043,9 +2045,9 @@ func (s *integrationKeyStore) UpdateTeamMembership(ctx context.Context, tenantID
 			}
 
 			s.teamMemberships[i].UpdatedAt = time.Now().UTC()
-			copy := s.teamMemberships[i]
+			cloned := s.teamMemberships[i]
 
-			return &copy, nil
+			return &cloned, nil
 		}
 	}
 
@@ -2165,9 +2167,9 @@ func (s *integrationKeyStore) UpdateVirtualUser(ctx context.Context, tenantID st
 		}
 
 		s.virtualUsers[i].UpdatedAt = time.Now().UTC()
-		copy := s.virtualUsers[i]
+		cloned := s.virtualUsers[i]
 
-		return &copy, nil
+		return &cloned, nil
 	}
 
 	return nil, pgx.ErrNoRows
@@ -2253,7 +2255,9 @@ func newIntegrationApp(t *testing.T, logger *zap.Logger, memCache cache.Cache, p
 	}
 	app := controlserver.NewFiberApp(&config.Config{}, controlserver.Dependencies{
 		AuthMiddleware: auth.NewAuthMiddleware(keyStore, "sk-master", logger),
-		TenantResolver: tenantmw.NewMiddleware(tenantStore, "default", true),
+		TenantResolver: tenantmw.NewMiddlewareWithCache(tenantStore, nil, tenantmw.MiddlewareConfig{
+			AllowHeaderHint: true,
+		}),
 		AdminHandlers: admin.New(admin.Dependencies{
 			Keys:         keyStore,
 			Models:       modelStore,

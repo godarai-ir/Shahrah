@@ -81,5 +81,5 @@ func isNumericPort(s string) bool {
 		}
 	}
 
-	return len(s) > 0
+	return s != ""
 }

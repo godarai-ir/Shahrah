@@ -1,3 +1,4 @@
+// Package togetherai implements the Together.ai provider adapter.
 package togetherai
 
 import (
@@ -29,9 +30,7 @@ type Client struct {
 
 // Register the adapter.
 func init() {
-	providers.Register("togetherai", func(cfg providers.ProviderConfig) providers.Provider {
-		return NewClient(cfg)
-	})
+	providers.Register("togetherai", NewClient)
 }
 
 // NewClient creates a new Together AI client.

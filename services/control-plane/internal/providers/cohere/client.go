@@ -1,3 +1,4 @@
+// Package cohere implements the Cohere provider adapter.
 package cohere
 
 import (
@@ -303,7 +304,5 @@ func convertToOpenAIResponse(resp cohereResponse, model string) *contractsopenai
 
 // Register the adapter.
 func init() {
-	providers.Register("cohere", func(cfg providers.ProviderConfig) providers.Provider {
-		return NewClient(cfg)
-	})
+	providers.Register("cohere", NewClient)
 }

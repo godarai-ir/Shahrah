@@ -21,7 +21,7 @@ type mockTenantStore struct {
 	tenantsByHost map[string]*platform.Tenant
 }
 
-func (s *mockTenantStore) GetTenantByHost(ctx context.Context, host string) (*platform.Tenant, error) {
+func (s *mockTenantStore) GetTenantByHost(_ context.Context, host string) (*platform.Tenant, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -56,7 +56,7 @@ func newMockCache() *mockCache {
 	}
 }
 
-func (c *mockCache) Get(ctx context.Context, key string) (interface{}, bool) {
+func (c *mockCache) Get(_ context.Context, key string) (interface{}, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -66,7 +66,7 @@ func (c *mockCache) Get(ctx context.Context, key string) (interface{}, bool) {
 	return val, ok
 }
 
-func (c *mockCache) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) {
+func (c *mockCache) Set(_ context.Context, key string, value interface{}, ttl time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -75,7 +75,7 @@ func (c *mockCache) Set(ctx context.Context, key string, value interface{}, ttl 
 	c.ttls[key] = ttl
 }
 
-func (c *mockCache) Delete(ctx context.Context, key string) {
+func (c *mockCache) Delete(_ context.Context, key string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -328,8 +328,7 @@ func TestTenantMiddleware_NoCache_StillWorks(t *testing.T) {
 	}
 	store.addTenant("acme.localhost", newActiveTenant("tenant-1", "acme", "acme.localhost", "active"))
 
-	// Use the legacy constructor without cache
-	mw := tenantmw.NewMiddleware(store, "default", false)
+	mw := tenantmw.NewMiddlewareWithCache(store, nil, tenantmw.MiddlewareConfig{})
 
 	app.Use(mw.Handle())
 	app.Get("/", func(c *fiber.Ctx) error {

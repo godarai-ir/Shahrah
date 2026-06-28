@@ -1,3 +1,4 @@
+// Package tunnel provides HTTP tunnel helpers for outbound request streaming.
 package tunnel
 
 import (

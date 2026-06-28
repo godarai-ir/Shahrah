@@ -1,3 +1,4 @@
+// Package providerinit wires all provider adapters into the registry.
 package providerinit
 
 import (

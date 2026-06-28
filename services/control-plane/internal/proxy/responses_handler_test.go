@@ -32,12 +32,12 @@ type captureTunnel struct {
 	lastReq   platform.TunnelRequest
 }
 
-func (t *captureTunnel) Proxy(ctx context.Context, req platform.TunnelRequest) (*platform.TunnelResponse, error) {
+func (t *captureTunnel) Proxy(_ context.Context, req platform.TunnelRequest) (*platform.TunnelResponse, error) {
 	t.lastReq = req
 	return t.resp, nil
 }
 
-func (t *captureTunnel) Stream(ctx context.Context, req platform.TunnelRequest) (platform.TunnelStream, error) {
+func (t *captureTunnel) Stream(_ context.Context, req platform.TunnelRequest) (platform.TunnelStream, error) {
 	t.lastReq = req
 	if t.stream != nil || t.streamErr != nil {
 		return t.stream, t.streamErr
@@ -46,7 +46,7 @@ func (t *captureTunnel) Stream(ctx context.Context, req platform.TunnelRequest) 
 	return nil, assert.AnError
 }
 
-func (t *captureTunnel) Healthy(ctx context.Context) error { return nil }
+func (t *captureTunnel) Healthy(_ context.Context) error { return nil }
 
 func newResponsesTestApp(t *testing.T, provider string, tunnel *captureTunnel) (*fiber.App, *tracing.Queue) {
 	t.Helper()

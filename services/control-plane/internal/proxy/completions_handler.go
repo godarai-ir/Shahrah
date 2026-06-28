@@ -32,6 +32,7 @@ type CompletionsHandler struct {
 	emitMetric func(input metricsobs.BuildInput)
 }
 
+// NewCompletionsHandlerWithDependencies creates a completions handler from explicit dependencies.
 func NewCompletionsHandlerWithDependencies(deps BaseHandlerDependencies) *CompletionsHandler {
 	return &CompletionsHandler{
 		llmRouter:  deps.Router,

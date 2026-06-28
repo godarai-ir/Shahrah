@@ -154,39 +154,55 @@ func ParseTraceRetentionDays(value interface{}) (*int, bool) {
 	case int:
 		return positiveRetentionDays(v)
 	case int64:
-		if v > maxIntValue() {
-			return nil, false
-		}
-
-		return positiveRetentionDays(int(v))
+		return parseTraceRetentionInt64(v)
 	case float64:
-		if v != math.Trunc(v) || v > float64(maxIntValue()) {
-			return nil, false
-		}
-
-		return positiveRetentionDays(int(v))
+		return parseTraceRetentionFloat64(v)
 	case json.Number:
-		parsed, err := v.Int64()
-		if err != nil || parsed > maxIntValue() {
-			return nil, false
-		}
-
-		return positiveRetentionDays(int(parsed))
+		return parseTraceRetentionJSONNumber(v)
 	case string:
-		raw := strings.TrimSpace(strings.ToLower(v))
-		if raw == "" || raw == "null" || raw == "unlimited" {
-			return nil, true
-		}
-
-		parsed, err := strconv.Atoi(raw)
-		if err != nil {
-			return nil, false
-		}
-
-		return positiveRetentionDays(parsed)
+		return parseTraceRetentionString(v)
 	default:
 		return nil, false
 	}
+}
+
+func parseTraceRetentionInt64(value int64) (*int, bool) {
+	if value > maxIntValue() {
+		return nil, false
+	}
+
+	return positiveRetentionDays(int(value))
+}
+
+func parseTraceRetentionFloat64(value float64) (*int, bool) {
+	if value != math.Trunc(value) || value > float64(maxIntValue()) {
+		return nil, false
+	}
+
+	return positiveRetentionDays(int(value))
+}
+
+func parseTraceRetentionJSONNumber(value json.Number) (*int, bool) {
+	parsed, err := value.Int64()
+	if err != nil {
+		return nil, false
+	}
+
+	return parseTraceRetentionInt64(parsed)
+}
+
+func parseTraceRetentionString(value string) (*int, bool) {
+	raw := strings.TrimSpace(strings.ToLower(value))
+	if raw == "" || raw == "null" || raw == "unlimited" {
+		return nil, true
+	}
+
+	parsed, err := strconv.Atoi(raw)
+	if err != nil {
+		return nil, false
+	}
+
+	return positiveRetentionDays(parsed)
 }
 
 func positiveRetentionDays(value int) (*int, bool) {

@@ -58,32 +58,14 @@ func (s *Store) CreateBudgetLimitRule(ctx context.Context, tenantID string, req 
 }
 
 func (s *Store) ListBudgetLimitRules(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.BudgetLimitRule, int, error) {
-	if limit <= 0 {
-		limit = 50
-	}
+	q, like, limit, offset := normalizePagedQuery(query, limit, offset)
 
-	if limit > 200 {
-		limit = 200
-	}
-
-	if offset < 0 {
-		offset = 0
-	}
-
-	q := strings.TrimSpace(strings.ToLower(query))
-	like := "%" + q + "%"
-
-	var total int
-	if err := s.pool.QueryRow(ctx, `
+	return listSearchResults(ctx, s.pool, `
 		SELECT COUNT(1)
 		FROM budget_limit_rules
 		WHERE tenant_id = $1::uuid
 		  AND ($2 = '' OR LOWER(rule_id) LIKE $3 OR LOWER(COALESCE(name,'')) LIKE $3 OR LOWER(COALESCE(description,'')) LIKE $3)
-	`, tenantID, q, like).Scan(&total); err != nil {
-		return nil, 0, err
-	}
-
-	rows, err := s.pool.Query(ctx, `
+	`, []any{tenantID, q, like}, `
 		SELECT id::text, tenant_id::text, rule_id, COALESCE(name,''), COALESCE(description,''), enabled, priority,
 		       conditions_json, limit_to, unit, budget_applies_per, block_on_budget_exceed, alerts_json, created_at, updated_at
 		FROM budget_limit_rules
@@ -91,24 +73,7 @@ func (s *Store) ListBudgetLimitRules(ctx context.Context, tenantID string, query
 		  AND ($2 = '' OR LOWER(rule_id) LIKE $3 OR LOWER(COALESCE(name,'')) LIKE $3 OR LOWER(COALESCE(description,'')) LIKE $3)
 		ORDER BY priority ASC, updated_at DESC
 		LIMIT $4 OFFSET $5
-	`, tenantID, q, like, limit, offset)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer rows.Close()
-
-	items := make([]platform.BudgetLimitRule, 0, limit)
-
-	for rows.Next() {
-		item, scanErr := scanBudgetLimitRule(rows)
-		if scanErr != nil {
-			return nil, 0, scanErr
-		}
-
-		items = append(items, *item)
-	}
-
-	return items, total, rows.Err()
+	`, []any{tenantID, q, like, limit, offset}, limit, scanBudgetLimitRule)
 }
 
 func (s *Store) GetBudgetLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string) (*platform.BudgetLimitRule, error) {
@@ -137,25 +102,10 @@ func (s *Store) UpdateBudgetLimitRuleByRuleID(ctx context.Context, tenantID stri
 		return nil, err
 	}
 
-	name := current.Name
-	if req.Name != nil {
-		name = strings.TrimSpace(*req.Name)
-	}
-
-	description := current.Description
-	if req.Description != nil {
-		description = strings.TrimSpace(*req.Description)
-	}
-
-	enabled := current.Enabled
-	if req.Enabled != nil {
-		enabled = *req.Enabled
-	}
-
-	priority := current.Priority
-	if req.Priority != nil {
-		priority = *req.Priority
-	}
+	name := optionalTrimmedString(req.Name, current.Name)
+	description := optionalTrimmedString(req.Description, current.Description)
+	enabled := optionalBool(req.Enabled, current.Enabled)
+	priority := optionalInt(req.Priority, current.Priority)
 
 	conditions := current.Conditions
 	if req.Conditions != nil {
@@ -167,20 +117,9 @@ func (s *Store) UpdateBudgetLimitRuleByRuleID(ctx context.Context, tenantID stri
 		limitTo = *req.LimitTo
 	}
 
-	unit := current.Unit
-	if req.Unit != nil {
-		unit = *req.Unit
-	}
-
-	budgetAppliesPer := current.BudgetAppliesPer
-	if req.BudgetAppliesPer != nil {
-		budgetAppliesPer = req.BudgetAppliesPer
-	}
-
-	blockOnExceed := current.BlockOnBudgetExceed
-	if req.BlockOnBudgetExceed != nil {
-		blockOnExceed = *req.BlockOnBudgetExceed
-	}
+	unit := optionalBudgetLimitUnit(req.Unit, current.Unit)
+	budgetAppliesPer := optionalStringPtr(req.BudgetAppliesPer, current.BudgetAppliesPer)
+	blockOnExceed := optionalBool(req.BlockOnBudgetExceed, current.BlockOnBudgetExceed)
 
 	alerts := current.Alerts
 	if req.Alerts != nil {
@@ -224,6 +163,46 @@ func (s *Store) UpdateBudgetLimitRuleByRuleID(ctx context.Context, tenantID stri
 	}
 
 	return scanBudgetLimitRule(rows)
+}
+
+func optionalTrimmedString(value *string, fallback string) string {
+	if value == nil {
+		return fallback
+	}
+
+	return strings.TrimSpace(*value)
+}
+
+func optionalBool(value *bool, fallback bool) bool {
+	if value == nil {
+		return fallback
+	}
+
+	return *value
+}
+
+func optionalInt(value *int, fallback int) int {
+	if value == nil {
+		return fallback
+	}
+
+	return *value
+}
+
+func optionalStringPtr(value *string, fallback *string) *string {
+	if value == nil {
+		return fallback
+	}
+
+	return value
+}
+
+func optionalBudgetLimitUnit(value *platform.BudgetLimitUnit, fallback platform.BudgetLimitUnit) platform.BudgetLimitUnit {
+	if value == nil {
+		return fallback
+	}
+
+	return *value
 }
 
 func (s *Store) UpdateBudgetLimitRuleStatusByRuleID(ctx context.Context, tenantID string, ruleID string, enabled bool) (*platform.BudgetLimitRule, error) {

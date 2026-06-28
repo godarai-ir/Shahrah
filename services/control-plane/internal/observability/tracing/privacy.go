@@ -1,3 +1,4 @@
+// Package tracing provides request tracing, privacy, and export configuration.
 package tracing
 
 import (
@@ -18,13 +19,18 @@ import (
 	"time"
 )
 
+// CapturePolicy controls how trace payloads are captured.
 type CapturePolicy string
 
 const (
-	CapturePolicyNone            CapturePolicy = "none"
-	CapturePolicyMetadataOnly    CapturePolicy = "metadata-only"
+	// CapturePolicyNone disables payload capture.
+	CapturePolicyNone CapturePolicy = "none"
+	// CapturePolicyMetadataOnly keeps only payload metadata.
+	CapturePolicyMetadataOnly CapturePolicy = "metadata-only"
+	// CapturePolicySampledRedacted stores metadata and redacted payloads.
 	CapturePolicySampledRedacted CapturePolicy = "sampled-redacted"
-	CapturePolicyFullSecure      CapturePolicy = "full-secure"
+	// CapturePolicyFullSecure stores encrypted payload blobs.
+	CapturePolicyFullSecure CapturePolicy = "full-secure"
 )
 
 const (
@@ -32,6 +38,7 @@ const (
 	payloadResponseKey = "response_payload"
 )
 
+// ParseCapturePolicy parses the capture policy from text.
 func ParseCapturePolicy(raw string) CapturePolicy {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
 	case string(CapturePolicyNone):
@@ -45,6 +52,7 @@ func ParseCapturePolicy(raw string) CapturePolicy {
 	}
 }
 
+// PrivacyManager applies capture-policy rules and payload redaction.
 type PrivacyManager struct {
 	policy      CapturePolicy
 	maxPayload  int
@@ -62,10 +70,12 @@ type tenantPolicyCacheItem struct {
 	expiresAt time.Time
 }
 
+// TenantPolicyResolver resolves tenant-specific capture policies.
 type TenantPolicyResolver interface {
 	ResolveTenantPolicy(tenantID string) (CapturePolicy, bool)
 }
 
+// NewPrivacyManager creates a privacy manager from config.
 func NewPrivacyManager(cfg Config) *PrivacyManager {
 	m := &PrivacyManager{
 		policy:      cfg.CapturePolicy,
@@ -95,10 +105,12 @@ func NewPrivacyManager(cfg Config) *PrivacyManager {
 	return m
 }
 
+// SetTenantPolicyResolver installs the tenant policy resolver.
 func (m *PrivacyManager) SetTenantPolicyResolver(resolver TenantPolicyResolver) {
 	m.resolver = resolver
 }
 
+// ResolvePolicyForTenant returns the active policy for a tenant.
 func (m *PrivacyManager) ResolvePolicyForTenant(tenantID string) CapturePolicy {
 	tenantID = strings.TrimSpace(tenantID)
 	if tenantID == "" || m.resolver == nil {
@@ -130,6 +142,7 @@ func (m *PrivacyManager) ResolvePolicyForTenant(tenantID string) CapturePolicy {
 	return resolved
 }
 
+// Apply redacts or persists payload fields according to policy.
 func (m *PrivacyManager) Apply(traceID, spanID, spanName string, attrs map[string]interface{}, effectivePolicy ...CapturePolicy) map[string]interface{} {
 	if len(attrs) == 0 {
 		return attrs

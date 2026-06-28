@@ -1,3 +1,4 @@
+// Package anthropic implements the Anthropic provider adapter.
 package anthropic
 
 import (
@@ -318,7 +319,5 @@ func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsope
 
 // Register the adapter.
 func init() {
-	providers.Register("anthropic", func(cfg providers.ProviderConfig) providers.Provider {
-		return NewClient(cfg)
-	})
+	providers.Register("anthropic", NewClient)
 }

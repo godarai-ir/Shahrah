@@ -1,3 +1,4 @@
+// Package billing handles cost estimation and budget enforcement.
 package billing
 
 import (

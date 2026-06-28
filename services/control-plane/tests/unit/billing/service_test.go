@@ -19,13 +19,13 @@ type walletStoreStub struct {
 	rate   *platform.ExchangeRate
 }
 
-func (s walletStoreStub) GetWallet(ctx context.Context, tenantID string) (*platform.Wallet, error) {
+func (s walletStoreStub) GetWallet(_ context.Context, tenantID string) (*platform.Wallet, error) {
 	return s.wallet, nil
 }
-func (s walletStoreStub) GetLatestExchangeRate(ctx context.Context) (*platform.ExchangeRate, error) {
+func (s walletStoreStub) GetLatestExchangeRate(_ context.Context) (*platform.ExchangeRate, error) {
 	return s.rate, nil
 }
-func (s walletStoreStub) UpsertExchangeRate(ctx context.Context, rate platform.ExchangeRate) (*platform.ExchangeRate, error) {
+func (s walletStoreStub) UpsertExchangeRate(_ context.Context, rate platform.ExchangeRate) (*platform.ExchangeRate, error) {
 	return &rate, nil
 }
 
@@ -35,11 +35,11 @@ type entitlementWalletStoreStub struct {
 	used      float64
 }
 
-func (s *entitlementWalletStoreStub) ResolveEffectiveEntitlements(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementsResponse, error) {
+func (s *entitlementWalletStoreStub) ResolveEffectiveEntitlements(_ context.Context, tenantID string) (*platform.EffectiveEntitlementsResponse, error) {
 	return s.effective, nil
 }
 
-func (s *entitlementWalletStoreStub) CheckAndIncrementTenantUsageCounter(ctx context.Context, tenantID string, featureKey string, limit float64, increment float64, now time.Time) (*platform.UsageCounter, bool, error) {
+func (s *entitlementWalletStoreStub) CheckAndIncrementTenantUsageCounter(_ context.Context, tenantID, featureKey string, limit, increment float64, now time.Time) (*platform.UsageCounter, bool, error) {
 	allowed := s.used+increment <= limit
 	if allowed {
 		s.used += increment

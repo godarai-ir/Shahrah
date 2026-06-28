@@ -1,3 +1,4 @@
+// Package virtualmodels resolves virtual model aliases and route targets.
 package virtualmodels
 
 import (
@@ -13,6 +14,7 @@ import (
 )
 
 var (
+	// ErrNotVirtualModel indicates the requested alias is not virtual.
 	ErrNotVirtualModel      = errors.New("not a virtual model")
 	ErrDisabledVirtualModel = errors.New("virtual model disabled")
 	ErrNoEligibleTargets    = errors.New("no eligible virtual model targets")
@@ -32,8 +34,8 @@ type RoutingEngine interface {
 }
 
 type ErrorNormalizer interface {
-	ShouldRetryOnStatus(status int, target platform.VirtualModelTarget) bool
-	ShouldFallbackOnStatus(status int, target platform.VirtualModelTarget) bool
+	ShouldRetryOnStatus(status int, target *platform.VirtualModelTarget) bool
+	ShouldFallbackOnStatus(status int, target *platform.VirtualModelTarget) bool
 }
 
 type FallbackExecutor interface {
@@ -73,12 +75,13 @@ func (e *PriorityRoutingEngine) SelectTargets(vm *platform.VirtualModel) ([]plat
 	}
 	// Stored order is already deterministic.
 	out := make([]platform.VirtualModelTarget, 0, len(vm.Targets))
-	for _, t := range vm.Targets {
+	for i := range vm.Targets {
+		t := &vm.Targets[i]
 		if strings.TrimSpace(t.Provider) == "" || strings.TrimSpace(t.Model) == "" {
 			continue
 		}
 
-		out = append(out, t)
+		out = append(out, *t)
 	}
 
 	if len(out) == 0 {
@@ -94,11 +97,11 @@ func NewDefaultErrorNormalizer() *DefaultErrorNormalizer {
 	return &DefaultErrorNormalizer{}
 }
 
-func (n *DefaultErrorNormalizer) ShouldRetryOnStatus(status int, target platform.VirtualModelTarget) bool {
+func (n *DefaultErrorNormalizer) ShouldRetryOnStatus(status int, target *platform.VirtualModelTarget) bool {
 	return containsInt(target.Policy.Retry.StatusCodes, status)
 }
 
-func (n *DefaultErrorNormalizer) ShouldFallbackOnStatus(status int, target platform.VirtualModelTarget) bool {
+func (n *DefaultErrorNormalizer) ShouldFallbackOnStatus(status int, target *platform.VirtualModelTarget) bool {
 	return containsInt(target.Policy.Fallback.StatusCodes, status)
 }
 
@@ -114,7 +117,8 @@ func (e *Executor) ExecuteSync(ctx context.Context, targets []platform.VirtualMo
 	fallbackCount := 0
 	lastReason := ""
 
-	for idx, target := range targets {
+	for idx := range targets {
+		target := &targets[idx]
 		if idx > 0 {
 			fallbackCount++
 		}
@@ -131,37 +135,14 @@ func (e *Executor) ExecuteSync(ctx context.Context, targets []platform.VirtualMo
 		delay := time.Duration(target.Policy.Retry.DelayMS) * time.Millisecond
 
 		for attempt := 1; attempt <= retries; attempt++ {
-			provider := strings.TrimSpace(target.Provider)
-
-			modelForProvider := strings.TrimSpace(target.Model)
-			if p, _, official, ok := splitModelFQN(target.Model); ok {
-				if provider == "" {
-					provider = p
-				}
-
-				modelForProvider = official
-			}
-
-			dep := &router.Deployment{
-				ID:        target.ID,
-				ModelName: target.Model,
-				Provider:  provider,
-				Model:     modelForProvider,
-				Params: config.ProviderEndpointConfig{
-					Timeout: target.Policy.TimeoutSec,
-				},
-				Healthy: true,
-			}
+			dep := buildDeployment(target)
 
 			resp, err := doCall(ctx, dep)
 			if err != nil {
 				lastReason = err.Error()
 
 				if attempt < retries {
-					if delay > 0 {
-						time.Sleep(delay)
-					}
-
+					sleepRetryDelay(delay)
 					continue
 				}
 
@@ -173,10 +154,7 @@ func (e *Executor) ExecuteSync(ctx context.Context, targets []platform.VirtualMo
 			}
 
 			if e.normalizer.ShouldRetryOnStatus(resp.StatusCode, target) && attempt < retries {
-				if delay > 0 {
-					time.Sleep(delay)
-				}
-
+				sleepRetryDelay(delay)
 				continue
 			}
 
@@ -192,7 +170,37 @@ func (e *Executor) ExecuteSync(ctx context.Context, targets []platform.VirtualMo
 	return nil, nil, fallbackCount, lastReason, ErrFallbackExhausted
 }
 
-func splitModelFQN(input string) (provider string, accountAlias string, officialModel string, ok bool) {
+func buildDeployment(target *platform.VirtualModelTarget) *router.Deployment {
+	provider := strings.TrimSpace(target.Provider)
+	modelForProvider := strings.TrimSpace(target.Model)
+
+	if p, _, official, ok := splitModelFQN(target.Model); ok {
+		if provider == "" {
+			provider = p
+		}
+
+		modelForProvider = official
+	}
+
+	return &router.Deployment{
+		ID:        target.ID,
+		ModelName: target.Model,
+		Provider:  provider,
+		Model:     modelForProvider,
+		Params: config.ProviderEndpointConfig{
+			Timeout: target.Policy.TimeoutSec,
+		},
+		Healthy: true,
+	}
+}
+
+func sleepRetryDelay(delay time.Duration) {
+	if delay > 0 {
+		time.Sleep(delay)
+	}
+}
+
+func splitModelFQN(input string) (provider, accountAlias, officialModel string, ok bool) {
 	return modelid.SplitModelFQN(input)
 }
 

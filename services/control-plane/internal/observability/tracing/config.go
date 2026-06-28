@@ -1,3 +1,4 @@
+// Package tracing provides request tracing, privacy, and export configuration.
 package tracing
 
 import (
@@ -16,6 +17,7 @@ const (
 	defaultExportTimout = 2 * time.Second
 )
 
+// Config controls tracing sampling, export, privacy, and retention behavior.
 type Config struct {
 	DefaultSampleRate float64
 	SlowRequest       time.Duration
@@ -43,6 +45,7 @@ type Config struct {
 	RetentionCleanupTimeout  time.Duration
 }
 
+// LoadConfigFromEnv builds the tracing configuration from environment variables.
 func LoadConfigFromEnv() Config {
 	cfg := Config{
 		DefaultSampleRate: defaultSampleRate,
@@ -71,110 +74,89 @@ func LoadConfigFromEnv() Config {
 		RetentionCleanupTimeout:  30 * time.Second,
 	}
 
-	if v := os.Getenv("TRACE_DEFAULT_SAMPLE_RATE"); v != "" {
-		if parsed, err := strconv.ParseFloat(v, 64); err == nil && parsed >= 0 && parsed <= 1 {
-			cfg.DefaultSampleRate = parsed
-		}
-	}
-
-	if v := os.Getenv("TRACE_SLOW_REQUEST_MS"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
-			cfg.SlowRequest = time.Duration(parsed) * time.Millisecond
-		}
-	}
-
-	if v := os.Getenv("TRACE_QUEUE_CAPACITY"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
-			cfg.QueueCapacity = parsed
-		}
-	}
-
-	if v := os.Getenv("TRACE_BATCH_SIZE"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
-			cfg.BatchSize = parsed
-		}
-	}
-
-	if v := os.Getenv("TRACE_EXPORT_TIMEOUT_MS"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
-			cfg.ExportTimeout = time.Duration(parsed) * time.Millisecond
-		}
-	}
-
-	if v := strings.TrimSpace(os.Getenv("TRACE_OTLP_SERVICE_NAME")); v != "" {
-		cfg.OTLPServiceName = v
-	}
-
-	if v := os.Getenv("TRACE_RETRY_MAX_ATTEMPTS"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
-			cfg.RetryMaxAttempts = parsed
-		}
-	}
-
-	if v := os.Getenv("TRACE_RETRY_BASE_DELAY_MS"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
-			cfg.RetryBaseDelay = time.Duration(parsed) * time.Millisecond
-		}
-	}
-
-	if v := os.Getenv("TRACE_RETRY_MAX_DELAY_MS"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
-			cfg.RetryMaxDelay = time.Duration(parsed) * time.Millisecond
-		}
-	}
-
-	if v := strings.TrimSpace(os.Getenv("TRACE_WAL_PATH")); v != "" {
-		cfg.WALPath = v
-	}
-
-	if v := os.Getenv("TRACE_WAL_ENABLED"); v != "" {
-		cfg.WALEnabled = strings.EqualFold(strings.TrimSpace(v), "true")
-	}
-
-	if v := os.Getenv("TRACE_WAL_REPLAY_INTERVAL_MS"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
-			cfg.WALReplayInterval = time.Duration(parsed) * time.Millisecond
-		}
-	}
-
-	if v := strings.TrimSpace(os.Getenv("TRACE_CAPTURE_POLICY")); v != "" {
-		cfg.CapturePolicy = ParseCapturePolicy(v)
-	}
-
-	if v := strings.TrimSpace(os.Getenv("TRACE_PAYLOAD_BLOB_DIR")); v != "" {
-		cfg.PayloadBlobDir = v
-	}
-
-	if v := os.Getenv("TRACE_PAYLOAD_MAX_BYTES"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil && parsed > 256 {
-			cfg.PayloadMaxBytes = parsed
-		}
-	}
-
-	if v := strings.TrimSpace(os.Getenv("TRACE_RETENTION_CLEANUP_ENABLED")); v != "" {
-		cfg.RetentionCleanupEnabled = parseEnvBool(v)
-	}
-
-	if v := os.Getenv("TRACE_RETENTION_CLEANUP_INTERVAL_MS"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
-			cfg.RetentionCleanupInterval = time.Duration(parsed) * time.Millisecond
-		}
-	}
-
-	if v := os.Getenv("TRACE_RETENTION_CLEANUP_TIMEOUT_MS"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
-			cfg.RetentionCleanupTimeout = time.Duration(parsed) * time.Millisecond
-		}
-	}
+	cfg.DefaultSampleRate = floatEnvOrDefault("TRACE_DEFAULT_SAMPLE_RATE", cfg.DefaultSampleRate)
+	cfg.SlowRequest = durationMillisEnvOrDefault("TRACE_SLOW_REQUEST_MS", cfg.SlowRequest)
+	cfg.QueueCapacity = intEnvOrDefault("TRACE_QUEUE_CAPACITY", cfg.QueueCapacity)
+	cfg.BatchSize = intEnvOrDefault("TRACE_BATCH_SIZE", cfg.BatchSize)
+	cfg.ExportTimeout = durationMillisEnvOrDefault("TRACE_EXPORT_TIMEOUT_MS", cfg.ExportTimeout)
+	cfg.OTLPServiceName = stringEnvOrDefault("TRACE_OTLP_SERVICE_NAME", cfg.OTLPServiceName)
+	cfg.RetryMaxAttempts = intEnvOrDefault("TRACE_RETRY_MAX_ATTEMPTS", cfg.RetryMaxAttempts)
+	cfg.RetryBaseDelay = durationMillisEnvOrDefault("TRACE_RETRY_BASE_DELAY_MS", cfg.RetryBaseDelay)
+	cfg.RetryMaxDelay = durationMillisEnvOrDefault("TRACE_RETRY_MAX_DELAY_MS", cfg.RetryMaxDelay)
+	cfg.WALPath = stringEnvOrDefault("TRACE_WAL_PATH", cfg.WALPath)
+	cfg.WALEnabled = boolEnvOrDefault("TRACE_WAL_ENABLED", cfg.WALEnabled)
+	cfg.WALReplayInterval = durationMillisEnvOrDefault("TRACE_WAL_REPLAY_INTERVAL_MS", cfg.WALReplayInterval)
+	cfg.CapturePolicy = capturePolicyEnvOrDefault("TRACE_CAPTURE_POLICY", cfg.CapturePolicy)
+	cfg.PayloadBlobDir = stringEnvOrDefault("TRACE_PAYLOAD_BLOB_DIR", cfg.PayloadBlobDir)
+	cfg.PayloadMaxBytes = intMinEnvOrDefault("TRACE_PAYLOAD_MAX_BYTES", cfg.PayloadMaxBytes, 256)
+	cfg.PIIHashSalt = stringEnvOrDefault("TRACE_PII_HASH_SALT", cfg.PIIHashSalt)
+	cfg.RetentionCleanupEnabled = boolEnvOrDefault("TRACE_RETENTION_CLEANUP_ENABLED", cfg.RetentionCleanupEnabled)
+	cfg.RetentionCleanupInterval = durationMillisEnvOrDefault("TRACE_RETENTION_CLEANUP_INTERVAL_MS", cfg.RetentionCleanupInterval)
+	cfg.RetentionCleanupTimeout = durationMillisEnvOrDefault("TRACE_RETENTION_CLEANUP_TIMEOUT_MS", cfg.RetentionCleanupTimeout)
 
 	return cfg
 }
 
-func parseEnvBool(value string) bool {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "1", "true", "yes", "y", "on":
-		return true
-	default:
-		return false
+func floatEnvOrDefault(key string, fallback float64) float64 {
+	if v := os.Getenv(key); v != "" {
+		if parsed, err := strconv.ParseFloat(v, 64); err == nil && parsed >= 0 && parsed <= 1 {
+			return parsed
+		}
 	}
+
+	return fallback
+}
+
+func intEnvOrDefault(key string, fallback int) int {
+	if v := os.Getenv(key); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			return parsed
+		}
+	}
+
+	return fallback
+}
+
+func intMinEnvOrDefault(key string, fallback, minimum int) int {
+	if v := os.Getenv(key); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > minimum {
+			return parsed
+		}
+	}
+
+	return fallback
+}
+
+func durationMillisEnvOrDefault(key string, fallback time.Duration) time.Duration {
+	if v := os.Getenv(key); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			return time.Duration(parsed) * time.Millisecond
+		}
+	}
+
+	return fallback
+}
+
+func stringEnvOrDefault(key, fallback string) string {
+	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+		return v
+	}
+
+	return fallback
+}
+
+func boolEnvOrDefault(key string, fallback bool) bool {
+	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+		return strings.EqualFold(v, "true")
+	}
+
+	return fallback
+}
+
+func capturePolicyEnvOrDefault(key string, fallback CapturePolicy) CapturePolicy {
+	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+		return ParseCapturePolicy(v)
+	}
+
+	return fallback
 }

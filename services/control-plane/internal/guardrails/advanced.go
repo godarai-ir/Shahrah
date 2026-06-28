@@ -72,8 +72,8 @@ type countGuardrail struct {
 	max         int
 }
 
-func newCountGuardrail(name string, unit string, enforcement Enforcement, min int, max int) Guardrail {
-	return &countGuardrail{name: name, unit: unit, enforcement: enforcement, min: min, max: max}
+func newCountGuardrail(name string, unit string, enforcement Enforcement, minimum int, maximum int) Guardrail {
+	return &countGuardrail{name: name, unit: unit, enforcement: enforcement, min: minimum, max: maximum}
 }
 
 func (g *countGuardrail) Name() string             { return g.name }

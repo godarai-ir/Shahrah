@@ -1,3 +1,4 @@
+// Package proxy hosts OpenAI-compatible request handlers for the control plane.
 package proxy
 
 import (
@@ -18,6 +19,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// ImagesHandler serves image generation and edit requests.
 type ImagesHandler struct {
 	llmRouter  *router.Router
 	tunnel     platform.TunnelTransport
@@ -34,6 +36,7 @@ type imageOperation struct {
 	RequestType string
 }
 
+// NewImagesHandler creates a new images handler.
 func NewImagesHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, wallets walletStore, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *ImagesHandler {
 	var metricEmitter func(input metricsobs.BuildInput)
 	if len(emitMetric) > 0 {
@@ -52,6 +55,7 @@ func NewImagesHandler(llmRouter *router.Router, tunnel platform.TunnelTransport,
 	})
 }
 
+// NewImagesHandlerWithDependencies creates an images handler from explicit dependencies.
 func NewImagesHandlerWithDependencies(deps BaseHandlerDependencies) *ImagesHandler {
 	return &ImagesHandler{
 		llmRouter:  deps.Router,
@@ -64,14 +68,17 @@ func NewImagesHandlerWithDependencies(deps BaseHandlerDependencies) *ImagesHandl
 	}
 }
 
+// HandleGenerations serves image generation requests.
 func (h *ImagesHandler) HandleGenerations(c *fiber.Ctx) error {
 	return h.handle(c, imageOperation{Name: "generations", Path: "/images/generations", RequestType: "image_generations"})
 }
 
+// HandleEdits serves image edit requests.
 func (h *ImagesHandler) HandleEdits(c *fiber.Ctx) error {
 	return h.handle(c, imageOperation{Name: "edits", Path: "/images/edits", RequestType: "image_edits"})
 }
 
+// HandleVariations serves image variation requests.
 func (h *ImagesHandler) HandleVariations(c *fiber.Ctx) error {
 	return h.handle(c, imageOperation{Name: "variations", Path: "/images/variations", RequestType: "image_variations"})
 }
@@ -434,7 +441,7 @@ func rewriteJSONModel(body []byte, model string) ([]byte, error) {
 	return json.Marshal(raw)
 }
 
-func estimateImageCostFallback(model string, metadata map[string]interface{}) platform.UsageCostBreakdown {
+func estimateImageCostFallback(model string, _ map[string]interface{}) platform.UsageCostBreakdown {
 	return platform.UsageCostBreakdown{
 		Model:       model,
 		TotalTokens: 0,

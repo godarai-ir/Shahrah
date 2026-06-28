@@ -1,3 +1,4 @@
+// Package prometheus exposes HTTP metrics middleware and handlers.
 package prometheus
 
 import (
@@ -11,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+// HTTPMetrics records request counts, latency, and in-flight totals.
 type HTTPMetrics struct {
 	registry        *prom.Registry
 	requestsTotal   *prom.CounterVec
@@ -18,6 +20,7 @@ type HTTPMetrics struct {
 	inflight        prom.Gauge
 }
 
+// NewHTTPMetrics creates a Prometheus registry and HTTP metrics collectors.
 func NewHTTPMetrics() *HTTPMetrics {
 	registry := prom.NewRegistry()
 	registry.MustRegister(
@@ -57,6 +60,7 @@ func NewHTTPMetrics() *HTTPMetrics {
 	}
 }
 
+// Middleware returns a Fiber middleware that records request metrics.
 func (m *HTTPMetrics) Middleware() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		start := time.Now()
@@ -80,6 +84,7 @@ func (m *HTTPMetrics) Middleware() fiber.Handler {
 	}
 }
 
+// Handler returns the Prometheus exposition endpoint.
 func (m *HTTPMetrics) Handler() fiber.Handler {
 	return adaptor.HTTPHandler(promhttp.HandlerFor(m.registry, promhttp.HandlerOpts{}))
 }

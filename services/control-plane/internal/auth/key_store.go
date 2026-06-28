@@ -43,7 +43,7 @@ func (s *InMemoryKeyStore) GetKeyByHash(ctx context.Context, hash string) (*plat
 	return key, nil
 }
 
-func (s *InMemoryKeyStore) ResolveTenantUserAuth(ctx context.Context, tenantID string, userID string) (*platform.AuthContext, error) {
+func (s *InMemoryKeyStore) ResolveTenantUserAuth(ctx context.Context, tenantID, userID string) (*platform.AuthContext, error) {
 	return nil, ErrInvalidAPIKey
 }
 
@@ -51,19 +51,19 @@ func (s *InMemoryKeyStore) TouchKeyLastUsed(ctx context.Context, keyID string, u
 	return nil
 }
 
-func (s *InMemoryKeyStore) ListPATs(ctx context.Context, tenantID string, userID string, query string, limit int, offset int) ([]platform.CreatedKey, int, error) {
+func (s *InMemoryKeyStore) ListPATs(ctx context.Context, tenantID, userID, query string, limit, offset int) ([]platform.CreatedKey, int, error) {
 	return []platform.CreatedKey{}, 0, nil
 }
 
-func (s *InMemoryKeyStore) PATExists(ctx context.Context, tenantID string, userID string, name string) (bool, error) {
+func (s *InMemoryKeyStore) PATExists(ctx context.Context, tenantID, userID, name string) (bool, error) {
 	return false, nil
 }
 
-func (s *InMemoryKeyStore) RevokePAT(ctx context.Context, tenantID string, userID string, keyID string, revokedByUserID string) (bool, error) {
+func (s *InMemoryKeyStore) RevokePAT(ctx context.Context, tenantID, userID, keyID, revokedByUserID string) (bool, error) {
 	return false, nil
 }
 
-func (s *InMemoryKeyStore) RevokeAllPATs(ctx context.Context, tenantID string, userID string, revokedByUserID string) (int64, error) {
+func (s *InMemoryKeyStore) RevokeAllPATs(ctx context.Context, tenantID, userID, revokedByUserID string) (int64, error) {
 	return 0, nil
 }
 

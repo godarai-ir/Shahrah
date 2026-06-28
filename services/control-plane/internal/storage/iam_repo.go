@@ -49,57 +49,21 @@ func (s *Store) CreateOrgUnit(ctx context.Context, tenantID string, req platform
 }
 
 func (s *Store) ListOrgUnits(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.OrgUnit, int, error) {
-	query = strings.TrimSpace(strings.ToLower(query))
+	q, like, limit, offset := normalizePagedQuery(query, limit, offset)
 
-	if limit <= 0 {
-		limit = 50
-	}
-
-	if limit > 200 {
-		limit = 200
-	}
-
-	if offset < 0 {
-		offset = 0
-	}
-
-	like := "%" + query + "%"
-
-	var total int
-	if err := s.pool.QueryRow(ctx, `
+	return listSearchResults(ctx, s.pool, `
 		SELECT COUNT(1)
 		FROM organizations
 		WHERE tenant_id = $1::uuid
 		  AND ($2 = '' OR LOWER(COALESCE(organization_alias, '')) LIKE $3)
-	`, tenantID, query, like).Scan(&total); err != nil {
-		return nil, 0, err
-	}
-
-	rows, err := s.pool.Query(ctx, `
+	`, []any{tenantID, q, like}, `
 		SELECT organization_id::text, tenant_id::text, organization_alias, COALESCE(metadata, '{}'::jsonb), created_at, updated_at
 		FROM organizations
 		WHERE tenant_id = $1::uuid
 		  AND ($2 = '' OR LOWER(COALESCE(organization_alias, '')) LIKE $3)
 		ORDER BY updated_at DESC, created_at DESC
 		LIMIT $4 OFFSET $5
-	`, tenantID, query, like, limit, offset)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer rows.Close()
-
-	items := make([]platform.OrgUnit, 0, limit)
-
-	for rows.Next() {
-		item, err := scanOrgUnit(rows)
-		if err != nil {
-			return nil, 0, err
-		}
-
-		items = append(items, *item)
-	}
-
-	return items, total, rows.Err()
+	`, []any{tenantID, q, like, limit, offset}, limit, scanOrgUnit)
 }
 
 func (s *Store) GetOrgUnit(ctx context.Context, tenantID string, orgUnitID string) (*platform.OrgUnit, error) {
@@ -224,33 +188,14 @@ func (s *Store) CreateTeam(ctx context.Context, tenantID string, req platform.Cr
 }
 
 func (s *Store) ListTeams(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.Team, int, error) {
-	query = strings.TrimSpace(strings.ToLower(query))
+	q, like, limit, offset := normalizePagedQuery(query, limit, offset)
 
-	if limit <= 0 {
-		limit = 50
-	}
-
-	if limit > 200 {
-		limit = 200
-	}
-
-	if offset < 0 {
-		offset = 0
-	}
-
-	like := "%" + query + "%"
-
-	var total int
-	if err := s.pool.QueryRow(ctx, `
+	return listSearchResults(ctx, s.pool, `
 		SELECT COUNT(1)
 		FROM teams
 		WHERE tenant_id = $1::uuid
 		  AND ($2 = '' OR LOWER(COALESCE(team_alias, '')) LIKE $3 OR LOWER(COALESCE(metadata->>'display_name', '')) LIKE $3)
-	`, tenantID, query, like).Scan(&total); err != nil {
-		return nil, 0, err
-	}
-
-	rows, err := s.pool.Query(ctx, `
+	`, []any{tenantID, q, like}, `
 		SELECT team_id::text, tenant_id::text, COALESCE(team_alias, ''), COALESCE(org_unit_id::text, ''), workspace_type,
 		       COALESCE(metadata, '{}'::jsonb), COALESCE(models, '{}'), COALESCE(team_member_permissions, '{}'),
 		       COALESCE(spend::text, ''), created_at, updated_at
@@ -259,24 +204,7 @@ func (s *Store) ListTeams(ctx context.Context, tenantID string, query string, li
 		  AND ($2 = '' OR LOWER(COALESCE(team_alias, '')) LIKE $3 OR LOWER(COALESCE(metadata->>'display_name', '')) LIKE $3)
 		ORDER BY updated_at DESC, created_at DESC
 		LIMIT $4 OFFSET $5
-	`, tenantID, query, like, limit, offset)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer rows.Close()
-
-	items := make([]platform.Team, 0, limit)
-
-	for rows.Next() {
-		item, err := scanTeam(rows)
-		if err != nil {
-			return nil, 0, err
-		}
-
-		items = append(items, *item)
-	}
-
-	return items, total, rows.Err()
+	`, []any{tenantID, q, like, limit, offset}, limit, scanTeam)
 }
 
 func (s *Store) GetTeam(ctx context.Context, tenantID string, teamID string) (*platform.Team, error) {
@@ -446,57 +374,21 @@ func (s *Store) CreateVirtualUser(ctx context.Context, tenantID string, req plat
 }
 
 func (s *Store) ListVirtualUsers(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.VirtualUser, int, error) {
-	query = strings.TrimSpace(strings.ToLower(query))
+	q, like, limit, offset := normalizePagedQuery(query, limit, offset)
 
-	if limit <= 0 {
-		limit = 50
-	}
-
-	if limit > 200 {
-		limit = 200
-	}
-
-	if offset < 0 {
-		offset = 0
-	}
-
-	like := "%" + query + "%"
-
-	var total int
-	if err := s.pool.QueryRow(ctx, `
+	return listSearchResults(ctx, s.pool, `
 		SELECT COUNT(1)
 		FROM virtual_users
 		WHERE tenant_id = $1::uuid
 		  AND ($2 = '' OR LOWER(COALESCE(alias, '')) LIKE $3 OR LOWER(COALESCE(display_name, '')) LIKE $3)
-	`, tenantID, query, like).Scan(&total); err != nil {
-		return nil, 0, err
-	}
-
-	rows, err := s.pool.Query(ctx, `
+	`, []any{tenantID, q, like}, `
 		SELECT virtual_user_id::text, tenant_id::text, COALESCE(team_id::text, ''), COALESCE(org_unit_id::text, ''), alias, COALESCE(display_name, ''), active, COALESCE(metadata, '{}'::jsonb), created_at, updated_at
 		FROM virtual_users
 		WHERE tenant_id = $1::uuid
 		  AND ($2 = '' OR LOWER(COALESCE(alias, '')) LIKE $3 OR LOWER(COALESCE(display_name, '')) LIKE $3)
 		ORDER BY updated_at DESC, created_at DESC
 		LIMIT $4 OFFSET $5
-	`, tenantID, query, like, limit, offset)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer rows.Close()
-
-	items := make([]platform.VirtualUser, 0, limit)
-
-	for rows.Next() {
-		item, err := scanVirtualUser(rows)
-		if err != nil {
-			return nil, 0, err
-		}
-
-		items = append(items, *item)
-	}
-
-	return items, total, rows.Err()
+	`, []any{tenantID, q, like, limit, offset}, limit, scanVirtualUser)
 }
 
 func (s *Store) GetVirtualUser(ctx context.Context, tenantID string, virtualUserID string) (*platform.VirtualUser, error) {
