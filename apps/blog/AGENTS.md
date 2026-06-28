@@ -1,6 +1,6 @@
 # Blog AGENTS
 
-Astro site for Shahrah's marketing and technical blog.
+Astro site for GodarAI's marketing and technical blog.
 
 ## Purpose
 
@@ -15,7 +15,7 @@ Keep API reference docs and product documentation out of this app.
 
 1. Use the monorepo workspace only; do not create a separate workspace or lockfile.
 2. Run commands from the repository root with `pnpm --filter @shahrah/blog ...`.
-3. Keep content Shahrah-specific instead of starter-template content.
+3. Keep content GodarAI-specific instead of starter-template content.
 4. Treat this as the canonical blog app for the platform.
 
 ## Commands

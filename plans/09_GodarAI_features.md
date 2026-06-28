@@ -1,14 +1,14 @@
-# Shahrah Features - LiteLLM-Inspired Feature Set
+# GodarAI Features - LiteLLM-Inspired Feature Set
 
 ## Overview
 
-This document maps LiteLLM's comprehensive feature set to Shahrah's planned features, highlighting adaptations made for the Iranian market and multi-tenant architecture.
+This document maps LiteLLM's comprehensive feature set to GodarAI's planned features, highlighting adaptations made for the Iranian market and multi-tenant architecture.
 
-## 1. Feature Mapping from LiteLLM to Shahrah
+## 1. Feature Mapping from LiteLLM to GodarAI
 
 ### 1.1 Core LLM Gateway Features
 
-| LiteLLM Feature | Shahrah Equivalent | Notes |
+| LiteLLM Feature | GodarAI Equivalent | Notes |
 |-----------------|-------------------|-------|
 | OpenAI-compatible interface | ✅ Direct mapping | Same API contract |
 | 100+ LLM provider support | ✅ Core feature | Via Silk Road tunnel |
@@ -23,7 +23,7 @@ This document maps LiteLLM's comprehensive feature set to Shahrah's planned feat
 
 ### 1.2 Proxy/Gateway Features
 
-| LiteLLM Feature | Shahrah Equivalent | Notes |
+| LiteLLM Feature | GodarAI Equivalent | Notes |
 |-----------------|-------------------|-------|
 | API Key Management | ✅ Enhanced | Tenant-scoped keys |
 | Rate Limiting (TPM/RPM) | ✅ Enhanced | Per-tenant + per-key |
@@ -38,7 +38,7 @@ This document maps LiteLLM's comprehensive feature set to Shahrah's planned feat
 
 ### 1.3 Admin & Management Features
 
-| LiteLLM Feature | Shahrah Equivalent | Notes |
+| LiteLLM Feature | GodarAI Equivalent | Notes |
 |-----------------|-------------------|-------|
 | Admin UI (built-in) | ✅ Enhanced | Separate tenant admin |
 | Internal user management | ✅ Mapped | Support team access |
@@ -50,7 +50,7 @@ This document maps LiteLLM's comprehensive feature set to Shahrah's planned feat
 | Budget alerts | ✅ Direct mapping | Slack, email, webhook |
 | Usage analytics | ✅ Direct mapping | Per-tenant dashboards |
 
-## 2. Shahrah API Endpoints
+## 2. GodarAI API Endpoints
 
 ### 2.1 LLM API Endpoints (OpenAI Compatible)
 
@@ -136,7 +136,7 @@ GET    /ready                     # Readiness check
 
 ### 3.1 Request/Response Transformation
 
-Similar to LiteLLM's provider transformations, Shahrah transforms requests:
+Similar to LiteLLM's provider transformations, GodarAI transforms requests:
 
 ```mermaid
 graph LR
@@ -182,7 +182,7 @@ type FallbackRule struct {
 	Providers []string
 }
 
-// RouterConfig is a LiteLLM-inspired router configuration with Shahrah enhancements.
+// RouterConfig is a LiteLLM-inspired router configuration with GodarAI enhancements.
 type RouterConfig struct {
 	// Routing strategy
 	Strategy RoutingStrategy
@@ -233,22 +233,22 @@ type CacheParams struct {
 	MaxTokens   int     `json:"max_tokens"`
 }
 
-// ShahrahCache is a multi-level caching system inspired by LiteLLM.
-type ShahrahCache struct {
+// GodarAICache is a multi-level caching system inspired by LiteLLM.
+type GodarAICache struct {
 	inMemory *cache.Cache
 	redis    *redis.Client
 }
 
-// NewShahrahCache creates a new cache instance.
-func NewShahrahCache(redisAddr string) *ShahrahCache {
-	return &ShahrahCache{
+// NewGodarAICache creates a new cache instance.
+func NewGodarAICache(redisAddr string) *GodarAICache {
+	return &GodarAICache{
 		inMemory: cache.New(5*time.Minute, 10*time.Minute),
 		redis:    redis.NewClient(&redis.Options{Addr: redisAddr}),
 	}
 }
 
 // GetCacheKey generates a cache key including tenant isolation.
-func (c *ShahrahCache) GetCacheKey(model string, messages []map[string]string, tenantID string, params CacheParams) (string, error) {
+func (c *GodarAICache) GetCacheKey(model string, messages []map[string]string, tenantID string, params CacheParams) (string, error) {
 	payload := map[string]interface{}{
 		"model":    model,
 		"messages": messages,
@@ -260,11 +260,11 @@ func (c *ShahrahCache) GetCacheKey(model string, messages []map[string]string, t
 	}
 
 	hash := sha256.Sum256(data)
-	return fmt.Sprintf("shahrah:%s:%s", tenantID, hex.EncodeToString(hash[:])), nil
+	return fmt.Sprintf("GodarAI:%s:%s", tenantID, hex.EncodeToString(hash[:])), nil
 }
 
 // GetCachedResponse retrieves a response from cache (Redis first, then in-memory).
-func (c *ShahrahCache) GetCachedResponse(ctx context.Context, cacheKey string) (map[string]interface{}, bool) {
+func (c *GodarAICache) GetCachedResponse(ctx context.Context, cacheKey string) (map[string]interface{}, bool) {
 	// Try Redis first
 	data, err := c.redis.Get(ctx, cacheKey).Bytes()
 	if err == nil {
@@ -283,7 +283,7 @@ func (c *ShahrahCache) GetCachedResponse(ctx context.Context, cacheKey string) (
 }
 
 // SetCachedResponse stores a response in both cache layers.
-func (c *ShahrahCache) SetCachedResponse(ctx context.Context, cacheKey string, response map[string]interface{}, ttl time.Duration) error {
+func (c *GodarAICache) SetCachedResponse(ctx context.Context, cacheKey string, response map[string]interface{}, ttl time.Duration) error {
 	data, _ := json.Marshal(response)
 
 	// Set in Redis
@@ -363,25 +363,25 @@ type Guardrail interface {
 	Evaluate(ctx context.Context, messages []map[string]string) (*GuardrailResult, error)
 }
 
-// ShahrahGuardrail is the content moderation and guardrails system.
-type ShahrahGuardrail struct {
+// GodarAIGuardrail is the content moderation and guardrails system.
+type GodarAIGuardrail struct {
 	guardrails map[GuardrailType]Guardrail
 }
 
-// NewShahrahGuardrail creates a new guardrails system.
-func NewShahrahGuardrail() *ShahrahGuardrail {
-	return &ShahrahGuardrail{
+// NewGodarAIGuardrail creates a new guardrails system.
+func NewGodarAIGuardrail() *GodarAIGuardrail {
+	return &GodarAIGuardrail{
 		guardrails: make(map[GuardrailType]Guardrail),
 	}
 }
 
 // RegisterGuardrail registers a guardrail implementation.
-func (g *ShahrahGuardrail) RegisterGuardrail(t GuardrailType, impl Guardrail) {
+func (g *GodarAIGuardrail) RegisterGuardrail(t GuardrailType, impl Guardrail) {
 	g.guardrails[t] = impl
 }
 
 // ApplyGuardrails applies configured guardrails to a request.
-func (g *ShahrahGuardrail) ApplyGuardrails(ctx context.Context, messages []map[string]string, tenantID string, config *GuardrailConfig) (*GuardrailResult, error) {
+func (g *GodarAIGuardrail) ApplyGuardrails(ctx context.Context, messages []map[string]string, tenantID string, config *GuardrailConfig) (*GuardrailResult, error) {
 	for _, guardrailName := range config.EnabledGuardrails {
 		guardrail, ok := g.guardrails[guardrailName]
 		if !ok {
@@ -450,29 +450,29 @@ type Callback interface {
 	OnFailure(ctx context.Context, kwargs map[string]interface{}, err error) error
 }
 
-// ShahrahCallbacks provides comprehensive observability callbacks.
-type ShahrahCallbacks struct {
+// GodarAICallbacks provides comprehensive observability callbacks.
+type GodarAICallbacks struct {
 	successCallbacks []Callback
 	failureCallbacks []Callback
 }
 
-// NewShahrahCallbacks creates a new callbacks manager.
-func NewShahrahCallbacks() *ShahrahCallbacks {
-	return &ShahrahCallbacks{}
+// NewGodarAICallbacks creates a new callbacks manager.
+func NewGodarAICallbacks() *GodarAICallbacks {
+	return &GodarAICallbacks{}
 }
 
 // RegisterSuccess registers a success callback.
-func (c *ShahrahCallbacks) RegisterSuccess(cb Callback) {
+func (c *GodarAICallbacks) RegisterSuccess(cb Callback) {
 	c.successCallbacks = append(c.successCallbacks, cb)
 }
 
 // RegisterFailure registers a failure callback.
-func (c *ShahrahCallbacks) RegisterFailure(cb Callback) {
+func (c *GodarAICallbacks) RegisterFailure(cb Callback) {
 	c.failureCallbacks = append(c.failureCallbacks, cb)
 }
 
 // LogSuccess logs a successful request to all configured callbacks.
-func (c *ShahrahCallbacks) LogSuccess(ctx context.Context, kwargs map[string]interface{}) {
+func (c *GodarAICallbacks) LogSuccess(ctx context.Context, kwargs map[string]interface{}) {
 	for _, cb := range c.successCallbacks {
 		if err := cb.OnSuccess(ctx, kwargs); err != nil {
 			log.Error().Err(err).Msg("Success callback failed")
@@ -481,7 +481,7 @@ func (c *ShahrahCallbacks) LogSuccess(ctx context.Context, kwargs map[string]int
 }
 
 // LogFailure logs a failed request to all configured callbacks.
-func (c *ShahrahCallbacks) LogFailure(ctx context.Context, kwargs map[string]interface{}, err error) {
+func (c *GodarAICallbacks) LogFailure(ctx context.Context, kwargs map[string]interface{}, err error) {
 	for _, cb := range c.failureCallbacks {
 		if err := cb.OnFailure(ctx, kwargs, err); err != nil {
 			log.Error().Err(err).Msg("Failure callback failed")
@@ -527,20 +527,20 @@ type KeyBudget struct {
 	MaxBudgetUSD float64
 }
 
-// ShahrahBudgetManager provides budget management with dual currency support.
-type ShahrahBudgetManager struct {
+// GodarAIBudgetManager provides budget management with dual currency support.
+type GodarAIBudgetManager struct {
 	db      Database
 	cache   Cache
 }
 
-// NewShahrahBudgetManager creates a new budget manager.
-func NewShahrahBudgetManager(db Database, cache Cache) *ShahrahBudgetManager {
-	return &ShahrahBudgetManager{db: db, cache: cache}
+// NewGodarAIBudgetManager creates a new budget manager.
+func NewGodarAIBudgetManager(db Database, cache Cache) *GodarAIBudgetManager {
+	return &GodarAIBudgetManager{db: db, cache: cache}
 }
 
 // CheckBudget checks if request is within budget.
 // Returns allowed, remaining, reason.
-func (m *ShahrahBudgetManager) CheckBudget(ctx context.Context, tenantID, apiKeyID string, estimatedCostUSD float64) (*BudgetCheckResult, error) {
+func (m *GodarAIBudgetManager) CheckBudget(ctx context.Context, tenantID, apiKeyID string, estimatedCostUSD float64) (*BudgetCheckResult, error) {
 	// Check tenant budget (USD)
 	tenantSpend, _ := m.db.GetTenantSpend(ctx, tenantID)
 	tenantBudget, _ := m.db.GetTenantBudget(ctx, tenantID)
@@ -598,7 +598,7 @@ func (m *ShahrahBudgetManager) CheckBudget(ctx context.Context, tenantID, apiKey
 Similar to LiteLLM's MCP support:
 
 ```prisma
-model ShahrahMCPServer {
+model GodarAIMCPServer {
     server_id       String   @id @default(uuid())
     tenant_id       String
     
@@ -652,25 +652,25 @@ type MCPToolResult struct {
 	IsError bool
 }
 
-// ShahrahMCPClient is an MCP client for tool calling.
-type ShahrahMCPClient struct {
+// GodarAIMCPClient is an MCP client for tool calling.
+type GodarAIMCPClient struct {
 	servers map[string]*MCPServer
 }
 
-// NewShahrahMCPClient creates a new MCP client.
-func NewShahrahMCPClient() *ShahrahMCPClient {
-	return &ShahrahMCPClient{
+// NewGodarAIMCPClient creates a new MCP client.
+func NewGodarAIMCPClient() *GodarAIMCPClient {
+	return &GodarAIMCPClient{
 		servers: make(map[string]*MCPServer),
 	}
 }
 
 // RegisterServer registers an MCP server.
-func (c *ShahrahMCPClient) RegisterServer(serverID string, server *MCPServer) {
+func (c *GodarAIMCPClient) RegisterServer(serverID string, server *MCPServer) {
 	c.servers[serverID] = server
 }
 
 // ListTools lists available tools from an MCP server.
-func (c *ShahrahMCPClient) ListTools(ctx context.Context, serverID string) ([]MCPTool, error) {
+func (c *GodarAIMCPClient) ListTools(ctx context.Context, serverID string) ([]MCPTool, error) {
 	server, ok := c.servers[serverID]
 	if !ok {
 		return nil, ErrServerNotFound
@@ -679,7 +679,7 @@ func (c *ShahrahMCPClient) ListTools(ctx context.Context, serverID string) ([]MC
 }
 
 // CallTool calls a tool on an MCP server.
-func (c *ShahrahMCPClient) CallTool(ctx context.Context, serverID, toolName string, arguments map[string]interface{}) (*MCPToolResult, error) {
+func (c *GodarAIMCPClient) CallTool(ctx context.Context, serverID, toolName string, arguments map[string]interface{}) (*MCPToolResult, error) {
 	server, ok := c.servers[serverID]
 	if !ok {
 		return nil, ErrServerNotFound
@@ -693,7 +693,7 @@ func (c *ShahrahMCPClient) CallTool(ctx context.Context, serverID, toolName stri
 ### 5.1 Agent Registry
 
 ```prisma
-model ShahrahAgent {
+model GodarAIAgent {
     agent_id        String   @id @default(uuid())
     tenant_id       String
     
@@ -715,9 +715,9 @@ model ShahrahAgent {
 
 ## 6. Feature Comparison Matrix
 
-### 6.1 LiteLLM vs Shahrah Feature Parity
+### 6.1 LiteLLM vs GodarAI Feature Parity
 
-| Feature Category | LiteLLM | Shahrah | Notes |
+| Feature Category | LiteLLM | GodarAI | Notes |
 |-----------------|---------|---------|-------|
 | **Core LLM** |
 | Chat Completions | ✅ | ✅ | Same API |
@@ -756,23 +756,23 @@ model ShahrahAgent {
 | Spend Tracking | ✅ | ✅ | Dual currency |
 | Budget Alerts | ✅ | ✅ | Enhanced |
 
-## 7. Shahrah-Unique Features
+## 7. GodarAI-Unique Features
 
 ### 7.1 Iran-Europe Tunnel
 
-- **Not in LiteLLM**: Unique to Shahrah
+- **Not in LiteLLM**: Unique to GodarAI
 - Enables access to sanctioned LLM providers
 - Bidirectional gRPC streaming
 
 ### 7.2 Rial Wallet & Iranian Payment
 
-- **Not in LiteLLM**: Unique to Shahrah
+- **Not in LiteLLM**: Unique to GodarAI
 - Iranian payment gateway integration
 - Dual currency tracking (IRR/USD)
 - Real-time exchange rate conversion
 
 ### 7.3 Subdomain Multi-Tenancy
 
-- **Enhanced**: LiteLLM has org/teams, but Shahrah has subdomain isolation
+- **Enhanced**: LiteLLM has org/teams, but GodarAI has subdomain isolation
 - Each tenant gets unique URLs
 - Clean separation of tenant resources

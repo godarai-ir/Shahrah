@@ -1,0 +1,40 @@
+---
+import { getCollection, render } from "astro:content";
+
+export async function getStaticPaths() {
+  const posts = await getCollection("blog", ({ data }) => {
+    return import.meta.env.PROD ? data.draft !== true : true;
+  });
+
+  return posts.map((post) => ({
+    params: { id: post.id },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+---
+
+<html lang="fa" dir="rtl">
+  <head>
+    <title>{post.data.title}</title>
+    <meta name="description" content={post.data.description} />
+  </head>
+
+  <body>
+    <main>
+      <article>
+        <header>
+          <h1>{post.data.title}</h1>
+          <p>{post.data.description}</p>
+          <time datetime={post.data.pubDate.toISOString()}>
+            {post.data.pubDate.toLocaleDateString("fa-IR")}
+          </time>
+        </header>
+
+        <Content />
+      </article>
+    </main>
+  </body>
+</html>
