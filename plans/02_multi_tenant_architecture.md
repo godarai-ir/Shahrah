@@ -1,4 +1,4 @@
-# Shahrah Multi-Tenant Architecture
+# GodarAI Multi-Tenant Architecture
 
 ## Overview
 

@@ -2,7 +2,7 @@
 
 > **Note**: For the complete hierarchical structure including Tenant subdomains, Organization Units, and Virtual Users, see [tenant-organization-team-design.md](./tenant-organization-team-design.md).
 
-Role-based access control (RBAC) in Shahrah is based on Organizations, Teams, and Internal User Roles.
+Role-based access control (RBAC) in GodarAI is based on Organizations, Teams, and Internal User Roles.
 
 ## Hierarchy Overview
 
@@ -16,8 +16,8 @@ graph TD
 
 - **Organizations** are the top-level entities that contain Teams.
 - **Team** - A Team is a collection of multiple Internal Users.
-- **Internal Users** - Users that can create keys, make API calls, and view usage on Shahrah. Users can belong to multiple teams.
-- **API Keys** - Keys are used for authentication to the Shahrah API. Each key can optionally be associated with a `user_id`, a `team_id`, or both:
+- **Internal Users** - Users that can create keys, make API calls, and view usage onGodarAI. Users can belong to multiple teams.
+- **API Keys** - Keys are used for authentication to the GodarAI API. Each key can optionally be associated with a `user_id`, a `team_id`, or both:
   - **User-only key**: Has a `user_id` but no `team_id`. Tracked individually, deleted when the user is deleted.
   - **Team key (Service Account)**: Has a `team_id` but no `user_id`. Shared by the team, persists even when team members leave.
   - **User + Team key**: Has both `user_id` and `team_id`. Belongs to a specific user within a team context.
@@ -39,7 +39,7 @@ graph TD
 
 ## User Roles
 
-Shahrah has two types of roles:
+GodarAI has two types of roles:
 
 1. **Global Platform Roles** - Platform-wide roles that apply across all organizations and teams
 2. **Organization/Team Specific Roles** - Roles scoped to specific organizations or teams
@@ -69,7 +69,7 @@ Here is what each role can actually do. Think of it like levels of access.
 
 ## Global Platform Roles
 
-These roles apply across the entire Shahrah platform, regardless of organization or team boundaries.
+These roles apply across the entire GodarAI platform, regardless of organization or team boundaries.
 
 ### Admin - Full Access
 
@@ -84,7 +84,7 @@ The platform admin controls everything. They are like the owner of the whole pla
 - Update team budgets, rate limits, and models
 - Manage team members and assign roles
 
-**Who should be a platform admin:** Only the people running the Shahrah instance.
+**Who should be a platform admin:** Only the people running the GodarAI instance.
 
 ---
 
@@ -154,7 +154,7 @@ A team admin manages a specific team. They are like a team lead who can add peop
 - Update team members budgets and rate limits within the team
 - Change team settings (budget, rate limits, models)
 - Create and delete keys for team members
-- Onboard a team-specific model to Shahrah (e.g., onboarding a team fine-tuned model)
+- Onboard a team-specific model to GodarAI (e.g., onboarding a team fine-tuned model)
 - Configure team member permissions to control what regular team members can do
 
 **What they cannot do:**
@@ -486,7 +486,7 @@ curl --location 'http://0.0.0.0:4000/team/update' \
 
 ## Implementation Guide
 
-This section provides guidance for implementing the access control system in Shahrah based on the patterns from LiteLLM.
+This section provides guidance for implementing the access control system in GodarAI based on the patterns from LiteLLM.
 
 ### Key Implementation Files
 

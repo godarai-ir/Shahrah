@@ -1,4 +1,4 @@
-# Shahrah RBAC Middleware Specification
+# GodarAI RBAC Middleware Specification
 
 > **For:** Coding Agent Implementation  
 > **Module:** `shahrah/middleware/rbac_middleware.py`  
@@ -86,8 +86,8 @@ async def dispatch(
 
 ```python
 from fastapi import FastAPI
-from shahrah.middleware.rbac_middleware import RBACMiddleware
-from shahrah.auth.api_key_auth import authenticate_api_key  # your auth function
+fromGodarAI.middleware.rbac_middleware import RBACMiddleware
+fromGodarAI.auth.api_key_auth import authenticate_api_key  # your auth function
 
 app = FastAPI()
 
@@ -210,7 +210,7 @@ shahrah/
 ## 6. Module Exports (`__init__.py`)
 
 ```python
-from shahrah.middleware.rbac_middleware import (
+fromGodarAI.middleware.rbac_middleware import (
     RBACMiddleware,
     require_proxy_admin,
     require_proxy_admin_or_viewer,
@@ -228,8 +228,8 @@ from shahrah.middleware.rbac_middleware import (
 
 ```python
 from fastapi import FastAPI, Request
-from shahrah.middleware.rbac_middleware import RBACMiddleware
-from shahrah.types.rbac_types import AuthToken
+fromGodarAI.middleware.rbac_middleware import RBACMiddleware
+fromGodarAI.types.rbac_types import AuthToken
 from typing import Optional
 
 app = FastAPI()
@@ -254,8 +254,8 @@ app.add_middleware(
 
 ```python
 from fastapi import Depends
-from shahrah.middleware.rbac_middleware import require_proxy_admin
-from shahrah.types.rbac_types import AuthToken
+fromGodarAI.middleware.rbac_middleware import require_proxy_admin
+fromGodarAI.types.rbac_types import AuthToken
 
 @router.delete("/user/{user_id}")
 async def delete_user(

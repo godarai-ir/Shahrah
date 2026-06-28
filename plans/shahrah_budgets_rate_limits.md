@@ -19,7 +19,7 @@ import TabItem from '@theme/TabItem';
 ## Prerequisites
 
 - A PostgreSQL database (e.g., [Supabase](https://supabase.com/), [Neon](https://neon.tech/), etc.)
-- Shahrah proxy server configured and running
+- GodarAI proxy server configured and running
 
 ---
 
@@ -43,7 +43,7 @@ shahrah_settings:
 **Step 2. Start proxy**
 
 ```bash
-shahrah --config /path/to/config.yaml --port 4000
+GodarAI --config /path/to/config.yaml --port 4000
 ```
 
 **Step 3. Send test call**

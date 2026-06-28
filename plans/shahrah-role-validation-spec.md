@@ -1,4 +1,4 @@
-# Shahrah Role Validation Specification
+# GodarAI Role Validation Specification
 
 > **For:** Coding Agent Implementation  
 > **Module:** `shahrah/auth/role_validation.py`  
@@ -8,7 +8,7 @@
 
 ## 1. Overview
 
-This module provides utility functions for validating user roles and checking permissions in the Shahrah RBAC system. All functions are pure (no side effects) and raise `HTTPException` on validation failures.
+This module provides utility functions for validating user roles and checking permissions in the GodarAI RBAC system. All functions are pure (no side effects) and raise `HTTPException` on validation failures.
 
 ---
 
@@ -327,7 +327,7 @@ shahrah/
 Public functions to re-export:
 
 ```python
-from shahrah.auth.role_validation import (
+fromGodarAI.auth.role_validation import (
     is_proxy_admin,
     is_proxy_admin_viewer,
     is_internal_user,

@@ -1,10 +1,10 @@
 # Execution Prompt: Implement Cost Center in Shahrah
 
-Use this prompt with a coding agent that has full access to the Shahrah repository.
+Use this prompt with a coding agent that has full access to the GodarAI repository.
 
 ---
 
-You are implementing a **Cost Center** system in Shahrah.
+You are implementing a **Cost Center** system in GodarAI.
 
 ## Context
 

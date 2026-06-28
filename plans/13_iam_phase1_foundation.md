@@ -1,10 +1,10 @@
 # IAM Phase 1 Foundation
 
-> Scope: finalize domain naming, compatibility mapping, permission matrix, ownership rules, and the stable API contract for Shahrah IAM.
+> Scope: finalize domain naming, compatibility mapping, permission matrix, ownership rules, and the stable API contract for GodarAI IAM.
 
 ## 1. Final Domain Decisions
 
-This document is the Phase 1 decision baseline for Shahrah IAM.
+This document is the Phase 1 decision baseline for GodarAI IAM.
 
 ### 1.1 Canonical entity names
 

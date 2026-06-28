@@ -1,4 +1,4 @@
-# Shahrah Payment System - Iranian Rial Wallet & Billing
+# GodarAI Payment System - Iranian Rial Wallet & Billing
 
 ## Overview
 
@@ -325,7 +325,7 @@ type CreatePaymentRequestInput struct {
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant S as Shahrah UI
+    participant S as GodarAI UI
     participant W as Wallet Service
     participant G as Payment Gateway
     participant B as Bank

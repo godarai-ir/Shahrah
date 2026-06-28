@@ -1,7 +1,7 @@
 ﻿# TrueFoundry Provider Account & Model Access Management
 
 ## هدف سند
-این سند یک مرجع محصولی برای بخش «مدیریت اکانت پروایدر و مدل‌ها» در TrueFoundry است تا مبنای تحلیل شکاف (پیاده‌سازی شده/نشده) در Shahrah باشد.
+این سند یک مرجع محصولی برای بخش «مدیریت اکانت پروایدر و مدل‌ها» در TrueFoundry است تا مبنای تحلیل شکاف (پیاده‌سازی شده/نشده) در GodarAI باشد.
 
 ## محدوده
 این سند روی AI Gateway متمرکز است و شامل این محورهاست:
@@ -169,7 +169,7 @@ Provider Account نماینده یک اتصال منطقی به یک vendor اس
 
 ## Assumptions
 - برخی تفاوت‌های UX بین providerها (مثلا naming در realtime/audio) در API contract قابل نرمال‌سازی است.
-- Shahrah برای MVP همان مدل دسترسی دو-نقشی (manager/user) را کافی می‌داند.
+- GodarAI برای MVP همان مدل دسترسی دو-نقشی (manager/user) را کافی می‌داند.
 
 ## Sources Used
 - `.truefoundry-docs/markdown/docs__apply-api-create-models.md`
@@ -183,8 +183,8 @@ Provider Account نماینده یک اتصال منطقی به یک vendor اس
 - `.truefoundry-docs/markdown/docs__api-reference__provider-integrations__list-provider-integrations.md`
 - `.truefoundry-docs/markdown/docs__platform__user-team-account-management.md`
 
-## Impact of Shahrah Plans
-اسناد Shahrah (خصوصا `plans/readme.md` و `plans/phase0-tenant-provider-account-contract.md`) روی این جمع‌بندی اثر گذاشتند:
+## Impact of GodarAI Plans
+اسناد GodarAI (خصوصا `plans/readme.md` و `plans/phase0-tenant-provider-account-contract.md`) روی این جمع‌بندی اثر گذاشتند:
 - تاکید روی MVP-first و قرارداد شفاف provider account
 - هم‌راستایی نقش‌های manager/user با قرارداد فاز صفر
 - نیاز به قابلیت gap analysis اجرایی برای فاز بعدی

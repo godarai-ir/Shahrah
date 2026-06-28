@@ -1,7 +1,7 @@
 # Model Metrics Contract v1
 
 ## Purpose
-This document freezes the MVP contract for model metrics events, error taxonomy, and metadata whitelist used by Shahrah control-plane and ClickHouse metrics queries.
+This document freezes the MVP contract for model metrics events, error taxonomy, and metadata whitelist used by GodarAI control-plane and ClickHouse metrics queries.
 
 ## Event Schema
 All timestamps are UTC and RFC3339-compatible.

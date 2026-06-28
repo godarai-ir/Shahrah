@@ -1,6 +1,6 @@
 # Execution Prompt: Tenant Subscription Management in Support Admin
 
-Use this prompt with a coding agent that has full access to the Shahrah repository.
+Use this prompt with a coding agent that has full access to the GodarAI repository.
 
 ---
 

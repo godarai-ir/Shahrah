@@ -1,6 +1,6 @@
 # Access Management Guide
 
-This guide covers role-based access control (RBAC), user management, team management, and organization management in the Shahrah proxy server.
+This guide covers role-based access control (RBAC), user management, team management, and organization management in the GodarAI proxy server.
 
 ## Overview
 

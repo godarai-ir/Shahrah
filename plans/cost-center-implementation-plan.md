@@ -1,8 +1,8 @@
-# Shahrah Cost Center Implementation Plan
+# GodarAI Cost Center Implementation Plan
 
 ## 1) Objective
 
-Implement a production-grade **Cost Center** capability in Shahrah that:
+Implement a production-grade **Cost Center** capability in GodarAI that:
 
 - attributes usage and spend to configurable business dimensions
 - enforces budget/rate limits at those dimensions

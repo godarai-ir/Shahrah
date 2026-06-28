@@ -21,7 +21,7 @@
 
 ## Overview
 
-Shahrah implements a flexible multi-tenant architecture where each **Tenant** (customer) has a dedicated subdomain (e.g., `tenant1.shahrah.ir`) and can organize their resources using:
+GodarAI implements a flexible multi-tenant architecture where each **Tenant** (customer) has a dedicated subdomain (e.g., `tenant1.shahrah.ir`) and can organize their resources using:
 
 - **Organization Units**: Optional logical grouping for large organizational divisions
 - **Teams**: Working groups that can belong to an Organization Unit or directly to a Tenant
@@ -82,7 +82,7 @@ Teams can have a `workspace_type`:
 
 ### User
 
-A **User** is an individual member of the Shahrah platform. Users:
+A **User** is an individual member of the GodarAI platform. Users:
 
 - Can be independent (tenant-level only) or belong to multiple teams
 - Can belong to multiple organizations (via `OrganizationMembership`)
@@ -104,7 +104,7 @@ A **Virtual User** is a service account for applications and automated systems. 
 
 ### API Keys
 
-Shahrah supports two types of API keys:
+GodarAI supports two types of API keys:
 
 | Type | Associated With | Use Case | Lifecycle |
 |------|----------------|----------|-----------|

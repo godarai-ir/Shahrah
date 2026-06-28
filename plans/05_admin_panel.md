@@ -1,8 +1,8 @@
-# Shahrah Admin Panel - Support & Management System
+# GodarAI Admin Panel - Support & Management System
 
 ## Overview
 
-This document describes the Shahrah Admin Panel, a separate management system for Shahrah's internal support and operations team. This panel is built with Next.js + TailwindCSS + shadcn/ui and maintains its own independent database, separate from the main Shahrah service database.
+This document describes the GodarAI Admin Panel, a separate management system for Shahrah's internal support and operations team. This panel is built with Next.js + TailwindCSS + shadcn/ui and maintains its own independent database, separate from the main GodarAI service database.
 
 ## 1. Architecture Overview
 
@@ -10,12 +10,12 @@ This document describes the Shahrah Admin Panel, a separate management system fo
 
 ```mermaid
 graph TB
-    subgraph "Shahrah Main Service"
-        A[Tenant API] --> B[(Shahrah DB)]
+    subgraph "GodarAI Main Service"
+        A[Tenant API] --> B[(GodarAI DB)]
         C[Tenant Admin Panel] --> B
     end
     
-    subgraph "Shahrah Admin Panel"
+    subgraph "GodarAI Admin Panel"
         D[Support Dashboard] --> E[(Admin DB)]
         F[Ticket Management] --> E
         G[Customer Management] --> E
@@ -32,7 +32,7 @@ graph TB
 ### 1.2 Key Design Principles
 
 1. **Independent Database**: Admin panel has its own PostgreSQL database
-2. **Read-Only Sync**: Data from Shahrah main service is synced read-only
+2. **Read-Only Sync**: Data from GodarAI main service is synced read-only
 3. **Separate Deployment**: Can be deployed, scaled, and updated independently
 4. **Separate Authentication**: Admin users have their own auth system
 5. **Support-First Design**: Optimized for support team workflows
@@ -161,7 +161,7 @@ model SupportTicket {
     priority        TicketPriority @default(MEDIUM)
     category        TicketCategory
     
-    // Customer reference (from Shahrah main service)
+    // Customer reference (from GodarAI main service)
     tenant_id       String?
     tenant_slug     String?
     customer_email  String
@@ -267,7 +267,7 @@ enum MessageAuthorType {
 model ShahrahCustomerSync {
     id              String   @id @default(uuid())
     
-    // Reference to Shahrah main service
+    // Reference to GodarAI main service
     tenant_id       String   @unique
     tenant_slug     String
     tenant_name     String
@@ -437,13 +437,13 @@ interface Customer360 {
 }
 ```
 
-## 5. Data Sync from Shahrah Main Service
+## 5. Data Sync from GodarAI Main Service
 
 ### 5.1 Sync Architecture
 
 ```mermaid
 sequenceDiagram
-    participant S as Shahrah Main DB
+    participant S as GodarAI Main DB
     participant W as Sync Worker
     participant Q as Message Queue
     participant A as Admin DB
@@ -509,7 +509,7 @@ export async function syncCustomer(payload: SyncCustomerPayload) {
 | Method | Description | Latency |
 |--------|-------------|---------|
 | CDC (Debezium) | Capture database changes | < 1s |
-| Webhook | Shahrah pushes updates | < 5s |
+| Webhook | GodarAI pushes updates | < 5s |
 | Scheduled Poll | Admin pulls updates periodically | 1-5 min |
 | Manual Sync | Trigger from admin UI | On-demand |
 

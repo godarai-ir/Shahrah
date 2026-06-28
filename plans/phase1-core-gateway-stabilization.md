@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-Phase 1 transforms the existing scaffold of the Shahrah control-plane into a production-ready LLM gateway. The codebase already has approximately **60% of the core structures** in place (proxy handler with streaming, tenant middleware, auth middleware, billing service, router, tunnel transport). This phase focuses on **completing gaps, hardening existing code, and adding missing critical components**.
+Phase 1 transforms the existing scaffold of the GodarAI control-plane into a production-ready LLM gateway. The codebase already has approximately **60% of the core structures** in place (proxy handler with streaming, tenant middleware, auth middleware, billing service, router, tunnel transport). This phase focuses on **completing gaps, hardening existing code, and adding missing critical components**.
 
 ### Current State Assessment
 
@@ -58,7 +58,7 @@ Phase 1 transforms the existing scaffold of the Shahrah control-plane into a pro
 **File:** `services/control-plane/internal/proxy/handler.go`
 **Lines:** 202-268 (handleStream method)
 
-**Problem:** The streaming handler sets Shahrah headers but does not forward response headers from the upstream provider (e.g., `x-ratelimit-remaining-tokens` from OpenAI).
+**Problem:** The streaming handler sets GodarAI headers but does not forward response headers from the upstream provider (e.g., `x-ratelimit-remaining-tokens` from OpenAI).
 
 **Implementation:**
 ```go

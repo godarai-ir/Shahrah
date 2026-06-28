@@ -1,4 +1,4 @@
-# Shahrah RBAC Tests Specification
+# GodarAI RBAC Tests Specification
 
 > **For:** Coding Agent Implementation  
 > **Test Framework:** `pytest`  

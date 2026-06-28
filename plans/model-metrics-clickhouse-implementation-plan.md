@@ -1,7 +1,7 @@
 ﻿# Model Metrics Implementation Plan (ClickHouse)
 
 ## Objective
-Implement a production-ready `Model Metrics` subsystem for Shahrah using ClickHouse, aligned with Shahrah multi-tenant architecture and the target dashboard (RPS, failures, latency percentiles, token usage, cost).
+Implement a production-ready `Model Metrics` subsystem for GodarAI using ClickHouse, aligned with GodarAI multi-tenant architecture and the target dashboard (RPS, failures, latency percentiles, token usage, cost).
 
 ## Inputs Reviewed
 - `D:\source\Shahrah\.truefoundry-docs\markdown\docs__ai-gateway__analytics.md`

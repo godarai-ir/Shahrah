@@ -1,8 +1,8 @@
-# Shahrah Framework - Documentation Index
+# GodarAI Framework - Documentation Index
 
 ## Overview
 
-This directory contains the foundational documentation for **Shahrah** (شاهراه), a unified LLM gateway framework designed for the Iranian market. Shahrah is inspired by LiteLLM's architecture while introducing unique features for the Iranian market including Rial wallet payments, Iran-Europe tunnel service for bypassing sanctions, and multi-tenant subdomain isolation.
+This directory contains the foundational documentation for **Shahrah** (شاهراه), a unified LLM gateway framework designed for the Iranian market. GodarAI is inspired by LiteLLM's architecture while introducing unique features for the Iranian market including Rial wallet payments, Iran-Europe tunnel service for bypassing sanctions, and multi-tenant subdomain isolation.
 
 ## Document Index
 
@@ -12,11 +12,11 @@ This directory contains the foundational documentation for **Shahrah** (شاهر
 | 2 | Multi-Tenant Architecture with On-Premise Support | [`02_multi_tenant_architecture.md`](02_multi_tenant_architecture.md) | ✅ Complete |
 | 3 | Subdomain-Based Tenant Access | [`03_subdomain_tenant_access.md`](03_subdomain_tenant_access.md) | ✅ Complete |
 | 4 | Microservices Architecture with Iran-Europe Tunnel | [`04_microservices_architecture.md`](04_microservices_architecture.md) | ✅ Complete |
-| 5 | Admin Panel for Shahrah Management | [`05_admin_panel.md`](05_admin_panel.md) | ✅ Complete |
+| 5 | Admin Panel for GodarAI Management | [`05_admin_panel.md`](05_admin_panel.md) | ✅ Complete |
 | 6 | Docusaurus Documentation System | [`06_docusaurus_documentation.md`](06_docusaurus_documentation.md) | ✅ Complete |
 | 7 | Blog Service (Future) | [`07_blog_service.md`](07_blog_service.md) | ✅ Complete |
 | 8 | SDK Development Strategy | [`08_sdk_development_strategy.md`](08_sdk_development_strategy.md) | ✅ Complete |
-| 9 | Shahrah Features (LiteLLM-Inspired) | [`09_shahrah_features.md`](09_shahrah_features.md) | ✅ Complete |
+| 9 | GodarAI Features (LiteLLM-Inspired) | [`09_shahrah_features.md`](09_shahrah_features.md) | ✅ Complete |
 | 10 | Performance & Availability Architecture | [`10_performance_availability.md`](10_performance_availability.md) | ✅ Complete |
 
 | 11 | Observability Platform Implementation Plan | [`observability-platform-implementation-plan.md`](observability-platform-implementation-plan.md) | âœ… Complete |
@@ -53,7 +53,7 @@ graph TB
     end
     
     subgraph "Supporting Services"
-        Q[(Shahrah DB)] -. sync .-> K
+        Q[(GodarAI DB)] -. sync .-> K
         R[Redis Cache]
         S[Docusaurus Docs]
         T[Blog Service]
@@ -83,7 +83,7 @@ graph TB
 - **mTLS Security**: Mutual TLS authentication between tunnel endpoints
 
 ### 4. Technology Stack
-- **Backend**: Go (chi router, net/http) for both Shahrah Control Plane and Silk Road
+- **Backend**: Go (chi router, net/http) for both GodarAI Control Plane and Silk Road
 - **Frontend**: Next.js + TailwindCSS + shadcn/ui for admin panels
 - **Database**: PostgreSQL with Prisma ORM (Python) / GORM (Go)
 - **Cache**: Redis Cluster with Sentinel (go-redis)
@@ -115,7 +115,7 @@ graph TB
 
 ## LiteLLM Inspiration
 
-Shahrah draws heavily from LiteLLM's proven architecture:
+GodarAI draws heavily from LiteLLM's proven architecture:
 - OpenAI-compatible API interface
 - Provider transformation patterns
 - Router/load balancing strategies

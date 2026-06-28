@@ -1,4 +1,4 @@
-# Shahrah RBAC Implementation Guide
+# GodarAI RBAC Implementation Guide
 
 > **For:** Coding Agent  
 > **Implementation Order:** Sequential - each module depends on the previous
@@ -7,7 +7,7 @@
 
 ## 1. Overview
 
-This guide provides specifications for implementing Shahrah's Role-Based Access Control (RBAC) system. The implementation is inspired by LiteLLM's patterns but branded and adapted specifically for Shahrah.
+This guide provides specifications for implementing Shahrah's Role-Based Access Control (RBAC) system. The implementation is inspired by LiteLLM's patterns but branded and adapted specifically forGodarAI.
 
 ---
 
@@ -28,7 +28,7 @@ The Coding Agent should implement modules in this order:
 
 ```
 shahrah/
-├── __init__.py                    # Main shahrah package exports
+├── __init__.py                    # Main GodarAI package exports
 ├── types/
 │   ├── __init__.py                # Re-export all types
 │   └── rbac_types.py              # Enum and Pydantic model definitions
@@ -67,11 +67,11 @@ The following features from LiteLLM are **deprecated** and should NOT be impleme
 | `internal_user_viewer` role | Deprecated in favor of team/org specific roles |
 | Enterprise premium features (JWT team/org admin claims) | Mark as premium/enterprise-only with clear error messages |
 
-### 4.2 Shahrah vs LiteLLM Branding
+### 4.2 GodarAI vs LiteLLM Branding
 
 All references to "LiteLLM" should be replaced with "Shahrah":
 
-| LiteLLM | Shahrah |
+| LiteLLM | GodarAI |
 |---------|---------|
 | `LitellmUserRoles` | `ShahrahUserRole` |
 | `LiteLLM_TeamTable` | `Team` |
@@ -148,19 +148,19 @@ Defines:
 
 ## 6. Integration with Existing Codebase
 
-### 6.1 Where to Place the Shahrah Module
+### 6.1 Where to Place the GodarAI Module
 
 The `shahrah/` directory should be created at the project root level:
 
 ```
 d:/source/litellm/
-├── shahrah/                    # NEW - Shahrah RBAC module
+├── shahrah/                    # NEW - GodarAI RBAC module
 │   ├── types/
 │   ├── auth/
 │   └── middleware/
 ├── litellm/                    # Existing LiteLLM code
 ├── tests/
-│   └── shahrah/                # NEW - Shahrah tests
+│   └── shahrah/                # NEW - GodarAI tests
 └── ...
 ```
 
@@ -168,8 +168,8 @@ d:/source/litellm/
 
 ```python
 from fastapi import FastAPI
-from shahrah.middleware import RBACMiddleware, require_proxy_admin
-from shahrah.types import AuthToken, ShahrahUserRole
+fromGodarAI.middleware import RBACMiddleware, require_proxy_admin
+fromGodarAI.types import AuthToken, ShahrahUserRole
 
 app = FastAPI()
 

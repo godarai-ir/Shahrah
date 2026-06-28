@@ -24,7 +24,7 @@
 
 ```mermaid
 graph TB
-    Client[API Client] --> Gateway[Shahrah Gateway]
+    Client[API Client] --> Gateway[GodarAI Gateway]
     Gateway --> Auth[Authentication Layer]
     Auth --> TagParser[Tag Extraction Engine]
     TagParser --> BudgetChecker[Budget Enforcement Engine]

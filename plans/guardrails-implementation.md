@@ -9,11 +9,11 @@ Ship a scoped LLM guardrails MVP for Shahrah's Go control-plane gateway. This im
 - TrueFoundry docs: `.truefoundry-docs/markdown/docs__ai-gateway__guardrails-overview.md`
 - TrueFoundry docs: `.truefoundry-docs/markdown/docs__ai-gateway__guardrails-configuration.md`
 - TrueFoundry docs: `.truefoundry-docs/markdown/docs__ai-gateway__guardrails-getting-started.md`
-- Shahrah plans: `plans/readme.md`
-- Shahrah plans: `plans/09_shahrah_features.md`
-- Shahrah code: `services/control-plane/internal/proxy`
-- Shahrah code: `services/control-plane/internal/observability`
-- Shahrah schema: `packages/database/schema.prisma`
+- GodarAI plans: `plans/readme.md`
+- GodarAI plans: `plans/09_shahrah_features.md`
+- GodarAI code: `services/control-plane/internal/proxy`
+- GodarAI code: `services/control-plane/internal/observability`
+- GodarAI schema: `packages/database/schema.prisma`
 
 ## What Shipped
 
@@ -49,7 +49,7 @@ Ship a scoped LLM guardrails MVP for Shahrah's Go control-plane gateway. This im
 ## Operational Risks
 
 - Built-in detectors are pragmatic pattern checks, not compliance-grade DLP.
-- Output guardrails run after provider response. Model cost is already incurred and Shahrah debits the wallet before blocking or redacting output.
+- Output guardrails run after provider response. Model cost is already incurred and GodarAI debits the wallet before blocking or redacting output.
 - Tenant guardrail selectors resolve within the authenticated tenant context. A matching slug in another tenant is not loaded.
 
 ## Rollout Guidance

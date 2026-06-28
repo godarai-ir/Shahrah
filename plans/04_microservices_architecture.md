@@ -1,4 +1,4 @@
-# Shahrah Microservices Architecture with Iran-Europe Tunnel
+# GodarAI Microservices Architecture with Iran-Europe Tunnel
 
 ## Overview
 
@@ -12,7 +12,7 @@ This document describes the microservices architecture for Shahrah, focusing on 
 graph TB
     subgraph "Iran Datacenter"
         A[User] --> B[API Gateway]
-        B --> C[Shahrah Control Plane]
+        B --> C[GodarAI Control Plane]
         
         subgraph "Control Plane Services"
             C --> D[Tenant Service]
@@ -95,7 +95,7 @@ graph TB
 // tunnel.proto
 syntax = "proto3";
 
-package shahrah.tunnel.v1;
+packageGodarAI.tunnel.v1;
 
 service TunnelService {
   // Bidirectional streaming for request/response

@@ -1,6 +1,6 @@
 # Executable Prompt: Request Traces for Shahrah
 
-Use this prompt with a coding agent to implement a production-grade `Request Traces` feature in Shahrah.
+Use this prompt with a coding agent to implement a production-grade `Request Traces` feature inGodarAI.
 
 ## Prompt
 
@@ -32,7 +32,7 @@ Implement a high-performance `Request Traces` feature for Shahrah's control plan
   - Tenant-scoped UI in tenant-admin for trace search + detail waterfall.
 - Defer:
   - Full-text body search across prompts/responses.
-  - Cross-region distributed trace joins outside Shahrah boundary.
+  - Cross-region distributed trace joins outside GodarAI boundary.
   - Advanced AI eval feedback loops.
 - Exclude:
   - Synchronous trace writes in request path.

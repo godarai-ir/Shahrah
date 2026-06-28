@@ -1,8 +1,8 @@
-# Shahrah Performance & Availability Architecture
+# GodarAI Performance & Availability Architecture
 
 ## Overview
 
-This document describes the performance requirements and availability architecture for Shahrah. The target is P95 latency under 10ms for control plane operations (excluding provider network latency), and 99.99% availability for the core gateway services.
+This document describes the performance requirements and availability architecture for GodarAI. The target is P95 latency under 10ms for control plane operations (excluding provider network latency), and 99.99% availability for the core gateway services.
 
 ## 1. Performance Requirements
 
@@ -493,93 +493,6 @@ graph TB
     style A2 fill:#4caf50
     style A3 fill:#4caf50
     style A4 fill:#ffeb3b
-```
-
-### 3.2 Load Balancing
-
-#### API Gateway Load Balancing (Nginx/HAProxy)
-
-```nginx
-upstream shahrah_control_plane {
-    least_conn;
-    server cp-1:4000 max_fails=3 fail_timeout=30s;
-    server cp-2:4000 max_fails=3 fail_timeout=30s;
-    server cp-3:4000 max_fails=3 fail_timeout=30s;
-    
-    keepalive 100;
-}
-
-upstream shahrah_tunnel_clients {
-    least_conn;
-    server tc-1:50051 max_fails=3 fail_timeout=30s;
-    server tc-2:50051 max_fails=3 fail_timeout=30s;
-    server tc-3:50051 max_fails=3 fail_timeout=30s;
-    
-    keepalive 100;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name *.sharah.ir;
-    
-    # Health check
-    location /health {
-        proxy_pass http://shahrah_control_plane;
-        proxy_next_upstream error timeout http_500 http_502 http_503 http_504;
-    }
-    
-    # API endpoints
-    location / {
-        proxy_pass http://shahrah_control_plane;
-        proxy_next_upstream error timeout http_500 http_502 http_503 http_504;
-        proxy_connect_timeout 5s;
-        proxy_read_timeout 300s;
-    }
-}
-```
-
-### 3.3 Database High Availability
-
-#### PostgreSQL Streaming Replication
-
-```yaml
-# PostgreSQL Configuration
-primary:
-  wal_level: replica
-  max_wal_senders: 10
-  wal_keep_size: 1GB
-
-standby:
-  primary_conninfo: "host=primary port=5432 user=replicator password=xxx"
-  recovery_target_timeline: latest
-```
-
-#### Automatic Failover with Patroni
-
-```yaml
-# patroni.yaml
-scope: shahrah-postgres
-namespace: /db/
-name: shahrah-db-1
-
-restapi:
-  listen: 0.0.0.0:8008
-  connect_address: shahrah-db-1:8008
-
-etcd:
-  hosts: etcd-1:2379,etcd-2:2379,etcd-3:2379
-
-bootstrap:
-  dcs:
-    ttl: 30
-    loop_wait: 10
-    retry_timeout: 10
-    maximum_lag_on_failover: 1048576
-
-postgresql:
-  listen: 0.0.0.0:5432
-  connect_address: shahrah-db-1:5432
-  data_dir: /var/lib/postgresql/data
 ```
 
 ### 3.4 Redis High Availability

@@ -1,7 +1,7 @@
-# Shahrah Observability Platform Implementation Plan
+# GodarAI Observability Platform Implementation Plan
 
 ## Objective
-Implement a production-grade observability platform for Shahrah on K3s using Argo CD and GitOps, with Longhorn as the in-cluster storage class for persistent observability workloads.
+Implement a production-grade observability platform for GodarAI on K3s using Argo CD and GitOps, with Longhorn as the in-cluster storage class for persistent observability workloads.
 
 The target outcome is:
 - centralized logs for cluster and application workloads
@@ -69,7 +69,7 @@ The target outcome is:
 
 ### Why this stack
 - mature Helm packaging and Argo CD friendliness
-- lower operational cost than ELK for current Shahrah scale
+- lower operational cost than ELK for current GodarAI scale
 - native fit with Grafana for logs, metrics, and traces in one UI
 - aligns with current `control-plane` OTLP-capable tracing implementation
 
@@ -428,7 +428,7 @@ These are starting points only and must be verified under real load.
 The observability platform is production-ready only when:
 - Prometheus targets are healthy
 - Grafana is reachable only through the approved internal access path
-- Loki contains logs for key Shahrah workloads
+- Loki contains logs for key GodarAI workloads
 - Alertmanager successfully routes a test alert
 - Tempo stores traces from `control-plane`
 - request and response payloads are not centrally logged by default
@@ -460,7 +460,7 @@ The observability platform is production-ready only when:
 - wire internal-only ingress or access controls for Grafana
 
 ## Rollback Strategy
-- observability platform rollout must not block Shahrah traffic serving
+- observability platform rollout must not block GodarAI traffic serving
 - if Loki or Tempo fail, app traffic should continue
 - if trace export backend fails, `control-plane` should continue with local fallback behavior
 - disable app-level instrumentation features behind config flags where possible

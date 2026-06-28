@@ -1,6 +1,6 @@
 # Budget Reset and Timezones
 
-Shahrah supports predictable budget reset times that align with natural calendar boundaries, ensuring consistent and transparent spend management across your organization.
+GodarAI supports predictable budget reset times that align with natural calendar boundaries, ensuring consistent and transparent spend management across your organization.
 
 ## How Budget Resets Work
 

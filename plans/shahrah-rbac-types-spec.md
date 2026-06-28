@@ -1,4 +1,4 @@
-# Shahrah RBAC Types Specification
+# GodarAI RBAC Types Specification
 
 > **For:** Coding Agent Implementation  
 > **Module:** `shahrah/types/rbac_types.py`  
@@ -405,7 +405,7 @@ shahrah/
 All types should be re-exported from `__init__.py` for clean imports:
 
 ```python
-from shahrah.types.rbac_types import (
+fromGodarAI.types.rbac_types import (
     ShahrahUserRole,
     OrganizationTeamRole,
     KeyPermission,

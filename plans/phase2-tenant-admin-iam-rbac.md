@@ -15,7 +15,7 @@ Deliver MVP-grade identity and access management for `tenant-admin` so tenant op
   - `.truefoundry-docs/markdown/docs__api-reference__users__list-users.md`
   - `.truefoundry-docs/markdown/docs__api-reference__teams__create-or-update-a-team.md`
   - `.truefoundry-docs/markdown/docs__api-reference__workspaces__create-or-update-workspace.md`
-- Shahrah plans:
+- GodarAI plans:
   - `plans/readme.md`
   - `plans/phase0-tenant-provider-account-contract.md`
   - `plans/phase1-tenant-provider-account-backend-foundation.md`

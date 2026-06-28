@@ -1,8 +1,8 @@
-# Shahrah SDK Development Strategy
+# GodarAI SDK Development Strategy
 
 ## Overview
 
-This document describes the SDK development strategy for Shahrah. Since Shahrah's customers are technical users (developers, engineers), having high-quality SDKs for popular frameworks like Next.js, NestJS, Python, and others is critical for developer experience and adoption.
+This document describes the SDK development strategy forGodarAI. Since Shahrah's customers are technical users (developers, engineers), having high-quality SDKs for popular frameworks like Next.js, NestJS, Python, and others is critical for developer experience and adoption.
 
 ## 1. SDK Requirements Analysis
 
@@ -34,7 +34,7 @@ This document describes the SDK development strategy for Shahrah. Since Shahrah'
 
 ```mermaid
 graph TB
-    subgraph "Shahrah SDK Monorepo"
+    subgraph "GodarAI SDK Monorepo"
         A[@shahrah/openapi] --> B[@shahrah/core]
         B --> C[@shahrah/typescript]
         B --> D[@shahrah/python]
@@ -101,9 +101,9 @@ shahrah-sdk/
 │   ├── nestjs/                     # NestJS specific module
 │   │   ├── src/
 │   │   │   ├── index.ts
-│   │   │   ├── shahrah.module.ts
-│   │   │   ├── shahrah.service.ts
-│   │   │   └── shahrah.provider.ts
+│   │   │   ├──GodarAI.module.ts
+│   │   │   ├──GodarAI.service.ts
+│   │   │   └──GodarAI.provider.ts
 │   │   └── package.json
 │   └── go/                         # Go SDK
 │       ├── client.go
@@ -138,7 +138,7 @@ shahrah-sdk/
 
 ### 3.1 OpenAI Compatibility
 
-The Shahrah SDK should be a **drop-in replacement** for OpenAI SDK:
+The GodarAI SDK should be a **drop-in replacement** for OpenAI SDK:
 
 ```typescript
 // OpenAI SDK usage
@@ -153,15 +153,15 @@ const response = await openai.chat.completions.create({
   messages: [{ role: 'user', content: 'Hello' }],
 })
 
-// Shahrah SDK usage (nearly identical)
-import Shahrah from '@shahrah/typescript'
+// GodarAI SDK usage (nearly identical)
+import GodarAI from '@shahrah/typescript'
 
-const shahrah = new Shahrah({
+const GodarAI = new Shahrah({
   baseUrl: 'https://your-tenant.sharah.ir',
   apiKey: process.env.SHAHRAH_API_KEY,
 })
 
-const response = await shahrah.chat.completions.create({
+const response = awaitGodarAI.chat.completions.create({
   model: 'gpt-4o',  // Same model format
   messages: [{ role: 'user', content: 'Hello' }],
 })
@@ -761,7 +761,7 @@ jobs:
 ```markdown
 # @shahrah/{package}
 
-> Official Shahrah SDK for {language/framework}
+> Official GodarAI SDK for {language/framework}
 
 ## Installation
 
@@ -776,7 +776,7 @@ go get github.com/shahrah/shahrah-go
 ## Quick Start
 
 \`\`\`typescript
-import Shahrah from '@shahrah/{package}'
+import GodarAI from '@shahrah/{package}'
 
 const client = new Shahrah({
   baseUrl: 'https://your-tenant.sharah.ir',
@@ -818,7 +818,7 @@ examples/
 
 ### 9.1 Automated Updates
 
-When the Shahrah API spec changes:
+When the GodarAI API spec changes:
 
 1. CI/CD pipeline triggers code generation
 2. Generated types are updated
@@ -827,7 +827,7 @@ When the Shahrah API spec changes:
 
 ### 9.2 Version Compatibility Matrix
 
-| Shahrah API Version | SDK Version | Status |
+| GodarAI API Version | SDK Version | Status |
 |--------------------|-------------|--------|
 | v1.0 | 1.x | Current |
 | v0.9 | 0.9.x | Deprecated |
@@ -850,7 +850,7 @@ SHAHRAH_DEBUG=true
 ### 10.2 Debug Logging
 
 ```typescript
-import Shahrah from '@shahrah/typescript'
+import GodarAI from '@shahrah/typescript'
 
 const client = new Shahrah({
   baseUrl: '...',

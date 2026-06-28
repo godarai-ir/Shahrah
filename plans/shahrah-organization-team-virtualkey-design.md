@@ -11,7 +11,7 @@
 3. [Hierarchy Diagram](#hierarchy-diagram)
 4. [Data Model](#data-model)
 5. [LiteLLM Reference Models](#litellm-reference-models)
-6. [Shahrah Entity Mapping](#shahrah-entity-mapping)
+6. [GodarAI Entity Mapping](#shahrah-entity-mapping)
 7. [Virtual Key Design](#virtual-key-design)
 8. [Budget and Rate Limiting](#budget-and-rate-limiting)
 9. [Access Control and Permissions](#access-control-and-permissions)
@@ -23,7 +23,7 @@
 
 ## Overview
 
-Shahrah adopts a multi-tenant architecture where each **Tenant** (customer) can create multiple **Organizations**, each containing multiple **Teams**. Every Team can have multiple **Users** (internal members) and **Virtual Keys** (API keys). This structure provides:
+GodarAI adopts a multi-tenant architecture where each **Tenant** (customer) can create multiple **Organizations**, each containing multiple **Teams**. Every Team can have multiple **Users** (internal members) and **Virtual Keys** (API keys). This structure provides:
 
 - **Isolation**: Organizations are isolated from each other within a tenant
 - **Granular Control**: Teams have their own budgets, model access, and rate limits
@@ -32,7 +32,7 @@ Shahrah adopts a multi-tenant architecture where each **Tenant** (customer) can 
 
 ### Why This Structure?
 
-Large enterprises (Shahrah tenants) often have multiple departments or business units that need:
+Large enterprises (GodarAI tenants) often have multiple departments or business units that need:
 - Separate budgets and spending controls
 - Different model access policies
 - Independent rate limiting
@@ -64,14 +64,14 @@ A **Team** is a working group within an organization. Teams:
 - Track spend independently
 
 ### User (Internal User)
-A **User** is an internal user within the Shahrah platform. Users:
+A **User** is an internal user within the GodarAI platform. Users:
 - Belong to one or more organizations (via `OrganizationMembership`)
 - Belong to one or more teams (via `TeamMembership`)
 - Have roles within each context (e.g., `org_admin`, `team_admin`, `member`)
 - Can generate personal virtual keys
 
 ### Virtual Key
-A **Virtual Key** is an API key that authenticates requests to the Shahrah proxy. Keys:
+A **Virtual Key** is an API key that authenticates requests to the GodarAI proxy. Keys:
 - Are associated with a user and/or team (and optionally an organization)
 - Have model access restrictions
 - Have budget and rate limit controls (TPM, RPM, max budget)
@@ -374,17 +374,17 @@ model LiteLLM_ObjectPermissionTable {
 
 ---
 
-## Shahrah Entity Mapping
+## GodarAI Entity Mapping
 
-The following table maps LiteLLM entities to their Shahrah equivalents:
+The following table maps LiteLLM entities to their GodarAI equivalents:
 
-| LiteLLM Entity | Shahrah Entity | Notes |
+| LiteLLM Entity | GodarAI Entity | Notes |
 |----------------|----------------|-------|
 | `LiteLLM_OrganizationTable` | `Organization` | Represents a business unit within a tenant |
 | `LiteLLM_TeamTable` | `Team` | Represents a working group within an organization |
 | `LiteLLM_VerificationToken` | `VirtualKey` | API keys for proxy authentication |
 | `LiteLLM_BudgetTable` | `Budget` | Spending limits and rate constraints |
-| `LiteLLM_UserTable` | `User` | Internal users of the Shahrah platform |
+| `LiteLLM_UserTable` | `User` | Internal users of the GodarAI platform |
 | `LiteLLM_OrganizationMembership` | `OrganizationMembership` | User-to-organization relationship |
 | `LiteLLM_TeamMembership` | `TeamMembership` | User-to-team relationship |
 | `LiteLLM_ObjectPermissionTable` | `ObjectPermission` | Permissions for MCP servers, vector stores, agents |
@@ -691,7 +691,7 @@ Each organization has its own admin who manages their teams and budgets. Enginee
 
 ### Use Case 2: Multi-Client SaaS Provider
 
-**Scenario**: A SaaS company uses Shahrah to serve multiple clients, each with isolated environments.
+**Scenario**: A SaaS company uses GodarAI to serve multiple clients, each with isolated environments.
 
 ```
 Tenant: SaaS Provider

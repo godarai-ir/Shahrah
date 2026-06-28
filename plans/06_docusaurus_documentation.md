@@ -1,4 +1,4 @@
-# Shahrah Documentation System - Docusaurus
+# GodarAI Documentation System - Docusaurus
 
 ## Overview
 
@@ -108,10 +108,10 @@ import { themes as prismThemes } from 'prism-react-renderer'
 import type { Config } from '@docusaurus/types'
 
 const config: Config = {
-  title: 'Shahrah Documentation',
+  title: 'GodarAI Documentation',
   tagline: 'Unified LLM Gateway for Iranian Developers',
   favicon: 'img/favicon.ico',
-  url: 'https://sharah.ir',
+  url: 'https://godarai.ir',
   baseUrl: '/docs/',
   trailingSlash: false,
   
@@ -154,7 +154,7 @@ const config: Config = {
     navbar: {
       title: 'Shahrah',
       logo: {
-        alt: 'Shahrah Logo',
+        alt: 'GodarAI Logo',
         src: 'img/logo.svg',
       },
       items: [
@@ -170,7 +170,7 @@ const config: Config = {
           position: 'left',
         },
         {
-          href: 'https://sharah.ir',
+          href: 'https://godarai.ir',
           label: 'Main Site',
           position: 'right',
         },
@@ -564,7 +564,7 @@ More instructions...
 ```markdown
 <!-- Always specify language -->
 \`\`\`python
-from shahrah import ShahrahClient
+from GodarAI import ShahrahClient
 
 client = ShahrahClient(
     base_url="https://your-tenant.sharah.ir",
@@ -619,7 +619,7 @@ jobs:
           rsync -avz docs/build/ server:/var/www/shahrah/docs/
 ```
 
-### 6.2 Integration with Main Shahrah Deployment
+### 6.2 Integration with Main GodarAI Deployment
 
 The docs are served as a subpath of the main domain:
 

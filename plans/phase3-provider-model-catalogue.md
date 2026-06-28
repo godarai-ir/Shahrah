@@ -8,7 +8,7 @@
 
 ## Objective
 
-Build a versioned Provider-Model Catalogue for Shahrah that becomes the source of truth for:
+Build a versioned Provider-Model Catalogue for GodarAI that becomes the source of truth for:
 
 - Which providers and models are available
 - What capabilities each model supports
@@ -28,7 +28,7 @@ This plan is product + architecture focused and intentionally does not require c
   - `.llmLite_docs/proxy/sync_models_github.md`
   - `.llmLite_docs/provider_registration/add_model_pricing.md`
   - `.llmLite_docs/completion/model_alias.md`
-- Shahrah plans:
+- GodarAI plans:
   - `plans/README.md`
   - `plans/04_microservices_architecture.md`
   - `plans/09_shahrah_features.md`
@@ -44,7 +44,7 @@ This plan is product + architecture focused and intentionally does not require c
 
 ## Architecture
 
-### Proposed Shahrah Components
+### Proposed GodarAI Components
 
 1. **Catalogue Domain (Control Plane)**
 2. Owns provider/model metadata, capabilities, pricing profiles, aliases, and lifecycle state.
@@ -223,7 +223,7 @@ This plan is product + architecture focused and intentionally does not require c
 2. Offerings are the join between provider and canonical model.
 3. Alias and wildcard resolution is explicit and deterministic.
 4. Tenant policy is additive with explicit deny capability.
-5. Pricing is stored in USD with conversion at billing time using Shahrah exchange-rate service.
+5. Pricing is stored in USD with conversion at billing time using GodarAI exchange-rate service.
 
 ### Suggested Indexes
 

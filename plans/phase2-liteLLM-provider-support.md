@@ -2,7 +2,7 @@
 
 > **Status:** Draft
 > **Created:** 2026-04-26
-> **Priority:** P0 - Core feature for Shahrah gateway
+> **Priority:** P0 - Core feature for GodarAI gateway
 
 ---
 

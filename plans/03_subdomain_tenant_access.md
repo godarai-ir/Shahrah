@@ -1,14 +1,14 @@
-# Shahrah Subdomain-Based Tenant Access
+# GodarAI Subdomain-Based Tenant Access
 
 ## Overview
 
-This document describes the subdomain-based tenant access architecture for Shahrah. Each tenant accesses their dedicated services through unique subdomains, providing clean URL-based tenant isolation and routing.
+This document describes the subdomain-based tenant access architecture forGodarAI. Each tenant accesses their dedicated services through unique subdomains, providing clean URL-based tenant isolation and routing.
 
 ## 1. Subdomain Architecture
 
 ### 1.1 URL Structure
 
-Shahrah uses a two-tier subdomain structure for each tenant:
+GodarAI uses a two-tier subdomain structure for each tenant:
 
 ```
 API Endpoints:        https://<tenant-slug>.sharah.ir/
@@ -40,7 +40,7 @@ graph TB
     end
     
     subgraph "Backend Services - Iran"
-        H --> I[Shahrah Control Plane]
+        H --> I[GodarAI Control Plane]
         I --> J[(Tenant DB)]
         I --> K[Cache Layer]
     end
@@ -514,7 +514,7 @@ func GetCORSOrigins(tenantSlug string) []string {
 ```mermaid
 sequenceDiagram
     participant A as Admin
-    participant S as Shahrah Admin Panel
+    participant S as GodarAI Admin Panel
     participant P as Provisioning Service
     participant D as DNS Provider
     participant DB as Database

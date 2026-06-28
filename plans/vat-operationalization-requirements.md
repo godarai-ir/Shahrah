@@ -2,7 +2,7 @@
 
 ## Context
 
-Shahrah already has the first pieces of Virtual Account Token support: PAT/VAT key types, `/api/v1/keys/vat`, virtual-user CRUD, provider-account access resolution, and tenant-scoped key authentication. The current gap is that VAT is not yet fully operational as a production service identity. A tenant admin can create a VAT-like team key, but the key is not strongly tied to a `virtual_user_id`, VAT lifecycle operations are incomplete, and runtime quota/budget behavior is not yet enforceable at the VAT/team/key boundary.
+GodarAI already has the first pieces of Virtual Account Token support: PAT/VAT key types, `/api/v1/keys/vat`, virtual-user CRUD, provider-account access resolution, and tenant-scoped key authentication. The current gap is that VAT is not yet fully operational as a production service identity. A tenant admin can create a VAT-like team key, but the key is not strongly tied to a `virtual_user_id`, VAT lifecycle operations are incomplete, and runtime quota/budget behavior is not yet enforceable at the VAT/team/key boundary.
 
 TrueFoundry's relevant product idea is simple: developers should use one gateway token instead of provider keys; PATs are for people and development; VATs are for applications, CI/CD, and production services; virtual accounts are non-user identities with explicit model/provider access and operational lifecycle controls.
 
@@ -15,13 +15,13 @@ For Shahrah, we should include the parts that improve day-1 operability and adop
   - `.truefoundry-docs/markdown/docs__platform__virtual-account-management.md`
   - `.truefoundry-docs/markdown/docs__ai-gateway__gateway-access-control.md`
   - `.truefoundry-docs/markdown/docs__generating-truefoundry-api-keys.md`
-- Shahrah plans:
+- GodarAI plans:
   - `plans/readme.md`
   - `plans/tenant-organization-team-design.md`
   - `plans/phase2-tenant-admin-iam-rbac.md`
   - `plans/phase3-provider-model-catalogue.md`
   - `plans/shahrah_budgets_rate_limits.md`
-- Shahrah code inspected:
+- GodarAI code inspected:
   - `packages/contracts/platform/types.go`
   - `services/control-plane/internal/admin/handlers_onboarding_keys.go`
   - `services/control-plane/internal/storage/auth_repo.go`
@@ -32,10 +32,10 @@ For Shahrah, we should include the parts that improve day-1 operability and adop
 
 ## Product Decisions
 
-| Capability | Decision | Shahrah adaptation | Reason |
+| Capability | Decision | GodarAI adaptation | Reason |
 |---|---|---|---|
 | VAT as non-human production identity | Include now | VAT must be owned by `virtual_users.virtual_user_id`, optionally scoped to team/org unit | Production apps must not depend on a human user's PAT |
-| Provider-account/model access for VAT | Include now | Use existing provider-account and virtual-model access resolver; reject VAT creation if requested models exceed virtual user's scope | Matches Shahrah provider-account direction and avoids provider key exposure |
+| Provider-account/model access for VAT | Include now | Use existing provider-account and virtual-model access resolver; reject VAT creation if requested models exceed virtual user's scope | Matches GodarAI provider-account direction and avoids provider key exposure |
 | VAT list/get/update/revoke APIs | Include now | Add canonical VAT management APIs separate from PAT APIs | Operators need lifecycle control before production use |
 | Runtime auth context includes virtual user | Include now | `AuthContext` must expose `VirtualUserID` and reject inactive/deleted virtual users | Required for audit, policy, billing, and support |
 | Audit and last-used visibility | Include now | Emit audit records for create/update/revoke/rotate and expose `last_used_at` | Operators need to answer "which service used what?" |
@@ -44,7 +44,7 @@ For Shahrah, we should include the parts that improve day-1 operability and adop
 | Auto-rotation | Defer | Store fields only if needed, but no scheduler in this phase | Useful, but not required for first operational VAT release |
 | Notification on rotation | Defer | Audit events first; Slack/email later | Notification integrations widen scope |
 | Secret-store sync | Defer | Document manual secret update; no Vault/Cloud secret integrations in MVP | Enterprise feature with high ops surface |
-| Multi-cloud secret-manager integrations | Exclude for now | Not in Shahrah MVP | Not aligned with focused Go gateway MVP |
+| Multi-cloud secret-manager integrations | Exclude for now | Not in GodarAI MVP | Not aligned with focused Go gateway MVP |
 
 ## Goals
 
@@ -123,7 +123,7 @@ For Shahrah, we should include the parts that improve day-1 operability and adop
    - Tenant wallet remains the final payment backstop.
    - VAT/key spend must be tracked per request.
    - If a key/team/org budget rule applies, block before provider call when estimated cost exceeds remaining budget.
-   - Return 402 or existing Shahrah `budget_exceeded` error consistently.
+   - Return 402 or existing GodarAI `budget_exceeded` error consistently.
 
 9. P1: Audit and observability must identify VAT usage.
    - Request logs and traces include `key_id`, `key_type`, `virtual_user_id`, `team_id`, `org_unit_id`, and model.

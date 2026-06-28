@@ -1,4 +1,4 @@
-# Shahrah Blog Service - Technical Blog Platform
+# GodarAI Blog Service - Technical Blog Platform
 
 ## Overview
 
@@ -149,7 +149,7 @@ export const collections = { blog, authors }
 ```markdown
 ---
 title: "Getting Started with Shahrah: A Complete Guide"
-description: "Learn how to set up and use Shahrah for your LLM integration needs."
+description: "Learn how to set up and use GodarAI for your LLM integration needs."
 pubDate: 2024-01-15
 author: ali
 tags: ["tutorial", "getting-started", "api"]
@@ -166,7 +166,7 @@ Welcome to Shahrah! In this comprehensive guide, we'll walk you through...
 
 Before you begin, make sure you have:
 
-- A Shahrah account
+- A GodarAI account
 - An API key from your tenant dashboard
 - Node.js 18+ or Python 3.10+
 
@@ -175,7 +175,7 @@ Before you begin, make sure you have:
 Navigate to [sharah.ir](https://sharah.ir) and sign up...
 
 \`\`\`bash
-# Install the Shahrah SDK
+# Install the GodarAI SDK
 npm install @shahrah/sdk
 \`\`\`
 
@@ -199,7 +199,7 @@ console.log(response.choices[0].message.content)
 
 ## Conclusion
 
-You're now ready to use Shahrah for your LLM needs!
+You're now ready to use GodarAI for your LLM needs!
 
 ## Next Steps
 
@@ -225,7 +225,7 @@ const { title, description, image, url } = Astro.props
 ---
 
 <head>
-  <title>{title} | Shahrah Blog</title>
+  <title>{title} | GodarAI Blog</title>
   <meta name="description" content={description} />
   <meta property="og:title" content={title} />
   <meta property="og:description" content={description} />
@@ -247,7 +247,7 @@ export async function GET(context: any) {
   const posts = await getCollection('blog')
   
   return rss({
-    title: 'Shahrah Blog',
+    title: 'GodarAI Blog',
     description: 'Technical blog posts about LLM integration, AI, and more',
     site: context.site,
     items: posts
@@ -272,7 +272,7 @@ export async function GET(context: any) {
 
 <div class="newsletter-signup">
   <h3>Stay Updated</h3>
-  <p>Get the latest Shahrah news and tutorials delivered to your inbox.</p>
+  <p>Get the latest GodarAI news and tutorials delivered to your inbox.</p>
   
   <form action="https://email-service.com/subscribe" method="POST">
     <input 
@@ -444,7 +444,7 @@ const headerConfig = await fetch('https://sharah.ir/api/shared-header')
 
 ### 8.2 Option: Custom Comments (Future)
 
-- Build custom comment system with Shahrah backend
+- Build custom comment system with GodarAI backend
 - Store comments in separate database
 - Support moderation, threading, notifications
 
@@ -514,7 +514,7 @@ jobs:
 
 | Type | Purpose | Example |
 |------|---------|---------|
-| Announcement | Product updates | "Announcing Shahrah v2.0" |
+| Announcement | Product updates | "Announcing GodarAI v2.0" |
 | Tutorial | How-to guides | "Function Calling with Shahrah" |
 | Deep-Dive | Technical analysis | "Understanding the Silk Road Tunnel" |
 | Case Study | Customer stories | "How Company X Reduced LLM Costs by 40%" |

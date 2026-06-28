@@ -1,4 +1,4 @@
-# Shahrah Proxy System: Technical Design Document
+# GodarAI Proxy System: Technical Design Document
 
 ## Customer Spend Tracking, Budget Enforcement, and Resource Permissions
 
@@ -11,7 +11,7 @@
 
 ## Executive Overview
 
-Shahrah is a high-performance, Go-native proxy system engineered to provide granular control over customer spend tracking, budget enforcement, and resource access permissions in multi-tenant AI service environments. The system operates as an intelligent gateway between end-users and AI model providers, enforcing policies, tracking usage metrics, and managing access control lists for heterogeneous backend resources.
+GodarAI is a high-performance, Go-native proxy system engineered to provide granular control over customer spend tracking, budget enforcement, and resource access permissions in multi-tenant AI service environments. The system operates as an intelligent gateway between end-users and AI model providers, enforcing policies, tracking usage metrics, and managing access control lists for heterogeneous backend resources.
 
 ### Design Principles
 
@@ -43,7 +43,7 @@ graph TB
         A[External Client]
     end
     
-    subgraph Shahrah Proxy
+    subgraph GodarAI Proxy
         B[Request Ingress]
         C[Identity Resolver]
         D[Budget Engine]
@@ -1219,6 +1219,6 @@ func BenchmarkBudgetEnforcer_CheckRate(b *testing.B) {
 
 ## Conclusion
 
-Shahrah provides a production-grade foundation for multi-tenant AI proxy deployments with comprehensive spend tracking, budget enforcement, and resource permission management. The Go-native architecture ensures high throughput and low latency while maintaining strict consistency guarantees through atomic database operations and distributed rate limiting.
+GodarAI provides a production-grade foundation for multi-tenant AI proxy deployments with comprehensive spend tracking, budget enforcement, and resource permission management. The Go-native architecture ensures high throughput and low latency while maintaining strict consistency guarantees through atomic database operations and distributed rate limiting.
 
 The modular design enables independent scaling of components, graceful degradation during partial failures, and extensible configuration for diverse deployment scenarios. The event-driven webhook integration ensures seamless synchronization with external billing, analytics, and customer management systems.
