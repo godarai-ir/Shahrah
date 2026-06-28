@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"mime"
 	"mime/multipart"
 	"net/http/httptest"
 	"strings"
@@ -131,7 +132,7 @@ func TestImagesHandlerMultipartEdit(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.Equal(t, contentType, tunnel.lastReq.Headers["Content-Type"])
-	assert.Equal(t, body, tunnel.lastReq.Body)
+	assertMultipartBodyEqual(t, contentType, body, tunnel.lastReq.Body)
 	assert.Equal(t, 1, tunnel.lastReq.RequestMetadata["file_count"])
 }
 
@@ -252,4 +253,54 @@ func buildMultipartBody(t *testing.T, fields map[string]string, files map[string
 	}
 
 	return buf.Bytes(), w.FormDataContentType()
+}
+
+func assertMultipartBodyEqual(t *testing.T, contentType string, expected []byte, actual []byte) {
+	t.Helper()
+
+	expectedForm := readMultipartForm(t, contentType, expected)
+	actualForm := readMultipartForm(t, contentType, actual)
+
+	require.Equal(t, expectedForm.Value, actualForm.Value)
+	require.Equal(t, len(expectedForm.File), len(actualForm.File))
+
+	for field, expectedFiles := range expectedForm.File {
+		actualFiles := actualForm.File[field]
+		require.Len(t, actualFiles, len(expectedFiles), "multipart file field %q", field)
+
+		for i, expectedFile := range expectedFiles {
+			actualFile := actualFiles[i]
+			require.Equal(t, expectedFile.Filename, actualFile.Filename)
+			require.Equal(t, readMultipartFile(t, expectedFile), readMultipartFile(t, actualFile))
+		}
+	}
+}
+
+func readMultipartForm(t *testing.T, contentType string, body []byte) *multipart.Form {
+	t.Helper()
+
+	_, params, err := mime.ParseMediaType(contentType)
+	require.NoError(t, err)
+
+	boundary := params["boundary"]
+	require.NotEmpty(t, boundary)
+
+	form, err := multipart.NewReader(bytes.NewReader(body), boundary).ReadForm(int64(len(body)))
+	require.NoError(t, err)
+
+	return form
+}
+
+func readMultipartFile(t *testing.T, header *multipart.FileHeader) []byte {
+	t.Helper()
+
+	file, err := header.Open()
+	require.NoError(t, err)
+
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	require.NoError(t, err)
+
+	return data
 }
