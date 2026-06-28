@@ -133,6 +133,7 @@ tmp/
 temp/
 *.tmp
 *.temp
+.golangci-lint-report.json
 
 # Node modules (for any embedded web UIs)
 node_modules/

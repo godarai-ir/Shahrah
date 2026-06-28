@@ -104,7 +104,9 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 			return nil, err
 		}
 
-		for _, vm := range virtualModels {
+		for i := range virtualModels {
+			vm := &virtualModels[i]
+
 			alias := strings.TrimSpace(vm.Alias)
 			if alias == "" {
 				continue
@@ -112,7 +114,9 @@ func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthCo
 
 			valid := true
 
-			for _, target := range vm.Targets {
+			for i := range vm.Targets {
+				target := &vm.Targets[i]
+
 				fqn := normalizeModelFQN(target.Model)
 				if _, ok := runtimePolicyByModel(runtimeModels, fqn); !ok {
 					valid = false
@@ -159,7 +163,7 @@ func runtimePolicyByModel(runtimeModels []runtimeAllowedModelPolicy, model strin
 
 // ResolveTenantUserAuth builds an auth context for a tenant-bound user.
 // This is used when tenant-admin calls control-plane with master key + x-shahrah-user-id.
-func (s *Store) ResolveTenantUserAuth(ctx context.Context, tenantID string, userID string) (*platform.AuthContext, error) {
+func (s *Store) ResolveTenantUserAuth(ctx context.Context, tenantID, userID string) (*platform.AuthContext, error) {
 	tenantID = strings.TrimSpace(tenantID)
 
 	userID = strings.TrimSpace(userID)
@@ -231,7 +235,7 @@ type runtimeAllowedModelPolicy struct {
 	PricingResolved bool
 }
 
-func (s *Store) listRuntimeAllowedModelsByProviderAccount(ctx context.Context, tenantID string, teamID string, userID string) ([]runtimeAllowedModelPolicy, bool, error) {
+func (s *Store) listRuntimeAllowedModelsByProviderAccount(ctx context.Context, tenantID, teamID, userID string) ([]runtimeAllowedModelPolicy, bool, error) {
 	var hasEnabledModels bool
 	if err := s.pool.QueryRow(ctx, `
 		SELECT EXISTS (
@@ -441,7 +445,7 @@ func parseVirtualModelSnapshots(raw []byte) map[string]platform.VirtualModelSnap
 
 // ListAllowedModelFQNs returns tenant-scoped model FQNs allowed for a principal.
 // Exactly one principal dimension should be used: PAT(userID) or VAT(teamID).
-func (s *Store) ListAllowedModelFQNs(ctx context.Context, tenantID string, userID string, teamID string) ([]string, error) {
+func (s *Store) ListAllowedModelFQNs(ctx context.Context, tenantID, userID, teamID string) ([]string, error) {
 	policies, _, err := s.listRuntimeAllowedModelsByProviderAccount(ctx, tenantID, strings.TrimSpace(teamID), strings.TrimSpace(userID))
 	if err != nil {
 		return nil, err
@@ -974,7 +978,7 @@ func (s *Store) RotateVATToken(ctx context.Context, tenantID string, virtualUser
 	return created, err
 }
 
-func (s *Store) getVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string) (*platform.CreatedKey, error) {
+func (s *Store) getVATToken(ctx context.Context, tenantID, virtualUserID, keyID string) (*platform.CreatedKey, error) {
 	row := s.pool.QueryRow(ctx, `
 		SELECT id::text, COALESCE(key_alias, ''), COALESCE(key_name, ''), tenant_id::text,
 		       COALESCE(models, '{}'), COALESCE(team_id::text, ''), COALESCE(organization_id::text, ''),
@@ -1021,7 +1025,7 @@ func scanCreatedKey(scanner createdKeyScanner) (*platform.CreatedKey, error) {
 	return &item, nil
 }
 
-func (s *Store) resolveVATVirtualUserScope(ctx context.Context, tenantID string, virtualUserID string, requestedTeamID string, requestedOrgID string) (string, string, error) {
+func (s *Store) resolveVATVirtualUserScope(ctx context.Context, tenantID, virtualUserID, requestedTeamID, requestedOrgID string) (string, string, error) {
 	if _, err := uuid.Parse(strings.TrimSpace(virtualUserID)); err != nil {
 		return "", "", fmt.Errorf("virtual_user_id must be a UUID")
 	}

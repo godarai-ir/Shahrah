@@ -19,7 +19,7 @@ type providerCredentialValidationResult struct {
 	Message string
 }
 
-func validateProviderAPIKey(ctx context.Context, provider string, apiKey string, providerConfig map[string]interface{}, client *http.Client) providerCredentialValidationResult {
+func validateProviderAPIKey(ctx context.Context, provider, apiKey string, providerConfig map[string]interface{}, client *http.Client) providerCredentialValidationResult {
 	probe, ok := providerCredentialProbeFor(provider, providerConfig)
 	if !ok {
 		return providerCredentialValidationResult{
@@ -143,7 +143,7 @@ func classifyProviderValidationStatus(status int, body []byte, apiKey string) st
 	}
 }
 
-func appendProviderDetail(message string, detail string) string {
+func appendProviderDetail(message, detail string) string {
 	if strings.TrimSpace(detail) == "" {
 		return message
 	}
@@ -257,7 +257,7 @@ func isMaskedCredentialValue(value string) bool {
 	return strings.Contains(trimmed, "•") || strings.Contains(trimmed, "*") || strings.Contains(trimmed, "…")
 }
 
-func configString(config map[string]interface{}, key string, fallback string) string {
+func configString(config map[string]interface{}, key, fallback string) string {
 	if value, ok := config[key].(string); ok && strings.TrimSpace(value) != "" {
 		parsed, err := url.Parse(strings.TrimSpace(value))
 		if err == nil && parsed.Scheme != "" && parsed.Host != "" {

@@ -86,7 +86,7 @@ func (h *Handlers) ListRequestTraces(c *fiber.Ctx) error {
 	})
 }
 
-func parsePositiveQueryInt(c *fiber.Ctx, key string, fallback int, max int, message string) (int, error) {
+func parsePositiveQueryInt(c *fiber.Ctx, key string, fallback, maxValue int, message string) (int, error) {
 	raw := strings.TrimSpace(c.Query(key))
 	if raw == "" {
 		return fallback, nil
@@ -97,8 +97,8 @@ func parsePositiveQueryInt(c *fiber.Ctx, key string, fallback int, max int, mess
 		return 0, fiber.NewError(fiber.StatusBadRequest, message)
 	}
 
-	if max > 0 && value > max {
-		value = max
+	if maxValue > 0 && value > maxValue {
+		value = maxValue
 	}
 
 	return value, nil

@@ -533,7 +533,17 @@ func (h *ChatCompletionHandler) resolveVirtualDeployment(ctx context.Context, te
 	return dep
 }
 
-func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, start time.Time, tenantSlug string, cachePending *responsecache.Pending, guardrailSelection guardrails.RequestSelection) error {
+func (h *ChatCompletionHandler) handleSync(
+	c *fiber.Ctx,
+	req contractsopenai.ChatCompletionRequest,
+	authInfo *platform.AuthContext,
+	estimated platform.UsageCostBreakdown,
+	tunnelReq platform.TunnelRequest,
+	start time.Time,
+	tenantSlug string,
+	cachePending *responsecache.Pending,
+	guardrailSelection guardrails.RequestSelection,
+) error {
 	providerStart := time.Now()
 	providerAttrs := map[string]interface{}{
 		"provider":        tunnelReq.Deployment.Provider,

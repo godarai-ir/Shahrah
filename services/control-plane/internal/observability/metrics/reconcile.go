@@ -169,9 +169,5 @@ func (r *CostReconciler) runOnce(ctx context.Context) error {
 		return marshalErr
 	}
 
-	if err := os.WriteFile(r.cfg.ReportPath, b, 0o644); err != nil {
-		return err
-	}
-
-	return nil
+	return os.WriteFile(r.cfg.ReportPath, b, 0o644)
 }

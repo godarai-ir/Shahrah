@@ -8,7 +8,7 @@ import (
 )
 
 // SearchAccessPrincipals returns platform users/teams/org-units for tenant-admin access pickers.
-func (s *Store) SearchAccessPrincipals(ctx context.Context, tenantID string, kind string, query string, limit int) ([]platform.AccessPrincipalCandidate, error) {
+func (s *Store) SearchAccessPrincipals(ctx context.Context, tenantID, kind, query string, limit int) ([]platform.AccessPrincipalCandidate, error) {
 	normalizedKind := strings.TrimSpace(strings.ToLower(kind))
 	normalizedQuery := strings.TrimSpace(query)
 	normalizedTenantID := strings.TrimSpace(tenantID)
@@ -33,7 +33,7 @@ func (s *Store) SearchAccessPrincipals(ctx context.Context, tenantID string, kin
 	}
 }
 
-func (s *Store) searchUserPrincipals(ctx context.Context, tenantID string, query string, limit int) ([]platform.AccessPrincipalCandidate, error) {
+func (s *Store) searchUserPrincipals(ctx context.Context, tenantID, query string, limit int) ([]platform.AccessPrincipalCandidate, error) {
 	like := "%" + query + "%"
 
 	rows, err := s.pool.Query(ctx, `
@@ -88,7 +88,7 @@ func (s *Store) searchUserPrincipals(ctx context.Context, tenantID string, query
 	return items, rows.Err()
 }
 
-func (s *Store) searchTeamPrincipals(ctx context.Context, tenantID string, query string, limit int) ([]platform.AccessPrincipalCandidate, error) {
+func (s *Store) searchTeamPrincipals(ctx context.Context, tenantID, query string, limit int) ([]platform.AccessPrincipalCandidate, error) {
 	like := "%" + query + "%"
 
 	rows, err := s.pool.Query(ctx, `
@@ -135,7 +135,7 @@ func (s *Store) searchTeamPrincipals(ctx context.Context, tenantID string, query
 	return items, rows.Err()
 }
 
-func (s *Store) searchOrgUnitPrincipals(ctx context.Context, tenantID string, query string, limit int) ([]platform.AccessPrincipalCandidate, error) {
+func (s *Store) searchOrgUnitPrincipals(ctx context.Context, tenantID, query string, limit int) ([]platform.AccessPrincipalCandidate, error) {
 	like := "%" + query + "%"
 
 	rows, err := s.pool.Query(ctx, `

@@ -103,11 +103,11 @@ func (s *Store) listCommercialPlans(ctx context.Context, publishedOnly bool) ([]
 
 		existing := byID[plan.ID]
 		if existing == nil {
-			copy := plan
-			copy.Versions = []platform.PlanVersion{}
-			byID[plan.ID] = &copy
+			planCopy := plan
+			planCopy.Versions = []platform.PlanVersion{}
+			byID[plan.ID] = &planCopy
 			order = append(order, plan.ID)
-			existing = &copy
+			existing = &planCopy
 		}
 
 		existing.Versions = append(existing.Versions, version)
@@ -701,10 +701,10 @@ func (s *Store) cacheEntitlements(ctx context.Context, resolved *platform.Effect
 		return
 	}
 
-	copy := *resolved
-	copy.UsageCounters = nil
+	resolvedCopy := *resolved
+	resolvedCopy.UsageCounters = nil
 
-	raw, err := json.Marshal(&copy)
+	raw, err := json.Marshal(&resolvedCopy)
 	if err != nil {
 		return
 	}
@@ -826,13 +826,9 @@ func (s *Store) DeleteTenantEntitlementOverride(ctx context.Context, tenantID st
 
 	s.invalidateTenantEntitlements(ctx, tenantID)
 
-	if eventErr := s.insertSubscriptionEvent(ctx, tenantID, "", "entitlement_override_deleted", actor, map[string]interface{}{
+	return s.insertSubscriptionEvent(ctx, tenantID, "", "entitlement_override_deleted", actor, map[string]interface{}{
 		"feature_key": featureKey,
-	}); eventErr != nil {
-		return eventErr
-	}
-
-	return nil
+	})
 }
 
 func (s *Store) CheckAndIncrementTenantUsageCounter(ctx context.Context, tenantID string, featureKey string, limit float64, increment float64, now time.Time) (*platform.UsageCounter, bool, error) {
@@ -969,7 +965,8 @@ func (s *Store) ProcessSubscriptionTransitions(ctx context.Context, now time.Tim
 	rows.Close()
 
 	tenantIDs := make([]string, 0, len(items))
-	for _, item := range items {
+	for i := range items {
+		item := &items[i]
 		if item.cancelAtEnd && item.pendingVersion != "" {
 			interval := normalizeBillingInterval(item.pendingInterval)
 			if item.pendingInterval == "" {
@@ -1105,10 +1102,12 @@ func (s *Store) publishedPlanBySlug(ctx context.Context, slug string) (*platform
 	}
 
 	normalized := normalizePlanSlug(slug)
-	for _, plan := range plans {
+
+	for i := range plans {
+		plan := &plans[i]
 		if plan.Slug == normalized {
-			copy := plan
-			return &copy, nil
+			planCopy := *plan
+			return &planCopy, nil
 		}
 	}
 
@@ -1170,7 +1169,7 @@ func (s *Store) listPlanFeatureMapForVersion(ctx context.Context, versionID stri
 	return out, rows.Err()
 }
 
-func (s *Store) priceSnapshotForVersion(ctx context.Context, versionID string, interval string) (map[string]interface{}, error) {
+func (s *Store) priceSnapshotForVersion(ctx context.Context, versionID, interval string) (map[string]interface{}, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT billing_interval, currency, amount_minor, discount_percent
 		FROM plan_prices
@@ -1225,7 +1224,7 @@ func (s *Store) featureAllowsOverride(ctx context.Context, key string) (bool, er
 	return allow, nil
 }
 
-func (s *Store) insertSubscriptionEvent(ctx context.Context, tenantID string, subscriptionID string, eventType string, actor string, payload map[string]interface{}) error {
+func (s *Store) insertSubscriptionEvent(ctx context.Context, tenantID, subscriptionID, eventType, actor string, payload map[string]interface{}) error {
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO subscription_events (tenant_id, subscription_id, event_type, actor, payload, created_at)
 		VALUES ($1::uuid, $2::uuid, $3, NULLIF($4, ''), $5, NOW())

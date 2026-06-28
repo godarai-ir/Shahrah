@@ -566,13 +566,13 @@ func boolVal(v bool) *commonv1.AnyValue {
 
 func traceIDBytes(traceID string) []byte {
 	b := make([]byte, 16)
-	copy(b, []byte(traceID))
+	copy(b, traceID)
 
 	return b
 }
 func spanIDBytes(spanID string) []byte {
 	b := make([]byte, 8)
-	copy(b, []byte(spanID))
+	copy(b, spanID)
 
 	return b
 }

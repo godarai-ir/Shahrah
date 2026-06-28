@@ -9,7 +9,7 @@ import (
 
 // ResolveProviderAccountAPIKey resolves BYOK api_key for a tenant-scoped provider-account model FQN.
 // modelFQN format: provider:account_alias:model_id.
-func (s *Store) ResolveProviderAccountAPIKey(ctx context.Context, tenantID string, modelFQN string) (string, error) {
+func (s *Store) ResolveProviderAccountAPIKey(ctx context.Context, tenantID, modelFQN string) (string, error) {
 	provider, accountAlias, model, ok := modelid.SplitModelFQN(modelFQN)
 	if !ok {
 		return "", nil

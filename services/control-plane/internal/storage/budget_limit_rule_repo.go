@@ -189,7 +189,7 @@ func optionalInt(value *int, fallback int) int {
 	return *value
 }
 
-func optionalStringPtr(value *string, fallback *string) *string {
+func optionalStringPtr(value, fallback *string) *string {
 	if value == nil {
 		return fallback
 	}

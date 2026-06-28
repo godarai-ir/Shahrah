@@ -374,11 +374,7 @@ func (e *Engine) resolve(selector string, overrides map[string]Guardrail) Guardr
 		return g
 	}
 
-	if g := e.registry[normalizeSelectorKey(selector)]; g != nil {
-		return g
-	}
-
-	return nil
+	return e.registry[normalizeSelectorKey(selector)]
 }
 
 func stringSliceFromConfig(config map[string]interface{}, key string) []string {

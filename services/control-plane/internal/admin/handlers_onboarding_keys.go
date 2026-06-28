@@ -602,9 +602,9 @@ func (h *Handlers) ensureLegacyVATVirtualUser(c *fiber.Ctx, tenantID string, req
 				return nil, fiber.NewError(fiber.StatusConflict, "legacy vat virtual user is inactive")
 			}
 
-			copy := item
+			itemCopy := item
 
-			return &copy, nil
+			return &itemCopy, nil
 		}
 	}
 

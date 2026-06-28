@@ -92,7 +92,7 @@ func (s *Store) PrepareTenantSubscriptionChange(ctx context.Context, tenantID st
 	return &platform.SubscriptionChangeResult{Mode: "payment_required", PaymentIntent: intent}, nil
 }
 
-func (s *Store) createSubscriptionPaymentIntent(ctx context.Context, tenantID string, target *platform.CommercialPlan, interval string, provider string, callbackURL string, returnURL string, priceSnapshot map[string]interface{}, metadata map[string]interface{}) (*platform.SubscriptionPaymentIntent, error) {
+func (s *Store) createSubscriptionPaymentIntent(ctx context.Context, tenantID string, target *platform.CommercialPlan, interval, provider, callbackURL, returnURL string, priceSnapshot, metadata map[string]interface{}) (*platform.SubscriptionPaymentIntent, error) {
 	if metadata == nil {
 		metadata = map[string]interface{}{}
 	}
@@ -308,7 +308,7 @@ func (s *Store) MarkSubscriptionPaymentFailedByAuthority(ctx context.Context, au
 	return nil
 }
 
-func (s *Store) planPriceForVersion(ctx context.Context, versionID string, interval string) (*platform.PlanPrice, error) {
+func (s *Store) planPriceForVersion(ctx context.Context, versionID, interval string) (*platform.PlanPrice, error) {
 	row := s.pool.QueryRow(ctx, `
 		SELECT price_id::text, version_id::text, billing_interval, currency,
 		       amount_minor::double precision, discount_percent::double precision, created_at, updated_at

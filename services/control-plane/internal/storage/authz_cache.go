@@ -13,11 +13,11 @@ type authzCacheEntry struct {
 	epoch     uint64
 }
 
-func (s *Store) authzCacheKey(tenantID string, userID string) string {
+func (s *Store) authzCacheKey(tenantID, userID string) string {
 	return strings.TrimSpace(strings.ToLower(tenantID)) + ":" + strings.TrimSpace(strings.ToLower(userID))
 }
 
-func (s *Store) getAuthzCacheEntry(tenantID string, userID string) (*platform.AuthContext, bool) {
+func (s *Store) getAuthzCacheEntry(tenantID, userID string) (*platform.AuthContext, bool) {
 	key := s.authzCacheKey(tenantID, userID)
 	now := time.Now()
 
@@ -43,7 +43,7 @@ func (s *Store) getAuthzCacheEntry(tenantID string, userID string) (*platform.Au
 	return &copyAuth, true
 }
 
-func (s *Store) setAuthzCacheEntry(tenantID string, userID string, auth platform.AuthContext) {
+func (s *Store) setAuthzCacheEntry(tenantID, userID string, auth platform.AuthContext) {
 	key := s.authzCacheKey(tenantID, userID)
 	tenantKey := strings.TrimSpace(strings.ToLower(tenantID))
 	now := time.Now()
@@ -52,7 +52,8 @@ func (s *Store) setAuthzCacheEntry(tenantID string, userID string, auth platform
 	defer s.authzCacheMu.Unlock()
 
 	if len(s.authzCache) >= s.authzCacheMaxEntries {
-		for cacheKey, entry := range s.authzCache {
+		for cacheKey := range s.authzCache {
+			entry := s.authzCache[cacheKey]
 			if now.After(entry.expiresAt) {
 				delete(s.authzCache, cacheKey)
 			}
@@ -73,7 +74,7 @@ func (s *Store) setAuthzCacheEntry(tenantID string, userID string, auth platform
 	}
 }
 
-func (s *Store) invalidateAuthzCacheForUser(tenantID string, userID string) {
+func (s *Store) invalidateAuthzCacheForUser(tenantID, userID string) {
 	key := s.authzCacheKey(tenantID, userID)
 	s.authzCacheMu.Lock()
 	delete(s.authzCache, key)
@@ -84,6 +85,6 @@ func (s *Store) bumpAuthzTenantEpoch(tenantID string) {
 	tenantKey := strings.TrimSpace(strings.ToLower(tenantID))
 
 	s.authzCacheMu.Lock()
-	s.authzTenantEpoch[tenantKey] = s.authzTenantEpoch[tenantKey] + 1
+	s.authzTenantEpoch[tenantKey]++
 	s.authzCacheMu.Unlock()
 }

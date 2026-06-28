@@ -248,7 +248,7 @@ func (s *Store) listModelMetricsFacets(ctx context.Context, tenantID string) (*p
 	}, nil
 }
 
-func queryDistinctMetricValues(ctx context.Context, db *sql.DB, column string, tenantID string) ([]string, error) {
+func queryDistinctMetricValues(ctx context.Context, db *sql.DB, column, tenantID string) ([]string, error) {
 	query := fmt.Sprintf(`
 		SELECT DISTINCT %s
 		FROM gateway_model_events

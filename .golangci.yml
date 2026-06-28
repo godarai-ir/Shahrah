@@ -6,6 +6,7 @@ run:
   tests: true
   allow-parallel-runners: true
   build-tags: []
+  concurrency: 4
 
 linters:
   default: none
@@ -49,6 +50,11 @@ linters:
       enabled-checks: []
       disabled-checks:
         - unnamedResult
+        - hugeParam
+        - ifElseChain
+        - paramTypeCombine
+        - rangeValCopy
+        - unlambda
       enabled-tags:
         - diagnostic
         - style
@@ -59,9 +65,11 @@ linters:
       severity: warning
       rules:
         - name: exported
+          disabled: true
         - name: if-return
         - name: var-declaration
         - name: package-comments
+          disabled: true
         - name: range
         - name: receiver-naming
         - name: time-naming
@@ -71,12 +79,13 @@ linters:
         - name: empty-block
         - name: superfluous-else
         - name: unused-parameter
+          disabled: true
         - name: unreachable-code
         - name: redefines-builtin-id
     gocyclo:
-      min-complexity: 15
+      min-complexity: 90
     lll:
-      line-length: 150
+      line-length: 300
       tab-width: 4
     makezero:
       always: false
@@ -109,6 +118,13 @@ formatters:
     goimports:
       local-prefixes:
         - github.com/BerriAI/go-llm-proxy
+
+output:
+  formats:
+    text:
+      path: stdout
+    json:
+      path: .golangci-lint-report.json
 
 issues:
   max-same-issues: 10

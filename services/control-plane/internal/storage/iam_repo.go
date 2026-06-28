@@ -546,7 +546,7 @@ func (s *Store) AddOrgUnitMembership(ctx context.Context, tenantID string, orgUn
 	return &item, nil
 }
 
-func (s *Store) ensurePlatformUserForMembership(ctx context.Context, tenantID string, userID string) error {
+func (s *Store) ensurePlatformUserForMembership(ctx context.Context, tenantID, userID string) error {
 	if _, err := uuid.Parse(strings.TrimSpace(userID)); err != nil {
 		return err
 	}

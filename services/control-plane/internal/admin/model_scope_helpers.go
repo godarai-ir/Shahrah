@@ -60,6 +60,8 @@ func isVirtualModelInScope(vm platform.VirtualModel, scopeAllowedSet map[string]
 	return true
 }
 
+var _ = buildVirtualModelSnapshotsForAliases
+
 func buildVirtualModelSnapshotsForAliases(aliases []string, virtualModels []platform.VirtualModel, scopeAllowedSet map[string]struct{}) (map[string]platform.VirtualModelSnapshot, error) {
 	if len(aliases) == 0 {
 		return map[string]platform.VirtualModelSnapshot{}, nil

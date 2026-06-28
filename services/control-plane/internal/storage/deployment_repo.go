@@ -192,7 +192,7 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 	return deps, rows.Err()
 }
 
-func firstString(primary map[string]interface{}, secondary map[string]interface{}, keys ...string) string {
+func firstString(primary, secondary map[string]interface{}, keys ...string) string {
 	for _, key := range keys {
 		if v := strings.TrimSpace(toString(primary[key])); v != "" {
 			return v
@@ -206,7 +206,7 @@ func firstString(primary map[string]interface{}, secondary map[string]interface{
 	return ""
 }
 
-func firstInt64(primary map[string]interface{}, secondary map[string]interface{}, keys ...string) int64 {
+func firstInt64(primary, secondary map[string]interface{}, keys ...string) int64 {
 	for _, key := range keys {
 		if v := toInt64(primary[key]); v != 0 {
 			return v
@@ -220,7 +220,7 @@ func firstInt64(primary map[string]interface{}, secondary map[string]interface{}
 	return 0
 }
 
-func firstFloat64(primary map[string]interface{}, secondary map[string]interface{}, keys ...string) float64 {
+func firstFloat64(primary, secondary map[string]interface{}, keys ...string) float64 {
 	for _, key := range keys {
 		if v := toFloat64(primary[key]); v != 0 {
 			return v

@@ -71,7 +71,13 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
 		AllowMethods: "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-		AllowHeaders: "Origin, Content-Type, Accept, Authorization, api-key, x-api-key, " + apiheaders.HeaderTenant + ", " + apiheaders.LegacyHeaderTenant + ", " + apiheaders.HeaderGuardrails + ", " + apiheaders.LegacyHeaderGuardrails + ", " + apiheaders.HeaderGuardrailsScope + ", " + apiheaders.LegacyHeaderGuardrailScope + ", x-tfy-guardrails, x-tfy-guardrails-scope",
+		AllowHeaders: strings.Join([]string{
+			"Origin", "Content-Type", "Accept", "Authorization", "api-key", "x-api-key",
+			apiheaders.HeaderTenant, apiheaders.LegacyHeaderTenant,
+			apiheaders.HeaderGuardrails, apiheaders.LegacyHeaderGuardrails,
+			apiheaders.HeaderGuardrailsScope, apiheaders.LegacyHeaderGuardrailScope,
+			"x-tfy-guardrails", "x-tfy-guardrails-scope",
+		}, ", "),
 	}))
 
 	if deps.TracingMiddleware != nil {
@@ -100,7 +106,12 @@ func buildHTTPLoggerConfig(output io.Writer) fiberlogger.Config {
 		TimeFormat:    "2006-01-02T15:04:05.000Z07:00",
 		TimeZone:      "UTC",
 		DisableColors: true,
-		Format:        "ts=${time} status=${status} latency=${latency} ip=${ip} method=${method} path=${path} trace_id=${respHeader:" + tracing.TraceIDHeader + "} ua=\"${safe_ua}\" bytes_in=${bytesReceived} bytes_out=${bytesSent} req_headers=\"${safe_req_headers}\" resp_headers=\"${safe_resp_headers}\" error=\"${safe_error}\"\n",
+		Format: strings.Join([]string{
+			"ts=${time} status=${status} latency=${latency} ip=${ip} method=${method} path=${path}",
+			"trace_id=${respHeader:" + tracing.TraceIDHeader + "} ua=\"${safe_ua}\"",
+			"bytes_in=${bytesReceived} bytes_out=${bytesSent}",
+			"req_headers=\"${safe_req_headers}\" resp_headers=\"${safe_resp_headers}\" error=\"${safe_error}\"\n",
+		}, " "),
 		CustomTags: map[string]fiberlogger.LogFunc{
 			"safe_req_headers": func(output fiberlogger.Buffer, c *fiber.Ctx, _ *fiberlogger.Data, _ string) (int, error) {
 				return output.WriteString(formatHeaderLogValue(requestHeaders(c)))

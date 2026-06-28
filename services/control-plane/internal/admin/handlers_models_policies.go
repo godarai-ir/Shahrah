@@ -787,7 +787,7 @@ func validateBudgetAppliesPer(value string) error {
 		return nil
 	}
 
-	if strings.HasPrefix(normalized, "metadata.") && len(strings.TrimPrefix(normalized, "metadata.")) > 0 {
+	if strings.HasPrefix(normalized, "metadata.") && strings.TrimPrefix(normalized, "metadata.") != "" {
 		return nil
 	}
 

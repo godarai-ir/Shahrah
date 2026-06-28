@@ -297,7 +297,7 @@ func (m *PrivacyManager) maskedString(raw string) string {
 	return fmt.Sprintf("[redacted sha256=%s len=%d preview=%q]", hex.EncodeToString(sum[:])[:12], len(raw), trimmed)
 }
 
-func payloadMeta(payload interface{}, max int) map[string]interface{} {
+func payloadMeta(payload interface{}, maxBytes int) map[string]interface{} {
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		return map[string]interface{}{"present": true, "marshal_error": true}
@@ -308,7 +308,7 @@ func payloadMeta(payload interface{}, max int) map[string]interface{} {
 	return map[string]interface{}{
 		"present":       true,
 		"bytes":         len(raw),
-		"truncated":     len(raw) > max,
+		"truncated":     len(raw) > maxBytes,
 		"sha256_prefix": hex.EncodeToString(sha[:])[:16],
 	}
 }
@@ -322,12 +322,12 @@ func cloneMap(in map[string]interface{}) map[string]interface{} {
 	return out
 }
 
-func truncateString(s string, max int) string {
-	if max <= 0 || len(s) <= max {
+func truncateString(s string, maxLength int) string {
+	if maxLength <= 0 || len(s) <= maxLength {
 		return s
 	}
 
-	return s[:max]
+	return s[:maxLength]
 }
 
 var sensitiveValueRegex = regexp.MustCompile(`(?i)(bearer\s+[a-z0-9\-\._]+|sk-[a-z0-9\-_]+|[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,})`)
@@ -409,7 +409,9 @@ func (s *encryptedBlobStore) store(traceID, spanID, spanName, kind string, plain
 	blobID := fmt.Sprintf("%s_%s_%s_%d", sanitizeFilePart(traceID), sanitizeFilePart(spanID), kind, time.Now().UnixNano())
 	path := filepath.Join(s.baseDir, blobID+".bin")
 
-	content := append(nonce, ciphertext...)
+	nonce = append(nonce, ciphertext...)
+
+	content := nonce
 	if err := os.WriteFile(path, content, 0o600); err != nil {
 		return nil, err
 	}

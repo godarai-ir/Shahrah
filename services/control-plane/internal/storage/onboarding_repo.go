@@ -513,7 +513,7 @@ func numericOTP(length int) (string, error) {
 	return b.String(), nil
 }
 
-func maskDestination(channel string, value string) string {
+func maskDestination(channel, value string) string {
 	if channel == "email" {
 		parts := strings.Split(value, "@")
 		if len(parts) != 2 {

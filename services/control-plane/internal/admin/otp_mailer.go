@@ -96,7 +96,7 @@ func (s *smtpOTPEmailSender) SendTenantAdminOTP(to string, tenantSlug string, ot
 
 	subject := "GodarAI OTP Code"
 	body := strings.Join([]string{
-		fmt.Sprintf("Your one-time code for tenant \"%s\" is: %s", tenantSlug, otpCode),
+		fmt.Sprintf("Your one-time code for tenant %q is: %s", tenantSlug, otpCode),
 		fmt.Sprintf("This code expires in %d minutes.", expiresInMinutes),
 		"If you did not request this code, ignore this email.",
 	}, "\r\n")
@@ -137,7 +137,7 @@ func (s *resendOTPEmailSender) SendTenantAdminOTP(to string, tenantSlug string, 
 
 	subject := "GodarAI OTP Code"
 	text := strings.Join([]string{
-		fmt.Sprintf("Your one-time code for tenant \"%s\" is: %s", tenantSlug, otpCode),
+		fmt.Sprintf("Your one-time code for tenant %q is: %s", tenantSlug, otpCode),
 		fmt.Sprintf("This code expires in %d minutes.", expiresInMinutes),
 		"If you did not request this code, ignore this email.",
 	}, "\n")

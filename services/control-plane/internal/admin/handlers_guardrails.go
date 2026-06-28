@@ -286,22 +286,22 @@ func validateTenantGuardrailConfig(guardrailType string, config map[string]inter
 			return errors.New("config.pattern contains an invalid regex")
 		}
 	case "sentence_count", "word_count", "character_count":
-		min, hasMin := intFromAny(config["min"])
+		minValue, hasMin := intFromAny(config["min"])
 
-		max, hasMax := intFromAny(config["max"])
+		maxValue, hasMax := intFromAny(config["max"])
 		if !hasMin && !hasMax {
 			return errors.New("config.min or config.max is required")
 		}
 
-		if hasMin && min < 0 {
+		if hasMin && minValue < 0 {
 			return errors.New("config.min must be zero or greater")
 		}
 
-		if hasMax && max < 0 {
+		if hasMax && maxValue < 0 {
 			return errors.New("config.max must be zero or greater")
 		}
 
-		if hasMin && hasMax && min > max {
+		if hasMin && hasMax && minValue > maxValue {
 			return errors.New("config.min must be less than or equal to config.max")
 		}
 	case "json_schema":
@@ -338,7 +338,7 @@ func validateTenantGuardrailConfig(guardrailType string, config map[string]inter
 			return errors.New("JWT validation requires shared_secret, inline_jwks, jwks_uri, or introspection_url")
 		}
 	case "inline_image_urls":
-		if max, ok := intFromAny(config["max_bytes"]); ok && max <= 0 {
+		if maxBytes, ok := intFromAny(config["max_bytes"]); ok && maxBytes <= 0 {
 			return errors.New("config.max_bytes must be positive")
 		}
 	}
