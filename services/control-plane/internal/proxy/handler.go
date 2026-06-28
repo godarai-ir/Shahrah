@@ -167,7 +167,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	resolvedModel := providerModelID(requestedModel)
 	tracing.SetModelForTrace(c, requestedModel)
 
-	if err := validateChatCompletionRequest(c, req); err != nil {
+	if handled, err := validateChatCompletionRequest(c, req); handled || err != nil {
 		return err
 	}
 
@@ -350,34 +350,34 @@ func buildChatCompletionPayload(req contractsopenai.ChatCompletionRequest, deplo
 	return json.Marshal(outboundReq)
 }
 
-func validateChatCompletionRequest(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest) error {
+func validateChatCompletionRequest(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest) (bool, error) {
 	if len(req.Messages) == 0 {
-		return writeAPIError(c, fiber.StatusBadRequest, "messages array must not be empty", "invalid_request_error")
+		return true, writeAPIError(c, fiber.StatusBadRequest, "messages array must not be empty", "invalid_request_error")
 	}
 
 	for i, msg := range req.Messages {
 		if msg.Role == "" {
-			return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("message[%d].role is required", i), "invalid_request_error")
+			return true, writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("message[%d].role is required", i), "invalid_request_error")
 		}
 
 		if err := contractsopenai.ValidateChatMessageContent(msg.Content); err != nil {
-			return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("message[%d].content: %v", i, err), "invalid_request_error")
+			return true, writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("message[%d].content: %v", i, err), "invalid_request_error")
 		}
 	}
 
 	if req.Temperature != nil && (*req.Temperature < 0 || *req.Temperature > 2) {
-		return writeAPIError(c, fiber.StatusBadRequest, "temperature must be between 0 and 2", "invalid_request_error")
+		return true, writeAPIError(c, fiber.StatusBadRequest, "temperature must be between 0 and 2", "invalid_request_error")
 	}
 
 	if req.TopP != nil && (*req.TopP < 0 || *req.TopP > 1) {
-		return writeAPIError(c, fiber.StatusBadRequest, "top_p must be between 0 and 1", "invalid_request_error")
+		return true, writeAPIError(c, fiber.StatusBadRequest, "top_p must be between 0 and 1", "invalid_request_error")
 	}
 
 	if req.MaxTokens != nil && *req.MaxTokens < 1 {
-		return writeAPIError(c, fiber.StatusBadRequest, "max_tokens must be at least 1", "invalid_request_error")
+		return true, writeAPIError(c, fiber.StatusBadRequest, "max_tokens must be at least 1", "invalid_request_error")
 	}
 
-	return nil
+	return false, nil
 }
 
 func (h *ChatCompletionHandler) applyPromptVersion(c *fiber.Ctx, tenantID string, req *contractsopenai.ChatCompletionRequest) error {
