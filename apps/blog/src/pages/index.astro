@@ -1,27 +1,104 @@
 ---
+import { getCollection } from "astro:content";
 import Layout from "../layouts/Layout.astro";
+import {
+  getCategoryUrl,
+  getPostCategory,
+  getPostUrl,
+  groupPostsByCategory,
+  isPublished,
+  sortPosts,
+} from "../utils/blog";
+
+const posts = sortPosts(await getCollection("blog", isPublished));
+const featured = posts.filter((post) => post.data.featured).slice(0, 3);
+const latest = (featured.length > 0 ? featured : posts).slice(0, 3);
+const categories = groupPostsByCategory(posts);
+const canonical = (Astro.site || new URL("https://shahrah.ir/blog")).toString();
 ---
 
-<Layout>
-  <main class="hero">
-    <p class="eyebrow">GodarAI</p>
-    <h1>Blog</h1>
-    <p class="body">
-      This Astro app will host announcements, tutorials, and technical
-      deep-dives for the GodarAI platform.
-    </p>
+<Layout
+  title="Shahrah Blog | انتشار مقاله‌های فنی و تحلیلی"
+  description="بلاگ Shahrah برای انتشار مقالات Markdown به‌صورت ساختاریافته، دسته‌بندی‌شده و سازگار با SEO."
+  canonical={canonical}
+>
+  <main class="shell">
+    <section class="hero">
+      <p class="eyebrow">Shahrah Content Engine</p>
+      <h1>بلاگی آماده برای رشد محتوایی</h1>
+      <p class="body">
+        این اپ Astro حالا برای انتشار منظم مقاله‌های Markdown، آرشیو موضوعی،
+        مسیرهای تمیز و متادیتای قابل اتکا در سئو آماده شده است.
+      </p>
+      <div class="cta-row">
+        <a class="primary" href="/blog">مشاهده همه مقاله‌ها</a>
+        <a class="secondary" href={categories[0] ? getCategoryUrl(categories[0].category) : "/blog"}>
+          مرور دسته‌بندی‌ها
+        </a>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>مقاله‌های منتخب</h2>
+        <a href="/blog">آرشیو کامل</a>
+      </div>
+      <div class="grid">
+        {latest.map((post) => (
+          <article class="card">
+            <p class="meta">
+              <a href={getCategoryUrl(getPostCategory(post))}>{getPostCategory(post)}</a>
+              <span>•</span>
+              <time datetime={post.data.pubDate.toISOString()}>
+                {post.data.pubDate.toLocaleDateString("fa-IR")}
+              </time>
+            </p>
+            <h3>
+              <a href={getPostUrl(post)}>{post.data.title}</a>
+            </h3>
+            <p>{post.data.excerpt || post.data.description}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>دسته‌بندی‌ها</h2>
+      </div>
+      <div class="chips">
+        {categories.map((item) => (
+          <a class="chip" href={getCategoryUrl(item.category)}>
+            <span>{item.category}</span>
+            <strong>{item.posts.length}</strong>
+          </a>
+        ))}
+      </div>
+    </section>
   </main>
 </Layout>
 
 <style>
-  .hero {
+  .shell {
     margin: 0 auto;
-    max-width: 52rem;
-    padding: 8rem 1.5rem;
+    max-width: 1100px;
+    padding: 3rem 1.25rem 5rem;
+  }
+
+  .hero,
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 32px;
+    box-shadow: var(--shadow);
+  }
+
+  .hero {
+    padding: 3rem;
   }
 
   .eyebrow {
-    color: #0f766e;
+    color: var(--accent);
     font-size: 0.875rem;
     font-weight: 700;
     letter-spacing: 0.2em;
@@ -35,10 +112,88 @@ import Layout from "../layouts/Layout.astro";
   }
 
   .body {
-    color: #475569;
+    color: var(--muted);
     font-size: 1.125rem;
     line-height: 1.8;
     margin-top: 1.5rem;
     max-width: 40rem;
+  }
+
+  .cta-row,
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+  }
+
+  .cta-row {
+    margin-top: 2rem;
+  }
+
+  .primary,
+  .secondary,
+  .chip,
+  .section-head a,
+  .meta a,
+  h3 a {
+    text-decoration: none;
+  }
+
+  .primary,
+  .secondary {
+    border-radius: 999px;
+    padding: 0.9rem 1.2rem;
+  }
+
+  .primary {
+    background: var(--accent);
+    color: white;
+  }
+
+  .secondary,
+  .chip {
+    background: rgba(255, 255, 255, 0.78);
+    border: 1px solid var(--border);
+  }
+
+  .section {
+    margin-top: 1.5rem;
+  }
+
+  .section-head {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+
+  .grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  }
+
+  .card {
+    padding: 1.4rem;
+  }
+
+  .meta {
+    color: var(--muted);
+    display: flex;
+    gap: 0.45rem;
+    margin-top: 0;
+  }
+
+  h3 {
+    font-size: 1.35rem;
+    line-height: 1.4;
+  }
+
+  .chip {
+    align-items: center;
+    border-radius: 999px;
+    display: inline-flex;
+    gap: 0.65rem;
+    padding: 0.8rem 1rem;
   }
 </style>

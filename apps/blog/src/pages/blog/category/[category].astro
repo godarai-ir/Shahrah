@@ -1,0 +1,130 @@
+---
+import { getCollection } from "astro:content";
+import Layout from "../../../layouts/Layout.astro";
+import type { BlogPost } from "../../../utils/blog";
+import {
+  getCategoryLabelFromSlug,
+  getCategorySlug,
+  getCategoryUrl,
+  getPostCategory,
+  getPostUrl,
+  groupPostsByCategory,
+  isPublished,
+  sortPosts,
+} from "../../../utils/blog";
+
+export async function getStaticPaths() {
+  const posts = sortPosts(await getCollection("blog", isPublished));
+  const categories = groupPostsByCategory(posts);
+
+  return categories.map((item) => ({
+    params: { category: item.slug },
+    props: { posts, categorySlug: item.slug },
+  }));
+}
+
+const { posts, categorySlug } = Astro.props as {
+  posts: BlogPost[];
+  categorySlug: string;
+};
+const categories = groupPostsByCategory(posts);
+const categoryLabel = getCategoryLabelFromSlug(posts, categorySlug);
+const categoryPosts = posts.filter(
+  (post) => getCategorySlug(getPostCategory(post)) === categorySlug,
+);
+const site = Astro.site || new URL("https://shahrah.ir/blog");
+const canonical = new URL(getCategoryUrl(categoryLabel), site).toString();
+---
+
+<Layout
+  title={`${categoryLabel} | دسته‌بندی بلاگ Shahrah`}
+  description={`آرشیو مقاله‌های دسته ${categoryLabel} در بلاگ Shahrah.`}
+  canonical={canonical}
+>
+  <main class="shell">
+    <header class="header">
+      <a class="back" href="/blog">همه مقاله‌ها</a>
+      <h1>{categoryLabel}</h1>
+      <p>{categoryPosts.length} مقاله در این دسته منتشر شده است.</p>
+    </header>
+
+    <nav class="categories">
+      {categories.map((item) => (
+        <a class:list={["chip", item.slug === categorySlug && "active"]} href={getCategoryUrl(item.category)}>
+          {item.category}
+        </a>
+      ))}
+    </nav>
+
+    <section class="list">
+      {categoryPosts.map((post) => (
+        <article class="card">
+          <time datetime={post.data.pubDate.toISOString()}>
+            {post.data.pubDate.toLocaleDateString("fa-IR")}
+          </time>
+          <h2>
+            <a href={getPostUrl(post)}>{post.data.title}</a>
+          </h2>
+          <p>{post.data.excerpt || post.data.description}</p>
+        </article>
+      ))}
+    </section>
+  </main>
+</Layout>
+
+<style>
+  .shell {
+    margin: 0 auto;
+    max-width: 960px;
+    padding: 3rem 1.25rem 5rem;
+  }
+
+  .header,
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 28px;
+    box-shadow: var(--shadow);
+    padding: 1.8rem;
+  }
+
+  .back,
+  h2 a {
+    text-decoration: none;
+  }
+
+  .header p,
+  .card p,
+  time {
+    color: var(--muted);
+  }
+
+  .categories {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin: 1.25rem 0 1.5rem;
+  }
+
+  .chip {
+    background: rgba(255, 255, 255, 0.76);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.7rem 1rem;
+    text-decoration: none;
+  }
+
+  .active {
+    background: var(--accent-soft);
+  }
+
+  .list {
+    display: grid;
+    gap: 1rem;
+  }
+
+  h1,
+  h2 {
+    margin-bottom: 0.6rem;
+  }
+</style>
