@@ -90,9 +90,5 @@ func (s *fakeRetentionStore) ListTraceRetentionPolicies(context.Context) ([]Trac
 
 func (s *fakeRetentionStore) DeleteTraceDataBefore(_ context.Context, tenantID string, cutoff time.Time) error {
 	s.deletes = append(s.deletes, fakeRetentionDelete{tenantID: tenantID, cutoff: cutoff})
-	if err := s.failures[tenantID]; err != nil {
-		return err
-	}
-
-	return nil
+	return s.failures[tenantID]
 }

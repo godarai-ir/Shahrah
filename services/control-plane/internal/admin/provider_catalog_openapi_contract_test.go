@@ -53,7 +53,7 @@ func loadModelDiscoveryOpenAPI(t *testing.T) openAPIDocument {
 	_, currentFile, _, ok := runtime.Caller(0)
 	require.True(t, ok)
 
-	specPath := filepath.Clean(filepath.Join(filepath.Dir(currentFile), "../../../../apps/model-discovery/openapi/model-discovery.openapi.json"))
+	specPath := filepath.Clean(filepath.Join(filepath.Dir(currentFile), "..", "..", "..", "..", "apps", "model-discovery", "openapi", "model-discovery.openapi.json"))
 	body, err := os.ReadFile(specPath)
 	require.NoError(t, err, "run `pnpm --dir apps/model-discovery openapi:export` to refresh the spec")
 

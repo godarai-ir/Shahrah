@@ -96,7 +96,12 @@ func TestResolveProviderAccountModelSelections_RejectsInvalidCapabilities(t *tes
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"data":[{"canonicalId":"gpt-4.1-mini","name":"GPT-4.1 Mini","mode":["chat","embedding"],"capabilities":["chat"],"inputModalities":["text"],"outputModalities":["text"]},{"canonicalId":"gpt-4.1","name":"GPT-4.1","mode":["chat"],"capabilities":["chat"],"inputModalities":["text"],"outputModalities":["text"]}]}`))
+		_, _ = w.Write([]byte(
+			`{"data":[` +
+				`{"canonicalId":"gpt-4.1-mini","name":"GPT-4.1 Mini","mode":["chat","embedding"],"capabilities":["chat"],"inputModalities":["text"],"outputModalities":["text"]},` +
+				`{"canonicalId":"gpt-4.1","name":"GPT-4.1","mode":["chat"],"capabilities":["chat"],"inputModalities":["text"],"outputModalities":["text"]}` +
+				`]}`,
+		))
 	}))
 	defer server.Close()
 

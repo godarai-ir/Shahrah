@@ -83,7 +83,7 @@ linters:
         - name: unreachable-code
         - name: redefines-builtin-id
     gocyclo:
-      min-complexity: 90
+      min-complexity: 50
     lll:
       line-length: 300
       tab-width: 4

@@ -111,7 +111,8 @@ func TestStreamSetsRequestStreamFlag(t *testing.T) {
 	}
 	defer stream.Close()
 
-	for range stream.Chunks() {
+	for chunk := range stream.Chunks() {
+		_ = chunk
 	}
 
 	if !payload.Stream {

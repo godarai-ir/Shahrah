@@ -149,30 +149,8 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusBadRequest, "Invalid request body", "invalid_request_error")
 	}
 
-	promptMetadata := map[string]interface{}{}
-
-	if strings.TrimSpace(req.PromptVersionFQN) != "" {
-		if h.prompts == nil {
-			return writeAPIError(c, fiber.StatusNotImplemented, "Prompt store is not configured", "invalid_request_error")
-		}
-
-		promptVersion, err := h.prompts.GetPromptVersionByFQN(c.Context(), currentTenant.ID, req.PromptVersionFQN)
-		if err != nil {
-			return writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
-		}
-
-		rendered, err := prompts.Render(*promptVersion, req.PromptVariables, req.Messages, req.Model)
-		if err != nil {
-			return writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
-		}
-
-		req.Model = rendered.Model
-		req.Messages = rendered.Messages
-		promptMetadata["prompt_id"] = rendered.PromptID
-		promptMetadata["prompt_version_id"] = rendered.PromptVersionID
-		promptMetadata["prompt_fqn"] = rendered.PromptFQN
-		promptMetadata["prompt_version"] = promptVersion.Version
-		c.Locals("prompt_metadata", promptMetadata)
+	if err := h.applyPromptVersion(c, currentTenant.ID, &req); err != nil {
+		return err
 	}
 
 	if req.Model == "" {
@@ -189,30 +167,8 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	resolvedModel := providerModelID(requestedModel)
 	tracing.SetModelForTrace(c, requestedModel)
 
-	if len(req.Messages) == 0 {
-		return writeAPIError(c, fiber.StatusBadRequest, "messages array must not be empty", "invalid_request_error")
-	}
-
-	for i, msg := range req.Messages {
-		if msg.Role == "" {
-			return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("message[%d].role is required", i), "invalid_request_error")
-		}
-
-		if err := contractsopenai.ValidateChatMessageContent(msg.Content); err != nil {
-			return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("message[%d].content: %v", i, err), "invalid_request_error")
-		}
-	}
-
-	if req.Temperature != nil && (*req.Temperature < 0 || *req.Temperature > 2) {
-		return writeAPIError(c, fiber.StatusBadRequest, "temperature must be between 0 and 2", "invalid_request_error")
-	}
-
-	if req.TopP != nil && (*req.TopP < 0 || *req.TopP > 1) {
-		return writeAPIError(c, fiber.StatusBadRequest, "top_p must be between 0 and 1", "invalid_request_error")
-	}
-
-	if req.MaxTokens != nil && *req.MaxTokens < 1 {
-		return writeAPIError(c, fiber.StatusBadRequest, "max_tokens must be at least 1", "invalid_request_error")
+	if err := validateChatCompletionRequest(c, req); err != nil {
+		return err
 	}
 
 	modelAccess := modelAccessForType(authInfo, requestedModel, platform.ModelTypeChat)
@@ -288,51 +244,13 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error")
 	}
 
-	var cachePending *responsecache.Pending
+	cachePending, cacheRelease, cacheHandled, cacheErr := h.handleResponseCacheLookup(c, req, authInfo, currentTenant.ID, requestedModel, cacheConfig, startTime, tenantSlug)
+	if cacheRelease != nil {
+		defer cacheRelease()
+	}
 
-	if cacheConfig != nil {
-		keyID := strings.TrimSpace(authInfo.KeyID)
-		if keyID == "" {
-			keyID = strings.TrimSpace(authInfo.TokenHash)
-		}
-
-		cacheScope := responsecache.Scope{
-			TenantID:     currentTenant.ID,
-			KeyID:        keyID,
-			Model:        requestedModel,
-			ModelVersion: h.virtualModelCacheVersion(c.Context(), authInfo, currentTenant.ID, requestedModel),
-		}
-		cacheResult, pending, lookupErr := h.responseCache.Lookup(c.Context(), cacheScope, req, *cacheConfig)
-		cachePending = pending
-
-		c.Set(apiheaders.HeaderCacheStatus, cacheResult.Status)
-		c.Locals("response_cache_status", cacheResult.Status)
-		c.Locals("response_cache_type", cacheConfig.Type)
-		c.Locals("response_cache_embedding_latency_ms", cacheResult.EmbeddingLatencyMS)
-
-		if lookupErr != nil {
-			h.logger.Warn("Response cache lookup failed", zap.String("cache_type", cacheConfig.Type), zap.Error(lookupErr))
-		} else if cacheResult.Entry != nil {
-			return h.handleCacheHit(c, req, authInfo, cacheResult, startTime, tenantSlug)
-		}
-
-		if cacheResult.Status != "bypass" {
-			release, waited, acquireErr := h.responseCache.AcquireMiss(c.Context(), cachePending)
-			if acquireErr != nil {
-				return writeAPIError(c, fiber.StatusRequestTimeout, "Request canceled while waiting for response cache", "request_canceled")
-			}
-			defer release()
-
-			if waited {
-				secondResult, secondPending, secondErr := h.responseCache.Lookup(c.Context(), cacheScope, req, *cacheConfig)
-				cachePending = secondPending
-
-				if secondErr == nil && secondResult.Entry != nil {
-					c.Set(apiheaders.HeaderCacheStatus, "hit")
-					return h.handleCacheHit(c, req, authInfo, secondResult, startTime, tenantSlug)
-				}
-			}
-		}
+	if cacheErr != nil || cacheHandled {
+		return cacheErr
 	}
 
 	budgetErr := h.billing.CheckBudget(c.Context(), authInfo, estimated)
@@ -369,90 +287,9 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 
 	routeStart := time.Now()
 
-	var (
-		deployment *router.Deployment
-	)
-
-	isVirtual := false
-
-	if h.vmEngine != nil && h.vmExec != nil && !req.Stream {
-		if snapshotVM, ok := buildVirtualModelFromSnapshot(authInfo, requestedModel); ok {
-			targets, selErr := h.vmEngine.SelectTargets(snapshotVM)
-			if selErr == nil {
-				resp, selectedDep, fallbackCount, failureReason, execErr := h.vmExec.ExecuteSync(c.Context(), targets, func(callCtx context.Context, dep *router.Deployment) (*platform.TunnelResponse, error) {
-					dep = h.resolveVirtualDeployment(callCtx, currentTenant.ID, dep)
-					tunnelReq := baseReq
-					tunnelReq.Deployment = toContractDeployment(dep)
-
-					payload, payloadErr := buildChatCompletionPayload(req, dep.Model, resolvedModel)
-					if payloadErr != nil {
-						return nil, payloadErr
-					}
-
-					tunnelReq.Body = payload
-
-					return h.tunnel.Proxy(callCtx, tunnelReq)
-				})
-				if execErr == nil && resp != nil && selectedDep != nil {
-					isVirtual = true
-					deployment = selectedDep
-
-					c.Locals("vm_resp", resp)
-					c.Locals("vm_fallback_count", fallbackCount)
-					c.Locals("vm_failure_reason", failureReason)
-					tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_virtual_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{
-						"virtual_model":     snapshotVM.Alias,
-						"selected_provider": selectedDep.Provider,
-						"selected_model":    selectedDep.Model,
-						"fallback_count":    fallbackCount,
-						"failure_reason":    failureReason,
-						"snapshot":          true,
-					})
-				} else if errors.Is(execErr, virtualmodels.ErrFallbackExhausted) {
-					return writeAPIError(c, fiber.StatusBadGateway, "Virtual model fallback exhausted", "fallback_exhausted")
-				}
-			}
-		}
-	}
-
-	if deployment == nil && h.vmResolver != nil && h.vmEngine != nil && h.vmExec != nil && !req.Stream {
-		vm, vmErr := h.vmResolver.Resolve(c.Context(), currentTenant.ID, requestedModel)
-		if vmErr == nil {
-			targets, selErr := h.vmEngine.SelectTargets(vm)
-			if selErr == nil {
-				resp, selectedDep, fallbackCount, failureReason, execErr := h.vmExec.ExecuteSync(c.Context(), targets, func(callCtx context.Context, dep *router.Deployment) (*platform.TunnelResponse, error) {
-					dep = h.resolveVirtualDeployment(callCtx, currentTenant.ID, dep)
-					tunnelReq := baseReq
-					tunnelReq.Deployment = toContractDeployment(dep)
-
-					payload, payloadErr := buildChatCompletionPayload(req, dep.Model, resolvedModel)
-					if payloadErr != nil {
-						return nil, payloadErr
-					}
-
-					tunnelReq.Body = payload
-
-					return h.tunnel.Proxy(callCtx, tunnelReq)
-				})
-				if execErr == nil && resp != nil && selectedDep != nil {
-					isVirtual = true
-					deployment = selectedDep
-
-					c.Locals("vm_resp", resp)
-					c.Locals("vm_fallback_count", fallbackCount)
-					c.Locals("vm_failure_reason", failureReason)
-					tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_virtual_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{
-						"virtual_model":     vm.Alias,
-						"selected_provider": selectedDep.Provider,
-						"selected_model":    selectedDep.Model,
-						"fallback_count":    fallbackCount,
-						"failure_reason":    failureReason,
-					})
-				} else if errors.Is(execErr, virtualmodels.ErrFallbackExhausted) {
-					return writeAPIError(c, fiber.StatusBadGateway, "Virtual model fallback exhausted", "fallback_exhausted")
-				}
-			}
-		}
+	deployment, isVirtual, routeErr := h.tryRouteVirtualModel(c, currentTenant.ID, authInfo, requestedModel, req, resolvedModel, baseReq, routeStart)
+	if routeErr != nil {
+		return routeErr
 	}
 
 	if deployment == nil {
@@ -511,6 +348,237 @@ func buildChatCompletionPayload(req contractsopenai.ChatCompletionRequest, deplo
 	outboundReq.PromptVariables = nil
 
 	return json.Marshal(outboundReq)
+}
+
+func validateChatCompletionRequest(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest) error {
+	if len(req.Messages) == 0 {
+		return writeAPIError(c, fiber.StatusBadRequest, "messages array must not be empty", "invalid_request_error")
+	}
+
+	for i, msg := range req.Messages {
+		if msg.Role == "" {
+			return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("message[%d].role is required", i), "invalid_request_error")
+		}
+
+		if err := contractsopenai.ValidateChatMessageContent(msg.Content); err != nil {
+			return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("message[%d].content: %v", i, err), "invalid_request_error")
+		}
+	}
+
+	if req.Temperature != nil && (*req.Temperature < 0 || *req.Temperature > 2) {
+		return writeAPIError(c, fiber.StatusBadRequest, "temperature must be between 0 and 2", "invalid_request_error")
+	}
+
+	if req.TopP != nil && (*req.TopP < 0 || *req.TopP > 1) {
+		return writeAPIError(c, fiber.StatusBadRequest, "top_p must be between 0 and 1", "invalid_request_error")
+	}
+
+	if req.MaxTokens != nil && *req.MaxTokens < 1 {
+		return writeAPIError(c, fiber.StatusBadRequest, "max_tokens must be at least 1", "invalid_request_error")
+	}
+
+	return nil
+}
+
+func (h *ChatCompletionHandler) applyPromptVersion(c *fiber.Ctx, tenantID string, req *contractsopenai.ChatCompletionRequest) error {
+	if strings.TrimSpace(req.PromptVersionFQN) == "" {
+		return nil
+	}
+
+	if h.prompts == nil {
+		return writeAPIError(c, fiber.StatusNotImplemented, "Prompt store is not configured", "invalid_request_error")
+	}
+
+	promptVersion, err := h.prompts.GetPromptVersionByFQN(c.Context(), tenantID, req.PromptVersionFQN)
+	if err != nil {
+		return writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
+	}
+
+	rendered, err := prompts.Render(*promptVersion, req.PromptVariables, req.Messages, req.Model)
+	if err != nil {
+		return writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
+	}
+
+	req.Model = rendered.Model
+	req.Messages = rendered.Messages
+	c.Locals("prompt_metadata", map[string]interface{}{
+		"prompt_id":         rendered.PromptID,
+		"prompt_version_id": rendered.PromptVersionID,
+		"prompt_fqn":        rendered.PromptFQN,
+		"prompt_version":    promptVersion.Version,
+	})
+
+	return nil
+}
+
+func (h *ChatCompletionHandler) handleResponseCacheLookup(
+	c *fiber.Ctx,
+	req contractsopenai.ChatCompletionRequest,
+	authInfo *platform.AuthContext,
+	tenantID string,
+	requestedModel string,
+	cacheConfig *responsecache.RequestConfig,
+	startTime time.Time,
+	tenantSlug string,
+) (*responsecache.Pending, func(), bool, error) {
+	if cacheConfig == nil {
+		return nil, nil, false, nil
+	}
+
+	keyID := strings.TrimSpace(authInfo.KeyID)
+	if keyID == "" {
+		keyID = strings.TrimSpace(authInfo.TokenHash)
+	}
+
+	cacheScope := responsecache.Scope{
+		TenantID:     tenantID,
+		KeyID:        keyID,
+		Model:        requestedModel,
+		ModelVersion: h.virtualModelCacheVersion(c.Context(), authInfo, tenantID, requestedModel),
+	}
+	cacheResult, cachePending, lookupErr := h.responseCache.Lookup(c.Context(), cacheScope, req, *cacheConfig)
+
+	c.Set(apiheaders.HeaderCacheStatus, cacheResult.Status)
+	c.Locals("response_cache_status", cacheResult.Status)
+	c.Locals("response_cache_type", cacheConfig.Type)
+	c.Locals("response_cache_embedding_latency_ms", cacheResult.EmbeddingLatencyMS)
+
+	if lookupErr != nil {
+		h.logger.Warn("Response cache lookup failed", zap.String("cache_type", cacheConfig.Type), zap.Error(lookupErr))
+	} else if cacheResult.Entry != nil {
+		return cachePending, nil, true, h.handleCacheHit(c, req, authInfo, cacheResult, startTime, tenantSlug)
+	}
+
+	if cacheResult.Status == "bypass" {
+		return cachePending, nil, false, nil
+	}
+
+	release, waited, acquireErr := h.responseCache.AcquireMiss(c.Context(), cachePending)
+	if acquireErr != nil {
+		return cachePending, nil, false, writeAPIError(c, fiber.StatusRequestTimeout, "Request canceled while waiting for response cache", "request_canceled")
+	}
+
+	if !waited {
+		return cachePending, release, false, nil
+	}
+
+	secondResult, secondPending, secondErr := h.responseCache.Lookup(c.Context(), cacheScope, req, *cacheConfig)
+	cachePending = secondPending
+
+	if secondErr == nil && secondResult.Entry != nil {
+		c.Set(apiheaders.HeaderCacheStatus, "hit")
+		return cachePending, release, true, h.handleCacheHit(c, req, authInfo, secondResult, startTime, tenantSlug)
+	}
+
+	return cachePending, release, false, nil
+}
+
+func (h *ChatCompletionHandler) tryRouteVirtualModel(
+	c *fiber.Ctx,
+	tenantID string,
+	authInfo *platform.AuthContext,
+	requestedModel string,
+	req contractsopenai.ChatCompletionRequest,
+	resolvedModel string,
+	baseReq platform.TunnelRequest,
+	routeStart time.Time,
+) (*router.Deployment, bool, error) {
+	if req.Stream || h.vmEngine == nil || h.vmExec == nil {
+		return nil, false, nil
+	}
+
+	if snapshotVM, ok := buildVirtualModelFromSnapshot(authInfo, requestedModel); ok {
+		deployment, err := h.executeVirtualModelRoute(c, tenantID, snapshotVM, req, resolvedModel, baseReq, routeStart, true)
+		if err != nil || deployment != nil {
+			return deployment, deployment != nil, err
+		}
+	}
+
+	if h.vmResolver == nil {
+		return nil, false, nil
+	}
+
+	vm, resolveErr := h.vmResolver.Resolve(c.Context(), tenantID, requestedModel)
+	if resolveErr == nil {
+		deployment, err := h.executeVirtualModelRoute(c, tenantID, vm, req, resolvedModel, baseReq, routeStart, false)
+
+		return deployment, deployment != nil, err
+	}
+
+	return nil, false, nil
+}
+
+func (h *ChatCompletionHandler) executeVirtualModelRoute(
+	c *fiber.Ctx,
+	tenantID string,
+	vm *platform.VirtualModel,
+	req contractsopenai.ChatCompletionRequest,
+	resolvedModel string,
+	baseReq platform.TunnelRequest,
+	routeStart time.Time,
+	fromSnapshot bool,
+) (*router.Deployment, error) {
+	targets, selErr := h.vmEngine.SelectTargets(vm)
+	if selErr != nil {
+		targets = nil
+	}
+
+	if targets == nil {
+		return nil, nil
+	}
+
+	resp, selectedDep, fallbackCount, failureReason, execErr := h.vmExec.ExecuteSync(c.Context(), targets, func(callCtx context.Context, dep *router.Deployment) (*platform.TunnelResponse, error) {
+		dep = h.resolveVirtualDeployment(callCtx, tenantID, dep)
+		tunnelReq := baseReq
+		tunnelReq.Deployment = toContractDeployment(dep)
+
+		payload, payloadErr := buildChatCompletionPayload(req, dep.Model, resolvedModel)
+		if payloadErr != nil {
+			return nil, payloadErr
+		}
+
+		tunnelReq.Body = payload
+
+		return h.tunnel.Proxy(callCtx, tunnelReq)
+	})
+	if execErr == nil && resp != nil && selectedDep != nil {
+		h.recordVirtualModelRoute(c, vm, selectedDep, resp, fallbackCount, failureReason, routeStart, fromSnapshot)
+		return selectedDep, nil
+	}
+
+	if errors.Is(execErr, virtualmodels.ErrFallbackExhausted) {
+		return nil, writeAPIError(c, fiber.StatusBadGateway, "Virtual model fallback exhausted", "fallback_exhausted")
+	}
+
+	return nil, nil
+}
+
+func (h *ChatCompletionHandler) recordVirtualModelRoute(
+	c *fiber.Ctx,
+	vm *platform.VirtualModel,
+	selectedDep *router.Deployment,
+	resp *platform.TunnelResponse,
+	fallbackCount int,
+	failureReason string,
+	routeStart time.Time,
+	fromSnapshot bool,
+) {
+	c.Locals("vm_resp", resp)
+	c.Locals("vm_fallback_count", fallbackCount)
+	c.Locals("vm_failure_reason", failureReason)
+
+	metadata := map[string]interface{}{
+		"virtual_model":     vm.Alias,
+		"selected_provider": selectedDep.Provider,
+		"selected_model":    selectedDep.Model,
+		"fallback_count":    fallbackCount,
+		"failure_reason":    failureReason,
+	}
+	if fromSnapshot {
+		metadata["snapshot"] = true
+	}
+
+	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_virtual_model", "internal", routeStart, fiber.StatusOK, metadata)
 }
 
 func (h *ChatCompletionHandler) resolveVirtualDeployment(ctx context.Context, tenantID string, dep *router.Deployment) *router.Deployment {

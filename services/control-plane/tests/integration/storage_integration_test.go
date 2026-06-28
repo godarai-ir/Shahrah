@@ -1004,7 +1004,7 @@ func TestIntegration_EffectiveModelsAccessMatrix_PAT_VAT_UserTeam(t *testing.T) 
 			"http://localhost/api/v1/personal-access-tokens",
 			"Bearer sk-master",
 			map[string]string{"x-shahrah-user-id": userID},
-			fmt.Sprintf(`{"name":"%s"}`, name),
+			fmt.Sprintf(`{"name":%q}`, name),
 		)
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
 
@@ -1021,7 +1021,7 @@ func TestIntegration_EffectiveModelsAccessMatrix_PAT_VAT_UserTeam(t *testing.T) 
 			http.MethodPost,
 			"http://localhost/api/v1/keys/vat",
 			"Bearer sk-master",
-			fmt.Sprintf(`{"key_alias":"%s","allowed_models":["*"],"team_id":"%s"}`, name, teamID),
+			fmt.Sprintf(`{"key_alias":%q,"allowed_models":["*"],"team_id":%q}`, name, teamID),
 		)
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
 	}
@@ -1060,13 +1060,13 @@ func TestIntegration_EffectiveModelsAccessMatrix_PAT_VAT_UserTeam(t *testing.T) 
 	assertAllowed("vat", "", teamAID, "gpt-4.1-mini", true)
 
 	// Scenario 2: user-specific access.
-	setAccess(fmt.Sprintf(`[{"type":"user","principal_id":"%s"}]`, userAID))
+	setAccess(fmt.Sprintf(`[{"type":"user","principal_id":%q}]`, userAID))
 	assertAllowed("pat", userAID, "", "gpt-4.1-mini", true)
 	assertAllowed("pat", userBID, "", "gpt-4.1-mini", false)
 	assertAllowed("vat", "", teamAID, "gpt-4.1-mini", false)
 
 	// Scenario 3: team-specific access.
-	setAccess(fmt.Sprintf(`[{"type":"team","principal_id":"%s"}]`, teamAID))
+	setAccess(fmt.Sprintf(`[{"type":"team","principal_id":%q}]`, teamAID))
 	assertAllowed("vat", "", teamAID, "gpt-4.1-mini", true)
 	assertAllowed("vat", "", teamBID, "gpt-4.1-mini", false)
 	assertAllowed("pat", userAID, "", "gpt-4.1-mini", true)

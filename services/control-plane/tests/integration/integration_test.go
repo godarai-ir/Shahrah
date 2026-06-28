@@ -1722,17 +1722,19 @@ func (s *integrationKeyStore) RevokeVATToken(ctx context.Context, tenantID strin
 	defer s.mu.Unlock()
 
 	for i := range s.created {
-		if s.created[i].ID == keyID && s.created[i].TenantID == tenantID && s.created[i].VirtualUserID == virtualUserID && s.created[i].KeyType == platform.KeyTypeVAT && s.created[i].RevokedAt == nil {
-			now := time.Now().UTC()
-			s.created[i].RevokedAt = &now
-
-			s.created[i].Blocked = true
-			if info, ok := s.byHash[s.created[i].TokenHash]; ok {
-				info.Blocked = true
-			}
-
-			return true, nil
+		if s.created[i].ID != keyID || s.created[i].TenantID != tenantID || s.created[i].VirtualUserID != virtualUserID || s.created[i].KeyType != platform.KeyTypeVAT || s.created[i].RevokedAt != nil {
+			continue
 		}
+
+		now := time.Now().UTC()
+		s.created[i].RevokedAt = &now
+
+		s.created[i].Blocked = true
+		if info, ok := s.byHash[s.created[i].TokenHash]; ok {
+			info.Blocked = true
+		}
+
+		return true, nil
 	}
 
 	return false, nil
@@ -2005,14 +2007,16 @@ func (s *integrationKeyStore) AddTeamMembership(ctx context.Context, tenantID st
 	defer s.mu.Unlock()
 
 	for i := range s.teamMemberships {
-		if s.teamMemberships[i].TenantID == tenantID && s.teamMemberships[i].TeamID == teamID && s.teamMemberships[i].UserID == req.UserID {
-			s.teamMemberships[i].Role = req.Role
-			s.teamMemberships[i].TeamMemberPermissions = append([]string(nil), req.TeamMemberPermissions...)
-			s.teamMemberships[i].UpdatedAt = time.Now().UTC()
-			cloned := s.teamMemberships[i]
-
-			return &cloned, nil
+		if s.teamMemberships[i].TenantID != tenantID || s.teamMemberships[i].TeamID != teamID || s.teamMemberships[i].UserID != req.UserID {
+			continue
 		}
+
+		s.teamMemberships[i].Role = req.Role
+		s.teamMemberships[i].TeamMemberPermissions = append([]string(nil), req.TeamMemberPermissions...)
+		s.teamMemberships[i].UpdatedAt = time.Now().UTC()
+		cloned := s.teamMemberships[i]
+
+		return &cloned, nil
 	}
 
 	item := platform.TeamMembership{
@@ -2035,20 +2039,22 @@ func (s *integrationKeyStore) UpdateTeamMembership(ctx context.Context, tenantID
 	defer s.mu.Unlock()
 
 	for i := range s.teamMemberships {
-		if s.teamMemberships[i].TenantID == tenantID && s.teamMemberships[i].TeamID == teamID && s.teamMemberships[i].UserID == userID {
-			if req.Role != "" {
-				s.teamMemberships[i].Role = req.Role
-			}
-
-			if req.TeamMemberPermissions != nil {
-				s.teamMemberships[i].TeamMemberPermissions = append([]string(nil), req.TeamMemberPermissions...)
-			}
-
-			s.teamMemberships[i].UpdatedAt = time.Now().UTC()
-			cloned := s.teamMemberships[i]
-
-			return &cloned, nil
+		if s.teamMemberships[i].TenantID != tenantID || s.teamMemberships[i].TeamID != teamID || s.teamMemberships[i].UserID != userID {
+			continue
 		}
+
+		if req.Role != "" {
+			s.teamMemberships[i].Role = req.Role
+		}
+
+		if req.TeamMemberPermissions != nil {
+			s.teamMemberships[i].TeamMemberPermissions = append([]string(nil), req.TeamMemberPermissions...)
+		}
+
+		s.teamMemberships[i].UpdatedAt = time.Now().UTC()
+		cloned := s.teamMemberships[i]
+
+		return &cloned, nil
 	}
 
 	return nil, pgx.ErrNoRows
@@ -2125,8 +2131,8 @@ func (s *integrationKeyStore) GetVirtualUser(ctx context.Context, tenantID strin
 
 	for _, item := range s.virtualUsers {
 		if item.TenantID == tenantID && item.ID == virtualUserID {
-			copy := item
-			return &copy, nil
+			cloned := item
+			return &cloned, nil
 		}
 	}
 
