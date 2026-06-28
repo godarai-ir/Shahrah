@@ -9,6 +9,12 @@ DOCKER_COMPOSE := docker compose -f $(COMPOSE_FILE)
 GO := go
 GOLANGCI_LINT := golangci-lint
 
+ifeq ($(OS),Windows_NT)
+GO_TEST_FLAGS :=
+else
+GO_TEST_FLAGS := -race
+endif
+
 # Migration configuration (goose)
 DB_HOST ?= localhost
 DB_PORT ?= 5432
@@ -44,13 +50,13 @@ run: ## Run the control-plane service locally
 	$(GO) -C $(CONTROL_PLANE_DIR) run ./cmd/server
 
 test-unit: ## Run control-plane unit tests
-	$(GO) -C $(CONTROL_PLANE_DIR) test -v -race ./tests/unit/...
+	$(GO) -C $(CONTROL_PLANE_DIR) test -v $(GO_TEST_FLAGS) ./tests/unit/...
 
 test-integration: ## Run control-plane integration tests
-	$(GO) -C $(CONTROL_PLANE_DIR) test -v -race ./tests/integration/...
+	$(GO) -C $(CONTROL_PLANE_DIR) test -v $(GO_TEST_FLAGS) ./tests/integration/...
 
 test-integration-db: ## Run Postgres-backed control-plane integration tests (requires DATABASE_URL)
-	$(GO) -C $(CONTROL_PLANE_DIR) test -v -race ./tests/integration/... -run "PostgresBacked|StorageSchemaContract|ConcurrentWalletDebitUsesRowLock"
+	$(GO) -C $(CONTROL_PLANE_DIR) test -v $(GO_TEST_FLAGS) ./tests/integration/... -run "PostgresBacked|StorageSchemaContract|ConcurrentWalletDebitUsesRowLock"
 
 test: test-unit ## Run default tests
 

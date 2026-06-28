@@ -123,6 +123,10 @@ func (m *AuthMiddleware) authenticateAPIKey(c *fiber.Ctx, apiKey string) error {
 	if err != nil {
 		return err
 	}
+	if keyInfo == nil {
+		// lookupAuthContext already wrote the response for handled auth failures.
+		return nil
+	}
 
 	if err := m.authorizeAndStoreAuthContext(c, keyInfo); err != nil {
 		return err
