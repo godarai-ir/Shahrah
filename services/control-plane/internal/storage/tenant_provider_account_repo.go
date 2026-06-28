@@ -150,7 +150,7 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTxBestEffort(ctx, tx)
 
 	var (
 		currentAuthMode      string
@@ -260,7 +260,7 @@ func (s *Store) UpsertTenantProviderAccountModels(ctx context.Context, tenantID 
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTxBestEffort(ctx, tx)
 
 	_, existsErr := ensureTenantProviderAccountExists(ctx, tx, tenantID, accountID)
 	if existsErr != nil {
@@ -351,7 +351,7 @@ func (s *Store) UpdateTenantProviderAccountAccess(ctx context.Context, tenantID 
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTxBestEffort(ctx, tx)
 
 	_, existsErr := ensureTenantProviderAccountExists(ctx, tx, tenantID, accountID)
 	if existsErr != nil {
@@ -490,7 +490,11 @@ func (s *Store) TestTenantProviderAccountCredentials(ctx context.Context, tenant
 	}
 
 	credentials := parseJSONObject(credentialRaw)
-	apiKey, _ := credentials["api_key"].(string)
+
+	apiKey := ""
+	if value, ok := credentials["api_key"].(string); ok {
+		apiKey = value
+	}
 
 	apiKey = strings.TrimSpace(apiKey)
 	if apiKey == "" || isMaskedCredentialValue(apiKey) {
@@ -729,7 +733,7 @@ func (s *Store) DeleteTenantProviderAccount(ctx context.Context, tenantID string
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTxBestEffort(ctx, tx)
 
 	var (
 		accountName string

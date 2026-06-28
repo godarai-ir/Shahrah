@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -101,7 +100,11 @@ func (s *Store) createSubscriptionPaymentIntent(ctx context.Context, tenantID st
 	amount, _ := numericFeatureLimit(priceSnapshot["amount_minor"])
 	discount, _ := numericFeatureLimit(priceSnapshot["discount_percent"])
 
-	currency, _ := priceSnapshot["currency"].(string)
+	currency := ""
+	if value, ok := priceSnapshot["currency"].(string); ok {
+		currency = value
+	}
+
 	if currency == "" {
 		currency = "IRR"
 	}
@@ -122,7 +125,7 @@ func (s *Store) createSubscriptionPaymentIntent(ctx context.Context, tenantID st
 }
 
 func (s *Store) AttachSubscriptionPaymentGatewayData(ctx context.Context, publicID string, authority string, paymentURL string, raw map[string]interface{}) error {
-	payload, _ := json.Marshal(raw)
+	payload := marshalJSONBestEffort(raw)
 
 	result, err := s.pool.Exec(ctx, `
 		UPDATE subscription_payment_intents
@@ -157,7 +160,7 @@ func (s *Store) CompleteSubscriptionPaymentByAuthority(ctx context.Context, auth
 	if err != nil {
 		return nil, nil, false, err
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer rollbackTxBestEffort(ctx, tx)
 
 	intent, err := scanSubscriptionPaymentIntent(tx.QueryRow(ctx, subscriptionPaymentIntentSelect+` WHERE spi.authority = $1 FOR UPDATE`, authority))
 	if err != nil {
@@ -246,7 +249,7 @@ func (s *Store) CompleteSubscriptionPaymentByAuthority(ctx context.Context, auth
 		}
 	}
 
-	verifyPayload, _ := json.Marshal(verifyRaw)
+	verifyPayload := marshalJSONBestEffort(verifyRaw)
 
 	_, updateIntentErr := tx.Exec(ctx, `
 		UPDATE subscription_payment_intents
@@ -285,7 +288,7 @@ func (s *Store) CompleteSubscriptionPaymentByAuthority(ctx context.Context, auth
 }
 
 func (s *Store) MarkSubscriptionPaymentFailedByAuthority(ctx context.Context, authority string, reason string, raw map[string]interface{}) error {
-	payload, _ := json.Marshal(raw)
+	payload := marshalJSONBestEffort(raw)
 
 	result, err := s.pool.Exec(ctx, `
 		UPDATE subscription_payment_intents

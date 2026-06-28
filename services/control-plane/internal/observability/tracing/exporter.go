@@ -269,7 +269,9 @@ func (e *ReliableExporter) Export(ctx context.Context, batch []SpanEvent) error 
 		e.logger.Warn("otlp export failed after retries; writing to wal", zap.Error(err), zap.Int("batch", len(batch)))
 
 		if e.wal != nil {
-			_ = e.wal.Append(DurableBatch{Events: batch, CreatedAt: time.Now().UTC()})
+			if walErr := e.wal.Append(DurableBatch{Events: batch, CreatedAt: time.Now().UTC()}); walErr != nil {
+				e.logger.Warn("trace wal append failed", zap.Error(walErr), zap.Int("batch", len(batch)))
+			}
 		}
 	}
 
@@ -352,7 +354,9 @@ func (e *ReliableExporter) replayOnce() {
 	}
 
 	for _, b := range failed {
-		_ = e.wal.Append(b)
+		if walErr := e.wal.Append(b); walErr != nil {
+			e.logger.Warn("trace wal replay append failed", zap.Error(walErr), zap.Int("batch", len(b.Events)))
+		}
 	}
 
 	if len(failed) > 0 {

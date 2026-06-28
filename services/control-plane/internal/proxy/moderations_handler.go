@@ -255,7 +255,7 @@ func (h *ModerationsHandler) handleSync(c *fiber.Ctx, req contractsopenai.Modera
 	}
 
 	responseTimeMS := int(time.Since(start).Milliseconds())
-	_ = h.logs.LogRequest(c.Context(), platform.RequestLogEntry{
+	logRequestBestEffort(h.logger, h.logs, c.Context(), platform.RequestLogEntry{
 		RequestID:      tunnelReq.RequestID,
 		TokenHash:      authInfo.TokenHash,
 		TenantID:       authInfo.TenantID,
@@ -266,7 +266,7 @@ func (h *ModerationsHandler) handleSync(c *fiber.Ctx, req contractsopenai.Modera
 		RequestBody:    map[string]interface{}{"model": req.Model, "input_count": moderationInputCount(req.Input)},
 		ResponseBody:   map[string]interface{}{"id": response.ID, "result_count": len(response.Results), "flagged_count": moderationFlaggedCount(response)},
 	})
-	_ = h.logs.LogSpend(c.Context(), platform.SpendLog{
+	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID:       tunnelReq.RequestID,
 		TokenHash:       authInfo.TokenHash,
 		TenantID:        authInfo.TenantID,

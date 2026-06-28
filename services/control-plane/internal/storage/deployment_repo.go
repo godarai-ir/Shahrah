@@ -90,7 +90,9 @@ func (s *Store) ListDeployments(ctx context.Context, tenantID string) ([]platfor
 		}
 
 		if len(infoRaw) > 0 {
-			_ = json.Unmarshal(infoRaw, &dep.ModelInfo)
+			if unmarshalErr := json.Unmarshal(infoRaw, &dep.ModelInfo); unmarshalErr != nil {
+				return nil, unmarshalErr
+			}
 		}
 
 		deps = append(deps, dep)

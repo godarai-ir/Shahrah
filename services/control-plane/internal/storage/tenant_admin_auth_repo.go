@@ -77,8 +77,7 @@ func (s *Store) ConsumeTenantAdminCaptcha(ctx context.Context, id string, answer
 	queryErr := s.pool.QueryRow(ctx, `
 		SELECT answer, "expiresAt" FROM tenant_admin_captchas WHERE id = $1
 	`, id).Scan(&storedAnswer, &expiresAt)
-
-	if hasInvalidOTPRequest(queryErr) {
+	if queryErr != nil {
 		if queryErr == pgx.ErrNoRows {
 			return false, nil
 		}
@@ -86,7 +85,9 @@ func (s *Store) ConsumeTenantAdminCaptcha(ctx context.Context, id string, answer
 		return false, queryErr
 	}
 
-	_, _ = s.pool.Exec(ctx, `DELETE FROM tenant_admin_captchas WHERE id = $1`, id)
+	if _, err := s.pool.Exec(ctx, `DELETE FROM tenant_admin_captchas WHERE id = $1`, id); err != nil {
+		return false, err
+	}
 
 	if time.Now().After(expiresAt) {
 		return false, nil
@@ -159,10 +160,12 @@ func (s *Store) VerifyTenantAdminOTPRequest(ctx context.Context, params VerifyTe
 		&record.Identifier, &record.UserID, &record.PendingValue,
 		&otpCode, &record.Attempts, &record.ExpiresAt, &record.CreatedAt,
 	)
+	if queryErr != nil {
+		if queryErr == pgx.ErrNoRows {
+			return map[string]interface{}{"ok": false, "error": "درخواست OTP معتبر نیست یا منقضی شده است."}, nil
+		}
 
-	invalidRequest := queryErr != nil
-	if invalidRequest {
-		return map[string]interface{}{"ok": false, "error": "درخواست OTP معتبر نیست یا منقضی شده است."}, nil
+		return nil, queryErr
 	}
 
 	if record.TenantSlug != params.TenantSlug {
@@ -178,24 +181,34 @@ func (s *Store) VerifyTenantAdminOTPRequest(ctx context.Context, params VerifyTe
 	}
 
 	if time.Now().After(record.ExpiresAt) {
-		_, _ = s.pool.Exec(ctx, `DELETE FROM tenant_admin_otp_requests WHERE id = $1`, params.RequestID)
+		if _, err := s.pool.Exec(ctx, `DELETE FROM tenant_admin_otp_requests WHERE id = $1`, params.RequestID); err != nil {
+			return nil, err
+		}
+
 		return map[string]interface{}{"ok": false, "error": "کد OTP منقضی شده است."}, nil
 	}
 
 	if params.OTPCode != otpCode {
 		nextAttempts := record.Attempts + 1
 		if nextAttempts >= tenantAdminMaxOTPAttempts {
-			_, _ = s.pool.Exec(ctx, `DELETE FROM tenant_admin_otp_requests WHERE id = $1`, params.RequestID)
+			if _, err := s.pool.Exec(ctx, `DELETE FROM tenant_admin_otp_requests WHERE id = $1`, params.RequestID); err != nil {
+				return nil, err
+			}
+
 			return map[string]interface{}{"ok": false, "error": "تعداد تلاش بیش از حد مجاز است. دوباره OTP بگیرید."}, nil
 		}
 
-		_, _ = s.pool.Exec(ctx, `UPDATE tenant_admin_otp_requests SET attempts = $1 WHERE id = $2`, nextAttempts, params.RequestID)
+		if _, err := s.pool.Exec(ctx, `UPDATE tenant_admin_otp_requests SET attempts = $1 WHERE id = $2`, nextAttempts, params.RequestID); err != nil {
+			return nil, err
+		}
 
 		return map[string]interface{}{"ok": false, "error": "کد OTP اشتباه است."}, nil
 	}
 
 	// OTP is correct - delete the record
-	_, _ = s.pool.Exec(ctx, `DELETE FROM tenant_admin_otp_requests WHERE id = $1`, params.RequestID)
+	if _, err := s.pool.Exec(ctx, `DELETE FROM tenant_admin_otp_requests WHERE id = $1`, params.RequestID); err != nil {
+		return nil, err
+	}
 
 	return map[string]interface{}{
 		"ok": true,
@@ -265,7 +278,10 @@ func (s *Store) GetTenantAdminSession(ctx context.Context, id string) (map[strin
 	}
 
 	if time.Now().After(session.ExpiresAt) {
-		_, _ = s.pool.Exec(ctx, `DELETE FROM tenant_admin_sessions WHERE id = $1`, id)
+		if _, err := s.pool.Exec(ctx, `DELETE FROM tenant_admin_sessions WHERE id = $1`, id); err != nil {
+			return nil, err
+		}
+
 		return nil, nil
 	}
 
@@ -458,10 +474,6 @@ func buildTenantAdminUserMap(
 	}
 }
 
-func hasInvalidOTPRequest(err error) bool {
-	return err != nil
-}
-
 // Helper functions.
 func generateTenantAdminID() string {
 	b := make([]byte, 16)
@@ -486,7 +498,12 @@ func generateCaptchaAnswer(length int) string {
 
 	result := make([]byte, length)
 	for i := range result {
-		n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(alphabet))))
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(alphabet))))
+		if err != nil {
+			result[i] = alphabet[0]
+			continue
+		}
+
 		result[i] = alphabet[n.Int64()]
 	}
 
@@ -494,7 +511,11 @@ func generateCaptchaAnswer(length int) string {
 }
 
 func generateOTPCode() string {
-	n, _ := rand.Int(rand.Reader, big.NewInt(900000))
+	n, err := rand.Int(rand.Reader, big.NewInt(900000))
+	if err != nil {
+		return "100000"
+	}
+
 	return fmt.Sprintf("%06d", n.Int64()+100000)
 }
 

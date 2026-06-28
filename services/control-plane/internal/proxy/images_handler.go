@@ -249,7 +249,7 @@ func (h *ImagesHandler) handleSync(c *fiber.Ctx, requestedModel string, estimate
 
 	authInfo := auth.GetAuthInfo(c)
 	responseTimeMS := int(time.Since(start).Milliseconds())
-	_ = h.logs.LogRequest(c.Context(), platform.RequestLogEntry{
+	logRequestBestEffort(h.logger, h.logs, c.Context(), platform.RequestLogEntry{
 		RequestID:      tunnelReq.RequestID,
 		TokenHash:      authInfo.TokenHash,
 		TenantID:       authInfo.TenantID,
@@ -260,7 +260,7 @@ func (h *ImagesHandler) handleSync(c *fiber.Ctx, requestedModel string, estimate
 		RequestBody:    map[string]interface{}{"model": requestedModel, "operation": op.Name, "n": tunnelReq.RequestMetadata["n"], "size": tunnelReq.RequestMetadata["size"], "quality": tunnelReq.RequestMetadata["quality"]},
 		ResponseBody:   buildTraceImageResponsePayload(resp.Body),
 	})
-	_ = h.logs.LogSpend(c.Context(), platform.SpendLog{
+	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID:       tunnelReq.RequestID,
 		TokenHash:       authInfo.TokenHash,
 		TenantID:        authInfo.TenantID,
@@ -332,7 +332,11 @@ func extractImageRequestMetadata(c *fiber.Ctx, body []byte, contentType string, 
 			return "", metadata, fmt.Errorf("invalid request body")
 		}
 
-		model, _ := raw["model"].(string)
+		model := ""
+		if rawModel, ok := raw["model"].(string); ok {
+			model = rawModel
+		}
+
 		fillImageJSONMetadata(metadata, raw, op)
 
 		if strings.TrimSpace(model) == "" {
@@ -482,7 +486,11 @@ func imageNumber(v interface{}) int {
 	case int:
 		return n
 	case json.Number:
-		i, _ := n.Int64()
+		i, err := n.Int64()
+		if err != nil {
+			return 0
+		}
+
 		return int(i)
 	default:
 		return 0

@@ -31,20 +31,22 @@ func (s *Store) initClickHouse(ctx context.Context) error {
 	db.SetConnMaxLifetime(15 * time.Minute)
 
 	if err := db.PingContext(ctx); err != nil {
-		_ = db.Close()
+		closeBestEffort(db)
 		return err
 	}
 
 	s.clickhouse = db
 	if err := s.ensureClickHouseTraceSchema(ctx); err != nil {
-		_ = db.Close()
+		closeBestEffort(db)
+
 		s.clickhouse = nil
 
 		return err
 	}
 
 	if err := s.ensureClickHouseMetricsSchema(ctx); err != nil {
-		_ = db.Close()
+		closeBestEffort(db)
+
 		s.clickhouse = nil
 
 		return err
@@ -208,7 +210,7 @@ func (s *Store) exportToClickHouse(ctx context.Context, batch []tracing.SpanEven
 			attrs[k] = v
 		}
 
-		attrsRaw, _ := json.Marshal(attrs)
+		attrsRaw := marshalJSONBestEffort(attrs)
 
 		spanID := ev.SpanID
 		if strings.TrimSpace(spanID) == "" {
@@ -317,7 +319,7 @@ func (s *Store) listRequestTracesFromClickHouse(ctx context.Context, params plat
 	if err != nil {
 		return nil, 0, err
 	}
-	defer rows.Close()
+	defer closeBestEffort(rows)
 
 	items := make([]platform.RequestTrace, 0, params.Limit)
 
@@ -397,7 +399,7 @@ func (s *Store) listTraceSpansFromClickHouse(ctx context.Context, tenantID, trac
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer closeBestEffort(rows)
 
 	out := make([]platform.TraceSpan, 0, 8)
 
@@ -421,7 +423,9 @@ func (s *Store) listTraceSpansFromClickHouse(ctx context.Context, tenantID, trac
 		}
 
 		if strings.TrimSpace(attrsRaw) != "" {
-			_ = json.Unmarshal([]byte(attrsRaw), &item.Attributes)
+			if err := json.Unmarshal([]byte(attrsRaw), &item.Attributes); err != nil {
+				return nil, err
+			}
 		}
 
 		if item.Attributes == nil {
@@ -522,7 +526,7 @@ func (s *Store) listRequestTracesV2FromClickHouse(ctx context.Context, params pl
 	if err != nil {
 		return nil, 0, err
 	}
-	defer rows.Close()
+	defer closeBestEffort(rows)
 
 	items := make([]platform.RequestTraceV2, 0, params.Limit)
 
@@ -642,7 +646,7 @@ func (s *Store) listTraceAttemptsV2FromClickHouse(ctx context.Context, tenantID,
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer closeBestEffort(rows)
 
 	out := make([]platform.TraceAttemptV2, 0, 4)
 
@@ -659,7 +663,9 @@ func (s *Store) listTraceAttemptsV2FromClickHouse(ctx context.Context, tenantID,
 
 		attrs := map[string]interface{}{}
 		if strings.TrimSpace(attrsRaw) != "" {
-			_ = json.Unmarshal([]byte(attrsRaw), &attrs)
+			if err := json.Unmarshal([]byte(attrsRaw), &attrs); err != nil {
+				return nil, err
+			}
 		}
 
 		item := platform.TraceAttemptV2{
@@ -830,7 +836,10 @@ func (s *Store) getTraceUsageFromPostgres(ctx context.Context, tenantID, request
 
 	if len(metaRaw) > 0 {
 		meta := map[string]interface{}{}
-		_ = json.Unmarshal(metaRaw, &meta)
+		if err := json.Unmarshal(metaRaw, &meta); err != nil {
+			return nil, err
+		}
+
 		item.Metadata = meta
 	}
 
@@ -932,7 +941,7 @@ func queryFacetStringRows(ctx context.Context, db *sql.DB, query string, args ..
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer closeBestEffort(rows)
 
 	out := make([]platform.TraceFacetBucketV2, 0, 8)
 
@@ -959,7 +968,7 @@ func queryFacetStatusRows(ctx context.Context, db *sql.DB, query string, args ..
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer closeBestEffort(rows)
 
 	out := make([]platform.TraceStatusFacetBucketV2, 0, 8)
 

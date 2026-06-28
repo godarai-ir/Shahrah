@@ -193,7 +193,11 @@ func (p *zarinpalProvider) VerifyPayment(c *fiber.Ctx, authority string) (*payme
 
 	intent := c.Locals("topup_intent")
 
-	topup, _ := intent.(*platform.WalletTopUpIntent)
+	topup := (*platform.WalletTopUpIntent)(nil)
+	if loadedTopup, ok := intent.(*platform.WalletTopUpIntent); ok {
+		topup = loadedTopup
+	}
+
 	if topup == nil {
 		return nil, errors.New("topup intent not loaded")
 	}
@@ -321,7 +325,11 @@ func (p *idpayProvider) VerifyPayment(c *fiber.Ctx, authority string) (*paymentV
 
 	intent := c.Locals("topup_intent")
 
-	topup, _ := intent.(*platform.WalletTopUpIntent)
+	topup := (*platform.WalletTopUpIntent)(nil)
+	if loadedTopup, ok := intent.(*platform.WalletTopUpIntent); ok {
+		topup = loadedTopup
+	}
+
 	if topup == nil {
 		return nil, errors.New("topup intent not loaded")
 	}
@@ -407,7 +415,11 @@ func postJSON(url string, payload interface{}, headers map[string]string) ([]byt
 	if err != nil {
 		return nil, 0, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			return
+		}
+	}()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -607,7 +619,10 @@ func (h *Handlers) WalletTopUpCallback(c *fiber.Ctx) error {
 
 	verifyRes, err := provider.VerifyPayment(c, authority)
 	if err != nil {
-		_ = h.wallets.MarkWalletTopUpFailedByAuthority(c.Context(), authority, err.Error(), map[string]interface{}{"provider": providerName})
+		if markErr := h.wallets.MarkWalletTopUpFailedByAuthority(c.Context(), authority, err.Error(), map[string]interface{}{"provider": providerName}); markErr != nil {
+			return markErr
+		}
+
 		return h.redirectTopUpResult(c, authority, "failed", "verify_error")
 	}
 
@@ -617,7 +632,9 @@ func (h *Handlers) WalletTopUpCallback(c *fiber.Ctx) error {
 			reason = "payment failed"
 		}
 
-		_ = h.wallets.MarkWalletTopUpFailedByAuthority(c.Context(), authority, reason, verifyRes.Raw)
+		if markErr := h.wallets.MarkWalletTopUpFailedByAuthority(c.Context(), authority, reason, verifyRes.Raw); markErr != nil {
+			return markErr
+		}
 
 		return h.redirectTopUpResult(c, authority, "failed", "payment_failed")
 	}

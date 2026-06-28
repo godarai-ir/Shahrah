@@ -66,9 +66,17 @@ func validateProviderAPIKey(ctx context.Context, provider string, apiKey string,
 
 		return providerCredentialValidationResult{Success: false, Message: "network error while contacting provider validation endpoint"}
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			return
+		}
+	}()
 
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	body, readErr := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	if readErr != nil {
+		return providerCredentialValidationResult{Success: false, Message: "failed to read provider validation response"}
+	}
+
 	if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices {
 		return providerCredentialValidationResult{
 			Success: true,

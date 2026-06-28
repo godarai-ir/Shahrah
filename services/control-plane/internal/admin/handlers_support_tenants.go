@@ -61,13 +61,23 @@ func (h *Handlers) GetPlatformTenant(c *fiber.Ctx) error {
 	}
 
 	if h.wallets != nil {
-		detail.Wallet, _ = h.wallets.GetWallet(c.Context(), tenantID)
+		wallet, walletErr := h.wallets.GetWallet(c.Context(), tenantID)
+		if walletErr == nil {
+			detail.Wallet = wallet
+		}
 	}
 
 	if h.plans != nil {
-		detail.Subscription, _ = h.plans.GetTenantSubscription(c.Context(), tenantID)
+		subscription, subscriptionErr := h.plans.GetTenantSubscription(c.Context(), tenantID)
+		if subscriptionErr == nil {
+			detail.Subscription = subscription
+		}
 
-		detail.Entitlements, _ = h.plans.ResolveEffectiveEntitlements(c.Context(), tenantID)
+		entitlements, entitlementsErr := h.plans.ResolveEffectiveEntitlements(c.Context(), tenantID)
+		if entitlementsErr == nil {
+			detail.Entitlements = entitlements
+		}
+
 		if detail.Entitlements != nil {
 			for _, counter := range detail.Entitlements.UsageCounters {
 				if counter.FeatureKey == platform.FeatureGatewayRequestsMonthly {

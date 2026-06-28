@@ -358,7 +358,10 @@ func (h *Handlers) SubscriptionPaymentCallback(c *fiber.Ctx) error {
 
 	verifyRes, err := selectProvider(providerName).VerifyPayment(c, authority)
 	if err != nil {
-		_ = store.MarkSubscriptionPaymentFailedByAuthority(c.Context(), authority, err.Error(), map[string]interface{}{"provider": providerName})
+		if markErr := store.MarkSubscriptionPaymentFailedByAuthority(c.Context(), authority, err.Error(), map[string]interface{}{"provider": providerName}); markErr != nil {
+			return markErr
+		}
+
 		return h.redirectSubscriptionPaymentResult(c, store, authority, "failed", "verify_error")
 	}
 
@@ -368,7 +371,9 @@ func (h *Handlers) SubscriptionPaymentCallback(c *fiber.Ctx) error {
 			reason = "payment failed"
 		}
 
-		_ = store.MarkSubscriptionPaymentFailedByAuthority(c.Context(), authority, reason, verifyRes.Raw)
+		if markErr := store.MarkSubscriptionPaymentFailedByAuthority(c.Context(), authority, reason, verifyRes.Raw); markErr != nil {
+			return markErr
+		}
 
 		return h.redirectSubscriptionPaymentResult(c, store, authority, "failed", "payment_failed")
 	}

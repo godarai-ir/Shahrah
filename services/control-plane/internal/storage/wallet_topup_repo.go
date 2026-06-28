@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -65,7 +64,7 @@ func (s *Store) UpdateWalletTopUpSettings(ctx context.Context, minUSD, maxUSD, t
 }
 
 func (s *Store) CreateWalletTopUpIntent(ctx context.Context, p CreateTopUpIntentParams) (*platform.WalletTopUpIntent, error) {
-	metaRaw, _ := json.Marshal(p.Metadata)
+	metaRaw := marshalJSONBestEffort(p.Metadata)
 
 	var out platform.WalletTopUpIntent
 
@@ -126,7 +125,7 @@ func (s *Store) CreateWalletTopUpIntent(ctx context.Context, p CreateTopUpIntent
 }
 
 func (s *Store) AttachWalletTopUpGatewayData(ctx context.Context, intentPublicID, authority, paymentURL string, raw map[string]interface{}) error {
-	rawPayload, _ := json.Marshal(raw)
+	rawPayload := marshalJSONBestEffort(raw)
 
 	res, err := s.pool.Exec(ctx, `
 		UPDATE wallet_topup_intents
@@ -260,7 +259,7 @@ func (s *Store) CompleteWalletTopUpByAuthority(ctx context.Context, authority st
 	if err != nil {
 		return nil, false, err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTxBestEffort(ctx, tx)
 
 	var (
 		intent          platform.WalletTopUpIntent
@@ -391,7 +390,7 @@ func (s *Store) CompleteWalletTopUpByAuthority(ctx context.Context, authority st
 		return nil, false, err
 	}
 
-	metaPayload, _ := json.Marshal(map[string]interface{}{
+	metaPayload := marshalJSONBestEffort(map[string]interface{}{
 		"topup_intent_id": intent.ID,
 		"public_id":       intent.PublicID,
 		"authority":       authority,
@@ -411,7 +410,7 @@ func (s *Store) CompleteWalletTopUpByAuthority(ctx context.Context, authority st
 		return nil, false, err
 	}
 
-	verifyPayload, _ := json.Marshal(verifyRaw)
+	verifyPayload := marshalJSONBestEffort(verifyRaw)
 	if _, err := tx.Exec(ctx, `
 		UPDATE wallet_topup_intents
 		SET status = 'COMPLETED',
@@ -445,7 +444,7 @@ func (s *Store) CompleteWalletTopUpByAuthority(ctx context.Context, authority st
 }
 
 func (s *Store) MarkWalletTopUpFailedByAuthority(ctx context.Context, authority string, reason string, raw map[string]interface{}) error {
-	rawPayload, _ := json.Marshal(raw)
+	rawPayload := marshalJSONBestEffort(raw)
 
 	res, err := s.pool.Exec(ctx, `
 		UPDATE wallet_topup_intents

@@ -2,15 +2,14 @@ package storage
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 )
 
 // LogRequest writes the normalized request log entry.
 func (s *Store) LogRequest(ctx context.Context, entry platform.RequestLogEntry) error {
-	reqRaw, _ := json.Marshal(entry.RequestBody)
-	respRaw, _ := json.Marshal(entry.ResponseBody)
+	reqRaw := marshalJSONBestEffort(entry.RequestBody)
+	respRaw := marshalJSONBestEffort(entry.ResponseBody)
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO request_logs (request_id, token_hash, tenant_id, model, request_body, response_body, status, cost, response_time_ms)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -21,13 +20,13 @@ func (s *Store) LogRequest(ctx context.Context, entry platform.RequestLogEntry) 
 
 // LogSpend writes the spend log entry.
 func (s *Store) LogSpend(ctx context.Context, log platform.SpendLog) error {
-	metaRaw, _ := json.Marshal(log.RequestMetadata)
+	metaRaw := marshalJSONBestEffort(log.RequestMetadata)
 
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTxBestEffort(ctx, tx)
 
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO spend_logs (

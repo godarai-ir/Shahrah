@@ -24,7 +24,7 @@ func (s *Store) CreatePrompt(ctx context.Context, tenantID string, tenantSlug st
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTxBestEffort(ctx, tx)
 
 	slug := prompts.NormalizeSlug(req.Manifest.Name)
 	description := strings.TrimSpace(req.Manifest.Description)
@@ -69,7 +69,7 @@ func (s *Store) CreatePromptVersion(ctx context.Context, tenantID string, tenant
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTxBestEffort(ctx, tx)
 
 	var latest int
 

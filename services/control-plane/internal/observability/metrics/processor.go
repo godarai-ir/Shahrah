@@ -88,7 +88,10 @@ func (p *Processor) flush() {
 	for _, ev := range batch {
 		if err := p.insertWithRetry(ev); err != nil {
 			p.logger.Warn("model metrics insert failed; writing to dlq", zap.Error(err))
-			_ = p.appendDLQ(ev)
+
+			if dlqErr := p.appendDLQ(ev); dlqErr != nil {
+				p.logger.Warn("model metrics dlq write failed", zap.Error(dlqErr))
+			}
 		}
 	}
 }
@@ -127,7 +130,7 @@ func (p *Processor) appendDLQ(ev platform.ModelMetricEvent) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer closeDLQFile(f)
 
 	b, err := json.Marshal(ev)
 	if err != nil {
@@ -156,6 +159,16 @@ func backoffDelay(attempt int, base, max time.Duration) time.Duration {
 	jitter := time.Duration(rand.Int63n(int64(d / 5)))
 
 	return d + jitter
+}
+
+func closeDLQFile(f *os.File) {
+	if f == nil {
+		return
+	}
+
+	if err := f.Close(); err != nil {
+		return
+	}
 }
 
 func (p *Processor) BuildEvent(input BuildInput) platform.ModelMetricEvent {

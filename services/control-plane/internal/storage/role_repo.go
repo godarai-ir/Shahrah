@@ -303,7 +303,7 @@ func (s *Store) CreateRole(ctx context.Context, tenantID string, req platform.Cr
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer rollbackTxBestEffort(ctx, tx)
 
 	roleID := uuid.NewString()
 
@@ -359,7 +359,7 @@ func (s *Store) UpdateRole(ctx context.Context, tenantID string, roleID string, 
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer rollbackTxBestEffort(ctx, tx)
 
 	var current platform.RoleDefinition
 
@@ -412,8 +412,7 @@ func (s *Store) UpdateRole(ctx context.Context, tenantID string, roleID string, 
 		return nil, execErr
 	}
 
-	permissions := make([]string, len(current.Permissions))
-	copy(permissions, current.Permissions)
+	var permissions []string
 
 	if req.Permissions != nil {
 		normalizedPermissions, normalizeErr := normalizePermissions(req.Permissions)
@@ -449,7 +448,7 @@ func (s *Store) UpdateRole(ctx context.Context, tenantID string, roleID string, 
 			return nil, err
 		}
 
-		permissions = make([]string, 0)
+		permissions = nil
 
 		for rows.Next() {
 			var permission string
@@ -518,7 +517,7 @@ func (s *Store) UpdateUserRoles(ctx context.Context, tenantID string, req platfo
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer rollbackTxBestEffort(ctx, tx)
 
 	var userID string
 	if err := tx.QueryRow(ctx, `
@@ -775,7 +774,7 @@ func (s *Store) ensureSystemRoles(ctx context.Context, tenantID string) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer rollbackTxBestEffort(ctx, tx)
 
 	for roleName, permissions := range systemRolePermissions {
 		var roleID string

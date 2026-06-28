@@ -28,12 +28,14 @@ func (s *Store) GetPlatformServiceAccountByTokenHash(ctx context.Context, tokenH
 		return nil, err
 	}
 
-	_, _ = s.pool.Exec(ctx, `
+	if _, err := s.pool.Exec(ctx, `
 		UPDATE platform_service_account_credentials
 		SET last_used_at = NOW()
 		WHERE credential_id = $1
 		  AND (last_used_at IS NULL OR last_used_at < NOW() - INTERVAL '5 minutes')
-	`, credential.CredentialID)
+	`, credential.CredentialID); err != nil {
+		return nil, err
+	}
 
 	return &credential, nil
 }

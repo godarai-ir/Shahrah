@@ -3,7 +3,6 @@ package admin
 import (
 	"errors"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
@@ -19,51 +18,27 @@ func (h *Handlers) ListTenantGuardrails(c *fiber.Ctx) error {
 		return err
 	}
 
-	currentTenant := tenant.FromContext(c)
-	if currentTenant == nil {
-		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
-	}
-
-	query := strings.TrimSpace(c.Query("query"))
-	limit := 50
-	offset := 0
-
-	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
-		parsed, parseErr := strconv.Atoi(raw)
-		if parseErr != nil || parsed <= 0 {
-			return fiber.NewError(fiber.StatusBadRequest, "limit must be a positive number")
-		}
-
-		limit = parsed
-	}
-
-	if raw := strings.TrimSpace(c.Query("offset")); raw != "" {
-		parsed, parseErr := strconv.Atoi(raw)
-		if parseErr != nil || parsed < 0 {
-			return fiber.NewError(fiber.StatusBadRequest, "offset must be zero or greater")
-		}
-
-		offset = parsed
-	}
-
-	items, total, err := h.models.ListTenantGuardrails(c.Context(), currentTenant.ID, query, limit, offset)
+	currentTenant, err := currentTenantOrErr(c)
 	if err != nil {
 		return err
 	}
 
-	var nextOffset *int
+	params, err := parseTenantListParams(c, 0)
+	if err != nil {
+		return err
+	}
 
-	if offset+len(items) < total {
-		n := offset + len(items)
-		nextOffset = &n
+	items, total, err := h.models.ListTenantGuardrails(c.Context(), currentTenant.ID, params.Query, params.Limit, params.Offset)
+	if err != nil {
+		return err
 	}
 
 	return c.JSON(platform.TenantGuardrailListResponse{
 		Data:       items,
 		Total:      total,
-		Limit:      limit,
-		Offset:     offset,
-		NextOffset: nextOffset,
+		Limit:      params.Limit,
+		Offset:     params.Offset,
+		NextOffset: buildNextOffset(params.Offset, len(items), total),
 	})
 }
 

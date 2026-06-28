@@ -126,7 +126,7 @@ func (s *Store) CreateOnboardingOTP(ctx context.Context, p CreateOnboardingOTPPa
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer rollbackTxBestEffort(ctx, tx)
 
 	var planExists bool
 
@@ -329,7 +329,7 @@ func (s *Store) VerifyOnboardingOTPAndProvision(ctx context.Context, p VerifyOnb
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer rollbackTxBestEffort(ctx, tx)
 
 	var (
 		tenantSlug, tenantDomain, planSlug, email, mobile string
@@ -354,11 +354,13 @@ func (s *Store) VerifyOnboardingOTPAndProvision(ctx context.Context, p VerifyOnb
 	}
 
 	if time.Now().UTC().After(expiresAt) {
-		_, _ = tx.Exec(ctx, `
+		if _, updateErr := tx.Exec(ctx, `
 			UPDATE tenant_onboarding_requests
 			SET status = 'expired', updated_at = NOW()
 			WHERE request_id = $1::uuid
-		`, requestID)
+		`, requestID); updateErr != nil {
+			return nil, updateErr
+		}
 
 		return nil, ErrOnboardingExpired
 	}
@@ -371,11 +373,13 @@ func (s *Store) VerifyOnboardingOTPAndProvision(ctx context.Context, p VerifyOnb
 			status = "canceled"
 		}
 
-		_, _ = tx.Exec(ctx, `
+		if _, updateErr := tx.Exec(ctx, `
 			UPDATE tenant_onboarding_requests
 			SET attempts = $2, status = $3, updated_at = NOW()
 			WHERE request_id = $1::uuid
-		`, requestID, nextAttempts, status)
+		`, requestID, nextAttempts, status); updateErr != nil {
+			return nil, updateErr
+		}
 
 		return nil, ErrOnboardingOTPFailed
 	}

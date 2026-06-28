@@ -510,7 +510,11 @@ func discoveryFetch(ctx context.Context, rawURL string) ([]byte, int, string, er
 	if err != nil {
 		return nil, 0, "", err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			return
+		}
+	}()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -521,81 +525,56 @@ func discoveryFetch(ctx context.Context, rawURL string) ([]byte, int, string, er
 }
 
 func decodeProvidersPayload(body []byte) ([]platform.ProviderCatalogProvider, error) {
-	if len(body) == 0 {
-		return nil, fmt.Errorf("discovery providers payload is empty")
-	}
-
-	var direct []platform.ProviderCatalogProvider
-	if err := json.Unmarshal(body, &direct); err == nil && hasCanonicalProviderEntries(direct) {
-		return direct, nil
-	}
-
-	var mdDirect []discoveryProvider
-	if err := json.Unmarshal(body, &mdDirect); err == nil && len(mdDirect) > 0 {
-		return mapDiscoveryProviders(mdDirect), nil
-	}
-
-	var wrapped struct {
-		Data      []platform.ProviderCatalogProvider `json:"data"`
-		Providers []platform.ProviderCatalogProvider `json:"providers"`
-	}
-	if err := json.Unmarshal(body, &wrapped); err == nil {
-		if hasCanonicalProviderEntries(wrapped.Data) {
-			return wrapped.Data, nil
-		}
-
-		if hasCanonicalProviderEntries(wrapped.Providers) {
-			return wrapped.Providers, nil
-		}
-	}
-
-	var mdWrapped struct {
-		Data []discoveryProvider `json:"data"`
-	}
-	if err := json.Unmarshal(body, &mdWrapped); err == nil && len(mdWrapped.Data) > 0 {
-		return mapDiscoveryProviders(mdWrapped.Data), nil
-	}
-
-	return nil, fmt.Errorf("discovery providers payload does not contain providers")
+	return decodeDiscoveryPayload(body, "discovery providers payload is empty", "discovery providers payload does not contain providers", "providers", hasCanonicalProviderEntries, mapDiscoveryProviders)
 }
 
 func decodeProviderModelsPayload(body []byte) ([]platform.ProviderCatalogModel, error) {
+	return decodeDiscoveryPayload(body, "discovery provider models payload is empty", "discovery provider models payload does not contain models", "models", hasCanonicalModelEntries, mapDiscoveryModels)
+}
+
+func decodeDiscoveryPayload[T any, D any](
+	body []byte,
+	emptyMessage string,
+	missingMessage string,
+	altKey string,
+	hasCanonical func([]T) bool,
+	mapDiscovery func([]D) []T,
+) ([]T, error) {
 	if len(body) == 0 {
-		return nil, fmt.Errorf("discovery provider models payload is empty")
+		return nil, fmt.Errorf("%s", emptyMessage)
 	}
 
-	var direct []platform.ProviderCatalogModel
-	if err := json.Unmarshal(body, &direct); err == nil && hasCanonicalModelEntries(direct) {
+	var direct []T
+	if err := json.Unmarshal(body, &direct); err == nil && hasCanonical(direct) {
 		return direct, nil
 	}
 
-	var mdDirect []modelDiscoveryModel
+	var mdDirect []D
 	if err := json.Unmarshal(body, &mdDirect); err == nil && len(mdDirect) > 0 {
-		return mapDiscoveryModels(mdDirect), nil
+		return mapDiscovery(mdDirect), nil
 	}
 
-	var wrapped struct {
-		Data   []platform.ProviderCatalogModel `json:"data"`
-		Models []platform.ProviderCatalogModel `json:"models"`
-	}
+	var wrapped map[string]json.RawMessage
 	if err := json.Unmarshal(body, &wrapped); err == nil {
-		if hasCanonicalModelEntries(wrapped.Data) {
-			return wrapped.Data, nil
+		for _, key := range []string{"data", altKey} {
+			raw := wrapped[key]
+			if len(raw) == 0 {
+				continue
+			}
+
+			var wrappedDirect []T
+			if err := json.Unmarshal(raw, &wrappedDirect); err == nil && hasCanonical(wrappedDirect) {
+				return wrappedDirect, nil
+			}
+
+			var wrappedDiscovery []D
+			if err := json.Unmarshal(raw, &wrappedDiscovery); err == nil && len(wrappedDiscovery) > 0 {
+				return mapDiscovery(wrappedDiscovery), nil
+			}
 		}
-
-		if hasCanonicalModelEntries(wrapped.Models) {
-			return wrapped.Models, nil
-		}
 	}
 
-	var modelsWrapped struct {
-		Data []modelDiscoveryModel `json:"data"`
-	}
-	if err := json.Unmarshal(body, &modelsWrapped); err == nil && len(modelsWrapped.Data) > 0 {
-		return mapDiscoveryModels(modelsWrapped.Data), nil
-	}
-
-	return nil, fmt.Errorf("discovery provider models payload does not contain models")
+	return nil, fmt.Errorf("%s", missingMessage)
 }
 
 func hasCanonicalProviderEntries(items []platform.ProviderCatalogProvider) bool {

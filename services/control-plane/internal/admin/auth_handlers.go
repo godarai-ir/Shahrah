@@ -205,9 +205,21 @@ func (h *AuthHandlers) CreateOTPRequest(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to create OTP request")
 	}
 
-	channel, _ := result["channel"].(string)
-	destination, _ := result["destination_masked"].(string)
-	otpCode, _ := result["otp_code"].(string)
+	channel := ""
+	if value, ok := result["channel"].(string); ok {
+		channel = value
+	}
+
+	destination := ""
+	if value, ok := result["destination_masked"].(string); ok {
+		destination = value
+	}
+
+	otpCode := ""
+	if value, ok := result["otp_code"].(string); ok {
+		otpCode = value
+	}
+
 	delete(result, "otp_code")
 
 	if h.otpNotifier != nil && channel == "email" && otpCode != "" {

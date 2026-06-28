@@ -79,11 +79,17 @@ func (h *Handlers) QueryModelMetrics(c *fiber.Ctx) error {
 	// Parse generic values from JSON for strict downstream parser behavior.
 	normalizedFilters := make([]platform.MetricsFilter, 0, len(req.Filters))
 	for _, f := range req.Filters {
-		b, _ := json.Marshal(f.Value)
+		b, marshalErr := json.Marshal(f.Value)
+		if marshalErr != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "invalid filter value")
+		}
 
 		var generic interface{}
 
-		_ = json.Unmarshal(b, &generic)
+		if unmarshalErr := json.Unmarshal(b, &generic); unmarshalErr != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "invalid filter value")
+		}
+
 		f.Value = generic
 		normalizedFilters = append(normalizedFilters, f)
 	}

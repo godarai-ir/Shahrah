@@ -67,7 +67,7 @@ func NewStore(ctx context.Context, databaseURL string, logger *zap.Logger) (*Sto
 // Close closes the store.
 func (s *Store) Close() {
 	if s.clickhouse != nil {
-		_ = s.clickhouse.Close()
+		closeBestEffort(s.clickhouse)
 	}
 
 	s.pool.Close()

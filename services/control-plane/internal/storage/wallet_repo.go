@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
@@ -35,7 +34,7 @@ func (s *Store) TopUpWallet(ctx context.Context, tenantID string, amountIRR floa
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTxBestEffort(ctx, tx)
 
 	var walletID string
 	if err := tx.QueryRow(ctx, `
@@ -51,7 +50,7 @@ func (s *Store) TopUpWallet(ctx context.Context, tenantID string, amountIRR floa
 		return nil, err
 	}
 
-	metaRaw, _ := json.Marshal(metadata)
+	metaRaw := marshalJSONBestEffort(metadata)
 
 	var out platform.Transaction
 	if err := tx.QueryRow(ctx, `
@@ -81,7 +80,7 @@ func (s *Store) DebitWallet(ctx context.Context, tenantID string, breakdown plat
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTxBestEffort(ctx, tx)
 
 	var wallet platform.Wallet
 	// Lock the wallet row for the full transaction so concurrent debits serialize.
@@ -102,7 +101,7 @@ func (s *Store) DebitWallet(ctx context.Context, tenantID string, breakdown plat
 		return nil, err
 	}
 
-	metaRaw, _ := json.Marshal(map[string]interface{}{
+	metaRaw := marshalJSONBestEffort(map[string]interface{}{
 		"request_id": requestID,
 		"model":      breakdown.Model,
 		"tokens":     breakdown.TotalTokens,

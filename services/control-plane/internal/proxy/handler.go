@@ -595,7 +595,7 @@ func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.Cha
 
 		if outputErr != nil {
 			responseTimeMS := int(time.Since(start).Milliseconds())
-			_ = h.logs.LogRequest(c.Context(), platform.RequestLogEntry{
+			logRequestBestEffort(h.logger, h.logs, c.Context(), platform.RequestLogEntry{
 				RequestID:      tunnelReq.RequestID,
 				TokenHash:      authInfo.TokenHash,
 				TenantID:       authInfo.TenantID,
@@ -606,7 +606,7 @@ func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.Cha
 				RequestBody:    map[string]interface{}{"model": req.Model},
 				ResponseBody:   map[string]interface{}{"guardrail_status": "blocked"},
 			})
-			_ = h.logs.LogSpend(c.Context(), platform.SpendLog{
+			logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 				RequestID:       tunnelReq.RequestID,
 				TokenHash:       authInfo.TokenHash,
 				TenantID:        authInfo.TenantID,
@@ -643,7 +643,7 @@ func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.Cha
 	}
 
 	responseTimeMS := int(time.Since(start).Milliseconds())
-	_ = h.logs.LogRequest(c.Context(), platform.RequestLogEntry{
+	logRequestBestEffort(h.logger, h.logs, c.Context(), platform.RequestLogEntry{
 		RequestID:      tunnelReq.RequestID,
 		TokenHash:      authInfo.TokenHash,
 		TenantID:       authInfo.TenantID,
@@ -654,7 +654,7 @@ func (h *ChatCompletionHandler) handleSync(c *fiber.Ctx, req contractsopenai.Cha
 		RequestBody:    map[string]interface{}{"model": req.Model},
 		ResponseBody:   map[string]interface{}{"id": completion.ID},
 	})
-	_ = h.logs.LogSpend(c.Context(), platform.SpendLog{
+	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID:       tunnelReq.RequestID,
 		TokenHash:       authInfo.TokenHash,
 		TenantID:        authInfo.TenantID,
@@ -731,12 +731,12 @@ func (h *ChatCompletionHandler) handleCacheHit(c *fiber.Ctx, req contractsopenai
 		"cache_type": result.CacheType, "cache_embedding_latency_ms": result.EmbeddingLatencyMS,
 		"cached_trace_id": entry.TraceID, "tenant_slug": tenantSlug, "key_type": authInfo.KeyType,
 	}
-	_ = h.logs.LogRequest(c.Context(), platform.RequestLogEntry{
+	logRequestBestEffort(h.logger, h.logs, c.Context(), platform.RequestLogEntry{
 		RequestID: requestID, TokenHash: authInfo.TokenHash, TenantID: authInfo.TenantID, Model: req.Model,
 		Status: "success", CostUSD: 0, ResponseTimeMS: responseTimeMS,
 		RequestBody: map[string]interface{}{"model": req.Model}, ResponseBody: map[string]interface{}{"cache_status": "hit"},
 	})
-	_ = h.logs.LogSpend(c.Context(), platform.SpendLog{
+	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID: requestID, TokenHash: authInfo.TokenHash, TenantID: authInfo.TenantID,
 		OrganizationID: authInfo.OrganizationID, TeamID: authInfo.TeamID, Model: req.Model,
 		CostUSD: 0, CostIRR: 0, ResponseTimeMS: responseTimeMS, Status: "success",
@@ -800,16 +800,27 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 	virtualModelName := modelMetricVirtualName(c, req.Model)
 
 	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
-		defer stream.Close()
+		defer closeStreamBestEffort(h.logger, stream)
 
 		for {
 			select {
 			case chunk, ok := <-stream.Chunks():
 				if !ok {
 					billingModel := billingModelForDeployment(req.Model, tunnelReq.Deployment)
-					finalCost, _ := h.billing.FinalizeFromUsage(c.Context(), billingModel, nil, estimated)
-					_, _ = h.wallets.DebitWallet(c.Context(), authInfo.TenantID, finalCost, tunnelReq.RequestID)
-					_ = h.logs.LogSpend(c.Context(), platform.SpendLog{
+
+					finalCost, finalizeErr := h.billing.FinalizeFromUsage(c.Context(), billingModel, nil, estimated)
+					if finalizeErr != nil {
+						h.logger.Warn("failed to finalize streaming usage", zap.Error(finalizeErr), zap.String("request_id", tunnelReq.RequestID))
+
+						finalCost = estimated
+						finalCost.Model = billingModel
+					}
+
+					if _, debitErr := h.wallets.DebitWallet(c.Context(), authInfo.TenantID, finalCost, tunnelReq.RequestID); debitErr != nil {
+						h.logger.Warn("failed to debit wallet for streaming request", zap.Error(debitErr), zap.String("request_id", tunnelReq.RequestID))
+					}
+
+					logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 						RequestID:       tunnelReq.RequestID,
 						TokenHash:       authInfo.TokenHash,
 						TenantID:        authInfo.TenantID,
@@ -858,8 +869,10 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 				}
 
 				if len(chunk.Data) > 0 {
-					_, _ = w.Write(chunk.Data)
-					_ = w.Flush()
+					if writeErr := writeBufferedBytes(w, chunk.Data); writeErr != nil {
+						h.logger.Warn("failed to write streaming chunk", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
+						return
+					}
 				}
 
 				if chunk.IsDone {
@@ -867,14 +880,20 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 				}
 			case err, ok := <-stream.Errors():
 				if ok && err != nil {
-					errorPayload, _ := json.Marshal(contractsopenai.APIError{
+					errorPayload, marshalErr := json.Marshal(contractsopenai.APIError{
 						Error: contractsopenai.ErrorInfo{
 							Message: err.Error(),
 							Type:    "streaming_error",
 						},
 					})
-					_, _ = w.Write(bytes.Join([][]byte{[]byte("data: "), errorPayload, []byte("\n\n")}, nil))
-					_ = w.Flush()
+					if marshalErr != nil {
+						h.logger.Warn("failed to encode streaming error payload", zap.Error(marshalErr), zap.String("request_id", tunnelReq.RequestID))
+						return
+					}
+
+					if writeErr := writeBufferedBytes(w, bytes.Join([][]byte{[]byte("data: "), errorPayload, []byte("\n\n")}, nil)); writeErr != nil {
+						h.logger.Warn("failed to write streaming error payload", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
+					}
 				}
 
 				return
@@ -957,9 +976,10 @@ func enrichPromptMetadata(c *fiber.Ctx, metadata map[string]interface{}) map[str
 		return metadata
 	}
 
-	raw, _ := c.Locals("prompt_metadata").(map[string]interface{})
-	for key, value := range raw {
-		metadata[key] = value
+	if raw, ok := c.Locals("prompt_metadata").(map[string]interface{}); ok {
+		for key, value := range raw {
+			metadata[key] = value
+		}
 	}
 
 	return metadata
@@ -970,7 +990,10 @@ func cacheMetricString(c *fiber.Ctx, key string) string {
 		return ""
 	}
 
-	value, _ := c.Locals(key).(string)
+	value := ""
+	if localValue, ok := c.Locals(key).(string); ok {
+		value = localValue
+	}
 
 	return value
 }
@@ -1036,6 +1059,40 @@ func toContractDeployment(dep *router.Deployment) platform.Deployment {
 		Weight:     dep.Weight,
 		TimeoutSec: dep.Params.Timeout,
 	}
+}
+
+func logRequestBestEffort(logger *zap.Logger, logs usageLogger, ctx context.Context, entry platform.RequestLogEntry) {
+	if err := logs.LogRequest(ctx, entry); err != nil && logger != nil {
+		logger.Warn("failed to log request", zap.Error(err), zap.String("request_id", entry.RequestID))
+	}
+}
+
+func logSpendBestEffort(logger *zap.Logger, logs usageLogger, ctx context.Context, spendLog platform.SpendLog) {
+	if err := logs.LogSpend(ctx, spendLog); err != nil && logger != nil {
+		logger.Warn("failed to log spend", zap.Error(err), zap.String("request_id", spendLog.RequestID))
+	}
+}
+
+func closeStreamBestEffort(logger *zap.Logger, stream interface{ Close() error }) {
+	if err := stream.Close(); err != nil && logger != nil {
+		logger.Warn("failed to close stream", zap.Error(err))
+	}
+}
+
+func writeBufferedBytes(w *bufio.Writer, data []byte) error {
+	if _, err := w.Write(data); err != nil {
+		return err
+	}
+
+	return w.Flush()
+}
+
+func writeBufferedString(w *bufio.Writer, data string) error {
+	if _, err := w.WriteString(data); err != nil {
+		return err
+	}
+
+	return w.Flush()
 }
 
 func setRateLimitHeaders(c *fiber.Ctx, result *cache.RateLimitResult) {

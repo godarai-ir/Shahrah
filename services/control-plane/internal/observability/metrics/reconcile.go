@@ -68,14 +68,18 @@ func (r *CostReconciler) loop() {
 	ticker := time.NewTicker(r.cfg.Interval)
 	defer ticker.Stop()
 
-	_ = r.runOnce(context.Background())
+	if err := r.runOnce(context.Background()); err != nil {
+		r.logger.Warn("initial metrics reconcile failed", zap.Error(err))
+	}
 
 	for {
 		select {
 		case <-r.stopCh:
 			return
 		case <-ticker.C:
-			_ = r.runOnce(context.Background())
+			if err := r.runOnce(context.Background()); err != nil {
+				r.logger.Warn("scheduled metrics reconcile failed", zap.Error(err))
+			}
 		}
 	}
 }
@@ -151,7 +155,11 @@ func (r *CostReconciler) runOnce(ctx context.Context) error {
 		return err
 	}
 
-	b, _ := json.MarshalIndent(out, "", "  ")
+	b, marshalErr := json.MarshalIndent(out, "", "  ")
+	if marshalErr != nil {
+		return marshalErr
+	}
+
 	if err := os.WriteFile(r.cfg.ReportPath, b, 0o644); err != nil {
 		return err
 	}

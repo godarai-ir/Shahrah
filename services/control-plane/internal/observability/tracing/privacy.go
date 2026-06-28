@@ -385,7 +385,7 @@ func (s *encryptedBlobStore) store(traceID, spanID, spanName, kind string, plain
 		return nil, err
 	}
 
-	nonce := make([]byte, s.gcm.NonceSize())
+	nonce := make([]byte, s.gcm.NonceSize(), s.gcm.NonceSize()+len(plain)+s.gcm.Overhead())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 		return nil, err
 	}

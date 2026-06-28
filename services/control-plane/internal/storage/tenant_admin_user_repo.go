@@ -192,7 +192,7 @@ func (s *Store) InviteTenantAdminUser(ctx context.Context, tenantID string, tena
 	if err != nil {
 		return nil, "", err
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer rollbackTxBestEffort(ctx, tx)
 
 	var (
 		existingActive bool
@@ -315,7 +315,7 @@ func (s *Store) AcceptTenantAdminInvitation(ctx context.Context, tenantID string
 	if err != nil {
 		return nil, nil, err
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer rollbackTxBestEffort(ctx, tx)
 
 	var (
 		invitation platform.TenantAdminInvitation
@@ -358,11 +358,13 @@ func (s *Store) AcceptTenantAdminInvitation(ctx context.Context, tenantID string
 
 	now := time.Now().UTC()
 	if invitation.ExpiresAt.Before(now) {
-		_, _ = tx.Exec(ctx, `
+		if _, updateErr := tx.Exec(ctx, `
 			UPDATE "tenant_admin_invitations"
 			SET "status" = 'expired', "updated_at" = $2
 			WHERE "invitation_id" = $1::uuid
-		`, invitation.InvitationID, now)
+		`, invitation.InvitationID, now); updateErr != nil {
+			return nil, nil, updateErr
+		}
 
 		return nil, nil, ErrInvitationExpired
 	}

@@ -257,7 +257,7 @@ func (h *EmbeddingsHandler) handleSync(c *fiber.Ctx, req contractsopenai.Embeddi
 
 	responseTimeMS := int(time.Since(start).Milliseconds())
 	vectorDimensions := embeddingResponseVectorDimensions(response)
-	_ = h.logs.LogRequest(c.Context(), platform.RequestLogEntry{
+	logRequestBestEffort(h.logger, h.logs, c.Context(), platform.RequestLogEntry{
 		RequestID:      tunnelReq.RequestID,
 		TokenHash:      authInfo.TokenHash,
 		TenantID:       authInfo.TenantID,
@@ -268,7 +268,7 @@ func (h *EmbeddingsHandler) handleSync(c *fiber.Ctx, req contractsopenai.Embeddi
 		RequestBody:    map[string]interface{}{"model": req.Model, "input_count": embeddingInputCount(req.Input)},
 		ResponseBody:   map[string]interface{}{"model": response.Model, "embedding_count": len(response.Data)},
 	})
-	_ = h.logs.LogSpend(c.Context(), platform.SpendLog{
+	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID:       tunnelReq.RequestID,
 		TokenHash:       authInfo.TokenHash,
 		TenantID:        authInfo.TenantID,

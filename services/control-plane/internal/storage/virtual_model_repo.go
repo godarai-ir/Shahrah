@@ -40,7 +40,7 @@ func (s *Store) CreateVirtualModel(ctx context.Context, tenantID string, req pla
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTxBestEffort(ctx, tx)
 
 	_, insertErr := tx.Exec(ctx, `
 		INSERT INTO virtual_models (virtual_model_id, tenant_id, alias, routing_strategy, enabled, exposed_modes, created_by, updated_by)
@@ -226,7 +226,7 @@ func (s *Store) UpdateVirtualModel(ctx context.Context, tenantID string, id stri
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTxBestEffort(ctx, tx)
 
 	_, updateErr := tx.Exec(ctx, `
 		UPDATE virtual_models
@@ -267,7 +267,7 @@ func (s *Store) DeleteVirtualModel(ctx context.Context, tenantID string, id stri
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTxBestEffort(ctx, tx)
 
 	_, deleteTargetsErr := tx.Exec(ctx, `DELETE FROM virtual_model_targets WHERE virtual_model_id = $1`, id)
 	if deleteTargetsErr != nil {

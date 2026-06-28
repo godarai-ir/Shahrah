@@ -261,7 +261,7 @@ func queryDistinctMetricValues(ctx context.Context, db *sql.DB, column string, t
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer closeBestEffort(rows)
 
 	values := make([]string, 0, 128)
 
@@ -607,7 +607,7 @@ func queryRowsAsMaps(ctx context.Context, db *sql.DB, query string, args ...inte
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer closeBestEffort(rows)
 
 	cols, err := rows.Columns()
 	if err != nil {

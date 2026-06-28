@@ -35,7 +35,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize logger: %v", err)
 	}
-	defer logger.Sync()
+	defer func() {
+		if syncErr := logger.Sync(); syncErr != nil {
+			log.Printf("logger sync failed: %v", syncErr)
+		}
+	}()
 
 	cfg, err := config.LoadConfig(logger)
 	if err != nil {
@@ -59,12 +63,23 @@ func main() {
 		dualCache, err = cache.NewDualCache(cfg.RouterSettings.RedisHost, cfg.RouterSettings.RedisPort, cfg.RouterSettings.RedisPassword, logger)
 		if err != nil {
 			logger.Warn("Failed to initialize Redis cache, falling back to memory-only", zap.Error(err))
-			dualCache, _ = cache.NewMemoryCache(logger)
+
+			dualCache, err = cache.NewMemoryCache(logger)
+			if err != nil {
+				logger.Fatal("Failed to initialize in-memory cache", zap.Error(err))
+			}
 		}
 	} else {
-		dualCache, _ = cache.NewMemoryCache(logger)
+		dualCache, err = cache.NewMemoryCache(logger)
+		if err != nil {
+			logger.Fatal("Failed to initialize in-memory cache", zap.Error(err))
+		}
 	}
-	defer dualCache.Close()
+	defer func() {
+		if closeErr := dualCache.Close(); closeErr != nil {
+			logger.Warn("Failed to close cache", zap.Error(closeErr))
+		}
+	}()
 
 	_, sharedResponseCacheAvailable := dualCache.(*cache.DualCache)
 	store.SetEntitlementCache(dualCache)
@@ -103,7 +118,9 @@ func main() {
 			stopCtx, cancelStop := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancelStop()
 
-			_ = metricsProcessor.Stop(stopCtx)
+			if stopErr := metricsProcessor.Stop(stopCtx); stopErr != nil {
+				logger.Warn("Failed to stop metrics processor", zap.Error(stopErr))
+			}
 		}()
 
 		emitMetric = func(input metricsobs.BuildInput) {
@@ -205,7 +222,11 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed to initialize tracing exporter", zap.Error(err))
 	}
-	defer reliableExporter.Close()
+	defer func() {
+		if closeErr := reliableExporter.Close(); closeErr != nil {
+			logger.Warn("Failed to close tracing exporter", zap.Error(closeErr))
+		}
+	}()
 
 	traceProcessor := tracing.NewProcessor(traceCfg, traceQueue, reliableExporter, logger)
 	traceProcessor.Start()
@@ -214,7 +235,9 @@ func main() {
 		stopCtx, cancelStop := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancelStop()
 
-		_ = traceProcessor.Stop(stopCtx)
+		if stopErr := traceProcessor.Stop(stopCtx); stopErr != nil {
+			logger.Warn("Failed to stop trace processor", zap.Error(stopErr))
+		}
 	}()
 
 	traceRetentionCleaner := tracing.NewRetentionCleaner(traceCfg, store, logger)

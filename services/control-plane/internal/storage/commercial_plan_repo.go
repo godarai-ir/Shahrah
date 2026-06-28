@@ -229,7 +229,7 @@ func (s *Store) CreatePlanVersion(ctx context.Context, planSlug string, req plat
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer rollbackTxBestEffort(ctx, tx)
 
 	var item platform.PlanVersion
 	if err := tx.QueryRow(ctx, `
@@ -284,7 +284,7 @@ func (s *Store) PublishPlanVersion(ctx context.Context, planSlug string, version
 		return nil, err
 	}
 
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer rollbackTxBestEffort(ctx, tx)
 
 	if _, err := tx.Exec(ctx, `
 		UPDATE plan_versions
@@ -458,9 +458,12 @@ func (s *Store) ChangeTenantSubscription(ctx context.Context, tenantID string, r
 				return nil, err
 			}
 
-			_ = s.insertSubscriptionEvent(ctx, tenantID, current.ID, "downgrade_scheduled", "tenant", map[string]interface{}{
+			if eventErr := s.insertSubscriptionEvent(ctx, tenantID, current.ID, "downgrade_scheduled", "tenant", map[string]interface{}{
 				"target_plan_slug": req.PlanSlug,
-			})
+			}); eventErr != nil {
+				return nil, eventErr
+			}
+
 			s.invalidateTenantEntitlements(ctx, tenantID)
 
 			return s.GetTenantSubscription(ctx, tenantID)
@@ -523,7 +526,7 @@ func (s *Store) upsertTenantSubscription(ctx context.Context, req platform.Upser
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer rollbackTxBestEffort(ctx, tx)
 
 	if _, err := tx.Exec(ctx, `
 		UPDATE tenant_subscriptions
@@ -550,10 +553,13 @@ func (s *Store) upsertTenantSubscription(ctx context.Context, req platform.Upser
 	}
 
 	s.invalidateTenantEntitlements(ctx, req.TenantID)
-	_ = s.insertSubscriptionEvent(ctx, req.TenantID, subscriptionID, "subscription_changed", actor, map[string]interface{}{
+
+	if eventErr := s.insertSubscriptionEvent(ctx, req.TenantID, subscriptionID, "subscription_changed", actor, map[string]interface{}{
 		"plan_slug":        req.PlanSlug,
 		"billing_interval": interval,
-	})
+	}); eventErr != nil {
+		return nil, eventErr
+	}
 
 	return s.GetTenantSubscription(ctx, req.TenantID)
 }
@@ -793,10 +799,13 @@ func (s *Store) UpsertTenantEntitlementOverride(ctx context.Context, req platfor
 	}
 
 	s.invalidateTenantEntitlements(ctx, req.TenantID)
-	_ = s.insertSubscriptionEvent(ctx, req.TenantID, "", "entitlement_override_upserted", req.CreatedBy, map[string]interface{}{
+
+	if eventErr := s.insertSubscriptionEvent(ctx, req.TenantID, "", "entitlement_override_upserted", req.CreatedBy, map[string]interface{}{
 		"feature_key": req.FeatureKey,
 		"reason":      req.Reason,
-	})
+	}); eventErr != nil {
+		return nil, eventErr
+	}
 
 	return item, nil
 }
@@ -816,9 +825,12 @@ func (s *Store) DeleteTenantEntitlementOverride(ctx context.Context, tenantID st
 	}
 
 	s.invalidateTenantEntitlements(ctx, tenantID)
-	_ = s.insertSubscriptionEvent(ctx, tenantID, "", "entitlement_override_deleted", actor, map[string]interface{}{
+
+	if eventErr := s.insertSubscriptionEvent(ctx, tenantID, "", "entitlement_override_deleted", actor, map[string]interface{}{
 		"feature_key": featureKey,
-	})
+	}); eventErr != nil {
+		return eventErr
+	}
 
 	return nil
 }
@@ -828,7 +840,7 @@ func (s *Store) CheckAndIncrementTenantUsageCounter(ctx context.Context, tenantI
 	if err != nil {
 		return nil, false, err
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer rollbackTxBestEffort(ctx, tx)
 
 	var windowStart, windowEnd time.Time
 	if err := tx.QueryRow(ctx, `
@@ -910,7 +922,7 @@ func (s *Store) ProcessSubscriptionTransitions(ctx context.Context, now time.Tim
 		return 0, err
 	}
 
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer rollbackTxBestEffort(ctx, tx)
 
 	type transition struct {
 		subscriptionID  string
@@ -1431,7 +1443,5 @@ func mustJSON(value map[string]interface{}) []byte {
 		value = map[string]interface{}{}
 	}
 
-	raw, _ := json.Marshal(value)
-
-	return raw
+	return marshalJSONBestEffort(value)
 }

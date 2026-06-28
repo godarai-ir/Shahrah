@@ -1,9 +1,8 @@
 package admin
 
 import (
-	"encoding/json"
+	"context"
 	"errors"
-	"strconv"
 	"strings"
 	"time"
 
@@ -360,51 +359,27 @@ func (h *Handlers) ListRateLimitRules(c *fiber.Ctx) error {
 		return err
 	}
 
-	currentTenant := tenant.FromContext(c)
-	if currentTenant == nil {
-		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
-	}
-
-	query := strings.TrimSpace(c.Query("query"))
-	limit := 50
-	offset := 0
-
-	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
-		parsed, parseErr := strconv.Atoi(raw)
-		if parseErr != nil || parsed <= 0 {
-			return fiber.NewError(fiber.StatusBadRequest, "limit must be a positive number")
-		}
-
-		limit = parsed
-	}
-
-	if raw := strings.TrimSpace(c.Query("offset")); raw != "" {
-		parsed, parseErr := strconv.Atoi(raw)
-		if parseErr != nil || parsed < 0 {
-			return fiber.NewError(fiber.StatusBadRequest, "offset must be zero or greater")
-		}
-
-		offset = parsed
-	}
-
-	items, total, err := h.models.ListRateLimitRules(c.Context(), currentTenant.ID, query, limit, offset)
+	currentTenant, err := currentTenantOrErr(c)
 	if err != nil {
 		return err
 	}
 
-	var nextOffset *int
+	params, err := parseTenantListParams(c, 0)
+	if err != nil {
+		return err
+	}
 
-	if offset+len(items) < total {
-		n := offset + len(items)
-		nextOffset = &n
+	items, total, err := h.models.ListRateLimitRules(c.Context(), currentTenant.ID, params.Query, params.Limit, params.Offset)
+	if err != nil {
+		return err
 	}
 
 	return c.JSON(platform.RateLimitRuleListResponse{
 		Data:       items,
 		Total:      total,
-		Limit:      limit,
-		Offset:     offset,
-		NextOffset: nextOffset,
+		Limit:      params.Limit,
+		Offset:     params.Offset,
+		NextOffset: buildNextOffset(params.Offset, len(items), total),
 	})
 }
 
@@ -539,31 +514,9 @@ func (h *Handlers) UpdateRateLimitRuleStatus(c *fiber.Ctx) error {
 		return err
 	}
 
-	currentTenant := tenant.FromContext(c)
-	if currentTenant == nil {
-		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
-	}
-
-	ruleID := strings.TrimSpace(c.Params("id"))
-	if ruleID == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "id is required")
-	}
-
-	var req platform.UpdateRateLimitRuleStatusRequest
-	if err := c.BodyParser(&req); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
-	}
-
-	item, err := h.models.UpdateRateLimitRuleStatusByRuleID(c.Context(), currentTenant.ID, ruleID, req.Enabled)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return fiber.NewError(fiber.StatusNotFound, "rate limit rule not found")
-		}
-
-		return err
-	}
-
-	return c.JSON(item)
+	return handleScopedEnabledUpdate(c, "rate limit rule not found", func(ctx context.Context, tenantID, itemID string, enabled bool) (interface{}, error) {
+		return h.models.UpdateRateLimitRuleStatusByRuleID(ctx, tenantID, itemID, enabled)
+	})
 }
 
 func validateCreateRateLimitRuleRequest(req platform.CreateRateLimitRuleRequest) error {
@@ -587,71 +540,25 @@ func validateUpdateRateLimitRuleRequest(req platform.UpdateRateLimitRuleRequest)
 }
 
 func parseCreateRateLimitRuleRequest(c *fiber.Ctx) (platform.CreateRateLimitRuleRequest, error) {
-	var raw map[string]interface{}
-	if err := c.BodyParser(&raw); err != nil {
-		return platform.CreateRateLimitRuleRequest{}, err
-	}
-
-	effectiveFrom, err := parseOptionalTimeValue(raw["effective_from"])
-	if err != nil {
-		return platform.CreateRateLimitRuleRequest{}, err
-	}
-
-	expiresAt, err := parseOptionalTimeValue(raw["expires_at"])
-	if err != nil {
-		return platform.CreateRateLimitRuleRequest{}, err
-	}
-
-	raw["effective_from"] = nil
-	raw["expires_at"] = nil
-
-	encoded, err := json.Marshal(raw)
-	if err != nil {
-		return platform.CreateRateLimitRuleRequest{}, err
-	}
-
 	var req platform.CreateRateLimitRuleRequest
-	if err := json.Unmarshal(encoded, &req); err != nil {
+	if err := parseTemporalBody(c, &req, func(effectiveFrom, expiresAt *time.Time) {
+		req.EffectiveFrom = effectiveFrom
+		req.ExpiresAt = expiresAt
+	}); err != nil {
 		return platform.CreateRateLimitRuleRequest{}, err
 	}
-
-	req.EffectiveFrom = effectiveFrom
-	req.ExpiresAt = expiresAt
 
 	return req, nil
 }
 
 func parseUpdateRateLimitRuleRequest(c *fiber.Ctx) (platform.UpdateRateLimitRuleRequest, error) {
-	var raw map[string]interface{}
-	if err := c.BodyParser(&raw); err != nil {
-		return platform.UpdateRateLimitRuleRequest{}, err
-	}
-
-	effectiveFrom, err := parseOptionalTimeValue(raw["effective_from"])
-	if err != nil {
-		return platform.UpdateRateLimitRuleRequest{}, err
-	}
-
-	expiresAt, err := parseOptionalTimeValue(raw["expires_at"])
-	if err != nil {
-		return platform.UpdateRateLimitRuleRequest{}, err
-	}
-
-	raw["effective_from"] = nil
-	raw["expires_at"] = nil
-
-	encoded, err := json.Marshal(raw)
-	if err != nil {
-		return platform.UpdateRateLimitRuleRequest{}, err
-	}
-
 	var req platform.UpdateRateLimitRuleRequest
-	if err := json.Unmarshal(encoded, &req); err != nil {
+	if err := parseTemporalBody(c, &req, func(effectiveFrom, expiresAt *time.Time) {
+		req.EffectiveFrom = effectiveFrom
+		req.ExpiresAt = expiresAt
+	}); err != nil {
 		return platform.UpdateRateLimitRuleRequest{}, err
 	}
-
-	req.EffectiveFrom = effectiveFrom
-	req.ExpiresAt = expiresAt
 
 	return req, nil
 }
@@ -661,51 +568,27 @@ func (h *Handlers) ListBudgetLimitRules(c *fiber.Ctx) error {
 		return err
 	}
 
-	currentTenant := tenant.FromContext(c)
-	if currentTenant == nil {
-		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
-	}
-
-	query := strings.TrimSpace(c.Query("query"))
-	limit := 50
-	offset := 0
-
-	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
-		parsed, parseErr := strconv.Atoi(raw)
-		if parseErr != nil || parsed <= 0 {
-			return fiber.NewError(fiber.StatusBadRequest, "limit must be a positive number")
-		}
-
-		limit = parsed
-	}
-
-	if raw := strings.TrimSpace(c.Query("offset")); raw != "" {
-		parsed, parseErr := strconv.Atoi(raw)
-		if parseErr != nil || parsed < 0 {
-			return fiber.NewError(fiber.StatusBadRequest, "offset must be zero or greater")
-		}
-
-		offset = parsed
-	}
-
-	items, total, err := h.models.ListBudgetLimitRules(c.Context(), currentTenant.ID, query, limit, offset)
+	currentTenant, err := currentTenantOrErr(c)
 	if err != nil {
 		return err
 	}
 
-	var nextOffset *int
+	params, err := parseTenantListParams(c, 0)
+	if err != nil {
+		return err
+	}
 
-	if offset+len(items) < total {
-		n := offset + len(items)
-		nextOffset = &n
+	items, total, err := h.models.ListBudgetLimitRules(c.Context(), currentTenant.ID, params.Query, params.Limit, params.Offset)
+	if err != nil {
+		return err
 	}
 
 	return c.JSON(platform.BudgetLimitRuleListResponse{
 		Data:       items,
 		Total:      total,
-		Limit:      limit,
-		Offset:     offset,
-		NextOffset: nextOffset,
+		Limit:      params.Limit,
+		Offset:     params.Offset,
+		NextOffset: buildNextOffset(params.Offset, len(items), total),
 	})
 }
 
@@ -838,31 +721,9 @@ func (h *Handlers) UpdateBudgetLimitRuleStatus(c *fiber.Ctx) error {
 		return err
 	}
 
-	currentTenant := tenant.FromContext(c)
-	if currentTenant == nil {
-		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
-	}
-
-	ruleID := strings.TrimSpace(c.Params("id"))
-	if ruleID == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "id is required")
-	}
-
-	var req platform.UpdateBudgetLimitRuleStatusRequest
-	if err := c.BodyParser(&req); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
-	}
-
-	item, err := h.models.UpdateBudgetLimitRuleStatusByRuleID(c.Context(), currentTenant.ID, ruleID, req.Enabled)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return fiber.NewError(fiber.StatusNotFound, "budget limit rule not found")
-		}
-
-		return err
-	}
-
-	return c.JSON(item)
+	return handleScopedEnabledUpdate(c, "budget limit rule not found", func(ctx context.Context, tenantID, itemID string, enabled bool) (interface{}, error) {
+		return h.models.UpdateBudgetLimitRuleStatusByRuleID(ctx, tenantID, itemID, enabled)
+	})
 }
 
 func validateCreateBudgetLimitRuleRequest(req platform.CreateBudgetLimitRuleRequest) error {

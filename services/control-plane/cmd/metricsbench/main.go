@@ -98,7 +98,11 @@ func doQuery(client *http.Client, baseURL, tenant, auth string, c queryCase) (fl
 	if err != nil {
 		return 0, err
 	}
-	defer closeBody(resp.Body)
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			return
+		}
+	}()
 
 	if resp.StatusCode >= 400 {
 		return 0, fmt.Errorf("status %d", resp.StatusCode)
@@ -138,16 +142,6 @@ func writeReport(path string, results map[string][]float64, benchErr error) erro
 	}
 
 	return os.WriteFile(path, md.Bytes(), 0o644)
-}
-
-func closeBody(body interface{ Close() error }) {
-	if body == nil {
-		return
-	}
-
-	if err := body.Close(); err != nil {
-		return
-	}
 }
 
 func percentile(values []float64, p int) float64 {

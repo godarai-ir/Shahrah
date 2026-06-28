@@ -148,7 +148,10 @@ func (s *Store) ListTenantEvents(ctx context.Context, tenantID string, limit, of
 			return nil, err
 		}
 
-		_ = json.Unmarshal(raw, &item.Payload)
+		if err := json.Unmarshal(raw, &item.Payload); err != nil {
+			return nil, err
+		}
+
 		items = append(items, item)
 	}
 
@@ -160,7 +163,7 @@ func (s *Store) AdjustTenantWallet(ctx context.Context, tenantID string, req pla
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTxBestEffort(ctx, tx)
 
 	var (
 		existing                          platform.WalletAdjustmentResult
@@ -228,7 +231,7 @@ func (s *Store) AdjustTenantWallet(ctx context.Context, tenantID string, req pla
 	}
 
 	metadata := map[string]interface{}{"reason": req.Reason, "external_reference": req.ExternalReference, "actor_id": actor.ID, "request_id": actor.RequestID}
-	metaRaw, _ := json.Marshal(metadata)
+	metaRaw := marshalJSONBestEffort(metadata)
 
 	var result platform.WalletAdjustmentResult
 
@@ -273,7 +276,7 @@ func (s *Store) ChangeTenantStatus(ctx context.Context, tenantID, target, reason
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTxBestEffort(ctx, tx)
 
 	var current string
 	if err := tx.QueryRow(ctx, `SELECT status FROM tenants WHERE tenant_id::text = $1 FOR UPDATE`, tenantID).Scan(&current); err != nil {
@@ -316,7 +319,7 @@ func (s *Store) SetTenantSubscriptionCancellation(ctx context.Context, tenantID 
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTxBestEffort(ctx, tx)
 
 	var (
 		subscriptionID string
@@ -348,7 +351,7 @@ func (s *Store) SetTenantSubscriptionCancellation(ctx context.Context, tenantID 
 
 	payload := map[string]interface{}{"cancel_at_period_end": cancel, "reason": reason}
 
-	raw, _ := json.Marshal(payload)
+	raw := marshalJSONBestEffort(payload)
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO subscription_events (tenant_id, subscription_id, event_type, actor, payload)
 		VALUES ($1, $2, $3, $4, $5)
@@ -393,7 +396,7 @@ func (s *Store) ListTenantSubscriptionPaymentIntents(ctx context.Context, tenant
 }
 
 func insertTenantEventTx(ctx context.Context, tx pgx.Tx, tenantID, eventType, severity string, actor platform.SupportActor, reason string, payload map[string]interface{}) error {
-	raw, _ := json.Marshal(payload)
+	raw := marshalJSONBestEffort(payload)
 	_, err := tx.Exec(ctx, `
 		INSERT INTO tenant_events (tenant_id, event_type, severity, actor_id, actor_role, reason, request_id, payload)
 		VALUES ($1, $2, $3, NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''), NULLIF($7, ''), $8)

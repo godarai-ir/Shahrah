@@ -57,7 +57,7 @@ func (s *Store) ListMetricsCostByTenantAndDay(ctx context.Context, day time.Time
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer closeBestEffort(rows)
 
 	out := make([]ReconcileTenantCostRow, 0, 64)
 

@@ -1,8 +1,8 @@
 package admin
 
 import (
+	"context"
 	"errors"
-	"strconv"
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
@@ -16,54 +16,32 @@ func (h *Handlers) ListOrgUnits(c *fiber.Ctx) error {
 		return err
 	}
 
-	currentTenant := tenant.FromContext(c)
-	if currentTenant == nil {
-		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	currentTenant, err := currentTenantOrErr(c)
+	if err != nil {
+		return err
 	}
 
 	if h.orgUnits == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "org unit store not configured")
 	}
 
-	query := strings.TrimSpace(c.Query("query"))
-	limit := 50
-	offset := 0
-
-	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
-		parsed, parseErr := strconv.Atoi(raw)
-		if parseErr != nil || parsed <= 0 {
-			return fiber.NewError(fiber.StatusBadRequest, "limit must be a positive number")
-		}
-
-		if parsed > 200 {
-			parsed = 200
-		}
-
-		limit = parsed
-	}
-
-	if raw := strings.TrimSpace(c.Query("offset")); raw != "" {
-		parsed, parseErr := strconv.Atoi(raw)
-		if parseErr != nil || parsed < 0 {
-			return fiber.NewError(fiber.StatusBadRequest, "offset must be zero or greater")
-		}
-
-		offset = parsed
-	}
-
-	items, total, err := h.orgUnits.ListOrgUnits(c.Context(), currentTenant.ID, query, limit, offset)
+	params, err := parseTenantListParams(c, 200)
 	if err != nil {
 		return err
 	}
 
-	var nextOffset *int
-
-	if offset+len(items) < total {
-		n := offset + len(items)
-		nextOffset = &n
+	items, total, err := h.orgUnits.ListOrgUnits(c.Context(), currentTenant.ID, params.Query, params.Limit, params.Offset)
+	if err != nil {
+		return err
 	}
 
-	return c.JSON(platform.OrgUnitListResponse{Data: items, Total: total, Limit: limit, Offset: offset, NextOffset: nextOffset})
+	return c.JSON(platform.OrgUnitListResponse{
+		Data:       items,
+		Total:      total,
+		Limit:      params.Limit,
+		Offset:     params.Offset,
+		NextOffset: buildNextOffset(params.Offset, len(items), total),
+	})
 }
 
 func (h *Handlers) ListTeams(c *fiber.Ctx) error {
@@ -71,54 +49,32 @@ func (h *Handlers) ListTeams(c *fiber.Ctx) error {
 		return err
 	}
 
-	currentTenant := tenant.FromContext(c)
-	if currentTenant == nil {
-		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	currentTenant, err := currentTenantOrErr(c)
+	if err != nil {
+		return err
 	}
 
 	if h.teams == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "team store not configured")
 	}
 
-	query := strings.TrimSpace(c.Query("query"))
-	limit := 50
-	offset := 0
-
-	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
-		parsed, parseErr := strconv.Atoi(raw)
-		if parseErr != nil || parsed <= 0 {
-			return fiber.NewError(fiber.StatusBadRequest, "limit must be a positive number")
-		}
-
-		if parsed > 200 {
-			parsed = 200
-		}
-
-		limit = parsed
-	}
-
-	if raw := strings.TrimSpace(c.Query("offset")); raw != "" {
-		parsed, parseErr := strconv.Atoi(raw)
-		if parseErr != nil || parsed < 0 {
-			return fiber.NewError(fiber.StatusBadRequest, "offset must be zero or greater")
-		}
-
-		offset = parsed
-	}
-
-	items, total, err := h.teams.ListTeams(c.Context(), currentTenant.ID, query, limit, offset)
+	params, err := parseTenantListParams(c, 200)
 	if err != nil {
 		return err
 	}
 
-	var nextOffset *int
-
-	if offset+len(items) < total {
-		n := offset + len(items)
-		nextOffset = &n
+	items, total, err := h.teams.ListTeams(c.Context(), currentTenant.ID, params.Query, params.Limit, params.Offset)
+	if err != nil {
+		return err
 	}
 
-	return c.JSON(platform.TeamListResponse{Data: items, Total: total, Limit: limit, Offset: offset, NextOffset: nextOffset})
+	return c.JSON(platform.TeamListResponse{
+		Data:       items,
+		Total:      total,
+		Limit:      params.Limit,
+		Offset:     params.Offset,
+		NextOffset: buildNextOffset(params.Offset, len(items), total),
+	})
 }
 
 func (h *Handlers) CreateTeam(c *fiber.Ctx) error {
@@ -126,9 +82,9 @@ func (h *Handlers) CreateTeam(c *fiber.Ctx) error {
 		return err
 	}
 
-	currentTenant := tenant.FromContext(c)
-	if currentTenant == nil {
-		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	currentTenant, err := currentTenantOrErr(c)
+	if err != nil {
+		return err
 	}
 
 	if h.teams == nil {
@@ -193,35 +149,13 @@ func (h *Handlers) UpdateTeam(c *fiber.Ctx) error {
 		return err
 	}
 
-	currentTenant := tenant.FromContext(c)
-	if currentTenant == nil {
-		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
-	}
-
 	if h.teams == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "team store not configured")
 	}
 
-	teamID := strings.TrimSpace(c.Params("teamID"))
-	if teamID == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "teamID is required")
-	}
-
-	var req platform.UpdateTeamRequest
-	if err := c.BodyParser(&req); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
-	}
-
-	item, err := h.teams.UpdateTeam(c.Context(), currentTenant.ID, teamID, req)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return fiber.NewError(fiber.StatusNotFound, "team not found")
-		}
-
-		return err
-	}
-
-	return c.JSON(item)
+	return handleTenantScopedUpdate(c, "teamID", "team not found", parseBodyInto[platform.UpdateTeamRequest], func(ctx context.Context, tenantID, itemID string, req platform.UpdateTeamRequest) (interface{}, error) {
+		return h.teams.UpdateTeam(ctx, tenantID, itemID, req)
+	})
 }
 
 func (h *Handlers) DeleteTeam(c *fiber.Ctx) error {
@@ -290,35 +224,13 @@ func (h *Handlers) UpdateTeamPermissions(c *fiber.Ctx) error {
 		return err
 	}
 
-	currentTenant := tenant.FromContext(c)
-	if currentTenant == nil {
-		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
-	}
-
 	if h.teams == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "team store not configured")
 	}
 
-	teamID := strings.TrimSpace(c.Params("teamID"))
-	if teamID == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "teamID is required")
-	}
-
-	var req platform.UpdateTeamPermissionsRequest
-	if err := c.BodyParser(&req); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
-	}
-
-	item, err := h.teams.UpdateTeamPermissions(c.Context(), currentTenant.ID, teamID, req)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return fiber.NewError(fiber.StatusNotFound, "team not found")
-		}
-
-		return err
-	}
-
-	return c.JSON(item)
+	return handleTenantScopedUpdate(c, "teamID", "team not found", parseBodyInto[platform.UpdateTeamPermissionsRequest], func(ctx context.Context, tenantID, itemID string, req platform.UpdateTeamPermissionsRequest) (interface{}, error) {
+		return h.teams.UpdateTeamPermissions(ctx, tenantID, itemID, req)
+	})
 }
 
 func (h *Handlers) CreateOrgUnit(c *fiber.Ctx) error {
@@ -399,35 +311,13 @@ func (h *Handlers) UpdateOrgUnit(c *fiber.Ctx) error {
 		return err
 	}
 
-	currentTenant := tenant.FromContext(c)
-	if currentTenant == nil {
-		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
-	}
-
 	if h.orgUnits == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "org unit store not configured")
 	}
 
-	orgUnitID := strings.TrimSpace(c.Params("orgUnitID"))
-	if orgUnitID == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "orgUnitID is required")
-	}
-
-	var req platform.UpdateOrgUnitRequest
-	if err := c.BodyParser(&req); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
-	}
-
-	item, err := h.orgUnits.UpdateOrgUnit(c.Context(), currentTenant.ID, orgUnitID, req)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return fiber.NewError(fiber.StatusNotFound, "org unit not found")
-		}
-
-		return err
-	}
-
-	return c.JSON(item)
+	return handleTenantScopedUpdate(c, "orgUnitID", "org unit not found", parseBodyInto[platform.UpdateOrgUnitRequest], func(ctx context.Context, tenantID, itemID string, req platform.UpdateOrgUnitRequest) (interface{}, error) {
+		return h.orgUnits.UpdateOrgUnit(ctx, tenantID, itemID, req)
+	})
 }
 
 func (h *Handlers) DeleteOrgUnit(c *fiber.Ctx) error {
@@ -586,31 +476,11 @@ func (h *Handlers) DeleteOrgUnitMember(c *fiber.Ctx) error {
 		return err
 	}
 
-	currentTenant := tenant.FromContext(c)
-	if currentTenant == nil {
-		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
-	}
-
 	if h.orgUnits == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "org unit store not configured")
 	}
 
-	orgUnitID := strings.TrimSpace(c.Params("orgUnitID"))
-
-	userID := strings.TrimSpace(c.Params("userID"))
-	if orgUnitID == "" || userID == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "orgUnitID and userID are required")
-	}
-
-	if err := h.orgUnits.DeleteOrgUnitMembership(c.Context(), currentTenant.ID, orgUnitID, userID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return fiber.NewError(fiber.StatusNotFound, "org unit membership not found")
-		}
-
-		return err
-	}
-
-	return c.SendStatus(fiber.StatusNoContent)
+	return handleTenantMembershipDelete(c, "orgUnitID", "org unit membership not found", h.orgUnits.DeleteOrgUnitMembership)
 }
 
 func (h *Handlers) ListTeamMembers(c *fiber.Ctx) error {
@@ -732,31 +602,11 @@ func (h *Handlers) DeleteTeamMember(c *fiber.Ctx) error {
 		return err
 	}
 
-	currentTenant := tenant.FromContext(c)
-	if currentTenant == nil {
-		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
-	}
-
 	if h.memberships == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "membership store not configured")
 	}
 
-	teamID := strings.TrimSpace(c.Params("teamID"))
-
-	userID := strings.TrimSpace(c.Params("userID"))
-	if teamID == "" || userID == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "teamID and userID are required")
-	}
-
-	if err := h.memberships.DeleteTeamMembership(c.Context(), currentTenant.ID, teamID, userID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return fiber.NewError(fiber.StatusNotFound, "team membership not found")
-		}
-
-		return err
-	}
-
-	return c.SendStatus(fiber.StatusNoContent)
+	return handleTenantMembershipDelete(c, "teamID", "team membership not found", h.memberships.DeleteTeamMembership)
 }
 
 func (h *Handlers) ListVirtualUsers(c *fiber.Ctx) error {
@@ -773,45 +623,23 @@ func (h *Handlers) ListVirtualUsers(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotImplemented, "virtual user store not configured")
 	}
 
-	query := strings.TrimSpace(c.Query("query"))
-	limit := 50
-	offset := 0
-
-	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
-		parsed, parseErr := strconv.Atoi(raw)
-		if parseErr != nil || parsed <= 0 {
-			return fiber.NewError(fiber.StatusBadRequest, "limit must be a positive number")
-		}
-
-		if parsed > 200 {
-			parsed = 200
-		}
-
-		limit = parsed
-	}
-
-	if raw := strings.TrimSpace(c.Query("offset")); raw != "" {
-		parsed, parseErr := strconv.Atoi(raw)
-		if parseErr != nil || parsed < 0 {
-			return fiber.NewError(fiber.StatusBadRequest, "offset must be zero or greater")
-		}
-
-		offset = parsed
-	}
-
-	items, total, err := h.virtualUsers.ListVirtualUsers(c.Context(), currentTenant.ID, query, limit, offset)
+	params, err := parseTenantListParams(c, 200)
 	if err != nil {
 		return err
 	}
 
-	var nextOffset *int
-
-	if offset+len(items) < total {
-		n := offset + len(items)
-		nextOffset = &n
+	items, total, err := h.virtualUsers.ListVirtualUsers(c.Context(), currentTenant.ID, params.Query, params.Limit, params.Offset)
+	if err != nil {
+		return err
 	}
 
-	return c.JSON(platform.VirtualUserListResponse{Data: items, Total: total, Limit: limit, Offset: offset, NextOffset: nextOffset})
+	return c.JSON(platform.VirtualUserListResponse{
+		Data:       items,
+		Total:      total,
+		Limit:      params.Limit,
+		Offset:     params.Offset,
+		NextOffset: buildNextOffset(params.Offset, len(items), total),
+	})
 }
 
 func (h *Handlers) CreateVirtualUser(c *fiber.Ctx) error {
@@ -890,35 +718,13 @@ func (h *Handlers) UpdateVirtualUser(c *fiber.Ctx) error {
 		return err
 	}
 
-	currentTenant := tenant.FromContext(c)
-	if currentTenant == nil {
-		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
-	}
-
 	if h.virtualUsers == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "virtual user store not configured")
 	}
 
-	virtualUserID := strings.TrimSpace(c.Params("virtualUserID"))
-	if virtualUserID == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "virtualUserID is required")
-	}
-
-	var req platform.UpdateVirtualUserRequest
-	if err := c.BodyParser(&req); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
-	}
-
-	item, err := h.virtualUsers.UpdateVirtualUser(c.Context(), currentTenant.ID, virtualUserID, req)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return fiber.NewError(fiber.StatusNotFound, "virtual user not found")
-		}
-
-		return err
-	}
-
-	return c.JSON(item)
+	return handleTenantScopedUpdate(c, "virtualUserID", "virtual user not found", parseBodyInto[platform.UpdateVirtualUserRequest], func(ctx context.Context, tenantID, itemID string, req platform.UpdateVirtualUserRequest) (interface{}, error) {
+		return h.virtualUsers.UpdateVirtualUser(ctx, tenantID, itemID, req)
+	})
 }
 
 func (h *Handlers) DeleteVirtualUser(c *fiber.Ctx) error {

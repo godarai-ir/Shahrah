@@ -47,10 +47,7 @@ func TransformProviderError(c *fiber.Ctx, status int, body []byte, headers map[s
 		errType = "internal_error"
 	}
 
-	message := "An error occurred while processing your request"
-
-	// Parse error from body
-	message = parseGenericError(body)
+	message := parseGenericError(body)
 
 	return WriteAPIError(c, status, message, errType)
 }

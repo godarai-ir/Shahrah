@@ -18,9 +18,9 @@ func (h *Handlers) ListRoles(c *fiber.Ctx) error {
 		return err
 	}
 
-	currentTenant := tenant.FromContext(c)
-	if currentTenant == nil {
-		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	currentTenant, err := currentTenantOrErr(c)
+	if err != nil {
+		return err
 	}
 
 	if h.roles == nil {
@@ -280,50 +280,22 @@ func (h *Handlers) ListTenantUsers(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotImplemented, "user store not configured")
 	}
 
-	query := strings.TrimSpace(c.Query("query"))
-	limit := 50
-	offset := 0
-
-	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
-		parsed, parseErr := strconv.Atoi(raw)
-		if parseErr != nil || parsed <= 0 {
-			return fiber.NewError(fiber.StatusBadRequest, "limit must be a positive number")
-		}
-
-		if parsed > 200 {
-			parsed = 200
-		}
-
-		limit = parsed
-	}
-
-	if raw := strings.TrimSpace(c.Query("offset")); raw != "" {
-		parsed, parseErr := strconv.Atoi(raw)
-		if parseErr != nil || parsed < 0 {
-			return fiber.NewError(fiber.StatusBadRequest, "offset must be zero or greater")
-		}
-
-		offset = parsed
-	}
-
-	items, total, err := h.users.ListTenantAdminUsers(c.Context(), currentTenant.Slug, query, limit, offset)
+	params, err := parseTenantListParams(c, 200)
 	if err != nil {
 		return err
 	}
 
-	var nextOffset *int
-
-	if offset+len(items) < total {
-		n := offset + len(items)
-		nextOffset = &n
+	items, total, err := h.users.ListTenantAdminUsers(c.Context(), currentTenant.Slug, params.Query, params.Limit, params.Offset)
+	if err != nil {
+		return err
 	}
 
 	return c.JSON(platform.TenantAdminUserListResponse{
 		Data:       items,
 		Total:      total,
-		Limit:      limit,
-		Offset:     offset,
-		NextOffset: nextOffset,
+		Limit:      params.Limit,
+		Offset:     params.Offset,
+		NextOffset: buildNextOffset(params.Offset, len(items), total),
 	})
 }
 

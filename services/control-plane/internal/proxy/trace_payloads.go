@@ -383,37 +383,14 @@ func traceImageSourceType(value interface{}) string {
 }
 
 func summarizeModerationInput(input interface{}) (string, int, []int, []string) {
-	switch v := input.(type) {
-	case string:
-		return "single", 1, []int{len(v)}, []string{hashTracePreview(v)}
-	case []string:
-		lengths := make([]int, 0, len(v))
-
-		hashes := make([]string, 0, len(v))
-		for _, item := range v {
-			lengths = append(lengths, len(item))
-			hashes = append(hashes, hashTracePreview(item))
-		}
-
-		return "batch", len(v), lengths, hashes
-	case []interface{}:
-		lengths := make([]int, 0, len(v))
-
-		hashes := make([]string, 0, len(v))
-		for _, item := range v {
-			if s, ok := item.(string); ok {
-				lengths = append(lengths, len(s))
-				hashes = append(hashes, hashTracePreview(s))
-			}
-		}
-
-		return "batch", len(lengths), lengths, hashes
-	default:
-		return "unknown", 0, nil, nil
-	}
+	return summarizeTextLikeInput(input)
 }
 
 func summarizeEmbeddingInput(input interface{}) (string, int, []int, []string) {
+	return summarizeTextLikeInput(input)
+}
+
+func summarizeTextLikeInput(input interface{}) (string, int, []int, []string) {
 	switch v := input.(type) {
 	case string:
 		return "single", 1, []int{len(v)}, []string{hashTracePreview(v)}

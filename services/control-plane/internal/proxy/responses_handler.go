@@ -266,7 +266,7 @@ func (h *ResponsesHandler) handleSync(c *fiber.Ctx, req contractsopenai.Response
 	}
 
 	responseTimeMS := int(time.Since(start).Milliseconds())
-	_ = h.logs.LogRequest(c.Context(), platform.RequestLogEntry{
+	logRequestBestEffort(h.logger, h.logs, c.Context(), platform.RequestLogEntry{
 		RequestID:      tunnelReq.RequestID,
 		TokenHash:      authInfo.TokenHash,
 		TenantID:       authInfo.TenantID,
@@ -277,7 +277,7 @@ func (h *ResponsesHandler) handleSync(c *fiber.Ctx, req contractsopenai.Response
 		RequestBody:    map[string]interface{}{"model": req.Model},
 		ResponseBody:   map[string]interface{}{"id": response.ID},
 	})
-	_ = h.logs.LogSpend(c.Context(), platform.SpendLog{
+	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID:       tunnelReq.RequestID,
 		TokenHash:       authInfo.TokenHash,
 		TenantID:        authInfo.TenantID,
@@ -362,15 +362,27 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 	forwardProviderHeaders(c, stream.Headers())
 
 	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
-		defer stream.Close()
+		defer closeStreamBestEffort(h.logger, stream)
 
 		for {
 			select {
 			case chunk, ok := <-stream.Chunks():
 				if !ok {
-					finalCost, _ := h.billing.FinalizeFromUsage(c.Context(), billingModelForDeployment(req.Model, tunnelReq.Deployment), nil, estimated)
-					_, _ = h.wallets.DebitWallet(c.Context(), authInfo.TenantID, finalCost, tunnelReq.RequestID)
-					_ = h.logs.LogSpend(c.Context(), platform.SpendLog{
+					billingModel := billingModelForDeployment(req.Model, tunnelReq.Deployment)
+
+					finalCost, finalizeErr := h.billing.FinalizeFromUsage(c.Context(), billingModel, nil, estimated)
+					if finalizeErr != nil {
+						h.logger.Warn("failed to finalize streaming usage", zap.Error(finalizeErr), zap.String("request_id", tunnelReq.RequestID))
+
+						finalCost = estimated
+						finalCost.Model = billingModel
+					}
+
+					if _, debitErr := h.wallets.DebitWallet(c.Context(), authInfo.TenantID, finalCost, tunnelReq.RequestID); debitErr != nil {
+						h.logger.Warn("failed to debit wallet for streaming request", zap.Error(debitErr), zap.String("request_id", tunnelReq.RequestID))
+					}
+
+					logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 						RequestID:       tunnelReq.RequestID,
 						TokenHash:       authInfo.TokenHash,
 						TenantID:        authInfo.TenantID,
@@ -418,8 +430,10 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 				}
 
 				if len(chunk.Data) > 0 {
-					_, _ = w.Write(chunk.Data)
-					_ = w.Flush()
+					if writeErr := writeBufferedBytes(w, chunk.Data); writeErr != nil {
+						h.logger.Warn("failed to write streaming chunk", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
+						return
+					}
 				}
 
 				if chunk.IsDone {
@@ -427,14 +441,20 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 				}
 			case err, ok := <-stream.Errors():
 				if ok && err != nil {
-					errorPayload, _ := json.Marshal(contractsopenai.APIError{
+					errorPayload, marshalErr := json.Marshal(contractsopenai.APIError{
 						Error: contractsopenai.ErrorInfo{
 							Message: err.Error(),
 							Type:    "streaming_error",
 						},
 					})
-					_, _ = w.Write(bytes.Join([][]byte{[]byte("data: "), errorPayload, []byte("\n\n")}, nil))
-					_ = w.Flush()
+					if marshalErr != nil {
+						h.logger.Warn("failed to encode streaming error payload", zap.Error(marshalErr), zap.String("request_id", tunnelReq.RequestID))
+						return
+					}
+
+					if writeErr := writeBufferedBytes(w, bytes.Join([][]byte{[]byte("data: "), errorPayload, []byte("\n\n")}, nil)); writeErr != nil {
+						h.logger.Warn("failed to write streaming error payload", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
+					}
 				}
 
 				return
