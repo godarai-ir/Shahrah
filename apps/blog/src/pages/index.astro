@@ -1,199 +1,134 @@
 ---
 import { getCollection } from "astro:content";
 import Layout from "../layouts/Layout.astro";
+import CategoryPill from "../components/CategoryPill.astro";
+import NewsletterCard from "../components/NewsletterCard.astro";
+import PostCard from "../components/PostCard.astro";
 import {
   getCategoryUrl,
-  getPostCategory,
-  getPostUrl,
   groupPostsByCategory,
+  groupPostsByTag,
   isPublished,
   sortPosts,
 } from "../utils/blog";
 
 const posts = sortPosts(await getCollection("blog", isPublished));
 const featured = posts.filter((post) => post.data.featured).slice(0, 3);
-const latest = (featured.length > 0 ? featured : posts).slice(0, 3);
+const latest = posts.slice(0, 6);
 const categories = groupPostsByCategory(posts);
+const tags = groupPostsByTag(posts).slice(0, 8);
 const canonical = (Astro.site || new URL("https://godarai.ir/blog")).toString();
 ---
 
 <Layout
-  title="Shahrah Blog | انتشار مقاله‌های فنی و تحلیلی"
-  description="بلاگ Shahrah برای انتشار مقالات Markdown به‌صورت ساختاریافته، دسته‌بندی‌شده و سازگار با SEO."
+  title="Shahrah Blog | بلاگ فارسی برای آموزش فنی و محتوای تکنیکال"
+  description="بلاگ Shahrah با تمرکز بر مقاله‌های آموزشی فارسی، محتوای فنی، تجربه محصول، SEO مدرن و ساختار مناسب برای رشد ارگانیک."
   canonical={canonical}
 >
-  <main class="shell">
-    <section class="hero">
-      <p class="eyebrow">Shahrah Content Engine</p>
-      <h1>بلاگی آماده برای رشد محتوایی</h1>
-      <p class="body">
-        این اپ Astro حالا برای انتشار منظم مقاله‌های Markdown، آرشیو موضوعی،
-        مسیرهای تمیز و متادیتای قابل اتکا در سئو آماده شده است.
-      </p>
-      <div class="cta-row">
-        <a class="primary" href="/blog">مشاهده همه مقاله‌ها</a>
-        <a class="secondary" href={categories[0] ? getCategoryUrl(categories[0].category) : "/blog"}>
-          مرور دسته‌بندی‌ها
-        </a>
+  <section class="section-shell pt-8 pb-16 lg:pt-12 lg:pb-24">
+    <section class="hero-panel px-6 py-8 lg:px-10 lg:py-12">
+      <div class="grid gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
+        <div>
+          <p class="text-sm font-bold uppercase tracking-[0.35em] text-brand-700">Persian Technical Editorial</p>
+          <h1 class="mt-5 max-w-4xl text-4xl font-black leading-[1.35] text-slate-950 md:text-6xl">
+            طراحی‌شده برای مقاله‌های فنی فارسی که هم خواندنی باشند و هم برای SEO رشد کنند
+          </h1>
+          <p class="mt-6 max-w-3xl text-base leading-8 text-slate-600 lg:text-lg">
+            این قالب برای بلاگ‌های آموزشی و تکنیکال بازطراحی شده: تایپوگرافی خوانا، راست‌به‌چپ استاندارد، ساختار
+            semantic، بلوک‌های مناسب آموزش، و مسیر محتوایی روشن برای افزایش دیده‌شدن در موتورهای جست‌وجو.
+          </p>
+          <div class="mt-8 flex flex-wrap gap-3">
+            <a
+              class="inline-flex items-center justify-center rounded-full bg-brand-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-brand-700"
+              href="/blog"
+            >
+              مشاهده آرشیو مقاله‌ها
+            </a>
+            <a
+              class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-700 transition hover:border-brand-200 hover:text-brand-700"
+              href="/blog/search"
+            >
+              جست‌وجو در محتوا
+            </a>
+          </div>
+        </div>
+
+        <div class="content-panel p-6 lg:p-7">
+          <h2 class="text-lg font-black text-slate-950">فوکوس‌های طراحی جدید</h2>
+          <ul class="mt-5 space-y-4 text-sm leading-7 text-slate-600">
+            <li>صفحه مقاله بهینه‌شده برای اسکن سریع، مطالعه عمیق و مرور سرفصل‌ها</li>
+            <li>ساختار آماده برای meta tags، Article schema، Breadcrumb schema و FAQ schema</li>
+            <li>کارت‌های محتوایی حرفه‌ای برای آموزش، تحلیل، کد، جدول و callout</li>
+            <li>چیدمان mobile-first با حفظ کیفیت تجربه مطالعه روی دسکتاپ</li>
+          </ul>
+        </div>
       </div>
     </section>
 
-    <section class="section">
-      <div class="section-head">
-        <h2>مقاله‌های منتخب</h2>
-        <a href="/blog">آرشیو کامل</a>
-      </div>
-      <div class="grid">
-        {latest.map((post) => (
-          <article class="card">
-            <p class="meta">
-              <a href={getCategoryUrl(getPostCategory(post))}>{getPostCategory(post)}</a>
-              <span>•</span>
-              <time datetime={post.data.pubDate.toISOString()}>
-                {post.data.pubDate.toLocaleDateString("fa-IR")}
-              </time>
-            </p>
-            <h3>
-              <a href={getPostUrl(post)}>{post.data.title}</a>
-            </h3>
-            <p>{post.data.excerpt || post.data.description}</p>
-          </article>
-        ))}
-      </div>
-    </section>
-
-    <section class="section">
-      <div class="section-head">
-        <h2>دسته‌بندی‌ها</h2>
-      </div>
-      <div class="chips">
-        {categories.map((item) => (
-          <a class="chip" href={getCategoryUrl(item.category)}>
-            <span>{item.category}</span>
-            <strong>{item.posts.length}</strong>
+    {featured.length > 0 && (
+      <section class="mt-10">
+        <div class="mb-5 flex items-center justify-between gap-4">
+          <div>
+            <p class="text-sm font-bold uppercase tracking-[0.25em] text-brand-700">Featured</p>
+            <h2 class="mt-2 text-2xl font-black text-slate-950">مقاله‌های شاخص</h2>
+          </div>
+          <a class="text-sm font-bold text-brand-700 transition hover:text-slate-950" href="/blog">
+            آرشیو کامل
           </a>
-        ))}
+        </div>
+        <div class="grid gap-6 lg:grid-cols-3">
+          {featured.map((post, index) => (
+            <PostCard post={post} featured={index === 0} />
+          ))}
+        </div>
+      </section>
+    )}
+
+    <section class="mt-12 grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
+      <div>
+        <div class="mb-5 flex items-center justify-between gap-4">
+          <div>
+            <p class="text-sm font-bold uppercase tracking-[0.25em] text-brand-700">Latest Articles</p>
+            <h2 class="mt-2 text-2xl font-black text-slate-950">جدیدترین مقاله‌ها</h2>
+          </div>
+          <a class="text-sm font-bold text-brand-700 transition hover:text-slate-950" href="/blog">
+            مشاهده همه
+          </a>
+        </div>
+        <div class="grid gap-6">
+          {latest.map((post) => (
+            <PostCard post={post} />
+          ))}
+        </div>
+      </div>
+
+      <div class="space-y-8">
+        <section class="content-panel p-6">
+          <div class="flex items-center justify-between gap-4">
+            <h2 class="text-xl font-black text-slate-950">دسته‌بندی‌ها</h2>
+            <span class="text-sm text-slate-500">{categories.length.toLocaleString("fa-IR")} دسته</span>
+          </div>
+          <div class="mt-5 flex flex-wrap gap-3">
+            {categories.map((item) => (
+              <CategoryPill href={getCategoryUrl(item.category)} label={item.category} count={item.posts.length} />
+            ))}
+          </div>
+        </section>
+
+        <section class="content-panel p-6">
+          <div class="flex items-center justify-between gap-4">
+            <h2 class="text-xl font-black text-slate-950">برچسب‌های پرتکرار</h2>
+            <span class="text-sm text-slate-500">برای internal linking بهتر</span>
+          </div>
+          <div class="mt-5 flex flex-wrap gap-3">
+            {tags.map((item) => (
+              <CategoryPill href={`/blog/tag/${item.slug}`} label={`#${item.tag}`} count={item.posts.length} />
+            ))}
+          </div>
+        </section>
+
+        <NewsletterCard compact />
       </div>
     </section>
-  </main>
+  </section>
 </Layout>
-
-<style>
-  .shell {
-    margin: 0 auto;
-    max-width: 1100px;
-    padding: 3rem 1.25rem 5rem;
-  }
-
-  .hero,
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 32px;
-    box-shadow: var(--shadow);
-  }
-
-  .hero {
-    padding: 3rem;
-  }
-
-  .eyebrow {
-    color: var(--accent);
-    font-size: 0.875rem;
-    font-weight: 700;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-  }
-
-  h1 {
-    margin: 1rem 0 0;
-    font-size: clamp(3rem, 7vw, 5rem);
-    line-height: 0.95;
-  }
-
-  .body {
-    color: var(--muted);
-    font-size: 1.125rem;
-    line-height: 1.8;
-    margin-top: 1.5rem;
-    max-width: 40rem;
-  }
-
-  .cta-row,
-  .chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.9rem;
-  }
-
-  .cta-row {
-    margin-top: 2rem;
-  }
-
-  .primary,
-  .secondary,
-  .chip,
-  .section-head a,
-  .meta a,
-  h3 a {
-    text-decoration: none;
-  }
-
-  .primary,
-  .secondary {
-    border-radius: 999px;
-    padding: 0.9rem 1.2rem;
-  }
-
-  .primary {
-    background: var(--accent);
-    color: white;
-  }
-
-  .secondary,
-  .chip {
-    background: rgba(255, 255, 255, 0.78);
-    border: 1px solid var(--border);
-  }
-
-  .section {
-    margin-top: 1.5rem;
-  }
-
-  .section-head {
-    align-items: center;
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 1rem;
-  }
-
-  .grid {
-    display: grid;
-    gap: 1rem;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  }
-
-  .card {
-    padding: 1.4rem;
-  }
-
-  .meta {
-    color: var(--muted);
-    display: flex;
-    gap: 0.45rem;
-    margin-top: 0;
-  }
-
-  h3 {
-    font-size: 1.35rem;
-    line-height: 1.4;
-  }
-
-  .chip {
-    align-items: center;
-    border-radius: 999px;
-    display: inline-flex;
-    gap: 0.65rem;
-    padding: 0.8rem 1rem;
-  }
-</style>

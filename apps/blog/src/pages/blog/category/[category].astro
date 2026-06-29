@@ -1,13 +1,16 @@
 ---
 import { getCollection } from "astro:content";
+import Breadcrumbs from "../../../components/Breadcrumbs.astro";
+import CategoryPill from "../../../components/CategoryPill.astro";
 import Layout from "../../../layouts/Layout.astro";
+import NewsletterCard from "../../../components/NewsletterCard.astro";
+import PostCard from "../../../components/PostCard.astro";
 import type { BlogPost } from "../../../utils/blog";
 import {
   getCategoryLabelFromSlug,
   getCategorySlug,
   getCategoryUrl,
   getPostCategory,
-  getPostUrl,
   groupPostsByCategory,
   isPublished,
   sortPosts,
@@ -41,90 +44,45 @@ const canonical = new URL(getCategoryUrl(categoryLabel), site).toString();
   description={`آرشیو مقاله‌های دسته ${categoryLabel} در بلاگ Shahrah.`}
   canonical={canonical}
 >
-  <main class="shell">
-    <header class="header">
-      <a class="back" href="/blog">همه مقاله‌ها</a>
-      <h1>{categoryLabel}</h1>
-      <p>{categoryPosts.length} مقاله در این دسته منتشر شده است.</p>
-    </header>
-
-    <nav class="categories">
-      {categories.map((item) => (
-        <a class:list={["chip", item.slug === categorySlug && "active"]} href={getCategoryUrl(item.category)}>
-          {item.category}
-        </a>
-      ))}
-    </nav>
-
-    <section class="list">
-      {categoryPosts.map((post) => (
-        <article class="card">
-          <time datetime={post.data.pubDate.toISOString()}>
-            {post.data.pubDate.toLocaleDateString("fa-IR")}
-          </time>
-          <h2>
-            <a href={getPostUrl(post)}>{post.data.title}</a>
-          </h2>
-          <p>{post.data.excerpt || post.data.description}</p>
-        </article>
-      ))}
+  <section class="section-shell pt-8 pb-16 lg:pt-12 lg:pb-24">
+    <section class="hero-panel px-6 py-8 lg:px-10 lg:py-10">
+      <Breadcrumbs
+        items={[
+          { label: "خانه", href: "/" },
+          { label: "بلاگ", href: "/blog" },
+          { label: categoryLabel },
+        ]}
+      />
+      <h1 class="mt-5 text-4xl font-black leading-[1.35] text-slate-950 md:text-5xl">{categoryLabel}</h1>
+      <p class="mt-4 max-w-3xl text-base leading-8 text-slate-600">
+        {categoryPosts.length.toLocaleString("fa-IR")} مقاله در این دسته منتشر شده و همگی با تمرکز بر محتوای آموزشی،
+        ساختار فنی و خوانایی فارسی قابل مرور هستند.
+      </p>
     </section>
-  </main>
+
+    <section class="mt-8 grid gap-8 lg:grid-cols-[0.8fr_1.2fr]">
+      <aside class="space-y-6">
+        <section class="content-panel p-6">
+          <h2 class="text-lg font-black text-slate-950">همه دسته‌ها</h2>
+          <div class="mt-5 flex flex-wrap gap-3">
+            {categories.map((item) => (
+              <CategoryPill
+                href={getCategoryUrl(item.category)}
+                label={item.category}
+                count={item.posts.length}
+                active={item.slug === categorySlug}
+              />
+            ))}
+          </div>
+        </section>
+        <NewsletterCard compact />
+      </aside>
+
+      <section class="grid gap-6">
+        {categoryPosts.map((post) => (
+          <PostCard post={post} />
+        ))}
+      </section>
+    </section>
+  </section>
 </Layout>
-
-<style>
-  .shell {
-    margin: 0 auto;
-    max-width: 960px;
-    padding: 3rem 1.25rem 5rem;
-  }
-
-  .header,
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 28px;
-    box-shadow: var(--shadow);
-    padding: 1.8rem;
-  }
-
-  .back,
-  h2 a {
-    text-decoration: none;
-  }
-
-  .header p,
-  .card p,
-  time {
-    color: var(--muted);
-  }
-
-  .categories {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    margin: 1.25rem 0 1.5rem;
-  }
-
-  .chip {
-    background: rgba(255, 255, 255, 0.76);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 0.7rem 1rem;
-    text-decoration: none;
-  }
-
-  .active {
-    background: var(--accent-soft);
-  }
-
-  .list {
-    display: grid;
-    gap: 1rem;
-  }
-
-  h1,
-  h2 {
-    margin-bottom: 0.6rem;
-  }
-</style>

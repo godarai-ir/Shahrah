@@ -1,0 +1,29 @@
+---
+interface Item {
+  label: string;
+  href?: string;
+}
+
+interface Props {
+  items: Item[];
+}
+
+const { items } = Astro.props as Props;
+---
+
+<nav aria-label="مسیر صفحه">
+  <ol class="flex flex-wrap items-center gap-2 text-sm text-slate-500">
+    {items.map((item, index) => (
+      <>
+        <li>
+          {item.href ? (
+            <a class="transition hover:text-brand-700" href={item.href}>{item.label}</a>
+          ) : (
+            <span class="font-semibold text-slate-700">{item.label}</span>
+          )}
+        </li>
+        {index < items.length - 1 && <li aria-hidden="true" class="text-slate-300">/</li>}
+      </>
+    ))}
+  </ol>
+</nav>

@@ -1,0 +1,87 @@
+---
+import { getCollection } from "astro:content";
+import Breadcrumbs from "../../../components/Breadcrumbs.astro";
+import CategoryPill from "../../../components/CategoryPill.astro";
+import Layout from "../../../layouts/Layout.astro";
+import NewsletterCard from "../../../components/NewsletterCard.astro";
+import PostCard from "../../../components/PostCard.astro";
+import type { BlogPost } from "../../../utils/blog";
+import {
+  getTagLabelFromSlug,
+  getTagSlug,
+  getTagUrl,
+  groupPostsByTag,
+  isPublished,
+  sortPosts,
+} from "../../../utils/blog";
+
+export async function getStaticPaths() {
+  const posts = sortPosts(await getCollection("blog", isPublished));
+  const tags = groupPostsByTag(posts);
+
+  return tags.map((item) => ({
+    params: { tag: item.slug },
+    props: { posts, tagSlug: item.slug },
+  }));
+}
+
+const { posts, tagSlug } = Astro.props as {
+  posts: BlogPost[];
+  tagSlug: string;
+};
+
+const tags = groupPostsByTag(posts);
+const tagLabel = getTagLabelFromSlug(posts, tagSlug);
+const taggedPosts = posts.filter((post) => post.data.tags.some((tag) => getTagSlug(tag) === tagSlug));
+const site = Astro.site || new URL("https://godarai.ir/blog");
+const canonical = new URL(getTagUrl(tagLabel), site).toString();
+---
+
+<Layout
+  title={`#${tagLabel} | برچسب بلاگ Shahrah`}
+  description={`مقاله‌های مرتبط با برچسب ${tagLabel} در بلاگ Shahrah.`}
+  canonical={canonical}
+>
+  <section class="section-shell pt-8 pb-16 lg:pt-12 lg:pb-24">
+    <section class="hero-panel px-6 py-8 lg:px-10 lg:py-10">
+      <Breadcrumbs
+        items={[
+          { label: "خانه", href: "/" },
+          { label: "بلاگ", href: "/blog" },
+          { label: `#${tagLabel}` },
+        ]}
+      />
+      <h1 class="mt-5 text-4xl font-black leading-[1.35] text-slate-950 md:text-5xl">#{tagLabel}</h1>
+      <p class="mt-4 max-w-3xl text-base leading-8 text-slate-600">
+        این برچسب به بهبود internal linking و کشف موضوعات هم‌خانواده کمک می‌کند. در حال حاضر
+        {` ${taggedPosts.length.toLocaleString("fa-IR")} `}
+        مقاله با این برچسب منتشر شده است.
+      </p>
+    </section>
+
+    <section class="mt-8 grid gap-8 lg:grid-cols-[0.8fr_1.2fr]">
+      <aside class="space-y-6">
+        <section class="content-panel p-6">
+          <h2 class="text-lg font-black text-slate-950">برچسب‌های پرتکرار</h2>
+          <div class="mt-5 flex flex-wrap gap-3">
+            {tags.map((item) => (
+              <CategoryPill
+                href={getTagUrl(item.tag)}
+                label={`#${item.tag}`}
+                count={item.posts.length}
+                active={item.slug === tagSlug}
+              />
+            ))}
+          </div>
+        </section>
+        <NewsletterCard compact />
+      </aside>
+
+      <section class="grid gap-6">
+        {taggedPosts.map((post) => (
+          <PostCard post={post} />
+        ))}
+      </section>
+    </section>
+  </section>
+</Layout>

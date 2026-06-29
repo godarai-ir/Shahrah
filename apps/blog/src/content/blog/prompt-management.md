@@ -13,6 +13,16 @@ tags:
   - "Prompt Engineering"
   - "AI Product"
 featured: false
+authorName: "تیم محتوای شاهراه"
+authorRole: "تحریریه AI Product Operations"
+authorBio: "تمرکز این مقاله روی prompt management به‌عنوان یک capability محصولی و عملیاتی است، نه صرفاً یک تکنیک مهندسی prompt."
+faqs:
+  - question: "Prompt Management چه تفاوتی با Prompt Engineering دارد؟"
+    answer: "Prompt Engineering بیشتر روی کیفیت و طراحی خود prompt تمرکز دارد، اما Prompt Management درباره lifecycle، نسخه‌بندی، rollout، observability و governance آن در محصول واقعی است."
+  - question: "آیا بدون LLM Gateway هم می‌توان promptها را مدیریت کرد؟"
+    answer: "بله، اما معمولاً پراکنده، شکننده و وابسته به deployment می‌شود. gateway این کار را متمرکز و قابل‌کنترل‌تر می‌کند."
+  - question: "اولویت اول برای تیمی که promptها را داخل کد نگه می‌دارد چیست؟"
+    answer: "اول باید prompt inventory بسازد و آن‌ها را از featureها، زبان‌ها و use caseهای مختلف تفکیک کند تا بعد بتواند versioning و rollout معنادار تعریف کند."
 draft: false
 ---
 
@@ -32,6 +42,10 @@ draft: false
 - چگونه prompt را بر اساس زبان، منطقه یا نوع اشتراک شخصی‌سازی کنیم؟
 
 اینجاست که `Prompt Management` از یک موضوع فنی، به یک قابلیت استراتژیک برای محصول تبدیل می‌شود.
+
+<div class="callout">
+  <strong>خلاصه برای مدیر محصول:</strong> اگر تغییر یک prompt هنوز نیازمند release کامل است، شما در حال مدیریت AI نیستید؛ فقط متن‌هایی را در کد جابه‌جا می‌کنید.
+</div>
 
 ## 1. چرا promptها نباید داخل کد بمانند؟
 
@@ -56,6 +70,16 @@ draft: false
 - همکاری بین تیم‌ها ساده‌تر و کم‌اصطکاک‌تر می‌شود
 
 از نگاه محصول، این تغییر مستقیماً سرعت iteration را بالا می‌برد.
+
+<section class="steps">
+  <h3>مسیر مهاجرت از promptهای پراکنده به registry متمرکز</h3>
+  <ol>
+    <li>همه promptهای فعلی را inventory کنید و owner هر کدام را مشخص کنید.</li>
+    <li>promptها را بر اساس feature، زبان، segment و هدف خروجی دسته‌بندی کنید.</li>
+    <li>برای هر prompt نسخه، وضعیت rollout و معیار موفقیت تعریف کنید.</li>
+    <li>تغییرات را از deploy جدا کنید تا iteration سریع‌تر شود.</li>
+  </ol>
+</section>
 
 ## 3. نسخه‌بندی و rollback: prompt هم باید lifecycle داشته باشد
 
@@ -84,6 +108,10 @@ draft: false
 `LLM Gateway` می‌تواند این امکان را بدهد که بخشی از ترافیک به نسخه جدید prompt هدایت شود و عملکرد دو نسخه با معیارهای واقعی مقایسه شود.
 
 این رویکرد باعث می‌شود به‌جای بحث‌های سلیقه‌ای، تصمیم‌گیری بر اساس داده انجام شود.
+
+<div class="note">
+  <strong>نکته اجرایی:</strong> اگر A/B testing برای prompt انجام می‌دهید، فقط کیفیت پاسخ را نسنجید. latency، cost per completion و نرخ escalation به پشتیبانی هم باید کنار آن دیده شوند.
+</div>
 
 ## 5. templating و شخصی‌سازی پویا
 
@@ -122,6 +150,16 @@ Prompt فقط ابزار گرفتن پاسخ بهتر نیست؛ بخشی از �
 - نسخه‌بندی تغییرات مرتبط با ایمنی
 
 این نگاه باعث می‌شود prompt management فقط ابزار رشد کیفیت نباشد، بلکه ابزار کاهش ریسک هم باشد.
+
+## شاخص‌هایی که باید برای promptها ردیابی شوند
+
+| شاخص | چرا مهم است |
+|---|---|
+| نرخ رضایت یا acceptance | نشان می‌دهد prompt در محصول چه‌قدر مفید است |
+| نرخ hallucination یا پاسخ نامعتبر | برای کنترل ریسک و اعتماد کاربر حیاتی است |
+| latency | مستقیماً روی UX اثر می‌گذارد |
+| هزینه هر درخواست | برای تصمیم‌گیری rollout و pricing مهم است |
+| نرخ rollback | نشانه‌ای از بی‌ثباتی یا ضعف در فرایند تغییر است |
 
 ## جمع‌بندی
 

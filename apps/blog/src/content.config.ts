@@ -19,7 +19,23 @@ const blog = defineCollection({
     tags: z.array(z.string()).default([]),
     featured: z.boolean().default(false),
     heroImage: z.string().optional(),
-    canonicalUrl: z.string().url().optional(),
+    heroAlt: z.string().optional(),
+    canonicalUrl: z.url().optional(),
+    readingTime: z.number().int().positive().optional(),
+    authorName: z.string().default("تیم محتوای گدارAI"),
+    authorRole: z.string().default("تحریریه فنی و آموزشی"),
+    authorBio: z
+      .string()
+      .default("تمرکز این تیم روی آموزش مفاهیم زیرساخت AI، مدیریت محصول و راهکارهای عملی برای تیم‌های فنی است."),
+    authorAvatar: z.string().optional(),
+    faqs: z
+      .array(
+        z.object({
+          question: z.string(),
+          answer: z.string(),
+        }),
+      )
+      .default([]),
     draft: z.boolean().default(false),
   }),
 });

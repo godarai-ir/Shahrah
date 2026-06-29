@@ -1,13 +1,22 @@
 ---
 import { getCollection, render } from "astro:content";
+import Breadcrumbs from "../../components/Breadcrumbs.astro";
 import Layout from "../../layouts/Layout.astro";
+import NewsletterCard from "../../components/NewsletterCard.astro";
+import PostCard from "../../components/PostCard.astro";
+import TableOfContents from "../../components/TableOfContents.astro";
 import type { BlogPost } from "../../utils/blog";
 import {
+  formatPersianDate,
   getCategoryUrl,
   getPostCategory,
   getPostSlug,
   getPostUrl,
+  getRelatedPosts,
+  getTagUrl,
+  getReadingTime,
   isPublished,
+  sortPosts,
 } from "../../utils/blog";
 
 export async function getStaticPaths() {
@@ -20,8 +29,10 @@ export async function getStaticPaths() {
 }
 
 const { post } = Astro.props as { post: BlogPost };
-const { Content } = await render(post);
+const { Content, headings } = await render(post);
 const site = Astro.site || new URL("https://godarai.ir/blog");
+const allPosts = sortPosts(await getCollection("blog", isPublished));
+const relatedPosts = getRelatedPosts(allPosts, post, 3);
 const canonical = post.data.canonicalUrl || new URL(getPostUrl(post), site).toString();
 const title = post.data.seoTitle || post.data.title;
 const description = post.data.excerpt || post.data.description;
@@ -41,6 +52,51 @@ const articleSchema = {
     name: "Shahrah",
   },
 };
+const breadcrumbSchema = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    {
+      "@type": "ListItem",
+      position: 1,
+      name: "خانه",
+      item: new URL("/", site).toString(),
+    },
+    {
+      "@type": "ListItem",
+      position: 2,
+      name: "بلاگ",
+      item: new URL("/blog", site).toString(),
+    },
+    {
+      "@type": "ListItem",
+      position: 3,
+      name: getPostCategory(post),
+      item: new URL(getCategoryUrl(getPostCategory(post)), site).toString(),
+    },
+    {
+      "@type": "ListItem",
+      position: 4,
+      name: post.data.title,
+      item: canonical,
+    },
+  ],
+};
+const faqSchema =
+  post.data.faqs.length > 0
+    ? {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: post.data.faqs.map((item) => ({
+          "@type": "Question",
+          name: item.question,
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: item.answer,
+          },
+        })),
+      }
+    : null;
 ---
 
 <Layout title={title} description={description} canonical={canonical} image={post.data.heroImage}>
@@ -50,88 +106,106 @@ const articleSchema = {
     {post.data.updatedDate && (
       <meta property="article:modified_time" content={post.data.updatedDate.toISOString()} />
     )}
-    <script type="application/ld+json" set:html={JSON.stringify(articleSchema)} />
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(articleSchema)} />
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} />
+    {faqSchema && <script is:inline type="application/ld+json" set:html={JSON.stringify(faqSchema)} />}
   </Fragment>
 
-  <main class="shell">
-    <article class="article">
-      <header class="header">
-        <p class="breadcrumbs">
-          <a href="/blog">بلاگ</a>
-          <span>/</span>
-          <a href={getCategoryUrl(getPostCategory(post))}>{getPostCategory(post)}</a>
-        </p>
-        <h1>{post.data.title}</h1>
-        <p class="lede">{description}</p>
-        <div class="meta">
-          <time datetime={post.data.pubDate.toISOString()}>
-            {post.data.pubDate.toLocaleDateString("fa-IR")}
-          </time>
-          {post.data.updatedDate && (
-            <span>آخرین به‌روزرسانی: {post.data.updatedDate.toLocaleDateString("fa-IR")}</span>
+  <section class="section-shell pt-8 pb-16 lg:pt-12 lg:pb-24">
+    <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start">
+      <article class="content-panel overflow-hidden">
+        <header class="border-b border-slate-200/80 px-6 py-8 lg:px-10 lg:py-10">
+          <Breadcrumbs
+            items={[
+              { label: "خانه", href: "/" },
+              { label: "بلاگ", href: "/blog" },
+              { label: getPostCategory(post), href: getCategoryUrl(getPostCategory(post)) },
+              { label: post.data.title },
+            ]}
+          />
+
+          <div class="mt-5 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+            <a class="badge-pill badge-brand" href={getCategoryUrl(getPostCategory(post))}>{getPostCategory(post)}</a>
+            <time datetime={post.data.pubDate.toISOString()}>{formatPersianDate(post.data.pubDate)}</time>
+            <span aria-hidden="true">•</span>
+            <span>{getReadingTime(post)} دقیقه مطالعه</span>
+          </div>
+
+          <h1 class="mt-6 max-w-4xl text-4xl font-black leading-[1.45] text-slate-950 md:text-5xl">
+            {post.data.title}
+          </h1>
+          <p class="mt-5 max-w-3xl text-base leading-8 text-slate-600 lg:text-lg">{description}</p>
+
+          <div class="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-[1.5rem] border border-slate-200 bg-slate-50 px-5 py-4">
+            <div>
+              <p class="text-sm font-bold text-slate-950">{post.data.authorName}</p>
+              <p class="mt-1 text-sm text-slate-500">{post.data.authorRole}</p>
+            </div>
+            {post.data.updatedDate && (
+              <p class="text-sm text-slate-500">
+                آخرین به‌روزرسانی:
+                <span class="mr-2 font-semibold text-slate-700">{formatPersianDate(post.data.updatedDate)}</span>
+              </p>
+            )}
+          </div>
+
+          {post.data.tags.length > 0 && (
+            <div class="mt-6 flex flex-wrap gap-2">
+              {post.data.tags.map((tag) => (
+                <a href={getTagUrl(tag)} class="badge-pill badge-muted">#{tag}</a>
+              ))}
+            </div>
+          )}
+        </header>
+
+        <div class="px-6 py-8 lg:px-10 lg:py-10">
+          <section class="article-prose">
+            <Content />
+          </section>
+
+          <section class="mt-12 rounded-[1.75rem] border border-slate-200 bg-slate-50 p-6">
+            <h2 class="text-xl font-black text-slate-950">درباره نویسنده</h2>
+            <p class="mt-4 text-sm leading-7 text-slate-600">{post.data.authorBio}</p>
+          </section>
+
+          {post.data.faqs.length > 0 && (
+            <section class="mt-12">
+              <h2 class="text-2xl font-black text-slate-950">پرسش‌های پرتکرار</h2>
+              <div class="mt-6 space-y-4">
+                {post.data.faqs.map((item) => (
+                  <details class="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-soft">
+                    <summary class="cursor-pointer list-none text-base font-bold text-slate-950">
+                      {item.question}
+                    </summary>
+                    <p class="mt-4 text-sm leading-7 text-slate-600">{item.answer}</p>
+                  </details>
+                ))}
+              </div>
+            </section>
           )}
         </div>
-        {post.data.tags.length > 0 && <p class="tags">{post.data.tags.join(" / ")}</p>}
-      </header>
+      </article>
 
-      <section class="content">
-        <Content />
+      <div class="space-y-6 lg:sticky lg:top-24">
+        <TableOfContents headings={headings} />
+        <NewsletterCard compact />
+      </div>
+    </div>
+
+    {relatedPosts.length > 0 && (
+      <section class="mt-12">
+        <div class="mb-6 flex items-center justify-between gap-4">
+          <div>
+            <p class="text-sm font-bold uppercase tracking-[0.25em] text-brand-700">Related</p>
+            <h2 class="mt-2 text-2xl font-black text-slate-950">مقاله‌های مرتبط</h2>
+          </div>
+        </div>
+        <div class="grid gap-6 lg:grid-cols-3">
+          {relatedPosts.map((relatedPost) => (
+            <PostCard post={relatedPost} />
+          ))}
+        </div>
       </section>
-    </article>
-  </main>
+    )}
+  </section>
 </Layout>
-
-<style>
-  .shell {
-    margin: 0 auto;
-    max-width: 880px;
-    padding: 3rem 1.25rem 5rem;
-  }
-
-  .article {
-    background: var(--surface-strong);
-    border: 1px solid var(--border);
-    border-radius: 32px;
-    box-shadow: var(--shadow);
-    padding: 2.2rem;
-  }
-
-  .breadcrumbs,
-  .meta,
-  .lede,
-  .tags {
-    color: var(--muted);
-  }
-
-  .breadcrumbs {
-    display: flex;
-    gap: 0.45rem;
-    margin-top: 0;
-  }
-
-  .breadcrumbs a {
-    text-decoration: none;
-  }
-
-  h1 {
-    font-size: clamp(2.2rem, 5vw, 3.8rem);
-    line-height: 1.15;
-    margin: 0.75rem 0 1rem;
-  }
-
-  .meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-  }
-
-  .content :global(h2),
-  .content :global(h3) {
-    margin-top: 2.2rem;
-  }
-
-  .content :global(p),
-  .content :global(li) {
-    font-size: 1.06rem;
-  }
-</style>

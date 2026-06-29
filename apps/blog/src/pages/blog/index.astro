@@ -1,151 +1,100 @@
 ---
 import { getCollection } from "astro:content";
+import CategoryPill from "../../components/CategoryPill.astro";
+import NewsletterCard from "../../components/NewsletterCard.astro";
+import PaginationNav from "../../components/PaginationNav.astro";
+import PostCard from "../../components/PostCard.astro";
 import Layout from "../../layouts/Layout.astro";
 import {
+  getArchivePageUrl,
   getCategoryUrl,
-  getPostCategory,
-  getPostUrl,
   groupPostsByCategory,
+  groupPostsByTag,
   isPublished,
+  paginatePosts,
   sortPosts,
 } from "../../utils/blog";
 
 const posts = sortPosts(await getCollection("blog", isPublished));
 const categories = groupPostsByCategory(posts);
+const tags = groupPostsByTag(posts).slice(0, 12);
+const pagination = paginatePosts(posts, 1, 6);
 const site = Astro.site || new URL("https://godarai.ir/blog");
 const canonical = new URL("/blog", site).toString();
 ---
 
 <Layout
   title="آرشیو بلاگ Shahrah | مقالات فنی و تحلیلی"
-  description="آرشیو همه مقاله‌های Shahrah به تفکیک موضوع، مناسب برای رشد محتوای محصول، سئو و انتشار منظم مقالات Markdown."
+  description="آرشیو مقالات فنی و آموزشی Shahrah با ساختار مناسب برای محتوای فارسی، دسته‌بندی، برچسب‌گذاری، جست‌وجو و سئوی مدرن."
   canonical={canonical}
 >
-  <main class="shell">
-    <section class="hero">
-      <p class="eyebrow">Shahrah Editorial Hub</p>
-      <h1>آرشیو مقاله‌ها</h1>
-      <p class="body">
-        همه مقاله‌های Markdown اینجا به‌صورت ساختاریافته منتشر می‌شوند؛ با دسته‌بندی
-        شفاف، مسیرهای تمیز و متادیتای آماده برای SEO.
-      </p>
-    </section>
-
-    <section class="categories">
-      {categories.map((item) => (
-        <a class="chip" href={getCategoryUrl(item.category)}>
-          <span>{item.category}</span>
-          <strong>{item.posts.length}</strong>
-        </a>
-      ))}
-    </section>
-
-    <section class="grid">
-      {posts.map((post) => (
-        <article class="card">
-          <p class="meta">
-            <a href={getCategoryUrl(getPostCategory(post))}>{getPostCategory(post)}</a>
-            <span>•</span>
-            <time datetime={post.data.pubDate.toISOString()}>
-              {post.data.pubDate.toLocaleDateString("fa-IR")}
-            </time>
+  <section class="section-shell pt-8 pb-16 lg:pt-12 lg:pb-24">
+    <section class="hero-panel px-6 py-8 lg:px-10 lg:py-10">
+      <div class="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
+        <div>
+          <p class="text-sm font-bold uppercase tracking-[0.3em] text-brand-700">Archive</p>
+          <h1 class="mt-4 text-4xl font-black leading-[1.35] text-slate-950 md:text-5xl">آرشیو مقاله‌های فنی و آموزشی</h1>
+          <p class="mt-5 max-w-3xl text-base leading-8 text-slate-600">
+            همه مقاله‌ها به‌صورت ساختاریافته و قابل کشف در یک آرشیو فارسی جمع شده‌اند؛ با محوریت خوانایی، SEO،
+            internal linking و تجربه مرور سریع محتوا.
           </p>
-          <h2>
-            <a href={getPostUrl(post)}>{post.data.title}</a>
-          </h2>
-          <p>{post.data.excerpt || post.data.description}</p>
-          {post.data.tags.length > 0 && <p class="tags">{post.data.tags.join(" / ")}</p>}
-        </article>
-      ))}
+        </div>
+        <div class="content-panel p-6">
+          <div class="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <div class="text-2xl font-black text-slate-950">{posts.length.toLocaleString("fa-IR")}</div>
+              <div class="mt-1 text-xs text-slate-500">مقاله</div>
+            </div>
+            <div>
+              <div class="text-2xl font-black text-slate-950">{categories.length.toLocaleString("fa-IR")}</div>
+              <div class="mt-1 text-xs text-slate-500">دسته</div>
+            </div>
+            <div>
+              <div class="text-2xl font-black text-slate-950">{tags.length.toLocaleString("fa-IR")}</div>
+              <div class="mt-1 text-xs text-slate-500">برچسب شاخص</div>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
-  </main>
+
+    <section class="mt-8 grid gap-8 lg:grid-cols-[0.78fr_1.22fr]">
+      <aside class="space-y-6">
+        <section class="content-panel p-6">
+          <h2 class="text-lg font-black text-slate-950">دسته‌بندی‌ها</h2>
+          <div class="mt-5 flex flex-wrap gap-3">
+            {categories.map((item) => (
+              <CategoryPill href={getCategoryUrl(item.category)} label={item.category} count={item.posts.length} />
+            ))}
+          </div>
+        </section>
+
+        <section class="content-panel p-6">
+          <h2 class="text-lg font-black text-slate-950">برچسب‌ها</h2>
+          <div class="mt-5 flex flex-wrap gap-3">
+            {tags.map((item) => (
+              <CategoryPill href={`/blog/tag/${item.slug}`} label={`#${item.tag}`} count={item.posts.length} />
+            ))}
+          </div>
+        </section>
+
+        <NewsletterCard compact />
+      </aside>
+
+      <div class="space-y-6">
+        {pagination.items.map((post) => (
+          <PostCard post={post} />
+        ))}
+
+        <PaginationNav currentPage={pagination.currentPage} totalPages={pagination.totalPages} />
+
+        {pagination.totalPages > 1 && (
+          <div class="text-center text-sm text-slate-500">
+            برای ادامه آرشیو به صفحه‌های بعدی بروید:
+            <a class="mr-2 font-bold text-brand-700" href={getArchivePageUrl(2)}>صفحه ۲</a>
+          </div>
+        )}
+      </div>
+    </section>
+  </section>
 </Layout>
-
-<style>
-  .shell {
-    margin: 0 auto;
-    max-width: 1100px;
-    padding: 3rem 1.25rem 5rem;
-  }
-
-  .hero {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 32px;
-    box-shadow: var(--shadow);
-    padding: 2.5rem;
-  }
-
-  .eyebrow {
-    color: var(--accent);
-    font-size: 0.82rem;
-    font-weight: 700;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-  }
-
-  h1 {
-    font-size: clamp(2.4rem, 6vw, 4.8rem);
-    line-height: 1;
-    margin: 0.75rem 0 1rem;
-  }
-
-  .body,
-  .card p {
-    color: var(--muted);
-  }
-
-  .categories {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    margin: 1.5rem 0 2rem;
-  }
-
-  .chip {
-    align-items: center;
-    background: var(--accent-soft);
-    border-radius: 999px;
-    display: inline-flex;
-    gap: 0.6rem;
-    padding: 0.8rem 1rem;
-    text-decoration: none;
-  }
-
-  .grid {
-    display: grid;
-    gap: 1rem;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  }
-
-  .card {
-    background: var(--surface-strong);
-    border: 1px solid var(--border);
-    border-radius: 24px;
-    padding: 1.4rem;
-  }
-
-  .meta {
-    align-items: center;
-    display: flex;
-    gap: 0.45rem;
-    font-size: 0.92rem;
-    margin: 0 0 0.8rem;
-  }
-
-  .meta a,
-  h2 a {
-    text-decoration: none;
-  }
-
-  h2 {
-    font-size: 1.35rem;
-    line-height: 1.35;
-    margin: 0;
-  }
-
-  .tags {
-    font-size: 0.9rem;
-    margin-bottom: 0;
-  }
-</style>

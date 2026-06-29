@@ -1,0 +1,27 @@
+---
+interface Props {
+  href: string;
+  label: string;
+  count?: number;
+  active?: boolean;
+}
+
+const { href, label, count, active = false } = Astro.props as Props;
+---
+
+<a
+  href={href}
+  class:list={[
+    "inline-flex items-center gap-3 rounded-full border px-4 py-2.5 text-sm font-semibold transition",
+    active
+      ? "border-brand-200 bg-brand-50 text-brand-800 shadow-soft"
+      : "border-slate-200 bg-white text-slate-600 hover:border-brand-200 hover:text-brand-700",
+  ]}
+>
+  <span>{label}</span>
+  {typeof count === "number" && (
+    <span class:list={["rounded-full px-2.5 py-1 text-xs font-bold", active ? "bg-white text-brand-700" : "bg-slate-100 text-slate-500"]}>
+      {count}
+    </span>
+  )}
+</a>

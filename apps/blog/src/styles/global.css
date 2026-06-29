@@ -1,0 +1,184 @@
+@import url("https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800;900&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Vazirmatn", "IRANSansX", "Tahoma", sans-serif;
+  --color-brand-50: #f0fdfa;
+  --color-brand-100: #ccfbf1;
+  --color-brand-200: #99f6e4;
+  --color-brand-300: #5eead4;
+  --color-brand-400: #2dd4bf;
+  --color-brand-500: #14b8a6;
+  --color-brand-600: #0f766e;
+  --color-brand-700: #115e59;
+  --color-brand-800: #134e4a;
+  --color-brand-900: #042f2e;
+  --shadow-soft: 0 18px 40px rgba(15, 23, 42, 0.08);
+  --shadow-card: 0 24px 80px rgba(15, 23, 42, 0.12);
+}
+
+@layer base {
+  html {
+    direction: rtl;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply min-h-screen bg-[linear-gradient(180deg,#fffdf8_0%,#f7f4ec_45%,#f8fafc_100%)] font-sans text-slate-700 antialiased;
+  }
+
+  * {
+    @apply border-slate-200;
+  }
+
+  ::selection {
+    @apply bg-brand-200 text-slate-950;
+  }
+
+  a {
+    @apply outline-offset-4;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+}
+
+@layer components {
+  .nav-link {
+    @apply rounded-full px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-brand-50 hover:text-brand-700;
+  }
+
+  .footer-link {
+    @apply transition hover:text-brand-700;
+  }
+
+  .badge-pill {
+    @apply inline-flex items-center rounded-full px-3 py-1.5 text-xs font-bold;
+  }
+
+  .badge-brand {
+    @apply bg-brand-50 text-brand-800 ring-1 ring-inset ring-brand-200;
+  }
+
+  .badge-muted {
+    @apply bg-slate-100 text-slate-600 transition hover:bg-brand-50 hover:text-brand-800;
+  }
+
+  .section-shell {
+    @apply mx-auto max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .hero-panel {
+    @apply relative overflow-hidden rounded-[2rem] border border-white/80 bg-white/90 shadow-card;
+  }
+
+  .content-panel {
+    @apply rounded-[2rem] border border-slate-200/80 bg-white shadow-soft;
+  }
+
+  .toc-link {
+    @apply inline-flex leading-7 transition hover:text-brand-700;
+  }
+
+  .article-prose {
+    @apply text-[1.04rem] leading-8 text-slate-700;
+  }
+
+  .article-prose h2 {
+    @apply mt-14 scroll-mt-28 text-2xl font-black text-slate-950 lg:text-[2rem];
+  }
+
+  .article-prose h3 {
+    @apply mt-10 scroll-mt-28 text-xl font-extrabold text-slate-900;
+  }
+
+  .article-prose p {
+    @apply mt-5;
+  }
+
+  .article-prose ul,
+  .article-prose ol {
+    @apply mt-6 space-y-3 pr-6;
+  }
+
+  .article-prose li::marker {
+    @apply text-brand-600;
+  }
+
+  .article-prose a {
+    @apply font-semibold text-brand-700 underline decoration-brand-200 decoration-2 underline-offset-4 transition hover:text-brand-900;
+  }
+
+  .article-prose blockquote {
+    @apply mt-8 rounded-[1.75rem] border-r-4 border-brand-500 bg-brand-50/60 px-6 py-5 text-slate-700;
+  }
+
+  .article-prose pre {
+    direction: ltr;
+    @apply mt-8 overflow-x-auto rounded-[1.75rem] border border-slate-800 bg-slate-950 p-5 text-sm leading-7 text-slate-100 shadow-card;
+  }
+
+  .article-prose code {
+    @apply rounded-md bg-slate-100 px-1.5 py-1 text-[0.95em] text-slate-900;
+  }
+
+  .article-prose pre code {
+    @apply bg-transparent p-0 text-inherit;
+  }
+
+  .article-prose table {
+    @apply mt-8 w-full overflow-hidden rounded-[1.5rem] border border-slate-200 text-right text-sm;
+  }
+
+  .article-prose thead {
+    @apply bg-slate-950 text-white;
+  }
+
+  .article-prose th,
+  .article-prose td {
+    @apply border-b border-slate-200 px-4 py-3 align-top;
+  }
+
+  .article-prose img {
+    @apply mt-8 rounded-[1.75rem] border border-slate-200 shadow-soft;
+  }
+
+  .article-prose hr {
+    @apply my-10 border-slate-200;
+  }
+
+  .article-prose strong {
+    @apply font-extrabold text-slate-950;
+  }
+
+  .article-prose .callout,
+  .article-prose .note,
+  .article-prose .warning {
+    @apply mt-8 rounded-[1.5rem] border px-5 py-4;
+  }
+
+  .article-prose .callout,
+  .article-prose .note {
+    @apply border-brand-200 bg-brand-50/70;
+  }
+
+  .article-prose .warning {
+    @apply border-amber-200 bg-amber-50;
+  }
+
+  .article-prose .steps {
+    @apply mt-8 rounded-[1.75rem] border border-slate-200 bg-slate-50 p-6;
+  }
+
+  details summary::-webkit-details-marker {
+    display: none;
+  }
+}

@@ -1,4 +1,8 @@
 ---
+import SiteFooter from "../components/SiteFooter.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+import "../styles/global.css";
+
 interface Props {
   title?: string;
   description?: string;
@@ -22,6 +26,7 @@ const {
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" href="/favicon.ico" />
     <meta name="generator" content={Astro.generator} />
+    <meta name="theme-color" content="#0f766e" />
     <title>{title}</title>
     <meta name="description" content={description} />
     <meta name="robots" content="index,follow" />
@@ -39,40 +44,20 @@ const {
     {canonical && <link rel="canonical" href={canonical} />}
     <slot name="head" />
   </head>
-  <body>
-    <slot />
+  <body class="text-right">
+    <a
+      href="#content"
+      class="sr-only focus:not-sr-only focus:fixed focus:right-4 focus:top-4 focus:z-50 focus:rounded-full focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-slate-950"
+    >
+      پرش به محتوا
+    </a>
+    <SiteHeader />
+    <div class="relative">
+      <div class="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[30rem] bg-[radial-gradient(circle_at_top,rgba(45,212,191,0.12),transparent_42%)]"></div>
+      <main id="content">
+        <slot />
+      </main>
+    </div>
+    <SiteFooter />
   </body>
 </html>
-
-<style>
-  :root {
-    --bg: #f6f3eb;
-    --surface: rgba(255, 255, 255, 0.82);
-    --surface-strong: #ffffff;
-    --text: #1f2937;
-    --muted: #5b6472;
-    --accent: #0f766e;
-    --accent-soft: #ccfbf1;
-    --border: rgba(15, 118, 110, 0.14);
-    --shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
-  }
-
-  html,
-  body {
-    margin: 0;
-    min-height: 100%;
-    background:
-      radial-gradient(circle at top right, rgba(15, 118, 110, 0.16), transparent 28%),
-      linear-gradient(180deg, #f8f5ef 0%, #f5efe3 100%);
-    color: var(--text);
-    font-family: "Segoe UI", Tahoma, sans-serif;
-  }
-
-  body {
-    line-height: 1.7;
-  }
-
-  a {
-    color: inherit;
-  }
-</style>

@@ -1,0 +1,83 @@
+---
+import { getCollection } from "astro:content";
+import CategoryPill from "../../../components/CategoryPill.astro";
+import NewsletterCard from "../../../components/NewsletterCard.astro";
+import PaginationNav from "../../../components/PaginationNav.astro";
+import PostCard from "../../../components/PostCard.astro";
+import Layout from "../../../layouts/Layout.astro";
+import {
+  getArchivePageUrl,
+  getCategoryUrl,
+  groupPostsByCategory,
+  groupPostsByTag,
+  isPublished,
+  paginatePosts,
+  sortPosts,
+} from "../../../utils/blog";
+
+export async function getStaticPaths() {
+  const posts = sortPosts(await getCollection("blog", isPublished));
+  const totalPages = Math.max(1, Math.ceil(posts.length / 6));
+
+  return Array.from({ length: totalPages - 1 }, (_, index) => ({
+    params: { page: String(index + 2) },
+  }));
+}
+
+const page = Number(Astro.params.page || "1");
+const posts = sortPosts(await getCollection("blog", isPublished));
+const categories = groupPostsByCategory(posts);
+const tags = groupPostsByTag(posts).slice(0, 12);
+const pagination = paginatePosts(posts, page, 6);
+const site = Astro.site || new URL("https://godarai.ir/blog");
+const canonical = new URL(getArchivePageUrl(pagination.currentPage), site).toString();
+---
+
+<Layout
+  title={`صفحه ${pagination.currentPage.toLocaleString("fa-IR")} آرشیو بلاگ Shahrah`}
+  description="صفحه‌بندی آرشیو مقاله‌های فنی و آموزشی Shahrah."
+  canonical={canonical}
+>
+  <section class="section-shell pt-8 pb-16 lg:pt-12 lg:pb-24">
+    <section class="hero-panel px-6 py-8 lg:px-10 lg:py-10">
+      <p class="text-sm font-bold uppercase tracking-[0.3em] text-brand-700">Pagination</p>
+      <h1 class="mt-4 text-4xl font-black leading-[1.35] text-slate-950 md:text-5xl">
+        آرشیو مقاله‌ها - صفحه {pagination.currentPage.toLocaleString("fa-IR")}
+      </h1>
+      <p class="mt-4 max-w-3xl text-base leading-8 text-slate-600">
+        این صفحه برای نگه‌داشتن آرشیو سبک، قابل اسکن و مناسب crawl موتورهای جست‌وجو طراحی شده است.
+      </p>
+    </section>
+
+    <section class="mt-8 grid gap-8 lg:grid-cols-[0.78fr_1.22fr]">
+      <aside class="space-y-6">
+        <section class="content-panel p-6">
+          <h2 class="text-lg font-black text-slate-950">دسته‌بندی‌ها</h2>
+          <div class="mt-5 flex flex-wrap gap-3">
+            {categories.map((item) => (
+              <CategoryPill href={getCategoryUrl(item.category)} label={item.category} count={item.posts.length} />
+            ))}
+          </div>
+        </section>
+
+        <section class="content-panel p-6">
+          <h2 class="text-lg font-black text-slate-950">برچسب‌ها</h2>
+          <div class="mt-5 flex flex-wrap gap-3">
+            {tags.map((item) => (
+              <CategoryPill href={`/blog/tag/${item.slug}`} label={`#${item.tag}`} count={item.posts.length} />
+            ))}
+          </div>
+        </section>
+
+        <NewsletterCard compact />
+      </aside>
+
+      <div class="space-y-6">
+        {pagination.items.map((post) => (
+          <PostCard post={post} />
+        ))}
+        <PaginationNav currentPage={pagination.currentPage} totalPages={pagination.totalPages} />
+      </div>
+    </section>
+  </section>
+</Layout>

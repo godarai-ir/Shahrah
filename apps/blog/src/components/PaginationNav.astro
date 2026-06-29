@@ -1,0 +1,57 @@
+---
+import { getArchivePageUrl } from "../utils/blog";
+
+interface Props {
+  currentPage: number;
+  totalPages: number;
+}
+
+const { currentPage, totalPages } = Astro.props as Props;
+
+const pages = Array.from({ length: totalPages }, (_, index) => index + 1);
+---
+
+{totalPages > 1 && (
+  <nav aria-label="صفحه‌بندی مقاله‌ها" class="flex flex-wrap items-center justify-center gap-2">
+    <a
+      href={getArchivePageUrl(currentPage - 1)}
+      class:list={[
+        "inline-flex min-w-11 items-center justify-center rounded-full border px-4 py-2.5 text-sm font-semibold transition",
+        currentPage === 1
+          ? "pointer-events-none border-slate-200 bg-slate-100 text-slate-400"
+          : "border-slate-200 bg-white text-slate-700 hover:border-brand-200 hover:text-brand-700",
+      ]}
+      aria-disabled={currentPage === 1 ? "true" : "false"}
+    >
+      قبلی
+    </a>
+
+    {pages.map((page) => (
+      <a
+        href={getArchivePageUrl(page)}
+        aria-current={page === currentPage ? "page" : undefined}
+        class:list={[
+          "inline-flex h-11 w-11 items-center justify-center rounded-full border text-sm font-bold transition",
+          page === currentPage
+            ? "border-brand-200 bg-brand-600 text-white shadow-soft"
+            : "border-slate-200 bg-white text-slate-600 hover:border-brand-200 hover:text-brand-700",
+        ]}
+      >
+        {page.toLocaleString("fa-IR")}
+      </a>
+    ))}
+
+    <a
+      href={getArchivePageUrl(currentPage + 1)}
+      class:list={[
+        "inline-flex min-w-11 items-center justify-center rounded-full border px-4 py-2.5 text-sm font-semibold transition",
+        currentPage === totalPages
+          ? "pointer-events-none border-slate-200 bg-slate-100 text-slate-400"
+          : "border-slate-200 bg-white text-slate-700 hover:border-brand-200 hover:text-brand-700",
+      ]}
+      aria-disabled={currentPage === totalPages ? "true" : "false"}
+    >
+      بعدی
+    </a>
+  </nav>
+)}

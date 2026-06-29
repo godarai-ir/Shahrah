@@ -1,0 +1,27 @@
+---
+interface Heading {
+  depth: number;
+  slug: string;
+  text: string;
+}
+
+interface Props {
+  headings: Heading[];
+}
+
+const { headings } = Astro.props as Props;
+const visibleHeadings = headings.filter((heading) => heading.depth <= 3);
+---
+
+{visibleHeadings.length > 0 && (
+  <aside class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-soft">
+    <h2 class="text-base font-black text-slate-950">فهرست مقاله</h2>
+    <ol class="mt-4 space-y-3 text-sm text-slate-600">
+      {visibleHeadings.map((heading) => (
+        <li class:list={[heading.depth === 3 && "pr-4"]}>
+          <a class="toc-link" href={`#${heading.slug}`}>{heading.text}</a>
+        </li>
+      ))}
+    </ol>
+  </aside>
+)}
