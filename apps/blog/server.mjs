@@ -29,10 +29,14 @@ function sendJson(res, statusCode, payload) {
 }
 
 function safeJoin(root, requestPath) {
-  const normalizedPath = path.normalize(requestPath).replace(/^(\.\.[/\\])+/, "");
-  const fullPath = path.join(root, normalizedPath);
+  const normalizedPath = path
+    .normalize(requestPath)
+    .replace(/^([/\\])+/, "")
+    .replace(/^(\.\.[/\\])+/, "");
+  const resolvedRoot = path.resolve(root);
+  const fullPath = path.resolve(root, normalizedPath);
 
-  if (!fullPath.startsWith(root)) {
+  if (fullPath !== resolvedRoot && !fullPath.startsWith(`${resolvedRoot}${path.sep}`)) {
     return null;
   }
 

@@ -1,11 +1,11 @@
 ---
 import { getCollection, render } from "astro:content";
-import Breadcrumbs from "../../components/Breadcrumbs.astro";
-import Layout from "../../layouts/Layout.astro";
-import NewsletterCard from "../../components/NewsletterCard.astro";
-import PostCard from "../../components/PostCard.astro";
-import TableOfContents from "../../components/TableOfContents.astro";
-import type { BlogPost } from "../../utils/blog";
+import Breadcrumbs from "../components/Breadcrumbs.astro";
+import Layout from "../layouts/Layout.astro";
+import NewsletterCard from "../components/NewsletterCard.astro";
+import PostCard from "../components/PostCard.astro";
+import TableOfContents from "../components/TableOfContents.astro";
+import type { BlogPost } from "../utils/blog";
 import {
   formatPersianDate,
   getCategoryUrl,
@@ -17,7 +17,7 @@ import {
   getReadingTime,
   isPublished,
   sortPosts,
-} from "../../utils/blog";
+} from "../utils/blog";
 
 export async function getStaticPaths() {
   const posts = await getCollection("blog", isPublished);

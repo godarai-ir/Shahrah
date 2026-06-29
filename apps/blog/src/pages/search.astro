@@ -1,7 +1,7 @@
 ---
 import { getCollection } from "astro:content";
-import Layout from "../../layouts/Layout.astro";
-import { formatPersianDate, getPostCategory, getPostUrl, isPublished, sortPosts } from "../../utils/blog";
+import Layout from "../layouts/Layout.astro";
+import { formatPersianDate, getPostCategory, getPostUrl, isPublished, sortPosts } from "../utils/blog";
 
 const posts = sortPosts(await getCollection("blog", isPublished));
 const canonical = new URL("/blog/search", Astro.site || new URL("https://godarai.ir/blog")).toString();

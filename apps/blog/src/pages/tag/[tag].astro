@@ -1,11 +1,11 @@
 ---
 import { getCollection } from "astro:content";
-import Breadcrumbs from "../../../components/Breadcrumbs.astro";
-import CategoryPill from "../../../components/CategoryPill.astro";
-import Layout from "../../../layouts/Layout.astro";
-import NewsletterCard from "../../../components/NewsletterCard.astro";
-import PostCard from "../../../components/PostCard.astro";
-import type { BlogPost } from "../../../utils/blog";
+import Breadcrumbs from "../../components/Breadcrumbs.astro";
+import CategoryPill from "../../components/CategoryPill.astro";
+import Layout from "../../layouts/Layout.astro";
+import NewsletterCard from "../../components/NewsletterCard.astro";
+import PostCard from "../../components/PostCard.astro";
+import type { BlogPost } from "../../utils/blog";
 import {
   getTagLabelFromSlug,
   getTagSlug,
@@ -13,7 +13,7 @@ import {
   groupPostsByTag,
   isPublished,
   sortPosts,
-} from "../../../utils/blog";
+} from "../../utils/blog";
 
 export async function getStaticPaths() {
   const posts = sortPosts(await getCollection("blog", isPublished));
