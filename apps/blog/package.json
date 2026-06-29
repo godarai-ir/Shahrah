@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
+    "start": "node server.mjs",
     "preview": "astro preview",
     "astro": "astro",
     "lint": "astro check"
