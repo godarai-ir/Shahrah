@@ -1,3 +1,7 @@
+---
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+---
+
 <footer class="border-t border-slate-200/80 bg-white">
   <div class="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.2fr_0.8fr_0.8fr] lg:px-8">
     <div class="space-y-4">
@@ -12,7 +16,7 @@
     <div>
       <h3 class="text-sm font-bold text-slate-950">دسترسی سریع</h3>
       <ul class="mt-4 space-y-3 text-sm text-slate-600">
-        <li><a class="footer-link" href="/">خانه</a></li>
+        <li><a class="footer-link" href={basePath || "/"}>خانه</a></li>
         <li><a class="footer-link" href="/blog">آرشیو مقالات</a></li>
         <li><a class="footer-link" href="/blog/search">جست‌وجو در محتوا</a></li>
       </ul>

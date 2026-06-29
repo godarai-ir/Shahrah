@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const host = process.env.HOST || "0.0.0.0";
 const port = Number.parseInt(process.env.PORT || "3000", 10);
+const basePath = (process.env.PUBLIC_BASE_PATH || "/blog").replace(/\/$/, "");
 const rootDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "dist");
 
 const MIME_TYPES = {
@@ -39,8 +40,13 @@ function safeJoin(root, requestPath) {
 }
 
 async function resolveFile(requestPath) {
-  const decodedPath = decodeURIComponent(new URL(requestPath, "http://localhost").pathname);
-  const candidate = safeJoin(rootDir, decodedPath);
+  const decodedUrl = new URL(requestPath, "http://localhost");
+  const decodedPath = decodeURIComponent(decodedUrl.pathname);
+  const normalizedRequestPath =
+    decodedPath === basePath || decodedPath.startsWith(`${basePath}/`)
+      ? decodedPath.slice(basePath.length) || "/"
+      : decodedPath;
+  const candidate = safeJoin(rootDir, normalizedRequestPath);
 
   if (!candidate) {
     return null;
