@@ -16,6 +16,7 @@ RUN npm run build
 RUN npm prune --omit=dev
 
 FROM deps AS migrate
+RUN apk add --no-cache git ca-certificates
 COPY . .
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=
 
