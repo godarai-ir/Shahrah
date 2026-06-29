@@ -411,6 +411,115 @@ func TestIntegration_CreateVATKeyViaCanonicalEndpoint(t *testing.T) {
 	assert.Equal(t, []string{"openai:default:gpt-4o-mini"}, out.AllowedModels)
 }
 
+func TestIntegration_VirtualModelCRUDSupportsWeightedStrategy(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer provider.Close()
+
+	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
+
+	created := createVirtualModel(t, app, `{
+		"alias":"smart-router",
+		"routing_strategy":"weighted",
+		"targets":[
+			{"order":1,"weight":60,"provider":"openai","model":"gpt-4o-primary","policy":{"retry":{"attempts":2,"delay_ms":100,"status_codes":[429,500,502,503]},"fallback":{"status_codes":[429,500,502,503,504],"candidate":true}}},
+			{"order":2,"weight":40,"provider":"openai","model":"gpt-4o-backup","policy":{"retry":{"attempts":2,"delay_ms":100,"status_codes":[429,500,502,503]},"fallback":{"status_codes":[429,500,502,503,504],"candidate":true}}}
+		]
+	}`)
+	assert.Equal(t, "weighted", created.RoutingStrategy)
+	require.Len(t, created.Targets, 2)
+	assert.Equal(t, 60.0, created.Targets[0].Weight)
+	assert.Equal(t, 40.0, created.Targets[1].Weight)
+
+	getResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/virtual-models/"+created.ID, "Bearer sk-master", "")
+	assert.Equal(t, http.StatusOK, getResp.StatusCode)
+
+	var fetched platform.VirtualModel
+	decodeJSONBody(t, getResp, &fetched)
+	assert.Equal(t, "weighted", fetched.RoutingStrategy)
+	assert.Equal(t, 60.0, fetched.Targets[0].Weight)
+
+	updateResp := performJSONRequest(t, app, http.MethodPatch, "http://localhost/api/v1/virtual-models/"+created.ID, "Bearer sk-master", `{
+		"routing_strategy":"weighted",
+		"targets":[
+			{"order":1,"weight":55,"provider":"openai","model":"gpt-4o-primary","policy":{"retry":{"attempts":2,"delay_ms":100,"status_codes":[429,500,502,503]},"fallback":{"status_codes":[429,500,502,503,504],"candidate":true}}},
+			{"order":2,"weight":45,"provider":"openai","model":"gpt-4o-backup","policy":{"retry":{"attempts":2,"delay_ms":100,"status_codes":[429,500,502,503]},"fallback":{"status_codes":[429,500,502,503,504],"candidate":true}}}
+		]
+	}`)
+	assert.Equal(t, http.StatusOK, updateResp.StatusCode)
+
+	var updated platform.VirtualModel
+	decodeJSONBody(t, updateResp, &updated)
+	assert.Equal(t, 55.0, updated.Targets[0].Weight)
+	assert.Equal(t, 45.0, updated.Targets[1].Weight)
+}
+
+func TestIntegration_WeightedVirtualModelFallsBackInOrderAfterWeightedPrimary(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req contractsopenai.ChatCompletionRequest
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&req))
+
+		w.Header().Set("Content-Type", "application/json")
+		if req.Model == "gpt-4o-primary" {
+			w.WriteHeader(http.StatusTooManyRequests)
+			_ = json.NewEncoder(w).Encode(map[string]any{"error": "rate limited"})
+			return
+		}
+
+		_ = json.NewEncoder(w).Encode(contractsopenai.ChatCompletionResponse{
+			ID:      "chatcmpl-weighted",
+			Object:  "chat.completion",
+			Created: time.Now().Unix(),
+			Model:   req.Model,
+			Choices: []contractsopenai.Choice{{
+				Index: 0,
+				Message: &contractsopenai.ChatMessage{
+					Role:    "assistant",
+					Content: "backup selected",
+				},
+				FinishReason: "stop",
+			}},
+			Usage: &contractsopenai.Usage{
+				PromptTokens:     10,
+				CompletionTokens: 5,
+				TotalTokens:      15,
+			},
+		})
+	}))
+	defer provider.Close()
+
+	app, _, modelStore, _ := newIntegrationApp(t, logger, memCache, provider.URL)
+
+	createModel(t, app, fmt.Sprintf(`{"model_name":"gpt-4o-primary","provider":"openai","model":"gpt-4o-primary","api_base":"%s/v1","api_key":"sk-provider","rpm":250}`, provider.URL))
+	createModel(t, app, fmt.Sprintf(`{"model_name":"gpt-4o-backup","provider":"openai","model":"gpt-4o-backup","api_base":"%s/v1","api_key":"sk-provider","rpm":250}`, provider.URL))
+	topUpWallet(t, app, `{"amount_irr":1500000}`)
+
+	modelStore.virtualModels = append(modelStore.virtualModels, platform.VirtualModel{
+		ID:              "vm-weighted",
+		TenantID:        "tenant-1",
+		Alias:           "smart-router",
+		RoutingStrategy: "weighted",
+		Enabled:         true,
+		Targets: []platform.VirtualModelTarget{
+			{Order: 1, Weight: 100, Provider: "openai", Model: "gpt-4o-primary", Policy: platform.VirtualModelPolicy{Retry: platform.VirtualModelRetryPolicy{Attempts: 1, DelayMS: 0, StatusCodes: []int{429, 500, 502, 503}}, Fallback: platform.VirtualModelFallbackPolicy{StatusCodes: []int{429, 500, 502, 503, 504}, Candidate: true}}},
+			{Order: 2, Weight: 0, Provider: "openai", Model: "gpt-4o-backup", Policy: platform.VirtualModelPolicy{Retry: platform.VirtualModelRetryPolicy{Attempts: 1, DelayMS: 0, StatusCodes: []int{429, 500, 502, 503}}, Fallback: platform.VirtualModelFallbackPolicy{StatusCodes: []int{429, 500, 502, 503, 504}, Candidate: true}}},
+		},
+	})
+
+	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/v1/chat/completions", "Bearer sk-master", `{"model":"smart-router","messages":[{"role":"user","content":"hello"}]}`)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var completion contractsopenai.ChatCompletionResponse
+	decodeJSONBody(t, resp, &completion)
+	assert.Equal(t, "backup selected", completion.Choices[0].Message.Content)
+	assert.Equal(t, "gpt-4o-backup", completion.Model)
+}
+
 func TestIntegration_PersonalAccessTokenLifecycle(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
@@ -2274,7 +2383,8 @@ func newIntegrationApp(t *testing.T, logger *zap.Logger, memCache cache.Cache, p
 			Users:        modelStore,
 		}),
 		ProxyHandler: proxy.NewChatCompletionHandlerWithDependencies(proxy.ChatCompletionDependencies{
-			Base: baseProxyDeps,
+			Base:              baseProxyDeps,
+			VirtualModelStore: modelStore,
 		}),
 		CompletionsHandler: proxy.NewCompletionsHandlerWithDependencies(baseProxyDeps),
 		ResponsesHandler:   proxy.NewResponsesHandlerWithDependencies(baseProxyDeps),
@@ -2304,6 +2414,17 @@ func createModel(t *testing.T, app *fiber.App, body string) platform.Deployment 
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
 
 	var out platform.Deployment
+	decodeJSONBody(t, resp, &out)
+
+	return out
+}
+
+func createVirtualModel(t *testing.T, app *fiber.App, body string) platform.VirtualModel {
+	t.Helper()
+	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/virtual-models", "Bearer sk-master", body)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	var out platform.VirtualModel
 	decodeJSONBody(t, resp, &out)
 
 	return out

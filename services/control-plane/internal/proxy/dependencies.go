@@ -82,5 +82,5 @@ func newChatVirtualModelDeps(store interface {
 		return nil, nil, nil
 	}
 
-	return virtualmodels.NewResolver(store), virtualmodels.NewPriorityRoutingEngine(), virtualmodels.NewExecutor(virtualmodels.NewDefaultErrorNormalizer())
+	return virtualmodels.NewResolver(store), virtualmodels.NewRoutingEngine(), virtualmodels.NewExecutor(virtualmodels.NewDefaultErrorNormalizer())
 }

@@ -569,6 +569,7 @@ func (h *ChatCompletionHandler) recordVirtualModelRoute(
 
 	metadata := map[string]interface{}{
 		"virtual_model":     vm.Alias,
+		"routing_strategy":  vm.RoutingStrategy,
 		"selected_provider": selectedDep.Provider,
 		"selected_model":    selectedDep.Model,
 		"fallback_count":    fallbackCount,

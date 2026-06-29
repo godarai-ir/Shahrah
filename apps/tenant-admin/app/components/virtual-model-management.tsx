@@ -29,6 +29,7 @@ type VirtualModelPolicy = {
 type VirtualModelTarget = {
   id?: string;
   order: number;
+  weight?: number;
   provider: string;
   model: string;
   policy: VirtualModelPolicy;
@@ -66,7 +67,7 @@ type AccountDetailsResponse = {
 type FormState = {
   id?: string;
   alias: string;
-  routing_strategy: "priority";
+  routing_strategy: "priority" | "weighted";
   enabled: boolean;
   exposed_modes: string[];
   targets: VirtualModelTarget[];
@@ -89,6 +90,7 @@ type StatusCodeChipsInputProps = {
 
 const DEFAULT_TARGET: VirtualModelTarget = {
   order: 1,
+  weight: 100,
   provider: "",
   model: "",
   policy: {
@@ -157,6 +159,10 @@ export default function VirtualModelManagement() {
   const isCreate = !form.id;
   const dirty = useMemo(() => JSON.stringify(form) !== savedHash, [form, savedHash]);
   const modeSummary = useMemo(() => buildModeSummary(form.targets, providerModelModes), [form.targets, providerModelModes]);
+  const totalWeight = useMemo(
+    () => form.targets.reduce((sum, target) => sum + (Number.isFinite(target.weight) ? Number(target.weight) : 0), 0),
+    [form.targets],
+  );
   const effectiveExposedModes = useMemo(() => {
     const requested = normalizeModeList(form.exposed_modes);
     if (requested.length === 0) return modeSummary.intersection;
@@ -221,7 +227,7 @@ export default function VirtualModelManagement() {
       const mapped: FormState = {
         id: data.id,
         alias: data.alias,
-        routing_strategy: "priority",
+        routing_strategy: data.routing_strategy === "weighted" ? "weighted" : "priority",
         enabled: data.enabled,
         exposed_modes: normalizeModeList(data.exposed_modes),
         targets: normalizeTargets(data.targets),
@@ -305,6 +311,24 @@ export default function VirtualModelManagement() {
     });
   }
 
+  function changeRoutingStrategy(strategy: FormState["routing_strategy"]) {
+    setForm((prev) => {
+      if (prev.routing_strategy === strategy) return prev;
+      if (strategy !== "weighted") {
+        return { ...prev, routing_strategy: strategy };
+      }
+
+      const hasValidWeights = prev.targets.every((target) => (target.weight ?? 0) > 0);
+      const nextTargets = hasValidWeights ? prev.targets : rebalanceTargetsForWeighted(prev.targets);
+
+      return {
+        ...prev,
+        routing_strategy: strategy,
+        targets: nextTargets,
+      };
+    });
+  }
+
   function moveTarget(index: number, direction: -1 | 1) {
     setForm((prev) => {
       const nextIndex = index + direction;
@@ -319,16 +343,21 @@ export default function VirtualModelManagement() {
   }
 
   function addTarget() {
-    setForm((prev) => ({
-      ...prev,
-      targets: [
+    setForm((prev) => {
+      const nextTargets = [
         ...prev.targets,
         {
           ...DEFAULT_TARGET,
           order: prev.targets.length + 1,
+          weight: prev.routing_strategy === "weighted" ? 1 : 100,
         },
-      ],
-    }));
+      ];
+
+      return {
+        ...prev,
+        targets: nextTargets,
+      };
+    });
   }
 
   function removeTarget(index: number) {
@@ -529,7 +558,24 @@ export default function VirtualModelManagement() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="vm-strategy">{t("form.strategy")}</Label>
-              <Input id="vm-strategy" value={t("form.priorityValue")} readOnly aria-readonly />
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={form.routing_strategy === "priority" ? "default" : "outline"}
+                  className="flex-1"
+                  onClick={() => changeRoutingStrategy("priority")}
+                >
+                  {t("form.priorityValue")}
+                </Button>
+                <Button
+                  type="button"
+                  variant={form.routing_strategy === "weighted" ? "default" : "outline"}
+                  className="flex-1"
+                  onClick={() => changeRoutingStrategy("weighted")}
+                >
+                  {t("form.weightedValue")}
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -585,6 +631,25 @@ export default function VirtualModelManagement() {
                     </Button>
                   </div>
                 </div>
+
+                {form.routing_strategy === "weighted" ? (
+                  <div className="space-y-1.5">
+                    <Label htmlFor={`vm-target-${index}-weight`}>{t("targets.weight")}</Label>
+                    <Input
+                      id={`vm-target-${index}-weight`}
+                      type="number"
+                      min={1}
+                      max={100}
+                      step="0.01"
+                      value={target.weight ?? 0}
+                      onChange={(event) =>
+                        updateTarget(index, {
+                          weight: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </div>
+                ) : null}
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-1.5">
@@ -720,6 +785,12 @@ export default function VirtualModelManagement() {
                 </div>
               </div>
             ))}
+
+            {form.routing_strategy === "weighted" ? (
+              <div className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+                {t("targets.weightTotal", { total: totalWeight })}
+              </div>
+            ) : null}
           </div>
 
           <div className="flex flex-col gap-3 rounded-lg border p-3">
@@ -779,11 +850,14 @@ export default function VirtualModelManagement() {
 
           <div className="rounded-lg border bg-muted/30 p-3">
             <p className="text-sm font-medium">{t("preview.title")}</p>
-            <p className="text-xs text-muted-foreground">{t("preview.description")}</p>
+            <p className="text-xs text-muted-foreground">
+              {form.routing_strategy === "weighted" ? t("preview.weightedDescription") : t("preview.description")}
+            </p>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
               {form.targets.map((target) => (
                 <span key={`${target.order}-${target.provider}-${target.model}`} className="rounded-full border px-2 py-1">
                   {target.order}. {target.provider || t("preview.providerPlaceholder")} / {target.model || t("preview.modelPlaceholder")}
+                  {form.routing_strategy === "weighted" ? ` (${target.weight ?? 0}%)` : ""}
                 </span>
               ))}
             </div>
@@ -959,6 +1033,7 @@ function normalizeTargets(targets: VirtualModelTarget[] | undefined): VirtualMod
     .map((target, idx) => ({
       ...target,
       order: target.order || idx + 1,
+      weight: target.weight ?? 0,
       policy: {
         timeout_sec: target.policy?.timeout_sec ?? 60,
         retry: {
@@ -1002,8 +1077,30 @@ function validateForm(form: FormState, t: ReturnType<typeof useTranslations<"vir
     seenOrders.add(target.order);
     if (target.policy.retry.attempts < 0 || target.policy.retry.attempts > 5) return t("messages.retryAttemptsRange");
     if (target.policy.retry.delay_ms < 0 || target.policy.retry.delay_ms > 10000) return t("messages.retryDelayRange");
+    if (form.routing_strategy === "weighted" && (target.weight ?? 0) <= 0) return t("messages.weightRange");
+  }
+  if (form.routing_strategy === "weighted") {
+    const totalWeight = form.targets.reduce((sum, target) => sum + (Number.isFinite(target.weight) ? Number(target.weight) : 0), 0);
+    if (Math.abs(totalWeight - 100) > 0.000001) return t("messages.weightSum");
   }
   return null;
+}
+
+function rebalanceTargetsForWeighted(targets: VirtualModelTarget[]): VirtualModelTarget[] {
+  if (targets.length === 0) return [{ ...DEFAULT_TARGET }];
+
+  const base = Math.floor(100 / targets.length);
+  let remainder = 100 - base * targets.length;
+
+  return targets.map((target) => {
+    const nextWeight = base + (remainder > 0 ? 1 : 0);
+    if (remainder > 0) remainder--;
+
+    return {
+      ...target,
+      weight: nextWeight,
+    };
+  });
 }
 
 function modesForProviderModel(model: TenantProviderAccountModel): string[] {

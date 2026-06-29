@@ -1465,6 +1465,66 @@ func TestIntegration_DeleteTenantProviderAccount_ConflictWhenReferencedByActiveK
 	assert.Equal(t, http.StatusConflict, deleteResp.StatusCode)
 }
 
+func TestIntegration_PostgresBackedVirtualModelWeightedRoundTrip(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if strings.TrimSpace(databaseURL) == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
+	resetPersistentState(t, pool)
+
+	createAccountResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/tenant-provider-accounts", "Bearer sk-master", `{
+		"provider":"openai",
+		"name":"openai-weighted-primary",
+		"auth_mode":"api_key",
+		"credentials":{"api_key":"sk-provider-demo"}
+	}`)
+	assert.Equal(t, http.StatusCreated, createAccountResp.StatusCode)
+
+	var account platform.TenantProviderAccount
+	decodeJSONBody(t, createAccountResp, &account)
+	require.NotEmpty(t, account.ID)
+
+	modelsResp := performJSONRequest(t, app, http.MethodPut, "http://localhost/api/v1/tenant-provider-accounts/"+account.ID+"/models", "Bearer sk-master", `{
+		"models":[
+			{"model":"gpt-4.1-mini","enabled":true,"effective_capabilities":["chat"]},
+			{"model":"gpt-4o","enabled":true,"effective_capabilities":["chat"]}
+		]
+	}`)
+	assert.Equal(t, http.StatusOK, modelsResp.StatusCode)
+
+	createVMResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/virtual-models", "Bearer sk-master", fmt.Sprintf(`{
+		"alias":"weighted-router",
+		"routing_strategy":"weighted",
+		"targets":[
+			{"order":1,"weight":65,"provider":"openai","model":"openai:%s:gpt-4.1-mini","policy":{"retry":{"attempts":2,"delay_ms":100,"status_codes":[429,500,502,503]},"fallback":{"status_codes":[429,500,502,503,504],"candidate":true}}},
+			{"order":2,"weight":35,"provider":"openai","model":"openai:%s:gpt-4o","policy":{"retry":{"attempts":2,"delay_ms":100,"status_codes":[429,500,502,503]},"fallback":{"status_codes":[429,500,502,503,504],"candidate":true}}}
+		]
+	}`, account.Name, account.Name))
+	assert.Equal(t, http.StatusCreated, createVMResp.StatusCode)
+
+	var created platform.VirtualModel
+	decodeJSONBody(t, createVMResp, &created)
+	require.NotEmpty(t, created.ID)
+	assert.Equal(t, "weighted", created.RoutingStrategy)
+	require.Len(t, created.Targets, 2)
+	assert.Equal(t, 65.0, created.Targets[0].Weight)
+	assert.Equal(t, 35.0, created.Targets[1].Weight)
+
+	getVMResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/virtual-models/"+created.ID, "Bearer sk-master", "")
+	assert.Equal(t, http.StatusOK, getVMResp.StatusCode)
+
+	var fetched platform.VirtualModel
+	decodeJSONBody(t, getVMResp, &fetched)
+	assert.Equal(t, "weighted", fetched.RoutingStrategy)
+	require.Len(t, fetched.Targets, 2)
+	assert.Equal(t, 65.0, fetched.Targets[0].Weight)
+	assert.Equal(t, 35.0, fetched.Targets[1].Weight)
+}
+
 func createIntegrationTenant(t *testing.T, pool *pgxpool.Pool, slug string) *platform.Tenant {
 	t.Helper()
 

@@ -452,6 +452,7 @@ type VirtualModelSnapshot struct {
 type VirtualModelTarget struct {
 	ID       string             `json:"id"`
 	Order    int                `json:"order"`
+	Weight   float64            `json:"weight,omitempty"`
 	Provider string             `json:"provider"`
 	Model    string             `json:"model"`
 	Policy   VirtualModelPolicy `json:"policy"`

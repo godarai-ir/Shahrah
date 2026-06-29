@@ -43,6 +43,7 @@
     "aliasPlaceholder": "gpt-4o-smart",
     "strategy": "Routing strategy",
     "priorityValue": "Priority (MVP)",
+    "weightedValue": "Weighted",
     "enabledLabel": "Availability",
     "enabledHelp": "Disabled virtual models cannot be used in gateway requests."
   },
@@ -53,6 +54,8 @@
     "itemLabel": "Target {order}",
     "provider": "Provider",
     "model": "Provider model",
+    "weight": "Weight (%)",
+    "weightTotal": "Weight total: {total}%",
     "retryAttempts": "Retry attempts",
     "retryDelay": "Retry delay (ms)",
     "timeout": "Timeout (sec)",
@@ -71,6 +74,7 @@
   "preview": {
     "title": "Effective routing preview",
     "description": "Requests use this order until a target succeeds.",
+    "weightedDescription": "Requests start with a weighted target, then fall back in order if needed.",
     "providerPlaceholder": "provider",
     "modelPlaceholder": "model"
   },
@@ -91,6 +95,8 @@
     "providerRequired": "Each target must include a provider.",
     "modelRequired": "Each target must include a model.",
     "duplicateOrder": "Target order values must be unique.",
+    "weightRange": "Each weighted target must have a weight greater than 0.",
+    "weightSum": "Weighted targets must sum to 100.",
     "retryAttemptsRange": "Retry attempts must be between 0 and 5.",
     "retryDelayRange": "Retry delay must be between 0 and 10000 ms.",
     "noCommonModes": "Selected targets must share at least one supported mode."

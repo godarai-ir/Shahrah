@@ -36,6 +36,7 @@
     "aliasPlaceholder": "gpt-4o-smart",
     "strategy": "استراتژی مسیریابی",
     "priorityValue": "اولویتی",
+    "weightedValue": "وزنی",
     "enabledLabel": "در دسترس بودن",
     "enabledHelp": "مدل‌های غیرفعال در درخواست‌های گیت‌وی قابل استفاده نیستند."
   },
@@ -46,6 +47,8 @@
     "itemLabel": "مقصد {order}",
     "provider": "ارائه‌دهنده",
     "model": "مدل ارائه‌دهنده",
+    "weight": "وزن (%)",
+    "weightTotal": "جمع وزن‌ها: {total}%",
     "retryAttempts": "دفعات تلاش",
     "retryDelay": "وقفه (ms)",
     "timeout": "حداکثر مهلت (s)",
@@ -64,6 +67,7 @@
   "preview": {
     "title": "پیش‌نمایش مسیریابی مؤثر",
     "description": "درخواست تا زمان موفقیت با این ترتیب ارسال می‌شود.",
+    "weightedDescription": "درخواست ابتدا با وزن انتخاب می‌شود و در صورت نیاز به‌ترتیب fallback می‌کند.",
     "providerPlaceholder": "provider",
     "modelPlaceholder": "model"
   },
@@ -82,6 +86,8 @@
     "providerRequired": "برای هر مقصد ارائه‌دهنده الزامی است.",
     "modelRequired": "برای هر مقصد مدل الزامی است.",
     "duplicateOrder": "اولویت مقصد‌ها باید یکتا باشد.",
+    "weightRange": "برای هر مقصد در مسیریابی وزنی باید وزن بزرگ‌تر از صفر تعیین شود.",
+    "weightSum": "جمع وزن مقصدهای وزنی باید ۱۰۰ باشد.",
     "retryAttemptsRange": "دفعات تلاش باید بین ۰ تا ۵ باشد.",
     "retryDelayRange": "وقفه باید بین ۰ تا ۱۰۰۰۰ ms باشد.",
     "noCommonModes": "Selected targets must share at least one supported mode.",

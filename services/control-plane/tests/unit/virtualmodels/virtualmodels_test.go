@@ -102,3 +102,83 @@ func TestExecutorNonRetryableStops(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 400, resp.StatusCode)
 }
+
+func TestPriorityRoutingEngineSortsByOrder(t *testing.T) {
+	engine := virtualmodels.NewPriorityRoutingEngine()
+	targets, err := engine.SelectTargets(&platform.VirtualModel{
+		RoutingStrategy: "priority",
+		Targets: []platform.VirtualModelTarget{
+			{Order: 3, Provider: "openai", Model: "gpt-4o"},
+			{Order: 1, Provider: "anthropic", Model: "claude-sonnet"},
+			{Order: 2, Provider: "google", Model: "gemini"},
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, targets, 3)
+	assert.Equal(t, 1, targets[0].Order)
+	assert.Equal(t, 2, targets[1].Order)
+	assert.Equal(t, 3, targets[2].Order)
+}
+
+func TestWeightedRoutingEngineSelectsWeightedPrimaryThenOrderedFallbacks(t *testing.T) {
+	engine := virtualmodels.NewWeightedRoutingEngine()
+	targets, err := engine.SelectTargets(&platform.VirtualModel{
+		RoutingStrategy: "weighted",
+		Targets: []platform.VirtualModelTarget{
+			{
+				Order:    2,
+				Weight:   100,
+				Provider: "openai",
+				Model:    "gpt-4o",
+				Policy: platform.VirtualModelPolicy{
+					Fallback: platform.VirtualModelFallbackPolicy{Candidate: true},
+				},
+			},
+			{
+				Order:    1,
+				Weight:   50,
+				Provider: "anthropic",
+				Model:    "claude-sonnet",
+				Policy: platform.VirtualModelPolicy{
+					Fallback: platform.VirtualModelFallbackPolicy{Candidate: true},
+				},
+			},
+			{
+				Order:    3,
+				Weight:   20,
+				Provider: "google",
+				Model:    "gemini",
+				Policy: platform.VirtualModelPolicy{
+					Fallback: platform.VirtualModelFallbackPolicy{Candidate: false},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, targets, 2)
+	assert.Equal(t, "openai", targets[0].Provider)
+	assert.Equal(t, "anthropic", targets[1].Provider)
+}
+
+func TestRoutingEngineUsesWeightedStrategy(t *testing.T) {
+	engine := virtualmodels.NewRoutingEngine()
+	highCount := 0
+	iterations := 1000
+
+	for i := 0; i < iterations; i++ {
+		targets, err := engine.SelectTargets(&platform.VirtualModel{
+			RoutingStrategy: "weighted",
+			Targets: []platform.VirtualModelTarget{
+				{Order: 1, Weight: 90, Provider: "openai", Model: "gpt-4o", Policy: platform.VirtualModelPolicy{Fallback: platform.VirtualModelFallbackPolicy{Candidate: true}}},
+				{Order: 2, Weight: 10, Provider: "anthropic", Model: "claude-sonnet", Policy: platform.VirtualModelPolicy{Fallback: platform.VirtualModelFallbackPolicy{Candidate: true}}},
+			},
+		})
+		require.NoError(t, err)
+		require.NotEmpty(t, targets)
+		if targets[0].Provider == "openai" {
+			highCount++
+		}
+	}
+
+	assert.Greater(t, float64(highCount)/float64(iterations), 0.80)
+}

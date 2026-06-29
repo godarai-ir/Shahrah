@@ -4,6 +4,8 @@ package virtualmodels
 import (
 	"context"
 	"errors"
+	"math/rand"
+	"sort"
 	"strings"
 	"time"
 
@@ -46,8 +48,20 @@ type Resolver struct {
 	repo VirtualModelRepository
 }
 
+type StrategyRoutingEngine struct {
+	priority *PriorityRoutingEngine
+	weighted *WeightedRoutingEngine
+}
+
 func NewResolver(repo VirtualModelRepository) *Resolver {
 	return &Resolver{repo: repo}
+}
+
+func NewRoutingEngine() *StrategyRoutingEngine {
+	return &StrategyRoutingEngine{
+		priority: NewPriorityRoutingEngine(),
+		weighted: NewWeightedRoutingEngine(),
+	}
 }
 
 func (r *Resolver) Resolve(ctx context.Context, tenantID, alias string) (*platform.VirtualModel, error) {
@@ -63,29 +77,67 @@ func (r *Resolver) Resolve(ctx context.Context, tenantID, alias string) (*platfo
 	return vm, nil
 }
 
+func (e *StrategyRoutingEngine) SelectTargets(vm *platform.VirtualModel) ([]platform.VirtualModelTarget, error) {
+	if vm == nil {
+		return nil, ErrNoEligibleTargets
+	}
+
+	switch strings.ToLower(strings.TrimSpace(vm.RoutingStrategy)) {
+	case "weighted":
+		return e.weighted.SelectTargets(vm)
+	case "", "priority":
+		fallthrough
+	default:
+		return e.priority.SelectTargets(vm)
+	}
+}
+
 type PriorityRoutingEngine struct{}
+
+type WeightedRoutingEngine struct{}
 
 func NewPriorityRoutingEngine() *PriorityRoutingEngine {
 	return &PriorityRoutingEngine{}
 }
 
+func NewWeightedRoutingEngine() *WeightedRoutingEngine {
+	return &WeightedRoutingEngine{}
+}
+
 func (e *PriorityRoutingEngine) SelectTargets(vm *platform.VirtualModel) ([]platform.VirtualModelTarget, error) {
-	if vm == nil || len(vm.Targets) == 0 {
+	out := normalizedEligibleTargets(vm)
+	if len(out) == 0 {
 		return nil, ErrNoEligibleTargets
 	}
-	// Stored order is already deterministic.
-	out := make([]platform.VirtualModelTarget, 0, len(vm.Targets))
-	for i := range vm.Targets {
-		t := &vm.Targets[i]
-		if strings.TrimSpace(t.Provider) == "" || strings.TrimSpace(t.Model) == "" {
+
+	return out, nil
+}
+
+func (e *WeightedRoutingEngine) SelectTargets(vm *platform.VirtualModel) ([]platform.VirtualModelTarget, error) {
+	eligible := normalizedEligibleTargets(vm)
+	if len(eligible) == 0 {
+		return nil, ErrNoEligibleTargets
+	}
+
+	primaryIndex := weightedPickIndex(eligible)
+	if primaryIndex < 0 {
+		return nil, ErrNoEligibleTargets
+	}
+
+	primary := eligible[primaryIndex]
+	out := make([]platform.VirtualModelTarget, 0, len(eligible))
+	out = append(out, primary)
+
+	for i, target := range eligible {
+		if i == primaryIndex {
 			continue
 		}
 
-		out = append(out, *t)
-	}
+		if !target.Policy.Fallback.Candidate {
+			continue
+		}
 
-	if len(out) == 0 {
-		return nil, ErrNoEligibleTargets
+		out = append(out, target)
 	}
 
 	return out, nil
@@ -191,6 +243,7 @@ func buildDeployment(target *platform.VirtualModelTarget) *router.Deployment {
 			Timeout: target.Policy.TimeoutSec,
 		},
 		Healthy: true,
+		Weight:  target.Weight,
 	}
 }
 
@@ -212,4 +265,58 @@ func containsInt(values []int, target int) bool {
 	}
 
 	return false
+}
+
+func normalizedEligibleTargets(vm *platform.VirtualModel) []platform.VirtualModelTarget {
+	if vm == nil || len(vm.Targets) == 0 {
+		return nil
+	}
+
+	out := make([]platform.VirtualModelTarget, 0, len(vm.Targets))
+	for i := range vm.Targets {
+		t := &vm.Targets[i]
+		if strings.TrimSpace(t.Provider) == "" || strings.TrimSpace(t.Model) == "" {
+			continue
+		}
+
+		out = append(out, *t)
+	}
+
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Order == out[j].Order {
+			return out[i].Model < out[j].Model
+		}
+
+		return out[i].Order < out[j].Order
+	})
+
+	return out
+}
+
+func weightedPickIndex(targets []platform.VirtualModelTarget) int {
+	totalWeight := 0.0
+	for _, target := range targets {
+		if target.Weight > 0 {
+			totalWeight += target.Weight
+		}
+	}
+
+	if totalWeight <= 0 {
+		return -1
+	}
+
+	pick := rand.Float64() * totalWeight
+	cumulative := 0.0
+	for i, target := range targets {
+		if target.Weight <= 0 {
+			continue
+		}
+
+		cumulative += target.Weight
+		if pick <= cumulative {
+			return i
+		}
+	}
+
+	return len(targets) - 1
 }

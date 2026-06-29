@@ -419,18 +419,23 @@ func insertVirtualModelTargets(ctx context.Context, tx pgx.Tx, vmID string, targ
 		targetProvider := strings.ToLower(strings.TrimSpace(target.Provider))
 
 		targetModel := normalizeModelFQN(target.Model)
+		weight := target.Weight
+		if weight < 0 {
+			weight = 0
+		}
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO virtual_model_targets (
-				target_id, virtual_model_id, target_order, provider, model, timeout_sec,
+				target_id, virtual_model_id, target_order, weight, provider, model, timeout_sec,
 				retry_attempts, retry_delay_ms, retry_status_codes, fallback_status_codes, fallback_candidate
 			)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-		`, tid, vmID, order, targetProvider, targetModel, target.Policy.TimeoutSec, retryAttempts, retryDelay, retryCodes, fallbackCodes, fallbackCandidate); err != nil {
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+		`, tid, vmID, order, weight, targetProvider, targetModel, target.Policy.TimeoutSec, retryAttempts, retryDelay, retryCodes, fallbackCodes, fallbackCandidate); err != nil {
 			return nil, err
 		}
 
 		target.ID = tid
 		target.Order = order
+		target.Weight = weight
 		target.Provider = targetProvider
 		target.Model = targetModel
 		target.Policy.Retry.Attempts = retryAttempts
@@ -553,7 +558,7 @@ func (s *Store) listVirtualModelAccess(ctx context.Context, vmID string) (platfo
 
 func (s *Store) listVirtualModelTargets(ctx context.Context, vmID string) ([]platform.VirtualModelTarget, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT target_id::text, target_order, provider, model, COALESCE(timeout_sec, 0),
+		SELECT target_id::text, target_order, COALESCE(weight, 0), provider, model, COALESCE(timeout_sec, 0),
 		       retry_attempts, retry_delay_ms, retry_status_codes, fallback_status_codes, fallback_candidate
 		FROM virtual_model_targets
 		WHERE virtual_model_id = $1
@@ -571,6 +576,7 @@ func (s *Store) listVirtualModelTargets(ctx context.Context, vmID string) ([]pla
 		if err := rows.Scan(
 			&t.ID,
 			&t.Order,
+			&t.Weight,
 			&t.Provider,
 			&t.Model,
 			&t.Policy.TimeoutSec,

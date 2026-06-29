@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"math"
 	"strings"
 	"time"
 
@@ -238,7 +239,21 @@ func (h *Handlers) UpdateVirtualModel(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
 
-	if err := validateUpdateVirtualModelRequest(req); err != nil {
+	currentStrategy := "priority"
+	if req.RoutingStrategy == nil && len(req.Targets) > 0 {
+		existing, err := h.models.GetVirtualModel(c.Context(), currentTenant.ID, id)
+		if err != nil {
+			if errors.Is(err, storage.ErrVirtualModelNotFound) {
+				return fiber.NewError(fiber.StatusNotFound, "virtual model not found")
+			}
+
+			return err
+		}
+
+		currentStrategy = existing.RoutingStrategy
+	}
+
+	if err := validateUpdateVirtualModelRequest(req, currentStrategy); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
@@ -298,31 +313,52 @@ func validateCreateVirtualModelRequest(req platform.CreateVirtualModelRequest) e
 		req.RoutingStrategy = "priority"
 	}
 
-	if strings.ToLower(strings.TrimSpace(req.RoutingStrategy)) != "priority" {
-		return errors.New("routing_strategy must be priority in MVP")
+	strategy := normalizeVirtualModelRoutingStrategy(req.RoutingStrategy)
+	if strategy == "" {
+		return errors.New("routing_strategy must be one of: priority, weighted")
 	}
 
 	if len(req.Targets) == 0 {
 		return errors.New("at least one target is required")
 	}
 
-	return validateVirtualModelTargets(req.Targets)
+	return validateVirtualModelTargets(req.Targets, strategy)
 }
 
-func validateUpdateVirtualModelRequest(req platform.UpdateVirtualModelRequest) error {
-	if req.RoutingStrategy != nil && strings.ToLower(strings.TrimSpace(*req.RoutingStrategy)) != "priority" {
-		return errors.New("routing_strategy must be priority in MVP")
+func validateUpdateVirtualModelRequest(req platform.UpdateVirtualModelRequest, currentStrategy string) error {
+	strategy := normalizeVirtualModelRoutingStrategy(currentStrategy)
+	if strategy == "" {
+		strategy = "priority"
+	}
+
+	if req.RoutingStrategy != nil {
+		strategy = normalizeVirtualModelRoutingStrategy(*req.RoutingStrategy)
+		if strategy == "" {
+			return errors.New("routing_strategy must be one of: priority, weighted")
+		}
 	}
 
 	if len(req.Targets) > 0 {
-		return validateVirtualModelTargets(req.Targets)
+		return validateVirtualModelTargets(req.Targets, strategy)
 	}
 
 	return nil
 }
 
-func validateVirtualModelTargets(targets []platform.VirtualModelTarget) error {
+func normalizeVirtualModelRoutingStrategy(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "", "priority":
+		return "priority"
+	case "weighted":
+		return "weighted"
+	default:
+		return ""
+	}
+}
+
+func validateVirtualModelTargets(targets []platform.VirtualModelTarget, strategy string) error {
 	seenOrders := make(map[int]struct{}, len(targets))
+	totalWeight := 0.0
 	for i := range targets {
 		t := targets[i]
 		if strings.TrimSpace(t.Provider) == "" {
@@ -342,6 +378,14 @@ func validateVirtualModelTargets(targets []platform.VirtualModelTarget) error {
 		}
 
 		seenOrders[t.Order] = struct{}{}
+		if strategy == "weighted" {
+			if t.Weight <= 0 {
+				return errors.New("target.weight must be greater than 0 for weighted routing")
+			}
+
+			totalWeight += t.Weight
+		}
+
 		if t.Policy.Retry.Attempts < 0 || t.Policy.Retry.Attempts > 5 {
 			return errors.New("target.retry.attempts must be between 0 and 5")
 		}
@@ -349,6 +393,10 @@ func validateVirtualModelTargets(targets []platform.VirtualModelTarget) error {
 		if t.Policy.Retry.DelayMS < 0 || t.Policy.Retry.DelayMS > 10000 {
 			return errors.New("target.retry.delay_ms must be between 0 and 10000")
 		}
+	}
+
+	if strategy == "weighted" && math.Abs(totalWeight-100) > 0.000001 {
+		return errors.New("target.weight values must sum to 100 for weighted routing")
 	}
 
 	return nil
