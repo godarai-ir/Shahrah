@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { ExchangeRatePayload, MockExchangeRateProvider } from './exchange-rate.provider';
+import {
+  ExchangeRatePayload,
+  MockExchangeRateProvider,
+} from './exchange-rate.provider';
 
 @Injectable()
 export class ExchangeRateService {

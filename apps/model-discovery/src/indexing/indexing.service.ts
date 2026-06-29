@@ -1,16 +1,119 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Queue } from 'bullmq';
 import Typesense from 'typesense';
 import { PrismaService } from '../database/prisma.service';
+import { ModelsQueryDto } from '../catalog/dto/models-query.dto';
 
 export const INDEXING_QUEUE = 'catalog-indexing';
+
+type TypesenseDocument = {
+  id: string;
+  canonicalId: string;
+  name: string;
+  slug: string;
+  enabled: boolean;
+  providerSlug: string;
+  providerName: string;
+  providerLogoUrl?: string;
+  modelSeriesSlug?: string;
+  modelSeriesName?: string;
+  modelSeriesLogoUrl?: string;
+  description?: string;
+  status: string;
+  lifecycleStatus: string;
+  mode: string[];
+  category?: string;
+  categoryName?: string;
+  contextWindow?: number;
+  maxOutputTokens?: number;
+  inputPricePerMillionTokens?: number | null;
+  outputPricePerMillionTokens?: number | null;
+  cachedInputPricePerMillionTokens?: number | null;
+  free: boolean;
+  openSource: boolean;
+  inputModalities: string[];
+  outputModalities: string[];
+  supportedParameters: string[];
+  capabilities: string[];
+  regions: string[];
+  tags: string[];
+  benchmarkScore?: number | null;
+  popularityScore?: number | null;
+  releaseDateTimestamp?: number | null;
+  createdAtTimestamp: number;
+  updatedAtTimestamp: number;
+};
+
+export type TypesenseListModelsResponse = {
+  data: Array<{
+    id: string;
+    canonicalId: string;
+    slug: string;
+    name: string;
+    provider: {
+      slug: string;
+      name: string;
+      logoUrl?: string | null;
+    };
+    modelSeries: {
+      slug: string;
+      name: string;
+      logoUrl?: string | null;
+    } | null;
+    description?: string;
+    status: string;
+    mode: string[];
+    contextWindow?: number | null;
+    maxOutputTokens?: number | null;
+    inputModalities: string[];
+    outputModalities: string[];
+    supportedParameters: string[];
+    capabilities: string[];
+    pricing: {
+      currency: string;
+      inputPerMillionTokens?: number | null;
+      outputPerMillionTokens?: number | null;
+      cachedInputPerMillionTokens?: number | null;
+    } | null;
+    regions: string[];
+    openSource: boolean;
+    free: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }>;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  meta: {
+    source: 'typesense';
+    fallbackUsed: false;
+  };
+};
+
+export type TypesenseFacetCounts = {
+  source: 'typesense';
+  providerCounts: Map<string, number>;
+  categoryCounts: Map<string, number>;
+  inputModalityCounts: Map<string, number>;
+  outputModalityCounts: Map<string, number>;
+  supportedParameterCounts: Map<string, number>;
+  capabilityCounts: Map<string, number>;
+  regionCounts: Map<string, number>;
+  statusCounts: Map<string, number>;
+};
 
 @Injectable()
 export class IndexingService {
   private readonly client: any;
   private readonly collectionName: string;
+  private readonly readsEnabled: boolean;
+  private readonly readyStrict: boolean;
+  private readonly logger = new Logger(IndexingService.name);
 
   constructor(
     @InjectQueue(INDEXING_QUEUE) private readonly queue: Queue,
@@ -26,18 +129,52 @@ export class IndexingService {
         },
       ],
       apiKey: cfg.get<string>('TYPESENSE_API_KEY', 'xyz'),
+      connectionTimeoutSeconds: 2,
     });
     this.collectionName = cfg.get<string>(
       'TYPESENSE_COLLECTION_MODELS',
       'models',
     );
+    this.readsEnabled =
+      cfg.get<string>('TYPESENSE_READS_ENABLED', 'true') !== 'false';
+    this.readyStrict =
+      cfg.get<string>('TYPESENSE_READY_STRICT', 'true') !== 'false';
+  }
+
+  isReadPathEnabled() {
+    return this.readsEnabled;
+  }
+
+  isReadyStrict() {
+    return this.readyStrict;
   }
 
   enqueueFullReindex() {
     return this.queue.add('full-reindex', {});
   }
+
   enqueueModelIndex(modelId: string) {
     return this.queue.add('index-model', { modelId });
+  }
+
+  enqueueProviderModelsReindex(providerSlug: string) {
+    return this.queue.add('index-provider-models', { providerSlug });
+  }
+
+  enqueueModelSeriesReindex(modelSeriesSlug: string) {
+    return this.queue.add('index-model-series', { modelSeriesSlug });
+  }
+
+  async ping() {
+    try {
+      await this.client.collections().retrieve();
+      return true;
+    } catch (error) {
+      this.logger.warn(
+        `Typesense ping failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return false;
+    }
   }
 
   async ensureCollection() {
@@ -46,15 +183,31 @@ export class IndexingService {
       fields: [
         { name: 'id', type: 'string' },
         { name: 'canonicalId', type: 'string' },
-        { name: 'name', type: 'string' },
+        { name: 'name', type: 'string', sort: true },
         { name: 'slug', type: 'string' },
+        { name: 'enabled', type: 'bool', facet: true },
         { name: 'providerSlug', type: 'string', facet: true },
         { name: 'providerName', type: 'string', facet: true },
+        { name: 'providerLogoUrl', type: 'string', optional: true },
+        {
+          name: 'modelSeriesSlug',
+          type: 'string',
+          facet: true,
+          optional: true,
+        },
+        {
+          name: 'modelSeriesName',
+          type: 'string',
+          facet: true,
+          optional: true,
+        },
+        { name: 'modelSeriesLogoUrl', type: 'string', optional: true },
         { name: 'description', type: 'string', optional: true },
         { name: 'status', type: 'string', facet: true },
         { name: 'lifecycleStatus', type: 'string', facet: true },
         { name: 'mode', type: 'string[]', facet: true },
         { name: 'category', type: 'string', facet: true, optional: true },
+        { name: 'categoryName', type: 'string', optional: true },
         { name: 'contextWindow', type: 'int32', sort: true, optional: true },
         { name: 'maxOutputTokens', type: 'int32', sort: true, optional: true },
         {
@@ -83,12 +236,14 @@ export class IndexingService {
         { name: 'regions', type: 'string[]', facet: true },
         { name: 'tags', type: 'string[]', facet: true },
         { name: 'benchmarkScore', type: 'float', sort: true, optional: true },
+        { name: 'popularityScore', type: 'float', sort: true, optional: true },
         {
           name: 'releaseDateTimestamp',
           type: 'int64',
           sort: true,
           optional: true,
         },
+        { name: 'createdAtTimestamp', type: 'int64', sort: true },
         { name: 'updatedAtTimestamp', type: 'int64', sort: true },
       ],
       default_sorting_field: 'updatedAtTimestamp',
@@ -96,8 +251,135 @@ export class IndexingService {
 
     try {
       await this.client.collections(this.collectionName).retrieve();
+      try {
+        await this.client
+          .collections(this.collectionName)
+          .update({ fields: schema.fields } as any);
+      } catch (error) {
+        this.logger.warn(
+          `Typesense schema sync skipped: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
     } catch {
       await this.client.collections().create(schema as any);
+    }
+  }
+
+  async searchModels(
+    query: ModelsQueryDto,
+  ): Promise<TypesenseListModelsResponse | null> {
+    if (!this.readsEnabled) {
+      return null;
+    }
+
+    try {
+      await this.ensureCollection();
+      const searchParameters = {
+        q: query.q?.trim() || '*',
+        query_by: [
+          'name',
+          'canonicalId',
+          'slug',
+          'description',
+          'providerName',
+          'modelSeriesName',
+          'categoryName',
+          'tags',
+          'capabilities',
+          'supportedParameters',
+        ].join(','),
+        query_by_weights: '8,7,6,3,2,2,2,1,1,1',
+        filter_by: this.buildFilterBy(query),
+        sort_by: this.mapSort(query.sort),
+        page: query.page,
+        per_page: query.limit,
+      };
+
+      const result = await this.client
+        .collections(this.collectionName)
+        .documents()
+        .search(searchParameters as any);
+
+      const data = (result.hits || []).map((hit: any) =>
+        this.toListItem(hit.document as TypesenseDocument),
+      );
+
+      return {
+        data,
+        pagination: {
+          page: query.page,
+          limit: query.limit,
+          total: result.found || 0,
+          totalPages: Math.max(1, Math.ceil((result.found || 0) / query.limit)),
+        },
+        meta: {
+          source: 'typesense',
+          fallbackUsed: false,
+        },
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Typesense search failed, falling back to database: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    }
+  }
+
+  async facetCounts(): Promise<TypesenseFacetCounts | null> {
+    if (!this.readsEnabled) {
+      return null;
+    }
+
+    try {
+      await this.ensureCollection();
+      const result = await this.client
+        .collections(this.collectionName)
+        .documents()
+        .search({
+          q: '*',
+          query_by: 'name',
+          filter_by: 'enabled:=true',
+          page: 1,
+          per_page: 0,
+          max_facet_values: 250,
+          facet_by: [
+            'providerSlug',
+            'category',
+            'inputModalities',
+            'outputModalities',
+            'supportedParameters',
+            'capabilities',
+            'regions',
+            'status',
+          ].join(','),
+        } as any);
+
+      const counts = new Map<string, Map<string, number>>();
+      for (const facet of result.facet_counts || []) {
+        const values = new Map<string, number>();
+        for (const item of facet.counts || []) {
+          values.set(String(item.value), Number(item.count));
+        }
+        counts.set(String(facet.field_name), values);
+      }
+
+      return {
+        source: 'typesense',
+        providerCounts: counts.get('providerSlug') || new Map(),
+        categoryCounts: counts.get('category') || new Map(),
+        inputModalityCounts: counts.get('inputModalities') || new Map(),
+        outputModalityCounts: counts.get('outputModalities') || new Map(),
+        supportedParameterCounts:
+          counts.get('supportedParameters') || new Map(),
+        capabilityCounts: counts.get('capabilities') || new Map(),
+        regionCounts: counts.get('regions') || new Map(),
+        statusCounts: counts.get('status') || new Map(),
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Typesense facet query failed, falling back to database: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
     }
   }
 
@@ -106,6 +388,7 @@ export class IndexingService {
       where: { id: modelId },
       include: {
         provider: true,
+        modelSeries: true,
         category: true,
         pricing: { take: 1, orderBy: { effectiveFrom: 'desc' } },
         inputModalities: { include: { modality: true } },
@@ -119,20 +402,26 @@ export class IndexingService {
     });
     if (!model) return null;
     const p = model.pricing[0];
-    const doc = {
+    const doc: TypesenseDocument = {
       id: model.id,
       canonicalId: model.canonicalId,
       name: model.displayName,
       slug: model.slug,
+      enabled: model.enabled && model.provider.enabled,
       providerSlug: model.provider.slug,
       providerName: model.provider.name,
+      providerLogoUrl: model.provider.logoUrl || undefined,
+      modelSeriesSlug: model.modelSeries?.slug || undefined,
+      modelSeriesName: model.modelSeries?.name || undefined,
+      modelSeriesLogoUrl: model.modelSeries?.logoUrl || undefined,
       description: model.shortDescription || '',
       status: model.status,
       lifecycleStatus: model.lifecycleStatus,
       mode: model.mode,
-      category: model.category?.slug || '',
-      contextWindow: model.contextWindow || 0,
-      maxOutputTokens: model.maxOutputTokens || 0,
+      category: model.category?.slug || undefined,
+      categoryName: model.category?.name || undefined,
+      contextWindow: model.contextWindow || undefined,
+      maxOutputTokens: model.maxOutputTokens || undefined,
       inputPricePerMillionTokens: p?.inputPricePerMillionTokens ?? null,
       outputPricePerMillionTokens: p?.outputPricePerMillionTokens ?? null,
       cachedInputPricePerMillionTokens:
@@ -147,10 +436,12 @@ export class IndexingService {
       capabilities: model.capabilities.map((x) => x.capability.slug),
       regions: model.regions.map((x) => x.region.slug),
       tags: model.tags.map((x) => x.tag.slug),
-      benchmarkScore: model.benchmarks[0]?.score ?? 0,
+      benchmarkScore: model.benchmarks[0]?.score ?? null,
+      popularityScore: model.popularityScore ?? null,
       releaseDateTimestamp: model.releaseDate
         ? Math.floor(model.releaseDate.getTime() / 1000)
-        : 0,
+        : null,
+      createdAtTimestamp: Math.floor(model.createdAt.getTime() / 1000),
       updatedAtTimestamp: Math.floor(model.updatedAt.getTime() / 1000),
     };
     await this.client
@@ -167,5 +458,155 @@ export class IndexingService {
       await this.indexOneModel(model.id);
     }
     return { indexed: models.length };
+  }
+
+  async reindexProviderModels(providerSlug: string) {
+    const models = await this.prisma.model.findMany({
+      where: { provider: { slug: providerSlug } },
+      select: { id: true },
+    });
+    for (const model of models) {
+      await this.indexOneModel(model.id);
+    }
+    return { indexed: models.length, providerSlug };
+  }
+
+  async reindexModelSeries(modelSeriesSlug: string) {
+    const models = await this.prisma.model.findMany({
+      where: { modelSeries: { slug: modelSeriesSlug } },
+      select: { id: true },
+    });
+    for (const model of models) {
+      await this.indexOneModel(model.id);
+    }
+    return { indexed: models.length, modelSeriesSlug };
+  }
+
+  private buildFilterBy(query: ModelsQueryDto) {
+    const filters: string[] = ['enabled:=true'];
+
+    if (query.provider) filters.push(`providerSlug:=${query.provider}`);
+    if (query.category) filters.push(`category:=${query.category}`);
+    if (query.status) filters.push(`status:=${query.status}`);
+    if (query.region) filters.push(`regions:=${query.region}`);
+    if (query.free_only) filters.push('free:=true');
+    if (query.open_source_only) filters.push('openSource:=true');
+    if (query.mode?.length) filters.push(this.arrayFilter('mode', query.mode));
+    if (query.input_modalities?.length) {
+      filters.push(this.arrayFilter('inputModalities', query.input_modalities));
+    }
+    if (query.output_modalities?.length) {
+      filters.push(
+        this.arrayFilter('outputModalities', query.output_modalities),
+      );
+    }
+    if (query.supported_parameters?.length) {
+      filters.push(
+        this.arrayFilter('supportedParameters', query.supported_parameters),
+      );
+    }
+    if (query.capabilities?.length) {
+      filters.push(this.arrayFilter('capabilities', query.capabilities));
+    }
+    if (query.min_context_window !== undefined) {
+      filters.push(`contextWindow:>=${query.min_context_window}`);
+    }
+    if (query.max_context_window !== undefined) {
+      filters.push(`contextWindow:<=${query.max_context_window}`);
+    }
+    if (query.min_output_tokens !== undefined) {
+      filters.push(`maxOutputTokens:>=${query.min_output_tokens}`);
+    }
+    if (query.max_output_tokens !== undefined) {
+      filters.push(`maxOutputTokens:<=${query.max_output_tokens}`);
+    }
+    if (query.min_input_price !== undefined) {
+      filters.push(`inputPricePerMillionTokens:>=${query.min_input_price}`);
+    }
+    if (query.max_input_price !== undefined) {
+      filters.push(`inputPricePerMillionTokens:<=${query.max_input_price}`);
+    }
+    if (query.max_output_price !== undefined) {
+      filters.push(`outputPricePerMillionTokens:<=${query.max_output_price}`);
+    }
+
+    return filters.join(' && ');
+  }
+
+  private arrayFilter(field: string, values: string[]) {
+    if (values.length === 1) {
+      return `${field}:=${values[0]}`;
+    }
+    return `${field}:=[${values.join(',')}]`;
+  }
+
+  private mapSort(sort: string) {
+    switch (sort) {
+      case 'name':
+        return 'name:asc,_text_match:desc';
+      case 'cheapest_input':
+        return 'inputPricePerMillionTokens:asc,_text_match:desc';
+      case 'cheapest_output':
+        return 'outputPricePerMillionTokens:asc,_text_match:desc';
+      case 'largest_context':
+        return 'contextWindow:desc,_text_match:desc';
+      case 'most_popular':
+        return 'popularityScore:desc,_text_match:desc';
+      case 'highest_benchmark_score':
+        return 'benchmarkScore:desc,_text_match:desc';
+      case 'newest':
+      default:
+        return 'releaseDateTimestamp:desc,updatedAtTimestamp:desc';
+    }
+  }
+
+  private toListItem(document: TypesenseDocument) {
+    return {
+      id: document.id,
+      canonicalId: document.canonicalId,
+      slug: document.slug,
+      name: document.name,
+      provider: {
+        slug: document.providerSlug,
+        name: document.providerName,
+        logoUrl: document.providerLogoUrl || null,
+      },
+      modelSeries:
+        document.modelSeriesSlug && document.modelSeriesName
+          ? {
+              slug: document.modelSeriesSlug,
+              name: document.modelSeriesName,
+              logoUrl: document.modelSeriesLogoUrl || null,
+            }
+          : null,
+      description: document.description || '',
+      status: document.status,
+      mode: document.mode,
+      contextWindow: document.contextWindow ?? null,
+      maxOutputTokens: document.maxOutputTokens ?? null,
+      inputModalities: document.inputModalities,
+      outputModalities: document.outputModalities,
+      supportedParameters: document.supportedParameters,
+      capabilities: document.capabilities,
+      pricing:
+        document.inputPricePerMillionTokens !== null ||
+        document.outputPricePerMillionTokens !== null ||
+        document.cachedInputPricePerMillionTokens !== null
+          ? {
+              currency: 'USD',
+              inputPerMillionTokens:
+                document.inputPricePerMillionTokens ?? null,
+              outputPerMillionTokens:
+                document.outputPricePerMillionTokens ?? null,
+              cachedInputPerMillionTokens:
+                document.cachedInputPricePerMillionTokens ?? null,
+            }
+          : null,
+      regions: document.regions,
+      openSource: document.openSource,
+      free: document.free,
+      createdAt: new Date(document.createdAtTimestamp * 1000),
+      updatedAt: new Date(document.updatedAtTimestamp * 1000),
+    };
   }
 }

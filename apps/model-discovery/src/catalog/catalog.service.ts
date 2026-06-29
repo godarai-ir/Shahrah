@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
+import { IndexingService } from '../indexing/indexing.service';
 import { ModelsQueryDto } from './dto/models-query.dto';
 
 @Injectable()
 export class CatalogService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly indexing: IndexingService,
+  ) {}
 
   private orderBy(sort: string): any[] {
     switch (sort) {
@@ -21,6 +25,11 @@ export class CatalogService {
   }
 
   async listModels(query: ModelsQueryDto) {
+    const indexed = await this.indexing.searchModels(query);
+    if (indexed) {
+      return indexed;
+    }
+
     const where: any = {
       enabled: true,
       provider: {
@@ -160,6 +169,10 @@ export class CatalogService {
         total,
         totalPages: Math.max(1, Math.ceil(total / query.limit)),
       },
+      meta: {
+        source: 'database',
+        fallbackUsed: this.indexing.isReadPathEnabled(),
+      },
     };
   }
 
@@ -188,7 +201,11 @@ export class CatalogService {
 
   compare(ids: string[]) {
     return this.prisma.model.findMany({
-      where: { canonicalId: { in: ids }, enabled: true, provider: { enabled: true } },
+      where: {
+        canonicalId: { in: ids },
+        enabled: true,
+        provider: { enabled: true },
+      },
       include: {
         provider: true,
         pricing: { take: 1, orderBy: { effectiveFrom: 'desc' } },
@@ -220,7 +237,11 @@ export class CatalogService {
 
   deprecatedModels() {
     return this.prisma.model.findMany({
-      where: { status: 'deprecated', enabled: true, provider: { enabled: true } },
+      where: {
+        status: 'deprecated',
+        enabled: true,
+        provider: { enabled: true },
+      },
       include: { provider: true },
     });
   }

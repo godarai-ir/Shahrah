@@ -9,7 +9,11 @@ import { MockExchangeRateProvider } from './exchange-rate.provider';
 @Module({
   imports: [DatabaseModule, ConfigModule],
   controllers: [DisplaySettingsController],
-  providers: [DisplaySettingsService, ExchangeRateService, MockExchangeRateProvider],
+  providers: [
+    DisplaySettingsService,
+    ExchangeRateService,
+    MockExchangeRateProvider,
+  ],
   exports: [DisplaySettingsService, ExchangeRateService],
 })
 export class DisplaySettingsModule {}

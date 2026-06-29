@@ -14,6 +14,29 @@ Production-focused Model Catalog backend (no LLM gateway/execution).
 - JS client package: `typesense@3.0.6`
 - `typesense-js` v3 is backward-compatible with Typesense server versions older than v30, including v29.1.
 
+## Typesense read-path rollout
+- `GET /api/v1/models` now prefers Typesense for search, filter, sort, pagination, and count-heavy listing flows.
+- `GET /api/v1/facets` now prefers Typesense facet counts and uses Postgres only for small lookup tables and fallback.
+- Postgres remains the source of truth for:
+  - writes and admin upserts
+  - detail-rich reads such as `GET /api/v1/models/:canonicalId`
+  - compare/detail relations that do not benefit enough from index-only reads
+- If Typesense is unavailable, list and facet endpoints fall back to Postgres. Readiness can still fail in strict environments.
+
+### Required env vars
+- `TYPESENSE_HOST`
+- `TYPESENSE_PORT`
+- `TYPESENSE_PROTOCOL`
+- `TYPESENSE_API_KEY`
+- `TYPESENSE_COLLECTION_MODELS`
+- `TYPESENSE_READS_ENABLED`
+- `TYPESENSE_READY_STRICT`
+
+### Environment expectations
+- `develop`: keep `TYPESENSE_READS_ENABLED=true` and `TYPESENSE_READY_STRICT=true` so local behavior matches higher environments.
+- `stage`: enable the same flags and validate full reindex, incremental reindex, and fallback behavior before promotion.
+- `production`: provision persistent storage, keep Typesense internal-only, enable strict readiness, and make sure the GitOps repo carries the same env values and secret wiring.
+
 ## Run locally
 1. `cp .env.example .env`
 2. `pnpm --filter model-discovery prisma:generate`

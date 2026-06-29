@@ -6,7 +6,6 @@ import {
   Param,
   ParseBoolPipe,
   Post,
-  Query,
   Req,
   Res,
   UploadedFile,
@@ -53,7 +52,10 @@ export class ProvidersController {
   @UseGuards(ServiceAccountGuard, ScopesGuard)
   @Scopes('provider:write')
   @Post('admin/upsert')
-  upsert(@Body() body: UpsertProviderDto, @Req() request: AuthenticatedRequest) {
+  upsert(
+    @Body() body: UpsertProviderDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
     return this.providers.upsert(body, request.user);
   }
 
@@ -61,7 +63,11 @@ export class ProvidersController {
   @UseGuards(ServiceAccountGuard, ScopesGuard)
   @Scopes('provider:write')
   @Post('admin/enabled')
-  setEnabled(@Body('slug') slug: string, @Body('enabled', ParseBoolPipe) enabled: boolean, @Req() request: AuthenticatedRequest) {
+  setEnabled(
+    @Body('slug') slug: string,
+    @Body('enabled', ParseBoolPipe) enabled: boolean,
+    @Req() request: AuthenticatedRequest,
+  ) {
     return this.providers.updateEnabled(slug, enabled, request.user);
   }
 
@@ -69,7 +75,10 @@ export class ProvidersController {
   @UseGuards(ServiceAccountGuard, ScopesGuard)
   @Scopes('provider:write')
   @Post('admin/connection-profile/upsert')
-  upsertConnectionProfile(@Body() body: UpsertProviderConnectionProfileDto, @Req() request: AuthenticatedRequest) {
+  upsertConnectionProfile(
+    @Body() body: UpsertProviderConnectionProfileDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
     return this.providers.upsertConnectionProfile(body, request.user);
   }
 
@@ -110,7 +119,8 @@ export class ProvidersController {
     if (bucket !== 'provider-logos' && bucket !== 'model-series-logos') {
       throw new BadRequestException('invalid bucket');
     }
-    if (fileName.includes('..')) throw new BadRequestException('invalid file name');
+    if (fileName.includes('..'))
+      throw new BadRequestException('invalid file name');
     const base = resolve(process.cwd(), 'uploads', bucket);
     const filePath = resolve(join(base, fileName));
     if (!filePath.startsWith(base) || !existsSync(filePath)) {

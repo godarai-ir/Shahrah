@@ -1,4 +1,9 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { ServicePrincipal } from '../authenticated-request';
 import { SCOPES_KEY } from '../decorators/scopes.decorator';
@@ -13,8 +18,13 @@ export class ScopesGuard implements CanActivate {
       context.getClass(),
     ]);
     if (!required?.length) return true;
-    const request = context.switchToHttp().getRequest<{ user?: ServicePrincipal }>();
-    if (!request.user || !required.every((scope) => request.user!.scopes.includes(scope))) {
+    const request = context
+      .switchToHttp()
+      .getRequest<{ user?: ServicePrincipal }>();
+    if (
+      !request.user ||
+      !required.every((scope) => request.user!.scopes.includes(scope))
+    ) {
       throw new ForbiddenException('Service account lacks the required scope');
     }
     return true;

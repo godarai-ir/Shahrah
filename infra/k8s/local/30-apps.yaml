@@ -84,6 +84,21 @@ spec:
                 secretKeyRef:
                   name: shahrah-secret
                   key: TYPESENSE_API_KEY
+            - name: TYPESENSE_COLLECTION_MODELS
+              valueFrom:
+                configMapKeyRef:
+                  name: shahrah-config
+                  key: TYPESENSE_COLLECTION_MODELS
+            - name: TYPESENSE_READS_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: shahrah-config
+                  key: TYPESENSE_READS_ENABLED
+            - name: TYPESENSE_READY_STRICT
+              valueFrom:
+                configMapKeyRef:
+                  name: shahrah-config
+                  key: TYPESENSE_READY_STRICT
             - name: MASTER_KEY
               valueFrom:
                 secretKeyRef:

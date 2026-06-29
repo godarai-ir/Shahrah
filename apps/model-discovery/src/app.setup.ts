@@ -1,4 +1,8 @@
-import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import { SwaggerModule } from '@nestjs/swagger';
 import { buildOpenAPIDocument } from './openapi';
 
@@ -31,4 +35,3 @@ export function setupSwaggerDocs(app: INestApplication): void {
     yamlDocumentUrl: 'openapi.yaml',
   });
 }
-

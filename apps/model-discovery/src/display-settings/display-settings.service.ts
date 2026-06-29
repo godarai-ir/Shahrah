@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { UpdateDisplaySettingsDto } from './dto/update-display-settings.dto';
-import { DisplaySettings, DisplaySettingsResponse } from './display-settings.types';
+import {
+  DisplaySettings,
+  DisplaySettingsResponse,
+} from './display-settings.types';
 import { ExchangeRateService } from './exchange-rate.service';
 
 const DEFAULT_SETTINGS: DisplaySettings = {
@@ -31,7 +34,9 @@ export class DisplaySettingsService {
     };
   }
 
-  async updateDisplaySettings(dto: UpdateDisplaySettingsDto): Promise<DisplaySettingsResponse> {
+  async updateDisplaySettings(
+    dto: UpdateDisplaySettingsDto,
+  ): Promise<DisplaySettingsResponse> {
     await this.prisma.displaySetting.upsert({
       where: { id: 'default' },
       create: {

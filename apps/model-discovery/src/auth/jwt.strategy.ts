@@ -7,7 +7,8 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(cfg: ConfigService) {
     const secret = cfg.get<string>('JWT_SECRET');
-    if (!secret) throw new Error('JWT_SECRET is required for the legacy JWT strategy');
+    if (!secret)
+      throw new Error('JWT_SECRET is required for the legacy JWT strategy');
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       secretOrKey: secret,

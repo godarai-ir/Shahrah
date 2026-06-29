@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
+import { IndexingModule } from '../indexing/indexing.module';
 import { HealthController } from './health.controller';
 
-@Module({ controllers: [HealthController] })
+@Module({ imports: [IndexingModule], controllers: [HealthController] })
 export class HealthModule {}

@@ -1,7 +1,10 @@
 import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
-import { auditActor, type AuthenticatedRequest } from '../common/authenticated-request';
+import {
+  auditActor,
+  type AuthenticatedRequest,
+} from '../common/authenticated-request';
 import { Scopes } from '../common/decorators/scopes.decorator';
 import { ScopesGuard } from '../common/guards/scopes.guard';
 import { ServiceAccountGuard } from '../common/guards/service-account.guard';
@@ -100,7 +103,10 @@ export class ImportController {
   }
 
   @Post('catalog-json')
-  async importCatalog(@Body() body: unknown, @Req() request: AuthenticatedRequest) {
+  async importCatalog(
+    @Body() body: unknown,
+    @Req() request: AuthenticatedRequest,
+  ) {
     const parsed = importSchema.safeParse(body);
     if (!parsed.success) {
       return {
@@ -169,7 +175,9 @@ export class ImportController {
 
       await this.prisma.$transaction([
         this.prisma.modelPricing.deleteMany({ where: { modelId: model.id } }),
-        this.prisma.modelCapability.deleteMany({ where: { modelId: model.id } }),
+        this.prisma.modelCapability.deleteMany({
+          where: { modelId: model.id },
+        }),
         this.prisma.modelInputModality.deleteMany({
           where: { modelId: model.id },
         }),
@@ -180,7 +188,9 @@ export class ImportController {
           where: { modelId: model.id },
         }),
         this.prisma.modelRegion.deleteMany({ where: { modelId: model.id } }),
-        this.prisma.sourceReference.deleteMany({ where: { modelId: model.id } }),
+        this.prisma.sourceReference.deleteMany({
+          where: { modelId: model.id },
+        }),
       ]);
 
       for (const c of row.capabilities || []) {
@@ -246,8 +256,7 @@ export class ImportController {
               regionId,
               currency: pricing.currency || 'USD',
               inputPricePerMillionTokens: pricing.inputPricePerMillionTokens,
-              outputPricePerMillionTokens:
-                pricing.outputPricePerMillionTokens,
+              outputPricePerMillionTokens: pricing.outputPricePerMillionTokens,
               cachedInputPricePerMillionTokens:
                 pricing.cachedInputPricePerMillionTokens,
               imageInputPrice: pricing.imageInputPrice,

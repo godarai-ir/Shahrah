@@ -16,7 +16,10 @@ export class MockExchangeRateProvider {
     return {
       usdToIrr: 1850000,
       fetchedAt: now,
-      source: this.config.get<string>('EXCHANGE_RATE_API_URL', 'mock://exchange-rate'),
+      source: this.config.get<string>(
+        'EXCHANGE_RATE_API_URL',
+        'mock://exchange-rate',
+      ),
     };
   }
 }

@@ -662,7 +662,10 @@ class ImportModelDto {
   @ApiPropertyOptional({
     oneOf: [
       { $ref: '#/components/schemas/ImportPricingDto' },
-      { type: 'array', items: { $ref: '#/components/schemas/ImportPricingDto' } },
+      {
+        type: 'array',
+        items: { $ref: '#/components/schemas/ImportPricingDto' },
+      },
     ],
   })
   pricing?: ImportPricingDto | ImportPricingDto[];
@@ -698,7 +701,9 @@ class OpenAPIProvidersController {
   }
 
   @Get(':slug')
-  @ApiOperation({ summary: 'Return one enabled provider and its enabled models.' })
+  @ApiOperation({
+    summary: 'Return one enabled provider and its enabled models.',
+  })
   @ApiOkResponse({ type: ProviderDetailResponse })
   detail(@Param('slug') _slug: string) {
     return undefined;
@@ -706,7 +711,9 @@ class OpenAPIProvidersController {
 
   @ApiBearerAuth()
   @Get('admin/list')
-  @ApiOperation({ summary: 'List providers for admin management, including disabled ones.' })
+  @ApiOperation({
+    summary: 'List providers for admin management, including disabled ones.',
+  })
   @ApiOkResponse({ type: [ProviderCatalogEntry] })
   listAllForAdmin() {
     return undefined;
@@ -724,7 +731,13 @@ class OpenAPIProvidersController {
   @ApiBearerAuth()
   @Post('admin/enabled')
   @ApiOperation({ summary: 'Enable or disable a provider.' })
-  @ApiBody({ schema: { type: 'object', required: ['slug', 'enabled'], properties: { slug: { type: 'string' }, enabled: { type: 'boolean' } } } })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['slug', 'enabled'],
+      properties: { slug: { type: 'string' }, enabled: { type: 'boolean' } },
+    },
+  })
   @ApiOkResponse({ type: ProviderCatalogEntry })
   setEnabled() {
     return undefined;
@@ -732,7 +745,9 @@ class OpenAPIProvidersController {
 
   @ApiBearerAuth()
   @Post('admin/connection-profile/upsert')
-  @ApiOperation({ summary: 'Create or update provider connection profile metadata.' })
+  @ApiOperation({
+    summary: 'Create or update provider connection profile metadata.',
+  })
   @ApiBody({ type: UpsertProviderConnectionProfileDto })
   @ApiOkResponse({ type: ProviderCatalogEntry })
   upsertConnectionProfile() {
@@ -763,7 +778,10 @@ class OpenAPIProvidersController {
     description: 'Binary asset response.',
     schema: { type: 'string', format: 'binary' },
   })
-  getAsset(@Param('bucket') _bucket: string, @Param('fileName') _fileName: string) {
+  getAsset(
+    @Param('bucket') _bucket: string,
+    @Param('fileName') _fileName: string,
+  ) {
     return undefined;
   }
 }
@@ -772,19 +790,36 @@ class OpenAPIProvidersController {
 @Controller({ path: 'models', version: '1' })
 class OpenAPICatalogController {
   @Get()
-  @ApiOperation({ summary: 'List catalog models with provider, pricing, and filter metadata.' })
+  @ApiOperation({
+    summary: 'List catalog models with provider, pricing, and filter metadata.',
+  })
   @ApiOkResponse({ type: CatalogListResponse })
   @ApiQuery({ name: 'provider', required: false, type: String })
   @ApiQuery({ name: 'mode', required: false, type: String })
-  @ApiQuery({ name: 'page', required: false, type: Number, schema: { minimum: 1 } })
-  @ApiQuery({ name: 'limit', required: false, type: Number, schema: { minimum: 1, maximum: 100 } })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    schema: { minimum: 1 },
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    schema: { minimum: 1, maximum: 100 },
+  })
   list(@Query() _query: ModelsQueryDto) {
     return undefined;
   }
 
   @Get('compare')
   @ApiOperation({ summary: 'Compare multiple models by canonical id.' })
-  @ApiQuery({ name: 'ids', required: true, type: String, description: 'Comma-separated canonical model ids.' })
+  @ApiQuery({
+    name: 'ids',
+    required: true,
+    type: String,
+    description: 'Comma-separated canonical model ids.',
+  })
   @ApiOkResponse({ type: [CatalogModelDetailResponse] })
   compare(@Query('ids') _ids: string) {
     return undefined;
@@ -824,7 +859,9 @@ class OpenAPICatalogController {
 @Controller({ path: 'admin/models', version: '1' })
 class OpenAPICatalogAdminController {
   @Post('upsert')
-  @ApiOperation({ summary: 'Create or update a model row and optional pricing snapshot.' })
+  @ApiOperation({
+    summary: 'Create or update a model row and optional pricing snapshot.',
+  })
   @ApiBody({ type: UpsertModelDto })
   @ApiOkResponse({ type: AdminModelRecord })
   upsert() {
@@ -902,7 +939,10 @@ class OpenAPIDisplaySettingsController {
 @Controller({ version: '1' })
 class OpenAPIFacetsController {
   @Get('facets')
-  @ApiOperation({ summary: 'Return the aggregated filter option payload used by the catalog UI.' })
+  @ApiOperation({
+    summary:
+      'Return the aggregated filter option payload used by the catalog UI.',
+  })
   @ApiOkResponse({ type: FacetsResponse })
   all() {
     return undefined;

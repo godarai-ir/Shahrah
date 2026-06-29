@@ -17,9 +17,13 @@ export class ServiceAccountGuard implements CanActivate {
   constructor(private readonly prisma: PrismaService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<Request & { user?: ServicePrincipal }>();
+    const request = context
+      .switchToHttp()
+      .getRequest<Request & { user?: ServicePrincipal }>();
     const authorization = request.headers.authorization;
-    const token = authorization?.startsWith('Bearer ') ? authorization.slice(7) : '';
+    const token = authorization?.startsWith('Bearer ')
+      ? authorization.slice(7)
+      : '';
     const match = TOKEN_PATTERN.exec(token);
     if (!match) throw new UnauthorizedException('Invalid service credential');
 
@@ -50,7 +54,10 @@ export class ServiceAccountGuard implements CanActivate {
       ...(requestId ? { requestId } : {}),
     };
 
-    if (!credential.lastUsedAt || now.getTime() - credential.lastUsedAt.getTime() > 300_000) {
+    if (
+      !credential.lastUsedAt ||
+      now.getTime() - credential.lastUsedAt.getTime() > 300_000
+    ) {
       await this.prisma.serviceAccountCredential.update({
         where: { id: credential.id },
         data: { lastUsedAt: now },
@@ -62,11 +69,17 @@ export class ServiceAccountGuard implements CanActivate {
   private secretMatches(secret: string, expectedHex: string): boolean {
     const actual = createHash('sha256').update(secret).digest();
     const expected = Buffer.from(expectedHex, 'hex');
-    return expected.length === actual.length && timingSafeEqual(actual, expected);
+    return (
+      expected.length === actual.length && timingSafeEqual(actual, expected)
+    );
   }
 
-  private validHeader(value: string | string[] | undefined): string | undefined {
+  private validHeader(
+    value: string | string[] | undefined,
+  ): string | undefined {
     const normalized = Array.isArray(value) ? value[0] : value;
-    return normalized && ACTOR_PATTERN.test(normalized) ? normalized : undefined;
+    return normalized && ACTOR_PATTERN.test(normalized)
+      ? normalized
+      : undefined;
   }
 }
