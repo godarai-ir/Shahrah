@@ -14,7 +14,7 @@ const posts = sortPosts(await getCollection("blog", isPublished));
 const featured = posts.filter((post) => post.data.featured).slice(0, 3);
 const latest = (featured.length > 0 ? featured : posts).slice(0, 3);
 const categories = groupPostsByCategory(posts);
-const canonical = (Astro.site || new URL("https://shahrah.ir/blog")).toString();
+const canonical = (Astro.site || new URL("https://godarai.ir/blog")).toString();
 ---
 
 <Layout

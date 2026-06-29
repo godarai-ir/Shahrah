@@ -12,7 +12,7 @@ import {
 
 const posts = sortPosts(await getCollection("blog", isPublished));
 const categories = groupPostsByCategory(posts);
-const site = Astro.site || new URL("https://shahrah.ir/blog");
+const site = Astro.site || new URL("https://godarai.ir/blog");
 const canonical = new URL("/blog", site).toString();
 ---
 

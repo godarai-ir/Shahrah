@@ -32,7 +32,7 @@ const categoryLabel = getCategoryLabelFromSlug(posts, categorySlug);
 const categoryPosts = posts.filter(
   (post) => getCategorySlug(getPostCategory(post)) === categorySlug,
 );
-const site = Astro.site || new URL("https://shahrah.ir/blog");
+const site = Astro.site || new URL("https://godarai.ir/blog");
 const canonical = new URL(getCategoryUrl(categoryLabel), site).toString();
 ---
 

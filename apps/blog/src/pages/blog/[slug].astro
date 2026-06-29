@@ -21,7 +21,7 @@ export async function getStaticPaths() {
 
 const { post } = Astro.props as { post: BlogPost };
 const { Content } = await render(post);
-const site = Astro.site || new URL("https://shahrah.ir/blog");
+const site = Astro.site || new URL("https://godarai.ir/blog");
 const canonical = post.data.canonicalUrl || new URL(getPostUrl(post), site).toString();
 const title = post.data.seoTitle || post.data.title;
 const description = post.data.excerpt || post.data.description;
