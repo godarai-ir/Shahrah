@@ -13,7 +13,7 @@ tags:
   - "Prompt Engineering"
   - "AI Product"
 featured: false
-authorName: "تیم محتوای شاهراه"
+authorName: "تیم محتوای گدارAI"
 authorRole: "تحریریه AI Product Operations"
 authorBio: "تمرکز این مقاله روی prompt management به‌عنوان یک capability محصولی و عملیاتی است، نه صرفاً یک تکنیک مهندسی prompt."
 faqs:

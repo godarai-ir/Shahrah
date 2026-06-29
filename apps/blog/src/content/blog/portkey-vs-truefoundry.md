@@ -9,7 +9,7 @@ category: "Product Strategy"
 readingTime: 8
 updatedDate: 2026-06-28
 slug: "portkey-vs-truefoundry"
-authorName: "تیم محتوای شاهراه"
+authorName: "تیم محتوای گدارAI"
 authorRole: "تحریریه استراتژی محصول"
 authorBio: "این مقایسه با تمرکز بر trade-offهای محصولی، عملیاتی و سازمانی بین ابزارهای تخصصی gateway و پلتفرم‌های یکپارچه LLMOps تدوین شده است."
 faqs:

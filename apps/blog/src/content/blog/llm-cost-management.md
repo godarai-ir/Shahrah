@@ -13,7 +13,7 @@ tags:
   - "FinOps"
   - "AI Infrastructure"
 featured: false
-authorName: "تیم محتوای شاهراه"
+authorName: "تیم محتوای گدارAI"
 authorRole: "تحریریه فنی و FinOps"
 authorBio: "این مطلب با تمرکز بر کنترل هزینه inference و تصمیم‌گیری بهتر برای featureهای AI تدوین شده است."
 readingTime: 6

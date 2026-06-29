@@ -9,7 +9,7 @@ slug: "llm-gateway"
 category: "LLM Gateway"
 featured: true
 readingTime: 7
-authorName: "تیم محتوای شاهراه"
+authorName: "تیم محتوای گدارAI"
 authorRole: "تحریریه محصول و زیرساخت AI"
 authorBio: "این مقاله برای مدیران محصول و رهبران فنی نوشته شده تا بتوانند نقش LLM Gateway را از زاویه هزینه، پایداری و مقیاس‌پذیری بهتر ارزیابی کنند."
 faqs:
