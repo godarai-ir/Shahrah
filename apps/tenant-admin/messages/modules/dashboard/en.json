@@ -7,6 +7,11 @@
     "errorTitle": "Error",
     "successTitle": "Success"
   },
+  "quickStart": {
+    "title": "Quick start guide",
+    "description": "If you are just getting started with Shahrah, this guide walks through connecting a provider, adding models, and calling the gateway from code.",
+    "action": "Open guide"
+  },
   "plan": {
     "currentPlan": "Current plan",
     "daysRemaining": "Days remaining",

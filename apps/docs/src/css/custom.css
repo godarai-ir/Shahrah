@@ -1,3 +1,5 @@
+@import url('https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@5.2.8/index.css');
+
 /**
  * Any CSS included here will be global. The classic template
  * bundles Infima by default. Infima is a CSS framework designed to
@@ -6,14 +8,17 @@
 
 /* You can override the default Infima variables here. */
 :root {
-  --ifm-color-primary: #2e8555;
-  --ifm-color-primary-dark: #29784c;
-  --ifm-color-primary-darker: #277148;
-  --ifm-color-primary-darkest: #205d3b;
-  --ifm-color-primary-light: #33925d;
-  --ifm-color-primary-lighter: #359962;
-  --ifm-color-primary-lightest: #3cad6e;
+  --ifm-color-primary: #0f766e;
+  --ifm-color-primary-dark: #0d6a63;
+  --ifm-color-primary-darker: #0c655e;
+  --ifm-color-primary-darkest: #0a534d;
+  --ifm-color-primary-light: #118278;
+  --ifm-color-primary-lighter: #13877d;
+  --ifm-color-primary-lightest: #16998d;
   --ifm-code-font-size: 95%;
+  --ifm-font-family-base: 'Vazirmatn', 'IRANSansX', 'IRANSans', 'Yekan Bakh', Tahoma, system-ui, sans-serif;
+  --ifm-heading-font-family: 'Vazirmatn', 'IRANSansX', 'IRANSans', 'Yekan Bakh', Tahoma, system-ui, sans-serif;
+  --ifm-font-family-monospace: 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
 }
 
@@ -27,4 +32,226 @@
   --ifm-color-primary-lighter: #32d8b4;
   --ifm-color-primary-lightest: #4fddbf;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}
+
+html {
+  direction: rtl;
+}
+
+body {
+  direction: rtl;
+  text-align: right;
+  font-family: var(--ifm-font-family-base);
+  text-rendering: optimizeLegibility;
+}
+
+.navbar__title,
+.navbar__link,
+.menu__link,
+.pagination-nav__label,
+.table-of-contents__link,
+.footer__title,
+.footer__link-item,
+.markdown {
+  font-family: var(--ifm-font-family-base);
+}
+
+.markdown {
+  direction: rtl;
+  text-align: right;
+  line-height: 2;
+  font-size: 1.05rem;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  letter-spacing: normal;
+  line-height: 1.5;
+}
+
+.markdown ul,
+.markdown ol {
+  padding-inline-start: 1.5rem;
+  padding-inline-end: 0;
+}
+
+.markdown li {
+  text-align: right;
+}
+
+.markdown blockquote {
+  border-inline-start: none;
+  border-inline-end: 4px solid var(--ifm-color-primary);
+  padding-inline-start: 0;
+  padding-inline-end: 1rem;
+}
+
+.markdown table {
+  direction: rtl;
+}
+
+.markdown code,
+.markdown pre,
+.theme-code-block,
+.prism-code {
+  direction: ltr;
+  text-align: left;
+  font-family: var(--ifm-font-family-monospace);
+}
+
+.theme-code-block,
+.theme-code-block pre,
+.theme-code-block code {
+  unicode-bidi: isolate;
+}
+
+.hero,
+.pagination-nav,
+.theme-doc-footer {
+  direction: rtl;
+}
+
+.doc-feedback {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--ifm-toc-border-color);
+}
+
+.doc-feedback__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 1rem;
+  background: var(--ifm-background-surface-color);
+}
+
+.doc-feedback__text {
+  min-width: 0;
+}
+
+.doc-feedback__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.doc-feedback__description {
+  margin: 0.35rem 0 0;
+  color: var(--ifm-color-content-secondary);
+  font-size: 0.95rem;
+}
+
+.doc-feedback__actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.doc-feedback__button {
+  min-width: 5.5rem;
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ifm-font-color-base);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 120ms ease, background-color 120ms ease, border-color 120ms ease;
+}
+
+.doc-feedback__button:hover {
+  transform: translateY(-1px);
+  border-color: var(--ifm-color-primary);
+}
+
+.doc-feedback__button--active {
+  background: var(--ifm-color-primary);
+  border-color: var(--ifm-color-primary);
+  color: var(--ifm-color-primary-contrast-foreground);
+}
+
+.doc-feedback__message {
+  margin: 0.75rem 0 0;
+  color: var(--ifm-color-success-dark);
+  font-size: 0.9rem;
+}
+
+.search-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 4rem 1.5rem 5rem;
+}
+
+.search-page__hero {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.search-page__eyebrow {
+  margin: 0;
+  color: var(--ifm-color-primary);
+  font-weight: 700;
+}
+
+.search-page__hero h1 {
+  margin: 0;
+  font-size: clamp(2.2rem, 6vw, 4rem);
+}
+
+.search-page__hero p {
+  margin: 0;
+  max-width: 48rem;
+  color: var(--ifm-color-content-secondary);
+  line-height: 1.9;
+}
+
+.search-page__input {
+  width: 100%;
+  max-width: 32rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 0.9rem;
+  background: var(--ifm-background-surface-color);
+  color: var(--ifm-font-color-base);
+  font: inherit;
+}
+
+.search-page__results {
+  display: grid;
+  gap: 1rem;
+}
+
+.search-page__card {
+  padding: 1.1rem 1.2rem;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 1rem;
+  background: var(--ifm-background-surface-color);
+}
+
+.search-page__card h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.15rem;
+}
+
+.search-page__card p {
+  margin: 0 0 0.8rem;
+  color: var(--ifm-color-content-secondary);
+  line-height: 1.85;
+}
+
+.search-page__link {
+  font-weight: 700;
+}
+
+.search-page__empty {
+  color: var(--ifm-color-content-secondary);
 }

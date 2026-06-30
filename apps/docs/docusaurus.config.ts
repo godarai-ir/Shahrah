@@ -3,8 +3,8 @@ import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
-  title: 'Shahrah Docs',
-  tagline: 'Documentation for the Shahrah LLM gateway platform',
+  title: 'مستندات گدارAI',
+  tagline: 'مستندات پلتفرم گیت‌وی مدل زبانی گدارAI',
   favicon: 'img/favicon.ico',
   future: {
     v4: true,
@@ -15,8 +15,15 @@ const config: Config = {
   projectName: 'shahrah',
   onBrokenLinks: 'throw',
   i18n: {
-    defaultLocale: 'en',
-    locales: ['en'],
+    defaultLocale: 'fa',
+    locales: ['fa'],
+    localeConfigs: {
+      fa: {
+        direction: 'rtl',
+        htmlLang: 'fa-IR',
+        label: 'فارسی',
+      },
+    },
   },
   presets: [
     [
@@ -40,21 +47,26 @@ const config: Config = {
       respectPrefersColorScheme: true,
     },
     navbar: {
-      title: 'Shahrah',
+      title: 'گدارAI',
       logo: {
-        alt: 'Shahrah Logo',
-        src: 'img/logo.svg',
+        alt: 'لوگوی گدارAI',
+        src: 'img/mini_logo.svg',
       },
       items: [
         {
           type: 'docSidebar',
           sidebarId: 'tutorialSidebar',
           position: 'left',
-          label: 'Documentation',
+          label: 'مستندات',
+        },
+        {
+          to: '/search',
+          position: 'right',
+          label: 'جستجو',
         },
         {
           href: 'https://github.com/Delpak/shahrah',
-          label: 'GitHub',
+          label: 'گیت‌هاب',
           position: 'right',
         },
       ],
@@ -63,38 +75,38 @@ const config: Config = {
       style: 'dark',
       links: [
         {
-          title: 'Docs',
+          title: 'مستندات',
           items: [
             {
-              label: 'Introduction',
+              label: 'شروع',
               to: '/intro',
             },
           ],
         },
         {
-          title: 'Platform',
+          title: 'پلتفرم',
           items: [
             {
-              label: 'Main Site',
-              href: 'https://sharah.ir',
+              label: 'سایت اصلی',
+              href: 'https://godarai.ir',
             },
           ],
         },
         {
-          title: 'More',
+          title: 'لینک‌های کمکی',
           items: [
             {
-              label: 'Blog',
-              href: 'https://sharah.ir/blog',
+              label: 'بلاگ',
+              href: 'https://godarai.ir/blog',
             },
             {
-              label: 'GitHub',
+              label: 'گیت‌هاب',
               href: 'https://github.com/Delpak/shahrah',
             },
           ],
         },
       ],
-      copyright: `Copyright (c) ${new Date().getFullYear()} Shahrah. Built with Docusaurus.`,
+      copyright: 'گدارAI - 1405 - ساخته شده با ❤️',
     },
     prism: {
       theme: prismThemes.github,

@@ -5,6 +5,7 @@ import { type ComponentProps, useCallback, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowUpRight,
+  BookOpen,
   Clock3,
   Crown,
   FlaskConical,
@@ -274,6 +275,26 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
           <AlertDescription>{banner.message}</AlertDescription>
         </Alert>
       ) : null}
+
+      <DashboardPanel className="border-info/30 bg-info/5">
+        <CardHeader className="gap-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <span className="flex size-9 items-center justify-center rounded-xl bg-info/12 text-info">
+              <BookOpen className="size-4" aria-hidden="true" />
+            </span>
+            {t("quickStart.title")}
+          </CardTitle>
+          <CardDescription className="max-w-2xl leading-6">{t("quickStart.description")}</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <Button type="button" variant="outline" asChild>
+            <a href="/docs/quick-start" target="_blank" rel="noreferrer">
+              {t("quickStart.action")}
+              <ArrowUpRight data-icon="inline-end" aria-hidden="true" />
+            </a>
+          </Button>
+        </CardContent>
+      </DashboardPanel>
     </div>
   );
 }

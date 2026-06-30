@@ -9,29 +9,28 @@ export default function Home(): ReactNode {
   return (
     <Layout
       title={siteConfig.title}
-      description="Shahrah platform documentation">
+      description="مستندات پلتفرم گدارAI">
       <main style={{padding: '6rem 1.5rem'}}>
         <div style={{margin: '0 auto', maxWidth: 960}}>
           <p
             style={{
               color: '#0f766e',
               fontWeight: 700,
-              letterSpacing: '0.2em',
-              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
             }}>
-            Shahrah
+            گدارAI
           </p>
           <h1
             style={{
               fontSize: 'clamp(3rem, 7vw, 5rem)',
-              lineHeight: 0.95,
+              lineHeight: 1.1,
               margin: '1rem 0',
             }}>
-            Documentation
+            مستندات محصول
           </h1>
           <p style={{fontSize: '1.125rem', lineHeight: 1.8, maxWidth: 720}}>
-            Docs for the Shahrah control plane, tenant model, billing flows,
-            SDKs, and platform architecture.
+            راهنمای مفاهیم، پنل tenant، مدل‌های مجازی، جریان‌های مالی،
+            قراردادهای مصرف و معماری پلتفرم گدارAI.
           </p>
           <div
             style={{
@@ -41,12 +40,12 @@ export default function Home(): ReactNode {
               flexWrap: 'wrap',
             }}>
             <Link className="button button--primary button--lg" to="/intro">
-              Read the intro
+              شروع مطالعه
             </Link>
             <Link
               className="button button--secondary button--lg"
               href="https://sharah.ir/blog">
-              Visit the blog
+              مشاهده بلاگ
             </Link>
           </div>
         </div>
