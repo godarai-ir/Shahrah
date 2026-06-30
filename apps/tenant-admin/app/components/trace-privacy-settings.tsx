@@ -4,17 +4,16 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Ban,
-  CheckCircle2,
   FileStack,
   LockKeyhole,
   ScanSearch,
   type LucideIcon,
 } from "lucide-react";
 
+import { StatusOptionCard } from "@/app/components/status-option-card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
 
 type TracePrivacySettings = {
   tenant_id?: string;
@@ -32,41 +31,31 @@ const POLICIES: Array<{
   value: TracePrivacySettings["capture_policy"];
   key: "none" | "metadataOnly" | "sampledRedacted" | "fullSecure";
   icon: LucideIcon;
-  accent: string;
-  accentSoft: string;
-  accentText: string;
+  tone: "neutral" | "info" | "warning" | "success";
 }> = [
   {
     value: "none",
     key: "none",
     icon: Ban,
-    accent: "border-slate-400/70",
-    accentSoft: "bg-slate-500/10",
-    accentText: "text-slate-700 dark:text-slate-300",
+    tone: "neutral",
   },
   {
     value: "metadata-only",
     key: "metadataOnly",
     icon: FileStack,
-    accent: "border-sky-500/70",
-    accentSoft: "bg-sky-500/10",
-    accentText: "text-sky-700 dark:text-sky-300",
+    tone: "info",
   },
   {
     value: "sampled-redacted",
     key: "sampledRedacted",
     icon: ScanSearch,
-    accent: "border-amber-500/70",
-    accentSoft: "bg-amber-500/10",
-    accentText: "text-amber-700 dark:text-amber-300",
+    tone: "warning",
   },
   {
     value: "full-secure",
     key: "fullSecure",
     icon: LockKeyhole,
-    accent: "border-emerald-500/70",
-    accentSoft: "bg-emerald-500/10",
-    accentText: "text-emerald-700 dark:text-emerald-300",
+    tone: "success",
   },
 ];
 
@@ -110,7 +99,7 @@ export default function TracePrivacySettingsPanel(props: TracePrivacySettingsPro
       </CardHeader>
       <CardContent className="space-y-4">
         {message ? (
-          <Alert className="border-primary/30 bg-primary/5">
+          <Alert className="surface-primary-soft">
             <AlertDescription>{message}</AlertDescription>
           </Alert>
         ) : null}
@@ -127,50 +116,20 @@ export default function TracePrivacySettingsPanel(props: TracePrivacySettingsPro
           </div>
           <div className="grid gap-3 md:grid-cols-2">
             {POLICIES.map((item) => {
-              const Icon = item.icon;
               const selected = capturePolicy === item.value;
 
               return (
-                <button
+                <StatusOptionCard
                   key={item.value}
-                  type="button"
                   onClick={() => setCapturePolicy(item.value)}
                   disabled={saving}
-                  aria-pressed={selected}
-                  className={cn(
-                    "group rounded-xl border p-4 text-right transition-all",
-                    "hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-70",
-                    selected
-                      ? cn(item.accent, item.accentSoft, "ring-2 ring-primary/20")
-                      : "border-border bg-background hover:border-primary/30 hover:bg-muted/30",
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div
-                      className={cn(
-                        "flex size-10 shrink-0 items-center justify-center rounded-lg border",
-                        selected ? cn(item.accent, item.accentSoft) : "border-border bg-muted/40",
-                      )}
-                    >
-                      <Icon className={cn("size-5", selected ? item.accentText : "text-muted-foreground")} />
-                    </div>
-                    <div className="flex min-w-0 items-center gap-2">
-                      {selected ? <CheckCircle2 className="size-4 text-primary" /> : null}
-                      <span
-                        className={cn(
-                          "rounded-full px-2 py-0.5 text-[11px] font-medium",
-                          selected ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
-                        )}
-                      >
-                        {item.value}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-3 space-y-1">
-                    <p className="text-sm font-semibold text-foreground">{t(`policies.${item.key}.title`)}</p>
-                    <p className="text-xs leading-6 text-muted-foreground">{t(`policies.${item.key}.description`)}</p>
-                  </div>
-                </button>
+                  icon={item.icon}
+                  selected={selected}
+                  badge={item.value}
+                  title={t(`policies.${item.key}.title`)}
+                  description={t(`policies.${item.key}.description`)}
+                  tone={item.tone}
+                />
               );
             })}
           </div>

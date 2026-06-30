@@ -482,10 +482,10 @@ function ProviderCard(props: {
   const formattedAccountCount = new Intl.NumberFormat("fa-IR").format(props.accountCount);
 
   return (
-    <Card className="min-h-[16.5rem] overflow-hidden rounded-xl border-border bg-card text-card-foreground shadow-none transition-colors hover:border-primary/35 dark:border-[#253149] dark:bg-[#111a2d] dark:text-slate-100 dark:hover:border-[#354363]">
+    <Card className="surface-elevated min-h-[16.5rem] overflow-hidden rounded-xl border shadow-none transition-colors hover:border-primary/35">
       <CardContent className="flex h-full flex-col gap-3 !p-4">
         <div className="flex min-w-0 items-start gap-3">
-          <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-border bg-background p-2 shadow-sm dark:border-white/10 dark:bg-white">
+          <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-border bg-background p-2 shadow-sm">
             <ProviderLogo
               provider={props.provider.provider}
               displayName={props.provider.display_name}
@@ -500,29 +500,29 @@ function ProviderCard(props: {
               target="_blank"
               rel="noreferrer"
               aria-label={props.provider.display_name}
-              className="inline-flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+              className="inline-flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               <ExternalLink className="size-3" />
             </a>
           </h2>
         </div>
 
-        <p className="line-clamp-3 min-h-[3.75rem] w-full text-right text-xs leading-5 text-muted-foreground dark:text-slate-300" dir="rtl">
+        <p className="line-clamp-3 min-h-[3.75rem] w-full text-right text-xs leading-5 text-muted-foreground" dir="rtl">
           {description}
         </p>
 
-        <div className="grid min-h-[4.875rem] grid-cols-2 items-center border-y border-border/70 py-2.5 dark:border-white/7">
+        <div className="grid min-h-[4.875rem] grid-cols-2 items-center border-y border-border/70 py-2.5">
           <div className="text-center">
-            <p className="text-xs text-muted-foreground dark:text-slate-300">{props.modelMetricLabel}</p>
+            <p className="text-xs text-muted-foreground">{props.modelMetricLabel}</p>
             <p className="mt-1 text-base font-bold leading-none" dir="rtl">
               {props.modelCount === undefined ? (
-                <span className="inline-block h-5 w-14 animate-pulse rounded bg-muted align-middle dark:bg-white/12" aria-label="loading" />
+                <span className="inline-block h-5 w-14 animate-pulse rounded bg-muted align-middle" aria-label="loading" />
               ) : (
                 <a
                   href={providerModelsHref}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center justify-center gap-1 rounded-sm text-foreground underline-offset-4 hover:text-primary hover:underline dark:text-slate-100 dark:hover:text-indigo-200"
+                  className="inline-flex items-center justify-center gap-1 rounded-sm text-foreground underline-offset-4 hover:text-primary hover:underline"
                 >
                   <bdi>{formattedModelCount}</bdi>{" "}
                   <span>{props.modelUnitLabel}</span>
@@ -531,12 +531,12 @@ function ProviderCard(props: {
             </p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-muted-foreground dark:text-slate-300">{props.connectionMetricLabel}</p>
-            <p className={props.accountCount > 0 ? "mt-1 text-base font-bold leading-none text-emerald-600 dark:text-emerald-300" : "mt-1 text-base font-bold leading-none text-muted-foreground dark:text-slate-500"} dir="rtl">
+            <p className="text-xs text-muted-foreground">{props.connectionMetricLabel}</p>
+            <p className={props.accountCount > 0 ? "mt-1 text-base font-bold leading-none text-[var(--success-soft-foreground)]" : "mt-1 text-base font-bold leading-none text-muted-foreground"} dir="rtl">
               {props.accountCount > 0 ? (
                 `${formattedAccountCount} ${props.activeAccountCountLabel.replace(/[0-9۰-۹٠-٩,٬]+/g, "").trim()}`
               ) : (
-                <span className="inline-flex size-6 items-center justify-center rounded-full border border-border bg-muted/40 text-muted-foreground dark:border-white/10 dark:bg-white/5 dark:text-slate-400" aria-label={props.noConnectionLabel} title={props.noConnectionLabel}>
+                <span className="inline-flex size-6 items-center justify-center rounded-full border border-border bg-muted/40 text-muted-foreground" aria-label={props.noConnectionLabel} title={props.noConnectionLabel}>
                   <Unplug className="size-3.5" />
                 </span>
               )}
@@ -546,7 +546,7 @@ function ProviderCard(props: {
 
         <div className="grid grid-cols-2 gap-2">
           {props.accountCount > 0 ? (
-            <Button type="button" size="sm" asChild className="h-8 rounded-md bg-secondary text-xs font-semibold text-secondary-foreground shadow-none hover:bg-secondary-hover dark:bg-[#273047] dark:text-indigo-100 dark:hover:bg-[#313b57]">
+            <Button type="button" size="sm" asChild className="surface-primary-soft surface-primary-soft-hover h-8 rounded-md border text-xs font-semibold shadow-none">
               <Link href={manageHref} dir="ltr" onClick={() => props.onManageConnections(providerSlug)}>
                 <span className="truncate">{props.manageConnectionsLabel}</span>
                 <UserCog className="size-4" />
@@ -591,7 +591,7 @@ function ConnectedIntegrationCard(props: {
   const workspaceHref = `/provider-accounts?account=${encodeURIComponent(props.account.id)}`;
 
   return (
-    <Card className="min-h-52 overflow-hidden rounded-xl shadow-none">
+    <Card className="surface-elevated min-h-52 overflow-hidden rounded-xl border shadow-none">
       <CardContent className="flex h-full flex-col p-0">
         <div className="flex flex-1 flex-col gap-4 p-4">
           <div className="flex items-start justify-between gap-3">
@@ -641,7 +641,7 @@ function ConnectedIntegrationCard(props: {
             </p>
           </div>
         </div>
-        <div className="flex items-center justify-between gap-3 border-t border-border bg-muted/20 px-4 py-3">
+        <div className="flex items-center justify-between gap-3 border-t border-border/70 bg-muted/20 px-4 py-3">
           <div className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
             <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">I</span>
             <span className="truncate" dir="ltr">{props.account.provider}</span>

@@ -4,17 +4,16 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Ban,
-  CheckCircle2,
   Database,
   Eye,
   FileSearch,
   type LucideIcon,
 } from "lucide-react";
 
+import { StatusOptionCard } from "@/app/components/status-option-card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
 
 type RequestLoggingSettings = {
   tenant_id?: string;
@@ -32,41 +31,31 @@ const MODES: Array<{
   value: RequestLoggingSettings["logging_mode"];
   key: "none" | "metadataOnly" | "redactedContent" | "fullContent";
   icon: LucideIcon;
-  accent: string;
-  accentSoft: string;
-  accentText: string;
+  tone: "neutral" | "info" | "warning" | "success";
 }> = [
   {
     value: "none",
     key: "none",
     icon: Ban,
-    accent: "border-slate-400/70",
-    accentSoft: "bg-slate-500/10",
-    accentText: "text-slate-700 dark:text-slate-300",
+    tone: "neutral",
   },
   {
     value: "metadata-only",
     key: "metadataOnly",
     icon: Database,
-    accent: "border-sky-500/70",
-    accentSoft: "bg-sky-500/10",
-    accentText: "text-sky-700 dark:text-sky-300",
+    tone: "info",
   },
   {
     value: "redacted-content",
     key: "redactedContent",
     icon: FileSearch,
-    accent: "border-amber-500/70",
-    accentSoft: "bg-amber-500/10",
-    accentText: "text-amber-700 dark:text-amber-300",
+    tone: "warning",
   },
   {
     value: "full-content",
     key: "fullContent",
     icon: Eye,
-    accent: "border-emerald-500/70",
-    accentSoft: "bg-emerald-500/10",
-    accentText: "text-emerald-700 dark:text-emerald-300",
+    tone: "success",
   },
 ];
 
@@ -109,7 +98,7 @@ export default function RequestLoggingSettingsPanel(props: RequestLoggingSetting
       </CardHeader>
       <CardContent className="space-y-4">
         {message ? (
-          <Alert className="border-primary/30 bg-primary/5">
+          <Alert className="surface-primary-soft">
             <AlertDescription>{message}</AlertDescription>
           </Alert>
         ) : null}
@@ -127,50 +116,20 @@ export default function RequestLoggingSettingsPanel(props: RequestLoggingSetting
           </div>
           <div className="grid gap-3 md:grid-cols-2">
             {MODES.map((item) => {
-              const Icon = item.icon;
               const selected = loggingMode === item.value;
 
               return (
-                <button
+                <StatusOptionCard
                   key={item.value}
-                  type="button"
                   onClick={() => setLoggingMode(item.value)}
                   disabled={saving}
-                  aria-pressed={selected}
-                  className={cn(
-                    "group rounded-xl border p-4 text-right transition-all",
-                    "hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-70",
-                    selected
-                      ? cn(item.accent, item.accentSoft, "ring-2 ring-primary/20")
-                      : "border-border bg-background hover:border-primary/30 hover:bg-muted/30",
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div
-                      className={cn(
-                        "flex size-10 shrink-0 items-center justify-center rounded-lg border",
-                        selected ? cn(item.accent, item.accentSoft) : "border-border bg-muted/40",
-                      )}
-                    >
-                      <Icon className={cn("size-5", selected ? item.accentText : "text-muted-foreground")} />
-                    </div>
-                    <div className="flex min-w-0 items-center gap-2">
-                      {selected ? <CheckCircle2 className="size-4 text-primary" /> : null}
-                      <span
-                        className={cn(
-                          "rounded-full px-2 py-0.5 text-[11px] font-medium",
-                          selected ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
-                        )}
-                      >
-                        {item.value}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-3 space-y-1">
-                    <p className="text-sm font-semibold text-foreground">{t(`modes.${item.key}.title`)}</p>
-                    <p className="text-xs leading-6 text-muted-foreground">{t(`modes.${item.key}.description`)}</p>
-                  </div>
-                </button>
+                  icon={item.icon}
+                  selected={selected}
+                  badge={item.value}
+                  title={t(`modes.${item.key}.title`)}
+                  description={t(`modes.${item.key}.description`)}
+                  tone={item.tone}
+                />
               );
             })}
           </div>

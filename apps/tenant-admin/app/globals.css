@@ -235,3 +235,49 @@ body {
 .animate-pulse {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+.surface-elevated {
+  background: var(--surface-elevated);
+  color: var(--surface-elevated-foreground);
+  border-color: var(--surface-elevated-border);
+}
+
+.surface-demo {
+  background: var(--surface-demo);
+  color: var(--surface-demo-foreground);
+  border-color: var(--surface-demo-border);
+}
+
+.surface-primary-soft {
+  background: var(--primary-soft);
+  color: var(--primary-soft-foreground);
+  border-color: var(--primary-subtle-border);
+}
+
+.surface-primary-soft-hover:hover {
+  background: var(--primary-soft-hover);
+}
+
+.tone-neutral {
+  background: var(--neutral-soft);
+  color: var(--neutral-soft-foreground);
+  border-color: var(--neutral-soft-border);
+}
+
+.tone-info {
+  background: var(--info-soft);
+  color: var(--info-soft-foreground);
+  border-color: var(--info-soft-border);
+}
+
+.tone-warning {
+  background: var(--warning-soft);
+  color: var(--warning-soft-foreground);
+  border-color: var(--warning-soft-border);
+}
+
+.tone-success {
+  background: var(--success-soft);
+  color: var(--success-soft-foreground);
+  border-color: var(--success-soft-border);
+}
