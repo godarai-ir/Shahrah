@@ -68,7 +68,7 @@ export function PrincipalPicker(props: {
   }
 
   return (
-    <div className="flex min-h-full flex-col gap-4 rounded-lg border border-border/70 bg-card p-4">
+    <div className="flex min-h-full flex-col gap-4 rounded-2xl bg-background/85 px-4 py-4 ring-1 ring-border/35">
       <div className="flex items-start justify-between gap-3">
         <h4 className="text-base font-semibold">{props.title}</h4>
         <Badge variant="secondary" className="shrink-0">
@@ -104,7 +104,7 @@ export function PrincipalPicker(props: {
           <button
             key={`${item.type}-${item.principal_id ?? "everyone"}`}
             type="button"
-            className="inline-flex max-w-full items-center gap-2 rounded-full border bg-background px-3 py-1.5 text-xs transition hover:border-destructive/40 hover:bg-destructive/5"
+            className="inline-flex max-w-full items-center gap-2 rounded-full bg-background px-3 py-1.5 text-xs ring-1 ring-border/35 transition hover:bg-destructive/5 hover:ring-destructive/30"
             onClick={() => {
               if (props.disabled) return;
               removePrincipal(item);

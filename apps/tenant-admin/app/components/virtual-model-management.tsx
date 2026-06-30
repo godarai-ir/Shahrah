@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowDown, ArrowUp, CheckCircle2, Loader2, Plus, RefreshCw, Save, Search, Trash2, XCircle } from "lucide-react";
+import { ArrowDown, ArrowUp, BookOpen, CheckCircle2, Copy, Edit3, Loader2, Plus, RefreshCw, Save, Search, Trash2, XCircle } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -11,12 +11,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ModelEntitySelect, type ModelSelection } from "@/app/components/model-entity-select";
 import { PrincipalPicker, type PrincipalPickerItem } from "@/app/components/principal-picker";
 import { type PrincipalSearchKind } from "@/app/components/principal-search-input";
+import { requestJSON } from "@/app/components/provider-account-wizard/utils";
 import { buildPrincipalSelectorLabels } from "@/app/components/provider-account-wizard/principal-labels";
 import { cn } from "@/lib/utils";
 
@@ -42,7 +44,10 @@ type VirtualModel = {
   enabled: boolean;
   exposed_modes?: string[];
   version: number;
+  created_at?: string;
   updated_at?: string;
+  created_by?: string;
+  updated_by?: string;
   targets: VirtualModelTarget[];
   access?: {
     managers?: PrincipalPickerItem[];
@@ -78,6 +83,8 @@ type FormState = {
 };
 type AccessPrincipalCandidate = { principal_id: string; display_name: string; secondary?: string; type?: PrincipalSearchKind };
 type AccessPrincipalResponse = { data?: AccessPrincipalCandidate[] };
+type TenantAdminUserLookup = { id: string; email?: string; mobile?: string; display_name?: string };
+type TenantAdminUserLookupResponse = { data?: TenantAdminUserLookup[]; total?: number };
 
 type Notice = { kind: "success" | "error"; message: string } | null;
 type StatusCodeChipsInputProps = {
@@ -98,7 +105,7 @@ const DEFAULT_TARGET: VirtualModelTarget = {
     retry: {
       attempts: 2,
       delay_ms: 100,
-      status_codes: [429, 500, 502, 503],
+      status_codes: [408, 425, 429, 500, 502, 503, 504],
     },
     fallback: {
       status_codes: [429, 500, 502, 503, 504],
@@ -145,16 +152,19 @@ export default function VirtualModelManagement() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [actingID, setActingID] = useState<string>("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [notice, setNotice] = useState<Notice>(null);
 
   const [items, setItems] = useState<VirtualModel[]>([]);
+  const [userLabelByID, setUserLabelByID] = useState<Record<string, string>>({});
   const [providerAllowedModels, setProviderAllowedModels] = useState<ModelSelection[]>([]);
   const [providerModelModes, setProviderModelModes] = useState<Record<string, string[]>>({});
   const [selectedID, setSelectedID] = useState<string>("");
   const [form, setForm] = useState<FormState>(() => makeDefaultForm(defaultEveryoneLabel));
   const [savedHash, setSavedHash] = useState(() => JSON.stringify(makeDefaultForm(defaultEveryoneLabel)));
+  const [editorOpen, setEditorOpen] = useState(false);
 
   const isCreate = !form.id;
   const dirty = useMemo(() => JSON.stringify(form) !== savedHash, [form, savedHash]);
@@ -176,6 +186,10 @@ export default function VirtualModelManagement() {
   }, []);
 
   useEffect(() => {
+    void loadUserLabels(items);
+  }, [items]);
+
+  useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
       if (!dirty) return;
       event.preventDefault();
@@ -193,7 +207,7 @@ export default function VirtualModelManagement() {
 
   const principalSelectorLabels = buildPrincipalSelectorLabels(principalT, principalUx);
 
-  async function loadList(options?: { skipDirtyConfirmOnAutoload?: boolean }) {
+  async function loadList() {
     setIsLoading(true);
     setNotice(null);
     try {
@@ -202,9 +216,6 @@ export default function VirtualModelManagement() {
       if (!res.ok) throw new Error(readError(data, t("messages.listLoadError")));
       const rows = data.data ?? [];
       setItems(rows);
-      if (!selectedID && rows.length > 0) {
-        await loadDetail(rows[0].id, { skipDirtyConfirm: options?.skipDirtyConfirmOnAutoload });
-      }
     } catch (error) {
       setNotice({ kind: "error", message: normalizeError(error, t("messages.listLoadError")) });
     } finally {
@@ -236,6 +247,7 @@ export default function VirtualModelManagement() {
       setSelectedID(id);
       setForm(mapped);
       setSavedHash(JSON.stringify(mapped));
+      setEditorOpen(true);
     } catch (error) {
       setNotice({ kind: "error", message: normalizeError(error, t("messages.detailLoadError")) });
     } finally {
@@ -302,6 +314,23 @@ export default function VirtualModelManagement() {
     setForm(next);
     setSavedHash(JSON.stringify(next));
     setNotice(null);
+    setEditorOpen(true);
+  }
+
+  function closeEditor() {
+    if (dirty) {
+      const confirmed = window.confirm(t("messages.unsavedConfirm"));
+      if (!confirmed) return;
+    }
+    setEditorOpen(false);
+  }
+
+  function handleEditorOpenChange(open: boolean) {
+    if (open) {
+      setEditorOpen(true);
+      return;
+    }
+    closeEditor();
   }
 
   function updateTarget(index: number, patch: Partial<VirtualModelTarget>) {
@@ -412,7 +441,7 @@ export default function VirtualModelManagement() {
       // The current form has just been persisted; prevent unsaved confirmation
       // while hydrating the latest server state back into the form.
       setSavedHash(JSON.stringify(form));
-      await loadList({ skipDirtyConfirmOnAutoload: true });
+      await loadList();
       if (nextID) await loadDetail(nextID, { skipDirtyConfirm: true });
     } catch (error) {
       setNotice({ kind: "error", message: normalizeError(error, isCreate ? t("messages.createError") : t("messages.updateError")) });
@@ -432,6 +461,28 @@ export default function VirtualModelManagement() {
     return payload.data ?? [];
   }
 
+  async function loadUserLabels(rows: VirtualModel[]) {
+    const userIDs = [...new Set(rows.map((item) => (item.created_by ?? "").trim()).filter(Boolean))];
+    if (userIDs.length === 0) {
+      setUserLabelByID({});
+      return;
+    }
+    try {
+      const payload = await requestJSON<TenantAdminUserLookupResponse>("/api/gateway/lookups/users");
+      const users = payload.data ?? [];
+      setUserLabelByID(
+        Object.fromEntries(
+          userIDs.map((userID) => {
+            const match = users.find((item) => item.id === userID);
+            return [userID, resolveUserLabel(match, userID)];
+          }),
+        ),
+      );
+    } catch {
+      setUserLabelByID(Object.fromEntries(userIDs.map((userID) => [userID, userID])));
+    }
+  }
+
   async function deleteCurrent() {
     if (!form.id) return;
 
@@ -448,7 +499,8 @@ export default function VirtualModelManagement() {
       setSavedHash(JSON.stringify(next));
       setNotice({ kind: "success", message: t("messages.deleteSuccess") });
       setDeleteDialogOpen(false);
-      await loadList({ skipDirtyConfirmOnAutoload: true });
+      setEditorOpen(false);
+      await loadList();
     } catch (error) {
       setNotice({ kind: "error", message: normalizeError(error, t("messages.deleteError")) });
     } finally {
@@ -456,13 +508,61 @@ export default function VirtualModelManagement() {
     }
   }
 
+  async function duplicateItem(item: VirtualModel) {
+    setActingID(item.id);
+    setNotice(null);
+    try {
+      const detailRes = await fetch(`/api/virtual-models/${encodeURIComponent(item.id)}`, { cache: "no-store" });
+      const detail = (await detailRes.json().catch(() => ({}))) as VMDetail;
+      if (!detailRes.ok) throw new Error(readError(detail, t("messages.detailLoadError")));
+
+      const existingAliases = new Set(items.map((entry) => entry.alias.toLowerCase()));
+      const nextAlias = createCopyAlias(item.alias, existingAliases);
+      const payload = {
+        alias: nextAlias,
+        routing_strategy: detail.routing_strategy === "weighted" ? "weighted" : "priority",
+        enabled: detail.enabled,
+        exposed_modes: normalizeModeList(detail.exposed_modes),
+        targets: normalizeTargets(detail.targets).map((target, index) => ({
+          ...target,
+          id: undefined,
+          order: index + 1,
+        })),
+        access: normalizeAccess(detail.access, defaultEveryoneLabel),
+      };
+
+      const createRes = await fetch("/api/virtual-models", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const created = (await createRes.json().catch(() => ({}))) as Partial<VirtualModel>;
+      if (!createRes.ok) throw new Error(readError(created, t("messages.copyError")));
+
+      setNotice({ kind: "success", message: t("messages.copySuccess", { alias: nextAlias }) });
+      await loadList();
+    } catch (error) {
+      setNotice({ kind: "error", message: normalizeError(error, t("messages.copyError")) });
+    } finally {
+      setActingID("");
+    }
+  }
+
   return (
-    <div className="grid gap-4 lg:grid-cols-[1.05fr_1.6fr]">
+    <>
       <Card className="overflow-hidden">
         <CardHeader className="space-y-3">
-          <div>
-            <CardTitle>{t("title")}</CardTitle>
-            <CardDescription>{t("description")}</CardDescription>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle>{t("title")}</CardTitle>
+              <CardDescription>{t("description")}</CardDescription>
+            </div>
+            <Button type="button" variant="outline" size="sm" asChild>
+              <a href="/docs/virtual-model" target="_blank" rel="noreferrer">
+                <BookOpen className="h-4 w-4" />
+                {t("actions.guide")}
+              </a>
+            </Button>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <div className="relative flex-1">
@@ -505,23 +605,69 @@ export default function VirtualModelManagement() {
                     <TableHead>{t("list.alias")}</TableHead>
                     <TableHead>{t("list.strategy")}</TableHead>
                     <TableHead>{t("list.targets")}</TableHead>
+                    <TableHead>{t("list.createdAt")}</TableHead>
+                    <TableHead>{t("list.updatedAt")}</TableHead>
+                    <TableHead>{t("list.createdBy")}</TableHead>
                     <TableHead>{t("list.status")}</TableHead>
+                    <TableHead className="w-[1%] whitespace-nowrap text-left">{t("list.actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.map((item) => (
                     <TableRow
                       key={item.id}
-                      className={cn("cursor-pointer", selectedID === item.id && "bg-muted/60")}
-                      onClick={() => void loadDetail(item.id)}
+                      className={cn(selectedID === item.id && "bg-muted/60")}
                     >
                       <TableCell className="font-medium">{item.alias}</TableCell>
-                      <TableCell className="capitalize">{item.routing_strategy}</TableCell>
+                      <TableCell>{formatStrategyLabel(item.routing_strategy, t)}</TableCell>
                       <TableCell>{item.targets?.length ?? 0}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{formatDate(item.created_at)}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{formatDate(item.updated_at)}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{userLabelByID[item.created_by ?? ""] || item.created_by || "-"}</TableCell>
                       <TableCell>
                         <Badge variant={item.enabled ? "default" : "secondary"}>
                           {item.enabled ? t("status.enabled") : t("status.disabled")}
                         </Badge>
+                      </TableCell>
+                      <TableCell onClick={(event) => event.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            title={t("actions.copy")}
+                            aria-label={t("actions.copy")}
+                            onClick={() => void duplicateItem(item)}
+                            disabled={actingID === item.id || isLoading}
+                          >
+                            {actingID === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            title={t("actions.edit")}
+                            aria-label={t("actions.edit")}
+                            onClick={() => void loadDetail(item.id)}
+                            disabled={actingID === item.id}
+                          >
+                            <Edit3 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            title={t("actions.delete")}
+                            aria-label={t("actions.delete")}
+                            onClick={async () => {
+                              await loadDetail(item.id, { skipDirtyConfirm: true });
+                              setDeleteDialogOpen(true);
+                            }}
+                            disabled={actingID === item.id}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -532,387 +678,418 @@ export default function VirtualModelManagement() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{isCreate ? t("form.createTitle") : t("form.editTitle")}</CardTitle>
-          <CardDescription>{isCreate ? t("form.createDescription") : t("form.editDescription")}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {notice ? (
-            <Alert variant={notice.kind === "error" ? "destructive" : "default"}>
-              {notice.kind === "error" ? <XCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-              <AlertTitle>{notice.kind === "error" ? t("alerts.error") : t("alerts.success")}</AlertTitle>
-              <AlertDescription>{notice.message}</AlertDescription>
-            </Alert>
-          ) : null}
+      <Sheet open={editorOpen} onOpenChange={handleEditorOpenChange}>
+        <SheetContent side="right" className="flex h-full w-[96vw] max-w-3xl flex-col gap-0 p-0 sm:max-w-2xl">
+          <SheetHeader className="border-b px-6 py-5 text-right">
+            <SheetTitle>{isCreate ? t("form.createTitle") : t("form.editTitle")}</SheetTitle>
+            <SheetDescription>{isCreate ? t("form.createDescription") : t("form.editDescription")}</SheetDescription>
+          </SheetHeader>
 
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="vm-alias">{t("form.alias")}</Label>
-              <Input
-                id="vm-alias"
-                value={form.alias}
-                onChange={(event) => setForm((prev) => ({ ...prev, alias: event.target.value }))}
-                placeholder={t("form.aliasPlaceholder")}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="vm-strategy">{t("form.strategy")}</Label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={form.routing_strategy === "priority" ? "default" : "outline"}
-                  className="flex-1"
-                  onClick={() => changeRoutingStrategy("priority")}
-                >
-                  {t("form.priorityValue")}
-                </Button>
-                <Button
-                  type="button"
-                  variant={form.routing_strategy === "weighted" ? "default" : "outline"}
-                  className="flex-1"
-                  onClick={() => changeRoutingStrategy("weighted")}
-                >
-                  {t("form.weightedValue")}
-                </Button>
-              </div>
-            </div>
-          </div>
+          <div className="flex-1 overflow-y-auto">
+            <div className="flex flex-col gap-4 px-6 py-5">
+              {notice ? (
+                <Alert variant={notice.kind === "error" ? "destructive" : "default"}>
+                  {notice.kind === "error" ? <XCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                  <AlertTitle>{notice.kind === "error" ? t("alerts.error") : t("alerts.success")}</AlertTitle>
+                  <AlertDescription>{notice.message}</AlertDescription>
+                </Alert>
+              ) : null}
 
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <div>
-              <Label htmlFor="vm-enabled" className="text-sm font-medium">
-                {t("form.enabledLabel")}
-              </Label>
-              <p className="text-xs text-muted-foreground">{t("form.enabledHelp")}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">{form.enabled ? t("status.enabled") : t("status.disabled")}</span>
-              <Switch
-                id="vm-enabled"
-                checked={form.enabled}
-                onCheckedChange={(checked) => setForm((prev) => ({ ...prev, enabled: checked }))}
-                aria-label={t("form.enabledLabel")}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-3 rounded-lg border p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">{t("targets.title")}</p>
-                <p className="text-xs text-muted-foreground">{t("targets.description")}</p>
-              </div>
-              <Button type="button" variant="outline" size="sm" onClick={addTarget}>
-                <Plus className="h-4 w-4" />
-                {t("targets.add")}
-              </Button>
-            </div>
-
-            {form.targets.map((target, index) => (
-              <div key={`${target.id ?? "new"}-${index}`} className="space-y-3 rounded-lg border p-3">
-                <div className="flex items-center justify-between">
-                  <Badge variant="secondary">{t("targets.itemLabel", { order: target.order })}</Badge>
-                  <div className="flex items-center gap-1">
-                    <Button type="button" variant="ghost" size="icon" onClick={() => moveTarget(index, -1)} disabled={index === 0}>
-                      <ArrowUp className="h-4 w-4" />
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="vm-alias">{t("form.alias")}</Label>
+                  <Input
+                    id="vm-alias"
+                    value={form.alias}
+                    onChange={(event) => setForm((prev) => ({ ...prev, alias: event.target.value }))}
+                    placeholder={t("form.aliasPlaceholder")}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="vm-strategy">{t("form.strategy")}</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant={form.routing_strategy === "priority" ? "default" : "outline"}
+                      className="flex-1"
+                      onClick={() => changeRoutingStrategy("priority")}
+                    >
+                      {t("form.priorityValue")}
                     </Button>
                     <Button
                       type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => moveTarget(index, 1)}
-                      disabled={index === form.targets.length - 1}
+                      variant={form.routing_strategy === "weighted" ? "default" : "outline"}
+                      className="flex-1"
+                      onClick={() => changeRoutingStrategy("weighted")}
                     >
-                      <ArrowDown className="h-4 w-4" />
-                    </Button>
-                    <Button type="button" variant="ghost" size="icon" onClick={() => removeTarget(index)} disabled={form.targets.length <= 1}>
-                      <XCircle className="h-4 w-4" />
+                      {t("form.weightedValue")}
                     </Button>
                   </div>
                 </div>
+              </div>
 
-                {form.routing_strategy === "weighted" ? (
-                  <div className="space-y-1.5">
-                    <Label htmlFor={`vm-target-${index}-weight`}>{t("targets.weight")}</Label>
-                    <Input
-                      id={`vm-target-${index}-weight`}
-                      type="number"
-                      min={1}
-                      max={100}
-                      step="0.01"
-                      value={target.weight ?? 0}
-                      onChange={(event) =>
-                        updateTarget(index, {
-                          weight: Number(event.target.value),
-                        })
-                      }
-                    />
-                  </div>
-                ) : null}
-
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label>{t("targets.provider")}</Label>
-                    <ModelEntitySelect
-                      id={`vm-target-${index}-provider-model`}
-                      selected={
-                        providerAllowedModels.find(
-                          (item) => sameModelFQN(item.name, target.model) && item.secondary?.startsWith(`${target.provider}/`),
-                        ) ?? null
-                      }
-                      onSelectedChange={(value) => {
-                        if (!value) return;
-                        const provider = value.secondary?.split("/")[0] ?? "";
-                        updateTarget(index, { provider, model: value.name });
-                      }}
-                      providerAllowedModels={providerAllowedModels}
-                      virtualModels={[]}
-                      showVirtualModels={false}
-                      labels={{
-                        triggerPlaceholder: t("targets.model"),
-                        searchPlaceholder: t("searchPlaceholder"),
-                        providerAllowed: t("targets.provider"),
-                        virtualModels: t("title"),
-                        loading: "",
-                        empty: t("empty.description"),
-                      }}
-                    />
-                  </div>
+              <div className="flex items-center justify-between rounded-2xl bg-muted/35 px-4 py-3">
+                <div>
+                  <Label htmlFor="vm-enabled" className="text-sm font-medium">
+                    {t("form.enabledLabel")}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">{t("form.enabledHelp")}</p>
                 </div>
-
-                <div className="grid gap-3 md:grid-cols-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor={`vm-target-${index}-retry-attempts`}>{t("targets.retryAttempts")}</Label>
-                    <Input
-                      id={`vm-target-${index}-retry-attempts`}
-                      type="number"
-                      min={0}
-                      max={5}
-                      value={target.policy.retry.attempts}
-                      onChange={(event) =>
-                        updateTarget(index, {
-                          policy: {
-                            ...target.policy,
-                            retry: {
-                              ...target.policy.retry,
-                              attempts: Number(event.target.value),
-                            },
-                          },
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor={`vm-target-${index}-retry-delay`}>{t("targets.retryDelay")}</Label>
-                    <Input
-                      id={`vm-target-${index}-retry-delay`}
-                      type="number"
-                      min={0}
-                      max={10000}
-                      value={target.policy.retry.delay_ms}
-                      onChange={(event) =>
-                        updateTarget(index, {
-                          policy: {
-                            ...target.policy,
-                            retry: {
-                              ...target.policy.retry,
-                              delay_ms: Number(event.target.value),
-                            },
-                          },
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor={`vm-target-${index}-timeout`}>{t("targets.timeout")}</Label>
-                    <Input
-                      id={`vm-target-${index}-timeout`}
-                      type="number"
-                      min={1}
-                      value={target.policy.timeout_sec ?? 60}
-                      onChange={(event) =>
-                        updateTarget(index, {
-                          policy: {
-                            ...target.policy,
-                            timeout_sec: Number(event.target.value),
-                          },
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor={`vm-target-${index}-retry-codes`}>{t("targets.retryCodes")}</Label>
-                    <StatusCodeChipsInput
-                      id={`vm-target-${index}-retry-codes`}
-                      value={target.policy.retry.status_codes ?? []}
-                      onChange={(next) =>
-                        updateTarget(index, {
-                          policy: {
-                            ...target.policy,
-                            retry: {
-                              ...target.policy.retry,
-                              status_codes: next,
-                            },
-                          },
-                        })
-                      }
-                      placeholder="429, 500, 502, 503"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor={`vm-target-${index}-fallback-codes`}>{t("targets.fallbackCodes")}</Label>
-                    <StatusCodeChipsInput
-                      id={`vm-target-${index}-fallback-codes`}
-                      value={target.policy.fallback.status_codes ?? []}
-                      onChange={(next) =>
-                        updateTarget(index, {
-                          policy: {
-                            ...target.policy,
-                            fallback: {
-                              ...target.policy.fallback,
-                              status_codes: next,
-                            },
-                          },
-                        })
-                      }
-                      placeholder="429, 500, 502, 503, 504"
-                    />
-                  </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">{form.enabled ? t("status.enabled") : t("status.disabled")}</span>
+                  <Switch
+                    id="vm-enabled"
+                    checked={form.enabled}
+                    onCheckedChange={(checked) => setForm((prev) => ({ ...prev, enabled: checked }))}
+                    aria-label={t("form.enabledLabel")}
+                  />
                 </div>
               </div>
-            ))}
 
-            {form.routing_strategy === "weighted" ? (
-              <div className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
-                {t("targets.weightTotal", { total: totalWeight })}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="flex flex-col gap-3 rounded-lg border p-3">
-            <div>
-              <p className="text-sm font-medium">{t("modes.title")}</p>
-              <p className="text-xs text-muted-foreground">{t("modes.description")}</p>
-            </div>
-            {modeSummary.ready && modeSummary.intersection.length === 0 ? (
-              <Alert variant="destructive">
-                <XCircle className="h-4 w-4" />
-                <AlertTitle>{t("modes.noCommonTitle")}</AlertTitle>
-                <AlertDescription>{t("modes.noCommonDescription")}</AlertDescription>
-              </Alert>
-            ) : modeSummary.ready ? (
-              <div className="flex flex-col gap-3">
-                <div className="flex flex-wrap gap-2">
-                  {modeSummary.intersection.map((mode) => {
-                    const selected = effectiveExposedModes.includes(mode);
-                    return (
-                      <Button
-                        key={mode}
-                        type="button"
-                        variant={selected ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => {
-                          setForm((prev) => {
-                            const current = normalizeModeList(prev.exposed_modes).length === 0 ? modeSummary.intersection : normalizeModeList(prev.exposed_modes);
-                            const next = current.includes(mode) ? current.filter((item) => item !== mode) : [...current, mode];
-                            return { ...prev, exposed_modes: next.length > 0 ? next : current };
-                          });
-                        }}
-                      >
-                        {mode}
-                      </Button>
-                    );
-                  })}
+              <div className="flex flex-col gap-4 rounded-2xl bg-muted/20 px-4 py-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">{t("targets.title")}</p>
+                    <p className="text-xs text-muted-foreground">{t("targets.description")}</p>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={addTarget}>
+                    <Plus className="h-4 w-4" />
+                    {t("targets.add")}
+                  </Button>
                 </div>
-                <div className="flex flex-col gap-2">
-                  {effectiveExposedModes.map((mode) => (
-                    <div key={mode} className="flex flex-wrap items-center gap-2 text-xs">
-                      <Badge variant="secondary">{mode}</Badge>
-                      <span className="text-muted-foreground">{MODE_ENDPOINTS[mode] ?? t("modes.endpointUnknown")}</span>
+
+                {form.targets.map((target, index) => (
+                  <div
+                    key={`${target.id ?? "new"}-${index}`}
+                    className="flex flex-col gap-3 rounded-2xl bg-background/90 px-4 py-4 shadow-sm ring-1 ring-border/40"
+                  >
+                    <div className="flex items-center justify-between">
+                      <Badge variant="secondary">{t("targets.itemLabel", { order: target.order })}</Badge>
+                      <div className="flex items-center gap-1">
+                        <Button type="button" variant="ghost" size="icon" onClick={() => moveTarget(index, -1)} disabled={index === 0}>
+                          <ArrowUp className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => moveTarget(index, 1)}
+                          disabled={index === form.targets.length - 1}
+                        >
+                          <ArrowDown className="h-4 w-4" />
+                        </Button>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => removeTarget(index)} disabled={form.targets.length <= 1}>
+                          <XCircle className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {form.routing_strategy === "weighted" ? (
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`vm-target-${index}-weight`}>{t("targets.weight")}</Label>
+                        <Input
+                          id={`vm-target-${index}-weight`}
+                          type="number"
+                          min={1}
+                          max={100}
+                          step="0.01"
+                          value={target.weight ?? 0}
+                          onChange={(event) =>
+                            updateTarget(index, {
+                              weight: Number(event.target.value),
+                            })
+                          }
+                        />
+                      </div>
+                    ) : null}
+
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label>{t("targets.provider")}</Label>
+                        <ModelEntitySelect
+                          id={`vm-target-${index}-provider-model`}
+                          selected={
+                            providerAllowedModels.find(
+                              (item) => sameModelFQN(item.name, target.model) && item.secondary?.startsWith(`${target.provider}/`),
+                            ) ?? null
+                          }
+                          onSelectedChange={(value) => {
+                            if (!value) return;
+                            const provider = value.secondary?.split("/")[0] ?? "";
+                            updateTarget(index, { provider, model: value.name });
+                          }}
+                          providerAllowedModels={providerAllowedModels}
+                          virtualModels={[]}
+                          showVirtualModels={false}
+                          labels={{
+                            triggerPlaceholder: t("targets.model"),
+                            searchPlaceholder: t("searchPlaceholder"),
+                            providerAllowed: t("targets.provider"),
+                            virtualModels: t("title"),
+                            loading: "",
+                            empty: t("empty.description"),
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`vm-target-${index}-retry-attempts`}>{t("targets.retryAttempts")}</Label>
+                        <Input
+                          id={`vm-target-${index}-retry-attempts`}
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          max={10}
+                          value={target.policy.retry.attempts}
+                          onChange={(event) =>
+                            updateTarget(index, {
+                              policy: {
+                                ...target.policy,
+                                retry: {
+                                  ...target.policy.retry,
+                                  attempts: Number(event.target.value),
+                                },
+                              },
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`vm-target-${index}-retry-delay`}>{t("targets.retryDelay")}</Label>
+                        <Input
+                          id={`vm-target-${index}-retry-delay`}
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          max={10000}
+                          value={target.policy.retry.delay_ms}
+                          onChange={(event) =>
+                            updateTarget(index, {
+                              policy: {
+                                ...target.policy,
+                                retry: {
+                                  ...target.policy.retry,
+                                  delay_ms: Number(event.target.value),
+                                },
+                              },
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`vm-target-${index}-timeout`}>{t("targets.timeout")}</Label>
+                        <Input
+                          id={`vm-target-${index}-timeout`}
+                          type="number"
+                          inputMode="numeric"
+                          min={1}
+                          max={600}
+                          value={target.policy.timeout_sec ?? 60}
+                          onChange={(event) =>
+                            updateTarget(index, {
+                              policy: {
+                                ...target.policy,
+                                timeout_sec: Number(event.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`vm-target-${index}-retry-codes`}>{t("targets.retryCodes")}</Label>
+                        <StatusCodeChipsInput
+                          id={`vm-target-${index}-retry-codes`}
+                          value={target.policy.retry.status_codes ?? []}
+                          onChange={(next) =>
+                            updateTarget(index, {
+                              policy: {
+                                ...target.policy,
+                                retry: {
+                                  ...target.policy.retry,
+                                  status_codes: next,
+                                },
+                              },
+                            })
+                          }
+                          placeholder="408, 425, 429, 500, 502, 503, 504"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`vm-target-${index}-fallback-codes`}>{t("targets.fallbackCodes")}</Label>
+                        <StatusCodeChipsInput
+                          id={`vm-target-${index}-fallback-codes`}
+                          value={target.policy.fallback.status_codes ?? []}
+                          onChange={(next) =>
+                            updateTarget(index, {
+                              policy: {
+                                ...target.policy,
+                                fallback: {
+                                  ...target.policy.fallback,
+                                  status_codes: next,
+                                },
+                              },
+                            })
+                          }
+                          placeholder="429, 500, 502, 503, 504"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex flex-col gap-3 rounded-2xl bg-muted/20 px-4 py-4">
+                <div>
+                  <p className="text-sm font-medium">{t("access.title")}</p>
+                  <p className="text-xs text-muted-foreground">{t("access.description")}</p>
+                </div>
+                <div className="grid gap-3 lg:grid-cols-2">
+                  <PrincipalPicker
+                    id="vm-managers"
+                    title={t("access.managers")}
+                    selected={form.access.managers}
+                    setSelected={(value) => setForm((prev) => ({ ...prev, access: { ...prev.access, managers: value } }))}
+                    allowEveryone={false}
+                    addLabel={t("access.add")}
+                    removeLabel={t("access.remove")}
+                    onSearchPrincipal={onSearchPrincipal}
+                    principalSelectorLabels={principalSelectorLabels}
+                  />
+                  <PrincipalPicker
+                    id="vm-users"
+                    title={t("access.users")}
+                    selected={form.access.users}
+                    setSelected={(value) => setForm((prev) => ({ ...prev, access: { ...prev.access, users: value } }))}
+                    allowEveryone
+                    addLabel={t("access.add")}
+                    removeLabel={t("access.remove")}
+                    onSearchPrincipal={onSearchPrincipal}
+                    principalSelectorLabels={principalSelectorLabels}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-muted/30 px-4 py-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">{t("preview.title")}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {form.routing_strategy === "weighted" ? t("preview.weightedDescription") : t("preview.description")}
+                    </p>
+                  </div>
+                  {form.routing_strategy === "weighted" ? (
+                    <Badge variant="secondary" className="rounded-full px-2.5 py-1 text-xs">
+                      {t("targets.weightTotal", { total: totalWeight })}
+                    </Badge>
+                  ) : null}
+                </div>
+                <div className="mt-3 flex flex-col gap-2">
+                  {form.targets.map((target) => (
+                    <div
+                      key={`${target.order}-${target.provider}-${target.model}`}
+                      className="flex items-center justify-between gap-3 rounded-xl bg-background/90 px-3 py-2 ring-1 ring-border/30"
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Badge variant="outline" className="shrink-0 rounded-full px-2">
+                          {target.order}
+                        </Badge>
+                        <span className="truncate text-sm">
+                          {target.provider || t("preview.providerPlaceholder")} / {target.model || t("preview.modelPlaceholder")}
+                        </span>
+                      </div>
+                      {form.routing_strategy === "weighted" ? (
+                        <Badge variant="secondary" className="shrink-0 rounded-full px-2">
+                          {target.weight ?? 0}%
+                        </Badge>
+                      ) : null}
                     </div>
                   ))}
                 </div>
               </div>
-            ) : null}
-            {modeSummary.partialModes.length > 0 ? (
-              <Alert>
-                <AlertTitle>{t("modes.partialTitle")}</AlertTitle>
-                <AlertDescription>
-                  {t("modes.partialDescription", { modes: modeSummary.partialModes.join(", ") })}
+
+              <Alert className="rounded-2xl border-info/30 bg-info/8">
+                <AlertTitle>{t("modes.title")}</AlertTitle>
+                <AlertDescription className="flex flex-col gap-3">
+                  <span>{t("modes.description")}</span>
+                  {modeSummary.ready && modeSummary.intersection.length === 0 ? (
+                    <span className="font-medium text-destructive">{t("modes.noCommonDescription")}</span>
+                  ) : null}
+                  {modeSummary.ready && modeSummary.intersection.length > 0 ? (
+                    <span className="flex flex-wrap gap-2">
+                      {modeSummary.intersection.map((mode) => {
+                        const selected = effectiveExposedModes.includes(mode);
+                        return (
+                          <Button
+                            key={mode}
+                            type="button"
+                            variant={selected ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => {
+                              setForm((prev) => {
+                                const current =
+                                  normalizeModeList(prev.exposed_modes).length === 0
+                                    ? modeSummary.intersection
+                                    : normalizeModeList(prev.exposed_modes);
+                                const next = current.includes(mode) ? current.filter((item) => item !== mode) : [...current, mode];
+                                return { ...prev, exposed_modes: next.length > 0 ? next : current };
+                              });
+                            }}
+                          >
+                            {mode}
+                          </Button>
+                        );
+                      })}
+                    </span>
+                  ) : null}
+                  {effectiveExposedModes.length > 0 ? (
+                    <span className="flex flex-col gap-2">
+                      {effectiveExposedModes.map((mode) => (
+                        <span key={mode} className="flex flex-wrap items-center gap-2 text-xs">
+                          <Badge variant="secondary">{mode}</Badge>
+                          <span className="text-muted-foreground">{MODE_ENDPOINTS[mode] ?? t("modes.endpointUnknown")}</span>
+                        </span>
+                      ))}
+                    </span>
+                  ) : null}
+                  {modeSummary.partialModes.length > 0 ? (
+                    <span>{t("modes.partialDescription", { modes: modeSummary.partialModes.join(", ") })}</span>
+                  ) : null}
                 </AlertDescription>
               </Alert>
-            ) : null}
-          </div>
-
-          <div className="rounded-lg border bg-muted/30 p-3">
-            <p className="text-sm font-medium">{t("preview.title")}</p>
-            <p className="text-xs text-muted-foreground">
-              {form.routing_strategy === "weighted" ? t("preview.weightedDescription") : t("preview.description")}
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-              {form.targets.map((target) => (
-                <span key={`${target.order}-${target.provider}-${target.model}`} className="rounded-full border px-2 py-1">
-                  {target.order}. {target.provider || t("preview.providerPlaceholder")} / {target.model || t("preview.modelPlaceholder")}
-                  {form.routing_strategy === "weighted" ? ` (${target.weight ?? 0}%)` : ""}
-                </span>
-              ))}
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Button type="button" onClick={() => void submitForm()} disabled={isSaving || isDeleting}>
-              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {isCreate ? t("actions.create") : tc("save")}
-            </Button>
-            {!isCreate ? (
-              <Button type="button" variant="outline" onClick={() => selectedID && void loadDetail(selectedID)}>
-                {t("actions.reset")}
-              </Button>
-            ) : null}
-            {!isCreate ? (
-              <Button type="button" variant="destructive" onClick={() => setDeleteDialogOpen(true)} disabled={isSaving || isDeleting}>
-                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                {t("actions.delete")}
-              </Button>
-            ) : null}
-          </div>
-
-          <div className="space-y-3 rounded-lg border p-3">
-            <div>
-              <p className="text-sm font-medium">Access Control</p>
-              <p className="text-xs text-muted-foreground">Define who can manage and use this virtual model.</p>
-            </div>
-            <div className="grid gap-3 lg:grid-cols-2">
-              <PrincipalPicker
-                id="vm-managers"
-                title="Managers"
-                selected={form.access.managers}
-                setSelected={(value) => setForm((prev) => ({ ...prev, access: { ...prev.access, managers: value } }))}
-                allowEveryone={false}
-                addLabel="Add"
-                removeLabel="Remove"
-                onSearchPrincipal={onSearchPrincipal}
-                principalSelectorLabels={principalSelectorLabels}
-              />
-              <PrincipalPicker
-                id="vm-users"
-                title="Users"
-                selected={form.access.users}
-                setSelected={(value) => setForm((prev) => ({ ...prev, access: { ...prev.access, users: value } }))}
-                allowEveryone
-                addLabel="Add"
-                removeLabel="Remove"
-                onSearchPrincipal={onSearchPrincipal}
-                principalSelectorLabels={principalSelectorLabels}
-              />
+          <div className="sticky bottom-0 border-t bg-background/95 px-6 py-4 backdrop-blur">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button type="button" onClick={() => void submitForm()} disabled={isSaving || isDeleting}>
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {isCreate ? t("actions.create") : tc("save")}
+                </Button>
+                <Button type="button" variant="outline" onClick={closeEditor} disabled={isSaving || isDeleting}>
+                  {tc("cancel")}
+                </Button>
+                {!isCreate ? (
+                  <Button type="button" variant="outline" onClick={() => selectedID && void loadDetail(selectedID, { skipDirtyConfirm: true })}>
+                    {t("actions.reset")}
+                  </Button>
+                ) : null}
+              </div>
+              {!isCreate ? (
+                <Button type="button" variant="destructive" onClick={() => setDeleteDialogOpen(true)} disabled={isSaving || isDeleting}>
+                  {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  {t("actions.delete")}
+                </Button>
+              ) : null}
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </SheetContent>
+      </Sheet>
 
       <Dialog
         open={deleteDialogOpen}
@@ -938,7 +1115,7 @@ export default function VirtualModelManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
 
@@ -1027,6 +1204,37 @@ function normalizeError(error: unknown, fallback: string) {
   return fallback;
 }
 
+function formatStrategyLabel(
+  value: string,
+  t: ReturnType<typeof useTranslations<"virtualModels">>,
+) {
+  return value === "weighted" ? t("form.weightedValue") : t("form.priorityValue");
+}
+
+function formatDate(value?: string) {
+  if (!value) return "-";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "-";
+  return parsed.toLocaleString("fa-IR");
+}
+
+function createCopyAlias(alias: string, existingAliases: Set<string>) {
+  const normalized = alias.trim() || "virtual-model";
+  const base = `copy_of_${normalized}`;
+  if (!existingAliases.has(base.toLowerCase())) return base;
+
+  let suffix = 2;
+  while (existingAliases.has(`copy_of_${suffix}_${normalized}`.toLowerCase())) {
+    suffix++;
+  }
+  return `copy_of_${suffix}_${normalized}`;
+}
+
+function resolveUserLabel(user: TenantAdminUserLookup | undefined, fallbackID: string) {
+  if (!user) return fallbackID;
+  return user.display_name?.trim() || user.email?.trim() || user.mobile?.trim() || user.id || fallbackID;
+}
+
 function normalizeTargets(targets: VirtualModelTarget[] | undefined): VirtualModelTarget[] {
   if (!targets || targets.length === 0) return [{ ...DEFAULT_TARGET }];
   return targets
@@ -1039,7 +1247,7 @@ function normalizeTargets(targets: VirtualModelTarget[] | undefined): VirtualMod
         retry: {
           attempts: target.policy?.retry?.attempts ?? 2,
           delay_ms: target.policy?.retry?.delay_ms ?? 100,
-          status_codes: target.policy?.retry?.status_codes ?? [429, 500, 502, 503],
+          status_codes: target.policy?.retry?.status_codes ?? [408, 425, 429, 500, 502, 503, 504],
         },
         fallback: {
           candidate: target.policy?.fallback?.candidate ?? true,
@@ -1075,8 +1283,9 @@ function validateForm(form: FormState, t: ReturnType<typeof useTranslations<"vir
     if (!target.model.trim()) return t("messages.modelRequired");
     if (seenOrders.has(target.order)) return t("messages.duplicateOrder");
     seenOrders.add(target.order);
-    if (target.policy.retry.attempts < 0 || target.policy.retry.attempts > 5) return t("messages.retryAttemptsRange");
+    if (target.policy.retry.attempts < 0 || target.policy.retry.attempts > 10) return t("messages.retryAttemptsRange");
     if (target.policy.retry.delay_ms < 0 || target.policy.retry.delay_ms > 10000) return t("messages.retryDelayRange");
+    if ((target.policy.timeout_sec ?? 60) < 1 || (target.policy.timeout_sec ?? 60) > 600) return t("messages.timeoutRange");
     if (form.routing_strategy === "weighted" && (target.weight ?? 0) <= 0) return t("messages.weightRange");
   }
   if (form.routing_strategy === "weighted") {

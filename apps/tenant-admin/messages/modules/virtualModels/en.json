@@ -1,15 +1,18 @@
 {
   "title": "Virtual Models",
-  "description": "Create stable model aliases with priority routing, retries, and fallback.",
+  "description": "Route requests across multiple model providers with load balancing, automatic failover, and retries using a single stable model alias.",
   "searchPlaceholder": "Search alias",
   "alerts": {
     "error": "Error",
     "success": "Success"
   },
   "actions": {
+    "guide": "Product Guide",
     "refresh": "Refresh",
     "new": "New Virtual Model",
     "create": "Create Virtual Model",
+    "copy": "Create Similar Copy",
+    "edit": "Edit",
     "reset": "Reset changes",
     "delete": "Delete Virtual Model"
   },
@@ -32,7 +35,11 @@
     "alias": "Alias",
     "strategy": "Strategy",
     "targets": "Targets",
-    "status": "Status"
+    "createdAt": "Created",
+    "updatedAt": "Last Updated",
+    "createdBy": "Created By",
+    "status": "Status",
+    "actions": "Actions"
   },
   "form": {
     "createTitle": "Create virtual model",
@@ -61,6 +68,14 @@
     "timeout": "Timeout (sec)",
     "retryCodes": "Retry status codes",
     "fallbackCodes": "Fallback status codes"
+  },
+  "access": {
+    "title": "Access Control",
+    "description": "Define who can manage and use this virtual model.",
+    "managers": "Managers",
+    "users": "Users",
+    "add": "Add",
+    "remove": "Remove"
   },
   "modes": {
     "title": "Exposed modes",
@@ -97,8 +112,11 @@
     "duplicateOrder": "Target order values must be unique.",
     "weightRange": "Each weighted target must have a weight greater than 0.",
     "weightSum": "Weighted targets must sum to 100.",
-    "retryAttemptsRange": "Retry attempts must be between 0 and 5.",
+    "retryAttemptsRange": "Retry attempts must be between 0 and 10.",
     "retryDelayRange": "Retry delay must be between 0 and 10000 ms.",
-    "noCommonModes": "Selected targets must share at least one supported mode."
+    "timeoutRange": "Timeout must be between 1 and 600 seconds.",
+    "noCommonModes": "Selected targets must share at least one supported mode.",
+    "copySuccess": "Created a similar copy as \"{alias}\".",
+    "copyError": "Failed to create a similar copy."
   }
 }

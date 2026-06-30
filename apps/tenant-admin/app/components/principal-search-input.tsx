@@ -129,15 +129,15 @@ export function PrincipalEntitySelect(props: {
             role="combobox"
             aria-expanded={open}
             disabled={props.disabled}
-            className="h-11 w-full justify-between rounded-md px-3 font-normal"
+            className="h-auto min-h-11 w-full justify-between rounded-md px-3 py-2 font-normal"
           >
-            <span className="flex min-w-0 items-center gap-3">
+            <span className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
               {selected ? (
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
                   {getAvatarText(selected)}
                 </span>
               ) : null}
-              <span className="min-w-0 text-start">
+              <span className="min-w-0 flex-1 text-start">
                 <span className={cn("block truncate text-sm", !selected && "text-muted-foreground")}>
                   {selected ? selectedLabel : props.labels.triggerPlaceholder}
                 </span>
