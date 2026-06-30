@@ -62,7 +62,7 @@ const SIDEBAR_NAV_GROUPS: Array<{
   },
   {
     labelKey: "navGroups.observability",
-    itemKeys: ["logs", "traces", "metrics"],
+    itemKeys: ["logs", "traces", "metrics", "requestLoggingSettings", "tracePrivacySettings"],
   },
   {
     labelKey: "navGroups.governance",
@@ -70,7 +70,7 @@ const SIDEBAR_NAV_GROUPS: Array<{
   },
   {
     labelKey: "navGroups.access",
-    itemKeys: ["accessManagement", "orgUnits", "settings"],
+    itemKeys: ["accessManagement", "orgUnits", "accountSettings"],
   },
 ];
 
@@ -169,7 +169,7 @@ function UserProfileMenu({ userIdentity, currentUser }: UserProfileMenuProps) {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild className="justify-start">
-          <Link href="/settings">
+          <Link href="/settings/account">
             <User data-icon="inline-start" aria-hidden="true" />
             <span>{t("profile.account")}</span>
           </Link>

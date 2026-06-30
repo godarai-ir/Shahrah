@@ -26,6 +26,9 @@ export type AdminNavKey =
   | "virtualModels"
   | "prompts"
   | "virtualUsers"
+  | "accountSettings"
+  | "requestLoggingSettings"
+  | "tracePrivacySettings"
   | "accessManagement"
   | "logs"
   | "traces"
@@ -116,6 +119,30 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       requiredPermissions: ["virtual_account:read", "virtual_account:manage", "virtual_account:create"],
     },
     {
+      key: "accountSettings",
+      href: "/settings/account",
+      title: t("nav.accountSettings"),
+      icon: Settings,
+      isActive: pathname.startsWith("/settings/account"),
+      requiredPermissions: ["settings:list"],
+    },
+    {
+      key: "requestLoggingSettings",
+      href: "/settings/request-logging",
+      title: t("nav.requestLoggingSettings"),
+      icon: Activity,
+      isActive: pathname.startsWith("/settings/request-logging"),
+      requiredPermissions: ["settings:list"],
+    },
+    {
+      key: "tracePrivacySettings",
+      href: "/settings/trace-privacy",
+      title: t("nav.tracePrivacySettings"),
+      icon: Settings,
+      isActive: pathname.startsWith("/settings/trace-privacy"),
+      requiredPermissions: ["settings:list"],
+    },
+    {
       key: "accessManagement",
       href: "/roles",
       title: t("nav.accessManagement"),
@@ -182,14 +209,6 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       icon: ShieldCheck,
       isActive: pathname.startsWith("/guardrails"),
       requiredPermissions: ["policy:list"],
-    },
-    {
-      key: "settings",
-      href: "/settings",
-      title: t("nav.settings"),
-      icon: Settings,
-      isActive: pathname.startsWith("/settings"),
-      requiredPermissions: ["settings:list"],
     },
   ];
 }
