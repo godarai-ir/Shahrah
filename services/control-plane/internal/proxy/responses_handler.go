@@ -268,17 +268,17 @@ func (h *ResponsesHandler) handleSync(c *fiber.Ctx, req contractsopenai.Response
 	}
 
 	responseTimeMS := int(time.Since(start).Milliseconds())
-	logRequestBestEffort(h.logger, h.logs, c.Context(), platform.RequestLogEntry{
-		RequestID:      tunnelReq.RequestID,
-		TokenHash:      authInfo.TokenHash,
-		TenantID:       authInfo.TenantID,
-		Model:          req.Model,
-		Status:         "success",
-		CostUSD:        finalCost.TotalCostUSD,
-		ResponseTimeMS: responseTimeMS,
-		RequestBody:    map[string]interface{}{"model": req.Model},
-		ResponseBody:   map[string]interface{}{"id": response.ID},
-	})
+	logEntry := buildRequestLogEntry(c, authInfo, tunnelReq.Deployment, req.Model, "/v1/responses", "responses", "success", resp.StatusCode, start, responseTimeMS)
+	logEntry.RequestID = tunnelReq.RequestID
+	logEntry.TraceID = tunnelReq.TraceID
+	logEntry.CostUSD = finalCost.TotalCostUSD
+	logEntry.CostIRR = finalCost.TotalCostIRR
+	logEntry.InputTokens = finalCost.InputTokens
+	logEntry.OutputTokens = finalCost.OutputTokens
+	logEntry.TotalTokens = finalCost.TotalTokens
+	logEntry.RequestBody = map[string]interface{}{"model": req.Model}
+	logEntry.ResponseBody = map[string]interface{}{"id": response.ID}
+	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID:       tunnelReq.RequestID,
 		TokenHash:       authInfo.TokenHash,

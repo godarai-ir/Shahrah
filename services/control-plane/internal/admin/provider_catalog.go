@@ -544,14 +544,26 @@ func decodeDiscoveryPayload[T any, D any](
 		return nil, fmt.Errorf("%s", emptyMessage)
 	}
 
+	trimmedBody := strings.TrimSpace(string(body))
+
 	var direct []T
-	if err := json.Unmarshal(body, &direct); err == nil && hasCanonical(direct) {
-		return direct, nil
+	if err := json.Unmarshal(body, &direct); err == nil {
+		if len(direct) == 0 && strings.HasPrefix(trimmedBody, "[") {
+			return direct, nil
+		}
+		if hasCanonical(direct) {
+			return direct, nil
+		}
 	}
 
 	var mdDirect []D
-	if err := json.Unmarshal(body, &mdDirect); err == nil && len(mdDirect) > 0 {
-		return mapDiscovery(mdDirect), nil
+	if err := json.Unmarshal(body, &mdDirect); err == nil {
+		if len(mdDirect) == 0 && strings.HasPrefix(trimmedBody, "[") {
+			return mapDiscovery(mdDirect), nil
+		}
+		if len(mdDirect) > 0 {
+			return mapDiscovery(mdDirect), nil
+		}
 	}
 
 	var wrapped map[string]json.RawMessage
@@ -563,13 +575,23 @@ func decodeDiscoveryPayload[T any, D any](
 			}
 
 			var wrappedDirect []T
-			if err := json.Unmarshal(raw, &wrappedDirect); err == nil && hasCanonical(wrappedDirect) {
-				return wrappedDirect, nil
+			if err := json.Unmarshal(raw, &wrappedDirect); err == nil {
+				if len(wrappedDirect) == 0 {
+					return wrappedDirect, nil
+				}
+				if hasCanonical(wrappedDirect) {
+					return wrappedDirect, nil
+				}
 			}
 
 			var wrappedDiscovery []D
-			if err := json.Unmarshal(raw, &wrappedDiscovery); err == nil && len(wrappedDiscovery) > 0 {
-				return mapDiscovery(wrappedDiscovery), nil
+			if err := json.Unmarshal(raw, &wrappedDiscovery); err == nil {
+				if len(wrappedDiscovery) == 0 {
+					return mapDiscovery(wrappedDiscovery), nil
+				}
+				if len(wrappedDiscovery) > 0 {
+					return mapDiscovery(wrappedDiscovery), nil
+				}
 			}
 		}
 	}

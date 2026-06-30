@@ -29,6 +29,7 @@
     "prompts": "Prompt Registry",
     "virtualUsers": "Consumers & VAT",
     "accessManagement": "Access Management",
+    "logs": "Request Logs",
     "traces": "Request Trace",
     "metrics": "Model Metrics",
     "gatewayPolicies": "Gateway Policies",

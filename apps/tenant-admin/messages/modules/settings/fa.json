@@ -53,5 +53,38 @@
         "description": "محتوا به‌صورت رمزنگاری‌شده در حالت ذخیره نگهداری شود و فقط ارجاع آن در spanهای رهگیری ثبت شود."
       }
     }
+  },
+  "requestLogging": {
+    "title": "ثبت لاگ درخواست",
+    "description": "مشخص کنید برای این تننت چه میزان از محتوای درخواست و پاسخ در request log ذخیره شود.",
+    "loggingModeLabel": "حالت ثبت",
+    "modeBehaviorTitle": "رفتار هر حالت",
+    "updatedAtLabel": "زمان به‌روزرسانی",
+    "updatedByLabel": "به‌روزرسانی‌شده توسط",
+    "notSet": "-",
+    "save": "ذخیره حالت",
+    "saving": "در حال ذخیره...",
+    "messages": {
+      "updated": "حالت ثبت لاگ درخواست به‌روزرسانی شد.",
+      "updateFailed": "به‌روزرسانی حالت ثبت لاگ درخواست ناموفق بود."
+    },
+    "modes": {
+      "none": {
+        "title": "عدم ثبت",
+        "description": "محتوای درخواست و پاسخ ذخیره نشود و فقط حداقل شمارنده‌های عملیاتی حفظ شود."
+      },
+      "metadataOnly": {
+        "title": "فقط فراداده",
+        "description": "فقط فراداده درخواست، نتیجه routing، latency، میزان توکن و هزینه بدون payload خام ذخیره شود."
+      },
+      "redactedContent": {
+        "title": "محتوای حذف‌حساس‌شده",
+        "description": "نمونه payload پس از redaction و با سقف حجمی برای دیباگ امن‌تر ذخیره شود."
+      },
+      "fullContent": {
+        "title": "محتوای کامل",
+        "description": "payload درخواست و پاسخ تا سقف تعریف‌شده به‌صورت inline برای بیشترین دید troubleshooting ذخیره شود."
+      }
+    }
   }
 }

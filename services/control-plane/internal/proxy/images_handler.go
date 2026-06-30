@@ -256,17 +256,17 @@ func (h *ImagesHandler) handleSync(c *fiber.Ctx, requestedModel string, estimate
 
 	authInfo := auth.GetAuthInfo(c)
 	responseTimeMS := int(time.Since(start).Milliseconds())
-	logRequestBestEffort(h.logger, h.logs, c.Context(), platform.RequestLogEntry{
-		RequestID:      tunnelReq.RequestID,
-		TokenHash:      authInfo.TokenHash,
-		TenantID:       authInfo.TenantID,
-		Model:          requestedModel,
-		Status:         "success",
-		CostUSD:        finalCost.TotalCostUSD,
-		ResponseTimeMS: responseTimeMS,
-		RequestBody:    map[string]interface{}{"model": requestedModel, "operation": op.Name, "n": tunnelReq.RequestMetadata["n"], "size": tunnelReq.RequestMetadata["size"], "quality": tunnelReq.RequestMetadata["quality"]},
-		ResponseBody:   buildTraceImageResponsePayload(resp.Body),
-	})
+	logEntry := buildRequestLogEntry(c, authInfo, tunnelReq.Deployment, requestedModel, "/v1/images/generations", "images", "success", resp.StatusCode, start, responseTimeMS)
+	logEntry.RequestID = tunnelReq.RequestID
+	logEntry.TraceID = tunnelReq.TraceID
+	logEntry.CostUSD = finalCost.TotalCostUSD
+	logEntry.CostIRR = finalCost.TotalCostIRR
+	logEntry.InputTokens = finalCost.InputTokens
+	logEntry.OutputTokens = finalCost.OutputTokens
+	logEntry.TotalTokens = finalCost.TotalTokens
+	logEntry.RequestBody = map[string]interface{}{"model": requestedModel, "operation": op.Name, "n": tunnelReq.RequestMetadata["n"], "size": tunnelReq.RequestMetadata["size"], "quality": tunnelReq.RequestMetadata["quality"]}
+	logEntry.ResponseBody = buildTraceImageResponsePayload(resp.Body)
+	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID:       tunnelReq.RequestID,
 		TokenHash:       authInfo.TokenHash,

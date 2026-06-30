@@ -62,7 +62,7 @@ const SIDEBAR_NAV_GROUPS: Array<{
   },
   {
     labelKey: "navGroups.observability",
-    itemKeys: ["traces", "metrics"],
+    itemKeys: ["logs", "traces", "metrics"],
   },
   {
     labelKey: "navGroups.governance",
@@ -70,7 +70,7 @@ const SIDEBAR_NAV_GROUPS: Array<{
   },
   {
     labelKey: "navGroups.access",
-    itemKeys: ["accessManagement", "orgUnits"],
+    itemKeys: ["accessManagement", "orgUnits", "settings"],
   },
 ];
 
@@ -92,10 +92,6 @@ export default function AdminShellClient({
     return filterVisibleNavItems(navItems, permissions);
   }, [navItems, permissions]);
 
-  const sidebarNavItems = useMemo(() => {
-    return visibleNavItems.filter((item) => item.key !== "settings");
-  }, [visibleNavItems]);
-
   const currentPageLabel = visibleNavItems.find((item) => item.isActive)?.title ?? t("nav.dashboard");
 
   return (
@@ -103,7 +99,7 @@ export default function AdminShellClient({
       <SidebarProvider className="bg-background">
         <AdminSidebar
           tenantSlug={tenantSlug}
-          navItems={sidebarNavItems}
+          navItems={visibleNavItems}
         />
 
         <SidebarInset className="min-w-0 rounded-none bg-background">

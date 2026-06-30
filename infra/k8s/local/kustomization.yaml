@@ -46,3 +46,4 @@ configMapGenerator:
       - migrations/027_prompts.sql
       - migrations/028_prompts_slug_constraint.sql
       - migrations/029_prompt_version_manifest.sql
+      - migrations/031_tenant_request_logging_settings.sql

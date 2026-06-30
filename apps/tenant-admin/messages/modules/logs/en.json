@@ -1,0 +1,23 @@
+{
+  "title": "Request Logs",
+  "subtitle": "Chronological request-centric visibility into gateway traffic.",
+  "empty": "No request logs were found for the current retention window.",
+  "loadError": "Failed to load request logs.",
+  "detailTitle": "Log Detail",
+  "detailError": "Failed to load log detail.",
+  "summary": {
+    "status": "Status",
+    "provider": "Provider",
+    "model": "Model",
+    "route": "Route",
+    "latency": "Latency",
+    "tokens": "Tokens",
+    "cost": "Cost",
+    "trace": "Trace"
+  },
+  "content": {
+    "request": "Request Payload",
+    "response": "Response Payload",
+    "hidden": "Content is hidden by permission or logging policy."
+  }
+}

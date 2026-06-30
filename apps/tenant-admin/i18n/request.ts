@@ -18,6 +18,7 @@ const MESSAGE_NAMESPACES = [
   "teams",
   "personalAccessTokens",
   "traces",
+  "logs",
   "metrics",
   "invite",
   "rateLimitRules",

@@ -150,6 +150,15 @@ var permissionCatalog = map[string]permissionMeta{
 		Group:       "settings",
 		Description: "Allows updating platform settings",
 	},
+
+	"logs:read_metadata": {
+		Group:       "logs",
+		Description: "Allows listing request logs metadata and summary fields",
+	},
+	"logs:read_content": {
+		Group:       "logs",
+		Description: "Allows viewing stored request and response payload content",
+	},
 }
 
 var systemRolePermissions = map[string][]string{
@@ -162,6 +171,7 @@ var systemRolePermissions = map[string][]string{
 		"virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete",
 		"provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete",
 		"settings:list", "settings:manage",
+		"logs:read_metadata", "logs:read_content",
 	},
 	"tenant_admin": {
 		"policy:list", "policy:manage",
@@ -172,6 +182,7 @@ var systemRolePermissions = map[string][]string{
 		"virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete",
 		"provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete",
 		"settings:list", "settings:manage",
+		"logs:read_metadata", "logs:read_content",
 	},
 	"org_admin": {
 		"policy:list",
@@ -182,6 +193,7 @@ var systemRolePermissions = map[string][]string{
 		"virtual_account:create", "virtual_account:read", "virtual_account:manage",
 		"provider_account:read",
 		"settings:list",
+		"logs:read_metadata", "logs:read_content",
 	},
 	"team_admin": {
 		"policy:list",
@@ -191,13 +203,16 @@ var systemRolePermissions = map[string][]string{
 		"virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete",
 		"provider_account:read",
 		"settings:list",
+		"logs:read_metadata",
 	},
 	"member": {
 		"user:list",
 		"settings:list",
+		"logs:read_metadata",
 	},
 	"readonly_member": {
 		"settings:list",
+		"logs:read_metadata",
 	},
 }
 

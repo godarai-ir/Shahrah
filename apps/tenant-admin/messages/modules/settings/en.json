@@ -53,5 +53,38 @@
         "description": "Store encrypted payload blobs at rest and keep references in trace spans."
       }
     }
+  },
+  "requestLogging": {
+    "title": "Request Logging",
+    "description": "Control how much request and response content is stored in request logs for this tenant.",
+    "loggingModeLabel": "Logging Mode",
+    "modeBehaviorTitle": "Mode behavior",
+    "updatedAtLabel": "Updated at",
+    "updatedByLabel": "Updated by",
+    "notSet": "-",
+    "save": "Save Mode",
+    "saving": "Saving...",
+    "messages": {
+      "updated": "Request logging mode updated.",
+      "updateFailed": "Failed to update request logging mode."
+    },
+    "modes": {
+      "none": {
+        "title": "None",
+        "description": "Do not store request or response content, and keep only minimal operational counters."
+      },
+      "metadataOnly": {
+        "title": "Metadata-only",
+        "description": "Store request metadata, routing outcomes, latency, token usage, and cost without raw payloads."
+      },
+      "redactedContent": {
+        "title": "Redacted content",
+        "description": "Store payload snapshots after redaction and size capping for safer debugging."
+      },
+      "fullContent": {
+        "title": "Full content",
+        "description": "Store request and response payloads inline up to the configured cap for maximum troubleshooting visibility."
+      }
+    }
   }
 }

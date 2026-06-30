@@ -143,6 +143,12 @@ type traceStore interface {
 	GetTraceFacetsV2(ctx context.Context, params platform.ListRequestTracesV2Params) (*platform.TraceFacetsV2, error)
 }
 
+type logsStore interface {
+	ListRequestLogsV2(ctx context.Context, params platform.ListRequestLogsV2Params) ([]platform.RequestLogV2, int, error)
+	GetRequestLogV2(ctx context.Context, tenantID string, logID string, includeContent bool) (*platform.RequestLogDetailV2, error)
+	GetRequestLogFacetsV2(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogFacetsV2, error)
+}
+
 type metricsStore interface {
 	QueryModelMetrics(ctx context.Context, tenantID string, req platform.MetricsQueryRequest) ([]map[string]interface{}, error)
 	ListModelMetricsFacets(ctx context.Context, tenantID string) (*platform.ModelMetricsFacets, error)
@@ -151,6 +157,11 @@ type metricsStore interface {
 type tracePrivacyStore interface {
 	GetTenantTracePrivacySettings(ctx context.Context, tenantID string) (*platform.TenantTracePrivacySettings, error)
 	UpsertTenantTracePrivacySettings(ctx context.Context, tenantID, capturePolicy, updatedByUserID string) (*platform.TenantTracePrivacySettings, error)
+}
+
+type requestLoggingSettingsStore interface {
+	GetTenantRequestLoggingSettings(ctx context.Context, tenantID string) (*platform.TenantRequestLoggingSettings, error)
+	UpsertTenantRequestLoggingSettings(ctx context.Context, tenantID, loggingMode, updatedByUserID string) (*platform.TenantRequestLoggingSettings, error)
 }
 
 type promptStore interface {
@@ -231,8 +242,10 @@ type Dependencies struct {
 	Onboarding       onboardingStore
 	LoginDiscovery   loginDiscoveryStore
 	Traces           traceStore
+	Logs             logsStore
 	Metrics          metricsStore
 	TracePrivacy     tracePrivacyStore
+	RequestLogging   requestLoggingSettingsStore
 	Prompts          promptStore
 	Roles            roleStore
 	Plans            planStore
@@ -254,8 +267,10 @@ type Handlers struct {
 	onboarding       onboardingStore
 	loginDiscovery   loginDiscoveryStore
 	traces           traceStore
+	logs             logsStore
 	metrics          metricsStore
 	tracePrivacy     tracePrivacyStore
+	requestLogging   requestLoggingSettingsStore
 	prompts          promptStore
 	roles            roleStore
 	plans            planStore
@@ -278,8 +293,10 @@ func New(deps Dependencies) *Handlers {
 		onboarding:       deps.Onboarding,
 		loginDiscovery:   deps.LoginDiscovery,
 		traces:           deps.Traces,
+		logs:             deps.Logs,
 		metrics:          deps.Metrics,
 		tracePrivacy:     deps.TracePrivacy,
+		requestLogging:   deps.RequestLogging,
 		prompts:          deps.Prompts,
 		roles:            deps.Roles,
 		plans:            deps.Plans,

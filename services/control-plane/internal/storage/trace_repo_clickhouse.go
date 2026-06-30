@@ -52,8 +52,16 @@ func (s *Store) initClickHouse(ctx context.Context) error {
 		return err
 	}
 
+	if err := s.ensureClickHouseRequestLogsSchema(ctx); err != nil {
+		closeBestEffort(db)
+
+		s.clickhouse = nil
+
+		return err
+	}
+
 	s.clickhouseReady = true
-	s.logger.Info("clickhouse trace backend enabled")
+	s.logger.Info("clickhouse observability backend enabled")
 
 	return nil
 }

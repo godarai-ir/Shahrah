@@ -1,0 +1,23 @@
+{
+  "title": "لاگ درخواست‌ها",
+  "subtitle": "نمای زمانی و request-centric از ترافیک گیت‌وی.",
+  "empty": "در پنجره نگه‌داری فعلی لاگی پیدا نشد.",
+  "loadError": "بارگذاری لاگ‌های درخواست ناموفق بود.",
+  "detailTitle": "جزئیات لاگ",
+  "detailError": "بارگذاری جزئیات لاگ ناموفق بود.",
+  "summary": {
+    "status": "وضعیت",
+    "provider": "ارائه‌دهنده",
+    "model": "مدل",
+    "route": "مسیر",
+    "latency": "تأخیر",
+    "tokens": "توکن",
+    "cost": "هزینه",
+    "trace": "Trace"
+  },
+  "content": {
+    "request": "Payload درخواست",
+    "response": "Payload پاسخ",
+    "hidden": "محتوا به‌خاطر permission یا سیاست logging پنهان است."
+  }
+}

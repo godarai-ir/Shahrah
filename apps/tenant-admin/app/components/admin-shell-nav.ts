@@ -27,6 +27,7 @@ export type AdminNavKey =
   | "prompts"
   | "virtualUsers"
   | "accessManagement"
+  | "logs"
   | "traces"
   | "metrics"
   | "orgUnits"
@@ -125,6 +126,14 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
         || pathname.startsWith("/teams")
         || pathname.startsWith("/personal-access-tokens"),
       requiredPermissions: ACCESS_SECTION_PERMISSIONS,
+    },
+    {
+      key: "logs",
+      href: "/logs",
+      title: t("nav.logs"),
+      icon: Activity,
+      isActive: pathname.startsWith("/logs"),
+      requiredPermissions: ["logs:read_metadata", "logs:read_content"],
     },
     {
       key: "traces",

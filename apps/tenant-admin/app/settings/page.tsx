@@ -1,4 +1,5 @@
 import ProfileSettings from "@/app/components/profile-settings";
+import RequestLoggingSettingsPanel from "@/app/components/request-logging-settings";
 import TracePrivacySettingsPanel from "@/app/components/trace-privacy-settings";
 import AdminShell from "@/app/components/admin-shell";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
@@ -17,6 +18,12 @@ export default async function SettingsPage() {
     path: "/api/v1/settings/trace-privacy",
     userID: auth.user.id,
   });
+  const requestLoggingResult = await fetchControlPlaneJSON({
+    tenantSlug,
+    method: "GET",
+    path: "/api/v1/settings/request-logging",
+    userID: auth.user.id,
+  });
 
   const currentUser = {
     id: auth.user.id,
@@ -29,6 +36,19 @@ export default async function SettingsPage() {
     <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
       <div className="space-y-6">
         <ProfileSettings initialUser={currentUser} />
+        <RequestLoggingSettingsPanel
+          initialSettings={
+            requestLoggingResult.ok
+              ? (requestLoggingResult.payload as {
+                  tenant_id?: string;
+                  logging_mode: "none" | "metadata-only" | "redacted-content" | "full-content";
+                  updated_at?: string;
+                  updated_by_user_id?: string;
+                })
+              : null
+          }
+          initialError={requestLoggingResult.ok ? null : requestLoggingResult.errorMessage ?? "Failed to load request logging settings."}
+        />
         <TracePrivacySettingsPanel
           initialSettings={
             tracePrivacyResult.ok

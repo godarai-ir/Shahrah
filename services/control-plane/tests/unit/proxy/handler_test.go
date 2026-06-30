@@ -820,6 +820,53 @@ func TestChatCompletionHandler_ShouldTransformProviderError(t *testing.T) {
 	assert.Equal(t, "trace-123", resp.Header.Get("X-Trace-Id"))
 }
 
+func TestChatCompletionHandler_LogsProviderAuthenticationFailures(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	r := newTestRouter(t, logger)
+
+	errorBody := []byte(`{"error":{"message":"invalid x-api-key","type":"authentication_error"}}`)
+	mTunnel := &mockTunnelTransport{
+		response: &platform.TunnelResponse{
+			StatusCode: http.StatusUnauthorized,
+			Headers:    map[string]string{},
+			Body:       errorBody,
+		},
+	}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 100}}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{}
+
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	app := setupTestApp(t, handler)
+
+	body := map[string]interface{}{
+		"model":    "gpt-4",
+		"messages": []interface{}{map[string]interface{}{"role": "user", "content": "Hello"}},
+	}
+	payload, _ := json.Marshal(body)
+
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+	require.Len(t, mLogs.loggedEntries, 1)
+
+	entry := mLogs.loggedEntries[0]
+	assert.Equal(t, "failed", entry.Status)
+	assert.Equal(t, http.StatusUnauthorized, entry.StatusCode)
+	assert.Equal(t, "authentication_error", entry.ErrorType)
+	assert.Equal(t, "/v1/chat/completions", entry.Route)
+	assert.Equal(t, "chat_completions", entry.RequestType)
+	assert.Equal(t, "gpt-4", entry.Model)
+	assert.Equal(t, map[string]interface{}{"model": "gpt-4"}, entry.RequestBody)
+	assert.Equal(t, map[string]interface{}{"error": "invalid x-api-key"}, entry.ResponseBody)
+	assert.Empty(t, mLogs.loggedSpends)
+}
+
 func TestChatCompletionHandler_ShouldTransformRateLimitError(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	r := newTestRouter(t, logger)

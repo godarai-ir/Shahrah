@@ -638,6 +638,7 @@ func (h *ChatCompletionHandler) handleSync(
 	if resp.StatusCode >= httpErrorFloor {
 		providerAttrs["response_payload"] = buildTraceProviderErrorPayload(resp.StatusCode, resp.Body)
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
+		logProviderFailureRequest(h.logger, h.logs, c, authInfo, tunnelReq, req.Model, "/v1/chat/completions", "chat_completions", resp.StatusCode, resp.Body, start)
 
 		return transformProviderError(c, resp.StatusCode, resp.Body, resp.Headers)
 	}
@@ -677,17 +678,18 @@ func (h *ChatCompletionHandler) handleSync(
 
 		if outputErr != nil {
 			responseTimeMS := int(time.Since(start).Milliseconds())
-			logRequestBestEffort(h.logger, h.logs, c.Context(), platform.RequestLogEntry{
-				RequestID:      tunnelReq.RequestID,
-				TokenHash:      authInfo.TokenHash,
-				TenantID:       authInfo.TenantID,
-				Model:          req.Model,
-				Status:         "blocked",
-				CostUSD:        finalCost.TotalCostUSD,
-				ResponseTimeMS: responseTimeMS,
-				RequestBody:    map[string]interface{}{"model": req.Model},
-				ResponseBody:   map[string]interface{}{"guardrail_status": "blocked"},
-			})
+			logEntry := buildRequestLogEntry(c, authInfo, tunnelReq.Deployment, req.Model, "/v1/chat/completions", "chat_completions", "blocked", fiber.StatusBadRequest, start, responseTimeMS)
+			logEntry.RequestID = tunnelReq.RequestID
+			logEntry.TraceID = tunnelReq.TraceID
+			logEntry.CostUSD = finalCost.TotalCostUSD
+			logEntry.CostIRR = finalCost.TotalCostIRR
+			logEntry.InputTokens = finalCost.InputTokens
+			logEntry.OutputTokens = finalCost.OutputTokens
+			logEntry.TotalTokens = finalCost.TotalTokens
+			logEntry.RequestBody = map[string]interface{}{"model": req.Model}
+			logEntry.ResponseBody = map[string]interface{}{"guardrail_status": "blocked"}
+			logEntry.ErrorType = "guardrail_blocked"
+			logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
 			logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 				RequestID:       tunnelReq.RequestID,
 				TokenHash:       authInfo.TokenHash,
@@ -725,17 +727,17 @@ func (h *ChatCompletionHandler) handleSync(
 	}
 
 	responseTimeMS := int(time.Since(start).Milliseconds())
-	logRequestBestEffort(h.logger, h.logs, c.Context(), platform.RequestLogEntry{
-		RequestID:      tunnelReq.RequestID,
-		TokenHash:      authInfo.TokenHash,
-		TenantID:       authInfo.TenantID,
-		Model:          req.Model,
-		Status:         "success",
-		CostUSD:        finalCost.TotalCostUSD,
-		ResponseTimeMS: responseTimeMS,
-		RequestBody:    map[string]interface{}{"model": req.Model},
-		ResponseBody:   map[string]interface{}{"id": completion.ID},
-	})
+	logEntry := buildRequestLogEntry(c, authInfo, tunnelReq.Deployment, req.Model, "/v1/chat/completions", "chat_completions", "success", resp.StatusCode, start, responseTimeMS)
+	logEntry.RequestID = tunnelReq.RequestID
+	logEntry.TraceID = tunnelReq.TraceID
+	logEntry.CostUSD = finalCost.TotalCostUSD
+	logEntry.CostIRR = finalCost.TotalCostIRR
+	logEntry.InputTokens = finalCost.InputTokens
+	logEntry.OutputTokens = finalCost.OutputTokens
+	logEntry.TotalTokens = finalCost.TotalTokens
+	logEntry.RequestBody = map[string]interface{}{"model": req.Model}
+	logEntry.ResponseBody = map[string]interface{}{"id": completion.ID}
+	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID:       tunnelReq.RequestID,
 		TokenHash:       authInfo.TokenHash,
@@ -813,11 +815,13 @@ func (h *ChatCompletionHandler) handleCacheHit(c *fiber.Ctx, req contractsopenai
 		"cache_type": result.CacheType, "cache_embedding_latency_ms": result.EmbeddingLatencyMS,
 		"cached_trace_id": entry.TraceID, "tenant_slug": tenantSlug, "key_type": authInfo.KeyType,
 	}
-	logRequestBestEffort(h.logger, h.logs, c.Context(), platform.RequestLogEntry{
-		RequestID: requestID, TokenHash: authInfo.TokenHash, TenantID: authInfo.TenantID, Model: req.Model,
-		Status: "success", CostUSD: 0, ResponseTimeMS: responseTimeMS,
-		RequestBody: map[string]interface{}{"model": req.Model}, ResponseBody: map[string]interface{}{"cache_status": "hit"},
-	})
+	logEntry := buildRequestLogEntry(c, authInfo, platform.Deployment{Provider: entry.Provider, Model: entry.ProviderModel}, req.Model, "/v1/chat/completions", "chat_completions", "success", fiber.StatusOK, start, responseTimeMS)
+	logEntry.RequestID = requestID
+	logEntry.TraceID = entry.TraceID
+	logEntry.RequestBody = map[string]interface{}{"model": req.Model}
+	logEntry.ResponseBody = map[string]interface{}{"cache_status": "hit"}
+	logEntry.CacheStatus = "hit"
+	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID: requestID, TokenHash: authInfo.TokenHash, TenantID: authInfo.TenantID,
 		OrganizationID: authInfo.OrganizationID, TeamID: authInfo.TeamID, Model: req.Model,
@@ -1148,6 +1152,35 @@ func logRequestBestEffort(logger *zap.Logger, logs usageLogger, ctx context.Cont
 	if err := logs.LogRequest(ctx, entry); err != nil && logger != nil {
 		logger.Warn("failed to log request", zap.Error(err), zap.String("request_id", entry.RequestID))
 	}
+}
+
+func logProviderFailureRequest(
+	logger *zap.Logger,
+	logs usageLogger,
+	c *fiber.Ctx,
+	authInfo *platform.AuthContext,
+	tunnelReq platform.TunnelRequest,
+	requestedModel string,
+	route string,
+	requestType string,
+	statusCode int,
+	responseBody []byte,
+	start time.Time,
+) {
+	responseTimeMS := int(time.Since(start).Milliseconds())
+	logEntry := buildRequestLogEntry(c, authInfo, tunnelReq.Deployment, requestedModel, route, requestType, "failed", statusCode, start, responseTimeMS)
+	logEntry.RequestID = tunnelReq.RequestID
+	logEntry.TraceID = tunnelReq.TraceID
+	logEntry.RequestBody = map[string]interface{}{"model": requestedModel}
+	logEntry.ResponseBody = map[string]interface{}{"error": parseGenericError(responseBody)}
+
+	if errType, ok := ErrorTypeMap[statusCode]; ok && strings.TrimSpace(errType) != "" {
+		logEntry.ErrorType = errType
+	} else {
+		logEntry.ErrorType = "api_error"
+	}
+
+	logRequestBestEffort(logger, logs, c.Context(), logEntry)
 }
 
 func logSpendBestEffort(logger *zap.Logger, logs usageLogger, ctx context.Context, spendLog platform.SpendLog) {

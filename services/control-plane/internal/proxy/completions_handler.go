@@ -298,15 +298,16 @@ func (h *CompletionsHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCo
 	// Log asynchronously
 	responseTimeMS := int(time.Since(start).Milliseconds())
 	go func() {
-		logRequestBestEffort(h.logger, h.logs, context.Background(), platform.RequestLogEntry{
-			RequestID:      tunnelReq.RequestID,
-			TokenHash:      authInfo.TokenHash,
-			TenantID:       authInfo.TenantID,
-			Model:          req.Model,
-			Status:         fmt.Sprintf("%d", resp.StatusCode),
-			CostUSD:        finalCost.TotalCostUSD,
-			ResponseTimeMS: responseTimeMS,
-		})
+		logEntry := buildRequestLogEntry(nil, authInfo, tunnelReq.Deployment, req.Model, "/v1/completions", "completions", "success", resp.StatusCode, start, responseTimeMS)
+		logEntry.RequestID = tunnelReq.RequestID
+		logEntry.TraceID = tunnelReq.TraceID
+		logEntry.CostUSD = finalCost.TotalCostUSD
+		logEntry.CostIRR = finalCost.TotalCostIRR
+		logEntry.InputTokens = finalCost.InputTokens
+		logEntry.OutputTokens = finalCost.OutputTokens
+		logEntry.TotalTokens = finalCost.TotalTokens
+		logEntry.Status = fmt.Sprintf("%d", resp.StatusCode)
+		logRequestBestEffort(h.logger, h.logs, context.Background(), logEntry)
 		logSpendBestEffort(h.logger, h.logs, context.Background(), platform.SpendLog{
 			RequestID:       tunnelReq.RequestID,
 			TokenHash:       authInfo.TokenHash,

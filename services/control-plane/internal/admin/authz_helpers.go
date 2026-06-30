@@ -116,6 +116,14 @@ func requirePolicyManage(c *fiber.Ctx) error {
 	return requirePermissionAnyOrTenantAdmin(c, "policy manage permission required", []string{"policy:manage"})
 }
 
+func requireLogsMetadataRead(c *fiber.Ctx) error {
+	return requirePermissionAnyOrTenantAdmin(c, "logs metadata permission required", []string{"logs:read_metadata", "logs:read_content"})
+}
+
+func requireLogsContentRead(c *fiber.Ctx) error {
+	return requirePermissionAnyOrTenantAdmin(c, "logs content permission required", []string{"logs:read_content"})
+}
+
 func requirePermissionAnyOrTenantAdmin(c *fiber.Ctx, errMsg string, permissions []string) error {
 	authInfo := auth.GetAuthInfo(c)
 	if auth.IsTenantAdminOrHigher(authInfo) {

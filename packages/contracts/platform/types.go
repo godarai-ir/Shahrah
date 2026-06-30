@@ -123,6 +123,14 @@ type TenantTracePrivacySettings struct {
 	UpdatedByUserID string    `json:"updated_by_user_id,omitempty"`
 }
 
+// TenantRequestLoggingSettings controls tenant-level request log content capture behavior.
+type TenantRequestLoggingSettings struct {
+	TenantID        string    `json:"tenant_id"`
+	LoggingMode     string    `json:"logging_mode"`
+	UpdatedAt       time.Time `json:"updated_at"`
+	UpdatedByUserID string    `json:"updated_by_user_id,omitempty"`
+}
+
 // ExchangeRate records a USD to IRR rate snapshot.
 type ExchangeRate struct {
 	ID        string    `json:"id"`
@@ -412,15 +420,43 @@ type TunnelStream interface {
 
 // RequestLogEntry records the normalized request lifecycle.
 type RequestLogEntry struct {
-	RequestID      string                 `json:"request_id"`
-	TokenHash      string                 `json:"token_hash,omitempty"`
-	TenantID       string                 `json:"tenant_id"`
-	Model          string                 `json:"model"`
-	Status         string                 `json:"status"`
-	CostUSD        float64                `json:"cost_usd"`
-	ResponseTimeMS int                    `json:"response_time_ms"`
-	RequestBody    map[string]interface{} `json:"request_body,omitempty"`
-	ResponseBody   map[string]interface{} `json:"response_body,omitempty"`
+	LogID                    string                 `json:"log_id,omitempty"`
+	RequestID                string                 `json:"request_id"`
+	TraceID                  string                 `json:"trace_id,omitempty"`
+	TokenHash                string                 `json:"token_hash,omitempty"`
+	TenantID                 string                 `json:"tenant_id"`
+	OrganizationID           string                 `json:"organization_id,omitempty"`
+	OrgUnitID                string                 `json:"org_unit_id,omitempty"`
+	TeamID                   string                 `json:"team_id,omitempty"`
+	ActorType                string                 `json:"actor_type,omitempty"`
+	ActorID                  string                 `json:"actor_id,omitempty"`
+	Model                    string                 `json:"model"`
+	Provider                 string                 `json:"provider,omitempty"`
+	ProviderModel            string                 `json:"provider_model,omitempty"`
+	VirtualModel             string                 `json:"virtual_model,omitempty"`
+	Route                    string                 `json:"route,omitempty"`
+	RequestType              string                 `json:"request_type,omitempty"`
+	Status                   string                 `json:"status"`
+	StatusCode               int                    `json:"status_code,omitempty"`
+	ErrorType                string                 `json:"error_type,omitempty"`
+	CacheStatus              string                 `json:"cache_status,omitempty"`
+	CacheMode                string                 `json:"cache_mode,omitempty"`
+	RetryCount               int                    `json:"retry_count,omitempty"`
+	FallbackCount            int                    `json:"fallback_count,omitempty"`
+	FallbackStatus           string                 `json:"fallback_status,omitempty"`
+	LoadBalanceStatus        string                 `json:"load_balance_status,omitempty"`
+	CostUSD                  float64                `json:"cost_usd"`
+	CostIRR                  float64                `json:"cost_irr,omitempty"`
+	InputTokens              int                    `json:"input_tokens,omitempty"`
+	OutputTokens             int                    `json:"output_tokens,omitempty"`
+	TotalTokens              int                    `json:"total_tokens,omitempty"`
+	ResponseTimeMS           int                    `json:"response_time_ms"`
+	StartedAt                time.Time              `json:"started_at,omitempty"`
+	RequestBody              map[string]interface{} `json:"request_body,omitempty"`
+	ResponseBody             map[string]interface{} `json:"response_body,omitempty"`
+	Metadata                 map[string]interface{} `json:"metadata,omitempty"`
+	RequestPayloadTruncated  bool                   `json:"request_payload_truncated,omitempty"`
+	ResponsePayloadTruncated bool                   `json:"response_payload_truncated,omitempty"`
 }
 
 // VirtualModel defines a tenant-scoped alias that routes to concrete provider targets.

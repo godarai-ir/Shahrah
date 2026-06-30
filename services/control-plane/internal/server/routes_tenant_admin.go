@@ -134,8 +134,13 @@ func registerTenantAdminRoutes(app *fiber.App, deps Dependencies) {
 	api.Post("/metrics/query", deps.AdminHandlers.QueryModelMetrics)
 	api.Get("/settings/trace-privacy", deps.AdminHandlers.GetTenantTracePrivacySettings)
 	api.Put("/settings/trace-privacy", deps.AdminHandlers.UpdateTenantTracePrivacySettings)
+	api.Get("/settings/request-logging", deps.AdminHandlers.GetTenantRequestLoggingSettings)
+	api.Put("/settings/request-logging", deps.AdminHandlers.UpdateTenantRequestLoggingSettings)
 
 	apiV2 := app.Group("/api/v2")
+	apiV2.Get("/logs", deps.AdminHandlers.ListRequestLogsV2)
+	apiV2.Get("/logs/facets", deps.AdminHandlers.GetRequestLogFacetsV2)
+	apiV2.Get("/logs/:logID", deps.AdminHandlers.GetRequestLogV2)
 	apiV2.Get("/traces", deps.AdminHandlers.ListRequestTracesV2)
 	apiV2.Get("/traces/facets", deps.AdminHandlers.GetTraceFacetsV2)
 	apiV2.Get("/traces/:traceID", deps.AdminHandlers.GetRequestTraceV2)

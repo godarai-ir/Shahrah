@@ -262,17 +262,17 @@ func (h *EmbeddingsHandler) handleSync(c *fiber.Ctx, req contractsopenai.Embeddi
 
 	responseTimeMS := int(time.Since(start).Milliseconds())
 	vectorDimensions := embeddingResponseVectorDimensions(response)
-	logRequestBestEffort(h.logger, h.logs, c.Context(), platform.RequestLogEntry{
-		RequestID:      tunnelReq.RequestID,
-		TokenHash:      authInfo.TokenHash,
-		TenantID:       authInfo.TenantID,
-		Model:          req.Model,
-		Status:         "success",
-		CostUSD:        finalCost.TotalCostUSD,
-		ResponseTimeMS: responseTimeMS,
-		RequestBody:    map[string]interface{}{"model": req.Model, "input_count": embeddingInputCount(req.Input)},
-		ResponseBody:   map[string]interface{}{"model": response.Model, "embedding_count": len(response.Data)},
-	})
+	logEntry := buildRequestLogEntry(c, authInfo, tunnelReq.Deployment, req.Model, "/v1/embeddings", "embeddings", "success", resp.StatusCode, start, responseTimeMS)
+	logEntry.RequestID = tunnelReq.RequestID
+	logEntry.TraceID = tunnelReq.TraceID
+	logEntry.CostUSD = finalCost.TotalCostUSD
+	logEntry.CostIRR = finalCost.TotalCostIRR
+	logEntry.InputTokens = finalCost.InputTokens
+	logEntry.OutputTokens = finalCost.OutputTokens
+	logEntry.TotalTokens = finalCost.TotalTokens
+	logEntry.RequestBody = map[string]interface{}{"model": req.Model, "input_count": embeddingInputCount(req.Input)}
+	logEntry.ResponseBody = map[string]interface{}{"model": response.Model, "embedding_count": len(response.Data)}
+	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID:       tunnelReq.RequestID,
 		TokenHash:       authInfo.TokenHash,

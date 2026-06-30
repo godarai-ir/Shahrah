@@ -260,17 +260,17 @@ func (h *ModerationsHandler) handleSync(c *fiber.Ctx, req contractsopenai.Modera
 	}
 
 	responseTimeMS := int(time.Since(start).Milliseconds())
-	logRequestBestEffort(h.logger, h.logs, c.Context(), platform.RequestLogEntry{
-		RequestID:      tunnelReq.RequestID,
-		TokenHash:      authInfo.TokenHash,
-		TenantID:       authInfo.TenantID,
-		Model:          req.Model,
-		Status:         "success",
-		CostUSD:        finalCost.TotalCostUSD,
-		ResponseTimeMS: responseTimeMS,
-		RequestBody:    map[string]interface{}{"model": req.Model, "input_count": moderationInputCount(req.Input)},
-		ResponseBody:   map[string]interface{}{"id": response.ID, "result_count": len(response.Results), "flagged_count": moderationFlaggedCount(response)},
-	})
+	logEntry := buildRequestLogEntry(c, authInfo, tunnelReq.Deployment, req.Model, "/v1/moderations", "moderations", "success", resp.StatusCode, start, responseTimeMS)
+	logEntry.RequestID = tunnelReq.RequestID
+	logEntry.TraceID = tunnelReq.TraceID
+	logEntry.CostUSD = finalCost.TotalCostUSD
+	logEntry.CostIRR = finalCost.TotalCostIRR
+	logEntry.InputTokens = finalCost.InputTokens
+	logEntry.OutputTokens = finalCost.OutputTokens
+	logEntry.TotalTokens = finalCost.TotalTokens
+	logEntry.RequestBody = map[string]interface{}{"model": req.Model, "input_count": moderationInputCount(req.Input)}
+	logEntry.ResponseBody = map[string]interface{}{"id": response.ID, "result_count": len(response.Results), "flagged_count": moderationFlaggedCount(response)}
+	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID:       tunnelReq.RequestID,
 		TokenHash:       authInfo.TokenHash,

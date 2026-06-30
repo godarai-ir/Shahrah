@@ -236,6 +236,34 @@ func TestDecodeProvidersPayload_UsesDiscoveryShapeWhenCanonicalFieldsMissing(t *
 	assert.Equal(t, "/api/v1/providers/assets/provider-logos/cerebras.png", items[0].LogoURL)
 }
 
+func TestDecodeProvidersPayload_AllowsEmptyArrays(t *testing.T) {
+	items, err := decodeProvidersPayload([]byte(`[]`))
+	require.NoError(t, err)
+	require.Empty(t, items)
+}
+
+func TestDiscoveryProviders_EmptyCatalogReturnsDiscoveryUnavailable(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/providers" {
+			http.NotFound(w, r)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	defer server.Close()
+
+	t.Setenv("SHAHRAH_MODEL_DISCOVERY_URL", server.URL)
+	invalidateDiscoveryCache()
+
+	items, err := discoveryProviders(context.Background())
+	require.Error(t, err)
+	require.Nil(t, items)
+	assert.ErrorIs(t, err, errDiscoveryUnavailable)
+	assert.Contains(t, err.Error(), "empty provider catalog")
+}
+
 func TestNormalizeProviders_ResolvesRelativeLogoURLAgainstDiscoveryBase(t *testing.T) {
 	items := normalizeProviders([]platform.ProviderCatalogProvider{
 		{
