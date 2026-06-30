@@ -1,0 +1,65 @@
+{
+  "eyebrow": "صورتحساب",
+  "title": "پلن",
+  "badges": {
+    "current": "فعلی"
+  },
+  "status": {
+    "active": "فعال",
+    "trialing": "آزمایشی",
+    "past_due": "سررسید گذشته",
+    "other": "نامشخص"
+  },
+  "trial": {
+    "title": "دوره آزمایشی فعال است",
+    "description": "دوره آزمایشی پلن {plan} تا {date} فعال است. برای ادامه بدون تغییر در تننت، همین پلن را از پایین به نسخه پولی تبدیل کنید."
+  },
+  "currentSubscription": {
+    "title": "اشتراک فعلی",
+    "plan": "پلن",
+    "interval": "بازه",
+    "periodEnd": "پایان دوره",
+    "trialEnds": "پایان آزمایشی"
+  },
+  "limits": {
+    "title": "محدودیت‌های موثر",
+    "requests": "درخواست‌های ماهانه گیت‌وی",
+    "users": "کاربران",
+    "vat": "VAT",
+    "overrides": "Overrideها"
+  },
+  "features": {
+    "requests": "درخواست‌ها",
+    "users": "کاربران",
+    "vat": "VAT",
+    "ratePolicies": "سیاست‌های نرخ",
+    "budgetPolicies": "سیاست‌های بودجه"
+  },
+  "intervals": {
+    "monthly": "ماهانه",
+    "quarterly": "سه‌ماهه",
+    "yearly": "سالانه"
+  },
+  "values": {
+    "enabled": "فعال",
+    "disabled": "غیرفعال",
+    "none": "ندارد",
+    "unknown": "نامشخص",
+    "usage": "{used} / {limit}",
+    "price": "{amount} {currency}",
+    "priceWithDiscount": "{amount} {currency} -{discount}%",
+    "custom": "سفارشی"
+  },
+  "messages": {
+    "errorTitle": "خطا",
+    "successTitle": "موفق",
+    "changeFailed": "تغییر پلن انجام نشد.",
+    "changeSaved": "تغییر پلن ذخیره شد."
+  },
+  "errors": {
+    "loadPlans": "بارگذاری پلن‌های تجاری انجام نشد.",
+    "loadSubscription": "بارگذاری اشتراک انجام نشد.",
+    "loadEntitlements": "بارگذاری entitlementها انجام نشد.",
+    "loadPage": "بارگذاری اطلاعات پلن انجام نشد."
+  }
+}

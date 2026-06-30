@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { ArrowUpRight, Check, Loader2 } from "lucide-react";
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,6 +59,9 @@ export default function PlanManagement({
   entitlements,
   initialError,
 }: PlanManagementProps) {
+  const t = useTranslations("billingPlan");
+  const common = useTranslations("common");
+  const locale = useLocale();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(initialError ?? null);
@@ -84,69 +89,79 @@ export default function PlanManagement({
         payment_intent?: { payment_url?: string };
       } | null;
       if (!response.ok) {
-        setError(payload?.error?.message ?? "Plan change failed.");
+        setError(payload?.error?.message ?? t("messages.changeFailed"));
         return;
       }
       if (payload?.mode === "payment_required" && payload.payment_intent?.payment_url) {
         window.location.assign(payload.payment_intent.payment_url);
         return;
       }
-      setMessage("Plan change saved.");
+      setMessage(t("messages.changeSaved"));
       window.location.reload();
     });
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-sm font-medium text-muted-foreground">Billing</p>
-          <h1 className="text-2xl font-semibold tracking-normal text-foreground">Plan</h1>
+          <p className="text-sm font-medium text-muted-foreground">{t("eyebrow")}</p>
+          <h1 className="text-2xl font-semibold tracking-normal text-foreground">{t("title")}</h1>
         </div>
         {subscription ? (
           <Badge variant={subscription.status === "active" ? "success" : "warning"}>
-            {subscription.status}
+            {t(`status.${normalizeStatus(subscription.status)}`)}
           </Badge>
         ) : null}
       </div>
 
       {error ? (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertTitle>{t("messages.errorTitle")}</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       ) : null}
       {message ? (
-        <div className="rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
-          {message}
-        </div>
+        <Alert variant="success">
+          <AlertTitle>{t("messages.successTitle")}</AlertTitle>
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
       ) : null}
-		{subscription?.status === "trialing" ? (
-			<div className="rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-foreground">
-				Your {subscription.plan_display_name ?? subscription.plan_slug} trial is active until {formatDate(subscription.trial_ends_at)}. Choose the same plan below to continue with a paid subscription without changing your tenant.
-			</div>
-		) : null}
+      {subscription?.status === "trialing" ? (
+        <Alert>
+          <AlertTitle>{t("trial.title")}</AlertTitle>
+          <AlertDescription>
+            {t("trial.description", {
+              plan: subscription.plan_display_name ?? subscription.plan_slug ?? common("notSet"),
+              date: formatDate(subscription.trial_ends_at, locale),
+            })}
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       <section className="grid gap-4 lg:grid-cols-2">
         <Card className="rounded-lg">
           <CardHeader>
-            <CardTitle>Current subscription</CardTitle>
+            <CardTitle>{t("currentSubscription.title")}</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 text-sm">
-            <Metric label="Plan" value={subscription?.plan_display_name ?? subscription?.plan_slug ?? "Unavailable"} />
-            <Metric label="Interval" value={subscription?.billing_interval ?? "Unavailable"} />
-            <Metric label="Period end" value={formatDate(subscription?.current_period_end)} />
-							{subscription?.status === "trialing" ? <Metric label="Trial ends" value={formatDate(subscription.trial_ends_at)} /> : null}
+            <Metric label={t("currentSubscription.plan")} value={subscription?.plan_display_name ?? subscription?.plan_slug ?? common("notSet")} />
+            <Metric label={t("currentSubscription.interval")} value={intervalLabel(subscription?.billing_interval, t)} />
+            <Metric label={t("currentSubscription.periodEnd")} value={formatDate(subscription?.current_period_end, locale, common("notSet"))} />
+            {subscription?.status === "trialing" ? (
+              <Metric label={t("currentSubscription.trialEnds")} value={formatDate(subscription.trial_ends_at, locale, common("notSet"))} />
+            ) : null}
           </CardContent>
         </Card>
         <Card className="rounded-lg">
           <CardHeader>
-            <CardTitle>Effective limits</CardTitle>
+            <CardTitle>{t("limits.title")}</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 text-sm">
-            <Metric label="Monthly gateway requests" value={formatUsage(requestUsage, features["gateway.requests.monthly"])} />
-            <Metric label="Users" value={formatLimit(features["users.max"])} />
-            <Metric label="VAT" value={formatEnabled(features["auth.vat.enabled"])} />
-            <Metric label="Overrides" value={Object.keys(overrides).length ? String(Object.keys(overrides).length) : "None"} />
+            <Metric label={t("limits.requests")} value={formatUsage(requestUsage, features["gateway.requests.monthly"], locale, t, common)} />
+            <Metric label={t("limits.users")} value={formatLimit(features["users.max"], locale, common, t)} />
+            <Metric label={t("limits.vat")} value={formatEnabled(features["auth.vat.enabled"], t)} />
+            <Metric label={t("limits.overrides")} value={Object.keys(overrides).length ? formatCount(Object.keys(overrides).length, locale) : t("values.none")} />
           </CardContent>
         </Card>
       </section>
@@ -163,16 +178,16 @@ export default function PlanManagement({
                     <CardTitle>{plan.display_name}</CardTitle>
                     <p className="mt-2 text-sm text-muted-foreground">{plan.description ?? plan.slug}</p>
                   </div>
-                  {isCurrent ? <Badge variant="secondary">Current</Badge> : null}
+                  {isCurrent ? <Badge variant="secondary">{t("badges.current")}</Badge> : null}
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2 text-sm">
-                  <Feature label="Requests" value={formatLimit(plan.features?.["gateway.requests.monthly"])} />
-                  <Feature label="Users" value={formatLimit(plan.features?.["users.max"])} />
-                  <Feature label="VAT" value={formatEnabled(plan.features?.["auth.vat.enabled"])} />
-                  <Feature label="Rate policies" value={formatEnabled(plan.features?.["rate_limit_rules.enabled"])} />
-                  <Feature label="Budget policies" value={formatEnabled(plan.features?.["budget_limit_rules.enabled"])} />
+              <CardContent className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2 text-sm">
+                  <Feature label={t("features.requests")} value={formatLimit(plan.features?.["gateway.requests.monthly"], locale, common, t)} />
+                  <Feature label={t("features.users")} value={formatLimit(plan.features?.["users.max"], locale, common, t)} />
+                  <Feature label={t("features.vat")} value={formatEnabled(plan.features?.["auth.vat.enabled"], t)} />
+                  <Feature label={t("features.ratePolicies")} value={formatEnabled(plan.features?.["rate_limit_rules.enabled"], t)} />
+                  <Feature label={t("features.budgetPolicies")} value={formatEnabled(plan.features?.["budget_limit_rules.enabled"], t)} />
                 </div>
                 <div className="grid gap-2">
                   {prices.map((price) => {
@@ -184,19 +199,18 @@ export default function PlanManagement({
                         type="button"
                         variant={activeInterval ? "secondary" : "outline"}
                         className="justify-between rounded-lg"
-                        loading={pending && target === key}
                         disabled={pending || activeInterval}
                         onClick={() => changePlan(plan.slug, price.billing_interval)}
                       >
-                        <span>{intervalLabel(price.billing_interval)}</span>
+                        <span>{intervalLabel(price.billing_interval, t)}</span>
                         <span className="inline-flex items-center gap-2 text-xs">
-                          {formatPrice(price)}
+                          {formatPrice(price, locale, t)}
                           {pending && target === key ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <Loader2 className="size-3 animate-spin" />
                           ) : activeInterval ? (
-                            <Check className="h-3 w-3" />
+                            <Check className="size-3" />
                           ) : (
-                            <ArrowUpRight className="h-3 w-3" />
+                            <ArrowUpRight className="size-3" />
                           )}
                         </span>
                       </Button>
@@ -239,63 +253,97 @@ function orderedPrices(prices: PlanPrice[]) {
   return [...prices].sort((a, b) => (order.get(a.billing_interval) ?? 99) - (order.get(b.billing_interval) ?? 99));
 }
 
-function formatLimit(value: unknown): string {
+function formatLimit(
+  value: unknown,
+  locale: string,
+  common: ReturnType<typeof useTranslations>,
+  t: ReturnType<typeof useTranslations>,
+): string {
   if (value === null || value === undefined || value === "custom") {
-    return "Custom";
+    return t("values.custom");
   }
   if (typeof value === "number") {
-    return new Intl.NumberFormat("en-US").format(value);
+    return formatCount(value, locale);
   }
   if (typeof value === "string" && value.trim()) {
     const parsed = Number(value);
-    return Number.isFinite(parsed) ? new Intl.NumberFormat("en-US").format(parsed) : value;
+    return Number.isFinite(parsed) ? formatCount(parsed, locale) : value;
   }
-  return "Unavailable";
+  return common("notSet");
 }
 
 function findUsageCounter(entitlements: EffectiveEntitlements | null, featureKey: string): UsageCounter | null {
   return entitlements?.usage_counters?.find((item) => item.feature_key === featureKey) ?? null;
 }
 
-function formatUsage(counter: UsageCounter | null, fallbackLimit: unknown): string {
-  const used = counter ? new Intl.NumberFormat("en-US").format(counter.used) : "0";
+function formatUsage(
+  counter: UsageCounter | null,
+  fallbackLimit: unknown,
+  locale: string,
+  t: ReturnType<typeof useTranslations>,
+  common: ReturnType<typeof useTranslations>,
+): string {
+  const used = counter ? formatCount(counter.used, locale) : formatCount(0, locale);
   const limit = counter?.limit ?? fallbackLimit;
-  return `${used} / ${formatLimit(limit)}`;
+  return t("values.usage", { used, limit: formatLimit(limit, locale, common, t) });
 }
 
-function formatEnabled(value: unknown): string {
-  return value === true ? "Enabled" : "Disabled";
+function formatEnabled(value: unknown, t: ReturnType<typeof useTranslations>): string {
+  return value === true ? t("values.enabled") : t("values.disabled");
 }
 
-function formatDate(value?: string): string {
+function formatDate(value: string | undefined, locale: string, fallback?: string): string {
   if (!value) {
-    return "Unavailable";
+    return fallback ?? "—";
   }
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return value;
   }
-  return new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(date);
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(date);
 }
 
-function intervalLabel(interval: string): string {
+function intervalLabel(interval: string | undefined, t: ReturnType<typeof useTranslations>): string {
   switch (interval) {
     case "monthly":
-      return "Monthly";
+      return t("intervals.monthly");
     case "quarterly":
-      return "Quarterly";
+      return t("intervals.quarterly");
     case "yearly":
-      return "Yearly";
+      return t("intervals.yearly");
     default:
-      return interval;
+      return interval || t("values.unknown");
   }
 }
 
-function formatPrice(price: PlanPrice): string {
+function formatPrice(price: PlanPrice, locale: string, t: ReturnType<typeof useTranslations>): string {
   if (price.amount_minor === null || price.amount_minor === undefined) {
-    return "Custom";
+    return t("values.custom");
   }
-  const formatted = new Intl.NumberFormat("en-US").format(price.amount_minor);
-  const discount = price.discount_percent && price.discount_percent > 0 ? ` -${price.discount_percent}%` : "";
-  return `${formatted} ${price.currency}${discount}`;
+  const formatted = formatCount(price.amount_minor, locale);
+  if (price.discount_percent && price.discount_percent > 0) {
+    return t("values.priceWithDiscount", {
+      amount: formatted,
+      currency: price.currency,
+      discount: formatCount(price.discount_percent, locale),
+    });
+  }
+  return t("values.price", { amount: formatted, currency: price.currency });
+}
+
+function normalizeStatus(status: string): "active" | "trialing" | "past_due" | "other" {
+  switch (status.trim().toLowerCase()) {
+    case "active":
+      return "active";
+    case "trialing":
+      return "trialing";
+    case "past_due":
+      return "past_due";
+    default:
+      return "other";
+  }
+}
+
+function formatCount(value: number, locale: string): string {
+  return new Intl.NumberFormat(locale).format(value);
 }

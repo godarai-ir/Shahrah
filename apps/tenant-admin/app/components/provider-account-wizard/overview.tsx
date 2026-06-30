@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { Readiness } from "./types";
 export function EmptyOverview(props: {
   title: string;
@@ -44,13 +45,13 @@ export function ReadinessBadge(props: {
   labels: Record<Readiness, string>;
 }) {
   const mapping: Record<Readiness, { label: string; className: string }> = {
-    ready: { label: props.labels.ready, className: "bg-emerald-100 text-emerald-700" },
-    needs_credentials: { label: props.labels.needs_credentials, className: "bg-amber-100 text-amber-700" },
-    needs_access: { label: props.labels.needs_access, className: "bg-amber-100 text-amber-700" },
-    pricing_incomplete: { label: props.labels.pricing_incomplete, className: "bg-sky-100 text-sky-700" },
+    ready: { label: props.labels.ready, className: "tone-success border" },
+    needs_credentials: { label: props.labels.needs_credentials, className: "tone-warning border" },
+    needs_access: { label: props.labels.needs_access, className: "tone-warning border" },
+    pricing_incomplete: { label: props.labels.pricing_incomplete, className: "tone-info border" },
   };
   const view = mapping[props.readiness];
-  return <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${view.className}`}>{view.label}</span>;
+  return <span className={cn("rounded-full px-2 py-1 text-[10px] font-semibold", view.className)}>{view.label}</span>;
 }
 
 

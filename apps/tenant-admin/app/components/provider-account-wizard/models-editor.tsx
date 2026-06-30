@@ -760,7 +760,7 @@ export function ModelsEditor(props: {
                           }
                           pricingModeBadge={draft.pricingMode === "private" ? ux("models.pricing.private") : ux("models.pricing.public")}
                           hasCustomPricing={draft.pricingMode === "private"}
-                          className={draft.enabled ? "border-emerald-500/70" : undefined}
+                          className={draft.enabled ? "border-[var(--success-soft-border)]" : undefined}
                           pricingAction={
                             <PopoverTrigger asChild>
                               <Button
@@ -808,10 +808,10 @@ export function ModelsEditor(props: {
         </Button>
       </div>
 
-      <div className="rounded-lg border border-border/70 bg-gradient-to-l from-background to-emerald-500/[0.05] p-3">
+      <div className="surface-elevated rounded-lg border p-3">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline">{ux("models.summary.catalog", { count: props.filteredProviderModels.length })}</Badge>
-          <Badge className="border-emerald-500/30 bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300" variant="outline">
+          <Badge className="border-[var(--success-soft-border)] bg-[var(--success-soft)] text-[var(--success-soft-foreground)] hover:bg-[color-mix(in_oklab,var(--success-soft)_88%,black)]" variant="outline">
             {ux("models.summary.enabled", { count: enabledFilteredModelsCount })}
           </Badge>
           <Badge variant="secondary">{ux("models.summary.available", { count: availableFilteredModelsCount })}</Badge>
@@ -1019,7 +1019,7 @@ export function ModelsEditor(props: {
                       compareCheckboxLabel={ux("models.actions.compareToggle")}
                       pricingModeBadge={draft.pricingMode === "private" ? ux("models.pricing.private") : ux("models.pricing.public")}
                       hasCustomPricing={draft.pricingMode === "private"}
-                      className={draft.enabled ? "border-emerald-500/70" : undefined}
+                      className={draft.enabled ? "border-[var(--success-soft-border)]" : undefined}
                       footerActions={
                         <Button type="button" variant="outline" size="sm" className="gap-1" onClick={() => openCurlGuide(model)}>
                           <Code2 className="h-3.5 w-3.5" />
@@ -1057,7 +1057,7 @@ export function ModelsEditor(props: {
                                 key={`${model.model}-${capability}`}
                                 className={cn(
                                   "inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-sm",
-                                  checked ? "border-emerald-500 bg-emerald-500/10 text-emerald-700" : "border-border bg-background",
+                                  checked ? "border-[var(--success-soft-border)] bg-[var(--success-soft)] text-[var(--success-soft-foreground)]" : "border-border bg-background",
                                 )}
                               >
                                 <input
@@ -1107,25 +1107,25 @@ export function ModelsEditor(props: {
           </DialogHeader>
           <div className="space-y-4 overflow-y-auto px-6 pb-6">
             <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-              <Card className="border-emerald-500/30 bg-emerald-500/5">
+              <Card className="border-[var(--success-soft-border)] bg-[var(--success-soft)]">
                 <CardHeader className="pb-2">
                   <CardDescription>{ux("models.compare.kpis.bestInput")}</CardDescription>
                 </CardHeader>
                 <CardContent className="text-sm font-medium">{compareKpis.cheapestInput ? compareKpis.cheapestInput.display_name || compareKpis.cheapestInput.model : ux("models.na")}</CardContent>
               </Card>
-              <Card className="border-emerald-500/30 bg-emerald-500/5">
+              <Card className="border-[var(--success-soft-border)] bg-[var(--success-soft)]">
                 <CardHeader className="pb-2">
                   <CardDescription>{ux("models.compare.kpis.bestOutput")}</CardDescription>
                 </CardHeader>
                 <CardContent className="text-sm font-medium">{compareKpis.cheapestOutput ? compareKpis.cheapestOutput.display_name || compareKpis.cheapestOutput.model : ux("models.na")}</CardContent>
               </Card>
-              <Card className="border-sky-500/30 bg-sky-500/5">
+              <Card className="border-[var(--info-soft-border)] bg-[var(--info-soft)]">
                 <CardHeader className="pb-2">
                   <CardDescription>{ux("models.compare.kpis.largestContext")}</CardDescription>
                 </CardHeader>
                 <CardContent className="text-sm font-medium">{compareKpis.largestContext ? compareKpis.largestContext.display_name || compareKpis.largestContext.model : ux("models.na")}</CardContent>
               </Card>
-              <Card className="border-violet-500/30 bg-violet-500/5">
+              <Card className="surface-primary-soft border">
                 <CardHeader className="pb-2">
                   <CardDescription>{ux("models.compare.kpis.richestFeatures")}</CardDescription>
                 </CardHeader>
@@ -1203,7 +1203,11 @@ export function ModelsEditor(props: {
                           return (
                             <div
                               key={`${row.key}-${model.model}`}
-                              className={`border-s p-3 text-sm ${row.isDifferent ? "bg-amber-50/40 dark:bg-amber-950/10" : ""} ${(isBestInput || isBestOutput || isBestContext) ? "bg-emerald-50 dark:bg-emerald-950/20" : ""}`}
+                              className={cn(
+                                "border-s p-3 text-sm",
+                                row.isDifferent && "bg-[var(--warning-soft)]",
+                                (isBestInput || isBestOutput || isBestContext) && "bg-[var(--success-soft)]",
+                              )}
                             >
                               {row.key === "features" || row.key === "inputModality" || row.key === "outputModality" ? (
                                 <div className="flex flex-wrap gap-1">

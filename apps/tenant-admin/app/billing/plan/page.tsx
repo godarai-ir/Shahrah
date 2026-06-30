@@ -3,6 +3,7 @@ import PlanManagement from "@/app/components/plan-management";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
+import { getTranslations } from "next-intl/server";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,7 @@ type DataList<T> = {
 };
 
 export default async function BillingPlanPage() {
+  const t = await getTranslations("billingPlan");
   const auth = await requireAuth("/login?next=/billing/plan");
   const tenantSlug = auth.tenantSlug;
   await requirePermissionOr403(tenantSlug, auth.user.id, ["settings:list"]);
@@ -43,20 +45,20 @@ export default async function BillingPlanPage() {
     ]);
 
     if (!plansResponse.ok) {
-      throw new Error(plansResponse.errorMessage ?? "Failed to load commercial plans");
+      throw new Error(plansResponse.errorMessage ?? t("errors.loadPlans"));
     }
     if (!subscriptionResponse.ok) {
-      throw new Error(subscriptionResponse.errorMessage ?? "Failed to load subscription");
+      throw new Error(subscriptionResponse.errorMessage ?? t("errors.loadSubscription"));
     }
     if (!entitlementResponse.ok) {
-      throw new Error(entitlementResponse.errorMessage ?? "Failed to load entitlements");
+      throw new Error(entitlementResponse.errorMessage ?? t("errors.loadEntitlements"));
     }
 
     plans = ((plansResponse.payload ?? {}) as DataList<unknown>).data ?? [];
     subscription = subscriptionResponse.payload;
     entitlements = entitlementResponse.payload;
   } catch (error) {
-    initialError = error instanceof Error ? error.message : "Failed to load plan data";
+    initialError = error instanceof Error ? error.message : t("errors.loadPage");
   }
 
   const currentUser = {

@@ -1,12 +1,45 @@
 {
   "title": "داشبورد تننت",
-  "subtitle": "مدیریت کلیدها، مدل‌ها و وضعیت اعتبار تننت",
-  "currentUser": "کاربر فعلی",
+  "subtitle": "مرور پلن، وضعیت اشتراک و محدودیت‌های تننت",
   "refreshing": "در حال بازآوری...",
   "keyCreatedTitle": "کلید تازه ایجادشده فقط یک‌بار نمایش داده می‌شود",
   "messages": {
     "errorTitle": "خطا",
     "successTitle": "موفق"
+  },
+  "plan": {
+    "currentPlan": "پلن فعلی",
+    "daysRemaining": "روز مانده",
+    "daysRemainingBadge": "{days} روز تا پایان",
+    "daysValue": "{days} روز",
+    "trialSubtitle": "حساب در دوره آزمایشی است",
+    "snapshotTitle": "وضعیت پلن",
+    "snapshotDescription": "خلاصه وضعیت اشتراک و اقدام بعدی",
+    "overviewTitle": "مرور پلن و اعتبار",
+    "overviewDescription": "مصرف فعلی از محدودیت‌های پلن و وضعیت کیف پول",
+    "statusLabel": "وضعیت",
+    "endDateLabel": "تاریخ پایان",
+    "intervalLabel": "بازه صورتحساب",
+    "userLimit": "ظرفیت کاربران",
+    "userLimitHint": "تعداد کاربران فعال نسبت به سقف پلن",
+    "requestLimit": "ظرفیت درخواست‌ها",
+    "requestLimitHint": "سقف کل این دوره از {monthly} درخواست ماهانه × {months} ماه",
+    "actions": {
+      "manage": "مدیریت پلن",
+      "renew": "تمدید پلن",
+      "upgrade": "ارتقا / خرید پلن"
+    },
+    "status": {
+      "active": "فعال",
+      "trialing": "آزمایشی",
+      "past_due": "سررسید گذشته",
+      "inactive": "نامشخص"
+    },
+    "interval": {
+      "monthly": "ماهانه",
+      "quarterly": "سه‌ماهه",
+      "yearly": "سالانه"
+    }
   },
   "stats": {
     "balance": "موجودی کیف پول",

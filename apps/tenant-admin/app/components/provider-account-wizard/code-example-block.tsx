@@ -17,18 +17,18 @@ export function CodeExampleBlock(props: {
   return (
     <div
       className={cn(
-        "flex max-w-full min-w-0 flex-col overflow-hidden rounded-lg border border-slate-800 bg-slate-950 shadow-[0_20px_64px_-32px_rgba(15,23,42,0.85)]",
+        "surface-demo flex max-w-full min-w-0 flex-col overflow-hidden rounded-lg border shadow-[0_20px_64px_-32px_rgba(15,23,42,0.85)]",
         props.className,
       )}
     >
-      <div className="flex shrink-0 items-center justify-between border-b border-slate-800 bg-slate-900/80 px-3 py-2.5 text-slate-200 sm:px-4 sm:py-3">
+      <div className="flex shrink-0 items-center justify-between border-b border-[var(--surface-demo-border)] bg-[color-mix(in_oklab,var(--surface-demo)_82%,white)] px-3 py-2.5 text-[var(--surface-demo-foreground)] sm:px-4 sm:py-3">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
-            <span className="size-2 rounded-full bg-rose-400 sm:size-2.5" />
-            <span className="size-2 rounded-full bg-amber-300 sm:size-2.5" />
-            <span className="size-2 rounded-full bg-emerald-400 sm:size-2.5" />
+            <span className="tone-danger size-2 rounded-full border sm:size-2.5" />
+            <span className="tone-warning size-2 rounded-full border sm:size-2.5" />
+            <span className="tone-success size-2 rounded-full border sm:size-2.5" />
           </div>
-          <Badge variant="secondary" className="border border-slate-700 bg-slate-800 px-2.5 py-0.5 font-mono text-[11px] text-slate-200">
+          <Badge variant="secondary" className="border border-[var(--surface-demo-border)] bg-[color-mix(in_oklab,var(--surface-demo)_76%,white)] px-2.5 py-0.5 font-mono text-[11px] text-[var(--surface-demo-foreground)]">
             {props.shellLabel}
           </Badge>
         </div>
@@ -57,7 +57,7 @@ export function CodeExampleBlock(props: {
                   {...lineProps}
                   className={cn("table w-full table-fixed", lineProps.className)}
                 >
-                  <span className="table-cell w-8 select-none pe-3 text-right text-slate-500 sm:w-10 sm:pe-4">
+                  <span className="table-cell w-8 select-none pe-3 text-right text-[color-mix(in_oklab,var(--surface-demo-foreground)_45%,transparent)] sm:w-10 sm:pe-4">
                     {lineIndex + 1}
                   </span>
                   <span className="table-cell w-full">

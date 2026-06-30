@@ -238,8 +238,8 @@ export function ModelCard(props: ModelCardProps) {
       className={cn(
         "group h-full w-full min-w-0 max-w-full overflow-hidden rounded-lg border border-border/70 bg-card transition-colors hover:border-border",
         model.recommended && "ring-1 ring-primary/25",
-        isDeprecated && "border-amber-500/50 bg-amber-500/5",
-        props.stateBadge?.tone === "active" && "border-emerald-500/70",
+        isDeprecated && "border-[var(--warning-soft-border)] bg-[var(--warning-soft)]",
+        props.stateBadge?.tone === "active" && "border-[var(--success-soft-border)]",
         props.stateBadge?.tone === "inactive" && "border-border/70 bg-card",
         props.className,
       )}
@@ -309,13 +309,13 @@ export function ModelCard(props: ModelCardProps) {
               <Badge key={category} variant="secondary">{labelCategory(category, labels)}</Badge>
             ))}
             {props.hasCustomPricing ? (
-              <Badge className="gap-1 border-amber-500/40 bg-amber-500/15 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300" variant="outline">
+              <Badge className="gap-1 border-[var(--warning-soft-border)] bg-[var(--warning-soft)] text-[var(--warning-soft-foreground)] hover:bg-[color-mix(in_oklab,var(--warning-soft)_88%,black)]" variant="outline">
                 <SlidersHorizontal className="h-3 w-3" />
                 {labels.customPricing}
               </Badge>
             ) : null}
             {model.recommended ? (
-              <Badge className="gap-1 bg-primary/15 text-primary hover:bg-primary/20">
+              <Badge className="surface-primary-soft gap-1 hover:bg-[var(--primary-soft-hover)]">
                 <Sparkles className="h-3 w-3" />
                 {labels.recommended}
               </Badge>
@@ -324,7 +324,7 @@ export function ModelCard(props: ModelCardProps) {
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <Button variant="outline" size="sm" className="gap-1" onClick={handleCopyModelId}>
-              {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-[var(--success-soft-foreground)]" /> : <Copy className="h-3.5 w-3.5" />}
               {copied ? labels.copied : labels.copyId}
             </Button>
             {props.footerActions}
@@ -380,12 +380,12 @@ export function ModelCard(props: ModelCardProps) {
         </section>
 
         {model.tradeoffs && model.tradeoffs.length > 0 ? (
-          <section className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2">
-            <p className="mb-1 flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-300">
+          <section className="rounded-md border border-[var(--warning-soft-border)] bg-[var(--warning-soft)] p-2">
+            <p className="mb-1 flex items-center gap-1 text-xs font-medium text-[var(--warning-soft-foreground)]">
               <AlertTriangle className="h-3.5 w-3.5" />
               {labels.tradeOffs}
             </p>
-            <ul className="flex flex-col gap-0.5 text-xs text-amber-800 dark:text-amber-200">
+            <ul className="flex flex-col gap-0.5 text-xs text-[color-mix(in_oklab,var(--warning-soft-foreground)_85%,black)] dark:text-[color-mix(in_oklab,var(--warning-soft-foreground)_88%,white)]">
               {model.tradeoffs.slice(0, 3).map((item) => (
                 <li key={item}>- {item}</li>
               ))}

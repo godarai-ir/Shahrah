@@ -1,0 +1,65 @@
+{
+  "eyebrow": "Billing",
+  "title": "Plan",
+  "badges": {
+    "current": "Current"
+  },
+  "status": {
+    "active": "Active",
+    "trialing": "Trial",
+    "past_due": "Past due",
+    "other": "Unknown"
+  },
+  "trial": {
+    "title": "Trial is active",
+    "description": "Your {plan} trial is active until {date}. Choose the same plan below to continue with a paid subscription without changing your tenant."
+  },
+  "currentSubscription": {
+    "title": "Current subscription",
+    "plan": "Plan",
+    "interval": "Interval",
+    "periodEnd": "Period end",
+    "trialEnds": "Trial ends"
+  },
+  "limits": {
+    "title": "Effective limits",
+    "requests": "Monthly gateway requests",
+    "users": "Users",
+    "vat": "VAT",
+    "overrides": "Overrides"
+  },
+  "features": {
+    "requests": "Requests",
+    "users": "Users",
+    "vat": "VAT",
+    "ratePolicies": "Rate policies",
+    "budgetPolicies": "Budget policies"
+  },
+  "intervals": {
+    "monthly": "Monthly",
+    "quarterly": "Quarterly",
+    "yearly": "Yearly"
+  },
+  "values": {
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "none": "None",
+    "unknown": "Unknown",
+    "usage": "{used} / {limit}",
+    "price": "{amount} {currency}",
+    "priceWithDiscount": "{amount} {currency} -{discount}%",
+    "custom": "Custom"
+  },
+  "messages": {
+    "errorTitle": "Error",
+    "successTitle": "Success",
+    "changeFailed": "Plan change failed.",
+    "changeSaved": "Plan change saved."
+  },
+  "errors": {
+    "loadPlans": "Failed to load commercial plans.",
+    "loadSubscription": "Failed to load subscription.",
+    "loadEntitlements": "Failed to load entitlements.",
+    "loadPage": "Failed to load plan data."
+  }
+}

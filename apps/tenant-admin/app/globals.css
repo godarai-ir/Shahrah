@@ -281,3 +281,9 @@ body {
   color: var(--success-soft-foreground);
   border-color: var(--success-soft-border);
 }
+
+.tone-danger {
+  background: var(--destructive-soft);
+  color: var(--destructive-soft-foreground);
+  border-color: var(--destructive-soft-border);
+}

@@ -22,9 +22,9 @@ const colorMap = {
     trend: "text-primary",
   },
   purple: {
-    bg: "bg-purple-500/10 dark:bg-purple-500/20",
-    text: "text-purple-500",
-    trend: "text-purple-500",
+    bg: "surface-primary-soft",
+    text: "text-[var(--primary-soft-foreground)]",
+    trend: "text-[var(--primary-soft-foreground)]",
   },
   green: {
     bg: "bg-success-muted",

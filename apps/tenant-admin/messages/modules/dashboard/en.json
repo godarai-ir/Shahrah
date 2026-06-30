@@ -1,12 +1,45 @@
 {
   "title": "Tenant Dashboard",
-  "subtitle": "Manage keys, models, and tenant balance",
-  "currentUser": "Current user",
+  "subtitle": "Review the current plan, subscription status, and tenant limits",
   "refreshing": "Refreshing...",
   "keyCreatedTitle": "Newly created key is shown only once",
   "messages": {
     "errorTitle": "Error",
     "successTitle": "Success"
+  },
+  "plan": {
+    "currentPlan": "Current plan",
+    "daysRemaining": "Days remaining",
+    "daysRemainingBadge": "{days} days left",
+    "daysValue": "{days} days",
+    "trialSubtitle": "This account is in a trial period",
+    "snapshotTitle": "Plan status",
+    "snapshotDescription": "Subscription snapshot and next action",
+    "overviewTitle": "Plan and credit overview",
+    "overviewDescription": "Current consumption against plan limits and wallet status",
+    "statusLabel": "Status",
+    "endDateLabel": "End date",
+    "intervalLabel": "Billing interval",
+    "userLimit": "User capacity",
+    "userLimitHint": "Active users compared with the plan cap",
+    "requestLimit": "Request capacity",
+    "requestLimitHint": "Total limit for this period from {monthly} monthly requests × {months} months",
+    "actions": {
+      "manage": "Manage plan",
+      "renew": "Renew plan",
+      "upgrade": "Upgrade / buy plan"
+    },
+    "status": {
+      "active": "Active",
+      "trialing": "Trial",
+      "past_due": "Past due",
+      "inactive": "Unknown"
+    },
+    "interval": {
+      "monthly": "Monthly",
+      "quarterly": "Quarterly",
+      "yearly": "Yearly"
+    }
   },
   "stats": {
     "balance": "Wallet balance",

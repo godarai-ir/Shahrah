@@ -26,7 +26,7 @@ export function CodeBlock(props: {
         <pre
           dir="ltr"
           className={cn(
-            "custom-scrollbar overflow-auto rounded-xl border border-slate-800 bg-slate-950 p-4 text-left text-[13px] leading-7 sm:text-sm sm:leading-7",
+            "surface-demo custom-scrollbar overflow-auto rounded-xl border p-4 text-left text-[13px] leading-7 sm:text-sm sm:leading-7",
             props.maxHeightClassName ?? "max-h-[min(22rem,42dvh)]",
             className,
             props.className,
@@ -45,7 +45,7 @@ export function CodeBlock(props: {
                 {...lineProps}
                 className={cn("table w-full table-fixed", lineProps.className)}
               >
-                <span className="table-cell w-8 select-none pe-3 text-right text-slate-400 sm:w-10 sm:pe-4">
+                <span className="table-cell w-8 select-none pe-3 text-right text-[color-mix(in_oklab,var(--surface-demo-foreground)_55%,transparent)] sm:w-10 sm:pe-4">
                   {lineIndex + 1}
                 </span>
                 <span className="table-cell w-full break-words">

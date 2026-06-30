@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, ChevronDown, Copy, ExternalLink, Link2, MoreVertical, Network, Plug, Search, Settings, Trash2, Unplug, UserCog } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -64,6 +64,10 @@ const PROVIDER_DOCS_URLS: Record<string, string> = {
   xai: "https://docs.x.ai/",
 };
 
+const INITIAL_PROVIDER_BATCH = 9;
+const PROVIDER_BATCH_SIZE = 6;
+const MODEL_COUNT_REQUEST_TIMEOUT_MS = 4000;
+
 function readPageDirection(): PageDirection {
   if (typeof document === "undefined") return "rtl";
   return document.documentElement.getAttribute("dir") === "ltr" ? "ltr" : "rtl";
@@ -107,12 +111,18 @@ export default function LLMIntegrationsManagement(props: {
   const [activeTab, setActiveTab] = useState<"all" | "connected">(props.initialTab ?? (initialProviderFilters.length > 0 ? "connected" : "all"));
   const [providers, setProviders] = useState<ProviderView[]>([]);
   const [accounts, setAccounts] = useState<TenantProviderAccount[]>([]);
-  const [modelCounts, setModelCounts] = useState<Record<string, number>>({});
+  const [modelCounts, setModelCounts] = useState<Record<string, number | null>>({});
   const [query, setQuery] = useState("");
   const [providerFilters, setProviderFilters] = useState<string[]>(initialProviderFilters);
+  const [providerPagination, setProviderPagination] = useState<{ signature: string; count: number }>({
+    signature: "",
+    count: INITIAL_PROVIDER_BATCH,
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [banner, setBanner] = useState<Banner | null>(null);
   const [deletingAccountID, setDeletingAccountID] = useState("");
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const pendingModelCountSlugsRef = useRef<Set<string>>(new Set());
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -123,9 +133,13 @@ export default function LLMIntegrationsManagement(props: {
         requestJSON<AccountsResponse>("/api/tenant-provider-accounts"),
       ]);
       const nextProviders = (unwrapData<ProviderView[]>(providersPayload) ?? []).filter((item) => item.enabled);
+      const nextProviderSlugs = new Set(nextProviders.map((item) => normalizeProviderSlug(item.provider)));
+      pendingModelCountSlugsRef.current.clear();
       setProviders(nextProviders);
       setAccounts(unwrapData<TenantProviderAccount[]>(accountsPayload) ?? []);
-      void loadProviderModelCounts(nextProviders).then(setModelCounts);
+      setModelCounts((current) =>
+        Object.fromEntries(Object.entries(current).filter(([slug]) => nextProviderSlugs.has(slug))),
+      );
     } catch (error) {
       setBanner({ kind: "error", message: normalizeError(error, copy("messages.loadFailed")) });
     } finally {
@@ -139,6 +153,11 @@ export default function LLMIntegrationsManagement(props: {
     }, 0);
     return () => clearTimeout(timer);
   }, [loadData]);
+
+  const providerPaginationSignature = useMemo(
+    () => `${activeTab}:${query.trim().toLowerCase()}:${providers.map((item) => normalizeProviderSlug(item.provider)).join("|")}`,
+    [activeTab, providers, query],
+  );
 
   const providerOptions = useMemo(
     () => providers.map((item) => ({ slug: normalizeProviderSlug(item.provider), label: item.display_name })),
@@ -167,6 +186,16 @@ export default function LLMIntegrationsManagement(props: {
     });
   }, [providers, query]);
 
+  const visibleProviderCount =
+    providerPagination.signature === providerPaginationSignature ? providerPagination.count : INITIAL_PROVIDER_BATCH;
+
+  const visibleProviders = useMemo(
+    () => filteredProviders.slice(0, visibleProviderCount),
+    [filteredProviders, visibleProviderCount],
+  );
+
+  const hasMoreProviders = visibleProviders.length < filteredProviders.length;
+
   const filteredAccounts = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return accounts.filter((account) => {
@@ -181,6 +210,49 @@ export default function LLMIntegrationsManagement(props: {
       );
     });
   }, [accounts, providerFilters, query]);
+
+  useEffect(() => {
+    if (activeTab !== "all" || !hasMoreProviders) return undefined;
+    const target = loadMoreRef.current;
+    if (!target || typeof IntersectionObserver === "undefined") return undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setProviderPagination((current) => {
+            const baseCount = current.signature === providerPaginationSignature ? current.count : INITIAL_PROVIDER_BATCH;
+            return {
+              signature: providerPaginationSignature,
+              count: Math.min(baseCount + PROVIDER_BATCH_SIZE, filteredProviders.length),
+            };
+          });
+        }
+      },
+      { rootMargin: "160px 0px" },
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [activeTab, filteredProviders.length, hasMoreProviders, providerPaginationSignature, visibleProviderCount]);
+
+  useEffect(() => {
+    if (visibleProviders.length === 0) return undefined;
+
+    for (const provider of visibleProviders) {
+      const slug = normalizeProviderSlug(provider.provider);
+      if (!slug || modelCounts[slug] !== undefined || pendingModelCountSlugsRef.current.has(slug)) continue;
+
+      pendingModelCountSlugsRef.current.add(slug);
+      void loadProviderModelCount(slug)
+        .then((count) => {
+          setModelCounts((current) => (current[slug] === undefined ? { ...current, [slug]: count } : current));
+        })
+        .finally(() => {
+          pendingModelCountSlugsRef.current.delete(slug);
+        });
+    }
+    return undefined;
+  }, [modelCounts, visibleProviders]);
 
   async function copyIdentifier(account: TenantProviderAccount) {
     const value = `${account.provider}:${account.name}`;
@@ -300,27 +372,30 @@ export default function LLMIntegrationsManagement(props: {
             {isLoading ? (
               <ProviderGridSkeleton direction={pageDirection} />
             ) : filteredProviders.length > 0 ? (
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" dir={pageDirection}>
-                {filteredProviders.map((provider) => (
-                  <ProviderCard
-                    key={provider.provider}
-                    provider={provider}
-                    connectLabel={copy("actions.connect")}
-                    manageConnectionsLabel={copy("actions.manageConnections")}
-                    modelUnitLabel={copy("card.modelUnit")}
-                    modelMetricLabel={copy("card.modelMetricLabel")}
-                    connectionMetricLabel={copy("card.connectionMetricLabel")}
-                    activeAccountCountLabel={copy("card.activeAccountCount", {
-                      count: accountCountsByProvider.get(normalizeProviderSlug(provider.provider)) ?? 0,
-                    })}
-                    noConnectionLabel={copy("card.noConnection")}
-                    createConnectionLabel={copy("card.createConnection")}
-                    accountCount={accountCountsByProvider.get(normalizeProviderSlug(provider.provider)) ?? 0}
-                    modelCount={modelCounts[normalizeProviderSlug(provider.provider)]}
-                    descriptionFallback={copy("providerDescriptionFallback")}
-                    onManageConnections={openConnectedProvider}
-                  />
-                ))}
+              <div className="space-y-3">
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" dir={pageDirection}>
+                  {visibleProviders.map((provider) => (
+                    <ProviderCard
+                      key={provider.provider}
+                      provider={provider}
+                      connectLabel={copy("actions.connect")}
+                      manageConnectionsLabel={copy("actions.manageConnections")}
+                      modelUnitLabel={copy("card.modelUnit")}
+                      modelMetricLabel={copy("card.modelMetricLabel")}
+                      connectionMetricLabel={copy("card.connectionMetricLabel")}
+                      activeAccountCountLabel={copy("card.activeAccountCount", {
+                        count: accountCountsByProvider.get(normalizeProviderSlug(provider.provider)) ?? 0,
+                      })}
+                      noConnectionLabel={copy("card.noConnection")}
+                      createConnectionLabel={copy("card.createConnection")}
+                      accountCount={accountCountsByProvider.get(normalizeProviderSlug(provider.provider)) ?? 0}
+                      modelCount={modelCounts[normalizeProviderSlug(provider.provider)]}
+                      descriptionFallback={copy("providerDescriptionFallback")}
+                      onManageConnections={openConnectedProvider}
+                    />
+                  ))}
+                </div>
+                {hasMoreProviders ? <div ref={loadMoreRef} className="h-4 w-full" aria-hidden="true" /> : null}
               </div>
             ) : (
               <EmptyState
@@ -468,7 +543,7 @@ function ProviderCard(props: {
   noConnectionLabel: string;
   createConnectionLabel: string;
   accountCount: number;
-  modelCount?: number;
+  modelCount?: number | null;
   descriptionFallback: string;
   onManageConnections: (providerSlug: string) => void;
 }) {
@@ -478,7 +553,10 @@ function ProviderCard(props: {
   const connectHref = `/provider-accounts/new?provider=${encodeURIComponent(providerSlug)}`;
   const providerHref = `${getModelDiscoveryCatalogBaseURL()}/providers/${encodeURIComponent(providerSlug)}`;
   const providerModelsHref = `${getModelDiscoveryCatalogBaseURL()}/models?provider=${encodeURIComponent(providerSlug)}`;
-  const formattedModelCount = props.modelCount === undefined ? "-" : new Intl.NumberFormat("fa-IR").format(props.modelCount);
+  const isModelCountLoading = props.modelCount === undefined;
+  const resolvedModelCount = typeof props.modelCount === "number" ? props.modelCount : null;
+  const formattedModelCount =
+    resolvedModelCount === null ? "-" : new Intl.NumberFormat("fa-IR").format(resolvedModelCount);
   const formattedAccountCount = new Intl.NumberFormat("fa-IR").format(props.accountCount);
 
   return (
@@ -515,9 +593,9 @@ function ProviderCard(props: {
           <div className="text-center">
             <p className="text-xs text-muted-foreground">{props.modelMetricLabel}</p>
             <p className="mt-1 text-base font-bold leading-none" dir="rtl">
-              {props.modelCount === undefined ? (
+              {isModelCountLoading ? (
                 <span className="inline-block h-5 w-14 animate-pulse rounded bg-muted align-middle" aria-label="loading" />
-              ) : (
+              ) : resolvedModelCount !== null ? (
                 <a
                   href={providerModelsHref}
                   target="_blank"
@@ -527,6 +605,10 @@ function ProviderCard(props: {
                   <bdi>{formattedModelCount}</bdi>{" "}
                   <span>{props.modelUnitLabel}</span>
                 </a>
+              ) : (
+                <span className="inline-flex items-center justify-center text-muted-foreground">
+                  <bdi>{formattedModelCount}</bdi>
+                </span>
               )}
             </p>
           </div>
@@ -724,21 +806,20 @@ function getProviderDocsURL(provider: Pick<ProviderView, "provider" | "docs_url"
   return PROVIDER_DOCS_URLS[slug] ?? "";
 }
 
-async function loadProviderModelCounts(providers: ProviderView[]): Promise<Record<string, number>> {
-  const pairs = await Promise.all(
-    providers.map(async (provider) => {
-      const slug = normalizeProviderSlug(provider.provider);
-      try {
-        const payload = await requestJSON<ProviderModelsResponse>(
-          `/api/provider-catalog/providers/${encodeURIComponent(slug)}/models`,
-        );
-        return [slug, unwrapData<ProviderModelsResponse["data"]>(payload)?.length ?? 0] as const;
-      } catch {
-        return [slug, 0] as const;
-      }
-    }),
-  );
-  return Object.fromEntries(pairs);
+async function loadProviderModelCount(providerSlug: string): Promise<number | null> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), MODEL_COUNT_REQUEST_TIMEOUT_MS);
+  try {
+    const payload = await requestJSON<ProviderModelsResponse>(
+      `/api/provider-catalog/providers/${encodeURIComponent(providerSlug)}/models`,
+      { signal: controller.signal },
+    );
+    return unwrapData<ProviderModelsResponse["data"]>(payload)?.length ?? 0;
+  } catch {
+    return null;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 }
 
 function getProviderDescription(provider: ProviderView, fallback: string): string {

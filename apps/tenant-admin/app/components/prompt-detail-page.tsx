@@ -914,12 +914,12 @@ function DiffLine(props: {
         : props.side === "right" ? "+" : " ";
 
   const toneClassName = props.row.change === "same"
-    ? "bg-slate-950/0"
+    ? ""
     : props.row.change === "changed"
-      ? "bg-amber-100/60 dark:bg-amber-950/30"
+      ? "bg-[var(--warning-soft)]"
       : props.row.change === "removed"
-        ? props.side === "left" ? "bg-rose-100/70 dark:bg-rose-950/30" : "bg-slate-950/0"
-        : props.side === "right" ? "bg-emerald-100/70 dark:bg-emerald-950/30" : "bg-slate-950/0";
+        ? props.side === "left" ? "bg-[var(--destructive-soft)]" : ""
+        : props.side === "right" ? "bg-[var(--success-soft)]" : "";
 
   return (
     <div className={cn("grid min-h-8 grid-cols-[48px_24px_minmax(0,1fr)] font-mono text-xs", toneClassName)}>

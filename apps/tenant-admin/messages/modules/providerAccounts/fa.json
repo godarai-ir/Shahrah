@@ -497,7 +497,7 @@
       "connected": "متصل"
     },
     "searchPlaceholder": "جستجوی در بین ارائه‌دهندگان خدمات هوش مصنوعی",
-    "providerFilter": "AI Providers",
+    "providerFilter": "ارائه‌دهنده‌ها",
     "workspaceFilter": "Workspaces",
     "providerDescriptionFallback": "برای اتصال این Provider، ترافیک tenant از مسیر Godar با credential، مدل و دسترسی مدیریت‌شده route می‌شود.",
     "integrationDescriptionFallback": "Integration متصل به tenant برای مدل‌های provision شده Provider.",

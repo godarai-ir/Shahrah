@@ -6,6 +6,7 @@ const MESSAGE_NAMESPACES = [
   "shell",
   "common",
   "dashboard",
+  "billingPlan",
   "topupPage",
   "topupResult",
   "login",

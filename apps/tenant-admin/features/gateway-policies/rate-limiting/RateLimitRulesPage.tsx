@@ -132,7 +132,7 @@ export function RateLimitRulesPage() {
                 {filtered.map((rule) => (
                   <TableRow
                     key={rule.id}
-                    className={rule.limit.dimension === "tokens" ? "bg-amber-50/50 dark:bg-amber-950/20" : "bg-sky-50/40 dark:bg-sky-950/20"}
+                    className={rule.limit.dimension === "tokens" ? "bg-[var(--warning-soft)]" : "bg-[var(--info-soft)]"}
                   >
                     <TableCell className="font-medium">{rule.rule_id}</TableCell>
                     <TableCell>

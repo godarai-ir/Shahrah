@@ -3,50 +3,34 @@ import AdminShell from "@/app/components/admin-shell";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 import { requireAuth } from "@/lib/auth/session";
 
-type TenantKey = {
-  id: string;
-  key_alias: string;
-  role: string;
-  key_name?: string;
-  models: string[];
-  spend: number;
-  blocked: boolean;
-  expires_at?: string;
-};
-
-type TenantModel = {
-  id: string;
-  provider?: string;
-  aliases?: string[];
-};
-
-type Wallet = {
-  id: string;
-  tenant_id: string;
-  balance_irr: number;
-  pending_irr: number;
-};
-type WalletTransaction = {
-  id: string;
-  type: string;
-  amount_irr: number;
-  amount_usd?: number | null;
+type TenantSubscription = {
+  plan_slug?: string;
+  plan_display_name?: string;
   status: string;
-  created_at: string;
-};
-type WalletTransactionListResponse = {
-  data?: WalletTransaction[];
-};
-
-type KeyListResponse = {
-  data?: TenantKey[];
+  billing_interval: string;
+  current_period_start?: string;
+  current_period_end?: string;
+  trial_started_at?: string;
+  trial_ends_at?: string;
 };
 
-type ModelListResponse = {
-  data?: TenantModel[];
+type EffectiveEntitlements = {
+  subscription?: TenantSubscription | null;
+  features?: Record<string, unknown>;
+  usage_counters?: Array<{
+    feature_key: string;
+    used: number;
+    limit?: number | null;
+    window_end?: string;
+  }>;
 };
-type AllowedModelListResponse = {
-  data?: Array<{ id: string }>;
+
+type TenantAdminUserListResponse = {
+  total?: number;
+};
+
+type MetricsQueryResponse = {
+  data?: Array<Record<string, unknown>>;
 };
 
 export const dynamic = "force-dynamic";
@@ -55,61 +39,69 @@ export default async function Home() {
   const auth = await requireAuth("/login");
   const tenantSlug = auth.tenantSlug;
 
-  const [walletResult, keysResult, modelsResult, txResult, allowedModelsResult] = await Promise.all([
+  const [subscriptionResult, entitlementsResult, usersResult] = await Promise.all([
     fetchControlPlaneJSON({
       tenantSlug,
       method: "GET",
-      path: "/api/v1/wallet",
+      path: "/api/v1/subscription",
       userID: auth.user.id,
     }),
     fetchControlPlaneJSON({
       tenantSlug,
       method: "GET",
-      path: "/api/v1/keys",
+      path: "/api/v1/entitlements",
       userID: auth.user.id,
     }),
     fetchControlPlaneJSON({
       tenantSlug,
       method: "GET",
-      path: "/api/v1/models",
-      userID: auth.user.id,
-    }),
-    fetchControlPlaneJSON({
-      tenantSlug,
-      method: "GET",
-      path: "/api/v1/wallet/transactions?limit=20",
-      userID: auth.user.id,
-    }),
-    fetchControlPlaneJSON({
-      tenantSlug,
-      method: "GET",
-      path: "/api/v1/models/allowed?key_type=pat",
+      path: "/api/v1/users?limit=1&offset=0",
       userID: auth.user.id,
     }),
   ]);
+  const initialSubscription = subscriptionResult.ok ? (subscriptionResult.payload as TenantSubscription) : null;
+  const initialEntitlements = entitlementsResult.ok ? (entitlementsResult.payload as EffectiveEntitlements) : null;
+  const initialUsersTotal = usersResult.ok ? ((usersResult.payload as TenantAdminUserListResponse).total ?? 0) : null;
 
-  const initialWallet = walletResult.ok
-    ? (walletResult.payload as Wallet)
-    : null;
-  const initialKeys = keysResult.ok
-    ? ((keysResult.payload as KeyListResponse).data ?? [])
-    : [];
-  const initialModels = modelsResult.ok
-    ? ((modelsResult.payload as ModelListResponse).data ?? [])
-    : [];
-  const initialTransactions = txResult.ok
-    ? ((txResult.payload as WalletTransactionListResponse).data ?? [])
-    : [];
-  const initialAllowedModels = allowedModelsResult.ok
-    ? ((allowedModelsResult.payload as AllowedModelListResponse).data ?? []).map((item) => item.id)
-    : [];
+  let initialPlanRequestsUsed: number | null = null;
+  const planPeriodStart =
+    initialSubscription?.current_period_start?.trim() ||
+    initialSubscription?.trial_started_at?.trim() ||
+    "";
+
+  if (planPeriodStart) {
+    const metricsResult = await fetchControlPlaneJSON({
+      tenantSlug,
+      method: "POST",
+      path: "/api/v1/metrics/query",
+      userID: auth.user.id,
+      body: {
+        startTs: planPeriodStart,
+        endTs: new Date().toISOString(),
+        datasource: "modelMetrics",
+        type: "distribution",
+      },
+    });
+
+    if (metricsResult.ok) {
+      const row = ((metricsResult.payload as MetricsQueryResponse).data ?? [])[0] ?? null;
+      const rawCount = row && typeof row === "object" ? row.countAll : null;
+      const parsedCount =
+        typeof rawCount === "number"
+          ? rawCount
+          : typeof rawCount === "string"
+            ? Number(rawCount)
+            : Number.NaN;
+      if (Number.isFinite(parsedCount)) {
+        initialPlanRequestsUsed = parsedCount;
+      }
+    }
+  }
 
   const errorMessage =
-    walletResult.errorMessage ??
-    keysResult.errorMessage ??
-    modelsResult.errorMessage ??
-    txResult.errorMessage ??
-    allowedModelsResult.errorMessage ??
+    subscriptionResult.errorMessage ??
+    entitlementsResult.errorMessage ??
+    usersResult.errorMessage ??
     null;
 
   const currentUser = {
@@ -122,14 +114,11 @@ export default async function Home() {
   return (
     <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
       <TenantAdminDashboard
-        initialHost={`${tenantSlug}.localhost`}
-        initialWallet={initialWallet}
-        initialKeys={initialKeys}
-        initialModels={initialModels}
-        initialTransactions={initialTransactions}
-        initialAllowedModels={initialAllowedModels}
+        initialSubscription={initialSubscription}
+        initialEntitlements={initialEntitlements}
+        initialUsersTotal={initialUsersTotal}
+        initialPlanRequestsUsed={initialPlanRequestsUsed}
         initialError={errorMessage}
-        currentUser={currentUser}
       />
     </AdminShell>
   );

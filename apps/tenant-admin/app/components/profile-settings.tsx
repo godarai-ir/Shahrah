@@ -213,7 +213,7 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
                   {t("otpSentTo", { destination: emailState.destinationMasked })}
                 </p>
                 {emailState.debugOTP ? (
-                  <Alert className="border-amber-400/45 bg-amber-100/40 text-amber-950 dark:bg-amber-500/10 dark:text-amber-200">
+                  <Alert className="tone-warning">
                     <AlertDescription>
                       {t("devCode")}: <code>{emailState.debugOTP}</code>
                     </AlertDescription>
@@ -277,7 +277,7 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
                   {t("otpSentTo", { destination: mobileState.destinationMasked })}
                 </p>
                 {mobileState.debugOTP ? (
-                  <Alert className="border-amber-400/45 bg-amber-100/40 text-amber-950 dark:bg-amber-500/10 dark:text-amber-200">
+                  <Alert className="tone-warning">
                     <AlertDescription>
                       {t("devCode")}: <code>{mobileState.debugOTP}</code>
                     </AlertDescription>
