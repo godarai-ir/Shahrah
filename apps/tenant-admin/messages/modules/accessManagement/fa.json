@@ -13,7 +13,7 @@
   "searchPlaceholder": "جستجو...",
   "inviteUser": "دعوت کاربر",
   "inviteTitle": "دعوت کاربر",
-  "inviteDescription": "کاربر را با ایمیل به این تننت دعوت کنید.",
+  "inviteDescription": "کاربر را با ایمیل به این فضای کاری دعوت کنید.",
   "form": {
     "email": "ایمیل",
     "emailPlaceholder": "user@company.com",
@@ -21,7 +21,7 @@
   },
   "roles": {
     "member": "عضو",
-    "tenantAdmin": "مدیر تننت"
+    "tenantAdmin": "مدیر فضای کاری"
   },
   "button": {
     "createInvite": "ایجاد دعوت‌نامه",

@@ -1,6 +1,6 @@
 {
   "title": "رهگیری درخواست‌ها",
-  "description": "بررسی Traceهای درخواست‌های تننت و جزئیات spanها.",
+  "description": "بررسی Traceهای درخواست‌های فضای کاری و جزئیات spanها.",
   "alerts": {
     "errorTitle": "خطا"
   },

@@ -47,7 +47,7 @@
     "accountName": "نام نمایشی حساب",
     "authMode": "روش احراز هویت اتصال",
     "virtualKeysMode": "سیاست کلید مجازی",
-    "allowVirtualOnly": "فقط کلیدهای مجازی تننت",
+    "allowVirtualOnly": "فقط کلیدهای مجازی فضای کاری",
     "apiKeyOptional": "API Key (اختیاری)",
     "secretRefOptional": "مرجع Secret (اختیاری)",
     "pricingMode": "مبنای قیمت‌گذاری",

@@ -146,7 +146,7 @@ export default function RoleCreateManagement({ initialPermissionCatalog }: RoleC
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="role-display-name">{t("rolesPage.form.displayName")}</Label>
-                    <Input id="role-display-name" value={form.display_name} onChange={(e) => setForm((p) => ({ ...p, display_name: e.target.value }))} placeholder={locale.startsWith("fa") ? "مدیر مالی تننت" : "Tenant Finance Admin"} />
+                    <Input id="role-display-name" value={form.display_name} onChange={(e) => setForm((p) => ({ ...p, display_name: e.target.value }))} placeholder={locale.startsWith("fa") ? "مدیر مالی فضای کاری" : "Tenant Finance Admin"} />
                   </div>
                 </div>
                 <div className="space-y-2">

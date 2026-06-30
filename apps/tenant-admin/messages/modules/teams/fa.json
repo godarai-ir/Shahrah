@@ -2,7 +2,7 @@
     "title":  "تیم‌ها",
     "subtitle":  "مدیریت workspace تیم، اعضا، دسترسی‌ها، مدل‌های مجاز و کنترل‌های بودجه.",
     "breadcrumb":  {
-                       "tenant":  "تننت"
+                       "tenant":  "فضای کاری"
                    },
     "common":  {
                    "notSet":  "تعریف نشده"
@@ -50,7 +50,7 @@
                   "team":  "تیم",
                   "orgUnit":  "واحد سازمانی",
                   "orgUnknown":  "واحد سازمانی نامشخص",
-                  "tenantRoot":  "ریشه تننت",
+                  "tenantRoot":  "ریشه فضای کاری",
                   "workspaceType":  "محیط",
                   "membersAdmins":  "اعضا/مدیران",
                   "budgetSpend":  "بودجه/مصرف",
@@ -162,6 +162,6 @@
                      "softBudgetConflict":  "بودجه نرم باید کمتر از بودجه حداکثر باشد.",
                      "aliasRequired":  "Alias الزامی است.",
                      "aliasPattern":  "Alias باید شامل حروف، عدد، خط تیره یا زیرخط باشد.",
-                     "aliasUnique":  "Alias باید در تننت یکتا باشد."
+                     "aliasUnique":  "Alias باید در فضای کاری یکتا باشد."
                  }
 }
