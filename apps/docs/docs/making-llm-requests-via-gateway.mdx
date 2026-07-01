@@ -1,0 +1,177 @@
+---
+title: اولین درخواست به Gateway
+---
+
+# اولین درخواست به Gateway
+
+برای این‌که از طریق گدارAI به مدل‌های زبانی درخواست بفرستید، فقط به سه چیز نیاز دارید:
+
+1. `Gateway Base URL`
+2. `Model ID`
+3. `API Key`
+
+اگر این سه مورد را داشته باشید، می‌توانید تقریباً همه integrationهای OpenAI-compatible را به‌جای اتصال مستقیم به provider، از مسیر گدارAI عبور دهید.
+
+## این صفحه چه مسئله‌ای را حل می‌کند؟
+
+وقتی برای اولین بار با یک LLM Gateway کار می‌کنید، معمولاً سؤال اصلی این است:
+
+- دقیقاً باید به کدام URL درخواست بفرستم؟
+- نام model را از کجا پیدا کنم؟
+- با چه کلیدی احراز هویت انجام می‌شود؟
+
+این صفحه قرار است همین سه سؤال را برای کاربران گدارAI روشن کند.
+
+## 1. `Gateway Base URL`
+
+`Gateway Base URL` همان آدرسی است که اپلیکیشن شما همه درخواست‌های مدل را به آن می‌فرستد. به‌جای این‌که برای هر provider مثل OpenAI، Anthropic یا Azure endpoint جداگانه داشته باشید، همه درخواست‌ها را به همین آدرس واحد می‌فرستید و خود گدارAI در پشت‌صحنه routing را انجام می‌دهد.
+
+از دید محصول، این یکی از مهم‌ترین مزیت‌های gateway است:
+
+- auth در یک نقطه متمرکز می‌شود
+- budget و rate limit در یک لایه اعمال می‌شوند
+- logging و observability یکپارچه می‌شوند
+- تعویض provider یا model برای اپلیکیشن ساده‌تر می‌شود
+
+در محیط واقعی شما، این آدرس باید از تنظیمات deployment یا پنل گدارAI گرفته شود.
+
+## 2. `Model ID`
+
+هر model که از طریق گدارAI در دسترس شما باشد، یک شناسه قابل‌مصرف دارد. این شناسه معمولاً به مدل و اتصال provider account شما گره خورده است.
+
+در عمل، `Model ID` همان چیزی است که داخل SDK یا payload request به‌عنوان `model` می‌فرستید.
+
+مثال مفهومی:
+
+```text
+openai:default:gpt-4o-mini
+anthropic:team-main:claude-3-5-sonnet
+openai:default:text-embedding-3-small
+```
+
+نکته مهم:
+
+- شما نباید حدس بزنید که model id چیست
+- باید از مدل‌هایی استفاده کنید که واقعاً در tenant یا scope شما expose شده‌اند
+
+## 3. `API Key`
+
+برای دسترسی به مدل‌ها از طریق گدارAI، از کلید گدارAI استفاده می‌کنید، نه از کلید خام provider.
+
+این موضوع خیلی مهم است، چون:
+
+- credential اصلی provider در backend نگه‌داری می‌شود
+- توسعه‌دهنده‌ها و سرویس‌ها فقط با کلید گدارAI کار می‌کنند
+- policyها، audit و revoke کردن دسترسی‌ها ساده‌تر می‌شود
+
+دو نوع کلید اصلی در گدارAI:
+
+- `PAT`
+  برای توسعه، تست و استفاده انسانی
+- `VAT`
+  برای سرویس‌ها، backendها و production
+
+قاعده عملی:
+
+- اگر خودتان دارید تست می‌کنید: `PAT`
+- اگر اپلیکیشن یا job سیستمی درخواست می‌فرستد: `VAT`
+
+## سریع‌ترین راه برای شروع
+
+در عمل، سریع‌ترین مسیر این است که این سه مورد را از محیط یا پنل خودتان بردارید و با یک SDK سازگار با OpenAI تست کنید.
+
+نمونه:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="YOUR_GODARAI_API_KEY",
+    base_url="YOUR_GODARAI_GATEWAY_BASE_URL",
+)
+
+response = client.chat.completions.create(
+    model="openai:default:gpt-4o-mini",
+    messages=[
+        {"role": "user", "content": "سلام، خودت را معرفی کن."}
+    ],
+)
+
+print(response.choices[0].message.content)
+```
+
+## چرا OpenAI SDK؟
+
+بخش بزرگی از تجربه گدارAI بر پایه OpenAI-compatible APIs ساخته شده است. این یعنی در خیلی از موارد کافی است:
+
+- `base_url` را روی گدارAI بگذارید
+- `api_key` را با کلید گدارAI تنظیم کنید
+- `model` مجاز خودتان را بفرستید
+
+و همان کدی که برای OpenAI-style API می‌نوشتید، با کمترین تغییر کار می‌کند.
+
+## از کجا بفهمیم کدام modelها در دسترس ما هستند؟
+
+این موضوع به tenant، team، key scope و model access policy شما بستگی دارد. در گدارAI همه modelها لزوماً برای همه کاربران و همه tokenها باز نیستند.
+
+پس اگر request شما از نظر syntax درست است ولی خطای دسترسی می‌گیرید، معمولاً مشکل از یکی از این‌هاست:
+
+- model در scope شما نیست
+- نوع model با endpoint سازگار نیست
+- deployment فعال برای آن model وجود ندارد
+
+## چند ترکیب رایج
+
+### برای chat
+
+- endpoint: `Chat Completions`
+- model: از نوع `chat`
+
+### برای embedding
+
+- endpoint: `Embeddings`
+- model: از نوع `embedding`
+
+### برای moderation
+
+- endpoint: `Moderation`
+- model: از نوع `moderation`
+
+قاعده مهم این است که model type باید با endpointی که صدا می‌زنید هم‌خوانی داشته باشد.
+
+## چند خطای رایج در اولین request
+
+در تجربه عملی، این خطاها خیلی رایج‌اند:
+
+- `model is required`
+- خطای auth به خاطر API key اشتباه
+- خطای access به خاطر model scope
+- استفاده از endpoint درست با model type اشتباه
+- فرستادن payload متعلق به یک API دیگر
+
+مثلاً:
+
+- payload مربوط به `Chat Completions` را نباید برای `Embeddings` بفرستید
+- model تصویری را نباید با endpoint متنی صدا بزنید
+
+## چند توصیه عملی
+
+### با یک request خیلی ساده شروع کنید
+
+اول فقط یک request پایه بزنید و بعد پارامترهای پیشرفته‌تر را اضافه کنید.
+
+### از VAT برای production استفاده کنید
+
+اگر integration شما قرار است پایدار و سیستمی باشد، از همان ابتدا روی `VAT` بنا کنید.
+
+### model id را از محیط واقعی خودتان بگیرید
+
+به‌جای تکیه بر نام‌های عمومی اینترنت، از شناسه مدل‌هایی استفاده کنید که واقعاً در گدارAI شما فعال شده‌اند.
+
+### base URL را hardcode نکنید
+
+بهتر است آن را از env یا config بگیرید تا جابه‌جایی بین محیط‌ها ساده بماند.
+
+## جمع‌بندی
+
+برای ارسال اولین درخواست به گدارAI فقط سه چیز لازم دارید: `Gateway Base URL`، `Model ID` و `API Key`. اگر این سه مورد را درست تنظیم کنید، می‌توانید با کمترین friction از SDKها و ابزارهای OpenAI-compatible استفاده کنید و بقیه قابلیت‌های مهم مثل routing، auth، budget، rate limit و observability را به خود gateway بسپارید.

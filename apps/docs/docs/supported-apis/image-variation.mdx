@@ -1,0 +1,240 @@
+---
+title: Image Variation
+---
+
+# Image Variation
+
+`Image Variation` برای ساخت نسخه‌های جدید از یک تصویر موجود استفاده می‌شود؛ نسخه‌هایی که هویت بصری کلی تصویر اصلی را نگه می‌دارند، اما در composition، جزئیات، سبک یا حال‌و‌هوا تفاوت دارند.
+
+در گدارAI این قابلیت از طریق قرارداد OpenAI-compatible و از مسیر زیر ارائه می‌شود:
+
+```text
+POST /v1/images/variations
+```
+
+اگر می‌خواهید از یک تصویر مرجع چند نسخه جایگزین، چند direction خلاقانه، یا چند خروجی نزدیک ولی متفاوت تولید کنید، این endpoint انتخاب مناسبی است.
+
+## وضعیت فعلی در گدارAI
+
+در پیاده‌سازی فعلی `services/control-plane`:
+
+- `POST /v1/images/variations` واقعاً پیاده‌سازی شده است
+- این endpoint در همان خانواده handlerهای image کار می‌کند
+- request از مسیر auth، budget check، rate limit و routing عبور می‌کند
+- payload می‌تواند به‌صورت `multipart/form-data` ارسال شود
+- پاسخ provider به‌شکل passthrough و سازگار با contract عمومی برمی‌گردد
+
+نکته مهم:
+
+- جزئیات دقیق قابلیت variation به model و provider واقعی پیکربندی‌شده برای tenant شما بستگی دارد
+- gateway فعلی بیشتر نقش لایه سازگار و policy enforcement را دارد، نه یکسان‌سازی کامل همه تفاوت‌های providerها
+
+## این endpoint چه مسئله‌ای را حل می‌کند؟
+
+به‌جای این‌که برای هر provider منطق جداگانه‌ای برای variation image بنویسید، GodarAI:
+
+- یک API یکدست شبیه OpenAI به شما می‌دهد
+- کنترل دسترسی و سیاست مصرف را متمرکز می‌کند
+- tracing و usage logging را در gateway نگه می‌دارد
+- deployment مناسب را بر اساس routing rules انتخاب می‌کند
+
+## چه زمانی از Image Variation استفاده کنیم؟
+
+این endpoint برای سناریوهایی مثل این مناسب است:
+
+- تولید چند نسخه از یک طرح اولیه
+- exploration خلاقانه روی یک asset تصویری
+- ساخت گزینه‌های جایگزین برای بنر یا کاور
+- تغییر composition بدون شروع از صفر
+- تولید variation برای تست A/B بصری
+
+اگر می‌خواهید تصویر را از صفر بسازید، [Image Generation](D:/source/Shahrah/apps/docs/docs/supported-apis/image-generation.mdx) مناسب‌تر است. اگر می‌خواهید بخشی از تصویر را هدفمند تغییر دهید، [Image Edit](D:/source/Shahrah/apps/docs/docs/supported-apis/image-edit.mdx) انتخاب دقیق‌تری است.
+
+## شروع سریع
+
+در بسیاری از SDKها، variation با ارسال فایل تصویر انجام می‌شود:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="YOUR_GODARAI_API_KEY",
+    base_url="YOUR_GODARAI_BASE_URL",
+)
+
+response = client.images.create_variation(
+    model="openai:default:dall-e-2",
+    image=open("source_image.png", "rb"),
+    n=3,
+    size="1024x1024"
+)
+
+print(response.data[0])
+```
+
+## برای استفاده به چه چیزهایی نیاز دارید؟
+
+- `base_url` گیت‌وی گدارAI
+- `api_key` معتبر از نوع `PAT` یا `VAT`
+- یک model مجاز از نوع `image_generation`
+- حداقل یک تصویر ورودی معتبر
+
+در backend فعلی، کنترل دسترسی این endpoint هم از نوع `image_generation` انجام می‌شود.
+
+## ساختار پایه request
+
+در رایج‌ترین حالت، این فیلدها برای شما مهم‌اند:
+
+- `model`
+- `image`
+- `n`
+- `size`
+- `quality`
+- `response_format`
+
+نمونه مفهومی:
+
+```json
+{
+  "model": "openai:default:dall-e-2",
+  "n": 3,
+  "size": "1024x1024",
+  "response_format": "url"
+}
+```
+
+در عمل، چون variation معمولاً فایل ورودی می‌خواهد، ارسال request غالباً به‌صورت `multipart/form-data` انجام می‌شود.
+
+## `multipart/form-data`
+
+در تست‌های فعلی پروژه، variation به‌صورت multipart پوشش داده شده و فایل ارسالی بدون تخریب به provider عبور داده می‌شود.
+
+نمونه:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="YOUR_GODARAI_API_KEY",
+    base_url="YOUR_GODARAI_BASE_URL",
+)
+
+response = client.images.create_variation(
+    model="openai:default:dall-e-2",
+    image=open("source.png", "rb"),
+    n=1,
+    size="1024x1024"
+)
+```
+
+## metadataهایی که در gateway ثبت می‌شوند
+
+در پیاده‌سازی فعلی، اگر در request موجود باشند، این metadataها استخراج و ثبت می‌شوند:
+
+- `size`
+- `quality`
+- `response_format`
+- `n`
+- `file_count`
+- `image_source_type`
+
+این اطلاعات برای tracing، debugging و تحلیل usage مفید هستند.
+
+## فرمت پاسخ
+
+پاسخ معمولاً به‌شکل یک `ImagesResponse` برمی‌گردد و می‌تواند شامل `url` یا `b64_json` باشد.
+
+نمونه:
+
+```json
+{
+  "created": 1713833628,
+  "data": [
+    {
+      "url": "https://cdn.example.com/variation-1.png"
+    },
+    {
+      "url": "https://cdn.example.com/variation-2.png"
+    }
+  ]
+}
+```
+
+یا در بعضی providerها:
+
+```json
+{
+  "created": 1713833628,
+  "data": [
+    {
+      "b64_json": "iVBORw0KGgoAAA...",
+      "mime_type": "image/png"
+    }
+  ]
+}
+```
+
+بهتر است client شما هر دو حالت را پشتیبانی کند.
+
+## provider support را چطور ببینیم؟
+
+در متن مرجع TrueFoundry چند provider برای variation ذکر شده‌اند، اما در گدارAI بهتر است از این زاویه نگاه کنید:
+
+- آنچه مهم است deployment واقعی tenant شماست
+- model alias باید در محیط شما فعال شده باشد
+- پشتیبانی پارامترها و محدودیت‌های فایل را باید با همان model configured تست کنید
+
+یعنی docs مرجع به شما جهت می‌دهند، اما معیار نهایی برای production، deployment فعال داخل گدارAI شماست.
+
+## بودجه و هزینه
+
+در گدارAI، درخواست‌های variation هم:
+
+- rate limit می‌شوند
+- budget check می‌شوند
+- بعد از موفقیت، هزینه‌شان از wallet tenant کسر می‌شود
+
+در implementation فعلی، این بخش همچنان در قالب MVP-friendly reconciliation عمل می‌کند. برای workloadهای سنگین تصویری، usage واقعی را در محیط خودتان مانیتور کنید.
+
+## امنیت و observability
+
+مانند سایر endpointهای تصویری، tracing در گدارAI تلاش می‌کند داده‌های حساس را مستقیم افشا نکند. این یعنی در عمل برای debugging و observability داده کافی دارید، بدون این‌که asset خام تصویری بی‌دلیل در traceها پخش شود.
+
+## چند خطای رایج
+
+چند خطای مهمی که ممکن است ببینید:
+
+- `model is required`
+- `Model access denied or unsupported for image generation`
+- `No available deployment for model: ...`
+- `unsupported content type`
+- خطاهای provider که به‌شکل passthrough برگردانده می‌شوند
+
+اگر variation موفق نمی‌شود، این موارد را بررسی کنید:
+
+- model درست انتخاب شده یا نه
+- model در scope شما مجاز هست یا نه
+- deployment فعال برای آن model وجود دارد یا نه
+- تصویر ارسالی با انتظار model سازگار هست یا نه
+
+## چند توصیه عملی برای کاربران گدارAI
+
+### برای variation معمولاً multipart انتخاب بهتری است
+
+چون بیشتر workflowها با فایل واقعی تصویر کار می‌کنند.
+
+### client را برای `url` و `b64_json` آماده کنید
+
+فرمت دقیق پاسخ ممکن است بین providerها متفاوت باشد.
+
+### variation را با edit اشتباه نگیرید
+
+اگر هدفتان تغییر کنترل‌شده‌ی یک بخش خاص است، `Image Edit` معمولاً مناسب‌تر از `Image Variation` است.
+
+### برای production از VAT استفاده کنید
+
+اگر این endpoint بخشی از یک pipeline سازمانی است، virtual account token انتخاب بهتری از PAT انسانی است.
+
+## جمع‌بندی
+
+`Image Variation` در گدارAI از مسیر `POST /v1/images/variations` در دسترس است و راهی استاندارد برای ساخت نسخه‌های خلاقانه و نزدیک به یک تصویر مرجع فراهم می‌کند. این endpoint برای workflowهای طراحی، exploration و چندگزینه‌ای‌سازی تصویری بسیار مفید است، اما مانند سایر APIهای تصویری، رفتار دقیق آن را باید بر اساس model و provider واقعی پیکربندی‌شده در tenant خودتان ارزیابی کنید.

@@ -1,0 +1,223 @@
+---
+title: نمای کلی
+---
+
+# Chat Completions
+
+`Chat Completions` مهم‌ترین endpoint عمومی گدارAI برای کار با مدل‌های زبانی است. این endpoint از قرارداد OpenAI-compatible استفاده می‌کند و به شما اجازه می‌دهد با یک interface یکدست، مدل‌های مختلف را از طریق gateway فراخوانی کنید.
+
+در عمل، بیشتر integrationهای متنی، agentic و چندرسانه‌ای شما از همین مسیر شروع می‌شوند:
+
+```text
+POST /v1/chat/completions
+```
+
+## این endpoint چه مسئله‌ای را حل می‌کند؟
+
+به‌جای این‌که برای هر provider منطق جداگانه‌ای بنویسید، GodarAI:
+
+- یک contract واحد شبیه OpenAI ارائه می‌دهد
+- احراز هویت، policy، budget و rate limit را در gateway اعمال می‌کند
+- دسترسی به modelها را بر اساس tenant، team، user یا virtual user کنترل می‌کند
+- لاگ، trace و cost attribution را در یک نقطه متمرکز نگه می‌دارد
+
+## چه زمانی از Chat Completions استفاده کنیم؟
+
+این endpoint برای اکثر سناریوهای conversational و generation مناسب است:
+
+- پاسخ متنی معمولی
+- چت چندپیامی با `messages`
+- tool calling
+- structured output
+- ورودی چندرسانه‌ای مثل image
+- reasoning-capable modelها
+- streaming response
+
+اگر نیاز شما embedding، moderation یا image generation مستقل است، بهتر است از endpoint تخصصی همان API استفاده کنید.
+
+## شروع سریع
+
+ساده‌ترین راه استفاده از این endpoint، همان SDK استاندارد OpenAI است:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="YOUR_GODARAI_API_KEY",
+    base_url="YOUR_GODARAI_BASE_URL",
+)
+
+response = client.chat.completions.create(
+    model="openai:default:gpt-4o-mini",
+    messages=[
+        {"role": "user", "content": "سلام، خودت را معرفی کن."}
+    ],
+)
+
+print(response.choices[0].message.content)
+```
+
+## برای استفاده به چه چیزهایی نیاز دارید؟
+
+- `base_url` گیت‌وی گدارAI
+- `api_key` از نوع `PAT` یا `VAT`
+- `model` که در scope دسترسی شما مجاز باشد
+
+برای توسعه انسانی معمولاً `PAT` مناسب است و برای سرویس‌ها و production بهتر است از `VAT` استفاده کنید.
+
+## ساختار پایه request
+
+هسته اصلی request معمولاً این سه فیلد است:
+
+- `model`
+- `messages`
+- پارامترهای کنترلی مثل `temperature` یا `max_tokens`
+
+نمونه:
+
+```json
+{
+  "model": "openai:default:gpt-4o-mini",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a concise Persian assistant."
+    },
+    {
+      "role": "user",
+      "content": "برای من یک خلاصه کوتاه از مزایای caching بنویس."
+    }
+  ],
+  "temperature": 0.3,
+  "max_tokens": 300
+}
+```
+
+## `messages` چگونه کار می‌کند؟
+
+در Chat Completions، context گفتگو داخل آرایه `messages` ارسال می‌شود. هر message معمولاً یک `role` و یک `content` دارد.
+
+roleهای رایج:
+
+- `system`
+- `user`
+- `assistant`
+- `tool`
+
+نکته مهم در backend فعلی GodarAI:
+
+- `messages` نباید خالی باشد
+- اگر `max_tokens` ارسال شود، باید حداقل `1` باشد
+
+## پارامترهای رایج
+
+بسته به model و provider، معمولاً از این پارامترها استفاده می‌کنید:
+
+- `temperature`
+- `top_p`
+- `max_tokens`
+- `stop`
+- `stream`
+- `tools`
+- `tool_choice`
+- `response_format`
+
+اما همه modelها همه پارامترها را یکسان پشتیبانی نمی‌کنند. پس همیشه باید قابلیت model و provider را در نظر بگیرید.
+
+## streaming
+
+این endpoint در GodarAI از streaming هم پشتیبانی می‌کند. اگر `stream=true` بفرستید، پاسخ به‌صورت chunkهای تدریجی برمی‌گردد و برای UIهای تعاملی، agentها و تجربه realtime مناسب‌تر است.
+
+در عمل:
+
+- non-stream برای backendهای ساده و پردازش‌های یک‌مرحله‌ای خوب است
+- stream برای تجربه conversational بهتر است
+
+## multimodal
+
+Chat Completions در GodarAI فقط مخصوص متن نیست. بسته به provider و model، می‌توانید ورودی‌های چندرسانه‌ای (Multimodal) هم بفرستید؛ مثلاً:
+
+- image
+- audio
+- pdf
+- بعضی سناریوهای video
+
+اما این قابلیت model-dependent است. برای جزئیات، صفحه [multimodal](D:/source/Shahrah/apps/docs/docs/supported-apis/chat-completions/multimodal.mdx) را ببینید.
+
+## tools و tool calling
+
+اگر می‌خواهید مدل بتواند function یا tool صدا بزند، همین endpoint مسیر اصلی شماست. در این حالت:
+
+- `tools` را تعریف می‌کنید
+- model در صورت نیاز `tool_calls` برمی‌گرداند
+- شما tool را اجرا می‌کنید
+- نتیجه را در message بعدی به مدل برمی‌گردانید
+
+جزئیات این flow در صفحه [tools](D:/source/Shahrah/apps/docs/docs/supported-apis/chat-completions/tools.mdx) آمده است.
+
+## structured outputs
+
+اگر به خروجی قابل‌اعتمادتر و machine-readable نیاز دارید، می‌توانید از structured output استفاده کنید. این موضوع مخصوصاً برای:
+
+- automation
+- extraction
+- UI state generation
+- workflow orchestration
+
+خیلی مهم است.
+
+جزئیات در صفحه [structured-outputs](D:/source/Shahrah/apps/docs/docs/supported-apis/chat-completions/structured-outputs.mdx) پوشش داده می‌شود.
+
+## caching و reasoning
+
+در GodarAI، Chat Completions می‌تواند با لایه‌های caching و قابلیت‌های reasoning ترکیب شود:
+
+- caching برای کاهش latency و هزینه
+- reasoning برای مدل‌هایی که استدلال عمیق‌تر دارند
+
+اما همه requestها قابل cache شدن نیستند. مثلاً در docs فعلی caching، requestهایی که `tools` یا `tool_choice` دارند جزو bypassهای مهم هستند.
+
+جزئیات بیشتر در صفحه [Caching & Reasoning](D:/source/Shahrah/apps/docs/docs/supported-apis/chat-completions/caching-and-reasoning.mdx) آمده است.
+
+## Extended Thinking
+
+برای بعضی modelهای reasoning-capable، مفاهیم thinking، reasoning content و زنجیره چندمرحله‌ای مهم می‌شوند. این بخش را جدا نگه داشته‌ایم چون هم provider-sensitive است و هم در طراحی agentها اثر مستقیم دارد.
+
+برای این موضوع صفحه [Extended Thinking](D:/source/Shahrah/apps/docs/docs/supported-apis/chat-completions/extended-thinking.mdx) را ببینید.
+
+## چند خطای رایج
+
+چند خطای مهمی که در backend فعلی دیده می‌شوند:
+
+- `messages array must not be empty`
+- `max_tokens must be at least 1`
+- `Model access denied or unsupported for chat completions`
+- خطای مربوط به unsupported image input برای providerهایی که vision را پشتیبانی نمی‌کنند
+
+این یعنی قبل از debugging provider، اول باید contract request و scope دسترسی را بررسی کنید.
+
+## تفاوت Chat Completions با Responses API
+
+اگرچه هر دو برای generation استفاده می‌شوند، در ساختار فعلی docs بهتر است Chat Completions را endpoint اصلی OpenAI-compatible برای اکثر integrationهای رایج بدانیم. Responses API بیشتر وقتی مهم می‌شود که بخواهید با contract جدیدتر و الگوهای متفاوت response کار کنید.
+
+## چند توصیه عملی
+
+### از model مجاز در scope خودتان استفاده کنید
+
+اگر model در scope tenant/team/user/virtual user شما نباشد، request رد می‌شود.
+
+### برای production از VAT استفاده کنید
+
+اگر سرویس شما به Chat Completions وصل است، به‌جای PAT انسانی از VAT استفاده کنید.
+
+### قبل از فعال‌کردن tool calling، caching behavior را بشناسید
+
+بعضی ترکیب‌ها باعث bypass شدن cache می‌شوند.
+
+### requestها را حداقلی و شفاف نگه دارید
+
+هر پارامتر اضافه ممکن است روی compatibility، cost یا latency اثر بگذارد.
+
+## جمع‌بندی
+
+`/v1/chat/completions` در GodarAI نقطه شروع اصلی برای بیشتر use caseهای مدل زبانی است. این endpoint یک contract یکدست OpenAI-compatible می‌دهد و در عین حال لایه‌های مهم محصول مثل auth، access control، budget، rate limit، logging و model routing را در خود gateway متمرکز می‌کند. اگر این endpoint را خوب بفهمید، بقیه قابلیت‌های مهم مثل multimodal، tools، structured outputs و reasoning هم روی همین پایه برایتان شفاف‌تر می‌شوند.

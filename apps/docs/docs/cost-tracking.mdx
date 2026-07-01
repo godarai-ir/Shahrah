@@ -1,0 +1,189 @@
+---
+title: رهگیری هزینه
+---
+
+# رهگیری هزینه
+
+در گدارAI، رهگیری هزینه فقط یک dashboard تزئینی نیست؛ بخشی از مسیر واقعی اجرای درخواست‌هاست. هر request موفق می‌تواند به ثبت usage، محاسبه هزینه، و debit شدن از wallet tenant منجر شود.
+
+این صفحه توضیح می‌دهد:
+
+- cost tracking در گدارAI چه معنایی دارد
+- به چه داده‌هایی تکیه می‌کند
+- چه رابطه‌ای با pricing، wallet، budget و metrics دارد
+
+## cost tracking چه مسئله‌ای را حل می‌کند؟
+
+اگر فقط تعداد requestها را بشمارید، هنوز نمی‌دانید:
+
+- کدام model بیشترین هزینه را ساخته است
+- کدام team یا workload بیشترین مصرف را داشته
+- کدام tenant به سقف بودجه نزدیک شده
+- کدام cache hit باعث صرفه‌جویی واقعی شده
+
+cost tracking این فاصله را پر می‌کند و مصرف مدل را به یک سیگنال عملیاتی و مالی قابل‌فهم تبدیل می‌کند.
+
+## در گدارAI cost tracking چگونه کار می‌کند؟
+
+در implementation فعلی، برای endpointهای عملیاتی مثل:
+
+- `Chat Completions`
+- `Completions`
+- `Responses`
+- `Embeddings`
+- `Moderation`
+- `Images`
+
+الگوی کلی این است:
+
+1. پیش از provider call، یک برآورد اولیه از هزینه انجام می‌شود
+2. rate limit و budget check بر همان مبنا اجرا می‌شوند
+3. بعد از پاسخ provider، usage نهایی تا حد ممکن reconcile می‌شود
+4. هزینه نهایی در spend log و metrics ثبت می‌شود
+5. wallet tenant debit می‌شود
+
+این یعنی cost tracking در گدارAI فقط post-fact analytics نیست؛ در enforcement path هم حضور دارد.
+
+## pricing از کجا می‌آید؟
+
+در مستند مرجع TrueFoundry، دو مفهوم اصلی برای pricing مطرح می‌شود:
+
+- `Public Cost`
+- `Private Cost`
+
+در گدارAI هم این تفکیک از نظر محصولی مهم است. در سطح مفهومی:
+
+- `Public Cost` برای مدل‌هایی مناسب است که قیمت‌گذاری استاندارد و شناخته‌شده دارند
+- `Private Cost` برای قراردادهای اختصاصی، مدل‌های سفارشی یا pricing غیرعمومی مناسب‌تر است
+
+در کد فعلی backend هم لایه pricing و billing وجود دارد و endpointها از آن برای estimate و finalize کردن هزینه استفاده می‌کنند.
+
+## cost tracking با wallet چه نسبتی دارد؟
+
+در گدارAI، wallet فقط یک گزارش جانبی نیست؛ backstop مالی اصلی tenant است.
+
+در عمل:
+
+- request تخمینی از هزینه می‌گیرد
+- budget policy بررسی می‌شود
+- اگر request موفق باشد، wallet debit می‌شود
+
+پس cost tracking و wallet دو چیز جدا اما کاملاً مرتبط‌اند:
+
+- `cost tracking` به شما می‌گوید مصرف چقدر بوده
+- `wallet` اثر مالی عملیاتی همان مصرف را اعمال می‌کند
+
+## cost tracking با budget limit چه نسبتی دارد؟
+
+این دو را نباید یکی دانست:
+
+- `Cost Tracking` برای اندازه‌گیری، attribution و تحلیل است
+- `Budget Limiting` برای کنترل و مسدودسازی مصرف است
+
+اما budget limiting بدون cost tracking دقیق عملاً کور است. چون برای این‌که budget policy meaningful باشد، باید بتوانید هزینه را تخمین بزنید و بعد از پاسخ reconcile کنید.
+
+## چه چیزی در سیستم ثبت می‌شود؟
+
+با توجه به implementation فعلی proxyها، داده‌هایی از این جنس ثبت می‌شوند:
+
+- `model`
+- `input_tokens`
+- `output_tokens`
+- `total_tokens`
+- `cost_usd`
+- `cost_irr`
+- `request_id`
+- `tenant_id`
+- `team_id`
+- `virtual_account_id` یا key identity
+- metadataهای pricing و route
+
+این اطلاعات هم برای logging و هم برای metrics اهمیت دارند.
+
+## response headerهای هزینه
+
+در بعضی endpointهای فعلی، gateway هزینه را در headerهای پاسخ هم برمی‌گرداند:
+
+- `x-godarai-cost-usd`
+- `x-godarai-cost-irr`
+
+و نسخه‌های legacy:
+
+- `x-shahrah-cost-usd`
+- `x-shahrah-cost-irr`
+
+این headerها برای debugging سریع و نمایش سبک در client مفیدند، اما منبع اصلی تحلیل هزینه همچنان logs، metrics و ledgerهای مالی هستند.
+
+## درباره cache و avoided cost
+
+در گدارAI، cache فقط latency را کم نمی‌کند؛ روی هزینه هم اثر دارد. در لایه response cache فعلی، snapshotهایی از هزینه و حتی `avoided cost` برای hitهای بعدی نگه‌داری می‌شوند.
+
+این یعنی وقتی request از cache جواب می‌گیرد:
+
+- provider call انجام نمی‌شود
+- wallet مثل request معمولی debit نمی‌شود
+- می‌توان صرفه‌جویی را به‌صورت عددی هم ردیابی کرد
+
+برای تیم‌های حساس به هزینه، این یکی از مهم‌ترین مزیت‌های operational cache است.
+
+## درباره image cost
+
+در endpointهای تصویری، cost tracking کمی MVP-likeتر است. مثلاً در implementation فعلی:
+
+- estimate ممکن است fallback-based و ساده‌تر باشد
+- بعضی providerها metadataهایی مثل `cost_in_usd_ticks` برمی‌گردانند
+- این metadataها در spend log ذخیره می‌شوند
+
+پس برای image workloads، بهتر است cost tracking را حتماً روی داده واقعی production validate کنید.
+
+## cost tracking را از کجا ببینیم؟
+
+در محصول نهایی، cost tracking معمولاً از طریق metrics، usage analytics و گزارش‌های breakdown قابل مشاهده است. از نظر مفهومی، نمایه‌های مهم معمولاً این‌ها هستند:
+
+- هزینه به‌تفکیک user
+- هزینه به‌تفکیک model
+- هزینه به‌تفکیک team
+- روند زمانی مصرف
+
+در گدارAI هم این جهت‌گیری با ساختار metrics و spend logging فعلی هم‌راستا است.
+
+## چه زمانی cost tracking ناقص به نظر می‌رسد؟
+
+در این سناریوها باید با دقت بیشتری نگاه کنید:
+
+- مدل pricing نامشخص یا unresolved است
+- provider usage کامل برنمی‌گرداند
+- workload تصویری یا multimodal است
+- contract provider با contract gateway کاملاً هم‌راستا نیست
+
+در همین موارد است که reconciliation، pricing metadata و observability اهمیت بیشتری پیدا می‌کنند.
+
+## چند توصیه عملی
+
+### cost tracking را فقط برای finance نبینید
+
+این داده برای debugging، capacity planning، budget policy و حتی routing decisionهای آینده هم مهم است.
+
+### روی breakdownهای هویتی سرمایه‌گذاری کنید
+
+هزینه وقتی مفید می‌شود که بتوانید آن را به tenant، team، user یا workload نسبت دهید.
+
+### image و provider-specific workloadها را جداگانه validate کنید
+
+رفتار هزینه در این دسته‌ها معمولاً از text-only مسیر ساده‌تری ندارد.
+
+### cache hitها را در تحلیل هزینه لحاظ کنید
+
+اگر فقط provider bill را ببینید، بخشی از ارزش عملیاتی gateway را از دست می‌دهید.
+
+## ادامه مسیر
+
+اگر می‌خواهید این موضوع را عمیق‌تر دنبال کنید:
+
+- برای کنترل مصرف: [محدودیت بودجه](D:/source/Shahrah/apps/docs/docs/guides/budget-limiting.mdx)
+- برای identity و attribution: [ساخت API Key در گدارAI](D:/source/Shahrah/apps/docs/docs/guides/api-keys.mdx)
+- برای cache و avoided cost: [Caching](D:/source/Shahrah/apps/docs/docs/guides/caching.mdx)
+
+## جمع‌بندی
+
+در گدارAI، `cost tracking` فقط برای مشاهده‌ی گزارش هزینه نیست؛ در خود مسیر اجرای request حضور دارد و با pricing، wallet، budget، metrics و cache در هم تنیده است. اگر این لایه را درست درک کنید، می‌توانید هم مصرف را دقیق‌تر تحلیل کنید و هم policyهای عملیاتی‌تری برای کنترل هزینه بسازید.

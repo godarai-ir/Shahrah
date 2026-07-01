@@ -1,0 +1,229 @@
+---
+title: Moderation
+---
+
+# Moderation
+
+`Moderation` برای بررسی محتوای ورودی و تشخیص موارد بالقوه حساس یا ناسازگار با policy استفاده می‌شود. این API معمولاً برای فیلتر اولیه متن، محتوای تولیدشده کاربر، ورودی agentها، یا محتوایی که قرار است به مدل‌های دیگر فرستاده شود به‌کار می‌رود.
+
+در گدارAI این قابلیت از طریق قرارداد OpenAI-compatible و از مسیر زیر در دسترس است:
+
+```text
+POST /v1/moderations
+```
+
+## وضعیت فعلی در گدارAI
+
+در پیاده‌سازی فعلی `services/control-plane`:
+
+- `POST /v1/moderations` واقعاً پیاده‌سازی شده است
+- auth، budget، rate limit، routing، tracing و usage logging برای آن فعال است
+- gateway فعلاً فقط بعضی فرم‌های ورودی را می‌پذیرد
+- provider support در implementation فعلی محدودتر از بعضی مستندات مرجع بیرونی است
+
+نکته مهم:
+
+- در کد فعلی، providerهای مجاز برای این endpoint فقط `openai` و `openrouter` هستند
+- ورودی multimodal به‌صورت objectهای structured فعلاً در gateway پشتیبانی نمی‌شود
+
+پس اگر از مستندات عمومی OpenAI یا TrueFoundry الگو می‌گیرید، باید حتماً این محدودیت‌های فعلی گدارAI را در نظر بگیرید.
+
+## این endpoint چه مسئله‌ای را حل می‌کند؟
+
+`Moderation` قبل از این‌که محتوای مشکوک وارد جریان اصلی سیستم شود، به شما یک لایه تصمیم‌گیری می‌دهد. این API برای سناریوهایی مثل این مفید است:
+
+- بررسی ورودی کاربر قبل از ارسال به model
+- بررسی خروجی model قبل از نمایش به کاربر
+- اعمال policy روی متن‌های UGC
+- تشخیص محتوای پرریسک در workflowهای سازمانی
+- ساخت guardrail سبک قبل از agent execution
+
+## چه زمانی از Moderation استفاده کنیم؟
+
+اگر محصول شما:
+
+- ورودی آزاد از کاربر می‌گیرد
+- پاسخ مدل را مستقیماً به کاربر نشان می‌دهد
+- با داده‌های حساس یا policy-bound کار می‌کند
+- agent یا workflow خودکار دارد
+
+بهتر است moderation را به‌عنوان بخشی از pipeline جدی بگیرید، نه یک قابلیت اختیاری.
+
+## شروع سریع
+
+ساده‌ترین راه استفاده، SDK استاندارد OpenAI است:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="YOUR_GODARAI_API_KEY",
+    base_url="YOUR_GODARAI_BASE_URL",
+)
+
+response = client.moderations.create(
+    model="openai:default:omni-moderation-latest",
+    input="این متن را از نظر محتوای پرریسک بررسی کن."
+)
+
+print(response)
+```
+
+## برای استفاده به چه چیزهایی نیاز دارید؟
+
+- `base_url` گیت‌وی گدارAI
+- `api_key` معتبر از نوع `PAT` یا `VAT`
+- یک model مجاز از نوع `moderation`
+
+در backend فعلی، دسترسی model بر اساس نوع `moderation` کنترل می‌شود. اگر model moderation در scope شما فعال نباشد، request رد می‌شود.
+
+## `input` در نسخه فعلی چه فرمتی می‌پذیرد؟
+
+در implementation فعلی گدارAI:
+
+- یک `string` غیرخالی پشتیبانی می‌شود
+- آرایه‌ای از `string`های غیرخالی پشتیبانی می‌شود
+
+نمونه batch:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="YOUR_GODARAI_API_KEY",
+    base_url="YOUR_GODARAI_BASE_URL",
+)
+
+response = client.moderations.create(
+    model="openai:default:omni-moderation-latest",
+    input=[
+        "متن اول برای بررسی",
+        "متن دوم برای بررسی"
+    ]
+)
+
+print(response)
+```
+
+## چه چیزهایی فعلاً پشتیبانی نمی‌شوند؟
+
+برخلاف بعضی مستندات مرجع providerها، gateway فعلی این فرم‌ها را برای `input` نمی‌پذیرد:
+
+- object ورودی مثل `{"type":"text","text":"..."}`
+- آرایه‌ای از objectهای structured
+- ورودی‌های image-style برای moderation
+
+همچنین این پارامترها در endpoint فعلی moderation پشتیبانی نمی‌شوند:
+
+- `stream`
+- `messages`
+- `prompt`
+- `tools`
+- `tool_choice`
+- `temperature`
+- `top_p`
+- `max_tokens`
+- `max_output_tokens`
+- `encoding_format`
+- `dimensions`
+
+بنابراین این endpoint را باید یک API تخصصی و مینیمال برای moderation بدانید، نه نسخه‌ای از chat یا responses با چند فیلد کمتر.
+
+## ساختار پاسخ
+
+پاسخ معمولاً شامل این بخش‌هاست:
+
+- `id`
+- `model`
+- `results`
+
+نمونه:
+
+```json
+{
+  "id": "modr_1",
+  "model": "omni-moderation-latest",
+  "results": [
+    {
+      "flagged": false,
+      "categories": {
+        "hate": false,
+        "violence": false
+      },
+      "category_scores": {
+        "hate": 0.001,
+        "violence": 0.002
+      }
+    }
+  ]
+}
+```
+
+## فیلدهای مهم پاسخ
+
+### `flagged`
+
+اگر `true` باشد، یعنی حداقل از نگاه model moderation، محتوا در یکی از دسته‌های حساس قرار گرفته است.
+
+### `categories`
+
+پرچم دسته‌بندی‌ها را نشان می‌دهد؛ مثلاً خشونت، نفرت، آزار و موارد مشابه.
+
+### `category_scores`
+
+برای هر category یک امتیاز عددی می‌دهد تا بتوانید thresholdهای داخلی خودتان را بهتر طراحی کنید.
+
+## provider support در نسخه فعلی
+
+در مستندات مرجع بیرونی ممکن است providerهای بیشتری برای moderation مطرح شده باشند، اما در implementation فعلی گدارAI:
+
+- `openai`
+- `openrouter`
+
+پشتیبانی می‌شوند.
+
+پس اگر deployment moderation شما روی provider دیگری باشد، gateway فعلی این endpoint را برای آن provider فعال نمی‌داند.
+
+## بودجه و usage
+
+در backend فعلی، moderation هم از budget و rate limit عبور می‌کند و usage آن ثبت می‌شود. نکته جالب این است که در برآورد اولیه هزینه، این endpoint فعلاً از منطق نزدیک به embedding cost estimation استفاده می‌کند تا هزینه بر اساس اندازه ورودی تخمین زده شود.
+
+برای شما نتیجه عملی این است که:
+
+- moderation هم بخشی از مصرف واقعی tenant شماست
+- اگر حجم بررسی محتوا زیاد باشد، باید آن را در budget planning لحاظ کنید
+
+## چند خطای رایج
+
+خطاهای مهمی که ممکن است ببینید:
+
+- `model is required`
+- `input is required and must be a non-empty string or a non-empty array of strings`
+- `input must be a string or array of strings`
+- `input array items must be non-empty strings`
+- `stream is not supported for moderations`
+- `messages is not supported for moderations`
+- `Model access denied or unsupported for moderations`
+- `Moderations API is not enabled for provider: ...`
+
+## چند توصیه عملی برای کاربران گدارAI
+
+### moderation را قبل و بعد از generation ببینید
+
+در بسیاری از محصولات، هم ورودی کاربر و هم خروجی model باید moderation شوند.
+
+### threshold داخلی خودتان را طراحی کنید
+
+همیشه لازم نیست فقط به `flagged` اکتفا کنید. در بعضی use caseها `category_scores` برای تصمیم‌گیری دقیق‌تر ارزشمندتر است.
+
+### input batch را با دقت استفاده کنید
+
+امکان ارسال آرایه‌ای از stringها وجود دارد، اما بهتر است mapping بین input و نتیجه را در سرویس خودتان شفاف نگه دارید.
+
+### برای production از VAT استفاده کنید
+
+اگر moderation در یک pipeline سیستمی یا سازمانی مصرف می‌شود، virtual account token انتخاب مناسب‌تری از PAT انسانی است.
+
+## جمع‌بندی
+
+`Moderation` در گدارAI از مسیر `POST /v1/moderations` واقعاً در دسترس است و برای بررسی محتوای متنی در برابر policy و ریسک‌های محتوایی کاربرد دارد. با این حال، implementation فعلی آن از بعضی contractهای چندرسانه‌ایِ مستندات مرجع محدودتر است و فعلاً فقط `string` و آرایه‌ای از `string` را می‌پذیرد. اگر این تفاوت را در طراحی integration خود لحاظ کنید، این endpoint می‌تواند یکی از مفیدترین guardrailهای پایه در workflowهای شما باشد.

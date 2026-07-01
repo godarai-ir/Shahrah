@@ -7,6 +7,8 @@ title: مدل مجازی
 
 مدل مجازی در گدارAI یک نام مستعار پایدار برای مسیریابی درخواست‌ها به یک یا چند مدل واقعی است. اپلیکیشن شما به‌جای وابسته شدن به نام مدل یک ارائه‌دهنده مشخص، فقط همان alias را صدا می‌زند و تنظیمات مسیریابی، تلاش مجدد و fallback از داخل گیت‌وی مدیریت می‌شود.
 
+اگر هنوز با مفاهیم پایه gateway آشنا نیستید، اول [معرفی LLM Gateway گدارAI](D:/source/Shahrah/apps/docs/docs/intro-to-gateway.mdx) را بخوانید. اگر هم دغدغه شما هویت مصرف‌کننده و model access است، [مدل Tenant، Team، Account و Virtual User](D:/source/Shahrah/apps/docs/docs/guides/tenant-team-account-model.mdx) مکمل خوبی برای این صفحه است.
+
 ## مدل مجازی چه مسئله‌ای را حل می‌کند؟
 
 مدل مجازی برای این سناریوها مفید است:
@@ -141,3 +143,20 @@ title: مدل مجازی
 2. اگر می‌خواهید مصرف را بین دو ارائه‌دهنده تقسیم کنید، از استراتژی `وزنی` استفاده کنید و مجموع وزن‌ها را دقیقاً روی `100` نگه دارید.
 3. اگر مقصدها از modeهای متفاوتی پشتیبانی می‌کنند، قبل از ذخیره حتماً بخش `حالت‌های قابل ارائه` را بررسی کنید.
 4. اگر یک مدل فقط برای گروه خاصی از کاربران است، از `کنترل دسترسی` برای محدودسازی مصرف استفاده کنید.
+
+## مستندات مرتبط
+
+- [Rate Limiting](D:/source/Shahrah/apps/docs/docs/guides/rate-limiting.mdx)
+- [Budget Limiting](D:/source/Shahrah/apps/docs/docs/guides/budget-limiting.mdx)
+- [Caching](D:/source/Shahrah/apps/docs/docs/guides/caching.mdx)
+- [Chat Completions](D:/source/Shahrah/apps/docs/docs/supported-apis/chat-completions/overview.mdx)
+
+## FAQ
+
+### آیا Virtual Model فقط برای fallback است؟
+
+خیر. fallback فقط یکی از use caseهاست. alias پایدار، rollout تدریجی، توزیع بار و جدا کردن کد کلاینت از مدل واقعی هم از دلایل مهم استفاده از آن هستند.
+
+### آیا می‌توانم مدل‌های با capability متفاوت را پشت یک Virtual Model بگذارم؟
+
+فقط وقتی این کار عملی است که modeهای مشترک معنادار بین مقصدها وجود داشته باشد. اگر مثلاً chat و embedding را مخلوط کنید، معمولاً نتیجه قابل‌اتکا نخواهد بود.

@@ -1,0 +1,238 @@
+---
+title: Image Edit
+---
+
+# Image Edit
+
+`Image Edit` برای ویرایش تصویر موجود با کمک prompt متنی استفاده می‌شود. در گدارAI این قابلیت از طریق قرارداد OpenAI-compatible و از مسیر زیر در دسترس است:
+
+```text
+POST /v1/images/edits
+```
+
+اگر می‌خواهید پس‌زمینه تصویر را عوض کنید، عنصر جدیدی اضافه کنید، بخشی از تصویر را بازطراحی کنید، یا نسخه‌ی بهبودیافته‌ای از یک تصویر موجود بسازید، این endpoint مسیر اصلی شماست.
+
+## وضعیت فعلی در گدارAI
+
+در پیاده‌سازی فعلی `services/control-plane`:
+
+- `POST /v1/images/edits` واقعاً پیاده‌سازی شده است
+- request می‌تواند به‌صورت `application/json` یا `multipart/form-data` ارسال شود
+- model بعد از auth، budget check و rate limit از طریق routing به deployment مناسب resolve می‌شود
+- پاسخ provider به‌صورت passthrough و سازگار با contract عمومی به کاربر برگردانده می‌شود
+
+نکته مهم:
+
+- رفتار دقیق پارامترها به model و provider پیکربندی‌شده برای tenant شما وابسته است
+- gateway فعلی بیشتر نقش لایه سازگار و کنترل policy را بازی می‌کند، نه این‌که برای همه providerها contract جزئی یکسان enforce کند
+
+## این endpoint چه مسئله‌ای را حل می‌کند؟
+
+بدون این endpoint، برای هر provider باید مکانیزم جداگانه‌ای برای آپلود فایل، mask، prompt، auth و usage tracking پیاده کنید. GodarAI این پیچیدگی را کم می‌کند:
+
+- یک API یکدست برای ویرایش تصویر ارائه می‌دهد
+- احراز هویت و کنترل دسترسی را متمرکز می‌کند
+- budget و rate limit را در سطح gateway اعمال می‌کند
+- tracing و logging را در یک نقطه نگه می‌دارد
+
+## چه زمانی از Image Edit استفاده کنیم؟
+
+این endpoint برای سناریوهایی مثل این مناسب است:
+
+- تغییر پس‌زمینه تصویر محصول
+- حذف یا جایگزینی یک بخش از تصویر
+- افزودن عنصر جدید به تصویر
+- بهبود یا بازطراحی asset موجود
+- ساخت نسخه‌های بازاریابی از یک تصویر پایه
+
+اگر هیچ تصویر اولیه‌ای ندارید و می‌خواهید از صفر تصویر بسازید، به‌جای این endpoint از [Image Generation](D:/source/Shahrah/apps/docs/docs/supported-apis/image-generation.mdx) استفاده کنید.
+
+## شروع سریع
+
+رایج‌ترین روش استفاده، SDK رسمی OpenAI است:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="YOUR_GODARAI_API_KEY",
+    base_url="YOUR_GODARAI_BASE_URL",
+)
+
+response = client.images.edit(
+    model="openai:default:gpt-image-1",
+    image=open("source.png", "rb"),
+    prompt="پس‌زمینه را به یک محیط کاری مدرن با نور نرم تبدیل کن",
+)
+
+item = response.data[0]
+
+if getattr(item, "url", None):
+    print(item.url)
+```
+
+## ارسال با `multipart/form-data`
+
+برای بسیاری از modelها و SDKها، ویرایش تصویر به‌صورت multipart طبیعی‌تر است؛ چون باید فایل واقعی تصویر را بفرستید.
+
+نمونه:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="YOUR_GODARAI_API_KEY",
+    base_url="YOUR_GODARAI_BASE_URL",
+)
+
+response = client.images.edit(
+    model="openai:default:gpt-image-1",
+    image=open("source.png", "rb"),
+    mask=open("mask.png", "rb"),
+    prompt="فقط بخش مشخص‌شده را بازطراحی کن و رنگ‌بندی را حرفه‌ای‌تر کن",
+    size="1024x1024",
+)
+```
+
+در تست‌های فعلی پروژه، multipart برای `edits` واقعاً پوشش داده شده و فایل‌های ارسالی بدون تخریب به provider عبور داده می‌شوند.
+
+## برای استفاده به چه چیزهایی نیاز دارید؟
+
+- `base_url` گیت‌وی گدارAI
+- `api_key` معتبر از نوع `PAT` یا `VAT`
+- یک model مجاز از نوع `image_generation`
+- یک تصویر ورودی معتبر برای model انتخابی
+
+در backend فعلی، کنترل دسترسی این endpoint نیز از نوع `image_generation` بررسی می‌شود.
+
+## فیلدهای متداول request
+
+بسته به model، معمولاً با این فیلدها سر و کار دارید:
+
+- `model`
+- `image`
+- `prompt`
+- `mask`
+- `n`
+- `size`
+- `quality`
+- `response_format`
+
+نکته مهم این است که gateway این فیلدها را تا حد ممکن pass-through می‌کند و metadataهای مهم را برای tracing و billing context ثبت می‌کند.
+
+## `JSON` یا `multipart`؟
+
+در implementation فعلی، هر دو مسیر پشتیبانی می‌شوند:
+
+- `application/json`
+- `multipart/form-data`
+
+اگر تصویر را به‌صورت URL یا ساختار JSON-compatible می‌فرستید، JSON ممکن است کافی باشد. اگر فایل واقعی آپلود می‌کنید، `multipart/form-data` انتخاب استاندارد‌تر است.
+
+## `mask` چه زمانی مهم است؟
+
+در بسیاری از سناریوهای edit، `mask` مشخص می‌کند کدام بخش تصویر باید ویرایش شود. اما الزام آن به model و provider بستگی دارد. چون گدارAI فعلاً پارامترهای provider-specific را یکسان‌سازی کامل نمی‌کند، بهتر است requirement دقیق `mask` را بر اساس model configured خودتان تست کنید.
+
+## metadataهایی که در gateway ثبت می‌شوند
+
+در مسیر فعلی، metadataهای زیر در صورت وجود از request استخراج می‌شوند:
+
+- `size`
+- `quality`
+- `response_format`
+- `n`
+- `prompt_length`
+- `image_source_type`
+- در multipart، `file_count`
+
+این اطلاعات برای tracing، usage analysis و debugging خیلی مفید هستند.
+
+## فرمت پاسخ
+
+خروجی ممکن است به‌شکل `url` یا `b64_json` برگردد. بنابراین بهتر است client شما هر دو حالت را پشتیبانی کند.
+
+نمونه:
+
+```json
+{
+  "created": 1713833628,
+  "data": [
+    {
+      "url": "https://cdn.example.com/edited-image.png"
+    }
+  ]
+}
+```
+
+یا:
+
+```json
+{
+  "created": 1713833628,
+  "data": [
+    {
+      "b64_json": "iVBORw0KGgoAAA...",
+      "mime_type": "image/png"
+    }
+  ]
+}
+```
+
+## بودجه، هزینه و logging
+
+در گدارAI، requestهای image edit هم:
+
+- از rate limit عبور می‌کنند
+- budget check می‌شوند
+- پس از موفقیت از wallet tenant کسر هزینه دارند
+
+در پیاده‌سازی فعلی، cost estimation این بخش هنوز MVP-friendly و ساده است. پس برای workloadهای تصویری سنگین، بهتر است usage واقعی را در محیط خودتان مانیتور کنید.
+
+## امنیت و حریم خصوصی
+
+در تست‌های فعلی پروژه یک نکته مهم دیده می‌شود:
+
+- داده base64 خام تصویر در traceها نگه‌داری نمی‌شود
+- URLهای خصوصی redact می‌شوند
+- prompt خام هم در traceها به‌صورت مستقیم افشا نمی‌شود
+
+این رفتار برای تیم‌هایی که روی دارایی‌های حساس تصویری کار می‌کنند ارزشمند است.
+
+## چند خطای رایج
+
+چند خطای مهمی که ممکن است ببینید:
+
+- `model is required`
+- `Model access denied or unsupported for image generation`
+- `No available deployment for model: ...`
+- `unsupported content type`
+- خطاهای provider که به‌شکل passthrough برگردانده می‌شوند
+
+اگر request شما از نظر ساختار درست به‌نظر می‌رسد ولی هنوز خطا می‌گیرید، این موارد را بررسی کنید:
+
+- model درست انتخاب شده یا نه
+- model در scope tenant یا key شما مجاز هست یا نه
+- deployment فعال برای آن model وجود دارد یا نه
+- content type ارسالی با نوع payload هماهنگ هست یا نه
+
+## چند توصیه عملی برای کاربران گدارAI
+
+### وقتی فایل واقعی دارید، multipart را ترجیح دهید
+
+این روش برای اکثر سناریوهای edit طبیعی‌تر و سازگارتر است.
+
+### client را برای `url` و `b64_json` آماده کنید
+
+providerهای مختلف خروجی یکسانی در سطح payload جزئی نمی‌دهند.
+
+### prompt را دقیق و موضعی بنویسید
+
+در image edit، prompt مبهم معمولاً خروجی نامطمئن‌تری می‌دهد.
+
+### برای production از VAT استفاده کنید
+
+اگر ویرایش تصویر در یک سرویس backend یا pipeline سازمانی انجام می‌شود، virtual account token انتخاب مطمئن‌تری است.
+
+## جمع‌بندی
+
+`Image Edit` در گدارAI از مسیر `POST /v1/images/edits` در دسترس است و یک لایه OpenAI-compatible برای ویرایش تصویر فراهم می‌کند. این endpoint برای workflowهای تصویری بسیار کاربردی است، اما جزئیات دقیق پارامترها، نیاز به `mask` و فرمت نهایی خروجی را باید بر اساس model و provider واقعی پیکربندی‌شده در tenant خودتان ارزیابی کنید.

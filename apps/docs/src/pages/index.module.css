@@ -1,0 +1,329 @@
+.page {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top right, rgba(15, 118, 110, 0.16), transparent 28rem),
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.12), transparent 24rem),
+    linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(255, 255, 255, 1));
+}
+
+[data-theme='dark'] .page {
+  background:
+    radial-gradient(circle at top right, rgba(37, 194, 160, 0.18), transparent 28rem),
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 24rem),
+    linear-gradient(180deg, rgba(8, 15, 24, 0.96), rgba(11, 18, 32, 1));
+}
+
+.hero,
+.catalogSection,
+.readingSection,
+.ctaSection {
+  width: min(1180px, calc(100% - 2rem));
+  margin: 0 auto;
+}
+
+.hero {
+  position: relative;
+  padding: 3rem 0 2rem;
+}
+
+.heroBackdrop {
+  position: absolute;
+  inset: 2rem 0 auto;
+  height: 29rem;
+  border-radius: 2rem;
+  background:
+    linear-gradient(135deg, rgba(15, 118, 110, 0.96), rgba(17, 24, 39, 0.88)),
+    linear-gradient(45deg, rgba(14, 165, 233, 0.16), transparent);
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.16);
+}
+
+[data-theme='dark'] .heroBackdrop {
+  box-shadow: 0 24px 80px rgba(2, 6, 23, 0.42);
+}
+
+.heroContent {
+  position: relative;
+  padding: 2rem;
+}
+
+.heroBadge,
+.sectionEyebrow {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #d5fff7;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.heroGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(20rem, 0.95fr);
+  gap: 1.5rem;
+  align-items: start;
+  margin-top: 1.5rem;
+}
+
+.heroTitle {
+  margin: 0;
+  color: #f8fafc;
+  font-size: clamp(2.7rem, 6vw, 4.8rem);
+  line-height: 1.08;
+}
+
+.heroDescription {
+  margin: 1.25rem 0 0;
+  max-width: 46rem;
+  color: rgba(236, 253, 245, 0.88);
+  font-size: 1.08rem;
+  line-height: 2;
+}
+
+.heroActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  margin-top: 2rem;
+}
+
+.secondaryCta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  padding: 0.85rem 1.2rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 0.95rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+  font-weight: 700;
+  text-decoration: none;
+  backdrop-filter: blur(8px);
+}
+
+.secondaryCta:hover {
+  color: #fff;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.highlightPanel {
+  padding: 1.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 1.4rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: #effffb;
+  backdrop-filter: blur(10px);
+}
+
+.highlightPanel h2 {
+  margin: 0 0 1rem;
+  color: #fff;
+  font-size: 1.15rem;
+}
+
+.highlightList {
+  margin: 0;
+  padding-inline-start: 1.1rem;
+  display: grid;
+  gap: 0.8rem;
+  line-height: 1.9;
+}
+
+.panelLink {
+  display: inline-flex;
+  margin-top: 1.2rem;
+  color: #b8fff0;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.catalogSection,
+.readingSection,
+.ctaSection {
+  padding: 2.5rem 0 0;
+}
+
+.sectionHeader {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.sectionHeader h2 {
+  margin: 0;
+  font-size: clamp(1.7rem, 4vw, 2.6rem);
+}
+
+.sectionHeader p:last-child {
+  margin: 0;
+  max-width: 52rem;
+  color: var(--ifm-color-content-secondary);
+  line-height: 1.95;
+}
+
+.catalogSection .sectionEyebrow,
+.readingSection .sectionEyebrow,
+.ctaSection .sectionEyebrow {
+  color: var(--ifm-color-primary);
+  background: rgba(15, 118, 110, 0.09);
+}
+
+[data-theme='dark'] .catalogSection .sectionEyebrow,
+[data-theme='dark'] .readingSection .sectionEyebrow,
+[data-theme='dark'] .ctaSection .sectionEyebrow {
+  background: rgba(37, 194, 160, 0.12);
+}
+
+.catalogGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.catalogCard,
+.pathCard,
+.ctaCard {
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 1.5rem;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.06);
+}
+
+[data-theme='dark'] .catalogCard,
+[data-theme='dark'] .pathCard,
+[data-theme='dark'] .ctaCard {
+  background: rgba(15, 23, 42, 0.72);
+  box-shadow: none;
+}
+
+.catalogCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  min-height: 100%;
+  padding: 1.3rem;
+  color: inherit;
+  text-decoration: none;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.catalogCard:hover {
+  color: inherit;
+  text-decoration: none;
+  transform: translateY(-4px);
+  border-color: rgba(15, 118, 110, 0.38);
+  box-shadow: 0 20px 44px rgba(15, 118, 110, 0.12);
+}
+
+.catalogIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, rgba(15, 118, 110, 0.16), rgba(14, 165, 233, 0.14));
+  color: var(--ifm-color-primary);
+}
+
+.catalogMeta {
+  color: var(--ifm-color-content-secondary);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.catalogCard h3,
+.pathCard h3,
+.ctaCard h2 {
+  margin: 0;
+}
+
+.catalogCard p,
+.pathCard p,
+.ctaCard p {
+  margin: 0;
+  color: var(--ifm-color-content-secondary);
+  line-height: 1.9;
+}
+
+.catalogLink,
+.inlineAction {
+  margin-top: auto;
+  color: var(--ifm-color-primary);
+  font-weight: 800;
+}
+
+.pathGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.pathCard {
+  padding: 1.3rem;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.ctaSection {
+  padding-bottom: 4rem;
+}
+
+.ctaCard {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) auto;
+  gap: 1.4rem;
+  align-items: center;
+  padding: 1.5rem;
+  background:
+    linear-gradient(135deg, rgba(15, 118, 110, 0.08), rgba(14, 165, 233, 0.07)),
+    var(--ifm-background-surface-color);
+}
+
+.ctaActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+@media (max-width: 996px) {
+  .heroBackdrop {
+    height: 34rem;
+  }
+
+  .heroGrid,
+  .catalogGrid,
+  .pathGrid,
+  .ctaCard {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero {
+    padding-top: 1.5rem;
+  }
+
+  .heroContent {
+    padding: 1.25rem;
+  }
+
+  .heroBackdrop {
+    inset: 1rem 0 auto;
+    height: 38rem;
+    border-radius: 1.5rem;
+  }
+
+  .heroDescription,
+  .sectionHeader p:last-child,
+  .catalogCard p,
+  .pathCard p,
+  .ctaCard p {
+    line-height: 1.85;
+  }
+}

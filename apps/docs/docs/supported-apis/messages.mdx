@@ -1,0 +1,183 @@
+---
+title: Messages API
+---
+
+# Messages API
+
+`Messages API` قرارداد اصلی Anthropic برای کار با مدل‌های Claude است. اگر `Chat Completions` را قرارداد کلاسیک OpenAI بدانیم، `Messages API` فرم بومی Anthropic برای مدیریت گفتگو، system prompt، و بعضی قابلیت‌های اختصاصی Claude است.
+
+در مستند مرجع TrueFoundry، این API با endpoint زیر مطرح می‌شود:
+
+```text
+POST /messages
+```
+
+## وضعیت فعلی در گدارAI
+
+در کد فعلی گدارAI، provider adapter مربوط به Anthropic وجود دارد و درخواست‌های chat می‌توانند در لایه داخلی به endpoint واقعی Anthropic یعنی `/v1/messages` ترجمه شوند. اما در `services/control-plane/internal/proxy` هنوز route عمومی مستقلی برای `POST /messages` به‌عنوان یک API public-facing ندیدم.
+
+یعنی در وضعیت فعلی:
+
+- پشتیبانی provider-level برای Anthropic در backend وجود دارد
+- transform داخلی به Messages API آنتروپیک در architecture پروژه دیده می‌شود
+- اما endpoint عمومی مستقل `Messages API` هنوز مثل `POST /v1/responses` یا `POST /v1/moderations` در gateway فعلی expose نشده است
+
+پس این صفحه را باید سند capability و مسیر محصولی بدانید، نه راهنمای یک endpoint کاملاً operational در وضعیت فعلی.
+
+## Messages API چه مسئله‌ای را حل می‌کند؟
+
+اگر مستقیم با Claude و قرارداد Anthropic کار می‌کنید، `Messages API` به شما این مزیت‌ها را می‌دهد:
+
+- interface بومی برای مدل‌های Claude
+- ساختار شفاف message-based conversation
+- پشتیبانی بهتر از system prompt در الگوی Anthropic
+- هم‌راستایی بیشتر با SDK رسمی Anthropic
+
+این موضوع به‌خصوص برای تیم‌هایی مهم است که:
+
+- قبلاً روی Anthropic SDK سرمایه‌گذاری کرده‌اند
+- می‌خواهند migration کم‌هزینه‌تری به gateway داشته باشند
+- به behavior خاص Claude در contract بومی خودش وابسته‌اند
+
+## تفاوت Messages API با Chat Completions
+
+در گدارAI امروز، برای بسیاری از use caseهای Anthropic، `Chat Completions` عملاً مسیر عملیاتی‌تری است؛ چون gateway آن را expose می‌کند و می‌تواند request را در پشت‌صحنه به provider مناسب route و transform کند.
+
+تفاوت عملی:
+
+- `Chat Completions`: contract عمومی OpenAI-compatible
+- `Messages API`: contract بومی Anthropic
+
+اگر تیم شما multi-provider است، `Chat Completions` معمولاً integration ساده‌تری می‌دهد. اگر workflow شما عمیقاً بر پایه Anthropic SDK و contract بومی Claude طراحی شده باشد، `Messages API` اهمیت بیشتری پیدا می‌کند.
+
+## contract هدف
+
+در فرم رایج Anthropic، request معمولاً شامل این فیلدهاست:
+
+- `model`
+- `max_tokens`
+- `messages`
+- در صورت نیاز `system`
+
+نمونه مفهومی:
+
+```python
+from anthropic import Anthropic
+
+client = Anthropic(
+    api_key="YOUR_GODARAI_API_KEY",
+    base_url="YOUR_GODARAI_BASE_URL",
+)
+
+response = client.messages.create(
+    model="anthropic:default:claude-3-5-sonnet",
+    max_tokens=1024,
+    messages=[
+        {
+            "role": "user",
+            "content": "مفهوم معماری gateway را ساده توضیح بده."
+        }
+    ]
+)
+
+print(response.content)
+```
+
+این نمونه contract هدف را نشان می‌دهد، نه این‌که endpoint عمومی `POST /messages` همین حالا در gateway فعلی exposed باشد.
+
+## output مورد انتظار
+
+در الگوی Anthropic، پاسخ معمولاً شامل این بخش‌هاست:
+
+- `id`
+- `type`
+- `role`
+- `content`
+- `model`
+- `stop_reason`
+- `usage`
+
+نمونه مفهومی:
+
+```json
+{
+  "id": "msg_123",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "text",
+      "text": "گیت‌وی یک لایه میانی بین اپلیکیشن شما و providerهای مدل است."
+    }
+  ],
+  "model": "claude-3-5-sonnet",
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 14,
+    "output_tokens": 83
+  }
+}
+```
+
+## این قابلیت از نظر محصول چطور باید کار کند؟
+
+اگر `Messages API` به‌صورت public endpoint در گدارAI عرضه شود، انتظار منطقی این است که:
+
+- model بر اساس deploymentهای مجاز Anthropic resolve شود
+- احراز هویت با PAT یا VAT گدارAI انجام شود
+- budget و rate limit در همان gateway اعمال شوند
+- usage و observability در سطح tenant ثبت شوند
+- Anthropic auth headerها در backend مدیریت شوند، نه در client شما
+
+این دقیقاً همان ارزشی است که gateway باید برای تیم‌های multi-tenant و production فراهم کند.
+
+## چه رابطه‌ای با implementation فعلی دارد؟
+
+نکته مهم این است که نبود route عمومی `POST /messages` به این معنا نیست که Anthropic در کل unsupported است. در کد فعلی:
+
+- provider `anthropic` در router و billing و provider adapter شناخته می‌شود
+- تبدیل requestهای chat به `/v1/messages` آنتروپیک در لایه provider وجود دارد
+
+پس از منظر عملی، گدارAI امروز بیشتر Anthropic را از مسیر `Chat Completions` به شما نزدیک می‌کند، نه از مسیر یک public `Messages API` مستقل.
+
+## چه زمانی به Messages API مستقل نیاز داریم؟
+
+این API وقتی مهم‌تر می‌شود که:
+
+- بخواهید مستقیماً از Anthropic SDK استفاده کنید
+- بخواهید contract بومی Claude را بدون نگاشت به OpenAI-style نگه دارید
+- بخشی از behavior اپ شما به response shape اختصاصی Anthropic وابسته باشد
+
+اگر این موارد برایتان مهم نیست، در بسیاری از سناریوها `Chat Completions` همچنان انتخاب ساده‌تری خواهد بود.
+
+## تا قبل از عرضه رسمی چه کار کنیم؟
+
+اگر امروز به Claude دسترسی می‌خواهید، بهترین مسیر عملی معمولاً این است:
+
+1. از `Chat Completions` گدارAI استفاده کنید
+2. مدل Anthropic مجاز در scope خودتان را انتخاب کنید
+3. تفاوت‌های provider-specific را در integration تست کنید
+
+اگر حتماً contract بومی Anthropic برایتان ضروری است، فعلاً باید در نظر بگیرید که این API هنوز به‌صورت route عمومی مستقل در gateway فعلی در دسترس نیست.
+
+## چند توصیه عملی برای کاربران گدارAI
+
+### اگر multi-provider هستید، اول `Chat Completions` را ترجیح دهید
+
+این مسیر در گدارAI امروز operationalتر و یکدست‌تر است.
+
+### اگر Claude-first هستید، response shape را از ابتدا abstraction کنید
+
+بهتر است اپ شما به shape دقیق یک provider قفل نشود.
+
+### قبل از مهاجرت، naming مدل‌ها را با deployment واقعی tenant خودتان چک کنید
+
+در Anthropic، alias و route mapping اهمیت زیادی دارد.
+
+### برای production از VAT استفاده کنید
+
+اگر مصرف Claude در سرویس backend یا workflow سازمانی انجام می‌شود، virtual account token معمولاً انتخاب مناسب‌تری از PAT انسانی است.
+
+## جمع‌بندی
+
+`Messages API` در گدارAI نماینده مسیر بومی Anthropic برای کار با Claude است و در سطح provider/backend نشانه‌های پشتیبانی آن در پروژه وجود دارد. اما در وضعیت فعلی `services/control-plane` هنوز route عمومی مستقلی برای `POST /messages` مانند برخی endpointهای دیگر دیده نمی‌شود. اگر امروز می‌خواهید با Claude از طریق گدارAI کار کنید، در عمل `Chat Completions` معمولاً مسیر مناسب‌تر و عملیاتی‌تری است، مگر این‌که contract بومی Anthropic برای شما الزام قطعی باشد.

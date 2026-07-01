@@ -1,0 +1,315 @@
+---
+sidebar_position: 13
+title: مدیریت نقش‌ها و Permissionها در گدارAI
+---
+
+# مدیریت نقش‌ها و Permissionها در گدارAI
+
+در GodarAI، کنترل دسترسی فقط با یک فیلد ساده مثل `is_admin` انجام نمی‌شود. دسترسی‌ها با ترکیبی از role، permission، membership و scopeهای tenant / org unit / team مدیریت می‌شوند.
+
+این صفحه توضیح می‌دهد که نقش‌ها و permissionها در GodarAI چگونه کار می‌کنند، چه roleهای پیش‌فرضی وجود دارند، و چه زمانی باید role سفارشی بسازید.
+
+## چرا این بخش مهم است؟
+
+اگر role و permission را درست طراحی نکنید، خیلی زود با یکی از این مشکلات روبه‌رو می‌شوید:
+
+- افراد بیش از حد لازم دسترسی می‌گیرند
+- مدیران تیم برای هر کار کوچکی به tenant admin وابسته می‌شوند
+- دسترسی production و development با هم قاطی می‌شود
+- مدیریت Virtual User، Provider Account یا policyها به‌درستی قابل delegation نیست
+
+## نقش (Role) و Permission چه فرقی دارند؟
+
+- role یک بسته آماده از چند permission است
+- permission کوچک‌ترین واحد اختیار است
+
+مثلاً:
+
+- role می‌گوید «این کاربر tenant admin است»
+- permissionها می‌گویند «می‌تواند roleها را ببیند، team بسازد، provider account را مدیریت کند، یا فقط settings را بخواند»
+
+## permission catalog واقعی GodarAI
+
+بر اساس backend فعلی، permissionهای canonical GodarAI در چند گروه اصلی قرار می‌گیرند.
+
+### Policy
+
+- `policy:list`
+- `policy:manage`
+
+### Role
+
+- `role:list`
+- `role:manage`
+
+### User
+
+- `user:list`
+- `user:manage`
+
+### Team
+
+- `team:create`
+- `team:read`
+- `team:manage`
+- `team:delete`
+
+### Org Unit
+
+- `org_unit:create`
+- `org_unit:read`
+- `org_unit:manage`
+- `org_unit:delete`
+- `org_unit:list`
+
+### Virtual Account
+
+در naming فعلی backend، این گروه هنوز با نام virtual account آمده، اما در مدل مفهومی docs ما بهتر است آن را ناظر به `Virtual User + VAT` بدانیم:
+
+- `virtual_account:create`
+- `virtual_account:read`
+- `virtual_account:manage`
+- `virtual_account:delete`
+
+### Provider Account
+
+- `provider_account:create`
+- `provider_account:read`
+- `provider_account:manage`
+- `provider_account:delete`
+
+### Settings
+
+- `settings:list`
+- `settings:manage`
+
+### Logs
+
+- `logs:read_metadata`
+- `logs:read_content`
+
+## roleهای سیستمی پیش‌فرض
+
+در backend فعلی، چند role سیستمی (System Roles) به‌صورت built-in وجود دارند:
+
+- `proxy_admin`
+- `tenant_admin`
+- `org_admin`
+- `team_admin`
+- `member`
+- `readonly_member`
+
+این roleها صرفاً نام نیستند؛ هر کدام مجموعه permission مشخصی دارند.
+
+## `tenant_admin`
+
+این role یکی از بالاترین سطح‌های اختیار در tenant است. `tenant_admin` می‌تواند تقریباً همه چیزهای tenant را مدیریت کند:
+
+- roleها
+- userها
+- teamها
+- org unitها
+- virtual accountها
+- provider accountها
+- policyها
+- settings
+- log metadata و content
+
+این role باید محدود و کم‌تعداد بماند.
+
+## `org_admin`
+
+`org_admin` برای مدیریت در scope واحد سازمانی مناسب است. در مدل فعلی:
+
+- می‌تواند teamهای همان مرز را مدیریت کند
+- userها را در context خود ببیند و تا حدی مدیریت کند
+- virtual accountها را مدیریت کند
+- provider accountها را بخواند
+- policyها را ببیند
+
+اما از نظر قدرت، پایین‌تر از `tenant_admin` است.
+
+## `team_admin`
+
+`team_admin` نقش عملیاتی روزمره برای تیم‌هاست. در backend فعلی:
+
+- `team:read`
+- `team:manage`
+- `virtual_account:create`
+- `virtual_account:read`
+- `virtual_account:manage`
+- `virtual_account:delete`
+- `provider_account:read`
+- `settings:list`
+- `logs:read_metadata`
+
+یعنی team admin معمولاً برای کارهای تیمی کافی است، بدون این‌که مجبور باشید به او admin سراسری بدهید.
+
+## `member`
+
+در role پیش‌فرض فعلی، `member` سبک‌تر است و permissionهای محدودی دارد:
+
+- `user:list`
+- `settings:list`
+- `logs:read_metadata`
+
+نکته مهم این است که در GodarAI، بخش مهمی از اختیارات memberها می‌تواند از membershipها و team-level permissionها بیاید، نه فقط از role سراسری.
+
+## `readonly_member`
+
+این role برای مشاهده بدون mutation مناسب است. در حالت فعلی:
+
+- `settings:list`
+- `logs:read_metadata`
+
+این role برای ناظرها، audit سبک، یا کاربرانی که فقط باید ببینند مفید است.
+
+## آیا می‌شود role سفارشی ساخت؟
+
+بله. backend فعلی routeهای مشخصی برای role management دارد:
+
+- `GET /api/v1/roles`
+- `POST /api/v1/roles`
+- `PATCH /api/v1/roles/:roleID`
+
+همچنین برای assignment:
+
+- `PATCH /api/v1/users/roles`
+
+بنابراین می‌توانید:
+
+- role جدید تعریف کنید
+- permissionهای مشخص به آن بدهید
+- آن را به userها assign کنید
+
+## role سفارشی چه زمانی مفید است؟
+
+وقتی roleهای پیش‌فرض برای سناریوی شما یا زیادی باز هستند یا زیادی بسته.
+
+مثال‌ها:
+
+- کاربری که فقط باید provider accountها را ببیند
+- اپراتوری که باید virtual accountها را مدیریت کند ولی roleها را نه
+- ناظری که باید metadata لاگ‌ها را ببیند ولی content را نه
+
+## محدودیت roleهای سیستمی
+
+در storage فعلی، roleهای سیستمی قابل تغییر هستند با یک استثنای مهم:
+
+- `proxy_admin`
+- `tenant_admin`
+
+این دو immutable در نظر گرفته شده‌اند و نباید مانند roleهای عادی ویرایش شوند.
+
+این تصمیم منطقی است، چون تغییر دادن permissionهای این دو role می‌تواند مرزهای اصلی امنیتی سیستم را بشکند.
+
+## assignment role به کاربر چگونه انجام می‌شود؟
+
+در backend فعلی، assignment از طریق `user_role_bindings` انجام می‌شود و کاربر حتی می‌تواند بیش از یک role داشته باشد. بعد سیستم:
+
+- roleهای مؤثر را جمع می‌کند
+- permissionهای آن‌ها را merge می‌کند
+- در نهایت یک primary role هم برای نمایش/سازگاری انتخاب می‌کند
+
+پس بر خلاف بعضی سیستم‌های ساده‌تر، در GodarAI نباید فرض کنید هر user فقط دقیقاً یک role مؤثر دارد.
+
+## primary role چگونه تعیین می‌شود؟
+
+در منطق فعلی، priority تقریبی roleها این‌طور است:
+
+- `tenant_admin`
+- `org_admin`
+- `team_admin`
+- `member`
+- `readonly_member`
+
+یعنی اگر کاربر چند role داشته باشد، یکی از آن‌ها به‌عنوان نقش اصلی نمایش داده می‌شود، ولی permissionهای مؤثر می‌توانند از مجموع roleها بیایند.
+
+## نقش‌ها و membershipها مکمل هم هستند
+
+یکی از مهم‌ترین نکات طراحی در GodarAI این است که role سراسری به‌تنهایی همه چیز را تعیین نمی‌کند.
+
+مثلاً:
+
+- role سراسری می‌گوید کاربر اصولاً در چه سطحی می‌تواند عمل کند
+- membership مشخص می‌کند در کدام team یا org unit این اختیار معنا دارد
+- team-level permissionها می‌گویند عضو عادی تیم دقیقاً چه عملیات‌هایی مجاز است انجام دهد
+
+یعنی RBAC در GodarAI فقط یک جدول ساده role-to-user نیست.
+
+## team member permission با role چه فرقی دارد؟
+
+roleهای سراسری مثل `tenant_admin` یا `team_admin` از permission catalog اصلی می‌آیند. اما team member permissionها route-level و team-scoped هستند؛ مثل:
+
+- `/key/generate`
+- `/key/update`
+- `/key/delete`
+
+این‌ها بیشتر برای delegation ظریف در سطح تیم مناسب‌اند.
+
+قاعده خوب:
+
+- اگر اختیار، ماهیت tenant-wide یا domain-wide دارد، role مناسب‌تر است
+- اگر اختیار فقط در context یک team و برای چند عملیات محدود لازم است، team permission مناسب‌تر است
+
+## چند الگوی خوب برای طراحی role
+
+### 1. adminها را کم نگه دارید
+
+به‌خصوص `tenant_admin` باید برای تعداد کمی از افراد باشد.
+
+### 2. برای مدیریت دامنه‌ای role سفارشی بسازید
+
+مثلاً role مخصوص عملیات virtual account یا role مخصوص مشاهده لاگ‌ها.
+
+### 3. برای delegation داخل تیم، role سراسری نسازید
+
+اگر فقط لازم است یک عضو team بتواند key بسازد، بهتر است team permission بگیرد نه role سراسری پرقدرت.
+
+### 4. `logs:read_content` را با احتیاط بدهید
+
+دیدن metadata با دیدن payload واقعی فرق دارد. برای privacy و security، این permission باید محدود باشد.
+
+## چند سناریوی رایج
+
+### ناظر فقط‌خواندنی
+
+اگر کسی فقط باید وضعیت را ببیند:
+
+- `readonly_member`
+- یا یک role سفارشی فقط‌خواندنی
+
+### اپراتور مدیریت virtual account
+
+اگر کسی باید Virtual User و VATها را مدیریت کند ولی به role management نیازی ندارد:
+
+- یک role سفارشی با `virtual_account:create/read/manage`
+
+### مدیر تیم بدون tenant-level power
+
+اگر تیم باید مستقل‌تر کار کند:
+
+- `team_admin`
+- در صورت نیاز، ترکیب با team member permissionهای تکمیلی
+
+## توصیه‌های عملی برای GodarAI
+
+### role را برای مرزهای بزرگ نگه دارید
+
+نقش‌ها بهتر است نماینده سطح اختیار کلان باشند، نه workaround برای هر سناریوی کوچک.
+
+### permission را از naming واقعی backend بگیرید
+
+در docs و طراحی UI، بهتر است از کلیدهای canonical مثل `provider_account:manage` یا `virtual_account:read` استفاده شود، نه ترجمه‌های مبهم.
+
+### custom role را بر اساس least privilege بسازید
+
+هر role سفارشی فقط باید کمترین permission لازم را داشته باشد.
+
+### بین `logs:read_metadata` و `logs:read_content` فرق بگذارید
+
+این دو از نظر ریسک امنیتی یکسان نیستند.
+
+## جمع‌بندی
+
+مدیریت role و permission در GodarAI بر پایه یک permission catalog صریح، roleهای سیستمی مشخص، role binding برای userها، و membershipهای team/org انجام می‌شود. اگر این لایه را درست طراحی کنید، می‌توانید اختیار را به‌شکل دقیق و ایمن توزیع کنید، بدون این‌که همه چیز به `tenant_admin` ختم شود.

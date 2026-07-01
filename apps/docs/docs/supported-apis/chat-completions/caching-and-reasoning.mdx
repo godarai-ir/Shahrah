@@ -1,0 +1,273 @@
+---
+title: کش و استدلال
+---
+
+# کش و استدلال
+
+در گدارAI، `Chat Completions` فقط یک مسیر برای گرفتن پاسخ از model نیست. این endpoint می‌تواند با دو لایه مهم دیگر هم ترکیب شود:
+
+- caching برای کاهش latency و هزینه
+- reasoning برای modelهایی که توان استدلال عمیق‌تر دارند
+
+این دو موضوع از نظر عملیاتی بسیار مهم‌اند، چون هم روی کیفیت تجربه کاربر اثر می‌گذارند و هم روی هزینه و throughput محصول.
+
+## caching در GodarAI دقیقاً به چه معناست؟
+
+وقتی در مورد caching حرف می‌زنیم، در عمل دو مدل ذهنی مختلف وجود دارد:
+
+### 1. provider-side prompt caching
+
+بعضی providerها خودشان cache prefix یا prompt caching دارند. در این حالت، بخشی از promptهای تکراری دوباره پردازش نمی‌شود.
+
+### 2. gateway-side response caching
+
+در خود GodarAI هم لایه cache عملیاتی وجود دارد که می‌تواند response را در سطح gateway ذخیره کند و در requestهای بعدی دوباره استفاده کند.
+
+برای کاربر GodarAI، این تفاوت مهم است چون رفتار، تنظیمات و محدودیت‌های این دو یکی نیست.
+
+## caching در Chat Completions چه فایده‌ای دارد؟
+
+- latency کمتر
+- هزینه کمتر
+- فشار کمتر روی provider
+- تجربه پایدارتر برای درخواست‌های تکراری یا مشابه
+
+سناریوهای رایج:
+
+- system promptهای بزرگ و تکراری
+- contextهای ثابت
+- درخواست‌های مشابه با تغییرات جزئی
+- chatهای داخلی که الگوهای تکرارشونده دارند
+
+## caching عملیاتی GodarAI
+
+در docs و پیاده‌سازی فعلی GodarAI، response cache با headerهای کنترلی خودش مدیریت می‌شود. در اسناد فعلی project و docs موجود، دو mode اصلی برای cache دیده می‌شود:
+
+- `simple`
+- `smart`
+
+و در clientهای جدید، header مرجع برای پیکربندی cache این است:
+
+- `x-godarai-cache-config`
+
+در بعضی toolingهای قدیمی‌تر ممکن است نام legacy را هم ببینید، اما برای docs و integrationهای جدید همین header مبناست.
+
+## `simple` cache
+
+در حالت simple، cache بر اساس تطبیق دقیق request کار می‌کند. این mode زمانی مناسب است که:
+
+- requestها تقریباً یکسان‌اند
+- deterministic behavior بیشتری می‌خواهید
+- نمی‌خواهید semantic matching وارد جریان شود
+
+## `smart` cache
+
+در حالت smart، سیستم فقط exact match را نگاه نمی‌کند، بلکه برای بخشی از request semantic matching هم انجام می‌دهد. در توضیح فعلی backend:
+
+- ابتدا exact check انجام می‌شود
+- سپس فقط متن نهایی user برای embedding استفاده می‌شود
+- بقیه context و پارامترها همچنان باید با دقت مناسب سازگار بمانند
+
+این mode برای سناریوهایی خوب است که wording کمی فرق می‌کند اما intent تقریباً یکسان است.
+
+## چه چیزهایی cache را bypass می‌کنند؟
+
+این یکی از مهم‌ترین نکات عملی GodarAI است. در پیاده‌سازی فعلی smart cache، این requestها bypass می‌شوند:
+
+- requestهای streaming
+- requestهای دارای `tools`
+- requestهای دارای `tool_choice`
+- requestهای multimodal
+
+پس اگر از tool calling، multimodal یا stream استفاده می‌کنید، نباید انتظار رفتار cache مشابه requestهای text-only ساده داشته باشید.
+
+## نشانه‌های cache در پاسخ و metrics
+
+در تست‌ها و پیاده‌سازی فعلی، cache outcome در headerها و telemetry دیده می‌شود. مفاهیمی که در observability فعلی مهم‌اند:
+
+- `cache_status`
+- `cache_mode`
+- `cache_match`
+
+مثلاً:
+
+- `hit`
+- `miss`
+- `exact`
+- `semantic`
+
+این داده‌ها برای تحلیل latency و savings بسیار مهم‌اند.
+
+## prompt caching در providerها
+
+بعضی providerها از prompt caching پشتیبانی می‌کنند و بعضی آن را به‌صورت خودکار مدیریت می‌کنند. اما برای کاربر GodarAI مهم‌ترین نکته این است:
+
+- اگر provider caching وجود داشته باشد، Gateway می‌تواند نقش translation/adaptation داشته باشد
+- اما شما نباید product-level behavior را با provider-level caching یکی فرض کنید
+
+در عمل، برای کاربر محصول ما، response cache عملیاتی GodarAI معمولاً نقطه شروع مهم‌تری از provider-native prompt caching است.
+
+## reasoning چیست؟
+
+بعضی modelها فقط پاسخ نهایی نمی‌دهند، بلکه فرایند استدلال یا thinking آن‌ها هم تا حدی قابل استفاده است. در GodarAI این موضوع معمولاً با این مفاهیم دیده می‌شود:
+
+- `reasoning_effort`
+- `reasoning_content`
+- `thinking`
+- `thinking_blocks`
+
+این قابلیت مخصوص modelهایی است که reasoning-capable هستند.
+
+## چه زمانی reasoning مهم می‌شود؟
+
+reasoning معمولاً برای این نوع مساله‌ها ارزش بیشتری دارد:
+
+- تحلیل چندمرحله‌ای
+- استدلال منطقی
+- extraction پیچیده
+- planning
+- agentهای ابزارمحور
+- مسائل چندگامی که پاسخ کوتاه ساده کافی نیست
+
+برای سؤال‌های ساده، reasoning همیشه بهترین tradeoff نیست چون می‌تواند latency و token usage را بالا ببرد.
+
+## `reasoning_effort`
+
+در بسیاری از modelهای reasoning-capable، می‌توانید با `reasoning_effort` عمق یا شدت استدلال را کنترل کنید. مقادیر رایج:
+
+- `low`
+- `medium`
+- `high`
+- در بعضی providerها `none`
+
+نمونه:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="YOUR_GODARAI_API_KEY",
+    base_url="YOUR_GODARAI_BASE_URL",
+)
+
+response = client.chat.completions.create(
+    model="openai:default:o4-mini",
+    messages=[
+        {"role": "user", "content": "چرا توان‌ها از راست به چپ ارزیابی می‌شوند؟"}
+    ],
+    reasoning_effort="high",
+    max_tokens=4000
+)
+
+print(response.choices[0].message.content)
+```
+
+## translation لایه Gateway برای reasoning
+
+در بعضی providerها، `reasoning_effort` پارامتر native نیست. در این حالت Gateway ممکن است آن را به پارامتر بومی provider ترجمه کند.
+
+مثلاً در الگوهای مستندشده:
+
+- بعضی providerها از `thinking` native استفاده می‌کنند
+- Gateway `reasoning_effort` را به format قابل‌فهم provider تبدیل می‌کند
+
+برای کاربر GodarAI این مزیت بزرگی است، چون می‌توانید با contract نزدیک به OpenAI-compatible کار کنید، بدون این‌که برای هر provider منطق جدا بنویسید.
+
+## reasoning در پاسخ چگونه دیده می‌شود؟
+
+در بعضی modelها، پاسخ فقط `content` نیست و ممکن است `reasoning_content` هم داشته باشد.
+
+نمونه مفهومی:
+
+```json
+{
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": "پاسخ نهایی",
+        "reasoning_content": "روند استدلال مدل..."
+      }
+    }
+  ]
+}
+```
+
+در providerهای پیشرفته‌تر، همین موضوع می‌تواند به‌جای plain text به شکل `thinking_blocks` هم ظاهر شود که در صفحه `Extended Thinking` جداگانه پوشش داده می‌شود.
+
+## reasoning و streaming
+
+وقتی reasoning و streaming را با هم استفاده می‌کنید، باید انتظار داشته باشید که thinking section و پاسخ نهایی لزوماً به یک شکل ساده text-only stream نشوند. برای سناریوهای production:
+
+- اول non-stream reasoning را درست پیاده کنید
+- بعد stream accumulation را اضافه کنید
+- serialization صحیح assistant message را جدی بگیرید
+
+## caching و reasoning با هم
+
+این دو موضوع به‌ظاهر مستقل‌اند، ولی در عمل روی هم اثر دارند:
+
+- reasoning ممکن است token مصرفی و latency را بالا ببرد
+- caching می‌تواند بعضی بخش‌های تکراری را کم‌هزینه‌تر کند
+- اما اگر request شما tool-enabled، multimodal یا stream باشد، cache story فرق می‌کند
+
+پس بهتر است این ترکیب‌ها را جداگانه benchmark کنید:
+
+- text-only + no tools + no stream
+- reasoning-enabled
+- tool-enabled reasoning
+- multimodal reasoning
+
+## usage و token accounting
+
+وقتی caching یا reasoning فعال باشند، usage object می‌تواند اطلاعات مهم‌تری برگرداند. در provider-side caching ممکن است فیلدهایی از این جنس ببینید:
+
+- `prompt_tokens_details.cached_tokens`
+- `cache_read_input_tokens`
+- `cache_creation_input_tokens`
+
+و در reasoning scenarios هم usage می‌تواند بالا برود چون model برای استدلال token بیشتری مصرف می‌کند.
+
+این یعنی اگر cost analysis می‌کنید، فقط به `content` نهایی نگاه نکنید؛ usage را هم جدی بررسی کنید.
+
+## چه زمانی caching مناسب نیست؟
+
+همیشه cache بهترین انتخاب نیست. مثلاً:
+
+- وقتی پاسخ باید کاملاً real-time و non-reusable باشد
+- وقتی request به‌شدت dynamic است
+- وقتی tools یا multimodal عملاً cache را bypass می‌کنند
+
+در این حالت شاید optimizationهای دیگری مهم‌تر باشند.
+
+## چه زمانی reasoning مناسب نیست؟
+
+reasoning همیشه ارزش افزوده نمی‌دهد. برای taskهای ساده:
+
+- latency بالاتر می‌رود
+- token usage بیشتر می‌شود
+- complexity غیرضروری ایجاد می‌شود
+
+پس reasoning را برای مسائلی نگه دارید که واقعاً از استدلال چندمرحله‌ای سود می‌برند.
+
+## چند توصیه عملی برای GodarAI
+
+### اول cache text-only را پایدار کنید
+
+قبل از ورود به سناریوهای پیچیده، رفتار `simple` و `smart` cache را روی requestهای بدون tool و بدون multimodal تثبیت کنید.
+
+### ابزارها و multimodal را cache-friendly فرض نکنید
+
+در وضعیت فعلی، این‌ها از مهم‌ترین bypassها هستند.
+
+### reasoning را با benchmark فعال کنید
+
+به‌خصوص در production، بین `low` و `high` فرق latency و cost را اندازه بگیرد.
+
+### usage و cache telemetry را در observability وارد کنید
+
+فقط دیدن پاسخ کافی نیست؛ باید بدانید hit/miss چه بوده و usage چقدر تغییر کرده است.
+
+## جمع‌بندی
+
+در `Chat Completions`، caching و reasoning دو اهرم مهم برای بهینه‌سازی تجربه و کیفیت هستند. caching در GodarAI بیشتر از جنس response cache عملیاتی با modeهای `simple` و `smart` دیده می‌شود، و reasoning برای modelهای توانمندتر امکان استدلال عمیق‌تر را فراهم می‌کند. اگر این دو را با شناخت درست از bypassها، cost و latency به‌کار بگیرید، می‌توانید هم کیفیت خروجی را بهتر کنید و هم هزینه و performance را هوشمندانه‌تر مدیریت کنید.

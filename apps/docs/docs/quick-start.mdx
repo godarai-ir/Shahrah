@@ -7,6 +7,8 @@ title: شروع سریع
 
 این راهنما به شما کمک می‌کند در کمترین زمان، گدارAI را راه‌اندازی کنید، مدل‌های خود را متصل کنید و اولین درخواست را از طریق گیت‌وی ارسال کنید.
 
+اگر قبل از شروع می‌خواهید تصویر کلی‌تری از معماری داشته باشید، [معرفی LLM Gateway گدارAI](D:/source/Shahrah/apps/docs/docs/intro-to-gateway.mdx) را ببینید. اگر هم فقط دنبال سه مؤلفه اصلی اولین request هستید، [اولین درخواست به Gateway](D:/source/Shahrah/apps/docs/docs/making-llm-requests-via-gateway.mdx) مستقیم‌تر است.
+
 ## 1. ثبت‌نام و ورود
 
 ابتدا وارد محیط گدارAI شوید و حساب خود را فعال کنید. پس از تایید اطلاعات ورود، به داشبورد tenant منتقل می‌شوید.
@@ -25,6 +27,8 @@ title: شروع سریع
 2. یک ارائه‌دهنده مثل `OpenAI`، `Anthropic` یا سایر ارائه‌دهنده‌های پشتیبانی‌شده را انتخاب کنید.
 3. اطلاعات دسترسی یا API Key را وارد کنید.
 4. مدل‌هایی را که می‌خواهید در گیت‌وی در دسترس باشند فعال یا اضافه کنید.
+
+برای مدل دسترسی و نقش‌ها، بعداً می‌توانید [مدیریت نقش‌ها و دسترسی‌ها](D:/source/Shahrah/apps/docs/docs/guides/roles-and-permissions.mdx) و [مدیریت کاربران](D:/source/Shahrah/apps/docs/docs/guides/user-management.mdx) را بخوانید.
 
 > `جای خالی تصویر`
 >
@@ -57,6 +61,8 @@ title: شروع سریع
 - `Base URL` گیت‌وی
 - `API Key` یا توکن دسترسی
 - `Model ID` یا نام مدلی که می‌خواهید صدا بزنید
+
+توضیح دقیق‌تر این سه مورد در [اولین درخواست به Gateway](D:/source/Shahrah/apps/docs/docs/making-llm-requests-via-gateway.mdx) آمده است و اگر درباره tokenها سؤال دارید، [احراز هویت](D:/source/Shahrah/apps/docs/docs/authentication.mdx) و [ساخت API Key در گدارAI](D:/source/Shahrah/apps/docs/docs/guides/api-keys.mdx) را ببینید.
 
 این مقادیر باید از داخل پنل tenant یا بخش مربوط به دسترسی و مدل‌ها برداشته شوند.
 
@@ -92,3 +98,17 @@ export OPENAI_API_KEY="YOUR_SHAHRAH_API_KEY"
 2. تعریف `Virtual Model` برای داشتن یک alias پایدار
 3. تنظیم policyهای مصرف، محدودیت و دسترسی
 4. بررسی لاگ‌ها و متریک‌ها برای اعتبارسنجی ترافیک واقعی
+
+## FAQ
+
+### اگر فقط بخواهم سریع یک درخواست تستی بزنم، این صفحه کافی است؟
+
+برای تست خیلی سریع، بله؛ ولی معمولاً خواندن [اولین درخواست به Gateway](D:/source/Shahrah/apps/docs/docs/making-llm-requests-via-gateway.mdx) مسیر را روشن‌تر می‌کند.
+
+### بعد از این صفحه، مهم‌ترین مستند بعدی کدام است؟
+
+بستگی به use case شما دارد، اما برای بیشتر تیم‌ها این سه مورد مهم‌اند:
+
+- [Chat Completions](D:/source/Shahrah/apps/docs/docs/supported-apis/chat-completions/overview.mdx)
+- [مدل مجازی](D:/source/Shahrah/apps/docs/docs/virtual-model.mdx)
+- [ساخت API Key در گدارAI](D:/source/Shahrah/apps/docs/docs/guides/api-keys.mdx)

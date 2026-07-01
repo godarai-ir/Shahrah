@@ -9,6 +9,8 @@ title: معرفی GodarAI
 
 به زبان ساده، گدارAI تلاش می‌کند مصرف مدل‌ها را برای تیم‌ها قابل‌کنترل‌تر و برای اپلیکیشن‌ها قابل‌اتکاتر کند.
 
+اگر می‌خواهید از سطح مفهومی مستقیم به استفاده عملی برسید، بعد از این صفحه [شروع سریع](D:/source/Shahrah/apps/docs/docs/quick-start.mdx) و [اولین درخواست به Gateway](D:/source/Shahrah/apps/docs/docs/making-llm-requests-via-gateway.mdx) بهترین ادامه مسیر هستند.
+
 ![نمای کلی جایگاه گدارAI بین اپلیکیشن‌ها و ارائه‌دهنده‌های مدل](/img/docs/intro-gateway-architecture.png)
 
 نمای کلی بالا نشان می‌دهد که اپلیکیشن‌ها به‌جای اتصال مستقیم به هر ارائه‌دهنده، همه درخواست‌ها را از مسیر `GodarAI Gateway` عبور می‌دهند تا احراز هویت، سیاست‌های کنترل هزینه‌ها، نرخ فراخوانی‌ API ها، routing، مشاهده‌پذیری و مدل‌های مجازی در یک نقطه متمرکز مدیریت شوند.
@@ -97,6 +99,13 @@ title: معرفی GodarAI
 
 وجود این قابلیت‌ها نشان می‌دهد گیت‌وی گدارAI فقط برای route کردن درخواست‌ها نیست، بلکه برای کنترل مصرف و اعمال قواعد عملیاتی هم طراحی شده است.
 
+برای جزئیات هرکدام:
+
+- [Caching](D:/source/Shahrah/apps/docs/docs/guides/caching.mdx)
+- [Rate Limiting](D:/source/Shahrah/apps/docs/docs/guides/rate-limiting.mdx)
+- [Budget Limiting](D:/source/Shahrah/apps/docs/docs/guides/budget-limiting.mdx)
+- [رهگیری هزینه](D:/source/Shahrah/apps/docs/docs/cost-tracking.mdx)
+
 ## گدارAI برای چه تیم‌ها یا سازمان‌هایی مناسب است؟
 
 این نوع گیت‌وی معمولاً برای تیم‌هایی مفید است که یکی از این نیازها را دارند:
@@ -116,3 +125,13 @@ title: معرفی GodarAI
 3. یک توکن دسترسی برای توسعه‌دهنده یا سرویس/اپلیکیشن خود ایجاد کنید.
 4. اگر به نام مستعار (alias) پایدار نیاز دارید، یک مدل مجازی (`Virtual Model`) تعریف کنید.
 5. بعد از شروع مصرف، `لاگ` و `متریک‌ها` را برای مشاهده رفتار واقعی بررسی کنید.
+
+## FAQ
+
+### اگر فقط یک provider داشته باشم، باز هم به gateway نیاز دارم؟
+
+بله، چون ارزش gateway فقط در multi-provider بودن نیست؛ auth، budget، rate limit، logging و access control هم متمرکز می‌شوند.
+
+### برای بیشتر پروژه‌ها از کدام endpoint شروع کنیم؟
+
+در بیشتر integrationهای متنی، [Chat Completions](D:/source/Shahrah/apps/docs/docs/supported-apis/chat-completions/overview.mdx) نقطه شروع طبیعی‌تری است.

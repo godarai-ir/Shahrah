@@ -1,0 +1,171 @@
+---
+title: پشتیبانی از SDKهای بومی
+---
+
+# پشتیبانی از SDKهای بومی
+
+در خیلی از پروژه‌ها، تیم‌ها نمی‌خواهند همیشه فقط از قرارداد OpenAI-compatible استفاده کنند. گاهی از قبل روی SDK بومی یک provider سرمایه‌گذاری کرده‌اند، یا capability خاصی می‌خواهند که در همان SDK طبیعی‌تر است. اینجاست که بحث `Native SDK Support` مهم می‌شود.
+
+هدف این صفحه این است که روشن کند:
+
+- چه زمانی استفاده از SDK بومی منطقی است
+- چه زمانی بهتر است همچنان روی OpenAI-compatible بمانید
+- در وضعیت فعلی گدارAI کدام بخش‌ها پشتوانه عملی روشن‌تری دارند
+
+## اصل ماجرا
+
+در مستند مرجع TrueFoundry، ایده این است که بعضی SDKهای بومی providerها هم بتوانند از طریق gateway کار کنند و همچنان مزیت‌هایی مثل:
+
+- tracing
+- cost attribution
+- rate limit
+- budget enforcement
+
+را حفظ کنند.
+
+اما در گدارAI فعلی باید این موضوع را با دقت بیشتری ببینیم: همه مسیرهای native proxy که در مستندات مرجع ممکن است مطرح شده باشند، لزوماً امروز در همین repo به‌صورت public و operational دیده نمی‌شوند.
+
+## انتخاب پیش‌فرض در گدارAI
+
+برای بیشتر use caseها، انتخاب پیش‌فرض و امن‌تر هنوز این است:
+
+- از SDK استاندارد OpenAI استفاده کنید
+- `base_url` را روی گدارAI بگذارید
+- `api_key` را با کلید گدارAI تنظیم کنید
+- `model` مجاز خودتان را صدا بزنید
+
+این مسیر در گدارAI فعلی بیشترین هم‌خوانی را با implementation موجود دارد.
+
+## چه زمانی SDK بومی ارزش دارد؟
+
+استفاده از SDK بومی provider زمانی منطقی‌تر می‌شود که:
+
+- capability خاص provider در SDK بومی بهتر expose شده باشد
+- response shape بومی برای شما مهم باشد
+- contract provider برای migration شما مهم باشد
+- تیم شما از قبل روی همان SDK abstraction ساخته باشد
+
+مثلاً:
+
+- Anthropic SDK برای Claude-native workflows
+- Google Gen AI SDK برای بعضی الگوهای Gemini
+- Bedrock-native SDKها برای APIهای اختصاصی AWS
+
+## OpenAI SDK
+
+در گدارAI فعلی، OpenAI SDK مهم‌ترین و عملیاتی‌ترین مسیر integration است. بیشتر endpointهای implemented و production-facing ما حول همین contract شکل گرفته‌اند، مثل:
+
+- `Chat Completions`
+- `Responses`
+- `Embeddings`
+- `Moderation`
+- `Image Generation`
+- `Image Edit`
+- `Image Variation`
+
+نمونه:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="YOUR_GODARAI_API_KEY",
+    base_url="YOUR_GODARAI_BASE_URL",
+)
+
+response = client.chat.completions.create(
+    model="openai:default:gpt-4o-mini",
+    messages=[{"role": "user", "content": "سلام"}]
+)
+
+print(response.choices[0].message.content)
+```
+
+اگر در انتخاب بین چند SDK مردد هستید، معمولاً از همین‌جا شروع کنید.
+
+## Anthropic SDK
+
+در پروژه فعلی، provider adapter مربوط به Anthropic وجود دارد و transform داخلی به endpoint بومی Anthropic یعنی `/v1/messages` هم در backend دیده می‌شود. اما route عمومی مستقلی برای `POST /messages` در `services/control-plane/internal/proxy` فعلاً مثل بعضی endpointهای OpenAI-compatible expose نشده است.
+
+نتیجه عملی:
+
+- از نظر backend، Anthropic در پروژه غریبه نیست
+- اما از نظر public integration path، `Chat Completions` هنوز معمولاً مسیر عملیاتی‌تری برای Claude در گدارAI فعلی است
+
+پس اگر تیم شما Claude را از طریق گدارAI می‌خواهد، فعلاً بهتر است این دو را از هم تفکیک کنید:
+
+- `provider support` وجود دارد
+- `public native Messages API route` هنوز روشن و مستقل نیست
+
+## Google Gen AI SDK
+
+در مستند مرجع TrueFoundry، Google Gen AI SDK برای Gemini و Vertex مطرح شده است. اما در گدارAI فعلی، ما در docs و implementation موجود هنوز یک مسیر public و مستندشده‌ی هم‌سنگ با OpenAI SDK برای native Google Gen AI integration نداریم که بتوان با همان اطمینان روی آن حساب کرد.
+
+اگر use case شما روی Gemini یا Vertex متمرکز است:
+
+- باید integration واقعی را با deployment و route فعال محیط خودتان تست کنید
+- نباید صرفاً بر اساس مستند مرجع فرض کنید native path کامل و production-ready است
+
+## boto3 و Bedrock-native SDKها
+
+در مستند مرجع، استفاده از `boto3` و `langchain_aws` برای Bedrock هم مطرح شده است. در گدارAI فعلی، از نظر محصول و planning، Bedrock یکی از providerهای مهم است؛ اما در این repo، مسیرهای public-native integration برای Bedrock به‌صورت یک راهنمای تثبیت‌شده و implementation-backed مثل OpenAI SDK جلوی چشم نیستند.
+
+نتیجه عملی:
+
+- Bedrock به‌عنوان provider conceptually مهم است
+- اما قبل از اتکا به native SDK path، باید deployment و endpoint واقعی محیط خودتان را verify کنید
+
+## تفاوت «ممکن است پشتیبانی شود» با «الان operational است»
+
+این تفاوت خیلی مهم است. در این docs، ما سعی کرده‌ایم بین این دو مرز روشن نگه داریم:
+
+- چیزی که در مستند مرجع provider/gateway آمده
+- چیزی که در implementation فعلی گدارAI پشتوانه روشن‌تری دارد
+
+در وضعیت فعلی گدارAI:
+
+- OpenAI-compatible integration مطمئن‌ترین مسیر عمومی است
+- بعضی provider adapterها در backend وجود دارند
+- اما همه مسیرهای native SDK به یک اندازه public، stable و docs-backed نیستند
+
+## چه زمانی روی OpenAI-compatible بمانیم؟
+
+این انتخاب معمولاً بهتر است وقتی:
+
+- multi-provider هستید
+- می‌خواهید وابستگی به provider کمتر شود
+- سرعت توسعه و سادگی integration مهم‌تر است
+- endpointهای implemented فعلی برای شما کافی هستند
+
+در اکثر تیم‌ها، این انتخاب default بهتری است.
+
+## چه زمانی روی SDK بومی برویم؟
+
+این انتخاب وقتی می‌تواند منطقی باشد که:
+
+- feature خاص provider برای شما critical باشد
+- migration cost از SDK فعلی زیاد باشد
+- تیم شما abstraction کافی برای مدیریت تفاوت providerها داشته باشد
+- public path آن integration را در محیط واقعی خودتان تست و تایید کرده باشید
+
+## چند توصیه عملی
+
+### اول با OpenAI-compatible شروع کنید
+
+حتی اگر بعداً به SDK بومی مهاجرت می‌کنید، برای MVP و شروع کار این مسیر کم‌ریسک‌تر است.
+
+### بین docs مرجع و implementation فعلی فرق بگذارید
+
+اگر در مستند مرجع نام یک SDK آمده، به این معنی نیست که همین حالا در گدارAI فعلی همان مسیر public و stable را دارید.
+
+### provider-specific integration را در محیط واقعی خودتان تست کنید
+
+به‌خصوص برای Anthropic، Gemini، Vertex و Bedrock این نکته مهم است.
+
+### abstraction داخلی بسازید
+
+اگر فکر می‌کنید بین SDKها جابه‌جا می‌شوید، از همان ابتدا app code را به یک provider SDK خاص قفل نکنید.
+
+## جمع‌بندی
+
+گدارAI از نظر محصولی به سمت پشتیبانی از SDKهای بومی providerها نگاه دارد، اما در وضعیت فعلی این repo، مسیر OpenAI-compatible همچنان عملیاتی‌ترین و کم‌ریسک‌ترین راه integration است. اگر به Anthropic، Gemini، Bedrock یا SDKهای بومی دیگر نیاز دارید، بهتر است بین «پشتیبانی مفهومی یا backend-level» و «public operational path» فرق بگذارید و قبل از اتکا در production، integration واقعی را در محیط خودتان تأیید کنید.

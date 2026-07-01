@@ -1,0 +1,181 @@
+---
+title: Rerank
+---
+
+# Rerank
+
+`Rerank` برای امتیازدهی دوباره به مجموعه‌ای از نتایج اولیه و مرتب‌سازی مجدد آن‌ها بر اساس میزان ارتباط با query استفاده می‌شود. این API معمولاً بعد از مرحله retrieval می‌آید و کیفیت نهایی نتایج جست‌وجو یا بازیابی دانش را بهتر می‌کند.
+
+در طراحی محصول گدارAI، این قابلیت با endpoint زیر در نظر گرفته شده است:
+
+```text
+POST /rerank
+```
+
+## وضعیت فعلی در گدارAI
+
+در اسناد برنامه‌ریزی و catalog نوع مدل‌ها در گدارAI، `rerank` به‌عنوان یک capability مستقل وجود دارد. اما در پیاده‌سازی فعلی `services/control-plane` هنوز handler عمومی برای endpoint `rerank` در لایه proxy دیده نمی‌شود.
+
+یعنی در وضعیت فعلی:
+
+- نوع مدل `rerank` در طراحی محصول و مدیریت provider account شناخته شده است
+- endpoint هدف در اسناد معماری پیش‌بینی شده است
+- اما route عملیاتی آن هنوز مانند `embeddings` یا `responses` در gateway فعلی پیاده‌سازی نشده است
+
+پس این صفحه را باید مستند قابلیت برنامه‌ریزی‌شده بدانید، نه راهنمای یک endpoint کاملاً عملیاتی.
+
+## Rerank چه مسئله‌ای را حل می‌کند؟
+
+در بیشتر pipelineهای جست‌وجو، شما اول با یک موتور keyword search یا vector search تعدادی candidate برمی‌گردانید. مشکل اینجاست که این candidateها همیشه به بهترین شکل ممکن مرتب نشده‌اند.
+
+`Rerank` این مسئله را حل می‌کند:
+
+1. یک `query` می‌گیرد
+2. مجموعه‌ای از `documents` یا candidateها را می‌گیرد
+3. به هر مورد یک امتیاز ارتباط می‌دهد
+4. نتیجه را بر اساس relevance دوباره مرتب می‌کند
+
+این الگو برای موارد زیر بسیار مفید است:
+
+- semantic search
+- RAG
+- chatbot retrieval
+- FAQ retrieval
+- enterprise knowledge search
+
+## چه زمانی از Rerank استفاده کنیم؟
+
+اگر همین ابتدا فقط چند document محدود دارید و retrieval شما خیلی ساده است، شاید rerank لازم نباشد. اما وقتی:
+
+- candidateها زیاد می‌شوند
+- کیفیت top result خیلی مهم می‌شود
+- محتوای شما چندزبانه یا مبهم است
+- می‌خواهید precision نهایی را بهتر کنید
+
+آن‌وقت rerank معمولاً ارزش زیادی ایجاد می‌کند.
+
+## تفاوت Rerank با Embeddings
+
+این دو در pipelineهای retrieval کنار هم قرار می‌گیرند، ولی کارشان یکی نیست:
+
+- `Embeddings`: برای نمایش برداری query و document و retrieval اولیه خوب است
+- `Rerank`: برای بازمرتب‌سازی candidateهای بازیابی‌شده بر اساس relevance دقیق‌تر خوب است
+
+یک الگوی رایج این است:
+
+1. با embeddings و vector search، 20 یا 50 candidate بگیرید
+2. همان candidateها را به reranker بدهید
+3. فقط چند نتیجه برتر را به model نهایی یا UI نمایش دهید
+
+## contract هدف در گدارAI
+
+در طراحی محصول، انتظار می‌رود endpoint rerank چیزی شبیه این contract را بپذیرد:
+
+- `model`
+- `query`
+- `documents`
+- در بعضی use caseها `top_n`
+
+نمونه مفهومی:
+
+```python
+import cohere
+
+client = cohere.ClientV2(
+    api_key="YOUR_GODARAI_API_KEY",
+    base_url="YOUR_GODARAI_BASE_URL",
+)
+
+response = client.rerank(
+    model="cohere:default:rerank-multilingual-v3.0",
+    query="تهران پایتخت کدام کشور است؟",
+    documents=[
+        "تهران پایتخت ایران است.",
+        "آسمان امروز آبی است.",
+        "مشهد یکی از شهرهای بزرگ ایران است."
+    ],
+    top_n=1,
+)
+
+print(response)
+```
+
+این نمونه contract هدف را نشان می‌دهد، نه این‌که همین حالا در gateway فعلی الزاماً فعال باشد.
+
+## خروجی مورد انتظار
+
+در الگوی رایج rerank، پاسخ معمولاً شامل index و relevance score برای موارد برتر است:
+
+```json
+{
+  "results": [
+    {
+      "index": 0,
+      "relevance_score": 0.98
+    }
+  ]
+}
+```
+
+این پاسخ به شما کمک می‌کند بدانید کدام documentها برای query کاربر مناسب‌ترند.
+
+## این قابلیت از نظر محصول چطور باید کار کند؟
+
+وقتی `Rerank` در گدارAI به‌صورت کامل عرضه شود، انتظار منطقی این است که:
+
+- model بر اساس deployment مجاز tenant resolve شود
+- دسترسی بر اساس نوع `rerank` کنترل شود
+- budget و rate limit پیش از اجرا بررسی شوند
+- candidate documentها به provider مناسب فرستاده شوند
+- پاسخ امتیازدهی‌شده و مرتب‌شده برگردد
+- usage و observability در سطح tenant ثبت شوند
+
+این رفتار با فلسفه کلی gateway در گدارAI سازگار است.
+
+## چه providerهایی ممکن است پشت این قابلیت باشند؟
+
+در مرجع TrueFoundry، providerهایی مثل Cohere و Bedrock برای rerank مطرح شده‌اند. اما در گدارAI بهتر است این موضوع را این‌طور ببینید:
+
+- معیار نهایی، deployment واقعی داخل tenant شماست
+- model باید با capability از نوع `rerank` ثبت شده باشد
+- تفاوت جزئی contract و کیفیت خروجی ممکن است بین providerها متفاوت باشد
+
+پس بعد از پیاده‌سازی نهایی هم باید روی modelهای configured خودتان تست عملی بگیرید.
+
+## تا قبل از عرضه رسمی چه کار کنیم؟
+
+اگر همین حالا به reranking نیاز دارید، چند مسیر عملی دارید:
+
+### استفاده مستقیم از provider
+
+می‌توانید فعلاً از API یا SDK رسمی provider rerank استفاده کنید و orchestration را در سرویس خودتان نگه دارید.
+
+### استفاده موقت از prompt-based reranking
+
+اگر تعداد candidateها کم است، می‌توانید به‌صورت موقت از یک model متنی برای رتبه‌بندی تقریبی استفاده کنید. این راه‌حل جای rerank واقعی را نمی‌گیرد، اما برای MVP مفید است.
+
+### طراحی abstraction داخلی
+
+اگر می‌خواهید بعداً به گدارAI مهاجرت کنید، از حالا interface داخلی برای rerank بسازید تا بعداً فقط adapter را عوض کنید.
+
+## چند توصیه عملی برای کاربران گدارAI
+
+### rerank را بعد از retrieval استفاده کنید، نه به‌جای آن
+
+این API برای narrow کردن candidate set عالی است، نه برای جایگزینی کامل retrieval اولیه.
+
+### تعداد candidateها را کنترل کنید
+
+هرچه candidate بیشتری بفرستید، هزینه و latency بالاتر می‌رود.
+
+### داده فارسی و چندزبانه را جداگانه ارزیابی کنید
+
+کیفیت rerankerها روی فارسی، انگلیسی و متن‌های ترکیبی یکسان نیست.
+
+### برای rollout بعدی، VAT را در نظر بگیرید
+
+وقتی این endpoint در گدارAI عرضه شود، برای مصرف سازمانی و سیستمی، virtual account token معمولاً انتخاب مناسب‌تری از PAT خواهد بود.
+
+## جمع‌بندی
+
+`Rerank` در گدارAI یک capability مهم و برنامه‌ریزی‌شده برای بهبود کیفیت search و retrieval است و endpoint هدف آن `POST /rerank` خواهد بود. اما در پیاده‌سازی فعلی `services/control-plane` هنوز route و handler عمومی آن مانند endpointهای اصلی دیگر دیده نمی‌شود. اگر امروز به reranking نیاز دارید، بهتر است موقتاً از provider مستقیم، prompt-based reranking، یا abstraction داخلی استفاده کنید و این صفحه را به‌عنوان سند مسیر محصولی گدارAI برای rerank در نظر بگیرید.

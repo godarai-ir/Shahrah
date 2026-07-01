@@ -1,0 +1,267 @@
+---
+title: Embeddings
+---
+
+# Embeddings
+
+`Embeddings` برای تبدیل متن به بردار عددی (بردار نهفته یا Embedding Vector) استفاده می‌شود. این بردارها به شما کمک می‌کنند معنی تقریبی متن را به‌شکل قابل‌محاسبه در اختیار داشته باشید تا بتوانید قابلیت‌هایی مثل جست‌وجوی معنایی، بازیابی دانش، خوشه‌بندی و حذف موارد تکراری را بسازید.
+
+در گدارAI این قابلیت از طریق قرارداد OpenAI-compatible ارائه می‌شود:
+
+```text
+POST /v1/embeddings
+```
+
+## این endpoint چه مسئله‌ای را حل می‌کند؟
+
+به‌جای این‌که برای هر provider منطق جداگانه‌ای برای embedding بنویسید، GodarAI:
+
+- یک API یکدست برای تولید embedding ارائه می‌دهد
+- احراز هویت، بودجه، rate limit و policyها را در لایه gateway اعمال می‌کند
+- دسترسی به مدل‌های embedding را بر اساس tenant و scope دسترسی کنترل می‌کند
+- مصرف، هزینه و trace درخواست‌ها را در یک نقطه متمرکز نگه می‌دارد
+
+## چه زمانی از Embeddings استفاده کنیم؟
+
+این endpoint برای سناریوهایی مثل این مناسب است:
+
+- جست‌وجوی معنایی در اسناد فارسی
+- ساخت pipeline برای بازیابی افزوده به تولید (RAG)
+- رتبه‌بندی اولیه یا خوشه‌بندی محتوای متنی
+- یافتن شباهت بین پرسش کاربر و دانش موجود
+- حذف ورودی‌های تکراری یا نزدیک به هم
+
+اگر هدفتان تولید پاسخ متنی است، بهتر است از `Chat Completions` یا `Responses API` استفاده کنید. `Embeddings` برای تولید پاسخ نهایی نیست؛ برای ساخت نمایش برداری متن است.
+
+## شروع سریع
+
+ساده‌ترین روش استفاده، همان SDK استاندارد OpenAI است:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="YOUR_GODARAI_API_KEY",
+    base_url="YOUR_GODARAI_BASE_URL",
+)
+
+response = client.embeddings.create(
+    model="openai:default:text-embedding-3-small",
+    input="گدارAI یک درگاه یکپارچه برای کار با مدل‌های زبانی است."
+)
+
+print(len(response.data[0].embedding))
+print(response.data[0].embedding[:8])
+```
+
+## برای استفاده به چه چیزهایی نیاز دارید؟
+
+- `base_url` گیت‌وی گدارAI
+- `api_key` معتبر از نوع `PAT` یا `VAT`
+- یک `model` از نوع embedding که در scope شما مجاز باشد
+
+اگر model در دسترسی tenant یا کاربر شما فعال نباشد، درخواست با خطای دسترسی رد می‌شود.
+
+## ساختار پایه request
+
+در ساده‌ترین حالت، این سه فیلد برای شما مهم هستند:
+
+- `model`
+- `input`
+- در صورت نیاز `encoding_format`
+
+نمونه:
+
+```json
+{
+  "model": "openai:default:text-embedding-3-small",
+  "input": "راهنمای فعال‌سازی بودجه برای تیم فنی"
+}
+```
+
+## `input` چه فرمتی را می‌پذیرد؟
+
+در پیاده‌سازی فعلی گدارAI:
+
+- یک `string` غیرخالی پشتیبانی می‌شود
+- آرایه‌ای از `string`های غیرخالی پشتیبانی می‌شود
+
+نمونه برای batch کوچک:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="YOUR_GODARAI_API_KEY",
+    base_url="YOUR_GODARAI_BASE_URL",
+)
+
+response = client.embeddings.create(
+    model="openai:default:text-embedding-3-small",
+    input=[
+        "راهنمای ساخت کلید API",
+        "مستندات rate limiting",
+        "تنظیم بودجه برای tenant"
+    ]
+)
+
+for item in response.data:
+    print(item.index, len(item.embedding))
+```
+
+نکته مهم در backend فعلی:
+
+- `token array` هنوز پشتیبانی نمی‌شود
+- `input` خالی یا آرایه خالی معتبر نیست
+- اگر یکی از آیتم‌های آرایه خالی باشد، request رد می‌شود
+
+به زبان ساده، فعلاً `input` باید فقط متن باشد؛ نه آرایه token و نه objectهای سفارشی.
+
+## `encoding_format`
+
+در گدارAI مقدار `encoding_format` پشتیبانی می‌شود و اگر آن را ارسال نکنید، مقدار پیش‌فرض `float` استفاده می‌شود.
+
+مقادیر مجاز:
+
+- `float`
+- `base64`
+
+نمونه:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="YOUR_GODARAI_API_KEY",
+    base_url="YOUR_GODARAI_BASE_URL",
+)
+
+response = client.embeddings.create(
+    model="openai:default:text-embedding-3-small",
+    input="مستندات چندمستاجری در گدارAI",
+    encoding_format="float"
+)
+```
+
+اگر مقدار دیگری بفرستید، gateway خطای `invalid_encoding_format` برمی‌گرداند.
+
+## `dimensions`
+
+در پیاده‌سازی فعلی، فیلد `dimensions` هم پشتیبانی می‌شود اما فقط برای بعضی مدل‌ها. در حال حاضر این قابلیت برای مدل‌های مبتنی بر:
+
+- `text-embedding-3-small`
+- `text-embedding-3-large`
+
+فعال است.
+
+نمونه:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="YOUR_GODARAI_API_KEY",
+    base_url="YOUR_GODARAI_BASE_URL",
+)
+
+response = client.embeddings.create(
+    model="openai:default:text-embedding-3-large",
+    input="راهنمای مدیریت نقش‌ها و دسترسی‌ها",
+    dimensions=1024
+)
+
+print(len(response.data[0].embedding))
+```
+
+اگر `dimensions` را برای مدلی بفرستید که از آن پشتیبانی نمی‌کند، gateway خطای `unsupported_parameter` برمی‌گرداند.
+
+## چه پارامترهایی اینجا معتبر نیستند؟
+
+چون این endpoint مخصوص embedding است، چند پارامتر رایج endpointهای generative در آن پشتیبانی نمی‌شوند. در backend فعلی اگر این فیلدها را بفرستید، درخواست رد می‌شود:
+
+- `stream`
+- `messages`
+- `temperature`
+- `max_tokens`
+- `tools`
+- `tool_choice`
+- `max_output_tokens`
+
+یعنی اگر قبلاً با `Chat Completions` کار می‌کردید، نباید همان payload را با تغییر جزئی به `/v1/embeddings` بفرستید.
+
+## شکل پاسخ
+
+پاسخ استاندارد معمولاً شامل این بخش‌هاست:
+
+- `data`
+- `model`
+- `usage`
+
+نمونه:
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "object": "embedding",
+      "index": 0,
+      "embedding": [-0.018, 0.0021, 0.0314, -0.0079]
+    }
+  ],
+  "model": "text-embedding-3-small",
+  "usage": {
+    "prompt_tokens": 8,
+    "total_tokens": 8
+  }
+}
+```
+
+فیلد `usage` برای برآورد هزینه و تحلیل مصرف شما مهم است، مخصوصاً اگر برای tenant یا تیم خود budget تعریف کرده باشید.
+
+## یک الگوی رایج برای RAG فارسی
+
+برای بیشتر تیم‌هایی که روی دانش‌نامه فارسی، مرکز راهنما یا جست‌وجوی داخلی کار می‌کنند، این flow عملی است:
+
+1. اسناد را به بخش‌های کوچک‌تر تقسیم کنید.
+2. برای هر بخش embedding بسازید.
+3. embeddingها را در vector store خودتان نگه دارید.
+4. هنگام ورود پرسش کاربر، برای همان پرسش embedding بسازید.
+5. نزدیک‌ترین بخش‌ها را بازیابی کنید.
+6. نتیجه را به `Chat Completions` بدهید تا پاسخ نهایی ساخته شود.
+
+در این الگو، `Embeddings` معمولاً در کنار `Chat Completions` استفاده می‌شود، نه به‌تنهایی.
+
+## چند توصیه عملی برای کاربران گدارAI
+
+### متن فارسی را تمیز و نرمال‌شده ارسال کنید
+
+یکسان‌سازی فاصله، نیم‌فاصله و نویسه‌های عربی و فارسی معمولاً کیفیت بازیابی را بهتر می‌کند.
+
+### برای ingestion بزرگ، ورودی‌ها را batch کنید
+
+ارسال آرایه‌ای از stringها معمولاً برای ingest اولیه اسناد کاربردی‌تر از ارسال تک‌تک requestهاست.
+
+### تفاوت modelها را در کیفیت و هزینه بسنجید
+
+همه embedding modelها کیفیت، latency و هزینه یکسان ندارند. برای use case production، قبل از rollout عمومی benchmark بگیرید.
+
+### فقط از modelهای مجاز در scope خودتان استفاده کنید
+
+اگر model embedding در tenant یا virtual account شما فعال نباشد، request موفق نمی‌شود.
+
+## چند خطای رایج
+
+خطاهای مهمی که در backend فعلی ممکن است ببینید:
+
+- `model is required`
+- `input is required and must be a non-empty string or a non-empty array of strings`
+- `token-array inputs are not supported yet; input must be a string or array of strings`
+- `encoding_format must be either 'float' or 'base64'`
+- `dimensions must be a positive integer`
+- `dimensions is not supported for the selected embedding model`
+- `Model access denied or unsupported for embeddings`
+
+## جمع‌بندی
+
+`Embeddings` در گدارAI نقطه شروع همه workflowهایی است که می‌خواهند «معنا»ی متن را به‌شکل برداری ذخیره و بازیابی کنند. اگر در حال ساخت search، retrieval، RAG یا clustering برای محتوای فارسی هستید، این endpoint یکی از پایه‌ای‌ترین APIهای شما خواهد بود.

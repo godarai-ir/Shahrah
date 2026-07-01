@@ -1,0 +1,44 @@
+---
+title: APIهای پشتیبانی‌شده
+sidebar_position: 20
+---
+
+# APIهای پشتیبانی‌شده
+
+این بخش نمای کلی APIهایی است که در docs فعلی برای گدارAI پوشش داده‌ایم. برای ساده‌تر شدن پیمایش، APIها را به چند خانواده تقسیم کرده‌ایم:
+
+- متنی و مکالمه‌ای
+- بازیابی و رتبه‌بندی
+- تصویر
+- صوت
+- کنترل و پردازش
+
+اگر تازه شروع کرده‌اید، این ترتیب معمولاً منطقی‌تر است:
+
+1. [Chat Completions](/supported-apis/chat-completions/overview)
+2. [اولین درخواست به Gateway](/making-llm-requests-via-gateway)
+3. [احراز هویت](/authentication)
+4. [ساخت API Key در گدارAI](/guides/api-keys)
+
+اگر use case شما retrieval یا RAG است، از اینجا شروع کنید:
+
+- [Embeddings](/supported-apis/embeddings)
+- [Rerank](/supported-apis/rerank)
+
+اگر use case شما ایمنی یا کنترل محتواست:
+
+- [Moderation](/supported-apis/moderation)
+
+## FAQ
+
+### از کدام API شروع کنم؟
+
+برای بیشتر integrationهای متنی، `Chat Completions` نقطه شروع پیش‌فرض بهتری است.
+
+### آیا همه APIهای این بخش همین حالا production-ready هستند؟
+
+خیر. بعضی صفحات وضعیت فعلی implementation را شفاف گفته‌اند و هنوز از جنس capability برنامه‌ریزی‌شده هستند.
+
+### اگر فقط یک مدل یا یک provider دارم، باز هم این ساختار به درد می‌خورد؟
+
+بله. حتی در این حالت هم دسته‌بندی APIها کمک می‌کند endpoint مناسب را سریع‌تر پیدا کنید.

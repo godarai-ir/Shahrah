@@ -1,0 +1,141 @@
+---
+title: احراز هویت
+---
+
+# احراز هویت
+
+برای دسترسی به مدل‌ها از طریق گدارAI، باید با **API Key خود گدارAI** احراز هویت کنید، نه با کلید خام providerهایی مثل OpenAI یا Anthropic.
+
+یعنی اپلیکیشن شما فقط یک token به گدارAI می‌دهد و خود gateway در پشت‌صحنه credentialهای provider را مدیریت می‌کند.
+
+## شکل استاندارد احراز هویت
+
+رایج‌ترین الگو این است که API key را در هدر `Authorization` بفرستید:
+
+```text
+Authorization: Bearer YOUR_GODARAI_API_KEY
+```
+
+در بیشتر SDKهای OpenAI-compatible هم همین کار را با `api_key` انجام می‌دهید:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="YOUR_GODARAI_API_KEY",
+    base_url="YOUR_GODARAI_GATEWAY_BASE_URL",
+)
+```
+
+یا با متغیر محیطی:
+
+```bash
+export OPENAI_BASE_URL="YOUR_GODARAI_GATEWAY_BASE_URL"
+export OPENAI_API_KEY="YOUR_GODARAI_API_KEY"
+```
+
+## چه نوع tokenهایی در گدارAI داریم؟
+
+در مدل فعلی docs و محصول، دو نوع token اصلی داریم:
+
+| نوع | وابسته به | مناسب برای |
+| --- | --- | --- |
+| `PAT` | کاربر انسانی | توسعه، تست، استفاده شخصی |
+| `VAT` | هویت سرویس‌محور | production، backend، worker، CI/CD |
+
+## `PAT`
+
+توکن دسترسی شخصی (Personal Access Token) یا `PAT` برای وقتی مناسب است که یک انسان واقعی می‌خواهد از طرف خودش به gateway وصل شود.
+
+موارد مناسب:
+
+- توسعه محلی
+- تست سریع با SDK
+- prototyping
+- اسکریپت شخصی
+
+## `VAT`
+
+توکن حساب مجازی (Virtual Account Token) یا `VAT` برای workloadهای غیرانسانی طراحی شده است. یعنی وقتی یک سرویس، job، agent یا backend باید به گدارAI وصل شود، بهتر است از `VAT` استفاده کند.
+
+موارد مناسب:
+
+- backend service
+- worker
+- cron job
+- CI/CD
+- agent
+- سرویس production
+
+## کدام را انتخاب کنیم؟
+
+قاعده ساده:
+
+- اگر یک فرد از کلید استفاده می‌کند: `PAT`
+- اگر یک سرویس از کلید استفاده می‌کند: `VAT`
+
+اگر بین این دو مردد هستید، این سؤال کمک می‌کند:
+
+«آیا این کلید باید با خروج یک شخص از تیم هم از بین برود؟»
+
+- اگر بله، `PAT`
+- اگر نه، `VAT`
+
+## چرا از کلید provider استفاده نمی‌کنیم؟
+
+گدارAI provider credentialها را در backend نگه می‌دارد تا:
+
+- secretهای provider در همه سرویس‌ها پخش نشوند
+- revoke و rotate ساده‌تر شود
+- audit و attribution شفاف‌تر بماند
+- budget، rate limit و access control در یک نقطه اعمال شوند
+
+## احراز هویت فقط ورود نیست
+
+در گدارAI، API key فقط برای شناسایی شما نیست. این کلید بخشی از مسیر enforcement هم هست. با آن سیستم می‌تواند:
+
+- tenant را تشخیص دهد
+- user یا virtual user را بشناسد
+- دسترسی به modelها را بررسی کند
+- مصرف را به همان هویت نسبت دهد
+- policyهایی مثل rate limit و budget را اعمال کند
+
+## چند توصیه عملی
+
+### برای development از `PAT` و برای production از `VAT` استفاده کنید
+
+این سالم‌ترین الگوی عملیاتی است.
+
+### API key را مثل secret واقعی نگه دارید
+
+کلید را داخل repo یا کد hardcode نکنید. از env یا secret manager استفاده کنید.
+
+### برای هر workload مهم، token جدا داشته باشید
+
+این کار revoke، rotate، audit و گزارش مصرف را خیلی ساده‌تر می‌کند.
+
+### model access را با token اشتباه نگیرید
+
+داشتن token به‌تنهایی به معنی دسترسی به همه modelها نیست. دسترسی واقعی به scope، policy و model exposure بستگی دارد.
+
+## ادامه مسیر
+
+اگر دنبال راهنمای عملی عمیق‌تر هستید:
+
+- برای تفاوت دقیق `PAT` و `VAT` و lifecycle کلیدها: [ساخت API Key در گدارAI](/guides/api-keys)
+- برای شروع اولین request: [اولین درخواست به Gateway](/making-llm-requests-via-gateway)
+- برای هویت سرویس‌محور: [مدیریت Virtual User و VAT در گدارAI](/guides/virtual-account-management)
+
+## FAQ
+
+### آیا می‌توانم از کلید خام OpenAI یا Anthropic مستقیماً استفاده کنم؟
+
+خیر. در گدارAI باید از API key خود پلتفرم استفاده کنید و provider credential در backend مدیریت می‌شود.
+
+### برای backend production، PAT هم کار می‌کند؟
+
+ممکن است از نظر فنی کار کند، اما از نظر عملیاتی انتخاب درستی نیست. برای production بهتر است از `VAT` استفاده کنید.
+
+## جمع‌بندی
+
+برای احراز هویت در گدارAI، همیشه از API key خود گدارAI استفاده می‌کنید، نه از کلید provider. در عمل، `PAT` برای افراد و `VAT` برای سرویس‌هاست. اگر این تفکیک را از ابتدا درست رعایت کنید، مسیر توسعه، production، revoke، rotate و کنترل دسترسی بسیار تمیزتر و قابل‌اعتمادتر خواهد بود.

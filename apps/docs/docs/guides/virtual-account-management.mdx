@@ -1,0 +1,266 @@
+---
+sidebar_position: 12
+title: مدیریت Virtual User و VAT در گدارAI
+---
+
+# مدیریت Virtual User و VAT در گدارAI
+
+در بعضی پلتفرم‌ها از اصطلاح «Virtual Account» استفاده می‌شود، اما در مدل canonical فعلی GodarAI بهتر است این مفهوم را با دو جزء دقیق‌تر بفهمیم:
+
+- کاربر مجازی (Virtual User)
+- توکن حساب مجازی (Virtual Account Token یا `VAT`)
+
+این دو با هم هویت سرویس‌محور شما را می‌سازند. یعنی اگر یک اپلیکیشن، worker، agent یا CI/CD باید به GodarAI دسترسی داشته باشد، بهترین الگو این است که یک Virtual User بسازید و برای آن VAT صادر کنید.
+
+## چرا Virtual User مهم است؟
+
+سرویس‌های production نباید به هویت یک انسان وابسته باشند. اگر backend شما با PAT یک توسعه‌دهنده کار کند، با خروج آن فرد از تیم یا revoke شدن کلیدش، سرویس هم می‌تواند دچار اختلال شود.
+
+Virtual User این مشکل را حل می‌کند:
+
+- هویت سرویس از هویت انسانی جدا می‌شود
+- lifecycle سرویس مستقل می‌ماند
+- audit و attribution شفاف‌تر می‌شود
+- rate limit، budget و model access را می‌توان روی همین identity اعمال کرد
+
+## Virtual User دقیقاً چیست؟
+
+Virtual User یک principal غیرانسانی در GodarAI است. این موجودیت:
+
+- login انسانی ندارد
+- برای workloadهای ماشینی ساخته می‌شود
+- می‌تواند به team یا org unit وصل باشد
+- owner اصلی VATهاست
+
+به‌بیان ساده:
+
+- user برای انسان‌ها
+- virtual user برای سرویس‌ها
+
+## VAT چیست؟
+
+VAT یا توکن حساب مجازی (Virtual Account Token) همان کلیدی است که یک سرویس با آن به gateway وصل می‌شود. در معماری فعلی GodarAI:
+
+- VAT باید به یک `virtual_user_id` متصل باشد
+- می‌تواند در scope یک team یا org unit قرار بگیرد
+- فقط یک‌بار به‌صورت raw برگردانده می‌شود
+- در دیتابیس فقط `token_hash` آن نگه‌داری می‌شود
+
+## چه زمانی باید Virtual User بسازیم؟
+
+تقریباً هر وقت که یک workload غیرانسانی دارید:
+
+- backend service
+- queue worker
+- scheduled job
+- CI/CD pipeline
+- agent
+- integration خارجی
+
+قاعده عملی خوب:
+
+- برای هر اپلیکیشن مهم، یک Virtual User جدا بسازید
+
+این کار revoke، rotate، budget attribution و troubleshooting را بسیار ساده‌تر می‌کند.
+
+## ساخت Virtual User در GodarAI
+
+در backend فعلی، routeهای canonical برای virtual user این‌ها هستند:
+
+- `GET /api/v1/virtual-users`
+- `POST /api/v1/virtual-users`
+- `GET /api/v1/virtual-users/:virtualUserID`
+- `PATCH /api/v1/virtual-users/:virtualUserID`
+- `DELETE /api/v1/virtual-users/:virtualUserID`
+
+در ساختار قرارداد فعلی، Virtual User معمولاً این فیلدها را دارد:
+
+- `alias`
+- `display_name`
+- `team_id`
+- `org_unit_id`
+- `active`
+- `metadata`
+
+این یعنی می‌توانید هویت سرویس را هم نام‌گذاری کنید، هم در یک context سازمانی مشخص قرار دهید.
+
+## ساخت VAT برای Virtual User
+
+بعد از ساخت Virtual User، می‌توانید برای آن token بسازید. routeهای فعلی:
+
+- `GET /api/v1/virtual-users/:virtualUserID/tokens`
+- `POST /api/v1/virtual-users/:virtualUserID/tokens`
+- `PATCH /api/v1/virtual-users/:virtualUserID/tokens/:tokenID`
+- `POST /api/v1/virtual-users/:virtualUserID/tokens/:tokenID/revoke`
+- `POST /api/v1/virtual-users/:virtualUserID/tokens/:tokenID/rotate`
+
+همچنین route سازگاری قدیمی هم وجود دارد:
+
+- `POST /api/v1/keys/vat`
+
+اما برای طراحی تمیزتر، بهتر است flow canonical مبتنی بر `virtual-users/:id/tokens` را مبنا بدانید.
+
+## هنگام ساخت VAT چه چیزهایی مهم‌اند؟
+
+چند قاعده مهم در GodarAI:
+
+- `virtual_user_id` باید متعلق به همان tenant باشد
+- اگر virtual user غیرفعال باشد، ساخت token باید رد شود
+- اگر virtual user به team یا org unit متصل است، scope token باید با آن سازگار بماند
+- اگر `allowed_models` داده شود، باید زیرمجموعه دسترسی مجاز همان identity باشد
+
+اگر `allowed_models` خالی باشد، VAT از مدل‌های در دسترس همان scope ارث می‌برد.
+
+## مدل‌های مجاز در VAT
+
+در GodarAI، VAT نباید به مدل‌هایی دسترسی داشته باشد که خارج از scope هویت سرویس هستند. این یعنی:
+
+- دسترسی VAT به modelها باید explicit و scoped باشد
+- runtime باید فقط modelهای مجاز را به VAT نشان دهد
+- اگر سرویسی بخواهد مدلی خارج از scope خودش صدا بزند، باید خطا بگیرد
+
+این موضوع برای production بسیار مهم است، چون جلوی misuse، مصرف اشتباه و نشت دسترسی را می‌گیرد.
+
+## وضعیت فعال/غیرفعال Virtual User
+
+فقط ساخت token مهم نیست؛ وضعیت خود Virtual User هم مهم است. اگر یک virtual user غیرفعال شود:
+
+- نباید token جدید برایش ساخته شود
+- tokenهای موجود هم باید در مسیر auth رد شوند
+
+این رفتار برای زمانی حیاتی است که می‌خواهید دسترسی یک سرویس را سریعاً قطع کنید، بدون اینکه با userهای انسانی درگیر شوید.
+
+## بعد از create چه چیزی دریافت می‌کنیم؟
+
+در زمان ساخت یا rotate شدن VAT:
+
+- raw key فقط همان لحظه برگردانده می‌شود
+- نسخه mask‌شده برای نمایش مدیریتی نگه داشته می‌شود
+- خود raw token در storage نگه‌داری نمی‌شود
+
+بنابراین اگر کلید خام را از دست بدهید، باید آن را دوباره ایجاد یا rotate کنید.
+
+## revoke و rotate در VAT
+
+دو عملیات کلیدی برای lifecycle:
+
+- `revoke`: غیرفعال کردن کلید فعلی
+- `rotate`: ساختن کلید جدید با همان policy و از رده خارج کردن کلید قبلی
+
+در مدل فعلی GodarAI:
+
+- rotate می‌تواند با `grace_period` انجام شود
+- اگر grace period ندهید، کلید قبلی بلافاصله revoke می‌شود
+- raw token جدید فقط همان لحظه rotate برمی‌گردد
+
+این الگو برای production مناسب است، چون می‌توانید secret جدید را deploy کنید و بعد کلید قبلی را از مدار خارج کنید.
+
+## آیا auto-rotation و secret sync هم داریم؟
+
+اینجا مهم است که دقیق بمانیم: متن منبع TrueFoundry روی auto-rotation scheduler، notification و secret manager sync هم صحبت می‌کرد، اما در مسیر فعلی GodarAI این‌ها هنوز مبنای docs عملیاتی ما نیستند.
+
+بنابراین در نسخه فعلی GodarAI:
+
+- rotate دستی وجود دارد
+- grace period در rotate پشتیبانی می‌شود
+- اما نباید فرض کنید scheduler خودکار rotation، sync خودکار با secret manager یا notification integration بخشی از capability عملیاتی تثبیت‌شده docs است
+
+## Virtual User و Team چه رابطه‌ای دارند؟
+
+یک Virtual User می‌تواند به team وصل باشد. این یعنی:
+
+- workload سرویس به یک تیم واقعی نسبت داده می‌شود
+- policyهای team می‌توانند روی آن اثر بگذارند
+- audit و usage attribution در context درست ثبت می‌شود
+
+این الگو مخصوصاً برای سرویس‌های production تیمی بسیار مهم است.
+
+## Virtual User و Budget / Rate Limit
+
+در طراحی فعلی GodarAI، VAT فقط یک token ساده نیست. این identity باید در کنترل‌های عملیاتی هم دیده شود:
+
+- rate limit می‌تواند روی VAT یا team اعمال شود
+- budget check باید قبل از provider call بتواند VAT/team scope را در نظر بگیرد
+- wallet tenant همچنان backstop نهایی مالی باقی می‌ماند
+
+در نتیجه، Virtual User و VAT بخشی از enforcement path هستند، نه فقط یک abstraction مدیریتی.
+
+## استفاده از VAT در کد
+
+برای اپلیکیشن مصرف‌کننده، تجربه استفاده ساده است: فقط به‌جای PAT یا provider key، VAT را به SDK OpenAI-compatible می‌دهید.
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="YOUR_GODARAI_VAT",
+    base_url="YOUR_GODARAI_BASE_URL",
+)
+```
+
+یا:
+
+```bash
+export OPENAI_BASE_URL="YOUR_GODARAI_BASE_URL"
+export OPENAI_API_KEY="YOUR_GODARAI_VAT"
+```
+
+## چند الگوی خوب برای استفاده
+
+### یک Virtual User برای هر اپلیکیشن
+
+مثلاً:
+
+- `billing-api-prod`
+- `search-worker`
+- `content-agent`
+
+این نام‌گذاری ownership و audit را شفاف می‌کند.
+
+### VAT جدا برای هر workload مهم
+
+اگر backend و worker رفتار متفاوتی دارند، بهتر است هرکدام token مستقل داشته باشند تا revoke و rotate دقیق‌تر انجام شود.
+
+### team scope روشن
+
+اگر workload متعلق به یک تیم خاص است، Virtual User را به همان team وصل کنید تا محدودیت‌ها و attribution درست اعمال شوند.
+
+## چند اشتباه رایج
+
+### استفاده از PAT برای production
+
+این رایج‌ترین اشتباه است و در بلندمدت دردسرساز می‌شود.
+
+### یک VAT برای همه سرویس‌ها
+
+این کار audit، budget attribution و revoke هدفمند را سخت می‌کند.
+
+### نادیده گرفتن model scope
+
+اگر allowed modelها یا team scope روشن نباشد، سرویس ممکن است بیشتر از حد لازم دسترسی بگیرد.
+
+### ذخیره نکردن امن raw token
+
+چون raw token فقط یک‌بار نمایش داده می‌شود، باید همان لحظه در secret storage امن خودتان قرار گیرد.
+
+## توصیه‌های عملی برای GodarAI
+
+### برای هر سرویس production، Virtual User جدا بسازید
+
+این ساده‌ترین راه برای داشتن lifecycle سالم و audit شفاف است.
+
+### از route canonical استفاده کنید
+
+به‌جای تکیه بر flowهای انتقالی، بهتر است `/api/v1/virtual-users/:id/tokens` را مرجع اصلی در نظر بگیرید.
+
+### rotate را بخشی از runbook عملیاتی کنید
+
+کلید سرویس نباید ثابت و فراموش‌شده بماند.
+
+### Virtual User غیرفعال را جدی بگیرید
+
+غیرفعال‌سازی این identity باید واقعاً باعث قطع دسترسی سرویس شود.
+
+## جمع‌بندی
+
+در GodarAI، «virtual account» بهتر است به‌صورت `Virtual User + VAT` فهمیده شود. Virtual User هویت غیرانسانی سرویس را تعریف می‌کند و VAT کلید عملیاتی آن هویت است. اگر این دو را درست طراحی کنید، هم production-safe‌تر کار می‌کنید، هم revoke/rotate ساده‌تر می‌شود، و هم access، budget، rate limit و audit در جای درستی اعمال می‌شوند.
