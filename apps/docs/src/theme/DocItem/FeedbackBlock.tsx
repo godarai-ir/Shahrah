@@ -1,4 +1,5 @@
 import {useEffect, useState} from 'react';
+import {ThumbsDown, ThumbsUp} from 'lucide-react';
 
 type Vote = 'like' | 'dislike';
 
@@ -35,13 +36,19 @@ export default function FeedbackBlock() {
             type="button"
             className={`doc-feedback__button ${selected === 'like' ? 'doc-feedback__button--active' : ''}`}
             onClick={() => submitVote('like')}>
-            لایک
+            <span className="doc-feedback__button-icon" aria-hidden="true">
+              <ThumbsUp size={16} strokeWidth={2.2} />
+            </span>
+            <span>بله</span>
           </button>
           <button
             type="button"
             className={`doc-feedback__button ${selected === 'dislike' ? 'doc-feedback__button--active' : ''}`}
             onClick={() => submitVote('dislike')}>
-            دیسلایک
+            <span className="doc-feedback__button-icon" aria-hidden="true">
+              <ThumbsDown size={16} strokeWidth={2.2} />
+            </span>
+            <span>خیر</span>
           </button>
         </div>
       </div>

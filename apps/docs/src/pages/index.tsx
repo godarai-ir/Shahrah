@@ -10,7 +10,7 @@ export default function Home(): ReactNode {
     <Layout
       title={siteConfig.title}
       description="مستندات پلتفرم گدارAI">
-      <main style={{padding: '6rem 1.5rem'}}>
+      <main dir="rtl" style={{padding: '6rem 1.5rem', textAlign: 'start'}}>
         <div style={{margin: '0 auto', maxWidth: 960}}>
           <p
             style={{

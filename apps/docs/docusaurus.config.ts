@@ -106,7 +106,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: 'گدارAI - 1405 - ساخته شده با ❤️',
+      copyright: 'GodarAI | 1405 | Built by Developers for Developers',
     },
     prism: {
       theme: prismThemes.github,

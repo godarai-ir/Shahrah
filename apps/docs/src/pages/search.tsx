@@ -50,7 +50,7 @@ export default function SearchPage() {
 
   return (
     <Layout title="جستجو" description="جستجو در مستندات گدارAI">
-      <main className="search-page">
+      <main className="search-page" dir="rtl">
         <section className="search-page__hero">
           <p className="search-page__eyebrow">جستجو در مستندات</p>
           <h1>صفحه جستجو</h1>
