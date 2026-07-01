@@ -22,8 +22,8 @@ const jetBrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "گُدارAI | پنل مدیریت تننت",
-  description: "پنل فارسی مدیریت تننت برای کلیدها، مدل‌ها، کیف پول و تنظیمات حساب.",
+  title: "گُدارAI | پنل مدیریت فضای کار",
+  description: "پنل فارسی مدیریت فضای کار برای کلیدها، مدل‌ها، کیف پول و تنظیمات حساب.",
   icons: {
     icon: [{ url: "/icon.png", type: "image/png" }],
     apple: [{ url: "/apple-icon.png", type: "image/png" }],
