@@ -1,7 +1,7 @@
 {
   "title": "Virtual Models",
   "description": "Route requests across multiple model providers with load balancing, automatic failover, and retries using a single stable model alias.",
-  "searchPlaceholder": "Search alias",
+  "searchPlaceholder": "Enter part of the virtual model alias to search",
   "alerts": {
     "error": "Error",
     "success": "Success"
@@ -11,6 +11,7 @@
     "refresh": "Refresh",
     "new": "New Virtual Model",
     "create": "Create Virtual Model",
+    "copyAlias": "Copy alias",
     "copy": "Create Similar Copy",
     "edit": "Edit",
     "reset": "Reset changes",
@@ -19,6 +20,8 @@
   "deleteDialog": {
     "title": "Confirm deletion",
     "description": "Are you sure you want to delete VAT \"{alias}\"? This action cannot be undone.",
+    "inputLabel": "Enter the virtual model alias to confirm deletion",
+    "inputHint": "Type \"{alias}\" exactly to continue.",
     "cancel": "Cancel",
     "confirm": "Delete",
     "deleting": "Deleting..."
@@ -35,8 +38,7 @@
     "alias": "Alias",
     "strategy": "Strategy",
     "targets": "Targets",
-    "createdAt": "Created",
-    "updatedAt": "Last Updated",
+    "updatedAt": "Last Changed",
     "createdBy": "Created By",
     "status": "Status",
     "actions": "Actions"
@@ -116,6 +118,8 @@
     "retryDelayRange": "Retry delay must be between 0 and 10000 ms.",
     "timeoutRange": "Timeout must be between 1 and 600 seconds.",
     "noCommonModes": "Selected targets must share at least one supported mode.",
+    "copyAliasSuccess": "Alias \"{alias}\" copied.",
+    "copyAliasError": "Failed to copy alias.",
     "copySuccess": "Created a similar copy as \"{alias}\".",
     "copyError": "Failed to create a similar copy."
   }

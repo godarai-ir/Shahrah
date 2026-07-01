@@ -18,7 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ModelEntitySelect, type ModelSelection } from "@/app/components/model-entity-select";
 import { PrincipalPicker, type PrincipalPickerItem } from "@/app/components/principal-picker";
 import { type PrincipalSearchKind } from "@/app/components/principal-search-input";
-import { requestJSON } from "@/app/components/provider-account-wizard/utils";
+import { getPublicSiteOrigin, requestJSON } from "@/app/components/provider-account-wizard/utils";
 import { buildPrincipalSelectorLabels } from "@/app/components/provider-account-wizard/principal-labels";
 import { cn } from "@/lib/utils";
 
@@ -148,12 +148,15 @@ export default function VirtualModelManagement() {
   const principalT = useTranslations("providerAccounts");
   const principalUx = useTranslations("providerAccounts.ux");
   const defaultEveryoneLabel = principalT("principal.everyone");
+  const [docsHref, setDocsHref] = useState("https://godarai.ir/docs/virtual-model");
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [actingID, setActingID] = useState<string>("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [pendingDeleteItem, setPendingDeleteItem] = useState<VirtualModel | null>(null);
   const [query, setQuery] = useState("");
   const [notice, setNotice] = useState<Notice>(null);
 
@@ -183,6 +186,10 @@ export default function VirtualModelManagement() {
     void loadList();
     void loadProviderAllowedModels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    setDocsHref(`${getPublicSiteOrigin(window.location.origin)}/docs/virtual-model`);
   }, []);
 
   useEffect(() => {
@@ -484,22 +491,26 @@ export default function VirtualModelManagement() {
   }
 
   async function deleteCurrent() {
-    if (!form.id) return;
+    if (!pendingDeleteItem?.id) return;
 
     setIsDeleting(true);
     setNotice(null);
     try {
-      const res = await fetch(`/api/virtual-models/${encodeURIComponent(form.id)}`, { method: "DELETE" });
+      const res = await fetch(`/api/virtual-models/${encodeURIComponent(pendingDeleteItem.id)}`, { method: "DELETE" });
       const data = (await res.json().catch(() => ({}))) as Partial<VirtualModel>;
       if (!res.ok) throw new Error(readError(data, t("messages.deleteError")));
 
       const next = makeDefaultForm(defaultEveryoneLabel);
-      setSelectedID("");
-      setForm(next);
-      setSavedHash(JSON.stringify(next));
+      if (form.id === pendingDeleteItem.id) {
+        setSelectedID("");
+        setForm(next);
+        setSavedHash(JSON.stringify(next));
+        setEditorOpen(false);
+      }
       setNotice({ kind: "success", message: t("messages.deleteSuccess") });
       setDeleteDialogOpen(false);
-      setEditorOpen(false);
+      setDeleteConfirmation("");
+      setPendingDeleteItem(null);
       await loadList();
     } catch (error) {
       setNotice({ kind: "error", message: normalizeError(error, t("messages.deleteError")) });
@@ -558,14 +569,14 @@ export default function VirtualModelManagement() {
               <CardDescription>{t("description")}</CardDescription>
             </div>
             <Button type="button" variant="outline" size="sm" asChild>
-              <a href="/docs/virtual-model" target="_blank" rel="noreferrer">
+              <a href={docsHref} target="_blank" rel="noreferrer">
                 <BookOpen className="h-4 w-4" />
                 {t("actions.guide")}
               </a>
             </Button>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <div className="relative flex-1">
+                <div className="relative flex-1">
               <Search className="pointer-events-none absolute top-3 left-3 h-4 w-4 text-muted-foreground" />
               <Input
                 value={query}
@@ -605,11 +616,10 @@ export default function VirtualModelManagement() {
                     <TableHead>{t("list.alias")}</TableHead>
                     <TableHead>{t("list.strategy")}</TableHead>
                     <TableHead>{t("list.targets")}</TableHead>
-                    <TableHead>{t("list.createdAt")}</TableHead>
                     <TableHead>{t("list.updatedAt")}</TableHead>
                     <TableHead>{t("list.createdBy")}</TableHead>
                     <TableHead>{t("list.status")}</TableHead>
-                    <TableHead className="w-[1%] whitespace-nowrap text-left">{t("list.actions")}</TableHead>
+                    <TableHead className="w-[1%] whitespace-nowrap text-center">{t("list.actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -618,11 +628,33 @@ export default function VirtualModelManagement() {
                       key={item.id}
                       className={cn(selectedID === item.id && "bg-muted/60")}
                     >
-                      <TableCell className="font-medium">{item.alias}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <span className="font-medium" dir="ltr">
+                            {item.alias}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            title={t("actions.copyAlias")}
+                            aria-label={t("actions.copyAlias")}
+                            onClick={async () => {
+                              try {
+                                await navigator.clipboard.writeText(item.alias);
+                                setNotice({ kind: "success", message: t("messages.copyAliasSuccess", { alias: item.alias }) });
+                              } catch {
+                                setNotice({ kind: "error", message: t("messages.copyAliasError") });
+                              }
+                            }}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
                       <TableCell>{formatStrategyLabel(item.routing_strategy, t)}</TableCell>
                       <TableCell>{item.targets?.length ?? 0}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{formatDate(item.created_at)}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{formatDate(item.updated_at)}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{formatDate(item.updated_at, { withSeconds: false })}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{userLabelByID[item.created_by ?? ""] || item.created_by || "-"}</TableCell>
                       <TableCell>
                         <Badge variant={item.enabled ? "default" : "secondary"}>
@@ -659,8 +691,9 @@ export default function VirtualModelManagement() {
                             size="icon"
                             title={t("actions.delete")}
                             aria-label={t("actions.delete")}
-                            onClick={async () => {
-                              await loadDetail(item.id, { skipDirtyConfirm: true });
+                            onClick={() => {
+                              setPendingDeleteItem(item);
+                              setDeleteConfirmation("");
                               setDeleteDialogOpen(true);
                             }}
                             disabled={actingID === item.id}
@@ -1096,20 +1129,43 @@ export default function VirtualModelManagement() {
         onOpenChange={(open) => {
           if (isDeleting) return;
           setDeleteDialogOpen(open);
+          if (!open) {
+            setDeleteConfirmation("");
+            setPendingDeleteItem(null);
+          }
         }}
       >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("deleteDialog.title")}</DialogTitle>
             <DialogDescription>
-              {t("deleteDialog.description", { alias: form.alias || form.id || "-" })}
+              {t("deleteDialog.description", { alias: pendingDeleteItem?.alias || "-" })}
             </DialogDescription>
           </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="vm-delete-confirmation">{t("deleteDialog.inputLabel")}</Label>
+            <Input
+              id="vm-delete-confirmation"
+              value={deleteConfirmation}
+              onChange={(event) => setDeleteConfirmation(event.target.value)}
+              placeholder={pendingDeleteItem?.alias || ""}
+              dir="ltr"
+              autoComplete="off"
+            />
+            <p className="text-xs text-muted-foreground">
+              {t("deleteDialog.inputHint", { alias: pendingDeleteItem?.alias || "-" })}
+            </p>
+          </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={isDeleting}>
               {t("deleteDialog.cancel")}
             </Button>
-            <Button type="button" variant="destructive" onClick={() => void deleteCurrent()} disabled={isDeleting || !form.id}>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => void deleteCurrent()}
+              disabled={isDeleting || !pendingDeleteItem?.id || deleteConfirmation.trim() !== (pendingDeleteItem?.alias ?? "")}
+            >
               {isDeleting ? t("deleteDialog.deleting") : t("deleteDialog.confirm")}
             </Button>
           </DialogFooter>
@@ -1211,11 +1267,18 @@ function formatStrategyLabel(
   return value === "weighted" ? t("form.weightedValue") : t("form.priorityValue");
 }
 
-function formatDate(value?: string) {
+function formatDate(value?: string, options?: { withSeconds?: boolean }) {
   if (!value) return "-";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return "-";
-  return parsed.toLocaleString("fa-IR");
+  return parsed.toLocaleString("fa-IR", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    ...(options?.withSeconds ? { second: "2-digit" as const } : {}),
+  });
 }
 
 function createCopyAlias(alias: string, existingAliases: Set<string>) {
