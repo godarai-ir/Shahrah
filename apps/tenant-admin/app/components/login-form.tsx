@@ -1,27 +1,24 @@
 ﻿"use client";
 
 import Image from "next/image";
-import { FormEvent, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
 import {
   AlertCircle,
+  ArrowLeft,
   CheckCircle,
   KeyRound,
+  LockKeyhole,
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   InputOTP,
@@ -29,6 +26,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 type CaptchaChallenge = {
   captcha_id: string;
@@ -50,6 +48,16 @@ type LoginFormProps = {
   initialIdentifier?: string;
 };
 
+type LoginFieldErrors = {
+  identifier?: string;
+  captchaAnswer?: string;
+};
+
+type LoginTranslator = (key: string, values?: Record<string, string | number>) => string;
+
+const ANIMATED_HERO_INTERVAL_MS = 2200;
+const ANIMATED_HERO_TRANSITION_MS = 220;
+
 export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifier = "" }: LoginFormProps) {
   const t = useTranslations("login");
   const common = useTranslations("common");
@@ -63,22 +71,42 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
   const [otpCode, setOTPCode] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<LoginFieldErrors>({});
   const [loading, setLoading] = useState(false);
+  const activeStep = otpRequest ? "verify" : "request";
+  const animatedHeroWords = [
+    t("hero.animated.words.stable"),
+    t("hero.animated.words.saving"),
+    t("hero.animated.words.observability"),
+    t("hero.animated.words.control"),
+  ];
 
-  async function refreshCaptcha() {
-    setError(null);
+  async function refreshCaptcha(options: { clearError?: boolean } = {}) {
+    if (options.clearError ?? true) {
+      setError(null);
+    }
     try {
       const challenge = await requestJSON<CaptchaChallenge>("/api/auth/captcha");
       setCaptchaID(challenge.captcha_id);
       setCaptchaImage(challenge.image_data_url);
       setCaptchaAnswer("");
+      setFieldErrors((current) => ({ ...current, captchaAnswer: undefined }));
     } catch (err) {
-      setError(normalizeError(err, common("requestError")));
+      setError(normalizeLoginError(err, common("requestError"), t));
     }
   }
 
   async function handleRequestOTP(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const validationErrors = validateLoginInput(identifier, captchaAnswer, t);
+    setFieldErrors(validationErrors);
+
+    if (validationErrors.identifier || validationErrors.captchaAnswer) {
+      setNotice(null);
+      setError(t("errors.fixFields"));
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setNotice(null);
@@ -95,9 +123,10 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
       setOTPRequest(result);
       setNotice(t("otp.sent", { destination: result.destination_masked }));
       setCaptchaAnswer("");
+      setFieldErrors({});
     } catch (err) {
-      setError(normalizeError(err, common("requestError")));
-      await refreshCaptcha();
+      setError(normalizeLoginError(err, common("requestError"), t));
+      await refreshCaptcha({ clearError: false });
     } finally {
       setLoading(false);
     }
@@ -123,20 +152,47 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
       });
       window.location.href = redirectTo;
     } catch (err) {
-      setError(normalizeError(err, common("requestError")));
+      setError(normalizeLoginError(err, common("requestError"), t));
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main className="flex min-h-screen bg-background px-4 py-6 text-foreground sm:px-6 lg:px-8">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+    <main className="relative flex min-h-screen overflow-hidden bg-background text-foreground">
+      <div
+        className="pointer-events-none absolute inset-0"
+        aria-hidden="true"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at center, color-mix(in oklab, var(--foreground) 13%, transparent) 1px, transparent 1.4px), radial-gradient(circle at center, color-mix(in oklab, var(--primary) 16%, transparent) 1px, transparent 1.5px)",
+          backgroundPosition: "0 0, 18px 18px",
+          backgroundSize: "28px 28px, 56px 56px",
+        }}
+      />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-80"
+        aria-hidden="true"
+        style={{
+          backgroundImage:
+            "linear-gradient(135deg, color-mix(in oklab, var(--primary) 10%, transparent), transparent 36%), linear-gradient(315deg, color-mix(in oklab, var(--chart-3) 9%, transparent), transparent 42%)",
+        }}
+      />
+      <div
+        className="pointer-events-none absolute inset-0"
+        aria-hidden="true"
+        style={{
+          background:
+            "radial-gradient(circle at 50% 44%, transparent 0%, transparent 28%, color-mix(in oklab, var(--background) 72%, transparent) 74%)",
+        }}
+      />
+
+      <div className="relative mx-auto flex w-full max-w-4xl flex-col gap-8 px-4 py-5 sm:px-6 lg:px-8">
         <header className="flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-card p-1.5 shadow-sm">
+            <div className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-card p-1.5 shadow-sm">
               <Image
-                src="/brand/shahrah-logo.png"
+                src="/brand/mini_logo.svg"
                 alt={t("logoAlt")}
                 width={40}
                 height={40}
@@ -145,102 +201,54 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
               />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-foreground">GodarAI</p>
-              <p className="truncate text-xs text-muted-foreground">{t("subtitle")}</p>
+              <p className="text-sm font-semibold text-foreground">{t("brand")}</p>
+              <p className="truncate text-xs text-muted-foreground">{t("eyebrow")}</p>
             </div>
           </div>
           <ThemeToggle />
         </header>
 
-        <div className="grid flex-1 items-center gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(24rem,28rem)]">
-          <section className="hidden min-w-0 flex-col gap-5 rounded-lg border border-border bg-muted/35 p-6 lg:order-2 lg:flex">
-            <div className="flex items-start gap-3">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-primary">
-                <ShieldCheck className="size-5" aria-hidden="true" />
-              </span>
-              <div className="min-w-0">
-                <h1 className="text-2xl font-semibold tracking-normal">{t("title")}</h1>
-                <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
-                  {t("subtitle")}
-                </p>
+        <div className="flex flex-1 items-center justify-center py-4">
+          <section className="mx-auto flex w-full max-w-md flex-col gap-4">
+            <div className="flex flex-col items-start gap-4">
+              <Badge variant="info" className="w-fit">
+                <ShieldCheck className="me-1 size-3.5" aria-hidden="true" />
+                {t("hero.badge")}
+              </Badge>
+              <div className="flex flex-col gap-3">
+                <h1 className="text-3xl font-semibold leading-10 tracking-normal text-foreground sm:text-4xl sm:leading-tight">
+                  {t("hero.title")}
+                </h1>
+                <AnimatedHeroText
+                  prefix={t("hero.animated.prefix")}
+                  words={animatedHeroWords}
+                  suffix={t("hero.animated.suffix")}
+                />
               </div>
             </div>
 
-            <div className="grid gap-3 border-t border-border pt-5">
-              <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
-                  <KeyRound className="size-4" aria-hidden="true" />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">{t("identifier")}</p>
-                  <p className="text-xs leading-5 text-muted-foreground">{t("otp.request")}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
-                  <ShieldCheck className="size-4" aria-hidden="true" />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">{t("otp.verifyTitle")}</p>
-                  <p className="text-xs leading-5 text-muted-foreground">{t("otp.verify")}</p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <div className="mx-auto w-full max-w-md animate-fade-in lg:order-1">
-            <div className="mb-4 flex flex-col gap-3 lg:hidden">
-              <div className="flex items-center gap-3">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-primary">
-                  <ShieldCheck className="size-5" aria-hidden="true" />
-                </span>
-                <div className="min-w-0">
-                  <h1 className="text-xl font-semibold tracking-normal">{t("title")}</h1>
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground">{t("subtitle")}</p>
-                </div>
-              </div>
+            <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-card/80 p-1 text-xs font-medium shadow-sm backdrop-blur">
+              <StepPill
+                active={activeStep === "request"}
+                icon={<KeyRound className="size-3.5" aria-hidden="true" />}
+                label={t("otp.request")}
+              />
+              <StepPill
+                active={activeStep === "verify"}
+                icon={<LockKeyhole className="size-3.5" aria-hidden="true" />}
+                label={t("otp.verifyTitle")}
+              />
             </div>
 
-            <div className="mb-3 grid grid-cols-2 overflow-hidden rounded-lg border border-border bg-card text-xs font-medium">
-              <div
-                className={
-                  !otpRequest
-                    ? "bg-primary px-3 py-2 text-center text-primary-foreground"
-                    : "px-3 py-2 text-center text-muted-foreground"
-                }
-              >
-                {t("otp.request")}
-              </div>
-              <div
-                className={
-                  otpRequest
-                    ? "bg-primary px-3 py-2 text-center text-primary-foreground"
-                    : "px-3 py-2 text-center text-muted-foreground"
-                }
-              >
-                {t("otp.verifyTitle")}
-              </div>
-            </div>
-
-            <Card className="rounded-lg border-border shadow-sm">
-              <CardHeader className="border-b border-border pb-4">
-                <CardTitle className="text-base">
-                  {otpRequest ? t("otp.verifyTitle") : t("title")}
-                </CardTitle>
-                <CardDescription>
-                  {otpRequest
-                    ? t("otp.enterCode", { destination: otpRequest.destination_masked })
-                    : t("subtitle")}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-5 pt-5 md:pt-5">
+            <Card className="rounded-2xl border-border/80 bg-card/95 shadow-2xl shadow-primary/10 backdrop-blur">
+              <CardContent className="flex flex-col gap-5 p-4 md:p-5">
                 {notice && (
-                  <Alert variant="success" icon={<CheckCircle className="size-4" />}>
+                  <Alert variant="success" icon={<CheckCircle aria-hidden="true" />}>
                     <AlertDescription>{notice}</AlertDescription>
                   </Alert>
                 )}
                 {error && (
-                  <Alert variant="destructive" icon={<AlertCircle className="size-4" />}>
+                  <Alert variant="destructive" icon={<AlertCircle aria-hidden="true" />}>
                     <AlertDescription>{error}</AlertDescription>
                   </Alert>
                 )}
@@ -260,24 +268,56 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
                 )}
 
                 {!otpRequest ? (
-                  <form className="grid gap-5" onSubmit={handleRequestOTP}>
-                    <div className="grid gap-2">
+                  <form className="flex flex-col gap-5" onSubmit={handleRequestOTP} noValidate>
+                    <div className="flex flex-col gap-2">
                       <Label htmlFor="identifier">{t("identifier")}</Label>
                       <Input
                         id="identifier"
                         value={identifier}
-                        onChange={(event) => setIdentifier(event.target.value)}
+                        onChange={(event) => {
+                          setIdentifier(event.target.value);
+                          setFieldErrors((current) => ({ ...current, identifier: undefined }));
+                        }}
                         placeholder={t("identifierPlaceholder")}
                         autoComplete="username"
+                        autoFocus
                         required
-                        className="text-start"
+                        dir="ltr"
+                        aria-invalid={Boolean(fieldErrors.identifier)}
+                        aria-describedby={fieldErrors.identifier ? "identifier-error" : undefined}
+                        className="h-11 text-left"
                       />
+                      {fieldErrors.identifier && (
+                        <p id="identifier-error" className="text-sm leading-6 text-destructive">
+                          {fieldErrors.identifier}
+                        </p>
+                      )}
                     </div>
 
-                    <div className="grid gap-3">
+                    <div className="flex flex-col gap-3">
                       <Label htmlFor="captchaAnswer">{t("captcha.label")}</Label>
-                      <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/35 p-3">
-                        <div className="flex items-center justify-between gap-3">
+                      <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/35 p-3">
+                        <div className="flex items-center gap-3">
+                          <Input
+                            id="captchaAnswer"
+                            dir="ltr"
+                            value={captchaAnswer}
+                            onChange={(event) => {
+                              setCaptchaAnswer(event.target.value);
+                              setFieldErrors((current) => ({
+                                ...current,
+                                captchaAnswer: undefined,
+                              }));
+                            }}
+                            placeholder={t("captcha.answerPlaceholder")}
+                            autoComplete="off"
+                            required
+                            aria-invalid={Boolean(fieldErrors.captchaAnswer)}
+                            aria-describedby={
+                              fieldErrors.captchaAnswer ? "captcha-answer-error" : undefined
+                            }
+                            className="h-11 min-w-0 flex-1 text-left"
+                          />
                           {captchaImage ? (
                             <Image
                               src={captchaImage}
@@ -285,41 +325,39 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
                               width={170}
                               height={56}
                               unoptimized
-                              className="h-14 w-[170px] rounded-md border border-border bg-card object-contain"
+                              className="h-12 w-36 shrink-0 rounded-lg bg-card object-contain sm:w-[170px]"
                             />
                           ) : (
-                            <div className="h-14 w-[170px] rounded-md border border-border bg-card" />
+                            <div className="h-12 w-36 shrink-0 rounded-lg bg-card sm:w-[170px]" />
                           )}
                           <Button
                             type="button"
                             variant="outline"
                             size="icon"
-                            onClick={() => void refreshCaptcha()}
+                            onClick={() => void refreshCaptcha({ clearError: true })}
                             aria-label={t("captcha.refresh")}
                           >
-                            <RefreshCw className="size-4" aria-hidden="true" />
+                            <RefreshCw data-icon="inline-start" aria-hidden="true" />
                           </Button>
                         </div>
-                        <Input
-                          id="captchaAnswer"
-                          dir="ltr"
-                          value={captchaAnswer}
-                          onChange={(event) => setCaptchaAnswer(event.target.value)}
-                          placeholder={t("captcha.answerPlaceholder")}
-                          autoComplete="off"
-                          required
-                          className="text-start"
-                        />
+                        {fieldErrors.captchaAnswer && (
+                          <p
+                            id="captcha-answer-error"
+                            className="text-sm leading-6 text-destructive"
+                          >
+                            {fieldErrors.captchaAnswer}
+                          </p>
+                        )}
                       </div>
                     </div>
 
-                    <Button type="submit" loading={loading} className="w-full">
+                    <Button type="submit" size="lg" loading={loading} className="w-full">
                       {loading ? t("otp.requesting") : t("otp.request")}
                     </Button>
                   </form>
                 ) : (
-                  <form className="grid gap-5" onSubmit={handleVerifyOTP}>
-                    <div className="grid gap-2">
+                  <form className="flex flex-col gap-5" onSubmit={handleVerifyOTP} noValidate>
+                    <div className="flex flex-col gap-2">
                       <Label htmlFor="otpCode">{t("otp.code")}</Label>
                       <InputOTP
                         id="otpCode"
@@ -339,7 +377,7 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
                             <InputOTPSlot
                               key={index}
                               index={index}
-                              className="size-11 rounded-lg border bg-background text-base font-semibold shadow-xs"
+                              className="size-11 rounded-xl border bg-background text-base font-semibold shadow-xs"
                             />
                           ))}
                         </InputOTPGroup>
@@ -349,15 +387,18 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
                     <div className="flex flex-col-reverse gap-2 sm:flex-row">
                       <Button
                         type="submit"
+                        size="lg"
                         loading={loading}
                         className="flex-1"
                         disabled={otpCode.length !== 6}
                       >
                         {loading ? t("otp.verifying") : t("otp.verify")}
+                        {!loading && <ArrowLeft data-icon="inline-end" aria-hidden="true" />}
                       </Button>
                       <Button
                         type="button"
                         variant="outline"
+                        size="lg"
                         onClick={() => {
                           setOTPRequest(null);
                           setOTPCode("");
@@ -372,10 +413,88 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
                 )}
               </CardContent>
             </Card>
-          </div>
+          </section>
         </div>
       </div>
     </main>
+  );
+}
+
+function AnimatedHeroText({
+  prefix,
+  words,
+  suffix,
+}: {
+  prefix: string;
+  words: string[];
+  suffix: string;
+}) {
+  const [wordIndex, setWordIndex] = useState(0);
+  const [isVisible, setIsVisible] = useState(true);
+  const currentWord = words[wordIndex] ?? "";
+
+  useEffect(() => {
+    if (words.length <= 1) {
+      return;
+    }
+
+    let timeoutID: number | undefined;
+    const interval = window.setInterval(() => {
+      setIsVisible(false);
+
+      timeoutID = window.setTimeout(() => {
+        setWordIndex((current) => (current + 1) % words.length);
+        setIsVisible(true);
+      }, ANIMATED_HERO_TRANSITION_MS);
+    }, ANIMATED_HERO_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(interval);
+      if (timeoutID) {
+        window.clearTimeout(timeoutID);
+      }
+    };
+  }, [words.length]);
+
+  return (
+    <p className="flex max-w-full items-center justify-center gap-1.5 overflow-hidden whitespace-nowrap text-[clamp(0.875rem,3.2vw,1.25rem)] font-semibold leading-8 text-foreground sm:gap-2">
+      <span>{prefix}</span>
+      <span
+        className={cn(
+          "inline-flex min-w-[6.75rem] justify-center rounded-lg bg-primary/10 px-2 py-1 text-primary ring-1 ring-primary/15 transition-all duration-300 motion-reduce:transition-none sm:min-w-[7.75rem] sm:px-2.5",
+          isVisible
+            ? "translate-y-0 opacity-100 blur-0"
+            : "translate-y-1 opacity-0 blur-sm",
+        )}
+      >
+        {currentWord}
+      </span>
+      <span>{suffix}</span>
+    </p>
+  );
+}
+
+function StepPill({
+  active,
+  icon,
+  label,
+}: {
+  active: boolean;
+  icon: ReactNode;
+  label: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-center gap-2 rounded-lg px-3 py-2.5",
+        active
+          ? "bg-primary text-primary-foreground shadow-sm"
+          : "text-muted-foreground",
+      )}
+    >
+      {icon}
+      <span className="truncate">{label}</span>
+    </div>
   );
 }
 
@@ -424,9 +543,79 @@ function getErrorMessage(payload: unknown): string | null {
   return candidate.error?.message ?? candidate.message ?? null;
 }
 
-function normalizeError(error: unknown, fallback: string): string {
+function validateLoginInput(
+  identifier: string,
+  captchaAnswer: string,
+  t: LoginTranslator,
+): LoginFieldErrors {
+  const errors: LoginFieldErrors = {};
+  const identifierValue = identifier.trim();
+  const captchaValue = captchaAnswer.trim();
+
+  if (!identifierValue) {
+    errors.identifier = t("errors.identifierRequired");
+  } else if (!normalizeIdentifier(identifierValue)) {
+    errors.identifier = t("errors.identifierInvalid");
+  }
+
+  if (!captchaValue) {
+    errors.captchaAnswer = t("errors.captchaRequired");
+  }
+
+  return errors;
+}
+
+function normalizeIdentifier(raw: string) {
+  const value = raw.trim();
+  if (!value) {
+    return null;
+  }
+
+  const emailCandidate = value.toLowerCase();
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailCandidate)) {
+    return { channel: "email", normalized: emailCandidate };
+  }
+
+  const compact = value.replace(/[\s\-()]/g, "");
+  if (/^\+?\d{10,15}$/.test(compact)) {
+    return { channel: "mobile", normalized: compact };
+  }
+
+  return null;
+}
+
+function normalizeLoginError(
+  error: unknown,
+  fallback: string,
+  t: LoginTranslator,
+): string {
   if (error instanceof Error) {
-    return error.message;
+    const message = error.message;
+    const normalized = message.toLowerCase();
+
+    if (
+      normalized.includes("captcha") ||
+      message.includes("کپچا") ||
+      message.includes("captcha_id") ||
+      message.includes("captcha_answer")
+    ) {
+      return t("errors.captchaInvalidOrExpired");
+    }
+
+    if (
+      normalized.includes("tenant member not found") ||
+      normalized.includes("not found") ||
+      normalized.includes("do not have access") ||
+      message.includes("You do not have access to this tenant")
+    ) {
+      return t("errors.identifierNotRegistered");
+    }
+
+    if (message.includes("ایمیل یا شماره همراه")) {
+      return t("errors.identifierInvalid");
+    }
+
+    return message;
   }
   return fallback;
 }

@@ -1,24 +1,62 @@
 {
+  "brand": "GodarAI",
+  "eyebrow": "LLM Gateway management console",
   "title": "Sign in",
-  "subtitle": "Sign in with email or mobile. OTP is sent based on your identifier type.",
+  "subtitle": "Sign in with email or mobile. A one-time password is sent based on your identifier type.",
+  "hero": {
+    "badge": "Secure workspace access",
+    "title": "Sign in to the GodarAI control center",
+    "description": "The same visual language as the website, tightened for teams managing gateway routes, models, spend, and operational events.",
+    "animated": {
+      "prefix": "A reliable path for",
+      "suffix": "AI models",
+      "words": {
+        "stable": "stable access",
+        "saving": "cost savings",
+        "observability": "observability",
+        "control": "control"
+      }
+    },
+    "metrics": {
+      "requests": "30-day requests",
+      "latency": "p95 latency",
+      "spend": "Spend optimization"
+    }
+  },
+  "preview": {
+    "title": "Gateway live view",
+    "subtitle": "Sample health, routing, and usage status",
+    "status": "Healthy",
+    "providers": "Providers",
+    "routes": "Active routes",
+    "uptime": "Uptime"
+  },
   "identifier": "Email or mobile",
-  "identifierPlaceholder": "name@example.com or +98912...",
+  "identifierPlaceholder": "name@example.com | +989121234567",
   "captcha": {
     "label": "Image captcha",
     "answer": "Captcha answer",
     "answerPlaceholder": "Enter captcha text",
     "refresh": "New captcha"
   },
+  "errors": {
+    "fixFields": "Please fix the highlighted fields.",
+    "identifierRequired": "Enter an email address or mobile number.",
+    "identifierInvalid": "The email address or mobile number format is invalid.",
+    "identifierNotRegistered": "This email address or mobile number is not registered in this workspace.",
+    "captchaRequired": "Enter the captcha text.",
+    "captchaInvalidOrExpired": "The captcha text is incorrect or expired. Enter the new captcha."
+  },
   "otp": {
-    "request": "Request OTP",
-    "requesting": "Sending OTP...",
-    "verifyTitle": "Verify OTP",
+    "request": "Request one-time password",
+    "requesting": "Sending one-time password...",
+    "verifyTitle": "Verify one-time password",
     "verify": "Sign in",
     "verifying": "Verifying...",
-    "code": "OTP code",
+    "code": "One-time password",
     "codePlaceholder": "6-digit code",
-    "sent": "OTP sent to {destination}.",
-    "enterCode": "Enter the OTP sent to {destination}.",
+    "sent": "One-time password sent to {destination}.",
+    "enterCode": "Enter the one-time password sent to {destination}.",
     "devCode": "Development code",
     "back": "Back"
   },

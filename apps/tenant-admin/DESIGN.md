@@ -7,16 +7,16 @@ This guide is the implementation contract for Shahrah UI work in this repository
 | Area | Current state |
 | --- | --- |
 | Framework | Next.js `16.2.9` App Router with React `19.2.4` and TypeScript. |
-| Routing | Root `app/` directory, `app/layout.tsx`, `app/page.tsx`; no `src/` folder and no nested product routes yet. |
+| Routing | Root `app/` directory with Next App Router pages for login, dashboard, models, providers, traces, billing, settings, and gateway policy workflows. |
 | Styling | Tailwind CSS v4 through `@tailwindcss/postcss`; global CSS imported from `app/globals.css`. |
-| shadcn/ui | `components.json` uses style `radix-vega`, `rsc: true`, `tsx: true`, `baseColor: neutral`, CSS variables, lucide icons, and `rtl: true`. |
-| Components | One shadcn primitive exists: `components/ui/button.tsx`, using `cva`, `radix-ui` `Slot.Root`, logical padding utilities, and `cn()`. |
+| shadcn/ui | `components.json` uses style `new-york`, `rsc: true`, `tsx: true`, `baseColor: slate`, CSS variables, lucide icons, and `rtl: true`. |
+| Components | Multiple shadcn primitives exist under `components/ui`, including button, card, input, label, alert, badge, table, tabs, sidebar, dialog, sheet, select, popover, tooltip, and chart. |
 | Utilities | `lib/utils.ts` exports `cn()` with `clsx` and `tailwind-merge`. |
-| Tokens | `app/globals.css` defines shadcn semantic tokens for background, foreground, card, popover, primary, secondary, muted, accent, destructive, border, input, ring, chart, sidebar, and radius. |
-| Dark mode | Token values exist under `.dark`, and Tailwind has `@custom-variant dark (&:is(.dark *));`. There is no theme provider or toggle yet. |
-| Typography | `app/layout.tsx` loads `Inter`, `Geist`, and `Geist_Mono` through `next/font/google`; `--font-sans` currently maps to Inter and `--font-mono` maps to Geist Mono. No Persian font is installed. |
-| RTL | shadcn config enables RTL, but the app root currently has `lang="en"` and no dynamic `dir`. No locale routing exists yet. |
-| Page patterns | The current homepage is the default create-next-app starter and should not be treated as Shahrah product UI. |
+| Tokens | `app/globals.css` imports `design-system/tokens.css`, which defines website-aligned shadcn semantic tokens for core surfaces, indigo primary, purple accent support, success, warning, info, destructive, borders, inputs, chart colors, sidebar colors, radius, shadows, and typography. |
+| Dark mode | Token values exist under `.dark`, Tailwind has `@custom-variant dark (&:is(.dark *));`, and `ThemeProvider` plus `ThemeToggle` are available. |
+| Typography | `app/layout.tsx` loads `Vazirmatn` and `JetBrains_Mono` through `next/font/google`; `--font-sans` maps to Vazirmatn and `--font-mono` maps to JetBrains Mono. |
+| RTL | shadcn config enables RTL, the app root renders `dir="rtl"`, and `lang` comes from `next-intl`. |
+| Page patterns | Product pages now use the tenant-admin shell, operational dashboard pages, and form/list/detail workflows; new UI should extend those patterns rather than the original starter. |
 | Naming | Current conventions are root-level `app`, `components`, `components/ui`, `lib`, and `@/*` imports. |
 
 Next.js 16 note: follow the local docs in `node_modules/next/dist/docs/` before changing routing, layouts, fonts, CSS, or Server/Client Component boundaries. Pages and layouts are Server Components by default; use `"use client"` only for interactive components that need state, event handlers, effects, or browser APIs.
@@ -37,11 +37,11 @@ Next.js 16 note: follow the local docs in `node_modules/next/dist/docs/` before 
 
 ## 2. Visual Identity
 
-Shahrah should feel like a calm infrastructure console for teams running LLM-powered products. The UI should be precise, reliable, modern, and enterprise-ready, with enough density for technical users to compare providers, models, traces, cost, and limits quickly.
+Shahrah/GodarAI should feel like a calm infrastructure console for teams running LLM-powered products. Tenant-admin must be visually related to `apps/website`: Vazirmatn typography, indigo primary actions, restrained purple accents, slate/neutral operational surfaces, dark console previews, and compact dashboard information density. The UI should be precise, reliable, modern, and enterprise-ready, with enough density for technical users to compare providers, models, traces, cost, and limits quickly.
 
-Use a professional SaaS dashboard style: restrained surfaces, low-radius cards, clear section boundaries, compact controls, meaningful icons, readable tables, and status colors that serve operations. The current token base is neutral with a purple-blue primary; keep it as the accent, not the entire personality.
+Use a professional SaaS dashboard style: restrained surfaces, low-radius cards, clear section boundaries, compact controls, meaningful icons, readable tables, and status colors that serve operations. The current token base is website-aligned: mostly neutral/slate surfaces, indigo as the primary action color, purple as a secondary brand accent, and green/amber/red/cyan only for meaningful operational state.
 
-Avoid overly playful illustrations, excessive gradients, heavy animation, consumer landing-page layouts inside authenticated app screens, low-contrast text, oversized cards for dense operational content, and decorative elements that reduce readability.
+Avoid overly playful illustrations, excessive gradients, heavy animation, consumer landing-page layouts inside authenticated app screens, low-contrast text, oversized cards for dense operational content, and decorative elements that reduce readability. Login/onboarding screens may carry more brand atmosphere than authenticated pages, but they should still show trust, security, and gateway context rather than generic marketing art.
 
 ## 3. Design Tokens
 
@@ -64,15 +64,16 @@ Use the shadcn CSS-variable token model already defined in `app/globals.css`. Pr
 | `sidebar-*` | App sidebar surfaces, active state, borders, and focus ring. |
 | `radius` | Base radius is `0.625rem`; keep app cards at `rounded-lg` or below unless a shadcn primitive requires more. |
 
-Missing semantic tokens to add later:
+Semantic tokens already available for status-heavy UI:
 
-| Recommended token | Purpose |
+| Token | Purpose |
 | --- | --- |
 | `success` / `success-foreground` | Connected, healthy, paid, completed, active. |
 | `warning` / `warning-foreground` | Low balance, nearing limit, degraded, pending rotation. |
 | `info` / `info-foreground` | Informational notices, neutral progress, documentation hints. |
-| `surface-subtle` | Large dashboard bands or filter bars distinct from `muted`. |
-| `code` / `code-foreground` | JSON viewers, API snippets, request IDs, endpoints. |
+| `surface-elevated` / `surface-demo` | Branded elevated panels and dark console/demo surfaces inspired by `apps/website`. |
+| `neutral-soft` | Large dashboard bands or filter bars distinct from `muted`. |
+| `code` / `code-foreground` | Add later if JSON viewers, API snippets, request IDs, and endpoints need a dedicated surface beyond `font-mono` plus existing tokens. |
 
 Do not hardcode one-off colors in application UI. Current starter code includes hardcoded `zinc`, `black`, and hex hover colors; future Shahrah pages should replace that style with tokens.
 
@@ -105,10 +106,10 @@ Current fonts are loaded through `next/font/google` in `app/layout.tsx`. Keep us
 
 | Text type | Rule |
 | --- | --- |
-| Product UI | Use `font-sans`; currently Inter via `--font-sans`. |
-| Persian/Farsi | Add a Persian-capable font later, preferably local through `next/font/local` or a vetted `next/font/google` family with Arabic coverage. Test digits, diacritics, and line-height. |
-| English | Inter is acceptable for Latin UI and dashboards. |
-| Code and IDs | Use `font-mono`; current token maps to Geist Mono. |
+| Product UI | Use `font-sans`; currently Vazirmatn via `--font-sans`, matching the website and Persian-first product tone. |
+| Persian/Farsi | Vazirmatn is installed through `next/font/google` with Arabic and Latin subsets. Test digits, diacritics, line-height, and mixed Persian/English strings. |
+| English | Vazirmatn is acceptable for bilingual product UI; technical Latin strings should use `font-mono` where scanability matters. |
+| Code and IDs | Use `font-mono`; current token maps to JetBrains Mono. |
 | Headings | Keep compact: page titles `text-2xl font-semibold`, section titles `text-base` to `text-lg font-semibold`, card titles `text-sm` to `text-base font-medium`. |
 | Body | Default `text-sm` for app content; `text-base` only for dense explanatory pages or major empty states. |
 | Tables | `text-sm`, compact row height, `font-mono` for IDs, endpoints, model names, and request IDs. |
@@ -481,9 +482,9 @@ Rules:
 | --- | --- |
 | Token usage | Use semantic token utilities, not hardcoded light/dark colors. |
 | Contrast | Verify text, borders, badges, charts, and disabled states in both modes. |
-| Charts | Current chart tokens are a purple-blue sequence; expand before complex analytics. |
+| Charts | Current chart tokens include indigo, green, purple, amber, and red. Use them for provider/model analytics before adding one-off chart colors. |
 | Shadows | Prefer borders in dark mode; shadows can disappear on dark surfaces. |
-| Status | Add `success`, `warning`, and `info` dark values before using them broadly. |
+| Status | `success`, `warning`, and `info` tokens exist in light and dark modes; use them through shared Badge/Alert variants instead of raw Tailwind colors. |
 | Images/logos | Avoid relying on `dark:invert` for product assets unless visually verified. |
 
 ## 17. Iconography

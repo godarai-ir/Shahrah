@@ -31,12 +31,19 @@ export function ThemeProvider({
   storageKey = "shahrah-theme",
   ...props
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window === "undefined") {
-      return defaultTheme;
+  const [theme, setTheme] = useState<Theme>(defaultTheme);
+
+  useEffect(() => {
+    const storedTheme = localStorage.getItem(storageKey);
+
+    if (storedTheme === "dark" || storedTheme === "light") {
+      const frame = window.requestAnimationFrame(() => {
+        setTheme(storedTheme);
+      });
+
+      return () => window.cancelAnimationFrame(frame);
     }
-    return (localStorage.getItem(storageKey) as Theme) || defaultTheme;
-  });
+  }, [storageKey]);
 
   useEffect(() => {
     const root = window.document.documentElement;

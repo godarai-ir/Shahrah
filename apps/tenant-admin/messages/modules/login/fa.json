@@ -1,24 +1,62 @@
 {
+  "brand": "گُدارAI",
+  "eyebrow": "کنسول مدیریت LLM Gateway",
   "title": "ورود",
-  "subtitle": "با ایمیل یا شماره همراه وارد شوید. کد OTP متناسب با شیوه ورود ارسال می‌شود.",
+  "subtitle": "با ایمیل یا شماره همراه وارد شوید. رمز یکبار مصرف متناسب با شیوه ورود ارسال می‌شود.",
+  "hero": {
+    "badge": "دسترسی امن به فضای کار",
+    "title": "ورود به مرکز کنترل گُدارAI",
+    "description": "همان تجربه بصری وب‌سایت، اما فشرده‌تر و عملیاتی‌تر برای تیم‌هایی که مسیرها، مدل‌ها، هزینه و رخدادهای Gateway را مدیریت می‌کنند.",
+    "animated": {
+      "prefix": "مسیر مطمئن",
+      "suffix": "مدل‌های هوش مصنوعی",
+      "words": {
+        "stable": "اتصال پایدار",
+        "saving": "صرفه‌جویی",
+        "observability": "مشاهده‌پذیری",
+        "control": "کنترل‌پذیری"
+      }
+    },
+    "metrics": {
+      "requests": "درخواست‌های ۳۰ روز",
+      "latency": "تاخیر p95",
+      "spend": "بهینه‌سازی هزینه"
+    }
+  },
+  "preview": {
+    "title": "نمای زنده Gateway",
+    "subtitle": "وضعیت نمونه از سلامت، مسیرها و مصرف",
+    "status": "سالم",
+    "providers": "ارائه‌دهنده",
+    "routes": "مسیر فعال",
+    "uptime": "آپتایم"
+  },
   "identifier": "ایمیل یا شماره همراه",
-  "identifierPlaceholder": "name@example.com یا +98912...",
+  "identifierPlaceholder": "name@example.com | +989121234567",
   "captcha": {
     "label": "کپچای تصویری",
     "answer": "پاسخ کپچا",
     "answerPlaceholder": "متن کپچا را وارد کنید",
     "refresh": "کپچای جدید"
   },
+  "errors": {
+    "fixFields": "لطفا خطاهای فرم را برطرف کنید.",
+    "identifierRequired": "ایمیل یا شماره همراه را وارد کنید.",
+    "identifierInvalid": "فرمت ایمیل یا شماره همراه صحیح نیست.",
+    "identifierNotRegistered": "این ایمیل یا شماره همراه در این فضای کار ثبت نشده است.",
+    "captchaRequired": "متن کپچا را وارد کنید.",
+    "captchaInvalidOrExpired": "متن کپچا اشتباه است یا منقضی شده. کپچای جدید را وارد کنید."
+  },
   "otp": {
-    "request": "دریافت OTP",
-    "requesting": "در حال ارسال OTP...",
-    "verifyTitle": "تایید کد ورود",
+    "request": "دریافت رمز یکبار مصرف",
+    "requesting": "در حال ارسال رمز یکبار مصرف...",
+    "verifyTitle": "تایید رمز یکبار مصرف",
     "verify": "ورود به پنل",
     "verifying": "در حال تایید...",
-    "code": "کد OTP",
+    "code": "رمز یکبار مصرف",
     "codePlaceholder": "کد ۶ رقمی",
-    "sent": "کد OTP به {destination} ارسال شد.",
-    "enterCode": "کد ارسال‌شده به {destination} را وارد کنید.",
+    "sent": "رمز یکبار مصرف به {destination} ارسال شد.",
+    "enterCode": "رمز ارسال‌شده به {destination} را وارد کنید.",
     "devCode": "کد توسعه",
     "back": "بازگشت"
   },
