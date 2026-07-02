@@ -5,10 +5,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { LogOut, User } from "lucide-react";
+import { BadgeCheck, BookOpen, ChevronDown, LogOut, User, WalletCards } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +21,7 @@ import {
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -35,6 +37,7 @@ import {
 import { ThemeToggle } from "@/components/theme-toggle";
 import { buildAdminNavItems, filterVisibleNavItems, type AdminNavItem } from "@/app/components/admin-shell-nav";
 import { PermissionsProvider } from "@/app/components/permissions-context";
+import { cn } from "@/lib/utils";
 
 type AdminShellClientProps = {
   children: React.ReactNode;
@@ -46,31 +49,42 @@ type AdminShellClientProps = {
     role: string;
   };
   permissions: string[];
+  walletSummary: {
+    balanceIRR: number | null;
+  };
+  subscriptionSummary: {
+    planName: string | null;
+    status: string | null;
+    periodEnd: string | null;
+  };
+  docsHref: string;
 };
+
+const moneyFormatter = new Intl.NumberFormat("fa-IR");
 
 const SIDEBAR_NAV_GROUPS: Array<{
   labelKey: string;
   itemKeys: AdminNavItem["key"][];
 }> = [
   {
-    labelKey: "navGroups.overview",
-    itemKeys: ["dashboard", "topup"],
+    labelKey: "navGroups.workspace",
+    itemKeys: ["dashboard", "quickStart"],
   },
   {
     labelKey: "navGroups.runtime",
-    itemKeys: ["providerAccounts", "virtualModels", "prompts", "virtualUsers"],
+    itemKeys: ["providerAccounts", "virtualModels", "prompts"],
   },
   {
     labelKey: "navGroups.observability",
     itemKeys: ["logs", "traces", "metrics", "requestLoggingSettings", "tracePrivacySettings"],
   },
   {
-    labelKey: "navGroups.governance",
+    labelKey: "navGroups.policies",
     itemKeys: ["rateLimitPolicies", "budgetLimitPolicies", "guardrails"],
   },
   {
     labelKey: "navGroups.access",
-    itemKeys: ["accessManagement", "orgUnits", "accountSettings"],
+    itemKeys: ["accessManagement", "orgUnits", "virtualUsers"],
   },
 ];
 
@@ -79,6 +93,9 @@ export default function AdminShellClient({
   tenantSlug,
   currentUser,
   permissions,
+  walletSummary,
+  subscriptionSummary,
+  docsHref,
 }: AdminShellClientProps) {
   const pathname = usePathname();
   const t = useTranslations("shell");
@@ -100,6 +117,7 @@ export default function AdminShellClient({
         <AdminSidebar
           tenantSlug={tenantSlug}
           navItems={visibleNavItems}
+          subscriptionSummary={subscriptionSummary}
         />
 
         <SidebarInset className="min-w-0 rounded-none bg-background">
@@ -113,8 +131,10 @@ export default function AdminShellClient({
               </div>
 
               <div className="flex shrink-0 items-center gap-2">
-                <ThemeToggle />
+                <WalletBalanceLink balanceIRR={walletSummary.balanceIRR} />
                 <UserProfileMenu userIdentity={userIdentity} currentUser={currentUser} />
+                <ThemeToggle />
+                <DocsLink href={docsHref} />
               </div>
             </div>
           </header>
@@ -193,11 +213,17 @@ function UserProfileMenu({ userIdentity, currentUser }: UserProfileMenuProps) {
 type SidebarContentProps = {
   tenantSlug: string;
   navItems: AdminNavItem[];
+  subscriptionSummary: {
+    planName: string | null;
+    status: string | null;
+    periodEnd: string | null;
+  };
 };
 
 function AdminSidebar({
   tenantSlug,
   navItems,
+  subscriptionSummary,
 }: SidebarContentProps) {
   const t = useTranslations("shell");
   const navItemsByKey = useMemo(() => {
@@ -220,24 +246,26 @@ function AdminSidebar({
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
-              tooltip={t("title")}
-              className="h-12 items-center gap-2 rounded-lg border border-sidebar-border bg-sidebar"
+              tooltip={`گُدارAI · ${tenantSlug}`}
+              className="h-12 items-center gap-2 rounded-md bg-transparent"
               asChild
             >
               <Link href="/">
-                <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-sidebar-border bg-sidebar-accent p-1">
+                <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md">
                   <Image
-                    src="/brand/shahrah-logo.png"
+                    src="/brand/mini_logo.png"
                     alt={t("logoAlt")}
-                    width={32}
-                    height={32}
+                    width={36}
+                    height={36}
                     className="h-full w-full object-contain"
                     priority
                   />
                 </span>
                 <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="truncate text-sm font-semibold">{t("title")}</span>
-                  <span className="truncate text-xs text-sidebar-foreground/70">{tenantSlug}</span>
+                  <span className="truncate text-sm font-semibold">گُدارAI</span>
+                  <span className="truncate text-xs uppercase tracking-[0.16em] text-sidebar-foreground/70" dir="ltr">
+                    {tenantSlug}
+                  </span>
                 </span>
               </Link>
             </SidebarMenuButton>
@@ -247,35 +275,118 @@ function AdminSidebar({
 
       <SidebarContent>
         {navGroups.map((group) => (
-          <SidebarGroup key={group.labelKey} className="py-1">
-            <SidebarGroupLabel>{t(group.labelKey)}</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu aria-label={t(group.labelKey)}>
-                {group.items.map((item) => {
-                  const Icon = item.icon;
+          <Collapsible key={group.labelKey} defaultOpen={group.items.some((item) => item.isActive)} asChild>
+            <SidebarGroup className="py-1">
+              <SidebarGroupLabel asChild>
+                <CollapsibleTrigger className="group/collapsible w-full justify-between">
+                  <span>{t(group.labelKey)}</span>
+                  <ChevronDown className="transition-transform group-data-[state=open]/collapsible:rotate-180" aria-hidden="true" />
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu aria-label={t(group.labelKey)}>
+                    {group.items.map((item) => {
+                      const Icon = item.icon;
 
-                  return (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton
-                        isActive={item.isActive}
-                        tooltip={item.title}
-                        asChild
-                      >
-                        <Link href={item.href}>
-                          <Icon aria-hidden="true" />
-                          <span>{item.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+                      return (
+                        <SidebarMenuItem key={item.href}>
+                          <SidebarMenuButton
+                            isActive={item.isActive}
+                            tooltip={item.title}
+                            asChild
+                          >
+                            <Link href={item.href}>
+                              <Icon aria-hidden="true" />
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </SidebarGroup>
+          </Collapsible>
         ))}
       </SidebarContent>
+
+      <SidebarFooter className="group-data-[collapsible=icon]:hidden">
+        <SidebarPlanSummary summary={subscriptionSummary} />
+      </SidebarFooter>
 
       <SidebarRail />
     </Sidebar>
   );
+}
+
+function WalletBalanceLink({ balanceIRR }: { balanceIRR: number | null }) {
+  const t = useTranslations("shell");
+  const balanceLabel = balanceIRR === null ? t("wallet.unknown") : t("wallet.balance", { amount: moneyFormatter.format(balanceIRR) });
+  const isLowBalance = balanceIRR !== null && balanceIRR <= 0;
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="icon"
+      className={cn("w-auto min-w-10 gap-2 px-3", isLowBalance && "border-destructive/40 text-destructive hover:text-destructive")}
+      asChild
+    >
+      <Link href="/billing/topup" aria-label={t("wallet.open")}>
+        <WalletCards data-icon="inline-start" aria-hidden="true" />
+        <span className="hidden sm:inline">{balanceLabel}</span>
+      </Link>
+    </Button>
+  );
+}
+
+function DocsLink({ href }: { href: string }) {
+  const t = useTranslations("shell");
+
+  return (
+    <Button type="button" variant="outline" size="icon" className="shrink-0" asChild>
+      <Link href={href} aria-label={t("docs.open")}>
+        <BookOpen data-icon="inline-start" aria-hidden="true" />
+      </Link>
+    </Button>
+  );
+}
+
+function SidebarPlanSummary({
+  summary,
+}: {
+  summary: {
+    planName: string | null;
+    status: string | null;
+    periodEnd: string | null;
+  };
+}) {
+  const t = useTranslations("shell");
+  const planName = t("plan.label", { name: summary.planName ?? t("plan.unknown") });
+  const daysRemaining = summary.periodEnd ? formatDaysRemaining(summary.periodEnd, t) : t("plan.noEndDate");
+
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <SidebarMenuButton size="lg" tooltip={t("nav.plan")} asChild>
+          <Link href="/billing/plan">
+            <BadgeCheck aria-hidden="true" />
+            <span className="flex min-w-0 flex-col gap-0.5">
+              <span className="truncate text-sm font-medium">{planName}</span>
+              <span className="truncate text-xs font-normal text-sidebar-foreground/60">{daysRemaining}</span>
+            </span>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  );
+}
+
+function formatDaysRemaining(value: string, t: (key: string, values?: Record<string, string | number>) => string): string {
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) return value;
+  const days = Math.max(0, Math.ceil((timestamp - Date.now()) / (24 * 60 * 60 * 1000)));
+  return t("plan.daysRemaining", { days: moneyFormatter.format(days) });
 }

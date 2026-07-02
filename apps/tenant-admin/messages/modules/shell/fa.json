@@ -11,16 +11,33 @@
     "open": "باز کردن منو",
     "description": "مسیریابی و دسترسی سریع به ابزارهای پنل"
   },
+  "wallet": {
+    "open": "مشاهده کیف پول",
+    "balance": "{amount} ریال",
+    "unknown": "کیف پول"
+  },
+  "docs": {
+    "open": "مشاهده مستندات"
+  },
+  "plan": {
+    "label": "پلن: {name}",
+    "daysRemaining": "{days} روز مانده",
+    "unknown": "پلن نامشخص",
+    "noEndDate": "بدون تاریخ پایان"
+  },
   "navGroups": {
     "overview": "نمای کلی",
+    "workspace": "فضای کاری",
     "runtime": "Gateway Runtime",
     "observability": "پایش",
     "governance": "کنترل و سیاست‌ها",
+    "policies": "سیاست‌ها",
     "access": "دسترسی"
   },
   "nav": {
     "title": "مسیریابی اصلی",
     "dashboard": "داشبورد",
+    "quickStart": "شروع سریع",
     "topup": "کیف پول",
     "plan": "\u067e\u0644\u0646",
     "settings": "تنظیمات حساب",

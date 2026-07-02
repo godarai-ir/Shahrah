@@ -245,24 +245,22 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
             </div>
           </div>
 
-          <DashboardPanel className="surface-elevated border-border/60 shadow-none">
-            <CardHeader className="gap-2 pb-3">
+          <DashboardPanel className="border-info/30 bg-info/5">
+            <CardHeader className="gap-3">
               <CardTitle className="flex items-center gap-2 text-base">
-                <PlanStatusIcon className="size-4 text-primary" aria-hidden="true" />
-                {t("plan.snapshotTitle")}
+                <span className="flex size-9 items-center justify-center rounded-xl bg-info/12 text-info">
+                  <BookOpen className="size-4" aria-hidden="true" />
+                </span>
+                {t("quickStart.title")}
               </CardTitle>
-              <CardDescription>{t("plan.snapshotDescription")}</CardDescription>
+              <CardDescription className="max-w-2xl leading-6">{t("quickStart.description")}</CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              <MetricRow label={t("plan.currentPlan")} value={planDisplayName} />
-              <MetricRow label={t("plan.statusLabel")} value={planStatusLabel} />
-              <MetricRow label={t("plan.intervalLabel")} value={planIntervalLabel} />
-              <MetricRow label={t("plan.endDateLabel")} value={planDeadlineISO ? formatDateTime(planDeadlineISO) : common("notSet")} />
-              <Button type="button" variant="outline" asChild className="mt-1 w-full justify-between">
-                <Link href="/billing/plan">
-                  {planActionLabel}
+            <CardContent className="pt-0">
+              <Button type="button" variant="outline" asChild>
+                <a href="/docs/quick-start" target="_blank" rel="noreferrer">
+                  {t("quickStart.action")}
                   <ArrowUpRight data-icon="inline-end" aria-hidden="true" />
-                </Link>
+                </a>
               </Button>
             </CardContent>
           </DashboardPanel>
@@ -276,25 +274,6 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
         </Alert>
       ) : null}
 
-      <DashboardPanel className="border-info/30 bg-info/5">
-        <CardHeader className="gap-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <span className="flex size-9 items-center justify-center rounded-xl bg-info/12 text-info">
-              <BookOpen className="size-4" aria-hidden="true" />
-            </span>
-            {t("quickStart.title")}
-          </CardTitle>
-          <CardDescription className="max-w-2xl leading-6">{t("quickStart.description")}</CardDescription>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <Button type="button" variant="outline" asChild>
-            <a href="/docs/quick-start" target="_blank" rel="noreferrer">
-              {t("quickStart.action")}
-              <ArrowUpRight data-icon="inline-end" aria-hidden="true" />
-            </a>
-          </Button>
-        </CardContent>
-      </DashboardPanel>
     </div>
   );
 }
@@ -360,15 +339,6 @@ function DashboardPanel(props: ComponentProps<typeof Card>) {
         props.className,
       )}
     />
-  );
-}
-
-function MetricRow(props: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4 rounded-xl border border-border/60 bg-background/80 px-3.5 py-3">
-      <span className="text-sm text-muted-foreground">{props.label}</span>
-      <span className="font-medium">{props.value}</span>
-    </div>
   );
 }
 

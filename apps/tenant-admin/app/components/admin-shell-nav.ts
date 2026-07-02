@@ -2,6 +2,7 @@ import {
   Activity,
   BadgeCheck,
   BarChart3,
+  BookOpen,
   Building2,
   CircleDollarSign,
   CreditCard,
@@ -20,6 +21,7 @@ import { canAnyPermission } from "../../lib/authz";
 
 export type AdminNavKey =
   | "dashboard"
+  | "quickStart"
   | "topup"
   | "plan"
   | "providerAccounts"
@@ -68,6 +70,14 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       title: t("nav.dashboard"),
       icon: LayoutDashboard,
       isActive: pathname === "/",
+      requiredPermissions: [],
+    },
+    {
+      key: "quickStart",
+      href: "/quick-start",
+      title: t("nav.quickStart"),
+      icon: BookOpen,
+      isActive: pathname.startsWith("/quick-start"),
       requiredPermissions: [],
     },
     {

@@ -11,16 +11,33 @@
     "open": "Open menu",
     "description": "Quick navigation and panel shortcuts"
   },
+  "wallet": {
+    "open": "View wallet",
+    "balance": "{amount} IRR",
+    "unknown": "Wallet"
+  },
+  "docs": {
+    "open": "View docs"
+  },
+  "plan": {
+    "label": "Plan: {name}",
+    "daysRemaining": "{days} days left",
+    "unknown": "Unknown plan",
+    "noEndDate": "No end date"
+  },
   "navGroups": {
     "overview": "Overview",
+    "workspace": "Workspace",
     "runtime": "Gateway Runtime",
     "observability": "Observability",
     "governance": "Governance",
+    "policies": "Policies",
     "access": "Access"
   },
   "nav": {
     "title": "Primary navigation",
     "dashboard": "Dashboard",
+    "quickStart": "Quick Start",
     "topup": "Wallet",
     "plan": "Plan",
     "settings": "Account Settings",
