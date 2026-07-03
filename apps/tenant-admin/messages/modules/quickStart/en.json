@@ -1,0 +1,241 @@
+{
+  "eyebrow": "Operational quick start",
+  "title": "Send your first successful request through Shahrah",
+  "subtitle": "This page does more than explain concepts. It moves your setup toward a real first success based on your actual plan and permissions.",
+  "planNames": {
+    "developer": "Developer",
+    "team": "Team",
+    "growth": "Growth",
+    "enterprise": "Enterprise"
+  },
+  "planHints": {
+    "developer": "Your path focuses on connecting a provider, creating a PAT, and sending the first request so you can start testing quickly.",
+    "team": "For the Team plan, quick start also focuses on service identity and baseline policies so your setup is operational from day one.",
+    "growth": "On the Growth plan, guardrails join the journey after identity and policy setup so your stack is closer to production.",
+    "enterprise": "For Enterprise, quick start also covers org units, teams, and governance controls alongside the technical setup."
+  },
+  "progress": {
+    "value": "{done} of {total} steps completed",
+    "state": {
+      "complete": "Completed",
+      "inProgress": "In progress"
+    }
+  },
+  "actions": {
+    "refreshStatus": "Refresh status",
+    "createPat": "Create test PAT",
+    "copyToken": "Copy token",
+    "copySnippet": "Copy snippet",
+    "copied": "Copied"
+  },
+  "alerts": {
+    "error": "Error",
+    "success": "Success"
+  },
+  "messages": {
+    "patCreated": "A new personal token was created and the page snippets were updated with it.",
+    "patCreateFailed": "Personal token creation failed.",
+    "copyFailed": "Copying failed.",
+    "sampleRequestSucceeded": "The sample request successfully passed through your tenant endpoint.",
+    "sampleRequestFailed": "The sample request could not be completed."
+  },
+  "stats": {
+    "providers": {
+      "title": "Provider accounts",
+      "subtitle": "Current upstream connections"
+    },
+    "tokens": {
+      "title": "Ready identities",
+      "subtitle": "Available PATs and service identities"
+    },
+    "controls": {
+      "title": "Runtime controls",
+      "subtitle": "Configured policies and guardrails"
+    }
+  },
+  "journey": {
+    "title": "Recommended journey for this plan",
+    "description": "Step order is derived from the real state of your tenant and changes by plan.",
+    "learnLabel": "Quick learning:"
+  },
+  "statuses": {
+    "done": "Done",
+    "active": "Next step",
+    "locked": "Waiting on previous step",
+    "unavailable": "Unavailable for now"
+  },
+  "blocked": {
+    "feature": "This step is not enabled in your current tenant entitlements.",
+    "permission": "Your current role does not appear to have the required access for this step.",
+    "prerequisite": "This section becomes available after you complete the earlier steps."
+  },
+  "steps": {
+    "connect_provider": {
+      "title": "Connect your first provider account",
+      "description": "Without upstream credentials, Shahrah has nothing to route. Start by connecting a valid provider account.",
+      "learn": "A provider account is the secure connection to the model provider, not your application token.",
+      "action": "Connect provider",
+      "manageAction": "Manage providers"
+    },
+    "create_pat": {
+      "title": "Create a personal access token",
+      "description": "For the fastest first test, create a PAT so this page can generate ready-to-run snippets for you.",
+      "learn": "A PAT belongs to a user and is a strong fit for quick testing, personal tools, and first-run onboarding.",
+      "action": "Create PAT",
+      "manageAction": "Create another PAT"
+    },
+    "create_service_identity": {
+      "title": "Create a service identity and VAT",
+      "description": "For team and production workflows, it is better to use a virtual user and virtual access token instead of a personal token.",
+      "learn": "A VAT is the token for your application or service, not for a human user.",
+      "action": "Open service identity",
+      "manageAction": "Manage service identities"
+    },
+    "create_rate_limit_rule": {
+      "title": "Define your first rate limit",
+      "description": "Set a sensible request-rate ceiling early so runtime behavior stays controlled.",
+      "learn": "Rate limiting controls bursts and protects you from sudden request spikes.",
+      "action": "Create rate rule",
+      "manageAction": "Manage rate rules"
+    },
+    "create_budget_limit_rule": {
+      "title": "Define your first budget limit",
+      "description": "Set a spending ceiling so your costs stay predictable from the first day.",
+      "learn": "Budget policy controls cost, while rate policy controls request intensity.",
+      "action": "Create budget rule",
+      "manageAction": "Manage budget rules"
+    },
+    "create_guardrail": {
+      "title": "Add your first guardrail",
+      "description": "If your plan includes it, add a baseline guardrail so the pipeline is not only functional, but safer too.",
+      "learn": "A guardrail can validate or mutate content before or after the model call.",
+      "action": "Manage guardrails",
+      "manageAction": "Manage guardrails"
+    },
+    "create_team": {
+      "title": "Create your first team",
+      "description": "Before usage expands, organize ownership and access through teams.",
+      "learn": "A team is a layer for assigning access, allowed models, and service identities to a group.",
+      "action": "Manage teams",
+      "manageAction": "Manage teams"
+    },
+    "create_org_unit": {
+      "title": "Create your first org unit",
+      "description": "For enterprise tenants, structure and delegation begin with org units.",
+      "learn": "Org units help with structural segmentation and inherited controls.",
+      "action": "Manage org units",
+      "manageAction": "Manage org units"
+    },
+    "send_first_request": {
+      "title": "Send your first request",
+      "description": "Once your provider and model are ready, use the test bench on this page and run a real sample call.",
+      "learn": "Quick start becomes real when your request passes through your own tenant endpoint.",
+      "action": "Open test bench",
+      "manageAction": "Open test bench"
+    },
+    "inspect_activity": {
+      "title": "Inspect the result in telemetry",
+      "description": "After sending a request, move to logs, traces, or metrics and see the real execution path.",
+      "learn": "The gateway's value is not just making the call. It is also what you can observe and control after the call.",
+      "action": "Open telemetry",
+      "manageAction": "Open telemetry"
+    }
+  },
+  "tokenLabels": {
+    "pat": "PAT",
+    "vat": "VAT"
+  },
+  "lab": {
+    "title": "First-request test bench",
+    "description": "This is the fastest path to a real call against your tenant endpoint. If you already have a fresh secret, paste it and use the ready snippets.",
+    "keyTypeTitle": "Token type for this test",
+    "recommendedPat": "For this plan, PAT is the fastest way to start and experiment.",
+    "recommendedVat": "For this plan, VAT is the production path, but PAT can still be a useful shortcut for quick testing.",
+    "notReadyTitle": "The test bench is not ready yet",
+    "notReadyProvider": "You need at least one active provider account before we can suggest a model and build a real snippet.",
+    "notReadyModels": "No allowed model was found for this key type yet. Finish the setup or refresh and try again.",
+    "tokenInputLabel": {
+      "pat": "Test PAT or newly created PAT",
+      "vat": "Newly created VAT"
+    },
+    "tokenInputPlaceholder": {
+      "pat": "Paste the personal token only in this browser",
+      "vat": "Paste the virtual token only in this browser"
+    },
+    "missingToken": {
+      "pat": "Create a PAT or paste its secret before running the sample request.",
+      "vat": "Paste the VAT secret before running the sample request."
+    },
+    "localOnlyHint": "This field is only used to build snippets in your browser and is not sent to the admin server.",
+    "generatedTokenTitle": "The newly created token is shown only once",
+    "generatedTokenDescription": "If you just created a PAT, you can use it directly in this page's snippets or copy it separately.",
+    "modelLabel": "Suggested starter model",
+    "runAction": "Run sample request",
+    "runningAction": "Running...",
+    "browserRunHint": "The sample execution runs from your browser with the token you entered so you can see a real response from your tenant endpoint.",
+    "responseTitle": "Real response received",
+    "responseDescription": "Response returned with HTTP {status} using {tokenType}.",
+    "copyResponse": "Copy raw response",
+    "responsePreviewLabel": "Model response summary",
+    "rawResponseLabel": "Raw JSON response",
+    "tabs": {
+      "bash": "cURL / Bash",
+      "python": "Python"
+    },
+    "placeholderHint": {
+      "pat": "If you still see the placeholder, create a PAT or temporarily paste your secret.",
+      "vat": "If you still see the placeholder, temporarily paste the VAT secret you just created."
+    }
+  },
+  "patDialog": {
+    "title": "Create a PAT for quick start",
+    "description": "This token is created for fast testing and immediate snippet generation on this page.",
+    "nameLabel": "Token name",
+    "expiryLabel": "Expiry",
+    "validation": "Token name is required.",
+    "creating": "Creating...",
+    "submit": "Create token"
+  },
+  "explore": {
+    "title": "What to do next",
+    "description": "After your first success, these sections are the most helpful for making your tenant operational.",
+    "cards": {
+      "provider_accounts": {
+        "title": "Provider accounts",
+        "description": "Manage credentials, effective models, and upstream connection health in one place."
+      },
+      "virtual_users": {
+        "title": "Service identities",
+        "description": "Create virtual users and VATs so applications connect to Shahrah with their own identity."
+      },
+      "teams": {
+        "title": "Teams",
+        "description": "Organize access, ownership, and allowed models around real business teams."
+      },
+      "org_units": {
+        "title": "Org units",
+        "description": "Prepare the structure of enterprise tenants for delegation and governance."
+      },
+      "guardrails": {
+        "title": "Guardrails",
+        "description": "Add safety and validation controls before production traffic arrives."
+      },
+      "prompts": {
+        "title": "Prompt registry",
+        "description": "Separate prompt templates, versions, and variables from application code."
+      },
+      "metrics": {
+        "title": "Metrics",
+        "description": "See consumption, latency, and model behavior from both operational and business angles."
+      },
+      "logs": {
+        "title": "Logs",
+        "description": "Follow the details of real requests for debugging and runtime analysis."
+      },
+      "billing_plan": {
+        "title": "Plan and capacity",
+        "description": "Check your tenant's plan and the features and limits it actually includes."
+      }
+    }
+  }
+}

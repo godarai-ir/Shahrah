@@ -257,10 +257,10 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
             </CardHeader>
             <CardContent className="pt-0">
               <Button type="button" variant="outline" asChild>
-                <a href="/docs/quick-start" target="_blank" rel="noreferrer">
+                <Link href="/quick-start">
                   {t("quickStart.action")}
                   <ArrowUpRight data-icon="inline-end" aria-hidden="true" />
-                </a>
+                </Link>
               </Button>
             </CardContent>
           </DashboardPanel>

@@ -8,9 +8,9 @@
     "successTitle": "Success"
   },
   "quickStart": {
-    "title": "Quick start guide",
-    "description": "If you are just getting started with Shahrah, this guide walks through connecting a provider, adding models, and calling the gateway from code.",
-    "action": "Open guide"
+    "title": "Operational quick start",
+    "description": "An interactive quick start that adapts to your plan, advances the real tenant setup, and helps you run your first successful request in place.",
+    "action": "Open quick start"
   },
   "plan": {
     "currentPlan": "Current plan",
