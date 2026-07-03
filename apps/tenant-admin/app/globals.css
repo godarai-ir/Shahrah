@@ -128,8 +128,8 @@ body {
 
 /* Custom Scrollbar for Webkit */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 10px;
+  height: 10px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -137,12 +137,20 @@ body {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--muted);
+  background: color-mix(in oklab, var(--muted-foreground) 18%, transparent);
+  border: 2px solid transparent;
   border-radius: var(--radius-full);
+  background-clip: padding-box;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: var(--muted-foreground);
+  background: color-mix(in oklab, var(--muted-foreground) 28%, transparent);
+  background-clip: padding-box;
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--muted-foreground) 24%, transparent) transparent;
 }
 
 /* ========================================

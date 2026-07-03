@@ -65,14 +65,14 @@ export function StatCard({
         <div className="flex items-start justify-between gap-4">
           {/* Content */}
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-muted-foreground truncate">
+            <p className="text-sm font-medium text-muted-foreground">
               {title}
             </p>
             <p className="mt-2 text-2xl font-bold tracking-tight md:text-3xl">
               {value}
             </p>
             {subtitle && (
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 w-full text-xs leading-6 text-muted-foreground">
                 {subtitle}
               </p>
             )}

@@ -1,23 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import {
   ArrowUpRight,
-  BookOpen,
   Building2,
+  Check,
   CheckCircle2,
   CircleDollarSign,
+  ClipboardCopy,
   Copy,
   Gauge,
   KeyRound,
   Layers3,
+  Lightbulb,
   Loader2,
   Network,
   Play,
-  RefreshCcw,
   ShieldCheck,
   Sparkles,
   TerminalSquare,
@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 
 import { CodeBlock } from "@/app/components/code-block";
-import { StatCard } from "@/app/components/stat-card";
 import {
   deriveQuickStartJourney,
   type QuickStartAction,
@@ -36,6 +35,8 @@ import {
   type QuickStartStepStatus,
   type QuickStartSubscription,
 } from "@/app/components/quick-start-journey";
+import { ProviderLogo } from "@/app/components/provider-account-wizard/provider-logo";
+import type { ProviderCatalogProvider, ProvidersResponse } from "@/app/components/provider-account-wizard/types";
 import {
   buildBashCurlGuideCommand,
   getTenantApiBaseURL,
@@ -54,8 +55,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 type Banner = {
@@ -68,10 +69,11 @@ type QuickStartManagementProps = {
   initialPermissions: string[];
   initialResources: QuickStartResources;
   initialSubscription: QuickStartSubscription;
+  docsBaseHref: string;
 };
 
 type TokenType = "pat" | "vat";
-type SnippetTab = "bash" | "python";
+type SnippetTab = "bash" | "python" | "node";
 type TranslateValues = Record<string, string | number | Date | null | undefined>;
 type TranslateFn = (key: string, values?: TranslateValues) => string;
 type SampleRunResult = {
@@ -82,11 +84,11 @@ type SampleRunResult = {
 };
 
 const samplePrompt = "برای من سه مزیت اصلی استفاده از gateway را بنویس.";
+const featuredProviderOrder = ["openai", "anthropic", "google", "azure", "mistral", "groq"] as const;
 
 export default function QuickStartManagement(props: QuickStartManagementProps) {
   const t = useTranslations("quickStart");
   const common = useTranslations("common");
-  const router = useRouter();
   const [resources, setResources] = useState(props.initialResources);
   const [banner, setBanner] = useState<Banner | null>(null);
   const [copiedKey, setCopiedKey] = useState("");
@@ -100,7 +102,8 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
   const [isCreatingPat, setIsCreatingPat] = useState(false);
   const [isRunningSample, setIsRunningSample] = useState(false);
   const [sampleRunResult, setSampleRunResult] = useState<SampleRunResult | null>(null);
-  const [isRefreshing, startRefreshing] = useTransition();
+  const [isTestBenchOpen, setIsTestBenchOpen] = useState(false);
+  const [providerChoices, setProviderChoices] = useState<ProviderCatalogProvider[]>([]);
 
   const journey = useMemo(
     () =>
@@ -112,6 +115,16 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
       }),
     [props.initialEntitlements, props.initialPermissions, props.initialSubscription, resources],
   );
+  const featuredProviders = useMemo(() => {
+    const ranked = new Map(featuredProviderOrder.map((slug, index) => [slug, index]));
+    return providerChoices
+      .filter((item) => ranked.has(normalizeFeaturedProvider(item.provider)))
+      .sort(
+        (a, b) =>
+          (ranked.get(normalizeFeaturedProvider(a.provider)) ?? Number.MAX_SAFE_INTEGER) -
+          (ranked.get(normalizeFeaturedProvider(b.provider)) ?? Number.MAX_SAFE_INTEGER),
+      );
+  }, [providerChoices]);
 
   const effectiveSelectedTokenType =
     journey.testBench.availableTokenTypes.includes(selectedTokenType)
@@ -129,10 +142,9 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
       ? generatedPatSecret ?? manualTokens.pat.trim()
       : manualTokens.vat.trim();
 
-  const tokenPlaceholder = effectiveSelectedTokenType === "pat" ? "YOUR_SHAHRAH_PAT" : "YOUR_SHAHRAH_VAT";
+  const tokenPlaceholder = effectiveSelectedTokenType === "pat" ? "YOUR_GodarAI_PAT" : "YOUR_GodarAI_VAT";
   const tokenForSnippet = effectiveToken || tokenPlaceholder;
   const baseUrl = getTenantApiBaseURL();
-
   const bashSnippet = buildBashCurlGuideCommand({
     baseUrl,
     endpoint: "/v1/chat/completions",
@@ -168,18 +180,42 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
     "print(response.choices[0].message.content)",
   ].join("\n");
 
-  const stepCountLabel = t("progress.value", {
-    done: formatCount(journey.doneCount),
-    total: formatCount(journey.totalCount),
-  });
+  const nodeSnippet = [
+    'import OpenAI from "openai";',
+    "",
+    "const client = new OpenAI({",
+    `  apiKey: ${JSON.stringify(tokenForSnippet)},`,
+    `  baseURL: ${JSON.stringify(`${baseUrl}/v1`)},`,
+    "});",
+    "",
+    "const response = await client.chat.completions.create({",
+    `  model: ${JSON.stringify(suggestedModel)},`,
+    "  messages: [",
+    "    {",
+    '      role: "user",',
+    `      content: ${JSON.stringify(samplePrompt)},`,
+    "    },",
+    "  ],",
+    "});",
+    "",
+    "console.log(response.choices[0]?.message?.content);",
+  ].join("\n");
 
-  function refreshStatus() {
-    setBanner(null);
-    setSampleRunResult(null);
-    startRefreshing(() => {
-      router.refresh();
-    });
-  }
+  useEffect(() => {
+    let isCancelled = false;
+    void requestJSON<ProvidersResponse>("/api/provider-catalog/providers")
+      .then((payload) => {
+        if (isCancelled) return;
+        setProviderChoices(payload.data ?? []);
+      })
+      .catch(() => {
+        if (isCancelled) return;
+        setProviderChoices([]);
+      });
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   async function createPat() {
     if (isCreatingPat) return;
@@ -220,14 +256,30 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
       return;
     }
     if (action.type === "anchor") {
-      document.getElementById(action.anchor)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (action.anchor === "test_bench") {
+        setIsTestBenchOpen(true);
+        return;
+      }
       return;
     }
   }
 
   async function copyText(key: string, value: string) {
     try {
-      await navigator.clipboard.writeText(value);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = value;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "fixed";
+        textarea.style.top = "-9999px";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
       setCopiedKey(key);
       window.setTimeout(() => setCopiedKey((current) => (current === key ? "" : current)), 1600);
     } catch {
@@ -292,62 +344,6 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
 
   return (
     <div className="flex flex-col gap-6 px-1 py-1 sm:px-2 sm:py-2">
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(21rem,0.8fr)]">
-        <Card className="overflow-hidden rounded-2xl border-info/30 bg-info/5 shadow-sm">
-          <CardHeader className="gap-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline">{t(`planNames.${journey.plan}`)}</Badge>
-              <Badge variant="secondary">{stepCountLabel}</Badge>
-              <Badge variant={journey.doneCount === journey.totalCount ? "success" : "outline"}>
-                {t(`progress.state.${journey.doneCount === journey.totalCount ? "complete" : "inProgress"}`)}
-              </Badge>
-            </div>
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-              <div className="min-w-0">
-                <CardDescription className="text-sm font-semibold text-info">{t("eyebrow")}</CardDescription>
-                <CardTitle className="mt-1 text-2xl tracking-tight sm:text-3xl">{t("title")}</CardTitle>
-                <CardDescription className="mt-3 max-w-3xl leading-7 text-foreground/80">
-                  {t("subtitle")}
-                </CardDescription>
-                <p className="mt-4 max-w-3xl text-sm leading-7 text-muted-foreground">
-                  {t(`planHints.${journey.plan}`)}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button type="button" variant="outline" onClick={refreshStatus} disabled={isRefreshing}>
-                  {isRefreshing ? <Loader2 className="size-4 animate-spin" /> : <RefreshCcw className="size-4" />}
-                  {t("actions.refreshStatus")}
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-        </Card>
-
-        <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
-          <StatCard
-            title={t("stats.providers.title")}
-            value={formatCount(resources.providerAccountCount)}
-            subtitle={t("stats.providers.subtitle")}
-            icon={Network}
-            color={resources.providerAccountCount > 0 ? "green" : "amber"}
-          />
-          <StatCard
-            title={t("stats.tokens.title")}
-            value={formatCount(resources.personalAccessTokenCount + resources.virtualUserCount)}
-            subtitle={t("stats.tokens.subtitle")}
-            icon={KeyRound}
-            color={resources.personalAccessTokenCount + resources.virtualUserCount > 0 ? "green" : "amber"}
-          />
-          <StatCard
-            title={t("stats.controls.title")}
-            value={formatCount(resources.rateLimitRuleCount + resources.budgetLimitRuleCount + resources.guardrailCount)}
-            subtitle={t("stats.controls.subtitle")}
-            icon={ShieldCheck}
-            color={resources.rateLimitRuleCount + resources.budgetLimitRuleCount + resources.guardrailCount > 0 ? "green" : "indigo"}
-          />
-        </div>
-      </section>
-
       {banner ? (
         <Alert variant={banner.kind === "error" ? "destructive" : "default"}>
           <AlertTitle>{banner.kind === "error" ? t("alerts.error") : t("alerts.success")}</AlertTitle>
@@ -355,279 +351,128 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
         </Alert>
       ) : null}
 
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-        <Card className="rounded-2xl border-border/70 shadow-sm">
-          <CardHeader>
-            <CardTitle>{t("journey.title")}</CardTitle>
-            <CardDescription>{t("journey.description")}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ol className="space-y-4">
-              {journey.steps.map((step, index) => (
-                <li key={step.id} className="relative ps-16">
-                  {index < journey.steps.length - 1 ? (
-                    <span className="absolute start-[1.65rem] top-12 h-[calc(100%-1.5rem)] w-px bg-border" aria-hidden="true" />
-                  ) : null}
-                  <span
-                    className={cn(
-                      "absolute start-0 top-1 flex size-12 items-center justify-center rounded-2xl border text-sm font-semibold",
-                      step.status === "done"
-                        ? "border-success/30 bg-success-muted text-success"
-                        : step.status === "active"
-                          ? "border-info/30 bg-info/10 text-info"
-                          : step.status === "unavailable"
-                            ? "border-destructive/20 bg-destructive/5 text-destructive"
-                            : "border-border bg-muted/40 text-muted-foreground",
-                    )}
-                  >
-                    {step.status === "done" ? <CheckCircle2 className="size-5" /> : formatCount(index + 1)}
-                  </span>
-                  <div className="rounded-2xl border border-border/70 bg-card/95 p-4 shadow-sm">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-base font-semibold">{t(`steps.${step.id}.title`)}</h3>
-                          <Badge variant={badgeVariantForStatus(step.status)}>
-                            {t(`statuses.${step.status}`)}
-                          </Badge>
+      <section className="mx-auto w-full max-w-5xl">
+        <div>
+          <Card className="rounded-2xl border-border/70 shadow-sm">
+            <CardHeader>
+              <CardTitle>{t("journey.title")}</CardTitle>
+              {t("journey.description") ? <CardDescription>{t("journey.description")}</CardDescription> : null}
+            </CardHeader>
+            <CardContent>
+              <ol className="space-y-4">
+                {journey.steps.map((step, index) => (
+                  <li key={step.id} className="relative ps-16">
+                    {index < journey.steps.length - 1 ? (
+                      <span className="absolute start-[1.65rem] top-12 h-[calc(100%-1.5rem)] w-px bg-border" aria-hidden="true" />
+                    ) : null}
+                    <span
+                      className={cn(
+                        "absolute start-0 top-1 flex size-12 items-center justify-center rounded-2xl border text-sm font-semibold",
+                        step.status === "done"
+                          ? "border-success/30 bg-success-muted text-success"
+                          : step.status === "active"
+                            ? "border-info/30 bg-info/10 text-info"
+                            : step.status === "unavailable"
+                              ? "border-destructive/20 bg-destructive/5 text-destructive"
+                              : "border-border bg-muted/40 text-muted-foreground",
+                      )}
+                    >
+                      {step.status === "done" ? <CheckCircle2 className="size-5" /> : formatCount(index + 1)}
+                    </span>
+                    <div className="rounded-2xl border border-border/70 bg-card/95 p-4 shadow-sm">
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="text-base font-semibold">{t(`steps.${step.id}.title`)}</h3>
+                              <Badge variant={badgeVariantForStatus(step.status)}>
+                                {t(`statuses.${step.status}`)}
+                              </Badge>
+                            </div>
+                          </div>
+                          <StepActionButton
+                            stepID={step.id}
+                            status={step.status}
+                            action={step.action}
+                            t={t}
+                            onAction={() => {
+                              if (step.id === "inspect_activity") {
+                                setResources((current) => ({
+                                  ...current,
+                                  telemetryVisited: true,
+                                }));
+                              }
+                              handleAction(step.action);
+                            }}
+                          />
                         </div>
-                        <p className="mt-2 text-sm leading-7 text-muted-foreground">
-                          {t(`steps.${step.id}.description`)}
-                        </p>
-                        <p className="mt-3 rounded-xl bg-muted/40 px-3 py-2 text-xs leading-6 text-foreground/80">
-                          <strong>{t("journey.learnLabel")}</strong> {t(`steps.${step.id}.learn`)}
-                        </p>
-                        {step.status === "unavailable" && step.blockedBy ? (
-                          <p className="mt-3 text-xs leading-6 text-destructive">
-                            {t(`blocked.${step.blockedBy}`)}
+                        <div className="min-w-0">
+                          <p className="mt-2 text-sm leading-7 text-muted-foreground">
+                            {t(`steps.${step.id}.description`)}
                           </p>
-                        ) : null}
+                          {step.id === "connect_provider" && featuredProviders.length > 0 ? (
+                            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                              {featuredProviders.map((providerItem) => (
+                                <Link
+                                  key={providerItem.provider}
+                                  href={`/provider-accounts/new?provider=${encodeURIComponent(providerItem.provider)}`}
+                                  className="group flex items-center gap-3 rounded-2xl border border-border/70 bg-background/80 px-3 py-3 transition-colors hover:border-primary/30 hover:bg-primary/5"
+                                >
+                                  <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-muted/70">
+                                    <ProviderLogo
+                                      provider={providerItem.provider}
+                                      displayName={providerItem.display_name}
+                                      logoURL={providerItem.logo_url}
+                                      size={26}
+                                    />
+                                  </span>
+                                  <span className="min-w-0 flex-1 text-sm font-medium leading-6">
+                                    {providerItem.display_name}
+                                  </span>
+                                  <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition group-hover:text-foreground" />
+                                </Link>
+                              ))}
+                            </div>
+                          ) : null}
+                          <div className="mt-3 flex w-full items-start gap-3 rounded-2xl bg-warning-muted px-3 py-3 text-xs leading-6 text-foreground/85">
+                            <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl bg-warning/15 text-warning">
+                              <Lightbulb className="size-4" />
+                            </span>
+                            <p className="min-w-0 flex-1">{renderStepLearn(step.id, t, props.docsBaseHref)}</p>
+                          </div>
+                          {step.status === "unavailable" && step.blockedBy ? (
+                            <p className="mt-3 text-xs leading-6 text-destructive">
+                              {t(`blocked.${step.blockedBy}`)}
+                            </p>
+                          ) : null}
+                        </div>
                       </div>
-                      <StepActionButton
-                        stepID={step.id}
-                        status={step.status}
-                        action={step.action}
-                        t={t}
-                        onAction={() => {
-                          if (step.id === "inspect_activity") {
-                            setResources((current) => ({
-                              ...current,
-                              telemetryVisited: true,
-                            }));
-                          }
-                          handleAction(step.action);
-                        }}
-                      />
                     </div>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </CardContent>
-        </Card>
-
-        <div id="test_bench" className="space-y-6">
-          <Card className="rounded-2xl border-border/70 shadow-sm">
-            <CardHeader>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <TerminalSquare className="size-5 text-info" />
-                    {t("lab.title")}
-                  </CardTitle>
-                  <CardDescription className="mt-2 leading-7">{t("lab.description")}</CardDescription>
-                </div>
-                <Badge variant="outline">{t(`tokenLabels.${journey.testBench.recommendedTokenType}`)}</Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {!journey.testBench.ready ? (
-                <Alert>
-                  <AlertTitle>{t("lab.notReadyTitle")}</AlertTitle>
-                  <AlertDescription>
-                    {resources.providerAccountCount === 0
-                      ? t("lab.notReadyProvider")
-                      : t("lab.notReadyModels")}
-                  </AlertDescription>
-                </Alert>
-              ) : null}
-
-              <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold">{t("lab.keyTypeTitle")}</p>
-                    <p className="mt-1 text-xs leading-6 text-muted-foreground">
-                      {journey.recommendedTokenType === "vat" ? t("lab.recommendedVat") : t("lab.recommendedPat")}
-                    </p>
-                  </div>
-                  {journey.testBench.availableTokenTypes.includes("pat") ? (
-                    <Button type="button" variant="outline" size="sm" onClick={() => setIsPatDialogOpen(true)}>
-                      <KeyRound className="size-4" />
-                      {t("actions.createPat")}
-                    </Button>
-                  ) : null}
-                </div>
-
-                <Tabs value={effectiveSelectedTokenType} onValueChange={(value) => setSelectedTokenType(value as TokenType)} className="mt-4 gap-3">
-                  <TabsList variant="line" className="justify-start">
-                    {journey.testBench.availableTokenTypes.map((tokenType) => (
-                      <TabsTrigger key={tokenType} value={tokenType}>
-                        {t(`tokenLabels.${tokenType}`)}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-
-                  {journey.testBench.availableTokenTypes.map((tokenType) => (
-                    <TabsContent key={tokenType} value={tokenType} className="space-y-3">
-                      <div className="space-y-2">
-                        <Label htmlFor={`quick-start-token-${tokenType}`}>{t(`lab.tokenInputLabel.${tokenType}`)}</Label>
-                        <Textarea
-                          id={`quick-start-token-${tokenType}`}
-                          dir="ltr"
-                          rows={3}
-                          value={tokenType === "pat" ? manualTokens.pat : manualTokens.vat}
-                          onChange={(event) =>
-                            setManualTokens((current) => ({
-                              ...current,
-                              [tokenType]: event.target.value,
-                            }))
-                          }
-                          placeholder={t(`lab.tokenInputPlaceholder.${tokenType}`)}
-                        />
-                        <p className="text-xs leading-6 text-muted-foreground">{t("lab.localOnlyHint")}</p>
-                      </div>
-                    </TabsContent>
-                  ))}
-                </Tabs>
-              </div>
-
-              {generatedPatSecret ? (
-                <div className="rounded-2xl border border-success/30 bg-success-muted p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-success">{t("lab.generatedTokenTitle")}</p>
-                      <p className="mt-1 text-xs leading-6 text-foreground/80">{t("lab.generatedTokenDescription")}</p>
-                      <code className="mt-3 block overflow-auto rounded-xl bg-background/80 px-3 py-2 text-xs" dir="ltr">
-                        {generatedPatSecret}
-                      </code>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void copyText("generated-token", generatedPatSecret)}
-                    >
-                      <Copy className="size-4" />
-                      {copiedKey === "generated-token" ? t("actions.copied") : t("actions.copyToken")}
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-                <div className="space-y-2">
-                  <Label htmlFor="quick-start-model">{t("lab.modelLabel")}</Label>
-                  <Input id="quick-start-model" dir="ltr" readOnly value={suggestedModel} />
-                </div>
-                <div className="flex gap-2">
-                  <Button type="button" onClick={() => void runSampleRequest()} disabled={!journey.testBench.ready || !effectiveToken || isRunningSample}>
-                    {isRunningSample ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
-                    {isRunningSample ? t("lab.runningAction") : t("lab.runAction")}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() =>
-                      void copyText(
-                        `snippet-${selectedSnippetTab}`,
-                        selectedSnippetTab === "bash" ? bashSnippet : pythonSnippet,
-                      )
-                    }
-                    disabled={!journey.testBench.ready}
-                  >
-                    <Copy className="size-4" />
-                    {copiedKey === `snippet-${selectedSnippetTab}` ? t("actions.copied") : t("actions.copySnippet")}
-                  </Button>
-                </div>
-              </div>
-
-              <p className="text-xs leading-6 text-muted-foreground">{t("lab.browserRunHint")}</p>
-
-              <Tabs value={selectedSnippetTab} onValueChange={(value) => setSelectedSnippetTab(value as SnippetTab)}>
-                <TabsList variant="line" className="justify-start">
-                  <TabsTrigger value="bash">{t("lab.tabs.bash")}</TabsTrigger>
-                  <TabsTrigger value="python">{t("lab.tabs.python")}</TabsTrigger>
-                </TabsList>
-                <TabsContent value="bash">
-                  <CodeBlock code={bashSnippet} language="bash" />
-                </TabsContent>
-                <TabsContent value="python">
-                  <CodeBlock code={pythonSnippet} language="python" />
-                </TabsContent>
-              </Tabs>
-
-              {!effectiveToken ? (
-                <p className="text-xs leading-6 text-muted-foreground">
-                  {t(`lab.placeholderHint.${effectiveSelectedTokenType}`)}
-                </p>
-              ) : null}
-
-              {sampleRunResult ? (
-                <div className="space-y-3 rounded-2xl border border-success/30 bg-success-muted p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-semibold text-success">{t("lab.responseTitle")}</p>
-                      <p className="mt-1 text-xs leading-6 text-foreground/80">
-                        {t("lab.responseDescription", {
-                          status: sampleRunResult.status,
-                          tokenType: t(`tokenLabels.${sampleRunResult.tokenType}`),
-                        })}
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void copyText("sample-response", sampleRunResult.raw)}
-                    >
-                      <Copy className="size-4" />
-                      {copiedKey === "sample-response" ? t("actions.copied") : t("lab.copyResponse")}
-                    </Button>
-                  </div>
-
-                  {sampleRunResult.content ? (
-                    <div className="rounded-xl bg-background/80 p-3">
-                      <p className="text-xs font-semibold text-muted-foreground">{t("lab.responsePreviewLabel")}</p>
-                      <p className="mt-2 whitespace-pre-wrap text-sm leading-7">{sampleRunResult.content}</p>
-                    </div>
-                  ) : null}
-
-                  <div>
-                    <p className="mb-2 text-xs font-semibold text-muted-foreground">{t("lab.rawResponseLabel")}</p>
-                    <CodeBlock code={sampleRunResult.raw} language="json" />
-                  </div>
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-2xl border-border/70 shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Sparkles className="size-5 text-info" />
-                {t("explore.title")}
-              </CardTitle>
-              <CardDescription>{t("explore.description")}</CardDescription>
-            </CardHeader>
-            <CardContent className="@container">
-              <div className="grid gap-3 @[28rem]:grid-cols-2 @[48rem]:grid-cols-2 @[64rem]:grid-cols-3 @[82rem]:grid-cols-4">
-              {journey.exploreCards.map((cardID) => (
-                <ExploreCard key={cardID} cardID={cardID} t={t} />
-              ))}
-              </div>
+                  </li>
+                ))}
+              </ol>
             </CardContent>
           </Card>
         </div>
+      </section>
+
+      <section>
+        <Card className="rounded-2xl border-border/70 shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="size-5 text-info" />
+              {t("explore.title")}
+            </CardTitle>
+            <CardDescription>{t("explore.description")}</CardDescription>
+          </CardHeader>
+          <CardContent className="@container">
+            <div className="grid gap-3 @[28rem]:grid-cols-2 @[48rem]:grid-cols-3 @[64rem]:grid-cols-4 @[82rem]:grid-cols-5">
+              {journey.exploreCards.map((cardID) => (
+                <ExploreCard key={cardID} cardID={cardID} t={t} />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </section>
 
       <Dialog open={isPatDialogOpen} onOpenChange={setIsPatDialogOpen}>
@@ -667,6 +512,196 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Sheet open={isTestBenchOpen} onOpenChange={setIsTestBenchOpen}>
+        <SheetContent side="left" className="flex h-full w-[96vw] max-w-3xl flex-col gap-0 p-0 sm:max-w-2xl">
+          <SheetHeader className="border-b px-6 py-5 text-right">
+            <SheetTitle className="flex items-center justify-end gap-2">
+              {t("lab.title")}
+              <TerminalSquare className="size-5 text-info" />
+            </SheetTitle>
+            <SheetDescription className="leading-7">{t("lab.description")}</SheetDescription>
+          </SheetHeader>
+          <div id="test_bench" className="custom-scrollbar flex-1 overflow-y-auto px-6 py-5">
+            <div className="space-y-4">
+              {!journey.testBench.ready ? (
+                <Alert>
+                  <AlertTitle>{t("lab.notReadyTitle")}</AlertTitle>
+                  <AlertDescription>
+                    {resources.providerAccountCount === 0 ? t("lab.notReadyProvider") : t("lab.notReadyModels")}
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+
+              <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold">{t("lab.keyTypeTitle")}</p>
+                    <p className="mt-1 text-xs leading-6 text-muted-foreground">
+                      {journey.recommendedTokenType === "vat" ? t("lab.recommendedVat") : t("lab.recommendedPat")}
+                    </p>
+                  </div>
+                  {journey.testBench.availableTokenTypes.includes("pat") ? (
+                    <Button type="button" variant="outline" size="sm" onClick={() => setIsPatDialogOpen(true)}>
+                      <KeyRound className="size-4" />
+                      {t("actions.createPat")}
+                    </Button>
+                  ) : null}
+                </div>
+
+                <Tabs value={effectiveSelectedTokenType} onValueChange={(value) => setSelectedTokenType(value as TokenType)} className="mt-4 gap-3">
+                  <TabsList variant="line" className="justify-start rounded-none border-0 bg-transparent p-0 shadow-none">
+                    {journey.testBench.availableTokenTypes.map((tokenType) => (
+                      <TabsTrigger key={tokenType} value={tokenType}>
+                        {t(`tokenLabels.${tokenType}`)}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+
+                  {journey.testBench.availableTokenTypes.map((tokenType) => (
+                    <TabsContent key={tokenType} value={tokenType} className="space-y-3">
+                      <div className="space-y-2">
+                        <Label htmlFor={`quick-start-token-${tokenType}`}>{t(`lab.tokenInputLabel.${tokenType}`)}</Label>
+                        <Input
+                          id={`quick-start-token-${tokenType}`}
+                          dir="ltr"
+                          value={tokenType === "pat" ? manualTokens.pat : manualTokens.vat}
+                          onChange={(event) =>
+                            setManualTokens((current) => ({
+                              ...current,
+                              [tokenType]: event.target.value,
+                            }))
+                          }
+                          placeholder={t(`lab.tokenInputPlaceholder.${tokenType}`)}
+                        />
+                        <p dir="rtl" className="w-full text-right text-xs leading-6 text-muted-foreground">
+                          {t("lab.localOnlyHint")}
+                        </p>
+                      </div>
+                    </TabsContent>
+                  ))}
+                </Tabs>
+              </div>
+
+              {generatedPatSecret ? (
+                <div className="rounded-2xl border border-success/30 bg-success-muted p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-success">{t("lab.generatedTokenTitle")}</p>
+                      <p className="mt-1 text-xs leading-6 text-foreground/80">{t("lab.generatedTokenDescription")}</p>
+                      <code className="mt-3 block overflow-auto rounded-xl bg-background/80 px-3 py-2 text-xs" dir="ltr">
+                        {generatedPatSecret}
+                      </code>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={() => void copyText("generated-token", generatedPatSecret)}>
+                      <Copy className="size-4" />
+                      {copiedKey === "generated-token" ? t("actions.copied") : t("actions.copyToken")}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                <div className="space-y-2">
+                  <Label htmlFor="quick-start-model">{t("lab.modelLabel")}</Label>
+                  <Input id="quick-start-model" dir="ltr" readOnly value={suggestedModel} />
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" onClick={() => void runSampleRequest()} disabled={!journey.testBench.ready || !effectiveToken || isRunningSample}>
+                    {isRunningSample ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
+                    {isRunningSample ? t("lab.runningAction") : t("lab.runAction")}
+                  </Button>
+                </div>
+              </div>
+
+              <p className="text-xs leading-6 text-muted-foreground">{t("lab.browserRunHint")}</p>
+
+              <Tabs value={selectedSnippetTab} onValueChange={(value) => setSelectedSnippetTab(value as SnippetTab)}>
+                <div className="flex items-center justify-between gap-3">
+                  <TabsList variant="line" className="justify-start rounded-none border-0 bg-transparent p-0 shadow-none">
+                    <TabsTrigger value="bash">{t("lab.tabs.bash")}</TabsTrigger>
+                    <TabsTrigger value="python">{t("lab.tabs.python")}</TabsTrigger>
+                    <TabsTrigger value="node">{t("lab.tabs.node")}</TabsTrigger>
+                  </TabsList>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={copiedKey === `snippet-${selectedSnippetTab}` ? t("actions.copied") : t("actions.copySnippet")}
+                    title={copiedKey === `snippet-${selectedSnippetTab}` ? t("actions.copied") : t("actions.copySnippet")}
+                    onClick={() =>
+                      void copyText(
+                        `snippet-${selectedSnippetTab}`,
+                        selectedSnippetTab === "bash"
+                          ? bashSnippet
+                          : selectedSnippetTab === "python"
+                            ? pythonSnippet
+                            : nodeSnippet,
+                      )
+                    }
+                    disabled={!journey.testBench.ready}
+                    className={cn(
+                      "transition-all duration-200",
+                      copiedKey === `snippet-${selectedSnippetTab}` && "bg-success/10 text-success hover:bg-success/15",
+                    )}
+                  >
+                    {copiedKey === `snippet-${selectedSnippetTab}` ? (
+                      <Check className="size-4 animate-in zoom-in-50 duration-200" />
+                    ) : (
+                      <ClipboardCopy className="size-4" />
+                    )}
+                  </Button>
+                </div>
+                <TabsContent value="bash">
+                  <CodeBlock code={bashSnippet} language="bash" />
+                </TabsContent>
+                <TabsContent value="python">
+                  <CodeBlock code={pythonSnippet} language="python" />
+                </TabsContent>
+                <TabsContent value="node">
+                  <CodeBlock code={nodeSnippet} language="javascript" />
+                </TabsContent>
+              </Tabs>
+
+              {!effectiveToken ? (
+                <p className="text-xs leading-6 text-muted-foreground">{t(`lab.placeholderHint.${effectiveSelectedTokenType}`)}</p>
+              ) : null}
+
+              {sampleRunResult ? (
+                <div className="space-y-3 rounded-2xl border border-success/30 bg-success-muted p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold text-success">{t("lab.responseTitle")}</p>
+                      <p className="mt-1 text-xs leading-6 text-foreground/80">
+                        {t("lab.responseDescription", {
+                          status: sampleRunResult.status,
+                          tokenType: t(`tokenLabels.${sampleRunResult.tokenType}`),
+                        })}
+                      </p>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={() => void copyText("sample-response", sampleRunResult.raw)}>
+                      <Copy className="size-4" />
+                      {copiedKey === "sample-response" ? t("actions.copied") : t("lab.copyResponse")}
+                    </Button>
+                  </div>
+
+                  {sampleRunResult.content ? (
+                    <div className="rounded-xl bg-background/80 p-3">
+                      <p className="text-xs font-semibold text-muted-foreground">{t("lab.responsePreviewLabel")}</p>
+                      <p className="mt-2 whitespace-pre-wrap text-sm leading-7">{sampleRunResult.content}</p>
+                    </div>
+                  ) : null}
+
+                  <div>
+                    <p className="mb-2 text-xs font-semibold text-muted-foreground">{t("lab.rawResponseLabel")}</p>
+                    <CodeBlock code={sampleRunResult.raw} language="json" />
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
@@ -680,13 +715,16 @@ function StepActionButton(props: {
 }) {
   const isDisabled = props.status === "unavailable" || props.status === "locked";
   const label = props.t(`steps.${props.stepID}.${props.status === "done" ? "manageAction" : "action"}`);
+  const icon = props.action.type === "anchor" ? <TerminalSquare className="size-4" /> : <KeyRound className="size-4" />;
+  const buttonClassName = "shrink-0 min-w-[44px] max-w-full px-2.5 sm:px-3";
+  const textClassName = "inline text-xs sm:text-sm";
 
   if (props.action.type === "link") {
     if (isDisabled) {
       return (
-        <Button type="button" variant={props.status === "done" ? "outline" : "default"} className="shrink-0" disabled>
-          {label}
-          <ArrowUpRight className="size-4" />
+        <Button type="button" variant={props.status === "done" ? "outline" : "default"} className={buttonClassName} size="sm" disabled>
+          <span className={textClassName}>{label}</span>
+          <ArrowUpRight className="size-4 shrink-0" />
         </Button>
       );
     }
@@ -695,11 +733,12 @@ function StepActionButton(props: {
         type="button"
         asChild
         variant={props.status === "done" ? "outline" : "default"}
-        className="shrink-0"
+        className={buttonClassName}
+        size="sm"
       >
         <Link href={props.action.href} onClick={props.onAction}>
-          {label}
-          <ArrowUpRight className="size-4" />
+          <span className={textClassName}>{label}</span>
+          <ArrowUpRight className="size-4 shrink-0" />
         </Link>
       </Button>
     );
@@ -709,12 +748,13 @@ function StepActionButton(props: {
     <Button
       type="button"
       variant={props.status === "done" ? "outline" : "default"}
-      className="shrink-0"
+      className={buttonClassName}
+      size="sm"
       onClick={props.onAction}
       disabled={isDisabled}
     >
-      {label}
-      {props.action.type === "anchor" ? <TerminalSquare className="size-4" /> : <KeyRound className="size-4" />}
+      <span className={textClassName}>{label}</span>
+      <span className="inline-flex shrink-0">{icon}</span>
     </Button>
   );
 }
@@ -741,7 +781,7 @@ function ExploreCard(props: {
     teams: Users,
     org_units: Building2,
     guardrails: ShieldCheck,
-    prompts: BookOpen,
+    prompts: Sparkles,
     metrics: Gauge,
     logs: Layers3,
     billing_plan: CircleDollarSign,
@@ -770,6 +810,40 @@ function ExploreCard(props: {
       </p>
     </Link>
   );
+}
+
+function renderStepLearn(stepID: QuickStartStepID, t: TranslateFn, docsBaseHref: string): ReactNode {
+  const docsSlugByStep: Partial<Record<QuickStartStepID, string>> = {
+    connect_provider: "/quick-start",
+    create_pat: "/guides/api-keys",
+    inspect_activity: "/observability-logs",
+  };
+
+  const docsSlug = docsSlugByStep[stepID];
+  if (!docsSlug) {
+    return t(`steps.${stepID}.learn`);
+  }
+
+  return (
+    <>
+      {t(`steps.${stepID}.learn`)}{" "}
+      <a
+        href={`${docsBaseHref}${docsSlug}`}
+        target="_blank"
+        rel="noreferrer"
+        className="font-medium text-primary underline underline-offset-4 hover:text-primary/80"
+      >
+        راهنمایی بیشتر
+      </a>
+    </>
+  );
+}
+
+function normalizeFeaturedProvider(provider: string): string {
+  const normalized = provider.trim().toLowerCase();
+  if (normalized === "gemini" || normalized === "google-gemini") return "google";
+  if (normalized === "azure-openai") return "azure";
+  return normalized;
 }
 
 function badgeVariantForStatus(status: QuickStartStepStatus): "outline" | "secondary" | "success" | "destructive" {

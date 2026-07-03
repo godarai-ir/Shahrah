@@ -8,6 +8,7 @@ import {
 import { getCurrentMePermissions } from "@/lib/auth/me-permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
+import { headers } from "next/headers";
 
 export const dynamic = "force-dynamic";
 
@@ -23,8 +24,10 @@ type AllowedModel = {
 export default async function QuickStartPage() {
   const auth = await requireAuth("/login?next=/quick-start");
   const tenantSlug = auth.tenantSlug;
+  const requestHeaders = await headers();
   const permissionsPayload = await getCurrentMePermissions(tenantSlug, auth.user.id).catch(() => ({ permissions: [] as string[] }));
   const permissions = (permissionsPayload.permissions ?? []).map((item) => item.trim().toLowerCase());
+  const docsBaseHref = buildDocsBaseHref(requestHeaders, tenantSlug);
 
   const [subscriptionResult, entitlementsResult, providerAccountsResult, patsResult, virtualUsersResult, teamsResult, orgUnitsResult, rateRulesResult, budgetRulesResult, guardrailsResult, allowedPatModelsResult, allowedVatModelsResult] = await Promise.all([
     fetchControlPlaneJSON({
@@ -145,6 +148,7 @@ export default async function QuickStartPage() {
         initialEntitlements={initialEntitlements}
         initialPermissions={permissions}
         initialResources={initialResources}
+        docsBaseHref={docsBaseHref}
       />
     </AdminShell>
   );
@@ -179,4 +183,14 @@ function emptyResponse() {
     status: 200,
     payload: {},
   };
+}
+
+function buildDocsBaseHref(headersList: Headers, tenantSlug: string): string {
+  const forwardedProto = headersList.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const proto = forwardedProto || (headersList.get("host")?.includes("localhost") ? "http" : "https");
+  const host = headersList.get("x-forwarded-host")?.split(",")[0]?.trim() || headersList.get("host") || "";
+  const tenantPrefix = `${tenantSlug}.`;
+  const docsHost = host.startsWith(tenantPrefix) ? host.slice(tenantPrefix.length) : host;
+
+  return docsHost ? `${proto}://${docsHost}/docs` : "/docs";
 }

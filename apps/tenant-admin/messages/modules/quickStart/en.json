@@ -180,7 +180,8 @@
     "rawResponseLabel": "Raw JSON response",
     "tabs": {
       "bash": "cURL / Bash",
-      "python": "Python"
+      "python": "Python",
+      "node": "Node.js"
     },
     "placeholderHint": {
       "pat": "If you still see the placeholder, create a PAT or temporarily paste your secret.",
