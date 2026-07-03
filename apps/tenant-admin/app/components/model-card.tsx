@@ -101,6 +101,7 @@ type ModelCardProps = {
   pricingAction?: ReactNode;
   hasCustomPricing?: boolean;
   footerActions?: ReactNode;
+  extraContent?: ReactNode;
   labels?: {
     context?: string;
     maxOutput?: string;
@@ -236,7 +237,7 @@ export function ModelCard(props: ModelCardProps) {
     <Card
       dir="rtl"
       className={cn(
-        "group h-full w-full min-w-0 max-w-full overflow-hidden rounded-lg border border-border/70 bg-card transition-colors hover:border-border",
+        "group w-full min-w-0 max-w-full overflow-hidden rounded-lg border border-border/70 bg-card transition-colors hover:border-border",
         model.recommended && "ring-1 ring-primary/25",
         isDeprecated && "border-[var(--warning-soft-border)] bg-[var(--warning-soft)]",
         props.stateBadge?.tone === "active" && "border-[var(--success-soft-border)]",
@@ -244,44 +245,36 @@ export function ModelCard(props: ModelCardProps) {
         props.className,
       )}
     >
-      <CardHeader className="p-3 pb-2">
-        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex min-w-0 items-start gap-2.5">
-            <Avatar className="size-8 shrink-0 border bg-background">
+      <CardHeader className="p-2.5 pb-1.5">
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 items-start gap-2">
+            <Avatar className="size-7 shrink-0 border bg-background">
               <AvatarImage src={model.provider.logoUrl} alt={model.provider.name} />
               <AvatarFallback>{initials(model.provider.name)}</AvatarFallback>
             </Avatar>
             <div className="min-w-0">
-              <div className="flex min-w-0 items-center gap-1.5">
-                <CardTitle className="min-w-0 truncate text-base font-semibold" title={model.name} dir="ltr">
+              <div className="flex min-w-0 items-center gap-1">
+                <CardTitle className="min-w-0 truncate text-[15px] font-semibold" title={model.name} dir="ltr">
                   {model.name}
                 </CardTitle>
                 {props.detailsHref ? (
-                  <Button asChild variant="ghost" size="icon" className="size-7 shrink-0" aria-label={labels.viewDetails} title={labels.viewDetails}>
+                  <Button asChild variant="ghost" size="icon" className="size-6 shrink-0" aria-label={labels.viewDetails} title={labels.viewDetails}>
                     <Link href={props.detailsHref} target="_blank" rel="noreferrer">
-                      <ExternalLink className="h-3.5 w-3.5" />
+                      <ExternalLink className="h-3 w-3" />
                     </Link>
                   </Button>
                 ) : (
-                  <Button variant="ghost" size="icon" className="size-7 shrink-0" onClick={() => props.onViewDetails?.(model)} aria-label={labels.viewDetails} title={labels.viewDetails}>
-                    <ExternalLink className="h-3.5 w-3.5" />
+                  <Button variant="ghost" size="icon" className="size-6 shrink-0" onClick={() => props.onViewDetails?.(model)} aria-label={labels.viewDetails} title={labels.viewDetails}>
+                    <ExternalLink className="h-3 w-3" />
                   </Button>
                 )}
               </div>
-              <p className="mt-0.5 truncate text-sm text-muted-foreground" title={model.provider.name} dir="ltr">
-                {model.provider.name}
-              </p>
             </div>
           </div>
           <div className="flex max-w-full shrink-0 flex-wrap items-center justify-start gap-2 sm:justify-end">
-            {props.stateBadge ? (
-              <Badge variant={props.stateBadge.tone === "active" ? "default" : "outline"}>
-                {props.stateBadge.label}
-              </Badge>
-            ) : null}
             {props.pricingModeBadge ? <Badge variant="secondary">{props.pricingModeBadge}</Badge> : null}
             {typeof props.isSelected === "boolean" && props.onSelectedChange ? (
-              <label className="inline-flex min-h-8 cursor-pointer items-center gap-2 px-1 text-sm font-medium">
+              <label className="inline-flex min-h-7 cursor-pointer items-center gap-1.5 px-1 text-[13px] font-medium">
                 <span>{props.selectedCheckboxLabel ?? "Enabled"}</span>
                 <Switch
                   checked={props.isSelected}
@@ -303,28 +296,28 @@ export function ModelCard(props: ModelCardProps) {
             ) : null}
           </div>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-          <div className="flex min-w-0 flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+          <div className="flex min-w-0 flex-wrap gap-1">
             {model.category.map((category) => (
-              <Badge key={category} variant="secondary">{labelCategory(category, labels)}</Badge>
+              <Badge key={category} variant="secondary" className="px-2 py-0 text-[11px]">{labelCategory(category, labels)}</Badge>
             ))}
             {props.hasCustomPricing ? (
-              <Badge className="gap-1 border-[var(--warning-soft-border)] bg-[var(--warning-soft)] text-[var(--warning-soft-foreground)] hover:bg-[color-mix(in_oklab,var(--warning-soft)_88%,black)]" variant="outline">
+              <Badge className="gap-1 border-[var(--warning-soft-border)] bg-[var(--warning-soft)] px-2 py-0 text-[11px] text-[var(--warning-soft-foreground)] hover:bg-[color-mix(in_oklab,var(--warning-soft)_88%,black)]" variant="outline">
                 <SlidersHorizontal className="h-3 w-3" />
                 {labels.customPricing}
               </Badge>
             ) : null}
             {model.recommended ? (
-              <Badge className="surface-primary-soft gap-1 hover:bg-[var(--primary-soft-hover)]">
+              <Badge className="surface-primary-soft gap-1 px-2 py-0 text-[11px] hover:bg-[var(--primary-soft-hover)]">
                 <Sparkles className="h-3 w-3" />
                 {labels.recommended}
               </Badge>
             ) : null}
-            {model.popular ? <Badge variant="outline">{labels.popular}</Badge> : null}
+            {model.popular ? <Badge variant="outline" className="px-2 py-0 text-[11px]">{labels.popular}</Badge> : null}
           </div>
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-1" onClick={handleCopyModelId}>
-              {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-[var(--success-soft-foreground)]" /> : <Copy className="h-3.5 w-3.5" />}
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <Button variant="outline" size="sm" className="h-8 gap-1 px-2 text-[12px]" onClick={handleCopyModelId}>
+              {copied ? <CheckCircle2 className="h-3 w-3 text-[var(--success-soft-foreground)]" /> : <Copy className="h-3 w-3" />}
               {copied ? labels.copied : labels.copyId}
             </Button>
             {props.footerActions}
@@ -332,8 +325,8 @@ export function ModelCard(props: ModelCardProps) {
         </div>
       </CardHeader>
 
-      <CardContent className="flex flex-col gap-2 px-3 py-1.5">
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      <CardContent className="flex flex-col gap-1.5 px-2.5 py-1.5">
+        <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCell label={labels.context} value={formatTokenCount(model.contextWindow)} />
           <PriceMetricCell
             label={labels.priceInputOutput}
@@ -347,12 +340,12 @@ export function ModelCard(props: ModelCardProps) {
           <IconListCell label={labels.outputFormats} values={model.outputModalities} emptyLabel="N/A" />
         </div>
 
-        <section className="flex flex-col gap-1">
+        <section className="flex flex-col gap-0.5">
           <p className="text-xs font-medium text-muted-foreground">{labels.capabilities}</p>
           <div className="flex flex-wrap gap-1">
             {model.capabilities.length > 0 ? (
               model.capabilities.map((capability) => (
-                <Badge key={capability} variant="outline" className="gap-1">
+                <Badge key={capability} variant="outline" className="gap-1 px-2 py-0">
                   {iconForCapability(capability)}
                   <span className="text-[11px]">{capability}</span>
                 </Badge>
@@ -363,12 +356,12 @@ export function ModelCard(props: ModelCardProps) {
           </div>
         </section>
 
-        <section className="flex flex-col gap-1">
+        <section className="flex flex-col gap-0.5">
           <p className="text-xs font-medium text-muted-foreground">{labels.invocationModes}</p>
           <div className="flex flex-wrap gap-1">
             {invocationModes.length > 0 ? (
               invocationModes.map((mode) => (
-                <Badge key={mode} variant="secondary" className="gap-1 text-[11px]">
+                <Badge key={mode} variant="secondary" className="gap-1 px-2 py-0 text-[11px]">
                   {iconForMode(mode)}
                   {mode}
                 </Badge>
@@ -404,13 +397,14 @@ export function ModelCard(props: ModelCardProps) {
           </div>
         </div>
       ) : null}
+      {props.extraContent ? <div className="px-2.5 pb-2.5">{props.extraContent}</div> : null}
     </Card>
   );
 }
 
 function IconListCell(props: { label: string; values?: string[]; emptyLabel: string }) {
   return (
-    <div className="min-w-0 rounded-md border border-border/60 bg-muted/20 px-2.5 py-2">
+    <div className="min-w-0 rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
       <IconList label={props.label} values={props.values} emptyLabel={props.emptyLabel} />
     </div>
   );
@@ -425,19 +419,19 @@ function PriceMetricCell(props: {
   action?: ReactNode;
 }) {
   return (
-    <div className="min-w-0 rounded-md border border-border/60 bg-muted/20 px-2.5 py-2">
+    <div className="min-w-0 rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
       <div className="flex min-w-0 items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xs text-muted-foreground">{props.label}</p>
-          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold" dir="ltr">
-            <span className="truncate">{props.inputValue}</span>
-            <span className="text-muted-foreground">/</span>
-            <span className="truncate">{props.outputValue}</span>
-          </div>
-          <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-            <span>{props.inputLabel}</span>
-            <span>/</span>
-            <span>{props.outputLabel}</span>
+          <p className="truncate text-[11px] text-muted-foreground">{props.label}</p>
+          <div className="mt-1 grid min-w-0 gap-x-3 gap-y-1 sm:grid-cols-2">
+            <div className="min-w-0">
+              <p className="text-[10px] text-muted-foreground">{props.inputLabel}</p>
+              <p className="truncate text-[13px] font-semibold" dir="ltr">{props.inputValue}</p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] text-muted-foreground">{props.outputLabel}</p>
+              <p className="truncate text-[13px] font-semibold" dir="ltr">{props.outputValue}</p>
+            </div>
           </div>
         </div>
         {props.action ? <div className="shrink-0">{props.action}</div> : null}
@@ -448,12 +442,12 @@ function PriceMetricCell(props: {
 
 function IconList(props: { label: string; values?: string[]; emptyLabel: string }) {
   return (
-    <div className="flex min-w-0 flex-col gap-2">
-      <p className="truncate text-xs font-medium text-muted-foreground">{props.label}</p>
-      <div className="flex flex-wrap gap-1.5">
+    <div className="flex min-w-0 flex-col gap-1">
+      <p className="truncate text-[11px] font-medium text-muted-foreground">{props.label}</p>
+      <div className="flex flex-wrap gap-1">
         {props.values?.length ? (
           props.values.map((value) => (
-            <Badge key={`${props.label}-${value}`} variant="outline" className="gap-1 text-[11px]">
+            <Badge key={`${props.label}-${value}`} variant="outline" className="gap-1 px-2 py-0 text-[11px]">
               {iconForModality(value)}
               <span>{value}</span>
             </Badge>
@@ -468,9 +462,9 @@ function IconList(props: { label: string; values?: string[]; emptyLabel: string 
 
 function MetricCell(props: { label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-md border border-border/60 bg-muted/20 px-2.5 py-2">
-      <p className="truncate text-xs text-muted-foreground">{props.label}</p>
-      <p className="truncate text-sm font-semibold" dir="ltr">{props.value}</p>
+    <div className="min-w-0 rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
+      <p className="truncate text-[11px] text-muted-foreground">{props.label}</p>
+      <p className="truncate text-[13px] font-semibold" dir="ltr">{props.value}</p>
     </div>
   );
 }
@@ -538,9 +532,7 @@ function formatPriceValueOnly(
   usdPerMillion: number | undefined,
   display: { currency: "USD" | "TOMAN"; scale: "PER_MILLION_TOKENS" | "PER_TOKEN"; usdToIrr: number },
 ) {
-  return formatPriceWithDisplay(usdPerMillion, display)
-    .replace(" / 1M tokens", "")
-    .replace(" / 1M", "");
+  return formatPriceWithDisplay(usdPerMillion, display);
 }
 
 function trimZeros(value: number) {

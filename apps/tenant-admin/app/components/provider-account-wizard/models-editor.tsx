@@ -603,6 +603,14 @@ export function ModelsEditor(props: {
     };
   };
 
+  const getSelectableOptions = useCallback((model: ProviderCatalogModel) => {
+    const modes = getModelModes(model);
+    if (modes.length > 1) return modes;
+    const selectionTypes = getModelSelectionTypes(model);
+    if (selectionTypes.length > 0) return selectionTypes;
+    return modes;
+  }, []);
+
   useEffect(() => {
     let canceled = false;
     void (async () => {
@@ -628,44 +636,37 @@ export function ModelsEditor(props: {
 
   if (props.variant === "compact") {
     return (
-      <section className="flex flex-col gap-5">
-        <div className="flex flex-col gap-4">
-            <div dir="rtl" className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="min-w-0 text-right">
-                <h3 dir="rtl" className="text-base font-semibold">
-                  {ux("integrations.wizard.modelsTitle", { count: props.filteredProviderModels.length })}
-                </h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {ux("integrations.wizard.selectedCount", { count: enabledFilteredModelsCount })}
-                </p>
-              </div>
-              <div className="relative w-full lg:max-w-md">
-                <Search className="pointer-events-none absolute end-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      <>
+        <div className="sticky top-0 z-10 shrink-0 bg-card px-4 py-3 shadow-sm sm:px-5">
+          <div className="flex flex-col gap-2.5">
+            <div dir="rtl" className="flex justify-end">
+              <div className="relative w-full">
+                <Search className="pointer-events-none absolute end-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   dir="rtl"
                   value={filters.search}
                   onChange={(event) => setFilters((prev) => ({ ...prev, search: event.target.value }))}
                   placeholder={props.t("step3.searchPlaceholder")}
-                  className="h-10 pe-9 text-right placeholder:text-right"
+                  className="h-9 pe-9 text-sm text-right placeholder:text-right"
                 />
               </div>
             </div>
             <div
               dir="rtl"
-              className="flex flex-col gap-3 rounded-md border border-border/70 bg-muted/20 p-3 text-right sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-2 px-1 py-1 text-right text-sm sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary">
-                  {ux("models.summary.showing", { visible: visibleModels.length, total: props.filteredProviderModels.length })}
-                </Badge>
-                <Badge variant={enabledFilteredModelsCount > 0 ? "default" : "outline"}>
-                  {ux("integrations.wizard.selectedCount", { count: enabledFilteredModelsCount })}
+                <Badge variant={enabledFilteredModelsCount > 0 ? "default" : "outline"} className="px-2 py-0 text-[11px]">
+                  {ux("integrations.wizard.selectedCountDetailed", {
+                    count: enabledFilteredModelsCount,
+                    total: props.filteredProviderModels.length,
+                  })}
                 </Badge>
               </div>
-              <div className="flex flex-wrap items-center gap-4 text-sm">
+              <div className="flex flex-wrap items-center gap-3 text-[13px]">
                 <label
                   htmlFor="compact-select-all-models"
-                  className="inline-flex cursor-pointer flex-row items-center gap-2 text-foreground has-[:disabled]:pointer-events-none has-[:disabled]:opacity-50"
+                  className="inline-flex cursor-pointer flex-row items-center gap-1.5 text-foreground has-[:disabled]:pointer-events-none has-[:disabled]:opacity-50"
                 >
                   <Checkbox
                     id="compact-select-all-models"
@@ -683,7 +684,7 @@ export function ModelsEditor(props: {
                 </label>
                 <label
                   htmlFor="compact-selected-only-models"
-                  className="inline-flex cursor-pointer flex-row items-center gap-2 text-foreground has-[:disabled]:pointer-events-none has-[:disabled]:opacity-50"
+                  className="inline-flex cursor-pointer flex-row items-center gap-1.5 text-foreground has-[:disabled]:pointer-events-none has-[:disabled]:opacity-50"
                 >
                   <Checkbox
                     id="compact-selected-only-models"
@@ -695,23 +696,31 @@ export function ModelsEditor(props: {
                 </label>
               </div>
             </div>
+          </div>
+        </div>
 
-            {props.isLoadingModels ? (
-              <div className="grid min-w-0 gap-3">
-                {Array.from({ length: 8 }).map((_, index) => (
-                  <Skeleton key={`compact-model-skeleton-${index}`} className="h-24 rounded-xl" />
-                ))}
-              </div>
-            ) : visibleModels.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{props.t("step3.empty")}</p>
-            ) : (
-              <div className="grid min-w-0 gap-3">
-                {visibleModels.map((model) => {
-                  const availableCapabilities = getModelSelectionTypes(model);
+        <section className="flex h-full min-h-0 flex-col overflow-hidden bg-card">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-3 pt-3 sm:px-5">
+            <div className="flex min-h-full min-w-0 flex-col gap-2 pe-2">
+              {props.isLoadingModels ? (
+                <>
+                  {Array.from({ length: 8 }).map((_, index) => (
+                    <Skeleton key={`compact-model-skeleton-${index}`} className="h-24 rounded-xl" />
+                  ))}
+                </>
+              ) : visibleModels.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{props.t("step3.empty")}</p>
+              ) : (
+                <>
+                  {visibleModels.map((model) => {
+                  const selectableOptions = getSelectableOptions(model);
+                  const selectableOptionsLabel = getModelModes(model).length > 1
+                    ? ux("models.card.invocationModes")
+                    : ux("models.columns.capabilities");
                   const draft = props.modelDrafts[model.model] ?? {
                     enabled: false,
                     compared: false,
-                    selectedCapabilities: availableCapabilities.length === 1 ? availableCapabilities : [],
+                    selectedCapabilities: selectableOptions.length === 1 ? selectableOptions : [],
                     pricingMode: "public" as const,
                     inputPrice: model.public_pricing?.input_usd_per_1m?.toString() ?? "",
                     outputPrice: model.public_pricing?.output_usd_per_1m?.toString() ?? "",
@@ -729,7 +738,7 @@ export function ModelsEditor(props: {
                         }
                       }}
                     >
-                      <div className="min-w-0">
+                      <div className="min-w-0 space-y-2">
                         <ModelCard
                           model={toModelCardData(model, draft)}
                           detailsHref={buildModelDiscoveryDetailsHref(model)}
@@ -746,21 +755,16 @@ export function ModelsEditor(props: {
                                 ...draft,
                                 enabled: checked,
                                 selectedCapabilities:
-                                  checked && draft.selectedCapabilities.length === 0 && availableCapabilities.length === 1
-                                    ? availableCapabilities
+                                  checked && draft.selectedCapabilities.length === 0 && selectableOptions.length === 1
+                                    ? selectableOptions
                                     : draft.selectedCapabilities,
                               },
                             }))
                           }
                           selectedCheckboxLabel={ux("common.enabled")}
-                          stateBadge={
-                            draft.enabled
-                              ? { label: ux("models.state.enabledOnAccount"), tone: "active" as const }
-                              : { label: ux("models.state.availableToAdd"), tone: "inactive" as const }
-                          }
-                          pricingModeBadge={draft.pricingMode === "private" ? ux("models.pricing.private") : ux("models.pricing.public")}
+                          pricingModeBadge={draft.pricingMode === "private" ? ux("models.pricing.private") : undefined}
                           hasCustomPricing={draft.pricingMode === "private"}
-                          className={draft.enabled ? "border-[var(--success-soft-border)]" : undefined}
+                          className={draft.enabled ? "border-[var(--success-soft-border)] self-start" : "self-start"}
                           pricingAction={
                             <PopoverTrigger asChild>
                               <Button
@@ -782,17 +786,67 @@ export function ModelsEditor(props: {
                               {ux("models.card.curlGuide")}
                             </Button>
                           }
+                          extraContent={
+                            draft.enabled && selectableOptions.length > 0 ? (
+                              <div className="rounded-md bg-muted/20 px-2 py-2">
+                                <p className="text-[11px] font-medium text-muted-foreground">
+                                  {`قابلیت‌های مجاز: ${selectableOptions.join("  ")}`}
+                                </p>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {selectableOptions.map((option) => {
+                                    const checked = draft.selectedCapabilities.includes(option);
+                                    return (
+                                      <label
+                                        key={`${model.model}-${option}`}
+                                        className={cn(
+                                          "inline-flex cursor-pointer items-center gap-2 rounded-full border px-2.5 py-1 text-[12px]",
+                                          checked ? "border-[var(--success-soft-border)] bg-[var(--success-soft)] text-[var(--success-soft-foreground)]" : "border-border bg-background",
+                                        )}
+                                      >
+                                        <Checkbox
+                                          checked={checked}
+                                          onCheckedChange={(value) =>
+                                            props.setModelDrafts((prev) => {
+                                              const current = prev[model.model] ?? draft;
+                                              const nextCapabilities = value === true
+                                                ? [...current.selectedCapabilities, option]
+                                                : current.selectedCapabilities.filter((item) => item !== option);
+                                              return {
+                                                ...prev,
+                                                [model.model]: {
+                                                  ...current,
+                                                  selectedCapabilities: normalizeCapabilityList(nextCapabilities),
+                                                },
+                                              };
+                                            })
+                                          }
+                                          className="size-3.5"
+                                        />
+                                        <span>{option}</span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                                {draft.selectedCapabilities.length === 0 ? (
+                                  <p className="mt-2 text-xs text-destructive">{ux("messages.modelTypeRequired")}</p>
+                                ) : null}
+                              </div>
+                            ) : null
+                          }
                           labels={modelCardLabels}
                         />
+                        {null}
                       </div>
                       {renderPricingEditorContent(model)}
                     </Popover>
                   );
                 })}
-              </div>
-            )}
-        </div>
-      </section>
+                </>
+              )}
+            </div>
+          </div>
+        </section>
+      </>
     );
   }
 
@@ -958,12 +1012,15 @@ export function ModelsEditor(props: {
         <p className="text-sm text-muted-foreground">{props.t("step3.empty")}</p>
       ) : (
         <div className="space-y-3">
-          {visibleModels.map((model) => {
-            const availableCapabilities = getModelSelectionTypes(model);
+                {visibleModels.map((model) => {
+            const selectableOptions = getSelectableOptions(model);
+            const selectableOptionsLabel = getModelModes(model).length > 1
+              ? ux("models.card.invocationModes")
+              : ux("models.columns.capabilities");
             const draft = props.modelDrafts[model.model] ?? {
               enabled: false,
               compared: false,
-              selectedCapabilities: availableCapabilities.length === 1 ? availableCapabilities : [],
+              selectedCapabilities: selectableOptions.length === 1 ? selectableOptions : [],
               pricingMode: "public" as const,
               inputPrice: model.public_pricing?.input_usd_per_1m?.toString() ?? "",
               outputPrice: model.public_pricing?.output_usd_per_1m?.toString() ?? "",
@@ -990,11 +1047,6 @@ export function ModelsEditor(props: {
                         usdToIrr,
                       }}
                       isSelected={draft.enabled}
-                      stateBadge={
-                        draft.enabled
-                          ? { label: ux("models.state.enabledOnAccount"), tone: "active" as const }
-                          : { label: ux("models.state.availableToAdd"), tone: "inactive" as const }
-                      }
                       onSelectedChange={(checked) =>
                         props.setModelDrafts((prev) => ({
                           ...prev,
@@ -1002,8 +1054,8 @@ export function ModelsEditor(props: {
                             ...draft,
                             enabled: checked,
                             selectedCapabilities:
-                              checked && draft.selectedCapabilities.length === 0 && availableCapabilities.length === 1
-                                ? availableCapabilities
+                              checked && draft.selectedCapabilities.length === 0 && selectableOptions.length === 1
+                                ? selectableOptions
                                 : draft.selectedCapabilities,
                           },
                         }))
@@ -1017,7 +1069,7 @@ export function ModelsEditor(props: {
                         }))
                       }
                       compareCheckboxLabel={ux("models.actions.compareToggle")}
-                      pricingModeBadge={draft.pricingMode === "private" ? ux("models.pricing.private") : ux("models.pricing.public")}
+                      pricingModeBadge={draft.pricingMode === "private" ? ux("models.pricing.private") : undefined}
                       hasCustomPricing={draft.pricingMode === "private"}
                       className={draft.enabled ? "border-[var(--success-soft-border)]" : undefined}
                       footerActions={
@@ -1025,6 +1077,53 @@ export function ModelsEditor(props: {
                           <Code2 className="h-3.5 w-3.5" />
                           {ux("models.card.curlGuide")}
                         </Button>
+                      }
+                      extraContent={
+                        draft.enabled && selectableOptions.length > 0 ? (
+                          <div className="rounded-md bg-muted/20 px-2 py-2">
+                            <p className="text-[11px] font-medium text-muted-foreground">
+                              {`قابلیت‌های مجاز: ${selectableOptions.join("  ")}`}
+                            </p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {selectableOptions.map((option) => {
+                                const checked = draft.selectedCapabilities.includes(option);
+                                return (
+                                  <label
+                                    key={`${model.model}-${option}`}
+                                    className={cn(
+                                      "inline-flex cursor-pointer items-center gap-2 rounded-full border px-2.5 py-1 text-[12px]",
+                                      checked ? "border-[var(--success-soft-border)] bg-[var(--success-soft)] text-[var(--success-soft-foreground)]" : "border-border bg-background",
+                                    )}
+                                  >
+                                    <Checkbox
+                                      checked={checked}
+                                      onCheckedChange={(value) =>
+                                        props.setModelDrafts((prev) => {
+                                          const current = prev[model.model] ?? draft;
+                                          const nextCapabilities = value === true
+                                            ? [...current.selectedCapabilities, option]
+                                            : current.selectedCapabilities.filter((item) => item !== option);
+                                          return {
+                                            ...prev,
+                                            [model.model]: {
+                                              ...current,
+                                              selectedCapabilities: normalizeCapabilityList(nextCapabilities),
+                                            },
+                                          };
+                                        })
+                                      }
+                                      className="size-3.5"
+                                    />
+                                    <span>{option}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                            {draft.selectedCapabilities.length === 0 ? (
+                              <p className="mt-2 text-xs text-destructive">{ux("messages.modelTypeRequired")}</p>
+                            ) : null}
+                          </div>
+                        ) : null
                       }
                       pricingAction={
                         <PopoverTrigger asChild>
@@ -1043,53 +1142,7 @@ export function ModelsEditor(props: {
                       }
                       labels={modelCardLabels}
                     />
-                    {draft.enabled && availableCapabilities.length > 0 ? (
-                      <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-medium">{ux("models.columns.capabilities")}</p>
-                          <Badge variant="secondary">{draft.selectedCapabilities.length}/{availableCapabilities.length}</Badge>
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {availableCapabilities.map((capability) => {
-                            const checked = draft.selectedCapabilities.includes(capability);
-                            return (
-                              <label
-                                key={`${model.model}-${capability}`}
-                                className={cn(
-                                  "inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-sm",
-                                  checked ? "border-[var(--success-soft-border)] bg-[var(--success-soft)] text-[var(--success-soft-foreground)]" : "border-border bg-background",
-                                )}
-                              >
-                                <input
-                                  type="checkbox"
-                                  className="h-4 w-4"
-                                  checked={checked}
-                                  onChange={(event) =>
-                                    props.setModelDrafts((prev) => {
-                                      const current = prev[model.model] ?? draft;
-                                      const nextCapabilities = event.target.checked
-                                        ? [...current.selectedCapabilities, capability]
-                                        : current.selectedCapabilities.filter((item) => item !== capability);
-                                      return {
-                                        ...prev,
-                                        [model.model]: {
-                                          ...current,
-                                          selectedCapabilities: normalizeCapabilityList(nextCapabilities),
-                                        },
-                                      };
-                                    })
-                                  }
-                                />
-                                <span>{capability}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                        {draft.selectedCapabilities.length === 0 ? (
-                          <p className="mt-2 text-xs text-destructive">{ux("messages.modelTypeRequired")}</p>
-                        ) : null}
-                      </div>
-                    ) : null}
+                    {null}
                   </div>
                   {renderPricingEditorContent(model)}
                 </Popover>

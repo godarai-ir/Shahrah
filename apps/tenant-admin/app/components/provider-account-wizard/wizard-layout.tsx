@@ -74,7 +74,7 @@ export function CreateFlowStepIndicator(props: {
       onClick={props.onClick}
       disabled={props.disabled}
       dir="rtl"
-      className="group flex w-full flex-row items-center justify-start gap-2 rounded-lg px-1 py-2 text-right transition hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent"
+      className="group flex min-w-[7rem] flex-1 flex-row items-center justify-start gap-2 rounded-lg px-2 py-2 text-right transition hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent lg:min-w-0 lg:w-full lg:flex-none lg:px-1"
     >
       <div
         className={
@@ -100,6 +100,9 @@ export function WizardPanel({
   actions,
   id,
   setSectionNode,
+  fillHeight = false,
+  scrollable = false,
+  contentClassName,
 }: {
   title: string;
   description: string;
@@ -108,12 +111,23 @@ export function WizardPanel({
   actions?: ReactNode;
   id?: string;
   setSectionNode?: (node: HTMLElement | null) => void;
+  fillHeight?: boolean;
+  scrollable?: boolean;
+  contentClassName?: string;
 }) {
+  const content = scrollable ? (
+    <ScrollArea className="min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]]:overscroll-contain">
+      <div className={contentClassName ?? "p-4 pb-6 sm:p-5 sm:pb-7"}>{children}</div>
+    </ScrollArea>
+  ) : (
+    <div className={contentClassName ?? "p-4 pb-6 sm:p-5 sm:pb-7"}>{children}</div>
+  );
+
   return (
     <section
       id={id}
       ref={setSectionNode}
-      className="flex h-[min(640px,calc(100dvh-13.5rem))] min-h-[420px] flex-col gap-3"
+      className={fillHeight ? "flex min-h-0 flex-1 flex-col gap-3" : "flex flex-col gap-3"}
     >
       <header dir="rtl" className="flex flex-col gap-3 px-1 text-right sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
@@ -122,10 +136,8 @@ export function WizardPanel({
         </div>
         {actions ? <div className="shrink-0">{actions}</div> : null}
       </header>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm">
-        <ScrollArea className="min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]]:overscroll-contain">
-          <div className="p-4 pb-6 sm:p-5 sm:pb-7">{children}</div>
-        </ScrollArea>
+      <div className={fillHeight ? "flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm" : "flex flex-col rounded-lg border border-border bg-card shadow-sm"}>
+        {content}
         {footer ? (
           <footer className="flex shrink-0 flex-wrap justify-between gap-2 border-t border-border bg-card/95 px-5 py-3 shadow-[0_-8px_18px_rgba(15,23,42,0.04)]">
             {footer}

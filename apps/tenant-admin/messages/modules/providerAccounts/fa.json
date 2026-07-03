@@ -480,6 +480,7 @@
         "addModel": "افزودن مدل",
         "modelsTitle": "مدل‌ها ({count})",
         "selectedCount": "منتخب: {count}",
+        "selectedCountDetailed": "انتخاب شده: {count} از {total}",
         "selectAll": "انتخاب همه",
         "selectedOnly": "فقط منتخب‌ها",
         "deselectAll": "لغو انتخاب همه",

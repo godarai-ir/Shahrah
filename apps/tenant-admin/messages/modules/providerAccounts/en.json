@@ -479,6 +479,7 @@
         "addModel": "Add Model",
         "modelsTitle": "Models ({count})",
         "selectedCount": "Selected: {count}",
+        "selectedCountDetailed": "Selected: {count} of {total}",
         "selectAll": "Select All",
         "selectedOnly": "Selected only",
         "deselectAll": "Deselect All",

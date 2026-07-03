@@ -1133,6 +1133,7 @@ export default function ProviderAccountWizard(props?: {
     { id: "review", number: 4, title: ux("integrations.wizard.reviewConfirm") },
   ];
   const activeCreateStepIndex = createWizardSteps.findIndex((step) => step.id === activeCreateSection);
+  const isModelsCreateSection = activeCreateSection === "models";
   const createStepState = (stepID: CreateWizardSectionID) => {
     if (activeCreateSection === stepID) return "active";
     if (stepID === "details" && !!selectedAccountID) return "complete";
@@ -1180,8 +1181,8 @@ export default function ProviderAccountWizard(props?: {
 
           <div className="grid flex-1 gap-y-6 overflow-hidden px-4 py-6 lg:min-h-0 lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-x-10 xl:gap-x-12">
             <aside className="min-h-0 lg:self-stretch">
-              <ScrollArea className="min-h-[12rem] lg:h-full [&_[data-slot=scroll-area-viewport]]:overscroll-contain">
-                <div className="flex flex-col gap-5 py-2">
+              <ScrollArea className="min-h-[5.5rem] lg:h-full [&_[data-slot=scroll-area-viewport]]:overscroll-contain">
+                <div className="flex flex-row-reverse gap-3 py-2 lg:flex-col lg:gap-5">
                 {createWizardSteps.map((step) => {
                   const stepState = createStepState(step.id);
                   const isStepOpenable = canOpenCreateStep(step.id);
@@ -1202,8 +1203,8 @@ export default function ProviderAccountWizard(props?: {
               </ScrollArea>
             </aside>
 
-            <div className="min-h-[640px] min-w-0 lg:ms-2 lg:h-full lg:min-h-0">
-              <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 pb-2">
+            <div className={isModelsCreateSection ? "min-h-[640px] min-w-0 lg:ms-2 lg:flex lg:h-full lg:min-h-0 lg:flex-col" : "min-h-[640px] min-w-0 overflow-y-auto lg:ms-2 lg:h-full lg:min-h-0"}>
+              <div className={isModelsCreateSection ? "mx-auto flex w-full max-w-5xl min-h-0 flex-1 flex-col gap-4 pb-2" : "mx-auto flex w-full max-w-5xl flex-col gap-8 pb-2"}>
                 {!provider ? (
                   <WizardPanel
                     title={ux("setup.selectProviderTitle")}
@@ -1258,6 +1259,7 @@ export default function ProviderAccountWizard(props?: {
                     id="connection-details"
                     title={ux("integrations.wizard.detailsTitle")}
                     description={ux("integrations.wizard.detailsDescription")}
+                    fillHeight={false}
                     footer={
                       <>
                         <Button type="button" variant="outline" asChild>
@@ -1425,6 +1427,8 @@ export default function ProviderAccountWizard(props?: {
                     id="model-provisioning"
                     title={ux("integrations.wizard.modelsHeaderTitle")}
                     description={ux("integrations.wizard.modelsHeaderDescription")}
+                    fillHeight
+                    contentClassName="flex min-h-0 flex-1 flex-col p-0"
                     footer={
                       <>
                         <Button type="button" variant="outline" onClick={() => setActiveCreateSection("details")}>
@@ -1463,6 +1467,7 @@ export default function ProviderAccountWizard(props?: {
                     id="access-permissions"
                     title={ux("integrations.wizard.accessPermissions")}
                     description={ux("integrations.wizard.accessPermissionsDescription")}
+                    fillHeight={false}
                     footer={
                       <>
                         <Button type="button" variant="outline" onClick={() => setActiveCreateSection("models")}>
@@ -1505,6 +1510,7 @@ export default function ProviderAccountWizard(props?: {
                     id="review-confirm"
                     title={ux("integrations.wizard.reviewConfirm")}
                     description={ux("integrations.wizard.reviewConfirmDescription")}
+                    fillHeight={false}
                     footer={
                       <>
                         <Button type="button" variant="outline" onClick={() => setActiveCreateSection("access")}>
