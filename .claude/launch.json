@@ -1,0 +1,78 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "tenant-admin",
+      "runtimeExecutable": "corepack",
+      "runtimeArgs": ["pnpm", "--filter", "@shahrah/tenant-admin", "exec", "next", "dev", "--hostname", "0.0.0.0"],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
+      "name": "support-admin",
+      "runtimeExecutable": "corepack",
+      "runtimeArgs": ["pnpm", "--filter", "@shahrah/support-admin", "exec", "next", "dev", "--hostname", "0.0.0.0"],
+      "port": 3001,
+      "autoPort": true
+    },
+    {
+      "name": "model-discovery-web",
+      "runtimeExecutable": "corepack",
+      "runtimeArgs": ["pnpm", "--filter", "@shahrah/model-discovery-web", "exec", "next", "dev", "--hostname", "0.0.0.0"],
+      "port": 3003,
+      "autoPort": true
+    },
+    {
+      "name": "model-discovery",
+      "runtimeExecutable": "corepack",
+      "runtimeArgs": ["pnpm", "--filter", "model-discovery", "run", "start:dev"],
+      "port": 3002,
+      "autoPort": true
+    },
+    {
+      "name": "website",
+      "runtimeExecutable": "corepack",
+      "runtimeArgs": ["pnpm", "--filter", "sharah-website", "run", "dev"],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
+      "name": "blog",
+      "runtimeExecutable": "corepack",
+      "runtimeArgs": ["pnpm", "--filter", "@shahrah/blog", "run", "dev"],
+      "port": 4321,
+      "autoPort": true
+    },
+    {
+      "name": "docs",
+      "runtimeExecutable": "corepack",
+      "runtimeArgs": ["pnpm", "--filter", "@shahrah/docs", "run", "dev"],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
+      "name": "control-plane",
+      "runtimeExecutable": "go",
+      "runtimeArgs": ["-C", "services/control-plane", "run", "./cmd/server"],
+      "port": 4000
+    },
+    {
+      "name": "silk-road",
+      "runtimeExecutable": "go",
+      "runtimeArgs": ["-C", "services/silk-road", "run", "./cmd/server"],
+      "port": 8083
+    },
+    {
+      "name": "tunnel-server",
+      "runtimeExecutable": "go",
+      "runtimeArgs": ["-C", "services/tunnel-server", "run", "./cmd/server"],
+      "port": 8082
+    },
+    {
+      "name": "tunnel-client",
+      "runtimeExecutable": "go",
+      "runtimeArgs": ["-C", "services/tunnel-client", "run", "./cmd/server"],
+      "port": 8081
+    }
+  ]
+}
