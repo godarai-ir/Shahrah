@@ -53,7 +53,7 @@ console.log(response.choices[0].message.content);`;
               ))}
             </ul>
             
-            <a href="#docs" className="inline-flex min-h-12 w-full sm:w-auto items-center justify-center px-6 py-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-medium hover:bg-slate-800 dark:hover:bg-gray-100 transition-colors">
+            <a href="https://godarai.ir/docs" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 w-full sm:w-auto items-center justify-center px-6 py-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-medium hover:bg-slate-800 dark:hover:bg-gray-100 transition-colors">
               مطالعه مستندات API
             </a>
           </div>
