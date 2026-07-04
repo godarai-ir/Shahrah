@@ -3,15 +3,9 @@
 import { FormEvent, useState } from "react";
 import { useTranslations } from "next-intl";
 
+import { FormSection, PageHeader, SettingsCard } from "@/components/app-ui";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -155,15 +149,11 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("title")}</CardTitle>
-          <CardDescription>
-            {t("subtitle")} - {t("role")}: <b>{user.role}</b>
-          </CardDescription>
-        </CardHeader>
-      </Card>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title={t("title")}
+        description={<>{t("subtitle")} - {t("role")}: <b>{user.role}</b></>}
+      />
 
       {message ? (
         <Alert className="border-primary/30 bg-primary/5">
@@ -177,14 +167,11 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
       ) : null}
 
       <section className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("sections.email")}</CardTitle>
-            <CardDescription>
-              {t("currentValue")}: {user.email ?? common("notSet")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <SettingsCard
+          title={t("sections.email")}
+          description={<>{t("currentValue")}: {user.email ?? common("notSet")}</>}
+        >
+          <FormSection title={t("sections.email")} description={t("newEmail")} className="border-0 p-0 md:grid-cols-1 md:p-0">
             <div className="grid gap-2">
               <Label htmlFor="newEmail">{t("newEmail")}</Label>
               <Input
@@ -200,6 +187,7 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
               />
             </div>
             <Button
+              className="w-fit"
               type="button"
               onClick={() => void handleRequestChange("email")}
               disabled={loadingField === "email"}
@@ -238,17 +226,14 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
                 </Button>
               </form>
             ) : null}
-          </CardContent>
-        </Card>
+          </FormSection>
+        </SettingsCard>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("sections.mobile")}</CardTitle>
-            <CardDescription>
-              {t("currentValue")}: {user.mobile ?? common("notSet")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <SettingsCard
+          title={t("sections.mobile")}
+          description={<>{t("currentValue")}: {user.mobile ?? common("notSet")}</>}
+        >
+          <FormSection title={t("sections.mobile")} description={t("newMobile")} className="border-0 p-0 md:grid-cols-1 md:p-0">
             <div className="grid gap-2">
               <Label htmlFor="newMobile">{t("newMobile")}</Label>
               <Input
@@ -264,6 +249,7 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
               />
             </div>
             <Button
+              className="w-fit"
               type="button"
               onClick={() => void handleRequestChange("mobile")}
               disabled={loadingField === "mobile"}
@@ -302,8 +288,8 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
                 </Button>
               </form>
             ) : null}
-          </CardContent>
-        </Card>
+          </FormSection>
+        </SettingsCard>
       </section>
     </div>
   );

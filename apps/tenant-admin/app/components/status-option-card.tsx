@@ -3,6 +3,7 @@
 import type { LucideIcon } from "lucide-react";
 import { CheckCircle2 } from "lucide-react";
 
+import { StatusBadge } from "@/components/app-ui";
 import { cn } from "@/lib/utils";
 
 type Tone = "neutral" | "info" | "warning" | "success";
@@ -53,17 +54,12 @@ export function StatusOptionCard(props: StatusOptionCardProps) {
         </div>
         <div className="flex min-w-0 items-center gap-2">
           {props.selected ? <CheckCircle2 className="size-4 text-primary" /> : null}
-          <span
-            className={cn(
-              "rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors",
-              props.selected ? "surface-primary-soft" : "border-transparent bg-muted text-muted-foreground",
-            )}
-          >
+          <StatusBadge status={props.selected ? "active" : "inactive"} className="px-2 py-0 text-xs">
             {props.badge}
-          </span>
+          </StatusBadge>
         </div>
       </div>
-      <div className="mt-3 space-y-1">
+      <div className="mt-3 flex flex-col gap-1">
         <p className="text-sm font-semibold text-foreground">{props.title}</p>
         <p className="text-xs leading-6 text-muted-foreground">{props.description}</p>
       </div>

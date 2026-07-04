@@ -65,3 +65,18 @@ pnpm --filter @shahrah/tenant-admin build
 pnpm --filter @shahrah/tenant-admin lint
 pnpm --filter @shahrah/tenant-admin validate:i18n
 ```
+
+## UI / Frontend Work
+
+Before making UI changes:
+
+1. Read `../../docs/design-system/DESIGN.md`.
+2. Read `../../docs/design-system/COMPONENT_USAGE.md`.
+3. Inspect existing `components/ui` and `components/app-ui`.
+4. Reuse existing product-level components before creating new ones.
+5. Use semantic Tailwind tokens.
+6. Avoid raw color utilities and arbitrary values.
+7. Preserve RTL behavior.
+8. Update `/design-system` when adding reusable UI patterns.
+9. Run available lint/typecheck/build commands before finishing.
+10. Summarize any UI debt that remains.
