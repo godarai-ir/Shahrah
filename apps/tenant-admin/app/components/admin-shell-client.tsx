@@ -275,7 +275,6 @@ function AdminSidebar({
         ))}
       </SidebarContent>
 
-      <SidebarRail />
     </Sidebar>
   );
 }
