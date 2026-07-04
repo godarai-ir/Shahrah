@@ -24,6 +24,13 @@
 
 The tenant admin also defines documented product tones: `success`, `warning`, `info`, soft tone tokens, sidebar tokens, and chart tokens in `apps/tenant-admin/design-system/tokens.css`.
 
+Code display surfaces use:
+
+- `code`
+- `code-foreground`
+- `code-border`
+- `code-muted-foreground`
+
 ## Tailwind Usage
 
 Use:
@@ -49,3 +56,7 @@ Use shadcn radius classes and the CSS variables in `tokens.css`: `--radius-sm`, 
 ## Shadow / Elevation
 
 Use shadows sparingly. Default cards already include `shadow-sm`; higher elevation should be reserved for overlays or intentionally elevated surfaces.
+
+## Code Surfaces
+
+Use `bg-code`, `text-code-foreground`, `border-code-border`, and `text-code-muted-foreground` for code blocks and line numbers. Do not use raw slate palettes for new code surfaces.

@@ -36,7 +36,7 @@ export function StatusOptionCard(props: StatusOptionCardProps) {
       disabled={props.disabled}
       aria-pressed={props.selected}
       className={cn(
-        "group rounded-xl border p-4 text-right transition-all",
+        "group rounded-xl border p-4 text-start transition-all",
         "hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-70",
         props.selected
           ? cn(toneClasses[props.tone], "ring-2 ring-primary/20")
@@ -50,10 +50,10 @@ export function StatusOptionCard(props: StatusOptionCardProps) {
             props.selected ? toneClasses[props.tone] : "border-border bg-muted/40 text-muted-foreground",
           )}
         >
-          <Icon className="size-5" />
+          <Icon className="size-5" aria-hidden="true" />
         </div>
         <div className="flex min-w-0 items-center gap-2">
-          {props.selected ? <CheckCircle2 className="size-4 text-primary" /> : null}
+          {props.selected ? <CheckCircle2 className="size-4 text-primary" aria-hidden="true" /> : null}
           <StatusBadge status={props.selected ? "active" : "inactive"} className="px-2 py-0 text-xs">
             {props.badge}
           </StatusBadge>

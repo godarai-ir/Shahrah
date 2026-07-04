@@ -3,23 +3,17 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
-  MoreVertical,
   Plus,
   Search,
 } from "lucide-react";
 
 import AccessManagementHeader from "@/app/components/access-management-header";
+import { RowActionsMenu } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Sheet,
   SheetContent,
@@ -323,12 +317,12 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
           <h2 className="text-lg font-semibold tracking-wide text-foreground">{t("allUsers")}</h2>
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder={t("searchPlaceholder")}
-                className="w-64 pl-9"
+                className="w-64 ps-9"
               />
             </div>
 
@@ -428,35 +422,29 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
                         {active ? effectiveRoleLabel : t("status.deactivated")}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            disabled={isSelf || isUpdatingUserID === user.id}
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            disabled={!props.canManageUsers || !canChangeRole || !user.email || availableRoles.length === 0 || isAssigningRoleUserID === user.id}
-                            onClick={() => openRoleForm(user)}
-                          >
-                            {t("actions.changeRole")}
-                          </DropdownMenuItem>
-                          {active ? (
-                            <DropdownMenuItem disabled={!props.canManageUsers || !canDeactivate} onClick={() => void changeUserStatus(user.id, false)}>
-                              {t("actions.deactivate")}
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem disabled={!props.canManageUsers} onClick={() => void changeUserStatus(user.id, true)}>
-                              {t("actions.activate")}
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                    <TableCell className="text-end">
+                      <RowActionsMenu
+                        label={t("actions.changeRole")}
+                        disabled={isSelf || isUpdatingUserID === user.id}
+                        actions={[
+                          {
+                            label: t("actions.changeRole"),
+                            disabled: !props.canManageUsers || !canChangeRole || !user.email || availableRoles.length === 0 || isAssigningRoleUserID === user.id,
+                            onSelect: () => openRoleForm(user),
+                          },
+                          active
+                            ? {
+                                label: t("actions.deactivate"),
+                                disabled: !props.canManageUsers || !canDeactivate,
+                                onSelect: () => void changeUserStatus(user.id, false),
+                              }
+                            : {
+                                label: t("actions.activate"),
+                                disabled: !props.canManageUsers,
+                                onSelect: () => void changeUserStatus(user.id, true),
+                              },
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 );

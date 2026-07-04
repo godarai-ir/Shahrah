@@ -1,6 +1,9 @@
-import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound } from "lucide-react";
+"use client";
 
-import { AppCard, ConfirmDialog, EmptyState, FormSection, MetricCard, PageHeader, SectionHeader, SettingsCard, StatusBadge } from "@/components/app-ui";
+import { useState } from "react";
+import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Trash2 } from "lucide-react";
+
+import { AppCard, AppSelectField, ConfirmDialog, EmptyState, FilterCombobox, FormSection, MetricCard, PageHeader, RowActionsMenu, SectionHeader, SettingsCard, StatusBadge } from "@/components/app-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,6 +20,9 @@ const tokens = [
 ];
 
 export default function DesignSystemPage() {
+  const [selectValue, setSelectValue] = useState("active");
+  const [filterValue, setFilterValue] = useState("openai");
+
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-6 md:px-6">
       <PageHeader
@@ -132,6 +138,44 @@ export default function DesignSystemPage() {
             <CheckCircle2 className="text-success" aria-hidden="true" />
             Dialog keeps title and footer structure consistent.
           </div>
+        </AppCard>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-3">
+        <AppCard title="Select field" description="Use AppSelectField for compact option sets in forms and toolbars.">
+          <AppSelectField
+            value={selectValue}
+            onValueChange={setSelectValue}
+            options={[
+              { value: "active", label: "Active" },
+              { value: "pending", label: "Pending" },
+              { value: "disabled", label: "Disabled" },
+            ]}
+          />
+        </AppCard>
+        <AppCard title="Filter combobox" description="Use FilterCombobox for searchable toolbar filters.">
+          <FilterCombobox
+            id="playground-filter-combobox"
+            value={filterValue}
+            onValueChange={setFilterValue}
+            placeholder="Search provider"
+            emptyText="No provider found"
+            options={[
+              { value: "openai", label: "OpenAI" },
+              { value: "anthropic", label: "Anthropic" },
+              { value: "google", label: "Google" },
+            ]}
+          />
+        </AppCard>
+        <AppCard title="Row actions" description="Use RowActionsMenu for table row action menus.">
+          <RowActionsMenu
+            label="Resource actions"
+            actions={[
+              { label: "Edit" },
+              { label: "Members" },
+              { label: "Delete", destructive: true, icon: <Trash2 /> },
+            ]}
+          />
         </AppCard>
       </section>
     </main>

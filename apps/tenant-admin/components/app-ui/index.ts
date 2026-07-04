@@ -1,9 +1,12 @@
 export { AppCard } from "./AppCard";
+export { AppSelectField } from "./AppSelectField";
 export { ConfirmDialog } from "./ConfirmDialog";
 export { EmptyState } from "./EmptyState";
+export { FilterCombobox } from "./FilterCombobox";
 export { FormSection } from "./FormSection";
 export { MetricCard } from "./MetricCard";
 export { PageHeader } from "./PageHeader";
+export { RowActionsMenu } from "./RowActionsMenu";
 export { SectionHeader } from "./SectionHeader";
 export { SettingsCard } from "./SettingsCard";
 export { StatusBadge } from "./StatusBadge";

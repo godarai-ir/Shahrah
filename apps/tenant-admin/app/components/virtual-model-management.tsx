@@ -148,7 +148,10 @@ export default function VirtualModelManagement() {
   const principalT = useTranslations("providerAccounts");
   const principalUx = useTranslations("providerAccounts.ux");
   const defaultEveryoneLabel = principalT("principal.everyone");
-  const [docsHref, setDocsHref] = useState("https://godarai.ir/docs/virtual-model");
+  const docsHref =
+    typeof window === "undefined"
+      ? "https://godarai.ir/docs/virtual-model"
+      : `${getPublicSiteOrigin(window.location.origin)}/docs/virtual-model`;
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -186,10 +189,6 @@ export default function VirtualModelManagement() {
     void loadList();
     void loadProviderAllowedModels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    setDocsHref(`${getPublicSiteOrigin(window.location.origin)}/docs/virtual-model`);
   }, []);
 
   useEffect(() => {
@@ -577,11 +576,11 @@ export default function VirtualModelManagement() {
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
                 <div className="relative flex-1">
-              <Search className="pointer-events-none absolute top-3 left-3 h-4 w-4 text-muted-foreground" />
+              <Search className="pointer-events-none absolute start-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                className="pl-9"
+                className="ps-9"
                 placeholder={t("searchPlaceholder")}
                 aria-label={t("searchPlaceholder")}
               />

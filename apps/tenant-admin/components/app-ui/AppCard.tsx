@@ -19,12 +19,12 @@ export function AppCard({ title, description, actions, footer, children, classNa
   return (
     <Card className={cn("card-hover", className)}>
       {hasHeader ? (
-        <CardHeader className="flex-row items-start justify-between gap-4">
+        <CardHeader className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:gap-4">
           <div className="min-w-0">
             {title ? <CardTitle>{title}</CardTitle> : null}
             {description ? <CardDescription className="mt-1">{description}</CardDescription> : null}
           </div>
-          {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+          {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
         </CardHeader>
       ) : null}
       {children ? <CardContent className={cn(!hasHeader && "pt-4 md:pt-6", contentClassName)}>{children}</CardContent> : null}

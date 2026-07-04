@@ -74,7 +74,7 @@ type QuickStartManagementProps = {
 
 type TokenType = "pat" | "vat";
 type SnippetTab = "bash" | "python" | "node";
-type TranslateValues = Record<string, string | number | Date | null | undefined>;
+type TranslateValues = Record<string, string | number | Date>;
 type TranslateFn = (key: string, values?: TranslateValues) => string;
 type SampleRunResult = {
   content: string | null;
@@ -85,6 +85,7 @@ type SampleRunResult = {
 
 const samplePrompt = "برای من سه مزیت اصلی استفاده از gateway را بنویس.";
 const featuredProviderOrder = ["openai", "anthropic", "google", "azure", "mistral", "groq"] as const;
+type FeaturedProvider = (typeof featuredProviderOrder)[number];
 
 export default function QuickStartManagement(props: QuickStartManagementProps) {
   const t = useTranslations("quickStart");
@@ -118,12 +119,10 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
   const featuredProviders = useMemo(() => {
     const ranked = new Map(featuredProviderOrder.map((slug, index) => [slug, index]));
     return providerChoices
-      .filter((item) => ranked.has(normalizeFeaturedProvider(item.provider)))
-      .sort(
-        (a, b) =>
-          (ranked.get(normalizeFeaturedProvider(a.provider)) ?? Number.MAX_SAFE_INTEGER) -
-          (ranked.get(normalizeFeaturedProvider(b.provider)) ?? Number.MAX_SAFE_INTEGER),
-      );
+      .map((item) => ({ item, featuredProvider: getFeaturedProvider(item.provider) }))
+      .filter((entry): entry is { item: ProviderCatalogProvider; featuredProvider: FeaturedProvider } => Boolean(entry.featuredProvider))
+      .sort((a, b) => (ranked.get(a.featuredProvider) ?? Number.MAX_SAFE_INTEGER) - (ranked.get(b.featuredProvider) ?? Number.MAX_SAFE_INTEGER))
+      .map((entry) => entry.item);
   }, [providerChoices]);
 
   const effectiveSelectedTokenType =
@@ -844,6 +843,11 @@ function normalizeFeaturedProvider(provider: string): string {
   if (normalized === "gemini" || normalized === "google-gemini") return "google";
   if (normalized === "azure-openai") return "azure";
   return normalized;
+}
+
+function getFeaturedProvider(provider: string): FeaturedProvider | null {
+  const normalized = normalizeFeaturedProvider(provider);
+  return (featuredProviderOrder as readonly string[]).includes(normalized) ? (normalized as FeaturedProvider) : null;
 }
 
 function badgeVariantForStatus(status: QuickStartStepStatus): "outline" | "secondary" | "success" | "destructive" {

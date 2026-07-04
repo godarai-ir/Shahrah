@@ -7,17 +7,10 @@ import { Calendar, Columns3, Filter, RefreshCw, RotateCcw, X } from "lucide-reac
 import { useLocale, useTranslations } from "next-intl";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { FilterCombobox } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-} from "@/components/ui/combobox";
 import { DataTable } from "@/components/ui/data-table";
 import {
   DropdownMenu,
@@ -818,13 +811,13 @@ function DateTimeFilter({
   return (
     <TraceField id={id} label={label}>
       <div className="relative">
-        <Calendar className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+        <Calendar className="pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
         <Input
           id={id}
           type="datetime-local"
           value={toDateTimeLocalValue(value)}
           onChange={(event) => onChange(fromDateTimeLocalValue(event.target.value))}
-          className="h-8 px-2 pl-8 text-xs"
+          className="h-8 px-2 ps-8 text-xs"
         />
       </div>
     </TraceField>
@@ -894,40 +887,17 @@ function TraceCombobox({
   searchable?: boolean;
   mono?: boolean;
 }) {
-  const selectedOption = options.find((option) => option.value === value) ?? null;
-
   return (
-    <Combobox
-      items={options}
-      value={selectedOption}
-      onValueChange={(option) => {
-        if (option) onValueChange(option.value);
-      }}
-      itemToStringValue={(option) => option.label}
-    >
-      <ComboboxInput
-        id={id}
-        dir="rtl"
-        placeholder={placeholder}
-        readOnly={!searchable}
-        className={cn(
-          "h-8 w-full bg-background [&_[data-slot=input-group-control]]:min-w-0 [&_[data-slot=input-group-control]]:text-right [&_[data-slot=input-group-control]]:text-xs",
-          mono && "[&_[data-slot=input-group-control]]:font-mono",
-        )}
-      />
-      <ComboboxContent align="start" className="text-right" dir="rtl">
-        <ComboboxEmpty>{emptyText}</ComboboxEmpty>
-        <ComboboxList>
-          {(option) => (
-            <ComboboxItem key={option.value} value={option} className={cn("text-right", mono && "font-mono")} dir="rtl">
-              <span className="min-w-0 truncate" dir="auto">
-                {option.label}
-              </span>
-            </ComboboxItem>
-          )}
-        </ComboboxList>
-      </ComboboxContent>
-    </Combobox>
+    <FilterCombobox
+      id={id}
+      options={options}
+      value={value}
+      onValueChange={onValueChange}
+      placeholder={placeholder}
+      emptyText={emptyText}
+      searchable={searchable}
+      mono={mono}
+    />
   );
 }
 

@@ -2,11 +2,11 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Check, Copy, Plus, RefreshCcw, Trash2 } from "lucide-react";
+import { Check, Copy, KeyRound, Plus, RefreshCcw, Trash2 } from "lucide-react";
 
 import AccessManagementHeader from "@/app/components/access-management-header";
+import { AppCard, EmptyState, SectionHeader, StatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -185,7 +185,7 @@ export default function PersonalAccessTokenManagement(props: {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col gap-5">
       <AccessManagementHeader activeTab="personalAccessTokens" />
 
       {banner ? (
@@ -195,22 +195,20 @@ export default function PersonalAccessTokenManagement(props: {
         </Alert>
       ) : null}
 
-      <section className="rounded-xl border bg-card px-4 py-5 space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("searchPlaceholder")} className="w-64" />
-          <Button variant="outline" onClick={() => void load()} disabled={isLoading}><RefreshCcw className="h-4 w-4" />{t("actions.refresh")}</Button>
-          <Button variant="destructive" onClick={() => openDeleteDialog({ type: "all" })}><Trash2 className="h-4 w-4" />{t("actions.revokeAll")}</Button>
-
+      <AppCard
+        title={t("title")}
+        description={t("create.description")}
+        actions={
           <Sheet>
             <SheetTrigger asChild>
-              <Button><Plus className="h-4 w-4" />{t("actions.create")}</Button>
+              <Button><Plus data-icon="inline-start" />{t("actions.create")}</Button>
             </SheetTrigger>
             <SheetContent side="right" className="w-[94vw] max-w-md">
               <SheetHeader>
                 <SheetTitle>{t("create.title")}</SheetTitle>
                 <SheetDescription>{t("create.description")}</SheetDescription>
               </SheetHeader>
-              <form className="mt-6 space-y-4" onSubmit={createPAT}>
+              <form className="mt-6 flex flex-col gap-4" onSubmit={createPAT}>
                 <div className="grid gap-2">
                   <label className="text-sm font-medium">{t("fields.name")}</label>
                   <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("fields.namePlaceholder")} />
@@ -224,37 +222,53 @@ export default function PersonalAccessTokenManagement(props: {
               </form>
             </SheetContent>
           </Sheet>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <SectionHeader
+            title={t("summary", { total })}
+            description={t("searchPlaceholder")}
+            action={
+              <div className="flex flex-wrap items-center gap-2">
+                <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("searchPlaceholder")} className="w-64" />
+                <Button variant="outline" onClick={() => void load()} disabled={isLoading}><RefreshCcw data-icon="inline-start" />{t("actions.refresh")}</Button>
+                <Button variant="destructive" onClick={() => openDeleteDialog({ type: "all" })}><Trash2 data-icon="inline-start" />{t("actions.revokeAll")}</Button>
+              </div>
+            }
+          />
+
+          {tokens.length === 0 ? (
+            <EmptyState icon={KeyRound} title={t("table.empty")} description={t("create.accessHint")} />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("table.name")}</TableHead>
+                  <TableHead>{t("table.masked")}</TableHead>
+                  <TableHead>{t("table.createdAt")}</TableHead>
+                  <TableHead>{t("table.lastUsedAt")}</TableHead>
+                  <TableHead>{t("table.expiresAt")}</TableHead>
+                  <TableHead>{t("table.status")}</TableHead>
+                  <TableHead>{t("table.actions")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {tokens.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>{item.key_alias}</TableCell>
+                    <TableCell>{item.key_name ?? "-"}</TableCell>
+                    <TableCell>{formatDate(item.created_at)}</TableCell>
+                    <TableCell>{formatDate(item.last_used_at)}</TableCell>
+                    <TableCell>{formatDate(item.expires_at)}</TableCell>
+                    <TableCell><StatusBadge status={item.revoked_at ? "inactive" : "active"}>{item.revoked_at ? t("status.revoked") : t("status.active")}</StatusBadge></TableCell>
+                    <TableCell><Button variant="outline" size="sm" onClick={() => openDeleteDialog({ type: "single", token: item })}>{t("actions.revoke")}</Button></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </div>
-
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t("table.name")}</TableHead>
-              <TableHead>{t("table.masked")}</TableHead>
-              <TableHead>{t("table.createdAt")}</TableHead>
-              <TableHead>{t("table.lastUsedAt")}</TableHead>
-              <TableHead>{t("table.expiresAt")}</TableHead>
-              <TableHead>{t("table.status")}</TableHead>
-              <TableHead>{t("table.actions")}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {tokens.length === 0 ? <TableRow><TableCell colSpan={7}>{t("table.empty")}</TableCell></TableRow> : tokens.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell>{item.key_alias}</TableCell>
-                <TableCell>{item.key_name ?? "-"}</TableCell>
-                <TableCell>{formatDate(item.created_at)}</TableCell>
-                <TableCell>{formatDate(item.last_used_at)}</TableCell>
-                <TableCell>{formatDate(item.expires_at)}</TableCell>
-                <TableCell><Badge variant="secondary">{item.revoked_at ? t("status.revoked") : t("status.active")}</Badge></TableCell>
-                <TableCell><Button variant="outline" size="sm" onClick={() => openDeleteDialog({ type: "single", token: item })}>{t("actions.revoke")}</Button></TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-
-        <p className="text-sm text-muted-foreground">{t("summary", { total })}</p>
-      </section>
+      </AppCard>
 
       <Dialog
         open={deleteDialogOpen}
@@ -319,7 +333,7 @@ export default function PersonalAccessTokenManagement(props: {
               {t("oneTime.close")}
             </Button>
             <Button type="button" onClick={() => void copySecret()} disabled={isCopyingSecret || !newSecret}>
-              {secretCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              {secretCopied ? <Check data-icon="inline-start" /> : <Copy data-icon="inline-start" />}
               {isCopyingSecret ? t("oneTime.copying") : secretCopied ? t("oneTime.copied") : t("oneTime.copy")}
             </Button>
           </DialogFooter>

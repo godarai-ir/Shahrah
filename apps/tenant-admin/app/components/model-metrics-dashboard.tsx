@@ -710,7 +710,7 @@ function DateTimePicker({
   return (
     <Field id={id} label={label}>
       <div className="relative">
-        <Calendar className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+        <Calendar className="pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
         <Input
           id={id}
           type="datetime-local"
@@ -719,7 +719,7 @@ function DateTimePicker({
             const next = fromDateTimeLocalValue(event.target.value);
             if (next) onChange(next);
           }}
-          className="h-8 px-2 pl-8 text-xs"
+          className="h-8 px-2 ps-8 text-xs"
         />
       </div>
     </Field>

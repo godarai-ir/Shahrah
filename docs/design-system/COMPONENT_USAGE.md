@@ -16,6 +16,8 @@ Use for empty lists, missing data, and first-run states. Include an icon only wh
 
 Use `AppCard` for product cards and `SettingsCard` for settings pages or grouped account configuration.
 
+Do not put cards inside cards. If a settings surface already has `SettingsCard`, put form controls directly inside it or use an unframed `FormSection` variant.
+
 ## MetricCard
 
 Use for dashboard metrics with a label, value, optional description, optional trend, and optional icon.
@@ -23,6 +25,16 @@ Use for dashboard metrics with a label, value, optional description, optional tr
 ## DataTable Wrapper
 
 The app already has `components/ui/data-table`. Keep using it where behavior is established. Add a product-level wrapper only when multiple pages need the same toolbar, state, and pagination structure.
+
+## Dropdowns And Lists
+
+Use `RowActionsMenu` for table row actions instead of hand-composing `DropdownMenu` in each table. Use it for edit, members, activate/deactivate, revoke, and delete actions.
+
+Use `AppSelectField` for compact static option sets in forms and filter toolbars. It standardizes trigger sizing, `SelectGroup`, RTL direction, and helper text.
+
+Use `FilterCombobox` for searchable filter dropdowns in table/list toolbars. It standardizes `ComboboxInput`, empty state, RTL text alignment, and option truncation.
+
+Keep `components/ui/dropdown-menu`, `components/ui/select`, and `components/ui/combobox` as primitive escape hatches. Route components should prefer the app-ui wrappers unless they need a behavior the wrapper does not support.
 
 ## StatusBadge
 
@@ -35,3 +47,5 @@ Use for destructive or high-impact confirmations. It composes the existing shadc
 ## FormSection
 
 Use to group related fields with a title, description, content, and optional footer actions.
+
+For page-level forms, prefer `FormSection` inside the page container. For compact settings cards, use it only when the section title adds useful structure.

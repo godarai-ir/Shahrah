@@ -4,7 +4,6 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   AlertTriangle,
-  MoreVertical,
   Plus,
   RefreshCw,
   Search,
@@ -14,16 +13,11 @@ import {
 
 import AccessManagementHeader from "@/app/components/access-management-header";
 import { usePermissions } from "@/app/components/permissions-context";
+import { AppSelectField, RowActionsMenu } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -417,11 +411,11 @@ export default function TeamManagement({
             </Sheet>
           </div>
           <div className="flex flex-wrap gap-2">
-            <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("filters.search")} className="w-full pl-9 sm:w-64" /></div>
-            <select value={orgFilter} onChange={(e) => setOrgFilter(e.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm"><option value="all">{t("filters.orgAll")}</option><option value="root">{t("table.tenantRoot")}</option>{orgUnits.map((org) => <option key={org.id} value={org.id}>{org.display_name || org.alias}</option>)}</select>
-            <select value={workspaceFilter} onChange={(e) => setWorkspaceFilter(e.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm"><option value="all">{t("filters.workspaceAll")}</option>{WORKSPACE_TYPES.map((type) => <option key={type} value={type}>{t(`workspace.${type}`)}</option>)}</select>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm"><option value="all">{t("filters.statusAll")}</option><option value="active">{t("status.active")}</option><option value="blocked">{t("status.blocked")}</option></select>
-            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm"><option value="recent">{t("sort.recent")}</option><option value="name">{t("sort.name")}</option><option value="spend">{t("sort.spend")}</option><option value="members">{t("sort.members")}</option></select>
+            <div className="relative"><Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("filters.search")} className="w-full ps-9 sm:w-64" /></div>
+            <AppSelectField value={orgFilter} onValueChange={setOrgFilter} triggerClassName="h-10" options={[{ value: "all", label: t("filters.orgAll") }, { value: "root", label: t("table.tenantRoot") }, ...orgUnits.map((org) => ({ value: org.id, label: org.display_name || org.alias }))]} />
+            <AppSelectField value={workspaceFilter} onValueChange={setWorkspaceFilter} triggerClassName="h-10" options={[{ value: "all", label: t("filters.workspaceAll") }, ...WORKSPACE_TYPES.map((type) => ({ value: type, label: t(`workspace.${type}`) }))]} />
+            <AppSelectField value={statusFilter} onValueChange={setStatusFilter} triggerClassName="h-10" options={[{ value: "all", label: t("filters.statusAll") }, { value: "active", label: t("status.active") }, { value: "blocked", label: t("status.blocked") }]} />
+            <AppSelectField value={sortBy} onValueChange={setSortBy} triggerClassName="h-10" options={[{ value: "recent", label: t("sort.recent") }, { value: "name", label: t("sort.name") }, { value: "spend", label: t("sort.spend") }, { value: "members", label: t("sort.members") }]} />
           </div>
 
           <div className="overflow-x-auto">
@@ -436,12 +430,15 @@ export default function TeamManagement({
                     <TableCell>{getModelSummary(team, t)}</TableCell>
                     <TableCell><StatusBadge status={getStatus(team)} t={t} /></TableCell>
                     <TableCell>{formatDate(team.updated_at)}</TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => { setForm(formFromTeam(team)); setEditOpen(true); void loadAllowedModels(team.id); }} disabled={!canManage}>{t("actions.edit")}</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => { setSelectedTeamID(team.id); setMembersOpen(true); void loadUsers(); }} disabled={!canManage}>{t("actions.members")}</DropdownMenuItem>
-                        {canDelete ? <DropdownMenuItem onClick={() => { setSelectedTeamID(team.id); setDeleteOpen(true); }} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />{t("actions.delete")}</DropdownMenuItem> : null}
-                      </DropdownMenuContent></DropdownMenu>
+                    <TableCell className="text-end">
+                      <RowActionsMenu
+                        label={t("table.actions")}
+                        actions={[
+                          { label: t("actions.edit"), disabled: !canManage, onSelect: () => { setForm(formFromTeam(team)); setEditOpen(true); void loadAllowedModels(team.id); } },
+                          { label: t("actions.members"), disabled: !canManage, onSelect: () => { setSelectedTeamID(team.id); setMembersOpen(true); void loadUsers(); } },
+                          ...(canDelete ? [{ label: t("actions.delete"), destructive: true, icon: <Trash2 />, onSelect: () => { setSelectedTeamID(team.id); setDeleteOpen(true); } }] : []),
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}

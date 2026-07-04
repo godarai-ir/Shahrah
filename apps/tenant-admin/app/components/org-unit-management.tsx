@@ -573,12 +573,12 @@ export default function OrgUnitManagement({
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder={t("filters.searchPlaceholder")}
-                  className="w-full pl-9 sm:w-64"
+                  className="w-full ps-9 sm:w-64"
                 />
               </div>
               <select

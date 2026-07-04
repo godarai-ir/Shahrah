@@ -8,7 +8,6 @@ import "prismjs/components/prism-json";
 import "prismjs/components/prism-markdown";
 import "prismjs/components/prism-python";
 
-import { useTheme } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
 
 export function CodeBlock(props: {
@@ -17,23 +16,17 @@ export function CodeBlock(props: {
   className?: string;
   maxHeightClassName?: string;
 }) {
-  const { theme } = useTheme();
-  const prismTheme = theme === "dark" ? themes.nightOwl : themes.github;
-
   return (
     <Highlight
       code={props.code}
       language={props.language}
       prism={Prism}
-      theme={prismTheme}
+      theme={themes.github}
     >
       {({ className, style, tokens, getLineProps, getTokenProps }) => (
         <div
           className={cn(
-            "overflow-hidden rounded-2xl border shadow-sm",
-            theme === "dark"
-              ? "border-slate-800 bg-slate-950 text-slate-100"
-              : "border-slate-200 bg-slate-50 text-slate-900",
+            "overflow-hidden rounded-2xl border border-code-border bg-code text-code-foreground shadow-sm",
             props.className,
           )}
         >
@@ -59,10 +52,7 @@ export function CodeBlock(props: {
                   className={cn("table w-full table-fixed", lineProps.className)}
                 >
                   <span
-                    className={cn(
-                      "table-cell w-8 select-none pe-3 text-right sm:w-10 sm:pe-4",
-                      theme === "dark" ? "text-slate-500" : "text-slate-400",
-                    )}
+                    className="table-cell w-8 select-none pe-3 text-right text-code-muted-foreground sm:w-10 sm:pe-4"
                   >
                     {lineIndex + 1}
                   </span>
