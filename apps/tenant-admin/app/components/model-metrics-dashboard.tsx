@@ -15,9 +15,9 @@ import {
   YAxis,
 } from "recharts";
 
+import { AppCard, EmptyState, MetricCard as AppMetricCard, PageHeader } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   type ChartConfig,
   ChartContainer,
@@ -423,18 +423,15 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
   }, []);
 
   return (
-    <div className="flex flex-col gap-3">
-      <header className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-xl font-semibold tracking-normal">{t("title")}</h1>
-        </div>
-      </header>
+    <div className="flex flex-col gap-4">
+      <PageHeader title={t("title")} description={t("description")} />
 
-      <Card className="rounded-lg">
-        <CardHeader className="sr-only">
-          <CardTitle>{t("filters.title")}</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-2 p-3 pt-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6 md:p-3 md:pt-3">
+      <AppCard
+        title={t("filters.title")}
+        description={t("filters.description")}
+        contentClassName="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6"
+        className="shadow-none"
+      >
           <Field id="metrics-range-preset" label={t("filters.timeRange")}>
             <MetricCombobox
               id="metrics-range-preset"
@@ -481,7 +478,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
               onChange={(event) => setRequestIDFilter(event.target.value)}
               placeholder={t("filters.placeholders.requestId")}
               dir="ltr"
-              className="h-8 px-2 text-xs font-mono"
+              className="h-8 px-2 text-xs font-mono text-start"
             />
           </Field>
           <Field id="metrics-view-by" label={t("filters.viewBy")}>
@@ -506,8 +503,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
               </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+      </AppCard>
 
       {error ? (
         <Alert variant="destructive">
@@ -517,9 +513,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
       ) : null}
 
       {hasLoaded && !loading && !error && distribution.length === 0 ? (
-        <Alert>
-          <AlertDescription>{t("table.empty")}</AlertDescription>
-        </Alert>
+        <EmptyState title={t("table.empty")} className="min-h-32" />
       ) : null}
 
       <section aria-label={t("sections.summary")} className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
@@ -637,12 +631,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
         </ChartCard>
       </section>
 
-      <Card className="rounded-lg">
-        <CardHeader className="gap-1 p-3 md:p-3">
-          <CardTitle className="text-sm">{t("cacheTable.title")}</CardTitle>
-          <CardDescription className="text-xs">{t("cacheTable.description")}</CardDescription>
-        </CardHeader>
-        <CardContent className="px-3 pb-3">
+      <AppCard title={t("cacheTable.title")} description={t("cacheTable.description")} contentClassName="overflow-x-auto" className="shadow-none">
           <Table>
             <TableHeader>
               <TableRow>
@@ -669,8 +658,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
               })}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+      </AppCard>
     </div>
   );
 }
@@ -764,16 +752,16 @@ function MetricCombobox({
         placeholder={placeholder}
         readOnly={!searchable}
         className={cn(
-          "h-8 w-full bg-background [&_[data-slot=input-group-control]]:min-w-0 [&_[data-slot=input-group-control]]:text-right [&_[data-slot=input-group-control]]:text-xs",
+          "h-8 w-full bg-background [&_[data-slot=input-group-control]]:min-w-0 [&_[data-slot=input-group-control]]:text-start [&_[data-slot=input-group-control]]:text-xs",
           mono && "[&_[data-slot=input-group-control]]:font-mono",
           className,
         )}
       />
-      <ComboboxContent align="start" className="text-right" dir="rtl">
+      <ComboboxContent align="start" className="text-start" dir="rtl">
         <ComboboxEmpty>{emptyText}</ComboboxEmpty>
         <ComboboxList>
           {(option) => (
-            <ComboboxItem key={option.value} value={option} className={cn("text-right", mono && "font-mono")} dir="rtl">
+            <ComboboxItem key={option.value} value={option} className={cn("text-start", mono && "font-mono")} dir="rtl">
               <span className="min-w-0 truncate" dir="auto">
                 {option.label}
               </span>
@@ -787,15 +775,12 @@ function MetricCombobox({
 
 function MetricCard({ title, value, hint }: { title: string; value: string; hint?: string }) {
   return (
-    <Card className="rounded-lg">
-      <CardHeader className="gap-1 p-3 md:p-3">
-        <CardDescription className="text-xs leading-none">{title}</CardDescription>
-        <CardTitle className="truncate text-xl leading-tight tabular-nums" dir="auto">
-          {value}
-        </CardTitle>
-        {hint ? <CardDescription className="text-xs leading-snug">{hint}</CardDescription> : null}
-      </CardHeader>
-    </Card>
+    <AppMetricCard
+      label={title}
+      value={<span className="block truncate text-xl leading-tight tabular-nums" dir="auto">{value}</span>}
+      description={hint}
+      className="shadow-none"
+    />
   );
 }
 
@@ -809,15 +794,14 @@ function ChartCard({
   children: React.ReactNode;
 }) {
   return (
-    <Card className="rounded-lg">
-      <CardHeader className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between md:p-3">
-        <div className="min-w-0">
-          <CardTitle className="truncate text-sm">{title}</CardTitle>
-        </div>
-        {action ? <div className="shrink-0">{action}</div> : null}
-      </CardHeader>
-      <CardContent className="px-3 pb-3 md:px-3 md:pb-3">{children}</CardContent>
-    </Card>
+    <AppCard
+      title={<span className="truncate text-sm">{title}</span>}
+      actions={action}
+      contentClassName="pt-0"
+      className="shadow-none"
+    >
+      {children}
+    </AppCard>
   );
 }
 
