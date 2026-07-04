@@ -483,6 +483,8 @@
         "selectedCountDetailed": "انتخاب شده: {count} از {total}",
         "selectAll": "انتخاب همه",
         "selectedOnly": "فقط منتخب‌ها",
+        "tableView": "نمای جدولی",
+        "cardView": "نمای کارتی",
         "deselectAll": "لغو انتخاب همه",
         "autoEnableTitle": "مدل‌های جدید این Provider به‌صورت خودکار فعال شوند",
         "autoEnableDescription": "اگر این گزینه فعال باشد، مدل‌های جدید این Provider به‌صورت پیش‌فرض روی این Integration در دسترس می‌شوند و بعدا می‌توانید غیرفعالشان کنید.",
@@ -491,13 +493,13 @@
     }
   },
   "integrations": {
-    "pageTitle": "اتصال به ارائه‌دهندگان خدمات هوش مصنوعی",
-    "pageDescription": "ارائه‌دهنده‌های هوش مصنوعی را متصل کنید، وضعیت اتصال‌ها را ببینید و دسترسی مدل‌ها را مدیریت کنید.",
+    "pageTitle": "اتصال به ارائه‌دهندگان مدل‌های هوشواره",
+    "pageDescription": "در این جا می‌توانید تنظیم کنید که چه مدلی از چه ارائه‌دهنده‌ای برای چه فرد/تیم/واحدسازمانی قابل دسترس و استفاده باشد.",
     "tabs": {
       "all": "همه",
       "connected": "متصل"
     },
-    "searchPlaceholder": "جستجوی در بین ارائه‌دهندگان خدمات هوش مصنوعی",
+    "searchPlaceholder": "جستجو در بین ارائه‌دهندگان مدل‌های هوشواره",
     "providerFilter": "ارائه‌دهنده‌ها",
     "workspaceFilter": "Workspaces",
     "providerDescriptionFallback": "برای اتصال این Provider، ترافیک tenant از مسیر Godar با credential، مدل و دسترسی مدیریت‌شده route می‌شود.",
@@ -524,7 +526,7 @@
       "viewDocs": "مشاهده Docs",
       "disconnect": "قطع اتصال",
       "disconnecting": "در حال قطع اتصال...",
-      "readDocs": "مطالعه docs اتصال",
+      "readDocs": "اطلاعات بیشتر",
       "reload": "بارگیری دوباره"
     },
     "empty": {

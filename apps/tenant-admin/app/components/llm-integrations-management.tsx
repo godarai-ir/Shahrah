@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, ChevronDown, Copy, ExternalLink, Link2, MoreVertical, Network, Plug, Search, Settings, Trash2, Unplug, UserCog } from "lucide-react";
+import { BookOpen, ChevronDown, Copy, ExternalLink, Link2, MoreVertical, Network, Plus, Plug, Search, Settings, Trash2, Unplug, UserCog } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { ProviderLogo } from "@/app/components/provider-account-wizard/provider-logo";
@@ -35,6 +35,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 type ProviderView = ProviderCatalogProvider & {
@@ -100,6 +101,7 @@ function parseProviderFilters(value?: string) {
 export default function LLMIntegrationsManagement(props: {
   initialProvider?: string;
   initialTab?: "all" | "connected";
+  docsHref?: string;
 }) {
   const t = useTranslations("providerAccounts");
   const copy = useTranslations("providerAccounts.integrations");
@@ -327,7 +329,20 @@ export default function LLMIntegrationsManagement(props: {
               <Network className="size-4 text-muted-foreground" />
               <h1 className="text-2xl font-semibold leading-8 tracking-normal">{copy("pageTitle")}</h1>
             </div>
-            <p className="text-sm leading-6 text-muted-foreground">{copy("pageDescription")}</p>
+            <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-muted-foreground">
+              <p>{copy("pageDescription")}</p>
+              {props.docsHref ? (
+                <a
+                  href={props.docsHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 rounded-md text-primary underline-offset-4 hover:underline"
+                >
+                  <BookOpen className="size-3.5" />
+                  {copy("actions.readDocs")}
+                </a>
+              ) : null}
+            </div>
           </div>
         </header>
 
@@ -342,8 +357,8 @@ export default function LLMIntegrationsManagement(props: {
 
         <Tabs value={activeTab} onValueChange={changeTab} className="gap-0">
           <div className="border-b border-border px-5 py-4 sm:px-6" dir={pageDirection}>
-            <div className="flex flex-col gap-3">
-              <TabsList dir={pageDirection} className="justify-start gap-2">
+            <div className="flex items-center gap-3">
+              <TabsList dir={pageDirection} className="shrink-0 justify-start gap-2">
                 <TabsTrigger value="all">
                   <Plug data-icon="inline-start" />
                   {copy("tabs.all")}
@@ -353,18 +368,19 @@ export default function LLMIntegrationsManagement(props: {
                   {copy("tabs.connected")}
                 </TabsTrigger>
               </TabsList>
-
-              <FilterRow
-                activeTab={activeTab}
-                query={query}
-                setQuery={setQuery}
-                providerFilters={providerFilters}
-                setProviderFilters={changeProviderFilters}
-                providerOptions={providerOptions}
-                searchPlaceholder={copy("searchPlaceholder")}
-                providerFilterLabel={copy("providerFilter")}
-                direction={pageDirection}
-              />
+              <div className="min-w-0 flex-1">
+                <FilterRow
+                  activeTab={activeTab}
+                  query={query}
+                  setQuery={setQuery}
+                  providerFilters={providerFilters}
+                  setProviderFilters={changeProviderFilters}
+                  providerOptions={providerOptions}
+                  searchPlaceholder={copy("searchPlaceholder")}
+                  providerFilterLabel={copy("providerFilter")}
+                  direction={pageDirection}
+                />
+              </div>
             </div>
           </div>
 
@@ -390,7 +406,6 @@ export default function LLMIntegrationsManagement(props: {
                       createConnectionLabel={copy("card.createConnection")}
                       accountCount={accountCountsByProvider.get(normalizeProviderSlug(provider.provider)) ?? 0}
                       modelCount={modelCounts[normalizeProviderSlug(provider.provider)]}
-                      descriptionFallback={copy("providerDescriptionFallback")}
                       onManageConnections={openConnectedProvider}
                     />
                   ))}
@@ -481,14 +496,14 @@ function FilterRow(props: {
   }
 
   return (
-    <div className="flex flex-col gap-2 lg:flex-row" dir={props.direction}>
+    <div className="flex min-w-0 items-center gap-2" dir={props.direction}>
       {props.activeTab === "connected" ? (
         <DropdownMenu dir={props.direction}>
           <DropdownMenuTrigger asChild>
             <Button
               type="button"
               variant="outline"
-              className="h-9 justify-between gap-2 px-3 text-sm font-normal lg:w-72"
+              className="h-9 shrink-0 justify-between gap-2 px-3 text-sm font-normal lg:w-72"
               aria-label={props.providerFilterLabel}
             >
               <span className="truncate">{providerFilterText}</span>
@@ -544,11 +559,9 @@ function ProviderCard(props: {
   createConnectionLabel: string;
   accountCount: number;
   modelCount?: number | null;
-  descriptionFallback: string;
   onManageConnections: (providerSlug: string) => void;
 }) {
   const providerSlug = normalizeProviderSlug(props.provider.provider);
-  const description = getProviderDescription(props.provider, props.descriptionFallback);
   const manageHref = `/provider-accounts?tab=connected&provider=${encodeURIComponent(providerSlug)}`;
   const connectHref = `/provider-accounts/new?provider=${encodeURIComponent(providerSlug)}`;
   const providerHref = `${getModelDiscoveryCatalogBaseURL()}/providers/${encodeURIComponent(providerSlug)}`;
@@ -558,99 +571,104 @@ function ProviderCard(props: {
   const formattedModelCount =
     resolvedModelCount === null ? "-" : new Intl.NumberFormat("fa-IR").format(resolvedModelCount);
   const formattedAccountCount = new Intl.NumberFormat("fa-IR").format(props.accountCount);
+  const hasConnections = props.accountCount > 0;
 
   return (
-    <Card className="surface-elevated min-h-[16.5rem] overflow-hidden rounded-xl border shadow-none transition-colors hover:border-primary/35">
-      <CardContent className="flex h-full flex-col gap-3 !p-4">
-        <div className="flex min-w-0 items-start gap-3">
-          <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-border bg-background p-2 shadow-sm">
-            <ProviderLogo
-              provider={props.provider.provider}
-              displayName={props.provider.display_name}
-              logoURL={props.provider.logo_url}
-              size={32}
-            />
-          </div>
-          <h2 className="flex min-w-0 flex-1 items-center gap-1.5 pt-0.5 text-base font-semibold leading-6 tracking-normal">
-            <span className="truncate" dir="ltr">{props.provider.display_name}</span>
-            <a
-              href={providerHref}
-              target="_blank"
-              rel="noreferrer"
-              aria-label={props.provider.display_name}
-              className="inline-flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
-              <ExternalLink className="size-3" />
-            </a>
-          </h2>
-        </div>
-
-        <p className="line-clamp-3 min-h-[3.75rem] w-full text-right text-xs leading-5 text-muted-foreground" dir="rtl">
-          {description}
-        </p>
-
-        <div className="grid min-h-[4.875rem] grid-cols-2 items-center border-y border-border/70 py-2.5">
-          <div className="text-center">
-            <p className="text-xs text-muted-foreground">{props.modelMetricLabel}</p>
-            <p className="mt-1 text-base font-bold leading-none" dir="rtl">
-              {isModelCountLoading ? (
-                <span className="inline-block h-5 w-14 animate-pulse rounded bg-muted align-middle" aria-label="loading" />
-              ) : resolvedModelCount !== null ? (
+    <TooltipProvider delayDuration={120}>
+      <Card className="surface-elevated min-h-[13.75rem] overflow-hidden rounded-xl border shadow-none transition-colors hover:border-primary/35">
+        <CardContent className="flex h-full flex-col gap-3 !p-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-border bg-background p-2 shadow-sm">
+              <ProviderLogo
+                provider={props.provider.provider}
+                displayName={props.provider.display_name}
+                logoURL={props.provider.logo_url}
+                size={32}
+              />
+            </div>
+            <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+              <h2 className="flex min-h-12 min-w-0 flex-1 items-center gap-1.5 text-lg font-semibold leading-none tracking-normal">
+                <span className="truncate" dir="ltr">{props.provider.display_name}</span>
                 <a
-                  href={providerModelsHref}
+                  href={providerHref}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center justify-center gap-1 rounded-sm text-foreground underline-offset-4 hover:text-primary hover:underline"
+                  aria-label={props.provider.display_name}
+                  className="inline-flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
-                  <bdi>{formattedModelCount}</bdi>{" "}
-                  <span>{props.modelUnitLabel}</span>
+                  <ExternalLink className="size-3" />
                 </a>
-              ) : (
-                <span className="inline-flex items-center justify-center text-muted-foreground">
-                  <bdi>{formattedModelCount}</bdi>
-                </span>
-              )}
-            </p>
+              </h2>
+              <div className="flex shrink-0 items-center gap-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    {hasConnections ? (
+                      <Button type="button" size="icon" variant="ghost" asChild className="size-8 rounded-lg text-muted-foreground hover:text-foreground">
+                        <Link href={manageHref} onClick={() => props.onManageConnections(providerSlug)} aria-label={props.manageConnectionsLabel}>
+                          <UserCog className="size-4" />
+                        </Link>
+                      </Button>
+                    ) : (
+                      <Button type="button" size="icon" variant="ghost" disabled className="size-8 rounded-lg text-muted-foreground" aria-label={props.manageConnectionsLabel}>
+                        <UserCog className="size-4" />
+                      </Button>
+                    )}
+                  </TooltipTrigger>
+                  <TooltipContent>{props.manageConnectionsLabel}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button type="button" size="icon" asChild className="size-8 rounded-lg bg-primary text-primary-foreground shadow-none hover:bg-primary-hover">
+                      <Link href={connectHref} aria-label={props.createConnectionLabel || props.connectLabel}>
+                        <Plus className="size-4" />
+                      </Link>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{props.createConnectionLabel || props.connectLabel}</TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
           </div>
-          <div className="text-center">
-            <p className="text-xs text-muted-foreground">{props.connectionMetricLabel}</p>
-            <p className={props.accountCount > 0 ? "mt-1 text-base font-bold leading-none text-[var(--success-soft-foreground)]" : "mt-1 text-base font-bold leading-none text-muted-foreground"} dir="rtl">
-              {props.accountCount > 0 ? (
-                `${formattedAccountCount} ${props.activeAccountCountLabel.replace(/[0-9۰-۹٠-٩,٬]+/g, "").trim()}`
-              ) : (
-                <span className="inline-flex size-6 items-center justify-center rounded-full border border-border bg-muted/40 text-muted-foreground" aria-label={props.noConnectionLabel} title={props.noConnectionLabel}>
-                  <Unplug className="size-3.5" />
-                </span>
-              )}
-            </p>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          {props.accountCount > 0 ? (
-            <Button type="button" size="sm" asChild className="surface-primary-soft surface-primary-soft-hover h-8 rounded-md border text-xs font-semibold shadow-none">
-              <Link href={manageHref} dir="ltr" onClick={() => props.onManageConnections(providerSlug)}>
-                <span className="truncate">{props.manageConnectionsLabel}</span>
-                <UserCog className="size-4" />
-              </Link>
-            </Button>
-          ) : (
-            <span aria-hidden="true" />
-          )}
-          <Button
-            type="button"
-            size="sm"
-            asChild
-            className="h-8 rounded-md bg-primary text-xs font-semibold text-primary-foreground shadow-none hover:bg-primary-hover"
-          >
-            <Link href={connectHref} dir="ltr">
-              <span className="truncate">{props.createConnectionLabel || props.connectLabel}</span>
-              <Plug className="size-4" />
-            </Link>
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+          <div className="grid min-h-[4.875rem] grid-cols-2 items-center border-t border-border/70 pt-2.5">
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground">{props.modelMetricLabel}</p>
+              <p className="mt-1 text-base font-bold leading-none" dir="rtl">
+                {isModelCountLoading ? (
+                  <span className="inline-block h-5 w-14 animate-pulse rounded bg-muted align-middle" aria-label="loading" />
+                ) : resolvedModelCount !== null ? (
+                  <a
+                    href={providerModelsHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center gap-1 rounded-sm text-foreground underline-offset-4 hover:text-primary hover:underline"
+                  >
+                    <bdi>{formattedModelCount}</bdi>{" "}
+                    <span>{props.modelUnitLabel}</span>
+                  </a>
+                ) : (
+                  <span className="inline-flex items-center justify-center text-muted-foreground">
+                    <bdi>{formattedModelCount}</bdi>
+                  </span>
+                )}
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground">{props.connectionMetricLabel}</p>
+              <p className={props.accountCount > 0 ? "mt-1 text-base font-bold leading-none text-[var(--success-soft-foreground)]" : "mt-1 text-base font-bold leading-none text-muted-foreground"} dir="rtl">
+                {props.accountCount > 0 ? (
+                  `${formattedAccountCount} ${props.activeAccountCountLabel.replace(/[0-9۰-۹٠-٩,٬]+/g, "").trim()}`
+                ) : (
+                  <span className="inline-flex size-6 items-center justify-center rounded-full border border-border bg-muted/40 text-muted-foreground" aria-label={props.noConnectionLabel} title={props.noConnectionLabel}>
+                    <Unplug className="size-3.5" />
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </TooltipProvider>
   );
 }
 
@@ -820,11 +838,4 @@ async function loadProviderModelCount(providerSlug: string): Promise<number | nu
   } finally {
     window.clearTimeout(timeout);
   }
-}
-
-function getProviderDescription(provider: ProviderView, fallback: string): string {
-  const description = provider.description?.trim();
-  if (description) return description;
-  const displayName = provider.display_name.trim() || provider.provider;
-  return fallback.replace("this provider", displayName).replace("این Provider", displayName);
 }

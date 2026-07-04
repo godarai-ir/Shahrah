@@ -35,8 +35,6 @@ import {
 } from "@/app/components/provider-account-wizard.models";
 import { AccessEditor } from "@/app/components/provider-account-wizard/access-editor";
 import {
-  deriveAccountDetailsReadiness,
-  deriveAccountListReadiness,
   mergeAccountIntoList,
 } from "@/app/components/provider-account-wizard/account-readiness";
 import { CredentialFields } from "@/app/components/provider-account-wizard/credential-fields";
@@ -73,7 +71,6 @@ import type {
 import {
   CreateFlowStepIndicator,
   type CreateWizardSectionID,
-  ProviderAccountSidebarSkeleton,
   WizardPanel,
 } from "@/app/components/provider-account-wizard/wizard-layout";
 import {
@@ -126,7 +123,6 @@ export default function ProviderAccountWizard(props?: {
   const [deleteAccountNameInput, setDeleteAccountNameInput] = useState("");
   const [isLoadingEffective, setIsLoadingEffective] = useState(false);
   const [isLoadingProviderModels, setIsLoadingProviderModels] = useState(false);
-  const [isRefreshingCatalog, setIsRefreshingCatalog] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
   const [banner, setBanner] = useState<Banner | null>(null);
   const [catalogStats, setCatalogStats] = useState<{ cacheTTL: number; counters: Record<string, number> }>({
@@ -136,7 +132,6 @@ export default function ProviderAccountWizard(props?: {
 
   const [providers, setProviders] = useState<ProviderCatalogProvider[]>([]);
   const [accounts, setAccounts] = useState<TenantProviderAccount[]>([]);
-  const [accountReadiness, setAccountReadiness] = useState<Record<string, Readiness>>({});
   const [providerModels, setProviderModels] = useState<ProviderCatalogModel[]>([]);
 
   const [selectedProviderID, setSelectedProviderID] = useState(initialProvider);
@@ -164,7 +159,6 @@ export default function ProviderAccountWizard(props?: {
   const [awsRegion, setAWSRegion] = useState("us-east-1");
   const [googleServiceAccountJSON, setGoogleServiceAccountJSON] = useState("");
 
-  const [modelSearchQuery, setModelSearchQuery] = useState("");
   const [modelDrafts, setModelDrafts] = useState<Record<string, ModelDraft>>({});
 
   const [managers, setManagers] = useState<AccessPrincipal[]>([]);
@@ -221,7 +215,6 @@ export default function ProviderAccountWizard(props?: {
     () => accounts.filter((item) => stringsEqualFold(item.provider, selectedProviderID)),
     [accounts, selectedProviderID],
   );
-  const hasVisibleProviders = visibleProviders.length > 0;
   const existingAccountNames = useMemo(() => accounts.map((item) => item.name), [accounts]);
 
   const fetchProviders = useCallback(async () => {
@@ -243,16 +236,6 @@ export default function ProviderAccountWizard(props?: {
   useEffect(() => {
     selectedAccountRef.current = selectedAccountID;
   }, [selectedAccountID]);
-
-  const filteredProviderModels = useMemo(() => {
-    const query = modelSearchQuery.trim().toLowerCase();
-    if (!query) return providerModels;
-    return providerModels.filter((model) => {
-      const display = (model.display_name || "").toLowerCase();
-      const key = model.model.toLowerCase();
-      return display.includes(query) || key.includes(query);
-    });
-  }, [providerModels, modelSearchQuery]);
 
   const selectedModelCount = useMemo(
     () => Object.values(modelDrafts).filter((draft) => draft.enabled).length,
@@ -349,10 +332,6 @@ export default function ProviderAccountWizard(props?: {
       const fetchedAccountNames = accountItems.map((item) => item.name);
       setProviders(providerItems);
       setAccounts(accountItems);
-      setAccountReadiness((prev) => {
-        const activeIDs = new Set(accountItems.map((item) => item.id));
-        return Object.fromEntries(Object.entries(prev).filter(([id]) => activeIDs.has(id)));
-      });
 
       if (isCreateMode) {
         const createProviders = providerItems.filter(
@@ -491,15 +470,6 @@ export default function ProviderAccountWizard(props?: {
         setSelectedProviderID(normalizeProviderSlug(payload.account.provider));
         setSelectedAccountID(payload.account.id);
         setModelDrafts(buildDraftsForAccount(payload.models ?? [], catalogModels));
-        setAccountReadiness((prev) => ({
-          ...prev,
-          [payload.account.id]: deriveAccountDetailsReadiness(
-            payload.account,
-            payload.models ?? [],
-            payload.access,
-            catalogModels,
-          ),
-        }));
       } catch (error) {
         if (requestID === accountLoadRequestRef.current) {
           setBanner({ kind: "error", message: normalizeError(error, t("messages.accountLoadFailed")) });
@@ -564,9 +534,6 @@ export default function ProviderAccountWizard(props?: {
 
         const remainingAccounts = accounts.filter((item) => item.id !== target.id);
         setAccounts(remainingAccounts);
-        setAccountReadiness((prev) =>
-          Object.fromEntries(Object.entries(prev).filter(([id]) => id !== target.id)),
-        );
 
         if (selectedAccountID === target.id) {
           const nextAccount = remainingAccounts.find((item) => stringsEqualFold(item.provider, target.provider)) ?? remainingAccounts[0];
@@ -678,64 +645,6 @@ export default function ProviderAccountWizard(props?: {
     setGoogleServiceAccountJSON("");
   }
 
-  async function handleRefreshCatalog() {
-    setIsRefreshingCatalog(true);
-    setBanner(null);
-    try {
-      await requestJSON("/api/provider-catalog/refresh", { method: "POST" });
-      await queryClient.invalidateQueries({ queryKey: ["tenant-admin", "provider-catalog"] });
-      await loadInitial();
-      await loadCatalogStats();
-      if (selectedProviderID) {
-        await loadProviderModels(selectedProviderID);
-      }
-      setBanner({ kind: "success", message: ux("messages.catalogRefreshSuccess") });
-    } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, ux("messages.catalogRefreshFailed")) });
-    } finally {
-      setIsRefreshingCatalog(false);
-    }
-  }
-
-  function handleSelectProvider(item: ProviderCatalogProvider) {
-    setSelectedProviderID(normalizeProviderSlug(item.provider));
-    if (workspaceMode === "setup") {
-      const nextProvider = normalizeProviderSlug(item.provider);
-      const shouldRegenerateName = shouldGenerateProviderAccountName({
-        currentName: name,
-        currentProvider: provider,
-        isAutoGenerated: isNameAutoGenerated,
-      });
-      setProvider(nextProvider);
-      setAuthMode(item.auth_modes?.[0] ?? "api_key");
-      if (shouldRegenerateName) {
-        setName(generateProviderAccountName(nextProvider, existingAccountNames));
-        setIsNameAutoGenerated(true);
-      }
-      void loadProviderModels(item.provider);
-      return;
-    }
-
-    const firstProviderAccount = accounts.find((accountItem) => stringsEqualFold(accountItem.provider, item.provider));
-    if (firstProviderAccount) {
-      handleSelectAccount(firstProviderAccount);
-    } else {
-      accountLoadRequestRef.current += 1;
-      setSelectedAccountID("");
-      setAccount(null);
-      setWorkspaceMode("overview");
-      setProvider(item.provider);
-      setName(generateProviderAccountName(item.provider, existingAccountNames));
-      setIsNameAutoGenerated(true);
-      setAuthMode(item.auth_modes?.[0] ?? "api_key");
-      setAllowVirtualOnly(false);
-      setManagers([]);
-      setUsers([{ type: "everyone", display_name: t("principal.everyone") }]);
-      setEffectiveModels([]);
-      void loadProviderModels(item.provider);
-    }
-  }
-
   function handleSelectAccount(item: TenantProviderAccount) {
     const shouldReloadCurrentAccount = item.id === selectedAccountID && workspaceMode === "workspace";
     accountLoadRequestRef.current += 1;
@@ -752,7 +661,6 @@ export default function ProviderAccountWizard(props?: {
     setUsers([]);
     setEffectiveModels([]);
     setLastCredentialTestMessage("");
-    setModelSearchQuery("");
     setModelDrafts({});
     setWorkspaceMode("workspace");
     setActiveTab("models");
@@ -893,7 +801,7 @@ export default function ProviderAccountWizard(props?: {
     setActiveCreateSection("models");
   }
 
-  async function handleSaveModels(accountID = selectedAccountID): Promise<boolean> {
+  const handleSaveModels = useCallback(async (accountID = selectedAccountID): Promise<boolean> => {
     if (!canManageProviderAccount) {
       setBanner({ kind: "error", message: t("messages.insufficientPermissions") });
       return false;
@@ -934,7 +842,7 @@ export default function ProviderAccountWizard(props?: {
     } finally {
       setIsSavingModels(false);
     }
-  }
+  }, [canManageProviderAccount, handleLoadAccount, modelDrafts, selectedAccountID, t, ux]);
 
   async function handleFinishCreateFlow() {
     await handleActivateAccount();
@@ -952,7 +860,7 @@ export default function ProviderAccountWizard(props?: {
     setActiveCreateSection("review");
   }
 
-  async function handleSaveAccess(accountID = selectedAccountID): Promise<boolean> {
+  const handleSaveAccess = useCallback(async (accountID = selectedAccountID): Promise<boolean> => {
     if (!canManageProviderAccount) {
       setBanner({ kind: "error", message: t("messages.insufficientPermissions") });
       return false;
@@ -981,7 +889,7 @@ export default function ProviderAccountWizard(props?: {
     } finally {
       setIsSavingAccess(false);
     }
-  }
+  }, [canManageProviderAccount, handleLoadAccount, managers, selectedAccountID, t, users]);
 
   async function handleTestCredentials() {
     if (!selectedAccountID) {
@@ -1065,7 +973,7 @@ export default function ProviderAccountWizard(props?: {
     }
   }, [t]);
 
-  async function loadEffectiveModelsPreview(accountID = selectedAccountID) {
+  const loadEffectiveModelsPreview = useCallback(async (accountID = selectedAccountID) => {
     if (!accountID) {
       setEffectiveModels([]);
       return;
@@ -1095,7 +1003,19 @@ export default function ProviderAccountWizard(props?: {
     } finally {
       setIsLoadingEffective(false);
     }
-  }
+  }, [effectiveKeyType, effectiveTeamID, effectiveUserID, selectedAccountID]);
+
+  const handleSaveModelsAction = useCallback(() => {
+    void handleSaveModels();
+  }, [handleSaveModels]);
+
+  const handleSaveAccessAction = useCallback(() => {
+    void handleSaveAccess();
+  }, [handleSaveAccess]);
+
+  const handleLoadEffectiveModelsAction = useCallback(() => {
+    void loadEffectiveModelsPreview();
+  }, [loadEffectiveModelsPreview]);
 
   const panelTitle =
     workspaceMode === "setup"
@@ -1118,8 +1038,7 @@ export default function ProviderAccountWizard(props?: {
     { id: "credentials", label: ux("tabs.credentials"), icon: KeyRound },
     { id: "observability", label: ux("tabs.observability"), icon: Eye },
   ];
-  const principalSelectorLabels = buildPrincipalSelectorLabels(t, ux);
-  const isInitialSidebarLoading = !isCreateMode && isLoading && providers.length === 0 && accounts.length === 0;
+  const principalSelectorLabels = useMemo(() => buildPrincipalSelectorLabels(t, ux), [t, ux]);
   const providerDocsURL = PROVIDER_DOCS_URLS[normalizeProviderSlug(provider)] ?? "";
   const createProviderDescription =
     activeProvider && "description" in activeProvider && typeof activeProvider.description === "string"
@@ -1448,15 +1367,13 @@ export default function ProviderAccountWizard(props?: {
                       t={t}
                       account={account}
                       setBanner={setBanner}
-                      filteredProviderModels={filteredProviderModels}
+                      providerModels={providerModels}
                       modelDrafts={modelDrafts}
                       setModelDrafts={setModelDrafts}
-                      modelSearchQuery={modelSearchQuery}
-                      setModelSearchQuery={setModelSearchQuery}
                       isSaving={isSavingModels}
                       isLoadingModels={isLoadingProviderModels}
                       canManage={canManageProviderAccount}
-                      onSave={() => void handleSaveModels()}
+                      onSave={handleSaveModelsAction}
                       variant="compact"
                     />
                   </WizardPanel>
@@ -1491,7 +1408,7 @@ export default function ProviderAccountWizard(props?: {
                       setUsers={setUsers}
                       onSearchPrincipal={searchPrincipalCandidates}
                       principalSelectorLabels={principalSelectorLabels}
-                      onSave={() => void handleSaveAccess()}
+                      onSave={handleSaveAccessAction}
                       isSaving={isSavingAccess}
                       canManage={canManageProviderAccount}
                       effectiveKeyType={effectiveKeyType}
@@ -1500,7 +1417,7 @@ export default function ProviderAccountWizard(props?: {
                       setEffectivePrincipal={handleEffectivePrincipalChange}
                       effectiveModels={effectiveModels}
                       isLoadingEffective={isLoadingEffective}
-                      onLoadEffective={() => void loadEffectiveModelsPreview()}
+                      onLoadEffective={handleLoadEffectiveModelsAction}
                     />
                   </WizardPanel>
                   ) : null}
@@ -1563,145 +1480,8 @@ export default function ProviderAccountWizard(props?: {
           </Alert>
         ) : null}
 
-        <div className="grid gap-4 lg:grid-cols-12">
-          {!isCreateMode ? (
-          <aside className="space-y-3 lg:col-span-4 xl:col-span-3">
-            {isInitialSidebarLoading ? (
-              <ProviderAccountSidebarSkeleton />
-            ) : hasVisibleProviders ? (
-              <>
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base">{ux("sidebar.catalogProviders")}</CardTitle>
-                    <CardDescription>{ux("sidebar.catalogProvidersHint")}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {visibleProviders.map((item) => {
-                      const providerCount = accounts.filter((accountItem) => stringsEqualFold(accountItem.provider, item.provider)).length;
-                      const isSelected = stringsEqualFold(selectedProviderID, item.provider);
-                      return (
-                        <button
-                          key={item.provider}
-                          type="button"
-                          className={`w-full rounded-lg border px-3 py-2 text-start transition ${
-                            isSelected
-                              ? "border-primary bg-primary/10"
-                              : providerCount > 0
-                                ? "border-primary/30 bg-primary/[0.04] hover:border-primary/50"
-                                : "border-border hover:border-primary/40"
-                          }`}
-                          onClick={() => handleSelectProvider(item)}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <ProviderLogo
-                                key={`${item.provider}:${item.logo_url ?? ""}`}
-                                provider={item.provider}
-                                displayName={item.display_name}
-                                logoURL={item.logo_url}
-                              />
-                              <span className="font-medium">{item.display_name}</span>
-                            </div>
-                            <Badge variant="secondary">{providerCount}</Badge>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base">{ux("sidebar.providerAccounts")}</CardTitle>
-                    <CardDescription>{selectedProvider?.display_name ?? ux("sidebar.selectProviderPrompt")}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {selectedProviderAccounts.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">{ux("sidebar.noAccountYet")}</p>
-                    ) : (
-                      selectedProviderAccounts.map((item) => {
-                        const isSelected = item.id === selectedAccountID && workspaceMode === "workspace";
-                        const isDeleting = deletingAccountID === item.id;
-                        return (
-                          <div
-                            key={item.id}
-                            className={`w-full rounded-lg border px-2 py-2 ${
-                              isSelected ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                className="min-w-0 flex-1 text-start"
-                                onClick={() => handleSelectAccount(item)}
-                              >
-                                <div className="font-medium">{item.name}</div>
-                                <div className="text-xs text-muted-foreground">{item.auth_mode}</div>
-                              </button>
-                              <div className="shrink-0">
-                                <ReadinessBadge
-                                  readiness={accountReadiness[item.id] ?? deriveAccountListReadiness(item)}
-                                  labels={{
-                                    ready: ux("readiness.ready"),
-                                    needs_credentials: ux("readiness.needsCredentials"),
-                                    needs_access: ux("readiness.needsAccess"),
-                                    pricing_incomplete: ux("readiness.pricingIncomplete"),
-                                  }}
-                                />
-                              </div>
-                            </div>
-                            <div className="mt-2 flex justify-end">
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                className="text-destructive hover:text-destructive"
-                                onClick={() => openDeleteAccountDialog(item)}
-                                disabled={isDeleting || !canDeleteProviderAccount}
-                              >
-                                <Trash2 className="me-1 h-4 w-4" />
-                                {isDeleting ? ux("actions.loading") : ux("actions.deleteAccount")}
-                              </Button>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-
-                    <div className="flex gap-2 pt-2">
-                      <Button type="button" size="sm" className="flex-1" asChild disabled={!canCreateProviderAccount}>
-                        <Link href="/provider-accounts/new">{ux("actions.addProviderAccount")}</Link>
-                      </Button>
-                      <Button type="button" size="sm" variant="outline" onClick={() => void handleRefreshCatalog()} disabled={isRefreshingCatalog}>
-                        {isRefreshingCatalog ? ux("actions.refreshingCatalog") : ux("actions.refreshCatalog")}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </>
-            ) : (
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">{ux("sidebar.providerAccounts")}</CardTitle>
-                  <CardDescription>{ux("overview.title")}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-sm text-muted-foreground">{ux("overview.description")}</p>
-                  <div className="flex gap-2">
-                    <Button type="button" size="sm" className="flex-1" asChild disabled={!canCreateProviderAccount}>
-                      <Link href="/provider-accounts/new">{ux("actions.setupNewAccount")}</Link>
-                    </Button>
-                    <Button type="button" size="sm" variant="outline" onClick={() => void handleRefreshCatalog()} disabled={isRefreshingCatalog}>
-                      {isRefreshingCatalog ? ux("actions.refreshingCatalog") : ux("actions.refreshCatalog")}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </aside>
-          ) : null}
-
-          <section className={`space-y-4 ${isCreateMode ? "lg:col-span-12" : "lg:col-span-8 xl:col-span-9"}`}>
+        <div className="space-y-4">
+          <section className="space-y-4">
             <Card className="border-border/70">
               <CardHeader className="pb-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1959,15 +1739,13 @@ export default function ProviderAccountWizard(props?: {
                           t={t}
                           account={account}
                           setBanner={setBanner}
-                          filteredProviderModels={filteredProviderModels}
+                          providerModels={providerModels}
                           modelDrafts={modelDrafts}
                           setModelDrafts={setModelDrafts}
-                          modelSearchQuery={modelSearchQuery}
-                          setModelSearchQuery={setModelSearchQuery}
                           isSaving={isSavingModels}
                           isLoadingModels={isLoadingProviderModels}
                           canManage={canManageProviderAccount}
-                          onSave={() => void handleSaveModels()}
+                          onSave={handleSaveModelsAction}
                         />
                         <div className="flex justify-between">
                           <Button type="button" variant="outline" onClick={() => setSetupStep(2)}>{ux("actions.back")}</Button>
@@ -1986,7 +1764,7 @@ export default function ProviderAccountWizard(props?: {
                           setUsers={setUsers}
                           onSearchPrincipal={searchPrincipalCandidates}
                           principalSelectorLabels={principalSelectorLabels}
-                          onSave={() => void handleSaveAccess()}
+                          onSave={handleSaveAccessAction}
                           isSaving={isSavingAccess}
                           canManage={canManageProviderAccount}
                           effectiveKeyType={effectiveKeyType}
@@ -1995,7 +1773,7 @@ export default function ProviderAccountWizard(props?: {
                           setEffectivePrincipal={handleEffectivePrincipalChange}
                           effectiveModels={effectiveModels}
                           isLoadingEffective={isLoadingEffective}
-                          onLoadEffective={() => void loadEffectiveModelsPreview()}
+                          onLoadEffective={handleLoadEffectiveModelsAction}
                         />
                         <div className="flex justify-between">
                           <Button type="button" variant="outline" onClick={() => setSetupStep(3)}>{ux("actions.back")}</Button>
@@ -2062,15 +1840,13 @@ export default function ProviderAccountWizard(props?: {
                         t={t}
                         account={account}
                         setBanner={setBanner}
-                        filteredProviderModels={filteredProviderModels}
+                        providerModels={providerModels}
                         modelDrafts={modelDrafts}
                         setModelDrafts={setModelDrafts}
-                        modelSearchQuery={modelSearchQuery}
-                        setModelSearchQuery={setModelSearchQuery}
                         isSaving={isSavingModels}
                         isLoadingModels={isLoadingProviderModels}
                         canManage={canManageProviderAccount}
-                        onSave={() => void handleSaveModels()}
+                        onSave={handleSaveModelsAction}
                       />
                     ) : null}
 
@@ -2083,7 +1859,7 @@ export default function ProviderAccountWizard(props?: {
                         setUsers={setUsers}
                         onSearchPrincipal={searchPrincipalCandidates}
                         principalSelectorLabels={principalSelectorLabels}
-                        onSave={() => void handleSaveAccess()}
+                        onSave={handleSaveAccessAction}
                         isSaving={isSavingAccess}
                         canManage={canManageProviderAccount}
                         effectiveKeyType={effectiveKeyType}
@@ -2092,7 +1868,7 @@ export default function ProviderAccountWizard(props?: {
                         setEffectivePrincipal={handleEffectivePrincipalChange}
                         effectiveModels={effectiveModels}
                         isLoadingEffective={isLoadingEffective}
-                        onLoadEffective={() => void loadEffectiveModelsPreview()}
+                        onLoadEffective={handleLoadEffectiveModelsAction}
                       />
                     ) : null}
 

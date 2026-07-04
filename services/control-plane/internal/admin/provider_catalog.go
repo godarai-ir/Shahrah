@@ -854,6 +854,10 @@ func normalizeModelTypes(types []platform.ModelType) []platform.ModelType {
 	seen := make(map[platform.ModelType]struct{}, len(types))
 	for _, item := range types {
 		normalized := platform.ModelType(strings.TrimSpace(strings.ToLower(string(item))))
+		switch normalized {
+		case "responses":
+			normalized = platform.ModelTypeCompletion
+		}
 		if normalized == "" {
 			continue
 		}

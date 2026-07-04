@@ -79,6 +79,7 @@ export interface ModelCardData {
 
 type ModelCardProps = {
   model: ModelCardData;
+  mobileDensity?: "compact" | "detailed";
   detailsHref?: string;
   pricingDisplay?: {
     currency: "USD" | "TOMAN";
@@ -155,6 +156,7 @@ type ModelCardProps = {
 
 export function ModelCard(props: ModelCardProps) {
   const { model } = props;
+  const mobileDensity = props.mobileDensity ?? "detailed";
   const pricingDisplay = props.pricingDisplay ?? {
     currency: "USD" as const,
     scale: "PER_MILLION_TOKENS" as const,
@@ -213,6 +215,7 @@ export function ModelCard(props: ModelCardProps) {
 
   const isDeprecated = model.status === "deprecated";
   const isFast = model.latencyTier === "low";
+  const isCompactMobile = mobileDensity === "compact";
   const modelFqn = model.metadata?.fqn || model.metadata?.modelId || model.id;
   const invocationModes = model.invocationModes?.length
     ? model.invocationModes
@@ -222,6 +225,11 @@ export function ModelCard(props: ModelCardProps) {
     ...pricingDisplay,
     scale: "PER_MILLION_TOKENS" as const,
   };
+  const compactCategoryBadges = model.category.slice(0, 2);
+  const compactCapabilityBadges = model.capabilities.slice(0, 3);
+  const compactModeBadges = invocationModes.slice(0, 2);
+  const remainingCapabilityCount = Math.max(0, model.capabilities.length - compactCapabilityBadges.length);
+  const remainingModeCount = Math.max(0, invocationModes.length - compactModeBadges.length);
 
   async function handleCopyModelId() {
     try {
@@ -237,7 +245,7 @@ export function ModelCard(props: ModelCardProps) {
     <Card
       dir="rtl"
       className={cn(
-        "group w-full min-w-0 max-w-full overflow-hidden rounded-lg border border-border/70 bg-card transition-colors hover:border-border",
+        "group w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-border/70 bg-card transition-colors hover:border-border",
         model.recommended && "ring-1 ring-primary/25",
         isDeprecated && "border-[var(--warning-soft-border)] bg-[var(--warning-soft)]",
         props.stateBadge?.tone === "active" && "border-[var(--success-soft-border)]",
@@ -245,16 +253,16 @@ export function ModelCard(props: ModelCardProps) {
         props.className,
       )}
     >
-      <CardHeader className="p-2.5 pb-1.5">
+      <CardHeader className={cn("p-3 pb-2", isCompactMobile && "p-3.5 pb-2.5")}>
         <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex min-w-0 items-start gap-2">
-            <Avatar className="size-7 shrink-0 border bg-background">
+          <div className="flex min-w-0 items-start gap-2.5">
+            <Avatar className={cn("shrink-0 border bg-background", isCompactMobile ? "size-8" : "size-7")}>
               <AvatarImage src={model.provider.logoUrl} alt={model.provider.name} />
               <AvatarFallback>{initials(model.provider.name)}</AvatarFallback>
             </Avatar>
-            <div className="min-w-0">
-              <div className="flex min-w-0 items-center gap-1">
-                <CardTitle className="min-w-0 truncate text-[15px] font-semibold" title={model.name} dir="ltr">
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <CardTitle className={cn("min-w-0 truncate font-semibold", isCompactMobile ? "text-[16px]" : "text-[15px]")} title={model.name} dir="ltr">
                   {model.name}
                 </CardTitle>
                 {props.detailsHref ? (
@@ -269,12 +277,26 @@ export function ModelCard(props: ModelCardProps) {
                   </Button>
                 )}
               </div>
+              <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+                {(isCompactMobile ? compactCategoryBadges : model.category).map((category) => (
+                  <Badge key={category} variant="secondary" className="px-2 py-0 text-[11px]">
+                    {labelCategory(category, labels)}
+                  </Badge>
+                ))}
+                {props.pricingModeBadge ? <Badge variant="secondary">{props.pricingModeBadge}</Badge> : null}
+                {model.recommended ? (
+                  <Badge className="surface-primary-soft gap-1 px-2 py-0 text-[11px] hover:bg-[var(--primary-soft-hover)]">
+                    <Sparkles className="h-3 w-3" />
+                    {labels.recommended}
+                  </Badge>
+                ) : null}
+                {!isCompactMobile && model.popular ? <Badge variant="outline" className="px-2 py-0 text-[11px]">{labels.popular}</Badge> : null}
+              </div>
             </div>
           </div>
-          <div className="flex max-w-full shrink-0 flex-wrap items-center justify-start gap-2 sm:justify-end">
-            {props.pricingModeBadge ? <Badge variant="secondary">{props.pricingModeBadge}</Badge> : null}
+          <div className={cn("flex max-w-full shrink-0 flex-wrap items-center gap-2", isCompactMobile ? "justify-between" : "justify-start sm:justify-end")}>
             {typeof props.isSelected === "boolean" && props.onSelectedChange ? (
-              <label className="inline-flex min-h-7 cursor-pointer items-center gap-1.5 px-1 text-[13px] font-medium">
+              <label className={cn("inline-flex cursor-pointer items-center gap-1.5 text-[13px] font-medium", isCompactMobile ? "min-h-9 rounded-full bg-muted/40 px-2.5" : "min-h-7 px-1")}>
                 <span>{props.selectedCheckboxLabel ?? "Enabled"}</span>
                 <Switch
                   checked={props.isSelected}
@@ -296,27 +318,18 @@ export function ModelCard(props: ModelCardProps) {
             ) : null}
           </div>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+        <div className={cn("flex flex-wrap items-center justify-between gap-2 pt-1", isCompactMobile && "gap-y-2")}>
           <div className="flex min-w-0 flex-wrap gap-1">
-            {model.category.map((category) => (
-              <Badge key={category} variant="secondary" className="px-2 py-0 text-[11px]">{labelCategory(category, labels)}</Badge>
-            ))}
             {props.hasCustomPricing ? (
               <Badge className="gap-1 border-[var(--warning-soft-border)] bg-[var(--warning-soft)] px-2 py-0 text-[11px] text-[var(--warning-soft-foreground)] hover:bg-[color-mix(in_oklab,var(--warning-soft)_88%,black)]" variant="outline">
                 <SlidersHorizontal className="h-3 w-3" />
                 {labels.customPricing}
               </Badge>
             ) : null}
-            {model.recommended ? (
-              <Badge className="surface-primary-soft gap-1 px-2 py-0 text-[11px] hover:bg-[var(--primary-soft-hover)]">
-                <Sparkles className="h-3 w-3" />
-                {labels.recommended}
-              </Badge>
-            ) : null}
-            {model.popular ? <Badge variant="outline" className="px-2 py-0 text-[11px]">{labels.popular}</Badge> : null}
+            {isCompactMobile && model.popular ? <Badge variant="outline" className="px-2 py-0 text-[11px]">{labels.popular}</Badge> : null}
           </div>
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <Button variant="outline" size="sm" className="h-8 gap-1 px-2 text-[12px]" onClick={handleCopyModelId}>
+          <div className={cn("flex min-w-0 flex-wrap items-center gap-1.5", isCompactMobile && "w-full justify-start")}>
+            <Button variant="outline" size="sm" className={cn("gap-1 px-2 text-[12px]", isCompactMobile ? "h-9 rounded-xl" : "h-8")} onClick={handleCopyModelId}>
               {copied ? <CheckCircle2 className="h-3 w-3 text-[var(--success-soft-foreground)]" /> : <Copy className="h-3 w-3" />}
               {copied ? labels.copied : labels.copyId}
             </Button>
@@ -325,66 +338,91 @@ export function ModelCard(props: ModelCardProps) {
         </div>
       </CardHeader>
 
-      <CardContent className="flex flex-col gap-1.5 px-2.5 py-1.5">
-        <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCell label={labels.context} value={formatTokenCount(model.contextWindow)} />
-          <PriceMetricCell
-            label={labels.priceInputOutput}
-            inputValue={formatPriceValueOnly(model.pricing?.inputPerMillion, perMillionPricingDisplay)}
-            outputValue={formatPriceValueOnly(model.pricing?.outputPerMillion, perMillionPricingDisplay)}
-            inputLabel={labels.input}
-            outputLabel={labels.output}
-            action={props.pricingAction}
-          />
-          <IconListCell label={labels.inputFormats} values={model.inputModalities} emptyLabel="N/A" />
-          <IconListCell label={labels.outputFormats} values={model.outputModalities} emptyLabel="N/A" />
-        </div>
+      <CardContent className={cn("flex flex-col px-3 pb-3 pt-0", isCompactMobile ? "gap-2.5" : "gap-1.5 px-2.5 py-1.5")}>
+        {isCompactMobile ? (
+          <>
+            <div className="grid grid-cols-2 gap-2">
+              <MetricCell label={labels.context} value={formatTokenCount(model.contextWindow)} compact />
+              <PriceMetricCell
+                compact
+                label={labels.priceInputOutput}
+                inputValue={formatPriceValueOnly(model.pricing?.inputPerMillion, perMillionPricingDisplay)}
+                outputValue={formatPriceValueOnly(model.pricing?.outputPerMillion, perMillionPricingDisplay)}
+                inputLabel={labels.input}
+                outputLabel={labels.output}
+                action={props.pricingAction}
+              />
+            </div>
 
-        <section className="flex flex-col gap-0.5">
-          <p className="text-xs font-medium text-muted-foreground">{labels.capabilities}</p>
-          <div className="flex flex-wrap gap-1">
-            {model.capabilities.length > 0 ? (
-              model.capabilities.map((capability) => (
-                <Badge key={capability} variant="outline" className="gap-1 px-2 py-0">
-                  {iconForCapability(capability)}
-                  <span className="text-[11px]">{capability}</span>
-                </Badge>
-              ))
-            ) : (
-              <span className="text-xs text-muted-foreground">N/A</span>
-            )}
-          </div>
-        </section>
+            <div className="grid grid-cols-1 gap-2">
+              <InlineBadgeSection label={labels.inputFormats} values={model.inputModalities} kind="modality" />
+              <InlineBadgeSection label={labels.capabilities} values={compactCapabilityBadges} kind="capability" moreCount={remainingCapabilityCount} />
+              <InlineBadgeSection label={labels.invocationModes} values={compactModeBadges} kind="mode" moreCount={remainingModeCount} />
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:grid-cols-4">
+              <MetricCell label={labels.context} value={formatTokenCount(model.contextWindow)} />
+              <PriceMetricCell
+                label={labels.priceInputOutput}
+                inputValue={formatPriceValueOnly(model.pricing?.inputPerMillion, perMillionPricingDisplay)}
+                outputValue={formatPriceValueOnly(model.pricing?.outputPerMillion, perMillionPricingDisplay)}
+                inputLabel={labels.input}
+                outputLabel={labels.output}
+                action={props.pricingAction}
+              />
+              <IconListCell label={labels.inputFormats} values={model.inputModalities} emptyLabel="N/A" />
+              <IconListCell label={labels.outputFormats} values={model.outputModalities} emptyLabel="N/A" />
+            </div>
 
-        <section className="flex flex-col gap-0.5">
-          <p className="text-xs font-medium text-muted-foreground">{labels.invocationModes}</p>
-          <div className="flex flex-wrap gap-1">
-            {invocationModes.length > 0 ? (
-              invocationModes.map((mode) => (
-                <Badge key={mode} variant="secondary" className="gap-1 px-2 py-0 text-[11px]">
-                  {iconForMode(mode)}
-                  {mode}
-                </Badge>
-              ))
-            ) : (
-              <span className="text-xs text-muted-foreground">N/A</span>
-            )}
-          </div>
-        </section>
+            <section className="flex flex-col gap-0.5">
+              <p className="text-xs font-medium text-muted-foreground">{labels.capabilities}</p>
+              <div className="flex flex-wrap gap-1">
+                {model.capabilities.length > 0 ? (
+                  model.capabilities.map((capability) => (
+                    <Badge key={capability} variant="outline" className="gap-1 px-2 py-0">
+                      {iconForCapability(capability)}
+                      <span className="text-[11px]">{capability}</span>
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-xs text-muted-foreground">N/A</span>
+                )}
+              </div>
+            </section>
 
-        {model.tradeoffs && model.tradeoffs.length > 0 ? (
-          <section className="rounded-md border border-[var(--warning-soft-border)] bg-[var(--warning-soft)] p-2">
-            <p className="mb-1 flex items-center gap-1 text-xs font-medium text-[var(--warning-soft-foreground)]">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              {labels.tradeOffs}
-            </p>
-            <ul className="flex flex-col gap-0.5 text-xs text-[color-mix(in_oklab,var(--warning-soft-foreground)_85%,black)] dark:text-[color-mix(in_oklab,var(--warning-soft-foreground)_88%,white)]">
-              {model.tradeoffs.slice(0, 3).map((item) => (
-                <li key={item}>- {item}</li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
+            <section className="flex flex-col gap-0.5">
+              <p className="text-xs font-medium text-muted-foreground">{labels.invocationModes}</p>
+              <div className="flex flex-wrap gap-1">
+                {invocationModes.length > 0 ? (
+                  invocationModes.map((mode) => (
+                    <Badge key={mode} variant="secondary" className="gap-1 px-2 py-0 text-[11px]">
+                      {iconForMode(mode)}
+                      {mode}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-xs text-muted-foreground">N/A</span>
+                )}
+              </div>
+            </section>
+
+            {model.tradeoffs && model.tradeoffs.length > 0 ? (
+              <section className="rounded-md border border-[var(--warning-soft-border)] bg-[var(--warning-soft)] p-2">
+                <p className="mb-1 flex items-center gap-1 text-xs font-medium text-[var(--warning-soft-foreground)]">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  {labels.tradeOffs}
+                </p>
+                <ul className="flex flex-col gap-0.5 text-xs text-[color-mix(in_oklab,var(--warning-soft-foreground)_85%,black)] dark:text-[color-mix(in_oklab,var(--warning-soft-foreground)_88%,white)]">
+                  {model.tradeoffs.slice(0, 3).map((item) => (
+                    <li key={item}>- {item}</li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+          </>
+        )}
       </CardContent>
 
       {isFast && !isDeprecated ? (
@@ -410,6 +448,32 @@ function IconListCell(props: { label: string; values?: string[]; emptyLabel: str
   );
 }
 
+function InlineBadgeSection(props: {
+  label: string;
+  values?: string[];
+  kind: "capability" | "mode" | "modality";
+  moreCount?: number;
+}) {
+  return (
+    <div className="rounded-2xl border border-border/60 bg-muted/20 px-3 py-2">
+      <p className="mb-1 truncate text-[11px] font-medium text-muted-foreground">{props.label}</p>
+      <div className="flex flex-wrap gap-1">
+        {props.values?.length ? (
+          props.values.map((value) => (
+            <Badge key={`${props.label}-${value}`} variant={props.kind === "mode" ? "secondary" : "outline"} className="gap-1 rounded-full px-2.5 py-0 text-[11px]">
+              {props.kind === "capability" ? iconForCapability(value) : props.kind === "mode" ? iconForMode(value) : iconForModality(value)}
+              <span>{value}</span>
+            </Badge>
+          ))
+        ) : (
+          <span className="text-xs text-muted-foreground">N/A</span>
+        )}
+        {props.moreCount ? <Badge variant="secondary" className="rounded-full px-2.5 py-0 text-[11px]">{`+${props.moreCount}`}</Badge> : null}
+      </div>
+    </div>
+  );
+}
+
 function PriceMetricCell(props: {
   label: string;
   inputLabel: string;
@@ -417,9 +481,10 @@ function PriceMetricCell(props: {
   inputValue: string;
   outputValue: string;
   action?: ReactNode;
+  compact?: boolean;
 }) {
   return (
-    <div className="min-w-0 rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
+    <div className={cn("min-w-0 border border-border/60 bg-muted/20", props.compact ? "rounded-2xl px-3 py-2" : "rounded-md px-2 py-1.5")}>
       <div className="flex min-w-0 items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <p className="truncate text-[11px] text-muted-foreground">{props.label}</p>
@@ -460,9 +525,9 @@ function IconList(props: { label: string; values?: string[]; emptyLabel: string 
   );
 }
 
-function MetricCell(props: { label: string; value: string }) {
+function MetricCell(props: { label: string; value: string; compact?: boolean }) {
   return (
-    <div className="min-w-0 rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
+    <div className={cn("min-w-0 border border-border/60 bg-muted/20", props.compact ? "rounded-2xl px-3 py-2" : "rounded-md px-2 py-1.5")}>
       <p className="truncate text-[11px] text-muted-foreground">{props.label}</p>
       <p className="truncate text-[13px] font-semibold" dir="ltr">{props.value}</p>
     </div>

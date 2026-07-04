@@ -482,6 +482,8 @@
         "selectedCountDetailed": "Selected: {count} of {total}",
         "selectAll": "Select All",
         "selectedOnly": "Selected only",
+        "tableView": "Table view",
+        "cardView": "Card view",
         "deselectAll": "Deselect All",
         "autoEnableTitle": "Automatically enable new models from this provider",
         "autoEnableDescription": "If you enable this option, new models from this provider will be available on this integration by default. You can disable them later.",
@@ -523,7 +525,7 @@
       "viewDocs": "View Docs",
       "disconnect": "Disconnect",
       "disconnecting": "Disconnecting...",
-      "readDocs": "Read integration docs",
+      "readDocs": "Learn more",
       "reload": "Reload"
     },
     "empty": {

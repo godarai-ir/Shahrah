@@ -133,6 +133,35 @@ func TestResolveProviderAccountModelSelections_RejectsInvalidCapabilities(t *tes
 	assert.Equal(t, []platform.ModelType{platform.ModelTypeEmbedding}, items[0].Types)
 }
 
+func TestResolveProviderAccountModelSelections_AcceptsResponsesAliasAsCompletion(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/providers/openai/models" {
+			http.NotFound(w, r)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[{"canonicalId":"gpt-4.1-nano","name":"GPT-4.1 Nano","mode":["chat","responses"],"capabilities":["chat"],"inputModalities":["text"],"outputModalities":["text"]}]}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("SHAHRAH_MODEL_DISCOVERY_URL", server.URL)
+	invalidateDiscoveryCache()
+
+	items, invalid, invalidCapabilities, err := resolveProviderAccountModelSelections(context.Background(), "openai", []platform.UpsertTenantProviderAccountModelSelection{
+		{
+			Model:                 "gpt-4.1-nano",
+			EffectiveCapabilities: []platform.ModelType{platform.ModelTypeChat, "responses"},
+			PricingMode:           platform.PricingModePublic,
+		},
+	})
+	require.NoError(t, err)
+	require.Empty(t, invalid)
+	require.Empty(t, invalidCapabilities)
+	require.Len(t, items, 1)
+	assert.Equal(t, []platform.ModelType{platform.ModelTypeChat, platform.ModelTypeCompletion}, items[0].Types)
+}
+
 func TestDiscoveryProviders_FailsWithoutFallbackWhenDiscoveryUnavailable(t *testing.T) {
 	t.Setenv("SHAHRAH_MODEL_DISCOVERY_URL", "http://127.0.0.1:1")
 	invalidateDiscoveryCache()

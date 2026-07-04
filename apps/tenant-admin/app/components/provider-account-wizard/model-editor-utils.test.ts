@@ -49,6 +49,20 @@ const models: ProviderCatalogModel[] = [
 ];
 
 describe("model-editor-utils", () => {
+  it("filters models by free-text search across model metadata", () => {
+    const result = filterAndSortProviderModels({
+      models,
+      filters: {
+        ...createInitialModelFilters(),
+        search: "vision",
+      },
+      isSelectedOnly: false,
+      isModelEnabled: () => false,
+    });
+
+    expect(result.map((model) => model.model)).toEqual(["gpt-vision"]);
+  });
+
   it("filters selected models and sorts by context", () => {
     const result = filterAndSortProviderModels({
       models,

@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import { memo } from "react";
 import { ShieldCheck, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -15,7 +16,7 @@ import { PrincipalPicker } from "@/app/components/principal-picker";
 import type { AccessPrincipal, AccessPrincipalCandidate, EffectiveModelView } from "./types";
 import { EffectiveModelsTable } from "./effective-models-table";
 import { Field } from "./field";
-export function AccessEditor(props: {
+export const AccessEditor = memo(function AccessEditor(props: {
   t: ReturnType<typeof useTranslations>;
   managers: AccessPrincipal[];
   setManagers: (value: AccessPrincipal[]) => void;
@@ -134,6 +135,6 @@ export function AccessEditor(props: {
       </div>
     </section>
   );
-}
+});
 
 

@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import type React from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { ArrowUpDown, CheckSquare, Code2, Copy, GitCompare, RotateCcw, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -30,10 +30,9 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ModelCard, type ModelCardData } from "@/app/components/model-card";
+import { formatTokenCount, ModelCard, type ModelCardData } from "@/app/components/model-card";
 import {
   clearVisibleModelSelection,
-  toggleVisibleModelSelection,
 } from "@/app/components/provider-account-wizard.models";
 import { cn } from "@/lib/utils";
 import { CodeExampleBlock } from "./code-example-block";
@@ -125,15 +124,329 @@ function ModelCardsSkeleton() {
   );
 }
 
-export function ModelsEditor(props: {
+type ModelCardLabels = NonNullable<React.ComponentProps<typeof ModelCard>["labels"]>;
+
+type PricingEditorState = {
+  open: boolean;
+  modelKey: string;
+  pricingMode: "public" | "private";
+  inputPrice: string;
+  outputPrice: string;
+  error: string;
+};
+
+const COMPACT_ROW_STYLE = {
+  contentVisibility: "auto",
+  containIntrinsicSize: "220px",
+} as const;
+
+const DEFAULT_ROW_STYLE = {
+  contentVisibility: "auto",
+  containIntrinsicSize: "360px",
+} as const;
+
+function buildFallbackDraft(model: ProviderCatalogModel, selectableOptions: string[]): ModelDraft {
+  return {
+    enabled: false,
+    compared: false,
+    selectedCapabilities: selectableOptions,
+    pricingMode: "public",
+    inputPrice: model.public_pricing?.input_usd_per_1m?.toString() ?? "",
+    outputPrice: model.public_pricing?.output_usd_per_1m?.toString() ?? "",
+  };
+}
+
+type ModelListItemProps = {
+  account: TenantProviderAccount | null;
+  canManage: boolean;
+  compact: boolean;
+  mobileDensity: "compact" | "detailed";
+  displayCurrency: "USD" | "TOMAN";
+  displayScale: "PER_MILLION_TOKENS" | "PER_TOKEN";
+  draft?: ModelDraft;
+  labels: ModelCardLabels;
+  model: ProviderCatalogModel;
+  openCurlGuide: (model: ProviderCatalogModel) => void;
+  openPricingEditor: (model: ProviderCatalogModel) => void;
+  closePricingEditor: () => void;
+  pricingEditor: PricingEditorState;
+  renderPricingEditorContent: (model: ProviderCatalogModel) => React.ReactNode;
+  setModelCompared: (model: ProviderCatalogModel, draft: ModelDraft, compared: boolean) => void;
+  setModelEnabled: (model: ProviderCatalogModel, draft: ModelDraft, selectableOptions: string[], enabled: boolean) => void;
+  toModelCardData: (model: ProviderCatalogModel, draft: ModelDraft) => ModelCardData;
+  ux: ReturnType<typeof useTranslations>;
+  usdToIrr: number;
+  getSelectableOptions: (model: ProviderCatalogModel) => string[];
+};
+
+type CompactTableRowProps = {
+  canManage: boolean;
+  draft?: ModelDraft;
+  model: ProviderCatalogModel;
+  selectableOptions: string[];
+  setModelEnabled: (model: ProviderCatalogModel, draft: ModelDraft, selectableOptions: string[], enabled: boolean) => void;
+  displayCurrency: "USD" | "TOMAN";
+  displayScale: "PER_MILLION_TOKENS" | "PER_TOKEN";
+  usdToIrr: number;
+  ux: ReturnType<typeof useTranslations>;
+};
+
+const CompactTableRow = memo(function CompactTableRow(props: CompactTableRowProps) {
+  const {
+    canManage,
+    draft: draftProp,
+    model,
+    selectableOptions,
+    setModelEnabled,
+    displayCurrency,
+    displayScale,
+    usdToIrr,
+    ux,
+  } = props;
+  const draft = useMemo(
+    () => draftProp ?? buildFallbackDraft(model, selectableOptions),
+    [draftProp, model, selectableOptions],
+  );
+  const capabilities = useMemo(() => getModelCapabilities(model).slice(0, 2), [model]);
+  const modes = useMemo(() => getModelModes(model).slice(0, 2), [model]);
+  const priceLabel = useMemo(
+    () =>
+      formatDisplayPrice(model.public_pricing?.input_usd_per_1m, {
+        currency: displayCurrency,
+        scale: displayScale,
+        usdToIrr,
+        naLabel: ux("models.na"),
+      }),
+    [displayCurrency, displayScale, model.public_pricing?.input_usd_per_1m, usdToIrr, ux],
+  );
+  const outputPriceLabel = useMemo(
+    () =>
+      formatDisplayPrice(model.public_pricing?.output_usd_per_1m, {
+        currency: displayCurrency,
+        scale: displayScale,
+        usdToIrr,
+        naLabel: ux("models.na"),
+      }),
+    [displayCurrency, displayScale, model.public_pricing?.output_usd_per_1m, usdToIrr, ux],
+  );
+
+  return (
+    <tr className={cn("border-b border-border/60 align-top", draft.enabled && "bg-[var(--success-soft)]/45")}>
+      <td className="px-3 py-3 text-center">
+        <Checkbox
+          checked={draft.enabled}
+          onCheckedChange={(checked) => setModelEnabled(model, draft, selectableOptions, checked === true)}
+          aria-label={`${ux("common.enabled")} ${model.display_name || model.model}`}
+          disabled={!canManage}
+          className="size-4"
+        />
+      </td>
+      <td className="px-3 py-3">
+        <div className="min-w-[11rem] space-y-1">
+          <p className="line-clamp-2 text-sm font-semibold text-foreground" dir="ltr" title={model.display_name || model.model}>
+            {model.display_name || model.model}
+          </p>
+          <p className="truncate text-[11px] text-muted-foreground" dir="ltr" title={model.model}>
+            {normalizeProviderScopedModelName(model.provider, model.model)}
+          </p>
+        </div>
+      </td>
+      <td className="px-3 py-3 text-center">
+        <span className="inline-flex rounded-full bg-muted/35 px-2.5 py-1 text-[12px] font-medium" dir="ltr">
+          {formatTokenCount(model.context_window)}
+        </span>
+      </td>
+      <td className="px-3 py-3">
+        <div className="min-w-[8rem] text-xs font-medium" dir="ltr">
+          {priceLabel}
+        </div>
+      </td>
+      <td className="px-3 py-3">
+        <div className="min-w-[8rem] text-xs font-medium" dir="ltr">
+          {outputPriceLabel}
+        </div>
+      </td>
+      <td className="px-3 py-3">
+        <div className="flex min-w-[10rem] flex-wrap gap-1">
+          {capabilities.map((capability) => (
+            <Badge key={`${model.model}-cap-${capability}`} variant="outline" className="px-2 py-0 text-[11px]">
+              {capability}
+            </Badge>
+          ))}
+          {modes.map((mode) => (
+            <Badge key={`${model.model}-mode-${mode}`} variant="secondary" className="px-2 py-0 text-[11px]">
+              {mode}
+            </Badge>
+          ))}
+          {capabilities.length === 0 && modes.length === 0 ? (
+            <span className="text-xs text-muted-foreground">{ux("models.na")}</span>
+          ) : null}
+        </div>
+      </td>
+    </tr>
+  );
+}, (prev, next) => {
+  return (
+    prev.canManage === next.canManage &&
+    prev.draft === next.draft &&
+    prev.model === next.model &&
+    prev.selectableOptions === next.selectableOptions &&
+    prev.displayCurrency === next.displayCurrency &&
+    prev.displayScale === next.displayScale &&
+    prev.usdToIrr === next.usdToIrr &&
+    prev.ux === next.ux
+  );
+});
+
+const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
+  const {
+    canManage,
+    compact,
+    mobileDensity,
+    displayCurrency,
+    displayScale,
+    draft: draftProp,
+    getSelectableOptions,
+    labels,
+    model,
+    openCurlGuide,
+    openPricingEditor,
+    closePricingEditor,
+    pricingEditor,
+    renderPricingEditorContent,
+    setModelCompared,
+    setModelEnabled,
+    toModelCardData,
+    usdToIrr,
+    ux,
+  } = props;
+  const selectableOptions = useMemo(
+    () => getSelectableOptions(model),
+    [getSelectableOptions, model],
+  );
+  const draft = useMemo(
+    () => draftProp ?? buildFallbackDraft(model, selectableOptions),
+    [draftProp, model, selectableOptions],
+  );
+  const cardData = useMemo(() => toModelCardData(model, draft), [draft, model, toModelCardData]);
+  const pricingDisplay = useMemo(
+    () => ({
+      currency: displayCurrency,
+      scale: displayScale,
+      usdToIrr,
+    }),
+    [displayCurrency, displayScale, usdToIrr],
+  );
+  const isPricingEditorOpen = pricingEditor.open && pricingEditor.modelKey === model.model;
+
+  return (
+    <Popover
+      open={isPricingEditorOpen}
+      onOpenChange={(open) => {
+        if (open) {
+          openPricingEditor(model);
+          return;
+        }
+        closePricingEditor();
+      }}
+    >
+      <div className="min-w-0 space-y-2" style={compact ? COMPACT_ROW_STYLE : DEFAULT_ROW_STYLE}>
+        <ModelCard
+          model={cardData}
+          mobileDensity={mobileDensity}
+          detailsHref={buildModelDiscoveryDetailsHref(model)}
+          pricingDisplay={pricingDisplay}
+          isSelected={draft.enabled}
+          onSelectedChange={(checked) => setModelEnabled(model, draft, selectableOptions, checked)}
+          selectedCheckboxLabel={ux("common.enabled")}
+          isCompared={compact ? undefined : draft.compared}
+          onComparedChange={
+            compact
+              ? undefined
+              : (checked) => setModelCompared(model, draft, checked)
+          }
+          compareCheckboxLabel={compact ? undefined : ux("models.actions.compareToggle")}
+          pricingModeBadge={draft.pricingMode === "private" ? ux("models.pricing.private") : undefined}
+          hasCustomPricing={draft.pricingMode === "private"}
+          className={
+            compact
+              ? draft.enabled
+                ? "border-[var(--success-soft-border)] self-start"
+                : "self-start"
+              : draft.enabled
+                ? "border-[var(--success-soft-border)]"
+                : undefined
+          }
+          footerActions={
+            <Button type="button" variant="outline" size="sm" className="gap-1" onClick={() => openCurlGuide(model)}>
+              <Code2 className="h-3.5 w-3.5" />
+              {ux("models.card.curlGuide")}
+            </Button>
+          }
+          pricingAction={
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-7"
+                disabled={!canManage}
+                aria-label={`${ux("models.actions.editPricing")} ${model.display_name || model.model}`}
+                onClick={() => openPricingEditor(model)}
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+              </Button>
+            </PopoverTrigger>
+          }
+          labels={labels}
+        />
+      </div>
+      {renderPricingEditorContent(model)}
+    </Popover>
+  );
+}, (prev, next) => {
+  if (
+    prev.account !== next.account ||
+    prev.canManage !== next.canManage ||
+    prev.compact !== next.compact ||
+    prev.mobileDensity !== next.mobileDensity ||
+    prev.displayCurrency !== next.displayCurrency ||
+    prev.displayScale !== next.displayScale ||
+    prev.draft !== next.draft ||
+    prev.labels !== next.labels ||
+    prev.model !== next.model ||
+    prev.ux !== next.ux ||
+    prev.usdToIrr !== next.usdToIrr
+  ) {
+    return false;
+  }
+
+  const prevOpen = prev.pricingEditor.open && prev.pricingEditor.modelKey === prev.model.model;
+  const nextOpen = next.pricingEditor.open && next.pricingEditor.modelKey === next.model.model;
+  if (prevOpen !== nextOpen) return false;
+
+  if (
+    nextOpen &&
+    (
+      prev.pricingEditor.pricingMode !== next.pricingEditor.pricingMode ||
+      prev.pricingEditor.inputPrice !== next.pricingEditor.inputPrice ||
+      prev.pricingEditor.outputPrice !== next.pricingEditor.outputPrice ||
+      prev.pricingEditor.error !== next.pricingEditor.error
+    )
+  ) {
+    return false;
+  }
+
+  return true;
+});
+
+export const ModelsEditor = memo(function ModelsEditor(props: {
   t: ReturnType<typeof useTranslations>;
   account: TenantProviderAccount | null;
   setBanner: React.Dispatch<React.SetStateAction<Banner | null>>;
-  filteredProviderModels: ProviderCatalogModel[];
+  providerModels: ProviderCatalogModel[];
   modelDrafts: Record<string, ModelDraft>;
   setModelDrafts: React.Dispatch<React.SetStateAction<Record<string, ModelDraft>>>;
-  modelSearchQuery: string;
-  setModelSearchQuery: (value: string) => void;
   isSaving: boolean;
   isLoadingModels: boolean;
   canManage: boolean;
@@ -141,8 +454,13 @@ export function ModelsEditor(props: {
   variant?: "default" | "compact";
 }) {
   const ux = useTranslations("providerAccounts.ux");
-  const initialFilters = useMemo(() => createInitialModelFilters(props.modelSearchQuery), [props.modelSearchQuery]);
-  const [filters, setFilters] = useState<ModelFilterState>(() => createInitialModelFilters(props.modelSearchQuery));
+  const {
+    modelDrafts,
+    providerModels,
+    setModelDrafts,
+  } = props;
+  const initialFilters = useMemo(() => createInitialModelFilters(""), []);
+  const [filters, setFilters] = useState<ModelFilterState>(() => createInitialModelFilters(""));
   const [compareOpen, setCompareOpen] = useState(false);
   const [compareSortBy, setCompareSortBy] = useState<CompareSortMode>("input_asc");
   const [compareDiffOnly, setCompareDiffOnly] = useState(false);
@@ -153,14 +471,8 @@ export function ModelsEditor(props: {
   const [curlGuide, setCurlGuide] = useState<CurlGuide | null>(null);
   const [curlGuideShell, setCurlGuideShell] = useState<CurlGuideShell>("powershell");
   const [showSelectedOnly, setShowSelectedOnly] = useState(false);
-  const [pricingEditor, setPricingEditor] = useState<{
-    open: boolean;
-    modelKey: string;
-    pricingMode: "public" | "private";
-    inputPrice: string;
-    outputPrice: string;
-    error: string;
-  }>({
+  const [mobileViewMode, setMobileViewMode] = useState<"table" | "card">("table");
+  const [pricingEditor, setPricingEditor] = useState<PricingEditorState>({
     open: false,
     modelKey: "",
     pricingMode: "public",
@@ -168,6 +480,7 @@ export function ModelsEditor(props: {
     outputPrice: "",
     error: "",
   });
+  const deferredFilters = useDeferredValue(filters);
   const tenantBaseUrl = useMemo(() => {
     return getTenantApiBaseURL();
   }, []);
@@ -259,44 +572,46 @@ export function ModelsEditor(props: {
   }, [buildModelFqn, tenantBaseUrl]);
 
   const comparedModels = useMemo(
-    () => props.filteredProviderModels.filter((model) => props.modelDrafts[model.model]?.compared),
-    [props.filteredProviderModels, props.modelDrafts],
+    () => providerModels.filter((model) => modelDrafts[model.model]?.compared),
+    [modelDrafts, providerModels],
   );
-  const enabledFilteredModelsCount = useMemo(
-    () => props.filteredProviderModels.filter((model) => props.modelDrafts[model.model]?.enabled).length,
-    [props.filteredProviderModels, props.modelDrafts],
+  const enabledModelCount = useMemo(
+    () => Object.values(modelDrafts).filter((draft) => draft.enabled).length,
+    [modelDrafts],
   );
-  const availableFilteredModelsCount = Math.max(props.filteredProviderModels.length - enabledFilteredModelsCount, 0);
-  const selectedOnlyActive = showSelectedOnly && enabledFilteredModelsCount > 0;
+  const selectedOnlyActive = showSelectedOnly && enabledModelCount > 0;
 
   const allInputModalities = useMemo(
-    () => Array.from(new Set(props.filteredProviderModels.flatMap((model) => model.input_modalities ?? []))),
-    [props.filteredProviderModels],
+    () => Array.from(new Set(providerModels.flatMap((model) => model.input_modalities ?? []))),
+    [providerModels],
   );
   const allOutputModalities = useMemo(
-    () => Array.from(new Set(props.filteredProviderModels.flatMap((model) => model.output_modalities ?? []))),
-    [props.filteredProviderModels],
+    () => Array.from(new Set(providerModels.flatMap((model) => model.output_modalities ?? []))),
+    [providerModels],
   );
   const allFeatures = useMemo(
-    () => Array.from(new Set(props.filteredProviderModels.flatMap((model) => getModelCapabilities(model)))),
-    [props.filteredProviderModels],
+    () => Array.from(new Set(providerModels.flatMap((model) => getModelCapabilities(model)))),
+    [providerModels],
   );
 
   const visibleModels = useMemo(
     () =>
       filterAndSortProviderModels({
-        models: props.filteredProviderModels,
-        filters,
+        models: providerModels,
+        filters: deferredFilters,
         isSelectedOnly: selectedOnlyActive,
-        isModelEnabled: (modelKey) => Boolean(props.modelDrafts[modelKey]?.enabled),
+        isModelEnabled: (modelKey) => Boolean(modelDrafts[modelKey]?.enabled),
       }),
-    [filters, props.filteredProviderModels, props.modelDrafts, selectedOnlyActive],
+    [deferredFilters, modelDrafts, providerModels, selectedOnlyActive],
   );
+  const renderedVisibleModels = useDeferredValue(visibleModels);
   const visibleSelectedModelsCount = useMemo(
-    () => visibleModels.filter((model) => props.modelDrafts[model.model]?.enabled).length,
-    [props.modelDrafts, visibleModels],
+    () => renderedVisibleModels.filter((model) => modelDrafts[model.model]?.enabled).length,
+    [modelDrafts, renderedVisibleModels],
   );
-  const allVisibleModelsSelected = visibleModels.length > 0 && visibleSelectedModelsCount === visibleModels.length;
+  const allVisibleModelsSelected =
+    renderedVisibleModels.length > 0 && visibleSelectedModelsCount === renderedVisibleModels.length;
+  const availableVisibleModelsCount = Math.max(renderedVisibleModels.length - visibleSelectedModelsCount, 0);
 
   const resetFilters = () => {
     setFilters((prev) => ({
@@ -383,38 +698,24 @@ export function ModelsEditor(props: {
     [compareDiffOnly, compareRows],
   );
 
-  const removeComparedModel = (modelKey: string) => {
-    props.setModelDrafts((prev) => {
+  const removeComparedModel = useCallback((modelKey: string) => {
+    setModelDrafts((prev) => {
       const draft = prev[modelKey];
       if (!draft) return prev;
       return { ...prev, [modelKey]: { ...draft, compared: false } };
     });
-  };
+  }, [setModelDrafts]);
 
-  const renderCompareValue = (rowKey: string, value: unknown, render: (value: unknown) => string): string => {
+  const renderCompareValue = useCallback((rowKey: string, value: unknown, render: (value: unknown) => string): string => {
     if (!compareNormalizedPricing && (rowKey === "input" || rowKey === "output")) {
       if (typeof value !== "number") return render(value);
       return render(value / 1_000_000);
     }
     return render(value);
-  };
+  }, [compareNormalizedPricing]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      props.setModelSearchQuery(filters.search);
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [filters.search, props]);
-
-  const openPricingEditor = (model: ProviderCatalogModel) => {
-    const draft = props.modelDrafts[model.model] ?? {
-      enabled: false,
-      compared: false,
-      selectedCapabilities: [],
-      pricingMode: "public" as const,
-      inputPrice: model.public_pricing?.input_usd_per_1m?.toString() ?? "",
-      outputPrice: model.public_pricing?.output_usd_per_1m?.toString() ?? "",
-    };
+  const openPricingEditor = useCallback((model: ProviderCatalogModel) => {
+    const draft = modelDrafts[model.model] ?? buildFallbackDraft(model, []);
     setPricingEditor({
       open: true,
       modelKey: model.model,
@@ -423,9 +724,13 @@ export function ModelsEditor(props: {
       outputPrice: draft.outputPrice,
       error: "",
     });
-  };
+  }, [modelDrafts]);
 
-  const applyPricingEditor = () => {
+  const closePricingEditor = useCallback(() => {
+    setPricingEditor((prev) => ({ ...prev, open: false, error: "" }));
+  }, []);
+
+  const applyPricingEditor = useCallback(() => {
     const inputNumber = toNumberOrUndefined(pricingEditor.inputPrice);
     const outputNumber = toNumberOrUndefined(pricingEditor.outputPrice);
     if (pricingEditor.pricingMode === "private") {
@@ -439,7 +744,7 @@ export function ModelsEditor(props: {
       }
     }
 
-    props.setModelDrafts((prev) => {
+    setModelDrafts((prev) => {
       const current = prev[pricingEditor.modelKey];
       if (!current) return prev;
       return {
@@ -454,7 +759,7 @@ export function ModelsEditor(props: {
       };
     });
     setPricingEditor((prev) => ({ ...prev, open: false, error: "" }));
-  };
+  }, [pricingEditor, setModelDrafts, ux]);
 
   const renderPricingEditorContent = (model: ProviderCatalogModel) => (
     <PopoverContent align="start" className="w-72 p-3">
@@ -532,14 +837,14 @@ export function ModelsEditor(props: {
           <p className="text-xs text-destructive">{pricingEditor.error}</p>
         ) : null}
         <div className="flex justify-end gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setPricingEditor((prev) => ({ ...prev, open: false, error: "" }))}
-          >
-            {ux("models.actions.cancel")}
-          </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={closePricingEditor}
+            >
+              {ux("models.actions.cancel")}
+            </Button>
           <Button type="button" size="sm" onClick={applyPricingEditor}>
             {ux("models.actions.apply")}
           </Button>
@@ -548,7 +853,7 @@ export function ModelsEditor(props: {
     </PopoverContent>
   );
 
-  const toModelCardData = (model: ProviderCatalogModel, draft?: ModelDraft): ModelCardData => {
+  const toModelCardData = useCallback((model: ProviderCatalogModel, draft?: ModelDraft): ModelCardData => {
     const modes = getModelModes(model);
     const caps = getModelCapabilities(model);
     const selectionTypes = getModelSelectionTypes(model);
@@ -601,7 +906,7 @@ export function ModelsEditor(props: {
         mode: modes.join(", ") || undefined,
       },
     };
-  };
+  }, [buildModelFqn, ux]);
 
   const getSelectableOptions = useCallback((model: ProviderCatalogModel) => {
     const modes = getModelModes(model);
@@ -610,6 +915,50 @@ export function ModelsEditor(props: {
     if (selectionTypes.length > 0) return selectionTypes;
     return modes;
   }, []);
+
+  const setModelEnabled = useCallback(
+    (model: ProviderCatalogModel, draft: ModelDraft, selectableOptions: string[], enabled: boolean) => {
+      setModelDrafts((prev) => ({
+        ...prev,
+        [model.model]: {
+          ...draft,
+          enabled,
+          selectedCapabilities: enabled ? selectableOptions : draft.selectedCapabilities,
+        },
+      }));
+    },
+    [setModelDrafts],
+  );
+
+  const setModelCompared = useCallback(
+    (model: ProviderCatalogModel, draft: ModelDraft, compared: boolean) => {
+      setModelDrafts((prev) => ({
+        ...prev,
+        [model.model]: {
+          ...draft,
+          compared,
+        },
+      }));
+    },
+    [setModelDrafts],
+  );
+
+  const handleVisibleSelectionChange = useCallback((models: ProviderCatalogModel[], checked: boolean) => {
+    setModelDrafts((prev) => {
+      if (!checked) return clearVisibleModelSelection(models, prev);
+      const next = { ...prev };
+      for (const model of models) {
+        const selectableOptions = getSelectableOptions(model);
+        const draft = next[model.model] ?? buildFallbackDraft(model, selectableOptions);
+        next[model.model] = {
+          ...draft,
+          enabled: true,
+          selectedCapabilities: selectableOptions,
+        };
+      }
+      return next;
+    });
+  }, [getSelectableOptions, setModelDrafts]);
 
   useEffect(() => {
     let canceled = false;
@@ -656,12 +1005,32 @@ export function ModelsEditor(props: {
               className="flex flex-col gap-2 px-1 py-1 text-right text-sm sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant={enabledFilteredModelsCount > 0 ? "default" : "outline"} className="px-2 py-0 text-[11px]">
+                <Badge variant={enabledModelCount > 0 ? "default" : "outline"} className="px-2 py-0 text-[11px]">
                   {ux("integrations.wizard.selectedCountDetailed", {
-                    count: enabledFilteredModelsCount,
-                    total: props.filteredProviderModels.length,
+                    count: enabledModelCount,
+                    total: props.providerModels.length,
                   })}
                 </Badge>
+                <div className="inline-flex rounded-full border border-border/70 bg-muted/30 p-1">
+                  <Button
+                    type="button"
+                    variant={mobileViewMode === "table" ? "secondary" : "ghost"}
+                    size="sm"
+                    className="h-8 rounded-full px-3 text-[12px]"
+                    onClick={() => setMobileViewMode("table")}
+                  >
+                    {ux("integrations.wizard.tableView")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={mobileViewMode === "card" ? "secondary" : "ghost"}
+                    size="sm"
+                    className="h-8 rounded-full px-3 text-[12px]"
+                    onClick={() => setMobileViewMode("card")}
+                  >
+                    {ux("integrations.wizard.cardView")}
+                  </Button>
+                </div>
               </div>
               <div className="flex flex-wrap items-center gap-3 text-[13px]">
                 <label
@@ -671,14 +1040,8 @@ export function ModelsEditor(props: {
                   <Checkbox
                     id="compact-select-all-models"
                     checked={allVisibleModelsSelected}
-                    disabled={!props.canManage || visibleModels.length === 0}
-                    onCheckedChange={(checked) =>
-                      props.setModelDrafts((prev) =>
-                        checked === true
-                          ? toggleVisibleModelSelection(visibleModels, prev)
-                          : clearVisibleModelSelection(visibleModels, prev),
-                      )
-                    }
+                    disabled={!props.canManage || renderedVisibleModels.length === 0}
+                    onCheckedChange={(checked) => handleVisibleSelectionChange(renderedVisibleModels, checked === true)}
                   />
                   <span>{ux("integrations.wizard.selectAll")}</span>
                 </label>
@@ -689,7 +1052,7 @@ export function ModelsEditor(props: {
                   <Checkbox
                     id="compact-selected-only-models"
                     checked={selectedOnlyActive}
-                    disabled={enabledFilteredModelsCount === 0}
+                    disabled={enabledModelCount === 0}
                     onCheckedChange={(checked) => setShowSelectedOnly(checked === true)}
                   />
                   <span>{ux("integrations.wizard.selectedOnly")}</span>
@@ -708,139 +1071,68 @@ export function ModelsEditor(props: {
                     <Skeleton key={`compact-model-skeleton-${index}`} className="h-24 rounded-xl" />
                   ))}
                 </>
-              ) : visibleModels.length === 0 ? (
+              ) : renderedVisibleModels.length === 0 ? (
                 <p className="text-sm text-muted-foreground">{props.t("step3.empty")}</p>
+              ) : mobileViewMode === "table" ? (
+                <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[42rem] table-fixed border-collapse text-right">
+                      <thead className="bg-muted/35 text-[11px] text-muted-foreground">
+                        <tr>
+                          <th className="px-3 py-2 text-center font-medium">{ux("common.enabled")}</th>
+                          <th className="px-3 py-2 text-right font-medium">{ux("models.card.modelId")}</th>
+                          <th className="px-3 py-2 text-center font-medium">{ux("models.card.context")}</th>
+                          <th className="px-3 py-2 text-right font-medium">{ux("models.labels.input")}</th>
+                          <th className="px-3 py-2 text-right font-medium">{ux("models.labels.output")}</th>
+                          <th className="px-3 py-2 text-right font-medium">{ux("models.card.capabilities")}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {renderedVisibleModels.map((model) => (
+                          <CompactTableRow
+                            key={model.model}
+                            canManage={props.canManage}
+                            draft={props.modelDrafts[model.model]}
+                            model={model}
+                            selectableOptions={getSelectableOptions(model)}
+                            setModelEnabled={setModelEnabled}
+                            displayCurrency={displayCurrency}
+                            displayScale={displayScale}
+                            usdToIrr={usdToIrr}
+                            ux={ux}
+                          />
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               ) : (
                 <>
-                  {visibleModels.map((model) => {
-                  const selectableOptions = getSelectableOptions(model);
-                  const selectableOptionsLabel = getModelModes(model).length > 1
-                    ? ux("models.card.invocationModes")
-                    : ux("models.columns.capabilities");
-                  const draft = props.modelDrafts[model.model] ?? {
-                    enabled: false,
-                    compared: false,
-                    selectedCapabilities: selectableOptions.length === 1 ? selectableOptions : [],
-                    pricingMode: "public" as const,
-                    inputPrice: model.public_pricing?.input_usd_per_1m?.toString() ?? "",
-                    outputPrice: model.public_pricing?.output_usd_per_1m?.toString() ?? "",
-                  };
-
-                  return (
-                    <Popover
+                  {renderedVisibleModels.map((model) => (
+                    <ModelListItem
                       key={model.model}
-                      open={pricingEditor.open && pricingEditor.modelKey === model.model}
-                      onOpenChange={(open) => {
-                        if (!open) {
-                          setPricingEditor((prev) => ({ ...prev, open: false, error: "" }));
-                        } else {
-                          openPricingEditor(model);
-                        }
-                      }}
-                    >
-                      <div className="min-w-0 space-y-2">
-                        <ModelCard
-                          model={toModelCardData(model, draft)}
-                          detailsHref={buildModelDiscoveryDetailsHref(model)}
-                          pricingDisplay={{
-                            currency: displayCurrency,
-                            scale: displayScale,
-                            usdToIrr,
-                          }}
-                          isSelected={draft.enabled}
-                          onSelectedChange={(checked) =>
-                            props.setModelDrafts((prev) => ({
-                              ...prev,
-                              [model.model]: {
-                                ...draft,
-                                enabled: checked,
-                                selectedCapabilities:
-                                  checked && draft.selectedCapabilities.length === 0 && selectableOptions.length === 1
-                                    ? selectableOptions
-                                    : draft.selectedCapabilities,
-                              },
-                            }))
-                          }
-                          selectedCheckboxLabel={ux("common.enabled")}
-                          pricingModeBadge={draft.pricingMode === "private" ? ux("models.pricing.private") : undefined}
-                          hasCustomPricing={draft.pricingMode === "private"}
-                          className={draft.enabled ? "border-[var(--success-soft-border)] self-start" : "self-start"}
-                          pricingAction={
-                            <PopoverTrigger asChild>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                className="size-7"
-                                disabled={!props.canManage}
-                                aria-label={`${ux("models.actions.editPricing")} ${model.display_name || model.model}`}
-                                onClick={() => openPricingEditor(model)}
-                              >
-                                <SlidersHorizontal className="h-3.5 w-3.5" />
-                              </Button>
-                            </PopoverTrigger>
-                          }
-                          footerActions={
-                            <Button type="button" variant="outline" size="sm" className="gap-1" onClick={() => openCurlGuide(model)}>
-                              <Code2 className="h-3.5 w-3.5" />
-                              {ux("models.card.curlGuide")}
-                            </Button>
-                          }
-                          extraContent={
-                            draft.enabled && selectableOptions.length > 0 ? (
-                              <div className="rounded-md bg-muted/20 px-2 py-2">
-                                <p className="text-[11px] font-medium text-muted-foreground">
-                                  {`قابلیت‌های مجاز: ${selectableOptions.join("  ")}`}
-                                </p>
-                                <div className="mt-2 flex flex-wrap gap-2">
-                                  {selectableOptions.map((option) => {
-                                    const checked = draft.selectedCapabilities.includes(option);
-                                    return (
-                                      <label
-                                        key={`${model.model}-${option}`}
-                                        className={cn(
-                                          "inline-flex cursor-pointer items-center gap-2 rounded-full border px-2.5 py-1 text-[12px]",
-                                          checked ? "border-[var(--success-soft-border)] bg-[var(--success-soft)] text-[var(--success-soft-foreground)]" : "border-border bg-background",
-                                        )}
-                                      >
-                                        <Checkbox
-                                          checked={checked}
-                                          onCheckedChange={(value) =>
-                                            props.setModelDrafts((prev) => {
-                                              const current = prev[model.model] ?? draft;
-                                              const nextCapabilities = value === true
-                                                ? [...current.selectedCapabilities, option]
-                                                : current.selectedCapabilities.filter((item) => item !== option);
-                                              return {
-                                                ...prev,
-                                                [model.model]: {
-                                                  ...current,
-                                                  selectedCapabilities: normalizeCapabilityList(nextCapabilities),
-                                                },
-                                              };
-                                            })
-                                          }
-                                          className="size-3.5"
-                                        />
-                                        <span>{option}</span>
-                                      </label>
-                                    );
-                                  })}
-                                </div>
-                                {draft.selectedCapabilities.length === 0 ? (
-                                  <p className="mt-2 text-xs text-destructive">{ux("messages.modelTypeRequired")}</p>
-                                ) : null}
-                              </div>
-                            ) : null
-                          }
-                          labels={modelCardLabels}
-                        />
-                        {null}
-                      </div>
-                      {renderPricingEditorContent(model)}
-                    </Popover>
-                  );
-                })}
+                      account={props.account}
+                      canManage={props.canManage}
+                      compact
+                      mobileDensity="detailed"
+                      displayCurrency={displayCurrency}
+                      displayScale={displayScale}
+                      draft={props.modelDrafts[model.model]}
+                      labels={modelCardLabels}
+                      model={model}
+                      openCurlGuide={openCurlGuide}
+                      openPricingEditor={openPricingEditor}
+                      closePricingEditor={closePricingEditor}
+                      pricingEditor={pricingEditor}
+                      renderPricingEditorContent={renderPricingEditorContent}
+                      setModelCompared={setModelCompared}
+                      setModelEnabled={setModelEnabled}
+                      toModelCardData={toModelCardData}
+                      ux={ux}
+                      usdToIrr={usdToIrr}
+                      getSelectableOptions={getSelectableOptions}
+                    />
+                  ))}
                 </>
               )}
             </div>
@@ -864,12 +1156,12 @@ export function ModelsEditor(props: {
 
       <div className="surface-elevated rounded-lg border p-3">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline">{ux("models.summary.catalog", { count: props.filteredProviderModels.length })}</Badge>
+          <Badge variant="outline">{ux("models.summary.catalog", { count: props.providerModels.length })}</Badge>
           <Badge className="border-[var(--success-soft-border)] bg-[var(--success-soft)] text-[var(--success-soft-foreground)] hover:bg-[color-mix(in_oklab,var(--success-soft)_88%,black)]" variant="outline">
-            {ux("models.summary.enabled", { count: enabledFilteredModelsCount })}
+            {ux("models.summary.enabled", { count: enabledModelCount })}
           </Badge>
-          <Badge variant="secondary">{ux("models.summary.available", { count: availableFilteredModelsCount })}</Badge>
-          <Badge variant="secondary">{ux("models.summary.showing", { visible: visibleModels.length, total: props.filteredProviderModels.length })}</Badge>
+          <Badge variant="secondary">{ux("models.summary.available", { count: availableVisibleModelsCount })}</Badge>
+          <Badge variant="secondary">{ux("models.summary.showing", { visible: renderedVisibleModels.length, total: props.providerModels.length })}</Badge>
         </div>
         <p className="mt-2 text-sm text-muted-foreground">{ux("models.catalogScopeHint")}</p>
       </div>
@@ -973,10 +1265,8 @@ export function ModelsEditor(props: {
         <Button
           type="button"
           variant="outline"
-          onClick={() => {
-            props.setModelDrafts((prev) => toggleVisibleModelSelection(visibleModels, prev));
-          }}
-          disabled={!props.canManage || visibleModels.length === 0}
+          onClick={() => handleVisibleSelectionChange(renderedVisibleModels, true)}
+          disabled={!props.canManage || renderedVisibleModels.length === 0}
         >
           <CheckSquare className="h-4 w-4" />
           {props.t("step3.toggleSelectAll")}
@@ -984,10 +1274,8 @@ export function ModelsEditor(props: {
         <Button
           type="button"
           variant="outline"
-          onClick={() => {
-            props.setModelDrafts((prev) => clearVisibleModelSelection(visibleModels, prev));
-          }}
-          disabled={!props.canManage || visibleModels.length === 0}
+          onClick={() => handleVisibleSelectionChange(renderedVisibleModels, false)}
+          disabled={!props.canManage || renderedVisibleModels.length === 0}
         >
           <X className="h-4 w-4" />
           {ux("actions.clear")}
@@ -1002,152 +1290,41 @@ export function ModelsEditor(props: {
         </Button>
         <div className="ms-auto flex items-center gap-2 text-xs text-muted-foreground">
           <ArrowUpDown className="h-4 w-4" />
-          <span>{visibleModels.length}</span>
+          <span>{renderedVisibleModels.length}</span>
         </div>
       </div>
 
       {props.isLoadingModels ? (
         <ModelCardsSkeleton />
-      ) : visibleModels.length === 0 ? (
+      ) : renderedVisibleModels.length === 0 ? (
         <p className="text-sm text-muted-foreground">{props.t("step3.empty")}</p>
       ) : (
         <div className="space-y-3">
-                {visibleModels.map((model) => {
-            const selectableOptions = getSelectableOptions(model);
-            const selectableOptionsLabel = getModelModes(model).length > 1
-              ? ux("models.card.invocationModes")
-              : ux("models.columns.capabilities");
-            const draft = props.modelDrafts[model.model] ?? {
-              enabled: false,
-              compared: false,
-              selectedCapabilities: selectableOptions.length === 1 ? selectableOptions : [],
-              pricingMode: "public" as const,
-              inputPrice: model.public_pricing?.input_usd_per_1m?.toString() ?? "",
-              outputPrice: model.public_pricing?.output_usd_per_1m?.toString() ?? "",
-            };
-            return (
-              <Popover
-                key={model.model}
-                  open={pricingEditor.open && pricingEditor.modelKey === model.model}
-                  onOpenChange={(open) => {
-                    if (!open) {
-                      setPricingEditor((prev) => ({ ...prev, open: false, error: "" }));
-                    } else {
-                      openPricingEditor(model);
-                    }
-                  }}
-                >
-                  <div className="min-w-0 space-y-2">
-                    <ModelCard
-                      model={toModelCardData(model, draft)}
-                      detailsHref={buildModelDiscoveryDetailsHref(model)}
-                      pricingDisplay={{
-                        currency: displayCurrency,
-                        scale: displayScale,
-                        usdToIrr,
-                      }}
-                      isSelected={draft.enabled}
-                      onSelectedChange={(checked) =>
-                        props.setModelDrafts((prev) => ({
-                          ...prev,
-                          [model.model]: {
-                            ...draft,
-                            enabled: checked,
-                            selectedCapabilities:
-                              checked && draft.selectedCapabilities.length === 0 && selectableOptions.length === 1
-                                ? selectableOptions
-                                : draft.selectedCapabilities,
-                          },
-                        }))
-                      }
-                      selectedCheckboxLabel={ux("common.enabled")}
-                      isCompared={draft.compared}
-                      onComparedChange={(checked) =>
-                        props.setModelDrafts((prev) => ({
-                          ...prev,
-                          [model.model]: { ...draft, compared: checked },
-                        }))
-                      }
-                      compareCheckboxLabel={ux("models.actions.compareToggle")}
-                      pricingModeBadge={draft.pricingMode === "private" ? ux("models.pricing.private") : undefined}
-                      hasCustomPricing={draft.pricingMode === "private"}
-                      className={draft.enabled ? "border-[var(--success-soft-border)]" : undefined}
-                      footerActions={
-                        <Button type="button" variant="outline" size="sm" className="gap-1" onClick={() => openCurlGuide(model)}>
-                          <Code2 className="h-3.5 w-3.5" />
-                          {ux("models.card.curlGuide")}
-                        </Button>
-                      }
-                      extraContent={
-                        draft.enabled && selectableOptions.length > 0 ? (
-                          <div className="rounded-md bg-muted/20 px-2 py-2">
-                            <p className="text-[11px] font-medium text-muted-foreground">
-                              {`قابلیت‌های مجاز: ${selectableOptions.join("  ")}`}
-                            </p>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {selectableOptions.map((option) => {
-                                const checked = draft.selectedCapabilities.includes(option);
-                                return (
-                                  <label
-                                    key={`${model.model}-${option}`}
-                                    className={cn(
-                                      "inline-flex cursor-pointer items-center gap-2 rounded-full border px-2.5 py-1 text-[12px]",
-                                      checked ? "border-[var(--success-soft-border)] bg-[var(--success-soft)] text-[var(--success-soft-foreground)]" : "border-border bg-background",
-                                    )}
-                                  >
-                                    <Checkbox
-                                      checked={checked}
-                                      onCheckedChange={(value) =>
-                                        props.setModelDrafts((prev) => {
-                                          const current = prev[model.model] ?? draft;
-                                          const nextCapabilities = value === true
-                                            ? [...current.selectedCapabilities, option]
-                                            : current.selectedCapabilities.filter((item) => item !== option);
-                                          return {
-                                            ...prev,
-                                            [model.model]: {
-                                              ...current,
-                                              selectedCapabilities: normalizeCapabilityList(nextCapabilities),
-                                            },
-                                          };
-                                        })
-                                      }
-                                      className="size-3.5"
-                                    />
-                                    <span>{option}</span>
-                                  </label>
-                                );
-                              })}
-                            </div>
-                            {draft.selectedCapabilities.length === 0 ? (
-                              <p className="mt-2 text-xs text-destructive">{ux("messages.modelTypeRequired")}</p>
-                            ) : null}
-                          </div>
-                        ) : null
-                      }
-                      pricingAction={
-                        <PopoverTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            className="size-7"
-                            disabled={!props.canManage}
-                            aria-label={`${ux("models.actions.editPricing")} ${model.display_name || model.model}`}
-                            onClick={() => openPricingEditor(model)}
-                          >
-                            <SlidersHorizontal className="h-3.5 w-3.5" />
-                          </Button>
-                        </PopoverTrigger>
-                      }
-                      labels={modelCardLabels}
-                    />
-                    {null}
-                  </div>
-                  {renderPricingEditorContent(model)}
-                </Popover>
-            );
-          })}
+          {renderedVisibleModels.map((model) => (
+            <ModelListItem
+              key={model.model}
+              account={props.account}
+              canManage={props.canManage}
+              compact={false}
+              mobileDensity="detailed"
+              displayCurrency={displayCurrency}
+              displayScale={displayScale}
+              draft={props.modelDrafts[model.model]}
+              labels={modelCardLabels}
+              model={model}
+              openCurlGuide={openCurlGuide}
+              openPricingEditor={openPricingEditor}
+              closePricingEditor={closePricingEditor}
+              pricingEditor={pricingEditor}
+              renderPricingEditorContent={renderPricingEditorContent}
+              setModelCompared={setModelCompared}
+              setModelEnabled={setModelEnabled}
+              toModelCardData={toModelCardData}
+              ux={ux}
+              usdToIrr={usdToIrr}
+              getSelectableOptions={getSelectableOptions}
+            />
+          ))}
         </div>
       )}
       <Dialog open={compareOpen} onOpenChange={setCompareOpen}>
@@ -1408,6 +1585,18 @@ export function ModelsEditor(props: {
       </Dialog>
     </section>
   );
-}
+}, (prev, next) => (
+  prev.account === next.account &&
+  prev.canManage === next.canManage &&
+  prev.isLoadingModels === next.isLoadingModels &&
+  prev.isSaving === next.isSaving &&
+  prev.modelDrafts === next.modelDrafts &&
+  prev.onSave === next.onSave &&
+  prev.providerModels === next.providerModels &&
+  prev.setBanner === next.setBanner &&
+  prev.setModelDrafts === next.setModelDrafts &&
+  prev.t === next.t &&
+  prev.variant === next.variant
+));
 
 

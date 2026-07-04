@@ -57,10 +57,29 @@ export function filterAndSortProviderModels({
   const minPriceValue = toNumberOrUndefined(filters.minPrice);
   const maxPriceValue = toNumberOrUndefined(filters.maxPrice);
   const minContextValue = toNumberOrUndefined(filters.minContext);
+  const normalizedSearch = filters.search.trim().toLowerCase();
   const filtered = models.filter((model) => {
     const inputPrice = model.public_pricing?.input_usd_per_1m;
     const context = model.context_window;
+    const searchableValues = [
+      model.display_name,
+      model.model,
+      model.provider,
+      ...(model.types ?? []),
+      ...(model.mode ?? []),
+      ...(model.modes ?? []),
+      ...(model.input_modalities ?? []),
+      ...(model.output_modalities ?? []),
+      ...(model.capabilities ?? []),
+      ...(model.features ?? []),
+    ];
     if (isSelectedOnly && !isModelEnabled(model.model)) return false;
+    if (
+      normalizedSearch &&
+      !searchableValues.some((value) => value?.toLowerCase().includes(normalizedSearch))
+    ) {
+      return false;
+    }
     if (typeof minPriceValue === "number" && (typeof inputPrice !== "number" || inputPrice < minPriceValue)) return false;
     if (typeof maxPriceValue === "number" && (typeof inputPrice !== "number" || inputPrice > maxPriceValue)) return false;
     if (typeof minContextValue === "number" && (typeof context !== "number" || context < minContextValue)) return false;
