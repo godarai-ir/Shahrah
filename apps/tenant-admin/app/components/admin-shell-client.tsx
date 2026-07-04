@@ -315,8 +315,6 @@ function AdminSidebar({
       <SidebarFooter className="group-data-[collapsible=icon]:hidden">
         <SidebarPlanSummary summary={subscriptionSummary} />
       </SidebarFooter>
-
-      <SidebarRail />
     </Sidebar>
   );
 }
