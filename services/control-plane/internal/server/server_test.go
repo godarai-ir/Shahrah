@@ -98,6 +98,26 @@ func TestNewFiberAppExposesPrometheusMetrics(t *testing.T) {
 	assert.Contains(t, payload, "shahrah_control_plane_http_requests_in_flight")
 }
 
+func TestNewFiberAppExposesPprofOnlyWhenEnabled(t *testing.T) {
+	t.Parallel()
+
+	disabledApp := NewFiberApp(&config.Config{}, Dependencies{})
+	disabledResp, err := disabledApp.Test(httptest.NewRequest(fiber.MethodGet, "/debug/pprof/goroutine?debug=1", http.NoBody))
+	defer closeResponseBody(t, disabledResp)
+
+	require.NoError(t, err)
+	require.Equal(t, fiber.StatusNotFound, disabledResp.StatusCode)
+
+	enabledApp := NewFiberApp(&config.Config{
+		Profiling: config.ProfilingSettings{EnablePprof: true},
+	}, Dependencies{})
+	enabledResp, err := enabledApp.Test(httptest.NewRequest(fiber.MethodGet, "/debug/pprof/goroutine?debug=1", http.NoBody))
+	defer closeResponseBody(t, enabledResp)
+
+	require.NoError(t, err)
+	require.Equal(t, fiber.StatusOK, enabledResp.StatusCode)
+}
+
 func TestNewFiberAppRegistersPromptRoutes(t *testing.T) {
 	t.Parallel()
 

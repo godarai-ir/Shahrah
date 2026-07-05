@@ -17,9 +17,17 @@ type Config struct {
 	RouterSettings  RouterSettings        `mapstructure:"router_settings"`
 	ResponseCache   ResponseCacheSettings `mapstructure:"response_cache"`
 	GeneralSettings GeneralSettings       `mapstructure:"general_settings"`
+	Profiling       ProfilingSettings     `mapstructure:"profiling"`
 	TenantSettings  TenantSettings        `mapstructure:"tenant_settings"`
 	TunnelSettings  TunnelSettings        `mapstructure:"tunnel_settings"`
 	BillingSettings BillingSettings       `mapstructure:"billing_settings"`
+}
+
+// ProfilingSettings controls opt-in runtime profiling endpoints and sampling.
+type ProfilingSettings struct {
+	EnablePprof          bool `mapstructure:"enable_pprof"`
+	MutexProfileFraction int  `mapstructure:"mutex_profile_fraction"`
+	BlockProfileRate     int  `mapstructure:"block_profile_rate"`
 }
 
 // ResponseCacheSettings controls opt-in exact and semantic response caching.
@@ -123,6 +131,9 @@ func LoadConfig(logger *zap.Logger) (*Config, error) {
 	// Set defaults
 	v.SetDefault("general_settings.host", "0.0.0.0")
 	v.SetDefault("general_settings.port", 4000)
+	v.SetDefault("profiling.enable_pprof", false)
+	v.SetDefault("profiling.mutex_profile_fraction", 0)
+	v.SetDefault("profiling.block_profile_rate", 0)
 	v.SetDefault("router_settings.routing_strategy", "simple-shuffle")
 	v.SetDefault("router_settings.cooldown_time", 60.0)
 	v.SetDefault("router_settings.num_retries", 3)

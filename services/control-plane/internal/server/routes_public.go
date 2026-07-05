@@ -3,6 +3,7 @@ package server
 import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
+	"github.com/Delpak/shahrah/services/control-plane/internal/observability/profiling"
 	prommetrics "github.com/Delpak/shahrah/services/control-plane/internal/observability/prometheus"
 	"github.com/gofiber/fiber/v2"
 )
@@ -17,6 +18,9 @@ func registerObservabilityRoutes(app *fiber.App, deps Dependencies, httpMetrics 
 	app.Get("/health", healthHandler)
 	app.Get("/ready", readyHandler(deps))
 	app.Get("/metrics", httpMetrics.Handler())
+	if cfg.Profiling.EnablePprof {
+		profiling.RegisterPprofRoutes(app)
+	}
 }
 
 func registerPublicAdminRoutes(app *fiber.App, deps Dependencies) {

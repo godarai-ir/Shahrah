@@ -118,6 +118,7 @@ $GOPATH/pkg/mod/cache/
 *.trace
 *.cpu
 *.mem
+loadtests/results/
 
 # Local configuration overrides
 configs/proxy_config.local.yaml

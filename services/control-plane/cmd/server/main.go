@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -45,6 +46,7 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed to load configuration", zap.Error(err))
 	}
+	configureRuntimeProfiling(cfg, logger)
 
 	if strings.TrimSpace(cfg.GeneralSettings.DatabaseURL) == "" {
 		logger.Fatal("Missing required database configuration", zap.String("field", "general_settings.database_url"))
@@ -291,6 +293,22 @@ func main() {
 
 	if err := app.Listen(addr); err != nil {
 		logger.Fatal("Server failed to start", zap.Error(err))
+	}
+}
+
+func configureRuntimeProfiling(cfg *config.Config, logger *zap.Logger) {
+	if cfg == nil {
+		return
+	}
+
+	if cfg.Profiling.MutexProfileFraction > 0 {
+		runtime.SetMutexProfileFraction(cfg.Profiling.MutexProfileFraction)
+		logger.Info("Enabled mutex profiling", zap.Int("fraction", cfg.Profiling.MutexProfileFraction))
+	}
+
+	if cfg.Profiling.BlockProfileRate > 0 {
+		runtime.SetBlockProfileRate(cfg.Profiling.BlockProfileRate)
+		logger.Info("Enabled block profiling", zap.Int("rate", cfg.Profiling.BlockProfileRate))
 	}
 }
 
