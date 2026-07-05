@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
   }
   const tenantSlug = auth.tenantSlug;
 
-  const body = await request.json();
+  const body = stripOrgUnitCostCenter(await request.json());
 
   const result = await fetchControlPlaneJSON({
     tenantSlug,
@@ -56,5 +56,27 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json(result.payload, { status: 201 });
+}
+
+function stripOrgUnitCostCenter(body: unknown): unknown {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return body;
+  }
+
+  const { metadata, ...rest } = body as Record<string, unknown>;
+  const cleanBody: Record<string, unknown> = { ...rest };
+  delete cleanBody.cost_center;
+  delete cleanBody.costCenter;
+
+  if (metadata && typeof metadata === "object" && !Array.isArray(metadata)) {
+    const cleanMetadata = { ...(metadata as Record<string, unknown>) };
+    delete cleanMetadata.cost_center;
+    delete cleanMetadata.costCenter;
+    cleanBody.metadata = cleanMetadata;
+  } else if (metadata !== undefined) {
+    cleanBody.metadata = metadata;
+  }
+
+  return cleanBody;
 }
 

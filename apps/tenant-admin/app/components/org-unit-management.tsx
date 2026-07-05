@@ -1,15 +1,13 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import type { ComponentType } from "react";
 import { useTranslations } from "next-intl";
 import {
   Building2,
   CalendarClock,
-  ChevronLeft,
   Edit3,
+  ExternalLink,
   Gauge,
-  MoreVertical,
   Plus,
   RefreshCw,
   Search,
@@ -17,18 +15,13 @@ import {
   Trash2,
   Users,
   WalletCards,
+  type LucideIcon,
 } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { AppCard, AppSelectField, EmptyState, PageHeader, RowActionsMenu, StatusBadge } from "@/components/app-ui";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -115,7 +108,6 @@ type Banner = {
 type FormState = {
   alias: string;
   displayName: string;
-  costCenter: string;
   description: string;
 };
 
@@ -124,6 +116,7 @@ type OrgUnitManagementProps = {
   initialTotal: number;
   initialError: string | null;
   currentUserRole: string;
+  docsHref: string;
 };
 
 const PAGE_SIZE = 25;
@@ -131,7 +124,6 @@ const PAGE_SIZE = 25;
 const emptyForm: FormState = {
   alias: "",
   displayName: "",
-  costCenter: "",
   description: "",
 };
 
@@ -140,6 +132,7 @@ export default function OrgUnitManagement({
   initialTotal,
   initialError,
   currentUserRole,
+  docsHref,
 }: OrgUnitManagementProps) {
   const t = useTranslations("orgUnits");
   const permissions = usePermissions() ?? [];
@@ -513,22 +506,25 @@ export default function OrgUnitManagement({
 
   return (
     <div className="space-y-5">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0 space-y-2">
-          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <span>{t("breadcrumb.tenant")}</span>
-            <ChevronLeft className="h-4 w-4" />
-            <span className="text-foreground">{t("title")}</span>
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              {t("subtitle")}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
+      <PageHeader
+        eyebrow={`${t("breadcrumb.tenant")} / ${t("title")}`}
+        title={
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <span>{t("title")}</span>
+            <a
+              href={docsHref}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {t("docsLink")}
+              <ExternalLink className="size-3.5" aria-hidden="true" />
+            </a>
+          </span>
+        }
+        description={t("subtitle")}
+        actions={
+          <>
           <Button
             variant="outline"
             className="gap-2"
@@ -544,7 +540,7 @@ export default function OrgUnitManagement({
               <Plus className="h-4 w-4" />
               {t("actions.new")}
             </Button>
-            <SheetContent side="right" className="w-[94vw] max-w-xl overflow-y-auto">
+            <SheetContent side="left" className="w-[94vw] max-w-xl overflow-y-auto">
               <SheetHeader>
                 <SheetTitle>{t("create.title")}</SheetTitle>
                 <SheetDescription>
@@ -554,8 +550,9 @@ export default function OrgUnitManagement({
               <OrgUnitForm form={form} setForm={setForm} onSubmit={handleCreate} isSaving={isSaving} submitLabel={t("create.submit")} />
             </SheetContent>
           </Sheet>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       {banner ? (
         <Alert variant={banner.kind === "error" ? "destructive" : banner.kind}>
@@ -565,12 +562,11 @@ export default function OrgUnitManagement({
       ) : null}
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
-        <div className="space-y-4 rounded-xl border bg-card p-4">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold">{t("list.title")}</h2>
-              <p className="text-sm text-muted-foreground">{t("list.description")}</p>
-            </div>
+        <AppCard
+          title={t("list.title")}
+          description={t("list.description")}
+          contentClassName="space-y-4"
+          actions={
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
                 <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -581,32 +577,35 @@ export default function OrgUnitManagement({
                   className="w-full ps-9 sm:w-64"
                 />
               </div>
-              <select
+              <AppSelectField
                 value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value)}
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                aria-label={t("filters.filterLabel")}
-              >
-                <option value="all">{t("filters.all")}</option>
-                <option value="normal">{t("status.normal")}</option>
-                <option value="warning">{t("status.warning")}</option>
-                <option value="exceeded">{t("status.exceeded")}</option>
-                <option value="with_teams">{t("filters.withTeams")}</option>
-                <option value="empty">{t("filters.noTeams")}</option>
-              </select>
-              <select
+                onValueChange={setStatusFilter}
+                ariaLabel={t("filters.filterLabel")}
+                triggerClassName="h-10 min-w-36"
+                options={[
+                  { value: "all", label: t("filters.all") },
+                  { value: "normal", label: t("status.normal") },
+                  { value: "warning", label: t("status.warning") },
+                  { value: "exceeded", label: t("status.exceeded") },
+                  { value: "with_teams", label: t("filters.withTeams") },
+                  { value: "empty", label: t("filters.noTeams") },
+                ]}
+              />
+              <AppSelectField
                 value={sortBy}
-                onChange={(event) => setSortBy(event.target.value)}
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                aria-label={t("filters.sortLabel")}
-              >
-                <option value="updated_at">{t("sort.recent")}</option>
-                <option value="name">{t("sort.name")}</option>
-                <option value="spend">{t("sort.spend")}</option>
-                <option value="teams">{t("sort.teams")}</option>
-              </select>
+                onValueChange={setSortBy}
+                ariaLabel={t("filters.sortLabel")}
+                triggerClassName="h-10 min-w-32"
+                options={[
+                  { value: "updated_at", label: t("sort.recent") },
+                  { value: "name", label: t("sort.name") },
+                  { value: "spend", label: t("sort.spend") },
+                  { value: "teams", label: t("sort.teams") },
+                ]}
+              />
             </div>
-          </div>
+          }
+        >
 
           <div className="overflow-x-auto">
             <Table>
@@ -620,26 +619,25 @@ export default function OrgUnitManagement({
                   <TableHead>{t("table.limits")}</TableHead>
                   <TableHead>{t("table.status")}</TableHead>
                   <TableHead>{t("table.updated")}</TableHead>
-                  <TableHead className="w-12 text-right"> </TableHead>
+                  <TableHead className="w-12 text-end"> </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {visibleOrgUnits.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="py-10 text-center">
-                      <div className="mx-auto max-w-md space-y-3">
-                        <Building2 className="mx-auto h-9 w-9 text-muted-foreground" />
-                        <div>
-                          <p className="font-medium">{t("empty.title")}</p>
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            {t("empty.description")}
-                          </p>
-                        </div>
-                        <Button className="gap-2" type="button" onClick={openCreate}>
+                      <EmptyState
+                        icon={Building2}
+                        title={t("empty.title")}
+                        description={t("empty.description")}
+                        className="border-0 bg-transparent"
+                        primaryAction={
+                          <Button className="gap-2" type="button" onClick={openCreate}>
                           <Plus className="h-4 w-4" />
                           {t("empty.action")}
                         </Button>
-                      </div>
+                        }
+                      />
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -676,31 +674,25 @@ export default function OrgUnitManagement({
                           <BudgetStatusBadge status={status.kind} />
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{formatDate(orgUnit.updated_at)}</TableCell>
-                        <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" disabled={!canManage}>
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => setSelectedOrgUnitID(orgUnit.id)}>
-                                {t("actions.viewDetails")}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => openEdit(orgUnit)}>{t("actions.edit")}</DropdownMenuItem>
-                              <DropdownMenuItem onClick={openMembers}>{t("actions.manageMembers")}</DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                disabled={!canDeleteOrgUnit}
-                                onClick={() => {
+                        <TableCell className="text-end" onClick={(event) => event.stopPropagation()}>
+                          <RowActionsMenu
+                            label={t("actions.viewDetails")}
+                            disabled={!canManage}
+                            actions={[
+                              { label: t("actions.viewDetails"), onSelect: () => setSelectedOrgUnitID(orgUnit.id) },
+                              { label: t("actions.edit"), onSelect: () => openEdit(orgUnit) },
+                              { label: t("actions.manageMembers"), onSelect: openMembers },
+                              {
+                                label: t("actions.delete"),
+                                destructive: true,
+                                disabled: !canDeleteOrgUnit,
+                                onSelect: () => {
                                   setSelectedOrgUnitID(orgUnit.id);
                                   setDeleteOpen(true);
-                                }}
-                              >
-                                {t("actions.delete")}
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                                },
+                              },
+                            ]}
+                          />
                         </TableCell>
                       </TableRow>
                     );
@@ -733,12 +725,12 @@ export default function OrgUnitManagement({
               </Button>
             </div>
           </div>
-        </div>
+        </AppCard>
 
         <aside className="space-y-4">
           {selectedOrgUnit && selectedSummary ? (
             <>
-              <div className="rounded-xl border bg-card p-4">
+              <AppCard contentClassName="space-y-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-sm text-muted-foreground">{t("detail.breadcrumb")}</p>
@@ -766,7 +758,7 @@ export default function OrgUnitManagement({
                     {t("actions.delete")}
                   </Button>
                 </div>
-              </div>
+              </AppCard>
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <KpiCard icon={WalletCards} label={t("kpi.totalSpend")} value={formatMoney(selectedSummary.spend)} />
@@ -775,14 +767,15 @@ export default function OrgUnitManagement({
                 <KpiCard icon={ShieldCheck} label={t("kpi.membersAdmins")} value={`${selectedSummary.members}/${selectedSummary.admins}`} />
               </div>
 
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <WalletCards className="h-4 w-4" />
-                    {t("budget.title")}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
+              <AppCard
+                title={
+                  <span className="flex items-center gap-2">
+                    <WalletCards className="h-4 w-4" aria-hidden="true" />
+                    <span>{t("budget.title")}</span>
+                  </span>
+                }
+                contentClassName="space-y-4"
+              >
                   <div>
                     <div className="mb-2 flex items-center justify-between text-sm">
                       <span>{t("budget.used", { amount: formatMoney(selectedSummary.spend) })}</span>
@@ -804,33 +797,32 @@ export default function OrgUnitManagement({
                       </AlertDescription>
                     </Alert>
                   ) : null}
-                </CardContent>
-              </Card>
+              </AppCard>
 
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Building2 className="h-4 w-4" />
-                    {t("teams.title")}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
+              <AppCard
+                title={
+                  <span className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4" aria-hidden="true" />
+                    <span>{t("teams.title")}</span>
+                  </span>
+                }
+              >
                   <MetadataTeams
                     orgUnit={selectedOrgUnit}
                     teamCount={resolveTeamCount(selectedOrgUnit)}
                     teams={resolveTeams(selectedOrgUnit)}
                   />
-                </CardContent>
-              </Card>
+              </AppCard>
 
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Users className="h-4 w-4" />
-                    {t("members.title")}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
+              <AppCard
+                title={
+                  <span className="flex items-center gap-2">
+                    <Users className="h-4 w-4" aria-hidden="true" />
+                    <span>{t("members.title")}</span>
+                  </span>
+                }
+                contentClassName="space-y-3"
+              >
                   {isDetailLoading ? (
                     <p className="text-sm text-muted-foreground">{t("members.loading")}</p>
                   ) : members.length === 0 ? (
@@ -846,29 +838,26 @@ export default function OrgUnitManagement({
                       </div>
                     ))
                   )}
-                </CardContent>
-              </Card>
+              </AppCard>
 
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <CalendarClock className="h-4 w-4" />
-                    {t("audit.title")}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
+              <AppCard
+                title={
+                  <span className="flex items-center gap-2">
+                    <CalendarClock className="h-4 w-4" aria-hidden="true" />
+                    <span>{t("audit.title")}</span>
+                  </span>
+                }
+                contentClassName="space-y-3 text-sm"
+              >
                   <InfoItem label={t("audit.created")} value={formatDateTime(selectedOrgUnit.created_at)} />
                   <InfoItem label={t("audit.updated")} value={formatDateTime(selectedOrgUnit.updated_at)} />
                   <pre className="max-h-40 overflow-auto rounded-lg bg-muted p-3 text-xs text-muted-foreground">
                     {JSON.stringify(selectedOrgUnit.metadata ?? {}, null, 2)}
                   </pre>
-                </CardContent>
-              </Card>
+              </AppCard>
             </>
           ) : (
-            <div className="rounded-xl border bg-card p-6 text-center text-sm text-muted-foreground">
-              {t("detail.empty")}
-            </div>
+            <EmptyState title={t("detail.empty")} />
           )}
         </aside>
       </section>
@@ -920,7 +909,7 @@ export default function OrgUnitManagement({
                         <button
                           key={user.principal_id}
                           type="button"
-                          className="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted"
+                          className="w-full rounded-sm px-2 py-1.5 text-start text-sm hover:bg-muted"
                           onMouseDown={(event) => event.preventDefault()}
                           onClick={() => {
                             setMemberUserID(user.principal_id);
@@ -936,17 +925,17 @@ export default function OrgUnitManagement({
                 ) : null}
               </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="member-role">{t("members.role")}</Label>
-              <select
-                id="member-role"
+            <div>
+              <AppSelectField
+                label={t("members.role")}
                 value={memberRole}
-                onChange={(event) => setMemberRole(event.target.value)}
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="org_admin">{t("roles.orgAdmin")}</option>
-                <option value="member">{t("roles.member")}</option>
-              </select>
+                onValueChange={setMemberRole}
+                triggerClassName="h-10"
+                options={[
+                  { value: "org_admin", label: t("roles.orgAdmin") },
+                  { value: "member", label: t("roles.member") },
+                ]}
+              />
             </div>
             <Button type="submit" disabled={isSaving || !canManage} className="w-full">
               {t("members.add")}
@@ -1069,15 +1058,6 @@ function OrgUnitForm({
         />
       </div>
       <div className="grid gap-2">
-        <Label htmlFor="org-cost-center">{t("form.costCenter")}</Label>
-        <Input
-          id="org-cost-center"
-          value={form.costCenter}
-          onChange={(event) => update("costCenter", event.target.value)}
-          placeholder="ENG-001"
-        />
-      </div>
-      <div className="grid gap-2">
         <Label htmlFor="org-description">{t("form.description")}</Label>
         <Input
           id="org-description"
@@ -1099,22 +1079,22 @@ function KpiCard({
   label,
   value,
 }: {
-  icon: ComponentType<{ className?: string }>;
+  icon: LucideIcon;
   label: string;
   value: string;
 }) {
   return (
-    <div className="rounded-xl border bg-card p-4">
-      <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-          <Icon className="h-4 w-4 text-muted-foreground" />
+    <AppCard className="min-w-0" contentClassName="pt-4 md:pt-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Icon className="size-4" aria-hidden="true" />
         </div>
         <div className="min-w-0">
           <p className="text-xs text-muted-foreground">{label}</p>
-          <p className="truncate text-lg font-semibold">{value}</p>
+          <p className="truncate text-lg font-semibold text-foreground">{value}</p>
         </div>
       </div>
-    </div>
+    </AppCard>
   );
 }
 
@@ -1210,9 +1190,9 @@ function InfoItem({ label, value }: { label: string; value: string }) {
 
 function BudgetStatusBadge({ status }: { status: "normal" | "warning" | "exceeded" }) {
   const t = useTranslations("orgUnits");
-  if (status === "exceeded") return <Badge variant="destructive">{t("status.exceeded")}</Badge>;
-  if (status === "warning") return <Badge className="bg-warning text-warning-foreground">{t("status.warning")}</Badge>;
-  return <Badge className="bg-success text-success-foreground">{t("status.normal")}</Badge>;
+  if (status === "exceeded") return <StatusBadge status="error">{t("status.exceeded")}</StatusBadge>;
+  if (status === "warning") return <StatusBadge status="warning">{t("status.warning")}</StatusBadge>;
+  return <StatusBadge status="success">{t("status.normal")}</StatusBadge>;
 }
 
 function Progress({ value, tone }: { value: number; tone: "normal" | "warning" | "exceeded" }) {
@@ -1309,16 +1289,17 @@ function formFromOrgUnit(orgUnit: OrgUnit): FormState {
   return {
     alias: orgUnit.alias,
     displayName: getOrgName(orgUnit),
-    costCenter: toText(orgUnit.metadata?.cost_center),
     description: toText(orgUnit.metadata?.description),
   };
 }
 
 function buildPayload(form: FormState, previousMetadata?: Record<string, unknown>) {
+  const metadataWithoutCostCenter = { ...(previousMetadata ?? {}) };
+  delete metadataWithoutCostCenter.cost_center;
+  delete metadataWithoutCostCenter.costCenter;
   const metadata = {
-    ...(previousMetadata ?? {}),
+    ...metadataWithoutCostCenter,
     display_name: form.displayName.trim() || form.alias.trim(),
-    cost_center: form.costCenter.trim(),
     description: form.description.trim(),
   };
 

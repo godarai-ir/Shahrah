@@ -1,6 +1,7 @@
 {
   "title": "Organization Units",
-  "subtitle": "Group teams into departments, cost centers, and admin scopes with budget-aware controls.",
+  "subtitle": "Group teams into departments and admin scopes with budget-aware controls.",
+  "docsLink": "Org unit guide",
   "breadcrumb": {
     "tenant": "Tenant"
   },
@@ -28,7 +29,7 @@
     "description": "Operational list with budget and admin indicators."
   },
   "filters": {
-    "searchPlaceholder": "Search alias or name",
+    "searchPlaceholder": "Enter a name to search",
     "filterLabel": "Filter organization units",
     "sortLabel": "Sort organization units",
     "all": "All",
@@ -147,7 +148,6 @@
   "form": {
     "alias": "Alias",
     "displayName": "Display name",
-    "costCenter": "Cost center",
     "description": "Description",
     "budgetGuardrails": "Budget guardrails",
     "budgetDescription": "These values are stored as org-unit metadata until budget entities are wired.",

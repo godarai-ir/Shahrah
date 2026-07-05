@@ -37,7 +37,7 @@ export async function PATCH(
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
   const tenantSlug = auth.tenantSlug;
 
-  const body = await request.json();
+  const body = stripOrgUnitCostCenter(await request.json());
 
   const result = await fetchControlPlaneJSON({
     tenantSlug,
@@ -55,6 +55,28 @@ export async function PATCH(
   }
 
   return NextResponse.json(result.payload);
+}
+
+function stripOrgUnitCostCenter(body: unknown): unknown {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return body;
+  }
+
+  const { metadata, ...rest } = body as Record<string, unknown>;
+  const cleanBody: Record<string, unknown> = { ...rest };
+  delete cleanBody.cost_center;
+  delete cleanBody.costCenter;
+
+  if (metadata && typeof metadata === "object" && !Array.isArray(metadata)) {
+    const cleanMetadata = { ...(metadata as Record<string, unknown>) };
+    delete cleanMetadata.cost_center;
+    delete cleanMetadata.costCenter;
+    cleanBody.metadata = cleanMetadata;
+  } else if (metadata !== undefined) {
+    cleanBody.metadata = metadata;
+  }
+
+  return cleanBody;
 }
 
 export async function DELETE(

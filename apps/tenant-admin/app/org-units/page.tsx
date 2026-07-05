@@ -3,6 +3,7 @@ import OrgUnitManagement from "@/app/components/org-unit-management";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
+import { headers } from "next/headers";
 
 type OrgUnit = {
   id: string;
@@ -26,6 +27,9 @@ export const dynamic = "force-dynamic";
 export default async function OrgUnitsPage() {
   const auth = await requireAuth("/login?next=/org-units");
   const tenantSlug = auth.tenantSlug;
+  const requestHeaders = await headers();
+  const docsBaseHref = buildDocsBaseHref(requestHeaders, tenantSlug);
+  const orgUnitsDocsHref = `${docsBaseHref}/guides/tenant-team-account-model`;
   await requirePermissionOr403(tenantSlug, auth.user.id, ["org_unit:list", "org_unit:read", "org_unit:create", "org_unit:manage"]);
 
   const orgUnitsResult = await fetchControlPlaneJSON({
@@ -54,7 +58,18 @@ export default async function OrgUnitsPage() {
         initialTotal={initialTotal}
         initialError={initialError}
         currentUserRole={auth.user.role}
+        docsHref={orgUnitsDocsHref}
       />
     </AdminShell>
   );
+}
+
+function buildDocsBaseHref(headersList: Headers, tenantSlug: string): string {
+  const forwardedProto = headersList.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const proto = forwardedProto || (headersList.get("host")?.includes("localhost") ? "http" : "https");
+  const host = headersList.get("x-forwarded-host")?.split(",")[0]?.trim() || headersList.get("host") || "";
+  const tenantPrefix = `${tenantSlug}.`;
+  const docsHost = host.startsWith(tenantPrefix) ? host.slice(tenantPrefix.length) : host;
+
+  return docsHost ? `${proto}://${docsHost}/docs` : "/docs";
 }

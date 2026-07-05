@@ -27,6 +27,7 @@ type AppSelectFieldProps = {
   description?: React.ReactNode;
   className?: string;
   triggerClassName?: string;
+  ariaLabel?: string;
   disabled?: boolean;
   dir?: "rtl" | "ltr";
 };
@@ -40,6 +41,7 @@ export function AppSelectField({
   description,
   className,
   triggerClassName,
+  ariaLabel,
   disabled,
   dir = "rtl",
 }: AppSelectFieldProps) {
@@ -47,7 +49,7 @@ export function AppSelectField({
     <div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
       {label ? <span className="text-sm font-medium text-foreground">{label}</span> : null}
       <Select dir={dir} value={value} onValueChange={onValueChange} disabled={disabled}>
-        <SelectTrigger className={cn("min-w-40", triggerClassName)}>
+        <SelectTrigger className={cn("min-w-40", triggerClassName)} aria-label={ariaLabel}>
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent dir={dir}>
