@@ -34,13 +34,20 @@ winget install GoLang.Go
 
 The control-plane exposes `/debug/pprof/*` only when explicitly enabled.
 
-For local Docker Compose:
+For cost-safe local load testing, start the stack with the load-test override. This override routes static model traffic to Silk Road's mock provider and enables pprof for the control-plane:
 
 ```powershell
-$env:PROFILING_ENABLE_PPROF="true"
-$env:PROFILING_MUTEX_PROFILE_FRACTION="5"
-$env:PROFILING_BLOCK_PROFILE_RATE="10000"
-docker compose -f infra/compose/local.yml up --build control-plane
+docker compose -f infra/compose/local.yml -f infra/compose/loadtest.override.yml up --build control-plane tunnel-client tunnel-server silk-road
+```
+
+The mock provider is disabled in normal compose/prod paths. It is only registered when `SILK_ROAD_ENABLE_MOCK_PROVIDER=true`, and the load-test override also mounts `loadtests/config/proxy_config.yaml` into the control-plane so static model routes point at provider `mock`.
+
+You can tune mock behavior before starting compose:
+
+```powershell
+$env:SILK_ROAD_MOCK_LATENCY_MS="75"
+$env:SILK_ROAD_MOCK_ERROR_RATE="0.01"
+$env:SILK_ROAD_MOCK_ERROR_STATUS="429"
 ```
 
 For a directly running service:
@@ -53,7 +60,7 @@ $env:PROFILING_BLOCK_PROFILE_RATE="10000"
 go run ./cmd/server
 ```
 
-Use these only in local, staging, or a tightly firewalled performance environment. The pprof endpoints expose process internals.
+Use profiling only in local, staging, or a tightly firewalled performance environment. The pprof endpoints expose process internals.
 
 ## 3. Run scenarios
 
@@ -66,7 +73,7 @@ $env:TENANT="default"
 $env:MODEL="gpt-4o-mini"
 ```
 
-`TENANT` must be an existing tenant slug for protected `/v1/*` gateway calls. Prefer a real PAT or virtual-user token for staging tests; the local master key is only convenient for bootstrap/local verification.
+`TENANT` must be an existing tenant slug for protected `/v1/*` gateway calls. Prefer a real PAT or virtual-user token for staging tests; the local master key is only convenient for bootstrap/local verification. When the load-test override is active, requests use the mock provider instead of paid upstream providers.
 
 Smoke test:
 
@@ -162,7 +169,7 @@ Blocking profile:
 
 ## 6. Suggested test matrix
 
-Run the matrix against local first, then staging with production-like database and provider latency:
+Run the matrix against local first with the mock provider, then staging with production-like database and either mock latency or carefully capped real-provider traffic:
 
 | Scenario | Purpose | First target |
 | --- | --- | --- |

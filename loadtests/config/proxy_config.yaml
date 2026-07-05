@@ -1,0 +1,66 @@
+# Load-test-only control-plane configuration.
+# This file intentionally routes all static model traffic to the Silk Road mock
+# provider. Use it only through infra/compose/loadtest.override.yml.
+
+model_list:
+  - model_name: "*"
+    provider_endpoint_config:
+      provider: mock
+      model: mock/mock-model
+      api_key: mock-loadtest-key
+      rpm: 100000
+      tpm: 10000000
+      timeout: 60
+      weight: 1
+    model_info:
+      id: "loadtest-mock-1"
+      health_check_timeout: 5
+
+router_settings:
+  routing_strategy: simple-shuffle
+  redis_host: ${REDIS_HOST}
+  redis_port: 6379
+  redis_password: ${REDIS_PASSWORD}
+  enable_pre_call_checks: false
+  cooldown_time: 10
+  num_retries: 0
+
+response_cache:
+  enabled: false
+  key_prefix: "shahrah:loadtest-response-cache"
+  default_ttl_seconds: 60
+  min_ttl_seconds: 1
+  max_ttl_seconds: 600
+  max_response_bytes: 1048576
+  max_semantic_candidates: 100
+  embedding_provider: "mock"
+  embedding_model: "mock-embedding"
+  embedding_revision: "loadtest"
+  embedding_dimensions: 4
+  embedding_timeout_seconds: 1
+  embedding_max_batch_size: 16
+
+profiling:
+  enable_pprof: true
+  mutex_profile_fraction: 5
+  block_profile_rate: 10000
+
+tenant_settings:
+  base_domain: "shahrah.local"
+  allow_header_hint: true
+
+tunnel_settings:
+  client_url: ${TUNNEL_CLIENT_URL}
+  timeout_seconds: 300
+
+billing_settings:
+  default_usd_to_irr: 850000
+  rate_source: "static"
+
+general_settings:
+  master_key: ${MASTER_KEY}
+  database_url: ${DATABASE_URL}
+  host: "0.0.0.0"
+  port: 4000
+  proxy_batch_write_at: 1
+  database_connection_pool_limit: 10

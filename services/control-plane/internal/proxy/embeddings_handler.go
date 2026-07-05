@@ -443,7 +443,7 @@ func apiFieldError(message string, param string, code string) error {
 
 func supportsEmbeddingsProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "openai", "azure", "groq", "mistral", "togetherai", "openrouter":
+	case "openai", "azure", "groq", "mistral", "togetherai", "openrouter", "mock":
 		return true
 	default:
 		return false

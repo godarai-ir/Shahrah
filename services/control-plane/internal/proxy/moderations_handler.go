@@ -445,7 +445,7 @@ func moderationFlaggedCount(resp contractsopenai.ModerationResponse) int {
 
 func supportsModerationsProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "openai", "openrouter":
+	case "openai", "openrouter", "mock":
 		return true
 	default:
 		return false

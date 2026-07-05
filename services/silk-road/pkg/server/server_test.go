@@ -134,6 +134,92 @@ func TestDispatchUsesOpenAIEndpointOverride(t *testing.T) {
 	}
 }
 
+func TestDispatchMockProviderDisabledByDefault(t *testing.T) {
+	t.Setenv("SILK_ROAD_ENABLE_MOCK_PROVIDER", "")
+
+	handler := NewHandler(nil)
+	payload := platform.TunnelRequest{
+		Deployment: platform.Deployment{Provider: "mock", Model: "mock-model"},
+		Body:       []byte(`{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hi"}]}`),
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d with body %q", http.StatusBadRequest, rec.Code, rec.Body.String())
+	}
+}
+
+func TestDispatchMockProviderEnabled(t *testing.T) {
+	t.Setenv("SILK_ROAD_ENABLE_MOCK_PROVIDER", "true")
+	t.Setenv("SILK_ROAD_MOCK_LATENCY_MS", "0")
+
+	handler := NewHandler(nil)
+	payload := platform.TunnelRequest{
+		Deployment: platform.Deployment{Provider: "mock", Model: "mock-model"},
+		Body:       []byte(`{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hi"}]}`),
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d with body %q", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("X-Shahrah-Mock-Provider"); got != "true" {
+		t.Fatalf("expected mock header, got %q", got)
+	}
+	if !strings.Contains(rec.Body.String(), `"object":"chat.completion"`) {
+		t.Fatalf("unexpected mock response: %q", rec.Body.String())
+	}
+}
+
+func TestDispatchMockProviderEmbeddings(t *testing.T) {
+	t.Setenv("SILK_ROAD_ENABLE_MOCK_PROVIDER", "true")
+	t.Setenv("SILK_ROAD_MOCK_LATENCY_MS", "0")
+
+	handler := NewHandler(nil)
+	payload := platform.TunnelRequest{
+		Deployment: platform.Deployment{Provider: "mock", Model: "mock-embedding"},
+		RequestMetadata: map[string]interface{}{
+			"provider_endpoint_path": "/embeddings",
+		},
+		Body: []byte(`{"model":"text-embedding-3-small","input":["one","two"]}`),
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d with body %q", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"object":"list"`) {
+		t.Fatalf("unexpected mock response: %q", rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"index":1`) {
+		t.Fatalf("expected two embeddings, got %q", rec.Body.String())
+	}
+}
+
 func TestDispatchOpenAICompatiblePreservesJSONContentTypeForImages(t *testing.T) {
 	t.Parallel()
 

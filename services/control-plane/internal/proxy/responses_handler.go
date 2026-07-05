@@ -480,7 +480,12 @@ func (h *ResponsesHandler) emitModelMetric(input metricsobs.BuildInput) {
 }
 
 func supportsResponsesProvider(provider string) bool {
-	return strings.EqualFold(strings.TrimSpace(provider), "openai")
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "openai", "mock":
+		return true
+	default:
+		return false
+	}
 }
 
 func hasResponseInput(input interface{}, instructions string) bool {

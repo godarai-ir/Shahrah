@@ -1,0 +1,19 @@
+# Load-test-only override. Do not use this file for production-like provider
+# validation; it deliberately routes model traffic to Silk Road's mock provider.
+
+services:
+  control-plane:
+    environment:
+      RESPONSE_CACHE_ENABLED: "false"
+      PROFILING_ENABLE_PPROF: ${PROFILING_ENABLE_PPROF:-true}
+      PROFILING_MUTEX_PROFILE_FRACTION: ${PROFILING_MUTEX_PROFILE_FRACTION:-5}
+      PROFILING_BLOCK_PROFILE_RATE: ${PROFILING_BLOCK_PROFILE_RATE:-10000}
+    volumes:
+      - ../../loadtests/config/proxy_config.yaml:/app/configs/proxy_config.yaml:ro
+
+  silk-road:
+    environment:
+      SILK_ROAD_ENABLE_MOCK_PROVIDER: "true"
+      SILK_ROAD_MOCK_LATENCY_MS: ${SILK_ROAD_MOCK_LATENCY_MS:-50}
+      SILK_ROAD_MOCK_ERROR_RATE: ${SILK_ROAD_MOCK_ERROR_RATE:-0}
+      SILK_ROAD_MOCK_ERROR_STATUS: ${SILK_ROAD_MOCK_ERROR_STATUS:-429}

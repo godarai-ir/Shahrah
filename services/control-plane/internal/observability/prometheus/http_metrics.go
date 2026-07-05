@@ -3,6 +3,7 @@ package prometheus
 
 import (
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -73,8 +74,8 @@ func (m *HTTPMetrics) Middleware() fiber.Handler {
 		route := routeLabel(c)
 		statusCode := strconv.Itoa(c.Response().StatusCode())
 		labels := prom.Labels{
-			"method":      c.Method(),
-			"route":       route,
+			"method":      strings.Clone(c.Method()),
+			"route":       strings.Clone(route),
 			"status_code": statusCode,
 		}
 		m.requestsTotal.With(labels).Inc()

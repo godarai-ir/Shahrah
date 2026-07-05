@@ -33,28 +33,39 @@ type entitlementStore interface {
 
 // Service enforces rate limits and budget checks.
 type Service struct {
-	cache        cache.Cache
-	store        walletStore
-	entitlements entitlementStore
-	defaultRate  platform.ExchangeRate
+	cache             cache.Cache
+	store             walletStore
+	entitlements      entitlementStore
+	defaultRate       platform.ExchangeRate
+	exchangeRateCache *exchangeRateCache
 }
 
 // NewService creates a billing enforcement service.
 func NewService(c cache.Cache, store walletStore, defaultUSDtoIRR float64, source string) *Service {
+	return NewServiceWithExchangeRateCacheConfig(c, store, defaultUSDtoIRR, source, loadExchangeRateCacheConfigFromEnv())
+}
+
+// NewServiceWithExchangeRateCacheConfig creates a billing service with explicit cache settings.
+func NewServiceWithExchangeRateCacheConfig(c cache.Cache, store walletStore, defaultUSDtoIRR float64, source string, exchangeRateCacheConfig ExchangeRateCacheConfig) *Service {
 	var entitlements entitlementStore
 	if resolvedEntitlements, ok := store.(entitlementStore); ok {
 		entitlements = resolvedEntitlements
 	}
 
-	return &Service{
+	defaultRate := platform.ExchangeRate{
+		USDtoIRR: defaultUSDtoIRR,
+		Source:   source,
+	}
+
+	svc := &Service{
 		cache:        c,
 		store:        store,
 		entitlements: entitlements,
-		defaultRate: platform.ExchangeRate{
-			USDtoIRR: defaultUSDtoIRR,
-			Source:   source,
-		},
+		defaultRate:  defaultRate,
 	}
+	svc.exchangeRateCache = newExchangeRateCache(store, c, defaultRate, exchangeRateCacheConfig)
+
+	return svc
 }
 
 // CheckRateLimit validates per-minute request and token limits.
@@ -130,11 +141,7 @@ func entitlementNumber(value interface{}) (float64, bool) {
 
 // EstimateCost estimates tokens and cost for a request.
 func (s *Service) EstimateCost(ctx context.Context, req openai.ChatCompletionRequest) (platform.UsageCostBreakdown, error) {
-	rate, err := s.store.GetLatestExchangeRate(ctx)
-	if err != nil {
-		rate = &s.defaultRate
-		s.persistDefaultExchangeRate(ctx)
-	}
+	rate := s.exchangeRate(ctx)
 
 	promptTokens := estimatePromptTokens(req)
 
@@ -163,11 +170,7 @@ func (s *Service) EstimateCost(ctx context.Context, req openai.ChatCompletionReq
 
 // EstimateEmbeddingCost estimates cost for an embeddings request.
 func (s *Service) EstimateEmbeddingCost(ctx context.Context, req openai.EmbeddingRequest) (platform.UsageCostBreakdown, error) {
-	rate, err := s.store.GetLatestExchangeRate(ctx)
-	if err != nil {
-		rate = &s.defaultRate
-		s.persistDefaultExchangeRate(ctx)
-	}
+	rate := s.exchangeRate(ctx)
 
 	promptTokens := estimateEmbeddingPromptTokens(req.Input)
 	price := modelPrice(req.Model)
@@ -192,10 +195,7 @@ func (s *Service) FinalizeFromUsage(ctx context.Context, model string, usage *op
 		return estimated, nil
 	}
 
-	rate, err := s.store.GetLatestExchangeRate(ctx)
-	if err != nil {
-		rate = &s.defaultRate
-	}
+	rate := s.exchangeRate(ctx)
 
 	price := modelPrice(model)
 	inputCost := (float64(usage.PromptTokens) / 1000.0) * price.Input
@@ -224,4 +224,17 @@ func (s *Service) persistDefaultExchangeRate(ctx context.Context) {
 	if err != nil {
 		return
 	}
+}
+
+func (s *Service) exchangeRate(ctx context.Context) *platform.ExchangeRate {
+	if s == nil {
+		return nil
+	}
+	if s.exchangeRateCache != nil {
+		if rate := s.exchangeRateCache.Get(ctx); rate != nil {
+			return rate
+		}
+	}
+
+	return &s.defaultRate
 }

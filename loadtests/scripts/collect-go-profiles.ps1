@@ -15,12 +15,22 @@ New-Item -ItemType Directory -Force -Path $runDir | Out-Null
 function Save-Endpoint {
   param(
     [string]$Path,
-    [string]$FileName
+    [string]$FileName,
+    [switch]$Optional
   )
 
   $url = "$base$Path"
   $target = Join-Path $runDir $FileName
-  Invoke-WebRequest -Uri $url -OutFile $target -UseBasicParsing | Out-Null
+  try {
+    Invoke-WebRequest -Uri $url -OutFile $target -UseBasicParsing | Out-Null
+  } catch {
+    if ($Optional) {
+      Write-Warning "Failed to collect optional endpoint $Path`: $($_.Exception.Message)"
+      return
+    }
+
+    throw
+  }
 }
 
 Write-Host "Writing profiles to $runDir"
@@ -29,7 +39,7 @@ for ($i = 1; $i -le $Samples; $i++) {
   $sample = "{0:D3}" -f $i
   Write-Host "Collecting sample $sample"
 
-  Save-Endpoint -Path "/metrics" -FileName "$sample-metrics.prom"
+  Save-Endpoint -Path "/metrics" -FileName "$sample-metrics.prom" -Optional
   Save-Endpoint -Path "/debug/pprof/profile?seconds=$CpuSeconds" -FileName "$sample-cpu.pb.gz"
   Save-Endpoint -Path "/debug/pprof/heap" -FileName "$sample-heap.pb.gz"
   Save-Endpoint -Path "/debug/pprof/goroutine" -FileName "$sample-goroutine.pb.gz"

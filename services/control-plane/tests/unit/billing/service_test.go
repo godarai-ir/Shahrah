@@ -2,6 +2,8 @@ package billing_test
 
 import (
 	"context"
+	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,18 +17,51 @@ import (
 )
 
 type walletStoreStub struct {
-	wallet *platform.Wallet
-	rate   *platform.ExchangeRate
+	mu           sync.Mutex
+	wallet       *platform.Wallet
+	rate         *platform.ExchangeRate
+	rates        []*platform.ExchangeRate
+	rateErr      error
+	rateCalls    int
+	upsertCalls  int
+	upsertedRate *platform.ExchangeRate
 }
 
-func (s walletStoreStub) GetWallet(_ context.Context, tenantID string) (*platform.Wallet, error) {
+func (s *walletStoreStub) GetWallet(_ context.Context, tenantID string) (*platform.Wallet, error) {
 	return s.wallet, nil
 }
-func (s walletStoreStub) GetLatestExchangeRate(_ context.Context) (*platform.ExchangeRate, error) {
+func (s *walletStoreStub) GetLatestExchangeRate(_ context.Context) (*platform.ExchangeRate, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.rateCalls++
+	if s.rateErr != nil {
+		return nil, s.rateErr
+	}
+	if len(s.rates) > 0 {
+		rate := s.rates[0]
+		if len(s.rates) > 1 {
+			s.rates = s.rates[1:]
+		}
+		return rate, nil
+	}
+
 	return s.rate, nil
 }
-func (s walletStoreStub) UpsertExchangeRate(_ context.Context, rate platform.ExchangeRate) (*platform.ExchangeRate, error) {
+func (s *walletStoreStub) UpsertExchangeRate(_ context.Context, rate platform.ExchangeRate) (*platform.ExchangeRate, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.upsertCalls++
+	s.upsertedRate = &rate
 	return &rate, nil
+}
+
+func (s *walletStoreStub) rateCallCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.rateCalls
 }
 
 type entitlementWalletStoreStub struct {
@@ -57,7 +92,7 @@ func (s *entitlementWalletStoreStub) CheckAndIncrementTenantUsageCounter(_ conte
 func TestBillingService_ShouldEstimateCost(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
-	svc := billing.NewService(memCache, walletStoreStub{
+	svc := billing.NewService(memCache, &walletStoreStub{
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000000},
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
 	}, 850000, "test")
@@ -76,7 +111,7 @@ func TestBillingService_ShouldEstimateCost(t *testing.T) {
 func TestBillingService_ShouldEstimateCostWithPer1KScaling(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
-	svc := billing.NewService(memCache, walletStoreStub{
+	svc := billing.NewService(memCache, &walletStoreStub{
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1_000_000},
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
 	}, 850000, "test")
@@ -106,7 +141,7 @@ func TestBillingService_ShouldEstimateCostWithPer1KScaling(t *testing.T) {
 func TestBillingService_ShouldEstimateEmbeddingCost(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
-	svc := billing.NewService(memCache, walletStoreStub{
+	svc := billing.NewService(memCache, &walletStoreStub{
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1_000_000},
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
 	}, 850000, "test")
@@ -121,10 +156,159 @@ func TestBillingService_ShouldEstimateEmbeddingCost(t *testing.T) {
 	assert.Greater(t, out.TotalCostIRR, 0.0)
 }
 
+func TestBillingService_ShouldCacheExchangeRateAcrossCostEstimations(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	store := &walletStoreStub{
+		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1_000_000},
+		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "db"},
+	}
+	svc := billing.NewServiceWithExchangeRateCacheConfig(memCache, store, 800000, "default", billing.ExchangeRateCacheConfig{
+		FreshTTL: time.Minute,
+		MaxStale: time.Hour,
+	})
+
+	for i := 0; i < 3; i++ {
+		out, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{
+			Model: "gpt-3.5-turbo",
+			Messages: []openai.ChatMessage{
+				{Role: "user", Content: "hello world"},
+			},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, 850000.0, out.ExchangeRate)
+	}
+
+	assert.Equal(t, 1, store.rateCallCount())
+}
+
+func TestBillingService_ShouldUseStaleExchangeRateAndRefreshAsync(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	store := &walletStoreStub{
+		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1_000_000},
+		rates: []*platform.ExchangeRate{
+			{USDtoIRR: 850000, Source: "initial"},
+			{USDtoIRR: 900000, Source: "refresh"},
+		},
+	}
+	svc := billing.NewServiceWithExchangeRateCacheConfig(memCache, store, 800000, "default", billing.ExchangeRateCacheConfig{
+		FreshTTL: time.Nanosecond,
+		MaxStale: time.Hour,
+	})
+
+	first, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
+	require.NoError(t, err)
+	assert.Equal(t, 850000.0, first.ExchangeRate)
+
+	time.Sleep(time.Millisecond)
+	stale, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
+	require.NoError(t, err)
+	assert.Equal(t, 850000.0, stale.ExchangeRate)
+
+	require.Eventually(t, func() bool {
+		return store.rateCallCount() >= 2
+	}, time.Second, 10*time.Millisecond)
+
+	refreshed, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
+	require.NoError(t, err)
+	assert.Equal(t, 900000.0, refreshed.ExchangeRate)
+}
+
+func TestBillingService_ShouldFallbackToDefaultRateWhenExchangeRateUnavailable(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	store := &walletStoreStub{
+		wallet:  &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1_000_000},
+		rateErr: errors.New("db unavailable"),
+	}
+	svc := billing.NewServiceWithExchangeRateCacheConfig(memCache, store, 810000, "default", billing.ExchangeRateCacheConfig{
+		FreshTTL: time.Minute,
+		MaxStale: time.Hour,
+	})
+
+	out, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
+	require.NoError(t, err)
+	assert.Equal(t, 810000.0, out.ExchangeRate)
+	assert.Equal(t, 1, store.rateCallCount())
+	assert.Equal(t, 1, store.upsertCalls)
+	require.NotNil(t, store.upsertedRate)
+	assert.Equal(t, 810000.0, store.upsertedRate.USDtoIRR)
+}
+
+func TestBillingService_ShouldKeepStaleExchangeRateWhenAsyncRefreshFails(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	store := &walletStoreStub{
+		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1_000_000},
+		rates: []*platform.ExchangeRate{
+			{USDtoIRR: 850000, Source: "initial"},
+		},
+	}
+	svc := billing.NewServiceWithExchangeRateCacheConfig(memCache, store, 810000, "default", billing.ExchangeRateCacheConfig{
+		FreshTTL: time.Nanosecond,
+		MaxStale: time.Hour,
+	})
+
+	first, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
+	require.NoError(t, err)
+	assert.Equal(t, 850000.0, first.ExchangeRate)
+
+	store.mu.Lock()
+	store.rateErr = errors.New("db unavailable")
+	store.mu.Unlock()
+
+	time.Sleep(time.Millisecond)
+	stale, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
+	require.NoError(t, err)
+	assert.Equal(t, 850000.0, stale.ExchangeRate)
+
+	require.Eventually(t, func() bool {
+		return store.rateCallCount() >= 2
+	}, time.Second, 10*time.Millisecond)
+
+	afterFailedRefresh, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
+	require.NoError(t, err)
+	assert.Equal(t, 850000.0, afterFailedRefresh.ExchangeRate)
+	assert.Equal(t, 0, store.upsertCalls)
+}
+
+func TestBillingService_ShouldCoalesceConcurrentExchangeRateMisses(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	store := &walletStoreStub{
+		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1_000_000},
+		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "db"},
+	}
+	svc := billing.NewServiceWithExchangeRateCacheConfig(memCache, store, 800000, "default", billing.ExchangeRateCacheConfig{
+		FreshTTL: time.Minute,
+		MaxStale: time.Hour,
+	})
+
+	const workers = 20
+	var wg sync.WaitGroup
+	wg.Add(workers)
+	errs := make(chan error, workers)
+	for i := 0; i < workers; i++ {
+		go func() {
+			defer wg.Done()
+			_, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
+			errs <- err
+		}()
+	}
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		require.NoError(t, err)
+	}
+	assert.Equal(t, 1, store.rateCallCount())
+}
+
 func TestBillingService_ShouldFinalizeCostWithPer1KScaling(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
-	svc := billing.NewService(memCache, walletStoreStub{
+	svc := billing.NewService(memCache, &walletStoreStub{
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1_000_000},
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
 	}, 850000, "test")
@@ -149,7 +333,7 @@ func TestBillingService_ShouldFinalizeCostWithPer1KScaling(t *testing.T) {
 func TestBillingService_ShouldRejectWhenWalletBalanceIsInsufficient(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
-	svc := billing.NewService(memCache, walletStoreStub{
+	svc := billing.NewService(memCache, &walletStoreStub{
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 10},
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
 	}, 850000, "test")
@@ -163,7 +347,7 @@ func TestBillingService_ShouldRejectWhenWalletBalanceIsInsufficient(t *testing.T
 func TestBillingService_ShouldAllowWhenWalletBalanceIsSufficient(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
-	svc := billing.NewService(memCache, walletStoreStub{
+	svc := billing.NewService(memCache, &walletStoreStub{
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000000},
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
 	}, 850000, "test")
@@ -177,7 +361,7 @@ func TestBillingService_ShouldAllowWhenWalletBalanceIsSufficient(t *testing.T) {
 func TestBillingService_ShouldSkipLegacyRateLimits(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
-	svc := billing.NewService(memCache, walletStoreStub{
+	svc := billing.NewService(memCache, &walletStoreStub{
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000000},
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
 	}, 850000, "test")

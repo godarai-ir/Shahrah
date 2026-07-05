@@ -9,16 +9,16 @@ import (
 )
 
 func registerPublicRoutes(app *fiber.App, cfg *config.Config, deps Dependencies, httpMetrics *prommetrics.HTTPMetrics) {
-	registerObservabilityRoutes(app, deps, httpMetrics)
+	registerObservabilityRoutes(app, cfg, deps, httpMetrics)
 	registerPublicAdminRoutes(app, deps)
 	registerPlatformAdminRoutes(app, cfg, deps)
 }
 
-func registerObservabilityRoutes(app *fiber.App, deps Dependencies, httpMetrics *prommetrics.HTTPMetrics) {
+func registerObservabilityRoutes(app *fiber.App, cfg *config.Config, deps Dependencies, httpMetrics *prommetrics.HTTPMetrics) {
 	app.Get("/health", healthHandler)
 	app.Get("/ready", readyHandler(deps))
 	app.Get("/metrics", httpMetrics.Handler())
-	if cfg.Profiling.EnablePprof {
+	if cfg != nil && cfg.Profiling.EnablePprof {
 		profiling.RegisterPprofRoutes(app)
 	}
 }

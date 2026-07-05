@@ -98,6 +98,36 @@ func TestNewFiberAppExposesPrometheusMetrics(t *testing.T) {
 	assert.Contains(t, payload, "shahrah_control_plane_http_requests_in_flight")
 }
 
+func TestNewFiberAppPrometheusLabelsRemainStableAcrossRequests(t *testing.T) {
+	t.Parallel()
+
+	app := NewFiberApp(&config.Config{}, Dependencies{})
+	app.Post("/test", func(c *fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+
+	for range 5 {
+		resp, err := app.Test(httptest.NewRequest(fiber.MethodPost, "/test", http.NoBody))
+		defer closeResponseBody(t, resp)
+
+		require.NoError(t, err)
+		require.Equal(t, fiber.StatusNoContent, resp.StatusCode)
+	}
+
+	metricsResp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/metrics", http.NoBody))
+	defer closeResponseBody(t, metricsResp)
+
+	require.NoError(t, err)
+	require.Equal(t, fiber.StatusOK, metricsResp.StatusCode)
+
+	body, err := io.ReadAll(metricsResp.Body)
+	require.NoError(t, err)
+
+	payload := string(body)
+	assert.Contains(t, payload, `shahrah_control_plane_http_requests_total{method="POST",route="/test",status_code="204"} 5`)
+	assert.NotContains(t, payload, `method="POS"`)
+}
+
 func TestNewFiberAppExposesPprofOnlyWhenEnabled(t *testing.T) {
 	t.Parallel()
 

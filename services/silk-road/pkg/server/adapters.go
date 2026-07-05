@@ -45,6 +45,10 @@ func newProviderRegistry() *providerRegistry {
 			"gemini":       newGeminiAdapter(),
 		},
 	}
+	if mockProviderEnabled() {
+		registry.adapters["mock"] = newMockAdapter(loadMockConfigFromEnv())
+	}
+
 	return registry
 }
 
