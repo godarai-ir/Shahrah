@@ -1,7 +1,8 @@
 {
   "eyebrow": "Operational quick start",
   "title": "Send your first successful request through Shahrah",
-  "subtitle": "This page does more than explain concepts. It moves your setup toward a real first success based on your actual plan and permissions.",
+  "subtitle": "To quickly configure your workspace, follow the customized instructions below.",
+  "docsLink": "Read the docs",
   "planNames": {
     "developer": "Developer",
     "team": "Team",

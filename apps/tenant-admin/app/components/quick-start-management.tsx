@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import {
   ArrowUpRight,
@@ -9,7 +9,6 @@ import {
   Check,
   CheckCircle2,
   CircleDollarSign,
-  ClipboardCopy,
   Copy,
   Gauge,
   KeyRound,
@@ -41,10 +40,9 @@ import {
   buildBashCurlGuideCommand,
   getTenantApiBaseURL,
 } from "@/app/components/provider-account-wizard/utils";
+import { AppCard, EmptyState, PageHeader, StatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -104,6 +102,7 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
   const [isRunningSample, setIsRunningSample] = useState(false);
   const [sampleRunResult, setSampleRunResult] = useState<SampleRunResult | null>(null);
   const [isTestBenchOpen, setIsTestBenchOpen] = useState(false);
+  const [labBanner, setLabBanner] = useState<Banner | null>(null);
   const [providerChoices, setProviderChoices] = useState<ProviderCatalogProvider[]>([]);
 
   const journey = useMemo(
@@ -124,6 +123,7 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
       .sort((a, b) => (ranked.get(a.featuredProvider) ?? Number.MAX_SAFE_INTEGER) - (ranked.get(b.featuredProvider) ?? Number.MAX_SAFE_INTEGER))
       .map((entry) => entry.item);
   }, [providerChoices]);
+  const completedStepCount = journey.steps.filter((step) => step.status === "done").length;
 
   const effectiveSelectedTokenType =
     journey.testBench.availableTokenTypes.includes(selectedTokenType)
@@ -241,9 +241,18 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
         personalAccessTokenCount: current.personalAccessTokenCount + 1,
       }));
       setIsPatDialogOpen(false);
-      setBanner({ kind: "success", message: t("messages.patCreated") });
+      if (isTestBenchOpen) {
+        setLabBanner({ kind: "success", message: t("messages.patCreated") });
+      } else {
+        setBanner({ kind: "success", message: t("messages.patCreated") });
+      }
     } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.patCreateFailed")) });
+      const message = normalizeError(error, t("messages.patCreateFailed"));
+      if (isTestBenchOpen) {
+        setLabBanner({ kind: "error", message });
+      } else {
+        setBanner({ kind: "error", message });
+      }
     } finally {
       setIsCreatingPat(false);
     }
@@ -289,16 +298,16 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
   async function runSampleRequest() {
     if (isRunningSample) return;
     if (!journey.testBench.ready) {
-      setBanner({ kind: "error", message: t("lab.notReadyTitle") });
+      setLabBanner({ kind: "error", message: t("lab.notReadyTitle") });
       return;
     }
     if (!effectiveToken) {
-      setBanner({ kind: "error", message: t(`lab.missingToken.${effectiveSelectedTokenType}`) });
+      setLabBanner({ kind: "error", message: t(`lab.missingToken.${effectiveSelectedTokenType}`) });
       return;
     }
 
     setIsRunningSample(true);
-    setBanner(null);
+    setLabBanner(null);
     try {
       const response = await fetch(`${baseUrl}/v1/chat/completions`, {
         method: "POST",
@@ -333,16 +342,22 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
         status: response.status,
         tokenType: effectiveSelectedTokenType,
       });
-      setBanner({ kind: "success", message: t("messages.sampleRequestSucceeded") });
+      setLabBanner({ kind: "success", message: t("messages.sampleRequestSucceeded") });
     } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.sampleRequestFailed")) });
+      setLabBanner({ kind: "error", message: normalizeError(error, t("messages.sampleRequestFailed")) });
     } finally {
       setIsRunningSample(false);
     }
   }
 
   return (
-    <div className="flex flex-col gap-6 px-1 py-1 sm:px-2 sm:py-2">
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        eyebrow={t("eyebrow")}
+        title={t("title")}
+        description={<HeaderDescription t={t} docsBaseHref={props.docsBaseHref} />}
+      />
+
       {banner ? (
         <Alert variant={banner.kind === "error" ? "destructive" : "default"}>
           <AlertTitle>{banner.kind === "error" ? t("alerts.error") : t("alerts.success")}</AlertTitle>
@@ -351,22 +366,25 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
       ) : null}
 
       <section className="mx-auto w-full max-w-5xl">
-        <div>
-          <Card className="rounded-2xl border-border/70 shadow-sm">
-            <CardHeader>
-              <CardTitle>{t("journey.title")}</CardTitle>
-              {t("journey.description") ? <CardDescription>{t("journey.description")}</CardDescription> : null}
-            </CardHeader>
-            <CardContent>
-              <ol className="space-y-4">
-                {journey.steps.map((step, index) => (
-                  <li key={step.id} className="relative ps-16">
+        <AppCard
+          title={t("journey.title")}
+          description={t("journey.description") || undefined}
+          actions={
+            <StatusBadge status={completedStepCount === journey.steps.length ? "success" : "pending"}>
+              {t("progress.value", { done: completedStepCount, total: journey.steps.length })}
+            </StatusBadge>
+          }
+        >
+          <ol className="flex flex-col gap-4">
+            {journey.steps.map((step, index) => (
+              <Fragment key={step.id}>
+                <li className="relative ps-16">
                     {index < journey.steps.length - 1 ? (
-                      <span className="absolute start-[1.65rem] top-12 h-[calc(100%-1.5rem)] w-px bg-border" aria-hidden="true" />
+                      <span className="absolute bottom-0 start-6 top-14 w-px bg-border" aria-hidden="true" />
                     ) : null}
                     <span
                       className={cn(
-                        "absolute start-0 top-1 flex size-12 items-center justify-center rounded-2xl border text-sm font-semibold",
+                        "absolute start-0 top-1 flex size-12 items-center justify-center rounded-lg border text-sm font-semibold",
                         step.status === "done"
                           ? "border-success/30 bg-success-muted text-success"
                           : step.status === "active"
@@ -378,15 +396,15 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
                     >
                       {step.status === "done" ? <CheckCircle2 className="size-5" /> : formatCount(index + 1)}
                     </span>
-                    <div className="rounded-2xl border border-border/70 bg-card/95 p-4 shadow-sm">
+                    <div className="bg-card p-4">
                       <div className="flex flex-col gap-3">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
                               <h3 className="text-base font-semibold">{t(`steps.${step.id}.title`)}</h3>
-                              <Badge variant={badgeVariantForStatus(step.status)}>
+                              <StatusBadge status={statusBadgeForStepStatus(step.status)}>
                                 {t(`statuses.${step.status}`)}
-                              </Badge>
+                              </StatusBadge>
                             </div>
                           </div>
                           <StepActionButton
@@ -415,9 +433,9 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
                                 <Link
                                   key={providerItem.provider}
                                   href={`/provider-accounts/new?provider=${encodeURIComponent(providerItem.provider)}`}
-                                  className="group flex items-center gap-3 rounded-2xl border border-border/70 bg-background/80 px-3 py-3 transition-colors hover:border-primary/30 hover:bg-primary/5"
+                                  className="group flex items-center gap-3 rounded-lg border border-border bg-background px-3 py-3 transition-colors hover:border-primary/30 hover:bg-accent"
                                 >
-                                  <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-muted/70">
+                                  <span className="flex size-11 shrink-0 items-center justify-center rounded-md bg-muted">
                                     <ProviderLogo
                                       provider={providerItem.provider}
                                       displayName={providerItem.display_name}
@@ -428,14 +446,14 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
                                   <span className="min-w-0 flex-1 text-sm font-medium leading-6">
                                     {providerItem.display_name}
                                   </span>
-                                  <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition group-hover:text-foreground" />
+                                  <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition group-hover:text-foreground rtl:-rotate-90" aria-hidden="true" />
                                 </Link>
                               ))}
                             </div>
                           ) : null}
-                          <div className="mt-3 flex w-full items-start gap-3 rounded-2xl bg-warning-muted px-3 py-3 text-xs leading-6 text-foreground/85">
-                            <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl bg-warning/15 text-warning">
-                              <Lightbulb className="size-4" />
+                          <div className="mt-3 flex w-full items-start gap-3 rounded-lg border border-warning/20 bg-warning-muted px-3 py-3 text-xs leading-6 text-foreground">
+                            <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-warning/15 text-warning">
+                              <Lightbulb className="size-4" aria-hidden="true" />
                             </span>
                             <p className="min-w-0 flex-1">{renderStepLearn(step.id, t, props.docsBaseHref)}</p>
                           </div>
@@ -448,30 +466,34 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
                       </div>
                     </div>
                   </li>
-                ))}
-              </ol>
-            </CardContent>
-          </Card>
-        </div>
+                {index < journey.steps.length - 1 ? <StepSeparator /> : null}
+              </Fragment>
+            ))}
+          </ol>
+        </AppCard>
       </section>
 
       <section>
-        <Card className="rounded-2xl border-border/70 shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="size-5 text-info" />
-              {t("explore.title")}
-            </CardTitle>
-            <CardDescription>{t("explore.description")}</CardDescription>
-          </CardHeader>
-          <CardContent className="@container">
+        <AppCard
+          title={
+            <span className="flex items-center gap-2">
+              <Sparkles className="text-info" aria-hidden="true" />
+              <span>{t("explore.title")}</span>
+            </span>
+          }
+          description={t("explore.description")}
+          contentClassName="@container"
+        >
+          {journey.exploreCards.length > 0 ? (
             <div className="grid gap-3 @[28rem]:grid-cols-2 @[48rem]:grid-cols-3 @[64rem]:grid-cols-4 @[82rem]:grid-cols-5">
               {journey.exploreCards.map((cardID) => (
                 <ExploreCard key={cardID} cardID={cardID} t={t} />
               ))}
             </div>
-          </CardContent>
-        </Card>
+          ) : (
+            <EmptyState icon={Sparkles} title={t("explore.title")} description={t("explore.description")} />
+          )}
+        </AppCard>
       </section>
 
       <Dialog open={isPatDialogOpen} onOpenChange={setIsPatDialogOpen}>
@@ -505,7 +527,7 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
               {common("cancel")}
             </Button>
             <Button type="button" onClick={() => void createPat()} disabled={isCreatingPat}>
-              {isCreatingPat ? <Loader2 className="size-4 animate-spin" /> : <KeyRound className="size-4" />}
+              {isCreatingPat ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <KeyRound data-icon="inline-start" />}
               {isCreatingPat ? t("patDialog.creating") : t("patDialog.submit")}
             </Button>
           </DialogFooter>
@@ -513,16 +535,23 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
       </Dialog>
 
       <Sheet open={isTestBenchOpen} onOpenChange={setIsTestBenchOpen}>
-        <SheetContent side="left" className="flex h-full w-[96vw] max-w-3xl flex-col gap-0 p-0 sm:max-w-2xl">
-          <SheetHeader className="border-b px-6 py-5 text-right">
-            <SheetTitle className="flex items-center justify-end gap-2">
+        <SheetContent side="left" className="flex h-full w-full max-w-3xl flex-col gap-0 p-0 sm:max-w-2xl">
+          <SheetHeader className="border-b border-border px-6 py-5 text-start">
+            <SheetTitle className="flex items-center gap-2">
+              <TerminalSquare className="text-info" aria-hidden="true" />
               {t("lab.title")}
-              <TerminalSquare className="size-5 text-info" />
             </SheetTitle>
             <SheetDescription className="leading-7">{t("lab.description")}</SheetDescription>
           </SheetHeader>
-          <div id="test_bench" className="custom-scrollbar flex-1 overflow-y-auto px-6 py-5">
-            <div className="space-y-4">
+          <div id="test_bench" className="custom-scrollbar flex-1 overflow-y-auto px-6 py-5" dir="rtl">
+            <div className="flex flex-col gap-4">
+              {labBanner ? (
+                <Alert variant={labBanner.kind === "error" ? "destructive" : "default"}>
+                  <AlertTitle>{labBanner.kind === "error" ? t("alerts.error") : t("alerts.success")}</AlertTitle>
+                  <AlertDescription>{labBanner.message}</AlertDescription>
+                </Alert>
+              ) : null}
+
               {!journey.testBench.ready ? (
                 <Alert>
                   <AlertTitle>{t("lab.notReadyTitle")}</AlertTitle>
@@ -532,38 +561,44 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
                 </Alert>
               ) : null}
 
-              <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+              <div className="rounded-lg border border-border bg-card p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold">{t("lab.keyTypeTitle")}</p>
+                  <div className="min-w-0 text-start">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <p className="text-sm font-semibold">{t("lab.keyTypeTitle")}</p>
+                      <Tabs value={effectiveSelectedTokenType} onValueChange={(value) => setSelectedTokenType(value as TokenType)} className="gap-0">
+                        <TabsList className="h-auto rounded-none bg-transparent p-0">
+                          {journey.testBench.availableTokenTypes.map((tokenType) => (
+                            <TabsTrigger key={tokenType} value={tokenType} className="h-7 flex-none rounded-md px-3 text-xs">
+                              {t(`tokenLabels.${tokenType}`)}
+                            </TabsTrigger>
+                          ))}
+                        </TabsList>
+                      </Tabs>
+                    </div>
                     <p className="mt-1 text-xs leading-6 text-muted-foreground">
                       {journey.recommendedTokenType === "vat" ? t("lab.recommendedVat") : t("lab.recommendedPat")}
                     </p>
                   </div>
                   {journey.testBench.availableTokenTypes.includes("pat") ? (
                     <Button type="button" variant="outline" size="sm" onClick={() => setIsPatDialogOpen(true)}>
-                      <KeyRound className="size-4" />
+                      <KeyRound data-icon="inline-start" />
                       {t("actions.createPat")}
                     </Button>
                   ) : null}
                 </div>
 
                 <Tabs value={effectiveSelectedTokenType} onValueChange={(value) => setSelectedTokenType(value as TokenType)} className="mt-4 gap-3">
-                  <TabsList variant="line" className="justify-start rounded-none border-0 bg-transparent p-0 shadow-none">
-                    {journey.testBench.availableTokenTypes.map((tokenType) => (
-                      <TabsTrigger key={tokenType} value={tokenType}>
-                        {t(`tokenLabels.${tokenType}`)}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-
                   {journey.testBench.availableTokenTypes.map((tokenType) => (
-                    <TabsContent key={tokenType} value={tokenType} className="space-y-3">
-                      <div className="space-y-2">
-                        <Label htmlFor={`quick-start-token-${tokenType}`}>{t(`lab.tokenInputLabel.${tokenType}`)}</Label>
+                    <TabsContent key={tokenType} value={tokenType} className="flex flex-col gap-3">
+                      <div className="flex flex-col gap-2 text-right">
+                        <Label htmlFor={`quick-start-token-${tokenType}`} className="text-right">
+                          {t(`lab.tokenInputLabel.${tokenType}`)}
+                        </Label>
                         <Input
                           id={`quick-start-token-${tokenType}`}
-                          dir="ltr"
+                          dir="rtl"
+                          className="text-right"
                           value={tokenType === "pat" ? manualTokens.pat : manualTokens.vat}
                           onChange={(event) =>
                             setManualTokens((current) => ({
@@ -573,9 +608,6 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
                           }
                           placeholder={t(`lab.tokenInputPlaceholder.${tokenType}`)}
                         />
-                        <p dir="rtl" className="w-full text-right text-xs leading-6 text-muted-foreground">
-                          {t("lab.localOnlyHint")}
-                        </p>
                       </div>
                     </TabsContent>
                   ))}
@@ -583,17 +615,17 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
               </div>
 
               {generatedPatSecret ? (
-                <div className="rounded-2xl border border-success/30 bg-success-muted p-4">
+                <div className="rounded-lg border border-success/30 bg-success-muted p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-success">{t("lab.generatedTokenTitle")}</p>
-                      <p className="mt-1 text-xs leading-6 text-foreground/80">{t("lab.generatedTokenDescription")}</p>
-                      <code className="mt-3 block overflow-auto rounded-xl bg-background/80 px-3 py-2 text-xs" dir="ltr">
+                      <p className="mt-1 text-xs leading-6 text-foreground">{t("lab.generatedTokenDescription")}</p>
+                      <code className="mt-3 block overflow-auto rounded-md border border-border bg-background px-3 py-2 text-xs" dir="ltr">
                         {generatedPatSecret}
                       </code>
                     </div>
                     <Button type="button" variant="outline" size="sm" onClick={() => void copyText("generated-token", generatedPatSecret)}>
-                      <Copy className="size-4" />
+                      <Copy data-icon="inline-start" />
                       {copiedKey === "generated-token" ? t("actions.copied") : t("actions.copyToken")}
                     </Button>
                   </div>
@@ -601,65 +633,80 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
               ) : null}
 
               <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-                <div className="space-y-2">
+                <div className="flex flex-col gap-2 text-start">
                   <Label htmlFor="quick-start-model">{t("lab.modelLabel")}</Label>
-                  <Input id="quick-start-model" dir="ltr" readOnly value={suggestedModel} />
+                  <Input id="quick-start-model" dir="ltr" readOnly value={suggestedModel} className="text-left font-mono" />
                 </div>
                 <div className="flex gap-2">
                   <Button type="button" onClick={() => void runSampleRequest()} disabled={!journey.testBench.ready || !effectiveToken || isRunningSample}>
-                    {isRunningSample ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
+                    {isRunningSample ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <Play data-icon="inline-start" />}
                     {isRunningSample ? t("lab.runningAction") : t("lab.runAction")}
                   </Button>
                 </div>
               </div>
 
-              <p className="text-xs leading-6 text-muted-foreground">{t("lab.browserRunHint")}</p>
-
               <Tabs value={selectedSnippetTab} onValueChange={(value) => setSelectedSnippetTab(value as SnippetTab)}>
-                <div className="flex items-center justify-between gap-3">
-                  <TabsList variant="line" className="justify-start rounded-none border-0 bg-transparent p-0 shadow-none">
-                    <TabsTrigger value="bash">{t("lab.tabs.bash")}</TabsTrigger>
-                    <TabsTrigger value="python">{t("lab.tabs.python")}</TabsTrigger>
-                    <TabsTrigger value="node">{t("lab.tabs.node")}</TabsTrigger>
-                  </TabsList>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={copiedKey === `snippet-${selectedSnippetTab}` ? t("actions.copied") : t("actions.copySnippet")}
-                    title={copiedKey === `snippet-${selectedSnippetTab}` ? t("actions.copied") : t("actions.copySnippet")}
-                    onClick={() =>
-                      void copyText(
-                        `snippet-${selectedSnippetTab}`,
-                        selectedSnippetTab === "bash"
-                          ? bashSnippet
-                          : selectedSnippetTab === "python"
-                            ? pythonSnippet
-                            : nodeSnippet,
-                      )
-                    }
-                    disabled={!journey.testBench.ready}
-                    className={cn(
-                      "transition-all duration-200",
-                      copiedKey === `snippet-${selectedSnippetTab}` && "bg-success/10 text-success hover:bg-success/15",
-                    )}
-                  >
-                    {copiedKey === `snippet-${selectedSnippetTab}` ? (
-                      <Check className="size-4 animate-in zoom-in-50 duration-200" />
-                    ) : (
-                      <ClipboardCopy className="size-4" />
-                    )}
-                  </Button>
+                <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <TabsList className="h-10 rounded-lg border border-border bg-muted p-1">
+                      <TabsTrigger value="bash" className="h-8 px-3">{t("lab.tabs.bash")}</TabsTrigger>
+                      <TabsTrigger value="python" className="h-8 px-3">{t("lab.tabs.python")}</TabsTrigger>
+                      <TabsTrigger value="node" className="h-8 px-3">{t("lab.tabs.node")}</TabsTrigger>
+                    </TabsList>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon-sm"
+                      aria-label={copiedKey === `snippet-${selectedSnippetTab}` ? t("actions.copied") : t("actions.copySnippet")}
+                      title={copiedKey === `snippet-${selectedSnippetTab}` ? t("actions.copied") : t("actions.copySnippet")}
+                      onClick={() =>
+                        void copyText(
+                          `snippet-${selectedSnippetTab}`,
+                          selectedSnippetTab === "bash"
+                            ? bashSnippet
+                            : selectedSnippetTab === "python"
+                              ? pythonSnippet
+                              : nodeSnippet,
+                        )
+                      }
+                      disabled={!journey.testBench.ready}
+                      className={cn(
+                        "transition-all duration-200",
+                        copiedKey === `snippet-${selectedSnippetTab}` && "border-success/30 bg-success/10 text-success hover:bg-success/15",
+                      )}
+                    >
+                      {copiedKey === `snippet-${selectedSnippetTab}` ? (
+                        <Check className="animate-in zoom-in-50 duration-200" aria-hidden="true" />
+                      ) : (
+                        <Copy aria-hidden="true" />
+                      )}
+                    </Button>
+                  </div>
+                  <TabsContent value="bash" className="mt-0">
+                    <CodeBlock
+                      code={bashSnippet}
+                      language="bash"
+                      highlightedTerms={[baseUrl, tokenPlaceholder]}
+                      preClassName="text-xs leading-6 sm:text-xs sm:leading-6"
+                    />
+                  </TabsContent>
+                  <TabsContent value="python" className="mt-0">
+                    <CodeBlock
+                      code={pythonSnippet}
+                      language="python"
+                      highlightedTerms={[baseUrl, tokenPlaceholder]}
+                      preClassName="text-xs leading-6 sm:text-xs sm:leading-6"
+                    />
+                  </TabsContent>
+                  <TabsContent value="node" className="mt-0">
+                    <CodeBlock
+                      code={nodeSnippet}
+                      language="javascript"
+                      highlightedTerms={[baseUrl, tokenPlaceholder]}
+                      preClassName="text-xs leading-6 sm:text-xs sm:leading-6"
+                    />
+                  </TabsContent>
                 </div>
-                <TabsContent value="bash">
-                  <CodeBlock code={bashSnippet} language="bash" />
-                </TabsContent>
-                <TabsContent value="python">
-                  <CodeBlock code={pythonSnippet} language="python" />
-                </TabsContent>
-                <TabsContent value="node">
-                  <CodeBlock code={nodeSnippet} language="javascript" />
-                </TabsContent>
               </Tabs>
 
               {!effectiveToken ? (
@@ -667,11 +714,11 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
               ) : null}
 
               {sampleRunResult ? (
-                <div className="space-y-3 rounded-2xl border border-success/30 bg-success-muted p-4">
+                <div className="flex flex-col gap-3 rounded-lg border border-success/30 bg-success-muted p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
                       <p className="text-sm font-semibold text-success">{t("lab.responseTitle")}</p>
-                      <p className="mt-1 text-xs leading-6 text-foreground/80">
+                      <p className="mt-1 text-xs leading-6 text-foreground">
                         {t("lab.responseDescription", {
                           status: sampleRunResult.status,
                           tokenType: t(`tokenLabels.${sampleRunResult.tokenType}`),
@@ -679,13 +726,13 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
                       </p>
                     </div>
                     <Button type="button" variant="outline" size="sm" onClick={() => void copyText("sample-response", sampleRunResult.raw)}>
-                      <Copy className="size-4" />
+                      <Copy data-icon="inline-start" />
                       {copiedKey === "sample-response" ? t("actions.copied") : t("lab.copyResponse")}
                     </Button>
                   </div>
 
                   {sampleRunResult.content ? (
-                    <div className="rounded-xl bg-background/80 p-3">
+                    <div className="rounded-md border border-border bg-background p-3">
                       <p className="text-xs font-semibold text-muted-foreground">{t("lab.responsePreviewLabel")}</p>
                       <p className="mt-2 whitespace-pre-wrap text-sm leading-7">{sampleRunResult.content}</p>
                     </div>
@@ -705,6 +752,39 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
   );
 }
 
+function HeaderDescription(props: {
+  docsBaseHref: string;
+  t: TranslateFn;
+}) {
+  return (
+    <>
+      {props.t("subtitle")}{" "}
+      <a
+        href={`${props.docsBaseHref}/quick-start`}
+        target="_blank"
+        rel="noreferrer"
+        className="font-medium text-primary underline underline-offset-4 hover:text-primary/80"
+      >
+        {props.t("docsLink")}
+      </a>
+    </>
+  );
+}
+
+function StepSeparator() {
+  return (
+    <li className="flex justify-center ps-16" aria-hidden="true">
+      <div className="flex w-2/3 max-w-sm items-center gap-3 text-muted-foreground">
+        <span className="h-px flex-1 bg-border" />
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-background text-info">
+          <Sparkles className="size-3.5" />
+        </span>
+        <span className="h-px flex-1 bg-border" />
+      </div>
+    </li>
+  );
+}
+
 function StepActionButton(props: {
   action: QuickStartAction;
   onAction: () => void;
@@ -714,8 +794,8 @@ function StepActionButton(props: {
 }) {
   const isDisabled = props.status === "unavailable" || props.status === "locked";
   const label = props.t(`steps.${props.stepID}.${props.status === "done" ? "manageAction" : "action"}`);
-  const icon = props.action.type === "anchor" ? <TerminalSquare className="size-4" /> : <KeyRound className="size-4" />;
-  const buttonClassName = "shrink-0 min-w-[44px] max-w-full px-2.5 sm:px-3";
+  const icon = props.action.type === "anchor" ? <TerminalSquare data-icon="inline-end" /> : <KeyRound data-icon="inline-end" />;
+  const buttonClassName = "shrink-0 max-w-full px-2.5 sm:px-3";
   const textClassName = "inline text-xs sm:text-sm";
 
   if (props.action.type === "link") {
@@ -723,7 +803,7 @@ function StepActionButton(props: {
       return (
         <Button type="button" variant={props.status === "done" ? "outline" : "default"} className={buttonClassName} size="sm" disabled>
           <span className={textClassName}>{label}</span>
-          <ArrowUpRight className="size-4 shrink-0" />
+          <ArrowUpRight className="shrink-0 rtl:-rotate-90" data-icon="inline-end" />
         </Button>
       );
     }
@@ -737,7 +817,7 @@ function StepActionButton(props: {
       >
         <Link href={props.action.href} onClick={props.onAction}>
           <span className={textClassName}>{label}</span>
-          <ArrowUpRight className="size-4 shrink-0" />
+          <ArrowUpRight className="shrink-0 rtl:-rotate-90" data-icon="inline-end" />
         </Link>
       </Button>
     );
@@ -791,20 +871,20 @@ function ExploreCard(props: {
   return (
     <Link
       href={hrefMap[props.cardID]}
-      className="group flex h-full min-h-32 flex-col rounded-2xl border border-border/70 bg-card/90 p-4 transition-colors hover:border-primary/30 hover:bg-muted/20 @[28rem]:min-h-36"
+      className="group flex h-full min-h-32 flex-col rounded-lg border border-card-border bg-card p-4 transition-colors hover:border-primary/30 hover:bg-accent @[28rem]:min-h-36"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <Icon className="size-5" />
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <Icon aria-hidden="true" />
           </span>
-          <p className="min-w-0 text-sm font-semibold leading-6 @[48rem]:text-[0.95rem]">
+          <p className="min-w-0 text-sm font-semibold leading-6">
             {props.t(`explore.cards.${props.cardID}.title`)}
           </p>
         </div>
-        <ArrowUpRight className="mt-0.5 size-4 shrink-0 text-muted-foreground transition group-hover:text-foreground" />
+        <ArrowUpRight className="mt-0.5 shrink-0 text-muted-foreground transition group-hover:text-foreground rtl:-rotate-90" aria-hidden="true" />
       </div>
-      <p className="mt-3 text-xs leading-6 text-muted-foreground @[48rem]:text-[0.8rem]">
+      <p className="mt-3 text-xs leading-6 text-muted-foreground">
         {props.t(`explore.cards.${props.cardID}.description`)}
       </p>
     </Link>
@@ -850,11 +930,11 @@ function getFeaturedProvider(provider: string): FeaturedProvider | null {
   return (featuredProviderOrder as readonly string[]).includes(normalized) ? (normalized as FeaturedProvider) : null;
 }
 
-function badgeVariantForStatus(status: QuickStartStepStatus): "outline" | "secondary" | "success" | "destructive" {
+function statusBadgeForStepStatus(status: QuickStartStepStatus): "success" | "pending" | "error" | "neutral" {
   if (status === "done") return "success";
-  if (status === "active") return "secondary";
-  if (status === "unavailable") return "destructive";
-  return "outline";
+  if (status === "active") return "pending";
+  if (status === "unavailable") return "error";
+  return "neutral";
 }
 
 function formatCount(value: number) {

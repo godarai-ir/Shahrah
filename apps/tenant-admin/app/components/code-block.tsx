@@ -14,8 +14,12 @@ export function CodeBlock(props: {
   code: string;
   language: "bash" | "javascript" | "json" | "markdown" | "python";
   className?: string;
+  highlightedTerms?: string[];
   maxHeightClassName?: string;
+  preClassName?: string;
 }) {
+  const highlightedTerms = props.highlightedTerms?.filter(Boolean) ?? [];
+
   return (
     <Highlight
       code={props.code}
@@ -35,6 +39,7 @@ export function CodeBlock(props: {
             className={cn(
               "custom-scrollbar overflow-auto px-4 py-4 text-left text-[13px] leading-7 [scrollbar-gutter:stable_both-edges] sm:text-sm sm:leading-7",
               props.maxHeightClassName ?? "max-h-[min(22rem,42dvh)]",
+              props.preClassName,
               className,
             )}
             style={{
@@ -61,7 +66,11 @@ export function CodeBlock(props: {
                       ? "\n"
                       : line.map((token, tokenIndex) => {
                           const tokenProps = getTokenProps({ token });
-                          return <span key={`${lineIndex}-${tokenIndex}`} {...tokenProps} />;
+                          return (
+                            <span key={`${lineIndex}-${tokenIndex}`} {...tokenProps}>
+                              {renderHighlightedToken(token.content, highlightedTerms)}
+                            </span>
+                          );
                         })}
                   </span>
                 </div>
@@ -71,5 +80,36 @@ export function CodeBlock(props: {
         </div>
       )}
     </Highlight>
+  );
+}
+
+function renderHighlightedToken(content: string, highlightedTerms: string[]) {
+  if (highlightedTerms.length === 0) return content;
+
+  const matchingTerm = highlightedTerms.find((term) => content.includes(term));
+  if (!matchingTerm) return content;
+
+  return content.split(matchingTerm).map((part, index, parts) => (
+    <FragmentWithHighlight
+      key={`${matchingTerm}-${index}-${part}`}
+      highlight={index < parts.length - 1 ? matchingTerm : null}
+      text={part}
+    />
+  ));
+}
+
+function FragmentWithHighlight(props: {
+  highlight: string | null;
+  text: string;
+}) {
+  return (
+    <>
+      {props.text}
+      {props.highlight ? (
+        <mark className="bg-transparent font-semibold text-code-foreground">
+          {props.highlight}
+        </mark>
+      ) : null}
+    </>
   );
 }
