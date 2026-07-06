@@ -98,7 +98,7 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 
 	registerPublicRoutes(app, cfg, deps, httpMetrics)
 
-	if backpressure := newGatewayBackpressureMiddleware(); backpressure != nil {
+	if backpressure := newGatewayBackpressureMiddleware(httpMetrics); backpressure != nil {
 		app.Use(backpressure)
 	}
 

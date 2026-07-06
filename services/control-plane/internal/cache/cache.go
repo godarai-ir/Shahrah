@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -92,6 +93,14 @@ func NewDualCache(redisHost string, redisPort int, redisPassword string, logger 
 
 // Get retrieves a value from the cache (memory first, then Redis).
 func (d *DualCache) Get(ctx context.Context, key string) (interface{}, bool) {
+	if isDistributedHotPathKey(key) {
+		val, err := d.redis.Get(ctx, key).Result()
+		if err != nil {
+			return nil, false
+		}
+		return val, true
+	}
+
 	// Try memory cache first
 	if val, found := d.memory.Get(ctx, key); found {
 		return val, true
@@ -108,6 +117,12 @@ func (d *DualCache) Get(ctx context.Context, key string) (interface{}, bool) {
 
 // Set stores a value in both memory and Redis.
 func (d *DualCache) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) {
+	if isDistributedHotPathKey(key) {
+		d.memory.Delete(ctx, key)
+		d.redis.Set(ctx, key, value, ttl)
+		return
+	}
+
 	d.memory.Set(ctx, key, value, ttl)
 	d.redis.Set(ctx, key, value, ttl)
 }
@@ -128,6 +143,13 @@ func (d *DualCache) DistributedSet(ctx context.Context, key string, value interf
 func (d *DualCache) Delete(ctx context.Context, key string) {
 	d.memory.Delete(ctx, key)
 	d.redis.Del(ctx, key)
+}
+
+func isDistributedHotPathKey(key string) bool {
+	key = strings.TrimSpace(key)
+	return strings.HasPrefix(key, "deployments:tenant:") ||
+		strings.HasPrefix(key, "wallet:tenant:") ||
+		strings.HasPrefix(key, "tenant:host:")
 }
 
 // Increment increments a value in Redis, falling back to memory.

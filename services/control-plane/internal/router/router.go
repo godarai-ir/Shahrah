@@ -241,7 +241,9 @@ func (r *Router) listCachedDeployments(ctx context.Context, tenantID string) ([]
 		}
 
 		deployments = cloneDeployments(deployments)
-		storeDeployments(ctx, r.cache, key, deployments, r.dynamicTTL)
+		if r.canCacheDeploymentSnapshot(deployments) {
+			storeDeployments(ctx, r.cache, key, sanitizeDeploymentsForCache(deployments), r.dynamicTTL)
+		}
 		return deployments, nil
 	})
 	if err != nil {
@@ -285,6 +287,28 @@ func storeDeployments(ctx context.Context, c cache.Cache, key string, deployment
 	}
 
 	c.Set(ctx, key, string(raw), ttl)
+}
+
+func sanitizeDeploymentsForCache(in []platform.Deployment) []platform.Deployment {
+	out := cloneDeployments(in)
+	for i := range out {
+		out[i].APIKey = ""
+	}
+	return out
+}
+
+func (r *Router) canCacheDeploymentSnapshot(deployments []platform.Deployment) bool {
+	if r.hasProviderAccountCredentialResolver() {
+		return true
+	}
+
+	for _, dep := range deployments {
+		if strings.TrimSpace(dep.APIKey) != "" {
+			return false
+		}
+	}
+
+	return true
 }
 
 func deploymentCacheKey(tenantID string) string {
@@ -474,7 +498,7 @@ func (r *Router) hydrateDynamicDeployment(dep platform.Deployment) *Deployment {
 		TimeoutSec: params.Timeout,
 		ModelInfo:  dep.ModelInfo,
 	}
-	if isProviderAccountDeploymentWithoutRuntimeCredential(hydrated) {
+	if isProviderAccountDeploymentWithoutRuntimeCredential(hydrated) && !r.canResolveProviderAccountCredential(dep.ModelName) {
 		return nil
 	}
 
@@ -488,6 +512,23 @@ func (r *Router) hydrateDynamicDeployment(dep platform.Deployment) *Deployment {
 		Healthy:   true,
 		Weight:    fallbackWeight(hydrated),
 	}
+}
+
+func (r *Router) canResolveProviderAccountCredential(modelName string) bool {
+	if !isModelFQN(modelName) {
+		return false
+	}
+
+	return r.hasProviderAccountCredentialResolver()
+}
+
+func (r *Router) hasProviderAccountCredentialResolver() bool {
+	if r == nil || r.store == nil {
+		return false
+	}
+
+	_, ok := r.store.(byokCredentialResolver)
+	return ok
 }
 
 func (r *Router) findSharedProviderDeployment(provider string, model string) *Deployment {

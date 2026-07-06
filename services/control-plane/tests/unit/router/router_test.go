@@ -2,6 +2,8 @@ package router_test
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -12,6 +14,7 @@ import (
 	llmrouter "github.com/Delpak/shahrah/services/control-plane/internal/router"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
 
@@ -203,6 +206,20 @@ func (s *staticDeploymentStore) ListDeployments(_ context.Context, _ string) ([]
 	return append([]platform.Deployment(nil), s.deployments...), nil
 }
 
+func (s *staticDeploymentStore) ResolveProviderAccountAPIKey(_ context.Context, _ string, modelFQN string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	modelFQN = strings.TrimSpace(modelFQN)
+	for _, dep := range s.deployments {
+		if strings.TrimSpace(dep.ModelName) == modelFQN && strings.TrimSpace(dep.APIKey) != "" {
+			return dep.APIKey, nil
+		}
+	}
+
+	return "", errors.New("api key not found")
+}
+
 func (s *staticDeploymentStore) callCount() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -363,9 +380,13 @@ func TestRouter_CachesTenantDeployments(t *testing.T) {
 		dep, err := r.Route(context.Background(), "tenant-1", "openai:openai-main:gpt-4o-mini")
 		assert.NoError(t, err)
 		assert.NotNil(t, dep)
+		assert.Equal(t, "tenant-openai-key", dep.Params.APIKey)
 	}
 
 	assert.Equal(t, 1, store.callCount())
+	cached, ok := memCache.Get(context.Background(), "deployments:tenant:tenant-1")
+	require.True(t, ok)
+	assert.NotContains(t, cached, "tenant-openai-key")
 }
 
 func TestRouter_ReloadsTenantDeploymentsAfterCacheInvalidation(t *testing.T) {

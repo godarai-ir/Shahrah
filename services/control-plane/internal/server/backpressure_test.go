@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"sync"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
@@ -9,11 +10,50 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type backpressureMetricsStub struct {
+	mu          sync.Mutex
+	inFlight    int
+	rejected    int
+	maxInFlight int
+}
+
+func (m *backpressureMetricsStub) IncBackpressureInFlight() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.inFlight++
+	if m.inFlight > m.maxInFlight {
+		m.maxInFlight = m.inFlight
+	}
+}
+
+func (m *backpressureMetricsStub) DecBackpressureInFlight() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.inFlight--
+}
+
+func (m *backpressureMetricsStub) IncBackpressureRejected() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.rejected++
+}
+
+func (m *backpressureMetricsStub) snapshot() (int, int, int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	return m.inFlight, m.rejected, m.maxInFlight
+}
+
 func TestGatewayBackpressureRejectsWhenFull(t *testing.T) {
 	t.Setenv("GATEWAY_MAX_IN_FLIGHT_REQUESTS", "1")
 
 	app := fiber.New()
-	app.Use(newGatewayBackpressureMiddleware())
+	metrics := &backpressureMetricsStub{}
+	app.Use(newGatewayBackpressureMiddleware(metrics))
 
 	entered := make(chan struct{})
 	release := make(chan struct{})
@@ -62,6 +102,11 @@ func TestGatewayBackpressureRejectsWhenFull(t *testing.T) {
 
 	close(release)
 	assert.NoError(t, <-firstDone)
+
+	inFlight, rejected, maxInFlight := metrics.snapshot()
+	assert.Equal(t, 0, inFlight)
+	assert.Equal(t, 1, rejected)
+	assert.Equal(t, 1, maxInFlight)
 }
 
 func TestGatewayBackpressureExemptsHealthAndMetrics(t *testing.T) {

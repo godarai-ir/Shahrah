@@ -10,10 +10,21 @@ import (
 
 const defaultGatewayMaxInFlight = 512
 
-func newGatewayBackpressureMiddleware() fiber.Handler {
+type backpressureMetrics interface {
+	IncBackpressureInFlight()
+	DecBackpressureInFlight()
+	IncBackpressureRejected()
+}
+
+func newGatewayBackpressureMiddleware(metrics ...backpressureMetrics) fiber.Handler {
 	limit := gatewayMaxInFlightFromEnv()
 	if limit <= 0 {
 		return nil
+	}
+
+	var recorder backpressureMetrics
+	if len(metrics) > 0 {
+		recorder = metrics[0]
 	}
 
 	sem := make(chan struct{}, limit)
@@ -24,9 +35,20 @@ func newGatewayBackpressureMiddleware() fiber.Handler {
 
 		select {
 		case sem <- struct{}{}:
-			defer func() { <-sem }()
+			if recorder != nil {
+				recorder.IncBackpressureInFlight()
+			}
+			defer func() {
+				<-sem
+				if recorder != nil {
+					recorder.DecBackpressureInFlight()
+				}
+			}()
 			return c.Next()
 		default:
+			if recorder != nil {
+				recorder.IncBackpressureRejected()
+			}
 			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
 				"error": map[string]interface{}{
 					"message": "gateway overloaded",

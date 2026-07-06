@@ -34,10 +34,12 @@ type PgxPoolStats interface {
 
 // HTTPMetrics records request counts, latency, and in-flight totals.
 type HTTPMetrics struct {
-	registry        *prom.Registry
-	requestsTotal   *prom.CounterVec
-	requestDuration *prom.HistogramVec
-	inflight        prom.Gauge
+	registry                  *prom.Registry
+	requestsTotal             *prom.CounterVec
+	requestDuration           *prom.HistogramVec
+	inflight                  prom.Gauge
+	backpressureInFlight      prom.Gauge
+	backpressureRejectedTotal prom.Counter
 }
 
 // NewHTTPMetrics creates a Prometheus registry and HTTP metrics collectors.
@@ -70,14 +72,54 @@ func NewHTTPMetrics() *HTTPMetrics {
 		Help:      "Current number of in-flight HTTP requests handled by the Shahrah control-plane.",
 	})
 
-	registry.MustRegister(requestsTotal, requestDuration, inflight)
+	backpressureInFlight := prom.NewGauge(prom.GaugeOpts{
+		Namespace: "shahrah",
+		Subsystem: "control_plane",
+		Name:      "gateway_backpressure_in_flight",
+		Help:      "Current number of non-exempt requests admitted by gateway backpressure.",
+	})
+
+	backpressureRejectedTotal := prom.NewCounter(prom.CounterOpts{
+		Namespace: "shahrah",
+		Subsystem: "control_plane",
+		Name:      "gateway_backpressure_rejections_total",
+		Help:      "Total number of requests rejected by gateway backpressure.",
+	})
+
+	registry.MustRegister(requestsTotal, requestDuration, inflight, backpressureInFlight, backpressureRejectedTotal)
 
 	return &HTTPMetrics{
-		registry:        registry,
-		requestsTotal:   requestsTotal,
-		requestDuration: requestDuration,
-		inflight:        inflight,
+		registry:                  registry,
+		requestsTotal:             requestsTotal,
+		requestDuration:           requestDuration,
+		inflight:                  inflight,
+		backpressureInFlight:      backpressureInFlight,
+		backpressureRejectedTotal: backpressureRejectedTotal,
 	}
+}
+
+// IncBackpressureInFlight records one request admitted by the gateway backpressure gate.
+func (m *HTTPMetrics) IncBackpressureInFlight() {
+	if m == nil || m.backpressureInFlight == nil {
+		return
+	}
+	m.backpressureInFlight.Inc()
+}
+
+// DecBackpressureInFlight records one request leaving the gateway backpressure gate.
+func (m *HTTPMetrics) DecBackpressureInFlight() {
+	if m == nil || m.backpressureInFlight == nil {
+		return
+	}
+	m.backpressureInFlight.Dec()
+}
+
+// IncBackpressureRejected records one request rejected by the gateway backpressure gate.
+func (m *HTTPMetrics) IncBackpressureRejected() {
+	if m == nil || m.backpressureRejectedTotal == nil {
+		return
+	}
+	m.backpressureRejectedTotal.Inc()
 }
 
 // RegisterPgxPool registers PostgreSQL pool gauges on the existing registry.
