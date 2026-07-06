@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -108,12 +109,142 @@ func TestHotPathCacheHonorsTTL(t *testing.T) {
 	key := deploymentCacheKey("tenant-1")
 	store.cacheDeployments(key, []platform.Deployment{{ID: "dep-1"}})
 
-	if _, ok := store.getCachedDeployments(key); !ok {
+	if _, state := store.getCachedDeployments(key); state != hotPathCacheFresh {
 		t.Fatal("expected deployment cache hit before TTL expiry")
 	}
 	time.Sleep(20 * time.Millisecond)
-	if _, ok := store.getCachedDeployments(key); ok {
+	if _, state := store.getCachedDeployments(key); state != hotPathCacheMiss {
 		t.Fatal("expected deployment cache miss after TTL expiry")
+	}
+}
+
+func TestListDeploymentsReturnsStaleSnapshotImmediately(t *testing.T) {
+	ctx := context.Background()
+	store := &Store{
+		hotPathCacheTTL:      time.Minute,
+		hotPathCacheStaleTTL: time.Minute,
+		hotPathCache:         make(map[string]hotPathCacheEntry),
+	}
+	key := deploymentCacheKey("tenant-1")
+	store.hotPathCache[key] = hotPathCacheEntry{
+		value: []platform.Deployment{{
+			ID:        "dep-stale",
+			TenantID:  "tenant-1",
+			ModelName: "stale-model",
+		}},
+		freshUntil: time.Now().Add(-time.Second),
+		staleUntil: time.Now().Add(time.Minute),
+	}
+
+	deps, err := store.ListDeployments(ctx, "tenant-1")
+	if err != nil {
+		t.Fatalf("expected stale deployment list, got error: %v", err)
+	}
+	if len(deps) != 1 || deps[0].ID != "dep-stale" {
+		t.Fatalf("unexpected stale deployments: %#v", deps)
+	}
+}
+
+func TestListVirtualModelsReturnsStaleSnapshotImmediately(t *testing.T) {
+	ctx := context.Background()
+	store := &Store{
+		hotPathCacheTTL:      time.Minute,
+		hotPathCacheStaleTTL: time.Minute,
+		hotPathCache:         make(map[string]hotPathCacheEntry),
+	}
+	key := virtualModelsCacheKey("tenant-1")
+	store.hotPathCache[key] = hotPathCacheEntry{
+		value: []platform.VirtualModel{{
+			ID:       "vm-stale",
+			TenantID: "tenant-1",
+			Alias:    "stale-model",
+		}},
+		freshUntil: time.Now().Add(-time.Second),
+		staleUntil: time.Now().Add(time.Minute),
+	}
+
+	models, err := store.ListVirtualModels(ctx, "tenant-1")
+	if err != nil {
+		t.Fatalf("expected stale virtual model list, got error: %v", err)
+	}
+	if len(models) != 1 || models[0].ID != "vm-stale" {
+		t.Fatalf("unexpected stale virtual models: %#v", models)
+	}
+}
+
+func TestHotPathCacheMissesAfterStaleWindow(t *testing.T) {
+	store := &Store{
+		hotPathCacheTTL:      time.Minute,
+		hotPathCacheStaleTTL: time.Minute,
+		hotPathCache:         make(map[string]hotPathCacheEntry),
+	}
+	key := deploymentCacheKey("tenant-1")
+	store.hotPathCache[key] = hotPathCacheEntry{
+		value:      []platform.Deployment{{ID: "dep-expired"}},
+		freshUntil: time.Now().Add(-2 * time.Minute),
+		staleUntil: time.Now().Add(-time.Minute),
+	}
+
+	if _, state := store.getCachedDeployments(key); state != hotPathCacheMiss {
+		t.Fatal("expected deployment cache miss after stale window")
+	}
+	if _, ok := store.hotPathCache[key]; ok {
+		t.Fatal("expected fully expired cache entry to be deleted")
+	}
+}
+
+func TestHotPathRefreshAsyncCoalescesRefreshes(t *testing.T) {
+	store := &Store{
+		hotPathCacheTTL:      time.Minute,
+		hotPathCacheStaleTTL: time.Minute,
+		hotPathCache:         make(map[string]hotPathCacheEntry),
+	}
+	key := deploymentCacheKey("tenant-1")
+
+	var calls atomic.Int32
+	started := make(chan struct{})
+	release := make(chan struct{})
+	refresh := func(ctx context.Context) error {
+		if calls.Add(1) == 1 {
+			close(started)
+		}
+		select {
+		case <-release:
+			store.cacheDeployments(key, []platform.Deployment{{ID: "dep-refreshed"}})
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+
+	if ch := store.refreshHotPathCacheAsync(key, refresh); ch == nil {
+		t.Fatal("expected first refresh to start")
+	}
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for first refresh to start")
+	}
+
+	for i := 0; i < 10; i++ {
+		store.refreshHotPathCacheAsync(key, refresh)
+	}
+	time.Sleep(20 * time.Millisecond)
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("expected refresh calls to coalesce while first is running, got %d", got)
+	}
+
+	close(release)
+	deadline := time.Now().Add(time.Second)
+	for {
+		deps, state := store.getCachedDeployments(key)
+		if state == hotPathCacheFresh && len(deps) == 1 && deps[0].ID == "dep-refreshed" {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for refreshed cache entry; state=%v deps=%#v", state, deps)
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 
@@ -128,7 +259,7 @@ func TestInvalidateVirtualModelsCacheDeletesTenantSnapshot(t *testing.T) {
 
 	store.invalidateVirtualModelsCache(ctx, "tenant-1")
 
-	if _, ok := store.getCachedVirtualModels(key); ok {
+	if _, state := store.getCachedVirtualModels(key); state != hotPathCacheMiss {
 		t.Fatal("expected virtual model cache entry to be invalidated")
 	}
 }
@@ -144,7 +275,7 @@ func TestInvalidateDeploymentCacheDeletesLocalTenantSnapshot(t *testing.T) {
 
 	store.invalidateDeploymentCache(ctx, "tenant-1")
 
-	if _, ok := store.getCachedDeployments(key); ok {
+	if _, state := store.getCachedDeployments(key); state != hotPathCacheMiss {
 		t.Fatal("expected local deployment cache entry to be invalidated")
 	}
 }

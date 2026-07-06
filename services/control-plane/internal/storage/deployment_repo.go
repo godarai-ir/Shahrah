@@ -48,6 +48,7 @@ func (s *Store) CreateDeployment(ctx context.Context, dep platform.Deployment) (
 	}
 
 	s.invalidateDeploymentCache(ctx, dep.TenantID)
+	s.warmDeploymentCacheAsync(dep.TenantID)
 
 	return &dep, nil
 }
@@ -55,12 +56,18 @@ func (s *Store) CreateDeployment(ctx context.Context, dep platform.Deployment) (
 // ListDeployments returns tenant-specific deployments.
 func (s *Store) ListDeployments(ctx context.Context, tenantID string) ([]platform.Deployment, error) {
 	cacheKey := deploymentCacheKey(tenantID)
-	if deps, ok := s.getCachedDeployments(cacheKey); ok {
+	if deps, state := s.getCachedDeployments(cacheKey); state == hotPathCacheFresh {
+		return deps, nil
+	} else if state == hotPathCacheStale {
+		s.refreshDeploymentsCacheAsync(tenantID, cacheKey)
 		return deps, nil
 	}
 
 	value, err, _ := s.hotPathLoadGroup.Do(cacheKey, func() (interface{}, error) {
-		if deps, ok := s.getCachedDeployments(cacheKey); ok {
+		if deps, state := s.getCachedDeployments(cacheKey); state == hotPathCacheFresh {
+			return deps, nil
+		} else if state == hotPathCacheStale {
+			s.refreshDeploymentsCacheAsync(tenantID, cacheKey)
 			return deps, nil
 		}
 

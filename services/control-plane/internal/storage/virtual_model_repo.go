@@ -64,6 +64,7 @@ func (s *Store) CreateVirtualModel(ctx context.Context, tenantID string, req pla
 		return nil, err
 	}
 	s.invalidateVirtualModelsCache(ctx, tenantID)
+	s.warmVirtualModelsCacheAsync(tenantID)
 
 	out := &platform.VirtualModel{
 		ID:              id,
@@ -84,12 +85,18 @@ func (s *Store) CreateVirtualModel(ctx context.Context, tenantID string, req pla
 
 func (s *Store) ListVirtualModels(ctx context.Context, tenantID string) ([]platform.VirtualModel, error) {
 	cacheKey := virtualModelsCacheKey(tenantID)
-	if models, ok := s.getCachedVirtualModels(cacheKey); ok {
+	if models, state := s.getCachedVirtualModels(cacheKey); state == hotPathCacheFresh {
+		return models, nil
+	} else if state == hotPathCacheStale {
+		s.refreshVirtualModelsCacheAsync(tenantID, cacheKey)
 		return models, nil
 	}
 
 	value, err, _ := s.hotPathLoadGroup.Do(cacheKey, func() (interface{}, error) {
-		if models, ok := s.getCachedVirtualModels(cacheKey); ok {
+		if models, state := s.getCachedVirtualModels(cacheKey); state == hotPathCacheFresh {
+			return models, nil
+		} else if state == hotPathCacheStale {
+			s.refreshVirtualModelsCacheAsync(tenantID, cacheKey)
 			return models, nil
 		}
 
@@ -293,6 +300,7 @@ func (s *Store) UpdateVirtualModel(ctx context.Context, tenantID string, id stri
 		return nil, err
 	}
 	s.invalidateVirtualModelsCache(ctx, tenantID)
+	s.warmVirtualModelsCacheAsync(tenantID)
 
 	return s.GetVirtualModel(ctx, tenantID, id)
 }
@@ -327,6 +335,7 @@ func (s *Store) DeleteVirtualModel(ctx context.Context, tenantID string, id stri
 		return err
 	}
 	s.invalidateVirtualModelsCache(ctx, tenantID)
+	s.warmVirtualModelsCacheAsync(tenantID)
 	return nil
 }
 
