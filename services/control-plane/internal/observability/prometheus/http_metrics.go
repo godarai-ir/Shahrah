@@ -45,6 +45,11 @@ type HTTPMetrics struct {
 	tokenSpendFlushDuration   prom.Histogram
 	tokenSpendFlushBatchSize  prom.Histogram
 	tokenSpendFlushErrors     prom.Counter
+	spendLogQueuedTotal       prom.Counter
+	spendLogDroppedTotal      prom.Counter
+	spendLogFlushDuration     prom.Histogram
+	spendLogFlushBatchSize    prom.Histogram
+	spendLogFlushErrors       prom.Counter
 	keyLastUsedQueuedTotal    prom.Counter
 	keyLastUsedSkippedTotal   prom.Counter
 	keyLastUsedFallbackTotal  prom.Counter
@@ -119,6 +124,28 @@ func NewHTTPMetrics() *HTTPMetrics {
 		Namespace: "shahrah", Subsystem: "control_plane", Name: "token_spend_flush_errors_total",
 		Help: "Total token spend aggregate flush failures.",
 	})
+	spendLogQueuedTotal := prom.NewCounter(prom.CounterOpts{
+		Namespace: "shahrah", Subsystem: "control_plane", Name: "spend_log_queued_total",
+		Help: "Total spend logs queued for asynchronous persistence.",
+	})
+	spendLogDroppedTotal := prom.NewCounter(prom.CounterOpts{
+		Namespace: "shahrah", Subsystem: "control_plane", Name: "spend_log_dropped_total",
+		Help: "Total spend logs dropped before persistence because the async queue was full or closed.",
+	})
+	spendLogFlushDuration := prom.NewHistogram(prom.HistogramOpts{
+		Namespace: "shahrah", Subsystem: "control_plane", Name: "spend_log_flush_duration_seconds",
+		Help:    "Duration of asynchronous spend log flushes.",
+		Buckets: prom.DefBuckets,
+	})
+	spendLogFlushBatchSize := prom.NewHistogram(prom.HistogramOpts{
+		Namespace: "shahrah", Subsystem: "control_plane", Name: "spend_log_flush_batch_size",
+		Help:    "Number of spend logs persisted in each asynchronous flush.",
+		Buckets: []float64{1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000},
+	})
+	spendLogFlushErrors := prom.NewCounter(prom.CounterOpts{
+		Namespace: "shahrah", Subsystem: "control_plane", Name: "spend_log_flush_errors_total",
+		Help: "Total asynchronous spend log flush failures.",
+	})
 	keyLastUsedQueuedTotal := prom.NewCounter(prom.CounterOpts{
 		Namespace: "shahrah", Subsystem: "control_plane", Name: "key_last_used_queued_total",
 		Help: "Total key last-used timestamps queued for Redis aggregation.",
@@ -149,6 +176,7 @@ func NewHTTPMetrics() *HTTPMetrics {
 	registry.MustRegister(
 		requestsTotal, requestDuration, inflight, backpressureInFlight, backpressureRejectedTotal,
 		tokenSpendQueuedTotal, tokenSpendFallbackTotal, tokenSpendFlushDuration, tokenSpendFlushBatchSize, tokenSpendFlushErrors,
+		spendLogQueuedTotal, spendLogDroppedTotal, spendLogFlushDuration, spendLogFlushBatchSize, spendLogFlushErrors,
 		keyLastUsedQueuedTotal, keyLastUsedSkippedTotal, keyLastUsedFallbackTotal, keyLastUsedFlushDuration, keyLastUsedFlushBatchSize, keyLastUsedFlushErrors,
 	)
 
@@ -164,6 +192,11 @@ func NewHTTPMetrics() *HTTPMetrics {
 		tokenSpendFlushDuration:   tokenSpendFlushDuration,
 		tokenSpendFlushBatchSize:  tokenSpendFlushBatchSize,
 		tokenSpendFlushErrors:     tokenSpendFlushErrors,
+		spendLogQueuedTotal:       spendLogQueuedTotal,
+		spendLogDroppedTotal:      spendLogDroppedTotal,
+		spendLogFlushDuration:     spendLogFlushDuration,
+		spendLogFlushBatchSize:    spendLogFlushBatchSize,
+		spendLogFlushErrors:       spendLogFlushErrors,
 		keyLastUsedQueuedTotal:    keyLastUsedQueuedTotal,
 		keyLastUsedSkippedTotal:   keyLastUsedSkippedTotal,
 		keyLastUsedFallbackTotal:  keyLastUsedFallbackTotal,
@@ -224,6 +257,36 @@ func (m *HTTPMetrics) ObserveTokenSpendFlush(batchSize int, duration time.Durati
 	}
 	if err != nil && m.tokenSpendFlushErrors != nil {
 		m.tokenSpendFlushErrors.Inc()
+	}
+}
+
+// IncSpendLogQueued records one spend log accepted by the async persistence queue.
+func (m *HTTPMetrics) IncSpendLogQueued() {
+	if m != nil && m.spendLogQueuedTotal != nil {
+		m.spendLogQueuedTotal.Inc()
+	}
+}
+
+// IncSpendLogDropped records one spend log dropped before persistence.
+func (m *HTTPMetrics) IncSpendLogDropped() {
+	if m != nil && m.spendLogDroppedTotal != nil {
+		m.spendLogDroppedTotal.Inc()
+	}
+}
+
+// ObserveSpendLogFlush records one async spend log flush attempt.
+func (m *HTTPMetrics) ObserveSpendLogFlush(batchSize int, duration time.Duration, err error) {
+	if m == nil {
+		return
+	}
+	if m.spendLogFlushDuration != nil {
+		m.spendLogFlushDuration.Observe(duration.Seconds())
+	}
+	if m.spendLogFlushBatchSize != nil {
+		m.spendLogFlushBatchSize.Observe(float64(batchSize))
+	}
+	if err != nil && m.spendLogFlushErrors != nil {
+		m.spendLogFlushErrors.Inc()
 	}
 }
 

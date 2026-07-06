@@ -20,6 +20,7 @@ type Config struct {
 	Profiling       ProfilingSettings      `mapstructure:"profiling"`
 	OperationalLogs OperationalLogSettings `mapstructure:"operational_logging"`
 	RequestLogs     RequestLogSettings     `mapstructure:"request_logs"`
+	SpendLogs       SpendLogSettings       `mapstructure:"spend_logs"`
 	TenantSettings  TenantSettings         `mapstructure:"tenant_settings"`
 	TunnelSettings  TunnelSettings         `mapstructure:"tunnel_settings"`
 	BillingSettings BillingSettings        `mapstructure:"billing_settings"`
@@ -43,6 +44,18 @@ type RequestLogSettings struct {
 	DropOnFull                  bool `mapstructure:"drop_on_full"`
 	ShutdownDrainTimeoutSeconds int  `mapstructure:"shutdown_drain_timeout_seconds"`
 	ModeCacheTTLSeconds         int  `mapstructure:"mode_cache_ttl_seconds"`
+}
+
+// SpendLogSettings controls asynchronous spend log persistence.
+type SpendLogSettings struct {
+	AsyncEnabled                bool `mapstructure:"async_enabled"`
+	QueueSize                   int  `mapstructure:"queue_size"`
+	Workers                     int  `mapstructure:"workers"`
+	BatchSize                   int  `mapstructure:"batch_size"`
+	FlushIntervalMS             int  `mapstructure:"flush_interval_ms"`
+	EnqueueTimeoutMS            int  `mapstructure:"enqueue_timeout_ms"`
+	DropOnFull                  bool `mapstructure:"drop_on_full"`
+	ShutdownDrainTimeoutSeconds int  `mapstructure:"shutdown_drain_timeout_seconds"`
 }
 
 // OperationalLogSettings controls low-overhead server access/error logging.
@@ -176,6 +189,14 @@ func LoadConfig(logger *zap.Logger) (*Config, error) {
 	v.SetDefault("request_logs.drop_on_full", true)
 	v.SetDefault("request_logs.shutdown_drain_timeout_seconds", 5)
 	v.SetDefault("request_logs.mode_cache_ttl_seconds", 60)
+	v.SetDefault("spend_logs.async_enabled", true)
+	v.SetDefault("spend_logs.queue_size", 10000)
+	v.SetDefault("spend_logs.workers", 1)
+	v.SetDefault("spend_logs.batch_size", 500)
+	v.SetDefault("spend_logs.flush_interval_ms", 500)
+	v.SetDefault("spend_logs.enqueue_timeout_ms", 0)
+	v.SetDefault("spend_logs.drop_on_full", true)
+	v.SetDefault("spend_logs.shutdown_drain_timeout_seconds", 5)
 	v.SetDefault("router_settings.routing_strategy", "simple-shuffle")
 	v.SetDefault("router_settings.cooldown_time", 60.0)
 	v.SetDefault("router_settings.num_retries", 3)

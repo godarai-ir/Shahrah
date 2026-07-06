@@ -107,6 +107,8 @@ func main() {
 	tunnelClient := tunneltransport.NewHTTPTransport(cfg.TunnelSettings.ClientURL, time.Duration(cfg.TunnelSettings.Timeout)*time.Second)
 
 	metricsCfg := metricsobs.LoadConfigFromEnv()
+	httpMetrics := prommetrics.NewHTTPMetrics()
+	store.SetTokenUsageMetrics(httpMetrics)
 
 	var (
 		emitMetric func(input metricsobs.BuildInput)
@@ -191,10 +193,33 @@ func main() {
 		Billing:       billingService,
 		Wallets:       store,
 		RequestLogger: requestLogger,
-		SpendLogger:   store,
 		Logger:        logger,
 		EmitMetric:    emitMetric,
 	}
+	var spendLogger proxy.SpendLogger = store
+	if cfg.SpendLogs.AsyncEnabled {
+		asyncSpendLogger := proxy.NewAsyncSpendLogWriter(store, proxy.AsyncSpendLogConfig{
+			QueueSize:      cfg.SpendLogs.QueueSize,
+			Workers:        cfg.SpendLogs.Workers,
+			BatchSize:      cfg.SpendLogs.BatchSize,
+			FlushInterval:  time.Duration(cfg.SpendLogs.FlushIntervalMS) * time.Millisecond,
+			EnqueueTimeout: time.Duration(cfg.SpendLogs.EnqueueTimeoutMS) * time.Millisecond,
+			DropOnFull:     cfg.SpendLogs.DropOnFull,
+		}, logger, httpMetrics)
+		spendLogger = asyncSpendLogger
+		defer func() {
+			timeout := time.Duration(cfg.SpendLogs.ShutdownDrainTimeoutSeconds) * time.Second
+			if timeout <= 0 {
+				timeout = 5 * time.Second
+			}
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+			if err := asyncSpendLogger.Stop(shutdownCtx); err != nil {
+				logger.Warn("Failed to drain async spend logs", zap.Error(err))
+			}
+		}()
+	}
+	baseProxyDeps.SpendLogger = spendLogger
 	proxyHandler := proxy.NewChatCompletionHandlerWithDependencies(proxy.ChatCompletionDependencies{
 		Base:              baseProxyDeps,
 		VirtualModelStore: store,
@@ -273,9 +298,6 @@ func main() {
 
 	traceRetentionCleaner.Start()
 	defer traceRetentionCleaner.Stop()
-
-	httpMetrics := prommetrics.NewHTTPMetrics()
-	store.SetTokenUsageMetrics(httpMetrics)
 
 	app := server.NewFiberApp(cfg, server.Dependencies{
 		AuthMiddleware:          authMiddleware,
