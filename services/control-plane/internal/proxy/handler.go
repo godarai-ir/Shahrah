@@ -22,6 +22,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/prompts"
 	"github.com/Delpak/shahrah/services/control-plane/internal/responsecache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
+	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/Delpak/shahrah/services/control-plane/internal/virtualmodels"
 	"github.com/gofiber/fiber/v2"
@@ -1149,7 +1150,7 @@ func toContractDeployment(dep *router.Deployment) platform.Deployment {
 }
 
 func logRequestBestEffort(logger *zap.Logger, logs usageLogger, ctx context.Context, entry platform.RequestLogEntry) {
-	if err := logs.LogRequest(ctx, entry); err != nil && logger != nil {
+	if err := logs.LogRequest(ctx, entry); err != nil && logger != nil && !errors.Is(err, storage.ErrLogStoreUnavailable) {
 		logger.Warn("failed to log request", zap.Error(err), zap.String("request_id", entry.RequestID))
 	}
 }

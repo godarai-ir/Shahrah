@@ -13,7 +13,7 @@ var ErrTraceStoreUnavailable = errors.New("trace store unavailable")
 // Export persists a batch of trace span events.
 func (s *Store) Export(ctx context.Context, batch []tracing.SpanEvent) error {
 	if !s.clickhouseReady || s.clickhouse == nil {
-		return ErrTraceStoreUnavailable
+		return nil
 	}
 
 	return s.exportToClickHouse(ctx, batch)

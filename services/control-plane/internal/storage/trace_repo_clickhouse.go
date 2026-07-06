@@ -12,7 +12,6 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/jackc/pgx/v5"
-	"go.uber.org/zap"
 )
 
 func (s *Store) initClickHouse(ctx context.Context) error {
@@ -103,18 +102,32 @@ func (s *Store) ensureClickHouseTraceSchema(ctx context.Context) error {
 		}
 	}
 
-	s.removeLegacyClickHouseTraceTTLs(ctx)
+	if err := s.validateClickHouseTraceTables(ctx); err != nil {
+		return err
+	}
+
+	if err := s.removeLegacyClickHouseTraceTTLs(ctx); err != nil {
+		return err
+	}
 
 	return nil
 }
 
-func (s *Store) removeLegacyClickHouseTraceTTLs(ctx context.Context) {
+func (s *Store) validateClickHouseTraceTables(ctx context.Context) error {
+	for _, table := range []string{"request_traces_ch", "request_spans_ch"} {
+		if _, err := s.clickhouse.ExecContext(ctx, "SELECT 1 FROM "+table+" LIMIT 0"); err != nil {
+			return fmt.Errorf("validate clickhouse trace table %s: %w", table, err)
+		}
+	}
+
+	return nil
+}
+
+func (s *Store) removeLegacyClickHouseTraceTTLs(ctx context.Context) error {
 	for _, table := range []string{"request_traces_ch", "request_spans_ch"} {
 		hasTTL, err := s.clickHouseTableHasTTL(ctx, table)
 		if err != nil {
-			s.logger.Warn("clickhouse trace ttl inspection failed", zap.String("table", table), zap.Error(err))
-
-			hasTTL = true
+			return fmt.Errorf("inspect clickhouse trace ttl for %s: %w", table, err)
 		}
 
 		if !hasTTL {
@@ -122,9 +135,11 @@ func (s *Store) removeLegacyClickHouseTraceTTLs(ctx context.Context) {
 		}
 
 		if _, err := s.clickhouse.ExecContext(ctx, "ALTER TABLE "+table+" REMOVE TTL"); err != nil {
-			s.logger.Warn("clickhouse trace ttl removal failed", zap.String("table", table), zap.Error(err))
+			return fmt.Errorf("remove clickhouse trace ttl for %s: %w", table, err)
 		}
 	}
+
+	return nil
 }
 
 func (s *Store) clickHouseTableHasTTL(ctx context.Context, table string) (bool, error) {

@@ -1,5 +1,12 @@
+x-default-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "3"
+
 services:
   control-plane:
+    logging: *default-logging
     build:
       context: ../../
       dockerfile: services/control-plane/Dockerfile
@@ -44,6 +51,7 @@ services:
     restart: unless-stopped
 
   model-discovery:
+    logging: *default-logging
     build:
       context: ../../apps/model-discovery
       dockerfile: Dockerfile
@@ -87,6 +95,7 @@ services:
         condition: service_healthy
 
   support-admin:
+    logging: *default-logging
     build:
       context: ../../apps/support-admin
       dockerfile: Dockerfile
@@ -108,6 +117,7 @@ services:
     restart: unless-stopped
 
   model-discovery-web:
+    logging: *default-logging
     build:
       context: ../../apps/model-discovery-web
       dockerfile: Dockerfile
@@ -133,6 +143,7 @@ services:
         condition: service_healthy
 
   tunnel-client:
+    logging: *default-logging
     build:
       context: ../../
       dockerfile: services/tunnel-client/Dockerfile
@@ -147,6 +158,7 @@ services:
     restart: unless-stopped
 
   tunnel-server:
+    logging: *default-logging
     build:
       context: ../../
       dockerfile: services/tunnel-server/Dockerfile
@@ -161,6 +173,7 @@ services:
     restart: unless-stopped
 
   silk-road:
+    logging: *default-logging
     build:
       context: ../../
       dockerfile: services/silk-road/Dockerfile
@@ -171,6 +184,7 @@ services:
     restart: unless-stopped
 
   postgres:
+    logging: *default-logging
     image: postgres:${POSTGRES_VERSION:-18}
     ports:
       - "${POSTGRES_HOST_PORT:-5432}:5432"
@@ -202,6 +216,7 @@ services:
         condition: service_healthy
 
   redis:
+    logging: *default-logging
     image: redis:${REDIS_VERSION:-8-alpine}
     ports:
       - "6379:6379"
@@ -217,6 +232,7 @@ services:
       retries: 5
 
   clickhouse:
+    logging: *default-logging
     image: clickhouse/clickhouse-server:${CLICKHOUSE_VERSION:-26.3}
     ports:
       - "${CLICKHOUSE_HTTP_PORT:-8123}:8123"
@@ -234,6 +250,7 @@ services:
       retries: 10
 
   typesense:
+    logging: *default-logging
     image: typesense/typesense:${TYPESENSE_VERSION:-29.1}
     ports:
       - "${TYPESENSE_HOST_PORT:-8108}:8108"
@@ -247,6 +264,7 @@ services:
     restart: unless-stopped
 
   mailpit:
+    logging: *default-logging
     image: axllent/mailpit:latest
     ports:
       - "1025:1025"
@@ -254,6 +272,7 @@ services:
     restart: unless-stopped
 
   pgadmin:
+    logging: *default-logging
     image: dpage/pgadmin4:latest
     ports:
       - "${PGADMIN_HOST_PORT:-5050}:80"

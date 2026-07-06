@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"go.uber.org/zap"
 )
 
@@ -183,6 +184,9 @@ func (w *AsyncRequestLogWriter) flushBatch(ctx context.Context, entries []platfo
 		}
 	}
 	if err != nil {
+		if errors.Is(err, storage.ErrLogStoreUnavailable) {
+			return
+		}
 		w.logger.Warn("failed to flush product request log batch", zap.Error(err), zap.Int("batch_size", len(entries)))
 	}
 }

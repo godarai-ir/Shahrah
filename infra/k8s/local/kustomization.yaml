@@ -46,4 +46,8 @@ configMapGenerator:
       - migrations/027_prompts.sql
       - migrations/028_prompts_slug_constraint.sql
       - migrations/029_prompt_version_manifest.sql
+      - migrations/030_virtual_model_target_weights.sql
       - migrations/031_tenant_request_logging_settings.sql
+      - migrations/032_subscription_lifecycle_due_index.sql
+      - migrations/033_drop_postgres_request_logs.sql
+      - migrations/034_control_plane_composite_indexes.sql

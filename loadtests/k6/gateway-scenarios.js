@@ -6,7 +6,7 @@ import { Counter, Rate, Trend } from 'k6/metrics';
 const baseUrl = (__ENV.BASE_URL || 'http://localhost:4000').replace(/\/$/, '');
 const scenario = __ENV.SCENARIO || 'mixed';
 const apiKey = __ENV.API_KEY || __ENV.MASTER_KEY || 'sk-dev-master-key-12345';
-const tenant = __ENV.TENANT || 'default';
+const tenant = __ENV.TENANT || 'tenant1';
 const model = __ENV.MODEL || 'gpt-4o-mini';
 const timeout = __ENV.TIMEOUT || '60s';
 
