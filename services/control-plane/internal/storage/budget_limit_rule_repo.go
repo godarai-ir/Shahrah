@@ -54,7 +54,11 @@ func (s *Store) CreateBudgetLimitRule(ctx context.Context, tenantID string, req 
 		return nil, pgx.ErrNoRows
 	}
 
-	return scanBudgetLimitRule(rows)
+	item, err := scanBudgetLimitRule(rows)
+	if err == nil {
+		s.invalidateTenantRuntimeProfile(ctx, tenantID, "budget_limit_rule.created")
+	}
+	return item, err
 }
 
 func (s *Store) ListBudgetLimitRules(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.BudgetLimitRule, int, error) {
@@ -93,7 +97,11 @@ func (s *Store) GetBudgetLimitRuleByRuleID(ctx context.Context, tenantID string,
 		return nil, pgx.ErrNoRows
 	}
 
-	return scanBudgetLimitRule(rows)
+	item, err := scanBudgetLimitRule(rows)
+	if err == nil {
+		s.invalidateTenantRuntimeProfile(ctx, tenantID, "budget_limit_rule.updated")
+	}
+	return item, err
 }
 
 func (s *Store) UpdateBudgetLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string, req platform.UpdateBudgetLimitRuleRequest) (*platform.BudgetLimitRule, error) {
@@ -162,7 +170,11 @@ func (s *Store) UpdateBudgetLimitRuleByRuleID(ctx context.Context, tenantID stri
 		return nil, pgx.ErrNoRows
 	}
 
-	return scanBudgetLimitRule(rows)
+	item, err := scanBudgetLimitRule(rows)
+	if err == nil {
+		s.invalidateTenantRuntimeProfile(ctx, tenantID, "budget_limit_rule.status_updated")
+	}
+	return item, err
 }
 
 func optionalTrimmedString(value *string, fallback string) string {
@@ -237,6 +249,7 @@ func (s *Store) DeleteBudgetLimitRuleByRuleID(ctx context.Context, tenantID stri
 	if result.RowsAffected() == 0 {
 		return pgx.ErrNoRows
 	}
+	s.invalidateTenantRuntimeProfile(ctx, tenantID, "budget_limit_rule.deleted")
 
 	return nil
 }

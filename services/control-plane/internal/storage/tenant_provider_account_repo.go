@@ -72,6 +72,7 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 	}
 
 	s.invalidateDeploymentCache(ctx, tenantID)
+	s.invalidateTenantRuntimeProfile(ctx, tenantID, "provider_account.created")
 	s.warmDeploymentCacheAsync(tenantID)
 
 	return &account, nil
@@ -255,6 +256,7 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 	}
 
 	s.invalidateDeploymentCache(ctx, tenantID)
+	s.invalidateTenantRuntimeProfile(ctx, tenantID, "provider_account.credentials_updated")
 	s.warmDeploymentCacheAsync(tenantID)
 
 	return s.getTenantProviderAccount(ctx, tenantID, accountID)
@@ -349,6 +351,7 @@ func (s *Store) UpsertTenantProviderAccountModels(ctx context.Context, tenantID 
 	}
 
 	s.invalidateDeploymentCache(ctx, tenantID)
+	s.invalidateTenantRuntimeProfile(ctx, tenantID, "provider_account.models_updated")
 	s.warmDeploymentCacheAsync(tenantID)
 
 	return items, nil
@@ -409,6 +412,7 @@ func (s *Store) UpdateTenantProviderAccountAccess(ctx context.Context, tenantID 
 	}
 
 	s.invalidateDeploymentCache(ctx, tenantID)
+	s.invalidateTenantRuntimeProfile(ctx, tenantID, "provider_account.access_updated")
 	s.warmDeploymentCacheAsync(tenantID)
 
 	return &result, nil
@@ -810,6 +814,7 @@ func (s *Store) DeleteTenantProviderAccount(ctx context.Context, tenantID string
 	}
 
 	s.invalidateDeploymentCache(ctx, tenantID)
+	s.invalidateTenantRuntimeProfile(ctx, tenantID, "provider_account.deleted")
 	s.warmDeploymentCacheAsync(tenantID)
 
 	return nil

@@ -25,6 +25,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
 	"github.com/Delpak/shahrah/services/control-plane/internal/responsecache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
+	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
 	"github.com/Delpak/shahrah/services/control-plane/internal/server"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
@@ -88,17 +89,30 @@ func main() {
 	store.SetEntitlementCache(dualCache)
 	store.SetRequestLoggingModeCacheTTL(time.Duration(cfg.RequestLogs.ModeCacheTTLSeconds) * time.Second)
 
-	llmRouter, err := router.NewRouter(cfg.ModelList, cfg.RouterSettings, dualCache, store, logger)
+	runtimeProfileCfg := runtimeprofile.LoadConfigFromEnv()
+	var distributedRuntimeProfileCache runtimeprofile.DistributedCache
+	if dc, ok := dualCache.(runtimeprofile.DistributedCache); ok {
+		distributedRuntimeProfileCache = dc
+	} else {
+		logger.Warn("Tenant runtime profile L2 disabled because cache does not support distributed operations")
+	}
+	runtimeProfiles := runtimeprofile.NewManager(runtimeprofile.NewCompiler(store), store, distributedRuntimeProfileCache, logger, runtimeProfileCfg)
+	store.SetRuntimeProfileManager(runtimeProfiles)
+
+	llmRouter, err := router.NewRouter(cfg.ModelList, cfg.RouterSettings, dualCache, runtimeprofile.NewDeploymentStore(runtimeProfiles), logger)
 	if err != nil {
 		logger.Fatal("Failed to initialize router", zap.Error(err))
 	}
 
 	authMiddleware := auth.NewAuthMiddleware(store, cfg.GeneralSettings.MasterKey, logger)
+	authMiddleware.SetRuntimeProfiles(runtimeProfiles)
 	tenantMiddleware := tenant.NewMiddlewareWithCache(store, dualCache, tenant.MiddlewareConfig{
 		AllowHeaderHint: cfg.TenantSettings.AllowHeaderHint,
 		CacheTTL:        5 * time.Minute,
 	})
+	tenantMiddleware.SetRuntimeProfiles(runtimeProfiles)
 	billingService := billing.NewService(dualCache, store, cfg.BillingSettings.DefaultUSDtoIRR, cfg.BillingSettings.RateSource)
+	billingService.SetRuntimeProfiles(runtimeProfiles)
 	subscriptionProcessor := billing.NewSubscriptionProcessor(store, logger, time.Minute)
 
 	subscriptionProcessor.Start()
@@ -220,10 +234,13 @@ func main() {
 		}()
 	}
 	baseProxyDeps.SpendLogger = spendLogger
+	virtualModelStore := runtimeprofile.NewVirtualModelStore(runtimeProfiles)
+	guardrailResolver := runtimeprofile.NewGuardrailResolver(runtimeProfiles)
+
 	proxyHandler := proxy.NewChatCompletionHandlerWithDependencies(proxy.ChatCompletionDependencies{
 		Base:              baseProxyDeps,
-		VirtualModelStore: store,
-		GuardrailResolver: store,
+		VirtualModelStore: virtualModelStore,
+		GuardrailResolver: guardrailResolver,
 		PromptResolver:    store,
 	})
 	proxyHandler.SetGuardrails(guardrails.NewDefaultEngine())

@@ -312,6 +312,7 @@ func (s *Store) ChangeTenantStatus(ctx context.Context, tenantID, target, reason
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+	s.invalidateTenantRuntimeProfile(ctx, tenantID, eventType)
 
 	return s.GetSupportTenantSummary(ctx, tenantID)
 }

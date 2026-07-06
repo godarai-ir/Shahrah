@@ -793,6 +793,7 @@ func (s *Store) invalidateTenantEntitlements(ctx context.Context, tenantID strin
 	if s.entitlementCache != nil && strings.TrimSpace(tenantID) != "" {
 		s.entitlementCache.Delete(ctx, entitlementCacheKey(tenantID))
 	}
+	s.invalidateTenantRuntimeProfile(ctx, tenantID, "entitlements.updated")
 }
 
 func (s *Store) invalidateEntitlementsForPlan(ctx context.Context, planSlug string) {

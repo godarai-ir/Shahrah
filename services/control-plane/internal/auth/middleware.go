@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
@@ -45,9 +46,14 @@ type KeyInfo struct {
 
 // AuthMiddleware validates API keys on incoming requests.
 type AuthMiddleware struct {
-	keyStore  KeyStore
-	masterKey string
-	logger    *zap.Logger
+	keyStore        KeyStore
+	runtimeProfiles runtimeProfileLookup
+	masterKey       string
+	logger          *zap.Logger
+}
+
+type runtimeProfileLookup interface {
+	GetAuthByTokenHash(ctx context.Context, tenantID string, tokenHash string) (*platform.AuthContext, error)
 }
 
 // NewAuthMiddleware creates a new auth middleware.
@@ -57,6 +63,10 @@ func NewAuthMiddleware(keyStore KeyStore, masterKey string, logger *zap.Logger) 
 		masterKey: masterKey,
 		logger:    logger,
 	}
+}
+
+func (m *AuthMiddleware) SetRuntimeProfiles(runtimeProfiles runtimeProfileLookup) {
+	m.runtimeProfiles = runtimeProfiles
 }
 
 // Middleware returns the Fiber middleware handler.
@@ -146,6 +156,10 @@ func (m *AuthMiddleware) authenticateAPIKey(c *fiber.Ctx, apiKey string) error {
 func (m *AuthMiddleware) lookupAuthContext(c *fiber.Ctx, apiKey string) (*platform.AuthContext, error) {
 	hash := HashKey(apiKey)
 
+	if keyInfo, handled, err := m.lookupRuntimeProfileAuthContext(c, hash); handled || err != nil {
+		return keyInfo, err
+	}
+
 	keyInfo, err := m.keyStore.GetKeyByHash(c.Context(), hash)
 	if err != nil {
 		if isInvalidAPIKeyLookup(err) {
@@ -164,6 +178,29 @@ func (m *AuthMiddleware) lookupAuthContext(c *fiber.Ctx, apiKey string) (*platfo
 	}
 
 	return keyInfo, nil
+}
+
+func (m *AuthMiddleware) lookupRuntimeProfileAuthContext(c *fiber.Ctx, hash string) (*platform.AuthContext, bool, error) {
+	if m.runtimeProfiles == nil {
+		return nil, false, nil
+	}
+
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil || strings.TrimSpace(currentTenant.ID) == "" {
+		return nil, false, nil
+	}
+
+	keyInfo, err := m.runtimeProfiles.GetAuthByTokenHash(c.Context(), currentTenant.ID, hash)
+	if err == nil {
+		return keyInfo, true, nil
+	}
+
+	if errors.Is(err, runtimeprofile.ErrAuthNotFound) {
+		return nil, true, writeAuthError(c, fiber.StatusUnauthorized, "Invalid API key", "authentication_error")
+	}
+
+	m.logger.Warn("runtime profile auth lookup unavailable", zap.Error(err), zap.String("tenant_id", currentTenant.ID))
+	return nil, true, writeAuthError(c, fiber.StatusServiceUnavailable, "Tenant runtime profile unavailable", "server_error")
 }
 
 func (m *AuthMiddleware) authorizeAndStoreAuthContext(c *fiber.Ctx, keyInfo *platform.AuthContext) error {

@@ -40,7 +40,11 @@ func (s *Store) CreateTenantGuardrail(ctx context.Context, tenantID string, req 
 		return nil, pgx.ErrNoRows
 	}
 
-	return scanTenantGuardrail(rows)
+	item, err := scanTenantGuardrail(rows)
+	if err == nil {
+		s.invalidateTenantRuntimeProfile(ctx, tenantID, "guardrail.created")
+	}
+	return item, err
 }
 
 func (s *Store) ListTenantGuardrails(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.TenantGuardrail, int, error) {
@@ -81,7 +85,11 @@ func (s *Store) GetTenantGuardrailBySlug(ctx context.Context, tenantID string, s
 		return nil, pgx.ErrNoRows
 	}
 
-	return scanTenantGuardrail(rows)
+	item, err := scanTenantGuardrail(rows)
+	if err == nil {
+		s.invalidateTenantRuntimeProfile(ctx, tenantID, "guardrail.updated")
+	}
+	return item, err
 }
 
 func (s *Store) UpdateTenantGuardrailBySlug(ctx context.Context, tenantID string, slug string, req platform.UpdateTenantGuardrailRequest, actor string) (*platform.TenantGuardrail, error) {
@@ -170,6 +178,7 @@ func (s *Store) DeleteTenantGuardrailBySlug(ctx context.Context, tenantID string
 	if result.RowsAffected() == 0 {
 		return pgx.ErrNoRows
 	}
+	s.invalidateTenantRuntimeProfile(ctx, tenantID, "guardrail.deleted")
 
 	return nil
 }

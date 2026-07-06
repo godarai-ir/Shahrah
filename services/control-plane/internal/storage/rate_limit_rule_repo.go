@@ -70,7 +70,11 @@ func (s *Store) CreateRateLimitRule(ctx context.Context, tenantID string, req pl
 		return nil, pgx.ErrNoRows
 	}
 
-	return scanRateLimitRule(rows)
+	item, err := scanRateLimitRule(rows)
+	if err == nil {
+		s.invalidateTenantRuntimeProfile(ctx, tenantID, "rate_limit_rule.created")
+	}
+	return item, err
 }
 
 func (s *Store) ListRateLimitRules(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.RateLimitRule, int, error) {
@@ -111,7 +115,11 @@ func (s *Store) GetRateLimitRuleByRuleID(ctx context.Context, tenantID string, r
 		return nil, pgx.ErrNoRows
 	}
 
-	return scanRateLimitRule(rows)
+	item, err := scanRateLimitRule(rows)
+	if err == nil {
+		s.invalidateTenantRuntimeProfile(ctx, tenantID, "rate_limit_rule.updated")
+	}
+	return item, err
 }
 
 func (s *Store) UpdateRateLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string, req platform.UpdateRateLimitRuleRequest) (*platform.RateLimitRule, error) {
@@ -189,7 +197,11 @@ func (s *Store) UpdateRateLimitRuleByRuleID(ctx context.Context, tenantID string
 		return nil, pgx.ErrNoRows
 	}
 
-	return scanRateLimitRule(rows)
+	item, err := scanRateLimitRule(rows)
+	if err == nil {
+		s.invalidateTenantRuntimeProfile(ctx, tenantID, "rate_limit_rule.status_updated")
+	}
+	return item, err
 }
 
 func optionalRateLimitConflictBehavior(value *platform.RateLimitConflictBehavior, fallback platform.RateLimitConflictBehavior) platform.RateLimitConflictBehavior {
@@ -241,6 +253,7 @@ func (s *Store) DeleteRateLimitRuleByRuleID(ctx context.Context, tenantID string
 	if result.RowsAffected() == 0 {
 		return pgx.ErrNoRows
 	}
+	s.invalidateTenantRuntimeProfile(ctx, tenantID, "rate_limit_rule.deleted")
 
 	return nil
 }

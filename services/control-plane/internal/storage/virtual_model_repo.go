@@ -64,6 +64,7 @@ func (s *Store) CreateVirtualModel(ctx context.Context, tenantID string, req pla
 		return nil, err
 	}
 	s.invalidateVirtualModelsCache(ctx, tenantID)
+	s.invalidateTenantRuntimeProfile(ctx, tenantID, "virtual_model.created")
 	s.warmVirtualModelsCacheAsync(tenantID)
 
 	out := &platform.VirtualModel{
@@ -300,6 +301,7 @@ func (s *Store) UpdateVirtualModel(ctx context.Context, tenantID string, id stri
 		return nil, err
 	}
 	s.invalidateVirtualModelsCache(ctx, tenantID)
+	s.invalidateTenantRuntimeProfile(ctx, tenantID, "virtual_model.updated")
 	s.warmVirtualModelsCacheAsync(tenantID)
 
 	return s.GetVirtualModel(ctx, tenantID, id)
@@ -335,6 +337,7 @@ func (s *Store) DeleteVirtualModel(ctx context.Context, tenantID string, id stri
 		return err
 	}
 	s.invalidateVirtualModelsCache(ctx, tenantID)
+	s.invalidateTenantRuntimeProfile(ctx, tenantID, "virtual_model.deleted")
 	s.warmVirtualModelsCacheAsync(tenantID)
 	return nil
 }

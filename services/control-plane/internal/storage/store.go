@@ -9,6 +9,7 @@ import (
 
 	_ "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
+	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 	"golang.org/x/sync/singleflight"
@@ -57,6 +58,8 @@ type Store struct {
 	authzTenantEpoch     map[string]uint64
 	authzCacheTTL        time.Duration
 	authzCacheMaxEntries int
+
+	runtimeProfiles *runtimeprofile.Manager
 }
 
 // SetEntitlementCache attaches the shared control-plane cache used by entitlement resolution.
@@ -80,6 +83,10 @@ func (s *Store) SetRequestLoggingModeCacheTTL(ttl time.Duration) {
 // SetTokenUsageMetrics attaches token usage aggregation metric hooks.
 func (s *Store) SetTokenUsageMetrics(metrics TokenUsageMetrics) {
 	s.tokenUsageMetrics = metrics
+}
+
+func (s *Store) SetRuntimeProfileManager(manager *runtimeprofile.Manager) {
+	s.runtimeProfiles = manager
 }
 
 // NewStore creates a new PostgreSQL store.

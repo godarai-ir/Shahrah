@@ -535,6 +535,7 @@ func (s *Store) CreateKey(ctx context.Context, params platform.CreateKeyParams) 
 	if err != nil {
 		return nil, err
 	}
+	s.invalidateTenantRuntimeProfile(ctx, params.TenantID, "token.created")
 
 	return &platform.CreatedKey{
 		ID:              keyID,
@@ -724,6 +725,9 @@ func (s *Store) RevokePAT(ctx context.Context, tenantID string, userID string, k
 	if err != nil {
 		return false, err
 	}
+	if tag.RowsAffected() > 0 {
+		s.invalidateTenantRuntimeProfile(ctx, tenantID, "pat.revoked")
+	}
 
 	return tag.RowsAffected() > 0, nil
 }
@@ -742,6 +746,9 @@ func (s *Store) RevokeAllPATs(ctx context.Context, tenantID string, userID strin
 	`, tenantID, strings.TrimSpace(userID), strings.TrimSpace(revokedByUserID))
 	if err != nil {
 		return 0, err
+	}
+	if tag.RowsAffected() > 0 {
+		s.invalidateTenantRuntimeProfile(ctx, tenantID, "pat.revoked_all")
 	}
 
 	return tag.RowsAffected(), nil
@@ -877,6 +884,7 @@ func (s *Store) UpdateVATToken(ctx context.Context, tenantID string, virtualUser
 	if err != nil {
 		return nil, err
 	}
+	s.invalidateTenantRuntimeProfile(ctx, tenantID, "vat.updated")
 
 	return item, nil
 }
@@ -897,6 +905,9 @@ func (s *Store) RevokeVATToken(ctx context.Context, tenantID string, virtualUser
 	`, keyID, tenantID, virtualUserID, strings.TrimSpace(revokedByUserID), strings.TrimSpace(reason))
 	if err != nil {
 		return false, err
+	}
+	if tag.RowsAffected() > 0 {
+		s.invalidateTenantRuntimeProfile(ctx, tenantID, "vat.revoked")
 	}
 
 	return tag.RowsAffected() > 0, nil
@@ -939,6 +950,7 @@ func (s *Store) RotateVATToken(ctx context.Context, tenantID string, virtualUser
 	if err != nil {
 		return nil, err
 	}
+	s.invalidateTenantRuntimeProfile(ctx, tenantID, "vat.rotated")
 
 	created.Key = rawKey
 	created.MaskedKey = masked
@@ -968,6 +980,9 @@ func (s *Store) RotateVATToken(ctx context.Context, tenantID string, virtualUser
 		  AND virtual_user_id = $3::uuid
 		  AND key_type = 'vat'
 	`, keyID, tenantID, virtualUserID, graceExpires)
+	if err == nil {
+		s.invalidateTenantRuntimeProfile(ctx, tenantID, "vat.rotation_grace")
+	}
 
 	return created, err
 }

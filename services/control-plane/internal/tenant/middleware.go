@@ -11,12 +11,14 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
+	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/sync/singleflight"
 )
 
 // ContextKey is the local key for tenant context.
 type ContextKey struct{}
+type RuntimeProfileContextKey struct{}
 
 // Store is the subset of tenant storage used by middleware.
 type Store interface {
@@ -40,10 +42,15 @@ type MiddlewareConfig struct {
 type Middleware struct {
 	store           Store
 	cache           Cache
+	runtimeProfiles runtimeProfileGetter
 	defaultTenant   string
 	allowHeaderHint bool
 	cacheTTL        time.Duration
 	loadGroup       singleflight.Group
+}
+
+type runtimeProfileGetter interface {
+	Get(ctx context.Context, tenantID string) (*runtimeprofile.Profile, error)
 }
 
 // NewMiddleware creates a new tenant middleware without caching.
@@ -71,6 +78,10 @@ func NewMiddlewareWithCache(store Store, c Cache, cfg MiddlewareConfig) *Middlew
 		allowHeaderHint: cfg.AllowHeaderHint,
 		cacheTTL:        cacheTTL,
 	}
+}
+
+func (m *Middleware) SetRuntimeProfiles(runtimeProfiles runtimeProfileGetter) {
+	m.runtimeProfiles = runtimeProfiles
 }
 
 // Handle resolves and stores the tenant context.
@@ -104,6 +115,7 @@ func (m *Middleware) Handle() fiber.Handler {
 						return fiber.NewError(fiber.StatusForbidden, fmt.Sprintf("tenant is not active (status: %s)", tenant.Status))
 					}
 					c.Locals(ContextKey{}, tenant)
+					m.attachRuntimeProfile(c, tenant)
 					return c.Next()
 				}
 			}
@@ -120,9 +132,21 @@ func (m *Middleware) Handle() fiber.Handler {
 		}
 
 		c.Locals(ContextKey{}, tenant)
+		m.attachRuntimeProfile(c, tenant)
 
 		return c.Next()
 	}
+}
+
+func (m *Middleware) attachRuntimeProfile(c *fiber.Ctx, tenant *platform.Tenant) {
+	if m == nil || m.runtimeProfiles == nil || tenant == nil {
+		return
+	}
+	profile, err := m.runtimeProfiles.Get(c.Context(), tenant.ID)
+	if err != nil || profile == nil {
+		return
+	}
+	c.Locals(RuntimeProfileContextKey{}, profile)
 }
 
 func (m *Middleware) resolveTenant(ctx context.Context, host string) (*platform.Tenant, error) {
@@ -236,6 +260,15 @@ func FromContext(c *fiber.Ctx) *platform.Tenant {
 		}
 	}
 
+	return nil
+}
+
+func RuntimeProfileFromContext(c *fiber.Ctx) *runtimeprofile.Profile {
+	if value := c.Locals(RuntimeProfileContextKey{}); value != nil {
+		if profile, ok := value.(*runtimeprofile.Profile); ok {
+			return profile
+		}
+	}
 	return nil
 }
 

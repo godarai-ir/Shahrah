@@ -11,6 +11,7 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
+	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
 )
 
 var (
@@ -35,9 +36,12 @@ type entitlementStore interface {
 
 // Service enforces rate limits and budget checks.
 type Service struct {
-	cache             cache.Cache
-	store             walletStore
-	entitlements      entitlementStore
+	cache           cache.Cache
+	store           walletStore
+	entitlements    entitlementStore
+	runtimeProfiles interface {
+		Get(ctx context.Context, tenantID string) (*runtimeprofile.Profile, error)
+	}
 	defaultRate       platform.ExchangeRate
 	exchangeRateCache *exchangeRateCache
 	pricingCache      *pricingCache
@@ -79,6 +83,12 @@ func NewServiceWithCacheConfig(c cache.Cache, store walletStore, defaultUSDtoIRR
 	return svc
 }
 
+func (s *Service) SetRuntimeProfiles(runtimeProfiles interface {
+	Get(ctx context.Context, tenantID string) (*runtimeprofile.Profile, error)
+}) {
+	s.runtimeProfiles = runtimeProfiles
+}
+
 // CheckRateLimit validates per-minute request and token limits.
 // Returns the primary rate-limit result to expose in response headers.
 func (s *Service) CheckRateLimit(ctx context.Context, auth *platform.AuthContext, _ string, _ int) (*cache.RateLimitResult, error) {
@@ -86,7 +96,7 @@ func (s *Service) CheckRateLimit(ctx context.Context, auth *platform.AuthContext
 		return nil, nil
 	}
 
-	effective, err := s.entitlements.ResolveEffectiveEntitlementLimits(ctx, auth.TenantID)
+	effective, err := s.resolveEffectiveEntitlementLimits(ctx, auth.TenantID)
 	if err != nil {
 		return nil, ErrSubscriptionInactive
 	}
@@ -116,6 +126,28 @@ func (s *Service) CheckRateLimit(ctx context.Context, auth *platform.AuthContext
 	}
 
 	return result, nil
+}
+
+func (s *Service) resolveEffectiveEntitlementLimits(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementLimits, error) {
+	if s.runtimeProfiles != nil {
+		profile, err := s.runtimeProfiles.Get(ctx, tenantID)
+		if err == nil && profile != nil && profile.Entitlements != nil {
+			out := *profile.Entitlements
+			out.Features = cloneInterfaceMap(profile.Entitlements.Features)
+			if profile.Entitlements.Subscription != nil {
+				sub := *profile.Entitlements.Subscription
+				sub.PriceSnapshot = cloneInterfaceMap(sub.PriceSnapshot)
+				sub.Metadata = cloneInterfaceMap(sub.Metadata)
+				out.Subscription = &sub
+			}
+			return &out, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("tenant runtime profile entitlements unavailable")
+	}
+	return s.entitlements.ResolveEffectiveEntitlementLimits(ctx, tenantID)
 }
 
 // CheckBudget validates wallet balance constraints.
@@ -230,6 +262,17 @@ func entitlementNumber(value interface{}) (float64, bool) {
 	default:
 		return 0, false
 	}
+}
+
+func cloneInterfaceMap(in map[string]interface{}) map[string]interface{} {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]interface{}, len(in))
+	for key, value := range in {
+		out[key] = value
+	}
+	return out
 }
 
 // EstimateCost estimates tokens and cost for a request.

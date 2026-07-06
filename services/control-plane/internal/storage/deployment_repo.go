@@ -48,6 +48,7 @@ func (s *Store) CreateDeployment(ctx context.Context, dep platform.Deployment) (
 	}
 
 	s.invalidateDeploymentCache(ctx, dep.TenantID)
+	s.invalidateTenantRuntimeProfile(ctx, dep.TenantID, "deployment.created")
 	s.warmDeploymentCacheAsync(dep.TenantID)
 
 	return &dep, nil

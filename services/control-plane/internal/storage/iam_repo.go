@@ -370,7 +370,11 @@ func (s *Store) CreateVirtualUser(ctx context.Context, tenantID string, req plat
 		return nil, pgx.ErrNoRows
 	}
 
-	return scanVirtualUser(rows)
+	item, err := scanVirtualUser(rows)
+	if err == nil {
+		s.invalidateTenantRuntimeProfile(ctx, tenantID, "virtual_user.created")
+	}
+	return item, err
 }
 
 func (s *Store) ListVirtualUsers(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.VirtualUser, int, error) {
@@ -407,7 +411,11 @@ func (s *Store) GetVirtualUser(ctx context.Context, tenantID string, virtualUser
 		return nil, pgx.ErrNoRows
 	}
 
-	return scanVirtualUser(rows)
+	item, err := scanVirtualUser(rows)
+	if err == nil {
+		s.invalidateTenantRuntimeProfile(ctx, tenantID, "virtual_user.updated")
+	}
+	return item, err
 }
 
 func (s *Store) UpdateVirtualUser(ctx context.Context, tenantID string, virtualUserID string, req platform.UpdateVirtualUserRequest) (*platform.VirtualUser, error) {
@@ -487,6 +495,7 @@ func (s *Store) DeleteVirtualUser(ctx context.Context, tenantID string, virtualU
 	if command.RowsAffected() == 0 {
 		return pgx.ErrNoRows
 	}
+	s.invalidateTenantRuntimeProfile(ctx, tenantID, "virtual_user.deleted")
 
 	return nil
 }

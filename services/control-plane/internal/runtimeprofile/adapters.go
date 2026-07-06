@@ -1,0 +1,108 @@
+package runtimeprofile
+
+import (
+	"context"
+	"strings"
+
+	"github.com/Delpak/shahrah/packages/contracts/platform"
+)
+
+type VirtualModelStore struct {
+	manager *Manager
+}
+
+func NewVirtualModelStore(manager *Manager) *VirtualModelStore {
+	return &VirtualModelStore{manager: manager}
+}
+
+func (s *VirtualModelStore) GetVirtualModelByAlias(ctx context.Context, tenantID string, alias string) (*platform.VirtualModel, error) {
+	profile, err := s.manager.Get(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	vm, ok := profile.VirtualModels[strings.TrimSpace(alias)]
+	if !ok {
+		return nil, ErrProfileUnavailable
+	}
+	out := cloneVirtualModel(vm)
+	return &out, nil
+}
+
+type GuardrailResolver struct {
+	manager *Manager
+}
+
+func NewGuardrailResolver(manager *Manager) *GuardrailResolver {
+	return &GuardrailResolver{manager: manager}
+}
+
+func (r *GuardrailResolver) ListEnabledTenantGuardrailsBySlugs(ctx context.Context, tenantID string, slugs []string) ([]platform.TenantGuardrail, error) {
+	profile, err := r.manager.Get(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]platform.TenantGuardrail, 0, len(slugs))
+	seen := map[string]bool{}
+	for _, slug := range slugs {
+		slug = strings.TrimSpace(slug)
+		if slug == "" || seen[slug] {
+			continue
+		}
+		seen[slug] = true
+		if guardrail, ok := profile.Guardrails[slug]; ok && guardrail.Enabled {
+			out = append(out, cloneGuardrail(guardrail))
+		}
+	}
+	return out, nil
+}
+
+type DeploymentStore struct {
+	manager *Manager
+}
+
+func NewDeploymentStore(manager *Manager) *DeploymentStore {
+	return &DeploymentStore{manager: manager}
+}
+
+func (s *DeploymentStore) ListDeployments(ctx context.Context, tenantID string) ([]platform.Deployment, error) {
+	profile, err := s.manager.Get(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	return cloneDeployments(profile.Deployments), nil
+}
+
+func (s *DeploymentStore) ResolveProviderAccountAPIKey(ctx context.Context, tenantID, modelFQN string) (string, error) {
+	profile, err := s.manager.Get(ctx, tenantID)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(profile.ProviderAPIKeys[strings.TrimSpace(modelFQN)]), nil
+}
+
+type EntitlementResolver struct {
+	manager *Manager
+}
+
+func NewEntitlementResolver(manager *Manager) *EntitlementResolver {
+	return &EntitlementResolver{manager: manager}
+}
+
+func (r *EntitlementResolver) ResolveEffectiveEntitlementLimits(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementLimits, error) {
+	profile, err := r.manager.Get(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	if profile.Entitlements == nil {
+		return nil, ErrProfileUnavailable
+	}
+	out := *profile.Entitlements
+	out.Features = cloneInterfaceMap(profile.Entitlements.Features)
+	if profile.Entitlements.Subscription != nil {
+		sub := *profile.Entitlements.Subscription
+		sub.PriceSnapshot = cloneInterfaceMap(sub.PriceSnapshot)
+		sub.Metadata = cloneInterfaceMap(sub.Metadata)
+		out.Subscription = &sub
+	}
+	return &out, nil
+}

@@ -71,6 +71,7 @@ model Tenant {
   tenantAdminInvitations     tenant_admin_invitations[]
   tenant_onboarding_requests tenant_onboarding_requests[]
   tenant_provider_accounts   TenantProviderAccount[]
+  tenant_runtime_profiles    tenant_runtime_profiles[]
   tenant_guardrails          TenantGuardrail[]
   verification_tokens        VerificationToken[]
   virtual_users              VirtualUser[]
@@ -763,4 +764,20 @@ model goose_db_version {
   version_id BigInt
   is_applied Boolean
   tstamp     DateTime @default(now()) @db.Timestamp(6)
+}
+
+model tenant_runtime_profiles {
+  tenant_id         String   @db.Uuid
+  version           BigInt
+  profile_json      Json     @default("{}")
+  checksum          String   @db.VarChar(64)
+  compiled_at       DateTime @default(now()) @db.Timestamptz(6)
+  source_updated_at DateTime @default(now()) @db.Timestamptz(6)
+  status            String   @default("active") @db.VarChar(32)
+  error             String?
+  tenants           Tenant   @relation(fields: [tenant_id], references: [tenant_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([tenant_id, version])
+  @@index([tenant_id, version(sort: Desc)], map: "idx_tenant_runtime_profiles_latest")
+  @@index([compiled_at(sort: Desc)], map: "idx_tenant_runtime_profiles_compiled_at")
 }

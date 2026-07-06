@@ -159,6 +159,11 @@ func (d *DualCache) DistributedSet(ctx context.Context, key string, value interf
 	return d.redis.Set(ctx, key, value, ttl).Err()
 }
 
+// Publish sends an invalidation or coordination message through Redis Pub/Sub.
+func (d *DualCache) Publish(ctx context.Context, channel string, message string) error {
+	return d.redis.Publish(ctx, channel, message).Err()
+}
+
 // Delete removes a value from both memory and Redis.
 func (d *DualCache) Delete(ctx context.Context, key string) {
 	d.memory.Delete(ctx, key)
