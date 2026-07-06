@@ -13,6 +13,9 @@ var ErrInsufficientWalletBalance = errors.New("insufficient wallet balance")
 
 // GetWallet retrieves or creates the tenant wallet.
 func (s *Store) GetWallet(ctx context.Context, tenantID string) (*platform.Wallet, error) {
+	ctx, cancel := withHotPathDBTimeout(ctx)
+	defer cancel()
+
 	var wallet platform.Wallet
 
 	err := s.pool.QueryRow(ctx, `
@@ -78,11 +81,14 @@ func (s *Store) TopUpWallet(ctx context.Context, tenantID string, amountIRR floa
 
 // DebitWallet debits the tenant wallet for inference usage.
 func (s *Store) DebitWallet(ctx context.Context, tenantID string, breakdown platform.UsageCostBreakdown, requestID string) (*platform.Transaction, error) {
+	ctx, cancel := withHotPathDBTimeout(ctx)
+	defer cancel()
+
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
 	}
-	defer rollbackTxBestEffort(ctx, tx)
+	defer rollbackTxWithFreshTimeout(tx)
 
 	var wallet platform.Wallet
 	// Lock the wallet row for the full transaction so concurrent debits serialize.

@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
+	"golang.org/x/sync/singleflight"
 )
 
 var (
@@ -582,6 +583,9 @@ func (s *Store) ResolveEffectiveEntitlements(ctx context.Context, tenantID strin
 
 // ResolveEffectiveEntitlementLimits returns subscription and feature limits without usage counters.
 func (s *Store) ResolveEffectiveEntitlementLimits(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementLimits, error) {
+	ctx, cancel := withHotPathDBTimeout(ctx)
+	defer cancel()
+
 	base, err := s.resolveEffectiveEntitlementsBase(ctx, tenantID)
 	if err != nil {
 		return nil, err
@@ -604,7 +608,7 @@ func (s *Store) resolveEffectiveEntitlementsBase(ctx context.Context, tenantID s
 	}
 
 	key := entitlementCacheKey(tenantID)
-	value, err, _ := s.entitlementLoadGroup.Do(key, func() (interface{}, error) {
+	ch := s.entitlementLoadGroup.DoChan(key, func() (interface{}, error) {
 		if cached, ok := s.getCachedEntitlements(ctx, tenantID); ok {
 			return cached, nil
 		}
@@ -618,6 +622,16 @@ func (s *Store) resolveEffectiveEntitlementsBase(ctx context.Context, tenantID s
 
 		return resolved, nil
 	})
+
+	var result singleflight.Result
+	select {
+	case result = <-ch:
+	case <-ctx.Done():
+		s.entitlementLoadGroup.Forget(key)
+		return nil, ctx.Err()
+	}
+
+	value, err := result.Val, result.Err
 	if err != nil {
 		return nil, err
 	}
@@ -1035,11 +1049,14 @@ func (s *Store) checkAndIncrementTenantUsageCounterRedis(ctx context.Context, te
 }
 
 func (s *Store) checkAndIncrementTenantUsageCounterDB(ctx context.Context, tenantID string, featureKey string, limit float64, increment float64, now time.Time) (*platform.UsageCounter, bool, error) {
+	ctx, cancel := withHotPathDBTimeout(ctx)
+	defer cancel()
+
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, false, err
 	}
-	defer rollbackTxBestEffort(ctx, tx)
+	defer rollbackTxWithFreshTimeout(tx)
 
 	var windowStart, windowEnd time.Time
 	if err := tx.QueryRow(ctx, `
@@ -1118,6 +1135,9 @@ func (s *Store) CountActiveTenantUsers(ctx context.Context, tenantID string) (in
 
 // ProcessSubscriptionTransitions applies scheduled downgrades and expires ended subscriptions.
 func (s *Store) ProcessSubscriptionTransitions(ctx context.Context, now time.Time, limit int) (int, error) {
+	ctx, cancel := withSubscriptionLifecycleDBTimeout(ctx)
+	defer cancel()
+
 	if limit <= 0 || limit > 1000 {
 		limit = 100
 	}
@@ -1127,7 +1147,7 @@ func (s *Store) ProcessSubscriptionTransitions(ctx context.Context, now time.Tim
 		return 0, err
 	}
 
-	defer rollbackTxBestEffort(ctx, tx)
+	defer rollbackTxWithFreshTimeout(tx)
 
 	var lockAcquired bool
 	if err := tx.QueryRow(ctx, `SELECT pg_try_advisory_xact_lock(hashtext($1))`, "subscription_lifecycle_processor").Scan(&lockAcquired); err != nil {

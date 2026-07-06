@@ -30,6 +30,9 @@ plans/
 .agents/
 .codex/
 .roo/
+.pnpm-store/
+.tmp/
+**/.tmp/
 .gocache/
 .gomodcache/
 .portkey-docs/
@@ -41,6 +44,7 @@ plans/
 **/bin/
 **/dist/
 **/coverage/
+**/coverage.out
 
 # Database assets not required by control-plane image build
 db/

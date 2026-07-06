@@ -29,7 +29,7 @@ func newGatewayBackpressureMiddleware(metrics ...backpressureMetrics) fiber.Hand
 
 	sem := make(chan struct{}, limit)
 	return func(c *fiber.Ctx) error {
-		if isBackpressureExemptPath(c.Path()) {
+		if !isGatewayBackpressurePath(c.Path()) || isBackpressureExemptPath(c.Path()) {
 			return c.Next()
 		}
 
@@ -57,6 +57,10 @@ func newGatewayBackpressureMiddleware(metrics ...backpressureMetrics) fiber.Hand
 			})
 		}
 	}
+}
+
+func isGatewayBackpressurePath(path string) bool {
+	return path == "/v1" || strings.HasPrefix(path, "/v1/")
 }
 
 func gatewayMaxInFlightFromEnv() int {

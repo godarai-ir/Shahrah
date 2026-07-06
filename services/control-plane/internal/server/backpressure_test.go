@@ -59,7 +59,7 @@ func TestGatewayBackpressureRejectsWhenFull(t *testing.T) {
 	release := make(chan struct{})
 	firstDone := make(chan error, 1)
 
-	app.Get("/protected", func(c *fiber.Ctx) error {
+	app.Get("/v1/protected", func(c *fiber.Ctx) error {
 		select {
 		case <-entered:
 		default:
@@ -70,7 +70,7 @@ func TestGatewayBackpressureRejectsWhenFull(t *testing.T) {
 	})
 
 	go func() {
-		req, err := http.NewRequest(http.MethodGet, "http://example.com/protected", http.NoBody)
+		req, err := http.NewRequest(http.MethodGet, "http://example.com/v1/protected", http.NoBody)
 		if err != nil {
 			firstDone <- err
 			return
@@ -92,7 +92,7 @@ func TestGatewayBackpressureRejectsWhenFull(t *testing.T) {
 
 	<-entered
 
-	req, err := http.NewRequest(http.MethodGet, "http://example.com/protected", http.NoBody)
+	req, err := http.NewRequest(http.MethodGet, "http://example.com/v1/protected", http.NoBody)
 	require.NoError(t, err)
 	resp, err := app.Test(req, -1)
 	defer closeResponseBody(t, resp)
@@ -119,7 +119,7 @@ func TestGatewayBackpressureExemptsHealthAndMetrics(t *testing.T) {
 	release := make(chan struct{})
 	firstDone := make(chan error, 1)
 
-	app.Get("/protected", func(c *fiber.Ctx) error {
+	app.Get("/v1/protected", func(c *fiber.Ctx) error {
 		close(entered)
 		<-release
 		return c.SendStatus(fiber.StatusNoContent)
@@ -132,7 +132,7 @@ func TestGatewayBackpressureExemptsHealthAndMetrics(t *testing.T) {
 	})
 
 	go func() {
-		req, err := http.NewRequest(http.MethodGet, "http://example.com/protected", http.NoBody)
+		req, err := http.NewRequest(http.MethodGet, "http://example.com/v1/protected", http.NoBody)
 		if err != nil {
 			firstDone <- err
 			return
@@ -165,24 +165,70 @@ func TestGatewayBackpressureReleasesAfterHandlerError(t *testing.T) {
 
 	app := fiber.New()
 	app.Use(newGatewayBackpressureMiddleware())
-	app.Get("/fail", func(c *fiber.Ctx) error {
+	app.Get("/v1/fail", func(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "boom")
 	})
-	app.Get("/ok", func(c *fiber.Ctx) error {
+	app.Get("/v1/ok", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	failReq, err := http.NewRequest(http.MethodGet, "http://example.com/fail", http.NoBody)
+	failReq, err := http.NewRequest(http.MethodGet, "http://example.com/v1/fail", http.NoBody)
 	require.NoError(t, err)
 	failResp, err := app.Test(failReq, -1)
 	defer closeResponseBody(t, failResp)
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusInternalServerError, failResp.StatusCode)
 
-	okReq, err := http.NewRequest(http.MethodGet, "http://example.com/ok", http.NoBody)
+	okReq, err := http.NewRequest(http.MethodGet, "http://example.com/v1/ok", http.NoBody)
 	require.NoError(t, err)
 	okResp, err := app.Test(okReq, -1)
 	defer closeResponseBody(t, okResp)
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusNoContent, okResp.StatusCode)
+}
+
+func TestGatewayBackpressureDoesNotThrottleAdminAuth(t *testing.T) {
+	t.Setenv("GATEWAY_MAX_IN_FLIGHT_REQUESTS", "1")
+
+	app := fiber.New()
+	app.Use(newGatewayBackpressureMiddleware())
+
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	firstDone := make(chan error, 1)
+
+	app.Get("/v1/protected", func(c *fiber.Ctx) error {
+		close(entered)
+		<-release
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+	app.Get("/api/v1/auth/session/:id", func(c *fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+
+	go func() {
+		req, err := http.NewRequest(http.MethodGet, "http://example.com/v1/protected", http.NoBody)
+		if err != nil {
+			firstDone <- err
+			return
+		}
+		resp, err := app.Test(req, -1)
+		if resp != nil && resp.Body != nil {
+			resp.Body.Close()
+		}
+		firstDone <- err
+	}()
+
+	<-entered
+
+	req, err := http.NewRequest(http.MethodGet, "http://example.com/api/v1/auth/session/sess-1", http.NoBody)
+	require.NoError(t, err)
+	resp, err := app.Test(req, -1)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusNoContent, resp.StatusCode)
+
+	close(release)
+	assert.NoError(t, <-firstDone)
 }
