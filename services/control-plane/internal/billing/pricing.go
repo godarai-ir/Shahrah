@@ -266,8 +266,8 @@ type priceInfo struct {
 	Output float64 // per 1K token
 }
 
-// modelPrice returns pricing for a given model (legacy function for service.go).
-func modelPrice(model string) priceInfo {
+// modelPriceFromRegistry returns pricing for a given model from the static registry.
+func modelPriceFromRegistry(model string) priceInfo {
 	// Try to find pricing in registry
 	parts := strings.SplitN(model, "/", 2)
 	provider := "openai"

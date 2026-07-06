@@ -2,10 +2,16 @@ package billing
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
 	"go.uber.org/zap"
+)
+
+const (
+	subscriptionProcessBatchSize = 100
+	subscriptionProcessTimeout   = 30 * time.Second
 )
 
 type subscriptionTransitionStore interface {
@@ -53,7 +59,7 @@ func (p *SubscriptionProcessor) Stop() {
 func (p *SubscriptionProcessor) run(ctx context.Context) {
 	defer close(p.done)
 
-	p.process(ctx)
+	p.processWithTimeout(ctx, time.Now())
 
 	ticker := time.NewTicker(p.interval)
 	defer ticker.Stop()
@@ -63,11 +69,16 @@ func (p *SubscriptionProcessor) run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case now := <-ticker.C:
-			workCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-			p.process(workCtx, now)
-			cancel()
+			p.processWithTimeout(ctx, now)
 		}
 	}
+}
+
+func (p *SubscriptionProcessor) processWithTimeout(ctx context.Context, now time.Time) {
+	workCtx, cancel := context.WithTimeout(ctx, subscriptionProcessTimeout)
+	defer cancel()
+
+	p.process(workCtx, now)
 }
 
 func (p *SubscriptionProcessor) process(ctx context.Context, now ...time.Time) {
@@ -76,13 +87,28 @@ func (p *SubscriptionProcessor) process(ctx context.Context, now ...time.Time) {
 		current = now[0].UTC()
 	}
 
-	processed, err := p.store.ProcessSubscriptionTransitions(ctx, current, 100)
+	started := time.Now()
+	processed, err := p.store.ProcessSubscriptionTransitions(ctx, current, subscriptionProcessBatchSize)
 	if err != nil {
-		p.logger.Error("subscription lifecycle processing failed", zap.Error(err))
+		if errors.Is(err, context.Canceled) {
+			return
+		}
+
+		p.logger.Error(
+			"subscription lifecycle processing failed",
+			zap.Error(err),
+			zap.Duration("elapsed", time.Since(started)),
+			zap.Int("batch_size", subscriptionProcessBatchSize),
+			zap.Time("now", current),
+		)
 		return
 	}
 
 	if processed > 0 {
-		p.logger.Info("subscription lifecycle transitions applied", zap.Int("count", processed))
+		p.logger.Info(
+			"subscription lifecycle transitions applied",
+			zap.Int("count", processed),
+			zap.Duration("elapsed", time.Since(started)),
+		)
 	}
 }

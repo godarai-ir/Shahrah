@@ -11,15 +11,25 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
+	"golang.org/x/sync/singleflight"
 )
 
 // Store provides PostgreSQL-backed persistence for the control-plane.
 type Store struct {
-	pool             *pgxpool.Pool
-	clickhouse       *sql.DB
-	clickhouseReady  bool
-	logger           *zap.Logger
-	entitlementCache cache.Cache
+	pool                       *pgxpool.Pool
+	clickhouse                 *sql.DB
+	clickhouseReady            bool
+	logger                     *zap.Logger
+	entitlementCache           cache.Cache
+	entitlementCacheTTL        time.Duration
+	entitlementLoadGroup       singleflight.Group
+	usageCounterCache          cache.UsageCounterCache
+	usageCountersEnabled       bool
+	usageCountersFailOpen      bool
+	usageCounterKeyPrefix      string
+	usageCounterFlushInterval  time.Duration
+	usageCounterFlushBatchSize int
+	usageCounterTTLBuffer      time.Duration
 
 	authzCacheMu         sync.RWMutex
 	authzCache           map[string]authzCacheEntry
@@ -31,6 +41,9 @@ type Store struct {
 // SetEntitlementCache attaches the shared control-plane cache used by entitlement resolution.
 func (s *Store) SetEntitlementCache(c cache.Cache) {
 	s.entitlementCache = c
+	if usageCounterCache, ok := c.(cache.UsageCounterCache); ok {
+		s.usageCounterCache = usageCounterCache
+	}
 }
 
 // NewStore creates a new PostgreSQL store.
@@ -50,12 +63,19 @@ func NewStore(ctx context.Context, databaseURL string, logger *zap.Logger) (*Sto
 	}
 
 	store := &Store{
-		pool:                 pool,
-		logger:               logger,
-		authzCache:           make(map[string]authzCacheEntry),
-		authzTenantEpoch:     make(map[string]uint64),
-		authzCacheTTL:        60 * time.Second,
-		authzCacheMaxEntries: 5000,
+		pool:                       pool,
+		logger:                     logger,
+		entitlementCacheTTL:        secondsEnvOrDefault("ENTITLEMENT_CACHE_TTL_SECONDS", 60*time.Second),
+		usageCountersEnabled:       boolEnvOrDefault("USAGE_COUNTER_REDIS_ENABLED", true),
+		usageCountersFailOpen:      boolEnvOrDefault("USAGE_COUNTER_REDIS_FAIL_OPEN", false),
+		usageCounterKeyPrefix:      stringEnvOrDefault("USAGE_COUNTER_REDIS_KEY_PREFIX", "usage"),
+		usageCounterFlushInterval:  secondsEnvOrDefault("USAGE_COUNTER_FLUSH_INTERVAL_SECONDS", 5*time.Second),
+		usageCounterFlushBatchSize: intEnvOrDefault("USAGE_COUNTER_FLUSH_BATCH_SIZE", 500),
+		usageCounterTTLBuffer:      secondsEnvOrDefault("USAGE_COUNTER_TTL_BUFFER_SECONDS", 3600*time.Second),
+		authzCache:                 make(map[string]authzCacheEntry),
+		authzTenantEpoch:           make(map[string]uint64),
+		authzCacheTTL:              60 * time.Second,
+		authzCacheMaxEntries:       5000,
 	}
 	if err := store.initClickHouse(ctx); err != nil {
 		logger.Warn("clickhouse trace backend unavailable; continuing without trace storage", zap.Error(err))

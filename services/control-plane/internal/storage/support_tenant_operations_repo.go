@@ -367,6 +367,8 @@ func (s *Store) SetTenantSubscriptionCancellation(ctx context.Context, tenantID 
 		return nil, err
 	}
 
+	s.invalidateTenantEntitlements(ctx, tenantID)
+
 	return s.GetTenantSubscription(ctx, tenantID)
 }
 

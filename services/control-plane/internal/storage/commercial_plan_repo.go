@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"go.uber.org/zap"
 )
 
 var (
@@ -23,8 +25,6 @@ var (
 	ErrSubscriptionNotFound     = errors.New("tenant subscription not found")
 	ErrTenantQuotaExceeded      = errors.New("tenant quota exceeded")
 )
-
-const entitlementCacheTTL = 30 * time.Second
 
 func (s *Store) ListFeatureCatalog(ctx context.Context) ([]platform.FeatureDefinition, error) {
 	rows, err := s.pool.Query(ctx, `
@@ -348,7 +348,14 @@ func (s *Store) UpsertPlanEntitlement(ctx context.Context, planSlug string, vers
 		return nil, pgx.ErrNoRows
 	}
 
-	return scanPlanEntitlement(rows)
+	item, err := scanPlanEntitlement(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	s.invalidateEntitlementsForPlan(ctx, planSlug)
+
+	return item, nil
 }
 
 func (s *Store) UpsertPlanPrice(ctx context.Context, planSlug string, version int, req platform.UpsertPlanPriceRequest) (*platform.PlanPrice, error) {
@@ -566,17 +573,42 @@ func (s *Store) upsertTenantSubscription(ctx context.Context, req platform.Upser
 
 func (s *Store) ResolveEffectiveEntitlements(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementsResponse, error) {
 	if cached, ok := s.getCachedEntitlements(ctx, tenantID); ok {
-		usageCounters, err := s.listCurrentUsageCounters(ctx, tenantID, cached.Features)
+		resolved, err := s.withCurrentUsageCounters(ctx, cached)
 		if err != nil {
 			return nil, err
 		}
 
-		cached.UsageCounters = usageCounters
-		cached.ResolvedAt = time.Now().UTC()
-
-		return cached, nil
+		return resolved, nil
 	}
 
+	key := entitlementCacheKey(tenantID)
+	value, err, _ := s.entitlementLoadGroup.Do(key, func() (interface{}, error) {
+		if cached, ok := s.getCachedEntitlements(ctx, tenantID); ok {
+			return cached, nil
+		}
+
+		resolved, resolveErr := s.resolveEffectiveEntitlementsFromDB(ctx, tenantID)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+
+		s.cacheEntitlements(ctx, resolved)
+
+		return resolved, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resolved, ok := value.(*platform.EffectiveEntitlementsResponse)
+	if !ok || resolved == nil {
+		return nil, fmt.Errorf("unexpected entitlement cache load result for tenant %s", tenantID)
+	}
+
+	return s.withCurrentUsageCounters(ctx, resolved)
+}
+
+func (s *Store) resolveEffectiveEntitlementsFromDB(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementsResponse, error) {
 	subscription, err := s.GetTenantSubscription(ctx, tenantID)
 	if err != nil {
 		return nil, err
@@ -654,16 +686,21 @@ func (s *Store) ResolveEffectiveEntitlements(ctx context.Context, tenantID strin
 		Overrides:    overrides,
 		ResolvedAt:   time.Now().UTC(),
 	}
-	s.cacheEntitlements(ctx, resolved)
 
-	usageCounters, err := s.listCurrentUsageCounters(ctx, tenantID, features)
+	return resolved, nil
+}
+
+func (s *Store) withCurrentUsageCounters(ctx context.Context, resolved *platform.EffectiveEntitlementsResponse) (*platform.EffectiveEntitlementsResponse, error) {
+	out := cloneEffectiveEntitlements(resolved)
+	usageCounters, err := s.listCurrentUsageCounters(ctx, out.TenantID, out.Features)
 	if err != nil {
 		return nil, err
 	}
 
-	resolved.UsageCounters = usageCounters
+	out.UsageCounters = usageCounters
+	out.ResolvedAt = time.Now().UTC()
 
-	return resolved, nil
+	return out, nil
 }
 
 func (s *Store) getCachedEntitlements(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementsResponse, bool) {
@@ -693,7 +730,7 @@ func (s *Store) getCachedEntitlements(ctx context.Context, tenantID string) (*pl
 		return nil, false
 	}
 
-	return &out, true
+	return cloneEffectiveEntitlements(&out), true
 }
 
 func (s *Store) cacheEntitlements(ctx context.Context, resolved *platform.EffectiveEntitlementsResponse) {
@@ -701,20 +738,104 @@ func (s *Store) cacheEntitlements(ctx context.Context, resolved *platform.Effect
 		return
 	}
 
-	resolvedCopy := *resolved
+	resolvedCopy := cloneEffectiveEntitlements(resolved)
 	resolvedCopy.UsageCounters = nil
 
-	raw, err := json.Marshal(&resolvedCopy)
+	raw, err := json.Marshal(resolvedCopy)
 	if err != nil {
 		return
 	}
 
-	s.entitlementCache.Set(ctx, entitlementCacheKey(resolved.TenantID), string(raw), entitlementCacheTTL)
+	s.entitlementCache.Set(ctx, entitlementCacheKey(resolved.TenantID), string(raw), s.entitlementCacheTTL)
+}
+
+func (s *Store) InvalidateEffectiveEntitlements(ctx context.Context, tenantID string) {
+	s.invalidateTenantEntitlements(ctx, tenantID)
 }
 
 func (s *Store) invalidateTenantEntitlements(ctx context.Context, tenantID string) {
 	if s.entitlementCache != nil && strings.TrimSpace(tenantID) != "" {
 		s.entitlementCache.Delete(ctx, entitlementCacheKey(tenantID))
+	}
+}
+
+func (s *Store) invalidateEntitlementsForPlan(ctx context.Context, planSlug string) {
+	if s.entitlementCache == nil {
+		return
+	}
+
+	rows, err := s.pool.Query(ctx, `
+		SELECT DISTINCT ts.tenant_id::text
+		FROM tenant_subscriptions ts
+		JOIN plan_versions pv ON pv.version_id = ts.version_id
+		JOIN commercial_plans p ON p.plan_id = pv.plan_id
+		WHERE p.slug = $1
+	`, normalizePlanSlug(planSlug))
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var tenantID string
+		if err := rows.Scan(&tenantID); err == nil {
+			s.invalidateTenantEntitlements(ctx, tenantID)
+		}
+	}
+}
+
+func cloneEffectiveEntitlements(in *platform.EffectiveEntitlementsResponse) *platform.EffectiveEntitlementsResponse {
+	if in == nil {
+		return nil
+	}
+
+	out := *in
+	if in.Subscription != nil {
+		subscription := *in.Subscription
+		subscription.PriceSnapshot = cloneStringInterfaceMap(in.Subscription.PriceSnapshot)
+		subscription.Metadata = cloneStringInterfaceMap(in.Subscription.Metadata)
+		out.Subscription = &subscription
+	}
+	out.Features = cloneStringInterfaceMap(in.Features)
+	out.Overrides = cloneStringInterfaceMap(in.Overrides)
+	if len(in.UsageCounters) > 0 {
+		out.UsageCounters = make([]platform.UsageCounter, len(in.UsageCounters))
+		for i, counter := range in.UsageCounters {
+			out.UsageCounters[i] = counter
+			if counter.Limit != nil {
+				limit := *counter.Limit
+				out.UsageCounters[i].Limit = &limit
+			}
+		}
+	}
+
+	return &out
+}
+
+func cloneStringInterfaceMap(in map[string]interface{}) map[string]interface{} {
+	if in == nil {
+		return nil
+	}
+
+	out := make(map[string]interface{}, len(in))
+	for key, value := range in {
+		out[key] = cloneJSONValue(value)
+	}
+	return out
+}
+
+func cloneJSONValue(value interface{}) interface{} {
+	switch typed := value.(type) {
+	case map[string]interface{}:
+		return cloneStringInterfaceMap(typed)
+	case []interface{}:
+		out := make([]interface{}, len(typed))
+		for i, item := range typed {
+			out[i] = cloneJSONValue(item)
+		}
+		return out
+	default:
+		return typed
 	}
 }
 
@@ -832,6 +953,58 @@ func (s *Store) DeleteTenantEntitlementOverride(ctx context.Context, tenantID st
 }
 
 func (s *Store) CheckAndIncrementTenantUsageCounter(ctx context.Context, tenantID string, featureKey string, limit float64, increment float64, now time.Time) (*platform.UsageCounter, bool, error) {
+	if s.usageCountersEnabled && s.usageCounterCache != nil {
+		counter, allowed, err := s.checkAndIncrementTenantUsageCounterRedis(ctx, tenantID, featureKey, limit, increment, now)
+		if err == nil {
+			return counter, allowed, nil
+		}
+		if s.logger != nil {
+			s.logger.Warn("redis usage counter unavailable; using fallback", zap.String("feature_key", featureKey), zap.Error(err))
+		}
+		if s.usageCountersFailOpen {
+			windowStart, windowEnd := usageCounterMonthWindow(now)
+			return &platform.UsageCounter{
+				FeatureKey:  featureKey,
+				WindowStart: windowStart,
+				WindowEnd:   windowEnd,
+				Used:        0,
+				Limit:       &limit,
+			}, true, nil
+		}
+	}
+
+	return s.checkAndIncrementTenantUsageCounterDB(ctx, tenantID, featureKey, limit, increment, now)
+}
+
+func (s *Store) checkAndIncrementTenantUsageCounterRedis(ctx context.Context, tenantID string, featureKey string, limit float64, increment float64, now time.Time) (*platform.UsageCounter, bool, error) {
+	windowStart, windowEnd := usageCounterMonthWindow(now)
+	ttl := time.Until(windowEnd) + s.usageCounterTTLBuffer
+	if ttl <= 0 {
+		ttl = s.usageCounterTTLBuffer
+	}
+
+	result, err := s.usageCounterCache.CheckUsageCounter(ctx, cache.UsageCounterRequest{
+		Key:         s.usageCounterKey(tenantID, featureKey, windowStart),
+		DirtySetKey: s.usageCounterDirtySetKey(),
+		Limit:       limit,
+		Increment:   increment,
+		TTL:         ttl,
+		WindowEnd:   windowEnd,
+	})
+	if err != nil {
+		return nil, false, err
+	}
+
+	return &platform.UsageCounter{
+		FeatureKey:  featureKey,
+		WindowStart: windowStart,
+		WindowEnd:   windowEnd,
+		Used:        result.Used,
+		Limit:       &limit,
+	}, result.Allowed, nil
+}
+
+func (s *Store) checkAndIncrementTenantUsageCounterDB(ctx context.Context, tenantID string, featureKey string, limit float64, increment float64, now time.Time) (*platform.UsageCounter, bool, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, false, err
@@ -894,6 +1067,12 @@ func (s *Store) CheckAndIncrementTenantUsageCounter(ctx context.Context, tenantI
 	return counter, true, nil
 }
 
+func usageCounterMonthWindow(now time.Time) (time.Time, time.Time) {
+	utc := now.UTC()
+	windowStart := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
+	return windowStart, windowStart.AddDate(0, 1, 0)
+}
+
 func (s *Store) CountActiveTenantUsers(ctx context.Context, tenantID string) (int, error) {
 	var count int
 	if err := s.pool.QueryRow(ctx, `
@@ -920,6 +1099,14 @@ func (s *Store) ProcessSubscriptionTransitions(ctx context.Context, now time.Tim
 
 	defer rollbackTxBestEffort(ctx, tx)
 
+	var lockAcquired bool
+	if err := tx.QueryRow(ctx, `SELECT pg_try_advisory_xact_lock(hashtext($1))`, "subscription_lifecycle_processor").Scan(&lockAcquired); err != nil {
+		return 0, err
+	}
+	if !lockAcquired {
+		return 0, nil
+	}
+
 	type transition struct {
 		subscriptionID  string
 		tenantID        string
@@ -937,7 +1124,7 @@ func (s *Store) ProcessSubscriptionTransitions(ctx context.Context, now time.Tim
 		       COALESCE(metadata->>'pending_billing_interval', '')
 		FROM tenant_subscriptions
 		WHERE status IN ('trialing', 'active', 'past_due') AND current_period_end <= $1
-		ORDER BY current_period_end ASC
+		ORDER BY current_period_end ASC, subscription_id ASC
 		LIMIT $2
 		FOR UPDATE SKIP LOCKED
 	`, now, limit)

@@ -269,6 +269,7 @@ func main() {
 
 	runCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	store.StartUsageCounterFlusher(runCtx)
 
 	go func() {
 		sigCh := make(chan os.Signal, 1)

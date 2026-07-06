@@ -38,15 +38,21 @@ type Service struct {
 	entitlements      entitlementStore
 	defaultRate       platform.ExchangeRate
 	exchangeRateCache *exchangeRateCache
+	pricingCache      *pricingCache
 }
 
 // NewService creates a billing enforcement service.
 func NewService(c cache.Cache, store walletStore, defaultUSDtoIRR float64, source string) *Service {
-	return NewServiceWithExchangeRateCacheConfig(c, store, defaultUSDtoIRR, source, loadExchangeRateCacheConfigFromEnv())
+	return NewServiceWithCacheConfig(c, store, defaultUSDtoIRR, source, loadExchangeRateCacheConfigFromEnv(), loadPricingCacheConfigFromEnv())
 }
 
 // NewServiceWithExchangeRateCacheConfig creates a billing service with explicit cache settings.
 func NewServiceWithExchangeRateCacheConfig(c cache.Cache, store walletStore, defaultUSDtoIRR float64, source string, exchangeRateCacheConfig ExchangeRateCacheConfig) *Service {
+	return NewServiceWithCacheConfig(c, store, defaultUSDtoIRR, source, exchangeRateCacheConfig, loadPricingCacheConfigFromEnv())
+}
+
+// NewServiceWithCacheConfig creates a billing service with explicit hot-path cache settings.
+func NewServiceWithCacheConfig(c cache.Cache, store walletStore, defaultUSDtoIRR float64, source string, exchangeRateCacheConfig ExchangeRateCacheConfig, pricingCacheConfig PricingCacheConfig) *Service {
 	var entitlements entitlementStore
 	if resolvedEntitlements, ok := store.(entitlementStore); ok {
 		entitlements = resolvedEntitlements
@@ -64,6 +70,7 @@ func NewServiceWithExchangeRateCacheConfig(c cache.Cache, store walletStore, def
 		defaultRate:  defaultRate,
 	}
 	svc.exchangeRateCache = newExchangeRateCache(store, c, defaultRate, exchangeRateCacheConfig)
+	svc.pricingCache = newPricingCache(c, pricingCacheConfig, modelPriceFromRegistry)
 
 	return svc
 }
@@ -150,22 +157,8 @@ func (s *Service) EstimateCost(ctx context.Context, req openai.ChatCompletionReq
 		outputTokens = *req.MaxTokens
 	}
 
-	price := modelPrice(req.Model)
-	inputCost := (float64(promptTokens) / 1000.0) * price.Input
-	outputCost := (float64(outputTokens) / 1000.0) * price.Output
-	totalUSD := inputCost + outputCost
-
-	return platform.UsageCostBreakdown{
-		Model:         req.Model,
-		InputTokens:   promptTokens,
-		OutputTokens:  outputTokens,
-		TotalTokens:   promptTokens + outputTokens,
-		InputCostUSD:  inputCost,
-		OutputCostUSD: outputCost,
-		TotalCostUSD:  totalUSD,
-		ExchangeRate:  rate.USDtoIRR,
-		TotalCostIRR:  totalUSD * rate.USDtoIRR,
-	}, nil
+	price := s.modelPrice(ctx, req.Model)
+	return costBreakdown(req.Model, promptTokens, outputTokens, price, rate.USDtoIRR), nil
 }
 
 // EstimateEmbeddingCost estimates cost for an embeddings request.
@@ -173,20 +166,8 @@ func (s *Service) EstimateEmbeddingCost(ctx context.Context, req openai.Embeddin
 	rate := s.exchangeRate(ctx)
 
 	promptTokens := estimateEmbeddingPromptTokens(req.Input)
-	price := modelPrice(req.Model)
-	inputCost := (float64(promptTokens) / 1000.0) * price.Input
-
-	return platform.UsageCostBreakdown{
-		Model:         req.Model,
-		InputTokens:   promptTokens,
-		OutputTokens:  0,
-		TotalTokens:   promptTokens,
-		InputCostUSD:  inputCost,
-		OutputCostUSD: 0,
-		TotalCostUSD:  inputCost,
-		ExchangeRate:  rate.USDtoIRR,
-		TotalCostIRR:  inputCost * rate.USDtoIRR,
-	}, nil
+	price := s.modelPrice(ctx, req.Model)
+	return costBreakdown(req.Model, promptTokens, 0, price, rate.USDtoIRR), nil
 }
 
 // FinalizeFromUsage recalculates final spend from provider usage.
@@ -197,22 +178,33 @@ func (s *Service) FinalizeFromUsage(ctx context.Context, model string, usage *op
 
 	rate := s.exchangeRate(ctx)
 
-	price := modelPrice(model)
-	inputCost := (float64(usage.PromptTokens) / 1000.0) * price.Input
-	outputCost := (float64(usage.CompletionTokens) / 1000.0) * price.Output
+	price := s.modelPrice(ctx, model)
+	return costBreakdown(model, usage.PromptTokens, usage.CompletionTokens, price, rate.USDtoIRR), nil
+}
+
+func costBreakdown(model string, inputTokens int, outputTokens int, price priceInfo, exchangeRate float64) platform.UsageCostBreakdown {
+	inputCost := (float64(inputTokens) / 1000.0) * price.Input
+	outputCost := (float64(outputTokens) / 1000.0) * price.Output
 	totalUSD := inputCost + outputCost
 
 	return platform.UsageCostBreakdown{
 		Model:         model,
-		InputTokens:   usage.PromptTokens,
-		OutputTokens:  usage.CompletionTokens,
-		TotalTokens:   usage.TotalTokens,
+		InputTokens:   inputTokens,
+		OutputTokens:  outputTokens,
+		TotalTokens:   inputTokens + outputTokens,
 		InputCostUSD:  inputCost,
 		OutputCostUSD: outputCost,
 		TotalCostUSD:  totalUSD,
-		ExchangeRate:  rate.USDtoIRR,
-		TotalCostIRR:  totalUSD * rate.USDtoIRR,
-	}, nil
+		ExchangeRate:  exchangeRate,
+		TotalCostIRR:  totalUSD * exchangeRate,
+	}
+}
+
+func (s *Service) modelPrice(ctx context.Context, model string) priceInfo {
+	if s != nil && s.pricingCache != nil {
+		return s.pricingCache.Get(ctx, model)
+	}
+	return modelPriceFromRegistry(model)
 }
 
 func (s *Service) persistDefaultExchangeRate(ctx context.Context) {
