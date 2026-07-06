@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -65,11 +66,50 @@ func (s *Store) UpsertTenantRequestLoggingSettings(ctx context.Context, tenantID
 	}
 
 	out.LoggingMode = NormalizeRequestLoggingMode(out.LoggingMode)
+	s.invalidateTenantRequestLoggingMode(ctx, tenantID)
 
 	return &out, nil
 }
 
 func (s *Store) ResolveTenantRequestLoggingMode(ctx context.Context, tenantID string) (string, bool, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return "", false, nil
+	}
+	if mode, ok, found := s.getCachedTenantRequestLoggingMode(ctx, tenantID); found {
+		return mode, ok, nil
+	}
+
+	value, err, _ := s.requestLoggingModeGroup.Do(requestLoggingModeCacheKey(tenantID), func() (interface{}, error) {
+		if mode, ok, found := s.getCachedTenantRequestLoggingMode(ctx, tenantID); found {
+			return cachedRequestLoggingMode{Mode: mode, OK: ok}, nil
+		}
+
+		mode, ok, resolveErr := s.resolveTenantRequestLoggingModeFromDB(ctx, tenantID)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		s.cacheTenantRequestLoggingMode(ctx, tenantID, mode, ok)
+		return cachedRequestLoggingMode{Mode: mode, OK: ok}, nil
+	})
+	if err != nil {
+		return "", false, err
+	}
+
+	cached, ok := value.(cachedRequestLoggingMode)
+	if !ok {
+		return "", false, fmt.Errorf("unexpected request logging mode cache value for tenant %s", tenantID)
+	}
+
+	return cached.Mode, cached.OK, nil
+}
+
+type cachedRequestLoggingMode struct {
+	Mode string
+	OK   bool
+}
+
+func (s *Store) resolveTenantRequestLoggingModeFromDB(ctx context.Context, tenantID string) (string, bool, error) {
 	var (
 		mode      string
 		updatedAt time.Time
@@ -92,4 +132,46 @@ func (s *Store) ResolveTenantRequestLoggingMode(ctx context.Context, tenantID st
 	_ = updatedAt
 
 	return NormalizeRequestLoggingMode(mode), true, nil
+}
+
+func (s *Store) getCachedTenantRequestLoggingMode(ctx context.Context, tenantID string) (string, bool, bool) {
+	if s.entitlementCache == nil {
+		return "", false, false
+	}
+
+	value, found := s.entitlementCache.Get(ctx, requestLoggingModeCacheKey(tenantID))
+	if !found {
+		return "", false, false
+	}
+
+	raw, ok := value.(string)
+	if !ok {
+		return "", false, false
+	}
+	if raw == "__unset__" {
+		return "", false, true
+	}
+
+	return NormalizeRequestLoggingMode(raw), true, true
+}
+
+func (s *Store) cacheTenantRequestLoggingMode(ctx context.Context, tenantID string, mode string, ok bool) {
+	if s.entitlementCache == nil {
+		return
+	}
+	value := "__unset__"
+	if ok {
+		value = NormalizeRequestLoggingMode(mode)
+	}
+	s.entitlementCache.Set(ctx, requestLoggingModeCacheKey(tenantID), value, s.requestLoggingModeTTL)
+}
+
+func (s *Store) invalidateTenantRequestLoggingMode(ctx context.Context, tenantID string) {
+	if s.entitlementCache != nil && strings.TrimSpace(tenantID) != "" {
+		s.entitlementCache.Delete(ctx, requestLoggingModeCacheKey(tenantID))
+	}
+}
+
+func requestLoggingModeCacheKey(tenantID string) string {
+	return "request-logging-mode:" + strings.TrimSpace(tenantID)
 }

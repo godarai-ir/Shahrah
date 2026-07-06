@@ -85,6 +85,7 @@ func main() {
 
 	_, sharedResponseCacheAvailable := dualCache.(*cache.DualCache)
 	store.SetEntitlementCache(dualCache)
+	store.SetRequestLoggingModeCacheTTL(time.Duration(cfg.RequestLogs.ModeCacheTTLSeconds) * time.Second)
 
 	llmRouter, err := router.NewRouter(cfg.ModelList, cfg.RouterSettings, dualCache, store, logger)
 	if err != nil {
@@ -160,12 +161,35 @@ func main() {
 		SupportTenants:   store,
 	})
 	authHandlers := admin.NewAuthHandlers(store, admin.NewOTPEmailSenderFromEnv())
+	var requestLogger proxy.RequestLogger = store
+	if cfg.RequestLogs.AsyncEnabled {
+		asyncRequestLogger := proxy.NewAsyncRequestLogWriter(store, proxy.AsyncRequestLogConfig{
+			QueueSize:      cfg.RequestLogs.QueueSize,
+			Workers:        cfg.RequestLogs.Workers,
+			BatchSize:      cfg.RequestLogs.BatchSize,
+			FlushInterval:  time.Duration(cfg.RequestLogs.FlushIntervalMS) * time.Millisecond,
+			EnqueueTimeout: time.Duration(cfg.RequestLogs.EnqueueTimeoutMS) * time.Millisecond,
+			DropOnFull:     cfg.RequestLogs.DropOnFull,
+		}, logger)
+		requestLogger = asyncRequestLogger
+		defer func() {
+			timeout := time.Duration(cfg.RequestLogs.ShutdownDrainTimeoutSeconds) * time.Second
+			if timeout <= 0 {
+				timeout = 5 * time.Second
+			}
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+			if err := asyncRequestLogger.Stop(shutdownCtx); err != nil {
+				logger.Warn("Failed to drain async request logs", zap.Error(err))
+			}
+		}()
+	}
 	baseProxyDeps := proxy.BaseHandlerDependencies{
 		Router:        llmRouter,
 		Tunnel:        tunnelClient,
 		Billing:       billingService,
 		Wallets:       store,
-		RequestLogger: store,
+		RequestLogger: requestLogger,
 		SpendLogger:   store,
 		Logger:        logger,
 		EmitMetric:    emitMetric,

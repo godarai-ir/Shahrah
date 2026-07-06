@@ -19,6 +19,7 @@ type Config struct {
 	GeneralSettings GeneralSettings        `mapstructure:"general_settings"`
 	Profiling       ProfilingSettings      `mapstructure:"profiling"`
 	OperationalLogs OperationalLogSettings `mapstructure:"operational_logging"`
+	RequestLogs     RequestLogSettings     `mapstructure:"request_logs"`
 	TenantSettings  TenantSettings         `mapstructure:"tenant_settings"`
 	TunnelSettings  TunnelSettings         `mapstructure:"tunnel_settings"`
 	BillingSettings BillingSettings        `mapstructure:"billing_settings"`
@@ -29,6 +30,19 @@ type ProfilingSettings struct {
 	EnablePprof          bool `mapstructure:"enable_pprof"`
 	MutexProfileFraction int  `mapstructure:"mutex_profile_fraction"`
 	BlockProfileRate     int  `mapstructure:"block_profile_rate"`
+}
+
+// RequestLogSettings controls tenant-facing product request log ingestion.
+type RequestLogSettings struct {
+	AsyncEnabled                bool `mapstructure:"async_enabled"`
+	QueueSize                   int  `mapstructure:"queue_size"`
+	Workers                     int  `mapstructure:"workers"`
+	BatchSize                   int  `mapstructure:"batch_size"`
+	FlushIntervalMS             int  `mapstructure:"flush_interval_ms"`
+	EnqueueTimeoutMS            int  `mapstructure:"enqueue_timeout_ms"`
+	DropOnFull                  bool `mapstructure:"drop_on_full"`
+	ShutdownDrainTimeoutSeconds int  `mapstructure:"shutdown_drain_timeout_seconds"`
+	ModeCacheTTLSeconds         int  `mapstructure:"mode_cache_ttl_seconds"`
 }
 
 // OperationalLogSettings controls low-overhead server access/error logging.
@@ -153,6 +167,15 @@ func LoadConfig(logger *zap.Logger) (*Config, error) {
 	v.SetDefault("operational_logging.include_headers", false)
 	v.SetDefault("operational_logging.log_client_errors", false)
 	v.SetDefault("operational_logging.use_fiber_access_logger", false)
+	v.SetDefault("request_logs.async_enabled", true)
+	v.SetDefault("request_logs.queue_size", 10000)
+	v.SetDefault("request_logs.workers", 1)
+	v.SetDefault("request_logs.batch_size", 500)
+	v.SetDefault("request_logs.flush_interval_ms", 500)
+	v.SetDefault("request_logs.enqueue_timeout_ms", 0)
+	v.SetDefault("request_logs.drop_on_full", true)
+	v.SetDefault("request_logs.shutdown_drain_timeout_seconds", 5)
+	v.SetDefault("request_logs.mode_cache_ttl_seconds", 60)
 	v.SetDefault("router_settings.routing_strategy", "simple-shuffle")
 	v.SetDefault("router_settings.cooldown_time", 60.0)
 	v.SetDefault("router_settings.num_retries", 3)

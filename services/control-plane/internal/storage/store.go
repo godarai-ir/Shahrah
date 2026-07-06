@@ -23,6 +23,8 @@ type Store struct {
 	entitlementCache           cache.Cache
 	entitlementCacheTTL        time.Duration
 	entitlementLoadGroup       singleflight.Group
+	requestLoggingModeTTL      time.Duration
+	requestLoggingModeGroup    singleflight.Group
 	usageCounterCache          cache.UsageCounterCache
 	usageCountersEnabled       bool
 	usageCountersFailOpen      bool
@@ -46,6 +48,13 @@ func (s *Store) SetEntitlementCache(c cache.Cache) {
 	}
 }
 
+// SetRequestLoggingModeCacheTTL overrides the tenant request logging mode cache TTL.
+func (s *Store) SetRequestLoggingModeCacheTTL(ttl time.Duration) {
+	if ttl > 0 {
+		s.requestLoggingModeTTL = ttl
+	}
+}
+
 // NewStore creates a new PostgreSQL store.
 func NewStore(ctx context.Context, databaseURL string, logger *zap.Logger) (*Store, error) {
 	cfg, err := pgxpool.ParseConfig(databaseURL)
@@ -66,6 +75,7 @@ func NewStore(ctx context.Context, databaseURL string, logger *zap.Logger) (*Sto
 		pool:                       pool,
 		logger:                     logger,
 		entitlementCacheTTL:        secondsEnvOrDefault("ENTITLEMENT_CACHE_TTL_SECONDS", 60*time.Second),
+		requestLoggingModeTTL:      secondsEnvOrDefault("REQUEST_LOG_MODE_CACHE_TTL_SECONDS", 60*time.Second),
 		usageCountersEnabled:       boolEnvOrDefault("USAGE_COUNTER_REDIS_ENABLED", true),
 		usageCountersFailOpen:      boolEnvOrDefault("USAGE_COUNTER_REDIS_FAIL_OPEN", false),
 		usageCounterKeyPrefix:      stringEnvOrDefault("USAGE_COUNTER_REDIS_KEY_PREFIX", "usage"),

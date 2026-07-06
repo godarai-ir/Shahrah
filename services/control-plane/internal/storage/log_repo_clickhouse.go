@@ -11,9 +11,11 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"go.uber.org/zap"
 )
 
 const logPayloadMaxBytes = 32 * 1024
+const requestLogInsertColumnCount = 40
 
 func (s *Store) ensureClickHouseRequestLogsSchema(ctx context.Context) error {
 	_, err := s.clickhouse.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS request_logs_ch (
@@ -66,10 +68,44 @@ func (s *Store) ensureClickHouseRequestLogsSchema(ctx context.Context) error {
 
 // LogRequest writes the normalized request log entry to ClickHouse.
 func (s *Store) LogRequest(ctx context.Context, entry platform.RequestLogEntry) error {
+	return s.LogRequests(ctx, []platform.RequestLogEntry{entry})
+}
+
+// LogRequests writes normalized request log entries to ClickHouse in one batch.
+func (s *Store) LogRequests(ctx context.Context, entries []platform.RequestLogEntry) error {
 	if !s.clickhouseReady || s.clickhouse == nil {
 		return ErrLogStoreUnavailable
 	}
+	if len(entries) == 0 {
+		return nil
+	}
 
+	values := make([]string, 0, len(entries))
+	args := make([]interface{}, 0, len(entries)*requestLogInsertColumnCount)
+	for _, entry := range entries {
+		rowArgs, err := s.requestLogInsertArgs(ctx, entry)
+		if err != nil {
+			return err
+		}
+		values = append(values, requestLogInsertPlaceholders(requestLogInsertColumnCount))
+		args = append(args, rowArgs...)
+	}
+
+	_, err := s.clickhouse.ExecContext(ctx, `
+		INSERT INTO request_logs_ch (
+			log_id, tenant_id, request_id, trace_id, token_hash, organization_id, org_unit_id, team_id,
+			actor_type, actor_id, provider, provider_model, model, virtual_model, route, request_type,
+			status, status_code, error_type, started_at, duration_ms, input_tokens, output_tokens, total_tokens,
+			cost_usd, cost_irr, cache_status, cache_mode, retry_count, fallback_count, fallback_status,
+			load_balance_status, payload_mode, request_payload_json, response_payload_json,
+			request_payload_meta_json, response_payload_meta_json, request_payload_truncated,
+			response_payload_truncated, metadata_json
+		) VALUES `+strings.Join(values, ", "), args...)
+
+	return err
+}
+
+func (s *Store) requestLogInsertArgs(ctx context.Context, entry platform.RequestLogEntry) ([]interface{}, error) {
 	logID := strings.TrimSpace(entry.LogID)
 	if logID == "" {
 		logID = "log_" + uuid.NewString()
@@ -82,7 +118,9 @@ func (s *Store) LogRequest(ctx context.Context, entry platform.RequestLogEntry) 
 
 	loggingMode := RequestLoggingModeMetadataOnly
 	if mode, ok, err := s.ResolveTenantRequestLoggingMode(ctx, entry.TenantID); err != nil {
-		return err
+		if s.logger != nil {
+			s.logger.Warn("failed to resolve tenant request logging mode; using metadata-only", zap.Error(err), zap.String("tenant_id", entry.TenantID))
+		}
 	} else if ok {
 		loggingMode = mode
 	}
@@ -100,17 +138,7 @@ func (s *Store) LogRequest(ctx context.Context, entry platform.RequestLogEntry) 
 	}
 	entry.Metadata["payload_mode"] = loggingMode
 
-	_, err := s.clickhouse.ExecContext(ctx, `
-		INSERT INTO request_logs_ch (
-			log_id, tenant_id, request_id, trace_id, token_hash, organization_id, org_unit_id, team_id,
-			actor_type, actor_id, provider, provider_model, model, virtual_model, route, request_type,
-			status, status_code, error_type, started_at, duration_ms, input_tokens, output_tokens, total_tokens,
-			cost_usd, cost_irr, cache_status, cache_mode, retry_count, fallback_count, fallback_status,
-			load_balance_status, payload_mode, request_payload_json, response_payload_json,
-			request_payload_meta_json, response_payload_meta_json, request_payload_truncated,
-			response_payload_truncated, metadata_json
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`,
+	return []interface{}{
 		logID,
 		strings.TrimSpace(entry.TenantID),
 		strings.TrimSpace(entry.RequestID),
@@ -151,9 +179,15 @@ func (s *Store) LogRequest(ctx context.Context, entry platform.RequestLogEntry) 
 		boolToUint8(requestTruncated || entry.RequestPayloadTruncated),
 		boolToUint8(responseTruncated || entry.ResponsePayloadTruncated),
 		string(marshalJSONBestEffort(entry.Metadata)),
-	)
+	}, nil
+}
 
-	return err
+func requestLogInsertPlaceholders(columns int) string {
+	parts := make([]string, columns)
+	for i := range parts {
+		parts[i] = "?"
+	}
+	return "(" + strings.Join(parts, ", ") + ")"
 }
 
 func (s *Store) listRequestLogsV2FromClickHouse(ctx context.Context, params platform.ListRequestLogsV2Params) ([]platform.RequestLogV2, int, error) {
