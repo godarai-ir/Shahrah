@@ -242,46 +242,6 @@ CREATE TABLE public.projects (
 
 
 --
--- Name: request_logs; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.request_logs (
-    id bigint NOT NULL,
-    request_id character varying(255),
-    token_hash character varying(64),
-    team_id uuid,
-    user_id uuid,
-    model character varying(255),
-    request_body jsonb,
-    response_body jsonb,
-    status character varying(20),
-    cost numeric(10,6),
-    response_time_ms integer,
-    created_at timestamp with time zone DEFAULT now(),
-    tenant_id uuid
-);
-
-
---
--- Name: request_logs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.request_logs_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: request_logs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.request_logs_id_seq OWNED BY public.request_logs.id;
-
-
---
 -- Name: spend_logs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -768,13 +728,6 @@ ALTER TABLE ONLY public.model_aliases ALTER COLUMN id SET DEFAULT nextval('publi
 
 
 --
--- Name: request_logs id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.request_logs ALTER COLUMN id SET DEFAULT nextval('public.request_logs_id_seq'::regclass);
-
-
---
 -- Name: spend_logs id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -899,14 +852,6 @@ ALTER TABLE ONLY public.policies
 
 ALTER TABLE ONLY public.projects
     ADD CONSTRAINT projects_pkey PRIMARY KEY (project_id);
-
-
---
--- Name: request_logs request_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.request_logs
-    ADD CONSTRAINT request_logs_pkey PRIMARY KEY (id);
 
 
 --
@@ -1573,14 +1518,6 @@ ALTER TABLE ONLY public.projects
 
 ALTER TABLE ONLY public.projects
     ADD CONSTRAINT projects_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(team_id);
-
-
---
--- Name: request_logs request_logs_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.request_logs
-    ADD CONSTRAINT request_logs_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(tenant_id);
 
 
 --

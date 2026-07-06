@@ -98,7 +98,6 @@ func TestIntegration_PostgresBackedOnboardingFlow(t *testing.T) {
 	assertCount(t, pool, `SELECT COUNT(*) FROM model_deployments`, 1)
 	assertCount(t, pool, `SELECT COUNT(*) FROM wallet_transactions WHERE tx_type = 'DEPOSIT'`, 1)
 	assertCount(t, pool, `SELECT COUNT(*) FROM wallet_transactions WHERE tx_type = 'CONSUMPTION'`, 1)
-	assertCount(t, pool, `SELECT COUNT(*) FROM request_logs`, 1)
 	assertCount(t, pool, `SELECT COUNT(*) FROM spend_logs`, 1)
 
 	var walletBalance float64
@@ -142,9 +141,6 @@ func TestIntegration_StorageSchemaContract(t *testing.T) {
 		},
 		"exchange_rates": {
 			"rate_id", "usd_to_irr", "source", "fetched_at",
-		},
-		"request_logs": {
-			"request_id", "token_hash", "tenant_id", "model", "request_body", "response_body", "status", "cost", "response_time_ms",
 		},
 		"spend_logs": {
 			"request_id", "token_hash", "tenant_id", "organization_id", "team_id", "model",
@@ -1625,7 +1621,6 @@ func resetPersistentState(t *testing.T, pool *pgxpool.Pool) {
 			wallet_transactions,
 			wallets,
 			exchange_rates,
-			request_logs,
 			spend_logs,
 			virtual_users,
 			verification_tokens,
