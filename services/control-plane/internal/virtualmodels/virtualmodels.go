@@ -5,14 +5,18 @@ import (
 	"context"
 	"errors"
 	"math/rand"
+	"os"
 	"sort"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	"github.com/Delpak/shahrah/services/control-plane/internal/modelid"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
+	"golang.org/x/sync/singleflight"
 )
 
 var (
@@ -45,16 +49,55 @@ type FallbackExecutor interface {
 }
 
 type Resolver struct {
-	repo VirtualModelRepository
+	repo             VirtualModelRepository
+	cacheTTL         time.Duration
+	negativeCacheTTL time.Duration
+	isNotFoundError  func(error) bool
+	mu               sync.Mutex
+	cache            map[string]aliasCacheEntry
+	loadGroup        singleflight.Group
 }
+
+type aliasCacheEntry struct {
+	vm        *platform.VirtualModel
+	notFound  bool
+	expiresAt time.Time
+}
+
+type ResolverOption func(*Resolver)
 
 type StrategyRoutingEngine struct {
 	priority *PriorityRoutingEngine
 	weighted *WeightedRoutingEngine
 }
 
-func NewResolver(repo VirtualModelRepository) *Resolver {
-	return &Resolver{repo: repo}
+func NewResolver(repo VirtualModelRepository, opts ...ResolverOption) *Resolver {
+	r := &Resolver{
+		repo:             repo,
+		cacheTTL:         secondsEnvOrDefault("VIRTUAL_MODEL_ALIAS_CACHE_TTL_SECONDS", 60*time.Second),
+		negativeCacheTTL: secondsEnvOrDefault("VIRTUAL_MODEL_ALIAS_NEGATIVE_CACHE_TTL_SECONDS", 10*time.Second),
+		cache:            make(map[string]aliasCacheEntry),
+	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(r)
+		}
+	}
+
+	return r
+}
+
+func WithNotFoundError(fn func(error) bool) ResolverOption {
+	return func(r *Resolver) {
+		r.isNotFoundError = fn
+	}
+}
+
+func WithAliasCacheTTLs(hitTTL, negativeTTL time.Duration) ResolverOption {
+	return func(r *Resolver) {
+		r.cacheTTL = hitTTL
+		r.negativeCacheTTL = negativeTTL
+	}
 }
 
 func NewRoutingEngine() *StrategyRoutingEngine {
@@ -65,16 +108,163 @@ func NewRoutingEngine() *StrategyRoutingEngine {
 }
 
 func (r *Resolver) Resolve(ctx context.Context, tenantID, alias string) (*platform.VirtualModel, error) {
-	vm, err := r.repo.GetVirtualModelByAlias(ctx, tenantID, strings.TrimSpace(alias))
+	tenantID = strings.TrimSpace(tenantID)
+	alias = strings.TrimSpace(alias)
+	key := virtualModelAliasCacheKey(tenantID, alias)
+	if entry, ok := r.getCached(key); ok {
+		if entry.notFound {
+			return nil, ErrNotVirtualModel
+		}
+
+		return cloneVirtualModel(entry.vm), nil
+	}
+
+	value, err, _ := r.loadGroup.Do(key, func() (interface{}, error) {
+		if entry, ok := r.getCached(key); ok {
+			return entry, nil
+		}
+
+		vm, err := r.repo.GetVirtualModelByAlias(ctx, tenantID, alias)
+		if err != nil {
+			if r.shouldCacheNotFound(err) {
+				entry := aliasCacheEntry{notFound: true}
+				r.setCached(key, entry, r.negativeCacheTTL)
+				return entry, nil
+			}
+			return nil, err
+		}
+
+		if vm != nil && vm.Enabled {
+			entry := aliasCacheEntry{vm: cloneVirtualModel(vm)}
+			r.setCached(key, entry, r.cacheTTL)
+			return entry, nil
+		}
+
+		return cloneVirtualModel(vm), nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
+	if entry, ok := value.(aliasCacheEntry); ok {
+		if entry.notFound {
+			return nil, ErrNotVirtualModel
+		}
+		vm := cloneVirtualModel(entry.vm)
+		if vm == nil {
+			return nil, ErrNotVirtualModel
+		}
+		if !vm.Enabled {
+			return nil, ErrDisabledVirtualModel
+		}
+
+		return vm, nil
+	}
+
+	vm, ok := value.(*platform.VirtualModel)
+	if !ok || vm == nil {
+		return nil, ErrNotVirtualModel
+	}
 	if !vm.Enabled {
 		return nil, ErrDisabledVirtualModel
 	}
 
 	return vm, nil
+}
+
+func (r *Resolver) shouldCacheNotFound(err error) bool {
+	if err == nil || r.isNotFoundError == nil {
+		return false
+	}
+
+	return r.isNotFoundError(err)
+}
+
+func (r *Resolver) getCached(key string) (aliasCacheEntry, bool) {
+	if r == nil || key == "" {
+		return aliasCacheEntry{}, false
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	entry, ok := r.cache[key]
+	if !ok {
+		return aliasCacheEntry{}, false
+	}
+	if !entry.expiresAt.IsZero() && time.Now().After(entry.expiresAt) {
+		delete(r.cache, key)
+		return aliasCacheEntry{}, false
+	}
+
+	return entry, true
+}
+
+func (r *Resolver) setCached(key string, entry aliasCacheEntry, ttl time.Duration) {
+	if r == nil || key == "" || ttl <= 0 {
+		return
+	}
+
+	entry.expiresAt = time.Now().Add(ttl)
+	if entry.vm != nil {
+		entry.vm = cloneVirtualModel(entry.vm)
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.cache[key] = entry
+}
+
+func virtualModelAliasCacheKey(tenantID, alias string) string {
+	tenantID = strings.TrimSpace(tenantID)
+	alias = strings.TrimSpace(alias)
+	return tenantID + "\x00" + alias
+}
+
+func secondsEnvOrDefault(key string, fallback time.Duration) time.Duration {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return fallback
+	}
+
+	seconds, err := strconv.Atoi(raw)
+	if err != nil || seconds <= 0 {
+		return fallback
+	}
+
+	return time.Duration(seconds) * time.Second
+}
+
+func cloneVirtualModel(in *platform.VirtualModel) *platform.VirtualModel {
+	if in == nil {
+		return nil
+	}
+
+	out := *in
+	out.ExposedModes = append([]string(nil), in.ExposedModes...)
+	out.Targets = cloneVirtualModelTargets(in.Targets)
+	out.Access = platform.TenantProviderAccountAccessControl{
+		Managers: append([]platform.AccessPrincipal(nil), in.Access.Managers...),
+		Users:    append([]platform.AccessPrincipal(nil), in.Access.Users...),
+		Rules:    append([]platform.TenantProviderAccountAccessRule(nil), in.Access.Rules...),
+	}
+
+	return &out
+}
+
+func cloneVirtualModelTargets(in []platform.VirtualModelTarget) []platform.VirtualModelTarget {
+	if len(in) == 0 {
+		return nil
+	}
+
+	out := make([]platform.VirtualModelTarget, len(in))
+	for i, target := range in {
+		out[i] = target
+		out[i].Policy.Retry.StatusCodes = append([]int(nil), target.Policy.Retry.StatusCodes...)
+		out[i].Policy.Fallback.StatusCodes = append([]int(nil), target.Policy.Fallback.StatusCodes...)
+	}
+
+	return out
 }
 
 func (e *StrategyRoutingEngine) SelectTargets(vm *platform.VirtualModel) ([]platform.VirtualModelTarget, error) {

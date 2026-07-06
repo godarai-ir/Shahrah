@@ -3,7 +3,9 @@ package virtualmodels_test
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
@@ -25,6 +27,38 @@ func (r repo) GetVirtualModelByAlias(ctx context.Context, tenantID, alias string
 	return r.vm, nil
 }
 
+type countingRepo struct {
+	mu      sync.Mutex
+	calls   int
+	aliases []string
+	vms     []*platform.VirtualModel
+	errs    []error
+}
+
+func (r *countingRepo) GetVirtualModelByAlias(ctx context.Context, tenantID, alias string) (*platform.VirtualModel, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.calls++
+	r.aliases = append(r.aliases, alias)
+	index := r.calls - 1
+	if index < len(r.errs) && r.errs[index] != nil {
+		return nil, r.errs[index]
+	}
+	if index < len(r.vms) {
+		return r.vms[index], nil
+	}
+
+	return nil, nil
+}
+
+func (r *countingRepo) callCount() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return r.calls
+}
+
 func TestResolverResolveSuccess(t *testing.T) {
 	resolver := virtualmodels.NewResolver(repo{
 		vm: &platform.VirtualModel{Alias: "gpt-4o-smart", Enabled: true},
@@ -44,6 +78,100 @@ func TestResolverDisabledVirtualModel(t *testing.T) {
 	resolver := virtualmodels.NewResolver(repo{vm: &platform.VirtualModel{Alias: "x", Enabled: false}})
 	_, err := resolver.Resolve(context.Background(), "t1", "x")
 	assert.ErrorIs(t, err, virtualmodels.ErrDisabledVirtualModel)
+}
+
+func TestResolverCachesVirtualModelAliasHits(t *testing.T) {
+	repo := &countingRepo{vms: []*platform.VirtualModel{{
+		Alias:        "gpt-4o-smart",
+		Enabled:      true,
+		ExposedModes: []string{"chat"},
+		Targets: []platform.VirtualModelTarget{{
+			Provider: "openai",
+			Model:    "gpt-4o",
+			Policy: platform.VirtualModelPolicy{
+				Retry:    platform.VirtualModelRetryPolicy{StatusCodes: []int{429}},
+				Fallback: platform.VirtualModelFallbackPolicy{StatusCodes: []int{500}},
+			},
+		}},
+	}}}
+	resolver := virtualmodels.NewResolver(repo, virtualmodels.WithAliasCacheTTLs(time.Minute, time.Minute))
+
+	first, err := resolver.Resolve(context.Background(), "tenant-1", "gpt-4o-smart")
+	require.NoError(t, err)
+	first.Targets[0].Policy.Retry.StatusCodes[0] = 400
+
+	second, err := resolver.Resolve(context.Background(), "tenant-1", "gpt-4o-smart")
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, repo.callCount())
+	assert.Equal(t, []int{429}, second.Targets[0].Policy.Retry.StatusCodes)
+}
+
+func TestResolverCachesVirtualModelAliasMisses(t *testing.T) {
+	notFoundErr := errors.New("virtual model not found")
+	repo := &countingRepo{errs: []error{notFoundErr}}
+	resolver := virtualmodels.NewResolver(repo,
+		virtualmodels.WithAliasCacheTTLs(time.Minute, time.Minute),
+		virtualmodels.WithNotFoundError(func(err error) bool { return errors.Is(err, notFoundErr) }),
+	)
+
+	_, err := resolver.Resolve(context.Background(), "tenant-1", "static-model")
+	require.ErrorIs(t, err, virtualmodels.ErrNotVirtualModel)
+	_, err = resolver.Resolve(context.Background(), "tenant-1", "static-model")
+	require.ErrorIs(t, err, virtualmodels.ErrNotVirtualModel)
+
+	assert.Equal(t, 1, repo.callCount())
+}
+
+func TestResolverDoesNotCacheTransientErrorsAsMisses(t *testing.T) {
+	transientErr := errors.New("database unavailable")
+	repo := &countingRepo{
+		errs: []error{transientErr},
+		vms:  []*platform.VirtualModel{nil, {Alias: "vm", Enabled: true}},
+	}
+	resolver := virtualmodels.NewResolver(repo,
+		virtualmodels.WithAliasCacheTTLs(time.Minute, time.Minute),
+		virtualmodels.WithNotFoundError(func(err error) bool { return false }),
+	)
+
+	_, err := resolver.Resolve(context.Background(), "tenant-1", "vm")
+	require.ErrorIs(t, err, transientErr)
+	vm, err := resolver.Resolve(context.Background(), "tenant-1", "vm")
+	require.NoError(t, err)
+
+	assert.Equal(t, "vm", vm.Alias)
+	assert.Equal(t, 2, repo.callCount())
+}
+
+func TestResolverNormalizesAliasBeforeCaching(t *testing.T) {
+	repo := &countingRepo{vms: []*platform.VirtualModel{{Alias: "vm", Enabled: true}}}
+	resolver := virtualmodels.NewResolver(repo, virtualmodels.WithAliasCacheTTLs(time.Minute, time.Minute))
+
+	_, err := resolver.Resolve(context.Background(), "tenant-1", "  vm  ")
+	require.NoError(t, err)
+	_, err = resolver.Resolve(context.Background(), "tenant-1", "vm")
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, repo.callCount())
+	assert.Equal(t, []string{"vm"}, repo.aliases)
+}
+
+func TestResolverAliasCacheHonorsTTL(t *testing.T) {
+	repo := &countingRepo{vms: []*platform.VirtualModel{
+		{Alias: "vm", Enabled: true, Version: 1},
+		{Alias: "vm", Enabled: true, Version: 2},
+	}}
+	resolver := virtualmodels.NewResolver(repo, virtualmodels.WithAliasCacheTTLs(10*time.Millisecond, time.Minute))
+
+	first, err := resolver.Resolve(context.Background(), "tenant-1", "vm")
+	require.NoError(t, err)
+	time.Sleep(20 * time.Millisecond)
+	second, err := resolver.Resolve(context.Background(), "tenant-1", "vm")
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, first.Version)
+	assert.Equal(t, 2, second.Version)
+	assert.Equal(t, 2, repo.callCount())
 }
 
 func TestExecutorFallbackOn429(t *testing.T) {

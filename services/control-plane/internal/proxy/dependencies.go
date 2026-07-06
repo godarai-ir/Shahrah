@@ -3,10 +3,12 @@ package proxy
 
 import (
 	"context"
+	"errors"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
+	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/virtualmodels"
 	"go.uber.org/zap"
 )
@@ -82,5 +84,7 @@ func newChatVirtualModelDeps(store interface {
 		return nil, nil, nil
 	}
 
-	return virtualmodels.NewResolver(store), virtualmodels.NewRoutingEngine(), virtualmodels.NewExecutor(virtualmodels.NewDefaultErrorNormalizer())
+	return virtualmodels.NewResolver(store, virtualmodels.WithNotFoundError(func(err error) bool {
+		return errors.Is(err, storage.ErrVirtualModelNotFound)
+	})), virtualmodels.NewRoutingEngine(), virtualmodels.NewExecutor(virtualmodels.NewDefaultErrorNormalizer())
 }
