@@ -45,6 +45,11 @@ type Store struct {
 	lastUsedFallbackMu         sync.Mutex
 	lastUsedFallback           map[string]time.Time
 
+	hotPathCacheMu   sync.Mutex
+	hotPathCacheTTL  time.Duration
+	hotPathCache     map[string]hotPathCacheEntry
+	hotPathLoadGroup singleflight.Group
+
 	authzCacheMu         sync.RWMutex
 	authzCache           map[string]authzCacheEntry
 	authzTenantEpoch     map[string]uint64
@@ -112,6 +117,8 @@ func NewStore(ctx context.Context, databaseURL string, logger *zap.Logger) (*Sto
 		lastUsedFlushInterval:      secondsEnvOrDefault("TOKEN_LAST_USED_FLUSH_INTERVAL_SECONDS", 60*time.Second),
 		lastUsedTTL:                secondsEnvOrDefault("TOKEN_LAST_USED_TTL_SECONDS", 86400*time.Second),
 		lastUsedFallback:           make(map[string]time.Time),
+		hotPathCacheTTL:            secondsEnvOrDefault("MODEL_LIST_CACHE_TTL_SECONDS", 30*time.Second),
+		hotPathCache:               make(map[string]hotPathCacheEntry),
 		authzCache:                 make(map[string]authzCacheEntry),
 		authzTenantEpoch:           make(map[string]uint64),
 		authzCacheTTL:              60 * time.Second,

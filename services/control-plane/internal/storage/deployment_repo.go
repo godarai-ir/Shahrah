@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
@@ -53,6 +54,35 @@ func (s *Store) CreateDeployment(ctx context.Context, dep platform.Deployment) (
 
 // ListDeployments returns tenant-specific deployments.
 func (s *Store) ListDeployments(ctx context.Context, tenantID string) ([]platform.Deployment, error) {
+	cacheKey := deploymentCacheKey(tenantID)
+	if deps, ok := s.getCachedDeployments(cacheKey); ok {
+		return deps, nil
+	}
+
+	value, err, _ := s.hotPathLoadGroup.Do(cacheKey, func() (interface{}, error) {
+		if deps, ok := s.getCachedDeployments(cacheKey); ok {
+			return deps, nil
+		}
+
+		deps, err := s.listDeploymentsFromDB(ctx, tenantID)
+		if err != nil {
+			return nil, err
+		}
+		s.cacheDeployments(cacheKey, deps)
+		return cloneDeployments(deps), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	deps, ok := value.([]platform.Deployment)
+	if !ok {
+		return nil, fmt.Errorf("unexpected deployment cache value %T", value)
+	}
+
+	return cloneDeployments(deps), nil
+}
+
+func (s *Store) listDeploymentsFromDB(ctx context.Context, tenantID string) ([]platform.Deployment, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT id::text, COALESCE(tenant_id::text, ''), model_name, provider, model,
 		       provider_config, COALESCE(model_info, '{}')

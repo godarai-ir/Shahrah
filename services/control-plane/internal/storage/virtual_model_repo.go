@@ -63,6 +63,7 @@ func (s *Store) CreateVirtualModel(ctx context.Context, tenantID string, req pla
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+	s.invalidateVirtualModelsCache(ctx, tenantID)
 
 	out := &platform.VirtualModel{
 		ID:              id,
@@ -82,6 +83,35 @@ func (s *Store) CreateVirtualModel(ctx context.Context, tenantID string, req pla
 }
 
 func (s *Store) ListVirtualModels(ctx context.Context, tenantID string) ([]platform.VirtualModel, error) {
+	cacheKey := virtualModelsCacheKey(tenantID)
+	if models, ok := s.getCachedVirtualModels(cacheKey); ok {
+		return models, nil
+	}
+
+	value, err, _ := s.hotPathLoadGroup.Do(cacheKey, func() (interface{}, error) {
+		if models, ok := s.getCachedVirtualModels(cacheKey); ok {
+			return models, nil
+		}
+
+		models, err := s.listVirtualModelsFromDB(ctx, tenantID)
+		if err != nil {
+			return nil, err
+		}
+		s.cacheVirtualModels(cacheKey, models)
+		return cloneVirtualModels(models), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	models, ok := value.([]platform.VirtualModel)
+	if !ok {
+		return nil, fmt.Errorf("unexpected virtual model cache value %T", value)
+	}
+
+	return cloneVirtualModels(models), nil
+}
+
+func (s *Store) listVirtualModelsFromDB(ctx context.Context, tenantID string) ([]platform.VirtualModel, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT virtual_model_id::text, tenant_id::text, alias, routing_strategy, enabled, COALESCE(exposed_modes, '{}'), version,
 		       COALESCE(created_by, ''), COALESCE(updated_by, ''), created_at, updated_at
@@ -117,7 +147,11 @@ func (s *Store) ListVirtualModels(ctx context.Context, tenantID string) ([]platf
 		out = append(out, vm)
 	}
 
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return out, nil
 }
 
 func (s *Store) GetVirtualModel(ctx context.Context, tenantID string, id string) (*platform.VirtualModel, error) {
@@ -258,6 +292,7 @@ func (s *Store) UpdateVirtualModel(ctx context.Context, tenantID string, id stri
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+	s.invalidateVirtualModelsCache(ctx, tenantID)
 
 	return s.GetVirtualModel(ctx, tenantID, id)
 }
@@ -288,7 +323,11 @@ func (s *Store) DeleteVirtualModel(ctx context.Context, tenantID string, id stri
 		return ErrVirtualModelNotFound
 	}
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	s.invalidateVirtualModelsCache(ctx, tenantID)
+	return nil
 }
 
 func (s *Store) ListVirtualModelsForPrincipal(ctx context.Context, tenantID string, userID string, teamID string) ([]platform.VirtualModel, error) {
