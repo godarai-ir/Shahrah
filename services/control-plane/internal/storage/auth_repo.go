@@ -605,13 +605,7 @@ func (s *Store) ListKeys(ctx context.Context, tenantID string) ([]platform.Creat
 }
 
 func (s *Store) TouchKeyLastUsed(ctx context.Context, keyID string, usedAt time.Time) error {
-	_, err := s.pool.Exec(ctx, `
-		UPDATE verification_tokens
-		SET last_used_at = $2, updated_at = NOW()
-		WHERE id = $1
-	`, keyID, usedAt)
-
-	return err
+	return s.queueKeyLastUsed(ctx, keyID, usedAt)
 }
 
 func (s *Store) PATExists(ctx context.Context, tenantID string, userID string, name string) (bool, error) {

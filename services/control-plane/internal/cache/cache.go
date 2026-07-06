@@ -42,11 +42,31 @@ type UsageCounterSnapshot struct {
 	Used float64
 }
 
+// TokenSpendDelta is a drained Redis token spend delta ready for persistence.
+type TokenSpendDelta struct {
+	Key      string
+	DeltaUSD float64
+}
+
+// KeyLastUsedSnapshot is the newest last-used timestamp drained for one key.
+type KeyLastUsedSnapshot struct {
+	Key          string
+	UsedAtUnixMS int64
+}
+
 // UsageCounterCache exposes distributed usage-counter operations.
 type UsageCounterCache interface {
 	CheckUsageCounter(ctx context.Context, req UsageCounterRequest) (*UsageCounterResult, error)
 	ListDirtyUsageCounters(ctx context.Context, dirtySetKey string, batchSize int) ([]UsageCounterSnapshot, error)
 	AckDirtyUsageCounters(ctx context.Context, dirtySetKey string, keys []string)
+}
+
+// TokenUsageCache exposes Redis-backed token usage aggregation primitives.
+type TokenUsageCache interface {
+	QueueTokenSpendDelta(ctx context.Context, deltaKey string, dirtySetKey string, deltaUSD float64, ttl time.Duration, score int64) error
+	DrainTokenSpendDeltas(ctx context.Context, dirtySetKey string, batchSize int) ([]TokenSpendDelta, error)
+	QueueKeyLastUsed(ctx context.Context, lastUsedKey string, dirtySetKey string, usedAtUnix int64, ttl time.Duration) (bool, error)
+	DrainKeyLastUsed(ctx context.Context, dirtySetKey string, batchSize int) ([]KeyLastUsedSnapshot, error)
 }
 
 // Cache interface defines the contract for cache implementations.
@@ -274,6 +294,91 @@ redis.call('PEXPIRE', dirtySetKey, ttlMs)
 return {1, updated}
 `
 
+const queueTokenSpendDeltaScript = `
+local deltaKey = KEYS[1]
+local dirtySetKey = KEYS[2]
+local delta = tonumber(ARGV[1])
+local ttlMs = tonumber(ARGV[2])
+local score = tonumber(ARGV[3])
+
+if not delta or delta <= 0 then
+  return 0
+end
+
+redis.call('INCRBYFLOAT', deltaKey, delta)
+redis.call('PEXPIRE', deltaKey, ttlMs)
+redis.call('ZADD', dirtySetKey, score, deltaKey)
+redis.call('PEXPIRE', dirtySetKey, ttlMs)
+return 1
+`
+
+const drainTokenSpendDeltasScript = `
+local dirtySetKey = KEYS[1]
+local batchSize = tonumber(ARGV[1])
+
+if not batchSize or batchSize <= 0 then
+  batchSize = 100
+end
+
+local keys = redis.call('ZRANGE', dirtySetKey, 0, batchSize - 1)
+local out = {}
+for _, key in ipairs(keys) do
+  local value = redis.call('GET', key)
+  redis.call('DEL', key)
+  redis.call('ZREM', dirtySetKey, key)
+  if value then
+    table.insert(out, key)
+    table.insert(out, value)
+  end
+end
+
+return out
+`
+
+const queueKeyLastUsedScript = `
+local lastUsedKey = KEYS[1]
+local dirtySetKey = KEYS[2]
+local usedAtUnix = tonumber(ARGV[1])
+local ttlMs = tonumber(ARGV[2])
+
+if not usedAtUnix or usedAtUnix <= 0 then
+  return 0
+end
+
+local current = tonumber(redis.call('GET', lastUsedKey) or '0')
+if usedAtUnix > current then
+  redis.call('SET', lastUsedKey, usedAtUnix, 'PX', ttlMs)
+  redis.call('ZADD', dirtySetKey, usedAtUnix, lastUsedKey)
+  redis.call('PEXPIRE', dirtySetKey, ttlMs)
+  return 1
+end
+
+return 0
+`
+
+const drainKeyLastUsedScript = `
+local dirtySetKey = KEYS[1]
+local batchSize = tonumber(ARGV[1])
+
+if not batchSize or batchSize <= 0 then
+  batchSize = 100
+end
+
+local keys = redis.call('ZRANGE', dirtySetKey, 0, batchSize - 1)
+local out = {}
+for _, key in ipairs(keys) do
+  local value = redis.call('GET', key)
+  redis.call('DEL', key)
+  redis.call('ZREM', dirtySetKey, key)
+  if value then
+    table.insert(out, key)
+    table.insert(out, value)
+  end
+end
+
+return out
+`
+
 // CheckRateLimit atomically checks a fixed-window rate-limit counter in Redis.
 func (d *DualCache) CheckRateLimit(ctx context.Context, key string, limit int64, window time.Duration) (*RateLimitResult, error) {
 	if limit <= 0 {
@@ -391,6 +496,101 @@ func (d *DualCache) AckDirtyUsageCounters(ctx context.Context, dirtySetKey strin
 	d.redis.ZRem(ctx, dirtySetKey, args...)
 }
 
+// QueueTokenSpendDelta atomically accumulates one token spend delta and marks it dirty.
+func (d *DualCache) QueueTokenSpendDelta(ctx context.Context, deltaKey string, dirtySetKey string, deltaUSD float64, ttl time.Duration, score int64) error {
+	if deltaKey == "" || dirtySetKey == "" {
+		return fmt.Errorf("token spend delta key and dirty set key are required")
+	}
+	if ttl <= 0 {
+		return fmt.Errorf("token spend delta ttl must be positive")
+	}
+
+	return d.redis.Eval(ctx, queueTokenSpendDeltaScript, []string{deltaKey, dirtySetKey}, deltaUSD, ttl.Milliseconds(), score).Err()
+}
+
+// DrainTokenSpendDeltas atomically drains a bounded batch of token spend deltas.
+func (d *DualCache) DrainTokenSpendDeltas(ctx context.Context, dirtySetKey string, batchSize int) ([]TokenSpendDelta, error) {
+	values, err := drainFlatPairs(ctx, d.redis, drainTokenSpendDeltasScript, dirtySetKey, batchSize)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]TokenSpendDelta, 0, len(values)/2)
+	for i := 0; i+1 < len(values); i += 2 {
+		key, err := redisString(values[i])
+		if err != nil {
+			return nil, err
+		}
+		delta, err := redisFloat(values[i+1])
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, TokenSpendDelta{Key: key, DeltaUSD: delta})
+	}
+	return out, nil
+}
+
+// QueueKeyLastUsed records the newest last-used timestamp for a key.
+func (d *DualCache) QueueKeyLastUsed(ctx context.Context, lastUsedKey string, dirtySetKey string, usedAtUnix int64, ttl time.Duration) (bool, error) {
+	if lastUsedKey == "" || dirtySetKey == "" {
+		return false, fmt.Errorf("last-used key and dirty set key are required")
+	}
+	if ttl <= 0 {
+		return false, fmt.Errorf("last-used ttl must be positive")
+	}
+
+	updated, err := d.redis.Eval(ctx, queueKeyLastUsedScript, []string{lastUsedKey, dirtySetKey}, usedAtUnix, ttl.Milliseconds()).Int64()
+	if err != nil {
+		return false, err
+	}
+	return updated == 1, nil
+}
+
+// DrainKeyLastUsed atomically drains newest last-used timestamps for a bounded batch of keys.
+func (d *DualCache) DrainKeyLastUsed(ctx context.Context, dirtySetKey string, batchSize int) ([]KeyLastUsedSnapshot, error) {
+	values, err := drainFlatPairs(ctx, d.redis, drainKeyLastUsedScript, dirtySetKey, batchSize)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]KeyLastUsedSnapshot, 0, len(values)/2)
+	for i := 0; i+1 < len(values); i += 2 {
+		key, err := redisString(values[i])
+		if err != nil {
+			return nil, err
+		}
+		usedAt, err := redisInt(values[i+1])
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, KeyLastUsedSnapshot{Key: key, UsedAtUnixMS: usedAt})
+	}
+	return out, nil
+}
+
+func drainFlatPairs(ctx context.Context, rdb *redis.Client, script string, dirtySetKey string, batchSize int) ([]interface{}, error) {
+	if batchSize <= 0 {
+		batchSize = 100
+	}
+	if dirtySetKey == "" {
+		return nil, fmt.Errorf("dirty set key is required")
+	}
+
+	result, err := rdb.Eval(ctx, script, []string{dirtySetKey}, batchSize).Result()
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return nil, nil
+	}
+
+	values, ok := result.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected redis drain result: %T", result)
+	}
+	return values, nil
+}
+
 func redisInt(value interface{}) (int64, error) {
 	switch typed := value.(type) {
 	case int64:
@@ -401,6 +601,17 @@ func redisInt(value interface{}) (int64, error) {
 		return strconv.ParseInt(string(typed), 10, 64)
 	default:
 		return 0, fmt.Errorf("unexpected redis integer type %T", value)
+	}
+}
+
+func redisString(value interface{}) (string, error) {
+	switch typed := value.(type) {
+	case string:
+		return typed, nil
+	case []byte:
+		return string(typed), nil
+	default:
+		return "", fmt.Errorf("unexpected redis string type %T", value)
 	}
 }
 

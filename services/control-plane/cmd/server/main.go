@@ -20,6 +20,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	"github.com/Delpak/shahrah/services/control-plane/internal/guardrails"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
+	prommetrics "github.com/Delpak/shahrah/services/control-plane/internal/observability/prometheus"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
 	"github.com/Delpak/shahrah/services/control-plane/internal/responsecache"
@@ -273,6 +274,9 @@ func main() {
 	traceRetentionCleaner.Start()
 	defer traceRetentionCleaner.Stop()
 
+	httpMetrics := prommetrics.NewHTTPMetrics()
+	store.SetTokenUsageMetrics(httpMetrics)
+
 	app := server.NewFiberApp(cfg, server.Dependencies{
 		AuthMiddleware:          authMiddleware,
 		TenantResolver:          tenantMiddleware,
@@ -288,12 +292,14 @@ func main() {
 		ImagesHandler:           imagesHandler,
 		ModelsHandler:           modelsHandler,
 		PoolStats:               store,
+		HTTPMetrics:             httpMetrics,
 		Logger:                  logger,
 		PlatformServiceAccounts: store,
 	})
 
 	runCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	store.StartTokenUsageFlusher(runCtx)
 	store.StartUsageCounterFlusher(runCtx)
 
 	go func() {

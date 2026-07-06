@@ -6,6 +6,7 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 // ErrInsufficientWalletBalance indicates a debit was attempted with insufficient funds.
@@ -91,21 +92,17 @@ func (s *Store) DebitWallet(ctx context.Context, tenantID string, breakdown plat
 	defer rollbackTxWithFreshTimeout(tx)
 
 	var wallet platform.Wallet
-	// Lock the wallet row for the full transaction so concurrent debits serialize.
 	if err := tx.QueryRow(ctx, `
-		SELECT wallet_id::text, tenant_id::text, balance_irr, pending_irr
-		FROM wallets
+		UPDATE wallets
+		SET balance_irr = balance_irr - $2,
+		    updated_at = NOW()
 		WHERE tenant_id = $1
-		FOR UPDATE
-	`, tenantID).Scan(&wallet.ID, &wallet.TenantID, &wallet.BalanceIRR, &wallet.PendingIRR); err != nil {
-		return nil, err
-	}
-
-	if wallet.BalanceIRR < breakdown.TotalCostIRR {
-		return nil, ErrInsufficientWalletBalance
-	}
-
-	if _, err := tx.Exec(ctx, `UPDATE wallets SET balance_irr = balance_irr - $2, updated_at = NOW() WHERE wallet_id::text = $1`, wallet.ID, breakdown.TotalCostIRR); err != nil {
+		  AND balance_irr >= $2
+		RETURNING wallet_id::text, tenant_id::text, balance_irr, pending_irr
+	`, tenantID, breakdown.TotalCostIRR).Scan(&wallet.ID, &wallet.TenantID, &wallet.BalanceIRR, &wallet.PendingIRR); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrInsufficientWalletBalance
+		}
 		return nil, err
 	}
 

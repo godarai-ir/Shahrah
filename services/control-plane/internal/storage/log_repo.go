@@ -10,13 +10,7 @@ import (
 func (s *Store) LogSpend(ctx context.Context, log platform.SpendLog) error {
 	metaRaw := marshalJSONBestEffort(log.RequestMetadata)
 
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer rollbackTxBestEffort(ctx, tx)
-
-	if _, err := tx.Exec(ctx, `
+	if _, err := s.pool.Exec(ctx, `
 		INSERT INTO spend_logs (
 			request_id, token_hash, tenant_id, organization_id, team_id, model, input_tokens, output_tokens,
 			total_tokens, cost_usd, cost_irr, response_time_ms, status, request_metadata,
@@ -28,15 +22,5 @@ func (s *Store) LogSpend(ctx context.Context, log platform.SpendLog) error {
 		return err
 	}
 
-	if log.TokenHash != "" && log.CostUSD > 0 {
-		if _, err := tx.Exec(ctx, `
-			UPDATE verification_tokens
-			SET spend = spend + $2, updated_at = NOW()
-			WHERE token_hash = $1
-		`, log.TokenHash, log.CostUSD); err != nil {
-			return err
-		}
-	}
-
-	return tx.Commit(ctx)
+	return s.queueTokenSpendDelta(ctx, log.TokenHash, log.CostUSD)
 }

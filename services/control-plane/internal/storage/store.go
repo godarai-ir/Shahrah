@@ -32,6 +32,18 @@ type Store struct {
 	usageCounterFlushInterval  time.Duration
 	usageCounterFlushBatchSize int
 	usageCounterTTLBuffer      time.Duration
+	tokenUsageCache            cache.TokenUsageCache
+	tokenUsageMetrics          TokenUsageMetrics
+	tokenUsageEnabled          bool
+	tokenUsageFailOpen         bool
+	tokenUsageKeyPrefix        string
+	tokenUsageFlushInterval    time.Duration
+	tokenUsageFlushBatchSize   int
+	tokenUsageDeltaTTL         time.Duration
+	lastUsedFlushInterval      time.Duration
+	lastUsedTTL                time.Duration
+	lastUsedFallbackMu         sync.Mutex
+	lastUsedFallback           map[string]time.Time
 
 	authzCacheMu         sync.RWMutex
 	authzCache           map[string]authzCacheEntry
@@ -46,6 +58,9 @@ func (s *Store) SetEntitlementCache(c cache.Cache) {
 	if usageCounterCache, ok := c.(cache.UsageCounterCache); ok {
 		s.usageCounterCache = usageCounterCache
 	}
+	if tokenUsageCache, ok := c.(cache.TokenUsageCache); ok {
+		s.tokenUsageCache = tokenUsageCache
+	}
 }
 
 // SetRequestLoggingModeCacheTTL overrides the tenant request logging mode cache TTL.
@@ -53,6 +68,11 @@ func (s *Store) SetRequestLoggingModeCacheTTL(ttl time.Duration) {
 	if ttl > 0 {
 		s.requestLoggingModeTTL = ttl
 	}
+}
+
+// SetTokenUsageMetrics attaches token usage aggregation metric hooks.
+func (s *Store) SetTokenUsageMetrics(metrics TokenUsageMetrics) {
+	s.tokenUsageMetrics = metrics
 }
 
 // NewStore creates a new PostgreSQL store.
@@ -83,6 +103,15 @@ func NewStore(ctx context.Context, databaseURL string, logger *zap.Logger) (*Sto
 		usageCounterFlushInterval:  secondsEnvOrDefault("USAGE_COUNTER_FLUSH_INTERVAL_SECONDS", 5*time.Second),
 		usageCounterFlushBatchSize: intEnvOrDefault("USAGE_COUNTER_FLUSH_BATCH_SIZE", 500),
 		usageCounterTTLBuffer:      secondsEnvOrDefault("USAGE_COUNTER_TTL_BUFFER_SECONDS", 3600*time.Second),
+		tokenUsageEnabled:          boolEnvOrDefault("TOKEN_USAGE_AGGREGATION_ENABLED", true),
+		tokenUsageFailOpen:         boolEnvOrDefault("TOKEN_USAGE_REDIS_FAIL_OPEN", true),
+		tokenUsageKeyPrefix:        stringEnvOrDefault("TOKEN_USAGE_REDIS_KEY_PREFIX", "usage"),
+		tokenUsageFlushInterval:    secondsEnvOrDefault("TOKEN_USAGE_FLUSH_INTERVAL_SECONDS", 5*time.Second),
+		tokenUsageFlushBatchSize:   intEnvOrDefault("TOKEN_USAGE_FLUSH_BATCH_SIZE", 500),
+		tokenUsageDeltaTTL:         secondsEnvOrDefault("TOKEN_USAGE_DELTA_TTL_SECONDS", 86400*time.Second),
+		lastUsedFlushInterval:      secondsEnvOrDefault("TOKEN_LAST_USED_FLUSH_INTERVAL_SECONDS", 60*time.Second),
+		lastUsedTTL:                secondsEnvOrDefault("TOKEN_LAST_USED_TTL_SECONDS", 86400*time.Second),
+		lastUsedFallback:           make(map[string]time.Time),
 		authzCache:                 make(map[string]authzCacheEntry),
 		authzTenantEpoch:           make(map[string]uint64),
 		authzCacheTTL:              60 * time.Second,

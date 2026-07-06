@@ -95,6 +95,10 @@ func TestIntegration_PostgresBackedOnboardingFlow(t *testing.T) {
 	require.NoError(t, pool.QueryRow(ctx, `SELECT cost_irr FROM spend_logs WHERE token_hash = $1`, hashToken(createdKey.Key)).Scan(&spendCostIRR))
 	assert.Greater(t, spendCostIRR, 0.0)
 
+	var tokenSpend float64
+	require.NoError(t, pool.QueryRow(ctx, `SELECT COALESCE(spend, 0) FROM verification_tokens WHERE token_hash = $1`, hashToken(createdKey.Key)).Scan(&tokenSpend))
+	assert.Zero(t, tokenSpend)
+
 	assertCount(t, pool, `SELECT COUNT(*) FROM model_deployments`, 1)
 	assertCount(t, pool, `SELECT COUNT(*) FROM wallet_transactions WHERE tx_type = 'DEPOSIT'`, 1)
 	assertCount(t, pool, `SELECT COUNT(*) FROM wallet_transactions WHERE tx_type = 'CONSUMPTION'`, 1)

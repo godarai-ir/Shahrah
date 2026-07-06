@@ -48,6 +48,7 @@ type Dependencies struct {
 	ImagesHandler           *proxy.ImagesHandler
 	ModelsHandler           *proxy.ModelsHandler
 	PoolStats               prommetrics.PoolStatsProvider
+	HTTPMetrics             *prommetrics.HTTPMetrics
 	Logger                  *zap.Logger
 	PlatformServiceAccounts auth.PlatformServiceAccountStore
 }
@@ -69,7 +70,10 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 		ErrorHandler: customErrorHandler,
 	})
 
-	httpMetrics := prommetrics.NewHTTPMetrics()
+	httpMetrics := deps.HTTPMetrics
+	if httpMetrics == nil {
+		httpMetrics = prommetrics.NewHTTPMetrics()
+	}
 	httpMetrics.RegisterPgxPool(deps.PoolStats)
 
 	if cfg != nil && cfg.OperationalLogs.UseFiberAccessLogger {

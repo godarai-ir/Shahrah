@@ -42,6 +42,14 @@ Do not add undocumented fallback behavior that hides upstream contract drift.
 - `SHAHRAH_DISCOVERY_TOKEN`: optional dedicated model-discovery service credential; never falls back to `MASTER_KEY`. Leave unset while control-plane only consumes public catalog endpoints.
 - `TUNNEL_CLIENT_URL`: control-plane hop into the tunnel client
 - `REDIS_HOST` and `REDIS_PASSWORD`: optional, memory cache is used when Redis is not configured
+- `TOKEN_USAGE_AGGREGATION_ENABLED`: optional (`true` by default), queues token spend and key last-used aggregates through Redis instead of updating `verification_tokens` per request
+- `TOKEN_USAGE_REDIS_FAIL_OPEN`: optional (`true` by default), keeps gateway traffic moving when Redis aggregation is unavailable; `spend_logs` remains the billing source of truth
+- `TOKEN_USAGE_REDIS_KEY_PREFIX`: optional, default `usage`
+- `TOKEN_USAGE_FLUSH_INTERVAL_SECONDS`: optional, default `5`
+- `TOKEN_USAGE_FLUSH_BATCH_SIZE`: optional, default `500`
+- `TOKEN_USAGE_DELTA_TTL_SECONDS`: optional, default `86400`
+- `TOKEN_LAST_USED_FLUSH_INTERVAL_SECONDS`: optional, default `60`
+- `TOKEN_LAST_USED_TTL_SECONDS`: optional, default `86400`
 - `ZARINPAL_MERCHANT_ID`: required when `provider=zarinpal`
 - `ZARINPAL_BASE_URL`: optional, default `https://api.zarinpal.com`
 - `IDPAY_API_KEY`: required when `provider=idpay`
