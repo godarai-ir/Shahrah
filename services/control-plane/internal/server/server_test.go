@@ -20,6 +20,8 @@ import (
 	fiberlogger "github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 func TestHTTPLoggerRedactsSensitiveHeadersAndOmitsBodies(t *testing.T) {
@@ -69,6 +71,71 @@ func TestFormatHeaderLogValueEscapesAndRedacts(t *testing.T) {
 	assert.Contains(t, out, `X-Test=line1\\nline2`)
 	assert.Contains(t, out, `X-Test=quoted\\\"value`)
 	assert.NotContains(t, out, "Bearer secret")
+}
+
+func TestOperationalLoggerSkipsFastSuccessfulRequests(t *testing.T) {
+	t.Parallel()
+
+	core, observed := observer.New(zap.InfoLevel)
+	app := fiber.New()
+	app.Use(newOperationalLoggerMiddleware(config.OperationalLogSettings{
+		Enabled:           true,
+		QueueSize:         8,
+		SlowRequestMS:     1000,
+		SuccessSampleRate: 0,
+	}, zap.New(core)))
+	app.Get("/ok", func(c *fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+
+	resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/ok", http.NoBody))
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	require.Equal(t, fiber.StatusNoContent, resp.StatusCode)
+	time.Sleep(20 * time.Millisecond)
+	assert.Equal(t, 0, observed.Len())
+}
+
+func TestOperationalLoggerKeepsErrorsAndSlowRequests(t *testing.T) {
+	t.Parallel()
+
+	core, observed := observer.New(zap.InfoLevel)
+	app := fiber.New()
+	app.Use(newOperationalLoggerMiddleware(config.OperationalLogSettings{
+		Enabled:           true,
+		QueueSize:         8,
+		SlowRequestMS:     1,
+		SuccessSampleRate: 0,
+	}, zap.New(core)))
+	app.Get("/slow", func(c *fiber.Ctx) error {
+		time.Sleep(5 * time.Millisecond)
+		return c.SendStatus(fiber.StatusOK)
+	})
+	app.Get("/fail", func(c *fiber.Ctx) error {
+		return fiber.NewError(fiber.StatusServiceUnavailable, "provider unavailable")
+	})
+
+	slowResp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/slow", http.NoBody))
+	defer closeResponseBody(t, slowResp)
+	require.NoError(t, err)
+	require.Equal(t, fiber.StatusOK, slowResp.StatusCode)
+
+	failResp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/fail", http.NoBody))
+	defer closeResponseBody(t, failResp)
+	require.NoError(t, err)
+	require.Equal(t, fiber.StatusServiceUnavailable, failResp.StatusCode)
+
+	require.Eventually(t, func() bool {
+		return observed.Len() >= 2
+	}, time.Second, 10*time.Millisecond)
+
+	messages := []string{}
+	for _, entry := range observed.All() {
+		messages = append(messages, entry.Message)
+	}
+	assert.Contains(t, messages, "http request")
+	assert.Contains(t, messages, "http request failed")
 }
 
 func TestNewFiberAppExposesPrometheusMetrics(t *testing.T) {

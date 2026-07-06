@@ -57,6 +57,10 @@ type TraceHealthReporter interface {
 
 // NewFiberApp creates and configures a new Fiber application.
 func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
+
 	app := fiber.New(fiber.Config{
 		ReadTimeout:  60 * time.Second,
 		WriteTimeout: 60 * time.Second,
@@ -66,7 +70,11 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 
 	httpMetrics := prommetrics.NewHTTPMetrics()
 
-	app.Use(fiberlogger.New(buildHTTPLoggerConfig(nil)))
+	if cfg != nil && cfg.OperationalLogs.UseFiberAccessLogger {
+		app.Use(fiberlogger.New(buildHTTPLoggerConfig(nil)))
+	} else if operationalLogger := newOperationalLoggerMiddleware(cfg.OperationalLogs, deps.Logger); operationalLogger != nil {
+		app.Use(operationalLogger)
+	}
 	app.Use(recover.New())
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",

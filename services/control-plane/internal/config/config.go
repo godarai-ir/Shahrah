@@ -13,14 +13,15 @@ import (
 
 // Config represents the top-level configuration.
 type Config struct {
-	ModelList       []ModelDeployment     `mapstructure:"model_list"`
-	RouterSettings  RouterSettings        `mapstructure:"router_settings"`
-	ResponseCache   ResponseCacheSettings `mapstructure:"response_cache"`
-	GeneralSettings GeneralSettings       `mapstructure:"general_settings"`
-	Profiling       ProfilingSettings     `mapstructure:"profiling"`
-	TenantSettings  TenantSettings        `mapstructure:"tenant_settings"`
-	TunnelSettings  TunnelSettings        `mapstructure:"tunnel_settings"`
-	BillingSettings BillingSettings       `mapstructure:"billing_settings"`
+	ModelList       []ModelDeployment      `mapstructure:"model_list"`
+	RouterSettings  RouterSettings         `mapstructure:"router_settings"`
+	ResponseCache   ResponseCacheSettings  `mapstructure:"response_cache"`
+	GeneralSettings GeneralSettings        `mapstructure:"general_settings"`
+	Profiling       ProfilingSettings      `mapstructure:"profiling"`
+	OperationalLogs OperationalLogSettings `mapstructure:"operational_logging"`
+	TenantSettings  TenantSettings         `mapstructure:"tenant_settings"`
+	TunnelSettings  TunnelSettings         `mapstructure:"tunnel_settings"`
+	BillingSettings BillingSettings        `mapstructure:"billing_settings"`
 }
 
 // ProfilingSettings controls opt-in runtime profiling endpoints and sampling.
@@ -28,6 +29,17 @@ type ProfilingSettings struct {
 	EnablePprof          bool `mapstructure:"enable_pprof"`
 	MutexProfileFraction int  `mapstructure:"mutex_profile_fraction"`
 	BlockProfileRate     int  `mapstructure:"block_profile_rate"`
+}
+
+// OperationalLogSettings controls low-overhead server access/error logging.
+type OperationalLogSettings struct {
+	Enabled              bool    `mapstructure:"enabled"`
+	SuccessSampleRate    float64 `mapstructure:"success_sample_rate"`
+	SlowRequestMS        int     `mapstructure:"slow_request_ms"`
+	QueueSize            int     `mapstructure:"queue_size"`
+	IncludeHeaders       bool    `mapstructure:"include_headers"`
+	LogClientErrors      bool    `mapstructure:"log_client_errors"`
+	UseFiberAccessLogger bool    `mapstructure:"use_fiber_access_logger"`
 }
 
 // ResponseCacheSettings controls opt-in exact and semantic response caching.
@@ -134,6 +146,13 @@ func LoadConfig(logger *zap.Logger) (*Config, error) {
 	v.SetDefault("profiling.enable_pprof", false)
 	v.SetDefault("profiling.mutex_profile_fraction", 0)
 	v.SetDefault("profiling.block_profile_rate", 0)
+	v.SetDefault("operational_logging.enabled", true)
+	v.SetDefault("operational_logging.success_sample_rate", 0.0)
+	v.SetDefault("operational_logging.slow_request_ms", 1000)
+	v.SetDefault("operational_logging.queue_size", 4096)
+	v.SetDefault("operational_logging.include_headers", false)
+	v.SetDefault("operational_logging.log_client_errors", false)
+	v.SetDefault("operational_logging.use_fiber_access_logger", false)
 	v.SetDefault("router_settings.routing_strategy", "simple-shuffle")
 	v.SetDefault("router_settings.cooldown_time", 60.0)
 	v.SetDefault("router_settings.num_retries", 3)
