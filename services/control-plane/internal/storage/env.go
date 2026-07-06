@@ -47,6 +47,14 @@ func intEnvOrDefault(key string, fallback int) int {
 	return value
 }
 
+func int32EnvOrDefault(key string, fallback int32) int32 {
+	value := intEnvOrDefault(key, int(fallback))
+	if value <= 0 {
+		return fallback
+	}
+	return int32(value)
+}
+
 func stringEnvOrDefault(key string, fallback string) string {
 	raw := strings.TrimSpace(os.Getenv(key))
 	if raw == "" {

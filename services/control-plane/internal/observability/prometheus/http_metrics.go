@@ -8,10 +8,29 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
+	"github.com/jackc/pgx/v5/pgxpool"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
+
+// PoolStatsProvider exposes PostgreSQL pool stats without leaking the pool.
+type PoolStatsProvider interface {
+	PoolStats() *pgxpool.Stat
+}
+
+// PgxPoolStats is the subset of pgxpool.Stat used by metrics.
+type PgxPoolStats interface {
+	AcquireCount() int64
+	AcquireDuration() time.Duration
+	AcquiredConns() int32
+	CanceledAcquireCount() int64
+	ConstructingConns() int32
+	EmptyAcquireCount() int64
+	IdleConns() int32
+	MaxConns() int32
+	TotalConns() int32
+}
 
 // HTTPMetrics records request counts, latency, and in-flight totals.
 type HTTPMetrics struct {
@@ -61,6 +80,66 @@ func NewHTTPMetrics() *HTTPMetrics {
 	}
 }
 
+// RegisterPgxPool registers PostgreSQL pool gauges on the existing registry.
+func (m *HTTPMetrics) RegisterPgxPool(provider PoolStatsProvider) {
+	if m == nil || m.registry == nil || provider == nil {
+		return
+	}
+
+	collectors := []prom.Collector{
+		prom.NewGaugeFunc(prom.GaugeOpts{
+			Namespace: "shahrah", Subsystem: "control_plane", Name: "postgres_pool_acquired_conns",
+			Help: "Current PostgreSQL connections acquired from the pool.",
+		}, func() float64 { return int32Stat(provider, func(s PgxPoolStats) int32 { return s.AcquiredConns() }) }),
+		prom.NewGaugeFunc(prom.GaugeOpts{
+			Namespace: "shahrah", Subsystem: "control_plane", Name: "postgres_pool_idle_conns",
+			Help: "Current idle PostgreSQL connections in the pool.",
+		}, func() float64 { return int32Stat(provider, func(s PgxPoolStats) int32 { return s.IdleConns() }) }),
+		prom.NewGaugeFunc(prom.GaugeOpts{
+			Namespace: "shahrah", Subsystem: "control_plane", Name: "postgres_pool_total_conns",
+			Help: "Current total PostgreSQL connections in the pool.",
+		}, func() float64 { return int32Stat(provider, func(s PgxPoolStats) int32 { return s.TotalConns() }) }),
+		prom.NewGaugeFunc(prom.GaugeOpts{
+			Namespace: "shahrah", Subsystem: "control_plane", Name: "postgres_pool_constructing_conns",
+			Help: "Current PostgreSQL connections being constructed by the pool.",
+		}, func() float64 {
+			return int32Stat(provider, func(s PgxPoolStats) int32 { return s.ConstructingConns() })
+		}),
+		prom.NewGaugeFunc(prom.GaugeOpts{
+			Namespace: "shahrah", Subsystem: "control_plane", Name: "postgres_pool_max_conns",
+			Help: "Maximum PostgreSQL connections configured for the pool.",
+		}, func() float64 { return int32Stat(provider, func(s PgxPoolStats) int32 { return s.MaxConns() }) }),
+		prom.NewGaugeFunc(prom.GaugeOpts{
+			Namespace: "shahrah", Subsystem: "control_plane", Name: "postgres_pool_acquire_count",
+			Help: "Cumulative successful PostgreSQL pool acquire operations.",
+		}, func() float64 { return int64Stat(provider, func(s PgxPoolStats) int64 { return s.AcquireCount() }) }),
+		prom.NewGaugeFunc(prom.GaugeOpts{
+			Namespace: "shahrah", Subsystem: "control_plane", Name: "postgres_pool_empty_acquire_count",
+			Help: "Cumulative PostgreSQL pool acquires that found no idle connection.",
+		}, func() float64 {
+			return int64Stat(provider, func(s PgxPoolStats) int64 { return s.EmptyAcquireCount() })
+		}),
+		prom.NewGaugeFunc(prom.GaugeOpts{
+			Namespace: "shahrah", Subsystem: "control_plane", Name: "postgres_pool_canceled_acquire_count",
+			Help: "Cumulative canceled PostgreSQL pool acquire operations.",
+		}, func() float64 {
+			return int64Stat(provider, func(s PgxPoolStats) int64 { return s.CanceledAcquireCount() })
+		}),
+		prom.NewGaugeFunc(prom.GaugeOpts{
+			Namespace: "shahrah", Subsystem: "control_plane", Name: "postgres_pool_acquire_duration_seconds",
+			Help: "Cumulative time spent acquiring PostgreSQL pool connections.",
+		}, func() float64 {
+			stats := provider.PoolStats()
+			if stats == nil {
+				return 0
+			}
+			return stats.AcquireDuration().Seconds()
+		}),
+	}
+
+	m.registry.MustRegister(collectors...)
+}
+
 // Middleware returns a Fiber middleware that records request metrics.
 func (m *HTTPMetrics) Middleware() fiber.Handler {
 	return func(c *fiber.Ctx) error {
@@ -102,4 +181,20 @@ func routeLabel(c *fiber.Ctx) string {
 	}
 
 	return "unmatched"
+}
+
+func int32Stat(provider PoolStatsProvider, read func(PgxPoolStats) int32) float64 {
+	stats := provider.PoolStats()
+	if stats == nil {
+		return 0
+	}
+	return float64(read(stats))
+}
+
+func int64Stat(provider PoolStatsProvider, read func(PgxPoolStats) int64) float64 {
+	stats := provider.PoolStats()
+	if stats == nil {
+		return 0
+	}
+	return float64(read(stats))
 }

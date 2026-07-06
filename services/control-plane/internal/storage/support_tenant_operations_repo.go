@@ -268,6 +268,8 @@ func (s *Store) AdjustTenantWallet(ctx context.Context, tenantID string, req pla
 		return nil, err
 	}
 
+	s.invalidateWalletCache(ctx, tenantID)
+
 	return &result, nil
 }
 

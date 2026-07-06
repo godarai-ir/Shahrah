@@ -71,6 +71,8 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 		)
 	}
 
+	s.invalidateDeploymentCache(ctx, tenantID)
+
 	return &account, nil
 }
 
@@ -251,6 +253,8 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 		return nil, commitErr
 	}
 
+	s.invalidateDeploymentCache(ctx, tenantID)
+
 	return s.getTenantProviderAccount(ctx, tenantID, accountID)
 }
 
@@ -342,6 +346,8 @@ func (s *Store) UpsertTenantProviderAccountModels(ctx context.Context, tenantID 
 		)
 	}
 
+	s.invalidateDeploymentCache(ctx, tenantID)
+
 	return items, nil
 }
 
@@ -398,6 +404,8 @@ func (s *Store) UpdateTenantProviderAccountAccess(ctx context.Context, tenantID 
 			zap.Int("users_count", len(result.Users)),
 		)
 	}
+
+	s.invalidateDeploymentCache(ctx, tenantID)
 
 	return &result, nil
 }
@@ -796,6 +804,8 @@ func (s *Store) DeleteTenantProviderAccount(ctx context.Context, tenantID string
 			zap.String("name", accountName),
 		)
 	}
+
+	s.invalidateDeploymentCache(ctx, tenantID)
 
 	return nil
 }

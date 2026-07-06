@@ -46,6 +46,8 @@ func (s *Store) CreateDeployment(ctx context.Context, dep platform.Deployment) (
 		return nil, err
 	}
 
+	s.invalidateDeploymentCache(ctx, dep.TenantID)
+
 	return &dep, nil
 }
 

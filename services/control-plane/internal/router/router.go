@@ -2,9 +2,12 @@ package router
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +17,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	"github.com/Delpak/shahrah/services/control-plane/internal/modelid"
 	"go.uber.org/zap"
+	"golang.org/x/sync/singleflight"
 )
 
 // Errors.
@@ -56,6 +60,8 @@ type Router struct {
 	cache       cache.Cache
 	logger      *zap.Logger
 	store       DeploymentStore
+	dynamicTTL  time.Duration
+	loadGroup   singleflight.Group
 }
 
 // NewRouter creates a new Router instance.
@@ -67,6 +73,7 @@ func NewRouter(modelList []config.ModelDeployment, settings config.RouterSetting
 		cache:       c,
 		logger:      logger,
 		store:       store,
+		dynamicTTL:  secondsEnvOrDefault("ROUTER_DEPLOYMENT_CACHE_TTL_SECONDS", 30*time.Second),
 	}
 
 	// Initialize cooldown cache
@@ -146,7 +153,7 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 	r.mu.RUnlock()
 
 	if r.store != nil && tenantID != "" {
-		dynamic, err := r.store.ListDeployments(ctx, tenantID)
+		dynamic, err := r.listCachedDeployments(ctx, tenantID)
 		if err == nil {
 			for _, dep := range dynamic {
 				if dep.ModelName != modelName && dep.ModelName != "*" {
@@ -206,6 +213,100 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 	}
 
 	return r.applyBYOK(ctx, tenantID, modelName, selected), nil
+}
+
+func (r *Router) listCachedDeployments(ctx context.Context, tenantID string) ([]platform.Deployment, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	if r.cache == nil || r.dynamicTTL <= 0 {
+		return r.store.ListDeployments(ctx, tenantID)
+	}
+
+	key := deploymentCacheKey(tenantID)
+	if cached, ok := r.cache.Get(ctx, key); ok {
+		if deployments, ok := deploymentsFromCache(cached); ok {
+			return cloneDeployments(deployments), nil
+		}
+	}
+
+	value, err, _ := r.loadGroup.Do(key, func() (interface{}, error) {
+		if cached, ok := r.cache.Get(ctx, key); ok {
+			if deployments, ok := deploymentsFromCache(cached); ok {
+				return cloneDeployments(deployments), nil
+			}
+		}
+
+		deployments, err := r.store.ListDeployments(ctx, tenantID)
+		if err != nil {
+			return nil, err
+		}
+
+		deployments = cloneDeployments(deployments)
+		storeDeployments(ctx, r.cache, key, deployments, r.dynamicTTL)
+		return deployments, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	deployments, ok := value.([]platform.Deployment)
+	if !ok {
+		return nil, fmt.Errorf("unexpected deployment cache type for tenant %s", tenantID)
+	}
+
+	return cloneDeployments(deployments), nil
+}
+
+func deploymentsFromCache(value interface{}) ([]platform.Deployment, bool) {
+	switch typed := value.(type) {
+	case []platform.Deployment:
+		return cloneDeployments(typed), true
+	case string:
+		return deploymentsFromJSON([]byte(typed))
+	case []byte:
+		return deploymentsFromJSON(typed)
+	default:
+		return nil, false
+	}
+}
+
+func deploymentsFromJSON(raw []byte) ([]platform.Deployment, bool) {
+	var deployments []platform.Deployment
+	if err := json.Unmarshal(raw, &deployments); err != nil {
+		return nil, false
+	}
+
+	return deployments, true
+}
+
+func storeDeployments(ctx context.Context, c cache.Cache, key string, deployments []platform.Deployment, ttl time.Duration) {
+	raw, err := json.Marshal(deployments)
+	if err != nil {
+		return
+	}
+
+	c.Set(ctx, key, string(raw), ttl)
+}
+
+func deploymentCacheKey(tenantID string) string {
+	return "deployments:tenant:" + strings.TrimSpace(tenantID)
+}
+
+func cloneDeployments(in []platform.Deployment) []platform.Deployment {
+	if len(in) == 0 {
+		return nil
+	}
+
+	out := make([]platform.Deployment, len(in))
+	copy(out, in)
+	for i := range out {
+		if in[i].ModelInfo != nil {
+			out[i].ModelInfo = make(map[string]interface{}, len(in[i].ModelInfo))
+			for k, v := range in[i].ModelInfo {
+				out[i].ModelInfo[k] = v
+			}
+		}
+	}
+	return out
 }
 
 func (r *Router) matchWildcardDeployments(modelName string) []*Deployment {
@@ -463,4 +564,18 @@ func canonicalProviderModel(provider string, model string) string {
 	}
 
 	return modelid.CanonicalOfficialModel(provider, model)
+}
+
+func secondsEnvOrDefault(key string, fallback time.Duration) time.Duration {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return fallback
+	}
+
+	seconds, err := strconv.Atoi(raw)
+	if err != nil || seconds < 0 {
+		return fallback
+	}
+
+	return time.Duration(seconds) * time.Second
 }

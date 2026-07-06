@@ -431,6 +431,8 @@ func (s *Store) CompleteWalletTopUpByAuthority(ctx context.Context, authority st
 		return nil, false, err
 	}
 
+	s.invalidateWalletCache(ctx, intent.TenantID)
+
 	intent.Status = platform.WalletTopUpStatusCompleted
 	intent.RefID = refID
 	intent.GatewayTxnID = gatewayTxnID

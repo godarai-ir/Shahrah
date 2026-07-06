@@ -19,17 +19,33 @@ import (
 type mockTenantStore struct {
 	mu            sync.Mutex
 	tenantsByHost map[string]*platform.Tenant
+	calls         int
+	delay         time.Duration
 }
 
 func (s *mockTenantStore) GetTenantByHost(_ context.Context, host string) (*platform.Tenant, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.calls++
+	delay := s.delay
+	tenant, ok := s.tenantsByHost[host]
+	s.mu.Unlock()
 
-	if t, ok := s.tenantsByHost[host]; ok {
-		return t, nil
+	if delay > 0 {
+		time.Sleep(delay)
+	}
+
+	if ok {
+		return tenant, nil
 	}
 
 	return nil, errors.New("tenant not found")
+}
+
+func (s *mockTenantStore) callCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.calls
 }
 
 func (s *mockTenantStore) addTenant(host string, t *platform.Tenant) {
@@ -127,7 +143,7 @@ func TestTenantMiddleware_CacheHit(t *testing.T) {
 	assert.Equal(t, fiber.StatusNoContent, resp.StatusCode)
 
 	// Store should not be called on cache hit
-	assert.Empty(t, store.tenantsByHost)
+	assert.Equal(t, 0, store.callCount())
 }
 
 func TestTenantMiddleware_CacheMiss(t *testing.T) {
@@ -165,6 +181,66 @@ func TestTenantMiddleware_CacheMiss(t *testing.T) {
 	assert.Equal(t, 1, cache.sets)
 	_, found := cache.Get(context.Background(), "tenant:host:acme.localhost")
 	assert.True(t, found)
+}
+
+func TestTenantMiddleware_ConcurrentCacheMissSingleflightsStoreLookup(t *testing.T) {
+	app := fiber.New()
+	cache := newMockCache()
+	store := &mockTenantStore{
+		tenantsByHost: make(map[string]*platform.Tenant),
+		delay:         25 * time.Millisecond,
+	}
+	store.addTenant("acme.localhost", newActiveTenant("tenant-1", "acme", "acme.localhost", "active"))
+
+	mw := tenantmw.NewMiddlewareWithCache(store, cache, tenantmw.MiddlewareConfig{
+		AllowHeaderHint: false,
+		CacheTTL:        5 * time.Minute,
+	})
+
+	app.Use(mw.Handle())
+	app.Get("/", func(c *fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+
+	const workers = 16
+	var wg sync.WaitGroup
+	wg.Add(workers)
+	errs := make(chan error, workers)
+	statuses := make(chan int, workers)
+	for i := 0; i < workers; i++ {
+		go func() {
+			defer wg.Done()
+
+			req, err := http.NewRequest(http.MethodGet, "http://acme.localhost/", http.NoBody)
+			if err != nil {
+				errs <- err
+				return
+			}
+
+			resp, err := app.Test(req)
+			if resp != nil && resp.Body != nil {
+				resp.Body.Close()
+			}
+			if err != nil {
+				errs <- err
+				return
+			}
+
+			statuses <- resp.StatusCode
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	close(statuses)
+
+	for err := range errs {
+		assert.NoError(t, err)
+	}
+	for status := range statuses {
+		assert.Equal(t, fiber.StatusNoContent, status)
+	}
+	assert.Equal(t, 1, store.callCount())
+	assert.Equal(t, 1, cache.sets)
 }
 
 func TestTenantMiddleware_TenantNotFound_ReturnsNotFound(t *testing.T) {
@@ -222,6 +298,39 @@ func TestTenantMiddleware_TenantSuspended(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, fiber.StatusForbidden, resp.StatusCode)
+}
+
+func TestTenantMiddleware_InactiveTenantIsNotCached(t *testing.T) {
+	app := fiber.New()
+	cache := newMockCache()
+	store := &mockTenantStore{
+		tenantsByHost: make(map[string]*platform.Tenant),
+	}
+	store.addTenant("suspended.localhost", newActiveTenant("tenant-1", "suspended", "suspended.localhost", "suspended"))
+
+	mw := tenantmw.NewMiddlewareWithCache(store, cache, tenantmw.MiddlewareConfig{
+		AllowHeaderHint: false,
+		CacheTTL:        5 * time.Minute,
+	})
+
+	app.Use(mw.Handle())
+	app.Get("/", func(c *fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+
+	for i := 0; i < 2; i++ {
+		req, err := http.NewRequest(http.MethodGet, "http://suspended.localhost/", http.NoBody)
+		assert.NoError(t, err)
+
+		resp, err := app.Test(req)
+		defer closeResponseBody(t, resp)
+
+		assert.NoError(t, err)
+		assert.Equal(t, fiber.StatusForbidden, resp.StatusCode)
+	}
+
+	assert.Equal(t, 2, store.callCount())
+	assert.Equal(t, 0, cache.sets)
 }
 
 func TestTenantMiddleware_LocalDevHint(t *testing.T) {

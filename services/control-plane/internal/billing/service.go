@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/openai"
@@ -27,7 +29,7 @@ type walletStore interface {
 }
 
 type entitlementStore interface {
-	ResolveEffectiveEntitlements(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementsResponse, error)
+	ResolveEffectiveEntitlementLimits(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementLimits, error)
 	CheckAndIncrementTenantUsageCounter(ctx context.Context, tenantID string, featureKey string, limit float64, increment float64, now time.Time) (*platform.UsageCounter, bool, error)
 }
 
@@ -39,6 +41,7 @@ type Service struct {
 	defaultRate       platform.ExchangeRate
 	exchangeRateCache *exchangeRateCache
 	pricingCache      *pricingCache
+	walletCacheTTL    time.Duration
 }
 
 // NewService creates a billing enforcement service.
@@ -64,10 +67,11 @@ func NewServiceWithCacheConfig(c cache.Cache, store walletStore, defaultUSDtoIRR
 	}
 
 	svc := &Service{
-		cache:        c,
-		store:        store,
-		entitlements: entitlements,
-		defaultRate:  defaultRate,
+		cache:          c,
+		store:          store,
+		entitlements:   entitlements,
+		defaultRate:    defaultRate,
+		walletCacheTTL: secondsEnvOrDefault("BILLING_WALLET_CACHE_TTL_SECONDS", 5*time.Second),
 	}
 	svc.exchangeRateCache = newExchangeRateCache(store, c, defaultRate, exchangeRateCacheConfig)
 	svc.pricingCache = newPricingCache(c, pricingCacheConfig, modelPriceFromRegistry)
@@ -82,7 +86,7 @@ func (s *Service) CheckRateLimit(ctx context.Context, auth *platform.AuthContext
 		return nil, nil
 	}
 
-	effective, err := s.entitlements.ResolveEffectiveEntitlements(ctx, auth.TenantID)
+	effective, err := s.entitlements.ResolveEffectiveEntitlementLimits(ctx, auth.TenantID)
 	if err != nil {
 		return nil, ErrSubscriptionInactive
 	}
@@ -116,7 +120,11 @@ func (s *Service) CheckRateLimit(ctx context.Context, auth *platform.AuthContext
 
 // CheckBudget validates wallet balance constraints.
 func (s *Service) CheckBudget(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown) error {
-	wallet, err := s.store.GetWallet(ctx, auth.TenantID)
+	if auth == nil {
+		return ErrBudgetExceeded
+	}
+
+	wallet, err := s.getWallet(ctx, auth.TenantID)
 	if err != nil {
 		return err
 	}
@@ -126,6 +134,84 @@ func (s *Service) CheckBudget(ctx context.Context, auth *platform.AuthContext, b
 	}
 
 	return nil
+}
+
+func (s *Service) getWallet(ctx context.Context, tenantID string) (*platform.Wallet, error) {
+	if s == nil || s.store == nil {
+		return nil, errors.New("wallet store unavailable")
+	}
+
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" || s.cache == nil || s.walletCacheTTL <= 0 {
+		return s.store.GetWallet(ctx, tenantID)
+	}
+
+	key := walletCacheKey(tenantID)
+	if wallet, ok := s.cachedWallet(ctx, key); ok {
+		return wallet, nil
+	}
+
+	wallet, err := s.store.GetWallet(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	s.storeWallet(ctx, key, wallet)
+	return cloneWallet(wallet), nil
+}
+
+func (s *Service) cachedWallet(ctx context.Context, key string) (*platform.Wallet, bool) {
+	value, ok := s.cache.Get(ctx, key)
+	if !ok {
+		return nil, false
+	}
+
+	switch typed := value.(type) {
+	case string:
+		return walletFromJSON([]byte(typed))
+	case []byte:
+		return walletFromJSON(typed)
+	case platform.Wallet:
+		return cloneWallet(&typed), true
+	case *platform.Wallet:
+		return cloneWallet(typed), typed != nil
+	default:
+		s.cache.Delete(ctx, key)
+		return nil, false
+	}
+}
+
+func (s *Service) storeWallet(ctx context.Context, key string, wallet *platform.Wallet) {
+	if wallet == nil {
+		return
+	}
+
+	raw, err := json.Marshal(wallet)
+	if err != nil {
+		return
+	}
+
+	s.cache.Set(ctx, key, string(raw), s.walletCacheTTL)
+}
+
+func walletFromJSON(raw []byte) (*platform.Wallet, bool) {
+	var wallet platform.Wallet
+	if err := json.Unmarshal(raw, &wallet); err != nil {
+		return nil, false
+	}
+	return &wallet, true
+}
+
+func cloneWallet(in *platform.Wallet) *platform.Wallet {
+	if in == nil {
+		return nil
+	}
+	out := *in
+	return &out
+}
+
+func walletCacheKey(tenantID string) string {
+	return fmt.Sprintf("wallet:tenant:%s", strings.TrimSpace(tenantID))
 }
 
 func entitlementNumber(value interface{}) (float64, bool) {

@@ -47,6 +47,7 @@ type Dependencies struct {
 	ModerationsHandler      *proxy.ModerationsHandler
 	ImagesHandler           *proxy.ImagesHandler
 	ModelsHandler           *proxy.ModelsHandler
+	PoolStats               prommetrics.PoolStatsProvider
 	Logger                  *zap.Logger
 	PlatformServiceAccounts auth.PlatformServiceAccountStore
 }
@@ -69,6 +70,7 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 	})
 
 	httpMetrics := prommetrics.NewHTTPMetrics()
+	httpMetrics.RegisterPgxPool(deps.PoolStats)
 
 	if cfg != nil && cfg.OperationalLogs.UseFiberAccessLogger {
 		app.Use(fiberlogger.New(buildHTTPLoggerConfig(nil)))
@@ -95,6 +97,10 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 	app.Use(httpMetrics.Middleware())
 
 	registerPublicRoutes(app, cfg, deps, httpMetrics)
+
+	if backpressure := newGatewayBackpressureMiddleware(); backpressure != nil {
+		app.Use(backpressure)
+	}
 
 	if deps.TenantResolver != nil {
 		app.Use(deps.TenantResolver.Handle())

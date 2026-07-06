@@ -61,6 +61,7 @@ func NewStore(ctx context.Context, databaseURL string, logger *zap.Logger) (*Sto
 	if err != nil {
 		return nil, fmt.Errorf("parse database config: %w", err)
 	}
+	applyPostgresPoolEnv(cfg)
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
@@ -101,4 +102,29 @@ func (s *Store) Close() {
 	}
 
 	s.pool.Close()
+}
+
+// PoolStats returns a snapshot of PostgreSQL pool state for observability.
+func (s *Store) PoolStats() *pgxpool.Stat {
+	if s == nil || s.pool == nil {
+		return nil
+	}
+
+	return s.pool.Stat()
+}
+
+func applyPostgresPoolEnv(cfg *pgxpool.Config) {
+	if cfg == nil {
+		return
+	}
+
+	cfg.MaxConns = int32EnvOrDefault("POSTGRES_POOL_MAX_CONNS", 32)
+	cfg.MinConns = int32EnvOrDefault("POSTGRES_POOL_MIN_CONNS", 4)
+	cfg.MaxConnLifetime = secondsEnvOrDefault("POSTGRES_POOL_MAX_CONN_LIFETIME_SECONDS", 1800*time.Second)
+	cfg.MaxConnIdleTime = secondsEnvOrDefault("POSTGRES_POOL_MAX_CONN_IDLE_TIME_SECONDS", 300*time.Second)
+	cfg.HealthCheckPeriod = secondsEnvOrDefault("POSTGRES_POOL_HEALTH_CHECK_PERIOD_SECONDS", 30*time.Second)
+
+	if cfg.MinConns > cfg.MaxConns {
+		cfg.MinConns = cfg.MaxConns
+	}
 }

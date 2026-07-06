@@ -2,7 +2,9 @@ package router_test
 
 import (
 	"context"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
@@ -188,11 +190,24 @@ func TestRouter_ShouldMatchProviderScopedWildcardBeforeGlobalWildcard(t *testing
 }
 
 type staticDeploymentStore struct {
+	mu          sync.Mutex
 	deployments []platform.Deployment
+	calls       int
 }
 
 func (s *staticDeploymentStore) ListDeployments(_ context.Context, _ string) ([]platform.Deployment, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.calls++
 	return append([]platform.Deployment(nil), s.deployments...), nil
+}
+
+func (s *staticDeploymentStore) callCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.calls
 }
 
 func TestRouter_FQNShouldNotFallBackToGlobalWildcard(t *testing.T) {
@@ -321,4 +336,102 @@ func TestRouter_CanonicalizesProviderPrefixedModelForProviderAccountDeployment(t
 	assert.NotNil(t, dep)
 	assert.Equal(t, "gpt-4o-mini", dep.Model)
 	assert.Equal(t, "gpt-4o-mini", dep.Params.Model)
+}
+
+func TestRouter_CachesTenantDeployments(t *testing.T) {
+	t.Setenv("ROUTER_DEPLOYMENT_CACHE_TTL_SECONDS", "30")
+
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	store := &staticDeploymentStore{
+		deployments: []platform.Deployment{
+			{
+				ID:        "provider-account:openai-1:gpt-4o-mini",
+				TenantID:  "tenant-1",
+				ModelName: "openai:openai-main:gpt-4o-mini",
+				Provider:  "openai",
+				Model:     "gpt-4o-mini",
+				APIKey:    "tenant-openai-key",
+			},
+		},
+	}
+
+	r, err := llmrouter.NewRouter(nil, config.RouterSettings{}, memCache, store, logger)
+	assert.NoError(t, err)
+
+	for i := 0; i < 2; i++ {
+		dep, err := r.Route(context.Background(), "tenant-1", "openai:openai-main:gpt-4o-mini")
+		assert.NoError(t, err)
+		assert.NotNil(t, dep)
+	}
+
+	assert.Equal(t, 1, store.callCount())
+}
+
+func TestRouter_ReloadsTenantDeploymentsAfterCacheInvalidation(t *testing.T) {
+	t.Setenv("ROUTER_DEPLOYMENT_CACHE_TTL_SECONDS", "30")
+
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	store := &staticDeploymentStore{
+		deployments: []platform.Deployment{
+			{
+				ID:        "provider-account:openai-1:gpt-4o-mini",
+				TenantID:  "tenant-1",
+				ModelName: "openai:openai-main:gpt-4o-mini",
+				Provider:  "openai",
+				Model:     "gpt-4o-mini",
+				APIKey:    "tenant-openai-key",
+			},
+		},
+	}
+
+	r, err := llmrouter.NewRouter(nil, config.RouterSettings{}, memCache, store, logger)
+	assert.NoError(t, err)
+
+	dep, err := r.Route(context.Background(), "tenant-1", "openai:openai-main:gpt-4o-mini")
+	assert.NoError(t, err)
+	assert.NotNil(t, dep)
+
+	memCache.Delete(context.Background(), "deployments:tenant:tenant-1")
+
+	dep, err = r.Route(context.Background(), "tenant-1", "openai:openai-main:gpt-4o-mini")
+	assert.NoError(t, err)
+	assert.NotNil(t, dep)
+
+	assert.Equal(t, 2, store.callCount())
+}
+
+func TestRouter_ReloadsTenantDeploymentsAfterTTLExpiry(t *testing.T) {
+	t.Setenv("ROUTER_DEPLOYMENT_CACHE_TTL_SECONDS", "1")
+
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	store := &staticDeploymentStore{
+		deployments: []platform.Deployment{
+			{
+				ID:        "provider-account:openai-1:gpt-4o-mini",
+				TenantID:  "tenant-1",
+				ModelName: "openai:openai-main:gpt-4o-mini",
+				Provider:  "openai",
+				Model:     "gpt-4o-mini",
+				APIKey:    "tenant-openai-key",
+			},
+		},
+	}
+
+	r, err := llmrouter.NewRouter(nil, config.RouterSettings{}, memCache, store, logger)
+	assert.NoError(t, err)
+
+	dep, err := r.Route(context.Background(), "tenant-1", "openai:openai-main:gpt-4o-mini")
+	assert.NoError(t, err)
+	assert.NotNil(t, dep)
+
+	time.Sleep(1100 * time.Millisecond)
+
+	dep, err = r.Route(context.Background(), "tenant-1", "openai:openai-main:gpt-4o-mini")
+	assert.NoError(t, err)
+	assert.NotNil(t, dep)
+
+	assert.Equal(t, 2, store.callCount())
 }

@@ -22,12 +22,17 @@ type walletStoreStub struct {
 	rate         *platform.ExchangeRate
 	rates        []*platform.ExchangeRate
 	rateErr      error
+	walletCalls  int
 	rateCalls    int
 	upsertCalls  int
 	upsertedRate *platform.ExchangeRate
 }
 
 func (s *walletStoreStub) GetWallet(_ context.Context, tenantID string) (*platform.Wallet, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.walletCalls++
 	return s.wallet, nil
 }
 func (s *walletStoreStub) GetLatestExchangeRate(_ context.Context) (*platform.ExchangeRate, error) {
@@ -64,17 +69,49 @@ func (s *walletStoreStub) rateCallCount() int {
 	return s.rateCalls
 }
 
+func (s *walletStoreStub) walletCallCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.walletCalls
+}
+
 type entitlementWalletStoreStub struct {
 	walletStoreStub
-	effective *platform.EffectiveEntitlementsResponse
-	used      float64
+	effective  *platform.EffectiveEntitlementsResponse
+	used       float64
+	fullCalls  int
+	limitCalls int
 }
 
 func (s *entitlementWalletStoreStub) ResolveEffectiveEntitlements(_ context.Context, tenantID string) (*platform.EffectiveEntitlementsResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.fullCalls++
 	return s.effective, nil
 }
 
+func (s *entitlementWalletStoreStub) ResolveEffectiveEntitlementLimits(_ context.Context, tenantID string) (*platform.EffectiveEntitlementLimits, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.limitCalls++
+	if s.effective == nil {
+		return nil, errors.New("not found")
+	}
+	return &platform.EffectiveEntitlementLimits{
+		TenantID:     tenantID,
+		Subscription: s.effective.Subscription,
+		Features:     s.effective.Features,
+		ResolvedAt:   s.effective.ResolvedAt,
+	}, nil
+}
+
 func (s *entitlementWalletStoreStub) CheckAndIncrementTenantUsageCounter(_ context.Context, tenantID, featureKey string, limit, increment float64, now time.Time) (*platform.UsageCounter, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	allowed := s.used+increment <= limit
 	if allowed {
 		s.used += increment
@@ -87,6 +124,13 @@ func (s *entitlementWalletStoreStub) CheckAndIncrementTenantUsageCounter(_ conte
 		Used:        s.used,
 		Limit:       &limit,
 	}, allowed, nil
+}
+
+func (s *entitlementWalletStoreStub) entitlementCallCounts() (int, int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.fullCalls, s.limitCalls
 }
 
 func TestBillingService_ShouldEstimateCost(t *testing.T) {
@@ -358,6 +402,25 @@ func TestBillingService_ShouldAllowWhenWalletBalanceIsSufficient(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestBillingService_ShouldCacheWalletForBudgetChecks(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	store := &walletStoreStub{
+		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000000},
+		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
+	}
+	svc := billing.NewService(memCache, store, 850000, "test")
+
+	for i := 0; i < 2; i++ {
+		err := svc.CheckBudget(context.Background(), &platform.AuthContext{
+			TenantID: "tenant-1",
+		}, platform.UsageCostBreakdown{TotalCostIRR: 100})
+		assert.NoError(t, err)
+	}
+
+	assert.Equal(t, 1, store.walletCallCount())
+}
+
 func TestBillingService_ShouldSkipLegacyRateLimits(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
@@ -400,6 +463,9 @@ func TestBillingService_ShouldAllowTrialWhenSubscriptionQuotaRemains(t *testing.
 	assert.True(t, res.Allowed)
 	assert.Equal(t, int64(5), res.Current)
 	assert.Equal(t, int64(5), res.Limit)
+	fullCalls, limitCalls := store.entitlementCallCounts()
+	assert.Equal(t, 0, fullCalls)
+	assert.Equal(t, 1, limitCalls)
 }
 
 func TestBillingService_ShouldRejectWhenSubscriptionQuotaIsConsumed(t *testing.T) {

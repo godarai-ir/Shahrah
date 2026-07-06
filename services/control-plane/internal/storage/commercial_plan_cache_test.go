@@ -169,3 +169,29 @@ func TestEffectiveEntitlementsCacheHonorsTTL(t *testing.T) {
 		t.Fatal("expected cache entry to expire")
 	}
 }
+
+func TestInvalidateDeploymentCacheDeletesTenantSnapshot(t *testing.T) {
+	ctx := context.Background()
+	cache := newEntitlementTestCache()
+	store := &Store{entitlementCache: cache}
+
+	cache.Set(ctx, deploymentCacheKey("tenant-1"), []platform.Deployment{{ID: "dep-1"}}, time.Minute)
+	store.invalidateDeploymentCache(ctx, "tenant-1")
+
+	if _, ok := cache.Get(ctx, deploymentCacheKey("tenant-1")); ok {
+		t.Fatal("expected deployment cache entry to be invalidated")
+	}
+}
+
+func TestInvalidateWalletCacheDeletesTenantBalance(t *testing.T) {
+	ctx := context.Background()
+	cache := newEntitlementTestCache()
+	store := &Store{entitlementCache: cache}
+
+	cache.Set(ctx, walletCacheKey("tenant-1"), &platform.Wallet{TenantID: "tenant-1"}, time.Minute)
+	store.invalidateWalletCache(ctx, "tenant-1")
+
+	if _, ok := cache.Get(ctx, walletCacheKey("tenant-1")); ok {
+		t.Fatal("expected wallet cache entry to be invalidated")
+	}
+}

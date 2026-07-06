@@ -287,6 +287,7 @@ func main() {
 		ModerationsHandler:      moderationsHandler,
 		ImagesHandler:           imagesHandler,
 		ModelsHandler:           modelsHandler,
+		PoolStats:               store,
 		Logger:                  logger,
 		PlatformServiceAccounts: store,
 	})

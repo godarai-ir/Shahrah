@@ -3,6 +3,7 @@ package tenant
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
 	"github.com/gofiber/fiber/v2"
+	"golang.org/x/sync/singleflight"
 )
 
 // ContextKey is the local key for tenant context.
@@ -41,6 +43,7 @@ type Middleware struct {
 	defaultTenant   string
 	allowHeaderHint bool
 	cacheTTL        time.Duration
+	loadGroup       singleflight.Group
 }
 
 // NewMiddleware creates a new tenant middleware without caching.
@@ -90,19 +93,23 @@ func (m *Middleware) Handle() fiber.Handler {
 			host = m.defaultTenant + ".localhost"
 		}
 
+		host = normalizeTenantHost(host)
+
 		// Check cache first
 		if m.cache != nil {
 			cacheKey := cacheKeyForHost(host)
 			if cached, found := m.cache.Get(c.Context(), cacheKey); found && cached != nil {
-				if tenant, ok := cached.(*platform.Tenant); ok {
+				if tenant, ok := tenantFromCache(cached); ok {
+					if !isActiveTenant(tenant) {
+						return fiber.NewError(fiber.StatusForbidden, fmt.Sprintf("tenant is not active (status: %s)", tenant.Status))
+					}
 					c.Locals(ContextKey{}, tenant)
 					return c.Next()
 				}
 			}
 		}
 
-		// Cache miss - query database
-		tenant, err := m.store.GetTenantByHost(c.Context(), host)
+		tenant, err := m.resolveTenant(c.Context(), host)
 		if err != nil {
 			return fiber.NewError(fiber.StatusNotFound, "tenant not found")
 		}
@@ -112,16 +119,93 @@ func (m *Middleware) Handle() fiber.Handler {
 			return fiber.NewError(fiber.StatusForbidden, fmt.Sprintf("tenant is not active (status: %s)", tenant.Status))
 		}
 
-		// Cache the result
-		if m.cache != nil {
-			cacheKey := cacheKeyForHost(host)
-			m.cache.Set(c.Context(), cacheKey, tenant, m.cacheTTL)
-		}
-
 		c.Locals(ContextKey{}, tenant)
 
 		return c.Next()
 	}
+}
+
+func (m *Middleware) resolveTenant(ctx context.Context, host string) (*platform.Tenant, error) {
+	value, err, _ := m.loadGroup.Do(cacheKeyForHost(host), func() (interface{}, error) {
+		if m.cache != nil {
+			if cached, found := m.cache.Get(ctx, cacheKeyForHost(host)); found && cached != nil {
+				if tenant, ok := tenantFromCache(cached); ok {
+					return tenant, nil
+				}
+			}
+		}
+
+		tenant, err := m.store.GetTenantByHost(ctx, host)
+		if err != nil {
+			return nil, err
+		}
+
+		if !isActiveTenant(tenant) {
+			return tenant, nil
+		}
+
+		if m.cache != nil {
+			cacheTenant(ctx, m.cache, cacheKeyForHost(host), tenant, m.cacheTTL)
+		}
+
+		return tenant, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	tenant, ok := value.(*platform.Tenant)
+	if !ok || tenant == nil {
+		return nil, fiber.ErrNotFound
+	}
+
+	return tenant, nil
+}
+
+func tenantFromCache(value interface{}) (*platform.Tenant, bool) {
+	switch typed := value.(type) {
+	case *platform.Tenant:
+		return cloneTenant(typed), typed != nil
+	case platform.Tenant:
+		return cloneTenant(&typed), true
+	case string:
+		return tenantFromJSON([]byte(typed))
+	case []byte:
+		return tenantFromJSON(typed)
+	default:
+		return nil, false
+	}
+}
+
+func tenantFromJSON(raw []byte) (*platform.Tenant, bool) {
+	var tenant platform.Tenant
+	if err := json.Unmarshal(raw, &tenant); err != nil {
+		return nil, false
+	}
+
+	return &tenant, true
+}
+
+func cacheTenant(ctx context.Context, c Cache, key string, tenant *platform.Tenant, ttl time.Duration) {
+	if tenant == nil {
+		return
+	}
+
+	raw, err := json.Marshal(tenant)
+	if err != nil {
+		return
+	}
+
+	c.Set(ctx, key, string(raw), ttl)
+}
+
+func cloneTenant(in *platform.Tenant) *platform.Tenant {
+	if in == nil {
+		return nil
+	}
+
+	out := *in
+	return &out
 }
 
 func isTenantResolutionBypassed(path string) bool {
@@ -156,7 +240,7 @@ func FromContext(c *fiber.Ctx) *platform.Tenant {
 }
 
 func cacheKeyForHost(host string) string {
-	return "tenant:host:" + host
+	return "tenant:host:" + normalizeTenantHost(host)
 }
 
 func cacheKeyForID(tenantID string) string {
@@ -187,4 +271,17 @@ func shouldUseTenantHeaderHint(host string) bool {
 		strings.HasPrefix(normalized, "control-plane.") ||
 		strings.HasSuffix(normalized, ".svc") ||
 		strings.Contains(normalized, ".svc.")
+}
+
+func normalizeTenantHost(host string) string {
+	normalized := strings.TrimSpace(strings.ToLower(host))
+	if normalized == "" {
+		return ""
+	}
+
+	if parsedHost, _, err := net.SplitHostPort(normalized); err == nil {
+		normalized = parsedHost
+	}
+
+	return normalized
 }

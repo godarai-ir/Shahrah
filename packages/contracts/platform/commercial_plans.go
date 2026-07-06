@@ -126,6 +126,13 @@ type EffectiveEntitlementsResponse struct {
 	ResolvedAt    time.Time              `json:"resolved_at"`
 }
 
+type EffectiveEntitlementLimits struct {
+	TenantID     string                 `json:"tenant_id"`
+	Subscription *TenantSubscription    `json:"subscription,omitempty"`
+	Features     map[string]interface{} `json:"features"`
+	ResolvedAt   time.Time              `json:"resolved_at"`
+}
+
 type UsageCounter struct {
 	FeatureKey  string    `json:"feature_key"`
 	WindowStart time.Time `json:"window_start"`

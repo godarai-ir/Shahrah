@@ -71,6 +71,8 @@ func (s *Store) TopUpWallet(ctx context.Context, tenantID string, amountIRR floa
 		return nil, err
 	}
 
+	s.invalidateWalletCache(ctx, tenantID)
+
 	return &out, nil
 }
 
@@ -123,6 +125,8 @@ func (s *Store) DebitWallet(ctx context.Context, tenantID string, breakdown plat
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+
+	s.invalidateWalletCache(ctx, tenantID)
 
 	return &txn, nil
 }

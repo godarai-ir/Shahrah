@@ -572,13 +572,35 @@ func (s *Store) upsertTenantSubscription(ctx context.Context, req platform.Upser
 }
 
 func (s *Store) ResolveEffectiveEntitlements(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementsResponse, error) {
-	if cached, ok := s.getCachedEntitlements(ctx, tenantID); ok {
-		resolved, err := s.withCurrentUsageCounters(ctx, cached)
-		if err != nil {
-			return nil, err
-		}
+	base, err := s.resolveEffectiveEntitlementsBase(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
 
-		return resolved, nil
+	return s.withCurrentUsageCounters(ctx, base)
+}
+
+// ResolveEffectiveEntitlementLimits returns subscription and feature limits without usage counters.
+func (s *Store) ResolveEffectiveEntitlementLimits(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementLimits, error) {
+	base, err := s.resolveEffectiveEntitlementsBase(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	if base == nil {
+		return nil, fmt.Errorf("empty entitlement result for tenant %s", tenantID)
+	}
+
+	return &platform.EffectiveEntitlementLimits{
+		TenantID:     base.TenantID,
+		Subscription: cloneTenantSubscription(base.Subscription),
+		Features:     cloneStringInterfaceMap(base.Features),
+		ResolvedAt:   base.ResolvedAt,
+	}, nil
+}
+
+func (s *Store) resolveEffectiveEntitlementsBase(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementsResponse, error) {
+	if cached, ok := s.getCachedEntitlements(ctx, tenantID); ok {
+		return cached, nil
 	}
 
 	key := entitlementCacheKey(tenantID)
@@ -605,7 +627,7 @@ func (s *Store) ResolveEffectiveEntitlements(ctx context.Context, tenantID strin
 		return nil, fmt.Errorf("unexpected entitlement cache load result for tenant %s", tenantID)
 	}
 
-	return s.withCurrentUsageCounters(ctx, resolved)
+	return cloneEffectiveEntitlements(resolved), nil
 }
 
 func (s *Store) resolveEffectiveEntitlementsFromDB(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementsResponse, error) {
@@ -791,10 +813,7 @@ func cloneEffectiveEntitlements(in *platform.EffectiveEntitlementsResponse) *pla
 
 	out := *in
 	if in.Subscription != nil {
-		subscription := *in.Subscription
-		subscription.PriceSnapshot = cloneStringInterfaceMap(in.Subscription.PriceSnapshot)
-		subscription.Metadata = cloneStringInterfaceMap(in.Subscription.Metadata)
-		out.Subscription = &subscription
+		out.Subscription = cloneTenantSubscription(in.Subscription)
 	}
 	out.Features = cloneStringInterfaceMap(in.Features)
 	out.Overrides = cloneStringInterfaceMap(in.Overrides)
@@ -809,6 +828,17 @@ func cloneEffectiveEntitlements(in *platform.EffectiveEntitlementsResponse) *pla
 		}
 	}
 
+	return &out
+}
+
+func cloneTenantSubscription(in *platform.TenantSubscription) *platform.TenantSubscription {
+	if in == nil {
+		return nil
+	}
+
+	out := *in
+	out.PriceSnapshot = cloneStringInterfaceMap(in.PriceSnapshot)
+	out.Metadata = cloneStringInterfaceMap(in.Metadata)
 	return &out
 }
 
