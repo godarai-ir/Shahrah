@@ -14,10 +14,11 @@ import (
 
 // RateLimitResult holds the result of a rate-limit check.
 type RateLimitResult struct {
-	Allowed bool
-	Current int64
-	Limit   int64
-	ResetAt time.Time
+	Allowed    bool
+	Current    int64
+	Limit      int64
+	ResetAt    time.Time
+	RetryAfter bool
 }
 
 // UsageCounterRequest describes an atomic fixed-window usage counter update.

@@ -1237,10 +1237,11 @@ func TestChatCompletionHandler_ShouldSetRateLimitHeaders(t *testing.T) {
 	mBilling := &mockBilling{
 		cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 15},
 		rateLimitRes: &mcache.RateLimitResult{
-			Allowed: true,
-			Current: 2,
-			Limit:   10,
-			ResetAt: time.Now().Add(time.Minute),
+			Allowed:    false,
+			Current:    2,
+			Limit:      10,
+			ResetAt:    time.Now().Add(time.Minute),
+			RetryAfter: true,
 		},
 	}
 	mWallet := &mockWalletStore{}
@@ -1266,6 +1267,7 @@ func TestChatCompletionHandler_ShouldSetRateLimitHeaders(t *testing.T) {
 	assert.Equal(t, "10", resp.Header.Get("X-Ratelimit-Limit"))
 	assert.Equal(t, "8", resp.Header.Get("X-Ratelimit-Remaining"))
 	assert.NotEmpty(t, resp.Header.Get("X-Ratelimit-Reset"))
+	assert.NotEmpty(t, resp.Header.Get("Retry-After"))
 }
 
 func TestChatCompletionHandler_ShouldAcceptValidTemperature(t *testing.T) {

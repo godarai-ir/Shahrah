@@ -383,6 +383,8 @@ func budgetContextValue(key string, auth *platform.AuthContext, breakdown platfo
 		return strings.TrimSpace(auth.KeyID), true
 	case "key_alias":
 		return strings.TrimSpace(auth.KeyAlias), true
+	case "token_hash":
+		return strings.TrimSpace(auth.TokenHash), true
 	case string(platform.BudgetAppliesPerModel):
 		return strings.TrimSpace(breakdown.Model), true
 	case "key_type":

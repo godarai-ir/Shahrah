@@ -194,7 +194,7 @@ export default function OrgUnitManagement({
 
   useEffect(() => {
     void loadTeamCounts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   function resolveTeamCount(orgUnit: OrgUnit) {

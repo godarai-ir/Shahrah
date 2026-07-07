@@ -44,6 +44,7 @@ type ControlPlaneBinaryResponse = {
   body: ArrayBuffer;
   contentType?: string;
   cacheControl?: string;
+  contentDisposition?: string;
   errorMessage?: string;
 };
 
@@ -163,6 +164,7 @@ export async function proxyToControlPlaneBinary(options: ProxyOptions) {
     headers: {
       ...(upstream.contentType ? { "Content-Type": upstream.contentType } : {}),
       ...(upstream.cacheControl ? { "Cache-Control": upstream.cacheControl } : {}),
+      ...(upstream.contentDisposition ? { "Content-Disposition": upstream.contentDisposition } : {}),
     },
   });
 }
@@ -284,6 +286,7 @@ async function fetchControlPlaneRaw(
     const body = await upstream.arrayBuffer();
     const contentType = upstream.headers.get("content-type") ?? "";
     const cacheControl = upstream.headers.get("cache-control") ?? "";
+    const contentDisposition = upstream.headers.get("content-disposition") ?? "";
     let errorMessage: string | undefined;
 
     if (!upstream.ok) {
@@ -299,6 +302,7 @@ async function fetchControlPlaneRaw(
       body,
       contentType,
       cacheControl,
+      contentDisposition,
       errorMessage,
     };
   } catch (error) {

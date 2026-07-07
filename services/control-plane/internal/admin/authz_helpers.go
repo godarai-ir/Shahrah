@@ -124,6 +124,18 @@ func requireLogsContentRead(c *fiber.Ctx) error {
 	return requirePermissionAnyOrTenantAdmin(c, "logs content permission required", []string{"logs:read_content"})
 }
 
+func requireLogsExport(c *fiber.Ctx) error {
+	return requirePermissionAnyOrTenantAdmin(c, "logs export permission required", []string{"logs:export"})
+}
+
+func requireLogsManageViews(c *fiber.Ctx) error {
+	return requirePermissionAnyOrTenantAdmin(c, "logs saved view permission required", []string{"logs:manage_views"})
+}
+
+func requireLogsReplay(c *fiber.Ctx) error {
+	return requirePermissionAnyOrTenantAdmin(c, "logs replay permission required", []string{"logs:replay"})
+}
+
 func requirePermissionAnyOrTenantAdmin(c *fiber.Ctx, errMsg string, permissions []string) error {
 	authInfo := auth.GetAuthInfo(c)
 	if auth.IsTenantAdminOrHigher(authInfo) {

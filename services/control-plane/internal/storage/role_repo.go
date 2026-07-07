@@ -159,6 +159,18 @@ var permissionCatalog = map[string]permissionMeta{
 		Group:       "logs",
 		Description: "Allows viewing stored request and response payload content",
 	},
+	"logs:export": {
+		Group:       "logs",
+		Description: "Allows exporting request logs",
+	},
+	"logs:manage_views": {
+		Group:       "logs",
+		Description: "Allows creating and managing saved log views",
+	},
+	"logs:replay": {
+		Group:       "logs",
+		Description: "Allows creating safe replay drafts from request logs",
+	},
 }
 
 var systemRolePermissions = map[string][]string{
@@ -171,7 +183,7 @@ var systemRolePermissions = map[string][]string{
 		"virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete",
 		"provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete",
 		"settings:list", "settings:manage",
-		"logs:read_metadata", "logs:read_content",
+		"logs:read_metadata", "logs:read_content", "logs:export", "logs:manage_views", "logs:replay",
 	},
 	"tenant_admin": {
 		"policy:list", "policy:manage",
@@ -182,7 +194,7 @@ var systemRolePermissions = map[string][]string{
 		"virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete",
 		"provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete",
 		"settings:list", "settings:manage",
-		"logs:read_metadata", "logs:read_content",
+		"logs:read_metadata", "logs:read_content", "logs:export", "logs:manage_views", "logs:replay",
 	},
 	"org_admin": {
 		"policy:list",
@@ -193,7 +205,7 @@ var systemRolePermissions = map[string][]string{
 		"virtual_account:create", "virtual_account:read", "virtual_account:manage",
 		"provider_account:read",
 		"settings:list",
-		"logs:read_metadata", "logs:read_content",
+		"logs:read_metadata", "logs:read_content", "logs:export", "logs:manage_views", "logs:replay",
 	},
 	"team_admin": {
 		"policy:list",

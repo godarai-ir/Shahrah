@@ -147,6 +147,16 @@ type logsStore interface {
 	ListRequestLogsV2(ctx context.Context, params platform.ListRequestLogsV2Params) ([]platform.RequestLogV2, int, error)
 	GetRequestLogV2(ctx context.Context, tenantID string, logID string, includeContent bool) (*platform.RequestLogDetailV2, error)
 	GetRequestLogFacetsV2(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogFacetsV2, error)
+	GetRequestLogSummaryV2(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogSummaryV2, error)
+	GetRequestLogAnalyticsV2(ctx context.Context, params platform.LogAnalyticsV2Params) ([]platform.LogAnalyticsPointV2, error)
+	ListSavedLogViewsV2(ctx context.Context, tenantID string, userID string) ([]platform.SavedLogViewV2, error)
+	CreateSavedLogViewV2(ctx context.Context, tenantID string, userID string, req platform.CreateSavedLogViewV2Request) (*platform.SavedLogViewV2, error)
+	UpdateSavedLogViewV2(ctx context.Context, tenantID string, savedViewID string, req platform.UpdateSavedLogViewV2Request) (*platform.SavedLogViewV2, error)
+	DeleteSavedLogViewV2(ctx context.Context, tenantID string, savedViewID string) error
+	ListLogExportsV2(ctx context.Context, tenantID string, limit int) ([]platform.LogExportJobV2, error)
+	CreateLogExportV2(ctx context.Context, tenantID string, userID string, req platform.CreateLogExportV2Request) (*platform.LogExportJobV2, error)
+	GetLogExportV2(ctx context.Context, tenantID string, exportID string) (*platform.LogExportJobV2, error)
+	CancelLogExportV2(ctx context.Context, tenantID string, exportID string) (*platform.LogExportJobV2, error)
 }
 
 type metricsStore interface {

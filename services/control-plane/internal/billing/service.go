@@ -56,6 +56,7 @@ type Service struct {
 	pricingCache         *pricingCache
 	walletCacheTTL       time.Duration
 	budgetWindowTTLGrace time.Duration
+	rateLimitFailOpen    bool
 }
 
 // NewService creates a billing enforcement service.
@@ -87,6 +88,7 @@ func NewServiceWithCacheConfig(c cache.Cache, store walletStore, defaultUSDtoIRR
 		defaultRate:          defaultRate,
 		walletCacheTTL:       secondsEnvOrDefault("BILLING_WALLET_CACHE_TTL_SECONDS", 5*time.Second),
 		budgetWindowTTLGrace: secondsEnvOrDefault("BILLING_BUDGET_WINDOW_GRACE_SECONDS", 86400*time.Second),
+		rateLimitFailOpen:    boolEnvOrDefault("RATE_LIMIT_POLICY_REDIS_FAIL_OPEN", false),
 	}
 	svc.exchangeRateCache = newExchangeRateCache(store, c, defaultRate, exchangeRateCacheConfig)
 	svc.pricingCache = newPricingCache(c, pricingCacheConfig, modelPriceFromRegistry)
@@ -102,9 +104,20 @@ func (s *Service) SetRuntimeProfiles(runtimeProfiles interface {
 
 // CheckRateLimit validates per-minute request and token limits.
 // Returns the primary rate-limit result to expose in response headers.
-func (s *Service) CheckRateLimit(ctx context.Context, auth *platform.AuthContext, _ string, _ int) (*cache.RateLimitResult, error) {
+func (s *Service) CheckRateLimit(ctx context.Context, auth *platform.AuthContext, model string, estimatedTokens int) (*cache.RateLimitResult, error) {
+	policyResult, err := s.checkRateLimitPolicies(ctx, auth, platform.UsageCostBreakdown{
+		Model:       model,
+		TotalTokens: estimatedTokens,
+	})
+	if err != nil {
+		return policyResult, err
+	}
+	if policyResult != nil && !policyResult.Allowed {
+		return policyResult, ErrRateLimitExceeded
+	}
+
 	if s.entitlements == nil || auth == nil || auth.TenantID == "" {
-		return nil, nil
+		return policyResult, nil
 	}
 
 	effective, err := s.resolveEffectiveEntitlementLimits(ctx, auth.TenantID)
@@ -118,7 +131,7 @@ func (s *Service) CheckRateLimit(ctx context.Context, auth *platform.AuthContext
 
 	limit, limited := entitlementNumber(effective.Features[platform.FeatureGatewayRequestsMonthly])
 	if !limited {
-		return nil, nil
+		return policyResult, nil
 	}
 
 	counter, allowed, err := s.entitlements.CheckAndIncrementTenantUsageCounter(ctx, auth.TenantID, platform.FeatureGatewayRequestsMonthly, limit, 1, time.Now().UTC())
@@ -136,7 +149,7 @@ func (s *Service) CheckRateLimit(ctx context.Context, auth *platform.AuthContext
 		return result, ErrRateLimitExceeded
 	}
 
-	return result, nil
+	return mostRestrictiveRateLimitResult(policyResult, result), nil
 }
 
 func (s *Service) resolveEffectiveEntitlementLimits(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementLimits, error) {

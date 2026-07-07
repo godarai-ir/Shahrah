@@ -390,22 +390,290 @@ func (s *Store) getRequestLogFacetsV2FromClickHouse(ctx context.Context, params 
 	if err != nil {
 		return nil, err
 	}
+	loadBalanceStatuses, err := queryLogFacetStringRows(ctx, s.clickhouse, buildRequestLogFacetStringQuery(whereSQL, "load_balance_status"), args...)
+	if err != nil {
+		return nil, err
+	}
+	payloadModes, err := queryLogFacetStringRows(ctx, s.clickhouse, buildRequestLogFacetStringQuery(whereSQL, "payload_mode"), args...)
+	if err != nil {
+		return nil, err
+	}
 	statusCodes, err := queryLogFacetStatusRows(ctx, s.clickhouse, whereSQL, args...)
 	if err != nil {
 		return nil, err
 	}
 
 	return &platform.LogFacetsV2{
+		Providers:           providers,
+		Models:              models,
+		VirtualModels:       virtualModels,
+		Routes:              routes,
+		RequestTypes:        requestTypes,
+		ErrorTypes:          errorTypes,
+		CacheStatuses:       cacheStatuses,
+		FallbackStatuses:    fallbackStatuses,
+		LoadBalanceStatuses: loadBalanceStatuses,
+		PayloadModes:        payloadModes,
+		StatusCodes:         statusCodes,
+	}, nil
+}
+
+func (s *Store) getRequestLogSummaryV2FromClickHouse(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogSummaryV2, error) {
+	whereSQL, args := buildRequestLogsWhere(params)
+
+	var (
+		requestCount     uint64
+		errorCount       uint64
+		latencyAvg       float64
+		latencyP50       float64
+		latencyP95       float64
+		latencyP99       float64
+		inputTokens      uint64
+		outputTokens     uint64
+		totalTokens      uint64
+		costUSD          float64
+		costIRR          float64
+		cacheHitCount    uint64
+		retryCount       uint64
+		fallbackCount    uint64
+		loadBalanceCount uint64
+	)
+
+	err := s.clickhouse.QueryRowContext(ctx, fmt.Sprintf(`
+		SELECT
+			count(),
+			countIf(status_code >= 400),
+			if(count() = 0, 0, avg(duration_ms)),
+			if(count() = 0, 0, quantileTDigest(0.50)(duration_ms)),
+			if(count() = 0, 0, quantileTDigest(0.95)(duration_ms)),
+			if(count() = 0, 0, quantileTDigest(0.99)(duration_ms)),
+			sum(input_tokens),
+			sum(output_tokens),
+			sum(total_tokens),
+			toFloat64(sum(cost_usd)),
+			toFloat64(sum(cost_irr)),
+			countIf(positionCaseInsensitive(cache_status, 'hit') > 0),
+			sum(retry_count),
+			countIf(fallback_count > 0 OR lower(fallback_status) NOT IN ('', 'inactive', 'disabled')),
+			countIf(lower(load_balance_status) NOT IN ('', 'inactive', 'disabled'))
+		FROM request_logs_ch
+		WHERE %s
+	`, whereSQL), args...).Scan(
+		&requestCount, &errorCount, &latencyAvg, &latencyP50, &latencyP95, &latencyP99,
+		&inputTokens, &outputTokens, &totalTokens, &costUSD, &costIRR, &cacheHitCount,
+		&retryCount, &fallbackCount, &loadBalanceCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	payloadModes, err := queryLogFacetStringRows(ctx, s.clickhouse, buildRequestLogFacetStringQuery(whereSQL, "payload_mode"), args...)
+	if err != nil {
+		return nil, err
+	}
+	statusCodes, err := queryLogFacetStatusRows(ctx, s.clickhouse, whereSQL, args...)
+	if err != nil {
+		return nil, err
+	}
+	providers, err := queryLogFacetStringRows(ctx, s.clickhouse, buildRequestLogFacetStringQuery(whereSQL, "provider"), args...)
+	if err != nil {
+		return nil, err
+	}
+	models, err := queryLogFacetStringRows(ctx, s.clickhouse, buildRequestLogFacetStringQuery(whereSQL, "model"), args...)
+	if err != nil {
+		return nil, err
+	}
+	routes, err := queryLogFacetStringRows(ctx, s.clickhouse, buildRequestLogFacetStringQuery(whereSQL, "route"), args...)
+	if err != nil {
+		return nil, err
+	}
+
+	summary := &platform.LogSummaryV2{
+		RequestCount:     int(requestCount),
+		ErrorCount:       int(errorCount),
+		LatencyAvgMS:     latencyAvg,
+		LatencyP50MS:     latencyP50,
+		LatencyP95MS:     latencyP95,
+		LatencyP99MS:     latencyP99,
+		InputTokens:      int(inputTokens),
+		OutputTokens:     int(outputTokens),
+		TotalTokens:      int(totalTokens),
+		CostUSD:          costUSD,
+		CostIRR:          costIRR,
+		CacheHitCount:    int(cacheHitCount),
+		RetryCount:       int(retryCount),
+		FallbackCount:    int(fallbackCount),
+		LoadBalanceCount: int(loadBalanceCount),
+		PayloadModes:     payloadModes,
+		StatusCodes:      statusCodes,
 		Providers:        providers,
 		Models:           models,
-		VirtualModels:    virtualModels,
 		Routes:           routes,
-		RequestTypes:     requestTypes,
-		ErrorTypes:       errorTypes,
-		CacheStatuses:    cacheStatuses,
-		FallbackStatuses: fallbackStatuses,
-		StatusCodes:      statusCodes,
-	}, nil
+	}
+	if requestCount > 0 {
+		summary.ErrorRate = float64(errorCount) / float64(requestCount)
+		summary.CacheHitRate = float64(cacheHitCount) / float64(requestCount)
+	}
+
+	return summary, nil
+}
+
+func (s *Store) getRequestLogAnalyticsV2FromClickHouse(ctx context.Context, params platform.LogAnalyticsV2Params) ([]platform.LogAnalyticsPointV2, error) {
+	whereSQL, args := buildRequestLogsWhere(params.ListRequestLogsV2Params)
+	groupColumn := normalizeLogAnalyticsGroupBy(params.GroupBy)
+	intervalSeconds := params.IntervalSeconds
+	if intervalSeconds <= 0 {
+		intervalSeconds = 3600
+	}
+	if intervalSeconds < 60 {
+		intervalSeconds = 60
+	}
+	if intervalSeconds > 86400 {
+		intervalSeconds = 86400
+	}
+
+	if strings.EqualFold(strings.TrimSpace(params.Type), "breakdown") {
+		if groupColumn == "" {
+			groupColumn = "provider"
+		}
+		return s.queryRequestLogAnalyticsBreakdown(ctx, whereSQL, groupColumn, args...)
+	}
+
+	return s.queryRequestLogAnalyticsTimeseries(ctx, whereSQL, groupColumn, intervalSeconds, args...)
+}
+
+func (s *Store) queryRequestLogAnalyticsTimeseries(ctx context.Context, whereSQL, groupColumn string, intervalSeconds int, args ...interface{}) ([]platform.LogAnalyticsPointV2, error) {
+	groupSelect := "''"
+	groupBy := "bucket"
+	if groupColumn != "" {
+		groupSelect = fmt.Sprintf("ifNull(nullIf(%s, ''), '')", groupColumn)
+		groupBy = "bucket, analytics_group"
+	}
+
+	query := fmt.Sprintf(`
+		SELECT
+			toStartOfInterval(started_at, INTERVAL %d SECOND) AS bucket,
+			%s AS analytics_group,
+			count() AS request_count,
+			countIf(status_code >= 400) AS error_count,
+			if(count() = 0, 0, quantileTDigest(0.95)(duration_ms)) AS latency_p95_ms,
+			sum(total_tokens) AS total_tokens_sum,
+			toFloat64(sum(cost_usd)) AS cost_usd,
+			countIf(positionCaseInsensitive(cache_status, 'hit') > 0) AS cache_hit_count,
+			sum(retry_count) AS retry_count,
+			countIf(fallback_count > 0 OR lower(fallback_status) NOT IN ('', 'inactive', 'disabled')) AS fallback_count,
+			countIf(lower(load_balance_status) NOT IN ('', 'inactive', 'disabled')) AS load_balance_count
+		FROM request_logs_ch
+		WHERE %s
+		GROUP BY %s
+		ORDER BY bucket ASC, request_count DESC
+		LIMIT 500
+	`, intervalSeconds, groupSelect, whereSQL, groupBy)
+
+	rows, err := s.clickhouse.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer closeBestEffort(rows)
+
+	out := make([]platform.LogAnalyticsPointV2, 0, 64)
+	for rows.Next() {
+		var (
+			point            platform.LogAnalyticsPointV2
+			ts               time.Time
+			group            string
+			requestCount     uint64
+			errorCount       uint64
+			totalTokens      uint64
+			cacheHitCount    uint64
+			retryCount       uint64
+			fallbackCount    uint64
+			loadBalanceCount uint64
+		)
+		if err := rows.Scan(
+			&ts, &group, &requestCount, &errorCount, &point.LatencyP95MS, &totalTokens, &point.CostUSD,
+			&cacheHitCount, &retryCount, &fallbackCount, &loadBalanceCount,
+		); err != nil {
+			return nil, err
+		}
+		point.Timestamp = &ts
+		point.Group = strings.TrimSpace(group)
+		point.RequestCount = int(requestCount)
+		point.ErrorCount = int(errorCount)
+		point.TotalTokens = int(totalTokens)
+		point.CacheHitCount = int(cacheHitCount)
+		point.RetryCount = int(retryCount)
+		point.FallbackCount = int(fallbackCount)
+		point.LoadBalanceCount = int(loadBalanceCount)
+		if requestCount > 0 {
+			point.ErrorRate = float64(errorCount) / float64(requestCount)
+		}
+		out = append(out, point)
+	}
+
+	return out, rows.Err()
+}
+
+func (s *Store) queryRequestLogAnalyticsBreakdown(ctx context.Context, whereSQL, groupColumn string, args ...interface{}) ([]platform.LogAnalyticsPointV2, error) {
+	query := fmt.Sprintf(`
+		SELECT
+			ifNull(nullIf(%s, ''), '') AS analytics_group,
+			count() AS request_count,
+			countIf(status_code >= 400) AS error_count,
+			if(count() = 0, 0, quantileTDigest(0.95)(duration_ms)) AS latency_p95_ms,
+			sum(total_tokens) AS total_tokens_sum,
+			toFloat64(sum(cost_usd)) AS cost_usd,
+			countIf(positionCaseInsensitive(cache_status, 'hit') > 0) AS cache_hit_count,
+			sum(retry_count) AS retry_count,
+			countIf(fallback_count > 0 OR lower(fallback_status) NOT IN ('', 'inactive', 'disabled')) AS fallback_count,
+			countIf(lower(load_balance_status) NOT IN ('', 'inactive', 'disabled')) AS load_balance_count
+		FROM request_logs_ch
+		WHERE %s
+		GROUP BY analytics_group
+		ORDER BY request_count DESC
+		LIMIT 50
+	`, groupColumn, whereSQL)
+
+	rows, err := s.clickhouse.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer closeBestEffort(rows)
+
+	out := make([]platform.LogAnalyticsPointV2, 0, 16)
+	for rows.Next() {
+		var (
+			point            platform.LogAnalyticsPointV2
+			group            string
+			requestCount     uint64
+			errorCount       uint64
+			totalTokens      uint64
+			cacheHitCount    uint64
+			retryCount       uint64
+			fallbackCount    uint64
+			loadBalanceCount uint64
+		)
+		if err := rows.Scan(
+			&group, &requestCount, &errorCount, &point.LatencyP95MS, &totalTokens, &point.CostUSD,
+			&cacheHitCount, &retryCount, &fallbackCount, &loadBalanceCount,
+		); err != nil {
+			return nil, err
+		}
+		point.Group = strings.TrimSpace(group)
+		point.RequestCount = int(requestCount)
+		point.ErrorCount = int(errorCount)
+		point.TotalTokens = int(totalTokens)
+		point.CacheHitCount = int(cacheHitCount)
+		point.RetryCount = int(retryCount)
+		point.FallbackCount = int(fallbackCount)
+		point.LoadBalanceCount = int(loadBalanceCount)
+		if requestCount > 0 {
+			point.ErrorRate = float64(errorCount) / float64(requestCount)
+		}
+		out = append(out, point)
+	}
+
+	return out, rows.Err()
 }
 
 func prepareRequestLogPayload(mode string, payload map[string]interface{}) (map[string]interface{}, map[string]interface{}, bool) {
@@ -501,10 +769,47 @@ func buildRequestLogsWhere(params platform.ListRequestLogsV2Params) (string, []i
 	appendFilter(params.ErrorType, "error_type = ?")
 	appendFilter(params.CacheStatus, "cache_status = ?")
 	appendFilter(params.FallbackStatus, "fallback_status = ?")
+	appendFilter(params.LoadBalanceStatus, "load_balance_status = ?")
+	appendFilter(params.PayloadMode, "payload_mode = ?")
+	appendFilter(params.ActorID, "actor_id = ?")
+	appendFilter(params.OrgUnitID, "org_unit_id = ?")
+	appendFilter(params.TeamID, "team_id = ?")
 
 	if params.StatusCode != nil {
 		where = append(where, "status_code = ?")
 		args = append(args, int32(*params.StatusCode))
+	}
+	if params.DurationMin != nil {
+		where = append(where, "duration_ms >= ?")
+		args = append(args, int32(*params.DurationMin))
+	}
+	if params.DurationMax != nil {
+		where = append(where, "duration_ms <= ?")
+		args = append(args, int32(*params.DurationMax))
+	}
+	if params.TokensMin != nil {
+		where = append(where, "total_tokens >= ?")
+		args = append(args, uint32(*params.TokensMin))
+	}
+	if params.TokensMax != nil {
+		where = append(where, "total_tokens <= ?")
+		args = append(args, uint32(*params.TokensMax))
+	}
+	if params.CostUSDMin != nil {
+		where = append(where, "cost_usd >= ?")
+		args = append(args, *params.CostUSDMin)
+	}
+	if params.CostUSDMax != nil {
+		where = append(where, "cost_usd <= ?")
+		args = append(args, *params.CostUSDMax)
+	}
+	if params.CostIRRMin != nil {
+		where = append(where, "cost_irr >= ?")
+		args = append(args, *params.CostIRRMin)
+	}
+	if params.CostIRRMax != nil {
+		where = append(where, "cost_irr <= ?")
+		args = append(args, *params.CostIRRMax)
 	}
 	if params.From != nil {
 		where = append(where, "started_at >= ?")
@@ -528,14 +833,47 @@ func normalizeLogSortBy(sortBy string) string {
 		return "cost_usd"
 	case "total_tokens":
 		return "total_tokens"
+	case "cost_irr":
+		return "cost_irr"
+	case "retry_count":
+		return "retry_count"
 	default:
 		return "started_at"
 	}
 }
 
+func normalizeLogAnalyticsGroupBy(groupBy string) string {
+	switch strings.TrimSpace(strings.ToLower(groupBy)) {
+	case "provider":
+		return "provider"
+	case "model":
+		return "model"
+	case "virtual_model":
+		return "virtual_model"
+	case "route":
+		return "route"
+	case "request_type":
+		return "request_type"
+	case "status_code":
+		return "toString(status_code)"
+	case "error_type":
+		return "error_type"
+	case "cache_status":
+		return "cache_status"
+	case "fallback_status":
+		return "fallback_status"
+	case "load_balance_status":
+		return "load_balance_status"
+	case "payload_mode":
+		return "payload_mode"
+	default:
+		return ""
+	}
+}
+
 func buildRequestLogFacetStringQuery(whereSQL, field string) string {
 	return fmt.Sprintf(`
-		SELECT nullIf(%s, '') AS value, count() AS count
+		SELECT ifNull(nullIf(%s, ''), '') AS value, count() AS count
 		FROM request_logs_ch
 		WHERE %s
 		GROUP BY value
@@ -553,12 +891,12 @@ func queryLogFacetStringRows(ctx context.Context, db *sql.DB, query string, args
 
 	out := make([]platform.LogFacetBucketV2, 0, 8)
 	for rows.Next() {
-		var value sql.NullString
+		var value string
 		var count uint64
 		if err := rows.Scan(&value, &count); err != nil {
 			return nil, err
 		}
-		out = append(out, platform.LogFacetBucketV2{Value: strings.TrimSpace(value.String), Count: int(count)})
+		out = append(out, platform.LogFacetBucketV2{Value: strings.TrimSpace(value), Count: int(count)})
 	}
 
 	return out, rows.Err()

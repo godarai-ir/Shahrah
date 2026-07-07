@@ -1266,6 +1266,13 @@ func setRateLimitHeaders(c *fiber.Ctx, result *cache.RateLimitResult) {
 	c.Set("X-RateLimit-Limit", fmt.Sprintf("%d", result.Limit))
 	c.Set("X-RateLimit-Remaining", fmt.Sprintf("%d", remaining))
 	c.Set("X-RateLimit-Reset", fmt.Sprintf("%d", result.ResetAt.Unix()))
+	if result.RetryAfter {
+		retryAfter := time.Until(result.ResetAt)
+		if retryAfter < 0 {
+			retryAfter = 0
+		}
+		c.Set("Retry-After", fmt.Sprintf("%d", int64(retryAfter.Seconds())))
+	}
 }
 
 func chatRequestHasImage(req contractsopenai.ChatCompletionRequest) bool {
