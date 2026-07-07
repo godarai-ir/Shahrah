@@ -518,6 +518,60 @@ func (s *Store) getRequestLogSummaryV2FromClickHouse(ctx context.Context, params
 	return summary, nil
 }
 
+func (s *Store) getRequestLogRangeStatsV2FromClickHouse(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogRangeStatsV2, error) {
+	whereSQL, args := buildRequestLogsWhere(params)
+
+	var (
+		rowCount    uint64
+		durationMin float64
+		durationMax float64
+		tokensMin   float64
+		tokensMax   float64
+		costUSDMin  float64
+		costUSDMax  float64
+		costIRRMin  float64
+		costIRRMax  float64
+	)
+
+	err := s.clickhouse.QueryRowContext(ctx, fmt.Sprintf(`
+		SELECT
+			count(),
+			if(count() = 0, 0, toFloat64(min(duration_ms))),
+			if(count() = 0, 0, toFloat64(max(duration_ms))),
+			if(count() = 0, 0, toFloat64(min(total_tokens))),
+			if(count() = 0, 0, toFloat64(max(total_tokens))),
+			if(count() = 0, 0, min(cost_usd)),
+			if(count() = 0, 0, max(cost_usd)),
+			if(count() = 0, 0, min(cost_irr)),
+			if(count() = 0, 0, max(cost_irr))
+		FROM request_logs_ch
+		WHERE %s
+	`, whereSQL), args...).Scan(
+		&rowCount,
+		&durationMin,
+		&durationMax,
+		&tokensMin,
+		&tokensMax,
+		&costUSDMin,
+		&costUSDMax,
+		&costIRRMin,
+		&costIRRMax,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if rowCount == 0 {
+		return &platform.LogRangeStatsV2{}, nil
+	}
+
+	return &platform.LogRangeStatsV2{
+		DurationMS:  platform.LogRangeV2{Min: durationMin, Max: durationMax},
+		TotalTokens: platform.LogRangeV2{Min: tokensMin, Max: tokensMax},
+		CostUSD:     platform.LogRangeV2{Min: costUSDMin, Max: costUSDMax},
+		CostIRR:     platform.LogRangeV2{Min: costIRRMin, Max: costIRRMax},
+	}, nil
+}
+
 func (s *Store) getRequestLogAnalyticsV2FromClickHouse(ctx context.Context, params platform.LogAnalyticsV2Params) ([]platform.LogAnalyticsPointV2, error) {
 	whereSQL, args := buildRequestLogsWhere(params.ListRequestLogsV2Params)
 	groupColumn := normalizeLogAnalyticsGroupBy(params.GroupBy)
@@ -757,6 +811,23 @@ func buildRequestLogsWhere(params platform.ListRequestLogsV2Params) (string, []i
 		where = append(where, clause)
 		args = append(args, strings.TrimSpace(value))
 	}
+	appendMultiFilter := func(value, field string) {
+		values := splitLogFilterValues(value)
+		if len(values) == 0 {
+			return
+		}
+		if len(values) == 1 {
+			where = append(where, field+" = ?")
+			args = append(args, values[0])
+			return
+		}
+		placeholders := make([]string, 0, len(values))
+		for _, item := range values {
+			placeholders = append(placeholders, "?")
+			args = append(args, item)
+		}
+		where = append(where, fmt.Sprintf("%s IN (%s)", field, strings.Join(placeholders, ", ")))
+	}
 
 	appendFilter(params.LogID, "log_id = ?")
 	appendFilter(params.RequestID, "request_id = ?")
@@ -771,9 +842,10 @@ func buildRequestLogsWhere(params platform.ListRequestLogsV2Params) (string, []i
 	appendFilter(params.FallbackStatus, "fallback_status = ?")
 	appendFilter(params.LoadBalanceStatus, "load_balance_status = ?")
 	appendFilter(params.PayloadMode, "payload_mode = ?")
-	appendFilter(params.ActorID, "actor_id = ?")
-	appendFilter(params.OrgUnitID, "org_unit_id = ?")
-	appendFilter(params.TeamID, "team_id = ?")
+	appendMultiFilter(params.ActorType, "actor_type")
+	appendMultiFilter(params.ActorID, "actor_id")
+	appendMultiFilter(params.OrgUnitID, "org_unit_id")
+	appendMultiFilter(params.TeamID, "team_id")
 
 	if params.StatusCode != nil {
 		where = append(where, "status_code = ?")
@@ -821,6 +893,24 @@ func buildRequestLogsWhere(params platform.ListRequestLogsV2Params) (string, []i
 	}
 
 	return strings.Join(where, " AND "), args
+}
+
+func splitLogFilterValues(value string) []string {
+	parts := strings.Split(value, ",")
+	out := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
+	for _, part := range parts {
+		normalized := strings.TrimSpace(part)
+		if normalized == "" {
+			continue
+		}
+		if _, exists := seen[normalized]; exists {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, normalized)
+	}
+	return out
 }
 
 func normalizeLogSortBy(sortBy string) string {

@@ -154,6 +154,36 @@ func (h *Handlers) GetRequestLogSummaryV2(c *fiber.Ctx) error {
 	return c.JSON(platform.LogSummaryV2Response{Data: *summary})
 }
 
+func (h *Handlers) GetRequestLogRangeStatsV2(c *fiber.Ctx) error {
+	if err := requireLogsMetadataRead(c); err != nil {
+		return err
+	}
+	if h.logs == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
+	}
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+
+	params, err := parseLogListV2Params(c, currentTenant.ID)
+	if err != nil {
+		return err
+	}
+	params.Limit = 0
+	params.Offset = 0
+
+	stats, err := h.logs.GetRequestLogRangeStatsV2(c.Context(), params)
+	if err != nil {
+		if errors.Is(err, storage.ErrLogStoreUnavailable) {
+			return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
+		}
+		return err
+	}
+
+	return c.JSON(platform.LogRangeStatsV2Response{Data: *stats})
+}
+
 func (h *Handlers) GetRequestLogAnalyticsV2(c *fiber.Ctx) error {
 	if err := requireLogsMetadataRead(c); err != nil {
 		return err
@@ -528,6 +558,7 @@ func parseLogListV2Params(c *fiber.Ctx, tenantID string) (platform.ListRequestLo
 		FallbackStatus:    strings.TrimSpace(c.Query("fallback_status")),
 		LoadBalanceStatus: strings.TrimSpace(c.Query("load_balance_status")),
 		PayloadMode:       strings.TrimSpace(c.Query("payload_mode")),
+		ActorType:         strings.TrimSpace(c.Query("actor_type")),
 		ActorID:           strings.TrimSpace(c.Query("actor_id")),
 		OrgUnitID:         strings.TrimSpace(c.Query("org_unit_id")),
 		TeamID:            strings.TrimSpace(c.Query("team_id")),
@@ -660,6 +691,7 @@ func logParamsFromFilterMap(tenantID string, filters map[string]interface{}) pla
 	out.FallbackStatus = filterString(filters, "fallback_status")
 	out.LoadBalanceStatus = filterString(filters, "load_balance_status")
 	out.PayloadMode = filterString(filters, "payload_mode")
+	out.ActorType = filterString(filters, "actor_type")
 	out.ActorID = filterString(filters, "actor_id")
 	out.OrgUnitID = filterString(filters, "org_unit_id")
 	out.TeamID = filterString(filters, "team_id")

@@ -20,7 +20,7 @@
     "inspect": "Inspect",
     "openTrace": "Trace",
     "copyLink": "Copy link",
-    "replayDraft": "Replay draft",
+    "replayDraft": "Replay this request (test)",
     "saveView": "Save custom view",
     "savedViews": "Saved views",
     "load": "Load",
@@ -47,6 +47,15 @@
     "actor": "Actor",
     "team": "Team",
     "orgUnit": "Org unit",
+    "principals": "Executor",
+    "addPrincipal": "Add",
+    "removePrincipal": "Remove principal",
+    "showAdvanced": "Advanced filters",
+    "hideAdvanced": "Hide advanced filters",
+    "duration": "Latency",
+    "tokens": "Tokens",
+    "cost_usd": "USD cost",
+    "cost_irr": "IRR cost",
     "durationMin": "Latency min",
     "durationMax": "Latency max",
     "tokensMin": "Token min",
@@ -65,6 +74,7 @@
     "fallback_status": "Fallback",
     "load_balance_status": "Load balance",
     "payload_mode": "Payload",
+    "actor_type": "Actor type",
     "actor_id": "Actor",
     "team_id": "Team",
     "org_unit_id": "Org unit",
@@ -134,6 +144,10 @@
     "tokens": "Tokens",
     "cost": "Cost",
     "routing": "Routing",
+    "cacheStatus": "Cache",
+    "retryCount": "Retry",
+    "fallbackStatus": "Fallback",
+    "loadBalanceStatus": "Load balance",
     "payload": "Payload",
     "pageSize": "Page size"
   },
@@ -147,6 +161,10 @@
     "tokens": "Tokens",
     "cost": "Cost",
     "routing": "Routing",
+    "cache_status": "Cache",
+    "retry_count": "Retry",
+    "fallback_status": "Fallback",
+    "load_balance_status": "Load balance",
     "payload": "Payload",
     "actions": "Actions"
   },
@@ -180,8 +198,15 @@
     "metadata": "Metadata"
   },
   "replay": {
-    "ready": "Draft is ready",
-    "unsupported": "Replay is not supported"
+    "ready": "Replay draft is ready",
+    "unsupported": "Replay is not supported",
+    "readyDescription": "This is only a safe draft for manual replay. Sensitive headers and credentials are omitted, and no request is executed automatically.",
+    "payloadTitle": "Draft payload",
+    "reasons": {
+      "unsupportedRoute": "This route type is not supported for replay.",
+      "payloadUnavailable": "The request payload is unavailable because of permissions or the logging policy.",
+      "unknown": "A replay draft cannot be created for this log."
+    }
   },
   "values": {
     "unknown": "Unknown",

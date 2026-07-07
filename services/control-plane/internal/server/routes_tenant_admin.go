@@ -141,6 +141,7 @@ func registerTenantAdminRoutes(app *fiber.App, deps Dependencies) {
 	apiV2.Get("/logs", deps.AdminHandlers.ListRequestLogsV2)
 	apiV2.Get("/logs/facets", deps.AdminHandlers.GetRequestLogFacetsV2)
 	apiV2.Get("/logs/summary", deps.AdminHandlers.GetRequestLogSummaryV2)
+	apiV2.Get("/logs/range-stats", deps.AdminHandlers.GetRequestLogRangeStatsV2)
 	apiV2.Get("/logs/analytics", deps.AdminHandlers.GetRequestLogAnalyticsV2)
 	apiV2.Get("/logs/saved-views", deps.AdminHandlers.ListSavedLogViewsV2)
 	apiV2.Post("/logs/saved-views", deps.AdminHandlers.CreateSavedLogViewV2)

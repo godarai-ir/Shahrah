@@ -5,6 +5,7 @@ import { Plus, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   PrincipalEntitySelect,
   type PrincipalEntitySelection,
@@ -14,26 +15,30 @@ import {
 } from "@/app/components/principal-search-input";
 
 export type PrincipalPickerItem = {
-  type: "user" | "team" | "org_unit" | "everyone";
+  type: "user" | "team" | "org_unit" | "virtual_account" | "everyone";
   principal_id?: string;
   display_name?: string;
 };
 
-export function PrincipalPicker(props: {
+export function PrincipalPicker<TItem extends PrincipalPickerItem = PrincipalPickerItem>(props: {
   id: string;
   title: string;
   onSearchPrincipal: (kind: PrincipalSearchKind, query: string) => Promise<PrincipalSearchOption[]>;
   principalSelectorLabels: PrincipalEntitySelectLabels;
-  selected: PrincipalPickerItem[];
-  setSelected: (value: PrincipalPickerItem[]) => void;
+  selected: TItem[];
+  setSelected: (value: TItem[]) => void;
   allowEveryone: boolean;
   addLabel: string;
   removeLabel: string;
+  kinds?: PrincipalSearchKind[];
   disabled?: boolean;
+  variant?: "default" | "filter";
+  className?: string;
 }) {
   const [candidate, setCandidate] = useState<PrincipalEntitySelection | null>(null);
+  const isFilterVariant = props.variant === "filter";
 
-  function addPrincipal(item: PrincipalPickerItem) {
+  function addPrincipal(item: TItem) {
     const exists = props.selected.some(
       (current) =>
         current.type === item.type &&
@@ -43,7 +48,7 @@ export function PrincipalPicker(props: {
     props.setSelected([...props.selected, item]);
   }
 
-  function removePrincipal(item: PrincipalPickerItem) {
+  function removePrincipal(item: TItem) {
     props.setSelected(
       props.selected.filter(
         (current) =>
@@ -58,19 +63,27 @@ export function PrincipalPicker(props: {
   function addSelectedCandidate() {
     if (!candidate) return;
     if (candidate.type === "external_identity") return;
-    if (candidate.type !== "user" && candidate.type !== "team" && candidate.type !== "org_unit" && candidate.type !== "everyone") return;
+    if (candidate.type !== "user" && candidate.type !== "team" && candidate.type !== "org_unit" && candidate.type !== "virtual_account" && candidate.type !== "everyone") return;
     addPrincipal({
       type: candidate.type,
       principal_id: candidate.principal_id,
       display_name: candidate.display_name,
-    });
+    } as TItem);
     setCandidate(null);
   }
 
   return (
-    <div className="flex min-h-full flex-col gap-4 rounded-2xl bg-background/85 px-4 py-4 ring-1 ring-border/35">
-      <div className="flex items-start justify-between gap-3">
-        <h4 className="text-base font-semibold">{props.title}</h4>
+    <div
+      className={cn(
+        "flex min-h-full flex-col ring-1 ring-border/35",
+        isFilterVariant
+          ? "gap-3 rounded-md bg-transparent px-3 py-3 md:grid md:min-h-0 md:grid-cols-[auto_minmax(0,1fr)_minmax(8rem,auto)] md:items-start"
+          : "gap-4 rounded-2xl bg-background/85 px-4 py-4",
+        props.className,
+      )}
+    >
+      <div className={cn("flex items-start justify-between gap-3", isFilterVariant && "md:min-w-32")}>
+        <h4 className={cn(isFilterVariant ? "text-xs font-normal leading-8 text-muted-foreground" : "text-base font-semibold")}>{props.title}</h4>
         <Badge variant="secondary" className="shrink-0">
           {props.selected.length}
         </Badge>
@@ -83,7 +96,7 @@ export function PrincipalPicker(props: {
           onSelectedChange={props.disabled ? () => {} : setCandidate}
           onSearch={props.onSearchPrincipal}
           labels={props.principalSelectorLabels}
-          kinds={["user", "team", "org_unit"]}
+          kinds={props.kinds ?? ["user", "team", "org_unit"]}
           includeEveryone={props.allowEveryone}
           className="min-w-0"
         />
@@ -99,7 +112,7 @@ export function PrincipalPicker(props: {
         </Button>
       </div>
 
-      <div className="flex min-h-9 flex-wrap items-center gap-2">
+      <div className={cn("flex min-h-9 flex-wrap items-center gap-2", isFilterVariant && "md:justify-end")}>
         {props.selected.map((item) => (
           <button
             key={`${item.type}-${item.principal_id ?? "everyone"}`}

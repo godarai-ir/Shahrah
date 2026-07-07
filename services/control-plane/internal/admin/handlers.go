@@ -148,6 +148,7 @@ type logsStore interface {
 	GetRequestLogV2(ctx context.Context, tenantID string, logID string, includeContent bool) (*platform.RequestLogDetailV2, error)
 	GetRequestLogFacetsV2(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogFacetsV2, error)
 	GetRequestLogSummaryV2(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogSummaryV2, error)
+	GetRequestLogRangeStatsV2(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogRangeStatsV2, error)
 	GetRequestLogAnalyticsV2(ctx context.Context, params platform.LogAnalyticsV2Params) ([]platform.LogAnalyticsPointV2, error)
 	ListSavedLogViewsV2(ctx context.Context, tenantID string, userID string) ([]platform.SavedLogViewV2, error)
 	CreateSavedLogViewV2(ctx context.Context, tenantID string, userID string, req platform.CreateSavedLogViewV2Request) (*platform.SavedLogViewV2, error)

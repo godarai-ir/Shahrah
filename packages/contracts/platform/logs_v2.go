@@ -66,6 +66,7 @@ type ListRequestLogsV2Params struct {
 	FallbackStatus    string
 	LoadBalanceStatus string
 	PayloadMode       string
+	ActorType         string
 	ActorID           string
 	OrgUnitID         string
 	TeamID            string
@@ -149,6 +150,22 @@ type LogSummaryV2 struct {
 
 type LogSummaryV2Response struct {
 	Data LogSummaryV2 `json:"data"`
+}
+
+type LogRangeV2 struct {
+	Min float64 `json:"min"`
+	Max float64 `json:"max"`
+}
+
+type LogRangeStatsV2 struct {
+	DurationMS  LogRangeV2 `json:"duration_ms"`
+	TotalTokens LogRangeV2 `json:"total_tokens"`
+	CostUSD     LogRangeV2 `json:"cost_usd"`
+	CostIRR     LogRangeV2 `json:"cost_irr"`
+}
+
+type LogRangeStatsV2Response struct {
+	Data LogRangeStatsV2 `json:"data"`
 }
 
 type LogAnalyticsV2Params struct {

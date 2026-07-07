@@ -41,6 +41,14 @@ func (s *Store) GetRequestLogSummaryV2(ctx context.Context, params platform.List
 	return s.getRequestLogSummaryV2FromClickHouse(ctx, params)
 }
 
+func (s *Store) GetRequestLogRangeStatsV2(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogRangeStatsV2, error) {
+	if !s.clickhouseReady || s.clickhouse == nil {
+		return nil, ErrLogStoreUnavailable
+	}
+
+	return s.getRequestLogRangeStatsV2FromClickHouse(ctx, params)
+}
+
 func (s *Store) GetRequestLogAnalyticsV2(ctx context.Context, params platform.LogAnalyticsV2Params) ([]platform.LogAnalyticsPointV2, error) {
 	if !s.clickhouseReady || s.clickhouse == nil {
 		return nil, ErrLogStoreUnavailable

@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
     "fallback_status",
     "load_balance_status",
     "payload_mode",
+    "actor_type",
     "actor_id",
     "org_unit_id",
     "team_id",
