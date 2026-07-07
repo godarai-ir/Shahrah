@@ -13,146 +13,29 @@ import (
 )
 
 func (s *Store) ensureClickHouseMetricsSchema(ctx context.Context) error {
-	stmts := []string{
-		`CREATE TABLE IF NOT EXISTS gateway_model_events
-		(
-		  ts DateTime64(3, 'UTC'),
-		  tenant_id String,
-		  request_id String,
-		  model_name LowCardinality(String),
-		  virtual_model_name LowCardinality(Nullable(String)),
-		  provider_name LowCardinality(String),
-		  provider_model_name LowCardinality(String),
-		  request_type LowCardinality(String),
-		  user_id Nullable(String),
-		  user_email Nullable(String),
-		  virtual_account_id Nullable(String),
-		  virtual_account_name Nullable(String),
-		  team_ids Array(String),
-		  team_names Array(String),
-		  status_code UInt16,
-		  error_type LowCardinality(String),
-		  latency_ms UInt32,
-		  ttft_ms Nullable(UInt32),
-		  itl_ms Nullable(UInt32),
-		  tpot_ms Nullable(UInt32),
-		  input_tokens UInt32,
-		  output_tokens UInt32,
-		  cost_usd Decimal(18, 8),
-		  cache_mode LowCardinality(String) DEFAULT 'none',
-		  cache_status LowCardinality(String) DEFAULT 'none',
-		  cache_match LowCardinality(String) DEFAULT 'none',
-		  cache_similarity Nullable(Float32),
-		  cache_origin_request_id Nullable(String),
-		  avoided_input_tokens UInt32 DEFAULT 0,
-		  avoided_output_tokens UInt32 DEFAULT 0,
-		  avoided_cost_usd Decimal(18, 8) DEFAULT 0,
-		  avoided_cost_irr Decimal(24, 2) DEFAULT 0,
-		  embedding_cost_usd Decimal(18, 8) DEFAULT 0,
-		  pricing_version String DEFAULT '',
-		  metadata_json String
-		)
-		ENGINE = MergeTree
-		PARTITION BY toDate(ts)
-		ORDER BY (tenant_id, ts, model_name, ifNull(virtual_model_name, ''))
-		TTL toDate(ts) + INTERVAL 90 DAY
-		SETTINGS index_granularity = 8192, allow_nullable_key = 1`,
-		`ALTER TABLE gateway_model_events ADD COLUMN IF NOT EXISTS cache_mode LowCardinality(String) DEFAULT 'none'`,
-		`ALTER TABLE gateway_model_events ADD COLUMN IF NOT EXISTS cache_status LowCardinality(String) DEFAULT 'none'`,
-		`ALTER TABLE gateway_model_events ADD COLUMN IF NOT EXISTS cache_match LowCardinality(String) DEFAULT 'none'`,
-		`ALTER TABLE gateway_model_events ADD COLUMN IF NOT EXISTS cache_similarity Nullable(Float32)`,
-		`ALTER TABLE gateway_model_events ADD COLUMN IF NOT EXISTS cache_origin_request_id Nullable(String)`,
-		`ALTER TABLE gateway_model_events ADD COLUMN IF NOT EXISTS avoided_input_tokens UInt32 DEFAULT 0`,
-		`ALTER TABLE gateway_model_events ADD COLUMN IF NOT EXISTS avoided_output_tokens UInt32 DEFAULT 0`,
-		`ALTER TABLE gateway_model_events ADD COLUMN IF NOT EXISTS avoided_cost_usd Decimal(18, 8) DEFAULT 0`,
-		`ALTER TABLE gateway_model_events ADD COLUMN IF NOT EXISTS avoided_cost_irr Decimal(24, 2) DEFAULT 0`,
-		`ALTER TABLE gateway_model_events ADD COLUMN IF NOT EXISTS embedding_cost_usd Decimal(18, 8) DEFAULT 0`,
-		`ALTER TABLE gateway_model_events ADD COLUMN IF NOT EXISTS pricing_version String DEFAULT ''`,
-		`CREATE TABLE IF NOT EXISTS gateway_model_metrics_1m
-		(
-		  bucket_ts DateTime('UTC'),
-		  tenant_id String,
-		  view_model_name LowCardinality(String),
-		  view_virtual_model_name LowCardinality(Nullable(String)),
-		  view_user_email Nullable(String),
-		  view_virtual_account_name Nullable(String),
-		  view_team_name Nullable(String),
-		  view_error_type LowCardinality(String),
-		  request_count AggregateFunction(count),
-		  failed_count AggregateFunction(countIf, UInt8),
-		  input_tokens_sum AggregateFunction(sum, UInt64),
-		  output_tokens_sum AggregateFunction(sum, UInt64),
-		  cost_usd_sum AggregateFunction(sum, Decimal(18, 8)),
-		  latency_p50 AggregateFunction(quantileTDigest(0.50), UInt32),
-		  latency_p75 AggregateFunction(quantileTDigest(0.75), UInt32),
-		  latency_p90 AggregateFunction(quantileTDigest(0.90), UInt32),
-		  latency_p99 AggregateFunction(quantileTDigest(0.99), UInt32),
-		  ttft_p50 AggregateFunction(quantileTDigest(0.50), UInt32),
-		  ttft_p75 AggregateFunction(quantileTDigest(0.75), UInt32),
-		  ttft_p90 AggregateFunction(quantileTDigest(0.90), UInt32),
-		  ttft_p99 AggregateFunction(quantileTDigest(0.99), UInt32),
-		  itl_p50 AggregateFunction(quantileTDigest(0.50), UInt32),
-		  itl_p75 AggregateFunction(quantileTDigest(0.75), UInt32),
-		  itl_p90 AggregateFunction(quantileTDigest(0.90), UInt32),
-		  itl_p99 AggregateFunction(quantileTDigest(0.99), UInt32),
-		  tpot_p50 AggregateFunction(quantileTDigest(0.50), UInt32),
-		  tpot_p75 AggregateFunction(quantileTDigest(0.75), UInt32),
-		  tpot_p90 AggregateFunction(quantileTDigest(0.90), UInt32),
-		  tpot_p99 AggregateFunction(quantileTDigest(0.99), UInt32)
-		)
-		ENGINE = AggregatingMergeTree
-		PARTITION BY toDate(bucket_ts)
-		ORDER BY (tenant_id, bucket_ts, view_model_name, ifNull(view_virtual_model_name, ''))
-		TTL toDate(bucket_ts) + INTERVAL 540 DAY
-		SETTINGS index_granularity = 8192, allow_nullable_key = 1`,
-		`CREATE MATERIALIZED VIEW IF NOT EXISTS mv_gateway_model_metrics_1m
-		TO gateway_model_metrics_1m
-		AS
-		SELECT
-		  toStartOfMinute(ts) AS bucket_ts,
-		  tenant_id,
-		  model_name AS view_model_name,
-		  virtual_model_name AS view_virtual_model_name,
-		  user_email AS view_user_email,
-		  virtual_account_name AS view_virtual_account_name,
-		  CAST(NULL, 'Nullable(String)') AS view_team_name,
-		  error_type AS view_error_type,
-		  countState() AS request_count,
-		  countIfState(status_code >= 400) AS failed_count,
-		  sumState(toUInt64(input_tokens)) AS input_tokens_sum,
-		  sumState(toUInt64(output_tokens)) AS output_tokens_sum,
-		  sumState(cost_usd) AS cost_usd_sum,
-		  quantileTDigestState(0.50)(latency_ms) AS latency_p50,
-		  quantileTDigestState(0.75)(latency_ms) AS latency_p75,
-		  quantileTDigestState(0.90)(latency_ms) AS latency_p90,
-		  quantileTDigestState(0.99)(latency_ms) AS latency_p99,
-		  quantileTDigestStateIf(0.50)(ttft_ms, ttft_ms IS NOT NULL) AS ttft_p50,
-		  quantileTDigestStateIf(0.75)(ttft_ms, ttft_ms IS NOT NULL) AS ttft_p75,
-		  quantileTDigestStateIf(0.90)(ttft_ms, ttft_ms IS NOT NULL) AS ttft_p90,
-		  quantileTDigestStateIf(0.99)(ttft_ms, ttft_ms IS NOT NULL) AS ttft_p99,
-		  quantileTDigestStateIf(0.50)(itl_ms, itl_ms IS NOT NULL) AS itl_p50,
-		  quantileTDigestStateIf(0.75)(itl_ms, itl_ms IS NOT NULL) AS itl_p75,
-		  quantileTDigestStateIf(0.90)(itl_ms, itl_ms IS NOT NULL) AS itl_p90,
-		  quantileTDigestStateIf(0.99)(itl_ms, itl_ms IS NOT NULL) AS itl_p99,
-		  quantileTDigestStateIf(0.50)(tpot_ms, tpot_ms IS NOT NULL) AS tpot_p50,
-		  quantileTDigestStateIf(0.75)(tpot_ms, tpot_ms IS NOT NULL) AS tpot_p75,
-		  quantileTDigestStateIf(0.90)(tpot_ms, tpot_ms IS NOT NULL) AS tpot_p90,
-		  quantileTDigestStateIf(0.99)(tpot_ms, tpot_ms IS NOT NULL) AS tpot_p99
-		FROM gateway_model_events
-		GROUP BY
-		  bucket_ts,
-		  tenant_id,
-		  view_model_name,
-		  view_virtual_model_name,
-		  view_user_email,
-		  view_virtual_account_name,
-		  view_team_name,
-		  view_error_type`,
+	if err := s.validateClickHouseColumns(ctx, "gateway_model_events", []string{
+		"ts", "tenant_id", "request_id", "model_name", "virtual_model_name", "provider_name", "provider_model_name",
+		"request_type", "user_id", "user_email", "virtual_account_id", "virtual_account_name", "team_ids", "team_names",
+		"status_code", "error_type", "latency_ms", "ttft_ms", "itl_ms", "tpot_ms", "input_tokens", "output_tokens", "cost_usd",
+		"cache_mode", "cache_status", "cache_match", "cache_similarity", "cache_origin_request_id",
+		"avoided_input_tokens", "avoided_output_tokens", "avoided_cost_usd", "avoided_cost_irr",
+		"embedding_cost_usd", "pricing_version", "metadata_json",
+	}); err != nil {
+		return err
 	}
-	for _, stmt := range stmts {
-		if _, err := s.clickhouse.ExecContext(ctx, stmt); err != nil {
-			return err
-		}
+
+	if err := s.validateClickHouseColumns(ctx, "gateway_model_metrics_1m", []string{
+		"bucket_ts", "tenant_id", "view_model_name", "view_virtual_model_name", "view_user_email",
+		"view_virtual_account_name", "view_team_name", "view_error_type", "request_count", "failed_count",
+		"input_tokens_sum", "output_tokens_sum", "cost_usd_sum", "latency_p50", "latency_p75",
+		"latency_p90", "latency_p99", "ttft_p50", "ttft_p75", "ttft_p90", "ttft_p99",
+		"itl_p50", "itl_p75", "itl_p90", "itl_p99", "tpot_p50", "tpot_p75", "tpot_p90", "tpot_p99",
+	}); err != nil {
+		return err
+	}
+
+	if err := s.validateClickHouseObject(ctx, "mv_gateway_model_metrics_1m"); err != nil {
+		return err
 	}
 
 	return nil

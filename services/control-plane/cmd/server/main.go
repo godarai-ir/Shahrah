@@ -19,6 +19,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	"github.com/Delpak/shahrah/services/control-plane/internal/guardrails"
+	"github.com/Delpak/shahrah/services/control-plane/internal/observability/logretention"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	prommetrics "github.com/Delpak/shahrah/services/control-plane/internal/observability/prometheus"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
@@ -316,6 +317,11 @@ func main() {
 
 	traceRetentionCleaner.Start()
 	defer traceRetentionCleaner.Stop()
+
+	logRetentionCleaner := logretention.NewRetentionCleaner(logretention.LoadConfigFromEnv(), store, logger)
+
+	logRetentionCleaner.Start()
+	defer logRetentionCleaner.Stop()
 
 	app := server.NewFiberApp(cfg, server.Dependencies{
 		AuthMiddleware:          authMiddleware,

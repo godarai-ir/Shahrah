@@ -144,7 +144,7 @@ npx prisma@7.8.0 format --schema=packages/database/schema.prisma
 npx prisma@7.8.0 generate --schema=packages/database/schema.prisma
 ```
 
-## ClickHouse Migrations (Trace/Metrics)
+## ClickHouse Migrations (Observability)
 
 Use the Windows helper script to apply ClickHouse migrations reliably without container path issues:
 

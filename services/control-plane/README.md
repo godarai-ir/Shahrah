@@ -55,7 +55,10 @@ Do not add undocumented fallback behavior that hides upstream contract drift.
 - `IDPAY_API_KEY`: required when `provider=idpay`
 - `IDPAY_BASE_URL`: optional, default `https://api.idpay.ir/v1.1`
 - `IDPAY_SANDBOX`: optional (`true|false`)
-- `CLICKHOUSE_DSN`: required, used for all request trace storage/read APIs
+- `CLICKHOUSE_DSN`: required, used for request traces, request logs, and model metrics storage/read APIs
+- `LOG_RETENTION_CLEANUP_ENABLED`: optional (`true` by default), enables entitlement-based cleanup for `request_logs_ch`
+- `LOG_RETENTION_CLEANUP_INTERVAL_MS`: optional, default `3600000`
+- `LOG_RETENTION_CLEANUP_TIMEOUT_MS`: optional, default `30000`
 - `OPENAI_API_KEY`: optional, used by the default OpenAI entries in `configs/proxy_config.yaml`
 - `ANTHROPIC_API_KEY`: optional, used by the default Anthropic entries in `configs/proxy_config.yaml`
 - `SHAHRAH_SMART_CACHE_EMBEDDING_BASE_URL`: ArvanCloud BGE-M3 OpenAI-compatible base URL ending in `/v1`; treat the complete opaque URL as a secret

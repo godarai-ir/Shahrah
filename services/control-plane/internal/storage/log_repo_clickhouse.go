@@ -18,52 +18,15 @@ const logPayloadMaxBytes = 32 * 1024
 const requestLogInsertColumnCount = 40
 
 func (s *Store) ensureClickHouseRequestLogsSchema(ctx context.Context) error {
-	_, err := s.clickhouse.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS request_logs_ch (
-		log_id String,
-		tenant_id String,
-		request_id String,
-		trace_id String,
-		token_hash String,
-		organization_id String,
-		org_unit_id String,
-		team_id String,
-		actor_type LowCardinality(String),
-		actor_id String,
-		provider String,
-		provider_model String,
-		model String,
-		virtual_model String,
-		route String,
-		request_type LowCardinality(String),
-		status LowCardinality(String),
-		status_code Int32,
-		error_type LowCardinality(String),
-		started_at DateTime64(3, 'UTC'),
-		duration_ms Int32,
-		input_tokens UInt32,
-		output_tokens UInt32,
-		total_tokens UInt32,
-		cost_usd Decimal(18, 6),
-		cost_irr Decimal(18, 2),
-		cache_status LowCardinality(String),
-		cache_mode LowCardinality(String),
-		retry_count UInt16,
-		fallback_count UInt16,
-		fallback_status LowCardinality(String),
-		load_balance_status LowCardinality(String),
-		payload_mode LowCardinality(String),
-		request_payload_json String,
-		response_payload_json String,
-		request_payload_meta_json String,
-		response_payload_meta_json String,
-		request_payload_truncated UInt8,
-		response_payload_truncated UInt8,
-		metadata_json String
-	) ENGINE = MergeTree
-	PARTITION BY toDate(started_at)
-	ORDER BY (tenant_id, started_at, log_id)`)
-
-	return err
+	return s.validateClickHouseColumns(ctx, "request_logs_ch", []string{
+		"log_id", "tenant_id", "request_id", "trace_id", "token_hash", "organization_id", "org_unit_id", "team_id",
+		"actor_type", "actor_id", "provider", "provider_model", "model", "virtual_model", "route", "request_type",
+		"status", "status_code", "error_type", "started_at", "duration_ms", "input_tokens", "output_tokens",
+		"total_tokens", "cost_usd", "cost_irr", "cache_status", "cache_mode", "retry_count", "fallback_count",
+		"fallback_status", "load_balance_status", "payload_mode", "request_payload_json", "response_payload_json",
+		"request_payload_meta_json", "response_payload_meta_json", "request_payload_truncated",
+		"response_payload_truncated", "metadata_json",
+	})
 }
 
 // LogRequest writes the normalized request log entry to ClickHouse.

@@ -213,6 +213,21 @@ spec:
                 configMapKeyRef:
                   name: shahrah-config
                   key: METRICS_MODEL_ENABLED
+            - name: LOG_RETENTION_CLEANUP_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: shahrah-config
+                  key: LOG_RETENTION_CLEANUP_ENABLED
+            - name: LOG_RETENTION_CLEANUP_INTERVAL_MS
+              valueFrom:
+                configMapKeyRef:
+                  name: shahrah-config
+                  key: LOG_RETENTION_CLEANUP_INTERVAL_MS
+            - name: LOG_RETENTION_CLEANUP_TIMEOUT_MS
+              valueFrom:
+                configMapKeyRef:
+                  name: shahrah-config
+                  key: LOG_RETENTION_CLEANUP_TIMEOUT_MS
             - name: TRACE_RETENTION_CLEANUP_ENABLED
               valueFrom:
                 configMapKeyRef:

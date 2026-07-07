@@ -16,18 +16,22 @@ if /I not "%ACTION%"=="up" (
   exit /b 1
 )
 
-echo [1/3] Applying 001_gateway_model_events.sql
+echo [1/4] Applying 001_gateway_model_events.sql
 for /f "usebackq delims=" %%i in (`type "infra\clickhouse\migrations\001_gateway_model_events.sql"`) do echo %%i
 
 type "infra\clickhouse\migrations\001_gateway_model_events.sql" | docker compose -f infra/compose/local.yml exec -T clickhouse clickhouse-client --multiquery
 if errorlevel 1 goto :fail
 
-echo [2/3] Applying 002_gateway_model_metrics_1m.sql
+echo [2/4] Applying 002_gateway_model_metrics_1m.sql
 type "infra\clickhouse\migrations\002_gateway_model_metrics_1m.sql" | docker compose -f infra/compose/local.yml exec -T clickhouse clickhouse-client --multiquery
 if errorlevel 1 goto :fail
 
-echo [3/3] Applying 003_mv_gateway_model_metrics_1m.sql
+echo [3/4] Applying 003_mv_gateway_model_metrics_1m.sql
 type "infra\clickhouse\migrations\003_mv_gateway_model_metrics_1m.sql" | docker compose -f infra/compose/local.yml exec -T clickhouse clickhouse-client --multiquery
+if errorlevel 1 goto :fail
+
+echo [4/4] Applying 004_observability_runtime_schema.sql
+type "infra\clickhouse\migrations\004_observability_runtime_schema.sql" | docker compose -f infra/compose/local.yml exec -T clickhouse clickhouse-client --multiquery
 if errorlevel 1 goto :fail
 
 echo Done. ClickHouse migrations applied.

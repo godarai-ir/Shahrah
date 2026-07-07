@@ -66,100 +66,21 @@ func (s *Store) initClickHouse(ctx context.Context) error {
 }
 
 func (s *Store) ensureClickHouseTraceSchema(ctx context.Context) error {
-	stmts := []string{
-		`CREATE TABLE IF NOT EXISTS request_traces_ch (
-			trace_id String,
-			tenant_id String,
-			request_id String,
-			model String,
-			route String,
-			status_code Int32,
-			started_at DateTime64(3, 'UTC'),
-			duration_ms Int32,
-			error_code String,
-			sampled UInt8
-		) ENGINE = MergeTree
-		PARTITION BY toDate(started_at)
-		ORDER BY (tenant_id, started_at, trace_id)`,
-		`CREATE TABLE IF NOT EXISTS request_spans_ch (
-			span_id String,
-			trace_id String,
-			tenant_id String,
-			parent_span_id String,
-			name String,
-			kind String,
-			started_at DateTime64(3, 'UTC'),
-			duration_ms Int32,
-			status String,
-			attributes_json String
-		) ENGINE = MergeTree
-		PARTITION BY toDate(started_at)
-		ORDER BY (tenant_id, trace_id, started_at, span_id)`,
-	}
-	for _, stmt := range stmts {
-		if _, err := s.clickhouse.ExecContext(ctx, stmt); err != nil {
-			return err
-		}
-	}
-
-	if err := s.validateClickHouseTraceTables(ctx); err != nil {
+	if err := s.validateClickHouseColumns(ctx, "request_traces_ch", []string{
+		"trace_id", "tenant_id", "request_id", "model", "route", "status_code", "started_at",
+		"duration_ms", "error_code", "sampled",
+	}); err != nil {
 		return err
 	}
 
-	if err := s.removeLegacyClickHouseTraceTTLs(ctx); err != nil {
+	if err := s.validateClickHouseColumns(ctx, "request_spans_ch", []string{
+		"span_id", "trace_id", "tenant_id", "parent_span_id", "name", "kind", "started_at",
+		"duration_ms", "status", "attributes_json",
+	}); err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func (s *Store) validateClickHouseTraceTables(ctx context.Context) error {
-	for _, table := range []string{"request_traces_ch", "request_spans_ch"} {
-		if _, err := s.clickhouse.ExecContext(ctx, "SELECT 1 FROM "+table+" LIMIT 0"); err != nil {
-			return fmt.Errorf("validate clickhouse trace table %s: %w", table, err)
-		}
-	}
-
-	return nil
-}
-
-func (s *Store) removeLegacyClickHouseTraceTTLs(ctx context.Context) error {
-	for _, table := range []string{"request_traces_ch", "request_spans_ch"} {
-		hasTTL, err := s.clickHouseTableHasTTL(ctx, table)
-		if err != nil {
-			return fmt.Errorf("inspect clickhouse trace ttl for %s: %w", table, err)
-		}
-
-		if !hasTTL {
-			continue
-		}
-
-		if _, err := s.clickhouse.ExecContext(ctx, "ALTER TABLE "+table+" REMOVE TTL"); err != nil {
-			return fmt.Errorf("remove clickhouse trace ttl for %s: %w", table, err)
-		}
-	}
-
-	return nil
-}
-
-func (s *Store) clickHouseTableHasTTL(ctx context.Context, table string) (bool, error) {
-	var createQuery string
-
-	err := s.clickhouse.QueryRowContext(ctx, `
-		SELECT create_table_query
-		FROM system.tables
-		WHERE database = currentDatabase() AND name = ?
-		LIMIT 1
-	`, table).Scan(&createQuery)
-	if err != nil {
-		if errorsIsNoRows(err) {
-			return false, nil
-		}
-
-		return false, err
-	}
-
-	return strings.Contains(strings.ToUpper(createQuery), "TTL"), nil
 }
 
 func (s *Store) exportToClickHouse(ctx context.Context, batch []tracing.SpanEvent) error {
