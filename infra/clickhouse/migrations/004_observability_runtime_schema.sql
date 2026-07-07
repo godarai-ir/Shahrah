@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS request_traces_ch
   started_at DateTime64(3, 'UTC'),
   duration_ms Int32,
   error_code String,
-  sampled UInt8
+  sampled UInt8,
+  retention_days UInt16 DEFAULT 0
 )
 ENGINE = MergeTree
 PARTITION BY toDate(started_at)
@@ -38,11 +39,17 @@ CREATE TABLE IF NOT EXISTS request_spans_ch
   started_at DateTime64(3, 'UTC'),
   duration_ms Int32,
   status String,
-  attributes_json String
+  attributes_json String,
+  retention_days UInt16 DEFAULT 0
 )
 ENGINE = MergeTree
 PARTITION BY toDate(started_at)
 ORDER BY (tenant_id, trace_id, started_at, span_id);
+
+ALTER TABLE request_traces_ch ADD COLUMN IF NOT EXISTS retention_days UInt16 DEFAULT 0;
+ALTER TABLE request_spans_ch ADD COLUMN IF NOT EXISTS retention_days UInt16 DEFAULT 0;
+ALTER TABLE request_traces_ch MODIFY TTL toDateTime(started_at) + toIntervalDay(retention_days) DELETE WHERE retention_days > 0;
+ALTER TABLE request_spans_ch MODIFY TTL toDateTime(started_at) + toIntervalDay(retention_days) DELETE WHERE retention_days > 0;
 
 CREATE TABLE IF NOT EXISTS request_logs_ch
 (

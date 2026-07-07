@@ -22,3 +22,31 @@ func TestTraceRetentionPoliciesSQL_UsesEffectiveEntitlementPrecedence(t *testing
 	assert.Contains(t, normalized, "select tenant_id, value_json, precedence from base_values")
 	assert.Contains(t, normalized, "order by tenant_id, precedence")
 }
+
+func TestTraceRetentionPolicySQL_ResolvesOneTenant(t *testing.T) {
+	normalized := strings.ToLower(strings.Join(strings.Fields(traceRetentionPolicySQL), " "))
+
+	assert.Contains(t, normalized, "where tenant_id = $2::uuid")
+	assert.Contains(t, normalized, "where fc.feature_key = $1")
+	assert.Contains(t, normalized, "and pe.feature_key = $1")
+	assert.Contains(t, normalized, "and o.feature_key = $1")
+	assert.Contains(t, normalized, "order by tenant_id, precedence")
+}
+
+func TestTraceRetentionDoesNotUseClickHouseMutations(t *testing.T) {
+	normalized := strings.ToLower(strings.Join(strings.Fields(traceRetentionPolicySQL+" "+traceRetentionPoliciesSQL), " "))
+
+	assert.NotContains(t, normalized, "alter table")
+	assert.NotContains(t, normalized, " delete where ")
+}
+
+func TestClickHouseTraceRetentionDaysValue(t *testing.T) {
+	thirty := 30
+	tooLarge := maxClickHouseRetentionDays + 100
+	zero := 0
+
+	assert.Equal(t, uint16(0), clickHouseTraceRetentionDaysValue(nil))
+	assert.Equal(t, uint16(30), clickHouseTraceRetentionDaysValue(&thirty))
+	assert.Equal(t, uint16(maxClickHouseRetentionDays), clickHouseTraceRetentionDaysValue(&tooLarge))
+	assert.Equal(t, uint16(0), clickHouseTraceRetentionDaysValue(&zero))
+}

@@ -20,6 +20,9 @@ type Store struct {
 	pool                       *pgxpool.Pool
 	clickhouse                 *sql.DB
 	clickhouseReady            bool
+	clickhouseTraceReady       bool
+	clickhouseMetricsReady     bool
+	clickhouseLogsReady        bool
 	logger                     *zap.Logger
 	entitlementCache           cache.Cache
 	entitlementCacheTTL        time.Duration
@@ -135,7 +138,7 @@ func NewStore(ctx context.Context, databaseURL string, logger *zap.Logger) (*Sto
 		authzCacheMaxEntries:       5000,
 	}
 	if err := store.initClickHouse(ctx); err != nil {
-		logger.Warn("clickhouse trace backend unavailable; continuing without trace storage", zap.Error(err))
+		logger.Warn("clickhouse observability backend unavailable; continuing without clickhouse-backed traces, metrics, and logs", zap.Error(err))
 	}
 
 	return store, nil

@@ -1,11 +1,30 @@
 package metrics
 
 import (
+	"context"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
+
+type batchExporterStub struct {
+	mu      sync.Mutex
+	batches [][]platform.ModelMetricEvent
+}
+
+func (s *batchExporterStub) InsertModelMetricEvents(_ context.Context, events []platform.ModelMetricEvent) error {
+	copied := append([]platform.ModelMetricEvent(nil), events...)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.batches = append(s.batches, copied)
+
+	return nil
+}
 
 func TestBuildEventPreservesFirstClassCacheSavings(t *testing.T) {
 	processor := &Processor{}
@@ -30,4 +49,27 @@ func TestBuildEventDefaultsCacheDimensionsToNone(t *testing.T) {
 	assert.Equal(t, "none", event.CacheMode)
 	assert.Equal(t, "none", event.CacheStatus)
 	assert.Equal(t, "none", event.CacheMatch)
+}
+
+func TestProcessorFlushExportsDequeuedEventsAsSingleBatch(t *testing.T) {
+	queue := NewQueue(8)
+	require.True(t, queue.Enqueue(platform.ModelMetricEvent{RequestID: "request-1"}))
+	require.True(t, queue.Enqueue(platform.ModelMetricEvent{RequestID: "request-2"}))
+	require.True(t, queue.Enqueue(platform.ModelMetricEvent{RequestID: "request-3"}))
+
+	exporter := &batchExporterStub{}
+	processor := NewProcessor(Config{
+		BatchSize:        3,
+		ExportTimeout:    time.Second,
+		RetryMaxAttempts: 1,
+		RetryBaseDelay:   time.Millisecond,
+		RetryMaxDelay:    time.Millisecond,
+	}, queue, exporter, zap.NewNop())
+
+	processor.flush()
+
+	require.Len(t, exporter.batches, 1)
+	require.Len(t, exporter.batches[0], 3)
+	assert.Equal(t, "request-1", exporter.batches[0][0].RequestID)
+	assert.Equal(t, "request-3", exporter.batches[0][2].RequestID)
 }

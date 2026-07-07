@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -20,6 +21,11 @@ type tenantListParams struct {
 	Limit  int
 	Offset int
 }
+
+const (
+	observabilityDefaultRange = 24 * time.Hour
+	observabilityMaxRange     = 7 * 24 * time.Hour
+)
 
 func currentTenantOrErr(c *fiber.Ctx) (*platform.Tenant, error) {
 	currentTenant := tenant.FromContext(c)
@@ -69,6 +75,44 @@ func buildNextOffset(offset, itemCount, total int) *int {
 	next := offset + itemCount
 
 	return &next
+}
+
+func applyObservabilityTimeBounds(from, to *time.Time, now time.Time) (*time.Time, *time.Time, error) {
+	now = now.UTC()
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+
+	if from == nil && to == nil {
+		resolvedTo := now
+		resolvedFrom := resolvedTo.Add(-observabilityDefaultRange)
+		return &resolvedFrom, &resolvedTo, nil
+	}
+
+	if to == nil {
+		resolvedTo := now
+		to = &resolvedTo
+	}
+
+	if from == nil {
+		resolvedFrom := to.UTC().Add(-observabilityDefaultRange)
+		from = &resolvedFrom
+	}
+
+	resolvedFrom := from.UTC()
+	resolvedTo := to.UTC()
+	if !resolvedFrom.Before(resolvedTo) {
+		return nil, nil, fiber.NewError(fiber.StatusBadRequest, "from must be before to")
+	}
+
+	if resolvedTo.Sub(resolvedFrom) > observabilityMaxRange {
+		return nil, nil, fiber.NewError(
+			fiber.StatusBadRequest,
+			fmt.Sprintf("time range must not exceed %d hours", int(observabilityMaxRange.Hours())),
+		)
+	}
+
+	return &resolvedFrom, &resolvedTo, nil
 }
 
 func parseTemporalBody(c *fiber.Ctx, dest interface{}, setTemporal func(effectiveFrom, expiresAt *time.Time)) error {

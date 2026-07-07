@@ -36,7 +36,7 @@ func (s *Store) LogRequest(ctx context.Context, entry platform.RequestLogEntry) 
 
 // LogRequests writes normalized request log entries to ClickHouse in one batch.
 func (s *Store) LogRequests(ctx context.Context, entries []platform.RequestLogEntry) error {
-	if !s.clickhouseReady || s.clickhouse == nil {
+	if !s.clickHouseLogsReady() {
 		return ErrLogStoreUnavailable
 	}
 	if len(entries) == 0 {
@@ -166,11 +166,6 @@ func (s *Store) listRequestLogsV2FromClickHouse(ctx context.Context, params plat
 
 	whereSQL, args := buildRequestLogsWhere(params)
 
-	var total uint64
-	if err := s.clickhouse.QueryRowContext(ctx, fmt.Sprintf(`SELECT count() FROM request_logs_ch WHERE %s`, whereSQL), args...).Scan(&total); err != nil {
-		return nil, 0, err
-	}
-
 	query := fmt.Sprintf(`
 		SELECT
 			log_id, request_id, trace_id, tenant_id, provider, provider_model, model, virtual_model, route,
@@ -183,14 +178,15 @@ func (s *Store) listRequestLogsV2FromClickHouse(ctx context.Context, params plat
 		LIMIT ? OFFSET ?
 	`, whereSQL, normalizeLogSortBy(params.SortBy), normalizeSortOrder(params.SortOrder))
 
-	args = append(args, params.Limit, params.Offset)
+	pageLimit := params.Limit + 1
+	args = append(args, pageLimit, params.Offset)
 	rows, err := s.clickhouse.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, 0, err
 	}
 	defer closeBestEffort(rows)
 
-	items := make([]platform.RequestLogV2, 0, params.Limit)
+	items := make([]platform.RequestLogV2, 0, pageLimit)
 	for rows.Next() {
 		var (
 			item          platform.RequestLogV2
@@ -222,7 +218,16 @@ func (s *Store) listRequestLogsV2FromClickHouse(ctx context.Context, params plat
 		items = append(items, item)
 	}
 
-	return items, int(total), rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	hasMore := len(items) > params.Limit
+	if hasMore {
+		items = items[:params.Limit]
+	}
+
+	return items, approximateWindowedTotal(params.Offset, len(items), hasMore), nil
 }
 
 func (s *Store) getRequestLogV2FromClickHouse(ctx context.Context, tenantID, logID string, includeContent bool) (*platform.RequestLogDetailV2, error) {
@@ -856,6 +861,15 @@ func buildRequestLogsWhere(params platform.ListRequestLogsV2Params) (string, []i
 	}
 
 	return strings.Join(where, " AND "), args
+}
+
+func approximateWindowedTotal(offset, itemCount int, hasMore bool) int {
+	total := offset + itemCount
+	if hasMore {
+		total++
+	}
+
+	return total
 }
 
 func splitLogFilterValues(value string) []string {

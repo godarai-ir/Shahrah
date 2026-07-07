@@ -41,7 +41,7 @@ func (s *Store) ListSpendCostByTenantAndDay(ctx context.Context, day time.Time) 
 }
 
 func (s *Store) ListMetricsCostByTenantAndDay(ctx context.Context, day time.Time) ([]ReconcileTenantCostRow, error) {
-	if !s.clickhouseReady || s.clickhouse == nil {
+	if !s.clickHouseMetricsReady() {
 		return nil, ErrMetricsStoreUnavailable
 	}
 

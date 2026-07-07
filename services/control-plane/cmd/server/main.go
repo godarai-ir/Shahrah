@@ -313,11 +313,6 @@ func main() {
 		}
 	}()
 
-	traceRetentionCleaner := tracing.NewRetentionCleaner(traceCfg, store, logger)
-
-	traceRetentionCleaner.Start()
-	defer traceRetentionCleaner.Stop()
-
 	logRetentionCleaner := logretention.NewRetentionCleaner(logretention.LoadConfigFromEnv(), store, logger)
 
 	logRetentionCleaner.Start()
@@ -328,6 +323,7 @@ func main() {
 		TenantResolver:          tenantMiddleware,
 		TracingMiddleware:       tracing.Middleware(traceQueue, traceSampler, traceCfg.SlowRequest.Milliseconds(), tracePrivacy),
 		TraceHealth:             reliableExporter,
+		ClickHouseHealth:        store,
 		AdminHandlers:           adminHandlers,
 		AuthHandlers:            authHandlers,
 		ProxyHandler:            proxyHandler,

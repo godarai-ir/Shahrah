@@ -18,7 +18,7 @@ import (
 
 // Exporter persists metric events to the backing store.
 type Exporter interface {
-	InsertModelMetricEvent(ctx context.Context, ev platform.ModelMetricEvent) error
+	InsertModelMetricEvents(ctx context.Context, events []platform.ModelMetricEvent) error
 }
 
 // Processor buffers and exports metric events with retries and DLQ fallback.
@@ -33,6 +33,10 @@ type Processor struct {
 
 // NewProcessor creates a metrics processor.
 func NewProcessor(cfg Config, queue *Queue, exporter Exporter, logger *zap.Logger) *Processor {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
 	return &Processor{
 		cfg:      cfg,
 		queue:    queue,
@@ -90,10 +94,10 @@ func (p *Processor) flush() {
 		return
 	}
 
-	for _, ev := range batch {
-		if err := p.insertWithRetry(ev); err != nil {
-			p.logger.Warn("model metrics insert failed; writing to dlq", zap.Error(err))
+	if err := p.insertBatchWithRetry(batch); err != nil {
+		p.logger.Warn("model metrics batch insert failed; writing to dlq", zap.Error(err), zap.Int("batch_size", len(batch)))
 
+		for _, ev := range batch {
 			if dlqErr := p.appendDLQ(ev); dlqErr != nil {
 				p.logger.Warn("model metrics dlq write failed", zap.Error(dlqErr))
 			}
@@ -101,12 +105,12 @@ func (p *Processor) flush() {
 	}
 }
 
-func (p *Processor) insertWithRetry(ev platform.ModelMetricEvent) error {
+func (p *Processor) insertBatchWithRetry(batch []platform.ModelMetricEvent) error {
 	var lastErr error
 
 	for attempt := 1; attempt <= p.cfg.RetryMaxAttempts; attempt++ {
 		ctx, cancel := context.WithTimeout(context.Background(), p.cfg.ExportTimeout)
-		err := p.exporter.InsertModelMetricEvent(ctx, ev)
+		err := p.exporter.InsertModelMetricEvents(ctx, batch)
 
 		cancel()
 

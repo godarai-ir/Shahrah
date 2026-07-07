@@ -3,6 +3,7 @@ package admin
 import (
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
@@ -140,6 +141,10 @@ func parseTraceListV2Params(c *fiber.Ctx, tenantID string) (platform.ListRequest
 	}
 
 	to, err := parseOptionalRFC3339Query(c, "to")
+	if err != nil {
+		return platform.ListRequestTracesV2Params{}, err
+	}
+	from, to, err = applyObservabilityTimeBounds(from, to, time.Now().UTC())
 	if err != nil {
 		return platform.ListRequestTracesV2Params{}, err
 	}

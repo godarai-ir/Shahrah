@@ -228,21 +228,6 @@ spec:
                 configMapKeyRef:
                   name: shahrah-config
                   key: LOG_RETENTION_CLEANUP_TIMEOUT_MS
-            - name: TRACE_RETENTION_CLEANUP_ENABLED
-              valueFrom:
-                configMapKeyRef:
-                  name: shahrah-config
-                  key: TRACE_RETENTION_CLEANUP_ENABLED
-            - name: TRACE_RETENTION_CLEANUP_INTERVAL_MS
-              valueFrom:
-                configMapKeyRef:
-                  name: shahrah-config
-                  key: TRACE_RETENTION_CLEANUP_INTERVAL_MS
-            - name: TRACE_RETENTION_CLEANUP_TIMEOUT_MS
-              valueFrom:
-                configMapKeyRef:
-                  name: shahrah-config
-                  key: TRACE_RETENTION_CLEANUP_TIMEOUT_MS
             - name: REDIS_HOST
               valueFrom:
                 configMapKeyRef:

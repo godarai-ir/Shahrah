@@ -11,9 +11,36 @@ func (s *Store) validateClickHouseColumns(ctx context.Context, table string, col
 		return fmt.Errorf("invalid clickhouse schema validation target")
 	}
 
-	query := fmt.Sprintf("SELECT %s FROM %s LIMIT 0", strings.Join(columns, ", "), table)
-	if _, err := s.clickhouse.ExecContext(ctx, query); err != nil {
+	rows, err := s.clickhouse.QueryContext(ctx, `
+		SELECT name
+		FROM system.columns
+		WHERE database = currentDatabase() AND table = ?
+	`, table)
+	if err != nil {
 		return fmt.Errorf("validate clickhouse table %s: %w", table, err)
+	}
+	defer closeBestEffort(rows)
+
+	found := make(map[string]struct{}, len(columns))
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return fmt.Errorf("validate clickhouse table %s: %w", table, err)
+		}
+		found[name] = struct{}{}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("validate clickhouse table %s: %w", table, err)
+	}
+
+	missing := make([]string, 0)
+	for _, column := range columns {
+		if _, ok := found[column]; !ok {
+			missing = append(missing, column)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("validate clickhouse table %s: missing columns: %s", table, strings.Join(missing, ", "))
 	}
 
 	return nil

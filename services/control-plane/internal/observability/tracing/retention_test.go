@@ -1,15 +1,11 @@
 package tracing
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
 
 func TestParseTraceRetentionDays(t *testing.T) {
@@ -42,53 +38,4 @@ func TestParseTraceRetentionDays(t *testing.T) {
 			assert.Nil(t, days, "value=%v", value)
 		}
 	})
-}
-
-func TestRetentionCleaner_RunOnce(t *testing.T) {
-	errBoom := errors.New("delete failed")
-	threeDays := 3
-	now := time.Date(2026, 6, 23, 12, 0, 0, 0, time.UTC)
-	store := &fakeRetentionStore{
-		policies: []TraceRetentionPolicy{
-			{TenantID: "tenant_unlimited", RetentionDays: nil},
-			{TenantID: "tenant_limited", RetentionDays: &threeDays},
-			{TenantID: "tenant_fails", RetentionDays: &threeDays},
-			{TenantID: "tenant_after_failure", RetentionDays: &threeDays},
-		},
-		failures: map[string]error{"tenant_fails": errBoom},
-	}
-	cleaner := NewRetentionCleaner(Config{
-		RetentionCleanupEnabled: true,
-	}, store, zap.NewNop())
-	cleaner.now = func() time.Time { return now }
-
-	err := cleaner.runOnce(context.Background())
-	require.Error(t, err)
-	assert.ErrorIs(t, err, errBoom)
-
-	require.Len(t, store.deletes, 3)
-	assert.Equal(t, "tenant_limited", store.deletes[0].tenantID)
-	assert.Equal(t, now.AddDate(0, 0, -3), store.deletes[0].cutoff)
-	assert.Equal(t, "tenant_fails", store.deletes[1].tenantID)
-	assert.Equal(t, "tenant_after_failure", store.deletes[2].tenantID)
-}
-
-type fakeRetentionStore struct {
-	policies []TraceRetentionPolicy
-	failures map[string]error
-	deletes  []fakeRetentionDelete
-}
-
-type fakeRetentionDelete struct {
-	tenantID string
-	cutoff   time.Time
-}
-
-func (s *fakeRetentionStore) ListTraceRetentionPolicies(context.Context) ([]TraceRetentionPolicy, error) {
-	return s.policies, nil
-}
-
-func (s *fakeRetentionStore) DeleteTraceDataBefore(_ context.Context, tenantID string, cutoff time.Time) error {
-	s.deletes = append(s.deletes, fakeRetentionDelete{tenantID: tenantID, cutoff: cutoff})
-	return s.failures[tenantID]
 }

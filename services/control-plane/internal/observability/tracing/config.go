@@ -39,10 +39,6 @@ type Config struct {
 	PayloadEncryptKey string
 	PayloadMaxBytes   int
 	PIIHashSalt       string
-
-	RetentionCleanupEnabled  bool
-	RetentionCleanupInterval time.Duration
-	RetentionCleanupTimeout  time.Duration
 }
 
 // LoadConfigFromEnv builds the tracing configuration from environment variables.
@@ -68,10 +64,6 @@ func LoadConfigFromEnv() Config {
 		PayloadEncryptKey: strings.TrimSpace(os.Getenv("TRACE_PAYLOAD_ENCRYPTION_KEY")),
 		PayloadMaxBytes:   16 * 1024,
 		PIIHashSalt:       strings.TrimSpace(os.Getenv("TRACE_PII_HASH_SALT")),
-
-		RetentionCleanupEnabled:  true,
-		RetentionCleanupInterval: time.Hour,
-		RetentionCleanupTimeout:  30 * time.Second,
 	}
 
 	cfg.DefaultSampleRate = floatEnvOrDefault("TRACE_DEFAULT_SAMPLE_RATE", cfg.DefaultSampleRate)
@@ -90,10 +82,6 @@ func LoadConfigFromEnv() Config {
 	cfg.PayloadBlobDir = stringEnvOrDefault("TRACE_PAYLOAD_BLOB_DIR", cfg.PayloadBlobDir)
 	cfg.PayloadMaxBytes = intMinEnvOrDefault("TRACE_PAYLOAD_MAX_BYTES", cfg.PayloadMaxBytes, 256)
 	cfg.PIIHashSalt = stringEnvOrDefault("TRACE_PII_HASH_SALT", cfg.PIIHashSalt)
-	cfg.RetentionCleanupEnabled = boolEnvOrDefault("TRACE_RETENTION_CLEANUP_ENABLED", cfg.RetentionCleanupEnabled)
-	cfg.RetentionCleanupInterval = durationMillisEnvOrDefault("TRACE_RETENTION_CLEANUP_INTERVAL_MS", cfg.RetentionCleanupInterval)
-	cfg.RetentionCleanupTimeout = durationMillisEnvOrDefault("TRACE_RETENTION_CLEANUP_TIMEOUT_MS", cfg.RetentionCleanupTimeout)
-
 	return cfg
 }
 

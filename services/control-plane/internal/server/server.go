@@ -38,6 +38,7 @@ type Dependencies struct {
 	TenantResolver          *tenant.Middleware
 	TracingMiddleware       fiber.Handler
 	TraceHealth             TraceHealthReporter
+	ClickHouseHealth        ClickHouseHealthReporter
 	AdminHandlers           *admin.Handlers
 	AuthHandlers            *admin.AuthHandlers
 	ProxyHandler            *proxy.ChatCompletionHandler
@@ -55,6 +56,10 @@ type Dependencies struct {
 
 type TraceHealthReporter interface {
 	ReadinessReport() map[string]interface{}
+}
+
+type ClickHouseHealthReporter interface {
+	ClickHouseReadinessReport() map[string]interface{}
 }
 
 // NewFiberApp creates and configures a new Fiber application.
@@ -238,6 +243,9 @@ func readyHandler(deps Dependencies) fiber.Handler {
 		}
 		if deps.TraceHealth != nil {
 			resp["tracing"] = deps.TraceHealth.ReadinessReport()
+		}
+		if deps.ClickHouseHealth != nil {
+			resp["clickhouse"] = deps.ClickHouseHealth.ClickHouseReadinessReport()
 		}
 
 		return c.JSON(resp)

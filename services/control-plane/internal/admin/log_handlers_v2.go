@@ -510,6 +510,10 @@ func parseLogListV2Params(c *fiber.Ctx, tenantID string) (platform.ListRequestLo
 	if err != nil {
 		return platform.ListRequestLogsV2Params{}, err
 	}
+	from, to, err = applyObservabilityTimeBounds(from, to, time.Now().UTC())
+	if err != nil {
+		return platform.ListRequestLogsV2Params{}, err
+	}
 	durationMin, err := parseOptionalIntQuery(c, "duration_min", "duration_min must be a number")
 	if err != nil {
 		return platform.ListRequestLogsV2Params{}, err

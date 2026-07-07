@@ -21,5 +21,6 @@
 - TTL policies follow MVP plan:
   - Raw events: 90 days
   - 1-minute aggregates: 540 days
+  - Request traces/spans: row-level `retention_days`; `0` means unlimited, positive values expire through ClickHouse TTL.
 - Team aggregation in MVP query path can use raw table + `arrayJoin(team_names)`.
 - Control-plane startup validates these tables and columns but does not create or alter ClickHouse schema.

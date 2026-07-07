@@ -165,6 +165,45 @@ func TestNewFiberAppExposesPrometheusMetrics(t *testing.T) {
 	assert.Contains(t, payload, "shahrah_control_plane_http_requests_in_flight")
 }
 
+func TestReadyIncludesClickHouseSubsystemReadiness(t *testing.T) {
+	t.Parallel()
+
+	app := NewFiberApp(&config.Config{}, Dependencies{
+		ClickHouseHealth: fakeClickHouseHealthReporter{
+			report: map[string]interface{}{
+				"connected": true,
+				"traces":    false,
+				"metrics":   true,
+				"logs":      true,
+			},
+		},
+	})
+
+	resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/ready", http.NoBody))
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	payload := string(body)
+	assert.Contains(t, payload, `"clickhouse"`)
+	assert.Contains(t, payload, `"connected":true`)
+	assert.Contains(t, payload, `"traces":false`)
+	assert.Contains(t, payload, `"metrics":true`)
+	assert.Contains(t, payload, `"logs":true`)
+}
+
+type fakeClickHouseHealthReporter struct {
+	report map[string]interface{}
+}
+
+func (r fakeClickHouseHealthReporter) ClickHouseReadinessReport() map[string]interface{} {
+	return r.report
+}
+
 func TestNewFiberAppPrometheusLabelsRemainStableAcrossRequests(t *testing.T) {
 	t.Parallel()
 

@@ -10,7 +10,7 @@ import (
 var ErrLogStoreUnavailable = errors.New("log store unavailable")
 
 func (s *Store) ListRequestLogsV2(ctx context.Context, params platform.ListRequestLogsV2Params) ([]platform.RequestLogV2, int, error) {
-	if !s.clickhouseReady || s.clickhouse == nil {
+	if !s.clickHouseLogsReady() {
 		return nil, 0, ErrLogStoreUnavailable
 	}
 
@@ -18,7 +18,7 @@ func (s *Store) ListRequestLogsV2(ctx context.Context, params platform.ListReque
 }
 
 func (s *Store) GetRequestLogV2(ctx context.Context, tenantID, logID string, includeContent bool) (*platform.RequestLogDetailV2, error) {
-	if !s.clickhouseReady || s.clickhouse == nil {
+	if !s.clickHouseLogsReady() {
 		return nil, ErrLogStoreUnavailable
 	}
 
@@ -26,7 +26,7 @@ func (s *Store) GetRequestLogV2(ctx context.Context, tenantID, logID string, inc
 }
 
 func (s *Store) GetRequestLogFacetsV2(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogFacetsV2, error) {
-	if !s.clickhouseReady || s.clickhouse == nil {
+	if !s.clickHouseLogsReady() {
 		return nil, ErrLogStoreUnavailable
 	}
 
@@ -34,7 +34,7 @@ func (s *Store) GetRequestLogFacetsV2(ctx context.Context, params platform.ListR
 }
 
 func (s *Store) GetRequestLogSummaryV2(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogSummaryV2, error) {
-	if !s.clickhouseReady || s.clickhouse == nil {
+	if !s.clickHouseLogsReady() {
 		return nil, ErrLogStoreUnavailable
 	}
 
@@ -42,7 +42,7 @@ func (s *Store) GetRequestLogSummaryV2(ctx context.Context, params platform.List
 }
 
 func (s *Store) GetRequestLogRangeStatsV2(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogRangeStatsV2, error) {
-	if !s.clickhouseReady || s.clickhouse == nil {
+	if !s.clickHouseLogsReady() {
 		return nil, ErrLogStoreUnavailable
 	}
 
@@ -50,7 +50,7 @@ func (s *Store) GetRequestLogRangeStatsV2(ctx context.Context, params platform.L
 }
 
 func (s *Store) GetRequestLogAnalyticsV2(ctx context.Context, params platform.LogAnalyticsV2Params) ([]platform.LogAnalyticsPointV2, error) {
-	if !s.clickhouseReady || s.clickhouse == nil {
+	if !s.clickHouseLogsReady() {
 		return nil, ErrLogStoreUnavailable
 	}
 

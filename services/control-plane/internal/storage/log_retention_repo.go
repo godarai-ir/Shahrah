@@ -52,7 +52,7 @@ func (s *Store) ListLogRetentionPolicies(ctx context.Context) ([]logretention.Lo
 
 // DeleteLogDataBefore deletes tenant-scoped request log rows older than cutoff from ClickHouse.
 func (s *Store) DeleteLogDataBefore(ctx context.Context, tenantID string, cutoff time.Time) error {
-	if !s.clickhouseReady || s.clickhouse == nil {
+	if !s.clickHouseLogsReady() {
 		return ErrLogStoreUnavailable
 	}
 

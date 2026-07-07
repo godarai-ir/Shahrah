@@ -12,12 +12,13 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/jackc/pgx/v5"
+	"go.uber.org/zap"
 )
 
 func (s *Store) initClickHouse(ctx context.Context) error {
 	dsn := strings.TrimSpace(os.Getenv("CLICKHOUSE_DSN"))
 	if dsn == "" {
-		return fmt.Errorf("CLICKHOUSE_DSN is required for trace storage")
+		return fmt.Errorf("CLICKHOUSE_DSN is required for clickhouse observability storage")
 	}
 
 	db, err := sql.Open("clickhouse", dsn)
@@ -35,47 +36,84 @@ func (s *Store) initClickHouse(ctx context.Context) error {
 	}
 
 	s.clickhouse = db
-	if err := s.ensureClickHouseTraceSchema(ctx); err != nil {
-		closeBestEffort(db)
-
-		s.clickhouse = nil
-
-		return err
-	}
-
-	if err := s.ensureClickHouseMetricsSchema(ctx); err != nil {
-		closeBestEffort(db)
-
-		s.clickhouse = nil
-
-		return err
-	}
-
-	if err := s.ensureClickHouseRequestLogsSchema(ctx); err != nil {
-		closeBestEffort(db)
-
-		s.clickhouse = nil
-
-		return err
-	}
-
 	s.clickhouseReady = true
-	s.logger.Info("clickhouse observability backend enabled")
+	s.clickhouseTraceReady = s.enableClickHouseSubsystem(ctx, "traces", s.ensureClickHouseTraceSchema)
+	s.clickhouseMetricsReady = s.enableClickHouseSubsystem(ctx, "metrics", s.ensureClickHouseMetricsSchema)
+	s.clickhouseLogsReady = s.enableClickHouseSubsystem(ctx, "logs", s.ensureClickHouseRequestLogsSchema)
+
+	logger := s.logger
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
+	if s.clickhouseTraceReady || s.clickhouseMetricsReady || s.clickhouseLogsReady {
+		logger.Info(
+			"clickhouse observability backend enabled",
+			zap.Bool("traces_ready", s.clickhouseTraceReady),
+			zap.Bool("metrics_ready", s.clickhouseMetricsReady),
+			zap.Bool("logs_ready", s.clickhouseLogsReady),
+		)
+	} else {
+		logger.Warn("clickhouse connected but no observability subsystem is ready")
+	}
 
 	return nil
+}
+
+func (s *Store) enableClickHouseSubsystem(ctx context.Context, name string, validate func(context.Context) error) bool {
+	if err := validate(ctx); err != nil {
+		logger := s.logger
+		if logger == nil {
+			logger = zap.NewNop()
+		}
+		logger.Warn("clickhouse observability subsystem unavailable", zap.String("subsystem", name), zap.Error(err))
+		return false
+	}
+
+	return true
+}
+
+func (s *Store) clickHouseTraceReady() bool {
+	return s != nil && s.clickhouse != nil && s.clickhouseTraceReady
+}
+
+func (s *Store) clickHouseMetricsReady() bool {
+	return s != nil && s.clickhouse != nil && s.clickhouseMetricsReady
+}
+
+func (s *Store) clickHouseLogsReady() bool {
+	return s != nil && s.clickhouse != nil && s.clickhouseLogsReady
+}
+
+func (s *Store) ClickHouseReadinessReport() map[string]interface{} {
+	if s == nil {
+		return map[string]interface{}{
+			"connected": false,
+			"traces":    false,
+			"metrics":   false,
+			"logs":      false,
+		}
+	}
+
+	return map[string]interface{}{
+		"connected": s.clickhouse != nil && s.clickhouseReady,
+		"traces":    s.clickHouseTraceReady(),
+		"metrics":   s.clickHouseMetricsReady(),
+		"logs":      s.clickHouseLogsReady(),
+	}
 }
 
 func (s *Store) ensureClickHouseTraceSchema(ctx context.Context) error {
 	if err := s.validateClickHouseColumns(ctx, "request_traces_ch", []string{
 		"trace_id", "tenant_id", "request_id", "model", "route", "status_code", "started_at",
-		"duration_ms", "error_code", "sampled",
+		"duration_ms", "error_code", "sampled", "retention_days",
 	}); err != nil {
 		return err
 	}
 
 	if err := s.validateClickHouseColumns(ctx, "request_spans_ch", []string{
 		"span_id", "trace_id", "tenant_id", "parent_span_id", "name", "kind", "started_at",
-		"duration_ms", "status", "attributes_json",
+		"duration_ms", "status", "attributes_json", "retention_days",
 	}); err != nil {
 		return err
 	}
@@ -91,19 +129,26 @@ func (s *Store) exportToClickHouse(ctx context.Context, batch []tracing.SpanEven
 	const (
 		traceInsertSQL = `
 		INSERT INTO request_traces_ch
-		(trace_id, tenant_id, request_id, model, route, status_code, started_at, duration_ms, error_code, sampled)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		(trace_id, tenant_id, request_id, model, route, status_code, started_at, duration_ms, error_code, sampled, retention_days)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 		spanInsertSQL = `
 		INSERT INTO request_spans_ch
-		(span_id, trace_id, tenant_id, parent_span_id, name, kind, started_at, duration_ms, status, attributes_json)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		(span_id, trace_id, tenant_id, parent_span_id, name, kind, started_at, duration_ms, status, attributes_json, retention_days)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	)
 
+	retentionDaysByTenant := map[string]uint16{}
 	for _, ev := range batch {
-		if strings.TrimSpace(ev.TraceID) == "" || strings.TrimSpace(ev.TenantID) == "" {
+		tenantID := strings.TrimSpace(ev.TenantID)
+		if strings.TrimSpace(ev.TraceID) == "" || tenantID == "" {
 			continue
+		}
+		retentionDays, ok := retentionDaysByTenant[tenantID]
+		if !ok {
+			retentionDays = s.traceRetentionDaysForInsert(ctx, tenantID)
+			retentionDaysByTenant[tenantID] = retentionDays
 		}
 
 		errorCode := ""
@@ -130,7 +175,7 @@ func (s *Store) exportToClickHouse(ctx context.Context, batch []tracing.SpanEven
 				ctx,
 				traceInsertSQL,
 				ev.TraceID,
-				ev.TenantID,
+				tenantID,
 				requestID,
 				model,
 				ev.Route,
@@ -139,6 +184,7 @@ func (s *Store) exportToClickHouse(ctx context.Context, batch []tracing.SpanEven
 				int32(ev.DurationMS),
 				errorCode,
 				boolToUint8(ev.Sampled),
+				retentionDays,
 			)
 			if err != nil {
 				return err
@@ -178,7 +224,7 @@ func (s *Store) exportToClickHouse(ctx context.Context, batch []tracing.SpanEven
 			spanInsertSQL,
 			spanID,
 			ev.TraceID,
-			ev.TenantID,
+			tenantID,
 			parentSpanID,
 			spanName,
 			spanKind,
@@ -186,6 +232,7 @@ func (s *Store) exportToClickHouse(ctx context.Context, batch []tracing.SpanEven
 			int32(ev.DurationMS),
 			status,
 			string(attrsRaw),
+			retentionDays,
 		)
 		if err != nil {
 			return err
@@ -193,6 +240,41 @@ func (s *Store) exportToClickHouse(ctx context.Context, batch []tracing.SpanEven
 	}
 
 	return nil
+}
+
+func (s *Store) traceRetentionDaysForInsert(ctx context.Context, tenantID string) uint16 {
+	days, err := s.ResolveTraceRetentionDays(ctx, tenantID)
+	if err != nil {
+		logger := s.logger
+		if logger == nil {
+			logger = zap.NewNop()
+		}
+		logger.Warn("failed to resolve trace retention; writing trace with unlimited ttl", zap.String("tenant_id", tenantID), zap.Error(err))
+
+		return 0
+	}
+
+	if days == nil {
+		return clickHouseTraceRetentionDaysValue(nil)
+	}
+
+	return clickHouseTraceRetentionDaysValue(days)
+}
+
+func clickHouseTraceRetentionDaysValue(days *int) uint16 {
+	if days == nil {
+		return 0
+	}
+
+	if *days > maxClickHouseRetentionDays {
+		return maxClickHouseRetentionDays
+	}
+
+	if *days <= 0 {
+		return 0
+	}
+
+	return uint16(*days)
 }
 
 func (s *Store) listRequestTracesFromClickHouse(ctx context.Context, params platform.ListRequestTracesParams) ([]platform.RequestTrace, int, error) {
@@ -243,12 +325,6 @@ func (s *Store) listRequestTracesFromClickHouse(ctx context.Context, params plat
 
 	whereSQL := strings.Join(where, " AND ")
 	dedupSubquery := buildTraceDedupeSubquery(whereSQL)
-	countQ := fmt.Sprintf(`SELECT count() FROM (%s)`, dedupSubquery)
-
-	var total uint64
-	if err := s.clickhouse.QueryRowContext(ctx, countQ, args...).Scan(&total); err != nil {
-		return nil, 0, err
-	}
 
 	query := fmt.Sprintf(`
 		SELECT trace_id, tenant_id, request_id, model, route, status_code, started_at, duration_ms, error_code, sampled
@@ -257,7 +333,8 @@ func (s *Store) listRequestTracesFromClickHouse(ctx context.Context, params plat
 		LIMIT ? OFFSET ?
 	`, dedupSubquery)
 
-	args = append(args, params.Limit, params.Offset)
+	pageLimit := params.Limit + 1
+	args = append(args, pageLimit, params.Offset)
 
 	rows, err := s.clickhouse.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -265,7 +342,7 @@ func (s *Store) listRequestTracesFromClickHouse(ctx context.Context, params plat
 	}
 	defer closeBestEffort(rows)
 
-	items := make([]platform.RequestTrace, 0, params.Limit)
+	items := make([]platform.RequestTrace, 0, pageLimit)
 
 	for rows.Next() {
 		var (
@@ -291,7 +368,16 @@ func (s *Store) listRequestTracesFromClickHouse(ctx context.Context, params plat
 		items = append(items, item)
 	}
 
-	return items, int(total), rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	hasMore := len(items) > params.Limit
+	if hasMore {
+		items = items[:params.Limit]
+	}
+
+	return items, approximateWindowedTotal(params.Offset, len(items), hasMore), nil
 }
 
 func (s *Store) getRequestTraceFromClickHouse(ctx context.Context, tenantID, traceID string) (*platform.RequestTrace, error) {
@@ -400,12 +486,13 @@ func (s *Store) listRequestTracesV2FromClickHouse(ctx context.Context, params pl
 
 	baseWhereSQL, baseArgs := buildTraceV2BaseWhere(params)
 	dedupSubquery := buildTraceDedupeSubquery(baseWhereSQL)
+	spanWhereSQL, spanArgs := buildTraceProviderSpanWhere(params)
 	providerSubquery := `
 		SELECT
 			trace_id,
 			argMin(JSONExtractString(attributes_json, 'provider'), started_at) AS provider
 		FROM request_spans_ch
-		WHERE tenant_id = ? AND name = 'provider.call'
+		WHERE ` + spanWhereSQL + `
 		GROUP BY trace_id
 	`
 	attemptsSubquery := `
@@ -413,7 +500,7 @@ func (s *Store) listRequestTracesV2FromClickHouse(ctx context.Context, params pl
 			trace_id,
 			count() AS attempts
 		FROM request_spans_ch
-		WHERE tenant_id = ? AND name = 'provider.call'
+		WHERE ` + spanWhereSQL + `
 		GROUP BY trace_id
 	`
 	outerWhere := []string{"1 = 1"}
@@ -429,17 +516,6 @@ func (s *Store) listRequestTracesV2FromClickHouse(ctx context.Context, params pl
 		LEFT JOIN (%s) p ON t.trace_id = p.trace_id
 		LEFT JOIN (%s) a ON t.trace_id = a.trace_id
 	`, dedupSubquery, providerSubquery, attemptsSubquery)
-
-	countQ := fmt.Sprintf(`SELECT count() %s WHERE %s`, baseFrom, strings.Join(outerWhere, " AND "))
-
-	countArgs := append([]interface{}{}, baseArgs...)
-	countArgs = append(countArgs, params.TenantID, params.TenantID)
-	countArgs = append(countArgs, outerArgs...)
-
-	var total uint64
-	if err := s.clickhouse.QueryRowContext(ctx, countQ, countArgs...).Scan(&total); err != nil {
-		return nil, 0, err
-	}
 
 	query := fmt.Sprintf(`
 		SELECT
@@ -462,9 +538,11 @@ func (s *Store) listRequestTracesV2FromClickHouse(ctx context.Context, params pl
 	`, baseFrom, strings.Join(outerWhere, " AND "), sortBy, sortOrder)
 
 	args := append([]interface{}{}, baseArgs...)
-	args = append(args, params.TenantID, params.TenantID)
+	args = append(args, spanArgs...)
+	args = append(args, spanArgs...)
 	args = append(args, outerArgs...)
-	args = append(args, params.Limit, params.Offset)
+	pageLimit := params.Limit + 1
+	args = append(args, pageLimit, params.Offset)
 
 	rows, err := s.clickhouse.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -472,7 +550,7 @@ func (s *Store) listRequestTracesV2FromClickHouse(ctx context.Context, params pl
 	}
 	defer closeBestEffort(rows)
 
-	items := make([]platform.RequestTraceV2, 0, params.Limit)
+	items := make([]platform.RequestTraceV2, 0, pageLimit)
 
 	for rows.Next() {
 		var (
@@ -502,7 +580,16 @@ func (s *Store) listRequestTracesV2FromClickHouse(ctx context.Context, params pl
 		items = append(items, item)
 	}
 
-	return items, int(total), rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	hasMore := len(items) > params.Limit
+	if hasMore {
+		items = items[:params.Limit]
+	}
+
+	return items, approximateWindowedTotal(params.Offset, len(items), hasMore), nil
 }
 
 func (s *Store) getRequestTraceV2FromClickHouse(ctx context.Context, tenantID, traceID string) (*platform.RequestTraceDetailV2, error) {
@@ -967,6 +1054,23 @@ func buildTraceV2BaseWhere(params platform.ListRequestTracesV2Params) (string, [
 		where = append(where, "error_code = ?")
 		args = append(args, params.ErrorCode)
 	}
+
+	if params.From != nil {
+		where = append(where, "started_at >= ?")
+		args = append(args, params.From.UTC())
+	}
+
+	if params.To != nil {
+		where = append(where, "started_at <= ?")
+		args = append(args, params.To.UTC())
+	}
+
+	return strings.Join(where, " AND "), args
+}
+
+func buildTraceProviderSpanWhere(params platform.ListRequestTracesV2Params) (string, []interface{}) {
+	where := []string{"tenant_id = ?", "name = 'provider.call'"}
+	args := []interface{}{params.TenantID}
 
 	if params.From != nil {
 		where = append(where, "started_at >= ?")
