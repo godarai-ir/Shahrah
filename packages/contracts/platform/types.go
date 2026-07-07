@@ -162,26 +162,43 @@ type SpendLog struct {
 
 // UsageCostBreakdown captures estimated or final cost.
 type UsageCostBreakdown struct {
-	Model         string  `json:"model"`
-	InputTokens   int     `json:"input_tokens"`
-	OutputTokens  int     `json:"output_tokens"`
-	TotalTokens   int     `json:"total_tokens"`
-	InputCostUSD  float64 `json:"input_cost_usd"`
-	OutputCostUSD float64 `json:"output_cost_usd"`
-	TotalCostUSD  float64 `json:"total_cost_usd"`
-	ExchangeRate  float64 `json:"exchange_rate"`
-	TotalCostIRR  float64 `json:"total_cost_irr"`
+	Model         string                 `json:"model"`
+	RequestType   string                 `json:"request_type,omitempty"`
+	Endpoint      string                 `json:"endpoint,omitempty"`
+	Metadata      map[string]interface{} `json:"metadata,omitempty"`
+	InputTokens   int                    `json:"input_tokens"`
+	OutputTokens  int                    `json:"output_tokens"`
+	TotalTokens   int                    `json:"total_tokens"`
+	InputCostUSD  float64                `json:"input_cost_usd"`
+	OutputCostUSD float64                `json:"output_cost_usd"`
+	TotalCostUSD  float64                `json:"total_cost_usd"`
+	ExchangeRate  float64                `json:"exchange_rate"`
+	TotalCostIRR  float64                `json:"total_cost_irr"`
 }
 
-// BudgetReservation tracks a request-time spend reservation in the active budget window.
-type BudgetReservation struct {
-	ID             string    `json:"id"`
-	TenantID       string    `json:"tenant_id"`
+// BudgetReservationTarget is one window reserved for a request.
+type BudgetReservationTarget struct {
+	Kind           string    `json:"kind"`
+	RuleID         string    `json:"rule_id,omitempty"`
+	Scope          string    `json:"scope,omitempty"`
+	ScopeValue     string    `json:"scope_value,omitempty"`
 	WindowID       string    `json:"window_id"`
 	WindowKey      string    `json:"window_key"`
 	ReservationKey string    `json:"reservation_key"`
 	EstimatedIRR   float64   `json:"estimated_irr"`
 	CreatedAt      time.Time `json:"created_at"`
+}
+
+// BudgetReservation tracks request-time spend reservations in active budget windows.
+type BudgetReservation struct {
+	ID             string                    `json:"id"`
+	TenantID       string                    `json:"tenant_id"`
+	WindowID       string                    `json:"window_id"`
+	WindowKey      string                    `json:"window_key"`
+	ReservationKey string                    `json:"reservation_key"`
+	EstimatedIRR   float64                   `json:"estimated_irr"`
+	CreatedAt      time.Time                 `json:"created_at"`
+	Targets        []BudgetReservationTarget `json:"targets,omitempty"`
 }
 
 // Deployment represents a configured provider target.

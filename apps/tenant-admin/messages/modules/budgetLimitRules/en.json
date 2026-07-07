@@ -71,7 +71,10 @@
     "options": {
       "applyPer": {
         "shared": "Shared across all traffic",
+        "tenant": "Per tenant",
         "user": "Per user",
+        "team": "Per team",
+        "orgUnit": "Per organization unit",
         "model": "Per model",
         "virtualAccount": "Per virtual account",
         "metadataProjectId": "Per metadata.project_id"

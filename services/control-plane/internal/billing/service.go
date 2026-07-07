@@ -179,7 +179,7 @@ func (s *Service) CheckBudget(ctx context.Context, auth *platform.AuthContext, b
 	return nil
 }
 
-// ReserveBudget reserves the estimated request cost from the tenant's active spend allowance window.
+// ReserveBudget reserves the estimated request cost from the tenant credit window and matching budget policy windows.
 func (s *Service) ReserveBudget(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, requestID string) (*platform.BudgetReservation, error) {
 	if auth == nil || strings.TrimSpace(auth.TenantID) == "" {
 		return nil, ErrBudgetExceeded
@@ -191,60 +191,50 @@ func (s *Service) ReserveBudget(ctx context.Context, auth *platform.AuthContext,
 
 	tenantID := strings.TrimSpace(auth.TenantID)
 	now := time.Now().UTC()
-	windowID, windowEnd := budgetWindowForTime(now)
-	windowKey := budgetWindowKey(tenantID, windowID)
 	reservationID := budgetReservationID(requestID)
-	reservationKey := budgetReservationKey(tenantID, reservationID)
-	ttl := time.Until(windowEnd.Add(s.budgetWindowTTLGrace))
-	if ttl <= 0 {
-		ttl = s.budgetWindowTTLGrace
+	targets, err := s.budgetReservationTargets(ctx, auth, breakdown, reservationID, now)
+	if err != nil {
+		return nil, err
 	}
 
-	result, err := budgetCache.ReserveBudget(ctx, cache.BudgetReservationRequest{
-		WindowKey:      windowKey,
-		ReservationKey: reservationKey,
-		ReservationID:  reservationID,
-		EstimatedIRR:   breakdown.TotalCostIRR,
-		TTL:            ttl,
-		Now:            now,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("%w: reserve failed: %v", ErrBudgetUnavailable, err)
-	}
-	if result != nil && result.State == "window_unavailable" {
-		if seedErr := s.seedBudgetWindow(ctx, budgetCache, tenantID, windowID, windowKey, windowEnd, ttl); seedErr != nil {
-			return nil, seedErr
+	reserved := make([]budgetReservationTarget, 0, len(targets))
+	for _, target := range targets {
+		result, reserveErr := s.reserveBudgetTarget(ctx, budgetCache, target, reservationID, now)
+		if reserveErr != nil {
+			s.releaseBudgetTargetsBestEffort(ctx, budgetCache, reserved, now)
+			return nil, reserveErr
 		}
-		result, err = budgetCache.ReserveBudget(ctx, cache.BudgetReservationRequest{
-			WindowKey:      windowKey,
-			ReservationKey: reservationKey,
-			ReservationID:  reservationID,
-			EstimatedIRR:   breakdown.TotalCostIRR,
-			TTL:            ttl,
-			Now:            now,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("%w: reserve failed: %v", ErrBudgetUnavailable, err)
+		if result == nil {
+			s.releaseBudgetTargetsBestEffort(ctx, budgetCache, reserved, now)
+			return nil, ErrBudgetUnavailable
 		}
+		if !result.Allowed {
+			s.releaseBudgetTargetsBestEffort(ctx, budgetCache, reserved, now)
+			if result.State == "exhausted" {
+				return nil, ErrBudgetExceeded
+			}
+			return nil, ErrBudgetUnavailable
+		}
+		reserved = append(reserved, target)
 	}
-	if result == nil {
+	if len(reserved) == 0 {
 		return nil, ErrBudgetUnavailable
 	}
-	if !result.Allowed {
-		if result.State == "exhausted" {
-			return nil, ErrBudgetExceeded
-		}
-		return nil, ErrBudgetUnavailable
+	publicTargets := make([]platform.BudgetReservationTarget, 0, len(reserved))
+	for _, target := range reserved {
+		publicTargets = append(publicTargets, target.BudgetReservationTarget)
 	}
+	primary := publicTargets[0]
 
 	return &platform.BudgetReservation{
 		ID:             reservationID,
 		TenantID:       tenantID,
-		WindowID:       windowID,
-		WindowKey:      windowKey,
-		ReservationKey: reservationKey,
+		WindowID:       primary.WindowID,
+		WindowKey:      primary.WindowKey,
+		ReservationKey: primary.ReservationKey,
 		EstimatedIRR:   breakdown.TotalCostIRR,
 		CreatedAt:      now,
+		Targets:        publicTargets,
 	}, nil
 }
 
@@ -257,20 +247,30 @@ func (s *Service) CommitBudget(ctx context.Context, reservation *platform.Budget
 	if !ok || budgetCache == nil {
 		return ErrBudgetUnavailable
 	}
-	result, err := budgetCache.CommitBudget(ctx, cache.BudgetCommitRequest{
-		WindowKey:      reservation.WindowKey,
-		ReservationKey: reservation.ReservationKey,
-		ActualIRR:      breakdown.TotalCostIRR,
-		Now:            time.Now().UTC(),
-	})
-	if err != nil {
-		return fmt.Errorf("%w: commit failed: %v", ErrBudgetUnavailable, err)
+	targets := reservation.Targets
+	if len(targets) == 0 {
+		targets = []platform.BudgetReservationTarget{{
+			WindowKey:      reservation.WindowKey,
+			ReservationKey: reservation.ReservationKey,
+		}}
 	}
-	if result == nil || !result.Allowed {
-		if result != nil && result.State == "exhausted" {
-			return ErrBudgetExceeded
+	now := time.Now().UTC()
+	for _, target := range targets {
+		result, err := budgetCache.CommitBudget(ctx, cache.BudgetCommitRequest{
+			WindowKey:      target.WindowKey,
+			ReservationKey: target.ReservationKey,
+			ActualIRR:      breakdown.TotalCostIRR,
+			Now:            now,
+		})
+		if err != nil {
+			return fmt.Errorf("%w: commit failed: %v", ErrBudgetUnavailable, err)
 		}
-		return ErrBudgetUnavailable
+		if result == nil || !result.Allowed {
+			if result != nil && result.State == "exhausted" {
+				return ErrBudgetExceeded
+			}
+			return ErrBudgetUnavailable
+		}
 	}
 	return nil
 }
@@ -284,16 +284,26 @@ func (s *Service) ReleaseBudget(ctx context.Context, reservation *platform.Budge
 	if !ok || budgetCache == nil {
 		return ErrBudgetUnavailable
 	}
-	result, err := budgetCache.ReleaseBudget(ctx, cache.BudgetReleaseRequest{
-		WindowKey:      reservation.WindowKey,
-		ReservationKey: reservation.ReservationKey,
-		Now:            time.Now().UTC(),
-	})
-	if err != nil {
-		return fmt.Errorf("%w: release failed: %v", ErrBudgetUnavailable, err)
+	targets := reservation.Targets
+	if len(targets) == 0 {
+		targets = []platform.BudgetReservationTarget{{
+			WindowKey:      reservation.WindowKey,
+			ReservationKey: reservation.ReservationKey,
+		}}
 	}
-	if result == nil || !result.Allowed {
-		return ErrBudgetUnavailable
+	now := time.Now().UTC()
+	for _, target := range targets {
+		result, err := budgetCache.ReleaseBudget(ctx, cache.BudgetReleaseRequest{
+			WindowKey:      target.WindowKey,
+			ReservationKey: target.ReservationKey,
+			Now:            now,
+		})
+		if err != nil {
+			return fmt.Errorf("%w: release failed: %v", ErrBudgetUnavailable, err)
+		}
+		if result == nil || !result.Allowed {
+			return ErrBudgetUnavailable
+		}
 	}
 	return nil
 }

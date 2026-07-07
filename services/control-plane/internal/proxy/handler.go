@@ -237,6 +237,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to estimate request cost", "billing_error")
 	}
+	estimated.Metadata = req.Metadata
 
 	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
 	setRateLimitHeaders(c, rateLimit)
@@ -907,6 +908,23 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 				releaseBudgetBestEffort(requestCtx, h.logger, h.billing, budgetReservation, "stream_not_committed")
 			}
 		}()
+		commitDoneBudget := func() {
+			if budgetCommitted || budgetReservation == nil {
+				return
+			}
+			billingModel := billingModelForDeployment(req.Model, tunnelReq.Deployment)
+			finalCost, finalizeErr := h.billing.FinalizeFromUsage(requestCtx, billingModel, nil, estimated)
+			if finalizeErr != nil {
+				h.logger.Warn("failed to finalize streaming usage", zap.Error(finalizeErr), zap.String("request_id", tunnelReq.RequestID))
+				finalCost = estimated
+				finalCost.Model = billingModel
+			}
+			if debitErr := commitBudgetOrDebit(requestCtx, h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID); debitErr != nil {
+				h.logger.Warn("failed to commit budget for streaming request", zap.Error(debitErr), zap.String("request_id", tunnelReq.RequestID))
+				return
+			}
+			budgetCommitted = true
+		}
 
 		for {
 			select {
@@ -985,6 +1003,7 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 				}
 
 				if chunk.IsDone {
+					commitDoneBudget()
 					return
 				}
 			case err, ok := <-stream.Errors():

@@ -69,7 +69,18 @@ export const budgetLimitRuleSchema = z.object({
   budget_applies_per: z
     .string()
     .optional()
-    .refine((value) => !value || value === "user" || value === "model" || value === "virtualaccount" || value.startsWith("metadata."), "Invalid apply-per value."),
+    .refine(
+      (value) =>
+        !value ||
+        value === "tenant" ||
+        value === "user" ||
+        value === "team" ||
+        value === "org_unit" ||
+        value === "model" ||
+        value === "virtualaccount" ||
+        value.startsWith("metadata."),
+      "Invalid apply-per value.",
+    ),
   block_on_budget_exceed: z.boolean().default(true),
   alerts: z
     .object({

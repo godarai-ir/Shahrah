@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/gofiber/fiber/v2"
@@ -15,6 +16,7 @@ type budgetReservationManager interface {
 }
 
 func reserveBudgetForRequest(c *fiber.Ctx, billing budgeter, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, requestID string) (*platform.BudgetReservation, error) {
+	estimated = enrichBudgetEvaluationContext(c, estimated)
 	if manager, ok := billing.(budgetReservationManager); ok {
 		reservation, err := manager.ReserveBudget(c.Context(), authInfo, estimated, requestID)
 		if err != nil {
@@ -28,6 +30,25 @@ func reserveBudgetForRequest(c *fiber.Ctx, billing budgeter, authInfo *platform.
 		return nil, writeBudgetCheckError(c, budgetErr)
 	}
 	return nil, nil
+}
+
+func enrichBudgetEvaluationContext(c *fiber.Ctx, estimated platform.UsageCostBreakdown) platform.UsageCostBreakdown {
+	if c == nil {
+		return estimated
+	}
+	if strings.TrimSpace(estimated.Endpoint) == "" {
+		estimated.Endpoint = c.Path()
+	}
+	if strings.TrimSpace(estimated.RequestType) == "" {
+		estimated.RequestType = budgetRequestTypeFromPath(c.Path())
+	}
+	return estimated
+}
+
+func budgetRequestTypeFromPath(path string) string {
+	normalized := strings.Trim(strings.ToLower(path), "/")
+	normalized = strings.TrimPrefix(normalized, "v1/")
+	return strings.ReplaceAll(normalized, "/", "_")
 }
 
 func commitBudgetOrDebit(ctx context.Context, logger *zap.Logger, billing budgeter, wallets walletStore, reservation *platform.BudgetReservation, tenantID string, breakdown platform.UsageCostBreakdown, requestID string) error {

@@ -234,7 +234,13 @@ func (s *Store) UpdateBudgetLimitRuleStatusByRuleID(ctx context.Context, tenantI
 		return nil, pgx.ErrNoRows
 	}
 
-	return scanBudgetLimitRule(rows)
+	item, err := scanBudgetLimitRule(rows)
+	if err != nil {
+		return nil, err
+	}
+	s.invalidateTenantRuntimeProfile(ctx, tenantID, "budget_limit_rule.status_updated")
+
+	return item, nil
 }
 
 func (s *Store) DeleteBudgetLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string) error {

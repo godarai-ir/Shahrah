@@ -411,6 +411,22 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 				releaseBudgetBestEffort(requestCtx, h.logger, h.billing, budgetReservation, "stream_not_committed")
 			}
 		}()
+		commitDoneBudget := func() {
+			if budgetCommitted || budgetReservation == nil {
+				return
+			}
+			finalCost, finalizeErr := h.billing.FinalizeFromUsage(requestCtx, req.Model, nil, estimated)
+			if finalizeErr != nil {
+				h.logger.Warn("failed to finalize streaming usage", zap.Error(finalizeErr), zap.String("request_id", tunnelReq.RequestID))
+				finalCost = estimated
+				finalCost.Model = req.Model
+			}
+			if debitErr := commitBudgetOrDebit(requestCtx, h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID); debitErr != nil {
+				h.logger.Warn("failed to commit budget for streaming request", zap.Error(debitErr), zap.String("request_id", tunnelReq.RequestID))
+				return
+			}
+			budgetCommitted = true
+		}
 
 		for {
 			select {
@@ -484,6 +500,7 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 							h.logger.Warn("failed to write done marker", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
 						}
 
+						commitDoneBudget()
 						return
 					}
 
@@ -544,6 +561,7 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 							h.logger.Warn("failed to write final done marker", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
 						}
 
+						commitDoneBudget()
 						return
 					}
 				}

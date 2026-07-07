@@ -831,7 +831,12 @@ func validateUpdateBudgetLimitRuleRequest(req platform.UpdateBudgetLimitRuleRequ
 func validateBudgetAppliesPer(value string) error {
 	normalized := strings.TrimSpace(value)
 	switch normalized {
-	case string(platform.BudgetAppliesPerUser), string(platform.BudgetAppliesPerModel), string(platform.BudgetAppliesPerVirtualAccount):
+	case string(platform.BudgetAppliesPerTenant),
+		string(platform.BudgetAppliesPerUser),
+		string(platform.BudgetAppliesPerTeam),
+		string(platform.BudgetAppliesPerOrgUnit),
+		string(platform.BudgetAppliesPerModel),
+		string(platform.BudgetAppliesPerVirtualAccount):
 		return nil
 	}
 

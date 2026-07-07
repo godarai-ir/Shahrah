@@ -13,7 +13,10 @@ const (
 type BudgetAppliesPer string
 
 const (
+	BudgetAppliesPerTenant         BudgetAppliesPer = "tenant"
 	BudgetAppliesPerUser           BudgetAppliesPer = "user"
+	BudgetAppliesPerTeam           BudgetAppliesPer = "team"
+	BudgetAppliesPerOrgUnit        BudgetAppliesPer = "org_unit"
 	BudgetAppliesPerModel          BudgetAppliesPer = "model"
 	BudgetAppliesPerVirtualAccount BudgetAppliesPer = "virtualaccount"
 )

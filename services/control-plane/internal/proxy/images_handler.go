@@ -132,6 +132,7 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "auth.validate", "internal", authStart, fiber.StatusOK, map[string]interface{}{"model": requestedModel})
 
 	estimated := estimateImageCostFallback(requestedModel, metadata)
+	estimated.Metadata = metadata
 	quotaStart := time.Now()
 	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
 	setRateLimitHeaders(c, rateLimit)

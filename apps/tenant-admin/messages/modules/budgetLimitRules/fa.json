@@ -71,7 +71,10 @@
     "options": {
       "applyPer": {
         "shared": "اشتراکی برای همه ترافیک",
+        "tenant": "به‌ازای tenant",
         "user": "به‌ازای هر کاربر",
+        "team": "به‌ازای هر تیم",
+        "orgUnit": "به‌ازای هر واحد سازمانی",
         "model": "به‌ازای هر مدل",
         "virtualAccount": "به‌ازای هر اکانت مجازی",
         "metadataProjectId": "به‌ازای metadata.project_id"

@@ -37,14 +37,25 @@ func TestValidateUpdateBudgetLimitRuleRequest(t *testing.T) {
 }
 
 func TestValidateBudgetAppliesPer(t *testing.T) {
-	err := validateCreateBudgetLimitRuleRequest(platform.CreateBudgetLimitRuleRequest{
-		RuleID:           "rule",
-		LimitTo:          10,
-		Unit:             platform.BudgetLimitCostPerDay,
-		BudgetAppliesPer: stringPtr("metadata.project_id"),
-	})
-	if err != nil {
-		t.Fatalf("expected metadata.* applies per to be valid, got %v", err)
+	validValues := []string{
+		string(platform.BudgetAppliesPerTenant),
+		string(platform.BudgetAppliesPerUser),
+		string(platform.BudgetAppliesPerTeam),
+		string(platform.BudgetAppliesPerOrgUnit),
+		string(platform.BudgetAppliesPerModel),
+		string(platform.BudgetAppliesPerVirtualAccount),
+		"metadata.project_id",
+	}
+	for _, value := range validValues {
+		err := validateCreateBudgetLimitRuleRequest(platform.CreateBudgetLimitRuleRequest{
+			RuleID:           "rule",
+			LimitTo:          10,
+			Unit:             platform.BudgetLimitCostPerDay,
+			BudgetAppliesPer: stringPtr(value),
+		})
+		if err != nil {
+			t.Fatalf("expected %s applies per to be valid, got %v", value, err)
+		}
 	}
 }
 

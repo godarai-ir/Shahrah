@@ -473,7 +473,10 @@ export function BudgetLimitRuleForm({ initialRule }: { initialRule?: BudgetLimit
                 <Label>{t("form.fields.budgetAppliesPer")}</Label>
                 <select className="h-10 w-full rounded-md border px-2" {...form.register("budget_applies_per")}>
                   <option value="">{t("form.options.applyPer.shared")}</option>
+                  <option value="tenant">{t("form.options.applyPer.tenant")}</option>
                   <option value="user">{t("form.options.applyPer.user")}</option>
+                  <option value="team">{t("form.options.applyPer.team")}</option>
+                  <option value="org_unit">{t("form.options.applyPer.orgUnit")}</option>
                   <option value="model">{t("form.options.applyPer.model")}</option>
                   <option value="virtualaccount">{t("form.options.applyPer.virtualAccount")}</option>
                   <option value="metadata.project_id">{t("form.options.applyPer.metadataProjectId")}</option>
