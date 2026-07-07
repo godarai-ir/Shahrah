@@ -138,10 +138,21 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error")
 	}
 
-	budgetErr := h.billing.CheckBudget(c.Context(), authInfo, estimated)
-	if budgetErr != nil {
-		return writeAPIError(c, fiber.StatusPaymentRequired, budgetErr.Error(), "budget_exceeded")
+	requestID := tracing.TraceIDFromContext(c)
+	if requestID == "" {
+		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
+
+	budgetReservation, err := reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
+	if err != nil {
+		return err
+	}
+	releaseBudgetOnExit := true
+	defer func() {
+		if releaseBudgetOnExit {
+			releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "request_not_committed")
+		}
+	}()
 
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "quota.check", "internal", quotaStart, fiber.StatusOK, map[string]interface{}{"estimated_tokens": estimated.TotalTokens})
 
@@ -185,11 +196,6 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusBadRequest, "Failed to encode request", "invalid_request_error")
 	}
 
-	requestID := tracing.TraceIDFromContext(c)
-	if requestID == "" {
-		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
-	}
-
 	tunnelReq := platform.TunnelRequest{
 		RequestID:  requestID,
 		TenantID:   currentTenant.ID,
@@ -212,10 +218,14 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 		tunnelReq.RequestMetadata["dimensions"] = *req.Dimensions
 	}
 
-	return h.handleSync(c, req, authInfo, estimated, tunnelReq, startTime, tenantSlug)
+	err = h.handleSync(c, req, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug)
+	if err == nil {
+		releaseBudgetOnExit = false
+	}
+	return err
 }
 
-func (h *EmbeddingsHandler) handleSync(c *fiber.Ctx, req contractsopenai.EmbeddingRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, start time.Time, tenantSlug string) error {
+func (h *EmbeddingsHandler) handleSync(c *fiber.Ctx, req contractsopenai.EmbeddingRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, start time.Time, tenantSlug string) error {
 	providerStart := time.Now()
 	providerAttrs := map[string]interface{}{
 		"provider":        tunnelReq.Deployment.Provider,
@@ -256,8 +266,8 @@ func (h *EmbeddingsHandler) handleSync(c *fiber.Ctx, req contractsopenai.Embeddi
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize usage", "billing_error")
 	}
 
-	if _, debitErr := h.wallets.DebitWallet(c.Context(), authInfo.TenantID, finalCost, tunnelReq.RequestID); debitErr != nil {
-		return writeAPIError(c, fiber.StatusPaymentRequired, debitErr.Error(), "budget_exceeded")
+	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID); debitErr != nil {
+		return writeBudgetCheckError(c, debitErr)
 	}
 
 	responseTimeMS := int(time.Since(start).Milliseconds())

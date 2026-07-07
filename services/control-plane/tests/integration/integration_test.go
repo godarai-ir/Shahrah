@@ -168,8 +168,8 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 	assert.Equal(t, "hello from provider", completion.Choices[0].Message.Content)
 	assert.Len(t, walletStore.spendLogs, 1)
 	assert.Len(t, walletStore.requestLogs, 1)
-	assert.Len(t, walletStore.debits, 1)
-	assert.Greater(t, walletStore.wallet.BalanceIRR, 0.0)
+	assert.Empty(t, walletStore.debits)
+	assert.Equal(t, 10_000_000.0, walletStore.wallet.BalanceIRR)
 }
 
 func TestIntegration_EndToEndResponsesStreaming(t *testing.T) {
@@ -293,7 +293,7 @@ func TestIntegration_TenantOnboardingFlowViaManagementAPIs(t *testing.T) {
 	decodeJSONBody(t, completionResp, &completion)
 	assert.Equal(t, "provisioned flow succeeded", completion.Choices[0].Message.Content)
 
-	require.Len(t, walletStore.debits, 1)
+	require.Empty(t, walletStore.debits)
 	require.Len(t, walletStore.requestLogs, 1)
 	require.Len(t, walletStore.spendLogs, 1)
 	assert.Greater(t, walletStore.wallet.BalanceIRR, 0.0)
@@ -1315,6 +1315,9 @@ func (s *integrationWalletStore) TopUpWallet(ctx context.Context, tenantID strin
 }
 
 func (s *integrationWalletStore) DebitWallet(ctx context.Context, tenantID string, breakdown platform.UsageCostBreakdown, requestID string) (*platform.Transaction, error) {
+	if s.wallet.BalanceIRR < breakdown.TotalCostIRR {
+		return nil, storage.ErrInsufficientWalletBalance
+	}
 	s.debits = append(s.debits, breakdown)
 	s.wallet.BalanceIRR -= breakdown.TotalCostIRR
 	usd := breakdown.TotalCostUSD

@@ -98,8 +98,9 @@ func main() {
 	}
 	runtimeProfiles := runtimeprofile.NewManager(runtimeprofile.NewCompiler(store), store, distributedRuntimeProfileCache, logger, runtimeProfileCfg)
 	store.SetRuntimeProfileManager(runtimeProfiles)
+	runtimeDeploymentStore := runtimeprofile.NewDeploymentStore(runtimeProfiles)
 
-	llmRouter, err := router.NewRouter(cfg.ModelList, cfg.RouterSettings, dualCache, runtimeprofile.NewDeploymentStore(runtimeProfiles), logger)
+	llmRouter, err := router.NewRouter(cfg.ModelList, cfg.RouterSettings, dualCache, runtimeDeploymentStore, logger)
 	if err != nil {
 		logger.Fatal("Failed to initialize router", zap.Error(err))
 	}
@@ -281,7 +282,7 @@ func main() {
 	embeddingsHandler := proxy.NewEmbeddingsHandlerWithDependencies(baseProxyDeps)
 	moderationsHandler := proxy.NewModerationsHandlerWithDependencies(baseProxyDeps)
 	imagesHandler := proxy.NewImagesHandlerWithDependencies(baseProxyDeps)
-	modelsHandler := proxy.NewModelsHandler(store)
+	modelsHandler := proxy.NewModelsHandler(runtimeDeploymentStore)
 
 	traceCfg := tracing.LoadConfigFromEnv()
 	traceQueue := tracing.NewQueue(traceCfg.QueueCapacity)

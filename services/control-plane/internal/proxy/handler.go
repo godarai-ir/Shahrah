@@ -254,21 +254,27 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		return cacheErr
 	}
 
-	budgetErr := h.billing.CheckBudget(c.Context(), authInfo, estimated)
-	if budgetErr != nil {
-		return writeAPIError(c, fiber.StatusPaymentRequired, budgetErr.Error(), "budget_exceeded")
+	requestID := tracing.TraceIDFromContext(c)
+	if requestID == "" {
+		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
+
+	budgetReservation, err := reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
+	if err != nil {
+		return err
+	}
+	releaseBudgetOnExit := true
+	defer func() {
+		if releaseBudgetOnExit {
+			releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "request_not_committed")
+		}
+	}()
 
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "quota.check", "internal", quotaStart, fiber.StatusOK, map[string]interface{}{"estimated_tokens": estimated.TotalTokens})
 
 	tunnelErr := h.tunnel.Healthy(c.Context())
 	if tunnelErr != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Tunnel path unavailable", "tunnel_unavailable")
-	}
-
-	requestID := tracing.TraceIDFromContext(c)
-	if requestID == "" {
-		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
 
 	baseReq := platform.TunnelRequest{
@@ -330,10 +336,15 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	tunnelReq.Deployment = toContractDeployment(deployment)
 
 	if req.Stream {
-		return h.handleStream(c, req, authInfo, estimated, tunnelReq, startTime, tenantSlug)
+		releaseBudgetOnExit = false
+		return h.handleStream(c, req, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug)
 	}
 
-	return h.handleSync(c, req, authInfo, estimated, tunnelReq, startTime, tenantSlug, cachePending, guardrailSelection)
+	err = h.handleSync(c, req, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug, cachePending, guardrailSelection)
+	if err == nil {
+		releaseBudgetOnExit = false
+	}
+	return err
 }
 
 func buildChatCompletionPayload(req contractsopenai.ChatCompletionRequest, deploymentModel string, fallbackModel string) ([]byte, error) {
@@ -609,6 +620,7 @@ func (h *ChatCompletionHandler) handleSync(
 	authInfo *platform.AuthContext,
 	estimated platform.UsageCostBreakdown,
 	tunnelReq platform.TunnelRequest,
+	budgetReservation *platform.BudgetReservation,
 	start time.Time,
 	tenantSlug string,
 	cachePending *responsecache.Pending,
@@ -663,9 +675,8 @@ func (h *ChatCompletionHandler) handleSync(
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize usage", "billing_error")
 	}
 
-	_, debitErr := h.wallets.DebitWallet(c.Context(), authInfo.TenantID, finalCost, tunnelReq.RequestID)
-	if debitErr != nil {
-		return writeAPIError(c, fiber.StatusPaymentRequired, debitErr.Error(), "budget_exceeded")
+	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID); debitErr != nil {
+		return writeBudgetCheckError(c, debitErr)
 	}
 
 	if h.guardrails != nil && len(guardrailSelection.LLMOutput) > 0 {
@@ -856,7 +867,7 @@ func (h *ChatCompletionHandler) handleCacheHit(c *fiber.Ctx, req contractsopenai
 	return c.Status(fiber.StatusOK).Send(entry.Response)
 }
 
-func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, start time.Time, tenantSlug string) error {
+func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, start time.Time, tenantSlug string) error {
 	providerStart := time.Now()
 
 	stream, err := h.tunnel.Stream(c.Context(), tunnelReq)
@@ -868,6 +879,7 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 			"error":           err.Error(),
 		})
 
+		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "stream_open_failed")
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}
 
@@ -889,6 +901,12 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 	requestCtx := c.Context()
 	requestCtx.SetBodyStreamWriter(func(w *bufio.Writer) {
 		defer closeStreamBestEffort(h.logger, stream)
+		budgetCommitted := false
+		defer func() {
+			if !budgetCommitted {
+				releaseBudgetBestEffort(requestCtx, h.logger, h.billing, budgetReservation, "stream_not_committed")
+			}
+		}()
 
 		for {
 			select {
@@ -904,8 +922,10 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 						finalCost.Model = billingModel
 					}
 
-					if _, debitErr := h.wallets.DebitWallet(requestCtx, authInfo.TenantID, finalCost, tunnelReq.RequestID); debitErr != nil {
-						h.logger.Warn("failed to debit wallet for streaming request", zap.Error(debitErr), zap.String("request_id", tunnelReq.RequestID))
+					if debitErr := commitBudgetOrDebit(requestCtx, h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID); debitErr != nil {
+						h.logger.Warn("failed to commit budget for streaming request", zap.Error(debitErr), zap.String("request_id", tunnelReq.RequestID))
+					} else {
+						budgetCommitted = true
 					}
 
 					logSpendBestEffort(h.logger, h.logs, requestCtx, platform.SpendLog{
@@ -959,6 +979,7 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 				if len(chunk.Data) > 0 {
 					if writeErr := writeBufferedBytes(w, chunk.Data); writeErr != nil {
 						h.logger.Warn("failed to write streaming chunk", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
+						releaseBudgetBestEffort(requestCtx, h.logger, h.billing, budgetReservation, "stream_write_failed")
 						return
 					}
 				}
@@ -968,6 +989,7 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 				}
 			case err, ok := <-stream.Errors():
 				if ok && err != nil {
+					releaseBudgetBestEffort(requestCtx, h.logger, h.billing, budgetReservation, "stream_error")
 					errorPayload, marshalErr := json.Marshal(contractsopenai.APIError{
 						Error: contractsopenai.ErrorInfo{
 							Message: err.Error(),

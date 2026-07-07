@@ -140,10 +140,21 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 		return writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error")
 	}
 
-	budgetErr := h.billing.CheckBudget(c.Context(), authInfo, estimated)
-	if budgetErr != nil {
-		return writeAPIError(c, fiber.StatusPaymentRequired, budgetErr.Error(), "budget_exceeded")
+	requestID := tracing.TraceIDFromContext(c)
+	if requestID == "" {
+		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
+
+	budgetReservation, err := reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
+	if err != nil {
+		return err
+	}
+	releaseBudgetOnExit := true
+	defer func() {
+		if releaseBudgetOnExit {
+			releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "request_not_committed")
+		}
+	}()
 
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "quota.check", "internal", quotaStart, fiber.StatusOK, map[string]interface{}{"estimated_tokens": estimated.TotalTokens})
 
@@ -187,11 +198,6 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 		contentType = "application/json"
 	}
 
-	requestID := tracing.TraceIDFromContext(c)
-	if requestID == "" {
-		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
-	}
-
 	requestMetadata := map[string]interface{}{
 		"tenant_slug":            apiheaders.GetTenant(c),
 		"model":                  requestedModel,
@@ -216,10 +222,14 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 		RequestMetadata: requestMetadata,
 	}
 
-	return h.handleSync(c, requestedModel, estimated, tunnelReq, op, startTime, tenantSlug, contentType)
+	err = h.handleSync(c, requestedModel, authInfo, estimated, tunnelReq, budgetReservation, op, startTime, tenantSlug, contentType)
+	if err == nil {
+		releaseBudgetOnExit = false
+	}
+	return err
 }
 
-func (h *ImagesHandler) handleSync(c *fiber.Ctx, requestedModel string, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, op imageOperation, start time.Time, tenantSlug string, contentType string) error {
+func (h *ImagesHandler) handleSync(c *fiber.Ctx, requestedModel string, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, op imageOperation, start time.Time, tenantSlug string, contentType string) error {
 	providerStart := time.Now()
 	providerAttrs := map[string]interface{}{
 		"provider":        tunnelReq.Deployment.Provider,
@@ -249,12 +259,10 @@ func (h *ImagesHandler) handleSync(c *fiber.Ctx, requestedModel string, estimate
 
 	metadata := enrichPricingMetadata(withImageResponseMetadata(tunnelReq.RequestMetadata, resp.Body), auth.GetAuthInfo(c), requestedModel)
 
-	_, debitErr := h.wallets.DebitWallet(c.Context(), auth.GetAuthInfo(c).TenantID, finalCost, tunnelReq.RequestID)
-	if debitErr != nil {
-		return writeAPIError(c, fiber.StatusPaymentRequired, debitErr.Error(), "budget_exceeded")
+	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID); debitErr != nil {
+		return writeBudgetCheckError(c, debitErr)
 	}
 
-	authInfo := auth.GetAuthInfo(c)
 	responseTimeMS := int(time.Since(start).Milliseconds())
 	logEntry := buildRequestLogEntry(c, authInfo, tunnelReq.Deployment, requestedModel, "/v1/images/generations", "images", "success", resp.StatusCode, start, responseTimeMS)
 	logEntry.RequestID = tunnelReq.RequestID

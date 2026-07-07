@@ -36,6 +36,51 @@ type UsageCounterResult struct {
 	Used    float64
 }
 
+// BudgetWindowSeed describes the active spend allowance window for a tenant.
+type BudgetWindowSeed struct {
+	WindowKey    string
+	AllowanceIRR float64
+	ExpiresAt    time.Time
+	TTL          time.Duration
+	Version      int64
+}
+
+// BudgetReservationRequest describes one atomic budget reservation operation.
+type BudgetReservationRequest struct {
+	WindowKey      string
+	ReservationKey string
+	ReservationID  string
+	EstimatedIRR   float64
+	TTL            time.Duration
+	Now            time.Time
+}
+
+// BudgetCommitRequest describes one atomic budget commit operation.
+type BudgetCommitRequest struct {
+	WindowKey      string
+	ReservationKey string
+	ActualIRR      float64
+	Now            time.Time
+}
+
+// BudgetReleaseRequest describes one atomic budget release operation.
+type BudgetReleaseRequest struct {
+	WindowKey      string
+	ReservationKey string
+	Now            time.Time
+}
+
+// BudgetWindowResult is the result of an allowance operation.
+type BudgetWindowResult struct {
+	Allowed      bool
+	State        string
+	AllowanceIRR float64
+	ReservedIRR  float64
+	CommittedIRR float64
+	RemainingIRR float64
+	OverageIRR   float64
+}
+
 // UsageCounterSnapshot is a Redis-backed counter value selected for persistence.
 type UsageCounterSnapshot struct {
 	Key  string
@@ -384,6 +429,179 @@ end
 return out
 `
 
+const seedBudgetWindowScript = `
+local windowKey = KEYS[1]
+local allowance = tonumber(ARGV[1])
+local expiresAt = tonumber(ARGV[2])
+local ttlMs = tonumber(ARGV[3])
+local version = tonumber(ARGV[4])
+
+if not allowance or allowance < 0 then
+  return {0, 'invalid_allowance', 0, 0, 0, 0, 0}
+end
+if not ttlMs or ttlMs <= 0 then
+  return {0, 'invalid_ttl', 0, 0, 0, 0, 0}
+end
+
+local exists = redis.call('EXISTS', windowKey)
+if exists == 0 then
+  redis.call('HSET', windowKey,
+    'status', 'active',
+    'allowance_irr', allowance,
+    'reserved_irr', 0,
+    'committed_irr', 0,
+    'overage_irr', 0,
+    'expires_at', expiresAt,
+    'version', version)
+  redis.call('PEXPIRE', windowKey, ttlMs)
+else
+  redis.call('HSET', windowKey, 'allowance_irr', allowance, 'expires_at', expiresAt, 'version', version)
+  redis.call('PEXPIRE', windowKey, ttlMs)
+end
+
+local reserved = tonumber(redis.call('HGET', windowKey, 'reserved_irr') or '0')
+local committed = tonumber(redis.call('HGET', windowKey, 'committed_irr') or '0')
+local overage = tonumber(redis.call('HGET', windowKey, 'overage_irr') or '0')
+local remaining = allowance - reserved - committed
+return {1, 'active', allowance, reserved, committed, remaining, overage}
+`
+
+const reserveBudgetScript = `
+local windowKey = KEYS[1]
+local reservationKey = KEYS[2]
+local reservationID = ARGV[1]
+local estimate = tonumber(ARGV[2])
+local ttlMs = tonumber(ARGV[3])
+local nowUnix = tonumber(ARGV[4])
+
+if not estimate or estimate < 0 then
+  estimate = 0
+end
+if not ttlMs or ttlMs <= 0 then
+  ttlMs = 3600000
+end
+
+if redis.call('EXISTS', windowKey) == 0 then
+  return {-1, 'window_unavailable', 0, 0, 0, 0, 0}
+end
+
+local status = redis.call('HGET', windowKey, 'status') or 'active'
+local expiresAt = tonumber(redis.call('HGET', windowKey, 'expires_at') or '0')
+if status ~= 'active' or (expiresAt > 0 and nowUnix > expiresAt) then
+  return {-1, 'window_unavailable', 0, 0, 0, 0, 0}
+end
+
+local existingStatus = redis.call('HGET', reservationKey, 'status')
+if existingStatus then
+  local allowanceExisting = tonumber(redis.call('HGET', windowKey, 'allowance_irr') or '0')
+  local reservedExisting = tonumber(redis.call('HGET', windowKey, 'reserved_irr') or '0')
+  local committedExisting = tonumber(redis.call('HGET', windowKey, 'committed_irr') or '0')
+  local overageExisting = tonumber(redis.call('HGET', windowKey, 'overage_irr') or '0')
+  local remainingExisting = allowanceExisting - reservedExisting - committedExisting
+  return {1, existingStatus, allowanceExisting, reservedExisting, committedExisting, remainingExisting, overageExisting}
+end
+
+local allowance = tonumber(redis.call('HGET', windowKey, 'allowance_irr') or '0')
+local reserved = tonumber(redis.call('HGET', windowKey, 'reserved_irr') or '0')
+local committed = tonumber(redis.call('HGET', windowKey, 'committed_irr') or '0')
+local overage = tonumber(redis.call('HGET', windowKey, 'overage_irr') or '0')
+if (reserved + committed + estimate) > allowance then
+  local remaining = allowance - reserved - committed
+  return {0, 'exhausted', allowance, reserved, committed, remaining, overage}
+end
+
+reserved = tonumber(redis.call('HINCRBYFLOAT', windowKey, 'reserved_irr', estimate))
+redis.call('HSET', reservationKey,
+  'reservation_id', reservationID,
+  'status', 'reserved',
+  'estimated_irr', estimate,
+  'actual_irr', 0,
+  'created_at', nowUnix,
+  'updated_at', nowUnix)
+redis.call('PEXPIRE', reservationKey, ttlMs)
+redis.call('PEXPIRE', windowKey, ttlMs)
+
+local remaining = allowance - reserved - committed
+return {1, 'reserved', allowance, reserved, committed, remaining, overage}
+`
+
+const commitBudgetScript = `
+local windowKey = KEYS[1]
+local reservationKey = KEYS[2]
+local actual = tonumber(ARGV[1])
+local nowUnix = tonumber(ARGV[2])
+
+if not actual or actual < 0 then
+  actual = 0
+end
+
+if redis.call('EXISTS', windowKey) == 0 then
+  return {-1, 'window_unavailable', 0, 0, 0, 0, 0}
+end
+if redis.call('EXISTS', reservationKey) == 0 then
+  return {-1, 'reservation_unavailable', 0, 0, 0, 0, 0}
+end
+
+local currentStatus = redis.call('HGET', reservationKey, 'status')
+local allowance = tonumber(redis.call('HGET', windowKey, 'allowance_irr') or '0')
+local reserved = tonumber(redis.call('HGET', windowKey, 'reserved_irr') or '0')
+local committed = tonumber(redis.call('HGET', windowKey, 'committed_irr') or '0')
+local overage = tonumber(redis.call('HGET', windowKey, 'overage_irr') or '0')
+
+if currentStatus == 'committed' then
+  local remainingExisting = allowance - reserved - committed
+  return {1, 'committed', allowance, reserved, committed, remainingExisting, overage}
+end
+if currentStatus == 'released' then
+  local remainingReleased = allowance - reserved - committed
+  return {1, 'released', allowance, reserved, committed, remainingReleased, overage}
+end
+
+local estimated = tonumber(redis.call('HGET', reservationKey, 'estimated_irr') or '0')
+local projectedReserved = reserved - estimated
+local projectedCommitted = committed + actual
+if (projectedReserved + projectedCommitted) > allowance then
+  local remainingBefore = allowance - reserved - committed
+  return {0, 'exhausted', allowance, reserved, committed, remainingBefore, overage}
+end
+reserved = tonumber(redis.call('HINCRBYFLOAT', windowKey, 'reserved_irr', -estimated))
+committed = tonumber(redis.call('HINCRBYFLOAT', windowKey, 'committed_irr', actual))
+
+redis.call('HSET', reservationKey, 'status', 'committed', 'actual_irr', actual, 'updated_at', nowUnix)
+local remaining = allowance - reserved - committed
+return {1, 'committed', allowance, reserved, committed, remaining, overage}
+`
+
+const releaseBudgetScript = `
+local windowKey = KEYS[1]
+local reservationKey = KEYS[2]
+local nowUnix = tonumber(ARGV[1])
+
+if redis.call('EXISTS', windowKey) == 0 then
+  return {-1, 'window_unavailable', 0, 0, 0, 0, 0}
+end
+if redis.call('EXISTS', reservationKey) == 0 then
+  return {1, 'missing', tonumber(redis.call('HGET', windowKey, 'allowance_irr') or '0'), tonumber(redis.call('HGET', windowKey, 'reserved_irr') or '0'), tonumber(redis.call('HGET', windowKey, 'committed_irr') or '0'), 0, tonumber(redis.call('HGET', windowKey, 'overage_irr') or '0')}
+end
+
+local status = redis.call('HGET', reservationKey, 'status')
+local allowance = tonumber(redis.call('HGET', windowKey, 'allowance_irr') or '0')
+local reserved = tonumber(redis.call('HGET', windowKey, 'reserved_irr') or '0')
+local committed = tonumber(redis.call('HGET', windowKey, 'committed_irr') or '0')
+local overage = tonumber(redis.call('HGET', windowKey, 'overage_irr') or '0')
+
+if status == 'reserved' then
+  local estimated = tonumber(redis.call('HGET', reservationKey, 'estimated_irr') or '0')
+  reserved = tonumber(redis.call('HINCRBYFLOAT', windowKey, 'reserved_irr', -estimated))
+  redis.call('HSET', reservationKey, 'status', 'released', 'updated_at', nowUnix)
+elseif status ~= 'released' then
+  redis.call('HSET', reservationKey, 'updated_at', nowUnix)
+end
+
+local remaining = allowance - reserved - committed
+return {1, 'released', allowance, reserved, committed, remaining, overage}
+`
+
 // CheckRateLimit atomically checks a fixed-window rate-limit counter in Redis.
 func (d *DualCache) CheckRateLimit(ctx context.Context, key string, limit int64, window time.Duration) (*RateLimitResult, error) {
 	if limit <= 0 {
@@ -551,6 +769,76 @@ func (d *DualCache) QueueKeyLastUsed(ctx context.Context, lastUsedKey string, di
 	return updated == 1, nil
 }
 
+// SeedBudgetWindow creates or refreshes a tenant spend allowance window.
+func (d *DualCache) SeedBudgetWindow(ctx context.Context, seed BudgetWindowSeed) (*BudgetWindowResult, error) {
+	if seed.WindowKey == "" {
+		return nil, fmt.Errorf("budget window key is required")
+	}
+	if seed.TTL <= 0 {
+		return nil, fmt.Errorf("budget window ttl must be positive")
+	}
+
+	values, err := d.redis.Eval(ctx, seedBudgetWindowScript, []string{seed.WindowKey}, seed.AllowanceIRR, seed.ExpiresAt.Unix(), seed.TTL.Milliseconds(), seed.Version).Result()
+	if err != nil {
+		return nil, err
+	}
+	return parseBudgetWindowResult(values)
+}
+
+// ReserveBudget atomically reserves estimated spend from a tenant allowance window.
+func (d *DualCache) ReserveBudget(ctx context.Context, req BudgetReservationRequest) (*BudgetWindowResult, error) {
+	if req.WindowKey == "" || req.ReservationKey == "" {
+		return nil, fmt.Errorf("budget window and reservation keys are required")
+	}
+	if req.TTL <= 0 {
+		return nil, fmt.Errorf("budget reservation ttl must be positive")
+	}
+	now := req.Now
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+
+	values, err := d.redis.Eval(ctx, reserveBudgetScript, []string{req.WindowKey, req.ReservationKey}, req.ReservationID, req.EstimatedIRR, req.TTL.Milliseconds(), now.Unix()).Result()
+	if err != nil {
+		return nil, err
+	}
+	return parseBudgetWindowResult(values)
+}
+
+// CommitBudget atomically converts a reservation into committed spend.
+func (d *DualCache) CommitBudget(ctx context.Context, req BudgetCommitRequest) (*BudgetWindowResult, error) {
+	if req.WindowKey == "" || req.ReservationKey == "" {
+		return nil, fmt.Errorf("budget window and reservation keys are required")
+	}
+	now := req.Now
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+
+	values, err := d.redis.Eval(ctx, commitBudgetScript, []string{req.WindowKey, req.ReservationKey}, req.ActualIRR, now.Unix()).Result()
+	if err != nil {
+		return nil, err
+	}
+	return parseBudgetWindowResult(values)
+}
+
+// ReleaseBudget atomically releases an uncommitted reservation.
+func (d *DualCache) ReleaseBudget(ctx context.Context, req BudgetReleaseRequest) (*BudgetWindowResult, error) {
+	if req.WindowKey == "" || req.ReservationKey == "" {
+		return nil, fmt.Errorf("budget window and reservation keys are required")
+	}
+	now := req.Now
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+
+	values, err := d.redis.Eval(ctx, releaseBudgetScript, []string{req.WindowKey, req.ReservationKey}, now.Unix()).Result()
+	if err != nil {
+		return nil, err
+	}
+	return parseBudgetWindowResult(values)
+}
+
 // DrainKeyLastUsed atomically drains newest last-used timestamps for a bounded batch of keys.
 func (d *DualCache) DrainKeyLastUsed(ctx context.Context, dirtySetKey string, batchSize int) ([]KeyLastUsedSnapshot, error) {
 	values, err := drainFlatPairs(ctx, d.redis, drainKeyLastUsedScript, dirtySetKey, batchSize)
@@ -571,6 +859,50 @@ func (d *DualCache) DrainKeyLastUsed(ctx context.Context, dirtySetKey string, ba
 		out = append(out, KeyLastUsedSnapshot{Key: key, UsedAtUnixMS: usedAt})
 	}
 	return out, nil
+}
+
+func parseBudgetWindowResult(result interface{}) (*BudgetWindowResult, error) {
+	values, ok := result.([]interface{})
+	if !ok || len(values) < 7 {
+		return nil, fmt.Errorf("unexpected redis budget result: %T", result)
+	}
+	allowed, err := redisInt(values[0])
+	if err != nil {
+		return nil, err
+	}
+	state, err := redisString(values[1])
+	if err != nil {
+		return nil, err
+	}
+	allowance, err := redisFloat(values[2])
+	if err != nil {
+		return nil, err
+	}
+	reserved, err := redisFloat(values[3])
+	if err != nil {
+		return nil, err
+	}
+	committed, err := redisFloat(values[4])
+	if err != nil {
+		return nil, err
+	}
+	remaining, err := redisFloat(values[5])
+	if err != nil {
+		return nil, err
+	}
+	overage, err := redisFloat(values[6])
+	if err != nil {
+		return nil, err
+	}
+	return &BudgetWindowResult{
+		Allowed:      allowed == 1,
+		State:        state,
+		AllowanceIRR: allowance,
+		ReservedIRR:  reserved,
+		CommittedIRR: committed,
+		RemainingIRR: remaining,
+		OverageIRR:   overage,
+	}, nil
 }
 
 func drainFlatPairs(ctx context.Context, rdb *redis.Client, script string, dirtySetKey string, batchSize int) ([]interface{}, error) {

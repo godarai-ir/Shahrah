@@ -2,6 +2,7 @@ package runtimeprofile
 
 import (
 	"context"
+	"sort"
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
@@ -70,6 +71,25 @@ func (s *DeploymentStore) ListDeployments(ctx context.Context, tenantID string) 
 		return nil, err
 	}
 	return cloneDeployments(profile.Deployments), nil
+}
+
+func (s *DeploymentStore) ListVirtualModels(ctx context.Context, tenantID string) ([]platform.VirtualModel, error) {
+	profile, err := s.manager.Get(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]platform.VirtualModel, 0, len(profile.VirtualModels))
+	for _, vm := range profile.VirtualModels {
+		out = append(out, cloneVirtualModel(vm))
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if !out[i].CreatedAt.Equal(out[j].CreatedAt) {
+			return out[i].CreatedAt.Before(out[j].CreatedAt)
+		}
+		return out[i].Alias < out[j].Alias
+	})
+	return out, nil
 }
 
 func (s *DeploymentStore) ResolveProviderAccountAPIKey(ctx context.Context, tenantID, modelFQN string) (string, error) {

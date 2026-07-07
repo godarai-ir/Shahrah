@@ -19,6 +19,8 @@ var (
 	ErrRateLimitExceeded = errors.New("rate limit exceeded")
 	// ErrBudgetExceeded is returned when max budget or wallet checks fail.
 	ErrBudgetExceeded = errors.New("budget exceeded")
+	// ErrBudgetUnavailable is returned when the spend allowance window cannot be read or updated.
+	ErrBudgetUnavailable = errors.New("budget unavailable")
 	// ErrSubscriptionInactive is returned when a tenant has no usable commercial subscription.
 	ErrSubscriptionInactive = errors.New("subscription inactive")
 )
@@ -34,6 +36,13 @@ type entitlementStore interface {
 	CheckAndIncrementTenantUsageCounter(ctx context.Context, tenantID string, featureKey string, limit float64, increment float64, now time.Time) (*platform.UsageCounter, bool, error)
 }
 
+type budgetWindowCache interface {
+	SeedBudgetWindow(ctx context.Context, seed cache.BudgetWindowSeed) (*cache.BudgetWindowResult, error)
+	ReserveBudget(ctx context.Context, req cache.BudgetReservationRequest) (*cache.BudgetWindowResult, error)
+	CommitBudget(ctx context.Context, req cache.BudgetCommitRequest) (*cache.BudgetWindowResult, error)
+	ReleaseBudget(ctx context.Context, req cache.BudgetReleaseRequest) (*cache.BudgetWindowResult, error)
+}
+
 // Service enforces rate limits and budget checks.
 type Service struct {
 	cache           cache.Cache
@@ -42,10 +51,11 @@ type Service struct {
 	runtimeProfiles interface {
 		Get(ctx context.Context, tenantID string) (*runtimeprofile.Profile, error)
 	}
-	defaultRate       platform.ExchangeRate
-	exchangeRateCache *exchangeRateCache
-	pricingCache      *pricingCache
-	walletCacheTTL    time.Duration
+	defaultRate          platform.ExchangeRate
+	exchangeRateCache    *exchangeRateCache
+	pricingCache         *pricingCache
+	walletCacheTTL       time.Duration
+	budgetWindowTTLGrace time.Duration
 }
 
 // NewService creates a billing enforcement service.
@@ -71,11 +81,12 @@ func NewServiceWithCacheConfig(c cache.Cache, store walletStore, defaultUSDtoIRR
 	}
 
 	svc := &Service{
-		cache:          c,
-		store:          store,
-		entitlements:   entitlements,
-		defaultRate:    defaultRate,
-		walletCacheTTL: secondsEnvOrDefault("BILLING_WALLET_CACHE_TTL_SECONDS", 5*time.Second),
+		cache:                c,
+		store:                store,
+		entitlements:         entitlements,
+		defaultRate:          defaultRate,
+		walletCacheTTL:       secondsEnvOrDefault("BILLING_WALLET_CACHE_TTL_SECONDS", 5*time.Second),
+		budgetWindowTTLGrace: secondsEnvOrDefault("BILLING_BUDGET_WINDOW_GRACE_SECONDS", 86400*time.Second),
 	}
 	svc.exchangeRateCache = newExchangeRateCache(store, c, defaultRate, exchangeRateCacheConfig)
 	svc.pricingCache = newPricingCache(c, pricingCacheConfig, modelPriceFromRegistry)
@@ -150,21 +161,161 @@ func (s *Service) resolveEffectiveEntitlementLimits(ctx context.Context, tenantI
 	return s.entitlements.ResolveEffectiveEntitlementLimits(ctx, tenantID)
 }
 
-// CheckBudget validates wallet balance constraints.
+// CheckBudget validates wallet balance constraints for compatibility callers.
 func (s *Service) CheckBudget(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown) error {
 	if auth == nil {
 		return ErrBudgetExceeded
 	}
 
-	wallet, err := s.getWallet(ctx, auth.TenantID)
+	reservationID := fmt.Sprintf("compat:%s:%d", strings.TrimSpace(auth.TokenHash), time.Now().UnixNano())
+	reservation, err := s.ReserveBudget(ctx, auth, breakdown, reservationID)
 	if err != nil {
 		return err
 	}
-
-	if wallet.BalanceIRR < breakdown.TotalCostIRR {
-		return ErrBudgetExceeded
+	if reservation != nil {
+		_ = s.ReleaseBudget(ctx, reservation, "compat_check_only")
 	}
 
+	return nil
+}
+
+// ReserveBudget reserves the estimated request cost from the tenant's active spend allowance window.
+func (s *Service) ReserveBudget(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, requestID string) (*platform.BudgetReservation, error) {
+	if auth == nil || strings.TrimSpace(auth.TenantID) == "" {
+		return nil, ErrBudgetExceeded
+	}
+	budgetCache, ok := s.cache.(budgetWindowCache)
+	if !ok || budgetCache == nil {
+		return nil, ErrBudgetUnavailable
+	}
+
+	tenantID := strings.TrimSpace(auth.TenantID)
+	now := time.Now().UTC()
+	windowID, windowEnd := budgetWindowForTime(now)
+	windowKey := budgetWindowKey(tenantID, windowID)
+	reservationID := budgetReservationID(requestID)
+	reservationKey := budgetReservationKey(tenantID, reservationID)
+	ttl := time.Until(windowEnd.Add(s.budgetWindowTTLGrace))
+	if ttl <= 0 {
+		ttl = s.budgetWindowTTLGrace
+	}
+
+	result, err := budgetCache.ReserveBudget(ctx, cache.BudgetReservationRequest{
+		WindowKey:      windowKey,
+		ReservationKey: reservationKey,
+		ReservationID:  reservationID,
+		EstimatedIRR:   breakdown.TotalCostIRR,
+		TTL:            ttl,
+		Now:            now,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%w: reserve failed: %v", ErrBudgetUnavailable, err)
+	}
+	if result != nil && result.State == "window_unavailable" {
+		if seedErr := s.seedBudgetWindow(ctx, budgetCache, tenantID, windowID, windowKey, windowEnd, ttl); seedErr != nil {
+			return nil, seedErr
+		}
+		result, err = budgetCache.ReserveBudget(ctx, cache.BudgetReservationRequest{
+			WindowKey:      windowKey,
+			ReservationKey: reservationKey,
+			ReservationID:  reservationID,
+			EstimatedIRR:   breakdown.TotalCostIRR,
+			TTL:            ttl,
+			Now:            now,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("%w: reserve failed: %v", ErrBudgetUnavailable, err)
+		}
+	}
+	if result == nil {
+		return nil, ErrBudgetUnavailable
+	}
+	if !result.Allowed {
+		if result.State == "exhausted" {
+			return nil, ErrBudgetExceeded
+		}
+		return nil, ErrBudgetUnavailable
+	}
+
+	return &platform.BudgetReservation{
+		ID:             reservationID,
+		TenantID:       tenantID,
+		WindowID:       windowID,
+		WindowKey:      windowKey,
+		ReservationKey: reservationKey,
+		EstimatedIRR:   breakdown.TotalCostIRR,
+		CreatedAt:      now,
+	}, nil
+}
+
+// CommitBudget finalizes a reservation using the actual provider usage cost.
+func (s *Service) CommitBudget(ctx context.Context, reservation *platform.BudgetReservation, breakdown platform.UsageCostBreakdown) error {
+	if reservation == nil {
+		return nil
+	}
+	budgetCache, ok := s.cache.(budgetWindowCache)
+	if !ok || budgetCache == nil {
+		return ErrBudgetUnavailable
+	}
+	result, err := budgetCache.CommitBudget(ctx, cache.BudgetCommitRequest{
+		WindowKey:      reservation.WindowKey,
+		ReservationKey: reservation.ReservationKey,
+		ActualIRR:      breakdown.TotalCostIRR,
+		Now:            time.Now().UTC(),
+	})
+	if err != nil {
+		return fmt.Errorf("%w: commit failed: %v", ErrBudgetUnavailable, err)
+	}
+	if result == nil || !result.Allowed {
+		if result != nil && result.State == "exhausted" {
+			return ErrBudgetExceeded
+		}
+		return ErrBudgetUnavailable
+	}
+	return nil
+}
+
+// ReleaseBudget releases a reservation that did not become chargeable usage.
+func (s *Service) ReleaseBudget(ctx context.Context, reservation *platform.BudgetReservation, _ string) error {
+	if reservation == nil {
+		return nil
+	}
+	budgetCache, ok := s.cache.(budgetWindowCache)
+	if !ok || budgetCache == nil {
+		return ErrBudgetUnavailable
+	}
+	result, err := budgetCache.ReleaseBudget(ctx, cache.BudgetReleaseRequest{
+		WindowKey:      reservation.WindowKey,
+		ReservationKey: reservation.ReservationKey,
+		Now:            time.Now().UTC(),
+	})
+	if err != nil {
+		return fmt.Errorf("%w: release failed: %v", ErrBudgetUnavailable, err)
+	}
+	if result == nil || !result.Allowed {
+		return ErrBudgetUnavailable
+	}
+	return nil
+}
+
+func (s *Service) seedBudgetWindow(ctx context.Context, budgetCache budgetWindowCache, tenantID string, windowID string, windowKey string, windowEnd time.Time, ttl time.Duration) error {
+	wallet, err := s.getWallet(ctx, tenantID)
+	if err != nil {
+		return fmt.Errorf("%w: seed failed: %v", ErrBudgetUnavailable, err)
+	}
+	result, err := budgetCache.SeedBudgetWindow(ctx, cache.BudgetWindowSeed{
+		WindowKey:    windowKey,
+		AllowanceIRR: wallet.BalanceIRR,
+		ExpiresAt:    windowEnd,
+		TTL:          ttl,
+		Version:      windowEnd.Unix(),
+	})
+	if err != nil {
+		return fmt.Errorf("%w: seed failed: %v", ErrBudgetUnavailable, err)
+	}
+	if result == nil || !result.Allowed {
+		return ErrBudgetUnavailable
+	}
 	return nil
 }
 
@@ -244,6 +395,29 @@ func cloneWallet(in *platform.Wallet) *platform.Wallet {
 
 func walletCacheKey(tenantID string) string {
 	return fmt.Sprintf("wallet:tenant:%s", strings.TrimSpace(tenantID))
+}
+
+func budgetWindowForTime(now time.Time) (string, time.Time) {
+	utc := now.UTC()
+	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
+	end := start.AddDate(0, 1, 0)
+	return start.Format("200601"), end
+}
+
+func budgetWindowKey(tenantID string, windowID string) string {
+	return fmt.Sprintf("budget:tenant:%s:window:%s", strings.TrimSpace(tenantID), strings.TrimSpace(windowID))
+}
+
+func budgetReservationKey(tenantID string, reservationID string) string {
+	return fmt.Sprintf("budget:tenant:%s:reservation:%s", strings.TrimSpace(tenantID), strings.TrimSpace(reservationID))
+}
+
+func budgetReservationID(requestID string) string {
+	requestID = strings.TrimSpace(requestID)
+	if requestID == "" {
+		return fmt.Sprintf("reservation:%d", time.Now().UnixNano())
+	}
+	return requestID
 }
 
 func entitlementNumber(value interface{}) (float64, bool) {

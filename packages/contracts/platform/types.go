@@ -173,6 +173,17 @@ type UsageCostBreakdown struct {
 	TotalCostIRR  float64 `json:"total_cost_irr"`
 }
 
+// BudgetReservation tracks a request-time spend reservation in the active budget window.
+type BudgetReservation struct {
+	ID             string    `json:"id"`
+	TenantID       string    `json:"tenant_id"`
+	WindowID       string    `json:"window_id"`
+	WindowKey      string    `json:"window_key"`
+	ReservationKey string    `json:"reservation_key"`
+	EstimatedIRR   float64   `json:"estimated_irr"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
 // Deployment represents a configured provider target.
 type Deployment struct {
 	ID         string                 `json:"id"`
