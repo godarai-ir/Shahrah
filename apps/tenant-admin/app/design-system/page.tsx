@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Trash2 } from "lucide-react";
+import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Trash2, Upload, X } from "lucide-react";
 
 import { AppCard, AppSelectField, ConfirmDialog, EmptyState, FilterCombobox, FormSection, MetricCard, PageHeader, RowActionsMenu, SectionHeader, SettingsCard, StatusBadge } from "@/components/app-ui";
+import { Attachment, AttachmentAction, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -176,6 +177,25 @@ export default function DesignSystemPage() {
               { label: "Delete", destructive: true, icon: <Trash2 /> },
             ]}
           />
+        </AppCard>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        <AppCard title="Attachment" description="Use Attachment for file and image selections with inline actions.">
+          <Attachment orientation="vertical">
+            <AttachmentMedia>
+              <Upload aria-hidden="true" />
+            </AttachmentMedia>
+            <AttachmentContent>
+              <AttachmentTitle>bank-receipt.png</AttachmentTitle>
+              <AttachmentDescription>PNG · 820 KB</AttachmentDescription>
+            </AttachmentContent>
+            <AttachmentActions>
+              <AttachmentAction aria-label="Remove bank-receipt.png">
+                <X />
+              </AttachmentAction>
+            </AttachmentActions>
+          </Attachment>
         </AppCard>
       </section>
     </main>

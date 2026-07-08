@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { readAuthFromRequest } from "@/lib/auth/request-auth";
 import { proxyToControlPlane } from "@/lib/control-plane";
+import { saveReceiptImage } from "@/app/api/wallet/bank-transfer-receipts/[fileName]/route";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,33 @@ export async function POST(request: NextRequest) {
   const auth = await readAuthFromRequest(request);
   if (!auth.ok) {
     return NextResponse.json({ error: { message: auth.message } }, { status: auth.status });
+  }
+
+  const contentType = request.headers.get("content-type") ?? "";
+  if (contentType.includes("multipart/form-data")) {
+    const formData = await request.formData();
+    const amountIRR = Number(String(formData.get("amount_irr") ?? "").trim());
+    const trackingNumber = String(formData.get("tracking_number") ?? "").trim();
+    const bankTransactionAtRaw = String(formData.get("bank_transaction_at") ?? "").trim();
+    const receiptImage = formData.get("receipt_image");
+
+    let receiptFileURL: string | undefined;
+    if (receiptImage instanceof File && receiptImage.size > 0) {
+      const uploaded = await saveReceiptImage(receiptImage, auth.tenantSlug);
+      receiptFileURL = uploaded.url;
+    }
+
+    return proxyToControlPlane({
+      request,
+      method: "POST",
+      path: "/api/v1/wallet/bank-transfers",
+      body: {
+        amount_irr: amountIRR,
+        tracking_number: trackingNumber,
+        bank_transaction_at: bankTransactionAtRaw,
+        receipt_file_url: receiptFileURL,
+      },
+    });
   }
 
   return proxyToControlPlane({

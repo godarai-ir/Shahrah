@@ -1,17 +1,30 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
-import { BarChart3, FileText, ReceiptText, Tag, WalletCards } from "lucide-react";
+import { format } from "date-fns";
+import { faIR } from "date-fns/locale";
+import { BarChart3, CalendarIcon, FileImage, FileText, ReceiptText, Tag, Trash2, Upload, WalletCards } from "lucide-react";
 import { Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 import { AppCard, AppSelectField, FormSection, MetricCard, SettingsCard, StatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Attachment,
+  AttachmentAction,
+  AttachmentActions,
+  AttachmentContent,
+  AttachmentDescription,
+  AttachmentMedia,
+  AttachmentTitle,
+} from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import { DataTable } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   type BankTransferRequest,
@@ -23,6 +36,7 @@ import {
   type MonthlyUsageDetail,
   type WalletTransaction,
   formatDate,
+  formatDateOnly,
   formatIRR,
   formatToman,
   statusTone,
@@ -33,20 +47,32 @@ type BankTransferPanelProps = {
   initialError: string | null;
 };
 
+const MAX_RECEIPT_IMAGE_SIZE = 2 * 1024 * 1024;
+const ALLOWED_RECEIPT_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
 export function BankTransferPanel({ initialItems, initialError }: BankTransferPanelProps) {
   const router = useRouter();
   const [amountToman, setAmountToman] = useState("1000000");
   const [trackingNumber, setTrackingNumber] = useState("");
-  const [bankTransactionAt, setBankTransactionAt] = useState(new Date().toISOString().slice(0, 16));
-  const [receiptFileURL, setReceiptFileURL] = useState("");
+  const [bankTransactionDate, setBankTransactionDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [receiptImage, setReceiptImage] = useState<File | null>(null);
+  const [receiptPreviewURL, setReceiptPreviewURL] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(initialError);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (receiptPreviewURL) {
+        URL.revokeObjectURL(receiptPreviewURL);
+      }
+    };
+  }, [receiptPreviewURL]);
 
   const columns = useMemo<ColumnDef<BankTransferRequest>[]>(
     () => [
       { accessorKey: "tracking_number", header: "شماره پیگیری" },
       { accessorKey: "amount_irr", header: "مبلغ", cell: ({ row }) => formatToman(row.original.amount_irr) },
-      { accessorKey: "bank_transaction_at", header: "تاریخ واریز", cell: ({ row }) => formatDate(row.original.bank_transaction_at) },
+      { accessorKey: "bank_transaction_at", header: "تاریخ واریز", cell: ({ row }) => formatDateOnly(row.original.bank_transaction_at) },
       { accessorKey: "status", header: "وضعیت", cell: ({ row }) => <StatusBadge status={statusTone(row.original.status)}>{row.original.status}</StatusBadge> },
       { accessorKey: "created_at", header: "ثبت", cell: ({ row }) => formatDate(row.original.created_at) },
     ],
@@ -62,24 +88,32 @@ export function BankTransferPanel({ initialItems, initialError }: BankTransferPa
       setError("مبلغ و شماره پیگیری را کامل وارد کنید.");
       return;
     }
+    if (!receiptImage) {
+      setError("تصویر رسید را بارگذاری کنید.");
+      return;
+    }
 
     setLoading(true);
     try {
+      const formData = new FormData();
+      formData.set("amount_irr", String(Math.round(toman * 10)));
+      formData.set("tracking_number", trackingNumber.trim());
+      formData.set("bank_transaction_at", new Date(`${bankTransactionDate}T12:00:00`).toISOString());
+      formData.set("receipt_image", receiptImage);
+
       const resp = await fetch("/api/wallet/bank-transfers", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount_irr: Math.round(toman * 10),
-          tracking_number: trackingNumber.trim(),
-          bank_transaction_at: new Date(bankTransactionAt).toISOString(),
-          receipt_file_url: receiptFileURL.trim() || undefined,
-        }),
+        body: formData,
       });
       const payload = (await resp.json().catch(() => null)) as { error?: { message?: string } } | null;
       if (!resp.ok) throw new Error(payload?.error?.message ?? "ثبت واریز بانکی ناموفق بود.");
       router.refresh();
       setTrackingNumber("");
-      setReceiptFileURL("");
+      if (receiptPreviewURL) {
+        URL.revokeObjectURL(receiptPreviewURL);
+      }
+      setReceiptPreviewURL(null);
+      setReceiptImage(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "خطای ناشناخته رخ داد.");
     } finally {
@@ -87,8 +121,38 @@ export function BankTransferPanel({ initialItems, initialError }: BankTransferPa
     }
   }
 
+  function handleReceiptChange(e: ChangeEvent<HTMLInputElement>) {
+    const nextFile = e.target.files?.[0] ?? null;
+    e.target.value = "";
+
+    if (!nextFile) return;
+    if (!ALLOWED_RECEIPT_IMAGE_TYPES.includes(nextFile.type)) {
+      setError("فقط فایل‌های تصویری رایج مانند JPG، PNG، WEBP و GIF مجاز هستند.");
+      return;
+    }
+    if (nextFile.size > MAX_RECEIPT_IMAGE_SIZE) {
+      setError("حجم تصویر رسید باید حداکثر ۲ مگابایت باشد.");
+      return;
+    }
+
+    if (receiptPreviewURL) {
+      URL.revokeObjectURL(receiptPreviewURL);
+    }
+    setError(null);
+    setReceiptImage(nextFile);
+    setReceiptPreviewURL(URL.createObjectURL(nextFile));
+  }
+
+  function clearReceipt() {
+    if (receiptPreviewURL) {
+      URL.revokeObjectURL(receiptPreviewURL);
+    }
+    setReceiptPreviewURL(null);
+    setReceiptImage(null);
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {error ? (
         <Alert variant="destructive">
           <AlertTitle>خطا</AlertTitle>
@@ -97,10 +161,55 @@ export function BankTransferPanel({ initialItems, initialError }: BankTransferPa
       ) : null}
       <SettingsCard title="ثبت واریز بانکی" description="پس از ثبت، تیم پشتیبانی رسید را بررسی و کیف پول را شارژ می‌کند.">
         <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
-          <Field id="bank-amount" label="مبلغ (تومان)" value={amountToman} onChange={setAmountToman} />
-          <Field id="bank-tracking" label="شماره پیگیری" value={trackingNumber} onChange={setTrackingNumber} />
-          <Field id="bank-date" label="تاریخ و زمان واریز" type="datetime-local" value={bankTransactionAt} onChange={setBankTransactionAt} />
-          <Field id="bank-receipt" label="آدرس رسید" value={receiptFileURL} onChange={setReceiptFileURL} />
+          <Field id="bank-amount" label="مبلغ (تومان)" value={amountToman} onChange={setAmountToman} dir="ltr" inputMode="numeric" />
+          <Field id="bank-tracking" label="شماره پیگیری" value={trackingNumber} onChange={setTrackingNumber} dir="ltr" />
+          <DatePickerField id="bank-date" label="تاریخ واریز" value={bankTransactionDate} onChange={setBankTransactionDate} />
+          <div className="flex flex-col gap-2 md:col-span-2">
+            <Label htmlFor="bank-receipt">تصویر رسید</Label>
+            <div className="flex flex-col gap-3">
+              <input
+                id="bank-receipt"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="sr-only"
+                onChange={handleReceiptChange}
+              />
+              {receiptImage ? (
+                <Attachment orientation="vertical" state={loading ? "uploading" : "done"}>
+                  <AttachmentMedia variant="image">
+                    {receiptPreviewURL ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={receiptPreviewURL} alt={receiptImage.name} />
+                    ) : (
+                      <FileImage aria-hidden="true" />
+                    )}
+                  </AttachmentMedia>
+                  <AttachmentContent>
+                    <AttachmentTitle>{receiptImage.name}</AttachmentTitle>
+                    <AttachmentDescription>
+                      {formatFileSize(receiptImage.size)} · آماده برای ارسال
+                    </AttachmentDescription>
+                  </AttachmentContent>
+                  <AttachmentActions>
+                    <AttachmentAction aria-label={`حذف ${receiptImage.name}`} onClick={clearReceipt} disabled={loading}>
+                      <Trash2 />
+                    </AttachmentAction>
+                  </AttachmentActions>
+                </Attachment>
+              ) : (
+                <label
+                  htmlFor="bank-receipt"
+                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 px-4 py-4 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:bg-accent"
+                >
+                  <Upload data-icon="inline-start" />
+                  <span>یک تصویر رسید انتخاب کنید</span>
+                </label>
+              )}
+              <p className="text-xs leading-5 text-muted-foreground">
+                فقط یک تصویر با فرمت‌های JPG، PNG، WEBP یا GIF و حداکثر حجم ۲ مگابایت.
+              </p>
+            </div>
+          </div>
           <div className="md:col-span-2">
             <Button type="submit" disabled={loading}>{loading ? "در حال ثبت..." : "ثبت و ارسال برای بررسی"}</Button>
           </div>
@@ -366,17 +475,84 @@ function Field({
   value,
   onChange,
   type = "text",
+  dir,
+  inputMode,
 }: {
   id: string;
   label: string;
   value: string;
   onChange: (value: string) => void;
   type?: string;
+  dir?: "rtl" | "ltr" | "auto";
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
 }) {
   return (
     <div className="grid gap-2">
       <Label htmlFor={id}>{label}</Label>
-      <Input id={id} type={type} value={value} onChange={(e) => onChange(e.target.value)} />
+      <Input id={id} dir={dir} inputMode={inputMode} type={type} value={value} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
+}
+
+function DatePickerField({
+  id,
+  label,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const selectedDate = parseISODate(value);
+
+  return (
+    <div className="grid gap-2">
+      <Label htmlFor={id}>{label}</Label>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            id={id}
+            variant="outline"
+            type="button"
+            className="w-full justify-between text-right font-normal"
+          >
+            <span className="truncate">
+              {selectedDate ? format(selectedDate, "PPP", { locale: faIR }) : "یک تاریخ انتخاب کنید"}
+            </span>
+            <CalendarIcon data-icon="inline-end" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            mode="single"
+            selected={selectedDate}
+            onSelect={(date) => {
+              if (date) {
+                onChange(format(date, "yyyy-MM-dd"));
+              }
+            }}
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+function formatFileSize(size: number) {
+  if (size >= 1024 * 1024) {
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  if (size >= 1024) {
+    return `${Math.round(size / 1024)} KB`;
+  }
+  return `${size} B`;
+}
+
+function parseISODate(value: string) {
+  if (!value) return undefined;
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return undefined;
+  return new Date(year, month - 1, day);
 }

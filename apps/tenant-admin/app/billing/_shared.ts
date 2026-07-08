@@ -109,6 +109,11 @@ export function formatDate(value: string | undefined | null) {
   return new Date(value).toLocaleString("fa-IR");
 }
 
+export function formatDateOnly(value: string | undefined | null) {
+  if (!value) return "-";
+  return new Date(value).toLocaleDateString("fa-IR");
+}
+
 export function statusTone(status: string): "success" | "warning" | "error" | "pending" | "neutral" {
   if (["successful", "completed", "approved", "paid", "used", "active", "issued"].includes(status)) return "success";
   if (["pending", "pending_review", "draft"].includes(status)) return "pending";
