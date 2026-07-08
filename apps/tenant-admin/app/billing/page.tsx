@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ComponentType } from "react";
-import { CreditCard, FileText, Landmark, LineChart, WalletCards } from "lucide-react";
+import { BarChart3, CreditCard, FileText, Landmark, LineChart, WalletCards } from "lucide-react";
 
 import AdminShell from "@/app/components/admin-shell";
 import { AppCard, MetricCard, PageHeader, StatusBadge } from "@/components/app-ui";
@@ -35,7 +35,7 @@ export default async function BillingDashboardPage() {
 
   return (
     <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
-      <div className="space-y-6">
+      <div className="flex flex-col gap-6">
         <PageHeader
           eyebrow="Billing"
           title="مدیریت مالی"
@@ -47,13 +47,14 @@ export default async function BillingDashboardPage() {
             </>
           }
         />
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-2 md:gap-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-4">
           <MetricCard
             icon={WalletCards}
             label="اعتبار"
             value={formatIRR(availableBalance)}
           />
           <MetricCard icon={LineChart} label="مصرف ماه جاری" value={formatIRR(summary?.total_usage_irr)} />
+          <MetricCard icon={BarChart3} label="صرفه‌جویی ناشی از کش" value={formatIRR(summary?.cache_savings_irr)} />
         </div>
         <div className="grid gap-4 xl:grid-cols-2">
           <AppCard title="اقدام‌های سریع" className="lg:col-span-1">
