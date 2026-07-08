@@ -1,17 +1,33 @@
 {
   "title": "Wallet Top-up",
-  "description": "Enter the top-up amount in toman; the payment intent is stored with canonical IRR.",
+  "description": "Enter the top-up amount in toman.",
   "errorTitle": "Error",
   "amountLabel": "Amount (toman)",
   "providerLabel": "Payment gateway",
   "balanceLabel": "Current wallet balance",
   "constraints": "Tax: {tax}% | Fee: {fee}% | The API stores the canonical amount in IRR.",
+  "taxNotice": "A 10% value-added tax will be added to this amount.",
   "submit": "Continue to gateway",
   "submitLoading": "Creating payment...",
+  "quickAmounts": {
+    "oneMillion": "1 million toman",
+    "threeMillion": "3 million toman",
+    "tenMillion": "10 million toman",
+    "fiftyMillion": "50 million toman"
+  },
   "providers": {
     "mock": "Mock gateway (development)",
     "zarinpal": "ZarinPal",
     "idpay": "IDPay"
+  },
+  "providerDescriptions": {
+    "mock": "For testing in development",
+    "zarinpal": "Online payment via ZarinPal",
+    "idpay": "Online payment via IDPay"
+  },
+  "gatewayNotice": {
+    "title": "Dear user:",
+    "body": "Gateway payment is currently unavailable. For now, you can increase your credit through <bankTransferLink>bank transfer receipt payment</bankTransferLink>."
   },
   "messages": {
     "amountInvalid": "Toman amount must be a positive number.",

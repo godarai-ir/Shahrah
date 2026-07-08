@@ -1,92 +1,59 @@
-﻿"use client";
+"use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
 import { useTranslations } from "next-intl";
-import type { ColumnDef } from "@tanstack/react-table";
+import { BadgePercent, CreditCard, Landmark, TestTubeDiagonal, WalletCards } from "lucide-react";
 
-import { AppSelectField, SettingsCard, StatusBadge } from "@/components/app-ui";
+import { SettingsCard } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { DataTable } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-type WalletTopUpSettings = {
-  min_amount_usd: number;
-  max_amount_usd: number;
-  tax_percent: number;
-  fee_percent: number;
-};
-
-type Wallet = {
-  id: string;
-  tenant_id: string;
-  balance_irr: number;
-  pending_irr: number;
-};
-
-type WalletTransaction = {
-  id: string;
-  type: string;
-  amount_irr: number;
-  status: string;
-  created_at: string;
-};
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { cn } from "@/lib/utils";
 
 type TopUpIntentResponse = {
   payment_url?: string;
 };
 
 type Props = {
-  initialWallet: Wallet | null;
-  initialSettings: WalletTopUpSettings | null;
-  initialTransactions: WalletTransaction[];
   initialError: string | null;
 };
 
 export default function TopUpPanel(props: Props) {
   const t = useTranslations("topupPage");
-  const common = useTranslations("common");
 
-  const [amountToman, setAmountToman] = useState("1000000");
+  const [amountToman, setAmountToman] = useState("");
   const [provider, setProvider] = useState("mock");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(props.initialError);
 
-  const formattedBalance = useMemo(() => {
-    if (!props.initialWallet) return common("none");
-    return formatIRR(props.initialWallet.balance_irr);
-  }, [common, props.initialWallet]);
+  const quickAmounts = [
+    { value: "1000000", label: t("quickAmounts.oneMillion") },
+    { value: "3000000", label: t("quickAmounts.threeMillion") },
+    { value: "10000000", label: t("quickAmounts.tenMillion") },
+    { value: "50000000", label: t("quickAmounts.fiftyMillion") },
+  ];
 
-  const columns = useMemo<ColumnDef<WalletTransaction>[]>(
-    () => [
-      {
-        accessorKey: "id",
-        header: t("transactions.columns.id"),
-        cell: ({ row }) => <span className="font-mono text-xs">{row.original.id || "-"}</span>,
-      },
-      {
-        accessorKey: "type",
-        header: t("transactions.columns.type"),
-      },
-      {
-        accessorKey: "status",
-        header: t("transactions.columns.status"),
-        cell: ({ row }) => <StatusBadge status={statusTone(row.original.status)}>{row.original.status}</StatusBadge>,
-      },
-      {
-        accessorKey: "amount_irr",
-        header: t("transactions.columns.amount"),
-        cell: ({ row }) => formatIRR(row.original.amount_irr),
-      },
-      {
-        accessorKey: "created_at",
-        header: t("transactions.columns.createdAt"),
-        cell: ({ row }) => new Date(row.original.created_at).toLocaleString("fa-IR"),
-      },
-    ],
-    [t],
-  );
+  const providerOptions = [
+    { value: "mock", label: t("providers.mock"), description: t("providerDescriptions.mock"), icon: TestTubeDiagonal },
+    {
+      value: "zarinpal",
+      label: t("providers.zarinpal"),
+      description: t("providerDescriptions.zarinpal"),
+      icon: Landmark,
+      logoSrc: "/images/providers/zarinpal.png",
+    },
+    {
+      value: "idpay",
+      label: t("providers.idpay"),
+      description: t("providerDescriptions.idpay"),
+      icon: CreditCard,
+      logoSrc: "/images/providers/idpay.png",
+    },
+  ] as const;
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -129,7 +96,7 @@ export default function TopUpPanel(props: Props) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {error ? (
         <Alert variant="destructive">
           <AlertTitle>{t("errorTitle")}</AlertTitle>
@@ -137,66 +104,108 @@ export default function TopUpPanel(props: Props) {
         </Alert>
       ) : null}
 
-      <SettingsCard title={t("title")} description={t("description")}>
-          <form onSubmit={onSubmit} className="grid gap-4 md:grid-cols-3">
-            <div className="grid gap-2">
-              <Label htmlFor="amountToman">{t("amountLabel")}</Label>
-              <Input
-                id="amountToman"
-                inputMode="numeric"
-                value={amountToman}
-                onChange={(e) => setAmountToman(e.target.value)}
-              />
-            </div>
+      <Alert variant="warning">
+        <AlertTitle>{t("gatewayNotice.title")}</AlertTitle>
+        <AlertDescription>
+          {t.rich("gatewayNotice.body", {
+            bankTransferLink: (chunks) => (
+              <Link href="/billing/bank-transfer" className="font-medium text-warning underline-offset-4 hover:underline">
+                {chunks}
+              </Link>
+            ),
+          })}
+        </AlertDescription>
+      </Alert>
 
-            <AppSelectField
-              label={t("providerLabel")}
+      <SettingsCard
+        title={
+          <span className="inline-flex items-center gap-2">
+            <WalletCards className="size-5 text-primary" />
+            {t("title")}
+          </span>
+        }
+      >
+        <form onSubmit={onSubmit} className="flex flex-col gap-5">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="amountToman">{t("amountLabel")}</Label>
+            <Input
+              id="amountToman"
+              dir="ltr"
+              inputMode="numeric"
+              value={amountToman}
+              onChange={(e) => setAmountToman(e.target.value)}
+            />
+            <div className="flex flex-wrap gap-2">
+              {quickAmounts.map((amount) => (
+                <Button
+                  key={amount.value}
+                  type="button"
+                  variant={amountToman === amount.value ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setAmountToman(amount.value)}
+                >
+                  <WalletCards data-icon="inline-start" />
+                  {amount.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <span className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
+              <Landmark className="size-4 text-primary" />
+              {t("providerLabel")}
+            </span>
+            <RadioGroup
+              dir="rtl"
               value={provider}
               onValueChange={setProvider}
-              options={[
-                { value: "mock", label: t("providers.mock") },
-                { value: "zarinpal", label: t("providers.zarinpal") },
-                { value: "idpay", label: t("providers.idpay") },
-              ]}
-            />
-
-            <div className="grid gap-2">
-              <Label>{t("balanceLabel")}</Label>
-              <div className="flex h-10 items-center rounded-md border px-3 text-sm">{formattedBalance}</div>
-            </div>
-
-            <div className="md:col-span-3 text-xs text-muted-foreground">
-              {t("constraints", {
-                tax: String(props.initialSettings?.tax_percent ?? 0),
-                fee: String(props.initialSettings?.fee_percent ?? 2),
+              className="grid grid-cols-3 gap-3"
+            >
+              {providerOptions.map((option) => {
+                const Icon = option.icon;
+                return (
+                  <Label
+                    key={option.value}
+                    htmlFor={`topup-provider-${option.value}`}
+                    className={cn(
+                      "flex min-w-0 cursor-pointer flex-col items-center gap-3 rounded-xl border border-border bg-card px-3 py-4 text-center transition-colors",
+                      provider === option.value && "border-primary bg-accent/40 text-accent-foreground",
+                    )}
+                  >
+                    <div className="flex min-w-0 flex-1 flex-col items-center gap-3">
+                      <div className="flex size-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                        {option.logoSrc ? (
+                          <Image src={option.logoSrc} alt={option.label} width={56} height={56} className="size-14 object-contain" />
+                        ) : (
+                          <Icon className="size-14" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium text-foreground">{option.label}</div>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">{option.description}</p>
+                      </div>
+                    </div>
+                    <RadioGroupItem id={`topup-provider-${option.value}`} value={option.value} />
+                  </Label>
+                );
               })}
-            </div>
+            </RadioGroup>
+          </div>
 
-            <div className="md:col-span-3">
-              <Button type="submit" disabled={loading}>
-                {loading ? t("submitLoading") : t("submit")}
-              </Button>
-            </div>
-          </form>
-      </SettingsCard>
+          <div className="inline-flex items-center gap-2 text-xs leading-5 text-muted-foreground">
+            <BadgePercent className="size-4 text-primary" />
+            <span>{t("taxNotice")}</span>
+          </div>
 
-      <SettingsCard title={t("transactions.title")} description={t("transactions.description")}>
-        <DataTable columns={columns} data={props.initialTransactions} emptyLabel={t("transactions.empty")} />
+          <div className="flex justify-end">
+            <Button type="submit" disabled={loading}>
+              <CreditCard data-icon="inline-start" />
+              {loading ? t("submitLoading") : t("submit")}
+            </Button>
+          </div>
+        </form>
       </SettingsCard>
     </div>
   );
-}
-
-const numberFormatter = new Intl.NumberFormat("fa-IR");
-
-function formatIRR(value: number): string {
-  return `${numberFormatter.format(Math.round(value))} IRR`;
-}
-
-function statusTone(status: string): "success" | "warning" | "error" | "pending" | "neutral" {
-  if (["successful", "completed", "approved", "paid", "used"].includes(status)) return "success";
-  if (["pending", "pending_review", "draft"].includes(status)) return "pending";
-  if (["failed", "rejected", "cancelled", "expired"].includes(status)) return "error";
-  if (status === "refunded") return "warning";
-  return "neutral";
 }

@@ -61,7 +61,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function BankTransferPanel({ initialItems, initialError }: BankTransferPanelProps) {
   const router = useRouter();
-  const [amountToman, setAmountToman] = useState("1000000");
+  const [amountToman, setAmountToman] = useState("");
   const [trackingNumber, setTrackingNumber] = useState("");
   const [bankTransactionDateJalali, setBankTransactionDateJalali] = useState(getCurrentJalaliDateValue());
   const [receiptImage, setReceiptImage] = useState<File | null>(null);
@@ -122,6 +122,7 @@ export function BankTransferPanel({ initialItems, initialError }: BankTransferPa
       const payload = (await resp.json().catch(() => null)) as { error?: { message?: string } } | null;
       if (!resp.ok) throw new Error(payload?.error?.message ?? "ثبت واریز بانکی ناموفق بود.");
       router.refresh();
+      setAmountToman("");
       setTrackingNumber("");
       setBankTransactionDateJalali(getCurrentJalaliDateValue());
       if (receiptPreviewURL) {
