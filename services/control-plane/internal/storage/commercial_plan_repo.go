@@ -1163,6 +1163,7 @@ func (s *Store) ProcessSubscriptionTransitions(ctx context.Context, now time.Tim
 		tenantID        string
 		status          string
 		interval        string
+		periodStart     time.Time
 		periodEnd       time.Time
 		cancelAtEnd     bool
 		pendingVersion  string
@@ -1170,7 +1171,7 @@ func (s *Store) ProcessSubscriptionTransitions(ctx context.Context, now time.Tim
 	}
 
 	rows, err := tx.Query(ctx, `
-		SELECT subscription_id::text, tenant_id::text, status, billing_interval, current_period_end,
+		SELECT subscription_id::text, tenant_id::text, status, billing_interval, current_period_start, current_period_end,
 		       cancel_at_period_end, COALESCE(pending_version_id::text, ''),
 		       COALESCE(metadata->>'pending_billing_interval', '')
 		FROM tenant_subscriptions
@@ -1187,7 +1188,7 @@ func (s *Store) ProcessSubscriptionTransitions(ctx context.Context, now time.Tim
 
 	for rows.Next() {
 		var item transition
-		if err := rows.Scan(&item.subscriptionID, &item.tenantID, &item.status, &item.interval, &item.periodEnd, &item.cancelAtEnd, &item.pendingVersion, &item.pendingInterval); err != nil {
+		if err := rows.Scan(&item.subscriptionID, &item.tenantID, &item.status, &item.interval, &item.periodStart, &item.periodEnd, &item.cancelAtEnd, &item.pendingVersion, &item.pendingInterval); err != nil {
 			rows.Close()
 			return 0, err
 		}
@@ -1205,6 +1206,10 @@ func (s *Store) ProcessSubscriptionTransitions(ctx context.Context, now time.Tim
 	tenantIDs := make([]string, 0, len(items))
 	for i := range items {
 		item := &items[i]
+		if err := issueHybridInvoiceForSubscriptionTx(ctx, tx, item.subscriptionID, item.tenantID, item.periodStart, item.periodEnd); err != nil {
+			return 0, err
+		}
+
 		if item.cancelAtEnd && item.pendingVersion != "" {
 			interval := normalizeBillingInterval(item.pendingInterval)
 			if item.pendingInterval == "" {
@@ -1293,6 +1298,101 @@ func (s *Store) ProcessSubscriptionTransitions(ctx context.Context, now time.Tim
 	}
 
 	return len(items), nil
+}
+
+func issueHybridInvoiceForSubscriptionTx(ctx context.Context, tx pgx.Tx, subscriptionID, tenantID string, periodStart, periodEnd time.Time) error {
+	var (
+		rawUsageIRR     int64
+		giftCreditIRR   int64
+		discountIRR     int64
+		billingSnapshot []byte
+	)
+
+	if err := tx.QueryRow(ctx, `
+		SELECT
+			COALESCE(SUM(amount_irr) FILTER (WHERE tx_type = 'usage_debit' AND status = 'successful'), 0)::bigint,
+			COALESCE(SUM(amount_irr) FILTER (WHERE tx_type = 'gift_credit' AND status = 'successful'), 0)::bigint
+		FROM wallet_transactions
+		WHERE tenant_id = $1::uuid AND created_at >= $2 AND created_at < $3
+	`, tenantID, periodStart, periodEnd).Scan(&rawUsageIRR, &giftCreditIRR); err != nil {
+		return err
+	}
+
+	if err := tx.QueryRow(ctx, `
+		SELECT COALESCE(SUM(used_amount_irr), 0)::bigint
+		FROM discount_redemptions
+		WHERE tenant_id = $1::uuid AND created_at >= $2 AND created_at < $3
+		  AND status IN ('active', 'used')
+	`, tenantID, periodStart, periodEnd).Scan(&discountIRR); err != nil {
+		return err
+	}
+
+	if err := tx.QueryRow(ctx, `
+		SELECT COALESCE(
+			(SELECT jsonb_build_object('profile_type', profile_type, 'data', data)
+			 FROM billing_profiles
+			 WHERE tenant_id = $1::uuid),
+			'{}'::jsonb
+		)
+	`, tenantID).Scan(&billingSnapshot); err != nil {
+		return err
+	}
+
+	finalAmountIRR := rawUsageIRR - discountIRR
+	if finalAmountIRR < 0 {
+		finalAmountIRR = 0
+	}
+
+	invoiceID := uuid.NewString()
+	invoiceNumber := fmt.Sprintf("INV-%s-%s", periodEnd.UTC().Format("200601"), strings.Split(subscriptionID, "-")[0])
+
+	var insertedID string
+	err := tx.QueryRow(ctx, `
+		INSERT INTO invoices (
+			invoice_id, invoice_number, tenant_id, subscription_id, status, issued_at,
+			period_start, period_end, billing_profile_snapshot, raw_usage_irr, discount_irr,
+			gift_credit_irr, cache_savings_irr, final_amount_irr, net_adjustment_irr, metadata
+		)
+		VALUES (
+			$1::uuid, $2, $3::uuid, $4::uuid, 'issued', NOW(),
+			$5, $6, $7, $8, $9, $10, 0, $11, 0,
+			jsonb_build_object('settlement_model', 'hybrid')
+		)
+		ON CONFLICT DO NOTHING
+		RETURNING invoice_id::text
+	`, invoiceID, invoiceNumber, tenantID, subscriptionID, periodStart, periodEnd, billingSnapshot,
+		rawUsageIRR, discountIRR, giftCreditIRR, finalAmountIRR).Scan(&insertedID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	lineItems := []struct {
+		itemType    string
+		description string
+		amountIRR   int64
+	}{
+		{itemType: "usage", description: "Wallet usage debits", amountIRR: rawUsageIRR},
+		{itemType: "discount", description: "Discount redemptions", amountIRR: -discountIRR},
+		{itemType: "gift_credit", description: "Gift credits redeemed", amountIRR: -giftCreditIRR},
+	}
+	for _, line := range lineItems {
+		if line.amountIRR == 0 {
+			continue
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO invoice_line_items (
+				line_item_id, invoice_id, item_type, provider_name, description, quantity, amount_irr, metadata
+			)
+			VALUES ($1::uuid, $2::uuid, $3, '', $4, 1, $5, '{}'::jsonb)
+		`, uuid.NewString(), insertedID, line.itemType, line.description, line.amountIRR); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (s *Store) planIDBySlug(ctx context.Context, slug string) (string, error) {

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -169,7 +170,7 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 	assert.Len(t, walletStore.spendLogs, 1)
 	assert.Len(t, walletStore.requestLogs, 1)
 	assert.Empty(t, walletStore.debits)
-	assert.Equal(t, 10_000_000.0, walletStore.wallet.BalanceIRR)
+	assert.Equal(t, int64(10_000_000), walletStore.wallet.BalanceIRR)
 }
 
 func TestIntegration_EndToEndResponsesStreaming(t *testing.T) {
@@ -296,7 +297,7 @@ func TestIntegration_TenantOnboardingFlowViaManagementAPIs(t *testing.T) {
 	require.Empty(t, walletStore.debits)
 	require.Len(t, walletStore.requestLogs, 1)
 	require.Len(t, walletStore.spendLogs, 1)
-	assert.Greater(t, walletStore.wallet.BalanceIRR, 0.0)
+	assert.Greater(t, walletStore.wallet.BalanceIRR, int64(0))
 
 	authInfo, err := keyStore.GetKeyByHash(context.Background(), hashToken(createdKey.Key))
 	require.NoError(t, err)
@@ -347,7 +348,7 @@ func TestIntegration_ChatCompletionRejectsInsufficientWalletBalance(t *testing.T
 	assert.Empty(t, walletStore.debits)
 	assert.Empty(t, walletStore.requestLogs)
 	assert.Empty(t, walletStore.spendLogs)
-	assert.Equal(t, 1.0, walletStore.wallet.BalanceIRR)
+	assert.Equal(t, int64(1), walletStore.wallet.BalanceIRR)
 }
 
 func TestIntegration_CreateServiceAccountKeyRequiresTeamID(t *testing.T) {
@@ -1310,26 +1311,29 @@ func (s *integrationWalletStore) GetWallet(ctx context.Context, tenantID string)
 }
 
 func (s *integrationWalletStore) TopUpWallet(ctx context.Context, tenantID string, amountIRR float64, metadata map[string]interface{}) (*platform.Transaction, error) {
-	s.wallet.BalanceIRR += amountIRR
-	return &platform.Transaction{TenantID: tenantID, AmountIRR: amountIRR, Type: "DEPOSIT", Status: "COMPLETED"}, nil
+	amount := int64(math.Round(amountIRR))
+	s.wallet.BalanceIRR += amount
+
+	return &platform.Transaction{TenantID: tenantID, AmountIRR: amount, Type: "wallet_topup", Status: "successful"}, nil
 }
 
 func (s *integrationWalletStore) DebitWallet(ctx context.Context, tenantID string, breakdown platform.UsageCostBreakdown, requestID string) (*platform.Transaction, error) {
-	if s.wallet.BalanceIRR < breakdown.TotalCostIRR {
+	amount := int64(math.Round(breakdown.TotalCostIRR))
+	if s.wallet.BalanceIRR < amount {
 		return nil, storage.ErrInsufficientWalletBalance
 	}
 	s.debits = append(s.debits, breakdown)
-	s.wallet.BalanceIRR -= breakdown.TotalCostIRR
+	s.wallet.BalanceIRR -= amount
 	usd := breakdown.TotalCostUSD
 	rate := breakdown.ExchangeRate
 
 	return &platform.Transaction{
 		TenantID:     tenantID,
-		Type:         "CONSUMPTION",
-		AmountIRR:    breakdown.TotalCostIRR,
+		Type:         "usage_debit",
+		AmountIRR:    amount,
 		AmountUSD:    &usd,
 		ExchangeRate: &rate,
-		Status:       "COMPLETED",
+		Status:       "successful",
 	}, nil
 }
 
@@ -1415,6 +1419,73 @@ func (s *integrationWalletStore) MarkWalletTopUpFailedByAuthority(ctx context.Co
 
 func (s *integrationWalletStore) ListWalletTransactions(ctx context.Context, tenantID string, limit int) ([]platform.Transaction, error) {
 	return []platform.Transaction{}, nil
+}
+
+func (s *integrationWalletStore) CreateBankTransferRequest(ctx context.Context, tenantID string, req platform.CreateBankTransferRequest, actorID string) (*platform.BankTransferRequest, error) {
+	now := time.Now().UTC()
+	return &platform.BankTransferRequest{
+		ID:                "bank-transfer-1",
+		PublicID:          "bank-transfer-public-1",
+		TenantID:          tenantID,
+		AmountIRR:         req.AmountIRR,
+		TrackingNumber:    req.TrackingNumber,
+		BankTransactionAt: req.BankTransactionAt,
+		Status:            "pending_review",
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	}, nil
+}
+
+func (s *integrationWalletStore) ListBankTransferRequests(ctx context.Context, tenantID string, limit int) ([]platform.BankTransferRequest, error) {
+	return []platform.BankTransferRequest{}, nil
+}
+
+func (s *integrationWalletStore) ApproveBankTransferRequest(ctx context.Context, tenantID, requestID string, req platform.ReviewBankTransferRequest, actor platform.SupportActor) (*platform.BankTransferRequest, error) {
+	now := time.Now().UTC()
+	return &platform.BankTransferRequest{ID: requestID, TenantID: tenantID, Status: "approved", ReviewedBy: actor.ID, ReviewedAt: &now, CreatedAt: now, UpdatedAt: now}, nil
+}
+
+func (s *integrationWalletStore) RejectBankTransferRequest(ctx context.Context, tenantID, requestID string, req platform.ReviewBankTransferRequest, actor platform.SupportActor) (*platform.BankTransferRequest, error) {
+	now := time.Now().UTC()
+	return &platform.BankTransferRequest{ID: requestID, TenantID: tenantID, Status: "rejected", RejectionReason: req.Reason, ReviewedBy: actor.ID, ReviewedAt: &now, CreatedAt: now, UpdatedAt: now}, nil
+}
+
+func (s *integrationWalletStore) RedeemGiftCode(ctx context.Context, tenantID, code, actorID string) (*platform.GiftCodeRedemption, error) {
+	now := time.Now().UTC()
+	return &platform.GiftCodeRedemption{ID: "gift-redemption-1", GiftCodeID: "gift-code-1", TenantID: tenantID, AmountIRR: 1000, Status: "used", CreatedAt: now}, nil
+}
+
+func (s *integrationWalletStore) RedeemDiscountCode(ctx context.Context, tenantID, code, actorID string) (*platform.DiscountRedemption, error) {
+	now := time.Now().UTC()
+	return &platform.DiscountRedemption{ID: "discount-redemption-1", TenantID: tenantID, Code: code, DiscountType: "fixed", Status: "active", CreatedAt: now, UpdatedAt: now}, nil
+}
+
+func (s *integrationWalletStore) GetBillingProfile(ctx context.Context, tenantID string) (*platform.BillingProfile, error) {
+	now := time.Now().UTC()
+	return &platform.BillingProfile{ID: "billing-profile-1", TenantID: tenantID, ProfileType: "individual", Data: map[string]interface{}{"display_name": "Test Tenant"}, CreatedAt: now, UpdatedAt: now}, nil
+}
+
+func (s *integrationWalletStore) UpsertBillingProfile(ctx context.Context, tenantID string, req platform.UpsertBillingProfileRequest, actorID string) (*platform.BillingProfile, error) {
+	now := time.Now().UTC()
+	return &platform.BillingProfile{ID: "billing-profile-1", TenantID: tenantID, ProfileType: req.ProfileType, Data: req.Data, CreatedBy: actorID, UpdatedBy: actorID, CreatedAt: now, UpdatedAt: now}, nil
+}
+
+func (s *integrationWalletStore) ListInvoices(ctx context.Context, tenantID string, limit int) ([]platform.Invoice, error) {
+	return []platform.Invoice{}, nil
+}
+
+func (s *integrationWalletStore) ListDiscountRedemptions(ctx context.Context, tenantID string, limit int) ([]platform.DiscountRedemption, error) {
+	return []platform.DiscountRedemption{}, nil
+}
+
+func (s *integrationWalletStore) GetBillingUsageSummary(ctx context.Context, tenantID, rangeKey string) (*platform.BillingUsageSummary, error) {
+	now := time.Now().UTC()
+	return &platform.BillingUsageSummary{Range: rangeKey, Start: now, End: now, Providers: []platform.BillingProviderUsage{}}, nil
+}
+
+func (s *integrationWalletStore) GetMonthlyUsageDetail(ctx context.Context, tenantID, month string) (*platform.MonthlyUsageDetail, error) {
+	now := time.Now().UTC()
+	return &platform.MonthlyUsageDetail{Month: month, Start: now, End: now, Providers: []platform.BillingProviderUsage{}}, nil
 }
 
 func (s *integrationWalletStore) LogRequest(ctx context.Context, entry platform.RequestLogEntry) error {

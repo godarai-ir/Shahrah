@@ -151,6 +151,27 @@ var permissionCatalog = map[string]permissionMeta{
 		Description: "Allows updating platform settings",
 	},
 
+	"billing:read": {
+		Group:       "billing",
+		Description: "Allows viewing wallet, billing reports, and financial profile",
+	},
+	"billing:manage": {
+		Group:       "billing",
+		Description: "Allows managing wallet top-ups and financial operations",
+	},
+	"billing:profile_manage": {
+		Group:       "billing",
+		Description: "Allows editing tenant billing profile",
+	},
+	"billing:documents_read": {
+		Group:       "billing",
+		Description: "Allows viewing invoices, transactions, and discount documents",
+	},
+	"billing:codes_redeem": {
+		Group:       "billing",
+		Description: "Allows redeeming gift and discount codes",
+	},
+
 	"logs:read_metadata": {
 		Group:       "logs",
 		Description: "Allows listing request logs metadata and summary fields",
@@ -183,6 +204,7 @@ var systemRolePermissions = map[string][]string{
 		"virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete",
 		"provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete",
 		"settings:list", "settings:manage",
+		"billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem",
 		"logs:read_metadata", "logs:read_content", "logs:export", "logs:manage_views", "logs:replay",
 	},
 	"tenant_admin": {
@@ -194,7 +216,12 @@ var systemRolePermissions = map[string][]string{
 		"virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete",
 		"provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete",
 		"settings:list", "settings:manage",
+		"billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem",
 		"logs:read_metadata", "logs:read_content", "logs:export", "logs:manage_views", "logs:replay",
+	},
+	"billing_manager": {
+		"billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem",
+		"settings:list",
 	},
 	"org_admin": {
 		"policy:list",

@@ -63,6 +63,8 @@ func registerPlatformAdminRoutes(app *fiber.App, cfg *config.Config, deps Depend
 	platformAdmin.Get("/tenants/:tenantID/wallet", deps.AdminHandlers.GetPlatformTenantWallet)
 	platformAdmin.Get("/tenants/:tenantID/wallet/transactions", deps.AdminHandlers.ListPlatformTenantWalletTransactions)
 	platformAdmin.Post("/tenants/:tenantID/wallet/adjustments", deps.AdminHandlers.AdjustPlatformTenantWallet)
+	platformAdmin.Post("/tenants/:tenantID/wallet/bank-transfers/:requestID/approve", deps.AdminHandlers.ApprovePlatformBankTransfer)
+	platformAdmin.Post("/tenants/:tenantID/wallet/bank-transfers/:requestID/reject", deps.AdminHandlers.RejectPlatformBankTransfer)
 	platformAdmin.Post("/tenants/:tenantID/suspend", deps.AdminHandlers.SuspendPlatformTenant)
 	platformAdmin.Post("/tenants/:tenantID/reactivate", deps.AdminHandlers.ReactivatePlatformTenant)
 	platformAdmin.Post("/tenants/:tenantID/subscription/cancel-at-period-end", deps.AdminHandlers.SchedulePlatformTenantSubscriptionCancellation)

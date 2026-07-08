@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
@@ -376,39 +377,33 @@ func (s *Store) CompleteWalletTopUpByAuthority(ctx context.Context, authority st
 		return &intent, true, nil
 	}
 
-	var walletID string
-	if err := tx.QueryRow(ctx, `
-		INSERT INTO wallets (tenant_id, balance_irr, pending_irr)
-		VALUES ($1, 0, 0)
-		ON CONFLICT (tenant_id) DO UPDATE SET tenant_id = EXCLUDED.tenant_id
-		RETURNING wallet_id::text
-	`, intent.TenantID).Scan(&walletID); err != nil {
-		return nil, false, err
-	}
-
-	if _, err := tx.Exec(ctx, `UPDATE wallets SET balance_irr = balance_irr + $2, updated_at = NOW() WHERE wallet_id::text = $1`, walletID, intent.PayableIRR); err != nil {
-		return nil, false, err
-	}
-
-	metaPayload := marshalJSONBestEffort(map[string]interface{}{
+	metaPayload := map[string]interface{}{
 		"topup_intent_id": intent.ID,
 		"public_id":       intent.PublicID,
 		"authority":       authority,
 		"provider":        intent.Provider,
 		"ref_id":          refID,
 		"gateway_txn_id":  gatewayTxnID,
-	})
+	}
 
-	var walletTxIDOut string
-	if err := tx.QueryRow(ctx, `
-		INSERT INTO wallet_transactions (
-			wallet_id, tenant_id, tx_type, amount_irr, amount_usd, exchange_rate, status, description, metadata
-		)
-		VALUES ($1, $2, 'DEPOSIT', $3, $4, $5, 'COMPLETED', 'wallet top-up', $6)
-		RETURNING transaction_id::text
-	`, walletID, intent.TenantID, intent.PayableIRR, intent.AmountUSD, intent.ExchangeRate, metaPayload).Scan(&walletTxIDOut); err != nil {
+	walletTxn, err := appendWalletTransactionTx(ctx, tx, walletTransactionParams{
+		TenantID:       intent.TenantID,
+		Type:           "wallet_topup",
+		AmountIRR:      roundedIRR(intent.AmountIRR),
+		AmountUSD:      &intent.AmountUSD,
+		ExchangeRate:   &intent.ExchangeRate,
+		Status:         "successful",
+		Description:    "wallet top-up",
+		Metadata:       metaPayload,
+		SourceType:     "wallet_topup_intent",
+		SourceID:       intent.ID,
+		IdempotencyKey: "wallet_topup:" + strings.TrimSpace(authority),
+		CompletedAt:    time.Now().UTC(),
+	})
+	if err != nil {
 		return nil, false, err
 	}
+	walletTxIDOut := walletTxn.ID
 
 	verifyPayload := marshalJSONBestEffort(verifyRaw)
 	if _, err := tx.Exec(ctx, `
@@ -473,7 +468,10 @@ func (s *Store) ListWalletTransactions(ctx context.Context, tenantID string, lim
 	}
 
 	rows, err := s.pool.Query(ctx, `
-		SELECT transaction_id::text, wallet_id::text, tenant_id::text, tx_type, amount_irr, amount_usd, exchange_rate, status, description, metadata, created_at
+		SELECT transaction_id::text, wallet_id::text, tenant_id::text, tx_type,
+		       ROUND(amount_irr)::bigint, COALESCE(balance_after_irr, 0)::bigint,
+		       amount_usd, exchange_rate, status, COALESCE(description, ''), metadata,
+		       COALESCE(source_type, ''), COALESCE(source_id, ''), created_at, completed_at
 		FROM wallet_transactions
 		WHERE tenant_id = $1
 		ORDER BY created_at DESC
@@ -488,7 +486,11 @@ func (s *Store) ListWalletTransactions(ctx context.Context, tenantID string, lim
 
 	for rows.Next() {
 		var item platform.Transaction
-		if err := rows.Scan(&item.ID, &item.WalletID, &item.TenantID, &item.Type, &item.AmountIRR, &item.AmountUSD, &item.ExchangeRate, &item.Status, &item.Description, &item.Metadata, &item.CreatedAt); err != nil {
+		if err := rows.Scan(
+			&item.ID, &item.WalletID, &item.TenantID, &item.Type, &item.AmountIRR, &item.BalanceAfter,
+			&item.AmountUSD, &item.ExchangeRate, &item.Status, &item.Description, &item.Metadata,
+			&item.SourceType, &item.SourceID, &item.CreatedAt, &item.CompletedAt,
+		); err != nil {
 			return nil, err
 		}
 

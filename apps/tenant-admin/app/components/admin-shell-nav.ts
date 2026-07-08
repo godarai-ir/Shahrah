@@ -8,7 +8,9 @@ import {
   CreditCard,
   FileText,
   Gauge,
+  Landmark,
   LayoutDashboard,
+  LineChart,
   Plug,
   Route,
   Settings,
@@ -22,7 +24,12 @@ import { canAnyPermission } from "../../lib/authz";
 export type AdminNavKey =
   | "dashboard"
   | "quickStart"
+  | "billing"
   | "topup"
+  | "bankTransfer"
+  | "billingReports"
+  | "billingProfile"
+  | "billingDocuments"
   | "plan"
   | "providerAccounts"
   | "virtualModels"
@@ -81,12 +88,52 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       requiredPermissions: [],
     },
     {
+      key: "billing",
+      href: "/billing",
+      title: t("nav.billing"),
+      icon: CircleDollarSign,
+      isActive: pathname === "/billing",
+      requiredPermissions: ["billing:read", "billing:manage", "billing:documents_read", "settings:list"],
+    },
+    {
       key: "topup",
       href: "/billing/topup",
       title: t("nav.topup"),
       icon: CreditCard,
       isActive: pathname.startsWith("/billing/topup"),
-      requiredPermissions: ["settings:list"],
+      requiredPermissions: ["billing:manage", "settings:manage", "settings:list"],
+    },
+    {
+      key: "bankTransfer",
+      href: "/billing/bank-transfer",
+      title: t("nav.bankTransfer"),
+      icon: Landmark,
+      isActive: pathname.startsWith("/billing/bank-transfer"),
+      requiredPermissions: ["billing:manage", "settings:manage"],
+    },
+    {
+      key: "billingReports",
+      href: "/billing/reports",
+      title: t("nav.billingReports"),
+      icon: LineChart,
+      isActive: pathname.startsWith("/billing/reports"),
+      requiredPermissions: ["billing:read", "settings:list"],
+    },
+    {
+      key: "billingProfile",
+      href: "/billing/profile",
+      title: t("nav.billingProfile"),
+      icon: UserCog,
+      isActive: pathname.startsWith("/billing/profile"),
+      requiredPermissions: ["billing:profile_manage", "billing:manage", "settings:manage"],
+    },
+    {
+      key: "billingDocuments",
+      href: "/billing/documents",
+      title: t("nav.billingDocuments"),
+      icon: FileText,
+      isActive: pathname.startsWith("/billing/documents"),
+      requiredPermissions: ["billing:documents_read", "billing:read", "settings:list"],
     },
     {
       key: "plan",

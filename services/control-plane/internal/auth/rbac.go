@@ -172,6 +172,8 @@ func checkAPIV1ModelRouteAuthorization(method, route string, authInfo *platform.
 	switch {
 	case strings.HasPrefix(route, "/api/v1/wallet"):
 		return true, checkWalletRouteAuthorization(method, route, authInfo)
+	case strings.HasPrefix(route, "/api/v1/billing"):
+		return true, checkBillingRouteAuthorization(method, route, authInfo)
 	case strings.HasPrefix(route, "/api/v1/models"):
 		return true, checkModelsRouteAuthorization(method, route, authInfo)
 	case strings.HasPrefix(route, "/api/v1/virtual-models"):
@@ -238,22 +240,65 @@ func checkWalletRouteAuthorization(method, route string, authInfo *platform.Auth
 
 	switch normalizedMethod {
 	case "GET", "HEAD", "OPTIONS":
-		if hasAnyPermission(authInfo, "settings:list", "settings:manage") {
+		if hasAnyPermission(authInfo, "billing:read", "billing:manage", "billing:documents_read", "settings:list", "settings:manage") {
 			return nil
 		}
 
-		return fmt.Errorf("settings list permission required")
+		return fmt.Errorf("billing read permission required")
 	case "PUT", "PATCH":
-		if normalizedRoute == "/api/v1/wallet/topup/settings" && hasPermission(authInfo, "settings:manage") {
+		if normalizedRoute == "/api/v1/wallet/topup/settings" && hasAnyPermission(authInfo, "billing:manage", "settings:manage") {
 			return nil
 		}
 	case "POST":
-		if (normalizedRoute == "/api/v1/wallet/topup" || normalizedRoute == "/api/v1/wallet/topup/intents") && hasPermission(authInfo, "settings:manage") {
+		if (normalizedRoute == "/api/v1/wallet/topup" || normalizedRoute == "/api/v1/wallet/topup/intents" || normalizedRoute == "/api/v1/wallet/bank-transfers") && hasAnyPermission(authInfo, "billing:manage", "settings:manage") {
 			return nil
 		}
 	}
 
-	return fmt.Errorf("tenant admin privileges required")
+	return fmt.Errorf("billing manage permission required")
+}
+
+func checkBillingRouteAuthorization(method, route string, authInfo *platform.AuthContext) error {
+	if IsTenantAdminOrHigher(authInfo) {
+		return nil
+	}
+
+	normalizedMethod := strings.ToUpper(strings.TrimSpace(method))
+	normalizedRoute := strings.TrimSpace(route)
+
+	if strings.Contains(normalizedRoute, "/gift-codes/redeem") || strings.Contains(normalizedRoute, "/discount-codes/redeem") {
+		if normalizedMethod == "POST" && hasAnyPermission(authInfo, "billing:codes_redeem", "billing:manage", "settings:manage") {
+			return nil
+		}
+		return fmt.Errorf("billing code redemption permission required")
+	}
+
+	if normalizedRoute == "/api/v1/billing/profile" {
+		if normalizedMethod == "GET" || normalizedMethod == "HEAD" || normalizedMethod == "OPTIONS" {
+			if hasAnyPermission(authInfo, "billing:read", "billing:manage", "billing:profile_manage", "settings:list", "settings:manage") {
+				return nil
+			}
+		}
+		if hasAnyPermission(authInfo, "billing:profile_manage", "billing:manage", "settings:manage") {
+			return nil
+		}
+		return fmt.Errorf("billing profile manage permission required")
+	}
+
+	if strings.HasPrefix(normalizedRoute, "/api/v1/billing/documents") {
+		if hasAnyPermission(authInfo, "billing:documents_read", "billing:read", "billing:manage", "settings:list", "settings:manage") {
+			return nil
+		}
+		return fmt.Errorf("billing documents permission required")
+	}
+
+	if normalizedMethod == "GET" || normalizedMethod == "HEAD" || normalizedMethod == "OPTIONS" {
+		if hasAnyPermission(authInfo, "billing:read", "billing:manage", "settings:list", "settings:manage") {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("billing read permission required")
 }
 
 func checkPolicyRouteAuthorization(method string, authInfo *platform.AuthContext) error {

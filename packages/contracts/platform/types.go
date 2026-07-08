@@ -43,10 +43,10 @@ type AuthContext struct {
 
 // Wallet tracks tenant balance in IRR.
 type Wallet struct {
-	ID         string  `json:"id"`
-	TenantID   string  `json:"tenant_id"`
-	BalanceIRR float64 `json:"balance_irr"`
-	PendingIRR float64 `json:"pending_irr"`
+	ID         string `json:"id"`
+	TenantID   string `json:"tenant_id"`
+	BalanceIRR int64  `json:"balance_irr"`
+	PendingIRR int64  `json:"pending_irr"`
 }
 
 // Transaction records wallet changes.
@@ -55,13 +55,17 @@ type Transaction struct {
 	WalletID     string                 `json:"wallet_id"`
 	TenantID     string                 `json:"tenant_id"`
 	Type         string                 `json:"type"`
-	AmountIRR    float64                `json:"amount_irr"`
+	AmountIRR    int64                  `json:"amount_irr"`
+	BalanceAfter int64                  `json:"balance_after_irr,omitempty"`
 	AmountUSD    *float64               `json:"amount_usd,omitempty"`
 	ExchangeRate *float64               `json:"exchange_rate,omitempty"`
 	Status       string                 `json:"status"`
 	Description  string                 `json:"description,omitempty"`
 	Metadata     map[string]interface{} `json:"metadata,omitempty"`
+	SourceType   string                 `json:"source_type,omitempty"`
+	SourceID     string                 `json:"source_id,omitempty"`
 	CreatedAt    time.Time              `json:"created_at"`
+	CompletedAt  *time.Time             `json:"completed_at,omitempty"`
 }
 
 // WalletTopUpStatus defines payment lifecycle states.

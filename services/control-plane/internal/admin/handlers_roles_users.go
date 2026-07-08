@@ -240,13 +240,14 @@ func (h *Handlers) GetCurrentUserPermissions(c *fiber.Ctx) error {
 				"team:create", "team:read", "team:manage", "team:delete",
 				"org_unit:create", "org_unit:read", "org_unit:manage", "org_unit:delete", "org_unit:list",
 				"virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete",
-			}, "provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete", "settings:list", "settings:manage"),
+			}, "provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete", "settings:list", "settings:manage", "billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem"),
 			"tenant_admin": append([]string{
 				"policy:list", "policy:manage", "role:list", "role:manage", "user:list", "user:manage",
 				"team:create", "team:read", "team:manage", "team:delete",
 				"org_unit:create", "org_unit:read", "org_unit:manage", "org_unit:delete", "org_unit:list",
 				"virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete",
-			}, "provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete", "settings:list", "settings:manage"),
+			}, "provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete", "settings:list", "settings:manage", "billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem"),
+			"billing_manager": {"billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem", "settings:list"},
 			"org_admin": {
 				"policy:list", "role:list", "user:list", "user:manage",
 				"org_unit:read", "org_unit:manage", "org_unit:list",

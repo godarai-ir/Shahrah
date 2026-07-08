@@ -1,11 +1,11 @@
 {
   "title": "Wallet Top-up",
-  "description": "Choose the amount and continue to payment gateway.",
+  "description": "Enter the top-up amount in toman; the payment intent is stored with canonical IRR.",
   "errorTitle": "Error",
-  "amountLabel": "Amount (USD)",
+  "amountLabel": "Amount (toman)",
   "providerLabel": "Payment gateway",
   "balanceLabel": "Current wallet balance",
-  "constraints": "Allowed range: {min} to {max} USD | Tax: {tax}% | Fee: {fee}%",
+  "constraints": "Tax: {tax}% | Fee: {fee}% | The API stores the canonical amount in IRR.",
   "submit": "Continue to gateway",
   "submitLoading": "Creating payment...",
   "providers": {
@@ -14,7 +14,7 @@
     "idpay": "IDPay"
   },
   "messages": {
-    "amountOutOfRange": "Amount must be between {min} and {max} USD.",
+    "amountInvalid": "Toman amount must be a positive number.",
     "intentFailed": "Failed to create payment intent.",
     "missingRedirect": "Gateway redirect URL was not received.",
     "unknownError": "Unknown error occurred."

@@ -328,7 +328,7 @@ func (s *Service) seedBudgetWindow(ctx context.Context, budgetCache budgetWindow
 	}
 	result, err := budgetCache.SeedBudgetWindow(ctx, cache.BudgetWindowSeed{
 		WindowKey:    windowKey,
-		AllowanceIRR: wallet.BalanceIRR,
+		AllowanceIRR: float64(wallet.BalanceIRR),
 		ExpiresAt:    windowEnd,
 		TTL:          ttl,
 		Version:      windowEnd.Unix(),

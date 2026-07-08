@@ -3,6 +3,9 @@ package storage
 import (
 	"context"
 	"errors"
+	"math"
+	"strings"
+	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/google/uuid"
@@ -23,7 +26,7 @@ func (s *Store) GetWallet(ctx context.Context, tenantID string) (*platform.Walle
 		INSERT INTO wallets (tenant_id, balance_irr, pending_irr)
 		VALUES ($1, 0, 0)
 		ON CONFLICT (tenant_id) DO UPDATE SET tenant_id = EXCLUDED.tenant_id
-		RETURNING wallet_id::text, tenant_id::text, balance_irr, pending_irr
+		RETURNING wallet_id::text, tenant_id::text, ROUND(balance_irr)::bigint, ROUND(pending_irr)::bigint
 	`, tenantID).Scan(&wallet.ID, &wallet.TenantID, &wallet.BalanceIRR, &wallet.PendingIRR)
 	if err != nil {
 		return nil, err
@@ -40,32 +43,19 @@ func (s *Store) TopUpWallet(ctx context.Context, tenantID string, amountIRR floa
 	}
 	defer rollbackTxBestEffort(ctx, tx)
 
-	var walletID string
-	if err := tx.QueryRow(ctx, `
-		INSERT INTO wallets (tenant_id, balance_irr, pending_irr)
-		VALUES ($1, 0, 0)
-		ON CONFLICT (tenant_id) DO UPDATE SET balance_irr = wallets.balance_irr
-		RETURNING wallet_id::text
-	`, tenantID).Scan(&walletID); err != nil {
-		return nil, err
-	}
-
-	if _, err := tx.Exec(ctx, `UPDATE wallets SET balance_irr = balance_irr + $2, updated_at = NOW() WHERE wallet_id::text = $1`, walletID, amountIRR); err != nil {
-		return nil, err
-	}
-
-	metaRaw := marshalJSONBestEffort(metadata)
-
-	var out platform.Transaction
-	if err := tx.QueryRow(ctx, `
-		INSERT INTO wallet_transactions (
-			transaction_id, wallet_id, tenant_id, tx_type, amount_irr, status, description, metadata
-		)
-		VALUES ($1, $2, $3, 'DEPOSIT', $4, 'COMPLETED', 'stubbed wallet top-up', $5)
-		RETURNING transaction_id::text, wallet_id::text, tenant_id::text, tx_type, amount_irr, status, description, created_at
-	`, uuid.NewString(), walletID, tenantID, amountIRR, metaRaw).Scan(
-		&out.ID, &out.WalletID, &out.TenantID, &out.Type, &out.AmountIRR, &out.Status, &out.Description, &out.CreatedAt,
-	); err != nil {
+	out, err := appendWalletTransactionTx(ctx, tx, walletTransactionParams{
+		TenantID:       tenantID,
+		Type:           "wallet_topup",
+		AmountIRR:      roundedIRR(amountIRR),
+		Status:         "successful",
+		Description:    "stubbed wallet top-up",
+		Metadata:       metadata,
+		SourceType:     "legacy_topup",
+		SourceID:       uuid.NewString(),
+		IdempotencyKey: "legacy_topup:" + uuid.NewString(),
+		CompletedAt:    time.Now().UTC(),
+	})
+	if err != nil {
 		return nil, err
 	}
 
@@ -77,7 +67,7 @@ func (s *Store) TopUpWallet(ctx context.Context, tenantID string, amountIRR floa
 
 	s.invalidateWalletCache(ctx, tenantID)
 
-	return &out, nil
+	return out, nil
 }
 
 // DebitWallet debits the tenant wallet for inference usage.
@@ -91,37 +81,27 @@ func (s *Store) DebitWallet(ctx context.Context, tenantID string, breakdown plat
 	}
 	defer rollbackTxWithFreshTimeout(tx)
 
-	var wallet platform.Wallet
-	if err := tx.QueryRow(ctx, `
-		UPDATE wallets
-		SET balance_irr = balance_irr - $2,
-		    updated_at = NOW()
-		WHERE tenant_id = $1
-		  AND balance_irr >= $2
-		RETURNING wallet_id::text, tenant_id::text, balance_irr, pending_irr
-	`, tenantID, breakdown.TotalCostIRR).Scan(&wallet.ID, &wallet.TenantID, &wallet.BalanceIRR, &wallet.PendingIRR); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrInsufficientWalletBalance
-		}
-		return nil, err
-	}
-
-	metaRaw := marshalJSONBestEffort(map[string]interface{}{
+	metadata := map[string]interface{}{
 		"request_id": requestID,
 		"model":      breakdown.Model,
 		"tokens":     breakdown.TotalTokens,
-	})
+	}
 
-	var txn platform.Transaction
-	if err := tx.QueryRow(ctx, `
-		INSERT INTO wallet_transactions (
-			transaction_id, wallet_id, tenant_id, tx_type, amount_irr, amount_usd, exchange_rate, status, description, metadata
-		)
-		VALUES ($1, $2, $3, 'CONSUMPTION', $4, $5, $6, 'COMPLETED', 'inference usage', $7)
-		RETURNING transaction_id::text, wallet_id::text, tenant_id::text, tx_type, amount_irr, amount_usd, exchange_rate, status, description, created_at
-	`, uuid.NewString(), wallet.ID, tenantID, breakdown.TotalCostIRR, breakdown.TotalCostUSD, breakdown.ExchangeRate, metaRaw).Scan(
-		&txn.ID, &txn.WalletID, &txn.TenantID, &txn.Type, &txn.AmountIRR, &txn.AmountUSD, &txn.ExchangeRate, &txn.Status, &txn.Description, &txn.CreatedAt,
-	); err != nil {
+	txn, err := appendWalletTransactionTx(ctx, tx, walletTransactionParams{
+		TenantID:       tenantID,
+		Type:           "usage_debit",
+		AmountIRR:      roundedIRR(breakdown.TotalCostIRR),
+		AmountUSD:      &breakdown.TotalCostUSD,
+		ExchangeRate:   &breakdown.ExchangeRate,
+		Status:         "successful",
+		Description:    "inference usage",
+		Metadata:       metadata,
+		SourceType:     "gateway_request",
+		SourceID:       requestID,
+		IdempotencyKey: "usage_debit:" + strings.TrimSpace(requestID),
+		CompletedAt:    time.Now().UTC(),
+	})
+	if err != nil {
 		return nil, err
 	}
 
@@ -131,5 +111,143 @@ func (s *Store) DebitWallet(ctx context.Context, tenantID string, breakdown plat
 
 	s.invalidateWalletCache(ctx, tenantID)
 
-	return &txn, nil
+	return txn, nil
+}
+
+type walletTransactionParams struct {
+	TenantID       string
+	Type           string
+	AmountIRR      int64
+	AmountUSD      *float64
+	ExchangeRate   *float64
+	Status         string
+	Description    string
+	Metadata       map[string]interface{}
+	SourceType     string
+	SourceID       string
+	IdempotencyKey string
+	CreatedBy      string
+	CompletedAt    time.Time
+}
+
+func appendWalletTransactionTx(ctx context.Context, tx pgx.Tx, p walletTransactionParams) (*platform.Transaction, error) {
+	if p.AmountIRR <= 0 {
+		return nil, errors.New("wallet transaction amount must be positive")
+	}
+
+	if p.Status == "" {
+		p.Status = "successful"
+	}
+
+	if p.IdempotencyKey != "" {
+		existing, err := scanWalletTransactionRow(tx.QueryRow(ctx, `
+			SELECT transaction_id::text, wallet_id::text, tenant_id::text, tx_type,
+			       ROUND(amount_irr)::bigint, COALESCE(balance_after_irr, 0)::bigint,
+			       amount_usd, exchange_rate, status, COALESCE(description, ''), metadata,
+			       COALESCE(source_type, ''), COALESCE(source_id, ''), created_at, completed_at
+			FROM wallet_transactions
+			WHERE tenant_id::text = $1 AND idempotency_key = $2
+			LIMIT 1
+		`, p.TenantID, p.IdempotencyKey))
+		if err == nil {
+			return existing, nil
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return nil, err
+		}
+	}
+
+	var (
+		walletID string
+		balance  int64
+	)
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO wallets (tenant_id, balance_irr, pending_irr)
+		VALUES ($1::uuid, 0, 0)
+		ON CONFLICT (tenant_id) DO UPDATE SET tenant_id = EXCLUDED.tenant_id
+		RETURNING wallet_id::text
+	`, p.TenantID).Scan(&walletID); err != nil {
+		return nil, err
+	}
+
+	if err := tx.QueryRow(ctx, `
+		SELECT ROUND(balance_irr)::bigint
+		FROM wallets
+		WHERE wallet_id::text = $1
+		FOR UPDATE
+	`, walletID).Scan(&balance); err != nil {
+		return nil, err
+	}
+
+	delta := p.AmountIRR
+	if isWalletDebitType(p.Type) {
+		delta = -delta
+	}
+
+	after := balance + delta
+	if after < 0 {
+		return nil, ErrInsufficientWalletBalance
+	}
+
+	if _, err := tx.Exec(ctx, `
+		UPDATE wallets
+		SET balance_irr = $2, updated_at = NOW()
+		WHERE wallet_id::text = $1
+	`, walletID, after); err != nil {
+		return nil, err
+	}
+
+	metaRaw := marshalJSONBestEffort(p.Metadata)
+	completedAt := any(nil)
+	if !p.CompletedAt.IsZero() {
+		completedAt = p.CompletedAt
+	}
+
+	return scanWalletTransactionRow(tx.QueryRow(ctx, `
+		INSERT INTO wallet_transactions (
+			transaction_id, wallet_id, tenant_id, tx_type, amount_irr, balance_after_irr,
+			amount_usd, exchange_rate, status, description, metadata, source_type, source_id,
+			idempotency_key, created_by, completed_at, effective_at
+		)
+		VALUES (
+			$1::uuid, $2::uuid, $3::uuid, $4, $5, $6,
+			$7, $8, $9, NULLIF($10, ''), $11, NULLIF($12, ''), NULLIF($13, ''),
+			NULLIF($14, ''), NULLIF($15, ''), $16, NOW()
+		)
+		RETURNING transaction_id::text, wallet_id::text, tenant_id::text, tx_type,
+		          ROUND(amount_irr)::bigint, COALESCE(balance_after_irr, 0)::bigint,
+		          amount_usd, exchange_rate, status, COALESCE(description, ''), metadata,
+		          COALESCE(source_type, ''), COALESCE(source_id, ''), created_at, completed_at
+	`, uuid.NewString(), walletID, p.TenantID, p.Type, p.AmountIRR, after, p.AmountUSD, p.ExchangeRate,
+		p.Status, p.Description, metaRaw, p.SourceType, p.SourceID, p.IdempotencyKey, p.CreatedBy, completedAt))
+}
+
+func scanWalletTransactionRow(row pgx.Row) (*platform.Transaction, error) {
+	var item platform.Transaction
+	if err := row.Scan(
+		&item.ID, &item.WalletID, &item.TenantID, &item.Type, &item.AmountIRR, &item.BalanceAfter,
+		&item.AmountUSD, &item.ExchangeRate, &item.Status, &item.Description, &item.Metadata,
+		&item.SourceType, &item.SourceID, &item.CreatedAt, &item.CompletedAt,
+	); err != nil {
+		return nil, err
+	}
+
+	return &item, nil
+}
+
+func isWalletDebitType(txType string) bool {
+	switch strings.ToLower(strings.TrimSpace(txType)) {
+	case "usage_debit", "invoice_adjustment", "manual_debit", "invoice_debit", "consumption", "withdrawal":
+		return true
+	default:
+		return false
+	}
+}
+
+func roundedIRR(value float64) int64 {
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		return 0
+	}
+
+	return int64(math.Round(value))
 }

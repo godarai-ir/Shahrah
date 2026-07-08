@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -196,70 +196,53 @@ func (s *Store) AdjustTenantWallet(ctx context.Context, tenantID string, req pla
 		return nil, err
 	}
 
-	var (
-		walletID string
-		balance  float64
-	)
-	if err := tx.QueryRow(ctx, `
-		INSERT INTO wallets (tenant_id, balance_irr, pending_irr) VALUES ($1, 0, 0)
-		ON CONFLICT (tenant_id) DO UPDATE SET tenant_id = EXCLUDED.tenant_id
-		RETURNING wallet_id::text, balance_irr
-	`, tenantID).Scan(&walletID, &balance); err != nil {
-		return nil, err
-	}
-
-	if err := tx.QueryRow(ctx, `SELECT balance_irr FROM wallets WHERE wallet_id::text = $1 FOR UPDATE`, walletID).Scan(&balance); err != nil {
-		return nil, err
-	}
-
-	before := int64(balance)
-	delta := req.AmountMinor
-	txType := "MANUAL_CREDIT"
-
-	if req.Direction == "debit" {
-		delta = -delta
-		txType = "MANUAL_DEBIT"
-	}
-
-	after := before + delta
-	if after < 0 {
-		return nil, ErrInsufficientWalletBalance
-	}
-
-	if _, err := tx.Exec(ctx, `UPDATE wallets SET balance_irr = $2, updated_at = NOW() WHERE wallet_id::text = $1`, walletID, after); err != nil {
-		return nil, err
-	}
-
 	metadata := map[string]interface{}{"reason": req.Reason, "external_reference": req.ExternalReference, "actor_id": actor.ID, "request_id": actor.RequestID}
-	metaRaw := marshalJSONBestEffort(metadata)
 
 	var result platform.WalletAdjustmentResult
 
-	result.BalanceBefore, result.BalanceAfter = before, after
-	if err := tx.QueryRow(ctx, `
-		INSERT INTO wallet_transactions (transaction_id, wallet_id, tenant_id, tx_type, amount_irr, status, description, metadata)
-		VALUES ($1, $2, $3, $4, $5, 'COMPLETED', $6, $7)
-		RETURNING transaction_id::text, wallet_id::text, tenant_id::text, tx_type, amount_irr, status, description, created_at
-	`, uuid.NewString(), walletID, tenantID, txType, req.AmountMinor, req.Reason, metaRaw).Scan(
-		&result.Transaction.ID, &result.Transaction.WalletID, &result.Transaction.TenantID, &result.Transaction.Type,
-		&result.Transaction.AmountIRR, &result.Transaction.Status, &result.Transaction.Description, &result.Transaction.CreatedAt,
-	); err != nil {
+	txType := "manual_adjustment"
+	if req.Direction == "debit" {
+		txType = "manual_debit"
+	}
+
+	walletTxn, err := appendWalletTransactionTx(ctx, tx, walletTransactionParams{
+		TenantID:       tenantID,
+		Type:           txType,
+		AmountIRR:      req.AmountMinor,
+		Status:         "successful",
+		Description:    req.Reason,
+		Metadata:       metadata,
+		SourceType:     "manual_adjustment",
+		SourceID:       req.ExternalReference,
+		IdempotencyKey: "manual_adjustment:" + req.IdempotencyKey,
+		CreatedBy:      actor.ID,
+		CompletedAt:    time.Now().UTC(),
+	})
+	if err != nil {
 		return nil, err
 	}
 
+	result.Transaction = *walletTxn
 	result.Transaction.Metadata = metadata
+	result.BalanceAfter = walletTxn.BalanceAfter
+	if req.Direction == "debit" {
+		result.BalanceBefore = walletTxn.BalanceAfter + req.AmountMinor
+	} else {
+		result.BalanceBefore = walletTxn.BalanceAfter - req.AmountMinor
+	}
+
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO wallet_manual_adjustments (
 			tenant_id, wallet_transaction_id, idempotency_key, direction, amount_minor, reason,
 			external_reference, actor_id, actor_role, request_id, balance_before, balance_after
 		) VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, ''), $8, NULLIF($9, ''), NULLIF($10, ''), $11, $12)
 	`, tenantID, result.Transaction.ID, req.IdempotencyKey, req.Direction, req.AmountMinor, req.Reason,
-		req.ExternalReference, actor.ID, actor.Role, actor.RequestID, before, after); err != nil {
+		req.ExternalReference, actor.ID, actor.Role, actor.RequestID, result.BalanceBefore, result.BalanceAfter); err != nil {
 		return nil, err
 	}
 
 	if err := insertTenantEventTx(ctx, tx, tenantID, "wallet.manual_"+req.Direction, "warning", actor, req.Reason, map[string]interface{}{
-		"transaction_id": result.Transaction.ID, "amount_minor": req.AmountMinor, "balance_before": before, "balance_after": after,
+		"transaction_id": result.Transaction.ID, "amount_minor": req.AmountMinor, "balance_before": result.BalanceBefore, "balance_after": result.BalanceAfter,
 	}); err != nil {
 		return nil, err
 	}

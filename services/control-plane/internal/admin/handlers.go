@@ -63,6 +63,18 @@ type walletStore interface {
 	CompleteWalletTopUpByAuthority(ctx context.Context, authority string, verifyRaw map[string]interface{}, refID, gatewayTxnID, cardMask, payerPhone string) (*platform.WalletTopUpIntent, bool, error)
 	MarkWalletTopUpFailedByAuthority(ctx context.Context, authority string, reason string, raw map[string]interface{}) error
 	ListWalletTransactions(ctx context.Context, tenantID string, limit int) ([]platform.Transaction, error)
+	CreateBankTransferRequest(ctx context.Context, tenantID string, req platform.CreateBankTransferRequest, actor string) (*platform.BankTransferRequest, error)
+	ListBankTransferRequests(ctx context.Context, tenantID string, limit int) ([]platform.BankTransferRequest, error)
+	ApproveBankTransferRequest(ctx context.Context, tenantID string, requestID string, req platform.ReviewBankTransferRequest, actor platform.SupportActor) (*platform.BankTransferRequest, error)
+	RejectBankTransferRequest(ctx context.Context, tenantID string, requestID string, req platform.ReviewBankTransferRequest, actor platform.SupportActor) (*platform.BankTransferRequest, error)
+	RedeemGiftCode(ctx context.Context, tenantID string, code string, actor string) (*platform.GiftCodeRedemption, error)
+	RedeemDiscountCode(ctx context.Context, tenantID string, code string, actor string) (*platform.DiscountRedemption, error)
+	GetBillingProfile(ctx context.Context, tenantID string) (*platform.BillingProfile, error)
+	UpsertBillingProfile(ctx context.Context, tenantID string, req platform.UpsertBillingProfileRequest, actor string) (*platform.BillingProfile, error)
+	ListInvoices(ctx context.Context, tenantID string, limit int) ([]platform.Invoice, error)
+	ListDiscountRedemptions(ctx context.Context, tenantID string, limit int) ([]platform.DiscountRedemption, error)
+	GetBillingUsageSummary(ctx context.Context, tenantID string, rangeKey string) (*platform.BillingUsageSummary, error)
+	GetMonthlyUsageDetail(ctx context.Context, tenantID string, month string) (*platform.MonthlyUsageDetail, error)
 }
 
 type providerAccountStore interface {

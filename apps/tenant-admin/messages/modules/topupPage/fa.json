@@ -1,11 +1,11 @@
 {
   "title": "شارژ کیف پول",
-  "description": "مبلغ شارژ را انتخاب کنید و به درگاه پرداخت منتقل شوید.",
+  "description": "مبلغ شارژ را به تومان وارد کنید؛ درخواست پرداخت با مبلغ ریالی canonical ثبت می‌شود.",
   "errorTitle": "خطا",
-  "amountLabel": "مبلغ (دلار)",
+  "amountLabel": "مبلغ (تومان)",
   "providerLabel": "درگاه پرداخت",
   "balanceLabel": "موجودی فعلی کیف پول",
-  "constraints": "بازه مجاز: {min} تا {max} دلار | مالیات: {tax}% | کارمزد: {fee}%",
+  "constraints": "مالیات: {tax}% | کارمزد: {fee}% | مبلغ ذخیره‌شده در API بر اساس ریال است.",
   "submit": "ادامه و انتقال به درگاه",
   "submitLoading": "در حال ایجاد پرداخت...",
   "providers": {
@@ -14,7 +14,7 @@
     "idpay": "آی‌دی‌پی"
   },
   "messages": {
-    "amountOutOfRange": "مبلغ باید بین {min} و {max} دلار باشد.",
+    "amountInvalid": "مبلغ تومان باید یک عدد مثبت باشد.",
     "intentFailed": "ایجاد درخواست پرداخت ناموفق بود.",
     "missingRedirect": "آدرس انتقال به درگاه دریافت نشد.",
     "unknownError": "خطای ناشناخته رخ داد."

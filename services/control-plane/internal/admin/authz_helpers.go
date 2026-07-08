@@ -20,11 +20,31 @@ func requireTenantAdminOrHigher(c *fiber.Ctx) error {
 }
 
 func requireWalletRead(c *fiber.Ctx) error {
-	return requirePermissionAnyOrTenantAdmin(c, "settings list permission required", []string{"settings:list", "settings:manage"})
+	return requirePermissionAnyOrTenantAdmin(c, "billing read permission required", []string{"billing:read", "billing:manage", "settings:list", "settings:manage"})
 }
 
 func requireWalletManage(c *fiber.Ctx) error {
-	return requirePermissionAnyOrTenantAdmin(c, "tenant admin privileges required", []string{"settings:manage"})
+	return requirePermissionAnyOrTenantAdmin(c, "billing manage permission required", []string{"billing:manage", "settings:manage"})
+}
+
+func requireBillingRead(c *fiber.Ctx) error {
+	return requirePermissionAnyOrTenantAdmin(c, "billing read permission required", []string{"billing:read", "billing:manage", "billing:documents_read", "settings:list", "settings:manage"})
+}
+
+func requireBillingManage(c *fiber.Ctx) error {
+	return requirePermissionAnyOrTenantAdmin(c, "billing manage permission required", []string{"billing:manage", "settings:manage"})
+}
+
+func requireBillingProfileManage(c *fiber.Ctx) error {
+	return requirePermissionAnyOrTenantAdmin(c, "billing profile manage permission required", []string{"billing:profile_manage", "billing:manage", "settings:manage"})
+}
+
+func requireBillingDocumentsRead(c *fiber.Ctx) error {
+	return requirePermissionAnyOrTenantAdmin(c, "billing documents permission required", []string{"billing:documents_read", "billing:read", "billing:manage", "settings:list", "settings:manage"})
+}
+
+func requireBillingCodesRedeem(c *fiber.Ctx) error {
+	return requirePermissionAnyOrTenantAdmin(c, "billing code redemption permission required", []string{"billing:codes_redeem", "billing:manage", "settings:manage"})
 }
 
 func requireTeamAdminOrHigher(c *fiber.Ctx) error {

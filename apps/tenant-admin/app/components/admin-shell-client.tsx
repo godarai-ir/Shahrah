@@ -71,6 +71,10 @@ const SIDEBAR_NAV_GROUPS: Array<{
     itemKeys: ["dashboard", "quickStart"],
   },
   {
+    labelKey: "navGroups.billing",
+    itemKeys: ["billing", "topup", "bankTransfer", "billingReports", "billingProfile", "billingDocuments", "plan"],
+  },
+  {
     labelKey: "navGroups.runtime",
     itemKeys: ["providerAccounts", "virtualModels", "prompts"],
   },

@@ -42,11 +42,17 @@ func TestCheckRouteAuthorization_WalletMutationsRequireManagePermission(t *testi
 		Permissions: []string{"settings:list"},
 	})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "tenant admin privileges required")
+	assert.Contains(t, err.Error(), "billing manage permission required")
 
 	err = auth.CheckRouteAuthorization("POST", "/api/v1/wallet/topup/intents", &platform.AuthContext{
 		Role:        "member",
 		Permissions: []string{"settings:manage"},
+	})
+	assert.NoError(t, err)
+
+	err = auth.CheckRouteAuthorization("POST", "/api/v1/wallet/topup/intents", &platform.AuthContext{
+		Role:        "member",
+		Permissions: []string{"billing:manage"},
 	})
 	assert.NoError(t, err)
 }

@@ -23,6 +23,7 @@ import (
 
 type createTopUpIntentRequest struct {
 	AmountUSD float64                `json:"amount_usd"`
+	AmountIRR int64                  `json:"amount_irr"`
 	Provider  string                 `json:"provider"`
 	ReturnURL string                 `json:"return_url"`
 	Metadata  map[string]interface{} `json:"metadata"`
@@ -451,6 +452,15 @@ func calculateIRR(amountUSD, exchangeRate, taxPercent, feePercent float64) (amou
 	return
 }
 
+func calculatePayableIRR(amountIRR int64, taxPercent, feePercent float64) (taxIRR, feeIRR, payable float64) {
+	base := float64(amountIRR)
+	taxIRR = base * (taxPercent / 100)
+	feeIRR = base * (feePercent / 100)
+	payable = base + taxIRR + feeIRR
+
+	return
+}
+
 func fallbackUSDtoIRRRate() float64 {
 	const defaultRate = 1850000.0
 
@@ -531,8 +541,8 @@ func (h *Handlers) CreateWalletTopUpIntent(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
 
-	if req.AmountUSD <= 0 {
-		return fiber.NewError(fiber.StatusBadRequest, "amount_usd must be greater than 0")
+	if req.AmountIRR <= 0 && req.AmountUSD <= 0 {
+		return fiber.NewError(fiber.StatusBadRequest, "amount_irr or amount_usd must be greater than 0")
 	}
 
 	settings, err := h.wallets.GetWalletTopUpSettings(c.Context())
@@ -540,13 +550,24 @@ func (h *Handlers) CreateWalletTopUpIntent(c *fiber.Ctx) error {
 		return err
 	}
 
-	if req.AmountUSD < settings.MinAmountUSD || req.AmountUSD > settings.MaxAmountUSD {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("amount_usd must be between %.2f and %.2f", settings.MinAmountUSD, settings.MaxAmountUSD))
-	}
-
 	rate, err := resolveUSDtoIRRRate(c, h.wallets)
 	if err != nil || rate == nil || rate.USDtoIRR <= 0 {
 		return fiber.NewError(fiber.StatusBadGateway, "failed to resolve exchange rate")
+	}
+
+	amountUSD := req.AmountUSD
+	amountIRR := float64(req.AmountIRR)
+	var taxIRR, feeIRR, payable float64
+
+	if req.AmountIRR > 0 {
+		amountUSD = float64(req.AmountIRR) / rate.USDtoIRR
+		taxIRR, feeIRR, payable = calculatePayableIRR(req.AmountIRR, settings.TaxPercent, settings.FeePercent)
+	} else {
+		amountIRR, taxIRR, feeIRR, payable = calculateIRR(req.AmountUSD, rate.USDtoIRR, settings.TaxPercent, settings.FeePercent)
+	}
+
+	if amountUSD < settings.MinAmountUSD || amountUSD > settings.MaxAmountUSD {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("top-up amount must be between %.2f and %.2f USD equivalent", settings.MinAmountUSD, settings.MaxAmountUSD))
 	}
 
 	returnURL := strings.TrimSpace(req.ReturnURL)
@@ -559,12 +580,10 @@ func (h *Handlers) CreateWalletTopUpIntent(c *fiber.Ctx) error {
 		providerName = "mock"
 	}
 
-	amountIRR, taxIRR, feeIRR, payable := calculateIRR(req.AmountUSD, rate.USDtoIRR, settings.TaxPercent, settings.FeePercent)
-
 	intent, err := h.wallets.CreateWalletTopUpIntent(c.Context(), storage.CreateTopUpIntentParams{
 		TenantID:     currentTenant.ID,
 		Provider:     providerName,
-		AmountUSD:    req.AmountUSD,
+		AmountUSD:    amountUSD,
 		AmountIRR:    amountIRR,
 		ExchangeRate: rate.USDtoIRR,
 		TaxPercent:   settings.TaxPercent,
