@@ -20,9 +20,9 @@ describe("RateLimitRuleForm", () => {
   it("adds and removes condition rows", async () => {
     render(<RateLimitRuleForm />);
     fireEvent.click(screen.getByText("actions.addFilter"));
-    expect(screen.getAllByLabelText("remove condition")).toHaveLength(1);
-    fireEvent.click(screen.getByLabelText("remove condition"));
-    expect(screen.queryByLabelText("remove condition")).toBeNull();
+    expect(screen.getAllByLabelText("حذف فیلتر")).toHaveLength(1);
+    fireEvent.click(screen.getByLabelText("حذف فیلتر"));
+    expect(screen.queryByLabelText("حذف فیلتر")).toBeNull();
   });
 
   it("save disabled on invalid form", () => {
@@ -33,10 +33,10 @@ describe("RateLimitRuleForm", () => {
 
   it("advanced options can expand and collapse", () => {
     render(<RateLimitRuleForm />);
-    const toggle = screen.getByText("Advanced Options");
+    const toggle = screen.getByText("نمایش تنظیمات پیشرفته");
     fireEvent.click(toggle);
-    expect(screen.getByText("Conflict behavior | رفتار تعارض")).toBeInTheDocument();
-    fireEvent.click(toggle);
-    expect(screen.queryByText("Conflict behavior | رفتار تعارض")).toBeNull();
+    expect(screen.getByText("رفتار تعارض")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("بستن تنظیمات پیشرفته"));
+    expect(screen.queryByText("رفتار تعارض")).toBeNull();
   });
 });
