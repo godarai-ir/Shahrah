@@ -60,6 +60,7 @@ func (s *Store) invalidateWalletCache(ctx context.Context, tenantID string) {
 		return
 	}
 	s.entitlementCache.Delete(ctx, walletCacheKey(tenantID))
+	s.syncCurrentBudgetWindowAllowance(ctx, tenantID)
 }
 
 func (s *Store) getCachedDeployments(key string) ([]platform.Deployment, hotPathCacheState) {

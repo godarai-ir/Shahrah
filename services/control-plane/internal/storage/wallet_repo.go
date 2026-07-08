@@ -17,6 +17,15 @@ var ErrInsufficientWalletBalance = errors.New("insufficient wallet balance")
 
 // GetWallet retrieves or creates the tenant wallet.
 func (s *Store) GetWallet(ctx context.Context, tenantID string) (*platform.Wallet, error) {
+	wallet, err := s.getWalletLedger(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.decorateWalletWithLiveState(ctx, wallet)
+}
+
+func (s *Store) getWalletLedger(ctx context.Context, tenantID string) (*platform.Wallet, error) {
 	ctx, cancel := withHotPathDBTimeout(ctx)
 	defer cancel()
 

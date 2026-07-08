@@ -3,6 +3,7 @@ import { getLocale, getMessages } from "next-intl/server";
 import { headers } from "next/headers";
 
 import AdminShellClient from "@/app/components/admin-shell-client";
+import type { WalletPayload } from "@/app/billing/_shared";
 import { getCurrentMePermissions } from "@/lib/auth/me-permissions";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 
@@ -15,10 +16,6 @@ type AdminShellProps = {
     mobile?: string;
     role: string;
   };
-};
-
-type WalletPayload = {
-  balance_irr?: number;
 };
 
 type TenantSubscription = {
@@ -70,7 +67,13 @@ function buildDocsHref(headersList: Headers, tenantSlug: string): string {
   return docsHost ? `${proto}://${docsHost}/docs/` : "/docs/";
 }
 
-async function loadWalletSummary(tenantSlug: string, userID: string): Promise<{ balanceIRR: number | null }> {
+async function loadWalletSummary(tenantSlug: string, userID: string): Promise<{
+  availableBalanceIRR: number | null;
+  ledgerBalanceIRR: number | null;
+  committedUnsettledIRR: number;
+  reservedIRR: number;
+  syncStatus: string | null;
+}> {
   const response = await fetchControlPlaneJSON({
     tenantSlug,
     method: "GET",
@@ -79,12 +82,28 @@ async function loadWalletSummary(tenantSlug: string, userID: string): Promise<{ 
   });
 
   if (!response.ok) {
-    return { balanceIRR: null };
+    return {
+      availableBalanceIRR: null,
+      ledgerBalanceIRR: null,
+      committedUnsettledIRR: 0,
+      reservedIRR: 0,
+      syncStatus: null,
+    };
   }
 
   const payload = response.payload as WalletPayload;
-  const balance = Number(payload.balance_irr ?? 0);
-  return { balanceIRR: Number.isFinite(balance) ? balance : null };
+  const availableBalance = Number(payload.available_balance_irr ?? payload.balance_irr ?? 0);
+  const ledgerBalance = Number(payload.ledger_balance_irr ?? payload.balance_irr ?? 0);
+  const committedUnsettled = Number(payload.committed_unsettled_irr ?? payload.pending_irr ?? 0);
+  const reserved = Number(payload.reserved_irr ?? 0);
+
+  return {
+    availableBalanceIRR: Number.isFinite(availableBalance) ? availableBalance : null,
+    ledgerBalanceIRR: Number.isFinite(ledgerBalance) ? ledgerBalance : null,
+    committedUnsettledIRR: Number.isFinite(committedUnsettled) ? committedUnsettled : 0,
+    reservedIRR: Number.isFinite(reserved) ? reserved : 0,
+    syncStatus: payload.sync_status?.trim() || null,
+  };
 }
 
 async function loadSubscriptionSummary(

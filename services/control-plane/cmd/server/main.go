@@ -116,9 +116,22 @@ func main() {
 	billingService := billing.NewService(dualCache, store, cfg.BillingSettings.DefaultUSDtoIRR, cfg.BillingSettings.RateSource)
 	billingService.SetRuntimeProfiles(runtimeProfiles)
 	subscriptionProcessor := billing.NewSubscriptionProcessor(store, logger, time.Minute)
+	var walletSettlementProcessor *billing.WalletSettlementProcessor
+	if liveBudgetCache, ok := dualCache.(cache.BudgetWindowInspector); ok {
+		walletSettlementProcessor = billing.NewWalletSettlementProcessor(
+			billing.LoadWalletSettlementConfigFromEnv(),
+			liveBudgetCache,
+			store,
+			logger,
+		)
+	}
 
 	subscriptionProcessor.Start()
 	defer subscriptionProcessor.Stop()
+	if walletSettlementProcessor != nil {
+		walletSettlementProcessor.Start()
+		defer walletSettlementProcessor.Stop()
+	}
 
 	tunnelClient := tunneltransport.NewHTTPTransport(cfg.TunnelSettings.ClientURL, time.Duration(cfg.TunnelSettings.Timeout)*time.Second)
 

@@ -14,6 +14,13 @@
   "wallet": {
     "open": "View wallet",
     "balance": "{amount} IRR",
+    "available": "Available: {amount} IRR",
+    "pending": "Pending: {amount} IRR",
+    "ledger": "Ledger: {amount} IRR",
+    "status": {
+      "synchronized": "Synced",
+      "ledger_only": "Ledger view"
+    },
     "unknown": "Wallet"
   },
   "docs": {

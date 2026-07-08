@@ -102,4 +102,20 @@ func TestMemoryBudgetWindowReserveCommitReleaseIdempotent(t *testing.T) {
 	if !released.Allowed || released.CommittedIRR != 40 {
 		t.Fatalf("unexpected release result: %+v", released)
 	}
+
+	snapshot, err := mem.GetBudgetWindow(ctx, "budget:tenant:t1:window:202607")
+	if err != nil {
+		t.Fatalf("GetBudgetWindow returned error: %v", err)
+	}
+	if snapshot == nil || snapshot.CommittedIRR != 40 || snapshot.ReservedIRR != 0 {
+		t.Fatalf("unexpected snapshot: %+v", snapshot)
+	}
+
+	active, err := mem.ListActiveBudgetWindows(ctx, 10)
+	if err != nil {
+		t.Fatalf("ListActiveBudgetWindows returned error: %v", err)
+	}
+	if len(active) != 1 || active[0].WindowKey != "budget:tenant:t1:window:202607" {
+		t.Fatalf("unexpected active windows: %+v", active)
+	}
 }

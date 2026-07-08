@@ -31,7 +31,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
-  SidebarRail,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -50,7 +49,11 @@ type AdminShellClientProps = {
   };
   permissions: string[];
   walletSummary: {
-    balanceIRR: number | null;
+    availableBalanceIRR: number | null;
+    ledgerBalanceIRR: number | null;
+    committedUnsettledIRR: number;
+    reservedIRR: number;
+    syncStatus: string | null;
   };
   subscriptionSummary: {
     planName: string | null;
@@ -135,7 +138,7 @@ export default function AdminShellClient({
               </div>
 
               <div className="flex shrink-0 items-center gap-2">
-                <WalletBalanceLink balanceIRR={walletSummary.balanceIRR} />
+                <WalletBalanceLink summary={walletSummary} />
                 <UserProfileMenu userIdentity={userIdentity} currentUser={currentUser} />
                 <ThemeToggle />
                 <DocsLink href={docsHref} />
@@ -323,22 +326,38 @@ function AdminSidebar({
   );
 }
 
-function WalletBalanceLink({ balanceIRR }: { balanceIRR: number | null }) {
+function WalletBalanceLink({
+  summary,
+}: {
+  summary: {
+    availableBalanceIRR: number | null;
+    ledgerBalanceIRR: number | null;
+    committedUnsettledIRR: number;
+    reservedIRR: number;
+    syncStatus: string | null;
+  };
+}) {
   const t = useTranslations("shell");
-  const balanceLabel = balanceIRR === null ? t("wallet.unknown") : t("wallet.balance", { amount: moneyFormatter.format(balanceIRR) });
-  const isLowBalance = balanceIRR !== null && balanceIRR <= 0;
+  const balanceLabel =
+    summary.availableBalanceIRR === null
+      ? t("wallet.unknown")
+      : t("wallet.available", { amount: moneyFormatter.format(summary.availableBalanceIRR) });
+  const isLowBalance = summary.availableBalanceIRR !== null && summary.availableBalanceIRR <= 0;
 
   return (
     <Button
       type="button"
       variant="outline"
       size="icon"
-      className={cn("w-auto min-w-10 gap-2 px-3", isLowBalance && "border-destructive/40 text-destructive hover:text-destructive")}
+      className={cn(
+        "h-auto min-h-10 w-auto min-w-10 gap-2 px-3 py-2",
+        isLowBalance && "border-destructive/40 text-destructive hover:text-destructive",
+      )}
       asChild
     >
       <Link href="/billing" aria-label={t("wallet.open")}>
         <WalletCards data-icon="inline-start" aria-hidden="true" />
-        <span className="hidden sm:inline">{balanceLabel}</span>
+        <span className="hidden truncate text-xs font-medium sm:inline">{balanceLabel}</span>
       </Link>
     </Button>
   );

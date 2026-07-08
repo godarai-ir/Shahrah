@@ -82,6 +82,20 @@ type BudgetWindowResult struct {
 	OverageIRR   float64
 }
 
+// BudgetWindowSnapshot is the current persisted state of a budget window.
+type BudgetWindowSnapshot struct {
+	WindowKey     string
+	Status        string
+	AllowanceIRR  float64
+	ReservedIRR   float64
+	CommittedIRR  float64
+	RemainingIRR  float64
+	OverageIRR    float64
+	ExpiresAt     time.Time
+	Version       int64
+	LastUpdatedAt time.Time
+}
+
 // UsageCounterSnapshot is a Redis-backed counter value selected for persistence.
 type UsageCounterSnapshot struct {
 	Key  string
@@ -113,6 +127,12 @@ type TokenUsageCache interface {
 	DrainTokenSpendDeltas(ctx context.Context, dirtySetKey string, batchSize int) ([]TokenSpendDelta, error)
 	QueueKeyLastUsed(ctx context.Context, lastUsedKey string, dirtySetKey string, usedAtUnix int64, ttl time.Duration) (bool, error)
 	DrainKeyLastUsed(ctx context.Context, dirtySetKey string, batchSize int) ([]KeyLastUsedSnapshot, error)
+}
+
+// BudgetWindowInspector exposes live tenant budget window state for UI and settlement flows.
+type BudgetWindowInspector interface {
+	GetBudgetWindow(ctx context.Context, windowKey string) (*BudgetWindowSnapshot, error)
+	ListActiveBudgetWindows(ctx context.Context, batchSize int) ([]BudgetWindowSnapshot, error)
 }
 
 // Cache interface defines the contract for cache implementations.
@@ -432,10 +452,12 @@ return out
 
 const seedBudgetWindowScript = `
 local windowKey = KEYS[1]
+local activeSetKey = KEYS[2]
 local allowance = tonumber(ARGV[1])
 local expiresAt = tonumber(ARGV[2])
 local ttlMs = tonumber(ARGV[3])
 local version = tonumber(ARGV[4])
+local nowUnix = tonumber(ARGV[5])
 
 if not allowance or allowance < 0 then
   return {0, 'invalid_allowance', 0, 0, 0, 0, 0}
@@ -453,12 +475,16 @@ if exists == 0 then
     'committed_irr', 0,
     'overage_irr', 0,
     'expires_at', expiresAt,
-    'version', version)
+    'version', version,
+    'updated_at', nowUnix)
   redis.call('PEXPIRE', windowKey, ttlMs)
 else
-  redis.call('HSET', windowKey, 'allowance_irr', allowance, 'expires_at', expiresAt, 'version', version)
+  redis.call('HSET', windowKey, 'allowance_irr', allowance, 'expires_at', expiresAt, 'version', version, 'updated_at', nowUnix)
   redis.call('PEXPIRE', windowKey, ttlMs)
 end
+
+redis.call('ZADD', activeSetKey, expiresAt, windowKey)
+redis.call('PEXPIRE', activeSetKey, ttlMs)
 
 local reserved = tonumber(redis.call('HGET', windowKey, 'reserved_irr') or '0')
 local committed = tonumber(redis.call('HGET', windowKey, 'committed_irr') or '0')
@@ -470,6 +496,7 @@ return {1, 'active', allowance, reserved, committed, remaining, overage}
 const reserveBudgetScript = `
 local windowKey = KEYS[1]
 local reservationKey = KEYS[2]
+local activeSetKey = KEYS[3]
 local reservationID = ARGV[1]
 local estimate = tonumber(ARGV[2])
 local ttlMs = tonumber(ARGV[3])
@@ -519,8 +546,11 @@ redis.call('HSET', reservationKey,
   'actual_irr', 0,
   'created_at', nowUnix,
   'updated_at', nowUnix)
+redis.call('HSET', windowKey, 'updated_at', nowUnix)
 redis.call('PEXPIRE', reservationKey, ttlMs)
 redis.call('PEXPIRE', windowKey, ttlMs)
+redis.call('ZADD', activeSetKey, expiresAt, windowKey)
+redis.call('PEXPIRE', activeSetKey, ttlMs)
 
 local remaining = allowance - reserved - committed
 return {1, 'reserved', allowance, reserved, committed, remaining, overage}
@@ -529,6 +559,7 @@ return {1, 'reserved', allowance, reserved, committed, remaining, overage}
 const commitBudgetScript = `
 local windowKey = KEYS[1]
 local reservationKey = KEYS[2]
+local activeSetKey = KEYS[3]
 local actual = tonumber(ARGV[1])
 local nowUnix = tonumber(ARGV[2])
 
@@ -569,6 +600,13 @@ reserved = tonumber(redis.call('HINCRBYFLOAT', windowKey, 'reserved_irr', -estim
 committed = tonumber(redis.call('HINCRBYFLOAT', windowKey, 'committed_irr', actual))
 
 redis.call('HSET', reservationKey, 'status', 'committed', 'actual_irr', actual, 'updated_at', nowUnix)
+redis.call('HSET', windowKey, 'updated_at', nowUnix)
+local expiresAt = tonumber(redis.call('HGET', windowKey, 'expires_at') or '0')
+local ttlMs = redis.call('PTTL', windowKey)
+if ttlMs and ttlMs > 0 and expiresAt > 0 then
+  redis.call('ZADD', activeSetKey, expiresAt, windowKey)
+  redis.call('PEXPIRE', activeSetKey, ttlMs)
+end
 local remaining = allowance - reserved - committed
 return {1, 'committed', allowance, reserved, committed, remaining, overage}
 `
@@ -599,9 +637,13 @@ elseif status ~= 'released' then
   redis.call('HSET', reservationKey, 'updated_at', nowUnix)
 end
 
+redis.call('HSET', windowKey, 'updated_at', nowUnix)
+
 local remaining = allowance - reserved - committed
 return {1, 'released', allowance, reserved, committed, remaining, overage}
 `
+
+const activeBudgetWindowsKey = "budget:active_windows"
 
 // CheckRateLimit atomically checks a fixed-window rate-limit counter in Redis.
 func (d *DualCache) CheckRateLimit(ctx context.Context, key string, limit int64, window time.Duration) (*RateLimitResult, error) {
@@ -779,7 +821,8 @@ func (d *DualCache) SeedBudgetWindow(ctx context.Context, seed BudgetWindowSeed)
 		return nil, fmt.Errorf("budget window ttl must be positive")
 	}
 
-	values, err := d.redis.Eval(ctx, seedBudgetWindowScript, []string{seed.WindowKey}, seed.AllowanceIRR, seed.ExpiresAt.Unix(), seed.TTL.Milliseconds(), seed.Version).Result()
+	now := time.Now().UTC()
+	values, err := d.redis.Eval(ctx, seedBudgetWindowScript, []string{seed.WindowKey, activeBudgetWindowsKey}, seed.AllowanceIRR, seed.ExpiresAt.Unix(), seed.TTL.Milliseconds(), seed.Version, now.Unix()).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -799,7 +842,7 @@ func (d *DualCache) ReserveBudget(ctx context.Context, req BudgetReservationRequ
 		now = time.Now().UTC()
 	}
 
-	values, err := d.redis.Eval(ctx, reserveBudgetScript, []string{req.WindowKey, req.ReservationKey}, req.ReservationID, req.EstimatedIRR, req.TTL.Milliseconds(), now.Unix()).Result()
+	values, err := d.redis.Eval(ctx, reserveBudgetScript, []string{req.WindowKey, req.ReservationKey, activeBudgetWindowsKey}, req.ReservationID, req.EstimatedIRR, req.TTL.Milliseconds(), now.Unix()).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -816,7 +859,7 @@ func (d *DualCache) CommitBudget(ctx context.Context, req BudgetCommitRequest) (
 		now = time.Now().UTC()
 	}
 
-	values, err := d.redis.Eval(ctx, commitBudgetScript, []string{req.WindowKey, req.ReservationKey}, req.ActualIRR, now.Unix()).Result()
+	values, err := d.redis.Eval(ctx, commitBudgetScript, []string{req.WindowKey, req.ReservationKey, activeBudgetWindowsKey}, req.ActualIRR, now.Unix()).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -903,6 +946,118 @@ func parseBudgetWindowResult(result interface{}) (*BudgetWindowResult, error) {
 		CommittedIRR: committed,
 		RemainingIRR: remaining,
 		OverageIRR:   overage,
+	}, nil
+}
+
+// GetBudgetWindow returns the current state of one active budget window from Redis.
+func (d *DualCache) GetBudgetWindow(ctx context.Context, windowKey string) (*BudgetWindowSnapshot, error) {
+	if strings.TrimSpace(windowKey) == "" {
+		return nil, fmt.Errorf("budget window key is required")
+	}
+
+	values, err := d.redis.HGetAll(ctx, windowKey).Result()
+	if err != nil {
+		return nil, err
+	}
+	if len(values) == 0 {
+		return nil, nil
+	}
+	return parseBudgetWindowSnapshot(windowKey, values)
+}
+
+// ListActiveBudgetWindows returns a bounded list of active budget windows from Redis.
+func (d *DualCache) ListActiveBudgetWindows(ctx context.Context, batchSize int) ([]BudgetWindowSnapshot, error) {
+	if batchSize <= 0 {
+		batchSize = 100
+	}
+
+	nowUnix := time.Now().UTC().Unix()
+	if err := d.redis.ZRemRangeByScore(ctx, activeBudgetWindowsKey, "-inf", strconv.FormatInt(nowUnix, 10)).Err(); err != nil {
+		return nil, err
+	}
+
+	keys, err := d.redis.ZRange(ctx, activeBudgetWindowsKey, 0, int64(batchSize-1)).Result()
+	if err != nil {
+		return nil, err
+	}
+	if len(keys) == 0 {
+		return nil, nil
+	}
+
+	pipe := d.redis.Pipeline()
+	cmds := make([]*redis.MapStringStringCmd, 0, len(keys))
+	for _, key := range keys {
+		cmds = append(cmds, pipe.HGetAll(ctx, key))
+	}
+	if _, err := pipe.Exec(ctx); err != nil && err != redis.Nil {
+		return nil, err
+	}
+
+	out := make([]BudgetWindowSnapshot, 0, len(keys))
+	for i, cmd := range cmds {
+		values, cmdErr := cmd.Result()
+		if cmdErr == redis.Nil || len(values) == 0 {
+			_, _ = d.redis.ZRem(ctx, activeBudgetWindowsKey, keys[i]).Result()
+			continue
+		}
+		if cmdErr != nil {
+			return nil, cmdErr
+		}
+		snapshot, parseErr := parseBudgetWindowSnapshot(keys[i], values)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		out = append(out, *snapshot)
+	}
+
+	return out, nil
+}
+
+func parseBudgetWindowSnapshot(windowKey string, values map[string]string) (*BudgetWindowSnapshot, error) {
+	allowance, err := strconv.ParseFloat(values["allowance_irr"], 64)
+	if err != nil {
+		return nil, err
+	}
+	reserved, err := strconv.ParseFloat(values["reserved_irr"], 64)
+	if err != nil {
+		return nil, err
+	}
+	committed, err := strconv.ParseFloat(values["committed_irr"], 64)
+	if err != nil {
+		return nil, err
+	}
+	overage, err := strconv.ParseFloat(values["overage_irr"], 64)
+	if err != nil {
+		return nil, err
+	}
+	expiresUnix, err := strconv.ParseInt(values["expires_at"], 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	version, err := strconv.ParseInt(values["version"], 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	updatedAt := time.Time{}
+	if rawUpdated := strings.TrimSpace(values["updated_at"]); rawUpdated != "" {
+		updatedUnix, parseUpdatedErr := strconv.ParseInt(rawUpdated, 10, 64)
+		if parseUpdatedErr != nil {
+			return nil, parseUpdatedErr
+		}
+		updatedAt = time.Unix(updatedUnix, 0).UTC()
+	}
+
+	return &BudgetWindowSnapshot{
+		WindowKey:     windowKey,
+		Status:        strings.TrimSpace(values["status"]),
+		AllowanceIRR:  allowance,
+		ReservedIRR:   reserved,
+		CommittedIRR:  committed,
+		RemainingIRR:  allowance - reserved - committed,
+		OverageIRR:    overage,
+		ExpiresAt:     time.Unix(expiresUnix, 0).UTC(),
+		Version:       version,
+		LastUpdatedAt: updatedAt,
 	}, nil
 }
 

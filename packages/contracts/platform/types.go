@@ -43,10 +43,18 @@ type AuthContext struct {
 
 // Wallet tracks tenant balance in IRR.
 type Wallet struct {
-	ID         string `json:"id"`
-	TenantID   string `json:"tenant_id"`
-	BalanceIRR int64  `json:"balance_irr"`
-	PendingIRR int64  `json:"pending_irr"`
+	ID                    string     `json:"id"`
+	TenantID              string     `json:"tenant_id"`
+	BalanceIRR            int64      `json:"balance_irr"`
+	PendingIRR            int64      `json:"pending_irr"`
+	LedgerBalanceIRR      int64      `json:"ledger_balance_irr,omitempty"`
+	AvailableBalanceIRR   int64      `json:"available_balance_irr,omitempty"`
+	ReservedIRR           int64      `json:"reserved_irr,omitempty"`
+	CommittedUnsettledIRR int64      `json:"committed_unsettled_irr,omitempty"`
+	AsOf                  *time.Time `json:"as_of,omitempty"`
+	SyncLagSeconds        int64      `json:"sync_lag_seconds,omitempty"`
+	SyncStatus            string     `json:"sync_status,omitempty"`
+	WindowID              string     `json:"window_id,omitempty"`
 }
 
 // Transaction records wallet changes.

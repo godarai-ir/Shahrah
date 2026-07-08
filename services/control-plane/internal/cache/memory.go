@@ -403,6 +403,75 @@ func memoryBudgetResult(window memoryBudgetWindow, allowed bool, state string) *
 	}
 }
 
+// GetBudgetWindow returns the current state of one in-memory budget window.
+func (m *MemoryCache) GetBudgetWindow(_ context.Context, windowKey string) (*BudgetWindowSnapshot, error) {
+	if windowKey == "" {
+		return nil, fmt.Errorf("budget window key is required")
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	now := time.Now().UTC()
+	m.pruneBudgetStateLocked(now)
+	window, ok := m.budgetWindows[windowKey]
+	if !ok {
+		return nil, nil
+	}
+
+	return &BudgetWindowSnapshot{
+		WindowKey:    windowKey,
+		Status:       window.status,
+		AllowanceIRR: window.allowanceIRR,
+		ReservedIRR:  window.reservedIRR,
+		CommittedIRR: window.committedIRR,
+		RemainingIRR: window.allowanceIRR - window.reservedIRR - window.committedIRR,
+		OverageIRR:   window.overageIRR,
+		ExpiresAt:    window.expiresAt,
+		Version:      window.version,
+	}, nil
+}
+
+// ListActiveBudgetWindows returns a bounded list of active in-memory budget windows.
+func (m *MemoryCache) ListActiveBudgetWindows(_ context.Context, batchSize int) ([]BudgetWindowSnapshot, error) {
+	if batchSize <= 0 {
+		batchSize = 100
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	now := time.Now().UTC()
+	m.pruneBudgetStateLocked(now)
+
+	out := make([]BudgetWindowSnapshot, 0, min(batchSize, len(m.budgetWindows)))
+	for key, window := range m.budgetWindows {
+		out = append(out, BudgetWindowSnapshot{
+			WindowKey:    key,
+			Status:       window.status,
+			AllowanceIRR: window.allowanceIRR,
+			ReservedIRR:  window.reservedIRR,
+			CommittedIRR: window.committedIRR,
+			RemainingIRR: window.allowanceIRR - window.reservedIRR - window.committedIRR,
+			OverageIRR:   window.overageIRR,
+			ExpiresAt:    window.expiresAt,
+			Version:      window.version,
+		})
+		if len(out) >= batchSize {
+			break
+		}
+	}
+
+	return out, nil
+}
+
+func min(left int, right int) int {
+	if left < right {
+		return left
+	}
+	return right
+}
+
 // Close closes the cache and releases resources.
 func (m *MemoryCache) Close() error {
 	m.cache.Close()

@@ -21,7 +21,15 @@ export type WalletPayload = {
   wallet_id?: string;
   tenant_id?: string;
   balance_irr?: number;
+  ledger_balance_irr?: number;
+  available_balance_irr?: number;
+  reserved_irr?: number;
+  committed_unsettled_irr?: number;
   pending_irr?: number;
+  sync_lag_seconds?: number;
+  sync_status?: string;
+  window_id?: string;
+  as_of?: string;
 };
 
 export type WalletTransaction = {

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ComponentType } from "react";
-import { CreditCard, FileText, Landmark, LineChart, Tag, WalletCards } from "lucide-react";
+import { CreditCard, FileText, Landmark, LineChart, WalletCards } from "lucide-react";
 
 import AdminShell from "@/app/components/admin-shell";
 import { AppCard, MetricCard, PageHeader, StatusBadge } from "@/components/app-ui";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
-import { buildControlPlaneBillingSummaryPath, type BillingUsageSummary, type WalletPayload, formatIRR, formatToman } from "@/app/billing/_shared";
+import { buildControlPlaneBillingSummaryPath, type BillingUsageSummary, type WalletPayload, formatIRR } from "@/app/billing/_shared";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +31,7 @@ export default async function BillingDashboardPage() {
 
   const wallet = walletResponse.ok ? (walletResponse.payload as WalletPayload) : null;
   const summary = summaryResponse.ok ? (summaryResponse.payload as BillingUsageSummary) : null;
-  const balance = Number(wallet?.balance_irr ?? 0);
+  const availableBalance = Number(wallet?.available_balance_irr ?? wallet?.balance_irr ?? 0);
 
   return (
     <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
@@ -47,13 +47,15 @@ export default async function BillingDashboardPage() {
             </>
           }
         />
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-          <MetricCard icon={WalletCards} label="موجودی کیف پول" value={formatToman(balance)} description={formatIRR(balance)} />
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-2 md:gap-4">
+          <MetricCard
+            icon={WalletCards}
+            label="اعتبار"
+            value={formatIRR(availableBalance)}
+          />
           <MetricCard icon={LineChart} label="مصرف ماه جاری" value={formatIRR(summary?.total_usage_irr)} />
-          <MetricCard icon={FileText} label="صرفه‌جویی کش" value={formatIRR(summary?.cache_savings_irr)} />
-          <MetricCard icon={Tag} label="تخفیف دوره" value={formatIRR(summary?.discount_irr)} />
         </div>
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-4 xl:grid-cols-2">
           <AppCard title="اقدام‌های سریع" className="lg:col-span-1">
             <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
               <QuickAction href="/billing/topup" icon={CreditCard} label="شارژ از درگاه" />
@@ -63,7 +65,7 @@ export default async function BillingDashboardPage() {
               <QuickAction href="/billing/documents" icon={FileText} label="اسناد مالی" />
             </div>
           </AppCard>
-          <AppCard title="ارائه‌دهندگان پر مصرف" description="براساس هزینه نهایی دوره جاری" className="lg:col-span-2">
+          <AppCard title="ارائه‌دهندگان پر مصرف" description="براساس هزینه نهایی دوره جاری">
             <div className="divide-y divide-border">
               {(summary?.providers ?? []).slice(0, 5).map((provider) => (
                 <div key={provider.provider_name} className="flex items-center justify-between gap-4 py-3">
