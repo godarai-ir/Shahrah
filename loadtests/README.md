@@ -118,6 +118,8 @@ Response-cache repeated prompt pressure:
 k6 run -e SCENARIO=cache -e RATE=40 -e DURATION=30m loadtests/k6/gateway-scenarios.js
 ```
 
+The cache scenario now sends a valid JSON `x-godarai-cache-config` header and defaults to `CACHE_TYPE=simple` for deterministic exact-match hits. Override `CACHE_TYPE=smart` only when the smart-cache embedder is configured and reachable.
+
 ## 4. Profile during the test
 
 Start k6 in one terminal, then collect profiles from another:

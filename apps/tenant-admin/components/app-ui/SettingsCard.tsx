@@ -4,7 +4,7 @@ import { AppCard } from "@/components/app-ui/AppCard";
 import { cn } from "@/lib/utils";
 
 type SettingsCardProps = {
-  title: React.ReactNode;
+  title?: React.ReactNode;
   description?: React.ReactNode;
   actions?: React.ReactNode;
   footer?: React.ReactNode;

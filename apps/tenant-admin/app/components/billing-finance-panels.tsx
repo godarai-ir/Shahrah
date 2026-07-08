@@ -3,7 +3,7 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
-import { BarChart3, FileImage, FileText, ReceiptText, Tag, Trash2, Upload, WalletCards } from "lucide-react";
+import { ArrowDownLeft, BarChart3, Download, FileImage, FileText, ReceiptText, Tag, TicketPercent, Trash2, Upload, WalletCards } from "lucide-react";
 import { Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 import { AppCard, AppSelectField, FormSection, MetricCard, SettingsCard, StatusBadge } from "@/components/app-ui";
@@ -175,7 +175,7 @@ export function BankTransferPanel({ initialItems, initialError }: BankTransferPa
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
-      <SettingsCard title="ثبت واریز بانکی" description="پس از ثبت، تیم پشتیبانی رسید را بررسی و کیف پول را شارژ می‌کند.">
+      <SettingsCard>
         <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
           <Field id="bank-amount" label="مبلغ (تومان)" value={amountToman} onChange={setAmountToman} dir="ltr" inputMode="numeric" />
           <Field id="bank-tracking" label="شماره پیگیری" value={trackingNumber} onChange={setTrackingNumber} dir="ltr" />
@@ -513,22 +513,41 @@ type DocumentsPanelProps = {
 };
 
 export function BillingDocumentsPanel({ invoices, transactions, discounts }: DocumentsPanelProps) {
+  const [activeTab, setActiveTab] = useState("invoices");
+  const [invoiceStatus, setInvoiceStatus] = useState("all");
+  const [invoicePage, setInvoicePage] = useState(1);
+  const [transactionStatus, setTransactionStatus] = useState("all");
+  const [transactionType, setTransactionType] = useState("all");
+  const [transactionPage, setTransactionPage] = useState(1);
+  const [discountStatus, setDiscountStatus] = useState("all");
+  const [discountType, setDiscountType] = useState("all");
+  const [discountPage, setDiscountPage] = useState(1);
+
   const invoiceColumns = useMemo<ColumnDef<Invoice>[]>(
     () => [
-      { accessorKey: "net_adjustment_irr", header: "اصلاحیه", cell: ({ row }) => formatIRR(row.original.net_adjustment_irr) },
-      { accessorKey: "final_amount_irr", header: "مبلغ نهایی", cell: ({ row }) => formatIRR(row.original.final_amount_irr) },
+      { accessorKey: "net_adjustment_irr", header: "اصلاحیه (ریال)", cell: ({ row }) => formatAmountValue(row.original.net_adjustment_irr) },
+      { accessorKey: "final_amount_irr", header: "مبلغ نهایی (ریال)", cell: ({ row }) => formatAmountValue(row.original.final_amount_irr) },
       { accessorKey: "period_end", header: "پایان دوره", cell: ({ row }) => formatDate(row.original.period_end) },
-      { accessorKey: "status", header: "وضعیت", cell: ({ row }) => <StatusBadge status={statusTone(row.original.status)}>{row.original.status}</StatusBadge> },
+      { accessorKey: "status", header: "وضعیت", cell: ({ row }) => <StatusBadge status={statusTone(row.original.status)}>{mapDocumentStatusLabel(row.original.status)}</StatusBadge> },
       { accessorKey: "invoice_number", header: "شماره" },
     ],
     [],
   );
   const txColumns = useMemo<ColumnDef<WalletTransaction>[]>(
     () => [
-      { accessorKey: "type", header: "نوع" },
-      { accessorKey: "status", header: "وضعیت", cell: ({ row }) => <StatusBadge status={statusTone(row.original.status)}>{row.original.status}</StatusBadge> },
-      { accessorKey: "amount_irr", header: "مبلغ", cell: ({ row }) => formatIRR(row.original.amount_irr) },
-      { accessorKey: "balance_after_irr", header: "مانده بعد", cell: ({ row }) => formatIRR(row.original.balance_after_irr) },
+      {
+        accessorKey: "type",
+        header: "نوع",
+        cell: ({ row }) => (
+          <div className="flex items-center gap-2">
+            {transactionTypeIcon(row.original.type)}
+            <span>{mapTransactionTypeLabel(row.original.type)}</span>
+          </div>
+        ),
+      },
+      { accessorKey: "status", header: "وضعیت", cell: ({ row }) => <StatusBadge status={statusTone(row.original.status)}>{mapDocumentStatusLabel(row.original.status)}</StatusBadge> },
+      { accessorKey: "amount_irr", header: "مبلغ (ریال)", cell: ({ row }) => formatAmountValue(row.original.amount_irr) },
+      { accessorKey: "balance_after_irr", header: "مانده بعد (ریال)", cell: ({ row }) => formatAmountValue(row.original.balance_after_irr) },
       { accessorKey: "created_at", header: "زمان", cell: ({ row }) => formatDate(row.original.created_at) },
     ],
     [],
@@ -536,27 +555,236 @@ export function BillingDocumentsPanel({ invoices, transactions, discounts }: Doc
   const discountColumns = useMemo<ColumnDef<DiscountRedemption>[]>(
     () => [
       { accessorKey: "code", header: "کد" },
-      { accessorKey: "discount_type", header: "نوع" },
-      { accessorKey: "status", header: "وضعیت", cell: ({ row }) => <StatusBadge status={statusTone(row.original.status)}>{row.original.status}</StatusBadge> },
-      { accessorKey: "used_amount_irr", header: "مصرف‌شده", cell: ({ row }) => formatIRR(row.original.used_amount_irr) },
+      { accessorKey: "discount_type", header: "نوع", cell: ({ row }) => mapDiscountTypeLabel(row.original.discount_type) },
+      { accessorKey: "status", header: "وضعیت", cell: ({ row }) => <StatusBadge status={statusTone(row.original.status)}>{mapDocumentStatusLabel(row.original.status)}</StatusBadge> },
+      { accessorKey: "used_amount_irr", header: "مصرف‌شده (ریال)", cell: ({ row }) => formatAmountValue(row.original.used_amount_irr) },
       { accessorKey: "created_at", header: "ثبت", cell: ({ row }) => formatDate(row.original.created_at) },
     ],
     [],
   );
 
+  const invoiceRows = useMemo(
+    () => invoices.filter((item) => matchInvoiceFilters(item, invoiceStatus)),
+    [invoiceStatus, invoices],
+  );
+  const transactionRows = useMemo(
+    () => transactions.filter((item) => matchTransactionFilters(item, transactionStatus, transactionType)),
+    [transactionStatus, transactionType, transactions],
+  );
+  const discountRows = useMemo(
+    () => discounts.filter((item) => matchDiscountFilters(item, discountStatus, discountType)),
+    [discountStatus, discountType, discounts],
+  );
+
   return (
-    <SettingsCard title="اسناد مالی" description="همه فاکتورها، تراکنش‌ها و تخفیف‌های ارایه‌شده را یکجا ببینید." className="max-w-none">
-      <Tabs defaultValue="invoices" className="w-full">
-        <TabsList className="self-end" dir="rtl">
-          <TabsTrigger value="invoices"><FileText className="me-2 size-4" />فاکتورها</TabsTrigger>
-          <TabsTrigger value="transactions"><ReceiptText className="me-2 size-4" />تراکنش‌ها</TabsTrigger>
-          <TabsTrigger value="discounts"><Tag className="me-2 size-4" />تخفیف‌ها</TabsTrigger>
-        </TabsList>
-        <TabsContent value="invoices"><DataTable columns={invoiceColumns} data={invoices} emptyLabel="فاکتوری صادر نشده است." dir="rtl" /></TabsContent>
-        <TabsContent value="transactions"><DataTable columns={txColumns} data={transactions} emptyLabel="تراکنشی ثبت نشده است." dir="rtl" /></TabsContent>
-        <TabsContent value="discounts"><DataTable columns={discountColumns} data={discounts} emptyLabel="تخفیفی استفاده نشده است." dir="rtl" /></TabsContent>
+    <AppCard className="max-w-none">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <div className="flex items-center justify-between gap-3">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="shrink-0"
+            aria-label="خروجی CSV"
+            title="خروجی CSV"
+            onClick={() => {
+              if (activeTab === "invoices") {
+                downloadCSV(
+                  ["شماره", "وضعیت", "پایان دوره", "مبلغ نهایی (ریال)", "اصلاحیه (ریال)"],
+                  invoiceRows.map((item) => [
+                    item.invoice_number,
+                    mapDocumentStatusLabel(item.status),
+                    formatDate(item.period_end),
+                    formatAmountValue(item.final_amount_irr),
+                    formatAmountValue(item.net_adjustment_irr),
+                  ]),
+                  "billing-invoices.csv",
+                );
+                return;
+              }
+              if (activeTab === "transactions") {
+                downloadCSV(
+                  ["نوع", "وضعیت", "مبلغ (ریال)", "مانده بعد (ریال)", "زمان"],
+                  transactionRows.map((item) => [
+                    mapTransactionTypeLabel(item.type),
+                    mapDocumentStatusLabel(item.status),
+                    formatAmountValue(item.amount_irr),
+                    formatAmountValue(item.balance_after_irr),
+                    formatDate(item.created_at),
+                  ]),
+                  "billing-transactions.csv",
+                );
+                return;
+              }
+              downloadCSV(
+                ["کد", "نوع", "وضعیت", "مصرف‌شده (ریال)", "ثبت"],
+                discountRows.map((item) => [
+                  item.code,
+                  mapDiscountTypeLabel(item.discount_type),
+                  mapDocumentStatusLabel(item.status),
+                  formatAmountValue(item.used_amount_irr),
+                  formatDate(item.created_at),
+                ]),
+                "billing-discounts.csv",
+              );
+            }}
+          >
+            <Download className="size-4" />
+          </Button>
+          <TabsList className="self-end" dir="rtl">
+            <TabsTrigger value="invoices"><FileText className="me-2 size-4" />فاکتورها</TabsTrigger>
+            <TabsTrigger value="transactions"><ReceiptText className="me-2 size-4" />تراکنش‌ها</TabsTrigger>
+            <TabsTrigger value="discounts"><Tag className="me-2 size-4" />تخفیف‌ها</TabsTrigger>
+          </TabsList>
+        </div>
+        <TabsContent value="invoices">
+          <DocumentTableSection
+            columns={invoiceColumns}
+            rows={invoiceRows}
+            emptyLabel="فاکتوری صادر نشده است."
+            filters={[
+              {
+                value: invoiceStatus,
+                onValueChange: (value) => {
+                  setInvoiceStatus(value);
+                  setInvoicePage(1);
+                },
+                options: buildFilterOptions(invoices.map((item) => item.status), mapDocumentStatusLabel),
+                label: "وضعیت",
+              },
+            ]}
+            page={invoicePage}
+            onPageChange={setInvoicePage}
+          />
+        </TabsContent>
+        <TabsContent value="transactions">
+          <DocumentTableSection
+            columns={txColumns}
+            rows={transactionRows}
+            emptyLabel="تراکنشی ثبت نشده است."
+            filters={[
+              {
+                value: transactionType,
+                onValueChange: (value) => {
+                  setTransactionType(value);
+                  setTransactionPage(1);
+                },
+                options: buildFilterOptions(transactions.map((item) => item.type), mapTransactionTypeLabel),
+                label: "نوع",
+              },
+              {
+                value: transactionStatus,
+                onValueChange: (value) => {
+                  setTransactionStatus(value);
+                  setTransactionPage(1);
+                },
+                options: buildFilterOptions(transactions.map((item) => item.status), mapDocumentStatusLabel),
+                label: "وضعیت",
+              },
+            ]}
+            page={transactionPage}
+            onPageChange={setTransactionPage}
+          />
+        </TabsContent>
+        <TabsContent value="discounts">
+          <DocumentTableSection
+            columns={discountColumns}
+            rows={discountRows}
+            emptyLabel="تخفیفی استفاده نشده است."
+            filters={[
+              {
+                value: discountType,
+                onValueChange: (value) => {
+                  setDiscountType(value);
+                  setDiscountPage(1);
+                },
+                options: buildFilterOptions(discounts.map((item) => item.discount_type), mapDiscountTypeLabel),
+                label: "نوع",
+              },
+              {
+                value: discountStatus,
+                onValueChange: (value) => {
+                  setDiscountStatus(value);
+                  setDiscountPage(1);
+                },
+                options: buildFilterOptions(discounts.map((item) => item.status), mapDocumentStatusLabel),
+                label: "وضعیت",
+              },
+            ]}
+            page={discountPage}
+            onPageChange={setDiscountPage}
+          />
+        </TabsContent>
       </Tabs>
-    </SettingsCard>
+    </AppCard>
+  );
+}
+
+type DocumentFilterControl = {
+  label: string;
+  value: string;
+  onValueChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+};
+
+function DocumentTableSection<T>({
+  columns,
+  rows,
+  emptyLabel,
+  filters,
+  page,
+  onPageChange,
+}: {
+  columns: ColumnDef<T>[];
+  rows: T[];
+  emptyLabel: string;
+  filters: DocumentFilterControl[];
+  page: number;
+  onPageChange: (value: number) => void;
+}) {
+  const pageSizeNumber = 10;
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSizeNumber));
+  const safePage = Math.min(page, pageCount);
+  const pageStart = rows.length === 0 ? 0 : (safePage - 1) * pageSizeNumber;
+  const paginatedRows = rows.slice(pageStart, pageStart + pageSizeNumber);
+  const pageEnd = rows.length === 0 ? 0 : Math.min(pageStart + pageSizeNumber, rows.length);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/20 p-3">
+        <div className="flex flex-col gap-3">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {filters.map((filter) => (
+              <AppSelectField
+                key={filter.label}
+                value={filter.value}
+                onValueChange={filter.onValueChange}
+                options={filter.options}
+                label={filter.label}
+                triggerClassName="min-w-36"
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+      <DataTable columns={columns} data={paginatedRows} emptyLabel={emptyLabel} dir="rtl" />
+      <div className="flex flex-col gap-3 border-t border-border pt-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-muted-foreground">
+          نمایش {toPersianNumber(pageStart + 1)} تا {toPersianNumber(pageEnd)} از {toPersianNumber(rows.length)} ردیف
+        </div>
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" size="sm" disabled={safePage <= 1} onClick={() => onPageChange(safePage - 1)}>
+            قبلی
+          </Button>
+          <span className="min-w-20 text-center text-xs text-muted-foreground">
+            صفحه {toPersianNumber(safePage)} از {toPersianNumber(pageCount)}
+          </span>
+          <Button type="button" variant="outline" size="sm" disabled={safePage >= pageCount} onClick={() => onPageChange(safePage + 1)}>
+            بعدی
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -597,6 +825,144 @@ function ProfileTypeField({
       </RadioGroup>
     </div>
   );
+}
+
+function matchInvoiceFilters(item: Invoice, status: string) {
+  return status === "all" || item.status === status;
+}
+
+function matchTransactionFilters(item: WalletTransaction, status: string, type: string) {
+  if (status !== "all" && item.status !== status) {
+    return false;
+  }
+  return type === "all" || item.type === type;
+}
+
+function matchDiscountFilters(item: DiscountRedemption, status: string, type: string) {
+  if (status !== "all" && item.status !== status) {
+    return false;
+  }
+  return type === "all" || item.discount_type === type;
+}
+
+function buildFilterOptions(values: string[], labeler: (value: string) => string) {
+  const uniqueValues = Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+  return [
+    { value: "all", label: "همه" },
+    ...uniqueValues.map((value) => ({ value, label: labeler(value) })),
+  ];
+}
+
+function mapDocumentStatusLabel(status: string) {
+  switch (status) {
+    case "successful":
+      return "موفق";
+    case "completed":
+      return "تکمیل‌شده";
+    case "approved":
+      return "تاییدشده";
+    case "paid":
+      return "پرداخت‌شده";
+    case "used":
+      return "استفاده‌شده";
+    case "active":
+      return "فعال";
+    case "issued":
+      return "صادرشده";
+    case "pending":
+      return "در انتظار";
+    case "pending_review":
+      return "در انتظار بررسی";
+    case "draft":
+      return "پیش‌نویس";
+    case "failed":
+      return "ناموفق";
+    case "rejected":
+      return "ردشده";
+    case "cancelled":
+      return "لغوشده";
+    case "expired":
+      return "منقضی";
+    case "refunded":
+      return "برگشت‌خورده";
+    default:
+      return status || "-";
+  }
+}
+
+function mapTransactionTypeLabel(type: string) {
+  switch (type) {
+    case "consumption":
+      return "مصرف";
+    case "topup":
+      return "شارژ";
+    case "refund":
+      return "بازگشت";
+    case "adjustment":
+      return "اصلاح";
+    default:
+      return type || "-";
+  }
+}
+
+function mapDiscountTypeLabel(type: string) {
+  switch (type) {
+    case "fixed":
+      return "مبلغ ثابت";
+    case "percentage":
+      return "درصدی";
+    case "gift_credit":
+      return "اعتبار هدیه";
+    default:
+      return type || "-";
+  }
+}
+
+function transactionTypeIcon(type: string) {
+  switch (type) {
+    case "consumption":
+      return <ArrowDownLeft className="size-4 text-destructive" aria-hidden="true" />;
+    case "topup":
+      return <WalletCards className="size-4 text-primary" aria-hidden="true" />;
+    case "refund":
+      return <ReceiptText className="size-4 text-warning" aria-hidden="true" />;
+    case "adjustment":
+      return <TicketPercent className="size-4 text-muted-foreground" aria-hidden="true" />;
+    default:
+      return <ReceiptText className="size-4 text-muted-foreground" aria-hidden="true" />;
+  }
+}
+
+function formatAmountValue(value: number | undefined | null) {
+  return new Intl.NumberFormat("fa-IR").format(Math.round(Number(value ?? 0)));
+}
+
+function toPersianNumber(value: number) {
+  return new Intl.NumberFormat("fa-IR").format(value);
+}
+
+function downloadCSV(headers: string[], rows: string[][], filename: string) {
+  const csvLines = [
+    headers.join(","),
+    ...rows.map((row) => row.map(escapeCSVCell).join(",")),
+  ];
+  const blob = new Blob(["\uFEFF" + csvLines.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const objectURL = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectURL;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(objectURL);
+}
+
+function escapeCSVCell(value: string) {
+  const normalized = String(value ?? "");
+  if (normalized.includes(",") || normalized.includes("\"") || normalized.includes("\n")) {
+    return `"${normalized.replaceAll("\"", "\"\"")}"`;
+  }
+  return normalized;
 }
 
 function Field({

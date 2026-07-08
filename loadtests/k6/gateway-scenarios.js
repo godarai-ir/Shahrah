@@ -9,6 +9,9 @@ const apiKey = __ENV.API_KEY || __ENV.MASTER_KEY || 'sk-dev-master-key-12345';
 const tenant = __ENV.TENANT || 'tenant1';
 const model = __ENV.MODEL || 'gpt-4o-mini';
 const timeout = __ENV.TIMEOUT || '60s';
+const cacheType = __ENV.CACHE_TYPE || 'simple';
+const cacheTTL = Number(__ENV.CACHE_TTL || 600);
+const cacheNamespace = __ENV.CACHE_NAMESPACE || 'loadtest';
 
 const gatewayErrors = new Counter('gateway_errors');
 const cacheHits = new Counter('gateway_cache_hits');
@@ -109,6 +112,9 @@ function chat(cacheMode = 'off') {
   const prompt = cacheMode === 'repeat'
     ? 'Summarize Shahrah gateway load-test behavior in one short paragraph.'
     : `Summarize request ${exec.scenario.iterationInTest} for tenant gateway testing.`;
+  const cacheHeader = cacheMode === 'repeat'
+    ? JSON.stringify({ type: cacheType, ttl: cacheTTL, namespace: cacheNamespace })
+    : null;
 
   const response = http.post(`${baseUrl}/v1/chat/completions`, JSON.stringify({
     model,
@@ -119,7 +125,7 @@ function chat(cacheMode = 'off') {
     temperature: 0.1,
     max_tokens: 96,
   }), {
-    headers: headers(cacheMode === 'repeat' ? { 'x-godarai-cache-config': 'semantic=true,ttl=600' } : {}),
+    headers: headers(cacheHeader ? { 'x-godarai-cache-config': cacheHeader } : {}),
     timeout,
     tags: { endpoint: 'chat_completions', cache_mode: cacheMode },
   });
