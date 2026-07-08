@@ -4,7 +4,13 @@ import { PageHeader } from "@/components/app-ui";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
-import { type BillingUsageSummary, type MonthlyUsageDetail } from "@/app/billing/_shared";
+import {
+  buildControlPlaneBillingMonthlyPath,
+  buildControlPlaneBillingSummaryPath,
+  getCurrentJalaliMonthSelection,
+  type BillingUsageSummary,
+  type MonthlyUsageDetail,
+} from "@/app/billing/_shared";
 
 export const dynamic = "force-dynamic";
 
@@ -13,10 +19,10 @@ export default async function BillingReportsPage() {
   const tenantSlug = auth.tenantSlug;
   await requirePermissionOr403(tenantSlug, auth.user.id, ["billing:read", "settings:list"]);
 
-  const month = new Date().toISOString().slice(0, 7);
+  const currentMonth = getCurrentJalaliMonthSelection();
   const [summaryResponse, monthlyResponse] = await Promise.all([
-    fetchControlPlaneJSON({ tenantSlug, method: "GET", path: "/api/v1/billing/reports/summary?range=current_month", userID: auth.user.id }),
-    fetchControlPlaneJSON({ tenantSlug, method: "GET", path: `/api/v1/billing/reports/monthly?month=${month}`, userID: auth.user.id }),
+    fetchControlPlaneJSON({ tenantSlug, method: "GET", path: buildControlPlaneBillingSummaryPath("current_month"), userID: auth.user.id }),
+    fetchControlPlaneJSON({ tenantSlug, method: "GET", path: buildControlPlaneBillingMonthlyPath(currentMonth), userID: auth.user.id }),
   ]);
 
   const initialError = !summaryResponse.ok
@@ -28,7 +34,7 @@ export default async function BillingReportsPage() {
   return (
     <AdminShell tenantSlug={tenantSlug} currentUser={{ id: auth.user.id, email: auth.user.email, mobile: auth.user.mobile, role: auth.user.role }}>
       <div className="space-y-6">
-        <PageHeader title="گزارش‌های مالی" description="مصرف، هزینه، تخفیف و صرفه‌جویی cache را به تفکیک provider ببینید." />
+        <PageHeader title="گزارش‌های مالی" description="مصرف، هزینه، تخفیف و صرفه‌جویی کش را به تفکیک ارائه‌دهنده ببینید." />
         <ReportsPanel
           initialSummary={summaryResponse.ok ? (summaryResponse.payload as BillingUsageSummary) : null}
           initialMonthly={monthlyResponse.ok ? (monthlyResponse.payload as MonthlyUsageDetail) : null}

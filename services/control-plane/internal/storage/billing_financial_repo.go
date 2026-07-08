@@ -431,13 +431,16 @@ func (s *Store) ListDiscountRedemptions(ctx context.Context, tenantID string, li
 }
 
 func (s *Store) GetBillingUsageSummary(ctx context.Context, tenantID string, rangeKey string) (*platform.BillingUsageSummary, error) {
-	start, end, normalized := billingRange(time.Now().UTC(), rangeKey)
+	start, end, normalized, err := BillingReportWindow(time.Now().UTC(), rangeKey)
+	if err != nil {
+		return nil, err
+	}
 	providers, err := s.queryBillingProviderUsage(ctx, tenantID, start, end)
 	if err != nil {
 		return nil, err
 	}
 
-	out := &platform.BillingUsageSummary{Range: normalized, Start: start, End: end, Providers: providers}
+	out := &platform.BillingUsageSummary{Calendar: FinancialCalendar, Preset: normalized, Start: start, End: end, Providers: providers}
 	for _, item := range providers {
 		out.TotalUsageIRR += item.FinalCostIRR
 		out.DiscountIRR += item.DiscountIRR
@@ -448,14 +451,24 @@ func (s *Store) GetBillingUsageSummary(ctx context.Context, tenantID string, ran
 	return out, nil
 }
 
-func (s *Store) GetMonthlyUsageDetail(ctx context.Context, tenantID string, month string) (*platform.MonthlyUsageDetail, error) {
-	start, end, normalized := monthWindow(time.Now().UTC(), month)
+func (s *Store) GetMonthlyUsageDetail(ctx context.Context, tenantID string, jalaliYear int, jalaliMonth int) (*platform.MonthlyUsageDetail, error) {
+	start, end, err := JalaliMonthWindow(jalaliYear, jalaliMonth)
+	if err != nil {
+		return nil, err
+	}
 	providers, err := s.queryBillingProviderUsage(ctx, tenantID, start, end)
 	if err != nil {
 		return nil, err
 	}
 
-	out := &platform.MonthlyUsageDetail{Month: normalized, Start: start, End: end, Providers: providers}
+	out := &platform.MonthlyUsageDetail{
+		Calendar:    FinancialCalendar,
+		JalaliYear:  jalaliYear,
+		JalaliMonth: jalaliMonth,
+		Start:       start,
+		End:         end,
+		Providers:   providers,
+	}
 	for _, item := range providers {
 		out.TotalUsageIRR += item.FinalCostIRR
 		out.DiscountIRR += item.DiscountIRR
@@ -668,30 +681,6 @@ func scanInvoice(row interface{ Scan(dest ...any) error }) (*platform.Invoice, e
 	}
 
 	return &item, nil
-}
-
-func billingRange(now time.Time, value string) (time.Time, time.Time, string) {
-	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
-	switch strings.TrimSpace(strings.ToLower(value)) {
-	case "3m":
-		return monthStart.AddDate(0, -2, 0), now, "3m"
-	case "6m":
-		return monthStart.AddDate(0, -5, 0), now, "6m"
-	case "12m", "year", "last_year":
-		return monthStart.AddDate(-1, 1, 0), now, "12m"
-	default:
-		return monthStart, now, "current_month"
-	}
-}
-
-func monthWindow(now time.Time, value string) (time.Time, time.Time, string) {
-	parsed, err := time.Parse("2006-01", strings.TrimSpace(value))
-	if err != nil {
-		parsed = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
-	}
-	start := time.Date(parsed.Year(), parsed.Month(), 1, 0, 0, 0, 0, time.UTC)
-
-	return start, start.AddDate(0, 1, 0), fmt.Sprintf("%04d-%02d", start.Year(), start.Month())
 }
 
 func insertFinancialAuditTx(ctx context.Context, tx pgx.Tx, tenantID, eventType string, actor platform.SupportActor, sourceType, sourceID, idempotencyKey string, payload map[string]interface{}) error {

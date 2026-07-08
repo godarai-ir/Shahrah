@@ -71,10 +71,6 @@ const SIDEBAR_NAV_GROUPS: Array<{
     itemKeys: ["dashboard", "quickStart"],
   },
   {
-    labelKey: "navGroups.billing",
-    itemKeys: ["billing", "topup", "bankTransfer", "billingReports", "billingProfile", "billingDocuments", "plan"],
-  },
-  {
     labelKey: "navGroups.runtime",
     itemKeys: ["providerAccounts", "virtualModels", "prompts"],
   },
@@ -89,6 +85,10 @@ const SIDEBAR_NAV_GROUPS: Array<{
   {
     labelKey: "navGroups.access",
     itemKeys: ["accessManagement", "orgUnits", "virtualUsers"],
+  },
+  {
+    labelKey: "navGroups.billing",
+    itemKeys: ["billing", "topup", "bankTransfer", "billingReports", "billingProfile", "billingDocuments"],
   },
 ];
 
@@ -316,7 +316,7 @@ function AdminSidebar({
         ))}
       </SidebarContent>
 
-      <SidebarFooter className="group-data-[collapsible=icon]:hidden">
+      <SidebarFooter className="border-t border-sidebar-border/70 bg-sidebar-accent/30 pt-3 group-data-[collapsible=icon]:hidden">
         <SidebarPlanSummary summary={subscriptionSummary} />
       </SidebarFooter>
     </Sidebar>
@@ -336,7 +336,7 @@ function WalletBalanceLink({ balanceIRR }: { balanceIRR: number | null }) {
       className={cn("w-auto min-w-10 gap-2 px-3", isLowBalance && "border-destructive/40 text-destructive hover:text-destructive")}
       asChild
     >
-      <Link href="/billing/topup" aria-label={t("wallet.open")}>
+      <Link href="/billing" aria-label={t("wallet.open")}>
         <WalletCards data-icon="inline-start" aria-hidden="true" />
         <span className="hidden sm:inline">{balanceLabel}</span>
       </Link>

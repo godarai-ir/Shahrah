@@ -3,9 +3,7 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
-import { format } from "date-fns";
-import { faIR } from "date-fns/locale";
-import { BarChart3, CalendarIcon, FileImage, FileText, ReceiptText, Tag, Trash2, Upload, WalletCards } from "lucide-react";
+import { BarChart3, FileImage, FileText, ReceiptText, Tag, Trash2, Upload, WalletCards } from "lucide-react";
 import { Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 import { AppCard, AppSelectField, FormSection, MetricCard, SettingsCard, StatusBadge } from "@/components/app-ui";
@@ -20,27 +18,37 @@ import {
   AttachmentTitle,
 } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import { DataTable } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   type BankTransferRequest,
   type BillingProfile,
   type BillingProviderUsage,
+  type BillingSummaryPreset,
   type BillingUsageSummary,
   type DiscountRedemption,
   type Invoice,
   type MonthlyUsageDetail,
   type WalletTransaction,
+  buildBillingMonthlyPath,
+  buildBillingSummaryPath,
+  buildRecentJalaliMonthOptions,
   formatDate,
   formatDateOnly,
   formatIRR,
+  formatSelectedJalaliMonth,
   formatToman,
+  getCurrentJalaliDateValue,
+  getCurrentJalaliMonthSelection,
+  getJalaliMonthKey,
+  normalizeJalaliDateInput,
+  parseJalaliMonthKey,
   statusTone,
 } from "@/app/billing/_shared";
+import { cn } from "@/lib/utils";
 
 type BankTransferPanelProps = {
   initialItems: BankTransferRequest[];
@@ -49,12 +57,13 @@ type BankTransferPanelProps = {
 
 const MAX_RECEIPT_IMAGE_SIZE = 2 * 1024 * 1024;
 const ALLOWED_RECEIPT_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function BankTransferPanel({ initialItems, initialError }: BankTransferPanelProps) {
   const router = useRouter();
   const [amountToman, setAmountToman] = useState("1000000");
   const [trackingNumber, setTrackingNumber] = useState("");
-  const [bankTransactionDate, setBankTransactionDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [bankTransactionDateJalali, setBankTransactionDateJalali] = useState(getCurrentJalaliDateValue());
   const [receiptImage, setReceiptImage] = useState<File | null>(null);
   const [receiptPreviewURL, setReceiptPreviewURL] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(initialError);
@@ -88,6 +97,11 @@ export function BankTransferPanel({ initialItems, initialError }: BankTransferPa
       setError("مبلغ و شماره پیگیری را کامل وارد کنید.");
       return;
     }
+    const normalizedDate = normalizeJalaliDateInput(bankTransactionDateJalali);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) {
+      setError("تاریخ واریز را با فرمت شمسی YYYY-MM-DD وارد کنید.");
+      return;
+    }
     if (!receiptImage) {
       setError("تصویر رسید را بارگذاری کنید.");
       return;
@@ -98,7 +112,7 @@ export function BankTransferPanel({ initialItems, initialError }: BankTransferPa
       const formData = new FormData();
       formData.set("amount_irr", String(Math.round(toman * 10)));
       formData.set("tracking_number", trackingNumber.trim());
-      formData.set("bank_transaction_at", new Date(`${bankTransactionDate}T12:00:00`).toISOString());
+      formData.set("bank_transaction_date_jalali", normalizedDate);
       formData.set("receipt_image", receiptImage);
 
       const resp = await fetch("/api/wallet/bank-transfers", {
@@ -109,6 +123,7 @@ export function BankTransferPanel({ initialItems, initialError }: BankTransferPa
       if (!resp.ok) throw new Error(payload?.error?.message ?? "ثبت واریز بانکی ناموفق بود.");
       router.refresh();
       setTrackingNumber("");
+      setBankTransactionDateJalali(getCurrentJalaliDateValue());
       if (receiptPreviewURL) {
         URL.revokeObjectURL(receiptPreviewURL);
       }
@@ -163,7 +178,7 @@ export function BankTransferPanel({ initialItems, initialError }: BankTransferPa
         <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
           <Field id="bank-amount" label="مبلغ (تومان)" value={amountToman} onChange={setAmountToman} dir="ltr" inputMode="numeric" />
           <Field id="bank-tracking" label="شماره پیگیری" value={trackingNumber} onChange={setTrackingNumber} dir="ltr" />
-          <DatePickerField id="bank-date" label="تاریخ واریز" value={bankTransactionDate} onChange={setBankTransactionDate} />
+          <JalaliDateField id="bank-date" label="تاریخ واریز (شمسی)" value={bankTransactionDateJalali} onChange={setBankTransactionDateJalali} />
           <div className="flex flex-col gap-2 md:col-span-2">
             <Label htmlFor="bank-receipt">تصویر رسید</Label>
             <div className="flex flex-col gap-3">
@@ -229,34 +244,46 @@ type ReportsPanelProps = {
 };
 
 export function ReportsPanel({ initialSummary, initialMonthly, initialError }: ReportsPanelProps) {
-  const [range, setRange] = useState(initialSummary?.range ?? "current_month");
-  const [month, setMonth] = useState(initialMonthly?.month ?? new Date().toISOString().slice(0, 7));
+  const [preset, setPreset] = useState<BillingSummaryPreset>(initialSummary?.preset ?? "current_month");
+  const [monthKey, setMonthKey] = useState(() => {
+    if (initialMonthly) {
+      return getJalaliMonthKey({ year: initialMonthly.jalali_year, month: initialMonthly.jalali_month });
+    }
+    return getJalaliMonthKey(getCurrentJalaliMonthSelection());
+  });
   const [summary, setSummary] = useState<BillingUsageSummary | null>(initialSummary);
   const [monthly, setMonthly] = useState<MonthlyUsageDetail | null>(initialMonthly);
   const [error, setError] = useState<string | null>(initialError);
   const [loading, setLoading] = useState(false);
+  const monthOptions = useMemo(() => buildRecentJalaliMonthOptions(18), []);
 
   const columns = useMemo<ColumnDef<BillingProviderUsage>[]>(
     () => [
-      { accessorKey: "provider_name", header: "Provider" },
-      { accessorKey: "request_count", header: "Requests" },
-      { accessorKey: "input_tokens", header: "Input tokens" },
-      { accessorKey: "output_tokens", header: "Output tokens" },
-      { accessorKey: "raw_cost_irr", header: "Raw cost", cell: ({ row }) => formatIRR(row.original.raw_cost_irr) },
-      { accessorKey: "discount_irr", header: "Discount", cell: ({ row }) => formatIRR(row.original.discount_irr) },
-      { accessorKey: "cache_savings_irr", header: "Cache saving", cell: ({ row }) => formatIRR(row.original.cache_savings_irr) },
-      { accessorKey: "final_cost_irr", header: "Final cost", cell: ({ row }) => formatIRR(row.original.final_cost_irr) },
+      { accessorKey: "provider_name", header: "ارائه‌دهنده" },
+      { accessorKey: "request_count", header: "درخواست‌ها" },
+      { accessorKey: "input_tokens", header: "توکن ورودی" },
+      { accessorKey: "output_tokens", header: "توکن خروجی" },
+      { accessorKey: "raw_cost_irr", header: "هزینه خام", cell: ({ row }) => formatIRR(row.original.raw_cost_irr) },
+      { accessorKey: "discount_irr", header: "تخفیف", cell: ({ row }) => formatIRR(row.original.discount_irr) },
+      { accessorKey: "cache_savings_irr", header: "صرفه‌جویی کش", cell: ({ row }) => formatIRR(row.original.cache_savings_irr) },
+      { accessorKey: "final_cost_irr", header: "هزینه نهایی", cell: ({ row }) => formatIRR(row.original.final_cost_irr) },
     ],
     [],
   );
 
-  async function refresh(nextRange = range, nextMonth = month) {
+  async function refresh(nextPreset = preset, nextMonthKey = monthKey) {
+    const nextMonth = parseJalaliMonthKey(nextMonthKey);
+    if (!nextMonth) {
+      setError("ماه گزارش باید یک ماه شمسی معتبر باشد.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
       const [summaryResp, monthlyResp] = await Promise.all([
-        fetch(`/api/billing/reports/summary?range=${encodeURIComponent(nextRange)}`),
-        fetch(`/api/billing/reports/monthly?month=${encodeURIComponent(nextMonth)}`),
+        fetch(buildBillingSummaryPath(nextPreset)),
+        fetch(buildBillingMonthlyPath(nextMonth)),
       ]);
       const [summaryPayload, monthlyPayload] = await Promise.all([summaryResp.json(), monthlyResp.json()]);
       if (!summaryResp.ok) throw new Error(summaryPayload?.error?.message ?? "گزارش خلاصه دریافت نشد.");
@@ -278,39 +305,50 @@ export function ReportsPanel({ initialSummary, initialMonthly, initialError }: R
   return (
     <div className="space-y-6">
       {error ? <Alert variant="destructive"><AlertTitle>خطا</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
         <MetricCard icon={WalletCards} label="مصرف دوره" value={formatIRR(summary?.total_usage_irr)} />
         <MetricCard icon={Tag} label="تخفیف" value={formatIRR(summary?.discount_irr)} />
-        <MetricCard icon={BarChart3} label="صرفه‌جویی cache" value={formatIRR(summary?.cache_savings_irr)} />
+        <MetricCard icon={BarChart3} label="صرفه‌جویی کش" value={formatIRR(summary?.cache_savings_irr)} />
         <MetricCard icon={ReceiptText} label="اعتبار هدیه" value={formatIRR(summary?.gift_credit_irr)} />
       </div>
-      <SettingsCard title="فیلتر گزارش" description="بازه خلاصه و ماه جزئیات را انتخاب کنید.">
+      <SettingsCard title="فیلتر گزارش" description="گزارش مصرف را در بازه زمانی دلخواه یا به تفکیک ماه مشاهده کنید.">
         <div className="grid gap-4 md:grid-cols-3">
           <AppSelectField
             label="بازه"
-            value={range}
+            value={preset}
             onValueChange={(value) => {
-              setRange(value);
-              void refresh(value, month);
+              setPreset(value as BillingSummaryPreset);
+              void refresh(value as BillingSummaryPreset, monthKey);
             }}
             options={[
               { value: "current_month", label: "ماه جاری" },
-              { value: "3m", label: "۳ ماه" },
-              { value: "6m", label: "۶ ماه" },
-              { value: "12m", label: "۱۲ ماه" },
+              { value: "current_quarter", label: "فصل جاری" },
+              { value: "current_year", label: "سال جاری" },
+              { value: "last_3_months", label: "سه ماه اخیر" },
+              { value: "last_6_months", label: "شش ماه اخیر" },
+              { value: "last_12_months", label: "دوازده ماه اخیر" },
             ]}
           />
-          <Field id="report-month" type="month" label="ماه" value={month} onChange={setMonth} />
+          <AppSelectField
+            label="فیلتر ماهانه"
+            value={monthKey}
+            onValueChange={setMonthKey}
+            options={monthOptions}
+          />
           <div className="flex items-end">
             <Button type="button" onClick={() => void refresh()} disabled={loading}>{loading ? "در حال دریافت..." : "به‌روزرسانی"}</Button>
           </div>
         </div>
       </SettingsCard>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <SettingsCard title="جزئیات ماهانه" description="تجمیع مصرف، توکن و هزینه نهایی به تفکیک provider" className="max-w-none">
-          <DataTable columns={columns} data={monthly?.providers ?? []} emptyLabel="داده‌ای برای این ماه وجود ندارد." />
+        <SettingsCard
+          title="جزئیات ماهانه"
+          description={`تجمیع مصرف، توکن و هزینه نهایی به تفکیک ارائه‌دهنده برای ${formatSelectedJalaliMonth(monthKey)}`}
+          className="max-w-none"
+        >
+          <DataTable columns={columns} data={monthly?.providers ?? []} emptyLabel="داده‌ای برای این ماه وجود ندارد." dir="rtl" />
         </SettingsCard>
-        <AppCard title="سهم providerها" description="بر اساس هزینه نهایی">
+        <AppCard title="سهم ارائه‌دهنده‌ها" description="بر اساس هزینه نهایی">
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -330,10 +368,13 @@ type ProfilePanelProps = {
   initialError: string | null;
 };
 
+type BillingProfileType = "individual" | "legal";
+
 export function BillingProfilePanel({ initialProfile, initialError }: ProfilePanelProps) {
   const router = useRouter();
   const data = initialProfile?.data ?? {};
-  const [profileType, setProfileType] = useState(initialProfile?.profile_type ?? "individual");
+  const initialProfileType: BillingProfileType = initialProfile?.profile_type === "legal" ? "legal" : "individual";
+  const [profileType, setProfileType] = useState<BillingProfileType>(initialProfileType);
   const [displayName, setDisplayName] = useState(String(data.display_name ?? ""));
   const [nationalID, setNationalID] = useState(String(data.national_id ?? ""));
   const [economicCode, setEconomicCode] = useState(String(data.economic_code ?? ""));
@@ -347,12 +388,36 @@ export function BillingProfilePanel({ initialProfile, initialError }: ProfilePan
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    if (!displayName.trim() || !nationalID.trim()) {
+    const normalizedNationalID = normalizeDigits(nationalID);
+    const normalizedEconomicCode = normalizeDigits(economicCode);
+    const normalizedPostalCode = normalizeDigits(postalCode);
+    const normalizedEmail = email.trim();
+    if (!displayName.trim() || !normalizedNationalID) {
       setError("نام نمایشی و شناسه ملی/کد ملی الزامی است.");
       return;
     }
-    if (profileType === "legal" && !economicCode.trim()) {
+    if (profileType === "individual" && normalizedNationalID.length !== 10) {
+      setError("کد ملی باید دقیقاً ۱۰ رقم باشد.");
+      return;
+    }
+    if (profileType === "legal" && normalizedNationalID.length !== 11) {
+      setError("شناسه ملی باید دقیقاً ۱۱ رقم باشد.");
+      return;
+    }
+    if (profileType === "legal" && !normalizedEconomicCode) {
       setError("برای پروفایل حقوقی، کد اقتصادی الزامی است.");
+      return;
+    }
+    if (profileType === "legal" && normalizedEconomicCode.length !== 12) {
+      setError("کد اقتصادی باید دقیقاً ۱۲ رقم باشد.");
+      return;
+    }
+    if (postalCode.trim() && normalizedPostalCode.length !== 10) {
+      setError("کد پستی باید دقیقاً ۱۰ رقم باشد.");
+      return;
+    }
+    if (normalizedEmail && !EMAIL_PATTERN.test(normalizedEmail)) {
+      setError("ایمیل را با قالب معتبر وارد کنید.");
       return;
     }
     setLoading(true);
@@ -364,12 +429,12 @@ export function BillingProfilePanel({ initialProfile, initialError }: ProfilePan
           profile_type: profileType,
           data: {
             display_name: displayName.trim(),
-            national_id: nationalID.trim(),
-            economic_code: economicCode.trim(),
-            postal_code: postalCode.trim(),
+            national_id: normalizedNationalID,
+            economic_code: normalizedEconomicCode,
+            postal_code: normalizedPostalCode,
             address: address.trim(),
             phone: phone.trim(),
-            email: email.trim(),
+            email: normalizedEmail,
           },
         }),
       });
@@ -384,33 +449,58 @@ export function BillingProfilePanel({ initialProfile, initialError }: ProfilePan
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {error ? <Alert variant="destructive"><AlertTitle>خطا</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}
-      <SettingsCard title="پروفایل صدور سند" description="اطلاعات این فرم در snapshot فاکتورهای رسمی نگه‌داری می‌شود.">
-        <form onSubmit={submit} className="space-y-4">
-          <FormSection title="مشخصات" description="نوع پروفایل و شناسه مالی">
-            <AppSelectField
-              label="نوع"
-              value={profileType}
-              onValueChange={setProfileType}
-              options={[
-                { value: "individual", label: "حقیقی" },
-                { value: "legal", label: "حقوقی" },
-              ]}
+      <form onSubmit={submit} className="flex flex-col gap-4">
+        <FormSection title="مشخصات" description="نوع پروفایل و شناسه مالی">
+          <ProfileTypeField value={profileType} onValueChange={setProfileType} />
+          <Field id="profile-name" label="نام نمایشی" value={displayName} onChange={setDisplayName} />
+          <Field
+            id="profile-national"
+            label={profileType === "legal" ? "شناسه ملی" : "کد ملی"}
+            value={nationalID}
+            dir="ltr"
+            inputMode="numeric"
+            maxLength={profileType === "legal" ? 11 : 10}
+            onChange={(value) => setNationalID(normalizeDigits(value).slice(0, profileType === "legal" ? 11 : 10))}
+          />
+          {profileType === "legal" ? (
+            <Field
+              id="profile-economic"
+              label="کد اقتصادی"
+              value={economicCode}
+              dir="ltr"
+              inputMode="numeric"
+              maxLength={12}
+              onChange={(value) => setEconomicCode(normalizeDigits(value).slice(0, 12))}
             />
-            <Field id="profile-name" label="نام نمایشی" value={displayName} onChange={setDisplayName} />
-            <Field id="profile-national" label={profileType === "legal" ? "شناسه ملی" : "کد ملی"} value={nationalID} onChange={setNationalID} />
-            {profileType === "legal" ? <Field id="profile-economic" label="کد اقتصادی" value={economicCode} onChange={setEconomicCode} /> : null}
-          </FormSection>
-          <FormSection title="تماس و نشانی" description="برای نمایش در سندهای مالی">
-            <Field id="profile-postal" label="کد پستی" value={postalCode} onChange={setPostalCode} />
-            <Field id="profile-address" label="نشانی" value={address} onChange={setAddress} />
-            <Field id="profile-phone" label="تلفن" value={phone} onChange={setPhone} />
-            <Field id="profile-email" label="ایمیل" value={email} onChange={setEmail} />
-          </FormSection>
-          <Button type="submit" disabled={loading}>{loading ? "در حال ذخیره..." : "ذخیره پروفایل"}</Button>
-        </form>
-      </SettingsCard>
+          ) : null}
+        </FormSection>
+        <FormSection title="تماس و نشانی" description="برای نمایش در سندهای مالی">
+          <Field
+            id="profile-postal"
+            label="کد پستی"
+            value={postalCode}
+            dir="ltr"
+            inputMode="numeric"
+            maxLength={10}
+            onChange={(value) => setPostalCode(normalizeDigits(value).slice(0, 10))}
+          />
+          <Field id="profile-address" label="نشانی" value={address} onChange={setAddress} />
+          <Field id="profile-phone" label="تلفن" value={phone} onChange={setPhone} />
+          <Field
+            id="profile-email"
+            label="ایمیل"
+            value={email}
+            type="email"
+            dir="ltr"
+            inputMode="email"
+            autoComplete="email"
+            onChange={setEmail}
+          />
+        </FormSection>
+        <Button type="submit" disabled={loading} className="self-end">{loading ? "در حال ذخیره..." : "ذخیره پروفایل"}</Button>
+      </form>
     </div>
   );
 }
@@ -424,11 +514,11 @@ type DocumentsPanelProps = {
 export function BillingDocumentsPanel({ invoices, transactions, discounts }: DocumentsPanelProps) {
   const invoiceColumns = useMemo<ColumnDef<Invoice>[]>(
     () => [
-      { accessorKey: "invoice_number", header: "شماره" },
-      { accessorKey: "status", header: "وضعیت", cell: ({ row }) => <StatusBadge status={statusTone(row.original.status)}>{row.original.status}</StatusBadge> },
-      { accessorKey: "period_end", header: "پایان دوره", cell: ({ row }) => formatDate(row.original.period_end) },
+      { accessorKey: "net_adjustment_irr", header: "اصلاحیه", cell: ({ row }) => formatIRR(row.original.net_adjustment_irr) },
       { accessorKey: "final_amount_irr", header: "مبلغ نهایی", cell: ({ row }) => formatIRR(row.original.final_amount_irr) },
-      { accessorKey: "net_adjustment_irr", header: "Adjustment", cell: ({ row }) => formatIRR(row.original.net_adjustment_irr) },
+      { accessorKey: "period_end", header: "پایان دوره", cell: ({ row }) => formatDate(row.original.period_end) },
+      { accessorKey: "status", header: "وضعیت", cell: ({ row }) => <StatusBadge status={statusTone(row.original.status)}>{row.original.status}</StatusBadge> },
+      { accessorKey: "invoice_number", header: "شماره" },
     ],
     [],
   );
@@ -454,18 +544,57 @@ export function BillingDocumentsPanel({ invoices, transactions, discounts }: Doc
   );
 
   return (
-    <SettingsCard title="اسناد مالی" description="فاکتورها، ledger کیف پول و تخفیف‌های استفاده‌شده" className="max-w-none">
-      <Tabs defaultValue="invoices">
-        <TabsList>
+    <SettingsCard title="اسناد مالی" description="همه فاکتورها، تراکنش‌ها و تخفیف‌های ارایه‌شده را یکجا ببینید." className="max-w-none">
+      <Tabs defaultValue="invoices" className="w-full">
+        <TabsList className="self-end" dir="rtl">
           <TabsTrigger value="invoices"><FileText className="me-2 size-4" />فاکتورها</TabsTrigger>
           <TabsTrigger value="transactions"><ReceiptText className="me-2 size-4" />تراکنش‌ها</TabsTrigger>
           <TabsTrigger value="discounts"><Tag className="me-2 size-4" />تخفیف‌ها</TabsTrigger>
         </TabsList>
-        <TabsContent value="invoices"><DataTable columns={invoiceColumns} data={invoices} emptyLabel="فاکتوری صادر نشده است." /></TabsContent>
-        <TabsContent value="transactions"><DataTable columns={txColumns} data={transactions} emptyLabel="تراکنشی ثبت نشده است." /></TabsContent>
-        <TabsContent value="discounts"><DataTable columns={discountColumns} data={discounts} emptyLabel="تخفیفی استفاده نشده است." /></TabsContent>
+        <TabsContent value="invoices"><DataTable columns={invoiceColumns} data={invoices} emptyLabel="فاکتوری صادر نشده است." dir="rtl" /></TabsContent>
+        <TabsContent value="transactions"><DataTable columns={txColumns} data={transactions} emptyLabel="تراکنشی ثبت نشده است." dir="rtl" /></TabsContent>
+        <TabsContent value="discounts"><DataTable columns={discountColumns} data={discounts} emptyLabel="تخفیفی استفاده نشده است." dir="rtl" /></TabsContent>
       </Tabs>
     </SettingsCard>
+  );
+}
+
+function ProfileTypeField({
+  value,
+  onValueChange,
+}: {
+  value: BillingProfileType;
+  onValueChange: (value: BillingProfileType) => void;
+}) {
+  const options = [
+    { value: "individual" as const, label: "حقیقی" },
+    { value: "legal" as const, label: "حقوقی" },
+  ];
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Label>نوع</Label>
+      <RadioGroup
+        dir="rtl"
+        value={value}
+        onValueChange={(nextValue) => onValueChange(nextValue as "individual" | "legal")}
+        className="grid grid-cols-2 gap-2"
+      >
+        {options.map((option) => (
+          <Label
+            key={option.value}
+            htmlFor={`profile-type-${option.value}`}
+            className={cn(
+              "flex cursor-pointer items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm font-medium transition-colors rtl:flex-row",
+              value === option.value && "border-primary bg-accent/40 text-accent-foreground",
+            )}
+          >
+            <span>{option.label}</span>
+            <RadioGroupItem id={`profile-type-${option.value}`} value={option.value} />
+          </Label>
+        ))}
+      </RadioGroup>
+    </div>
   );
 }
 
@@ -477,6 +606,8 @@ function Field({
   type = "text",
   dir,
   inputMode,
+  maxLength,
+  autoComplete,
 }: {
   id: string;
   label: string;
@@ -485,16 +616,35 @@ function Field({
   type?: string;
   dir?: "rtl" | "ltr" | "auto";
   inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  maxLength?: number;
+  autoComplete?: string;
 }) {
   return (
-    <div className="grid gap-2">
+    <div className="flex flex-col gap-2">
       <Label htmlFor={id}>{label}</Label>
-      <Input id={id} dir={dir} inputMode={inputMode} type={type} value={value} onChange={(e) => onChange(e.target.value)} />
+      <Input
+        id={id}
+        dir={dir}
+        inputMode={inputMode}
+        type={type}
+        maxLength={maxLength}
+        autoComplete={autoComplete}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
     </div>
   );
 }
 
-function DatePickerField({
+function normalizeDigits(value: string) {
+  return value
+    .trim()
+    .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
+    .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+    .replace(/\D/g, "");
+}
+
+function JalaliDateField({
   id,
   label,
   value,
@@ -505,37 +655,23 @@ function DatePickerField({
   value: string;
   onChange: (value: string) => void;
 }) {
-  const selectedDate = parseISODate(value);
-
   return (
     <div className="grid gap-2">
       <Label htmlFor={id}>{label}</Label>
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            id={id}
-            variant="outline"
-            type="button"
-            className="w-full justify-between text-right font-normal"
-          >
-            <span className="truncate">
-              {selectedDate ? format(selectedDate, "PPP", { locale: faIR }) : "یک تاریخ انتخاب کنید"}
-            </span>
-            <CalendarIcon data-icon="inline-end" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <Calendar
-            mode="single"
-            selected={selectedDate}
-            onSelect={(date) => {
-              if (date) {
-                onChange(format(date, "yyyy-MM-dd"));
-              }
-            }}
-          />
-        </PopoverContent>
-      </Popover>
+      <div className="flex gap-2">
+        <Input
+          id={id}
+          dir="ltr"
+          inputMode="numeric"
+          value={value}
+          onChange={(e) => onChange(normalizeJalaliDateInput(e.target.value))}
+          placeholder="1405-04-17"
+        />
+        <Button type="button" variant="outline" onClick={() => onChange(getCurrentJalaliDateValue())}>
+          امروز
+        </Button>
+      </div>
+      <p className="text-xs leading-5 text-muted-foreground">تاریخ را با فرمت شمسی `YYYY-MM-DD` وارد کنید.</p>
     </div>
   );
 }
@@ -548,11 +684,4 @@ function formatFileSize(size: number) {
     return `${Math.round(size / 1024)} KB`;
   }
   return `${size} B`;
-}
-
-function parseISODate(value: string) {
-  if (!value) return undefined;
-  const [year, month, day] = value.split("-").map(Number);
-  if (!year || !month || !day) return undefined;
-  return new Date(year, month - 1, day);
 }

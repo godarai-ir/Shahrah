@@ -2,8 +2,8 @@ package admin
 
 import (
 	"errors"
+	"strconv"
 	"strings"
-	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
@@ -30,9 +30,16 @@ func (h *Handlers) CreateBankTransfer(c *fiber.Ctx) error {
 	}
 	req.TrackingNumber = strings.TrimSpace(req.TrackingNumber)
 	req.ReceiptFileURL = strings.TrimSpace(req.ReceiptFileURL)
-	if req.AmountIRR <= 0 || req.TrackingNumber == "" || req.BankTransactionAt.IsZero() {
-		return fiber.NewError(fiber.StatusBadRequest, "amount_irr, tracking_number, and bank_transaction_at are required")
+	req.BankTransactionDateJalali = strings.TrimSpace(req.BankTransactionDateJalali)
+	if req.AmountIRR <= 0 || req.TrackingNumber == "" || req.BankTransactionDateJalali == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "amount_irr, tracking_number, and bank_transaction_date_jalali are required")
 	}
+
+	bankTransactionAt, err := storage.ParseJalaliDateAtTehranMidday(req.BankTransactionDateJalali)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "bank_transaction_date_jalali must be a valid Jalali date in YYYY-MM-DD format")
+	}
+	req.BankTransactionAt = bankTransactionAt
 
 	item, err := h.wallets.CreateBankTransferRequest(c.Context(), currentTenant.ID, req, billingActorID(c))
 	if err != nil {
@@ -184,8 +191,19 @@ func (h *Handlers) GetBillingUsageSummary(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	item, err := h.wallets.GetBillingUsageSummary(c.Context(), currentTenant.ID, c.Query("range", "current_month"))
+	if strings.TrimSpace(c.Query("range")) != "" {
+		return fiber.NewError(fiber.StatusUnprocessableEntity, "range query parameter is no longer supported; use preset")
+	}
+	preset := strings.TrimSpace(c.Query("preset"))
+	if preset == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "preset is required")
+	}
+
+	item, err := h.wallets.GetBillingUsageSummary(c.Context(), currentTenant.ID, preset)
 	if err != nil {
+		if errors.Is(err, storage.ErrBillingReportPresetInvalid) {
+			return fiber.NewError(fiber.StatusBadRequest, "preset is invalid")
+		}
 		return err
 	}
 
@@ -200,8 +218,24 @@ func (h *Handlers) GetBillingMonthlyUsage(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	item, err := h.wallets.GetMonthlyUsageDetail(c.Context(), currentTenant.ID, c.Query("month", time.Now().UTC().Format("2006-01")))
+	if strings.TrimSpace(c.Query("month")) != "" {
+		return fiber.NewError(fiber.StatusUnprocessableEntity, "month query parameter is no longer supported; use jalali_year and jalali_month")
+	}
+
+	jalaliYear, err := strconv.Atoi(strings.TrimSpace(c.Query("jalali_year")))
+	if err != nil || jalaliYear <= 0 {
+		return fiber.NewError(fiber.StatusBadRequest, "jalali_year must be a positive integer")
+	}
+	jalaliMonth, err := strconv.Atoi(strings.TrimSpace(c.Query("jalali_month")))
+	if err != nil || jalaliMonth <= 0 {
+		return fiber.NewError(fiber.StatusBadRequest, "jalali_month must be a positive integer")
+	}
+
+	item, err := h.wallets.GetMonthlyUsageDetail(c.Context(), currentTenant.ID, jalaliYear, jalaliMonth)
 	if err != nil {
+		if errors.Is(err, storage.ErrBillingJalaliMonthInvalid) {
+			return fiber.NewError(fiber.StatusBadRequest, "jalali_year and jalali_month must describe a valid Jalali month")
+		}
 		return err
 	}
 

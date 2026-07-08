@@ -1,5 +1,9 @@
 # Agent Instructions
 
+## Package Manager
+
+- Always use `pnpm` instead of `npm` for dependency, script, and build commands.
+
 ## UI / Frontend Work
 
 Before making UI changes:

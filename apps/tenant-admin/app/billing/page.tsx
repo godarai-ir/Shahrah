@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
-import { type BillingUsageSummary, type WalletPayload, formatIRR, formatToman } from "@/app/billing/_shared";
+import { buildControlPlaneBillingSummaryPath, type BillingUsageSummary, type WalletPayload, formatIRR, formatToman } from "@/app/billing/_shared";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +26,7 @@ export default async function BillingDashboardPage() {
 
   const [walletResponse, summaryResponse] = await Promise.all([
     fetchControlPlaneJSON({ tenantSlug, method: "GET", path: "/api/v1/wallet", userID: auth.user.id }),
-    fetchControlPlaneJSON({ tenantSlug, method: "GET", path: "/api/v1/billing/reports/summary?range=current_month", userID: auth.user.id }),
+    fetchControlPlaneJSON({ tenantSlug, method: "GET", path: buildControlPlaneBillingSummaryPath("current_month"), userID: auth.user.id }),
   ]);
 
   const wallet = walletResponse.ok ? (walletResponse.payload as WalletPayload) : null;
@@ -39,7 +39,7 @@ export default async function BillingDashboardPage() {
         <PageHeader
           eyebrow="Billing"
           title="مدیریت مالی"
-          description="نمای عملیاتی کیف پول، مصرف دوره، تخفیف‌ها و اسناد مالی tenant."
+          description="نمای عملیاتی کیف پول، مصرف دوره، تخفیف‌ها و اسناد مالی فضای کاری."
           actions={
             <>
               <Button asChild><Link href="/billing/topup"><CreditCard className="me-2 size-4" />شارژ کیف پول</Link></Button>
@@ -47,15 +47,15 @@ export default async function BillingDashboardPage() {
             </>
           }
         />
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
           <MetricCard icon={WalletCards} label="موجودی کیف پول" value={formatToman(balance)} description={formatIRR(balance)} />
           <MetricCard icon={LineChart} label="مصرف ماه جاری" value={formatIRR(summary?.total_usage_irr)} />
+          <MetricCard icon={FileText} label="صرفه‌جویی کش" value={formatIRR(summary?.cache_savings_irr)} />
           <MetricCard icon={Tag} label="تخفیف دوره" value={formatIRR(summary?.discount_irr)} />
-          <MetricCard icon={FileText} label="صرفه‌جویی cache" value={formatIRR(summary?.cache_savings_irr)} />
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
-          <AppCard title="اقدام‌های سریع" description="مسیرهای اصلی مالی tenant" className="lg:col-span-1">
-            <div className="grid gap-2">
+          <AppCard title="اقدام‌های سریع" className="lg:col-span-1">
+            <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
               <QuickAction href="/billing/topup" icon={CreditCard} label="شارژ از درگاه" />
               <QuickAction href="/billing/bank-transfer" icon={Landmark} label="ثبت واریز بانکی" />
               <QuickAction href="/billing/reports" icon={LineChart} label="گزارش مصرف" />
@@ -63,7 +63,7 @@ export default async function BillingDashboardPage() {
               <QuickAction href="/billing/documents" icon={FileText} label="اسناد مالی" />
             </div>
           </AppCard>
-          <AppCard title="Providerهای پرمصرف" description="براساس هزینه نهایی دوره جاری" className="lg:col-span-2">
+          <AppCard title="ارائه‌دهندگان پر مصرف" description="براساس هزینه نهایی دوره جاری" className="lg:col-span-2">
             <div className="divide-y divide-border">
               {(summary?.providers ?? []).slice(0, 5).map((provider) => (
                 <div key={provider.provider_name} className="flex items-center justify-between gap-4 py-3">
@@ -85,7 +85,7 @@ export default async function BillingDashboardPage() {
 
 function QuickAction({ href, icon: Icon, label }: { href: string; icon: ComponentType<{ className?: string }>; label: string }) {
   return (
-    <Button asChild variant="outline" className="justify-start">
+    <Button asChild variant="outline" size="sm" className="h-9 justify-between px-3 text-xs sm:h-10 sm:text-sm lg:justify-start">
       <Link href={href}><Icon className="me-2 size-4" />{label}</Link>
     </Button>
   );

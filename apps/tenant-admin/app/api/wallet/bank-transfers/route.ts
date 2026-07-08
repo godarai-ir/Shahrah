@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { readAuthFromRequest } from "@/lib/auth/request-auth";
 import { proxyToControlPlane } from "@/lib/control-plane";
 import { saveReceiptImage } from "@/app/api/wallet/bank-transfer-receipts/[fileName]/route";
+import { buildBankTransferPayload } from "@/app/billing/_shared";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const amountIRR = Number(String(formData.get("amount_irr") ?? "").trim());
     const trackingNumber = String(formData.get("tracking_number") ?? "").trim();
-    const bankTransactionAtRaw = String(formData.get("bank_transaction_at") ?? "").trim();
+    const bankTransactionDateJalali = String(formData.get("bank_transaction_date_jalali") ?? "").trim();
     const receiptImage = formData.get("receipt_image");
 
     let receiptFileURL: string | undefined;
@@ -48,12 +49,12 @@ export async function POST(request: NextRequest) {
       request,
       method: "POST",
       path: "/api/v1/wallet/bank-transfers",
-      body: {
-        amount_irr: amountIRR,
-        tracking_number: trackingNumber,
-        bank_transaction_at: bankTransactionAtRaw,
-        receipt_file_url: receiptFileURL,
-      },
+      body: buildBankTransferPayload({
+        amountIRR,
+        trackingNumber,
+        bankTransactionDateJalali,
+        receiptFileURL,
+      }),
     });
   }
 

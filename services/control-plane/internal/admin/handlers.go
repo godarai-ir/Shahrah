@@ -73,8 +73,8 @@ type walletStore interface {
 	UpsertBillingProfile(ctx context.Context, tenantID string, req platform.UpsertBillingProfileRequest, actor string) (*platform.BillingProfile, error)
 	ListInvoices(ctx context.Context, tenantID string, limit int) ([]platform.Invoice, error)
 	ListDiscountRedemptions(ctx context.Context, tenantID string, limit int) ([]platform.DiscountRedemption, error)
-	GetBillingUsageSummary(ctx context.Context, tenantID string, rangeKey string) (*platform.BillingUsageSummary, error)
-	GetMonthlyUsageDetail(ctx context.Context, tenantID string, month string) (*platform.MonthlyUsageDetail, error)
+	GetBillingUsageSummary(ctx context.Context, tenantID string, preset string) (*platform.BillingUsageSummary, error)
+	GetMonthlyUsageDetail(ctx context.Context, tenantID string, jalaliYear int, jalaliMonth int) (*platform.MonthlyUsageDetail, error)
 }
 
 type providerAccountStore interface {

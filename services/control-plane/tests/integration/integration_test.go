@@ -1478,14 +1478,14 @@ func (s *integrationWalletStore) ListDiscountRedemptions(ctx context.Context, te
 	return []platform.DiscountRedemption{}, nil
 }
 
-func (s *integrationWalletStore) GetBillingUsageSummary(ctx context.Context, tenantID, rangeKey string) (*platform.BillingUsageSummary, error) {
+func (s *integrationWalletStore) GetBillingUsageSummary(ctx context.Context, tenantID, preset string) (*platform.BillingUsageSummary, error) {
 	now := time.Now().UTC()
-	return &platform.BillingUsageSummary{Range: rangeKey, Start: now, End: now, Providers: []platform.BillingProviderUsage{}}, nil
+	return &platform.BillingUsageSummary{Calendar: "jalali", Preset: preset, Start: now, End: now, Providers: []platform.BillingProviderUsage{}}, nil
 }
 
-func (s *integrationWalletStore) GetMonthlyUsageDetail(ctx context.Context, tenantID, month string) (*platform.MonthlyUsageDetail, error) {
+func (s *integrationWalletStore) GetMonthlyUsageDetail(ctx context.Context, tenantID string, jalaliYear int, jalaliMonth int) (*platform.MonthlyUsageDetail, error) {
 	now := time.Now().UTC()
-	return &platform.MonthlyUsageDetail{Month: month, Start: now, End: now, Providers: []platform.BillingProviderUsage{}}, nil
+	return &platform.MonthlyUsageDetail{Calendar: "jalali", JalaliYear: jalaliYear, JalaliMonth: jalaliMonth, Start: now, End: now, Providers: []platform.BillingProviderUsage{}}, nil
 }
 
 func (s *integrationWalletStore) LogRequest(ctx context.Context, entry platform.RequestLogEntry) error {

@@ -28,12 +28,12 @@
   "navGroups": {
     "overview": "نمای کلی",
     "workspace": "فضای کاری",
-    "billing": "مدیریت مالی",
-    "runtime": "Gateway Runtime",
-    "observability": "پایش",
+    "runtime": "کنترل‌های عملیاتی",
+    "observability": "مشاهده و پایش",
     "governance": "کنترل و سیاست‌ها",
-    "policies": "سیاست‌ها",
-    "access": "دسترسی"
+    "policies": "سیاست‌های زمان اجرا",
+    "access": "مجوزها و دسترسی‌ها",
+    "billing": "مدیریت مالی"
   },
   "nav": {
     "title": "مسیریابی اصلی",

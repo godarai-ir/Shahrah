@@ -20,12 +20,14 @@ type DataTableProps<TData, TValue> = {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   emptyLabel: string;
+  dir?: "rtl" | "ltr" | "auto";
 };
 
 export function DataTable<TData, TValue>({
   columns,
   data,
   emptyLabel,
+  dir,
 }: DataTableProps<TData, TValue>) {
   // TanStack Table intentionally returns table helpers that React Compiler cannot memoize safely.
   // eslint-disable-next-line react-hooks/incompatible-library
@@ -36,7 +38,7 @@ export function DataTable<TData, TValue>({
   });
 
   return (
-    <Table className="text-xs">
+    <Table className="text-xs" dir={dir}>
       <TableHeader>
         {table.getHeaderGroups().map((headerGroup) => (
           <TableRow key={headerGroup.id}>
@@ -63,7 +65,7 @@ export function DataTable<TData, TValue>({
           ))
         ) : (
           <TableRow>
-            <TableCell colSpan={columns.length} className="py-8 text-center text-muted-foreground">
+            <TableCell colSpan={columns.length} className="py-8 text-center text-muted-foreground" dir={dir}>
               {emptyLabel}
             </TableCell>
           </TableRow>

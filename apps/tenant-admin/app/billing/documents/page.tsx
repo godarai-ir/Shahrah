@@ -22,7 +22,7 @@ export default async function BillingDocumentsPage() {
   return (
     <AdminShell tenantSlug={tenantSlug} currentUser={{ id: auth.user.id, email: auth.user.email, mobile: auth.user.mobile, role: auth.user.role }}>
       <div className="space-y-6">
-        <PageHeader title="اسناد مالی" description="فاکتورها، تراکنش‌های کیف پول و تخفیف‌های tenant." />
+        <PageHeader title="اسناد مالی" description="فاکتورها، تراکنش‌های کیف پول و تخفیف‌های فضای کاری." />
         <BillingDocumentsPanel
           invoices={invoicesResponse.ok ? unwrapList<Invoice>(invoicesResponse.payload) : []}
           transactions={transactionsResponse.ok ? unwrapList<WalletTransaction>(transactionsResponse.payload) : []}

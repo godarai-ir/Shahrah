@@ -22,11 +22,12 @@ type BankTransferRequest struct {
 }
 
 type CreateBankTransferRequest struct {
-	AmountIRR         int64                  `json:"amount_irr"`
-	TrackingNumber    string                 `json:"tracking_number"`
-	BankTransactionAt time.Time              `json:"bank_transaction_at"`
-	ReceiptFileURL    string                 `json:"receipt_file_url,omitempty"`
-	Metadata          map[string]interface{} `json:"metadata,omitempty"`
+	AmountIRR                 int64                  `json:"amount_irr"`
+	TrackingNumber            string                 `json:"tracking_number"`
+	BankTransactionDateJalali string                 `json:"bank_transaction_date_jalali"`
+	BankTransactionAt         time.Time              `json:"-"`
+	ReceiptFileURL            string                 `json:"receipt_file_url,omitempty"`
+	Metadata                  map[string]interface{} `json:"metadata,omitempty"`
 }
 
 type ReviewBankTransferRequest struct {
@@ -131,7 +132,8 @@ type BillingProviderUsage struct {
 }
 
 type BillingUsageSummary struct {
-	Range           string                 `json:"range"`
+	Calendar        string                 `json:"calendar"`
+	Preset          string                 `json:"preset"`
 	Start           time.Time              `json:"start"`
 	End             time.Time              `json:"end"`
 	TotalUsageIRR   int64                  `json:"total_usage_irr"`
@@ -142,7 +144,9 @@ type BillingUsageSummary struct {
 }
 
 type MonthlyUsageDetail struct {
-	Month           string                 `json:"month"`
+	Calendar        string                 `json:"calendar"`
+	JalaliYear      int                    `json:"jalali_year"`
+	JalaliMonth     int                    `json:"jalali_month"`
 	Start           time.Time              `json:"start"`
 	End             time.Time              `json:"end"`
 	TotalUsageIRR   int64                  `json:"total_usage_irr"`
