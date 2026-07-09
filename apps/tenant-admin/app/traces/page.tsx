@@ -1,5 +1,6 @@
 import AdminShell from "@/app/components/admin-shell";
 import TraceManagement from "@/app/components/trace-management";
+import { loadTracePrivacySettings, type TracePrivacySettingsData } from "@/app/settings/_shared";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
@@ -26,7 +27,11 @@ type TraceListResponse = {
 
 export const dynamic = "force-dynamic";
 
-export default async function TracesPage() {
+export default async function TracesPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const auth = await requireAuth("/login?next=/traces");
   const tenantSlug = auth.tenantSlug;
   await requirePermissionOr403(tenantSlug, auth.user.id, ["settings:list"]);
@@ -38,7 +43,9 @@ export default async function TracesPage() {
     userID: auth.user.id,
   });
 
+  const tracePrivacyResult = await loadTracePrivacySettings(tenantSlug, auth.user.id);
   const payload = (tracesResult.payload ?? {}) as TraceListResponse;
+  const params = (await searchParams) ?? {};
   const currentUser = {
     id: auth.user.id,
     email: auth.user.email,
@@ -52,6 +59,11 @@ export default async function TracesPage() {
         initialData={tracesResult.ok ? payload.data ?? [] : []}
         initialTotal={tracesResult.ok ? payload.total ?? 0 : 0}
         initialError={tracesResult.ok ? null : tracesResult.errorMessage ?? "Request failed."}
+        initialTracePrivacySettings={tracePrivacyResult.ok ? (tracePrivacyResult.payload as TracePrivacySettingsData) : null}
+        initialTracePrivacyError={tracePrivacyResult.ok ? null : tracePrivacyResult.errorMessage ?? "Failed to load tracing privacy settings."}
+        initialTracePrivacyOpen={params.tracePrivacy === "open"}
+        currentUserID={currentUser.id}
+        currentUserLabel={currentUser.email ?? currentUser.mobile ?? currentUser.id}
       />
     </AdminShell>
   );

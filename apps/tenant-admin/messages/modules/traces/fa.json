@@ -1,15 +1,17 @@
 {
-  "title": "رهگیری درخواست‌ها",
-  "description": "بررسی Traceهای درخواست‌های فضای کاری و جزئیات spanها.",
+  "title": "ردیابی درخواست‌ها",
+  "description": "مسیر و مراحل عبور یک درخواست از گدارAI تا ارائه‌دهنده و برگشت پاسخ؛ شامل زمان‌بندی، خطاها، مدل انتخاب‌شده، ارائه‌دهنده، تاخیر، تکرار، فال‌بک و مصرف توکن",
+  "privacySettings": "حریم خصوصی ردیابی درخواست‌ها",
+  "privacyDescription": "سیاست ثبت محتوای درخواست‌ها",
   "alerts": {
     "errorTitle": "خطا"
   },
   "filters": {
-    "title": "فیلترهای Trace",
-    "traceId": "شناسه Trace",
+    "title": "فیلترهای ردیابی درخواست‌ها",
+    "traceId": "شناسه ردیابی درخواست",
     "requestId": "شناسه Request",
     "model": "مدل",
-    "provider": "Provider",
+    "provider": "ارائه‌دهنده",
     "route": "اندپوینت",
     "statusCode": "کد وضعیت",
     "errorCode": "کد خطا",
@@ -28,7 +30,7 @@
       "model": "gpt-mini",
       "provider": "openai",
       "allModels": "همه مدل‌ها",
-      "allProviders": "همه Providerها",
+      "allProviders": "همه ارائه‌دهندگان",
       "route": "v1/chat/completions",
       "statusCode": "200",
       "errorCode": "provider_error",
@@ -69,7 +71,7 @@
     "removeLabel": "حذف فیلتر {label}: {value}"
   },
   "summary": {
-    "title": "خلاصه Traceها",
+    "title": "خلاصه ردیابی درخواست‌ها",
     "totalRequests": "کل درخواست‌ها",
     "visibleRows": "ردیف‌های قابل مشاهده",
     "errorRate": "نرخ خطا",
@@ -80,8 +82,8 @@
     "pageAverage": "میانگین صفحه فعلی"
   },
   "breakdown": {
-    "title": "تفکیک Traceها",
-    "providers": "Providerها",
+    "title": "تفکیک ردیابی درخواست‌ها",
+    "providers": "ارائه‌دهندگان",
     "models": "مدل‌ها",
     "routes": "اندپوینت‌ها",
     "errorCodes": "کدهای خطا",
@@ -91,7 +93,7 @@
   "facets": {
     "title": "تفکیک‌ها",
     "description": "با کلیک روی هر مورد، فهرست همان لحظه بر اساس آن فیلتر می‌شود.",
-    "providers": "Providerها",
+    "providers": "ارائه‌دهندگان",
     "models": "مدل‌ها",
     "routes": "اندپوینت‌ها",
     "errorCodes": "کدهای خطا",
@@ -100,11 +102,11 @@
     "empty": "(خالی)"
   },
   "list": {
-    "title": "فهرست Traceها",
+    "title": "فهرست ردیابی درخواست‌ها",
     "columns": {
-      "trace": "Trace",
+      "trace": "ردیابی درخواست",
       "context": "ارائه‌دهنده / مدل",
-      "traceId": "شناسه Trace",
+      "traceId": "شناسه ردیابی درخواست",
       "requestId": "شناسه Request",
       "route": "اندپوینت",
       "model": "مدل",
@@ -116,7 +118,7 @@
       "error": "خطا"
     },
     "actions": {
-      "openTrace": "باز کردن Trace {traceId}",
+      "openTrace": "باز کردن ردیابی درخواست {traceId}",
       "columns": "ستون‌ها",
       "columnsMenu": "ستون‌های قابل نمایش"
     },
@@ -137,7 +139,7 @@
       "s": "s",
       "utc": "UTC"
     },
-    "empty": "Trace‌ای برای فیلترهای فعلی یافت نشد."
+    "empty": "ردیابی درخواستی برای فیلترهای فعلی یافت نشد."
   },
   "pagination": {
     "showing": "نمایش {from} تا {to} از {total}",
@@ -145,15 +147,15 @@
     "next": "بعدی"
   },
   "detail": {
-    "title": "استودیوی رهگیری",
-    "kicker": "جزئیات رهگیری",
+    "title": "استودیوی ردیابی درخواست‌ها",
+    "kicker": "جزئیات ردیابی درخواست",
     "actions": {
       "openInMetrics": "باز کردن در متریک‌ها",
-      "backToTraces": "بازگشت به رهگیری‌ها"
+      "backToTraces": "بازگشت به ردیابی درخواست‌ها"
     },
     "notFound": {
-      "title": "رهگیری پیدا نشد",
-      "description": "رهگیری درخواستی در دسترس نیست."
+      "title": "ردیابی درخواست پیدا نشد",
+      "description": "ردیابی درخواست درخواستی در دسترس نیست."
     },
     "units": {
       "ms": "ms"
@@ -166,7 +168,7 @@
     "summary": {
       "title": "خلاصه درخواست",
       "description": "وضعیت درگاه، مسیر، زمان‌بندی و شمارش اسپن‌ها.",
-      "traceId": "شناسه Trace",
+      "traceId": "شناسه ردیابی درخواست",
       "requestId": "شناسه درخواست",
       "route": "اندپوینت",
       "model": "مدل",

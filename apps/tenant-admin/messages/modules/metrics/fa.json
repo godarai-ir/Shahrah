@@ -24,7 +24,7 @@
     "from": "از",
     "to": "تا",
     "model": "مدل",
-    "provider": "Provider",
+    "provider": "ارائه‌دهندگان",
     "requestId": "Request ID",
     "timeRange": "بازه زمانی",
     "viewBy": "گروه‌بندی بر اساس",
@@ -34,7 +34,7 @@
     "emptyOptions": "گزینه‌ای پیدا نشد.",
     "placeholders": {
       "model": "همه مدل‌ها",
-      "provider": "همه Providerها",
+      "provider": "همه ارائه‌دهندگان",
       "requestId": "req_..."
     },
     "rangePresets": {

@@ -1,6 +1,8 @@
 {
   "title": "Request Traces",
   "description": "Inspect tenant-scoped request trace records and drill into span timelines.",
+  "privacySettings": "Trace privacy",
+  "privacyDescription": "Manage trace capture privacy for this workspace without leaving the traces page.",
   "alerts": {
     "errorTitle": "Error"
   },

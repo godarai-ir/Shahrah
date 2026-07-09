@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { BadgeCheck, BookOpen, ChevronDown, LogOut, User, WalletCards } from "lucide-react";
+import { BadgeCheck, BookOpen, Building2, ChevronDown, Eye, LogOut, Plug, ShieldCheck, User, Users, WalletCards } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -68,30 +68,37 @@ const moneyFormatter = new Intl.NumberFormat("fa-IR");
 const SIDEBAR_NAV_GROUPS: Array<{
   labelKey: string;
   itemKeys: AdminNavItem["key"][];
+  icon: React.ComponentType<{ className?: string }>;
 }> = [
   {
     labelKey: "navGroups.workspace",
     itemKeys: ["dashboard", "quickStart"],
+    icon: Building2,
   },
   {
     labelKey: "navGroups.runtime",
     itemKeys: ["providerAccounts", "virtualModels", "prompts"],
+    icon: Plug,
   },
   {
     labelKey: "navGroups.observability",
-    itemKeys: ["logs", "traces", "metrics", "tracePrivacySettings"],
+    itemKeys: ["logs", "traces", "metrics"],
+    icon: Eye,
   },
   {
     labelKey: "navGroups.policies",
     itemKeys: ["rateLimitPolicies", "budgetLimitPolicies", "guardrails"],
+    icon: ShieldCheck,
   },
   {
     labelKey: "navGroups.access",
     itemKeys: ["accessManagement", "orgUnits", "virtualUsers"],
+    icon: Users,
   },
   {
     labelKey: "navGroups.billing",
     itemKeys: ["billing", "topup", "bankTransfer", "billingReports", "billingProfile", "billingDocuments"],
+    icon: WalletCards,
   },
 ];
 
@@ -285,8 +292,11 @@ function AdminSidebar({
           <Collapsible key={group.labelKey} defaultOpen={group.items.some((item) => item.isActive)} asChild>
             <SidebarGroup className="py-1">
               <SidebarGroupLabel asChild>
-                <CollapsibleTrigger className="group/collapsible w-full justify-between">
-                  <span>{t(group.labelKey)}</span>
+                <CollapsibleTrigger className="group/collapsible flex w-full items-center justify-between gap-3">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <group.icon aria-hidden="true" />
+                    <span className="truncate">{t(group.labelKey)}</span>
+                  </span>
                   <ChevronDown className="transition-transform group-data-[state=open]/collapsible:rotate-180" aria-hidden="true" />
                 </CollapsibleTrigger>
               </SidebarGroupLabel>

@@ -14,8 +14,9 @@ import { StatusOptionCard } from "@/app/components/status-option-card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
-type TracePrivacySettings = {
+export type TracePrivacySettings = {
   tenant_id?: string;
   capture_policy: "none" | "metadata-only" | "sampled-redacted" | "full-secure";
   updated_at?: string;
@@ -25,6 +26,10 @@ type TracePrivacySettings = {
 type TracePrivacySettingsProps = {
   initialSettings: TracePrivacySettings | null;
   initialError?: string | null;
+  showHeader?: boolean;
+  surface?: "card" | "plain";
+  currentUserID?: string;
+  currentUserLabel?: string;
 };
 
 const POLICIES: Array<{
@@ -61,6 +66,8 @@ const POLICIES: Array<{
 
 export default function TracePrivacySettingsPanel(props: TracePrivacySettingsProps) {
   const t = useTranslations("settings.tracePrivacy");
+  const surface = props.surface ?? "card";
+  const showHeader = props.showHeader ?? true;
   const [capturePolicy, setCapturePolicy] = useState<TracePrivacySettings["capture_policy"]>(
     props.initialSettings?.capture_policy ?? "metadata-only",
   );
@@ -80,7 +87,7 @@ export default function TracePrivacySettingsPanel(props: TracePrivacySettingsPro
         body: JSON.stringify({ capture_policy: capturePolicy }),
       });
       setUpdatedAt(payload.updated_at ?? null);
-      setUpdatedBy(payload.updated_by_user_id ?? null);
+      setUpdatedBy(payload.updated_by_user_id ?? props.currentUserID ?? null);
       setMessage(t("messages.updated"));
     } catch (err) {
       setError(normalizeError(err, t("messages.updateFailed")));
@@ -89,15 +96,15 @@ export default function TracePrivacySettingsPanel(props: TracePrivacySettingsPro
     }
   }
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("title")}</CardTitle>
-        <CardDescription>
-          {t("description")}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+  const updatedByDisplay = formatUpdatedBy({
+    updatedBy,
+    currentUserID: props.currentUserID,
+    currentUserLabel: props.currentUserLabel,
+    fallback: t("notSet"),
+  });
+
+  const content = (
+    <div className="flex flex-col gap-4">
         {message ? (
           <Alert className="surface-primary-soft">
             <AlertDescription>{message}</AlertDescription>
@@ -109,43 +116,87 @@ export default function TracePrivacySettingsPanel(props: TracePrivacySettingsPro
           </Alert>
         ) : null}
 
-        <div className="space-y-3">
-          <div>
-            <p className="text-sm font-medium">{t("capturePolicyLabel")}</p>
-            <p className="text-xs text-muted-foreground">{t("policyBehaviorTitle")}</p>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            {POLICIES.map((item) => {
-              const selected = capturePolicy === item.value;
+        <div className="grid gap-3 md:grid-cols-2">
+          {POLICIES.map((item) => {
+            const selected = capturePolicy === item.value;
 
-              return (
-                <StatusOptionCard
-                  key={item.value}
-                  onClick={() => setCapturePolicy(item.value)}
-                  disabled={saving}
-                  icon={item.icon}
-                  selected={selected}
-                  badge={item.value}
-                  title={t(`policies.${item.key}.title`)}
-                  description={t(`policies.${item.key}.description`)}
-                  tone={item.tone}
-                />
-              );
-            })}
-          </div>
+            return (
+              <StatusOptionCard
+                key={item.value}
+                onClick={() => setCapturePolicy(item.value)}
+                disabled={saving}
+                icon={item.icon}
+                selected={selected}
+                badge={item.value}
+                title={t(`policies.${item.key}.title`)}
+                description={t(`policies.${item.key}.description`)}
+                tone={item.tone}
+              />
+            );
+          })}
         </div>
 
         <div className="grid gap-1 text-xs text-muted-foreground">
           <p>{t("updatedAtLabel")}: {formatDate(updatedAt, t("notSet"))}</p>
-          <p>{t("updatedByLabel")}: {updatedBy || t("notSet")}</p>
+          <p>{t("updatedByLabel")}: {updatedByDisplay}</p>
         </div>
 
         <Button onClick={() => void save()} disabled={saving}>
           {saving ? t("saving") : t("save")}
         </Button>
+    </div>
+  );
+
+  if (surface === "plain") {
+    return (
+      <div className="flex flex-col gap-4">
+        {showHeader ? (
+          <div className="flex flex-col gap-1">
+            <h2 className="text-base font-semibold">{t("title")}</h2>
+            <p className="text-sm leading-6 text-muted-foreground">{t("description")}</p>
+          </div>
+        ) : null}
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <Card>
+      {showHeader ? (
+        <CardHeader>
+          <CardTitle>{t("title")}</CardTitle>
+          <CardDescription>
+            {t("description")}
+          </CardDescription>
+        </CardHeader>
+      ) : null}
+      <CardContent className={cn("flex flex-col gap-4", !showHeader && "pt-6")}>
+        {content}
       </CardContent>
     </Card>
   );
+}
+
+function formatUpdatedBy({
+  updatedBy,
+  currentUserID,
+  currentUserLabel,
+  fallback,
+}: {
+  updatedBy: string | null;
+  currentUserID?: string;
+  currentUserLabel?: string;
+  fallback: string;
+}) {
+  if (!updatedBy) return fallback;
+  if (currentUserID && updatedBy === currentUserID) return currentUserLabel ?? fallback;
+  if (looksLikeUUID(updatedBy)) return fallback;
+  return updatedBy;
+}
+
+function looksLikeUUID(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 async function requestJSON<T = unknown>(path: string, options?: RequestInit): Promise<T> {

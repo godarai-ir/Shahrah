@@ -1,4 +1,5 @@
 export { AppCard } from "./AppCard";
+export { CatalogFilterCombobox } from "./CatalogFilterCombobox";
 export { AppSelectField } from "./AppSelectField";
 export { ConfirmDialog } from "./ConfirmDialog";
 export { EmptyState } from "./EmptyState";

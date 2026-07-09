@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Calendar, ChevronDown, Columns3, Filter, RefreshCw, RotateCcw, X } from "lucide-react";
+import { Calendar, ChevronDown, Columns3, Filter, RefreshCw, RotateCcw, Settings2, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
-import { PageHeader } from "@/components/app-ui/PageHeader";
+import TracePrivacySettingsPanel, { type TracePrivacySettings } from "@/app/components/trace-privacy-settings";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AppSelectField, FilterCombobox } from "@/components/app-ui";
+import { AppSelectField, CatalogFilterCombobox } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
@@ -95,6 +96,11 @@ type TraceManagementProps = {
   initialData: RequestTrace[];
   initialTotal: number;
   initialError: string | null;
+  initialTracePrivacySettings: TracePrivacySettings | null;
+  initialTracePrivacyError: string | null;
+  initialTracePrivacyOpen?: boolean;
+  currentUserID: string;
+  currentUserLabel: string;
 };
 
 type BreakdownBucket = {
@@ -127,6 +133,7 @@ const BASE_FILTERS: Omit<TraceFilters, "from" | "to"> = {
 export default function TraceManagement(props: TraceManagementProps) {
   const locale = useLocale();
   const t = useTranslations("traces");
+  const tracePrivacyT = useTranslations("settings.tracePrivacy");
   const common = useTranslations("common");
   const isCompactLayout = useIsMobile();
 
@@ -143,6 +150,7 @@ export default function TraceManagement(props: TraceManagementProps) {
   const [appliedRangePreset, setAppliedRangePreset] = useState<RangePreset>(DEFAULT_RANGE_PRESET);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [advancedSheetOpen, setAdvancedSheetOpen] = useState(false);
+  const [tracePrivacyOpen, setTracePrivacyOpen] = useState(props.initialTracePrivacyOpen ?? false);
   const [visibleColumns, setVisibleColumns] = useState<Record<TraceColumnKey, boolean>>(() => createDefaultColumnVisibility());
 
   const canPrev = offset > 0;
@@ -627,11 +635,37 @@ export default function TraceManagement(props: TraceManagementProps) {
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 md:gap-6">
-      <PageHeader title={t("title")} description={t("description")} />
+      <header className="flex flex-col gap-2">
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="min-w-0 flex-1 text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+            {t("title")}
+          </h1>
+          <div className="flex shrink-0 items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button type="button" variant="outline" size="icon" onClick={() => void load()} disabled={loading} aria-label={loading ? common("loading") : common("refresh")}>
+                  <RefreshCw aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{loading ? common("loading") : common("refresh")}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button type="button" variant="outline" size="icon" onClick={() => setTracePrivacyOpen(true)} aria-label={t("privacySettings")}>
+                  <Settings2 aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t("privacySettings")}</TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+        <p className="max-w-4xl text-sm leading-6 text-muted-foreground">
+          {t("description")}
+        </p>
+      </header>
 
       <Card className="rounded-lg">
-        <CardHeader className="p-0" />
-        <CardContent className="flex flex-col gap-3 p-3 md:p-4">
+        <CardContent className="flex flex-col gap-3 px-3 pb-3 pt-2 md:px-4 md:pb-4 md:pt-3">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <AppSelectField
               label={t("filters.timeRange")}
@@ -642,7 +676,7 @@ export default function TraceManagement(props: TraceManagementProps) {
               triggerClassName="h-9"
             />
             <TraceField id="provider-filter" label={t("filters.provider")}>
-              <TraceCombobox
+              <CatalogFilterCombobox
                 id="provider-filter"
                 options={providerComboboxOptions}
                 value={draft.provider || ALL_PROVIDERS_VALUE}
@@ -652,7 +686,7 @@ export default function TraceManagement(props: TraceManagementProps) {
               />
             </TraceField>
             <TraceField id="model-filter" label={t("filters.model")}>
-              <TraceCombobox
+              <CatalogFilterCombobox
                 id="model-filter"
                 options={modelComboboxOptions}
                 value={draft.model || ALL_MODELS_VALUE}
@@ -684,10 +718,6 @@ export default function TraceManagement(props: TraceManagementProps) {
                 <Button type="button" variant="outline" size="sm" onClick={clearFilters} disabled={loading}>
                   <RotateCcw data-icon="inline-start" aria-hidden="true" />
                   {t("actions.clear")}
-                </Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => void load()} disabled={loading} className="sm:col-span-2">
-                  <RefreshCw data-icon="inline-start" aria-hidden="true" />
-                  {loading ? common("loading") : common("refresh")}
                 </Button>
               </div>
 
@@ -732,10 +762,6 @@ export default function TraceManagement(props: TraceManagementProps) {
                   <Button type="button" variant="outline" size="sm" onClick={clearFilters} disabled={loading}>
                     <RotateCcw data-icon="inline-start" aria-hidden="true" />
                     {t("actions.clear")}
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
-                    <RefreshCw data-icon="inline-start" aria-hidden="true" />
-                    {loading ? common("loading") : common("refresh")}
                   </Button>
                 </div>
               </div>
@@ -900,6 +926,24 @@ export default function TraceManagement(props: TraceManagementProps) {
           </div>
         </CardContent>
       </Card>
+
+      <Sheet open={tracePrivacyOpen} onOpenChange={setTracePrivacyOpen}>
+        <SheetContent side="left" className="w-full overflow-y-auto sm:max-w-xl">
+          <SheetHeader>
+            <SheetTitle>{tracePrivacyT("title")}</SheetTitle>
+          </SheetHeader>
+          <div className="pt-4">
+            <TracePrivacySettingsPanel
+              initialSettings={props.initialTracePrivacySettings}
+              initialError={props.initialTracePrivacyError}
+              showHeader={false}
+              surface="plain"
+              currentUserID={props.currentUserID}
+              currentUserLabel={props.currentUserLabel}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
@@ -1020,40 +1064,6 @@ function TraceColumnVisibilityMenu({
         })}
       </DropdownMenuContent>
     </DropdownMenu>
-  );
-}
-
-function TraceCombobox({
-  id,
-  options,
-  value,
-  onValueChange,
-  placeholder,
-  emptyText,
-  searchable = true,
-  mono = false,
-}: {
-  id: string;
-  options: Array<{ value: string; label: string }>;
-  value: string;
-  onValueChange: (value: string) => void;
-  placeholder: string;
-  emptyText: string;
-  searchable?: boolean;
-  mono?: boolean;
-}) {
-  return (
-    <FilterCombobox
-      id={id}
-      options={options}
-      value={value}
-      onValueChange={onValueChange}
-      placeholder={placeholder}
-      emptyText={emptyText}
-      searchable={searchable}
-      mono={mono}
-      className="h-9 [&_[data-slot=input-group-control]]:text-sm"
-    />
   );
 }
 

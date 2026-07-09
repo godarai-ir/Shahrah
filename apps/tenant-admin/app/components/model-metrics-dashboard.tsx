@@ -15,7 +15,7 @@ import {
   YAxis,
 } from "recharts";
 
-import { AppCard, EmptyState, MetricCard as AppMetricCard, PageHeader } from "@/components/app-ui";
+import { AppCard, CatalogFilterCombobox, EmptyState, MetricCard as AppMetricCard, PageHeader } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -78,11 +78,6 @@ type CacheBreakdownItem = {
   semanticHits: number;
   misses: number;
   avoidedCost: number;
-};
-
-type MetricComboboxOption = {
-  value: string;
-  label: string;
 };
 
 type ModelMetricsFacetsResponse = {
@@ -427,9 +422,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
       <PageHeader title={t("title")} description={t("description")} />
 
       <AppCard
-        title={t("filters.title")}
-        description={t("filters.description")}
-        contentClassName="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6"
+        contentClassName="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6 pt-4 md:pt-4"
         className="shadow-none"
       >
           <Field id="metrics-range-preset" label={t("filters.timeRange")}>
@@ -450,25 +443,23 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
             </>
           ) : null}
           <Field id="metrics-model" label={t("filters.model")}>
-            <MetricCombobox
+            <CatalogFilterCombobox
               id="metrics-model"
               options={modelComboboxOptions}
               value={modelFilter || ALL_MODELS_VALUE}
               onValueChange={(value) => setModelFilter(value === ALL_MODELS_VALUE ? "" : value)}
               placeholder={loadingOptions ? common("loading") : t("filters.search")}
               emptyText={t("filters.emptyOptions")}
-              mono
             />
           </Field>
           <Field id="metrics-provider" label={t("filters.provider")}>
-            <MetricCombobox
+            <CatalogFilterCombobox
               id="metrics-provider"
               options={providerComboboxOptions}
               value={providerFilter || ALL_PROVIDERS_VALUE}
               onValueChange={(value) => setProviderFilter(value === ALL_PROVIDERS_VALUE ? "" : value)}
               placeholder={loadingOptions ? common("loading") : t("filters.search")}
               emptyText={t("filters.emptyOptions")}
-              mono
             />
           </Field>
           <Field id="metrics-request-id" label={t("filters.requestId")}>
