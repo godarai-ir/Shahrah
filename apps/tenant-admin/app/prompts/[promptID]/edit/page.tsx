@@ -2,6 +2,7 @@ import AdminShell from "@/app/components/admin-shell";
 import PromptBuilderPage from "@/app/components/prompt-builder-page";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
+import { headers } from "next/headers";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,8 @@ type PromptEditPageProps = {
 
 export default async function PromptEditPage(props: PromptEditPageProps) {
   const auth = await requireAuth("/login?next=/prompts");
+  const requestHeaders = await headers();
+  const docsBaseHref = buildDocsBaseHref(requestHeaders, auth.tenantSlug);
   await requirePermissionOr403(auth.tenantSlug, auth.user.id, ["policy:list", "policy:manage"]);
 
   const { promptID } = await props.params;
@@ -23,7 +26,17 @@ export default async function PromptEditPage(props: PromptEditPageProps) {
 
   return (
     <AdminShell tenantSlug={auth.tenantSlug} currentUser={currentUser}>
-      <PromptBuilderPage mode="edit" promptID={promptID} />
+      <PromptBuilderPage mode="edit" promptID={promptID} docsHref={`${docsBaseHref}/quick-start#prompts`} />
     </AdminShell>
   );
+}
+
+function buildDocsBaseHref(headersList: Headers, tenantSlug: string): string {
+  const forwardedProto = headersList.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const proto = forwardedProto || (headersList.get("host")?.includes("localhost") ? "http" : "https");
+  const host = headersList.get("x-forwarded-host")?.split(",")[0]?.trim() || headersList.get("host") || "";
+  const tenantPrefix = `${tenantSlug}.`;
+  const docsHost = host.startsWith(tenantPrefix) ? host.slice(tenantPrefix.length) : host;
+
+  return docsHost ? `${proto}://${docsHost}/docs` : "/docs";
 }

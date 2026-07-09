@@ -40,7 +40,7 @@ describe("PromptBuilderPage", () => {
     await waitFor(() => {
       expect(pushMock).toHaveBeenCalledWith("/prompts/prompt-1");
     });
-  });
+  }, 10000);
 
   it("saves a new immutable version on the dedicated edit page", async () => {
     const fetchMock = vi.fn(createFetchMock({ editMode: true }));

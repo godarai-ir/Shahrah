@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 
+import { PageHeader } from "@/components/app-ui";
 import { normalizeError, requestJSON, unwrapData } from "@/app/components/provider-account-wizard/utils";
 import type { ProviderCatalogModel, ProviderCatalogProvider } from "@/app/components/provider-account-wizard/types";
 
@@ -26,6 +27,7 @@ import { usePromptBuilderState } from "./use-prompt-builder-state";
 type PromptBuilderPageProps = {
   mode: "create" | "edit";
   promptID?: string;
+  docsHref?: string;
 };
 
 export default function PromptBuilderPage(props: PromptBuilderPageProps) {
@@ -237,21 +239,21 @@ export default function PromptBuilderPage(props: PromptBuilderPageProps) {
   }
 
   if (props.mode === "edit" && isPromptLoading) {
-    return <div dir={pageDir} className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">{t("list.description")}</div>;
+    return (
+      <div dir={pageDir} className="flex flex-col gap-6">
+        <PageHeader title={t("header.title")} description={t("header.description")} />
+        <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">{t("detail.loading")}</div>
+      </div>
+    );
   }
 
   return (
-    <div dir={pageDir} className="flex flex-col gap-5">
-      <section className="flex flex-col gap-3 rounded-xl border bg-card p-4">
-        <div>
-          <h2 className="text-2xl font-semibold">{props.mode === "edit" ? selectedPrompt?.name || t("header.title") : t("actions.createPrompt")}</h2>
-          <p className="text-sm text-muted-foreground">{t("builder.description")}</p>
-        </div>
-      </section>
-
+    <div dir={pageDir} className="flex flex-col gap-6">
+      <PageHeader title={t("header.title")} description={t("header.description")} />
       <PromptBuilder
         builder={builder}
         canSave={canSave}
+        docsHref={props.docsHref}
         detectedVariables={detectedVariables}
         isRunning={isRunning}
         isSaving={isSaving}

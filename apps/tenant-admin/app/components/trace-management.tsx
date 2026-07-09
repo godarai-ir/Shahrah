@@ -8,7 +8,7 @@ import { useLocale, useTranslations } from "next-intl";
 
 import TracePrivacySettingsPanel, { type TracePrivacySettings } from "@/app/components/trace-privacy-settings";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AppSelectField, CatalogFilterCombobox } from "@/components/app-ui";
+import { AppSelectField, CatalogFilterCombobox, CompactValue } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +28,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { formatCompactNumber } from "@/lib/compact-number";
 import { cn } from "@/lib/utils";
 
 type RequestTrace = {
@@ -805,13 +806,13 @@ export default function TraceManagement(props: TraceManagementProps) {
       <section aria-label={t("summary.title")} className="grid grid-cols-2 gap-2">
         <SummaryCard
           title={t("summary.totalRequests")}
-          value={formatNumber(total, locale)}
+          value={<CompactValue display={formatCompactNumber(total, { locale })} />}
           detail={t("summary.currentFilters")}
         />
         <SummaryCard
           title={t("summary.errorRate")}
           value={formatPercent(errorRate, locale)}
-          detail={t("summary.failureCount", { count: formatNumber(errorCount, locale) })}
+          detail={t("summary.failureCount", { count: formatCompactNumber(errorCount, { locale }).value })}
         />
       </section>
 
@@ -1067,7 +1068,7 @@ function TraceColumnVisibilityMenu({
   );
 }
 
-function SummaryCard({ title, value, detail }: { title: string; value: string; detail: string }) {
+function SummaryCard({ title, value, detail }: { title: string; value: ReactNode; detail: ReactNode }) {
   return (
     <Card className="rounded-lg">
       <CardHeader className="gap-1 p-3 md:p-3">
@@ -1102,6 +1103,7 @@ function BreakdownCard({
   mono?: boolean;
   compact?: boolean;
 }) {
+  const locale = useLocale();
   const visibleBuckets = buckets.slice(0, MAX_BREAKDOWN_ITEMS);
   const maxCount = Math.max(0, ...visibleBuckets.map((item) => item.count));
 
@@ -1133,7 +1135,11 @@ function BreakdownCard({
                   <span className={cn("min-w-0 truncate text-xs", mono && "font-mono")} dir="auto">
                     {item.label}
                   </span>
-                  <span className="font-mono text-[11px] tabular-nums text-muted-foreground">{item.count}</span>
+                  <CompactValue
+                    display={formatCompactNumber(item.count, { locale })}
+                    className="font-mono text-[11px] text-muted-foreground"
+                    dir="ltr"
+                  />
                 </span>
                 <span className="h-1.5 overflow-hidden rounded-full bg-muted">
                   <span
@@ -1441,10 +1447,6 @@ function statusBadgeVariant(statusCode: number): "success" | "info" | "warning" 
 function compactID(value: string) {
   if (value.length <= 22) return value;
   return `${value.slice(0, 12)}...${value.slice(-6)}`;
-}
-
-function formatNumber(value: number, locale: string) {
-  return new Intl.NumberFormat(locale).format(value);
 }
 
 function formatPercent(value: number, locale: string) {

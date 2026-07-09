@@ -1,299 +1,315 @@
 {
-  "title": "\u0631\u062c\u06cc\u0633\u062a\u0631\u06cc \u067e\u0631\u0627\u0645\u067e\u062a",
+  "title": "رجیستری پرامپت",
   "header": {
-    "title": "\u0631\u062c\u06cc\u0633\u062a\u0631\u06cc \u067e\u0631\u0627\u0645\u067e\u062a",
-    "description": "\u0642\u0627\u0644\u0628\u200c\u0647\u0627\u06cc \u067e\u0631\u0627\u0645\u067e\u062a \u0642\u0627\u0628\u0644 \u0627\u0633\u062a\u0641\u0627\u062f\u0647 \u0645\u062c\u062f\u062f \u0628\u0633\u0627\u0632\u06cc\u062f\u060c \u0622\u0646\u200c\u0647\u0627 \u0631\u0627 \u0646\u0633\u062e\u0647\u200c\u0628\u0646\u062f\u06cc \u06a9\u0646\u06cc\u062f \u0648 \u0627\u0632 \u0645\u0633\u06cc\u0631 \u06af\u064f\u062f\u0627\u0631AI Gateway \u0627\u062c\u0631\u0627 \u0628\u06af\u06cc\u0631\u06cc\u062f."
+    "title": "رجیستری پرامپت",
+    "description": "قالب‌های پرامپت قابل استفاده مجدد بسازید، آن‌ها را نسخه‌بندی کنید و از مسیر گُدارAI Gateway اجرا بگیرید."
   },
   "notice": {
-    "errorTitle": "\u0639\u0645\u0644\u06cc\u0627\u062a \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062f",
-    "successTitle": "\u0627\u0646\u062c\u0627\u0645 \u0634\u062f"
+    "errorTitle": "عملیات ناموفق بود",
+    "successTitle": "انجام شد"
   },
   "common": {
-    "enabled": "\u0641\u0639\u0627\u0644",
-    "disabled": "\u063a\u06cc\u0631\u0641\u0639\u0627\u0644",
-    "strict": "\u0633\u062e\u062a\u200c\u06af\u06cc\u0631\u0627\u0646\u0647",
-    "nonStrict": "\u063a\u06cc\u0631\u0633\u062e\u062a\u200c\u06af\u06cc\u0631\u0627\u0646\u0647",
-    "simple": "simple",
-    "smart": "smart",
-    "jsonSchema": "json_schema",
-    "jsonObject": "json_object"
+    "enabled": "فعال",
+    "disabled": "غیرفعال",
+    "strict": "سخت‌گیرانه",
+    "nonStrict": "غیرسخت‌گیرانه",
+    "simple": "ساده",
+    "smart": "هوشمند",
+    "jsonSchema": "طرح‌واره JSON",
+    "jsonObject": "شیء JSON"
   },
   "actions": {
-    "createPrompt": "\u0627\u06cc\u062c\u0627\u062f \u067e\u0631\u0627\u0645\u067e\u062a",
-    "refresh": "\u0628\u0647\u200c\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06cc",
-    "copy": "\u06a9\u067e\u06cc",
-    "download": "\u062f\u0627\u0646\u0644\u0648\u062f",
-    "openMenu": "\u0628\u0627\u0632 \u06a9\u0631\u062f\u0646 \u0645\u0646\u0648",
-    "tryPrompt": "\u062a\u0633\u062a \u0622\u0632\u0645\u0627\u06cc\u0634\u06cc",
-    "createVersion": "\u0627\u06cc\u062c\u0627\u062f \u0646\u0633\u062e\u0647 \u062c\u062f\u06cc\u062f",
-    "editLatestVersion": "\u0648\u06cc\u0631\u0627\u06cc\u0634 \u0646\u0633\u062e\u0647 \u0622\u062e\u0631",
-    "versionHistory": "\u062a\u0627\u0631\u06cc\u062e\u0686\u0647 \u0646\u0633\u062e\u0647\u200c\u0647\u0627",
-    "compareVersions": "\u0645\u0642\u0627\u06cc\u0633\u0647 \u0646\u0633\u062e\u0647\u200c\u0647\u0627",
-    "selectModel": "\u0627\u0646\u062a\u062e\u0627\u0628 \u0645\u062f\u0644",
-    "configure": "\u067e\u06cc\u06a9\u0631\u0628\u0646\u062f\u06cc",
-    "select": "\u0627\u0646\u062a\u062e\u0627\u0628",
-    "delete": "\u062d\u0630\u0641",
-    "remove": "\u062d\u0630\u0641",
-    "addMetadata": "\u0627\u0641\u0632\u0648\u062f\u0646 \u0645\u062a\u0627\u062f\u06cc\u062a\u0627",
-    "copyFqn": "\u06a9\u067e\u06cc FQN",
-    "copySnippet": "\u06a9\u067e\u06cc \u0646\u0645\u0648\u0646\u0647 \u06a9\u062f SDK",
-    "saveNewVersion": "\u0630\u062e\u06cc\u0631\u0647 \u0646\u0633\u062e\u0647 \u062c\u062f\u06cc\u062f",
-    "saveNewPrompt": "\u0630\u062e\u06cc\u0631\u0647 \u067e\u0631\u0627\u0645\u067e\u062a \u062c\u062f\u06cc\u062f",
-    "addMessage": "\u0627\u0641\u0632\u0648\u062f\u0646 \u067e\u06cc\u0627\u0645",
-    "run": "\u0627\u062c\u0631\u0627",
-    "close": "\u0628\u0633\u062a\u0646"
+    "createPrompt": "ایجاد پرامپت",
+    "refresh": "به‌روزرسانی",
+    "copy": "کپی",
+    "download": "دانلود",
+    "openMenu": "باز کردن منو",
+    "tryPrompt": "تست آزمایشی",
+    "createVersion": "ایجاد نسخه جدید",
+    "editLatestVersion": "ویرایش نسخه آخر",
+    "versionHistory": "تاریخچه نسخه‌ها",
+    "compareVersions": "مقایسه نسخه‌ها",
+    "selectModel": "انتخاب مدل",
+    "configure": "پیکربندی",
+    "select": "انتخاب",
+    "delete": "حذف",
+    "remove": "حذف",
+    "addMetadata": "افزودن متادیتا",
+    "copyFqn": "کپی FQN",
+    "copySnippet": "کپی نمونه کد SDK",
+    "saveNewVersion": "ذخیره نسخه جدید",
+    "saveNewPrompt": "ذخیره پرامپت جدید",
+    "addMessage": "افزودن پیام",
+    "run": "اجرا",
+    "close": "بستن"
   },
   "list": {
-    "title": "\u0647\u0645\u0647 \u067e\u0631\u0627\u0645\u067e\u062a\u200c\u0647\u0627",
-    "description": "\u067e\u0631\u0627\u0645\u067e\u062a\u200c\u0647\u0627\u06cc \u0630\u062e\u06cc\u0631\u0647\u200c\u0634\u062f\u0647 \u0631\u0627 \u0645\u0631\u0648\u0631 \u06a9\u0646\u06cc\u062f \u0648 \u0647\u0631 \u0646\u0633\u062e\u0647\u200c\u0627\u06cc \u0631\u0627 \u062f\u0648\u0628\u0627\u0631\u0647 \u062f\u0627\u062e\u0644 playground \u0628\u0627\u0631\u06af\u0630\u0627\u0631\u06cc \u06a9\u0646\u06cc\u062f.",
-    "searchPlaceholder": "\u062c\u0633\u062a\u200c\u0648\u062c\u0648\u06cc \u067e\u0631\u0627\u0645\u067e\u062a\u200c\u0647\u0627",
-    "emptyRows": "\u0631\u062f\u06cc\u0641\u06cc \u0648\u062c\u0648\u062f \u0646\u062f\u0627\u0631\u062f",
-    "versionValue": "\u0646\u0633\u062e\u0647 {version}",
+    "title": "همه پرامپت‌ها",
+    "description": "پرامپت‌های ذخیره‌شده را مرور کنید و هر نسخه‌ای را دوباره داخل playground بارگذاری کنید.",
+    "searchPlaceholder": "جست‌وجوی پرامپت‌ها",
+    "emptyRows": "ردیفی وجود ندارد",
+    "versionValue": "نسخه {version}",
     "columns": {
-      "name": "\u0646\u0627\u0645",
-      "latestVersion": "\u0622\u062e\u0631\u06cc\u0646 \u0646\u0633\u062e\u0647",
-      "model": "\u0645\u062f\u0644",
-      "description": "\u062a\u0648\u0636\u06cc\u062d",
-      "updatedAt": "\u0628\u0647\u200c\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06cc",
-      "createdBy": "\u0627\u06cc\u062c\u0627\u062f\u06a9\u0646\u0646\u062f\u0647",
-      "actions": "\u0627\u0642\u062f\u0627\u0645\u0627\u062a"
+      "name": "نام",
+      "latestVersion": "آخرین نسخه",
+      "model": "مدل",
+      "description": "توضیح",
+      "updatedAt": "به‌روزرسانی",
+      "createdBy": "ایجادکننده",
+      "actions": "اقدامات"
     }
   },
   "pagination": {
-    "showing": "\u0646\u0645\u0627\u06cc\u0634 {from} \u062a\u0627 {to} \u0627\u0632 {total}",
-    "rowsPerPage": "\u062a\u0639\u062f\u0627\u062f \u0633\u0637\u0631 \u062f\u0631 \u0635\u0641\u062d\u0647",
-    "previous": "\u0642\u0628\u0644\u06cc",
-    "next": "\u0628\u0639\u062f\u06cc"
+    "showing": "نمایش {from} تا {to} از {total}",
+    "rowsPerPage": "تعداد سطر در صفحه",
+    "previous": "قبلی",
+    "next": "بعدی"
   },
   "config": {
-    "title": "\u067e\u06cc\u06a9\u0631\u0628\u0646\u062f\u06cc",
-    "description": "\u0645\u062f\u0644 \u0631\u0627 \u0627\u0646\u062a\u062e\u0627\u0628 \u06a9\u0646\u06cc\u062f\u060c \u0631\u0641\u062a\u0627\u0631 runtime \u0631\u0627 \u062a\u0646\u0638\u06cc\u0645 \u06a9\u0646\u06cc\u062f \u0648 \u067e\u06cc\u0634\u200c\u0641\u0631\u0636\u200c\u0647\u0627\u06cc \u0642\u0627\u0628\u0644 \u0627\u0633\u062a\u0641\u0627\u062f\u0647 \u0645\u062c\u062f\u062f \u0642\u0627\u0644\u0628 \u0631\u0627 \u0622\u0645\u0627\u062f\u0647 \u06a9\u0646\u06cc\u062f.",
+    "title": "پیکربندی",
+    "description": "مدل، رفتار اجرا و گزینه‌های نسخه را برای آزمایش این پرامپت تنظیم کنید.",
     "model": {
-      "title": "\u0645\u062f\u0644 \u0627\u0646\u062a\u062e\u0627\u0628\u200c\u0634\u062f\u0647",
-      "placeholder": "\u06cc\u06a9 alias \u06cc\u0627 virtual model \u0642\u0627\u0628\u0644 \u0645\u0633\u06cc\u0631\u062f\u0647\u06cc \u062f\u0631 \u06af\u064f\u062f\u0627\u0631AI \u0627\u0646\u062a\u062e\u0627\u0628 \u06a9\u0646\u06cc\u062f",
-      "contextBadge": "ctx {count}"
+      "title": "پیوند با مدل",
+      "placeholder": "یک مدل یا نام مستعار قابل‌استفاده در گُدارAI را انتخاب کنید.",
+      "contextBadge": "پنجره زمینه {count}"
     },
     "modelSettings": {
-      "title": "\u062a\u0646\u0638\u06cc\u0645\u0627\u062a \u0645\u062f\u0644",
-      "stream": "\u0627\u0633\u062a\u0631\u06cc\u0645",
+      "title": "تنظیمات مدل",
+      "stream": "Stream",
       "temperature": "Temperature",
-      "topP": "Top P",
-      "maxTokens": "\u062d\u062f\u0627\u06a9\u062b\u0631 \u062a\u0648\u06a9\u0646"
+      "topP": "Top-p",
+      "maxTokens": "بیشینه توکن"
     },
     "variables": {
-      "title": "\u0645\u062a\u063a\u06cc\u0631\u0647\u0627\u06cc \u0648\u0631\u0648\u062f\u06cc ({count})",
-      "detectedHelpPrefix": "\u0627\u0632 placeholder\u0647\u0627\u06cc",
-      "detectedHelpSuffix": "\u062f\u0627\u062e\u0644 \u067e\u06cc\u0627\u0645\u200c\u0647\u0627 \u062a\u0634\u062e\u06cc\u0635 \u062f\u0627\u062f\u0647 \u0645\u06cc\u200c\u0634\u0648\u0646\u062f.",
-      "empty": "\u0647\u0646\u0648\u0632 \u0645\u062a\u063a\u06cc\u0631\u06cc \u062a\u0634\u062e\u06cc\u0635 \u062f\u0627\u062f\u0647 \u0646\u0634\u062f\u0647 \u0627\u0633\u062a.",
-      "valuePlaceholder": "\u0645\u0642\u062f\u0627\u0631 {name}"
+      "title": "متغیرهای ورودی ({count})",
+      "detectedHelp": "متغیرها از الگوهایی مثل {placeholder} در پیام‌ها شناسایی می‌شوند.",
+      "empty": "هنوز متغیری تشخیص داده نشده است.",
+      "valuePlaceholder": "مقدار {name}"
     },
     "cache": {
-      "title": "\u062a\u0646\u0638\u06cc\u0645\u0627\u062a \u06a9\u0634",
-      "description": "\u0627\u06cc\u0646 \u0628\u062e\u0634 \u0645\u0633\u062a\u0642\u06cc\u0645\u0627\u064b \u0628\u0647 \u0647\u062f\u0631 `x-shahrah-cache-config` \u0646\u06af\u0627\u0634\u062a \u0645\u06cc\u200c\u0634\u0648\u062f.",
-      "empty": "\u06a9\u0634 \u063a\u06cc\u0631\u0641\u0639\u0627\u0644 \u0627\u0633\u062a.",
+      "title": "تنظیمات کش",
+      "description": "این بخش مستقیماً به هدر `x-godarai-cache-config` نگاشت می‌شود.",
+      "empty": "کش غیرفعال است.",
       "summary": {
-        "type": "\u0646\u0648\u0639 {value}",
-        "ttl": "ttl {value}s",
-        "namespace": "ns {value}",
-        "similarity": "similarity {value}"
+        "type": "نوع {value}",
+        "ttl": "ماندگاری {value} ثانیه",
+        "namespace": "فضای نام {value}",
+        "similarity": "آستانه شباهت {value}"
       }
     },
     "inputGuardrails": {
-      "title": "\u06af\u0627\u0631\u062f\u0631\u06cc\u0644\u200c\u0647\u0627\u06cc \u0648\u0631\u0648\u062f\u06cc ({count})",
-      "description": "\u06af\u0627\u0631\u062f\u0631\u06cc\u0644\u200c\u0647\u0627\u06cc tenant \u0631\u0627 \u0642\u0628\u0644 \u0627\u0632 \u0631\u0633\u06cc\u062f\u0646 \u062f\u0631\u062e\u0648\u0627\u0633\u062a \u0628\u0647 \u0645\u062f\u0644 \u0627\u0639\u0645\u0627\u0644 \u06a9\u0646\u06cc\u062f.",
-      "empty": "\u06af\u0627\u0631\u062f\u0631\u06cc\u0644 \u0648\u0631\u0648\u062f\u06cc \u0627\u0646\u062a\u062e\u0627\u0628 \u0646\u0634\u062f\u0647 \u0627\u0633\u062a"
+      "title": "گاردریل‌های ورودی ({count})",
+      "description": "گاردریل‌های tenant را قبل از رسیدن درخواست به مدل اعمال کنید.",
+      "empty": "گاردریل ورودی انتخاب نشده است"
     },
     "outputGuardrails": {
-      "title": "\u06af\u0627\u0631\u062f\u0631\u06cc\u0644\u200c\u0647\u0627\u06cc \u062e\u0631\u0648\u062c\u06cc ({count})",
-      "description": "\u06af\u0627\u0631\u062f\u0631\u06cc\u0644\u200c\u0647\u0627\u06cc tenant \u0631\u0627 \u0628\u0639\u062f \u0627\u0632 \u062f\u0631\u06cc\u0627\u0641\u062a \u067e\u0627\u0633\u062e \u0645\u062f\u0644 \u0627\u0639\u0645\u0627\u0644 \u06a9\u0646\u06cc\u062f.",
-      "empty": "\u06af\u0627\u0631\u062f\u0631\u06cc\u0644 \u062e\u0631\u0648\u062c\u06cc \u0627\u0646\u062a\u062e\u0627\u0628 \u0646\u0634\u062f\u0647 \u0627\u0633\u062a"
+      "title": "گاردریل‌های خروجی ({count})",
+      "description": "گاردریل‌های tenant را بعد از دریافت پاسخ مدل اعمال کنید.",
+      "empty": "گاردریل خروجی انتخاب نشده است"
     },
     "structuredOutput": {
-      "title": "\u062e\u0631\u0648\u062c\u06cc \u0633\u0627\u062e\u062a\u200c\u06cc\u0627\u0641\u062a\u0647",
-      "description": "\u067e\u06cc\u06a9\u0631\u0628\u0646\u062f\u06cc \u0627\u062e\u062a\u06cc\u0627\u0631\u06cc `response_format` \u0633\u0627\u0632\u06af\u0627\u0631 \u0628\u0627 OpenAI.",
-      "empty": "\u062e\u0631\u0648\u062c\u06cc \u0633\u0627\u062e\u062a\u200c\u06cc\u0627\u0641\u062a\u0647 \u063a\u06cc\u0631\u0641\u0639\u0627\u0644 \u0627\u0633\u062a."
+      "title": "خروجی ساخت‌یافته",
+      "description": "پیکربندی اختیاری `response_format` سازگار با OpenAI.",
+      "empty": "خروجی ساخت‌یافته غیرفعال است."
+    },
+    "advanced": {
+      "title": "گزینه‌های تکمیلی",
+      "description": "کش، گاردریل‌ها و خروجی ساخت‌یافته را در صورت نیاز فعال کنید."
+    },
+    "metadataSection": {
+      "title": "فراداده و ثبت رویداد",
+      "description": "برچسب‌های نسخه را نگه دارید و وضعیت ثبت رویداد را مرور کنید."
     },
     "metadata": {
-      "title": "\u0645\u062a\u0627\u062f\u06cc\u062a\u0627",
-      "empty": "\u0647\u0646\u0648\u0632 \u0633\u0637\u0631 \u0645\u062a\u0627\u062f\u06cc\u062a\u0627\u06cc\u06cc \u0627\u0636\u0627\u0641\u0647 \u0646\u0634\u062f\u0647 \u0627\u0633\u062a.",
-      "keyPlaceholder": "\u06a9\u0644\u06cc\u062f",
-      "valuePlaceholder": "\u0645\u0642\u062f\u0627\u0631"
+      "title": "متادیتا",
+      "empty": "هنوز سطر متادیتایی اضافه نشده است.",
+      "keyPlaceholder": "کلید",
+      "valuePlaceholder": "مقدار"
     },
     "logging": {
-      "title": "\u0644\u0627\u06af\u200c\u06af\u06cc\u0631\u06cc",
-      "description": "\u0633\u0648\u06cc\u06cc\u0686\u200c\u0647\u0627\u06cc \u0630\u062e\u06cc\u0631\u0647\u200c\u0633\u0627\u0632\u06cc \u0644\u0627\u06af \u062f\u0631 \u0633\u0637\u062d \u067e\u0631\u0627\u0645\u067e\u062a \u062f\u0631 \u0627\u06cc\u0646 \u0646\u0633\u062e\u0647 \u0628\u0647 \u062a\u0639\u0648\u06cc\u0642 \u0627\u0641\u062a\u0627\u062f\u0647\u200c\u0627\u0646\u062f\u060c \u0686\u0648\u0646 \u06af\u064f\u062f\u0627\u0631AI \u0647\u0645\u06cc\u0646 \u062d\u0627\u0644\u0627 \u0644\u0627\u06af \u062f\u0631\u062e\u0648\u0627\u0633\u062a \u0648 \u0647\u0632\u06cc\u0646\u0647 \u0631\u0627 \u062f\u0631 \u0633\u0637\u062d gateway \u0627\u0639\u0645\u0627\u0644 \u0645\u06cc\u200c\u06a9\u0646\u062f."
+      "title": "لاگ‌گیری",
+      "description": "ثبت رویداد در سطح پرامپت در این نسخه فعال نیست، چون گُدارAI همین حالا گزارش درخواست و هزینه را در سطح درگاه ثبت می‌کند."
     }
   },
   "versions": {
-    "title": "\u0646\u0633\u062e\u0647\u200c\u0647\u0627",
-    "description": "\u0646\u0633\u062e\u0647\u200c\u0647\u0627\u06cc immutable \u0647\u0645\u0686\u0646\u0627\u0646 artifact \u0627\u0635\u0644\u06cc runtime \u0628\u0631\u0627\u06cc \u067e\u0631\u0627\u0645\u067e\u062a\u200c\u0647\u0627\u06cc \u0630\u062e\u06cc\u0631\u0647\u200c\u0634\u062f\u0647 \u0647\u0633\u062a\u0646\u062f.",
-    "empty": "\u0628\u0631\u0627\u06cc \u0634\u0631\u0648\u0639 \u062a\u0627\u0631\u06cc\u062e\u0686\u0647 \u0646\u0633\u062e\u0647\u200c\u0647\u0627 \u0627\u0628\u062a\u062f\u0627 \u06cc\u06a9 \u067e\u0631\u0627\u0645\u067e\u062a \u0630\u062e\u06cc\u0631\u0647 \u06a9\u0646\u06cc\u062f.",
-    "versionValue": "\u0646\u0633\u062e\u0647 {version}",
-    "selectedFqn": "FQN \u0627\u0646\u062a\u062e\u0627\u0628\u200c\u0634\u062f\u0647"
+    "title": "نسخه‌ها",
+    "description": "نسخه‌های immutable همچنان artifact اصلی runtime برای پرامپت‌های ذخیره‌شده هستند.",
+    "empty": "برای شروع تاریخچه نسخه‌ها ابتدا یک پرامپت ذخیره کنید.",
+    "versionValue": "نسخه {version}",
+    "selectedFqn": "FQN انتخاب‌شده"
   },
   "detail": {
-    "breadcrumb": "\u0631\u062c\u06cc\u0633\u062a\u0631\u06cc \u067e\u0631\u0627\u0645\u067e\u062a > {name}",
-    "description": "\u062c\u0632\u0626\u06cc\u0627\u062a \u067e\u0631\u0627\u0645\u067e\u062a \u0631\u0627 \u0628\u062e\u0648\u0627\u0646\u06cc\u062f\u060c \u0628\u06cc\u0646 \u0646\u0633\u062e\u0647\u200c\u0647\u0627 \u062c\u0627\u0628\u0647\u200c\u062c\u0627 \u0634\u0648\u06cc\u062f \u0648 \u0646\u0645\u0648\u0646\u0647\u200c\u0647\u0627\u06cc \u0627\u0633\u062a\u0641\u0627\u062f\u0647 \u0631\u0627 \u0628\u062f\u0648\u0646 \u0648\u0631\u0648\u062f \u0628\u0647 \u062d\u0627\u0644\u062a \u0648\u06cc\u0631\u0627\u06cc\u0634 \u0628\u0628\u06cc\u0646\u06cc\u062f.",
-    "loading": "\u062f\u0631 \u062d\u0627\u0644 \u0628\u0627\u0631\u06af\u0630\u0627\u0631\u06cc \u062c\u0632\u0626\u06cc\u0627\u062a \u067e\u0631\u0627\u0645\u067e\u062a...",
-    "empty": "\u0647\u0646\u0648\u0632 \u0646\u0633\u062e\u0647\u200c\u0627\u06cc \u0628\u0631\u0627\u06cc \u0627\u06cc\u0646 \u067e\u0631\u0627\u0645\u067e\u062a \u0630\u062e\u06cc\u0631\u0647 \u0646\u0634\u062f\u0647 \u0627\u0633\u062a.",
+    "breadcrumb": "رجیستری پرامپت > {name}",
+    "description": "جزئیات پرامپت را بخوانید، بین نسخه‌ها جابه‌جا شوید و نمونه‌های استفاده را بدون ورود به حالت ویرایش ببینید.",
+    "loading": "در حال بارگذاری جزئیات پرامپت...",
+    "empty": "هنوز نسخه‌ای برای این پرامپت ذخیره نشده است.",
     "tabs": {
-      "prompt": "\u067e\u0631\u0627\u0645\u067e\u062a",
-      "spec": "\u0645\u0634\u062e\u0635\u0627\u062a \u0641\u0646\u06cc (Spec)",
-      "sdk": "\u0646\u0645\u0648\u0646\u0647 SDK",
-      "gateway": "\u0646\u0645\u0648\u0646\u0647 Gateway API"
+      "prompt": "پرامپت",
+      "spec": "مشخصات فنی (Spec)",
+      "sdk": "نمونه SDK",
+      "gateway": "نمونه Gateway API"
     },
-    "readOnlyBadge": "\u0641\u0642\u0637 \u062e\u0648\u0627\u0646\u062f\u0646\u06cc",
-    "readOnlyTitle": "\u0646\u0633\u062e\u0647 {version} \u0641\u0642\u0637 \u062e\u0648\u0627\u0646\u062f\u0646\u06cc \u0627\u0633\u062a",
-    "readOnlyDescription": "\u0628\u0631\u0627\u06cc \u062a\u063a\u06cc\u06cc\u0631 \u0627\u06cc\u0646 \u067e\u0631\u0627\u0645\u067e\u062a\u060c \u06cc\u06a9 \u0646\u0633\u062e\u0647 \u062c\u062f\u06cc\u062f \u0627\u06cc\u062c\u0627\u062f \u06a9\u0646\u06cc\u062f. \u0646\u0633\u062e\u0647\u200c\u0647\u0627\u06cc \u0630\u062e\u06cc\u0631\u0647\u200c\u0634\u062f\u0647 \u0628\u0631\u0627\u06cc \u0627\u0645\u0646\u06cc\u062a runtime \u062b\u0627\u0628\u062a \u0645\u06cc\u200c\u0645\u0627\u0646\u0646\u062f.",
-    "versionConfiguration": "\u067e\u06cc\u06a9\u0631\u0628\u0646\u062f\u06cc \u0646\u0633\u062e\u0647",
-    "technicalDetails": "\u0645\u0634\u062e\u0635\u0627\u062a \u0641\u0646\u06cc",
-    "technicalDescription": "\u0634\u0646\u0627\u0633\u0647\u200c\u0647\u0627 \u0648 \u0641\u06cc\u0644\u062f\u0647\u0627\u06cc \u062b\u0628\u062a\u06cc \u0646\u0633\u062e\u0647 \u0627\u0646\u062a\u062e\u0627\u0628\u200c\u0634\u062f\u0647.",
-    "advancedSettings": "\u062a\u0646\u0638\u06cc\u0645\u0627\u062a \u067e\u06cc\u0634\u0631\u0641\u062a\u0647",
-    "variableName": "\u0645\u062a\u063a\u06cc\u0631",
-    "variableType": "\u0646\u0648\u0639",
+    "readOnlyBadge": "فقط خواندنی",
+    "readOnlyTitle": "نسخه {version} فقط خواندنی است",
+    "readOnlyDescription": "برای تغییر این پرامپت، یک نسخه جدید ایجاد کنید. نسخه‌های ذخیره‌شده برای امنیت runtime ثابت می‌مانند.",
+    "versionConfiguration": "پیکربندی نسخه",
+    "technicalDetails": "مشخصات فنی",
+    "technicalDescription": "شناسه‌ها و فیلدهای ثبتی نسخه انتخاب‌شده.",
+    "advancedSettings": "تنظیمات پیشرفته",
+    "variableName": "متغیر",
+    "variableType": "نوع",
     "status": {
-      "latest": "\u0622\u062e\u0631\u06cc\u0646 \u0646\u0633\u062e\u0647",
-      "previous": "\u0646\u0633\u062e\u0647 \u0642\u0628\u0644\u06cc"
+      "latest": "آخرین نسخه",
+      "previous": "نسخه قبلی"
     },
     "summary": {
-      "activeVersion": "\u0646\u0633\u062e\u0647 \u0627\u0646\u062a\u062e\u0627\u0628\u200c\u0634\u062f\u0647",
-      "promptId": "\u0634\u0646\u0627\u0633\u0647 \u067e\u0631\u0627\u0645\u067e\u062a",
-      "createdAt": "\u0632\u0645\u0627\u0646 \u0633\u0627\u062e\u062a \u0646\u0633\u062e\u0647",
-      "versionAuthor": "\u0633\u0627\u0632\u0646\u062f\u0647 \u0646\u0633\u062e\u0647"
+      "activeVersion": "نسخه انتخاب‌شده",
+      "promptId": "شناسه پرامپت",
+      "createdAt": "زمان ساخت نسخه",
+      "versionAuthor": "سازنده نسخه"
     },
-    "specDescription": "\u0645\u0627\u0646\u06cc\u0641\u0633\u062a \u0633\u0631\u06cc\u0627\u0644\u0627\u06cc\u0632\u0634\u062f\u0647 \u0628\u0631\u0627\u06cc \u0646\u0633\u062e\u0647 \u0627\u0646\u062a\u062e\u0627\u0628\u200c\u0634\u062f\u0647.",
-    "sdkDescription": "\u06cc\u06a9 \u0646\u0645\u0648\u0646\u0647 SDK \u0645\u062a\u0635\u0644 \u0628\u0647 FQN \u0646\u0633\u062e\u0647 \u0627\u0646\u062a\u062e\u0627\u0628\u200c\u0634\u062f\u0647 \u0631\u0627 \u06a9\u067e\u06cc \u06a9\u0646\u06cc\u062f.",
-    "gatewayDescription": "\u0646\u0645\u0648\u0646\u0647\u200c\u0647\u0627\u06cc \u0645\u0646\u0627\u0633\u0628 Gateway \u0628\u0631\u0627\u06cc \u0646\u0633\u062e\u0647 \u0627\u0646\u062a\u062e\u0627\u0628\u200c\u0634\u062f\u0647.",
+    "specDescription": "مانیفست سریالایزشده برای نسخه انتخاب‌شده.",
+    "sdkDescription": "یک نمونه SDK متصل به FQN نسخه انتخاب‌شده را کپی کنید.",
+    "gatewayDescription": "نمونه‌های مناسب Gateway برای نسخه انتخاب‌شده.",
     "gateway": {
       "stream": "Stream",
       "nonStream": "Non-stream",
-      "streamDescription": "\u0646\u0645\u0648\u0646\u0647 \u062f\u0631\u062e\u0648\u0627\u0633\u062a streaming \u0628\u0631\u0627\u06cc \u0646\u0633\u062e\u0647 \u0627\u0646\u062a\u062e\u0627\u0628\u200c\u0634\u062f\u0647.",
-      "nonStreamDescription": "\u0646\u0645\u0648\u0646\u0647 \u062f\u0631\u062e\u0648\u0627\u0633\u062a non-streaming \u0628\u0631\u0627\u06cc \u0646\u0633\u062e\u0647 \u0627\u0646\u062a\u062e\u0627\u0628\u200c\u0634\u062f\u0647."
+      "streamDescription": "نمونه درخواست streaming برای نسخه انتخاب‌شده.",
+      "nonStreamDescription": "نمونه درخواست non-streaming برای نسخه انتخاب‌شده."
     },
-    "historyDescription": "\u0646\u0633\u062e\u0647 \u0627\u0646\u062a\u062e\u0627\u0628\u200c\u0634\u062f\u0647 \u0631\u0627 \u0639\u0648\u0636 \u06a9\u0646\u06cc\u062f \u06cc\u0627 \u0648\u0627\u0631\u062f \u0645\u0633\u06cc\u0631 \u0645\u0642\u0627\u06cc\u0633\u0647 \u0634\u0648\u06cc\u062f.",
-    "historySearchPlaceholder": "\u062c\u0633\u062a\u200c\u0648\u062c\u0648\u06cc \u0634\u0645\u0627\u0631\u0647 \u0646\u0633\u062e\u0647",
-    "compareTitle": "\u062a\u0641\u0627\u0648\u062a \u0646\u0633\u062e\u0647\u200c\u0647\u0627",
-    "compareDescription": "\u062f\u0648 \u0645\u0627\u0646\u06cc\u0641\u0633\u062a \u0630\u062e\u06cc\u0631\u0647\u200c\u0634\u062f\u0647 \u0631\u0627 \u06a9\u0646\u0627\u0631 \u0647\u0645 \u0645\u0642\u0627\u06cc\u0633\u0647 \u06a9\u0646\u06cc\u062f.",
-    "compareBaseVersion": "\u0646\u0633\u062e\u0647 \u0633\u0645\u062a \u0686\u067e",
-    "compareTargetVersion": "\u0646\u0633\u062e\u0647 \u0633\u0645\u062a \u0631\u0627\u0633\u062a"
+    "historyDescription": "نسخه انتخاب‌شده را عوض کنید یا وارد مسیر مقایسه شوید.",
+    "historySearchPlaceholder": "جست‌وجوی شماره نسخه",
+    "compareTitle": "تفاوت نسخه‌ها",
+    "compareDescription": "دو مانیفست ذخیره‌شده را کنار هم مقایسه کنید.",
+    "compareBaseVersion": "نسخه سمت چپ",
+    "compareTargetVersion": "نسخه سمت راست"
   },
   "builder": {
-    "breadcrumbExisting": "\u0631\u062c\u06cc\u0633\u062a\u0631\u06cc \u067e\u0631\u0627\u0645\u067e\u062a > {name}",
-    "breadcrumbNew": "\u0631\u062c\u06cc\u0633\u062a\u0631\u06cc \u067e\u0631\u0627\u0645\u067e\u062a > \u067e\u0631\u0627\u0645\u067e\u062a \u062c\u062f\u06cc\u062f",
-    "titleExisting": "\u067e\u0631\u0627\u0645\u067e\u062a \u0631\u0627 \u0648\u06cc\u0631\u0627\u06cc\u0634 \u06a9\u0646\u06cc\u062f \u0648 \u0646\u0633\u062e\u0647 \u062c\u062f\u06cc\u062f \u0628\u0633\u0627\u0632\u06cc\u062f",
-    "titleNew": "Playground \u067e\u0631\u0627\u0645\u067e\u062a \u062c\u062f\u06cc\u062f",
-    "description": "\u0642\u0627\u0644\u0628 \u0642\u0627\u0628\u0644 \u0627\u0633\u062a\u0641\u0627\u062f\u0647 \u0645\u062c\u062f\u062f \u0631\u0627 \u0628\u0633\u0627\u0632\u06cc\u062f \u0648 \u0642\u0628\u0644 \u0627\u0632 \u0630\u062e\u06cc\u0631\u0647 \u0627\u0632 \u0645\u0633\u06cc\u0631 \u06af\u064f\u062f\u0627\u0631AI Gateway \u0627\u062c\u0631\u0627 \u0628\u06af\u06cc\u0631\u06cc\u062f.",
+    "breadcrumbExisting": "رجیستری پرامپت > {name}",
+    "breadcrumbNew": "رجیستری پرامپت > ایجاد پرامپت",
+    "titleExisting": "پرامپت را ویرایش کنید و نسخه جدید بسازید",
+    "titleNew": "ایجاد پرامپت جدید",
+    "description": "قالب‌های پرامپت قابل استفاده مجدد بسازید، آن‌ها را نسخه‌بندی کنید و از مسیر گُدارAI آنها را تست و اجرا کنید.",
+    "docsLink": "بیشتر بدانید",
     "fields": {
-      "name": "\u0646\u0627\u0645 \u067e\u0631\u0627\u0645\u067e\u062a",
+      "name": "نام پرامپت",
       "namePlaceholder": "booking_greeting",
-      "commitMessage": "\u067e\u06cc\u0627\u0645 \u062a\u063a\u06cc\u06cc\u0631",
-      "commitMessagePlaceholder": "\u062f\u0631 \u0627\u06cc\u0646 \u0646\u0633\u062e\u0647 \u0686\u0647 \u0686\u06cc\u0632\u06cc \u062a\u063a\u06cc\u06cc\u0631 \u06a9\u0631\u062f\u0647 \u0627\u0633\u062a\u061f",
-      "description": "\u062a\u0648\u0636\u06cc\u062d"
+      "nameHelp": "کاراکترهای مجاز: حروف انگلیسی، عدد، خط تیره (`-`) و زیرخط (`_`).",
+      "commitMessage": "یادداشت نسخه",
+      "commitMessagePlaceholder": "در این نسخه چه تغییری داده‌اید؟",
+      "description": "توضیح کوتاه"
+    },
+    "sections": {
+      "basicsTitle": "اطلاعات پایه",
+      "basicsDescription": "نام، توضیح کوتاه و یادداشت این نسخه را مشخص کنید."
     },
     "systemPrompt": {
-      "title": "SYSTEM PROMPT",
-      "descriptionPrefix": "\u0627\u0632 placeholder\u0647\u0627\u06cc \u0642\u0627\u0628\u0644 \u0627\u0633\u062a\u0641\u0627\u062f\u0647 \u0645\u062c\u062f\u062f \u0645\u062b\u0644",
-      "descriptionSuffix": "\u0627\u0633\u062a\u0641\u0627\u062f\u0647 \u06a9\u0646\u06cc\u062f.",
-      "default": "\u0634\u0645\u0627 \u06cc\u06a9 \u062f\u0633\u062a\u06cc\u0627\u0631 \u0645\u0641\u06cc\u062f \u0647\u0633\u062a\u06cc\u062f."
+      "title": "پیام راهنما",
+      "description": "برای شخصی‌سازی این بخش از متغیرهای قابل‌استفاده مجدد مثل {placeholder} استفاده کنید.",
+      "default": "شما یک دستیار مفید هستید."
     },
     "conversation": {
-      "title": "\u0642\u0627\u0644\u0628 \u06af\u0641\u062a\u06af\u0648",
-      "description": "\u067e\u06cc\u0627\u0645\u200c\u0647\u0627\u06cc \u0642\u0627\u0628\u0644 \u0627\u0633\u062a\u0641\u0627\u062f\u0647 \u0645\u062c\u062f\u062f \u06a9\u0627\u0631\u0628\u0631 \u06cc\u0627 \u062f\u0633\u062a\u06cc\u0627\u0631 \u0631\u0627 \u0627\u0636\u0627\u0641\u0647 \u06a9\u0646\u06cc\u062f \u062a\u0627 \u0647\u0645\u0631\u0627\u0647 \u067e\u0631\u0627\u0645\u067e\u062a \u0646\u0633\u062e\u0647\u200c\u0628\u0646\u062f\u06cc \u0634\u0648\u0646\u062f.",
-      "empty": "\u0647\u0646\u0648\u0632 \u067e\u06cc\u0627\u0645\u06cc \u062f\u0631 \u06af\u0641\u062a\u06af\u0648 \u0648\u062c\u0648\u062f \u0646\u062f\u0627\u0631\u062f.",
-      "composerPlaceholder": "\u0645\u062a\u0646 \u067e\u06cc\u0627\u0645 \u0642\u0627\u0628\u0644 \u0627\u0633\u062a\u0641\u0627\u062f\u0647 \u0645\u062c\u062f\u062f \u0631\u0627 \u0648\u0627\u0631\u062f \u06a9\u0646\u06cc\u062f..."
+      "title": "قالب گفتگو",
+      "description": "پیام‌های قابل استفاده مجدد کاربر یا دستیار را اضافه کنید تا همراه پرامپت نسخه‌بندی شوند.",
+      "empty": "هنوز پیامی در گفتگو وجود ندارد.",
+      "composerPlaceholder": "متن پیام قابل استفاده مجدد را وارد کنید..."
+    },
+    "roleDescriptions": {
+      "user": "برای پیام‌های ورودی یا درخواست‌های کاربر.",
+      "assistant": "برای پاسخ‌های نمونه یا پیام‌های دستیار."
     }
   },
   "playground": {
-    "title": "\u067e\u0627\u0633\u062e playground",
-    "description": "\u067e\u06cc\u0634\u200c\u0646\u0648\u06cc\u0633 \u0641\u0639\u0644\u06cc \u0631\u0627 \u0642\u0628\u0644 \u0627\u0632 \u0630\u062e\u06cc\u0631\u0647 \u0627\u0632 \u0645\u0633\u06cc\u0631 \u06af\u064f\u062f\u0627\u0631AI Gateway \u0627\u062c\u0631\u0627 \u06a9\u0646\u06cc\u062f.",
-    "empty": "\u067e\u0627\u0633\u062e \u0627\u06cc\u0646\u062c\u0627 \u0646\u0645\u0627\u06cc\u0634 \u062f\u0627\u062f\u0647 \u0645\u06cc\u200c\u0634\u0648\u062f.",
+    "title": "پیش‌نمایش پاسخ",
+    "description": "پیش‌نویس فعلی را پیش از ذخیره از مسیر گُدارAI اجرا کنید.",
+    "empty": "پاسخ اینجا نمایش داده می‌شود.",
     "usage": {
-      "prompt": "prompt {count}",
-      "completion": "completion {count}",
-      "total": "total {count}"
+      "prompt": "ورودی {count}",
+      "completion": "خروجی {count}",
+      "total": "مجموع {count}"
     }
   },
   "dialogs": {
     "model": {
-      "title": "\u0627\u0646\u062a\u062e\u0627\u0628 \u0645\u062f\u0644",
-      "description": "\u06cc\u06a9 alias \u0648\u0627\u0642\u0639\u06cc \u06cc\u0627 virtual model \u0631\u0627 \u0627\u0646\u062a\u062e\u0627\u0628 \u06a9\u0646\u06cc\u062f \u06a9\u0647 \u0647\u0645\u06cc\u0646 \u062d\u0627\u0644\u0627 \u062a\u0648\u0633\u0637 gateway \u0642\u0627\u0628\u0644 \u0645\u0633\u06cc\u0631\u062f\u0647\u06cc \u0628\u0627\u0634\u062f.",
-      "searchPlaceholder": "\u062c\u0633\u062a\u200c\u0648\u062c\u0648\u06cc \u0645\u062f\u0644\u200c\u0647\u0627",
-      "empty": "\u0628\u0631\u0627\u06cc \u0627\u06cc\u0646 provider \u0645\u062f\u0644\u06cc \u062f\u0631 \u062f\u0633\u062a\u0631\u0633 \u0646\u06cc\u0633\u062a."
+      "title": "انتخاب مدل",
+      "description": "یک alias واقعی یا virtual model را انتخاب کنید که همین حالا توسط gateway قابل مسیردهی باشد.",
+      "searchPlaceholder": "جست‌وجوی مدل‌ها",
+      "empty": "برای این provider مدلی در دسترس نیست."
     },
     "cache": {
-      "title": "\u062a\u0646\u0638\u06cc\u0645\u0627\u062a \u06a9\u0634",
-      "description": "\u06a9\u0634 \u067e\u0627\u0633\u062e \u06af\u064f\u062f\u0627\u0631AI \u0631\u0627 \u0628\u0627 \u0647\u0645\u0627\u0646 \u0642\u0631\u0627\u0631\u062f\u0627\u062f `x-godarai-cache-config` \u062a\u0646\u0638\u06cc\u0645 \u06a9\u0646\u06cc\u062f.",
-      "enableTitle": "\u0641\u0639\u0627\u0644\u200c\u0633\u0627\u0632\u06cc \u06a9\u0634",
-      "enableDescription": "\u0628\u0631\u0627\u06cc exact-match \u0627\u0632 `simple` \u0648 \u0628\u0631\u0627\u06cc semantic cache \u0627\u0632 `smart` \u0627\u0633\u062a\u0641\u0627\u062f\u0647 \u06a9\u0646\u06cc\u062f.",
+      "title": "تنظیمات کش",
+      "description": "کش پاسخ گُدارAI را با همان قرارداد `x-godarai-cache-config` تنظیم کنید.",
+      "enableTitle": "فعال‌سازی کش",
+      "enableDescription": "برای exact-match از `simple` و برای semantic cache از `smart` استفاده کنید.",
       "fields": {
-        "type": "\u0646\u0648\u0639 \u06a9\u0634",
-        "ttl": "TTL \u0628\u0631 \u062d\u0633\u0628 \u062b\u0627\u0646\u06cc\u0647",
+        "type": "نوع کش",
+        "ttl": "TTL بر حسب ثانیه",
         "namespace": "Namespace",
-        "similarity": "\u0622\u0633\u062a\u0627\u0646\u0647 similarity"
+        "similarity": "آستانه similarity"
       }
     },
     "guardrails": {
-      "inputTitle": "\u06af\u0627\u0631\u062f\u0631\u06cc\u0644\u200c\u0647\u0627\u06cc \u0648\u0631\u0648\u062f\u06cc",
-      "outputTitle": "\u06af\u0627\u0631\u062f\u0631\u06cc\u0644\u200c\u0647\u0627\u06cc \u062e\u0631\u0648\u062c\u06cc",
-      "inputDescription": "\u06af\u0627\u0631\u062f\u0631\u06cc\u0644\u200c\u0647\u0627\u06cc tenant \u0631\u0627 \u0645\u062a\u0635\u0644 \u06a9\u0646\u06cc\u062f \u062a\u0627 \u0642\u0628\u0644 \u0627\u0632 \u0627\u062c\u0631\u0627\u06cc \u0645\u062f\u0644\u060c \u062f\u0631\u062e\u0648\u0627\u0633\u062a \u0631\u0627 \u0627\u0639\u062a\u0628\u0627\u0631\u0633\u0646\u062c\u06cc \u06cc\u0627 mutate \u06a9\u0646\u0646\u062f.",
-      "outputDescription": "\u06af\u0627\u0631\u062f\u0631\u06cc\u0644\u200c\u0647\u0627\u06cc tenant \u0631\u0627 \u0645\u062a\u0635\u0644 \u06a9\u0646\u06cc\u062f \u062a\u0627 \u0628\u0639\u062f \u0627\u0632 \u0627\u062c\u0631\u0627\u06cc \u0645\u062f\u0644\u060c \u067e\u0627\u0633\u062e \u0631\u0627 \u0627\u0639\u062a\u0628\u0627\u0631\u0633\u0646\u062c\u06cc \u06cc\u0627 mutate \u06a9\u0646\u0646\u062f.",
-      "streamingDisabledTitle": "\u0627\u0633\u062a\u0631\u06cc\u0645 \u0628\u0627\u06cc\u062f \u063a\u06cc\u0631\u0641\u0639\u0627\u0644 \u0628\u0627\u0634\u062f",
-      "streamingAlreadyDisabledTitle": "\u0627\u0633\u062a\u0631\u06cc\u0645 \u0627\u0632 \u0642\u0628\u0644 \u063a\u06cc\u0631\u0641\u0639\u0627\u0644 \u0627\u0633\u062a",
-      "streamingDisabledDescription": "\u062f\u0631 \u0648\u0636\u0639\u06cc\u062a \u0641\u0639\u0644\u06cc \u06af\u064f\u062f\u0627\u0631AI\u060c \u062e\u0631\u0648\u062c\u06cc guardrail \u0628\u0627 \u0627\u0633\u062a\u0631\u06cc\u0645 \u0641\u0639\u0627\u0644 \u0631\u062f \u0645\u06cc\u200c\u0634\u0648\u062f. \u0642\u0628\u0644 \u0627\u0632 \u0627\u062c\u0631\u0627 \u06cc\u0627 \u0630\u062e\u06cc\u0631\u0647\u060c \u0627\u0633\u062a\u0631\u06cc\u0645 \u0631\u0627 \u062f\u0631 \u062a\u0646\u0638\u06cc\u0645\u0627\u062a \u0645\u062f\u0644 \u063a\u06cc\u0631\u0641\u0639\u0627\u0644 \u06a9\u0646\u06cc\u062f.",
-      "streamingAlreadyDisabledDescription": "\u062f\u0631 \u0648\u0636\u0639\u06cc\u062a \u0641\u0639\u0644\u06cc \u06af\u064f\u062f\u0627\u0631AI\u060c output guardrail \u0641\u0642\u0637 \u0632\u0645\u0627\u0646\u06cc \u067e\u0634\u062a\u06cc\u0628\u0627\u0646\u06cc \u0645\u06cc\u200c\u0634\u0648\u062f \u06a9\u0647 \u0627\u0633\u062a\u0631\u06cc\u0645 \u063a\u06cc\u0631\u0641\u0639\u0627\u0644 \u0628\u0627\u0634\u062f.",
-      "scope": "\u062f\u0627\u0645\u0646\u0647 \u0627\u0639\u0645\u0627\u0644",
+      "inputTitle": "گاردریل‌های ورودی",
+      "outputTitle": "گاردریل‌های خروجی",
+      "inputDescription": "گاردریل‌های tenant را متصل کنید تا قبل از اجرای مدل، درخواست را اعتبارسنجی یا mutate کنند.",
+      "outputDescription": "گاردریل‌های tenant را متصل کنید تا بعد از اجرای مدل، پاسخ را اعتبارسنجی یا mutate کنند.",
+      "streamingDisabledTitle": "استریم باید غیرفعال باشد",
+      "streamingAlreadyDisabledTitle": "استریم از قبل غیرفعال است",
+      "streamingDisabledDescription": "در وضعیت فعلی گُدارAI، خروجی guardrail با استریم فعال رد می‌شود. قبل از اجرا یا ذخیره، استریم را در تنظیمات مدل غیرفعال کنید.",
+      "streamingAlreadyDisabledDescription": "در وضعیت فعلی گُدارAI، output guardrail فقط زمانی پشتیبانی می‌شود که استریم غیرفعال باشد.",
+      "scope": "دامنه اعمال",
       "scopeLast": "last",
       "scopeAll": "all"
     },
     "structured": {
-      "title": "\u062e\u0631\u0648\u062c\u06cc \u0633\u0627\u062e\u062a\u200c\u06cc\u0627\u0641\u062a\u0647",
-      "description": "\u067e\u06cc\u06a9\u0631\u0628\u0646\u062f\u06cc `response_format` \u0633\u0627\u0632\u06af\u0627\u0631 \u0628\u0627 OpenAI \u0628\u0631\u0627\u06cc \u062e\u0631\u0648\u062c\u06cc \u0633\u0627\u062e\u062a\u200c\u06cc\u0627\u0641\u062a\u0647.",
-      "enableTitle": "\u0641\u0639\u0627\u0644\u200c\u0633\u0627\u0632\u06cc \u062e\u0631\u0648\u062c\u06cc \u0633\u0627\u062e\u062a\u200c\u06cc\u0627\u0641\u062a\u0647",
-      "enableDescription": "\u0645\u062f\u0644\u200c\u0647\u0627\u06cc \u067e\u0634\u062a\u06cc\u0628\u0627\u0646\u06cc\u200c\u0646\u0634\u062f\u0647 \u0628\u0627\u06cc\u062f \u0628\u0647\u200c\u0635\u0648\u0631\u062a \u0634\u0641\u0627\u0641 \u062f\u0631 UI \u0648 \u067e\u0627\u0633\u062e backend \u0645\u062f\u06cc\u0631\u06cc\u062a \u0634\u0648\u0646\u062f.",
+      "title": "خروجی ساخت‌یافته",
+      "description": "پیکربندی `response_format` سازگار با OpenAI برای خروجی ساخت‌یافته.",
+      "enableTitle": "فعال‌سازی خروجی ساخت‌یافته",
+      "enableDescription": "مدل‌های پشتیبانی‌نشده باید به‌صورت شفاف در UI و پاسخ backend مدیریت شوند.",
       "fields": {
-        "format": "\u0641\u0631\u0645\u062a",
+        "format": "فرمت",
         "strict": "Strict",
         "schema": "JSON Schema"
       }
     }
   },
   "roles": {
-    "user": "\u06a9\u0627\u0631\u0628\u0631",
-    "assistant": "\u062f\u0633\u062a\u06cc\u0627\u0631"
+    "user": "کاربر",
+    "assistant": "دستیار"
   },
   "messages": {
-    "loadPromptsError": "\u0628\u0627\u0631\u06af\u0630\u0627\u0631\u06cc \u067e\u0631\u0627\u0645\u067e\u062a\u200c\u0647\u0627 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062f.",
-    "loadModelsError": "\u0628\u0627\u0631\u06af\u0630\u0627\u0631\u06cc \u0645\u062f\u0644\u200c\u0647\u0627 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062f.",
-    "loadGuardrailsError": "\u0628\u0627\u0631\u06af\u0630\u0627\u0631\u06cc \u06af\u0627\u0631\u062f\u0631\u06cc\u0644\u200c\u0647\u0627 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062f.",
-    "loadVersionsError": "\u0628\u0627\u0631\u06af\u0630\u0627\u0631\u06cc \u0646\u0633\u062e\u0647\u200c\u0647\u0627\u06cc \u067e\u0631\u0627\u0645\u067e\u062a \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062f.",
-    "savePromptError": "\u0630\u062e\u06cc\u0631\u0647 \u067e\u0631\u0627\u0645\u067e\u062a \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062f.",
-    "runPromptError": "\u0627\u062c\u0631\u0627\u06cc \u067e\u0631\u0627\u0645\u067e\u062a \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062f.",
-    "promptCreated": "\u067e\u0631\u0627\u0645\u067e\u062a \u0627\u06cc\u062c\u0627\u062f \u0634\u062f.",
-    "promptDeleted": "\u067e\u0631\u0627\u0645\u067e\u062a \u062d\u0630\u0641 \u0634\u062f.",
-    "versionSaved": "\u0646\u0633\u062e\u0647 \u067e\u0631\u0627\u0645\u067e\u062a \u0630\u062e\u06cc\u0631\u0647 \u0634\u062f.",
-    "deletePromptError": "\u062d\u0630\u0641 \u067e\u0631\u0627\u0645\u067e\u062a \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062f.",
-    "deletePromptConfirm": "\u067e\u0631\u0627\u0645\u067e\u062a \u00ab{name}\u00bb \u062d\u0630\u0641 \u0634\u0648\u062f\u061f",
-    "fqnUnavailable": "\u0647\u0646\u0648\u0632 FQN \u0628\u0631\u0627\u06cc \u0627\u06cc\u0646 \u067e\u0631\u0627\u0645\u067e\u062a \u062f\u0631 \u062f\u0633\u062a\u0631\u0633 \u0646\u06cc\u0633\u062a.",
-    "fqnCopied": "FQN \u067e\u0631\u0627\u0645\u067e\u062a \u06a9\u067e\u06cc \u0634\u062f.",
-    "specCopied": "Spec \u067e\u0631\u0627\u0645\u067e\u062a \u06a9\u067e\u06cc \u0634\u062f.",
-    "snippetCopied": "\u0646\u0645\u0648\u0646\u0647 \u06a9\u062f \u0627\u0633\u062a\u0641\u0627\u062f\u0647 \u06a9\u067e\u06cc \u0634\u062f."
+    "loadPromptsError": "بارگذاری پرامپت‌ها ناموفق بود.",
+    "loadModelsError": "بارگذاری مدل‌ها ناموفق بود.",
+    "loadGuardrailsError": "بارگذاری گاردریل‌ها ناموفق بود.",
+    "loadVersionsError": "بارگذاری نسخه‌های پرامپت ناموفق بود.",
+    "savePromptError": "ذخیره پرامپت ناموفق بود.",
+    "runPromptError": "اجرای پرامپت ناموفق بود.",
+    "promptCreated": "پرامپت ایجاد شد.",
+    "promptDeleted": "پرامپت حذف شد.",
+    "versionSaved": "نسخه پرامپت ذخیره شد.",
+    "deletePromptError": "حذف پرامپت ناموفق بود.",
+    "deletePromptConfirm": "پرامپت «{name}» حذف شود؟",
+    "fqnUnavailable": "هنوز FQN برای این پرامپت در دسترس نیست.",
+    "fqnCopied": "FQN پرامپت کپی شد.",
+    "specCopied": "Spec پرامپت کپی شد.",
+    "snippetCopied": "نمونه کد استفاده کپی شد."
   },
   "validation": {
-    "streamingConflictTitle": "\u062a\u0639\u0627\u0631\u0636 \u0627\u0633\u062a\u0631\u06cc\u0645",
-    "invalidName": "\u0646\u0627\u0645 \u067e\u0631\u0627\u0645\u067e\u062a \u0641\u0642\u0637 \u0645\u06cc\u200c\u062a\u0648\u0627\u0646\u062f \u0634\u0627\u0645\u0644 \u062d\u0631\u0648\u0641\u060c \u0627\u0639\u062f\u0627\u062f\u060c \u062e\u0637 \u062a\u06cc\u0631\u0647 \u0648 \u0632\u06cc\u0631\u062e\u0637 \u0628\u0627\u0634\u062f.",
-    "modelRequired": "\u0642\u0628\u0644 \u0627\u0632 \u0630\u062e\u06cc\u0631\u0647 \u06cc\u06a9 \u0645\u062f\u0644 \u0627\u0646\u062a\u062e\u0627\u0628 \u06a9\u0646\u06cc\u062f.",
-    "temperatureRange": "Temperature \u0628\u0627\u06cc\u062f \u0628\u06cc\u0646 0 \u0648 2 \u0628\u0627\u0634\u062f.",
-    "topPRange": "Top P \u0628\u0627\u06cc\u062f \u0628\u06cc\u0646 0 \u0648 1 \u0628\u0627\u0634\u062f.",
-    "maxTokensMin": "\u062d\u062f\u0627\u0642\u0644 \u0645\u0642\u062f\u0627\u0631 max tokens \u0628\u0627\u06cc\u062f 1 \u0628\u0627\u0634\u062f.",
-    "structuredSchemaObject": "Schema \u062e\u0631\u0648\u062c\u06cc \u0633\u0627\u062e\u062a\u200c\u06cc\u0627\u0641\u062a\u0647 \u0628\u0627\u06cc\u062f \u06cc\u06a9 JSON object \u0628\u0627\u0634\u062f.",
-    "structuredSchemaInvalidJson": "Schema \u062e\u0631\u0648\u062c\u06cc \u0633\u0627\u062e\u062a\u200c\u06cc\u0627\u0641\u062a\u0647 JSON \u0645\u0639\u062a\u0628\u0631 \u0646\u06cc\u0633\u062a.",
-    "outputGuardrailsRequireStreamingOff": "\u0628\u0631\u0627\u06cc \u0627\u0633\u062a\u0641\u0627\u062f\u0647 \u0627\u0632 output guardrail \u0628\u0627\u06cc\u062f \u0627\u0633\u062a\u0631\u06cc\u0645 \u063a\u06cc\u0631\u0641\u0639\u0627\u0644 \u0628\u0627\u0634\u062f.",
-    "messagesRequired": "\u062d\u062f\u0627\u0642\u0644 \u06cc\u06a9 \u067e\u06cc\u0627\u0645 system\u060c user \u06cc\u0627 assistant \u0627\u0636\u0627\u0641\u0647 \u06a9\u0646\u06cc\u062f.",
-    "cacheTtl": "TTL \u06a9\u0634 \u0628\u0627\u06cc\u062f \u06cc\u06a9 \u0639\u062f\u062f \u0635\u062d\u06cc\u062d \u0645\u062b\u0628\u062a \u0628\u0627\u0634\u062f.",
-    "smartCacheSimilarity": "\u0622\u0633\u062a\u0627\u0646\u0647 similarity \u0628\u0631\u0627\u06cc smart cache \u0628\u0627\u06cc\u062f \u0628\u06cc\u0646 0.8 \u0648 1 \u0628\u0627\u0634\u062f.",
-    "metadataKeyRequired": "\u06a9\u0644\u06cc\u062f \u0645\u062a\u0627\u062f\u06cc\u062a\u0627 \u0646\u0645\u06cc\u200c\u062a\u0648\u0627\u0646\u062f \u062e\u0627\u0644\u06cc \u0628\u0627\u0634\u062f.",
-    "metadataKeyDuplicate": "\u06a9\u0644\u06cc\u062f \u0645\u062a\u0627\u062f\u06cc\u062a\u0627\u06cc \u062a\u06a9\u0631\u0627\u0631\u06cc: {key}",
-    "runtimeVariablesMissing": "\u0628\u0631\u0627\u06cc \u0627\u06cc\u0646 \u0645\u062a\u063a\u06cc\u0631\u0647\u0627 \u0645\u0642\u062f\u0627\u0631 runtime \u0648\u0627\u0631\u062f \u06a9\u0646\u06cc\u062f: {names}",
-    "renderVariablesMissing": "\u0645\u0642\u062f\u0627\u0631 \u0627\u06cc\u0646 \u0645\u062a\u063a\u06cc\u0631\u0647\u0627 \u0645\u0634\u062e\u0635 \u0646\u0634\u062f\u0647 \u0627\u0633\u062a: {names}"
+    "streamingConflictTitle": "تعارض استریم",
+    "invalidName": "نام پرامپت فقط می‌تواند شامل حروف، اعداد، خط تیره و زیرخط باشد.",
+    "modelRequired": "قبل از ذخیره یک مدل انتخاب کنید.",
+    "temperatureRange": "دما باید بین 0 و 2 باشد.",
+    "topPRange": "مقدار تاپ پی باید بین 0 و 1 باشد.",
+    "maxTokensMin": "بیشینه توکن باید حداقل 1 باشد.",
+    "structuredSchemaObject": "Schema خروجی ساخت‌یافته باید یک JSON object باشد.",
+    "structuredSchemaInvalidJson": "Schema خروجی ساخت‌یافته JSON معتبر نیست.",
+    "outputGuardrailsRequireStreamingOff": "برای استفاده از output guardrail باید استریم غیرفعال باشد.",
+    "messagesRequired": "حداقل یک پیام راهنما، کاربر یا دستیار اضافه کنید.",
+    "cacheTtl": "TTL کش باید یک عدد صحیح مثبت باشد.",
+    "smartCacheSimilarity": "آستانه similarity برای smart cache باید بین 0.8 و 1 باشد.",
+    "metadataKeyRequired": "کلید متادیتا نمی‌تواند خالی باشد.",
+    "metadataKeyDuplicate": "کلید متادیتای تکراری: {key}",
+    "runtimeVariablesMissing": "برای این متغیرها مقدار runtime وارد کنید: {names}",
+    "renderVariablesMissing": "مقدار این متغیرها مشخص نشده است: {names}"
   }
 }

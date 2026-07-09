@@ -26,7 +26,7 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Line, LineChart, XAxis, YAxis } from "recharts";
 
-import { AppCard, AppSelectField, EmptyState, FilterCombobox, MetricCard, PageHeader, StatusBadge } from "@/components/app-ui";
+import { AppCard, AppSelectField, CompactValue, EmptyState, FilterCombobox, MetricCard, PageHeader, StatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -60,6 +60,7 @@ import { buildPrincipalSelectorLabels } from "@/app/components/provider-account-
 import RequestLoggingSettingsPanel from "@/app/components/request-logging-settings";
 import { usePermissions } from "@/app/components/permissions-context";
 import { canAnyPermission } from "@/lib/authz";
+import { appendDisplaySuffix, formatCompactCurrency, formatCompactNumber, formatExactNumber, type CompactDisplayValue } from "@/lib/compact-number";
 import { cn } from "@/lib/utils";
 
 type RequestLog = {
@@ -268,10 +269,13 @@ type LogsCommandCenterProps = {
 
 type LogsFormatter = {
   number: (value: number) => string;
+  numberDisplay: (value: number) => CompactDisplayValue;
   compactNumber: (value: number) => string;
   percent: (value: number) => string;
   usd: (value: number) => string;
+  usdDisplay: (value: number) => CompactDisplayValue;
   irr: (value: number) => string;
+  irrDisplay: (value: number) => CompactDisplayValue;
   ms: (value: number) => string;
   msValue: (value: number) => string;
   timeLabel: (value?: string) => string | undefined;
@@ -620,15 +624,15 @@ export default function LogsCommandCenter({
       {
         id: "tokens",
         header: t("table.tokens"),
-        cell: ({ row }) => formatters.number(row.original.total_tokens ?? 0),
+        cell: ({ row }) => <CompactValue display={formatters.numberDisplay(row.original.total_tokens ?? 0)} className="whitespace-nowrap" />,
       },
       {
         id: "cost",
         header: t("table.cost"),
         cell: ({ row }) => (
           <div className="whitespace-nowrap">
-            <div>{formatters.usd(row.original.cost_usd ?? 0)}</div>
-            <div className="text-muted-foreground">{formatters.irr(row.original.cost_irr ?? 0)}</div>
+            <div><CompactValue display={formatters.usdDisplay(row.original.cost_usd ?? 0)} /></div>
+            <div className="text-muted-foreground"><CompactValue display={formatters.irrDisplay(row.original.cost_irr ?? 0)} /></div>
           </div>
         ),
       },
@@ -1198,11 +1202,11 @@ const LogsMetrics = memo(function LogsMetrics({
 }) {
   return (
     <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 xl:grid-cols-5">
-      <AnalyticsMetric unavailable={summaryUnavailable} label={t("cards.requests")} value={formatters.number(summary.request_count ?? 0)} icon={BarChart3} t={t} />
-      <AnalyticsMetric unavailable={summaryUnavailable} label={t("cards.errorRate")} value={formatters.percent(summary.error_rate ?? 0)} description={formatters.number(summary.error_count ?? 0)} icon={ShieldCheck} t={t} />
+      <AnalyticsMetric unavailable={summaryUnavailable} label={t("cards.requests")} value={<CompactValue display={formatters.numberDisplay(summary.request_count ?? 0)} />} icon={BarChart3} t={t} />
+      <AnalyticsMetric unavailable={summaryUnavailable} label={t("cards.errorRate")} value={formatters.percent(summary.error_rate ?? 0)} description={<CompactValue display={formatters.numberDisplay(summary.error_count ?? 0)} />} icon={ShieldCheck} t={t} />
       <AnalyticsMetric unavailable={summaryUnavailable} label={t("cards.p95")} value={formatters.ms(summary.latency_p95_ms ?? 0)} description={`${t("cards.p99")} ${formatters.ms(summary.latency_p99_ms ?? 0)}`} t={t} />
-      <AnalyticsMetric unavailable={summaryUnavailable} label={t("cards.cost")} value={formatters.usd(summary.cost_usd ?? 0)} description={formatters.irr(summary.cost_irr ?? 0)} t={t} />
-      <AnalyticsMetric unavailable={summaryUnavailable} label={t("cards.cache")} value={formatters.percent(summary.cache_hit_rate ?? 0)} description={`${t("cards.retries")} ${formatters.number(summary.retry_count ?? 0)}`} t={t} />
+      <AnalyticsMetric unavailable={summaryUnavailable} label={t("cards.cost")} value={<CompactValue display={formatters.usdDisplay(summary.cost_usd ?? 0)} />} description={<CompactValue display={formatters.irrDisplay(summary.cost_irr ?? 0)} />} t={t} />
+      <AnalyticsMetric unavailable={summaryUnavailable} label={t("cards.cache")} value={formatters.percent(summary.cache_hit_rate ?? 0)} description={<span>{t("cards.retries")} <CompactValue display={formatters.numberDisplay(summary.retry_count ?? 0)} /></span>} t={t} />
     </div>
   );
 });
@@ -1636,14 +1640,14 @@ function buildExpandedChartDetails(
     }, null);
 
     return [
-      { label: t("chartDetails.totalRequests"), value: formatters.number(totalRequests) },
+      { label: t("chartDetails.totalRequests"), value: <CompactValue display={formatters.numberDisplay(totalRequests)} /> },
       {
         label: t("chartDetails.topProvider"),
         value: topProvider?.name ?? t("values.unknown"),
         description: topProvider ? t("chartDetails.topProviderShare", { share: formatters.percent(totalRequests > 0 ? topProvider.requests / totalRequests : 0) }) : undefined,
       },
-      { label: t("chartDetails.providerCount"), value: formatters.number(providerBreakdownData.length) },
-      { label: t("chartDetails.longTail"), value: formatters.number(Math.max(0, totalRequests - (topProvider?.requests ?? 0))) },
+      { label: t("chartDetails.providerCount"), value: <CompactValue display={formatters.numberDisplay(providerBreakdownData.length)} /> },
+      { label: t("chartDetails.longTail"), value: <CompactValue display={formatters.numberDisplay(Math.max(0, totalRequests - (topProvider?.requests ?? 0)))} /> },
     ];
   }
 
@@ -1656,10 +1660,10 @@ function buildExpandedChartDetails(
     }, null);
 
     return [
-      { label: t("chartDetails.totalHits"), value: formatters.number(totalHits) },
-      { label: t("chartDetails.totalMisses"), value: formatters.number(totalMisses) },
+      { label: t("chartDetails.totalHits"), value: <CompactValue display={formatters.numberDisplay(totalHits)} /> },
+      { label: t("chartDetails.totalMisses"), value: <CompactValue display={formatters.numberDisplay(totalMisses)} /> },
       { label: t("chartDetails.hitRate"), value: formatters.percent(totalHits + totalMisses > 0 ? totalHits / (totalHits + totalMisses) : 0) },
-      { label: t("chartDetails.peakMissWindow"), value: busiestMiss?.label ?? "-", description: busiestMiss ? formatters.number(busiestMiss.cacheMiss ?? 0) : undefined },
+      { label: t("chartDetails.peakMissWindow"), value: busiestMiss?.label ?? "-", description: busiestMiss ? <CompactValue display={formatters.numberDisplay(busiestMiss.cacheMiss ?? 0)} /> : undefined },
     ];
   }
 
@@ -1680,18 +1684,18 @@ function buildExpandedChartDetails(
 
   if (chart === "traffic") {
     return [
-      { label: t("chartDetails.totalRequests"), value: formatters.number(totalRequests) },
-      { label: t("chartDetails.totalErrors"), value: formatters.number(totalErrors) },
+      { label: t("chartDetails.totalRequests"), value: <CompactValue display={formatters.numberDisplay(totalRequests)} /> },
+      { label: t("chartDetails.totalErrors"), value: <CompactValue display={formatters.numberDisplay(totalErrors)} /> },
       { label: t("chartDetails.errorRate"), value: formatters.percent(totalRequests > 0 ? totalErrors / totalRequests : 0) },
-      { label: t("chartDetails.peakRequestWindow"), value: peakRequests?.label ?? "-", description: peakRequests ? formatters.number(peakRequests.requests ?? 0) : undefined },
+      { label: t("chartDetails.peakRequestWindow"), value: peakRequests?.label ?? "-", description: peakRequests ? <CompactValue display={formatters.numberDisplay(peakRequests.requests ?? 0)} /> : undefined },
     ];
   }
 
   return [
     { label: t("chartDetails.maxLatency"), value: peakLatency ? formatters.ms(peakLatency.latency ?? 0) : "-", description: peakLatency?.label },
-    { label: t("chartDetails.maxCost"), value: peakCost ? formatters.usd(peakCost.cost ?? 0) : "-", description: peakCost?.label },
+    { label: t("chartDetails.maxCost"), value: peakCost ? <CompactValue display={formatters.usdDisplay(peakCost.cost ?? 0)} /> : "-", description: peakCost?.label },
     { label: t("chartDetails.avgLatency"), value: timeseriesChartData.length ? formatters.ms(timeseriesChartData.reduce((sum, item) => sum + (item.latency ?? 0), 0) / timeseriesChartData.length) : "-" },
-    { label: t("chartDetails.totalCost"), value: formatters.usd(timeseriesChartData.reduce((sum, item) => sum + (item.cost ?? 0), 0)) },
+    { label: t("chartDetails.totalCost"), value: <CompactValue display={formatters.usdDisplay(timeseriesChartData.reduce((sum, item) => sum + (item.cost ?? 0), 0))} /> },
   ];
 }
 
@@ -1827,7 +1831,7 @@ const LogDetailSheet = memo(function LogDetailSheet({
             <div className="grid grid-cols-3 gap-2">
               <MetricCard label={t("table.status")} value={detail.log.status_code} />
               <MetricCard label={t("table.latency")} value={formatters.ms(detail.log.duration_ms)} />
-              <MetricCard label={t("table.cost")} value={formatters.usd(detail.log.cost_usd ?? 0)} />
+              <MetricCard label={t("table.cost")} value={<CompactValue display={formatters.usdDisplay(detail.log.cost_usd ?? 0)} />} />
             </div>
             <div className="flex flex-wrap justify-end gap-2">
               {traceAvailable && detail.log.trace_id ? <Button asChild size="sm" variant="outline"><Link href={`/traces/${detail.log.trace_id}`}>{t("actions.openTrace")}</Link></Button> : null}
@@ -2453,20 +2457,20 @@ function filterLookupPrincipals(
 
 function createLogFormatters(locale: string): LogsFormatter {
   const number = new Intl.NumberFormat(locale);
-  const compactNumber = new Intl.NumberFormat(locale, { notation: "compact", maximumFractionDigits: 1 });
   const percent = new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 1 });
-  const usd = new Intl.NumberFormat(locale, { style: "currency", currency: "USD", maximumFractionDigits: 4 });
-  const irr = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 });
   const shortTime = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" });
   const weekday = new Intl.DateTimeFormat(locale, { weekday: "short" });
   const fullTime = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
   return {
     number: (value) => number.format(value),
-    compactNumber: (value) => compactNumber.format(value),
+    numberDisplay: (value) => formatCompactNumber(value, { locale }),
+    compactNumber: (value) => formatCompactNumber(value, { locale, compactThreshold: 1_000 }).value,
     percent: (value) => percent.format(value),
-    usd: (value) => usd.format(value),
-    irr: (value) => `${irr.format(value)} IRR`,
+    usd: (value) => formatExactCurrencyValue(value, locale),
+    usdDisplay: (value) => formatCompactCurrency(value, { locale, currency: "USD", maximumFractionDigits: 4 }),
+    irr: (value) => `${formatExactNumber(value, { locale })} IRR`,
+    irrDisplay: (value) => appendDisplaySuffix(formatCompactNumber(value, { locale }), " IRR"),
     ms: (value) => `${number.format(Math.round(value))} ms`,
     msValue: (value) => number.format(Math.round(value)),
     timeLabel: (value) => (value ? shortTime.format(new Date(value)) : undefined),
@@ -2486,6 +2490,15 @@ function formatTimeseries(points: AnalyticsPoint[], formatters: LogsFormatter) {
     latency: Math.round(point.latency_p95_ms ?? 0),
     cost: Number((point.cost_usd ?? 0).toFixed(4)),
   }));
+}
+
+function formatExactCurrencyValue(value: number, locale: string) {
+  return formatCompactCurrency(value, {
+    locale,
+    currency: "USD",
+    compactThreshold: Number.POSITIVE_INFINITY,
+    maximumFractionDigits: 4,
+  }).fullValue;
 }
 
 function formatCacheTimeseries(points: AnalyticsPoint[], formatters: LogsFormatter) {

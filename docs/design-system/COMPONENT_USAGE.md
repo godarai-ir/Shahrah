@@ -22,6 +22,12 @@ Do not put cards inside cards. If a settings surface already has `SettingsCard`,
 
 Use for dashboard metrics with a label, value, optional description, optional trend, and optional icon.
 
+## CompactValue
+
+Use for large counts and money values when the short form improves scanability, especially in metrics, logs, and traces.
+
+Keep the exact value available through the built-in tooltip/title so users can still inspect the raw amount.
+
 ## DataTable Wrapper
 
 The app already has `components/ui/data-table`. Keep using it where behavior is established. Add a product-level wrapper only when multiple pages need the same toolbar, state, and pagination structure.

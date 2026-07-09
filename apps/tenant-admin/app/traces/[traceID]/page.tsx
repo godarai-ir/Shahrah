@@ -21,6 +21,7 @@ import {
 import { getLocale, getTranslations } from "next-intl/server";
 
 import AdminShell from "@/app/components/admin-shell";
+import { CompactValue } from "@/components/app-ui";
 import { PageHeader } from "@/components/app-ui/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
+import { appendDisplaySuffix, formatCompactCurrency, formatCompactNumber } from "@/lib/compact-number";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 import { cn } from "@/lib/utils";
 
@@ -248,17 +250,17 @@ export default async function TraceDetailPage({ params }: Params) {
                     <MetricItem
                       icon={RefreshCw}
                       label={t("detail.summary.attempts")}
-                      value={formatNumber(detail.summary.attempts_count, locale)}
+                      value={<CompactValue display={formatCompactNumber(detail.summary.attempts_count, { locale })} />}
                     />
                     <MetricItem
                       icon={Layers}
                       label={t("detail.summary.spans")}
-                      value={formatNumber(detail.summary.spans_count, locale)}
+                      value={<CompactValue display={formatCompactNumber(detail.summary.spans_count, { locale })} />}
                     />
                     <MetricItem
                       icon={AlertTriangle}
                       label={t("detail.summary.errors")}
-                      value={formatNumber(detail.summary.errors_count, locale)}
+                      value={<CompactValue display={formatCompactNumber(detail.summary.errors_count, { locale })} />}
                       valueClassName={detail.summary.errors_count > 0 ? "text-destructive" : undefined}
                     />
                   </div>
@@ -300,27 +302,31 @@ export default async function TraceDetailPage({ params }: Params) {
                     <CompactField
                       icon={Hash}
                       label={t("detail.usage.inputTokens")}
-                      value={formatNumber(detail.usage?.input_tokens ?? detail.metric?.input_tokens ?? 0, locale)}
+                      value={<CompactValue display={formatCompactNumber(detail.usage?.input_tokens ?? detail.metric?.input_tokens ?? 0, { locale })} />}
                     />
                     <CompactField
                       icon={Hash}
                       label={t("detail.usage.outputTokens")}
-                      value={formatNumber(detail.usage?.output_tokens ?? detail.metric?.output_tokens ?? 0, locale)}
+                      value={<CompactValue display={formatCompactNumber(detail.usage?.output_tokens ?? detail.metric?.output_tokens ?? 0, { locale })} />}
                     />
                     <CompactField
                       icon={Hash}
                       label={t("detail.usage.totalTokens")}
-                      value={formatNumber(detail.usage?.total_tokens ?? 0, locale)}
+                      value={<CompactValue display={formatCompactNumber(detail.usage?.total_tokens ?? 0, { locale })} />}
                     />
                     <CompactField
                       icon={Coins}
                       label={t("detail.usage.costUsd")}
-                      value={formatCostUSD(detail.usage?.cost_usd ?? detail.metric?.cost_usd, locale, emptyLabel)}
+                      value={typeof (detail.usage?.cost_usd ?? detail.metric?.cost_usd) === "number"
+                        ? <CompactValue display={formatCompactCurrency(detail.usage?.cost_usd ?? detail.metric?.cost_usd ?? 0, { locale, currency: "USD", maximumFractionDigits: 8 })} />
+                        : emptyLabel}
                     />
                     <CompactField
                       icon={Coins}
                       label={t("detail.usage.costIrr")}
-                      value={formatOptionalNumber(detail.usage?.cost_irr, locale, emptyLabel)}
+                      value={typeof detail.usage?.cost_irr === "number"
+                        ? <CompactValue display={appendDisplaySuffix(formatCompactNumber(detail.usage.cost_irr, { locale }), " IRR")} />
+                        : emptyLabel}
                     />
                     <CompactField
                       icon={Route}
@@ -683,20 +689,6 @@ function isNearNumber(a: number | undefined, b: number | undefined, tolerance: n
 
 function formatNumber(value: number, locale: string) {
   return new Intl.NumberFormat(locale).format(value);
-}
-
-function formatOptionalNumber(value: number | undefined, locale: string, fallback: string) {
-  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
-  return formatNumber(value, locale);
-}
-
-function formatCostUSD(value: number | undefined, locale: string, fallback: string) {
-  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 8,
-  }).format(value);
 }
 
 function formatDuration(value: number, msLabel: string, locale: string) {

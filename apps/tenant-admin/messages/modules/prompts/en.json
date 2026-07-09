@@ -15,8 +15,8 @@
     "nonStrict": "non-strict",
     "simple": "simple",
     "smart": "smart",
-    "jsonSchema": "json_schema",
-    "jsonObject": "json_object"
+    "jsonSchema": "JSON schema",
+    "jsonObject": "JSON object"
   },
   "actions": {
     "createPrompt": "Create Prompt",
@@ -67,11 +67,11 @@
   },
   "config": {
     "title": "Configuration",
-    "description": "Pick a model, configure runtime behavior, and prepare reusable template defaults.",
+    "description": "Configure the model, runtime behavior, and version options for this prompt draft.",
     "model": {
       "title": "Selected model",
-      "placeholder": "Choose a GodarAI model alias or virtual model",
-      "contextBadge": "ctx {count}"
+      "placeholder": "Choose a GodarAI model or reusable alias.",
+      "contextBadge": "Context window {count}"
     },
     "modelSettings": {
       "title": "Model settings",
@@ -82,8 +82,7 @@
     },
     "variables": {
       "title": "Input variables ({count})",
-      "detectedHelpPrefix": "Detected from",
-      "detectedHelpSuffix": "placeholders in messages.",
+      "detectedHelp": "Variables are detected from placeholders such as {placeholder} in your messages.",
       "empty": "No variables detected yet.",
       "valuePlaceholder": "Value for {name}"
     },
@@ -94,7 +93,7 @@
       "summary": {
         "type": "type {value}",
         "ttl": "ttl {value}s",
-        "namespace": "ns {value}",
+        "namespace": "namespace {value}",
         "similarity": "similarity {value}"
       }
     },
@@ -113,6 +112,14 @@
       "description": "Optional OpenAI-compatible `response_format` configuration.",
       "empty": "Structured output is disabled."
     },
+    "advanced": {
+      "title": "Advanced options",
+      "description": "Enable cache, guardrails, and structured output only when you need them."
+    },
+    "metadataSection": {
+      "title": "Metadata and logging",
+      "description": "Manage version labels and review the current logging behavior."
+    },
     "metadata": {
       "title": "Metadata",
       "empty": "No metadata rows added yet.",
@@ -121,7 +128,7 @@
     },
     "logging": {
       "title": "Logging",
-      "description": "Prompt-level log storage toggles are deferred in this v1 because GodarAI already enforces request and spend logging at gateway level."
+      "description": "Prompt-level logging is not available in this version because GodarAI already records request and spend logs at the gateway level."
     }
   },
   "versions": {
@@ -179,21 +186,26 @@
   },
   "builder": {
     "breadcrumbExisting": "Prompt Registry > {name}",
-    "breadcrumbNew": "Prompt Registry > New Prompt",
+    "breadcrumbNew": "Prompt Registry > Create Prompt",
     "titleExisting": "Edit prompt and save a new version",
-    "titleNew": "New prompt playground",
-    "description": "Build the reusable template on the left, then run it through GodarAI Gateway before saving.",
+    "titleNew": "Create a new prompt",
+    "description": "Create reusable prompt templates, version them, and test and run them through GodarAI.",
+    "docsLink": "Learn more",
     "fields": {
       "name": "Prompt name",
       "namePlaceholder": "booking_greeting",
-      "commitMessage": "Commit message",
+      "nameHelp": "Allowed characters: letters, numbers, hyphens (`-`), and underscores (`_`).",
+      "commitMessage": "Version note",
       "commitMessagePlaceholder": "What changed in this version?",
-      "description": "Description"
+      "description": "Short description"
+    },
+    "sections": {
+      "basicsTitle": "Basic details",
+      "basicsDescription": "Name the prompt and capture a short summary for this version."
     },
     "systemPrompt": {
-      "title": "SYSTEM PROMPT",
-      "descriptionPrefix": "Use reusable placeholders such as",
-      "descriptionSuffix": ".",
+      "title": "System prompt",
+      "description": "Use reusable placeholders such as {placeholder} to keep the instruction template flexible.",
       "default": "You are a helpful assistant."
     },
     "conversation": {
@@ -201,15 +213,19 @@
       "description": "Add reusable user or assistant turns that should be versioned with the prompt.",
       "empty": "No conversation messages yet.",
       "composerPlaceholder": "Enter reusable message text..."
+    },
+    "roleDescriptions": {
+      "user": "For user requests and incoming turns.",
+      "assistant": "For sample replies and assistant turns."
     }
   },
   "playground": {
-    "title": "Playground response",
-    "description": "Run the current draft through GodarAI Gateway before saving.",
+    "title": "Response preview",
+    "description": "Run the current draft through GodarAI before you save it.",
     "empty": "Response will appear here.",
     "usage": {
-      "prompt": "prompt {count}",
-      "completion": "completion {count}",
+      "prompt": "input {count}",
+      "completion": "output {count}",
       "total": "total {count}"
     }
   },

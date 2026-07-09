@@ -15,7 +15,7 @@ import {
   YAxis,
 } from "recharts";
 
-import { AppCard, CatalogFilterCombobox, EmptyState, MetricCard as AppMetricCard, PageHeader } from "@/components/app-ui";
+import { AppCard, CatalogFilterCombobox, CompactValue, EmptyState, MetricCard as AppMetricCard, PageHeader } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +35,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatCompactCurrency, formatCompactNumber } from "@/lib/compact-number";
 import { cn } from "@/lib/utils";
 
 const VIEW_BY = ["modelName", "virtualModelName", "userEmail", "virtualAccount", "team"] as const;
@@ -50,6 +51,10 @@ type ViewBy = (typeof VIEW_BY)[number];
 type Pct = (typeof PCTS)[number];
 type RangePreset = (typeof RANGE_PRESETS)[number];
 type Row = Record<string, unknown>;
+type MetricComboboxOption = {
+  value: string;
+  label: string;
+};
 
 type ModelMetricsDashboardProps = {
   initialFrom?: string;
@@ -508,16 +513,16 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
       ) : null}
 
       <section aria-label={t("sections.summary")} className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-        <MetricCard title={t("cards.totalRequests")} value={formatNumber(summary.totalRequests, locale)} />
-        <MetricCard title={t("cards.inputTokens")} value={formatNumber(summary.inputTokens, locale)} />
-        <MetricCard title={t("cards.outputTokens")} value={formatNumber(summary.outputTokens, locale)} />
-        <MetricCard title={t("cards.totalCost")} value={formatCurrency(summary.cost, locale)} />
-        <MetricCard title={t("cards.avoidedCost")} value={formatCurrency(summary.avoidedCost, locale)} hint={t("cards.avoidedCostHint")} />
-        <MetricCard title={t("cards.costWithoutCache")} value={formatCurrency(summary.costWithoutCache, locale)} />
+        <MetricCard title={t("cards.totalRequests")} value={<CompactValue display={formatCompactNumber(summary.totalRequests, { locale })} />} />
+        <MetricCard title={t("cards.inputTokens")} value={<CompactValue display={formatCompactNumber(summary.inputTokens, { locale })} />} />
+        <MetricCard title={t("cards.outputTokens")} value={<CompactValue display={formatCompactNumber(summary.outputTokens, { locale })} />} />
+        <MetricCard title={t("cards.totalCost")} value={<CompactValue display={formatCompactCurrency(summary.cost, { locale, currency: "USD", maximumFractionDigits: 6 })} />} />
+        <MetricCard title={t("cards.avoidedCost")} value={<CompactValue display={formatCompactCurrency(summary.avoidedCost, { locale, currency: "USD", maximumFractionDigits: 6 })} />} hint={t("cards.avoidedCostHint")} />
+        <MetricCard title={t("cards.costWithoutCache")} value={<CompactValue display={formatCompactCurrency(summary.costWithoutCache, { locale, currency: "USD", maximumFractionDigits: 6 })} />} />
         <MetricCard title={t("cards.savingsRate")} value={formatPercent(summary.savingsRate, locale)} />
-        <MetricCard title={t("cards.cacheHits")} value={formatNumber(summary.cacheHits, locale)} />
+        <MetricCard title={t("cards.cacheHits")} value={<CompactValue display={formatCompactNumber(summary.cacheHits, { locale })} />} />
         <MetricCard title={t("cards.cacheHitRate")} value={formatPercent(summary.cacheHitRate, locale)} />
-        <MetricCard title={t("cards.cachedTokens")} value={formatNumber(summary.avoidedTokens, locale)} hint={t("cards.cachedTokensHint")} />
+        <MetricCard title={t("cards.cachedTokens")} value={<CompactValue display={formatCompactNumber(summary.avoidedTokens, { locale })} />} hint={t("cards.cachedTokensHint")} />
       </section>
 
       <section aria-label={t("sections.charts")} className="grid gap-3 xl:grid-cols-2">
@@ -526,7 +531,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
             <AreaChart data={chartData.points} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} />
               <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} />
-              <YAxis tickLine={false} axisLine={false} width={36} allowDecimals={false} />
+              <YAxis tickLine={false} axisLine={false} width={44} allowDecimals={false} tickFormatter={(value: number) => formatCompactNumber(value, { locale, compactThreshold: 1_000 }).value} />
               <ChartTooltip content={<ChartTooltipContent labelFormatter={formatTooltipLabel} />} />
               {chartData.series.map((series) => (
                 <Area
@@ -563,7 +568,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
             <AreaChart data={chartData.latencyPoints} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} />
               <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} />
-              <YAxis tickLine={false} axisLine={false} width={36} />
+              <YAxis tickLine={false} axisLine={false} width={44} tickFormatter={(value: number) => formatCompactNumber(value, { locale, compactThreshold: 1_000 }).value} />
               <ChartTooltip content={<ChartTooltipContent labelFormatter={formatTooltipLabel} />} />
               {chartData.series.map((series) => (
                 <Area
@@ -585,8 +590,8 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
             <ComposedChart data={chartData.tokenCostPoints} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} />
               <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} />
-              <YAxis yAxisId="tokens" tickLine={false} axisLine={false} width={36} />
-              <YAxis yAxisId="cost" orientation="right" tickLine={false} axisLine={false} width={36} />
+              <YAxis yAxisId="tokens" tickLine={false} axisLine={false} width={44} tickFormatter={(value: number) => formatCompactNumber(value, { locale, compactThreshold: 1_000 }).value} />
+              <YAxis yAxisId="cost" orientation="right" tickLine={false} axisLine={false} width={52} tickFormatter={(value: number) => formatCompactCurrency(value, { locale, currency: "USD", compactThreshold: 1_000, maximumFractionDigits: 6 }).value} />
               <ChartTooltip content={<ChartTooltipContent labelFormatter={formatTooltipLabel} />} />
               <Bar yAxisId="tokens" dataKey="inputTokens" stackId="tokens" fill="var(--color-inputTokens)" radius={[4, 4, 0, 0]} />
               <Bar yAxisId="tokens" dataKey="outputTokens" stackId="tokens" fill="var(--color-outputTokens)" radius={[4, 4, 0, 0]} />
@@ -600,7 +605,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
             <BarChart data={errorChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} />
               <XAxis dataKey="errorCode" tickLine={false} axisLine={false} minTickGap={24} />
-              <YAxis tickLine={false} axisLine={false} width={36} />
+              <YAxis tickLine={false} axisLine={false} width={44} tickFormatter={(value: number) => formatCompactNumber(value, { locale, compactThreshold: 1_000 }).value} />
               <ChartTooltip content={<ChartTooltipContent />} />
               <Bar dataKey="count" fill="var(--color-count)" radius={[4, 4, 0, 0]} />
             </BarChart>
@@ -612,7 +617,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
             <BarChart data={savingsChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} />
               <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} />
-              <YAxis tickLine={false} axisLine={false} width={44} />
+              <YAxis tickLine={false} axisLine={false} width={52} tickFormatter={(value: number) => formatCompactCurrency(value, { locale, currency: "USD", compactThreshold: 1_000, maximumFractionDigits: 6 }).value} />
               <ChartTooltip content={<ChartTooltipContent labelFormatter={formatTooltipLabel} />} />
               <Bar dataKey="actualCost" stackId="cost" fill="var(--color-actualCost)" radius={[4, 4, 0, 0]} />
               <Bar dataKey="simpleSavings" stackId="cost" fill="var(--color-simpleSavings)" />
@@ -640,10 +645,10 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
                 return (
                   <TableRow key={item.mode}>
                     <TableCell>{t(`cacheModes.${item.mode}`)}</TableCell>
-                    <TableCell>{formatNumber(item.exactHits, locale)}</TableCell>
-                    <TableCell>{formatNumber(item.semanticHits, locale)}</TableCell>
+                    <TableCell><CompactValue display={formatCompactNumber(item.exactHits, { locale })} /></TableCell>
+                    <TableCell><CompactValue display={formatCompactNumber(item.semanticHits, { locale })} /></TableCell>
                     <TableCell>{formatPercent(hitRate, locale)}</TableCell>
-                    <TableCell>{formatCurrency(item.avoidedCost, locale)}</TableCell>
+                    <TableCell><CompactValue display={formatCompactCurrency(item.avoidedCost, { locale, currency: "USD", maximumFractionDigits: 6 })} /></TableCell>
                   </TableRow>
                 );
               })}
@@ -764,7 +769,7 @@ function MetricCombobox({
   );
 }
 
-function MetricCard({ title, value, hint }: { title: string; value: string; hint?: string }) {
+function MetricCard({ title, value, hint }: { title: string; value: React.ReactNode; hint?: string }) {
   return (
     <AppMetricCard
       label={title}
@@ -1139,18 +1144,6 @@ function formatLocalDateTime(value: string, locale?: string) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
-}
-
-function formatNumber(value: number, locale: string) {
-  return new Intl.NumberFormat(locale).format(value);
-}
-
-function formatCurrency(value: number, locale: string) {
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 6,
-  }).format(value);
 }
 
 function formatPercent(value: number, locale: string) {

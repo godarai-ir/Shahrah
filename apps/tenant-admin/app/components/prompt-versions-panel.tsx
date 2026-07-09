@@ -31,22 +31,22 @@ export function PromptVersionsPanel(props: PromptVersionsPanelProps) {
         </CardTitle>
         <CardDescription>{props.t("versions.description")}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="flex flex-col gap-3">
         {props.isLoading ? (
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <Skeleton className="h-12 w-full" />
             <Skeleton className="h-12 w-full" />
           </div>
         ) : props.versions.length === 0 ? (
-          <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">{props.t("versions.empty")}</div>
+          <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">{props.t("versions.empty")}</div>
         ) : (
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             {props.versions.map((version) => (
               <button
                 key={version.id}
                 type="button"
                 className={cn(
-                  "w-full rounded-md border p-3 text-start transition hover:bg-accent",
+                  "w-full rounded-lg border p-3 text-start transition hover:bg-accent",
                   version.id === props.selectedVersionID && "border-primary/40 bg-primary/5",
                 )}
                 onClick={() => props.onSelectVersion(version)}
@@ -63,7 +63,7 @@ export function PromptVersionsPanel(props: PromptVersionsPanelProps) {
           </div>
         )}
         {props.selectedVersion ? (
-          <div className="rounded-lg border bg-muted/20 p-3">
+          <div className="rounded-xl border bg-muted/20 p-3">
             <div className="text-xs text-muted-foreground">{props.t("versions.selectedFqn")}</div>
             <div className="mt-1 font-mono text-xs" dir="ltr">
               {props.selectedVersion.fqn}

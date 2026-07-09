@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Trash2, Upload, X } from "lucide-react";
 
-import { AppCard, AppSelectField, ConfirmDialog, EmptyState, FilterCombobox, FormSection, MetricCard, PageHeader, RowActionsMenu, SectionHeader, SettingsCard, StatusBadge } from "@/components/app-ui";
+import { AppCard, AppSelectField, CompactValue, ConfirmDialog, EmptyState, FilterCombobox, FormSection, MetricCard, PageHeader, RowActionsMenu, SectionHeader, SettingsCard, StatusBadge } from "@/components/app-ui";
 import { Attachment, AttachmentAction, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { appendDisplaySuffix, formatCompactCurrency, formatCompactNumber } from "@/lib/compact-number";
 
 const tokens = [
   ["background", "bg-background text-foreground"],
@@ -23,6 +24,9 @@ const tokens = [
 export default function DesignSystemPage() {
   const [selectValue, setSelectValue] = useState("active");
   const [filterValue, setFilterValue] = useState("openai");
+  const requestsDisplay = formatCompactNumber(128_400, { locale: "en-US" });
+  const spendDisplay = formatCompactCurrency(12_340, { locale: "en-US", currency: "USD" });
+  const irrDisplay = appendDisplaySuffix(formatCompactNumber(845_000, { locale: "fa-IR" }), " IRR");
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-6 md:px-6">
@@ -46,9 +50,28 @@ export default function DesignSystemPage() {
       </section>
 
       <section className="grid gap-4 lg:grid-cols-3">
-        <MetricCard label="Requests" value="128K" description="Current billing period" trend={<StatusBadge status="success">+12%</StatusBadge>} icon={Activity} />
+        <MetricCard label="Requests" value={<CompactValue display={requestsDisplay} />} description="Current billing period" trend={<StatusBadge status="success">+12%</StatusBadge>} icon={Activity} />
         <MetricCard label="Provider accounts" value="8" description="Active connections" icon={Database} />
-        <MetricCard label="Access keys" value="24" description="Issued personal tokens" icon={KeyRound} />
+        <MetricCard label="Monthly spend" value={<CompactValue display={spendDisplay} />} description="Exact value stays in tooltip" icon={KeyRound} />
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        <AppCard title="Compact values" description="Use CompactValue when large numbers are easier to scan in abbreviated form.">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border border-border/70 p-3">
+              <div className="text-xs text-muted-foreground">Requests</div>
+              <div className="mt-1 text-lg font-semibold"><CompactValue display={requestsDisplay} /></div>
+            </div>
+            <div className="rounded-lg border border-border/70 p-3">
+              <div className="text-xs text-muted-foreground">USD cost</div>
+              <div className="mt-1 text-lg font-semibold"><CompactValue display={spendDisplay} /></div>
+            </div>
+            <div className="rounded-lg border border-border/70 p-3">
+              <div className="text-xs text-muted-foreground">IRR amount</div>
+              <div className="mt-1 text-lg font-semibold"><CompactValue display={irrDisplay} /></div>
+            </div>
+          </div>
+        </AppCard>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">

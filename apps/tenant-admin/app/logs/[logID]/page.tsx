@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 
 import AdminShell from "@/app/components/admin-shell";
+import { CompactValue } from "@/components/app-ui";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
+import { formatCompactCurrency, formatCompactNumber } from "@/lib/compact-number";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 
 type Params = {
@@ -15,6 +17,7 @@ export const dynamic = "force-dynamic";
 
 export default async function LogDetailPage({ params }: Params) {
   const { logID } = await params;
+  const locale = await getLocale();
   const auth = await requireAuth(`/login?next=/logs/${logID}`);
   const tenantSlug = auth.tenantSlug;
   const t = await getTranslations("logs");
@@ -58,8 +61,8 @@ export default async function LogDetailPage({ params }: Params) {
               <Info label={t("summary.model")} value={String(log.model ?? "-")} />
               <Info label={t("summary.route")} value={String(log.route ?? "-")} />
               <Info label={t("summary.latency")} value={`${String(log.duration_ms ?? 0)} ms`} />
-              <Info label={t("summary.tokens")} value={String(log.total_tokens ?? 0)} />
-              <Info label={t("summary.cost")} value={`$${Number(log.cost_usd ?? 0).toFixed(4)}`} />
+              <Info label={t("summary.tokens")} value={<CompactValue display={formatCompactNumber(Number(log.total_tokens ?? 0), { locale })} />} />
+              <Info label={t("summary.cost")} value={<CompactValue display={formatCompactCurrency(Number(log.cost_usd ?? 0), { locale, currency: "USD", maximumFractionDigits: 4 })} />} />
               <Info
                 label={t("summary.trace")}
                 value={
