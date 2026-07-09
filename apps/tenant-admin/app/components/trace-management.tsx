@@ -1183,50 +1183,54 @@ function CompactTraceCard({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="grid grid-cols-2 gap-x-4 gap-y-2 px-3 pb-3 pt-0">
-        <CompactListField
-          label={t("list.columns.duration")}
-          value={<DurationMeter value={item.duration_ms} max={Math.max(maxDuration, 1)} msLabel={t("list.units.ms")} sLabel={t("list.units.s")} locale={locale} compact />}
-          inline
-        />
-        <CompactListField
-          label={t("list.columns.provider")}
-          value={
-            <span className="truncate" dir="auto" title={item.provider || common("notSet")}>
-              {item.provider || common("notSet")}
-            </span>
-          }
-          secondaryLabel={t("list.columns.model")}
-          secondary={
-            <span className="truncate text-muted-foreground" dir="auto" title={item.model || common("notSet")}>
-              {item.model || common("notSet")}
-            </span>
-          }
-        />
-        <CompactListField
-          className="col-span-2 sm:col-span-1"
-          label={t("list.columns.route")}
-          inline
-          value={
-            <span className="truncate font-mono text-xs" dir="ltr" title={item.route}>
-              {item.route}
-            </span>
-          }
-        />
-        <CompactListField
-          className="col-span-2 sm:col-span-1"
-          label={t("list.columns.error")}
-          inline
-          value={item.error_code ? (
-            <Badge variant="outline" className="max-w-full">
-              <span className="truncate font-mono text-[11px]" dir="auto" title={item.error_code}>
-                {item.error_code}
+      <CardContent className="flex flex-col gap-2 px-3 pb-3 pt-0">
+        <div className="grid grid-cols-3 gap-x-3 gap-y-2">
+          <CompactListField
+            label={t("list.columns.model")}
+            value={
+              <span className="truncate" dir="auto" title={item.model || common("notSet")}>
+                {item.model || common("notSet")}
               </span>
-            </Badge>
-          ) : (
-            <span className="text-muted-foreground">{common("none")}</span>
-          )}
-        />
+            }
+          />
+          <CompactListField
+            label={t("list.columns.provider")}
+            value={
+              <span className="truncate" dir="auto" title={item.provider || common("notSet")}>
+                {item.provider || common("notSet")}
+              </span>
+            }
+          />
+          <CompactListField
+            label={t("list.columns.duration")}
+            value={<DurationMeter value={item.duration_ms} max={Math.max(maxDuration, 1)} msLabel={t("list.units.ms")} sLabel={t("list.units.s")} locale={locale} compact />}
+            inline
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+          <CompactListField
+            label={t("list.columns.route")}
+            inline
+            value={
+              <span className="truncate font-mono text-xs" dir="ltr" title={item.route}>
+                {item.route}
+              </span>
+            }
+          />
+          <CompactListField
+            label={t("list.columns.error")}
+            inline
+            value={item.error_code ? (
+              <Badge variant="outline" className="max-w-full">
+                <span className="truncate font-mono text-[11px]" dir="auto" title={item.error_code}>
+                  {item.error_code}
+                </span>
+              </Badge>
+            ) : (
+              <span className="text-muted-foreground">{common("none")}</span>
+            )}
+          />
+        </div>
       </CardContent>
     </Card>
   );
