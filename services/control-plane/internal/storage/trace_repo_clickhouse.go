@@ -541,6 +541,16 @@ func (s *Store) listRequestTracesV2FromClickHouse(ctx context.Context, params pl
 	args = append(args, spanArgs...)
 	args = append(args, spanArgs...)
 	args = append(args, outerArgs...)
+	countQuery := fmt.Sprintf(`
+		SELECT count()
+		%s
+		WHERE %s
+	`, baseFrom, strings.Join(outerWhere, " AND "))
+	countArgs := append([]interface{}{}, args...)
+	var total uint64
+	if err := s.clickhouse.QueryRowContext(ctx, countQuery, countArgs...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
 	pageLimit := params.Limit + 1
 	args = append(args, pageLimit, params.Offset)
 
@@ -589,7 +599,7 @@ func (s *Store) listRequestTracesV2FromClickHouse(ctx context.Context, params pl
 		items = items[:params.Limit]
 	}
 
-	return items, approximateWindowedTotal(params.Offset, len(items), hasMore), nil
+	return items, int(total), nil
 }
 
 func (s *Store) getRequestTraceV2FromClickHouse(ctx context.Context, tenantID, traceID string) (*platform.RequestTraceDetailV2, error) {

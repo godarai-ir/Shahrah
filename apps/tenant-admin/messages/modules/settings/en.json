@@ -57,6 +57,7 @@
   "requestLogging": {
     "title": "Request Logging",
     "description": "Control how much request and response content is stored in request logs for this tenant.",
+    "loading": "Loading settings...",
     "loggingModeLabel": "Logging Mode",
     "modeBehaviorTitle": "Mode behavior",
     "updatedAtLabel": "Updated at",

@@ -57,6 +57,7 @@
   "requestLogging": {
     "title": "ثبت لاگ درخواست",
     "description": "مشخص کنید برای این فضای کاری چه میزان از محتوای درخواست و پاسخ در request log ذخیره شود.",
+    "loading": "در حال بارگذاری تنظیمات...",
     "loggingModeLabel": "حالت ثبت",
     "modeBehaviorTitle": "رفتار هر حالت",
     "updatedAtLabel": "زمان به‌روزرسانی",

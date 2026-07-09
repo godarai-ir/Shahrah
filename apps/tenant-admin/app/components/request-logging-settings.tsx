@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Ban,
@@ -13,9 +13,15 @@ import {
 import { StatusOptionCard } from "@/app/components/status-option-card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
-type RequestLoggingSettings = {
+export type RequestLoggingSettings = {
   tenant_id?: string;
   logging_mode: "none" | "metadata-only" | "redacted-content" | "full-content";
   updated_at?: string;
@@ -25,6 +31,9 @@ type RequestLoggingSettings = {
 type RequestLoggingSettingsProps = {
   initialSettings: RequestLoggingSettings | null;
   initialError?: string | null;
+  active?: boolean;
+  showHeader?: boolean;
+  surface?: "card" | "plain";
 };
 
 const MODES: Array<{
@@ -61,14 +70,54 @@ const MODES: Array<{
 
 export default function RequestLoggingSettingsPanel(props: RequestLoggingSettingsProps) {
   const t = useTranslations("settings.requestLogging");
+  const surface = props.surface ?? "card";
+  const showHeader = props.showHeader ?? true;
   const [loggingMode, setLoggingMode] = useState<RequestLoggingSettings["logging_mode"]>(
     props.initialSettings?.logging_mode ?? "metadata-only",
   );
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(props.initialError ?? null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(props.initialSettings?.updated_at ?? null);
   const [updatedBy, setUpdatedBy] = useState<string | null>(props.initialSettings?.updated_by_user_id ?? null);
+  const [hasResolvedInitialLoad, setHasResolvedInitialLoad] = useState(Boolean(props.initialSettings));
+
+  useEffect(() => {
+    if (!props.active || hasResolvedInitialLoad || props.initialSettings) return;
+
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setLoading(true);
+      setError(null);
+    });
+
+    void requestJSON<RequestLoggingSettings>("/api/settings/request-logging")
+      .then((payload) => {
+        if (cancelled) return;
+        applySettings(payload);
+        setHasResolvedInitialLoad(true);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(normalizeError(err, t("messages.updateFailed")));
+        setHasResolvedInitialLoad(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasResolvedInitialLoad, props.active, props.initialSettings, t]);
+
+  function applySettings(settings: RequestLoggingSettings) {
+    setLoggingMode(settings.logging_mode ?? "metadata-only");
+    setUpdatedAt(settings.updated_at ?? null);
+    setUpdatedBy(settings.updated_by_user_id ?? null);
+  }
 
   async function save() {
     setSaving(true);
@@ -80,8 +129,7 @@ export default function RequestLoggingSettingsPanel(props: RequestLoggingSetting
         method: "PUT",
         body: JSON.stringify({ logging_mode: loggingMode }),
       });
-      setUpdatedAt(payload.updated_at ?? null);
-      setUpdatedBy(payload.updated_by_user_id ?? null);
+      applySettings(payload);
       setMessage(t("messages.updated"));
     } catch (err) {
       setError(normalizeError(err, t("messages.updateFailed")));
@@ -90,60 +138,87 @@ export default function RequestLoggingSettingsPanel(props: RequestLoggingSetting
     }
   }
 
+  const content = (
+    <div className="flex flex-col gap-4">
+      {loading && !hasResolvedInitialLoad ? (
+        <Alert>
+          <AlertDescription>{t("loading")}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {message ? (
+        <Alert className="surface-primary-soft">
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <p className="text-sm font-medium">{t("loggingModeLabel")}</p>
+          <p className="text-xs text-muted-foreground">{t("modeBehaviorTitle")}</p>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          {MODES.map((item) => {
+            const selected = loggingMode === item.value;
+
+            return (
+              <StatusOptionCard
+                key={item.value}
+                onClick={() => setLoggingMode(item.value)}
+                disabled={saving || loading}
+                icon={item.icon}
+                selected={selected}
+                badge={item.value}
+                title={t(`modes.${item.key}.title`)}
+                description={t(`modes.${item.key}.description`)}
+                tone={item.tone}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid gap-1 text-xs text-muted-foreground">
+        <p>{t("updatedAtLabel")}: {formatDate(updatedAt, t("notSet"))}</p>
+        <p>{t("updatedByLabel")}: {updatedBy || t("notSet")}</p>
+      </div>
+
+      <Button onClick={() => void save()} disabled={saving || loading} className="self-start">
+        {saving ? t("saving") : t("save")}
+      </Button>
+    </div>
+  );
+
+  if (surface === "plain") {
+    return (
+      <div className="flex flex-col gap-4">
+        {showHeader ? (
+          <div className="flex flex-col gap-1">
+            <h2 className="text-base font-semibold">{t("title")}</h2>
+            <p className="text-sm text-muted-foreground">{t("description")}</p>
+          </div>
+        ) : null}
+        {content}
+      </div>
+    );
+  }
+
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>{t("title")}</CardTitle>
-        <CardDescription>{t("description")}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {message ? (
-          <Alert className="surface-primary-soft">
-            <AlertDescription>{message}</AlertDescription>
-          </Alert>
-        ) : null}
-
-        {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
-
-        <div className="space-y-3">
-          <div>
-            <p className="text-sm font-medium">{t("loggingModeLabel")}</p>
-            <p className="text-xs text-muted-foreground">{t("modeBehaviorTitle")}</p>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            {MODES.map((item) => {
-              const selected = loggingMode === item.value;
-
-              return (
-                <StatusOptionCard
-                  key={item.value}
-                  onClick={() => setLoggingMode(item.value)}
-                  disabled={saving}
-                  icon={item.icon}
-                  selected={selected}
-                  badge={item.value}
-                  title={t(`modes.${item.key}.title`)}
-                  description={t(`modes.${item.key}.description`)}
-                  tone={item.tone}
-                />
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="grid gap-1 text-xs text-muted-foreground">
-          <p>{t("updatedAtLabel")}: {formatDate(updatedAt, t("notSet"))}</p>
-          <p>{t("updatedByLabel")}: {updatedBy || t("notSet")}</p>
-        </div>
-
-        <Button onClick={() => void save()} disabled={saving}>
-          {saving ? t("saving") : t("save")}
-        </Button>
-      </CardContent>
+      {showHeader ? (
+        <CardHeader>
+          <CardTitle>{t("title")}</CardTitle>
+          <CardDescription>{t("description")}</CardDescription>
+        </CardHeader>
+      ) : null}
+      <CardContent className="flex flex-col gap-4">{content}</CardContent>
     </Card>
   );
 }
@@ -167,6 +242,7 @@ async function requestJSON<T = unknown>(path: string, options?: RequestInit): Pr
 
 function parsePayload(text: string): unknown {
   if (!text.trim()) return {};
+
   try {
     return JSON.parse(text) as unknown;
   } catch {
@@ -187,7 +263,7 @@ function normalizeError(error: unknown, fallback: string) {
 
 function formatDate(value: string | null, fallback: string) {
   if (!value) return fallback;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toISOString().replace("T", " ").replace("Z", " UTC");
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toISOString().replace("T", " ").replace("Z", " UTC");
 }

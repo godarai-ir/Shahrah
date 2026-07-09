@@ -18,6 +18,10 @@
     "timeRange": "Time range",
     "search": "Search...",
     "emptyOptions": "No options found.",
+    "advanced": {
+      "show": "Advanced filters",
+      "hide": "Hide advanced filters"
+    },
     "placeholders": {
       "traceId": "trace_...",
       "requestId": "req_...",
@@ -122,7 +126,11 @@
       "attemptsShort": "{count}x"
     },
     "sort": {
-      "label": "Sort by {column}"
+      "label": "Sort by {column}",
+      "field": "Sort",
+      "directionAsc": "Ascending",
+      "directionDesc": "Descending",
+      "directionLabel": "Sort direction: {direction}"
     },
     "units": {
       "ms": "ms",

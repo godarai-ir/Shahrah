@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -75,21 +74,33 @@ export function PrincipalPicker<TItem extends PrincipalPickerItem = PrincipalPic
   return (
     <div
       className={cn(
-        "flex min-h-full flex-col ring-1 ring-border/35",
+        "flex min-h-full flex-col",
         isFilterVariant
           ? "gap-3 rounded-md bg-transparent px-3 py-3 md:grid md:min-h-0 md:grid-cols-[auto_minmax(0,1fr)_minmax(8rem,auto)] md:items-start"
-          : "gap-4 rounded-2xl bg-background/85 px-4 py-4",
+          : "gap-4 rounded-2xl bg-background/85 px-4 py-4 ring-1 ring-border/35",
         props.className,
       )}
     >
       <div className={cn("flex items-start justify-between gap-3", isFilterVariant && "md:min-w-32")}>
         <h4 className={cn(isFilterVariant ? "text-xs font-normal leading-8 text-muted-foreground" : "text-base font-semibold")}>{props.title}</h4>
-        <Badge variant="secondary" className="shrink-0">
-          {props.selected.length}
-        </Badge>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+      <div className={cn(isFilterVariant ? "flex min-w-0 flex-row-reverse items-start gap-2" : "grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]")}>
+        {isFilterVariant ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            onClick={addSelectedCandidate}
+            disabled={props.disabled || !candidate || candidate.type === "external_identity"}
+            className="shrink-0"
+            aria-label={props.addLabel}
+            title={props.addLabel}
+          >
+            <Plus className="h-4 w-4" />
+            <span className="sr-only">{props.addLabel}</span>
+          </Button>
+        ) : null}
         <PrincipalEntitySelect
           id={props.id}
           selected={candidate}
@@ -98,18 +109,21 @@ export function PrincipalPicker<TItem extends PrincipalPickerItem = PrincipalPic
           labels={props.principalSelectorLabels}
           kinds={props.kinds ?? ["user", "team", "org_unit"]}
           includeEveryone={props.allowEveryone}
-          className="min-w-0"
+          className={cn("min-w-0", isFilterVariant && "flex-1")}
+          compact={isFilterVariant}
         />
-        <Button
-          type="button"
-          variant="outline"
-          onClick={addSelectedCandidate}
-          disabled={props.disabled || !candidate || candidate.type === "external_identity"}
-          className="w-full sm:w-auto"
-        >
-          <Plus className="h-4 w-4" />
-          {props.addLabel}
-        </Button>
+        {isFilterVariant ? null : (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={addSelectedCandidate}
+            disabled={props.disabled || !candidate || candidate.type === "external_identity"}
+            className="w-full sm:w-auto"
+          >
+            <Plus className="h-4 w-4" />
+            {props.addLabel}
+          </Button>
+        )}
       </div>
 
       <div className={cn("flex min-h-9 flex-wrap items-center gap-2", isFilterVariant && "md:justify-end")}>

@@ -79,7 +79,7 @@ const SIDEBAR_NAV_GROUPS: Array<{
   },
   {
     labelKey: "navGroups.observability",
-    itemKeys: ["logs", "traces", "metrics", "requestLoggingSettings", "tracePrivacySettings"],
+    itemKeys: ["logs", "traces", "metrics", "tracePrivacySettings"],
   },
   {
     labelKey: "navGroups.policies",

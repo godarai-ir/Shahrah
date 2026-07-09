@@ -3,14 +3,16 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Calendar, Columns3, Filter, RefreshCw, RotateCcw, X } from "lucide-react";
+import { Calendar, ChevronDown, Columns3, Filter, RefreshCw, RotateCcw, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
+import { PageHeader } from "@/components/app-ui/PageHeader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { FilterCombobox } from "@/components/app-ui";
+import { AppSelectField, FilterCombobox } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DataTable } from "@/components/ui/data-table";
 import {
   DropdownMenu,
@@ -22,6 +24,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 type RequestTrace = {
@@ -123,6 +128,7 @@ export default function TraceManagement(props: TraceManagementProps) {
   const locale = useLocale();
   const t = useTranslations("traces");
   const common = useTranslations("common");
+  const isCompactLayout = useIsMobile();
 
   const [items, setItems] = useState<RequestTrace[]>(props.initialData);
   const [total, setTotal] = useState(props.initialTotal);
@@ -135,6 +141,8 @@ export default function TraceManagement(props: TraceManagementProps) {
   const [applied, setApplied] = useState<TraceFilters>(() => createDefaultFilters());
   const [draftRangePreset, setDraftRangePreset] = useState<RangePreset>(DEFAULT_RANGE_PRESET);
   const [appliedRangePreset, setAppliedRangePreset] = useState<RangePreset>(DEFAULT_RANGE_PRESET);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [advancedSheetOpen, setAdvancedSheetOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<Record<TraceColumnKey, boolean>>(() => createDefaultColumnVisibility());
 
   const canPrev = offset > 0;
@@ -231,6 +239,8 @@ export default function TraceManagement(props: TraceManagementProps) {
     return out;
   }, [applied, appliedRangePreset, locale, t]);
 
+  const advancedFilterLabel = advancedOpen ? t("filters.advanced.hide") : t("filters.advanced.show");
+
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -314,9 +324,9 @@ export default function TraceManagement(props: TraceManagementProps) {
     setDraft((prev) => ({ ...prev, from: nextRange.from, to: nextRange.to }));
   }
 
-  const setSort = useCallback((sortBy: string) => {
+  const setSort = useCallback((sortBy: string, forcedOrder?: "asc" | "desc") => {
     const nextOrder: "asc" | "desc" =
-      applied.sortBy === sortBy && applied.sortOrder === "desc" ? "asc" : "desc";
+      forcedOrder ?? (applied.sortBy === sortBy && applied.sortOrder === "desc" ? "asc" : "desc");
     const next = normalizeFilters({ ...applied, sortBy, sortOrder: nextOrder });
     setDraft(next);
     setApplied(next);
@@ -336,6 +346,110 @@ export default function TraceManagement(props: TraceManagementProps) {
     [t],
   );
   const visibleColumnCount = TRACE_COLUMN_KEYS.filter((key) => visibleColumns[key]).length;
+  const compactSortOptions = useMemo(
+    () => [
+      { value: "started_at", label: t("list.columns.startedAt") },
+      { value: "status_code", label: t("list.columns.status") },
+      { value: "duration_ms", label: t("list.columns.duration") },
+    ],
+    [t],
+  );
+  const breakdownCards = [
+    {
+      key: "statusCodes",
+      title: t("breakdown.statusCodes"),
+      buckets: breakdowns.statusCodes,
+      activeValue: applied.statusCode,
+      onSelect: (value: string) => selectFacet({ statusCode: value }),
+      mono: true,
+    },
+    {
+      key: "providers",
+      title: t("breakdown.providers"),
+      buckets: breakdowns.providers,
+      activeValue: applied.provider,
+      onSelect: (value: string) => selectFacet({ provider: value }),
+      mono: false,
+    },
+    {
+      key: "models",
+      title: t("breakdown.models"),
+      buckets: breakdowns.models,
+      activeValue: applied.model,
+      onSelect: (value: string) => selectFacet({ model: value }),
+      mono: true,
+    },
+    {
+      key: "routes",
+      title: t("breakdown.routes"),
+      buckets: breakdowns.routes,
+      activeValue: applied.route,
+      onSelect: (value: string) => selectFacet({ route: value }),
+      mono: true,
+    },
+    {
+      key: "errorCodes",
+      title: t("breakdown.errorCodes"),
+      buckets: breakdowns.errorCodes,
+      activeValue: applied.errorCode,
+      onSelect: (value: string) => selectFacet({ errorCode: value }),
+      mono: true,
+    },
+  ];
+  const advancedFiltersFields = (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+      <TraceField id="status-filter" label={t("filters.statusCode")}>
+        <Input
+          id="status-filter"
+          value={draft.statusCode}
+          onChange={(event) => setDraft((prev) => ({ ...prev, statusCode: event.target.value }))}
+          placeholder={t("filters.placeholders.statusCode")}
+          dir="ltr"
+          className="h-9 font-mono"
+        />
+      </TraceField>
+      <TraceField id="error-filter" label={t("filters.errorCode")}>
+        <Input
+          id="error-filter"
+          value={draft.errorCode}
+          onChange={(event) => setDraft((prev) => ({ ...prev, errorCode: event.target.value }))}
+          placeholder={t("filters.placeholders.errorCode")}
+          dir="ltr"
+          className="h-9 font-mono"
+        />
+      </TraceField>
+      <TraceField id="route-filter" label={t("filters.route")}>
+        <Input
+          id="route-filter"
+          value={draft.route}
+          onChange={(event) => setDraft((prev) => ({ ...prev, route: event.target.value }))}
+          placeholder={t("filters.placeholders.route")}
+          dir="ltr"
+          className="h-9 font-mono"
+        />
+      </TraceField>
+      <TraceField id="trace-id-filter" label={t("filters.traceId")}>
+        <Input
+          id="trace-id-filter"
+          value={draft.traceID}
+          onChange={(event) => setDraft((prev) => ({ ...prev, traceID: event.target.value }))}
+          placeholder={t("filters.placeholders.traceId")}
+          dir="ltr"
+          className="h-9 font-mono"
+        />
+      </TraceField>
+      <TraceField id="request-id-filter" label={t("filters.requestId")}>
+        <Input
+          id="request-id-filter"
+          value={draft.requestID}
+          onChange={(event) => setDraft((prev) => ({ ...prev, requestID: event.target.value }))}
+          placeholder={t("filters.placeholders.requestId")}
+          dir="ltr"
+          className="h-9 font-mono"
+        />
+      </TraceField>
+    </div>
+  );
 
   function toggleColumnVisibility(key: TraceColumnKey, checked: boolean) {
     setVisibleColumns((prev) => {
@@ -512,118 +626,127 @@ export default function TraceManagement(props: TraceManagementProps) {
   );
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 md:gap-6">
+      <PageHeader title={t("title")} description={t("description")} />
+
       <Card className="rounded-lg">
-        <CardHeader className="sr-only">
-          <CardTitle>{t("filters.title")}</CardTitle>
-          <CardDescription>{t("description")}</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6 md:p-3 md:pt-3">
-          <TraceField id="trace-id-filter" label={t("filters.traceId")}>
-            <Input
-              id="trace-id-filter"
-              value={draft.traceID}
-              onChange={(event) => setDraft((prev) => ({ ...prev, traceID: event.target.value }))}
-              placeholder={t("filters.placeholders.traceId")}
-              dir="ltr"
-              className="h-8 px-2 text-xs font-mono"
-            />
-          </TraceField>
-          <TraceField id="request-id-filter" label={t("filters.requestId")}>
-            <Input
-              id="request-id-filter"
-              value={draft.requestID}
-              onChange={(event) => setDraft((prev) => ({ ...prev, requestID: event.target.value }))}
-              placeholder={t("filters.placeholders.requestId")}
-              dir="ltr"
-              className="h-8 px-2 text-xs font-mono"
-            />
-          </TraceField>
-          <TraceField id="provider-filter" label={t("filters.provider")}>
-            <TraceCombobox
-              id="provider-filter"
-              options={providerComboboxOptions}
-              value={draft.provider || ALL_PROVIDERS_VALUE}
-              onValueChange={(value) => setDraft((prev) => ({ ...prev, provider: value === ALL_PROVIDERS_VALUE ? "" : value }))}
-              placeholder={t("filters.search")}
-              emptyText={t("filters.emptyOptions")}
-              mono
-            />
-          </TraceField>
-          <TraceField id="model-filter" label={t("filters.model")}>
-            <TraceCombobox
-              id="model-filter"
-              options={modelComboboxOptions}
-              value={draft.model || ALL_MODELS_VALUE}
-              onValueChange={(value) => setDraft((prev) => ({ ...prev, model: value === ALL_MODELS_VALUE ? "" : value }))}
-              placeholder={t("filters.search")}
-              emptyText={t("filters.emptyOptions")}
-              mono
-            />
-          </TraceField>
-          <TraceField id="route-filter" label={t("filters.route")}>
-            <Input
-              id="route-filter"
-              value={draft.route}
-              onChange={(event) => setDraft((prev) => ({ ...prev, route: event.target.value }))}
-              placeholder={t("filters.placeholders.route")}
-              dir="ltr"
-              className="h-8 px-2 text-xs font-mono"
-            />
-          </TraceField>
-          <TraceField id="status-filter" label={t("filters.statusCode")}>
-            <Input
-              id="status-filter"
-              value={draft.statusCode}
-              onChange={(event) => setDraft((prev) => ({ ...prev, statusCode: event.target.value }))}
-              placeholder={t("filters.placeholders.statusCode")}
-              dir="ltr"
-              className="h-8 px-2 text-xs font-mono"
-            />
-          </TraceField>
-          <TraceField id="error-filter" label={t("filters.errorCode")}>
-            <Input
-              id="error-filter"
-              value={draft.errorCode}
-              onChange={(event) => setDraft((prev) => ({ ...prev, errorCode: event.target.value }))}
-              placeholder={t("filters.placeholders.errorCode")}
-              dir="ltr"
-              className="h-8 px-2 text-xs font-mono"
-            />
-          </TraceField>
-          <TraceField id="range-preset-filter" label={t("filters.timeRange")}>
-            <TraceCombobox
-              id="range-preset-filter"
-              options={rangeOptions}
+        <CardHeader className="p-0" />
+        <CardContent className="flex flex-col gap-3 p-3 md:p-4">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <AppSelectField
+              label={t("filters.timeRange")}
               value={draftRangePreset}
               onValueChange={(value) => handleRangePresetChange(value as RangePreset)}
-              placeholder={t("filters.timeRange")}
-              emptyText={t("filters.emptyOptions")}
-              searchable={false}
+              options={rangeOptions}
+              ariaLabel={t("filters.timeRange")}
+              triggerClassName="h-9"
             />
-          </TraceField>
-          {draftRangePreset === "custom" ? (
-            <>
-              <DateTimeFilter id="from-filter" label={t("filters.from")} value={draft.from} onChange={(from) => setDraft((prev) => ({ ...prev, from }))} />
-              <DateTimeFilter id="to-filter" label={t("filters.to")} value={draft.to} onChange={(to) => setDraft((prev) => ({ ...prev, to }))} />
-            </>
-          ) : null}
-
-          <div className="flex items-end 2xl:col-span-2">
-            <div className="flex w-full flex-wrap items-center justify-end gap-2">
-              <Button type="button" size="sm" onClick={applyFilters} disabled={loading}>
-                <Filter data-icon="inline-start" aria-hidden="true" />
-                {t("actions.apply")}
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={clearFilters} disabled={loading}>
-                <RotateCcw data-icon="inline-start" aria-hidden="true" />
-                {t("actions.clear")}
-              </Button>
-            </div>
+            <TraceField id="provider-filter" label={t("filters.provider")}>
+              <TraceCombobox
+                id="provider-filter"
+                options={providerComboboxOptions}
+                value={draft.provider || ALL_PROVIDERS_VALUE}
+                onValueChange={(value) => setDraft((prev) => ({ ...prev, provider: value === ALL_PROVIDERS_VALUE ? "" : value }))}
+                placeholder={t("filters.search")}
+                emptyText={t("filters.emptyOptions")}
+              />
+            </TraceField>
+            <TraceField id="model-filter" label={t("filters.model")}>
+              <TraceCombobox
+                id="model-filter"
+                options={modelComboboxOptions}
+                value={draft.model || ALL_MODELS_VALUE}
+                onValueChange={(value) => setDraft((prev) => ({ ...prev, model: value === ALL_MODELS_VALUE ? "" : value }))}
+                placeholder={t("filters.search")}
+                emptyText={t("filters.emptyOptions")}
+              />
+            </TraceField>
           </div>
 
+          {draftRangePreset === "custom" ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              <DateTimeFilter id="from-filter" label={t("filters.from")} value={draft.from} onChange={(from) => setDraft((prev) => ({ ...prev, from }))} />
+              <DateTimeFilter id="to-filter" label={t("filters.to")} value={draft.to} onChange={(to) => setDraft((prev) => ({ ...prev, to }))} />
+            </div>
+          ) : null}
+
+          {isCompactLayout ? (
+            <>
+              <div className="grid gap-2 border-t border-card-border/70 pt-3 sm:grid-cols-2">
+                <Button type="button" variant="outline" size="sm" className="sm:col-span-2" onClick={() => setAdvancedSheetOpen(true)}>
+                  <ChevronDown data-icon="inline-start" aria-hidden="true" />
+                  {advancedFilterLabel}
+                </Button>
+                <Button type="button" size="sm" onClick={applyFilters} disabled={loading}>
+                  <Filter data-icon="inline-start" aria-hidden="true" />
+                  {t("actions.apply")}
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={clearFilters} disabled={loading}>
+                  <RotateCcw data-icon="inline-start" aria-hidden="true" />
+                  {t("actions.clear")}
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => void load()} disabled={loading} className="sm:col-span-2">
+                  <RefreshCw data-icon="inline-start" aria-hidden="true" />
+                  {loading ? common("loading") : common("refresh")}
+                </Button>
+              </div>
+
+              <Sheet open={advancedSheetOpen} onOpenChange={setAdvancedSheetOpen}>
+                <SheetContent side="bottom" className="flex max-h-svh flex-col rounded-t-2xl px-4 py-5 sm:max-w-none">
+                  <SheetHeader>
+                    <SheetTitle>{advancedFilterLabel}</SheetTitle>
+                    <SheetDescription>{t("description")}</SheetDescription>
+                  </SheetHeader>
+                  <ScrollArea className="mt-4 flex-1">
+                    <div className="pb-4">
+                      {advancedFiltersFields}
+                    </div>
+                  </ScrollArea>
+                  <SheetFooter>
+                    <Button type="button" onClick={() => { applyFilters(); setAdvancedSheetOpen(false); }} disabled={loading}>
+                      <Filter data-icon="inline-start" aria-hidden="true" />
+                      {t("actions.apply")}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={clearFilters} disabled={loading}>
+                      <RotateCcw data-icon="inline-start" aria-hidden="true" />
+                      {t("actions.clear")}
+                    </Button>
+                  </SheetFooter>
+                </SheetContent>
+              </Sheet>
+            </>
+          ) : (
+            <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-card-border/70 pt-3">
+                <CollapsibleTrigger asChild>
+                  <Button type="button" variant="outline" size="sm" aria-expanded={advancedOpen}>
+                    <ChevronDown data-icon="inline-start" className={cn("transition-transform", advancedOpen && "rotate-180")} aria-hidden="true" />
+                    {advancedFilterLabel}
+                  </Button>
+                </CollapsibleTrigger>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button type="button" size="sm" onClick={applyFilters} disabled={loading}>
+                    <Filter data-icon="inline-start" aria-hidden="true" />
+                    {t("actions.apply")}
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={clearFilters} disabled={loading}>
+                    <RotateCcw data-icon="inline-start" aria-hidden="true" />
+                    {t("actions.clear")}
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+                    <RefreshCw data-icon="inline-start" aria-hidden="true" />
+                    {loading ? common("loading") : common("refresh")}
+                  </Button>
+                </div>
+              </div>
+              <CollapsibleContent>
+                {advancedFiltersFields}
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+
           {activeFilters.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5 pt-1 sm:col-span-2 lg:col-span-4 2xl:col-span-6">
+            <div className="flex flex-wrap gap-1.5 pt-1">
               {activeFilters.map((item) => (
                 <Button
                   key={item.key}
@@ -653,7 +776,7 @@ export default function TraceManagement(props: TraceManagementProps) {
         </Alert>
       ) : null}
 
-      <section aria-label={t("summary.title")} className="grid gap-2 sm:grid-cols-2">
+      <section aria-label={t("summary.title")} className="grid grid-cols-2 gap-2">
         <SummaryCard
           title={t("summary.totalRequests")}
           value={formatNumber(total, locale)}
@@ -666,57 +789,78 @@ export default function TraceManagement(props: TraceManagementProps) {
         />
       </section>
 
-      <section aria-label={t("breakdown.title")} className="grid gap-2 lg:grid-cols-2 xl:grid-cols-5">
-        <BreakdownCard
-          title={t("breakdown.statusCodes")}
-          buckets={breakdowns.statusCodes}
-          activeValue={applied.statusCode}
-          noDataLabel={t("facets.noData")}
-          selectLabel={(value, count) => t("breakdown.select", { label: t("breakdown.statusCodes"), value, count })}
-          onSelect={(value) => selectFacet({ statusCode: value })}
-          mono
-        />
-        <BreakdownCard
-          title={t("breakdown.providers")}
-          buckets={breakdowns.providers}
-          activeValue={applied.provider}
-          noDataLabel={t("facets.noData")}
-          selectLabel={(value, count) => t("breakdown.select", { label: t("breakdown.providers"), value, count })}
-          onSelect={(value) => selectFacet({ provider: value })}
-        />
-        <BreakdownCard
-          title={t("breakdown.models")}
-          buckets={breakdowns.models}
-          activeValue={applied.model}
-          noDataLabel={t("facets.noData")}
-          selectLabel={(value, count) => t("breakdown.select", { label: t("breakdown.models"), value, count })}
-          onSelect={(value) => selectFacet({ model: value })}
-          mono
-        />
-        <BreakdownCard
-          title={t("breakdown.routes")}
-          buckets={breakdowns.routes}
-          activeValue={applied.route}
-          noDataLabel={t("facets.noData")}
-          selectLabel={(value, count) => t("breakdown.select", { label: t("breakdown.routes"), value, count })}
-          onSelect={(value) => selectFacet({ route: value })}
-          mono
-        />
-        <BreakdownCard
-          title={t("breakdown.errorCodes")}
-          buckets={breakdowns.errorCodes}
-          activeValue={applied.errorCode}
-          noDataLabel={t("facets.noData")}
-          selectLabel={(value, count) => t("breakdown.select", { label: t("breakdown.errorCodes"), value, count })}
-          onSelect={(value) => selectFacet({ errorCode: value })}
-          mono
-        />
+      <section aria-label={t("breakdown.title")} className="flex flex-col gap-2">
+        {isCompactLayout ? (
+          <ScrollArea className="w-full">
+            <div className="flex items-start gap-2 pb-3">
+              {breakdownCards.map((item) => (
+                <div key={item.key} className="min-w-72 max-w-72 shrink-0">
+                  <BreakdownCard
+                    title={item.title}
+                    buckets={item.buckets}
+                    activeValue={item.activeValue}
+                    noDataLabel={t("facets.noData")}
+                    selectLabel={(value, count) => t("breakdown.select", { label: item.title, value, count })}
+                    onSelect={item.onSelect}
+                    mono={item.mono}
+                    compact
+                  />
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        ) : (
+          <div className="grid gap-2 lg:grid-cols-2 xl:grid-cols-5">
+            {breakdownCards.map((item) => (
+              <BreakdownCard
+                key={item.key}
+                title={item.title}
+                buckets={item.buckets}
+                activeValue={item.activeValue}
+                noDataLabel={t("facets.noData")}
+                selectLabel={(value, count) => t("breakdown.select", { label: item.title, value, count })}
+                onSelect={item.onSelect}
+                mono={item.mono}
+              />
+            ))}
+          </div>
+        )}
       </section>
 
       <Card className="rounded-lg">
-        <CardHeader className="flex flex-row items-center justify-between gap-3 p-3 md:p-3">
-          <CardTitle className="text-sm">{t("list.title")}</CardTitle>
-          <div className="flex flex-wrap items-center justify-end gap-2">
+        <CardHeader className="flex flex-col gap-3 p-3 md:p-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <CardTitle className="text-sm md:text-base">{t("list.title")}</CardTitle>
+            <CardDescription className="mt-1 text-xs">
+              {t("pagination.showing", { from: showingFrom, to: showingTo, total })}
+            </CardDescription>
+          </div>
+          {isCompactLayout ? (
+            <div className="grid w-full gap-2 sm:grid-cols-[minmax(0,1fr)_auto] lg:w-auto">
+              <AppSelectField
+                label={t("list.sort.field")}
+                value={applied.sortBy}
+                onValueChange={(value) => setSort(value, value === applied.sortBy ? applied.sortOrder : "desc")}
+                options={compactSortOptions}
+                ariaLabel={t("list.sort.field")}
+                triggerClassName="h-9 min-w-0 w-full"
+                className="min-w-0"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="sm:self-end"
+                aria-label={t("list.sort.directionLabel", {
+                  direction: applied.sortOrder === "asc" ? t("list.sort.directionAsc") : t("list.sort.directionDesc"),
+                })}
+                onClick={() => setSort(applied.sortBy, applied.sortOrder === "desc" ? "asc" : "desc")}
+              >
+                <span aria-hidden="true">{applied.sortOrder === "asc" ? "↑" : "↓"}</span>
+                {applied.sortOrder === "asc" ? t("list.sort.directionAsc") : t("list.sort.directionDesc")}
+              </Button>
+            </div>
+          ) : (
             <TraceColumnVisibilityMenu
               labels={traceColumnLabels}
               visibleColumns={visibleColumns}
@@ -725,17 +869,26 @@ export default function TraceManagement(props: TraceManagementProps) {
               menuLabel={t("list.actions.columnsMenu")}
               onToggle={toggleColumnVisibility}
             />
-            <Button type="button" variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
-              <RefreshCw data-icon="inline-start" aria-hidden="true" />
-              {loading ? common("loading") : common("refresh")}
-            </Button>
-          </div>
+          )}
         </CardHeader>
         <CardContent className="px-3 pb-3 md:px-3 md:pb-3">
-          <DataTable columns={traceColumns} data={items} emptyLabel={t("list.empty")} />
+          {isCompactLayout ? (
+            items.length > 0 ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                {items.map((item) => (
+                  <CompactTraceCard key={item.trace_id} item={item} locale={locale} maxDuration={maxDuration} t={t} common={common} />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-card-border px-4 py-10 text-center text-sm text-muted-foreground">
+                {t("list.empty")}
+              </div>
+            )
+          ) : (
+            <DataTable columns={traceColumns} data={items} emptyLabel={t("list.empty")} />
+          )}
 
-          <div className="mt-3 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-            <p>{t("pagination.showing", { from: showingFrom, to: showingTo, total })}</p>
+          <div className="mt-3 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-end">
             <div className="flex gap-2">
               <Button size="sm" variant="outline" disabled={!canPrev || loading} onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>
                 {t("pagination.prev")}
@@ -782,14 +935,16 @@ function TraceField({
   id,
   label,
   children,
+  className,
 }: {
   id: string;
   label: string;
   children: ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="grid min-w-0 gap-1">
-      <Label htmlFor={id} className="text-xs text-muted-foreground">
+    <div className={cn("grid min-w-0 gap-1.5", className)}>
+      <Label htmlFor={id} className="text-sm font-medium text-foreground">
         {label}
       </Label>
       {children}
@@ -817,7 +972,7 @@ function DateTimeFilter({
           type="datetime-local"
           value={toDateTimeLocalValue(value)}
           onChange={(event) => onChange(fromDateTimeLocalValue(event.target.value))}
-          className="h-8 px-2 ps-8 text-xs"
+          className="h-9 ps-9"
         />
       </div>
     </TraceField>
@@ -897,6 +1052,7 @@ function TraceCombobox({
       emptyText={emptyText}
       searchable={searchable}
       mono={mono}
+      className="h-9 [&_[data-slot=input-group-control]]:text-sm"
     />
   );
 }
@@ -925,6 +1081,7 @@ function BreakdownCard({
   selectLabel,
   onSelect,
   mono = false,
+  compact = false,
 }: {
   title: string;
   buckets: BreakdownBucket[];
@@ -933,6 +1090,7 @@ function BreakdownCard({
   selectLabel: (value: string, count: number) => string;
   onSelect: (value: string) => void;
   mono?: boolean;
+  compact?: boolean;
 }) {
   const visibleBuckets = buckets.slice(0, MAX_BREAKDOWN_ITEMS);
   const maxCount = Math.max(0, ...visibleBuckets.map((item) => item.count));
@@ -942,7 +1100,7 @@ function BreakdownCard({
       <CardHeader className="gap-1 p-3 pb-2 md:p-3 md:pb-2">
         <CardTitle className="truncate text-sm">{title}</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-1.5 px-3 pb-3 md:px-3 md:pb-3">
+      <CardContent className={cn("flex flex-col gap-1.5 px-3 pb-3 md:px-3 md:pb-3", compact && "max-h-40 overflow-y-auto pe-2")}>
         {visibleBuckets.length === 0 ? (
           <p className="py-4 text-center text-xs text-muted-foreground">{noDataLabel}</p>
         ) : (
@@ -982,6 +1140,136 @@ function BreakdownCard({
   );
 }
 
+function CompactTraceCard({
+  item,
+  locale,
+  maxDuration,
+  t,
+  common,
+}: {
+  item: RequestTrace;
+  locale: string;
+  maxDuration: number;
+  t: (key: string, values?: Record<string, string | number>) => string;
+  common: (key: string, values?: Record<string, string | number>) => string;
+}) {
+  return (
+    <Card className="rounded-lg">
+      <CardHeader className="gap-1.5 p-3 pb-2">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <CardDescription className="text-xs">{formatLocalDateTime(item.started_at, locale)}</CardDescription>
+            <CardTitle className="mt-1 min-w-0 text-sm">
+              <Link
+                className="block truncate font-mono text-primary underline-offset-2 hover:underline"
+                href={`/traces/${encodeURIComponent(item.trace_id)}`}
+                title={item.trace_id}
+                aria-label={t("list.actions.openTrace", { traceId: item.trace_id })}
+              >
+                {compactID(item.trace_id)}
+              </Link>
+            </CardTitle>
+            {item.request_id ? (
+              <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground" title={item.request_id}>
+                {t("list.meta.requestId", { id: compactID(item.request_id) })}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+            <Badge variant={statusBadgeVariant(item.status_code)}>{item.status_code}</Badge>
+            {item.attempts && item.attempts > 1 ? (
+              <Badge variant="outline">{t("list.meta.attemptsShort", { count: item.attempts })}</Badge>
+            ) : null}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="grid grid-cols-2 gap-x-4 gap-y-2 px-3 pb-3 pt-0">
+        <CompactListField
+          label={t("list.columns.duration")}
+          value={<DurationMeter value={item.duration_ms} max={Math.max(maxDuration, 1)} msLabel={t("list.units.ms")} sLabel={t("list.units.s")} locale={locale} compact />}
+          inline
+        />
+        <CompactListField
+          label={t("list.columns.provider")}
+          value={
+            <span className="truncate" dir="auto" title={item.provider || common("notSet")}>
+              {item.provider || common("notSet")}
+            </span>
+          }
+          secondaryLabel={t("list.columns.model")}
+          secondary={
+            <span className="truncate text-muted-foreground" dir="auto" title={item.model || common("notSet")}>
+              {item.model || common("notSet")}
+            </span>
+          }
+        />
+        <CompactListField
+          className="col-span-2 sm:col-span-1"
+          label={t("list.columns.route")}
+          inline
+          value={
+            <span className="truncate font-mono text-xs" dir="ltr" title={item.route}>
+              {item.route}
+            </span>
+          }
+        />
+        <CompactListField
+          className="col-span-2 sm:col-span-1"
+          label={t("list.columns.error")}
+          inline
+          value={item.error_code ? (
+            <Badge variant="outline" className="max-w-full">
+              <span className="truncate font-mono text-[11px]" dir="auto" title={item.error_code}>
+                {item.error_code}
+              </span>
+            </Badge>
+          ) : (
+            <span className="text-muted-foreground">{common("none")}</span>
+          )}
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+function CompactListField({
+  label,
+  value,
+  secondary,
+  secondaryLabel,
+  className,
+  inline = false,
+}: {
+  label: string;
+  value: ReactNode;
+  secondary?: ReactNode;
+  secondaryLabel?: string;
+  className?: string;
+  inline?: boolean;
+}) {
+  return (
+    <div className={cn("flex min-w-0 flex-col gap-0.5", inline && "justify-between gap-1", className)}>
+      {inline ? (
+        <div className="flex min-w-0 items-start justify-between gap-3">
+          <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
+          <div className="min-w-0 text-sm font-medium text-end">{value}</div>
+        </div>
+      ) : (
+        <>
+          <span className="text-xs text-muted-foreground">{label}</span>
+          <div className="min-w-0 text-sm font-medium">{value}</div>
+        </>
+      )}
+      {secondary ? (
+        <div className="flex min-w-0 flex-col gap-0.5">
+          {secondaryLabel ? <span className="text-xs text-muted-foreground">{secondaryLabel}</span> : null}
+          <div className="min-w-0 text-xs">{secondary}</div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function SortButton({
   label,
   isActive,
@@ -1011,14 +1299,24 @@ function DurationMeter({
   msLabel,
   sLabel,
   locale,
+  compact = false,
 }: {
   value: number;
   max: number;
   msLabel: string;
   sLabel: string;
   locale: string;
+  compact?: boolean;
 }) {
   const width = max > 0 ? Math.max(6, (value / max) * 100) : 0;
+
+  if (compact) {
+    return (
+      <span className="font-mono text-xs tabular-nums">
+        {formatDuration(value, msLabel, sLabel, locale)}
+      </span>
+    );
+  }
 
   return (
     <div className="flex min-w-0 items-center gap-2">
@@ -1118,10 +1416,12 @@ function sortBuckets(a: { count: number; value: string }, b: { count: number; va
   return a.value.localeCompare(b.value);
 }
 
-function statusBadgeVariant(statusCode: number): "secondary" | "outline" | "destructive" {
+function statusBadgeVariant(statusCode: number): "success" | "info" | "warning" | "destructive" | "outline" {
   if (statusCode >= 500) return "destructive";
-  if (statusCode >= 400) return "outline";
-  return "secondary";
+  if (statusCode >= 400) return "warning";
+  if (statusCode >= 300) return "info";
+  if (statusCode >= 200) return "success";
+  return "outline";
 }
 
 function compactID(value: string) {

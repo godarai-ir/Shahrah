@@ -48,6 +48,7 @@ export function PrincipalEntitySelect(props: {
   includeEveryone?: boolean;
   disabled?: boolean;
   className?: string;
+  compact?: boolean;
 }) {
   const kinds = useMemo(() => props.kinds?.length ? props.kinds : (["user", "team"] as PrincipalSearchKind[]), [props.kinds]);
   const [open, setOpen] = useState(false);
@@ -129,24 +130,27 @@ export function PrincipalEntitySelect(props: {
             role="combobox"
             aria-expanded={open}
             disabled={props.disabled}
-            className="h-auto min-h-11 w-full justify-between rounded-md px-3 py-2 font-normal"
+            className={cn(
+              "w-full justify-between rounded-md px-3 font-normal",
+              props.compact ? "h-8 min-h-8 py-0 text-xs" : "h-auto min-h-11 py-2",
+            )}
           >
             <span className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
-              {selected ? (
+              {selected && !props.compact ? (
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
                   {getAvatarText(selected)}
                 </span>
               ) : null}
               <span className="min-w-0 flex-1 text-start">
-                <span className={cn("block truncate text-sm", !selected && "text-muted-foreground")}>
+                <span className={cn("block truncate", props.compact ? "text-xs" : "text-sm", !selected && "text-muted-foreground")}>
                   {selected ? selectedLabel : props.labels.triggerPlaceholder}
                 </span>
-                {selected && selectedMeta ? (
+                {selected && selectedMeta && !props.compact ? (
                   <span className="block truncate text-xs text-muted-foreground">{selectedMeta}</span>
                 ) : null}
               </span>
             </span>
-            <ChevronsUpDown className="ms-2 h-4 w-4 shrink-0 opacity-60" />
+            <ChevronsUpDown className={cn("ms-2 shrink-0 opacity-60", props.compact ? "h-3.5 w-3.5" : "h-4 w-4")} />
           </Button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-[min(640px,calc(100vw-2rem))] overflow-hidden p-0">

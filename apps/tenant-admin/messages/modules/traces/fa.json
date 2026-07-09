@@ -18,6 +18,10 @@
     "timeRange": "بازه زمانی",
     "search": "جستجو...",
     "emptyOptions": "گزینه‌ای پیدا نشد.",
+    "advanced": {
+      "show": "فیلترهای پیشرفته",
+      "hide": "پنهان کردن فیلترهای پیشرفته"
+    },
     "placeholders": {
       "traceId": "trace_...",
       "requestId": "req_...",
@@ -99,12 +103,12 @@
     "title": "فهرست Traceها",
     "columns": {
       "trace": "Trace",
-      "context": "Provider / مدل",
+      "context": "ارائه‌دهنده / مدل",
       "traceId": "شناسه Trace",
       "requestId": "شناسه Request",
       "route": "اندپوینت",
       "model": "مدل",
-      "provider": "Provider",
+      "provider": "ارائه‌دهنده",
       "status": "وضعیت",
       "duration": "مدت",
       "startedAt": "شروع",
@@ -122,7 +126,11 @@
       "attemptsShort": "{count}x"
     },
     "sort": {
-      "label": "مرتب‌سازی بر اساس {column}"
+      "label": "مرتب‌سازی بر اساس {column}",
+      "field": "مرتب‌سازی",
+      "directionAsc": "صعودی",
+      "directionDesc": "نزولی",
+      "directionLabel": "ترتیب مرتب‌سازی: {direction}"
     },
     "units": {
       "ms": "ms",

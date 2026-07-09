@@ -14,6 +14,7 @@
   "actions": {
     "refresh": "بازخوانی",
     "export": "خروجی",
+    "settings": "تنظیمات لاگ",
     "reset": "پاک‌سازی",
     "removeFilter": "حذف فیلتر",
     "columns": "ستون‌ها",
@@ -23,6 +24,7 @@
     "replayDraft": "تکرار این درخواست (آزمایشی)",
     "saveView": "ذخیره نمای سفارشی",
     "savedViews": "نماهای ذخیره‌شده",
+    "expandChart": "بزرگ‌نمایی {chart}",
     "load": "بارگذاری",
     "delete": "حذف",
     "cancel": "انصراف",
@@ -112,6 +114,46 @@
     "providerBreakdownDescription": "سهم درخواست‌ها برای هر ارائه‌دهنده در بازه انتخاب‌شده.",
     "cacheHitMiss": "Cache Hit / Miss",
     "cacheHitMissDescription": "روند پاسخ‌های دریافت‌شده از کش در برابر درخواست‌های بدون کش."
+  },
+  "chartDetails": {
+    "totalRequests": "کل درخواست‌ها",
+    "totalErrors": "کل خطاها",
+    "errorRate": "نرخ خطا",
+    "peakRequestWindow": "بازه اوج درخواست",
+    "maxLatency": "بیشترین تأخیر",
+    "avgLatency": "میانگین تأخیر",
+    "maxCost": "بیشترین هزینه دلاری",
+    "totalCost": "کل هزینه دلاری",
+    "topProvider": "ارائه‌دهنده برتر",
+    "topProviderShare": "{share} از درخواست‌ها",
+    "providerCount": "تعداد ارائه‌دهنده‌ها",
+    "longTail": "سایر درخواست‌ها",
+    "totalHits": "تعداد hit کش",
+    "totalMisses": "تعداد miss کش",
+    "hitRate": "نرخ hit",
+    "peakMissWindow": "بازه اوج miss"
+  },
+  "chartLegend": {
+    "requests": "درخواست‌ها",
+    "errors": "خطاها",
+    "latency": "تأخیر P95",
+    "cost": "هزینه دلاری",
+    "requestShare": "سهم درخواست‌ها",
+    "cacheHit": "Cache hit",
+    "cacheMiss": "Cache miss"
+  },
+  "chartTable": {
+    "recentWindowsTitle": "بازه‌های اخیر",
+    "breakdownTitle": "تفکیک ارائه‌دهندگان",
+    "time": "زمان",
+    "provider": "ارائه‌دهنده",
+    "requests": "درخواست‌ها",
+    "errors": "خطاها",
+    "latency": "تأخیر",
+    "cost": "هزینه",
+    "cacheHit": "Hit",
+    "cacheMiss": "Miss",
+    "share": "سهم"
   },
   "savedViews": {
     "title": "نماهای ذخیره‌شده",

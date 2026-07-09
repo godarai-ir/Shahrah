@@ -36,7 +36,6 @@ export type AdminNavKey =
   | "prompts"
   | "virtualUsers"
   | "accountSettings"
-  | "requestLoggingSettings"
   | "tracePrivacySettings"
   | "accessManagement"
   | "logs"
@@ -181,14 +180,6 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       title: t("nav.accountSettings"),
       icon: Settings,
       isActive: pathname.startsWith("/settings/account"),
-      requiredPermissions: ["settings:list"],
-    },
-    {
-      key: "requestLoggingSettings",
-      href: "/settings/request-logging",
-      title: t("nav.requestLoggingSettings"),
-      icon: Activity,
-      isActive: pathname.startsWith("/settings/request-logging"),
       requiredPermissions: ["settings:list"],
     },
     {

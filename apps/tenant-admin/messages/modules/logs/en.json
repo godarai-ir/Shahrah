@@ -14,6 +14,7 @@
   "actions": {
     "refresh": "Refresh",
     "export": "Export",
+    "settings": "Logging settings",
     "reset": "Reset",
     "removeFilter": "Remove filter",
     "columns": "Columns",
@@ -23,6 +24,7 @@
     "replayDraft": "Replay this request (test)",
     "saveView": "Save custom view",
     "savedViews": "Saved views",
+    "expandChart": "Expand {chart}",
     "load": "Load",
     "delete": "Delete",
     "cancel": "Cancel",
@@ -112,6 +114,46 @@
     "providerBreakdownDescription": "Request share for each provider across the selected range.",
     "cacheHitMiss": "Cache Hit / Miss",
     "cacheHitMissDescription": "Cached responses compared with uncached requests over time."
+  },
+  "chartDetails": {
+    "totalRequests": "Total requests",
+    "totalErrors": "Total errors",
+    "errorRate": "Error rate",
+    "peakRequestWindow": "Peak request window",
+    "maxLatency": "Max latency",
+    "avgLatency": "Average latency",
+    "maxCost": "Peak USD cost",
+    "totalCost": "Total USD cost",
+    "topProvider": "Top provider",
+    "topProviderShare": "{share} of requests",
+    "providerCount": "Providers shown",
+    "longTail": "Remaining requests",
+    "totalHits": "Cache hits",
+    "totalMisses": "Cache misses",
+    "hitRate": "Hit rate",
+    "peakMissWindow": "Peak miss window"
+  },
+  "chartLegend": {
+    "requests": "Requests",
+    "errors": "Errors",
+    "latency": "P95 latency",
+    "cost": "USD cost",
+    "requestShare": "Request share",
+    "cacheHit": "Cache hit",
+    "cacheMiss": "Cache miss"
+  },
+  "chartTable": {
+    "recentWindowsTitle": "Recent windows",
+    "breakdownTitle": "Provider breakdown",
+    "time": "Time",
+    "provider": "Provider",
+    "requests": "Requests",
+    "errors": "Errors",
+    "latency": "Latency",
+    "cost": "Cost",
+    "cacheHit": "Hit",
+    "cacheMiss": "Miss",
+    "share": "Share"
   },
   "savedViews": {
     "title": "Saved views",

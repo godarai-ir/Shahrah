@@ -21,6 +21,7 @@ import {
 import { getLocale, getTranslations } from "next-intl/server";
 
 import AdminShell from "@/app/components/admin-shell";
+import { PageHeader } from "@/components/app-ui/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -187,30 +188,30 @@ export default async function TraceDetailPage({ params }: Params) {
 
   return (
     <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-muted-foreground">{t("detail.kicker")}</p>
-            <h1 className="text-xl font-semibold">{t("detail.title")}</h1>
-            <p className="mt-1 break-all font-mono text-xs text-muted-foreground">{normalized || emptyLabel}</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {detail ? (
-              <Button asChild variant="outline" size="sm">
-                <Link href={buildMetricsLink(detail.trace)}>
-                  <BarChart3 data-icon="inline-start" />
-                  {t("detail.actions.openInMetrics")}
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 md:gap-6">
+        <PageHeader
+          eyebrow={t("detail.kicker")}
+          title={t("detail.title")}
+          description={<span className="block break-all font-mono text-xs">{normalized || emptyLabel}</span>}
+          actions={
+            <>
+              {detail ? (
+                <Button asChild variant="outline" size="sm">
+                  <Link href={buildMetricsLink(detail.trace)}>
+                    <BarChart3 data-icon="inline-start" />
+                    {t("detail.actions.openInMetrics")}
+                  </Link>
+                </Button>
+              ) : null}
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/traces">
+                  <ArrowRight data-icon="inline-start" />
+                  {t("detail.actions.backToTraces")}
                 </Link>
               </Button>
-            ) : null}
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/traces">
-                <ArrowRight data-icon="inline-start" />
-                {t("detail.actions.backToTraces")}
-              </Link>
-            </Button>
-          </div>
-        </div>
+            </>
+          }
+        />
 
         {!detail ? (
           <Card>
@@ -221,268 +222,277 @@ export default async function TraceDetailPage({ params }: Params) {
           </Card>
         ) : (
           <>
-            <Card>
-              <SectionHeader
-                icon={Activity}
-                title={t("detail.summary.title")}
-                description={t("detail.summary.description")}
-              />
-              <CardContent className="flex flex-col gap-4 px-4 pb-4 text-sm md:px-4 md:pb-4">
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                  <MetricItem
-                    icon={Gauge}
-                    label={t("detail.summary.status")}
-                    value={
-                      <Badge variant={statusCodeBadgeVariant(detail.trace.status_code)}>
-                        {formatNumber(detail.trace.status_code, locale)}
-                      </Badge>
-                    }
-                  />
-                  <MetricItem
-                    icon={Clock}
-                    label={t("detail.summary.duration")}
-                    value={formatDuration(detail.trace.duration_ms, msLabel, locale)}
-                  />
-                  <MetricItem
-                    icon={RefreshCw}
-                    label={t("detail.summary.attempts")}
-                    value={formatNumber(detail.summary.attempts_count, locale)}
-                  />
-                  <MetricItem
-                    icon={Layers}
-                    label={t("detail.summary.spans")}
-                    value={formatNumber(detail.summary.spans_count, locale)}
-                  />
-                  <MetricItem
-                    icon={AlertTriangle}
-                    label={t("detail.summary.errors")}
-                    value={formatNumber(detail.summary.errors_count, locale)}
-                    valueClassName={detail.summary.errors_count > 0 ? "text-destructive" : undefined}
-                  />
-                </div>
-                <dl className="grid gap-x-4 gap-y-3 md:grid-cols-2 xl:grid-cols-4">
-                  {requestID ? (
+            <div className="grid gap-4 xl:grid-cols-2">
+              <Card>
+                <SectionHeader
+                  icon={Activity}
+                  title={t("detail.summary.title")}
+                  description={t("detail.summary.description")}
+                />
+                <CardContent className="flex flex-col gap-4 px-4 pb-4 text-sm md:px-4 md:pb-4">
+                  <div className="grid grid-cols-2 gap-2 lg:grid-cols-3 2xl:grid-cols-5">
+                    <MetricItem
+                      icon={Gauge}
+                      label={t("detail.summary.status")}
+                      value={
+                        <Badge variant={statusCodeBadgeVariant(detail.trace.status_code)}>
+                          {formatNumber(detail.trace.status_code, locale)}
+                        </Badge>
+                      }
+                    />
+                    <MetricItem
+                      icon={Clock}
+                      label={t("detail.summary.duration")}
+                      value={formatDuration(detail.trace.duration_ms, msLabel, locale)}
+                    />
+                    <MetricItem
+                      icon={RefreshCw}
+                      label={t("detail.summary.attempts")}
+                      value={formatNumber(detail.summary.attempts_count, locale)}
+                    />
+                    <MetricItem
+                      icon={Layers}
+                      label={t("detail.summary.spans")}
+                      value={formatNumber(detail.summary.spans_count, locale)}
+                    />
+                    <MetricItem
+                      icon={AlertTriangle}
+                      label={t("detail.summary.errors")}
+                      value={formatNumber(detail.summary.errors_count, locale)}
+                      valueClassName={detail.summary.errors_count > 0 ? "text-destructive" : undefined}
+                    />
+                  </div>
+                  <dl className="grid gap-x-4 gap-y-3 sm:grid-cols-2 2xl:grid-cols-3">
+                    {requestID ? (
+                      <CompactField
+                        icon={Hash}
+                        label={t("detail.summary.requestId")}
+                        value={requestID}
+                        mono
+                        allowWrap
+                      />
+                    ) : null}
+                    <CompactField icon={Route} label={t("detail.summary.route")} value={detail.trace.route} mono allowWrap />
+                    <CompactField icon={Server} label={t("detail.summary.provider")} value={displayValue(detail.trace.provider, emptyLabel)} />
+                    <CompactField icon={Gauge} label={t("detail.summary.model")} value={displayValue(detail.trace.model, emptyLabel)} />
+                    <CompactField
+                      icon={Clock}
+                      label={t("detail.summary.started")}
+                      value={formatLocalDateTime(detail.trace.started_at, locale, emptyLabel)}
+                    />
+                    {hasText(detail.trace.error_code) ? (
+                      <CompactField
+                        icon={AlertTriangle}
+                        label={t("detail.summary.errorCode")}
+                        value={detail.trace.error_code}
+                        mono
+                        allowWrap
+                      />
+                    ) : null}
+                  </dl>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <SectionHeader icon={Coins} title={t("detail.usage.title")} description={t("detail.usage.description")} />
+                <CardContent className="px-4 pb-4 md:px-4 md:pb-4">
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm 2xl:grid-cols-3">
                     <CompactField
                       icon={Hash}
-                      label={t("detail.summary.requestId")}
-                      value={requestID}
-                      mono
-                      allowWrap
+                      label={t("detail.usage.inputTokens")}
+                      value={formatNumber(detail.usage?.input_tokens ?? detail.metric?.input_tokens ?? 0, locale)}
                     />
-                  ) : null}
-                  <CompactField icon={Route} label={t("detail.summary.route")} value={detail.trace.route} mono allowWrap />
-                  <CompactField icon={Server} label={t("detail.summary.provider")} value={displayValue(detail.trace.provider, emptyLabel)} />
-                  <CompactField icon={Gauge} label={t("detail.summary.model")} value={displayValue(detail.trace.model, emptyLabel)} />
-                  <CompactField
-                    icon={Clock}
-                    label={t("detail.summary.started")}
-                    value={formatLocalDateTime(detail.trace.started_at, locale, emptyLabel)}
-                  />
-                  {hasText(detail.trace.error_code) ? (
                     <CompactField
-                      icon={AlertTriangle}
-                      label={t("detail.summary.errorCode")}
-                      value={detail.trace.error_code}
-                      mono
-                      allowWrap
+                      icon={Hash}
+                      label={t("detail.usage.outputTokens")}
+                      value={formatNumber(detail.usage?.output_tokens ?? detail.metric?.output_tokens ?? 0, locale)}
                     />
-                  ) : null}
-                </dl>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <SectionHeader icon={Coins} title={t("detail.usage.title")} description={t("detail.usage.description")} />
-              <CardContent className="px-4 pb-4 md:px-4 md:pb-4">
-                <dl className="grid gap-x-4 gap-y-3 text-sm md:grid-cols-2 xl:grid-cols-4">
-                  <CompactField
-                    icon={Hash}
-                    label={t("detail.usage.inputTokens")}
-                    value={formatNumber(detail.usage?.input_tokens ?? detail.metric?.input_tokens ?? 0, locale)}
-                  />
-                  <CompactField
-                    icon={Hash}
-                    label={t("detail.usage.outputTokens")}
-                    value={formatNumber(detail.usage?.output_tokens ?? detail.metric?.output_tokens ?? 0, locale)}
-                  />
-                  <CompactField
-                    icon={Hash}
-                    label={t("detail.usage.totalTokens")}
-                    value={formatNumber(detail.usage?.total_tokens ?? 0, locale)}
-                  />
-                  <CompactField
-                    icon={Coins}
-                    label={t("detail.usage.costUsd")}
-                    value={formatCostUSD(detail.usage?.cost_usd ?? detail.metric?.cost_usd, locale, emptyLabel)}
-                  />
-                  <CompactField
-                    icon={Coins}
-                    label={t("detail.usage.costIrr")}
-                    value={formatOptionalNumber(detail.usage?.cost_irr, locale, emptyLabel)}
-                  />
-                  <CompactField
-                    icon={Route}
-                    label={t("detail.usage.requestType")}
-                    value={displayValue(detail.metric?.request_type, emptyLabel)}
-                  />
-                  {providerModel ? (
                     <CompactField
-                      icon={Server}
-                      label={t("detail.usage.providerModel")}
-                      value={providerModel}
+                      icon={Hash}
+                      label={t("detail.usage.totalTokens")}
+                      value={formatNumber(detail.usage?.total_tokens ?? 0, locale)}
                     />
-                  ) : null}
-                  {isMeaningfulError(metricErrorType) ? (
                     <CompactField
-                      icon={AlertTriangle}
-                      label={t("detail.usage.errorType")}
-                      value={metricErrorType}
-                      mono
-                      allowWrap
+                      icon={Coins}
+                      label={t("detail.usage.costUsd")}
+                      value={formatCostUSD(detail.usage?.cost_usd ?? detail.metric?.cost_usd, locale, emptyLabel)}
                     />
-                  ) : null}
-                  {showUsageLatency && typeof usageLatency === "number" ? (
+                    <CompactField
+                      icon={Coins}
+                      label={t("detail.usage.costIrr")}
+                      value={formatOptionalNumber(detail.usage?.cost_irr, locale, emptyLabel)}
+                    />
+                    <CompactField
+                      icon={Route}
+                      label={t("detail.usage.requestType")}
+                      value={displayValue(detail.metric?.request_type, emptyLabel)}
+                    />
+                    {providerModel ? (
+                      <CompactField
+                        icon={Server}
+                        label={t("detail.usage.providerModel")}
+                        value={providerModel}
+                      />
+                    ) : null}
+                    {isMeaningfulError(metricErrorType) ? (
+                      <CompactField
+                        icon={AlertTriangle}
+                        label={t("detail.usage.errorType")}
+                        value={metricErrorType}
+                        mono
+                        allowWrap
+                      />
+                    ) : null}
+                    {showUsageLatency && typeof usageLatency === "number" ? (
+                      <CompactField
+                        icon={Timer}
+                        label={t("detail.usage.latency")}
+                        value={formatDuration(usageLatency, msLabel, locale)}
+                      />
+                    ) : null}
                     <CompactField
                       icon={Timer}
-                      label={t("detail.usage.latency")}
-                      value={formatDuration(usageLatency, msLabel, locale)}
+                      label={t("detail.usage.ttft")}
+                      value={formatOptionalDuration(detail.metric?.ttft_ms, msLabel, locale, emptyLabel)}
                     />
-                  ) : null}
-                  <CompactField
-                    icon={Timer}
-                    label={t("detail.usage.ttft")}
-                    value={formatOptionalDuration(detail.metric?.ttft_ms, msLabel, locale, emptyLabel)}
-                  />
-                  <CompactField
-                    icon={Timer}
-                    label={t("detail.usage.itl")}
-                    value={formatOptionalDuration(detail.metric?.itl_ms, msLabel, locale, emptyLabel)}
-                  />
-                  <CompactField
-                    icon={Timer}
-                    label={t("detail.usage.tpot")}
-                    value={formatOptionalDuration(detail.metric?.tpot_ms, msLabel, locale, emptyLabel)}
-                  />
-                </dl>
-              </CardContent>
-            </Card>
+                    <CompactField
+                      icon={Timer}
+                      label={t("detail.usage.itl")}
+                      value={formatOptionalDuration(detail.metric?.itl_ms, msLabel, locale, emptyLabel)}
+                    />
+                    <CompactField
+                      icon={Timer}
+                      label={t("detail.usage.tpot")}
+                      value={formatOptionalDuration(detail.metric?.tpot_ms, msLabel, locale, emptyLabel)}
+                    />
+                  </dl>
+                </CardContent>
+              </Card>
+            </div>
 
-            <Card>
-              <SectionHeader
-                icon={RefreshCw}
-                title={t("detail.attempts.title")}
-                description={attemptsResult.ok ? t("detail.attempts.count", { count: attempts.length }) : attemptsResult.errorMessage ?? t("detail.attempts.loadFailed")}
-              />
-              <CardContent className="px-4 pb-4 md:px-4 md:pb-4">
-                {attempts.length === 0 ? (
-                  <EmptyText>{t("detail.attempts.empty")}</EmptyText>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    {attempts.map((attempt, idx) => (
-                      <article key={`${attempt.trace_id}:${attempt.attempt_no}`} className="rounded-md border p-3">
-                        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                          <p className="font-medium">{t("detail.attempts.heading", { number: formatNumber(attempt.attempt_no, locale) })}</p>
-                          <Badge variant={textStatusBadgeVariant(attempt.status)}>{attempt.status}</Badge>
-                        </div>
-                        <dl className="mt-3 grid gap-x-4 gap-y-2 text-sm md:grid-cols-3 xl:grid-cols-5">
-                          {showAttemptRoutingFields ? (
-                            <>
-                              <CompactField icon={Server} label={t("detail.summary.provider")} value={displayValue(attempt.provider, emptyLabel)} />
-                              {hasText(attempt.model) ? (
-                                <CompactField icon={Gauge} label={t("detail.summary.model")} value={attempt.model} />
-                              ) : null}
-                            </>
-                          ) : null}
-                          <CompactField
-                            icon={Clock}
-                            label={t("detail.attempts.duration")}
-                            value={formatDuration(attempt.duration_ms, msLabel, locale)}
-                          />
-                          <CompactField
-                            icon={Clock}
-                            label={t("detail.attempts.started")}
-                            value={formatLocalDateTime(attempt.started_at, locale, emptyLabel)}
-                          />
-                          {showAttemptFallbackField ? (
-                            <CompactField
-                              icon={RefreshCw}
-                              label={t("detail.attempts.fallback")}
-                              value={displayValue(attempt.fallback_reason, emptyLabel)}
-                              allowWrap
-                            />
-                          ) : null}
-                        </dl>
-                        {attempt.retry_reason ? (
-                          <div className="mt-3">
-                            <CompactField icon={RefreshCw} label={t("detail.attempts.retryReason")} value={attempt.retry_reason} allowWrap />
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+              <Card>
+                <SectionHeader
+                  icon={RefreshCw}
+                  title={t("detail.attempts.title")}
+                  description={attemptsResult.ok ? t("detail.attempts.count", { count: attempts.length }) : attemptsResult.errorMessage ?? t("detail.attempts.loadFailed")}
+                />
+                <CardContent className="px-4 pb-4 md:px-4 md:pb-4">
+                  {attempts.length === 0 ? (
+                    <EmptyText>{t("detail.attempts.empty")}</EmptyText>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {attempts.map((attempt, idx) => (
+                        <article key={`${attempt.trace_id}:${attempt.attempt_no}`} className="rounded-md border p-3">
+                          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                            <p className="font-medium">{t("detail.attempts.heading", { number: formatNumber(attempt.attempt_no, locale) })}</p>
+                            <Badge variant={textStatusBadgeVariant(attempt.status)}>{attempt.status}</Badge>
                           </div>
-                        ) : null}
-                        {idx < attempts.length - 1 ? (
-                          <p className="mt-2 text-xs text-muted-foreground">{t("detail.attempts.nextAttempt")}</p>
-                        ) : null}
-                      </article>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <SectionHeader
-                icon={Activity}
-                title={t("detail.timeline.title")}
-                description={timelineResult.ok ? undefined : timelineResult.errorMessage ?? t("detail.timeline.loadFailed")}
-              />
-              <CardContent className="px-4 pb-4 md:px-4 md:pb-4">
-                {waterfallRows.length === 0 ? (
-                  <EmptyText>{t("detail.timeline.empty")}</EmptyText>
-                ) : (
-                  <div className="flex flex-col gap-1">
-                    <div className="rounded-md bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
-                      {hasNonZeroSpanOffset ? t("detail.timeline.waterfallHint") : t("detail.timeline.durationHint")}
-                    </div>
-                    <div className="grid gap-2 px-2 md:grid-cols-[minmax(14rem,18rem)_1fr]">
-                      <div className="hidden md:block" />
-                      <TimelineAxis totalMS={timelineTotalMS} msLabel={msLabel} locale={locale} />
-                    </div>
-                    {waterfallRows.map((row, idx) => (
-                      <div key={row.span.span_id} className="grid gap-2 px-2 py-1 md:grid-cols-[minmax(14rem,18rem)_1fr] md:items-center">
-                        <div className="min-w-0">
-                          <div className="flex min-w-0 items-center gap-2">
-                            <TimelineStepMarker index={idx} kind={row.span.kind} total={waterfallRows.length} locale={locale} />
-                            <Badge variant={textStatusBadgeVariant(row.span.status)}>{row.span.status}</Badge>
-                            <p className="truncate text-sm font-medium">{row.span.name}</p>
-                          </div>
-                          <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 pe-9 text-xs text-muted-foreground">
-                            <span>{formatDuration(row.span.duration_ms, msLabel, locale)}</span>
-                          </div>
-                        </div>
-                        <div dir="ltr">
-                          <div className="relative h-8 rounded-md bg-muted">
-                            <TimelineGridLines />
-                            <div
-                              className="absolute top-1 h-6 rounded-md bg-primary/70"
-                              style={{ left: `${row.leftPct}%`, width: `${row.widthPct}%` }}
-                            />
-                            {row.widthPct >= 12 ? (
-                              <span
-                                className="absolute top-1/2 -translate-y-1/2 truncate px-2 text-[11px] font-medium text-primary-foreground"
-                                style={{
-                                  left: `${row.leftPct}%`,
-                                  width: `${row.widthPct}%`,
-                                }}
-                              >
-                                {formatDuration(row.span.duration_ms, msLabel, locale)}
-                              </span>
+                          <dl className="mt-3 grid gap-x-4 gap-y-2 text-sm sm:grid-cols-2 2xl:grid-cols-3">
+                            {showAttemptRoutingFields ? (
+                              <>
+                                <CompactField icon={Server} label={t("detail.summary.provider")} value={displayValue(attempt.provider, emptyLabel)} />
+                                {hasText(attempt.model) ? (
+                                  <CompactField icon={Gauge} label={t("detail.summary.model")} value={attempt.model} />
+                                ) : null}
+                              </>
                             ) : null}
+                            <CompactField
+                              icon={Clock}
+                              label={t("detail.attempts.duration")}
+                              value={formatDuration(attempt.duration_ms, msLabel, locale)}
+                            />
+                            <CompactField
+                              icon={Clock}
+                              label={t("detail.attempts.started")}
+                              value={formatLocalDateTime(attempt.started_at, locale, emptyLabel)}
+                            />
+                            {showAttemptFallbackField ? (
+                              <CompactField
+                                icon={RefreshCw}
+                                label={t("detail.attempts.fallback")}
+                                value={displayValue(attempt.fallback_reason, emptyLabel)}
+                                allowWrap
+                              />
+                            ) : null}
+                          </dl>
+                          {attempt.retry_reason ? (
+                            <div className="mt-3">
+                              <CompactField icon={RefreshCw} label={t("detail.attempts.retryReason")} value={attempt.retry_reason} allowWrap />
+                            </div>
+                          ) : null}
+                          {idx < attempts.length - 1 ? (
+                            <p className="mt-2 text-xs text-muted-foreground">{t("detail.attempts.nextAttempt")}</p>
+                          ) : null}
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <SectionHeader
+                  icon={Activity}
+                  title={t("detail.timeline.title")}
+                  description={timelineResult.ok ? undefined : timelineResult.errorMessage ?? t("detail.timeline.loadFailed")}
+                />
+                <CardContent className="px-4 pb-4 md:px-4 md:pb-4">
+                  {waterfallRows.length === 0 ? (
+                    <EmptyText>{t("detail.timeline.empty")}</EmptyText>
+                  ) : (
+                    <div className="flex flex-col gap-1">
+                      <div className="rounded-md bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
+                        {hasNonZeroSpanOffset ? t("detail.timeline.waterfallHint") : t("detail.timeline.durationHint")}
+                      </div>
+                      <div className="grid gap-2 px-2 md:grid-cols-[minmax(14rem,18rem)_1fr]">
+                        <div dir="ltr" className="flex items-center justify-between text-xs text-muted-foreground md:hidden">
+                          <span>{formatDuration(0, msLabel, locale)}</span>
+                          <span>{formatDuration(timelineTotalMS, msLabel, locale)}</span>
+                        </div>
+                        <div className="hidden md:block" />
+                        <TimelineAxis totalMS={timelineTotalMS} msLabel={msLabel} locale={locale} />
+                      </div>
+                      {waterfallRows.map((row, idx) => (
+                        <div key={row.span.span_id} className="grid gap-2 px-2 py-1 md:grid-cols-[minmax(14rem,18rem)_1fr] md:items-center">
+                          <div className="min-w-0">
+                            <div className="flex min-w-0 flex-wrap items-center gap-2">
+                              <TimelineStepMarker index={idx} kind={row.span.kind} total={waterfallRows.length} locale={locale} />
+                              <Badge variant={textStatusBadgeVariant(row.span.status)}>{row.span.status}</Badge>
+                              <p className="truncate text-sm font-medium">{row.span.name}</p>
+                            </div>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 pe-4 text-xs text-muted-foreground md:pe-9">
+                              <span>{formatDuration(row.span.duration_ms, msLabel, locale)}</span>
+                              {row.offsetMS > 0 ? <span dir="ltr">+{formatDuration(row.offsetMS, msLabel, locale)}</span> : null}
+                            </div>
+                          </div>
+                          <div dir="ltr">
+                            <div className="relative h-8 rounded-md bg-muted">
+                              <TimelineGridLines />
+                              <div
+                                className="absolute top-1 h-6 rounded-md bg-primary/70"
+                                style={{ left: `${row.leftPct}%`, width: `${row.widthPct}%` }}
+                              />
+                              {row.widthPct >= 12 ? (
+                                <span
+                                  className="absolute top-1/2 -translate-y-1/2 truncate px-2 text-[11px] font-medium text-primary-foreground"
+                                  style={{
+                                    left: `${row.leftPct}%`,
+                                    width: `${row.widthPct}%`,
+                                  }}
+                                >
+                                  {formatDuration(row.span.duration_ms, msLabel, locale)}
+                                </span>
+                              ) : null}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
 
             <div className="grid gap-4 lg:grid-cols-2">
               <Card>
@@ -491,24 +501,26 @@ export default async function TraceDetailPage({ params }: Params) {
                   {metadataRows.length === 0 ? (
                     <EmptyText>{t("detail.metadata.empty")}</EmptyText>
                   ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>{t("detail.metadata.columns.source")}</TableHead>
-                          <TableHead>{t("detail.metadata.columns.key")}</TableHead>
-                          <TableHead>{t("detail.metadata.columns.value")}</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {metadataRows.map((row) => (
-                          <TableRow key={`${row.source}:${row.key}`}>
-                            <TableCell className="whitespace-nowrap text-xs text-muted-foreground">{metadataSourceLabels[row.source]}</TableCell>
-                            <TableCell className="max-w-[12rem] break-all font-mono text-xs text-muted-foreground">{row.key}</TableCell>
-                            <TableCell className="max-w-[20rem] break-all font-mono text-xs">{row.value}</TableCell>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{t("detail.metadata.columns.source")}</TableHead>
+                            <TableHead>{t("detail.metadata.columns.key")}</TableHead>
+                            <TableHead>{t("detail.metadata.columns.value")}</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {metadataRows.map((row) => (
+                            <TableRow key={`${row.source}:${row.key}`}>
+                              <TableCell className="whitespace-nowrap text-xs text-muted-foreground">{metadataSourceLabels[row.source]}</TableCell>
+                              <TableCell className="max-w-[12rem] break-all font-mono text-xs text-muted-foreground">{row.key}</TableCell>
+                              <TableCell className="max-w-[20rem] break-all font-mono text-xs">{row.value}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -519,22 +531,24 @@ export default async function TraceDetailPage({ params }: Params) {
                   {errorRows.length === 0 ? (
                     <EmptyText>{t("detail.errors.empty")}</EmptyText>
                   ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>{t("detail.errors.columns.source")}</TableHead>
-                          <TableHead>{t("detail.errors.columns.message")}</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {errorRows.map((row, idx) => (
-                          <TableRow key={`${row.source}:${idx}`}>
-                            <TableCell className="whitespace-nowrap text-xs font-medium">{row.source}</TableCell>
-                            <TableCell className="max-w-[24rem] break-words text-xs text-muted-foreground">{row.message}</TableCell>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{t("detail.errors.columns.source")}</TableHead>
+                            <TableHead>{t("detail.errors.columns.message")}</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {errorRows.map((row, idx) => (
+                            <TableRow key={`${row.source}:${idx}`}>
+                              <TableCell className="whitespace-nowrap text-xs font-medium">{row.source}</TableCell>
+                              <TableCell className="max-w-[24rem] break-words text-xs text-muted-foreground">{row.message}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
                   )}
                 </CardContent>
               </Card>
