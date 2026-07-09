@@ -38,40 +38,8 @@ import type { RateLimitCondition, RateLimitRule } from "./ruleTypes";
 import { rateLimitRuleSchema, type RateLimitRuleFormInput } from "./ruleValidation";
 
 const fieldOptions = ["subject", "model", "metadata"] as const;
-const fieldLabel: Record<(typeof fieldOptions)[number], string> = {
-  subject: "مبدا درخواست",
-  model: "مدل‌های مجاز شده",
-  metadata: "فراداده",
-};
 
 const metadataOperatorOptions = ["exists", "not_exists", "equals", "not_equals", "contains", "starts_with", "ends_with", "gt", "gte", "lt", "lte"] as const;
-
-const metadataOperatorLabel: Record<(typeof metadataOperatorOptions)[number], string> = {
-  exists: "دارای کلید",
-  not_exists: "فاقد کلید",
-  equals: "برابر با",
-  not_equals: "نابرابر با",
-  contains: "شامل",
-  starts_with: "شروع با",
-  ends_with: "پایان با",
-  gt: "بزرگ‌تر از",
-  gte: "بزرگ‌تر یا برابر",
-  lt: "کوچک‌تر از",
-  lte: "کوچک‌تر یا برابر",
-};
-
-const principalLabels: PrincipalEntitySelectLabels = {
-  users: "کاربران",
-  teams: "تیم‌ها",
-  orgUnits: "واحد‌های سازمانی",
-  virtualAccounts: "اکانت‌های مجازی",
-  externalIdentities: "هویت خارجی",
-  everyone: "همه",
-  searchPlaceholder: "جست‌وجو...",
-  triggerPlaceholder: "انتخاب مبدا",
-  loading: "در حال بارگذاری...",
-  empty: "موردی پیدا نشد",
-};
 
 function subjectTokenFromSelection(selection: PrincipalEntitySelection) {
   return `${selection.type}:${selection.principal_id ?? selection.display_name}`;
@@ -188,13 +156,43 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
   }));
   const metadataIndexes = fieldRows.filter((item) => item.rowField === "metadata").map((item) => item.index);
   const nonMetadataIndexes = fieldRows.filter((item) => item.rowField !== "metadata").map((item) => item.index);
+  const fieldLabel: Record<(typeof fieldOptions)[number], string> = {
+    subject: t("filters.fields.subject"),
+    model: t("filters.fields.model"),
+    metadata: t("filters.fields.metadata"),
+  };
+  const metadataOperatorLabel: Record<(typeof metadataOperatorOptions)[number], string> = {
+    exists: t("filters.operators.exists"),
+    not_exists: t("filters.operators.not_exists"),
+    equals: t("filters.operators.equals"),
+    not_equals: t("filters.operators.not_equals"),
+    contains: t("filters.operators.contains"),
+    starts_with: t("filters.operators.starts_with"),
+    ends_with: t("filters.operators.ends_with"),
+    gt: t("filters.operators.gt"),
+    gte: t("filters.operators.gte"),
+    lt: t("filters.operators.lt"),
+    lte: t("filters.operators.lte"),
+  };
+  const principalLabels: PrincipalEntitySelectLabels = {
+    users: t("selectors.principal.users"),
+    teams: t("selectors.principal.teams"),
+    orgUnits: t("selectors.principal.orgUnits"),
+    virtualAccounts: t("selectors.principal.virtualAccounts"),
+    externalIdentities: t("selectors.principal.externalIdentities"),
+    everyone: t("selectors.principal.everyone"),
+    searchPlaceholder: t("selectors.principal.searchPlaceholder"),
+    triggerPlaceholder: t("selectors.principal.triggerPlaceholder"),
+    loading: t("selectors.principal.loading"),
+    empty: t("selectors.principal.empty"),
+  };
   const modelLabels: ModelEntitySelectLabels = {
-    triggerPlaceholder: "انتخاب مدل",
-    searchPlaceholder: "جست‌وجوی مدل...",
-    providerAllowed: "مدل‌های مجاز پروایدر",
-    virtualModels: "مدل‌های مجازی",
-    loading: "در حال بارگذاری...",
-    empty: "موردی پیدا نشد",
+    triggerPlaceholder: t("selectors.model.triggerPlaceholder"),
+    searchPlaceholder: t("selectors.model.searchPlaceholder"),
+    providerAllowed: t("selectors.model.providerAllowed"),
+    virtualModels: t("selectors.model.virtualModels"),
+    loading: t("selectors.model.loading"),
+    empty: t("selectors.model.empty"),
   };
 
   useEffect(() => {
@@ -282,9 +280,9 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 md:px-6">
       <PageHeader
-        eyebrow="Gateway Policies"
+        eyebrow={t("eyebrow")}
         title={title}
-        description="قانون محدودسازی را با ساختار استاندارد محصول تعریف کنید تا روی سوژه، مدل و فراداده اعمال شود."
+        description={t("form.headerDescription")}
         actions={initialRule ? <Badge variant="secondary">{initialRule.rule_id}</Badge> : undefined}
       />
 
@@ -296,9 +294,9 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
       ) : null}
 
       <form className="flex flex-col gap-6" onSubmit={form.handleSubmit(onSubmit)}>
-        <FormSection title="هویت قانون" description="شناسه، نام نمایشی و وضعیت فعال بودن قانون را تنظیم کنید.">
+        <FormSection title={t("form.sections.identity")} description={t("form.descriptions.identity")}>
           <div className="grid gap-4 lg:grid-cols-2">
-            <FormField label="شناسه قانون *" htmlFor="rule_id" description="فقط از حروف کوچک انگلیسی، عدد، خط تیره و آندرلاین استفاده کنید.">
+            <FormField label={t("form.fields.ruleId")} htmlFor="rule_id" description={t("form.descriptions.ruleId")}>
               <Input
                 id="rule_id"
                 placeholder={t("form.ruleIdPlaceholder")}
@@ -308,28 +306,29 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
               <FieldError message={form.formState.errors.rule_id?.message} />
             </FormField>
 
-            <FormField label="نام نمایشی" htmlFor="name" description="برای تشخیص سریع قانون در فهرست‌ها و گزارش‌ها استفاده می‌شود.">
-              <Input id="name" placeholder="مثال: محدودیت کاربران عمومی" {...form.register("name")} />
+            <FormField label={t("form.fields.name")} htmlFor="name" description={t("form.descriptions.name")}>
+              <Input id="name" placeholder={t("form.placeholders.name")} {...form.register("name")} />
             </FormField>
           </div>
 
-          <FormField label="توضیحات" htmlFor="description" description="هدف قانون یا سناریوی استفاده را برای اعضای تیم توضیح دهید.">
-            <Textarea id="description" placeholder="این قانون برای چه نوع درخواست‌هایی اعمال می‌شود؟" {...form.register("description")} />
+          <FormField label={t("form.fields.description")} htmlFor="description" description={t("form.descriptions.description")}>
+            <Textarea id="description" placeholder={t("form.placeholders.description")} {...form.register("description")} />
           </FormField>
 
           <SwitchRow
-            title="وضعیت قانون"
-            description="در صورت غیرفعال بودن، قانون ذخیره می‌شود اما روی ترافیک اعمال نخواهد شد."
+            id="enabled"
+            title={t("form.switches.enabled.title")}
+            description={t("form.switches.enabled.description")}
             checked={Boolean(enabled)}
             onCheckedChange={(checked) => form.setValue("enabled", checked, { shouldValidate: true, shouldDirty: true })}
           />
         </FormSection>
 
-        <FormSection title="شرایط و فیلترها" description="مشخص کنید قانون برای چه مبداها، مدل‌ها یا کلیدهای فراداده فعال شود.">
+        <FormSection title={t("filters.title")} description={t("filters.description")}>
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <p className="text-sm leading-6 text-muted-foreground">
-                می‌توانید برای سوژه، مدل یا چند ردیف فراداده شرط تعریف کنید. هر شرط جدید فقط از گزینه‌های معتبر این قانون استفاده می‌کند.
+                {t("filters.helper")}
               </p>
               <Button
                 type="button"
@@ -349,7 +348,7 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
 
             {fields.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-5 text-sm leading-6 text-muted-foreground">
-                هنوز فیلتری اضافه نشده است. از دکمه «افزودن فیلتر» برای تعریف مبدا، مدل یا فراداده استفاده کنید.
+                {t("filters.empty")}
               </div>
             ) : null}
 
@@ -368,7 +367,7 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
                   <div className="grid gap-3 xl:grid-cols-[14rem_minmax(0,1fr)_auto_auto]">
                     <InlineSelect
                       value={rowField}
-                      ariaLabel="نوع فیلتر"
+                      ariaLabel={t("aria.filterFieldType")}
                       onValueChange={(value) =>
                         form.setValue(`conditions.conditions.${index}.field`, value as (typeof fieldOptions)[number], {
                           shouldValidate: true,
@@ -426,10 +425,10 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
                       }}
                     >
                       <Plus data-icon="inline-start" />
-                      افزودن
+                      {t("actions.add")}
                     </Button>
 
-                    <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} aria-label="حذف فیلتر">
+                    <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} aria-label={t("aria.removeFilter")}>
                       <Trash2 />
                     </Button>
                   </div>
@@ -443,6 +442,7 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
                             <SelectionChip
                               key={token}
                               label={`${item.type}: ${displayName}`}
+                              removeLabel={t("aria.removeSelection", { label: `${item.type}: ${displayName}` })}
                               onRemove={() => {
                                 form.setValue(
                                   `conditions.conditions.${index}.values`,
@@ -462,6 +462,7 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
                           <SelectionChip
                             key={token}
                             label={token}
+                            removeLabel={t("aria.removeSelection", { label: token })}
                             onRemove={() => {
                               form.setValue(
                                 `conditions.conditions.${index}.values`,
@@ -481,8 +482,8 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
             {metadataIndexes.length > 0 ? (
               <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4">
                 <div className="flex flex-col gap-1">
-                  <h3 className="text-base font-semibold text-card-foreground">فراداده</h3>
-                  <p className="text-sm leading-6 text-muted-foreground">برای سناریوهای وابسته به کلیدهای متنی یا عددی متادیتا، چند شرط مجزا تعریف کنید.</p>
+                  <h3 className="text-base font-semibold text-card-foreground">{t("filters.metadataTitle")}</h3>
+                  <p className="text-sm leading-6 text-muted-foreground">{t("filters.metadataDescription")}</p>
                 </div>
 
                 <div className="flex flex-col gap-3">
@@ -495,14 +496,14 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
                       <div key={fields[index]?.id ?? `metadata-${index}`} className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4">
                         <div className="grid gap-3 xl:grid-cols-[minmax(0,1.2fr)_14rem_minmax(0,1.2fr)_auto_auto]">
                           <Input
-                            placeholder="کلید فراداده"
+                            placeholder={t("form.placeholders.metadataKey")}
                             aria-invalid={Boolean(keyError)}
                             {...form.register(`conditions.conditions.${index}.metadataKey`)}
                           />
 
                           <InlineSelect
                             value={watchedConditions?.[index]?.operator ?? "equals"}
-                            ariaLabel="عملگر فراداده"
+                            ariaLabel={t("aria.metadataOperator")}
                             onValueChange={(value) =>
                               form.setValue(`conditions.conditions.${index}.operator`, value as (typeof metadataOperatorOptions)[number], {
                                 shouldValidate: true,
@@ -513,7 +514,7 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
                           />
 
                           <Input
-                            placeholder="مقدار"
+                            placeholder={t("form.placeholders.metadataValue")}
                             aria-invalid={Boolean(valueError)}
                             {...form.register(`conditions.conditions.${index}.value` as const)}
                           />
@@ -522,13 +523,19 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
                             type="button"
                             variant="outline"
                             size="icon"
-                            aria-label="افزودن ردیف فراداده"
+                            aria-label={t("aria.addMetadataRow")}
                             onClick={() => append({ field: "metadata", operator: "equals", values: undefined })}
                           >
                             <Plus />
                           </Button>
 
-                          <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} aria-label={`حذف ردیف فراداده ${itemIndex + 1}`}>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => remove(index)}
+                            aria-label={t("aria.removeMetadataRow", { index: itemIndex + 1 })}
+                          >
                             <Trash2 />
                           </Button>
                         </div>
@@ -547,9 +554,9 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
           </div>
         </FormSection>
 
-        <FormSection title="محدودیت و بازه زمانی" description="ظرفیت مجاز قانون و بازه ارزیابی آن را مشخص کنید.">
+        <FormSection title={t("form.sections.limit")} description={t("form.descriptions.limit")}>
           <div className="grid gap-4 lg:grid-cols-4">
-            <FormField label="سقف محدودیت *" htmlFor="limit-max">
+            <FormField label={t("form.fields.limitMax")} htmlFor="limit-max">
               <Input
                 id="limit-max"
                 type="number"
@@ -560,22 +567,22 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
               <FieldError message={form.formState.errors.limit?.max?.message} />
             </FormField>
 
-            <FormField label="واحد محدودیت">
+            <FormField label={t("form.fields.limitDimension")}>
               <InlineSelect
                 value={limitDimension}
-                ariaLabel="واحد محدودیت"
+                ariaLabel={t("aria.limitDimension")}
                 onValueChange={(value) => form.setValue("limit.dimension", value as "requests" | "tokens", { shouldValidate: true, shouldDirty: true })}
                 options={[
-                  { value: "requests", label: "تعداد درخواست" },
-                  { value: "tokens", label: "توکن" },
+                  { value: "requests", label: t("form.options.dimension.requests") },
+                  { value: "tokens", label: t("form.options.dimension.tokens") },
                 ]}
               />
             </FormField>
 
-            <FormField label="بازه زمانی *">
+            <FormField label={t("form.fields.windowUnit")}>
               <InlineSelect
                 value={selectedWindowUnit}
-                ariaLabel="بازه زمانی"
+                ariaLabel={t("aria.windowUnit")}
                 onValueChange={(value) =>
                   form.setValue("limit.window.unit", value as "second" | "minute" | "hour" | "day" | "week" | "month", {
                     shouldValidate: true,
@@ -583,27 +590,27 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
                   })
                 }
                 options={[
-                  { value: "minute", label: "در دقیقه" },
-                  { value: "hour", label: "در ساعت" },
-                  { value: "day", label: "در روز" },
-                  { value: "week", label: "در هفته" },
-                  { value: "month", label: "در ماه" },
-                  { value: "second", label: "سفارشی (بر حسب ثانیه)" },
+                  { value: "minute", label: t("form.options.windowUnit.minute") },
+                  { value: "hour", label: t("form.options.windowUnit.hour") },
+                  { value: "day", label: t("form.options.windowUnit.day") },
+                  { value: "week", label: t("form.options.windowUnit.week") },
+                  { value: "month", label: t("form.options.windowUnit.month") },
+                  { value: "second", label: t("form.options.windowUnit.second") },
                 ]}
               />
             </FormField>
 
             <FormField
-              label="مقدار بازه *"
+              label={t("form.fields.windowValue")}
               htmlFor="limit-window-value"
-              description={selectedWindowUnit === "second" ? "در حالت سفارشی، مقدار وارد شده بر حسب ثانیه محاسبه می‌شود." : undefined}
+              description={selectedWindowUnit === "second" ? t("form.descriptions.windowSeconds") : undefined}
             >
               <Input
                 id="limit-window-value"
                 type="number"
                 min={1}
                 step={1}
-                placeholder={selectedWindowUnit === "second" ? "مثال: 90" : "مثال: 1"}
+                placeholder={selectedWindowUnit === "second" ? t("form.placeholders.windowCustom") : t("form.placeholders.windowDefault")}
                 aria-invalid={Boolean(form.formState.errors.limit?.window?.value)}
                 {...form.register("limit.window.value", { valueAsNumber: true })}
               />
@@ -612,7 +619,7 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
           </div>
         </FormSection>
 
-        <FormSection title="تنظیمات پیشرفته" description="رفتار برخورد با تعارض‌ها و نحوه پاسخ‌دهی قانون را در این بخش مدیریت کنید.">
+        <FormSection title={t("form.sections.advanced")} description={t("form.descriptions.advanced")}>
           <div className="flex flex-col gap-4">
             <Button
               type="button"
@@ -620,21 +627,21 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
               className="w-full justify-between md:w-fit"
               onClick={() => setAdvancedOpen((prev) => !prev)}
             >
-              <span>{advancedOpen ? "بستن تنظیمات پیشرفته" : "نمایش تنظیمات پیشرفته"}</span>
+              <span>{advancedOpen ? t("form.advanced.toggleClose") : t("form.advanced.toggleOpen")}</span>
               {advancedOpen ? <ChevronUp data-icon="inline-end" /> : <ChevronDown data-icon="inline-end" />}
             </Button>
 
             {advancedOpen ? (
               <div className="flex flex-col gap-4 rounded-xl border border-border bg-muted/20 p-4">
                 <div className="grid gap-4 lg:grid-cols-2">
-                  <FormField label="اولویت" htmlFor="priority" description="عدد کمتر یا بیشتر، ترتیب اعمال را در زمان تعارض بین قوانین تعیین می‌کند.">
+                  <FormField label={t("form.fields.priority")} htmlFor="priority" description={t("form.descriptions.priority")}>
                     <Input id="priority" type="number" min={0} {...form.register("priority", { valueAsNumber: true })} />
                   </FormField>
 
-                  <FormField label="رفتار تعارض">
+                  <FormField label={t("form.fields.conflictBehavior")}>
                     <InlineSelect
                       value={conflictBehavior}
-                      ariaLabel="رفتار تعارض"
+                      ariaLabel={t("aria.conflictBehavior")}
                       onValueChange={(value) =>
                         form.setValue("conflict_behavior", value as "first_match" | "most_restrictive" | "apply_all", {
                           shouldValidate: true,
@@ -642,9 +649,9 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
                         })
                       }
                       options={[
-                        { value: "first_match", label: "اولین قانون منطبق" },
-                        { value: "most_restrictive", label: "محدودکننده‌ترین قانون" },
-                        { value: "apply_all", label: "اعمال همه قوانین منطبق" },
+                        { value: "first_match", label: t("form.options.conflictBehavior.first_match") },
+                        { value: "most_restrictive", label: t("form.options.conflictBehavior.most_restrictive") },
+                        { value: "apply_all", label: t("form.options.conflictBehavior.apply_all") },
                       ]}
                     />
                   </FormField>
@@ -652,15 +659,17 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
 
                 <div className="grid gap-4 lg:grid-cols-2">
                   <SwitchRow
-                    title="حالت نرم"
-                    description="به‌جای مسدود کردن درخواست، فقط ثبت و مانیتور می‌شود."
+                    id="soft-limit"
+                    title={t("form.switches.softLimit.title")}
+                    description={t("form.switches.softLimit.description")}
                     checked={Boolean(softLimit)}
                     onCheckedChange={(checked) => form.setValue("soft_limit", checked, { shouldValidate: true, shouldDirty: true })}
                   />
 
                   <SwitchRow
-                    title="ارسال هدر Retry-After"
-                    description="در پاسخ‌های محدود شده، زمان مناسب برای ارسال مجدد درخواست برگردانده می‌شود."
+                    id="retry-after-header"
+                    title={t("form.switches.retryAfterHeader.title")}
+                    description={t("form.switches.retryAfterHeader.description")}
                     checked={Boolean(retryAfterHeader)}
                     onCheckedChange={(checked) => form.setValue("retry_after_header", checked, { shouldValidate: true, shouldDirty: true })}
                   />
@@ -673,7 +682,7 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
         <div className="sticky bottom-0 z-10 rounded-xl border border-border bg-background/95 p-4 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/90">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <p className="text-sm leading-6 text-muted-foreground">
-              پس از ذخیره، به فهرست قوانین محدودسازی نرخ برمی‌گردید.
+              {t("form.stickyDescription")}
             </p>
             <div className="flex flex-wrap items-center justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => router.push("/gateway-policies/rate-limiting-rules")}>
@@ -742,9 +751,11 @@ function InlineSelect({
 function SelectionChip({
   label,
   onRemove,
+  removeLabel,
 }: {
   label: string;
   onRemove: () => void;
+  removeLabel: string;
 }) {
   return (
     <Badge variant="outline" className="gap-1 rounded-md px-2 py-1 text-xs font-normal">
@@ -753,7 +764,7 @@ function SelectionChip({
         type="button"
         className="rounded-sm text-muted-foreground transition-colors hover:text-foreground"
         onClick={onRemove}
-        aria-label={`حذف ${label}`}
+        aria-label={removeLabel}
       >
         <X className="size-3" />
       </button>
@@ -762,23 +773,31 @@ function SelectionChip({
 }
 
 function SwitchRow({
+  id,
   title,
   description,
   checked,
   onCheckedChange,
 }: {
+  id: string;
   title: string;
   description: string;
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
 }) {
+  const descriptionId = `${id}-description`;
+
   return (
     <div className={cn("flex items-start justify-between gap-4 rounded-xl border border-border bg-card px-4 py-3")}>
       <div className="flex min-w-0 flex-col gap-1">
-        <p className="text-sm font-medium text-card-foreground">{title}</p>
-        <p className="text-xs leading-5 text-muted-foreground">{description}</p>
+        <Label htmlFor={id} className="text-sm font-medium text-card-foreground">
+          {title}
+        </Label>
+        <p id={descriptionId} className="text-xs leading-5 text-muted-foreground">
+          {description}
+        </p>
       </div>
-      <Switch checked={checked} onCheckedChange={onCheckedChange} />
+      <Switch id={id} checked={checked} aria-describedby={descriptionId} onCheckedChange={onCheckedChange} />
     </div>
   );
 }

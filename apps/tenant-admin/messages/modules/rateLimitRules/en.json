@@ -3,6 +3,7 @@
   "description": "Define rule-based limits for gateway requests across subjects, models, and metadata.",
   "searchPlaceholder": "Search by rule id, model, subject, or metadata key",
   "empty": "No rate limiting rules have been created yet.",
+  "eyebrow": "Gateway Policies",
   "alerts": {
     "error": "Error",
     "success": "Success"
@@ -14,7 +15,8 @@
     "delete": "Delete",
     "enable": "Enable",
     "disable": "Disable",
-    "addFilter": "+ Add Filters",
+    "add": "Add",
+    "addFilter": "Add Filter",
     "save": "Save",
     "saving": "Saving...",
     "cancel": "Cancel"
@@ -27,17 +29,147 @@
     "updatedAt": "Last updated",
     "actions": "Actions"
   },
+  "filters": {
+    "title": "Filters",
+    "description": "Define when this rule applies based on request subject, model, or metadata.",
+    "helper": "You can add subject, model, or metadata clauses. Each new clause only offers valid combinations for this rule.",
+    "empty": "No filters added yet. Use the add filter action to define subject, model, or metadata constraints.",
+    "metadataTitle": "Metadata Filters",
+    "metadataDescription": "Add one or more metadata clauses for request attributes.",
+    "fields": {
+      "subject": "Subject",
+      "model": "Allowed Models",
+      "metadata": "Metadata"
+    },
+    "operators": {
+      "exists": "Has key",
+      "not_exists": "Missing key",
+      "equals": "Equals",
+      "not_equals": "Not equals",
+      "contains": "Contains",
+      "starts_with": "Starts with",
+      "ends_with": "Ends with",
+      "gt": "Greater than",
+      "gte": "Greater than or equal",
+      "lt": "Less than",
+      "lte": "Less than or equal"
+    }
+  },
   "form": {
     "addTitle": "Add New Rule",
     "editTitle": "Edit Rule",
-    "identity": "RULE IDENTITY",
-    "ruleIdPlaceholder": "Enter Rule ID"
+    "headerDescription": "Define a rate limit rule using the project design system and gateway policy patterns.",
+    "ruleIdPlaceholder": "Enter rule ID",
+    "stickyDescription": "Saving returns you to the rate limiting rules list.",
+    "sections": {
+      "identity": "Rule Identity",
+      "limit": "Limit And Time Window",
+      "advanced": "Advanced Settings"
+    },
+    "fields": {
+      "ruleId": "Rule ID *",
+      "name": "Display Name",
+      "description": "Description",
+      "limitMax": "Limit Value *",
+      "limitDimension": "Limit Unit",
+      "windowUnit": "Time Window *",
+      "windowValue": "Window Value *",
+      "priority": "Priority",
+      "conflictBehavior": "Conflict Behavior"
+    },
+    "descriptions": {
+      "identity": "Set the rule identifier, display name, and whether the rule is currently active.",
+      "ruleId": "Use lowercase letters, numbers, underscores, or hyphens only.",
+      "name": "Helps teammates recognize the rule quickly in lists and reports.",
+      "description": "Describe the purpose or traffic scenario this rule covers.",
+      "limit": "Choose the allowed capacity and the evaluation window for this rule.",
+      "windowSeconds": "When custom mode is selected, the value is interpreted in seconds.",
+      "advanced": "Control how this rule behaves when it overlaps with other rate limit rules.",
+      "priority": "Lower or higher values determine how the rule is evaluated during conflicts."
+    },
+    "placeholders": {
+      "name": "Example: public users limit",
+      "description": "What kind of traffic should this rule apply to?",
+      "windowCustom": "Example: 90",
+      "windowDefault": "Example: 1",
+      "metadataKey": "Metadata key",
+      "metadataValue": "Value"
+    },
+    "options": {
+      "dimension": {
+        "requests": "Requests",
+        "tokens": "Tokens"
+      },
+      "windowUnit": {
+        "minute": "Per minute",
+        "hour": "Per hour",
+        "day": "Per day",
+        "week": "Per week",
+        "month": "Per month",
+        "second": "Custom (seconds)"
+      },
+      "conflictBehavior": {
+        "first_match": "First matching rule",
+        "most_restrictive": "Most restrictive rule",
+        "apply_all": "Apply all matching rules"
+      }
+    },
+    "advanced": {
+      "toggleOpen": "Show advanced settings",
+      "toggleClose": "Hide advanced settings"
+    },
+    "switches": {
+      "enabled": {
+        "title": "Rule Status",
+        "description": "Disabled rules are saved but not enforced on live traffic."
+      },
+      "softLimit": {
+        "title": "Soft Limit",
+        "description": "Observe and log the violation instead of blocking the request."
+      },
+      "retryAfterHeader": {
+        "title": "Send Retry-After Header",
+        "description": "Include retry timing guidance when a request is rate limited."
+      }
+    }
+  },
+  "selectors": {
+    "principal": {
+      "users": "Users",
+      "teams": "Teams",
+      "orgUnits": "Org units",
+      "virtualAccounts": "Virtual accounts",
+      "externalIdentities": "External identities",
+      "everyone": "Everyone",
+      "searchPlaceholder": "Search subjects",
+      "triggerPlaceholder": "Select subject",
+      "loading": "Loading...",
+      "empty": "No results found"
+    },
+    "model": {
+      "triggerPlaceholder": "Select model",
+      "searchPlaceholder": "Search models...",
+      "providerAllowed": "Provider allowed models",
+      "virtualModels": "Virtual models",
+      "loading": "Loading...",
+      "empty": "No models found"
+    }
+  },
+  "aria": {
+    "filterFieldType": "Filter type",
+    "metadataOperator": "Metadata operator",
+    "limitDimension": "Limit unit",
+    "windowUnit": "Time window",
+    "conflictBehavior": "Conflict behavior",
+    "removeFilter": "Remove filter",
+    "addMetadataRow": "Add metadata row",
+    "removeMetadataRow": "Remove metadata row {index}",
+    "removeSelection": "Remove {label}"
   },
   "messages": {
     "loadError": "Failed to load rate limit rules.",
     "saveSuccess": "Rate limit rule saved successfully.",
-    "saveError": "Failed to save rate limit rule.",
-    "deleteError": "Failed to delete rate limit rule."
+    "saveError": "Failed to save rate limit rule."
   },
   "deleteDialog": {
     "title": "Delete rule?",
@@ -45,5 +177,11 @@
     "cancel": "Cancel",
     "confirm": "Delete",
     "deleting": "Deleting..."
+  },
+  "upgradeDialog": {
+    "title": "This feature is not available on your current plan",
+    "description": "Creating rate limit rules is not included in your current commercial plan. Upgrade your plan to use this feature.",
+    "cancel": "Close",
+    "action": "Upgrade / buy plan"
   }
 }

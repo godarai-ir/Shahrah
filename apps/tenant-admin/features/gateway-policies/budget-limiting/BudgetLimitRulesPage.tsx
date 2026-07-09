@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Copy, Pencil, Power, Trash2 } from "lucide-react";
@@ -20,7 +21,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-import { createBudgetLimitRule, deleteBudgetLimitRule, listBudgetLimitRules, updateBudgetLimitRuleStatus } from "./ruleApi";
+import {
+  createBudgetLimitRule,
+  deleteBudgetLimitRule,
+  getBudgetLimitEntitlements,
+  listBudgetLimitRules,
+  updateBudgetLimitRuleStatus,
+} from "./ruleApi";
 import type { BudgetLimitRule } from "./ruleTypes";
 
 const PERSIAN_DATE_TIME = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
@@ -31,6 +38,11 @@ const PERSIAN_DATE_TIME = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
   minute: "2-digit",
   second: "2-digit",
 });
+const FEATURE_BUDGET_LIMIT_RULES_ENABLED = "budget_limit_rules.enabled";
+
+type EffectiveEntitlements = {
+  features?: Record<string, unknown>;
+} | null;
 
 function formatJalaliDateTime(value: string) {
   const date = new Date(value);
@@ -44,13 +56,26 @@ function unitKey(unit: BudgetLimitRule["unit"]) {
   return "cost_per_month";
 }
 
+function readBooleanFeature(value: unknown, fallback: boolean): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    if (value.trim().toLowerCase() === "true") return true;
+    if (value.trim().toLowerCase() === "false") return false;
+  }
+  return fallback;
+}
+
 export function BudgetLimitRulesPage() {
   const t = useTranslations("budgetLimitRules");
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [items, setItems] = useState<BudgetLimitRule[]>([]);
   const [pendingDeleteRule, setPendingDeleteRule] = useState<BudgetLimitRule | null>(null);
+  const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
+  const [entitlements, setEntitlements] = useState<EffectiveEntitlements>(null);
+  const [hasLoadedEntitlements, setHasLoadedEntitlements] = useState(false);
   const [notice, setNotice] = useState<{ kind: "success" | "error"; message: string } | null>(null);
 
   async function load() {
@@ -67,12 +92,40 @@ export function BudgetLimitRulesPage() {
   }
 
   useEffect(() => {
+    let isMounted = true;
+
+    async function loadEntitlements() {
+      try {
+        const response = await getBudgetLimitEntitlements();
+        if (!isMounted) return;
+        setEntitlements(response);
+      } catch {
+        if (!isMounted) return;
+        setEntitlements(null);
+      } finally {
+        if (isMounted) {
+          setHasLoadedEntitlements(true);
+        }
+      }
+    }
+
+    void loadEntitlements();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
   const filtered = useMemo(() => items, [items]);
+  const isBudgetLimitFeatureEnabled = hasLoadedEntitlements
+    ? readBooleanFeature(entitlements?.features?.[FEATURE_BUDGET_LIMIT_RULES_ENABLED], false)
+    : null;
 
   async function confirmDeleteRule() {
     if (!pendingDeleteRule || isDeleting) return;
@@ -88,6 +141,15 @@ export function BudgetLimitRulesPage() {
     }
   }
 
+  function handleCreateRule() {
+    if (isBudgetLimitFeatureEnabled === false) {
+      setIsUpgradeDialogOpen(true);
+      return;
+    }
+
+    router.push("/gateway-policies/budget-limiting-rules/new");
+  }
+
   return (
     <>
       <Card>
@@ -97,8 +159,8 @@ export function BudgetLimitRulesPage() {
             <CardTitle>{t("title")}</CardTitle>
             <CardDescription>{t("description")}</CardDescription>
           </div>
-          <Button asChild>
-            <Link href="/gateway-policies/budget-limiting-rules/new">{t("actions.new")}</Link>
+          <Button type="button" onClick={handleCreateRule} disabled={!hasLoadedEntitlements}>
+            {t("actions.new")}
           </Button>
         </div>
         <Input placeholder={t("searchPlaceholder")} value={query} onChange={(event) => setQuery(event.target.value)} />
@@ -190,6 +252,25 @@ export function BudgetLimitRulesPage() {
             </Button>
             <Button type="button" variant="destructive" onClick={() => void confirmDeleteRule()} disabled={isDeleting}>
               {isDeleting ? t("deleteDialog.deleting") : t("deleteDialog.confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isUpgradeDialogOpen} onOpenChange={setIsUpgradeDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("upgradeDialog.title")}</DialogTitle>
+            <DialogDescription>{t("upgradeDialog.description")}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsUpgradeDialogOpen(false)}>
+              {t("upgradeDialog.cancel")}
+            </Button>
+            <Button asChild>
+              <Link href="/billing/plan" onClick={() => setIsUpgradeDialogOpen(false)}>
+                {t("upgradeDialog.action")}
+              </Link>
             </Button>
           </DialogFooter>
         </DialogContent>

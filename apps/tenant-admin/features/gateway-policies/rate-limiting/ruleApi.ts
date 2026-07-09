@@ -8,6 +8,10 @@ type ListResponse = {
   offset: number;
 };
 
+type EffectiveEntitlements = {
+  features?: Record<string, unknown>;
+} | null;
+
 function mapAPIErrorToFa(message: string, status?: number): string {
   const m = message.toLowerCase();
   if (m.includes("no rows in result set")) {
@@ -23,6 +27,26 @@ function mapAPIErrorToFa(message: string, status?: number): string {
     return "خطای داخلی در ذخیره قانون رخ داد. لطفا دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.";
   }
   return message;
+}
+
+function looksLikeHTMLDocument(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return normalized.startsWith("<!doctype") || normalized.startsWith("<html") || normalized.startsWith("<body");
+}
+
+function sanitizeServerMessage(message: string | undefined, status?: number): string {
+  const normalized = message?.trim();
+  if (!normalized) {
+    return `Request failed (${status ?? "unknown"})`;
+  }
+  if (looksLikeHTMLDocument(normalized)) {
+    if (status === 401) return "برای ادامه باید وارد حساب کاربری شوید.";
+    if (status === 403) return "دسترسی شما به این بخش محدود است.";
+    if (status === 404) return "منبع درخواستی پیدا نشد.";
+    if (status === 500) return "خطای داخلی در پردازش درخواست رخ داد. لطفا دوباره تلاش کنید.";
+    return "در پردازش درخواست خطایی رخ داد. لطفا دوباره تلاش کنید.";
+  }
+  return normalized;
 }
 
 async function requestJSON<T>(path: string, options?: RequestInit): Promise<T> {
@@ -41,10 +65,12 @@ async function requestJSON<T>(path: string, options?: RequestInit): Promise<T> {
     }
   }
   if (!response.ok) {
-    const rawMessage =
+    const rawMessage = sanitizeServerMessage(
       (payload?.error as { message?: string } | undefined)?.message ??
-      (payload?.message as string | undefined) ??
-      `Request failed (${response.status})`;
+        (payload?.message as string | undefined) ??
+        `Request failed (${response.status})`,
+      response.status,
+    );
     throw new Error(mapAPIErrorToFa(rawMessage, response.status));
   }
   return payload as T;
@@ -52,6 +78,10 @@ async function requestJSON<T>(path: string, options?: RequestInit): Promise<T> {
 
 export function listRateLimitRules(query = "") {
   return requestJSON<ListResponse>(`/api/gateway-policies/rate-limit-rules?query=${encodeURIComponent(query)}`);
+}
+
+export function getRateLimitEntitlements() {
+  return requestJSON<EffectiveEntitlements>("/api/entitlements");
 }
 
 export function getRateLimitRule(id: string) {

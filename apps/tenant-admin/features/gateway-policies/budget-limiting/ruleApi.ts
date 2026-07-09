@@ -8,6 +8,10 @@ type ListResponse = {
   offset: number;
 };
 
+type EffectiveEntitlements = {
+  features?: Record<string, unknown>;
+} | null;
+
 async function requestJSON<T>(path: string, options?: RequestInit): Promise<T> {
   const headers = new Headers(options?.headers ?? {});
   if (options?.body && !headers.has("Content-Type")) {
@@ -35,6 +39,10 @@ async function requestJSON<T>(path: string, options?: RequestInit): Promise<T> {
 
 export function listBudgetLimitRules(query = "") {
   return requestJSON<ListResponse>(`/api/gateway-policies/budget-limit-rules?query=${encodeURIComponent(query)}`);
+}
+
+export function getBudgetLimitEntitlements() {
+  return requestJSON<EffectiveEntitlements>("/api/entitlements");
 }
 
 export function getBudgetLimitRule(id: string) {

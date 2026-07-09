@@ -131,5 +131,11 @@
     "cancel": "Cancel",
     "confirm": "Delete",
     "deleting": "Deleting..."
+  },
+  "upgradeDialog": {
+    "title": "This feature is not available on your current plan",
+    "description": "Creating budget limit rules is not included in your current commercial plan. Upgrade your plan to use this feature.",
+    "cancel": "Close",
+    "action": "Upgrade / buy plan"
   }
 }

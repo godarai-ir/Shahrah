@@ -3,8 +3,24 @@ import { describe, expect, it, vi } from "vitest";
 
 import { RateLimitRuleForm } from "./RateLimitRuleForm";
 
+const translations: Record<string, string> = {
+  "actions.addFilter": "Add Filter",
+  "actions.save": "Save",
+  "form.advanced.toggleOpen": "Show advanced settings",
+  "form.advanced.toggleClose": "Hide advanced settings",
+  "form.fields.conflictBehavior": "Conflict behavior",
+  "aria.removeFilter": "Remove filter",
+  "form.switches.enabled.title": "Rule Status",
+  "form.switches.softLimit.title": "Soft Limit",
+  "form.switches.retryAfterHeader.title": "Send Retry-After Header",
+};
+
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
+  useTranslations: () => (key: string, values?: Record<string, string | number>) => {
+    const template = translations[key] ?? key;
+    if (!values) return template;
+    return Object.entries(values).reduce((result, [name, value]) => result.replace(`{${name}}`, String(value)), template);
+  },
 }));
 
 vi.mock("next/navigation", () => ({
@@ -19,24 +35,32 @@ vi.mock("./ruleApi", () => ({
 describe("RateLimitRuleForm", () => {
   it("adds and removes condition rows", async () => {
     render(<RateLimitRuleForm />);
-    fireEvent.click(screen.getByText("actions.addFilter"));
-    expect(screen.getAllByLabelText("حذف فیلتر")).toHaveLength(1);
-    fireEvent.click(screen.getByLabelText("حذف فیلتر"));
-    expect(screen.queryByLabelText("حذف فیلتر")).toBeNull();
+    fireEvent.click(screen.getByText("Add Filter"));
+    expect(screen.getAllByLabelText("Remove filter")).toHaveLength(1);
+    fireEvent.click(screen.getByLabelText("Remove filter"));
+    expect(screen.queryByLabelText("Remove filter")).toBeNull();
   });
 
   it("save disabled on invalid form", () => {
     render(<RateLimitRuleForm />);
-    const submit = screen.getByRole("button", { name: "actions.save" });
+    const submit = screen.getByRole("button", { name: "Save" });
     expect(submit).toBeDisabled();
   });
 
   it("advanced options can expand and collapse", () => {
     render(<RateLimitRuleForm />);
-    const toggle = screen.getByText("نمایش تنظیمات پیشرفته");
+    const toggle = screen.getByText("Show advanced settings");
     fireEvent.click(toggle);
-    expect(screen.getByText("رفتار تعارض")).toBeInTheDocument();
-    fireEvent.click(screen.getByText("بستن تنظیمات پیشرفته"));
-    expect(screen.queryByText("رفتار تعارض")).toBeNull();
+    expect(screen.getByText("Conflict behavior")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Hide advanced settings"));
+    expect(screen.queryByText("Conflict behavior")).toBeNull();
+  });
+
+  it("switches expose accessible names", () => {
+    render(<RateLimitRuleForm />);
+    expect(screen.getByRole("switch", { name: "Rule Status" })).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Show advanced settings"));
+    expect(screen.getByRole("switch", { name: "Soft Limit" })).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Send Retry-After Header" })).toBeInTheDocument();
   });
 });
