@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import VirtualUserTokenManagement from "./virtual-user-token-management";
 
 vi.mock("next-intl", () => ({
+  useLocale: () => "fa",
   useTranslations: () => (key: string, values?: Record<string, unknown>) => {
     if (!values) return key;
     return Object.entries(values).reduce(

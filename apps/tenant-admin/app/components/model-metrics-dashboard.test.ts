@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildCacheBreakdown, buildChartData, buildSavingsChartData, normalizeStringList } from "./model-metrics-dashboard";
+import { buildCacheBreakdown, buildChartData, buildSavingsChartData, normalizeStringList } from "./model-metrics-utils";
 
 describe("buildChartData", () => {
   it("uses raw request counts for the request chart", () => {

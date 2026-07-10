@@ -1,5 +1,11 @@
 import path from "node:path";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
+
+const testExclude = [
+  ...configDefaults.exclude,
+  "lib/auth/**/*.test.ts",
+  ".next/**",
+];
 
 export default defineConfig({
   resolve: {
@@ -8,8 +14,26 @@ export default defineConfig({
     },
   },
   test: {
-    environment: "jsdom",
-    setupFiles: ["./vitest.setup.ts"],
-    exclude: ["lib/auth/**/*.test.ts", ".next/**"],
+    exclude: testExclude,
+    maxWorkers: 3,
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "node",
+          environment: "node",
+          include: ["**/*.test.ts"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "dom",
+          environment: "jsdom",
+          include: ["**/*.test.tsx"],
+          setupFiles: ["./vitest.setup.ts"],
+        },
+      },
+    ],
   },
 });
