@@ -47,6 +47,55 @@ func TestCheckRateLimitEnforcesRPMPolicy(t *testing.T) {
 	}
 }
 
+func TestParseRateLimitPolicySupportsTenantAdminRuleShape(t *testing.T) {
+	tests := []struct {
+		name       string
+		limit      map[string]interface{}
+		wantRPM    int64
+		wantTPM    int64
+		wantWindow time.Duration
+	}{
+		{
+			name: "requests per minute",
+			limit: map[string]interface{}{
+				"dimension": "requests",
+				"max":       float64(10),
+				"window": map[string]interface{}{
+					"value": float64(1),
+					"unit":  "minute",
+				},
+			},
+			wantRPM:    10,
+			wantWindow: time.Minute,
+		},
+		{
+			name: "tokens per hour",
+			limit: map[string]interface{}{
+				"dimension": "tokens",
+				"max":       float64(5000),
+				"window": map[string]interface{}{
+					"value": float64(2),
+					"unit":  "hour",
+				},
+			},
+			wantTPM:    5000,
+			wantWindow: 2 * time.Hour,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			policy, err := parseRateLimitPolicy(platform.RateLimitRule{RuleID: "admin-rule", Limit: tt.limit})
+			if err != nil {
+				t.Fatalf("parseRateLimitPolicy returned error: %v", err)
+			}
+			if policy.rpm != tt.wantRPM || policy.tpm != tt.wantTPM || policy.window != tt.wantWindow {
+				t.Fatalf("unexpected policy: rpm=%d tpm=%d window=%s", policy.rpm, policy.tpm, policy.window)
+			}
+		})
+	}
+}
+
 func TestCheckRateLimitEnforcesTPMPolicyWithEstimatedTokens(t *testing.T) {
 	service := newRateLimitPolicyTestService(t, []platform.RateLimitRule{{
 		RuleID:  "tpm",

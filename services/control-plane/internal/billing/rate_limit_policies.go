@@ -122,9 +122,30 @@ func (s *Service) matchRateLimitRule(rule platform.RateLimitRule, auth *platform
 }
 
 func parseRateLimitPolicy(rule platform.RateLimitRule) (rateLimitPolicy, error) {
-	windowSeconds := int64FromAny(firstPresent(rule.Limit, "window_seconds", "window"), 60)
-	if windowSeconds <= 0 {
-		windowSeconds = 60
+	rpm := int64FromAny(firstPresent(rule.Limit, "rpm", "requests_per_minute"), 0)
+	tpm := int64FromAny(firstPresent(rule.Limit, "tpm", "tokens_per_minute"), 0)
+
+	// The tenant-admin rule editor persists the canonical dimension/max shape.
+	// Keep accepting the older rpm/tpm keys so existing API clients and stored
+	// rules continue to work during the transition.
+	if rawMax := firstPresent(rule.Limit, "max"); rawMax != nil {
+		maxValue := int64FromAny(rawMax, 0)
+		if maxValue <= 0 {
+			return rateLimitPolicy{}, fmt.Errorf("rate-limit max must be positive")
+		}
+		switch strings.ToLower(strings.TrimSpace(asString(firstPresent(rule.Limit, "dimension")))) {
+		case "requests", "request", "rpm":
+			rpm = maxValue
+		case "tokens", "token", "tpm":
+			tpm = maxValue
+		default:
+			return rateLimitPolicy{}, fmt.Errorf("unsupported rate-limit dimension %q", asString(firstPresent(rule.Limit, "dimension")))
+		}
+	}
+
+	window, err := parseRateLimitWindow(rule.Limit)
+	if err != nil {
+		return rateLimitPolicy{}, err
 	}
 	conflict := rule.ConflictBehavior
 	if conflict == "" {
@@ -136,9 +157,9 @@ func parseRateLimitPolicy(rule platform.RateLimitRule) (rateLimitPolicy, error) 
 	}
 
 	return rateLimitPolicy{
-		rpm:        int64FromAny(firstPresent(rule.Limit, "rpm", "requests_per_minute"), 0),
-		tpm:        int64FromAny(firstPresent(rule.Limit, "tpm", "tokens_per_minute"), 0),
-		window:     time.Duration(windowSeconds) * time.Second,
+		rpm:        rpm,
+		tpm:        tpm,
+		window:     window,
 		algorithm:  normalizedRateLimitAlgorithm(asString(firstPresent(rule.Limit, "algorithm"))),
 		retryAfter: rule.RetryAfterHeader,
 		softLimit:  rule.SoftLimit,
@@ -147,6 +168,55 @@ func parseRateLimitPolicy(rule platform.RateLimitRule) (rateLimitPolicy, error) 
 		ruleID:     rateLimitRuleID(rule),
 		priority:   rule.Priority,
 	}, nil
+}
+
+func parseRateLimitWindow(limit map[string]interface{}) (time.Duration, error) {
+	if rawSeconds := firstPresent(limit, "window_seconds"); rawSeconds != nil {
+		seconds := int64FromAny(rawSeconds, 0)
+		if seconds <= 0 {
+			return 0, fmt.Errorf("rate-limit window_seconds must be positive")
+		}
+		return time.Duration(seconds) * time.Second, nil
+	}
+
+	rawWindow := firstPresent(limit, "window")
+	if rawWindow == nil {
+		return time.Minute, nil
+	}
+
+	windowConfig, ok := rawWindow.(map[string]interface{})
+	if !ok {
+		seconds := int64FromAny(rawWindow, 0)
+		if seconds <= 0 {
+			return 0, fmt.Errorf("rate-limit window must be positive")
+		}
+		return time.Duration(seconds) * time.Second, nil
+	}
+
+	value := int64FromAny(windowConfig["value"], 0)
+	if value <= 0 {
+		return 0, fmt.Errorf("rate-limit window value must be positive")
+	}
+
+	var unit time.Duration
+	switch strings.ToLower(strings.TrimSpace(asString(windowConfig["unit"]))) {
+	case "second", "seconds":
+		unit = time.Second
+	case "minute", "minutes":
+		unit = time.Minute
+	case "hour", "hours":
+		unit = time.Hour
+	case "day", "days":
+		unit = 24 * time.Hour
+	case "week", "weeks":
+		unit = 7 * 24 * time.Hour
+	case "month", "months":
+		unit = 30 * 24 * time.Hour
+	default:
+		return 0, fmt.Errorf("unsupported rate-limit window unit %q", asString(windowConfig["unit"]))
+	}
+
+	return time.Duration(value) * unit, nil
 }
 
 func (s *Service) applyRateLimitPolicy(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, policy rateLimitPolicy) (*cache.RateLimitResult, error) {

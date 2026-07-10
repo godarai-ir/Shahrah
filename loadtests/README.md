@@ -120,6 +120,84 @@ k6 run -e SCENARIO=cache -e RATE=40 -e DURATION=30m loadtests/k6/gateway-scenari
 
 The cache scenario now sends a valid JSON `x-godarai-cache-config` header and defaults to `CACHE_TYPE=simple` for deterministic exact-match hits. Override `CACHE_TYPE=smart` only when the smart-cache embedder is configured and reachable.
 
+### Rate-limit rule contract test
+
+Use the dedicated scenario for an exact tenant rule such as "10 requests per minute". Configure the rule as enabled, hard limit (`soft_limit=false`), `dimension=requests`, `max=10`, a one-minute window, and preferably `retry_after_header=true`. A rule with no conditions applies tenant-wide; tenant isolation is already part of the runtime counter key.
+
+```powershell
+$env:BASE_URL="http://localhost:4000"
+$env:API_KEY="sk-dev-master-key-12345"
+$env:TENANT="tenant1"
+$env:MODEL="gpt-4o-mini"
+$env:RULE_LIMIT="10"
+$env:WINDOW_SECONDS="60"
+
+k6 run --summary-export loadtests/results/rate-limit-tenant1.json loadtests/k6/rate-limit-rule.js
+```
+
+The test first sends one preflight request and waits for its reported reset time, so the measured burst starts with a clean window. It then sends 20 concurrent requests by default and requires exactly 10 successful responses and 10 rate-limit responses. After the 60-second window plus a small grace period, it sends three recovery requests and requires all three to succeed.
+
+Use a dedicated load-test tenant (or a rule scoped to a dedicated virtual account) when possible. Any unrelated request matching the same tenant-wide rule correctly consumes one of the ten slots and makes the exact-count threshold fail; that is useful evidence, but it can make a shared staging environment nondeterministic.
+
+Important environment variables:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `RULE_LIMIT` | `10` | Exact configured request limit |
+| `WINDOW_SECONDS` | `60` | Exact configured window length |
+| `BURST_REQUESTS` | `RULE_LIMIT * 2` | Requests sent in the initial burst; must exceed the limit |
+| `BURST_VUS` | up to `20` | Concurrent workers for the burst |
+| `RECOVERY_REQUESTS` | up to `3` | Requests that must pass after reset |
+| `GRACE_SECONDS` | `2` | Clock/network tolerance around reset |
+| `ALIGN_WINDOW` | `true` | Preflight and wait for a clean window; disable only after explicitly clearing counters |
+| `EXPECT_RETRY_AFTER` | `true` | Require a valid `Retry-After` on rejected requests |
+
+The run fails if the exact 2xx/429 counts differ, a response is neither 2xx nor 429, the OpenAI-compatible error type is not `rate_limit_error`, the rate-limit headers are inconsistent, or traffic does not recover after reset. Expected 429 responses are deliberately treated as successful HTTP observations by k6; correctness is enforced through the custom counters and thresholds instead of the generic `http_req_failed` metric.
+
+### Budget-limit rule concurrency test
+
+Budget enforcement is cost-based rather than request-count-based. Configure a fresh hard budget rule with `block_on_budget_exceed=true`, choose the required scope/conditions, and set `BUDGET_LIMIT_IRR` to the exact `limit_to` value. For a quick local run with the mock provider, a tenant or virtual-account rule around `400 IRR` normally allows several calls before becoming exhausted.
+
+Current runtime enforcement compares `limit_to` with `TotalCostIRR`. The tenant-admin copy currently labels this field as dollars; until that product contract is reconciled, use the numeric IRR value actually enforced by the gateway when running this test.
+
+```powershell
+$env:BASE_URL="http://localhost:4000"
+$env:API_KEY="<dedicated PAT or virtual-account token>"
+$env:TENANT="budget-loadtest-tenant"
+$env:MODEL="gpt-4o-mini"
+$env:BUDGET_RULE_ID="loadtest-daily-budget-v1"
+$env:BUDGET_LIMIT_IRR="400"
+
+k6 run --summary-export loadtests/results/budget-limit.json loadtests/k6/budget-limit-rule.js
+```
+
+The burst sends 30 concurrent requests by default. Because the gateway atomically reserves estimated cost and later commits actual provider usage, the exact number of 2xx responses depends on model pricing and returned usage. The test therefore enforces stronger cost invariants instead of a fragile exact response count:
+
+- At least one request must succeed and expose a valid `X-Godarai-Cost-IRR`.
+- At least one request must be rejected with HTTP `402` and `error.type=budget_exceeded`.
+- The sum of successful response costs must not exceed `BUDGET_LIMIT_IRR` (plus rounding tolerance).
+- After all concurrent requests settle, teardown sends verification calls and requires all of them to remain blocked.
+- HTTP 429 is treated as interfering Rate Limit traffic and fails the run.
+
+Important environment variables:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `BUDGET_LIMIT_IRR` | `400` | Must equal the configured rule's `limit_to` |
+| `BUDGET_RULE_ID` | `budget-loadtest` | Metric tag and unique prompt namespace for the tested rule |
+| `BURST_REQUESTS` | `30` | Concurrent pressure used to exhaust the budget |
+| `BURST_VUS` | up to `30` | Concurrent workers |
+| `SATURATION_REQUESTS` | `3` | Verification calls after the burst has fully settled |
+| `MIN_ALLOWED` | `1` | Minimum expected successful calls in a clean budget window |
+| `MIN_REJECTED` | `1` | Minimum expected budget rejections during the burst |
+| `MAX_TOKENS` | `8` | Controls estimated output cost per request |
+| `COST_TOLERANCE_IRR` | `1` | Tolerance for summing two-decimal response cost headers |
+| `METADATA_JSON` | unset | Optional JSON metadata used by metadata-scoped rules |
+
+Use a new rule ID or explicitly clear only that rule's local Redis budget window before each repeat. Budget windows are aligned to UTC day/week/month boundaries, so a generic load test should not wait for reset. Test rollover separately near the real UTC boundary, or with an integration test that controls the clock. Also use a dedicated tenant or virtual account and avoid overlapping Rate Limit rules so 429 responses do not obscure budget behavior.
+
+Keep the test tenant's wallet balance materially higher than the rule limit and disable other matching hard budget rules. Otherwise a valid 402 may come from wallet exhaustion or a different rule, which the public error envelope intentionally does not distinguish.
+
 ## 4. Profile during the test
 
 Start k6 in one terminal, then collect profiles from another:
