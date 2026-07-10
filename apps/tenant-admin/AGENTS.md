@@ -51,9 +51,55 @@ This is a Next.js App Router app with `next-intl` for UI copy.
 1. Update `messages/modules/<namespace>/fa.json`.
 2. Mirror the same structure in `messages/modules/<namespace>/en.json`.
 3. Replace any new hardcoded UI text with translation keys.
-4. Run `pnpm --filter @shahrah/tenant-admin lint`.
+4. Lint the changed locale-related source files using the fast validation workflow below.
 5. Run `pnpm --filter @shahrah/tenant-admin validate:i18n`.
 6. Verify no corrupted locale values remain.
+
+## Fast Validation Workflow
+
+Lint and production builds for this app can be slow on Windows. Use progressive
+validation and do not repeatedly run repository-wide commands.
+
+1. During implementation, lint only changed JavaScript and TypeScript files.
+   Run the command from `apps/tenant-admin` and pass paths relative to that
+   directory:
+
+   ```bash
+   pnpm exec eslint <changed-file-1> <changed-file-2> --cache --cache-location .next/cache/eslint/.eslintcache
+   ```
+
+2. When a broader type check is useful, prefer the incremental compiler before
+   running a production build:
+
+   ```bash
+   pnpm exec tsc --noEmit --incremental
+   ```
+
+3. Before finishing a source-code change, run the app-scoped Turbo lint from the
+   repository root. Turbo can reuse the result when the app inputs have not
+   changed:
+
+   ```bash
+   pnpm turbo run lint --filter=@shahrah/tenant-admin
+   ```
+
+4. Run the app-scoped production build only when the change can affect
+   compilation, routing, rendering, dependencies, environment handling, or
+   runtime behavior:
+
+   ```bash
+   pnpm turbo run build --filter=@shahrah/tenant-admin
+   ```
+
+5. Documentation-only, test-only, planning, or other non-production changes do
+   not require a production build. State in the final summary why it was skipped.
+6. Do not use root `pnpm lint` or root `pnpm build` to validate tenant-admin-only
+   work; those commands fan out across the monorepo.
+7. Do not delete `.next` or `.turbo` as routine cleanup because doing so removes
+   reusable caches. Clear them only when diagnosing suspected stale output.
+8. If a full command is unexpectedly slow, do not immediately rerun the same
+   command. Report the elapsed time, preserve any output, and use the narrower
+   checks above to identify whether linting, type checking, or bundling is slow.
 
 ## Commands
 
@@ -61,8 +107,8 @@ Run from the repository root:
 
 ```bash
 pnpm --filter @shahrah/tenant-admin dev
-pnpm --filter @shahrah/tenant-admin build
-pnpm --filter @shahrah/tenant-admin lint
+pnpm turbo run build --filter=@shahrah/tenant-admin
+pnpm turbo run lint --filter=@shahrah/tenant-admin
 pnpm --filter @shahrah/tenant-admin validate:i18n
 ```
 
@@ -78,5 +124,6 @@ Before making UI changes:
 6. Avoid raw color utilities and arbitrary values.
 7. Preserve RTL behavior.
 8. Update `/design-system` when adding reusable UI patterns.
-9. Run available lint/typecheck/build commands before finishing.
+9. Follow the fast validation workflow above; run a production build when the
+   change affects production code or configuration.
 10. Summarize any UI debt that remains.

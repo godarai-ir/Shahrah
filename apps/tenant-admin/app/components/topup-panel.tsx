@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { BadgePercent, CreditCard, Landmark, TestTubeDiagonal, WalletCards } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import { SettingsCard } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -22,6 +23,14 @@ type Props = {
   initialError: string | null;
 };
 
+type ProviderOption = {
+  value: string;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+  logoSrc?: string;
+};
+
 export default function TopUpPanel(props: Props) {
   const t = useTranslations("topupPage");
 
@@ -37,7 +46,7 @@ export default function TopUpPanel(props: Props) {
     { value: "50000000", label: t("quickAmounts.fiftyMillion") },
   ];
 
-  const providerOptions = [
+  const providerOptions: readonly ProviderOption[] = [
     { value: "mock", label: t("providers.mock"), description: t("providerDescriptions.mock"), icon: TestTubeDiagonal },
     {
       value: "zarinpal",
@@ -53,7 +62,7 @@ export default function TopUpPanel(props: Props) {
       icon: CreditCard,
       logoSrc: "/images/providers/idpay.png",
     },
-  ] as const;
+  ];
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();

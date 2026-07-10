@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
+	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
@@ -70,14 +71,7 @@ func Middleware(queue *Queue, sampler *Sampler, slowMS int64, privacy ...*Privac
 		durationMS := time.Since(start).Milliseconds()
 		statusCode := c.Response().StatusCode()
 
-		tenantID := ""
-		if scopedTenantID, ok := c.Locals(LocalTenantIDKey).(string); ok {
-			tenantID = scopedTenantID
-		}
-
-		if tenantID == "" {
-			tenantID = apiheaders.GetTenant(c)
-		}
+		tenantID := resolveTraceTenantID(c)
 
 		shouldSample := sampler.ShouldSample(DecisionInput{
 			TenantID:   tenantID,
@@ -148,14 +142,7 @@ func RecordStepSpan(c *fiber.Ctx, queue *Queue, parentSpanID, name, kind string,
 		return
 	}
 
-	tenantID := ""
-	if scopedTenantID, ok := c.Locals(LocalTenantIDKey).(string); ok {
-		tenantID = scopedTenantID
-	}
-
-	if tenantID == "" {
-		tenantID = apiheaders.GetTenant(c)
-	}
+	tenantID := resolveTraceTenantID(c)
 
 	if strings.TrimSpace(parentSpanID) == "" {
 		parentSpanID = RootSpanIDFromContext(c)
@@ -250,6 +237,26 @@ func normalizeRoute(path string) string {
 	}
 
 	return path
+}
+
+func resolveTraceTenantID(c *fiber.Ctx) string {
+	if c == nil {
+		return ""
+	}
+
+	if scopedTenantID, ok := c.Locals(LocalTenantIDKey).(string); ok {
+		if tenantID := strings.TrimSpace(scopedTenantID); tenantID != "" {
+			return tenantID
+		}
+	}
+
+	if currentTenant := tenant.FromContext(c); currentTenant != nil {
+		if tenantID := strings.TrimSpace(currentTenant.ID); tenantID != "" {
+			return tenantID
+		}
+	}
+
+	return strings.TrimSpace(apiheaders.GetTenant(c))
 }
 
 // TraceIDFromContext returns the active trace identifier.

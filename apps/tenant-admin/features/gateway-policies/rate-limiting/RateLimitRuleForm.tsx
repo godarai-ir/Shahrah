@@ -569,7 +569,7 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
 
             <FormField label={t("form.fields.limitDimension")}>
               <InlineSelect
-                value={limitDimension}
+                value={limitDimension ?? "requests"}
                 ariaLabel={t("aria.limitDimension")}
                 onValueChange={(value) => form.setValue("limit.dimension", value as "requests" | "tokens", { shouldValidate: true, shouldDirty: true })}
                 options={[
@@ -640,7 +640,7 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
 
                   <FormField label={t("form.fields.conflictBehavior")}>
                     <InlineSelect
-                      value={conflictBehavior}
+                      value={conflictBehavior ?? "most_restrictive"}
                       ariaLabel={t("aria.conflictBehavior")}
                       onValueChange={(value) =>
                         form.setValue("conflict_behavior", value as "first_match" | "most_restrictive" | "apply_all", {
