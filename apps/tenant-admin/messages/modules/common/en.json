@@ -4,6 +4,7 @@
   "refresh": "Refresh",
   "loading": "Loading...",
   "requestError": "Request failed.",
+  "usageGuide": "Usage guide",
   "none": "-",
   "notSet": "Not set"
 }

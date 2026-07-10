@@ -1,0 +1,60 @@
+---
+title: جایگزینی با Regex
+---
+
+# جایگزینی با Regex
+
+`regex_replace` هر match یک Regex را در متن جایگزین می‌کند. این نوع برای mutation مستقیم مناسب است؛ اگر می‌خواهید match باعث ردشدن درخواست شود، از [Regex Guardrail](/guardrails-regex) با operation برابر `validate` استفاده کنید.
+
+## چه زمانی استفاده کنیم؟
+
+- ماسک‌کردن شناسه‌ای با یک pattern مشخص
+- یکسان‌سازی قالب داده پیش از ارسال به مدل
+- جایگزینی بخشی از متن با استفاده از capture groupهای Regex
+
+## رفتار اجرایی
+
+این نوع فقط از `operation: "mutate"` پشتیبانی می‌کند. Regex روی هر متن انتخاب‌شده اجرا می‌شود و همه matchها با `replacement` جایگزین می‌شوند. اگر تغییری رخ دهد، status برابر `mutated` و reason برابر `Regex replacement applied` ثبت می‌شود.
+
+## تنظیمات
+
+| فیلد | نوع | اجباری | توضیح |
+| --- | --- | --- | --- |
+| `pattern` | `string` | بله | یک Regex معتبر با syntax موتور Go. |
+| `replacement` | `string` | خیر | متن جایگزین؛ مقدار خالی یا حذف‌شده به `[REDACTED]` برمی‌گردد. |
+| `case_sensitive` | `boolean` | خیر | مقدار پیش‌فرض `true` است. اگر `false` باشد، pattern به‌صورت case-insensitive کامپایل می‌شود. |
+
+در `replacement` می‌توانید از syntax استاندارد Go مثل `$1` و `${name}` برای capture groupها استفاده کنید.
+
+## نمونه تعریف
+
+```json
+{
+  "slug": "normalize-ticket",
+  "name": "Normalize ticket IDs",
+  "type": "regex_replace",
+  "operation": "mutate",
+  "enforcement": "enforce",
+  "enabled": true,
+  "config": {
+    "pattern": "(?i)ticket[- ]([0-9]{6})",
+    "replacement": "TICKET-$1",
+    "case_sensitive": true
+  }
+}
+```
+
+## نمونه استفاده
+
+```text
+x-godarai-guardrails: {"llm_input_guardrails":["guardrails/normalize-ticket"]}
+```
+
+برای تغییر پاسخ non-stream مدل، selector را در `llm_output_guardrails` قرار دهید.
+
+## محدودیت‌ها
+
+- این نوع فقط tenant-level است و selector آماده ندارد.
+- فقط متن را تغییر می‌دهد و برای block کردن match طراحی نشده است.
+- pattern روی هر بخش متنی به‌صورت جداگانه اجرا می‌شود.
+- output guardrail با `stream: true` پشتیبانی نمی‌شود.

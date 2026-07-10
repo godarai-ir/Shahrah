@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Check, Copy, Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 
-import { IdentifierField } from "@/components/app-ui";
+import { HelpLink, IdentifierField } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -426,14 +426,7 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
               </CardTitle>
               <CardDescription>
                 {t("description")} {" "}
-                <a
-                  href={docsHref}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="font-medium text-primary underline-offset-4 hover:underline"
-                >
-                  {t("actions.guide")}
-                </a>
+                <HelpLink href={docsHref} />
               </CardDescription>
             </div>
             <Button type="button" onClick={openCreateDialog}>

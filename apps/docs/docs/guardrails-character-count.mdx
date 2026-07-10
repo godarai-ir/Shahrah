@@ -1,0 +1,55 @@
+---
+title: محدودیت تعداد نویسه
+---
+
+# محدودیت تعداد نویسه
+
+`character_count` تعداد Unicode code pointهای هر متن را بررسی می‌کند. فاصله، newline و علائم نگارشی هم در شمارش قرار می‌گیرند.
+
+## چه زمانی استفاده کنیم؟
+
+- اعمال سقف دقیق‌تر از word count روی طول متن
+- جلوگیری از prompt یا پاسخ بسیار بزرگ
+- الزام وجود حداقل محتوای متنی
+
+## رفتار اجرایی
+
+این نوع فقط از `operation: "validate"` پشتیبانی می‌کند. شمارش با runeهای Go انجام می‌شود، بنابراین حروف فارسی یک نویسه محسوب می‌شوند. هر متن انتخاب‌شده جداگانه باید داخل بازه باشد.
+
+## تنظیمات
+
+| فیلد | نوع | اجباری | توضیح |
+| --- | --- | --- | --- |
+| `min` | `integer` | حداقل یکی از `min` یا `max` | حداقل تعداد مجاز؛ صفر یا بیشتر. |
+| `max` | `integer` | حداقل یکی از `min` یا `max` | حداکثر تعداد مجاز؛ صفر یا بیشتر. |
+
+## نمونه تعریف
+
+```json
+{
+  "slug": "response-character-limit",
+  "name": "Response character limit",
+  "type": "character_count",
+  "operation": "validate",
+  "enforcement": "audit",
+  "enabled": true,
+  "config": {
+    "min": 1,
+    "max": 4000
+  }
+}
+```
+
+## نمونه استفاده
+
+```text
+x-godarai-guardrails: {"llm_output_guardrails":["guardrails/response-character-limit"]}
+```
+
+با `enforcement: "audit"` متن خارج از بازه فقط `flagged` می‌شود و response متوقف نمی‌شود.
+
+## محدودیت‌ها
+
+- تعداد نویسه با byte length و token count یکسان نیست.
+- برخی emojiها یا graphemeهای ترکیبی ممکن است از چند code point ساخته شده باشند و بیشتر از یک نویسه شمرده شوند.
+- این نوع فقط tenant-level است و selector آماده ندارد.

@@ -140,7 +140,7 @@ func NewFromTenantGuardrail(item platform.TenantGuardrail) Guardrail {
 	case "json_keys":
 		return newJSONKeysGuardrail(item.Slug, enforcement, stringSliceFromConfig(item.Config, "keys"), stringFromConfig(item.Config, "mode", "all"))
 	case "contains_code":
-		return newContainsCodeGuardrail(item.Slug, enforcement, stringSliceFromConfig(item.Config, "languages"), boolFromConfig(item.Config, "must_contain", true))
+		return newContainsCodeGuardrail(item.Slug, enforcement, stringSliceFromConfig(item.Config, "languages"), containsCodeMustContainFromConfig(item.Config))
 	case "not_null":
 		return newNotNullGuardrail(item.Slug, enforcement)
 	case "jwt_validation":
@@ -410,6 +410,14 @@ func boolFromConfig(config map[string]interface{}, key string, fallback bool) bo
 	}
 
 	return fallback
+}
+
+func containsCodeMustContainFromConfig(config map[string]interface{}) bool {
+	if value, ok := config["must_contain"].(bool); ok {
+		return value
+	}
+
+	return !strings.EqualFold(strings.TrimSpace(stringFromConfig(config, "mode", "must_contain")), "must_not_contain")
 }
 
 func intFromConfig(config map[string]interface{}, key string, fallback int) int {

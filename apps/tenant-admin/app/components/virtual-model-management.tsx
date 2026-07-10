@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowDown, ArrowUp, BookOpen, CheckCircle2, Copy, Edit3, Loader2, Plus, RefreshCw, Save, Search, Trash2, XCircle } from "lucide-react";
+import { ArrowDown, ArrowUp, CheckCircle2, Copy, Edit3, Loader2, Plus, RefreshCw, Save, Search, Trash2, XCircle } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { IdentifierField } from "@/components/app-ui";
+import { HelpLink, IdentifierField } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -568,12 +568,7 @@ export default function VirtualModelManagement() {
               <CardTitle>{t("title")}</CardTitle>
               <CardDescription>{t("description")}</CardDescription>
             </div>
-            <Button type="button" variant="outline" size="sm" asChild>
-              <a href={docsHref} target="_blank" rel="noreferrer">
-                <BookOpen className="h-4 w-4" />
-                {t("actions.guide")}
-              </a>
-            </Button>
+            <HelpLink href={docsHref} />
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
                 <div className="relative flex-1">

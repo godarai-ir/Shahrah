@@ -1,0 +1,90 @@
+---
+title: عبارت‌های مسدود (Keyword Blocklist)
+---
+
+# عبارت‌های مسدود (Keyword Blocklist)
+
+`keyword_blocklist` ساده‌ترین گاردریل validate در GodarAI است. این گاردریل متن را با فهرستی از عبارت‌های ممنوع مقایسه می‌کند و اگر یکی از آن‌ها در متن وجود داشته باشد، check را ناموفق می‌کند.
+
+## چه زمانی استفاده کنیم؟
+
+از این گاردریل وقتی استفاده کنید که policy شما با عبارت‌های مشخص و قطعی قابل بیان است؛ مثلا promptهای شناخته‌شده jailbreak، دستورهای خطرناک داخلی، یا عبارت‌هایی که در محصول شما نباید وارد مدل شوند.
+
+نمونه use caseها:
+
+- جلوگیری از prompt injectionهای ساده مثل `ignore previous instructions`
+- جلوگیری از دستورهای عملیاتی پرریسک مثل `drop table`
+- مسدودکردن عبارت‌های داخلی یا domain-specific
+
+## رفتار اجرایی
+
+این نوع فقط از `operation: "validate"` پشتیبانی می‌کند.
+
+در زمان اجرا:
+
+- متن ورودی یا خروجی به حروف کوچک تبدیل می‌شود.
+- هر term با جست‌وجوی substring بررسی می‌شود.
+- اگر term پیدا شود، reason برابر `Keyword blocklist matched` ثبت می‌شود.
+- با `enforcement: "audit"` فقط status برابر `flagged` می‌شود.
+- با `enforcement: "enforce"` یا `enforce_ignore_error` درخواست یا پاسخ متوقف می‌شود.
+
+## تنظیمات
+
+`config` فقط یک فیلد لازم دارد:
+
+| فیلد | نوع | اجباری | توضیح |
+| --- | --- | --- | --- |
+| `terms` | `string[]` | بله | فهرست عبارت‌هایی که باید پیدا شوند. |
+
+`terms` باید حداقل یک مقدار غیرخالی داشته باشد.
+
+## نمونه تعریف
+
+```json
+{
+  "slug": "no-injection",
+  "name": "No simple prompt injection",
+  "description": "Block known prompt injection phrases.",
+  "type": "keyword_blocklist",
+  "operation": "validate",
+  "enforcement": "enforce",
+  "enabled": true,
+  "config": {
+    "terms": [
+      "ignore previous instructions",
+      "jailbreak",
+      "drop table"
+    ]
+  }
+}
+```
+
+## نمونه استفاده
+
+```text
+x-godarai-guardrails: {"llm_input_guardrails":["guardrails/no-injection"]}
+```
+
+برای بررسی فقط آخرین پیام کاربر:
+
+```text
+x-godarai-guardrails-scope: last
+```
+
+## selector آماده
+
+موتور پیش‌فرض selector زیر را هم دارد:
+
+```text
+guardrails/keyword-blocklist
+```
+
+این selector از فهرست داخلی `ignore previous instructions`، `jailbreak`, `rm -rf` و `drop table` استفاده می‌کند.
+
+## محدودیت‌ها
+
+- این گاردریل semantic نیست و فقط substring را بررسی می‌کند.
+- فاصله‌گذاری، املای متفاوت یا paraphrase ممکن است match نشود.
+- چون substring است، termهای خیلی کوتاه می‌توانند false positive بسازند.
+
+برای الگوهای دقیق‌تر، از [Regex](/guardrails-regex) استفاده کنید.

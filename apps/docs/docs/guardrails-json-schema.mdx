@@ -1,0 +1,70 @@
+---
+title: اعتبارسنجی JSON Schema
+---
+
+# اعتبارسنجی JSON Schema
+
+`json_schema` بررسی می‌کند هر متن، JSON معتبر باشد و با subset پیاده‌سازی‌شده از JSON Schema تطابق داشته باشد. این گاردریل بیشتر برای کنترل خروجی ساخت‌یافته مدل کاربرد دارد.
+
+## چه زمانی استفاده کنیم؟
+
+- الزام پاسخ مدل به object یا array JSON
+- اجباری‌کردن چند کلید سطح اول
+- کنترل نوع primitive propertyهای مستقیم یک object
+
+## رفتار اجرایی
+
+این نوع فقط از `operation: "validate"` پشتیبانی می‌کند. ابتدا کل متن با JSON parser خوانده می‌شود؛ متن توضیحی کنار JSON، code fence و JSON ناقص پذیرفته نمی‌شوند.
+
+subset فعلی این keywordها را اجرا می‌کند:
+
+| keyword | رفتار پشتیبانی‌شده |
+| --- | --- |
+| `type` | نوع مقدار ریشه: `object`، `array`، `string`، `number`، `integer`، `boolean` یا `null`. |
+| `required` | وجود کلیدهای لازم در object سطح اول. |
+| `properties.<key>.type` | نوع propertyهای مستقیم object سطح اول، در صورت وجود آن property. |
+
+## تنظیمات
+
+| فیلد | نوع | اجباری | توضیح |
+| --- | --- | --- | --- |
+| `schema` | `object` | بله | schema غیرخالی با قابلیت‌های جدول بالا. |
+
+## نمونه تعریف
+
+```json
+{
+  "slug": "answer-schema",
+  "name": "Structured answer schema",
+  "type": "json_schema",
+  "operation": "validate",
+  "enforcement": "enforce",
+  "enabled": true,
+  "config": {
+    "schema": {
+      "type": "object",
+      "required": ["answer", "confidence"],
+      "properties": {
+        "answer": {"type": "string"},
+        "confidence": {"type": "number"}
+      }
+    }
+  }
+}
+```
+
+## نمونه استفاده
+
+```text
+x-godarai-guardrails: {"llm_output_guardrails":["guardrails/answer-schema"]}
+```
+
+پاسخی مثل `{"answer":"تهران","confidence":0.98}` پذیرفته می‌شود.
+
+## محدودیت‌ها
+
+- این پیاده‌سازی validator کامل استاندارد JSON Schema نیست.
+- keywordهایی مثل `additionalProperties`، `enum`، `items`، `pattern`، بازه عددی و validation تو در تو اجرا نمی‌شوند.
+- type ناشناخته در schema باعث ردشدن مقدار نمی‌شود؛ فقط typeهای جدول بالا را استفاده کنید.
+- هر choice خروجی جداگانه باید JSON کامل و معتبر باشد.
+- این نوع فقط tenant-level است و output streaming را پشتیبانی نمی‌کند.

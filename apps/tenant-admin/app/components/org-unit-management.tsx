@@ -6,7 +6,6 @@ import {
   Building2,
   CalendarClock,
   Edit3,
-  ExternalLink,
   Gauge,
   Plus,
   RefreshCw,
@@ -21,7 +20,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AppCard, AppSelectField, EmptyState, IdentifierField, PageHeader, RowActionsMenu, StatusBadge } from "@/components/app-ui";
+import { AppCard, AppSelectField, EmptyState, HelpLink, IdentifierField, PageHeader, RowActionsMenu, StatusBadge } from "@/components/app-ui";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -511,15 +510,7 @@ export default function OrgUnitManagement({
         title={
           <span className="inline-flex flex-wrap items-center gap-2">
             <span>{t("title")}</span>
-            <a
-              href={docsHref}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {t("docsLink")}
-              <ExternalLink className="size-3.5" aria-hidden="true" />
-            </a>
+            <HelpLink href={docsHref} />
           </span>
         }
         description={t("subtitle")}

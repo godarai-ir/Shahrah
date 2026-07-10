@@ -94,6 +94,27 @@ func TestContainsCodeAndNotNullGuardrails(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestContainsCodeGuardrailUsesModeWhenBooleanIsOmitted(t *testing.T) {
+	g := NewFromTenantGuardrail(platform.TenantGuardrail{
+		Slug:        "no-code",
+		Type:        "contains_code",
+		Operation:   platform.GuardrailOperationValidate,
+		Enforcement: platform.GuardrailEnforcementEnforce,
+		Config:      map[string]interface{}{"languages": []interface{}{"sql"}, "mode": "must_not_contain"},
+	})
+	engine := NewDefaultEngine()
+	selection := RequestSelection{LLMInput: []string{"guardrails/no-code"}, Scope: ScopeAll}
+	overrides := map[string]Guardrail{"no_code": g}
+
+	plainRequest := contractsopenai.ChatCompletionRequest{Messages: []contractsopenai.ChatMessage{{Role: "user", Content: "Explain relational databases"}}}
+	_, err := engine.ApplyInputWithGuardrails(plainRequest, selection, overrides)
+	require.NoError(t, err)
+
+	codeRequest := contractsopenai.ChatCompletionRequest{Messages: []contractsopenai.ChatMessage{{Role: "user", Content: "select * from users"}}}
+	_, err = engine.ApplyInputWithGuardrails(codeRequest, selection, overrides)
+	require.Error(t, err)
+}
+
 func TestJWTValidationGuardrailValidatesHMAC(t *testing.T) {
 	token := signedTestJWT(t, map[string]interface{}{"alg": "HS256", "typ": "JWT"}, map[string]interface{}{"exp": time.Now().Add(time.Hour).Unix(), "iss": "issuer-a", "aud": "api"}, "secret")
 	g := NewFromTenantGuardrail(platform.TenantGuardrail{

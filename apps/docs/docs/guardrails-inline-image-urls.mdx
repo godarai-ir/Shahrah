@@ -1,0 +1,83 @@
+---
+title: Inline کردن URL تصویر
+---
+
+# Inline کردن URL تصویر
+
+`inline_image_urls` آدرس‌های HTTP و HTTPS موجود در متن را دریافت می‌کند و اگر پاسخ یک تصویر معتبر از نظر content type باشد، URL را با data URL مبتنی بر Base64 جایگزین می‌کند.
+
+## چه زمانی استفاده کنیم؟
+
+- تبدیل URL تصویر داخل متن به `data:image/...;base64,...`
+- حذف وابستگی provider به دسترسی مستقیم به host تصویر
+- محدودکردن host و اندازه تصویر پیش از inline شدن
+
+## رفتار اجرایی
+
+این نوع فقط از `operation: "mutate"` پشتیبانی می‌کند. موتور هر URL با scheme برابر `http` یا `https` را در متن پیدا می‌کند، آن را دریافت می‌کند و این موارد را کنترل می‌کند:
+
+- URL شامل username یا password نباشد.
+- hostname در `allowed_hosts` باشد، اگر allowlist تنظیم شده است.
+- به‌صورت پیش‌فرض hostname به IP خصوصی، loopback، link-local یا unspecified resolve نشود.
+- پاسخ HTTP موفق و `Content-Type` آن از خانواده `image/*` باشد.
+- body از `max_bytes` بزرگ‌تر نباشد.
+
+همین کنترل‌ها روی redirectها هم اعمال می‌شوند. اگر تبدیل انجام شود، status برابر `mutated` و reason برابر `Image URLs converted to inline data` ثبت می‌شود.
+
+## تنظیمات
+
+| فیلد | نوع | اجباری | توضیح |
+| --- | --- | --- | --- |
+| `max_bytes` | `integer` | خیر | حداکثر اندازه هر تصویر؛ پیش‌فرض `1048576` بایت. |
+| `allowed_hosts` | `string[]` | خیر | hostnameهای مجاز با مقایسه دقیق و case-insensitive؛ بدون wildcard. آرایه خالی همه hostهای عمومی را مجاز می‌کند. |
+| `timeout_ms` | `integer` | خیر | timeout دریافت هر URL؛ پیش‌فرض `3000` میلی‌ثانیه. |
+| `allow_private_networks` | `boolean` | خیر | اجازه دسترسی به IPهای خصوصی؛ پیش‌فرض `false`. |
+
+## نمونه تعریف
+
+```json
+{
+  "slug": "inline-cdn-images",
+  "name": "Inline trusted CDN images",
+  "type": "inline_image_urls",
+  "operation": "mutate",
+  "enforcement": "enforce",
+  "enabled": true,
+  "config": {
+    "max_bytes": 1048576,
+    "allowed_hosts": ["images.example.com"],
+    "timeout_ms": 3000,
+    "allow_private_networks": false
+  }
+}
+```
+
+## نمونه استفاده
+
+```text
+x-godarai-guardrails: {"llm_input_guardrails":["guardrails/inline-cdn-images"]}
+```
+
+متن زیر:
+
+```text
+این تصویر را بررسی کن: https://images.example.com/chart.png
+```
+
+پس از mutation شامل مقداری با شروع `data:image/png;base64,` خواهد بود.
+
+## رفتار خطا
+
+اگر download، host check، content type یا محدودیت اندازه ناموفق باشد:
+
+- با `enforcement: "enforce"` درخواست یا پاسخ متوقف می‌شود.
+- با `audit` یا `enforce_ignore_error` خطا در check ثبت می‌شود و متن اصلی ادامه پیدا می‌کند.
+
+## محدودیت‌ها و نکات امنیتی
+
+- این گاردریل همه URLهای HTTP(S) داخل متن را candidate تصویر فرض می‌کند؛ URL معمولی یک صفحه وب باعث خطای `URL did not return an image` می‌شود.
+- فقط URL داخل content متنی را تغییر می‌دهد و فیلد ساخت‌یافته `image_url` در پیام multimodal را بازنویسی نمی‌کند.
+- download در زمان request انجام می‌شود و cache داخلی ندارد؛ تعداد URLها مستقیما روی latency اثر می‌گذارد.
+- برای استفاده production، `allowed_hosts` را تنظیم کنید و `allow_private_networks` را فقط در شبکه کنترل‌شده فعال کنید.
+- بررسی image بودن بر اساس header `Content-Type` است، نه decode کامل فایل تصویر.
+- این نوع فقط tenant-level است و selector آماده ندارد.

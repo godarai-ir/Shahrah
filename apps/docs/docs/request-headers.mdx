@@ -105,28 +105,33 @@ x-godarai-cache-config: {"type":"simple","ttl":600,"namespace":"production"}
 اگر در tenant شما guardrail تعریف شده باشد، می‌توانید انتخاب یا اعمال آن را با header کنترل کنید:
 
 ```text
-x-godarai-guardrails: pii-redaction
+x-godarai-guardrails: {"llm_input_guardrails":["guardrails/pii-redaction"]}
 ```
 
 در implementation فعلی، helper مربوطه علاوه بر header canonical، مقدار `x-tfy-guardrails` و نسخه legacy را هم می‌شناسد.
 
 این یعنی اگر از بعضی integrationهای وارداتی یا legacy استفاده کنید، ممکن است همچنان کار کنند؛ ولی برای کد جدید بهتر است روی نام canonical بایستید.
 
-## `x-godarai-guardrails-scope`
-
-برای تعیین scope اجرای guardrail:
+اگر header به‌شکل plain string ارسال شود، به‌عنوان فهرست selectorهای ورودی تفسیر می‌شود:
 
 ```text
-x-godarai-guardrails-scope: input
+x-godarai-guardrails: guardrails/pii-redaction, guardrails/secrets-detection
 ```
 
-یا بسته به flow:
+## `x-godarai-guardrails-scope`
 
-- `input`
-- `output`
-- یا scopeهای داخلی تعریف‌شده در محصول
+برای تعیین scope اجرای guardrailهای ورودی:
 
-مقدار دقیق scope باید با قابلیت guardrailهای فعال در محیط شما هماهنگ باشد.
+```text
+x-godarai-guardrails-scope: last
+```
+
+مقادیر معتبر:
+
+- `all`
+- `last`
+
+اگر output guardrail لازم دارید، آن را داخل `x-godarai-guardrails` و با کلید `llm_output_guardrails` مشخص کنید. در نسخه فعلی، خروجی stream شده با output guardrail پشتیبانی نمی‌شود.
 
 ## headerهای پاسخ مرتبط با cache
 

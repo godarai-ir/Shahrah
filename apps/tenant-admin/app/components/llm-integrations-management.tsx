@@ -22,6 +22,7 @@ import {
   stringsEqualFold,
   unwrapData,
 } from "@/app/components/provider-account-wizard/utils";
+import { HelpLink } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -331,17 +332,7 @@ export default function LLMIntegrationsManagement(props: {
             </div>
             <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-muted-foreground">
               <p>{copy("pageDescription")}</p>
-              {props.docsHref ? (
-                <a
-                  href={props.docsHref}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 rounded-md text-primary underline-offset-4 hover:underline"
-                >
-                  <BookOpen className="size-3.5" />
-                  {copy("actions.readDocs")}
-                </a>
-              ) : null}
+              {props.docsHref ? <HelpLink href={props.docsHref} /> : null}
             </div>
           </div>
         </header>

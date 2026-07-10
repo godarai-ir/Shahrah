@@ -1,0 +1,69 @@
+---
+title: کنترل کلیدهای JSON
+---
+
+# کنترل کلیدهای JSON
+
+`json_keys` وجود یا نبودن کلیدهای مشخص در سطح اول یک object JSON را بررسی می‌کند. وقتی فقط policy مربوط به نام کلیدهاست، این نوع از `json_schema` ساده‌تر است.
+
+## چه زمانی استفاده کنیم؟
+
+- اطمینان از وجود همه فیلدهای اصلی پاسخ
+- پذیرفتن پاسخ در صورت وجود حداقل یکی از چند کلید
+- جلوگیری از برگشت کلیدهای ممنوع
+
+## رفتار اجرایی
+
+این نوع فقط از `operation: "validate"` پشتیبانی می‌کند. کل متن باید یک object JSON معتبر باشد؛ array، مقدار primitive، code fence یا متن ترکیبی رد می‌شود.
+
+| mode | شرط قبولی |
+| --- | --- |
+| `all` | همه کلیدهای `keys` در سطح اول وجود داشته باشند. مقدار پیش‌فرض است. |
+| `any` | حداقل یکی از کلیدها وجود داشته باشد. |
+| `none` | هیچ‌کدام از کلیدها وجود نداشته باشند. |
+
+## تنظیمات
+
+| فیلد | نوع | اجباری | توضیح |
+| --- | --- | --- | --- |
+| `keys` | `string[]` | بله | حداقل یک نام کلید غیرخالی. |
+| `mode` | `all \| any \| none` | خیر | شیوه مقایسه؛ پیش‌فرض `all`. |
+
+## نمونه تعریف
+
+```json
+{
+  "slug": "public-answer-keys",
+  "name": "Public answer keys",
+  "type": "json_keys",
+  "operation": "validate",
+  "enforcement": "enforce",
+  "enabled": true,
+  "config": {
+    "keys": ["answer", "sources"],
+    "mode": "all"
+  }
+}
+```
+
+## نمونه منع کلید
+
+```json
+{
+  "keys": ["internal_notes", "debug"],
+  "mode": "none"
+}
+```
+
+## نمونه استفاده
+
+```text
+x-godarai-guardrails: {"llm_output_guardrails":["guardrails/public-answer-keys"]}
+```
+
+## محدودیت‌ها
+
+- فقط کلیدهای سطح اول بررسی می‌شوند؛ pathهایی مثل `user.email` معنی ویژه ندارند.
+- مقدار و type کلید بررسی نمی‌شود. برای آن از [JSON Schema](/guardrails-json-schema) استفاده کنید.
+- نام کلیدها case-sensitive است.
+- این نوع فقط tenant-level است و output streaming را پشتیبانی نمی‌کند.

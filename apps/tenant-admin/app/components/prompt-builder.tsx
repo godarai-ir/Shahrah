@@ -1,10 +1,9 @@
 "use client";
 
 import { AlertCircle, Bot, Braces, DatabaseZap, Loader2, Play, Plus, Save, Settings2, ShieldCheck, Sparkles, UserRound } from "lucide-react";
-import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { IdentifierField, PageHeader } from "@/components/app-ui";
+import { HelpLink, IdentifierField, PageHeader } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -136,11 +135,7 @@ export function PromptBuilder(props: PromptBuilderProps) {
           description={(
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span>{props.t("builder.description")}</span>
-              {props.docsHref ? (
-                <Link href={props.docsHref} className="text-sm font-medium text-primary underline-offset-4 hover:underline">
-                  {props.t("builder.docsLink")}
-                </Link>
-              ) : null}
+              {props.docsHref ? <HelpLink href={props.docsHref} /> : null}
             </div>
           )}
           actions={(

@@ -4,159 +4,168 @@ title: Guardrails
 
 # Guardrails در GodarAI
 
-`Guardrails` در GodarAI به شما کمک می‌کند روی ورودی و خروجی مدل‌ها یک لایه کنترل و اعتبارسنجی (Validation) قرار دهید تا رفتار سیستم فقط به «پاسخ گرفتن از مدل» محدود نماند و از نظر ایمنی، سازگاری با policy و کیفیت خروجی هم قابل‌کنترل‌تر شود.
+`Guardrails` در GodarAI یک لایه کنترل روی متن ورودی و خروجی مدل است. در نسخه فعلی، اجرای عملی گاردریل‌ها در مسیر [Chat Completions](/supported-apis/chat-completions/overview) انجام می‌شود و انتخاب آن‌ها با headerهای درخواست کنترل می‌شود.
 
-در عمل، بسیاری از خطاهای واقعی سیستم‌های مبتنی بر LLM به این خاطر نیست که provider در دسترس نبوده؛ بلکه به این خاطر است که پاسخ مدل برای pipeline شما مناسب نبوده است. Guardrails دقیقاً برای کاهش همین ریسک طراحی می‌شود.
+گاردریل‌ها دو کار اصلی انجام می‌دهند:
 
-## Guardrails چه مسئله‌ای را حل می‌کند؟
+- `validate`: متن را بررسی می‌کنند و در صورت تخطی، بسته به شیوه اعمال می‌توانند درخواست یا پاسخ را متوقف کنند.
+- `mutate`: متن را پیش از ادامه مسیر تغییر می‌دهند؛ مثلا مقدار حساس را با `[REDACTED]` جایگزین می‌کنند.
 
-یک درخواست LLM ممکن است از نظر HTTP کاملاً موفق باشد، اما از نظر محصول یا عملیات شکست‌خورده محسوب شود. برای مثال:
+## گاردریل‌های پشتیبانی‌شده
 
-- خروجی با schema مورد انتظار هم‌خوان نیست
-- متن شامل محتوای پرریسک، ناسازگار یا غیرمجاز است
-- کاربر prompt injection انجام داده است
-- خروجی حاوی کد، لینک یا الگوی ممنوع است
-- نتیجه برای نمایش مستقیم به کاربر مناسب نیست
+در گدارAI، گاردریل‌هایی که در مسیر tenant guardrail قابل تعریف و فعال‌سازی هستند این‌ها هستند:
 
-Guardrails کمک می‌کند قبل یا بعد از اجرای مدل، این شرایط را بررسی کنید و بسته به نتیجه، تصمیم عملیاتی بگیرید.
+| نوع | کاربرد | عملیات قابل استفاده | راهنما |
+| --- | --- | --- | --- |
+| `keyword_blocklist` | مسدودکردن عبارت‌های مشخص | فقط `validate` | [عبارت‌های مسدود](/guardrails-keyword-blocklist) |
+| `regex` | بررسی یا ماسک‌کردن الگوهای Regex سفارشی | `validate` یا `mutate` | [Regex](/guardrails-regex) |
+| `secrets_detection` | تشخیص یا ماسک‌کردن token، کلید خصوصی و secretهای رایج | `validate` یا `mutate` | [تشخیص Secret](/guardrails-secrets-detection) |
+| `basic_pii` | تشخیص یا ماسک‌کردن PII پایه مثل ایمیل، موبایل، عدد ۱۰ رقمی و کارت | `validate` یا `mutate` | [PII پایه و Redaction](/guardrails-pii-redaction) |
+| `regex_replace` | جایگزینی matchهای یک Regex | فقط `mutate` | [جایگزینی با Regex](/guardrails-regex-replace) |
+| `sentence_count` | محدودکردن تعداد جمله‌ها | فقط `validate` | [تعداد جمله](/guardrails-sentence-count) |
+| `word_count` | محدودکردن تعداد واژه‌ها | فقط `validate` | [تعداد واژه](/guardrails-word-count) |
+| `character_count` | محدودکردن تعداد نویسه‌ها | فقط `validate` | [تعداد نویسه](/guardrails-character-count) |
+| `json_schema` | اعتبارسنجی ساختار پایه JSON | فقط `validate` | [JSON Schema](/guardrails-json-schema) |
+| `json_keys` | کنترل کلیدهای سطح اول یک object JSON | فقط `validate` | [کلیدهای JSON](/guardrails-json-keys) |
+| `contains_code` | الزام یا منع وجود کد بر اساس fence و markerهای داخلی | فقط `validate` | [تشخیص کد](/guardrails-contains-code) |
+| `not_null` | ردکردن متن خالی، `null` یا `undefined` | فقط `validate` | [مقدار غیرخالی](/guardrails-not-null) |
+| `jwt_validation` | استخراج و اعتبارسنجی JWT | فقط `validate` | [اعتبارسنجی JWT](/guardrails-jwt-validation) |
+| `inline_image_urls` | دریافت URLهای تصویر داخل متن و تبدیل آن‌ها به data URL | فقط `mutate` | [Inline کردن URL تصویر](/guardrails-inline-image-urls) |
 
-## Guardrails را کجا اعمال می‌کنیم؟
+## تعریف گاردریل
 
-به‌صورت مفهومی، Guardrails معمولاً روی یکی از این دو نقطه اعمال می‌شود:
+هر گاردریل tenant-level با این فیلدهای مشترک تعریف می‌شود:
 
-- `ورودی` یا همان request پیش از ارسال به model
-- `خروجی` یا همان response پیش از تحویل به مصرف‌کننده
+```json
+{
+  "slug": "mask-contact",
+  "name": "Mask contact data",
+  "description": "Redact contact data before sending the prompt to the model.",
+  "type": "basic_pii",
+  "operation": "mutate",
+  "enforcement": "enforce",
+  "enabled": true,
+  "config": {
+    "redaction_text": "[REDACTED]"
+  }
+}
+```
 
-این تفکیک مهم است، چون نوع کنترل در هر کدام متفاوت است:
+فیلدهای مهم:
 
-- روی ورودی معمولاً دنبال prompt injection، محتوای ممنوع، الگوهای خطرناک یا داده‌های نامعتبر هستید
-- روی خروجی معمولاً دنبال schema validation، policy enforcement، جلوگیری از افشای داده یا کنترل کیفیت پاسخ هستید
+- `slug`: شناسه قابل استفاده در selector. باید ۲ تا ۹۶ کاراکتر باشد و با حرف یا عدد شروع شود.
+- `type`: یکی از نوع‌های پشتیبانی‌شده در جدول بالا.
+- `operation`: یکی از `validate` یا `mutate`.
+- `enforcement`: یکی از `audit`، `enforce` یا `enforce_ignore_error`.
+- `enabled`: فقط گاردریل‌های فعال هنگام resolve کردن selectorهای tenant استفاده می‌شوند.
+- `config`: تنظیمات اختصاصی همان نوع گاردریل.
 
-## نمونه Guardrailهای رایج
+## شیوه اعمال
 
-بسته به use case، Guardrailها می‌توانند از نوع قطعی (Deterministic) یا مبتنی بر مدل باشند. نمونه‌های رایج:
+`enforcement` مشخص می‌کند نتیجه گاردریل چه اثری روی request یا response داشته باشد:
 
-- Regex برای بررسی الگوی متن
-- بررسی JSON Schema روی خروجی
-- تشخیص وجود کد در پاسخ
-- بررسی محتوای حساس یا ناسازگار با policy
-- تشخیص prompt injection
-- ارزیابی سطح gibberish یا بی‌معنا بودن خروجی
+| مقدار | رفتار |
+| --- | --- |
+| `audit` | تخطی را با status `flagged` ثبت می‌کند، اما مسیر را متوقف نمی‌کند. |
+| `enforce` | تخطی را متوقف می‌کند و خطا برمی‌گرداند. خطای اجرای خود گاردریل هم باعث توقف می‌شود. |
+| `enforce_ignore_error` | تخطی را متوقف می‌کند، اما خطای اجرای گاردریل را نادیده می‌گیرد. |
 
-در بسیاری از سناریوها، [Moderation](/supported-apis/moderation) می‌تواند یکی از اجزای سبک‌تر این زنجیره باشد، اما Guardrails معمولاً از moderation گسترده‌تر است و به منطق orchestration هم وصل می‌شود.
+برای گاردریل‌های `mutate`، اگر match پیدا شود متن تغییر می‌کند و check با status `mutated` ثبت می‌شود.
 
-## تفاوت Guardrails با Moderation
+## انتخاب گاردریل در درخواست
 
-این دو را بهتر است یکی ندانیم:
+برای اجرای گاردریل، selector را در header `x-godarai-guardrails` بفرستید. selectorهای tenant-level با الگوی `guardrails/<slug>` ساخته می‌شوند.
 
-- `Moderation` بیشتر برای تشخیص محتوای حساس یا پرریسک کاربرد دارد
-- `Guardrails` یک لایه تصمیم‌گیری گسترده‌تر است که می‌تواند validation، blocking، fallback، retry، logging و feedback loop را هم شامل شود
+نمونه اجرای گاردریل روی ورودی:
 
-اگر moderation به شما بگوید «این محتوا مشکوک است»، guardrail مشخص می‌کند بعدش چه اتفاقی باید بیفتد.
+```bash
+curl -X POST "$GODARAI_BASE_URL/v1/chat/completions" \
+  -H "Authorization: Bearer $GODARAI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H 'x-godarai-guardrails: {"llm_input_guardrails":["guardrails/mask-contact"]}' \
+  -d '{
+    "model": "openai:default:gpt-4o-mini",
+    "messages": [{"role": "user", "content": "Email me at user@example.com"}]
+  }'
+```
 
-## رفتارهای ممکن بعد از Guardrail
+نمونه اجرای گاردریل روی خروجی:
 
-ارزش واقعی Guardrails فقط در تشخیص نیست؛ در تصمیم بعد از تشخیص است. بسته به طراحی محصول، وقتی یک guardrail پاس یا fail شود، می‌توان این رفتارها را داشت:
+```text
+x-godarai-guardrails: {"llm_output_guardrails":["guardrails/no-secrets"]}
+```
 
-- فقط نتیجه را log کنیم
-- درخواست را متوقف کنیم
-- پاسخ را به کاربر نشان ندهیم
-- به مدل یا prompt دیگری fallback کنیم
-- درخواست را retry کنیم
-- برای ارزیابی بعدی، feedback یا dataset بسازیم
+برای سازگاری، کلیدهای `input_guardrails` و `output_guardrails` هم پذیرفته می‌شوند.
 
-این الگو باعث می‌شود Guardrails بخشی از orchestration در gateway باشد، نه فقط یک هشدار جانبی.
+## selectorهای آماده
 
-## Guardrails و گیت‌وی چه نسبتی دارند؟
+موتور پیش‌فرض چند selector آماده هم ثبت می‌کند. این selectorها بدون تعریف tenant guardrail هم resolve می‌شوند:
 
-وقتی Guardrails در سطح gateway تعریف شوند، مزیت مهمی به‌دست می‌آورید:
+| selector | رفتار |
+| --- | --- |
+| `guardrails/keyword-blocklist` | عبارت‌های پیش‌فرض مثل `ignore previous instructions`، `jailbreak`، `rm -rf` و `drop table` را مسدود می‌کند. |
+| `guardrails/regex` | الگوی پیش‌فرض secret/token/password را با `[REDACTED]` جایگزین می‌کند. |
+| `guardrails/secrets-detection` | secretهای رایج را با `[REDACTED]` جایگزین می‌کند. |
+| `guardrails/basic-pii` | PII پایه را با `[REDACTED]` جایگزین می‌کند. |
+| `guardrails/pii-redaction` | alias برای `basic_pii`. |
+| `guardrails/pii-detection` | alias برای `basic_pii`. |
 
-- policyها بین چند سرویس و چند تیم یکدست‌تر می‌شوند
-- enforcement از کد تک‌تک کلاینت‌ها جدا می‌شود
-- تغییر policy نیازمند انتشار نسخه جدید همه سرویس‌ها نیست
-- رفتارهای عملیاتی مثل fallback، retry و deny می‌توانند متمرکز شوند
+برای production بهتر است به‌جای تکیه بر selectorهای عمومی، گاردریل tenant-level با slug و config مشخص بسازید تا رفتار آن برای تیم شما قابل بازبینی باشد.
 
-این همان دلیلی است که Guardrails در GodarAI بیشتر یک قابلیت زیرساختی و محصولی است تا صرفاً یک helper در کد اپلیکیشن.
+## scope اجرای ورودی
 
-## چه زمانی Guardrails برای شما ضروری‌تر است؟
+header `x-godarai-guardrails-scope` مشخص می‌کند گاردریل‌های ورودی روی کدام پیام‌ها اجرا شوند:
 
-اگر یکی از شرایط زیر را دارید، Guardrails احتمالاً باید بخشی از طراحی پایه شما باشد:
+| مقدار | رفتار |
+| --- | --- |
+| `all` | همه پیام‌های متنی از نقطه شروع انتخاب‌شده بررسی می‌شوند. مقدار پیش‌فرض است. |
+| `last` | فقط آخرین پیام `user` بررسی می‌شود. |
 
-- خروجی مدل را مستقیم به کاربر نهایی نشان می‌دهید
-- با داده‌های حساس، سازمانی یا policy-bound کار می‌کنید
-- agent یا workflow خودکار دارید
-- پاسخ باید ساختار مشخصی داشته باشد
-- چند تیم یا چند سرویس از یک لایه LLM مشترک استفاده می‌کنند
+در پیام‌های multimodal، فقط بخش‌های متنی با `type: "text"` بررسی یا تغییر داده می‌شوند.
 
-## ارتباط Guardrails با APIهای GodarAI
+## خروجی و streaming
 
-Guardrails معمولاً روی APIهای تولید یا پردازش محتوا معنا پیدا می‌کند، به‌ویژه:
+گاردریل خروجی بعد از دریافت پاسخ کامل provider اجرا می‌شود. در نسخه فعلی، ترکیب `stream: true` با `llm_output_guardrails` پشتیبانی نمی‌شود و درخواست با خطای `400` رد می‌شود.
 
-- [Chat Completions](/supported-apis/chat-completions/overview)
-- [Responses API](/supported-apis/responses-api)
-- [Messages](/supported-apis/messages)
-- [Moderation](/supported-apis/moderation)
+گاردریل ورودی می‌تواند پیش از شروع stream اجرا شود، چون قبل از ارسال payload به provider اعمال می‌شود.
 
-برای workloadهای agentic یا tool-calling، Guardrails اهمیت بیشتری هم پیدا می‌کند، چون خطا فقط یک متن اشتباه نیست و می‌تواند روی جریان اجرای ابزارها هم اثر بگذارد.
+## پاسخ خطا
 
-## نسبت Guardrails با Request Headers و هویت
+اگر گاردریل با `enforce` یا `enforce_ignore_error` مسیر را متوقف کند، پاسخ با type زیر برمی‌گردد:
 
-در سناریوهای production، Guardrails وقتی مفیدتر می‌شود که به زمینه درخواست هم دسترسی داشته باشد. برای مثال:
+```json
+{
+  "error": {
+    "message": "Request blocked by GodarAI guardrail",
+    "type": "guardrail_checks_failed",
+    "code": "guardrail_blocked"
+  },
+  "guardrail_checks": {
+    "llm_input_guardrails": [
+      {
+        "selector": "guardrails/no-injection",
+        "status": "blocked",
+        "operation": "validate",
+        "enforcement": "enforce",
+        "reason": "Keyword blocklist matched",
+        "latency_ms": 0
+      }
+    ]
+  }
+}
+```
 
-- کدام tenant درخواست را فرستاده
-- این ترافیک متعلق به کدام team یا workload است
-- سطح دسترسی و policy این کلاینت چیست
+برای خروجی، پیام خطا `Response blocked by GodarAI guardrail` است.
 
-به همین دلیل، درک [Request Headers](/request-headers) و مدل هویتی گدارAI برای طراحی guardrailهای خوب مهم است.
+## مشاهده‌پذیری
 
-## نسبت Guardrails با مشاهده‌پذیری
+نتیجه هر check در trace با نام‌هایی مثل `guardrail.llm_input_guardrails` و `guardrail.llm_output_guardrails` ثبت می‌شود و metadataهایی مثل selector، status، operation، enforcement، latency و reason دارد. برای تحلیل عملیاتی، این داده‌ها را کنار [Logs](/observability-logs) و [OpenTelemetry](/observability-opentelemetry) ببینید.
 
-اگر فقط guardrail را اجرا کنید اما نتیجه آن را در observability نبینید، به‌مرور فهمیدن اثر واقعی policyها سخت می‌شود. Guardrails وقتی ارزش بیشتری پیدا می‌کند که بتوانید این موارد را تحلیل کنید:
+## از کجا شروع کنم؟
 
-- کدام guardrail بیشترین fail را دارد
-- failها مربوط به کدام team، model یا workload هستند
-- کدام policy باعث افزایش latency شده است
-- چند درخواست به دلیل guardrail متوقف، retry یا reroute شده‌اند
-
-برای این لایه تحلیلی، [OpenTelemetry برای مشاهده‌پذیری](/observability-opentelemetry) و [رهگیری هزینه](/cost-tracking) می‌توانند مکمل خوبی باشند.
-
-## رویکرد پیشنهادی برای شروع
-
-برای بیشتر تیم‌ها، این مسیر عملی‌تر است:
-
-1. اول integration پایه را با [شروع سریع](/quick-start) و [اولین درخواست به Gateway](/making-llm-requests-via-gateway) برقرار کنید.
-2. بعد روی use caseهای پرریسک، Guardrailهای ساده و deterministic تعریف کنید.
-3. سپس moderation، schema validation و policyهای سطح تیم یا tenant را اضافه کنید.
-4. در نهایت، رفتارهای orchestration مثل deny، fallback یا retry را فقط جایی فعال کنید که اثرشان را در production سنجیده‌اید.
-
-## چند توصیه عملی
-
-### با Guardrailهای ساده شروع کنید
-
-Regex، schema و ruleهای واضح معمولاً قبل از Guardrailهای پیچیده‌تر ارزش زیادی ایجاد می‌کنند.
-
-### Guardrail را با business impact بسنجید
-
-هر policy باید روشن کند چه ریسکی را کم می‌کند و چه هزینه‌ای مثل latency یا false positive دارد.
-
-### deny را محتاطانه فعال کنید
-
-بستن کامل request یا response تصمیم پرهزینه‌ای است و بهتر است بعد از مشاهده رفتار واقعی ترافیک انجام شود.
-
-### Guardrail را فقط روی متن نگیرید
-
-در سناریوهای tool-calling، structured output و workflowهای agentic، failure modeها فراتر از متن ساده هستند.
-
-## FAQ
-
-### آیا Guardrails همان Moderation است؟
-
-خیر. moderation یکی از ابزارهای ممکن در این فضاست، اما guardrails دامنه بزرگ‌تری دارد و می‌تواند تصمیم‌های عملیاتی بعد از validation را هم شامل شود.
-
-### آیا Guardrails فقط برای خروجی مدل است؟
-
-خیر. خیلی وقت‌ها کنترل ورودی حتی مهم‌تر است، مخصوصاً برای prompt injection، داده نامعتبر و محتوای ناسازگار با policy.
-
-### آیا همه Guardrailها باید request را متوقف کنند؟
-
-نه. در بسیاری از موارد بهتر است ابتدا فقط log، measure و analyze کنید و بعد برای subsetهای حساس‌تر deny یا fallback را فعال کنید.
+1. اگر فقط می‌خواهید phraseهای ممنوع را متوقف کنید، [عبارت‌های مسدود](/guardrails-keyword-blocklist) را بخوانید.
+2. اگر الگوهای داخلی سازمانی دارید، از [Regex](/guardrails-regex) شروع کنید.
+3. اگر نگران token و کلید خصوصی هستید، [تشخیص Secret](/guardrails-secrets-detection) را فعال کنید.
+4. اگر داده تماس یا شناسه‌های عمومی وارد prompt می‌شود، [PII پایه و Redaction](/guardrails-pii-redaction) را ببینید.
+5. برای محدودیت طول، یکی از راهنماهای [جمله](/guardrails-sentence-count)، [واژه](/guardrails-word-count) یا [نویسه](/guardrails-character-count) را انتخاب کنید.
+6. برای خروجی ساخت‌یافته، [JSON Schema](/guardrails-json-schema) و [کلیدهای JSON](/guardrails-json-keys) را مقایسه کنید.

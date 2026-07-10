@@ -40,7 +40,7 @@ import {
   buildBashCurlGuideCommand,
   getTenantApiBaseURL,
 } from "@/app/components/provider-account-wizard/utils";
-import { AppCard, EmptyState, PageHeader, StatusBadge } from "@/components/app-ui";
+import { AppCard, EmptyState, HelpLink, PageHeader, StatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -759,14 +759,7 @@ function HeaderDescription(props: {
   return (
     <>
       {props.t("subtitle")}{" "}
-      <a
-        href={`${props.docsBaseHref}/quick-start`}
-        target="_blank"
-        rel="noreferrer"
-        className="font-medium text-primary underline underline-offset-4 hover:text-primary/80"
-      >
-        {props.t("docsLink")}
-      </a>
+      <HelpLink href={`${props.docsBaseHref}/quick-start`} />
     </>
   );
 }
@@ -906,14 +899,7 @@ function renderStepLearn(stepID: QuickStartStepID, t: TranslateFn, docsBaseHref:
   return (
     <>
       {t(`steps.${stepID}.learn`)}{" "}
-      <a
-        href={`${docsBaseHref}${docsSlug}`}
-        target="_blank"
-        rel="noreferrer"
-        className="font-medium text-primary underline underline-offset-4 hover:text-primary/80"
-      >
-        راهنمایی بیشتر
-      </a>
+      <HelpLink href={`${docsBaseHref}${docsSlug}`} />
     </>
   );
 }

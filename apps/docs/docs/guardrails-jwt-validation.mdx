@@ -1,0 +1,96 @@
+---
+title: اعتبارسنجی JWT
+---
+
+# اعتبارسنجی JWT
+
+`jwt_validation` یک JWT را از متن استخراج می‌کند و claimها و اعتبار token را با shared secret، JWKS یا introspection endpoint بررسی می‌کند.
+
+## چه زمانی استفاده کنیم؟
+
+- الزام وجود Bearer JWT معتبر در متن ورودی
+- کنترل `issuer` و `audience` یک token پیش از ارسال متن به مدل
+- اعتبارسنجی token با کلید HMAC، کلید عمومی RSA یا سرویس introspection
+
+## رفتار اجرایی
+
+این نوع فقط از `operation: "validate"` پشتیبانی می‌کند. pattern پیش‌فرض دنبال این قالب می‌گردد:
+
+```text
+Bearer <header>.<payload>.<signature>
+```
+
+اگر token پیدا نشود، check با reason برابر `JWT token is missing` ناموفق می‌شود. پس از parse کردن header و payload، claimهای زیر بررسی می‌شوند:
+
+- `exp`، در صورت وجود، نباید گذشته باشد.
+- `nbf`، در صورت وجود، نباید در آینده باشد.
+- `iss` فقط وقتی بررسی می‌شود که `issuer` در config تنظیم شده باشد.
+- `aud` فقط وقتی بررسی می‌شود که `audience` در config تنظیم شده باشد؛ مقدار string و array پذیرفته می‌شود.
+
+سپس یکی از مسیرهای اعتبارسنجی اجرا می‌شود:
+
+| روش | رفتار |
+| --- | --- |
+| `shared_secret` | امضای `HS256`، `HS384` یا `HS512` را بررسی می‌کند. |
+| `inline_jwks` یا `jwks_uri` | کلید RSA را با `kid` پیدا و امضای `RS256`، `RS384` یا `RS512` را بررسی می‌کند. |
+| `introspection_url` | token را با POST و content type برابر `application/x-www-form-urlencoded` می‌فرستد و `active: true` می‌خواهد. |
+
+اگر `introspection_url` تنظیم شده باشد، بعد از بررسی claimها از introspection استفاده می‌شود و مسیر local signature verification اجرا نمی‌شود.
+
+## تنظیمات
+
+| فیلد | نوع | اجباری | توضیح |
+| --- | --- | --- | --- |
+| `token_regex` | `string` | خیر | Regex استخراج token. باید token در capture group اول باشد. |
+| `issuer` | `string` | خیر | مقدار لازم برای claim برابر `iss`. |
+| `audience` | `string` | خیر | مقدار لازم در claim برابر `aud`. |
+| `shared_secret` | `string` | یکی از روش‌های اعتبارسنجی | secret برای الگوریتم‌های HMAC. |
+| `inline_jwks` | `object` | یکی از روش‌های اعتبارسنجی | JWKS شامل array غیرخالی `keys`. |
+| `jwks_uri` | `string` | یکی از روش‌های اعتبارسنجی | آدرس دریافت JWKS. |
+| `introspection_url` | `string` | یکی از روش‌های اعتبارسنجی | endpoint اعتبارسنجی فعال‌بودن token. |
+| `introspection_auth_header` | `string` | خیر | مقدار کامل header `Authorization` برای introspection. |
+
+حداقل یکی از `shared_secret`، `inline_jwks`، `jwks_uri` یا `introspection_url` باید تنظیم شود.
+
+## نمونه با shared secret
+
+```json
+{
+  "slug": "signed-user-token",
+  "name": "Validate user JWT",
+  "type": "jwt_validation",
+  "operation": "validate",
+  "enforcement": "enforce",
+  "enabled": true,
+  "config": {
+    "issuer": "https://identity.example.com",
+    "audience": "godarai-api",
+    "shared_secret": "replace-with-the-real-secret"
+  }
+}
+```
+
+## نمونه با JWKS
+
+```json
+{
+  "issuer": "https://identity.example.com",
+  "audience": "godarai-api",
+  "jwks_uri": "https://identity.example.com/.well-known/jwks.json"
+}
+```
+
+## نمونه استفاده
+
+```text
+x-godarai-guardrails: {"llm_input_guardrails":["guardrails/signed-user-token"]}
+```
+
+## محدودیت‌ها و نکات امنیتی
+
+- وجود `exp` الزامی نیست؛ فقط در صورت وجود بررسی می‌شود.
+- `token_regex` باید capture group داشته باشد. pattern نامعتبر در runtime به pattern پیش‌فرض برمی‌گردد.
+- دریافت JWKS و introspection برای هر evaluation درخواست شبکه با timeout سه ثانیه‌ای ایجاد می‌کند و cache داخلی ندارد.
+- `jwks_uri` و `introspection_url` را فقط به endpointهای قابل اعتماد بدهید؛ این دو URL محدودیت private-network نوع `inline_image_urls` را ندارند.
+- credentialهای این config در `config_json` گاردریل tenant نگهداری و از API مدیریت برگردانده می‌شوند؛ دسترسی مدیریت گاردریل را محدود کنید.
+- این نوع فقط tenant-level است و selector آماده ندارد.

@@ -6,6 +6,7 @@ export { ConfirmDialog } from "./ConfirmDialog";
 export { EmptyState } from "./EmptyState";
 export { FilterCombobox } from "./FilterCombobox";
 export { FormSection } from "./FormSection";
+export { HelpLink } from "./HelpLink";
 export { DEFAULT_IDENTIFIER_DESCRIPTION, IDENTIFIER_PATTERN, IdentifierField, isValidIdentifier } from "./IdentifierField";
 export { MetricCard } from "./MetricCard";
 export { PageHeader } from "./PageHeader";

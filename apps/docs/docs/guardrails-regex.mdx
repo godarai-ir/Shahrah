@@ -1,0 +1,104 @@
+---
+title: Regex Guardrail
+---
+
+# Regex Guardrail
+
+`regex` برای بررسی یا تغییر متن بر اساس الگوهای Regex سفارشی استفاده می‌شود. این گاردریل مناسب داده‌هایی است که در سازمان شما قالب مشخص دارند؛ مثل شناسه مشتری، شماره پرونده، token داخلی یا هر pattern قابل تعریف با Regex.
+
+## چه زمانی استفاده کنیم؟
+
+از این گاردریل وقتی استفاده کنید که تشخیص با عبارت ثابت کافی نیست و باید الگوی دقیق‌تری داشته باشید.
+
+نمونه use caseها:
+
+- مسدودکردن یا ماسک‌کردن شناسه‌های داخلی
+- پیدا کردن الگوهای secret که در `secrets_detection` پوشش داده نشده‌اند
+- حذف مقدارهایی مثل `password=...` یا `customer_id=...`
+- اجرای policyهای deterministic پیش از ارسال prompt به مدل
+
+## رفتار اجرایی
+
+این نوع از هر دو عملیات پشتیبانی می‌کند:
+
+| operation | رفتار |
+| --- | --- |
+| `validate` | اگر هر pattern match شود، check ناموفق می‌شود. |
+| `mutate` | matchها با `redaction_text` جایگزین می‌شوند. |
+
+اگر `operation` برابر `mutate` باشد و match پیدا شود، متن تغییر می‌کند و status برابر `mutated` ثبت می‌شود. اگر `operation` برابر `validate` باشد، رفتار توقف یا فقط ثبت نتیجه به `enforcement` بستگی دارد.
+
+## تنظیمات
+
+| فیلد | نوع | اجباری | توضیح |
+| --- | --- | --- | --- |
+| `patterns` | `string[]` | بله | فهرست Regexها. همه patternها هنگام ذخیره validate می‌شوند. |
+| `redaction_text` | `string` | فقط برای mutate کاربردی است | متن جایگزین. اگر خالی باشد، موتور از `[REDACTED]` استفاده می‌کند. |
+
+## نمونه validate
+
+```json
+{
+  "slug": "no-internal-ticket",
+  "name": "No internal ticket IDs",
+  "type": "regex",
+  "operation": "validate",
+  "enforcement": "audit",
+  "enabled": true,
+  "config": {
+    "patterns": [
+      "\\bTICKET-[0-9]{6}\\b"
+    ]
+  }
+}
+```
+
+در این حالت، match شدن pattern فقط در trace به‌صورت `flagged` ثبت می‌شود، چون enforcement برابر `audit` است.
+
+## نمونه mutate
+
+```json
+{
+  "slug": "mask-passwords",
+  "name": "Mask password-like fields",
+  "type": "regex",
+  "operation": "mutate",
+  "enforcement": "enforce",
+  "enabled": true,
+  "config": {
+    "patterns": [
+      "(?i)password\\s*[:=]\\s*\\S+"
+    ],
+    "redaction_text": "[SECRET]"
+  }
+}
+```
+
+## نمونه استفاده
+
+```text
+x-godarai-guardrails: {"llm_input_guardrails":["guardrails/mask-passwords"]}
+```
+
+برای خروجی non-stream:
+
+```text
+x-godarai-guardrails: {"llm_output_guardrails":["guardrails/no-internal-ticket"]}
+```
+
+## selector آماده
+
+موتور پیش‌فرض selector زیر را دارد:
+
+```text
+guardrails/regex
+```
+
+این selector یک الگوی داخلی برای مقادیر شبیه `secret`، `token` و `password` دارد و آن‌ها را با `[REDACTED]` جایگزین می‌کند.
+
+## محدودیت‌ها
+
+- Regexهای بیش از حد کلی می‌توانند false positive بسازند.
+- Regexهای ضعیف می‌توانند false negative داشته باشند.
+- این گاردریل فقط بخش‌های متنی payload را می‌بیند.
+- برای output guardrail همراه `stream: true` استفاده نکنید؛ در نسخه فعلی پشتیبانی نمی‌شود.
