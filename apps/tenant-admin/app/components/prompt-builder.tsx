@@ -4,7 +4,7 @@ import { AlertCircle, Bot, Braces, DatabaseZap, Loader2, Play, Plus, Save, Setti
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { PageHeader } from "@/components/app-ui";
+import { IdentifierField, PageHeader } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -165,10 +165,7 @@ export function PromptBuilder(props: PromptBuilderProps) {
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label={props.t("builder.fields.name")}>
-                <Input value={props.builder.name} onChange={(event) => props.onBuilderChange((current) => ({ ...current, name: event.target.value }))} placeholder={props.t("builder.fields.namePlaceholder")} />
-                <p className="text-xs leading-5 text-muted-foreground">{props.t("builder.fields.nameHelp")}</p>
-              </Field>
+              <IdentifierField label={props.t("builder.fields.name")} value={props.builder.name} onChange={(event) => props.onBuilderChange((current) => ({ ...current, name: event.target.value }))} placeholder={props.t("builder.fields.namePlaceholder")} description={props.t("builder.fields.nameHelp")} />
               <Field label={props.t("builder.fields.commitMessage")}>
                 <Input
                   value={props.builder.commitMessage}

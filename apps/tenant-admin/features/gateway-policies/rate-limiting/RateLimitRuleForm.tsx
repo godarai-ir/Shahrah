@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, Plus, Trash2, X } from "lucide-react";
 
-import { FormSection, PageHeader } from "@/components/app-ui";
+import { FormSection, IdentifierField, PageHeader } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -296,15 +296,7 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
       <form className="flex flex-col gap-6" onSubmit={form.handleSubmit(onSubmit)}>
         <FormSection title={t("form.sections.identity")} description={t("form.descriptions.identity")}>
           <div className="grid gap-4 lg:grid-cols-2">
-            <FormField label={t("form.fields.ruleId")} htmlFor="rule_id" description={t("form.descriptions.ruleId")}>
-              <Input
-                id="rule_id"
-                placeholder={t("form.ruleIdPlaceholder")}
-                aria-invalid={Boolean(form.formState.errors.rule_id)}
-                {...form.register("rule_id")}
-              />
-              <FieldError message={form.formState.errors.rule_id?.message} />
-            </FormField>
+            <IdentifierField id="rule_id" label={t("form.fields.ruleId")} description={t("form.descriptions.ruleId")} placeholder={t("form.ruleIdPlaceholder")} error={form.formState.errors.rule_id?.message} {...form.register("rule_id")} />
 
             <FormField label={t("form.fields.name")} htmlFor="name" description={t("form.descriptions.name")}>
               <Input id="name" placeholder={t("form.placeholders.name")} {...form.register("name")} />

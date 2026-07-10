@@ -21,7 +21,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AppCard, AppSelectField, EmptyState, PageHeader, RowActionsMenu, StatusBadge } from "@/components/app-ui";
+import { AppCard, AppSelectField, EmptyState, IdentifierField, PageHeader, RowActionsMenu, StatusBadge } from "@/components/app-ui";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -1038,16 +1038,7 @@ function OrgUnitForm({
 
   return (
     <form className="mt-6 space-y-5" onSubmit={onSubmit}>
-      <div className="grid gap-2">
-        <Label htmlFor="org-alias">{t("form.alias")}</Label>
-        <Input
-          id="org-alias"
-          value={form.alias}
-          onChange={(event) => update("alias", event.target.value)}
-          placeholder="engineering"
-          required
-        />
-      </div>
+      <IdentifierField id="org-alias" label={t("form.alias")} value={form.alias} onChange={(event) => update("alias", event.target.value)} placeholder="engineering" required />
       <div className="grid gap-2">
         <Label htmlFor="org-display-name">{t("form.displayName")}</Label>
         <Input

@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { ArrowDown, ArrowUp, BookOpen, CheckCircle2, Copy, Edit3, Loader2, Plus, RefreshCw, Save, Search, Trash2, XCircle } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { IdentifierField } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -728,15 +729,7 @@ export default function VirtualModelManagement() {
               ) : null}
 
               <div className="grid gap-3 md:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="vm-alias">{t("form.alias")}</Label>
-                  <Input
-                    id="vm-alias"
-                    value={form.alias}
-                    onChange={(event) => setForm((prev) => ({ ...prev, alias: event.target.value }))}
-                    placeholder={t("form.aliasPlaceholder")}
-                  />
-                </div>
+                <IdentifierField id="vm-alias" label={t("form.alias")} value={form.alias} onChange={(event) => setForm((prev) => ({ ...prev, alias: event.target.value }))} placeholder={t("form.aliasPlaceholder")} />
                 <div className="space-y-1.5">
                   <Label htmlFor="vm-strategy">{t("form.strategy")}</Label>
                   <div className="flex gap-2">

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import AccessManagementHeader from "@/app/components/access-management-header";
+import { IdentifierField } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -851,10 +852,7 @@ function VirtualUserFormView({
   const update = <K extends keyof VirtualUserForm>(key: K, value: VirtualUserForm[K]) => setForm({ ...form, [key]: value });
   return (
     <form className="mt-6 flex flex-col gap-4" onSubmit={onSubmit}>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="vu-alias">{t("fields.alias")}</Label>
-        <Input id="vu-alias" value={form.alias} onChange={(event) => update("alias", event.target.value)} required />
-      </div>
+      <IdentifierField id="vu-alias" label={t("fields.alias")} value={form.alias} onChange={(event) => update("alias", event.target.value)} required />
       <div className="flex flex-col gap-2">
         <Label htmlFor="vu-display">{t("fields.displayName")}</Label>
         <Input id="vu-display" value={form.displayName} onChange={(event) => update("displayName", event.target.value)} />

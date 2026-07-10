@@ -13,7 +13,7 @@ import {
 
 import AccessManagementHeader from "@/app/components/access-management-header";
 import { usePermissions } from "@/app/components/permissions-context";
-import { AppCard, AppSelectField, EmptyState, MetricCard, RowActionsMenu, StatusBadge as AppStatusBadge } from "@/components/app-ui";
+import { AppCard, AppSelectField, EmptyState, IdentifierField, MetricCard, RowActionsMenu, StatusBadge as AppStatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -494,7 +494,7 @@ function TeamForm({ t, form, setForm, orgUnits, onSubmit, isSaving, submitLabel,
   }, [allowedModels, modelQuery]);
   return (
     <form className="mt-6 flex flex-col gap-4" onSubmit={onSubmit}>
-      <div className="grid gap-2"><Label htmlFor="team-alias">{t("form.alias")}</Label><Input id="team-alias" value={form.alias} onChange={(e) => update("alias", e.target.value)} required /></div>
+      <IdentifierField id="team-alias" label={t("form.alias")} value={form.alias} onChange={(e) => update("alias", e.target.value)} required />
       <div className="grid gap-2"><Label htmlFor="team-display">{t("form.displayName")}</Label><Input id="team-display" value={form.displayName} onChange={(e) => update("displayName", e.target.value)} /></div>
       <AppSelectField label={t("form.orgUnit")} value={form.orgUnitID || "root"} onValueChange={(value) => update("orgUnitID", value === "root" ? "" : value)} triggerClassName="h-10" options={[{ value: "root", label: t("table.tenantRoot") }, ...orgUnits.map((org) => ({ value: org.id, label: org.display_name || org.alias }))]} />
       <AppSelectField label={t("form.workspaceType")} value={form.workspaceType} onValueChange={(value) => update("workspaceType", value)} triggerClassName="h-10" options={WORKSPACE_TYPES.map((type) => ({ value: type, label: t(`workspace.${type}`) }))} />

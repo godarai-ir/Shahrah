@@ -7,6 +7,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { ArrowLeft, Plus, Search } from "lucide-react";
 
 import AccessManagementHeader from "@/app/components/access-management-header";
+import { IdentifierField } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -140,10 +141,7 @@ export default function RoleCreateManagement({ initialPermissionCatalog }: RoleC
             <form className="space-y-5" onSubmit={onSubmit}>
               <section className="space-y-3">
                 <div className="grid gap-3 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="role-name">{t("rolesPage.form.name")}</Label>
-                    <Input id="role-name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="tenant_finance_admin" />
-                  </div>
+                  <IdentifierField id="role-name" label={t("rolesPage.form.name")} value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="tenant_finance_admin" />
                   <div className="space-y-2">
                     <Label htmlFor="role-display-name">{t("rolesPage.form.displayName")}</Label>
                     <Input id="role-display-name" value={form.display_name} onChange={(e) => setForm((p) => ({ ...p, display_name: e.target.value }))} placeholder={locale.startsWith("fa") ? "مدیر مالی فضای کاری" : "Tenant Finance Admin"} />

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Check, Copy, Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 
+import { IdentifierField } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -316,7 +318,7 @@ function localizedError(error: unknown, fallback: string, t: ReturnType<typeof u
   return fallback;
 }
 
-export function GuardrailsPage() {
+export function GuardrailsPage({ docsHref }: { docsHref: string }) {
   const t = useTranslations("guardrails");
   const locale = useLocale();
   const direction = locale === "fa" ? "rtl" : "ltr";
@@ -422,7 +424,17 @@ export function GuardrailsPage() {
                 <ShieldCheck data-icon="inline-start" aria-hidden="true" />
                 {t("title")}
               </CardTitle>
-              <CardDescription>{t("description")}</CardDescription>
+              <CardDescription>
+                {t("description")} {" "}
+                <a
+                  href={docsHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  {t("actions.guide")}
+                </a>
+              </CardDescription>
             </div>
             <Button type="button" onClick={openCreateDialog}>
               <Plus data-icon="inline-start" aria-hidden="true" />
@@ -516,29 +528,30 @@ export function GuardrailsPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{editing ? t("form.editTitle") : t("form.addTitle")}</DialogTitle>
-            <DialogDescription>{t("form.description")}</DialogDescription>
-          </DialogHeader>
+      <Sheet open={formOpen} onOpenChange={setFormOpen}>
+        <SheetContent side="left" className="flex h-full w-full max-w-2xl flex-col gap-0 p-0 sm:max-w-2xl">
+          <SheetHeader className="border-b border-border px-6 py-5 text-start">
+            <SheetTitle>{editing ? t("form.editTitle") : t("form.addTitle")}</SheetTitle>
+            <SheetDescription className="sr-only">{t("form.description")}</SheetDescription>
+          </SheetHeader>
 
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
             <div className="grid gap-3 md:grid-cols-2">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="guardrail-name">{t("form.name")}</Label>
                 <Input id="guardrail-name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
               </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="guardrail-slug">{t("form.identifier")}</Label>
-                <Input
-                  id="guardrail-slug"
-                  dir="ltr"
-                  value={form.slug}
-                  disabled={Boolean(editing)}
-                  onChange={(event) => setForm({ ...form, slug: event.target.value })}
-                />
-              </div>
+              <IdentifierField
+                id="guardrail-slug"
+                label={t("form.identifier")}
+                description={t("validation.slug")}
+                pattern="[A-Za-z0-9][A-Za-z0-9_-]{1,95}"
+                minLength={2}
+                maxLength={96}
+                value={form.slug}
+                disabled={Boolean(editing)}
+                onChange={(event) => setForm({ ...form, slug: event.target.value })}
+              />
             </div>
 
             <div className="flex flex-col gap-2">
@@ -796,16 +809,16 @@ export function GuardrailsPage() {
             </div>
           </div>
 
-          <DialogFooter>
+          <SheetFooter className="flex-row border-t border-border px-6 py-4">
             <Button type="button" variant="outline" disabled={isSaving} onClick={() => setFormOpen(false)}>
               {t("actions.cancel")}
             </Button>
             <Button type="button" disabled={isSaving} onClick={() => void submitForm()}>
               {isSaving ? t("actions.saving") : t("actions.save")}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
       <Dialog open={pendingDelete !== null} onOpenChange={(open) => !open && setPendingDelete(null)}>
         <DialogContent>

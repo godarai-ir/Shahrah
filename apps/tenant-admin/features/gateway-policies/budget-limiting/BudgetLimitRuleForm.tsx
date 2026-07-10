@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, X } from "lucide-react";
 
+import { IdentifierField } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -249,11 +250,7 @@ export function BudgetLimitRuleForm({ initialRule }: { initialRule?: BudgetLimit
         <form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
           <section className="space-y-3">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("form.sections.ruleIdentity")}</h2>
-            <div className="space-y-2">
-              <Label htmlFor="rule_id">{t("form.fields.ruleId")}</Label>
-              <Input id="rule_id" placeholder={t("form.placeholders.ruleId")} {...form.register("rule_id")} />
-              <FieldError message={form.formState.errors.rule_id?.message} />
-            </div>
+            <IdentifierField id="rule_id" label={t("form.fields.ruleId")} placeholder={t("form.placeholders.ruleId")} error={form.formState.errors.rule_id?.message} {...form.register("rule_id")} />
           </section>
 
           <Separator />
