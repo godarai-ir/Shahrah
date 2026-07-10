@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -37,17 +38,19 @@ export function RowActionsMenu({ actions, label, align = "end", className, disab
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align} className="min-w-40">
-        {actions.map((action, index) => (
-          <DropdownMenuItem
-            key={index}
-            disabled={action.disabled}
-            onSelect={action.onSelect}
-            className={cn("gap-2", action.destructive && "text-destructive focus:text-destructive")}
-          >
-            {action.icon ? <span className="flex size-4 items-center justify-center [&_svg]:size-4" aria-hidden="true">{action.icon}</span> : null}
-            <span>{action.label}</span>
-          </DropdownMenuItem>
-        ))}
+        <DropdownMenuGroup>
+          {actions.map((action, index) => (
+            <DropdownMenuItem
+              key={index}
+              disabled={action.disabled}
+              onSelect={action.onSelect}
+              className={cn(action.destructive && "text-destructive focus:text-destructive")}
+            >
+              {action.icon ? <span aria-hidden="true">{action.icon}</span> : null}
+              <span>{action.label}</span>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

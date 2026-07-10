@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { Copy, Pencil, Power, Trash2 } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { HelpLink } from "@/components/app-ui";
 import {
   Dialog,
   DialogContent,
@@ -65,7 +66,7 @@ function readBooleanFeature(value: unknown, fallback: boolean): boolean {
   return fallback;
 }
 
-export function BudgetLimitRulesPage() {
+export function BudgetLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
   const t = useTranslations("budgetLimitRules");
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -157,7 +158,10 @@ export function BudgetLimitRulesPage() {
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <CardTitle>{t("title")}</CardTitle>
-            <CardDescription>{t("description")}</CardDescription>
+            <CardDescription className="flex flex-wrap items-center gap-2">
+              <span>{t("description")}</span>
+              {docsHref ? <HelpLink href={docsHref} /> : null}
+            </CardDescription>
           </div>
           <Button type="button" onClick={handleCreateRule} disabled={!hasLoadedEntitlements}>
             {t("actions.new")}

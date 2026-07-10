@@ -141,7 +141,7 @@ export default function AdminShellClient({
 
               <div className="min-w-0 flex-1">
                 <p className="text-xs text-muted-foreground">{t("tenant")}</p>
-                <h1 className="truncate text-base font-semibold md:text-lg">{currentPageLabel}</h1>
+                <p className="truncate text-base font-semibold md:text-lg">{currentPageLabel}</p>
               </div>
 
               <div className="flex shrink-0 items-center gap-2">

@@ -6,6 +6,7 @@
     "externalAuth": "External Auth",
     "personalAccessTokens": "Personal Access Tokens",
     "virtualAccounts": "Virtual Accounts",
+    "orgUnits": "Organization Units",
     "roles": "Roles",
     "auditLogs": "Audit Logs"
   },
@@ -77,6 +78,10 @@
   "rolesPage": {
     "createTitle": "Create Custom Role",
     "listTitle": "Roles",
+    "listSectionTitle": "Role list",
+    "description": "Manage workspace roles and their access levels.",
+    "listSummary": "Showing {count} of {total} roles",
+    "loading": "Loading roles",
     "systemRole": "System",
     "customRole": "Custom",
     "form": {
@@ -92,13 +97,30 @@
       "scope": "TYPE",
       "permissions": "PERMISSIONS",
       "actions": "ACTIONS",
-      "empty": "No roles found."
+      "empty": "No roles found.",
+      "filteredEmpty": "No roles match the current search and filters."
+    },
+    "filters": {
+      "searchLabel": "Search roles",
+      "searchPlaceholder": "Search by name, display name, or description...",
+      "typeLabel": "Filter by role type",
+      "all": "All roles",
+      "system": "System roles",
+      "custom": "Custom roles",
+      "clear": "Clear filters"
+    },
+    "empty": {
+      "title": "No roles yet",
+      "description": "Create the first custom role to define a new access level."
     },
     "actions": {
       "edit": "Edit",
       "save": "Save",
       "cancel": "Cancel",
-      "protected": "Protected"
+      "protected": "Protected",
+      "protectedDescription": "This system role is read-only and cannot be edited.",
+      "openMenu": "Open actions for role {role}",
+      "retry": "Try again"
     }
   }
 }

@@ -6,6 +6,7 @@
     "externalAuth": "احراز هویت خارجی",
     "personalAccessTokens": "توکن‌های دسترسی شخصی",
     "virtualAccounts": "حساب‌های مجازی",
+    "orgUnits": "واحدهای سازمانی",
     "roles": "نقش‌ها",
     "auditLogs": "گزارش‌های ممیزی"
   },
@@ -77,6 +78,10 @@
   "rolesPage": {
     "createTitle": "ایجاد نقش سفارشی",
     "listTitle": "نقش‌ها",
+    "listSectionTitle": "فهرست نقش‌ها",
+    "description": "نقش‌های فضای کاری و سطح دسترسی آن‌ها را مدیریت کنید.",
+    "listSummary": "نمایش {count} نقش از {total} نقش",
+    "loading": "در حال بارگذاری نقش‌ها",
     "systemRole": "سیستمی",
     "customRole": "سفارشی",
     "form": {
@@ -92,13 +97,30 @@
       "scope": "نوع",
       "permissions": "مجوزها",
       "actions": "عملیات",
-      "empty": "نقشی یافت نشد."
+      "empty": "نقشی یافت نشد.",
+      "filteredEmpty": "نقشی مطابق جست‌وجو و فیلتر فعلی پیدا نشد."
+    },
+    "filters": {
+      "searchLabel": "جست‌وجوی نقش‌ها",
+      "searchPlaceholder": "جست‌وجو بر اساس نام، نام نمایشی یا توضیحات...",
+      "typeLabel": "فیلتر نوع نقش",
+      "all": "همه نقش‌ها",
+      "system": "نقش‌های سیستمی",
+      "custom": "نقش‌های سفارشی",
+      "clear": "پاک‌کردن فیلترها"
+    },
+    "empty": {
+      "title": "هنوز نقشی وجود ندارد",
+      "description": "برای تعریف سطح دسترسی تازه، نخستین نقش سفارشی را ایجاد کنید."
     },
     "actions": {
       "edit": "ویرایش",
       "save": "ذخیره",
       "cancel": "انصراف",
-      "protected": "محافظت‌شده"
+      "protected": "محافظت‌شده",
+      "protectedDescription": "این نقش سیستمی فقط‌خواندنی است و قابل ویرایش نیست.",
+      "openMenu": "باز کردن عملیات نقش {role}",
+      "retry": "تلاش مجدد"
     }
   }
 }
