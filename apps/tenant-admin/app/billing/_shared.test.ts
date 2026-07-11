@@ -6,6 +6,7 @@ import {
   buildBillingSummaryPath,
   formatDateOnly,
   getCurrentJalaliDateValue,
+  getCurrentJalaliMonthRange,
   getCurrentJalaliMonthSelection,
 } from "./_shared";
 
@@ -15,6 +16,10 @@ describe("billing jalali helpers", () => {
 
     expect(getCurrentJalaliMonthSelection(reference)).toEqual({ year: 1405, month: 4 });
     expect(getCurrentJalaliDateValue(reference)).toBe("1405-04-01");
+    expect(getCurrentJalaliMonthRange(reference)).toEqual({
+      from: new Date("2026-06-21T20:30:00.000Z"),
+      to: reference,
+    });
   });
 
   it("builds explicit Jalali billing report queries", () => {

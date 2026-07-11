@@ -1,22 +1,46 @@
 {
-  "title": "Invitation",
+  "title": "Accept invitation",
+  "eyebrow": "Workspace invitation",
+  "brand": {
+    "name": "GodarAI",
+    "tagline": "Unified AI infrastructure",
+    "heading": "Secure, effortless collaboration starts here.",
+    "description": "Join the workspace to access the tools and resources its administrator has made available to you.",
+    "security": "Your invitation link is private and protected"
+  },
+  "states": {
+    "idleTitle": "Ready to join?",
+    "idleDescription": "Accept this invitation to confirm your workspace membership.",
+    "loadingTitle": "Setting up your membership",
+    "loadingDescription": "Please keep this page open for a moment.",
+    "successTitle": "Welcome aboard!",
+    "successDescription": "Your membership is confirmed. You can now sign in to your account.",
+    "errorTitle": "This invitation cannot be accepted",
+    "errorDescription": "The invitation link may be invalid, expired, or already used."
+  },
+  "summary": {
+    "title": "Join the workspace",
+    "description": "Accepting this invitation will add your account to the inviter's workspace."
+  },
   "status": {
-    "idle": "Ready",
-    "loading": "Accepting invitation...",
-    "success": "Invitation accepted.",
-    "error": "Invitation acceptance failed."
+    "loading": "Verifying and accepting your invitation..."
   },
   "alerts": {
-    "successTitle": "Success",
-    "errorTitle": "Error"
+    "successTitle": "Membership confirmed",
+    "errorTitle": "Invitation unavailable"
   },
   "messages": {
     "accepted": "Your invitation was accepted successfully.",
-    "acceptFailed": "Failed to accept invitation.",
-    "missingToken": "Invitation token is missing."
+    "acceptFailed": "We could not accept the invitation. Please try again.",
+    "alreadyUsed": "This invitation has already been used.",
+    "missingToken": "This link does not include invitation details."
   },
+  "privacyNote": "Only accept if you recognize the sender and workspace. GodarAI will never ask for your password to accept an invitation.",
   "actions": {
-    "goToLogin": "Go to login",
-    "goToDashboard": "Go to dashboard"
+    "accept": "Accept invitation and join",
+    "accepting": "Accepting invitation...",
+    "continue": "Sign in to your account",
+    "retry": "Try again",
+    "goToLogin": "Back to sign in"
   }
 }

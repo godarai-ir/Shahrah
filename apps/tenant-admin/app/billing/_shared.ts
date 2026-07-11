@@ -191,6 +191,19 @@ export function getCurrentJalaliMonthSelection(reference = new Date()): JalaliMo
   return { year, month };
 }
 
+export function getCurrentJalaliMonthRange(reference = new Date()) {
+  const current = getCurrentJalaliMonthSelection(reference);
+  const localMonthStart = newJalaliDate(current.year, current.month - 1, 1);
+  const tehranOffsetMilliseconds = (3 * 60 + 30) * 60 * 1000;
+  const monthStartUTC = Date.UTC(
+    localMonthStart.getFullYear(),
+    localMonthStart.getMonth(),
+    localMonthStart.getDate(),
+  ) - tehranOffsetMilliseconds;
+
+  return { from: new Date(monthStartUTC), to: new Date(reference) };
+}
+
 export function getCurrentJalaliDateValue(reference = new Date()) {
   const { year, month, day } = getCurrentJalaliDateParts(reference);
   return `${year}-${pad(month)}-${pad(day)}`;

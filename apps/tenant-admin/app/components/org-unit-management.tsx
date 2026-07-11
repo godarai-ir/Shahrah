@@ -3,7 +3,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
-  Activity,
   Building2,
   CalendarClock,
   Edit3,
@@ -40,6 +39,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { appendDisplaySuffix, formatCompactNumber } from "@/lib/compact-number";
+import { getCurrentJalaliMonthRange } from "@/app/billing/_shared";
 import { usePermissions } from "@/app/components/permissions-context";
 import { canAnyPermission } from "@/lib/authz";
 
@@ -629,14 +629,9 @@ export default function OrgUnitManagement({
       <section className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,3fr)_minmax(22rem,1fr)]">
         <AppCard
           className="min-w-0"
-          title={t("list.title")}
-          description={t("list.description")}
-          headerClassName="sm:flex-col sm:items-stretch xl:flex-row xl:items-start"
-          titleContainerClassName="w-full xl:max-w-xs"
           contentClassName="flex min-w-0 flex-col gap-4"
-          actionsClassName="w-full xl:w-auto"
-          actions={
-            <div className="grid w-full gap-2 sm:grid-cols-[minmax(14rem,1fr)_auto_auto] 2xl:flex 2xl:w-auto 2xl:flex-wrap">
+        >
+          <div className="grid w-full gap-2 sm:grid-cols-[minmax(14rem,1fr)_auto_auto] 2xl:flex 2xl:flex-wrap">
               <div className="relative min-w-0">
                 <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -668,9 +663,7 @@ export default function OrgUnitManagement({
                   { value: "teams", label: t("sort.teams") },
                 ]}
               />
-            </div>
-          }
-        >
+          </div>
 
           <div className="overflow-x-auto">
             <Table>
@@ -774,55 +767,7 @@ export default function OrgUnitManagement({
         <aside className="flex min-w-0 flex-col gap-4">
           {selectedOrgUnit && selectedSummary ? (
             <>
-              <AppCard contentClassName="flex flex-col gap-4">
-                <div className="flex items-start gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm text-muted-foreground">{t("detail.breadcrumb")}</p>
-                    <h2 className="mt-1 truncate text-xl font-semibold">{getOrgName(selectedOrgUnit)}</h2>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm" onClick={() => openEdit(selectedOrgUnit)} disabled={!canManage}>
-                    <Edit3 data-icon="inline-start" />
-                    {t("actions.edit")}
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={openMembers} disabled={!canManage}>
-                    <Users data-icon="inline-start" />
-                    {t("actions.members")}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-destructive"
-                    onClick={() => setDeleteOpen(true)}
-                    disabled={!canDeleteOrgUnit}
-                  >
-                    <Trash2 data-icon="inline-start" />
-                    {t("actions.delete")}
-                  </Button>
-                </div>
-              </AppCard>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <MetricCard
-                  icon={WalletCards}
-                  label={t("kpi.attributedSpend")}
-                  value={isUsageLoading ? <Skeleton className="h-9 w-28" /> : usageSummary ? (
-                    <CompactValue
-                      dir="ltr"
-                      display={appendDisplaySuffix(formatCompactNumber(usageSummary.cost_irr, { locale }), t("usage.currencySuffix"))}
-                    />
-                  ) : "-"}
-                  description={t(`usage.periods.${usagePeriod}`)}
-                />
-                <MetricCard
-                  icon={Activity}
-                  label={t("kpi.attributedRequests")}
-                  value={isUsageLoading ? <Skeleton className="h-9 w-20" /> : usageSummary ? (
-                    <CompactValue dir="ltr" display={formatCompactNumber(usageSummary.request_count, { locale })} />
-                  ) : "-"}
-                  description={t(`usage.periods.${usagePeriod}`)}
-                />
+              <div className="grid grid-cols-2 gap-3">
                 <MetricCard icon={Building2} label={t("kpi.teams")} value={String(selectedSummary.teams)} />
                 <MetricCard icon={ShieldCheck} label={t("kpi.membersAdmins")} value={`${selectedSummary.members}/${selectedSummary.admins}`} />
               </div>
@@ -869,7 +814,7 @@ export default function OrgUnitManagement({
                     </Alert>
                   ) : usageSummary ? (
                     <>
-                      <dl className="grid gap-3 sm:grid-cols-2">
+                      <dl className="grid grid-cols-2 gap-3">
                         <div className="rounded-lg border border-border p-4">
                           <dt className="text-sm text-muted-foreground">{t("usage.cost")}</dt>
                           <dd className="mt-2 text-2xl font-bold tracking-tight">
@@ -1359,8 +1304,7 @@ function getUsagePeriodRange(period: UsagePeriod, now = new Date()) {
     return { from: new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000), to };
   }
   return {
-    from: new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), 1)),
-    to,
+    ...getCurrentJalaliMonthRange(to),
   };
 }
 

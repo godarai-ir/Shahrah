@@ -145,7 +145,7 @@
     "member": "Member"
   },
   "audit": {
-    "title": "Audit and metadata",
+    "title": "Change audit",
     "created": "Created",
     "updated": "Updated",
     "budgetId": "Budget ID"

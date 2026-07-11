@@ -24,7 +24,7 @@ type tenantListParams struct {
 
 const (
 	observabilityDefaultRange = 24 * time.Hour
-	observabilityMaxRange     = 7 * 24 * time.Hour
+	observabilityMaxRange     = 90 * 24 * time.Hour
 )
 
 func currentTenantOrErr(c *fiber.Ctx) (*platform.Tenant, error) {

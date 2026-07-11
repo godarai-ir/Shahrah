@@ -32,4 +32,18 @@ func TestApplyObservabilityTimeBoundsRejectsTooWideRange(t *testing.T) {
 	var fiberErr *fiber.Error
 	require.ErrorAs(t, err, &fiberErr)
 	assert.Equal(t, fiber.StatusBadRequest, fiberErr.Code)
+	assert.Equal(t, "time range must not exceed 2160 hours", fiberErr.Message)
+}
+
+func TestApplyObservabilityTimeBoundsAllowsNinetyDayRange(t *testing.T) {
+	now := time.Date(2026, 7, 8, 12, 0, 0, 0, time.UTC)
+	from := now.Add(-90 * 24 * time.Hour)
+	to := now
+
+	resolvedFrom, resolvedTo, err := applyObservabilityTimeBounds(&from, &to, now)
+	require.NoError(t, err)
+	require.NotNil(t, resolvedFrom)
+	require.NotNil(t, resolvedTo)
+	assert.Equal(t, from, *resolvedFrom)
+	assert.Equal(t, to, *resolvedTo)
 }
