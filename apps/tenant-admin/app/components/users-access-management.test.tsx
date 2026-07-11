@@ -69,6 +69,8 @@ describe("UsersAccessManagement", () => {
 
     const inviteButton = screen.getByRole("button", { name: "inviteUser" });
     await waitFor(() => expect(inviteButton).toBeEnabled());
+    fireEvent.focus(screen.getByText("usersPage.usage").closest("[tabindex]")!);
+    expect((await screen.findAllByText("usersPage.limitTooltip")).length).toBeGreaterThan(0);
     fireEvent.click(inviteButton);
 
     expect(screen.getByRole("dialog")).toHaveTextContent("inviteDescription");

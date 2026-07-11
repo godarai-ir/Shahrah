@@ -2,12 +2,9 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import {
-  Plus,
-  Search,
-} from "lucide-react";
+import { Info, Plus, Search, UsersRound } from "lucide-react";
 
-import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, PageHeader, RowActionsMenu } from "@/components/app-ui";
+import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, HelpLink, PageHeader, RowActionsMenu } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Progress } from "@/components/ui/progress";
 import {
   Sheet,
   SheetContent,
@@ -24,6 +22,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Table,
   TableBody,
@@ -91,6 +90,7 @@ type UsersAccessManagementProps = {
   initialError: string | null;
   currentUserID: string;
   canManageUsers: boolean;
+  docsHref?: string;
 };
 
 const PAGE_SIZE = 25;
@@ -160,6 +160,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   const canNext = offset + users.length < total;
   const usersLimit = coerceNumericEntitlement(entitlements?.features?.[USERS_FEATURE_KEY]);
   const hasReachedUsersLimit = usersLimit !== null && total >= usersLimit;
+  const usersUsagePercent = usersLimit && usersLimit > 0 ? Math.min(100, (total / usersLimit) * 100) : 0;
 
   function handleOpenInvite() {
     if (hasReachedUsersLimit) {
@@ -337,6 +338,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       <PageHeader
         title={t("usersPage.title")}
         description={t("usersPage.description")}
+        titleAddon={props.docsHref ? <HelpLink href={props.docsHref} /> : null}
         actions={
           <Button type="button" onClick={handleOpenInvite} disabled={!props.canManageUsers || !hasLoadedEntitlements}>
             <Plus data-icon="inline-start" />
@@ -362,7 +364,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         </Alert>
       ) : null}
 
-      <AppCard title={t("allUsers")} description={t("usersPage.listDescription")} contentClassName="flex min-w-0 flex-col gap-4" className="min-w-0 shadow-none">
+      <AppCard contentClassName="flex min-w-0 flex-col gap-4" className="min-w-0 shadow-none">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <InputGroup className="w-full sm:max-w-md">
             <InputGroupAddon><Search aria-hidden="true" /></InputGroupAddon>
@@ -373,7 +375,23 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
               aria-label={t("searchPlaceholder")}
             />
           </InputGroup>
-          <p className="text-sm text-muted-foreground">{t("usersPage.usage", { used: total, limit: usersLimit ?? t("usersPage.unlimited") })}</p>
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div tabIndex={0} className="flex min-w-fit items-center gap-2 rounded-lg border border-border bg-muted/40 px-2.5 py-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <UsersRound className="size-4" aria-hidden="true" />
+                  </span>
+                  <span className="text-sm font-semibold">{t("usersPage.usage", { used: total, limit: usersLimit ?? t("usersPage.unlimited") })}</span>
+                  {usersLimit !== null ? <Progress dir="ltr" value={usersUsagePercent} className="w-16" aria-label={t("usersPage.progressLabel", { value: Math.round(usersUsagePercent) })} /> : null}
+                  <Info className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p>{usersLimit === null ? t("usersPage.unlimitedTooltip") : t("usersPage.limitTooltip", { limit: usersLimit })}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
         <div className="overflow-x-auto"><Table>

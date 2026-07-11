@@ -10,14 +10,15 @@
     "roles": "Roles",
     "auditLogs": "Audit Logs"
   },
-  "allUsers": "ALL USERS",
   "searchPlaceholder": "Search users...",
   "usersPage": {
     "title": "Users",
     "description": "Manage workspace members, access status, and assigned roles.",
-    "listDescription": "Active and inactive users in this workspace.",
     "usage": "{used} users of {limit}",
     "unlimited": "Unlimited",
+    "progressLabel": "{value} percent of user capacity is used",
+    "limitTooltip": "Your current commercial plan supports up to {limit} users. Upgrade the plan to increase this capacity.",
+    "unlimitedTooltip": "No user-count limit is defined for your current plan.",
     "emptyDescription": "Invite the first user to start collaborating in this workspace.",
     "upgradeDialog": {
       "title": "Your plan's user limit has been reached",

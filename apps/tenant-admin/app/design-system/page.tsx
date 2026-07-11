@@ -7,6 +7,7 @@ import { AppCard, AppSelectField, CompactValue, CommercialPlanUpgradeDialog, Con
 import { Attachment, AttachmentAction, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { appendDisplaySuffix, formatCompactCurrency, formatCompactNumber } from "@/lib/compact-number";
@@ -108,6 +109,9 @@ export default function DesignSystemPage() {
         <SectionHeader title="Help link" description="Use for page-level and inline links to user guidance." />
         <div>
           <HelpLink href="/docs/quick-start" />
+        </div>
+        <div className="max-w-sm">
+          <Progress value={45} aria-label="Example usage progress" />
         </div>
       </section>
 
