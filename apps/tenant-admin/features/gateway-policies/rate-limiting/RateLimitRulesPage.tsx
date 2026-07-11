@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { Copy, Gauge, Pencil, Plus, Power, Trash2 } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CommercialPlanUpgradeDialog, EmptyState, HelpLink, PageHeader, RowActionsMenu, SearchField, StatusBadge } from "@/components/app-ui";
+import { CommercialPlanUpgradeDialog, DataListPanel, EmptyState, HelpLink, PageHeader, RowActionsMenu, SearchField, StatusBadge } from "@/components/app-ui";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import {
@@ -168,26 +167,23 @@ export function RateLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
           </Alert>
         ) : null}
 
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-            <SearchField containerClassName="max-w-xl" placeholder={t("searchPlaceholder")} value={query} onChange={(event) => setQuery(event.target.value)} />
-            <p className="text-sm text-muted-foreground">{t("resultCount", { count: filtered.length })}</p>
-          </div>
-
-        {isLoading && filtered.length === 0 ? (
-          <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4" aria-label={t("messages.loading")}>
-            {Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-10 w-full" />)}
-          </div>
-        ) : filtered.length === 0 ? (
-          <EmptyState
-            icon={Gauge}
-            title={query ? t("noResults.title") : t("emptyState.title")}
-            description={query ? t("noResults.description") : t("emptyState.description")}
-            primaryAction={!query ? <Button type="button" onClick={handleCreateRule} disabled={!hasLoadedEntitlements}><Plus data-icon="inline-start" />{t("actions.new")}</Button> : undefined}
-          />
-        ) : (
-          <div className="overflow-x-auto rounded-xl border border-border bg-card">
-            <Table className="text-xs lg:text-sm">
+        <DataListPanel
+          aria-label={t("title")}
+          toolbar={<SearchField containerClassName="max-w-xl" placeholder={t("searchPlaceholder")} value={query} onChange={(event) => setQuery(event.target.value)} />}
+          toolbarMeta={t("resultCount", { count: filtered.length })}
+          loading={isLoading && filtered.length === 0}
+          loadingLabel={t("messages.loading")}
+          empty={filtered.length === 0}
+          emptyState={
+            <EmptyState
+              icon={Gauge}
+              title={query ? t("noResults.title") : t("emptyState.title")}
+              description={query ? t("noResults.description") : t("emptyState.description")}
+              primaryAction={!query ? <Button type="button" onClick={handleCreateRule} disabled={!hasLoadedEntitlements}><Plus data-icon="inline-start" />{t("actions.new")}</Button> : undefined}
+            />
+          }
+        >
+          <Table className="text-xs lg:text-sm">
               <TableHeader>
                 <TableRow>
                   <TableHead className="px-1.5 lg:px-2">{t("table.ruleId")}</TableHead>
@@ -224,10 +220,8 @@ export function RateLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
-          </div>
-        )}
-        </div>
+          </Table>
+        </DataListPanel>
       </div>
 
       <Sheet open={isCreateSheetOpen} onOpenChange={setIsCreateSheetOpen}>

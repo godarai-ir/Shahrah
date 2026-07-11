@@ -18,7 +18,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, CompactValue, EmptyState, FilterCombobox, HelpLink, IdentifierField, MetricCard, PageHeader, RowActionsMenu } from "@/components/app-ui";
+import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, CompactValue, EmptyState, FilterCombobox, HelpLink, IdentifierField, MetricCard, PageHeader, RowActionsMenu, TablePagination } from "@/components/app-ui";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -739,29 +739,19 @@ export default function OrgUnitManagement({
             </Table>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-            <p>{t("pagination.showing", { from, to, total })}</p>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline">{t("pagination.rows", { count: PAGE_SIZE })}</Badge>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void loadOrgUnits(Math.max(0, offset - PAGE_SIZE), query.trim())}
-                disabled={!canPrev || isLoading}
-              >
-                {t("pagination.prev")}
-              </Button>
-              <Badge variant="secondary">{Math.floor(offset / PAGE_SIZE) + 1}</Badge>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void loadOrgUnits(offset + PAGE_SIZE, query.trim())}
-                disabled={!canNext || isLoading}
-              >
-                {t("pagination.next")}
-              </Button>
-            </div>
-          </div>
+          <TablePagination
+            label={t("title")}
+            summary={t("pagination.showing", { from, to, total })}
+            pageSize={t("pagination.rows", { count: PAGE_SIZE })}
+            page={Math.floor(offset / PAGE_SIZE) + 1}
+            previousLabel={t("pagination.prev")}
+            nextLabel={t("pagination.next")}
+            canPrevious={canPrev}
+            canNext={canNext}
+            disabled={isLoading}
+            onPrevious={() => void loadOrgUnits(Math.max(0, offset - PAGE_SIZE), query.trim())}
+            onNext={() => void loadOrgUnits(offset + PAGE_SIZE, query.trim())}
+          />
         </AppCard>
 
         <aside className="flex min-w-0 flex-col gap-4">

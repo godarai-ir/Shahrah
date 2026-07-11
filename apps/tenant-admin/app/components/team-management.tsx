@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 import { usePermissions } from "@/app/components/permissions-context";
-import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, FilterCombobox, HelpLink, IdentifierField, MetricCard, PageHeader, RowActionsMenu, SearchField, StatusBadge as AppStatusBadge } from "@/components/app-ui";
+import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, FilterCombobox, HelpLink, IdentifierField, MetricCard, PageHeader, RowActionsMenu, SearchField, StatusBadge as AppStatusBadge, TablePagination } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -442,7 +442,17 @@ export default function TeamManagement({
               </TableBody>
             </Table>
           </div>
-          <div className="flex items-center justify-between text-sm text-muted-foreground"><p>{t("pagination.showing", { from, to, total })}</p><div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => void loadTeams(Math.max(0, offset - PAGE_SIZE), query.trim())} disabled={offset <= 0 || isLoading}>{t("pagination.prev")}</Button><Button variant="outline" size="sm" onClick={() => void loadTeams(offset + PAGE_SIZE, query.trim())} disabled={offset + teams.length >= total || isLoading}>{t("pagination.next")}</Button></div></div>
+          <TablePagination
+            label={t("title")}
+            summary={t("pagination.showing", { from, to, total })}
+            previousLabel={t("pagination.prev")}
+            nextLabel={t("pagination.next")}
+            canPrevious={offset > 0}
+            canNext={offset + teams.length < total}
+            disabled={isLoading}
+            onPrevious={() => void loadTeams(Math.max(0, offset - PAGE_SIZE), query.trim())}
+            onNext={() => void loadTeams(offset + PAGE_SIZE, query.trim())}
+          />
         </AppCard>
 
         <div className="flex min-w-0 flex-col gap-4">

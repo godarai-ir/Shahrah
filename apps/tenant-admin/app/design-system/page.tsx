@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Trash2, Upload, X } from "lucide-react";
 
-import { AppCard, AppSelectField, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, EmptyState, FilterCombobox, FormSection, HelpLink, IdentifierField, MetricCard, PageHeader, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge } from "@/components/app-ui";
+import { AppCard, AppSelectField, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, DataListPanel, EmptyState, FilterCombobox, FormSection, HelpLink, IdentifierField, MetricCard, PageHeader, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, TablePagination } from "@/components/app-ui";
 import { Attachment, AttachmentAction, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ const tokens = [
 export default function DesignSystemPage() {
   const [selectValue, setSelectValue] = useState("active");
   const [filterValue, setFilterValue] = useState("openai");
+  const [samplePage, setSamplePage] = useState(1);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const requestsDisplay = formatCompactNumber(128_400, { locale: "en-US" });
   const spendDisplay = formatCompactCurrency(12_340, { locale: "en-US", currency: "USD" });
@@ -150,7 +151,26 @@ export default function DesignSystemPage() {
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[1fr_20rem]">
-        <AppCard title="Table pattern" description="Keep tables readable in RTL and use status badges for state.">
+        <DataListPanel
+          aria-label="Resources"
+          toolbar={<SearchField placeholder="Search resources" />}
+          toolbarMeta="2 resources"
+          pagination={
+            <TablePagination
+              label="Resource pages"
+              summary={`Page ${samplePage} of 3`}
+              page={samplePage}
+              pageSize={25}
+              pageSizeLabel="Rows per page"
+              previousLabel="Previous"
+              nextLabel="Next"
+              canPrevious={samplePage > 1}
+              canNext={samplePage < 3}
+              onPrevious={() => setSamplePage((page) => Math.max(1, page - 1))}
+              onNext={() => setSamplePage((page) => Math.min(3, page + 1))}
+            />
+          }
+        >
           <Table>
             <TableHeader>
               <TableRow>
@@ -172,7 +192,7 @@ export default function DesignSystemPage() {
               </TableRow>
             </TableBody>
           </Table>
-        </AppCard>
+        </DataListPanel>
 
         <AppCard title="Confirmation">
           <ConfirmDialog

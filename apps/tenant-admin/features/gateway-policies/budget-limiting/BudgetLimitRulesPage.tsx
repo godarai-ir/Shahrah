@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { CircleDollarSign, Copy, Pencil, Plus, Power, Search, Trash2 } from "lucide-react";
+import { CircleDollarSign, Copy, Pencil, Plus, Power, Trash2 } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CommercialPlanUpgradeDialog, EmptyState, HelpLink, PageHeader, RowActionsMenu, StatusBadge } from "@/components/app-ui";
+import { CommercialPlanUpgradeDialog, DataListPanel, EmptyState, HelpLink, PageHeader, RowActionsMenu, SearchField, StatusBadge } from "@/components/app-ui";
 import {
   Dialog,
   DialogContent,
@@ -15,9 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import {
@@ -191,41 +189,28 @@ export function BudgetLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
           </Alert>
         ) : null}
 
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-            <InputGroup className="max-w-xl">
-              <InputGroupAddon>
-                <Search aria-hidden="true" />
-              </InputGroupAddon>
-              <InputGroupInput
-                placeholder={t("searchPlaceholder")}
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                aria-label={t("searchPlaceholder")}
-              />
-            </InputGroup>
-            <p className="text-sm text-muted-foreground">{t("resultCount", { count: filtered.length })}</p>
-          </div>
-
-        {isLoading && filtered.length === 0 ? (
-          <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4" aria-label={t("messages.loading")}>
-            {Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-10 w-full" />)}
-          </div>
-        ) : filtered.length === 0 ? (
-          <EmptyState
-            icon={CircleDollarSign}
-            title={query ? t("noResults.title") : t("emptyState.title")}
-            description={query ? t("noResults.description") : t("emptyState.description")}
-            primaryAction={!query ? (
-              <Button type="button" onClick={handleCreateRule} disabled={!hasLoadedEntitlements}>
-                <Plus data-icon="inline-start" />
-                {t("actions.new")}
-              </Button>
-            ) : undefined}
-          />
-        ) : (
-          <div className="overflow-x-auto rounded-xl border border-border bg-card">
-            <Table>
+        <DataListPanel
+          aria-label={t("title")}
+          toolbar={<SearchField containerClassName="max-w-xl" placeholder={t("searchPlaceholder")} value={query} onChange={(event) => setQuery(event.target.value)} />}
+          toolbarMeta={t("resultCount", { count: filtered.length })}
+          loading={isLoading && filtered.length === 0}
+          loadingLabel={t("messages.loading")}
+          empty={filtered.length === 0}
+          emptyState={
+            <EmptyState
+              icon={CircleDollarSign}
+              title={query ? t("noResults.title") : t("emptyState.title")}
+              description={query ? t("noResults.description") : t("emptyState.description")}
+              primaryAction={!query ? (
+                <Button type="button" onClick={handleCreateRule} disabled={!hasLoadedEntitlements}>
+                  <Plus data-icon="inline-start" />
+                  {t("actions.new")}
+                </Button>
+              ) : undefined}
+            />
+          }
+        >
+          <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>{t("table.ruleId")}</TableHead>
@@ -262,10 +247,8 @@ export function BudgetLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
-          </div>
-        )}
-        </div>
+          </Table>
+        </DataListPanel>
       </div>
 
       <Sheet open={isRuleSheetOpen} onOpenChange={handleRuleSheetOpenChange}>

@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Info, Plus, UsersRound } from "lucide-react";
 
-import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, HelpLink, PageHeader, RowActionsMenu, SearchField } from "@/components/app-ui";
+import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, HelpLink, PageHeader, RowActionsMenu, SearchField, TablePagination } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -465,32 +465,21 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
           </TableBody>
         </Table></div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-          <p>
-            {t("pagination.showingResults", { from, to, total })}
-          </p>
-          <div className="flex items-center gap-2">
-            <span>{t("pagination.rowsPerPage")}</span>
-            <Badge variant="outline">{PAGE_SIZE}</Badge>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void loadUsers(Math.max(0, offset - PAGE_SIZE), query.trim())}
-              disabled={!canPrev || isLoading}
-            >
-              {t("pagination.prev")}
-            </Button>
-            <Badge variant="secondary">{Math.floor(offset / PAGE_SIZE) + 1}</Badge>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void loadUsers(offset + PAGE_SIZE, query.trim())}
-              disabled={!canNext || isLoading}
-            >
-              {t("pagination.next")}
-            </Button>
-          </div>
-        </div>
+        <TablePagination
+          className="mt-4"
+          label={t("usersPage.title")}
+          summary={t("pagination.showingResults", { from, to, total })}
+          pageSizeLabel={t("pagination.rowsPerPage")}
+          pageSize={PAGE_SIZE}
+          page={Math.floor(offset / PAGE_SIZE) + 1}
+          previousLabel={t("pagination.prev")}
+          nextLabel={t("pagination.next")}
+          canPrevious={canPrev}
+          canNext={canNext}
+          disabled={isLoading}
+          onPrevious={() => void loadUsers(Math.max(0, offset - PAGE_SIZE), query.trim())}
+          onNext={() => void loadUsers(offset + PAGE_SIZE, query.trim())}
+        />
       </AppCard>
 
       <Sheet open={inviteOpen} onOpenChange={handleInviteOpenChange}>
