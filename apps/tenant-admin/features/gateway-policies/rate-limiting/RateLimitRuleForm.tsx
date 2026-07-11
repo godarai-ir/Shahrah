@@ -11,6 +11,7 @@ import { FormSection, IdentifierField, PageHeader } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Field, FieldDescription, FieldError as FormFieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -502,7 +503,7 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
                         ))}
                   </div>
 
-                  <FieldError message={form.formState.errors.conditions?.conditions?.[index]?.values?.message} />
+                  <FormFieldError>{form.formState.errors.conditions?.conditions?.[index]?.values?.message}</FormFieldError>
                 </div>
               );
             })}
@@ -569,9 +570,9 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
                         </div>
 
                         <div className="grid gap-2 md:grid-cols-3">
-                          <FieldError message={keyError} />
-                          <FieldError message={operatorError} />
-                          <FieldError message={valueError} />
+                          <FormFieldError>{keyError}</FormFieldError>
+                          <FormFieldError>{operatorError}</FormFieldError>
+                          <FormFieldError>{valueError}</FormFieldError>
                         </div>
                       </div>
                     );
@@ -596,7 +597,7 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
                 aria-invalid={Boolean(form.formState.errors.limit?.max)}
                 {...form.register("limit.max", { valueAsNumber: true })}
               />
-              <FieldError message={form.formState.errors.limit?.max?.message} />
+              <FormFieldError>{form.formState.errors.limit?.max?.message}</FormFieldError>
             </FormField>
 
             <FormField label={t("form.fields.limitDimension")}>
@@ -646,7 +647,7 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
                 aria-invalid={Boolean(form.formState.errors.limit?.window?.value)}
                 {...form.register("limit.window.value", { valueAsNumber: true })}
               />
-              <FieldError message={form.formState.errors.limit?.window?.value?.message} />
+              <FormFieldError>{form.formState.errors.limit?.window?.value?.message}</FormFieldError>
             </FormField>
           </div>
         </FormSection>
@@ -742,11 +743,11 @@ function FormField({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-2">
-      <Label htmlFor={htmlFor}>{label}</Label>
+    <Field className="min-w-0">
+      <FieldLabel htmlFor={htmlFor}>{label}</FieldLabel>
       {children}
-      {description ? <p className="text-xs leading-5 text-muted-foreground">{description}</p> : null}
-    </div>
+      {description ? <FieldDescription>{description}</FieldDescription> : null}
+    </Field>
   );
 }
 
@@ -831,9 +832,4 @@ function SwitchRow({
       <Switch id={id} checked={checked} aria-describedby={descriptionId} onCheckedChange={onCheckedChange} />
     </div>
   );
-}
-
-function FieldError({ message }: { message?: string }) {
-  if (!message) return null;
-  return <p className="text-xs leading-5 text-destructive">{message}</p>;
 }

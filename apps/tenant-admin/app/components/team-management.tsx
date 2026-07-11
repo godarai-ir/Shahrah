@@ -16,6 +16,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -482,8 +483,14 @@ export default function TeamManagement({
 
       <Sheet open={membersOpen} onOpenChange={setMembersOpen}><SheetContent side="left" className="w-full max-w-xl overflow-y-auto sm:w-3/4"><SheetHeader><SheetTitle>{t("members.title")}</SheetTitle><SheetDescription>{t("members.description")}</SheetDescription></SheetHeader>
         <form onSubmit={addMember} className="mt-6 flex flex-col gap-3">
-          <div className="grid gap-2"><Label htmlFor="team-member-user">{t("members.user")}</Label><FilterCombobox id="team-member-user" value={memberUserInput} onValueChange={setMemberUserInput} options={memberCandidateOptions.map((user) => ({ value: user.userID, label: user.label }))} placeholder={t("members.userPlaceholder")} emptyText={t("members.userEmpty")} className="h-10" /><p className="text-xs leading-5 text-muted-foreground">{t("members.userHelp")}</p></div>
-          <AppSelectField label={t("members.role")} value={memberRole} onValueChange={setMemberRole} triggerClassName="h-10" options={[{ value: "team_member", label: t("members.teamMember") }, { value: "team_admin", label: t("members.teamAdmin") }]} />
+          <FieldGroup className="gap-3">
+            <Field>
+              <FieldLabel htmlFor="team-member-user">{t("members.user")}</FieldLabel>
+              <FilterCombobox id="team-member-user" value={memberUserInput} onValueChange={setMemberUserInput} options={memberCandidateOptions.map((user) => ({ value: user.userID, label: user.label }))} placeholder={t("members.userPlaceholder")} emptyText={t("members.userEmpty")} className="h-10" />
+              <FieldDescription>{t("members.userHelp")}</FieldDescription>
+            </Field>
+            <AppSelectField label={t("members.role")} value={memberRole} onValueChange={setMemberRole} triggerClassName="h-10" options={[{ value: "team_member", label: t("members.teamMember") }, { value: "team_admin", label: t("members.teamAdmin") }]} />
+          </FieldGroup>
           {memberRole === "team_member" ? <fieldset className="flex flex-col gap-3"><div className="flex items-start justify-between gap-3"><div><legend className="text-sm font-medium">{t("members.permissions")}</legend><p className="text-xs leading-5 text-muted-foreground">{t("members.permissionsHelp")}</p></div><Button type="button" variant="ghost" size="sm" onClick={() => setMemberPerms(DEFAULT_PERMISSIONS)}>{t("members.resetPermissions")}</Button></div><div className="grid gap-1 rounded-md border border-border p-2">{PERMISSIONS.map((perm) => <label key={perm} htmlFor={`permission-${perm}`} className="flex cursor-pointer items-start gap-3 rounded-sm p-2 hover:bg-muted/50"><Checkbox id={`permission-${perm}`} className="mt-0.5" checked={memberPerms.includes(perm)} onCheckedChange={(checked) => setMemberPerms((prev) => checked === true ? [...prev, perm] : prev.filter((item) => item !== perm))} /><span className="min-w-0"><span className="block text-sm font-medium">{t(`members.permissionOptions.${permissionTranslationKey(perm)}.label`)}</span><span className="block text-xs leading-5 text-muted-foreground">{t(`members.permissionOptions.${permissionTranslationKey(perm)}.description`)}</span></span></label>)}</div></fieldset> : <Alert><AlertTitle>{t("members.teamAdminAccessTitle")}</AlertTitle><AlertDescription>{t("members.teamAdminAccessDescription")}</AlertDescription></Alert>}
           <Button type="submit" className="w-full" disabled={!canManage || isSaving}>{t("members.add")}</Button>
         </form>
@@ -510,11 +517,13 @@ function TeamForm({ t, form, setForm, orgUnits, onSubmit, isSaving, submitLabel 
   const update = <K extends keyof TeamForm>(key: K, value: TeamForm[K]) => setForm({ ...form, [key]: value });
   return (
     <form className="mt-6 flex flex-col gap-4" onSubmit={onSubmit}>
-      <div className="grid gap-2"><Label htmlFor="team-display">{t("form.displayName")}</Label><Input id="team-display" value={form.displayName} onChange={(e) => update("displayName", e.target.value)} /></div>
-      <IdentifierField id="team-alias" label={t("form.alias")} value={form.alias} onChange={(e) => update("alias", e.target.value)} required />
-      <AppSelectField label={t("form.orgUnit")} value={form.orgUnitID || "root"} onValueChange={(value) => update("orgUnitID", value === "root" ? "" : value)} triggerClassName="h-10" options={[{ value: "root", label: t("table.tenantRoot") }, ...orgUnits.map((org) => ({ value: org.id, label: org.display_name || org.alias }))]} />
-      <AppSelectField label={t("form.workspaceType")} value={form.workspaceType} onValueChange={(value) => update("workspaceType", value)} triggerClassName="h-10" options={WORKSPACE_TYPES.map((type) => ({ value: type, label: t(`workspace.${type}`) }))} />
-      <div className="grid gap-2"><Label htmlFor="team-description">{t("form.description")}</Label><Input id="team-description" value={form.description} onChange={(e) => update("description", e.target.value)} /></div>
+      <FieldGroup>
+        <Field><FieldLabel htmlFor="team-display">{t("form.displayName")}</FieldLabel><Input id="team-display" value={form.displayName} onChange={(e) => update("displayName", e.target.value)} /></Field>
+        <IdentifierField id="team-alias" label={t("form.alias")} value={form.alias} onChange={(e) => update("alias", e.target.value)} required />
+        <AppSelectField label={t("form.orgUnit")} value={form.orgUnitID || "root"} onValueChange={(value) => update("orgUnitID", value === "root" ? "" : value)} triggerClassName="h-10" options={[{ value: "root", label: t("table.tenantRoot") }, ...orgUnits.map((org) => ({ value: org.id, label: org.display_name || org.alias }))]} />
+        <AppSelectField label={t("form.workspaceType")} value={form.workspaceType} onValueChange={(value) => update("workspaceType", value)} triggerClassName="h-10" options={WORKSPACE_TYPES.map((type) => ({ value: type, label: t(`workspace.${type}`) }))} />
+        <Field><FieldLabel htmlFor="team-description">{t("form.description")}</FieldLabel><Input id="team-description" value={form.description} onChange={(e) => update("description", e.target.value)} /></Field>
+      </FieldGroup>
       <Button type="submit" className="w-full" disabled={isSaving}>{isSaving ? t("actions.saving") : submitLabel}</Button>
     </form>
   );

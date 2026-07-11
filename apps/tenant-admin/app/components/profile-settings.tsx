@@ -6,8 +6,8 @@ import { useTranslations } from "next-intl";
 import { FormSection, PageHeader, SettingsCard } from "@/components/app-ui";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 type UserProfile = {
   id: string;
@@ -172,20 +172,22 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
           description={<>{t("currentValue")}: {user.email ?? common("notSet")}</>}
         >
           <FormSection title={t("sections.email")} description={t("newEmail")} className="border-0 p-0 md:grid-cols-1 md:p-0">
-            <div className="grid gap-2">
-              <Label htmlFor="newEmail">{t("newEmail")}</Label>
-              <Input
-                id="newEmail"
-                value={emailState.value}
-                onChange={(event) =>
-                  setEmailState((current) => ({
-                    ...current,
-                    value: event.target.value,
-                  }))
-                }
-                placeholder="name@example.com"
-              />
-            </div>
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="newEmail">{t("newEmail")}</FieldLabel>
+                <Input
+                  id="newEmail"
+                  value={emailState.value}
+                  onChange={(event) =>
+                    setEmailState((current) => ({
+                      ...current,
+                      value: event.target.value,
+                    }))
+                  }
+                  placeholder="name@example.com"
+                />
+              </Field>
+            </FieldGroup>
             <Button
               className="w-fit"
               type="button"
@@ -207,20 +209,22 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
                     </AlertDescription>
                   </Alert>
                 ) : null}
-                <div className="grid gap-2">
-                  <Label htmlFor="emailOTP">{t("otpCode")}</Label>
-                  <Input
-                    id="emailOTP"
-                    value={emailState.otpCode}
-                    onChange={(event) =>
-                      setEmailState((current) => ({
-                        ...current,
-                        otpCode: event.target.value,
-                      }))
-                    }
-                    placeholder={t("otpCodePlaceholder")}
-                  />
-                </div>
+                <FieldGroup className="gap-3">
+                  <Field>
+                    <FieldLabel htmlFor="emailOTP">{t("otpCode")}</FieldLabel>
+                    <Input
+                      id="emailOTP"
+                      value={emailState.otpCode}
+                      onChange={(event) =>
+                        setEmailState((current) => ({
+                          ...current,
+                          otpCode: event.target.value,
+                        }))
+                      }
+                      placeholder={t("otpCodePlaceholder")}
+                    />
+                  </Field>
+                </FieldGroup>
                 <Button type="submit" variant="secondary" disabled={loadingField === "email"}>
                   {t("confirmEmail")}
                 </Button>
@@ -234,20 +238,22 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
           description={<>{t("currentValue")}: {user.mobile ?? common("notSet")}</>}
         >
           <FormSection title={t("sections.mobile")} description={t("newMobile")} className="border-0 p-0 md:grid-cols-1 md:p-0">
-            <div className="grid gap-2">
-              <Label htmlFor="newMobile">{t("newMobile")}</Label>
-              <Input
-                id="newMobile"
-                value={mobileState.value}
-                onChange={(event) =>
-                  setMobileState((current) => ({
-                    ...current,
-                    value: event.target.value,
-                  }))
-                }
-                placeholder="+98912..."
-              />
-            </div>
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="newMobile">{t("newMobile")}</FieldLabel>
+                <Input
+                  id="newMobile"
+                  value={mobileState.value}
+                  onChange={(event) =>
+                    setMobileState((current) => ({
+                      ...current,
+                      value: event.target.value,
+                    }))
+                  }
+                  placeholder="+98912..."
+                />
+              </Field>
+            </FieldGroup>
             <Button
               className="w-fit"
               type="button"
@@ -269,20 +275,22 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
                     </AlertDescription>
                   </Alert>
                 ) : null}
-                <div className="grid gap-2">
-                  <Label htmlFor="mobileOTP">{t("otpCode")}</Label>
-                  <Input
-                    id="mobileOTP"
-                    value={mobileState.otpCode}
-                    onChange={(event) =>
-                      setMobileState((current) => ({
-                        ...current,
-                        otpCode: event.target.value,
-                      }))
-                    }
-                    placeholder={t("otpCodePlaceholder")}
-                  />
-                </div>
+                <FieldGroup className="gap-3">
+                  <Field>
+                    <FieldLabel htmlFor="mobileOTP">{t("otpCode")}</FieldLabel>
+                    <Input
+                      id="mobileOTP"
+                      value={mobileState.otpCode}
+                      onChange={(event) =>
+                        setMobileState((current) => ({
+                          ...current,
+                          otpCode: event.target.value,
+                        }))
+                      }
+                      placeholder={t("otpCodePlaceholder")}
+                    />
+                  </Field>
+                </FieldGroup>
                 <Button type="submit" variant="secondary" disabled={loadingField === "mobile"}>
                   {t("confirmMobile")}
                 </Button>

@@ -71,3 +71,11 @@ The title is optional for compact sections whose context is already established 
 Use `actions` for section-level controls that belong on the same row as the section title. Use `footer` for commit or navigation actions after the section content.
 
 For page-level forms, prefer `FormSection` inside the page container. For compact settings cards, use it only when the section title adds useful structure.
+
+## Field Family
+
+Use `FieldGroup` to organize related controls and `Field` for each label/control/helper/error unit. Use `FieldLabel`, `FieldDescription`, and `FieldError` instead of hand-composed label and paragraph markup.
+
+For validation, set `data-invalid` on `Field` and `aria-invalid` on the control. For disabled fields, set `data-disabled` on `Field` and `disabled` on the control.
+
+Product wrappers such as `IdentifierField` and `AppSelectField` already compose the Field family; place them directly inside a `FieldGroup` rather than wrapping them in another `Field`.

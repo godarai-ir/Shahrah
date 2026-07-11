@@ -4,16 +4,17 @@ import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { ArrowLeft, Plus, Search } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 
-import { IdentifierField } from "@/components/app-ui";
+import { IdentifierField, SearchField } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 
 type PermissionItem = {
   key: string;
@@ -113,7 +114,7 @@ export default function RoleCreateManagement({ initialPermissionCatalog }: RoleC
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <p className="text-sm text-muted-foreground">
         {locale.startsWith("fa")
           ? "ایجاد نقش در صفحه جدا انجام می‌شود تا جریان ثبت دقیق‌تر و بدون شلوغی باشد."
@@ -136,30 +137,30 @@ export default function RoleCreateManagement({ initialPermissionCatalog }: RoleC
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form className="space-y-5" onSubmit={onSubmit}>
-              <section className="space-y-3">
-                <div className="grid gap-3 md:grid-cols-2">
+            <form className="flex flex-col gap-5" onSubmit={onSubmit}>
+              <section className="flex flex-col gap-3">
+                <FieldGroup className="grid gap-3 md:grid-cols-2">
                   <IdentifierField id="role-name" label={t("rolesPage.form.name")} value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="tenant_finance_admin" />
-                  <div className="space-y-2">
-                    <Label htmlFor="role-display-name">{t("rolesPage.form.displayName")}</Label>
+                  <Field>
+                    <FieldLabel htmlFor="role-display-name">{t("rolesPage.form.displayName")}</FieldLabel>
                     <Input id="role-display-name" value={form.display_name} onChange={(e) => setForm((p) => ({ ...p, display_name: e.target.value }))} placeholder={locale.startsWith("fa") ? "مدیر مالی فضای کاری" : "Tenant Finance Admin"} />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="role-description">{t("rolesPage.form.description")}</Label>
-                  <textarea id="role-description" value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
-                </div>
+                  </Field>
+                  <Field className="md:col-span-2">
+                    <FieldLabel htmlFor="role-description">{t("rolesPage.form.description")}</FieldLabel>
+                    <Textarea id="role-description" value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} className="min-h-24" />
+                  </Field>
+                </FieldGroup>
               </section>
 
               <Separator />
 
-              <section className="space-y-3">
-                <div className="relative">
-                  <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input value={query} onChange={(e) => setQuery(e.target.value)} className="ps-9" placeholder={locale.startsWith("fa") ? "جستجوی مجوز" : "Search permission"} />
-                </div>
+              <section className="flex flex-col gap-3">
+                <Field>
+                  <FieldLabel className="sr-only" htmlFor="permission-search">{locale.startsWith("fa") ? "جستجوی مجوز" : "Search permission"}</FieldLabel>
+                  <SearchField id="permission-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={locale.startsWith("fa") ? "جستجوی مجوز" : "Search permission"} />
+                </Field>
 
-                <div className="space-y-2 rounded-md border p-3">
+                <div className="flex flex-col gap-2 rounded-md border p-3">
                   {groupedPermissions.map(([group, items]) => {
                     const keys = items.map((i) => i.key);
                     const selectedCount = keys.filter((key) => form.permissions.includes(key)).length;
@@ -170,7 +171,7 @@ export default function RoleCreateManagement({ initialPermissionCatalog }: RoleC
                           <span className="text-sm font-semibold">{translateGroupLabel(group, locale)}</span>
                           <Badge variant="outline">{selectedCount}/{keys.length}</Badge>
                         </summary>
-                        <div className="space-y-2 px-3 pb-3">
+                        <div className="flex flex-col gap-2 px-3 pb-3">
                           <Button type="button" size="sm" variant="outline" onClick={() => toggleGroup(keys, !allSelected)}>
                             {allSelected ? (locale.startsWith("fa") ? "حذف انتخاب گروه" : "Clear group") : locale.startsWith("fa") ? "انتخاب کل گروه" : "Select group"}
                           </Button>
@@ -190,7 +191,7 @@ export default function RoleCreateManagement({ initialPermissionCatalog }: RoleC
                 </div>
               </section>
 
-              {error ? <p className="text-sm text-destructive">{error}</p> : null}
+              <FieldError>{error}</FieldError>
 
               <div className="flex flex-wrap gap-2">
                 <Button type="submit" disabled={isSubmitting} className="gap-2">
@@ -212,7 +213,7 @@ export default function RoleCreateManagement({ initialPermissionCatalog }: RoleC
           <CardHeader>
             <CardTitle>{locale.startsWith("fa") ? "خلاصه انتخاب‌ها" : "Selection summary"}</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="flex flex-col gap-4">
             <SummaryStat label={locale.startsWith("fa") ? "مجوزهای انتخاب‌شده" : "Selected permissions"} value={String(stats.count)} />
             <SummaryStat label={locale.startsWith("fa") ? "گروه‌های درگیر" : "Groups covered"} value={String(stats.groupCount)} />
           </CardContent>

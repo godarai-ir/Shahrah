@@ -1,7 +1,7 @@
 import * as React from "react";
 
+import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 export const IDENTIFIER_PATTERN = "[A-Za-z0-9_-]+";
@@ -27,11 +27,11 @@ export function IdentifierField({ id, label, description = DEFAULT_IDENTIFIER_DE
   const invalid = Boolean(error) || ariaInvalid === true || ariaInvalid === "true";
 
   return (
-    <div className={cn("flex flex-col gap-2", containerClassName)} data-invalid={invalid || undefined} data-disabled={disabled || undefined}>
-      {label ? <Label htmlFor={inputID}>{label}</Label> : null}
+    <Field className={containerClassName} data-invalid={invalid || undefined} data-disabled={disabled || undefined}>
+      {label ? <FieldLabel htmlFor={inputID}>{label}</FieldLabel> : null}
       <Input {...props} id={inputID} type="text" dir="ltr" pattern={props.pattern ?? IDENTIFIER_PATTERN} required={required} disabled={disabled} aria-describedby={describedBy} aria-invalid={invalid || undefined} className={cn("font-mono text-left", className)} />
-      {description ? <p id={descriptionID} className="text-xs leading-5 text-muted-foreground">{description}</p> : null}
-      {error ? <p id={errorID} role="alert" className="text-xs leading-5 text-destructive">{error}</p> : null}
-    </div>
+      {description ? <FieldDescription id={descriptionID}>{description}</FieldDescription> : null}
+      {error ? <FieldError id={errorID}>{error}</FieldError> : null}
+    </Field>
   );
 }

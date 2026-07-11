@@ -11,6 +11,7 @@ import { AppSelectField, FormSection, IdentifierField, PageHeader } from "@/comp
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -506,11 +507,11 @@ export function BudgetLimitRuleForm({ initialRule, embedded = false, onCancel, o
             className={embedded ? "md:grid-cols-1" : undefined}
           >
             <div className="grid gap-4 lg:grid-cols-3">
-              <div className="flex min-w-0 flex-col gap-2">
-                <Label>{t("form.fields.limitTo")}</Label>
-                <Input type="number" min={1} step={1} inputMode="numeric" dir="ltr" {...form.register("limit_to", { valueAsNumber: true })} />
-                <FieldError message={form.formState.errors.limit_to?.message} />
-              </div>
+              <Field className="min-w-0" data-invalid={Boolean(form.formState.errors.limit_to)}>
+                <FieldLabel htmlFor="limit-to">{t("form.fields.limitTo")}</FieldLabel>
+                <Input id="limit-to" type="number" min={1} step={1} inputMode="numeric" dir="ltr" aria-invalid={Boolean(form.formState.errors.limit_to)} {...form.register("limit_to", { valueAsNumber: true })} />
+                <FieldError>{form.formState.errors.limit_to?.message}</FieldError>
+              </Field>
               <AppSelectField
                 className="min-w-0"
                 triggerClassName="h-10 min-w-0 rounded-lg"
@@ -616,9 +617,4 @@ export function BudgetLimitRuleForm({ initialRule, embedded = false, onCancel, o
         </form>
     </div>
   );
-}
-
-function FieldError({ message }: { message?: string }) {
-  if (!message) return null;
-  return <p className="text-xs text-destructive">{message}</p>;
 }

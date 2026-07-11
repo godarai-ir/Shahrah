@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import {
   Select,
   SelectContent,
@@ -25,6 +26,10 @@ type AppSelectFieldProps = {
   placeholder?: string;
   label?: React.ReactNode;
   description?: React.ReactNode;
+  error?: React.ReactNode;
+  id?: string;
+  name?: string;
+  required?: boolean;
   className?: string;
   triggerClassName?: string;
   ariaLabel?: string;
@@ -39,17 +44,28 @@ export function AppSelectField({
   placeholder,
   label,
   description,
+  error,
+  id,
+  name,
+  required,
   className,
   triggerClassName,
   ariaLabel,
   disabled,
   dir = "rtl",
 }: AppSelectFieldProps) {
+  const generatedID = React.useId();
+  const triggerID = id ?? generatedID;
+  const descriptionID = description ? `${triggerID}-description` : undefined;
+  const errorID = error ? `${triggerID}-error` : undefined;
+  const describedBy = [descriptionID, errorID].filter(Boolean).join(" ") || undefined;
+  const invalid = Boolean(error);
+
   return (
-    <div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
-      {label ? <span className="text-sm font-medium text-foreground">{label}</span> : null}
-      <Select dir={dir} value={value} onValueChange={onValueChange} disabled={disabled}>
-        <SelectTrigger className={cn("min-w-40", triggerClassName)} aria-label={ariaLabel}>
+    <Field className={cn("min-w-0", className)} data-invalid={invalid || undefined} data-disabled={disabled || undefined}>
+      {label ? <FieldLabel htmlFor={triggerID}>{label}</FieldLabel> : null}
+      <Select dir={dir} value={value} onValueChange={onValueChange} disabled={disabled} name={name} required={required}>
+        <SelectTrigger id={triggerID} className={cn("min-w-40", triggerClassName)} aria-label={ariaLabel} aria-describedby={describedBy} aria-invalid={invalid || undefined}>
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent dir={dir}>
@@ -62,7 +78,8 @@ export function AppSelectField({
           </SelectGroup>
         </SelectContent>
       </Select>
-      {description ? <p className="text-xs leading-5 text-muted-foreground">{description}</p> : null}
-    </div>
+      {description ? <FieldDescription id={descriptionID}>{description}</FieldDescription> : null}
+      {error ? <FieldError id={errorID}>{error}</FieldError> : null}
+    </Field>
   );
 }

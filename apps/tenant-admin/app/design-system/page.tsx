@@ -6,6 +6,7 @@ import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Trash
 import { AppCard, AppSelectField, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, DataListPanel, EmptyState, FilterCombobox, FormSection, HelpLink, IdentifierField, MetricCard, PageHeader, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, TablePagination } from "@/components/app-ui";
 import { Attachment, AttachmentAction, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -100,6 +101,22 @@ export default function DesignSystemPage() {
         <Input placeholder="API base URL" dir="ltr" />
         <Input placeholder="Token alias" />
       </FormSection>
+
+      <section className="flex flex-col gap-4">
+        <SectionHeader title="Field family" description="Compose labels, controls, helper text, and validation with FieldGroup and Field." />
+        <FieldGroup className="grid gap-4 md:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="playground-field-name">Display name</FieldLabel>
+            <Input id="playground-field-name" placeholder="Production workspace" />
+            <FieldDescription>This name is visible to workspace members.</FieldDescription>
+          </Field>
+          <Field data-invalid>
+            <FieldLabel htmlFor="playground-field-slug">Technical identifier</FieldLabel>
+            <Input id="playground-field-slug" value="invalid identifier" readOnly aria-invalid />
+            <FieldError>Use English letters, numbers, dashes, or underscores.</FieldError>
+          </Field>
+        </FieldGroup>
+      </section>
 
       <section className="flex flex-col gap-4">
         <SectionHeader title="Identifier field" description="Use for user-defined technical identifiers and aliases." />
