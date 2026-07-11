@@ -9,6 +9,7 @@
   },
   "actions": {
     "refresh": "Refresh",
+    "copyIdentifier": "Copy technical ID",
     "createUser": "Create virtual user",
     "editUser": "Edit",
     "deleteUser": "Delete",
@@ -61,7 +62,7 @@
     "revoked": "Revoked"
   },
   "fields": {
-    "alias": "Alias",
+    "alias": "Technical ID",
     "displayName": "Display name",
     "team": "Team",
     "orgUnit": "Org unit",
@@ -72,7 +73,7 @@
   },
   "createUser": {
     "title": "Create virtual user",
-    "description": "Create a non-human identity for applications, CI/CD, or production services."
+    "description": "Create a virtual account (not connected to a real user) for applications, CI/CD, or production services."
   },
   "editUser": {
     "title": "Edit virtual user",
@@ -86,10 +87,11 @@
     "activeTokenWarningTitle": "Active VATs still exist"
   },
   "createToken": {
-    "title": "Create VAT",
+    "title": "Create Virtual Access Token (VAT)",
     "description": "Issue a gateway token for this service identity.",
+    "expiryExamples": "Valid examples: 30m (thirty minutes), 24h (twenty-four hours), 7d (seven days), 30d (thirty days).",
     "noModels": "No VAT model scope is available for this team.",
-    "modelHint": "Leave all unchecked to inherit the virtual user's full model scope."
+    "modelHint": "This selection can only narrow the Provider Account and Deployment scope; it cannot grant new access. Leave all unchecked to inherit the virtual user's full model scope."
   },
   "upgradeDialog": {
     "title": "This feature is not available on your current plan",
@@ -100,8 +102,8 @@
   "confirm": {
     "rotateTitle": "Rotate VAT",
     "rotateDescription": "Rotate \"{name}\"? The current token is revoked immediately and a new secret is shown once.",
-    "revokeTitle": "Revoke VAT",
-    "revokeDescription": "Revoke \"{name}\"? Existing applications using it will stop authenticating.",
+    "revokeTitle": "Revoke access token",
+    "revokeDescription": "Revoke access key \"{name}\"? Existing applications using it will stop authenticating.",
     "cancel": "Cancel",
     "confirm": "Confirm"
   },
@@ -117,6 +119,8 @@
   },
   "messages": {
     "loadUsersError": "Failed to load virtual users.",
+    "identifierCopied": "Technical ID copied.",
+    "identifierCopyFailed": "Failed to copy technical ID.",
     "loadTokensError": "Failed to load VATs.",
     "createUserSuccess": "Virtual user created.",
     "createUserError": "Failed to create virtual user.",
@@ -125,14 +129,14 @@
     "deleteUserSuccess": "Virtual user deleted.",
     "deleteUserError": "Failed to delete virtual user.",
     "deleteUserActiveTokenWarning": "{count} non-revoked VATs are still associated with this virtual user. Revoke them before deletion if running clients still use them.",
-    "deleteConfirmAlias": "Type the virtual user alias to confirm deletion.",
+    "deleteConfirmAlias": "Type the virtual user's technical ID to confirm deletion.",
     "createTokenSuccess": "VAT created.",
     "createTokenError": "Failed to create VAT.",
     "revokeSuccess": "VAT revoked.",
     "rotateSuccess": "VAT rotated.",
     "tokenActionError": "Token operation failed.",
-    "aliasRequired": "Alias is required.",
-    "aliasPattern": "Alias must start with a letter or number and use only letters, numbers, underscores, or hyphens.",
+    "aliasRequired": "Technical ID is required.",
+    "aliasPattern": "Technical ID must start with a letter or number and use only letters, numbers, underscores, or hyphens.",
     "tokenNameRequired": "Token name is required.",
     "teamRequiredTitle": "Team scope required",
     "teamRequired": "Assign this virtual user to a team before issuing a VAT."

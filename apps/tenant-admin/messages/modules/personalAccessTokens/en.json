@@ -28,10 +28,10 @@
   },
   "actions": {
     "refresh": "Refresh",
-    "create": "Create PAT",
+    "create": "Create token",
     "creating": "Creating...",
     "revoke": "Revoke",
-    "revokeAll": "Revoke all my PATs"
+    "revokeAll": "Revoke all my tokens"
   },
   "deleteDialog": {
     "title": "Confirm deletion",
@@ -57,7 +57,7 @@
   },
   "create": {
     "title": "Create Personal Access Token",
-    "description": "Create a tenant-scoped token owned by your account.",
+    "description": "Create and use a personal token to access GodarAI services.",
     "accessHint": "Model access is controlled by your Provider Account and Virtual Model access settings."
   },
   "messages": {

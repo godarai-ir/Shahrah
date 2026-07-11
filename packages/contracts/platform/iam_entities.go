@@ -111,6 +111,9 @@ type TeamMembership struct {
 	TenantID              string    `json:"tenant_id"`
 	TeamID                string    `json:"team_id"`
 	UserID                string    `json:"user_id"`
+	UserDisplayName       string    `json:"user_display_name,omitempty"`
+	UserEmail             string    `json:"user_email,omitempty"`
+	UserMobile            string    `json:"user_mobile,omitempty"`
 	Role                  string    `json:"role"`
 	TeamMemberPermissions []string  `json:"team_member_permissions,omitempty"`
 	Spend                 float64   `json:"spend"`

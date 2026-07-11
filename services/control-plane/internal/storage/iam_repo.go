@@ -621,11 +621,14 @@ func (s *Store) DeleteOrgUnitMembership(ctx context.Context, tenantID string, or
 
 func (s *Store) ListTeamMemberships(ctx context.Context, tenantID string, teamID string) ([]platform.TeamMembership, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT team_membership_id::text, tenant_id::text, team_id::text, user_id::text, role, COALESCE(team_member_permissions, '{}'),
-		       COALESCE(spend, 0.0), created_at, updated_at
-		FROM team_memberships
-		WHERE tenant_id = $1::uuid AND team_id = $2::uuid
-		ORDER BY updated_at DESC, created_at DESC
+		SELECT tm.team_membership_id::text, tm.tenant_id::text, tm.team_id::text, tm.user_id::text,
+		       COALESCE(NULLIF(u.user_alias, ''), NULLIF(u.email, ''), NULLIF(u.mobile, ''), ''),
+		       COALESCE(u.email, ''), COALESCE(u.mobile, ''), tm.role, COALESCE(tm.team_member_permissions, '{}'),
+		       COALESCE(tm.spend, 0.0), tm.created_at, tm.updated_at
+		FROM team_memberships tm
+		LEFT JOIN users u ON u.user_id = tm.user_id AND u.tenant_id = tm.tenant_id
+		WHERE tm.tenant_id = $1::uuid AND tm.team_id = $2::uuid
+		ORDER BY tm.updated_at DESC, tm.created_at DESC
 	`, tenantID, teamID)
 	if err != nil {
 		return nil, err
@@ -636,7 +639,7 @@ func (s *Store) ListTeamMemberships(ctx context.Context, tenantID string, teamID
 
 	for rows.Next() {
 		var item platform.TeamMembership
-		if err := rows.Scan(&item.ID, &item.TenantID, &item.TeamID, &item.UserID, &item.Role, &item.TeamMemberPermissions, &item.Spend, &item.CreatedAt, &item.UpdatedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.TenantID, &item.TeamID, &item.UserID, &item.UserDisplayName, &item.UserEmail, &item.UserMobile, &item.Role, &item.TeamMemberPermissions, &item.Spend, &item.CreatedAt, &item.UpdatedAt); err != nil {
 			return nil, err
 		}
 

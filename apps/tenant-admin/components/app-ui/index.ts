@@ -12,6 +12,7 @@ export { DEFAULT_IDENTIFIER_DESCRIPTION, IDENTIFIER_PATTERN, IdentifierField, is
 export { MetricCard } from "./MetricCard";
 export { PageHeader } from "./PageHeader";
 export { RowActionsMenu } from "./RowActionsMenu";
+export { SearchField } from "./SearchField";
 export { SectionHeader } from "./SectionHeader";
 export { SettingsCard } from "./SettingsCard";
 export { StatusBadge } from "./StatusBadge";

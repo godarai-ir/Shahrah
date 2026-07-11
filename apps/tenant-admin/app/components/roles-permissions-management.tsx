@@ -3,15 +3,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { Plus, Search, ShieldCheck } from "lucide-react";
+import { Plus, ShieldCheck } from "lucide-react";
 
 import { usePermissions } from "@/app/components/permissions-context";
-import { AppSelectField, CommercialPlanUpgradeDialog, EmptyState, PageHeader, RowActionsMenu } from "@/components/app-ui";
+import {
+  AppCard,
+  AppSelectField,
+  CommercialPlanUpgradeDialog,
+  EmptyState,
+  PageHeader,
+  RowActionsMenu,
+  SearchField,
+} from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -77,7 +83,7 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
   }, [normalizedSearch, roleType, roles]);
 
   const hasActiveFilters = normalizedSearch.length > 0 || roleType !== "all";
-  const columnCount = canManageRoles ? 5 : 4;
+  const columnCount = canManageRoles ? 4 : 3;
   const isRbacFeatureEnabled = hasLoadedEntitlements
     ? readBooleanFeature(entitlements?.features?.[FEATURE_RBAC_ENABLED], false)
     : null;
@@ -115,7 +121,7 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
   }
 
   const createRoleAction = canManageRoles ? (
-    <Button type="button" className="w-full sm:w-auto" onClick={handleCreateRole} disabled={!hasLoadedEntitlements}>
+    <Button type="button" onClick={handleCreateRole} disabled={!hasLoadedEntitlements}>
       <Plus data-icon="inline-start" aria-hidden="true" />
       {t("rolesPage.form.create")}
     </Button>
@@ -124,10 +130,9 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
       <PageHeader
-        eyebrow={t("title")}
         title={t("rolesPage.listTitle")}
         description={t("rolesPage.description")}
-        actions={createRoleAction}
+        titleAddon={createRoleAction}
       />
 
       {props.initialError ? (
@@ -148,68 +153,53 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
           primaryAction={createRoleAction}
         />
       ) : (
-        <Card>
-          <CardHeader className="gap-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex min-w-0 flex-col gap-1">
-                <CardTitle role="heading" aria-level={2}>
-                  {t("rolesPage.listSectionTitle")}
-                </CardTitle>
-                <CardDescription>
-                  {t("rolesPage.listSummary", {
-                    count: numberFormatter.format(filteredRoles.length),
-                    total: numberFormatter.format(roles.length),
-                  })}
-                </CardDescription>
-              </div>
-              {hasActiveFilters ? (
-                <Button type="button" size="sm" variant="ghost" onClick={clearFilters}>
-                  {t("rolesPage.filters.clear")}
-                </Button>
-              ) : null}
-            </div>
+        <AppCard
+          className="min-w-0 shadow-none"
+          contentClassName="flex min-w-0 flex-col gap-4"
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <SearchField
+              containerClassName="min-w-56 flex-1"
+              type="text"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder={t("rolesPage.filters.searchPlaceholder")}
+              aria-label={t("rolesPage.filters.searchLabel")}
+              dir={direction}
+            />
+            <AppSelectField
+              value={roleType}
+              onValueChange={(value) => setRoleType(value as RoleTypeFilter)}
+              options={[
+                { value: "all", label: t("rolesPage.filters.all") },
+                { value: "system", label: t("rolesPage.filters.system") },
+                { value: "custom", label: t("rolesPage.filters.custom") },
+              ]}
+              ariaLabel={t("rolesPage.filters.typeLabel")}
+              className="min-w-48 flex-1 sm:flex-none"
+              triggerClassName="h-10 w-full"
+              dir={direction}
+            />
+            {hasActiveFilters ? (
+              <Button type="button" size="sm" variant="ghost" onClick={clearFilters}>
+                {t("rolesPage.filters.clear")}
+              </Button>
+            ) : null}
+          </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-              <InputGroup className="h-10 sm:max-w-md">
-                <InputGroupAddon align="inline-start">
-                  <Search aria-hidden="true" />
-                </InputGroupAddon>
-                <InputGroupInput
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder={t("rolesPage.filters.searchPlaceholder")}
-                  aria-label={t("rolesPage.filters.searchLabel")}
-                  dir={direction}
-                />
-              </InputGroup>
-              <AppSelectField
-                value={roleType}
-                onValueChange={(value) => setRoleType(value as RoleTypeFilter)}
-                options={[
-                  { value: "all", label: t("rolesPage.filters.all") },
-                  { value: "system", label: t("rolesPage.filters.system") },
-                  { value: "custom", label: t("rolesPage.filters.custom") },
-                ]}
-                ariaLabel={t("rolesPage.filters.typeLabel")}
-                className="w-full sm:w-48"
-                triggerClassName="h-10 w-full"
-                dir={direction}
-              />
-            </div>
-          </CardHeader>
-
-          <CardContent>
-            <Table className="min-w-3xl" dir={direction}>
+          <TooltipProvider delayDuration={150}>
+            <Table dir={direction}>
               <TableHeader>
-                <TableRow>
-                  <TableHead scope="col">{t("rolesPage.table.name")}</TableHead>
-                  <TableHead scope="col">{t("rolesPage.table.displayName")}</TableHead>
-                  <TableHead scope="col">{t("rolesPage.table.scope")}</TableHead>
-                  <TableHead scope="col" className="text-center">
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  <TableHead scope="col" className="text-start">{t("rolesPage.table.displayName")}</TableHead>
+                  <TableHead scope="col" className="text-start">
+                    {t("rolesPage.table.scope")}
+                  </TableHead>
+                  <TableHead scope="col" className="w-20 text-center">
                     {t("rolesPage.table.permissions")}
                   </TableHead>
                   {canManageRoles ? (
-                    <TableHead scope="col" className="sticky end-0 bg-card text-end">
+                    <TableHead scope="col" className="w-14 text-end">
                       {t("rolesPage.table.actions")}
                     </TableHead>
                   ) : null}
@@ -234,28 +224,28 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
                     const isProtected = role.is_system && protectedSystemRoles.has(role.name);
                     return (
                       <TableRow key={role.id}>
-                        <TableCell dir="ltr" className="whitespace-nowrap text-start font-mono text-xs font-medium">
-                          {role.name}
-                        </TableCell>
                         <TableCell dir="auto" className="min-w-36">
-                          {role.display_name}
+                          <div className="flex max-w-lg flex-col gap-1">
+                            <span className="font-medium text-foreground">{role.display_name || role.name}</span>
+                            <span dir="ltr" className="text-start font-mono text-xs text-muted-foreground">
+                              {role.name}
+                            </span>
+                          </div>
                         </TableCell>
-                        <TableCell className="min-w-36">
+                        <TableCell>
                           <div className="flex flex-wrap items-center gap-2">
                             <Badge variant={role.is_system ? "secondary" : "outline"}>
                               {role.is_system ? t("rolesPage.systemRole") : t("rolesPage.customRole")}
                             </Badge>
                             {isProtected ? (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Badge variant="outline" tabIndex={0}>
-                                      {t("rolesPage.actions.protected")}
-                                    </Badge>
-                                  </TooltipTrigger>
-                                  <TooltipContent>{t("rolesPage.actions.protectedDescription")}</TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge variant="outline" tabIndex={0}>
+                                    {t("rolesPage.actions.protected")}
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>{t("rolesPage.actions.protectedDescription")}</TooltipContent>
+                              </Tooltip>
                             ) : null}
                           </div>
                         </TableCell>
@@ -263,9 +253,10 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
                           {numberFormatter.format((role.permissions ?? []).length)}
                         </TableCell>
                         {canManageRoles ? (
-                          <TableCell className="sticky end-0 bg-card text-end">
+                          <TableCell className="text-end">
                             <RowActionsMenu
                               label={t("rolesPage.actions.openMenu", { role: role.display_name || role.name })}
+                              dir={direction}
                               actions={[
                                 {
                                   label: t("rolesPage.actions.edit"),
@@ -282,8 +273,8 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
                 )}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
+          </TooltipProvider>
+        </AppCard>
       )}
 
       <CommercialPlanUpgradeDialog

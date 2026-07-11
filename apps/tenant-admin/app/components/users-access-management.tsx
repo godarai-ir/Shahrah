@@ -2,15 +2,14 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Info, Plus, Search, UsersRound } from "lucide-react";
+import { Info, Plus, UsersRound } from "lucide-react";
 
-import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, HelpLink, PageHeader, RowActionsMenu } from "@/components/app-ui";
+import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, HelpLink, PageHeader, RowActionsMenu, SearchField } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Progress } from "@/components/ui/progress";
@@ -366,15 +365,12 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
 
       <AppCard contentClassName="flex min-w-0 flex-col gap-4" className="min-w-0 shadow-none">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <InputGroup className="w-full sm:max-w-md">
-            <InputGroupAddon><Search aria-hidden="true" /></InputGroupAddon>
-            <InputGroupInput
+          <SearchField
+              containerClassName="w-full sm:max-w-md"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={t("searchPlaceholder")}
-              aria-label={t("searchPlaceholder")}
-            />
-          </InputGroup>
+          />
           <TooltipProvider delayDuration={150}>
             <Tooltip>
               <TooltipTrigger asChild>

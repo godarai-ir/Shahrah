@@ -4,7 +4,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Check, Copy, KeyRound, Plus, RefreshCcw, Trash2 } from "lucide-react";
 
-import { AppCard, EmptyState, SectionHeader, StatusBadge } from "@/components/app-ui";
+import { AppCard, EmptyState, HelpLink, PageHeader, SearchField, StatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -51,12 +51,11 @@ const stableDateTimeFormatter = new Intl.DateTimeFormat("fa-IR", {
 
 export default function PersonalAccessTokenManagement(props: {
   initialTokens: PAT[];
-  initialTotal: number;
   initialError: string | null;
+  docsHref: string;
 }) {
   const t = useTranslations("personalAccessTokens");
   const [tokens, setTokens] = useState<PAT[]>(props.initialTokens);
-  const [total, setTotal] = useState<number>(props.initialTotal);
   const [query, setQuery] = useState("");
   const [name, setName] = useState("");
   const [expiresIn, setExpiresIn] = useState("30d");
@@ -81,7 +80,6 @@ export default function PersonalAccessTokenManagement(props: {
       if (query.trim()) params.set("query", query.trim());
       const data = await requestJSON<ListResponse>(`/api/personal-access-tokens?${params.toString()}`);
       setTokens(data.data ?? []);
-      setTotal(data.total ?? 0);
       setBanner(null);
     } catch (error) {
       setBanner({ kind: "error", message: normalizeError(error, t("messages.loadError")) });
@@ -184,23 +182,17 @@ export default function PersonalAccessTokenManagement(props: {
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      {banner ? (
-        <Alert variant={banner.kind === "error" ? "destructive" : "default"}>
-          <AlertTitle>{banner.kind === "error" ? t("alerts.error") : t("alerts.success")}</AlertTitle>
-          <AlertDescription>{banner.message}</AlertDescription>
-        </Alert>
-      ) : null}
-
-      <AppCard
+    <div className="flex flex-col gap-6">
+      <PageHeader
         title={t("title")}
         description={t("create.description")}
+        titleAddon={<HelpLink href={props.docsHref} />}
         actions={
           <Sheet>
             <SheetTrigger asChild>
               <Button><Plus data-icon="inline-start" />{t("actions.create")}</Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-[94vw] max-w-md">
+            <SheetContent side="left" className="w-full sm:max-w-md">
               <SheetHeader>
                 <SheetTitle>{t("create.title")}</SheetTitle>
                 <SheetDescription>{t("create.description")}</SheetDescription>
@@ -220,49 +212,56 @@ export default function PersonalAccessTokenManagement(props: {
             </SheetContent>
           </Sheet>
         }
-      >
+      />
+
+      {banner ? (
+        <Alert variant={banner.kind === "error" ? "destructive" : "default"}>
+          <AlertTitle>{banner.kind === "error" ? t("alerts.error") : t("alerts.success")}</AlertTitle>
+          <AlertDescription>{banner.message}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      <AppCard>
         <div className="flex flex-col gap-4">
-          <SectionHeader
-            title={t("summary", { total })}
-            description={t("searchPlaceholder")}
-            action={
-              <div className="flex flex-wrap items-center gap-2">
-                <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("searchPlaceholder")} className="w-64" />
-                <Button variant="outline" onClick={() => void load()} disabled={isLoading}><RefreshCcw data-icon="inline-start" />{t("actions.refresh")}</Button>
-                <Button variant="destructive" onClick={() => openDeleteDialog({ type: "all" })}><Trash2 data-icon="inline-start" />{t("actions.revokeAll")}</Button>
-              </div>
-            }
-          />
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <SearchField containerClassName="w-full sm:w-72" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("searchPlaceholder")} />
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="icon" aria-label={t("actions.refresh")} title={t("actions.refresh")} onClick={() => void load()} disabled={isLoading}><RefreshCcw /></Button>
+              <Button variant="destructive" onClick={() => openDeleteDialog({ type: "all" })}><Trash2 data-icon="inline-start" />{t("actions.revokeAll")}</Button>
+            </div>
+          </div>
 
           {tokens.length === 0 ? (
             <EmptyState icon={KeyRound} title={t("table.empty")} description={t("create.accessHint")} />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("table.name")}</TableHead>
-                  <TableHead>{t("table.masked")}</TableHead>
-                  <TableHead>{t("table.createdAt")}</TableHead>
-                  <TableHead>{t("table.lastUsedAt")}</TableHead>
-                  <TableHead>{t("table.expiresAt")}</TableHead>
-                  <TableHead>{t("table.status")}</TableHead>
-                  <TableHead>{t("table.actions")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tokens.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>{item.key_alias}</TableCell>
-                    <TableCell>{item.key_name ?? "-"}</TableCell>
-                    <TableCell>{formatDate(item.created_at)}</TableCell>
-                    <TableCell>{formatDate(item.last_used_at)}</TableCell>
-                    <TableCell>{formatDate(item.expires_at)}</TableCell>
-                    <TableCell><StatusBadge status={item.revoked_at ? "inactive" : "active"}>{item.revoked_at ? t("status.revoked") : t("status.active")}</StatusBadge></TableCell>
-                    <TableCell><Button variant="outline" size="sm" onClick={() => openDeleteDialog({ type: "single", token: item })}>{t("actions.revoke")}</Button></TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("table.name")}</TableHead>
+                    <TableHead>{t("table.masked")}</TableHead>
+                    <TableHead>{t("table.createdAt")}</TableHead>
+                    <TableHead>{t("table.lastUsedAt")}</TableHead>
+                    <TableHead>{t("table.expiresAt")}</TableHead>
+                    <TableHead>{t("table.status")}</TableHead>
+                    <TableHead>{t("table.actions")}</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {tokens.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>{item.key_alias}</TableCell>
+                      <TableCell>{item.key_name ?? "-"}</TableCell>
+                      <TableCell>{formatDate(item.created_at)}</TableCell>
+                      <TableCell>{formatDate(item.last_used_at)}</TableCell>
+                      <TableCell>{formatDate(item.expires_at)}</TableCell>
+                      <TableCell><StatusBadge status={item.revoked_at ? "inactive" : "active"}>{item.revoked_at ? t("status.revoked") : t("status.active")}</StatusBadge></TableCell>
+                      <TableCell><Button variant="outline" size="sm" onClick={() => openDeleteDialog({ type: "single", token: item })}>{t("actions.revoke")}</Button></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </div>
       </AppCard>

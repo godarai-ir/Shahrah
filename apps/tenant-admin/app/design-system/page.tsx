@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Trash2, Upload, X } from "lucide-react";
 
-import { AppCard, AppSelectField, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, EmptyState, FilterCombobox, FormSection, HelpLink, IdentifierField, MetricCard, PageHeader, RowActionsMenu, SectionHeader, SettingsCard, StatusBadge } from "@/components/app-ui";
+import { AppCard, AppSelectField, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, EmptyState, FilterCombobox, FormSection, HelpLink, IdentifierField, MetricCard, PageHeader, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge } from "@/components/app-ui";
 import { Attachment, AttachmentAction, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -103,6 +103,11 @@ export default function DesignSystemPage() {
       <section className="flex flex-col gap-4">
         <SectionHeader title="Identifier field" description="Use for user-defined technical identifiers and aliases." />
         <IdentifierField label="شناسه فنی" placeholder="team_support" />
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <SectionHeader title="Search field" description="Use for list and toolbar search. The icon follows RTL inline-end placement." />
+        <SearchField containerClassName="max-w-md" placeholder="جست‌وجو در کاربران" />
       </section>
 
       <section className="flex flex-col gap-4">

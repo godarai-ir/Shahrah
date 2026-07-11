@@ -6,19 +6,17 @@ import {
   AlertTriangle,
   Plus,
   RefreshCw,
-  Search,
   Trash2,
   Users,
 } from "lucide-react";
 
 import { usePermissions } from "@/app/components/permissions-context";
-import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, HelpLink, IdentifierField, MetricCard, PageHeader, RowActionsMenu, StatusBadge as AppStatusBadge } from "@/components/app-ui";
+import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, FilterCombobox, HelpLink, IdentifierField, MetricCard, PageHeader, RowActionsMenu, SearchField, StatusBadge as AppStatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,6 +38,9 @@ type Team = {
 type TeamMember = {
   id?: string;
   user_id: string;
+  user_display_name?: string;
+  user_email?: string;
+  user_mobile?: string;
   role: string;
   team_member_permissions?: string[];
   metadata?: Record<string, unknown>;
@@ -60,7 +61,7 @@ type TeamForm = {
   description: string;
 };
 
-const PERMISSIONS = ["/key/info", "/key/list", "/key/generate", "/key/update", "/key/delete", "/key/regenerate", "/key/block", "/key/unblock", "/key/health"];
+const PERMISSIONS = ["/key/info", "/key/list", "/key/generate", "/key/update", "/key/delete", "/key/regenerate", "/key/block", "/key/unblock", "/key/health"] as const;
 const DEFAULT_PERMISSIONS = ["/key/info", "/key/health"];
 const WORKSPACE_TYPES = ["production", "staging", "development", "research", "internal", "general"] as const;
 const WORKSPACE_TYPE_SET = new Set<string>(WORKSPACE_TYPES);
@@ -189,14 +190,15 @@ export default function TeamManagement({
   }, [teams, orgFilter, workspaceFilter, statusFilter, sortBy]);
 
   const memberCandidateOptions = useMemo<MemberCandidateOption[]>(() => {
-    return users.map((user) => ({
+    const memberIDs = new Set(members.map((member) => member.user_id));
+    return users.filter((user) => !memberIDs.has(user.principal_id)).map((user) => ({
       userID: user.principal_id,
       label: formatMemberCandidateLabel(user),
     }));
-  }, [users]);
+  }, [members, users]);
   const memberLabelByUserID = useMemo(() => {
-    return new Map(memberCandidateOptions.map((item) => [item.userID, item.label]));
-  }, [memberCandidateOptions]);
+    return new Map(users.map((user) => [user.principal_id, formatMemberCandidateLabel(user)]));
+  }, [users]);
 
   async function loadTeams(nextOffset: number, q: string) {
     setIsLoading(true);
@@ -407,10 +409,7 @@ export default function TeamManagement({
       <section className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,1.2fr)_minmax(22rem,0.8fr)]">
         <AppCard className="min-w-0 shadow-none" contentClassName="flex min-w-0 flex-col gap-4">
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(14rem,1fr)_repeat(4,auto)]">
-            <InputGroup className="min-w-0">
-              <InputGroupAddon><Search aria-hidden="true" /></InputGroupAddon>
-              <InputGroupInput value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("filters.search")} aria-label={t("filters.search")} />
-            </InputGroup>
+            <SearchField containerClassName="min-w-0" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("filters.search")} />
             <AppSelectField ariaLabel={t("filters.orgAll")} value={orgFilter} onValueChange={setOrgFilter} triggerClassName="h-10 w-full" options={[{ value: "all", label: t("filters.orgAll") }, { value: "root", label: t("table.tenantRoot") }, ...orgUnits.map((org) => ({ value: org.id, label: org.display_name || org.alias }))]} />
             <AppSelectField ariaLabel={t("filters.workspaceAll")} value={workspaceFilter} onValueChange={setWorkspaceFilter} triggerClassName="h-10 w-full" options={[{ value: "all", label: t("filters.workspaceAll") }, ...WORKSPACE_TYPES.map((type) => ({ value: type, label: t(`workspace.${type}`) }))]} />
             <AppSelectField ariaLabel={t("filters.statusAll")} value={statusFilter} onValueChange={setStatusFilter} triggerClassName="h-10 w-full" options={[{ value: "all", label: t("filters.statusAll") }, { value: "active", label: t("status.active") }, { value: "blocked", label: t("status.blocked") }]} />
@@ -456,7 +455,7 @@ export default function TeamManagement({
               <p>{t("detail.orgInheritance", { value: getOrgUnitName(selectedTeam, orgUnits, t) })}</p><p>{t("detail.permissions", { value: summarizePermissions(members, t) })}</p>
             </AppCard>
             <AppCard title={t("detail.members")} contentClassName="flex flex-col gap-2 text-sm">
-              {detailLoading ? <div className="flex flex-col gap-2" aria-label={t("detail.loading")}><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div> : members.length === 0 ? <p className="text-muted-foreground">{t("detail.noMembers")}</p> : members.map((member) => <div key={member.user_id} className="flex items-center justify-between gap-2 rounded-md border border-border p-2"><span className="truncate">{getMemberDisplayLabel(member.user_id, memberLabelByUserID, t("members.unknownUser"))}</span><Badge variant={member.role === "team_admin" ? "default" : "secondary"}>{member.role}</Badge></div>)}
+              {detailLoading ? <div className="flex flex-col gap-2" aria-label={t("detail.loading")}><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div> : members.length === 0 ? <p className="text-muted-foreground">{t("detail.noMembers")}</p> : members.map((member) => <div key={member.user_id} className="flex items-center justify-between gap-2 rounded-md border border-border p-2"><span className="truncate" dir="auto">{getMemberDisplayLabel(member, memberLabelByUserID, t("members.unknownUser"))}</span><Badge variant={member.role === "team_admin" ? "default" : "secondary"}>{member.role}</Badge></div>)}
             </AppCard>
           </>}
         </div>
@@ -473,12 +472,12 @@ export default function TeamManagement({
 
       <Sheet open={membersOpen} onOpenChange={setMembersOpen}><SheetContent side="left" className="w-full max-w-xl overflow-y-auto sm:w-3/4"><SheetHeader><SheetTitle>{t("members.title")}</SheetTitle><SheetDescription>{t("members.description")}</SheetDescription></SheetHeader>
         <form onSubmit={addMember} className="mt-6 flex flex-col gap-3">
-          <div className="grid gap-2"><Label htmlFor="team-member-user">{t("members.user")}</Label><Input id="team-member-user" value={memberUserInput} onChange={(e) => setMemberUserInput(e.target.value)} list="member-candidates" placeholder={t("members.userPlaceholder")} /><datalist id="member-candidates">{memberCandidateOptions.map((user) => <option key={user.userID} value={user.label} />)}</datalist></div>
+          <div className="grid gap-2"><Label htmlFor="team-member-user">{t("members.user")}</Label><FilterCombobox id="team-member-user" value={memberUserInput} onValueChange={setMemberUserInput} options={memberCandidateOptions.map((user) => ({ value: user.userID, label: user.label }))} placeholder={t("members.userPlaceholder")} emptyText={t("members.userEmpty")} className="h-10" /><p className="text-xs leading-5 text-muted-foreground">{t("members.userHelp")}</p></div>
           <AppSelectField label={t("members.role")} value={memberRole} onValueChange={setMemberRole} triggerClassName="h-10" options={[{ value: "team_member", label: t("members.teamMember") }, { value: "team_admin", label: t("members.teamAdmin") }]} />
-          {memberRole === "team_member" ? <div className="grid gap-2"><Label>{t("members.permissions")}</Label><div className="grid gap-2">{PERMISSIONS.map((perm) => <label key={perm} htmlFor={`permission-${perm}`} className="flex items-center gap-2 text-sm"><Checkbox id={`permission-${perm}`} checked={memberPerms.includes(perm)} onCheckedChange={(checked) => setMemberPerms((prev) => checked === true ? [...prev, perm] : prev.filter((item) => item !== perm))} /><span>{perm}</span></label>)}</div></div> : null}
+          {memberRole === "team_member" ? <fieldset className="flex flex-col gap-3"><div className="flex items-start justify-between gap-3"><div><legend className="text-sm font-medium">{t("members.permissions")}</legend><p className="text-xs leading-5 text-muted-foreground">{t("members.permissionsHelp")}</p></div><Button type="button" variant="ghost" size="sm" onClick={() => setMemberPerms(DEFAULT_PERMISSIONS)}>{t("members.resetPermissions")}</Button></div><div className="grid gap-1 rounded-md border border-border p-2">{PERMISSIONS.map((perm) => <label key={perm} htmlFor={`permission-${perm}`} className="flex cursor-pointer items-start gap-3 rounded-sm p-2 hover:bg-muted/50"><Checkbox id={`permission-${perm}`} className="mt-0.5" checked={memberPerms.includes(perm)} onCheckedChange={(checked) => setMemberPerms((prev) => checked === true ? [...prev, perm] : prev.filter((item) => item !== perm))} /><span className="min-w-0"><span className="block text-sm font-medium">{t(`members.permissionOptions.${permissionTranslationKey(perm)}.label`)}</span><span className="block text-xs leading-5 text-muted-foreground">{t(`members.permissionOptions.${permissionTranslationKey(perm)}.description`)}</span></span></label>)}</div></fieldset> : <Alert><AlertTitle>{t("members.teamAdminAccessTitle")}</AlertTitle><AlertDescription>{t("members.teamAdminAccessDescription")}</AlertDescription></Alert>}
           <Button type="submit" className="w-full" disabled={!canManage || isSaving}>{t("members.add")}</Button>
         </form>
-        <div className="mt-6 flex flex-col gap-2">{members.map((member) => <div key={member.user_id} className="rounded-md border border-border p-3"><div className="flex items-center justify-between gap-2"><span className="truncate text-sm">{getMemberDisplayLabel(member.user_id, memberLabelByUserID, t("members.unknownUser"))}</span><Badge variant={member.role === "team_admin" ? "default" : "secondary"}>{member.role}</Badge></div><div className="mt-2 flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => void updateMember(member, member.role === "team_admin" ? "team_member" : "team_admin", member.team_member_permissions ?? DEFAULT_PERMISSIONS)} disabled={!canManage || isSaving}>{member.role === "team_admin" ? t("members.makeTeamMember") : t("members.makeTeamAdmin")}</Button><Button size="sm" variant="outline" className="text-destructive" onClick={() => void removeMember(member.user_id)} disabled={!canManage || isSaving}>{t("members.remove")}</Button></div></div>)}</div>
+        <div className="mt-6 flex flex-col gap-2">{members.map((member) => <div key={member.user_id} className="rounded-md border border-border p-3"><div className="flex items-center justify-between gap-2"><span className="truncate text-sm" dir="auto">{getMemberDisplayLabel(member, memberLabelByUserID, t("members.unknownUser"))}</span><Badge variant={member.role === "team_admin" ? "default" : "secondary"}>{member.role}</Badge></div><div className="mt-2 flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => void updateMember(member, member.role === "team_admin" ? "team_member" : "team_admin", member.team_member_permissions ?? DEFAULT_PERMISSIONS)} disabled={!canManage || isSaving}>{member.role === "team_admin" ? t("members.makeTeamMember") : t("members.makeTeamAdmin")}</Button><Button size="sm" variant="outline" className="text-destructive" onClick={() => void removeMember(member.user_id)} disabled={!canManage || isSaving}>{t("members.remove")}</Button></div></div>)}</div>
       </SheetContent></Sheet>
 
       <Sheet open={deleteOpen} onOpenChange={setDeleteOpen}><SheetContent side="left" className="w-full max-w-md sm:w-3/4"><SheetHeader><SheetTitle>{t("delete.title")}</SheetTitle><SheetDescription>{t("delete.description")}</SheetDescription></SheetHeader>
@@ -560,6 +559,8 @@ function formatMemberCandidateLabel(candidate: AccessPrincipalCandidate) {
 function resolveMemberUserID(input: string, options: MemberCandidateOption[]) {
   const normalizedInput = input.trim();
   if (!normalizedInput) return "";
+  const byID = options.find((option) => option.userID === normalizedInput);
+  if (byID) return byID.userID;
   const byLabel = options.find((option) => option.label === normalizedInput);
   if (byLabel) return byLabel.userID;
   if (looksLikeUserID(normalizedInput)) return normalizedInput;
@@ -570,11 +571,11 @@ function looksLikeUserID(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim());
 }
 
-function getMemberDisplayLabel(userID: string, memberLabelByUserID: Map<string, string>, unknownUserLabel: string) {
-  const userLabel = memberLabelByUserID.get(userID);
+function getMemberDisplayLabel(member: TeamMember, memberLabelByUserID: Map<string, string>, unknownUserLabel: string) {
+  const userLabel = member.user_email?.trim() || member.user_mobile?.trim() || member.user_display_name?.trim() || memberLabelByUserID.get(member.user_id);
   if (userLabel) return userLabel;
-  if (looksLikeUserID(userID)) return unknownUserLabel;
-  return userID;
+  if (looksLikeUserID(member.user_id)) return unknownUserLabel;
+  return member.user_id;
 }
 
 function buildSummary(team: Team, members: TeamMember[]) {
@@ -664,6 +665,10 @@ function formatDate(value: string) {
 function StatusBadge({ status, t }: { status: ReturnType<typeof getStatus>; t: ReturnType<typeof useTranslations> }) {
   if (status === "blocked") return <AppStatusBadge status="error">{t("status.blocked")}</AppStatusBadge>;
   return <AppStatusBadge status="active">{t("status.active")}</AppStatusBadge>;
+}
+
+function permissionTranslationKey(permission: (typeof PERMISSIONS)[number]) {
+  return permission.slice("/key/".length);
 }
 
 function readBooleanFeature(value: unknown, fallback: boolean): boolean {

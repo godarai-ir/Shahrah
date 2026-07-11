@@ -6,22 +6,21 @@ import {
   Check,
   Copy,
   KeyRound,
+  Pencil,
   Plus,
   RefreshCcw,
   RotateCw,
-  Search,
   ShieldCheck,
   Trash2,
 } from "lucide-react";
 
-import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, HelpLink, IdentifierField, PageHeader, StatusBadge as AppStatusBadge } from "@/components/app-ui";
+import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, HelpLink, IdentifierField, PageHeader, SearchField, StatusBadge as AppStatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -450,6 +449,16 @@ export default function VirtualUserTokenManagement({
     setCreateUserOpen(true);
   }
 
+  async function copyVirtualUserID() {
+    if (!selectedVirtualUser) return;
+    try {
+      await navigator.clipboard.writeText(selectedVirtualUser.id);
+      setBanner({ kind: "success", message: t("messages.identifierCopied") });
+    } catch {
+      setBanner({ kind: "error", message: t("messages.identifierCopyFailed") });
+    }
+  }
+
   function openCreateToken() {
     if (isVatFeatureEnabled === false) {
       setUpgradeDialogOpen(true);
@@ -497,24 +506,21 @@ export default function VirtualUserTokenManagement({
       <section className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(22rem,0.9fr)_minmax(0,1.1fr)]">
         <AppCard className="min-w-0" contentClassName="flex min-w-0 flex-col gap-4">
           <div className="flex flex-wrap items-center gap-2">
-            <InputGroup className="min-w-64 flex-1">
-              <InputGroupAddon>
-                <Search aria-hidden="true" />
-              </InputGroupAddon>
-              <InputGroupInput
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={t("searchPlaceholder")}
-                aria-label={t("searchPlaceholder")}
-              />
-            </InputGroup>
+            <SearchField
+              containerClassName="min-w-64 flex-1"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t("searchPlaceholder")}
+            />
             <Button
               variant="outline"
+              size="icon"
+              aria-label={t("actions.refresh")}
+              title={t("actions.refresh")}
               onClick={() => void loadVirtualUsers(0, query.trim())}
               disabled={isLoadingUsers}
             >
-              <RefreshCcw data-icon="inline-start" className={cn(isLoadingUsers && "animate-spin")} />
-              {t("actions.refresh")}
+              <RefreshCcw className={cn(isLoadingUsers && "animate-spin")} />
             </Button>
           </div>
 
@@ -606,33 +612,38 @@ export default function VirtualUserTokenManagement({
                 <CardHeader className="flex flex-row items-start justify-between gap-4">
                   <div className="flex min-w-0 flex-col gap-1">
                     <CardTitle className="truncate">{selectedVirtualUser.display_name || selectedVirtualUser.alias}</CardTitle>
-                    <p className="truncate font-mono text-xs text-muted-foreground">{selectedVirtualUser.id}</p>
+                    <div className="flex min-w-0 items-center gap-1">
+                      <p className="truncate font-mono text-xs text-muted-foreground">{selectedVirtualUser.id}</p>
+                      <Button type="button" variant="ghost" size="icon-xs" aria-label={t("actions.copyIdentifier")} title={t("actions.copyIdentifier")} onClick={() => void copyVirtualUserID()}>
+                        <Copy />
+                      </Button>
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" onClick={openEditVirtualUser}>
-                      {t("actions.editUser")}
+                    <Button variant="outline" size="icon-sm" aria-label={t("actions.editUser")} title={t("actions.editUser")} onClick={openEditVirtualUser}>
+                      <Pencil />
                     </Button>
                     <Button
                       variant="outline"
-                      size="sm"
+                      size="icon-sm"
+                      aria-label={t("actions.deleteUser")}
+                      title={t("actions.deleteUser")}
                       onClick={() => {
                         setDeleteConfirmation("");
                         setDeleteUserOpen(true);
                       }}
                     >
-                      <Trash2 data-icon="inline-start" />
-                      {t("actions.deleteUser")}
+                      <Trash2 />
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <dl className="grid gap-4 sm:grid-cols-3">
-                    <InfoItem label={t("detail.team")} value={getTeamName(selectedVirtualUser.team_id, teams)} />
-                    <InfoItem label={t("detail.orgUnit")} value={getOrgUnitName(selectedVirtualUser.org_unit_id, orgUnits)} />
-                    <InfoItem label={t("detail.tokens")} value={String(tokenTotal)} />
-                  </dl>
-                </CardContent>
               </Card>
+
+              <dl className="grid grid-cols-3 gap-2">
+                <InfoItem label={t("detail.team")} value={getTeamName(selectedVirtualUser.team_id, teams)} />
+                <InfoItem label={t("detail.orgUnit")} value={getOrgUnitName(selectedVirtualUser.org_unit_id, orgUnits)} />
+                <InfoItem label={t("detail.tokens")} value={String(tokenTotal)} />
+              </dl>
 
               <AppCard contentClassName="flex min-w-0 flex-col gap-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -641,9 +652,8 @@ export default function VirtualUserTokenManagement({
                     <h2 className="text-lg font-semibold">{t("tokens.title")}</h2>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" onClick={() => void loadTokens(selectedVirtualUser.id)} disabled={isLoadingTokens}>
-                      <RefreshCcw data-icon="inline-start" className={cn(isLoadingTokens && "animate-spin")} />
-                      {t("actions.refresh")}
+                    <Button variant="outline" size="icon" aria-label={t("actions.refresh")} title={t("actions.refresh")} onClick={() => void loadTokens(selectedVirtualUser.id)} disabled={isLoadingTokens}>
+                      <RefreshCcw className={cn(isLoadingTokens && "animate-spin")} />
                     </Button>
                     <Sheet open={createTokenOpen} onOpenChange={setCreateTokenOpen}>
                       <Button
@@ -688,6 +698,7 @@ export default function VirtualUserTokenManagement({
                       <TableHead>{t("tokensTable.masked")}</TableHead>
                       <TableHead>{t("tokensTable.models")}</TableHead>
                       <TableHead>{t("tokensTable.lastUsed")}</TableHead>
+                      <TableHead>{t("fields.expiresIn")}</TableHead>
                       <TableHead>{t("tokensTable.status")}</TableHead>
                       <TableHead>{t("tokensTable.actions")}</TableHead>
                     </TableRow>
@@ -695,7 +706,7 @@ export default function VirtualUserTokenManagement({
                   <TableBody>
                     {tokens.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6}>{t("tokensTable.empty")}</TableCell>
+                        <TableCell colSpan={7}>{t("tokensTable.empty")}</TableCell>
                       </TableRow>
                     ) : (
                       tokens.map((token) => (
@@ -704,6 +715,7 @@ export default function VirtualUserTokenManagement({
                           <TableCell className="font-mono text-xs">{token.key_name ?? "-"}</TableCell>
                           <TableCell>{modelSummary(token.allowed_models ?? token.models ?? [], t)}</TableCell>
                           <TableCell>{formatDate(token.last_used_at)}</TableCell>
+                          <TableCell>{formatDate(token.expires_at)}</TableCell>
                           <TableCell>
                             <TokenStatusBadge token={token} t={t} />
                           </TableCell>
@@ -711,27 +723,29 @@ export default function VirtualUserTokenManagement({
                             <div className="flex flex-wrap gap-2">
                               <Button
                                 variant="outline"
-                                size="sm"
+                                size="icon-sm"
+                                aria-label={t("actions.rotate")}
+                                title={t("actions.rotate")}
                                 onClick={() => {
                                   setActionIntent({ type: "rotate", token });
                                   setConfirmOpen(true);
                                 }}
                                 disabled={Boolean(token.revoked_at)}
                               >
-                                <RotateCw data-icon="inline-start" />
-                                {t("actions.rotate")}
+                                <RotateCw />
                               </Button>
                               <Button
                                 variant="outline"
-                                size="sm"
+                                size="icon-sm"
+                                aria-label={t("actions.revoke")}
+                                title={t("actions.revoke")}
                                 onClick={() => {
                                   setActionIntent({ type: "revoke", token });
                                   setConfirmOpen(true);
                                 }}
                                 disabled={Boolean(token.revoked_at)}
                               >
-                                <Trash2 data-icon="inline-start" />
-                                {t("actions.revoke")}
+                                <Trash2 />
                               </Button>
                             </div>
                           </TableCell>
@@ -990,6 +1004,7 @@ function TokenFormView({
       <div className="flex flex-col gap-2">
         <Label htmlFor="vat-expiry">{t("fields.expiresIn")}</Label>
         <Input id="vat-expiry" value={form.expiresIn} onChange={(event) => update("expiresIn", event.target.value)} placeholder="30d" />
+        <p className="text-xs leading-5 text-muted-foreground">{t("createToken.expiryExamples")}</p>
       </div>
       <div className="flex flex-col gap-2">
         <Label>{t("fields.allowedModels")}</Label>
@@ -1036,10 +1051,12 @@ function TokenStatusBadge({ token, t }: { token: VATToken; t: ReturnType<typeof 
 
 function InfoItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="mt-1 truncate text-sm font-semibold">{value}</dd>
-    </div>
+    <Card className="min-w-0 shadow-none">
+      <CardContent className="flex flex-col gap-1 p-3">
+        <dt className="text-xs text-muted-foreground">{label}</dt>
+        <dd className="truncate text-sm font-semibold">{value}</dd>
+      </CardContent>
+    </Card>
   );
 }
 
