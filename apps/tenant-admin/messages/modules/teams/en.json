@@ -1,6 +1,6 @@
 {
   "title": "Teams",
-  "subtitle": "Manage team workspaces, members, permissions, model access, and budget guardrails.",
+  "subtitle": "Manage team workspaces, members, permissions, and organizational scope.",
   "breadcrumb": {
     "tenant": "Tenant"
   },
@@ -24,7 +24,8 @@
     "search": "Search alias or display name",
     "orgAll": "All org units",
     "workspaceAll": "All workspace types",
-    "statusAll": "All statuses"
+    "statusAll": "All statuses",
+    "sortLabel": "Sort teams"
   },
   "workspace": {
     "production": "Production",
@@ -36,14 +37,11 @@
   },
   "status": {
     "active": "Active",
-    "blocked": "Blocked",
-    "budgetWarning": "Budget warning",
-    "budgetExceeded": "Budget exceeded"
+    "blocked": "Blocked"
   },
   "sort": {
     "recent": "Recent",
     "name": "Name",
-    "spend": "Spend",
     "members": "Members"
   },
   "table": {
@@ -53,17 +51,13 @@
     "tenantRoot": "Tenant root",
     "workspaceType": "Workspace type",
     "membersAdmins": "Members/Admins",
-    "spend": "Spend",
-    "budgetSpend": "Budget/Spend",
-    "models": "Allowed models",
-    "modelsSummary": "{first} +{count} models",
-    "limits": "TPM/RPM",
     "status": "Status",
-    "updated": "Updated"
+    "updated": "Updated",
+    "actions": "Actions"
   },
   "empty": {
     "title": "No teams found",
-    "description": "Teams organize members, budgets, model access, and key management per workspace."
+    "description": "Teams organize members, permissions, and key management per workspace."
   },
   "pagination": {
     "showing": "Showing {from} to {to} of {total}",
@@ -71,20 +65,12 @@
     "next": "Next"
   },
   "kpi": {
-    "spend": "Total spend",
-    "remaining": "Budget remaining",
     "membersAdmins": "Members/Admins",
     "activeKeys": "Active keys"
   },
   "detail": {
-    "empty": "Select a team to inspect spend, limits, memberships, and controls.",
-    "guardrails": "Budget and rate limits",
-    "budget": "{spend} used from {max}",
-    "softBudget": "Soft budget: {value}",
-    "duration": "Budget duration: {value}",
-    "limits": "TPM {tpm} / RPM {rpm}",
+    "empty": "Select a team to inspect its members, scope, and permissions.",
     "access": "Access scope",
-    "models": "Allowed models: {value}",
     "orgInheritance": "Org unit scope: {value}",
     "permissions": "Permission set size: {value}",
     "members": "Members",
@@ -93,12 +79,12 @@
   },
   "create": {
     "title": "Create team",
-    "description": "Create a tenant team with optional org unit scope and guardrails.",
+    "description": "Create a team with an optional organizational unit scope.",
     "submit": "Create team"
   },
   "edit": {
     "title": "Edit team",
-    "description": "Keep changes aligned with budget, parent org-unit constraints, and role permissions.",
+    "description": "Update the team identity, organizational scope, and workspace type.",
     "submit": "Save changes"
   },
   "delete": {
@@ -125,20 +111,17 @@
     "remove": "Remove"
   },
   "form": {
-    "alias": "Alias",
+    "alias": "Technical identifier",
     "displayName": "Display name",
     "orgUnit": "Org unit (optional)",
     "workspaceType": "Workspace type",
-    "allowedModels": "Allowed models",
-    "allowedModelsPlaceholder": "gpt-4o-mini,gpt-4.1-mini",
-    "budgetId": "Budget ID (optional)",
-    "costCenter": "Cost center",
-    "description": "Description",
-    "maxBudget": "Max budget",
-    "softBudget": "Soft budget",
-    "budgetDuration": "Budget duration",
-    "tpmLimit": "TPM limit",
-    "rpmLimit": "RPM limit"
+    "description": "Description"
+  },
+  "upgradeDialog": {
+    "title": "Team creation is not available on your plan",
+    "description": "Creating and managing teams is not included in your current commercial plan. Upgrade your plan to use this feature.",
+    "cancel": "Not now",
+    "action": "Upgrade or buy a plan"
   },
   "messages": {
     "loadError": "Failed to load teams.",
@@ -147,7 +130,6 @@
     "createError": "Failed to create team.",
     "updateSuccess": "Team updated.",
     "updateError": "Failed to update team.",
-    "budgetCannotDrop": "Max budget cannot be lower than current spend.",
     "selectUser": "Select a user from the list (email or name).",
     "memberAddSuccess": "Member added.",
     "memberAddError": "Failed to add member.",
@@ -159,7 +141,6 @@
     "deleteConfirmAlias": "Type team alias to confirm deletion.",
     "deleteSuccess": "Team deleted.",
     "deleteError": "Failed to delete team.",
-    "softBudgetConflict": "Soft budget must be lower than max budget.",
     "aliasRequired": "Alias is required.",
     "aliasPattern": "Alias must use letters, numbers, dash, or underscore.",
     "aliasUnique": "Alias must be unique in this tenant."

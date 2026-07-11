@@ -85,6 +85,9 @@ describe("VirtualUserTokenManagement", () => {
     };
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
+      if (url === "/api/entitlements") {
+        return jsonResponse({ features: { "auth.vat.enabled": true } });
+      }
       if (url === "/api/virtual-users" && init?.method === "POST") {
         return jsonResponse(createdUser);
       }
@@ -111,10 +114,11 @@ describe("VirtualUserTokenManagement", () => {
       />,
     );
 
-    fireEvent.click(screen.getByText("actions.createUser"));
+    const createButtons = screen.getAllByText("actions.createUser");
+    await waitFor(() => expect(createButtons[0].closest("button")).toBeEnabled());
+    fireEvent.click(createButtons[0]);
     fireEvent.change(screen.getByLabelText("fields.alias"), { target: { value: "deploy-bot" } });
     fireEvent.change(screen.getByLabelText("fields.displayName"), { target: { value: "Deploy Bot" } });
-    fireEvent.change(screen.getByLabelText("fields.team"), { target: { value: "team-1" } });
     fireEvent.click(screen.getAllByText("actions.createUser").at(-1)!);
 
     expect(await screen.findAllByText("Deploy Bot")).toHaveLength(2);
@@ -128,6 +132,32 @@ describe("VirtualUserTokenManagement", () => {
         expect.objectContaining({ cache: "no-store" }),
       );
     });
+  });
+
+  it("shows the upgrade dialog when VAT is disabled by the commercial plan", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input) === "/api/entitlements") {
+        return jsonResponse({ features: { "auth.vat.enabled": false } });
+      }
+      return jsonResponse({ data: [], total: 0 });
+    }));
+
+    render(
+      <VirtualUserTokenManagement
+        initialVirtualUsers={[]}
+        initialTotal={0}
+        initialError={null}
+        teams={[]}
+        orgUnits={[]}
+      />,
+    );
+
+    const createButtons = screen.getAllByText("actions.createUser");
+    await waitFor(() => expect(createButtons[0].closest("button")).toBeEnabled());
+    fireEvent.click(createButtons[0]);
+
+    expect(await screen.findByText("upgradeDialog.title")).toBeInTheDocument();
+    expect(screen.getByText("upgradeDialog.action")).toBeInTheDocument();
   });
 });
 

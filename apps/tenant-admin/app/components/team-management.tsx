@@ -11,15 +11,17 @@ import {
   Users,
 } from "lucide-react";
 
-import AccessManagementHeader from "@/app/components/access-management-header";
 import { usePermissions } from "@/app/components/permissions-context";
-import { AppCard, AppSelectField, EmptyState, IdentifierField, MetricCard, RowActionsMenu, StatusBadge as AppStatusBadge } from "@/components/app-ui";
+import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, HelpLink, IdentifierField, MetricCard, PageHeader, RowActionsMenu, StatusBadge as AppStatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { canAnyPermission } from "@/lib/authz";
 import { cn } from "@/lib/utils";
@@ -47,23 +49,15 @@ type OrgUnit = { id: string; alias: string; display_name?: string };
 type AccessPrincipalCandidate = { principal_id: string; display_name: string; secondary?: string };
 type MemberCandidateOption = { userID: string; label: string };
 type ListResponse<T> = { data?: T[]; total?: number };
-type AllowedModelResponse = { data?: Array<{ id: string }> };
 type Banner = { kind: "success" | "error" | "warning"; message: string };
+type EffectiveEntitlements = { features?: Record<string, unknown> } | null;
 
 type TeamForm = {
   alias: string;
   displayName: string;
   orgUnitID: string;
   workspaceType: string;
-  allowedModels: string;
-  budgetID: string;
-  costCenter: string;
   description: string;
-  maxBudget: string;
-  softBudget: string;
-  budgetDuration: string;
-  tpmLimit: string;
-  rpmLimit: string;
 };
 
 const PERMISSIONS = ["/key/info", "/key/list", "/key/generate", "/key/update", "/key/delete", "/key/regenerate", "/key/block", "/key/unblock", "/key/health"];
@@ -71,21 +65,14 @@ const DEFAULT_PERMISSIONS = ["/key/info", "/key/health"];
 const WORKSPACE_TYPES = ["production", "staging", "development", "research", "internal", "general"] as const;
 const WORKSPACE_TYPE_SET = new Set<string>(WORKSPACE_TYPES);
 const PAGE_SIZE = 25;
+const FEATURE_TEAMS_ENABLED = "teams.enabled";
 
 const emptyForm: TeamForm = {
   alias: "",
   displayName: "",
   orgUnitID: "",
   workspaceType: "production",
-  allowedModels: "",
-  budgetID: "",
-  costCenter: "",
   description: "",
-  maxBudget: "",
-  softBudget: "",
-  budgetDuration: "30d",
-  tpmLimit: "",
-  rpmLimit: "",
 };
 
 export default function TeamManagement({
@@ -93,15 +80,15 @@ export default function TeamManagement({
   initialTotal,
   initialError,
   initialOrgUnits,
-  initialAllowedModels,
   currentUserRole,
+  docsHref,
 }: {
   initialTeams: Team[];
   initialTotal: number;
   initialError: string | null;
   initialOrgUnits: OrgUnit[];
-  initialAllowedModels: string[];
   currentUserRole: string;
+  docsHref?: string;
 }) {
   const t = useTranslations("teams");
   const permissions = usePermissions() ?? [];
@@ -116,9 +103,10 @@ export default function TeamManagement({
   const [offset, setOffset] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isLoadingAllowedModels, setIsLoadingAllowedModels] = useState(false);
+  const [entitlements, setEntitlements] = useState<EffectiveEntitlements>(null);
+  const [hasLoadedEntitlements, setHasLoadedEntitlements] = useState(false);
+  const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
   const [banner, setBanner] = useState<Banner | null>(initialError ? { kind: "error", message: initialError } : null);
-  const [allowedModels, setAllowedModels] = useState<string[]>(initialAllowedModels);
 
   const [selectedTeamID, setSelectedTeamID] = useState<string | null>(initialTeams[0]?.id ?? null);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(initialTeams[0] ?? null);
@@ -140,6 +128,37 @@ export default function TeamManagement({
     || canAnyPermission(permissions, ["team:manage"]);
   const canCreateTeam = canAnyPermission(permissions, ["team:create"]);
   const canDelete = canAnyPermission(permissions, ["team:delete"]);
+  const isTeamsFeatureEnabled = hasLoadedEntitlements
+    ? readBooleanFeature(entitlements?.features?.[FEATURE_TEAMS_ENABLED], false)
+    : null;
+
+  function handleCreateTeam() {
+    if (isTeamsFeatureEnabled === false) {
+      setIsUpgradeDialogOpen(true);
+      return;
+    }
+    setForm(emptyForm);
+    setCreateOpen(true);
+  }
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void requestJSON<EffectiveEntitlements>("/api/entitlements")
+      .then((response) => {
+        if (isMounted) setEntitlements(response);
+      })
+      .catch(() => {
+        if (isMounted) setEntitlements(null);
+      })
+      .finally(() => {
+        if (isMounted) setHasLoadedEntitlements(true);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -164,7 +183,6 @@ export default function TeamManagement({
     });
     return [...list].sort((a, b) => {
       if (sortBy === "name") return getTeamName(a).localeCompare(getTeamName(b));
-      if (sortBy === "spend") return getSpend(b) - getSpend(a);
       if (sortBy === "members") return getMemberCount(b) - getMemberCount(a);
       return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
     });
@@ -232,33 +250,13 @@ export default function TeamManagement({
     setUsers(payload.data ?? []);
   }
 
-  async function loadAllowedModels(teamID?: string) {
-    setIsLoadingAllowedModels(true);
-    try {
-      const params = new URLSearchParams();
-      params.set("key_type", "vat");
-      if (teamID) params.set("team_id", teamID);
-      const payload = await requestJSON<AllowedModelResponse>(`/api/allowed-models?${params.toString()}`);
-      const nextModels = (payload.data ?? []).map((item) => item.id.trim()).filter(Boolean);
-      setAllowedModels(nextModels);
-      setForm((prev) => {
-        const nextAllowed = filterAllowedModels(modelsFromInput(prev.allowedModels), nextModels);
-        return nextAllowed.join(",") === prev.allowedModels ? prev : { ...prev, allowedModels: nextAllowed.join(",") };
-      });
-    } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.loadError")) });
-    } finally {
-      setIsLoadingAllowedModels(false);
-    }
-  }
-
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const validation = validateForm(form, teams, t);
     if (validation) return setBanner({ kind: "error", message: validation });
     setIsSaving(true);
     try {
-      const created = await requestJSON<Team>("/api/teams", { method: "POST", body: JSON.stringify(buildTeamPayload(form, allowedModels)) });
+      const created = await requestJSON<Team>("/api/teams", { method: "POST", body: JSON.stringify(buildTeamPayload(form)) });
       setCreateOpen(false);
       setForm(emptyForm);
       setBanner({ kind: "success", message: t("messages.createSuccess") });
@@ -280,7 +278,7 @@ export default function TeamManagement({
     try {
       const updated = await requestJSON<Team>(`/api/teams/${encodeURIComponent(selectedTeam.id)}`, {
         method: "PATCH",
-        body: JSON.stringify(buildTeamPayload(form, allowedModels, selectedTeam.metadata)),
+        body: JSON.stringify(buildTeamPayload(form, selectedTeam.metadata)),
       });
       setSelectedTeam(updated);
       setTeams((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
@@ -381,59 +379,60 @@ export default function TeamManagement({
   const to = Math.min(offset + teams.length, total);
 
   return (
-    <div className="flex flex-col gap-5">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex flex-col gap-2">
-          <AccessManagementHeader activeTab="teams" />
-          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-        </div>
-      </header>
-
-      {banner ? <Alert variant={banner.kind === "error" ? "destructive" : banner.kind}><AlertTitle>{t(`alerts.${banner.kind}`)}</AlertTitle><AlertDescription>{banner.message}</AlertDescription></Alert> : null}
-
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
-        <AppCard className="shadow-none" contentClassName="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-            <Button variant="outline" className="gap-2" onClick={() => void loadTeams(offset, query.trim())} disabled={isLoading}>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title={t("title")}
+        description={t("subtitle")}
+        titleAddon={docsHref ? <HelpLink href={docsHref} /> : null}
+        actions={
+          <>
+            <Button variant="outline" onClick={() => void loadTeams(offset, query.trim())} disabled={isLoading}>
               <RefreshCw data-icon="inline-start" className={cn(isLoading && "animate-spin")} />
               {t("actions.refresh")}
             </Button>
-            <Sheet open={createOpen} onOpenChange={setCreateOpen}>
-              <Button className="gap-2" onClick={() => { setCreateOpen(true); void loadAllowedModels(); }} disabled={!canCreateTeam}>
-                <Plus data-icon="inline-start" />
-                {t("actions.new")}
-              </Button>
-              <SheetContent side="right" className="w-[94vw] max-w-xl overflow-y-auto sm:max-w-xl">
-                <SheetHeader><SheetTitle>{t("create.title")}</SheetTitle><SheetDescription>{t("create.description")}</SheetDescription></SheetHeader>
-                <TeamForm t={t} form={form} setForm={setForm} orgUnits={orgUnits} onSubmit={handleCreate} isSaving={isSaving} submitLabel={t("create.submit")} allowedModels={allowedModels} isLoadingAllowedModels={isLoadingAllowedModels} />
-              </SheetContent>
-            </Sheet>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <div className="relative"><Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("filters.search")} className="w-full ps-9 sm:w-64" /></div>
-            <AppSelectField value={orgFilter} onValueChange={setOrgFilter} triggerClassName="h-10" options={[{ value: "all", label: t("filters.orgAll") }, { value: "root", label: t("table.tenantRoot") }, ...orgUnits.map((org) => ({ value: org.id, label: org.display_name || org.alias }))]} />
-            <AppSelectField value={workspaceFilter} onValueChange={setWorkspaceFilter} triggerClassName="h-10" options={[{ value: "all", label: t("filters.workspaceAll") }, ...WORKSPACE_TYPES.map((type) => ({ value: type, label: t(`workspace.${type}`) }))]} />
-            <AppSelectField value={statusFilter} onValueChange={setStatusFilter} triggerClassName="h-10" options={[{ value: "all", label: t("filters.statusAll") }, { value: "active", label: t("status.active") }, { value: "blocked", label: t("status.blocked") }]} />
-            <AppSelectField value={sortBy} onValueChange={setSortBy} triggerClassName="h-10" options={[{ value: "recent", label: t("sort.recent") }, { value: "name", label: t("sort.name") }, { value: "spend", label: t("sort.spend") }, { value: "members", label: t("sort.members") }]} />
+            <Button
+              type="button"
+              onClick={handleCreateTeam}
+              disabled={!canCreateTeam || !hasLoadedEntitlements}
+            >
+              <Plus data-icon="inline-start" />
+              {t("actions.new")}
+            </Button>
+          </>
+        }
+      />
+
+      {banner ? <Alert variant={banner.kind === "error" ? "destructive" : banner.kind}><AlertTitle>{t(`alerts.${banner.kind}`)}</AlertTitle><AlertDescription>{banner.message}</AlertDescription></Alert> : null}
+
+      <section className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,1.2fr)_minmax(22rem,0.8fr)]">
+        <AppCard className="min-w-0 shadow-none" contentClassName="flex min-w-0 flex-col gap-4">
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(14rem,1fr)_repeat(4,auto)]">
+            <InputGroup className="min-w-0">
+              <InputGroupAddon><Search aria-hidden="true" /></InputGroupAddon>
+              <InputGroupInput value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("filters.search")} aria-label={t("filters.search")} />
+            </InputGroup>
+            <AppSelectField ariaLabel={t("filters.orgAll")} value={orgFilter} onValueChange={setOrgFilter} triggerClassName="h-10 w-full" options={[{ value: "all", label: t("filters.orgAll") }, { value: "root", label: t("table.tenantRoot") }, ...orgUnits.map((org) => ({ value: org.id, label: org.display_name || org.alias }))]} />
+            <AppSelectField ariaLabel={t("filters.workspaceAll")} value={workspaceFilter} onValueChange={setWorkspaceFilter} triggerClassName="h-10 w-full" options={[{ value: "all", label: t("filters.workspaceAll") }, ...WORKSPACE_TYPES.map((type) => ({ value: type, label: t(`workspace.${type}`) }))]} />
+            <AppSelectField ariaLabel={t("filters.statusAll")} value={statusFilter} onValueChange={setStatusFilter} triggerClassName="h-10 w-full" options={[{ value: "all", label: t("filters.statusAll") }, { value: "active", label: t("status.active") }, { value: "blocked", label: t("status.blocked") }]} />
+            <AppSelectField ariaLabel={t("filters.sortLabel")} value={sortBy} onValueChange={setSortBy} triggerClassName="h-10 w-full" options={[{ value: "recent", label: t("sort.recent") }, { value: "name", label: t("sort.name") }, { value: "members", label: t("sort.members") }]} />
           </div>
 
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader><TableRow><TableHead>{t("table.team")}</TableHead><TableHead>{t("table.orgUnit")}</TableHead><TableHead>{t("table.workspaceType")}</TableHead><TableHead>{t("table.models")}</TableHead><TableHead>{t("table.status")}</TableHead><TableHead>{t("table.updated")}</TableHead><TableHead className="w-10 text-end"> </TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>{t("table.team")}</TableHead><TableHead>{t("table.orgUnit")}</TableHead><TableHead>{t("table.workspaceType")}</TableHead><TableHead>{t("table.status")}</TableHead><TableHead>{t("table.updated")}</TableHead><TableHead className="w-10 text-end"> </TableHead></TableRow></TableHeader>
               <TableBody>
-                {filtered.length === 0 ? <TableRow><TableCell colSpan={7} className="py-6"><EmptyState icon={Users} title={t("empty.title")} description={t("empty.description")} className="min-h-40 border-0 bg-muted/40" /></TableCell></TableRow> : filtered.map((team) => (
+                {isLoading && filtered.length === 0 ? Array.from({ length: 4 }).map((_, index) => <TableRow key={index}><TableCell colSpan={6}><Skeleton className="h-10 w-full" /></TableCell></TableRow>) : filtered.length === 0 ? <TableRow><TableCell colSpan={6} className="py-6"><EmptyState icon={Users} title={t("empty.title")} description={t("empty.description")} className="min-h-40 border-0 bg-transparent" primaryAction={canCreateTeam ? <Button type="button" onClick={handleCreateTeam} disabled={!hasLoadedEntitlements}><Plus data-icon="inline-start" />{t("actions.new")}</Button> : undefined} /></TableCell></TableRow> : filtered.map((team) => (
                   <TableRow key={team.id} className={cn("cursor-pointer", selectedTeamID === team.id && "bg-muted/50")} onClick={() => setSelectedTeamID(team.id)}>
-                    <TableCell><div className="min-w-[180px]"><p className="truncate font-medium">{getTeamName(team)}</p><p className="truncate text-xs text-muted-foreground">{team.alias}</p></div></TableCell>
+                    <TableCell><div className="min-w-44"><p className="truncate font-medium">{getTeamName(team)}</p><p className="truncate text-xs text-muted-foreground">{team.alias}</p></div></TableCell>
                     <TableCell>{getOrgUnitName(team, orgUnits, t)}</TableCell>
                     <TableCell><Badge variant="outline">{t(`workspace.${getWorkspaceType(team)}`)}</Badge></TableCell>
-                    <TableCell>{getModelSummary(team, t)}</TableCell>
                     <TableCell><StatusBadge status={getStatus(team)} t={t} /></TableCell>
                     <TableCell>{formatDate(team.updated_at)}</TableCell>
                     <TableCell className="text-end">
                       <RowActionsMenu
                         label={t("table.actions")}
                         actions={[
-                          { label: t("actions.edit"), disabled: !canManage, onSelect: () => { setForm(formFromTeam(team)); setEditOpen(true); void loadAllowedModels(team.id); } },
+                          { label: t("actions.edit"), disabled: !canManage, onSelect: () => { setForm(formFromTeam(team)); setEditOpen(true); } },
                           { label: t("actions.members"), disabled: !canManage, onSelect: () => { setSelectedTeamID(team.id); setMembersOpen(true); void loadUsers(); } },
                           ...(canDelete ? [{ label: t("actions.delete"), destructive: true, icon: <Trash2 />, onSelect: () => { setSelectedTeamID(team.id); setDeleteOpen(true); } }] : []),
                         ]}
@@ -447,112 +446,88 @@ export default function TeamManagement({
           <div className="flex items-center justify-between text-sm text-muted-foreground"><p>{t("pagination.showing", { from, to, total })}</p><div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => void loadTeams(Math.max(0, offset - PAGE_SIZE), query.trim())} disabled={offset <= 0 || isLoading}>{t("pagination.prev")}</Button><Button variant="outline" size="sm" onClick={() => void loadTeams(offset + PAGE_SIZE, query.trim())} disabled={offset + teams.length >= total || isLoading}>{t("pagination.next")}</Button></div></div>
         </AppCard>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
           {!selectedTeam || !summary ? <EmptyState icon={Users} title={t("detail.empty")} className="min-h-56" /> : <>
             <div className="grid grid-cols-2 gap-3">
-              <Kpi label={t("kpi.spend")} value={formatMoney(summary.spend)} />
               <Kpi label={t("kpi.membersAdmins")} value={`${summary.members}/${summary.admins}`} />
               <Kpi label={t("kpi.activeKeys")} value={String(summary.activeKeys)} />
             </div>
             <AppCard title={t("detail.access")} contentClassName="flex flex-col gap-2 text-sm">
-              <p>{t("detail.models", { value: getModelSummary(selectedTeam, t) })}</p><p>{t("detail.orgInheritance", { value: getOrgUnitName(selectedTeam, orgUnits, t) })}</p><p>{t("detail.permissions", { value: summarizePermissions(members, t) })}</p>
+              <p>{t("detail.orgInheritance", { value: getOrgUnitName(selectedTeam, orgUnits, t) })}</p><p>{t("detail.permissions", { value: summarizePermissions(members, t) })}</p>
             </AppCard>
             <AppCard title={t("detail.members")} contentClassName="flex flex-col gap-2 text-sm">
-              {detailLoading ? <p className="text-muted-foreground">{t("detail.loading")}</p> : members.length === 0 ? <p className="text-muted-foreground">{t("detail.noMembers")}</p> : members.map((member) => <div key={member.user_id} className="flex items-center justify-between gap-2 rounded-md border border-border p-2"><span className="truncate">{getMemberDisplayLabel(member.user_id, memberLabelByUserID, t("members.unknownUser"))}</span><Badge variant={member.role === "team_admin" ? "default" : "secondary"}>{member.role}</Badge></div>)}
+              {detailLoading ? <div className="flex flex-col gap-2" aria-label={t("detail.loading")}><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div> : members.length === 0 ? <p className="text-muted-foreground">{t("detail.noMembers")}</p> : members.map((member) => <div key={member.user_id} className="flex items-center justify-between gap-2 rounded-md border border-border p-2"><span className="truncate">{getMemberDisplayLabel(member.user_id, memberLabelByUserID, t("members.unknownUser"))}</span><Badge variant={member.role === "team_admin" ? "default" : "secondary"}>{member.role}</Badge></div>)}
             </AppCard>
           </>}
         </div>
       </section>
 
-      <Sheet open={editOpen} onOpenChange={setEditOpen}><SheetContent side="right" className="w-[94vw] max-w-xl overflow-y-auto sm:max-w-xl"><SheetHeader><SheetTitle>{t("edit.title")}</SheetTitle><SheetDescription>{t("edit.description")}</SheetDescription></SheetHeader><TeamForm t={t} form={form} setForm={setForm} orgUnits={orgUnits} onSubmit={handleEdit} isSaving={isSaving} submitLabel={t("edit.submit")} allowedModels={allowedModels} isLoadingAllowedModels={isLoadingAllowedModels} /></SheetContent></Sheet>
+      <Sheet open={createOpen} onOpenChange={setCreateOpen}>
+        <SheetContent side="left" className="w-full max-w-xl overflow-y-auto sm:w-3/4">
+          <SheetHeader><SheetTitle>{t("create.title")}</SheetTitle><SheetDescription>{t("create.description")}</SheetDescription></SheetHeader>
+          <TeamForm t={t} form={form} setForm={setForm} orgUnits={orgUnits} onSubmit={handleCreate} isSaving={isSaving} submitLabel={t("create.submit")} />
+        </SheetContent>
+      </Sheet>
 
-      <Sheet open={membersOpen} onOpenChange={setMembersOpen}><SheetContent side="right" className="w-[94vw] max-w-xl overflow-y-auto sm:max-w-xl"><SheetHeader><SheetTitle>{t("members.title")}</SheetTitle><SheetDescription>{t("members.description")}</SheetDescription></SheetHeader>
+      <Sheet open={editOpen} onOpenChange={setEditOpen}><SheetContent side="left" className="w-full max-w-xl overflow-y-auto sm:w-3/4"><SheetHeader><SheetTitle>{t("edit.title")}</SheetTitle><SheetDescription>{t("edit.description")}</SheetDescription></SheetHeader><TeamForm t={t} form={form} setForm={setForm} orgUnits={orgUnits} onSubmit={handleEdit} isSaving={isSaving} submitLabel={t("edit.submit")} /></SheetContent></Sheet>
+
+      <Sheet open={membersOpen} onOpenChange={setMembersOpen}><SheetContent side="right" className="w-full max-w-xl overflow-y-auto sm:w-3/4"><SheetHeader><SheetTitle>{t("members.title")}</SheetTitle><SheetDescription>{t("members.description")}</SheetDescription></SheetHeader>
         <form onSubmit={addMember} className="mt-6 flex flex-col gap-3">
           <div className="grid gap-2"><Label htmlFor="team-member-user">{t("members.user")}</Label><Input id="team-member-user" value={memberUserInput} onChange={(e) => setMemberUserInput(e.target.value)} list="member-candidates" placeholder={t("members.userPlaceholder")} /><datalist id="member-candidates">{memberCandidateOptions.map((user) => <option key={user.userID} value={user.label} />)}</datalist></div>
           <AppSelectField label={t("members.role")} value={memberRole} onValueChange={setMemberRole} triggerClassName="h-10" options={[{ value: "team_member", label: t("members.teamMember") }, { value: "team_admin", label: t("members.teamAdmin") }]} />
-          {memberRole === "team_member" ? <div className="grid gap-2"><Label>{t("members.permissions")}</Label><div className="grid gap-2">{PERMISSIONS.map((perm) => <label key={perm} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={memberPerms.includes(perm)} onChange={(e) => setMemberPerms((prev) => e.target.checked ? [...prev, perm] : prev.filter((item) => item !== perm))} /><span>{perm}</span></label>)}</div></div> : null}
+          {memberRole === "team_member" ? <div className="grid gap-2"><Label>{t("members.permissions")}</Label><div className="grid gap-2">{PERMISSIONS.map((perm) => <label key={perm} htmlFor={`permission-${perm}`} className="flex items-center gap-2 text-sm"><Checkbox id={`permission-${perm}`} checked={memberPerms.includes(perm)} onCheckedChange={(checked) => setMemberPerms((prev) => checked === true ? [...prev, perm] : prev.filter((item) => item !== perm))} /><span>{perm}</span></label>)}</div></div> : null}
           <Button type="submit" className="w-full" disabled={!canManage || isSaving}>{t("members.add")}</Button>
         </form>
         <div className="mt-6 flex flex-col gap-2">{members.map((member) => <div key={member.user_id} className="rounded-md border border-border p-3"><div className="flex items-center justify-between gap-2"><span className="truncate text-sm">{getMemberDisplayLabel(member.user_id, memberLabelByUserID, t("members.unknownUser"))}</span><Badge variant={member.role === "team_admin" ? "default" : "secondary"}>{member.role}</Badge></div><div className="mt-2 flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => void updateMember(member, member.role === "team_admin" ? "team_member" : "team_admin", member.team_member_permissions ?? DEFAULT_PERMISSIONS)} disabled={!canManage || isSaving}>{member.role === "team_admin" ? t("members.makeTeamMember") : t("members.makeTeamAdmin")}</Button><Button size="sm" variant="outline" className="text-destructive" onClick={() => void removeMember(member.user_id)} disabled={!canManage || isSaving}>{t("members.remove")}</Button></div></div>)}</div>
       </SheetContent></Sheet>
 
-      <Sheet open={deleteOpen} onOpenChange={setDeleteOpen}><SheetContent side="right" className="w-[94vw] max-w-md"><SheetHeader><SheetTitle>{t("delete.title")}</SheetTitle><SheetDescription>{t("delete.description")}</SheetDescription></SheetHeader>
+      <Sheet open={deleteOpen} onOpenChange={setDeleteOpen}><SheetContent side="right" className="w-full max-w-md sm:w-3/4"><SheetHeader><SheetTitle>{t("delete.title")}</SheetTitle><SheetDescription>{t("delete.description")}</SheetDescription></SheetHeader>
         {selectedTeam ? <form className="mt-6 flex flex-col gap-4" onSubmit={handleDelete}><Alert variant="warning"><AlertTriangle aria-hidden="true" /><AlertTitle>{t("delete.guardTitle")}</AlertTitle><AlertDescription>{t("delete.guardDescription")}</AlertDescription></Alert><div className="grid gap-2"><Label htmlFor="delete-alias">{t("delete.confirm", { alias: selectedTeam.alias })}</Label><Input id="delete-alias" value={deleteConfirmation} onChange={(e) => setDeleteConfirmation(e.target.value)} placeholder={selectedTeam.alias} /></div><Button type="submit" variant="destructive" disabled={!canDelete || isSaving} className="w-full">{t("delete.submit")}</Button></form> : null}
       </SheetContent></Sheet>
+
+      <CommercialPlanUpgradeDialog
+        open={isUpgradeDialogOpen}
+        onOpenChange={setIsUpgradeDialogOpen}
+        title={t("upgradeDialog.title")}
+        description={t("upgradeDialog.description")}
+        cancelLabel={t("upgradeDialog.cancel")}
+        actionLabel={t("upgradeDialog.action")}
+      />
     </div>
   );
 }
 
-function TeamForm({ t, form, setForm, orgUnits, onSubmit, isSaving, submitLabel, allowedModels, isLoadingAllowedModels }: { t: ReturnType<typeof useTranslations>; form: TeamForm; setForm: (value: TeamForm) => void; orgUnits: OrgUnit[]; onSubmit: (event: FormEvent<HTMLFormElement>) => void; isSaving: boolean; submitLabel: string; allowedModels: string[]; isLoadingAllowedModels: boolean; }) {
-  const [modelQuery, setModelQuery] = useState("");
+function TeamForm({ t, form, setForm, orgUnits, onSubmit, isSaving, submitLabel }: { t: ReturnType<typeof useTranslations>; form: TeamForm; setForm: (value: TeamForm) => void; orgUnits: OrgUnit[]; onSubmit: (event: FormEvent<HTMLFormElement>) => void; isSaving: boolean; submitLabel: string; }) {
   const update = <K extends keyof TeamForm>(key: K, value: TeamForm[K]) => setForm({ ...form, [key]: value });
-  const selectedModels = useMemo(() => modelsFromInput(form.allowedModels), [form.allowedModels]);
-  const selectableModels = useMemo(() => {
-    const q = modelQuery.trim().toLowerCase();
-    if (!q) return allowedModels;
-    return allowedModels.filter((item) => item.toLowerCase().includes(q));
-  }, [allowedModels, modelQuery]);
   return (
     <form className="mt-6 flex flex-col gap-4" onSubmit={onSubmit}>
-      <IdentifierField id="team-alias" label={t("form.alias")} value={form.alias} onChange={(e) => update("alias", e.target.value)} required />
       <div className="grid gap-2"><Label htmlFor="team-display">{t("form.displayName")}</Label><Input id="team-display" value={form.displayName} onChange={(e) => update("displayName", e.target.value)} /></div>
+      <IdentifierField id="team-alias" label={t("form.alias")} value={form.alias} onChange={(e) => update("alias", e.target.value)} required />
       <AppSelectField label={t("form.orgUnit")} value={form.orgUnitID || "root"} onValueChange={(value) => update("orgUnitID", value === "root" ? "" : value)} triggerClassName="h-10" options={[{ value: "root", label: t("table.tenantRoot") }, ...orgUnits.map((org) => ({ value: org.id, label: org.display_name || org.alias }))]} />
       <AppSelectField label={t("form.workspaceType")} value={form.workspaceType} onValueChange={(value) => update("workspaceType", value)} triggerClassName="h-10" options={WORKSPACE_TYPES.map((type) => ({ value: type, label: t(`workspace.${type}`) }))} />
-      <div className="grid gap-2">
-        <Label htmlFor="team-models">{t("form.allowedModels")}</Label>
-        <Input id="team-models" value={modelQuery} onChange={(event) => setModelQuery(event.target.value)} placeholder={t("form.allowedModelsPlaceholder")} />
-        <div className="max-h-56 overflow-auto rounded-md border border-border bg-card p-2">
-          {isLoadingAllowedModels ? (
-            <p className="text-xs text-muted-foreground">{t("detail.loading")}</p>
-          ) : selectableModels.length === 0 ? (
-            <p className="text-xs text-muted-foreground">{t("common.notSet")}</p>
-          ) : (
-            selectableModels.map((modelID) => (
-              <label key={modelID} className="flex items-center gap-2 py-1 text-sm">
-                <input
-                  type="checkbox"
-                  checked={selectedModels.includes(modelID)}
-                  onChange={(event) => {
-                    if (event.target.checked) {
-                      update("allowedModels", Array.from(new Set([...selectedModels, modelID])).join(","));
-                      return;
-                    }
-                    update("allowedModels", selectedModels.filter((item) => item !== modelID).join(","));
-                  }}
-                />
-                <span className="font-mono text-xs">{modelID}</span>
-              </label>
-            ))
-          )}
-        </div>
-      </div>
-      <div className="grid gap-2"><Label htmlFor="team-cost">{t("form.costCenter")}</Label><Input id="team-cost" value={form.costCenter} onChange={(e) => update("costCenter", e.target.value)} /></div>
       <div className="grid gap-2"><Label htmlFor="team-description">{t("form.description")}</Label><Input id="team-description" value={form.description} onChange={(e) => update("description", e.target.value)} /></div>
       <Button type="submit" className="w-full" disabled={isSaving}>{isSaving ? t("actions.saving") : submitLabel}</Button>
     </form>
   );
 }
 
-function buildTeamPayload(form: TeamForm, allowedModels: string[], metadata?: Record<string, unknown>) {
-  const filteredModels = filterAllowedModels(modelsFromInput(form.allowedModels), allowedModels);
+function buildTeamPayload(form: TeamForm, metadata?: Record<string, unknown>) {
   return {
     alias: form.alias.trim(),
     display_name: form.displayName.trim(),
     org_unit_id: form.orgUnitID.trim() || null,
     workspace_type: form.workspaceType,
-    allowed_models: filteredModels,
     metadata: {
-      ...(metadata ?? {}),
+      ...withoutLegacyTeamMetadata(metadata),
       description: form.description.trim(),
-      cost_center: form.costCenter.trim(),
-      allowed_models: filteredModels,
     },
   };
 }
 
-function filterAllowedModels(selectedModels: string[], allowedModels: string[]) {
-  const allowedSet = new Set(allowedModels.map((item) => item.trim()).filter(Boolean));
-  return selectedModels.filter((item) => allowedSet.has(item));
+function withoutLegacyTeamMetadata(metadata?: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(metadata ?? {}).filter(([key]) => key !== "allowed_models" && key !== "cost_center"),
+  );
 }
 
 function validateForm(form: TeamForm, teams: Team[], t: ReturnType<typeof useTranslations>, currentID?: string) {
@@ -569,15 +544,7 @@ function formFromTeam(team: Team): TeamForm {
     displayName: getTeamName(team),
     orgUnitID: team.org_unit_id ?? "",
     workspaceType: getWorkspaceType(team),
-    allowedModels: getModels(team).join(","),
-    budgetID: "",
-    costCenter: toText(team.metadata?.cost_center),
     description: toText(team.metadata?.description),
-    maxBudget: "",
-    softBudget: "",
-    budgetDuration: "30d",
-    tpmLimit: "",
-    rpmLimit: "",
   };
 }
 
@@ -611,9 +578,7 @@ function getMemberDisplayLabel(userID: string, memberLabelByUserID: Map<string, 
 }
 
 function buildSummary(team: Team, members: TeamMember[]) {
-  const spend = getSpend(team);
   return {
-    spend,
     members: members.length || getMemberCount(team),
     admins: members.filter((item) => item.role === "team_admin").length || getAdminCount(team),
     activeKeys: getActiveKeys(team),
@@ -660,20 +625,8 @@ function getAdminCount(team: Team) {
     (team as Team & { adminsCount?: unknown }).adminsCount
   );
 }
-function getSpend(team: Team) { return toNumber(team.metadata?.spend ?? team.metadata?.current_spend ?? team.metadata?.total_spend); }
 function getActiveKeys(team: Team) { return toNumber(team.metadata?.active_keys_count ?? team.metadata?.active_key_count); }
 function getVirtualUsers(team: Team) { return toNumber(team.metadata?.virtual_users_count); }
-function getModels(team: Team) {
-  const fromTop = Array.isArray(team.metadata?.allowed_models) ? team.metadata?.allowed_models : [];
-  const normalized = Array.isArray(fromTop) ? fromTop.map((item) => String(item).trim()).filter(Boolean) : [];
-  return normalized;
-}
-function getModelSummary(team: Team, t: ReturnType<typeof useTranslations>) {
-  const models = getModels(team);
-  if (models.length === 0) return t("common.notSet");
-  if (models.length === 1) return models[0];
-  return t("table.modelsSummary", { count: models.length, first: models[0] });
-}
 function getStatus(team: Team): "active" | "blocked" {
   if (Boolean(team.metadata?.blocked)) return "blocked";
   return "active";
@@ -688,7 +641,6 @@ function summarizePermissions(members: TeamMember[], t: ReturnType<typeof useTra
   const unique = new Set(permissions);
   return unique.size === 0 ? t("common.notSet") : `${unique.size}`;
 }
-function modelsFromInput(value: string) { return value.split(",").map((item) => item.trim()).filter(Boolean); }
 function toNumber(value: unknown) { if (typeof value === "number" && Number.isFinite(value)) return value; if (typeof value === "string") { const parsed = Number(value.replace(/,/g, "")); return Number.isFinite(parsed) ? parsed : 0; } return 0; }
 function toCount(value: unknown) {
   if (Array.isArray(value)) return value.length;
@@ -702,7 +654,6 @@ function firstPositiveCount(...values: unknown[]) {
   return 0;
 }
 function toText(value: unknown) { if (typeof value === "string") return value; if (typeof value === "number") return String(value); return ""; }
-function formatMoney(value: number) { if (value <= 0) return "-"; return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value); }
 function formatDate(value: string) {
   if (!value) return "-";
   const date = new Date(value);
@@ -713,6 +664,15 @@ function formatDate(value: string) {
 function StatusBadge({ status, t }: { status: ReturnType<typeof getStatus>; t: ReturnType<typeof useTranslations> }) {
   if (status === "blocked") return <AppStatusBadge status="error">{t("status.blocked")}</AppStatusBadge>;
   return <AppStatusBadge status="active">{t("status.active")}</AppStatusBadge>;
+}
+
+function readBooleanFeature(value: unknown, fallback: boolean): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    if (value.trim().toLowerCase() === "true") return true;
+    if (value.trim().toLowerCase() === "false") return false;
+  }
+  return fallback;
 }
 
 function Kpi({ label, value }: { label: string; value: string }) {

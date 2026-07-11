@@ -712,6 +712,17 @@ func TestChatCompletionHandler_DeniesWhenAllowlistEnforcedAndEmpty(t *testing.T)
 
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusForbidden, resp.StatusCode)
+	require.Len(t, mLogs.loggedEntries, 1)
+	entry := mLogs.loggedEntries[0]
+	assert.Equal(t, "blocked", entry.Status)
+	assert.Equal(t, fiber.StatusForbidden, entry.StatusCode)
+	assert.Equal(t, "authorization_error", entry.ErrorType)
+	assert.Equal(t, "gpt-4", entry.Model)
+	assert.Equal(t, "/v1/chat/completions", entry.Route)
+	assert.Equal(t, "chat_completions", entry.RequestType)
+	assert.Equal(t, "model_access", entry.Metadata["denial_source"])
+	assert.Equal(t, "provider_account_policy", entry.Metadata["rejection_reason"])
+	assert.Zero(t, mTunnel.proxyCalls)
 }
 
 func TestChatCompletionHandler_RejectsVirtualModelUnsupportedMode(t *testing.T) {

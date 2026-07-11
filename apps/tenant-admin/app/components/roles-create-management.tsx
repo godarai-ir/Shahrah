@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { ArrowLeft, Plus, Search } from "lucide-react";
 
-import AccessManagementHeader from "@/app/components/access-management-header";
 import { IdentifierField } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -115,7 +114,6 @@ export default function RoleCreateManagement({ initialPermissionCatalog }: RoleC
 
   return (
     <div className="space-y-6">
-      <AccessManagementHeader activeTab="roles" />
       <p className="text-sm text-muted-foreground">
         {locale.startsWith("fa")
           ? "ایجاد نقش در صفحه جدا انجام می‌شود تا جریان ثبت دقیق‌تر و بدون شلوغی باشد."

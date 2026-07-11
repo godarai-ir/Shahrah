@@ -178,9 +178,12 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 			return writeUnsupportedModelModeError(c, requestedModel, platform.ModelTypeChat, modelAccess.ExposedModes)
 		}
 
-		emitDenyCounter(h.logger, denyReasonForModel(authInfo), requestedModel, currentTenant.ID)
+		denyReason := denyReasonForModel(authInfo)
+		emitDenyCounter(h.logger, denyReason, requestedModel, currentTenant.ID)
+		const message = "Model access denied or unsupported for chat completions"
+		logPreProviderRejection(h.logger, h.logs, c, authInfo, requestedModel, "/v1/chat/completions", "chat_completions", fiber.StatusForbidden, "authorization_error", message, denyReason, startTime)
 
-		return writeAPIError(c, fiber.StatusForbidden, "Model access denied or unsupported for chat completions", "authorization_error")
+		return writeAPIError(c, fiber.StatusForbidden, message, "authorization_error")
 	}
 
 	guardrailSelection, err := h.parseGuardrails(c)

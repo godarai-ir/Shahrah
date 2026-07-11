@@ -11,7 +11,21 @@
     "auditLogs": "Audit Logs"
   },
   "allUsers": "ALL USERS",
-  "searchPlaceholder": "Search...",
+  "searchPlaceholder": "Search users...",
+  "usersPage": {
+    "title": "Users",
+    "description": "Manage workspace members, access status, and assigned roles.",
+    "listDescription": "Active and inactive users in this workspace.",
+    "usage": "{used} users of {limit}",
+    "unlimited": "Unlimited",
+    "emptyDescription": "Invite the first user to start collaborating in this workspace.",
+    "upgradeDialog": {
+      "title": "Your plan's user limit has been reached",
+      "description": "Your current plan supports up to {limit} users. Upgrade your commercial plan to invite another user.",
+      "cancel": "Not now",
+      "action": "Upgrade or buy a plan"
+    }
+  },
   "inviteUser": "Invite User",
   "inviteTitle": "Invite User",
   "inviteDescription": "Invite user with email to this tenant.",
@@ -22,6 +36,7 @@
   },
   "roles": {
     "member": "Member",
+    "readOnlyMember": "Read-only member",
     "tenantAdmin": "Tenant Admin"
   },
   "button": {
@@ -121,6 +136,12 @@
       "protectedDescription": "This system role is read-only and cannot be edited.",
       "openMenu": "Open actions for role {role}",
       "retry": "Try again"
+    },
+    "upgradeDialog": {
+      "title": "Role management is not available on your plan",
+      "description": "Creating custom roles is not included in your current commercial plan. Upgrade your plan to use this feature.",
+      "cancel": "Not now",
+      "action": "Upgrade or buy a plan"
     }
   }
 }

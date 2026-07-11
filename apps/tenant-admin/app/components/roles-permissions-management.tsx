@@ -1,14 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Plus, Search, ShieldCheck } from "lucide-react";
 
-import AccessManagementHeader from "@/app/components/access-management-header";
 import { usePermissions } from "@/app/components/permissions-context";
-import { AppSelectField, EmptyState, PageHeader, RowActionsMenu } from "@/components/app-ui";
+import { AppSelectField, CommercialPlanUpgradeDialog, EmptyState, PageHeader, RowActionsMenu } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,9 +33,11 @@ type RolesPermissionsManagementProps = {
 };
 
 type RoleTypeFilter = "all" | "system" | "custom";
+type EffectiveEntitlements = { features?: Record<string, unknown> } | null;
 
 const protectedSystemRoles = new Set(["proxy_admin", "tenant_admin"]);
 const hiddenRolesInUI = new Set(["proxy_admin"]);
+const FEATURE_RBAC_ENABLED = "rbac.enabled";
 
 export default function RolesPermissionsManagement(props: RolesPermissionsManagementProps) {
   const t = useTranslations("accessManagement");
@@ -53,6 +53,9 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [roleType, setRoleType] = useState<RoleTypeFilter>("all");
+  const [entitlements, setEntitlements] = useState<EffectiveEntitlements>(null);
+  const [hasLoadedEntitlements, setHasLoadedEntitlements] = useState(false);
+  const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
 
   const numberFormatter = useMemo(() => new Intl.NumberFormat(locale), [locale]);
   const direction = locale.startsWith("fa") ? "rtl" : "ltr";
@@ -75,18 +78,46 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
 
   const hasActiveFilters = normalizedSearch.length > 0 || roleType !== "all";
   const columnCount = canManageRoles ? 5 : 4;
+  const isRbacFeatureEnabled = hasLoadedEntitlements
+    ? readBooleanFeature(entitlements?.features?.[FEATURE_RBAC_ENABLED], false)
+    : null;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void getEntitlements()
+      .then((response) => {
+        if (isMounted) setEntitlements(response);
+      })
+      .catch(() => {
+        if (isMounted) setEntitlements(null);
+      })
+      .finally(() => {
+        if (isMounted) setHasLoadedEntitlements(true);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   function clearFilters() {
     setSearchQuery("");
     setRoleType("all");
   }
 
+  function handleCreateRole() {
+    if (isRbacFeatureEnabled === false) {
+      setIsUpgradeDialogOpen(true);
+      return;
+    }
+    router.push("/roles/new");
+  }
+
   const createRoleAction = canManageRoles ? (
-    <Button asChild className="w-full sm:w-auto">
-      <Link href="/roles/new">
-        <Plus data-icon="inline-start" aria-hidden="true" />
-        {t("rolesPage.form.create")}
-      </Link>
+    <Button type="button" className="w-full sm:w-auto" onClick={handleCreateRole} disabled={!hasLoadedEntitlements}>
+      <Plus data-icon="inline-start" aria-hidden="true" />
+      {t("rolesPage.form.create")}
     </Button>
   ) : null;
 
@@ -98,8 +129,6 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
         description={t("rolesPage.description")}
         actions={createRoleAction}
       />
-
-      <AccessManagementHeader activeTab="roles" />
 
       {props.initialError ? (
         <Alert variant="destructive">
@@ -256,6 +285,30 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
           </CardContent>
         </Card>
       )}
+
+      <CommercialPlanUpgradeDialog
+        open={isUpgradeDialogOpen}
+        onOpenChange={setIsUpgradeDialogOpen}
+        title={t("rolesPage.upgradeDialog.title")}
+        description={t("rolesPage.upgradeDialog.description")}
+        cancelLabel={t("rolesPage.upgradeDialog.cancel")}
+        actionLabel={t("rolesPage.upgradeDialog.action")}
+      />
     </div>
   );
+}
+
+async function getEntitlements(): Promise<EffectiveEntitlements> {
+  const response = await fetch("/api/entitlements", { cache: "no-store" });
+  if (!response.ok) throw new Error("Failed to load entitlements");
+  return response.json() as Promise<EffectiveEntitlements>;
+}
+
+function readBooleanFeature(value: unknown, fallback: boolean): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    if (value.trim().toLowerCase() === "true") return true;
+    if (value.trim().toLowerCase() === "false") return false;
+  }
+  return fallback;
 }

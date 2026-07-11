@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import RolesPermissionsManagement from "./roles-permissions-management";
@@ -26,10 +26,6 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/app/components/permissions-context", () => ({
   usePermissions: () => permissionsMock,
-}));
-
-vi.mock("@/app/components/access-management-header", () => ({
-  default: () => <nav aria-label="access-navigation" />,
 }));
 
 const roles = [
@@ -62,10 +58,15 @@ describe("RolesPermissionsManagement", () => {
     permissionsMock = ["role:list", "role:manage"];
     pushMock.mockReset();
     refreshMock.mockReset();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ features: { "rbac.enabled": true } }),
+    }));
   });
 
   afterEach(() => {
     cleanup();
+    vi.unstubAllGlobals();
   });
 
   it("renders one page heading and the role list", () => {
@@ -104,5 +105,31 @@ describe("RolesPermissionsManagement", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "rolesPage.actions.retry" }));
     expect(refreshMock).toHaveBeenCalledOnce();
+  });
+
+  it("opens the upgrade dialog instead of navigating when RBAC is unavailable", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ features: { "rbac.enabled": false } }),
+    }));
+
+    render(<RolesPermissionsManagement initialRoles={roles} initialError={null} />);
+
+    const createButton = screen.getByRole("button", { name: "rolesPage.form.create" });
+    await waitFor(() => expect(createButton).toBeEnabled());
+    fireEvent.click(createButton);
+
+    expect(screen.getByRole("dialog")).toHaveTextContent("rolesPage.upgradeDialog.description");
+    expect(pushMock).not.toHaveBeenCalled();
+  });
+
+  it("navigates to role creation when RBAC is enabled", async () => {
+    render(<RolesPermissionsManagement initialRoles={roles} initialError={null} />);
+
+    const createButton = screen.getByRole("button", { name: "rolesPage.form.create" });
+    await waitFor(() => expect(createButton).toBeEnabled());
+    fireEvent.click(createButton);
+
+    expect(pushMock).toHaveBeenCalledWith("/roles/new");
   });
 });

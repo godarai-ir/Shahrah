@@ -14,15 +14,15 @@ import {
   Trash2,
   Users,
   WalletCards,
-  type LucideIcon,
 } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AppCard, AppSelectField, EmptyState, HelpLink, IdentifierField, PageHeader, RowActionsMenu, StatusBadge } from "@/components/app-ui";
+import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, FilterCombobox, HelpLink, IdentifierField, MetricCard, PageHeader, RowActionsMenu, StatusBadge } from "@/components/app-ui";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Sheet,
   SheetContent,
@@ -104,6 +104,10 @@ type Banner = {
   message: string;
 };
 
+type EffectiveEntitlements = {
+  features?: Record<string, unknown>;
+} | null;
+
 type FormState = {
   alias: string;
   displayName: string;
@@ -119,6 +123,7 @@ type OrgUnitManagementProps = {
 };
 
 const PAGE_SIZE = 25;
+const FEATURE_ORG_UNITS_ENABLED = "org_units.enabled";
 
 const emptyForm: FormState = {
   alias: "",
@@ -164,15 +169,39 @@ export default function OrgUnitManagement({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [memberUserID, setMemberUserID] = useState("");
-  const [memberUserQuery, setMemberUserQuery] = useState("");
-  const [isMemberUserPickerOpen, setIsMemberUserPickerOpen] = useState(false);
   const [memberRole, setMemberRole] = useState("org_admin");
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [entitlements, setEntitlements] = useState<EffectiveEntitlements>(null);
+  const [hasLoadedEntitlements, setHasLoadedEntitlements] = useState(false);
+  const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
 
   const canManage = ["tenant_admin", "proxy_admin", "org_admin"].includes(currentUserRole) || canAnyPermission(permissions, ["org_unit:manage"]);
   const canCreateOrgUnit = canManage || canAnyPermission(permissions, ["org_unit:create"]);
   const canDeleteOrgUnit = canManage || canAnyPermission(permissions, ["org_unit:delete"]);
+  const isOrgUnitsFeatureEnabled = hasLoadedEntitlements
+    ? readBooleanFeature(entitlements?.features?.[FEATURE_ORG_UNITS_ENABLED], false)
+    : null;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadEntitlements() {
+      try {
+        const response = await requestJSON<EffectiveEntitlements>("/api/entitlements");
+        if (isMounted) setEntitlements(response);
+      } catch {
+        if (isMounted) setEntitlements(null);
+      } finally {
+        if (isMounted) setHasLoadedEntitlements(true);
+      }
+    }
+
+    void loadEntitlements();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -206,16 +235,21 @@ export default function OrgUnitManagement({
 
   const visibleOrgUnits = useMemo(() => {
     const filtered = orgUnits.filter((orgUnit) => {
+      const teamCount = teamCountByOrgUnit[orgUnit.id] ?? getTeamCount(orgUnit);
       if (statusFilter === "all") return true;
-      if (statusFilter === "with_teams") return resolveTeamCount(orgUnit) > 0;
-      if (statusFilter === "empty") return resolveTeamCount(orgUnit) === 0;
+      if (statusFilter === "with_teams") return teamCount > 0;
+      if (statusFilter === "empty") return teamCount === 0;
       return getBudgetStatus(orgUnit).kind === statusFilter;
     });
 
     return [...filtered].sort((a, b) => {
       if (sortBy === "name") return getOrgName(a).localeCompare(getOrgName(b));
       if (sortBy === "spend") return getSpend(b) - getSpend(a);
-      if (sortBy === "teams") return resolveTeamCount(b) - resolveTeamCount(a);
+      if (sortBy === "teams") {
+        const bCount = teamCountByOrgUnit[b.id] ?? getTeamCount(b);
+        const aCount = teamCountByOrgUnit[a.id] ?? getTeamCount(a);
+        return bCount - aCount;
+      }
       return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
     });
   }, [orgUnits, sortBy, statusFilter, teamCountByOrgUnit]);
@@ -230,17 +264,13 @@ export default function OrgUnitManagement({
     });
     return map;
   }, [t, users]);
-  const memberUserOptions = useMemo(() => {
-    const queryValue = memberUserQuery.trim().toLowerCase();
-    if (!queryValue) return users.slice(0, 50);
-    return users
-      .filter((user) => {
-        const displayName = (user.display_name || "").toLowerCase();
-        const secondary = (user.secondary || "").toLowerCase();
-        return displayName.includes(queryValue) || secondary.includes(queryValue);
-      })
-      .slice(0, 50);
-  }, [memberUserQuery, users]);
+  const memberUserOptions = useMemo(
+    () => users.slice(0, 100).map((user) => ({
+      value: user.principal_id,
+      label: user.secondary ? `${user.display_name || t("members.user")} — ${user.secondary}` : user.display_name || t("members.user"),
+    })),
+    [t, users],
+  );
   const from = total === 0 ? 0 : offset + 1;
   const to = Math.min(offset + orgUnits.length, total);
   const canPrev = offset > 0;
@@ -404,8 +434,6 @@ export default function OrgUnitManagement({
       });
       await loadOrgUnitDetails(selectedOrgUnit.id);
       setMemberUserID("");
-      setMemberUserQuery("");
-      setIsMemberUserPickerOpen(false);
       setMemberRole("org_admin");
       setBanner({ kind: "success", message: t("messages.memberAddSuccess") });
     } catch (error) {
@@ -485,6 +513,10 @@ export default function OrgUnitManagement({
       });
       return;
     }
+    if (isOrgUnitsFeatureEnabled === false) {
+      setIsUpgradeDialogOpen(true);
+      return;
+    }
     setForm(emptyForm);
     setCreateOpen(true);
   }
@@ -498,40 +530,32 @@ export default function OrgUnitManagement({
     if (!canManage) return;
     setMemberOpen(true);
     setMemberUserID("");
-    setMemberUserQuery("");
-    setIsMemberUserPickerOpen(false);
     void loadUsers();
   }
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow={`${t("breadcrumb.tenant")} / ${t("title")}`}
-        title={
-          <span className="inline-flex flex-wrap items-center gap-2">
-            <span>{t("title")}</span>
-            <HelpLink href={docsHref} />
-          </span>
-        }
+        title={t("title")}
+        titleAddon={<HelpLink href={docsHref} />}
         description={t("subtitle")}
         actions={
           <>
           <Button
             variant="outline"
-            className="gap-2"
             type="button"
             onClick={() => void loadOrgUnits(offset, query.trim())}
             disabled={isLoading}
           >
-            <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+            <RefreshCw data-icon="inline-start" className={cn(isLoading && "animate-spin")} />
             {t("actions.refresh")}
           </Button>
           <Sheet open={createOpen} onOpenChange={setCreateOpen}>
-            <Button className="gap-2" type="button" onClick={openCreate} disabled={!canCreateOrgUnit}>
-              <Plus className="h-4 w-4" />
+            <Button type="button" onClick={openCreate} disabled={!canCreateOrgUnit || !hasLoadedEntitlements}>
+              <Plus data-icon="inline-start" />
               {t("actions.new")}
             </Button>
-            <SheetContent side="left" className="w-[94vw] max-w-xl overflow-y-auto">
+            <SheetContent side="left" className="w-full max-w-xl overflow-y-auto sm:w-3/4">
               <SheetHeader>
                 <SheetTitle>{t("create.title")}</SheetTitle>
                 <SheetDescription>
@@ -552,27 +576,31 @@ export default function OrgUnitManagement({
         </Alert>
       ) : null}
 
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+      <section className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,3fr)_minmax(22rem,1fr)]">
         <AppCard
+          className="min-w-0"
           title={t("list.title")}
           description={t("list.description")}
-          contentClassName="space-y-4"
+          headerClassName="sm:flex-col sm:items-stretch xl:flex-row xl:items-start"
+          titleContainerClassName="w-full xl:max-w-xs"
+          contentClassName="flex min-w-0 flex-col gap-4"
+          actionsClassName="w-full xl:w-auto"
           actions={
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative">
-                <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <div className="grid w-full gap-2 sm:grid-cols-[minmax(14rem,1fr)_auto_auto] 2xl:flex 2xl:w-auto 2xl:flex-wrap">
+              <div className="relative min-w-0">
+                <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder={t("filters.searchPlaceholder")}
-                  className="w-full ps-9 sm:w-64"
+                  className="w-full ps-9 2xl:w-64"
                 />
               </div>
               <AppSelectField
                 value={statusFilter}
                 onValueChange={setStatusFilter}
                 ariaLabel={t("filters.filterLabel")}
-                triggerClassName="h-10 min-w-36"
+                triggerClassName="h-10 w-full min-w-36"
                 options={[
                   { value: "all", label: t("filters.all") },
                   { value: "normal", label: t("status.normal") },
@@ -586,7 +614,7 @@ export default function OrgUnitManagement({
                 value={sortBy}
                 onValueChange={setSortBy}
                 ariaLabel={t("filters.sortLabel")}
-                triggerClassName="h-10 min-w-32"
+                triggerClassName="h-10 w-full min-w-32"
                 options={[
                   { value: "updated_at", label: t("sort.recent") },
                   { value: "name", label: t("sort.name") },
@@ -623,10 +651,10 @@ export default function OrgUnitManagement({
                         description={t("empty.description")}
                         className="border-0 bg-transparent"
                         primaryAction={
-                          <Button className="gap-2" type="button" onClick={openCreate}>
-                          <Plus className="h-4 w-4" />
+                          canCreateOrgUnit ? <Button type="button" onClick={openCreate} disabled={!hasLoadedEntitlements}>
+                          <Plus data-icon="inline-start" />
                           {t("empty.action")}
-                        </Button>
+                        </Button> : null
                         }
                       />
                     </TableCell>
@@ -668,11 +696,10 @@ export default function OrgUnitManagement({
                         <TableCell className="text-end" onClick={(event) => event.stopPropagation()}>
                           <RowActionsMenu
                             label={t("actions.viewDetails")}
-                            disabled={!canManage}
                             actions={[
                               { label: t("actions.viewDetails"), onSelect: () => setSelectedOrgUnitID(orgUnit.id) },
-                              { label: t("actions.edit"), onSelect: () => openEdit(orgUnit) },
-                              { label: t("actions.manageMembers"), onSelect: openMembers },
+                              { label: t("actions.edit"), disabled: !canManage, onSelect: () => openEdit(orgUnit) },
+                              { label: t("actions.manageMembers"), disabled: !canManage, onSelect: openMembers },
                               {
                                 label: t("actions.delete"),
                                 destructive: true,
@@ -718,10 +745,10 @@ export default function OrgUnitManagement({
           </div>
         </AppCard>
 
-        <aside className="space-y-4">
+        <aside className="flex min-w-0 flex-col gap-4">
           {selectedOrgUnit && selectedSummary ? (
             <>
-              <AppCard contentClassName="space-y-4">
+              <AppCard contentClassName="flex flex-col gap-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-sm text-muted-foreground">{t("detail.breadcrumb")}</p>
@@ -729,43 +756,43 @@ export default function OrgUnitManagement({
                   </div>
                   <BudgetStatusBadge status={selectedSummary.status.kind} />
                 </div>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm" className="gap-2" onClick={() => openEdit(selectedOrgUnit)} disabled={!canManage}>
-                    <Edit3 className="h-4 w-4" />
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={() => openEdit(selectedOrgUnit)} disabled={!canManage}>
+                    <Edit3 data-icon="inline-start" />
                     {t("actions.edit")}
                   </Button>
-                  <Button variant="outline" size="sm" className="gap-2" onClick={openMembers} disabled={!canManage}>
-                    <Users className="h-4 w-4" />
+                  <Button variant="outline" size="sm" onClick={openMembers} disabled={!canManage}>
+                    <Users data-icon="inline-start" />
                     {t("actions.members")}
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="gap-2 text-destructive"
+                    className="text-destructive"
                     onClick={() => setDeleteOpen(true)}
                     disabled={!canDeleteOrgUnit}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 data-icon="inline-start" />
                     {t("actions.delete")}
                   </Button>
                 </div>
               </AppCard>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <KpiCard icon={WalletCards} label={t("kpi.totalSpend")} value={formatMoney(selectedSummary.spend)} />
-                <KpiCard icon={Gauge} label={t("kpi.remaining")} value={formatMoney(selectedSummary.remaining)} />
-                <KpiCard icon={Building2} label={t("kpi.teams")} value={String(selectedSummary.teams)} />
-                <KpiCard icon={ShieldCheck} label={t("kpi.membersAdmins")} value={`${selectedSummary.members}/${selectedSummary.admins}`} />
+                <MetricCard icon={WalletCards} label={t("kpi.totalSpend")} value={formatMoney(selectedSummary.spend)} />
+                <MetricCard icon={Gauge} label={t("kpi.remaining")} value={formatMoney(selectedSummary.remaining)} />
+                <MetricCard icon={Building2} label={t("kpi.teams")} value={String(selectedSummary.teams)} />
+                <MetricCard icon={ShieldCheck} label={t("kpi.membersAdmins")} value={`${selectedSummary.members}/${selectedSummary.admins}`} />
               </div>
 
               <AppCard
                 title={
                   <span className="flex items-center gap-2">
-                    <WalletCards className="h-4 w-4" aria-hidden="true" />
+                    <WalletCards aria-hidden="true" />
                     <span>{t("budget.title")}</span>
                   </span>
                 }
-                contentClassName="space-y-4"
+                contentClassName="flex flex-col gap-4"
               >
                   <div>
                     <div className="mb-2 flex items-center justify-between text-sm">
@@ -793,7 +820,7 @@ export default function OrgUnitManagement({
               <AppCard
                 title={
                   <span className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4" aria-hidden="true" />
+                    <Building2 aria-hidden="true" />
                     <span>{t("teams.title")}</span>
                   </span>
                 }
@@ -808,14 +835,17 @@ export default function OrgUnitManagement({
               <AppCard
                 title={
                   <span className="flex items-center gap-2">
-                    <Users className="h-4 w-4" aria-hidden="true" />
+                    <Users aria-hidden="true" />
                     <span>{t("members.title")}</span>
                   </span>
                 }
-                contentClassName="space-y-3"
+                contentClassName="flex flex-col gap-3"
               >
                   {isDetailLoading ? (
-                    <p className="text-sm text-muted-foreground">{t("members.loading")}</p>
+                    <div className="flex flex-col gap-3" aria-label={t("members.loading")}>
+                      <Skeleton className="h-14 w-full" />
+                      <Skeleton className="h-14 w-full" />
+                    </div>
                   ) : members.length === 0 ? (
                     <p className="text-sm text-muted-foreground">{t("members.empty")}</p>
                   ) : (
@@ -834,11 +864,11 @@ export default function OrgUnitManagement({
               <AppCard
                 title={
                   <span className="flex items-center gap-2">
-                    <CalendarClock className="h-4 w-4" aria-hidden="true" />
+                    <CalendarClock aria-hidden="true" />
                     <span>{t("audit.title")}</span>
                   </span>
                 }
-                contentClassName="space-y-3 text-sm"
+                contentClassName="flex flex-col gap-3 text-sm"
               >
                   <InfoItem label={t("audit.created")} value={formatDateTime(selectedOrgUnit.created_at)} />
                   <InfoItem label={t("audit.updated")} value={formatDateTime(selectedOrgUnit.updated_at)} />
@@ -854,7 +884,7 @@ export default function OrgUnitManagement({
       </section>
 
       <Sheet open={editOpen} onOpenChange={setEditOpen}>
-        <SheetContent side="right" className="w-[94vw] max-w-xl overflow-y-auto">
+        <SheetContent side="right" className="w-full max-w-xl overflow-y-auto sm:w-3/4">
           <SheetHeader>
             <SheetTitle>{t("edit.title")}</SheetTitle>
             <SheetDescription>
@@ -866,7 +896,7 @@ export default function OrgUnitManagement({
       </Sheet>
 
       <Sheet open={memberOpen} onOpenChange={setMemberOpen}>
-        <SheetContent side="right" className="w-[94vw] max-w-xl overflow-y-auto">
+        <SheetContent side="right" className="w-full max-w-xl overflow-y-auto sm:w-3/4">
           <SheetHeader>
             <SheetTitle>{t("members.manageTitle")}</SheetTitle>
             <SheetDescription>
@@ -874,47 +904,18 @@ export default function OrgUnitManagement({
             </SheetDescription>
           </SheetHeader>
 
-          <form className="mt-6 space-y-4" onSubmit={handleAddMember}>
-            <div className="grid gap-2">
+          <form className="mt-6 flex flex-col gap-4" onSubmit={handleAddMember}>
+            <div className="flex flex-col gap-2">
               <Label htmlFor="member-user">{t("members.user")}</Label>
-              <div className="relative">
-                <Input
-                  id="member-user"
-                  value={memberUserQuery}
-                  onFocus={() => setIsMemberUserPickerOpen(true)}
-                  onBlur={() => setTimeout(() => setIsMemberUserPickerOpen(false), 120)}
-                  onChange={(event) => {
-                    setMemberUserQuery(event.target.value);
-                    setMemberUserID("");
-                    setIsMemberUserPickerOpen(true);
-                  }}
-                  placeholder={t("members.user")}
-                  autoComplete="off"
-                />
-                {isMemberUserPickerOpen ? (
-                  <div className="absolute z-50 mt-1 max-h-56 w-full overflow-auto rounded-md border bg-popover p-1 shadow-md">
-                    {memberUserOptions.length === 0 ? (
-                      <p className="px-2 py-1.5 text-sm text-muted-foreground">{t("common.notSet")}</p>
-                    ) : (
-                      memberUserOptions.map((user) => (
-                        <button
-                          key={user.principal_id}
-                          type="button"
-                          className="w-full rounded-sm px-2 py-1.5 text-start text-sm hover:bg-muted"
-                          onMouseDown={(event) => event.preventDefault()}
-                          onClick={() => {
-                            setMemberUserID(user.principal_id);
-                            setMemberUserQuery(user.display_name || user.secondary || "");
-                            setIsMemberUserPickerOpen(false);
-                          }}
-                        >
-                          {user.display_name || user.secondary || t("members.user")}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                ) : null}
-              </div>
+              <FilterCombobox
+                id="member-user"
+                options={memberUserOptions}
+                value={memberUserID}
+                onValueChange={setMemberUserID}
+                placeholder={t("members.userPlaceholder")}
+                emptyText={t("common.notSet")}
+                className="h-10"
+              />
             </div>
             <div>
               <AppSelectField
@@ -933,7 +934,7 @@ export default function OrgUnitManagement({
             </Button>
           </form>
 
-          <div className="mt-6 space-y-3">
+          <div className="mt-6 flex flex-col gap-3">
             {members.map((member) => (
               <div key={member.id} className="rounded-lg border p-3">
                 <div className="flex items-start justify-between gap-3">
@@ -971,7 +972,7 @@ export default function OrgUnitManagement({
       </Sheet>
 
       <Sheet open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <SheetContent side="right" className="w-[94vw] max-w-md">
+        <SheetContent side="right" className="w-full max-w-md sm:w-3/4">
           <SheetHeader>
             <SheetTitle>{t("delete.title")}</SheetTitle>
             <SheetDescription>
@@ -979,7 +980,7 @@ export default function OrgUnitManagement({
             </SheetDescription>
           </SheetHeader>
           {selectedOrgUnit ? (
-            <form className="mt-6 space-y-4" onSubmit={handleDelete}>
+            <form className="mt-6 flex flex-col gap-4" onSubmit={handleDelete}>
               {resolveTeamCount(selectedOrgUnit) > 0 ? (
                 <Alert variant="warning">
                   <AlertTitle>{t("delete.childTeamsTitle")}</AlertTitle>
@@ -1004,6 +1005,8 @@ export default function OrgUnitManagement({
           ) : null}
         </SheetContent>
       </Sheet>
+
+      <CommercialPlanUpgradeDialog open={isUpgradeDialogOpen} onOpenChange={setIsUpgradeDialogOpen} title={t("upgradeDialog.title")} description={t("upgradeDialog.description")} cancelLabel={t("upgradeDialog.cancel")} actionLabel={t("upgradeDialog.action")} />
     </div>
   );
 }
@@ -1028,15 +1031,15 @@ function OrgUnitForm({
   }
 
   return (
-    <form className="mt-6 space-y-5" onSubmit={onSubmit}>
-      <IdentifierField id="org-alias" label={t("form.alias")} value={form.alias} onChange={(event) => update("alias", event.target.value)} placeholder="engineering" required />
+    <form className="mt-6 flex flex-col gap-5" onSubmit={onSubmit}>
+      <IdentifierField id="org-alias" label={t("form.alias")} value={form.alias} onChange={(event) => update("alias", event.target.value)} placeholder={t("form.aliasPlaceholder")} required />
       <div className="grid gap-2">
         <Label htmlFor="org-display-name">{t("form.displayName")}</Label>
         <Input
           id="org-display-name"
           value={form.displayName}
           onChange={(event) => update("displayName", event.target.value)}
-          placeholder="Engineering"
+          placeholder={t("form.displayNamePlaceholder")}
         />
       </div>
       <div className="grid gap-2">
@@ -1045,7 +1048,7 @@ function OrgUnitForm({
           id="org-description"
           value={form.description}
           onChange={(event) => update("description", event.target.value)}
-          placeholder="Owner scope for platform and product engineering teams"
+          placeholder={t("form.descriptionPlaceholder")}
         />
       </div>
 
@@ -1053,30 +1056,6 @@ function OrgUnitForm({
         {isSaving ? t("actions.saving") : submitLabel}
       </Button>
     </form>
-  );
-}
-
-function KpiCard({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-}) {
-  return (
-    <AppCard className="min-w-0" contentClassName="pt-4 md:pt-4">
-      <div className="flex min-w-0 items-center gap-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          <Icon className="size-4" aria-hidden="true" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-xs text-muted-foreground">{label}</p>
-          <p className="truncate text-lg font-semibold text-foreground">{value}</p>
-        </div>
-      </div>
-    </AppCard>
   );
 }
 
@@ -1119,14 +1098,14 @@ function MetadataTeams({
 
   if (metadataTeams.length === 0) {
     return (
-      <div className="space-y-2 text-sm text-muted-foreground">
+      <div className="flex flex-col gap-2 text-sm text-muted-foreground">
         <p>{teamCount > 0 ? t("teams.summaryCount", { count: teamCount }) : t("teams.emptyMetadata")}</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3">
       {metadataTeams.map((team, index) => {
         const record = asRecord(team);
         return (
@@ -1256,15 +1235,6 @@ function getMemberCount(orgUnit: OrgUnit, loadedCount?: number) {
 
 function getAdminCount(orgUnit: OrgUnit) {
   return toNumber(orgUnit.metadata?.admin_count ?? orgUnit.metadata?.admins_count);
-}
-
-function getChildBudgetTotal(orgUnit: OrgUnit): number {
-  const direct = toNumber(orgUnit.metadata?.child_budget_total ?? orgUnit.metadata?.team_budget_total);
-  if (direct > 0) return direct;
-  return getMetadataArray(orgUnit.metadata, "teams").reduce<number>(
-    (sum, team) => sum + toNumber(asRecord(team).max_budget),
-    0,
-  );
 }
 
 function formFromOrgUnit(orgUnit: OrgUnit): FormState {
@@ -1407,5 +1377,14 @@ function extractMessage(payload: unknown): string | null {
 
 function normalizeError(error: unknown, fallback: string) {
   if (error instanceof Error) return error.message;
+  return fallback;
+}
+
+function readBooleanFeature(value: unknown, fallback: boolean): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    if (value.trim().toLowerCase() === "true") return true;
+    if (value.trim().toLowerCase() === "false") return false;
+  }
   return fallback;
 }

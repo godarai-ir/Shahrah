@@ -3,6 +3,7 @@ import VirtualUserTokenManagement from "@/app/components/virtual-user-token-mana
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
+import { headers } from "next/headers";
 
 type VirtualUser = {
   id: string;
@@ -40,6 +41,9 @@ export const dynamic = "force-dynamic";
 export default async function VirtualUsersPage() {
   const auth = await requireAuth("/login?next=/virtual-users");
   const tenantSlug = auth.tenantSlug;
+  const requestHeaders = await headers();
+  const docsBaseHref = buildDocsBaseHref(requestHeaders, tenantSlug);
+  const virtualUsersDocsHref = `${docsBaseHref}/guides/virtual-account-management`;
   await requirePermissionOr403(tenantSlug, auth.user.id, [
     "virtual_account:read",
     "virtual_account:manage",
@@ -88,7 +92,18 @@ export default async function VirtualUsersPage() {
         initialError={virtualUsersResult.ok ? null : virtualUsersResult.errorMessage ?? "Request failed."}
         teams={teamsResult.ok ? teamsPayload.data ?? [] : []}
         orgUnits={orgUnitsResult.ok ? orgUnitsPayload.data ?? [] : []}
+        docsHref={virtualUsersDocsHref}
       />
     </AdminShell>
   );
+}
+
+function buildDocsBaseHref(headersList: Headers, tenantSlug: string): string {
+  const forwardedProto = headersList.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const proto = forwardedProto || (headersList.get("host")?.includes("localhost") ? "http" : "https");
+  const host = headersList.get("x-forwarded-host")?.split(",")[0]?.trim() || headersList.get("host") || "";
+  const tenantPrefix = `${tenantSlug}.`;
+  const docsHost = host.startsWith(tenantPrefix) ? host.slice(tenantPrefix.length) : host;
+
+  return docsHost ? `${proto}://${docsHost}/docs` : "/docs";
 }

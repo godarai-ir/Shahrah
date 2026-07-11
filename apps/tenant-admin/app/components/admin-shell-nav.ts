@@ -1,5 +1,4 @@
 import {
-  Activity,
   BadgeCheck,
   BarChart3,
   BookOpen,
@@ -12,11 +11,13 @@ import {
   Landmark,
   LayoutDashboard,
   LineChart,
+  KeyRound,
   Plug,
   Route,
   Settings,
   ShieldCheck,
   UserCog,
+  UserCircle2,
   Users,
 } from "lucide-react";
 
@@ -39,6 +40,9 @@ export type AdminNavKey =
   | "accountSettings"
   | "tracePrivacySettings"
   | "accessManagement"
+  | "personalAccessTokens"
+  | "teams"
+  | "users"
   | "logs"
   | "traces"
   | "metrics"
@@ -57,16 +61,13 @@ export type AdminNavItem = {
   requiredPermissions: string[];
 };
 
-const ACCESS_SECTION_PERMISSIONS = [
-  "user:list",
-  "user:manage",
-  "team:read",
-  "team:manage",
-  "virtual_account:read",
-  "virtual_account:manage",
-  "virtual_account:create",
-  "role:list",
-  "role:manage",
+export const ACCESS_NAV_ITEM_KEYS: AdminNavItem["key"][] = [
+  "users",
+  "teams",
+  "orgUnits",
+  "accessManagement",
+  "personalAccessTokens",
+  "virtualUsers",
 ];
 
 export function buildAdminNavItems(pathname: string, t: (key: string) => string): AdminNavItem[] {
@@ -194,14 +195,34 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
     {
       key: "accessManagement",
       href: "/roles",
-      title: t("nav.accessManagement"),
+      title: t("nav.roles"),
       icon: UserCog,
-      isActive:
-        pathname.startsWith("/users")
-        || pathname.startsWith("/roles")
-        || pathname.startsWith("/teams")
-        || pathname.startsWith("/personal-access-tokens"),
-      requiredPermissions: ACCESS_SECTION_PERMISSIONS,
+      isActive: pathname.startsWith("/roles"),
+      requiredPermissions: ["role:list", "role:manage"],
+    },
+    {
+      key: "personalAccessTokens",
+      href: "/personal-access-tokens",
+      title: t("nav.personalAccessTokens"),
+      icon: KeyRound,
+      isActive: pathname.startsWith("/personal-access-tokens"),
+      requiredPermissions: [],
+    },
+    {
+      key: "teams",
+      href: "/teams",
+      title: t("nav.teams"),
+      icon: Users,
+      isActive: pathname.startsWith("/teams"),
+      requiredPermissions: ["team:read", "team:manage"],
+    },
+    {
+      key: "users",
+      href: "/users",
+      title: t("nav.users"),
+      icon: UserCircle2,
+      isActive: pathname.startsWith("/users"),
+      requiredPermissions: ["user:list", "user:manage"],
     },
     {
       key: "logs",

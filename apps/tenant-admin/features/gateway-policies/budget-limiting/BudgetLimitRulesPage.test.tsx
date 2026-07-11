@@ -12,6 +12,10 @@ const translations: Record<string, string> = {
   description: "Budget limiting description",
   searchPlaceholder: "Search",
   "actions.new": "Add New Rule",
+  "actions.edit": "Edit",
+  "actions.close": "Close",
+  "table.rowActions": "Actions for {ruleId}",
+  "form.fields.ruleId": "Technical identifier",
   "alerts.error": "Error",
   "alerts.success": "Success",
   empty: "No budget limiting rules have been created yet.",
@@ -93,6 +97,38 @@ describe("BudgetLimitRulesPage", () => {
 
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "form.titleCreate", level: 1 })).toBeInTheDocument();
+    expect(pushMock).not.toHaveBeenCalled();
+  });
+
+  it("opens the same drawer with the selected rule for editing", async () => {
+    getBudgetLimitEntitlementsMock.mockResolvedValue({ features: { "budget_limit_rules.enabled": true } });
+    listBudgetLimitRulesMock.mockResolvedValue({
+      data: [{
+        id: "rule-1",
+        rule_id: "monthly-team-budget",
+        enabled: true,
+        priority: 100,
+        conditions: { combinator: "AND", conditions: [] },
+        limit_to: 1_000_000,
+        unit: "cost_per_month",
+        block_on_budget_exceed: true,
+        alerts: { enabled: false },
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-01T00:00:00Z",
+      }],
+      total: 1,
+      limit: 20,
+      offset: 0,
+    });
+
+    render(<BudgetLimitRulesPage />);
+
+    const actions = await screen.findByRole("button", { name: "Actions for monthly-team-budget" });
+    fireEvent.pointerDown(actions, { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Edit" }));
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Technical identifier" })).toHaveValue("monthly-team-budget");
     expect(pushMock).not.toHaveBeenCalled();
   });
 });

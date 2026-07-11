@@ -114,9 +114,12 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 			return writeUnsupportedModelModeError(c, requestedModel, platform.ModelTypeCompletion, modelAccess.ExposedModes)
 		}
 
-		emitDenyCounter(h.logger, denyReasonForModel(authInfo), requestedModel, currentTenant.ID)
+		denyReason := denyReasonForModel(authInfo)
+		emitDenyCounter(h.logger, denyReason, requestedModel, currentTenant.ID)
+		const message = "model access denied or unsupported for completions"
+		logPreProviderRejection(h.logger, h.logs, c, authInfo, requestedModel, "/v1/completions", "completions", fiber.StatusForbidden, "authorization_error", message, denyReason, startTime)
 
-		return writeAPIError(c, fiber.StatusForbidden, "model access denied or unsupported for completions", "authorization_error")
+		return writeAPIError(c, fiber.StatusForbidden, message, "authorization_error")
 	}
 
 	authStart := time.Now()

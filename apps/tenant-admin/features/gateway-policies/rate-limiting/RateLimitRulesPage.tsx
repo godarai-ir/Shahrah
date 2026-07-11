@@ -1,13 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Copy, Gauge, Pencil, Plus, Power, Search, Trash2 } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { EmptyState, HelpLink, PageHeader, RowActionsMenu, StatusBadge } from "@/components/app-ui";
+import { CommercialPlanUpgradeDialog, EmptyState, HelpLink, PageHeader, RowActionsMenu, StatusBadge } from "@/components/app-ui";
 import {
   Dialog,
   DialogContent,
@@ -262,24 +261,7 @@ export function RateLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isUpgradeDialogOpen} onOpenChange={setIsUpgradeDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t("upgradeDialog.title")}</DialogTitle>
-            <DialogDescription>{t("upgradeDialog.description")}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setIsUpgradeDialogOpen(false)}>
-              {t("upgradeDialog.cancel")}
-            </Button>
-            <Button asChild>
-              <Link href="/billing/plan" onClick={() => setIsUpgradeDialogOpen(false)}>
-                {t("upgradeDialog.action")}
-              </Link>
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CommercialPlanUpgradeDialog open={isUpgradeDialogOpen} onOpenChange={setIsUpgradeDialogOpen} title={t("upgradeDialog.title")} description={t("upgradeDialog.description")} cancelLabel={t("upgradeDialog.cancel")} actionLabel={t("upgradeDialog.action")} />
     </>
   );
 }

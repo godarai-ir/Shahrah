@@ -52,6 +52,12 @@ Use for common statuses: `active`, `inactive`, `pending`, `success`, `warning`, 
 
 Use for destructive or high-impact confirmations. It composes the existing shadcn Dialog.
 
+## CommercialPlanUpgradeDialog
+
+Use when an action is unavailable because its commercial-plan entitlement is disabled. Pass localized title, description, cancel, and upgrade labels; the component standardizes the dialog composition and links to `/billing/plan` by default.
+
+Keep the triggering action visible while entitlements load, but disable it until the entitlement response is resolved. When the feature is unavailable, open this dialog instead of starting the restricted workflow.
+
 ## FormSection
 
 Use to group related fields with a title, description, content, and optional footer actions.

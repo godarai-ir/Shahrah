@@ -2,6 +2,7 @@ export { AppCard } from "./AppCard";
 export { CatalogFilterCombobox } from "./CatalogFilterCombobox";
 export { AppSelectField } from "./AppSelectField";
 export { CompactValue } from "./CompactValue";
+export { CommercialPlanUpgradeDialog } from "./CommercialPlanUpgradeDialog";
 export { ConfirmDialog } from "./ConfirmDialog";
 export { EmptyState } from "./EmptyState";
 export { FilterCombobox } from "./FilterCombobox";

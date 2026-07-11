@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { buildAdminNavItems, filterVisibleNavItems } from "./admin-shell-nav";
+import { ACCESS_NAV_ITEM_KEYS, buildAdminNavItems, filterVisibleNavItems } from "./admin-shell-nav";
 
 function t(key: string) {
   const dictionary: Record<string, string> = {
-    "nav.accessManagement": "دسترسی‌ها",
+    "nav.roles": "نقش‌ها",
+    "nav.teams": "تیم‌ها",
+    "nav.users": "کاربران",
+    "nav.personalAccessTokens": "توکن‌های دسترسی شخصی",
+    "nav.orgUnits": "واحدهای سازمانی",
+    "nav.virtualUsers": "کاربران مجازی",
   };
   return dictionary[key] ?? key;
 }
@@ -14,16 +19,32 @@ function getVisibleTitles(permissions: string[]) {
   return filterVisibleNavItems(navItems, permissions).map((item) => item.title);
 }
 
-describe("admin access nav label", () => {
-  it("shows Access label for team:read only", () => {
-    expect(getVisibleTitles(["team:read"])).toContain("دسترسی‌ها");
+describe("admin access navigation items", () => {
+  it("orders access items by common administrative workflow", () => {
+    expect(ACCESS_NAV_ITEM_KEYS).toEqual([
+      "users",
+      "teams",
+      "orgUnits",
+      "accessManagement",
+      "personalAccessTokens",
+      "virtualUsers",
+    ]);
   });
 
-  it("shows Access label for user:list only", () => {
-    expect(getVisibleTitles(["user:list"])).toContain("دسترسی‌ها");
+  it("shows the teams item for team:read only", () => {
+    expect(getVisibleTitles(["team:read"])).toContain("تیم‌ها");
   });
 
-  it("shows Access label for combined user:list and team:read", () => {
-    expect(getVisibleTitles(["user:list", "team:read"])).toContain("دسترسی‌ها");
+  it("shows the users item for user:list only", () => {
+    expect(getVisibleTitles(["user:list"])).toContain("کاربران");
+  });
+
+  it("keeps personal access tokens visible without permissions", () => {
+    expect(getVisibleTitles([])).toContain("توکن‌های دسترسی شخصی");
+  });
+
+  it("shows roles only with role permissions", () => {
+    expect(getVisibleTitles(["role:list"])).toContain("نقش‌ها");
+    expect(getVisibleTitles(["team:read"])).not.toContain("نقش‌ها");
   });
 });

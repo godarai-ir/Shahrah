@@ -1,5 +1,7 @@
 {
-  "searchPlaceholder": "جستجو در هویت‌های سرویس",
+  "title": "کاربران مجازی",
+  "description": "هویت‌های سرویس و توکن‌های دسترسی مجازی را برای اپلیکیشن‌ها، اتوماسیون و محیط‌های عملیاتی مدیریت کنید.",
+  "searchPlaceholder": "جستجو در کاربران مجازی",
   "alerts": {
     "success": "موفق",
     "error": "خطا",
@@ -7,7 +9,7 @@
   },
   "actions": {
     "refresh": "بازآوری",
-    "createUser": "ایجاد Virtual User",
+    "createUser": "ایجاد کاربر مجازی",
     "editUser": "ویرایش",
     "deleteUser": "حذف",
     "saveUser": "ذخیره تغییرات",
@@ -23,7 +25,8 @@
     "identity": "هویت",
     "team": "تیم",
     "status": "وضعیت",
-    "empty": "Virtual Userای پیدا نشد."
+    "empty": "کاربر مجازی پیدا نشد.",
+    "emptyDescription": "برای ایجاد هویت مستقل اپلیکیشن یا سرویس، اولین کاربر مجازی را بسازید."
   },
   "tokensTable": {
     "name": "نام",
@@ -32,7 +35,7 @@
     "lastUsed": "آخرین استفاده",
     "status": "وضعیت",
     "actions": "عملیات",
-    "empty": "برای این Virtual User هنوز VAT صادر نشده است."
+    "empty": "برای این کاربر مجازی هنوز VAT صادر نشده است."
   },
   "pagination": {
     "range": "{from}-{to} از {total}",
@@ -40,15 +43,15 @@
     "next": "بعدی"
   },
   "detail": {
-    "emptyTitle": "یک Virtual User انتخاب کنید",
-    "emptyDescription": "یک هویت سرویس را انتخاب کنید تا توکن‌های production آن را مدیریت کنید.",
+    "emptyTitle": "یک کاربر مجازی انتخاب کنید",
+    "emptyDescription": "یک هویت سرویس را انتخاب کنید تا توکن‌های محیط عملیاتی آن را مدیریت کنید.",
     "team": "تیم",
     "orgUnit": "واحد سازمانی",
     "tokens": "توکن‌ها"
   },
   "tokens": {
-    "title": "Virtual Account Tokens",
-    "inheritsAll": "ارث‌بری از scope",
+    "title": "توکن‌های دسترسی مجازی (VAT)",
+    "inheritsAll": "ارث‌بری از محدوده دسترسی",
     "modelCount": "{first} + {count} مدل"
   },
   "status": {
@@ -68,31 +71,37 @@
     "allowedModels": "مدل‌های مجاز"
   },
   "createUser": {
-    "title": "ایجاد Virtual User",
-    "description": "یک هویت غیرانسانی برای اپلیکیشن، CI/CD یا سرویس production بسازید."
+    "title": "ایجاد کاربر مجازی",
+    "description": "یک هویت غیرانسانی برای اپلیکیشن، CI/CD یا سرویس عملیاتی بسازید."
   },
   "editUser": {
-    "title": "ویرایش Virtual User",
-    "description": "scope هویت را تغییر دهید یا با غیرفعال کردن آن همه VATهای صادرشده را مسدود کنید."
+    "title": "ویرایش کاربر مجازی",
+    "description": "محدوده دسترسی هویت را تغییر دهید یا با غیرفعال کردن آن همه VATهای صادرشده را مسدود کنید."
   },
   "deleteUser": {
-    "title": "حذف Virtual User",
-    "description": "برای حذف این Virtual User مقدار «{alias}» را وارد کنید.",
-    "fallbackDescription": "این Virtual User حذف شود.",
+    "title": "حذف کاربر مجازی",
+    "description": "برای حذف این کاربر مجازی مقدار «{alias}» را وارد کنید.",
+    "fallbackDescription": "این کاربر مجازی حذف شود.",
     "confirmLabel": "برای تایید، {alias} را وارد کنید",
     "activeTokenWarningTitle": "هنوز VAT فعال وجود دارد"
   },
   "createToken": {
     "title": "ایجاد VAT",
-    "description": "برای این هویت سرویس یک gateway token صادر کنید.",
-    "noModels": "برای تیم این Virtual User مدل مجازی/پروایدر مجازی در دسترس نیست.",
-    "modelHint": "اگر هیچ مدلی انتخاب نشود، VAT کل scope مجاز Virtual User را به ارث می‌برد."
+    "description": "برای این هویت سرویس یک توکن دسترسی درگاه صادر کنید.",
+    "noModels": "برای تیم این کاربر مجازی مدل مجازی یا ارائه‌دهنده مجازی در دسترس نیست.",
+    "modelHint": "اگر هیچ مدلی انتخاب نشود، VAT کل محدوده مجاز کاربر مجازی را به ارث می‌برد."
+  },
+  "upgradeDialog": {
+    "title": "این قابلیت در پلن فعلی شما فعال نیست",
+    "description": "ایجاد کاربر مجازی و توکن دسترسی مجازی در پلن تجاری فعلی شما در دسترس نیست. برای استفاده از این قابلیت، پلن خود را ارتقا دهید.",
+    "cancel": "انصراف",
+    "action": "ارتقا / خرید پلن"
   },
   "confirm": {
     "rotateTitle": "چرخش VAT",
     "rotateDescription": "VAT «{name}» چرخانده شود؟ توکن فعلی بلافاصله باطل می‌شود و secret جدید فقط یک‌بار نمایش داده می‌شود.",
     "revokeTitle": "ابطال VAT",
-    "revokeDescription": "VAT «{name}» باطل شود؟ اپلیکیشن‌هایی که از آن استفاده می‌کنند دیگر authenticate نمی‌شوند.",
+    "revokeDescription": "VAT «{name}» باطل شود؟ اپلیکیشن‌هایی که از آن استفاده می‌کنند دیگر احراز هویت نمی‌شوند.",
     "cancel": "انصراف",
     "confirm": "تایید"
   },
@@ -107,16 +116,16 @@
     "close": "بستن"
   },
   "messages": {
-    "loadUsersError": "بارگیری Virtual Userها ناموفق بود.",
+    "loadUsersError": "بارگیری کاربران مجازی ناموفق بود.",
     "loadTokensError": "بارگیری VATها ناموفق بود.",
-    "createUserSuccess": "Virtual User ایجاد شد.",
-    "createUserError": "ایجاد Virtual User ناموفق بود.",
-    "updateUserSuccess": "Virtual User به‌روزرسانی شد.",
-    "updateUserError": "به‌روزرسانی Virtual User ناموفق بود.",
-    "deleteUserSuccess": "Virtual User حذف شد.",
-    "deleteUserError": "حذف Virtual User ناموفق بود.",
-    "deleteUserActiveTokenWarning": "{count} VAT ریووک‌نشده هنوز به این Virtual User وصل است. اگر کلاینتی هنوز از آن‌ها استفاده می‌کند، قبل از حذف revoke کنید.",
-    "deleteConfirmAlias": "برای تایید حذف، شناسه Virtual User را وارد کنید.",
+    "createUserSuccess": "کاربر مجازی ایجاد شد.",
+    "createUserError": "ایجاد کاربر مجازی ناموفق بود.",
+    "updateUserSuccess": "کاربر مجازی به‌روزرسانی شد.",
+    "updateUserError": "به‌روزرسانی کاربر مجازی ناموفق بود.",
+    "deleteUserSuccess": "کاربر مجازی حذف شد.",
+    "deleteUserError": "حذف کاربر مجازی ناموفق بود.",
+    "deleteUserActiveTokenWarning": "{count} VAT باطل‌نشده هنوز به این کاربر مجازی متصل است. اگر کلاینتی از آن‌ها استفاده می‌کند، پیش از حذف توکن‌ها را باطل کنید.",
+    "deleteConfirmAlias": "برای تایید حذف، شناسه کاربر مجازی را وارد کنید.",
     "createTokenSuccess": "VAT ایجاد شد.",
     "createTokenError": "ایجاد VAT ناموفق بود.",
     "revokeSuccess": "VAT باطل شد.",
@@ -125,7 +134,7 @@
     "aliasRequired": "شناسه الزامی است.",
     "aliasPattern": "شناسه باید با حرف یا عدد شروع شود و فقط شامل حرف، عدد، آندرلاین یا خط تیره باشد.",
     "tokenNameRequired": "نام توکن الزامی است.",
-    "teamRequiredTitle": "scope تیم الزامی است",
-    "teamRequired": "قبل از صدور VAT، این Virtual User را به یک تیم وصل کنید."
+    "teamRequiredTitle": "محدوده تیم الزامی است",
+    "teamRequired": "قبل از صدور VAT، این کاربر مجازی را به یک تیم متصل کنید."
   }
 }

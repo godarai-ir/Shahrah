@@ -32,13 +32,13 @@ type RowActionsMenuProps = {
 
 export function RowActionsMenu({ actions, label, align = "end", className, disabled, dir = "rtl" }: RowActionsMenuProps) {
   return (
-    <DropdownMenu>
+    <DropdownMenu dir={dir}>
       <DropdownMenuTrigger asChild>
         <Button type="button" variant="ghost" size="icon" aria-label={label} className={className} disabled={disabled}>
           <MoreVertical aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align={align} dir={dir} className="min-w-40 text-xs">
+      <DropdownMenuContent align={align} className="min-w-40 text-xs">
         <DropdownMenuGroup>
           {actions.map((action, index) => (
             <DropdownMenuItem

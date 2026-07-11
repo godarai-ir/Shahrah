@@ -145,10 +145,19 @@
     "confirmLabel": "برای تایید alias را وارد کنید: {alias}",
     "submit": "حذف واحد"
   },
+  "upgradeDialog": {
+    "title": "این قابلیت در پلن فعلی شما فعال نیست",
+    "description": "امکان ایجاد واحد سازمانی در پلن تجاری فعلی شما در دسترس نیست. برای استفاده از این قابلیت، پلن خود را ارتقا دهید.",
+    "cancel": "انصراف",
+    "action": "ارتقا / خرید پلن"
+  },
   "form": {
-    "alias": "Alias",
+    "alias": "شناسه فنی",
+    "aliasPlaceholder": "marketing",
     "displayName": "نام نمایشی",
+    "displayNamePlaceholder": "واحد مارکتینگ",
     "description": "توضیح",
+    "descriptionPlaceholder": "تیم‌های تخصصی بازاریابی شرکت",
     "budgetGuardrails": "قواعد بودجه",
     "budgetDescription": "این مقادیر تا زمان اتصال موجودیت Budget در متادیتای واحد ذخیره می‌شوند.",
     "maxBudget": "بودجه حداکثر",

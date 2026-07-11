@@ -5,7 +5,9 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/gofiber/fiber/v2"
+	"go.uber.org/zap"
 )
 
 func buildRequestLogEntry(
@@ -84,4 +86,50 @@ func fallbackStatusFromReason(reason string, count int) string {
 		return "active"
 	}
 	return "inactive"
+}
+
+func logPreProviderRejection(
+	logger *zap.Logger,
+	logs usageLogger,
+	c *fiber.Ctx,
+	authInfo *platform.AuthContext,
+	requestedModel string,
+	route string,
+	requestType string,
+	statusCode int,
+	errorType string,
+	message string,
+	reason string,
+	start time.Time,
+) {
+	entry := buildRequestLogEntry(
+		c,
+		authInfo,
+		platform.Deployment{},
+		requestedModel,
+		route,
+		requestType,
+		"blocked",
+		statusCode,
+		start,
+		int(time.Since(start).Milliseconds()),
+	)
+	requestID := tracing.TraceIDFromContext(c)
+	entry.RequestID = requestID
+	entry.TraceID = requestID
+	entry.ErrorType = strings.TrimSpace(errorType)
+	entry.RequestBody = map[string]interface{}{"model": strings.TrimSpace(requestedModel)}
+	entry.ResponseBody = map[string]interface{}{
+		"error": map[string]interface{}{
+			"message": strings.TrimSpace(message),
+			"type":    strings.TrimSpace(errorType),
+		},
+	}
+	entry.Metadata = map[string]interface{}{
+		"denial_source":    "model_access",
+		"rejection_stage":  "pre_provider",
+		"rejection_reason": strings.TrimSpace(reason),
+	}
+
+	logRequestBestEffort(logger, logs, c.Context(), entry)
 }

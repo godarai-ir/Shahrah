@@ -145,10 +145,19 @@
     "confirmLabel": "Type alias to confirm: {alias}",
     "submit": "Delete org unit"
   },
+  "upgradeDialog": {
+    "title": "This feature is not available on your current plan",
+    "description": "Creating organization units is not included in your current commercial plan. Upgrade your plan to use this feature.",
+    "cancel": "Cancel",
+    "action": "Upgrade / buy plan"
+  },
   "form": {
     "alias": "Alias",
+    "aliasPlaceholder": "marketing",
     "displayName": "Display name",
+    "displayNamePlaceholder": "Marketing unit",
     "description": "Description",
+    "descriptionPlaceholder": "The company's specialist marketing teams",
     "budgetGuardrails": "Budget guardrails",
     "budgetDescription": "These values are stored as org-unit metadata until budget entities are wired.",
     "maxBudget": "Max budget",

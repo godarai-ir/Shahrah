@@ -328,11 +328,11 @@ export function BudgetLimitRuleForm({ initialRule, embedded = false, onCancel, o
                 const modelValues = ((rowCondition?.values as string[] | undefined) ?? []).filter((item) => typeof item === "string" && item.trim().length > 0);
 
                 return (
-                  <div key={field.id} className="rounded-xl border border-border bg-card p-4">
+                  <div key={field.id} className="rounded-xl bg-muted/30 p-3">
                     {rowField === "subject" ? (
                       <div className="flex flex-col gap-3">
-                        <div className="grid gap-2 md:grid-cols-[1.2fr_2fr_auto_auto]">
-                          <select className="h-10 rounded-md border px-2" {...form.register(`conditions.conditions.${index}.field`)}>
+                        <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2 md:grid-cols-[14rem_minmax(0,1fr)_auto_auto]">
+                          <select className="col-span-3 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm md:col-span-1" {...form.register(`conditions.conditions.${index}.field`)}>
                             {fieldOptions
                               .filter((option) => option === rowField || !usedByOthers.has(option))
                               .map((option) => (
@@ -353,6 +353,8 @@ export function BudgetLimitRuleForm({ initialRule, embedded = false, onCancel, o
                           <Button
                             type="button"
                             variant="outline"
+                            size="icon"
+                            aria-label={t("actions.add")}
                             onClick={() => {
                               const selected = subjectPickerSelection[index];
                               if (!selected) return;
@@ -368,9 +370,9 @@ export function BudgetLimitRuleForm({ initialRule, embedded = false, onCancel, o
                               }));
                             }}
                           >
-                            {t("actions.add")}
+                            <Plus />
                           </Button>
-                          <Button type="button" variant="outline" onClick={() => remove(index)} aria-label={t("filters.remove")}>
+                          <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} aria-label={t("filters.remove")}>
                             <Trash2 />
                           </Button>
                         </div>
@@ -405,8 +407,8 @@ export function BudgetLimitRuleForm({ initialRule, embedded = false, onCancel, o
                       </div>
                     ) : (
                       <div className="flex flex-col gap-3">
-                        <div className="grid gap-2 md:grid-cols-[1.2fr_2fr_auto_auto]">
-                          <select className="h-10 rounded-md border px-2" {...form.register(`conditions.conditions.${index}.field`)}>
+                        <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2 md:grid-cols-[14rem_minmax(0,1fr)_auto_auto]">
+                          <select className="col-span-3 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm md:col-span-1" {...form.register(`conditions.conditions.${index}.field`)}>
                             {fieldOptions
                               .filter((option) => option === rowField || !usedByOthers.has(option))
                               .map((option) => (
@@ -427,6 +429,8 @@ export function BudgetLimitRuleForm({ initialRule, embedded = false, onCancel, o
                           <Button
                             type="button"
                             variant="outline"
+                            size="icon"
+                            aria-label={t("actions.add")}
                             onClick={() => {
                               const selected = modelPickerSelection[index];
                               if (!selected) return;
@@ -434,9 +438,9 @@ export function BudgetLimitRuleForm({ initialRule, embedded = false, onCancel, o
                               form.setValue(`conditions.conditions.${index}.values`, [...modelValues, selected.name], { shouldValidate: true });
                             }}
                           >
-                            {t("actions.add")}
+                            <Plus />
                           </Button>
-                          <Button type="button" variant="outline" onClick={() => remove(index)} aria-label={t("filters.remove")}>
+                          <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} aria-label={t("filters.remove")}>
                             <Trash2 />
                           </Button>
                         </div>
@@ -468,13 +472,13 @@ export function BudgetLimitRuleForm({ initialRule, embedded = false, onCancel, o
               })}
 
               {metadataIndexes.length > 0 ? (
-                <div className="rounded-xl border border-border bg-card p-4">
+                <div className="rounded-xl bg-muted/30 p-3">
                   <div className="mb-2 text-sm font-medium">{t("filters.metadataTitle")}</div>
                   <div className="flex flex-col gap-2">
                     {metadataIndexes.map((index) => (
-                      <div key={fields[index]?.id ?? `metadata-${index}`} className="grid gap-2 md:grid-cols-[1fr_1fr_1fr_auto_auto]">
-                        <Input placeholder={t("form.placeholders.metadataKey")} {...form.register(`conditions.conditions.${index}.metadataKey`)} />
-                        <select className="h-10 rounded-md border px-2" {...form.register(`conditions.conditions.${index}.operator`)}>
+                      <div key={fields[index]?.id ?? `metadata-${index}`} className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2 md:grid-cols-[1fr_1fr_1fr_auto_auto]">
+                        <Input className="col-span-3 md:col-span-1" placeholder={t("form.placeholders.metadataKey")} {...form.register(`conditions.conditions.${index}.metadataKey`)} />
+                        <select className="col-span-3 h-10 rounded-lg border border-input bg-background px-3 text-sm md:col-span-1" {...form.register(`conditions.conditions.${index}.operator`)}>
                           {metadataOperatorOptions.map((option) => (
                             <option key={option} value={option}>
                               {option}
@@ -482,10 +486,10 @@ export function BudgetLimitRuleForm({ initialRule, embedded = false, onCancel, o
                           ))}
                         </select>
                         <Input placeholder={t("form.placeholders.metadataValue")} {...form.register(`conditions.conditions.${index}.value` as const)} />
-                        <Button type="button" variant="outline" onClick={() => append({ field: "metadata", operator: "equals", values: undefined })} aria-label={t("filters.addMetadata")}>
+                        <Button type="button" variant="outline" size="icon" onClick={() => append({ field: "metadata", operator: "equals", values: undefined })} aria-label={t("filters.addMetadata")}>
                           <Plus />
                         </Button>
-                        <Button type="button" variant="outline" onClick={() => remove(index)} aria-label={t("filters.removeMetadata")}>
+                        <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} aria-label={t("filters.removeMetadata")}>
                           <Trash2 />
                         </Button>
                       </div>

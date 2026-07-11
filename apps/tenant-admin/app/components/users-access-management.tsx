@@ -1,27 +1,29 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Plus,
   Search,
 } from "lucide-react";
 
-import AccessManagementHeader from "@/app/components/access-management-header";
-import { RowActionsMenu } from "@/components/app-ui";
+import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, PageHeader, RowActionsMenu } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -72,6 +74,10 @@ type RoleListResponse = {
   data?: RoleDefinition[];
 };
 
+type EffectiveEntitlements = {
+  features?: Record<string, unknown>;
+} | null;
+
 const hiddenRolesInUI = new Set(["proxy_admin"]);
 
 type Banner = {
@@ -88,6 +94,7 @@ type UsersAccessManagementProps = {
 };
 
 const PAGE_SIZE = 25;
+const USERS_FEATURE_KEY = "users.max";
 
 export default function UsersAccessManagement(props: UsersAccessManagementProps) {
   const t = useTranslations("accessManagement");
@@ -98,6 +105,11 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   const [offset, setOffset] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
+  const [entitlements, setEntitlements] = useState<EffectiveEntitlements>(null);
+  const [hasLoadedEntitlements, setHasLoadedEntitlements] = useState(false);
   const [isUpdatingUserID, setIsUpdatingUserID] = useState<string | null>(null);
   const [isAssigningRoleUserID, setIsAssigningRoleUserID] = useState<string | null>(null);
   const [availableRoles, setAvailableRoles] = useState<RoleDefinition[]>([]);
@@ -126,13 +138,42 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   }, [query]);
 
   useEffect(() => {
-    void loadRoles();
+    let isMounted = true;
+
+    void Promise.allSettled([
+      loadRoles(),
+      requestJSON<EffectiveEntitlements>("/api/entitlements").then((response) => {
+        if (isMounted) setEntitlements(response);
+      }),
+    ]).finally(() => {
+      if (isMounted) setHasLoadedEntitlements(true);
+    });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const from = total === 0 ? 0 : offset + 1;
   const to = Math.min(offset + users.length, total);
   const canPrev = offset > 0;
   const canNext = offset + users.length < total;
+  const usersLimit = coerceNumericEntitlement(entitlements?.features?.[USERS_FEATURE_KEY]);
+  const hasReachedUsersLimit = usersLimit !== null && total >= usersLimit;
+
+  function handleOpenInvite() {
+    if (hasReachedUsersLimit) {
+      setUpgradeDialogOpen(true);
+      return;
+    }
+    setInviteError(null);
+    setInviteOpen(true);
+  }
+
+  function handleInviteOpenChange(open: boolean) {
+    setInviteOpen(open);
+    if (!open) setInviteError(null);
+  }
 
   async function loadUsers(nextOffset: number, q: string) {
     setIsLoading(true);
@@ -160,7 +201,13 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   async function loadRoles() {
     try {
       const data = await requestJSON<RoleListResponse>("/api/roles?limit=200&offset=0");
-      setAvailableRoles((data.data ?? []).filter((role) => !hiddenRolesInUI.has(role.name)));
+      const nextRoles = (data.data ?? []).filter((role) => !hiddenRolesInUI.has(role.name));
+      setAvailableRoles(nextRoles);
+      setInviteRole((currentRole) => (
+        nextRoles.some((role) => role.name === currentRole)
+          ? currentRole
+          : resolveDefaultInviteRole(nextRoles)
+      ));
     } catch {
       // Ignore role loading failure for users table.
     }
@@ -169,15 +216,12 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   async function handleInvite(event: FormEvent<HTMLFormElement>) {
     if (!props.canManageUsers) return;
     event.preventDefault();
-    setBanner(null);
+    setInviteError(null);
     setLastInviteLink(null);
 
     const email = inviteEmail.trim();
     if (!email) {
-      setBanner({
-        kind: "error",
-        message: t("messages.provideEmail"),
-      });
+      setInviteError(t("messages.provideEmail"));
       return;
     }
 
@@ -196,13 +240,11 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         message: t("messages.invitationSuccess"),
       });
       setInviteEmail("");
-      setInviteRole("member");
+      setInviteRole(resolveDefaultInviteRole(availableRoles));
+      setInviteOpen(false);
       await loadUsers(0, query.trim());
     } catch (error) {
-      setBanner({
-        kind: "error",
-        message: normalizeError(error, t("messages.inviteError")),
-      });
+      setInviteError(normalizeError(error, t("messages.inviteError")));
     } finally {
       setIsInviting(false);
     }
@@ -291,9 +333,17 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   }
 
   return (
-    <div className="space-y-5">
-      <AccessManagementHeader activeTab="users" />
-
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title={t("usersPage.title")}
+        description={t("usersPage.description")}
+        actions={
+          <Button type="button" onClick={handleOpenInvite} disabled={!props.canManageUsers || !hasLoadedEntitlements}>
+            <Plus data-icon="inline-start" />
+            {t("inviteUser")}
+          </Button>
+        }
+      />
       {banner ? (
         <Alert variant={banner.kind === "error" ? "destructive" : "default"}>
           <AlertTitle>{banner.kind === "error" ? t("alerts.error") : t("alerts.success")}</AlertTitle>
@@ -312,73 +362,21 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         </Alert>
       ) : null}
 
-      <section className="rounded-xl border bg-card px-4 py-5">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold tracking-wide text-foreground">{t("allUsers")}</h2>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={t("searchPlaceholder")}
-                className="w-64 ps-9"
-              />
-            </div>
-
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button className="gap-2" disabled={!props.canManageUsers}>
-                  <Plus className="h-4 w-4" />
-                  {t("inviteUser")}
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-[94vw] max-w-md">
-                <SheetHeader>
-                  <SheetTitle>{t("inviteTitle")}</SheetTitle>
-                  <SheetDescription>
-                    {t("inviteDescription")}
-                  </SheetDescription>
-                </SheetHeader>
-
-                <form className="mt-6 space-y-4" onSubmit={handleInvite}>
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium" htmlFor="invite-email">
-                      {t("form.email")}
-                    </label>
-                    <Input
-                      id="invite-email"
-                      value={inviteEmail}
-                      onChange={(event) => setInviteEmail(event.target.value)}
-                      placeholder={t("form.emailPlaceholder")}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium" htmlFor="invite-role">
-                      {t("form.role")}
-                    </label>
-                    <select
-                      id="invite-role"
-                      value={inviteRole}
-                      onChange={(event) => setInviteRole(event.target.value)}
-                      className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                    >
-                      <option value="member">{t("roles.member")}</option>
-                      <option value="readonly_member">Read-only Member</option>
-                      <option value="tenant_admin">{t("roles.tenantAdmin")}</option>
-                    </select>
-                  </div>
-
-                  <Button type="submit" disabled={isInviting} className="w-full">
-                    {isInviting ? t("button.inviting") : t("button.createInvite")}
-                  </Button>
-                </form>
-              </SheetContent>
-            </Sheet>
-          </div>
+      <AppCard title={t("allUsers")} description={t("usersPage.listDescription")} contentClassName="flex min-w-0 flex-col gap-4" className="min-w-0 shadow-none">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <InputGroup className="w-full sm:max-w-md">
+            <InputGroupAddon><Search aria-hidden="true" /></InputGroupAddon>
+            <InputGroupInput
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t("searchPlaceholder")}
+              aria-label={t("searchPlaceholder")}
+            />
+          </InputGroup>
+          <p className="text-sm text-muted-foreground">{t("usersPage.usage", { used: total, limit: usersLimit ?? t("usersPage.unlimited") })}</p>
         </div>
 
-        <Table>
+        <div className="overflow-x-auto"><Table>
           <TableHeader>
             <TableRow>
               <TableHead>{t("table.emailMobile")}</TableHead>
@@ -388,11 +386,11 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.length === 0 ? (
+            {isLoading && users.length === 0 ? Array.from({ length: 4 }).map((_, index) => (
+              <TableRow key={index}><TableCell colSpan={4}><Skeleton className="h-10 w-full" /></TableCell></TableRow>
+            )) : users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-muted-foreground">
-                  {t("table.noUsersFound")}
-                </TableCell>
+                <TableCell colSpan={4} className="py-6"><EmptyState title={t("table.noUsersFound")} description={t("usersPage.emptyDescription")} className="min-h-40 border-0 bg-transparent" /></TableCell>
               </TableRow>
             ) : (
               users.map((user) => {
@@ -411,7 +409,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
                     <TableCell className="font-medium">{identity}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <Avatar className="h-8 w-8">
+                        <Avatar className="size-8">
                           <AvatarFallback>{displayName.slice(0, 1).toUpperCase()}</AvatarFallback>
                         </Avatar>
                         <span>{displayName || "-"}</span>
@@ -451,7 +449,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
               })
             )}
           </TableBody>
-        </Table>
+        </Table></div>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
           <p>
@@ -479,29 +477,67 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
             </Button>
           </div>
         </div>
-      </section>
+      </AppCard>
+
+      <Sheet open={inviteOpen} onOpenChange={handleInviteOpenChange}>
+        <SheetContent side="left" className="w-full max-w-md overflow-y-auto sm:w-3/4">
+          <SheetHeader>
+            <SheetTitle>{t("inviteTitle")}</SheetTitle>
+            <SheetDescription>{t("inviteDescription")}</SheetDescription>
+          </SheetHeader>
+          <form className="mt-6 flex flex-col gap-4" onSubmit={handleInvite}>
+            {inviteError ? (
+              <Alert variant="destructive">
+                <AlertTitle>{t("alerts.error")}</AlertTitle>
+                <AlertDescription>{inviteError}</AlertDescription>
+              </Alert>
+            ) : null}
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="invite-email">{t("form.email")}</Label>
+              <Input id="invite-email" type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder={t("form.emailPlaceholder")} />
+            </div>
+            <AppSelectField
+              label={t("form.role")}
+              ariaLabel={t("form.role")}
+              value={inviteRole}
+              onValueChange={setInviteRole}
+              triggerClassName="h-10 w-full"
+              options={availableRoles.map((role) => ({
+                value: role.name,
+                label: role.display_name?.trim() || resolveRoleDisplayName(role.name),
+              }))}
+              disabled={availableRoles.length === 0}
+            />
+            <Button type="submit" disabled={isInviting || !inviteRole || availableRoles.length === 0} className="w-full">
+              {isInviting ? t("button.inviting") : t("button.createInvite")}
+            </Button>
+          </form>
+        </SheetContent>
+      </Sheet>
+
+      <CommercialPlanUpgradeDialog
+        open={upgradeDialogOpen}
+        onOpenChange={setUpgradeDialogOpen}
+        title={t("usersPage.upgradeDialog.title")}
+        description={t("usersPage.upgradeDialog.description", { limit: usersLimit ?? 0 })}
+        cancelLabel={t("usersPage.upgradeDialog.cancel")}
+        actionLabel={t("usersPage.upgradeDialog.action")}
+      />
 
       <Sheet open={roleFormOpen} onOpenChange={setRoleFormOpen}>
-        <SheetContent side="right" className="w-[94vw] max-w-lg">
+        <SheetContent side="right" className="w-full max-w-lg overflow-y-auto sm:w-3/4">
           <SheetHeader>
             <SheetTitle>{t("roleForm.title")}</SheetTitle>
             <SheetDescription>
               {selectedUserForRole?.email ?? selectedUserForRole?.mobile ?? selectedUserForRole?.id ?? ""}
             </SheetDescription>
           </SheetHeader>
-          <form className="mt-6 space-y-4" onSubmit={submitRoleForm}>
-            <div className="max-h-[56vh] space-y-3 overflow-auto pr-1">
+          <form className="mt-6 flex flex-col gap-4" onSubmit={submitRoleForm}>
+            <RadioGroup value={selectedRoleName} onValueChange={setSelectedRoleName} className="flex max-h-96 flex-col gap-3 overflow-auto pe-1">
               {availableRoles.map((role) => (
-                <label key={role.id} className="block cursor-pointer rounded-md border p-3">
+                <Label key={role.id} htmlFor={`user-role-${role.id}`} className="block cursor-pointer rounded-md border p-3 font-normal">
                   <div className="flex items-start gap-3">
-                    <input
-                      type="radio"
-                      name="role"
-                      value={role.name}
-                      checked={selectedRoleName === role.name}
-                      onChange={(event) => setSelectedRoleName(event.target.value)}
-                      className="mt-1"
-                    />
+                    <RadioGroupItem id={`user-role-${role.id}`} value={role.name} className="mt-1" />
                     <div>
                       <p className="text-sm font-semibold">{role.display_name || role.name}</p>
                       <p className="text-xs text-muted-foreground">{role.name}</p>
@@ -510,9 +546,9 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
                       ) : null}
                     </div>
                   </div>
-                </label>
+                </Label>
               ))}
-            </div>
+            </RadioGroup>
             <Button
               type="submit"
               className="w-full"
@@ -534,6 +570,19 @@ function guessDisplayName(identity: string) {
     return value.split("@")[0];
   }
   return value;
+}
+
+function resolveDefaultInviteRole(roles: RoleDefinition[]): string {
+  return roles.find((role) => role.name === "member")?.name ?? roles[0]?.name ?? "";
+}
+
+function coerceNumericEntitlement(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
 }
 
 async function requestJSON<T = unknown>(path: string, options?: RequestInit): Promise<T> {

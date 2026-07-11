@@ -34,7 +34,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { buildAdminNavItems, filterVisibleNavItems, type AdminNavItem } from "@/app/components/admin-shell-nav";
+import { ACCESS_NAV_ITEM_KEYS, buildAdminNavItems, filterVisibleNavItems, type AdminNavItem } from "@/app/components/admin-shell-nav";
 import { PermissionsProvider } from "@/app/components/permissions-context";
 import { cn } from "@/lib/utils";
 
@@ -92,7 +92,7 @@ const SIDEBAR_NAV_GROUPS: Array<{
   },
   {
     labelKey: "navGroups.access",
-    itemKeys: ["accessManagement", "orgUnits", "virtualUsers"],
+    itemKeys: ACCESS_NAV_ITEM_KEYS,
     icon: Users,
   },
   {

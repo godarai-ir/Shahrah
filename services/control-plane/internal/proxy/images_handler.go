@@ -123,9 +123,12 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 			return writeUnsupportedModelModeError(c, requestedModel, platform.ModelTypeImageGeneration, modelAccess.ExposedModes)
 		}
 
-		emitDenyCounter(h.logger, denyReasonForModel(authInfo), requestedModel, currentTenant.ID)
+		denyReason := denyReasonForModel(authInfo)
+		emitDenyCounter(h.logger, denyReason, requestedModel, currentTenant.ID)
+		const message = "Model access denied or unsupported for image generation"
+		logPreProviderRejection(h.logger, h.logs, c, authInfo, requestedModel, c.Path(), "images", fiber.StatusForbidden, "authorization_error", message, denyReason, startTime)
 
-		return writeAPIError(c, fiber.StatusForbidden, "Model access denied or unsupported for image generation", "authorization_error")
+		return writeAPIError(c, fiber.StatusForbidden, message, "authorization_error")
 	}
 
 	authStart := time.Now()

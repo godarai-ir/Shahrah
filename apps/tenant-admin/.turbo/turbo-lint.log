@@ -2,9 +2,3 @@
 > @shahrah/tenant-admin@0.1.0 lint D:\source\Shahrah\apps\tenant-admin
 > eslint .
 
-
-D:\source\Shahrah\apps\tenant-admin\app\components\org-unit-management.tsx
-  237:6  warning  React Hook useMemo has a missing dependency: 'resolveTeamCount'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
-
-✖ 1 problem (0 errors, 1 warning)
-

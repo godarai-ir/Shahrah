@@ -14,16 +14,17 @@ import {
   Trash2,
 } from "lucide-react";
 
-import AccessManagementHeader from "@/app/components/access-management-header";
-import { IdentifierField } from "@/components/app-ui";
+import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, HelpLink, IdentifierField, PageHeader, StatusBadge as AppStatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
@@ -96,8 +97,10 @@ type TokenForm = {
 
 type Banner = { kind: "success" | "error" | "warning"; message: string };
 type TokenAction = { type: "revoke" | "rotate"; token: VATToken };
+type EffectiveEntitlements = { features?: Record<string, unknown> } | null;
 
 const PAGE_SIZE = 25;
+const FEATURE_VAT_ENABLED = "auth.vat.enabled";
 const emptyVirtualUserForm: VirtualUserForm = {
   alias: "",
   displayName: "",
@@ -122,12 +125,14 @@ export default function VirtualUserTokenManagement({
   initialError,
   teams,
   orgUnits,
+  docsHref,
 }: {
   initialVirtualUsers: VirtualUser[];
   initialTotal: number;
   initialError: string | null;
   teams: Team[];
   orgUnits: OrgUnit[];
+  docsHref?: string;
 }) {
   const t = useTranslations("virtualUsers");
   const [virtualUsers, setVirtualUsers] = useState(initialVirtualUsers);
@@ -150,11 +155,37 @@ export default function VirtualUserTokenManagement({
   const [deleteUserOpen, setDeleteUserOpen] = useState(false);
   const [createTokenOpen, setCreateTokenOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
+  const [entitlements, setEntitlements] = useState<EffectiveEntitlements>(null);
+  const [hasLoadedEntitlements, setHasLoadedEntitlements] = useState(false);
   const [actionIntent, setActionIntent] = useState<TokenAction | null>(null);
   const [virtualUserForm, setVirtualUserForm] = useState(emptyVirtualUserForm);
   const [tokenForm, setTokenForm] = useState(emptyTokenForm);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [banner, setBanner] = useState<Banner | null>(initialError ? { kind: "error", message: initialError } : null);
+  const isVatFeatureEnabled = hasLoadedEntitlements
+    ? readBooleanFeature(entitlements?.features?.[FEATURE_VAT_ENABLED], false)
+    : null;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadEntitlements() {
+      try {
+        const response = await requestJSON<EffectiveEntitlements>("/api/entitlements");
+        if (isMounted) setEntitlements(response);
+      } catch {
+        if (isMounted) setEntitlements(null);
+      } finally {
+        if (isMounted) setHasLoadedEntitlements(true);
+      }
+    }
+
+    void loadEntitlements();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const selectedVirtualUser = useMemo(
     () => virtualUsers.find((item) => item.id === selectedID) ?? null,
@@ -411,8 +442,20 @@ export default function VirtualUserTokenManagement({
   }
 
   function openCreateVirtualUser() {
+    if (isVatFeatureEnabled === false) {
+      setUpgradeDialogOpen(true);
+      return;
+    }
     setVirtualUserForm(emptyVirtualUserForm);
     setCreateUserOpen(true);
+  }
+
+  function openCreateToken() {
+    if (isVatFeatureEnabled === false) {
+      setUpgradeDialogOpen(true);
+      return;
+    }
+    setCreateTokenOpen(true);
   }
 
   function openEditVirtualUser() {
@@ -431,8 +474,18 @@ export default function VirtualUserTokenManagement({
   const to = Math.min(offset + virtualUsers.length, total);
 
   return (
-    <div className="flex flex-col gap-5">
-      <AccessManagementHeader activeTab="virtualAccounts" />
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title={t("title")}
+        titleAddon={docsHref ? <HelpLink href={docsHref} /> : null}
+        description={t("description")}
+        actions={
+          <Button type="button" onClick={openCreateVirtualUser} disabled={!hasLoadedEntitlements}>
+            <Plus data-icon="inline-start" />
+            {t("actions.createUser")}
+          </Button>
+        }
+      />
 
       {banner ? (
         <Alert variant={banner.kind === "error" ? "destructive" : banner.kind}>
@@ -441,18 +494,20 @@ export default function VirtualUserTokenManagement({
         </Alert>
       ) : null}
 
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(460px,1.1fr)]">
-        <div className="flex flex-col gap-4 rounded-xl border bg-card p-4">
+      <section className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(22rem,0.9fr)_minmax(0,1.1fr)]">
+        <AppCard className="min-w-0" contentClassName="flex min-w-0 flex-col gap-4">
           <div className="flex flex-wrap items-center gap-2">
-            <div className="relative min-w-64 flex-1">
-              <Search className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input
+            <InputGroup className="min-w-64 flex-1">
+              <InputGroupAddon>
+                <Search aria-hidden="true" />
+              </InputGroupAddon>
+              <InputGroupInput
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder={t("searchPlaceholder")}
-                className="ps-9"
+                aria-label={t("searchPlaceholder")}
               />
-            </div>
+            </InputGroup>
             <Button
               variant="outline"
               onClick={() => void loadVirtualUsers(0, query.trim())}
@@ -461,12 +516,9 @@ export default function VirtualUserTokenManagement({
               <RefreshCcw data-icon="inline-start" className={cn(isLoadingUsers && "animate-spin")} />
               {t("actions.refresh")}
             </Button>
-            <Button onClick={openCreateVirtualUser}>
-              <Plus data-icon="inline-start" />
-              {t("actions.createUser")}
-            </Button>
           </div>
 
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -476,9 +528,27 @@ export default function VirtualUserTokenManagement({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {virtualUsers.length === 0 ? (
+              {isLoadingUsers && virtualUsers.length === 0 ? (
+                Array.from({ length: 4 }).map((_, index) => (
+                  <TableRow key={index}>
+                    <TableCell colSpan={3}><Skeleton className="h-10 w-full" /></TableCell>
+                  </TableRow>
+                ))
+              ) : virtualUsers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3}>{t("usersTable.empty")}</TableCell>
+                  <TableCell colSpan={3} className="py-8">
+                    <EmptyState
+                      title={t("usersTable.empty")}
+                      description={t("usersTable.emptyDescription")}
+                      primaryAction={
+                        <Button type="button" onClick={openCreateVirtualUser} disabled={!hasLoadedEntitlements}>
+                          <Plus data-icon="inline-start" />
+                          {t("actions.createUser")}
+                        </Button>
+                      }
+                      className="border-0 bg-transparent"
+                    />
+                  </TableCell>
                 </TableRow>
               ) : (
                 virtualUsers.map((item) => (
@@ -502,6 +572,7 @@ export default function VirtualUserTokenManagement({
               )}
             </TableBody>
           </Table>
+          </div>
 
           <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
             <span>{t("pagination.range", { from, to, total })}</span>
@@ -524,16 +595,11 @@ export default function VirtualUserTokenManagement({
               </Button>
             </div>
           </div>
-        </div>
+        </AppCard>
 
         <div className="flex flex-col gap-4">
           {!selectedVirtualUser ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("detail.emptyTitle")}</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-muted-foreground">{t("detail.emptyDescription")}</CardContent>
-            </Card>
+            <EmptyState title={t("detail.emptyTitle")} description={t("detail.emptyDescription")} />
           ) : (
             <>
               <Card>
@@ -559,14 +625,16 @@ export default function VirtualUserTokenManagement({
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent className="grid gap-3 sm:grid-cols-3">
-                  <Kpi label={t("detail.team")} value={getTeamName(selectedVirtualUser.team_id, teams)} />
-                  <Kpi label={t("detail.orgUnit")} value={getOrgUnitName(selectedVirtualUser.org_unit_id, orgUnits)} />
-                  <Kpi label={t("detail.tokens")} value={String(tokenTotal)} />
+                <CardContent>
+                  <dl className="grid gap-4 sm:grid-cols-3">
+                    <InfoItem label={t("detail.team")} value={getTeamName(selectedVirtualUser.team_id, teams)} />
+                    <InfoItem label={t("detail.orgUnit")} value={getOrgUnitName(selectedVirtualUser.org_unit_id, orgUnits)} />
+                    <InfoItem label={t("detail.tokens")} value={String(tokenTotal)} />
+                  </dl>
                 </CardContent>
               </Card>
 
-              <div className="flex flex-col gap-4 rounded-xl border bg-card p-4">
+              <AppCard contentClassName="flex min-w-0 flex-col gap-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <KeyRound className="text-muted-foreground" />
@@ -578,13 +646,15 @@ export default function VirtualUserTokenManagement({
                       {t("actions.refresh")}
                     </Button>
                     <Sheet open={createTokenOpen} onOpenChange={setCreateTokenOpen}>
-                      <SheetTrigger asChild>
-                        <Button disabled={!selectedVirtualUser.active || !selectedVirtualUser.team_id}>
-                          <Plus data-icon="inline-start" />
-                          {t("actions.createToken")}
-                        </Button>
-                      </SheetTrigger>
-                      <SheetContent side="right" className="w-[94vw] max-w-xl overflow-y-auto">
+                      <Button
+                        type="button"
+                        onClick={openCreateToken}
+                        disabled={!hasLoadedEntitlements || !selectedVirtualUser.active || !selectedVirtualUser.team_id}
+                      >
+                        <Plus data-icon="inline-start" />
+                        {t("actions.createToken")}
+                      </Button>
+                      <SheetContent side="right" className="w-full max-w-xl overflow-y-auto sm:w-3/4">
                         <SheetHeader>
                           <SheetTitle>{t("createToken.title")}</SheetTitle>
                           <SheetDescription>{t("createToken.description")}</SheetDescription>
@@ -610,6 +680,7 @@ export default function VirtualUserTokenManagement({
                   </Alert>
                 ) : null}
 
+                <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -669,14 +740,15 @@ export default function VirtualUserTokenManagement({
                     )}
                   </TableBody>
                 </Table>
-              </div>
+                </div>
+              </AppCard>
             </>
           )}
         </div>
       </section>
 
       <Sheet open={createUserOpen} onOpenChange={setCreateUserOpen}>
-        <SheetContent side="right" className="w-[94vw] max-w-xl overflow-y-auto">
+        <SheetContent side="right" className="w-full max-w-xl overflow-y-auto sm:w-3/4">
           <SheetHeader>
             <SheetTitle>{t("createUser.title")}</SheetTitle>
             <SheetDescription>{t("createUser.description")}</SheetDescription>
@@ -695,7 +767,7 @@ export default function VirtualUserTokenManagement({
       </Sheet>
 
       <Sheet open={editUserOpen} onOpenChange={setEditUserOpen}>
-        <SheetContent side="right" className="w-[94vw] max-w-xl overflow-y-auto">
+        <SheetContent side="right" className="w-full max-w-xl overflow-y-auto sm:w-3/4">
           <SheetHeader>
             <SheetTitle>{t("editUser.title")}</SheetTitle>
             <SheetDescription>{t("editUser.description")}</SheetDescription>
@@ -826,6 +898,8 @@ export default function VirtualUserTokenManagement({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CommercialPlanUpgradeDialog open={upgradeDialogOpen} onOpenChange={setUpgradeDialogOpen} title={t("upgradeDialog.title")} description={t("upgradeDialog.description")} cancelLabel={t("upgradeDialog.cancel")} actionLabel={t("upgradeDialog.action")} />
     </div>
   );
 }
@@ -857,41 +931,29 @@ function VirtualUserFormView({
         <Label htmlFor="vu-display">{t("fields.displayName")}</Label>
         <Input id="vu-display" value={form.displayName} onChange={(event) => update("displayName", event.target.value)} />
       </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="vu-team">{t("fields.team")}</Label>
-        <select
-          id="vu-team"
-          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-          value={form.teamID}
-          onChange={(event) => update("teamID", event.target.value)}
-        >
-          <option value="">{t("common.notSet")}</option>
-          {teams.map((team) => (
-            <option key={team.id} value={team.id}>
-              {team.display_name || team.alias}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="vu-org">{t("fields.orgUnit")}</Label>
-        <select
-          id="vu-org"
-          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-          value={form.orgUnitID}
-          onChange={(event) => update("orgUnitID", event.target.value)}
-        >
-          <option value="">{t("common.notSet")}</option>
-          {orgUnits.map((org) => (
-            <option key={org.id} value={org.id}>
-              {org.display_name || org.alias}
-            </option>
-          ))}
-        </select>
-      </div>
+      <AppSelectField
+        label={t("fields.team")}
+        ariaLabel={t("fields.team")}
+        value={form.teamID || "none"}
+        onValueChange={(value) => update("teamID", value === "none" ? "" : value)}
+        options={[
+          { value: "none", label: t("common.notSet") },
+          ...teams.map((team) => ({ value: team.id, label: team.display_name || team.alias })),
+        ]}
+      />
+      <AppSelectField
+        label={t("fields.orgUnit")}
+        ariaLabel={t("fields.orgUnit")}
+        value={form.orgUnitID || "none"}
+        onValueChange={(value) => update("orgUnitID", value === "none" ? "" : value)}
+        options={[
+          { value: "none", label: t("common.notSet") },
+          ...orgUnits.map((org) => ({ value: org.id, label: org.display_name || org.alias })),
+        ]}
+      />
       {mode === "edit" ? (
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={form.active} onChange={(event) => update("active", event.target.checked)} />
+        <label className="flex items-center gap-2 text-sm" htmlFor="vu-active">
+          <Checkbox id="vu-active" checked={form.active} onCheckedChange={(checked) => update("active", checked === true)} />
           <span>{t("fields.active")}</span>
         </label>
       ) : null}
@@ -936,12 +998,12 @@ function TokenFormView({
             <p className="text-xs text-muted-foreground">{t("createToken.noModels")}</p>
           ) : (
             modelOptions.map((model) => (
-              <label key={model.id} className="flex items-center gap-2 py-1 text-sm">
-                <input
-                  type="checkbox"
+              <label key={model.id} htmlFor={`model-${model.id}`} className="flex items-center gap-2 py-1 text-sm">
+                <Checkbox
+                  id={`model-${model.id}`}
                   checked={model.checked}
-                  onChange={(event) => {
-                    if (event.target.checked) {
+                  onCheckedChange={(checked) => {
+                    if (checked === true) {
                       update("allowedModels", Array.from(new Set([...selectedModels, model.id])).join(","));
                       return;
                     }
@@ -963,25 +1025,21 @@ function TokenFormView({
 }
 
 function StatusBadge({ active, t }: { active: boolean; t: ReturnType<typeof useTranslations> }) {
-  return active ? <Badge>{t("status.active")}</Badge> : <Badge variant="destructive">{t("status.inactive")}</Badge>;
+  return <AppStatusBadge status={active ? "active" : "inactive"}>{active ? t("status.active") : t("status.inactive")}</AppStatusBadge>;
 }
 
 function TokenStatusBadge({ token, t }: { token: VATToken; t: ReturnType<typeof useTranslations> }) {
-  if (token.revoked_at) return <Badge variant="destructive">{t("status.revoked")}</Badge>;
-  if (token.blocked) return <Badge variant="destructive">{t("status.blocked")}</Badge>;
-  return <Badge>{t("status.active")}</Badge>;
+  if (token.revoked_at) return <AppStatusBadge status="error">{t("status.revoked")}</AppStatusBadge>;
+  if (token.blocked) return <AppStatusBadge status="error">{t("status.blocked")}</AppStatusBadge>;
+  return <AppStatusBadge status="active">{t("status.active")}</AppStatusBadge>;
 }
 
-function Kpi({ label, value }: { label: string; value: string }) {
+function InfoItem({ label, value }: { label: string; value: string }) {
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-xs text-muted-foreground">{label}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="truncate text-sm font-semibold">{value}</p>
-      </CardContent>
-    </Card>
+    <div className="min-w-0">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-1 truncate text-sm font-semibold">{value}</dd>
+    </div>
   );
 }
 
@@ -1061,5 +1119,14 @@ function extractMessage(payload: unknown): string | null {
 
 function normalizeError(error: unknown, fallback: string) {
   if (error instanceof Error) return error.message;
+  return fallback;
+}
+
+function readBooleanFeature(value: unknown, fallback: boolean): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    if (value.trim().toLowerCase() === "true") return true;
+    if (value.trim().toLowerCase() === "false") return false;
+  }
   return fallback;
 }

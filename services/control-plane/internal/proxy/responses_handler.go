@@ -122,9 +122,12 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 			return writeUnsupportedModelModeError(c, requestedModel, platform.ModelTypeChat, modelAccess.ExposedModes)
 		}
 
-		emitDenyCounter(h.logger, denyReasonForModel(authInfo), requestedModel, currentTenant.ID)
+		denyReason := denyReasonForModel(authInfo)
+		emitDenyCounter(h.logger, denyReason, requestedModel, currentTenant.ID)
+		const message = "Model access denied or unsupported for responses"
+		logPreProviderRejection(h.logger, h.logs, c, authInfo, requestedModel, "/v1/responses", "responses", fiber.StatusForbidden, "authorization_error", message, denyReason, startTime)
 
-		return writeAPIError(c, fiber.StatusForbidden, "Model access denied or unsupported for responses", "authorization_error")
+		return writeAPIError(c, fiber.StatusForbidden, message, "authorization_error")
 	}
 
 	authStart := time.Now()

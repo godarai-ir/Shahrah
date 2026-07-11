@@ -1,6 +1,6 @@
 {
     "title":  "تیم‌ها",
-    "subtitle":  "مدیریت workspace تیم، اعضا، دسترسی‌ها، مدل‌های مجاز و کنترل‌های بودجه.",
+    "subtitle":  "فضای کاری تیم، اعضا، مجوزها و محدوده سازمانی را مدیریت کنید.",
     "breadcrumb":  {
                        "tenant":  "فضای کاری"
                    },
@@ -21,10 +21,11 @@
                     "delete":  "حذف تیم"
                 },
     "filters":  {
-                    "search":  "جست‌وجوی alias یا نام نمایشی",
+                    "search":  "جست‌وجوی شناسه فنی یا نام نمایشی",
                     "orgAll":  "همه واحدهای سازمانی",
-                    "workspaceAll":  "همه انواع workspace",
-                    "statusAll":  "همه وضعیت‌ها"
+                    "workspaceAll":  "همه انواع فضای کاری",
+                    "statusAll":  "همه وضعیت‌ها",
+                    "sortLabel":  "مرتب‌سازی تیم‌ها"
                 },
     "workspace":  {
                       "production":  "تولید",
@@ -36,14 +37,11 @@
                   },
     "status":  {
                    "active":  "فعال",
-                   "blocked":  "مسدود",
-                   "budgetWarning":  "هشدار بودجه",
-                   "budgetExceeded":  "عبور از سقف بودجه"
+                   "blocked":  "مسدود"
                },
     "sort":  {
                  "recent":  "جدیدترین",
                  "name":  "نام",
-                 "spend":  "مصرف",
                  "members":  "اعضا"
              },
     "table":  {
@@ -53,17 +51,13 @@
                   "tenantRoot":  "ریشه فضای کاری",
                   "workspaceType":  "محیط",
                   "membersAdmins":  "اعضا/مدیران",
-                  "budgetSpend":  "بودجه/مصرف",
-                  "models":  "مدل‌های مجاز",
-                  "modelsSummary":  "{first} +{count} مدل",
-                  "limits":  "TPM/RPM",
                   "status":  "وضعیت",
                   "updated":  "بروزرسانی",
-                  "spend":  "مصرف"
+                  "actions":  "عملیات"
               },
     "empty":  {
                   "title":  "تیمی یافت نشد",
-                  "description":  "تیم‌ها برای سازمان‌دهی اعضا، بودجه، دسترسی مدل و مدیریت کلیدها استفاده می‌شوند."
+                  "description":  "تیم‌ها برای سازمان‌دهی اعضا، مجوزها و مدیریت کلیدها استفاده می‌شوند."
               },
     "pagination":  {
                        "showing":  "نمایش {from} تا {to} از {total}",
@@ -71,53 +65,45 @@
                        "next":  "بعدی"
                    },
     "kpi":  {
-                "spend":  "مصرف کل",
-                "remaining":  "بودجه باقی‌مانده",
                 "membersAdmins":  "اعضا/مدیران",
                 "activeKeys":  "کلیدهای فعال"
             },
     "detail":  {
-                   "empty":  "یک تیم را انتخاب کنید تا مصرف، محدودیت‌ها و عضویت‌ها را ببینید.",
-                   "guardrails":  "بودجه و محدودیت نرخ",
-                   "budget":  "{spend} از {max} مصرف شده",
-                   "softBudget":  "بودجه نرم: {value}",
-                   "duration":  "دوره بودجه: {value}",
-                   "limits":  "TPM {tpm} / RPM {rpm}",
+                   "empty":  "یک تیم را انتخاب کنید تا اعضا، محدوده و مجوزهای آن را ببینید.",
                    "access":  "محدوده دسترسی",
-                   "models":  "مدل‌های مجاز: {value}",
                    "orgInheritance":  "محدوده واحد سازمانی: {value}",
-                   "permissions":  "تعداد permissions: {value}",
+                   "permissions":  "تعداد مجوزها: {value}",
                    "members":  "اعضا",
                    "loading":  "در حال بارگیری اعضا...",
                    "noMembers":  "عضوی برای تیم یافت نشد."
                },
     "create":  {
                    "title":  "ایجاد تیم",
-                   "description":  "یک تیم جدید با محدوده اختیاری org unit و کنترل‌های بودجه ایجاد کنید.",
+                   "description":  "یک تیم جدید با محدوده واحد سازمانی اختیاری ایجاد کنید.",
                    "submit":  "ایجاد تیم"
                },
     "edit":  {
                  "title":  "ویرایش تیم",
-                 "description":  "تغییرات باید با محدودیت‌های بودجه، parent org unit و roleها هم‌راستا باشد.",
+                 "description":  "هویت تیم، محدوده سازمانی و نوع فضای کاری را ویرایش کنید.",
                  "submit":  "ذخیره تغییرات"
              },
     "delete":  {
                    "title":  "حذف تیم",
                    "description":  "در صورت وجود وابستگی‌های فعال، حذف انجام نمی‌شود.",
                    "guardTitle":  "بررسی وابستگی",
-                   "guardDescription":  "اگر کلید فعال، virtual user یا عضو موجود باشد، حذف مسدود می‌شود.",
-                   "confirm":  "برای تایید alias را وارد کنید: {alias}",
+                   "guardDescription":  "اگر کلید فعال، کاربر مجازی یا عضو موجود باشد، حذف مسدود می‌شود.",
+                   "confirm":  "برای تایید شناسه فنی را وارد کنید: {alias}",
                    "submit":  "حذف تیم"
                },
     "members":  {
                     "title":  "مدیریت اعضا",
-                    "description":  "نقش و permissionهای route-level را برای اعضای تیم تعیین کنید.",
+                    "description":  "نقش و مجوزهای سطح مسیر را برای اعضای تیم تعیین کنید.",
                     "user":  "کاربر",
                     "userPlaceholder":  "با ایمیل یا نام کاربر جستجو کنید و از فهرست انتخاب کنید",
                     "role":  "نقش",
                     "teamMember":  "عضو تیم",
                     "teamAdmin":  "مدیر تیم",
-                    "permissions":  "permissionهای عضو تیم",
+                    "permissions":  "مجوزهای عضو تیم",
                     "unknownUser":  "کاربر ناشناس",
                     "add":  "افزودن عضو",
                     "makeTeamAdmin":  "تبدیل به مدیر تیم",
@@ -125,21 +111,18 @@
                     "remove":  "حذف"
                 },
     "form":  {
-                 "alias":  "Alias",
+                 "alias":  "شناسه فنی",
                  "displayName":  "نام نمایشی",
                  "orgUnit":  "واحد سازمانی (اختیاری)",
-                 "workspaceType":  "نوع workspace",
-                 "allowedModels":  "مدل‌های مجاز",
-                 "allowedModelsPlaceholder":  "gpt-4o-mini,gpt-4.1-mini",
-                 "budgetId":  "Budget ID (اختیاری)",
-                 "costCenter":  "مرکز هزینه",
-                 "description":  "توضیح",
-                 "maxBudget":  "بودجه حداکثر",
-                 "softBudget":  "بودجه نرم",
-                 "budgetDuration":  "دوره بودجه",
-                 "tpmLimit":  "محدودیت TPM",
-                 "rpmLimit":  "محدودیت RPM"
+                 "workspaceType":  "نوع فضای کاری",
+                 "description":  "توضیح"
              },
+    "upgradeDialog":  {
+                           "title":  "امکان ایجاد تیم در پلن شما فعال نیست",
+                           "description":  "ایجاد و مدیریت تیم‌ها در پلن تجاری فعلی شما ارائه نمی‌شود. برای استفاده از این قابلیت، پلن خود را ارتقا دهید.",
+                           "cancel":  "فعلاً نه",
+                           "action":  "ارتقا یا خرید پلن"
+                       },
     "messages":  {
                      "loadError":  "بارگیری تیم‌ها ناموفق بود.",
                      "detailLoadError":  "بارگیری جزئیات تیم ناموفق بود.",
@@ -147,7 +130,6 @@
                      "createError":  "ایجاد تیم ناموفق بود.",
                      "updateSuccess":  "تیم بروزرسانی شد.",
                      "updateError":  "بروزرسانی تیم ناموفق بود.",
-                     "budgetCannotDrop":  "بودجه حداکثر نباید کمتر از مصرف فعلی باشد.",
                      "selectUser":  "یک کاربر را از فهرست (با ایمیل یا نام) انتخاب کنید.",
                      "memberAddSuccess":  "عضو اضافه شد.",
                      "memberAddError":  "افزودن عضو ناموفق بود.",
@@ -156,12 +138,11 @@
                      "memberRemoveSuccess":  "عضو حذف شد.",
                      "memberRemoveError":  "حذف عضو ناموفق بود.",
                      "deleteBlocked":  "قبل از حذف تیم، وابستگی‌های فعال را رفع کنید.",
-                     "deleteConfirmAlias":  "برای تایید حذف، alias تیم را وارد کنید.",
+                     "deleteConfirmAlias":  "برای تایید حذف، شناسه فنی تیم را وارد کنید.",
                      "deleteSuccess":  "تیم حذف شد.",
                      "deleteError":  "حذف تیم ناموفق بود.",
-                     "softBudgetConflict":  "بودجه نرم باید کمتر از بودجه حداکثر باشد.",
-                     "aliasRequired":  "Alias الزامی است.",
-                     "aliasPattern":  "Alias باید شامل حروف، عدد، خط تیره یا زیرخط باشد.",
-                     "aliasUnique":  "Alias باید در فضای کاری یکتا باشد."
+                     "aliasRequired":  "شناسه فنی الزامی است.",
+                     "aliasPattern":  "شناسه فنی باید شامل حروف انگلیسی، عدد، خط تیره یا زیرخط باشد.",
+                     "aliasUnique":  "شناسه فنی باید در فضای کاری یکتا باشد."
                  }
 }

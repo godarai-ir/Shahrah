@@ -1,13 +1,11 @@
 ﻿"use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CircleDollarSign, Copy, Pencil, Plus, Power, Search, Trash2 } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { EmptyState, HelpLink, PageHeader, RowActionsMenu, StatusBadge } from "@/components/app-ui";
+import { CommercialPlanUpgradeDialog, EmptyState, HelpLink, PageHeader, RowActionsMenu, StatusBadge } from "@/components/app-ui";
 import {
   Dialog,
   DialogContent,
@@ -74,14 +72,14 @@ function readBooleanFeature(value: unknown, fallback: boolean): boolean {
 
 export function BudgetLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
   const t = useTranslations("budgetLimitRules");
-  const router = useRouter();
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [items, setItems] = useState<BudgetLimitRule[]>([]);
   const [pendingDeleteRule, setPendingDeleteRule] = useState<BudgetLimitRule | null>(null);
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
-  const [isCreateSheetOpen, setIsCreateSheetOpen] = useState(false);
+  const [isRuleSheetOpen, setIsRuleSheetOpen] = useState(false);
+  const [editingRule, setEditingRule] = useState<BudgetLimitRule | null>(null);
   const [entitlements, setEntitlements] = useState<EffectiveEntitlements>(null);
   const [hasLoadedEntitlements, setHasLoadedEntitlements] = useState(false);
   const [notice, setNotice] = useState<{ kind: "success" | "error"; message: string } | null>(null);
@@ -155,7 +153,18 @@ export function BudgetLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
       return;
     }
 
-    setIsCreateSheetOpen(true);
+    setEditingRule(null);
+    setIsRuleSheetOpen(true);
+  }
+
+  function handleEditRule(rule: BudgetLimitRule) {
+    setEditingRule(rule);
+    setIsRuleSheetOpen(true);
+  }
+
+  function handleRuleSheetOpenChange(open: boolean) {
+    setIsRuleSheetOpen(open);
+    if (!open) setEditingRule(null);
   }
 
   return (
@@ -243,7 +252,7 @@ export function BudgetLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
                       <RowActionsMenu
                         label={t("table.rowActions", { ruleId: rule.rule_id })}
                         actions={[
-                          { label: t("actions.edit"), icon: <Pencil />, onSelect: () => router.push(`/gateway-policies/budget-limiting-rules/${encodeURIComponent(rule.rule_id)}`) },
+                          { label: t("actions.edit"), icon: <Pencil />, onSelect: () => handleEditRule(rule) },
                           { label: rule.enabled ? t("actions.disable") : t("actions.enable"), icon: <Power />, onSelect: () => void updateBudgetLimitRuleStatus(rule.rule_id, !rule.enabled).then(load) },
                           { label: t("actions.duplicate"), icon: <Copy />, onSelect: () => void createBudgetLimitRule({ ...rule, rule_id: `${rule.rule_id}-copy`, name: `${rule.name ?? rule.rule_id} ${t("actions.copySuffix")}` } as never).then(load) },
                           { label: t("actions.delete"), icon: <Trash2 />, destructive: true, onSelect: () => setPendingDeleteRule(rule) },
@@ -259,17 +268,19 @@ export function BudgetLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
         </div>
       </div>
 
-      <Sheet open={isCreateSheetOpen} onOpenChange={setIsCreateSheetOpen}>
+      <Sheet open={isRuleSheetOpen} onOpenChange={handleRuleSheetOpenChange}>
         <SheetContent side="left" closeLabel={t("actions.close")} className="w-full overflow-y-auto p-0 sm:max-w-3xl" dir="rtl">
           <SheetHeader className="sr-only">
-            <SheetTitle>{t("form.titleCreate")}</SheetTitle>
+            <SheetTitle>{editingRule ? t("form.titleEdit") : t("form.titleCreate")}</SheetTitle>
             <SheetDescription>{t("form.headerDescription")}</SheetDescription>
           </SheetHeader>
           <BudgetLimitRuleForm
+            key={editingRule?.id ?? "create"}
             embedded
-            onCancel={() => setIsCreateSheetOpen(false)}
+            initialRule={editingRule ?? undefined}
+            onCancel={() => handleRuleSheetOpenChange(false)}
             onSaved={async () => {
-              setIsCreateSheetOpen(false);
+              handleRuleSheetOpenChange(false);
               await load();
             }}
           />
@@ -293,24 +304,7 @@ export function BudgetLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isUpgradeDialogOpen} onOpenChange={setIsUpgradeDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t("upgradeDialog.title")}</DialogTitle>
-            <DialogDescription>{t("upgradeDialog.description")}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setIsUpgradeDialogOpen(false)}>
-              {t("upgradeDialog.cancel")}
-            </Button>
-            <Button asChild>
-              <Link href="/billing/plan" onClick={() => setIsUpgradeDialogOpen(false)}>
-                {t("upgradeDialog.action")}
-              </Link>
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CommercialPlanUpgradeDialog open={isUpgradeDialogOpen} onOpenChange={setIsUpgradeDialogOpen} title={t("upgradeDialog.title")} description={t("upgradeDialog.description")} cancelLabel={t("upgradeDialog.cancel")} actionLabel={t("upgradeDialog.action")} />
     </>
   );
 }

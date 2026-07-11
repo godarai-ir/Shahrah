@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Trash2, Upload, X } from "lucide-react";
 
-import { AppCard, AppSelectField, CompactValue, ConfirmDialog, EmptyState, FilterCombobox, FormSection, HelpLink, IdentifierField, MetricCard, PageHeader, RowActionsMenu, SectionHeader, SettingsCard, StatusBadge } from "@/components/app-ui";
+import { AppCard, AppSelectField, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, EmptyState, FilterCombobox, FormSection, HelpLink, IdentifierField, MetricCard, PageHeader, RowActionsMenu, SectionHeader, SettingsCard, StatusBadge } from "@/components/app-ui";
 import { Attachment, AttachmentAction, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,7 @@ const tokens = [
 export default function DesignSystemPage() {
   const [selectValue, setSelectValue] = useState("active");
   const [filterValue, setFilterValue] = useState("openai");
+  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const requestsDisplay = formatCompactNumber(128_400, { locale: "en-US" });
   const spendDisplay = formatCompactCurrency(12_340, { locale: "en-US", currency: "USD" });
   const irrDisplay = appendDisplaySuffix(formatCompactNumber(845_000, { locale: "fa-IR" }), " IRR");
@@ -176,6 +177,17 @@ export default function DesignSystemPage() {
             <CheckCircle2 className="text-success" aria-hidden="true" />
             Dialog keeps title and footer structure consistent.
           </div>
+        </AppCard>
+        <AppCard title="Commercial plan restriction" description="Use one consistent dialog when an entitlement blocks an action.">
+          <Button type="button" onClick={() => setUpgradeDialogOpen(true)}>Open upgrade dialog</Button>
+          <CommercialPlanUpgradeDialog
+            open={upgradeDialogOpen}
+            onOpenChange={setUpgradeDialogOpen}
+            title="Feature unavailable on this plan"
+            description="Upgrade the commercial plan to enable this feature."
+            cancelLabel="Not now"
+            actionLabel="Upgrade plan"
+          />
         </AppCard>
       </section>
 

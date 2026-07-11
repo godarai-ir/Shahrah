@@ -4,7 +4,6 @@ import { FormEvent, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Check, Copy, KeyRound, Plus, RefreshCcw, Trash2 } from "lucide-react";
 
-import AccessManagementHeader from "@/app/components/access-management-header";
 import { AppCard, EmptyState, SectionHeader, StatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -186,8 +185,6 @@ export default function PersonalAccessTokenManagement(props: {
 
   return (
     <div className="flex flex-col gap-5">
-      <AccessManagementHeader activeTab="personalAccessTokens" />
-
       {banner ? (
         <Alert variant={banner.kind === "error" ? "destructive" : "default"}>
           <AlertTitle>{banner.kind === "error" ? t("alerts.error") : t("alerts.success")}</AlertTitle>

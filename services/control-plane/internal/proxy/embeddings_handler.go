@@ -114,9 +114,12 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 			return writeUnsupportedModelModeError(c, requestedModel, platform.ModelTypeEmbedding, modelAccess.ExposedModes)
 		}
 
-		emitDenyCounter(h.logger, denyReasonForModel(authInfo), requestedModel, currentTenant.ID)
+		denyReason := denyReasonForModel(authInfo)
+		emitDenyCounter(h.logger, denyReason, requestedModel, currentTenant.ID)
+		const message = "Model access denied or unsupported for embeddings"
+		logPreProviderRejection(h.logger, h.logs, c, authInfo, requestedModel, "/v1/embeddings", "embeddings", fiber.StatusForbidden, "authorization_error", message, denyReason, startTime)
 
-		return writeAPIError(c, fiber.StatusForbidden, "Model access denied or unsupported for embeddings", "authorization_error")
+		return writeAPIError(c, fiber.StatusForbidden, message, "authorization_error")
 	}
 
 	authStart := time.Now()
