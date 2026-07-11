@@ -1,12 +1,12 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
+  Activity,
   Building2,
   CalendarClock,
   Edit3,
-  Gauge,
   Plus,
   RefreshCw,
   Search,
@@ -19,7 +19,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, FilterCombobox, HelpLink, IdentifierField, MetricCard, PageHeader, RowActionsMenu, StatusBadge } from "@/components/app-ui";
+import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, CompactValue, EmptyState, FilterCombobox, HelpLink, IdentifierField, MetricCard, PageHeader, RowActionsMenu } from "@/components/app-ui";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -39,6 +39,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { appendDisplaySuffix, formatCompactNumber } from "@/lib/compact-number";
 import { usePermissions } from "@/app/components/permissions-context";
 import { canAnyPermission } from "@/lib/authz";
 
@@ -104,6 +105,17 @@ type Banner = {
   message: string;
 };
 
+type UsagePeriod = "current_month" | "last_30_days" | "last_7_days";
+
+type OrgUnitUsageSummary = {
+  request_count: number;
+  cost_irr: number;
+};
+
+type OrgUnitUsageSummaryResponse = {
+  data?: Partial<OrgUnitUsageSummary>;
+};
+
 type EffectiveEntitlements = {
   features?: Record<string, unknown>;
 } | null;
@@ -139,6 +151,7 @@ export default function OrgUnitManagement({
   docsHref,
 }: OrgUnitManagementProps) {
   const t = useTranslations("orgUnits");
+  const locale = useLocale();
   const permissions = usePermissions() ?? [];
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>(initialOrgUnits);
   const [total, setTotal] = useState(initialTotal);
@@ -162,6 +175,11 @@ export default function OrgUnitManagement({
   const [members, setMembers] = useState<OrgUnitMember[]>([]);
   const [users, setUsers] = useState<AccessPrincipalCandidate[]>([]);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [usagePeriod, setUsagePeriod] = useState<UsagePeriod>("current_month");
+  const [usageSummary, setUsageSummary] = useState<OrgUnitUsageSummary | null>(null);
+  const [usageError, setUsageError] = useState<string | null>(null);
+  const [isUsageLoading, setIsUsageLoading] = useState(false);
+  const [usageReloadKey, setUsageReloadKey] = useState(0);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -216,6 +234,39 @@ export default function OrgUnitManagement({
     if (!selectedOrgUnitID) {
       return;
     }
+    const controller = new AbortController();
+    const range = getUsagePeriodRange(usagePeriod);
+    const search = new URLSearchParams({
+      org_unit_id: selectedOrgUnitID,
+      from: range.from.toISOString(),
+      to: range.to.toISOString(),
+    });
+
+    async function loadUsage() {
+      setIsUsageLoading(true);
+      setUsageError(null);
+      try {
+        const payload = await requestJSON<OrgUnitUsageSummaryResponse>(`/api/logs/summary?${search.toString()}`, { signal: controller.signal });
+        setUsageSummary({
+          request_count: toNumber(payload.data?.request_count),
+          cost_irr: toNumber(payload.data?.cost_irr),
+        });
+      } catch (error: unknown) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setUsageSummary(null);
+        setUsageError(normalizeError(error, t("usage.loadError")));
+      } finally {
+        if (!controller.signal.aborted) setIsUsageLoading(false);
+      }
+    }
+
+    void loadUsage();
+
+    return () => controller.abort();
+  }, [selectedOrgUnitID, t, usagePeriod, usageReloadKey]);
+
+  useEffect(() => {
+    if (!selectedOrgUnitID) return;
     void loadOrgUnitDetails(selectedOrgUnitID);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOrgUnitID]);
@@ -239,12 +290,11 @@ export default function OrgUnitManagement({
       if (statusFilter === "all") return true;
       if (statusFilter === "with_teams") return teamCount > 0;
       if (statusFilter === "empty") return teamCount === 0;
-      return getBudgetStatus(orgUnit).kind === statusFilter;
+      return true;
     });
 
     return [...filtered].sort((a, b) => {
       if (sortBy === "name") return getOrgName(a).localeCompare(getOrgName(b));
-      if (sortBy === "spend") return getSpend(b) - getSpend(a);
       if (sortBy === "teams") {
         const bCount = teamCountByOrgUnit[b.id] ?? getTeamCount(b);
         const aCount = teamCountByOrgUnit[a.id] ?? getTeamCount(a);
@@ -603,9 +653,6 @@ export default function OrgUnitManagement({
                 triggerClassName="h-10 w-full min-w-36"
                 options={[
                   { value: "all", label: t("filters.all") },
-                  { value: "normal", label: t("status.normal") },
-                  { value: "warning", label: t("status.warning") },
-                  { value: "exceeded", label: t("status.exceeded") },
                   { value: "with_teams", label: t("filters.withTeams") },
                   { value: "empty", label: t("filters.noTeams") },
                 ]}
@@ -618,7 +665,6 @@ export default function OrgUnitManagement({
                 options={[
                   { value: "updated_at", label: t("sort.recent") },
                   { value: "name", label: t("sort.name") },
-                  { value: "spend", label: t("sort.spend") },
                   { value: "teams", label: t("sort.teams") },
                 ]}
               />
@@ -633,10 +679,6 @@ export default function OrgUnitManagement({
                   <TableHead>{t("table.orgUnit")}</TableHead>
                   <TableHead>{t("table.teams")}</TableHead>
                   <TableHead>{t("table.members")}</TableHead>
-                  <TableHead>{t("table.budget")}</TableHead>
-                  <TableHead>{t("table.spend")}</TableHead>
-                  <TableHead>{t("table.limits")}</TableHead>
-                  <TableHead>{t("table.status")}</TableHead>
                   <TableHead>{t("table.updated")}</TableHead>
                   <TableHead className="w-12 text-end"> </TableHead>
                 </TableRow>
@@ -644,7 +686,7 @@ export default function OrgUnitManagement({
               <TableBody>
                 {visibleOrgUnits.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="py-10 text-center">
+                    <TableCell colSpan={5} className="py-10 text-center">
                       <EmptyState
                         icon={Building2}
                         title={t("empty.title")}
@@ -661,7 +703,6 @@ export default function OrgUnitManagement({
                   </TableRow>
                 ) : (
                   visibleOrgUnits.map((orgUnit) => {
-                    const status = getBudgetStatus(orgUnit);
                     const active = orgUnit.id === selectedOrgUnitID;
                     return (
                       <TableRow
@@ -677,31 +718,16 @@ export default function OrgUnitManagement({
                         </TableCell>
                         <TableCell>{resolveTeamCount(orgUnit)}</TableCell>
                         <TableCell>{getMemberCount(orgUnit, orgUnit.id === selectedOrgUnitID ? members.length : undefined)}</TableCell>
-                        <TableCell>{formatMoney(getMaxBudget(orgUnit))}</TableCell>
-                        <TableCell>
-                          <div className="min-w-28">
-                            <p>{formatMoney(getSpend(orgUnit))}</p>
-                            <Progress value={status.percent} tone={status.kind} />
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-xs text-muted-foreground">
-                            {formatLimit(getTpmLimit(orgUnit))} {t("units.tpm")} / {formatLimit(getRpmLimit(orgUnit))} {t("units.rpm")}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <BudgetStatusBadge status={status.kind} />
-                        </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{formatDate(orgUnit.updated_at)}</TableCell>
                         <TableCell className="text-end" onClick={(event) => event.stopPropagation()}>
                           <RowActionsMenu
-                            label={t("actions.viewDetails")}
+                            label={t("actions.openMenu")}
                             actions={[
-                              { label: t("actions.viewDetails"), onSelect: () => setSelectedOrgUnitID(orgUnit.id) },
-                              { label: t("actions.edit"), disabled: !canManage, onSelect: () => openEdit(orgUnit) },
-                              { label: t("actions.manageMembers"), disabled: !canManage, onSelect: openMembers },
+                              { label: t("actions.edit"), icon: <Edit3 />, disabled: !canManage, onSelect: () => openEdit(orgUnit) },
+                              { label: t("actions.manageMembers"), icon: <Users />, disabled: !canManage, onSelect: openMembers },
                               {
                                 label: t("actions.delete"),
+                                icon: <Trash2 />,
                                 destructive: true,
                                 disabled: !canDeleteOrgUnit,
                                 onSelect: () => {
@@ -749,12 +775,11 @@ export default function OrgUnitManagement({
           {selectedOrgUnit && selectedSummary ? (
             <>
               <AppCard contentClassName="flex flex-col gap-4">
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
                   <div className="min-w-0">
                     <p className="text-sm text-muted-foreground">{t("detail.breadcrumb")}</p>
                     <h2 className="mt-1 truncate text-xl font-semibold">{getOrgName(selectedOrgUnit)}</h2>
                   </div>
-                  <BudgetStatusBadge status={selectedSummary.status.kind} />
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" size="sm" onClick={() => openEdit(selectedOrgUnit)} disabled={!canManage}>
@@ -779,8 +804,25 @@ export default function OrgUnitManagement({
               </AppCard>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <MetricCard icon={WalletCards} label={t("kpi.totalSpend")} value={formatMoney(selectedSummary.spend)} />
-                <MetricCard icon={Gauge} label={t("kpi.remaining")} value={formatMoney(selectedSummary.remaining)} />
+                <MetricCard
+                  icon={WalletCards}
+                  label={t("kpi.attributedSpend")}
+                  value={isUsageLoading ? <Skeleton className="h-9 w-28" /> : usageSummary ? (
+                    <CompactValue
+                      dir="ltr"
+                      display={appendDisplaySuffix(formatCompactNumber(usageSummary.cost_irr, { locale }), t("usage.currencySuffix"))}
+                    />
+                  ) : "-"}
+                  description={t(`usage.periods.${usagePeriod}`)}
+                />
+                <MetricCard
+                  icon={Activity}
+                  label={t("kpi.attributedRequests")}
+                  value={isUsageLoading ? <Skeleton className="h-9 w-20" /> : usageSummary ? (
+                    <CompactValue dir="ltr" display={formatCompactNumber(usageSummary.request_count, { locale })} />
+                  ) : "-"}
+                  description={t(`usage.periods.${usagePeriod}`)}
+                />
                 <MetricCard icon={Building2} label={t("kpi.teams")} value={String(selectedSummary.teams)} />
                 <MetricCard icon={ShieldCheck} label={t("kpi.membersAdmins")} value={`${selectedSummary.members}/${selectedSummary.admins}`} />
               </div>
@@ -789,31 +831,66 @@ export default function OrgUnitManagement({
                 title={
                   <span className="flex items-center gap-2">
                     <WalletCards aria-hidden="true" />
-                    <span>{t("budget.title")}</span>
+                    <span>{t("usage.title")}</span>
                   </span>
+                }
+                description={t("usage.description")}
+                actions={
+                  <AppSelectField
+                    value={usagePeriod}
+                    onValueChange={(value) => setUsagePeriod(value as UsagePeriod)}
+                    options={[
+                      { value: "current_month", label: t("usage.periods.current_month") },
+                      { value: "last_30_days", label: t("usage.periods.last_30_days") },
+                      { value: "last_7_days", label: t("usage.periods.last_7_days") },
+                    ]}
+                    ariaLabel={t("usage.periodLabel")}
+                    triggerClassName="h-9"
+                    disabled={isUsageLoading}
+                  />
                 }
                 contentClassName="flex flex-col gap-4"
               >
-                  <div>
-                    <div className="mb-2 flex items-center justify-between text-sm">
-                      <span>{t("budget.used", { amount: formatMoney(selectedSummary.spend) })}</span>
-                      <span className="text-muted-foreground">{formatMoney(selectedSummary.maxBudget)}</span>
+                  {isUsageLoading ? (
+                    <div className="grid gap-4 sm:grid-cols-2" aria-label={t("usage.loading")}>
+                      <Skeleton className="h-24 w-full" />
+                      <Skeleton className="h-24 w-full" />
                     </div>
-                    <Progress value={selectedSummary.status.percent} tone={selectedSummary.status.kind} />
-                  </div>
-                  <dl className="grid grid-cols-2 gap-3 text-sm">
-                    <InfoItem label={t("budget.soft")} value={formatMoney(selectedSummary.softBudget)} />
-                    <InfoItem label={t("budget.duration")} value={selectedSummary.duration || "30d"} />
-                    <InfoItem label={t("budget.tpm")} value={formatLimit(selectedSummary.tpm)} />
-                    <InfoItem label={t("budget.rpm")} value={formatLimit(selectedSummary.rpm)} />
-                  </dl>
-                  {selectedSummary.status.kind !== "normal" ? (
-                    <Alert variant={selectedSummary.status.kind === "exceeded" ? "destructive" : "warning"}>
-                      <AlertTitle>{selectedSummary.status.kind === "exceeded" ? t("budget.exceededTitle") : t("budget.warningTitle")}</AlertTitle>
-                      <AlertDescription>
-                        {t("budget.warningDescription")}
+                  ) : usageError ? (
+                    <Alert variant="warning">
+                      <AlertTitle>{t("usage.unavailableTitle")}</AlertTitle>
+                      <AlertDescription className="flex flex-col items-start gap-3">
+                        <span>{t("usage.unavailableDescription")}</span>
+                        <Button type="button" variant="outline" size="sm" onClick={() => setUsageReloadKey((value) => value + 1)}>
+                          <RefreshCw data-icon="inline-start" />
+                          {t("usage.retry")}
+                        </Button>
                       </AlertDescription>
                     </Alert>
+                  ) : usageSummary ? (
+                    <>
+                      <dl className="grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-lg border border-border p-4">
+                          <dt className="text-sm text-muted-foreground">{t("usage.cost")}</dt>
+                          <dd className="mt-2 text-2xl font-bold tracking-tight">
+                            <CompactValue
+                              dir="ltr"
+                              display={appendDisplaySuffix(formatCompactNumber(usageSummary.cost_irr, { locale }), t("usage.currencySuffix"))}
+                            />
+                          </dd>
+                        </div>
+                        <div className="rounded-lg border border-border p-4">
+                          <dt className="text-sm text-muted-foreground">{t("usage.requests")}</dt>
+                          <dd className="mt-2 text-2xl font-bold tracking-tight">
+                            <CompactValue dir="ltr" display={formatCompactNumber(usageSummary.request_count, { locale })} />
+                          </dd>
+                        </div>
+                      </dl>
+                      {usageSummary.request_count === 0 ? (
+                        <p className="text-sm text-muted-foreground">{t("usage.empty")}</p>
+                      ) : null}
+                      <p className="text-xs leading-5 text-muted-foreground">{t("usage.attributionNote")}</p>
+                    </>
                   ) : null}
               </AppCard>
 
@@ -872,7 +949,7 @@ export default function OrgUnitManagement({
               >
                   <InfoItem label={t("audit.created")} value={formatDateTime(selectedOrgUnit.created_at)} />
                   <InfoItem label={t("audit.updated")} value={formatDateTime(selectedOrgUnit.updated_at)} />
-                  <pre className="max-h-40 overflow-auto rounded-lg bg-muted p-3 text-xs text-muted-foreground">
+                  <pre dir="ltr" className="max-h-40 overflow-auto rounded-lg bg-muted p-3 text-left text-xs text-muted-foreground">
                     {JSON.stringify(selectedOrgUnit.metadata ?? {}, null, 2)}
                   </pre>
               </AppCard>
@@ -884,7 +961,7 @@ export default function OrgUnitManagement({
       </section>
 
       <Sheet open={editOpen} onOpenChange={setEditOpen}>
-        <SheetContent side="right" className="w-full max-w-xl overflow-y-auto sm:w-3/4">
+        <SheetContent side="left" className="w-full max-w-xl overflow-y-auto sm:w-3/4">
           <SheetHeader>
             <SheetTitle>{t("edit.title")}</SheetTitle>
             <SheetDescription>
@@ -896,7 +973,7 @@ export default function OrgUnitManagement({
       </Sheet>
 
       <Sheet open={memberOpen} onOpenChange={setMemberOpen}>
-        <SheetContent side="right" className="w-full max-w-xl overflow-y-auto sm:w-3/4">
+        <SheetContent side="left" className="w-full max-w-xl overflow-y-auto sm:w-3/4">
           <SheetHeader>
             <SheetTitle>{t("members.manageTitle")}</SheetTitle>
             <SheetDescription>
@@ -972,7 +1049,7 @@ export default function OrgUnitManagement({
       </Sheet>
 
       <Sheet open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <SheetContent side="right" className="w-full max-w-md sm:w-3/4">
+        <SheetContent side="left" className="w-full max-w-md sm:w-3/4">
           <SheetHeader>
             <SheetTitle>{t("delete.title")}</SheetTitle>
             <SheetDescription>
@@ -1149,80 +1226,18 @@ function InfoItem({ label, value }: { label: string; value: string }) {
   );
 }
 
-function BudgetStatusBadge({ status }: { status: "normal" | "warning" | "exceeded" }) {
-  const t = useTranslations("orgUnits");
-  if (status === "exceeded") return <StatusBadge status="error">{t("status.exceeded")}</StatusBadge>;
-  if (status === "warning") return <StatusBadge status="warning">{t("status.warning")}</StatusBadge>;
-  return <StatusBadge status="success">{t("status.normal")}</StatusBadge>;
-}
-
-function Progress({ value, tone }: { value: number; tone: "normal" | "warning" | "exceeded" }) {
-  return (
-    <div className="h-2 overflow-hidden rounded-full bg-muted">
-      <div
-        className={cn(
-          "h-full rounded-full transition-all",
-          tone === "exceeded" ? "bg-destructive" : tone === "warning" ? "bg-warning" : "bg-success",
-        )}
-        style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
-      />
-    </div>
-  );
-}
-
 function buildSummary(orgUnit: OrgUnit, members: OrgUnitMember[]) {
-  const maxBudget = getMaxBudget(orgUnit);
-  const spend = getSpend(orgUnit);
-  const remaining = maxBudget > 0 ? Math.max(0, maxBudget - spend) : 0;
   return {
-    spend,
-    maxBudget,
-    softBudget: getSoftBudget(orgUnit),
-    duration: toText(orgUnit.metadata?.budget_duration),
-    remaining,
     teams: getTeamCount(orgUnit),
     members: members.length || getMemberCount(orgUnit),
     admins: members.filter((member) => member.role === "org_admin").length || getAdminCount(orgUnit),
-    tpm: getTpmLimit(orgUnit),
-    rpm: getRpmLimit(orgUnit),
-    status: getBudgetStatus(orgUnit),
   };
-}
-
-function getBudgetStatus(orgUnit: OrgUnit): { kind: "normal" | "warning" | "exceeded"; percent: number } {
-  const maxBudget = getMaxBudget(orgUnit);
-  const softBudget = getSoftBudget(orgUnit);
-  const spend = getSpend(orgUnit);
-  if (maxBudget <= 0) return { kind: "normal", percent: 0 };
-  const percent = (spend / maxBudget) * 100;
-  if (spend > maxBudget) return { kind: "exceeded", percent };
-  if ((softBudget > 0 && spend >= softBudget) || percent >= 80) return { kind: "warning", percent };
-  return { kind: "normal", percent };
 }
 
 function getOrgName(orgUnit: OrgUnit) {
   return orgUnit.display_name || toText(orgUnit.metadata?.display_name) || orgUnit.alias;
 }
 
-function getMaxBudget(orgUnit: OrgUnit) {
-  return toNumber(orgUnit.metadata?.max_budget ?? orgUnit.metadata?.budget_max ?? orgUnit.metadata?.monthly_budget);
-}
-
-function getSoftBudget(orgUnit: OrgUnit) {
-  return toNumber(orgUnit.metadata?.soft_budget);
-}
-
-function getSpend(orgUnit: OrgUnit) {
-  return toNumber(orgUnit.metadata?.spend ?? orgUnit.metadata?.current_spend ?? orgUnit.metadata?.total_spend);
-}
-
-function getTpmLimit(orgUnit: OrgUnit) {
-  return toNumber(orgUnit.metadata?.tpm_limit);
-}
-
-function getRpmLimit(orgUnit: OrgUnit) {
-  return toNumber(orgUnit.metadata?.rpm_limit);
-}
 
 function getTeamCount(orgUnit: OrgUnit) {
   return toNumber(orgUnit.metadata?.team_count ?? orgUnit.metadata?.teams_count) || getMetadataArray(orgUnit.metadata, "teams").length;
@@ -1312,11 +1327,6 @@ function formatMoney(value: number) {
   }).format(value);
 }
 
-function formatLimit(value: number) {
-  if (value <= 0) return "-";
-  return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(value);
-}
-
 function formatDate(value: string) {
   if (!value) return "-";
   const date = new Date(value);
@@ -1338,6 +1348,20 @@ function formatDateTime(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
+}
+
+function getUsagePeriodRange(period: UsagePeriod, now = new Date()) {
+  const to = new Date(now);
+  if (period === "last_7_days") {
+    return { from: new Date(to.getTime() - 7 * 24 * 60 * 60 * 1000), to };
+  }
+  if (period === "last_30_days") {
+    return { from: new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000), to };
+  }
+  return {
+    from: new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), 1)),
+    to,
+  };
 }
 
 async function requestJSON<T = unknown>(path: string, options?: RequestInit): Promise<T> {

@@ -543,7 +543,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       />
 
       <Sheet open={roleFormOpen} onOpenChange={setRoleFormOpen}>
-        <SheetContent side="right" className="w-full max-w-lg overflow-y-auto sm:w-3/4">
+        <SheetContent side="left" className="w-full max-w-lg overflow-y-auto sm:w-3/4">
           <SheetHeader>
             <SheetTitle>{t("roleForm.title")}</SheetTitle>
             <SheetDescription>

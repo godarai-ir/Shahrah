@@ -760,7 +760,7 @@ function PromptVersionHistorySheet(props: {
 }) {
   return (
     <Sheet open={props.isOpen} onOpenChange={(open) => { if (!open) props.onClose(); }}>
-      <SheetContent side="right" className="w-[94vw] max-w-xl overflow-y-auto">
+      <SheetContent side="left" className="w-[94vw] max-w-xl overflow-y-auto">
         <SheetHeader>
           <div className="flex items-start justify-between gap-3">
             <div>

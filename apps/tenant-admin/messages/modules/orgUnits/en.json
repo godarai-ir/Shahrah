@@ -13,6 +13,7 @@
     "refresh": "Refresh",
     "new": "New Org Unit",
     "saving": "Saving...",
+    "openMenu": "Open actions menu",
     "viewDetails": "View details",
     "edit": "Edit",
     "manageMembers": "Manage members",
@@ -26,7 +27,7 @@
   },
   "list": {
     "title": "All org units",
-    "description": "Operational list with budget and admin indicators."
+    "description": "Organization units with team, member, and administrative details."
   },
   "filters": {
     "searchPlaceholder": "Enter a name to search",
@@ -79,8 +80,30 @@
   "kpi": {
     "totalSpend": "Total spend",
     "remaining": "Budget remaining",
+    "attributedSpend": "Attributed cost",
+    "attributedRequests": "Attributed requests",
     "teams": "Teams",
     "membersAdmins": "Members/Admins"
+  },
+  "usage": {
+    "title": "Usage attributed to this org unit",
+    "description": "Final cost of requests attributed to this organization unit at execution time.",
+    "periodLabel": "Usage report period",
+    "periods": {
+      "current_month": "Current month",
+      "last_30_days": "Last 30 days",
+      "last_7_days": "Last 7 days"
+    },
+    "cost": "Final cost",
+    "requests": "Request count",
+    "currencySuffix": " IRR",
+    "loading": "Loading attributed usage...",
+    "empty": "No attributed usage was recorded for this org unit during this period.",
+    "attributionNote": "This report only includes requests carrying this organization unit ID at execution time.",
+    "unavailableTitle": "Usage report unavailable",
+    "unavailableDescription": "Usage data could not be loaded. The current role may not have permission to view logs.",
+    "loadError": "Failed to load the organization unit usage report.",
+    "retry": "Try again"
   },
   "budget": {
     "title": "Budget and rate limits",

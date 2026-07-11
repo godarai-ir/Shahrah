@@ -200,7 +200,7 @@ export default function PersonalAccessTokenManagement(props: {
             <SheetTrigger asChild>
               <Button><Plus data-icon="inline-start" />{t("actions.create")}</Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-[94vw] max-w-md">
+            <SheetContent side="left" className="w-[94vw] max-w-md">
               <SheetHeader>
                 <SheetTitle>{t("create.title")}</SheetTitle>
                 <SheetDescription>{t("create.description")}</SheetDescription>

@@ -654,7 +654,7 @@ export default function VirtualUserTokenManagement({
                         <Plus data-icon="inline-start" />
                         {t("actions.createToken")}
                       </Button>
-                      <SheetContent side="right" className="w-full max-w-xl overflow-y-auto sm:w-3/4">
+                      <SheetContent side="left" className="w-full max-w-xl overflow-y-auto sm:w-3/4">
                         <SheetHeader>
                           <SheetTitle>{t("createToken.title")}</SheetTitle>
                           <SheetDescription>{t("createToken.description")}</SheetDescription>
@@ -748,7 +748,7 @@ export default function VirtualUserTokenManagement({
       </section>
 
       <Sheet open={createUserOpen} onOpenChange={setCreateUserOpen}>
-        <SheetContent side="right" className="w-full max-w-xl overflow-y-auto sm:w-3/4">
+        <SheetContent side="left" className="w-full max-w-xl overflow-y-auto sm:w-3/4">
           <SheetHeader>
             <SheetTitle>{t("createUser.title")}</SheetTitle>
             <SheetDescription>{t("createUser.description")}</SheetDescription>
@@ -767,7 +767,7 @@ export default function VirtualUserTokenManagement({
       </Sheet>
 
       <Sheet open={editUserOpen} onOpenChange={setEditUserOpen}>
-        <SheetContent side="right" className="w-full max-w-xl overflow-y-auto sm:w-3/4">
+        <SheetContent side="left" className="w-full max-w-xl overflow-y-auto sm:w-3/4">
           <SheetHeader>
             <SheetTitle>{t("editUser.title")}</SheetTitle>
             <SheetDescription>{t("editUser.description")}</SheetDescription>

@@ -20,7 +20,7 @@ export function MetricCard({ label, value, description, trend, icon: Icon, class
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-sm font-medium text-muted-foreground">{label}</p>
-          <p className="mt-2 text-2xl font-bold tracking-tight text-foreground md:text-3xl">{value}</p>
+          <div className="mt-2 text-2xl font-bold tracking-tight text-foreground md:text-3xl">{value}</div>
           {description ? <p className="mt-1 text-xs leading-6 text-muted-foreground">{description}</p> : null}
           {trend ? <div className="mt-3 text-xs font-medium">{trend}</div> : null}
         </div>

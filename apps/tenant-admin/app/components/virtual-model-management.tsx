@@ -707,7 +707,7 @@ export default function VirtualModelManagement() {
       </Card>
 
       <Sheet open={editorOpen} onOpenChange={handleEditorOpenChange}>
-        <SheetContent side="right" className="flex h-full w-[96vw] max-w-3xl flex-col gap-0 p-0 sm:max-w-2xl">
+        <SheetContent side="left" className="flex h-full w-[96vw] max-w-3xl flex-col gap-0 p-0 sm:max-w-2xl">
           <SheetHeader className="border-b px-6 py-5 text-right">
             <SheetTitle>{isCreate ? t("form.createTitle") : t("form.editTitle")}</SheetTitle>
             <SheetDescription>{isCreate ? t("form.createDescription") : t("form.editDescription")}</SheetDescription>
