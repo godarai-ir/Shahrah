@@ -137,7 +137,11 @@ func NewStore(ctx context.Context, databaseURL string, logger *zap.Logger) (*Sto
 		authzCacheTTL:              60 * time.Second,
 		authzCacheMaxEntries:       5000,
 	}
-	if err := store.initClickHouse(ctx); err != nil {
+	if err := store.initClickHouseWithRetry(ctx); err != nil {
+		if boolEnvOrDefault("CLICKHOUSE_REQUIRED", false) {
+			pool.Close()
+			return nil, fmt.Errorf("initialize clickhouse observability backend: %w", err)
+		}
 		logger.Warn("clickhouse observability backend unavailable; continuing without clickhouse-backed traces, metrics, and logs", zap.Error(err))
 	}
 

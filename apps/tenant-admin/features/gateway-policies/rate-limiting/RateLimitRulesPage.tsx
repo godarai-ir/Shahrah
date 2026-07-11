@@ -4,10 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Copy, Pencil, Power, Trash2 } from "lucide-react";
+import { Copy, Gauge, Pencil, Plus, Power, Search, Trash2 } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { HelpLink } from "@/components/app-ui";
+import { EmptyState, HelpLink, PageHeader, RowActionsMenu, StatusBadge } from "@/components/app-ui";
 import {
   Dialog,
   DialogContent,
@@ -18,8 +18,9 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import {
@@ -30,6 +31,7 @@ import {
   updateRateLimitRuleStatus,
 } from "./ruleApi";
 import type { RateLimitRule } from "./ruleTypes";
+import { RateLimitRuleForm } from "./RateLimitRuleForm";
 
 const PERSIAN_DATE_TIME = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
   year: "numeric",
@@ -51,15 +53,6 @@ function formatJalaliDateTime(value: string) {
   return PERSIAN_DATE_TIME.format(date);
 }
 
-function windowUnitLabel(unit: RateLimitRule["limit"]["window"]["unit"]) {
-  if (unit === "second") return "ثانیه";
-  if (unit === "minute") return "دقیقه";
-  if (unit === "hour") return "ساعت";
-  if (unit === "day") return "روز";
-  if (unit === "week") return "هفته";
-  return "ماه";
-}
-
 function readBooleanFeature(value: unknown, fallback: boolean): boolean {
   if (typeof value === "boolean") return value;
   if (typeof value === "string") {
@@ -78,6 +71,7 @@ export function RateLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
   const [items, setItems] = useState<RateLimitRule[]>([]);
   const [pendingDeleteRule, setPendingDeleteRule] = useState<RateLimitRule | null>(null);
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
+  const [isCreateSheetOpen, setIsCreateSheetOpen] = useState(false);
   const [entitlements, setEntitlements] = useState<EffectiveEntitlements>(null);
   const [hasLoadedEntitlements, setHasLoadedEntitlements] = useState(false);
   const [notice, setNotice] = useState<{ kind: "success" | "error"; message: string } | null>(null);
@@ -151,106 +145,86 @@ export function RateLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
       return;
     }
 
-    router.push("/gateway-policies/rate-limiting-rules/new");
+    setIsCreateSheetOpen(true);
   }
 
   return (
     <>
-      <Card>
-        <CardHeader>
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <CardTitle>{t("title")}</CardTitle>
-            <CardDescription className="flex flex-wrap items-center gap-2">
-              <span>{t("description")}</span>
-              {docsHref ? <HelpLink href={docsHref} /> : null}
-            </CardDescription>
-          </div>
-          <Button type="button" onClick={handleCreateRule} disabled={!hasLoadedEntitlements}>
-            {t("actions.new")}
-          </Button>
-        </div>
-        <Input placeholder={t("searchPlaceholder")} value={query} onChange={(event) => setQuery(event.target.value)} />
-        </CardHeader>
-        <CardContent className="space-y-3">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 md:px-6">
+        <PageHeader
+          title={t("title")}
+          description={t("description")}
+          titleAddon={docsHref ? <HelpLink href={docsHref} /> : null}
+          actions={
+            <Button type="button" onClick={handleCreateRule} disabled={!hasLoadedEntitlements}>
+              <Plus data-icon="inline-start" />
+              {t("actions.new")}
+            </Button>
+          }
+        />
+
         {notice ? (
           <Alert variant={notice.kind === "error" ? "destructive" : "default"}>
             <AlertTitle>{notice.kind === "error" ? t("alerts.error") : t("alerts.success")}</AlertTitle>
             <AlertDescription>{notice.message}</AlertDescription>
           </Alert>
         ) : null}
-        {filtered.length === 0 && !isLoading ? (
-          <div className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">{t("empty")}</div>
+
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+            <InputGroup className="max-w-xl">
+              <InputGroupAddon><Search aria-hidden="true" /></InputGroupAddon>
+              <InputGroupInput placeholder={t("searchPlaceholder")} value={query} onChange={(event) => setQuery(event.target.value)} aria-label={t("searchPlaceholder")} />
+            </InputGroup>
+            <p className="text-sm text-muted-foreground">{t("resultCount", { count: filtered.length })}</p>
+          </div>
+
+        {isLoading && filtered.length === 0 ? (
+          <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4" aria-label={t("messages.loading")}>
+            {Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-10 w-full" />)}
+          </div>
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={Gauge}
+            title={query ? t("noResults.title") : t("emptyState.title")}
+            description={query ? t("noResults.description") : t("emptyState.description")}
+            primaryAction={!query ? <Button type="button" onClick={handleCreateRule} disabled={!hasLoadedEntitlements}><Plus data-icon="inline-start" />{t("actions.new")}</Button> : undefined}
+          />
         ) : (
-          <div className="overflow-x-auto rounded-lg border">
-            <Table>
+          <div className="overflow-x-auto rounded-xl border border-border bg-card">
+            <Table className="text-xs lg:text-sm">
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t("table.ruleId")}</TableHead>
-                  <TableHead>{t("table.limit")}</TableHead>
-                  <TableHead>{t("table.window")}</TableHead>
-                  <TableHead>{t("table.status")}</TableHead>
-                  <TableHead>{t("table.updatedAt")}</TableHead>
-                  <TableHead>{t("table.actions")}</TableHead>
+                  <TableHead className="px-1.5 lg:px-2">{t("table.ruleId")}</TableHead>
+                  <TableHead className="px-1.5 lg:px-2">{t("table.limit")}</TableHead>
+                  <TableHead className="px-1.5 lg:px-2">{t("table.window")}</TableHead>
+                  <TableHead className="px-1.5 lg:px-2">{t("table.status")}</TableHead>
+                  <TableHead className="px-1.5 lg:px-2">{t("table.updatedAt")}</TableHead>
+                  <TableHead className="px-1.5 lg:px-2">{t("table.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.map((rule) => (
-                  <TableRow
-                    key={rule.id}
-                    className={rule.limit.dimension === "tokens" ? "bg-[var(--warning-soft)]" : "bg-[var(--info-soft)]"}
-                  >
-                    <TableCell className="font-medium">{rule.rule_id}</TableCell>
-                    <TableCell>
+                  <TableRow key={rule.id}>
+                    <TableCell className="px-1.5 font-mono font-medium lg:px-2" dir="ltr">{rule.rule_id}</TableCell>
+                    <TableCell className="px-1.5 lg:px-2">
                       <div className="flex items-center gap-2">
-                        <span>{rule.limit.max}</span>
-                        <Badge variant="outline">{rule.limit.dimension === "tokens" ? "توکن" : "درخواست"}</Badge>
+                        <span className="font-mono" dir="ltr">{rule.limit.max}</span>
+                        <Badge variant="outline">{t(`form.options.dimension.${rule.limit.dimension}`)}</Badge>
                       </div>
                     </TableCell>
-                    <TableCell>{`${rule.limit.window.value} ${windowUnitLabel(rule.limit.window.unit)}`}</TableCell>
-                    <TableCell>
-                      <Badge variant={rule.enabled ? "default" : "secondary"}>{rule.enabled ? "فعال" : "غیرفعال"}</Badge>
+                    <TableCell className="px-1.5 lg:px-2">{`${rule.limit.window.value} ${t(`table.windowUnits.${rule.limit.window.unit}`)}`}</TableCell>
+                    <TableCell className="px-1.5 lg:px-2">
+                      <StatusBadge status={rule.enabled ? "active" : "inactive"}>{rule.enabled ? t("status.enabled") : t("status.disabled")}</StatusBadge>
                     </TableCell>
-                    <TableCell>{formatJalaliDateTime(rule.updated_at)}</TableCell>
-                    <TableCell className="space-x-2">
-                      <Button asChild size="icon" variant="outline" title={t("actions.edit")}>
-                        <Link href={`/gateway-policies/rate-limiting-rules/${encodeURIComponent(rule.rule_id)}`} aria-label={t("actions.edit")}>
-                          <Pencil className="h-4 w-4" />
-                        </Link>
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        title={rule.enabled ? t("actions.disable") : t("actions.enable")}
-                        aria-label={rule.enabled ? t("actions.disable") : t("actions.enable")}
-                        onClick={() => void updateRateLimitRuleStatus(rule.rule_id, !rule.enabled).then(load)}
-                      >
-                        <Power className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        title={t("actions.duplicate")}
-                        aria-label={t("actions.duplicate")}
-                        onClick={() =>
-                          void createRateLimitRule({
-                            ...rule,
-                            rule_id: `${rule.rule_id}-copy`,
-                            name: `${rule.name ?? rule.rule_id} Copy`,
-                          } as never).then(load)
-                        }
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        title={t("actions.delete")}
-                        aria-label={t("actions.delete")}
-                        onClick={() => setPendingDeleteRule(rule)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                    <TableCell className="px-1.5 lg:px-2">{formatJalaliDateTime(rule.updated_at)}</TableCell>
+                    <TableCell className="px-1.5 lg:px-2">
+                      <RowActionsMenu label={t("table.rowActions", { ruleId: rule.rule_id })} actions={[
+                        { label: t("actions.edit"), icon: <Pencil />, onSelect: () => router.push(`/gateway-policies/rate-limiting-rules/${encodeURIComponent(rule.rule_id)}`) },
+                        { label: rule.enabled ? t("actions.disable") : t("actions.enable"), icon: <Power />, onSelect: () => void updateRateLimitRuleStatus(rule.rule_id, !rule.enabled).then(load) },
+                        { label: t("actions.duplicate"), icon: <Copy />, onSelect: () => void createRateLimitRule({ ...rule, rule_id: `${rule.rule_id}-copy`, name: `${rule.name ?? rule.rule_id} Copy` } as never).then(load) },
+                        { label: t("actions.delete"), icon: <Trash2 />, destructive: true, onSelect: () => setPendingDeleteRule(rule) },
+                      ]} />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -258,8 +232,18 @@ export function RateLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
             </Table>
           </div>
         )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
+
+      <Sheet open={isCreateSheetOpen} onOpenChange={setIsCreateSheetOpen}>
+        <SheetContent side="left" closeLabel={t("actions.close")} className="w-full overflow-y-auto p-0 sm:max-w-3xl" dir="rtl">
+          <SheetHeader className="sr-only">
+            <SheetTitle>{t("form.addTitle")}</SheetTitle>
+            <SheetDescription>{t("form.headerDescription")}</SheetDescription>
+          </SheetHeader>
+          <RateLimitRuleForm embedded onCancel={() => setIsCreateSheetOpen(false)} onSaved={async () => { setIsCreateSheetOpen(false); await load(); }} />
+        </SheetContent>
+      </Sheet>
 
       <Dialog open={pendingDeleteRule !== null} onOpenChange={(open) => !open && setPendingDeleteRule(null)}>
         <DialogContent>

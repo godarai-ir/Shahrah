@@ -7,14 +7,13 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, X } from "lucide-react";
 
-import { IdentifierField } from "@/components/app-ui";
+import { AppSelectField, FormSection, IdentifierField, PageHeader } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import {
   PrincipalEntitySelect,
   type PrincipalEntitySelection,
@@ -27,6 +26,7 @@ import { ModelEntitySelect, type ModelEntitySelectLabels, type ModelSelection } 
 import { createBudgetLimitRule, updateBudgetLimitRule } from "./ruleApi";
 import type { BudgetLimitCondition, BudgetLimitRule } from "./ruleTypes";
 import { budgetLimitRuleSchema, type BudgetLimitRuleFormInput } from "./ruleValidation";
+import { cn } from "@/lib/utils";
 
 const fieldOptions = ["subject", "model", "metadata"] as const;
 const metadataOperatorOptions = ["exists", "not_exists", "equals", "not_equals", "contains", "starts_with", "ends_with", "gt", "gte", "lt", "lte"] as const;
@@ -86,7 +86,14 @@ async function searchPrincipals(kind: PrincipalSearchKind, query: string): Promi
   return [];
 }
 
-export function BudgetLimitRuleForm({ initialRule }: { initialRule?: BudgetLimitRule }) {
+type BudgetLimitRuleFormProps = {
+  initialRule?: BudgetLimitRule;
+  embedded?: boolean;
+  onCancel?: () => void;
+  onSaved?: () => void | Promise<void>;
+};
+
+export function BudgetLimitRuleForm({ initialRule, embedded = false, onCancel, onSaved }: BudgetLimitRuleFormProps) {
   const t = useTranslations("budgetLimitRules");
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
@@ -97,7 +104,7 @@ export function BudgetLimitRuleForm({ initialRule }: { initialRule?: BudgetLimit
   const [providerAllowedModels, setProviderAllowedModels] = useState<ModelSelection[]>([]);
   const [virtualModels, setVirtualModels] = useState<ModelSelection[]>([]);
 
-  const defaultValues = useMemo<BudgetLimitRuleFormInput>(
+  const defaultValues = useMemo<Partial<BudgetLimitRuleFormInput>>(
     () => ({
       rule_id: initialRule?.rule_id ?? "",
       name: initialRule?.name ?? "",
@@ -105,7 +112,7 @@ export function BudgetLimitRuleForm({ initialRule }: { initialRule?: BudgetLimit
       enabled: initialRule?.enabled ?? true,
       priority: initialRule?.priority ?? 100,
       conditions: initialRule?.conditions ?? { combinator: "AND", conditions: [] },
-      limit_to: initialRule?.limit_to ?? 100,
+      limit_to: initialRule?.limit_to,
       unit: initialRule?.unit ?? "cost_per_month",
       budget_applies_per: initialRule?.budget_applies_per ?? undefined,
       block_on_budget_exceed: initialRule?.block_on_budget_exceed ?? true,
@@ -120,9 +127,11 @@ export function BudgetLimitRuleForm({ initialRule }: { initialRule?: BudgetLimit
     defaultValues,
   });
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "conditions.conditions" });
+  // React Hook Form's watch API is intentionally reactive and cannot be memoized by React Compiler.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const watchedConditions = form.watch("conditions.conditions");
-  const metadataIndexes = fields.map((f, i) => ({ f, i })).filter((x) => form.watch(`conditions.conditions.${x.i}.field`) === "metadata").map((x) => x.i);
-  const nonMetadataIndexes = fields.map((f, i) => ({ f, i })).filter((x) => form.watch(`conditions.conditions.${x.i}.field`) !== "metadata").map((x) => x.i);
+  const metadataIndexes = fields.map((f, i) => ({ f, i })).filter((x) => watchedConditions?.[x.i]?.field === "metadata").map((x) => x.i);
+  const nonMetadataIndexes = fields.map((f, i) => ({ f, i })).filter((x) => watchedConditions?.[x.i]?.field !== "metadata").map((x) => x.i);
   const alertEnabled = form.watch("alerts.enabled");
   const fieldLabel: Record<(typeof fieldOptions)[number], string> = {
     subject: t("filters.fields.subject"),
@@ -222,6 +231,10 @@ export function BudgetLimitRuleForm({ initialRule }: { initialRule?: BudgetLimit
         await createBudgetLimitRule(normalized);
       }
       setNotice({ kind: "success", message: t("messages.saveSuccess") });
+      if (onSaved) {
+        await onSaved();
+        return;
+      }
       router.push("/gateway-policies/budget-limiting-rules");
       router.refresh();
     } catch (error) {
@@ -232,14 +245,14 @@ export function BudgetLimitRuleForm({ initialRule }: { initialRule?: BudgetLimit
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          {initialRule ? t("form.titleEdit") : t("form.titleCreate")}
-          {initialRule ? <Badge variant="secondary">{initialRule.rule_id}</Badge> : null}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <div className={cn("mx-auto flex w-full flex-col gap-6", embedded ? "max-w-none px-4 py-6 md:px-6" : "max-w-7xl px-4 py-6 md:px-6")}>
+      <PageHeader
+        eyebrow={t("title")}
+        title={initialRule ? t("form.titleEdit") : t("form.titleCreate")}
+        description={t("form.headerDescription")}
+        actions={initialRule ? <Badge variant="secondary">{initialRule.rule_id}</Badge> : undefined}
+      />
+
         {notice ? (
           <Alert variant={notice.kind === "error" ? "destructive" : "default"}>
             <AlertTitle>{notice.kind === "error" ? t("alerts.error") : t("alerts.success")}</AlertTitle>
@@ -247,16 +260,20 @@ export function BudgetLimitRuleForm({ initialRule }: { initialRule?: BudgetLimit
           </Alert>
         ) : null}
 
-        <form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
-          <section className="space-y-3">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("form.sections.ruleIdentity")}</h2>
+        <form className="flex flex-col gap-6" onSubmit={form.handleSubmit(onSubmit)}>
+          <FormSection
+            title={t("form.sections.ruleIdentity")}
+            description={t("form.descriptions.ruleIdentity")}
+            className={embedded ? "md:grid-cols-1" : undefined}
+          >
             <IdentifierField id="rule_id" label={t("form.fields.ruleId")} placeholder={t("form.placeholders.ruleId")} error={form.formState.errors.rule_id?.message} {...form.register("rule_id")} />
-          </section>
+          </FormSection>
 
-          <Separator />
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("filters.title")}</h2>
+          <FormSection
+            title={t("filters.title")}
+            description={t("filters.description")}
+            className={embedded ? "md:grid-cols-1" : undefined}
+            actions={embedded ? (
               <Button
                 type="button"
                 variant="outline"
@@ -268,24 +285,52 @@ export function BudgetLimitRuleForm({ initialRule }: { initialRule?: BudgetLimit
                   append({ field: nextField, operator: nextField === "metadata" ? "equals" : "in", values: undefined });
                 }}
               >
-                <Plus className="h-4 w-4" />
+                <Plus data-icon="inline-start" />
                 {t("filters.add")}
               </Button>
-            </div>
+            ) : undefined}
+          >
+            {!embedded ? (
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm leading-6 text-muted-foreground">{t("filters.helper")}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!getNextAvailableField()}
+                  onClick={() => {
+                    const nextField = getNextAvailableField();
+                    if (!nextField) return;
+                    append({ field: nextField, operator: nextField === "metadata" ? "equals" : "in", values: undefined });
+                  }}
+                >
+                  <Plus data-icon="inline-start" />
+                  {t("filters.add")}
+                </Button>
+              </div>
+            ) : null}
 
-            <div className="space-y-3">
+            {fields.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-5 text-sm leading-6 text-muted-foreground">
+                {t("filters.empty")}
+              </div>
+            ) : null}
+
+            <div className="flex flex-col gap-3">
               {nonMetadataIndexes.map((index) => {
                 const field = fields[index];
-                const rowField = form.watch(`conditions.conditions.${index}.field`);
+                const rowCondition = watchedConditions?.[index];
+                const rowField = rowCondition?.field;
                 const usedByOthers = getUsedFields(index);
-                const subjectTokens = ((form.watch(`conditions.conditions.${index}.values`) as Array<string | undefined> | undefined) ?? []).filter(
+                const subjectTokens = ((rowCondition?.values as Array<string | undefined> | undefined) ?? []).filter(
                   (token): token is string => typeof token === "string" && token.trim().length > 0,
                 );
+                const modelValues = ((rowCondition?.values as string[] | undefined) ?? []).filter((item) => typeof item === "string" && item.trim().length > 0);
 
                 return (
-                  <div key={field.id} className="rounded-lg border p-3">
+                  <div key={field.id} className="rounded-xl border border-border bg-card p-4">
                     {rowField === "subject" ? (
-                      <div className="space-y-2">
+                      <div className="flex flex-col gap-3">
                         <div className="grid gap-2 md:grid-cols-[1.2fr_2fr_auto_auto]">
                           <select className="h-10 rounded-md border px-2" {...form.register(`conditions.conditions.${index}.field`)}>
                             {fieldOptions
@@ -303,6 +348,7 @@ export function BudgetLimitRuleForm({ initialRule }: { initialRule?: BudgetLimit
                             onSearch={searchPrincipals}
                             labels={principalLabels}
                             kinds={["user", "team", "org_unit", "virtual_account"]}
+                            triggerClassName="h-10 min-h-10 rounded-lg"
                           />
                           <Button
                             type="button"
@@ -324,8 +370,8 @@ export function BudgetLimitRuleForm({ initialRule }: { initialRule?: BudgetLimit
                           >
                             {t("actions.add")}
                           </Button>
-                          <Button type="button" variant="outline" onClick={() => remove(index)}>
-                            <Trash2 className="h-4 w-4" />
+                          <Button type="button" variant="outline" onClick={() => remove(index)} aria-label={t("filters.remove")}>
+                            <Trash2 />
                           </Button>
                         </div>
 
@@ -340,7 +386,8 @@ export function BudgetLimitRuleForm({ initialRule }: { initialRule?: BudgetLimit
                                 </span>
                                 <button
                                   type="button"
-                                  className="text-muted-foreground hover:text-foreground"
+                                  className="rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                                  aria-label={t("filters.removeSelection", { label: displayName })}
                                   onClick={() => {
                                     form.setValue(
                                       `conditions.conditions.${index}.values`,
@@ -349,7 +396,7 @@ export function BudgetLimitRuleForm({ initialRule }: { initialRule?: BudgetLimit
                                     );
                                   }}
                                 >
-                                  <X className="h-3 w-3" />
+                                  <X className="size-3" />
                                 </button>
                               </span>
                             );
@@ -357,7 +404,7 @@ export function BudgetLimitRuleForm({ initialRule }: { initialRule?: BudgetLimit
                         </div>
                       </div>
                     ) : (
-                      <div className="space-y-2">
+                      <div className="flex flex-col gap-3">
                         <div className="grid gap-2 md:grid-cols-[1.2fr_2fr_auto_auto]">
                           <select className="h-10 rounded-md border px-2" {...form.register(`conditions.conditions.${index}.field`)}>
                             {fieldOptions
@@ -375,6 +422,7 @@ export function BudgetLimitRuleForm({ initialRule }: { initialRule?: BudgetLimit
                             providerAllowedModels={providerAllowedModels}
                             virtualModels={virtualModels}
                             labels={modelLabels}
+                            triggerClassName="h-10 rounded-lg"
                           />
                           <Button
                             type="button"
@@ -382,26 +430,25 @@ export function BudgetLimitRuleForm({ initialRule }: { initialRule?: BudgetLimit
                             onClick={() => {
                               const selected = modelPickerSelection[index];
                               if (!selected) return;
-                              const modelValues = ((form.watch(`conditions.conditions.${index}.values`) as string[] | undefined) ?? []).filter(Boolean);
                               if (modelValues.includes(selected.name)) return;
                               form.setValue(`conditions.conditions.${index}.values`, [...modelValues, selected.name], { shouldValidate: true });
                             }}
                           >
                             {t("actions.add")}
                           </Button>
-                          <Button type="button" variant="outline" onClick={() => remove(index)}>
-                            <Trash2 className="h-4 w-4" />
+                          <Button type="button" variant="outline" onClick={() => remove(index)} aria-label={t("filters.remove")}>
+                            <Trash2 />
                           </Button>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {(((form.watch(`conditions.conditions.${index}.values`) as string[] | undefined) ?? []).filter((item) => item.trim().length > 0)).map((token) => (
+                          {modelValues.map((token) => (
                             <span key={token} className="inline-flex items-center gap-1 rounded-md border bg-muted px-2 py-1 text-xs">
                               <span>{token}</span>
                               <button
                                 type="button"
-                                className="text-muted-foreground hover:text-foreground"
+                                className="rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-label={t("filters.removeSelection", { label: token })}
                                 onClick={() => {
-                                  const modelValues = ((form.watch(`conditions.conditions.${index}.values`) as string[] | undefined) ?? []).filter(Boolean);
                                   form.setValue(
                                     `conditions.conditions.${index}.values`,
                                     modelValues.filter((value) => value !== token),
@@ -409,7 +456,7 @@ export function BudgetLimitRuleForm({ initialRule }: { initialRule?: BudgetLimit
                                   );
                                 }}
                               >
-                                <X className="h-3 w-3" />
+                                <X className="size-3" />
                               </button>
                             </span>
                           ))}
@@ -421,9 +468,9 @@ export function BudgetLimitRuleForm({ initialRule }: { initialRule?: BudgetLimit
               })}
 
               {metadataIndexes.length > 0 ? (
-                <div className="rounded-lg border p-3">
+                <div className="rounded-xl border border-border bg-card p-4">
                   <div className="mb-2 text-sm font-medium">{t("filters.metadataTitle")}</div>
-                  <div className="space-y-2">
+                  <div className="flex flex-col gap-2">
                     {metadataIndexes.map((index) => (
                       <div key={fields[index]?.id ?? `metadata-${index}`} className="grid gap-2 md:grid-cols-[1fr_1fr_1fr_auto_auto]">
                         <Input placeholder={t("form.placeholders.metadataKey")} {...form.register(`conditions.conditions.${index}.metadataKey`)} />
@@ -435,11 +482,11 @@ export function BudgetLimitRuleForm({ initialRule }: { initialRule?: BudgetLimit
                           ))}
                         </select>
                         <Input placeholder={t("form.placeholders.metadataValue")} {...form.register(`conditions.conditions.${index}.value` as const)} />
-                        <Button type="button" variant="outline" onClick={() => append({ field: "metadata", operator: "equals", values: undefined })}>
-                          <Plus className="h-4 w-4" />
+                        <Button type="button" variant="outline" onClick={() => append({ field: "metadata", operator: "equals", values: undefined })} aria-label={t("filters.addMetadata")}>
+                          <Plus />
                         </Button>
-                        <Button type="button" variant="outline" onClick={() => remove(index)}>
-                          <Trash2 className="h-4 w-4" />
+                        <Button type="button" variant="outline" onClick={() => remove(index)} aria-label={t("filters.removeMetadata")}>
+                          <Trash2 />
                         </Button>
                       </div>
                     ))}
@@ -447,73 +494,80 @@ export function BudgetLimitRuleForm({ initialRule }: { initialRule?: BudgetLimit
                 </div>
               ) : null}
             </div>
-          </section>
+          </FormSection>
 
-          <Separator />
-          <section className="space-y-3">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("form.sections.budget")}</h2>
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="space-y-2">
+          <FormSection
+            title={t("form.sections.budget")}
+            description={t("form.descriptions.budget")}
+            className={embedded ? "md:grid-cols-1" : undefined}
+          >
+            <div className="grid gap-4 lg:grid-cols-3">
+              <div className="flex min-w-0 flex-col gap-2">
                 <Label>{t("form.fields.limitTo")}</Label>
-                <Input type="number" min={0.000001} step={0.01} {...form.register("limit_to", { valueAsNumber: true })} />
+                <Input type="number" min={1} step={1} inputMode="numeric" dir="ltr" {...form.register("limit_to", { valueAsNumber: true })} />
                 <FieldError message={form.formState.errors.limit_to?.message} />
               </div>
-              <div className="space-y-2">
-                <Label>{t("form.fields.unit")}</Label>
-                <select className="h-10 w-full rounded-md border px-2" {...form.register("unit")}>
-                  <option value="cost_per_day">{t("units.cost_per_day")}</option>
-                  <option value="cost_per_week">{t("units.cost_per_week")}</option>
-                  <option value="cost_per_month">{t("units.cost_per_month")}</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label>{t("form.fields.budgetAppliesPer")}</Label>
-                <select className="h-10 w-full rounded-md border px-2" {...form.register("budget_applies_per")}>
-                  <option value="">{t("form.options.applyPer.shared")}</option>
-                  <option value="tenant">{t("form.options.applyPer.tenant")}</option>
-                  <option value="user">{t("form.options.applyPer.user")}</option>
-                  <option value="team">{t("form.options.applyPer.team")}</option>
-                  <option value="org_unit">{t("form.options.applyPer.orgUnit")}</option>
-                  <option value="model">{t("form.options.applyPer.model")}</option>
-                  <option value="virtualaccount">{t("form.options.applyPer.virtualAccount")}</option>
-                  <option value="metadata.project_id">{t("form.options.applyPer.metadataProjectId")}</option>
-                </select>
-              </div>
-            </div>
-          </section>
-
-          <Separator />
-          <section className="space-y-3 rounded-lg border p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-medium">{t("form.blocking.title")}</div>
-                <p className="text-xs text-muted-foreground">{t("form.blocking.description")}</p>
-              </div>
-              <input
-                type="checkbox"
-                className="h-5 w-5"
-                checked={form.watch("block_on_budget_exceed")}
-                onChange={(event) => form.setValue("block_on_budget_exceed", event.target.checked)}
+              <AppSelectField
+                className="min-w-0"
+                triggerClassName="h-10 min-w-0 rounded-lg"
+                label={t("form.fields.unit")}
+                value={form.watch("unit")}
+                onValueChange={(value) => form.setValue("unit", value as BudgetLimitRuleFormInput["unit"], { shouldValidate: true, shouldDirty: true })}
+                options={(["cost_per_day", "cost_per_week", "cost_per_month"] as const).map((value) => ({ value, label: t(`units.${value}`) }))}
+              />
+              <AppSelectField
+                className="min-w-0"
+                triggerClassName="h-10 min-w-0 rounded-lg"
+                label={t("form.fields.budgetAppliesPer")}
+                value={form.watch("budget_applies_per") ?? "shared"}
+                onValueChange={(value) => form.setValue("budget_applies_per", value === "shared" ? undefined : value as BudgetLimitRuleFormInput["budget_applies_per"], { shouldValidate: true, shouldDirty: true })}
+                options={[
+                  { value: "shared", label: t("form.options.applyPer.shared") },
+                  { value: "tenant", label: t("form.options.applyPer.tenant") },
+                  { value: "user", label: t("form.options.applyPer.user") },
+                  { value: "team", label: t("form.options.applyPer.team") },
+                  { value: "org_unit", label: t("form.options.applyPer.orgUnit") },
+                  { value: "model", label: t("form.options.applyPer.model") },
+                  { value: "virtualaccount", label: t("form.options.applyPer.virtualAccount") },
+                  { value: "metadata.project_id", label: t("form.options.applyPer.metadataProjectId") },
+                ]}
               />
             </div>
-          </section>
+          </FormSection>
 
-          <section className="space-y-3 rounded-lg border p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-medium">{t("form.alerts.title")}</div>
-                <p className="text-xs text-muted-foreground">{t("form.alerts.description")}</p>
+          <FormSection
+            title={t("form.sections.behavior")}
+            description={t("form.descriptions.behavior")}
+            className={embedded ? "md:grid-cols-1" : undefined}
+          >
+            <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-background p-4">
+              <div className="flex flex-col gap-1">
+                <div className="font-medium">{t("form.blocking.title")}</div>
+                <p className="text-sm leading-6 text-muted-foreground">{t("form.blocking.description")}</p>
               </div>
-              <input
-                type="checkbox"
-                className="h-5 w-5"
+              <Switch
+                aria-label={t("form.blocking.title")}
+                checked={form.watch("block_on_budget_exceed")}
+                onCheckedChange={(checked) => form.setValue("block_on_budget_exceed", checked, { shouldValidate: true, shouldDirty: true })}
+              />
+            </div>
+
+            <div className="flex flex-col gap-4 rounded-xl border border-border bg-background p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-col gap-1">
+                <div className="font-medium">{t("form.alerts.title")}</div>
+                <p className="text-sm leading-6 text-muted-foreground">{t("form.alerts.description")}</p>
+              </div>
+              <Switch
+                aria-label={t("form.alerts.title")}
                 checked={alertEnabled}
-                onChange={(event) => form.setValue("alerts.enabled", event.target.checked)}
+                onCheckedChange={(checked) => form.setValue("alerts.enabled", checked, { shouldValidate: true, shouldDirty: true })}
               />
             </div>
             {alertEnabled ? (
               <div className="grid gap-3 md:grid-cols-2">
-                <div className="space-y-2">
+                <div className="flex flex-col gap-2">
                   <Label>{t("form.fields.thresholds")}</Label>
                   <Input
                     placeholder={t("form.placeholders.thresholds")}
@@ -527,7 +581,7 @@ export function BudgetLimitRuleForm({ initialRule }: { initialRule?: BudgetLimit
                     }}
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="flex flex-col gap-2">
                   <Label>{t("form.fields.channelType")}</Label>
                   <select
                     className="h-10 w-full rounded-md border px-2"
@@ -541,19 +595,22 @@ export function BudgetLimitRuleForm({ initialRule }: { initialRule?: BudgetLimit
                 </div>
               </div>
             ) : null}
-          </section>
+            </div>
+            </div>
+          </FormSection>
 
-          <div className="sticky bottom-0 flex justify-end gap-2 border-t bg-background pt-3">
-            <Button type="button" variant="outline" onClick={() => router.push("/gateway-policies/budget-limiting-rules")}>
-              {t("actions.cancel")}
-            </Button>
-            <Button type="submit" disabled={!form.formState.isValid || isSaving}>
-              {isSaving ? t("actions.saving") : t("actions.save")}
-            </Button>
+          <div className="sticky bottom-0 rounded-xl border border-border bg-background/95 p-4 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/90">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => onCancel ? onCancel() : router.push("/gateway-policies/budget-limiting-rules")}>
+                {t("actions.cancel")}
+              </Button>
+              <Button type="submit" disabled={!form.formState.isValid || isSaving}>
+                {isSaving ? t("actions.saving") : t("actions.save")}
+              </Button>
+            </div>
           </div>
         </form>
-      </CardContent>
-    </Card>
+    </div>
   );
 }
 

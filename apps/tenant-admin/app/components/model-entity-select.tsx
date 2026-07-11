@@ -27,6 +27,7 @@ export function ModelEntitySelect(props: {
   virtualModels: ModelSelection[];
   labels: ModelEntitySelectLabels;
   showVirtualModels?: boolean;
+  triggerClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -44,7 +45,7 @@ export function ModelEntitySelect(props: {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button id={props.id} type="button" variant="outline" role="combobox" aria-expanded={open} className="h-11 w-full justify-between rounded-md px-3 font-normal">
+        <Button id={props.id} type="button" variant="outline" role="combobox" aria-expanded={open} className={cn("h-11 w-full justify-between rounded-md px-3 font-normal", props.triggerClassName)}>
           <span className={cn("truncate text-start", !props.selected && "text-muted-foreground")}>
             {props.selected ? props.selected.name : props.labels.triggerPlaceholder}
           </span>

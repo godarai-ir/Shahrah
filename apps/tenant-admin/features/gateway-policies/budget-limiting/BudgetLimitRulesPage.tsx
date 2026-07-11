@@ -4,10 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Copy, Pencil, Power, Trash2 } from "lucide-react";
+import { CircleDollarSign, Copy, Pencil, Plus, Power, Search, Trash2 } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { HelpLink } from "@/components/app-ui";
+import { EmptyState, HelpLink, PageHeader, RowActionsMenu, StatusBadge } from "@/components/app-ui";
 import {
   Dialog,
   DialogContent,
@@ -16,10 +16,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import {
@@ -30,6 +30,7 @@ import {
   updateBudgetLimitRuleStatus,
 } from "./ruleApi";
 import type { BudgetLimitRule } from "./ruleTypes";
+import { BudgetLimitRuleForm } from "./BudgetLimitRuleForm";
 
 const PERSIAN_DATE_TIME = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
   year: "numeric",
@@ -40,6 +41,7 @@ const PERSIAN_DATE_TIME = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
   second: "2-digit",
 });
 const FEATURE_BUDGET_LIMIT_RULES_ENABLED = "budget_limit_rules.enabled";
+const IRR_NUMBER_FORMAT = new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 0 });
 
 type EffectiveEntitlements = {
   features?: Record<string, unknown>;
@@ -55,6 +57,10 @@ function unitKey(unit: BudgetLimitRule["unit"]) {
   if (unit === "cost_per_day") return "cost_per_day";
   if (unit === "cost_per_week") return "cost_per_week";
   return "cost_per_month";
+}
+
+function formatIRR(value: number) {
+  return `${IRR_NUMBER_FORMAT.format(value)} ریال`;
 }
 
 function readBooleanFeature(value: unknown, fallback: boolean): boolean {
@@ -75,6 +81,7 @@ export function BudgetLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
   const [items, setItems] = useState<BudgetLimitRule[]>([]);
   const [pendingDeleteRule, setPendingDeleteRule] = useState<BudgetLimitRule | null>(null);
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
+  const [isCreateSheetOpen, setIsCreateSheetOpen] = useState(false);
   const [entitlements, setEntitlements] = useState<EffectiveEntitlements>(null);
   const [hasLoadedEntitlements, setHasLoadedEntitlements] = useState(false);
   const [notice, setNotice] = useState<{ kind: "success" | "error"; message: string } | null>(null);
@@ -148,38 +155,67 @@ export function BudgetLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
       return;
     }
 
-    router.push("/gateway-policies/budget-limiting-rules/new");
+    setIsCreateSheetOpen(true);
   }
 
   return (
     <>
-      <Card>
-        <CardHeader>
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <CardTitle>{t("title")}</CardTitle>
-            <CardDescription className="flex flex-wrap items-center gap-2">
-              <span>{t("description")}</span>
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 md:px-6">
+        <PageHeader
+          title={t("title")}
+          description={t("description")}
+          actions={
+            <>
               {docsHref ? <HelpLink href={docsHref} /> : null}
-            </CardDescription>
-          </div>
-          <Button type="button" onClick={handleCreateRule} disabled={!hasLoadedEntitlements}>
-            {t("actions.new")}
-          </Button>
-        </div>
-        <Input placeholder={t("searchPlaceholder")} value={query} onChange={(event) => setQuery(event.target.value)} />
-        </CardHeader>
-        <CardContent className="space-y-3">
+              <Button type="button" onClick={handleCreateRule} disabled={!hasLoadedEntitlements}>
+                <Plus data-icon="inline-start" />
+                {t("actions.new")}
+              </Button>
+            </>
+          }
+        />
+
         {notice ? (
           <Alert variant={notice.kind === "error" ? "destructive" : "default"}>
             <AlertTitle>{notice.kind === "error" ? t("alerts.error") : t("alerts.success")}</AlertTitle>
             <AlertDescription>{notice.message}</AlertDescription>
           </Alert>
         ) : null}
-        {filtered.length === 0 && !isLoading ? (
-          <div className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">{t("empty")}</div>
+
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+            <InputGroup className="max-w-xl">
+              <InputGroupAddon>
+                <Search aria-hidden="true" />
+              </InputGroupAddon>
+              <InputGroupInput
+                placeholder={t("searchPlaceholder")}
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                aria-label={t("searchPlaceholder")}
+              />
+            </InputGroup>
+            <p className="text-sm text-muted-foreground">{t("resultCount", { count: filtered.length })}</p>
+          </div>
+
+        {isLoading && filtered.length === 0 ? (
+          <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4" aria-label={t("messages.loading")}>
+            {Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-10 w-full" />)}
+          </div>
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={CircleDollarSign}
+            title={query ? t("noResults.title") : t("emptyState.title")}
+            description={query ? t("noResults.description") : t("emptyState.description")}
+            primaryAction={!query ? (
+              <Button type="button" onClick={handleCreateRule} disabled={!hasLoadedEntitlements}>
+                <Plus data-icon="inline-start" />
+                {t("actions.new")}
+              </Button>
+            ) : undefined}
+          />
         ) : (
-          <div className="overflow-x-auto rounded-lg border">
+          <div className="overflow-x-auto rounded-xl border border-border bg-card">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -194,46 +230,25 @@ export function BudgetLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
               <TableBody>
                 {filtered.map((rule) => (
                   <TableRow key={rule.id}>
-                    <TableCell className="font-medium">{rule.rule_id}</TableCell>
-                    <TableCell>{rule.limit_to}</TableCell>
+                    <TableCell className="font-mono font-medium" dir="ltr">{rule.rule_id}</TableCell>
+                    <TableCell className="whitespace-nowrap">{formatIRR(rule.limit_to)}</TableCell>
                     <TableCell>{t(`units.${unitKey(rule.unit)}`)}</TableCell>
                     <TableCell>
-                      <Badge variant={rule.enabled ? "default" : "secondary"}>
+                      <StatusBadge status={rule.enabled ? "active" : "inactive"}>
                         {rule.enabled ? t("status.enabled") : t("status.disabled")}
-                      </Badge>
+                      </StatusBadge>
                     </TableCell>
                     <TableCell>{formatJalaliDateTime(rule.updated_at)}</TableCell>
-                    <TableCell className="space-x-2">
-                      <Button asChild size="icon" variant="outline" title={t("actions.edit")}>
-                        <Link href={`/gateway-policies/budget-limiting-rules/${encodeURIComponent(rule.rule_id)}`} aria-label={t("actions.edit")}>
-                          <Pencil className="h-4 w-4" />
-                        </Link>
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        title={rule.enabled ? t("actions.disable") : t("actions.enable")}
-                        onClick={() => void updateBudgetLimitRuleStatus(rule.rule_id, !rule.enabled).then(load)}
-                      >
-                        <Power className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        title={t("actions.duplicate")}
-                        onClick={() =>
-                          void createBudgetLimitRule({
-                            ...rule,
-                            rule_id: `${rule.rule_id}-copy`,
-                            name: `${rule.name ?? rule.rule_id} ${t("actions.copySuffix")}`,
-                          } as never).then(load)
-                        }
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                      <Button size="icon" variant="outline" title={t("actions.delete")} onClick={() => setPendingDeleteRule(rule)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                    <TableCell>
+                      <RowActionsMenu
+                        label={t("table.rowActions", { ruleId: rule.rule_id })}
+                        actions={[
+                          { label: t("actions.edit"), icon: <Pencil />, onSelect: () => router.push(`/gateway-policies/budget-limiting-rules/${encodeURIComponent(rule.rule_id)}`) },
+                          { label: rule.enabled ? t("actions.disable") : t("actions.enable"), icon: <Power />, onSelect: () => void updateBudgetLimitRuleStatus(rule.rule_id, !rule.enabled).then(load) },
+                          { label: t("actions.duplicate"), icon: <Copy />, onSelect: () => void createBudgetLimitRule({ ...rule, rule_id: `${rule.rule_id}-copy`, name: `${rule.name ?? rule.rule_id} ${t("actions.copySuffix")}` } as never).then(load) },
+                          { label: t("actions.delete"), icon: <Trash2 />, destructive: true, onSelect: () => setPendingDeleteRule(rule) },
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -241,8 +256,25 @@ export function BudgetLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
             </Table>
           </div>
         )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
+
+      <Sheet open={isCreateSheetOpen} onOpenChange={setIsCreateSheetOpen}>
+        <SheetContent side="left" closeLabel={t("actions.close")} className="w-full overflow-y-auto p-0 sm:max-w-3xl" dir="rtl">
+          <SheetHeader className="sr-only">
+            <SheetTitle>{t("form.titleCreate")}</SheetTitle>
+            <SheetDescription>{t("form.headerDescription")}</SheetDescription>
+          </SheetHeader>
+          <BudgetLimitRuleForm
+            embedded
+            onCancel={() => setIsCreateSheetOpen(false)}
+            onSaved={async () => {
+              setIsCreateSheetOpen(false);
+              await load();
+            }}
+          />
+        </SheetContent>
+      </Sheet>
 
       <Dialog open={pendingDeleteRule !== null} onOpenChange={(open) => !open && setPendingDeleteRule(null)}>
         <DialogContent>

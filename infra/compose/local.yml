@@ -17,6 +17,9 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/sharah_db?sslmode=disable
       CLICKHOUSE_DSN: ${CLICKHOUSE_DSN:-clickhouse://sharah_user:5r74Fq90EyWA@clickhouse:9000/sharah_db?dial_timeout=5s&read_timeout=10s}
+      CLICKHOUSE_REQUIRED: "true"
+      CLICKHOUSE_INIT_ATTEMPTS: ${CLICKHOUSE_INIT_ATTEMPTS:-10}
+      CLICKHOUSE_INIT_RETRY_SECONDS: ${CLICKHOUSE_INIT_RETRY_SECONDS:-1}
       METRICS_MODEL_ENABLED: ${METRICS_MODEL_ENABLED:-true}
       PROFILING_ENABLE_PPROF: ${PROFILING_ENABLE_PPROF:-false}
       PROFILING_MUTEX_PROFILE_FRACTION: ${PROFILING_MUTEX_PROFILE_FRACTION:-0}
@@ -248,6 +251,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
   typesense:
     logging: *default-logging

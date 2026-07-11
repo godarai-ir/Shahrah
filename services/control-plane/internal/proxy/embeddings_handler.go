@@ -135,6 +135,7 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 	setRateLimitHeaders(c, rateLimit)
 
 	if err != nil {
+		recordRateLimitRejection(c, h.logger, h.logs, h.emitMetric, authInfo, requestedModel, "/v1/embeddings", "embeddings", startTime, quotaStart, rateLimit, err)
 		return writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error")
 	}
 

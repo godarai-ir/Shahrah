@@ -143,6 +143,7 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 	setRateLimitHeaders(c, rateLimit)
 
 	if err != nil {
+		recordRateLimitRejection(c, h.logger, h.logs, h.emitMetric, authInfo, requestedModel, "/v1/responses", "responses", startTime, quotaStart, rateLimit, err)
 		return writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error")
 	}
 

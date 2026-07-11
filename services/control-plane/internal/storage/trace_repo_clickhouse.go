@@ -602,6 +602,40 @@ func (s *Store) listRequestTracesV2FromClickHouse(ctx context.Context, params pl
 	return items, int(total), nil
 }
 
+func (s *Store) initClickHouseWithRetry(ctx context.Context) error {
+	attempts := intEnvOrDefault("CLICKHOUSE_INIT_ATTEMPTS", 10)
+	if attempts < 1 {
+		attempts = 1
+	}
+	delay := secondsEnvOrDefault("CLICKHOUSE_INIT_RETRY_SECONDS", time.Second)
+
+	var lastErr error
+	for attempt := 1; attempt <= attempts; attempt++ {
+		if err := s.initClickHouse(ctx); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+
+		if attempt == attempts {
+			break
+		}
+		if s.logger != nil {
+			s.logger.Warn("clickhouse initialization failed; retrying", zap.Int("attempt", attempt), zap.Int("max_attempts", attempts), zap.Duration("retry_in", delay), zap.Error(lastErr))
+		}
+
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return fmt.Errorf("wait to retry clickhouse initialization: %w", ctx.Err())
+		case <-timer.C:
+		}
+	}
+
+	return lastErr
+}
+
 func (s *Store) getRequestTraceV2FromClickHouse(ctx context.Context, tenantID, traceID string) (*platform.RequestTraceDetailV2, error) {
 	trace, err := s.getRequestTraceFromClickHouse(ctx, tenantID, traceID)
 	if err != nil {

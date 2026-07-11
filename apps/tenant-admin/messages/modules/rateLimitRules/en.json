@@ -3,6 +3,15 @@
   "description": "Define rule-based limits for gateway requests across subjects, models, and metadata.",
   "searchPlaceholder": "Search by rule id, model, subject, or metadata key",
   "empty": "No rate limiting rules have been created yet.",
+  "resultCount": "{count} rules",
+  "emptyState": {
+    "title": "No rate limiting rules yet",
+    "description": "Create the first rule to control request and token capacity over defined time windows."
+  },
+  "noResults": {
+    "title": "No rules found",
+    "description": "Try another search term or clear the current search."
+  },
   "eyebrow": "Gateway Policies",
   "alerts": {
     "error": "Error",
@@ -19,7 +28,8 @@
     "addFilter": "Add Filter",
     "save": "Save",
     "saving": "Saving...",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "close": "Close"
   },
   "table": {
     "ruleId": "Rule ID",
@@ -27,7 +37,20 @@
     "window": "Window",
     "status": "Status",
     "updatedAt": "Last updated",
-    "actions": "Actions"
+    "actions": "Actions",
+    "rowActions": "Actions for rule {ruleId}",
+    "windowUnits": {
+      "second": "seconds",
+      "minute": "minutes",
+      "hour": "hours",
+      "day": "days",
+      "week": "weeks",
+      "month": "months"
+    }
+  },
+  "status": {
+    "enabled": "Enabled",
+    "disabled": "Disabled"
   },
   "filters": {
     "title": "Filters",
@@ -58,7 +81,7 @@
   "form": {
     "addTitle": "Add New Rule",
     "editTitle": "Edit Rule",
-    "headerDescription": "Define a rate limit rule using the project design system and gateway policy patterns.",
+    "headerDescription": "Define a rate limit rule for people, teams, organization units, models, and request metadata.",
     "ruleIdPlaceholder": "Enter rule ID",
     "stickyDescription": "Saving returns you to the rate limiting rules list.",
     "sections": {
@@ -67,7 +90,7 @@
       "advanced": "Advanced Settings"
     },
     "fields": {
-      "ruleId": "Rule ID *",
+      "ruleId": "Technical identifier",
       "name": "Display Name",
       "description": "Description",
       "limitMax": "Limit Value *",
@@ -79,7 +102,7 @@
     },
     "descriptions": {
       "identity": "Set the rule identifier, display name, and whether the rule is currently active.",
-      "ruleId": "Use lowercase letters, numbers, underscores, or hyphens only.",
+      "ruleId": "Allowed characters: English letters, numbers, hyphens, and underscores.",
       "name": "Helps teammates recognize the rule quickly in lists and reports.",
       "description": "Describe the purpose or traffic scenario this rule covers.",
       "limit": "Choose the allowed capacity and the evaluation window for this rule.",
@@ -168,8 +191,10 @@
   },
   "messages": {
     "loadError": "Failed to load rate limit rules.",
+    "loading": "Loading rate limiting rules...",
     "saveSuccess": "Rate limit rule saved successfully.",
-    "saveError": "Failed to save rate limit rule."
+    "saveError": "Failed to save rate limit rule.",
+    "deleteError": "Failed to delete rate limit rule."
   },
   "deleteDialog": {
     "title": "Delete rule?",

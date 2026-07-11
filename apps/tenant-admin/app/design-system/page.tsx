@@ -34,6 +34,7 @@ export default function DesignSystemPage() {
         eyebrow="Design System"
         title="Tenant Admin UI Foundation"
         description="Internal playground for product-level UI components, semantic tokens, and RTL-friendly layout patterns."
+        titleAddon={<HelpLink href="/design-system">Title-level help</HelpLink>}
         actions={<Button>Primary action</Button>}
       />
 
@@ -90,6 +91,7 @@ export default function DesignSystemPage() {
       <FormSection
         title="Form section"
         description="Group related fields with a stable title, helper copy, content, and actions."
+        actions={<Button size="sm" variant="outline">Add field</Button>}
         footer={<><Button variant="outline">Cancel</Button><Button>Submit</Button></>}
       >
         <Input placeholder="API base URL" dir="ltr" />

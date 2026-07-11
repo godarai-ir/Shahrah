@@ -19,6 +19,9 @@ type RateLimitResult struct {
 	Limit      int64
 	ResetAt    time.Time
 	RetryAfter bool
+	RuleID     string
+	Dimension  string
+	Algorithm  string
 }
 
 // UsageCounterRequest describes an atomic fixed-window usage counter update.

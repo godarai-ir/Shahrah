@@ -294,10 +294,10 @@ function AdminSidebar({
               <SidebarGroupLabel asChild>
                 <CollapsibleTrigger className="group/collapsible flex w-full items-center justify-between gap-3">
                   <span className="flex min-w-0 items-center gap-2">
-                    <group.icon aria-hidden="true" />
+                    <group.icon className="size-4 shrink-0" aria-hidden="true" />
                     <span className="truncate">{t(group.labelKey)}</span>
                   </span>
-                  <ChevronDown className="transition-transform group-data-[state=open]/collapsible:rotate-180" aria-hidden="true" />
+                  <ChevronDown className="size-3.5 shrink-0 transition-transform group-data-[state=open]/collapsible:rotate-180" aria-hidden="true" />
                 </CollapsibleTrigger>
               </SidebarGroupLabel>
               <CollapsibleContent>

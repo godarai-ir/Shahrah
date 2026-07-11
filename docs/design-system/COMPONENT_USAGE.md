@@ -2,7 +2,9 @@
 
 ## PageHeader
 
-Use at the top of route-level pages. It supports title, description, eyebrow, and actions.
+Use at the top of route-level pages. It supports title, description, eyebrow, title-level secondary content through `titleAddon`, and page actions.
+
+Use `titleAddon` for lightweight contextual links that must remain on the title row. Keep primary actions in `actions`.
 
 ## SectionHeader
 
@@ -53,5 +55,9 @@ Use for destructive or high-impact confirmations. It composes the existing shadc
 ## FormSection
 
 Use to group related fields with a title, description, content, and optional footer actions.
+
+The title is optional for compact sections whose context is already established by the surrounding page or drawer header. Omitting both title and description removes the header column entirely.
+
+Use `actions` for section-level controls that belong on the same row as the section title. Use `footer` for commit or navigation actions after the section content.
 
 For page-level forms, prefer `FormSection` inside the page container. For compact settings cards, use it only when the section title adds useful structure.

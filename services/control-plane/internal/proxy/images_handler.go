@@ -138,6 +138,7 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 	setRateLimitHeaders(c, rateLimit)
 
 	if err != nil {
+		recordRateLimitRejection(c, h.logger, h.logs, h.emitMetric, authInfo, requestedModel, "/v1"+op.Path, op.RequestType, startTime, quotaStart, rateLimit, err)
 		return writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error")
 	}
 

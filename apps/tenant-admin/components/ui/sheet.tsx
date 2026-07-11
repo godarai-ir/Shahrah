@@ -45,9 +45,11 @@ function SheetContent({
   className,
   children,
   side = "right",
+  closeLabel = "Close",
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left";
+  closeLabel?: string;
 }) {
   return (
     <SheetPortal>
@@ -67,7 +69,7 @@ function SheetContent({
         {children}
         <SheetPrimitive.Close className="absolute top-4 left-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none">
           <X className="h-4 w-4" />
-          <span className="sr-only">Close</span>
+          <span className="sr-only">{closeLabel}</span>
         </SheetPrimitive.Close>
       </SheetPrimitive.Content>
     </SheetPortal>

@@ -3,6 +3,15 @@
   "description": "Define budget guardrails for gateway requests across subjects, models, and metadata.",
   "searchPlaceholder": "Search by rule id, model, subject, or metadata key",
   "empty": "No budget limiting rules have been created yet.",
+  "resultCount": "{count} rules",
+  "emptyState": {
+    "title": "No budget rules yet",
+    "description": "Create the first rule to control spending limits and gateway behavior after the budget is exceeded."
+  },
+  "noResults": {
+    "title": "No rules found",
+    "description": "Try another search term or clear the current search."
+  },
   "alerts": {
     "error": "Error",
     "success": "Success"
@@ -18,15 +27,17 @@
     "add": "Add",
     "save": "Save",
     "saving": "Saving...",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "close": "Close"
   },
   "table": {
     "ruleId": "Rule ID",
-    "limit": "Budget ($)",
+    "limit": "Budget (IRR)",
     "unit": "Budget Unit",
     "status": "Status",
     "updatedAt": "Last updated",
-    "actions": "Actions"
+    "actions": "Actions",
+    "rowActions": "Actions for rule {ruleId}"
   },
   "status": {
     "enabled": "Enabled",
@@ -39,6 +50,13 @@
   },
   "filters": {
     "title": "Filters",
+    "description": "Limit the rule scope by request subject, model, or metadata.",
+    "helper": "With no filters, this rule applies to every gateway request.",
+    "empty": "No filters added yet; this rule covers all traffic.",
+    "removeSelection": "Remove {label}",
+    "remove": "Remove filter",
+    "addMetadata": "Add metadata row",
+    "removeMetadata": "Remove metadata row",
     "add": "Add Filter",
     "metadataTitle": "Metadata Filters",
     "fields": {
@@ -50,13 +68,21 @@
   "form": {
     "titleCreate": "Add New Budget Rule",
     "titleEdit": "Edit Budget Rule",
+    "headerDescription": "Configure the cost ceiling, scope, and gateway behavior after the budget is exceeded.",
+    "stickyDescription": "Review the rule identifier and scope before saving.",
     "sections": {
       "ruleIdentity": "Rule Identity",
-      "budget": "Budget"
+      "budget": "Budget",
+      "behavior": "Behavior and notifications"
+    },
+    "descriptions": {
+      "ruleIdentity": "Choose a stable technical identifier for referencing this rule.",
+      "budget": "Set the cost ceiling, calculation period, and budget partitioning.",
+      "behavior": "Configure gateway enforcement and notifications near or beyond the limit."
     },
     "fields": {
-      "ruleId": "Rule ID",
-      "limitTo": "Budget Limit ($)",
+      "ruleId": "Technical identifier",
+      "limitTo": "Budget Limit (IRR)",
       "unit": "Budget Unit",
       "budgetAppliesPer": "Apply Budget Per",
       "thresholds": "Alert Thresholds (%)",

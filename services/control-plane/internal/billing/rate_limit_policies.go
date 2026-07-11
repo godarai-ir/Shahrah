@@ -257,18 +257,21 @@ func (s *Service) applyRateLimitCounter(ctx context.Context, tenantID string, po
 	key := fmt.Sprintf("ratelimit:tenant:%s:rule:%s:scope:%s:%s", strings.TrimSpace(tenantID), policy.ruleID, scopeHash, kind)
 	if kind == rateLimitKindTPM || policy.algorithm == "sliding_window" {
 		result, err := s.cache.CheckSlidingWindowRateLimitWithWeight(ctx, key, policyLimit(policy, kind), weight, policy.window)
-		return decoratePolicyRateLimitResult(result, policy), err
+		return decoratePolicyRateLimitResult(result, policy, kind), err
 	}
 	result, err := s.cache.CheckRateLimit(ctx, key, policyLimit(policy, kind), policy.window)
-	return decoratePolicyRateLimitResult(result, policy), err
+	return decoratePolicyRateLimitResult(result, policy, kind), err
 }
 
-func decoratePolicyRateLimitResult(result *cache.RateLimitResult, policy rateLimitPolicy) *cache.RateLimitResult {
+func decoratePolicyRateLimitResult(result *cache.RateLimitResult, policy rateLimitPolicy, kind string) *cache.RateLimitResult {
 	if result == nil {
 		return nil
 	}
 	out := *result
 	out.RetryAfter = policy.retryAfter && !policy.softLimit && !out.Allowed
+	out.RuleID = policy.ruleID
+	out.Dimension = kind
+	out.Algorithm = policy.algorithm
 	return &out
 }
 

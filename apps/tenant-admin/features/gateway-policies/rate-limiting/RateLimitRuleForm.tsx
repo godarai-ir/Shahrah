@@ -105,7 +105,14 @@ async function searchPrincipals(kind: PrincipalSearchKind, query: string): Promi
   return [];
 }
 
-export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule }) {
+type RateLimitRuleFormProps = {
+  initialRule?: RateLimitRule;
+  embedded?: boolean;
+  onCancel?: () => void;
+  onSaved?: () => void | Promise<void>;
+};
+
+export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onSaved }: RateLimitRuleFormProps) {
   const t = useTranslations("rateLimitRules");
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
@@ -266,6 +273,10 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
         await createRateLimitRule(normalized);
       }
       setNotice({ kind: "success", message: t("messages.saveSuccess") });
+      if (onSaved) {
+        await onSaved();
+        return;
+      }
       router.push("/gateway-policies/rate-limiting-rules");
       router.refresh();
     } catch (error) {
@@ -278,7 +289,7 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
   const title = initialRule ? t("form.editTitle") : t("form.addTitle");
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 md:px-6">
+    <div className={cn("mx-auto flex w-full flex-col gap-6 px-4 py-6 md:px-6", embedded ? "max-w-none" : "max-w-7xl")}>
       <PageHeader
         eyebrow={t("eyebrow")}
         title={title}
@@ -294,9 +305,9 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
       ) : null}
 
       <form className="flex flex-col gap-6" onSubmit={form.handleSubmit(onSubmit)}>
-        <FormSection title={t("form.sections.identity")} description={t("form.descriptions.identity")}>
+        <FormSection>
           <div className="grid gap-4 lg:grid-cols-2">
-            <IdentifierField id="rule_id" label={t("form.fields.ruleId")} description={t("form.descriptions.ruleId")} placeholder={t("form.ruleIdPlaceholder")} error={form.formState.errors.rule_id?.message} {...form.register("rule_id")} />
+            <IdentifierField id="rule_id" label={t("form.fields.ruleId")} description={t("form.descriptions.ruleId")} error={form.formState.errors.rule_id?.message} {...form.register("rule_id")} />
 
             <FormField label={t("form.fields.name")} htmlFor="name" description={t("form.descriptions.name")}>
               <Input id="name" placeholder={t("form.placeholders.name")} {...form.register("name")} />
@@ -316,27 +327,49 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
           />
         </FormSection>
 
-        <FormSection title={t("filters.title")} description={t("filters.description")}>
+        <FormSection
+          title={t("filters.title")}
+          description={t("filters.description")}
+          className={embedded ? "md:grid-cols-1" : undefined}
+          actions={embedded ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!getNextAvailableField()}
+              onClick={() => {
+                const nextField = getNextAvailableField();
+                if (!nextField) return;
+                append({ field: nextField, operator: nextField === "metadata" ? "equals" : "in", values: undefined });
+              }}
+            >
+              <Plus data-icon="inline-start" />
+              {t("actions.addFilter")}
+            </Button>
+          ) : undefined}
+        >
           <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <p className="text-sm leading-6 text-muted-foreground">
-                {t("filters.helper")}
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={!getNextAvailableField()}
-                onClick={() => {
-                  const nextField = getNextAvailableField();
-                  if (!nextField) return;
-                  append({ field: nextField, operator: nextField === "metadata" ? "equals" : "in", values: undefined });
-                }}
-              >
-                <Plus data-icon="inline-start" />
-                {t("actions.addFilter")}
-              </Button>
-            </div>
+            {!embedded ? (
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <p className="text-sm leading-6 text-muted-foreground">
+                  {t("filters.helper")}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!getNextAvailableField()}
+                  onClick={() => {
+                    const nextField = getNextAvailableField();
+                    if (!nextField) return;
+                    append({ field: nextField, operator: nextField === "metadata" ? "equals" : "in", values: undefined });
+                  }}
+                >
+                  <Plus data-icon="inline-start" />
+                  {t("actions.addFilter")}
+                </Button>
+              </div>
+            ) : null}
 
             {fields.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-5 text-sm leading-6 text-muted-foreground">
@@ -355,8 +388,8 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
               const modelValues = (((rowValues as string[] | undefined) ?? []).filter((item) => typeof item === "string" && item.trim().length > 0));
 
               return (
-                <div key={field.id} className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4">
-                  <div className="grid gap-3 xl:grid-cols-[14rem_minmax(0,1fr)_auto_auto]">
+                <div key={field.id} className="flex flex-col gap-4 rounded-xl bg-muted/30 p-4">
+                  <div className="grid gap-3 lg:grid-cols-[14rem_minmax(0,1fr)_auto_auto]">
                     <InlineSelect
                       value={rowField}
                       ariaLabel={t("aria.filterFieldType")}
@@ -379,6 +412,7 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
                         onSearch={searchPrincipals}
                         labels={principalLabels}
                         kinds={["user", "team", "org_unit", "virtual_account"]}
+                        triggerClassName="h-10 min-h-10 rounded-lg"
                       />
                     ) : (
                       <ModelEntitySelect
@@ -388,12 +422,15 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
                         providerAllowedModels={providerAllowedModels}
                         virtualModels={virtualModels}
                         labels={modelLabels}
+                        triggerClassName="h-10 rounded-lg"
                       />
                     )}
 
                     <Button
                       type="button"
                       variant="outline"
+                      size="icon"
+                      aria-label={t("actions.add")}
                       onClick={() => {
                         if (rowField === "subject") {
                           const selected = subjectPickerSelection[index];
@@ -416,8 +453,7 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
                         form.setValue(`conditions.conditions.${index}.values`, [...modelValues, selected.name], { shouldValidate: true, shouldDirty: true });
                       }}
                     >
-                      <Plus data-icon="inline-start" />
-                      {t("actions.add")}
+                      <Plus />
                     </Button>
 
                     <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} aria-label={t("aria.removeFilter")}>
@@ -546,7 +582,11 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
           </div>
         </FormSection>
 
-        <FormSection title={t("form.sections.limit")} description={t("form.descriptions.limit")}>
+        <FormSection
+          title={t("form.sections.limit")}
+          description={t("form.descriptions.limit")}
+          className={embedded ? "md:grid-cols-1" : undefined}
+        >
           <div className="grid gap-4 lg:grid-cols-4">
             <FormField label={t("form.fields.limitMax")} htmlFor="limit-max">
               <Input
@@ -611,7 +651,11 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
           </div>
         </FormSection>
 
-        <FormSection title={t("form.sections.advanced")} description={t("form.descriptions.advanced")}>
+        <FormSection
+          title={t("form.sections.advanced")}
+          description={t("form.descriptions.advanced")}
+          className={embedded ? "md:grid-cols-1" : undefined}
+        >
           <div className="flex flex-col gap-4">
             <Button
               type="button"
@@ -672,18 +716,13 @@ export function RateLimitRuleForm({ initialRule }: { initialRule?: RateLimitRule
         </FormSection>
 
         <div className="sticky bottom-0 z-10 rounded-xl border border-border bg-background/95 p-4 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/90">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <p className="text-sm leading-6 text-muted-foreground">
-              {t("form.stickyDescription")}
-            </p>
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => router.push("/gateway-policies/rate-limiting-rules")}>
-                {t("actions.cancel")}
-              </Button>
-              <Button type="submit" disabled={!form.formState.isValid || isSaving}>
-                {isSaving ? t("actions.saving") : t("actions.save")}
-              </Button>
-            </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => onCancel ? onCancel() : router.push("/gateway-policies/rate-limiting-rules")}>
+              {t("actions.cancel")}
+            </Button>
+            <Button type="submit" disabled={!form.formState.isValid || isSaving}>
+              {isSaving ? t("actions.saving") : t("actions.save")}
+            </Button>
           </div>
         </div>
       </form>
@@ -724,7 +763,7 @@ function InlineSelect({
 }) {
   return (
     <Select dir="rtl" value={value} onValueChange={onValueChange}>
-      <SelectTrigger aria-label={ariaLabel}>
+      <SelectTrigger aria-label={ariaLabel} className="h-10 rounded-lg">
         <SelectValue />
       </SelectTrigger>
       <SelectContent dir="rtl">
@@ -780,7 +819,7 @@ function SwitchRow({
   const descriptionId = `${id}-description`;
 
   return (
-    <div className={cn("flex items-start justify-between gap-4 rounded-xl border border-border bg-card px-4 py-3")}>
+    <div className="flex items-start justify-between gap-4 rounded-xl bg-muted/30 px-4 py-3">
       <div className="flex min-w-0 flex-col gap-1">
         <Label htmlFor={id} className="text-sm font-medium text-card-foreground">
           {title}

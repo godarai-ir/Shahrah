@@ -27,9 +27,10 @@ type RowActionsMenuProps = {
   align?: "start" | "center" | "end";
   className?: string;
   disabled?: boolean;
+  dir?: "rtl" | "ltr";
 };
 
-export function RowActionsMenu({ actions, label, align = "end", className, disabled }: RowActionsMenuProps) {
+export function RowActionsMenu({ actions, label, align = "end", className, disabled, dir = "rtl" }: RowActionsMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -37,14 +38,17 @@ export function RowActionsMenu({ actions, label, align = "end", className, disab
           <MoreVertical aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align={align} className="min-w-40">
+      <DropdownMenuContent align={align} dir={dir} className="min-w-40 text-xs">
         <DropdownMenuGroup>
           {actions.map((action, index) => (
             <DropdownMenuItem
               key={index}
               disabled={action.disabled}
               onSelect={action.onSelect}
-              className={cn(action.destructive && "text-destructive focus:text-destructive")}
+              className={cn(
+                "justify-start gap-2 text-start text-xs [&_svg]:size-3.5",
+                action.destructive && "text-destructive focus:text-destructive",
+              )}
             >
               {action.icon ? <span aria-hidden="true">{action.icon}</span> : null}
               <span>{action.label}</span>

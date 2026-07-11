@@ -77,7 +77,7 @@ describe("BudgetLimitRulesPage", () => {
     expect(pushMock).not.toHaveBeenCalled();
   });
 
-  it("navigates to the create page when the feature is enabled", async () => {
+  it("opens the create drawer when the feature is enabled", async () => {
     getBudgetLimitEntitlementsMock.mockResolvedValue({
       features: {
         "budget_limit_rules.enabled": true,
@@ -91,6 +91,8 @@ describe("BudgetLimitRulesPage", () => {
 
     fireEvent.click(button);
 
-    expect(pushMock).toHaveBeenCalledWith("/gateway-policies/budget-limiting-rules/new");
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "form.titleCreate", level: 1 })).toBeInTheDocument();
+    expect(pushMock).not.toHaveBeenCalled();
   });
 });
