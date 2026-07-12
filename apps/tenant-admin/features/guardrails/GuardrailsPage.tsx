@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Check, Copy, Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
+import { Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 
-import { AppSelectField, ConfirmDialog, EmptyState, HelpLink, IdentifierField, OperationNotice } from "@/components/app-ui";
+import { AppSelectField, ConfirmDialog, CopyAction, EmptyState, HelpLink, IdentifierField, OperationNotice } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -315,7 +315,6 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
   const [form, setForm] = useState<GuardrailFormInput>(emptyForm);
   const [formOpen, setFormOpen] = useState(false);
   const [notice, setNotice] = useState<{ kind: "success" | "error"; message: string } | null>(null);
-  const [copiedSelector, setCopiedSelector] = useState("");
 
   async function load() {
     setIsLoading(true);
@@ -391,12 +390,6 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
     }
   }
 
-  async function copySelector(selector: string) {
-    await navigator.clipboard.writeText(selector);
-    setCopiedSelector(selector);
-    window.setTimeout(() => setCopiedSelector(""), 1600);
-  }
-
   return (
     <>
       <Card>
@@ -451,19 +444,7 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
                             <code className="truncate rounded bg-muted px-2 py-1 text-xs text-muted-foreground" dir="ltr">
                               {item.selector}
                             </code>
-                            <Button
-                              type="button"
-                              size="icon"
-                              variant="ghost"
-                              aria-label={t("actions.copySelector")}
-                              onClick={() => void copySelector(item.selector)}
-                            >
-                              {copiedSelector === item.selector ? (
-                                <Check data-icon="inline-start" aria-hidden="true" />
-                              ) : (
-                                <Copy data-icon="inline-start" aria-hidden="true" />
-                              )}
-                            </Button>
+                            <CopyAction value={item.selector} copyLabel={t("actions.copySelector")} copiedLabel={t("actions.copied")} size="icon" />
                           </div>
                         </div>
                       </TableCell>

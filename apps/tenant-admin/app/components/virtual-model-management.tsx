@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { ArrowDown, ArrowUp, CheckCircle2, Copy, Edit3, Plus, RefreshCw, Save, Search, Trash2, XCircle } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { HelpLink, IdentifierField, TypedConfirmDialog } from "@/components/app-ui";
+import { CopyAction, HelpLink, IdentifierField, TypedConfirmDialog } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -627,23 +627,7 @@ export default function VirtualModelManagement() {
                           <span className="font-medium" dir="ltr">
                             {item.alias}
                           </span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            title={t("actions.copyAlias")}
-                            aria-label={t("actions.copyAlias")}
-                            onClick={async () => {
-                              try {
-                                await navigator.clipboard.writeText(item.alias);
-                                setNotice({ kind: "success", message: t("messages.copyAliasSuccess", { alias: item.alias }) });
-                              } catch {
-                                setNotice({ kind: "error", message: t("messages.copyAliasError") });
-                              }
-                            }}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
+                          <CopyAction value={item.alias} copyLabel={t("actions.copyAlias")} copiedLabel={t("messages.copyAliasSuccess", { alias: item.alias })} size="icon" onCopyError={() => setNotice({ kind: "error", message: t("messages.copyAliasError") })} />
                         </div>
                       </TableCell>
                       <TableCell>{formatStrategyLabel(item.routing_strategy, t)}</TableCell>

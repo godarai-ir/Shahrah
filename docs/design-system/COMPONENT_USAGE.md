@@ -116,6 +116,8 @@ Pass the localized input instruction separately from `expectedValue`. Confirmati
 
 Use `CopyableValue` for technical values that need consistent clipboard behavior. It composes `InputGroup`, keeps raw values LTR, provides modern clipboard and legacy fallback behavior, announces successful copies, and optionally supports masked values with an explicit reveal action.
 
+Use `CopyAction` when the value is already visible and only a compact copy affordance is needed. It owns clipboard fallback, pending/copied state, accessible labels, and reset timing; keep localized success or error notices in the owning feature through its callbacks.
+
 Use `OneTimeSecretDialog` when a raw token or credential is returned only once. Pass the secret as controlled state and clear it through `onClear`; the component invokes cleanup for the footer action, overlay dismissal, Escape, and the Dialog close control.
 
 Copy failures remain feature-owned through `onCopyError` so the surrounding page can use its localized error feedback. Never persist the raw secret after the dialog closes.

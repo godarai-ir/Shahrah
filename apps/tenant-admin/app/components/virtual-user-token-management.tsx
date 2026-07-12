@@ -3,7 +3,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
-  Copy,
   KeyRound,
   Pencil,
   Plus,
@@ -13,7 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { AppCard, AppSelectField, AppTextField, CommercialPlanUpgradeDialog, DefinitionList, DefinitionListItem, EmptyState, FormSheet, HelpLink, IdentifierField, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, AppTextField, CommercialPlanUpgradeDialog, CopyAction, DefinitionList, DefinitionListItem, EmptyState, FormSheet, HelpLink, IdentifierField, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -412,16 +411,6 @@ export default function VirtualUserTokenManagement({
     setCreateUserOpen(true);
   }
 
-  async function copyVirtualUserID() {
-    if (!selectedVirtualUser) return;
-    try {
-      await navigator.clipboard.writeText(selectedVirtualUser.id);
-      setBanner({ kind: "success", message: t("messages.identifierCopied") });
-    } catch {
-      setBanner({ kind: "error", message: t("messages.identifierCopyFailed") });
-    }
-  }
-
   function openCreateToken() {
     if (isVatFeatureEnabled === false) {
       setUpgradeDialogOpen(true);
@@ -577,9 +566,7 @@ export default function VirtualUserTokenManagement({
                     <CardTitle className="truncate">{selectedVirtualUser.display_name || selectedVirtualUser.alias}</CardTitle>
                     <div className="flex min-w-0 items-center gap-1">
                       <p className="truncate font-mono text-xs text-muted-foreground">{selectedVirtualUser.id}</p>
-                      <Button type="button" variant="ghost" size="icon-xs" aria-label={t("actions.copyIdentifier")} title={t("actions.copyIdentifier")} onClick={() => void copyVirtualUserID()}>
-                        <Copy />
-                      </Button>
+                      <CopyAction value={selectedVirtualUser.id} copyLabel={t("actions.copyIdentifier")} copiedLabel={t("messages.identifierCopied")} onCopyError={() => setBanner({ kind: "error", message: t("messages.identifierCopyFailed") })} />
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
