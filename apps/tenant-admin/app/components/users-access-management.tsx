@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Info, Plus, UsersRound } from "lucide-react";
 
-import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, HelpLink, PageHeader, RowActionsMenu, SearchField, TableEmptyRow, TableLoadingRows, TablePagination } from "@/components/app-ui";
+import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, FormSheet, HelpLink, PageHeader, RowActionsMenu, SearchField, TableEmptyRow, TableLoadingRows, TablePagination } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -13,13 +13,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Progress } from "@/components/ui/progress";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Table,
@@ -477,13 +470,8 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         />
       </AppCard>
 
-      <Sheet open={inviteOpen} onOpenChange={handleInviteOpenChange}>
-        <SheetContent side="left" className="w-full max-w-md overflow-y-auto sm:w-3/4">
-          <SheetHeader>
-            <SheetTitle>{t("inviteTitle")}</SheetTitle>
-            <SheetDescription>{t("inviteDescription")}</SheetDescription>
-          </SheetHeader>
-          <form className="mt-6 flex flex-col gap-4" onSubmit={handleInvite}>
+      <FormSheet open={inviteOpen} onOpenChange={handleInviteOpenChange} title={t("inviteTitle")} description={t("inviteDescription")} size="sm" pending={isInviting}>
+          <form className="flex flex-col gap-4" onSubmit={handleInvite}>
             {inviteError ? (
               <Alert variant="destructive">
                 <AlertTitle>{t("alerts.error")}</AlertTitle>
@@ -510,8 +498,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
               {isInviting ? t("button.inviting") : t("button.createInvite")}
             </Button>
           </form>
-        </SheetContent>
-      </Sheet>
+      </FormSheet>
 
       <CommercialPlanUpgradeDialog
         open={upgradeDialogOpen}
@@ -522,15 +509,8 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         actionLabel={t("usersPage.upgradeDialog.action")}
       />
 
-      <Sheet open={roleFormOpen} onOpenChange={setRoleFormOpen}>
-        <SheetContent side="left" className="w-full max-w-lg overflow-y-auto sm:w-3/4">
-          <SheetHeader>
-            <SheetTitle>{t("roleForm.title")}</SheetTitle>
-            <SheetDescription>
-              {selectedUserForRole?.email ?? selectedUserForRole?.mobile ?? selectedUserForRole?.id ?? ""}
-            </SheetDescription>
-          </SheetHeader>
-          <form className="mt-6 flex flex-col gap-4" onSubmit={submitRoleForm}>
+      <FormSheet open={roleFormOpen} onOpenChange={setRoleFormOpen} title={t("roleForm.title")} description={selectedUserForRole?.email ?? selectedUserForRole?.mobile ?? selectedUserForRole?.id ?? ""} size="md" pending={isAssigningRoleUserID === selectedUserForRole?.id}>
+          <form className="flex flex-col gap-4" onSubmit={submitRoleForm}>
             <RadioGroup value={selectedRoleName} onValueChange={setSelectedRoleName} className="flex max-h-96 flex-col gap-3 overflow-auto pe-1">
               {availableRoles.map((role) => (
                 <Label key={role.id} htmlFor={`user-role-${role.id}`} className="block cursor-pointer rounded-md border p-3 font-normal">
@@ -555,8 +535,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
               {isAssigningRoleUserID === selectedUserForRole?.id ? t("roleForm.submitting") : t("roleForm.submit")}
             </Button>
           </form>
-        </SheetContent>
-      </Sheet>
+      </FormSheet>
     </div>
   );
 }

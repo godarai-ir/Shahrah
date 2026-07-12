@@ -4,10 +4,9 @@ import { FormEvent, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { KeyRound, Plus, RefreshCcw, Trash2 } from "lucide-react";
 
-import { AppCard, ConfirmDialog, EmptyState, HelpLink, OneTimeSecretDialog, OperationNotice, PageHeader, SearchField, StatusBadge } from "@/components/app-ui";
+import { AppCard, ConfirmDialog, EmptyState, FormSheet, HelpLink, OneTimeSecretDialog, OperationNotice, PageHeader, SearchField, StatusBadge } from "@/components/app-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDateTime as formatSharedDateTime } from "@/lib/date-time";
 
@@ -57,6 +56,7 @@ export default function PersonalAccessTokenManagement(props: {
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [secretDialogOpen, setSecretDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteIntent, setDeleteIntent] = useState<DeleteIntent | null>(null);
@@ -93,6 +93,7 @@ export default function PersonalAccessTokenManagement(props: {
         body: JSON.stringify({ name: name.trim(), expires_in: expiresIn.trim() || undefined }),
       });
       setNewSecret(created.key);
+      setCreateOpen(false);
       setSecretDialogOpen(true);
       setName("");
       setExpiresIn("30d");
@@ -156,32 +157,23 @@ export default function PersonalAccessTokenManagement(props: {
         title={t("title")}
         description={t("create.description")}
         titleAddon={<HelpLink href={props.docsHref} />}
-        actions={
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button><Plus data-icon="inline-start" />{t("actions.create")}</Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-full sm:max-w-md">
-              <SheetHeader>
-                <SheetTitle>{t("create.title")}</SheetTitle>
-                <SheetDescription>{t("create.description")}</SheetDescription>
-              </SheetHeader>
-              <form className="mt-6 flex flex-col gap-4" onSubmit={createPAT}>
-                <div className="grid gap-2">
-                  <label className="text-sm font-medium">{t("fields.name")}</label>
-                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("fields.namePlaceholder")} />
-                </div>
-                <p className="text-xs text-muted-foreground">{createHint}</p>
-                <div className="grid gap-2">
-                  <label className="text-sm font-medium">{t("fields.expiresIn")}</label>
-                  <Input value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)} placeholder={t("fields.expiresInPlaceholder")} />
-                </div>
-                <Button type="submit" className="w-full" disabled={isCreating}>{isCreating ? t("actions.creating") : t("actions.create")}</Button>
-              </form>
-            </SheetContent>
-          </Sheet>
-        }
+        actions={<Button onClick={() => setCreateOpen(true)}><Plus data-icon="inline-start" />{t("actions.create")}</Button>}
       />
+
+      <FormSheet open={createOpen} onOpenChange={setCreateOpen} title={t("create.title")} description={t("create.description")} size="sm" pending={isCreating}>
+        <form className="flex flex-col gap-4" onSubmit={createPAT}>
+          <div className="grid gap-2">
+            <label className="text-sm font-medium">{t("fields.name")}</label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("fields.namePlaceholder")} />
+          </div>
+          <p className="text-xs text-muted-foreground">{createHint}</p>
+          <div className="grid gap-2">
+            <label className="text-sm font-medium">{t("fields.expiresIn")}</label>
+            <Input value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)} placeholder={t("fields.expiresInPlaceholder")} />
+          </div>
+          <Button type="submit" className="w-full" disabled={isCreating}>{isCreating ? t("actions.creating") : t("actions.create")}</Button>
+        </form>
+      </FormSheet>
 
       <OperationNotice notice={banner} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.error"), info: t("alerts.success") }} />
 

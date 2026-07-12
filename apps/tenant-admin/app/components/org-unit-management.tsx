@@ -18,18 +18,11 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AppCard, AppSelectField, AppTextField, CommercialPlanUpgradeDialog, CompactValue, DefinitionList, DefinitionListItem, EmptyState, FilterCombobox, HelpLink, IdentifierField, MetricCard, OperationNotice, PageHeader, RowActionsMenu, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, AppTextField, CommercialPlanUpgradeDialog, CompactValue, DefinitionList, DefinitionListItem, EmptyState, FilterCombobox, FormSheet, HelpLink, IdentifierField, MetricCard, OperationNotice, PageHeader, RowActionsMenu, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import {
   Table,
   TableBody,
@@ -594,24 +587,17 @@ export default function OrgUnitManagement({
             {isLoading ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" />}
             {t("actions.refresh")}
           </Button>
-          <Sheet open={createOpen} onOpenChange={setCreateOpen}>
-            <Button type="button" onClick={openCreate} disabled={!canCreateOrgUnit || !hasLoadedEntitlements}>
+          <Button type="button" onClick={openCreate} disabled={!canCreateOrgUnit || !hasLoadedEntitlements}>
               <Plus data-icon="inline-start" />
               {t("actions.new")}
-            </Button>
-            <SheetContent side="left" className="w-full max-w-xl overflow-y-auto sm:w-3/4">
-              <SheetHeader>
-                <SheetTitle>{t("create.title")}</SheetTitle>
-                <SheetDescription>
-                  {t("create.description")}
-                </SheetDescription>
-              </SheetHeader>
-              <OrgUnitForm form={form} setForm={setForm} onSubmit={handleCreate} isSaving={isSaving} submitLabel={t("create.submit")} />
-            </SheetContent>
-          </Sheet>
+          </Button>
           </>
         }
       />
+
+      <FormSheet open={createOpen} onOpenChange={setCreateOpen} title={t("create.title")} description={t("create.description")} size="md" pending={isSaving}>
+        <OrgUnitForm form={form} setForm={setForm} onSubmit={handleCreate} isSaving={isSaving} submitLabel={t("create.submit")} />
+      </FormSheet>
 
       <OperationNotice notice={banner} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} />
 
@@ -886,28 +872,12 @@ export default function OrgUnitManagement({
         </aside>
       </section>
 
-      <Sheet open={editOpen} onOpenChange={setEditOpen}>
-        <SheetContent side="left" className="w-full max-w-xl overflow-y-auto sm:w-3/4">
-          <SheetHeader>
-            <SheetTitle>{t("edit.title")}</SheetTitle>
-            <SheetDescription>
-              {t("edit.description")}
-            </SheetDescription>
-          </SheetHeader>
+      <FormSheet open={editOpen} onOpenChange={setEditOpen} title={t("edit.title")} description={t("edit.description")} size="md" pending={isSaving}>
           <OrgUnitForm form={form} setForm={setForm} onSubmit={handleUpdate} isSaving={isSaving} submitLabel={t("edit.submit")} />
-        </SheetContent>
-      </Sheet>
+      </FormSheet>
 
-      <Sheet open={memberOpen} onOpenChange={setMemberOpen}>
-        <SheetContent side="left" className="w-full max-w-xl overflow-y-auto sm:w-3/4">
-          <SheetHeader>
-            <SheetTitle>{t("members.manageTitle")}</SheetTitle>
-            <SheetDescription>
-              {t("members.manageDescription")}
-            </SheetDescription>
-          </SheetHeader>
-
-          <form className="mt-6 flex flex-col gap-4" onSubmit={handleAddMember}>
+      <FormSheet open={memberOpen} onOpenChange={setMemberOpen} title={t("members.manageTitle")} description={t("members.manageDescription")} size="md" pending={isSaving}>
+          <form className="flex flex-col gap-4" onSubmit={handleAddMember}>
             <div className="flex flex-col gap-2">
               <Label htmlFor="member-user">{t("members.user")}</Label>
               <FilterCombobox
@@ -971,8 +941,7 @@ export default function OrgUnitManagement({
               </div>
             ))}
           </div>
-        </SheetContent>
-      </Sheet>
+      </FormSheet>
 
       <TypedConfirmDialog
         open={deleteOpen}

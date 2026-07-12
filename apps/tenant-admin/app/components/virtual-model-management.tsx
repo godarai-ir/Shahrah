@@ -5,14 +5,13 @@ import { useLocale, useTranslations } from "next-intl";
 import { ArrowDown, ArrowUp, CheckCircle2, Copy, Edit3, Plus, RefreshCw, Save, Search, Trash2, XCircle } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ChipInput, ConfirmDialog, CopyAction, DateTimeValue, HelpLink, IdentifierField, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
+import { ChipInput, ConfirmDialog, CopyAction, DateTimeValue, FormSheet, HelpLink, IdentifierField, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -696,15 +695,39 @@ export default function VirtualModelManagement() {
         </CardContent>
       </Card>
 
-      <Sheet open={editorOpen} onOpenChange={handleEditorOpenChange}>
-        <SheetContent side="left" className="flex h-full w-[96vw] max-w-3xl flex-col gap-0 p-0 sm:max-w-2xl">
-          <SheetHeader className="border-b px-6 py-5 text-right">
-            <SheetTitle>{isCreate ? t("form.createTitle") : t("form.editTitle")}</SheetTitle>
-            <SheetDescription>{isCreate ? t("form.createDescription") : t("form.editDescription")}</SheetDescription>
-          </SheetHeader>
-
-          <div className="flex-1 overflow-y-auto">
-            <div className="flex flex-col gap-4 px-6 py-5">
+      <FormSheet
+        open={editorOpen}
+        onOpenChange={handleEditorOpenChange}
+        title={isCreate ? t("form.createTitle") : t("form.editTitle")}
+        description={isCreate ? t("form.createDescription") : t("form.editDescription")}
+        size="lg"
+        pending={isSaving || isDeleting}
+        bodyClassName="flex flex-col gap-4"
+        footer={(
+          <div className="flex w-full flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" onClick={() => void submitForm()} disabled={isSaving || isDeleting}>
+                {isSaving ? <Spinner /> : <Save />}
+                {isCreate ? t("actions.create") : tc("save")}
+              </Button>
+              <Button type="button" variant="outline" onClick={closeEditor} disabled={isSaving || isDeleting}>
+                {tc("cancel")}
+              </Button>
+              {!isCreate ? (
+                <Button type="button" variant="outline" onClick={() => selectedID && void loadDetail(selectedID, { skipDirtyConfirm: true })}>
+                  {t("actions.reset")}
+                </Button>
+              ) : null}
+            </div>
+            {!isCreate ? (
+              <Button type="button" variant="destructive" onClick={() => setDeleteDialogOpen(true)} disabled={isSaving || isDeleting}>
+                {isDeleting ? <Spinner /> : <Trash2 />}
+                {t("actions.delete")}
+              </Button>
+            ) : null}
+          </div>
+        )}
+      >
               {notice ? (
                 <Alert variant={notice.kind === "error" ? "destructive" : "default"}>
                   {notice.kind === "error" ? <XCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
@@ -1071,35 +1094,7 @@ export default function VirtualModelManagement() {
                   ) : null}
                 </AlertDescription>
               </Alert>
-            </div>
-          </div>
-
-          <div className="sticky bottom-0 border-t bg-background/95 px-6 py-4 backdrop-blur">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <Button type="button" onClick={() => void submitForm()} disabled={isSaving || isDeleting}>
-                  {isSaving ? <Spinner /> : <Save />}
-                  {isCreate ? t("actions.create") : tc("save")}
-                </Button>
-                <Button type="button" variant="outline" onClick={closeEditor} disabled={isSaving || isDeleting}>
-                  {tc("cancel")}
-                </Button>
-                {!isCreate ? (
-                  <Button type="button" variant="outline" onClick={() => selectedID && void loadDetail(selectedID, { skipDirtyConfirm: true })}>
-                    {t("actions.reset")}
-                  </Button>
-                ) : null}
-              </div>
-              {!isCreate ? (
-                <Button type="button" variant="destructive" onClick={() => setDeleteDialogOpen(true)} disabled={isSaving || isDeleting}>
-                  {isDeleting ? <Spinner /> : <Trash2 />}
-                  {t("actions.delete")}
-                </Button>
-              ) : null}
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+      </FormSheet>
 
       <UnsavedChangesDialog
         open={pendingDiscardAction !== null}

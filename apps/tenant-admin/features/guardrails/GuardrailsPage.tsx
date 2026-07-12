@@ -4,11 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 
-import { AppCodeTextareaField, AppNumberField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, ConfirmDialog, CopyAction, DateTimeValue, EmptyState, HelpLink, IdentifierField, OperationNotice, SearchField } from "@/components/app-ui";
+import { AppCodeTextareaField, AppNumberField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, ConfirmDialog, CopyAction, DateTimeValue, EmptyState, FormSheet, HelpLink, IdentifierField, OperationNotice, SearchField } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import { createGuardrail, deleteGuardrail, GuardrailAPIError, listGuardrails, updateGuardrail } from "./api";
@@ -465,14 +464,25 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
         </CardContent>
       </Card>
 
-      <Sheet open={formOpen} onOpenChange={setFormOpen}>
-        <SheetContent side="left" className="flex h-full w-full max-w-2xl flex-col gap-0 p-0 sm:max-w-2xl">
-          <SheetHeader className="border-b border-border px-6 py-5 text-start">
-            <SheetTitle>{editing ? t("form.editTitle") : t("form.addTitle")}</SheetTitle>
-            <SheetDescription className="sr-only">{t("form.description")}</SheetDescription>
-          </SheetHeader>
-
-          <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
+      <FormSheet
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        title={editing ? t("form.editTitle") : t("form.addTitle")}
+        description={t("form.description")}
+        size="lg"
+        pending={isSaving}
+        bodyClassName="flex flex-col gap-4"
+        footer={(
+          <>
+            <Button type="button" variant="outline" disabled={isSaving} onClick={() => setFormOpen(false)}>
+              {t("actions.cancel")}
+            </Button>
+            <Button type="button" disabled={isSaving} onClick={() => void submitForm()}>
+              {isSaving ? t("actions.saving") : t("actions.save")}
+            </Button>
+          </>
+        )}
+      >
             <div className="grid gap-3 md:grid-cols-2">
               <AppTextField id="guardrail-name" label={t("form.name")} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
               <IdentifierField
@@ -640,18 +650,7 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
             ) : null}
 
             <AppSwitchField id="guardrail-enabled" label={t("form.enabled")} checked={form.enabled} onCheckedChange={(checked) => setForm({ ...form, enabled: checked })} />
-          </div>
-
-          <SheetFooter className="flex-row border-t border-border px-6 py-4">
-            <Button type="button" variant="outline" disabled={isSaving} onClick={() => setFormOpen(false)}>
-              {t("actions.cancel")}
-            </Button>
-            <Button type="button" disabled={isSaving} onClick={() => void submitForm()}>
-              {isSaving ? t("actions.saving") : t("actions.save")}
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+      </FormSheet>
 
       <ConfirmDialog
         open={pendingDelete !== null}
