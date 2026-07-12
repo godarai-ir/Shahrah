@@ -513,12 +513,12 @@ function PromptContent(props: {
               <div className="rounded-md border bg-muted/20 px-3 py-2 font-mono text-xs" dir="ltr">{props.descriptor.model || "-"}</div>
             </Section>
             <Section title={props.t("config.modelSettings.title")}>
-              <div className="grid grid-cols-2 gap-2">
-                <CompactFact label={props.t("config.modelSettings.stream")} value={props.descriptor.modelSettings.stream ? props.t("common.enabled") : props.t("common.disabled")} />
-                <CompactFact label={props.t("config.modelSettings.temperature")} value={formatOptionalNumber(props.descriptor.modelSettings.temperature)} />
-                <CompactFact label={props.t("config.modelSettings.topP")} value={formatOptionalNumber(props.descriptor.modelSettings.top_p)} />
-                <CompactFact label={props.t("config.modelSettings.maxTokens")} value={formatOptionalNumber(props.descriptor.modelSettings.max_tokens)} />
-              </div>
+              <DefinitionList columns={2}>
+                <DefinitionListItem surface label={props.t("config.modelSettings.stream")} value={props.descriptor.modelSettings.stream ? props.t("common.enabled") : props.t("common.disabled")} />
+                <DefinitionListItem surface label={props.t("config.modelSettings.temperature")} value={formatOptionalNumber(props.descriptor.modelSettings.temperature)} />
+                <DefinitionListItem surface label={props.t("config.modelSettings.topP")} value={formatOptionalNumber(props.descriptor.modelSettings.top_p)} />
+                <DefinitionListItem surface label={props.t("config.modelSettings.maxTokens")} value={formatOptionalNumber(props.descriptor.modelSettings.max_tokens)} />
+              </DefinitionList>
             </Section>
             <Section title={props.t("config.variables.title", { count: props.descriptor.variableNames.length })}>
               {props.descriptor.variableNames.length === 0 ? (
@@ -565,15 +565,17 @@ function PromptContent(props: {
             </div>
             <CardDescription>{props.t("detail.technicalDescription")}</CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <TechnicalFact label={props.t("detail.summary.promptId")} value={props.prompt?.id || "-"} />
-            <TechnicalFact label={props.t("versions.selectedFqn")} value={props.selectedVersion.fqn || "-"} />
-            <TechnicalFact label={props.t("list.columns.updatedAt")} value={formatDate(props.prompt?.updated_at, props.locale)} />
-            <TechnicalFact label={props.t("detail.summary.createdAt")} value={formatDate(props.selectedVersion.created_at, props.locale)} />
-            <TechnicalFact
+          <CardContent>
+            <DefinitionList>
+            <DefinitionListItem surface mono valueDir="ltr" label={props.t("detail.summary.promptId")} value={props.prompt?.id || "-"} />
+            <DefinitionListItem surface mono valueDir="ltr" label={props.t("versions.selectedFqn")} value={props.selectedVersion.fqn || "-"} />
+            <DefinitionListItem surface valueDir="ltr" label={props.t("list.columns.updatedAt")} value={formatDate(props.prompt?.updated_at, props.locale)} />
+            <DefinitionListItem surface valueDir="ltr" label={props.t("detail.summary.createdAt")} value={formatDate(props.selectedVersion.created_at, props.locale)} />
+            <DefinitionListItem surface
               label={props.t("detail.summary.versionAuthor")}
               value={props.userLabelByID[props.selectedVersion.created_by ?? ""] || props.selectedVersion.created_by || "-"}
             />
+            </DefinitionList>
           </CardContent>
         </Card>
 
@@ -597,24 +599,6 @@ function PromptContent(props: {
           </CardContent>
         </Card>
       </div>
-    </div>
-  );
-}
-
-function CompactFact(props: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border bg-muted/20 px-3 py-2">
-      <div className="text-xs text-muted-foreground">{props.label}</div>
-      <div className="mt-1 truncate text-sm font-medium" dir="ltr" title={props.value}>{props.value}</div>
-    </div>
-  );
-}
-
-function TechnicalFact(props: { label: string; value: string }) {
-  return (
-    <div className="grid gap-1 rounded-md border bg-muted/20 px-3 py-2">
-      <div className="text-xs text-muted-foreground">{props.label}</div>
-      <div className="truncate font-mono text-xs" dir="ltr" title={props.value}>{props.value}</div>
     </div>
   );
 }

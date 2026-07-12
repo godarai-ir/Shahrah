@@ -1,10 +1,10 @@
 "use client";
 
-import { type ReactNode, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { ArrowUpRight, Check } from "lucide-react";
 
-import { DateTimeValue, EntityIdentityHeader } from "@/components/app-ui";
+import { DateTimeValue, DefinitionList, DefinitionListItem, EntityIdentityHeader } from "@/components/app-ui";
 import { formatDateTime } from "@/lib/date-time";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -147,24 +147,28 @@ export default function PlanManagement({
           <CardHeader>
             <CardTitle>{t("currentSubscription.title")}</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-3 text-sm">
-            <Metric label={t("currentSubscription.plan")} value={subscription?.plan_display_name ?? subscription?.plan_slug ?? common("notSet")} />
-            <Metric label={t("currentSubscription.interval")} value={intervalLabel(subscription?.billing_interval, t)} />
-            <Metric label={t("currentSubscription.periodEnd")} value={<DateTimeValue value={subscription?.current_period_end} locale={locale} fallback={common("notSet")} format={{ dateStyle: "medium" }} />} />
+          <CardContent>
+            <DefinitionList>
+            <DefinitionListItem surface label={t("currentSubscription.plan")} value={subscription?.plan_display_name ?? subscription?.plan_slug ?? common("notSet")} />
+            <DefinitionListItem surface label={t("currentSubscription.interval")} value={intervalLabel(subscription?.billing_interval, t)} />
+            <DefinitionListItem surface label={t("currentSubscription.periodEnd")} value={<DateTimeValue value={subscription?.current_period_end} locale={locale} fallback={common("notSet")} format={{ dateStyle: "medium" }} />} />
             {subscription?.status === "trialing" ? (
-              <Metric label={t("currentSubscription.trialEnds")} value={<DateTimeValue value={subscription.trial_ends_at} locale={locale} fallback={common("notSet")} format={{ dateStyle: "medium" }} />} />
+              <DefinitionListItem surface label={t("currentSubscription.trialEnds")} value={<DateTimeValue value={subscription.trial_ends_at} locale={locale} fallback={common("notSet")} format={{ dateStyle: "medium" }} />} />
             ) : null}
+            </DefinitionList>
           </CardContent>
         </Card>
         <Card className="rounded-lg">
           <CardHeader>
             <CardTitle>{t("limits.title")}</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-3 text-sm">
-            <Metric label={t("limits.requests")} value={formatUsage(requestUsage, features["gateway.requests.monthly"], locale, t, common)} />
-            <Metric label={t("limits.users")} value={formatLimit(features["users.max"], locale, common, t)} />
-            <Metric label={t("limits.vat")} value={formatEnabled(features["auth.vat.enabled"], t)} />
-            <Metric label={t("limits.overrides")} value={Object.keys(overrides).length ? formatCount(Object.keys(overrides).length, locale) : t("values.none")} />
+          <CardContent>
+            <DefinitionList>
+            <DefinitionListItem surface label={t("limits.requests")} value={formatUsage(requestUsage, features["gateway.requests.monthly"], locale, t, common)} />
+            <DefinitionListItem surface label={t("limits.users")} value={formatLimit(features["users.max"], locale, common, t)} />
+            <DefinitionListItem surface label={t("limits.vat")} value={formatEnabled(features["auth.vat.enabled"], t)} />
+            <DefinitionListItem surface label={t("limits.overrides")} value={Object.keys(overrides).length ? formatCount(Object.keys(overrides).length, locale) : t("values.none")} />
+            </DefinitionList>
           </CardContent>
         </Card>
       </section>
@@ -219,15 +223,6 @@ export default function PlanManagement({
           );
         })}
       </section>
-    </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border border-border px-3 py-2">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium text-foreground">{value}</span>
     </div>
   );
 }

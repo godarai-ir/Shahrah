@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 
 import AdminShell from "@/app/components/admin-shell";
-import { CompactValue } from "@/components/app-ui";
+import { CompactValue, DefinitionList, DefinitionListItem } from "@/components/app-ui";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { formatCompactCurrency, formatCompactNumber } from "@/lib/compact-number";
@@ -55,15 +55,15 @@ export default async function LogDetailPage({ params }: Params) {
           </p>
         ) : (
           <>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <Info label={t("summary.status")} value={`${String(log.status_code ?? "-")} / ${String(log.status ?? "-")}`} />
-              <Info label={t("summary.provider")} value={String(log.provider ?? "-")} />
-              <Info label={t("summary.model")} value={String(log.model ?? "-")} />
-              <Info label={t("summary.route")} value={String(log.route ?? "-")} />
-              <Info label={t("summary.latency")} value={`${String(log.duration_ms ?? 0)} ms`} />
-              <Info label={t("summary.tokens")} value={<CompactValue display={formatCompactNumber(Number(log.total_tokens ?? 0), { locale })} />} />
-              <Info label={t("summary.cost")} value={<CompactValue display={formatCompactCurrency(Number(log.cost_usd ?? 0), { locale, currency: "USD", maximumFractionDigits: 4 })} />} />
-              <Info
+            <DefinitionList columns={4}>
+              <DefinitionListItem surface label={t("summary.status")} value={`${String(log.status_code ?? "-")} / ${String(log.status ?? "-")}`} />
+              <DefinitionListItem surface mono valueDir="ltr" label={t("summary.provider")} value={String(log.provider ?? "-")} />
+              <DefinitionListItem surface mono valueDir="ltr" label={t("summary.model")} value={String(log.model ?? "-")} />
+              <DefinitionListItem surface mono valueDir="ltr" label={t("summary.route")} value={String(log.route ?? "-")} />
+              <DefinitionListItem surface valueDir="ltr" label={t("summary.latency")} value={`${String(log.duration_ms ?? 0)} ms`} />
+              <DefinitionListItem surface label={t("summary.tokens")} value={<CompactValue display={formatCompactNumber(Number(log.total_tokens ?? 0), { locale })} />} />
+              <DefinitionListItem surface label={t("summary.cost")} value={<CompactValue display={formatCompactCurrency(Number(log.cost_usd ?? 0), { locale, currency: "USD", maximumFractionDigits: 4 })} />} />
+              <DefinitionListItem surface mono valueDir="ltr"
                 label={t("summary.trace")}
                 value={
                   log.trace_id ? (
@@ -73,7 +73,7 @@ export default async function LogDetailPage({ params }: Params) {
                   ) : "-"
                 }
               />
-            </div>
+            </DefinitionList>
 
             <div className="grid gap-4 lg:grid-cols-2">
               <PayloadCard title={t("content.request")} payload={requestPayload} hidden={!visibility.can_view_content} hiddenText={t("content.hidden")} />
@@ -83,15 +83,6 @@ export default async function LogDetailPage({ params }: Params) {
         )}
       </section>
     </AdminShell>
-  );
-}
-
-function Info({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="rounded-xl border border-border/70 p-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 text-sm font-medium">{value}</div>
-    </div>
   );
 }
 
