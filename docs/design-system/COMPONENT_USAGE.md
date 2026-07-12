@@ -38,6 +38,10 @@ Use `DataListPanel` when a list page needs the standard toolbar, loading/empty/c
 
 Use `TablePagination` for previous/next pagination. Pass localized summary and button labels from the feature namespace, and provide page/page-size values only when they add useful context.
 
+Use the feature-level `GatewayPolicyRulesList` for the shared Rate Limit and Budget Limit page shell. It composes `PageHeader`, entitlement-aware create actions, notice feedback, `DataListPanel`, the create/edit `Sheet`, `ConfirmDialog`, and the plan-upgrade dialog.
+
+Keep policy tables, columns, row actions, API calls, rule forms, and domain types in their owning feature. The shared shell must not introduce a generic gateway-rule model.
+
 ## Dropdowns And Lists
 
 Use `RowActionsMenu` for table row actions instead of hand-composing `DropdownMenu` in each table. Use it for edit, members, activate/deactivate, revoke, and delete actions.
@@ -87,3 +91,11 @@ Use `FieldGroup` to organize related controls and `Field` for each label/control
 For validation, set `data-invalid` on `Field` and `aria-invalid` on the control. For disabled fields, set `data-disabled` on `Field` and `disabled` on the control.
 
 Product wrappers such as `IdentifierField` and `AppSelectField` already compose the Field family; place them directly inside a `FieldGroup` rather than wrapping them in another `Field`.
+
+## Permission Editing
+
+Use `PermissionEditor` for controlled permission selection with search, selected/all views, grouped checkboxes, and group-level select/clear actions. Keep the permission catalog and selected keys in the feature; pass localized labels and formatting callbacks into the component.
+
+Use `PermissionSummary` beside the editor when a role workflow needs selected-permission and covered-group counts. It may expose a clear-all action, but submission and validation remain responsibilities of the feature form.
+
+Permission groups use semantic `FieldSet`/`FieldLegend`, and each checkbox uses the Field family. Technical permission keys remain LTR while group and description direction follows the page locale.

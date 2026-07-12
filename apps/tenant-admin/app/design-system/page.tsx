@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Trash2, Upload, X } from "lucide-react";
+import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Shield, Trash2, Upload, X } from "lucide-react";
 
-import { AppCard, AppSelectField, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, DataListPanel, EmptyState, FilterCombobox, FormSection, HelpLink, IdentifierField, MetricCard, PageHeader, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, TablePagination } from "@/components/app-ui";
+import { AppCard, AppSelectField, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, DataListPanel, EmptyState, FilterCombobox, FormSection, HelpLink, IdentifierField, MetricCard, PageHeader, PermissionEditor, PermissionSummary, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, TablePagination } from "@/components/app-ui";
 import { Attachment, AttachmentAction, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { GatewayPolicyRulesList } from "@/features/gateway-policies/components";
 import { appendDisplaySuffix, formatCompactCurrency, formatCompactNumber } from "@/lib/compact-number";
 
 const tokens = [
@@ -23,10 +24,21 @@ const tokens = [
   ["destructive", "bg-destructive text-destructive-foreground"],
 ];
 
+const permissionOptions = [
+  { key: "role:read", group: "roles", description: "Read role details" },
+  { key: "role:manage", group: "roles", description: "Manage roles" },
+  { key: "user:read", group: "users", description: "Read users" },
+];
+
 export default function DesignSystemPage() {
   const [selectValue, setSelectValue] = useState("active");
   const [filterValue, setFilterValue] = useState("openai");
   const [samplePage, setSamplePage] = useState(1);
+  const [permissionQuery, setPermissionQuery] = useState("");
+  const [permissionMode, setPermissionMode] = useState<"selected" | "all">("all");
+  const [selectedPermissions, setSelectedPermissions] = useState(["role:read"]);
+  const [policyQuery, setPolicyQuery] = useState("");
+  const [policySheetOpen, setPolicySheetOpen] = useState(false);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const requestsDisplay = formatCompactNumber(128_400, { locale: "en-US" });
   const spendDisplay = formatCompactCurrency(12_340, { locale: "en-US", currency: "USD" });
@@ -58,6 +70,106 @@ export default function DesignSystemPage() {
         <MetricCard label="Requests" value={<CompactValue display={requestsDisplay} />} description="Current billing period" trend={<StatusBadge status="success">+12%</StatusBadge>} icon={Activity} />
         <MetricCard label="Provider accounts" value="8" description="Active connections" icon={Database} />
         <MetricCard label="Monthly spend" value={<CompactValue display={spendDisplay} />} description="Exact value stays in tooltip" icon={KeyRound} />
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]">
+        <AppCard title="Permission editor" description="Controlled search, grouped selection, and selected/all views for role permissions.">
+          <PermissionEditor
+            permissions={permissionOptions}
+            value={selectedPermissions}
+            onValueChange={setSelectedPermissions}
+            query={permissionQuery}
+            onQueryChange={setPermissionQuery}
+            mode={permissionMode}
+            onModeChange={setPermissionMode}
+            dir="ltr"
+            labels={{
+              selectedTab: "Selected",
+              allTab: "All permissions",
+              searchPlaceholder: "Search permission key or description",
+              searchAriaLabel: "Search permissions",
+              emptyTitle: "No matching permissions found",
+              selectGroup: "Select group",
+              clearGroup: "Clear group",
+            }}
+          />
+        </AppCard>
+        <PermissionSummary
+          permissions={permissionOptions}
+          value={selectedPermissions}
+          title="Permission summary"
+          labels={{
+            selectedPermissions: "Selected permissions",
+            coveredGroups: "Groups covered",
+            clearAll: "Clear all permissions",
+            empty: "No permissions are selected.",
+          }}
+          onClear={() => setSelectedPermissions([])}
+        />
+      </section>
+
+      <section className="rounded-xl border border-border p-4">
+        <GatewayPolicyRulesList
+          title="Gateway policy rules"
+          description="Shared list shell while table columns and domain actions remain feature-owned."
+          createLabel="New rule"
+          onCreate={() => setPolicySheetOpen(true)}
+          alertLabels={{ error: "Error", success: "Success" }}
+          query={policyQuery}
+          onQueryChange={setPolicyQuery}
+          searchPlaceholder="Search rules"
+          resultCountLabel="1 result"
+          itemCount={1}
+          loading={false}
+          loadingLabel="Loading rules"
+          emptyIcon={Shield}
+          emptyTitle="No rules"
+          emptyDescription="Create the first policy rule."
+          className="max-w-none px-0 py-0"
+          ruleSheet={{
+            open: policySheetOpen,
+            onOpenChange: setPolicySheetOpen,
+            title: "Create policy rule",
+            description: "Configure the domain-specific policy form.",
+            closeLabel: "Close",
+            dir: "ltr",
+            content: <div className="p-6 text-sm text-muted-foreground">Feature-owned policy form</div>,
+          }}
+          deleteDialog={{
+            open: false,
+            onOpenChange: () => undefined,
+            title: "Delete policy rule",
+            description: "This action cannot be undone.",
+            cancelLabel: "Cancel",
+            confirmLabel: "Delete",
+            pendingLabel: "Deleting",
+            pending: false,
+            onConfirm: () => undefined,
+          }}
+          upgradeDialog={{
+            open: false,
+            onOpenChange: () => undefined,
+            title: "Upgrade plan",
+            description: "This feature requires a higher plan.",
+            cancelLabel: "Cancel",
+            actionLabel: "Upgrade",
+          }}
+        >
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Rule ID</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow>
+                <TableCell className="font-mono" dir="ltr">tenant-default</TableCell>
+                <TableCell><StatusBadge status="active">Active</StatusBadge></TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </GatewayPolicyRulesList>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">

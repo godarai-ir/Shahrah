@@ -1,16 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Copy, Gauge, Pencil, Plus, Power, Trash2 } from "lucide-react";
+import { Copy, Gauge, Pencil, Power, Trash2 } from "lucide-react";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CommercialPlanUpgradeDialog, ConfirmDialog, DataListPanel, EmptyState, HelpLink, PageHeader, RowActionsMenu, SearchField, StatusBadge } from "@/components/app-ui";
+import { RowActionsMenu, StatusBadge } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { GatewayPolicyRulesList } from "@/features/gateway-policies/components";
 
 import {
   createRateLimitRule,
@@ -109,7 +107,6 @@ export function RateLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
-  const filtered = useMemo(() => items, [items]);
   const isRateLimitFeatureEnabled = hasLoadedEntitlements
     ? readBooleanFeature(entitlements?.features?.[FEATURE_RATE_LIMIT_RULES_ENABLED], false)
     : null;
@@ -138,44 +135,54 @@ export function RateLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
   }
 
   return (
-    <>
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 md:px-6">
-        <PageHeader
-          title={t("title")}
-          description={t("description")}
-          titleAddon={docsHref ? <HelpLink href={docsHref} /> : null}
-          actions={
-            <Button type="button" onClick={handleCreateRule} disabled={!hasLoadedEntitlements}>
-              <Plus data-icon="inline-start" />
-              {t("actions.new")}
-            </Button>
-          }
-        />
-
-        {notice ? (
-          <Alert variant={notice.kind === "error" ? "destructive" : "default"}>
-            <AlertTitle>{notice.kind === "error" ? t("alerts.error") : t("alerts.success")}</AlertTitle>
-            <AlertDescription>{notice.message}</AlertDescription>
-          </Alert>
-        ) : null}
-
-        <DataListPanel
-          aria-label={t("title")}
-          toolbar={<SearchField containerClassName="max-w-xl" placeholder={t("searchPlaceholder")} value={query} onChange={(event) => setQuery(event.target.value)} />}
-          toolbarMeta={t("resultCount", { count: filtered.length })}
-          loading={isLoading && filtered.length === 0}
-          loadingLabel={t("messages.loading")}
-          empty={filtered.length === 0}
-          emptyState={
-            <EmptyState
-              icon={Gauge}
-              title={query ? t("noResults.title") : t("emptyState.title")}
-              description={query ? t("noResults.description") : t("emptyState.description")}
-              primaryAction={!query ? <Button type="button" onClick={handleCreateRule} disabled={!hasLoadedEntitlements}><Plus data-icon="inline-start" />{t("actions.new")}</Button> : undefined}
-            />
-          }
-        >
-          <Table className="text-xs lg:text-sm">
+    <GatewayPolicyRulesList
+      title={t("title")}
+      description={t("description")}
+      docsHref={docsHref}
+      createLabel={t("actions.new")}
+      onCreate={handleCreateRule}
+      createDisabled={!hasLoadedEntitlements}
+      notice={notice}
+      alertLabels={{ error: t("alerts.error"), success: t("alerts.success") }}
+      query={query}
+      onQueryChange={setQuery}
+      searchPlaceholder={t("searchPlaceholder")}
+      resultCountLabel={t("resultCount", { count: items.length })}
+      itemCount={items.length}
+      loading={isLoading}
+      loadingLabel={t("messages.loading")}
+      emptyIcon={Gauge}
+      emptyTitle={query ? t("noResults.title") : t("emptyState.title")}
+      emptyDescription={query ? t("noResults.description") : t("emptyState.description")}
+      ruleSheet={{
+        open: isCreateSheetOpen,
+        onOpenChange: setIsCreateSheetOpen,
+        title: t("form.addTitle"),
+        description: t("form.headerDescription"),
+        closeLabel: t("actions.close"),
+        content: <RateLimitRuleForm embedded onCancel={() => setIsCreateSheetOpen(false)} onSaved={async () => { setIsCreateSheetOpen(false); await load(); }} />,
+      }}
+      deleteDialog={{
+        open: pendingDeleteRule !== null,
+        onOpenChange: (open) => !open && setPendingDeleteRule(null),
+        title: t("deleteDialog.title"),
+        description: t("deleteDialog.description", { ruleId: pendingDeleteRule?.rule_id ?? "-" }),
+        cancelLabel: t("deleteDialog.cancel"),
+        confirmLabel: t("deleteDialog.confirm"),
+        pendingLabel: t("deleteDialog.deleting"),
+        pending: isDeleting,
+        onConfirm: confirmDeleteRule,
+      }}
+      upgradeDialog={{
+        open: isUpgradeDialogOpen,
+        onOpenChange: setIsUpgradeDialogOpen,
+        title: t("upgradeDialog.title"),
+        description: t("upgradeDialog.description"),
+        cancelLabel: t("upgradeDialog.cancel"),
+        actionLabel: t("upgradeDialog.action"),
+      }}
+    >
+      <Table className="text-xs lg:text-sm">
               <TableHeader>
                 <TableRow>
                   <TableHead className="px-1.5 lg:px-2">{t("table.ruleId")}</TableHead>
@@ -187,7 +194,7 @@ export function RateLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((rule) => (
+                {items.map((rule) => (
                   <TableRow key={rule.id}>
                     <TableCell className="px-1.5 font-mono font-medium lg:px-2" dir="ltr">{rule.rule_id}</TableCell>
                     <TableCell className="px-1.5 lg:px-2">
@@ -212,34 +219,7 @@ export function RateLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
                   </TableRow>
                 ))}
               </TableBody>
-          </Table>
-        </DataListPanel>
-      </div>
-
-      <Sheet open={isCreateSheetOpen} onOpenChange={setIsCreateSheetOpen}>
-        <SheetContent side="left" closeLabel={t("actions.close")} className="w-full overflow-y-auto p-0 sm:max-w-3xl" dir="rtl">
-          <SheetHeader className="sr-only">
-            <SheetTitle>{t("form.addTitle")}</SheetTitle>
-            <SheetDescription>{t("form.headerDescription")}</SheetDescription>
-          </SheetHeader>
-          <RateLimitRuleForm embedded onCancel={() => setIsCreateSheetOpen(false)} onSaved={async () => { setIsCreateSheetOpen(false); await load(); }} />
-        </SheetContent>
-      </Sheet>
-
-      <ConfirmDialog
-        open={pendingDeleteRule !== null}
-        onOpenChange={(open) => !open && setPendingDeleteRule(null)}
-        title={t("deleteDialog.title")}
-        description={t("deleteDialog.description", { ruleId: pendingDeleteRule?.rule_id ?? "-" })}
-        cancelLabel={t("deleteDialog.cancel")}
-        confirmLabel={t("deleteDialog.confirm")}
-        pendingLabel={t("deleteDialog.deleting")}
-        pending={isDeleting}
-        closeOnConfirm={false}
-        onConfirm={confirmDeleteRule}
-      />
-
-      <CommercialPlanUpgradeDialog open={isUpgradeDialogOpen} onOpenChange={setIsUpgradeDialogOpen} title={t("upgradeDialog.title")} description={t("upgradeDialog.description")} cancelLabel={t("upgradeDialog.cancel")} actionLabel={t("upgradeDialog.action")} />
-    </>
+      </Table>
+    </GatewayPolicyRulesList>
   );
 }

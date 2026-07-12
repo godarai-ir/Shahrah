@@ -6,15 +6,22 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { ArrowLeft, Plus } from "lucide-react";
 
-import { IdentifierField, SearchField } from "@/components/app-ui";
+import { IdentifierField, PermissionEditor, PermissionSummary } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+
+import {
+  filterSupportedPermissions,
+  getPermissionEditorLabels,
+  getPermissionSummaryLabels,
+  translatePermissionDescription,
+  translatePermissionGroup,
+} from "./role-permissions";
 
 type PermissionItem = {
   key: string;
@@ -38,8 +45,6 @@ type RoleFormState = {
   permissions: string[];
 };
 
-const REMOVED_PERMISSIONS = new Set(["provider_account:use_integrations"]);
-
 export default function RoleCreateManagement({ initialPermissionCatalog }: RoleCreateManagementProps) {
   const t = useTranslations("accessManagement");
   const locale = useLocale();
@@ -48,36 +53,17 @@ export default function RoleCreateManagement({ initialPermissionCatalog }: RoleC
   const [form, setForm] = useState<RoleFormState>({ name: "", display_name: "", description: "", permissions: [] });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [query, setQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"selected" | "all">("all");
   const [error, setError] = useState<string | null>(null);
   const [banner, setBanner] = useState<Banner | null>(null);
 
   const filteredPermissionCatalog = useMemo(
-    () => initialPermissionCatalog.filter((item) => !REMOVED_PERMISSIONS.has(item.key)),
+    () => filterSupportedPermissions(initialPermissionCatalog),
     [initialPermissionCatalog],
   );
-
-  const groupedPermissions = useMemo(
-    () => groupPermissions(filteredPermissionCatalog, query, locale),
-    [filteredPermissionCatalog, query, locale],
-  );
-
-  const stats = useMemo(() => summarizeSelection(form.permissions, filteredPermissionCatalog), [form.permissions, filteredPermissionCatalog]);
-
-  function togglePermission(permission: string) {
-    setForm((prev) => ({
-      ...prev,
-      permissions: prev.permissions.includes(permission)
-        ? prev.permissions.filter((item) => item !== permission)
-        : [...prev.permissions, permission],
-    }));
-  }
-
-  function toggleGroup(keys: string[], checked: boolean) {
-    setForm((prev) => ({
-      ...prev,
-      permissions: checked ? Array.from(new Set([...prev.permissions, ...keys])) : prev.permissions.filter((item) => !keys.includes(item)),
-    }));
-  }
+  const numberFormatter = useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const editorLabels = useMemo(() => getPermissionEditorLabels(locale), [locale]);
+  const summaryLabels = useMemo(() => getPermissionSummaryLabels(locale), [locale]);
 
   function validate(next: RoleFormState): string | null {
     if (!next.name.trim()) return t("rolesPage.form.name");
@@ -155,40 +141,20 @@ export default function RoleCreateManagement({ initialPermissionCatalog }: RoleC
               <Separator />
 
               <section className="flex flex-col gap-3">
-                <Field>
-                  <FieldLabel className="sr-only" htmlFor="permission-search">{locale.startsWith("fa") ? "جستجوی مجوز" : "Search permission"}</FieldLabel>
-                  <SearchField id="permission-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={locale.startsWith("fa") ? "جستجوی مجوز" : "Search permission"} />
-                </Field>
-
-                <div className="flex flex-col gap-2 rounded-md border p-3">
-                  {groupedPermissions.map(([group, items]) => {
-                    const keys = items.map((i) => i.key);
-                    const selectedCount = keys.filter((key) => form.permissions.includes(key)).length;
-                    const allSelected = selectedCount > 0 && selectedCount === keys.length;
-                    return (
-                      <details key={group} className="rounded-md border" open>
-                        <summary className="flex cursor-pointer items-center justify-between px-3 py-2">
-                          <span className="text-sm font-semibold">{translateGroupLabel(group, locale)}</span>
-                          <Badge variant="outline">{selectedCount}/{keys.length}</Badge>
-                        </summary>
-                        <div className="flex flex-col gap-2 px-3 pb-3">
-                          <Button type="button" size="sm" variant="outline" onClick={() => toggleGroup(keys, !allSelected)}>
-                            {allSelected ? (locale.startsWith("fa") ? "حذف انتخاب گروه" : "Clear group") : locale.startsWith("fa") ? "انتخاب کل گروه" : "Select group"}
-                          </Button>
-                          {items.map((item) => (
-                            <label key={item.key} className="flex items-start gap-2 rounded-md p-2 hover:bg-muted/40">
-                              <input type="checkbox" checked={form.permissions.includes(item.key)} onChange={() => togglePermission(item.key)} className="mt-1" />
-                              <span>
-                                <span className="block truncate font-mono text-xs text-muted-foreground">{item.key}</span>
-                                <span className="block text-sm font-medium">{translatePermissionDescription(item, locale)}</span>
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                      </details>
-                    );
-                  })}
-                </div>
+                <PermissionEditor
+                  permissions={filteredPermissionCatalog}
+                  value={form.permissions}
+                  onValueChange={(permissions) => setForm((prev) => ({ ...prev, permissions }))}
+                  query={query}
+                  onQueryChange={setQuery}
+                  mode={viewMode}
+                  onModeChange={setViewMode}
+                  labels={editorLabels}
+                  dir={locale.startsWith("fa") ? "rtl" : "ltr"}
+                  formatGroupLabel={(group) => translatePermissionGroup(group, locale)}
+                  formatPermissionDescription={(permission) => translatePermissionDescription(permission, locale)}
+                  formatNumber={(value) => numberFormatter.format(value)}
+                />
               </section>
 
               <FieldError>{error}</FieldError>
@@ -209,60 +175,18 @@ export default function RoleCreateManagement({ initialPermissionCatalog }: RoleC
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-4 lg:sticky lg:top-6 lg:h-fit">
-          <CardHeader>
-            <CardTitle>{locale.startsWith("fa") ? "خلاصه انتخاب‌ها" : "Selection summary"}</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <SummaryStat label={locale.startsWith("fa") ? "مجوزهای انتخاب‌شده" : "Selected permissions"} value={String(stats.count)} />
-            <SummaryStat label={locale.startsWith("fa") ? "گروه‌های درگیر" : "Groups covered"} value={String(stats.groupCount)} />
-          </CardContent>
-        </Card>
+        <PermissionSummary
+          permissions={filteredPermissionCatalog}
+          value={form.permissions}
+          title={locale.startsWith("fa") ? "خلاصه انتخاب‌ها" : "Selection summary"}
+          labels={summaryLabels}
+          onClear={() => setForm((prev) => ({ ...prev, permissions: [] }))}
+          formatNumber={(value) => numberFormatter.format(value)}
+          className="lg:col-span-4 lg:sticky lg:top-6 lg:h-fit"
+        />
       </div>
     </div>
   );
-}
-
-function summarizeSelection(selected: string[], permissionCatalog: PermissionItem[]) {
-  const index = new Map(permissionCatalog.map((item) => [item.key, item] as const));
-  const groups = new Set<string>();
-
-  for (const key of selected) {
-    const item = index.get(key);
-    groups.add(item?.group ?? "other");
-  }
-
-  return { count: selected.length, groupCount: groups.size };
-}
-
-function SummaryStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-xl font-semibold">{value}</p>
-    </div>
-  );
-}
-
-function groupPermissions(permissionCatalog: PermissionItem[], query: string, locale: string): [string, PermissionItem[]][] {
-  const normalizedQuery = query.trim().toLowerCase();
-  const filtered = !normalizedQuery
-    ? permissionCatalog
-    : permissionCatalog.filter((item) => {
-        const text = `${item.key} ${item.description} ${translatePermissionDescription(item, locale)}`.toLowerCase();
-        return text.includes(normalizedQuery);
-      });
-
-  const out = new Map<string, PermissionItem[]>();
-  for (const permission of filtered) {
-    const list = out.get(permission.group) ?? [];
-    list.push(permission);
-    out.set(permission.group, list);
-  }
-
-  return Array.from(out.entries())
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([group, items]) => [group, items.sort((a, b) => a.key.localeCompare(b.key))] as [string, PermissionItem[]]);
 }
 
 async function requestJSON<T = unknown>(path: string, options?: RequestInit): Promise<T> {
@@ -302,58 +226,4 @@ function extractMessage(payload: unknown): string | null {
 function normalizeError(error: unknown, fallback: string) {
   if (error instanceof Error) return error.message;
   return fallback;
-}
-
-function translateGroupLabel(group: string, locale: string): string {
-  if (!locale.startsWith("fa")) {
-    return group.replaceAll("_", " ");
-  }
-  const map: Record<string, string> = {
-    policies: "سیاست‌ها",
-    roles: "نقش‌ها",
-    users: "کاربران",
-    teams: "تیم‌ها",
-    organization_units: "واحدهای سازمانی",
-    virtual_accounts: "حساب‌های مجازی",
-    provider_accounts: "حساب‌های ارائه‌دهنده",
-    settings: "تنظیمات",
-    other: "سایر",
-  };
-  return map[group] ?? group.replaceAll("_", " ");
-}
-
-function translatePermissionDescription(item: PermissionItem, locale: string): string {
-  if (!locale.startsWith("fa")) {
-    return item.description || item.key;
-  }
-
-  const generated = generatePersianPermissionDescription(item.key);
-  if (generated) return generated;
-  return item.description || item.key;
-}
-
-function generatePersianPermissionDescription(permissionKey: string): string {
-  const [resourceRaw, actionRaw] = permissionKey.split(":");
-  const resourceMap: Record<string, string> = {
-    policy: "سیاست",
-    role: "نقش",
-    user: "کاربر",
-    team: "تیم",
-    org_unit: "واحد سازمانی",
-    virtual_account: "حساب مجازی",
-    provider_account: "حساب ارائه‌دهنده",
-    settings: "تنظیمات",
-  };
-  const actionMap: Record<string, string> = {
-    list: "مشاهده فهرست",
-    read: "مشاهده جزئیات",
-    create: "ایجاد",
-    manage: "مدیریت",
-    delete: "حذف",
-  };
-
-  const resource = resourceMap[resourceRaw ?? ""];
-  const action = actionMap[actionRaw ?? ""];
-  if (!resource || !action) return "";
-  return `اجازه ${action} ${resource}`;
 }

@@ -12,6 +12,8 @@ export { HelpLink } from "./HelpLink";
 export { DEFAULT_IDENTIFIER_DESCRIPTION, IDENTIFIER_PATTERN, IdentifierField, isValidIdentifier } from "./IdentifierField";
 export { MetricCard } from "./MetricCard";
 export { PageHeader } from "./PageHeader";
+export { PermissionEditor, type PermissionEditorLabels, type PermissionEditorMode, type PermissionEditorProps, type PermissionOption } from "./PermissionEditor";
+export { PermissionSummary, getPermissionSelectionSummary, type PermissionSummaryLabels, type PermissionSummaryProps } from "./PermissionSummary";
 export { RowActionsMenu } from "./RowActionsMenu";
 export { SearchField } from "./SearchField";
 export { SectionHeader } from "./SectionHeader";
