@@ -5,9 +5,9 @@ import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, Plus, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 
-import { AppSelectField, AppSwitchField, FormSection, IdentifierField, PageContainer, PageHeader } from "@/components/app-ui";
+import { AppSelectField, AppSwitchField, FormSection, IdentifierField, PageContainer, PageHeader, RemovableChipList } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -451,46 +451,11 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
                     </Button>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    {rowField === "subject"
-                      ? subjectTokens.map((token) => {
-                          const item = toSubjectSelection(token);
-                          const displayName = subjectDisplayNameByRow[index]?.[token] ?? item.display_name ?? item.principal_id ?? token;
-                          return (
-                            <SelectionChip
-                              key={token}
-                              label={`${item.type}: ${displayName}`}
-                              removeLabel={t("aria.removeSelection", { label: `${item.type}: ${displayName}` })}
-                              onRemove={() => {
-                                form.setValue(
-                                  `conditions.conditions.${index}.values`,
-                                  subjectTokens.filter((value) => value !== token),
-                                  { shouldValidate: true, shouldDirty: true },
-                                );
-                                setSubjectDisplayNameByRow((prev) => {
-                                  const nextRow = { ...(prev[index] ?? {}) };
-                                  delete nextRow[token];
-                                  return { ...prev, [index]: nextRow };
-                                });
-                              }}
-                            />
-                          );
-                        })
-                      : modelValues.map((token) => (
-                          <SelectionChip
-                            key={token}
-                            label={token}
-                            removeLabel={t("aria.removeSelection", { label: token })}
-                            onRemove={() => {
-                              form.setValue(
-                                `conditions.conditions.${index}.values`,
-                                modelValues.filter((value) => value !== token),
-                                { shouldValidate: true, shouldDirty: true },
-                              );
-                            }}
-                          />
-                        ))}
-                  </div>
+                  {rowField === "subject" ? (
+                    <RemovableChipList variant="outline" items={subjectTokens.map((token) => { const item = toSubjectSelection(token); const displayName = subjectDisplayNameByRow[index]?.[token] ?? item.display_name ?? item.principal_id ?? token; const label = `${item.type}: ${displayName}`; return { value: token, label, removeLabel: t("aria.removeSelection", { label }) }; })} onRemove={(token) => { form.setValue(`conditions.conditions.${index}.values`, subjectTokens.filter((value) => value !== token), { shouldValidate: true, shouldDirty: true }); setSubjectDisplayNameByRow((prev) => { const nextRow = { ...(prev[index] ?? {}) }; delete nextRow[token]; return { ...prev, [index]: nextRow }; }); }} />
+                  ) : (
+                    <RemovableChipList variant="outline" items={modelValues.map((token) => ({ value: token, label: token, removeLabel: t("aria.removeSelection", { label: token }), textDir: "ltr" as const }))} onRemove={(token) => form.setValue(`conditions.conditions.${index}.values`, modelValues.filter((value) => value !== token), { shouldValidate: true, shouldDirty: true })} />
+                  )}
 
                   <FormFieldError>{form.formState.errors.conditions?.conditions?.[index]?.values?.message}</FormFieldError>
                 </div>
@@ -762,26 +727,3 @@ function InlineSelect({
   );
 }
 
-function SelectionChip({
-  label,
-  onRemove,
-  removeLabel,
-}: {
-  label: string;
-  onRemove: () => void;
-  removeLabel: string;
-}) {
-  return (
-    <Badge variant="outline" className="gap-1 rounded-md px-2 py-1 text-xs font-normal">
-      <span className="truncate">{label}</span>
-      <button
-        type="button"
-        className="rounded-sm text-muted-foreground transition-colors hover:text-foreground"
-        onClick={onRemove}
-        aria-label={removeLabel}
-      >
-        <X className="size-3" />
-      </button>
-    </Badge>
-  );
-}

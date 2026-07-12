@@ -36,6 +36,7 @@ export { PageContainer, type PageContainerPadding, type PageContainerProps, type
 export { PermissionEditor, type PermissionEditorLabels, type PermissionEditorMode, type PermissionEditorProps, type PermissionOption } from "./PermissionEditor";
 export { PermissionSummary, getPermissionSelectionSummary, type PermissionSummaryLabels, type PermissionSummaryProps } from "./PermissionSummary";
 export { RowActionsMenu, type RowAction, type RowActionsMenuProps } from "./RowActionsMenu";
+export { RemovableChipList, type RemovableChipItem, type RemovableChipListProps } from "./RemovableChipList";
 export { SearchField } from "./SearchField";
 export { SearchPickerDialog, type SearchPickerDialogProps } from "./SearchPickerDialog";
 export { SectionHeader } from "./SectionHeader";
