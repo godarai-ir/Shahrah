@@ -15,7 +15,10 @@
     "copy": "Create Similar Copy",
     "edit": "Edit",
     "reset": "Reset changes",
-    "delete": "Delete Virtual Model"
+    "delete": "Delete Virtual Model",
+    "save": "Save",
+    "saving": "Saving...",
+    "cancel": "Cancel"
   },
   "deleteDialog": {
     "title": "Confirm deletion",
