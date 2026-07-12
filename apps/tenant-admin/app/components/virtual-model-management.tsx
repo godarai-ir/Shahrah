@@ -87,14 +87,6 @@ type TenantAdminUserLookup = { id: string; email?: string; mobile?: string; disp
 type TenantAdminUserLookupResponse = { data?: TenantAdminUserLookup[]; total?: number };
 
 type Notice = { kind: "success" | "error"; message: string } | null;
-type StatusCodeChipsInputProps = {
-  id: string;
-  value: number[];
-  onChange: (next: number[]) => void;
-  placeholder?: string;
-  disabled?: boolean;
-};
-
 const DEFAULT_TARGET: VirtualModelTarget = {
   order: 1,
   weight: 100,
@@ -935,39 +927,43 @@ export default function VirtualModelManagement() {
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="space-y-1.5">
                         <Label htmlFor={`vm-target-${index}-retry-codes`}>{t("targets.retryCodes")}</Label>
-                        <StatusCodeChipsInput
+                        <ChipInput
                           id={`vm-target-${index}-retry-codes`}
-                          value={target.policy.retry.status_codes ?? []}
-                          onChange={(next) =>
+                          value={(target.policy.retry.status_codes ?? []).map(String)}
+                          onValueChange={(next) =>
                             updateTarget(index, {
                               policy: {
                                 ...target.policy,
                                 retry: {
                                   ...target.policy.retry,
-                                  status_codes: next,
+                                  status_codes: next.map(Number),
                                 },
                               },
                             })
                           }
+                          parseValues={(raw) => parseStatusCodes(raw).map(String)}
+                          getRemoveLabel={(value) => `Remove status code ${value}`}
                           placeholder="408, 425, 429, 500, 502, 503, 504"
                         />
                       </div>
                       <div className="space-y-1.5">
                         <Label htmlFor={`vm-target-${index}-fallback-codes`}>{t("targets.fallbackCodes")}</Label>
-                        <StatusCodeChipsInput
+                        <ChipInput
                           id={`vm-target-${index}-fallback-codes`}
-                          value={target.policy.fallback.status_codes ?? []}
-                          onChange={(next) =>
+                          value={(target.policy.fallback.status_codes ?? []).map(String)}
+                          onValueChange={(next) =>
                             updateTarget(index, {
                               policy: {
                                 ...target.policy,
                                 fallback: {
                                   ...target.policy.fallback,
-                                  status_codes: next,
+                                  status_codes: next.map(Number),
                                 },
                               },
                             })
                           }
+                          parseValues={(raw) => parseStatusCodes(raw).map(String)}
+                          getRemoveLabel={(value) => `Remove status code ${value}`}
                           placeholder="429, 500, 502, 503, 504"
                         />
                       </div>
@@ -1133,10 +1129,6 @@ export default function VirtualModelManagement() {
       />
     </>
   );
-}
-
-function StatusCodeChipsInput(props: StatusCodeChipsInputProps) {
-  return <ChipInput id={props.id} value={props.value.map(String)} onValueChange={(next) => props.onChange(next.map(Number))} parseValues={(raw) => parseStatusCodes(raw).map(String)} getRemoveLabel={(value) => `Remove status code ${value}`} placeholder={props.placeholder} disabled={props.disabled} />;
 }
 
 function parseStatusCodes(input: string): number[] {

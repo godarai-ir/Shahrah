@@ -499,7 +499,7 @@ export default function VirtualUserTokenManagement({
                     </TableCell>
                     <TableCell>{getTeamName(item.team_id, teams)}</TableCell>
                     <TableCell>
-                      <StatusBadge active={item.active} t={t} />
+                      <AppStatusBadge status={item.active ? "active" : "inactive"}>{item.active ? t("status.active") : t("status.inactive")}</AppStatusBadge>
                     </TableCell>
                   </TableRow>
                 ))
@@ -641,7 +641,7 @@ export default function VirtualUserTokenManagement({
                           <TableCell>{formatDate(token.last_used_at)}</TableCell>
                           <TableCell>{formatDate(token.expires_at)}</TableCell>
                           <TableCell>
-                            <TokenStatusBadge token={token} t={t} />
+                            <AppStatusBadge status={token.revoked_at || token.blocked ? "error" : "active"}>{token.revoked_at ? t("status.revoked") : token.blocked ? t("status.blocked") : t("status.active")}</AppStatusBadge>
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-wrap gap-2">
@@ -877,16 +877,6 @@ function TokenFormView({
       </Button>
     </form>
   );
-}
-
-function StatusBadge({ active, t }: { active: boolean; t: ReturnType<typeof useTranslations> }) {
-  return <AppStatusBadge status={active ? "active" : "inactive"}>{active ? t("status.active") : t("status.inactive")}</AppStatusBadge>;
-}
-
-function TokenStatusBadge({ token, t }: { token: VATToken; t: ReturnType<typeof useTranslations> }) {
-  if (token.revoked_at) return <AppStatusBadge status="error">{t("status.revoked")}</AppStatusBadge>;
-  if (token.blocked) return <AppStatusBadge status="error">{t("status.blocked")}</AppStatusBadge>;
-  return <AppStatusBadge status="active">{t("status.active")}</AppStatusBadge>;
 }
 
 function buildVirtualUserPayload(form: VirtualUserForm, includeActive = false) {

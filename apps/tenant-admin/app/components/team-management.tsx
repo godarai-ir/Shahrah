@@ -419,7 +419,7 @@ export default function TeamManagement({
                     <TableCell><div className="min-w-44"><p className="truncate font-medium">{getTeamName(team)}</p><p className="truncate text-xs text-muted-foreground">{team.alias}</p></div></TableCell>
                     <TableCell>{getOrgUnitName(team, orgUnits, t)}</TableCell>
                     <TableCell><Badge variant="outline">{t(`workspace.${getWorkspaceType(team)}`)}</Badge></TableCell>
-                    <TableCell><StatusBadge status={getStatus(team)} t={t} /></TableCell>
+                    <TableCell>{getStatus(team) === "blocked" ? <AppStatusBadge status="error">{t("status.blocked")}</AppStatusBadge> : <AppStatusBadge status="active">{t("status.active")}</AppStatusBadge>}</TableCell>
                     <TableCell><DateTimeValue value={team.updated_at} locale={locale} format={{ month: "short", day: "numeric" }} /></TableCell>
                     <TableCell className="text-end">
                       <RowActionsMenu
@@ -679,11 +679,6 @@ function firstPositiveCount(...values: unknown[]) {
   return 0;
 }
 function toText(value: unknown) { if (typeof value === "string") return value; if (typeof value === "number") return String(value); return ""; }
-function StatusBadge({ status, t }: { status: ReturnType<typeof getStatus>; t: ReturnType<typeof useTranslations> }) {
-  if (status === "blocked") return <AppStatusBadge status="error">{t("status.blocked")}</AppStatusBadge>;
-  return <AppStatusBadge status="active">{t("status.active")}</AppStatusBadge>;
-}
-
 function permissionTranslationKey(permission: (typeof PERMISSIONS)[number]) {
   return permission.slice("/key/".length);
 }
