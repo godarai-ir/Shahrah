@@ -1,6 +1,7 @@
 export { AppCard } from "./AppCard";
 export { CatalogFilterCombobox } from "./CatalogFilterCombobox";
 export { AppSelectField, type AppSelectFieldProps, type AppSelectGroup, type AppSelectOption } from "./AppSelectField";
+export { AppTextField, AppTextareaField, type AppTextFieldProps, type AppTextareaFieldProps } from "./AppTextField";
 export { CompactValue } from "./CompactValue";
 export { CommercialPlanUpgradeDialog } from "./CommercialPlanUpgradeDialog";
 export { ConfirmDialog } from "./ConfirmDialog";

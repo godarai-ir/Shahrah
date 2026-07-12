@@ -13,13 +13,12 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, DefinitionList, DefinitionListItem, EmptyState, FormSheet, HelpLink, IdentifierField, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, AppTextField, CommercialPlanUpgradeDialog, DefinitionList, DefinitionListItem, EmptyState, FormSheet, HelpLink, IdentifierField, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -848,10 +847,7 @@ function VirtualUserFormView({
   return (
     <form className="mt-6 flex flex-col gap-4" onSubmit={onSubmit}>
       <IdentifierField id="vu-alias" label={t("fields.alias")} value={form.alias} onChange={(event) => update("alias", event.target.value)} required />
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="vu-display">{t("fields.displayName")}</Label>
-        <Input id="vu-display" value={form.displayName} onChange={(event) => update("displayName", event.target.value)} />
-      </div>
+      <AppTextField id="vu-display" label={t("fields.displayName")} value={form.displayName} onChange={(event) => update("displayName", event.target.value)} />
       <AppSelectField
         label={t("fields.team")}
         ariaLabel={t("fields.team")}
@@ -904,15 +900,15 @@ function TokenFormView({
   const selectedModels = modelsFromInput(form.allowedModels);
   return (
     <form className="mt-6 flex flex-col gap-4" onSubmit={onSubmit}>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="vat-name">{t("fields.tokenName")}</Label>
-        <Input id="vat-name" value={form.keyAlias} onChange={(event) => update("keyAlias", event.target.value)} required />
-      </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="vat-expiry">{t("fields.expiresIn")}</Label>
-        <Input id="vat-expiry" value={form.expiresIn} onChange={(event) => update("expiresIn", event.target.value)} placeholder="30d" />
-        <p className="text-xs leading-5 text-muted-foreground">{t("createToken.expiryExamples")}</p>
-      </div>
+      <AppTextField id="vat-name" label={t("fields.tokenName")} value={form.keyAlias} onChange={(event) => update("keyAlias", event.target.value)} required />
+      <AppTextField
+        id="vat-expiry"
+        label={t("fields.expiresIn")}
+        value={form.expiresIn}
+        onChange={(event) => update("expiresIn", event.target.value)}
+        placeholder="30d"
+        description={t("createToken.expiryExamples")}
+      />
       <div className="flex flex-col gap-2">
         <Label>{t("fields.allowedModels")}</Label>
         <div className="max-h-64 overflow-auto rounded-md border p-2">

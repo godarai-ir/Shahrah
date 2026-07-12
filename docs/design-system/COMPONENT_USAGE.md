@@ -146,6 +146,8 @@ For validation, set `data-invalid` on `Field` and `aria-invalid` on the control.
 
 Product wrappers such as `IdentifierField` and `AppSelectField` already compose the Field family; place them directly inside a `FieldGroup` rather than wrapping them in another `Field`.
 
+Use `AppTextField` and `AppTextareaField` for ordinary labeled text controls. They standardize generated IDs, disabled/invalid semantics, description, and error rendering. Keep specialized inputs such as identifiers, OTP, currency, and search on their dedicated components.
+
 ## Permission Editing
 
 Use `PermissionEditor` for controlled permission selection with search, selected/all views, grouped checkboxes, and group-level select/clear actions. Keep the permission catalog and selected keys in the feature; pass localized labels and formatting callbacks into the component.

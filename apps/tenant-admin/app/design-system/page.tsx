@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Shield, Trash2, Upload, X } from "lucide-react";
 
-import { AppCard, AppSelectField, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyableValue, DataListPanel, DefinitionList, DefinitionListItem, EmptyState, FilterCombobox, FormSection, FormSheet, HelpLink, IdentifierField, MetricCard, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, StatusOptionGroup, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, AppTextField, AppTextareaField, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyableValue, DataListPanel, DefinitionList, DefinitionListItem, EmptyState, FilterCombobox, FormSection, FormSheet, HelpLink, IdentifierField, MetricCard, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, StatusOptionGroup, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
 import { Attachment, AttachmentAction, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -333,6 +333,12 @@ export default function DesignSystemPage() {
             <FieldError>Use English letters, numbers, dashes, or underscores.</FieldError>
           </Field>
         </FieldGroup>
+        <AppCard title="Text fields" description="Use the app field wrappers for consistent labels, helper text, and validation state.">
+          <FieldGroup className="grid gap-4 md:grid-cols-2">
+            <AppTextField label="Display name" placeholder="Production team" description="Shown throughout the tenant admin." />
+            <AppTextareaField label="Description" placeholder="Describe this resource" />
+          </FieldGroup>
+        </AppCard>
       </section>
 
       <section className="flex flex-col gap-4">

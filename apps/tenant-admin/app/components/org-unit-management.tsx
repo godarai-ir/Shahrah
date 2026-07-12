@@ -18,7 +18,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, CompactValue, DefinitionList, DefinitionListItem, EmptyState, FilterCombobox, HelpLink, IdentifierField, MetricCard, OperationNotice, PageHeader, RowActionsMenu, TablePagination } from "@/components/app-ui";
+import { AppCard, AppSelectField, AppTextField, CommercialPlanUpgradeDialog, CompactValue, DefinitionList, DefinitionListItem, EmptyState, FilterCombobox, HelpLink, IdentifierField, MetricCard, OperationNotice, PageHeader, RowActionsMenu, TablePagination } from "@/components/app-ui";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -1043,24 +1043,20 @@ function OrgUnitForm({
   return (
     <form className="mt-6 flex flex-col gap-5" onSubmit={onSubmit}>
       <IdentifierField id="org-alias" label={t("form.alias")} value={form.alias} onChange={(event) => update("alias", event.target.value)} placeholder={t("form.aliasPlaceholder")} required />
-      <div className="grid gap-2">
-        <Label htmlFor="org-display-name">{t("form.displayName")}</Label>
-        <Input
-          id="org-display-name"
-          value={form.displayName}
-          onChange={(event) => update("displayName", event.target.value)}
-          placeholder={t("form.displayNamePlaceholder")}
-        />
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor="org-description">{t("form.description")}</Label>
-        <Input
-          id="org-description"
-          value={form.description}
-          onChange={(event) => update("description", event.target.value)}
-          placeholder={t("form.descriptionPlaceholder")}
-        />
-      </div>
+      <AppTextField
+        id="org-display-name"
+        label={t("form.displayName")}
+        value={form.displayName}
+        onChange={(event) => update("displayName", event.target.value)}
+        placeholder={t("form.displayNamePlaceholder")}
+      />
+      <AppTextField
+        id="org-description"
+        label={t("form.description")}
+        value={form.description}
+        onChange={(event) => update("description", event.target.value)}
+        placeholder={t("form.descriptionPlaceholder")}
+      />
 
       <Button type="submit" disabled={isSaving} className="w-full">
         {isSaving ? t("actions.saving") : submitLabel}
