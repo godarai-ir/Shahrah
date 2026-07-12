@@ -525,6 +525,7 @@
       "viewDocs": "View Docs",
       "disconnect": "Disconnect",
       "disconnecting": "Disconnecting...",
+      "cancel": "Cancel",
       "readDocs": "Learn more",
       "reload": "Reload"
     },
