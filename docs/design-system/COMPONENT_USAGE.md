@@ -62,6 +62,8 @@ Within table bodies, use `TableLoadingRows` for initial skeleton rows and `Table
 
 Use `ActiveFilterChips` below advanced filter controls to summarize applied filters and remove them individually. Pass localized accessible removal labels through `getRemoveLabel`; filter state and key interpretation remain feature-owned.
 
+Use `ChipInput` for compact editable sets such as status codes, tags, or technical keys. Supply a domain parser when values need validation or normalization; the component owns keyboard commit, duplicate prevention, backspace removal, and accessible chip removal.
+
 Use `DateTimeValue` for visible timestamps so the UI emits a semantic `time` element, localized digits/calendar, a stable invalid-value fallback, and tabular numerals. Use the shared `formatDateTime` utility only when a formatted string is required by an interpolation or non-React API.
 
 Use `DateTimeRangeField` for controlled ISO from/to filters. It owns conversion to browser-local `datetime-local` values, LTR input direction, calendar adornments, Field semantics, and responsive two-column layout. Use `DateTimeField` when only one timestamp is required.

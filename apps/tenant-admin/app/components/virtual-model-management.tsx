@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { ArrowDown, ArrowUp, CheckCircle2, Copy, Edit3, Plus, RefreshCw, Save, Search, Trash2, XCircle } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CopyAction, DateTimeValue, HelpLink, IdentifierField, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
+import { ChipInput, CopyAction, DateTimeValue, HelpLink, IdentifierField, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -1138,70 +1138,7 @@ export default function VirtualModelManagement() {
 }
 
 function StatusCodeChipsInput(props: StatusCodeChipsInputProps) {
-  const [draft, setDraft] = useState("");
-
-  function addCodes(raw: string) {
-    const codes = parseStatusCodes(raw);
-    if (codes.length === 0) return;
-    const seen = new Set(props.value);
-    const next = [...props.value];
-    for (const code of codes) {
-      if (seen.has(code)) continue;
-      seen.add(code);
-      next.push(code);
-    }
-    props.onChange(next);
-  }
-
-  function commitDraft() {
-    if (!draft.trim()) return;
-    addCodes(draft);
-    setDraft("");
-  }
-
-  function removeCode(code: number) {
-    props.onChange(props.value.filter((item) => item !== code));
-  }
-
-  return (
-    <div className="rounded-md border bg-background px-2 py-2">
-      <div className="flex flex-wrap items-center gap-2">
-        {props.value.map((code) => (
-          <Badge key={code} variant="secondary" className="gap-1 pe-1">
-            <span>{code}</span>
-            <button
-              type="button"
-              className="rounded-sm p-0.5 text-muted-foreground transition hover:bg-accent hover:text-foreground"
-              onClick={() => removeCode(code)}
-              aria-label={`Remove status code ${code}`}
-              disabled={props.disabled}
-            >
-              <XCircle className="h-3.5 w-3.5" />
-            </button>
-          </Badge>
-        ))}
-        <Input
-          id={props.id}
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onBlur={commitDraft}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === ",") {
-              event.preventDefault();
-              commitDraft();
-              return;
-            }
-            if (event.key === "Backspace" && !draft && props.value.length > 0) {
-              removeCode(props.value[props.value.length - 1]);
-            }
-          }}
-          placeholder={props.placeholder}
-          className="h-8 min-w-[120px] flex-1 border-0 p-0 ps-1 shadow-none focus-visible:ring-0"
-          disabled={props.disabled}
-        />
-      </div>
-    </div>
-  );
+  return <ChipInput id={props.id} value={props.value.map(String)} onValueChange={(next) => props.onChange(next.map(Number))} parseValues={(raw) => parseStatusCodes(raw).map(String)} getRemoveLabel={(value) => `Remove status code ${value}`} placeholder={props.placeholder} disabled={props.disabled} />;
 }
 
 function parseStatusCodes(input: string): number[] {
