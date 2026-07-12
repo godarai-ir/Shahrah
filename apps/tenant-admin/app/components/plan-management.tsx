@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { ArrowUpRight, Check } from "lucide-react";
 
+import { EntityIdentityHeader } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -173,14 +174,8 @@ export default function PlanManagement({
           const prices = orderedPrices(plan.prices ?? []);
           return (
             <Card key={plan.slug} className="rounded-lg">
-              <CardHeader className="gap-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <CardTitle>{plan.display_name}</CardTitle>
-                    <p className="mt-2 text-sm text-muted-foreground">{plan.description ?? plan.slug}</p>
-                  </div>
-                  {isCurrent ? <Badge variant="secondary">{t("badges.current")}</Badge> : null}
-                </div>
+              <CardHeader>
+                <EntityIdentityHeader title={plan.display_name} identifier={plan.slug} description={plan.description} status={isCurrent ? <Badge variant="secondary">{t("badges.current")}</Badge> : null} />
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 <div className="flex flex-col gap-2 text-sm">

@@ -12,10 +12,10 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { AppCard, AppSelectField, AppTextField, CommercialPlanUpgradeDialog, CopyAction, DefinitionList, DefinitionListItem, EmptyState, FormSheet, HelpLink, IdentifierField, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, AppTextField, CommercialPlanUpgradeDialog, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, FormSheet, HelpLink, IdentifierField, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -542,15 +542,13 @@ export default function VirtualUserTokenManagement({
           ) : (
             <>
               <Card>
-                <CardHeader className="flex flex-row items-start justify-between gap-4">
-                  <div className="flex min-w-0 flex-col gap-1">
-                    <CardTitle className="truncate">{selectedVirtualUser.display_name || selectedVirtualUser.alias}</CardTitle>
-                    <div className="flex min-w-0 items-center gap-1">
-                      <p className="truncate font-mono text-xs text-muted-foreground">{selectedVirtualUser.id}</p>
-                      <CopyAction value={selectedVirtualUser.id} copyLabel={t("actions.copyIdentifier")} copiedLabel={t("messages.identifierCopied")} onCopyError={() => setBanner({ kind: "error", message: t("messages.identifierCopyFailed") })} />
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
+                <CardHeader>
+                  <EntityIdentityHeader
+                    title={selectedVirtualUser.display_name || selectedVirtualUser.alias}
+                    identifier={selectedVirtualUser.id}
+                    copy={{ copyLabel: t("actions.copyIdentifier"), copiedLabel: t("messages.identifierCopied"), onCopyError: () => setBanner({ kind: "error", message: t("messages.identifierCopyFailed") }) }}
+                    status={<AppStatusBadge status={selectedVirtualUser.active ? "active" : "inactive"}>{selectedVirtualUser.active ? t("status.active") : t("status.inactive")}</AppStatusBadge>}
+                    actions={<>
                     <Button variant="outline" size="icon-sm" aria-label={t("actions.editUser")} title={t("actions.editUser")} onClick={openEditVirtualUser}>
                       <Pencil />
                     </Button>
@@ -563,7 +561,8 @@ export default function VirtualUserTokenManagement({
                     >
                       <Trash2 />
                     </Button>
-                  </div>
+                    </>}
+                  />
                 </CardHeader>
               </Card>
 

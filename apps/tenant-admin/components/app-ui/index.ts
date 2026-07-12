@@ -10,6 +10,7 @@ export { CopyAction, type CopyActionProps } from "./CopyAction";
 export { DataListPanel } from "./DataListPanel";
 export { DefinitionList, DefinitionListItem, type DefinitionListItemProps, type DefinitionListProps } from "./DefinitionList";
 export { EmptyState, type EmptyStateDensity, type EmptyStateProps, type EmptyStateVariant } from "./EmptyState";
+export { EntityIdentityHeader, type EntityIdentityHeaderProps } from "./EntityIdentityHeader";
 export { FilterCombobox } from "./FilterCombobox";
 export { FormSection } from "./FormSection";
 export { FormSheet, type FormSheetProps, type FormSheetSize } from "./FormSheet";
