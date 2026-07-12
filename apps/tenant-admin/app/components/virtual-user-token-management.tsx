@@ -13,7 +13,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, DefinitionList, DefinitionListItem, EmptyState, HelpLink, IdentifierField, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge } from "@/components/app-ui";
+import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, DefinitionList, DefinitionListItem, EmptyState, HelpLink, IdentifierField, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -158,7 +158,6 @@ export default function VirtualUserTokenManagement({
   const [actionIntent, setActionIntent] = useState<TokenAction | null>(null);
   const [virtualUserForm, setVirtualUserForm] = useState(emptyVirtualUserForm);
   const [tokenForm, setTokenForm] = useState(emptyTokenForm);
-  const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [banner, setBanner] = useState<Banner | null>(initialError ? { kind: "error", message: initialError } : null);
   const isVatFeatureEnabled = hasLoadedEntitlements
     ? readBooleanFeature(entitlements?.features?.[FEATURE_VAT_ENABLED], false)
@@ -317,18 +316,11 @@ export default function VirtualUserTokenManagement({
     }
   }
 
-  async function deleteVirtualUser(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function deleteVirtualUser() {
     if (!selectedVirtualUser) return;
-    if (deleteConfirmation.trim() !== selectedVirtualUser.alias) {
-      setBanner({ kind: "error", message: t("messages.deleteConfirmAlias") });
-      return;
-    }
     setIsSaving(true);
     try {
       await requestJSON(`/api/virtual-users/${encodeURIComponent(selectedVirtualUser.id)}`, { method: "DELETE" });
-      setDeleteUserOpen(false);
-      setDeleteConfirmation("");
       setSelectedID("");
       setTokens([]);
       setTokenTotal(0);
@@ -337,6 +329,7 @@ export default function VirtualUserTokenManagement({
       await loadVirtualUsers(0, query.trim());
     } catch (error) {
       setBanner({ kind: "error", message: normalizeError(error, t("messages.deleteUserError")) });
+      throw error;
     } finally {
       setIsSaving(false);
     }
@@ -599,10 +592,7 @@ export default function VirtualUserTokenManagement({
                       size="icon-sm"
                       aria-label={t("actions.deleteUser")}
                       title={t("actions.deleteUser")}
-                      onClick={() => {
-                        setDeleteConfirmation("");
-                        setDeleteUserOpen(true);
-                      }}
+                      onClick={() => setDeleteUserOpen(true)}
                     >
                       <Trash2 />
                     </Button>
@@ -772,55 +762,27 @@ export default function VirtualUserTokenManagement({
         </SheetContent>
       </Sheet>
 
-      <Dialog
-        open={deleteUserOpen}
-        onOpenChange={(open) => {
-          if (isSaving) return;
-          setDeleteUserOpen(open);
-          if (!open) setDeleteConfirmation("");
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("deleteUser.title")}</DialogTitle>
-            <DialogDescription>
-              {selectedVirtualUser
-                ? t("deleteUser.description", { alias: selectedVirtualUser.alias })
-                : t("deleteUser.fallbackDescription")}
-            </DialogDescription>
-          </DialogHeader>
-          {activeTokenCount > 0 ? (
+      {selectedVirtualUser ? (
+        <TypedConfirmDialog
+          open={deleteUserOpen}
+          onOpenChange={setDeleteUserOpen}
+          title={t("deleteUser.title")}
+          description={t("deleteUser.description", { alias: selectedVirtualUser.alias })}
+          expectedValue={selectedVirtualUser.alias}
+          inputLabel={t("deleteUser.confirmLabel", { alias: selectedVirtualUser.alias })}
+          cancelLabel={t("confirm.cancel")}
+          confirmLabel={t("actions.deleteUser")}
+          pendingLabel={t("actions.saving")}
+          onConfirm={deleteVirtualUser}
+          warning={activeTokenCount > 0 ? (
             <Alert variant="warning">
               <ShieldCheck />
               <AlertTitle>{t("deleteUser.activeTokenWarningTitle")}</AlertTitle>
               <AlertDescription>{t("messages.deleteUserActiveTokenWarning", { count: activeTokenCount })}</AlertDescription>
             </Alert>
-          ) : null}
-          <form className="flex flex-col gap-4" onSubmit={deleteVirtualUser}>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="delete-virtual-user-alias">
-                {selectedVirtualUser
-                  ? t("deleteUser.confirmLabel", { alias: selectedVirtualUser.alias })
-                  : t("fields.alias")}
-              </Label>
-              <Input
-                id="delete-virtual-user-alias"
-                value={deleteConfirmation}
-                onChange={(event) => setDeleteConfirmation(event.target.value)}
-                placeholder={selectedVirtualUser?.alias ?? ""}
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDeleteUserOpen(false)} disabled={isSaving}>
-                {t("confirm.cancel")}
-              </Button>
-              <Button type="submit" variant="destructive" disabled={isSaving}>
-                {isSaving ? t("actions.saving") : t("actions.deleteUser")}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+          ) : undefined}
+        />
+      ) : null}
 
       <Dialog
         open={confirmOpen}

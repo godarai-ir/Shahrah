@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Shield, Trash2, Upload, X } from "lucide-react";
 
-import { AppCard, AppSelectField, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyableValue, DataListPanel, DefinitionList, DefinitionListItem, EmptyState, FilterCombobox, FormSection, HelpLink, IdentifierField, MetricCard, OneTimeSecretDialog, PageContainer, PageHeader, PermissionEditor, PermissionSummary, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, StatusOptionGroup, TablePagination } from "@/components/app-ui";
+import { AppCard, AppSelectField, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyableValue, DataListPanel, DefinitionList, DefinitionListItem, EmptyState, FilterCombobox, FormSection, HelpLink, IdentifierField, MetricCard, OneTimeSecretDialog, PageContainer, PageHeader, PermissionEditor, PermissionSummary, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, StatusOptionGroup, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
 import { Attachment, AttachmentAction, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -43,6 +43,7 @@ export default function DesignSystemPage() {
   const [secretDialogOpen, setSecretDialogOpen] = useState(false);
   const [demoSecret, setDemoSecret] = useState<string | null>(null);
   const [statusOption, setStatusOption] = useState<"metadata" | "full">("metadata");
+  const [typedConfirmOpen, setTypedConfirmOpen] = useState(false);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const requestsDisplay = formatCompactNumber(128_400, { locale: "en-US" });
   const spendDisplay = formatCompactCurrency(12_340, { locale: "en-US", currency: "USD" });
@@ -184,6 +185,21 @@ export default function DesignSystemPage() {
             <DefinitionListItem label="Request ID" value="req_demo_123456789" mono valueDir="ltr" wrap />
             <DefinitionListItem label="Status" value={<StatusBadge status="active">Active</StatusBadge>} />
           </DefinitionList>
+        </AppCard>
+        <AppCard title="Typed confirmation" description="Reserve typed confirmation for high-impact destructive actions.">
+          <Button type="button" variant="destructive" onClick={() => setTypedConfirmOpen(true)}>Delete demo team</Button>
+          <TypedConfirmDialog
+            open={typedConfirmOpen}
+            onOpenChange={setTypedConfirmOpen}
+            title="Delete demo team"
+            description="This action cannot be undone."
+            expectedValue="demo-team"
+            inputLabel="Type demo-team to confirm"
+            cancelLabel="Cancel"
+            confirmLabel="Delete"
+            pendingLabel="Deleting"
+            onConfirm={() => undefined}
+          />
         </AppCard>
         <AppCard title="Status option group" description="Use for a single setting selected from visual status cards.">
           <StatusOptionGroup

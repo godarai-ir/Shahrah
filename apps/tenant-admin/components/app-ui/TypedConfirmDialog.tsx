@@ -25,7 +25,11 @@ export type TypedConfirmDialogProps = {
   inputDir?: "rtl" | "ltr" | "auto";
 };
 
-export function TypedConfirmDialog({
+export function TypedConfirmDialog(props: TypedConfirmDialogProps) {
+  return <TypedConfirmDialogState key={`${props.open ? "open" : "closed"}:${props.expectedValue}`} {...props} />;
+}
+
+function TypedConfirmDialogState({
   open,
   onOpenChange,
   title,
@@ -45,10 +49,6 @@ export function TypedConfirmDialog({
   const [typedValue, setTypedValue] = React.useState("");
   const [pending, setPending] = React.useState(false);
   const matches = typedValue.trim() === expectedValue;
-
-  React.useEffect(() => {
-    if (!open) setTypedValue("");
-  }, [open, expectedValue]);
 
   function changeOpen(nextOpen: boolean) {
     if (pending) return;
@@ -74,7 +74,7 @@ export function TypedConfirmDialog({
 
   return (
     <Dialog open={open} onOpenChange={changeOpen}>
-      <DialogContent aria-busy={pending}>
+      <DialogContent aria-busy={pending} showCloseButton={!pending}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>

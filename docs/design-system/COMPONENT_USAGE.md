@@ -102,6 +102,12 @@ Use `open` and `onOpenChange` for feature-controlled dialogs, or pass `trigger` 
 
 The dialog closes automatically after a successful confirmation and stays open when the promise rejects. Use `onConfirmError` to surface rejected operations. Set `closeOnConfirm={false}` only when the feature itself closes the dialog after updating its domain state.
 
+## TypedConfirmDialog
+
+Use `TypedConfirmDialog` only for high-impact destructive actions that require typing an exact technical identifier such as a team or virtual-user alias. Keep ordinary confirmations on `ConfirmDialog`.
+
+Pass the localized input instruction separately from `expectedValue`. Confirmation remains disabled until the trimmed value matches exactly. Async confirmation disables dismissal, shows the shared `Spinner`, closes after success, and stays open when the promise rejects. Technical confirmation values default to LTR.
+
 ## Copyable Values And One-Time Secrets
 
 Use `CopyableValue` for technical values that need consistent clipboard behavior. It composes `InputGroup`, keeps raw values LTR, provides modern clipboard and legacy fallback behavior, announces successful copies, and optionally supports masked values with an explicit reveal action.

@@ -11,14 +11,13 @@ import {
 } from "lucide-react";
 
 import { usePermissions } from "@/app/components/permissions-context";
-import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, FilterCombobox, HelpLink, IdentifierField, MetricCard, PageHeader, RowActionsMenu, SearchField, StatusBadge as AppStatusBadge, TablePagination } from "@/components/app-ui";
+import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, FilterCombobox, HelpLink, IdentifierField, MetricCard, PageHeader, RowActionsMenu, SearchField, StatusBadge as AppStatusBadge, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
@@ -125,7 +124,6 @@ export default function TeamManagement({
   const [memberUserInput, setMemberUserInput] = useState("");
   const [memberRole, setMemberRole] = useState("team_member");
   const [memberPerms, setMemberPerms] = useState<string[]>(DEFAULT_PERMISSIONS);
-  const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
   const canManage = ["tenant_admin", "proxy_admin", "org_admin", "team_admin"].includes(currentUserRole)
     || canAnyPermission(permissions, ["team:manage"]);
@@ -357,22 +355,16 @@ export default function TeamManagement({
     }
   }
 
-  async function handleDelete(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleDelete() {
     if (!selectedTeam) return;
-    if (deleteConfirmation.trim() !== selectedTeam.alias) return setBanner({ kind: "error", message: t("messages.deleteConfirmAlias") });
-    if (getActiveKeys(selectedTeam) > 0 || members.length > 0 || getVirtualUsers(selectedTeam) > 0) {
-      return setBanner({ kind: "warning", message: t("messages.deleteBlocked") });
-    }
     setIsSaving(true);
     try {
       await requestJSON(`/api/teams/${encodeURIComponent(selectedTeam.id)}`, { method: "DELETE" });
-      setDeleteOpen(false);
-      setDeleteConfirmation("");
       setBanner({ kind: "success", message: t("messages.deleteSuccess") });
       await loadTeams(0, query.trim());
     } catch (error) {
       setBanner({ kind: "error", message: normalizeError(error, t("messages.deleteError")) });
+      throw error;
     } finally {
       setIsSaving(false);
     }
@@ -498,9 +490,22 @@ export default function TeamManagement({
         <div className="mt-6 flex flex-col gap-2">{members.map((member) => <div key={member.user_id} className="rounded-md border border-border p-3"><div className="flex items-center justify-between gap-2"><span className="truncate text-sm" dir="auto">{getMemberDisplayLabel(member, memberLabelByUserID, t("members.unknownUser"))}</span><Badge variant={member.role === "team_admin" ? "default" : "secondary"}>{member.role}</Badge></div><div className="mt-2 flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => void updateMember(member, member.role === "team_admin" ? "team_member" : "team_admin", member.team_member_permissions ?? DEFAULT_PERMISSIONS)} disabled={!canManage || isSaving}>{member.role === "team_admin" ? t("members.makeTeamMember") : t("members.makeTeamAdmin")}</Button><Button size="sm" variant="outline" className="text-destructive" onClick={() => void removeMember(member.user_id)} disabled={!canManage || isSaving}>{t("members.remove")}</Button></div></div>)}</div>
       </SheetContent></Sheet>
 
-      <Sheet open={deleteOpen} onOpenChange={setDeleteOpen}><SheetContent side="left" className="w-full max-w-md sm:w-3/4"><SheetHeader><SheetTitle>{t("delete.title")}</SheetTitle><SheetDescription>{t("delete.description")}</SheetDescription></SheetHeader>
-        {selectedTeam ? <form className="mt-6 flex flex-col gap-4" onSubmit={handleDelete}><Alert variant="warning"><AlertTriangle aria-hidden="true" /><AlertTitle>{t("delete.guardTitle")}</AlertTitle><AlertDescription>{t("delete.guardDescription")}</AlertDescription></Alert><div className="grid gap-2"><Label htmlFor="delete-alias">{t("delete.confirm", { alias: selectedTeam.alias })}</Label><Input id="delete-alias" value={deleteConfirmation} onChange={(e) => setDeleteConfirmation(e.target.value)} placeholder={selectedTeam.alias} /></div><Button type="submit" variant="destructive" disabled={!canDelete || isSaving} className="w-full">{t("delete.submit")}</Button></form> : null}
-      </SheetContent></Sheet>
+      {selectedTeam ? (
+        <TypedConfirmDialog
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          title={t("delete.title")}
+          description={t("delete.description")}
+          expectedValue={selectedTeam.alias}
+          inputLabel={t("delete.confirm", { alias: selectedTeam.alias })}
+          cancelLabel={t("actions.cancel")}
+          confirmLabel={t("delete.submit")}
+          pendingLabel={t("actions.saving")}
+          onConfirm={handleDelete}
+          disabled={!canDelete || getActiveKeys(selectedTeam) > 0 || members.length > 0 || getVirtualUsers(selectedTeam) > 0}
+          warning={<Alert variant="warning"><AlertTriangle aria-hidden="true" /><AlertTitle>{t("delete.guardTitle")}</AlertTitle><AlertDescription>{t("delete.guardDescription")}</AlertDescription></Alert>}
+        />
+      ) : null}
 
       <CommercialPlanUpgradeDialog
         open={isUpgradeDialogOpen}
