@@ -1,16 +1,6 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-
-export function Field(props: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <Label>{props.label}</Label>
-      {props.children}
-    </div>
-  );
-}
 
 export function ConfigSummaryPills(props: { pills: string[]; emptyLabel: string }) {
   const filtered = props.pills.filter(Boolean);

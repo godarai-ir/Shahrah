@@ -14,6 +14,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -32,7 +33,6 @@ import {
 } from "@/app/components/provider-account-wizard/account-readiness";
 import { CredentialFields } from "@/app/components/provider-account-wizard/credential-fields";
 import { EffectiveModelsTable } from "@/app/components/provider-account-wizard/effective-models-table";
-import { Field } from "@/app/components/provider-account-wizard/field";
 import { ModelsEditor } from "@/app/components/provider-account-wizard/models-editor";
 import { EmptyOverview, ReadinessBadge, SummaryKPI } from "@/app/components/provider-account-wizard/overview";
 import { buildPrincipalSelectorLabels } from "@/app/components/provider-account-wizard/principal-labels";
@@ -1192,7 +1192,8 @@ export default function ProviderAccountWizard(props?: {
                       </div>
 
                       <div className="grid gap-5">
-                        <Field label={t("fields.accountName")} id="accountName">
+                        <Field>
+                          <FieldLabel htmlFor="accountName">{t("fields.accountName")}</FieldLabel>
                           <Input
                             id="accountName"
                             value={name}
@@ -1259,7 +1260,8 @@ export default function ProviderAccountWizard(props?: {
                                 </Button>
                               </div>
                             ) : null}
-                            <Field label={ux("integrations.wizard.apiKeyLabel")} id="providerApiKey">
+                            <Field>
+                              <FieldLabel htmlFor="providerApiKey">{ux("integrations.wizard.apiKeyLabel")}</FieldLabel>
                               {shouldShowStoredAPIKey ? (
                                 <div className="flex h-10 items-center justify-between gap-2 rounded-md border border-input bg-muted/30 px-3">
                                   <span className="min-w-0 truncate font-mono text-sm text-foreground" dir="ltr">
@@ -1618,7 +1620,8 @@ export default function ProviderAccountWizard(props?: {
                         </p>
 
                         <div className="grid gap-3 md:grid-cols-2">
-                          <Field label={t("fields.provider")} id="provider">
+                          <Field>
+                            <FieldLabel htmlFor="provider">{t("fields.provider")}</FieldLabel>
                             <div
                               id="provider"
                               className="flex min-h-10 items-center gap-3 rounded-md border border-input bg-muted/30 px-3 py-2 text-sm"
@@ -1639,7 +1642,8 @@ export default function ProviderAccountWizard(props?: {
                               </div>
                             </div>
                           </Field>
-                          <Field label={t("fields.accountName")} id="accountName">
+                          <Field>
+                            <FieldLabel htmlFor="accountName">{t("fields.accountName")}</FieldLabel>
                             <Input
                               id="accountName"
                               value={name}
@@ -1661,7 +1665,8 @@ export default function ProviderAccountWizard(props?: {
                             optionTextDir="ltr"
                             options={(selectedProvider?.auth_modes ?? ["api_key"]).map((mode) => ({ value: mode, label: mode }))}
                           />
-                          <Field label={t("fields.virtualKeysMode")} id="virtualOnly">
+                          <Field>
+                            <FieldLabel htmlFor="virtualOnly">{t("fields.virtualKeysMode")}</FieldLabel>
                             <label className="inline-flex h-10 items-center gap-2 rounded-md border border-input px-3 text-sm">
                               <input
                                 id="virtualOnly"
@@ -1877,7 +1882,8 @@ export default function ProviderAccountWizard(props?: {
                           optionTextDir="ltr"
                           options={(selectedProvider?.auth_modes ?? ["api_key"]).map((mode) => ({ value: mode, label: mode }))}
                         />
-                        <Field label={t("fields.allowVirtualOnly")} id="credentialVirtualOnly">
+                        <Field>
+                          <FieldLabel htmlFor="credentialVirtualOnly">{t("fields.allowVirtualOnly")}</FieldLabel>
                           <label className="inline-flex items-center gap-2 text-sm">
                             <input
                               id="credentialVirtualOnly"
@@ -1978,7 +1984,8 @@ export default function ProviderAccountWizard(props?: {
                               { value: "vat", label: ux("access.vat") },
                             ]}
                           />
-                          <Field label={`${ux("access.userIdLabel")} / ${ux("access.teamIdLabel")}`} id="obsPrincipal">
+                          <Field>
+                            <FieldLabel htmlFor="obsPrincipal">{`${ux("access.userIdLabel")} / ${ux("access.teamIdLabel")}`}</FieldLabel>
                             <PrincipalEntitySelect
                               id="obsPrincipal"
                               selected={effectivePrincipalSelection}

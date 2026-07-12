@@ -5,9 +5,9 @@ import { Pencil } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import type { ProviderAuthMode } from "./types";
-import { Field } from "./field";
 export function CredentialFields(props: {
   authMode: ProviderAuthMode;
   apiKey: string;
@@ -54,7 +54,8 @@ export function CredentialFields(props: {
       <CardContent className="space-y-3">
         {props.authMode === "api_key" ? (
           <div className="grid gap-3 md:grid-cols-2">
-            <Field label={props.t("fields.apiKeyOptional")} id="providerApiKey">
+            <Field>
+              <FieldLabel htmlFor="providerApiKey">{props.t("fields.apiKeyOptional")}</FieldLabel>
               {hasStoredAPIKey ? (
                 <div className="flex h-10 items-center justify-between gap-2 rounded-md border border-input bg-muted/30 px-3">
                   <span className="min-w-0 truncate font-mono text-sm text-foreground" dir="ltr">
@@ -80,7 +81,8 @@ export function CredentialFields(props: {
                 />
               )}
             </Field>
-            <Field label={props.t("fields.secretRefOptional")} id="providerSecretRef">
+            <Field>
+              <FieldLabel htmlFor="providerSecretRef">{props.t("fields.secretRefOptional")}</FieldLabel>
               <Input id="providerSecretRef" value={props.secretRef} onChange={(event) => props.setSecretRef(event.target.value)} placeholder={ux("placeholders.secretRefProvider")} />
             </Field>
           </div>
@@ -88,13 +90,16 @@ export function CredentialFields(props: {
 
         {props.authMode === "azure_entra_cert" ? (
           <div className="grid gap-3 md:grid-cols-3">
-            <Field label={props.t("fields.azureTenantID")} id="azureTenantID">
+            <Field>
+              <FieldLabel htmlFor="azureTenantID">{props.t("fields.azureTenantID")}</FieldLabel>
               <Input id="azureTenantID" value={props.azureTenantID} onChange={(event) => props.setAzureTenantID(event.target.value)} placeholder={ux("placeholders.tenantId")} />
             </Field>
-            <Field label={props.t("fields.azureClientID")} id="azureClientID">
+            <Field>
+              <FieldLabel htmlFor="azureClientID">{props.t("fields.azureClientID")}</FieldLabel>
               <Input id="azureClientID" value={props.azureClientID} onChange={(event) => props.setAzureClientID(event.target.value)} placeholder={ux("placeholders.clientId")} />
             </Field>
-            <Field label={props.t("fields.secretRefOptional")} id="providerSecretRefAzure">
+            <Field>
+              <FieldLabel htmlFor="providerSecretRefAzure">{props.t("fields.secretRefOptional")}</FieldLabel>
               <Input id="providerSecretRefAzure" value={props.secretRef} onChange={(event) => props.setSecretRef(event.target.value)} placeholder={ux("placeholders.secretRefAzure")} />
             </Field>
           </div>
@@ -102,13 +107,16 @@ export function CredentialFields(props: {
 
         {props.authMode === "aws_sigv4" ? (
           <div className="grid gap-3 md:grid-cols-3">
-            <Field label={props.t("fields.awsAccessKeyID")} id="awsAccessKeyID">
+            <Field>
+              <FieldLabel htmlFor="awsAccessKeyID">{props.t("fields.awsAccessKeyID")}</FieldLabel>
               <Input id="awsAccessKeyID" value={props.awsAccessKeyID} onChange={(event) => props.setAWSAccessKeyID(event.target.value)} placeholder={ux("placeholders.awsAccessKey")} />
             </Field>
-            <Field label={props.t("fields.awsSecretAccessKey")} id="awsSecretAccessKey">
+            <Field>
+              <FieldLabel htmlFor="awsSecretAccessKey">{props.t("fields.awsSecretAccessKey")}</FieldLabel>
               <Input id="awsSecretAccessKey" value={props.awsSecretAccessKey} onChange={(event) => props.setAWSSecretAccessKey(event.target.value)} placeholder={ux("placeholders.secret")} />
             </Field>
-            <Field label={props.t("fields.awsRegion")} id="awsRegion">
+            <Field>
+              <FieldLabel htmlFor="awsRegion">{props.t("fields.awsRegion")}</FieldLabel>
               <Input id="awsRegion" value={props.awsRegion} onChange={(event) => props.setAWSRegion(event.target.value)} placeholder={ux("placeholders.awsRegion")} />
             </Field>
           </div>
@@ -116,7 +124,8 @@ export function CredentialFields(props: {
 
         {props.authMode === "google_service_account" ? (
           <div className="grid gap-3">
-            <Field label={props.t("fields.googleServiceAccountJSON")} id="googleServiceAccountJSON">
+            <Field>
+              <FieldLabel htmlFor="googleServiceAccountJSON">{props.t("fields.googleServiceAccountJSON")}</FieldLabel>
               <textarea
                 id="googleServiceAccountJSON"
                 value={props.googleServiceAccountJSON}
@@ -125,7 +134,8 @@ export function CredentialFields(props: {
                 className="min-h-28 rounded-md border border-input bg-background px-3 py-2 text-sm"
               />
             </Field>
-            <Field label={props.t("fields.secretRefOptional")} id="providerSecretRefGoogle">
+            <Field>
+              <FieldLabel htmlFor="providerSecretRefGoogle">{props.t("fields.secretRefOptional")}</FieldLabel>
               <Input id="providerSecretRefGoogle" value={props.secretRef} onChange={(event) => props.setSecretRef(event.target.value)} placeholder={ux("placeholders.secretRefGoogle")} />
             </Field>
           </div>

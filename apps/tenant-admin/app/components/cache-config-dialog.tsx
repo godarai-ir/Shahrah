@@ -1,10 +1,8 @@
 "use client";
 
-import { AppSelectField, AppSwitchField, FormDialog } from "@/components/app-ui";
+import { AppSelectField, AppSwitchField, AppTextField, FormDialog } from "@/components/app-ui";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
-import { Field } from "./prompt-ui";
 import type { BuilderState, PromptTranslationFn } from "./prompt-management-shared";
 
 type CacheConfigDialogProps = {
@@ -28,19 +26,10 @@ export function CacheConfigDialog(props: CacheConfigDialogProps) {
               { value: "smart", label: props.t("common.smart") },
             ]}
           />
-          <Field label={props.t("dialogs.cache.fields.ttl")}>
-            <Input value={props.builder.cacheTTL} onChange={(event) => props.onBuilderChange((current) => ({ ...current, cacheTTL: event.target.value }))} />
-          </Field>
-          <Field label={props.t("dialogs.cache.fields.namespace")}>
-            <Input value={props.builder.cacheNamespace} onChange={(event) => props.onBuilderChange((current) => ({ ...current, cacheNamespace: event.target.value }))} />
-          </Field>
+          <AppTextField label={props.t("dialogs.cache.fields.ttl")} value={props.builder.cacheTTL} onChange={(event) => props.onBuilderChange((current) => ({ ...current, cacheTTL: event.target.value }))} />
+          <AppTextField label={props.t("dialogs.cache.fields.namespace")} value={props.builder.cacheNamespace} onChange={(event) => props.onBuilderChange((current) => ({ ...current, cacheNamespace: event.target.value }))} />
           {props.builder.cacheType === "smart" ? (
-            <Field label={props.t("dialogs.cache.fields.similarity")}>
-              <Input
-                value={props.builder.cacheSimilarityThreshold}
-                onChange={(event) => props.onBuilderChange((current) => ({ ...current, cacheSimilarityThreshold: event.target.value }))}
-              />
-            </Field>
+            <AppTextField label={props.t("dialogs.cache.fields.similarity")} value={props.builder.cacheSimilarityThreshold} onChange={(event) => props.onBuilderChange((current) => ({ ...current, cacheSimilarityThreshold: event.target.value }))} />
           ) : null}
     </FormDialog>
   );

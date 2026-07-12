@@ -6,7 +6,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { ArrowDownLeft, BarChart3, Download, FileImage, FileText, ReceiptText, Tag, TicketPercent, Trash2, Upload, WalletCards } from "lucide-react";
 import { Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
-import { AppCard, AppSelectField, FormSection, MetricCard, SettingsCard, StatusBadge } from "@/components/app-ui";
+import { AppCard, AppSelectField, AppTextField, FormSection, MetricCard, SettingsCard, StatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Attachment,
@@ -177,8 +177,8 @@ export function BankTransferPanel({ initialItems, initialError }: BankTransferPa
       ) : null}
       <SettingsCard>
         <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
-          <Field id="bank-amount" label="مبلغ (تومان)" value={amountToman} onChange={setAmountToman} dir="ltr" inputMode="numeric" />
-          <Field id="bank-tracking" label="شماره پیگیری" value={trackingNumber} onChange={setTrackingNumber} dir="ltr" />
+          <AppTextField id="bank-amount" label="مبلغ (تومان)" value={amountToman} onChange={(event) => setAmountToman(event.target.value)} dir="ltr" inputMode="numeric" />
+          <AppTextField id="bank-tracking" label="شماره پیگیری" value={trackingNumber} onChange={(event) => setTrackingNumber(event.target.value)} dir="ltr" />
           <JalaliDateField id="bank-date" label="تاریخ واریز (شمسی)" value={bankTransactionDateJalali} onChange={setBankTransactionDateJalali} />
           <div className="flex flex-col gap-2 md:col-span-2">
             <Label htmlFor="bank-receipt">تصویر رسید</Label>
@@ -455,41 +455,41 @@ export function BillingProfilePanel({ initialProfile, initialError }: ProfilePan
       <form onSubmit={submit} className="flex flex-col gap-4">
         <FormSection title="مشخصات" description="نوع پروفایل و شناسه مالی">
           <ProfileTypeField value={profileType} onValueChange={setProfileType} />
-          <Field id="profile-name" label="نام نمایشی" value={displayName} onChange={setDisplayName} />
-          <Field
+          <AppTextField id="profile-name" label="نام نمایشی" value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
+          <AppTextField
             id="profile-national"
             label={profileType === "legal" ? "شناسه ملی" : "کد ملی"}
             value={nationalID}
             dir="ltr"
             inputMode="numeric"
             maxLength={profileType === "legal" ? 11 : 10}
-            onChange={(value) => setNationalID(normalizeDigits(value).slice(0, profileType === "legal" ? 11 : 10))}
+            onChange={(event) => setNationalID(normalizeDigits(event.target.value).slice(0, profileType === "legal" ? 11 : 10))}
           />
           {profileType === "legal" ? (
-            <Field
+            <AppTextField
               id="profile-economic"
               label="کد اقتصادی"
               value={economicCode}
               dir="ltr"
               inputMode="numeric"
               maxLength={12}
-              onChange={(value) => setEconomicCode(normalizeDigits(value).slice(0, 12))}
+              onChange={(event) => setEconomicCode(normalizeDigits(event.target.value).slice(0, 12))}
             />
           ) : null}
         </FormSection>
         <FormSection title="تماس و نشانی" description="برای نمایش در سندهای مالی">
-          <Field
+          <AppTextField
             id="profile-postal"
             label="کد پستی"
             value={postalCode}
             dir="ltr"
             inputMode="numeric"
             maxLength={10}
-            onChange={(value) => setPostalCode(normalizeDigits(value).slice(0, 10))}
+            onChange={(event) => setPostalCode(normalizeDigits(event.target.value).slice(0, 10))}
           />
-          <Field id="profile-address" label="نشانی" value={address} onChange={setAddress} />
-          <Field id="profile-phone" label="تلفن" value={phone} onChange={setPhone} />
-          <Field
+          <AppTextField id="profile-address" label="نشانی" value={address} onChange={(event) => setAddress(event.target.value)} />
+          <AppTextField id="profile-phone" label="تلفن" value={phone} onChange={(event) => setPhone(event.target.value)} />
+          <AppTextField
             id="profile-email"
             label="ایمیل"
             value={email}
@@ -497,7 +497,7 @@ export function BillingProfilePanel({ initialProfile, initialError }: ProfilePan
             dir="ltr"
             inputMode="email"
             autoComplete="email"
-            onChange={setEmail}
+            onChange={(event) => setEmail(event.target.value)}
           />
         </FormSection>
         <Button type="submit" disabled={loading} className="self-end">{loading ? "در حال ذخیره..." : "ذخیره پروفایل"}</Button>
@@ -963,44 +963,6 @@ function escapeCSVCell(value: string) {
     return `"${normalized.replaceAll("\"", "\"\"")}"`;
   }
   return normalized;
-}
-
-function Field({
-  id,
-  label,
-  value,
-  onChange,
-  type = "text",
-  dir,
-  inputMode,
-  maxLength,
-  autoComplete,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  type?: string;
-  dir?: "rtl" | "ltr" | "auto";
-  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
-  maxLength?: number;
-  autoComplete?: string;
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      <Label htmlFor={id}>{label}</Label>
-      <Input
-        id={id}
-        dir={dir}
-        inputMode={inputMode}
-        type={type}
-        maxLength={maxLength}
-        autoComplete={autoComplete}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
-    </div>
-  );
 }
 
 function normalizeDigits(value: string) {

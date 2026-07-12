@@ -3,7 +3,7 @@
 import { AlertCircle, Bot, Braces, DatabaseZap, Play, Plus, Save, Settings2, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { HelpLink, IdentifierField, PageHeader } from "@/components/app-ui";
+import { AppSwitchField, AppTextField, HelpLink, IdentifierField, PageHeader } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 
 import { CacheConfigDialog } from "./cache-config-dialog";
@@ -21,7 +20,7 @@ import { CodeBlock } from "./code-block";
 import { GuardrailDialog } from "./guardrail-dialog";
 import { ModelPickerDialog } from "./model-picker-dialog";
 import { PromptVersionsPanel } from "./prompt-versions-panel";
-import { ConfigSummaryPills, Field } from "./prompt-ui";
+import { ConfigSummaryPills } from "./prompt-ui";
 import { StructuredOutputDialog } from "./structured-output-dialog";
 import {
   formatNumber,
@@ -162,17 +161,9 @@ export function PromptBuilder(props: PromptBuilderProps) {
           <CardContent className="flex flex-col gap-4">
             <div className="grid gap-4 md:grid-cols-2">
               <IdentifierField label={props.t("builder.fields.name")} value={props.builder.name} onChange={(event) => props.onBuilderChange((current) => ({ ...current, name: event.target.value }))} placeholder={props.t("builder.fields.namePlaceholder")} description={props.t("builder.fields.nameHelp")} />
-              <Field label={props.t("builder.fields.commitMessage")}>
-                <Input
-                  value={props.builder.commitMessage}
-                  onChange={(event) => props.onBuilderChange((current) => ({ ...current, commitMessage: event.target.value }))}
-                  placeholder={props.t("builder.fields.commitMessagePlaceholder")}
-                />
-              </Field>
+              <AppTextField label={props.t("builder.fields.commitMessage")} value={props.builder.commitMessage} onChange={(event) => props.onBuilderChange((current) => ({ ...current, commitMessage: event.target.value }))} placeholder={props.t("builder.fields.commitMessagePlaceholder")} />
             </div>
-            <Field label={props.t("builder.fields.description")}>
-              <Input value={props.builder.description} onChange={(event) => props.onBuilderChange((current) => ({ ...current, description: event.target.value }))} />
-            </Field>
+            <AppTextField label={props.t("builder.fields.description")} value={props.builder.description} onChange={(event) => props.onBuilderChange((current) => ({ ...current, description: event.target.value }))} />
           </CardContent>
         </Card>
 
@@ -362,21 +353,10 @@ export function PromptBuilder(props: PromptBuilderProps) {
             <section className="flex flex-col gap-3">
               <div className="text-sm font-medium">{props.t("config.modelSettings.title")}</div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Field label={props.t("config.modelSettings.stream")}>
-                  <div className="flex h-10 items-center justify-between rounded-md border px-3">
-                    <span className="text-sm text-muted-foreground">{props.builder.stream ? props.t("common.enabled") : props.t("common.disabled")}</span>
-                    <Switch checked={props.builder.stream} onCheckedChange={(checked) => props.onBuilderChange((current) => ({ ...current, stream: checked }))} />
-                  </div>
-                </Field>
-                <Field label={props.t("config.modelSettings.temperature")}>
-                  <Input value={props.builder.temperature} onChange={(event) => props.onBuilderChange((current) => ({ ...current, temperature: event.target.value }))} />
-                </Field>
-                <Field label={props.t("config.modelSettings.topP")}>
-                  <Input value={props.builder.topP} onChange={(event) => props.onBuilderChange((current) => ({ ...current, topP: event.target.value }))} />
-                </Field>
-                <Field label={props.t("config.modelSettings.maxTokens")}>
-                  <Input value={props.builder.maxTokens} onChange={(event) => props.onBuilderChange((current) => ({ ...current, maxTokens: event.target.value }))} />
-                </Field>
+                <AppSwitchField label={props.t("config.modelSettings.stream")} description={props.builder.stream ? props.t("common.enabled") : props.t("common.disabled")} checked={props.builder.stream} onCheckedChange={(checked) => props.onBuilderChange((current) => ({ ...current, stream: checked }))} />
+                <AppTextField label={props.t("config.modelSettings.temperature")} value={props.builder.temperature} onChange={(event) => props.onBuilderChange((current) => ({ ...current, temperature: event.target.value }))} />
+                <AppTextField label={props.t("config.modelSettings.topP")} value={props.builder.topP} onChange={(event) => props.onBuilderChange((current) => ({ ...current, topP: event.target.value }))} />
+                <AppTextField label={props.t("config.modelSettings.maxTokens")} value={props.builder.maxTokens} onChange={(event) => props.onBuilderChange((current) => ({ ...current, maxTokens: event.target.value }))} />
               </div>
               {props.builder.stream && props.builder.outputGuardrails.length > 0 ? (
                 <Alert variant="destructive">
@@ -399,8 +379,9 @@ export function PromptBuilder(props: PromptBuilderProps) {
               <div className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">{props.t("config.variables.empty")}</div>
             ) : (
               props.detectedVariables.map((variable) => (
-                <Field key={variable} label={variable}>
-                  <Input
+                <AppTextField
+                    key={variable}
+                    label={variable}
                     value={props.builder.variableValues[variable] ?? ""}
                     onChange={(event) =>
                       props.onBuilderChange((current) => ({
@@ -410,7 +391,6 @@ export function PromptBuilder(props: PromptBuilderProps) {
                     }
                     placeholder={props.t("config.variables.valuePlaceholder", { name: variable })}
                   />
-                </Field>
               ))
             )}
           </CardContent>

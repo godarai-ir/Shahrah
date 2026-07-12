@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 
 import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { Button } from "@/components/ui/button";
+import { Field, FieldLabel } from "@/components/ui/field";
 import {
   PrincipalEntitySelect,
   type PrincipalEntitySelection,
@@ -15,7 +16,6 @@ import {
 import { PrincipalPicker } from "@/app/components/principal-picker";
 import type { AccessPrincipal, AccessPrincipalCandidate, EffectiveModelView } from "./types";
 import { EffectiveModelsTable } from "./effective-models-table";
-import { Field } from "./field";
 export const AccessEditor = memo(function AccessEditor(props: {
   t: ReturnType<typeof useTranslations>;
   managers: AccessPrincipal[];
@@ -92,7 +92,8 @@ export const AccessEditor = memo(function AccessEditor(props: {
               { value: "vat", label: ux("access.vat") },
             ]}
           />
-          <Field label={`${ux("access.userIdLabel")} / ${ux("access.teamIdLabel")}`} id="previewPrincipal">
+          <Field>
+            <FieldLabel htmlFor="previewPrincipal">{`${ux("access.userIdLabel")} / ${ux("access.teamIdLabel")}`}</FieldLabel>
             <div className="grid grid-cols-[minmax(0,1fr)_40px] gap-2">
               <PrincipalEntitySelect
                 id="previewPrincipal"

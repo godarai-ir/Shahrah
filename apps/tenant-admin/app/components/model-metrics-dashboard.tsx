@@ -33,7 +33,7 @@ import {
   ComboboxList,
 } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCompactCurrency, formatCompactNumber } from "@/lib/compact-number";
 import { cn } from "@/lib/utils";
@@ -423,7 +423,8 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
         contentClassName="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6 pt-4 md:pt-4"
         className="shadow-none"
       >
-          <Field id="metrics-range-preset" label={t("filters.timeRange")}>
+          <Field className="min-w-0 gap-1">
+            <FieldLabel htmlFor="metrics-range-preset" className="text-xs text-muted-foreground">{t("filters.timeRange")}</FieldLabel>
             <MetricCombobox
               id="metrics-range-preset"
               options={rangeOptions}
@@ -437,7 +438,8 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
           {rangePreset === "custom" ? (
             <DateTimeRangeField fromID="metrics-from" toID="metrics-to" from={from} to={to} fromLabel={t("filters.from")} toLabel={t("filters.to")} onFromChange={setFrom} onToChange={setTo} className="contents" />
           ) : null}
-          <Field id="metrics-model" label={t("filters.model")}>
+          <Field className="min-w-0 gap-1">
+            <FieldLabel htmlFor="metrics-model" className="text-xs text-muted-foreground">{t("filters.model")}</FieldLabel>
             <CatalogFilterCombobox
               id="metrics-model"
               options={modelComboboxOptions}
@@ -447,7 +449,8 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
               emptyText={t("filters.emptyOptions")}
             />
           </Field>
-          <Field id="metrics-provider" label={t("filters.provider")}>
+          <Field className="min-w-0 gap-1">
+            <FieldLabel htmlFor="metrics-provider" className="text-xs text-muted-foreground">{t("filters.provider")}</FieldLabel>
             <CatalogFilterCombobox
               id="metrics-provider"
               options={providerComboboxOptions}
@@ -457,7 +460,8 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
               emptyText={t("filters.emptyOptions")}
             />
           </Field>
-          <Field id="metrics-request-id" label={t("filters.requestId")}>
+          <Field className="min-w-0 gap-1">
+            <FieldLabel htmlFor="metrics-request-id" className="text-xs text-muted-foreground">{t("filters.requestId")}</FieldLabel>
             <Input
               id="metrics-request-id"
               value={requestIDFilter}
@@ -467,7 +471,8 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
               className="h-8 px-2 text-xs font-mono text-start"
             />
           </Field>
-          <Field id="metrics-view-by" label={t("filters.viewBy")}>
+          <Field className="min-w-0 gap-1">
+            <FieldLabel htmlFor="metrics-view-by" className="text-xs text-muted-foreground">{t("filters.viewBy")}</FieldLabel>
             <MetricCombobox
               id="metrics-view-by"
               options={viewByOptions}
@@ -541,7 +546,8 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
         <ChartCard
           title={t("charts.latency.title", { percentile: pct.toUpperCase() })}
           action={
-            <Field id="metrics-percentile" label={t("filters.percentile")} className="w-32">
+            <Field className="w-32 gap-1">
+              <FieldLabel htmlFor="metrics-percentile" className="text-xs text-muted-foreground">{t("filters.percentile")}</FieldLabel>
               <MetricCombobox
                 id="metrics-percentile"
                 options={pctOptions}
@@ -645,27 +651,6 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
             </TableBody>
           </Table>
       </AppCard>
-    </div>
-  );
-}
-
-function Field({
-  id,
-  label,
-  children,
-  className,
-}: {
-  id: string;
-  label: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={cn("grid min-w-0 gap-1", className)}>
-      <Label htmlFor={id} className="text-xs text-muted-foreground">
-        {label}
-      </Label>
-      {children}
     </div>
   );
 }
