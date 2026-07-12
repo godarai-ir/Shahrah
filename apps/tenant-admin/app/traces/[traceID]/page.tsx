@@ -21,7 +21,7 @@ import {
 import { getLocale, getTranslations } from "next-intl/server";
 
 import AdminShell from "@/app/components/admin-shell";
-import { CompactValue, DefinitionList, DefinitionListItem as CompactField, PageContainer } from "@/components/app-ui";
+import { CompactValue, DefinitionList, DefinitionListItem as CompactField, PageContainer, SectionHeader } from "@/components/app-ui";
 import { PageHeader } from "@/components/app-ui/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -226,11 +226,11 @@ export default async function TraceDetailPage({ params }: Params) {
           <>
             <div className="grid gap-4 xl:grid-cols-2">
               <Card>
-                <SectionHeader
+                <CardHeader className="px-4 py-3 md:px-4 md:py-3"><SectionHeader density="compact"
                   icon={Activity}
                   title={t("detail.summary.title")}
                   description={t("detail.summary.description")}
-                />
+                /></CardHeader>
                 <CardContent className="flex flex-col gap-4 px-4 pb-4 text-sm md:px-4 md:pb-4">
                   <div className="grid grid-cols-2 gap-2 lg:grid-cols-3 2xl:grid-cols-5">
                     <MetricItem
@@ -296,7 +296,7 @@ export default async function TraceDetailPage({ params }: Params) {
               </Card>
 
               <Card>
-                <SectionHeader icon={Coins} title={t("detail.usage.title")} description={t("detail.usage.description")} />
+                <CardHeader className="px-4 py-3 md:px-4 md:py-3"><SectionHeader density="compact" icon={Coins} title={t("detail.usage.title")} description={t("detail.usage.description")} /></CardHeader>
                 <CardContent className="px-4 pb-4 md:px-4 md:pb-4">
                   <DefinitionList columns={3} className="grid-cols-2 text-sm">
                     <CompactField
@@ -378,11 +378,11 @@ export default async function TraceDetailPage({ params }: Params) {
 
             <div className="grid gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
               <Card>
-                <SectionHeader
+                <CardHeader className="px-4 py-3 md:px-4 md:py-3"><SectionHeader density="compact"
                   icon={RefreshCw}
                   title={t("detail.attempts.title")}
                   description={attemptsResult.ok ? t("detail.attempts.count", { count: attempts.length }) : attemptsResult.errorMessage ?? t("detail.attempts.loadFailed")}
-                />
+                /></CardHeader>
                 <CardContent className="px-4 pb-4 md:px-4 md:pb-4">
                   {attempts.length === 0 ? (
                     <EmptyText>{t("detail.attempts.empty")}</EmptyText>
@@ -438,11 +438,11 @@ export default async function TraceDetailPage({ params }: Params) {
               </Card>
 
               <Card>
-                <SectionHeader
+                <CardHeader className="px-4 py-3 md:px-4 md:py-3"><SectionHeader density="compact"
                   icon={Activity}
                   title={t("detail.timeline.title")}
                   description={timelineResult.ok ? undefined : timelineResult.errorMessage ?? t("detail.timeline.loadFailed")}
-                />
+                /></CardHeader>
                 <CardContent className="px-4 pb-4 md:px-4 md:pb-4">
                   {waterfallRows.length === 0 ? (
                     <EmptyText>{t("detail.timeline.empty")}</EmptyText>
@@ -502,7 +502,7 @@ export default async function TraceDetailPage({ params }: Params) {
 
             <div className="grid gap-4 lg:grid-cols-2">
               <Card>
-                <SectionHeader icon={Database} title={t("detail.metadata.title")} description={t("detail.metadata.description")} />
+                <CardHeader className="px-4 py-3 md:px-4 md:py-3"><SectionHeader density="compact" icon={Database} title={t("detail.metadata.title")} description={t("detail.metadata.description")} /></CardHeader>
                 <CardContent className="px-4 pb-4 md:px-4 md:pb-4">
                   {metadataRows.length === 0 ? (
                     <EmptyText>{t("detail.metadata.empty")}</EmptyText>
@@ -532,7 +532,7 @@ export default async function TraceDetailPage({ params }: Params) {
               </Card>
 
               <Card>
-                <SectionHeader icon={FileJson} title={t("detail.errors.title")} description={t("detail.errors.description")} />
+                <CardHeader className="px-4 py-3 md:px-4 md:py-3"><SectionHeader density="compact" icon={FileJson} title={t("detail.errors.title")} description={t("detail.errors.description")} /></CardHeader>
                 <CardContent className="px-4 pb-4 md:px-4 md:pb-4">
                   {errorRows.length === 0 ? (
                     <EmptyText>{t("detail.errors.empty")}</EmptyText>
@@ -732,31 +732,6 @@ function textStatusBadgeVariant(status: string): BadgeVariant {
   if (["retry", "fallback", "timeout"].includes(normalized)) return "warning";
   if (["ok", "success", "succeeded", "complete", "completed"].includes(normalized)) return "success";
   return "secondary";
-}
-
-function SectionHeader({
-  icon: Icon,
-  title,
-  description,
-  meta,
-}: {
-  icon: LucideIcon;
-  title: string;
-  description?: ReactNode;
-  meta?: ReactNode;
-}) {
-  return (
-    <CardHeader className="flex-row items-start justify-between gap-3 px-4 py-3 md:px-4 md:py-3">
-      <div className="flex min-w-0 items-start gap-2">
-        <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        <div className="min-w-0">
-          <CardTitle className="text-sm tracking-normal md:text-base">{title}</CardTitle>
-          {description ? <CardDescription className="mt-1 text-xs leading-normal">{description}</CardDescription> : null}
-        </div>
-      </div>
-      {meta ? <div className="shrink-0">{meta}</div> : null}
-    </CardHeader>
-  );
 }
 
 function MetricItem({

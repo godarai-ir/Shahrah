@@ -20,7 +20,7 @@ import {
 
 import { normalizeError, requestJSON, unwrapData } from "@/app/components/provider-account-wizard/utils";
 import { AppSelectField } from "@/components/app-ui/AppSelectField";
-import { CodePanel, DefinitionList, DefinitionListItem, FormDialog } from "@/components/app-ui";
+import { CodePanel, DefinitionList, DefinitionListItem, FormDialog, SectionHeader } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -502,18 +502,18 @@ function PromptContent(props: {
             <CardDescription>{props.descriptor.versionLabel}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
-            <Section title={props.t("config.model.title")}>
+            <section className="flex flex-col gap-2"><SectionHeader density="compact" title={props.t("config.model.title")} />
               <div className="rounded-md border bg-muted/20 px-3 py-2 font-mono text-xs" dir="ltr">{props.descriptor.model || "-"}</div>
-            </Section>
-            <Section title={props.t("config.modelSettings.title")}>
+            </section>
+            <section className="flex flex-col gap-2"><SectionHeader density="compact" title={props.t("config.modelSettings.title")} />
               <DefinitionList columns={2}>
                 <DefinitionListItem surface label={props.t("config.modelSettings.stream")} value={props.descriptor.modelSettings.stream ? props.t("common.enabled") : props.t("common.disabled")} />
                 <DefinitionListItem surface label={props.t("config.modelSettings.temperature")} value={formatOptionalNumber(props.descriptor.modelSettings.temperature)} />
                 <DefinitionListItem surface label={props.t("config.modelSettings.topP")} value={formatOptionalNumber(props.descriptor.modelSettings.top_p)} />
                 <DefinitionListItem surface label={props.t("config.modelSettings.maxTokens")} value={formatOptionalNumber(props.descriptor.modelSettings.max_tokens)} />
               </DefinitionList>
-            </Section>
-            <Section title={props.t("config.variables.title", { count: props.descriptor.variableNames.length })}>
+            </section>
+            <section className="flex flex-col gap-2"><SectionHeader density="compact" title={props.t("config.variables.title", { count: props.descriptor.variableNames.length })} />
               {props.descriptor.variableNames.length === 0 ? (
                 <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">{props.t("config.variables.empty")}</div>
               ) : (
@@ -530,8 +530,8 @@ function PromptContent(props: {
                   ))}
                 </div>
               )}
-            </Section>
-            <Section title={props.t("detail.advancedSettings")}>
+            </section>
+            <section className="flex flex-col gap-2"><SectionHeader density="compact" title={props.t("detail.advancedSettings")} />
               <div className="flex flex-col gap-3">
                 <PillGroup emptyLabel={props.t("config.cache.empty")} pills={cachePills} title={props.t("config.cache.title")} />
                 <PillGroup
@@ -546,7 +546,7 @@ function PromptContent(props: {
                 />
                 <PillGroup emptyLabel={props.t("config.structuredOutput.empty")} pills={structuredPills} title={props.t("config.structuredOutput.title")} />
               </div>
-            </Section>
+            </section>
           </CardContent>
         </Card>
 
@@ -616,15 +616,6 @@ function PillGroup(props: { emptyLabel: string; pills: string[]; title: string }
 
 function formatOptionalNumber(value: unknown): string {
   return typeof value === "number" ? `${value}` : "-";
-}
-
-function Section(props: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="flex flex-col gap-2">
-      <div className="text-sm font-medium">{props.title}</div>
-      {props.children}
-    </section>
-  );
 }
 
 function GatewayContent(props: {
