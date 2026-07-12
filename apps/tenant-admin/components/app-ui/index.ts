@@ -38,3 +38,4 @@ export { StatusOptionGroup, type StatusOption, type StatusOptionGroupProps, type
 export { TablePagination } from "./TablePagination";
 export { TableEmptyRow, TableLoadingRows, type TableEmptyRowProps, type TableLoadingRowsProps } from "./TableStateRows";
 export { TypedConfirmDialog, type TypedConfirmDialogProps } from "./TypedConfirmDialog";
+export { UnsavedChangesDialog, type UnsavedChangesDialogProps } from "./UnsavedChangesDialog";

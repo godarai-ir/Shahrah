@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { ArrowDown, ArrowUp, CheckCircle2, Copy, Edit3, Plus, RefreshCw, Save, Search, Trash2, XCircle } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CopyAction, DateTimeValue, HelpLink, IdentifierField, TypedConfirmDialog } from "@/components/app-ui";
+import { CopyAction, DateTimeValue, HelpLink, IdentifierField, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -172,6 +172,7 @@ export default function VirtualModelManagement() {
   const [form, setForm] = useState<FormState>(() => makeDefaultForm(defaultEveryoneLabel));
   const [savedHash, setSavedHash] = useState(() => JSON.stringify(makeDefaultForm(defaultEveryoneLabel)));
   const [editorOpen, setEditorOpen] = useState(false);
+  const [pendingDiscardAction, setPendingDiscardAction] = useState<null | (() => void | Promise<void>)>(null);
 
   const isCreate = !form.id;
   const dirty = useMemo(() => JSON.stringify(form) !== savedHash, [form, savedHash]);
@@ -233,8 +234,8 @@ export default function VirtualModelManagement() {
   async function loadDetail(id: string, options?: { skipDirtyConfirm?: boolean }) {
     if (!id) return;
     if (!options?.skipDirtyConfirm && dirty) {
-      const confirmed = window.confirm(t("messages.unsavedConfirm"));
-      if (!confirmed) return;
+      setPendingDiscardAction(() => () => loadDetail(id, { skipDirtyConfirm: true }));
+      return;
     }
     setIsLoading(true);
     setNotice(null);
@@ -313,9 +314,13 @@ export default function VirtualModelManagement() {
 
   function startCreate() {
     if (dirty) {
-      const confirmed = window.confirm(t("messages.unsavedConfirm"));
-      if (!confirmed) return;
+      setPendingDiscardAction(() => resetForCreate);
+      return;
     }
+    resetForCreate();
+  }
+
+  function resetForCreate() {
     const next = makeDefaultForm(defaultEveryoneLabel);
     setSelectedID("");
     setForm(next);
@@ -326,8 +331,8 @@ export default function VirtualModelManagement() {
 
   function closeEditor() {
     if (dirty) {
-      const confirmed = window.confirm(t("messages.unsavedConfirm"));
-      if (!confirmed) return;
+      setPendingDiscardAction(() => () => setEditorOpen(false));
+      return;
     }
     setEditorOpen(false);
   }
@@ -1093,6 +1098,20 @@ export default function VirtualModelManagement() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <UnsavedChangesDialog
+        open={pendingDiscardAction !== null}
+        onOpenChange={(open) => { if (!open) setPendingDiscardAction(null); }}
+        title={t("unsavedDialog.title")}
+        description={t("messages.unsavedConfirm")}
+        stayLabel={t("unsavedDialog.stay")}
+        discardLabel={t("unsavedDialog.discard")}
+        onDiscard={async () => {
+          const action = pendingDiscardAction;
+          setPendingDiscardAction(null);
+          await action?.();
+        }}
+      />
 
       <TypedConfirmDialog
         open={deleteDialogOpen}

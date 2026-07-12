@@ -122,5 +122,10 @@
     "copyAliasError": "Failed to copy alias.",
     "copySuccess": "Created a similar copy as \"{alias}\".",
     "copyError": "Failed to create a similar copy."
+  },
+  "unsavedDialog": {
+    "title": "Unsaved changes",
+    "stay": "Keep editing",
+    "discard": "Discard changes"
   }
 }
