@@ -32,6 +32,9 @@
     "unknown": "Unknown plan",
     "noEndDate": "No end date"
   },
+  "appVersion": {
+    "label": "Version"
+  },
   "navGroups": {
     "overview": "Overview",
     "workspace": "Workspace",

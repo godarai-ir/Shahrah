@@ -61,6 +61,7 @@ type AdminShellClientProps = {
     periodEnd: string | null;
   };
   docsHref: string;
+  appVersion: string;
 };
 
 const moneyFormatter = new Intl.NumberFormat("fa-IR");
@@ -110,6 +111,7 @@ export default function AdminShellClient({
   walletSummary,
   subscriptionSummary,
   docsHref,
+  appVersion,
 }: AdminShellClientProps) {
   const pathname = usePathname();
   const t = useTranslations("shell");
@@ -132,6 +134,7 @@ export default function AdminShellClient({
           tenantSlug={tenantSlug}
           navItems={visibleNavItems}
           subscriptionSummary={subscriptionSummary}
+          appVersion={appVersion}
         />
 
         <SidebarInset className="min-w-0 rounded-none bg-background">
@@ -232,12 +235,14 @@ type SidebarContentProps = {
     status: string | null;
     periodEnd: string | null;
   };
+  appVersion: string;
 };
 
 function AdminSidebar({
   tenantSlug,
   navItems,
   subscriptionSummary,
+  appVersion,
 }: SidebarContentProps) {
   const t = useTranslations("shell");
   const navItemsByKey = useMemo(() => {
@@ -331,6 +336,7 @@ function AdminSidebar({
 
       <SidebarFooter className="border-t border-sidebar-border/70 bg-sidebar-accent/30 pt-3 group-data-[collapsible=icon]:hidden">
         <SidebarPlanSummary summary={subscriptionSummary} />
+        <SidebarAppVersion version={appVersion} />
       </SidebarFooter>
     </Sidebar>
   );
@@ -412,6 +418,16 @@ function SidebarPlanSummary({
         </SidebarMenuButton>
       </SidebarMenuItem>
     </SidebarMenu>
+  );
+}
+
+function SidebarAppVersion({ version }: { version: string }) {
+  const t = useTranslations("shell");
+
+  return (
+    <p className="mt-3 border-t border-sidebar-border/70 pt-3 text-xs text-sidebar-foreground/70">
+      {t("appVersion.label")} <span dir="ltr" className="font-mono">{version}</span>
+    </p>
   );
 }
 

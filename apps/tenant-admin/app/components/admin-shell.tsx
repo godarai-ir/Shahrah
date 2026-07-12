@@ -35,6 +35,7 @@ export default async function AdminShell({
   const messages = await getMessages();
   const requestHeaders = await headers();
   const docsHref = buildDocsHref(requestHeaders, tenantSlug);
+  const appVersion = getAppVersion();
   const [permissions, walletSummary, subscriptionSummary] = await Promise.all([
     loadCurrentPermissions(tenantSlug, currentUser.id),
     loadWalletSummary(tenantSlug, currentUser.id),
@@ -50,11 +51,16 @@ export default async function AdminShell({
         walletSummary={walletSummary}
         subscriptionSummary={subscriptionSummary}
         docsHref={docsHref}
+        appVersion={appVersion}
       >
         {children}
       </AdminShellClient>
     </NextIntlClientProvider>
   );
+}
+
+function getAppVersion(): string {
+  return process.env.NEXT_PUBLIC_APP_VERSION?.replace(/^v/, "") || "0.0.0-dev";
 }
 
 function buildDocsHref(headersList: Headers, tenantSlug: string): string {

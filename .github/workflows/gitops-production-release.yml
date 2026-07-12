@@ -437,6 +437,8 @@ jobs:
           target: ${{ matrix.target }}
           push: true
           tags: ${{ steps.image-tags.outputs.tags }}
+          build-args: |
+            APP_VERSION=${{ matrix.semver_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

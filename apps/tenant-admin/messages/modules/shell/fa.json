@@ -32,6 +32,9 @@
     "unknown": "پلن نامشخص",
     "noEndDate": "بدون تاریخ پایان"
   },
+  "appVersion": {
+    "label": "نسخه"
+  },
   "navGroups": {
     "overview": "نمای کلی",
     "workspace": "فضای کاری",
