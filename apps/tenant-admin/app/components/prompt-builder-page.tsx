@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { copyTextToClipboard } from "@/components/app-ui/CopyableValue";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 
@@ -228,13 +229,13 @@ export default function PromptBuilderPage(props: PromptBuilderPageProps) {
 
   async function copySelectedFqn() {
     if (!selectedVersion?.fqn) return;
-    await navigator.clipboard.writeText(selectedVersion.fqn);
+    await copyTextToClipboard(selectedVersion.fqn);
     setNotice({ kind: "success", message: t("messages.fqnCopied") });
   }
 
   async function copySelectedSnippet() {
     if (!selectedVersion?.fqn) return;
-    await navigator.clipboard.writeText(buildPromptSnippet(selectedVersion.fqn, selectedVersion.model));
+    await copyTextToClipboard(buildPromptSnippet(selectedVersion.fqn, selectedVersion.model));
     setNotice({ kind: "success", message: t("messages.snippetCopied") });
   }
 

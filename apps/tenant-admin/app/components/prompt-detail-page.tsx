@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { copyTextToClipboard } from "@/components/app-ui/CopyableValue";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import {
@@ -422,7 +423,7 @@ export default function PromptDetailPage(props: PromptDetailPageProps) {
   }
 
   async function copyText(text: string, successMessage: string) {
-    await navigator.clipboard.writeText(text);
+    await copyTextToClipboard(text);
     setNotice({ kind: "success", message: successMessage });
   }
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { copyTextToClipboard } from "@/components/app-ui/CopyableValue";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
@@ -115,7 +116,7 @@ export default function PromptRegistryListPage() {
       setNotice({ kind: "error", message: t("messages.fqnUnavailable") });
       return;
     }
-    await navigator.clipboard.writeText(fqn);
+    await copyTextToClipboard(fqn);
     setNotice({ kind: "success", message: t("messages.fqnCopied") });
   }
 

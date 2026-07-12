@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { copyTextToClipboard } from "@/components/app-ui/CopyableValue";
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import {
@@ -275,7 +276,7 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
   async function copyText(key: string, value: string) {
     try {
       if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(value);
+        await copyTextToClipboard(value);
       } else {
         const textarea = document.createElement("textarea");
         textarea.value = value;

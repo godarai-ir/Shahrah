@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import type React from "react";
+import { copyTextToClipboard } from "@/components/app-ui/CopyableValue";
 import { memo, useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { ArrowUpDown, CheckSquare, Code2, Copy, GitCompare, RotateCcw, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -1566,7 +1567,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
                   onClick={() => {
                     const command = curlGuide?.commands[curlGuideShell];
                     if (!command) return;
-                    void navigator.clipboard.writeText(command);
+                    void copyTextToClipboard(command);
                     props.setBanner({ kind: "success", message: ux("messages.curlCopied") });
                   }}
                 >

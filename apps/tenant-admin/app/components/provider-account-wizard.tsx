@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
+import { copyTextToClipboard } from "@/components/app-ui/CopyableValue";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -1496,7 +1497,7 @@ export default function ProviderAccountWizard(props?: {
                         size="sm"
                         variant="outline"
                         onClick={() => {
-                          void navigator.clipboard.writeText(`${account.provider}:${account.name}`);
+                          void copyTextToClipboard(`${account.provider}:${account.name}`);
                           setBanner({ kind: "success", message: ux("messages.fqnCopied") });
                         }}
                       >

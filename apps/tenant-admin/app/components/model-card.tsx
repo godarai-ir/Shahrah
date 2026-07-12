@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useState } from "react";
+import { copyTextToClipboard } from "@/components/app-ui/CopyableValue";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -233,7 +234,7 @@ export function ModelCard(props: ModelCardProps) {
 
   async function handleCopyModelId() {
     try {
-      await navigator.clipboard.writeText(modelFqn);
+      await copyTextToClipboard(modelFqn);
       setCopied(true);
       setTimeout(() => setCopied(false), 1400);
     } catch {

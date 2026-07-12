@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
+import { copyTextToClipboard } from "@/components/app-ui/CopyableValue";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, ChevronDown, Copy, ExternalLink, Link2, Network, Plus, Plug, Search, Settings, Trash2, Unplug, UserCog } from "lucide-react";
@@ -258,7 +259,7 @@ export default function LLMIntegrationsManagement(props: {
 
   async function copyIdentifier(account: TenantProviderAccount) {
     const value = `${account.provider}:${account.name}`;
-    await navigator.clipboard.writeText(value);
+    await copyTextToClipboard(value);
     setBanner({ kind: "success", message: copy("messages.identifierCopied") });
   }
 
