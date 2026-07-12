@@ -4,16 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 
-import { AppCodeTextareaField, AppNumberField, AppSelectField, ConfirmDialog, CopyAction, DateTimeValue, EmptyState, HelpLink, IdentifierField, OperationNotice } from "@/components/app-ui";
+import { AppCodeTextareaField, AppNumberField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, ConfirmDialog, CopyAction, DateTimeValue, EmptyState, HelpLink, IdentifierField, OperationNotice, SearchField } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
 
 import { createGuardrail, deleteGuardrail, GuardrailAPIError, listGuardrails, updateGuardrail } from "./api";
 import type { GuardrailFormInput, GuardrailPayload, GuardrailType, TenantGuardrail } from "./types";
@@ -397,7 +393,7 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
               {t("actions.new")}
             </Button>
           </div>
-          <Input placeholder={t("searchPlaceholder")} value={query} onChange={(event) => setQuery(event.target.value)} />
+          <SearchField placeholder={t("searchPlaceholder")} value={query} onChange={(event) => setQuery(event.target.value)} />
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <OperationNotice notice={notice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.error"), info: t("alerts.success") }} />
@@ -478,10 +474,7 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
 
           <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
             <div className="grid gap-3 md:grid-cols-2">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="guardrail-name">{t("form.name")}</Label>
-                <Input id="guardrail-name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
-              </div>
+              <AppTextField id="guardrail-name" label={t("form.name")} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
               <IdentifierField
                 id="guardrail-slug"
                 label={t("form.identifier")}
@@ -495,10 +488,7 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
               />
             </div>
 
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="guardrail-description">{t("form.notes")}</Label>
-              <Textarea id="guardrail-description" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} />
-            </div>
+            <AppTextareaField id="guardrail-description" label={t("form.notes")} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} />
 
             <div className="grid gap-3 md:grid-cols-3">
               <AppSelectField
@@ -536,47 +526,38 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
             </div>
 
             {form.type === "keyword_blocklist" ? (
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="guardrail-terms">{t("form.terms")}</Label>
-                <Textarea
+              <AppTextareaField
                   id="guardrail-terms"
+                  label={t("form.terms")}
                   dir="ltr"
                   value={form.terms}
                   placeholder="ignore previous instructions&#10;drop table"
                   onChange={(event) => setForm({ ...form, terms: event.target.value })}
                 />
-              </div>
             ) : null}
 
             {form.type === "regex" ? (
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="guardrail-patterns">{t("form.patterns")}</Label>
-                <Textarea
+              <AppTextareaField
                   id="guardrail-patterns"
+                  label={t("form.patterns")}
                   dir="ltr"
                   value={form.patterns}
                   placeholder="(?i)password\\s*[:=]\\s*\\S+"
                   onChange={(event) => setForm({ ...form, patterns: event.target.value })}
                 />
-              </div>
             ) : null}
 
             {form.type === "regex_replace" ? (
               <div className="grid gap-3 md:grid-cols-2">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="guardrail-pattern">{t("form.pattern")}</Label>
-                  <Textarea
+                <AppTextareaField
                     id="guardrail-pattern"
+                    label={t("form.pattern")}
                     dir="ltr"
                     value={form.pattern}
                     placeholder="(?i)password\\s*[:=]\\s*\\S+"
                     onChange={(event) => setForm({ ...form, pattern: event.target.value })}
                   />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="guardrail-replacement">{t("form.replacement")}</Label>
-                  <Input id="guardrail-replacement" dir="ltr" value={form.replacement} onChange={(event) => setForm({ ...form, replacement: event.target.value })} />
-                </div>
+                <AppTextField id="guardrail-replacement" label={t("form.replacement")} dir="ltr" value={form.replacement} onChange={(event) => setForm({ ...form, replacement: event.target.value })} />
               </div>
             ) : null}
 
@@ -593,10 +574,7 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
 
             {form.type === "json_keys" ? (
               <div className="grid gap-3 md:grid-cols-2">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="guardrail-keys">{t("form.keys")}</Label>
-                  <Textarea id="guardrail-keys" dir="ltr" value={form.keys} placeholder="answer&#10;confidence" onChange={(event) => setForm({ ...form, keys: event.target.value })} />
-                </div>
+                <AppTextareaField id="guardrail-keys" label={t("form.keys")} dir="ltr" value={form.keys} placeholder="answer&#10;confidence" onChange={(event) => setForm({ ...form, keys: event.target.value })} />
                 <AppSelectField
                   label={t("form.keyMode")}
                   dir={direction}
@@ -613,10 +591,7 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
 
             {form.type === "contains_code" ? (
               <div className="grid gap-3 md:grid-cols-2">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="guardrail-languages">{t("form.languages")}</Label>
-                  <Textarea id="guardrail-languages" dir="ltr" value={form.languages} placeholder="sql&#10;python&#10;typescript" onChange={(event) => setForm({ ...form, languages: event.target.value })} />
-                </div>
+                <AppTextareaField id="guardrail-languages" label={t("form.languages")} dir="ltr" value={form.languages} placeholder="sql&#10;python&#10;typescript" onChange={(event) => setForm({ ...form, languages: event.target.value })} />
                 <AppSelectField
                   label={t("form.codeMode")}
                   dir={direction}
@@ -633,39 +608,18 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
             {form.type === "jwt_validation" ? (
               <div className="flex flex-col gap-3">
                 <div className="grid gap-3 md:grid-cols-2">
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="guardrail-token-regex">{t("form.tokenRegex")}</Label>
-                    <Input id="guardrail-token-regex" dir="ltr" value={form.tokenRegex} placeholder="Bearer capture regex" onChange={(event) => setForm({ ...form, tokenRegex: event.target.value })} />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="guardrail-shared-secret">{t("form.sharedSecret")}</Label>
-                    <Input id="guardrail-shared-secret" dir="ltr" value={form.sharedSecret} onChange={(event) => setForm({ ...form, sharedSecret: event.target.value })} />
-                  </div>
+                  <AppTextField id="guardrail-token-regex" label={t("form.tokenRegex")} dir="ltr" value={form.tokenRegex} placeholder="Bearer capture regex" onChange={(event) => setForm({ ...form, tokenRegex: event.target.value })} />
+                  <AppTextField id="guardrail-shared-secret" label={t("form.sharedSecret")} dir="ltr" value={form.sharedSecret} onChange={(event) => setForm({ ...form, sharedSecret: event.target.value })} />
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="guardrail-issuer">{t("form.issuer")}</Label>
-                    <Input id="guardrail-issuer" dir="ltr" value={form.issuer} onChange={(event) => setForm({ ...form, issuer: event.target.value })} />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="guardrail-audience">{t("form.audience")}</Label>
-                    <Input id="guardrail-audience" dir="ltr" value={form.audience} onChange={(event) => setForm({ ...form, audience: event.target.value })} />
-                  </div>
+                  <AppTextField id="guardrail-issuer" label={t("form.issuer")} dir="ltr" value={form.issuer} onChange={(event) => setForm({ ...form, issuer: event.target.value })} />
+                  <AppTextField id="guardrail-audience" label={t("form.audience")} dir="ltr" value={form.audience} onChange={(event) => setForm({ ...form, audience: event.target.value })} />
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="guardrail-jwks-uri">{t("form.jwksUri")}</Label>
-                    <Input id="guardrail-jwks-uri" dir="ltr" value={form.jwksUri} onChange={(event) => setForm({ ...form, jwksUri: event.target.value })} />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="guardrail-introspection">{t("form.introspectionUrl")}</Label>
-                    <Input id="guardrail-introspection" dir="ltr" value={form.introspectionUrl} onChange={(event) => setForm({ ...form, introspectionUrl: event.target.value })} />
-                  </div>
+                  <AppTextField id="guardrail-jwks-uri" label={t("form.jwksUri")} dir="ltr" value={form.jwksUri} onChange={(event) => setForm({ ...form, jwksUri: event.target.value })} />
+                  <AppTextField id="guardrail-introspection" label={t("form.introspectionUrl")} dir="ltr" value={form.introspectionUrl} onChange={(event) => setForm({ ...form, introspectionUrl: event.target.value })} />
                 </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="guardrail-introspection-auth">{t("form.introspectionAuthHeader")}</Label>
-                  <Input id="guardrail-introspection-auth" dir="ltr" value={form.introspectionAuthHeader} placeholder="Bearer ..." onChange={(event) => setForm({ ...form, introspectionAuthHeader: event.target.value })} />
-                </div>
+                <AppTextField id="guardrail-introspection-auth" label={t("form.introspectionAuthHeader")} dir="ltr" value={form.introspectionAuthHeader} placeholder="Bearer ..." onChange={(event) => setForm({ ...form, introspectionAuthHeader: event.target.value })} />
                 <AppCodeTextareaField id="guardrail-inline-jwks" label={t("form.inlineJwks")} className="min-h-32" value={form.inlineJwks} onChange={(event) => setForm({ ...form, inlineJwks: event.target.value })} />
               </div>
             ) : null}
@@ -676,28 +630,16 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
                   <AppNumberField id="guardrail-max-bytes" label={t("form.maxBytes")} value={form.maxBytes} onChange={(event) => setForm({ ...form, maxBytes: event.target.value })} />
                   <AppNumberField id="guardrail-timeout" label={t("form.timeoutMs")} value={form.timeoutMs} onChange={(event) => setForm({ ...form, timeoutMs: event.target.value })} />
                 </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="guardrail-allowed-hosts">{t("form.allowedHosts")}</Label>
-                  <Textarea id="guardrail-allowed-hosts" dir="ltr" value={form.allowedHosts} placeholder="cdn.example.com&#10;images.example.com" onChange={(event) => setForm({ ...form, allowedHosts: event.target.value })} />
-                </div>
-                <div className="flex items-center justify-between rounded-lg border px-3 py-2">
-                  <Label htmlFor="guardrail-private-networks">{t("form.allowPrivateNetworks")}</Label>
-                  <Switch id="guardrail-private-networks" checked={form.allowPrivateNetworks} onCheckedChange={(checked) => setForm({ ...form, allowPrivateNetworks: checked })} />
-                </div>
+                <AppTextareaField id="guardrail-allowed-hosts" label={t("form.allowedHosts")} dir="ltr" value={form.allowedHosts} placeholder="cdn.example.com&#10;images.example.com" onChange={(event) => setForm({ ...form, allowedHosts: event.target.value })} />
+                <AppSwitchField id="guardrail-private-networks" label={t("form.allowPrivateNetworks")} checked={form.allowPrivateNetworks} onCheckedChange={(checked) => setForm({ ...form, allowPrivateNetworks: checked })} />
               </div>
             ) : null}
 
             {form.type !== "keyword_blocklist" && form.type !== "regex_replace" && form.type !== "sentence_count" && form.type !== "word_count" && form.type !== "character_count" && form.type !== "json_schema" && form.type !== "json_keys" && form.type !== "contains_code" && form.type !== "not_null" && form.type !== "jwt_validation" && form.type !== "inline_image_urls" ? (
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="guardrail-redaction">{t("form.redactionText")}</Label>
-                <Input id="guardrail-redaction" dir="ltr" value={form.redactionText} onChange={(event) => setForm({ ...form, redactionText: event.target.value })} />
-              </div>
+              <AppTextField id="guardrail-redaction" label={t("form.redactionText")} dir="ltr" value={form.redactionText} onChange={(event) => setForm({ ...form, redactionText: event.target.value })} />
             ) : null}
 
-            <div className="flex items-center justify-between rounded-lg border px-3 py-2">
-              <Label htmlFor="guardrail-enabled">{t("form.enabled")}</Label>
-              <Switch id="guardrail-enabled" checked={form.enabled} onCheckedChange={(checked) => setForm({ ...form, enabled: checked })} />
-            </div>
+            <AppSwitchField id="guardrail-enabled" label={t("form.enabled")} checked={form.enabled} onCheckedChange={(checked) => setForm({ ...form, enabled: checked })} />
           </div>
 
           <SheetFooter className="flex-row border-t border-border px-6 py-4">
