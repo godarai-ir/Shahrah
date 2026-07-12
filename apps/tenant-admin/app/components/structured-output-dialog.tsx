@@ -1,6 +1,6 @@
 "use client";
 
-import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { AppSelectField, AppSwitchField } from "@/components/app-ui";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,7 +10,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 
 import { Field } from "./prompt-ui";
@@ -33,16 +32,7 @@ export function StructuredOutputDialog(props: StructuredOutputDialogProps) {
           <DialogDescription>{props.t("dialogs.structured.description")}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="flex items-center justify-between rounded-md border px-3 py-2">
-            <div>
-              <div className="text-sm font-medium">{props.t("dialogs.structured.enableTitle")}</div>
-              <div className="text-xs text-muted-foreground">{props.t("dialogs.structured.enableDescription")}</div>
-            </div>
-            <Switch
-              checked={props.builder.structuredEnabled}
-              onCheckedChange={(checked) => props.onBuilderChange((current) => ({ ...current, structuredEnabled: checked }))}
-            />
-          </div>
+          <AppSwitchField label={props.t("dialogs.structured.enableTitle")} description={props.t("dialogs.structured.enableDescription")} checked={props.builder.structuredEnabled} onCheckedChange={(checked) => props.onBuilderChange((current) => ({ ...current, structuredEnabled: checked }))} />
           <div className="grid gap-3 sm:grid-cols-2">
             <AppSelectField
               label={props.t("dialogs.structured.fields.format")}
@@ -53,15 +43,7 @@ export function StructuredOutputDialog(props: StructuredOutputDialogProps) {
                 { value: "json_object", label: props.t("common.jsonObject") },
               ]}
             />
-            <Field label={props.t("dialogs.structured.fields.strict")}>
-              <div className="flex h-10 items-center justify-between rounded-md border px-3">
-                <span className="text-sm text-muted-foreground">{props.builder.structuredStrict ? props.t("common.enabled") : props.t("common.disabled")}</span>
-                <Switch
-                  checked={props.builder.structuredStrict}
-                  onCheckedChange={(checked) => props.onBuilderChange((current) => ({ ...current, structuredStrict: checked }))}
-                />
-              </div>
-            </Field>
+            <AppSwitchField label={props.t("dialogs.structured.fields.strict")} description={props.builder.structuredStrict ? props.t("common.enabled") : props.t("common.disabled")} checked={props.builder.structuredStrict} onCheckedChange={(checked) => props.onBuilderChange((current) => ({ ...current, structuredStrict: checked }))} />
           </div>
           <Field label={props.t("dialogs.structured.fields.schema")}>
             <Textarea

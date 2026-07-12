@@ -1,6 +1,6 @@
 "use client";
 
-import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { AppSelectField, AppSwitchField } from "@/components/app-ui";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,7 +11,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 
 import { Field } from "./prompt-ui";
 import type { BuilderState, PromptTranslationFn } from "./prompt-management-shared";
@@ -33,16 +32,7 @@ export function CacheConfigDialog(props: CacheConfigDialogProps) {
           <DialogDescription>{props.t("dialogs.cache.description")}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="flex items-center justify-between rounded-md border px-3 py-2">
-            <div>
-              <div className="text-sm font-medium">{props.t("dialogs.cache.enableTitle")}</div>
-              <div className="text-xs text-muted-foreground">{props.t("dialogs.cache.enableDescription")}</div>
-            </div>
-            <Switch
-              checked={props.builder.cacheEnabled}
-              onCheckedChange={(checked) => props.onBuilderChange((current) => ({ ...current, cacheEnabled: checked }))}
-            />
-          </div>
+          <AppSwitchField label={props.t("dialogs.cache.enableTitle")} description={props.t("dialogs.cache.enableDescription")} checked={props.builder.cacheEnabled} onCheckedChange={(checked) => props.onBuilderChange((current) => ({ ...current, cacheEnabled: checked }))} />
           <AppSelectField
             label={props.t("dialogs.cache.fields.type")}
             value={props.builder.cacheType}

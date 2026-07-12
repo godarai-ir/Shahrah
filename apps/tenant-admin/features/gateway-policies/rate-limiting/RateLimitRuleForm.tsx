@@ -7,14 +7,12 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, Plus, Trash2, X } from "lucide-react";
 
-import { AppSelectField, FormSection, IdentifierField, PageContainer, PageHeader } from "@/components/app-ui";
+import { AppSelectField, AppSwitchField, FormSection, IdentifierField, PageContainer, PageHeader } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError as FormFieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   PrincipalEntitySelect,
@@ -310,9 +308,9 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
             <Textarea id="description" placeholder={t("form.placeholders.description")} {...form.register("description")} />
           </FormField>
 
-          <SwitchRow
+          <AppSwitchField
             id="enabled"
-            title={t("form.switches.enabled.title")}
+            label={t("form.switches.enabled.title")}
             description={t("form.switches.enabled.description")}
             checked={Boolean(enabled)}
             onCheckedChange={(checked) => form.setValue("enabled", checked, { shouldValidate: true, shouldDirty: true })}
@@ -686,17 +684,17 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
                 </div>
 
                 <div className="grid gap-4 lg:grid-cols-2">
-                  <SwitchRow
+                  <AppSwitchField
                     id="soft-limit"
-                    title={t("form.switches.softLimit.title")}
+                    label={t("form.switches.softLimit.title")}
                     description={t("form.switches.softLimit.description")}
                     checked={Boolean(softLimit)}
                     onCheckedChange={(checked) => form.setValue("soft_limit", checked, { shouldValidate: true, shouldDirty: true })}
                   />
 
-                  <SwitchRow
+                  <AppSwitchField
                     id="retry-after-header"
-                    title={t("form.switches.retryAfterHeader.title")}
+                    label={t("form.switches.retryAfterHeader.title")}
                     description={t("form.switches.retryAfterHeader.description")}
                     checked={Boolean(retryAfterHeader)}
                     onCheckedChange={(checked) => form.setValue("retry_after_header", checked, { shouldValidate: true, shouldDirty: true })}
@@ -785,35 +783,5 @@ function SelectionChip({
         <X className="size-3" />
       </button>
     </Badge>
-  );
-}
-
-function SwitchRow({
-  id,
-  title,
-  description,
-  checked,
-  onCheckedChange,
-}: {
-  id: string;
-  title: string;
-  description: string;
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-}) {
-  const descriptionId = `${id}-description`;
-
-  return (
-    <div className="flex items-start justify-between gap-4 rounded-xl bg-muted/30 px-4 py-3">
-      <div className="flex min-w-0 flex-col gap-1">
-        <Label htmlFor={id} className="text-sm font-medium text-card-foreground">
-          {title}
-        </Label>
-        <p id={descriptionId} className="text-xs leading-5 text-muted-foreground">
-          {description}
-        </p>
-      </div>
-      <Switch id={id} checked={checked} aria-describedby={descriptionId} onCheckedChange={onCheckedChange} />
-    </div>
   );
 }

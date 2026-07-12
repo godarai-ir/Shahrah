@@ -158,6 +158,8 @@ Product wrappers such as `IdentifierField` and `AppSelectField` already compose 
 
 Use `AppTextField` and `AppTextareaField` for ordinary labeled text controls. They standardize generated IDs, disabled/invalid semantics, description, and error rendering. Keep specialized inputs such as identifiers, OTP, currency, and search on their dedicated components.
 
+Use `AppSwitchField` for boolean settings that need a label, optional explanation, validation, and consistent horizontal alignment. Its default surface is suitable for settings rows; pass `surface={false}` when the surrounding card or form section already owns the visual container.
+
 ## Permission Editing
 
 Use `PermissionEditor` for controlled permission selection with search, selected/all views, grouped checkboxes, and group-level select/clear actions. Keep the permission catalog and selected keys in the feature; pass localized labels and formatting callbacks into the component.
