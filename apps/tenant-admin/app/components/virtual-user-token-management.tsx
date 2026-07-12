@@ -12,13 +12,12 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { AppCard, AppSelectField, AppTextField, CommercialPlanUpgradeDialog, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, FormSheet, HelpLink, IdentifierField, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, AppTextField, CheckboxOptionList, CommercialPlanUpgradeDialog, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, FormSheet, HelpLink, IdentifierField, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -876,32 +875,7 @@ function TokenFormView({
         placeholder="30d"
         description={t("createToken.expiryExamples")}
       />
-      <div className="flex flex-col gap-2">
-        <Label>{t("fields.allowedModels")}</Label>
-        <div className="max-h-64 overflow-auto rounded-md border p-2">
-          {modelOptions.length === 0 ? (
-            <p className="text-xs text-muted-foreground">{t("createToken.noModels")}</p>
-          ) : (
-            modelOptions.map((model) => (
-              <label key={model.id} htmlFor={`model-${model.id}`} className="flex items-center gap-2 py-1 text-sm">
-                <Checkbox
-                  id={`model-${model.id}`}
-                  checked={model.checked}
-                  onCheckedChange={(checked) => {
-                    if (checked === true) {
-                      update("allowedModels", Array.from(new Set([...selectedModels, model.id])).join(","));
-                      return;
-                    }
-                    update("allowedModels", selectedModels.filter((item) => item !== model.id).join(","));
-                  }}
-                />
-                <span className="font-mono text-xs">{model.id}</span>
-              </label>
-            ))
-          )}
-        </div>
-        <p className="text-xs text-muted-foreground">{t("createToken.modelHint")}</p>
-      </div>
+      <CheckboxOptionList label={t("fields.allowedModels")} description={t("createToken.modelHint")} options={modelOptions.map((model) => ({ value: model.id, label: model.id, textDir: "ltr" }))} value={selectedModels} onValueChange={(nextModels) => update("allowedModels", nextModels.join(","))} emptyText={t("createToken.noModels")} />
       <Button type="submit" disabled={isSaving}>
         {isSaving ? t("actions.saving") : t("actions.createToken")}
       </Button>

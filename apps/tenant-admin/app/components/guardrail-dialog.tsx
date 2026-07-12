@@ -2,10 +2,9 @@
 
 import { AlertCircle } from "lucide-react";
 
-import { AppSelectField, FormDialog } from "@/components/app-ui";
+import { AppSelectField, CheckboxOptionList, FormDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 
 import type { BuilderState, GuardrailItem, PromptTranslationFn } from "./prompt-management-shared";
 
@@ -31,13 +30,7 @@ export function GuardrailDialog(props: GuardrailDialogProps) {
       size="md"
       footer={<Button type="button" variant="outline" onClick={() => props.setMode(null)}>{props.t("actions.close")}</Button>}
     >
-        {props.isLoading ? (
-          <div className="space-y-2">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </div>
-        ) : (
-          <div className="space-y-3">
+          <div className="flex flex-col gap-3">
             {props.mode === "output" ? (
               <Alert variant={props.builder.stream ? "destructive" : "default"}>
                 <AlertCircle className="size-4" />
@@ -60,37 +53,15 @@ export function GuardrailDialog(props: GuardrailDialogProps) {
                 { value: "all", label: props.t("dialogs.guardrails.scopeAll") },
               ]}
             />
-            <div className="max-h-[360px] space-y-2 overflow-y-auto rounded-lg border p-2">
-              {props.guardrails.map((guardrail) => {
-                const selector = guardrail.selector || `guardrails/${guardrail.slug}`;
-                const checked = selectedGuardrailMode.includes(selector);
-                return (
-                  <label key={guardrail.id || guardrail.slug} className="flex items-start gap-3 rounded-md border p-3">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={(event) => {
-                        props.onBuilderChange((current) => {
-                          const targetKey = props.mode === "input" ? "inputGuardrails" : "outputGuardrails";
-                          const currentValues = current[targetKey];
-                          const nextValues = event.target.checked
-                            ? [...currentValues, selector]
-                            : currentValues.filter((value) => value !== selector);
-                          return { ...current, [targetKey]: nextValues };
-                        });
-                      }}
-                      className="mt-1"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block font-medium">{guardrail.name}</span>
-                      <span className="block text-xs text-muted-foreground">{guardrail.description || guardrail.type || selector}</span>
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
+            <CheckboxOptionList
+              label={props.t("dialogs.guardrails.available")}
+              options={props.guardrails.map((guardrail) => ({ value: guardrail.selector || `guardrails/${guardrail.slug}`, label: guardrail.name, description: guardrail.description || guardrail.type || guardrail.selector }))}
+              value={selectedGuardrailMode}
+              onValueChange={(nextValues) => props.onBuilderChange((current) => ({ ...current, [props.mode === "input" ? "inputGuardrails" : "outputGuardrails"]: nextValues }))}
+              emptyText={props.t("dialogs.guardrails.empty")}
+              loading={props.isLoading}
+            />
           </div>
-        )}
     </FormDialog>
   );
 }

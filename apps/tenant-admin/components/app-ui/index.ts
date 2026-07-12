@@ -7,6 +7,7 @@ export { AppTextField, AppTextareaField, type AppTextFieldProps, type AppTextare
 export { CompactValue } from "./CompactValue";
 export { CodeBlock, type CodeBlockProps, type CodeLanguage } from "./CodeBlock";
 export { CodePanel, type CodePanelProps } from "./CodePanel";
+export { CheckboxOptionList, type CheckboxOption, type CheckboxOptionListProps } from "./CheckboxOptionList";
 export { CommercialPlanUpgradeDialog } from "./CommercialPlanUpgradeDialog";
 export { ConfirmDialog } from "./ConfirmDialog";
 export { CopyableValue, copyTextToClipboard, type CopyableValueLabels, type CopyableValueProps } from "./CopyableValue";

@@ -172,6 +172,8 @@ Use `AppCodeTextareaField` for editable JSON, schemas, regular expressions, JWKS
 
 Use `PermissionEditor` for controlled permission selection with search, selected/all views, grouped checkboxes, and group-level select/clear actions. Keep the permission catalog and selected keys in the feature; pass localized labels and formatting callbacks into the component.
 
+Use `CheckboxOptionList` for compact, scrollable multi-selection lists such as allowed models or attached guardrails. It composes `FieldSet`, `FieldGroup`, and `Checkbox`, and owns loading and empty states while selection state remains feature-controlled.
+
 Use `PermissionSummary` beside the editor when a role workflow needs selected-permission and covered-group counts. It may expose a clear-all action, but submission and validation remain responsibilities of the feature form.
 
 Permission groups use semantic `FieldSet`/`FieldLegend`, and each checkbox uses the Field family. Technical permission keys remain LTR while group and description direction follows the page locale.

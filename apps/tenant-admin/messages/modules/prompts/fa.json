@@ -258,6 +258,8 @@
       "streamingDisabledDescription": "در وضعیت فعلی گُدارAI، خروجی guardrail با استریم فعال رد می‌شود. قبل از اجرا یا ذخیره، استریم را در تنظیمات مدل غیرفعال کنید.",
       "streamingAlreadyDisabledDescription": "در وضعیت فعلی گُدارAI، output guardrail فقط زمانی پشتیبانی می‌شود که استریم غیرفعال باشد.",
       "scope": "دامنه اعمال",
+      "available": "گاردریل‌های در دسترس",
+      "empty": "گاردریلی در دسترس نیست.",
       "scopeLast": "last",
       "scopeAll": "all"
     },

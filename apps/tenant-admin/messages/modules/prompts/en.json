@@ -258,6 +258,8 @@
       "streamingDisabledDescription": "GodarAI currently rejects output guardrails when streaming is enabled. Disable stream in model settings before running or saving.",
       "streamingAlreadyDisabledDescription": "GodarAI currently accepts output guardrails only when streaming is disabled.",
       "scope": "Scope",
+      "available": "Available guardrails",
+      "empty": "No guardrails are available.",
       "scopeLast": "last",
       "scopeAll": "all"
     },
