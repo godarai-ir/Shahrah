@@ -8,21 +8,12 @@ import { useTranslations } from "next-intl";
 import { ChevronRight, Copy, ExternalLink, Eye, KeyRound, Layers3, Pencil, ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { AppSelectField, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   PrincipalEntitySelect,
@@ -121,7 +112,6 @@ export default function ProviderAccountWizard(props?: {
   const [deletingAccountID, setDeletingAccountID] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteTargetAccount, setDeleteTargetAccount] = useState<TenantProviderAccount | null>(null);
-  const [deleteAccountNameInput, setDeleteAccountNameInput] = useState("");
   const [isLoadingEffective, setIsLoadingEffective] = useState(false);
   const [isLoadingProviderModels, setIsLoadingProviderModels] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
@@ -504,7 +494,6 @@ export default function ProviderAccountWizard(props?: {
       return;
     }
     setDeleteTargetAccount(target);
-    setDeleteAccountNameInput("");
     setDeleteDialogOpen(true);
   }, [canDeleteProviderAccount, t]);
 
@@ -515,11 +504,6 @@ export default function ProviderAccountWizard(props?: {
         return;
       }
       if (!target?.id) return;
-      if (deleteAccountNameInput !== target.name) {
-        setBanner({ kind: "error", message: t("messages.accountDeleteNameMismatch") });
-        return;
-      }
-
       setDeletingAccountID(target.id);
       try {
         const response = await fetch(`/api/tenant-provider-accounts/${encodeURIComponent(target.id)}`, {
@@ -556,14 +540,14 @@ export default function ProviderAccountWizard(props?: {
         setBanner({ kind: "success", message: t("messages.accountDeleteSuccess") });
         setDeleteDialogOpen(false);
         setDeleteTargetAccount(null);
-        setDeleteAccountNameInput("");
       } catch (error) {
         setBanner({ kind: "error", message: normalizeError(error, t("messages.accountDeleteFailed")) });
+        throw error;
       } finally {
         setDeletingAccountID("");
       }
     },
-    [accounts, canDeleteProviderAccount, deleteAccountNameInput, normalizeDeleteAccountError, selectedAccountID, t],
+    [accounts, canDeleteProviderAccount, normalizeDeleteAccountError, selectedAccountID, t],
   );
 
   async function handleSaveCredentials(accountID = selectedAccountID) {
@@ -2016,58 +2000,23 @@ export default function ProviderAccountWizard(props?: {
             </Card>
           </section>
         </div>
-        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t("messages.accountDeleteConfirmTitle")}</DialogTitle>
-              <DialogDescription>
-                {t("messages.accountDeleteConfirmBody", { name: deleteTargetAccount?.name ?? "" })}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="delete-account-name-input">{t("messages.accountDeleteConfirmLabel")}</Label>
-              <Input
-                id="delete-account-name-input"
-                value={deleteAccountNameInput}
-                onChange={(event) => setDeleteAccountNameInput(event.target.value)}
-                placeholder={deleteTargetAccount?.name ?? ""}
-                aria-invalid={
-                  Boolean(deleteAccountNameInput) &&
-                  deleteAccountNameInput !== (deleteTargetAccount?.name ?? "")
-                }
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setDeleteDialogOpen(false);
-                  setDeleteTargetAccount(null);
-                  setDeleteAccountNameInput("");
-                }}
-              >
-                {ux("actions.cancelDelete")}
-              </Button>
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={() => {
-                  if (deleteTargetAccount) {
-                    void handleDeleteAccount(deleteTargetAccount);
-                  }
-                }}
-                disabled={
-                  !deleteTargetAccount ||
-                  deletingAccountID === deleteTargetAccount.id ||
-                  deleteAccountNameInput !== (deleteTargetAccount?.name ?? "")
-                }
-              >
-                {deletingAccountID ? ux("actions.loading") : ux("actions.confirmDelete")}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <TypedConfirmDialog
+          open={deleteDialogOpen}
+          onOpenChange={(open) => {
+            setDeleteDialogOpen(open);
+            if (!open) setDeleteTargetAccount(null);
+          }}
+          title={t("messages.accountDeleteConfirmTitle")}
+          description={t("messages.accountDeleteConfirmBody", { name: deleteTargetAccount?.name ?? "" })}
+          expectedValue={deleteTargetAccount?.name ?? ""}
+          inputLabel={t("messages.accountDeleteConfirmLabel")}
+          cancelLabel={ux("actions.cancelDelete")}
+          confirmLabel={ux("actions.confirmDelete")}
+          pendingLabel={ux("actions.loading")}
+          onConfirm={() => deleteTargetAccount ? handleDeleteAccount(deleteTargetAccount) : Promise.resolve()}
+          disabled={!deleteTargetAccount}
+          inputDir="auto"
+        />
       </CardContent>
     </Card>
   );

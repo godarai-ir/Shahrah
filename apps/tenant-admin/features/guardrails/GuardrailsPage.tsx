@@ -4,18 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Check, Copy, Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 
-import { AppSelectField, EmptyState, HelpLink, IdentifierField, OperationNotice } from "@/components/app-ui";
+import { AppSelectField, ConfirmDialog, EmptyState, HelpLink, IdentifierField, OperationNotice } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -769,22 +761,18 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
         </SheetContent>
       </Sheet>
 
-      <Dialog open={pendingDelete !== null} onOpenChange={(open) => !open && setPendingDelete(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("deleteDialog.title")}</DialogTitle>
-            <DialogDescription>{t("deleteDialog.description", { name: pendingDelete?.name ?? "-" })}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="outline" disabled={isDeleting} onClick={() => setPendingDelete(null)}>
-              {t("actions.cancel")}
-            </Button>
-            <Button type="button" variant="destructive" disabled={isDeleting} onClick={() => void confirmDelete()}>
-              {isDeleting ? t("deleteDialog.deleting") : t("actions.delete")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+        title={t("deleteDialog.title")}
+        description={t("deleteDialog.description", { name: pendingDelete?.name ?? "-" })}
+        cancelLabel={t("actions.cancel")}
+        confirmLabel={t("actions.delete")}
+        pendingLabel={t("deleteDialog.deleting")}
+        onConfirm={confirmDelete}
+        pending={isDeleting}
+        closeOnConfirm={false}
+      />
     </>
   );
 }

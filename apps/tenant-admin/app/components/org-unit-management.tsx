@@ -18,7 +18,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AppCard, AppSelectField, AppTextField, CommercialPlanUpgradeDialog, CompactValue, DefinitionList, DefinitionListItem, EmptyState, FilterCombobox, HelpLink, IdentifierField, MetricCard, OperationNotice, PageHeader, RowActionsMenu, TablePagination } from "@/components/app-ui";
+import { AppCard, AppSelectField, AppTextField, CommercialPlanUpgradeDialog, CompactValue, DefinitionList, DefinitionListItem, EmptyState, FilterCombobox, HelpLink, IdentifierField, MetricCard, OperationNotice, PageHeader, RowActionsMenu, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -189,7 +189,6 @@ export default function OrgUnitManagement({
   const [form, setForm] = useState<FormState>(emptyForm);
   const [memberUserID, setMemberUserID] = useState("");
   const [memberRole, setMemberRole] = useState("org_admin");
-  const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [entitlements, setEntitlements] = useState<EffectiveEntitlements>(null);
   const [hasLoadedEntitlements, setHasLoadedEntitlements] = useState(false);
@@ -527,18 +526,12 @@ export default function OrgUnitManagement({
     }
   }
 
-  async function handleDelete(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleDelete() {
     if (!selectedOrgUnit) return;
     if (getTeamCount(selectedOrgUnit) > 0) {
       setBanner({ kind: "warning", message: t("messages.deleteBlocked") });
       return;
     }
-    if (deleteConfirmation.trim() !== selectedOrgUnit.alias) {
-      setBanner({ kind: "error", message: t("messages.deleteConfirmAlias") });
-      return;
-    }
-
     setIsSaving(true);
     try {
       await requestJSON(`/api/org-units/${encodeURIComponent(selectedOrgUnit.id)}`, {
@@ -546,11 +539,11 @@ export default function OrgUnitManagement({
       });
       setBanner({ kind: "success", message: t("messages.deleteSuccess") });
       setDeleteOpen(false);
-      setDeleteConfirmation("");
       setSelectedOrgUnitID(null);
       await loadOrgUnits(0, query.trim());
     } catch (error) {
       setBanner({ kind: "error", message: normalizeError(error, t("messages.deleteError")) });
+      throw error;
     } finally {
       setIsSaving(false);
     }
@@ -981,40 +974,25 @@ export default function OrgUnitManagement({
         </SheetContent>
       </Sheet>
 
-      <Sheet open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <SheetContent side="left" className="w-full max-w-md sm:w-3/4">
-          <SheetHeader>
-            <SheetTitle>{t("delete.title")}</SheetTitle>
-            <SheetDescription>
-              {t("delete.description")}
-            </SheetDescription>
-          </SheetHeader>
-          {selectedOrgUnit ? (
-            <form className="mt-6 flex flex-col gap-4" onSubmit={handleDelete}>
-              {resolveTeamCount(selectedOrgUnit) > 0 ? (
-                <Alert variant="warning">
-                  <AlertTitle>{t("delete.childTeamsTitle")}</AlertTitle>
-                  <AlertDescription>
-                    {t("delete.childTeamsDescription", { name: getOrgName(selectedOrgUnit) })}
-                  </AlertDescription>
-                </Alert>
-              ) : null}
-              <div className="grid gap-2">
-                <Label htmlFor="delete-confirm">{t("delete.confirmLabel", { alias: selectedOrgUnit.alias })}</Label>
-                <Input
-                  id="delete-confirm"
-                  value={deleteConfirmation}
-                  onChange={(event) => setDeleteConfirmation(event.target.value)}
-                  placeholder={selectedOrgUnit.alias}
-                />
-              </div>
-              <Button type="submit" variant="destructive" disabled={isSaving || !canDeleteOrgUnit} className="w-full">
-                {t("delete.submit")}
-              </Button>
-            </form>
-          ) : null}
-        </SheetContent>
-      </Sheet>
+      <TypedConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={t("delete.title")}
+        description={t("delete.description")}
+        expectedValue={selectedOrgUnit?.alias ?? ""}
+        inputLabel={t("delete.confirmLabel", { alias: selectedOrgUnit?.alias ?? "-" })}
+        warning={selectedOrgUnit && resolveTeamCount(selectedOrgUnit) > 0 ? (
+          <Alert variant="warning">
+            <AlertTitle>{t("delete.childTeamsTitle")}</AlertTitle>
+            <AlertDescription>{t("delete.childTeamsDescription", { name: getOrgName(selectedOrgUnit) })}</AlertDescription>
+          </Alert>
+        ) : undefined}
+        cancelLabel={t("actions.cancel")}
+        confirmLabel={t("delete.submit")}
+        pendingLabel={t("actions.saving")}
+        onConfirm={handleDelete}
+        disabled={!selectedOrgUnit || !canDeleteOrgUnit || resolveTeamCount(selectedOrgUnit) > 0}
+      />
 
       <CommercialPlanUpgradeDialog open={isUpgradeDialogOpen} onOpenChange={setIsUpgradeDialogOpen} title={t("upgradeDialog.title")} description={t("upgradeDialog.description")} cancelLabel={t("upgradeDialog.cancel")} actionLabel={t("upgradeDialog.action")} />
     </div>

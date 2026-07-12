@@ -5,12 +5,11 @@ import { useTranslations } from "next-intl";
 import { ArrowDown, ArrowUp, CheckCircle2, Copy, Edit3, Plus, RefreshCw, Save, Search, Trash2, XCircle } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { HelpLink, IdentifierField } from "@/components/app-ui";
+import { HelpLink, IdentifierField, TypedConfirmDialog } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -160,7 +159,6 @@ export default function VirtualModelManagement() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [actingID, setActingID] = useState<string>("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [pendingDeleteItem, setPendingDeleteItem] = useState<VirtualModel | null>(null);
   const [query, setQuery] = useState("");
   const [notice, setNotice] = useState<Notice>(null);
@@ -510,11 +508,11 @@ export default function VirtualModelManagement() {
       }
       setNotice({ kind: "success", message: t("messages.deleteSuccess") });
       setDeleteDialogOpen(false);
-      setDeleteConfirmation("");
       setPendingDeleteItem(null);
       await loadList();
     } catch (error) {
       setNotice({ kind: "error", message: normalizeError(error, t("messages.deleteError")) });
+      throw error;
     } finally {
       setIsDeleting(false);
     }
@@ -689,7 +687,6 @@ export default function VirtualModelManagement() {
                             aria-label={t("actions.delete")}
                             onClick={() => {
                               setPendingDeleteItem(item);
-                              setDeleteConfirmation("");
                               setDeleteDialogOpen(true);
                             }}
                             disabled={actingID === item.id}
@@ -1112,53 +1109,26 @@ export default function VirtualModelManagement() {
         </SheetContent>
       </Sheet>
 
-      <Dialog
+      <TypedConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={(open) => {
           if (isDeleting) return;
           setDeleteDialogOpen(open);
           if (!open) {
-            setDeleteConfirmation("");
             setPendingDeleteItem(null);
           }
         }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("deleteDialog.title")}</DialogTitle>
-            <DialogDescription>
-              {t("deleteDialog.description", { alias: pendingDeleteItem?.alias || "-" })}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="vm-delete-confirmation">{t("deleteDialog.inputLabel")}</Label>
-            <Input
-              id="vm-delete-confirmation"
-              value={deleteConfirmation}
-              onChange={(event) => setDeleteConfirmation(event.target.value)}
-              placeholder={pendingDeleteItem?.alias || ""}
-              dir="ltr"
-              autoComplete="off"
-            />
-            <p className="text-xs text-muted-foreground">
-              {t("deleteDialog.inputHint", { alias: pendingDeleteItem?.alias || "-" })}
-            </p>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={isDeleting}>
-              {t("deleteDialog.cancel")}
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => void deleteCurrent()}
-              disabled={isDeleting || !pendingDeleteItem?.id || deleteConfirmation.trim() !== (pendingDeleteItem?.alias ?? "")}
-            >
-              {isDeleting ? t("deleteDialog.deleting") : t("deleteDialog.confirm")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        title={t("deleteDialog.title")}
+        description={t("deleteDialog.description", { alias: pendingDeleteItem?.alias || "-" })}
+        expectedValue={pendingDeleteItem?.alias ?? ""}
+        inputLabel={t("deleteDialog.inputLabel")}
+        warning={pendingDeleteItem ? <p className="text-xs text-muted-foreground">{t("deleteDialog.inputHint", { alias: pendingDeleteItem.alias })}</p> : undefined}
+        cancelLabel={t("deleteDialog.cancel")}
+        confirmLabel={t("deleteDialog.confirm")}
+        pendingLabel={t("deleteDialog.deleting")}
+        onConfirm={deleteCurrent}
+        disabled={!pendingDeleteItem?.id}
+      />
     </>
   );
 }
