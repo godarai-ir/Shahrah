@@ -22,7 +22,7 @@ import {
   Users,
 } from "lucide-react";
 
-import { CodeBlock } from "@/app/components/code-block";
+import { CodeBlock, CodePanel } from "@/components/app-ui";
 import {
   deriveQuickStartJourney,
   type QuickStartAction,
@@ -725,10 +725,6 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
                         })}
                       </p>
                     </div>
-                    <Button type="button" variant="outline" size="sm" onClick={() => void copyText("sample-response", sampleRunResult.raw)}>
-                      <Copy data-icon="inline-start" />
-                      {copiedKey === "sample-response" ? t("actions.copied") : t("lab.copyResponse")}
-                    </Button>
                   </div>
 
                   {sampleRunResult.content ? (
@@ -738,10 +734,13 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
                     </div>
                   ) : null}
 
-                  <div>
-                    <p className="mb-2 text-xs font-semibold text-muted-foreground">{t("lab.rawResponseLabel")}</p>
-                    <CodeBlock code={sampleRunResult.raw} language="json" />
-                  </div>
+                  <CodePanel
+                    title={t("lab.rawResponseLabel")}
+                    code={sampleRunResult.raw}
+                    language="json"
+                    displayLanguage="JSON"
+                    copy={{ copyLabel: t("lab.copyResponse"), copiedLabel: t("actions.copied") }}
+                  />
                 </div>
               ) : null}
             </div>

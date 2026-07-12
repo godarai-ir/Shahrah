@@ -3,6 +3,8 @@ export { CatalogFilterCombobox } from "./CatalogFilterCombobox";
 export { AppSelectField, type AppSelectFieldProps, type AppSelectGroup, type AppSelectOption } from "./AppSelectField";
 export { AppTextField, AppTextareaField, type AppTextFieldProps, type AppTextareaFieldProps } from "./AppTextField";
 export { CompactValue } from "./CompactValue";
+export { CodeBlock, type CodeBlockProps, type CodeLanguage } from "./CodeBlock";
+export { CodePanel, type CodePanelProps } from "./CodePanel";
 export { CommercialPlanUpgradeDialog } from "./CommercialPlanUpgradeDialog";
 export { ConfirmDialog } from "./ConfirmDialog";
 export { CopyableValue, copyTextToClipboard, type CopyableValueLabels, type CopyableValueProps } from "./CopyableValue";

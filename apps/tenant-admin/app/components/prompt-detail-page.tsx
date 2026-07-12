@@ -19,7 +19,7 @@ import {
 
 import { normalizeError, requestJSON, unwrapData } from "@/app/components/provider-account-wizard/utils";
 import { AppSelectField } from "@/components/app-ui/AppSelectField";
-import { DefinitionList, DefinitionListItem } from "@/components/app-ui";
+import { CodePanel, DefinitionList, DefinitionListItem } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,7 +45,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { cn } from "@/lib/utils";
 
-import { CodeBlock } from "./code-block";
 import {
   buildGatewaySnippet,
   buildPromptDiffRows,
@@ -647,35 +646,6 @@ function Section(props: { title: string; children: React.ReactNode }) {
       <div className="text-sm font-medium">{props.title}</div>
       {props.children}
     </section>
-  );
-}
-
-function CodePanel(props: {
-  actions?: React.ReactNode;
-  code: string;
-  description: string;
-  language: "bash" | "json" | "python";
-  displayLanguage: string;
-  title: string;
-}) {
-  return (
-    <Card className="shadow-none">
-      <CardHeader className="border-b">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <CardTitle className="text-base">{props.title}</CardTitle>
-              <Badge variant="outline" className="font-mono">{props.displayLanguage}</Badge>
-            </div>
-            <CardDescription>{props.description}</CardDescription>
-          </div>
-          <div className="flex flex-wrap gap-2">{props.actions}</div>
-        </div>
-      </CardHeader>
-      <CardContent className="p-4">
-        <CodeBlock code={props.code} language={props.language} maxHeightClassName="max-h-[min(34rem,60dvh)]" />
-      </CardContent>
-    </Card>
   );
 }
 
