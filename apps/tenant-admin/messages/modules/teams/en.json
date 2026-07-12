@@ -46,6 +46,7 @@
     "members": "Members"
   },
   "table": {
+    "loading": "Loading teams...",
     "team": "Team",
     "orgUnit": "Org unit",
     "orgUnknown": "Unknown org unit",

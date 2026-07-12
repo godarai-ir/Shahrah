@@ -23,6 +23,7 @@
     "notSet": "Not set"
   },
   "usersTable": {
+    "loading": "Loading virtual users...",
     "identity": "Identity",
     "team": "Team",
     "status": "Status",

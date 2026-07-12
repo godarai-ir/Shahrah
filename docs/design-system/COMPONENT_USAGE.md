@@ -58,6 +58,8 @@ The app already has `components/ui/data-table`. Keep using it where behavior is 
 
 Use `DataListPanel` when a list page needs the standard toolbar, loading/empty/content state switch, and an optional pagination footer. Keep filtering, fetching, and row rendering in the feature; pass those results into the panel slots.
 
+Within table bodies, use `TableLoadingRows` for initial skeleton rows and `TableEmptyRow` for a correctly spanning `EmptyState`. Pass a localized loading label and the exact visible column count; feature-owned empty actions remain supported through `EmptyState` props.
+
 Use `TablePagination` for previous/next pagination. Pass localized summary and button labels from the feature namespace, and provide page/page-size values only when they add useful context.
 
 Use the feature-level `GatewayPolicyRulesList` for the shared Rate Limit and Budget Limit page shell. It composes `PageHeader`, entitlement-aware create actions, notice feedback, `DataListPanel`, the create/edit `Sheet`, `ConfirmDialog`, and the plan-upgrade dialog.

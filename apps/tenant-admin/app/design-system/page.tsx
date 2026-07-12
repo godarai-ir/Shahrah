@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Shield, Trash2, Upload, X } from "lucide-react";
 
-import { AppCard, AppSelectField, AppTextField, AppTextareaField, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DefinitionList, DefinitionListItem, EmptyState, FilterCombobox, FormSection, FormSheet, HelpLink, IdentifierField, MetricCard, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, StatusOptionGroup, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, AppTextField, AppTextareaField, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DefinitionList, DefinitionListItem, EmptyState, FilterCombobox, FormSection, FormSheet, HelpLink, IdentifierField, MetricCard, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
 import { Attachment, AttachmentAction, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -405,7 +405,10 @@ export default function DesignSystemPage() {
             <EmptyState variant="inline" density="compact" icon={Inbox} title="No matching records" />
           </AppCard>
           <AppCard title="Table empty state" description="For a spanning cell below a retained table header.">
-            <EmptyState variant="table" density="compact" title="No rows to display" />
+            <Table><TableBody><TableEmptyRow colSpan={3} density="compact" title="No rows to display" /></TableBody></Table>
+          </AppCard>
+          <AppCard title="Table loading rows" description="Keep table geometry stable while the first page loads.">
+            <Table><TableBody><TableLoadingRows colSpan={3} rowCount={2} label="Loading rows" /></TableBody></Table>
           </AppCard>
         </div>
       </section>

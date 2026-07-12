@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Info, Plus, UsersRound } from "lucide-react";
 
-import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, HelpLink, PageHeader, RowActionsMenu, SearchField, TablePagination } from "@/components/app-ui";
+import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, HelpLink, PageHeader, RowActionsMenu, SearchField, TableEmptyRow, TableLoadingRows, TablePagination } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +20,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Table,
@@ -400,12 +399,8 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && users.length === 0 ? Array.from({ length: 4 }).map((_, index) => (
-              <TableRow key={index}><TableCell colSpan={4}><Skeleton className="h-10 w-full" /></TableCell></TableRow>
-            )) : users.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="py-6"><EmptyState variant="table" title={t("table.noUsersFound")} description={t("usersPage.emptyDescription")} /></TableCell>
-              </TableRow>
+            {isLoading && users.length === 0 ? <TableLoadingRows colSpan={4} label={t("table.loading")} /> : users.length === 0 ? (
+              <TableEmptyRow colSpan={4} title={t("table.noUsersFound")} description={t("usersPage.emptyDescription")} />
             ) : (
               users.map((user) => {
                 const identity = user.email || user.mobile || user.id;

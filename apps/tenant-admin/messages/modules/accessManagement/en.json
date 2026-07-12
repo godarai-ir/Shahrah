@@ -45,6 +45,7 @@
     "inviting": "Inviting..."
   },
   "table": {
+    "loading": "Loading users...",
     "emailMobile": "EMAIL / MOBILE",
     "displayName": "DISPLAY NAME",
     "role": "ROLE",

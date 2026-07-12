@@ -12,7 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { AppCard, AppSelectField, AppTextField, CommercialPlanUpgradeDialog, CopyAction, DefinitionList, DefinitionListItem, EmptyState, FormSheet, HelpLink, IdentifierField, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, AppTextField, CommercialPlanUpgradeDialog, CopyAction, DefinitionList, DefinitionListItem, EmptyState, FormSheet, HelpLink, IdentifierField, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +20,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
@@ -487,27 +486,9 @@ export default function VirtualUserTokenManagement({
             </TableHeader>
             <TableBody>
               {isLoadingUsers && virtualUsers.length === 0 ? (
-                Array.from({ length: 4 }).map((_, index) => (
-                  <TableRow key={index}>
-                    <TableCell colSpan={3}><Skeleton className="h-10 w-full" /></TableCell>
-                  </TableRow>
-                ))
+                <TableLoadingRows colSpan={3} label={t("usersTable.loading")} />
               ) : virtualUsers.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={3} className="py-8">
-                    <EmptyState
-                      variant="table"
-                      title={t("usersTable.empty")}
-                      description={t("usersTable.emptyDescription")}
-                      primaryAction={
-                        <Button type="button" onClick={openCreateVirtualUser} disabled={!hasLoadedEntitlements}>
-                          <Plus data-icon="inline-start" />
-                          {t("actions.createUser")}
-                        </Button>
-                      }
-                    />
-                  </TableCell>
-                </TableRow>
+                <TableEmptyRow colSpan={3} cellClassName="py-8" title={t("usersTable.empty")} description={t("usersTable.emptyDescription")} primaryAction={<Button type="button" onClick={openCreateVirtualUser} disabled={!hasLoadedEntitlements}><Plus data-icon="inline-start" />{t("actions.createUser")}</Button>} />
               ) : (
                 virtualUsers.map((item) => (
                   <TableRow

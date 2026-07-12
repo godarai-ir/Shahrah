@@ -29,4 +29,5 @@ export { SettingsCard } from "./SettingsCard";
 export { StatusBadge } from "./StatusBadge";
 export { StatusOptionGroup, type StatusOption, type StatusOptionGroupProps, type StatusOptionTone } from "./StatusOptionGroup";
 export { TablePagination } from "./TablePagination";
+export { TableEmptyRow, TableLoadingRows, type TableEmptyRowProps, type TableLoadingRowsProps } from "./TableStateRows";
 export { TypedConfirmDialog, type TypedConfirmDialogProps } from "./TypedConfirmDialog";

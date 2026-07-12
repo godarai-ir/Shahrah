@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 import { usePermissions } from "@/app/components/permissions-context";
-import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, FilterCombobox, FormSheet, HelpLink, IdentifierField, MetricCard, OperationNotice, PageHeader, RowActionsMenu, SearchField, StatusBadge as AppStatusBadge, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, FilterCombobox, FormSheet, HelpLink, IdentifierField, MetricCard, OperationNotice, PageHeader, RowActionsMenu, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -414,7 +414,7 @@ export default function TeamManagement({
             <Table>
               <TableHeader><TableRow><TableHead>{t("table.team")}</TableHead><TableHead>{t("table.orgUnit")}</TableHead><TableHead>{t("table.workspaceType")}</TableHead><TableHead>{t("table.status")}</TableHead><TableHead>{t("table.updated")}</TableHead><TableHead className="w-10 text-end"> </TableHead></TableRow></TableHeader>
               <TableBody>
-                {isLoading && filtered.length === 0 ? Array.from({ length: 4 }).map((_, index) => <TableRow key={index}><TableCell colSpan={6}><Skeleton className="h-10 w-full" /></TableCell></TableRow>) : filtered.length === 0 ? <TableRow><TableCell colSpan={6} className="py-6"><EmptyState variant="table" icon={Users} title={t("empty.title")} description={t("empty.description")} primaryAction={canCreateTeam ? <Button type="button" onClick={handleCreateTeam} disabled={!hasLoadedEntitlements}><Plus data-icon="inline-start" />{t("actions.new")}</Button> : undefined} /></TableCell></TableRow> : filtered.map((team) => (
+                {isLoading && filtered.length === 0 ? <TableLoadingRows colSpan={6} label={t("table.loading")} /> : filtered.length === 0 ? <TableEmptyRow colSpan={6} icon={Users} title={t("empty.title")} description={t("empty.description")} primaryAction={canCreateTeam ? <Button type="button" onClick={handleCreateTeam} disabled={!hasLoadedEntitlements}><Plus data-icon="inline-start" />{t("actions.new")}</Button> : undefined} /> : filtered.map((team) => (
                   <TableRow key={team.id} className={cn("cursor-pointer", selectedTeamID === team.id && "bg-muted/50")} onClick={() => setSelectedTeamID(team.id)}>
                     <TableCell><div className="min-w-44"><p className="truncate font-medium">{getTeamName(team)}</p><p className="truncate text-xs text-muted-foreground">{team.alias}</p></div></TableCell>
                     <TableCell>{getOrgUnitName(team, orgUnits, t)}</TableCell>
