@@ -23,7 +23,7 @@ import {
   stringsEqualFold,
   unwrapData,
 } from "@/app/components/provider-account-wizard/utils";
-import { ConfirmDialog, HelpLink, RowActionsMenu } from "@/components/app-ui";
+import { ConfirmDialog, EmptyState, HelpLink, RowActionsMenu } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -408,8 +408,8 @@ export default function LLMIntegrationsManagement(props: {
               <EmptyState
                 title={copy("empty.providersTitle")}
                 description={copy("empty.providersDescription")}
-                actionLabel={copy("actions.reload")}
-                onAction={() => void loadData()}
+                icon={Plug}
+                primaryAction={<Button type="button" onClick={() => void loadData()}>{copy("actions.reload")}</Button>}
               />
             )}
           </TabsContent>
@@ -445,10 +445,9 @@ export default function LLMIntegrationsManagement(props: {
               <EmptyState
                 title={copy("empty.connectedTitle")}
                 description={copy("empty.connectedDescription")}
-                actionLabel={copy("actions.connectProvider")}
-                actionHref="/provider-accounts/new"
-                secondaryLabel={copy("actions.readDocs")}
-                secondaryHref={PROVIDER_DOCS_URLS.openai}
+                icon={Plug}
+                primaryAction={<Button type="button" asChild><Link href="/provider-accounts/new">{copy("actions.connectProvider")}</Link></Button>}
+                secondaryAction={<Button type="button" variant="outline" asChild><a href={PROVIDER_DOCS_URLS.openai} target="_blank" rel="noreferrer"><BookOpen data-icon="inline-start" />{copy("actions.readDocs")}</a></Button>}
               />
             )}
           </TabsContent>
@@ -732,45 +731,6 @@ function ConnectedIntegrationCard(props: {
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function EmptyState(props: {
-  title: string;
-  description: string;
-  actionLabel: string;
-  actionHref?: string;
-  onAction?: () => void;
-  secondaryLabel?: string;
-  secondaryHref?: string;
-}) {
-  return (
-    <section className="flex flex-col items-center gap-3 rounded-lg border border-dashed p-8 text-center">
-      <div className="rounded-full border bg-muted/30 p-3">
-        <Plug className="size-5 text-muted-foreground" />
-      </div>
-      <div className="flex max-w-md flex-col gap-1">
-        <h2 className="text-lg font-semibold [unicode-bidi:plaintext]" dir="auto">{props.title}</h2>
-        <p className="text-sm leading-6 text-muted-foreground [unicode-bidi:plaintext]" dir="auto">{props.description}</p>
-      </div>
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        {props.actionHref ? (
-          <Button type="button" asChild>
-            <Link href={props.actionHref}>{props.actionLabel}</Link>
-          </Button>
-        ) : (
-          <Button type="button" onClick={props.onAction}>{props.actionLabel}</Button>
-        )}
-        {props.secondaryHref && props.secondaryLabel ? (
-          <Button type="button" variant="outline" asChild>
-            <a href={props.secondaryHref} target="_blank" rel="noreferrer">
-              <BookOpen data-icon="inline-start" />
-              {props.secondaryLabel}
-            </a>
-          </Button>
-        ) : null}
-      </div>
-    </section>
   );
 }
 

@@ -3,7 +3,7 @@
 import { AlertCircle, Bot, Braces, DatabaseZap, Play, Plus, Save, Settings2, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { AppSwitchField, AppTextField, HelpLink, IdentifierField, PageHeader } from "@/components/app-ui";
+import { AppSwitchField, AppTextField, EmptyState, HelpLink, IdentifierField, PageHeader } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -189,7 +189,7 @@ export function PromptBuilder(props: PromptBuilderProps) {
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             {props.builder.messages.length === 0 ? (
-              <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">{props.t("builder.conversation.empty")}</div>
+              <EmptyState variant="inline" density="compact" title={props.t("builder.conversation.empty")} />
             ) : (
               props.builder.messages.map((message, index) => (
                 <div key={`message-${index}`} className="flex flex-col gap-3 rounded-xl border p-4">
@@ -376,7 +376,7 @@ export function PromptBuilder(props: PromptBuilderProps) {
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             {props.detectedVariables.length === 0 ? (
-              <div className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">{props.t("config.variables.empty")}</div>
+              <EmptyState variant="inline" density="compact" title={props.t("config.variables.empty")} />
             ) : (
               props.detectedVariables.map((variable) => (
                 <AppTextField
@@ -536,7 +536,7 @@ export function PromptBuilder(props: PromptBuilderProps) {
               <div className="text-sm font-medium">{props.t("config.metadata.title")}</div>
               <div className="flex flex-col gap-2">
                 {props.builder.metadataRows.length === 0 ? (
-                  <div className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">{props.t("config.metadata.empty")}</div>
+                  <EmptyState variant="inline" density="compact" title={props.t("config.metadata.empty")} />
                 ) : null}
                 {props.builder.metadataRows.map((row) => (
                   <div key={row.id} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">

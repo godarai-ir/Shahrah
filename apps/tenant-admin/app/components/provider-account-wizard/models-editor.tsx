@@ -6,7 +6,7 @@ import { memo, useCallback, useDeferredValue, useEffect, useMemo, useState } fro
 import { ArrowUpDown, CheckSquare, Code2, Copy, GitCompare, RotateCcw, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { AppSelectField, EmptyState } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1062,7 +1062,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
                   ))}
                 </>
               ) : renderedVisibleModels.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{props.t("step3.empty")}</p>
+                <EmptyState variant="inline" density="compact" title={props.t("step3.empty")} />
               ) : mobileViewMode === "table" ? (
                 <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
                   <div className="overflow-x-auto">
@@ -1320,7 +1320,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
       {props.isLoadingModels ? (
         <ModelCardsSkeleton />
       ) : renderedVisibleModels.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{props.t("step3.empty")}</p>
+        <EmptyState variant="inline" density="compact" title={props.t("step3.empty")} />
       ) : (
         <div className="space-y-3">
           {renderedVisibleModels.map((model) => (
