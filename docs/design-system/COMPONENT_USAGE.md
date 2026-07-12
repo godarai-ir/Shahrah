@@ -160,6 +160,8 @@ Use `AppTextField` and `AppTextareaField` for ordinary labeled text controls. Th
 
 Use `AppSwitchField` for boolean settings that need a label, optional explanation, validation, and consistent horizontal alignment. Its default surface is suitable for settings rows; pass `surface={false}` when the surrounding card or form section already owns the visual container.
 
+Use `AppCodeTextareaField` for editable JSON, schemas, regular expressions, JWKS documents, and other technical multi-line values. It preserves the Field-family semantics while defaulting the control to LTR, monospace text, disabled spellcheck, and a readable code height.
+
 ## Permission Editing
 
 Use `PermissionEditor` for controlled permission selection with search, selected/all views, grouped checkboxes, and group-level select/clear actions. Keep the permission catalog and selected keys in the feature; pass localized labels and formatting callbacks into the component.

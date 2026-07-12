@@ -14,28 +14,34 @@ type SharedFieldProps = {
 export type AppTextFieldProps = SharedFieldProps & React.ComponentProps<typeof Input>;
 export type AppTextareaFieldProps = SharedFieldProps & React.ComponentProps<typeof Textarea>;
 
-export function AppTextField({ label, description, error, fieldClassName, id, disabled, className, ...props }: AppTextFieldProps) {
+export function AppTextField({ label, description, error, fieldClassName, id, disabled, className, "aria-describedby": ariaDescribedBy, ...props }: AppTextFieldProps) {
   const generatedID = React.useId();
   const controlID = id ?? generatedID;
+  const descriptionID = description ? `${controlID}-description` : undefined;
+  const errorID = error ? `${controlID}-error` : undefined;
+  const describedBy = [ariaDescribedBy, descriptionID, errorID].filter(Boolean).join(" ") || undefined;
   return (
     <Field data-invalid={Boolean(error) || undefined} data-disabled={disabled || undefined} className={fieldClassName}>
       <FieldLabel htmlFor={controlID}>{label}</FieldLabel>
-      <Input id={controlID} disabled={disabled} aria-invalid={Boolean(error) || undefined} className={className} {...props} />
-      {description ? <FieldDescription>{description}</FieldDescription> : null}
-      {error ? <FieldError>{error}</FieldError> : null}
+      <Input id={controlID} disabled={disabled} aria-invalid={Boolean(error) || undefined} aria-describedby={describedBy} className={className} {...props} />
+      {description ? <FieldDescription id={descriptionID}>{description}</FieldDescription> : null}
+      {error ? <FieldError id={errorID}>{error}</FieldError> : null}
     </Field>
   );
 }
 
-export function AppTextareaField({ label, description, error, fieldClassName, id, disabled, className, ...props }: AppTextareaFieldProps) {
+export function AppTextareaField({ label, description, error, fieldClassName, id, disabled, className, "aria-describedby": ariaDescribedBy, ...props }: AppTextareaFieldProps) {
   const generatedID = React.useId();
   const controlID = id ?? generatedID;
+  const descriptionID = description ? `${controlID}-description` : undefined;
+  const errorID = error ? `${controlID}-error` : undefined;
+  const describedBy = [ariaDescribedBy, descriptionID, errorID].filter(Boolean).join(" ") || undefined;
   return (
     <Field data-invalid={Boolean(error) || undefined} data-disabled={disabled || undefined} className={fieldClassName}>
       <FieldLabel htmlFor={controlID}>{label}</FieldLabel>
-      <Textarea id={controlID} disabled={disabled} aria-invalid={Boolean(error) || undefined} className={className} {...props} />
-      {description ? <FieldDescription>{description}</FieldDescription> : null}
-      {error ? <FieldError>{error}</FieldError> : null}
+      <Textarea id={controlID} disabled={disabled} aria-invalid={Boolean(error) || undefined} aria-describedby={describedBy} className={className} {...props} />
+      {description ? <FieldDescription id={descriptionID}>{description}</FieldDescription> : null}
+      {error ? <FieldError id={errorID}>{error}</FieldError> : null}
     </Field>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { AppSelectField, AppSwitchField } from "@/components/app-ui";
+import { AppCodeTextareaField, AppSelectField, AppSwitchField } from "@/components/app-ui";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,9 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 
-import { Field } from "./prompt-ui";
 import type { BuilderState, PromptTranslationFn } from "./prompt-management-shared";
 
 type StructuredOutputDialogProps = {
@@ -45,15 +43,7 @@ export function StructuredOutputDialog(props: StructuredOutputDialogProps) {
             />
             <AppSwitchField label={props.t("dialogs.structured.fields.strict")} description={props.builder.structuredStrict ? props.t("common.enabled") : props.t("common.disabled")} checked={props.builder.structuredStrict} onCheckedChange={(checked) => props.onBuilderChange((current) => ({ ...current, structuredStrict: checked }))} />
           </div>
-          <Field label={props.t("dialogs.structured.fields.schema")}>
-            <Textarea
-              value={props.builder.structuredSchema}
-              onChange={(event) => props.onBuilderChange((current) => ({ ...current, structuredSchema: event.target.value }))}
-              className="min-h-[300px] font-mono text-xs"
-              dir="ltr"
-              spellCheck={false}
-            />
-          </Field>
+          <AppCodeTextareaField label={props.t("dialogs.structured.fields.schema")} value={props.builder.structuredSchema} onChange={(event) => props.onBuilderChange((current) => ({ ...current, structuredSchema: event.target.value }))} className="min-h-72" />
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => props.setOpen(false)}>

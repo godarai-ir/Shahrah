@@ -1,4 +1,5 @@
 export { AppCard } from "./AppCard";
+export { AppCodeTextareaField, type AppCodeTextareaFieldProps } from "./AppCodeTextareaField";
 export { CatalogFilterCombobox } from "./CatalogFilterCombobox";
 export { AppSelectField, type AppSelectFieldProps, type AppSelectGroup, type AppSelectOption } from "./AppSelectField";
 export { AppSwitchField, type AppSwitchFieldProps } from "./AppSwitchField";

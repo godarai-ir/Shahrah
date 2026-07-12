@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 
-import { AppSelectField, ConfirmDialog, CopyAction, DateTimeValue, EmptyState, HelpLink, IdentifierField, OperationNotice } from "@/components/app-ui";
+import { AppCodeTextareaField, AppSelectField, ConfirmDialog, CopyAction, DateTimeValue, EmptyState, HelpLink, IdentifierField, OperationNotice } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -594,10 +594,7 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
             ) : null}
 
             {form.type === "json_schema" ? (
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="guardrail-schema">{t("form.schema")}</Label>
-                <Textarea id="guardrail-schema" dir="ltr" className="min-h-40 font-mono" value={form.schema} onChange={(event) => setForm({ ...form, schema: event.target.value })} />
-              </div>
+              <AppCodeTextareaField id="guardrail-schema" label={t("form.schema")} value={form.schema} onChange={(event) => setForm({ ...form, schema: event.target.value })} />
             ) : null}
 
             {form.type === "json_keys" ? (
@@ -675,10 +672,7 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
                   <Label htmlFor="guardrail-introspection-auth">{t("form.introspectionAuthHeader")}</Label>
                   <Input id="guardrail-introspection-auth" dir="ltr" value={form.introspectionAuthHeader} placeholder="Bearer ..." onChange={(event) => setForm({ ...form, introspectionAuthHeader: event.target.value })} />
                 </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="guardrail-inline-jwks">{t("form.inlineJwks")}</Label>
-                  <Textarea id="guardrail-inline-jwks" dir="ltr" className="min-h-32 font-mono" value={form.inlineJwks} onChange={(event) => setForm({ ...form, inlineJwks: event.target.value })} />
-                </div>
+                <AppCodeTextareaField id="guardrail-inline-jwks" label={t("form.inlineJwks")} className="min-h-32" value={form.inlineJwks} onChange={(event) => setForm({ ...form, inlineJwks: event.target.value })} />
               </div>
             ) : null}
 
