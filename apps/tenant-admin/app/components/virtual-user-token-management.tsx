@@ -22,6 +22,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { formatDateTime as formatSharedDateTime } from "@/lib/date-time";
 
 type VirtualUser = {
   id: string;
@@ -108,11 +109,6 @@ const emptyTokenForm: TokenForm = {
   expiresIn: "30d",
   allowedModels: "",
 };
-const dateFormatter = new Intl.DateTimeFormat("fa-IR", {
-  dateStyle: "short",
-  timeStyle: "medium",
-  timeZone: "Asia/Tehran",
-});
 
 export default function VirtualUserTokenManagement({
   initialVirtualUsers,
@@ -937,7 +933,7 @@ function formatDate(input?: string) {
   if (!input) return "-";
   const date = new Date(input);
   if (Number.isNaN(date.getTime())) return "-";
-  return dateFormatter.format(date);
+  return formatSharedDateTime(date, { locale: "fa", format: { dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Tehran" } });
 }
 
 async function requestJSON<T = unknown>(path: string, options?: RequestInit): Promise<T> {

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatDateTime as formatSharedDateTime } from "@/lib/date-time";
 
 type PAT = {
   id: string;
@@ -41,11 +42,6 @@ type DeleteIntent =
   | { type: "single"; token: PAT }
   | { type: "all" };
 
-const stableDateTimeFormatter = new Intl.DateTimeFormat("fa-IR", {
-  dateStyle: "short",
-  timeStyle: "medium",
-  timeZone: "Asia/Tehran",
-});
 
 export default function PersonalAccessTokenManagement(props: {
   initialTokens: PAT[];
@@ -277,7 +273,7 @@ function formatDate(input?: string) {
   if (!input) return "-";
   const date = new Date(input);
   if (Number.isNaN(date.getTime())) return "-";
-  return stableDateTimeFormatter.format(date);
+  return formatSharedDateTime(date, { locale: "fa", format: { dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Tehran" } });
 }
 
 async function requestJSON<T = unknown>(path: string, options?: RequestInit): Promise<T> {

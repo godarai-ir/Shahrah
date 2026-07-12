@@ -7,6 +7,7 @@ import { CircleDollarSign, Copy, Pencil, Power, Trash2 } from "lucide-react";
 import { RowActionsMenu, StatusBadge } from "@/components/app-ui";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { GatewayPolicyRulesList } from "@/features/gateway-policies/components";
+import { formatDateTime as formatSharedDateTime } from "@/lib/date-time";
 
 import {
   createBudgetLimitRule,
@@ -18,14 +19,6 @@ import {
 import type { BudgetLimitRule } from "./ruleTypes";
 import { BudgetLimitRuleForm } from "./BudgetLimitRuleForm";
 
-const PERSIAN_DATE_TIME = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-});
 const FEATURE_BUDGET_LIMIT_RULES_ENABLED = "budget_limit_rules.enabled";
 const IRR_NUMBER_FORMAT = new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 0 });
 
@@ -36,7 +29,7 @@ type EffectiveEntitlements = {
 function formatJalaliDateTime(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
-  return PERSIAN_DATE_TIME.format(date);
+  return formatSharedDateTime(date, { locale: "fa", format: { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" } });
 }
 
 function unitKey(unit: BudgetLimitRule["unit"]) {
