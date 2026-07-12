@@ -20,18 +20,11 @@ import {
 
 import { normalizeError, requestJSON, unwrapData } from "@/app/components/provider-account-wizard/utils";
 import { AppSelectField } from "@/components/app-ui/AppSelectField";
-import { CodePanel, DefinitionList, DefinitionListItem } from "@/components/app-ui";
+import { CodePanel, DefinitionList, DefinitionListItem, FormDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -777,13 +770,7 @@ function PromptCompareDialog(props: {
   versions: PromptVersion[];
 }) {
   return (
-    <Dialog open={props.isOpen} onOpenChange={(open) => { if (!open) props.onClose(); }}>
-      <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-hidden p-0 sm:max-w-6xl">
-        <DialogHeader className="border-b px-6 py-4">
-          <DialogTitle>{props.t("detail.compareTitle")}</DialogTitle>
-          <DialogDescription>{props.t("detail.compareDescription")}</DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-4 overflow-auto p-6">
+    <FormDialog open={props.isOpen} onOpenChange={(open) => { if (!open) props.onClose(); }} title={props.t("detail.compareTitle")} description={props.t("detail.compareDescription")} size="xl" contentClassName="overflow-hidden" bodyClassName="overflow-auto">
           <div className="grid gap-3 md:grid-cols-2">
             <AppSelectField
               label={props.t("detail.compareBaseVersion")}
@@ -827,9 +814,7 @@ function PromptCompareDialog(props: {
               </div>
             </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }
 

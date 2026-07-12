@@ -25,7 +25,7 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Line, LineChart, XAxis, YAxis } from "recharts";
 
-import { ActiveFilterChips, AppCard, AppSelectField, CompactValue, DateTimeRangeField, DebouncedTextFilter, EmptyState, FilterCombobox, FilterField, MetricCard, PageHeader, RangeFilterField, StatusBadge } from "@/components/app-ui";
+import { ActiveFilterChips, AppCard, AppSelectField, AppTextField, CompactValue, DateTimeRangeField, DebouncedTextFilter, EmptyState, FilterCombobox, FilterField, FormDialog, MetricCard, PageHeader, RangeFilterField, StatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -47,8 +46,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -1732,34 +1729,21 @@ const SavedViewsDialogs = memo(function SavedViewsDialogs({
 }) {
   return (
     <>
-      <Dialog open={saveViewOpen} onOpenChange={setSaveViewOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("savedViews.saveTitle")}</DialogTitle>
-            <DialogDescription>{t("savedViews.saveDescription")}</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-2">
-            <Label htmlFor="logs-save-view-name">{t("savedViews.nameLabel")}</Label>
-            <Input id="logs-save-view-name" value={viewName} onChange={(event) => setViewName(event.target.value)} placeholder={t("savedViews.namePlaceholder")} />
-          </div>
-          <DialogFooter>
+      <FormDialog open={saveViewOpen} onOpenChange={setSaveViewOpen} title={t("savedViews.saveTitle")} description={t("savedViews.saveDescription")} footer={(
+          <>
             <Button type="button" variant="outline" onClick={() => setSaveViewOpen(false)}>
               {t("actions.cancel")}
             </Button>
             <Button type="button" onClick={() => void onSaveCurrentView()} disabled={!viewName.trim()}>
-              <Save className="h-4 w-4" />
+              <Save data-icon="inline-start" />
               {t("actions.saveView")}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </>
+      )}>
+        <AppTextField id="logs-save-view-name" label={t("savedViews.nameLabel")} value={viewName} onChange={(event) => setViewName(event.target.value)} placeholder={t("savedViews.namePlaceholder")} />
+      </FormDialog>
 
-      <Dialog open={savedViewsOpen} onOpenChange={setSavedViewsOpen}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{t("savedViews.manageTitle")}</DialogTitle>
-            <DialogDescription>{t("savedViews.manageDescription")}</DialogDescription>
-          </DialogHeader>
+      <FormDialog open={savedViewsOpen} onOpenChange={setSavedViewsOpen} title={t("savedViews.manageTitle")} description={t("savedViews.manageDescription")} size="md">
           {savedViews.length ? (
             <div className="grid gap-2">
               {savedViews.map((view) => (
@@ -1784,8 +1768,7 @@ const SavedViewsDialogs = memo(function SavedViewsDialogs({
           ) : (
             <EmptyState title={t("savedViews.emptyTitle")} description={t("savedViews.emptyDescription")} />
           )}
-        </DialogContent>
-      </Dialog>
+      </FormDialog>
     </>
   );
 });
