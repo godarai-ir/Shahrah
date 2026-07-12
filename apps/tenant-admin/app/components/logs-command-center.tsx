@@ -20,13 +20,12 @@ import {
   Settings2,
   ShieldCheck,
   Trash2,
-  X,
   type LucideIcon,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Line, LineChart, XAxis, YAxis } from "recharts";
 
-import { AppCard, AppSelectField, CompactValue, DateTimeRangeField, EmptyState, FilterCombobox, MetricCard, PageHeader, StatusBadge } from "@/components/app-ui";
+import { ActiveFilterChips, AppCard, AppSelectField, CompactValue, DateTimeRangeField, EmptyState, FilterCombobox, MetricCard, PageHeader, StatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1176,16 +1175,7 @@ const LogsFilters = memo(function LogsFilters({
           </div>
         </CollapsibleContent>
       </Collapsible>
-      {activeChips.length ? (
-      <div className="flex flex-wrap items-center gap-2 pt-4">
-        {activeChips.map((chip) => (
-          <Button key={chip.key} type="button" variant="secondary" size="sm" onClick={() => onSetFilter(chip.key as keyof Filters, "")}>
-            <X className="h-3 w-3" />
-            {chip.label}
-          </Button>
-        ))}
-      </div>
-      ) : null}
+      <ActiveFilterChips items={activeChips} onRemove={(key) => onSetFilter(key as keyof Filters, "")} getRemoveLabel={(item) => `${t("actions.removeFilter")}: ${item.label}`} className="pt-4" />
     </AppCard>
   );
 });

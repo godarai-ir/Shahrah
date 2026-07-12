@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Shield, Trash2, Upload, X } from "lucide-react";
 
-import { AppCard, AppCodeTextareaField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, CheckboxOptionList, CodePanel, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeRangeField, DateTimeValue, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, FilterCombobox, FormDialog, FormSection, FormSheet, HelpLink, IdentifierField, MetricCard, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
+import { ActiveFilterChips, AppCard, AppCodeTextareaField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, CheckboxOptionList, CodePanel, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeRangeField, DateTimeValue, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, FilterCombobox, FormDialog, FormSection, FormSheet, HelpLink, IdentifierField, MetricCard, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
 import { Attachment, AttachmentAction, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -358,6 +358,7 @@ export default function DesignSystemPage() {
         <AppCard title="Checkbox option list">
           <CheckboxOptionList label="Allowed models" options={[{ value: "gpt-4.1", label: "gpt-4.1", textDir: "ltr" }, { value: "claude", label: "claude", textDir: "ltr" }]} value={["gpt-4.1"]} onValueChange={() => undefined} emptyText="No models" />
         </AppCard>
+        <AppCard title="Active filters"><ActiveFilterChips items={[{ key: "model", label: "Model", value: "gpt-4.1" }]} onRemove={() => undefined} getRemoveLabel={(item) => `Remove ${item.label}`} /></AppCard>
         <CodePanel title="Gateway request" description="A reusable titled code surface with optional actions." displayLanguage="cURL" code={'curl "$GATEWAY_URL/v1/models"'} language="bash" copy={{ copyLabel: "Copy code", copiedLabel: "Code copied" }} />
       </section>
 

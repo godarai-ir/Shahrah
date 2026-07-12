@@ -60,6 +60,8 @@ Use `DataListPanel` when a list page needs the standard toolbar, loading/empty/c
 
 Within table bodies, use `TableLoadingRows` for initial skeleton rows and `TableEmptyRow` for a correctly spanning `EmptyState`. Pass a localized loading label and the exact visible column count; feature-owned empty actions remain supported through `EmptyState` props.
 
+Use `ActiveFilterChips` below advanced filter controls to summarize applied filters and remove them individually. Pass localized accessible removal labels through `getRemoveLabel`; filter state and key interpretation remain feature-owned.
+
 Use `DateTimeValue` for visible timestamps so the UI emits a semantic `time` element, localized digits/calendar, a stable invalid-value fallback, and tabular numerals. Use the shared `formatDateTime` utility only when a formatted string is required by an interpolation or non-React API.
 
 Use `DateTimeRangeField` for controlled ISO from/to filters. It owns conversion to browser-local `datetime-local` values, LTR input direction, calendar adornments, Field semantics, and responsive two-column layout. Use `DateTimeField` when only one timestamp is required.

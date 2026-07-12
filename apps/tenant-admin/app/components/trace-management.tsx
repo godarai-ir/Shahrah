@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { ChevronDown, Columns3, Filter, RefreshCw, RotateCcw, Settings2, X } from "lucide-react";
+import { ChevronDown, Columns3, Filter, RefreshCw, RotateCcw, Settings2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
 import TracePrivacySettingsPanel, { type TracePrivacySettings } from "@/app/components/trace-privacy-settings";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AppSelectField, CatalogFilterCombobox, CompactValue, DateTimeRangeField, PageContainer } from "@/components/app-ui";
+import { ActiveFilterChips, AppSelectField, CatalogFilterCombobox, CompactValue, DateTimeRangeField, PageContainer } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -769,27 +769,7 @@ export default function TraceManagement(props: TraceManagementProps) {
             </Collapsible>
           )}
 
-          {activeFilters.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {activeFilters.map((item) => (
-                <Button
-                  key={item.key}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 min-w-0 max-w-full rounded-full px-2 text-[11px]"
-                  title={t("activeFilters.removeLabel", { label: item.label, value: item.value })}
-                  aria-label={t("activeFilters.removeLabel", { label: item.label, value: item.value })}
-                  onClick={() => removeFilter(item.key)}
-                >
-                  <span className="min-w-0 truncate" dir="auto">
-                    {item.label}={item.value}
-                  </span>
-                  <X data-icon="inline-end" aria-hidden="true" />
-                </Button>
-              ))}
-            </div>
-          ) : null}
+          <ActiveFilterChips items={activeFilters} onRemove={(key) => removeFilter(key as keyof TraceFilters | "timeRange")} getRemoveLabel={(item) => t("activeFilters.removeLabel", { label: item.label, value: item.value ?? "" })} className="pt-1" />
         </CardContent>
       </Card>
 

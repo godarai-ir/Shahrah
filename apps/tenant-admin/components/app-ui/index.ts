@@ -1,4 +1,5 @@
 export { AppCard } from "./AppCard";
+export { ActiveFilterChips, type ActiveFilterChip, type ActiveFilterChipsProps } from "./ActiveFilterChips";
 export { AppCodeTextareaField, type AppCodeTextareaFieldProps } from "./AppCodeTextareaField";
 export { CatalogFilterCombobox } from "./CatalogFilterCombobox";
 export { AppSelectField, type AppSelectFieldProps, type AppSelectGroup, type AppSelectOption } from "./AppSelectField";
