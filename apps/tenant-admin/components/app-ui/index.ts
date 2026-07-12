@@ -39,6 +39,7 @@ export { SearchField } from "./SearchField";
 export { SearchPickerDialog, type SearchPickerDialogProps } from "./SearchPickerDialog";
 export { SectionHeader } from "./SectionHeader";
 export { SettingsCard } from "./SettingsCard";
+export { SettingsAuditMeta, type SettingsAuditMetaProps } from "./SettingsAuditMeta";
 export { StatusBadge } from "./StatusBadge";
 export { StatusOptionGroup, type StatusOption, type StatusOptionGroupProps, type StatusOptionTone } from "./StatusOptionGroup";
 export { TablePagination } from "./TablePagination";

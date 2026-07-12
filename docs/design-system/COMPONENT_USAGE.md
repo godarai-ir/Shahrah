@@ -32,6 +32,8 @@ Use `OperationNotice` for transient operation feedback represented by a `kind` a
 
 Use `AppCard` for product cards and `SettingsCard` for settings pages or grouped account configuration.
 
+Use `SettingsAuditMeta` for compact “updated at / updated by” metadata below settings controls. It composes `DateTimeValue`, provides semantic term/value markup, and centralizes fallbacks while the feature resolves the actor display label.
+
 Do not put cards inside cards. If a settings surface already has `SettingsCard`, put form controls directly inside it or use an unframed `FormSection` variant.
 
 ## MetricCard

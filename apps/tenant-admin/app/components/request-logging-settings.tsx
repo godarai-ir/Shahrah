@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   Ban,
   Database,
@@ -10,7 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { StatusOptionGroup } from "@/components/app-ui";
+import { SettingsAuditMeta, StatusOptionGroup } from "@/components/app-ui";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -70,6 +70,7 @@ const MODES: Array<{
 
 export default function RequestLoggingSettingsPanel(props: RequestLoggingSettingsProps) {
   const t = useTranslations("settings.requestLogging");
+  const locale = useLocale();
   const surface = props.surface ?? "card";
   const showHeader = props.showHeader ?? true;
   const [loggingMode, setLoggingMode] = useState<RequestLoggingSettings["logging_mode"]>(
@@ -178,10 +179,7 @@ export default function RequestLoggingSettingsPanel(props: RequestLoggingSetting
         />
       </div>
 
-      <div className="grid gap-1 text-xs text-muted-foreground">
-        <p>{t("updatedAtLabel")}: {formatDate(updatedAt, t("notSet"))}</p>
-        <p>{t("updatedByLabel")}: {updatedBy || t("notSet")}</p>
-      </div>
+      <SettingsAuditMeta updatedAt={updatedAt} updatedBy={updatedBy} updatedAtLabel={t("updatedAtLabel")} updatedByLabel={t("updatedByLabel")} fallback={t("notSet")} locale={locale} />
 
       <Button onClick={() => void save()} disabled={saving || loading} className="self-start">
         {saving ? t("saving") : t("save")}
@@ -252,11 +250,4 @@ function extractMessage(payload: unknown): string | null {
 function normalizeError(error: unknown, fallback: string) {
   if (error instanceof Error) return error.message;
   return fallback;
-}
-
-function formatDate(value: string | null, fallback: string) {
-  if (!value) return fallback;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toISOString().replace("T", " ").replace("Z", " UTC");
 }

@@ -6,6 +6,7 @@ import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Shiel
 import { ActiveFilterChips, AppCard, AppCodeTextareaField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, CheckboxOptionList, ChipInput, CodePanel, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeRangeField, DateTimeValue, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, FilterCombobox, FormDialog, FormSection, FormSheet, HelpLink, IdentifierField, MetricCard, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
 import { SearchPickerDialog } from "@/components/app-ui/SearchPickerDialog";
 import { AppNumberField } from "@/components/app-ui/AppNumberField";
+import { SettingsAuditMeta } from "@/components/app-ui/SettingsAuditMeta";
 import { Attachment, AttachmentAction, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -367,6 +368,7 @@ export default function DesignSystemPage() {
         </AppCard>
         <AppCard title="Active filters"><ActiveFilterChips items={[{ key: "model", label: "Model", value: "gpt-4.1" }]} onRemove={() => undefined} getRemoveLabel={(item) => `Remove ${item.label}`} /></AppCard>
         <AppCard title="Chip input"><ChipInput value={["429", "500"]} onValueChange={() => undefined} getRemoveLabel={(value) => `Remove ${value}`} placeholder="Add status code" /></AppCard>
+        <AppCard title="Settings audit metadata"><SettingsAuditMeta updatedAt="2025-03-12T09:30:00Z" updatedBy="Tenant admin" updatedAtLabel="Updated" updatedByLabel="By" fallback="Not set" locale="en" /></AppCard>
         <CodePanel title="Gateway request" description="A reusable titled code surface with optional actions." displayLanguage="cURL" code={'curl "$GATEWAY_URL/v1/models"'} language="bash" copy={{ copyLabel: "Copy code", copiedLabel: "Code copied" }} />
       </section>
 

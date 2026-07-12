@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   Ban,
   FileStack,
@@ -10,7 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { StatusOptionGroup } from "@/components/app-ui";
+import { SettingsAuditMeta, StatusOptionGroup } from "@/components/app-ui";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -66,6 +66,7 @@ const POLICIES: Array<{
 
 export default function TracePrivacySettingsPanel(props: TracePrivacySettingsProps) {
   const t = useTranslations("settings.tracePrivacy");
+  const locale = useLocale();
   const surface = props.surface ?? "card";
   const showHeader = props.showHeader ?? true;
   const [capturePolicy, setCapturePolicy] = useState<TracePrivacySettings["capture_policy"]>(
@@ -129,10 +130,7 @@ export default function TracePrivacySettingsPanel(props: TracePrivacySettingsPro
           }))}
         />
 
-        <div className="grid gap-1 text-xs text-muted-foreground">
-          <p>{t("updatedAtLabel")}: {formatDate(updatedAt, t("notSet"))}</p>
-          <p>{t("updatedByLabel")}: {updatedByDisplay}</p>
-        </div>
+        <SettingsAuditMeta updatedAt={updatedAt} updatedBy={updatedByDisplay} updatedAtLabel={t("updatedAtLabel")} updatedByLabel={t("updatedByLabel")} fallback={t("notSet")} locale={locale} />
 
         <Button onClick={() => void save()} disabled={saving}>
           {saving ? t("saving") : t("save")}
@@ -224,11 +222,4 @@ function extractMessage(payload: unknown): string | null {
 function normalizeError(error: unknown, fallback: string) {
   if (error instanceof Error) return error.message;
   return fallback;
-}
-
-function formatDate(value: string | null, fallback: string) {
-  if (!value) return fallback;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toISOString().replace("T", " ").replace("Z", " UTC");
 }
