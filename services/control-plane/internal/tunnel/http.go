@@ -41,7 +41,7 @@ func (t *HTTPTransport) Proxy(ctx context.Context, req platform.TunnelRequest) (
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("X-Shahrah-Trace-ID", req.TraceID)
+	httpReq.Header.Set("X-GodarAI-Trace-ID", req.TraceID)
 
 	resp, err := t.client.Do(httpReq)
 	if err != nil {

@@ -87,7 +87,7 @@ func doQuery(client *http.Client, baseURL, tenant, auth string, c queryCase) (fl
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-shahrah-tenant", tenant)
+	req.Header.Set("x-godarai-tenant", tenant)
 
 	if auth != "" {
 		req.Header.Set("Authorization", "Bearer "+auth)

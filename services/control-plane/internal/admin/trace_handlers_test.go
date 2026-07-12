@@ -122,7 +122,7 @@ func TestGetRequestTrace_UsesTenantContextIsolation(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/api/v1/traces/trace_1", http.NoBody)
 	// Attempted override should be ignored; only tenant context must be used.
-	req.Header.Set("x-shahrah-tenant", "tenant_b")
+	req.Header.Set("x-godarai-tenant", "tenant_b")
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)

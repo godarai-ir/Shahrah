@@ -124,7 +124,7 @@ export function PermissionEditor({
         <div className="max-h-96 overflow-y-auto pe-1" aria-live="polite">
           <div className="flex flex-col gap-3">
             {visibleGroups.length === 0 ? (
-              <EmptyState title={labels.emptyTitle} className="min-h-32 border-0 bg-transparent" />
+              <EmptyState title={labels.emptyTitle} variant="inline" density="compact" />
             ) : null}
 
             {visibleGroups.map(([group, items]) => {

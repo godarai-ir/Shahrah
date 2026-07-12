@@ -10,7 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { StatusOptionCard } from "@/app/components/status-option-card";
+import { StatusOptionGroup } from "@/components/app-ui";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -116,25 +116,18 @@ export default function TracePrivacySettingsPanel(props: TracePrivacySettingsPro
           </Alert>
         ) : null}
 
-        <div className="grid gap-3 md:grid-cols-2">
-          {POLICIES.map((item) => {
-            const selected = capturePolicy === item.value;
-
-            return (
-              <StatusOptionCard
-                key={item.value}
-                onClick={() => setCapturePolicy(item.value)}
-                disabled={saving}
-                icon={item.icon}
-                selected={selected}
-                badge={item.value}
-                title={t(`policies.${item.key}.title`)}
-                description={t(`policies.${item.key}.description`)}
-                tone={item.tone}
-              />
-            );
-          })}
-        </div>
+        <StatusOptionGroup
+          label={t("title")}
+          value={capturePolicy}
+          onValueChange={setCapturePolicy}
+          disabled={saving}
+          options={POLICIES.map((item) => ({
+            ...item,
+            badge: item.value,
+            title: t(`policies.${item.key}.title`),
+            description: t(`policies.${item.key}.description`),
+          }))}
+        />
 
         <div className="grid gap-1 text-xs text-muted-foreground">
           <p>{t("updatedAtLabel")}: {formatDate(updatedAt, t("notSet"))}</p>

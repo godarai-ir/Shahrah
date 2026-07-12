@@ -18,6 +18,7 @@ import (
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/admin"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
@@ -991,8 +992,8 @@ func TestIntegration_LegacyCompletionsSetsFinalCostHeaders(t *testing.T) {
 
 	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/v1/completions", "Bearer "+createdKey.Key, `{"model":"openai:default:gpt-4o-mini","prompt":"hello"}`)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.NotEmpty(t, resp.Header.Get("X-Shahrah-Cost-Usd"))
-	assert.NotEmpty(t, resp.Header.Get("X-Shahrah-Cost-Irr"))
+	assert.NotEmpty(t, resp.Header.Get(apiheaders.HeaderCostUSD))
+	assert.NotEmpty(t, resp.Header.Get(apiheaders.HeaderCostIRR))
 	assert.Equal(t, "provider-req-1", resp.Header.Get("X-Request-Id"))
 }
 

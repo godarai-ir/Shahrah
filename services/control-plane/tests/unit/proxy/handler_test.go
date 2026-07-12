@@ -1052,7 +1052,7 @@ func TestChatCompletionHandler_GuardrailAcceptsPlainSelectorHeader(t *testing.T)
 	})
 	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Shahrah-Guardrails", "guardrails/keyword-blocklist")
+	req.Header.Set(apiheaders.HeaderGuardrails, "guardrails/keyword-blocklist")
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
@@ -1169,7 +1169,7 @@ func TestChatCompletionHandler_GuardrailMutatesOutputResponse(t *testing.T) {
 	})
 	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-TFY-GUARDRAILS", `{"output_guardrails":["guardrails/secrets-detection"]}`)
+	req.Header.Set(apiheaders.HeaderGuardrails, `{"output_guardrails":["guardrails/secrets-detection"]}`)
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)

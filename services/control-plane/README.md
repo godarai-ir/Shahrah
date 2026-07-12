@@ -115,7 +115,7 @@ Response caching is disabled by default and can be enabled with `response_cache.
 curl -s http://localhost:4000/v1/chat/completions \
   -H "Authorization: Bearer $TENANT_KEY" \
   -H "Content-Type: application/json" \
-  -H 'x-shahrah-cache-config: {"type":"simple","ttl":600,"namespace":"production"}' \
+  -H 'x-godarai-cache-config: {"type":"simple","ttl":600,"namespace":"production"}' \
   -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hello"}]}'
 ```
 
@@ -123,9 +123,9 @@ Use `type: smart` with an optional `similarity_threshold` from `0.80` through `1
 
 Response headers are:
 
-- `x-shahrah-cache-status`: `hit`, `miss`, `bypass`, or `error`
-- `x-shahrah-cached-trace-id`: source trace on a hit
-- `x-shahrah-cache-similarity-score`: smart semantic hits only
+- `x-godarai-cache-status`: `hit`, `miss`, `bypass`, or `error`
+- `x-godarai-cached-trace-id`: source trace on a hit
+- `x-godarai-cache-similarity-score`: smart semantic hits only
 
 Entries are isolated by tenant, virtual key/account, namespace, logical model, virtual-model version, and embedding generation. Cache or embedding failures fail open to normal inference. Cache hits do not call the provider or debit the tenant wallet. The complete ArvanCloud base URL and API key must come from runtime secrets and must never be logged or committed.
 

@@ -1,12 +1,10 @@
 "use client";
 
-import { MoreVertical } from "lucide-react";
 import { Search } from "lucide-react";
 
-import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { AppSelectField, RowActionsMenu } from "@/components/app-ui";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -103,28 +101,17 @@ export function PromptRegistryList(props: PromptRegistryListProps) {
                   <TableCell>{formatDate(item.updated_at, props.locale)}</TableCell>
                   <TableCell>{props.userLabelByID[item.created_by ?? ""] || item.created_by || "-"}</TableCell>
                   <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={(event) => event.stopPropagation()}
-                          aria-label={props.t("actions.openMenu")}
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
-                        <DropdownMenuItem onClick={() => props.onTryPrompt(item)}>{props.t("actions.tryPrompt")}</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => props.onCreateVersion(item)}>{props.t("actions.createVersion")}</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => props.onEditLatestVersion(item)}>{props.t("actions.editLatestVersion")}</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => props.onCopyFqn(item)}>{props.t("actions.copyFqn")}</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => props.onDelete(item)} className="text-destructive">
-                          {props.t("actions.delete")}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <RowActionsMenu
+                      label={props.t("actions.openMenu")}
+                      stopPropagation
+                      actions={[
+                        { label: props.t("actions.tryPrompt"), onSelect: () => props.onTryPrompt(item) },
+                        { label: props.t("actions.createVersion"), onSelect: () => props.onCreateVersion(item) },
+                        { label: props.t("actions.editLatestVersion"), onSelect: () => props.onEditLatestVersion(item) },
+                        { label: props.t("actions.copyFqn"), onSelect: () => props.onCopyFqn(item) },
+                        { label: props.t("actions.delete"), destructive: true, separatorBefore: true, onSelect: () => props.onDelete(item) },
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
               ))}

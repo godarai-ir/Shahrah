@@ -8,7 +8,7 @@ import { useLocale, useTranslations } from "next-intl";
 
 import TracePrivacySettingsPanel, { type TracePrivacySettings } from "@/app/components/trace-privacy-settings";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AppSelectField, CatalogFilterCombobox, CompactValue } from "@/components/app-ui";
+import { AppSelectField, CatalogFilterCombobox, CompactValue, PageContainer } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -635,7 +635,7 @@ export default function TraceManagement(props: TraceManagementProps) {
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 md:gap-6">
+    <PageContainer spacing="compact" padding="none" className="md:gap-6">
       <header className="flex flex-col gap-2">
         <div className="flex items-start justify-between gap-3">
           <h1 className="min-w-0 flex-1 text-2xl font-bold tracking-tight text-foreground md:text-3xl">
@@ -945,7 +945,7 @@ export default function TraceManagement(props: TraceManagementProps) {
           </div>
         </SheetContent>
       </Sheet>
-    </div>
+    </PageContainer>
   );
 }
 

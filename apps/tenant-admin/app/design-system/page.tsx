@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Shield, Trash2, Upload, X } from "lucide-react";
 
-import { AppCard, AppSelectField, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, DataListPanel, EmptyState, FilterCombobox, FormSection, HelpLink, IdentifierField, MetricCard, PageHeader, PermissionEditor, PermissionSummary, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, TablePagination } from "@/components/app-ui";
+import { AppCard, AppSelectField, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyableValue, DataListPanel, DefinitionList, DefinitionListItem, EmptyState, FilterCombobox, FormSection, HelpLink, IdentifierField, MetricCard, OneTimeSecretDialog, PageContainer, PageHeader, PermissionEditor, PermissionSummary, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, StatusOptionGroup, TablePagination } from "@/components/app-ui";
 import { Attachment, AttachmentAction, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { GatewayPolicyRulesList } from "@/features/gateway-policies/components";
 import { appendDisplaySuffix, formatCompactCurrency, formatCompactNumber } from "@/lib/compact-number";
@@ -39,13 +40,16 @@ export default function DesignSystemPage() {
   const [selectedPermissions, setSelectedPermissions] = useState(["role:read"]);
   const [policyQuery, setPolicyQuery] = useState("");
   const [policySheetOpen, setPolicySheetOpen] = useState(false);
+  const [secretDialogOpen, setSecretDialogOpen] = useState(false);
+  const [demoSecret, setDemoSecret] = useState<string | null>(null);
+  const [statusOption, setStatusOption] = useState<"metadata" | "full">("metadata");
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const requestsDisplay = formatCompactNumber(128_400, { locale: "en-US" });
   const spendDisplay = formatCompactCurrency(12_340, { locale: "en-US", currency: "USD" });
   const irrDisplay = appendDisplaySuffix(formatCompactNumber(845_000, { locale: "fa-IR" }), " IRR");
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-6 md:px-6">
+    <PageContainer as="main" spacing="relaxed">
       <PageHeader
         eyebrow="Design System"
         title="Tenant Admin UI Foundation"
@@ -173,6 +177,84 @@ export default function DesignSystemPage() {
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
+        <AppCard title="Definition list" description="Use semantic label/value metadata for detail surfaces.">
+          <DefinitionList columns={2}>
+            <DefinitionListItem label="Provider" value="OpenAI" icon={Database} />
+            <DefinitionListItem label="Model" value="gpt-5.4" mono valueDir="ltr" />
+            <DefinitionListItem label="Request ID" value="req_demo_123456789" mono valueDir="ltr" wrap />
+            <DefinitionListItem label="Status" value={<StatusBadge status="active">Active</StatusBadge>} />
+          </DefinitionList>
+        </AppCard>
+        <AppCard title="Status option group" description="Use for a single setting selected from visual status cards.">
+          <StatusOptionGroup
+            label="Capture mode"
+            value={statusOption}
+            onValueChange={setStatusOption}
+            options={[
+              {
+                value: "metadata",
+                badge: "metadata-only",
+                title: "Metadata only",
+                description: "Store request metadata without content.",
+                icon: Database,
+                tone: "info",
+              },
+              {
+                value: "full",
+                badge: "full-content",
+                title: "Full content",
+                description: "Store complete request and response content.",
+                icon: Shield,
+                tone: "success",
+              },
+            ]}
+          />
+        </AppCard>
+        <AppCard title="Copyable value" description="Use for technical identifiers and optionally masked values.">
+          <CopyableValue
+            value="sk_demo_123456789"
+            masked
+            allowReveal
+            labels={{
+              valueAriaLabel: "Demo secret",
+              copy: "Copy",
+              copying: "Copying",
+              copied: "Copied",
+              reveal: "Reveal",
+              hide: "Hide",
+            }}
+          />
+        </AppCard>
+        <AppCard title="One-time secret" description="Clears sensitive state whenever the dialog closes.">
+          <Button
+            type="button"
+            onClick={() => {
+              setDemoSecret("vat_demo_123456789");
+              setSecretDialogOpen(true);
+            }}
+          >
+            Show one-time secret
+          </Button>
+          <OneTimeSecretDialog
+            open={secretDialogOpen}
+            onOpenChange={setSecretDialogOpen}
+            value={demoSecret}
+            title="Copy secret now"
+            description="This raw value is shown only once."
+            warning="Store it securely before closing this dialog."
+            closeLabel="Close"
+            copyLabels={{
+              valueAriaLabel: "One-time secret",
+              copy: "Copy secret",
+              copying: "Copying",
+              copied: "Copied",
+            }}
+            onClear={() => setDemoSecret(null)}
+          />
+        </AppCard>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-2">
         <AppCard title="Compact values" description="Use CompactValue when large numbers are easier to scan in abbreviated form.">
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-lg border border-border/70 p-3">
@@ -262,9 +344,13 @@ export default function DesignSystemPage() {
           <StatusBadge status="neutral">neutral</StatusBadge>
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
-          <EmptyState icon={Inbox} title="No records yet" description="Use EmptyState for empty lists and missing data." primaryAction={<Button size="sm">Create</Button>} />
+          <EmptyState icon={Inbox} title="No records yet" description="Use the surface variant for standalone empty states." primaryAction={<Button size="sm">Create</Button>} />
           <AppCard title="Loading">
             <div className="flex flex-col gap-3">
+              <Button type="button" disabled aria-busy="true" className="w-fit">
+                <Spinner data-icon="inline-start" />
+                Saving
+              </Button>
               <Skeleton className="h-4 w-3/4" />
               <Skeleton className="h-4 w-1/2" />
               <Skeleton className="h-20 w-full" />
@@ -275,6 +361,14 @@ export default function DesignSystemPage() {
               <AlertTriangle className="mt-0.5 text-destructive" aria-hidden="true" />
               <p>Show concise, actionable error copy and keep destructive actions confirmed.</p>
             </div>
+          </AppCard>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <AppCard title="Inline empty state" description="For existing cards and constrained panels.">
+            <EmptyState variant="inline" density="compact" icon={Inbox} title="No matching records" />
+          </AppCard>
+          <AppCard title="Table empty state" description="For a spanning cell below a retained table header.">
+            <EmptyState variant="table" density="compact" title="No rows to display" />
           </AppCard>
         </div>
       </section>
@@ -387,13 +481,14 @@ export default function DesignSystemPage() {
             ]}
           />
         </AppCard>
-        <AppCard title="Row actions" description="Use RowActionsMenu for table row action menus.">
+        <AppCard title="Row actions" description="Use RowActionsMenu for table and card action menus.">
           <RowActionsMenu
             label="Resource actions"
             actions={[
-              { label: "Edit" },
+              { label: "Edit", href: "/design-system" },
               { label: "Members" },
-              { label: "Delete", destructive: true, icon: <Trash2 /> },
+              { label: "Documentation", href: "https://ui.shadcn.com/docs/components/dropdown-menu", external: true },
+              { label: "Delete", destructive: true, separatorBefore: true, icon: <Trash2 /> },
             ]}
           />
         </AppCard>
@@ -417,6 +512,6 @@ export default function DesignSystemPage() {
           </Attachment>
         </AppCard>
       </section>
-    </main>
+    </PageContainer>
   );
 }

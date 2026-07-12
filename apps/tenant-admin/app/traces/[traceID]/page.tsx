@@ -21,7 +21,7 @@ import {
 import { getLocale, getTranslations } from "next-intl/server";
 
 import AdminShell from "@/app/components/admin-shell";
-import { CompactValue } from "@/components/app-ui";
+import { CompactValue, DefinitionList, DefinitionListItem as CompactField, PageContainer } from "@/components/app-ui";
 import { PageHeader } from "@/components/app-ui/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -190,7 +190,7 @@ export default async function TraceDetailPage({ params }: Params) {
 
   return (
     <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 md:gap-6">
+      <PageContainer spacing="compact" padding="none" className="md:gap-6">
         <PageHeader
           eyebrow={t("detail.kicker")}
           title={t("detail.title")}
@@ -264,17 +264,17 @@ export default async function TraceDetailPage({ params }: Params) {
                       valueClassName={detail.summary.errors_count > 0 ? "text-destructive" : undefined}
                     />
                   </div>
-                  <dl className="grid gap-x-4 gap-y-3 sm:grid-cols-2 2xl:grid-cols-3">
+                  <DefinitionList columns={3}>
                     {requestID ? (
                       <CompactField
                         icon={Hash}
                         label={t("detail.summary.requestId")}
                         value={requestID}
                         mono
-                        allowWrap
+                        wrap
                       />
                     ) : null}
-                    <CompactField icon={Route} label={t("detail.summary.route")} value={detail.trace.route} mono allowWrap />
+                    <CompactField icon={Route} label={t("detail.summary.route")} value={detail.trace.route} mono wrap />
                     <CompactField icon={Server} label={t("detail.summary.provider")} value={displayValue(detail.trace.provider, emptyLabel)} />
                     <CompactField icon={Gauge} label={t("detail.summary.model")} value={displayValue(detail.trace.model, emptyLabel)} />
                     <CompactField
@@ -288,17 +288,17 @@ export default async function TraceDetailPage({ params }: Params) {
                         label={t("detail.summary.errorCode")}
                         value={detail.trace.error_code}
                         mono
-                        allowWrap
+                        wrap
                       />
                     ) : null}
-                  </dl>
+                  </DefinitionList>
                 </CardContent>
               </Card>
 
               <Card>
                 <SectionHeader icon={Coins} title={t("detail.usage.title")} description={t("detail.usage.description")} />
                 <CardContent className="px-4 pb-4 md:px-4 md:pb-4">
-                  <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm 2xl:grid-cols-3">
+                  <DefinitionList columns={3} className="grid-cols-2 text-sm">
                     <CompactField
                       icon={Hash}
                       label={t("detail.usage.inputTokens")}
@@ -346,7 +346,7 @@ export default async function TraceDetailPage({ params }: Params) {
                         label={t("detail.usage.errorType")}
                         value={metricErrorType}
                         mono
-                        allowWrap
+                        wrap
                       />
                     ) : null}
                     {showUsageLatency && typeof usageLatency === "number" ? (
@@ -371,7 +371,7 @@ export default async function TraceDetailPage({ params }: Params) {
                       label={t("detail.usage.tpot")}
                       value={formatOptionalDuration(detail.metric?.tpot_ms, msLabel, locale, emptyLabel)}
                     />
-                  </dl>
+                  </DefinitionList>
                 </CardContent>
               </Card>
             </div>
@@ -394,7 +394,7 @@ export default async function TraceDetailPage({ params }: Params) {
                             <p className="font-medium">{t("detail.attempts.heading", { number: formatNumber(attempt.attempt_no, locale) })}</p>
                             <Badge variant={textStatusBadgeVariant(attempt.status)}>{attempt.status}</Badge>
                           </div>
-                          <dl className="mt-3 grid gap-x-4 gap-y-2 text-sm sm:grid-cols-2 2xl:grid-cols-3">
+                          <DefinitionList columns={3} className="mt-3 gap-y-2 text-sm">
                             {showAttemptRoutingFields ? (
                               <>
                                 <CompactField icon={Server} label={t("detail.summary.provider")} value={displayValue(attempt.provider, emptyLabel)} />
@@ -418,13 +418,13 @@ export default async function TraceDetailPage({ params }: Params) {
                                 icon={RefreshCw}
                                 label={t("detail.attempts.fallback")}
                                 value={displayValue(attempt.fallback_reason, emptyLabel)}
-                                allowWrap
+                                wrap
                               />
                             ) : null}
-                          </dl>
+                          </DefinitionList>
                           {attempt.retry_reason ? (
                             <div className="mt-3">
-                              <CompactField icon={RefreshCw} label={t("detail.attempts.retryReason")} value={attempt.retry_reason} allowWrap />
+                              <CompactField icon={RefreshCw} label={t("detail.attempts.retryReason")} value={attempt.retry_reason} wrap />
                             </div>
                           ) : null}
                           {idx < attempts.length - 1 ? (
@@ -561,7 +561,7 @@ export default async function TraceDetailPage({ params }: Params) {
             </div>
           </>
         )}
-      </div>
+      </PageContainer>
     </AdminShell>
   );
 }
@@ -777,30 +777,6 @@ function MetricItem({
         <span className="truncate">{label}</span>
       </div>
       <div className={cn("mt-1 truncate text-sm font-semibold", valueClassName)}>{value}</div>
-    </div>
-  );
-}
-
-function CompactField({
-  icon: Icon,
-  label,
-  value,
-  mono = false,
-  allowWrap = false,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: ReactNode;
-  mono?: boolean;
-  allowWrap?: boolean;
-}) {
-  return (
-    <div className="flex min-w-0 items-start gap-2">
-      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-      <div className="min-w-0">
-        <dt className="text-xs text-muted-foreground">{label}</dt>
-        <dd className={cn("text-sm font-medium", mono && "font-mono", allowWrap ? "break-all" : "truncate")}>{value}</dd>
-      </div>
     </div>
   );
 }

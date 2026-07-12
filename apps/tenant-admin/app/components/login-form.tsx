@@ -26,6 +26,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 type CaptchaChallenge = {
@@ -351,7 +352,8 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
                       </div>
                     </div>
 
-                    <Button type="submit" size="lg" loading={loading} className="w-full">
+                    <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
+                      {loading ? <Spinner data-icon="inline-start" /> : null}
                       {loading ? t("otp.requesting") : t("otp.request")}
                     </Button>
                   </form>
@@ -388,10 +390,11 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
                       <Button
                         type="submit"
                         size="lg"
-                        loading={loading}
+                        disabled={loading || otpCode.length !== 6}
+                        aria-busy={loading}
                         className="flex-1"
-                        disabled={otpCode.length !== 6}
                       >
+                        {loading ? <Spinner data-icon="inline-start" /> : null}
                         {loading ? t("otp.verifying") : t("otp.verify")}
                         {!loading && <ArrowLeft data-icon="inline-end" aria-hidden="true" />}
                       </Button>

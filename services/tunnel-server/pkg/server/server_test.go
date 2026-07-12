@@ -42,7 +42,7 @@ func TestDispatchForwardsTraceAndRequestHeaders(t *testing.T) {
 		if r.URL.Path != "/dispatch" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
-		gotTraceID = r.Header.Get("X-Shahrah-Trace-ID")
+		gotTraceID = r.Header.Get("X-GodarAI-Trace-ID")
 		gotRequestID = r.Header.Get("X-Shahrah-Request-ID")
 
 		defer r.Body.Close()

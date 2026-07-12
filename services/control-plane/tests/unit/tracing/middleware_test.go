@@ -51,14 +51,6 @@ func TestMiddlewareGeneratesTraceIDWhenMissing(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, resp.Header.Get(apiheaders.HeaderTraceID))
 
-	req = httptest.NewRequest("GET", "/x", http.NoBody)
-	req.Header.Set(apiheaders.LegacyHeaderTraceID, "trace_legacy")
-
-	resp, err = app.Test(req)
-	defer closeResponseBody(t, resp)
-
-	assert.NoError(t, err)
-	assert.Equal(t, "trace_legacy", resp.Header.Get(apiheaders.HeaderTraceID))
 }
 
 func TestMiddleware_DropsRootAndStepWhenUnsampled(t *testing.T) {

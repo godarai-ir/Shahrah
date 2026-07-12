@@ -7,7 +7,6 @@ import { useTranslations } from "next-intl";
 import {
   ArrowLeft,
   CheckCircle2,
-  Loader2,
   LockKeyhole,
   MailCheck,
   ShieldCheck,
@@ -19,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 type InviteAcceptPanelProps = {
@@ -133,7 +133,7 @@ export default function InviteAcceptPanel({ token }: InviteAcceptPanelProps) {
                   hasError ? "tone-danger" : isComplete ? "tone-success" : "surface-primary-soft",
                 )}
               >
-                {isLoading ? <Loader2 className="animate-spin" aria-hidden="true" /> : isComplete ? <CheckCircle2 aria-hidden="true" /> : hasError ? <LockKeyhole aria-hidden="true" /> : <MailCheck aria-hidden="true" />}
+                {isLoading ? <Spinner size="lg" /> : isComplete ? <CheckCircle2 aria-hidden="true" /> : hasError ? <LockKeyhole aria-hidden="true" /> : <MailCheck aria-hidden="true" />}
               </div>
               <div className="flex flex-col gap-2">
                 <CardTitle className="text-2xl md:text-3xl">{content.title}</CardTitle>
@@ -156,7 +156,7 @@ export default function InviteAcceptPanel({ token }: InviteAcceptPanelProps) {
 
               {isLoading ? (
                 <div className="flex items-center justify-center gap-3 rounded-xl border border-border bg-muted/40 p-4 text-sm text-muted-foreground" role="status" aria-live="polite">
-                  <Loader2 className="animate-spin text-primary" aria-hidden="true" />
+                  <Spinner className="text-primary" />
                   <span>{t("status.loading")}</span>
                 </div>
               ) : null}
@@ -185,7 +185,7 @@ export default function InviteAcceptPanel({ token }: InviteAcceptPanelProps) {
 
               {isLoading ? (
                 <Button size="lg" className="w-full" disabled>
-                  <Loader2 className="animate-spin" data-icon="inline-start" />
+                  <Spinner data-icon="inline-start" />
                   {t("actions.accepting")}
                 </Button>
               ) : null}

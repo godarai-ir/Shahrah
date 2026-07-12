@@ -27,21 +27,21 @@ export async function POST(request: NextRequest) {
 
   const upstreamHeaders = new Headers();
   if (body.cache_config && Object.keys(body.cache_config).length > 0) {
-    upstreamHeaders.set("x-shahrah-cache-config", JSON.stringify(body.cache_config));
+    upstreamHeaders.set("x-godarai-cache-config", JSON.stringify(body.cache_config));
   }
 
   const input = Array.isArray(body.guardrails?.input) ? body.guardrails?.input.filter(Boolean) : [];
   const output = Array.isArray(body.guardrails?.output) ? body.guardrails?.output.filter(Boolean) : [];
   if (input.length > 0 || output.length > 0) {
     upstreamHeaders.set(
-      "x-shahrah-guardrails",
+      "x-godarai-guardrails",
       JSON.stringify({
         llm_input_guardrails: input,
         llm_output_guardrails: output,
       }),
     );
     if (body.guardrails?.scope) {
-      upstreamHeaders.set("x-shahrah-guardrails-scope", body.guardrails.scope);
+      upstreamHeaders.set("x-godarai-guardrails-scope", body.guardrails.scope);
     }
   }
 

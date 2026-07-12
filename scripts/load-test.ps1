@@ -46,7 +46,7 @@ function Invoke-ControlPlaneJSON {
     )
     $headers = @{
         Authorization = "Bearer $masterKey"
-        "X-Shahrah-Tenant" = $tenantSlug
+        "X-GodarAI-Tenant" = $tenantSlug
     }
     Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:4000$Path" -Headers $headers -ContentType "application/json" -Body $Body
 }

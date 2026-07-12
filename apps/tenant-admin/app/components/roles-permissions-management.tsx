@@ -11,6 +11,7 @@ import {
   AppSelectField,
   CommercialPlanUpgradeDialog,
   EmptyState,
+  PageContainer,
   PageHeader,
   RowActionsMenu,
   SearchField,
@@ -128,7 +129,7 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
   ) : null;
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+    <PageContainer padding="none">
       <PageHeader
         title={t("rolesPage.listTitle")}
         description={t("rolesPage.description")}
@@ -285,7 +286,7 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
         cancelLabel={t("rolesPage.upgradeDialog.cancel")}
         actionLabel={t("rolesPage.upgradeDialog.action")}
       />
-    </div>
+    </PageContainer>
   );
 }
 

@@ -10,11 +10,11 @@ import { DataListPanel } from "@/components/app-ui/DataListPanel";
 import { EmptyState } from "@/components/app-ui/EmptyState";
 import { HelpLink } from "@/components/app-ui/HelpLink";
 import { PageHeader } from "@/components/app-ui/PageHeader";
+import { PageContainer } from "@/components/app-ui/PageContainer";
 import { SearchField } from "@/components/app-ui/SearchField";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { cn } from "@/lib/utils";
 
 export type GatewayPolicyNotice = {
   kind: "success" | "error";
@@ -113,7 +113,7 @@ export function GatewayPolicyRulesList({
 
   return (
     <>
-      <div className={cn("mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 md:px-6", className)}>
+      <PageContainer className={className}>
         <PageHeader
           title={title}
           description={description}
@@ -153,7 +153,7 @@ export function GatewayPolicyRulesList({
         >
           {children}
         </DataListPanel>
-      </div>
+      </PageContainer>
 
       <Sheet open={ruleSheet.open} onOpenChange={ruleSheet.onOpenChange}>
         <SheetContent

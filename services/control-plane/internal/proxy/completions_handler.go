@@ -611,13 +611,10 @@ func (h *CompletionsHandler) emitModelMetric(input metricsobs.BuildInput) {
 func setCostHeaders(c *fiber.Ctx, cost platform.UsageCostBreakdown) {
 	c.Set(apiheaders.HeaderCostUSD, fmt.Sprintf("%.8f", cost.TotalCostUSD))
 	c.Set(apiheaders.HeaderCostIRR, fmt.Sprintf("%.2f", cost.TotalCostIRR))
-	c.Set(apiheaders.LegacyHeaderCostUSD, fmt.Sprintf("%.8f", cost.TotalCostUSD))
-	c.Set(apiheaders.LegacyHeaderCostIRR, fmt.Sprintf("%.2f", cost.TotalCostIRR))
 }
 
 func setTraceHeaders(c *fiber.Ctx, traceID string) {
 	c.Set(apiheaders.HeaderTraceID, traceID)
-	c.Set(apiheaders.LegacyHeaderTraceID, traceID)
 }
 
 // mustMarshalJSON marshals to JSON or panics.

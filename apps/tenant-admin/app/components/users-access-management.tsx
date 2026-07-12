@@ -404,7 +404,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
               <TableRow key={index}><TableCell colSpan={4}><Skeleton className="h-10 w-full" /></TableCell></TableRow>
             )) : users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="py-6"><EmptyState title={t("table.noUsersFound")} description={t("usersPage.emptyDescription")} className="min-h-40 border-0 bg-transparent" /></TableCell>
+                <TableCell colSpan={4} className="py-6"><EmptyState variant="table" title={t("table.noUsersFound")} description={t("usersPage.emptyDescription")} /></TableCell>
               </TableRow>
             ) : (
               users.map((user) => {

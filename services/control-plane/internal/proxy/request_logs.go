@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
@@ -78,7 +79,7 @@ func traceIDFromFiber(c *fiber.Ctx) string {
 	if c == nil {
 		return ""
 	}
-	return strings.TrimSpace(c.GetRespHeader("x-shahrah-trace-id"))
+	return strings.TrimSpace(c.GetRespHeader(apiheaders.HeaderTraceID))
 }
 
 func fallbackStatusFromReason(reason string, count int) string {

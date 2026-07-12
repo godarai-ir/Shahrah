@@ -2,11 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ArrowUpRight, Check, Loader2 } from "lucide-react";
+import { ArrowUpRight, Check } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type PlanPrice = {
@@ -206,7 +207,7 @@ export default function PlanManagement({
                         <span className="inline-flex items-center gap-2 text-xs">
                           {formatPrice(price, locale, t)}
                           {pending && target === key ? (
-                            <Loader2 className="size-3 animate-spin" />
+                            <Spinner size="sm" />
                           ) : activeInterval ? (
                             <Check className="size-3" />
                           ) : (

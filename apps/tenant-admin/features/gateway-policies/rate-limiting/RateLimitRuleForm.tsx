@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, Plus, Trash2, X } from "lucide-react";
 
-import { AppSelectField, FormSection, IdentifierField, PageHeader } from "@/components/app-ui";
+import { AppSelectField, FormSection, IdentifierField, PageContainer, PageHeader } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
 import {
   PrincipalEntitySelect,
   type PrincipalEntitySelection,
@@ -282,7 +281,7 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
   const title = initialRule ? t("form.editTitle") : t("form.addTitle");
 
   return (
-    <div className={cn("mx-auto flex w-full flex-col gap-6 px-4 py-6 md:px-6", embedded ? "max-w-none" : "max-w-7xl")}>
+    <PageContainer size={embedded ? "full" : "wide"}>
       <PageHeader
         eyebrow={t("eyebrow")}
         title={title}
@@ -719,7 +718,7 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
           </div>
         </div>
       </form>
-    </div>
+    </PageContainer>
   );
 }
 

@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, X } from "lucide-react";
 
-import { AppSelectField, FormSection, IdentifierField, PageHeader } from "@/components/app-ui";
+import { AppSelectField, FormSection, IdentifierField, PageContainer, PageHeader } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,6 @@ import { ModelEntitySelect, type ModelEntitySelectLabels, type ModelSelection } 
 import { createBudgetLimitRule, updateBudgetLimitRule } from "./ruleApi";
 import type { BudgetLimitCondition, BudgetLimitRule } from "./ruleTypes";
 import { budgetLimitRuleSchema, type BudgetLimitRuleFormInput } from "./ruleValidation";
-import { cn } from "@/lib/utils";
 
 const fieldOptions = ["subject", "model", "metadata"] as const;
 const metadataOperatorOptions = ["exists", "not_exists", "equals", "not_equals", "contains", "starts_with", "ends_with", "gt", "gte", "lt", "lte"] as const;
@@ -246,7 +245,7 @@ export function BudgetLimitRuleForm({ initialRule, embedded = false, onCancel, o
   }
 
   return (
-    <div className={cn("mx-auto flex w-full flex-col gap-6", embedded ? "max-w-none px-4 py-6 md:px-6" : "max-w-7xl px-4 py-6 md:px-6")}>
+    <PageContainer size={embedded ? "full" : "wide"}>
       <PageHeader
         eyebrow={t("title")}
         title={initialRule ? t("form.titleEdit") : t("form.titleCreate")}
@@ -617,6 +616,6 @@ export function BudgetLimitRuleForm({ initialRule, embedded = false, onCancel, o
             </div>
           </div>
         </form>
-    </div>
+    </PageContainer>
   );
 }

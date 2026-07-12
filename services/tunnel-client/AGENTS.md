@@ -18,7 +18,7 @@ It does not own provider logic, persistence, auth, or database access.
 ## Working Rules
 
 1. Keep the handler thin and transport-focused.
-2. Preserve `X-Shahrah-Trace-ID` and `X-Shahrah-Request-ID` when dispatching.
+2. Preserve `X-GodarAI-Trace-ID` and `X-Shahrah-Request-ID` when dispatching.
 3. Do not buffer or transform streaming bodies unless the transport requires it.
 4. Keep all behavior compatible with `platform.TunnelRequest`.
 5. Avoid adding stateful features or side effects.

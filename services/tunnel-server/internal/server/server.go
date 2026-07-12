@@ -48,7 +48,7 @@ func NewHandler(silkRoadURL string, client *http.Client) http.Handler {
 			return
 		}
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("X-Shahrah-Trace-ID", payload.TraceID)
+		req.Header.Set("X-GodarAI-Trace-ID", payload.TraceID)
 		req.Header.Set("X-Shahrah-Request-ID", payload.RequestID)
 
 		resp, err := clientForStream(client, payload.Stream).Do(req)

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Check, Copy, Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 
-import { AppSelectField, HelpLink, IdentifierField } from "@/components/app-ui";
+import { AppSelectField, EmptyState, HelpLink, IdentifierField } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -437,9 +437,11 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
           ) : null}
 
           {tableItems.length === 0 && !isLoading ? (
-            <div className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">
-              {hasSearchQuery ? t("emptySearch") : t("empty")}
-            </div>
+            <EmptyState
+              variant="inline"
+              density="compact"
+              title={hasSearchQuery ? t("emptySearch") : t("empty")}
+            />
           ) : (
             <div className="overflow-x-auto rounded-lg border">
               <Table>

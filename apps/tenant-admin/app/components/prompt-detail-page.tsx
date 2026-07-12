@@ -19,6 +19,7 @@ import {
 
 import { normalizeError, requestJSON, unwrapData } from "@/app/components/provider-account-wizard/utils";
 import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { DefinitionList, DefinitionListItem } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -256,22 +257,24 @@ export default function PromptDetailPage(props: PromptDetailPageProps) {
 
               <Separator className="my-4" />
 
-              <div className="grid gap-3">
-                <DetailStat
+              <DefinitionList>
+                <DefinitionListItem surface
                   label={t("detail.summary.activeVersion")}
                   value={selectedVersion ? t("list.versionValue", { version: selectedVersion.version }) : "-"}
                 />
-                <DetailStat
+                <DefinitionListItem surface
                   label={t("list.columns.model")}
                   value={selectedDescriptor?.model || "-"}
-                  technical
+                  mono
+                  valueDir="ltr"
                 />
-                <DetailStat
+                <DefinitionListItem surface
                   label={t("versions.selectedFqn")}
                   value={selectedVersion?.fqn || "-"}
-                  technical
+                  mono
+                  valueDir="ltr"
                 />
-              </div>
+              </DefinitionList>
             </div>
           </div>
 
@@ -612,21 +615,6 @@ function TechnicalFact(props: { label: string; value: string }) {
     <div className="grid gap-1 rounded-md border bg-muted/20 px-3 py-2">
       <div className="text-xs text-muted-foreground">{props.label}</div>
       <div className="truncate font-mono text-xs" dir="ltr" title={props.value}>{props.value}</div>
-    </div>
-  );
-}
-
-function DetailStat(props: { label: string; technical?: boolean; value: string }) {
-  return (
-    <div className="grid gap-1 rounded-lg border bg-muted/20 px-3 py-2">
-      <div className="text-xs text-muted-foreground">{props.label}</div>
-      <div
-        className={cn("truncate text-sm font-medium", props.technical && "font-mono text-xs")}
-        dir={props.technical ? "ltr" : "auto"}
-        title={props.value}
-      >
-        {props.value}
-      </div>
     </div>
   );
 }

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { ArrowLeft, ArrowRight, Save } from "lucide-react";
 
-import { FormSection, getPermissionSelectionSummary, PageHeader, PermissionEditor, PermissionSummary } from "@/components/app-ui";
+import { FormSection, getPermissionSelectionSummary, PageContainer, PageHeader, PermissionEditor, PermissionSummary } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -102,7 +102,7 @@ export default function RoleEditManagement({ initialRole, initialPermissionCatal
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+    <PageContainer padding="none">
       <PageHeader
         eyebrow={t("title")}
         title={isRtl ? "ویرایش نقش" : "Edit role"}
@@ -202,7 +202,7 @@ export default function RoleEditManagement({ initialRole, initialPermissionCatal
           />
         </aside>
       </div>
-    </div>
+    </PageContainer>
   );
 }
 

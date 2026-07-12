@@ -55,7 +55,7 @@ func tenantSlugFromTrustedRequestContext(c *fiber.Ctx) string {
 		return normalizeTenantSlug(currentTenant.Slug)
 	}
 
-	return normalizeTenantSlug(c.Get("x-shahrah-tenant"))
+	return normalizeTenantSlug(c.Get("x-godarai-tenant"))
 }
 
 func resolveTenantSlugForRequest(c *fiber.Ctx, requested string) (string, error) {

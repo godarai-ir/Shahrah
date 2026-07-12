@@ -10,7 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { StatusOptionCard } from "@/app/components/status-option-card";
+import { StatusOptionGroup } from "@/components/app-ui";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -164,25 +164,18 @@ export default function RequestLoggingSettingsPanel(props: RequestLoggingSetting
           <p className="text-xs text-muted-foreground">{t("modeBehaviorTitle")}</p>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2">
-          {MODES.map((item) => {
-            const selected = loggingMode === item.value;
-
-            return (
-              <StatusOptionCard
-                key={item.value}
-                onClick={() => setLoggingMode(item.value)}
-                disabled={saving || loading}
-                icon={item.icon}
-                selected={selected}
-                badge={item.value}
-                title={t(`modes.${item.key}.title`)}
-                description={t(`modes.${item.key}.description`)}
-                tone={item.tone}
-              />
-            );
-          })}
-        </div>
+        <StatusOptionGroup
+          label={t("loggingModeLabel")}
+          value={loggingMode}
+          onValueChange={setLoggingMode}
+          disabled={saving || loading}
+          options={MODES.map((item) => ({
+            ...item,
+            badge: item.value,
+            title: t(`modes.${item.key}.title`),
+            description: t(`modes.${item.key}.description`),
+          }))}
+        />
       </div>
 
       <div className="grid gap-1 text-xs text-muted-foreground">

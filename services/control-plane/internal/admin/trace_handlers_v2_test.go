@@ -82,7 +82,7 @@ func TestListRequestTracesV2_UsesTenantContextIsolation(t *testing.T) {
 	app := setupTraceV2TestApp(&Handlers{traces: mock})
 
 	req := httptest.NewRequest("GET", "/api/v2/traces?provider=openai&request_id=req_123&error_code=provider_error", http.NoBody)
-	req.Header.Set("x-shahrah-tenant", "tenant_b")
+	req.Header.Set("x-godarai-tenant", "tenant_b")
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)

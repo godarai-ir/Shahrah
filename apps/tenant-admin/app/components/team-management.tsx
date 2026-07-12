@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { canAnyPermission } from "@/lib/authz";
 import { cn } from "@/lib/utils";
@@ -390,7 +391,7 @@ export default function TeamManagement({
         actions={
           <>
             <Button variant="outline" onClick={() => void loadTeams(offset, query.trim())} disabled={isLoading}>
-              <RefreshCw data-icon="inline-start" className={cn(isLoading && "animate-spin")} />
+              {isLoading ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" />}
               {t("actions.refresh")}
             </Button>
             <Button
@@ -421,7 +422,7 @@ export default function TeamManagement({
             <Table>
               <TableHeader><TableRow><TableHead>{t("table.team")}</TableHead><TableHead>{t("table.orgUnit")}</TableHead><TableHead>{t("table.workspaceType")}</TableHead><TableHead>{t("table.status")}</TableHead><TableHead>{t("table.updated")}</TableHead><TableHead className="w-10 text-end"> </TableHead></TableRow></TableHeader>
               <TableBody>
-                {isLoading && filtered.length === 0 ? Array.from({ length: 4 }).map((_, index) => <TableRow key={index}><TableCell colSpan={6}><Skeleton className="h-10 w-full" /></TableCell></TableRow>) : filtered.length === 0 ? <TableRow><TableCell colSpan={6} className="py-6"><EmptyState icon={Users} title={t("empty.title")} description={t("empty.description")} className="min-h-40 border-0 bg-transparent" primaryAction={canCreateTeam ? <Button type="button" onClick={handleCreateTeam} disabled={!hasLoadedEntitlements}><Plus data-icon="inline-start" />{t("actions.new")}</Button> : undefined} /></TableCell></TableRow> : filtered.map((team) => (
+                {isLoading && filtered.length === 0 ? Array.from({ length: 4 }).map((_, index) => <TableRow key={index}><TableCell colSpan={6}><Skeleton className="h-10 w-full" /></TableCell></TableRow>) : filtered.length === 0 ? <TableRow><TableCell colSpan={6} className="py-6"><EmptyState variant="table" icon={Users} title={t("empty.title")} description={t("empty.description")} primaryAction={canCreateTeam ? <Button type="button" onClick={handleCreateTeam} disabled={!hasLoadedEntitlements}><Plus data-icon="inline-start" />{t("actions.new")}</Button> : undefined} /></TableCell></TableRow> : filtered.map((team) => (
                   <TableRow key={team.id} className={cn("cursor-pointer", selectedTeamID === team.id && "bg-muted/50")} onClick={() => setSelectedTeamID(team.id)}>
                     <TableCell><div className="min-w-44"><p className="truncate font-medium">{getTeamName(team)}</p><p className="truncate text-xs text-muted-foreground">{team.alias}</p></div></TableCell>
                     <TableCell>{getOrgUnitName(team, orgUnits, t)}</TableCell>

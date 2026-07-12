@@ -449,7 +449,7 @@ func (r *loadRunner) doRequest(ctx context.Context) requestResult {
 	}
 	req.Header.Set("Authorization", "Bearer "+r.cfg.APIKey)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Shahrah-Tenant", r.cfg.Tenant)
+	req.Header.Set("X-GodarAI-Tenant", r.cfg.Tenant)
 	start := time.Now()
 	resp, err := r.client.Do(req)
 	latency := time.Since(start)

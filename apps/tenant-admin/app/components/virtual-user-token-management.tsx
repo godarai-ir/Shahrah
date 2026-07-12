@@ -3,7 +3,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
-  Check,
   Copy,
   KeyRound,
   Pencil,
@@ -14,16 +13,17 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, HelpLink, IdentifierField, PageHeader, SearchField, StatusBadge as AppStatusBadge } from "@/components/app-ui";
+import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, DefinitionList, DefinitionListItem, EmptyState, HelpLink, IdentifierField, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
@@ -145,8 +145,6 @@ export default function VirtualUserTokenManagement({
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isCopyingSecret, setIsCopyingSecret] = useState(false);
-  const [secretCopied, setSecretCopied] = useState(false);
   const [secretDialogOpen, setSecretDialogOpen] = useState(false);
   const [newSecret, setNewSecret] = useState<string | null>(null);
   const [createUserOpen, setCreateUserOpen] = useState(false);
@@ -366,7 +364,6 @@ export default function VirtualUserTokenManagement({
         }),
       });
       setNewSecret(created.key ?? null);
-      setSecretCopied(false);
       setSecretDialogOpen(Boolean(created.key));
       setTokenForm(emptyTokenForm);
       setCreateTokenOpen(false);
@@ -401,7 +398,6 @@ export default function VirtualUserTokenManagement({
           },
         );
         setNewSecret(rotated.key ?? null);
-        setSecretCopied(false);
         setSecretDialogOpen(Boolean(rotated.key));
         setBanner({ kind: "success", message: t("messages.rotateSuccess") });
       }
@@ -412,31 +408,6 @@ export default function VirtualUserTokenManagement({
       setBanner({ kind: "error", message: normalizeError(error, t("messages.tokenActionError")) });
     } finally {
       setIsSaving(false);
-    }
-  }
-
-  async function copySecret() {
-    if (!newSecret || isCopyingSecret) return;
-    setIsCopyingSecret(true);
-    try {
-      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(newSecret);
-      } else if (typeof document !== "undefined") {
-        const textarea = document.createElement("textarea");
-        textarea.value = newSecret;
-        textarea.style.position = "fixed";
-        textarea.style.opacity = "0";
-        document.body.appendChild(textarea);
-        textarea.focus();
-        textarea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textarea);
-      }
-      setSecretCopied(true);
-    } catch {
-      setBanner({ kind: "error", message: t("oneTime.copyFailed") });
-    } finally {
-      setIsCopyingSecret(false);
     }
   }
 
@@ -520,7 +491,7 @@ export default function VirtualUserTokenManagement({
               onClick={() => void loadVirtualUsers(0, query.trim())}
               disabled={isLoadingUsers}
             >
-              <RefreshCcw className={cn(isLoadingUsers && "animate-spin")} />
+              {isLoadingUsers ? <Spinner /> : <RefreshCcw />}
             </Button>
           </div>
 
@@ -544,6 +515,7 @@ export default function VirtualUserTokenManagement({
                 <TableRow>
                   <TableCell colSpan={3} className="py-8">
                     <EmptyState
+                      variant="table"
                       title={t("usersTable.empty")}
                       description={t("usersTable.emptyDescription")}
                       primaryAction={
@@ -552,7 +524,6 @@ export default function VirtualUserTokenManagement({
                           {t("actions.createUser")}
                         </Button>
                       }
-                      className="border-0 bg-transparent"
                     />
                   </TableCell>
                 </TableRow>
@@ -639,11 +610,11 @@ export default function VirtualUserTokenManagement({
                 </CardHeader>
               </Card>
 
-              <dl className="grid grid-cols-3 gap-2">
-                <InfoItem label={t("detail.team")} value={getTeamName(selectedVirtualUser.team_id, teams)} />
-                <InfoItem label={t("detail.orgUnit")} value={getOrgUnitName(selectedVirtualUser.org_unit_id, orgUnits)} />
-                <InfoItem label={t("detail.tokens")} value={String(tokenTotal)} />
-              </dl>
+              <DefinitionList columns={3}>
+                <DefinitionListItem surface emphasis label={t("detail.team")} value={getTeamName(selectedVirtualUser.team_id, teams)} />
+                <DefinitionListItem surface emphasis label={t("detail.orgUnit")} value={getOrgUnitName(selectedVirtualUser.org_unit_id, orgUnits)} />
+                <DefinitionListItem surface emphasis label={t("detail.tokens")} value={String(tokenTotal)} />
+              </DefinitionList>
 
               <AppCard contentClassName="flex min-w-0 flex-col gap-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -653,7 +624,7 @@ export default function VirtualUserTokenManagement({
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Button variant="outline" size="icon" aria-label={t("actions.refresh")} title={t("actions.refresh")} onClick={() => void loadTokens(selectedVirtualUser.id)} disabled={isLoadingTokens}>
-                      <RefreshCcw className={cn(isLoadingTokens && "animate-spin")} />
+                      {isLoadingTokens ? <Spinner /> : <RefreshCcw />}
                     </Button>
                     <Sheet open={createTokenOpen} onOpenChange={setCreateTokenOpen}>
                       <Button
@@ -706,7 +677,9 @@ export default function VirtualUserTokenManagement({
                   <TableBody>
                     {tokens.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7}>{t("tokensTable.empty")}</TableCell>
+                        <TableCell colSpan={7} className="py-6">
+                          <EmptyState variant="table" density="compact" title={t("tokensTable.empty")} />
+                        </TableCell>
                       </TableRow>
                     ) : (
                       tokens.map((token) => (
@@ -879,39 +852,23 @@ export default function VirtualUserTokenManagement({
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={secretDialogOpen && Boolean(newSecret)}
-        onOpenChange={(open) => {
-          setSecretDialogOpen(open);
-          if (!open) {
-            setSecretCopied(false);
-            setNewSecret(null);
-          }
+      <OneTimeSecretDialog
+        open={secretDialogOpen}
+        onOpenChange={setSecretDialogOpen}
+        value={newSecret}
+        title={t("oneTime.title")}
+        description={t("oneTime.description")}
+        warning={t("oneTime.copyHint")}
+        closeLabel={t("oneTime.close")}
+        copyLabels={{
+          valueAriaLabel: t("oneTime.title"),
+          copy: t("oneTime.copy"),
+          copying: t("oneTime.copying"),
+          copied: t("oneTime.copied"),
         }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("oneTime.title")}</DialogTitle>
-            <DialogDescription>{t("oneTime.description")}</DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-3">
-            <Input value={newSecret ?? ""} readOnly className="font-mono text-xs" />
-            <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-              <span>{t("oneTime.copyHint")}</span>
-              {secretCopied ? <span className="text-foreground">{t("oneTime.copied")}</span> : null}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSecretDialogOpen(false)}>
-              {t("oneTime.close")}
-            </Button>
-            <Button onClick={() => void copySecret()} disabled={isCopyingSecret || !newSecret}>
-              {secretCopied ? <Check data-icon="inline-start" /> : <Copy data-icon="inline-start" />}
-              {isCopyingSecret ? t("oneTime.copying") : secretCopied ? t("oneTime.copied") : t("oneTime.copy")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onClear={() => setNewSecret(null)}
+        onCopyError={() => setBanner({ kind: "error", message: t("oneTime.copyFailed") })}
+      />
 
       <CommercialPlanUpgradeDialog open={upgradeDialogOpen} onOpenChange={setUpgradeDialogOpen} title={t("upgradeDialog.title")} description={t("upgradeDialog.description")} cancelLabel={t("upgradeDialog.cancel")} actionLabel={t("upgradeDialog.action")} />
     </div>
@@ -1047,17 +1004,6 @@ function TokenStatusBadge({ token, t }: { token: VATToken; t: ReturnType<typeof 
   if (token.revoked_at) return <AppStatusBadge status="error">{t("status.revoked")}</AppStatusBadge>;
   if (token.blocked) return <AppStatusBadge status="error">{t("status.blocked")}</AppStatusBadge>;
   return <AppStatusBadge status="active">{t("status.active")}</AppStatusBadge>;
-}
-
-function InfoItem({ label, value }: { label: string; value: string }) {
-  return (
-    <Card className="min-w-0 shadow-none">
-      <CardContent className="flex flex-col gap-1 p-3">
-        <dt className="text-xs text-muted-foreground">{label}</dt>
-        <dd className="truncate text-sm font-semibold">{value}</dd>
-      </CardContent>
-    </Card>
-  );
 }
 
 function buildVirtualUserPayload(form: VirtualUserForm, includeActive = false) {

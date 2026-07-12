@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowDown, ArrowUp, CheckCircle2, Copy, Edit3, Loader2, Plus, RefreshCw, Save, Search, Trash2, XCircle } from "lucide-react";
+import { ArrowDown, ArrowUp, CheckCircle2, Copy, Edit3, Plus, RefreshCw, Save, Search, Trash2, XCircle } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { HelpLink, IdentifierField } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -582,7 +583,7 @@ export default function VirtualModelManagement() {
               />
             </div>
             <Button variant="outline" onClick={() => void loadList()} disabled={isLoading}>
-              <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+              {isLoading ? <Spinner /> : <RefreshCw />}
               {t("actions.refresh")}
             </Button>
             <Button onClick={startCreate}>
@@ -667,7 +668,7 @@ export default function VirtualModelManagement() {
                             onClick={() => void duplicateItem(item)}
                             disabled={actingID === item.id || isLoading}
                           >
-                            {actingID === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
+                            {actingID === item.id ? <Spinner /> : <Copy />}
                           </Button>
                           <Button
                             type="button"
@@ -1088,7 +1089,7 @@ export default function VirtualModelManagement() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
                 <Button type="button" onClick={() => void submitForm()} disabled={isSaving || isDeleting}>
-                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {isSaving ? <Spinner /> : <Save />}
                   {isCreate ? t("actions.create") : tc("save")}
                 </Button>
                 <Button type="button" variant="outline" onClick={closeEditor} disabled={isSaving || isDeleting}>
@@ -1102,7 +1103,7 @@ export default function VirtualModelManagement() {
               </div>
               {!isCreate ? (
                 <Button type="button" variant="destructive" onClick={() => setDeleteDialogOpen(true)} disabled={isSaving || isDeleting}>
-                  {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  {isDeleting ? <Spinner /> : <Trash2 />}
                   {t("actions.delete")}
                 </Button>
               ) : null}

@@ -123,7 +123,6 @@ func forwardProviderHeaders(c *fiber.Ctx, headers map[string]string) {
 		"cf-ray":                         "Cf-Ray",
 		"x-correlation-id":               "X-Correlation-Id",
 		apiheaders.HeaderTraceID:         "X-GodarAI-Trace-Id",
-		apiheaders.LegacyHeaderTraceID:   "X-GodarAI-Trace-Id",
 		"x-trace-id":                     "X-Trace-Id",
 		"traceparent":                    "Traceparent",
 		// Also handle mixed-case input that some providers may send

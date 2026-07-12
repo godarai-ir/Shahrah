@@ -390,7 +390,7 @@ func TestTenantMiddleware_InternalServiceHint(t *testing.T) {
 
 	req, err := http.NewRequest(http.MethodGet, "http://control-plane:4000/", http.NoBody)
 	assert.NoError(t, err)
-	req.Header.Set(apiheaders.LegacyHeaderTenant, "mytenant")
+	req.Header.Set(apiheaders.HeaderTenant, "mytenant")
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)

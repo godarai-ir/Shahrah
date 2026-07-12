@@ -18,8 +18,8 @@ Ship a scoped LLM guardrails MVP for Shahrah's Go control-plane gateway. This im
 ## What Shipped
 
 - Per-request LLM input and output guardrails for `/v1/chat/completions`.
-- Header support for `X-Shahrah-Guardrails` and `X-Shahrah-Guardrails-Scope`.
-- Compatibility aliases for `X-TFY-GUARDRAILS`, `X-TFY-GUARDRAILS-SCOPE`, `input_guardrails`, and `output_guardrails`.
+- Header support for `X-GodarAI-Guardrails` and `X-GodarAI-Guardrails-Scope`.
+- Payload aliases for `input_guardrails` and `output_guardrails`.
 - Built-in local guardrails:
   - `keyword_blocklist`
   - `regex`

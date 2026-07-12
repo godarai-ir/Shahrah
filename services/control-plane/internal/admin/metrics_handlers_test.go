@@ -76,7 +76,7 @@ func TestQueryModelMetrics_UsesTenantContext(t *testing.T) {
 	raw, _ := json.Marshal(body)
 	req := httptest.NewRequest("POST", "/api/v1/metrics/query", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-shahrah-tenant", "tenant_b")
+	req.Header.Set("x-godarai-tenant", "tenant_b")
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)

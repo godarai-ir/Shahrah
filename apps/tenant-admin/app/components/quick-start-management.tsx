@@ -14,7 +14,6 @@ import {
   KeyRound,
   Layers3,
   Lightbulb,
-  Loader2,
   Network,
   Play,
   ShieldCheck,
@@ -43,6 +42,7 @@ import {
 import { AppCard, EmptyState, HelpLink, PageHeader, StatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Dialog,
   DialogContent,
@@ -527,7 +527,7 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
               {common("cancel")}
             </Button>
             <Button type="button" onClick={() => void createPat()} disabled={isCreatingPat}>
-              {isCreatingPat ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <KeyRound data-icon="inline-start" />}
+              {isCreatingPat ? <Spinner data-icon="inline-start" /> : <KeyRound data-icon="inline-start" />}
               {isCreatingPat ? t("patDialog.creating") : t("patDialog.submit")}
             </Button>
           </DialogFooter>
@@ -639,7 +639,7 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
                 </div>
                 <div className="flex gap-2">
                   <Button type="button" onClick={() => void runSampleRequest()} disabled={!journey.testBench.ready || !effectiveToken || isRunningSample}>
-                    {isRunningSample ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <Play data-icon="inline-start" />}
+                    {isRunningSample ? <Spinner data-icon="inline-start" /> : <Play data-icon="inline-start" />}
                     {isRunningSample ? t("lab.runningAction") : t("lab.runAction")}
                   </Button>
                 </div>

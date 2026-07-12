@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 
+import { PageContainer } from "@/components/app-ui";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -7,8 +8,8 @@ export default async function RolesLoading() {
   const t = await getTranslations("accessManagement");
 
   return (
-    <div
-      className="mx-auto flex w-full max-w-7xl flex-col gap-6"
+    <PageContainer
+      padding="none"
       aria-busy="true"
       aria-label={t("rolesPage.loading")}
     >
@@ -37,6 +38,6 @@ export default async function RolesLoading() {
           ))}
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

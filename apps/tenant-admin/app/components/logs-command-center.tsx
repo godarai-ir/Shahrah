@@ -30,6 +30,7 @@ import { AppCard, AppSelectField, CompactValue, EmptyState, FilterCombobox, Metr
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -820,11 +821,11 @@ export default function LogsCommandCenter({
                   size="icon-sm"
                   onClick={() => void refreshReport()}
                   disabled={loading}
-                  loading={loading}
+                  aria-busy={loading}
                   aria-label={t("actions.refresh")}
                   title={t("actions.refresh")}
                 >
-                  <RefreshCw className="h-4 w-4" />
+                  {loading ? <Spinner /> : <RefreshCw />}
                   <span className="sr-only">{t("actions.refresh")}</span>
                 </Button>
               </TooltipTrigger>

@@ -42,23 +42,6 @@ Authorization: Bearer YOUR_GODARAI_API_KEY
 | `x-godarai-cached-trace-id` | هدر پاسخ برای trace منبع cache hit |
 | `x-godarai-cache-similarity-score` | هدر پاسخ برای smart cache hit |
 
-## پشتیبانی از headerهای legacy
-
-برای سازگاری عقب‌رو، پروژه هنوز بعضی headerهای legacy با پیشوند `x-shahrah-*` را هم می‌شناسد. نمونه‌ها:
-
-- `x-shahrah-trace-id`
-- `x-shahrah-tenant`
-- `x-shahrah-cache-config`
-- `x-shahrah-guardrails`
-- `x-shahrah-guardrails-scope`
-- `x-shahrah-cost-usd`
-- `x-shahrah-cost-irr`
-
-قاعده عملی:
-
-- برای کد جدید، از `x-godarai-*` استفاده کنید
-- اگر با integration قدیمی کار می‌کنید، headerهای `x-shahrah-*` هنوز ممکن است کار کنند
-
 ## `x-godarai-trace-id`
 
 اگر می‌خواهید یک request را در لاگ‌ها و traceهای خودتان با شناسه‌ای که از قبل دارید correlate کنید، می‌توانید trace id را صریحاً بفرستید:
@@ -71,7 +54,7 @@ x-godarai-trace-id: trace_abc123
 
 - اگر این header را بفرستید، gateway از همان استفاده می‌کند
 - اگر نفرستید، trace id در gateway ساخته می‌شود
-- نسخه legacy و حتی `x-trace-id` هم برای lookup در بعضی مسیرها در نظر گرفته شده‌اند
+- هدر `x-trace-id` نیز در بعضی مسیرها به‌عنوان مقدار جایگزین شناخته می‌شود
 
 ## `x-godarai-tenant`
 
@@ -90,7 +73,7 @@ x-godarai-tenant: acme
 
 ## `x-godarai-cache-config`
 
-برای بعضی requestها می‌توانید رفتار cache را از طریق header مشخص کنید. در docs و README فعلی پروژه، نسخه legacy آن هم دیده می‌شود.
+برای بعضی درخواست‌ها می‌توانید رفتار حافظه نهان را از طریق هدر مشخص کنید.
 
 نمونه مفهومی:
 
@@ -107,10 +90,6 @@ x-godarai-cache-config: {"type":"simple","ttl":600,"namespace":"production"}
 ```text
 x-godarai-guardrails: {"llm_input_guardrails":["guardrails/pii-redaction"]}
 ```
-
-در implementation فعلی، helper مربوطه علاوه بر header canonical، مقدار `x-tfy-guardrails` و نسخه legacy را هم می‌شناسد.
-
-این یعنی اگر از بعضی integrationهای وارداتی یا legacy استفاده کنید، ممکن است همچنان کار کنند؛ ولی برای کد جدید بهتر است روی نام canonical بایستید.
 
 اگر header به‌شکل plain string ارسال شود، به‌عنوان فهرست selectorهای ورودی تفسیر می‌شود:
 
@@ -163,35 +142,11 @@ x-godarai-guardrails-scope: last
 
 این headerها برای dashboard سمت client، debugging هزینه، یا attribution سبک مفیدند. البته برای گزارش‌گیری دقیق‌تر همچنان بهتر است به logging و usage records تکیه کنید.
 
-## headerهای `x-tfy-*` چه می‌شوند؟
-
-در مستند مرجع TrueFoundry headerهای زیادی با پیشوند `x-tfy-*` مطرح شده‌اند؛ مثل:
-
-- `x-tfy-metadata`
-- `x-tfy-provider-name`
-- `x-tfy-request-timeout`
-- `x-tfy-retry-config`
-- `x-tfy-logging-config`
-
-اما در implementation فعلی گدارAI که در این repo می‌بینیم، همه این headerها به‌عنوان contract عمومی سراسری و پیاده‌سازی‌شده در لایه proxy فعلی دیده نمی‌شوند.
-
-در نتیجه:
-
-- اگر headerی را در این صفحه آورده‌ایم، پشتوانه‌اش در کد فعلی پروژه روشن‌تر است
-- اگر از الگوهای `x-tfy-*` می‌آیید، باید فرض نکنید همه آن‌ها در گدارAI فعلی فعال‌اند
-
-استثناهای مهم:
-
-- `x-tfy-guardrails`
-- `x-tfy-guardrails-scope`
-
-که در helperهای فعلی به‌عنوان fallback هم شناخته می‌شوند.
-
 ## چند توصیه عملی
 
-### برای کد جدید، فقط headerهای canonical را استفاده کنید
+### فقط از هدرهای اصلی گدارAI استفاده کنید
 
-یعنی `x-godarai-*`، نه `x-shahrah-*`.
+هدرهای عمومی گدارAI با پیشوند `x-godarai-*` تعریف می‌شوند.
 
 ### فقط وقتی header اضافه کنید که use case روشن دارید
 
@@ -207,14 +162,4 @@ x-godarai-guardrails-scope: last
 
 ## جمع‌بندی
 
-در گدارAI، مهم‌ترین header همیشه `Authorization` است، اما headerهای دیگری هم برای trace، cache، guardrails، tenant hint و metadataهای پاسخ وجود دارند. در نسخه فعلی پروژه، contractهای واقعی بیشتر حول headerهای `x-godarai-*` و نسخه‌های legacy `x-shahrah-*` می‌چرخند، نه همه headerهای عمومی `x-tfy-*` که شاید در مستندات مرجع دیگر ببینید. اگر روی headerهای canonical همین پروژه بایستید، integration شما ساده‌تر و قابل‌اعتمادتر خواهد بود.
-
-## FAQ
-
-### برای integration جدید از `x-shahrah-*` استفاده کنم یا `x-godarai-*`؟
-
-برای کد جدید، همیشه `x-godarai-*` را ترجیح بدهید. `x-shahrah-*` بیشتر برای سازگاری عقب‌رو نگه داشته شده است.
-
-### آیا همه headerهای `x-tfy-*` مستندات مرجع در گدارAI فعلی کار می‌کنند؟
-
-نه لزوماً. فقط بعضی fallbackها مثل guardrails در helperهای فعلی دیده می‌شوند. برای بقیه باید به implementation واقعی همین پروژه تکیه کنید.
+در گدارAI، مهم‌ترین هدر همیشه `Authorization` است، اما هدرهای دیگری هم برای رد درخواست، حافظه نهان، قواعد محافظ، راهنمای محیط اختصاصی سازمان و فراداده‌های پاسخ وجود دارند. قرارداد عمومی پروژه بر هدرهای `x-godarai-*` استوار است.

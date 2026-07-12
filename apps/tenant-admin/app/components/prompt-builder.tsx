@@ -1,12 +1,13 @@
 "use client";
 
-import { AlertCircle, Bot, Braces, DatabaseZap, Loader2, Play, Plus, Save, Settings2, ShieldCheck, Sparkles, UserRound } from "lucide-react";
+import { AlertCircle, Bot, Braces, DatabaseZap, Play, Plus, Save, Settings2, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { HelpLink, IdentifierField, PageHeader } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -140,7 +141,7 @@ export function PromptBuilder(props: PromptBuilderProps) {
           )}
           actions={(
             <Button type="button" onClick={() => void props.onSavePrompt()} disabled={!props.canSave || props.isSaving}>
-              {props.isSaving ? <Loader2 className="animate-spin" /> : <Save />}
+              {props.isSaving ? <Spinner /> : <Save />}
               {props.mode === "edit" ? props.t("actions.saveNewVersion") : props.t("actions.saveNewPrompt")}
             </Button>
           )}
@@ -296,7 +297,7 @@ export function PromptBuilder(props: PromptBuilderProps) {
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <Button type="button" onClick={() => void props.onRunPrompt()} disabled={props.isRunning || !props.builder.selectedModel}>
-                {props.isRunning ? <Loader2 className="animate-spin" /> : <Play />}
+                {props.isRunning ? <Spinner /> : <Play />}
                 {props.t("actions.run")}
               </Button>
             </div>
@@ -337,7 +338,7 @@ export function PromptBuilder(props: PromptBuilderProps) {
                   <div className="text-sm text-muted-foreground">{props.builder.selectedModel || props.t("config.model.placeholder")}</div>
                 </div>
                 <Button type="button" variant="outline" className="w-full sm:w-fit" onClick={() => setModelPickerOpen(true)}>
-                  {props.promptCatalog.isModelsLoading ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                  {props.promptCatalog.isModelsLoading ? <Spinner /> : <Sparkles />}
                   {props.t("actions.selectModel")}
                 </Button>
               </div>

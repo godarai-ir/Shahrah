@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, ChevronDown, Copy, ExternalLink, Link2, MoreVertical, Network, Plus, Plug, Search, Settings, Trash2, Unplug, UserCog } from "lucide-react";
+import { BookOpen, ChevronDown, Copy, ExternalLink, Link2, Network, Plus, Plug, Search, Settings, Trash2, Unplug, UserCog } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { ProviderLogo } from "@/app/components/provider-account-wizard/provider-logo";
@@ -22,7 +22,7 @@ import {
   stringsEqualFold,
   unwrapData,
 } from "@/app/components/provider-account-wizard/utils";
-import { HelpLink } from "@/components/app-ui";
+import { HelpLink, RowActionsMenu } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,7 +30,6 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -691,39 +690,24 @@ function ConnectedIntegrationCard(props: {
               displayName={props.provider?.display_name ?? props.account.provider}
               logoURL={props.provider?.logo_url}
             />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button type="button" variant="ghost" size="icon" aria-label={props.manageModelsLabel} className="size-8">
-                  <MoreVertical />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem asChild>
-                  <Link href={workspaceHref}>
-                    <Settings data-icon="inline-start" />
-                    {props.editLabel}
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href={workspaceHref}>
-                    <Plug data-icon="inline-start" />
-                    {props.manageModelsLabel}
-                  </Link>
-                </DropdownMenuItem>
-                {docsURL ? (
-                  <DropdownMenuItem asChild>
-                    <a href={docsURL} target="_blank" rel="noreferrer">
-                      <ExternalLink data-icon="inline-start" />
-                      {props.viewDocsLabel}
-                    </a>
-                  </DropdownMenuItem>
-                ) : null}
-                <DropdownMenuItem onSelect={props.onDisconnect} disabled={props.isDisconnecting}>
-                  <Trash2 data-icon="inline-start" />
-                  {props.isDisconnecting ? props.disconnectingLabel : props.disconnectLabel}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <RowActionsMenu
+              label={props.manageModelsLabel}
+              triggerSize="icon-sm"
+              actions={[
+                { label: props.editLabel, href: workspaceHref, icon: <Settings /> },
+                { label: props.manageModelsLabel, href: workspaceHref, icon: <Plug /> },
+                ...(docsURL ? [{ label: props.viewDocsLabel, href: docsURL, external: true, icon: <ExternalLink /> }] : []),
+                {
+                  label: props.disconnectLabel,
+                  pendingLabel: props.disconnectingLabel,
+                  pending: props.isDisconnecting,
+                  destructive: true,
+                  separatorBefore: true,
+                  icon: <Trash2 />,
+                  onSelect: props.onDisconnect,
+                },
+              ]}
+            />
           </div>
           <div className="min-w-0">
             <h2 className="truncate text-base font-semibold">{props.account.name}</h2>

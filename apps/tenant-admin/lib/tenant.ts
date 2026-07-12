@@ -1,6 +1,6 @@
 export type TenantResolutionSource =
   | "resolved-header"
-  | "x-shahrah-tenant"
+  | "x-godarai-tenant"
   | "x-forwarded-host"
   | "host"
   | "fallback"
@@ -62,7 +62,7 @@ export function resolveTenantContextFromHeaders(
 
   const hostTenantSlug = resolveFromHostHeader(headers.get("x-forwarded-host")) ||
     resolveFromHostHeader(headers.get("host"));
-  const hintedTenantSlug = normalizeTenantSlug(headers.get("x-shahrah-tenant"));
+  const hintedTenantSlug = normalizeTenantSlug(headers.get("x-godarai-tenant"));
 
   if (hostTenantSlug && hintedTenantSlug && hostTenantSlug !== hintedTenantSlug) {
     return {
@@ -76,7 +76,7 @@ export function resolveTenantContextFromHeaders(
   if (hintedTenantSlug) {
     return {
       tenantSlug: hintedTenantSlug,
-      source: "x-shahrah-tenant",
+      source: "x-godarai-tenant",
       hostTenantSlug,
       ambiguous: false,
     };

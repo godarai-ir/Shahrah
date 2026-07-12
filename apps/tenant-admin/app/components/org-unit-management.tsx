@@ -18,10 +18,11 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, CompactValue, EmptyState, FilterCombobox, HelpLink, IdentifierField, MetricCard, PageHeader, RowActionsMenu, TablePagination } from "@/components/app-ui";
+import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, CompactValue, DefinitionList, DefinitionListItem, EmptyState, FilterCombobox, HelpLink, IdentifierField, MetricCard, PageHeader, RowActionsMenu, TablePagination } from "@/components/app-ui";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Sheet,
   SheetContent,
@@ -597,7 +598,7 @@ export default function OrgUnitManagement({
             onClick={() => void loadOrgUnits(offset, query.trim())}
             disabled={isLoading}
           >
-            <RefreshCw data-icon="inline-start" className={cn(isLoading && "animate-spin")} />
+            {isLoading ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" />}
             {t("actions.refresh")}
           </Button>
           <Sheet open={createOpen} onOpenChange={setCreateOpen}>
@@ -681,10 +682,10 @@ export default function OrgUnitManagement({
                   <TableRow>
                     <TableCell colSpan={5} className="py-10 text-center">
                       <EmptyState
+                        variant="table"
                         icon={Building2}
                         title={t("empty.title")}
                         description={t("empty.description")}
-                        className="border-0 bg-transparent"
                         primaryAction={
                           canCreateOrgUnit ? <Button type="button" onClick={openCreate} disabled={!hasLoadedEntitlements}>
                           <Plus data-icon="inline-start" />
@@ -882,8 +883,10 @@ export default function OrgUnitManagement({
                 }
                 contentClassName="flex flex-col gap-3 text-sm"
               >
-                  <InfoItem label={t("audit.created")} value={formatDateTime(selectedOrgUnit.created_at)} />
-                  <InfoItem label={t("audit.updated")} value={formatDateTime(selectedOrgUnit.updated_at)} />
+                  <DefinitionList columns={2}>
+                    <DefinitionListItem label={t("audit.created")} value={formatDateTime(selectedOrgUnit.created_at)} />
+                    <DefinitionListItem label={t("audit.updated")} value={formatDateTime(selectedOrgUnit.updated_at)} />
+                  </DefinitionList>
                   <pre dir="ltr" className="max-h-40 overflow-auto rounded-lg bg-muted p-3 text-left text-xs text-muted-foreground">
                     {JSON.stringify(selectedOrgUnit.metadata ?? {}, null, 2)}
                   </pre>
@@ -1150,15 +1153,6 @@ function getTeamWorkspaceType(team: TeamSummary) {
 
 function getTeamMemberCount(team: TeamSummary) {
   return toNumber(team.metadata?.member_count ?? team.metadata?.members_count);
-}
-
-function InfoItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="truncate font-medium">{value}</dd>
-    </div>
-  );
 }
 
 function buildSummary(orgUnit: OrgUnit, members: OrgUnitMember[]) {
