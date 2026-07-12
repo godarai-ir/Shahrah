@@ -4,8 +4,8 @@ import { memo } from "react";
 import { ShieldCheck, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import {
   PrincipalEntitySelect,
   type PrincipalEntitySelection,
@@ -82,18 +82,16 @@ export const AccessEditor = memo(function AccessEditor(props: {
       <div className="space-y-4 rounded-lg border border-border/70 bg-muted/10 p-4">
         <h4 className="text-base font-semibold">{ux("access.effectivePreviewTitle")}</h4>
         <div className="grid gap-3 lg:grid-cols-[150px_minmax(0,1fr)_auto]">
-          <div className="grid gap-2">
-            <Label htmlFor="previewKeyType">{ux("access.keyTypeLabel")}</Label>
-            <select
-              id="previewKeyType"
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={props.effectiveKeyType}
-              onChange={(event) => props.setEffectiveKeyType(event.target.value as "pat" | "vat")}
-            >
-              <option value="pat">{ux("access.pat")}</option>
-              <option value="vat">{ux("access.vat")}</option>
-            </select>
-          </div>
+          <AppSelectField
+            id="previewKeyType"
+            label={ux("access.keyTypeLabel")}
+            value={props.effectiveKeyType}
+            onValueChange={(value) => props.setEffectiveKeyType(value as "pat" | "vat")}
+            options={[
+              { value: "pat", label: ux("access.pat") },
+              { value: "vat", label: ux("access.vat") },
+            ]}
+          />
           <Field label={`${ux("access.userIdLabel")} / ${ux("access.teamIdLabel")}`} id="previewPrincipal">
             <div className="grid grid-cols-[minmax(0,1fr)_40px] gap-2">
               <PrincipalEntitySelect

@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import { ChevronRight, Copy, ExternalLink, Eye, KeyRound, Layers3, Pencil, ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1667,18 +1668,14 @@ export default function ProviderAccountWizard(props?: {
                         </div>
 
                         <div className="grid gap-3 md:grid-cols-2">
-                          <Field label={t("fields.authMode")} id="authMode">
-                            <select
-                              id="authMode"
-                              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                              value={authMode}
-                              onChange={(event) => setAuthMode(event.target.value as ProviderAuthMode)}
-                            >
-                              {(selectedProvider?.auth_modes ?? ["api_key"]).map((mode) => (
-                                <option key={mode} value={mode}>{mode}</option>
-                              ))}
-                            </select>
-                          </Field>
+                          <AppSelectField
+                            id="authMode"
+                            label={t("fields.authMode")}
+                            value={authMode}
+                            onValueChange={(value) => setAuthMode(value as ProviderAuthMode)}
+                            optionTextDir="ltr"
+                            options={(selectedProvider?.auth_modes ?? ["api_key"]).map((mode) => ({ value: mode, label: mode }))}
+                          />
                           <Field label={t("fields.virtualKeysMode")} id="virtualOnly">
                             <label className="inline-flex h-10 items-center gap-2 rounded-md border border-input px-3 text-sm">
                               <input
@@ -1886,19 +1883,15 @@ export default function ProviderAccountWizard(props?: {
                           <SummaryKPI label={ux("credentials.virtualOnly")} value={account.allows_virtual_keys_only ? ux("common.enabled") : ux("common.disabled")} />
                           <SummaryKPI label={ux("credentials.lastTest")} value={lastCredentialTestMessage || ux("credentials.notTested")} />
                         </div>
-                        <Field label={t("fields.authMode")} id="credentialAuthMode">
-                          <select
-                            id="credentialAuthMode"
-                            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                            value={authMode}
-                            disabled={!canManageProviderAccount}
-                            onChange={(event) => setAuthMode(event.target.value as ProviderAuthMode)}
-                          >
-                            {(selectedProvider?.auth_modes ?? ["api_key"]).map((mode) => (
-                              <option key={mode} value={mode}>{mode}</option>
-                            ))}
-                          </select>
-                        </Field>
+                        <AppSelectField
+                          id="credentialAuthMode"
+                          label={t("fields.authMode")}
+                          value={authMode}
+                          disabled={!canManageProviderAccount}
+                          onValueChange={(value) => setAuthMode(value as ProviderAuthMode)}
+                          optionTextDir="ltr"
+                          options={(selectedProvider?.auth_modes ?? ["api_key"]).map((mode) => ({ value: mode, label: mode }))}
+                        />
                         <Field label={t("fields.allowVirtualOnly")} id="credentialVirtualOnly">
                           <label className="inline-flex items-center gap-2 text-sm">
                             <input
@@ -1990,18 +1983,16 @@ export default function ProviderAccountWizard(props?: {
                           />
                         </div>
                         <div className="flex flex-wrap items-end gap-2">
-                          <div className="grid gap-1">
-                            <Label htmlFor="obsKeyType">{ux("access.keyTypeLabel")}</Label>
-                            <select
-                              id="obsKeyType"
-                              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                              value={effectiveKeyType}
-                              onChange={(event) => setEffectiveKeyType(event.target.value as "pat" | "vat")}
-                            >
-                              <option value="pat">{ux("access.pat")}</option>
-                              <option value="vat">{ux("access.vat")}</option>
-                            </select>
-                          </div>
+                          <AppSelectField
+                            id="obsKeyType"
+                            label={ux("access.keyTypeLabel")}
+                            value={effectiveKeyType}
+                            onValueChange={(value) => setEffectiveKeyType(value as "pat" | "vat")}
+                            options={[
+                              { value: "pat", label: ux("access.pat") },
+                              { value: "vat", label: ux("access.vat") },
+                            ]}
+                          />
                           <Field label={`${ux("access.userIdLabel")} / ${ux("access.teamIdLabel")}`} id="obsPrincipal">
                             <PrincipalEntitySelect
                               id="obsPrincipal"

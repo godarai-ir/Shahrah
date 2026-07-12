@@ -333,15 +333,16 @@ export function BudgetLimitRuleForm({ initialRule, embedded = false, onCancel, o
                     {rowField === "subject" ? (
                       <div className="flex flex-col gap-3">
                         <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2 md:grid-cols-[14rem_minmax(0,1fr)_auto_auto]">
-                          <select className="col-span-3 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm md:col-span-1" {...form.register(`conditions.conditions.${index}.field`)}>
-                            {fieldOptions
+                          <AppSelectField
+                            ariaLabel={t("filters.fieldLabel")}
+                            className="col-span-3 md:col-span-1"
+                            triggerClassName="min-w-0 rounded-lg"
+                            value={rowField}
+                            onValueChange={(value) => form.setValue(`conditions.conditions.${index}.field`, value as BudgetLimitCondition["field"], { shouldDirty: true, shouldTouch: true, shouldValidate: true })}
+                            options={fieldOptions
                               .filter((option) => option === rowField || !usedByOthers.has(option))
-                              .map((option) => (
-                                <option key={option} value={option}>
-                                  {fieldLabel[option]}
-                                </option>
-                              ))}
-                          </select>
+                              .map((option) => ({ value: option, label: fieldLabel[option] }))}
+                          />
                           <PrincipalEntitySelect
                             id={`subject-selector-${index}`}
                             selected={subjectPickerSelection[index] ?? null}
@@ -409,15 +410,16 @@ export function BudgetLimitRuleForm({ initialRule, embedded = false, onCancel, o
                     ) : (
                       <div className="flex flex-col gap-3">
                         <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2 md:grid-cols-[14rem_minmax(0,1fr)_auto_auto]">
-                          <select className="col-span-3 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm md:col-span-1" {...form.register(`conditions.conditions.${index}.field`)}>
-                            {fieldOptions
+                          <AppSelectField
+                            ariaLabel={t("filters.fieldLabel")}
+                            className="col-span-3 md:col-span-1"
+                            triggerClassName="min-w-0 rounded-lg"
+                            value={rowField}
+                            onValueChange={(value) => form.setValue(`conditions.conditions.${index}.field`, value as BudgetLimitCondition["field"], { shouldDirty: true, shouldTouch: true, shouldValidate: true })}
+                            options={fieldOptions
                               .filter((option) => option === rowField || !usedByOthers.has(option))
-                              .map((option) => (
-                                <option key={option} value={option}>
-                                  {fieldLabel[option]}
-                                </option>
-                              ))}
-                          </select>
+                              .map((option) => ({ value: option, label: fieldLabel[option] }))}
+                          />
                           <ModelEntitySelect
                             id={`model-selector-${index}`}
                             selected={modelPickerSelection[index] ?? null}
@@ -479,13 +481,15 @@ export function BudgetLimitRuleForm({ initialRule, embedded = false, onCancel, o
                     {metadataIndexes.map((index) => (
                       <div key={fields[index]?.id ?? `metadata-${index}`} className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2 md:grid-cols-[1fr_1fr_1fr_auto_auto]">
                         <Input className="col-span-3 md:col-span-1" placeholder={t("form.placeholders.metadataKey")} {...form.register(`conditions.conditions.${index}.metadataKey`)} />
-                        <select className="col-span-3 h-10 rounded-lg border border-input bg-background px-3 text-sm md:col-span-1" {...form.register(`conditions.conditions.${index}.operator`)}>
-                          {metadataOperatorOptions.map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
+                        <AppSelectField
+                          ariaLabel={t("filters.operatorLabel")}
+                          className="col-span-3 md:col-span-1"
+                          triggerClassName="min-w-0 rounded-lg"
+                          value={watchedConditions?.[index]?.operator ?? "equals"}
+                          onValueChange={(value) => form.setValue(`conditions.conditions.${index}.operator`, value as BudgetLimitCondition["operator"], { shouldDirty: true, shouldTouch: true, shouldValidate: true })}
+                          optionTextDir="ltr"
+                          options={metadataOperatorOptions.map((option) => ({ value: option, label: option }))}
+                        />
                         <Input placeholder={t("form.placeholders.metadataValue")} {...form.register(`conditions.conditions.${index}.value` as const)} />
                         <Button type="button" variant="outline" size="icon" onClick={() => append({ field: "metadata", operator: "equals", values: undefined })} aria-label={t("filters.addMetadata")}>
                           <Plus />
@@ -586,18 +590,16 @@ export function BudgetLimitRuleForm({ initialRule, embedded = false, onCancel, o
                     }}
                   />
                 </div>
-                <div className="flex flex-col gap-2">
-                  <Label>{t("form.fields.channelType")}</Label>
-                  <select
-                    className="h-10 w-full rounded-md border px-2"
-                    onChange={(event) => form.setValue("alerts.notification_target", [{ type: event.target.value as "email" | "slack-webhook" | "slack-bot" }])}
-                    defaultValue={(form.getValues("alerts.notification_target")?.[0]?.type as string | undefined) ?? "email"}
-                  >
-                    <option value="email">{t("form.options.channel.email")}</option>
-                    <option value="slack-webhook">{t("form.options.channel.slackWebhook")}</option>
-                    <option value="slack-bot">{t("form.options.channel.slackBot")}</option>
-                  </select>
-                </div>
+                <AppSelectField
+                  label={t("form.fields.channelType")}
+                  value={(form.watch("alerts.notification_target")?.[0]?.type as string | undefined) ?? "email"}
+                  onValueChange={(value) => form.setValue("alerts.notification_target", [{ type: value as "email" | "slack-webhook" | "slack-bot" }], { shouldDirty: true, shouldTouch: true, shouldValidate: true })}
+                  options={[
+                    { value: "email", label: t("form.options.channel.email") },
+                    { value: "slack-webhook", label: t("form.options.channel.slackWebhook") },
+                    { value: "slack-bot", label: t("form.options.channel.slackBot") },
+                  ]}
+                />
               </div>
             ) : null}
             </div>

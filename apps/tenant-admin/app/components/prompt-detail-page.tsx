@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { normalizeError, requestJSON, unwrapData } from "@/app/components/provider-account-wizard/utils";
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -841,34 +842,24 @@ function PromptCompareDialog(props: {
         </DialogHeader>
         <div className="flex flex-col gap-4 overflow-auto p-6">
           <div className="grid gap-3 md:grid-cols-2">
-            <label className="flex flex-col gap-2 text-sm">
-              <span className="font-medium">{props.t("detail.compareBaseVersion")}</span>
-              <select
-                value={props.baseVersionID}
-                onChange={(event) => props.onSelectBaseVersion(event.target.value)}
-                className="h-10 w-full rounded-md border bg-background px-3"
-              >
-                {props.versions.map((version) => (
-                  <option key={version.id} value={version.id}>
-                    {props.t("versions.versionValue", { version: version.version })}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-2 text-sm">
-              <span className="font-medium">{props.t("detail.compareTargetVersion")}</span>
-              <select
-                value={props.targetVersionID}
-                onChange={(event) => props.onSelectTargetVersion(event.target.value)}
-                className="h-10 w-full rounded-md border bg-background px-3"
-              >
-                {props.versions.map((version) => (
-                  <option key={version.id} value={version.id}>
-                    {props.t("versions.versionValue", { version: version.version })}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <AppSelectField
+              label={props.t("detail.compareBaseVersion")}
+              value={props.baseVersionID}
+              onValueChange={props.onSelectBaseVersion}
+              options={props.versions.map((version) => ({
+                value: version.id,
+                label: props.t("versions.versionValue", { version: version.version }),
+              }))}
+            />
+            <AppSelectField
+              label={props.t("detail.compareTargetVersion")}
+              value={props.targetVersionID}
+              onValueChange={props.onSelectTargetVersion}
+              options={props.versions.map((version) => ({
+                value: version.id,
+                label: props.t("versions.versionValue", { version: version.version }),
+              }))}
+            />
           </div>
 
           <div className="overflow-hidden rounded-xl border">

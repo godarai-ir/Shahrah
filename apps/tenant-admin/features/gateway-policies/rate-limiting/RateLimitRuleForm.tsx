@@ -7,21 +7,13 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, Plus, Trash2, X } from "lucide-react";
 
-import { FormSection, IdentifierField, PageHeader } from "@/components/app-ui";
+import { AppSelectField, FormSection, IdentifierField, PageHeader } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError as FormFieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -763,20 +755,13 @@ function InlineSelect({
   ariaLabel: string;
 }) {
   return (
-    <Select dir="rtl" value={value} onValueChange={onValueChange}>
-      <SelectTrigger aria-label={ariaLabel} className="h-10 rounded-lg">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent dir="rtl">
-        <SelectGroup>
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectGroup>
-      </SelectContent>
-    </Select>
+    <AppSelectField
+      ariaLabel={ariaLabel}
+      value={value}
+      onValueChange={onValueChange}
+      triggerClassName="min-w-0 rounded-lg"
+      options={options}
+    />
   );
 }
 

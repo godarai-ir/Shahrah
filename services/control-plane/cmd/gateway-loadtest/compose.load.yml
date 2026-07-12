@@ -1,0 +1,11 @@
+services:
+  control-plane:
+    environment:
+      RESPONSE_CACHE_ENABLED: "false"
+      EMAIL_SENDING_ENABLED: "false"
+
+  silk-road:
+    environment:
+      SILK_ROAD_ENABLE_MOCK_PROVIDER: "true"
+      SILK_ROAD_MOCK_LATENCY_MS: "0"
+      SILK_ROAD_MOCK_ERROR_RATE: "0"

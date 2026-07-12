@@ -2,6 +2,7 @@
 
 import { AlertCircle } from "lucide-react";
 
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +15,6 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import { Field } from "./prompt-ui";
 import type { BuilderState, GuardrailItem, PromptTranslationFn } from "./prompt-management-shared";
 
 type GuardrailDialogProps = {
@@ -59,16 +59,15 @@ export function GuardrailDialog(props: GuardrailDialogProps) {
                 </AlertDescription>
               </Alert>
             ) : null}
-            <Field label={props.t("dialogs.guardrails.scope")}>
-              <select
-                value={props.builder.guardrailScope}
-                onChange={(event) => props.onBuilderChange((current) => ({ ...current, guardrailScope: event.target.value as "all" | "last" }))}
-                className="h-10 rounded-md border bg-background px-3 text-sm"
-              >
-                <option value="last">{props.t("dialogs.guardrails.scopeLast")}</option>
-                <option value="all">{props.t("dialogs.guardrails.scopeAll")}</option>
-              </select>
-            </Field>
+            <AppSelectField
+              label={props.t("dialogs.guardrails.scope")}
+              value={props.builder.guardrailScope}
+              onValueChange={(value) => props.onBuilderChange((current) => ({ ...current, guardrailScope: value as "all" | "last" }))}
+              options={[
+                { value: "last", label: props.t("dialogs.guardrails.scopeLast") },
+                { value: "all", label: props.t("dialogs.guardrails.scopeAll") },
+              ]}
+            />
             <div className="max-h-[360px] space-y-2 overflow-y-auto rounded-lg border p-2">
               {props.guardrails.map((guardrail) => {
                 const selector = guardrail.selector || `guardrails/${guardrail.slug}`;

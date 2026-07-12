@@ -1,5 +1,6 @@
 "use client";
 
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -43,16 +44,15 @@ export function StructuredOutputDialog(props: StructuredOutputDialogProps) {
             />
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label={props.t("dialogs.structured.fields.format")}>
-              <select
-                value={props.builder.structuredFormat}
-                onChange={(event) => props.onBuilderChange((current) => ({ ...current, structuredFormat: event.target.value as "json_schema" | "json_object" }))}
-                className="h-10 rounded-md border bg-background px-3 text-sm"
-              >
-                <option value="json_schema">{props.t("common.jsonSchema")}</option>
-                <option value="json_object">{props.t("common.jsonObject")}</option>
-              </select>
-            </Field>
+            <AppSelectField
+              label={props.t("dialogs.structured.fields.format")}
+              value={props.builder.structuredFormat}
+              onValueChange={(value) => props.onBuilderChange((current) => ({ ...current, structuredFormat: value as "json_schema" | "json_object" }))}
+              options={[
+                { value: "json_schema", label: props.t("common.jsonSchema") },
+                { value: "json_object", label: props.t("common.jsonObject") },
+              ]}
+            />
             <Field label={props.t("dialogs.structured.fields.strict")}>
               <div className="flex h-10 items-center justify-between rounded-md border px-3">
                 <span className="text-sm text-muted-foreground">{props.builder.structuredStrict ? props.t("common.enabled") : props.t("common.disabled")}</span>

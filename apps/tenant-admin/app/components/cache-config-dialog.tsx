@@ -1,5 +1,6 @@
 "use client";
 
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -42,16 +43,15 @@ export function CacheConfigDialog(props: CacheConfigDialogProps) {
               onCheckedChange={(checked) => props.onBuilderChange((current) => ({ ...current, cacheEnabled: checked }))}
             />
           </div>
-          <Field label={props.t("dialogs.cache.fields.type")}>
-            <select
-              value={props.builder.cacheType}
-              onChange={(event) => props.onBuilderChange((current) => ({ ...current, cacheType: event.target.value as "simple" | "smart" }))}
-              className="h-10 rounded-md border bg-background px-3 text-sm"
-            >
-              <option value="simple">{props.t("common.simple")}</option>
-              <option value="smart">{props.t("common.smart")}</option>
-            </select>
-          </Field>
+          <AppSelectField
+            label={props.t("dialogs.cache.fields.type")}
+            value={props.builder.cacheType}
+            onValueChange={(value) => props.onBuilderChange((current) => ({ ...current, cacheType: value as "simple" | "smart" }))}
+            options={[
+              { value: "simple", label: props.t("common.simple") },
+              { value: "smart", label: props.t("common.smart") },
+            ]}
+          />
           <Field label={props.t("dialogs.cache.fields.ttl")}>
             <Input value={props.builder.cacheTTL} onChange={(event) => props.onBuilderChange((current) => ({ ...current, cacheTTL: event.target.value }))} />
           </Field>

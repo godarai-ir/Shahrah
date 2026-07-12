@@ -6,15 +6,7 @@ import { useTranslations } from "next-intl";
 import { Copy, Gauge, Pencil, Plus, Power, Trash2 } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CommercialPlanUpgradeDialog, DataListPanel, EmptyState, HelpLink, PageHeader, RowActionsMenu, SearchField, StatusBadge } from "@/components/app-ui";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { CommercialPlanUpgradeDialog, ConfirmDialog, DataListPanel, EmptyState, HelpLink, PageHeader, RowActionsMenu, SearchField, StatusBadge } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -234,22 +226,18 @@ export function RateLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
         </SheetContent>
       </Sheet>
 
-      <Dialog open={pendingDeleteRule !== null} onOpenChange={(open) => !open && setPendingDeleteRule(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("deleteDialog.title")}</DialogTitle>
-            <DialogDescription>{t("deleteDialog.description", { ruleId: pendingDeleteRule?.rule_id ?? "-" })}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="outline" disabled={isDeleting} onClick={() => setPendingDeleteRule(null)}>
-              {t("deleteDialog.cancel")}
-            </Button>
-            <Button type="button" variant="destructive" onClick={() => void confirmDeleteRule()} disabled={isDeleting}>
-              {isDeleting ? t("deleteDialog.deleting") : t("deleteDialog.confirm")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={pendingDeleteRule !== null}
+        onOpenChange={(open) => !open && setPendingDeleteRule(null)}
+        title={t("deleteDialog.title")}
+        description={t("deleteDialog.description", { ruleId: pendingDeleteRule?.rule_id ?? "-" })}
+        cancelLabel={t("deleteDialog.cancel")}
+        confirmLabel={t("deleteDialog.confirm")}
+        pendingLabel={t("deleteDialog.deleting")}
+        pending={isDeleting}
+        closeOnConfirm={false}
+        onConfirm={confirmDeleteRule}
+      />
 
       <CommercialPlanUpgradeDialog open={isUpgradeDialogOpen} onOpenChange={setIsUpgradeDialogOpen} title={t("upgradeDialog.title")} description={t("upgradeDialog.description")} cancelLabel={t("upgradeDialog.cancel")} actionLabel={t("upgradeDialog.action")} />
     </>

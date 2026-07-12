@@ -59,6 +59,8 @@
     "removeMetadata": "حذف ردیف متادیتا",
     "add": "افزودن فیلتر",
     "metadataTitle": "فیلترهای متادیتا",
+    "fieldLabel": "فیلد فیلتر",
+    "operatorLabel": "عملگر فیلتر",
     "fields": {
       "subject": "سوژه",
       "model": "مدل",

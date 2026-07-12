@@ -4,7 +4,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Check, Copy, KeyRound, Plus, RefreshCcw, Trash2 } from "lucide-react";
 
-import { AppCard, EmptyState, HelpLink, PageHeader, SearchField, StatusBadge } from "@/components/app-ui";
+import { AppCard, ConfirmDialog, EmptyState, HelpLink, PageHeader, SearchField, StatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -120,8 +120,10 @@ export default function PersonalAccessTokenManagement(props: {
       await requestJSON(`/api/personal-access-tokens/${encodeURIComponent(id)}`, { method: "DELETE" });
       setBanner({ kind: "success", message: t("messages.revokeSuccess") });
       await load();
+      return true;
     } catch (error) {
       setBanner({ kind: "error", message: normalizeError(error, t("messages.revokeError")) });
+      return false;
     } finally {
       setIsDeleting(false);
     }
@@ -133,8 +135,10 @@ export default function PersonalAccessTokenManagement(props: {
       await requestJSON("/api/personal-access-tokens/revoke-all", { method: "DELETE" });
       setBanner({ kind: "success", message: t("messages.revokeAllSuccess") });
       await load();
+      return true;
     } catch (error) {
       setBanner({ kind: "error", message: normalizeError(error, t("messages.revokeAllError")) });
+      return false;
     } finally {
       setIsDeleting(false);
     }
@@ -147,11 +151,10 @@ export default function PersonalAccessTokenManagement(props: {
 
   async function confirmDelete() {
     if (!deleteIntent || isDeleting) return;
-    if (deleteIntent.type === "single") {
-      await revokeOne(deleteIntent.token.id);
-    } else {
-      await revokeAll();
-    }
+    const succeeded = deleteIntent.type === "single"
+      ? await revokeOne(deleteIntent.token.id)
+      : await revokeAll();
+    if (!succeeded) return;
     setDeleteDialogOpen(false);
     setDeleteIntent(null);
   }
@@ -266,41 +269,23 @@ export default function PersonalAccessTokenManagement(props: {
         </div>
       </AppCard>
 
-      <Dialog
+      <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={(open) => {
-          if (isDeleting) return;
           setDeleteDialogOpen(open);
           if (!open) setDeleteIntent(null);
         }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("deleteDialog.title")}</DialogTitle>
-            <DialogDescription>
-              {deleteIntent?.type === "single"
-                ? t("deleteDialog.singleDescription", { name: deleteIntent.token.key_alias })
-                : t("deleteDialog.allDescription")}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setDeleteDialogOpen(false);
-                setDeleteIntent(null);
-              }}
-              disabled={isDeleting}
-            >
-              {t("deleteDialog.cancel")}
-            </Button>
-            <Button type="button" variant="destructive" onClick={() => void confirmDelete()} disabled={isDeleting}>
-              {isDeleting ? t("deleteDialog.deleting") : t("deleteDialog.confirm")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        title={t("deleteDialog.title")}
+        description={deleteIntent?.type === "single"
+          ? t("deleteDialog.singleDescription", { name: deleteIntent.token.key_alias })
+          : t("deleteDialog.allDescription")}
+        cancelLabel={t("deleteDialog.cancel")}
+        confirmLabel={t("deleteDialog.confirm")}
+        pendingLabel={t("deleteDialog.deleting")}
+        pending={isDeleting}
+        closeOnConfirm={false}
+        onConfirm={confirmDelete}
+      />
 
       <Dialog
         open={secretDialogOpen && Boolean(newSecret)}

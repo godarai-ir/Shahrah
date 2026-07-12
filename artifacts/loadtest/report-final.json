@@ -1,0 +1,293 @@
+{
+  "generated_at": "2026-07-11T23:38:34.4246774Z",
+  "machine": "Intel(R) Core(TM) i7-5500U CPU @ 2.40GHz; 2 cores/4 logical; 15.92 GB RAM; Docker CPUs=4, memory=8285044736 bytes",
+  "goos": "windows",
+  "logical_cpus": 4,
+  "endpoint": "http://127.0.0.1:4000/v1/chat/completions",
+  "tenant": "loadtest",
+  "model": "mock:loadtest:mock-model",
+  "thresholds": {
+    "max_error_rate": 0.01,
+    "max_p95_ms": 500,
+    "max_host_cpu_percent": 100,
+    "safe_factor": 0.8
+  },
+  "stages": [
+    {
+      "name": "warmup",
+      "kind": "warmup",
+      "target_rps": 9,
+      "duration_seconds": 120.0135634,
+      "attempted": 1080,
+      "completed": 1080,
+      "succeeded": 1080,
+      "failed": 0,
+      "dropped": 0,
+      "achieved_rps": 8.998982859965643,
+      "error_rate": 0,
+      "p50_ms": 15.0077,
+      "p95_ms": 61.3812,
+      "p99_ms": 93.1049,
+      "max_ms": 176.2133,
+      "status_counts": {
+        "200": 1080
+      },
+      "resources": {
+        "samples": 121,
+        "average_host_cpu_percent": 71.03863639154318,
+        "max_host_cpu_percent": 100,
+        "min_available_memory_mib": 1844.60546875,
+        "containers": {
+          "clickhouse": {
+            "average_cpu_percent": 92.07909090909094,
+            "max_cpu_percent": 197.52,
+            "max_memory_mib": 1251.328
+          },
+          "control-plane": {
+            "average_cpu_percent": 10.324545454545454,
+            "max_cpu_percent": 12.6,
+            "max_memory_mib": 66.15
+          },
+          "mailpit": {
+            "average_cpu_percent": 1.7127272727272727,
+            "max_cpu_percent": 9.67,
+            "max_memory_mib": 27.96
+          },
+          "model-discovery": {
+            "average_cpu_percent": 0.0036363636363636364,
+            "max_cpu_percent": 0.01,
+            "max_memory_mib": 129.8
+          },
+          "pgadmin": {
+            "average_cpu_percent": 0.04727272727272727,
+            "max_cpu_percent": 0.18,
+            "max_memory_mib": 318.2
+          },
+          "postgres": {
+            "average_cpu_percent": 6.2272727272727275,
+            "max_cpu_percent": 24.47,
+            "max_memory_mib": 190.1
+          },
+          "redis": {
+            "average_cpu_percent": 13.834545454545458,
+            "max_cpu_percent": 106.67,
+            "max_memory_mib": 173.4
+          },
+          "silk-road": {
+            "average_cpu_percent": 1.5090909090909093,
+            "max_cpu_percent": 2.81,
+            "max_memory_mib": 0
+          },
+          "support-admin": {
+            "average_cpu_percent": 0,
+            "max_cpu_percent": 0,
+            "max_memory_mib": 99.51
+          },
+          "tunnel-client": {
+            "average_cpu_percent": 3.5127272727272727,
+            "max_cpu_percent": 6.28,
+            "max_memory_mib": 13.05
+          },
+          "tunnel-server": {
+            "average_cpu_percent": 2.7627272727272727,
+            "max_cpu_percent": 3.92,
+            "max_memory_mib": 12.74
+          },
+          "typesense": {
+            "average_cpu_percent": 0.37454545454545457,
+            "max_cpu_percent": 0.81,
+            "max_memory_mib": 61.43
+          }
+        }
+      },
+      "pass": true
+    },
+    {
+      "name": "stable",
+      "kind": "stable",
+      "target_rps": 9,
+      "duration_seconds": 600.0115512,
+      "attempted": 5400,
+      "completed": 5400,
+      "succeeded": 5400,
+      "failed": 0,
+      "dropped": 0,
+      "achieved_rps": 8.999826735335692,
+      "error_rate": 0,
+      "p50_ms": 13.3814,
+      "p95_ms": 63.4568,
+      "p99_ms": 159.6681,
+      "max_ms": 452.1746,
+      "status_counts": {
+        "200": 5400
+      },
+      "resources": {
+        "samples": 601,
+        "average_host_cpu_percent": 60.387338253291006,
+        "max_host_cpu_percent": 100,
+        "min_available_memory_mib": 1626,
+        "containers": {
+          "clickhouse": {
+            "average_cpu_percent": 93.29898305084747,
+            "max_cpu_percent": 458.89,
+            "max_memory_mib": 1391.616
+          },
+          "control-plane": {
+            "average_cpu_percent": 9.701864406779665,
+            "max_cpu_percent": 36.03,
+            "max_memory_mib": 78.32
+          },
+          "mailpit": {
+            "average_cpu_percent": 1.1408474576271184,
+            "max_cpu_percent": 55.16,
+            "max_memory_mib": 28.07
+          },
+          "model-discovery": {
+            "average_cpu_percent": 0.041864406779661,
+            "max_cpu_percent": 0.45,
+            "max_memory_mib": 130.8
+          },
+          "pgadmin": {
+            "average_cpu_percent": 0.05525423728813557,
+            "max_cpu_percent": 0.69,
+            "max_memory_mib": 318.2
+          },
+          "postgres": {
+            "average_cpu_percent": 3.6023728813559335,
+            "max_cpu_percent": 26.42,
+            "max_memory_mib": 196.3
+          },
+          "redis": {
+            "average_cpu_percent": 10.978983050847459,
+            "max_cpu_percent": 113.16,
+            "max_memory_mib": 175.9
+          },
+          "silk-road": {
+            "average_cpu_percent": 1.410338983050847,
+            "max_cpu_percent": 4.43,
+            "max_memory_mib": 12.67
+          },
+          "support-admin": {
+            "average_cpu_percent": 0,
+            "max_cpu_percent": 0,
+            "max_memory_mib": 99.51
+          },
+          "tunnel-client": {
+            "average_cpu_percent": 3.415593220338983,
+            "max_cpu_percent": 10.39,
+            "max_memory_mib": 13.12
+          },
+          "tunnel-server": {
+            "average_cpu_percent": 2.4750847457627123,
+            "max_cpu_percent": 7.83,
+            "max_memory_mib": 12.95
+          },
+          "typesense": {
+            "average_cpu_percent": 0.38728813559322045,
+            "max_cpu_percent": 0.99,
+            "max_memory_mib": 63.4
+          }
+        }
+      },
+      "pass": true
+    },
+    {
+      "name": "burst",
+      "kind": "burst",
+      "target_rps": 14,
+      "duration_seconds": 30.011968,
+      "attempted": 420,
+      "completed": 420,
+      "succeeded": 420,
+      "failed": 0,
+      "dropped": 0,
+      "achieved_rps": 13.994417160514098,
+      "error_rate": 0,
+      "p50_ms": 17.0086,
+      "p95_ms": 128.2984,
+      "p99_ms": 291.457,
+      "max_ms": 403.7255,
+      "status_counts": {
+        "200": 420
+      },
+      "resources": {
+        "samples": 31,
+        "average_host_cpu_percent": 73.38734423338182,
+        "max_host_cpu_percent": 100,
+        "min_available_memory_mib": 2510.375,
+        "containers": {
+          "clickhouse": {
+            "average_cpu_percent": 102.48333333333335,
+            "max_cpu_percent": 137.11,
+            "max_memory_mib": 1369.088
+          },
+          "control-plane": {
+            "average_cpu_percent": 12.543333333333335,
+            "max_cpu_percent": 17.27,
+            "max_memory_mib": 0
+          },
+          "mailpit": {
+            "average_cpu_percent": 0,
+            "max_cpu_percent": 0,
+            "max_memory_mib": 27.91
+          },
+          "model-discovery": {
+            "average_cpu_percent": 0,
+            "max_cpu_percent": 0,
+            "max_memory_mib": 129.9
+          },
+          "pgadmin": {
+            "average_cpu_percent": 0.036666666666666674,
+            "max_cpu_percent": 0.04,
+            "max_memory_mib": 314.1
+          },
+          "postgres": {
+            "average_cpu_percent": 5.59,
+            "max_cpu_percent": 16.05,
+            "max_memory_mib": 196.4
+          },
+          "redis": {
+            "average_cpu_percent": 3.22,
+            "max_cpu_percent": 3.71,
+            "max_memory_mib": 175.5
+          },
+          "silk-road": {
+            "average_cpu_percent": 1.6300000000000001,
+            "max_cpu_percent": 1.86,
+            "max_memory_mib": 12.41
+          },
+          "support-admin": {
+            "average_cpu_percent": 0,
+            "max_cpu_percent": 0,
+            "max_memory_mib": 98.22
+          },
+          "tunnel-client": {
+            "average_cpu_percent": 4.363333333333333,
+            "max_cpu_percent": 4.8,
+            "max_memory_mib": 0
+          },
+          "tunnel-server": {
+            "average_cpu_percent": 5.12,
+            "max_cpu_percent": 6.92,
+            "max_memory_mib": 12.68
+          },
+          "typesense": {
+            "average_cpu_percent": 0.3033333333333333,
+            "max_cpu_percent": 0.31,
+            "max_memory_mib": 0
+          }
+        }
+      },
+      "pass": true
+    }
+  ],
+  "max_passing_rps": 9,
+  "recommended_rps": 9,
+  "stable_verified": true,
+  "generator_same_host": true,
+  "notes": [
+    "The load generator ran on the same host, so its CPU and memory overhead are included.",
+    "Every request used unique prompt content to avoid response-cache hits.",
+    "A stage passes only when errors, p95 latency, achieved rate, and average host CPU all satisfy thresholds."
+  ]
+}

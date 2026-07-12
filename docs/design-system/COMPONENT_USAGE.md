@@ -42,7 +42,11 @@ Use `TablePagination` for previous/next pagination. Pass localized summary and b
 
 Use `RowActionsMenu` for table row actions instead of hand-composing `DropdownMenu` in each table. Use it for edit, members, activate/deactivate, revoke, and delete actions.
 
-Use `AppSelectField` for compact static option sets in forms and filter toolbars. It standardizes trigger sizing, `SelectGroup`, RTL direction, and helper text.
+Use `AppSelectField` for static option sets in forms and filter toolbars. It standardizes accessible labels, helper/error text, disabled state, RTL popup direction, `sm`/`default` control sizes, and guarantees every `SelectItem` is rendered inside a `SelectGroup`.
+
+Pass `options` for a flat list or `groups` when options need section labels and separators. Individual options can be disabled. Use `optionTextDir="ltr"` for technical values such as model names while keeping the popup itself RTL.
+
+With React Hook Form, keep the component controlled: pass `field.value`, `field.onChange`, and `field.onBlur` from `Controller`, and pass `fieldState.error?.message` to `error`. For simple forms, `watch` plus `setValue` with `shouldDirty`, `shouldTouch`, and `shouldValidate` is acceptable.
 
 Use `FilterCombobox` for searchable filter dropdowns in table/list toolbars. It standardizes `ComboboxInput`, empty state, RTL text alignment, and option truncation.
 
@@ -55,6 +59,10 @@ Use for common statuses: `active`, `inactive`, `pending`, `success`, `warning`, 
 ## ConfirmDialog
 
 Use for destructive or high-impact confirmations. It composes the existing shadcn Dialog.
+
+Use `open` and `onOpenChange` for feature-controlled dialogs, or pass `trigger` for the standard trigger-based flow. `onConfirm` may return a promise; provide `pendingLabel` so the dialog disables dismissal and communicates progress while the operation runs.
+
+The dialog closes automatically after a successful confirmation and stays open when the promise rejects. Use `onConfirmError` to surface rejected operations. Set `closeOnConfirm={false}` only when the feature itself closes the dialog after updating its domain state.
 
 ## CommercialPlanUpgradeDialog
 

@@ -5,6 +5,7 @@ import { memo, useCallback, useDeferredValue, useEffect, useMemo, useState } fro
 import { ArrowUpDown, CheckSquare, Code2, Copy, GitCompare, RotateCcw, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,14 +21,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatTokenCount, ModelCard, type ModelCardData } from "@/app/components/model-card";
@@ -178,6 +171,8 @@ type ModelListItemProps = {
   usdToIrr: number;
   getSelectableOptions: (model: ProviderCatalogModel) => string[];
 };
+
+const ALL_FILTER_OPTIONS = "__all__";
 
 type CompactTableRowProps = {
   canManage: boolean;
@@ -770,29 +765,23 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
             {model.display_name || model.model}
           </p>
         </div>
-        <div className="flex flex-col gap-1.5">
-          <Label>{ux("models.columns.pricingMode")}</Label>
-          <Select
-            value={pricingEditor.pricingMode}
-            onValueChange={(value) =>
-              setPricingEditor((prev) => ({
-                ...prev,
-                pricingMode: value as "public" | "private",
-                error: "",
-              }))
-            }
-          >
-            <SelectTrigger className="h-8">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem value="public">{ux("models.pricing.public")}</SelectItem>
-                <SelectItem value="private">{ux("models.pricing.private")}</SelectItem>
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </div>
+        <AppSelectField
+          label={ux("models.columns.pricingMode")}
+          size="sm"
+          triggerClassName="min-w-0"
+          value={pricingEditor.pricingMode}
+          onValueChange={(value) =>
+            setPricingEditor((prev) => ({
+              ...prev,
+              pricingMode: value as "public" | "private",
+              error: "",
+            }))
+          }
+          options={[
+            { value: "public", label: ux("models.pricing.public") },
+            { value: "private", label: ux("models.pricing.private") },
+          ]}
+        />
         {pricingEditor.pricingMode === "private" ? (
           <div className="grid gap-2 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
@@ -1209,32 +1198,65 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
             placeholder={ux("models.filters.minContext")}
             inputMode="numeric"
           />
-          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={filters.inputModality} onChange={(event) => setFilters((prev) => ({ ...prev, inputModality: event.target.value }))}>
-          <option value="">{ux("models.filters.allInputModalities")}</option>
-          {allInputModalities.map((item) => <option key={item} value={item}>{item}</option>)}
-          </select>
-          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={filters.outputModality} onChange={(event) => setFilters((prev) => ({ ...prev, outputModality: event.target.value }))}>
-          <option value="">{ux("models.filters.allOutputModalities")}</option>
-          {allOutputModalities.map((item) => <option key={item} value={item}>{item}</option>)}
-          </select>
-          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={filters.featureFilter} onChange={(event) => setFilters((prev) => ({ ...prev, featureFilter: event.target.value }))}>
-          <option value="">{ux("models.filters.allFeatures")}</option>
-          {allFeatures.map((item) => <option key={item} value={item}>{item}</option>)}
-          </select>
-          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={filters.sortBy} onChange={(event) => setFilters((prev) => ({ ...prev, sortBy: event.target.value as ModelFilterState["sortBy"] }))}>
-          <option value="price_asc">{ux("models.sort.priceAsc")}</option>
-          <option value="price_desc">{ux("models.sort.priceDesc")}</option>
-          <option value="context_asc">{ux("models.sort.contextAsc")}</option>
-          <option value="context_desc">{ux("models.sort.contextDesc")}</option>
-          </select>
-          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={displayCurrency} onChange={(event) => setDisplayCurrency(event.target.value as "USD" | "TOMAN")}>
-          <option value="USD">{ux("models.displayUnit.currencyUsd")}</option>
-          <option value="TOMAN">{ux("models.displayUnit.currencyToman")}</option>
-          </select>
-          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={displayScale} onChange={(event) => setDisplayScale(event.target.value as "PER_MILLION_TOKENS" | "PER_TOKEN")}>
-          <option value="PER_MILLION_TOKENS">{ux("models.displayUnit.perMillionTokens")}</option>
-          <option value="PER_TOKEN">{ux("models.displayUnit.perToken")}</option>
-          </select>
+          <AppSelectField
+            ariaLabel={ux("models.filters.allInputModalities")}
+            value={filters.inputModality || ALL_FILTER_OPTIONS}
+            onValueChange={(value) => setFilters((prev) => ({ ...prev, inputModality: value === ALL_FILTER_OPTIONS ? "" : value }))}
+            optionTextDir="ltr"
+            options={[
+              { value: ALL_FILTER_OPTIONS, label: ux("models.filters.allInputModalities") },
+              ...allInputModalities.map((item) => ({ value: item, label: item })),
+            ]}
+          />
+          <AppSelectField
+            ariaLabel={ux("models.filters.allOutputModalities")}
+            value={filters.outputModality || ALL_FILTER_OPTIONS}
+            onValueChange={(value) => setFilters((prev) => ({ ...prev, outputModality: value === ALL_FILTER_OPTIONS ? "" : value }))}
+            optionTextDir="ltr"
+            options={[
+              { value: ALL_FILTER_OPTIONS, label: ux("models.filters.allOutputModalities") },
+              ...allOutputModalities.map((item) => ({ value: item, label: item })),
+            ]}
+          />
+          <AppSelectField
+            ariaLabel={ux("models.filters.allFeatures")}
+            value={filters.featureFilter || ALL_FILTER_OPTIONS}
+            onValueChange={(value) => setFilters((prev) => ({ ...prev, featureFilter: value === ALL_FILTER_OPTIONS ? "" : value }))}
+            optionTextDir="ltr"
+            options={[
+              { value: ALL_FILTER_OPTIONS, label: ux("models.filters.allFeatures") },
+              ...allFeatures.map((item) => ({ value: item, label: item })),
+            ]}
+          />
+          <AppSelectField
+            ariaLabel={ux("models.sort.priceAsc")}
+            value={filters.sortBy}
+            onValueChange={(value) => setFilters((prev) => ({ ...prev, sortBy: value as ModelFilterState["sortBy"] }))}
+            options={[
+              { value: "price_asc", label: ux("models.sort.priceAsc") },
+              { value: "price_desc", label: ux("models.sort.priceDesc") },
+              { value: "context_asc", label: ux("models.sort.contextAsc") },
+              { value: "context_desc", label: ux("models.sort.contextDesc") },
+            ]}
+          />
+          <AppSelectField
+            ariaLabel={ux("models.displayUnit.currencyUsd")}
+            value={displayCurrency}
+            onValueChange={(value) => setDisplayCurrency(value as "USD" | "TOMAN")}
+            options={[
+              { value: "USD", label: ux("models.displayUnit.currencyUsd") },
+              { value: "TOMAN", label: ux("models.displayUnit.currencyToman") },
+            ]}
+          />
+          <AppSelectField
+            ariaLabel={ux("models.displayUnit.perMillionTokens")}
+            value={displayScale}
+            onValueChange={(value) => setDisplayScale(value as "PER_MILLION_TOKENS" | "PER_TOKEN")}
+            options={[
+              { value: "PER_MILLION_TOKENS", label: ux("models.displayUnit.perMillionTokens") },
+              { value: "PER_TOKEN", label: ux("models.displayUnit.perToken") },
+            ]}
+          />
         </div>
 
         {hasInvalidPriceRange ? (
@@ -1364,18 +1386,20 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
             </div>
 
             <div className="flex flex-wrap items-center gap-3 rounded-md border p-3">
-              <Label htmlFor="compare-sort">{ux("models.compare.sort.label")}</Label>
-              <select
+              <AppSelectField
                 id="compare-sort"
-                className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                label={ux("models.compare.sort.label")}
                 value={compareSortBy}
-                onChange={(event) => setCompareSortBy(event.target.value as typeof compareSortBy)}
-              >
-                <option value="input_asc">{ux("models.compare.sort.inputAsc")}</option>
-                <option value="output_asc">{ux("models.compare.sort.outputAsc")}</option>
-                <option value="context_desc">{ux("models.compare.sort.contextDesc")}</option>
-                <option value="name_asc">{ux("models.compare.sort.nameAsc")}</option>
-              </select>
+                onValueChange={(value) => setCompareSortBy(value as typeof compareSortBy)}
+                size="sm"
+                className="w-auto"
+                options={[
+                  { value: "input_asc", label: ux("models.compare.sort.inputAsc") },
+                  { value: "output_asc", label: ux("models.compare.sort.outputAsc") },
+                  { value: "context_desc", label: ux("models.compare.sort.contextDesc") },
+                  { value: "name_asc", label: ux("models.compare.sort.nameAsc") },
+                ]}
+              />
               <label className="inline-flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={compareDiffOnly} onChange={(event) => setCompareDiffOnly(event.target.checked)} />
                 {ux("models.compare.toggles.differencesOnly")}

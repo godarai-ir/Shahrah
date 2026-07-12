@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Check, Copy, Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 
-import { HelpLink, IdentifierField } from "@/components/app-ui";
+import { AppSelectField, HelpLink, IdentifierField } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,14 +20,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
@@ -553,62 +545,38 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
             </div>
 
             <div className="grid gap-3 md:grid-cols-3">
-              <div className="flex flex-col gap-2">
-                <Label>{t("form.type")}</Label>
-                <Select
-                  dir={direction}
-                  value={form.type}
-                  onValueChange={(value) => {
-                    const nextType = value as GuardrailType;
-                    setForm({ ...form, type: nextType, operation: operationForType(nextType, form.operation) });
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent dir={direction}>
-                    <SelectGroup>
-                      {guardrailTypes.map((type) => (
-                        <SelectItem key={type} value={type}>{t(`types.${type}`)}</SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label>{t("form.operation")}</Label>
-                <Select
-                  dir={direction}
-                  value={operationForType(form.type, form.operation)}
-                  disabled={isValidateOnlyType(form.type) || isMutateOnlyType(form.type)}
-                  onValueChange={(value) => setForm({ ...form, operation: value as GuardrailFormInput["operation"] })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent dir={direction}>
-                    <SelectGroup>
-                      <SelectItem value="validate">{t("operations.validate")}</SelectItem>
-                      <SelectItem value="mutate">{t("operations.mutate")}</SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label>{t("form.enforcement")}</Label>
-                <Select dir={direction} value={form.enforcement} onValueChange={(value) => setForm({ ...form, enforcement: value as GuardrailFormInput["enforcement"] })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent dir={direction}>
-                    <SelectGroup>
-                      <SelectItem value="enforce">{t("enforcement.enforce")}</SelectItem>
-                      <SelectItem value="audit">{t("enforcement.audit")}</SelectItem>
-                      <SelectItem value="enforce_ignore_error">{t("enforcement.enforce_ignore_error")}</SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </div>
+              <AppSelectField
+                label={t("form.type")}
+                dir={direction}
+                value={form.type}
+                onValueChange={(value) => {
+                  const nextType = value as GuardrailType;
+                  setForm({ ...form, type: nextType, operation: operationForType(nextType, form.operation) });
+                }}
+                options={guardrailTypes.map((type) => ({ value: type, label: t(`types.${type}`) }))}
+              />
+              <AppSelectField
+                label={t("form.operation")}
+                dir={direction}
+                value={operationForType(form.type, form.operation)}
+                disabled={isValidateOnlyType(form.type) || isMutateOnlyType(form.type)}
+                onValueChange={(value) => setForm({ ...form, operation: value as GuardrailFormInput["operation"] })}
+                options={[
+                  { value: "validate", label: t("operations.validate") },
+                  { value: "mutate", label: t("operations.mutate") },
+                ]}
+              />
+              <AppSelectField
+                label={t("form.enforcement")}
+                dir={direction}
+                value={form.enforcement}
+                onValueChange={(value) => setForm({ ...form, enforcement: value as GuardrailFormInput["enforcement"] })}
+                options={[
+                  { value: "enforce", label: t("enforcement.enforce") },
+                  { value: "audit", label: t("enforcement.audit") },
+                  { value: "enforce_ignore_error", label: t("enforcement.enforce_ignore_error") },
+                ]}
+              />
             </div>
 
             {form.type === "keyword_blocklist" ? (
@@ -682,21 +650,17 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
                   <Label htmlFor="guardrail-keys">{t("form.keys")}</Label>
                   <Textarea id="guardrail-keys" dir="ltr" value={form.keys} placeholder="answer&#10;confidence" onChange={(event) => setForm({ ...form, keys: event.target.value })} />
                 </div>
-                <div className="flex flex-col gap-2">
-                  <Label>{t("form.keyMode")}</Label>
-                  <Select dir={direction} value={form.keyMode} onValueChange={(value) => setForm({ ...form, keyMode: value as GuardrailFormInput["keyMode"] })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent dir={direction}>
-                      <SelectGroup>
-                        <SelectItem value="all">{t("keyModes.all")}</SelectItem>
-                        <SelectItem value="any">{t("keyModes.any")}</SelectItem>
-                        <SelectItem value="none">{t("keyModes.none")}</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <AppSelectField
+                  label={t("form.keyMode")}
+                  dir={direction}
+                  value={form.keyMode}
+                  onValueChange={(value) => setForm({ ...form, keyMode: value as GuardrailFormInput["keyMode"] })}
+                  options={[
+                    { value: "all", label: t("keyModes.all") },
+                    { value: "any", label: t("keyModes.any") },
+                    { value: "none", label: t("keyModes.none") },
+                  ]}
+                />
               </div>
             ) : null}
 
@@ -706,20 +670,16 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
                   <Label htmlFor="guardrail-languages">{t("form.languages")}</Label>
                   <Textarea id="guardrail-languages" dir="ltr" value={form.languages} placeholder="sql&#10;python&#10;typescript" onChange={(event) => setForm({ ...form, languages: event.target.value })} />
                 </div>
-                <div className="flex flex-col gap-2">
-                  <Label>{t("form.codeMode")}</Label>
-                  <Select dir={direction} value={form.codeMode} onValueChange={(value) => setForm({ ...form, codeMode: value as GuardrailFormInput["codeMode"] })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent dir={direction}>
-                      <SelectGroup>
-                        <SelectItem value="must_contain">{t("codeModes.must_contain")}</SelectItem>
-                        <SelectItem value="must_not_contain">{t("codeModes.must_not_contain")}</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <AppSelectField
+                  label={t("form.codeMode")}
+                  dir={direction}
+                  value={form.codeMode}
+                  onValueChange={(value) => setForm({ ...form, codeMode: value as GuardrailFormInput["codeMode"] })}
+                  options={[
+                    { value: "must_contain", label: t("codeModes.must_contain") },
+                    { value: "must_not_contain", label: t("codeModes.must_not_contain") },
+                  ]}
+                />
               </div>
             ) : null}
 

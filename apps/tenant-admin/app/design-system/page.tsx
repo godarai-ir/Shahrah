@@ -218,6 +218,8 @@ export default function DesignSystemPage() {
             description="Use ConfirmDialog before deleting or revoking important resources."
             cancelLabel="Cancel"
             confirmLabel="Confirm"
+            pendingLabel="Confirming..."
+            onConfirm={() => new Promise((resolve) => window.setTimeout(resolve, 800))}
           />
           <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
             <CheckCircle2 className="text-success" aria-hidden="true" />
@@ -238,14 +240,24 @@ export default function DesignSystemPage() {
       </section>
 
       <section className="grid gap-4 lg:grid-cols-3">
-        <AppCard title="Select field" description="Use AppSelectField for compact option sets in forms and toolbars.">
+        <AppCard title="Select field" description="Use AppSelectField for labelled, grouped, and validated option sets.">
           <AppSelectField
+            label="Account status"
+            description="Grouped options keep longer menus scannable."
             value={selectValue}
             onValueChange={setSelectValue}
-            options={[
-              { value: "active", label: "Active" },
-              { value: "pending", label: "Pending" },
-              { value: "disabled", label: "Disabled" },
+            groups={[
+              {
+                label: "Available",
+                options: [
+                  { value: "active", label: "Active" },
+                  { value: "pending", label: "Pending" },
+                ],
+              },
+              {
+                label: "Unavailable",
+                options: [{ value: "disabled", label: "Disabled", disabled: true }],
+              },
             ]}
           />
         </AppCard>

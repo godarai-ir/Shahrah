@@ -3,6 +3,7 @@
 import { MoreVertical } from "lucide-react";
 import { Search } from "lucide-react";
 
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -139,16 +140,20 @@ export function PromptRegistryList(props: PromptRegistryListProps) {
             })}
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-muted-foreground">{props.t("pagination.rowsPerPage")}</label>
-            <select
-              value={props.pageSize}
-              onChange={(event) => props.onRowsPerPageChange(Number(event.target.value))}
-              className="h-9 rounded-md border bg-background px-2"
-            >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-            </select>
+            <span className="text-muted-foreground">{props.t("pagination.rowsPerPage")}</span>
+            <AppSelectField
+              ariaLabel={props.t("pagination.rowsPerPage")}
+              value={String(props.pageSize)}
+              onValueChange={(value) => props.onRowsPerPageChange(Number(value))}
+              size="sm"
+              className="w-auto"
+              triggerClassName="min-w-16"
+              options={[
+                { value: "10", label: "10" },
+                { value: "25", label: "25" },
+                { value: "50", label: "50" },
+              ]}
+            />
             <Button type="button" variant="outline" disabled={props.pageOffset === 0} onClick={props.onPreviousPage}>
               {props.t("pagination.previous")}
             </Button>

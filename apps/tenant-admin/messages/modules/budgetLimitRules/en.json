@@ -59,6 +59,8 @@
     "removeMetadata": "Remove metadata row",
     "add": "Add Filter",
     "metadataTitle": "Metadata Filters",
+    "fieldLabel": "Filter field",
+    "operatorLabel": "Filter operator",
     "fields": {
       "subject": "Subject",
       "model": "Model",
