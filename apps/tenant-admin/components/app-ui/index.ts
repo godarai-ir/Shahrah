@@ -8,6 +8,7 @@ export { ConfirmDialog } from "./ConfirmDialog";
 export { CopyableValue, copyTextToClipboard, type CopyableValueLabels, type CopyableValueProps } from "./CopyableValue";
 export { CopyAction, type CopyActionProps } from "./CopyAction";
 export { DataListPanel } from "./DataListPanel";
+export { DateTimeValue, type DateTimeValueProps } from "./DateTimeValue";
 export { DefinitionList, DefinitionListItem, type DefinitionListItemProps, type DefinitionListProps } from "./DefinitionList";
 export { EmptyState, type EmptyStateDensity, type EmptyStateProps, type EmptyStateVariant } from "./EmptyState";
 export { EntityIdentityHeader, type EntityIdentityHeaderProps } from "./EntityIdentityHeader";

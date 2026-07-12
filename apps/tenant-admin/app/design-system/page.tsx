@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Shield, Trash2, Upload, X } from "lucide-react";
 
-import { AppCard, AppSelectField, AppTextField, AppTextareaField, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, FilterCombobox, FormSection, FormSheet, HelpLink, IdentifierField, MetricCard, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, AppTextField, AppTextareaField, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeValue, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, FilterCombobox, FormSection, FormSheet, HelpLink, IdentifierField, MetricCard, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
 import { Attachment, AttachmentAction, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -449,7 +449,7 @@ export default function DesignSystemPage() {
               <TableRow>
                 <TableCell className="font-medium">openai-production</TableCell>
                 <TableCell><StatusBadge status="active">active</StatusBadge></TableCell>
-                <TableCell className="text-muted-foreground">Today</TableCell>
+                <TableCell className="text-muted-foreground"><DateTimeValue value="2025-03-12T09:30:00Z" locale="en" /></TableCell>
               </TableRow>
               <TableRow>
                 <TableCell className="font-medium">budget-policy</TableCell>

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 
-import { AppSelectField, ConfirmDialog, CopyAction, EmptyState, HelpLink, IdentifierField, OperationNotice } from "@/components/app-ui";
+import { AppSelectField, ConfirmDialog, CopyAction, DateTimeValue, EmptyState, HelpLink, IdentifierField, OperationNotice } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,19 +68,6 @@ const guardrailTypes: GuardrailType[] = [
   "not_null",
   "inline_image_urls",
 ];
-
-function formatDateTime(value: string, locale: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  const dateLocale = locale === "fa" ? "fa-IR-u-ca-persian" : "en-US";
-  return new Intl.DateTimeFormat(dateLocale, {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-}
 
 function lines(value: string) {
   return value
@@ -462,7 +449,7 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
                           {item.enabled ? t("status.enabled") : t("status.disabled")}
                         </Badge>
                       </TableCell>
-                      <TableCell>{formatDateTime(item.updated_at, locale)}</TableCell>
+                      <TableCell><DateTimeValue value={item.updated_at} locale={locale} format={{ year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }} /></TableCell>
                       <TableCell>
                         <div className="flex gap-2">
                           <Button type="button" size="icon" variant="outline" aria-label={t("actions.edit")} onClick={() => openEditDialog(item)}>

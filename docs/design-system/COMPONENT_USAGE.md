@@ -60,6 +60,8 @@ Use `DataListPanel` when a list page needs the standard toolbar, loading/empty/c
 
 Within table bodies, use `TableLoadingRows` for initial skeleton rows and `TableEmptyRow` for a correctly spanning `EmptyState`. Pass a localized loading label and the exact visible column count; feature-owned empty actions remain supported through `EmptyState` props.
 
+Use `DateTimeValue` for visible timestamps so the UI emits a semantic `time` element, localized digits/calendar, a stable invalid-value fallback, and tabular numerals. Use the shared `formatDateTime` utility only when a formatted string is required by an interpolation or non-React API.
+
 Use `TablePagination` for previous/next pagination. Pass localized summary and button labels from the feature namespace, and provide page/page-size values only when they add useful context.
 
 Use the feature-level `GatewayPolicyRulesList` for the shared Rate Limit and Budget Limit page shell. It composes `PageHeader`, entitlement-aware create actions, notice feedback, `DataListPanel`, the create/edit `Sheet`, `ConfirmDialog`, and the plan-upgrade dialog.

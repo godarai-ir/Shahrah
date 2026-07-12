@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { ArrowDown, ArrowUp, CheckCircle2, Copy, Edit3, Plus, RefreshCw, Save, Search, Trash2, XCircle } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CopyAction, HelpLink, IdentifierField, TypedConfirmDialog } from "@/components/app-ui";
+import { CopyAction, DateTimeValue, HelpLink, IdentifierField, TypedConfirmDialog } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -145,6 +145,7 @@ function makeDefaultForm(everyoneLabel: string): FormState {
 
 export default function VirtualModelManagement() {
   const t = useTranslations("virtualModels");
+  const locale = useLocale();
   const tc = useTranslations("common");
   const principalT = useTranslations("providerAccounts");
   const principalUx = useTranslations("providerAccounts.ux");
@@ -632,7 +633,7 @@ export default function VirtualModelManagement() {
                       </TableCell>
                       <TableCell>{formatStrategyLabel(item.routing_strategy, t)}</TableCell>
                       <TableCell>{item.targets?.length ?? 0}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{formatDate(item.updated_at, { withSeconds: false })}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground"><DateTimeValue value={item.updated_at} locale={locale} format={{ year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }} /></TableCell>
                       <TableCell className="text-sm text-muted-foreground">{userLabelByID[item.created_by ?? ""] || item.created_by || "-"}</TableCell>
                       <TableCell>
                         <Badge variant={item.enabled ? "default" : "secondary"}>
@@ -1207,20 +1208,6 @@ function formatStrategyLabel(
   t: ReturnType<typeof useTranslations<"virtualModels">>,
 ) {
   return value === "weighted" ? t("form.weightedValue") : t("form.priorityValue");
-}
-
-function formatDate(value?: string, options?: { withSeconds?: boolean }) {
-  if (!value) return "-";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "-";
-  return parsed.toLocaleString("fa-IR", {
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    ...(options?.withSeconds ? { second: "2-digit" as const } : {}),
-  });
 }
 
 function createCopyAlias(alias: string, existingAliases: Set<string>) {

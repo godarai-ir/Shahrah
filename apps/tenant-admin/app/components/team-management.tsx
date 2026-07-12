@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   AlertTriangle,
   Plus,
@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 import { usePermissions } from "@/app/components/permissions-context";
-import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, FilterCombobox, FormSheet, HelpLink, IdentifierField, MetricCard, OperationNotice, PageHeader, RowActionsMenu, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, DateTimeValue, EmptyState, FilterCombobox, FormSheet, HelpLink, IdentifierField, MetricCard, OperationNotice, PageHeader, RowActionsMenu, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -93,6 +93,7 @@ export default function TeamManagement({
   docsHref?: string;
 }) {
   const t = useTranslations("teams");
+  const locale = useLocale();
   const permissions = usePermissions() ?? [];
   const [teams, setTeams] = useState(initialTeams);
   const [total, setTotal] = useState(initialTotal);
@@ -420,7 +421,7 @@ export default function TeamManagement({
                     <TableCell>{getOrgUnitName(team, orgUnits, t)}</TableCell>
                     <TableCell><Badge variant="outline">{t(`workspace.${getWorkspaceType(team)}`)}</Badge></TableCell>
                     <TableCell><StatusBadge status={getStatus(team)} t={t} /></TableCell>
-                    <TableCell>{formatDate(team.updated_at)}</TableCell>
+                    <TableCell><DateTimeValue value={team.updated_at} locale={locale} format={{ month: "short", day: "numeric" }} /></TableCell>
                     <TableCell className="text-end">
                       <RowActionsMenu
                         label={t("table.actions")}
@@ -679,13 +680,6 @@ function firstPositiveCount(...values: unknown[]) {
   return 0;
 }
 function toText(value: unknown) { if (typeof value === "string") return value; if (typeof value === "number") return String(value); return ""; }
-function formatDate(value: string) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return new Intl.DateTimeFormat("fa-IR-u-ca-persian", { month: "short", day: "numeric" }).format(date);
-}
-
 function StatusBadge({ status, t }: { status: ReturnType<typeof getStatus>; t: ReturnType<typeof useTranslations> }) {
   if (status === "blocked") return <AppStatusBadge status="error">{t("status.blocked")}</AppStatusBadge>;
   return <AppStatusBadge status="active">{t("status.active")}</AppStatusBadge>;

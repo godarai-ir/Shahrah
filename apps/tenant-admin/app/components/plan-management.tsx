@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { type ReactNode, useState, useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { ArrowUpRight, Check } from "lucide-react";
 
-import { EntityIdentityHeader } from "@/components/app-ui";
+import { DateTimeValue, EntityIdentityHeader } from "@/components/app-ui";
+import { formatDateTime } from "@/lib/date-time";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -135,7 +136,7 @@ export default function PlanManagement({
           <AlertDescription>
             {t("trial.description", {
               plan: subscription.plan_display_name ?? subscription.plan_slug ?? common("notSet"),
-              date: formatDate(subscription.trial_ends_at, locale),
+              date: formatDateTime(subscription.trial_ends_at, { locale, format: { dateStyle: "medium" } }),
             })}
           </AlertDescription>
         </Alert>
@@ -149,9 +150,9 @@ export default function PlanManagement({
           <CardContent className="grid gap-3 text-sm">
             <Metric label={t("currentSubscription.plan")} value={subscription?.plan_display_name ?? subscription?.plan_slug ?? common("notSet")} />
             <Metric label={t("currentSubscription.interval")} value={intervalLabel(subscription?.billing_interval, t)} />
-            <Metric label={t("currentSubscription.periodEnd")} value={formatDate(subscription?.current_period_end, locale, common("notSet"))} />
+            <Metric label={t("currentSubscription.periodEnd")} value={<DateTimeValue value={subscription?.current_period_end} locale={locale} fallback={common("notSet")} format={{ dateStyle: "medium" }} />} />
             {subscription?.status === "trialing" ? (
-              <Metric label={t("currentSubscription.trialEnds")} value={formatDate(subscription.trial_ends_at, locale, common("notSet"))} />
+              <Metric label={t("currentSubscription.trialEnds")} value={<DateTimeValue value={subscription.trial_ends_at} locale={locale} fallback={common("notSet")} format={{ dateStyle: "medium" }} />} />
             ) : null}
           </CardContent>
         </Card>
@@ -222,7 +223,7 @@ export default function PlanManagement({
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 rounded-lg border border-border px-3 py-2">
       <span className="text-muted-foreground">{label}</span>
@@ -286,17 +287,6 @@ function formatUsage(
 
 function formatEnabled(value: unknown, t: ReturnType<typeof useTranslations>): string {
   return value === true ? t("values.enabled") : t("values.disabled");
-}
-
-function formatDate(value: string | undefined, locale: string, fallback?: string): string {
-  if (!value) {
-    return fallback ?? "—";
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(date);
 }
 
 function intervalLabel(interval: string | undefined, t: ReturnType<typeof useTranslations>): string {
