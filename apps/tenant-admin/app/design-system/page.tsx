@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Shield, Trash2, Upload, X } from "lucide-react";
 
-import { ActiveFilterChips, AppCard, AppCodeTextareaField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, CheckboxOptionList, ChipInput, CodePanel, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeRangeField, DateTimeValue, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, FilterCombobox, FormDialog, FormSection, FormSheet, HelpLink, IdentifierField, MetricCard, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
+import { ActiveFilterChips, AppCard, AppCodeTextareaField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, CheckboxOptionList, ChipInput, CodePanel, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeRangeField, DateTimeValue, DebouncedTextFilter, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, FilterCombobox, FormDialog, FormSection, FormSheet, HelpLink, IdentifierField, MetricCard, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, RangeFilterField, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
 import { SearchPickerDialog } from "@/components/app-ui/SearchPickerDialog";
 import { AppNumberField } from "@/components/app-ui/AppNumberField";
 import { SettingsAuditMeta } from "@/components/app-ui/SettingsAuditMeta";
@@ -37,6 +37,8 @@ const permissionOptions = [
 export default function DesignSystemPage() {
   const [selectValue, setSelectValue] = useState("active");
   const [filterValue, setFilterValue] = useState("openai");
+  const [textFilterValue, setTextFilterValue] = useState("");
+  const [rangeFilterValue, setRangeFilterValue] = useState<[number, number]>([20, 80]);
   const [samplePage, setSamplePage] = useState(1);
   const [permissionQuery, setPermissionQuery] = useState("");
   const [permissionMode, setPermissionMode] = useState<"selected" | "all">("all");
@@ -549,6 +551,12 @@ export default function DesignSystemPage() {
               { value: "google", label: "Google" },
             ]}
           />
+        </AppCard>
+        <AppCard title="Filter fields" description="Use debounced text and range filters in advanced filter toolbars.">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <DebouncedTextFilter label="Request ID" value={textFilterValue} onValueChange={setTextFilterValue} mono />
+            <RangeFilterField label="Latency" value={rangeFilterValue} min={0} max={100} minLabel="Minimum" maxLabel="Maximum" formatValue={(value) => `${value} ms`} onValueChange={setRangeFilterValue} onValueCommit={setRangeFilterValue} />
+          </div>
         </AppCard>
         <AppCard title="Row actions" description="Use RowActionsMenu for table and card action menus.">
           <RowActionsMenu

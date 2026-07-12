@@ -94,6 +94,8 @@ With React Hook Form, keep the component controlled: pass `field.value`, `field.
 
 Use `FilterCombobox` for searchable filter dropdowns in table/list toolbars. It standardizes `ComboboxInput`, empty state, RTL text alignment, and option truncation.
 
+Use `FilterField` to label specialized toolbar controls with consistent compact Field semantics. Use `DebouncedTextFilter` for text filters that should not update query state on every keystroke, and `RangeFilterField` for a controlled two-thumb numeric range. Keep domain normalization and query serialization in the owning feature.
+
 Use `SearchPickerDialog` as the shell for large entity pickers that require modal focus and search. It composes `FormDialog` and `SearchField`; grouping, result rendering, selection behavior, and domain-specific empty states remain feature-owned.
 
 Keep `components/ui/dropdown-menu`, `components/ui/select`, and `components/ui/combobox` as primitive escape hatches. Route components should prefer the app-ui wrappers unless they need a behavior the wrapper does not support.

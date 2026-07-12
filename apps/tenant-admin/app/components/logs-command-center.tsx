@@ -25,7 +25,7 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Line, LineChart, XAxis, YAxis } from "recharts";
 
-import { ActiveFilterChips, AppCard, AppSelectField, CompactValue, DateTimeRangeField, EmptyState, FilterCombobox, MetricCard, PageHeader, StatusBadge } from "@/components/app-ui";
+import { ActiveFilterChips, AppCard, AppSelectField, CompactValue, DateTimeRangeField, DebouncedTextFilter, EmptyState, FilterCombobox, FilterField, MetricCard, PageHeader, RangeFilterField, StatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,7 +53,6 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Slider } from "@/components/ui/slider";
 import { PrincipalPicker, type PrincipalPickerItem } from "@/app/components/principal-picker";
 import { type PrincipalSearchKind, type PrincipalSearchOption } from "@/app/components/principal-search-input";
 import { buildPrincipalSelectorLabels } from "@/app/components/provider-account-wizard/principal-labels";
@@ -1046,7 +1045,7 @@ const LogsFilters = memo(function LogsFilters({
     <AppCard>
       <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="flex flex-col gap-3">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          <LabeledControl label={t("filters.range")}>
+          <FilterField label={t("filters.range")}>
             <AppSelectField
               value={filters.range}
               onValueChange={setRange}
@@ -1060,7 +1059,7 @@ const LogsFilters = memo(function LogsFilters({
               ariaLabel={t("filters.range")}
               triggerClassName="h-8 text-xs"
             />
-          </LabeledControl>
+          </FilterField>
           <FacetSelect label={t("filters.provider")} value={filters.provider} onChange={(value) => onSetFilter("provider", value)} items={facets.providers} empty={t("filters.noOptions")} />
           <FacetSelect label={t("filters.model")} value={filters.model} onChange={(value) => onSetFilter("model", value)} items={facets.models} empty={t("filters.noOptions")} />
           {filters.range === "custom" ? (
@@ -1853,51 +1852,8 @@ const LogDetailSheet = memo(function LogDetailSheet({
   );
 });
 
-function LabeledControl({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
-      {children}
-    </div>
-  );
-}
-
 const TextFilter = memo(function TextFilter({ label, value, onChange, mono }: { label: string; value: string; onChange: (value: string) => void; mono?: boolean }) {
-  const [draft, setDraft] = useState(value);
-  const onChangeRef = useRef(onChange);
-
-  useEffect(() => {
-    onChangeRef.current = onChange;
-  }, [onChange]);
-
-  useEffect(() => {
-    let disposed = false;
-    queueMicrotask(() => {
-      if (!disposed) setDraft(value);
-    });
-    return () => {
-      disposed = true;
-    };
-  }, [value]);
-
-  useEffect(() => {
-    if (draft === value) return;
-    const timer = window.setTimeout(() => {
-      onChangeRef.current(draft);
-    }, 350);
-    return () => window.clearTimeout(timer);
-  }, [draft, value]);
-
-  return (
-    <LabeledControl label={label}>
-      <Input
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        dir={mono ? "ltr" : undefined}
-        className={cn("h-8 text-xs", mono && "text-left font-mono")}
-      />
-    </LabeledControl>
-  );
+  return <DebouncedTextFilter label={label} value={value} onValueChange={onChange} mono={mono} />;
 });
 
 const RangeFilter = memo(function RangeFilter({
@@ -1933,21 +1889,10 @@ const RangeFilter = memo(function RangeFilter({
   const hasRangeData = bounds.min !== 0 || bounds.max !== 0;
 
   return (
-    <LabeledControl label={label}>
-      <div className="flex min-h-20 flex-col justify-center gap-3 rounded-md border border-border bg-transparent px-3 py-2">
-        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground" dir="ltr">
-          <span title={minLabel}>{hasRangeData ? formatValue(draft[0]) : "-"}</span>
-          <span title={maxLabel}>{hasRangeData ? formatValue(draft[1]) : "-"}</span>
-        </div>
-        <Slider
-          value={draft}
-          min={bounds.min}
-          max={sliderMax}
-          step={sliderStep}
-          disabled={disabled}
-          onValueChange={(next) => setDraftState({ key: valueKey, value: normalizeRangeValue(String(next[0] ?? bounds.min), String(next[1] ?? bounds.max), bounds) })}
+      <RangeFilterField label={label} value={draft} min={bounds.min} max={sliderMax} step={sliderStep} disabled={disabled} minLabel={minLabel} maxLabel={maxLabel} formatValue={(next) => hasRangeData ? formatValue(next) : "-"}
+          onValueChange={(next) => setDraftState({ key: valueKey, value: normalizeRangeValue(String(next[0]), String(next[1]), bounds) })}
           onValueCommit={(next) => {
-            const committed = normalizeRangeValue(String(next[0] ?? bounds.min), String(next[1] ?? bounds.max), bounds);
+            const committed = normalizeRangeValue(String(next[0]), String(next[1]), bounds);
             setDraftState({ key: valueKey, value: committed });
             onChange(
               committed[0] <= bounds.min ? "" : formatFilterNumber(committed[0]),
@@ -1955,21 +1900,15 @@ const RangeFilter = memo(function RangeFilter({
             );
           }}
         />
-        <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground" dir="ltr">
-          <span>{hasRangeData ? formatValue(bounds.min) : "-"}</span>
-          <span>{hasRangeData ? formatValue(bounds.max) : "-"}</span>
-        </div>
-      </div>
-    </LabeledControl>
   );
 });
 
 const FacetSelect = memo(function FacetSelect({ label, value, onChange, items, empty }: { label: string; value: string; onChange: (value: string) => void; items?: Array<{ value: string; count: number }>; empty: string }) {
   const options = [{ value: "", label: label }, ...(items ?? []).filter((item) => item.value).map((item) => ({ value: item.value, label: `${item.value} (${item.count})` }))];
   return (
-    <LabeledControl label={label}>
+    <FilterField label={label}>
       <FilterCombobox id={`logs-${label}`} value={value} onValueChange={onChange} options={options} placeholder={label} emptyText={empty} />
-    </LabeledControl>
+    </FilterField>
   );
 });
 

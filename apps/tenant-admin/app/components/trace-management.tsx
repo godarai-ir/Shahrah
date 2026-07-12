@@ -8,7 +8,7 @@ import { useLocale, useTranslations } from "next-intl";
 
 import TracePrivacySettingsPanel, { type TracePrivacySettings } from "@/app/components/trace-privacy-settings";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ActiveFilterChips, AppSelectField, CatalogFilterCombobox, CompactValue, DateTimeRangeField, PageContainer } from "@/components/app-ui";
+import { ActiveFilterChips, AppSelectField, CatalogFilterCombobox, CompactValue, DateTimeRangeField, FilterField, PageContainer } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,7 +23,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -407,7 +406,7 @@ export default function TraceManagement(props: TraceManagementProps) {
   ];
   const advancedFiltersFields = (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-      <TraceField id="status-filter" label={t("filters.statusCode")}>
+      <FilterField htmlFor="status-filter" label={t("filters.statusCode")}>
         <Input
           id="status-filter"
           value={draft.statusCode}
@@ -416,8 +415,8 @@ export default function TraceManagement(props: TraceManagementProps) {
           dir="ltr"
           className="h-9 font-mono"
         />
-      </TraceField>
-      <TraceField id="error-filter" label={t("filters.errorCode")}>
+      </FilterField>
+      <FilterField htmlFor="error-filter" label={t("filters.errorCode")}>
         <Input
           id="error-filter"
           value={draft.errorCode}
@@ -426,8 +425,8 @@ export default function TraceManagement(props: TraceManagementProps) {
           dir="ltr"
           className="h-9 font-mono"
         />
-      </TraceField>
-      <TraceField id="route-filter" label={t("filters.route")}>
+      </FilterField>
+      <FilterField htmlFor="route-filter" label={t("filters.route")}>
         <Input
           id="route-filter"
           value={draft.route}
@@ -436,8 +435,8 @@ export default function TraceManagement(props: TraceManagementProps) {
           dir="ltr"
           className="h-9 font-mono"
         />
-      </TraceField>
-      <TraceField id="trace-id-filter" label={t("filters.traceId")}>
+      </FilterField>
+      <FilterField htmlFor="trace-id-filter" label={t("filters.traceId")}>
         <Input
           id="trace-id-filter"
           value={draft.traceID}
@@ -446,8 +445,8 @@ export default function TraceManagement(props: TraceManagementProps) {
           dir="ltr"
           className="h-9 font-mono"
         />
-      </TraceField>
-      <TraceField id="request-id-filter" label={t("filters.requestId")}>
+      </FilterField>
+      <FilterField htmlFor="request-id-filter" label={t("filters.requestId")}>
         <Input
           id="request-id-filter"
           value={draft.requestID}
@@ -456,7 +455,7 @@ export default function TraceManagement(props: TraceManagementProps) {
           dir="ltr"
           className="h-9 font-mono"
         />
-      </TraceField>
+      </FilterField>
     </div>
   );
 
@@ -676,7 +675,7 @@ export default function TraceManagement(props: TraceManagementProps) {
               ariaLabel={t("filters.timeRange")}
               triggerClassName="h-9"
             />
-            <TraceField id="provider-filter" label={t("filters.provider")}>
+            <FilterField htmlFor="provider-filter" label={t("filters.provider")}>
               <CatalogFilterCombobox
                 id="provider-filter"
                 options={providerComboboxOptions}
@@ -685,8 +684,8 @@ export default function TraceManagement(props: TraceManagementProps) {
                 placeholder={t("filters.search")}
                 emptyText={t("filters.emptyOptions")}
               />
-            </TraceField>
-            <TraceField id="model-filter" label={t("filters.model")}>
+            </FilterField>
+            <FilterField htmlFor="model-filter" label={t("filters.model")}>
               <CatalogFilterCombobox
                 id="model-filter"
                 options={modelComboboxOptions}
@@ -695,7 +694,7 @@ export default function TraceManagement(props: TraceManagementProps) {
                 placeholder={t("filters.search")}
                 emptyText={t("filters.emptyOptions")}
               />
-            </TraceField>
+            </FilterField>
           </div>
 
           {draftRangePreset === "custom" ? (
@@ -950,27 +949,6 @@ function createDefaultColumnVisibility(): Record<TraceColumnKey, boolean> {
       return acc;
     },
     {} as Record<TraceColumnKey, boolean>,
-  );
-}
-
-function TraceField({
-  id,
-  label,
-  children,
-  className,
-}: {
-  id: string;
-  label: string;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={cn("grid min-w-0 gap-1.5", className)}>
-      <Label htmlFor={id} className="text-sm font-medium text-foreground">
-        {label}
-      </Label>
-      {children}
-    </div>
   );
 }
 

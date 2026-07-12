@@ -22,6 +22,7 @@ export { DefinitionList, DefinitionListItem, type DefinitionListItemProps, type 
 export { EmptyState, type EmptyStateDensity, type EmptyStateProps, type EmptyStateVariant } from "./EmptyState";
 export { EntityIdentityHeader, type EntityIdentityHeaderProps } from "./EntityIdentityHeader";
 export { FilterCombobox } from "./FilterCombobox";
+export { DebouncedTextFilter, FilterField, RangeFilterField, type DebouncedTextFilterProps, type FilterFieldProps, type RangeFilterFieldProps } from "./FilterField";
 export { FormSection } from "./FormSection";
 export { FormDialog, type FormDialogProps, type FormDialogSize } from "./FormDialog";
 export { FormSheet, type FormSheetProps, type FormSheetSize } from "./FormSheet";
