@@ -7,11 +7,10 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, X } from "lucide-react";
 
-import { AppSelectField, FormSection, IdentifierField, PageContainer, PageHeader } from "@/components/app-ui";
+import { AppNumberField, AppSelectField, FormSection, IdentifierField, PageContainer, PageHeader } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -510,11 +509,7 @@ export function BudgetLimitRuleForm({ initialRule, embedded = false, onCancel, o
             className={embedded ? "md:grid-cols-1" : undefined}
           >
             <div className="grid gap-4 lg:grid-cols-3">
-              <Field className="min-w-0" data-invalid={Boolean(form.formState.errors.limit_to)}>
-                <FieldLabel htmlFor="limit-to">{t("form.fields.limitTo")}</FieldLabel>
-                <Input id="limit-to" type="number" min={1} step={1} inputMode="numeric" dir="ltr" aria-invalid={Boolean(form.formState.errors.limit_to)} {...form.register("limit_to", { valueAsNumber: true })} />
-                <FieldError>{form.formState.errors.limit_to?.message}</FieldError>
-              </Field>
+              <AppNumberField id="limit-to" label={t("form.fields.limitTo")} min={1} step={1} inputMode="numeric" error={form.formState.errors.limit_to?.message} fieldClassName="min-w-0" {...form.register("limit_to", { valueAsNumber: true })} />
               <AppSelectField
                 className="min-w-0"
                 triggerClassName="h-10 min-w-0 rounded-lg"

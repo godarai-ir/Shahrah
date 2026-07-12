@@ -174,6 +174,8 @@ Use `AppSwitchField` for boolean settings that need a label, optional explanatio
 
 Use `AppCodeTextareaField` for editable JSON, schemas, regular expressions, JWKS documents, and other technical multi-line values. It preserves the Field-family semantics while defaulting the control to LTR, monospace text, disabled spellcheck, and a readable code height.
 
+Use `AppNumberField` for numeric configuration values. It composes `AppTextField` while standardizing number input type, LTR direction, tabular numerals, input mode, and validation rendering; pass domain-specific min, max, and step constraints from the feature.
+
 ## Permission Editing
 
 Use `PermissionEditor` for controlled permission selection with search, selected/all views, grouped checkboxes, and group-level select/clear actions. Keep the permission catalog and selected keys in the feature; pass localized labels and formatting callbacks into the component.

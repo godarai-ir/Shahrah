@@ -5,6 +5,7 @@ import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Shiel
 
 import { ActiveFilterChips, AppCard, AppCodeTextareaField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, CheckboxOptionList, ChipInput, CodePanel, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeRangeField, DateTimeValue, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, FilterCombobox, FormDialog, FormSection, FormSheet, HelpLink, IdentifierField, MetricCard, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
 import { SearchPickerDialog } from "@/components/app-ui/SearchPickerDialog";
+import { AppNumberField } from "@/components/app-ui/AppNumberField";
 import { Attachment, AttachmentAction, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -352,6 +353,7 @@ export default function DesignSystemPage() {
             <AppTextareaField label="Description" placeholder="Describe this resource" />
             <AppSwitchField label="Enable caching" description="Cache matching gateway requests." checked />
             <AppCodeTextareaField label="JSON schema" defaultValue={'{\n  "type": "object"\n}'} />
+            <AppNumberField label="Timeout" defaultValue={30} min={1} step={1} />
           </FieldGroup>
         </AppCard>
         <AppCard>

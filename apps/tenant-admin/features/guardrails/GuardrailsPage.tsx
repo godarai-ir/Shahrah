@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 
-import { AppCodeTextareaField, AppSelectField, ConfirmDialog, CopyAction, DateTimeValue, EmptyState, HelpLink, IdentifierField, OperationNotice } from "@/components/app-ui";
+import { AppCodeTextareaField, AppNumberField, AppSelectField, ConfirmDialog, CopyAction, DateTimeValue, EmptyState, HelpLink, IdentifierField, OperationNotice } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -582,14 +582,8 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
 
             {form.type === "sentence_count" || form.type === "word_count" || form.type === "character_count" ? (
               <div className="grid gap-3 md:grid-cols-2">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="guardrail-min">{t("form.min")}</Label>
-                  <Input id="guardrail-min" dir="ltr" inputMode="numeric" value={form.min} onChange={(event) => setForm({ ...form, min: event.target.value })} />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="guardrail-max">{t("form.max")}</Label>
-                  <Input id="guardrail-max" dir="ltr" inputMode="numeric" value={form.max} onChange={(event) => setForm({ ...form, max: event.target.value })} />
-                </div>
+                <AppNumberField id="guardrail-min" label={t("form.min")} value={form.min} onChange={(event) => setForm({ ...form, min: event.target.value })} />
+                <AppNumberField id="guardrail-max" label={t("form.max")} value={form.max} onChange={(event) => setForm({ ...form, max: event.target.value })} />
               </div>
             ) : null}
 
@@ -679,14 +673,8 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
             {form.type === "inline_image_urls" ? (
               <div className="flex flex-col gap-3">
                 <div className="grid gap-3 md:grid-cols-2">
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="guardrail-max-bytes">{t("form.maxBytes")}</Label>
-                    <Input id="guardrail-max-bytes" dir="ltr" inputMode="numeric" value={form.maxBytes} onChange={(event) => setForm({ ...form, maxBytes: event.target.value })} />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="guardrail-timeout">{t("form.timeoutMs")}</Label>
-                    <Input id="guardrail-timeout" dir="ltr" inputMode="numeric" value={form.timeoutMs} onChange={(event) => setForm({ ...form, timeoutMs: event.target.value })} />
-                  </div>
+                  <AppNumberField id="guardrail-max-bytes" label={t("form.maxBytes")} value={form.maxBytes} onChange={(event) => setForm({ ...form, maxBytes: event.target.value })} />
+                  <AppNumberField id="guardrail-timeout" label={t("form.timeoutMs")} value={form.timeoutMs} onChange={(event) => setForm({ ...form, timeoutMs: event.target.value })} />
                 </div>
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="guardrail-allowed-hosts">{t("form.allowedHosts")}</Label>
