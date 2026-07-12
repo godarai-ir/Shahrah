@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 
 import { normalizeError, requestJSON } from "@/app/components/provider-account-wizard/utils";
+import { ConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
@@ -19,6 +20,7 @@ export default function PromptRegistryListPage() {
   const locale = useLocale();
   const router = useRouter();
   const [notice, setNotice] = useState<Notice>(null);
+  const [pendingDeletePrompt, setPendingDeletePrompt] = useState<Prompt | null>(null);
   const {
     errorMessage,
     isLoading,
@@ -68,7 +70,7 @@ export default function PromptRegistryListPage() {
           locale={locale}
           onCopyFqn={(prompt) => void copyFqn(prompt)}
           onCreateVersion={(prompt) => router.push(`/prompts/${prompt.id}/edit?intent=create-version`)}
-          onDelete={(prompt) => void deletePrompt(prompt)}
+          onDelete={setPendingDeletePrompt}
           onEditLatestVersion={(prompt) => router.push(`/prompts/${prompt.id}/edit?intent=edit-latest`)}
           onNextPage={() => {
             const nextOffset = pageOffset + pageSize;
@@ -106,6 +108,7 @@ export default function PromptRegistryListPage() {
           t={t}
           userLabelByID={userLabelByID}
         />
+        <ConfirmDialog open={pendingDeletePrompt !== null} onOpenChange={(open) => { if (!open) setPendingDeletePrompt(null); }} title={t("actions.delete")} description={t("messages.deletePromptConfirm", { name: pendingDeletePrompt?.name ?? "" })} cancelLabel={t("actions.cancel")} confirmLabel={t("actions.delete")} pendingLabel={t("actions.delete")} onConfirm={() => pendingDeletePrompt ? deletePrompt(pendingDeletePrompt) : undefined} />
       </section>
     </div>
   );
@@ -121,14 +124,13 @@ export default function PromptRegistryListPage() {
   }
 
   async function deletePrompt(prompt: Prompt) {
-    const confirmed = window.confirm(t("messages.deletePromptConfirm", { name: prompt.name }));
-    if (!confirmed) return;
     try {
       await requestJSON(`/api/prompts/${encodeURIComponent(prompt.id)}`, { method: "DELETE" });
       setNotice({ kind: "success", message: t("messages.promptDeleted") });
       const nextOffset = prompts.length === 1 ? Math.max(pageOffset - pageSize, 0) : pageOffset;
       setPageOffset(nextOffset);
       await loadPrompts(query, nextOffset, pageSize);
+      setPendingDeletePrompt(null);
     } catch (error) {
       setNotice({ kind: "error", message: normalizeError(error, t("messages.deletePromptError")) });
     }

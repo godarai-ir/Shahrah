@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { ArrowDown, ArrowUp, CheckCircle2, Copy, Edit3, Plus, RefreshCw, Save, Search, Trash2, XCircle } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ChipInput, CopyAction, DateTimeValue, HelpLink, IdentifierField, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
+import { ChipInput, ConfirmDialog, CopyAction, DateTimeValue, HelpLink, IdentifierField, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -173,6 +173,7 @@ export default function VirtualModelManagement() {
   const [savedHash, setSavedHash] = useState(() => JSON.stringify(makeDefaultForm(defaultEveryoneLabel)));
   const [editorOpen, setEditorOpen] = useState(false);
   const [pendingDiscardAction, setPendingDiscardAction] = useState<null | (() => void | Promise<void>)>(null);
+  const [disableConfirmOpen, setDisableConfirmOpen] = useState(false);
 
   const isCreate = !form.id;
   const dirty = useMemo(() => JSON.stringify(form) !== savedHash, [form, savedHash]);
@@ -409,7 +410,7 @@ export default function VirtualModelManagement() {
     });
   }
 
-  async function submitForm() {
+  async function submitForm(skipDisableConfirm = false) {
     const validationError = validateForm(form, t);
     if (validationError) {
       setNotice({ kind: "error", message: validationError });
@@ -419,7 +420,8 @@ export default function VirtualModelManagement() {
       setNotice({ kind: "error", message: t("messages.noCommonModes") });
       return;
     }
-    if (!form.enabled && !window.confirm(t("messages.disableConfirm"))) {
+    if (!form.enabled && !skipDisableConfirm) {
+      setDisableConfirmOpen(true);
       return;
     }
     setIsSaving(true);
@@ -1112,6 +1114,7 @@ export default function VirtualModelManagement() {
           await action?.();
         }}
       />
+      <ConfirmDialog open={disableConfirmOpen} onOpenChange={setDisableConfirmOpen} title={t("actions.save")} description={t("messages.disableConfirm")} cancelLabel={t("actions.cancel")} confirmLabel={t("actions.save")} pendingLabel={t("actions.saving")} onConfirm={() => submitForm(true)} destructive={false} />
 
       <TypedConfirmDialog
         open={deleteDialogOpen}

@@ -19,6 +19,7 @@
     "jsonObject": "شیء JSON"
   },
   "actions": {
+    "cancel": "انصراف",
     "createPrompt": "ایجاد پرامپت",
     "refresh": "به‌روزرسانی",
     "copy": "کپی",

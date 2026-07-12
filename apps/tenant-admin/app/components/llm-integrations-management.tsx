@@ -23,7 +23,7 @@ import {
   stringsEqualFold,
   unwrapData,
 } from "@/app/components/provider-account-wizard/utils";
-import { HelpLink, RowActionsMenu } from "@/components/app-ui";
+import { ConfirmDialog, HelpLink, RowActionsMenu } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -116,6 +116,7 @@ export default function LLMIntegrationsManagement(props: {
   const [accounts, setAccounts] = useState<TenantProviderAccount[]>([]);
   const [modelCounts, setModelCounts] = useState<Record<string, number | null>>({});
   const [query, setQuery] = useState("");
+  const [pendingDisconnectAccount, setPendingDisconnectAccount] = useState<TenantProviderAccount | null>(null);
   const [providerFilters, setProviderFilters] = useState<string[]>(initialProviderFilters);
   const [providerPagination, setProviderPagination] = useState<{ signature: string; count: number }>({
     signature: "",
@@ -264,14 +265,13 @@ export default function LLMIntegrationsManagement(props: {
   }
 
   async function disconnectAccount(account: TenantProviderAccount) {
-    const confirmed = window.confirm(copy("messages.disconnectConfirm", { name: account.name }));
-    if (!confirmed) return;
     setDeletingAccountID(account.id);
     setBanner(null);
     try {
       await requestJSON(`/api/tenant-provider-accounts/${encodeURIComponent(account.id)}`, { method: "DELETE" });
       setAccounts((current) => current.filter((item) => item.id !== account.id));
       setBanner({ kind: "success", message: copy("messages.disconnectSuccess") });
+      setPendingDisconnectAccount(null);
     } catch (error) {
       setBanner({ kind: "error", message: normalizeError(error, copy("messages.disconnectFailed")) });
     } finally {
@@ -322,6 +322,7 @@ export default function LLMIntegrationsManagement(props: {
   }
 
   return (
+    <>
     <main className="flex flex-1 px-3 py-3 sm:px-4">
       <section className="flex min-h-[calc(100dvh-1.5rem)] w-full flex-col overflow-hidden rounded-xl border border-border bg-background">
         <header className="border-b border-border px-5 py-5 sm:px-6" dir={pageDirection}>
@@ -434,7 +435,7 @@ export default function LLMIntegrationsManagement(props: {
                       disconnectingLabel={copy("actions.disconnecting")}
                       descriptionFallback={copy("integrationDescriptionFallback")}
                       onCopy={() => void copyIdentifier(account)}
-                      onDisconnect={() => void disconnectAccount(account)}
+                      onDisconnect={() => setPendingDisconnectAccount(account)}
                       isDisconnecting={deletingAccountID === account.id}
                     />
                   );
@@ -454,6 +455,8 @@ export default function LLMIntegrationsManagement(props: {
         </Tabs>
       </section>
     </main>
+    <ConfirmDialog open={pendingDisconnectAccount !== null} onOpenChange={(open) => { if (!open) setPendingDisconnectAccount(null); }} title={copy("actions.disconnect")} description={copy("messages.disconnectConfirm", { name: pendingDisconnectAccount?.name ?? "" })} cancelLabel={copy("actions.cancel")} confirmLabel={copy("actions.disconnect")} pendingLabel={copy("actions.disconnecting")} onConfirm={() => pendingDisconnectAccount ? disconnectAccount(pendingDisconnectAccount) : undefined} />
+    </>
   );
 }
 

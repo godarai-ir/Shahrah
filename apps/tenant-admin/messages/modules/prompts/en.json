@@ -19,6 +19,7 @@
     "jsonObject": "JSON object"
   },
   "actions": {
+    "cancel": "Cancel",
     "createPrompt": "Create Prompt",
     "refresh": "Refresh",
     "copy": "Copy",
