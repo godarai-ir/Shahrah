@@ -21,6 +21,11 @@ import { DisplaySettingsModule } from './display-settings/display-settings.modul
           host: cfg.get<string>('REDIS_HOST', '127.0.0.1'),
           port: Number(cfg.get<number>('REDIS_PORT', 6379)),
           password: cfg.get<string>('REDIS_PASSWORD') || undefined,
+          // BullMQ workers are long-lived and must survive transient DNS or
+          // Redis outages instead of exhausting ioredis' default 20 retries.
+          maxRetriesPerRequest: null,
+          connectTimeout: 10_000,
+          retryStrategy: (attempt: number) => Math.min(attempt * 200, 5_000),
         },
       }),
     }),
