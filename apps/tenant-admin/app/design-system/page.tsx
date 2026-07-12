@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Shield, Trash2, Upload, X } from "lucide-react";
 
-import { AppCard, AppSelectField, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyableValue, DataListPanel, DefinitionList, DefinitionListItem, EmptyState, FilterCombobox, FormSection, HelpLink, IdentifierField, MetricCard, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, StatusOptionGroup, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyableValue, DataListPanel, DefinitionList, DefinitionListItem, EmptyState, FilterCombobox, FormSection, FormSheet, HelpLink, IdentifierField, MetricCard, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, StatusOptionGroup, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
 import { Attachment, AttachmentAction, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -44,6 +44,7 @@ export default function DesignSystemPage() {
   const [demoSecret, setDemoSecret] = useState<string | null>(null);
   const [statusOption, setStatusOption] = useState<"metadata" | "full">("metadata");
   const [typedConfirmOpen, setTypedConfirmOpen] = useState(false);
+  const [formSheetOpen, setFormSheetOpen] = useState(false);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const requestsDisplay = formatCompactNumber(128_400, { locale: "en-US" });
   const spendDisplay = formatCompactCurrency(12_340, { locale: "en-US", currency: "USD" });
@@ -200,6 +201,12 @@ export default function DesignSystemPage() {
             pendingLabel="Deleting"
             onConfirm={() => undefined}
           />
+        </AppCard>
+        <AppCard title="Form sheet" description="Standard shell for create and edit workflows.">
+          <Button type="button" onClick={() => setFormSheetOpen(true)}>Open form sheet</Button>
+          <FormSheet open={formSheetOpen} onOpenChange={setFormSheetOpen} title="Create resource" description="Enter the resource details.">
+            <FormSection title="General information"><Input placeholder="Resource name" /></FormSection>
+          </FormSheet>
         </AppCard>
         <AppCard title="Status option group" description="Use for a single setting selected from visual status cards.">
           <StatusOptionGroup

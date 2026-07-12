@@ -10,6 +10,7 @@ export { DefinitionList, DefinitionListItem, type DefinitionListItemProps, type 
 export { EmptyState, type EmptyStateDensity, type EmptyStateProps, type EmptyStateVariant } from "./EmptyState";
 export { FilterCombobox } from "./FilterCombobox";
 export { FormSection } from "./FormSection";
+export { FormSheet, type FormSheetProps, type FormSheetSize } from "./FormSheet";
 export { HelpLink } from "./HelpLink";
 export { DEFAULT_IDENTIFIER_DESCRIPTION, IDENTIFIER_PATTERN, IdentifierField, isValidIdentifier } from "./IdentifierField";
 export { MetricCard } from "./MetricCard";

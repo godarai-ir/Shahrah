@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 import { usePermissions } from "@/app/components/permissions-context";
-import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, FilterCombobox, HelpLink, IdentifierField, MetricCard, OperationNotice, PageHeader, RowActionsMenu, SearchField, StatusBadge as AppStatusBadge, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, EmptyState, FilterCombobox, FormSheet, HelpLink, IdentifierField, MetricCard, OperationNotice, PageHeader, RowActionsMenu, SearchField, StatusBadge as AppStatusBadge, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -465,14 +465,13 @@ export default function TeamManagement({
         </div>
       </section>
 
-      <Sheet open={createOpen} onOpenChange={setCreateOpen}>
-        <SheetContent side="left" className="w-full max-w-xl overflow-y-auto sm:w-3/4">
-          <SheetHeader><SheetTitle>{t("create.title")}</SheetTitle><SheetDescription>{t("create.description")}</SheetDescription></SheetHeader>
-          <TeamForm t={t} form={form} setForm={setForm} orgUnits={orgUnits} onSubmit={handleCreate} isSaving={isSaving} submitLabel={t("create.submit")} />
-        </SheetContent>
-      </Sheet>
+      <FormSheet open={createOpen} onOpenChange={setCreateOpen} title={t("create.title")} description={t("create.description")} pending={isSaving}>
+        <TeamForm t={t} form={form} setForm={setForm} orgUnits={orgUnits} onSubmit={handleCreate} isSaving={isSaving} submitLabel={t("create.submit")} />
+      </FormSheet>
 
-      <Sheet open={editOpen} onOpenChange={setEditOpen}><SheetContent side="left" className="w-full max-w-xl overflow-y-auto sm:w-3/4"><SheetHeader><SheetTitle>{t("edit.title")}</SheetTitle><SheetDescription>{t("edit.description")}</SheetDescription></SheetHeader><TeamForm t={t} form={form} setForm={setForm} orgUnits={orgUnits} onSubmit={handleEdit} isSaving={isSaving} submitLabel={t("edit.submit")} /></SheetContent></Sheet>
+      <FormSheet open={editOpen} onOpenChange={setEditOpen} title={t("edit.title")} description={t("edit.description")} pending={isSaving}>
+        <TeamForm t={t} form={form} setForm={setForm} orgUnits={orgUnits} onSubmit={handleEdit} isSaving={isSaving} submitLabel={t("edit.submit")} />
+      </FormSheet>
 
       <Sheet open={membersOpen} onOpenChange={setMembersOpen}><SheetContent side="left" className="w-full max-w-xl overflow-y-auto sm:w-3/4"><SheetHeader><SheetTitle>{t("members.title")}</SheetTitle><SheetDescription>{t("members.description")}</SheetDescription></SheetHeader>
         <form onSubmit={addMember} className="mt-6 flex flex-col gap-3">

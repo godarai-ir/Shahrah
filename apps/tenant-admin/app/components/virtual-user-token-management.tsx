@@ -13,7 +13,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, DefinitionList, DefinitionListItem, EmptyState, HelpLink, IdentifierField, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, DefinitionList, DefinitionListItem, EmptyState, FormSheet, HelpLink, IdentifierField, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -724,12 +724,7 @@ export default function VirtualUserTokenManagement({
         </div>
       </section>
 
-      <Sheet open={createUserOpen} onOpenChange={setCreateUserOpen}>
-        <SheetContent side="left" className="w-full max-w-xl overflow-y-auto sm:w-3/4">
-          <SheetHeader>
-            <SheetTitle>{t("createUser.title")}</SheetTitle>
-            <SheetDescription>{t("createUser.description")}</SheetDescription>
-          </SheetHeader>
+      <FormSheet open={createUserOpen} onOpenChange={setCreateUserOpen} title={t("createUser.title")} description={t("createUser.description")} pending={isSaving}>
           <VirtualUserFormView
             t={t}
             form={virtualUserForm}
@@ -740,15 +735,9 @@ export default function VirtualUserTokenManagement({
             isSaving={isSaving}
             mode="create"
           />
-        </SheetContent>
-      </Sheet>
+      </FormSheet>
 
-      <Sheet open={editUserOpen} onOpenChange={setEditUserOpen}>
-        <SheetContent side="left" className="w-full max-w-xl overflow-y-auto sm:w-3/4">
-          <SheetHeader>
-            <SheetTitle>{t("editUser.title")}</SheetTitle>
-            <SheetDescription>{t("editUser.description")}</SheetDescription>
-          </SheetHeader>
+      <FormSheet open={editUserOpen} onOpenChange={setEditUserOpen} title={t("editUser.title")} description={t("editUser.description")} pending={isSaving}>
           <VirtualUserFormView
             t={t}
             form={virtualUserForm}
@@ -759,8 +748,7 @@ export default function VirtualUserTokenManagement({
             isSaving={isSaving}
             mode="edit"
           />
-        </SheetContent>
-      </Sheet>
+      </FormSheet>
 
       {selectedVirtualUser ? (
         <TypedConfirmDialog
