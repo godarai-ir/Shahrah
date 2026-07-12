@@ -24,6 +24,10 @@ Use `variant="surface"` for standalone page or panel states, `variant="inline"` 
 
 Use `density="compact"` for constrained pickers and small panels. Keep “no data” and “no search results” copy distinct in the owning feature, and preserve the table header when rendering a table empty state.
 
+## OperationNotice
+
+Use `OperationNotice` for transient operation feedback represented by a `kind` and `message`. Pass localized labels for success, error, warning, and info; keep notice state and dismissal behavior in the owning feature. Use raw `Alert` for persistent explanatory callouts that are not operation results.
+
 ## AppCard / SettingsCard
 
 Use `AppCard` for product cards and `SettingsCard` for settings pages or grouped account configuration.

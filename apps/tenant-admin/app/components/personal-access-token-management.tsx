@@ -4,8 +4,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { KeyRound, Plus, RefreshCcw, Trash2 } from "lucide-react";
 
-import { AppCard, ConfirmDialog, EmptyState, HelpLink, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge } from "@/components/app-ui";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AppCard, ConfirmDialog, EmptyState, HelpLink, OneTimeSecretDialog, OperationNotice, PageHeader, SearchField, StatusBadge } from "@/components/app-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -188,12 +187,7 @@ export default function PersonalAccessTokenManagement(props: {
         }
       />
 
-      {banner ? (
-        <Alert variant={banner.kind === "error" ? "destructive" : "default"}>
-          <AlertTitle>{banner.kind === "error" ? t("alerts.error") : t("alerts.success")}</AlertTitle>
-          <AlertDescription>{banner.message}</AlertDescription>
-        </Alert>
-      ) : null}
+      <OperationNotice notice={banner} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.error"), info: t("alerts.success") }} />
 
       <AppCard>
         <div className="flex flex-col gap-4">

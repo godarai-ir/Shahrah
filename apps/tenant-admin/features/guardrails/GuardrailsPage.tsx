@@ -4,8 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Check, Copy, Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 
-import { AppSelectField, EmptyState, HelpLink, IdentifierField } from "@/components/app-ui";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AppSelectField, EmptyState, HelpLink, IdentifierField, OperationNotice } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -429,12 +428,7 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
           <Input placeholder={t("searchPlaceholder")} value={query} onChange={(event) => setQuery(event.target.value)} />
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          {notice ? (
-            <Alert variant={notice.kind === "error" ? "destructive" : "default"}>
-              <AlertTitle>{notice.kind === "error" ? t("alerts.error") : t("alerts.success")}</AlertTitle>
-              <AlertDescription>{notice.message}</AlertDescription>
-            </Alert>
-          ) : null}
+          <OperationNotice notice={notice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.error"), info: t("alerts.success") }} />
 
           {tableItems.length === 0 && !isLoading ? (
             <EmptyState

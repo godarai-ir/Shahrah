@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Shield, Trash2, Upload, X } from "lucide-react";
 
-import { AppCard, AppSelectField, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyableValue, DataListPanel, DefinitionList, DefinitionListItem, EmptyState, FilterCombobox, FormSection, HelpLink, IdentifierField, MetricCard, OneTimeSecretDialog, PageContainer, PageHeader, PermissionEditor, PermissionSummary, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, StatusOptionGroup, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyableValue, DataListPanel, DefinitionList, DefinitionListItem, EmptyState, FilterCombobox, FormSection, HelpLink, IdentifierField, MetricCard, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, StatusOptionGroup, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
 import { Attachment, AttachmentAction, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -359,6 +359,10 @@ export default function DesignSystemPage() {
           <StatusBadge status="error">error</StatusBadge>
           <StatusBadge status="neutral">neutral</StatusBadge>
         </div>
+        <OperationNotice
+          notice={{ kind: "success", message: "The resource was updated successfully." }}
+          labels={{ success: "Success", error: "Error", warning: "Warning", info: "Information" }}
+        />
         <div className="grid gap-4 lg:grid-cols-3">
           <EmptyState icon={Inbox} title="No records yet" description="Use the surface variant for standalone empty states." primaryAction={<Button size="sm">Create</Button>} />
           <AppCard title="Loading">

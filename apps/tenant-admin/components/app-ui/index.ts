@@ -14,6 +14,7 @@ export { HelpLink } from "./HelpLink";
 export { DEFAULT_IDENTIFIER_DESCRIPTION, IDENTIFIER_PATTERN, IdentifierField, isValidIdentifier } from "./IdentifierField";
 export { MetricCard } from "./MetricCard";
 export { OneTimeSecretDialog, type OneTimeSecretDialogProps } from "./OneTimeSecretDialog";
+export { OperationNotice, type OperationNoticeKind, type OperationNoticeLabels, type OperationNoticeProps, type OperationNoticeValue } from "./OperationNotice";
 export { PageHeader } from "./PageHeader";
 export { PageContainer, type PageContainerPadding, type PageContainerProps, type PageContainerSize, type PageContainerSpacing } from "./PageContainer";
 export { PermissionEditor, type PermissionEditorLabels, type PermissionEditorMode, type PermissionEditorProps, type PermissionOption } from "./PermissionEditor";
