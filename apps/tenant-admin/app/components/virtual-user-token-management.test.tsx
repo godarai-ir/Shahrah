@@ -65,7 +65,7 @@ describe("VirtualUserTokenManagement", () => {
       />,
     );
 
-    fireEvent.click(screen.getByText("actions.deleteUser"));
+    fireEvent.click(screen.getByRole("button", { name: "actions.deleteUser" }));
 
     expect(screen.getByText("deleteUser.title")).toBeInTheDocument();
     expect(screen.getByText("deleteUser.description")).toBeInTheDocument();
