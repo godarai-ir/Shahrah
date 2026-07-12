@@ -144,6 +144,8 @@ Keep the triggering action visible while entitlements load, but disable it until
 
 Use `FormSheet` for create/edit forms presented in a side sheet. It standardizes accessible title/description, responsive widths, scroll ownership, header/footer borders, and pending dismissal behavior. Keep form state and submission in the owning feature.
 
+Use `FormDialog` for focused configuration forms that belong in a modal. It standardizes accessible heading structure, responsive sizes, scroll containment, optional footer actions, and pending-state dismissal protection. Keep field state and submission in the feature.
+
 Use to group related fields with a title, description, content, and optional footer actions.
 
 The title is optional for compact sections whose context is already established by the surrounding page or drawer header. Omitting both title and description removes the header column entirely.

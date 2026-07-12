@@ -19,6 +19,7 @@ export { EmptyState, type EmptyStateDensity, type EmptyStateProps, type EmptySta
 export { EntityIdentityHeader, type EntityIdentityHeaderProps } from "./EntityIdentityHeader";
 export { FilterCombobox } from "./FilterCombobox";
 export { FormSection } from "./FormSection";
+export { FormDialog, type FormDialogProps, type FormDialogSize } from "./FormDialog";
 export { FormSheet, type FormSheetProps, type FormSheetSize } from "./FormSheet";
 export { HelpLink } from "./HelpLink";
 export { DEFAULT_IDENTIFIER_DESCRIPTION, IDENTIFIER_PATTERN, IdentifierField, isValidIdentifier } from "./IdentifierField";

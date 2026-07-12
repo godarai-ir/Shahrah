@@ -1,15 +1,7 @@
 "use client";
 
-import { AppCodeTextareaField, AppSelectField, AppSwitchField } from "@/components/app-ui";
+import { AppCodeTextareaField, AppSelectField, AppSwitchField, FormDialog } from "@/components/app-ui";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
 import type { BuilderState, PromptTranslationFn } from "./prompt-management-shared";
 
@@ -23,13 +15,7 @@ type StructuredOutputDialogProps = {
 
 export function StructuredOutputDialog(props: StructuredOutputDialogProps) {
   return (
-    <Dialog open={props.open} onOpenChange={props.setOpen}>
-      <DialogContent className="w-[min(960px,95vw)] max-w-[960px]">
-        <DialogHeader>
-          <DialogTitle>{props.t("dialogs.structured.title")}</DialogTitle>
-          <DialogDescription>{props.t("dialogs.structured.description")}</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
+    <FormDialog open={props.open} onOpenChange={props.setOpen} title={props.t("dialogs.structured.title")} description={props.t("dialogs.structured.description")} size="lg" footer={<Button type="button" variant="outline" onClick={() => props.setOpen(false)}>{props.t("actions.close")}</Button>}>
           <AppSwitchField label={props.t("dialogs.structured.enableTitle")} description={props.t("dialogs.structured.enableDescription")} checked={props.builder.structuredEnabled} onCheckedChange={(checked) => props.onBuilderChange((current) => ({ ...current, structuredEnabled: checked }))} />
           <div className="grid gap-3 sm:grid-cols-2">
             <AppSelectField
@@ -44,13 +30,6 @@ export function StructuredOutputDialog(props: StructuredOutputDialogProps) {
             <AppSwitchField label={props.t("dialogs.structured.fields.strict")} description={props.builder.structuredStrict ? props.t("common.enabled") : props.t("common.disabled")} checked={props.builder.structuredStrict} onCheckedChange={(checked) => props.onBuilderChange((current) => ({ ...current, structuredStrict: checked }))} />
           </div>
           <AppCodeTextareaField label={props.t("dialogs.structured.fields.schema")} value={props.builder.structuredSchema} onChange={(event) => props.onBuilderChange((current) => ({ ...current, structuredSchema: event.target.value }))} className="min-h-72" />
-        </div>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => props.setOpen(false)}>
-            {props.t("actions.close")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

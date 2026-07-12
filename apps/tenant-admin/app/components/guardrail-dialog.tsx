@@ -2,17 +2,9 @@
 
 import { AlertCircle } from "lucide-react";
 
-import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { AppSelectField, FormDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import type { BuilderState, GuardrailItem, PromptTranslationFn } from "./prompt-management-shared";
@@ -31,14 +23,14 @@ export function GuardrailDialog(props: GuardrailDialogProps) {
   const selectedGuardrailMode = props.mode === "input" ? props.builder.inputGuardrails : props.builder.outputGuardrails;
 
   return (
-    <Dialog open={props.mode !== null} onOpenChange={(open) => { if (!open) props.setMode(null); }}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{props.mode === "input" ? props.t("dialogs.guardrails.inputTitle") : props.t("dialogs.guardrails.outputTitle")}</DialogTitle>
-          <DialogDescription>
-            {props.mode === "input" ? props.t("dialogs.guardrails.inputDescription") : props.t("dialogs.guardrails.outputDescription")}
-          </DialogDescription>
-        </DialogHeader>
+    <FormDialog
+      open={props.mode !== null}
+      onOpenChange={(open) => { if (!open) props.setMode(null); }}
+      title={props.mode === "input" ? props.t("dialogs.guardrails.inputTitle") : props.t("dialogs.guardrails.outputTitle")}
+      description={props.mode === "input" ? props.t("dialogs.guardrails.inputDescription") : props.t("dialogs.guardrails.outputDescription")}
+      size="md"
+      footer={<Button type="button" variant="outline" onClick={() => props.setMode(null)}>{props.t("actions.close")}</Button>}
+    >
         {props.isLoading ? (
           <div className="space-y-2">
             <Skeleton className="h-10 w-full" />
@@ -99,12 +91,6 @@ export function GuardrailDialog(props: GuardrailDialogProps) {
             </div>
           </div>
         )}
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => props.setMode(null)}>
-            {props.t("actions.close")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }
