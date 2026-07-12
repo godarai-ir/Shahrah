@@ -4,15 +4,8 @@ import { Check } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import type { ProviderCatalogModel } from "@/app/components/provider-account-wizard/types";
+import { SearchPickerDialog } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 import { formatNumber, type BuilderState, type GatewayModel, type PromptTranslationFn } from "./prompt-management-shared";
@@ -63,14 +56,7 @@ export function ModelPickerDialog(props: ModelPickerDialogProps) {
   }, [props.providerModels, visibleModels, visibleProviderID]);
 
   return (
-    <Dialog open={props.open} onOpenChange={props.setOpen}>
-      <DialogContent className="w-[min(1100px,95vw)] max-w-[1100px]">
-        <DialogHeader>
-          <DialogTitle>{props.t("dialogs.model.title")}</DialogTitle>
-          <DialogDescription>{props.t("dialogs.model.description")}</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <Input value={modelSearch} onChange={(event) => setModelSearch(event.target.value)} placeholder={props.t("dialogs.model.searchPlaceholder")} />
+    <SearchPickerDialog open={props.open} onOpenChange={props.setOpen} title={props.t("dialogs.model.title")} description={props.t("dialogs.model.description")} searchValue={modelSearch} onSearchValueChange={setModelSearch} searchPlaceholder={props.t("dialogs.model.searchPlaceholder")} size="xl">
           <div className="grid min-h-[380px] gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
             <div className="space-y-1 rounded-lg border bg-muted/20 p-2">
               {props.providerCatalog.map((provider) => (
@@ -147,8 +133,6 @@ export function ModelPickerDialog(props: ModelPickerDialogProps) {
               )}
             </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+    </SearchPickerDialog>
   );
 }

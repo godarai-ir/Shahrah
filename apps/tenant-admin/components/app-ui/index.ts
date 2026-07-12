@@ -35,6 +35,7 @@ export { PermissionEditor, type PermissionEditorLabels, type PermissionEditorMod
 export { PermissionSummary, getPermissionSelectionSummary, type PermissionSummaryLabels, type PermissionSummaryProps } from "./PermissionSummary";
 export { RowActionsMenu, type RowAction, type RowActionsMenuProps } from "./RowActionsMenu";
 export { SearchField } from "./SearchField";
+export { SearchPickerDialog, type SearchPickerDialogProps } from "./SearchPickerDialog";
 export { SectionHeader } from "./SectionHeader";
 export { SettingsCard } from "./SettingsCard";
 export { StatusBadge } from "./StatusBadge";

@@ -29,7 +29,7 @@ export function FormDialog({ open, onOpenChange, title, description, children, f
 
   return (
     <Dialog open={open} onOpenChange={changeOpen}>
-      <DialogContent className={cn("max-h-[calc(100dvh-2rem)] overflow-y-auto", sizeClasses[size], contentClassName)} showCloseButton={!pending} onEscapeKeyDown={(event) => pending && event.preventDefault()} onPointerDownOutside={(event) => pending && event.preventDefault()}>
+      <DialogContent className={cn("max-h-[calc(100dvh-2rem)] overflow-y-auto", sizeClasses[size], contentClassName)} showCloseButton={!pending} onEscapeKeyDown={(event) => pending && event.preventDefault()} onPointerDownOutside={(event) => pending && event.preventDefault()} {...(!description ? { "aria-describedby": undefined } : {})}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description ? <DialogDescription>{description}</DialogDescription> : null}

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Shield, Trash2, Upload, X } from "lucide-react";
 
 import { ActiveFilterChips, AppCard, AppCodeTextareaField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, CheckboxOptionList, ChipInput, CodePanel, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeRangeField, DateTimeValue, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, FilterCombobox, FormDialog, FormSection, FormSheet, HelpLink, IdentifierField, MetricCard, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
+import { SearchPickerDialog } from "@/components/app-ui/SearchPickerDialog";
 import { Attachment, AttachmentAction, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -47,6 +48,8 @@ export default function DesignSystemPage() {
   const [unsavedChangesOpen, setUnsavedChangesOpen] = useState(false);
   const [formSheetOpen, setFormSheetOpen] = useState(false);
   const [formDialogOpen, setFormDialogOpen] = useState(false);
+  const [searchPickerOpen, setSearchPickerOpen] = useState(false);
+  const [searchPickerQuery, setSearchPickerQuery] = useState("");
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const requestsDisplay = formatCompactNumber(128_400, { locale: "en-US" });
   const spendDisplay = formatCompactCurrency(12_340, { locale: "en-US", currency: "USD" });
@@ -211,6 +214,8 @@ export default function DesignSystemPage() {
           </FormSheet>
           <Button type="button" variant="outline" onClick={() => setFormDialogOpen(true)}>Open form dialog</Button>
           <FormDialog open={formDialogOpen} onOpenChange={setFormDialogOpen} title="Configure resource" description="Update the shared configuration." footer={<Button onClick={() => setFormDialogOpen(false)}>Save</Button>}><AppTextField label="Name" /></FormDialog>
+          <Button type="button" variant="outline" onClick={() => setSearchPickerOpen(true)}>Open search picker</Button>
+          <SearchPickerDialog open={searchPickerOpen} onOpenChange={setSearchPickerOpen} title="Choose model" searchValue={searchPickerQuery} onSearchValueChange={setSearchPickerQuery} searchPlaceholder="Search models"><Button variant="ghost">gpt-4.1</Button></SearchPickerDialog>
         </AppCard>
         <AppCard title="Status option group" description="Use for a single setting selected from visual status cards.">
           <StatusOptionGroup
