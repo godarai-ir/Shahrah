@@ -25,7 +25,7 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Line, LineChart, XAxis, YAxis } from "recharts";
 
-import { ActiveFilterChips, AppCard, AppSelectField, AppTextField, CompactValue, DateTimeRangeField, DebouncedTextFilter, EmptyState, FilterCombobox, FilterField, FormDialog, MetricCard, PageHeader, RangeFilterField, StatusBadge } from "@/components/app-ui";
+import { ActiveFilterChips, AppCard, AppSelectField, AppTextField, CodeBlock, CodePanel, CompactValue, DateTimeRangeField, DebouncedTextFilter, EmptyState, FilterCombobox, FilterField, FormDialog, MetricCard, PageHeader, RangeFilterField, StatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -2032,55 +2032,13 @@ function ReplayDraftPanel({ draft, t }: { draft: ReplayDraft; t: ReturnType<type
         <AlertTitle>{draft.supported ? t("replay.ready") : t("replay.unsupported")}</AlertTitle>
         <AlertDescription>{replayDraftMessage(draft, t)}</AlertDescription>
       </Alert>
-      {draft.supported ? (
-        <div className="flex flex-col gap-2">
-          <div className="text-sm font-medium">{t("replay.payloadTitle")}</div>
-          <JSONBlock value={payload} />
-        </div>
-      ) : null}
+      {draft.supported ? <CodePanel title={t("replay.payloadTitle")} displayLanguage="JSON" code={JSON.stringify(payload, null, 2)} language="json" /> : null}
     </div>
   );
 }
 
 function JSONBlock({ value }: { value: unknown }) {
-  return (
-    <pre className="max-h-[520px] overflow-auto rounded-md border border-border bg-muted p-3 text-left font-mono text-xs leading-relaxed" dir="ltr">
-      <code>{highlightJSON(value ?? {})}</code>
-    </pre>
-  );
-}
-
-function highlightJSON(value: unknown) {
-  const json = JSON.stringify(value, null, 2);
-  const tokenPattern = /("(?:\\u[\da-fA-F]{4}|\\[^u]|[^\\"])*"(\s*:)?|\btrue\b|\bfalse\b|\bnull\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g;
-
-  const nodes: ReactNode[] = [];
-  let lastIndex = 0;
-
-  for (const match of json.matchAll(tokenPattern)) {
-    const token = match[0];
-    const index = match.index ?? 0;
-    if (index > lastIndex) nodes.push(json.slice(lastIndex, index));
-
-    const className = jsonTokenClassName(token);
-    nodes.push(
-      <span key={`${index}-${token}`} className={className}>
-        {token}
-      </span>,
-    );
-    lastIndex = index + token.length;
-  }
-
-  if (lastIndex < json.length) nodes.push(json.slice(lastIndex));
-  return nodes;
-}
-
-function jsonTokenClassName(token: string) {
-  if (token.endsWith(":")) return "text-primary";
-  if (token.startsWith("\"")) return "text-foreground";
-  if (token === "true" || token === "false") return "text-primary";
-  if (token === "null") return "text-muted-foreground";
-  return "text-destructive";
+  return <CodeBlock code={JSON.stringify(value ?? {}, null, 2)} language="json" maxHeightClassName="max-h-[520px]" />;
 }
 
 function replayDraftMessage(draft: ReplayDraft, t: ReturnType<typeof useTranslations>) {
