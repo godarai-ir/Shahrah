@@ -40,6 +40,8 @@ Do not put cards inside cards. If a settings surface already has `SettingsCard`,
 
 Use for dashboard metrics with a label, value, optional description, optional trend, and optional icon.
 
+Use `density="compact"` for dense analytics grids and `tone` to communicate semantic icon emphasis. Do not create feature-local KPI wrappers only to rename `label`, `description`, or density props.
+
 ## CompactValue
 
 Use for large counts and money values when the short form improves scanability, especially in metrics, logs, and traces.

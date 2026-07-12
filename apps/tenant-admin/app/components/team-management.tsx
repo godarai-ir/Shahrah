@@ -453,8 +453,8 @@ export default function TeamManagement({
         <div className="flex min-w-0 flex-col gap-4">
           {!selectedTeam || !summary ? <EmptyState icon={Users} title={t("detail.empty")} className="min-h-56" /> : <>
             <div className="grid grid-cols-2 gap-3">
-              <Kpi label={t("kpi.membersAdmins")} value={`${summary.members}/${summary.admins}`} />
-              <Kpi label={t("kpi.activeKeys")} value={String(summary.activeKeys)} />
+              <MetricCard label={t("kpi.membersAdmins")} value={`${summary.members}/${summary.admins}`} density="compact" className="shadow-none" />
+              <MetricCard label={t("kpi.activeKeys")} value={String(summary.activeKeys)} density="compact" className="shadow-none" />
             </div>
             <AppCard title={t("detail.access")} contentClassName="flex flex-col gap-2 text-sm">
               <p>{t("detail.orgInheritance", { value: getOrgUnitName(selectedTeam, orgUnits, t) })}</p><p>{t("detail.permissions", { value: summarizePermissions(members, t) })}</p>
@@ -698,9 +698,6 @@ function readBooleanFeature(value: unknown, fallback: boolean): boolean {
   return fallback;
 }
 
-function Kpi({ label, value }: { label: string; value: string }) {
-  return <MetricCard label={label} value={<span className="block truncate text-lg">{value}</span>} className="shadow-none" />;
-}
 
 async function requestJSON<T = unknown>(path: string, options?: RequestInit): Promise<T> {
   const headers = new Headers(options?.headers ?? {});

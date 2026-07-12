@@ -8,7 +8,7 @@ import { useLocale, useTranslations } from "next-intl";
 
 import TracePrivacySettingsPanel, { type TracePrivacySettings } from "@/app/components/trace-privacy-settings";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ActiveFilterChips, AppSelectField, CatalogFilterCombobox, CompactValue, DateTimeRangeField, FilterField, PageContainer } from "@/components/app-ui";
+import { ActiveFilterChips, AppSelectField, CatalogFilterCombobox, CompactValue, DateTimeRangeField, FilterField, MetricCard, PageContainer } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -780,15 +780,17 @@ export default function TraceManagement(props: TraceManagementProps) {
       ) : null}
 
       <section aria-label={t("summary.title")} className="grid grid-cols-2 gap-2">
-        <SummaryCard
-          title={t("summary.totalRequests")}
+        <MetricCard
+          label={t("summary.totalRequests")}
           value={<CompactValue display={formatCompactNumber(total, { locale })} />}
-          detail={t("summary.currentFilters")}
+          description={t("summary.currentFilters")}
+          density="compact"
         />
-        <SummaryCard
-          title={t("summary.errorRate")}
+        <MetricCard
+          label={t("summary.errorRate")}
           value={formatPercent(errorRate, locale)}
-          detail={t("summary.failureCount", { count: formatCompactNumber(errorCount, { locale }).value })}
+          description={t("summary.failureCount", { count: formatCompactNumber(errorCount, { locale }).value })}
+          density="compact"
         />
       </section>
 
@@ -993,22 +995,6 @@ function TraceColumnVisibilityMenu({
         })}
       </DropdownMenuContent>
     </DropdownMenu>
-  );
-}
-
-function SummaryCard({ title, value, detail }: { title: string; value: ReactNode; detail: ReactNode }) {
-  return (
-    <Card className="rounded-lg">
-      <CardHeader className="gap-1 p-3 md:p-3">
-        <CardDescription className="truncate text-xs leading-none">{title}</CardDescription>
-        <CardTitle className="truncate text-lg leading-tight tabular-nums" dir="auto">
-          {value}
-        </CardTitle>
-        <p className="truncate text-[11px] text-muted-foreground" dir="auto">
-          {detail}
-        </p>
-      </CardHeader>
-    </Card>
   );
 }
 

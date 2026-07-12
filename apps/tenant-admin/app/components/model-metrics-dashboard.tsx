@@ -15,7 +15,7 @@ import {
   YAxis,
 } from "recharts";
 
-import { AppCard, CatalogFilterCombobox, CompactValue, DateTimeRangeField, EmptyState, MetricCard as AppMetricCard, PageHeader } from "@/components/app-ui";
+import { AppCard, CatalogFilterCombobox, CompactValue, DateTimeRangeField, EmptyState, MetricCard, PageHeader } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -508,16 +508,16 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
       ) : null}
 
       <section aria-label={t("sections.summary")} className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-        <MetricCard title={t("cards.totalRequests")} value={<CompactValue display={formatCompactNumber(summary.totalRequests, { locale })} />} />
-        <MetricCard title={t("cards.inputTokens")} value={<CompactValue display={formatCompactNumber(summary.inputTokens, { locale })} />} />
-        <MetricCard title={t("cards.outputTokens")} value={<CompactValue display={formatCompactNumber(summary.outputTokens, { locale })} />} />
-        <MetricCard title={t("cards.totalCost")} value={<CompactValue display={formatCompactCurrency(summary.cost, { locale, currency: "USD", maximumFractionDigits: 6 })} />} />
-        <MetricCard title={t("cards.avoidedCost")} value={<CompactValue display={formatCompactCurrency(summary.avoidedCost, { locale, currency: "USD", maximumFractionDigits: 6 })} />} hint={t("cards.avoidedCostHint")} />
-        <MetricCard title={t("cards.costWithoutCache")} value={<CompactValue display={formatCompactCurrency(summary.costWithoutCache, { locale, currency: "USD", maximumFractionDigits: 6 })} />} />
-        <MetricCard title={t("cards.savingsRate")} value={formatPercent(summary.savingsRate, locale)} />
-        <MetricCard title={t("cards.cacheHits")} value={<CompactValue display={formatCompactNumber(summary.cacheHits, { locale })} />} />
-        <MetricCard title={t("cards.cacheHitRate")} value={formatPercent(summary.cacheHitRate, locale)} />
-        <MetricCard title={t("cards.cachedTokens")} value={<CompactValue display={formatCompactNumber(summary.avoidedTokens, { locale })} />} hint={t("cards.cachedTokensHint")} />
+        <MetricCard label={t("cards.totalRequests")} value={<CompactValue display={formatCompactNumber(summary.totalRequests, { locale })} />} density="compact" className="shadow-none" />
+        <MetricCard label={t("cards.inputTokens")} value={<CompactValue display={formatCompactNumber(summary.inputTokens, { locale })} />} density="compact" className="shadow-none" />
+        <MetricCard label={t("cards.outputTokens")} value={<CompactValue display={formatCompactNumber(summary.outputTokens, { locale })} />} density="compact" className="shadow-none" />
+        <MetricCard label={t("cards.totalCost")} value={<CompactValue display={formatCompactCurrency(summary.cost, { locale, currency: "USD", maximumFractionDigits: 6 })} />} density="compact" className="shadow-none" />
+        <MetricCard label={t("cards.avoidedCost")} value={<CompactValue display={formatCompactCurrency(summary.avoidedCost, { locale, currency: "USD", maximumFractionDigits: 6 })} />} description={t("cards.avoidedCostHint")} density="compact" className="shadow-none" />
+        <MetricCard label={t("cards.costWithoutCache")} value={<CompactValue display={formatCompactCurrency(summary.costWithoutCache, { locale, currency: "USD", maximumFractionDigits: 6 })} />} density="compact" className="shadow-none" />
+        <MetricCard label={t("cards.savingsRate")} value={formatPercent(summary.savingsRate, locale)} density="compact" className="shadow-none" />
+        <MetricCard label={t("cards.cacheHits")} value={<CompactValue display={formatCompactNumber(summary.cacheHits, { locale })} />} density="compact" className="shadow-none" />
+        <MetricCard label={t("cards.cacheHitRate")} value={formatPercent(summary.cacheHitRate, locale)} density="compact" className="shadow-none" />
+        <MetricCard label={t("cards.cachedTokens")} value={<CompactValue display={formatCompactNumber(summary.avoidedTokens, { locale })} />} description={t("cards.cachedTokensHint")} density="compact" className="shadow-none" />
       </section>
 
       <section aria-label={t("sections.charts")} className="grid gap-3 xl:grid-cols-2">
@@ -711,17 +711,6 @@ function MetricCombobox({
         </ComboboxList>
       </ComboboxContent>
     </Combobox>
-  );
-}
-
-function MetricCard({ title, value, hint }: { title: string; value: React.ReactNode; hint?: string }) {
-  return (
-    <AppMetricCard
-      label={title}
-      value={<span className="block truncate text-xl leading-tight tabular-nums" dir="auto">{value}</span>}
-      description={hint}
-      className="shadow-none"
-    />
   );
 }
 

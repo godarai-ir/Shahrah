@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { MetricCard } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -209,19 +210,21 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <SummaryCard
+              <MetricCard
                 icon={PlanStatusIcon}
-                title={t("plan.currentPlan")}
+                label={t("plan.currentPlan")}
                 value={planDisplayName}
-                subtitle={planStatus === "trialing" ? t("plan.trialSubtitle") : planIntervalLabel}
+                description={planStatus === "trialing" ? t("plan.trialSubtitle") : planIntervalLabel}
                 tone={planVisual.tone}
+                className="card-hover"
               />
-              <SummaryCard
+              <MetricCard
                 icon={Clock3}
-                title={t("plan.daysRemaining")}
+                label={t("plan.daysRemaining")}
                 value={daysRemaining === null ? common("notSet") : t("plan.daysValue", { days: numberFormatter.format(daysRemaining) })}
-                subtitle={planDeadlineISO ? formatDateTime(planDeadlineISO) : common("notSet")}
+                description={planDeadlineISO ? formatDateTime(planDeadlineISO) : common("notSet")}
                 tone={daysRemaining !== null && daysRemaining <= 10 ? "warning" : "success"}
+                className="card-hover"
               />
               <UsageSummaryCard
                 icon={Users}
@@ -278,39 +281,6 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
   );
 }
 
-function SummaryCard(props: {
-  title: string;
-  value: string;
-  subtitle: string;
-  icon: LucideIcon;
-  tone: "success" | "warning" | "muted";
-}) {
-  const Icon = props.icon;
-  const toneClassName = {
-    success: "bg-success/12 text-success ring-1 ring-[var(--success-soft-border)]",
-    warning: "bg-warning/12 text-warning ring-1 ring-[var(--warning-soft-border)]",
-    muted: "bg-muted/70 text-muted-foreground ring-1 ring-border/70",
-  }[props.tone];
-
-  return (
-    <DashboardPanel className="card-hover relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-l from-transparent via-[var(--primary-subtle-border)] to-transparent" />
-      <CardHeader className="gap-3 p-4 md:p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <CardDescription className="truncate text-[0.8rem]">{props.title}</CardDescription>
-            <CardTitle className="mt-2 text-2xl tracking-tight">{props.value}</CardTitle>
-          </div>
-          <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl", toneClassName)}>
-            <Icon className="size-4" aria-hidden="true" />
-          </span>
-        </div>
-        <CardDescription className="leading-6">{props.subtitle}</CardDescription>
-      </CardHeader>
-    </DashboardPanel>
-  );
-}
-
 function UsageSummaryCard(props: {
   title: string;
   used: number | null;
@@ -320,12 +290,13 @@ function UsageSummaryCard(props: {
   tone: "success" | "warning" | "muted";
 }) {
   return (
-    <SummaryCard
-      title={props.title}
+    <MetricCard
+      label={props.title}
       value={formatUsageValue(props.used, props.limit)}
-      subtitle={props.subtitle}
+      description={props.subtitle}
       icon={props.icon}
       tone={props.tone}
+      className="card-hover"
     />
   );
 }
