@@ -13,6 +13,7 @@ export { CopyableValue, copyTextToClipboard, type CopyableValueLabels, type Copy
 export { CopyAction, type CopyActionProps } from "./CopyAction";
 export { DataListPanel } from "./DataListPanel";
 export { DateTimeValue, type DateTimeValueProps } from "./DateTimeValue";
+export { DateTimeField, DateTimeRangeField, type DateTimeFieldProps, type DateTimeRangeFieldProps } from "./DateTimeRangeField";
 export { DefinitionList, DefinitionListItem, type DefinitionListItemProps, type DefinitionListProps } from "./DefinitionList";
 export { EmptyState, type EmptyStateDensity, type EmptyStateProps, type EmptyStateVariant } from "./EmptyState";
 export { EntityIdentityHeader, type EntityIdentityHeaderProps } from "./EntityIdentityHeader";

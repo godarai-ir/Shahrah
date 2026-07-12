@@ -62,6 +62,8 @@ Within table bodies, use `TableLoadingRows` for initial skeleton rows and `Table
 
 Use `DateTimeValue` for visible timestamps so the UI emits a semantic `time` element, localized digits/calendar, a stable invalid-value fallback, and tabular numerals. Use the shared `formatDateTime` utility only when a formatted string is required by an interpolation or non-React API.
 
+Use `DateTimeRangeField` for controlled ISO from/to filters. It owns conversion to browser-local `datetime-local` values, LTR input direction, calendar adornments, Field semantics, and responsive two-column layout. Use `DateTimeField` when only one timestamp is required.
+
 Use `CodePanel` for titled snippets, raw API responses, and examples that need a language badge, description, copy action, or feature-owned actions. It composes the shared syntax-highlighted `CodeBlock`; use `CodeBlock` alone only inside an existing panel that already supplies this hierarchy.
 
 Use `TablePagination` for previous/next pagination. Pass localized summary and button labels from the feature namespace, and provide page/page-size values only when they add useful context.

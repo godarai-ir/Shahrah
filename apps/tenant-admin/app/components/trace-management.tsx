@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Calendar, ChevronDown, Columns3, Filter, RefreshCw, RotateCcw, Settings2, X } from "lucide-react";
+import { ChevronDown, Columns3, Filter, RefreshCw, RotateCcw, Settings2, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
 import TracePrivacySettingsPanel, { type TracePrivacySettings } from "@/app/components/trace-privacy-settings";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AppSelectField, CatalogFilterCombobox, CompactValue, PageContainer } from "@/components/app-ui";
+import { AppSelectField, CatalogFilterCombobox, CompactValue, DateTimeRangeField, PageContainer } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -699,10 +699,7 @@ export default function TraceManagement(props: TraceManagementProps) {
           </div>
 
           {draftRangePreset === "custom" ? (
-            <div className="grid gap-3 md:grid-cols-2">
-              <DateTimeFilter id="from-filter" label={t("filters.from")} value={draft.from} onChange={(from) => setDraft((prev) => ({ ...prev, from }))} />
-              <DateTimeFilter id="to-filter" label={t("filters.to")} value={draft.to} onChange={(to) => setDraft((prev) => ({ ...prev, to }))} />
-            </div>
+            <DateTimeRangeField fromID="from-filter" toID="to-filter" from={draft.from} to={draft.to} fromLabel={t("filters.from")} toLabel={t("filters.to")} onFromChange={(from) => setDraft((prev) => ({ ...prev, from }))} onToChange={(to) => setDraft((prev) => ({ ...prev, to }))} />
           ) : null}
 
           {isCompactLayout ? (
@@ -994,33 +991,6 @@ function TraceField({
       </Label>
       {children}
     </div>
-  );
-}
-
-function DateTimeFilter({
-  id,
-  label,
-  value,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <TraceField id={id} label={label}>
-      <div className="relative">
-        <Calendar className="pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-        <Input
-          id={id}
-          type="datetime-local"
-          value={toDateTimeLocalValue(value)}
-          onChange={(event) => onChange(fromDateTimeLocalValue(event.target.value))}
-          className="h-9 ps-9"
-        />
-      </div>
-    </TraceField>
   );
 }
 
@@ -1522,18 +1492,4 @@ function rangeForPreset(preset: Exclude<RangePreset, "custom">) {
     from: new Date(now.getTime() - durationMs).toISOString(),
     to: now.toISOString(),
   };
-}
-
-function toDateTimeLocalValue(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const pad = (part: number) => String(part).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-function fromDateTimeLocalValue(value: string) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toISOString();
 }

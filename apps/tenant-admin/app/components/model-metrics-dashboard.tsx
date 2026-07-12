@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Calendar, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import {
   Area,
@@ -15,7 +15,7 @@ import {
   YAxis,
 } from "recharts";
 
-import { AppCard, CatalogFilterCombobox, CompactValue, EmptyState, MetricCard as AppMetricCard, PageHeader } from "@/components/app-ui";
+import { AppCard, CatalogFilterCombobox, CompactValue, DateTimeRangeField, EmptyState, MetricCard as AppMetricCard, PageHeader } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -435,10 +435,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
             />
           </Field>
           {rangePreset === "custom" ? (
-            <>
-              <DateTimePicker id="metrics-from" label={t("filters.from")} value={from} onChange={setFrom} />
-              <DateTimePicker id="metrics-to" label={t("filters.to")} value={to} onChange={setTo} />
-            </>
+            <DateTimeRangeField fromID="metrics-from" toID="metrics-to" from={from} to={to} fromLabel={t("filters.from")} toLabel={t("filters.to")} onFromChange={setFrom} onToChange={setTo} className="contents" />
           ) : null}
           <Field id="metrics-model" label={t("filters.model")}>
             <CatalogFilterCombobox
@@ -673,36 +670,6 @@ function Field({
   );
 }
 
-function DateTimePicker({
-  id,
-  label,
-  value,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <Field id={id} label={label}>
-      <div className="relative">
-        <Calendar className="pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-        <Input
-          id={id}
-          type="datetime-local"
-          value={toDateTimeLocalValue(value)}
-          onChange={(event) => {
-            const next = fromDateTimeLocalValue(event.target.value);
-            if (next) onChange(next);
-          }}
-          className="h-8 px-2 ps-8 text-xs"
-        />
-      </div>
-    </Field>
-  );
-}
-
 function MetricCombobox({
   id,
   options,
@@ -863,20 +830,6 @@ function rangeForPreset(preset: Exclude<RangePreset, "custom">) {
     from: new Date(now.getTime() - durationMs).toISOString(),
     to: now.toISOString(),
   };
-}
-
-function toDateTimeLocalValue(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const pad = (part: number) => String(part).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-function fromDateTimeLocalValue(value: string) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toISOString();
 }
 
 function formatPercent(value: number, locale: string) {

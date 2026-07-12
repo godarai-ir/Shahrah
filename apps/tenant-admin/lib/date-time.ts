@@ -23,3 +23,16 @@ export function formatDateTime(value: DateTimeInput, { locale = "en", fallback =
   if (!date) return fallback;
   return new Intl.DateTimeFormat(resolveDateLocale(locale), format).format(date);
 }
+
+export function toDateTimeLocalValue(value: DateTimeInput): string {
+  const date = parseDateTime(value);
+  if (!date) return "";
+  const pad = (part: number) => String(part).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+export function fromDateTimeLocalValue(value: string): string {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+}

@@ -26,7 +26,7 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Line, LineChart, XAxis, YAxis } from "recharts";
 
-import { AppCard, AppSelectField, CompactValue, EmptyState, FilterCombobox, MetricCard, PageHeader, StatusBadge } from "@/components/app-ui";
+import { AppCard, AppSelectField, CompactValue, DateTimeRangeField, EmptyState, FilterCombobox, MetricCard, PageHeader, StatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1065,7 +1065,7 @@ const LogsFilters = memo(function LogsFilters({
           <FacetSelect label={t("filters.provider")} value={filters.provider} onChange={(value) => onSetFilter("provider", value)} items={facets.providers} empty={t("filters.noOptions")} />
           <FacetSelect label={t("filters.model")} value={filters.model} onChange={(value) => onSetFilter("model", value)} items={facets.models} empty={t("filters.noOptions")} />
           {filters.range === "custom" ? (
-            <CustomDateRange
+            <DateTimeRangeField
               from={filters.from}
               to={filters.to}
               fromLabel={t("filters.from")}
@@ -1910,47 +1910,6 @@ const TextFilter = memo(function TextFilter({ label, value, onChange, mono }: { 
   );
 });
 
-const CustomDateRange = memo(function CustomDateRange({
-  from,
-  to,
-  fromLabel,
-  toLabel,
-  onFromChange,
-  onToChange,
-  className,
-}: {
-  from: string;
-  to: string;
-  fromLabel: string;
-  toLabel: string;
-  onFromChange: (value: string) => void;
-  onToChange: (value: string) => void;
-  className?: string;
-}) {
-  return (
-    <div className={cn("grid min-w-0 gap-3 md:grid-cols-2", className)}>
-      <LabeledControl label={fromLabel}>
-        <Input
-          type="datetime-local"
-          value={toDateTimeLocalValue(from)}
-          onChange={(event) => onFromChange(fromDateTimeLocalValue(event.target.value))}
-          className="h-8 text-left font-mono text-xs"
-          dir="ltr"
-        />
-      </LabeledControl>
-      <LabeledControl label={toLabel}>
-        <Input
-          type="datetime-local"
-          value={toDateTimeLocalValue(to)}
-          onChange={(event) => onToChange(fromDateTimeLocalValue(event.target.value))}
-          className="h-8 text-left font-mono text-xs"
-          dir="ltr"
-        />
-      </LabeledControl>
-    </div>
-  );
-});
-
 const RangeFilter = memo(function RangeFilter({
   label,
   minLabel,
@@ -2362,21 +2321,6 @@ function normalizeRangeValue(minValue: string, maxValue: string, bounds: { min: 
   const low = clampNumber(Math.min(min, max), bounds.min, bounds.max);
   const high = clampNumber(Math.max(min, max), bounds.min, bounds.max);
   return [low, high];
-}
-
-function toDateTimeLocalValue(value: string) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const pad = (part: number) => String(part).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-function fromDateTimeLocalValue(value: string) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toISOString();
 }
 
 function parseFiniteNumber(value: string): number | undefined {

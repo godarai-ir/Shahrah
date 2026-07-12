@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Shield, Trash2, Upload, X } from "lucide-react";
 
-import { AppCard, AppCodeTextareaField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, CodePanel, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeValue, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, FilterCombobox, FormSection, FormSheet, HelpLink, IdentifierField, MetricCard, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppCodeTextareaField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, CodePanel, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeRangeField, DateTimeValue, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, FilterCombobox, FormSection, FormSheet, HelpLink, IdentifierField, MetricCard, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
 import { Attachment, AttachmentAction, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -347,6 +347,9 @@ export default function DesignSystemPage() {
         </AppCard>
         <AppCard>
           <EntityIdentityHeader title="Production service" identifier="svc_production" description="Primary gateway service identity." status={<StatusBadge status="active">Active</StatusBadge>} copy={{ copyLabel: "Copy identifier", copiedLabel: "Identifier copied" }} actions={<Button variant="outline" size="sm">Edit</Button>} />
+        </AppCard>
+        <AppCard title="Date and time range" description="Technical timestamps remain LTR inside RTL pages.">
+          <DateTimeRangeField from="2025-03-12T09:30:00Z" to="2025-03-12T10:30:00Z" fromLabel="From" toLabel="To" onFromChange={() => undefined} onToChange={() => undefined} />
         </AppCard>
         <CodePanel title="Gateway request" description="A reusable titled code surface with optional actions." displayLanguage="cURL" code={'curl "$GATEWAY_URL/v1/models"'} language="bash" copy={{ copyLabel: "Copy code", copiedLabel: "Code copied" }} />
       </section>
