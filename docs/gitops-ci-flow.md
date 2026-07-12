@@ -9,8 +9,8 @@ Production GitOps values use per-service SemVer tags as the deployed image tag.
 Each released service gets:
 
 - A Git tag in this repository: `<service>/vMAJOR.MINOR.PATCH`
-- A SemVer image tag: `<REGISTRY_URL>/<REGISTRY_NAMESPACE>/<image>:vMAJOR.MINOR.PATCH`
-- A traceability image tag: `<REGISTRY_URL>/<REGISTRY_NAMESPACE>/<image>:sha-<commit>`
+- A service-qualified SemVer image tag: `docker.io/delpak/godar-ai:<service>-vMAJOR.MINOR.PATCH`
+- A service-qualified traceability image tag: `docker.io/delpak/godar-ai:<service>-sha-<commit>`
 
 The SemVer tag is the human-facing deployment version. The SHA tag is retained for auditability and exact source-code traceability.
 
@@ -18,8 +18,8 @@ Examples:
 
 ```text
 Git tag:    control-plane/v1.4.2
-Image tags: registry.example.com/team/shahrah/control-plane:v1.4.2
-            registry.example.com/team/shahrah/control-plane:sha-012345...
+Image tags: docker.io/delpak/godar-ai:control-plane-v1.4.2
+            docker.io/delpak/godar-ai:control-plane-sha-012345...
 GitOps:     controlPlane.image.tag: v1.4.2
 ```
 
@@ -66,29 +66,30 @@ Manual promotion intentionally updates one service at a time. A single SemVer ta
 ## Required GitHub secrets
 
 - `REGISTRY_URL`
-  Example: `registry.distr.sh`
-- `REGISTRY_NAMESPACE`
-  Example: `godar`
+  Required value: `docker.io`
 - `REGISTRY_USERNAME`
+  Docker Hub username: `delpak`
 - `REGISTRY_PASSWORD`
+  Docker Hub personal access token with read/write access to `delpak/godar-ai`.
 - `GITOPS_REPO_TOKEN`
   PAT with `contents:write` and `pull_requests:write` on `Delpak/shahrah-gitops`.
 
-## Images built
+## Image tags built in `delpak/godar-ai`
 
-- `shahrah/control-plane`
-- `shahrah/model-discovery`
-- `shahrah/model-discovery-migrate` (`migrate` target)
-- `shahrah/model-discovery-web`
-- `shahrah/support-admin`
-- `shahrah/silk-road`
-- `shahrah/tunnel-client`
-- `shahrah/tunnel-server`
-- `shahrah/goose`
-- `shahrah/docs`
-- `shahrah/website`
-- `shahrah/blog`
-- `shahrah/tenant-admin`
+- `control-plane-*`
+- `model-discovery-*`
+- `model-discovery-migrate-*` (`migrate` target)
+- `model-discovery-web-*`
+- `support-admin-*`
+- `support-admin-migrate-*` (`migrate` target)
+- `silk-road-*`
+- `tunnel-client-*`
+- `tunnel-server-*`
+- `goose-*`
+- `docs-*`
+- `website-*`
+- `blog-*`
+- `tenant-admin-*`
 
 ## SemVer bumping
 
@@ -105,7 +106,7 @@ If no previous tag exists for a service prefix, the first default release is `v0
 ## Release safety rules
 
 - SemVer Git tags are immutable. If a tag already exists for another commit, the workflow fails instead of reusing it.
-- Re-running the workflow for the same commit reuses an existing service tag that already points to that commit and does not re-push that SemVer tag.
+- Re-running the workflow for the same commit reuses the existing Git tag and safely republishes the same SemVer image tag to the configured registry. This supports registry migrations and recovery from partial pushes.
 - GitOps deploys SemVer tags, while SHA tags remain available for audit and emergency diagnosis.
 - Rollbacks should be GitOps PRs that restore a service's previous SemVer tag.
 - Container registry tag immutability should be enabled for SemVer tags if the registry supports it.

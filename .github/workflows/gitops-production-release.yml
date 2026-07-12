@@ -29,7 +29,7 @@ concurrency:
 
 env:
   REGISTRY_URL: ${{ secrets.REGISTRY_URL }}
-  REGISTRY_NAMESPACE: ${{ secrets.REGISTRY_NAMESPACE }}
+  REGISTRY_REPOSITORY: delpak/godar-ai
   GITOPS_REPO: Delpak/shahrah-gitops
 
 jobs:
@@ -68,7 +68,6 @@ jobs:
           services = [
               {
                   "id": "control-plane",
-                  "image": "shahrah/control-plane",
                   "context": ".",
                   "dockerfile": "services/control-plane/Dockerfile",
                   "target": "",
@@ -78,7 +77,6 @@ jobs:
               },
               {
                   "id": "model-discovery",
-                  "image": "shahrah/model-discovery",
                   "context": "apps/model-discovery",
                   "dockerfile": "apps/model-discovery/Dockerfile",
                   "target": "",
@@ -88,7 +86,6 @@ jobs:
               },
               {
                   "id": "model-discovery-migrate",
-                  "image": "shahrah/model-discovery-migrate",
                   "context": "apps/model-discovery",
                   "dockerfile": "apps/model-discovery/Dockerfile",
                   "target": "migrate",
@@ -98,7 +95,6 @@ jobs:
               },
               {
                   "id": "model-discovery-web",
-                  "image": "shahrah/model-discovery-web",
                   "context": "apps/model-discovery-web",
                   "dockerfile": "apps/model-discovery-web/Dockerfile",
                   "target": "",
@@ -108,7 +104,6 @@ jobs:
               },
               {
                   "id": "support-admin",
-                  "image": "shahrah/support-admin",
                   "context": "apps/support-admin",
                   "dockerfile": "apps/support-admin/Dockerfile",
                   "target": "",
@@ -118,7 +113,6 @@ jobs:
               },
               {
                   "id": "support-admin-migrate",
-                  "image": "shahrah/support-admin-migrate",
                   "context": "apps/support-admin",
                   "dockerfile": "apps/support-admin/Dockerfile",
                   "target": "migrate",
@@ -128,7 +122,6 @@ jobs:
               },
               {
                   "id": "silk-road",
-                  "image": "shahrah/silk-road",
                   "context": ".",
                   "dockerfile": "services/silk-road/Dockerfile",
                   "target": "",
@@ -138,7 +131,6 @@ jobs:
               },
               {
                   "id": "tunnel-client",
-                  "image": "shahrah/tunnel-client",
                   "context": ".",
                   "dockerfile": "services/tunnel-client/Dockerfile",
                   "target": "",
@@ -148,7 +140,6 @@ jobs:
               },
               {
                   "id": "tunnel-server",
-                  "image": "shahrah/tunnel-server",
                   "context": ".",
                   "dockerfile": "services/tunnel-server/Dockerfile",
                   "target": "",
@@ -158,7 +149,6 @@ jobs:
               },
               {
                   "id": "goose",
-                  "image": "shahrah/goose",
                   "context": "infra/compose/images/goose-ci",
                   "dockerfile": "infra/compose/images/goose-ci/Dockerfile",
                   "target": "",
@@ -168,7 +158,6 @@ jobs:
               },
               {
                   "id": "docs",
-                  "image": "shahrah/docs",
                   "context": "apps/docs",
                   "dockerfile": "apps/docs/Dockerfile",
                   "target": "",
@@ -178,7 +167,6 @@ jobs:
               },
               {
                   "id": "website",
-                  "image": "shahrah/website",
                   "context": "apps/website",
                   "dockerfile": "apps/website/Dockerfile",
                   "target": "",
@@ -188,7 +176,6 @@ jobs:
               },
               {
                   "id": "blog",
-                  "image": "shahrah/blog",
                   "context": "apps/blog",
                   "dockerfile": "apps/blog/Dockerfile",
                   "target": "",
@@ -198,7 +185,6 @@ jobs:
               },
               {
                   "id": "tenant-admin",
-                  "image": "shahrah/tenant-admin",
                   "context": "apps/tenant-admin",
                   "dockerfile": "apps/tenant-admin/Dockerfile",
                   "target": "",
@@ -363,14 +349,12 @@ jobs:
               semver_tag = version_cache[prefix]["tag"]
               matrix.append({
                   "id": s["id"],
-                  "image": s["image"],
                   "context": s["context"],
                   "dockerfile": s["dockerfile"],
                   "target": s["target"],
                   "values_path": s["values_path"],
                   "semver_prefix": s["semver_prefix"],
                   "semver_tag": semver_tag,
-                  "publish_semver": version_cache[prefix]["publish"],
               })
 
           release_tag = f"sha-{head_sha}"
@@ -409,7 +393,6 @@ jobs:
           test -n "${{ secrets.REGISTRY_URL }}"
           test -n "${{ secrets.REGISTRY_USERNAME }}"
           test -n "${{ secrets.REGISTRY_PASSWORD }}"
-          test -n "${{ secrets.REGISTRY_NAMESPACE }}"
 
       - name: Checkout app repository
         uses: actions/checkout@v5
@@ -434,17 +417,15 @@ jobs:
       - name: Compute image tags
         id: image-tags
         env:
-          IMAGE_REF: ${{ env.REGISTRY_URL }}/${{ env.REGISTRY_NAMESPACE }}/${{ matrix.image }}
+          IMAGE_REF: ${{ env.REGISTRY_URL }}/${{ env.REGISTRY_REPOSITORY }}
+          SERVICE_ID: ${{ matrix.id }}
           SHA_TAG: ${{ needs.detect-changes.outputs.release_tag }}
           SEMVER_TAG: ${{ matrix.semver_tag }}
-          PUBLISH_SEMVER: ${{ matrix.publish_semver }}
         run: |
           {
             echo "tags<<EOF"
-            echo "${IMAGE_REF}:${SHA_TAG}"
-            if [ "${PUBLISH_SEMVER}" = "true" ]; then
-              echo "${IMAGE_REF}:${SEMVER_TAG}"
-            fi
+            echo "${IMAGE_REF}:${SERVICE_ID}-${SHA_TAG}"
+            echo "${IMAGE_REF}:${SERVICE_ID}-${SEMVER_TAG}"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 

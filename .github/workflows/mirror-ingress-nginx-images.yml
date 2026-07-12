@@ -8,7 +8,7 @@ permissions:
 
 env:
   REGISTRY_URL: ${{ secrets.REGISTRY_URL }}
-  REGISTRY_NAMESPACE: ${{ secrets.REGISTRY_NAMESPACE }}
+  REGISTRY_REPOSITORY: delpak/godar-ai
   CONTROLLER_VERSION: v1.13.3
   CERTGEN_VERSION: v1.6.3
 
@@ -20,7 +20,6 @@ jobs:
       - name: Validate registry secrets
         run: |
           test -n "${{ secrets.REGISTRY_URL }}"
-          test -n "${{ secrets.REGISTRY_NAMESPACE }}"
           test -n "${{ secrets.REGISTRY_USERNAME }}"
           test -n "${{ secrets.REGISTRY_PASSWORD }}"
 
@@ -35,12 +34,12 @@ jobs:
         run: |
           docker pull "registry.k8s.io/ingress-nginx/controller:${CONTROLLER_VERSION}"
           docker tag "registry.k8s.io/ingress-nginx/controller:${CONTROLLER_VERSION}" \
-            "${REGISTRY_URL}/${REGISTRY_NAMESPACE}/ingress-nginx/controller:${CONTROLLER_VERSION}"
-          docker push "${REGISTRY_URL}/${REGISTRY_NAMESPACE}/ingress-nginx/controller:${CONTROLLER_VERSION}"
+            "${REGISTRY_URL}/${REGISTRY_REPOSITORY}:ingress-nginx-controller-${CONTROLLER_VERSION}"
+          docker push "${REGISTRY_URL}/${REGISTRY_REPOSITORY}:ingress-nginx-controller-${CONTROLLER_VERSION}"
 
       - name: Mirror webhook certgen image
         run: |
           docker pull "registry.k8s.io/ingress-nginx/kube-webhook-certgen:${CERTGEN_VERSION}"
           docker tag "registry.k8s.io/ingress-nginx/kube-webhook-certgen:${CERTGEN_VERSION}" \
-            "${REGISTRY_URL}/${REGISTRY_NAMESPACE}/ingress-nginx/kube-webhook-certgen:${CERTGEN_VERSION}"
-          docker push "${REGISTRY_URL}/${REGISTRY_NAMESPACE}/ingress-nginx/kube-webhook-certgen:${CERTGEN_VERSION}"
+            "${REGISTRY_URL}/${REGISTRY_REPOSITORY}:ingress-nginx-kube-webhook-certgen-${CERTGEN_VERSION}"
+          docker push "${REGISTRY_URL}/${REGISTRY_REPOSITORY}:ingress-nginx-kube-webhook-certgen-${CERTGEN_VERSION}"
