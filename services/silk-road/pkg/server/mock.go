@@ -80,6 +80,8 @@ func (a *mockAdapter) Dispatch(ctx context.Context, _ *http.Client, payload plat
 		return jsonAdapterResponse(http.StatusOK, mockEmbeddingsBody(payload))
 	case "/moderations":
 		return jsonAdapterResponse(http.StatusOK, mockModerationsBody(payload))
+	case "/rerank", "/v2/rerank":
+		return jsonAdapterResponse(http.StatusOK, mockRerankBody(payload))
 	case "/images/generations", "/images/edits", "/images/variations":
 		return jsonAdapterResponse(http.StatusOK, mockImagesBody(payload))
 	default:
@@ -203,6 +205,26 @@ func mockModerationsBody(payload platform.TunnelRequest) map[string]interface{} 
 	}
 }
 
+func mockRerankBody(payload platform.TunnelRequest) map[string]interface{} {
+	count := mockRerankDocumentCount(payload)
+	results := make([]map[string]interface{}, 0, count)
+	for i := 0; i < count; i++ {
+		results = append(results, map[string]interface{}{
+			"index":           i,
+			"relevance_score": 1.0 / float64(i+1),
+		})
+	}
+
+	return map[string]interface{}{
+		"id":      "rerank_mock",
+		"results": results,
+		"usage": map[string]interface{}{
+			"prompt_tokens": count * 16,
+			"total_tokens":  count * 16,
+		},
+	}
+}
+
 func mockImagesBody(payload platform.TunnelRequest) map[string]interface{} {
 	return map[string]interface{}{
 		"created": time.Now().Unix(),
@@ -250,6 +272,23 @@ func mockEmbeddingInputCount(payload platform.TunnelRequest) int {
 	}
 
 	return 1
+}
+
+func mockRerankDocumentCount(payload platform.TunnelRequest) int {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(payload.Body, &raw); err != nil {
+		return 1
+	}
+
+	docs, _ := raw["documents"].([]interface{})
+	topN := len(docs)
+	if topN == 0 {
+		topN = 1
+	}
+	if rawTopN, ok := raw["top_n"].(float64); ok && int(rawTopN) > 0 && int(rawTopN) < topN {
+		topN = int(rawTopN)
+	}
+	return topN
 }
 
 func mockUsage() map[string]interface{} {

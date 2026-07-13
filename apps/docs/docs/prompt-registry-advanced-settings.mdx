@@ -1,0 +1,172 @@
+---
+title: تنظیمات پیشرفته نسخه
+---
+
+# تنظیمات پیشرفته نسخه
+
+در رجیستری پرامپت می‌توانید کنار متن پرامپت، تنظیمات اجرایی و سیاست‌های مرتبط را هم در Spec نسخه ثبت کنید: تنظیمات مدل، کش پاسخ، گاردریل‌ها، خروجی ساخت‌یافته و متادیتا.
+
+این صفحه توضیح می‌دهد هر تنظیم چه نقشی دارد و هنگام اجرای نسخه از درگاه باید چطور با آن برخورد کنید.
+
+:::info
+Spec نسخه برای بازبینی، مقایسه و تست آزمایشی مهم است. اما در اجرای مستقیم با `prompt_version_fqn`، گدارAI پیام‌ها و مدل نسخه را رندر می‌کند؛ تنظیمات اجرایی مثل کش، گاردریل و خروجی ساخت‌یافته باید مطابق قرارداد خودشان در درخواست یا سرآیند ارسال شوند.
+:::
+
+## تنظیمات مدل
+
+| گزینه UI | فیلد فنی | توضیح |
+| --- | --- | --- |
+| `Stream` | `model_settings.stream` | پاسخ جریانی یا غیرجریانی. |
+| `Temperature` | `model_settings.temperature` | دما؛ مقدار معتبر بین `0` و `2`. |
+| `Top-p` | `model_settings.top_p` | مقدار معتبر بین `0` و `1`. |
+| بیشینه توکن | `model_settings.max_tokens` | سقف توکن خروجی؛ باید دست‌کم `1` باشد. |
+
+در تست آزمایشی UI، این تنظیمات برای ساخت درخواست تست استفاده می‌شوند. در اجرای محصولی، اگر می‌خواهید همین رفتار حفظ شود، مقدارهای متناظر را در درخواست `Chat Completions` بفرستید.
+
+نمونه:
+
+```json
+{
+  "model": "openai:default:gpt-4o-mini",
+  "prompt_version_fqn": "chat_prompt:acme/support_reply:3",
+  "prompt_variables": {
+    "customer_name": "سارا"
+  },
+  "messages": [],
+  "stream": false,
+  "temperature": 0.2,
+  "max_tokens": 500
+}
+```
+
+## تنظیمات کش
+
+تنظیمات کش در UI به قرارداد `x-godarai-cache-config` نگاشت می‌شود.
+
+| گزینه | فیلد فنی | نکته |
+| --- | --- | --- |
+| نوع کش | `type` | یکی از `simple` یا `smart`. |
+| TTL | `ttl` | مدت نگهداری بر حسب ثانیه؛ باید مثبت باشد. |
+| Namespace | `namespace` | جداسازی کش بین محصول، پروژه یا سناریو. |
+| آستانه similarity | `similarity_threshold` | فقط برای `smart`؛ مقدار معتبر بین `0.8` و `1`. |
+
+برای اجرای مستقیم از درگاه:
+
+```bash
+curl https://YOUR_WORKSPACE.godarai.ir/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_GODARAI_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H 'x-godarai-cache-config: {"type":"simple","ttl":600,"namespace":"support"}' \
+  -d '{
+    "model": "openai:default:gpt-4o-mini",
+    "prompt_version_fqn": "chat_prompt:acme/support_reply:3",
+    "prompt_variables": {
+      "customer_name": "سارا"
+    },
+    "messages": []
+  }'
+```
+
+برای جزئیات بیشتر، [کش پاسخ](/guides/caching) را ببینید.
+
+## گاردریل‌ها
+
+رجیستری پرامپت می‌تواند گاردریل‌های ورودی و خروجی را در Spec نسخه ثبت کند:
+
+| گزینه | فیلد فنی | توضیح |
+| --- | --- | --- |
+| گاردریل‌های ورودی | `guardrails.input` | پیش از اجرای مدل روی متن ورودی اعمال می‌شوند. |
+| گاردریل‌های خروجی | `guardrails.output` | پس از دریافت پاسخ مدل اعمال می‌شوند. |
+| دامنه اعمال | `guardrails.scope` | مقدارهای `last` یا `all`. |
+
+برای اجرای مستقیم از درگاه، گاردریل‌ها را با سرآیند بفرستید:
+
+```text
+x-godarai-guardrails: {"llm_input_guardrails":["guardrails/pii-redaction"]}
+x-godarai-guardrails-scope: last
+```
+
+:::warning
+گاردریل خروجی با `stream: true` سازگار نیست. اگر نسخه یا درخواست شما پاسخ جریانی دارد، گاردریل خروجی را حذف کنید یا `stream` را غیرفعال کنید.
+:::
+
+برای جزئیات بیشتر، [گاردریل‌ها](/guardrails) را بخوانید.
+
+## خروجی ساخت‌یافته
+
+خروجی ساخت‌یافته در Spec با `structured_output` ثبت می‌شود و در درخواست اجرا با `response_format` اعمال می‌شود.
+
+| گزینه UI | مقدار فنی | کاربرد |
+| --- | --- | --- |
+| طرح‌واره JSON | `json_schema` | الزام خروجی به ساختار مشخص. |
+| شیء JSON | `json_object` | الزام خروجی به JSON object. |
+| `Strict` | `strict` | سخت‌گیرانه‌تر کردن تطبیق با schema، اگر مدل پشتیبانی کند. |
+
+نمونه اجرای نسخه با خروجی ساخت‌یافته:
+
+```json
+{
+  "model": "openai:default:gpt-4o-mini",
+  "prompt_version_fqn": "chat_prompt:acme/support_reply_json:2",
+  "prompt_variables": {
+    "issue": "تاخیر در ارسال"
+  },
+  "messages": [],
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "support_reply",
+      "strict": true,
+      "schema": {
+        "type": "object",
+        "required": ["summary", "next_action"],
+        "properties": {
+          "summary": { "type": "string" },
+          "next_action": { "type": "string" }
+        }
+      }
+    }
+  }
+}
+```
+
+برای جزئیات بیشتر، [Structured Outputs](/supported-apis/chat-completions/structured-outputs) را ببینید.
+
+## متادیتا و گزارش رخداد
+
+در Spec نسخه می‌توانید متادیتاهایی مثل `project_id`، `cost_center` یا `environment` نگه دارید. این مقدارها برای مستندسازی نسخه و هماهنگی تیمی مفیدند.
+
+در اجرای واقعی، اگر می‌خواهید متادیتا در گزارش رخدادها و پایش هزینه دیده شود، آن را در بدنه درخواست هم بفرستید:
+
+```json
+{
+  "model": "openai:default:gpt-4o-mini",
+  "prompt_version_fqn": "chat_prompt:acme/support_reply:3",
+  "prompt_variables": {
+    "customer_name": "سارا"
+  },
+  "messages": [],
+  "metadata": {
+    "project_id": "support-center",
+    "cost_center": "customer-success"
+  }
+}
+```
+
+:::tip
+برای گزارش‌گیری هزینه، متادیتا را پایدار نگه دارید. کلیدهایی مثل `project_id` و `cost_center` بعداً در تحلیل مصرف و بودجه‌بندی کمک زیادی می‌کنند.
+:::
+
+## لاگ‌گیری در سطح پرامپت
+
+در UI رجیستری پرامپت، بخش «لاگ‌گیری» توضیح می‌دهد که ثبت رویداد در سطح پرامپت در این نسخه فعال نیست؛ چون گدارAI گزارش درخواست و هزینه را در سطح درگاه ثبت می‌کند.
+
+برای بررسی اجرای یک نسخه، از این مسیرها استفاده کنید:
+
+- متادیتای `prompt_fqn` و `prompt_version` در گزارش رخدادها.
+- هزینه و مصرف توکن در [پایش هزینه](/cost-tracking).
+- وضعیت کش و گاردریل در صفحات مربوط.
+
+## جمع‌بندی
+
+تنظیمات پیشرفته رجیستری پرامپت کمک می‌کنند Spec نسخه کامل و قابل بازبینی باشد. برای اجرای محصولی، هر تنظیم اجرایی را با قرارداد همان قابلیت به درخواست درگاه تبدیل کنید تا رفتار اجرا دقیقاً همان چیزی باشد که انتظار دارید.

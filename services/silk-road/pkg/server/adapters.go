@@ -41,6 +41,7 @@ func newProviderRegistry() *providerRegistry {
 			"togetherai":   newOpenAICompatibleAdapter("https://api.together.ai/v1"),
 			"together-ai":  newOpenAICompatibleAdapter("https://api.together.ai/v1"),
 			"xai":          newOpenAICompatibleAdapter(""),
+			"cohere":       newCohereAdapter(),
 			"anthropic":    newAnthropicAdapter(),
 			"gemini":       newGeminiAdapter(),
 		},

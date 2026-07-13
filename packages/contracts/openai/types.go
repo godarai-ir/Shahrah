@@ -542,6 +542,33 @@ type ModerationResult struct {
 	CategoryScores map[string]float64 `json:"category_scores"`
 }
 
+// RerankRequest mirrors the Cohere-compatible rerank request format used by
+// gateway providers such as Cohere and LiteLLM-compatible rerank backends.
+type RerankRequest struct {
+	Model           string   `json:"model"`
+	Query           string   `json:"query"`
+	Documents       []string `json:"documents"`
+	TopN            *int     `json:"top_n,omitempty"`
+	MaxTokensPerDoc *int     `json:"max_tokens_per_doc,omitempty"`
+	Priority        *int     `json:"priority,omitempty"`
+	ReturnDocuments *bool    `json:"return_documents,omitempty"`
+}
+
+// RerankResponse preserves the Cohere-compatible rerank response envelope.
+type RerankResponse struct {
+	ID      string         `json:"id,omitempty"`
+	Results []RerankResult `json:"results"`
+	Meta    interface{}    `json:"meta,omitempty"`
+	Usage   *Usage         `json:"usage,omitempty"`
+}
+
+// RerankResult is one ranked document result.
+type RerankResult struct {
+	Index          int         `json:"index"`
+	RelevanceScore float64     `json:"relevance_score"`
+	Document       interface{} `json:"document,omitempty"`
+}
+
 // ResponseRequest mirrors the subset of OpenAI's responses API used by Shahrah.
 type ResponseRequest struct {
 	Model              string                 `json:"model"`

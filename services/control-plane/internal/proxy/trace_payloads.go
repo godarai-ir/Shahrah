@@ -417,6 +417,56 @@ func buildTraceModerationResponsePayload(resp contractsopenai.ModerationResponse
 	}
 }
 
+func buildTraceRerankRequestPayload(req contractsopenai.RerankRequest) map[string]interface{} {
+	documentLengths := make([]int, 0, len(req.Documents))
+	documentHashes := make([]string, 0, len(req.Documents))
+	for _, doc := range req.Documents {
+		documentLengths = append(documentLengths, len(doc))
+		documentHashes = append(documentHashes, hashTracePreview(doc))
+	}
+
+	return map[string]interface{}{
+		"model":              req.Model,
+		"query_length":       len(req.Query),
+		"query_hash":         hashTracePreview(req.Query),
+		"document_count":     len(req.Documents),
+		"document_lengths":   documentLengths,
+		"document_hashes":    documentHashes,
+		"top_n":              req.TopN,
+		"max_tokens_per_doc": req.MaxTokensPerDoc,
+		"priority":           req.Priority,
+		"return_documents":   req.ReturnDocuments,
+	}
+}
+
+func buildTraceRerankResponsePayload(resp contractsopenai.RerankResponse) map[string]interface{} {
+	results := make([]map[string]interface{}, 0, len(resp.Results))
+	for _, result := range resp.Results {
+		item := map[string]interface{}{
+			"index":           result.Index,
+			"relevance_score": result.RelevanceScore,
+		}
+		if result.Document != nil {
+			item["document_present"] = true
+		}
+		results = append(results, item)
+	}
+
+	usage := map[string]interface{}{}
+	if resp.Usage != nil {
+		usage["prompt_tokens"] = resp.Usage.PromptTokens
+		usage["completion_tokens"] = resp.Usage.CompletionTokens
+		usage["total_tokens"] = resp.Usage.TotalTokens
+	}
+
+	return map[string]interface{}{
+		"id":           resp.ID,
+		"result_count": len(resp.Results),
+		"results":      results,
+		"usage":        usage,
+	}
+}
+
 func buildTraceImageRequestPayload(operation string, body []byte, contentType string, metadata map[string]interface{}) map[string]interface{} {
 	out := map[string]interface{}{
 		"operation":    operation,

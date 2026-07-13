@@ -192,6 +192,76 @@ func TestDispatchUsesOpenAIEndpointOverride(t *testing.T) {
 	}
 }
 
+func TestDispatchUsesCohereRerankAdapter(t *testing.T) {
+	t.Parallel()
+
+	var gotAuth string
+	var gotContentType string
+	var gotPath string
+	var gotBody string
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		gotContentType = r.Header.Get("Content-Type")
+		gotPath = r.URL.Path
+		defer r.Body.Close()
+		bodyBytes, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read body: %v", err)
+		}
+		gotBody = string(bodyBytes)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":"rerank_1","results":[{"index":1,"relevance_score":0.99}]}`))
+	}))
+	defer upstream.Close()
+
+	handler := NewHandler(nil)
+	payload := platform.TunnelRequest{
+		Deployment: platform.Deployment{
+			Provider: "cohere",
+			APIBase:  upstream.URL,
+			APIKey:   "cohere-key",
+		},
+		Headers: map[string]string{"Content-Type": "application/json"},
+		RequestMetadata: map[string]interface{}{
+			"provider_endpoint_path": "/v2/rerank",
+		},
+		Body: []byte(`{"model":"rerank-multilingual-v3.0","query":"q","documents":["a","b"],"top_n":1}`),
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(raw)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	if gotPath != "/v2/rerank" {
+		t.Fatalf("expected Cohere rerank path, got %q", gotPath)
+	}
+	if gotAuth != "Bearer cohere-key" {
+		t.Fatalf("unexpected Authorization header: %q", gotAuth)
+	}
+	if gotContentType != "application/json" {
+		t.Fatalf("unexpected content type: %q", gotContentType)
+	}
+	for _, want := range []string{`"model":"rerank-multilingual-v3.0"`, `"query":"q"`, `"documents":["a","b"]`, `"top_n":1`} {
+		if !strings.Contains(gotBody, want) {
+			t.Fatalf("forwarded body missing %s: %s", want, gotBody)
+		}
+	}
+	if !strings.Contains(rec.Body.String(), `"results"`) || !strings.Contains(rec.Body.String(), `"relevance_score":0.99`) {
+		t.Fatalf("unexpected response: %s", rec.Body.String())
+	}
+}
+
 func TestDispatchMockProviderDisabledByDefault(t *testing.T) {
 	t.Setenv("SILK_ROAD_ENABLE_MOCK_PROVIDER", "")
 
@@ -242,6 +312,39 @@ func TestDispatchMockProviderEnabled(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), `"object":"chat.completion"`) {
 		t.Fatalf("unexpected mock response: %q", rec.Body.String())
+	}
+}
+
+func TestDispatchMockProviderRerank(t *testing.T) {
+	t.Setenv("SILK_ROAD_ENABLE_MOCK_PROVIDER", "true")
+	t.Setenv("SILK_ROAD_MOCK_LATENCY_MS", "0")
+
+	handler := NewHandler(nil)
+	payload := platform.TunnelRequest{
+		Deployment: platform.Deployment{Provider: "mock", Model: "mock-rerank"},
+		RequestMetadata: map[string]interface{}{
+			"provider_endpoint_path": "/rerank",
+		},
+		Body: []byte(`{"model":"mock-rerank","query":"q","documents":["a","b"],"top_n":1}`),
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(raw)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d with body %q", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("X-Shahrah-Mock-Provider"); got != "true" {
+		t.Fatalf("expected mock header, got %q", got)
+	}
+	if !strings.Contains(rec.Body.String(), `"id":"rerank_mock"`) || !strings.Contains(rec.Body.String(), `"results"`) {
+		t.Fatalf("unexpected mock rerank response: %q", rec.Body.String())
 	}
 }
 

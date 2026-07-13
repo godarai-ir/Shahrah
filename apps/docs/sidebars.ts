@@ -56,6 +56,21 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'رجیستری پرامپت',
+      link: {
+        type: 'doc',
+        id: 'prompt-registry',
+      },
+      items: [
+        'prompt-registry-create',
+        'prompt-registry-variables',
+        'prompt-registry-run',
+        'prompt-registry-advanced-settings',
+        'prompt-registry-troubleshooting',
+      ],
+    },
+    {
+      type: 'category',
       label: 'کنترل مصرف و هزینه',
       items: [
         'guides/caching',

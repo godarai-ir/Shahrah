@@ -46,6 +46,7 @@ type Dependencies struct {
 	ResponsesHandler        *proxy.ResponsesHandler
 	EmbeddingsHandler       *proxy.EmbeddingsHandler
 	ModerationsHandler      *proxy.ModerationsHandler
+	RerankHandler           *proxy.RerankHandler
 	ImagesHandler           *proxy.ImagesHandler
 	ModelsHandler           *proxy.ModelsHandler
 	PoolStats               prommetrics.PoolStatsProvider

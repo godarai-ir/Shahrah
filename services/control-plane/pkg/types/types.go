@@ -96,6 +96,32 @@ type Usage struct {
 	TotalTokens      int `json:"total_tokens"`
 }
 
+// RerankRequest mirrors the Cohere-compatible rerank request format.
+type RerankRequest struct {
+	Model           string   `json:"model"`
+	Query           string   `json:"query"`
+	Documents       []string `json:"documents"`
+	TopN            *int     `json:"top_n,omitempty"`
+	MaxTokensPerDoc *int     `json:"max_tokens_per_doc,omitempty"`
+	Priority        *int     `json:"priority,omitempty"`
+	ReturnDocuments *bool    `json:"return_documents,omitempty"`
+}
+
+// RerankResponse preserves the Cohere-compatible rerank response envelope.
+type RerankResponse struct {
+	ID      string         `json:"id,omitempty"`
+	Results []RerankResult `json:"results"`
+	Meta    interface{}    `json:"meta,omitempty"`
+	Usage   *Usage         `json:"usage,omitempty"`
+}
+
+// RerankResult is one ranked document result.
+type RerankResult struct {
+	Index          int         `json:"index"`
+	RelevanceScore float64     `json:"relevance_score"`
+	Document       interface{} `json:"document,omitempty"`
+}
+
 // StreamChunk represents a single chunk in a streaming response.
 type StreamChunk struct {
 	ID      string   `json:"id"`

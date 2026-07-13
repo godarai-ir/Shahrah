@@ -295,6 +295,7 @@ func main() {
 	responsesHandler := proxy.NewResponsesHandlerWithDependencies(baseProxyDeps)
 	embeddingsHandler := proxy.NewEmbeddingsHandlerWithDependencies(baseProxyDeps)
 	moderationsHandler := proxy.NewModerationsHandlerWithDependencies(baseProxyDeps)
+	rerankHandler := proxy.NewRerankHandlerWithDependencies(baseProxyDeps)
 	imagesHandler := proxy.NewImagesHandlerWithDependencies(baseProxyDeps)
 	modelsHandler := proxy.NewModelsHandler(runtimeDeploymentStore)
 
@@ -344,6 +345,7 @@ func main() {
 		ResponsesHandler:        responsesHandler,
 		EmbeddingsHandler:       embeddingsHandler,
 		ModerationsHandler:      moderationsHandler,
+		RerankHandler:           rerankHandler,
 		ImagesHandler:           imagesHandler,
 		ModelsHandler:           modelsHandler,
 		PoolStats:               store,

@@ -24,6 +24,10 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 		v1.Post("/moderations", deps.ModerationsHandler.Handle)
 	}
 
+	if deps.RerankHandler != nil {
+		v1.Post("/rerank", deps.RerankHandler.Handle)
+	}
+
 	if deps.ImagesHandler != nil {
 		v1.Post("/images/generations", deps.ImagesHandler.HandleGenerations)
 		v1.Post("/images/edits", deps.ImagesHandler.HandleEdits)

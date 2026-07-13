@@ -368,3 +368,54 @@ func TestModerationResponseRoundTrip(t *testing.T) {
 		t.Fatalf("score not preserved: %#v", resp.Results[0].CategoryScores)
 	}
 }
+
+func TestRerankRequestResponseRoundTrip(t *testing.T) {
+	payload := []byte(`{
+		"model":"rerank-multilingual-v3.0",
+		"query":"Where is Tehran?",
+		"documents":["Tehran is the capital of Iran.","The sky is blue."],
+		"top_n":1,
+		"max_tokens_per_doc":4096,
+		"priority":0,
+		"return_documents":true
+	}`)
+
+	var req RerankRequest
+	if err := json.Unmarshal(payload, &req); err != nil {
+		t.Fatalf("unmarshal request: %v", err)
+	}
+	if req.Model != "rerank-multilingual-v3.0" || req.Query == "" || len(req.Documents) != 2 {
+		t.Fatalf("unexpected request: %#v", req)
+	}
+	raw, err := json.Marshal(req)
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+	for _, want := range []string{`"query":"Where is Tehran?"`, `"documents"`, `"top_n":1`, `"return_documents":true`} {
+		if !strings.Contains(string(raw), want) {
+			t.Fatalf("round-trip request missing %s: %s", want, raw)
+		}
+	}
+
+	var resp RerankResponse
+	if err := json.Unmarshal([]byte(`{
+		"id":"rerank_123",
+		"results":[{"index":0,"relevance_score":0.98,"document":{"text":"Tehran is the capital of Iran."}}],
+		"meta":{"billed_units":{"search_units":1}},
+		"usage":{"prompt_tokens":20,"completion_tokens":0,"total_tokens":20}
+	}`), &resp); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if resp.ID != "rerank_123" || len(resp.Results) != 1 || resp.Results[0].Index != 0 || resp.Results[0].Document == nil {
+		t.Fatalf("unexpected response: %#v", resp)
+	}
+	raw, err = json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("marshal response: %v", err)
+	}
+	for _, want := range []string{`"id":"rerank_123"`, `"relevance_score":0.98`, `"document"`, `"meta"`, `"usage"`} {
+		if !strings.Contains(string(raw), want) {
+			t.Fatalf("round-trip response missing %s: %s", want, raw)
+		}
+	}
+}

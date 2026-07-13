@@ -72,7 +72,7 @@ from openai import OpenAI
 
 client = OpenAI(
     api_key="YOUR_GODARAI_TOKEN",
-    base_url="https://YOUR_WORKSPACE.example.com/v1",
+    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
 )
 
 response = client.chat.completions.create(
@@ -88,7 +88,7 @@ print(response.choices[0].message.content)
 اگر می‌خواهید همین مقدارها را به‌صورت متغیر محیطی نگه دارید:
 
 ```bash
-export OPENAI_BASE_URL="https://YOUR_WORKSPACE.example.com/v1"
+export OPENAI_BASE_URL="https://YOUR_WORKSPACE.godarai.ir/v1"
 export OPENAI_API_KEY="YOUR_GODARAI_TOKEN"
 ```
 
@@ -123,9 +123,10 @@ export OPENAI_API_KEY="YOUR_GODARAI_TOKEN"
 بعد از اولین درخواست موفق، معمولاً این کارها ارزش انجام دارند:
 
 1. [مدل مجازی](/virtual-model) بسازید تا اپلیکیشن به شناسه‌ای پایدار متصل شود.
-2. [محدودیت نرخ درخواست](/guides/rate-limiting) و [محدودیت بودجه](/guides/budget-limiting) را برای کنترل مصرف تنظیم کنید.
-3. [گاردریل‌ها](/guardrails) را برای کنترل محتوای ورودی یا خروجی بررسی کنید.
-4. [لاگ‌ها و بررسی درخواست‌ها](/observability-logs) را برای پایش ترافیک واقعی بخوانید.
+2. [رجیستری پرامپت](/prompt-registry) را برای نسخه‌بندی و اجرای پرامپت‌های قابل استفاده مجدد بررسی کنید.
+3. [محدودیت نرخ درخواست](/guides/rate-limiting) و [محدودیت بودجه](/guides/budget-limiting) را برای کنترل مصرف تنظیم کنید.
+4. [گاردریل‌ها](/guardrails) را برای کنترل محتوای ورودی یا خروجی بررسی کنید.
+5. [لاگ‌ها و بررسی درخواست‌ها](/observability-logs) را برای پایش ترافیک واقعی بخوانید.
 
 ## پرسش‌های پرتکرار
 
