@@ -297,18 +297,20 @@ func estimatePromptTokens(req interface{}) int {
 	case contractsopenai.ChatCompletionRequest:
 		textTokens := 0
 		imageTokens := 0
+		fileTokens := 0
 
 		for _, msg := range v.Messages {
 			textTokens += EstimateTokens(contractsopenai.ChatContentText(msg.Content))
 			imageTokens += contractsopenai.ChatContentImageCount(msg.Content) * 1024
+			fileTokens += contractsopenai.ChatContentFileCount(msg.Content) * 4096
 		}
 
-		if textTokens > 0 || imageTokens > 0 {
+		if textTokens > 0 || imageTokens > 0 || fileTokens > 0 {
 			if textTokens < 100 {
 				textTokens = 100
 			}
 
-			return textTokens + imageTokens
+			return textTokens + imageTokens + fileTokens
 		}
 	case *contractsopenai.ChatCompletionRequest:
 		if v != nil {

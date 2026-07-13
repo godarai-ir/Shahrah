@@ -145,6 +145,70 @@ func TestResponsesHandlerSyncSuccess(t *testing.T) {
 	assert.Contains(t, names, "response.write")
 }
 
+func TestResponsesHandlerForwardsTextFormat(t *testing.T) {
+	payload := contractsopenai.Response{
+		ID:        "resp_structured",
+		Object:    "response",
+		CreatedAt: time.Now().Unix(),
+		Model:     "gpt-4o",
+		Status:    "completed",
+		Output: []contractsopenai.ResponseOutput{{
+			ID:     "msg_1",
+			Type:   "message",
+			Role:   "assistant",
+			Status: "completed",
+			Content: []contractsopenai.ResponseOutputContent{{
+				Type: "output_text",
+				Text: `{"name":"science fair"}`,
+			}},
+		}},
+		Usage: &contractsopenai.ResponseUsage{
+			InputTokens:  3,
+			OutputTokens: 2,
+			TotalTokens:  5,
+		},
+	}
+	body, err := json.Marshal(payload)
+	require.NoError(t, err)
+
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
+		StatusCode: fiber.StatusOK,
+		Headers:    map[string]string{"content-type": "application/json"},
+		Body:       body,
+	}}
+	app, _ := newResponsesTestApp(t, "openai", tunnel)
+
+	req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{
+		"model":"gpt-4o",
+		"input":"Extract the event.",
+		"text":{
+			"format":{
+				"type":"json_schema",
+				"name":"event",
+				"strict":true,
+				"schema":{"type":"object","properties":{"name":{"type":"string"}},"required":["name"],"additionalProperties":false}
+			}
+		}
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+
+	var outbound contractsopenai.ResponseRequest
+	require.NoError(t, json.Unmarshal(tunnel.lastReq.Body, &outbound))
+	require.NotNil(t, outbound.Text)
+	raw, err := json.Marshal(outbound.Text)
+	require.NoError(t, err)
+	assert.Contains(t, string(raw), `"format"`)
+	assert.Contains(t, string(raw), `"type":"json_schema"`)
+	assert.Contains(t, string(raw), `"strict":true`)
+	assert.Contains(t, string(raw), `"additionalProperties":false`)
+}
+
 func TestResponsesHandlerRejectsNonOpenAIProvider(t *testing.T) {
 	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
 		StatusCode: fiber.StatusOK,

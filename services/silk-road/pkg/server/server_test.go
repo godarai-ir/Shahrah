@@ -91,6 +91,64 @@ func TestDispatchForwardsToDeploymentAPIBase(t *testing.T) {
 	}
 }
 
+func TestDispatchForwardsOpenAICompatibleToolsPayload(t *testing.T) {
+	t.Parallel()
+
+	var gotBody string
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		bodyBytes, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read body: %v", err)
+		}
+		gotBody = string(bodyBytes)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"id":"chatcmpl_tools",
+			"object":"chat.completion",
+			"created":1234567890,
+			"model":"gpt-4o-mini",
+			"choices":[{"index":0,"message":{"role":"assistant","tool_calls":[{"id":"call_123","type":"function","function":{"name":"get_order_status","arguments":"{\"order_id\":\"A-1024\"}"}}]},"finish_reason":"tool_calls"}],
+			"usage":{"prompt_tokens":20,"completion_tokens":8,"total_tokens":28}
+		}`))
+	}))
+	defer upstream.Close()
+
+	handler := NewHandler(nil)
+	payload := platform.TunnelRequest{
+		Deployment: platform.Deployment{
+			Provider: "openai",
+			APIBase:  upstream.URL,
+			APIKey:   "provider-secret",
+		},
+		Body: []byte(`{"model":"gpt-4o-mini","parallel_tool_calls":false,"messages":[{"role":"user","content":"status?"},{"role":"tool","tool_call_id":"call_prev","content":"{\"status\":\"delivered\"}"}],"response_format":{"type":"json_schema","json_schema":{"name":"order_status","strict":true,"schema":{"type":"object","properties":{"status":{"type":"string"}},"required":["status"],"additionalProperties":false}}},"tools":[{"type":"function","function":{"name":"get_order_status","strict":true,"parameters":{"type":"object"}}}],"tool_choice":{"type":"function","function":{"name":"get_order_status"}}}`),
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	for _, want := range []string{`"tools"`, `"tool_choice"`, `"tool_call_id":"call_prev"`, `"parallel_tool_calls":false`, `"response_format"`, `"type":"json_schema"`, `"strict":true`} {
+		if !strings.Contains(gotBody, want) {
+			t.Fatalf("forwarded body missing %s: %s", want, gotBody)
+		}
+	}
+	if !strings.Contains(rec.Body.String(), `"tool_calls"`) || !strings.Contains(rec.Body.String(), `"finish_reason":"tool_calls"`) {
+		t.Fatalf("unexpected response: %s", rec.Body.String())
+	}
+}
+
 func TestDispatchUsesOpenAIEndpointOverride(t *testing.T) {
 	t.Parallel()
 
@@ -436,6 +494,60 @@ func TestDispatchAnthropicAdapterConvertsImageDataURL(t *testing.T) {
 	}
 }
 
+func TestDispatchAnthropicAdapterConvertsPDFFileDataURL(t *testing.T) {
+	t.Parallel()
+
+	var body map[string]any
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"id":"msg_123",
+			"type":"message",
+			"role":"assistant",
+			"model":"claude-3-haiku-20240307",
+			"content":[{"type":"text","text":"short guide"}],
+			"usage":{"input_tokens":20,"output_tokens":3},
+			"stop_reason":"end_turn"
+		}`))
+	}))
+	defer upstream.Close()
+
+	handler := NewHandler(nil)
+	payload := platform.TunnelRequest{
+		Deployment: platform.Deployment{
+			Provider: "anthropic",
+			APIBase:  upstream.URL,
+			APIKey:   "sk-ant-test",
+		},
+		Body: []byte(`{"model":"claude-3-haiku-20240307","messages":[{"role":"user","content":[{"type":"text","text":"summarize"},{"type":"file","file":{"filename":"guide.pdf","file_data":"data:application/pdf;base64,JVBERi0x"}}]}]}`),
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(raw)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	messages := body["messages"].([]any)
+	content := messages[0].(map[string]any)["content"].([]any)
+	document := content[1].(map[string]any)
+	source := document["source"].(map[string]any)
+	if document["type"] != "document" || source["type"] != "base64" || source["media_type"] != "application/pdf" || source["data"] != "JVBERi0x" {
+		t.Fatalf("unexpected anthropic document block: %#v", document)
+	}
+}
+
 func TestDispatchGeminiAdapterConvertsImageDataURL(t *testing.T) {
 	t.Parallel()
 
@@ -485,6 +597,62 @@ func TestDispatchGeminiAdapterConvertsImageDataURL(t *testing.T) {
 	parts := contents[0].(map[string]any)["parts"].([]any)
 	inlineData := parts[1].(map[string]any)["inline_data"].(map[string]any)
 	if inlineData["mime_type"] != "image/png" || inlineData["data"] != "AAAA" {
+		t.Fatalf("unexpected gemini inline data: %#v", inlineData)
+	}
+	if !strings.Contains(rec.Body.String(), `"object":"chat.completion"`) {
+		t.Fatalf("unexpected response: %s", rec.Body.String())
+	}
+}
+
+func TestDispatchGeminiAdapterConvertsPDFFileDataURL(t *testing.T) {
+	t.Parallel()
+
+	var gotPath string
+	var body map[string]any
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		defer r.Body.Close()
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"candidates":[{"content":{"role":"model","parts":[{"text":"short guide"}]},"finishReason":"STOP"}],
+			"usageMetadata":{"promptTokenCount":20,"candidatesTokenCount":3,"totalTokenCount":23}
+		}`))
+	}))
+	defer upstream.Close()
+
+	handler := NewHandler(nil)
+	payload := platform.TunnelRequest{
+		Deployment: platform.Deployment{
+			Provider: "gemini",
+			APIBase:  upstream.URL,
+			APIKey:   "gemini-key",
+		},
+		Body: []byte(`{"model":"gemini/gemini-1.5-flash","messages":[{"role":"user","content":[{"type":"text","text":"summarize"},{"type":"file","file":{"filename":"guide.pdf","file_data":"data:application/pdf;base64,JVBERi0x"}}]}]}`),
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(raw)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	if gotPath != "/models/gemini-1.5-flash:generateContent" {
+		t.Fatalf("unexpected gemini path: %q", gotPath)
+	}
+	contents := body["contents"].([]any)
+	parts := contents[0].(map[string]any)["parts"].([]any)
+	inlineData := parts[1].(map[string]any)["inline_data"].(map[string]any)
+	if inlineData["mime_type"] != "application/pdf" || inlineData["data"] != "JVBERi0x" {
 		t.Fatalf("unexpected gemini inline data: %#v", inlineData)
 	}
 	if !strings.Contains(rec.Body.String(), `"object":"chat.completion"`) {

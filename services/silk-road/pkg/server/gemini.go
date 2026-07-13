@@ -153,6 +153,15 @@ func geminiPartsFromContent(content interface{}) ([]geminiPart, error) {
 				return nil, err
 			}
 			out = append(out, geminiPart{InlineData: &geminiInlineData{MimeType: mediaType, Data: data}})
+		case "file":
+			if strings.TrimSpace(part.File.FileID) != "" {
+				return nil, fmt.Errorf("file.file_id is not supported for gemini")
+			}
+			mediaType, data, err := contractsopenai.ParseFileDataURL(part.File.FileData)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, geminiPart{InlineData: &geminiInlineData{MimeType: mediaType, Data: data}})
 		}
 	}
 	if len(out) == 0 {

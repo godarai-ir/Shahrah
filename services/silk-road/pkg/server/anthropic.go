@@ -35,12 +35,12 @@ type anthropicMessage struct {
 }
 
 type anthropicContentBlock struct {
-	Type   string                `json:"type"`
-	Text   string                `json:"text,omitempty"`
-	Source *anthropicImageSource `json:"source,omitempty"`
+	Type   string           `json:"type"`
+	Text   string           `json:"text,omitempty"`
+	Source *anthropicSource `json:"source,omitempty"`
 }
 
-type anthropicImageSource struct {
+type anthropicSource struct {
 	Type      string `json:"type"`
 	MediaType string `json:"media_type"`
 	Data      string `json:"data"`
@@ -326,7 +326,23 @@ func anthropicBlocksFromContent(content interface{}) ([]anthropicContentBlock, e
 			}
 			blocks = append(blocks, anthropicContentBlock{
 				Type: "image",
-				Source: &anthropicImageSource{
+				Source: &anthropicSource{
+					Type:      "base64",
+					MediaType: mediaType,
+					Data:      data,
+				},
+			})
+		case "file":
+			if strings.TrimSpace(part.File.FileID) != "" {
+				return nil, fmt.Errorf("file.file_id is not supported for anthropic")
+			}
+			mediaType, data, err := contractsopenai.ParseFileDataURL(part.File.FileData)
+			if err != nil {
+				return nil, err
+			}
+			blocks = append(blocks, anthropicContentBlock{
+				Type: "document",
+				Source: &anthropicSource{
 					Type:      "base64",
 					MediaType: mediaType,
 					Data:      data,

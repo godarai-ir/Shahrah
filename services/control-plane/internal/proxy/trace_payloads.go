@@ -13,19 +13,25 @@ func buildTraceChatRequestPayload(req contractsopenai.ChatCompletionRequest) map
 	messages := make([]map[string]interface{}, 0, len(req.Messages))
 	for _, msg := range req.Messages {
 		messages = append(messages, map[string]interface{}{
-			"role":    msg.Role,
-			"content": contractsopenai.RedactChatContent(msg.Content),
-			"name":    msg.Name,
+			"role":         msg.Role,
+			"content":      contractsopenai.RedactChatContent(msg.Content),
+			"name":         msg.Name,
+			"tool_calls":   summarizeToolCalls(msg.ToolCalls),
+			"tool_call_id": msg.ToolCallID,
 		})
 	}
 
 	return map[string]interface{}{
-		"model":       req.Model,
-		"messages":    messages,
-		"max_tokens":  req.MaxTokens,
-		"temperature": req.Temperature,
-		"top_p":       req.TopP,
-		"stream":      req.Stream,
+		"model":               req.Model,
+		"messages":            messages,
+		"max_tokens":          req.MaxTokens,
+		"temperature":         req.Temperature,
+		"top_p":               req.TopP,
+		"stream":              req.Stream,
+		"response_format":     summarizeResponseFormat(req.ResponseFormat),
+		"tools":               summarizeToolDefinitions(req.Tools),
+		"tool_choice":         req.ToolChoice,
+		"parallel_tool_calls": req.ParallelToolCalls,
 	}
 }
 
@@ -40,12 +46,19 @@ func buildTraceChatResponsePayload(resp contractsopenai.ChatCompletionResponse) 
 			role = choice.Message.Role
 		}
 
-		choices = append(choices, map[string]interface{}{
+		item := map[string]interface{}{
 			"index":         choice.Index,
 			"role":          role,
 			"content":       content,
 			"finish_reason": choice.FinishReason,
-		})
+		}
+		if choice.Message != nil && len(choice.Message.ToolCalls) > 0 {
+			item["tool_calls"] = summarizeToolCalls(choice.Message.ToolCalls)
+		}
+		if choice.Message != nil && choice.Message.Refusal != "" {
+			item["refusal"] = true
+		}
+		choices = append(choices, item)
 	}
 
 	usage := map[string]interface{}{}
@@ -61,6 +74,86 @@ func buildTraceChatResponsePayload(resp contractsopenai.ChatCompletionResponse) 
 		"choices": choices,
 		"usage":   usage,
 	}
+}
+
+func summarizeToolDefinitions(tools []contractsopenai.ToolDefinition) []map[string]interface{} {
+	if len(tools) == 0 {
+		return nil
+	}
+
+	out := make([]map[string]interface{}, 0, len(tools))
+	for _, tool := range tools {
+		item := map[string]interface{}{"type": tool.Type}
+		if tool.Function != nil {
+			item["function"] = map[string]interface{}{
+				"name":   tool.Function.Name,
+				"strict": tool.Function.Strict,
+			}
+		}
+		if tool.Custom != nil {
+			item["custom"] = map[string]interface{}{"name": tool.Custom.Name}
+		}
+		out = append(out, item)
+	}
+
+	return out
+}
+
+func summarizeResponseFormat(value interface{}) interface{} {
+	format, ok := value.(map[string]interface{})
+	if !ok {
+		return value
+	}
+
+	out := map[string]interface{}{}
+	if formatType, ok := format["type"].(string); ok {
+		out["type"] = formatType
+	}
+
+	if rawSchema, ok := format["json_schema"].(map[string]interface{}); ok {
+		schemaSummary := map[string]interface{}{}
+		if name, ok := rawSchema["name"].(string); ok {
+			schemaSummary["name"] = name
+		}
+		if strict, ok := rawSchema["strict"].(bool); ok {
+			schemaSummary["strict"] = strict
+		}
+		if _, ok := rawSchema["schema"]; ok {
+			schemaSummary["schema_present"] = true
+		}
+		out["json_schema"] = schemaSummary
+	}
+
+	return out
+}
+
+func summarizeToolCalls(toolCalls []contractsopenai.ToolCall) []map[string]interface{} {
+	if len(toolCalls) == 0 {
+		return nil
+	}
+
+	out := make([]map[string]interface{}, 0, len(toolCalls))
+	for _, call := range toolCalls {
+		item := map[string]interface{}{
+			"id":   call.ID,
+			"type": call.Type,
+		}
+		if call.Function != nil {
+			item["function"] = map[string]interface{}{
+				"name":             call.Function.Name,
+				"arguments_length": len(call.Function.Arguments),
+			}
+		}
+		if call.Custom != nil {
+			item["custom"] = map[string]interface{}{
+				"name":         call.Custom.Name,
+				"input_length": len(call.Custom.Input),
+			}
+		}
+		out = append(out, item)
+	}
+
+	return out
 }
 
 func buildTraceCompletionResponsePayload(resp contractsopenai.CompletionResponse) map[string]interface{} {
@@ -96,11 +189,22 @@ func buildTraceResponseRequestPayload(req contractsopenai.ResponseRequest) map[s
 		"max_output_tokens":    req.MaxOutputTokens,
 		"temperature":          req.Temperature,
 		"top_p":                req.TopP,
+		"text":                 summarizeResponseTextConfig(req.Text),
 		"tools":                req.Tools,
 		"tool_choice":          req.ToolChoice,
 		"previous_response_id": req.PreviousResponseID,
 		"stream":               req.Stream,
 		"user":                 req.User,
+	}
+}
+
+func summarizeResponseTextConfig(text *contractsopenai.ResponseTextConfig) interface{} {
+	if text == nil {
+		return nil
+	}
+
+	return map[string]interface{}{
+		"format": summarizeResponseFormat(text.Format),
 	}
 }
 

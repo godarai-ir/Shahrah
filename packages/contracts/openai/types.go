@@ -8,26 +8,33 @@ import (
 
 // ChatCompletionRequest mirrors OpenAI's chat completion request format.
 type ChatCompletionRequest struct {
-	Model            string                 `json:"model"`
-	Messages         []ChatMessage          `json:"messages"`
-	Stream           bool                   `json:"stream,omitempty"`
-	Temperature      *float64               `json:"temperature,omitempty"`
-	TopP             *float64               `json:"top_p,omitempty"`
-	MaxTokens        *int                   `json:"max_tokens,omitempty"`
-	ResponseFormat   interface{}            `json:"response_format,omitempty"`
-	Tools            []ToolDefinition       `json:"tools,omitempty"`
-	ToolChoice       interface{}            `json:"tool_choice,omitempty"`
-	Metadata         map[string]interface{} `json:"metadata,omitempty"`
-	User             string                 `json:"user,omitempty"`
-	PromptVersionFQN string                 `json:"prompt_version_fqn,omitempty"`
-	PromptVariables  map[string]string      `json:"prompt_variables,omitempty"`
+	Model             string                 `json:"model"`
+	Messages          []ChatMessage          `json:"messages"`
+	Stream            bool                   `json:"stream,omitempty"`
+	Temperature       *float64               `json:"temperature,omitempty"`
+	TopP              *float64               `json:"top_p,omitempty"`
+	MaxTokens         *int                   `json:"max_tokens,omitempty"`
+	ParallelToolCalls *bool                  `json:"parallel_tool_calls,omitempty"`
+	ResponseFormat    interface{}            `json:"response_format,omitempty"`
+	Tools             []ToolDefinition       `json:"tools,omitempty"`
+	ToolChoice        interface{}            `json:"tool_choice,omitempty"`
+	Metadata          map[string]interface{} `json:"metadata,omitempty"`
+	User              string                 `json:"user,omitempty"`
+	PromptVersionFQN  string                 `json:"prompt_version_fqn,omitempty"`
+	PromptVariables   map[string]string      `json:"prompt_variables,omitempty"`
 }
 
 // ChatMessage represents a single message in a chat completion request.
 type ChatMessage struct {
-	Role    string      `json:"role"`
-	Content interface{} `json:"content,omitempty"`
-	Name    string      `json:"name,omitempty"`
+	Role       string      `json:"role"`
+	Content    interface{} `json:"content,omitempty"`
+	Name       string      `json:"name,omitempty"`
+	Refusal    string      `json:"refusal,omitempty"`
+	ToolCalls  []ToolCall  `json:"tool_calls,omitempty"`
+	ToolCallID string      `json:"tool_call_id,omitempty"`
+	// FunctionCall is deprecated by OpenAI in favor of tool_calls, but retained
+	// so OpenAI-compatible providers can round-trip older responses.
+	FunctionCall *FunctionCall `json:"function_call,omitempty"`
 }
 
 // ChatContentPart represents one OpenAI-compatible multimodal message part.
@@ -35,12 +42,20 @@ type ChatContentPart struct {
 	Type     string        `json:"type"`
 	Text     string        `json:"text,omitempty"`
 	ImageURL *ChatImageURL `json:"image_url,omitempty"`
+	File     *ChatFile     `json:"file,omitempty"`
 }
 
 // ChatImageURL contains an image URL or data URL for multimodal requests.
 type ChatImageURL struct {
 	URL    string `json:"url"`
 	Detail string `json:"detail,omitempty"`
+}
+
+// ChatFile contains an OpenAI-compatible file reference or inline file data.
+type ChatFile struct {
+	Filename string `json:"filename,omitempty"`
+	FileData string `json:"file_data,omitempty"`
+	FileID   string `json:"file_id,omitempty"`
 }
 
 // ValidateChatMessageContent checks the supported Shahrah chat content contract.
@@ -99,6 +114,26 @@ func ChatContentHasImage(content interface{}) bool {
 	return ChatContentImageCount(content) > 0
 }
 
+// ChatContentFileCount returns the number of file parts in content.
+func ChatContentFileCount(content interface{}) int {
+	parts, ok, err := ChatContentParts(content)
+	if !ok || err != nil {
+		return 0
+	}
+	count := 0
+	for _, part := range parts {
+		if part.Type == "file" {
+			count++
+		}
+	}
+	return count
+}
+
+// ChatContentHasFile reports whether content contains any file part.
+func ChatContentHasFile(content interface{}) bool {
+	return ChatContentFileCount(content) > 0
+}
+
 // ChatContentParts normalizes array content parts. The bool is false for plain string content.
 func ChatContentParts(content interface{}) ([]ChatContentPart, bool, error) {
 	switch v := content.(type) {
@@ -135,6 +170,15 @@ func validateChatContentParts(parts []ChatContentPart) ([]ChatContentPart, bool,
 			if part.ImageURL == nil || strings.TrimSpace(part.ImageURL.URL) == "" {
 				return nil, true, fmt.Errorf("content part[%d].image_url.url is required", i)
 			}
+		case "file":
+			if part.File == nil {
+				return nil, true, fmt.Errorf("content part[%d].file is required", i)
+			}
+			hasFileData := strings.TrimSpace(part.File.FileData) != ""
+			hasFileID := strings.TrimSpace(part.File.FileID) != ""
+			if !hasFileData && !hasFileID {
+				return nil, true, fmt.Errorf("content part[%d].file.file_data or file.file_id is required", i)
+			}
 		default:
 			return nil, true, fmt.Errorf("content part[%d].type %q is not supported", i, part.Type)
 		}
@@ -170,6 +214,21 @@ func chatContentPartFromValue(raw interface{}) (ChatContentPart, error) {
 		if detail, ok := imageURL["detail"].(string); ok {
 			part.ImageURL.Detail = detail
 		}
+	case "file":
+		file, ok := m["file"].(map[string]interface{})
+		if !ok {
+			return ChatContentPart{}, fmt.Errorf("file must be an object")
+		}
+		part.File = &ChatFile{}
+		if filename, ok := file["filename"].(string); ok {
+			part.File.Filename = filename
+		}
+		if fileData, ok := file["file_data"].(string); ok {
+			part.File.FileData = fileData
+		}
+		if fileID, ok := file["file_id"].(string); ok {
+			part.File.FileID = fileID
+		}
 	}
 	return part, nil
 }
@@ -204,6 +263,19 @@ func redactChatContentParts(parts []ChatContentPart) []map[string]interface{} {
 			}
 			item["image_url"] = imageURL
 		}
+		if part.Type == "file" && part.File != nil {
+			file := map[string]interface{}{}
+			if part.File.Filename != "" {
+				file["filename"] = part.File.Filename
+			}
+			if part.File.FileData != "" {
+				file["file_data"] = RedactDataURL(part.File.FileData)
+			}
+			if part.File.FileID != "" {
+				file["file_id"] = part.File.FileID
+			}
+			item["file"] = file
+		}
 		out = append(out, item)
 	}
 	return out
@@ -229,9 +301,18 @@ func RedactDataURL(value string) string {
 
 // ParseImageDataURL extracts media type and base64 data from an image data URL.
 func ParseImageDataURL(value string) (string, string, error) {
+	return parseBase64DataURL(value, "image_url.url")
+}
+
+// ParseFileDataURL extracts media type and base64 data from a file data URL.
+func ParseFileDataURL(value string) (string, string, error) {
+	return parseBase64DataURL(value, "file.file_data")
+}
+
+func parseBase64DataURL(value string, field string) (string, string, error) {
 	trimmed := strings.TrimSpace(value)
 	if !strings.HasPrefix(strings.ToLower(trimmed), "data:") {
-		return "", "", fmt.Errorf("image_url.url must be a data URL")
+		return "", "", fmt.Errorf("%s must be a data URL", field)
 	}
 	comma := strings.Index(trimmed, ",")
 	if comma < 0 {
@@ -264,6 +345,7 @@ func ParseImageDataURL(value string) (string, string, error) {
 type ToolDefinition struct {
 	Type     string       `json:"type"`
 	Function *FunctionDef `json:"function,omitempty"`
+	Custom   *CustomTool  `json:"custom,omitempty"`
 }
 
 // FunctionDef represents a function definition for tool calling.
@@ -271,6 +353,35 @@ type FunctionDef struct {
 	Name        string                 `json:"name"`
 	Description string                 `json:"description,omitempty"`
 	Parameters  map[string]interface{} `json:"parameters,omitempty"`
+	Strict      *bool                  `json:"strict,omitempty"`
+}
+
+// CustomTool represents OpenAI-compatible custom tool metadata.
+type CustomTool struct {
+	Name        string      `json:"name"`
+	Description string      `json:"description,omitempty"`
+	Format      interface{} `json:"format,omitempty"`
+}
+
+// ToolCall represents an OpenAI-compatible tool call returned by a chat model.
+type ToolCall struct {
+	ID       string        `json:"id,omitempty"`
+	Type     string        `json:"type"`
+	Function *FunctionCall `json:"function,omitempty"`
+	Custom   *CustomCall   `json:"custom,omitempty"`
+	Index    *int          `json:"index,omitempty"`
+}
+
+// FunctionCall contains the name and JSON arguments for a function tool call.
+type FunctionCall struct {
+	Name      string `json:"name,omitempty"`
+	Arguments string `json:"arguments,omitempty"`
+}
+
+// CustomCall contains the name and free-form input for a custom tool call.
+type CustomCall struct {
+	Name  string `json:"name,omitempty"`
+	Input string `json:"input,omitempty"`
 }
 
 // ChatCompletionResponse mirrors OpenAI's chat completion response format.
@@ -420,12 +531,18 @@ type ResponseRequest struct {
 	MaxOutputTokens    *int                   `json:"max_output_tokens,omitempty"`
 	Temperature        *float64               `json:"temperature,omitempty"`
 	TopP               *float64               `json:"top_p,omitempty"`
+	Text               *ResponseTextConfig    `json:"text,omitempty"`
 	Tools              []ToolDefinition       `json:"tools,omitempty"`
 	ToolChoice         interface{}            `json:"tool_choice,omitempty"`
 	Metadata           map[string]interface{} `json:"metadata,omitempty"`
 	PreviousResponseID string                 `json:"previous_response_id,omitempty"`
 	Stream             bool                   `json:"stream,omitempty"`
 	User               string                 `json:"user,omitempty"`
+}
+
+// ResponseTextConfig contains text output formatting options for the Responses API.
+type ResponseTextConfig struct {
+	Format interface{} `json:"format,omitempty"`
 }
 
 // Response represents the normalized OpenAI responses payload returned by providers.

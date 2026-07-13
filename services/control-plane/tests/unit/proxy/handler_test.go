@@ -1456,6 +1456,244 @@ func TestChatCompletionHandler_AcceptsMultimodalChatContent(t *testing.T) {
 	assert.Contains(t, string(mTunnel.lastRequest.Body), `"image_url"`)
 }
 
+func TestChatCompletionHandler_AcceptsFileChatContent(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	r := newTestRouter(t, logger)
+
+	validResponse := contractsopenai.ChatCompletionResponse{
+		ID:      "chatcmpl-123",
+		Object:  "chat.completion",
+		Created: 1234567890,
+		Model:   "gpt-4",
+		Choices: []contractsopenai.Choice{{
+			Index: 0,
+			Message: &contractsopenai.ChatMessage{
+				Role:    "assistant",
+				Content: "The PDF is a short guide.",
+			},
+			FinishReason: "stop",
+		}},
+		Usage: &contractsopenai.Usage{PromptTokens: 80, CompletionTokens: 8, TotalTokens: 88},
+	}
+	respBody, _ := json.Marshal(validResponse)
+	mTunnel := &mockTunnelTransport{response: &platform.TunnelResponse{StatusCode: http.StatusOK, Headers: map[string]string{}, Body: respBody}}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 88}}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{}
+
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	app := setupTestApp(t, handler)
+
+	payload := []byte(`{
+		"model":"gpt-4",
+		"messages":[{
+			"role":"user",
+			"content":[
+				{"type":"text","text":"Summarize this PDF."},
+				{"type":"file","file":{"filename":"guide.pdf","file_data":"data:application/pdf;base64,JVBERi0x"}}
+			]
+		}]
+	}`)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Contains(t, string(mTunnel.lastRequest.Body), `"type":"file"`)
+	assert.Contains(t, string(mTunnel.lastRequest.Body), `"file_data":"data:application/pdf;base64,JVBERi0x"`)
+}
+
+func TestChatCompletionHandler_RoundTripsOpenAICompatibleTools(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	r := newTestRouter(t, logger)
+
+	validResponse := contractsopenai.ChatCompletionResponse{
+		ID:      "chatcmpl-tools",
+		Object:  "chat.completion",
+		Created: 1234567890,
+		Model:   "gpt-4",
+		Choices: []contractsopenai.Choice{{
+			Index: 0,
+			Message: &contractsopenai.ChatMessage{
+				Role: "assistant",
+				ToolCalls: []contractsopenai.ToolCall{{
+					ID:   "call_123",
+					Type: "function",
+					Function: &contractsopenai.FunctionCall{
+						Name:      "get_order_status",
+						Arguments: `{"order_id":"A-1024"}`,
+					},
+				}},
+			},
+			FinishReason: "tool_calls",
+		}},
+		Usage: &contractsopenai.Usage{PromptTokens: 40, CompletionTokens: 12, TotalTokens: 52},
+	}
+	respBody, _ := json.Marshal(validResponse)
+	mTunnel := &mockTunnelTransport{response: &platform.TunnelResponse{StatusCode: http.StatusOK, Headers: map[string]string{}, Body: respBody}}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 52}}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{}
+
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	app := setupTestApp(t, handler)
+
+	payload := []byte(`{
+		"model":"gpt-4",
+		"parallel_tool_calls":false,
+		"messages":[
+			{"role":"user","content":"What is order A-1024?"},
+			{"role":"assistant","tool_calls":[{"id":"call_prev","type":"function","function":{"name":"get_order_status","arguments":"{\"order_id\":\"A-1023\"}"}}]},
+			{"role":"tool","tool_call_id":"call_prev","content":"{\"status\":\"delivered\"}"}
+		],
+		"tools":[{
+			"type":"function",
+			"function":{
+				"name":"get_order_status",
+				"description":"Get order status.",
+				"strict":true,
+				"parameters":{"type":"object","properties":{"order_id":{"type":"string"}},"required":["order_id"],"additionalProperties":false}
+			}
+		}],
+		"tool_choice":{"type":"function","function":{"name":"get_order_status"}}
+	}`)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	outbound := string(mTunnel.lastRequest.Body)
+	assert.Contains(t, outbound, `"tools"`)
+	assert.Contains(t, outbound, `"tool_choice"`)
+	assert.Contains(t, outbound, `"tool_calls"`)
+	assert.Contains(t, outbound, `"tool_call_id":"call_prev"`)
+	assert.Contains(t, outbound, `"parallel_tool_calls":false`)
+	assert.Contains(t, outbound, `"strict":true`)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	bodyText := string(body)
+	assert.Contains(t, bodyText, `"tool_calls"`)
+	assert.Contains(t, bodyText, `"finish_reason":"tool_calls"`)
+	assert.Contains(t, bodyText, `"name":"get_order_status"`)
+}
+
+func TestChatCompletionHandler_RoundTripsStructuredOutputsResponseFormat(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	r := newTestRouter(t, logger)
+
+	validResponse := contractsopenai.ChatCompletionResponse{
+		ID:      "chatcmpl-structured",
+		Object:  "chat.completion",
+		Created: 1234567890,
+		Model:   "gpt-4",
+		Choices: []contractsopenai.Choice{{
+			Index: 0,
+			Message: &contractsopenai.ChatMessage{
+				Role:    "assistant",
+				Content: `{"summary":"ok","priority":"high"}`,
+			},
+			FinishReason: "stop",
+		}},
+		Usage: &contractsopenai.Usage{PromptTokens: 40, CompletionTokens: 12, TotalTokens: 52},
+	}
+	respBody, _ := json.Marshal(validResponse)
+	mTunnel := &mockTunnelTransport{response: &platform.TunnelResponse{StatusCode: http.StatusOK, Headers: map[string]string{}, Body: respBody}}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 52}}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{}
+
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	app := setupTestApp(t, handler)
+
+	payload := []byte(`{
+		"model":"gpt-4",
+		"messages":[{"role":"user","content":"Summarize this ticket."}],
+		"response_format":{
+			"type":"json_schema",
+			"json_schema":{
+				"name":"support_ticket",
+				"strict":true,
+				"schema":{
+					"type":"object",
+					"properties":{"summary":{"type":"string"},"priority":{"type":"string","enum":["low","medium","high"]}},
+					"required":["summary","priority"],
+					"additionalProperties":false
+				}
+			}
+		}
+	}`)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	outbound := string(mTunnel.lastRequest.Body)
+	assert.Contains(t, outbound, `"response_format"`)
+	assert.Contains(t, outbound, `"type":"json_schema"`)
+	assert.Contains(t, outbound, `"name":"support_ticket"`)
+	assert.Contains(t, outbound, `"strict":true`)
+	assert.Contains(t, outbound, `"additionalProperties":false`)
+}
+
+func TestChatCompletionHandler_PreservesStructuredOutputRefusal(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	r := newTestRouter(t, logger)
+
+	validResponse := contractsopenai.ChatCompletionResponse{
+		ID:      "chatcmpl-refusal",
+		Object:  "chat.completion",
+		Created: 1234567890,
+		Model:   "gpt-4",
+		Choices: []contractsopenai.Choice{{
+			Index: 0,
+			Message: &contractsopenai.ChatMessage{
+				Role:    "assistant",
+				Refusal: "I cannot help with that request.",
+			},
+			FinishReason: "stop",
+		}},
+		Usage: &contractsopenai.Usage{PromptTokens: 40, CompletionTokens: 12, TotalTokens: 52},
+	}
+	respBody, _ := json.Marshal(validResponse)
+	mTunnel := &mockTunnelTransport{response: &platform.TunnelResponse{StatusCode: http.StatusOK, Headers: map[string]string{}, Body: respBody}}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 52}}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{}
+
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	app := setupTestApp(t, handler)
+
+	payload := []byte(`{
+		"model":"gpt-4",
+		"messages":[{"role":"user","content":"Extract the data."}],
+		"response_format":{"type":"json_object"}
+	}`)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Contains(t, string(body), `"refusal":"I cannot help with that request."`)
+}
+
 func TestChatCompletionHandler_RejectsImageInputForUnsupportedProvider(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, err := mcache.NewMemoryCache(logger)
@@ -1499,6 +1737,209 @@ func TestChatCompletionHandler_RejectsImageInputForUnsupportedProvider(t *testin
 	var apiErr contractsopenai.APIError
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&apiErr))
 	assert.Contains(t, apiErr.Error.Message, "does not support image input")
+}
+
+func TestChatCompletionHandler_RejectsFileInputForUnsupportedProvider(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, err := mcache.NewMemoryCache(logger)
+	require.NoError(t, err)
+	r, err := llmrouter.NewRouter([]config.ModelDeployment{{
+		ModelName: "command-r",
+		ProviderEndpoint: config.ProviderEndpointConfig{
+			Provider: "cohere",
+			Model:    "cohere/command-r",
+			RPM:      1000,
+		},
+	}}, config.RouterSettings{RoutingStrategy: "simple-shuffle", CooldownTime: 60}, memCache, nil, logger)
+	require.NoError(t, err)
+
+	mTunnel := &mockTunnelTransport{}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 88}}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{}
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	app := setupTestApp(t, handler)
+
+	payload := []byte(`{
+		"model":"command-r",
+		"messages":[{
+			"role":"user",
+			"content":[
+				{"type":"text","text":"Summarize this PDF."},
+				{"type":"file","file":{"filename":"guide.pdf","file_data":"data:application/pdf;base64,JVBERi0x"}}
+			]
+		}]
+	}`)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	var apiErr contractsopenai.APIError
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&apiErr))
+	assert.Contains(t, apiErr.Error.Message, "does not support file input")
+}
+
+func TestChatCompletionHandler_RejectsFileIDForGeminiAdapter(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, err := mcache.NewMemoryCache(logger)
+	require.NoError(t, err)
+	r, err := llmrouter.NewRouter([]config.ModelDeployment{{
+		ModelName: "gemini-1.5-flash",
+		ProviderEndpoint: config.ProviderEndpointConfig{
+			Provider: "gemini",
+			Model:    "gemini/gemini-1.5-flash",
+			RPM:      1000,
+		},
+	}}, config.RouterSettings{RoutingStrategy: "simple-shuffle", CooldownTime: 60}, memCache, nil, logger)
+	require.NoError(t, err)
+
+	mTunnel := &mockTunnelTransport{}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 88}}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{}
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	app := setupTestApp(t, handler)
+
+	payload := []byte(`{
+		"model":"gemini-1.5-flash",
+		"messages":[{
+			"role":"user",
+			"content":[
+				{"type":"text","text":"Summarize this file."},
+				{"type":"file","file":{"file_id":"file_123"}}
+			]
+		}]
+	}`)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	var apiErr contractsopenai.APIError
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&apiErr))
+	assert.Contains(t, apiErr.Error.Message, "file.file_id is not supported")
+}
+
+func TestChatCompletionHandler_RejectsToolsForNativeProviderWithoutAdapter(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, err := mcache.NewMemoryCache(logger)
+	require.NoError(t, err)
+	r, err := llmrouter.NewRouter([]config.ModelDeployment{{
+		ModelName: "claude-3-haiku",
+		ProviderEndpoint: config.ProviderEndpointConfig{
+			Provider: "anthropic",
+			Model:    "anthropic/claude-3-haiku-20240307",
+			RPM:      1000,
+		},
+	}}, config.RouterSettings{RoutingStrategy: "simple-shuffle", CooldownTime: 60}, memCache, nil, logger)
+	require.NoError(t, err)
+
+	mTunnel := &mockTunnelTransport{}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 52}}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{}
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	app := setupTestApp(t, handler)
+
+	payload := []byte(`{
+		"model":"claude-3-haiku",
+		"messages":[{"role":"user","content":"What is order A-1024?"}],
+		"tools":[{"type":"function","function":{"name":"get_order_status","parameters":{"type":"object"}}}]
+	}`)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+	assert.Zero(t, mTunnel.proxyCalls)
+
+	var apiErr contractsopenai.APIError
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&apiErr))
+	assert.Contains(t, apiErr.Error.Message, "does not support tools")
+}
+
+func TestChatCompletionHandler_RejectsResponseFormatForNativeProviderWithoutAdapter(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, err := mcache.NewMemoryCache(logger)
+	require.NoError(t, err)
+	r, err := llmrouter.NewRouter([]config.ModelDeployment{{
+		ModelName: "claude-3-haiku",
+		ProviderEndpoint: config.ProviderEndpointConfig{
+			Provider: "anthropic",
+			Model:    "anthropic/claude-3-haiku-20240307",
+			RPM:      1000,
+		},
+	}}, config.RouterSettings{RoutingStrategy: "simple-shuffle", CooldownTime: 60}, memCache, nil, logger)
+	require.NoError(t, err)
+
+	mTunnel := &mockTunnelTransport{}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 52}}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{}
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	app := setupTestApp(t, handler)
+
+	payload := []byte(`{
+		"model":"claude-3-haiku",
+		"messages":[{"role":"user","content":"Return JSON."}],
+		"response_format":{"type":"json_object"}
+	}`)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+	assert.Zero(t, mTunnel.proxyCalls)
+
+	var apiErr contractsopenai.APIError
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&apiErr))
+	assert.Contains(t, apiErr.Error.Message, "does not support response_format")
+}
+
+func TestChatCompletionHandler_RejectsInvalidResponseFormatType(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	r := newTestRouter(t, logger)
+
+	mTunnel := &mockTunnelTransport{}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 52}}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{}
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	app := setupTestApp(t, handler)
+
+	payload := []byte(`{
+		"model":"gpt-4",
+		"messages":[{"role":"user","content":"Return JSON."}],
+		"response_format":{"type":"xml"}
+	}`)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+	assert.Zero(t, mTunnel.proxyCalls)
+
+	var apiErr contractsopenai.APIError
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&apiErr))
+	assert.Contains(t, apiErr.Error.Message, `response_format.type "xml" is not supported`)
 }
 
 func TestChatCompletionHandler_StreamSuccessRelaysChunksWithoutPanic(t *testing.T) {

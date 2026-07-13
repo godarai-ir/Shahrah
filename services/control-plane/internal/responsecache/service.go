@@ -201,7 +201,7 @@ func (s *Service) Lookup(ctx context.Context, scope Scope, req contractsopenai.C
 		}
 
 		last := req.Messages[len(req.Messages)-1]
-		if strings.ToLower(strings.TrimSpace(last.Role)) != "user" || contractsopenai.ChatContentHasImage(last.Content) || contractsopenai.ChatContentText(last.Content) == "" {
+		if strings.ToLower(strings.TrimSpace(last.Role)) != "user" || contractsopenai.ChatContentHasImage(last.Content) || contractsopenai.ChatContentHasFile(last.Content) || contractsopenai.ChatContentText(last.Content) == "" {
 			return Result{Status: "bypass", CacheType: cfg.Type}, nil, nil
 		}
 	}

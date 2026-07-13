@@ -322,7 +322,19 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support image input through GodarAI chat completions", deployment.Provider), "invalid_request_error")
 	}
 
-	validateErr := validateProviderImageInput(req, deployment.Provider)
+	if chatRequestHasFile(req) && !supportsChatFileProvider(deployment.Provider) {
+		return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support file input through GodarAI chat completions", deployment.Provider), "invalid_request_error")
+	}
+
+	if chatRequestHasTools(req) && !supportsChatToolsProvider(deployment.Provider) {
+		return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support tools through GodarAI chat completions", deployment.Provider), "invalid_request_error")
+	}
+
+	if chatRequestHasResponseFormat(req) && !supportsChatResponseFormatProvider(deployment.Provider) {
+		return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support response_format through GodarAI chat completions", deployment.Provider), "invalid_request_error")
+	}
+
+	validateErr := validateProviderMediaInput(req, deployment.Provider)
 	if validateErr != nil {
 		return writeAPIError(c, fiber.StatusBadRequest, validateErr.Error(), "invalid_request_error")
 	}
@@ -377,6 +389,10 @@ func validateChatCompletionRequest(c *fiber.Ctx, req contractsopenai.ChatComplet
 			return true, writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("message[%d].role is required", i), "invalid_request_error")
 		}
 
+		if strings.EqualFold(strings.TrimSpace(msg.Role), "tool") && strings.TrimSpace(msg.ToolCallID) == "" {
+			return true, writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("message[%d].tool_call_id is required for tool messages", i), "invalid_request_error")
+		}
+
 		if err := contractsopenai.ValidateChatMessageContent(msg.Content); err != nil {
 			return true, writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("message[%d].content: %v", i, err), "invalid_request_error")
 		}
@@ -392,6 +408,10 @@ func validateChatCompletionRequest(c *fiber.Ctx, req contractsopenai.ChatComplet
 
 	if req.MaxTokens != nil && *req.MaxTokens < 1 {
 		return true, writeAPIError(c, fiber.StatusBadRequest, "max_tokens must be at least 1", "invalid_request_error")
+	}
+
+	if err := validateChatResponseFormat(req.ResponseFormat); err != nil {
+		return true, writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
 	}
 
 	return false, nil
@@ -1289,6 +1309,24 @@ func chatRequestHasImage(req contractsopenai.ChatCompletionRequest) bool {
 	return false
 }
 
+func chatRequestHasFile(req contractsopenai.ChatCompletionRequest) bool {
+	for _, msg := range req.Messages {
+		if contractsopenai.ChatContentHasFile(msg.Content) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func chatRequestHasTools(req contractsopenai.ChatCompletionRequest) bool {
+	return len(req.Tools) > 0 || req.ToolChoice != nil || req.ParallelToolCalls != nil
+}
+
+func chatRequestHasResponseFormat(req contractsopenai.ChatCompletionRequest) bool {
+	return req.ResponseFormat != nil
+}
+
 func supportsChatImageProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
 	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "anthropic", "gemini":
@@ -1298,7 +1336,67 @@ func supportsChatImageProvider(provider string) bool {
 	}
 }
 
-func validateProviderImageInput(req contractsopenai.ChatCompletionRequest, provider string) error {
+func supportsChatToolsProvider(provider string) bool {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai":
+		return true
+	default:
+		return false
+	}
+}
+
+func supportsChatResponseFormatProvider(provider string) bool {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai":
+		return true
+	default:
+		return false
+	}
+}
+
+func supportsChatFileProvider(provider string) bool {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "", "openai", "azure", "openrouter", "anthropic", "gemini":
+		return true
+	default:
+		return false
+	}
+}
+
+func validateChatResponseFormat(value interface{}) error {
+	if value == nil {
+		return nil
+	}
+
+	format, ok := value.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("response_format must be an object")
+	}
+
+	formatType, ok := format["type"].(string)
+	formatType = strings.TrimSpace(formatType)
+	if !ok || formatType == "" {
+		return fmt.Errorf("response_format.type is required")
+	}
+
+	switch formatType {
+	case "json_object":
+		return nil
+	case "json_schema":
+		rawSchema, ok := format["json_schema"].(map[string]interface{})
+		if !ok || rawSchema == nil {
+			return fmt.Errorf("response_format.json_schema is required for json_schema")
+		}
+		if _, ok := rawSchema["schema"].(map[string]interface{}); !ok {
+			return fmt.Errorf("response_format.json_schema.schema is required for json_schema")
+		}
+		return nil
+	default:
+		return fmt.Errorf("response_format.type %q is not supported", formatType)
+	}
+}
+
+func validateProviderMediaInput(req contractsopenai.ChatCompletionRequest, provider string) error {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
 	case "anthropic", "gemini":
 	default:
@@ -1317,6 +1415,18 @@ func validateProviderImageInput(req contractsopenai.ChatCompletionRequest, provi
 
 		for partIndex, part := range parts {
 			if part.Type != "image_url" {
+				if part.Type != "file" {
+					continue
+				}
+
+				if strings.TrimSpace(part.File.FileID) != "" {
+					return fmt.Errorf("message[%d].content part[%d].file.file_id is not supported for provider %s", msgIndex, partIndex, provider)
+				}
+
+				if _, _, err := contractsopenai.ParseFileDataURL(part.File.FileData); err != nil {
+					return fmt.Errorf("message[%d].content part[%d].file.file_data: %v", msgIndex, partIndex, err)
+				}
+
 				continue
 			}
 
