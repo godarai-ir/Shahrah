@@ -8,6 +8,21 @@ title: تفکر عمیق‌تر
 
 این صفحه برای سناریوهای پیشرفته است؛ اگر فقط می‌خواهید یک پاسخ نهایی بگیرید، معمولاً [حافظه نهان و استدلال](/supported-apis/chat-completions/caching-and-reasoning) کافی است.
 
+## وضعیت پشتیبانی در گدارAI
+
+گدارAI در نقطه پایانی `POST /v1/chat/completions` این فیلدها را حفظ و مسیریابی می‌کند:
+
+- `reasoning_effort` با مقدارهای `none`، `minimal`، `low`، `medium`، `high`، `xhigh` و `max`.
+- `thinking` برای مسیرهای Anthropic-native، با فیلدهای `type`، `budget_tokens` و `display`.
+- `reasoning_content` و `thinking_blocks` در پیام assistant.
+- `signature` و بلوک‌های `redacted_thinking` بدون نرمال‌سازی محتوایی.
+
+در مسیرهای OpenAI-compatible، این فیلدها به ارائه‌دهنده ارسال و از پاسخ هم حفظ می‌شوند. در مسیر Anthropic-native، گدارAI `reasoning_effort` یا `thinking` را به تنظیم `thinking` در Anthropic Messages API تبدیل می‌کند و بلوک‌های `thinking` و `redacted_thinking` پاسخ را در `thinking_blocks` برمی‌گرداند.
+
+:::warning
+درخواست‌هایی که تفکر عمیق‌تر دارند در حافظه نهان پاسخ ذخیره نمی‌شوند. برای Anthropic-native، `temperature` همراه تفکر عمیق‌تر پذیرفته نمی‌شود و `top_p` باید بین `0.95` و `1` باشد.
+:::
+
 ## چه زمانی لازم می‌شود؟
 
 تفکر عمیق‌تر زمانی ارزش دارد که:
@@ -78,6 +93,17 @@ assistant_message = response.choices[0].message.model_dump(exclude_none=True)
 
 در این نمونه، هدف اصلی ذخیره کامل `assistant_message` است. همین پیام ممکن است شامل `content`، `tool_calls`، `reasoning_content` یا `thinking_blocks` باشد.
 
+اگر می‌خواهید بودجه تفکر Anthropic را صریح کنترل کنید، می‌توانید به‌جای تکیه بر نگاشت `reasoning_effort`، فیلد `thinking` را بفرستید:
+
+```python
+response = client.chat.completions.create(
+    model="anthropic:default:claude-3-7-sonnet",
+    messages=[{"role": "user", "content": "این مسئله را تحلیل کن."}],
+    max_tokens=4000,
+    extra_body={"thinking": {"type": "enabled", "budget_tokens": 3200}},
+)
+```
+
 ## گفت‌وگوی چندنوبتی
 
 برای ادامه گفت‌وگو، پیام assistant را همان‌طور که برگشته در تاریخچه نگه دارید:
@@ -121,12 +147,14 @@ response2 = client.chat.completions.create(
 
 این الگو از خطاهای ظریف در عامل‌های چندمرحله‌ای جلوگیری می‌کند.
 
+در گدارAI، ترکیب `tools` با تفکر عمیق‌تر برای مسیرهای OpenAI-compatible همان‌طور که ارائه‌دهنده پشتیبانی کند عبور داده می‌شود. برای مسیر Anthropic-native، تا زمانی که آداپتر ابزارهای Anthropic فعال نشده باشد، درخواست دارای `tools` رد می‌شود.
+
 ## پاسخ جریانی
 
 در حالت جریانی، بخش‌های مربوط به استدلال ممکن است تکه‌تکه برسند. برای استفاده قابل اتکا:
 
 - ابتدا نسخه غیرجریانی را پایدار کنید.
-- سپس قطعه‌های stream را جمع‌آوری کنید.
+- سپس قطعه‌های `reasoning_content`، `thinking_blocks` و `content` را از stream جمع‌آوری کنید.
 - در پایان، یک پیام assistant کامل بسازید.
 - همان پیام کامل را در تاریخچه نگه دارید.
 

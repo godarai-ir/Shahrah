@@ -11,6 +11,8 @@ type ChatCompletionRequest struct {
 	Temperature       *float64         `json:"temperature,omitempty"`
 	TopP              *float64         `json:"top_p,omitempty"`
 	MaxTokens         *int             `json:"max_tokens,omitempty"`
+	ReasoningEffort   string           `json:"reasoning_effort,omitempty"`
+	Thinking          *ThinkingConfig  `json:"thinking,omitempty"`
 	ParallelToolCalls *bool            `json:"parallel_tool_calls,omitempty"`
 	ResponseFormat    interface{}      `json:"response_format,omitempty"`
 	Tools             []ToolDefinition `json:"tools,omitempty"`
@@ -19,14 +21,26 @@ type ChatCompletionRequest struct {
 
 // ChatMessage represents a single message in a chat completion request.
 type ChatMessage struct {
-	Role         string        `json:"role"`
-	Content      string        `json:"content,omitempty"`
-	Name         string        `json:"name,omitempty"`
-	Refusal      string        `json:"refusal,omitempty"`
-	ToolCalls    []ToolCall    `json:"tool_calls,omitempty"`
-	ToolCallID   string        `json:"tool_call_id,omitempty"`
-	FunctionCall *FunctionCall `json:"function_call,omitempty"`
+	Role             string          `json:"role"`
+	Content          string          `json:"content,omitempty"`
+	Name             string          `json:"name,omitempty"`
+	Refusal          string          `json:"refusal,omitempty"`
+	ReasoningContent string          `json:"reasoning_content,omitempty"`
+	ThinkingBlocks   []ThinkingBlock `json:"thinking_blocks,omitempty"`
+	ToolCalls        []ToolCall      `json:"tool_calls,omitempty"`
+	ToolCallID       string          `json:"tool_call_id,omitempty"`
+	FunctionCall     *FunctionCall   `json:"function_call,omitempty"`
 }
+
+// ThinkingConfig preserves provider thinking configuration.
+type ThinkingConfig struct {
+	Type         string `json:"type,omitempty"`
+	BudgetTokens int    `json:"budget_tokens,omitempty"`
+	Display      string `json:"display,omitempty"`
+}
+
+// ThinkingBlock preserves provider reasoning block fields.
+type ThinkingBlock map[string]interface{}
 
 // ToolDefinition represents a function/tool definition.
 type ToolDefinition struct {

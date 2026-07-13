@@ -1694,6 +1694,107 @@ func TestChatCompletionHandler_PreservesStructuredOutputRefusal(t *testing.T) {
 	assert.Contains(t, string(body), `"refusal":"I cannot help with that request."`)
 }
 
+func TestChatCompletionHandler_RoundTripsOpenAICompatibleExtendedThinking(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	r := newTestRouter(t, logger)
+
+	providerBody := []byte(`{
+		"id":"chatcmpl-thinking",
+		"object":"chat.completion",
+		"created":1234567890,
+		"model":"gpt-5",
+		"choices":[{
+			"index":0,
+			"message":{
+				"role":"assistant",
+				"content":"Final answer",
+				"reasoning_content":"private reasoning",
+				"thinking_blocks":[{"type":"thinking","thinking":"private reasoning","signature":"sig_123"}]
+			},
+			"finish_reason":"stop"
+		}],
+		"usage":{"prompt_tokens":40,"completion_tokens":12,"total_tokens":52}
+	}`)
+	mTunnel := &mockTunnelTransport{response: &platform.TunnelResponse{StatusCode: http.StatusOK, Headers: map[string]string{}, Body: providerBody}}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 52}}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{}
+
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	app := setupTestApp(t, handler)
+
+	payload := []byte(`{
+		"model":"gpt-4",
+		"reasoning_effort":"high",
+		"messages":[
+			{"role":"user","content":"Solve this."},
+			{"role":"assistant","content":"Previous answer","reasoning_content":"previous reasoning","thinking_blocks":[{"type":"thinking","thinking":"previous reasoning","signature":"sig_prev"}]},
+			{"role":"user","content":"Continue."}
+		]
+	}`)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	outbound := string(mTunnel.lastRequest.Body)
+	assert.Contains(t, outbound, `"reasoning_effort":"high"`)
+	assert.Contains(t, outbound, `"thinking_blocks"`)
+	assert.Contains(t, outbound, `"signature":"sig_prev"`)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	bodyText := string(body)
+	assert.Contains(t, bodyText, `"reasoning_content":"private reasoning"`)
+	assert.Contains(t, bodyText, `"thinking_blocks"`)
+	assert.Contains(t, bodyText, `"signature":"sig_123"`)
+}
+
+func TestChatCompletionHandler_RejectsExtendedThinkingForUnsupportedProvider(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, err := mcache.NewMemoryCache(logger)
+	require.NoError(t, err)
+	r, err := llmrouter.NewRouter([]config.ModelDeployment{{
+		ModelName: "command-r",
+		ProviderEndpoint: config.ProviderEndpointConfig{
+			Provider: "cohere",
+			Model:    "cohere/command-r",
+			RPM:      1000,
+		},
+	}}, config.RouterSettings{RoutingStrategy: "simple-shuffle", CooldownTime: 60}, memCache, nil, logger)
+	require.NoError(t, err)
+
+	mTunnel := &mockTunnelTransport{}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 52}}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{}
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	app := setupTestApp(t, handler)
+
+	payload := []byte(`{
+		"model":"command-r",
+		"messages":[{"role":"user","content":"Solve this."}],
+		"reasoning_effort":"high"
+	}`)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+	assert.Zero(t, mTunnel.proxyCalls)
+
+	var apiErr contractsopenai.APIError
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&apiErr))
+	assert.Contains(t, apiErr.Error.Message, "does not support extended thinking")
+}
+
 func TestChatCompletionHandler_RejectsImageInputForUnsupportedProvider(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, err := mcache.NewMemoryCache(logger)

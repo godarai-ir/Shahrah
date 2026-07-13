@@ -14,6 +14,8 @@ type ChatCompletionRequest struct {
 	Temperature       *float64               `json:"temperature,omitempty"`
 	TopP              *float64               `json:"top_p,omitempty"`
 	MaxTokens         *int                   `json:"max_tokens,omitempty"`
+	ReasoningEffort   string                 `json:"reasoning_effort,omitempty"`
+	Thinking          *ThinkingConfig        `json:"thinking,omitempty"`
 	ParallelToolCalls *bool                  `json:"parallel_tool_calls,omitempty"`
 	ResponseFormat    interface{}            `json:"response_format,omitempty"`
 	Tools             []ToolDefinition       `json:"tools,omitempty"`
@@ -26,16 +28,33 @@ type ChatCompletionRequest struct {
 
 // ChatMessage represents a single message in a chat completion request.
 type ChatMessage struct {
-	Role       string      `json:"role"`
-	Content    interface{} `json:"content,omitempty"`
-	Name       string      `json:"name,omitempty"`
-	Refusal    string      `json:"refusal,omitempty"`
-	ToolCalls  []ToolCall  `json:"tool_calls,omitempty"`
-	ToolCallID string      `json:"tool_call_id,omitempty"`
+	Role    string      `json:"role"`
+	Content interface{} `json:"content,omitempty"`
+	Name    string      `json:"name,omitempty"`
+	Refusal string      `json:"refusal,omitempty"`
+	// ReasoningContent preserves OpenAI-compatible reasoning text returned by
+	// providers that expose it outside the final answer.
+	ReasoningContent string          `json:"reasoning_content,omitempty"`
+	ThinkingBlocks   []ThinkingBlock `json:"thinking_blocks,omitempty"`
+	ToolCalls        []ToolCall      `json:"tool_calls,omitempty"`
+	ToolCallID       string          `json:"tool_call_id,omitempty"`
 	// FunctionCall is deprecated by OpenAI in favor of tool_calls, but retained
 	// so OpenAI-compatible providers can round-trip older responses.
 	FunctionCall *FunctionCall `json:"function_call,omitempty"`
 }
+
+// ThinkingConfig preserves provider thinking configuration. OpenAI-compatible
+// callers typically use reasoning_effort; Anthropic-native routing maps either
+// reasoning_effort or this object to the Anthropic thinking request field.
+type ThinkingConfig struct {
+	Type         string `json:"type,omitempty"`
+	BudgetTokens int    `json:"budget_tokens,omitempty"`
+	Display      string `json:"display,omitempty"`
+}
+
+// ThinkingBlock preserves provider reasoning blocks, including Anthropic
+// signatures and redacted_thinking payloads, without normalizing unknown fields.
+type ThinkingBlock map[string]interface{}
 
 // ChatContentPart represents one OpenAI-compatible multimodal message part.
 type ChatContentPart struct {

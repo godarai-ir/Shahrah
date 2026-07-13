@@ -222,7 +222,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 
 		cacheConfig = &parsed
 
-		if !h.responseCache.Enabled() || req.Stream {
+		if !h.responseCache.Enabled() || req.Stream || chatRequestHasExtendedThinking(req) {
 			c.Set(apiheaders.HeaderCacheStatus, "bypass")
 
 			cacheConfig = nil
@@ -334,8 +334,16 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support response_format through GodarAI chat completions", deployment.Provider), "invalid_request_error")
 	}
 
+	if chatRequestHasExtendedThinking(req) && !supportsChatExtendedThinkingProvider(deployment.Provider) {
+		return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support extended thinking through GodarAI chat completions", deployment.Provider), "invalid_request_error")
+	}
+
 	validateErr := validateProviderMediaInput(req, deployment.Provider)
 	if validateErr != nil {
+		return writeAPIError(c, fiber.StatusBadRequest, validateErr.Error(), "invalid_request_error")
+	}
+
+	if validateErr := validateProviderExtendedThinkingInput(req, deployment.Provider); validateErr != nil {
 		return writeAPIError(c, fiber.StatusBadRequest, validateErr.Error(), "invalid_request_error")
 	}
 
@@ -408,6 +416,14 @@ func validateChatCompletionRequest(c *fiber.Ctx, req contractsopenai.ChatComplet
 
 	if req.MaxTokens != nil && *req.MaxTokens < 1 {
 		return true, writeAPIError(c, fiber.StatusBadRequest, "max_tokens must be at least 1", "invalid_request_error")
+	}
+
+	if err := validateReasoningEffort(req.ReasoningEffort); err != nil {
+		return true, writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
+	}
+
+	if err := validateThinkingConfig(req.Thinking); err != nil {
+		return true, writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
 	}
 
 	if err := validateChatResponseFormat(req.ResponseFormat); err != nil {
@@ -1327,6 +1343,34 @@ func chatRequestHasResponseFormat(req contractsopenai.ChatCompletionRequest) boo
 	return req.ResponseFormat != nil
 }
 
+func chatRequestHasExtendedThinking(req contractsopenai.ChatCompletionRequest) bool {
+	effort := strings.ToLower(strings.TrimSpace(req.ReasoningEffort))
+	if effort != "" && effort != "none" {
+		return true
+	}
+
+	if thinkingConfigEnabled(req.Thinking) {
+		return true
+	}
+
+	for _, msg := range req.Messages {
+		if strings.TrimSpace(msg.ReasoningContent) != "" || len(msg.ThinkingBlocks) > 0 {
+			return true
+		}
+	}
+
+	return false
+}
+
+func thinkingConfigEnabled(value *contractsopenai.ThinkingConfig) bool {
+	if value == nil {
+		return false
+	}
+
+	thinkingType := strings.ToLower(strings.TrimSpace(value.Type))
+	return thinkingType == "enabled"
+}
+
 func supportsChatImageProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
 	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "anthropic", "gemini":
@@ -1354,6 +1398,15 @@ func supportsChatResponseFormatProvider(provider string) bool {
 	}
 }
 
+func supportsChatExtendedThinkingProvider(provider string) bool {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "anthropic":
+		return true
+	default:
+		return false
+	}
+}
+
 func supportsChatFileProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
 	case "", "openai", "azure", "openrouter", "anthropic", "gemini":
@@ -1361,6 +1414,43 @@ func supportsChatFileProvider(provider string) bool {
 	default:
 		return false
 	}
+}
+
+func validateReasoningEffort(value string) error {
+	effort := strings.ToLower(strings.TrimSpace(value))
+	if effort == "" {
+		return nil
+	}
+
+	switch effort {
+	case "none", "minimal", "low", "medium", "high", "xhigh", "max":
+		return nil
+	default:
+		return fmt.Errorf("reasoning_effort %q is not supported", value)
+	}
+}
+
+func validateThinkingConfig(value *contractsopenai.ThinkingConfig) error {
+	if value == nil {
+		return nil
+	}
+
+	thinkingType := strings.ToLower(strings.TrimSpace(value.Type))
+	if thinkingType == "" {
+		return fmt.Errorf("thinking.type is required")
+	}
+
+	switch thinkingType {
+	case "enabled", "disabled":
+	default:
+		return fmt.Errorf("thinking.type %q is not supported", value.Type)
+	}
+
+	if value.BudgetTokens < 0 {
+		return fmt.Errorf("thinking.budget_tokens must be greater than or equal to 0")
+	}
+
+	return nil
 }
 
 func validateChatResponseFormat(value interface{}) error {
@@ -1434,6 +1524,34 @@ func validateProviderMediaInput(req contractsopenai.ChatCompletionRequest, provi
 				return fmt.Errorf("message[%d].content part[%d].image_url.url: %v", msgIndex, partIndex, err)
 			}
 		}
+	}
+
+	return nil
+}
+
+func validateProviderExtendedThinkingInput(req contractsopenai.ChatCompletionRequest, provider string) error {
+	if strings.ToLower(strings.TrimSpace(provider)) != "anthropic" {
+		return nil
+	}
+
+	if !chatRequestHasExtendedThinking(req) {
+		return nil
+	}
+
+	if req.Temperature != nil {
+		return fmt.Errorf("temperature is not supported with Anthropic extended thinking")
+	}
+
+	if req.TopP != nil && *req.TopP < 0.95 {
+		return fmt.Errorf("top_p must be between 0.95 and 1 when Anthropic extended thinking is enabled")
+	}
+
+	if req.Thinking != nil && strings.EqualFold(strings.TrimSpace(req.Thinking.Type), "enabled") && req.Thinking.BudgetTokens > 0 && req.MaxTokens != nil && *req.MaxTokens <= req.Thinking.BudgetTokens {
+		return fmt.Errorf("max_tokens must be greater than thinking.budget_tokens for Anthropic extended thinking")
+	}
+
+	if req.Thinking == nil && strings.TrimSpace(req.ReasoningEffort) != "" && !strings.EqualFold(strings.TrimSpace(req.ReasoningEffort), "none") && req.MaxTokens != nil && *req.MaxTokens <= 1024 {
+		return fmt.Errorf("max_tokens must be greater than 1024 for Anthropic extended thinking")
 	}
 
 	return nil

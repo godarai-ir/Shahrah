@@ -13,11 +13,13 @@ func buildTraceChatRequestPayload(req contractsopenai.ChatCompletionRequest) map
 	messages := make([]map[string]interface{}, 0, len(req.Messages))
 	for _, msg := range req.Messages {
 		messages = append(messages, map[string]interface{}{
-			"role":         msg.Role,
-			"content":      contractsopenai.RedactChatContent(msg.Content),
-			"name":         msg.Name,
-			"tool_calls":   summarizeToolCalls(msg.ToolCalls),
-			"tool_call_id": msg.ToolCallID,
+			"role":              msg.Role,
+			"content":           contractsopenai.RedactChatContent(msg.Content),
+			"name":              msg.Name,
+			"reasoning_content": reasoningContentSummary(msg.ReasoningContent),
+			"thinking_blocks":   summarizeThinkingBlocks(msg.ThinkingBlocks),
+			"tool_calls":        summarizeToolCalls(msg.ToolCalls),
+			"tool_call_id":      msg.ToolCallID,
 		})
 	}
 
@@ -25,6 +27,8 @@ func buildTraceChatRequestPayload(req contractsopenai.ChatCompletionRequest) map
 		"model":               req.Model,
 		"messages":            messages,
 		"max_tokens":          req.MaxTokens,
+		"reasoning_effort":    req.ReasoningEffort,
+		"thinking":            summarizeThinkingConfig(req.Thinking),
 		"temperature":         req.Temperature,
 		"top_p":               req.TopP,
 		"stream":              req.Stream,
@@ -57,6 +61,12 @@ func buildTraceChatResponsePayload(resp contractsopenai.ChatCompletionResponse) 
 		}
 		if choice.Message != nil && choice.Message.Refusal != "" {
 			item["refusal"] = true
+		}
+		if choice.Message != nil && choice.Message.ReasoningContent != "" {
+			item["reasoning_content"] = reasoningContentSummary(choice.Message.ReasoningContent)
+		}
+		if choice.Message != nil && len(choice.Message.ThinkingBlocks) > 0 {
+			item["thinking_blocks"] = summarizeThinkingBlocks(choice.Message.ThinkingBlocks)
 		}
 		choices = append(choices, item)
 	}
@@ -122,6 +132,55 @@ func summarizeResponseFormat(value interface{}) interface{} {
 			schemaSummary["schema_present"] = true
 		}
 		out["json_schema"] = schemaSummary
+	}
+
+	return out
+}
+
+func summarizeThinkingConfig(value *contractsopenai.ThinkingConfig) interface{} {
+	if value == nil {
+		return nil
+	}
+
+	return map[string]interface{}{
+		"type":          value.Type,
+		"budget_tokens": value.BudgetTokens,
+		"display":       value.Display,
+	}
+}
+
+func reasoningContentSummary(value string) interface{} {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+
+	return map[string]interface{}{
+		"present": true,
+		"length":  len(value),
+	}
+}
+
+func summarizeThinkingBlocks(blocks []contractsopenai.ThinkingBlock) []map[string]interface{} {
+	if len(blocks) == 0 {
+		return nil
+	}
+
+	out := make([]map[string]interface{}, 0, len(blocks))
+	for _, block := range blocks {
+		item := map[string]interface{}{}
+		if blockType, ok := block["type"].(string); ok {
+			item["type"] = blockType
+		}
+		if thinking, ok := block["thinking"].(string); ok {
+			item["thinking_length"] = len(thinking)
+		}
+		if data, ok := block["data"].(string); ok {
+			item["data_length"] = len(data)
+		}
+		if signature, ok := block["signature"].(string); ok && strings.TrimSpace(signature) != "" {
+			item["signature_present"] = true
+		}
+		out = append(out, item)
 	}
 
 	return out

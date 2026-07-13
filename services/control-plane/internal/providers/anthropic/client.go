@@ -82,13 +82,14 @@ func (c *Client) AuthHeaders() map[string]string {
 
 // Anthropic API request/response types.
 type anthropicRequest struct {
-	Model       string                  `json:"model"`
-	Messages    []anthropicMessage      `json:"messages"`
-	MaxTokens   int                     `json:"max_tokens,omitempty"`
-	Temperature *float64                `json:"temperature,omitempty"`
-	TopP        *float64                `json:"top_p,omitempty"`
-	Stream      bool                    `json:"stream,omitempty"`
-	System      []anthropicContentBlock `json:"system,omitempty"`
+	Model       string                          `json:"model"`
+	Messages    []anthropicMessage              `json:"messages"`
+	MaxTokens   int                             `json:"max_tokens,omitempty"`
+	Temperature *float64                        `json:"temperature,omitempty"`
+	TopP        *float64                        `json:"top_p,omitempty"`
+	Stream      bool                            `json:"stream,omitempty"`
+	System      []anthropicContentBlock         `json:"system,omitempty"`
+	Thinking    *contractsopenai.ThinkingConfig `json:"thinking,omitempty"`
 }
 
 type anthropicMessage struct {
@@ -97,8 +98,11 @@ type anthropicMessage struct {
 }
 
 type anthropicContentBlock struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
+	Type      string `json:"type"`
+	Text      string `json:"text,omitempty"`
+	Thinking  string `json:"thinking,omitempty"`
+	Signature string `json:"signature,omitempty"`
+	Data      string `json:"data,omitempty"`
 }
 
 type anthropicResponse struct {
@@ -269,12 +273,16 @@ func convertToAnthropicRequest(req contractsopenai.ChatCompletionRequest) anthro
 				Text: contractsopenai.ChatContentText(msg.Content),
 			})
 		} else {
+			blocks := []anthropicContentBlock{{
+				Type: "text",
+				Text: contractsopenai.ChatContentText(msg.Content),
+			}}
+			if strings.EqualFold(strings.TrimSpace(msg.Role), "assistant") && len(msg.ThinkingBlocks) > 0 {
+				blocks = append(anthropicBlocksFromThinkingBlocks(msg.ThinkingBlocks), blocks...)
+			}
 			anthReq.Messages = append(anthReq.Messages, anthropicMessage{
-				Role: msg.Role,
-				Content: []anthropicContentBlock{{
-					Type: "text",
-					Text: contractsopenai.ChatContentText(msg.Content),
-				}},
+				Role:    msg.Role,
+				Content: blocks,
 			})
 		}
 	}
@@ -284,14 +292,120 @@ func convertToAnthropicRequest(req contractsopenai.ChatCompletionRequest) anthro
 		anthReq.MaxTokens = *req.MaxTokens
 	}
 
+	anthReq.Thinking = anthropicThinkingConfig(req, anthReq.MaxTokens)
+
 	return anthReq
+}
+
+func anthropicBlocksFromThinkingBlocks(blocks []contractsopenai.ThinkingBlock) []anthropicContentBlock {
+	out := make([]anthropicContentBlock, 0, len(blocks))
+	for _, block := range blocks {
+		blockType, _ := block["type"].(string)
+		blockType = strings.TrimSpace(blockType)
+		switch blockType {
+		case "thinking":
+			item := anthropicContentBlock{Type: "thinking"}
+			if thinking, ok := block["thinking"].(string); ok {
+				item.Thinking = thinking
+			}
+			if signature, ok := block["signature"].(string); ok {
+				item.Signature = signature
+			}
+			out = append(out, item)
+		case "redacted_thinking":
+			item := anthropicContentBlock{Type: "redacted_thinking"}
+			if data, ok := block["data"].(string); ok {
+				item.Data = data
+			}
+			out = append(out, item)
+		}
+	}
+	return out
+}
+
+func anthropicThinkingConfig(req contractsopenai.ChatCompletionRequest, maxTokens int) *contractsopenai.ThinkingConfig {
+	if req.Thinking != nil {
+		if strings.EqualFold(strings.TrimSpace(req.Thinking.Type), "disabled") {
+			return nil
+		}
+		cfg := *req.Thinking
+		if strings.TrimSpace(cfg.Type) == "" {
+			cfg.Type = "enabled"
+		}
+		if cfg.BudgetTokens <= 0 {
+			cfg.BudgetTokens = defaultAnthropicThinkingBudget(req.ReasoningEffort, maxTokens)
+		}
+		return &cfg
+	}
+
+	effort := strings.ToLower(strings.TrimSpace(req.ReasoningEffort))
+	if effort == "" || effort == "none" {
+		return nil
+	}
+
+	return &contractsopenai.ThinkingConfig{
+		Type:         "enabled",
+		BudgetTokens: defaultAnthropicThinkingBudget(effort, maxTokens),
+	}
+}
+
+func defaultAnthropicThinkingBudget(effort string, maxTokens int) int {
+	budget := 2048
+	switch strings.ToLower(strings.TrimSpace(effort)) {
+	case "minimal", "low":
+		budget = 1024
+	case "medium", "":
+		budget = 2048
+	case "high":
+		budget = 3200
+	case "xhigh", "max":
+		budget = 8192
+	}
+	if maxTokens > 1024 && budget >= maxTokens {
+		return maxTokens - 1
+	}
+	return budget
 }
 
 // convertToOpenAIResponse converts Anthropic response to OpenAI format.
 func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsopenai.ChatCompletionResponse {
 	content := ""
+	reasoningContent := ""
+	thinkingBlocks := make([]contractsopenai.ThinkingBlock, 0)
 	for _, block := range resp.Content {
-		content += block.Text
+		switch block.Type {
+		case "text":
+			content += block.Text
+		case "thinking":
+			thinkingBlock := contractsopenai.ThinkingBlock{"type": block.Type}
+			if block.Thinking != "" {
+				thinkingBlock["thinking"] = block.Thinking
+				reasoningContent += block.Thinking
+			}
+			if block.Signature != "" {
+				thinkingBlock["signature"] = block.Signature
+			}
+			thinkingBlocks = append(thinkingBlocks, thinkingBlock)
+		case "redacted_thinking":
+			thinkingBlock := contractsopenai.ThinkingBlock{"type": block.Type}
+			if block.Data != "" {
+				thinkingBlock["data"] = block.Data
+			}
+			thinkingBlocks = append(thinkingBlocks, thinkingBlock)
+		default:
+			content += block.Text
+		}
+	}
+
+	message := &contractsopenai.ChatMessage{
+		Role:    "assistant",
+		Content: content,
+	}
+	if reasoningContent != "" {
+		message.ReasoningContent = reasoningContent
+	}
+	if len(thinkingBlocks) > 0 {
+		message.ThinkingBlocks = thinkingBlocks
 	}
 
 	openaiResp := &contractsopenai.ChatCompletionResponse{
@@ -300,11 +414,8 @@ func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsope
 		Created: time.Now().Unix(),
 		Model:   model,
 		Choices: []contractsopenai.Choice{{
-			Index: 0,
-			Message: &contractsopenai.ChatMessage{
-				Role:    "assistant",
-				Content: content,
-			},
+			Index:        0,
+			Message:      message,
 			FinishReason: resp.StopReason,
 		}},
 		Usage: &contractsopenai.Usage{

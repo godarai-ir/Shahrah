@@ -440,6 +440,84 @@ func TestDispatchUsesAnthropicAdapterForSync(t *testing.T) {
 	}
 }
 
+func TestDispatchAnthropicAdapterMapsExtendedThinking(t *testing.T) {
+	t.Parallel()
+
+	var body map[string]any
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"id":"msg_thinking",
+			"type":"message",
+			"role":"assistant",
+			"model":"claude-3-7-sonnet",
+			"content":[
+				{"type":"thinking","thinking":"private reasoning","signature":"sig_123"},
+				{"type":"redacted_thinking","data":"opaque_blob"},
+				{"type":"text","text":"Final answer"}
+			],
+			"usage":{"input_tokens":12,"output_tokens":6},
+			"stop_reason":"end_turn"
+		}`))
+	}))
+	defer upstream.Close()
+
+	handler := NewHandler(nil)
+	payload := platform.TunnelRequest{
+		Deployment: platform.Deployment{
+			Provider: "anthropic",
+			APIBase:  upstream.URL,
+			APIKey:   "sk-ant-test",
+		},
+		Body: []byte(`{
+			"model":"anthropic/claude-3-7-sonnet",
+			"reasoning_effort":"high",
+			"max_tokens":4000,
+			"messages":[
+				{"role":"user","content":"solve"},
+				{"role":"assistant","content":"previous","thinking_blocks":[{"type":"thinking","thinking":"previous reasoning","signature":"sig_prev"}]},
+				{"role":"user","content":"continue"}
+			]
+		}`),
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(raw)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	thinking := body["thinking"].(map[string]any)
+	if thinking["type"] != "enabled" || thinking["budget_tokens"].(float64) != 3200 {
+		t.Fatalf("unexpected anthropic thinking config: %#v", thinking)
+	}
+	messages := body["messages"].([]any)
+	assistantContent := messages[1].(map[string]any)["content"].([]any)
+	replayedThinking := assistantContent[0].(map[string]any)
+	if replayedThinking["type"] != "thinking" || replayedThinking["signature"] != "sig_prev" {
+		t.Fatalf("thinking block was not replayed for anthropic: %#v", replayedThinking)
+	}
+
+	response := rec.Body.String()
+	for _, want := range []string{`"content":"Final answer"`, `"reasoning_content":"private reasoning"`, `"thinking_blocks"`, `"signature":"sig_123"`, `"type":"redacted_thinking"`, `"data":"opaque_blob"`} {
+		if !strings.Contains(response, want) {
+			t.Fatalf("response missing %s: %s", want, response)
+		}
+	}
+}
+
 func TestDispatchAnthropicAdapterConvertsImageDataURL(t *testing.T) {
 	t.Parallel()
 
@@ -671,6 +749,12 @@ func TestDispatchUsesAnthropicAdapterForStream(t *testing.T) {
 			`data: {"type":"message_start","message":{"id":"msg_123","model":"claude-3-haiku-20240307"}}`,
 			"",
 			"event: content_block_delta",
+			`data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"Reasoning"}}`,
+			"",
+			"event: content_block_delta",
+			`data: {"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"sig_stream"}}`,
+			"",
+			"event: content_block_delta",
 			`data: {"type":"content_block_delta","index":0,"delta":{"text":"Salam"}}`,
 			"",
 			"event: message_delta",
@@ -713,6 +797,12 @@ func TestDispatchUsesAnthropicAdapterForStream(t *testing.T) {
 	}
 	if !strings.Contains(streamText, `"content":"Salam"`) {
 		t.Fatalf("expected text delta in stream, got %q", streamText)
+	}
+	if !strings.Contains(streamText, `"reasoning_content":"Reasoning"`) {
+		t.Fatalf("expected reasoning delta in stream, got %q", streamText)
+	}
+	if !strings.Contains(streamText, `"signature":"sig_stream"`) {
+		t.Fatalf("expected signature delta in stream, got %q", streamText)
 	}
 	if !strings.Contains(streamText, "data: [DONE]") {
 		t.Fatalf("expected stream terminator, got %q", streamText)

@@ -230,6 +230,93 @@ func TestChatCompletionResponseRefusalRoundTrip(t *testing.T) {
 	}
 }
 
+func TestChatCompletionExtendedThinkingRoundTrip(t *testing.T) {
+	payload := []byte(`{
+		"model":"gpt-5",
+		"reasoning_effort":"high",
+		"thinking":{"type":"enabled","budget_tokens":3200,"display":"omitted"},
+		"messages":[
+			{"role":"user","content":"Solve this."},
+			{
+				"role":"assistant",
+				"content":"Final answer",
+				"reasoning_content":"private reasoning",
+				"thinking_blocks":[
+					{"type":"thinking","thinking":"private reasoning","signature":"sig_123"},
+					{"type":"redacted_thinking","data":"opaque_blob"}
+				]
+			}
+		]
+	}`)
+
+	var req ChatCompletionRequest
+	if err := json.Unmarshal(payload, &req); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if req.ReasoningEffort != "high" {
+		t.Fatalf("reasoning_effort = %q", req.ReasoningEffort)
+	}
+	if req.Thinking == nil || req.Thinking.BudgetTokens != 3200 || req.Thinking.Display != "omitted" {
+		t.Fatalf("thinking config was not preserved: %#v", req.Thinking)
+	}
+	assistant := req.Messages[1]
+	if assistant.ReasoningContent != "private reasoning" || len(assistant.ThinkingBlocks) != 2 {
+		t.Fatalf("thinking fields were not preserved: %#v", assistant)
+	}
+	if assistant.ThinkingBlocks[0]["signature"] != "sig_123" || assistant.ThinkingBlocks[1]["data"] != "opaque_blob" {
+		t.Fatalf("thinking block details were not preserved: %#v", assistant.ThinkingBlocks)
+	}
+
+	raw, err := json.Marshal(req)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	for _, want := range []string{`"reasoning_effort":"high"`, `"thinking"`, `"budget_tokens":3200`, `"reasoning_content":"private reasoning"`, `"thinking_blocks"`, `"signature":"sig_123"`, `"type":"redacted_thinking"`} {
+		if !strings.Contains(string(raw), want) {
+			t.Fatalf("round-trip request missing %s: %s", want, raw)
+		}
+	}
+}
+
+func TestChatCompletionResponseExtendedThinkingRoundTrip(t *testing.T) {
+	payload := []byte(`{
+		"id":"chatcmpl-thinking",
+		"object":"chat.completion",
+		"created":1234567890,
+		"model":"gpt-5",
+		"choices":[{
+			"index":0,
+			"message":{
+				"role":"assistant",
+				"content":"Final answer",
+				"reasoning_content":"reasoning text",
+				"thinking_blocks":[{"type":"thinking","thinking":"reasoning text","signature":"sig_456"}]
+			},
+			"finish_reason":"stop"
+		}],
+		"usage":{"prompt_tokens":20,"completion_tokens":8,"total_tokens":28}
+	}`)
+
+	var resp ChatCompletionResponse
+	if err := json.Unmarshal(payload, &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	msg := resp.Choices[0].Message
+	if msg == nil || msg.ReasoningContent != "reasoning text" || len(msg.ThinkingBlocks) != 1 {
+		t.Fatalf("thinking response was not preserved: %#v", resp.Choices)
+	}
+	if msg.ThinkingBlocks[0]["signature"] != "sig_456" {
+		t.Fatalf("signature was not preserved: %#v", msg.ThinkingBlocks)
+	}
+	raw, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if !strings.Contains(string(raw), `"thinking_blocks"`) || !strings.Contains(string(raw), `"reasoning_content":"reasoning text"`) {
+		t.Fatalf("round-trip response missing thinking fields: %s", raw)
+	}
+}
+
 func TestResponseRequestTextFormatRoundTrip(t *testing.T) {
 	payload := []byte(`{
 		"model":"gpt-4o-mini",

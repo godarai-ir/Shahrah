@@ -20,13 +20,14 @@ const anthropicDefaultVersion = "2023-06-01"
 type anthropicAdapter struct{}
 
 type anthropicRequest struct {
-	Model       string                  `json:"model"`
-	Messages    []anthropicMessage      `json:"messages"`
-	MaxTokens   int                     `json:"max_tokens,omitempty"`
-	Temperature *float64                `json:"temperature,omitempty"`
-	TopP        *float64                `json:"top_p,omitempty"`
-	Stream      bool                    `json:"stream,omitempty"`
-	System      []anthropicContentBlock `json:"system,omitempty"`
+	Model       string                          `json:"model"`
+	Messages    []anthropicMessage              `json:"messages"`
+	MaxTokens   int                             `json:"max_tokens,omitempty"`
+	Temperature *float64                        `json:"temperature,omitempty"`
+	TopP        *float64                        `json:"top_p,omitempty"`
+	Stream      bool                            `json:"stream,omitempty"`
+	System      []anthropicContentBlock         `json:"system,omitempty"`
+	Thinking    *contractsopenai.ThinkingConfig `json:"thinking,omitempty"`
 }
 
 type anthropicMessage struct {
@@ -35,9 +36,12 @@ type anthropicMessage struct {
 }
 
 type anthropicContentBlock struct {
-	Type   string           `json:"type"`
-	Text   string           `json:"text,omitempty"`
-	Source *anthropicSource `json:"source,omitempty"`
+	Type      string           `json:"type"`
+	Text      string           `json:"text,omitempty"`
+	Thinking  string           `json:"thinking,omitempty"`
+	Signature string           `json:"signature,omitempty"`
+	Data      string           `json:"data,omitempty"`
+	Source    *anthropicSource `json:"source,omitempty"`
 }
 
 type anthropicSource struct {
@@ -69,7 +73,10 @@ type anthropicStreamEvent struct {
 		Model string `json:"model"`
 	} `json:"message,omitempty"`
 	Delta struct {
+		Type       string `json:"type,omitempty"`
 		Text       string `json:"text,omitempty"`
+		Thinking   string `json:"thinking,omitempty"`
+		Signature  string `json:"signature,omitempty"`
 		StopReason string `json:"stop_reason,omitempty"`
 	} `json:"delta,omitempty"`
 }
@@ -200,8 +207,21 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 				}
 				switch eventType(currentEvent, evt.Type) {
 				case "content_block_delta":
-					if evt.Delta.Text == "" {
+					if evt.Delta.Text == "" && evt.Delta.Thinking == "" && evt.Delta.Signature == "" {
 						continue
+					}
+					delta := &contractsopenai.ChatMessage{}
+					if evt.Delta.Thinking != "" {
+						delta.ReasoningContent = evt.Delta.Thinking
+					}
+					if evt.Delta.Signature != "" {
+						delta.ThinkingBlocks = []contractsopenai.ThinkingBlock{{
+							"type":      "thinking",
+							"signature": evt.Delta.Signature,
+						}}
+					}
+					if evt.Delta.Text != "" {
+						delta.Content = evt.Delta.Text
 					}
 					chunk := contractsopenai.StreamChunk{
 						ID:      streamID,
@@ -210,7 +230,7 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 						Model:   streamModel,
 						Choices: []contractsopenai.Choice{{
 							Index: evt.Index,
-							Delta: &contractsopenai.ChatMessage{Content: evt.Delta.Text},
+							Delta: delta,
 						}},
 					}
 					writeSSEChunk(pipeWriter, chunk)
@@ -280,6 +300,10 @@ func convertToAnthropicRequest(req contractsopenai.ChatCompletionRequest) (anthr
 		if err != nil {
 			return anthropicRequest{}, err
 		}
+		if strings.EqualFold(strings.TrimSpace(msg.Role), "assistant") && len(msg.ThinkingBlocks) > 0 {
+			thinkingBlocks := anthropicBlocksFromThinkingBlocks(msg.ThinkingBlocks)
+			blocks = append(thinkingBlocks, blocks...)
+		}
 		if msg.Role == "system" {
 			for _, block := range blocks {
 				if block.Type != "text" {
@@ -299,7 +323,35 @@ func convertToAnthropicRequest(req contractsopenai.ChatCompletionRequest) (anthr
 		anthReq.MaxTokens = *req.MaxTokens
 	}
 
+	anthReq.Thinking = anthropicThinkingConfig(req, anthReq.MaxTokens)
+
 	return anthReq, nil
+}
+
+func anthropicBlocksFromThinkingBlocks(blocks []contractsopenai.ThinkingBlock) []anthropicContentBlock {
+	out := make([]anthropicContentBlock, 0, len(blocks))
+	for _, block := range blocks {
+		blockType, _ := block["type"].(string)
+		blockType = strings.TrimSpace(blockType)
+		switch blockType {
+		case "thinking":
+			item := anthropicContentBlock{Type: "thinking"}
+			if thinking, ok := block["thinking"].(string); ok {
+				item.Thinking = thinking
+			}
+			if signature, ok := block["signature"].(string); ok {
+				item.Signature = signature
+			}
+			out = append(out, item)
+		case "redacted_thinking":
+			item := anthropicContentBlock{Type: "redacted_thinking"}
+			if data, ok := block["data"].(string); ok {
+				item.Data = data
+			}
+			out = append(out, item)
+		}
+	}
+	return out
 }
 
 func anthropicBlocksFromContent(content interface{}) ([]anthropicContentBlock, error) {
@@ -372,10 +424,88 @@ func canonicalAnthropicModel(model string) string {
 	return model
 }
 
+func anthropicThinkingConfig(req contractsopenai.ChatCompletionRequest, maxTokens int) *contractsopenai.ThinkingConfig {
+	if req.Thinking != nil {
+		if strings.EqualFold(strings.TrimSpace(req.Thinking.Type), "disabled") {
+			return nil
+		}
+		cfg := *req.Thinking
+		if strings.TrimSpace(cfg.Type) == "" {
+			cfg.Type = "enabled"
+		}
+		if cfg.BudgetTokens <= 0 {
+			cfg.BudgetTokens = defaultAnthropicThinkingBudget(req.ReasoningEffort, maxTokens)
+		}
+		return &cfg
+	}
+
+	effort := strings.ToLower(strings.TrimSpace(req.ReasoningEffort))
+	if effort == "" || effort == "none" {
+		return nil
+	}
+
+	return &contractsopenai.ThinkingConfig{
+		Type:         "enabled",
+		BudgetTokens: defaultAnthropicThinkingBudget(effort, maxTokens),
+	}
+}
+
+func defaultAnthropicThinkingBudget(effort string, maxTokens int) int {
+	budget := 2048
+	switch strings.ToLower(strings.TrimSpace(effort)) {
+	case "minimal", "low":
+		budget = 1024
+	case "medium", "":
+		budget = 2048
+	case "high":
+		budget = 3200
+	case "xhigh", "max":
+		budget = 8192
+	}
+	if maxTokens > 1024 && budget >= maxTokens {
+		return maxTokens - 1
+	}
+	return budget
+}
+
 func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsopenai.ChatCompletionResponse {
 	content := ""
+	reasoningContent := ""
+	thinkingBlocks := make([]contractsopenai.ThinkingBlock, 0)
 	for _, block := range resp.Content {
-		content += block.Text
+		switch block.Type {
+		case "text":
+			content += block.Text
+		case "thinking":
+			thinkingBlock := contractsopenai.ThinkingBlock{"type": block.Type}
+			if block.Thinking != "" {
+				thinkingBlock["thinking"] = block.Thinking
+				reasoningContent += block.Thinking
+			}
+			if block.Signature != "" {
+				thinkingBlock["signature"] = block.Signature
+			}
+			thinkingBlocks = append(thinkingBlocks, thinkingBlock)
+		case "redacted_thinking":
+			thinkingBlock := contractsopenai.ThinkingBlock{"type": block.Type}
+			if block.Data != "" {
+				thinkingBlock["data"] = block.Data
+			}
+			thinkingBlocks = append(thinkingBlocks, thinkingBlock)
+		default:
+			content += block.Text
+		}
+	}
+
+	message := &contractsopenai.ChatMessage{
+		Role:    "assistant",
+		Content: content,
+	}
+	if reasoningContent != "" {
+		message.ReasoningContent = reasoningContent
+	}
+	if len(thinkingBlocks) > 0 {
+		message.ThinkingBlocks = thinkingBlocks
 	}
 
 	return &contractsopenai.ChatCompletionResponse{
@@ -384,11 +514,8 @@ func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsope
 		Created: time.Now().Unix(),
 		Model:   model,
 		Choices: []contractsopenai.Choice{{
-			Index: 0,
-			Message: &contractsopenai.ChatMessage{
-				Role:    "assistant",
-				Content: content,
-			},
+			Index:        0,
+			Message:      message,
 			FinishReason: resp.StopReason,
 		}},
 		Usage: &contractsopenai.Usage{
