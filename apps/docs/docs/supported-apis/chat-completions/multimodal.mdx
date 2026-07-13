@@ -1,65 +1,42 @@
 ---
-title: مولتی‌مُدال
+title: چندرسانه‌ای
 ---
 
-# مولتی‌مُدال - Multimodal
+# چندرسانه‌ای در Chat Completions
 
-در گدارAI، endpoint `Chat Completions` فقط برای متن نیست. اگر model و provider انتخابی شما پشتیبانی کنند، می‌توانید همراه پیام متنی، ورودی‌های چندرسانه‌ای (Multimodal) هم ارسال کنید؛ مثل:
+در `Chat Completions`، پیام کاربر همیشه فقط یک رشته متنی نیست. اگر مدل و ارائه‌دهنده انتخابی پشتیبانی کنند، می‌توانید متن را همراه تصویر، فایل یا بعضی رسانه‌های دیگر بفرستید.
 
-- image
-- audio
-- video
-- PDF
+نکته اصلی: چندرسانه‌ای بودن یک قابلیت وابسته به مدل است. گدارAI قرارداد درخواست، احراز هویت، دسترسی، بودجه و پایش را یکپارچه می‌کند؛ اما خود مدل باید نوع ورودی مورد نظر شما را پشتیبانی کند.
 
-اما یک نکته کلیدی وجود دارد: پشتیبانی multimodal در GodarAI کاملاً به قابلیت واقعی model و provider بستگی دارد. پس این صفحه را به‌عنوان «الگوی contract» ببینید، نه تضمین پشتیبانی برای همه modelها.
+## پیام چندرسانه‌ای چگونه ساخته می‌شود؟
 
-## multimodal در Chat Completions چگونه کار می‌کند؟
-
-در requestهای multimodal، `content` یک message می‌تواند به‌جای یک رشته ساده، آرایه‌ای از بخش‌ها باشد. هر بخش نوع خودش را دارد؛ مثلاً:
-
-- `text`
-- `image_url`
-- `file`
-
-نمونه ذهنی:
+در درخواست ساده، `content` یک رشته است. در درخواست چندرسانه‌ای، `content` به آرایه‌ای از بخش‌ها تبدیل می‌شود:
 
 ```json
 {
   "role": "user",
   "content": [
-    { "type": "text", "text": "این تصویر را توصیف کن" },
+    { "type": "text", "text": "این تصویر را برای کاربر توصیف کن." },
     {
       "type": "image_url",
       "image_url": {
-        "url": "https://example.com/image.jpg"
+        "url": "https://YOUR_WORKSPACE.godarai.ir/assets/sample-image.png"
       }
     }
   ]
 }
 ```
 
-## نکته مهم قبل از شروع
+هر بخش باید نوع مشخص داشته باشد. بخش متنی معمولاً `type: "text"` است و تصویر معمولاً با `image_url` فرستاده می‌شود.
 
-در backend فعلی GodarAI، اگر provider مقصد image input را پشتیبانی نکند، request با خطای صریح رد می‌شود. یعنی multimodal یک fallback ساکت به text-only ندارد.
-
-پس همیشه اول این سه چیز را بررسی کنید:
-
-- model انتخابی vision/audio/pdf support دارد یا نه
-- provider پشت آن model این قابلیت را expose می‌کند یا نه
-- request body شما با contract مورد انتظار همان input type سازگار هست یا نه
-
-## کار با تصویر
-
-رایج‌ترین سناریوی multimodal در Chat Completions، ورودی تصویری است. در GodarAI معمولاً تصویر را با `image_url` می‌فرستید.
-
-### استفاده از URL تصویر
+## شروع سریع با تصویر
 
 ```python
 from openai import OpenAI
 
 client = OpenAI(
-    api_key="YOUR_GODARAI_API_KEY",
-    base_url="YOUR_GODARAI_BASE_URL",
+    api_key="YOUR_GODARAI_TOKEN",
+    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
 )
 
 response = client.chat.completions.create(
@@ -72,31 +49,37 @@ response = client.chat.completions.create(
                 {
                     "type": "image_url",
                     "image_url": {
-                        "url": "https://example.com/image.jpg"
-                    }
-                }
-            ]
+                        "url": "https://YOUR_WORKSPACE.godarai.ir/assets/sample-image.png"
+                    },
+                },
+            ],
         }
-    ]
+    ],
 )
 
 print(response.choices[0].message.content)
 ```
 
-### استفاده از base64
+نشانی تصویر باید برای ارائه‌دهنده مدل قابل دسترس باشد. اگر تصویر پشت شبکه خصوصی یا نیازمند نشست کاربری باشد، مدل نمی‌تواند آن را بخواند.
+
+## ارسال تصویر با base64
+
+وقتی تصویر عمومی نیست، می‌توانید آن را به `data URL` تبدیل کنید:
 
 ```python
 import base64
 from openai import OpenAI
 
 def encode_image(path: str) -> str:
-    with open(path, "rb") as f:
-        return base64.b64encode(f.read()).decode("utf-8")
+    with open(path, "rb") as file:
+        return base64.b64encode(file.read()).decode("utf-8")
 
 client = OpenAI(
-    api_key="YOUR_GODARAI_API_KEY",
-    base_url="YOUR_GODARAI_BASE_URL",
+    api_key="YOUR_GODARAI_TOKEN",
+    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
 )
+
+image_data = encode_image("sample.png")
 
 response = client.chat.completions.create(
     model="openai:default:gpt-4o",
@@ -104,220 +87,89 @@ response = client.chat.completions.create(
         {
             "role": "user",
             "content": [
-                {"type": "text", "text": "این تصویر را تحلیل کن."},
+                {"type": "text", "text": "متن داخل این تصویر را استخراج کن."},
                 {
                     "type": "image_url",
                     "image_url": {
-                        "url": f"data:image/png;base64,{encode_image('sample.png')}"
-                    }
-                }
-            ]
+                        "url": f"data:image/png;base64,{image_data}"
+                    },
+                },
+            ],
         }
-    ]
+    ],
 )
 ```
 
-## رزولوشن پردازش تصویر
+`data URL` درخواست را بزرگ‌تر می‌کند. برای فایل‌های بزرگ، اثر آن روی زمان پاسخ، هزینه و ثبت رخداد را بسنجید.
 
-بعضی providerها از فیلدی مثل `detail` درون `image_url` پشتیبانی می‌کنند. این فیلد معمولاً یکی از این مقادیر را می‌گیرد:
+## کیفیت پردازش تصویر
 
-- `low`
-- `high`
-- `auto`
-
-این پارامتر روی tradeoff بین cost، latency و دقت پردازش اثر می‌گذارد.
-
-نمونه:
+بعضی مدل‌ها از گزینه‌ای مثل `detail` پشتیبانی می‌کنند:
 
 ```json
 {
   "type": "image_url",
   "image_url": {
-    "url": "data:image/png;base64,...",
-    "detail": "low"
+    "url": "https://YOUR_WORKSPACE.godarai.ir/assets/invoice.png",
+    "detail": "high"
   }
 }
 ```
 
-قاعده عملی:
+راهنمای انتخاب:
 
-- `low` برای preview و latency کمتر
-- `high` برای تحلیل دقیق‌تر
-- `auto` وقتی می‌خواهید تصمیم را به model/provider بسپارید
+- `low` برای پیش‌نمایش، هزینه کمتر و پاسخ سریع‌تر.
+- `high` برای استخراج دقیق‌تر، نمودار، فاکتور یا متن ریز.
+- `auto` وقتی می‌خواهید تصمیم را به مدل و ارائه‌دهنده بسپارید.
 
-## کار با audio
+## فایل و PDF
 
-در بعضی modelها، audio را هم می‌توانید از طریق Chat Completions بفرستید. در این حالت معمولاً همان الگوی چندبخشی content حفظ می‌شود، اما نوع رسانه و `mime_type` اهمیت بیشتری پیدا می‌کند.
-
-نمونه مفهومی:
-
-```python
-response = client.chat.completions.create(
-    model="YOUR_AUDIO_CAPABLE_MODEL",
-    messages=[
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": "این فایل صوتی را بررسی کن."},
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": "https://example.com/audio.wav",
-                        "mime_type": "audio/wav"
-                    }
-                }
-            ]
-        }
-    ]
-)
-```
-
-نکته مهم:
-
-- audio در Chat Completions بیشتر provider-sensitive است
-- اگر use case شما صرفاً transcription یا translation است، معمولاً endpoint تخصصی audio انتخاب بهتری است
-
-## کار با video
-
-video هم در بعضی providerها از مسیر Chat Completions قابل استفاده است، اما این یکی از حساس‌ترین بخش‌های compatibility است. اگر model انتخابی شما واقعاً video-aware نباشد، نباید روی این contract حساب کنید.
-
-نمونه مفهومی:
+برخی مدل‌ها می‌توانند فایل‌هایی مثل PDF را هم در پیام پردازش کنند. شکل دقیق فیلدها به مدل و ارائه‌دهنده وابسته است، اما الگوی رایج چنین است:
 
 ```json
 {
   "role": "user",
   "content": [
-    { "type": "text", "text": "این ویدیو را خلاصه کن." },
+    { "type": "text", "text": "این PDF را در پنج نکته خلاصه کن." },
     {
-      "type": "image_url",
-      "image_url": {
-        "url": "https://example.com/video.mp4",
-        "mime_type": "video/mp4"
+      "type": "file",
+      "file": {
+        "filename": "guide.pdf",
+        "file_data": "data:application/pdf;base64,..."
       }
     }
   ]
 }
 ```
 
-## کار با PDF
+برای فایل‌های بزرگ، قبل از استفاده گسترده، محدودیت اندازه، زمان پاسخ و هزینه را با همان مدل مجاز فضای کاری خود آزمایش کنید.
 
-برای بعضی modelها، PDF هم می‌تواند بخشی از ورودی Chat Completions باشد. در این حالت معمولاً از `type: "file"` استفاده می‌کنید.
+## چه زمانی از این مسیر استفاده نکنیم؟
 
-نمونه:
+اگر کار شما تخصصی و تک‌منظوره است، API تخصصی را انتخاب کنید:
 
-```python
-import base64
-from openai import OpenAI
+- برای بردارسازی متن از [Embeddings](/supported-apis/embeddings) استفاده کنید.
+- برای تولید تصویر از APIهای تصویر استفاده کنید.
+- برای تبدیل صوت به متن یا ترجمه صوت، APIهای صوتی مناسب‌ترند.
 
-client = OpenAI(
-    api_key="YOUR_GODARAI_API_KEY",
-    base_url="YOUR_GODARAI_BASE_URL",
-)
+چندرسانه‌ای در `Chat Completions` زمانی بهترین انتخاب است که به فهم رسانه در کنار گفت‌وگو یا استدلال متنی نیاز دارید.
 
-with open("sample.pdf", "rb") as f:
-    file_data = base64.b64encode(f.read()).decode("utf-8")
+## اثر روی حافظه نهان و ابزارها
 
-response = client.chat.completions.create(
-    model="YOUR_PDF_CAPABLE_MODEL",
-    messages=[
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": "این فایل PDF را خلاصه کن."},
-                {
-                    "type": "file",
-                    "file": {
-                        "filename": "sample.pdf",
-                        "file_data": f"data:application/pdf;base64,{file_data}"
-                    }
-                }
-            ]
-        }
-    ]
-)
-```
+درخواست‌های چندرسانه‌ای معمولاً مثل درخواست‌های متنی ساده قابل استفاده در حافظه نهان نیستند. اگر هم‌زمان ابزارها را هم فعال کنید، مسیر عیب‌یابی پیچیده‌تر می‌شود. بهتر است:
 
-## vision modelها
-
-اگر use case شما تصویری است، در عمل باید از vision-capable model استفاده کنید. GodarAI فقط contract را نگه می‌دارد؛ این provider و model هستند که واقعاً قابلیت vision را فراهم می‌کنند.
-
-در عمل، قبل از انتخاب model این سؤال‌ها مهم‌اند:
-
-- آیا model vision input را پشتیبانی می‌کند؟
-- آیا provider آن را در Chat Completions expose می‌کند؟
-- آیا policy دسترسی شما اجازه استفاده از آن model را می‌دهد؟
-
-## multimodal و caching
-
-در پیاده‌سازی فعلی smart cache در GodarAI، requestهای multimodal bypass می‌شوند. یعنی اگر request شما image/audio/pdf/video داشته باشد، نباید انتظار semantic cache مشابه text-only requestها را داشته باشید.
-
-این موضوع مهم است چون:
-
-- latency ممکن است بیشتر شود
-- هر request واقعاً به provider برسد
-- cost behavior با text-only request فرق کند
-
-## multimodal و tools
-
-اگر هم‌زمان از multimodal و tools استفاده می‌کنید، complexity request بالاتر می‌رود. از نظر طراحی integration بهتر است این موارد را در نظر بگیرید:
-
-- اول contract ساده image/text را پایدار کنید
-- بعد tool calling را روی آن اضافه کنید
-- برای debugging، سناریوهای multimodal و tool-enabled را جداگانه تست کنید
+- اول درخواست متن + تصویر را بدون ابزار پایدار کنید.
+- سپس ابزارها را اضافه کنید.
+- برای هر نوع رسانه، سناریوی تست جدا داشته باشید.
 
 ## خطاهای رایج
 
-چند خطای رایج در این بخش:
-
-### provider از image input پشتیبانی نمی‌کند
-
-در backend فعلی خطایی از این جنس برمی‌گردد:
-
-```text
-Provider <name> does not support image input through GodarAI chat completions
-```
-
-### فرمت data URL اشتباه است
-
-اگر base64 یا media prefix درست نباشد، request در validation یا مسیر provider fail می‌شود.
-
-### `mime_type` جا افتاده است
-
-برای بعضی providerها مخصوصاً در audio/video، نبود `mime_type` می‌تواند باعث رفتار ناسازگار یا خطا شود.
-
-### model در scope شما نیست
-
-حتی اگر contract درست باشد، اگر model در scope tenant/team/user/virtual user شما نباشد، request رد می‌شود.
-
-## چه زمانی از Chat Completions multimodal استفاده نکنیم؟
-
-اگر نیاز شما تخصصی‌تر است، endpoint تخصصی انتخاب بهتری است:
-
-- برای embeddings از `/v1/embeddings`
-- برای speech-to-text از `/v1/audio/transcriptions`
-- برای audio translation از `/v1/audio/translations`
-- برای image generation یا edit از endpointهای تصویری
-
-یعنی multimodal در Chat Completions عالی است وقتی می‌خواهید «گفتگو + media understanding» داشته باشید، نه لزوماً وقتی به یک API تک‌منظوره نیاز دارید.
-
-## چند توصیه عملی
-
-### برای هر media type یک سناریوی تست جدا داشته باشید
-
-image، audio، video و PDF را با هم قاطی نکنید تا debugging ساده‌تر بماند.
-
-### از data URL فقط وقتی لازم است استفاده کنید
-
-اگر URL قابل دسترس و امن دارید، request سبک‌تر و خواناتر می‌شود.
-
-### روی provider compatibility فرض نکنید
-
-پشتیبانی multimodal بین providerها یکسان نیست.
-
-### برای production، حجم payload را کنترل کنید
-
-payloadهای چندرسانه‌ای بزرگ روی latency، logging و cost اثر مستقیم دارند.
+- مدل انتخابی ورودی تصویر یا فایل را پشتیبانی نمی‌کند.
+- نشانی فایل برای ارائه‌دهنده قابل دسترس نیست.
+- `data URL` پیشوند یا base64 نامعتبر دارد.
+- مدل در دسترسی توکن یا کاربر مجاز نیست.
+- حجم رسانه باعث خطا، زمان پاسخ زیاد یا هزینه غیرمنتظره می‌شود.
 
 ## جمع‌بندی
 
-multimodal در `Chat Completions` به شما اجازه می‌دهد متن را با image، audio، video یا PDF ترکیب کنید و تجربه‌های غنی‌تری بسازید. اما این قابلیت در GodarAI همیشه به model و provider واقعی وابسته است. اگر contract چندبخشی `messages.content` را درست بسازید، scope model را درست انتخاب کنید، و محدودیت‌های caching و compatibility را بشناسید، این بخش می‌تواند پایه اصلی use caseهای vision و document-aware شما باشد.
+قابلیت چندرسانه‌ای در `Chat Completions` زمانی قدرتمند است که آن را با مدل سازگار، ورودی کوچک و قابل دسترس، و پایش دقیق مصرف همراه کنید. همیشه پشتیبانی واقعی مدل را معیار بگیرید، نه صرفاً شکل ظاهری درخواست را.

@@ -4,136 +4,73 @@ title: Responses API
 
 # Responses API
 
-`Responses API` قرارداد جدیدتر OpenAI برای کار با مدل‌های generative است. اگر `Chat Completions` را نسل کلاسیک‌تر این تجربه بدانیم، `Responses API` تلاش می‌کند ورودی، خروجی، ابزارها و الگوهای استدلال را در یک interface یکپارچه‌تر جمع کند.
-
-در گدارAI این endpoint از مسیر زیر در دسترس است:
+`Responses API` قرارداد جدیدتر OpenAI برای ساخت پاسخ است. اگر `Chat Completions` را مسیر کلاسیک چت بدانیم، `Responses API` تلاش می‌کند ورودی، دستور کلی، ابزارها، خروجی و جریان‌های استدلالی را در یک مدل یکپارچه‌تر کنار هم قرار دهد.
 
 ```text
 POST /v1/responses
 ```
 
-## وضعیت فعلی در گدارAI
+## چه زمانی از Responses API استفاده کنیم؟
 
-در پیاده‌سازی فعلی `services/control-plane`:
+این API را انتخاب کنید وقتی:
 
-- ساخت response از طریق `POST /v1/responses` پیاده‌سازی شده است
-- `stream` برای همین endpoint پشتیبانی می‌شود
-- اعمال budget، rate limit، tracing و usage logging مثل سایر endpointهای اصلی انجام می‌شود
-- این endpoint فعلاً فقط برای provider `openai` فعال است
+- اپلیکیشن شما از ابتدا بر اساس قرارداد OpenAI Responses طراحی شده است.
+- می‌خواهید از `input` و `instructions` به‌جای آرایه کلاسیک `messages` استفاده کنید.
+- با SDKها یا ابزارهایی کار می‌کنید که `client.responses.create` را مبنا قرار داده‌اند.
+- می‌خواهید مسیر تولید پاسخ شما به قراردادهای جدیدتر OpenAI نزدیک بماند.
 
-نکته مهم:
-
-- در کد فعلی route عمومی برای `retrieve` یا `delete` پاسخ‌ها پیدا نمی‌شود
-
-پس در نسخه فعلی docs، بهتر است `Responses API` را به‌عنوان endpoint ساخت پاسخ بشناسیم، نه یک مجموعه کامل برای lifecycle management پاسخ‌ها.
-
-## این endpoint چه مسئله‌ای را حل می‌کند؟
-
-`Responses API` برای زمانی مفید است که بخواهید با contract جدیدتر OpenAI کار کنید و از الگوهایی مثل این بهره ببرید:
-
-- ورودی متنی یا ساختاریافته‌تر
-- خروجی یکپارچه‌تر نسبت به chat completion سنتی
-- tool calling در قالب جدیدتر
-- جریان‌های reasoning-oriented
-- الگوهای چندرسانه‌ای در providerهای سازگار
-
-در عمل، اگر اپلیکیشن شما از ابتدا بر اساس OpenAI Responses طراحی شده یا می‌خواهید به contract جدیدتر مهاجرت کنید، این endpoint انتخاب طبیعی‌تری است.
-
-## چه زمانی `Responses API` و چه زمانی `Chat Completions`؟
-
-قاعده عملی در گدارAI:
-
-- اگر integration فعلی شما بر پایه OpenAI chat API کلاسیک است: `Chat Completions`
-- اگر می‌خواهید با contract جدیدتر و آینده‌نگرتر OpenAI کار کنید: `Responses API`
-
-هر دو endpoint در نهایت برای generation به‌کار می‌روند، اما structure request و response در آن‌ها متفاوت است.
+اگر تیم شما قبلاً روی `Chat Completions` و آرایه `messages` کار کرده، ادامه دادن همان مسیر معمولاً ساده‌تر است.
 
 ## شروع سریع
-
-ساده‌ترین راه استفاده، SDK رسمی OpenAI است:
 
 ```python
 from openai import OpenAI
 
 client = OpenAI(
-    api_key="YOUR_GODARAI_API_KEY",
-    base_url="YOUR_GODARAI_BASE_URL",
+    api_key="YOUR_GODARAI_TOKEN",
+    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
 )
 
 response = client.responses.create(
     model="openai:default:gpt-4o-mini",
-    input="برای من سه مزیت اصلی استفاده از gateway در تیم‌های سازمانی را بنویس."
+    instructions="You are a concise Persian technical assistant.",
+    input="برای من سه مزیت استفاده از درگاه مدل‌های زبانی را بنویس.",
 )
 
 print(response.output_text)
 ```
 
-## برای استفاده به چه چیزهایی نیاز دارید؟
+مدل انتخابی باید در فضای کاری شما مجاز و با `Responses API` سازگار باشد. اگر این مسیر برای ارائه‌دهنده یا مدل خاصی در محیط شما فعال نباشد، درخواست با خطای دسترسی یا ناسازگاری برمی‌گردد.
 
-- `base_url` گیت‌وی گدارAI
-- `api_key` معتبر از نوع `PAT` یا `VAT`
-- یک model مجاز از نوع chat/generative
+## حداقل درخواست معتبر
 
-در backend فعلی، این endpoint از نظر نوع دسترسی، در دسته مدل‌های chat بررسی می‌شود. یعنی اگر model در scope دسترسی شما فعال نباشد، request رد خواهد شد.
-
-## حداقل request معتبر
-
-در ساده‌ترین حالت، `model` و یکی از `input` یا `instructions` کافی است.
-
-نمونه:
+در ساده‌ترین حالت، `model` و یکی از `input` یا `instructions` لازم است:
 
 ```json
 {
   "model": "openai:default:gpt-4o-mini",
-  "input": "تفاوت rate limiting و budget limiting را توضیح بده."
+  "input": "تفاوت سقف نرخ و سقف بودجه را توضیح بده."
 }
 ```
 
-## `input` و `instructions`
+`instructions` برای تعیین رفتار کلی مدل استفاده می‌شود؛ چیزی شبیه پیام سیستمی در `Chat Completions`. `input` داده اصلی کاربر یا کاری است که مدل باید روی آن پاسخ بسازد.
 
-در validation فعلی گدارAI:
+## پارامترهای مهم
 
-- اگر `instructions` غیرخالی باشد، request معتبر است
-- اگر `input` غیرخالی باشد، request معتبر است
-- اگر هیچ‌کدام مقدار معنادار نداشته باشند، request با خطای `input is required` رد می‌شود
+| پارامتر | کاربرد |
+| --- | --- |
+| `temperature` | میزان تنوع پاسخ؛ معمولاً بین `0` و `2`. |
+| `top_p` | کنترل نمونه‌برداری؛ معمولاً بین `0` و `1`. |
+| `max_output_tokens` | سقف توکن خروجی. |
+| `stream` | فعال‌کردن پاسخ جریانی. |
+| `tools` و `tool_choice` | تعریف ابزارها، اگر مدل و ارائه‌دهنده پشتیبانی کنند. |
+| `user` | شناسه کاربر نهایی برای ردیابی و کنترل‌های سمت اپلیکیشن. |
 
-به زبان ساده، باید حداقل یک منبع واقعی برای prompt دادن به model داشته باشید.
+نکته آموزشی: `max_output_tokens` را با `max_tokens` در `Chat Completions` اشتباه نگیرید. هر دو سقف خروجی را کنترل می‌کنند، اما نام پارامترها در قراردادها متفاوت است.
 
-## نمونه با `instructions`
-
-اگر بخواهید نقش یا رفتار model را شبیه system prompt تعیین کنید:
-
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    api_key="YOUR_GODARAI_API_KEY",
-    base_url="YOUR_GODARAI_BASE_URL",
-)
-
-response = client.responses.create(
-    model="openai:default:gpt-4o",
-    instructions="You are a concise Persian technical assistant.",
-    input="برای تیم فنی یک توضیح کوتاه درباره caching بنویس."
-)
-
-print(response.output_text)
-```
-
-## streaming
-
-این endpoint در گدارAI از `stream` هم پشتیبانی می‌کند. اگر `stream=True` بفرستید، پاسخ به‌صورت `SSE` برمی‌گردد و برای UIهای تعاملی و تجربه realtime مناسب‌تر می‌شود.
-
-نمونه:
+## پاسخ جریانی
 
 ```python
-from openai import OpenAI
-
-client = OpenAI(
-    api_key="YOUR_GODARAI_API_KEY",
-    base_url="YOUR_GODARAI_BASE_URL",
-)
-
 stream = client.responses.create(
     model="openai:default:gpt-4o-mini",
     input="یک معرفی کوتاه از گدارAI بنویس.",
@@ -144,83 +81,32 @@ for event in stream:
     print(event)
 ```
 
-در لایه gateway، پس از پایان stream هم usage و هزینه نهایی ثبت و از wallet کسر می‌شود.
+در حالت جریانی، رابط کاربری زودتر شروع به نمایش پاسخ می‌کند، اما سرویس شما باید رویدادها را درست جمع‌آوری کند و وضعیت پایان، خطا و مصرف نهایی را جداگانه مدیریت کند.
 
-## پارامترهای مهم
+## تفاوت با Chat Completions
 
-در handler فعلی چند پارامتر مهم اعتبارسنجی می‌شوند:
+| موضوع | Chat Completions | Responses API |
+| --- | --- | --- |
+| ورودی اصلی | `messages` | `input` و `instructions` |
+| نقطه شروع برای بیشتر نمونه‌ها | بسیار رایج | جدیدتر و در حال رشد |
+| مهاجرت از ابزارهای قدیمی‌تر | معمولاً ساده‌تر | نیازمند بازبینی قرارداد درخواست و پاسخ |
+| انتخاب پیشنهادی | اتصال‌های چت و عامل‌محور رایج | پروژه‌های جدیدتر مبتنی بر Responses |
 
-- `temperature`
-- `top_p`
-- `max_output_tokens`
-- `stream`
-- `tools`
-- `tool_choice`
-- `user`
+هیچ‌کدام به‌تنهایی «بهتر» نیستند؛ انتخاب درست به قرارداد اپلیکیشن شما، مدل‌های مجاز و قابلیت فعال در محیطتان بستگی دارد.
 
-محدودیت‌های مهم:
+## مدیریت و نگهداری پاسخ
 
-- `temperature` باید بین `0` و `2` باشد
-- `top_p` باید بین `0` و `1` باشد
-- `max_output_tokens` باید حداقل `1` باشد
+اگر اپلیکیشن شما به ذخیره، بازیابی یا حذف پاسخ‌ها نیاز دارد، خروجی و شناسه‌های لازم را در سرویس خودتان ذخیره کنید؛ مگر اینکه مستندات محیط شما عملیات مدیریت پاسخ را جداگانه فعال و معرفی کرده باشد. این کار کنترل داده، نگهداری و انطباق داخلی شما را شفاف‌تر می‌کند.
 
-## tool calling
+## خطاهای رایج
 
-در تبدیل داخلی request، `tools` و `tool_choice` هم در نظر گرفته می‌شوند. این یعنی `Responses API` در گدارAI از نظر مسیر orchestration برای سناریوهای tool-aware هم طراحی شده است.
-
-با این حال، همیشه باید model و provider سازگار با tool use انتخاب کنید. در نسخه فعلی چون این endpoint فقط روی `openai` فعال است، compatibility عملی شما به مدل‌های OpenAI-backed محدود می‌شود.
-
-## تفاوت مهم با `Chat Completions`
-
-در backend فعلی، برای برآورد هزینه و بعضی رفتارهای داخلی، request `Responses API` به یک ساختار نزدیک به chat completion نگاشت می‌شود. این برای شما دو نتیجه عملی دارد:
-
-- policy و billing behavior آن با سایر endpointهای متنی هم‌راستاست
-- اگر قبلاً با `Chat Completions` کار کرده‌اید، مهاجرت مفهومی سختی نخواهید داشت
-
-اما از دید client-side همچنان باید آن را به‌عنوان `Responses API` مصرف کنید، نه chat completion.
-
-## provider support در نسخه فعلی
-
-در مستند مرجع TrueFoundry، این endpoint برای بعضی providerها با درجات مختلفی از پشتیبانی مطرح شده است. اما در implementation فعلی گدارAI، شرط provider صریح‌تر است:
-
-- فقط `openai`
-
-بنابراین بهتر است فعلاً برای modelهای OpenAI-compatible که از مسیر provider `openai` ارائه شده‌اند از این endpoint استفاده کنید.
-
-## چند خطای رایج
-
-چند خطای مهمی که ممکن است در backend فعلی ببینید:
-
-- `Model is required`
-- `input is required`
-- `temperature must be between 0 and 2`
-- `top_p must be between 0 and 1`
-- `max_output_tokens must be at least 1`
-- `Model access denied or unsupported for responses`
-- `Responses API is not enabled for provider: ...`
-
-## درباره retrieve و delete
-
-در بعضی مستندات مرجع بیرونی، عملیات‌هایی مثل retrieve یا delete برای responseها هم دیده می‌شود. اما در کد فعلی گدارAI route عمومی برای این عملیات‌ها مشاهده نمی‌شود. پس اگر در اپلیکیشن خودتان به نگهداری و بازیابی نتیجه نیاز دارید، فعلاً بهتر است شناسه‌ها و خروجی‌ها را در لایه سرویس خودتان ذخیره کنید.
-
-## چند توصیه عملی برای کاربران گدارAI
-
-### برای پروژه‌های جدید، contract را آگاهانه انتخاب کنید
-
-اگر تیم شما تازه شروع کرده و می‌خواهد روی APIهای جدیدتر OpenAI سرمایه‌گذاری کند، `Responses API` انتخاب خوبی است.
-
-### اگر compatibility فعلی مهم‌تر است، `Chat Completions` هنوز گزینه امن‌تری است
-
-بسیاری از SDKها، نمونه‌کدها و ابزارهای موجود هنوز حول `Chat Completions` می‌چرخند.
-
-### برای production از VAT استفاده کنید
-
-اگر این endpoint در backend یا workflow سازمانی مصرف می‌شود، به‌جای PAT انسانی از virtual account token استفاده کنید.
-
-### قبل از rollout، provider mapping را بررسی کنید
-
-چون این endpoint فعلاً فقط روی provider `openai` فعال است، از همان ابتدا model naming و routing خود را با این محدودیت هماهنگ کنید.
+- `Model is required`: فیلد `model` ارسال نشده است.
+- `input is required`: نه `input` و نه `instructions` مقدار معنادار ندارند.
+- `temperature must be between 0 and 2`: مقدار تنوع پاسخ خارج از محدوده است.
+- `top_p must be between 0 and 1`: مقدار `top_p` نامعتبر است.
+- `max_output_tokens must be at least 1`: سقف خروجی باید مثبت باشد.
+- `Model access denied or unsupported for responses`: مدل برای این API مجاز یا سازگار نیست.
 
 ## جمع‌بندی
 
-`Responses API` در گدارAI مسیر مدرن‌تر برای generation است و `POST /v1/responses` در نسخه فعلی gateway واقعاً پیاده‌سازی شده است. اگر می‌خواهید با contract جدیدتر OpenAI کار کنید، این endpoint انتخاب مناسبی است؛ فقط باید در نظر داشته باشید که در وضعیت فعلی، provider support آن محدودتر از `Chat Completions` است و عملیات‌های مدیریت response مثل retrieve و delete هنوز به‌صورت route عمومی در gateway دیده نمی‌شوند.
+`Responses API` برای تیم‌هایی مناسب است که می‌خواهند با قرارداد جدیدتر OpenAI کار کنند و مسیر پاسخ‌سازی خود را بر اساس `input`، `instructions` و رویدادهای جدیدتر طراحی کنند. برای شروع مطمئن، آن را با یک مدل مجاز، درخواست کوچک و بررسی دقیق گزارش رخدادها آزمایش کنید.

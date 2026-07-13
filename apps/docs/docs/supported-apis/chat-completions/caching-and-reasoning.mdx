@@ -2,272 +2,167 @@
 title: کش و استدلال
 ---
 
-# کش و استدلال
+# حافظه نهان و استدلال
 
-در گدارAI، `Chat Completions` فقط یک مسیر برای گرفتن پاسخ از model نیست. این endpoint می‌تواند با دو لایه مهم دیگر هم ترکیب شود:
+در `Chat Completions` دو قابلیت می‌توانند تجربه و هزینه را جدی تغییر دهند:
 
-- caching برای کاهش latency و هزینه
-- reasoning برای modelهایی که توان استدلال عمیق‌تر دارند
+- حافظه نهان برای پاسخ‌های تکراری یا مشابه.
+- استدلال برای مدل‌هایی که مسائل چندمرحله‌ای را بهتر حل می‌کنند.
 
-این دو موضوع از نظر عملیاتی بسیار مهم‌اند، چون هم روی کیفیت تجربه کاربر اثر می‌گذارند و هم روی هزینه و throughput محصول.
+این دو قابلیت مفیدند، اما باید آگاهانه فعال شوند. هر دو روی زمان پاسخ، مصرف توکن، هزینه و عیب‌یابی اثر می‌گذارند.
 
-## caching در GodarAI دقیقاً به چه معناست؟
+## دو نوع حافظه نهان را جدا کنید
 
-وقتی در مورد caching حرف می‌زنیم، در عمل دو مدل ذهنی مختلف وجود دارد:
+وقتی درباره caching حرف می‌زنیم، دو مفهوم متفاوت داریم:
 
-### 1. provider-side prompt caching
+| نوع | توضیح |
+| --- | --- |
+| حافظه نهان سمت ارائه‌دهنده | بعضی ارائه‌دهنده‌ها بخشی از پرامپت یا ورودی تکراری را سبک‌تر پردازش می‌کنند. |
+| حافظه نهان پاسخ در گدارAI | گدارAI می‌تواند پاسخ کامل یک درخواست مناسب را ذخیره کند و در درخواست بعدی همان پاسخ را سریع‌تر برگرداند. |
 
-بعضی providerها خودشان cache prefix یا prompt caching دارند. در این حالت، بخشی از promptهای تکراری دوباره پردازش نمی‌شود.
+این دو را یکی فرض نکنید. تنظیم، اثر هزینه و محدودیت‌هایشان متفاوت است.
 
-### 2. gateway-side response caching
+## فعال‌کردن حافظه نهان پاسخ
 
-در خود GodarAI هم لایه cache عملیاتی وجود دارد که می‌تواند response را در سطح gateway ذخیره کند و در requestهای بعدی دوباره استفاده کند.
+برای تنظیم حافظه نهان در هر درخواست، از سرآیند `x-godarai-cache-config` استفاده کنید.
 
-برای کاربر GodarAI، این تفاوت مهم است چون رفتار، تنظیمات و محدودیت‌های این دو یکی نیست.
+نمونه `simple`:
 
-## caching در Chat Completions چه فایده‌ای دارد؟
+```bash
+curl https://YOUR_WORKSPACE.godarai.ir/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_GODARAI_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H 'x-godarai-cache-config: {"type":"simple","ttl":600,"namespace":"support"}' \
+  -d '{
+    "model": "openai:default:gpt-4o-mini",
+    "messages": [
+      {
+        "role": "user",
+        "content": "چطور رمز عبورم را بازیابی کنم؟"
+      }
+    ]
+  }'
+```
 
-- latency کمتر
-- هزینه کمتر
-- فشار کمتر روی provider
-- تجربه پایدارتر برای درخواست‌های تکراری یا مشابه
+نمونه `smart`:
 
-سناریوهای رایج:
+```bash
+curl https://YOUR_WORKSPACE.godarai.ir/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_GODARAI_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H 'x-godarai-cache-config: {"type":"smart","ttl":600,"similarity_threshold":0.9,"namespace":"helpdesk"}' \
+  -d '{
+    "model": "openai:default:gpt-4o-mini",
+    "messages": [
+      {
+        "role": "user",
+        "content": "روش بازیابی گذرواژه چیست؟"
+      }
+    ]
+  }'
+```
 
-- system promptهای بزرگ و تکراری
-- contextهای ثابت
-- درخواست‌های مشابه با تغییرات جزئی
-- chatهای داخلی که الگوهای تکرارشونده دارند
+## انتخاب بین `simple` و `smart`
 
-## caching عملیاتی GodarAI
+| حالت | مناسب برای | نکته |
+| --- | --- | --- |
+| `simple` | درخواست‌های تقریباً یکسان | قابل پیش‌بینی‌تر و سخت‌گیرانه‌تر است. |
+| `smart` | پرسش‌های مشابه با بیان متفاوت | به آستانه شباهت و کیفیت متن وابسته است. |
 
-در docs و پیاده‌سازی فعلی GodarAI، response cache با headerهای کنترلی خودش مدیریت می‌شود. در اسناد فعلی project و docs موجود، دو mode اصلی برای cache دیده می‌شود:
+برای شروع، `simple` امن‌تر و قابل آزمون‌تر است. بعد از اینکه رفتار را در گزارش رخدادها و سرآیندهای پاسخ دیدید، `smart` را روی سناریوهای کم‌ریسک‌تر آزمایش کنید.
 
-- `simple`
-- `smart`
+## چه درخواست‌هایی معمولاً از حافظه نهان عبور می‌کنند؟
 
-و در clientهای جدید، header مرجع برای پیکربندی cache این است:
+درخواست‌هایی از این جنس معمولاً برای حافظه نهان پاسخ مناسب نیستند یا از آن عبور می‌کنند:
 
-- `x-godarai-cache-config`
+- `stream: true`
+- درخواست دارای `tools`
+- درخواست دارای `tool_choice`
+- ورودی چندرسانه‌ای
+- آخرین پیام غیرمتنی یا غیرکاربر
+- داده‌هایی که باید همیشه تازه و لحظه‌ای باشند
 
-در بعضی toolingهای قدیمی‌تر ممکن است نام legacy را هم ببینید، اما برای docs و integrationهای جدید همین header مبناست.
+نکته آموزشی: حافظه نهان را برای پاسخ‌های قابل تکرار استفاده کنید، نه برای وضعیت سفارش، قیمت زنده، موجودی یا داده‌های حساس به زمان.
 
-## `simple` cache
+## سرآیندهای پاسخ
 
-در حالت simple، cache بر اساس تطبیق دقیق request کار می‌کند. این mode زمانی مناسب است که:
+برای تحلیل رفتار حافظه نهان، این سرآیندها را در سرویس خود ثبت کنید:
 
-- requestها تقریباً یکسان‌اند
-- deterministic behavior بیشتری می‌خواهید
-- نمی‌خواهید semantic matching وارد جریان شود
+| سرآیند | معنی |
+| --- | --- |
+| `x-godarai-cache-status` | وضعیت‌هایی مثل `hit`، `miss`، `bypass` یا `error`. |
+| `x-godarai-cached-trace-id` | شناسه رد درخواست اصلی، وقتی پاسخ از حافظه نهان آمده باشد. |
+| `x-godarai-cache-similarity-score` | امتیاز شباهت در حالت `smart`. |
 
-## `smart` cache
+این داده‌ها برای اعتماد به حافظه نهان ضروری‌اند. فقط سریع‌تر شدن پاسخ کافی نیست؛ باید بدانید چرا سریع‌تر شده است.
 
-در حالت smart، سیستم فقط exact match را نگاه نمی‌کند، بلکه برای بخشی از request semantic matching هم انجام می‌دهد. در توضیح فعلی backend:
+## استدلال چیست؟
 
-- ابتدا exact check انجام می‌شود
-- سپس فقط متن نهایی user برای embedding استفاده می‌شود
-- بقیه context و پارامترها همچنان باید با دقت مناسب سازگار بمانند
+بعضی مدل‌ها برای مسائل پیچیده می‌توانند زمان و توکن بیشتری صرف تحلیل کنند. در قراردادهای رایج، این رفتار با پارامترهایی مثل `reasoning_effort` یا فیلدهای خروجی مثل `reasoning_content` دیده می‌شود.
 
-این mode برای سناریوهایی خوب است که wording کمی فرق می‌کند اما intent تقریباً یکسان است.
+از استدلال استفاده کنید برای:
 
-## چه چیزهایی cache را bypass می‌کنند؟
+- تحلیل چندمرحله‌ای.
+- برنامه‌ریزی.
+- استخراج پیچیده.
+- تصمیم‌گیری با چند شرط.
+- عامل‌هایی که ابزار صدا می‌زنند.
 
-این یکی از مهم‌ترین نکات عملی GodarAI است. در پیاده‌سازی فعلی smart cache، این requestها bypass می‌شوند:
+برای پرسش‌های ساده، استدلال عمیق معمولاً فقط هزینه و زمان پاسخ را بالا می‌برد.
 
-- requestهای streaming
-- requestهای دارای `tools`
-- requestهای دارای `tool_choice`
-- requestهای multimodal
-
-پس اگر از tool calling، multimodal یا stream استفاده می‌کنید، نباید انتظار رفتار cache مشابه requestهای text-only ساده داشته باشید.
-
-## نشانه‌های cache در پاسخ و metrics
-
-در تست‌ها و پیاده‌سازی فعلی، cache outcome در headerها و telemetry دیده می‌شود. مفاهیمی که در observability فعلی مهم‌اند:
-
-- `cache_status`
-- `cache_mode`
-- `cache_match`
-
-مثلاً:
-
-- `hit`
-- `miss`
-- `exact`
-- `semantic`
-
-این داده‌ها برای تحلیل latency و savings بسیار مهم‌اند.
-
-## prompt caching در providerها
-
-بعضی providerها از prompt caching پشتیبانی می‌کنند و بعضی آن را به‌صورت خودکار مدیریت می‌کنند. اما برای کاربر GodarAI مهم‌ترین نکته این است:
-
-- اگر provider caching وجود داشته باشد، Gateway می‌تواند نقش translation/adaptation داشته باشد
-- اما شما نباید product-level behavior را با provider-level caching یکی فرض کنید
-
-در عمل، برای کاربر محصول ما، response cache عملیاتی GodarAI معمولاً نقطه شروع مهم‌تری از provider-native prompt caching است.
-
-## reasoning چیست؟
-
-بعضی modelها فقط پاسخ نهایی نمی‌دهند، بلکه فرایند استدلال یا thinking آن‌ها هم تا حدی قابل استفاده است. در GodarAI این موضوع معمولاً با این مفاهیم دیده می‌شود:
-
-- `reasoning_effort`
-- `reasoning_content`
-- `thinking`
-- `thinking_blocks`
-
-این قابلیت مخصوص modelهایی است که reasoning-capable هستند.
-
-## چه زمانی reasoning مهم می‌شود؟
-
-reasoning معمولاً برای این نوع مساله‌ها ارزش بیشتری دارد:
-
-- تحلیل چندمرحله‌ای
-- استدلال منطقی
-- extraction پیچیده
-- planning
-- agentهای ابزارمحور
-- مسائل چندگامی که پاسخ کوتاه ساده کافی نیست
-
-برای سؤال‌های ساده، reasoning همیشه بهترین tradeoff نیست چون می‌تواند latency و token usage را بالا ببرد.
-
-## `reasoning_effort`
-
-در بسیاری از modelهای reasoning-capable، می‌توانید با `reasoning_effort` عمق یا شدت استدلال را کنترل کنید. مقادیر رایج:
-
-- `low`
-- `medium`
-- `high`
-- در بعضی providerها `none`
-
-نمونه:
+## نمونه `reasoning_effort`
 
 ```python
 from openai import OpenAI
 
 client = OpenAI(
-    api_key="YOUR_GODARAI_API_KEY",
-    base_url="YOUR_GODARAI_BASE_URL",
+    api_key="YOUR_GODARAI_TOKEN",
+    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
 )
 
 response = client.chat.completions.create(
     model="openai:default:o4-mini",
     messages=[
-        {"role": "user", "content": "چرا توان‌ها از راست به چپ ارزیابی می‌شوند؟"}
+        {
+            "role": "user",
+            "content": "برای کاهش هزینه پاسخ‌های پرتکرار، یک برنامه سه‌مرحله‌ای پیشنهاد بده."
+        }
     ],
-    reasoning_effort="high",
-    max_tokens=4000
+    reasoning_effort="medium",
+    max_tokens=1200,
 )
 
 print(response.choices[0].message.content)
 ```
 
-## translation لایه Gateway برای reasoning
+مقدارهای رایج `reasoning_effort` به مدل و ارائه‌دهنده وابسته‌اند؛ مثل `low`، `medium` و `high`. همیشه با مقدار کمتر شروع کنید و فقط وقتی کیفیت بهتر می‌شود مقدار را بالا ببرید.
 
-در بعضی providerها، `reasoning_effort` پارامتر native نیست. در این حالت Gateway ممکن است آن را به پارامتر بومی provider ترجمه کند.
+## حافظه نهان و استدلال با هم
 
-مثلاً در الگوهای مستندشده:
+این دو قابلیت مستقل‌اند، اما در عمل روی هم اثر می‌گذارند:
 
-- بعضی providerها از `thinking` native استفاده می‌کنند
-- Gateway `reasoning_effort` را به format قابل‌فهم provider تبدیل می‌کند
+- استدلال می‌تواند مصرف توکن و زمان پاسخ را افزایش دهد.
+- حافظه نهان می‌تواند درخواست‌های تکراری مناسب را کم‌هزینه‌تر کند.
+- اگر ابزار، پاسخ جریانی یا ورودی چندرسانه‌ای وارد شود، رفتار حافظه نهان تغییر می‌کند.
 
-برای کاربر GodarAI این مزیت بزرگی است، چون می‌توانید با contract نزدیک به OpenAI-compatible کار کنید، بدون این‌که برای هر provider منطق جدا بنویسید.
+برای ارزیابی، این سناریوها را جداگانه بسنجید:
 
-## reasoning در پاسخ چگونه دیده می‌شود؟
+- متن ساده بدون ابزار و بدون پاسخ جریانی.
+- متن ساده با استدلال.
+- استدلال همراه ابزار.
+- ورودی چندرسانه‌ای همراه استدلال.
 
-در بعضی modelها، پاسخ فقط `content` نیست و ممکن است `reasoning_content` هم داشته باشد.
+## مصرف و هزینه
 
-نمونه مفهومی:
+در پاسخ‌ها، فیلد `usage` را جدی بگیرید. وقتی استدلال یا حافظه نهان فعال است، فقط متن نهایی را نبینید؛ مصرف توکن، سرآیندهای حافظه نهان و گزارش رخدادها را کنار هم بررسی کنید.
 
-```json
-{
-  "choices": [
-    {
-      "message": {
-        "role": "assistant",
-        "content": "پاسخ نهایی",
-        "reasoning_content": "روند استدلال مدل..."
-      }
-    }
-  ]
-}
-```
+برای محیط عملیاتی، بهتر است این سنجه‌ها را پایش کنید:
 
-در providerهای پیشرفته‌تر، همین موضوع می‌تواند به‌جای plain text به شکل `thinking_blocks` هم ظاهر شود که در صفحه `Extended Thinking` جداگانه پوشش داده می‌شود.
-
-## reasoning و streaming
-
-وقتی reasoning و streaming را با هم استفاده می‌کنید، باید انتظار داشته باشید که thinking section و پاسخ نهایی لزوماً به یک شکل ساده text-only stream نشوند. برای سناریوهای production:
-
-- اول non-stream reasoning را درست پیاده کنید
-- بعد stream accumulation را اضافه کنید
-- serialization صحیح assistant message را جدی بگیرید
-
-## caching و reasoning با هم
-
-این دو موضوع به‌ظاهر مستقل‌اند، ولی در عمل روی هم اثر دارند:
-
-- reasoning ممکن است token مصرفی و latency را بالا ببرد
-- caching می‌تواند بعضی بخش‌های تکراری را کم‌هزینه‌تر کند
-- اما اگر request شما tool-enabled، multimodal یا stream باشد، cache story فرق می‌کند
-
-پس بهتر است این ترکیب‌ها را جداگانه benchmark کنید:
-
-- text-only + no tools + no stream
-- reasoning-enabled
-- tool-enabled reasoning
-- multimodal reasoning
-
-## usage و token accounting
-
-وقتی caching یا reasoning فعال باشند، usage object می‌تواند اطلاعات مهم‌تری برگرداند. در provider-side caching ممکن است فیلدهایی از این جنس ببینید:
-
-- `prompt_tokens_details.cached_tokens`
-- `cache_read_input_tokens`
-- `cache_creation_input_tokens`
-
-و در reasoning scenarios هم usage می‌تواند بالا برود چون model برای استدلال token بیشتری مصرف می‌کند.
-
-این یعنی اگر cost analysis می‌کنید، فقط به `content` نهایی نگاه نکنید؛ usage را هم جدی بررسی کنید.
-
-## چه زمانی caching مناسب نیست؟
-
-همیشه cache بهترین انتخاب نیست. مثلاً:
-
-- وقتی پاسخ باید کاملاً real-time و non-reusable باشد
-- وقتی request به‌شدت dynamic است
-- وقتی tools یا multimodal عملاً cache را bypass می‌کنند
-
-در این حالت شاید optimizationهای دیگری مهم‌تر باشند.
-
-## چه زمانی reasoning مناسب نیست؟
-
-reasoning همیشه ارزش افزوده نمی‌دهد. برای taskهای ساده:
-
-- latency بالاتر می‌رود
-- token usage بیشتر می‌شود
-- complexity غیرضروری ایجاد می‌شود
-
-پس reasoning را برای مسائلی نگه دارید که واقعاً از استدلال چندمرحله‌ای سود می‌برند.
-
-## چند توصیه عملی برای GodarAI
-
-### اول cache text-only را پایدار کنید
-
-قبل از ورود به سناریوهای پیچیده، رفتار `simple` و `smart` cache را روی requestهای بدون tool و بدون multimodal تثبیت کنید.
-
-### ابزارها و multimodal را cache-friendly فرض نکنید
-
-در وضعیت فعلی، این‌ها از مهم‌ترین bypassها هستند.
-
-### reasoning را با benchmark فعال کنید
-
-به‌خصوص در production، بین `low` و `high` فرق latency و cost را اندازه بگیرد.
-
-### usage و cache telemetry را در observability وارد کنید
-
-فقط دیدن پاسخ کافی نیست؛ باید بدانید hit/miss چه بوده و usage چقدر تغییر کرده است.
+- نرخ `hit` و `miss`.
+- زمان پاسخ قبل و بعد از فعال‌سازی حافظه نهان.
+- مصرف توکن در مدل‌های استدلالی.
+- خطاهای ناشی از ناسازگاری مدل با پارامترهای استدلال.
 
 ## جمع‌بندی
 
-در `Chat Completions`، caching و reasoning دو اهرم مهم برای بهینه‌سازی تجربه و کیفیت هستند. caching در GodarAI بیشتر از جنس response cache عملیاتی با modeهای `simple` و `smart` دیده می‌شود، و reasoning برای modelهای توانمندتر امکان استدلال عمیق‌تر را فراهم می‌کند. اگر این دو را با شناخت درست از bypassها، cost و latency به‌کار بگیرید، می‌توانید هم کیفیت خروجی را بهتر کنید و هم هزینه و performance را هوشمندانه‌تر مدیریت کنید.
+حافظه نهان برای کاهش هزینه و زمان پاسخ‌های تکراری مناسب است؛ استدلال برای مسئله‌هایی که واقعاً تحلیل چندمرحله‌ای می‌خواهند. هر دو را کوچک، قابل اندازه‌گیری و مرحله‌به‌مرحله فعال کنید تا رفتار گدارAI در محصول شما قابل اعتماد و قابل توضیح بماند.

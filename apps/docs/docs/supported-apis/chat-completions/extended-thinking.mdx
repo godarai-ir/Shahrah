@@ -2,46 +2,36 @@
 title: تفکر عمیق‌تر
 ---
 
-# تفکر عمیق‌تر - Extended Thinking
+# تفکر عمیق‌تر
 
-در بعضی modelهای reasoning-capable، فقط پاسخ نهایی مهم نیست؛ بلکه بخش‌هایی از فرایند استدلال هم می‌تواند در response وجود داشته باشد. در GodarAI این موضوع را با عنوان `Extended Thinking` می‌شناسیم.
+`Extended Thinking` برای مدل‌هایی مطرح می‌شود که هنگام حل مسئله، داده‌های ساختاریافته‌ای برای ادامه زمینه استدلالی بین نوبت‌ها برمی‌گردانند. این قابلیت برای همه مدل‌ها فعال نیست و باید آن را وابسته به مدل و ارائه‌دهنده بدانید.
 
-این بخش مخصوص سناریوهایی است که:
+این صفحه برای سناریوهای پیشرفته است؛ اگر فقط می‌خواهید یک پاسخ نهایی بگیرید، معمولاً [حافظه نهان و استدلال](/supported-apis/chat-completions/caching-and-reasoning) کافی است.
 
-- reasoning چندمرحله‌ای مهم است
-- conversation چند-turnی دارید
-- tool calling و reasoning با هم ترکیب می‌شوند
-- می‌خواهید context استدلالی model بین turnها حفظ شود
+## چه زمانی لازم می‌شود؟
 
-## Extended Thinking چه تفاوتی با reasoning معمولی دارد؟
+تفکر عمیق‌تر زمانی ارزش دارد که:
 
-در صفحه `Caching & Reasoning` بیشتر درباره `reasoning_effort` و `reasoning_content` حرف زدیم. اما `Extended Thinking` یک گام جلوتر می‌رود:
+- گفت‌وگوی چندنوبتی و مسئله پیچیده دارید.
+- ابزارها و استدلال هم‌زمان استفاده می‌شوند.
+- مدل باید زمینه استدلالی خود را در نوبت بعدی حفظ کند.
+- ارائه‌دهنده برای ادامه صحیح گفت‌وگو به بلوک‌های امضاشده نیاز دارد.
 
-- `reasoning_content` معمولاً خلاصه متنی reasoning است
-- `thinking_blocks` ساختارمندترند
-- `thinking_blocks` می‌توانند `signature` داشته باشند
-
-همین signatureها هستند که برای ادامه سالم reasoning chain در چند turn اهمیت حیاتی دارند.
+اگر گفت‌وگو کوتاه و ساده است، درگیر این لایه نشوید.
 
 ## `thinking_blocks` چیست؟
 
-`thinking_blocks` آرایه‌ای از بلوک‌های structured است که reasoning model برمی‌گرداند. هر بلوک معمولاً چیزی شبیه این دارد:
-
-- `type`
-- `thinking`
-- `signature`
-
-نمونه:
+برخی مدل‌ها در کنار پاسخ نهایی، داده‌هایی مثل `thinking_blocks` برمی‌گردانند. این داده‌ها ممکن است شامل `signature` باشند:
 
 ```json
 {
   "message": {
+    "role": "assistant",
     "content": "پاسخ نهایی",
-    "reasoning_content": "خلاصه‌ای از روند استدلال",
     "thinking_blocks": [
       {
         "type": "thinking",
-        "thinking": "روند استدلال model...",
+        "thinking": "...",
         "signature": "ErUBCkQIARgCIkC..."
       }
     ]
@@ -49,292 +39,118 @@ title: تفکر عمیق‌تر
 }
 ```
 
-## چرا signature مهم است؟
+این بلوک‌ها را متن نمایشی برای کاربر در نظر نگیرید. آن‌ها بیشتر نقش داده لازم برای ادامه درست گفت‌وگو با همان مدل و ارائه‌دهنده را دارند.
 
-این امضاها صرفاً metadata تزئینی نیستند. در بعضی providerها، اگر بخواهید reasoning chain را در turn بعدی ادامه دهید، باید `thinking_blocks` را دقیقاً با همان signatureهای اصلی برگردانید.
+## چرا امضا مهم است؟
 
-اگر:
+`signature` نشان می‌دهد بلوک استدلالی همان چیزی است که ارائه‌دهنده تولید کرده است. اگر آن را حذف، بازنویسی، کوتاه یا نرمال‌سازی کنید، نوبت بعدی ممکن است رد شود یا کیفیت ادامه گفت‌وگو افت کند.
 
-- signature حذف شود
-- مقدارش عوض شود
-- blockها ناقص یا دست‌کاری شوند
+قاعده ساده:
 
-provider می‌تواند request را رد کند یا continuity reasoning از بین برود.
+- `thinking_blocks` را بدون دست‌کاری ذخیره کنید.
+- آن را برای کاربر نمایش ندهید، مگر سیاست محصول شما صراحتاً اجازه دهد.
+- در نوبت بعدی، پیام assistant را کامل به تاریخچه برگردانید.
 
-## چه modelهایی معمولاً به این فضا نزدیک‌اند؟
-
-در متن منبع، این خانواده‌ها برجسته بودند:
-
-- بعضی مدل‌های Anthropic
-- مدل‌های Claude روی Bedrock
-- بعضی مدل‌های Gemini / Vertex
-
-اما از دید GodarAI، مهم‌ترین اصل این است:
-
-- Extended Thinking را یک capability model/provider-specific بدانید، نه یک ویژگی تضمین‌شده برای همه modelها
-
-## استفاده پایه
-
-نمونه ساده:
+## نمونه پایه
 
 ```python
 from openai import OpenAI
 
 client = OpenAI(
-    api_key="YOUR_GODARAI_API_KEY",
-    base_url="YOUR_GODARAI_BASE_URL",
+    api_key="YOUR_GODARAI_TOKEN",
+    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
 )
 
 response = client.chat.completions.create(
     model="anthropic:default:claude-3-7-sonnet",
     messages=[
-        {"role": "user", "content": "چرا 3^3^3 از راست به چپ ارزیابی می‌شود؟"}
+        {
+            "role": "user",
+            "content": "برای طراحی یک agent پشتیبانی، مراحل تصمیم‌گیری را پیشنهاد بده."
+        }
     ],
     reasoning_effort="high",
-    max_tokens=8000,
-)
-
-msg = response.choices[0].message
-print(msg.content)
-print(msg.reasoning_content)
-print(msg.thinking_blocks)
-```
-
-## `reasoning_content` در برابر `thinking_blocks`
-
-این دو را با هم قاطی نکنید:
-
-- `reasoning_content` بیشتر برای مشاهده و debug انسانی مفید است
-- `thinking_blocks` برای replay دقیق context و provider continuity مهم‌ترند
-
-اگر فقط بخواهید reasoning را ببینید، شاید `reasoning_content` کافی باشد. اما اگر می‌خواهید multi-turn reasoning درست کار کند، `thinking_blocks` مهم‌ترند.
-
-## streaming با Extended Thinking
-
-در حالت stream، معمولاً reasoning یکجا و ساده برنمی‌گردد. بسته به provider ممکن است:
-
-- `reasoning_content` تکه‌تکه در deltaها بیاید
-- `reasoning_signature` جداگانه برسد
-- یا `thinking_blocks` مستقیم در model extraها ظاهر شوند
-
-به همین دلیل، در سناریوهای production باید stream را accumulate کنید و بعد یک assistant message کامل بسازید.
-
-الگوی مفهومی:
-
-```python
-def accumulate_stream(stream):
-    content = ""
-    reasoning_content = ""
-    reasoning_signature = None
-    thinking_blocks_direct = []
-    tool_calls_buf = {}
-
-    for chunk in stream:
-        delta = chunk.choices[0].delta
-        extra = delta.model_extra or {}
-
-        if delta.content:
-            content += delta.content
-
-        if extra.get("reasoning_content"):
-            reasoning_content += extra["reasoning_content"]
-
-        if extra.get("reasoning_signature"):
-            reasoning_signature = extra["reasoning_signature"]
-
-        for tb in (extra.get("thinking_blocks") or []):
-            thinking_blocks_direct.append(tb)
-
-        for tc in (delta.tool_calls or []):
-            slot = tool_calls_buf.setdefault(tc.index, {
-                "id": "",
-                "type": "function",
-                "function": {"name": "", "arguments": ""},
-            })
-            if tc.id:
-                slot["id"] += tc.id
-            if tc.function:
-                slot["function"]["name"] += tc.function.name or ""
-                slot["function"]["arguments"] += tc.function.arguments or ""
-
-    if thinking_blocks_direct:
-        thinking_blocks = thinking_blocks_direct
-    elif reasoning_content or reasoning_signature:
-        thinking_blocks = [{
-            "type": "thinking",
-            "thinking": reasoning_content,
-            **({"signature": reasoning_signature} if reasoning_signature else {}),
-        }]
-    else:
-        thinking_blocks = []
-
-    return content, thinking_blocks, list(tool_calls_buf.values())
-```
-
-## چرا serialization assistant message مهم است؟
-
-اگر بعد از پاسخ اول، assistant message را ناقص ذخیره کنید، turn بعدی ممکن است reasoning chain را از دست بدهد. به همین دلیل، در docs قبلی tools هم توصیه کردیم که از:
-
-```python
-message.model_dump(exclude_none=True)
-```
-
-استفاده کنید.
-
-این کار کمک می‌کند:
-
-- `content` حفظ شود
-- `tool_calls` حفظ شوند
-- `thinking_blocks` و signatureها هم از بین نروند
-
-## multi-turn conversation
-
-در Extended Thinking، ساده‌ترین قاعده این است:
-
-- assistant message را همان‌طور که برگشته replay کنید
-
-نمونه:
-
-```python
-response = client.chat.completions.create(
-    model="anthropic:default:claude-3-7-sonnet",
-    messages=[{"role": "user", "content": "3^3^3 چیست؟"}],
-    reasoning_effort="high",
-    max_tokens=8000,
+    max_tokens=4000,
 )
 
 assistant_message = response.choices[0].message.model_dump(exclude_none=True)
-
-response2 = client.chat.completions.create(
-    model="anthropic:default:claude-3-7-sonnet",
-    messages=[
-        {"role": "user", "content": "3^3^3 چیست؟"},
-        assistant_message,
-        {"role": "user", "content": "حالا توضیح بده چرا از راست به چپ حساب می‌شود."}
-    ],
-    reasoning_effort="high",
-    max_tokens=8000,
-)
 ```
 
-## ترکیب با tool calling
+در این نمونه، هدف اصلی ذخیره کامل `assistant_message` است. همین پیام ممکن است شامل `content`، `tool_calls`، `reasoning_content` یا `thinking_blocks` باشد.
 
-یکی از مهم‌ترین سناریوها وقتی است که reasoning و tool calling هم‌زمان فعال باشند. در این حالت:
+## گفت‌وگوی چندنوبتی
 
-- model هم `tool_calls` برمی‌گرداند
-- هم ممکن است `thinking_blocks` داشته باشد
-
-و شما باید هر دو را در history برگردانید.
-
-نمونه:
+برای ادامه گفت‌وگو، پیام assistant را همان‌طور که برگشته در تاریخچه نگه دارید:
 
 ```python
-import json
-from openai import OpenAI
-
-client = OpenAI(
-    api_key="YOUR_GODARAI_API_KEY",
-    base_url="YOUR_GODARAI_BASE_URL",
-)
-
-tools = [{
-    "type": "function",
-    "function": {
-        "name": "get_weather",
-        "description": "Get weather for a city",
-        "parameters": {
-            "type": "object",
-            "properties": {"city": {"type": "string"}},
-            "required": ["city"]
-        }
-    }
-}]
-
-messages = [{"role": "user", "content": "هوای توکیو چطور است؟"}]
-
-response = client.chat.completions.create(
-    model="anthropic:default:claude-3-7-sonnet",
-    messages=messages,
-    tools=tools,
-    reasoning_effort="high",
-    max_tokens=8000,
-)
-
-msg = response.choices[0].message
-messages.append(msg.model_dump(exclude_none=True))
-
-for tool_call in msg.tool_calls:
-    args = json.loads(tool_call.function.arguments)
-    result = f"Sunny, 24°C in {args['city']}"
-    messages.append({
-        "role": "tool",
-        "tool_call_id": tool_call.id,
-        "content": result,
-    })
+messages = [
+    {
+        "role": "user",
+        "content": "برای طراحی یک agent پشتیبانی، مراحل تصمیم‌گیری را پیشنهاد بده."
+    },
+    assistant_message,
+    {
+        "role": "user",
+        "content": "حالا همین طرح را برای تیم مالی ساده‌تر کن."
+    },
+]
 
 response2 = client.chat.completions.create(
     model="anthropic:default:claude-3-7-sonnet",
     messages=messages,
-    tools=tools,
     reasoning_effort="high",
-    max_tokens=8000,
+    max_tokens=4000,
 )
 ```
 
-در این سناریو اگر `thinking_blocks` را از assistant message حذف کنید، بعضی providerها continuity لازم را از دست می‌دهند.
+اگر فقط `content` را نگه دارید و بقیه فیلدها را حذف کنید، ممکن است زمینه لازم برای ادامه درست از بین برود.
 
-## Google Search grounding
+## ترکیب با ابزارها
 
-در متن منبع، نمونه‌ای از grounding با Google Search هم آمده بود. از دید مفهومی، این همان ترکیب reasoning/tooling با یک سرچ بیرونی است. اما برای docs این صفحه، نکته اصلی این است:
+وقتی ابزارها و تفکر عمیق‌تر هم‌زمان فعال‌اند، پیام assistant دو نقش دارد:
 
-- هر جا model برای ادامه reasoning به tool بیرونی تکیه کند، حفظ assistant message کامل اهمیت بیشتری پیدا می‌کند
+- ممکن است `tool_calls` داشته باشد.
+- ممکن است داده‌های استدلالی لازم برای نوبت بعدی داشته باشد.
 
-## چه اشتباه‌هایی رایج‌اند؟
+پس بعد از پاسخ اول:
 
-### دست‌کاری `thinking_blocks`
+1. پیام assistant را کامل در تاریخچه ذخیره کنید.
+2. ابزارهای مجاز را در سرویس خود اجرا کنید.
+3. نتیجه هر ابزار را با `role: "tool"` برگردانید.
+4. درخواست دوم را با همان تاریخچه کامل بفرستید.
 
-هیچ normalizing دستی، trim کردن یا بازنویسی روی blockها انجام ندهید مگر این‌که دقیقاً بدانید provider چه می‌خواهد.
+این الگو از خطاهای ظریف در عامل‌های چندمرحله‌ای جلوگیری می‌کند.
 
-### برنگرداندن signature
+## پاسخ جریانی
 
-signature حذف‌شده یا ناقص می‌تواند chain را بشکند.
+در حالت جریانی، بخش‌های مربوط به استدلال ممکن است تکه‌تکه برسند. برای استفاده قابل اتکا:
 
-### ساختن دستی assistant message ناقص
+- ابتدا نسخه غیرجریانی را پایدار کنید.
+- سپس قطعه‌های stream را جمع‌آوری کنید.
+- در پایان، یک پیام assistant کامل بسازید.
+- همان پیام کامل را در تاریخچه نگه دارید.
 
-اگر فقط `content` را نگه دارید و `thinking_blocks` را حذف کنید، turn بعدی ممکن است fail یا degrade شود.
+اگر از stream شروع کنید، عیب‌یابی خطاهای مربوط به `thinking_blocks` و ابزارها سخت‌تر می‌شود.
 
-### تست نکردن stream و non-stream به‌صورت جدا
+## اشتباه‌های رایج
 
-رفتار reasoning در stream معمولاً پیچیده‌تر است.
+- حذف `thinking_blocks` از پیام assistant.
+- تغییر یا کوتاه‌کردن `signature`.
+- ساختن دستی پیام assistant فقط با `content`.
+- ترکیب هم‌زمان stream، ابزار و تفکر عمیق‌تر بدون تست جداگانه.
+- نمایش داده‌های استدلالی داخلی به کاربر نهایی بدون سیاست روشن.
 
-## چه زمانی واقعاً به Extended Thinking نیاز دارید؟
+## توصیه عملی
 
-وقتی که:
+برای شروع، این ترتیب را رعایت کنید:
 
-- session چندمرحله‌ای reasoning-heavy دارید
-- tool calling بخشی از منطق کار است
-- می‌خواهید continuity استدلال بین turnها حفظ شود
+1. درخواست غیرجریانی بدون ابزار را با مدل هدف آزمایش کنید.
+2. ذخیره و بازپخش کامل پیام assistant را پیاده کنید.
+3. سپس ابزارها را اضافه کنید.
+4. در پایان، اگر تجربه کاربری لازم داشت، پاسخ جریانی را فعال کنید.
 
-اگر فقط یک جواب نهایی ساده می‌خواهید، معمولاً `reasoning_effort` و `reasoning_content` کافی‌اند و نیازی نیست با لایه کامل Extended Thinking درگیر شوید.
-
-## توصیه‌های عملی برای GodarAI
-
-### assistant message را با `model_dump(exclude_none=True)` ذخیره کنید
-
-این امن‌ترین الگوی عمومی برای حفظ context reasoning است.
-
-### `thinking_blocks` را immutable فرض کنید
-
-آن‌ها را مثل payload امضاشده ببینید، نه یک field قابل ویرایش.
-
-### reasoning + tools را جداگانه تست کنید
-
-وقتی tool calling وارد ماجرا می‌شود، حساسیت chain preservation بیشتر می‌شود.
-
-### ابتدا non-stream، بعد stream
-
-اگر در حال ساخت agent production هستید، اول non-stream multi-turn reasoning را پایدار کنید و بعد به streaming بروید.
+این ترتیب باعث می‌شود هر لایه را جداگانه بسنجید و خطاها را به‌هم گره نزنید.
 
 ## جمع‌بندی
 
-`Extended Thinking` در GodarAI برای سناریوهایی مهم است که reasoning باید بین چند turn حفظ شود، مخصوصاً وقتی tool calling هم وجود دارد. تفاوت اصلی آن با reasoning ساده در وجود `thinking_blocks` و `signature`هاست. اگر assistant message را کامل و بدون دست‌کاری replay کنید، این قابلیت می‌تواند context استدلالی model را در workflowهای چندمرحله‌ای بسیار پایدارتر نگه دارد.
+تفکر عمیق‌تر برای جریان‌های پیشرفته و چندنوبتی است. مهم‌ترین اصل آن ساده است: پیام assistant را کامل، بدون دست‌کاری و قابل بازپخش نگه دارید. این کار به گدارAI و مدل پشت آن کمک می‌کند زمینه استدلالی را در مسیرهای پیچیده‌تر حفظ کنند.

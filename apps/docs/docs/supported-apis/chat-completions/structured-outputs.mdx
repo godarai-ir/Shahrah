@@ -2,313 +2,149 @@
 title: خروجی ساختاریافته
 ---
 
-# خروجی ساختاریافته - Structured Outputs
+# خروجی ساختاریافته
 
-اگر می‌خواهید پاسخ model فقط «متن خوب» نباشد، بلکه خروجی قابل‌اعتماد و machine-readable هم تولید کند، باید از structured outputs استفاده کنید. در `Chat Completions` این کار معمولاً با `response_format` انجام می‌شود.
+گاهی پاسخ خوب کافی نیست؛ پاسخ باید قابل پردازش باشد. خروجی ساختاریافته کمک می‌کند مدل به‌جای متن آزاد، JSON معتبر یا ساختاری نزدیک به `JSON Schema` شما برگرداند.
 
-این قابلیت برای سناریوهایی مثل این خیلی مهم است:
+در `Chat Completions` این کار معمولاً با `response_format` انجام می‌شود.
 
-- استخراج داده
-- ساخت JSON برای workflow
-- تولید state برای UI
-- اتوماسیون backend
-- validation downstream
+## چه مسئله‌ای را حل می‌کند؟
 
-## structured output چه مسئله‌ای را حل می‌کند؟
+اگر فقط در پرامپت بنویسید «JSON بده»، هنوز ممکن است مدل:
 
-بدون structured output، حتی اگر به model بگویید «JSON برگردان»، هنوز ممکن است:
+- متن توضیحی اضافه کند.
+- نام فیلدها را تغییر دهد.
+- نوع داده‌ها را اشتباه بسازد.
+- فیلدهایی تولید کند که اپلیکیشن شما انتظار ندارد.
 
-- متن اضافه تولید کند
-- structure را نادرست بسازد
-- fieldهای دلخواه خودش را اضافه کند
-- typeها را اشتباه برگرداند
+`response_format` این ریسک را کم می‌کند و قرارداد بین مدل و سرویس شما را روشن‌تر می‌سازد.
 
-structured output کمک می‌کند خروجی به contract نزدیک‌تر، پایدارتر و قابل parseتر شود.
+## دو حالت اصلی
 
-## دو حالت اصلی در GodarAI
+| حالت | کاربرد |
+| --- | --- |
+| `json_object` | وقتی فقط JSON معتبر می‌خواهید و schema دقیق لازم نیست. |
+| `json_schema` | وقتی ساختار، فیلدها و نوع داده‌ها باید دقیق‌تر کنترل شوند. |
 
-در قرارداد فعلی، دو فرم مهم برای `response_format` وجود دارد:
-
-- `json_object`
-- `json_schema`
-
-این naming با مسیرهای واقعی محصول هم‌راستاست؛ در منطق validation فعلی نیز همین دو فرمت canonical هستند.
+برای جریان‌های مهم محصول، `json_schema` معمولاً انتخاب مطمئن‌تری است.
 
 ## `json_object`
-
-این حالت ساده‌تر است. هدف آن این است که model یک JSON معتبر برگرداند، بدون این‌که شما schema دقیق فیلدها را enforce کرده باشید.
-
-نمونه:
 
 ```python
 from openai import OpenAI
 
 client = OpenAI(
-    api_key="YOUR_GODARAI_API_KEY",
-    base_url="YOUR_GODARAI_BASE_URL",
+    api_key="YOUR_GODARAI_TOKEN",
+    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
 )
 
 response = client.chat.completions.create(
-    model="openai:default:gpt-4o",
+    model="openai:default:gpt-4o-mini",
     messages=[
         {
             "role": "system",
-            "content": "You are a helpful assistant designed to return JSON."
+            "content": "You return valid JSON only.",
         },
         {
             "role": "user",
-            "content": "اطلاعات برنده جام جهانی 2022 را استخراج کن."
-        }
+            "content": "سه مزیت استفاده از کلید دسترسی مجازی را به صورت JSON بده.",
+        },
     ],
-    response_format={"type": "json_object"}
+    response_format={"type": "json_object"},
 )
 
 print(response.choices[0].message.content)
 ```
 
-این حالت خوب است وقتی:
-
-- فقط JSON معتبر می‌خواهید
-- schema خیلی سخت‌گیرانه لازم ندارید
-- parsing ساده برایتان کافی است
+این حالت برای خروجی‌های سبک مناسب است، اما ساختار دقیق را تضمین نمی‌کند.
 
 ## `json_schema`
 
-اگر structure دقیق می‌خواهید، باید از `json_schema` استفاده کنید. در این حالت، شما schema را تعریف می‌کنید و model باید پاسخ را مطابق آن بسازد.
-
-نمونه:
-
 ```python
-from openai import OpenAI
 import json
+from openai import OpenAI
 
 client = OpenAI(
-    api_key="YOUR_GODARAI_API_KEY",
-    base_url="YOUR_GODARAI_BASE_URL",
+    api_key="YOUR_GODARAI_TOKEN",
+    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
 )
 
-user_info_schema = {
+ticket_schema = {
     "type": "object",
     "properties": {
-        "name": {"type": "string"},
-        "age": {"type": "integer", "minimum": 0},
-        "occupation": {"type": "string"},
-        "location": {"type": "string"},
-        "skills": {
+        "summary": {"type": "string"},
+        "priority": {"type": "string", "enum": ["low", "medium", "high"]},
+        "labels": {
             "type": "array",
             "items": {"type": "string"}
         }
     },
-    "required": ["name", "age", "occupation", "location", "skills"],
+    "required": ["summary", "priority", "labels"],
     "additionalProperties": False
 }
 
 response = client.chat.completions.create(
-    model="openai:default:gpt-4o",
+    model="openai:default:gpt-4o-mini",
     messages=[
-        {
-            "role": "system",
-            "content": "اطلاعات کاربر را طبق schema برگردان."
-        },
-        {
-            "role": "user",
-            "content": "من سارا هستم، 28 سالمه، در تهران زندگی می‌کنم و در حوزه تحلیل داده کار می‌کنم. مهارت‌هام Python و SQL و machine learning هستند."
-        }
+        {"role": "system", "content": "درخواست پشتیبانی را به داده ساختاریافته تبدیل کن."},
+        {"role": "user", "content": "کاربر می‌گوید پاسخ‌ها کند شده‌اند و این برای صفحه پرداخت فوری است."}
     ],
     response_format={
         "type": "json_schema",
         "json_schema": {
-            "name": "user_info",
-            "schema": user_info_schema,
+            "name": "support_ticket",
+            "schema": ticket_schema,
             "strict": True
         }
-    }
+    },
 )
 
-result = json.loads(response.choices[0].message.content)
-print(result)
+ticket = json.loads(response.choices[0].message.content)
+print(ticket)
 ```
 
-## چه زمانی `json_object` و چه زمانی `json_schema`؟
+`strict: True` به مدل می‌گوید به schema نزدیک‌تر بماند. در عوض، schema شما هم باید دقیق و قابل اجرا باشد.
 
-قاعده عملی:
+## طراحی schema خوب
 
-- اگر فقط JSON معتبر می‌خواهید: `json_object`
-- اگر structure دقیق و enforce‌شده می‌خواهید: `json_schema`
+- فیلدهای واقعاً لازم را در `required` بگذارید.
+- برای مقدارهای محدود از `enum` استفاده کنید.
+- `additionalProperties: False` را وقتی فعال کنید که فیلد اضافه برای شما خطاست.
+- schema را کوچک نگه دارید؛ schema بزرگ و مبهم کیفیت خروجی را پایین می‌آورد.
+- نام فیلدها را همان نام‌هایی بگذارید که اپلیکیشن شما مصرف می‌کند.
 
-مثلاً:
+## آیا اعتبارسنجی نهایی هنوز لازم است؟
 
-- summary ساده برای dashboard: `json_object`
-- extraction قابل‌اتکا برای workflow production: `json_schema`
+بله. خروجی ساختاریافته ریسک را کم می‌کند، اما جای اعتبارسنجی اپلیکیشن را نمی‌گیرد. همیشه:
 
-## `strict: true` یعنی چه؟
+- JSON را parse کنید.
+- schema یا مدل typed خودتان را validate کنید.
+- منطق محصول را جداگانه بررسی کنید.
+- خطاهای parsing را قابل مشاهده و قابل بازیابی طراحی کنید.
 
-وقتی در `json_schema` از `strict: true` استفاده می‌کنید، model باید خیلی نزدیک‌تر به schema بماند. این برای use caseهای production بسیار ارزشمند است، اما schema شما هم باید تمیز طراحی شده باشد.
+مدل را کمک‌کننده ساختار بدانید، نه منبع نهایی اعتماد.
 
-در متن منبع یک نکته مهم آمده بود که برای GodarAI هم باید جدی بگیرید:
+## ترکیب با ابزارها
 
-- اگر strict روشن است، schema ناقص یا نیمه‌اختیاری می‌تواند باعث خطا یا رفتار نامطلوب شود
+اگر ابزارها هم فعال‌اند، ممکن است مدل ابتدا `tool_calls` برگرداند و پاسخ نهایی در نوبت بعدی ساخته شود. در این حالت:
 
-به زبان عملی:
+- schema را برای پاسخ نهایی طراحی کنید.
+- پیام assistant حاوی `tool_calls` را کامل در تاریخچه نگه دارید.
+- نتیجه ابزار را با `role: "tool"` برگردانید.
+- سپس پاسخ نهایی را طبق schema دریافت کنید.
 
-- propertyهایی که واقعاً لازم‌اند را در `required` بگذارید
-- اگر چیزی optional است، با دقت طراحی‌اش کنید
-- `additionalProperties: false` را وقتی می‌خواهید schema بسته باشد، فعال کنید
+## ترکیب با حافظه نهان
 
-## مزیت اصلی `json_schema`
+خود `response_format` لزوماً مانع استفاده از حافظه نهان نیست، اما هر پارامتر روی کلید و رفتار حافظه نهان اثر می‌گذارد. سناریوی متنی ساده را جدا از سناریوی همراه ابزار یا ورودی چندرسانه‌ای آزمایش کنید.
 
-این حالت برای سناریوهای production-grade بهتر است چون:
+## اشتباه‌های رایج
 
-- downstream parsing ساده‌تر می‌شود
-- احتمال hallucinated field کمتر می‌شود
-- validation سمت اپلیکیشن معنی‌دارتر می‌شود
-- contract بین model و backend روشن‌تر می‌ماند
-
-## Pydantic و typed schema
-
-اگر در Python کار می‌کنید، یک الگوی بسیار خوب این است که schema را از روی مدل Pydantic بسازید.
-
-نمونه:
-
-```python
-from openai import OpenAI
-from pydantic import BaseModel, Field
-from typing import List
-
-client = OpenAI(
-    api_key="YOUR_GODARAI_API_KEY",
-    base_url="YOUR_GODARAI_BASE_URL",
-)
-
-class UserInfo(BaseModel):
-    name: str = Field(description="Full name")
-    age: int = Field(ge=0, description="Age in years")
-    occupation: str = Field(description="Occupation")
-    location: str = Field(description="City or location")
-    skills: List[str] = Field(description="Professional skills")
-
-response = client.chat.completions.create(
-    model="openai:default:gpt-4o",
-    messages=[
-        {"role": "system", "content": "اطلاعات کاربر را ساختاریافته برگردان."},
-        {"role": "user", "content": "من علی هستم، 31 ساله، در شیراز زندگی می‌کنم و برنامه‌نویس backend هستم. Go و PostgreSQL و Docker بلد هستم."}
-    ],
-    response_format={
-        "type": "json_schema",
-        "json_schema": {
-            "name": "user_info",
-            "schema": UserInfo.model_json_schema(),
-            "strict": True
-        }
-    }
-)
-```
-
-این روش چند مزیت دارد:
-
-- schema از source of truth کد شما می‌آید
-- validation سمت اپلیکیشن آسان‌تر می‌شود
-- drift بین docs، schema و parser کمتر می‌شود
-
-## نکته مهم درباره fieldهای optional
-
-برای schemaهای strict، fieldهای optional می‌توانند دردسرساز شوند اگر طراحی‌شان با contract نهایی شما هم‌راستا نباشد. در practice:
-
-- اگر field واقعاً باید همیشه وجود داشته باشد، optional نکنید
-- اگر field ممکن است وجود نداشته باشد، parsing و contract downstream را از قبل طراحی کنید
-
-## آیا parsing نهایی هنوز لازم است؟
-
-بله. حتی با structured output، باز هم parsing و validation سمت اپلیکیشن شما لازم است. structured output ریسک را کم می‌کند، اما جای validation نهایی business logic را نمی‌گیرد.
-
-قاعده خوب:
-
-- model را کمک‌خلبان schema بدانید، نه منبع نهایی اعتماد
-
-## structured outputs و prompts
-
-در GodarAI، structured output فقط به `response_format` محدود نیست؛ در لایه prompt/manifest هم ردپای همین قرارداد وجود دارد. در validation فعلی promptها، فرمت‌های معتبر برای `structured_output.format` همین‌ها هستند:
-
-- `json_schema`
-- `json_object`
-
-این یعنی اگر بعداً prompt versioning یا manifest-based flows را هم استفاده کنید، همان mental model این صفحه برایتان معتبر می‌ماند.
-
-## structured outputs و tools
-
-گاهی structured output را با tool calling ترکیب می‌کنید. اینجا باید حواستان باشد:
-
-- اگر قرار است model اول tool call بزند، خروجی نهایی ممکن است در turn بعدی ساخته شود
-- schema نهایی را برای پاسخ final طراحی کنید، نه فقط intermediate message
-- وقتی tool result را برمی‌گردانید، context را کامل نگه دارید
-
-این ترکیب برای agentهای production خیلی قدرتمند است، ولی نیاز به طراحی دقیق‌تر دارد.
-
-## structured outputs و caching
-
-خود structured output لزوماً به معنای bypass cache نیست، اما باید توجه کنید که هر پارامتر اضافه در request می‌تواند روی cache key و behavior اثر بگذارد. اگر در کنار structured output از tools یا multimodal هم استفاده کنید، caching story می‌تواند متفاوت شود.
-
-پس بهتر است:
-
-- سناریوی text-only structured را جدا تست کنید
-- سناریوی tool-enabled structured را جدا ارزیابی کنید
-
-## چند الگوی خوب
-
-### extraction
-
-مثلاً استخراج اطلاعات کاربر، قرارداد، محصول یا فرم:
-
-- بهترین گزینه: `json_schema`
-
-### lightweight automation
-
-مثلاً ساخت config ساده یا payload تقریبی:
-
-- می‌تواند با `json_object` هم کافی باشد
-
-### typed backend workflows
-
-وقتی backend شما strongly-typed است:
-
-- schema را از مدل‌های typed مثل Pydantic تولید کنید
-
-## چند اشتباه رایج
-
-### گفتن «JSON بده» بدون `response_format`
-
-این کار ممکن است ظاهراً جواب بدهد، اما برای production قابل اتکا نیست.
-
-### schema بیش‌ازحد باز
-
-اگر schema خیلی آزاد باشد، structured output عملاً ارزش زیادی اضافه نمی‌کند.
-
-### schema بیش‌ازحد سخت بدون طراحی خوب
-
-strict بودن خوب است، ولی فقط وقتی schema واقعاً با use case شما جور باشد.
-
-### اعتماد کامل بدون validation
-
-structured output کمک می‌کند، اما validation اپلیکیشن را حذف نمی‌کند.
-
-## توصیه‌های عملی برای GodarAI
-
-### برای workflowهای واقعی، `json_schema` را پیش‌فرض بگیرید
-
-اگر خروجی قرار است وارد سیستم دیگری شود، schema بهتر از JSON آزاد است.
-
-### schema را کوچک و واضح نگه دارید
-
-هرچه schema جمع‌وجورتر و دقیق‌تر باشد، کیفیت خروجی بهتر می‌شود.
-
-### از Pydantic یا مدل typed معادل استفاده کنید
-
-این کار فاصله بین model output و application contract را کم می‌کند.
-
-### parsing نهایی را در backend نگه دارید
-
-هیچ‌وقت raw output model را بدون validate وارد سیستم حساس نکنید.
+- فقط نوشتن «JSON بده» بدون `response_format`.
+- طراحی schema بسیار باز که عملاً هیچ چیزی را کنترل نمی‌کند.
+- طراحی schema بسیار سخت بدون فکر به داده‌های ناقص.
+- حذف اعتبارسنجی نهایی در سرویس خودتان.
+- استفاده از خروجی خام مدل در مسیرهای حساس محصول.
 
 ## جمع‌بندی
 
-structured outputs در `Chat Completions` یکی از بهترین راه‌ها برای تبدیل خروجی model به داده قابل‌استفاده در محصول است. در GodarAI، قرارداد اصلی حول `response_format` با دو حالت `json_object` و `json_schema` می‌چرخد. اگر بین انعطاف و کنترل، انتخاب درستی داشته باشید و validation سمت اپلیکیشن را هم نگه دارید، این قابلیت می‌تواند backbone بسیاری از automationها و integrationهای production-grade شما باشد.
+خروجی ساختاریافته یکی از بهترین راه‌ها برای تبدیل پاسخ مدل به داده قابل استفاده در محصول است. برای نمونه‌های سبک از `json_object` شروع کنید، اما برای جریان‌های مهم و قابل اتکا، `json_schema` را با اعتبارسنجی سمت اپلیکیشن همراه کنید.

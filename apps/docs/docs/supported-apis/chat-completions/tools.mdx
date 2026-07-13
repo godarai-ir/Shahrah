@@ -2,84 +2,75 @@
 title: ابزارها
 ---
 
-# Tools
+# ابزارها و فراخوانی ابزار
 
-در گدارAI، `Chat Completions` می‌تواند فقط متن تولید نکند، بلکه برای انجام کارهای بیرونی هم از شما درخواست کمک کند. این همان چیزی است که در contract OpenAI-compatible با `tools` و `tool_calls` می‌شناسیم.
+در `Chat Completions`، مدل می‌تواند به‌جای حدس‌زدن، از اپلیکیشن شما بخواهد یک ابزار را اجرا کند. این قابلیت با `tools`، `tool_choice` و `tool_calls` شناخته می‌شود.
 
-به زبان ساده:
+اصل مهم: مدل ابزار را اجرا نمی‌کند. مدل فقط یک درخواست ساختاریافته برای اجرای ابزار می‌سازد. اجرای واقعی، اعتبارسنجی، دسترسی و ثبت نتیجه باید در سرویس شما انجام شود.
 
-- شما toolها یا functionهای قابل‌استفاده را تعریف می‌کنید
-- model تصمیم می‌گیرد چه زمانی یکی از آن‌ها را صدا بزند
-- شما آن tool را در backend خودتان اجرا می‌کنید
-- نتیجه را دوباره به مدل برمی‌گردانید
+## چه مسئله‌ای را حل می‌کند؟
 
-این flow پایه بسیاری از agentها، workflowها و integrationهای عملیاتی است.
+مدل به‌صورت پیش‌فرض به داده‌های زنده و داخلی شما دسترسی ندارد؛ مثلاً:
 
-## tool calling چه مسئله‌ای را حل می‌کند؟
+- وضعیت سفارش
+- موجودی انبار
+- داده حساب کاربر
+- جست‌وجوی داخلی اسناد
+- سرویس‌های عملیاتی سازمان
 
-خود model به‌تنهایی معمولاً به این چیزها دسترسی مستقیم ندارد:
+با فراخوانی ابزار، مدل می‌تواند بگوید «برای پاسخ دقیق، این تابع را با این ورودی اجرا کن». سپس سرویس شما نتیجه را به مدل برمی‌گرداند تا پاسخ نهایی ساخته شود.
 
-- وضعیت آب‌وهوا
-- داده پایگاه‌داده داخلی شما
-- موجودی سفارش
-- سرویس جستجو
-- API داخلی یا خارجی
+## تعریف ابزار
 
-tool calling این فاصله را پر می‌کند. مدل به‌جای حدس‌زدن، ساختار call را می‌سازد و اجرای واقعی را به اپلیکیشن شما می‌سپارد.
+هر ابزار معمولاً یک `function` با سه بخش دارد:
 
-## contract اصلی در Chat Completions
-
-در GodarAI، همان پارامترهای رایج OpenAI-compatible را برای این موضوع دارید:
-
-- `tools`
-- `tool_choice`
-
-و در پاسخ معمولاً با این فیلدها سروکار دارید:
-
-- `message.tool_calls`
-- `tool_call.id`
-- `tool_call.function.name`
-- `tool_call.function.arguments`
-
-## ساده‌ترین الگوی استفاده
-
-نمونه پایه:
+- `name`: نام پایدار و قابل فهم برای ماشین.
+- `description`: توضیح کوتاه درباره اینکه ابزار چه زمانی باید استفاده شود.
+- `parameters`: schema ورودی ابزار.
 
 ```python
-from openai import OpenAI
-import json
-
-client = OpenAI(
-    api_key="YOUR_GODARAI_API_KEY",
-    base_url="YOUR_GODARAI_BASE_URL",
-)
-
 tools = [
     {
         "type": "function",
         "function": {
-            "name": "get_weather",
-            "description": "Get current weather for a location",
+            "name": "get_order_status",
+            "description": "Get the latest status for a customer order by order id.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "location": {
+                    "order_id": {
                         "type": "string",
-                        "description": "City name"
+                        "description": "Customer order id"
                     }
                 },
-                "required": ["location"]
+                "required": ["order_id"],
+                "additionalProperties": False
             }
         }
     }
 ]
+```
+
+نام‌هایی مثل `process` یا `do_action` مبهم‌اند. نام ابزار را عملی و دقیق انتخاب کنید؛ مثلاً `get_order_status` یا `search_support_articles`.
+
+## دریافت tool call
+
+```python
+import json
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="YOUR_GODARAI_TOKEN",
+    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
+)
 
 response = client.chat.completions.create(
     model="openai:default:gpt-4o-mini",
     messages=[
-        {"role": "user", "content": "هوای تهران الان چطور است؟"}
+        {"role": "user", "content": "وضعیت سفارش A-1024 را بگو."}
     ],
-    tools=tools
+    tools=tools,
+    tool_choice="auto",
 )
 
 message = response.choices[0].message
@@ -91,146 +82,59 @@ if message.tool_calls:
     print(name, args)
 ```
 
-## `tools` را چطور تعریف کنیم؟
+در این مرحله هنوز هیچ ابزار واقعی اجرا نشده است. شما فقط تصمیم مدل را دریافت کرده‌اید.
 
-هر tool معمولاً یک function definition است که این اجزا را دارد:
+## چرخه کامل اجرای ابزار
 
-- `name`
-- `description`
-- `parameters`
+الگوی کامل معمولاً چهار گام دارد:
 
-بخش `parameters` باید schema روشنی داشته باشد تا model بداند چه argumentهایی باید بسازد.
-
-نمونه:
-
-```json
-{
-  "type": "function",
-  "function": {
-    "name": "search_orders",
-    "description": "Search customer orders by order id",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "order_id": {
-          "type": "string",
-          "description": "Customer order ID"
-        }
-      },
-      "required": ["order_id"]
-    }
-  }
-}
-```
-
-## چه typeهایی در parameters مناسب‌اند؟
-
-در تعریف function، معمولاً این typeها رایج‌اند:
-
-- `string`
-- `integer`
-- `number`
-- `boolean`
-- `array`
-- `object`
-
-قاعده عملی خوب:
-
-- schema را تا جای ممکن دقیق تعریف کنید
-- enumها را برای مقادیر محدود مشخص کنید
-- fieldهای required را صریح بنویسید
-
-هرچه schema شفاف‌تر باشد، احتمال tool call درست بالاتر می‌رود.
-
-## چند tool هم‌زمان
-
-می‌توانید بیشتر از یک tool تعریف کنید تا model از میان آن‌ها انتخاب کند.
-
-مثلاً:
-
-```python
-tools = [
-    {
-        "type": "function",
-        "function": {
-            "name": "get_weather",
-            "description": "Get weather information",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "location": {"type": "string"}
-                },
-                "required": ["location"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "search_web",
-            "description": "Search web for information",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {"type": "string"}
-                },
-                "required": ["query"]
-            }
-        }
-    }
-]
-```
-
-در این حالت model می‌تواند بر اساس intent کاربر، tool مناسب را انتخاب کند.
-
-## چرخه کامل اجرای tool
-
-tool calling فقط گرفتن `tool_calls` نیست. flow کامل معمولاً این‌طور است:
-
-1. کاربر message را می‌فرستد
-2. model یک `tool_call` تولید می‌کند
-3. backend شما tool را اجرا می‌کند
-4. نتیجه را با `role: "tool"` به conversation برمی‌گردانید
-5. دوباره `chat.completions.create` را صدا می‌زنید تا پاسخ نهایی ساخته شود
-
-نمونه:
+1. پیام کاربر را همراه تعریف ابزارها به مدل می‌فرستید.
+2. مدل یک یا چند `tool_calls` برمی‌گرداند.
+3. سرویس شما ابزار مجاز را اجرا می‌کند.
+4. نتیجه ابزار را با `role: "tool"` به مدل برمی‌گردانید تا پاسخ نهایی ساخته شود.
 
 ```python
 import json
 from openai import OpenAI
 
 client = OpenAI(
-    api_key="YOUR_GODARAI_API_KEY",
-    base_url="YOUR_GODARAI_BASE_URL",
+    api_key="YOUR_GODARAI_TOKEN",
+    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
 )
 
 messages = [
-    {"role": "user", "content": "هوای توکیو چطور است؟"}
+    {"role": "user", "content": "وضعیت سفارش A-1024 را بگو."}
 ]
 
-response = client.chat.completions.create(
+first_response = client.chat.completions.create(
     model="openai:default:gpt-4o-mini",
     messages=messages,
     tools=tools,
 )
 
-message = response.choices[0].message
+assistant_message = first_response.choices[0].message
 
-if message.tool_calls:
-    messages.append(message.model_dump(exclude_none=True))
+if assistant_message.tool_calls:
+    messages.append(assistant_message.model_dump(exclude_none=True))
 
-    for tool_call in message.tool_calls:
+    for tool_call in assistant_message.tool_calls:
+        if tool_call.function.name != "get_order_status":
+            raise ValueError("Unsupported tool")
+
         args = json.loads(tool_call.function.arguments)
+        order_id = args["order_id"]
 
-        if tool_call.function.name == "get_weather":
-            result = f"هوای {args['location']} آفتابی و 22 درجه است."
-        else:
-            result = "Tool not implemented"
+        # این بخش باید در سرویس شما با کنترل دسترسی واقعی اجرا شود.
+        result = {
+            "order_id": order_id,
+            "status": "shipped",
+            "estimated_delivery": "2026-07-18"
+        }
 
         messages.append({
             "role": "tool",
             "tool_call_id": tool_call.id,
-            "content": result
+            "content": json.dumps(result, ensure_ascii=False),
         })
 
     final_response = client.chat.completions.create(
@@ -242,196 +146,66 @@ if message.tool_calls:
     print(final_response.choices[0].message.content)
 ```
 
-## چرا `message.model_dump(exclude_none=True)` مهم است؟
+نگه‌داشتن پیام assistant با `model_dump(exclude_none=True)` مهم است، چون `tool_calls` و بعضی داده‌های وابسته به مدل باید در تاریخچه باقی بمانند.
 
-در practice بهتر است پاسخ assistant را قبل از اجرای tool به همان شکلی که برگشته، به history برگردانید. این کار چند مزیت دارد:
+## کنترل با `tool_choice`
 
-- `tool_calls` از بین نمی‌رود
-- fieldهای provider-specific بهتر حفظ می‌شوند
-- در بعضی مدل‌ها، reasoning یا signature context از دست نمی‌رود
+| مقدار | رفتار |
+| --- | --- |
+| `auto` | مدل خودش تصمیم می‌گیرد ابزار لازم است یا نه. |
+| `none` | مدل نباید ابزار صدا بزند. |
+| `required` | مدل باید یک ابزار انتخاب کند. |
+| object اختصاصی | مدل را به ابزار مشخصی محدود می‌کند. |
 
-این الگو مخصوصاً برای multi-turn agent flowها بسیار مهم است.
-
-## `tool_choice` چه می‌کند؟
-
-با `tool_choice` می‌توانید رفتار model را کنترل کنید.
-
-### حالت‌های رایج
-
-- `auto`: model خودش تصمیم بگیرد
-- `none`: tool call نکند
-- `required`: حتماً یک tool call انجام دهد
-- function-specific object: model را مجبور کنید یک tool خاص را صدا بزند
-
-نمونه:
+نمونه اجبار به ابزار خاص:
 
 ```python
 response = client.chat.completions.create(
     model="openai:default:gpt-4o-mini",
-    messages=[{"role": "user", "content": "وضعیت هوا چیست؟"}],
-    tools=tools,
-    tool_choice="auto"
-)
-```
-
-یا اجبار به یک function خاص:
-
-```python
-response = client.chat.completions.create(
-    model="openai:default:gpt-4o-mini",
-    messages=[{"role": "user", "content": "وضعیت هوا چیست؟"}],
+    messages=[{"role": "user", "content": "وضعیت سفارش A-1024 چیست؟"}],
     tools=tools,
     tool_choice={
         "type": "function",
-        "function": {"name": "get_weather"}
-    }
+        "function": {"name": "get_order_status"}
+    },
 )
 ```
 
-## چه زمانی `tool_choice="required"` مفید است؟
+`required` یا اجبار به ابزار خاص برای مسیرهایی مناسب است که پاسخ بدون داده واقعی قابل قبول نیست؛ مثل قیمت، موجودی، وضعیت سفارش یا اطلاعات حساب.
 
-وقتی که:
+## امنیت و اعتبارسنجی
 
-- نمی‌خواهید model بدون data واقعی پاسخ بدهد
-- می‌خواهید حتماً از سیستم خودتان داده گرفته شود
-- پاسخ بدون tool از نظر بیزنسی قابل‌قبول نیست
+با `tool_calls` مثل ورودی خارجی رفتار کنید:
 
-مثلاً در:
+- نام ابزار را با فهرست مجاز خود مقایسه کنید.
+- `arguments` را parse و validate کنید.
+- دسترسی کاربر یا سرویس را جداگانه بررسی کنید.
+- عملیات حساس را بدون تایید لازم انجام ندهید.
+- نتیجه ابزار را کوتاه، دقیق و قابل پردازش برگردانید.
 
-- استعلام موجودی
-- قیمت
-- وضعیت سفارش
-- اطلاعات مشتری
+مدل نباید اجازه اجرای مستقیم کد یا دسترسی مستقیم به پایگاه داده شما را داشته باشد.
 
-## طراحی خوب برای tool schema
+## طراحی schema خوب
 
-چند اصل مهم:
+- برای مقادیر محدود از `enum` استفاده کنید.
+- `required` را دقیق بنویسید.
+- `additionalProperties: False` را برای ورودی‌های حساس فعال کنید.
+- توضیح ابزار را با نیت کاربر بنویسید، نه با جزئیات داخلی سیستم.
+- خروجی ابزار را تا حد امکان JSON کوچک و پایدار نگه دارید.
 
-### اسم function واضح باشد
+## اثر روی حافظه نهان و استدلال
 
-به‌جای اسم‌های مبهم مثل `process`, از اسم‌های روشن مثل `get_order_status` استفاده کنید.
+درخواست‌هایی که ابزار دارند معمولاً مثل درخواست‌های متنی ساده قابل استفاده در حافظه نهان نیستند. اگر مدل‌های استدلالی یا `Extended Thinking` هم فعال باشند، کامل نگه‌داشتن پیام assistant اهمیت بیشتری پیدا می‌کند، چون ممکن است داده‌های لازم برای ادامه زمینه استدلالی در همان پیام باشد.
 
-### description عملی بنویسید
+## اشتباه‌های رایج
 
-description باید به model کمک کند بفهمد «این tool دقیقاً برای چه intentی مناسب است».
-
-### schema را بیش‌ازحد باز نگذارید
-
-اگر schema خیلی آزاد باشد، model argumentهای ناپایدار یا نامعتبر تولید می‌کند.
-
-### خروجی tool را machine-friendly نگه دارید
-
-بهتر است tool نتیجه ساختاریافته، کوتاه و قابل‌اعتماد برگرداند تا model بتواند روی آن پاسخ نهایی بسازد.
-
-## خطاها و نکات عملی
-
-### tool call را کورکورانه اجرا نکنید
-
-همیشه:
-
-- نام tool را validate کنید
-- arguments را parse و validate کنید
-- execution را در backend امن خودتان انجام دهید
-
-model اجازه اجرای مستقیم function در سیستم شما را ندارد و نباید هم داشته باشد.
-
-### ابزارها cache را bypass می‌کنند
-
-در پیاده‌سازی فعلی smart cache در GodarAI، requestهایی که `tools` یا `tool_choice` دارند، bypass می‌شوند. پس اگر tool calling را فعال می‌کنید:
-
-- انتظار cache hit مثل requestهای text-only نداشته باشید
-- cost و latency ممکن است متفاوت شوند
-
-### tool result باید به conversation برگردد
-
-اگر فقط tool را اجرا کنید ولی نتیجه را با `role: "tool"` برنگردانید، model context لازم برای پاسخ نهایی را نخواهد داشت.
-
-## Thought Signatures و reasoning context
-
-در بعضی providerها، هنگام tool calling ممکن است اطلاعات reasoning یا signature هم برگردد تا chain of thought continuation در turn بعدی حفظ شود. در docs کلی‌تر Chat Completions ما این موضوع را در صفحه `Extended Thinking` جدا کرده‌ایم، اما از منظر عملی این توصیه مهم است:
-
-- پیام assistant را بدون دست‌کاری غیرضروری serialize و replay کنید
-
-این کار از شکستن context در providerهای reasoning-heavy جلوگیری می‌کند.
-
-## ارتباط با MCP و tool ecosystem
-
-از دید contract این صفحه، `tools` همان function calling OpenAI-style است. اما در جهت معماری GodarAI، این endpoint می‌تواند پایه‌ای برای integrationهای tool-centric وسیع‌تر هم باشد؛ مثلاً toolهایی که در backend شما به سرویس‌های داخلی، MCP serverها یا workflowهای سازمانی وصل می‌شوند.
-
-برای docs این صفحه، نکته مهم این است:
-
-- model فقط interface فراخوانی را تولید می‌کند
-- اجرای واقعی tool در زیرساخت شما انجام می‌شود
-
-## چند سناریوی خوب
-
-### جستجوی داخلی
-
-tool: `search_docs`
-
-مناسب برای:
-
-- agentهای پشتیبانی
-- جستجوی دانش سازمانی
-
-### استعلام سفارش
-
-tool: `get_order_status`
-
-مناسب برای:
-
-- پشتیبانی مشتری
-- automationهای وضعیت سفارش
-
-### آب‌وهوا یا داده بیرونی
-
-tool: `get_weather`
-
-مناسب برای:
-
-- demo
-- agentهای کم‌ریسک
-
-## چند اشتباه رایج
-
-### تعریف functionهای خیلی کلی
-
-toolهای خیلی کلی باعث می‌شوند model تصمیم‌های مبهم بگیرد.
-
-### schema ناقص
-
-اگر required fieldها و enumها روشن نباشند، parsing و validation سخت‌تر می‌شود.
-
-### نداشتن validation در backend
-
-tool call باید مثل هر input خارجی دیگری اعتبارسنجی شود.
-
-### برنگرداندن assistant message به history
-
-این اشتباه باعث می‌شود turn بعدی context ناقص داشته باشد.
-
-## توصیه‌های عملی برای GodarAI
-
-### با `auto` شروع کنید، بعد کنترل را سفت‌تر کنید
-
-برای شروع integration، `tool_choice="auto"` مناسب است. بعد از پایدار شدن flow، برای سناریوهای حساس از `required` یا tool-specific choice استفاده کنید.
-
-### برای هر tool، ownership و permission روشن داشته باشید
-
-اگر tool به داده حساس وصل است، در backend خودتان هم authorization مستقل اعمال کنید.
-
-### نتیجه tool را concise و deterministic نگه دارید
-
-هرچه خروجی tool تمیزتر باشد، پاسخ نهایی model قابل‌اتکاتر می‌شود.
-
-### قبل از production، مسیر fallback طراحی کنید
-
-اگر tool fail شد، از قبل مشخص کنید:
-
-- retry می‌کنید؟
-- پاسخ خطا می‌دهید؟
-- یا model را بدون tool ادامه می‌دهید؟
+- اجرای کورکورانه نام ابزار و آرگومان‌های مدل.
+- تعریف ابزارهای خیلی کلی و مبهم.
+- نداشتن اعتبارسنجی سمت سرویس.
+- برنگرداندن نتیجه ابزار با `role: "tool"`.
+- حذف پیام assistant حاوی `tool_calls` از تاریخچه.
+- برگرداندن خروجی طولانی و نامنظم از ابزار.
 
 ## جمع‌بندی
 
-`tools` در Chat Completions یکی از مهم‌ترین قابلیت‌های agentic در GodarAI است. شما schema function را تعریف می‌کنید، model ساختار call را تولید می‌کند، و اجرای واقعی در backend امن شما انجام می‌شود. اگر schemaها را دقیق طراحی کنید، `tool_call`ها را خوب validate کنید، و assistant/tool messageها را درست در history نگه دارید، این قابلیت می‌تواند پایه workflowهای بسیار قدرتمند و production-grade در محصول شما باشد.
+ابزارها راه اتصال مدل به داده و عملیات واقعی محصول شما هستند. برای استفاده قابل اعتماد، schema دقیق بنویسید، اجرای ابزار را در سرویس امن خودتان نگه دارید، نتیجه را به تاریخچه برگردانید و رفتار هر ابزار را در گزارش رخدادها و سنجه‌ها پایش کنید.
