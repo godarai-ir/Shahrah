@@ -7,7 +7,6 @@ import { GatewayPolicyRulesList, type GatewayPolicyRulesListProps } from "./Gate
 function createProps(overrides: Partial<GatewayPolicyRulesListProps> = {}): GatewayPolicyRulesListProps {
   return {
     title: "Policy rules",
-    description: "Manage gateway policies.",
     createLabel: "New rule",
     onCreate: vi.fn(),
     alertLabels: { error: "Error", success: "Success" },
@@ -54,12 +53,13 @@ function createProps(overrides: Partial<GatewayPolicyRulesListProps> = {}): Gate
 }
 
 describe("GatewayPolicyRulesList", () => {
-  it("composes the shared header, search, and empty-state create action", () => {
+  it("composes the list toolbar, search, and empty-state create action without a duplicate page heading", () => {
     const onCreate = vi.fn();
     const onQueryChange = vi.fn();
     render(<GatewayPolicyRulesList {...createProps({ onCreate, onQueryChange })} />);
 
-    expect(screen.getByRole("heading", { name: "Policy rules" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Policy rules" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Policy rules" })).toBeInTheDocument();
     expect(screen.getByText("No rules")).toBeInTheDocument();
     fireEvent.change(screen.getByRole("searchbox", { name: "Search rules" }), { target: { value: "monthly" } });
     fireEvent.click(screen.getAllByRole("button", { name: "New rule" })[0]);

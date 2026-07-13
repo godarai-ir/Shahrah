@@ -1,4 +1,5 @@
 import AdminShell from "@/app/components/admin-shell";
+import { getTranslations } from "next-intl/server";
 import TraceManagement from "@/app/components/trace-management";
 import { loadTracePrivacySettings, type TracePrivacySettingsData } from "@/app/settings/_shared";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
@@ -33,6 +34,7 @@ export default async function TracesPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const auth = await requireAuth("/login?next=/traces");
+  const t = await getTranslations("traces");
   const tenantSlug = auth.tenantSlug;
   await requirePermissionOr403(tenantSlug, auth.user.id, ["settings:list"]);
 
@@ -54,7 +56,11 @@ export default async function TracesPage({
   };
 
   return (
-    <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
+    <AdminShell
+      tenantSlug={tenantSlug}
+      currentUser={currentUser}
+      pageHeader={{ title: t("title"), description: t("description") }}
+    >
       <TraceManagement
         initialData={tracesResult.ok ? payload.data ?? [] : []}
         initialTotal={tracesResult.ok ? payload.total ?? 0 : 0}

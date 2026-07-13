@@ -9,6 +9,7 @@ import { getCurrentMePermissions } from "@/lib/auth/me-permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 import { headers } from "next/headers";
+import { getTranslations } from "next-intl/server";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,7 @@ type AllowedModel = {
 
 export default async function QuickStartPage() {
   const auth = await requireAuth("/login?next=/quick-start");
+  const t = await getTranslations("quickStart");
   const tenantSlug = auth.tenantSlug;
   const requestHeaders = await headers();
   const permissionsPayload = await getCurrentMePermissions(tenantSlug, auth.user.id).catch(() => ({ permissions: [] as string[] }));
@@ -142,7 +144,11 @@ export default async function QuickStartPage() {
   };
 
   return (
-    <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
+    <AdminShell
+      tenantSlug={tenantSlug}
+      currentUser={currentUser}
+      pageHeader={{ title: t("title"), description: t("subtitle"), helpHref: docsBaseHref }}
+    >
       <QuickStartManagement
         initialSubscription={initialSubscription}
         initialEntitlements={initialEntitlements}

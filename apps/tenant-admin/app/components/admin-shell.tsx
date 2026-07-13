@@ -3,6 +3,7 @@ import { getLocale, getMessages } from "next-intl/server";
 import { headers } from "next/headers";
 
 import AdminShellClient from "@/app/components/admin-shell-client";
+import type { ShellPageMetadata } from "@/components/app-ui/ShellPageHeading";
 import type { WalletPayload } from "@/app/billing/_shared";
 import { getCurrentMePermissions } from "@/lib/auth/me-permissions";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
@@ -10,6 +11,7 @@ import { fetchControlPlaneJSON } from "@/lib/control-plane";
 type AdminShellProps = {
   children: React.ReactNode;
   tenantSlug: string;
+  pageHeader?: ShellPageMetadata;
   currentUser: {
     id: string;
     email?: string;
@@ -29,6 +31,7 @@ type TenantSubscription = {
 export default async function AdminShell({
   children,
   tenantSlug,
+  pageHeader,
   currentUser,
 }: AdminShellProps) {
   const locale = await getLocale();
@@ -52,6 +55,7 @@ export default async function AdminShell({
         subscriptionSummary={subscriptionSummary}
         docsHref={docsHref}
         appVersion={appVersion}
+        pageHeader={pageHeader}
       >
         {children}
       </AdminShellClient>

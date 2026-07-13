@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Shield, Trash2, Upload, X } from "lucide-react";
 
-import { ActiveFilterChips, AppCard, AppCodeTextareaField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, CheckboxOptionList, ChipInput, CodePanel, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeRangeField, DateTimeValue, DebouncedTextFilter, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, FilterCombobox, FormDialog, FormSection, FormSheet, HelpLink, IdentifierField, MetricCard, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, RangeFilterField, RemovableChipList, RowActionsMenu, SearchField, SectionHeader, SettingsCard, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
+import { ActiveFilterChips, AppCard, AppCodeTextareaField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, CheckboxOptionList, ChipInput, CodePanel, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeRangeField, DateTimeValue, DebouncedTextFilter, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, FilterCombobox, FormDialog, FormSection, FormSheet, HelpLink, IdentifierField, MetricCard, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, RangeFilterField, RemovableChipList, RowActionsMenu, SearchField, SectionHeader, SettingsCard, ShellPageHeading, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
 import { SearchPickerDialog } from "@/components/app-ui/SearchPickerDialog";
 import { AppNumberField } from "@/components/app-ui/AppNumberField";
 import { SettingsAuditMeta } from "@/components/app-ui/SettingsAuditMeta";
@@ -70,6 +70,25 @@ export default function DesignSystemPage() {
       />
 
       <section className="flex flex-col gap-4">
+        <SectionHeader
+          title="Shell page heading"
+          description="Route-level pages pass their localized title, optional description, and contextual help link to AdminShell."
+        />
+        <div className="grid gap-3 md:grid-cols-2" dir="rtl">
+          <div className="rounded-xl border border-border bg-background p-4">
+            <ShellPageHeading
+              as="div"
+              title="قوانین محدودسازی نرخ"
+              description="تعریف قوانین محدودسازی برای درخواست‌های گیت‌وی بر اساس کاربر، مدل و متادیتا."
+            />
+          </div>
+          <div className="rounded-xl border border-border bg-background p-4">
+            <ShellPageHeading as="div" title="پلن" />
+          </div>
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-4">
         <SectionHeader title="Color tokens" description="Use semantic token classes instead of raw palette utilities." />
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {tokens.map(([name, className]) => (
@@ -126,7 +145,6 @@ export default function DesignSystemPage() {
       <section className="rounded-xl border border-border p-4">
         <GatewayPolicyRulesList
           title="Gateway policy rules"
-          description="Shared list shell while table columns and domain actions remain feature-owned."
           createLabel="New rule"
           onCreate={() => setPolicySheetOpen(true)}
           alertLabels={{ error: "Error", success: "Success" }}

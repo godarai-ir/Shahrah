@@ -172,9 +172,8 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
       <section className="px-1 py-1 sm:px-2 sm:py-2">
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)] xl:items-start">
           <div className="flex min-w-0 flex-col gap-5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <div className="mb-3 flex flex-wrap items-center gap-2">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={planVisual.badgeVariant}>{planStatusLabel}</Badge>
                   <Badge variant="outline">{planIntervalLabel}</Badge>
                   {daysRemaining !== null ? (
@@ -182,11 +181,6 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
                       {t("plan.daysRemainingBadge", { days: numberFormatter.format(daysRemaining) })}
                     </Badge>
                   ) : null}
-                </div>
-                <h1 className="text-2xl font-semibold tracking-normal sm:text-3xl">{t("title")}</h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-[0.95rem]">
-                  {t("subtitle")}
-                </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2 sm:justify-end">

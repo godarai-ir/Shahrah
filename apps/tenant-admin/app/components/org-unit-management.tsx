@@ -18,7 +18,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AppCard, AppSelectField, AppTextField, CommercialPlanUpgradeDialog, CompactValue, DefinitionList, DefinitionListItem, EmptyState, FilterCombobox, FormSheet, HelpLink, IdentifierField, MetricCard, OperationNotice, PageHeader, RowActionsMenu, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, AppTextField, CommercialPlanUpgradeDialog, CompactValue, DefinitionList, DefinitionListItem, EmptyState, FilterCombobox, FormSheet, IdentifierField, MetricCard, OperationNotice, PageHeader, RowActionsMenu, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -125,7 +125,6 @@ type OrgUnitManagementProps = {
   initialTotal: number;
   initialError: string | null;
   currentUserRole: string;
-  docsHref: string;
 };
 
 const PAGE_SIZE = 25;
@@ -142,7 +141,6 @@ export default function OrgUnitManagement({
   initialTotal,
   initialError,
   currentUserRole,
-  docsHref,
 }: OrgUnitManagementProps) {
   const t = useTranslations("orgUnits");
   const locale = useLocale();
@@ -574,7 +572,6 @@ export default function OrgUnitManagement({
     <div className="flex flex-col gap-6">
       <PageHeader
         title={t("title")}
-        titleAddon={<HelpLink href={docsHref} />}
         description={t("subtitle")}
         actions={
           <>

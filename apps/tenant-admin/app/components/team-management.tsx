@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 import { usePermissions } from "@/app/components/permissions-context";
-import { AppCard, AppSelectField, CheckboxOptionList, CommercialPlanUpgradeDialog, DateTimeValue, EmptyState, FilterCombobox, FormSheet, HelpLink, IdentifierField, MetricCard, OperationNotice, PageHeader, RowActionsMenu, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, CheckboxOptionList, CommercialPlanUpgradeDialog, DateTimeValue, EmptyState, FilterCombobox, FormSheet, IdentifierField, MetricCard, OperationNotice, PageHeader, RowActionsMenu, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -82,14 +82,12 @@ export default function TeamManagement({
   initialError,
   initialOrgUnits,
   currentUserRole,
-  docsHref,
 }: {
   initialTeams: Team[];
   initialTotal: number;
   initialError: string | null;
   initialOrgUnits: OrgUnit[];
   currentUserRole: string;
-  docsHref?: string;
 }) {
   const t = useTranslations("teams");
   const locale = useLocale();
@@ -379,7 +377,6 @@ export default function TeamManagement({
       <PageHeader
         title={t("title")}
         description={t("subtitle")}
-        titleAddon={docsHref ? <HelpLink href={docsHref} /> : null}
         actions={
           <>
             <Button variant="outline" onClick={() => void loadTeams(offset, query.trim())} disabled={isLoading}>

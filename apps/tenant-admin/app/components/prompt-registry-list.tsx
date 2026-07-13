@@ -19,6 +19,7 @@ type PromptRegistryListProps = {
   onNextPage: () => void;
   onPreviousPage: () => void;
   onCopyFqn: (prompt: Prompt) => void;
+  onCreate: () => void;
   onCreateVersion: (prompt: Prompt) => void;
   onDelete: (prompt: Prompt) => void;
   onEditLatestVersion: (prompt: Prompt) => void;
@@ -61,6 +62,9 @@ export function PromptRegistryList(props: PromptRegistryListProps) {
             </div>
             <Button type="button" variant="outline" onClick={props.onRefresh}>
               {props.t("actions.refresh")}
+            </Button>
+            <Button type="button" onClick={props.onCreate}>
+              {props.t("actions.createPrompt")}
             </Button>
           </div>
         </div>

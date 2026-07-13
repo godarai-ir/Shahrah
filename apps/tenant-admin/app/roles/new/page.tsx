@@ -1,4 +1,5 @@
 import AdminShell from "@/app/components/admin-shell";
+import { getTranslations } from "next-intl/server";
 import RoleCreateManagement from "@/app/components/roles-create-management";
 import { getCurrentMePermissions } from "@/lib/auth/me-permissions";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
@@ -18,6 +19,7 @@ export const dynamic = "force-dynamic";
 
 export default async function NewRolePage() {
   const auth = await requireAuth("/login?next=/roles/new");
+  const t = await getTranslations("accessManagement");
   const tenantSlug = auth.tenantSlug;
   await requirePermissionOr403(tenantSlug, auth.user.id, ["role:manage"]);
 
@@ -35,7 +37,11 @@ export default async function NewRolePage() {
   };
 
   return (
-    <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
+    <AdminShell
+      tenantSlug={tenantSlug}
+      currentUser={currentUser}
+      pageHeader={{ title: t("rolesPage.createTitle"), description: t("rolesPage.description") }}
+    >
       <RoleCreateManagement initialPermissionCatalog={initialPermissionCatalog} />
     </AdminShell>
   );

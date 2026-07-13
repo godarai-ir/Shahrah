@@ -32,6 +32,7 @@ export { MetricCard, type MetricCardProps } from "./MetricCard";
 export { OneTimeSecretDialog, type OneTimeSecretDialogProps } from "./OneTimeSecretDialog";
 export { OperationNotice, type OperationNoticeKind, type OperationNoticeLabels, type OperationNoticeProps, type OperationNoticeValue } from "./OperationNotice";
 export { PageHeader } from "./PageHeader";
+export { ShellPageHeading, type ShellPageMetadata } from "./ShellPageHeading";
 export { PageContainer, type PageContainerPadding, type PageContainerProps, type PageContainerSize, type PageContainerSpacing } from "./PageContainer";
 export { PermissionEditor, type PermissionEditorLabels, type PermissionEditorMode, type PermissionEditorProps, type PermissionOption } from "./PermissionEditor";
 export { PermissionSummary, getPermissionSelectionSummary, type PermissionSummaryLabels, type PermissionSummaryProps } from "./PermissionSummary";

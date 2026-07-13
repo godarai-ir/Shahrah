@@ -4,6 +4,7 @@ import LLMIntegrationsManagement from "@/app/components/llm-integrations-managem
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { headers } from "next/headers";
+import { getTranslations } from "next-intl/server";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,7 @@ type ProviderAccountsPageProps = {
 export default async function ProviderAccountsPage({ searchParams }: ProviderAccountsPageProps) {
   const params = (await searchParams) ?? {};
   const auth = await requireAuth("/login?next=/provider-accounts");
+  const t = await getTranslations("providerAccounts");
   const tenantSlug = auth.tenantSlug;
   const requestHeaders = await headers();
   const docsBaseHref = buildDocsBaseHref(requestHeaders, tenantSlug);
@@ -36,7 +38,13 @@ export default async function ProviderAccountsPage({ searchParams }: ProviderAcc
   };
 
   return (
-    <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
+    <AdminShell
+      tenantSlug={tenantSlug}
+      currentUser={currentUser}
+      pageHeader={params.account
+        ? { title: t("ux.panel.workspaceTitle"), description: t("ux.panel.workspaceHint"), helpHref: providerAccountsDocsHref }
+        : { title: t("integrations.pageTitle"), description: t("integrations.pageDescription"), helpHref: providerAccountsDocsHref }}
+    >
       {params.account ? (
         <ProviderAccountWizard initialAccountID={params.account} />
       ) : (

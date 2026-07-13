@@ -1,4 +1,5 @@
 import AdminShell from "@/app/components/admin-shell";
+import { getTranslations } from "next-intl/server";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { BudgetLimitRulesPage } from "@/features/gateway-policies/budget-limiting/BudgetLimitRulesPage";
@@ -8,6 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function Page() {
   const auth = await requireAuth("/login?next=/gateway-policies/budget-limiting-rules");
+  const t = await getTranslations("budgetLimitRules");
   const requestHeaders = await headers();
   const docsHref = `${buildDocsBaseHref(requestHeaders, auth.tenantSlug)}/guides/budget-limiting`;
   await requirePermissionOr403(auth.tenantSlug, auth.user.id, ["policy:list"]);
@@ -19,8 +21,12 @@ export default async function Page() {
     role: auth.user.role,
   };
   return (
-    <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
-      <BudgetLimitRulesPage docsHref={docsHref} />
+    <AdminShell
+      tenantSlug={tenantSlug}
+      currentUser={currentUser}
+      pageHeader={{ title: t("title"), description: t("description"), helpHref: docsHref }}
+    >
+      <BudgetLimitRulesPage />
     </AdminShell>
   );
 }

@@ -35,6 +35,8 @@ import {
 } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ACCESS_NAV_ITEM_KEYS, buildAdminNavItems, filterVisibleNavItems, type AdminNavItem } from "@/app/components/admin-shell-nav";
+import { PageHeaderInShellProvider } from "@/components/app-ui/PageHeader";
+import { ShellPageHeading, type ShellPageMetadata } from "@/components/app-ui/ShellPageHeading";
 import { PermissionsProvider } from "@/app/components/permissions-context";
 import { cn } from "@/lib/utils";
 
@@ -62,6 +64,7 @@ type AdminShellClientProps = {
   };
   docsHref: string;
   appVersion: string;
+  pageHeader?: ShellPageMetadata;
 };
 
 const moneyFormatter = new Intl.NumberFormat("fa-IR");
@@ -112,6 +115,7 @@ export default function AdminShellClient({
   subscriptionSummary,
   docsHref,
   appVersion,
+  pageHeader,
 }: AdminShellClientProps) {
   const pathname = usePathname();
   const t = useTranslations("shell");
@@ -143,21 +147,26 @@ export default function AdminShellClient({
               <SidebarTrigger aria-label={t("menu.open")} />
 
               <div className="min-w-0 flex-1">
-                <p className="text-xs text-muted-foreground">{t("tenant")}</p>
-                <p className="truncate text-base font-semibold md:text-lg">{currentPageLabel}</p>
+                {pageHeader ? (
+                  <ShellPageHeading title={pageHeader.title} description={pageHeader.description} />
+                ) : (
+                  <p className="truncate text-base font-semibold text-foreground md:text-lg">{currentPageLabel}</p>
+                )}
               </div>
 
               <div className="flex shrink-0 items-center gap-2">
                 <WalletBalanceLink summary={walletSummary} />
                 <UserProfileMenu userIdentity={userIdentity} currentUser={currentUser} />
                 <ThemeToggle />
-                <DocsLink href={docsHref} />
+                <DocsLink href={pageHeader?.helpHref ?? docsHref} />
               </div>
             </div>
           </header>
 
           <div className="min-w-0 flex-1 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:p-3 md:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-            <div className="w-full animate-fade-in">{children}</div>
+            <PageHeaderInShellProvider enabled={Boolean(pageHeader)}>
+              <div className="w-full animate-fade-in">{children}</div>
+            </PageHeaderInShellProvider>
           </div>
         </SidebarInset>
       </SidebarProvider>
@@ -366,7 +375,7 @@ function WalletBalanceLink({
       variant="outline"
       size="icon"
       className={cn(
-        "h-auto min-h-10 w-auto min-w-10 gap-2 px-3 py-2",
+        "hidden h-auto min-h-10 w-auto min-w-10 gap-2 px-3 py-2 md:inline-flex",
         isLowBalance && "border-destructive/40 text-destructive hover:text-destructive",
       )}
       asChild

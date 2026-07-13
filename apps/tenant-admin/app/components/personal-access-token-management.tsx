@@ -4,7 +4,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { KeyRound, Plus, RefreshCcw, Trash2 } from "lucide-react";
 
-import { AppCard, ConfirmDialog, EmptyState, FormSheet, HelpLink, OneTimeSecretDialog, OperationNotice, PageHeader, SearchField, StatusBadge } from "@/components/app-ui";
+import { AppCard, ConfirmDialog, EmptyState, FormSheet, OneTimeSecretDialog, OperationNotice, PageHeader, SearchField, StatusBadge } from "@/components/app-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -45,7 +45,6 @@ type DeleteIntent =
 export default function PersonalAccessTokenManagement(props: {
   initialTokens: PAT[];
   initialError: string | null;
-  docsHref: string;
 }) {
   const t = useTranslations("personalAccessTokens");
   const [tokens, setTokens] = useState<PAT[]>(props.initialTokens);
@@ -156,7 +155,6 @@ export default function PersonalAccessTokenManagement(props: {
       <PageHeader
         title={t("title")}
         description={t("create.description")}
-        titleAddon={<HelpLink href={props.docsHref} />}
         actions={<Button onClick={() => setCreateOpen(true)}><Plus data-icon="inline-start" />{t("actions.create")}</Button>}
       />
 

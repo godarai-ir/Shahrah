@@ -69,7 +69,7 @@ export default async function BillingPlanPage() {
   };
 
   return (
-    <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
+    <AdminShell tenantSlug={tenantSlug} currentUser={currentUser} pageHeader={{ title: t("title") }}>
       <PlanManagement
         plans={plans as never}
         subscription={subscription as never}

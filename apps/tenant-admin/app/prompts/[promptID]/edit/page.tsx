@@ -3,6 +3,7 @@ import PromptBuilderPage from "@/app/components/prompt-builder-page";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { headers } from "next/headers";
+import { getTranslations } from "next-intl/server";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,7 @@ type PromptEditPageProps = {
 
 export default async function PromptEditPage(props: PromptEditPageProps) {
   const auth = await requireAuth("/login?next=/prompts");
+  const t = await getTranslations("prompts");
   const requestHeaders = await headers();
   const docsBaseHref = buildDocsBaseHref(requestHeaders, auth.tenantSlug);
   await requirePermissionOr403(auth.tenantSlug, auth.user.id, ["policy:list", "policy:manage"]);
@@ -25,7 +27,15 @@ export default async function PromptEditPage(props: PromptEditPageProps) {
   };
 
   return (
-    <AdminShell tenantSlug={auth.tenantSlug} currentUser={currentUser}>
+    <AdminShell
+      tenantSlug={auth.tenantSlug}
+      currentUser={currentUser}
+      pageHeader={{
+        title: t("builder.titleExisting"),
+        description: t("builder.description"),
+        helpHref: `${docsBaseHref}/quick-start#prompts`,
+      }}
+    >
       <PromptBuilderPage mode="edit" promptID={promptID} docsHref={`${docsBaseHref}/quick-start#prompts`} />
     </AdminShell>
   );

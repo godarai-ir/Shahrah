@@ -106,17 +106,13 @@ export default function PlanManagement({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-medium text-muted-foreground">{t("eyebrow")}</p>
-          <h1 className="text-2xl font-semibold tracking-normal text-foreground">{t("title")}</h1>
-        </div>
-        {subscription ? (
+      {subscription ? (
+        <div className="flex justify-end">
           <Badge variant={subscription.status === "active" ? "success" : "warning"}>
             {t(`status.${normalizeStatus(subscription.status)}`)}
           </Badge>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       {error ? (
         <Alert variant="destructive">

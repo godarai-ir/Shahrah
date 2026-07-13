@@ -12,7 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { AppCard, AppSelectField, AppTextField, CheckboxOptionList, CommercialPlanUpgradeDialog, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, FormSheet, HelpLink, IdentifierField, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, AppTextField, CheckboxOptionList, CommercialPlanUpgradeDialog, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, FormSheet, IdentifierField, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -116,14 +116,12 @@ export default function VirtualUserTokenManagement({
   initialError,
   teams,
   orgUnits,
-  docsHref,
 }: {
   initialVirtualUsers: VirtualUser[];
   initialTotal: number;
   initialError: string | null;
   teams: Team[];
   orgUnits: OrgUnit[];
-  docsHref?: string;
 }) {
   const t = useTranslations("virtualUsers");
   const [virtualUsers, setVirtualUsers] = useState(initialVirtualUsers);
@@ -432,7 +430,6 @@ export default function VirtualUserTokenManagement({
     <div className="flex flex-col gap-6">
       <PageHeader
         title={t("title")}
-        titleAddon={docsHref ? <HelpLink href={docsHref} /> : null}
         description={t("description")}
         actions={
           <Button type="button" onClick={openCreateVirtualUser} disabled={!hasLoadedEntitlements}>

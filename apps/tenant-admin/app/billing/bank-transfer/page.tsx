@@ -23,7 +23,11 @@ export default async function BankTransferPage() {
   }
 
   return (
-    <AdminShell tenantSlug={tenantSlug} currentUser={{ id: auth.user.id, email: auth.user.email, mobile: auth.user.mobile, role: auth.user.role }}>
+    <AdminShell
+      tenantSlug={tenantSlug}
+      currentUser={{ id: auth.user.id, email: auth.user.email, mobile: auth.user.mobile, role: auth.user.role }}
+      pageHeader={{ title: "واریز بانکی", description: "رسید واریز را ثبت کنید تا پس از تایید، اعتبار کیف پول اضافه شود." }}
+    >
       <div className="space-y-6">
         <PageHeader title="واریز بانکی" description="رسید واریز را ثبت کنید تا پس از تایید، اعتبار کیف پول اضافه شود." />
         <BankTransferPanel initialItems={items} initialError={initialError} />

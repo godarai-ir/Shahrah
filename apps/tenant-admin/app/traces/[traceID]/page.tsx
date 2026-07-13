@@ -189,7 +189,11 @@ export default async function TraceDetailPage({ params }: Params) {
   };
 
   return (
-    <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
+    <AdminShell
+      tenantSlug={tenantSlug}
+      currentUser={currentUser}
+      pageHeader={{ title: t("detail.title"), description: normalized || emptyLabel }}
+    >
       <PageContainer spacing="compact" padding="none" className="md:gap-6">
         <PageHeader
           eyebrow={t("detail.kicker")}

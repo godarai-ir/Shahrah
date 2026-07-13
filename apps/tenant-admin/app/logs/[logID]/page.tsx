@@ -42,13 +42,12 @@ export default async function LogDetailPage({ params }: Params) {
   const responsePayload = payload.response_payload as Record<string, unknown> | undefined;
 
   return (
-    <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
+    <AdminShell
+      tenantSlug={tenantSlug}
+      currentUser={currentUser}
+      pageHeader={{ title: t("detailTitle"), description: String(log.log_id ?? logID) }}
+    >
       <section className="space-y-4 rounded-2xl border border-border bg-card p-5">
-        <div className="space-y-1">
-          <h2 className="text-xl font-semibold">{t("detailTitle")}</h2>
-          <p className="text-sm text-muted-foreground">{String(log.log_id ?? logID)}</p>
-        </div>
-
         {!result.ok ? (
           <p className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
             {result.errorMessage ?? t("detailError")}

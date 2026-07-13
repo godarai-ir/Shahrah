@@ -18,7 +18,11 @@ export default async function BillingProfilePage() {
   const initialError = response.ok || response.status === 404 ? null : response.errorMessage ?? "پروفایل مالی دریافت نشد.";
 
   return (
-    <AdminShell tenantSlug={tenantSlug} currentUser={{ id: auth.user.id, email: auth.user.email, mobile: auth.user.mobile, role: auth.user.role }}>
+    <AdminShell
+      tenantSlug={tenantSlug}
+      currentUser={{ id: auth.user.id, email: auth.user.email, mobile: auth.user.mobile, role: auth.user.role }}
+      pageHeader={{ title: "پروفایل مالی", description: "اطلاعات حقیقی یا حقوقی فضای کاری برای فاکتور و اسناد مالی." }}
+    >
       <div className="flex flex-col gap-6">
         <PageHeader title="پروفایل مالی" description="اطلاعات حقیقی یا حقوقی فضای کاری برای فاکتور و اسناد مالی." />
         <BillingProfilePanel initialProfile={initialProfile} initialError={initialError} />

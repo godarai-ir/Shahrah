@@ -2,6 +2,7 @@ import TenantAdminDashboard from "@/app/components/tenant-admin-dashboard";
 import AdminShell from "@/app/components/admin-shell";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 import { requireAuth } from "@/lib/auth/session";
+import { getTranslations } from "next-intl/server";
 
 type TenantSubscription = {
   plan_slug?: string;
@@ -37,6 +38,7 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const auth = await requireAuth("/login");
+  const t = await getTranslations("dashboard");
   const tenantSlug = auth.tenantSlug;
 
   const [subscriptionResult, entitlementsResult, usersResult] = await Promise.all([
@@ -112,7 +114,11 @@ export default async function Home() {
   };
 
   return (
-    <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
+    <AdminShell
+      tenantSlug={tenantSlug}
+      currentUser={currentUser}
+      pageHeader={{ title: t("title"), description: t("subtitle") }}
+    >
       <TenantAdminDashboard
         initialSubscription={initialSubscription}
         initialEntitlements={initialEntitlements}

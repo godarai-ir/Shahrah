@@ -51,7 +51,7 @@ function readBooleanFeature(value: unknown, fallback: boolean): boolean {
   return fallback;
 }
 
-export function BudgetLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
+export function BudgetLimitRulesPage() {
   const t = useTranslations("budgetLimitRules");
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -150,8 +150,6 @@ export function BudgetLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
   return (
     <GatewayPolicyRulesList
       title={t("title")}
-      description={t("description")}
-      docsHref={docsHref}
       createLabel={t("actions.new")}
       onCreate={handleCreateRule}
       createDisabled={!hasLoadedEntitlements}

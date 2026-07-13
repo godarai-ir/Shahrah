@@ -33,14 +33,13 @@ export default async function TopUpResultPage(props: ResultPageProps) {
   const success = status === "success";
 
   return (
-    <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
+    <AdminShell
+      tenantSlug={tenantSlug}
+      currentUser={currentUser}
+      pageHeader={{ title: t("title"), description: success ? t("successDescription") : t("failureDescription") }}
+    >
       <div className="mx-auto max-w-2xl rounded-xl border bg-card p-6">
-        <h1 className="text-2xl font-bold">{t("title")}</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {success ? t("successDescription") : t("failureDescription")}
-        </p>
-
-        <dl className="mt-6 space-y-2 text-sm">
+        <dl className="flex flex-col gap-2 text-sm">
           <div className="flex items-center justify-between gap-3 border-b pb-2">
             <dt className="text-muted-foreground">{t("fields.status")}</dt>
             <dd className="font-medium">{status}</dd>

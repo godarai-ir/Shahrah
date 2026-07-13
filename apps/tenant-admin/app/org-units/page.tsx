@@ -4,6 +4,7 @@ import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 import { headers } from "next/headers";
+import { getTranslations } from "next-intl/server";
 
 type OrgUnit = {
   id: string;
@@ -26,6 +27,7 @@ export const dynamic = "force-dynamic";
 
 export default async function OrgUnitsPage() {
   const auth = await requireAuth("/login?next=/org-units");
+  const t = await getTranslations("orgUnits");
   const tenantSlug = auth.tenantSlug;
   const requestHeaders = await headers();
   const docsBaseHref = buildDocsBaseHref(requestHeaders, tenantSlug);
@@ -52,13 +54,16 @@ export default async function OrgUnitsPage() {
   };
 
   return (
-    <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
+    <AdminShell
+      tenantSlug={tenantSlug}
+      currentUser={currentUser}
+      pageHeader={{ title: t("title"), description: t("subtitle"), helpHref: orgUnitsDocsHref }}
+    >
       <OrgUnitManagement
         initialOrgUnits={initialOrgUnits}
         initialTotal={initialTotal}
         initialError={initialError}
         currentUserRole={auth.user.role}
-        docsHref={orgUnitsDocsHref}
       />
     </AdminShell>
   );

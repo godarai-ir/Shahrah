@@ -3,6 +3,7 @@ import PersonalAccessTokenManagement from "@/app/components/personal-access-toke
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 import { headers } from "next/headers";
+import { getTranslations } from "next-intl/server";
 
 type CreatedKey = {
   id: string;
@@ -24,6 +25,7 @@ export const dynamic = "force-dynamic";
 
 export default async function PersonalAccessTokensPage() {
   const auth = await requireAuth("/login?next=/personal-access-tokens");
+  const t = await getTranslations("personalAccessTokens");
   const tenantSlug = auth.tenantSlug;
   const requestHeaders = await headers();
   const docsHref = `${buildDocsBaseHref(requestHeaders, tenantSlug)}/guides/api-keys`;
@@ -45,11 +47,14 @@ export default async function PersonalAccessTokensPage() {
   };
 
   return (
-    <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
+    <AdminShell
+      tenantSlug={tenantSlug}
+      currentUser={currentUser}
+      pageHeader={{ title: t("title"), description: t("create.description"), helpHref: docsHref }}
+    >
       <PersonalAccessTokenManagement
         initialTokens={patsResult.ok ? patPayload.data ?? [] : []}
         initialError={patsResult.ok ? null : patsResult.errorMessage ?? "Request failed."}
-        docsHref={docsHref}
       />
     </AdminShell>
   );

@@ -37,7 +37,7 @@ This application is a B2B SaaS / developer tool application. The UI should feel:
 
 ## Layout System
 
-Use full-page containers with `mx-auto`, `w-full`, `max-w-7xl`, and page padding from the standard scale. Page-level vertical rhythm should use `flex flex-col gap-6` or `gap-8`. List pages should start with `PageHeader`, then toolbar/filter content, then table/list content, then pagination or state feedback.
+Use full-page containers with `mx-auto`, `w-full`, `max-w-7xl`, and page padding from the standard scale. Page-level vertical rhythm should use `flex flex-col gap-6` or `gap-8`. Route-level pages inside `AdminShell` pass localized page metadata to the shell instead of repeating a `PageHeader` in content. List content should start with its toolbar/filter content, then table/list content, then pagination or state feedback.
 
 Dashboard pages use compact metric grids with `MetricCard`, then wider content sections. Settings and detail pages should use a narrow readable column or `SettingsCard`/`FormSection` groups rather than free-form cards.
 

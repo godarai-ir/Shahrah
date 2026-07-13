@@ -4,7 +4,7 @@ import Link from "next/link";
 import { copyTextToClipboard } from "@/components/app-ui/CopyableValue";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, ChevronDown, Copy, ExternalLink, Link2, Network, Plus, Plug, Search, Settings, Trash2, Unplug, UserCog } from "lucide-react";
+import { BookOpen, ChevronDown, Copy, ExternalLink, Link2, Plus, Plug, Search, Settings, Trash2, Unplug, UserCog } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { ProviderLogo } from "@/app/components/provider-account-wizard/provider-logo";
@@ -23,7 +23,7 @@ import {
   stringsEqualFold,
   unwrapData,
 } from "@/app/components/provider-account-wizard/utils";
-import { ConfirmDialog, EmptyState, HelpLink, RowActionsMenu } from "@/components/app-ui";
+import { ConfirmDialog, EmptyState, RowActionsMenu } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -325,19 +325,6 @@ export default function LLMIntegrationsManagement(props: {
     <>
     <main className="flex flex-1 px-3 py-3 sm:px-4">
       <section className="flex min-h-[calc(100dvh-1.5rem)] w-full flex-col overflow-hidden rounded-xl border border-border bg-background">
-        <header className="border-b border-border px-5 py-5 sm:px-6" dir={pageDirection}>
-          <div className="flex max-w-5xl flex-col gap-1.5 text-start">
-            <div className="flex min-w-0 items-center gap-2">
-              <Network className="size-4 text-muted-foreground" />
-              <h1 className="text-2xl font-semibold leading-8 tracking-normal">{copy("pageTitle")}</h1>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-muted-foreground">
-              <p>{copy("pageDescription")}</p>
-              {props.docsHref ? <HelpLink href={props.docsHref} /> : null}
-            </div>
-          </div>
-        </header>
-
         {banner ? (
           <div className="px-4 pt-3">
             <Alert variant={banner.kind === "error" ? "destructive" : "default"}>

@@ -42,7 +42,7 @@ function readBooleanFeature(value: unknown, fallback: boolean): boolean {
   return fallback;
 }
 
-export function RateLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
+export function RateLimitRulesPage() {
   const t = useTranslations("rateLimitRules");
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -130,8 +130,6 @@ export function RateLimitRulesPage({ docsHref }: { docsHref?: string } = {}) {
   return (
     <GatewayPolicyRulesList
       title={t("title")}
-      description={t("description")}
-      docsHref={docsHref}
       createLabel={t("actions.new")}
       onCreate={handleCreateRule}
       createDisabled={!hasLoadedEntitlements}

@@ -5,6 +5,7 @@ import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 import { headers } from "next/headers";
+import { getTranslations } from "next-intl/server";
 
 type TenantAdminUser = {
   id: string;
@@ -29,6 +30,7 @@ export const dynamic = "force-dynamic";
 
 export default async function UsersPage() {
   const auth = await requireAuth("/login?next=/users");
+  const t = await getTranslations("accessManagement");
   const tenantSlug = auth.tenantSlug;
   const requestHeaders = await headers();
   const docsHref = `${buildDocsBaseHref(requestHeaders, tenantSlug)}/guides/user-management`;
@@ -57,14 +59,17 @@ export default async function UsersPage() {
   };
 
   return (
-    <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
+    <AdminShell
+      tenantSlug={tenantSlug}
+      currentUser={currentUser}
+      pageHeader={{ title: t("usersPage.title"), description: t("usersPage.description"), helpHref: docsHref }}
+    >
       <UsersAccessManagement
         initialUsers={initialUsers}
         initialTotal={initialTotal}
         initialError={initialError}
         currentUserID={auth.user.id}
         canManageUsers={canManageUsers}
-        docsHref={docsHref}
       />
     </AdminShell>
   );

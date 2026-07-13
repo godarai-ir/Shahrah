@@ -44,7 +44,11 @@ export default async function LogsPage() {
   const currentUser = { id: auth.user.id, email: auth.user.email, mobile: auth.user.mobile, role: auth.user.role };
 
   return (
-    <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
+    <AdminShell
+      tenantSlug={tenantSlug}
+      currentUser={currentUser}
+      pageHeader={{ title: t("title"), description: t("subtitle") }}
+    >
       <LogsCommandCenter
         initialLogs={logsResult.ok ? logsResult.payload : undefined}
         initialSummary={summaryResult.ok ? summaryResult.payload : undefined}

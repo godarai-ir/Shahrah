@@ -635,12 +635,7 @@ export default function TraceManagement(props: TraceManagementProps) {
 
   return (
     <PageContainer spacing="compact" padding="none" className="md:gap-6">
-      <header className="flex flex-col gap-2">
-        <div className="flex items-start justify-between gap-3">
-          <h1 className="min-w-0 flex-1 text-2xl font-bold tracking-tight text-foreground md:text-3xl">
-            {t("title")}
-          </h1>
-          <div className="flex shrink-0 items-center gap-2">
+      <div className="flex justify-end gap-2">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button type="button" variant="outline" size="icon" onClick={() => void load()} disabled={loading} aria-label={loading ? common("loading") : common("refresh")}>
@@ -657,12 +652,7 @@ export default function TraceManagement(props: TraceManagementProps) {
               </TooltipTrigger>
               <TooltipContent>{t("privacySettings")}</TooltipContent>
             </Tooltip>
-          </div>
-        </div>
-        <p className="max-w-4xl text-sm leading-6 text-muted-foreground">
-          {t("description")}
-        </p>
-      </header>
+      </div>
 
       <Card className="rounded-lg">
         <CardContent className="flex flex-col gap-3 px-3 pb-3 pt-2 md:px-4 md:pb-4 md:pt-3">

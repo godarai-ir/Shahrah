@@ -34,7 +34,11 @@ export default async function BillingDashboardPage() {
   const availableBalance = Number(wallet?.available_balance_irr ?? wallet?.balance_irr ?? 0);
 
   return (
-    <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
+    <AdminShell
+      tenantSlug={tenantSlug}
+      currentUser={currentUser}
+      pageHeader={{ title: "مدیریت مالی", description: "نمای عملیاتی کیف پول، مصرف دوره، تخفیف‌ها و اسناد مالی فضای کاری." }}
+    >
       <div className="flex flex-col gap-6">
         <PageHeader
           eyebrow="Billing"

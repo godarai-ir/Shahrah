@@ -20,7 +20,11 @@ export default async function BillingDocumentsPage() {
   ]);
 
   return (
-    <AdminShell tenantSlug={tenantSlug} currentUser={{ id: auth.user.id, email: auth.user.email, mobile: auth.user.mobile, role: auth.user.role }}>
+    <AdminShell
+      tenantSlug={tenantSlug}
+      currentUser={{ id: auth.user.id, email: auth.user.email, mobile: auth.user.mobile, role: auth.user.role }}
+      pageHeader={{ title: "اسناد مالی", description: "فاکتورها، تراکنش‌های کیف پول و تخفیف‌های فضای کاری." }}
+    >
       <div className="space-y-6">
         <PageHeader title="اسناد مالی" description="فاکتورها، تراکنش‌های کیف پول و تخفیف‌های فضای کاری." />
         <BillingDocumentsPanel

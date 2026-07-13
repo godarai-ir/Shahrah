@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
@@ -13,7 +15,32 @@ type PageHeaderProps = {
   descriptionClassName?: string;
 };
 
+const PageHeaderInShellContext = React.createContext(false);
+
+export function PageHeaderInShellProvider({
+  children,
+  enabled,
+}: {
+  children: React.ReactNode;
+  enabled: boolean;
+}) {
+  return <PageHeaderInShellContext.Provider value={enabled}>{children}</PageHeaderInShellContext.Provider>;
+}
+
 export function PageHeader({ title, description, eyebrow, titleAddon, actions, className, titleClassName, descriptionClassName }: PageHeaderProps) {
+  const isRenderedInShell = React.useContext(PageHeaderInShellContext);
+
+  if (isRenderedInShell) {
+    if (!titleAddon && !actions) return null;
+
+    return (
+      <header className={cn("flex flex-wrap items-center justify-end gap-2", className)}>
+        {titleAddon}
+        {actions}
+      </header>
+    );
+  }
+
   return (
     <header className={cn("flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between", className)}>
       <div className="min-w-0 flex-1">

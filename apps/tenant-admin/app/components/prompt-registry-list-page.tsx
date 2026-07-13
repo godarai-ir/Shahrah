@@ -4,12 +4,10 @@ import { useState } from "react";
 import { copyTextToClipboard } from "@/components/app-ui/CopyableValue";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
 
 import { normalizeError, requestJSON } from "@/app/components/provider-account-wizard/utils";
 import { ConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 
 import { PromptRegistryList } from "./prompt-registry-list";
 import type { Notice, Prompt } from "./prompt-management-shared";
@@ -41,17 +39,6 @@ export default function PromptRegistryListPage() {
   return (
     <div className="flex flex-col gap-5" dir={pageDir}>
       <section className="flex flex-col gap-3 rounded-xl border bg-card p-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold">{t("header.title")}</h2>
-            <p className="text-sm text-muted-foreground">{t("header.description")}</p>
-          </div>
-          <Button type="button" onClick={() => router.push("/prompts/new")}>
-            <Plus data-icon="inline-start" />
-            {t("actions.createPrompt")}
-          </Button>
-        </div>
-
         {errorMessage ? (
           <Alert variant="destructive">
             <AlertTitle>{t("notice.errorTitle")}</AlertTitle>
@@ -69,6 +56,7 @@ export default function PromptRegistryListPage() {
           isLoading={isLoading}
           locale={locale}
           onCopyFqn={(prompt) => void copyFqn(prompt)}
+          onCreate={() => router.push("/prompts/new")}
           onCreateVersion={(prompt) => router.push(`/prompts/${prompt.id}/edit?intent=create-version`)}
           onDelete={setPendingDeletePrompt}
           onEditLatestVersion={(prompt) => router.push(`/prompts/${prompt.id}/edit?intent=edit-latest`)}

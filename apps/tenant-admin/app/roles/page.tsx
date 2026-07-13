@@ -1,4 +1,5 @@
 import AdminShell from "@/app/components/admin-shell";
+import { getTranslations } from "next-intl/server";
 import RolesPermissionsManagement from "@/app/components/roles-permissions-management";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
@@ -24,6 +25,7 @@ export const dynamic = "force-dynamic";
 
 export default async function RolesPage() {
   const auth = await requireAuth("/login?next=/roles");
+  const t = await getTranslations("accessManagement");
   const tenantSlug = auth.tenantSlug;
   await requirePermissionOr403(tenantSlug, auth.user.id, ["role:list", "role:manage"]);
 
@@ -44,7 +46,11 @@ export default async function RolesPage() {
   };
 
   return (
-    <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
+    <AdminShell
+      tenantSlug={tenantSlug}
+      currentUser={currentUser}
+      pageHeader={{ title: t("rolesPage.listTitle"), description: t("rolesPage.description") }}
+    >
       <RolesPermissionsManagement
         initialRoles={initialRoles}
         initialError={initialError}

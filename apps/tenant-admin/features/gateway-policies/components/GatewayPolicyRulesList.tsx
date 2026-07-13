@@ -8,8 +8,6 @@ import { CommercialPlanUpgradeDialog } from "@/components/app-ui/CommercialPlanU
 import { ConfirmDialog } from "@/components/app-ui/ConfirmDialog";
 import { DataListPanel } from "@/components/app-ui/DataListPanel";
 import { EmptyState } from "@/components/app-ui/EmptyState";
-import { HelpLink } from "@/components/app-ui/HelpLink";
-import { PageHeader } from "@/components/app-ui/PageHeader";
 import { PageContainer } from "@/components/app-ui/PageContainer";
 import { SearchField } from "@/components/app-ui/SearchField";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -55,8 +53,6 @@ export type GatewayPolicyUpgradeDialog = {
 
 export type GatewayPolicyRulesListProps = {
   title: React.ReactNode;
-  description: React.ReactNode;
-  docsHref?: string;
   createLabel: React.ReactNode;
   onCreate: () => void;
   createDisabled?: boolean;
@@ -81,8 +77,6 @@ export type GatewayPolicyRulesListProps = {
 
 export function GatewayPolicyRulesList({
   title,
-  description,
-  docsHref,
   createLabel,
   onCreate,
   createDisabled,
@@ -114,13 +108,6 @@ export function GatewayPolicyRulesList({
   return (
     <>
       <PageContainer className={className}>
-        <PageHeader
-          title={title}
-          description={description}
-          titleAddon={docsHref ? <HelpLink href={docsHref} /> : null}
-          actions={createAction}
-        />
-
         {notice ? (
           <Alert variant={notice.kind === "error" ? "destructive" : "default"}>
             <AlertTitle>{notice.kind === "error" ? alertLabels.error : alertLabels.success}</AlertTitle>
@@ -138,7 +125,12 @@ export function GatewayPolicyRulesList({
               onChange={(event) => onQueryChange(event.target.value)}
             />
           )}
-          toolbarMeta={resultCountLabel}
+          toolbarMeta={(
+            <div className="flex items-center gap-3">
+              <span className="whitespace-nowrap">{resultCountLabel}</span>
+              {createAction}
+            </div>
+          )}
           loading={loading && itemCount === 0}
           loadingLabel={loadingLabel}
           empty={itemCount === 0}

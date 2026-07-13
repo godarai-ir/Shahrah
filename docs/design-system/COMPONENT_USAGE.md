@@ -1,8 +1,18 @@
 # Component Usage
 
+## ShellPageHeading / AdminShell page metadata
+
+Every route-level page rendered inside `AdminShell` must pass a `pageHeader` object with a localized `title`, an optional localized `description`, and an optional contextual `helpHref`. The shell renders `ShellPageHeading` as the page's only `h1` and uses `helpHref` for the existing documentation action, falling back to the documentation home when no contextual link is provided.
+
+Keep route metadata explicit at the server page boundary. Do not derive descriptions from navigation labels, duplicate translated strings in a client route map, or register headings upward with an effect. Long titles and descriptions truncate in the sticky shell; the complete description remains available through its title text.
+
+Primary page actions do not belong in the global shell action group. Place them in the nearest list toolbar or page workflow. Lightweight identity badges or legacy `PageHeader` actions may remain as a compact content action row during migration.
+
+Pages outside `AdminShell` may continue to use `PageHeader` as their route heading. Embedded sheets, dialogs, and entity headers keep their own accessible titles and must not publish route metadata.
+
 ## PageHeader
 
-Use at the top of route-level pages. It supports title, description, eyebrow, title-level secondary content through `titleAddon`, and page actions.
+Use at the top of standalone route-level pages that are not rendered inside `AdminShell`. It supports title, description, eyebrow, title-level secondary content through `titleAddon`, and page actions. When rendered under an `AdminShell` route with `pageHeader` metadata, its duplicated title and description are suppressed while remaining actions stay available as a compact content row.
 
 Use `titleAddon` for lightweight contextual links that must remain on the title row. Keep primary actions in `actions`.
 

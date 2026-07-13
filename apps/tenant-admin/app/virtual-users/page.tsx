@@ -4,6 +4,7 @@ import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 import { headers } from "next/headers";
+import { getTranslations } from "next-intl/server";
 
 type VirtualUser = {
   id: string;
@@ -40,6 +41,7 @@ export const dynamic = "force-dynamic";
 
 export default async function VirtualUsersPage() {
   const auth = await requireAuth("/login?next=/virtual-users");
+  const t = await getTranslations("virtualUsers");
   const tenantSlug = auth.tenantSlug;
   const requestHeaders = await headers();
   const docsBaseHref = buildDocsBaseHref(requestHeaders, tenantSlug);
@@ -85,14 +87,17 @@ export default async function VirtualUsersPage() {
   };
 
   return (
-    <AdminShell tenantSlug={tenantSlug} currentUser={currentUser}>
+    <AdminShell
+      tenantSlug={tenantSlug}
+      currentUser={currentUser}
+      pageHeader={{ title: t("title"), description: t("description"), helpHref: virtualUsersDocsHref }}
+    >
       <VirtualUserTokenManagement
         initialVirtualUsers={initialVirtualUsers}
         initialTotal={virtualUsersResult.ok ? virtualUsersPayload.total ?? initialVirtualUsers.length : 0}
         initialError={virtualUsersResult.ok ? null : virtualUsersResult.errorMessage ?? "Request failed."}
         teams={teamsResult.ok ? teamsPayload.data ?? [] : []}
         orgUnits={orgUnitsResult.ok ? orgUnitsPayload.data ?? [] : []}
-        docsHref={virtualUsersDocsHref}
       />
     </AdminShell>
   );

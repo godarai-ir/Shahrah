@@ -32,7 +32,11 @@ export default async function BillingReportsPage() {
       : null;
 
   return (
-    <AdminShell tenantSlug={tenantSlug} currentUser={{ id: auth.user.id, email: auth.user.email, mobile: auth.user.mobile, role: auth.user.role }}>
+    <AdminShell
+      tenantSlug={tenantSlug}
+      currentUser={{ id: auth.user.id, email: auth.user.email, mobile: auth.user.mobile, role: auth.user.role }}
+      pageHeader={{ title: "گزارش‌های مالی", description: "مصرف، هزینه، تخفیف و صرفه‌جویی کش را به تفکیک ارائه‌دهنده ببینید." }}
+    >
       <div className="space-y-6">
         <PageHeader title="گزارش‌های مالی" description="مصرف، هزینه، تخفیف و صرفه‌جویی کش را به تفکیک ارائه‌دهنده ببینید." />
         <ReportsPanel
