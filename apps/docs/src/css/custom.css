@@ -144,7 +144,6 @@ html[dir='rtl'] .footer__link-item svg {
 }
 
 .markdown :not(pre) > code {
-  direction: ltr;
   unicode-bidi: embed;
   text-align: left;
 }
