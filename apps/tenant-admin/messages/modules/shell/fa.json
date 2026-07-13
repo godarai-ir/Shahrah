@@ -30,7 +30,8 @@
     "label": "پلن: {name}",
     "daysRemaining": "{days} روز مانده",
     "unknown": "پلن نامشخص",
-    "noEndDate": "بدون تاریخ پایان"
+    "noEndDate": "بدون تاریخ پایان",
+    "expired": "پایان یافته"
   },
   "appVersion": {
     "label": "نسخه"

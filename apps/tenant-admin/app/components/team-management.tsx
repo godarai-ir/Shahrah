@@ -5,13 +5,12 @@ import { useLocale, useTranslations } from "next-intl";
 import {
   AlertTriangle,
   Plus,
-  RefreshCw,
   Trash2,
   Users,
 } from "lucide-react";
 
 import { usePermissions } from "@/app/components/permissions-context";
-import { AppCard, AppSelectField, CheckboxOptionList, CommercialPlanUpgradeDialog, DateTimeValue, EmptyState, FilterCombobox, FormSheet, IdentifierField, MetricCard, OperationNotice, PageHeader, RowActionsMenu, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, CheckboxOptionList, CommercialPlanUpgradeDialog, DateTimeValue, EmptyState, FilterCombobox, FormSheet, IdentifierField, MetricCard, OperationNotice, PageHeader, RefreshButton, RowActionsMenu, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,7 +18,6 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { canAnyPermission } from "@/lib/authz";
 import { cn } from "@/lib/utils";
@@ -379,10 +377,11 @@ export default function TeamManagement({
         description={t("subtitle")}
         actions={
           <>
-            <Button variant="outline" onClick={() => void loadTeams(offset, query.trim())} disabled={isLoading}>
-              {isLoading ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" />}
-              {t("actions.refresh")}
-            </Button>
+            <RefreshButton
+              label={t("actions.refresh")}
+              onClick={() => void loadTeams(offset, query.trim())}
+              isLoading={isLoading}
+            />
             <Button
               type="button"
               onClick={handleCreateTeam}

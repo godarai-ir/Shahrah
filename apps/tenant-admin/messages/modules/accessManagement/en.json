@@ -102,7 +102,7 @@
     "systemRole": "System",
     "customRole": "Custom",
     "form": {
-      "name": "Role name (slug)",
+        "name": "Technical identifier",
       "displayName": "Display name",
       "description": "Description",
       "create": "Create Role",

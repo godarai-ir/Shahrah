@@ -82,7 +82,13 @@ Use `RemovableChipList` when the values are selected by another control and only
 
 Use `DateTimeValue` for visible timestamps so the UI emits a semantic `time` element, localized digits/calendar, a stable invalid-value fallback, and tabular numerals. Use the shared `formatDateTime` utility only when a formatted string is required by an interpolation or non-React API.
 
+Use `RefreshButton` for manual list refresh actions. It is icon-only, exposes the localized action through its accessible label and title, and swaps to a disabled spinner while `isLoading` is true.
+
 Use `DateTimeRangeField` for controlled ISO from/to filters. It owns conversion to browser-local `datetime-local` values, LTR input direction, calendar adornments, Field semantics, and responsive two-column layout. Use `DateTimeField` when only one timestamp is required.
+
+Use `ExpirationDurationField` for relative token expiry values accepted by the API. It keeps technical input LTR and monospace, provides accessible Field semantics, and shows localized examples such as `30m`, `24h`, `7d`, and `30d`. Reuse it for PAT and VAT creation instead of duplicating duration hints.
+
+Use `ModelNameValue` for model identifiers in tables and compact metadata. It keeps the displayed identifier LTR, monospace, left-aligned, single-line, and directly copyable. Tables should scroll horizontally instead of breaking a technical identifier character-by-character on narrow screens. When the UI summarizes multiple models, pass the full comma-separated identifiers through `copyValue` while keeping the shorter summary in `value`.
 
 Use `CodePanel` for titled snippets, raw API responses, and examples that need a language badge, description, copy action, or feature-owned actions. It composes the shared syntax-highlighted `CodeBlock`; use `CodeBlock` alone only inside an existing panel that already supplies this hierarchy.
 

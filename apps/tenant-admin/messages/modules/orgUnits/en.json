@@ -11,6 +11,7 @@
   },
   "actions": {
     "refresh": "Refresh",
+    "refreshing": "Refreshing...",
     "new": "New Org Unit",
     "cancel": "Cancel",
     "saving": "Saving...",
@@ -201,6 +202,7 @@
     "permissionDenied": "Your current role cannot create organization units.",
     "loadError": "Failed to load organization units.",
     "detailLoadError": "Failed to load org unit details.",
+    "subscriptionExpired": "Your commercial subscription has ended. Renew your plan to access organization unit details.",
     "userLoadError": "Failed to load users for membership.",
     "createSuccess": "Organization unit created.",
     "createError": "Failed to create organization unit.",

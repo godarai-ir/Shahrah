@@ -102,7 +102,7 @@
     "systemRole": "سیستمی",
     "customRole": "سفارشی",
     "form": {
-      "name": "نام نقش (slug)",
+        "name": "شناسه فنی",
       "displayName": "نام نمایشی",
       "description": "توضیحات",
       "create": "ایجاد نقش",

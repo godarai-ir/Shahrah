@@ -30,7 +30,8 @@
     "label": "Plan: {name}",
     "daysRemaining": "{days} days left",
     "unknown": "Unknown plan",
-    "noEndDate": "No end date"
+    "noEndDate": "No end date",
+    "expired": "Ended"
   },
   "appVersion": {
     "label": "Version"

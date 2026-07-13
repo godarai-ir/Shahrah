@@ -53,6 +53,20 @@ const roles = [
   },
 ];
 
+const permissionCatalog = [
+  { key: "role:list", group: "roles", description: "List roles" },
+];
+
+function renderManagement() {
+  return render(
+    <RolesPermissionsManagement
+      initialRoles={roles}
+      initialError={null}
+      initialPermissionCatalog={permissionCatalog}
+    />,
+  );
+}
+
 describe("RolesPermissionsManagement", () => {
   beforeEach(() => {
     permissionsMock = ["role:list", "role:manage"];
@@ -70,7 +84,7 @@ describe("RolesPermissionsManagement", () => {
   });
 
   it("renders one page heading and the role list", () => {
-    render(<RolesPermissionsManagement initialRoles={roles} initialError={null} />);
+    renderManagement();
 
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(screen.getByText("billing_manager")).toBeInTheDocument();
@@ -78,7 +92,7 @@ describe("RolesPermissionsManagement", () => {
   });
 
   it("filters roles by their searchable fields", () => {
-    render(<RolesPermissionsManagement initialRoles={roles} initialError={null} />);
+    renderManagement();
 
     fireEvent.change(screen.getByRole("textbox", { name: "rolesPage.filters.searchLabel" }), {
       target: { value: "support" },
@@ -91,14 +105,14 @@ describe("RolesPermissionsManagement", () => {
   it("omits the actions column for read-only users", () => {
     permissionsMock = ["role:list"];
 
-    render(<RolesPermissionsManagement initialRoles={roles} initialError={null} />);
+    renderManagement();
 
     expect(screen.queryByText("rolesPage.table.actions")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /rolesPage\.actions\.openMenu/ })).not.toBeInTheDocument();
   });
 
   it("offers retry without showing stale table content after a load error", () => {
-    render(<RolesPermissionsManagement initialRoles={roles} initialError="Request failed" />);
+    render(<RolesPermissionsManagement initialRoles={roles} initialError="Request failed" initialPermissionCatalog={permissionCatalog} />);
 
     expect(screen.getByRole("alert")).toHaveTextContent("Request failed");
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
@@ -113,7 +127,7 @@ describe("RolesPermissionsManagement", () => {
       json: async () => ({ features: { "rbac.enabled": false } }),
     }));
 
-    render(<RolesPermissionsManagement initialRoles={roles} initialError={null} />);
+    renderManagement();
 
     const createButton = screen.getByRole("button", { name: "rolesPage.form.create" });
     await waitFor(() => expect(createButton).toBeEnabled());
@@ -123,13 +137,14 @@ describe("RolesPermissionsManagement", () => {
     expect(pushMock).not.toHaveBeenCalled();
   });
 
-  it("navigates to role creation when RBAC is enabled", async () => {
-    render(<RolesPermissionsManagement initialRoles={roles} initialError={null} />);
+  it("opens role creation in a left-side drawer when RBAC is enabled", async () => {
+    renderManagement();
 
     const createButton = screen.getByRole("button", { name: "rolesPage.form.create" });
     await waitFor(() => expect(createButton).toBeEnabled());
     fireEvent.click(createButton);
 
-    expect(pushMock).toHaveBeenCalledWith("/roles/new");
+    expect(screen.getByRole("dialog", { name: "rolesPage.createTitle" })).toBeInTheDocument();
+    expect(pushMock).not.toHaveBeenCalled();
   });
 });

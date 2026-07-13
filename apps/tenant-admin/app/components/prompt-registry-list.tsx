@@ -1,19 +1,28 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { Plus, ScrollText } from "lucide-react";
 
-import { AppSelectField, RowActionsMenu } from "@/components/app-ui";
+import {
+  AppCard,
+  AppSelectField,
+  DateTimeValue,
+  HelpLink,
+  ModelNameValue,
+  RefreshButton,
+  RowActionsMenu,
+  SearchField,
+  TableEmptyRow,
+  TableLoadingRows,
+  TablePagination,
+} from "@/components/app-ui";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-
 import { cn } from "@/lib/utils";
 
-import { formatDate, type Prompt, type PromptTranslationFn } from "./prompt-management-shared";
+import { type Prompt, type PromptTranslationFn } from "./prompt-management-shared";
 
 type PromptRegistryListProps = {
+  docsHref: string;
   isLoading: boolean;
   locale: string;
   onNextPage: () => void;
@@ -40,73 +49,77 @@ type PromptRegistryListProps = {
 
 export function PromptRegistryList(props: PromptRegistryListProps) {
   const pageCountEnd = Math.min(props.pageOffset + props.pageSize, props.promptTotal);
+  const currentPage = Math.floor(props.pageOffset / props.pageSize) + 1;
 
   return (
-    <Card className="shadow-none">
-      <CardHeader className="border-b">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <CardTitle>{props.t("list.title")}</CardTitle>
-            <CardDescription>{props.t("list.description")}</CardDescription>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="relative min-w-[240px]">
-              <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={props.query}
-                onChange={(event) => props.onSearchValueChange(event.target.value)}
-                onKeyDown={(event) => props.onSearchKeyDown(event.key)}
-                placeholder={props.t("list.searchPlaceholder")}
-                className="ps-9"
-              />
-            </div>
-            <Button type="button" variant="outline" onClick={props.onRefresh}>
-              {props.t("actions.refresh")}
-            </Button>
-            <Button type="button" onClick={props.onCreate}>
-              {props.t("actions.createPrompt")}
-            </Button>
-          </div>
+    <AppCard
+      className="min-w-0 shadow-none"
+      contentClassName="flex min-w-0 flex-col gap-4"
+    >
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <SearchField
+          containerClassName="min-w-0 flex-1"
+          value={props.query}
+          onChange={(event) => props.onSearchValueChange(event.target.value)}
+          onKeyDown={(event) => props.onSearchKeyDown(event.key)}
+          placeholder={props.t("list.searchPlaceholder")}
+        />
+        <div className="flex items-center gap-2">
+          <RefreshButton label={props.t("actions.refresh")} onClick={props.onRefresh} isLoading={props.isLoading} />
+          <Button className="flex-1 sm:flex-none" type="button" onClick={props.onCreate}>
+            <Plus data-icon="inline-start" />
+            {props.t("actions.createPrompt")}
+          </Button>
+          <HelpLink href={props.docsHref} />
         </div>
-      </CardHeader>
-      <CardContent className="p-0">
-        {props.isLoading ? (
-          <div className="space-y-2 p-4">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </div>
-        ) : props.prompts.length === 0 ? (
-          <div className="p-10 text-center text-sm text-muted-foreground">{props.t("list.emptyRows")}</div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{props.t("list.columns.name")}</TableHead>
-                <TableHead>{props.t("list.columns.latestVersion")}</TableHead>
-                <TableHead>{props.t("list.columns.model")}</TableHead>
-                <TableHead>{props.t("list.columns.description")}</TableHead>
-                <TableHead>{props.t("list.columns.updatedAt")}</TableHead>
-                <TableHead>{props.t("list.columns.createdBy")}</TableHead>
-                <TableHead className="w-16 text-right">{props.t("list.columns.actions")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {props.prompts.map((item) => (
+      </div>
+
+      <div className="overflow-x-auto rounded-lg border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{props.t("list.columns.name")}</TableHead>
+              <TableHead>{props.t("list.columns.latestVersion")}</TableHead>
+              <TableHead>{props.t("list.columns.model")}</TableHead>
+              <TableHead>{props.t("list.columns.description")}</TableHead>
+              <TableHead>{props.t("list.columns.updatedAt")}</TableHead>
+              <TableHead>{props.t("list.columns.createdBy")}</TableHead>
+              <TableHead className="w-16 text-end">{props.t("list.columns.actions")}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {props.isLoading && props.prompts.length === 0 ? (
+              <TableLoadingRows colSpan={7} label={props.t("list.loadingRows")} />
+            ) : props.prompts.length === 0 ? (
+              <TableEmptyRow
+                colSpan={7}
+                icon={ScrollText}
+                title={props.t("list.emptyRows")}
+                description={props.t("list.emptyDescription")}
+                primaryAction={
+                  <Button type="button" onClick={props.onCreate}>
+                    <Plus data-icon="inline-start" />
+                    {props.t("actions.createPrompt")}
+                  </Button>
+                }
+              />
+            ) : (
+              props.prompts.map((item) => (
                 <TableRow
                   key={item.id}
                   className={cn("cursor-pointer")}
                   onClick={() => props.onRowClick(item)}
                 >
-                  <TableCell className="font-medium">{item.name}</TableCell>
-                  <TableCell>{props.t("list.versionValue", { version: item.latest_version })}</TableCell>
-                  <TableCell className="font-mono text-xs">{item.latest_version_detail?.model || "-"}</TableCell>
-                  <TableCell>{item.description || "-"}</TableCell>
-                  <TableCell>{formatDate(item.updated_at, props.locale)}</TableCell>
-                  <TableCell>{props.userLabelByID[item.created_by ?? ""] || item.created_by || "-"}</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="whitespace-nowrap font-medium">{item.name}</TableCell>
+                  <TableCell className="whitespace-nowrap">{props.t("list.versionValue", { version: item.latest_version })}</TableCell>
+                  <TableCell onClick={(event) => event.stopPropagation()}><ModelNameValue value={item.latest_version_detail?.model ?? ""} /></TableCell>
+                  <TableCell><span className="block max-w-xs truncate">{item.description || "-"}</span></TableCell>
+                  <TableCell className="whitespace-nowrap"><DateTimeValue value={item.updated_at} locale={props.locale} /></TableCell>
+                  <TableCell className="whitespace-nowrap">{props.userLabelByID[item.created_by ?? ""] || item.created_by || "-"}</TableCell>
+                  <TableCell className="text-end">
                     <RowActionsMenu
                       label={props.t("actions.openMenu")}
+                      dir={props.locale === "fa" ? "rtl" : "ltr"}
                       stopPropagation
                       actions={[
                         { label: props.t("actions.tryPrompt"), onSelect: () => props.onTryPrompt(item) },
@@ -118,20 +131,30 @@ export function PromptRegistryList(props: PromptRegistryListProps) {
                     />
                   </TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-        <div className="flex flex-col gap-3 border-t px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-muted-foreground">
-            {props.t("pagination.showing", {
-              from: props.prompts.length === 0 ? 0 : props.pageOffset + 1,
-              to: pageCountEnd,
-              total: props.promptTotal,
-            })}
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">{props.t("pagination.rowsPerPage")}</span>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <TablePagination
+        label={props.t("list.title")}
+        summary={props.t("pagination.showing", {
+          from: props.prompts.length === 0 ? 0 : props.pageOffset + 1,
+          to: pageCountEnd,
+          total: props.promptTotal,
+        })}
+        previousLabel={props.t("pagination.previous")}
+        nextLabel={props.t("pagination.next")}
+        onPrevious={props.onPreviousPage}
+        onNext={props.onNextPage}
+        canPrevious={props.pageOffset > 0}
+        canNext={props.pageOffset + props.pageSize < props.promptTotal}
+        disabled={props.isLoading}
+        page={currentPage}
+        pageSizeLabel={
+          <span className="flex items-center gap-2">
+            <span>{props.t("pagination.rowsPerPage")}</span>
             <AppSelectField
               ariaLabel={props.t("pagination.rowsPerPage")}
               value={String(props.pageSize)}
@@ -145,15 +168,9 @@ export function PromptRegistryList(props: PromptRegistryListProps) {
                 { value: "50", label: "50" },
               ]}
             />
-            <Button type="button" variant="outline" disabled={props.pageOffset === 0} onClick={props.onPreviousPage}>
-              {props.t("pagination.previous")}
-            </Button>
-            <Button type="button" variant="outline" disabled={props.pageOffset + props.pageSize >= props.promptTotal} onClick={props.onNextPage}>
-              {props.t("pagination.next")}
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+          </span>
+        }
+      />
+    </AppCard>
   );
 }

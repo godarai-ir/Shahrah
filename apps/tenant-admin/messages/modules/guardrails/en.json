@@ -93,9 +93,9 @@
     "mutate": "Rewrite content"
   },
   "enforcement": {
-    "enforce": "Strict enforcement",
-    "audit": "Monitor only",
-    "enforce_ignore_error": "Enforce, allow on error"
+    "enforce": "Block and log",
+    "audit": "Allow and flag",
+    "enforce_ignore_error": "Block without logging"
   },
   "status": {
     "enabled": "Enabled",

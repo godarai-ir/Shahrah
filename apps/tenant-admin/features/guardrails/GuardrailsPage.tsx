@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 
 import { AppCodeTextareaField, AppNumberField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, ConfirmDialog, CopyAction, DateTimeValue, EmptyState, FormSheet, HelpLink, IdentifierField, OperationNotice, SearchField } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import { createGuardrail, deleteGuardrail, GuardrailAPIError, listGuardrails, updateGuardrail } from "./api";
@@ -376,21 +376,12 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
     <>
       <Card>
         <CardHeader>
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="min-w-0">
-              <CardTitle className="flex items-center gap-2">
-                <ShieldCheck data-icon="inline-start" aria-hidden="true" />
-                {t("title")}
-              </CardTitle>
-              <CardDescription>
-                {t("description")} {" "}
-                <HelpLink href={docsHref} />
-              </CardDescription>
-            </div>
+          <div className="flex items-center justify-end gap-2">
             <Button type="button" onClick={openCreateDialog}>
               <Plus data-icon="inline-start" aria-hidden="true" />
               {t("actions.new")}
             </Button>
+            <HelpLink href={docsHref} />
           </div>
           <SearchField placeholder={t("searchPlaceholder")} value={query} onChange={(event) => setQuery(event.target.value)} />
         </CardHeader>
@@ -528,8 +519,8 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
                 value={form.enforcement}
                 onValueChange={(value) => setForm({ ...form, enforcement: value as GuardrailFormInput["enforcement"] })}
                 options={[
-                  { value: "enforce", label: t("enforcement.enforce") },
                   { value: "audit", label: t("enforcement.audit") },
+                  { value: "enforce", label: t("enforcement.enforce") },
                   { value: "enforce_ignore_error", label: t("enforcement.enforce_ignore_error") },
                 ]}
               />

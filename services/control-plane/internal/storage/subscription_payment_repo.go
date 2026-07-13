@@ -34,7 +34,7 @@ func (s *Store) PrepareTenantSubscriptionChange(ctx context.Context, tenantID st
 		return nil, currentErr
 	}
 
-	if current != nil {
+	if current != nil && subscriptionStatusIsCurrent(current.Status) {
 		var currentOrder int
 
 		orderErr := s.pool.QueryRow(ctx, `SELECT sort_order FROM commercial_plans WHERE plan_id = $1::uuid`, current.PlanID).Scan(&currentOrder)

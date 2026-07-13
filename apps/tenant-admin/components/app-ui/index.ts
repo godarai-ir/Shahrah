@@ -21,6 +21,7 @@ export { DateTimeField, DateTimeRangeField, type DateTimeFieldProps, type DateTi
 export { DefinitionList, DefinitionListItem, type DefinitionListItemProps, type DefinitionListProps } from "./DefinitionList";
 export { EmptyState, type EmptyStateDensity, type EmptyStateProps, type EmptyStateVariant } from "./EmptyState";
 export { EntityIdentityHeader, type EntityIdentityHeaderProps } from "./EntityIdentityHeader";
+export { ExpirationDurationField, type ExpirationDurationExample, type ExpirationDurationFieldProps } from "./ExpirationDurationField";
 export { FilterCombobox } from "./FilterCombobox";
 export { DebouncedTextFilter, FilterField, RangeFilterField, type DebouncedTextFilterProps, type FilterFieldProps, type RangeFilterFieldProps } from "./FilterField";
 export { FormSection } from "./FormSection";
@@ -29,6 +30,7 @@ export { FormSheet, type FormSheetProps, type FormSheetSize } from "./FormSheet"
 export { HelpLink } from "./HelpLink";
 export { DEFAULT_IDENTIFIER_DESCRIPTION, IDENTIFIER_PATTERN, IdentifierField, isValidIdentifier } from "./IdentifierField";
 export { MetricCard, type MetricCardProps } from "./MetricCard";
+export { ModelNameValue, type ModelNameValueProps } from "./ModelNameValue";
 export { OneTimeSecretDialog, type OneTimeSecretDialogProps } from "./OneTimeSecretDialog";
 export { OperationNotice, type OperationNoticeKind, type OperationNoticeLabels, type OperationNoticeProps, type OperationNoticeValue } from "./OperationNotice";
 export { PageHeader } from "./PageHeader";
@@ -38,6 +40,7 @@ export { PermissionEditor, type PermissionEditorLabels, type PermissionEditorMod
 export { PermissionSummary, getPermissionSelectionSummary, type PermissionSummaryLabels, type PermissionSummaryProps } from "./PermissionSummary";
 export { RowActionsMenu, type RowAction, type RowActionsMenuProps } from "./RowActionsMenu";
 export { RemovableChipList, type RemovableChipItem, type RemovableChipListProps } from "./RemovableChipList";
+export { RefreshButton, type RefreshButtonProps } from "./RefreshButton";
 export { SearchField } from "./SearchField";
 export { SearchPickerDialog, type SearchPickerDialogProps } from "./SearchPickerDialog";
 export { SectionHeader } from "./SectionHeader";

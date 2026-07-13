@@ -1,15 +1,13 @@
 ﻿"use client";
 
 import { FormEvent, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { ArrowLeft, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 
-import { IdentifierField, PermissionEditor, PermissionSummary } from "@/components/app-ui";
+import { FormSheet, IdentifierField, PermissionEditor, PermissionSummary } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -36,6 +34,8 @@ type Banner = {
 
 type RoleCreateManagementProps = {
   initialPermissionCatalog: PermissionItem[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 };
 
 type RoleFormState = {
@@ -45,12 +45,14 @@ type RoleFormState = {
   permissions: string[];
 };
 
-export default function RoleCreateManagement({ initialPermissionCatalog }: RoleCreateManagementProps) {
+const initialForm: RoleFormState = { name: "", display_name: "", description: "", permissions: [] };
+
+export default function RoleCreateManagement({ initialPermissionCatalog, open, onOpenChange }: RoleCreateManagementProps) {
   const t = useTranslations("accessManagement");
   const locale = useLocale();
   const router = useRouter();
 
-  const [form, setForm] = useState<RoleFormState>({ name: "", display_name: "", description: "", permissions: [] });
+  const [form, setForm] = useState<RoleFormState>(initialForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [query, setQuery] = useState("");
   const [viewMode, setViewMode] = useState<"selected" | "all">("all");
@@ -89,8 +91,10 @@ export default function RoleCreateManagement({ initialPermissionCatalog }: RoleC
         method: "POST",
         body: JSON.stringify(form),
       });
-      setBanner({ kind: "success", message: t("messages.roleCreated") });
-      router.push("/roles");
+      setForm(initialForm);
+      setQuery("");
+      setViewMode("all");
+      onOpenChange(false);
       router.refresh();
     } catch (submitError) {
       setBanner({ kind: "error", message: normalizeError(submitError, t("messages.roleCreateError")) });
@@ -100,30 +104,35 @@ export default function RoleCreateManagement({ initialPermissionCatalog }: RoleC
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <p className="text-sm text-muted-foreground">
-        {locale.startsWith("fa")
-          ? "ایجاد نقش در صفحه جدا انجام می‌شود تا جریان ثبت دقیق‌تر و بدون شلوغی باشد."
-          : "Create a role in a dedicated page for a focused, low-noise workflow."}
-      </p>
+    <FormSheet
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t("rolesPage.createTitle")}
+      description={locale.startsWith("fa") ? "اطلاعات نقش و مجوزهای آن را وارد کنید." : "Enter the role details and permissions."}
+      size="lg"
+      side="left"
+      pending={isSubmitting}
+      closeLabel={t("rolesPage.actions.cancel")}
+      footer={
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+            {t("rolesPage.actions.cancel")}
+          </Button>
+          <Button type="submit" form="create-role-form" disabled={isSubmitting}>
+            <Plus data-icon="inline-start" aria-hidden="true" />
+            {isSubmitting ? t("rolesPage.form.creating") : t("rolesPage.form.create")}
+          </Button>
+        </div>
+      }
+    >
+      <form id="create-role-form" className="flex flex-col gap-5" onSubmit={onSubmit}>
+        {banner ? (
+          <Alert variant={banner.kind === "error" ? "destructive" : "default"}>
+            <AlertTitle>{banner.kind === "error" ? t("alerts.error") : t("alerts.success")}</AlertTitle>
+            <AlertDescription>{banner.message}</AlertDescription>
+          </Alert>
+        ) : null}
 
-      {banner ? (
-        <Alert variant={banner.kind === "error" ? "destructive" : "default"}>
-          <AlertTitle>{banner.kind === "error" ? t("alerts.error") : t("alerts.success")}</AlertTitle>
-          <AlertDescription>{banner.message}</AlertDescription>
-        </Alert>
-      ) : null}
-
-      <div className="grid gap-6 lg:grid-cols-12">
-        <Card className="lg:col-span-8">
-          <CardHeader>
-            <CardTitle>{t("rolesPage.createTitle")}</CardTitle>
-            <CardDescription>
-              {locale.startsWith("fa") ? "مرحله ۱: اطلاعات نقش. مرحله ۲: انتخاب مجوز. مرحله ۳: ثبت." : "Step 1: Role details. Step 2: Permission selection. Step 3: Submit."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form className="flex flex-col gap-5" onSubmit={onSubmit}>
               <section className="flex flex-col gap-3">
                 <FieldGroup className="grid gap-3 md:grid-cols-2">
                   <IdentifierField id="role-name" label={t("rolesPage.form.name")} value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="tenant_finance_admin" />
@@ -159,22 +168,6 @@ export default function RoleCreateManagement({ initialPermissionCatalog }: RoleC
 
               <FieldError>{error}</FieldError>
 
-              <div className="flex flex-wrap gap-2">
-                <Button type="submit" disabled={isSubmitting} className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  {isSubmitting ? t("rolesPage.form.creating") : t("rolesPage.form.create")}
-                </Button>
-                <Button asChild type="button" variant="ghost" className="gap-2">
-                  <Link href="/roles">
-                    <ArrowLeft className="h-4 w-4" />
-                    {locale.startsWith("fa") ? "بازگشت به فهرست نقش‌ها" : "Back to roles list"}
-                  </Link>
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-
         <PermissionSummary
           permissions={filteredPermissionCatalog}
           value={form.permissions}
@@ -182,10 +175,9 @@ export default function RoleCreateManagement({ initialPermissionCatalog }: RoleC
           labels={summaryLabels}
           onClear={() => setForm((prev) => ({ ...prev, permissions: [] }))}
           formatNumber={(value) => numberFormatter.format(value)}
-          className="lg:col-span-4 lg:sticky lg:top-6 lg:h-fit"
         />
-      </div>
-    </div>
+      </form>
+    </FormSheet>
   );
 }
 

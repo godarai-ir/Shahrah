@@ -163,6 +163,21 @@ func TestIntegration_PublishedVersionAndPeriodEndDowngrade(t *testing.T) {
 	current, err := store.GetTenantSubscription(ctx, tenant.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "developer", current.PlanSlug)
+
+	_, err = pool.Exec(ctx, `UPDATE tenant_subscriptions SET status = 'expired', updated_at = NOW() WHERE subscription_id = $1::uuid`, current.ID)
+	require.NoError(t, err)
+	store.InvalidateEffectiveEntitlements(ctx, tenant.ID)
+
+	expired, err := store.GetTenantSubscription(ctx, tenant.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "developer", expired.PlanSlug)
+	assert.Equal(t, "expired", expired.Status)
+
+	entitlements, err := store.ResolveEffectiveEntitlements(ctx, tenant.ID)
+	require.NoError(t, err)
+	require.NotNil(t, entitlements.Subscription)
+	assert.Equal(t, "expired", entitlements.Subscription.Status)
+	assert.Contains(t, entitlements.Features, platform.FeatureUsersMax)
 }
 
 func planSlugs(plans []platform.CommercialPlan) []string {

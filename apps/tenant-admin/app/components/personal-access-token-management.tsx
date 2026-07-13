@@ -1,14 +1,13 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { FormEvent, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { KeyRound, Plus, RefreshCcw, Trash2 } from "lucide-react";
 
-import { AppCard, ConfirmDialog, EmptyState, FormSheet, OneTimeSecretDialog, OperationNotice, PageHeader, SearchField, StatusBadge } from "@/components/app-ui";
+import { AppCard, ConfirmDialog, DateTimeValue, EmptyState, ExpirationDurationField, FormSheet, HelpLink, OneTimeSecretDialog, OperationNotice, PageHeader, SearchField, StatusBadge } from "@/components/app-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatDateTime as formatSharedDateTime } from "@/lib/date-time";
 
 type PAT = {
   id: string;
@@ -45,8 +44,10 @@ type DeleteIntent =
 export default function PersonalAccessTokenManagement(props: {
   initialTokens: PAT[];
   initialError: string | null;
+  docsHref: string;
 }) {
   const t = useTranslations("personalAccessTokens");
+  const locale = useLocale();
   const [tokens, setTokens] = useState<PAT[]>(props.initialTokens);
   const [query, setQuery] = useState("");
   const [name, setName] = useState("");
@@ -60,7 +61,6 @@ export default function PersonalAccessTokenManagement(props: {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteIntent, setDeleteIntent] = useState<DeleteIntent | null>(null);
   const [banner, setBanner] = useState<Banner | null>(props.initialError ? { kind: "error", message: props.initialError } : null);
-  const createHint = useMemo(() => t("create.accessHint"), [t]);
 
   async function load() {
     setIsLoading(true);
@@ -155,7 +155,12 @@ export default function PersonalAccessTokenManagement(props: {
       <PageHeader
         title={t("title")}
         description={t("create.description")}
-        actions={<Button onClick={() => setCreateOpen(true)}><Plus data-icon="inline-start" />{t("actions.create")}</Button>}
+        actions={
+          <>
+            <Button onClick={() => setCreateOpen(true)}><Plus data-icon="inline-start" />{t("actions.create")}</Button>
+            <HelpLink href={props.docsHref} />
+          </>
+        }
       />
 
       <FormSheet open={createOpen} onOpenChange={setCreateOpen} title={t("create.title")} description={t("create.description")} size="sm" pending={isCreating}>
@@ -164,11 +169,7 @@ export default function PersonalAccessTokenManagement(props: {
             <label className="text-sm font-medium">{t("fields.name")}</label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("fields.namePlaceholder")} />
           </div>
-          <p className="text-xs text-muted-foreground">{createHint}</p>
-          <div className="grid gap-2">
-            <label className="text-sm font-medium">{t("fields.expiresIn")}</label>
-            <Input value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)} placeholder={t("fields.expiresInPlaceholder")} />
-          </div>
+          <ExpirationDurationField value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)} placeholder={t("fields.expiresInPlaceholder")} />
           <Button type="submit" className="w-full" disabled={isCreating}>{isCreating ? t("actions.creating") : t("actions.create")}</Button>
         </form>
       </FormSheet>
@@ -206,9 +207,9 @@ export default function PersonalAccessTokenManagement(props: {
                     <TableRow key={item.id}>
                       <TableCell>{item.key_alias}</TableCell>
                       <TableCell>{item.key_name ?? "-"}</TableCell>
-                      <TableCell>{formatDate(item.created_at)}</TableCell>
-                      <TableCell>{formatDate(item.last_used_at)}</TableCell>
-                      <TableCell>{formatDate(item.expires_at)}</TableCell>
+                      <TableCell><DateTimeValue value={item.created_at} locale={locale} format={{ dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Tehran" }} /></TableCell>
+                      <TableCell><DateTimeValue value={item.last_used_at} locale={locale} format={{ dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Tehran" }} /></TableCell>
+                      <TableCell><DateTimeValue value={item.expires_at} locale={locale} format={{ dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Tehran" }} /></TableCell>
                       <TableCell><StatusBadge status={item.revoked_at ? "inactive" : "active"}>{item.revoked_at ? t("status.revoked") : t("status.active")}</StatusBadge></TableCell>
                       <TableCell><Button variant="outline" size="sm" onClick={() => openDeleteDialog({ type: "single", token: item })}>{t("actions.revoke")}</Button></TableCell>
                     </TableRow>
@@ -257,13 +258,6 @@ export default function PersonalAccessTokenManagement(props: {
       />
     </div>
   );
-}
-
-function formatDate(input?: string) {
-  if (!input) return "-";
-  const date = new Date(input);
-  if (Number.isNaN(date.getTime())) return "-";
-  return formatSharedDateTime(date, { locale: "fa", format: { dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Tehran" } });
 }
 
 async function requestJSON<T = unknown>(path: string, options?: RequestInit): Promise<T> {

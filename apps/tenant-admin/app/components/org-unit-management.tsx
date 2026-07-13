@@ -18,11 +18,10 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AppCard, AppSelectField, AppTextField, CommercialPlanUpgradeDialog, CompactValue, DefinitionList, DefinitionListItem, EmptyState, FilterCombobox, FormSheet, IdentifierField, MetricCard, OperationNotice, PageHeader, RowActionsMenu, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, AppTextField, CommercialPlanUpgradeDialog, CompactValue, DateTimeValue, DefinitionList, DefinitionListItem, EmptyState, FilterCombobox, FormSheet, IdentifierField, MetricCard, OperationNotice, PageHeader, RefreshButton, RowActionsMenu, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Spinner } from "@/components/ui/spinner";
 import {
   Table,
   TableBody,
@@ -354,7 +353,14 @@ export default function OrgUnitManagement({
       setMembers(memberPayload.data ?? []);
       setOrgUnits((items) => items.map((item) => (item.id === orgUnit.id ? orgUnit : item)));
     } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.detailLoadError")) });
+      setBanner({
+        kind: "error",
+        message: normalizeSubscriptionError(
+          error,
+          t("messages.subscriptionExpired"),
+          t("messages.detailLoadError"),
+        ),
+      });
     } finally {
       setIsDetailLoading(false);
     }
@@ -575,15 +581,12 @@ export default function OrgUnitManagement({
         description={t("subtitle")}
         actions={
           <>
-          <Button
-            variant="outline"
-            type="button"
+          <RefreshButton
+            label={t("actions.refresh")}
+            loadingLabel={t("actions.refreshing")}
             onClick={() => void loadOrgUnits(offset, query.trim())}
-            disabled={isLoading}
-          >
-            {isLoading ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" />}
-            {t("actions.refresh")}
-          </Button>
+            isLoading={isLoading}
+          />
           <Button type="button" onClick={openCreate} disabled={!canCreateOrgUnit || !hasLoadedEntitlements}>
               <Plus data-icon="inline-start" />
               {t("actions.new")}
@@ -683,7 +686,13 @@ export default function OrgUnitManagement({
                         </TableCell>
                         <TableCell>{resolveTeamCount(orgUnit)}</TableCell>
                         <TableCell>{getMemberCount(orgUnit, orgUnit.id === selectedOrgUnitID ? members.length : undefined)}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{formatDate(orgUnit.updated_at)}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          <DateTimeValue
+                            value={orgUnit.updated_at}
+                            locale={locale}
+                            format={{ year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }}
+                          />
+                        </TableCell>
                         <TableCell className="text-end" onClick={(event) => event.stopPropagation()}>
                           <RowActionsMenu
                             label={t("actions.openMenu")}
@@ -1264,6 +1273,17 @@ function extractMessage(payload: unknown): string | null {
 
 function normalizeError(error: unknown, fallback: string) {
   if (error instanceof Error) return error.message;
+  return fallback;
+}
+
+function normalizeSubscriptionError(error: unknown, expiredMessage: string, fallback: string) {
+  if (error instanceof Error) {
+    const message = error.message.trim().toLowerCase();
+    if (message === "active subscription required" || message === "tenant subscription not found") {
+      return expiredMessage;
+    }
+    return error.message;
+  }
   return fallback;
 }
 

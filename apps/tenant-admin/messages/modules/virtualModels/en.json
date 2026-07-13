@@ -13,6 +13,8 @@
     "create": "Create Virtual Model",
     "copyAlias": "Copy alias",
     "copy": "Create Similar Copy",
+    "copying": "Creating similar copy...",
+    "openMenu": "Open actions for model {alias}",
     "edit": "Edit",
     "reset": "Reset changes",
     "delete": "Delete Virtual Model",

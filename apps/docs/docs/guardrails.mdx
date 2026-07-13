@@ -1,40 +1,40 @@
 ---
-title: Guardrails
+title: گاردریل‌ها
 ---
 
-# Guardrails در GodarAI
+# گاردریل‌ها در گدارAI
 
-`Guardrails` در GodarAI یک لایه کنترل روی متن ورودی و خروجی مدل است. در نسخه فعلی، اجرای عملی گاردریل‌ها در مسیر [Chat Completions](/supported-apis/chat-completions/overview) انجام می‌شود و انتخاب آن‌ها با headerهای درخواست کنترل می‌شود.
+گاردریل‌ `Guardrail` در گدارAI یک لایه کنترل روی متن ورودی و خروجی مدل است. اجرای عملی گاردریل‌ها در مسیر [Chat Completions](/supported-apis/chat-completions/overview) انجام می‌شود و انتخاب آن‌ها با سرآیندهای (header) درخواست کنترل می‌شود.
 
 گاردریل‌ها دو کار اصلی انجام می‌دهند:
 
-- `validate`: متن را بررسی می‌کنند و در صورت تخطی، بسته به شیوه اعمال می‌توانند درخواست یا پاسخ را متوقف کنند.
-- `mutate`: متن را پیش از ادامه مسیر تغییر می‌دهند؛ مثلا مقدار حساس را با `[REDACTED]` جایگزین می‌کنند.
+- `اعتبارسنجی (validate)`: متن را بررسی می‌کنند و در صورت تخطی، بسته به شیوه اعمال می‌توانند درخواست یا پاسخ را متوقف کنند.
+- `تغییر (mutate)`: متن را پیش از ادامه مسیر تغییر می‌دهند؛ مثلا مقدار حساس را با `[REDACTED]` جایگزین می‌کنند.
 
 ## گاردریل‌های پشتیبانی‌شده
 
-در گدارAI، گاردریل‌هایی که در مسیر tenant guardrail قابل تعریف و فعال‌سازی هستند این‌ها هستند:
+در گدارAI، گاردریل‌هایی که قابل تعریف و فعال‌سازی هستند این‌ها هستند:
 
 | نوع | کاربرد | عملیات قابل استفاده | راهنما |
 | --- | --- | --- | --- |
-| `keyword_blocklist` | مسدودکردن عبارت‌های مشخص | فقط `validate` | [عبارت‌های مسدود](/guardrails-keyword-blocklist) |
-| `regex` | بررسی یا ماسک‌کردن الگوهای Regex سفارشی | `validate` یا `mutate` | [Regex](/guardrails-regex) |
-| `secrets_detection` | تشخیص یا ماسک‌کردن token، کلید خصوصی و secretهای رایج | `validate` یا `mutate` | [تشخیص Secret](/guardrails-secrets-detection) |
-| `basic_pii` | تشخیص یا ماسک‌کردن PII پایه مثل ایمیل، موبایل، عدد ۱۰ رقمی و کارت | `validate` یا `mutate` | [PII پایه و Redaction](/guardrails-pii-redaction) |
-| `regex_replace` | جایگزینی matchهای یک Regex | فقط `mutate` | [جایگزینی با Regex](/guardrails-regex-replace) |
-| `sentence_count` | محدودکردن تعداد جمله‌ها | فقط `validate` | [تعداد جمله](/guardrails-sentence-count) |
-| `word_count` | محدودکردن تعداد واژه‌ها | فقط `validate` | [تعداد واژه](/guardrails-word-count) |
-| `character_count` | محدودکردن تعداد نویسه‌ها | فقط `validate` | [تعداد نویسه](/guardrails-character-count) |
-| `json_schema` | اعتبارسنجی ساختار پایه JSON | فقط `validate` | [JSON Schema](/guardrails-json-schema) |
-| `json_keys` | کنترل کلیدهای سطح اول یک object JSON | فقط `validate` | [کلیدهای JSON](/guardrails-json-keys) |
-| `contains_code` | الزام یا منع وجود کد بر اساس fence و markerهای داخلی | فقط `validate` | [تشخیص کد](/guardrails-contains-code) |
-| `not_null` | ردکردن متن خالی، `null` یا `undefined` | فقط `validate` | [مقدار غیرخالی](/guardrails-not-null) |
-| `jwt_validation` | استخراج و اعتبارسنجی JWT | فقط `validate` | [اعتبارسنجی JWT](/guardrails-jwt-validation) |
+| `keyword_blocklist` | مسدودکردن عبارت‌های مشخص | فقط `اعتبارسنجی` | [عبارت‌های مسدود](/guardrails-keyword-blocklist) |
+| `regex` | بررسی یا ماسک‌کردن الگوهای Regex سفارشی | `اعتبارسنجی` یا `تغییر` | [Regex](/guardrails-regex) |
+| `secrets_detection` | تشخیص یا ماسک‌کردن توکن، کلید خصوصی و عبارت‌های محرمانه‌ی رایج | `validate` یا `mutate` | [تشخیص Secret](/guardrails-secrets-detection) |
+| `basic_pii` | تشخیص یا ماسک‌کردن PII پایه مثل ایمیل، موبایل، عدد ۱۰ رقمی و کارت | `اعتبارسنجی` یا `mutate` | [PII پایه و Redaction](/guardrails-pii-redaction) |
+| `regex_replace` | جایگزینی matchهای یک Regex | فقط `تغییر` | [جایگزینی با Regex](/guardrails-regex-replace) |
+| `sentence_count` | محدودکردن تعداد جمله‌ها | فقط `اعتبارسنجی` | [تعداد جمله](/guardrails-sentence-count) |
+| `word_count` | محدودکردن تعداد واژه‌ها | فقط `اعتبارسنجی` | [تعداد واژه](/guardrails-word-count) |
+| `character_count` | محدودکردن تعداد نویسه‌ها | فقط `اعتبارسنجی` | [تعداد نویسه](/guardrails-character-count) |
+| `json_schema` | اعتبارسنجی ساختار پایه JSON | فقط `اعتبارسنجی` | [JSON Schema](/guardrails-json-schema) |
+| `json_keys` | کنترل کلیدهای سطح اول یک object JSON | فقط `اعتبارسنجی` | [کلیدهای JSON](/guardrails-json-keys) |
+| `contains_code` | الزام یا منع وجود کد بر اساس fence و markerهای داخلی | فقط `اعتبارسنجی` | [تشخیص کد](/guardrails-contains-code) |
+| `not_null` | ردکردن متن خالی، `null` یا `undefined` | فقط `اعتبارسنجی` | [مقدار غیرخالی](/guardrails-not-null) |
+| `jwt_validation` | استخراج و اعتبارسنجی JWT | فقط `اعتبارسنجی` | [اعتبارسنجی JWT](/guardrails-jwt-validation) |
 | `inline_image_urls` | دریافت URLهای تصویر داخل متن و تبدیل آن‌ها به data URL | فقط `mutate` | [Inline کردن URL تصویر](/guardrails-inline-image-urls) |
 
 ## تعریف گاردریل
 
-هر گاردریل tenant-level با این فیلدهای مشترک تعریف می‌شود:
+هر گاردریل با این فیلدهای مشترک تعریف می‌شود:
 
 ```json
 {
@@ -53,28 +53,28 @@ title: Guardrails
 
 فیلدهای مهم:
 
-- `slug`: شناسه قابل استفاده در selector. باید ۲ تا ۹۶ کاراکتر باشد و با حرف یا عدد شروع شود.
-- `type`: یکی از نوع‌های پشتیبانی‌شده در جدول بالا.
-- `operation`: یکی از `validate` یا `mutate`.
-- `enforcement`: یکی از `audit`، `enforce` یا `enforce_ignore_error`.
-- `enabled`: فقط گاردریل‌های فعال هنگام resolve کردن selectorهای tenant استفاده می‌شوند.
-- `config`: تنظیمات اختصاصی همان نوع گاردریل.
+- `slug`: یا شناسه فنی، شناسه‌ای قابل استفاده در بدنه درخواست است که باید ۲ تا ۹۶ کاراکتر انگلیسی باشد و می‌تواند شامل اعداد، و نویسه‌های زیرخط (ـ) و خط فاصله (-) باشد.
+- `نوع`: یکی از انواع پشتیبانی‌شده در جدول بالا.
+- `نوع اقدام`: یکی از `اعتبارسنجی` یا `تغییر`.
+- `شیوه اعمال`: یکی از موارد `ثبت برای رسیدگی`، `انسداد` یا `انسداد و نادیده‌گرفتن خطا`.
+- `فعال`: فقط گاردریل‌های فعال هنگام در پردازش درخواست حضور خواهند داشت.
+- `تنظمیات`: تنظیمات اختصاصی همان نوع گاردریل.
 
 ## شیوه اعمال
 
-`enforcement` مشخص می‌کند نتیجه گاردریل چه اثری روی request یا response داشته باشد:
+`شیوه اعمال (enforcement)` مشخص می‌کند نتیجه گاردریل چه اثری روی درخواست یا پاسخ داشته باشد:
 
 | مقدار | رفتار |
 | --- | --- |
-| `audit` | تخطی را با status `flagged` ثبت می‌کند، اما مسیر را متوقف نمی‌کند. |
-| `enforce` | تخطی را متوقف می‌کند و خطا برمی‌گرداند. خطای اجرای خود گاردریل هم باعث توقف می‌شود. |
-| `enforce_ignore_error` | تخطی را متوقف می‌کند، اما خطای اجرای گاردریل را نادیده می‌گیرد. |
+| `ثبت برای رسیدگی` | تخطی را نشانه‌گذاری می‌کند و آن را با وضعیت `flagged` ثبت می‌کند، اما مسیر را متوقف نمی‌کند. |
+| `انسداد` | تخطی را متوقف می‌کند و خطا برمی‌گرداند. خطای اجرای خود گاردریل هم باعث توقف می‌شود. |
+| `انسداد و نادیده گرفتن خطا` | تخطی را متوقف می‌کند، اما خطای اجرای گاردریل را نادیده می‌گیرد. |
 
-برای گاردریل‌های `mutate`، اگر match پیدا شود متن تغییر می‌کند و check با status `mutated` ثبت می‌شود.
+برای گاردریل‌های `تغییر دهنده`، اگر مطابقت پیدا شود متن تغییر می‌کند و مورد بررسی شده، با status `mutated` ثبت می‌شود.
 
 ## انتخاب گاردریل در درخواست
 
-برای اجرای گاردریل، selector را در header `x-godarai-guardrails` بفرستید. selectorهای tenant-level با الگوی `guardrails/<slug>` ساخته می‌شوند.
+برای اجرای گاردریل، شناسه فنی آن را در سرآیند (header) `x-godarai-guardrails` بفرستید. شناسه‌های فنی در سطح فضای کاری شما یکتا هستند و با الگوی `guardrails/<slug>` ساخته می‌شوند.
 
 نمونه اجرای گاردریل روی ورودی:
 
@@ -97,11 +97,11 @@ x-godarai-guardrails: {"llm_output_guardrails":["guardrails/no-secrets"]}
 
 برای سازگاری، کلیدهای `input_guardrails` و `output_guardrails` هم پذیرفته می‌شوند.
 
-## selectorهای آماده
+## گاردریل‌های عمومی
 
-موتور پیش‌فرض چند selector آماده هم ثبت می‌کند. این selectorها بدون تعریف tenant guardrail هم resolve می‌شوند:
+در پلتفرم چند گاردریل با شناسه‌های فنی پیش‌فرض آماده‌ی استفاده هستند. این گاردریل‌ها بدون آنکه نیاز باشد تا در فضای کاری خودتان، گاردریلی تعریف کنید،  قابلیت استفاده را دارند:
 
-| selector | رفتار |
+| شناسه فنی | رفتار |
 | --- | --- |
 | `guardrails/keyword-blocklist` | عبارت‌های پیش‌فرض مثل `ignore previous instructions`، `jailbreak`، `rm -rf` و `drop table` را مسدود می‌کند. |
 | `guardrails/regex` | الگوی پیش‌فرض secret/token/password را با `[REDACTED]` جایگزین می‌کند. |
@@ -110,28 +110,28 @@ x-godarai-guardrails: {"llm_output_guardrails":["guardrails/no-secrets"]}
 | `guardrails/pii-redaction` | alias برای `basic_pii`. |
 | `guardrails/pii-detection` | alias برای `basic_pii`. |
 
-برای production بهتر است به‌جای تکیه بر selectorهای عمومی، گاردریل tenant-level با slug و config مشخص بسازید تا رفتار آن برای تیم شما قابل بازبینی باشد.
+برای محیط عملیاتی بهتر است به‌جای تکیه بر گاردریل‌های عمومی، گاردریل اختصاصی فضای کاری خودتان با شناسه فنی و تنظیمات مشخص بسازید تا رفتار آن برای تیم شما قابل بازبینی باشد.
 
-## scope اجرای ورودی
+## حوزه اجرای گاردریل برای درخواست‌های ارسالی به مدل
 
-header `x-godarai-guardrails-scope` مشخص می‌کند گاردریل‌های ورودی روی کدام پیام‌ها اجرا شوند:
+سرآیند `x-godarai-guardrails-scope` مشخص می‌کند گاردریل‌های ورودی روی کدام پیام‌ها اجرا شوند:
 
 | مقدار | رفتار |
 | --- | --- |
 | `all` | همه پیام‌های متنی از نقطه شروع انتخاب‌شده بررسی می‌شوند. مقدار پیش‌فرض است. |
-| `last` | فقط آخرین پیام `user` بررسی می‌شود. |
+| `last` | فقط آخرین پیام `کاربر` بررسی می‌شود. |
 
-در پیام‌های multimodal، فقط بخش‌های متنی با `type: "text"` بررسی یا تغییر داده می‌شوند.
+در پیام‌های مالتی‌مدال (multimodal)، فقط بخش‌های متنی با `type: "text"` بررسی یا تغییر داده می‌شوند.
 
-## خروجی و streaming
+## خروجی و استریمینگ
 
-گاردریل خروجی بعد از دریافت پاسخ کامل provider اجرا می‌شود. در نسخه فعلی، ترکیب `stream: true` با `llm_output_guardrails` پشتیبانی نمی‌شود و درخواست با خطای `400` رد می‌شود.
+گاردریل خروجی بعد از دریافت پاسخ کامل ارائه‌دهنده اجرا می‌شود. در نسخه فعلی، ترکیب `stream: true` با `llm_output_guardrails` پشتیبانی نمی‌شود و درخواست با خطای `400` رد می‌شود.
 
-گاردریل ورودی می‌تواند پیش از شروع stream اجرا شود، چون قبل از ارسال payload به provider اعمال می‌شود.
+گاردریل ورودی می‌تواند پیش از شروع استریم اجرا شود، چون قبل از ارسال بدنه درخواست به ارائه‌دهنده اعمال می‌شود.
 
 ## پاسخ خطا
 
-اگر گاردریل با `enforce` یا `enforce_ignore_error` مسیر را متوقف کند، پاسخ با type زیر برمی‌گردد:
+اگر گاردریل با `انسداد` یا `انسداد و نادیده گرفتن خطا` مسیر را متوقف کند، پاسخ با قالب زیر برمی‌گردد:
 
 ```json
 {
@@ -159,13 +159,13 @@ header `x-godarai-guardrails-scope` مشخص می‌کند گاردریل‌ها
 
 ## مشاهده‌پذیری
 
-نتیجه هر check در trace با نام‌هایی مثل `guardrail.llm_input_guardrails` و `guardrail.llm_output_guardrails` ثبت می‌شود و metadataهایی مثل selector، status، operation، enforcement، latency و reason دارد. برای تحلیل عملیاتی، این داده‌ها را کنار [Logs](/observability-logs) و [OpenTelemetry](/observability-opentelemetry) ببینید.
+نتیجه هر چک در ردیابی پیامها (trace) با نام‌هایی مثل `guardrail.llm_input_guardrails` و `guardrail.llm_output_guardrails` ثبت می‌شود و متادیتاهایی مثل شناسه فنی، وضعیت، نوع اقدام، شیوه اعمال، تاخیرو شرح علت دارد. برای تحلیل عملیاتی، این داده‌ها را کنار [Logs](/observability-logs) و [OpenTelemetry](/observability-opentelemetry) ببینید.
 
 ## از کجا شروع کنم؟
 
-1. اگر فقط می‌خواهید phraseهای ممنوع را متوقف کنید، [عبارت‌های مسدود](/guardrails-keyword-blocklist) را بخوانید.
+1. اگر فقط می‌خواهید عبارات ممنوع را متوقف کنید، [عبارت‌های مسدود](/guardrails-keyword-blocklist) را بخوانید.
 2. اگر الگوهای داخلی سازمانی دارید، از [Regex](/guardrails-regex) شروع کنید.
-3. اگر نگران token و کلید خصوصی هستید، [تشخیص Secret](/guardrails-secrets-detection) را فعال کنید.
-4. اگر داده تماس یا شناسه‌های عمومی وارد prompt می‌شود، [PII پایه و Redaction](/guardrails-pii-redaction) را ببینید.
+3. اگر نگران توکن و کلید خصوصی هستید، [تشخیص Secret](/guardrails-secrets-detection) را فعال کنید.
+4. اگر داده تماس یا شناسه‌های عمومی وارد پرامپت می‌شود، [PII پایه و Redaction](/guardrails-pii-redaction) را ببینید.
 5. برای محدودیت طول، یکی از راهنماهای [جمله](/guardrails-sentence-count)، [واژه](/guardrails-word-count) یا [نویسه](/guardrails-character-count) را انتخاب کنید.
 6. برای خروجی ساخت‌یافته، [JSON Schema](/guardrails-json-schema) و [کلیدهای JSON](/guardrails-json-keys) را مقایسه کنید.

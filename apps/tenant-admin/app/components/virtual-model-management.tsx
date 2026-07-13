@@ -2,14 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ArrowDown, ArrowUp, CheckCircle2, Copy, Edit3, Plus, RefreshCw, Save, Search, Trash2, XCircle } from "lucide-react";
+import { ArrowDown, ArrowUp, CheckCircle2, Copy, Edit3, Plus, Save, Search, Trash2, XCircle } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ChipInput, ConfirmDialog, CopyAction, DateTimeValue, FormSheet, HelpLink, IdentifierField, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
+import { ChipInput, ConfirmDialog, DateTimeValue, FormSheet, HelpLink, IdentifierField, ModelNameValue, RefreshButton, RowActionsMenu, StatusBadge, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,7 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ModelEntitySelect, type ModelSelection } from "@/app/components/model-entity-select";
 import { PrincipalPicker, type PrincipalPickerItem } from "@/app/components/principal-picker";
 import { type PrincipalSearchKind } from "@/app/components/principal-search-input";
-import { getPublicSiteOrigin, requestJSON } from "@/app/components/provider-account-wizard/utils";
+import { requestJSON } from "@/app/components/provider-account-wizard/utils";
 import { buildPrincipalSelectorLabels } from "@/app/components/provider-account-wizard/principal-labels";
 import { cn } from "@/lib/utils";
 
@@ -134,18 +134,13 @@ function makeDefaultForm(everyoneLabel: string): FormState {
   };
 }
 
-export default function VirtualModelManagement() {
+export default function VirtualModelManagement({ docsHref }: { docsHref: string }) {
   const t = useTranslations("virtualModels");
   const locale = useLocale();
   const tc = useTranslations("common");
   const principalT = useTranslations("providerAccounts");
   const principalUx = useTranslations("providerAccounts.ux");
   const defaultEveryoneLabel = principalT("principal.everyone");
-  const docsHref =
-    typeof window === "undefined"
-      ? "https://godarai.ir/docs/virtual-model"
-      : `${getPublicSiteOrigin(window.location.origin)}/docs/virtual-model`;
-
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -561,32 +556,27 @@ export default function VirtualModelManagement() {
     <>
       <Card className="overflow-hidden">
         <CardHeader className="space-y-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <CardTitle>{t("title")}</CardTitle>
-              <CardDescription>{t("description")}</CardDescription>
-            </div>
-            <HelpLink href={docsHref} />
-          </div>
           <div className="flex flex-col gap-2 sm:flex-row">
-                <div className="relative flex-1">
-              <Search className="pointer-events-none absolute start-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                className="ps-9"
-                placeholder={t("searchPlaceholder")}
-                aria-label={t("searchPlaceholder")}
-              />
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute start-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  className="ps-9"
+                  placeholder={t("searchPlaceholder")}
+                  aria-label={t("searchPlaceholder")}
+                />
+              </div>
+              <RefreshButton label={t("actions.refresh")} onClick={() => void loadList()} isLoading={isLoading} />
             </div>
-            <Button variant="outline" onClick={() => void loadList()} disabled={isLoading}>
-              {isLoading ? <Spinner /> : <RefreshCw />}
-              {t("actions.refresh")}
-            </Button>
-            <Button onClick={startCreate}>
-              <Plus className="h-4 w-4" />
-              {t("actions.new")}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button className="flex-1 sm:flex-none" onClick={startCreate}>
+                <Plus data-icon="inline-start" />
+                {t("actions.new")}
+              </Button>
+              <HelpLink href={docsHref} />
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -622,61 +612,52 @@ export default function VirtualModelManagement() {
                       className={cn(selectedID === item.id && "bg-muted/60")}
                     >
                       <TableCell>
-                        <div className="flex items-center justify-end gap-1.5">
-                          <span className="font-medium" dir="ltr">
-                            {item.alias}
-                          </span>
-                          <CopyAction value={item.alias} copyLabel={t("actions.copyAlias")} copiedLabel={t("messages.copyAliasSuccess", { alias: item.alias })} size="icon" onCopyError={() => setNotice({ kind: "error", message: t("messages.copyAliasError") })} />
-                        </div>
+                        <ModelNameValue value={item.alias} onCopyError={() => setNotice({ kind: "error", message: t("messages.copyAliasError") })} />
                       </TableCell>
                       <TableCell>{formatStrategyLabel(item.routing_strategy, t)}</TableCell>
                       <TableCell>{item.targets?.length ?? 0}</TableCell>
                       <TableCell className="text-sm text-muted-foreground"><DateTimeValue value={item.updated_at} locale={locale} format={{ year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }} /></TableCell>
                       <TableCell className="text-sm text-muted-foreground">{userLabelByID[item.created_by ?? ""] || item.created_by || "-"}</TableCell>
                       <TableCell>
-                        <Badge variant={item.enabled ? "default" : "secondary"}>
+                        <StatusBadge status={item.enabled ? "active" : "inactive"}>
                           {item.enabled ? t("status.enabled") : t("status.disabled")}
-                        </Badge>
+                        </StatusBadge>
                       </TableCell>
                       <TableCell onClick={(event) => event.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            title={t("actions.copy")}
-                            aria-label={t("actions.copy")}
-                            onClick={() => void duplicateItem(item)}
-                            disabled={actingID === item.id || isLoading}
-                          >
-                            {actingID === item.id ? <Spinner /> : <Copy />}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            title={t("actions.edit")}
-                            aria-label={t("actions.edit")}
-                            onClick={() => void loadDetail(item.id)}
-                            disabled={actingID === item.id}
-                          >
-                            <Edit3 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            title={t("actions.delete")}
-                            aria-label={t("actions.delete")}
-                            onClick={() => {
-                              setPendingDeleteItem(item);
-                              setDeleteDialogOpen(true);
-                            }}
-                            disabled={actingID === item.id}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <RowActionsMenu
+                          label={t("actions.openMenu", { alias: item.alias })}
+                          dir={locale.startsWith("fa") ? "rtl" : "ltr"}
+                          disabled={isLoading}
+                          actions={[
+                            {
+                              key: "copy",
+                              label: t("actions.copy"),
+                              pendingLabel: t("actions.copying"),
+                              pending: actingID === item.id,
+                              icon: <Copy />,
+                              onSelect: () => void duplicateItem(item),
+                            },
+                            {
+                              key: "edit",
+                              label: t("actions.edit"),
+                              disabled: actingID === item.id,
+                              icon: <Edit3 />,
+                              onSelect: () => void loadDetail(item.id),
+                            },
+                            {
+                              key: "delete",
+                              label: t("actions.delete"),
+                              disabled: actingID === item.id,
+                              destructive: true,
+                              separatorBefore: true,
+                              icon: <Trash2 />,
+                              onSelect: () => {
+                                setPendingDeleteItem(item);
+                                setDeleteDialogOpen(true);
+                              },
+                            },
+                          ]}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}

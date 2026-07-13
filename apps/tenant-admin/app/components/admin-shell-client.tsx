@@ -411,7 +411,12 @@ function SidebarPlanSummary({
 }) {
   const t = useTranslations("shell");
   const planName = t("plan.label", { name: summary.planName ?? t("plan.unknown") });
-  const daysRemaining = summary.periodEnd ? formatDaysRemaining(summary.periodEnd, t) : t("plan.noEndDate");
+  const isExpired = ["expired", "canceled"].includes(summary.status?.trim().toLowerCase() ?? "");
+  const periodLabel = isExpired
+    ? t("plan.expired")
+    : summary.periodEnd
+      ? formatDaysRemaining(summary.periodEnd, t)
+      : t("plan.noEndDate");
 
   return (
     <SidebarMenu>
@@ -421,7 +426,7 @@ function SidebarPlanSummary({
             <BadgeCheck aria-hidden="true" />
             <span className="flex min-w-0 flex-col gap-0.5">
               <span className="truncate text-sm font-medium">{planName}</span>
-              <span className="truncate text-xs font-normal text-sidebar-foreground/60">{daysRemaining}</span>
+              <span className={cn("truncate text-xs font-normal", isExpired ? "text-warning" : "text-sidebar-foreground/60")}>{periodLabel}</span>
             </span>
           </Link>
         </SidebarMenuButton>

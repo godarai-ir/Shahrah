@@ -5,6 +5,21 @@
   "loading": "در حال بارگیری...",
   "requestError": "درخواست با خطا مواجه شد.",
   "usageGuide": "راهنمای استفاده",
+  "help": "راهنما",
   "none": "-",
-  "notSet": "تعریف نشده"
+  "notSet": "تعریف نشده",
+  "expirationDuration": {
+    "label": "زمان انقضا",
+    "examplesLabel": "نمونه‌های معتبر:",
+    "separator": "، ",
+    "thirtyMinutes": "سی دقیقه",
+    "twentyFourHours": "بیست‌وچهار ساعت",
+    "sevenDays": "هفت روز",
+    "thirtyDays": "سی روز"
+  },
+  "modelName": {
+    "copy": "کپی نام مدل",
+    "copying": "در حال کپی نام مدل",
+    "copied": "نام مدل کپی شد"
+  }
 }

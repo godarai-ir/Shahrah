@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Plus, ShieldCheck } from "lucide-react";
+import RoleCreateManagement from "@/app/components/roles-create-management";
 
 import { usePermissions } from "@/app/components/permissions-context";
 import {
@@ -37,6 +38,7 @@ type RoleDefinition = {
 type RolesPermissionsManagementProps = {
   initialRoles: RoleDefinition[];
   initialError: string | null;
+  initialPermissionCatalog: Array<{ key: string; group: string; description: string }>;
 };
 
 type RoleTypeFilter = "all" | "system" | "custom";
@@ -55,14 +57,13 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
     (permission) => permission.trim().toLowerCase() === "role:manage",
   );
 
-  const [roles] = useState<RoleDefinition[]>(
-    props.initialRoles.filter((role) => !hiddenRolesInUI.has(role.name)),
-  );
+  const roles = props.initialRoles.filter((role) => !hiddenRolesInUI.has(role.name));
   const [searchQuery, setSearchQuery] = useState("");
   const [roleType, setRoleType] = useState<RoleTypeFilter>("all");
   const [entitlements, setEntitlements] = useState<EffectiveEntitlements>(null);
   const [hasLoadedEntitlements, setHasLoadedEntitlements] = useState(false);
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
+  const [isCreateSheetOpen, setIsCreateSheetOpen] = useState(false);
 
   const numberFormatter = useMemo(() => new Intl.NumberFormat(locale), [locale]);
   const direction = locale.startsWith("fa") ? "rtl" : "ltr";
@@ -118,7 +119,7 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
       setIsUpgradeDialogOpen(true);
       return;
     }
-    router.push("/roles/new");
+    setIsCreateSheetOpen(true);
   }
 
   const createRoleAction = canManageRoles ? (
@@ -158,9 +159,9 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
           className="min-w-0 shadow-none"
           contentClassName="flex min-w-0 flex-col gap-4"
         >
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(10rem,12rem)] items-center gap-3">
             <SearchField
-              containerClassName="min-w-56 flex-1"
+              containerClassName="min-w-0"
               type="text"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
@@ -177,12 +178,12 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
                 { value: "custom", label: t("rolesPage.filters.custom") },
               ]}
               ariaLabel={t("rolesPage.filters.typeLabel")}
-              className="min-w-48 flex-1 sm:flex-none"
+              className="min-w-0"
               triggerClassName="h-10 w-full"
               dir={direction}
             />
             {hasActiveFilters ? (
-              <Button type="button" size="sm" variant="ghost" onClick={clearFilters}>
+              <Button type="button" size="sm" variant="ghost" className="col-span-2 justify-self-start" onClick={clearFilters}>
                 {t("rolesPage.filters.clear")}
               </Button>
             ) : null}
@@ -285,6 +286,11 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
         description={t("rolesPage.upgradeDialog.description")}
         cancelLabel={t("rolesPage.upgradeDialog.cancel")}
         actionLabel={t("rolesPage.upgradeDialog.action")}
+      />
+      <RoleCreateManagement
+        open={isCreateSheetOpen}
+        onOpenChange={setIsCreateSheetOpen}
+        initialPermissionCatalog={props.initialPermissionCatalog}
       />
     </PageContainer>
   );

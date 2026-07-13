@@ -48,7 +48,9 @@
     "title": "All Prompts",
     "description": "Browse saved prompts and load any version back into the playground.",
     "searchPlaceholder": "Search prompts",
+    "loadingRows": "Loading prompts",
     "emptyRows": "No rows",
+    "emptyDescription": "Create your first prompt, or read the guide to learn more.",
     "versionValue": "v{version}",
     "columns": {
       "name": "Name",

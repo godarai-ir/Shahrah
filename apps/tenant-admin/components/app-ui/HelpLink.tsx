@@ -24,7 +24,7 @@ export function HelpLink({ href, className, target = "_blank", rel, children, ..
       {...props}
     >
       <BookOpen className="size-3.5" aria-hidden="true" />
-      <span>{children ?? t("usageGuide")}</span>
+      <span>{children ?? t("help")}</span>
     </a>
   );
 }

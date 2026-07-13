@@ -5,6 +5,21 @@
   "loading": "Loading...",
   "requestError": "Request failed.",
   "usageGuide": "Usage guide",
+  "help": "Help",
   "none": "-",
-  "notSet": "Not set"
+  "notSet": "Not set",
+  "expirationDuration": {
+    "label": "Expires in",
+    "examplesLabel": "Valid examples:",
+    "separator": ", ",
+    "thirtyMinutes": "thirty minutes",
+    "twentyFourHours": "twenty-four hours",
+    "sevenDays": "seven days",
+    "thirtyDays": "thirty days"
+  },
+  "modelName": {
+    "copy": "Copy model name",
+    "copying": "Copying model name",
+    "copied": "Model name copied"
+  }
 }

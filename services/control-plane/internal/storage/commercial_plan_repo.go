@@ -405,8 +405,9 @@ func (s *Store) GetTenantSubscription(ctx context.Context, tenantID string) (*pl
 		FROM tenant_subscriptions ts
 		JOIN commercial_plans p ON p.plan_id = ts.plan_id
 		JOIN plan_versions pv ON pv.version_id = ts.version_id
-		WHERE ts.tenant_id = $1::uuid AND ts.status IN ('trialing', 'active', 'past_due')
-		ORDER BY ts.updated_at DESC
+		WHERE ts.tenant_id = $1::uuid
+		ORDER BY CASE WHEN ts.status IN ('trialing', 'active', 'past_due') THEN 0 ELSE 1 END,
+		         ts.updated_at DESC
 		LIMIT 1
 	`, tenantID)
 	if err != nil {
@@ -441,7 +442,7 @@ func (s *Store) ChangeTenantSubscription(ctx context.Context, tenantID string, r
 		return nil, currentErr
 	}
 
-	if current != nil {
+	if current != nil && subscriptionStatusIsCurrent(current.Status) {
 		var currentOrder, targetOrder int
 		if err := s.pool.QueryRow(ctx, `SELECT sort_order FROM commercial_plans WHERE plan_id = $1::uuid`, current.PlanID).Scan(&currentOrder); err != nil {
 			return nil, err
@@ -485,6 +486,15 @@ func (s *Store) ChangeTenantSubscription(ctx context.Context, tenantID string, r
 		Status:          "active",
 		Metadata:        req.Metadata,
 	}, "tenant")
+}
+
+func subscriptionStatusIsCurrent(status string) bool {
+	switch strings.TrimSpace(status) {
+	case "trialing", "active", "past_due":
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *Store) UpsertTenantSubscription(ctx context.Context, req platform.UpsertTenantSubscriptionRequest, actor string) (*platform.TenantSubscription, error) {

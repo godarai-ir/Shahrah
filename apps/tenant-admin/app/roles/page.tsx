@@ -2,6 +2,7 @@ import AdminShell from "@/app/components/admin-shell";
 import { getTranslations } from "next-intl/server";
 import RolesPermissionsManagement from "@/app/components/roles-permissions-management";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
+import { getCurrentMePermissions } from "@/lib/auth/me-permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 
@@ -21,6 +22,10 @@ type RoleListResponse = {
   data?: RoleDefinition[];
 };
 
+type MePermissionsResponse = {
+  catalog?: Array<{ key: string; group: string; description?: string }>;
+};
+
 export const dynamic = "force-dynamic";
 
 export default async function RolesPage() {
@@ -38,6 +43,11 @@ export default async function RolesPage() {
   const payload = (rolesResult.payload ?? {}) as RoleListResponse;
   const initialRoles = rolesResult.ok ? payload.data ?? [] : [];
   const initialError = rolesResult.ok ? null : rolesResult.errorMessage ?? "Request failed.";
+  const permissionsPayload = await getCurrentMePermissions(tenantSlug, auth.user.id) as MePermissionsResponse;
+  const initialPermissionCatalog = (permissionsPayload.catalog ?? []).map((item) => ({
+    ...item,
+    description: item.description ?? "",
+  }));
   const currentUser = {
     id: auth.user.id,
     email: auth.user.email,
@@ -54,6 +64,7 @@ export default async function RolesPage() {
       <RolesPermissionsManagement
         initialRoles={initialRoles}
         initialError={initialError}
+        initialPermissionCatalog={initialPermissionCatalog}
       />
     </AdminShell>
   );

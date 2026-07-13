@@ -6,14 +6,13 @@ import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 
 import { normalizeError, requestJSON } from "@/app/components/provider-account-wizard/utils";
-import { ConfirmDialog } from "@/components/app-ui";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ConfirmDialog, OperationNotice, PageContainer } from "@/components/app-ui";
 
 import { PromptRegistryList } from "./prompt-registry-list";
 import type { Notice, Prompt } from "./prompt-management-shared";
 import { usePromptRegistryList } from "./use-prompt-registry-list";
 
-export default function PromptRegistryListPage() {
+export default function PromptRegistryListPage({ docsHref = "/docs/quick-start#prompts" }: { docsHref?: string }) {
   const t = useTranslations("prompts");
   const locale = useLocale();
   const router = useRouter();
@@ -37,68 +36,63 @@ export default function PromptRegistryListPage() {
   const pageDir = locale === "fa" ? "rtl" : "ltr";
 
   return (
-    <div className="flex flex-col gap-5" dir={pageDir}>
-      <section className="flex flex-col gap-3 rounded-xl border bg-card p-4">
-        {errorMessage ? (
-          <Alert variant="destructive">
-            <AlertTitle>{t("notice.errorTitle")}</AlertTitle>
-            <AlertDescription>{errorMessage}</AlertDescription>
-          </Alert>
-        ) : null}
-        {notice ? (
-          <Alert variant={notice.kind === "error" ? "destructive" : "default"}>
-            <AlertTitle>{notice.kind === "error" ? t("notice.errorTitle") : t("notice.successTitle")}</AlertTitle>
-            <AlertDescription>{notice.message}</AlertDescription>
-          </Alert>
-        ) : null}
+    <PageContainer padding="none" spacing="compact" dir={pageDir}>
+      <OperationNotice
+        notice={errorMessage ? { kind: "error", message: errorMessage } : null}
+        labels={{ success: t("notice.successTitle"), error: t("notice.errorTitle"), warning: t("notice.errorTitle"), info: t("notice.successTitle") }}
+      />
+      <OperationNotice
+        notice={notice}
+        labels={{ success: t("notice.successTitle"), error: t("notice.errorTitle"), warning: t("notice.errorTitle"), info: t("notice.successTitle") }}
+      />
 
-        <PromptRegistryList
-          isLoading={isLoading}
-          locale={locale}
-          onCopyFqn={(prompt) => void copyFqn(prompt)}
-          onCreate={() => router.push("/prompts/new")}
-          onCreateVersion={(prompt) => router.push(`/prompts/${prompt.id}/edit?intent=create-version`)}
-          onDelete={setPendingDeletePrompt}
-          onEditLatestVersion={(prompt) => router.push(`/prompts/${prompt.id}/edit?intent=edit-latest`)}
-          onNextPage={() => {
-            const nextOffset = pageOffset + pageSize;
-            setPageOffset(nextOffset);
-            void loadPrompts(query, nextOffset, pageSize);
-          }}
-          onPreviousPage={() => {
-            const nextOffset = Math.max(pageOffset - pageSize, 0);
-            setPageOffset(nextOffset);
-            void loadPrompts(query, nextOffset, pageSize);
-          }}
-          onRefresh={() => {
+      <PromptRegistryList
+        docsHref={docsHref}
+        isLoading={isLoading}
+        locale={locale}
+        onCopyFqn={(prompt) => void copyFqn(prompt)}
+        onCreate={() => router.push("/prompts/new")}
+        onCreateVersion={(prompt) => router.push(`/prompts/${prompt.id}/edit?intent=create-version`)}
+        onDelete={setPendingDeletePrompt}
+        onEditLatestVersion={(prompt) => router.push(`/prompts/${prompt.id}/edit?intent=edit-latest`)}
+        onNextPage={() => {
+          const nextOffset = pageOffset + pageSize;
+          setPageOffset(nextOffset);
+          void loadPrompts(query, nextOffset, pageSize);
+        }}
+        onPreviousPage={() => {
+          const nextOffset = Math.max(pageOffset - pageSize, 0);
+          setPageOffset(nextOffset);
+          void loadPrompts(query, nextOffset, pageSize);
+        }}
+        onRefresh={() => {
+          setPageOffset(0);
+          void loadPrompts(query, 0, pageSize);
+        }}
+        onRowClick={(prompt) => router.push(`/prompts/${prompt.id}`)}
+        onRowsPerPageChange={(next) => {
+          setPageSize(next);
+          setPageOffset(0);
+          void loadPrompts(query, 0, next);
+        }}
+        onSearchKeyDown={(key) => {
+          if (key === "Enter") {
             setPageOffset(0);
             void loadPrompts(query, 0, pageSize);
-          }}
-          onRowClick={(prompt) => router.push(`/prompts/${prompt.id}`)}
-          onRowsPerPageChange={(next) => {
-            setPageSize(next);
-            setPageOffset(0);
-            void loadPrompts(query, 0, next);
-          }}
-          onSearchKeyDown={(key) => {
-            if (key === "Enter") {
-              setPageOffset(0);
-              void loadPrompts(query, 0, pageSize);
-            }
-          }}
-          onSearchValueChange={setQuery}
-          onTryPrompt={(prompt) => router.push(`/prompts/${prompt.id}/edit?intent=try`)}
-          pageOffset={pageOffset}
-          pageSize={pageSize}
-          promptTotal={promptTotal}
-          prompts={prompts}
-          query={query}
-          t={t}
-          userLabelByID={userLabelByID}
-        />
-        <ConfirmDialog open={pendingDeletePrompt !== null} onOpenChange={(open) => { if (!open) setPendingDeletePrompt(null); }} title={t("actions.delete")} description={t("messages.deletePromptConfirm", { name: pendingDeletePrompt?.name ?? "" })} cancelLabel={t("actions.cancel")} confirmLabel={t("actions.delete")} pendingLabel={t("actions.delete")} onConfirm={() => pendingDeletePrompt ? deletePrompt(pendingDeletePrompt) : undefined} />
-      </section>
-    </div>
+          }
+        }}
+        onSearchValueChange={setQuery}
+        onTryPrompt={(prompt) => router.push(`/prompts/${prompt.id}/edit?intent=try`)}
+        pageOffset={pageOffset}
+        pageSize={pageSize}
+        promptTotal={promptTotal}
+        prompts={prompts}
+        query={query}
+        t={t}
+        userLabelByID={userLabelByID}
+      />
+      <ConfirmDialog open={pendingDeletePrompt !== null} onOpenChange={(open) => { if (!open) setPendingDeletePrompt(null); }} title={t("actions.delete")} description={t("messages.deletePromptConfirm", { name: pendingDeletePrompt?.name ?? "" })} cancelLabel={t("actions.cancel")} confirmLabel={t("actions.delete")} pendingLabel={t("actions.delete")} onConfirm={() => pendingDeletePrompt ? deletePrompt(pendingDeletePrompt) : undefined} />
+    </PageContainer>
   );
 
   async function copyFqn(prompt: Prompt) {

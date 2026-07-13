@@ -93,9 +93,9 @@
     "mutate": "اصلاح محتوا"
   },
   "enforcement": {
-    "enforce": "اعمال سخت‌گیرانه",
-    "audit": "فقط پایش",
-    "enforce_ignore_error": "اعمال با عبور در خطا"
+    "enforce": "عدم عبور و لاگ",
+    "audit": "عبور همراه با نشانه‌گذاری",
+    "enforce_ignore_error": "عدم عبور - بدون لاگ"
   },
   "status": {
     "enabled": "فعال",

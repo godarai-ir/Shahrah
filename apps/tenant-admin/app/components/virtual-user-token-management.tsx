@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   KeyRound,
   Pencil,
@@ -12,7 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { AppCard, AppSelectField, AppTextField, CheckboxOptionList, CommercialPlanUpgradeDialog, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, FormSheet, IdentifierField, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, AppTextField, CheckboxOptionList, CommercialPlanUpgradeDialog, DateTimeValue, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, ExpirationDurationField, FormSheet, HelpLink, IdentifierField, ModelNameValue, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -22,7 +22,6 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { formatDateTime as formatSharedDateTime } from "@/lib/date-time";
 
 type VirtualUser = {
   id: string;
@@ -116,14 +115,17 @@ export default function VirtualUserTokenManagement({
   initialError,
   teams,
   orgUnits,
+  docsHref,
 }: {
   initialVirtualUsers: VirtualUser[];
   initialTotal: number;
   initialError: string | null;
   teams: Team[];
   orgUnits: OrgUnit[];
+  docsHref: string;
 }) {
   const t = useTranslations("virtualUsers");
+  const locale = useLocale();
   const [virtualUsers, setVirtualUsers] = useState(initialVirtualUsers);
   const [total, setTotal] = useState(initialTotal);
   const [query, setQuery] = useState("");
@@ -432,10 +434,13 @@ export default function VirtualUserTokenManagement({
         title={t("title")}
         description={t("description")}
         actions={
-          <Button type="button" onClick={openCreateVirtualUser} disabled={!hasLoadedEntitlements}>
-            <Plus data-icon="inline-start" />
-            {t("actions.createUser")}
-          </Button>
+          <>
+            <Button type="button" onClick={openCreateVirtualUser} disabled={!hasLoadedEntitlements}>
+              <Plus data-icon="inline-start" />
+              {t("actions.createUser")}
+            </Button>
+            <HelpLink href={docsHref} />
+          </>
         }
       />
 
@@ -634,9 +639,16 @@ export default function VirtualUserTokenManagement({
                         <TableRow key={token.id}>
                           <TableCell>{token.key_alias}</TableCell>
                           <TableCell className="font-mono text-xs">{token.key_name ?? "-"}</TableCell>
-                          <TableCell>{modelSummary(token.allowed_models ?? token.models ?? [], t)}</TableCell>
-                          <TableCell>{formatDate(token.last_used_at)}</TableCell>
-                          <TableCell>{formatDate(token.expires_at)}</TableCell>
+                          <TableCell>
+                            {(token.allowed_models ?? token.models ?? []).length > 0 ? (
+                              <ModelNameValue
+                                value={modelSummary(token.allowed_models ?? token.models ?? [], t)}
+                                copyValue={(token.allowed_models ?? token.models ?? []).join(",")}
+                              />
+                            ) : t("tokens.inheritsAll")}
+                          </TableCell>
+                          <TableCell><DateTimeValue value={token.last_used_at} locale={locale} format={{ dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Tehran" }} /></TableCell>
+                          <TableCell><DateTimeValue value={token.expires_at} locale={locale} format={{ dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Tehran" }} /></TableCell>
                           <TableCell>
                             <AppStatusBadge status={token.revoked_at || token.blocked ? "error" : "active"}>{token.revoked_at ? t("status.revoked") : token.blocked ? t("status.blocked") : t("status.active")}</AppStatusBadge>
                           </TableCell>
@@ -860,13 +872,12 @@ function TokenFormView({
   return (
     <form className="mt-6 flex flex-col gap-4" onSubmit={onSubmit}>
       <AppTextField id="vat-name" label={t("fields.tokenName")} value={form.keyAlias} onChange={(event) => update("keyAlias", event.target.value)} required />
-      <AppTextField
+      <ExpirationDurationField
         id="vat-expiry"
         label={t("fields.expiresIn")}
         value={form.expiresIn}
         onChange={(event) => update("expiresIn", event.target.value)}
         placeholder="30d"
-        description={t("createToken.expiryExamples")}
       />
       <CheckboxOptionList label={t("fields.allowedModels")} description={t("createToken.modelHint")} options={modelOptions.map((model) => ({ value: model.id, label: model.id, textDir: "ltr" }))} value={selectedModels} onValueChange={(nextModels) => update("allowedModels", nextModels.join(","))} emptyText={t("createToken.noModels")} />
       <Button type="submit" disabled={isSaving}>
@@ -914,13 +925,6 @@ function modelSummary(models: string[], t: ReturnType<typeof useTranslations>) {
 
 function modelsFromInput(value: string) {
   return value.split(",").map((item) => item.trim()).filter(Boolean);
-}
-
-function formatDate(input?: string) {
-  if (!input) return "-";
-  const date = new Date(input);
-  if (Number.isNaN(date.getTime())) return "-";
-  return formatSharedDateTime(date, { locale: "fa", format: { dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Tehran" } });
 }
 
 async function requestJSON<T = unknown>(path: string, options?: RequestInit): Promise<T> {
