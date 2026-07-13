@@ -12,6 +12,7 @@
   "actions": {
     "refresh": "Refresh",
     "new": "New Org Unit",
+    "cancel": "Cancel",
     "saving": "Saving...",
     "openMenu": "Open actions menu",
     "viewDetails": "View details",

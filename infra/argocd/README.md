@@ -10,7 +10,7 @@ For `shahrah-gitops`, the selected access method is:
 
 Why this was chosen:
 
-- the GitOps repo already uses SSH URLs such as `git@github.com:Delpak/shahrah-gitops.git`
+- the GitOps repo uses GitHub SSH over port 443: `ssh://git@ssh.github.com:443/Delpak/shahrah-gitops.git`
 - it avoids changing existing `Application` manifests to HTTPS
 - it keeps Argo CD access read-only and scoped to one repository
 - it is cleaner than reusing a personal SSH key
@@ -41,6 +41,7 @@ Current chosen egress workaround:
 - `squid` runs on `bastion` at `10.10.0.5:3128`
 - K3s nodes use that proxy for K3s/containerd image pulls
 - Argo CD deployments should also receive proxy environment variables if Git access needs the same egress path
+- GitHub SSH port 22 is blocked from this network; repository access uses `ssh.github.com:443` with the same deploy key
 
 ## Bootstrap sequence
 
@@ -79,7 +80,7 @@ Examples:
 ```bash
 kubectl -n argocd create secret generic repo-shahrah-gitops \
   --from-literal=type=git \
-  --from-literal=url=git@github.com:Delpak/shahrah-gitops.git \
+  --from-literal=url=ssh://git@ssh.github.com:443/Delpak/shahrah-gitops.git \
   --from-literal=project=shahrah \
   --from-file=sshPrivateKey=/path/to/argocd_shahrah_gitops \
   --dry-run=client -o yaml | \
