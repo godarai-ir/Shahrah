@@ -144,9 +144,11 @@ html[dir='rtl'] .footer__link-item svg {
 }
 
 .markdown :not(pre) > code {
-  unicode-bidi: isolate;
   direction: ltr;
+  unicode-bidi: isolate-override;
+  display: inline-block;
   text-align: left;
+  white-space: nowrap;
 }
 
 .theme-code-block,
