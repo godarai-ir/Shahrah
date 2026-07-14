@@ -462,6 +462,49 @@ class ProviderDetailResponse extends ProviderCatalogEntry {
   models!: ProviderDetailModel[];
 }
 
+class ProviderModelsListItem {
+  @ApiProperty()
+  canonicalId!: string;
+
+  @ApiProperty()
+  slug!: string;
+
+  @ApiProperty()
+  name!: string;
+
+  @ApiProperty({ type: () => [String] })
+  mode!: string[];
+
+  @ApiPropertyOptional()
+  contextWindow?: number | null;
+
+  @ApiPropertyOptional()
+  maxOutputTokens?: number | null;
+
+  @ApiProperty({ type: () => [String] })
+  inputModalities!: string[];
+
+  @ApiProperty({ type: () => [String] })
+  outputModalities!: string[];
+
+  @ApiProperty({ type: () => [String] })
+  supportedParameters!: string[];
+
+  @ApiProperty({ type: () => [String] })
+  capabilities!: string[];
+
+  @ApiPropertyOptional({ type: () => ModelPricingSnapshot })
+  pricing?: ModelPricingSnapshot | null;
+
+  @ApiProperty({ type: () => [String] })
+  regions!: string[];
+}
+
+class ProviderModelsListResponse {
+  @ApiProperty({ type: () => [ProviderModelsListItem] })
+  data!: ProviderModelsListItem[];
+}
+
 class AuditLogEntry {
   @ApiProperty()
   id!: string;
@@ -697,6 +740,15 @@ class OpenAPIProvidersController {
   @ApiOperation({ summary: 'List enabled providers in the discovery catalog.' })
   @ApiOkResponse({ type: [ProviderCatalogEntry] })
   list() {
+    return undefined;
+  }
+
+  @Get(':slug/models')
+  @ApiOperation({
+    summary: 'List enabled models for one enabled provider.',
+  })
+  @ApiOkResponse({ type: ProviderModelsListResponse })
+  listModels(@Param('slug') _slug: string) {
     return undefined;
   }
 

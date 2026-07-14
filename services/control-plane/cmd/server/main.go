@@ -298,6 +298,7 @@ func main() {
 	rerankHandler := proxy.NewRerankHandlerWithDependencies(baseProxyDeps)
 	imagesHandler := proxy.NewImagesHandlerWithDependencies(baseProxyDeps)
 	audioTranscriptionsHandler := proxy.NewAudioTranscriptionsHandlerWithDependencies(baseProxyDeps)
+	audioSpeechHandler := proxy.NewAudioSpeechHandlerWithDependencies(baseProxyDeps)
 	modelsHandler := proxy.NewModelsHandler(runtimeDeploymentStore)
 
 	traceCfg := tracing.LoadConfigFromEnv()
@@ -349,6 +350,7 @@ func main() {
 		RerankHandler:              rerankHandler,
 		ImagesHandler:              imagesHandler,
 		AudioTranscriptionsHandler: audioTranscriptionsHandler,
+		AudioSpeechHandler:         audioSpeechHandler,
 		ModelsHandler:              modelsHandler,
 		PoolStats:                  store,
 		HTTPMetrics:                httpMetrics,

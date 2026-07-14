@@ -49,6 +49,7 @@ type Dependencies struct {
 	RerankHandler              *proxy.RerankHandler
 	ImagesHandler              *proxy.ImagesHandler
 	AudioTranscriptionsHandler *proxy.AudioTranscriptionsHandler
+	AudioSpeechHandler         *proxy.AudioSpeechHandler
 	ModelsHandler              *proxy.ModelsHandler
 	PoolStats                  prommetrics.PoolStatsProvider
 	HTTPMetrics                *prommetrics.HTTPMetrics

@@ -24,7 +24,11 @@ export async function GET(request: Request, context: RouteContext) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  const baseURL = process.env.MODEL_DISCOVERY_API_BASE_INTERNAL || 'http://localhost:3002/api/v1';
+  const baseURL =
+    process.env.MODEL_DISCOVERY_API_BASE_INTERNAL ||
+    (process.env.NODE_ENV === 'production'
+      ? 'http://model-discovery:3002/api/v1'
+      : 'http://localhost:3002/api/v1');
   const incoming = new URL(request.url);
   const upstream = new URL(`${baseURL.replace(/\/$/, '')}/${path.map(encodeURIComponent).join('/')}`);
   upstream.search = incoming.search;

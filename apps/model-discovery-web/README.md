@@ -22,7 +22,7 @@ The development server uses `http://localhost:3002/api/v1` for server-side model
 
 Environment variables:
 
-- `MODEL_DISCOVERY_API_BASE_INTERNAL`: server-to-server API base; default `http://localhost:3002/api/v1`
+- `MODEL_DISCOVERY_API_BASE_INTERNAL`: server-to-server API base; defaults to `http://localhost:3002/api/v1` locally and `http://model-discovery:3002/api/v1` in production
 - `NEXT_PUBLIC_MODEL_DISCOVERY_API_BASE`: optional browser-visible API base; default `/catalog/api/v1`
 
 No model-discovery service-account credential belongs in this application.

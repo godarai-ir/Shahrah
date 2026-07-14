@@ -37,6 +37,7 @@ func TestModelDiscoveryOpenAPIContract_MatchesControlPlaneUsage(t *testing.T) {
 	assert.Contains(t, spec.OpenAPI, "3.")
 
 	assertOpenAPIOperationExists(t, spec, "/api/v1/providers", "get")
+	assertOpenAPIOperationExists(t, spec, "/api/v1/providers/{slug}/models", "get")
 	assertOpenAPIOperationExists(t, spec, "/api/v1/models", "get")
 	assertOpenAPIOperationExists(t, spec, "/api/v1/settings/display", "get")
 

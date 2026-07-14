@@ -35,6 +35,11 @@ export class ProvidersController {
     return this.providers.list();
   }
 
+  @Get(':slug/models')
+  listModels(@Param('slug') slug: string) {
+    return this.providers.listModels(slug);
+  }
+
   @Get(':slug')
   detail(@Param('slug') slug: string) {
     return this.providers.detail(slug);

@@ -630,6 +630,51 @@ func summarizeAudioUsageTrace(usage map[string]interface{}) map[string]interface
 	return out
 }
 
+func buildTraceAudioSpeechRequestPayload(_ []byte, contentType string, metadata map[string]interface{}) map[string]interface{} {
+	out := map[string]interface{}{
+		"operation":    "speech",
+		"content_type": safeContentTypeFamily(contentType),
+	}
+	for k, v := range metadata {
+		switch k {
+		case "tenant_slug", "provider_endpoint_path", "billing_mode":
+			continue
+		default:
+			out[k] = v
+		}
+	}
+
+	return out
+}
+
+func buildTraceAudioSpeechResponsePayload(body []byte, headers map[string]string) map[string]interface{} {
+	out := map[string]interface{}{}
+	if contentType := responseContentType(headers); contentType != "" {
+		out["content_type"] = safeContentTypeFamily(contentType)
+	}
+	if len(body) == 0 {
+		return out
+	}
+
+	var raw map[string]interface{}
+	if err := json.Unmarshal(body, &raw); err == nil {
+		if usage, ok := raw["usage"].(map[string]interface{}); ok {
+			out["usage"] = summarizeAudioUsageTrace(usage)
+		}
+		if eventType, ok := raw["type"].(string); ok && strings.TrimSpace(eventType) != "" {
+			out["event_type"] = strings.TrimSpace(eventType)
+		}
+		if text, ok := raw["text"].(string); ok {
+			out["text_length"] = len(text)
+			out["text_hash"] = hashTracePreview(text)
+		}
+	}
+
+	out["body_bytes"] = len(body)
+	out["body_hash"] = hashTracePreview(string(body))
+	return out
+}
+
 func safeContentTypeFamily(contentType string) string {
 	ct := strings.ToLower(strings.TrimSpace(contentType))
 	switch {

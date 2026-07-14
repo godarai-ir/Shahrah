@@ -2,7 +2,10 @@ const PUBLIC_API_BASE =
   process.env.NEXT_PUBLIC_MODEL_DISCOVERY_API_BASE ||
   '/catalog/api/v1';
 const INTERNAL_API_BASE =
-  process.env.MODEL_DISCOVERY_API_BASE_INTERNAL || 'http://localhost:3002/api/v1';
+  process.env.MODEL_DISCOVERY_API_BASE_INTERNAL ||
+  (process.env.NODE_ENV === 'production'
+    ? 'http://model-discovery:3002/api/v1'
+    : 'http://localhost:3002/api/v1');
 
 export const API_BASE =
   typeof window === 'undefined' ? INTERNAL_API_BASE : PUBLIC_API_BASE;

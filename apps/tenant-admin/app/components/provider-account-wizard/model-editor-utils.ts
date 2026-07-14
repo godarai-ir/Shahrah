@@ -1,5 +1,10 @@
 import type { ProviderCatalogModel } from "./types";
-import { getModelCapabilities, getModelDiscoveryCatalogBaseURL, toNumberOrUndefined } from "./utils";
+import {
+  getModelCapabilities,
+  getModelDiscoveryCatalogBaseURL,
+  normalizeModelDiscoveryCatalogBaseURL,
+  toNumberOrUndefined,
+} from "./utils";
 
 export type ModelFilterState = {
   search: string;
@@ -194,7 +199,9 @@ export function normalizeProviderScopedModelName(provider: string, modelName: st
 }
 
 export function buildModelDiscoveryDetailsHref(model: ProviderCatalogModel): string {
-  const base = process.env.NEXT_PUBLIC_MODEL_DISCOVERY_APP_URL?.replace(/\/$/, "") ?? getModelDiscoveryCatalogBaseURL();
+  const base = process.env.NEXT_PUBLIC_MODEL_DISCOVERY_APP_URL
+    ? normalizeModelDiscoveryCatalogBaseURL(process.env.NEXT_PUBLIC_MODEL_DISCOVERY_APP_URL)
+    : getModelDiscoveryCatalogBaseURL();
   const provider = encodeURIComponent(model.provider);
   const canonical = model.model.startsWith(`${model.provider}/`)
     ? model.model.slice(model.provider.length + 1)

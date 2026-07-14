@@ -26,6 +26,37 @@
         ]
       }
     },
+    "/api/v1/providers/{slug}/models": {
+      "get": {
+        "operationId": "OpenAPIProvidersController_listModels_v1",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderModelsListResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List enabled models for one enabled provider.",
+        "tags": [
+          "providers"
+        ]
+      }
+    },
     "/api/v1/providers/{slug}": {
       "get": {
         "operationId": "OpenAPIProvidersController_detail_v1",
@@ -1387,6 +1418,90 @@
             "$ref": "#/components/schemas/FacetOption"
           }
         }
+      },
+      "ProviderModelsListItem": {
+        "type": "object",
+        "properties": {
+          "canonicalId": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "contextWindow": {
+            "type": "object"
+          },
+          "maxOutputTokens": {
+            "type": "object"
+          },
+          "inputModalities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outputModalities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "supportedParameters": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pricing": {
+            "$ref": "#/components/schemas/ModelPricingSnapshot"
+          },
+          "regions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "canonicalId",
+          "slug",
+          "name",
+          "mode",
+          "inputModalities",
+          "outputModalities",
+          "supportedParameters",
+          "capabilities",
+          "regions"
+        ]
+      },
+      "ProviderModelsListResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProviderModelsListItem"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
       },
       "CapabilityLink": {
         "type": "object",

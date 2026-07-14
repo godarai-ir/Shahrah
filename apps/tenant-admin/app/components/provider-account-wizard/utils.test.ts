@@ -9,6 +9,7 @@ import {
   getModelDiscoveryCatalogBaseURLForOrigin,
   getPublicSiteOrigin,
   getTenantApiBaseURLForOrigin,
+  normalizeModelDiscoveryCatalogBaseURL,
   resolveCurlGuideMode,
 } from "./utils";
 
@@ -187,7 +188,12 @@ describe("provider account curl guide helpers", () => {
   it("builds public catalog origins on the root site instead of tenant subdomains", () => {
     expect(getPublicSiteOrigin("https://delpak.godarai.ir")).toBe("https://godarai.ir");
     expect(getPublicSiteOrigin("http://tenant1.localhost:3000")).toBe("http://localhost");
-    expect(getModelDiscoveryCatalogBaseURLForOrigin("https://delpak.godarai.ir")).toBe("https://catalog.godarai.ir");
+    expect(getModelDiscoveryCatalogBaseURLForOrigin("https://delpak.godarai.ir")).toBe("https://godarai.ir/catalog");
     expect(getModelDiscoveryCatalogBaseURLForOrigin("http://tenant1.localhost:3000")).toBe("http://localhost:3003");
+  });
+
+  it("normalizes the legacy catalog subdomain to the root catalog path", () => {
+    expect(normalizeModelDiscoveryCatalogBaseURL("https://catalog.godarai.ir/")).toBe("https://godarai.ir/catalog");
+    expect(normalizeModelDiscoveryCatalogBaseURL("https://godarai.ir/catalog/")).toBe("https://godarai.ir/catalog");
   });
 });

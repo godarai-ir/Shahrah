@@ -55,6 +55,51 @@ export class ProvidersService {
     });
   }
 
+  async listModels(slug: string) {
+    const rows = await this.prisma.model.findMany({
+      where: { enabled: true, provider: { slug, enabled: true } },
+      include: {
+        pricing: { take: 1, orderBy: { effectiveFrom: 'desc' } },
+        inputModalities: { include: { modality: true } },
+        outputModalities: { include: { modality: true } },
+        supportedParams: { include: { supportedParameter: true } },
+        capabilities: { include: { capability: true } },
+        regions: { include: { region: true } },
+      },
+      orderBy: [{ releaseDate: 'desc' }, { createdAt: 'desc' }],
+    });
+
+    return {
+      data: rows.map((row) => ({
+        canonicalId: row.canonicalId,
+        slug: row.slug,
+        name: row.displayName,
+        mode: row.mode,
+        contextWindow: row.contextWindow,
+        maxOutputTokens: row.maxOutputTokens,
+        inputModalities: row.inputModalities.map((item) => item.modality.slug),
+        outputModalities: row.outputModalities.map(
+          (item) => item.modality.slug,
+        ),
+        supportedParameters: row.supportedParams.map(
+          (item) => item.supportedParameter.slug,
+        ),
+        capabilities: row.capabilities.map((item) => item.capability.slug),
+        pricing: row.pricing[0]
+          ? {
+              currency: row.pricing[0].currency,
+              inputPerMillionTokens: row.pricing[0].inputPricePerMillionTokens,
+              outputPerMillionTokens:
+                row.pricing[0].outputPricePerMillionTokens,
+              cachedInputPerMillionTokens:
+                row.pricing[0].cachedInputPricePerMillionTokens,
+            }
+          : null,
+        regions: row.regions.map((item) => item.region.slug),
+      })),
+    };
+  }
+
   async upsert(dto: UpsertProviderDto, principal: ServicePrincipal) {
     const provider = await this.prisma.$transaction(async (tx) => {
       const before = await tx.provider.findUnique({

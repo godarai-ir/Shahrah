@@ -74,6 +74,12 @@ The current contract test reads:
 
 - [services/control-plane/internal/admin/provider_catalog_openapi_contract_test.go](/D:/source/Shahrah/services/control-plane/internal/admin/provider_catalog_openapi_contract_test.go)
 
+Provider onboarding uses:
+
+- `GET /api/v1/providers`
+- `GET /api/v1/providers/{slug}/models`
+- `GET /api/v1/models?provider=...` as a paginated compatibility fallback
+
 Rules for future changes:
 
 1. `control-plane` must treat the exported OpenAPI artifact as the canonical review input.

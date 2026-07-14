@@ -386,8 +386,28 @@ export function getModelDiscoveryCatalogBaseURLForOrigin(origin: string): string
     publicOrigin.port = "3003";
     return publicOrigin.origin;
   }
-  publicOrigin.hostname = `catalog.${publicOrigin.hostname}`;
-  return publicOrigin.origin;
+  return `${publicOrigin.origin}/catalog`;
+}
+
+export function normalizeModelDiscoveryCatalogBaseURL(value: string): string {
+  const trimmed = value.trim().replace(/\/+$/, "");
+  if (!trimmed) return trimmed;
+  try {
+    const url = new URL(trimmed);
+    const hostname = url.hostname.toLowerCase();
+    if (hostname.startsWith("catalog.") && !isLocalHostname(hostname)) {
+      url.hostname = hostname.slice("catalog.".length);
+      if (url.pathname === "/" || url.pathname === "") {
+        url.pathname = "/catalog";
+      }
+      url.search = "";
+      url.hash = "";
+      return url.toString().replace(/\/+$/, "");
+    }
+  } catch {
+    return trimmed;
+  }
+  return trimmed;
 }
 
 export function getTenantApiBaseURL(): string {

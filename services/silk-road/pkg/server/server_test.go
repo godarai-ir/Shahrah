@@ -543,6 +543,66 @@ func TestDispatchOpenAICompatibleForwardsAudioTranscriptionsMultipart(t *testing
 	}
 }
 
+func TestDispatchOpenAICompatibleForwardsAudioSpeechJSON(t *testing.T) {
+	t.Parallel()
+
+	var gotAuth string
+	var gotContentType string
+	var gotPath string
+	var gotBody string
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		gotContentType = r.Header.Get("Content-Type")
+		gotPath = r.URL.Path
+		defer r.Body.Close()
+		bodyBytes, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read body: %v", err)
+		}
+		gotBody = string(bodyBytes)
+
+		w.Header().Set("Content-Type", "audio/mpeg")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("mp3"))
+	}))
+	defer upstream.Close()
+
+	handler := NewHandler(nil)
+	payload := platform.TunnelRequest{
+		Deployment: platform.Deployment{Provider: "openai", APIBase: upstream.URL, APIKey: "provider-secret"},
+		Headers:    map[string]string{"Content-Type": "application/json"},
+		RequestMetadata: map[string]interface{}{
+			"provider_endpoint_path": "/audio/speech",
+		},
+		Body: []byte(`{"model":"gpt-4o-mini-tts","input":"hello","voice":"alloy"}`),
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	if gotPath != "/audio/speech" {
+		t.Fatalf("expected audio speech path, got %q", gotPath)
+	}
+	if gotContentType != "application/json" {
+		t.Fatalf("unexpected content type: %q", gotContentType)
+	}
+	if gotAuth != "Bearer provider-secret" {
+		t.Fatalf("unexpected Authorization header: %q", gotAuth)
+	}
+	if !strings.Contains(gotBody, `"model":"gpt-4o-mini-tts"`) || !strings.Contains(gotBody, `"voice":"alloy"`) {
+		t.Fatalf("unexpected forwarded body: %s", gotBody)
+	}
+}
+
 func TestDispatchUsesAnthropicAdapterForSync(t *testing.T) {
 	t.Parallel()
 
