@@ -1,4 +1,52 @@
-@import url('https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@5.2.8/index.css');
+@font-face {
+  font-family: 'Vazir';
+  src:
+    url('./fonts/vazir/Vazir-Thin.woff2') format('woff2'),
+    url('./fonts/vazir/Vazir-Thin.woff') format('woff');
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Vazir';
+  src:
+    url('./fonts/vazir/Vazir-Light.woff2') format('woff2'),
+    url('./fonts/vazir/Vazir-Light.woff') format('woff');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Vazir';
+  src:
+    url('./fonts/vazir/Vazir.woff2') format('woff2'),
+    url('./fonts/vazir/Vazir.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Vazir';
+  src:
+    url('./fonts/vazir/Vazir-Medium.woff2') format('woff2'),
+    url('./fonts/vazir/Vazir-Medium.woff') format('woff');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Vazir';
+  src:
+    url('./fonts/vazir/Vazir-Bold.woff2') format('woff2'),
+    url('./fonts/vazir/Vazir-Bold.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
 
 /**
  * Any CSS included here will be global. The classic template
@@ -16,8 +64,8 @@
   --ifm-color-primary-lighter: #13877d;
   --ifm-color-primary-lightest: #16998d;
   --ifm-code-font-size: 95%;
-  --ifm-font-family-base: 'Vazirmatn', 'IRANSansX', 'IRANSans', 'Yekan Bakh', Tahoma, system-ui, sans-serif;
-  --ifm-heading-font-family: 'Vazirmatn', 'IRANSansX', 'IRANSans', 'Yekan Bakh', Tahoma, system-ui, sans-serif;
+  --ifm-font-family-base: 'Vazir', 'IRANSansX', 'IRANSans', 'Yekan Bakh', Tahoma, system-ui, sans-serif;
+  --ifm-heading-font-family: 'Vazir', 'IRANSansX', 'IRANSans', 'Yekan Bakh', Tahoma, system-ui, sans-serif;
   --ifm-font-family-monospace: 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
 }
