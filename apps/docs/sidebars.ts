@@ -114,7 +114,10 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'مشاهده‌پذیری و پایش',
       items: [
+        'observability-overview',
         'observability-logs',
+        'observability-traces',
+        'observability-model-metrics',
         'observability-logs-export',
         'observability-opentelemetry',
       ],

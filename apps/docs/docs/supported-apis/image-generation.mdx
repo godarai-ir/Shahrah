@@ -39,12 +39,11 @@ response = client.images.generate(
     model="openai:default:gpt-image-1",
     prompt="یک تصویر مینیمال از داشبورد هوش مصنوعی سازمانی با رنگ‌های آرام و فضای حرفه‌ای",
     size="1024x1024",
-    quality="standard",
+    quality="medium",
     n=1,
-    response_format="url",
 )
 
-print(response.data[0].url)
+print(response.data[0].b64_json[:48])
 ```
 
 :::tip
@@ -79,41 +78,58 @@ print(response.data[0].url)
 | `n` | تعداد تصویرهای خروجی. |
 | `size` | اندازه تصویر، مثل `1024x1024`. |
 | `quality` | سطح کیفیت، اگر مدل پشتیبانی کند. |
-| `response_format` | فرمت خروجی؛ معمولاً `url` یا `b64_json`. |
+| `response_format` | فرمت خروجی در مدل‌هایی که از آن پشتیبانی می‌کنند؛ برای مدل‌های قدیمی‌تر معمولاً `url` یا `b64_json`. |
+| `output_format` | فرمت فایل خروجی در مدل‌های GPT Image، مثل `png`، `jpeg` یا `webp`. |
+| `output_compression` | فشرده‌سازی خروجی برای `jpeg` یا `webp`، اگر مدل پشتیبانی کند. |
+| `moderation` | سطح پالایش محتوای تصویر در مدل‌هایی که این فیلد را می‌پذیرند. |
 
 :::warning
-پشتیبانی دقیق `size`، `quality` و `response_format` به مدل و ارائه‌دهنده انتخابی بستگی دارد. قبل از استفاده گسترده، همین پارامترها را با مدل مجاز فضای کاری خود آزمایش کنید.
+پشتیبانی دقیق `size`، `quality`، `response_format`، `output_format` و `moderation` به مدل و ارائه‌دهنده انتخابی بستگی دارد. مدل‌های GPT Image معمولاً داده تصویر را در `b64_json` برمی‌گردانند؛ URL خروجی برای همه مدل‌ها در دسترس نیست.
 :::
 
 ## خروجی
 
-پاسخ می‌تواند نشانی تصویر یا داده base64 برگرداند:
+پاسخ در مدل‌های GPT Image معمولاً داده base64 برمی‌گرداند:
 
 ```json
 {
   "created": 1720000000,
   "data": [
     {
-      "url": "https://YOUR_WORKSPACE.godarai.ir/assets/generated-image.png",
+      "b64_json": "iVBORw0KGgo...",
       "revised_prompt": "..."
     }
-  ]
+  ],
+  "usage": {
+    "input_tokens": 24,
+    "output_tokens": 1056,
+    "total_tokens": 1080
+  }
 }
 ```
 
-یا:
+در بعضی ارائه‌دهنده‌ها یا مدل‌های قدیمی‌تر، خروجی می‌تواند نشانی تصویر باشد:
 
 ```json
 {
+  "created": 1720000000,
   "data": [
     {
-      "b64_json": "iVBORw0KGgo..."
+      "url": "https://YOUR_WORKSPACE.godarai.ir/assets/generated-image.png"
     }
   ]
 }
 ```
 
-اگر `b64_json` می‌گیرید، اپلیکیشن شما باید آن را به فایل تبدیل و در storage مناسب ذخیره کند.
+اگر `b64_json` می‌گیرید، اپلیکیشن شما باید آن را به فایل تبدیل و در storage مناسب ذخیره کند. نمونه ساده:
+
+```python
+import base64
+
+image_bytes = base64.b64decode(response.data[0].b64_json)
+with open("generated.png", "wb") as file:
+    file.write(image_bytes)
+```
 
 ## پرامپت خوب برای تصویر
 
@@ -137,8 +153,10 @@ print(response.data[0].url)
 
 - تعداد تصویرهای خروجی را کنترل کنید.
 - اندازه و کیفیت را فقط تا حد نیاز بالا ببرید.
-- هزینه را از سرآیندهای پاسخ، گزارش رخدادها و سنجه‌ها بررسی کنید.
+- هزینه را از سرآیندهای پاسخ، گزارش رخدادها، سنجه‌ها و `usage` برگشتی مدل بررسی کنید.
 - برای مسیرهای پرترافیک، سقف بودجه و سقف نرخ جداگانه تعریف کنید.
+
+گدارAI پیش از ارسال درخواست یک تخمین محافظه‌کارانه از مصرف تصویر ثبت می‌کند و اگر ارائه‌دهنده در پاسخ `usage` برگرداند، مصرف نهایی را بر اساس همان داده ثبت می‌کند.
 
 ## حریم خصوصی
 
@@ -149,6 +167,7 @@ print(response.data[0].url)
 | نشانه | علت محتمل | راه‌حل |
 | --- | --- | --- |
 | `model is required` | فیلد `model` ارسال نشده است. | شناسه مدل مجاز یا مدل مجازی را وارد کنید. |
+| `prompt is required` | فیلد `prompt` خالی است یا ارسال نشده است. | توضیح متنی تصویر را در `prompt` بفرستید. |
 | `Model access denied or unsupported for image generation` | مدل برای تصویر مجاز نیست. | مدل نوع `image_generation` انتخاب کنید. |
 | `No available deployment for model: ...` | مقصد فعالی برای مدل پیدا نشده است. | تنظیمات مدل مجازی یا حساب ارائه‌دهنده را بررسی کنید. |
 | خطای ارائه‌دهنده درباره `size` یا `quality` | پارامتر با مدل سازگار نیست. | مقدار پارامتر را با مدل فعال هماهنگ کنید. |

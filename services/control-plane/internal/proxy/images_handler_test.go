@@ -79,12 +79,12 @@ func TestImagesHandlerJSONGeneration(t *testing.T) {
 	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
 		StatusCode: fiber.StatusOK,
 		Headers:    map[string]string{"content-type": "application/json"},
-		Body:       []byte(`{"created":1,"data":[{"url":"https://cdn.example/image.png","revised_prompt":"safe","mime_type":"image/png"}],"usage":{"cost_in_usd_ticks":12345}}`),
+		Body:       []byte(`{"created":1,"data":[{"b64_json":"AAAA","revised_prompt":"safe","mime_type":"image/png"}],"usage":{"input_tokens":12,"output_tokens":272,"total_tokens":284,"cost_in_usd_ticks":12345}}`),
 	}}
 	logs := &testLogs{}
 	app, _ := newImagesTestApp(t, "openai:acct:gpt-image-1", "openai", "gpt-image-1", tunnel, logs, nil)
 
-	req := httptest.NewRequest("POST", "/v1/images/generations", bytes.NewBufferString(`{"model":"openai:acct:gpt-image-1","prompt":"paint a bridge","n":2,"size":"1024x1024","quality":"high","response_format":"url"}`))
+	req := httptest.NewRequest("POST", "/v1/images/generations", bytes.NewBufferString(`{"model":"openai:acct:gpt-image-1","prompt":"paint a bridge","n":2,"size":"1024x1024","quality":"high"}`))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
@@ -99,7 +99,28 @@ func TestImagesHandlerJSONGeneration(t *testing.T) {
 	require.NoError(t, json.Unmarshal(tunnel.lastReq.Body, &outbound))
 	assert.Equal(t, "gpt-image-1", outbound["model"])
 	require.Len(t, logs.loggedSpends, 1)
+	assert.Equal(t, 12, logs.loggedSpends[0].InputTokens)
+	assert.Equal(t, 272, logs.loggedSpends[0].OutputTokens)
+	assert.Equal(t, 284, logs.loggedSpends[0].TotalTokens)
 	assert.Equal(t, int64(12345), logs.loggedSpends[0].RequestMetadata["provider_cost_in_usd_ticks"])
+}
+
+func TestImagesHandlerGenerationRequiresPrompt(t *testing.T) {
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{StatusCode: fiber.StatusOK, Headers: map[string]string{"content-type": "application/json"}, Body: []byte(`{}`)}}
+	app, _ := newImagesTestApp(t, "gpt-image-1", "openai", "gpt-image-1", tunnel, nil, nil)
+
+	req := httptest.NewRequest("POST", "/v1/images/generations", bytes.NewBufferString(`{"model":"gpt-image-1"}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Contains(t, string(bodyBytes), `"param":"prompt"`)
 }
 
 func TestImagesHandlerJSONEdit(t *testing.T) {
