@@ -16,6 +16,10 @@ POST /v1/images/variations
 Variation یعنی ساخت نسخه‌های تازه از تصویر مرجع. اگر هدف شما تغییر مشخص یک بخش تصویر است، [Image Edit](/supported-apis/image-edit) دقیق‌تر است.
 :::
 
+:::warning
+در OpenAI، مسیر `POST /v1/images/variations` فقط با `dall-e-2` پشتیبانی می‌شود. برای مدل‌های GPT Image مثل `gpt-image-1` یا `gpt-image-1.5`، از [Image Edit](/supported-apis/image-edit) یا تولید تصویر با تصویر مرجع استفاده کنید.
+:::
+
 ## چه زمانی استفاده کنیم؟
 
 از `Image Variation` استفاده کنید وقتی می‌خواهید:
@@ -40,7 +44,7 @@ with open("reference.png", "rb") as image:
         "https://YOUR_WORKSPACE.godarai.ir/v1/images/variations",
         headers={"Authorization": "Bearer YOUR_GODARAI_TOKEN"},
         data={
-            "model": "openai:default:gpt-image-1",
+            "model": "openai:default:dall-e-2",
             "n": "2",
             "size": "1024x1024",
             "response_format": "url",
@@ -55,7 +59,7 @@ for item in response.json()["data"]:
     nodejs: `import { readFile } from "node:fs/promises";
 
 const form = new FormData();
-form.append("model", "openai:default:gpt-image-1");
+form.append("model", "openai:default:dall-e-2");
 form.append("n", "2");
 form.append("size", "1024x1024");
 form.append("response_format", "url");
@@ -83,7 +87,7 @@ for (const item of variations.data) {
 }`,
     rest: `curl --request POST "https://YOUR_WORKSPACE.godarai.ir/v1/images/variations" \
   --header "Authorization: Bearer YOUR_GODARAI_TOKEN" \
-  --form "model=openai:default:gpt-image-1" \
+  --form "model=openai:default:dall-e-2" \
   --form "n=2" \
   --form "size=1024x1024" \
   --form "response_format=url" \
@@ -97,7 +101,7 @@ client = OpenAI(
 
 with open("reference.png", "rb") as image:
     response = client.images.create_variation(
-        model="openai:default:gpt-image-1",
+        model="openai:default:dall-e-2",
         image=image,
         n=2,
         size="1024x1024",
@@ -115,7 +119,7 @@ const client = new OpenAI({
 });
 
 const response = await client.images.createVariation({
-  model: "openai:default:gpt-image-1",
+  model: "openai:default:dall-e-2",
   image: new File([await readFile("reference.png")], "reference.png", { type: "image/png" }),
   n: 2,
   size: "1024x1024",
@@ -129,6 +133,8 @@ for (const item of response.data) {
 />
 
 در بیشتر سناریوها، ارسال فایل با `multipart/form-data` برای Variation طبیعی‌تر از ارسال JSON است.
+
+برای OpenAI، تصویر مرجع باید فایل PNG معتبر، مربع و کمتر از ۴MB باشد. اگر تصویر شما JPEG، مستطیلی یا بزرگ‌تر است، پیش از ارسال آن را آماده کنید.
 
 :::tip
 برای انتخاب خروجی بهتر، `n` را در مرحله آزمایش کمی بالاتر بگیرید و بعد از رسیدن به سبک مناسب، در محیط عملیاتی تعداد خروجی را کاهش دهید تا هزینه کنترل شود.
@@ -144,25 +150,10 @@ for (const item of response.data) {
 | `image` | تصویر مرجع برای ساخت نسخه‌های جدید. |
 | `n` | تعداد نسخه‌های خروجی. |
 | `size` | اندازه خروجی، اگر مدل پشتیبانی کند. |
-| `response_format` | فرمت پاسخ؛ مثل `url` یا `b64_json`. |
-
-نمونه JSON مفهومی، اگر مدل و ارائه‌دهنده پشتیبانی کنند:
-
-```json
-{
-  "model": "openai:default:gpt-image-1",
-  "image": {
-    "type": "image_url",
-    "url": "https://YOUR_WORKSPACE.godarai.ir/assets/reference.png"
-  },
-  "n": 2,
-  "size": "1024x1024",
-  "response_format": "url"
-}
-```
+| `response_format` | فرمت پاسخ در مدل‌هایی که پشتیبانی می‌کنند؛ برای `dall-e-2` می‌تواند `url` یا `b64_json` باشد. |
 
 :::warning
-همه مدل‌ها شکل JSON برای تصویر مرجع را نمی‌پذیرند. اگر فایل واقعی دارید، مسیر `multipart/form-data` معمولاً قابل اتکاتر است.
+OpenAI برای Variation تصویر مرجع را به‌صورت فایل در `multipart/form-data` می‌پذیرد. شکل JSON برای تصویر مرجع به ارائه‌دهنده و مدل بستگی دارد و نباید برای مسیر OpenAI فرض شود.
 :::
 
 ## خروجی
@@ -181,7 +172,7 @@ for (const item of response.data) {
 }
 ```
 
-در بعضی مدل‌ها خروجی می‌تواند `b64_json` باشد. اپلیکیشن خود را طوری بنویسید که فرمت خروجی مجاز در محیطتان را درست ذخیره کند.
+اگر `response_format` را `b64_json` بفرستید، خروجی می‌تواند داده base64 باشد. اگر URL می‌گیرید، آن را برای نگهداری بلندمدت به storage خود منتقل کنید؛ URLهای ارائه‌دهنده معمولاً برای دسترسی دائمی طراحی نشده‌اند.
 
 ## تفاوت Variation با Edit
 
@@ -205,7 +196,7 @@ for (const item of response.data) {
 
 ## هزینه و پایش
 
-هر مقدار بالاتر `n` معمولاً یعنی خروجی بیشتر، زمان بیشتر و هزینه بیشتر. پس برای جریان‌های پرترافیک:
+هر مقدار بالاتر `n` معمولاً یعنی خروجی بیشتر، زمان بیشتر و هزینه بیشتر. گدارAI در تخمین اولیه تعداد خروجی و تصویر ورودی را لحاظ می‌کند و اگر ارائه‌دهنده در پاسخ `usage` یا هزینه دقیق برگرداند، مصرف نهایی را با همان داده ثبت می‌کند. پس برای جریان‌های پرترافیک:
 
 - تعداد خروجی را محدود کنید.
 - خروجی‌های انتخاب‌نشده را طولانی‌مدت نگه ندارید.
@@ -216,9 +207,11 @@ for (const item of response.data) {
 | نشانه | علت محتمل | راه‌حل |
 | --- | --- | --- |
 | `model is required` | شناسه مدل ارسال نشده است. | مدل تصویری مجاز را وارد کنید. |
+| `image is required` | تصویر مرجع ارسال نشده است. | تصویر را در `multipart/form-data` با فیلد `image` بفرستید. |
+| خطای مدل درباره `dall-e-2` | در OpenAI، `images/variations` فقط `dall-e-2` را می‌پذیرد. | برای Variation از `openai:default:dall-e-2` استفاده کنید یا برای GPT Image به `Image Edit` بروید. |
 | درخواست با خطای دسترسی رد می‌شود | مدل برای نوع تصویر مجاز نیست. | مدل نوع `image_generation` انتخاب کنید. |
 | خروجی خیلی از تصویر مرجع دور است | مدل یا تنظیمات Variation کنترل کافی ندارد. | مدل دیگری آزمایش کنید یا اگر تغییر دقیق می‌خواهید از `Image Edit` استفاده کنید. |
-| خطای فایل | فرمت، اندازه یا روش ارسال فایل سازگار نیست. | فایل کوچک‌تر و فرمت رایج‌تر مثل PNG یا JPEG آزمایش کنید. |
+| خطای فایل | فرمت، اندازه یا روش ارسال فایل سازگار نیست. | برای OpenAI فایل PNG مربع و کمتر از ۴MB بفرستید. |
 
 ## جمع‌بندی
 

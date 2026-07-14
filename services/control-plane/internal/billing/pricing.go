@@ -70,6 +70,12 @@ var PricingRegistry = map[string]ModelPricing{
 		Provider: "openai", Model: "gpt-image-1",
 		InputPrice: 5.00, OutputPrice: 40.00, Currency: "USD",
 	},
+	// Legacy DALL-E 2 variations are priced per generated image. The image
+	// handler maps each output image to token-equivalent units by size.
+	"openai/dall-e-2": {
+		Provider: "openai", Model: "dall-e-2",
+		InputPrice: 0.00, OutputPrice: 20.00, Currency: "USD",
+	},
 
 	// ========== ANTHROPIC ==========
 	// Claude 3.5 Family

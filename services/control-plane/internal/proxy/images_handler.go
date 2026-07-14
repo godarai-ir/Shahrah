@@ -2,9 +2,14 @@
 package proxy
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
+	"mime"
+	"mime/multipart"
+	"net/textproto"
 	"strconv"
 	"strings"
 	"time"
@@ -137,9 +142,31 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 	authStart := time.Now()
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "auth.validate", "internal", authStart, fiber.StatusOK, map[string]interface{}{"model": requestedModel})
 
+	routeStart := time.Now()
+
+	var dep *router.Deployment
+	for _, candidate := range routeCandidates {
+		dep, err = h.llmRouter.Route(c.Context(), currentTenant.ID, candidate)
+		if err == nil {
+			break
+		}
+	}
+
+	if err != nil || dep == nil {
+		emitDenyCounter(h.logger, denyReasonUnknownModel, requestedModel, currentTenant.ID)
+		return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", requestedModel), "routing_error")
+	}
+
+	if err := validateImageOperationDeployment(op, requestedModel, dep); err != nil {
+		return writeAPIErrorDetail(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error", "model", "unsupported_model")
+	}
+
+	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
+
+	outboundModel := providerOutboundModel(requestedModel, dep)
 	estimated := estimateImageCostFallback(requestedModel, metadata)
-	if usage := estimatedImageUsage(requestedModel, metadata); usage != nil {
-		finalizedEstimate, finalizeErr := h.billing.FinalizeImageUsage(c.Context(), providerModelID(requestedModel), usage, nil, estimated)
+	if usage := estimatedImageUsage(outboundModel, metadata); usage != nil {
+		finalizedEstimate, finalizeErr := h.billing.FinalizeImageUsage(c.Context(), outboundModel, usage, nil, estimated)
 		if finalizeErr != nil {
 			return writeAPIError(c, fiber.StatusBadGateway, "Failed to estimate image request cost", "billing_error")
 		}
@@ -178,39 +205,23 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Tunnel path unavailable", "tunnel_unavailable")
 	}
 
-	routeStart := time.Now()
-
-	var dep *router.Deployment
-	for _, candidate := range routeCandidates {
-		dep, err = h.llmRouter.Route(c.Context(), currentTenant.ID, candidate)
-		if err == nil {
-			break
-		}
-	}
-
-	if err != nil || dep == nil {
-		emitDenyCounter(h.logger, denyReasonUnknownModel, requestedModel, currentTenant.ID)
-		return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", requestedModel), "routing_error")
-	}
-
-	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
-
 	outboundBody := body
+	outboundContentType := contentType
 
 	if isJSONContentType(contentType) {
-		outboundModel := strings.TrimSpace(dep.Model)
-		if outboundModel == "" || outboundModel == "*" {
-			outboundModel = providerModelID(requestedModel)
-		}
-
-		outboundBody, err = rewriteJSONModel(body, providerModelID(outboundModel))
+		outboundBody, err = rewriteJSONModel(body, outboundModel)
 		if err != nil {
 			return writeAPIError(c, fiber.StatusBadRequest, "Invalid request body", "invalid_request_error")
 		}
+	} else if isMultipartContentType(contentType) {
+		outboundBody, outboundContentType, err = rewriteMultipartModel(c, contentType, outboundModel)
+		if err != nil {
+			return writeAPIError(c, fiber.StatusBadRequest, "Invalid multipart request body", "invalid_request_error")
+		}
 	}
 
-	if contentType == "" {
-		contentType = "application/json"
+	if outboundContentType == "" {
+		outboundContentType = "application/json"
 	}
 
 	requestMetadata := map[string]interface{}{
@@ -231,13 +242,13 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 		Stream:     false,
 		Deployment: toContractDeployment(dep),
 		Headers: map[string]string{
-			"Content-Type": contentType,
+			"Content-Type": outboundContentType,
 		},
 		Body:            outboundBody,
 		RequestMetadata: requestMetadata,
 	}
 
-	err = h.handleSync(c, requestedModel, authInfo, estimated, tunnelReq, budgetReservation, op, startTime, tenantSlug, contentType)
+	err = h.handleSync(c, requestedModel, authInfo, estimated, tunnelReq, budgetReservation, op, startTime, tenantSlug, outboundContentType)
 	if err == nil {
 		releaseBudgetOnExit = false
 	}
@@ -457,6 +468,23 @@ func validateImageOperationMetadata(op imageOperation, prompt interface{}, image
 	return nil
 }
 
+func validateImageOperationDeployment(op imageOperation, requestedModel string, dep *router.Deployment) error {
+	if op.Name != "variations" || dep == nil || !strings.EqualFold(strings.TrimSpace(dep.Provider), "openai") {
+		return nil
+	}
+
+	model := strings.TrimSpace(dep.Model)
+	if model == "" || model == "*" {
+		model = providerModelID(requestedModel)
+	}
+	model = strings.ToLower(providerModelID(model))
+	if model != "dall-e-2" {
+		return fmt.Errorf("OpenAI image variations only support dall-e-2; use /v1/images/edits or image references for GPT Image models")
+	}
+
+	return nil
+}
+
 func imageProvided(image interface{}) bool {
 	switch v := image.(type) {
 	case nil:
@@ -592,6 +620,21 @@ func isJSONContentType(contentType string) bool {
 	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(contentType)), "application/json")
 }
 
+func isMultipartContentType(contentType string) bool {
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(contentType)), "multipart/form-data")
+}
+
+func providerOutboundModel(requestedModel string, dep *router.Deployment) string {
+	outboundModel := ""
+	if dep != nil {
+		outboundModel = strings.TrimSpace(dep.Model)
+	}
+	if outboundModel == "" || outboundModel == "*" {
+		outboundModel = providerModelID(requestedModel)
+	}
+	return providerModelID(outboundModel)
+}
+
 func rewriteJSONModel(body []byte, model string) ([]byte, error) {
 	var raw map[string]interface{}
 	if err := json.Unmarshal(body, &raw); err != nil {
@@ -601,6 +644,94 @@ func rewriteJSONModel(body []byte, model string) ([]byte, error) {
 	raw["model"] = model
 
 	return json.Marshal(raw)
+}
+
+func rewriteMultipartModel(c *fiber.Ctx, contentType string, model string) ([]byte, string, error) {
+	if c == nil {
+		return nil, "", fmt.Errorf("request context is required")
+	}
+
+	mediaType, params, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return nil, "", err
+	}
+	if !strings.EqualFold(mediaType, "multipart/form-data") || strings.TrimSpace(params["boundary"]) == "" {
+		return nil, "", fmt.Errorf("multipart boundary is required")
+	}
+
+	form, err := c.MultipartForm()
+	if err != nil {
+		return nil, "", err
+	}
+
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+
+	for key, values := range form.Value {
+		if key == "model" {
+			continue
+		}
+		for _, value := range values {
+			if err := writer.WriteField(key, value); err != nil {
+				_ = writer.Close()
+				return nil, "", err
+			}
+		}
+	}
+	if err := writer.WriteField("model", model); err != nil {
+		_ = writer.Close()
+		return nil, "", err
+	}
+
+	for key, files := range form.File {
+		for _, header := range files {
+			if err := copyMultipartFile(writer, key, header); err != nil {
+				_ = writer.Close()
+				return nil, "", err
+			}
+		}
+	}
+
+	if err := writer.Close(); err != nil {
+		return nil, "", err
+	}
+
+	return buf.Bytes(), writer.FormDataContentType(), nil
+}
+
+func copyMultipartFile(writer *multipart.Writer, field string, header *multipart.FileHeader) error {
+	if writer == nil || header == nil {
+		return fmt.Errorf("multipart file is required")
+	}
+
+	src, err := header.Open()
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	partHeader := make(textproto.MIMEHeader, len(header.Header)+1)
+	for key, values := range header.Header {
+		copied := make([]string, len(values))
+		copy(copied, values)
+		partHeader[key] = copied
+	}
+	if partHeader.Get("Content-Disposition") == "" {
+		partHeader.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, escapeMultipartQuote(field), escapeMultipartQuote(header.Filename)))
+	}
+
+	dst, err := writer.CreatePart(partHeader)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(dst, src)
+	return err
+}
+
+func escapeMultipartQuote(value string) string {
+	value = strings.ReplaceAll(value, "\\", "\\\\")
+	value = strings.ReplaceAll(value, `"`, `\"`)
+	return value
 }
 
 func estimateImageCostFallback(model string, _ map[string]interface{}) platform.UsageCostBreakdown {
@@ -747,6 +878,9 @@ func estimatedImageOutputTokens(model string, metadata map[string]interface{}) i
 	if strings.Contains(model, "gpt-image-2") {
 		return estimatedGPTImage2OutputTokens(quality, size)
 	}
+	if model == "dall-e-2" {
+		return estimatedDallE2OutputUnits(size)
+	}
 
 	switch quality {
 	case "low":
@@ -773,6 +907,17 @@ func estimatedImageOutputTokens(model string, metadata map[string]interface{}) i
 			return 1568
 		}
 		return 1056
+	}
+}
+
+func estimatedDallE2OutputUnits(size string) int {
+	switch size {
+	case "256x256":
+		return 800
+	case "512x512":
+		return 900
+	default:
+		return 1000
 	}
 }
 

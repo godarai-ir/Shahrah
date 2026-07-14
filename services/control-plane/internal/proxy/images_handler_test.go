@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"mime"
@@ -9,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
@@ -25,6 +27,10 @@ import (
 )
 
 func newImagesTestApp(t *testing.T, modelName string, provider string, deploymentModel string, tunnel *captureTunnel, logs *testLogs, allowedTypes []string, emitMetric ...func(input metricsobs.BuildInput)) (*fiber.App, *tracing.Queue) {
+	return newImagesTestAppWithBudgeter(t, modelName, provider, deploymentModel, tunnel, &testBudgeter{}, logs, allowedTypes, emitMetric...)
+}
+
+func newImagesTestAppWithBudgeter(t *testing.T, modelName string, provider string, deploymentModel string, tunnel *captureTunnel, b budgeter, logs *testLogs, allowedTypes []string, emitMetric ...func(input metricsobs.BuildInput)) (*fiber.App, *tracing.Queue) {
 	t.Helper()
 
 	mem, err := cache.NewMemoryCache(zap.NewNop())
@@ -43,7 +49,11 @@ func newImagesTestApp(t *testing.T, modelName string, provider string, deploymen
 		logs = &testLogs{}
 	}
 
-	h := NewImagesHandler(rt, tunnel, &testBudgeter{}, &testWallets{}, logs, zap.NewNop(), emitMetric...)
+	if b == nil {
+		b = &testBudgeter{}
+	}
+
+	h := NewImagesHandler(rt, tunnel, b, &testWallets{}, logs, zap.NewNop(), emitMetric...)
 	q := tracing.NewQueue(64)
 	s := tracing.NewSampler(1.0, 1500)
 
@@ -73,6 +83,18 @@ func newImagesTestApp(t *testing.T, modelName string, provider string, deploymen
 	app.Post("/v1/images/variations", h.HandleVariations)
 
 	return app, q
+}
+
+type rateLimitCountingBudgeter struct {
+	testBudgeter
+	calls               int
+	lastEstimatedTokens int
+}
+
+func (b *rateLimitCountingBudgeter) CheckRateLimit(_ context.Context, _ *platform.AuthContext, _ string, estimatedTokens int) (*cache.RateLimitResult, error) {
+	b.calls++
+	b.lastEstimatedTokens = estimatedTokens
+	return &cache.RateLimitResult{Allowed: true, Current: 1, Limit: 100, ResetAt: time.Now().Add(time.Minute)}, nil
 }
 
 func TestImagesHandlerJSONGeneration(t *testing.T) {
@@ -152,6 +174,19 @@ func TestEstimatedImageUsageIncludesEditInputImages(t *testing.T) {
 	assert.Equal(t, 3273, usage.TotalTokens)
 }
 
+func TestEstimatedImageUsageUsesDallE2VariationUnits(t *testing.T) {
+	usage := estimatedImageUsage("openai:default:dall-e-2", map[string]interface{}{
+		"image_count": 1,
+		"n":           2,
+		"size":        "512x512",
+	})
+
+	require.NotNil(t, usage)
+	assert.Equal(t, 1124, usage.PromptTokens)
+	assert.Equal(t, 1800, usage.CompletionTokens)
+	assert.Equal(t, 2924, usage.TotalTokens)
+}
+
 func TestImagesHandlerJSONEditRejectsEmptyImage(t *testing.T) {
 	tunnel := &captureTunnel{resp: &platform.TunnelResponse{StatusCode: fiber.StatusOK, Headers: map[string]string{"content-type": "application/json"}, Body: []byte(`{}`)}}
 	app, _ := newImagesTestApp(t, "gpt-image-1", "openai", "gpt-image-1", tunnel, nil, nil)
@@ -190,9 +225,9 @@ func TestImagesHandlerJSONEdit(t *testing.T) {
 }
 
 func TestImagesHandlerMultipartEdit(t *testing.T) {
-	body, contentType := buildMultipartBody(t, map[string]string{"model": "gpt-image-1", "prompt": "edit this", "size": "1024x1024", "input_fidelity": "high"}, map[string][]byte{"image[]": []byte("fake-image-bytes"), "mask": []byte("fake-mask-bytes")})
+	body, contentType := buildMultipartBody(t, map[string]string{"model": "openai:acct:gpt-image-1", "prompt": "edit this", "size": "1024x1024", "input_fidelity": "high"}, map[string][]byte{"image[]": []byte("fake-image-bytes"), "mask": []byte("fake-mask-bytes")})
 	tunnel := &captureTunnel{resp: &platform.TunnelResponse{StatusCode: fiber.StatusOK, Headers: map[string]string{"content-type": "application/json"}, Body: []byte(`{"created":1,"data":[{"url":"https://cdn.example/edit.png"}]}`)}}
-	app, _ := newImagesTestApp(t, "gpt-image-1", "openai", "gpt-image-1", tunnel, nil, nil)
+	app, _ := newImagesTestApp(t, "openai:acct:gpt-image-1", "openai", "gpt-image-1", tunnel, nil, nil)
 
 	req := httptest.NewRequest("POST", "/v1/images/edits", bytes.NewReader(body))
 	req.Header.Set("Content-Type", contentType)
@@ -202,8 +237,12 @@ func TestImagesHandlerMultipartEdit(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
-	assert.Equal(t, contentType, tunnel.lastReq.Headers["Content-Type"])
-	assertMultipartBodyEqual(t, contentType, body, tunnel.lastReq.Body)
+	assert.True(t, strings.HasPrefix(tunnel.lastReq.Headers["Content-Type"], "multipart/form-data"))
+	outboundForm := readMultipartForm(t, tunnel.lastReq.Headers["Content-Type"], tunnel.lastReq.Body)
+	assert.Equal(t, []string{"gpt-image-1"}, outboundForm.Value["model"])
+	assert.Equal(t, []string{"edit this"}, outboundForm.Value["prompt"])
+	assertMultipartFileBytes(t, outboundForm, "image[]", []byte("fake-image-bytes"))
+	assertMultipartFileBytes(t, outboundForm, "mask", []byte("fake-mask-bytes"))
 	assert.Equal(t, 2, tunnel.lastReq.RequestMetadata["file_count"])
 	assert.Equal(t, 1, tunnel.lastReq.RequestMetadata["image_count"])
 	assert.Equal(t, true, tunnel.lastReq.RequestMetadata["mask_present"])
@@ -211,9 +250,9 @@ func TestImagesHandlerMultipartEdit(t *testing.T) {
 }
 
 func TestImagesHandlerMultipartVariation(t *testing.T) {
-	body, contentType := buildMultipartBody(t, map[string]string{"model": "gpt-image-1", "n": "1"}, map[string][]byte{"image": []byte("fake-image-bytes")})
+	body, contentType := buildMultipartBody(t, map[string]string{"model": "openai:acct:dall-e-2", "n": "1", "response_format": "url"}, map[string][]byte{"image": []byte("fake-image-bytes")})
 	tunnel := &captureTunnel{resp: &platform.TunnelResponse{StatusCode: fiber.StatusOK, Headers: map[string]string{"content-type": "application/json"}, Body: []byte(`{"created":1,"data":[{"url":"https://cdn.example/variant.png"}]}`)}}
-	app, _ := newImagesTestApp(t, "gpt-image-1", "openai", "gpt-image-1", tunnel, nil, nil)
+	app, _ := newImagesTestApp(t, "openai:acct:dall-e-2", "openai", "dall-e-2", tunnel, nil, nil)
 
 	req := httptest.NewRequest("POST", "/v1/images/variations", bytes.NewReader(body))
 	req.Header.Set("Content-Type", contentType)
@@ -224,7 +263,54 @@ func TestImagesHandlerMultipartVariation(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.Equal(t, "/images/variations", tunnel.lastReq.RequestMetadata["provider_endpoint_path"])
-	assert.Equal(t, contentType, tunnel.lastReq.Headers["Content-Type"])
+	assert.True(t, strings.HasPrefix(tunnel.lastReq.Headers["Content-Type"], "multipart/form-data"))
+	outboundForm := readMultipartForm(t, tunnel.lastReq.Headers["Content-Type"], tunnel.lastReq.Body)
+	assert.Equal(t, []string{"dall-e-2"}, outboundForm.Value["model"])
+	assertMultipartFileBytes(t, outboundForm, "image", []byte("fake-image-bytes"))
+	assert.Equal(t, 1, tunnel.lastReq.RequestMetadata["image_count"])
+	assert.Equal(t, "url", tunnel.lastReq.RequestMetadata["response_format"])
+}
+
+func TestImagesHandlerVariationEstimateUsesDeploymentModel(t *testing.T) {
+	body, contentType := buildMultipartBody(t, map[string]string{"model": "openai:acct:legacy-variation", "n": "1"}, map[string][]byte{"image": []byte("fake-image-bytes")})
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{StatusCode: fiber.StatusOK, Headers: map[string]string{"content-type": "application/json"}, Body: []byte(`{"created":1,"data":[{"url":"https://cdn.example/variant.png"}]}`)}}
+	budgeter := &rateLimitCountingBudgeter{}
+	app, _ := newImagesTestAppWithBudgeter(t, "openai:acct:legacy-variation", "openai", "dall-e-2", tunnel, budgeter, nil, nil)
+
+	req := httptest.NewRequest("POST", "/v1/images/variations", bytes.NewReader(body))
+	req.Header.Set("Content-Type", contentType)
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+	assert.Equal(t, 1, budgeter.calls)
+	assert.Equal(t, 2124, budgeter.lastEstimatedTokens)
+	outboundForm := readMultipartForm(t, tunnel.lastReq.Headers["Content-Type"], tunnel.lastReq.Body)
+	assert.Equal(t, []string{"dall-e-2"}, outboundForm.Value["model"])
+}
+
+func TestImagesHandlerOpenAIVariationRejectsGPTImageModel(t *testing.T) {
+	body, contentType := buildMultipartBody(t, map[string]string{"model": "openai:acct:gpt-image-1", "n": "1"}, map[string][]byte{"image": []byte("fake-image-bytes")})
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{StatusCode: fiber.StatusOK, Headers: map[string]string{"content-type": "application/json"}, Body: []byte(`{}`)}}
+	budgeter := &rateLimitCountingBudgeter{}
+	app, _ := newImagesTestAppWithBudgeter(t, "openai:acct:gpt-image-1", "openai", "gpt-image-1", tunnel, budgeter, nil, nil)
+
+	req := httptest.NewRequest("POST", "/v1/images/variations", bytes.NewReader(body))
+	req.Header.Set("Content-Type", contentType)
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+	assert.Empty(t, tunnel.lastReq.RequestID)
+	assert.Zero(t, budgeter.calls)
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Contains(t, string(bodyBytes), "dall-e-2")
 }
 
 func TestImagesHandlerMissingModel(t *testing.T) {
@@ -348,6 +434,15 @@ func assertMultipartBodyEqual(t *testing.T, contentType string, expected []byte,
 			require.Equal(t, readMultipartFile(t, expectedFile), readMultipartFile(t, actualFile))
 		}
 	}
+}
+
+func assertMultipartFileBytes(t *testing.T, form *multipart.Form, field string, expected []byte) {
+	t.Helper()
+
+	require.NotNil(t, form)
+	files := form.File[field]
+	require.Len(t, files, 1, "multipart file field %q", field)
+	assert.Equal(t, expected, readMultipartFile(t, files[0]))
 }
 
 func readMultipartForm(t *testing.T, contentType string, body []byte) *multipart.Form {

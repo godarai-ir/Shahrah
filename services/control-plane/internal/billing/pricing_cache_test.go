@@ -97,3 +97,14 @@ func TestCostBreakdownUsesPureArithmetic(t *testing.T) {
 		t.Fatalf("unexpected total irr: %.12f", got.TotalCostIRR)
 	}
 }
+
+func TestModelPriceFromRegistryIncludesDallE2LegacyImagePricing(t *testing.T) {
+	got := modelPriceFromRegistry("openai/dall-e-2")
+
+	if got.Input != 0 {
+		t.Fatalf("unexpected DALL-E 2 input price: %.12f", got.Input)
+	}
+	if math.Abs(got.Output-0.02) > 1e-12 {
+		t.Fatalf("unexpected DALL-E 2 output price: %.12f", got.Output)
+	}
+}
