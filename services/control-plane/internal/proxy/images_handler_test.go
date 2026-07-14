@@ -138,6 +138,20 @@ func TestEstimatedImageUsageUsesGPTImage2TokenTable(t *testing.T) {
 	assert.Equal(t, 1972, usage.TotalTokens)
 }
 
+func TestEstimatedImageUsageIncludesEditInputImages(t *testing.T) {
+	usage := estimatedImageUsage("openai:default:gpt-image-2", map[string]interface{}{
+		"prompt_length": 20,
+		"image_count":   2,
+		"size":          "1024x1024",
+		"quality":       "low",
+	})
+
+	require.NotNil(t, usage)
+	assert.Equal(t, 3077, usage.PromptTokens)
+	assert.Equal(t, 196, usage.CompletionTokens)
+	assert.Equal(t, 3273, usage.TotalTokens)
+}
+
 func TestImagesHandlerJSONEditRejectsEmptyImage(t *testing.T) {
 	tunnel := &captureTunnel{resp: &platform.TunnelResponse{StatusCode: fiber.StatusOK, Headers: map[string]string{"content-type": "application/json"}, Body: []byte(`{}`)}}
 	app, _ := newImagesTestApp(t, "gpt-image-1", "openai", "gpt-image-1", tunnel, nil, nil)
@@ -176,7 +190,7 @@ func TestImagesHandlerJSONEdit(t *testing.T) {
 }
 
 func TestImagesHandlerMultipartEdit(t *testing.T) {
-	body, contentType := buildMultipartBody(t, map[string]string{"model": "gpt-image-1", "prompt": "edit this", "size": "1024x1024"}, map[string][]byte{"image": []byte("fake-image-bytes")})
+	body, contentType := buildMultipartBody(t, map[string]string{"model": "gpt-image-1", "prompt": "edit this", "size": "1024x1024", "input_fidelity": "high"}, map[string][]byte{"image[]": []byte("fake-image-bytes"), "mask": []byte("fake-mask-bytes")})
 	tunnel := &captureTunnel{resp: &platform.TunnelResponse{StatusCode: fiber.StatusOK, Headers: map[string]string{"content-type": "application/json"}, Body: []byte(`{"created":1,"data":[{"url":"https://cdn.example/edit.png"}]}`)}}
 	app, _ := newImagesTestApp(t, "gpt-image-1", "openai", "gpt-image-1", tunnel, nil, nil)
 
@@ -190,7 +204,10 @@ func TestImagesHandlerMultipartEdit(t *testing.T) {
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.Equal(t, contentType, tunnel.lastReq.Headers["Content-Type"])
 	assertMultipartBodyEqual(t, contentType, body, tunnel.lastReq.Body)
-	assert.Equal(t, 1, tunnel.lastReq.RequestMetadata["file_count"])
+	assert.Equal(t, 2, tunnel.lastReq.RequestMetadata["file_count"])
+	assert.Equal(t, 1, tunnel.lastReq.RequestMetadata["image_count"])
+	assert.Equal(t, true, tunnel.lastReq.RequestMetadata["mask_present"])
+	assert.Equal(t, "high", tunnel.lastReq.RequestMetadata["input_fidelity"])
 }
 
 func TestImagesHandlerMultipartVariation(t *testing.T) {

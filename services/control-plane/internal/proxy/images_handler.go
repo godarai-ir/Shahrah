@@ -405,7 +405,7 @@ func fillImageJSONMetadata(metadata map[string]interface{}, raw map[string]inter
 		metadata["prompt_hash"] = hashTracePreview(prompt)
 	}
 
-	for _, key := range []string{"size", "quality", "response_format", "output_format", "moderation", "background"} {
+	for _, key := range []string{"size", "quality", "response_format", "output_format", "moderation", "background", "input_fidelity"} {
 		if v, ok := raw[key].(string); ok && strings.TrimSpace(v) != "" {
 			metadata[key] = strings.TrimSpace(v)
 		}
@@ -422,6 +422,13 @@ func fillImageJSONMetadata(metadata map[string]interface{}, raw map[string]inter
 
 	if _, ok := raw["image"]; ok {
 		metadata["image_source_type"] = traceImageSourceType(raw["image"])
+		if count := jsonImageCount(raw["image"]); count > 0 {
+			metadata["image_count"] = count
+		}
+	}
+
+	if _, ok := raw["mask"]; ok {
+		metadata["mask_present"] = true
 	}
 
 	if op.Name == "edits" || op.Name == "variations" {
@@ -465,6 +472,33 @@ func imageProvided(image interface{}) bool {
 	}
 }
 
+func jsonImageCount(image interface{}) int {
+	switch v := image.(type) {
+	case nil:
+		return 0
+	case string:
+		if strings.TrimSpace(v) == "" {
+			return 0
+		}
+		return 1
+	case []interface{}:
+		count := 0
+		for _, item := range v {
+			if imageProvided(item) {
+				count++
+			}
+		}
+		return count
+	case map[string]interface{}:
+		if len(v) == 0 {
+			return 0
+		}
+		return 1
+	default:
+		return 1
+	}
+}
+
 func imageValidationErrorDetail(err error) (string, string) {
 	message := ""
 	if err != nil {
@@ -493,15 +527,15 @@ func multipartImagePresence(c *fiber.Ctx) interface{} {
 		return nil
 	}
 
-	if files := form.File["image"]; len(files) > 0 {
-		return true
+	if count := multipartImageFileCount(c); count > 0 {
+		return count
 	}
 
 	return nil
 }
 
 func fillImageMultipartMetadata(c *fiber.Ctx, metadata map[string]interface{}, op imageOperation) {
-	for _, key := range []string{"size", "quality", "response_format", "output_format", "moderation", "background", "output_compression", "partial_images"} {
+	for _, key := range []string{"size", "quality", "response_format", "output_format", "moderation", "background", "output_compression", "partial_images", "input_fidelity"} {
 		if v := strings.TrimSpace(c.FormValue(key)); v != "" {
 			metadata[key] = v
 		}
@@ -526,12 +560,32 @@ func fillImageMultipartMetadata(c *fiber.Ctx, metadata map[string]interface{}, o
 		fileCount += len(files)
 	}
 
+	imageFileCount := multipartImageFileCount(c)
 	metadata["file_count"] = fileCount
+	if imageFileCount > 0 {
+		metadata["image_count"] = imageFileCount
+	}
+	if len(form.File["mask"]) > 0 {
+		metadata["mask_present"] = true
+	}
 	if fileCount > 0 {
 		metadata["image_source_type"] = "multipart_file"
 	}
 
 	_ = op
+}
+
+func multipartImageFileCount(c *fiber.Ctx) int {
+	if c == nil {
+		return 0
+	}
+
+	form, err := c.MultipartForm()
+	if err != nil || form == nil {
+		return 0
+	}
+
+	return len(form.File["image"]) + len(form.File["image[]"])
 }
 
 func isJSONContentType(contentType string) bool {
@@ -568,6 +622,7 @@ func estimatedImageUsage(model string, metadata map[string]interface{}) *contrac
 	if inputTokens == 0 {
 		inputTokens = 100
 	}
+	inputTokens += estimatedImageInputTokens(model, metadata)
 
 	imageCount := imageCountFromMetadata(metadata)
 	outputTokens := estimatedImageOutputTokens(model, metadata) * imageCount
@@ -651,6 +706,28 @@ func imageCountFromMetadata(metadata map[string]interface{}) int {
 	}
 	if count < 1 {
 		return 1
+	}
+	return count
+}
+
+func estimatedImageInputTokens(model string, metadata map[string]interface{}) int {
+	imageCount := imageInputCountFromMetadata(metadata)
+	if imageCount == 0 {
+		return 0
+	}
+
+	tokensPerImage := 1024
+	if strings.Contains(strings.ToLower(providerModelID(model)), "gpt-image-2") {
+		tokensPerImage = 1536
+	}
+
+	return imageCount * tokensPerImage
+}
+
+func imageInputCountFromMetadata(metadata map[string]interface{}) int {
+	count := imageNumber(metadata["image_count"])
+	if count < 0 {
+		return 0
 	}
 	return count
 }

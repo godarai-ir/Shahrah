@@ -33,7 +33,8 @@ POST /v1/images/edits
   endpoint="/v1/images/edits"
   groupId="image-edit-language"
   snippets={{
-    python: `import requests
+    python: `import base64
+import requests
 
 with open("sample.png", "rb") as image:
     response = requests.post(
@@ -43,23 +44,25 @@ with open("sample.png", "rb") as image:
             "model": "openai:default:gpt-image-1",
             "prompt": "پس‌زمینه تصویر را ساده‌تر و روشن‌تر کن، اما سوژه اصلی را تغییر نده.",
             "size": "1024x1024",
-            "response_format": "url",
+            "output_format": "png",
         },
-        files={"image": ("sample.png", image, "image/png")},
+        files={"image[]": ("sample.png", image, "image/png")},
         timeout=180,
     )
 
 response.raise_for_status()
-print(response.json()["data"][0]["url"])`,
-    nodejs: `import { readFile } from "node:fs/promises";
+image_bytes = base64.b64decode(response.json()["data"][0]["b64_json"])
+with open("edited.png", "wb") as output:
+    output.write(image_bytes)`,
+    nodejs: `import { readFile, writeFile } from "node:fs/promises";
 
 const form = new FormData();
 form.append("model", "openai:default:gpt-image-1");
 form.append("prompt", "پس‌زمینه تصویر را ساده‌تر و روشن‌تر کن، اما سوژه اصلی را تغییر نده.");
 form.append("size", "1024x1024");
-form.append("response_format", "url");
+form.append("output_format", "png");
 form.append(
-  "image",
+  "image[]",
   new Blob([await readFile("sample.png")], { type: "image/png" }),
   "sample.png",
 );
@@ -77,15 +80,17 @@ if (!response.ok) {
 }
 
 const editedImage = await response.json();
-console.log(editedImage.data[0].url);`,
+await writeFile("edited.png", Buffer.from(editedImage.data[0].b64_json, "base64"));`,
     rest: `curl --request POST "https://YOUR_WORKSPACE.godarai.ir/v1/images/edits" \
   --header "Authorization: Bearer YOUR_GODARAI_TOKEN" \
   --form "model=openai:default:gpt-image-1" \
   --form "prompt=پس‌زمینه تصویر را ساده‌تر و روشن‌تر کن، اما سوژه اصلی را تغییر نده." \
   --form "size=1024x1024" \
-  --form "response_format=url" \
-  --form "image=@sample.png;type=image/png"`,
-    openaiPython: `from openai import OpenAI
+  --form "output_format=png" \
+  --form "image[]=@sample.png;type=image/png" \
+  | jq -r '.data[0].b64_json' | base64 --decode > edited.png`,
+    openaiPython: `import base64
+from openai import OpenAI
 
 client = OpenAI(
     api_key="YOUR_GODARAI_TOKEN",
@@ -98,11 +103,13 @@ with open("sample.png", "rb") as image:
         image=image,
         prompt="پس‌زمینه تصویر را ساده‌تر و روشن‌تر کن، اما سوژه اصلی را تغییر نده.",
         size="1024x1024",
-        response_format="url",
+        output_format="png",
     )
 
-print(response.data[0].url)`,
-    openaiNodejs: `import { readFile } from "node:fs/promises";
+image_bytes = base64.b64decode(response.data[0].b64_json)
+with open("edited.png", "wb") as output:
+    output.write(image_bytes)`,
+    openaiNodejs: `import { readFile, writeFile } from "node:fs/promises";
 import OpenAI from "openai";
 
 const client = new OpenAI({
@@ -115,14 +122,14 @@ const response = await client.images.edit({
   image: new File([await readFile("sample.png")], "sample.png", { type: "image/png" }),
   prompt: "پس‌زمینه تصویر را ساده‌تر و روشن‌تر کن، اما سوژه اصلی را تغییر نده.",
   size: "1024x1024",
-  response_format: "url",
+  output_format: "png",
 });
 
-console.log(response.data[0].url);`,
+await writeFile("edited.png", Buffer.from(response.data[0].b64_json, "base64"));`,
   }}
 />
 
-این روش معمولاً با `multipart/form-data` ارسال می‌شود و برای فایل واقعی انتخاب طبیعی‌تری است.
+این روش معمولاً با `multipart/form-data` ارسال می‌شود و برای فایل واقعی انتخاب طبیعی‌تری است. برای سازگاری با مدل‌های GPT Image، فیلد فایل را می‌توانید با نام `image[]` بفرستید؛ گدارAI فیلد `image` را هم برای مسیرهای سازگار می‌پذیرد.
 
 ## ارسال با JSON
 
@@ -141,7 +148,7 @@ console.log(response.data[0].url);`,
 ```
 
 :::warning
-نشانی تصویر باید برای ارائه‌دهنده مدل قابل دسترس باشد. اگر فایل پشت شبکه خصوصی، نشست کاربری یا لینک موقت کوتاه‌عمر باشد، درخواست ممکن است خطا بدهد یا نتیجه ناپایدار شود.
+نشانی تصویر باید برای ارائه‌دهنده مدل قابل دسترس باشد. اگر فایل پشت شبکه خصوصی، نشست کاربری یا لینک موقت کوتاه‌عمر باشد، درخواست ممکن است خطا بدهد یا نتیجه ناپایدار شود. برای مدل‌های GPT Image، ارسال فایل با `multipart/form-data` معمولاً مسیر مطمئن‌تری است.
 :::
 
 ## `mask` چه زمانی لازم است؟
@@ -158,6 +165,8 @@ console.log(response.data[0].url);`,
 اگر ویرایش باید دقیق باشد، پرامپت را موضعی بنویسید: بگویید کدام بخش تغییر کند و کدام بخش دست‌نخورده بماند.
 :::
 
+برای مدل‌های OpenAI، فایل `mask` باید با تصویر اصلی هم‌اندازه و هم‌فرمت باشد و کانال آلفا داشته باشد. اگر `mask` را بدون کانال آلفا بفرستید، ارائه‌دهنده ممکن است درخواست را رد کند.
+
 ## فیلدهای رایج
 
 | فیلد | کاربرد |
@@ -167,25 +176,47 @@ console.log(response.data[0].url);`,
 | `prompt` | توضیح تغییر مورد نظر. |
 | `mask` | ناحیه مجاز برای ویرایش. |
 | `size` | اندازه خروجی، اگر مدل پشتیبانی کند. |
-| `response_format` | `url` یا `b64_json`، بسته به مدل. |
+| `output_format` | فرمت فایل خروجی در مدل‌های GPT Image، مثل `png`، `jpeg` یا `webp`. |
+| `output_compression` | فشرده‌سازی خروجی برای `jpeg` یا `webp`، اگر مدل پشتیبانی کند. |
+| `background` | نوع پس‌زمینه خروجی، اگر مدل پشتیبانی کند. |
+| `input_fidelity` | میزان حفظ جزئیات تصویر ورودی در مدل‌هایی که این فیلد را می‌پذیرند. |
+| `response_format` | فرمت خروجی در مدل‌هایی که از آن پشتیبانی می‌کنند؛ برای مدل‌های جدید GPT Image معمولاً از `b64_json` استفاده کنید. |
 
 ## خروجی
 
-پاسخ معمولاً شبیه خروجی تولید تصویر است:
+پاسخ مدل‌های GPT Image معمولاً شبیه خروجی تولید تصویر و شامل داده base64 است:
 
 ```json
 {
   "created": 1720000000,
   "data": [
     {
-      "url": "https://YOUR_WORKSPACE.godarai.ir/assets/edited-image.png",
+      "b64_json": "iVBORw0KGgo...",
       "revised_prompt": "..."
+    }
+  ],
+  "usage": {
+    "input_tokens": 1200,
+    "output_tokens": 1056,
+    "total_tokens": 2256
+  }
+}
+```
+
+در بعضی ارائه‌دهنده‌ها یا مدل‌های قدیمی‌تر، خروجی می‌تواند نشانی تصویر باشد:
+
+```json
+{
+  "created": 1720000000,
+  "data": [
+    {
+      "url": "https://YOUR_WORKSPACE.godarai.ir/assets/edited-image.png"
     }
   ]
 }
 ```
 
-یا ممکن است `b64_json` برگردد. اپلیکیشن شما باید برای هر دو حالت آماده باشد، مگر اینکه مدل و تنظیمات محیط شما فقط یک فرمت را تضمین کنند.
+اگر `b64_json` می‌گیرید، اپلیکیشن شما باید آن را به فایل تبدیل و در storage مناسب ذخیره کند.
 
 ## حریم خصوصی فایل ورودی
 
@@ -198,6 +229,8 @@ console.log(response.data[0].url);`,
 
 ## هزینه و پایش
 
+ویرایش تصویر علاوه بر توکن پرامپت و خروجی، برای تصویرهای ورودی هم هزینه مصرف دارد. گدارAI پیش از ارسال درخواست، تعداد تصویرهای ورودی و خروجی را در تخمین مصرف لحاظ می‌کند و پس از دریافت پاسخ، اگر ارائه‌دهنده `usage` یا هزینه دقیق برگرداند، مصرف نهایی را با همان داده ثبت می‌کند.
+
 در گزارش رخدادها و رد درخواست، جزئیات حساس تصویر و base64 کامل نباید معیار عیب‌یابی شما باشد. به جای آن، از شناسه رد درخواست، وضعیت پاسخ، اندازه تقریبی فایل، تعداد خروجی و هزینه ثبت‌شده استفاده کنید.
 
 ## خطاهای رایج
@@ -205,8 +238,11 @@ console.log(response.data[0].url);`,
 | نشانه | علت محتمل | راه‌حل |
 | --- | --- | --- |
 | `model is required` | مدل ارسال نشده است. | شناسه مدل تصویری مجاز را وارد کنید. |
+| `prompt is required` | توضیح تغییر ارسال نشده است. | فیلد `prompt` را با توضیح روشن تغییر مورد نظر بفرستید. |
+| `image is required` | تصویر ورودی ارسال نشده است. | فایل را با `image[]` یا `image` در `multipart/form-data` بفرستید. |
 | `Model access denied or unsupported for image generation` | مدل برای تصویر مجاز نیست. | مدل نوع `image_generation` انتخاب کنید. |
 | خطای `unsupported content type` | نوع بدنه درخواست پشتیبانی نمی‌شود. | از `application/json` یا `multipart/form-data` استفاده کنید. |
+| خطای ارائه‌دهنده درباره `mask` | فایل ماسک با تصویر هم‌اندازه یا هم‌فرمت نیست، یا کانال آلفا ندارد. | ماسک را با همان اندازه و فرمت تصویر اصلی و همراه کانال آلفا بسازید. |
 | خروجی با خواسته شما فاصله دارد | پرامپت یا ماسک مبهم است. | پرامپت را موضعی‌تر کنید و در صورت نیاز `mask` بدهید. |
 
 ## جمع‌بندی
