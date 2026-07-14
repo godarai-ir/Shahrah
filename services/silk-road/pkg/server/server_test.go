@@ -468,6 +468,81 @@ func TestDispatchOpenAICompatiblePreservesMultipartContentTypeForImages(t *testi
 	}
 }
 
+func TestDispatchOpenAICompatibleForwardsAudioTranscriptionsMultipart(t *testing.T) {
+	t.Parallel()
+
+	const multipartType = "multipart/form-data; boundary=shahrah-audio-boundary"
+	var gotAuth string
+	var gotContentType string
+	var gotPath string
+	var gotBody string
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		gotContentType = r.Header.Get("Content-Type")
+		gotPath = r.URL.Path
+		defer r.Body.Close()
+		bodyBytes, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read body: %v", err)
+		}
+		gotBody = string(bodyBytes)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"text":"سلام"}`))
+	}))
+	defer upstream.Close()
+
+	handler := NewHandler(nil)
+	payload := platform.TunnelRequest{
+		Deployment: platform.Deployment{Provider: "deepinfra", APIBase: upstream.URL, APIKey: "provider-secret"},
+		Headers:    map[string]string{"Content-Type": multipartType},
+		RequestMetadata: map[string]interface{}{
+			"provider_endpoint_path": "/audio/transcriptions",
+		},
+		Body: []byte(strings.Join([]string{
+			"--shahrah-audio-boundary",
+			`Content-Disposition: form-data; name="model"`,
+			"",
+			"whisper-large-v3",
+			"--shahrah-audio-boundary",
+			`Content-Disposition: form-data; name="file"; filename="sample.wav"`,
+			"Content-Type: audio/wav",
+			"",
+			"fake-audio",
+			"--shahrah-audio-boundary--",
+			"",
+		}, "\r\n")),
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	if gotPath != "/audio/transcriptions" {
+		t.Fatalf("expected audio transcription path, got %q", gotPath)
+	}
+	if gotContentType != multipartType {
+		t.Fatalf("unexpected content type: %q", gotContentType)
+	}
+	if gotAuth != "Bearer provider-secret" {
+		t.Fatalf("unexpected Authorization header: %q", gotAuth)
+	}
+	for _, want := range []string{`name="model"`, "whisper-large-v3", `name="file"; filename="sample.wav"`, "fake-audio"} {
+		if !strings.Contains(gotBody, want) {
+			t.Fatalf("forwarded body missing %s: %s", want, gotBody)
+		}
+	}
+}
+
 func TestDispatchUsesAnthropicAdapterForSync(t *testing.T) {
 	t.Parallel()
 

@@ -34,25 +34,26 @@ var redactedLogHeaders = map[string]struct{}{
 
 // Dependencies contains the concrete services required by the control-plane server.
 type Dependencies struct {
-	AuthMiddleware          *auth.AuthMiddleware
-	TenantResolver          *tenant.Middleware
-	TracingMiddleware       fiber.Handler
-	TraceHealth             TraceHealthReporter
-	ClickHouseHealth        ClickHouseHealthReporter
-	AdminHandlers           *admin.Handlers
-	AuthHandlers            *admin.AuthHandlers
-	ProxyHandler            *proxy.ChatCompletionHandler
-	CompletionsHandler      *proxy.CompletionsHandler
-	ResponsesHandler        *proxy.ResponsesHandler
-	EmbeddingsHandler       *proxy.EmbeddingsHandler
-	ModerationsHandler      *proxy.ModerationsHandler
-	RerankHandler           *proxy.RerankHandler
-	ImagesHandler           *proxy.ImagesHandler
-	ModelsHandler           *proxy.ModelsHandler
-	PoolStats               prommetrics.PoolStatsProvider
-	HTTPMetrics             *prommetrics.HTTPMetrics
-	Logger                  *zap.Logger
-	PlatformServiceAccounts auth.PlatformServiceAccountStore
+	AuthMiddleware             *auth.AuthMiddleware
+	TenantResolver             *tenant.Middleware
+	TracingMiddleware          fiber.Handler
+	TraceHealth                TraceHealthReporter
+	ClickHouseHealth           ClickHouseHealthReporter
+	AdminHandlers              *admin.Handlers
+	AuthHandlers               *admin.AuthHandlers
+	ProxyHandler               *proxy.ChatCompletionHandler
+	CompletionsHandler         *proxy.CompletionsHandler
+	ResponsesHandler           *proxy.ResponsesHandler
+	EmbeddingsHandler          *proxy.EmbeddingsHandler
+	ModerationsHandler         *proxy.ModerationsHandler
+	RerankHandler              *proxy.RerankHandler
+	ImagesHandler              *proxy.ImagesHandler
+	AudioTranscriptionsHandler *proxy.AudioTranscriptionsHandler
+	ModelsHandler              *proxy.ModelsHandler
+	PoolStats                  prommetrics.PoolStatsProvider
+	HTTPMetrics                *prommetrics.HTTPMetrics
+	Logger                     *zap.Logger
+	PlatformServiceAccounts    auth.PlatformServiceAccountStore
 }
 
 type TraceHealthReporter interface {

@@ -34,6 +34,10 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 		v1.Post("/images/variations", deps.ImagesHandler.HandleVariations)
 	}
 
+	if deps.AudioTranscriptionsHandler != nil {
+		v1.Post("/audio/transcriptions", deps.AudioTranscriptionsHandler.Handle)
+	}
+
 	if deps.ModelsHandler != nil {
 		v1.Get("/models", deps.ModelsHandler.Handle)
 	}

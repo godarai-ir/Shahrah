@@ -6,14 +6,16 @@ import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
 
 # Speech to Text
 
-`Speech to Text` برای تبدیل فایل صوتی به متن استفاده می‌شود. این API در محصول‌هایی کاربرد دارد که باید مکالمه، پیام صوتی، جلسه یا تماس را به متن قابل جست‌وجو و قابل پردازش تبدیل کنند.
+`Speech to Text` برای تبدیل فایل صوتی به متن استفاده می‌شود. این API با قرارداد رایج OpenAI Whisper سازگار است و از مسیر زیر در گدارAI در دسترس است:
 
 ```text
 POST /v1/audio/transcriptions
 ```
 
+درخواست باید با `multipart/form-data` ارسال شود. گدارAI مدل را اعتبارسنجی می‌کند، مسیر مناسب ارائه‌دهنده را پیدا می‌کند، مقدار `model` را برای ارائه‌دهنده بازنویسی می‌کند و فایل صوتی را بدون ثبت محتوای خام به provider می‌فرستد.
+
 :::info
-فعال‌بودن مسیرهای صوتی به نسخه و تنظیمات محیط گدارAI شما بستگی دارد. اگر این مسیر در فضای کاری شما فعال نیست، فعلاً لایه orchestration را در سرویس خودتان نگه دارید و برای فعال‌سازی مسیر رسمی با تیم گدارAI هماهنگ کنید.
+این مسیر برای providerهای OpenAI-compatible فعال است؛ مانند `openai`، `groq`، `togetherai`، `openrouter`، `sambanova`، `deepinfra` و `fireworks`. APIهای بومی Google Speech، AWS Transcribe یا Azure Speech قرارداد متفاوتی دارند و در این endpoint فقط بعد از اضافه‌شدن adapter اختصاصی پشتیبانی می‌شوند.
 :::
 
 ## چه زمانی استفاده کنیم؟
@@ -27,9 +29,9 @@ POST /v1/audio/transcriptions
 
 اگر هدف شما ترجمه گفتار به زبان دیگر است، [Audio Translation](/supported-apis/audio-translation) را ببینید. اگر هدف تولید فایل صوتی از متن است، [Text to Speech](/supported-apis/text-to-speech) مسیر جداگانه‌ای دارد.
 
-## قرارداد رایج درخواست
+## نمونه درخواست
 
-وقتی مسیر در محیط شما فعال باشد، درخواست معمولاً با `multipart/form-data` ارسال می‌شود:
+مدل باید از مدل‌های مجاز فضای کاری یا مدل مجازی شما انتخاب شود و mode آن `audio_transcription` باشد.
 
 <ApiCodeTabs
   endpoint="/v1/audio/transcriptions"
@@ -42,7 +44,7 @@ with open("sample.wav", "rb") as audio:
         "https://YOUR_WORKSPACE.godarai.ir/v1/audio/transcriptions",
         headers={"Authorization": "Bearer YOUR_GODARAI_TOKEN"},
         data={
-            "model": "openai:default:whisper-1",
+            "model": "openai:default:gpt-4o-transcribe",
             "language": "fa",
             "response_format": "json",
         },
@@ -55,7 +57,7 @@ print(response.json()["text"])`,
     nodejs: `import { readFile } from "node:fs/promises";
 
 const form = new FormData();
-form.append("model", "openai:default:whisper-1");
+form.append("model", "openai:default:gpt-4o-transcribe");
 form.append("language", "fa");
 form.append("response_format", "json");
 form.append(
@@ -80,7 +82,7 @@ const transcript = await response.json();
 console.log(transcript.text);`,
     rest: `curl --request POST "https://YOUR_WORKSPACE.godarai.ir/v1/audio/transcriptions" \
   --header "Authorization: Bearer YOUR_GODARAI_TOKEN" \
-  --form "model=openai:default:whisper-1" \
+  --form "model=openai:default:gpt-4o-transcribe" \
   --form "language=fa" \
   --form "response_format=json" \
   --form "file=@sample.wav;type=audio/wav"`,
@@ -93,7 +95,7 @@ client = OpenAI(
 
 with open("sample.wav", "rb") as audio:
     transcript = client.audio.transcriptions.create(
-        model="openai:default:whisper-1",
+        model="openai:default:gpt-4o-transcribe",
         file=audio,
         language="fa",
         response_format="json",
@@ -109,7 +111,7 @@ const client = new OpenAI({
 });
 
 const transcript = await client.audio.transcriptions.create({
-  model: "openai:default:whisper-1",
+  model: "openai:default:gpt-4o-transcribe",
   file: new File([await readFile("sample.wav")], "sample.wav", { type: "audio/wav" }),
   language: "fa",
   response_format: "json",
@@ -119,25 +121,30 @@ console.log(transcript.text);`,
   }}
 />
 
-مدل باید برای تبدیل گفتار به متن در فضای کاری شما مجاز باشد. شناسه مدل را از مدل‌های مجاز یا مدل مجازی بردارید، نه از حدس یا نمونه عمومی.
+## فیلدهای درخواست
 
-## فیلدهای رایج
-
-| فیلد | کاربرد |
-| --- | --- |
-| `model` | شناسه مدل صوتی مجاز. |
-| `file` | فایل صوتی ورودی. |
-| `language` | زبان گفتار، اگر مدل پشتیبانی کند. |
-| `prompt` | راهنمای کوتاه برای واژه‌های خاص یا زمینه، اگر مدل پشتیبانی کند. |
-| `response_format` | فرمت پاسخ؛ مثل `json` یا فرمت‌های متنی دیگر، بسته به مدل. |
+| فیلد | وضعیت | توضیح |
+| --- | --- | --- |
+| `model` | اجباری | شناسه مدل صوتی مجاز در گدارAI. |
+| `file` | اجباری | فایل صوتی ورودی. |
+| `language` | اختیاری | زبان گفتار، مثل `fa` یا `en`. اگر زبان را می‌دانید ارسال کنید. |
+| `prompt` | اختیاری | راهنمای کوتاه برای واژه‌های خاص، نام محصول یا زمینه مکالمه. |
+| `response_format` | اختیاری | یکی از `json`، `text`، `srt`، `verbose_json`، `vtt` یا `diarized_json`. مقدار پیش‌فرض `json` است. |
+| `timestamp_granularities[]` | اختیاری | مقدارهای `word` یا `segment`. فقط وقتی معتبر است که `response_format=verbose_json` باشد. |
+| `temperature` | اختیاری | عددی بین `0` و `1`، اگر مدل provider پشتیبانی کند. |
+| `stream` | اختیاری | اگر `true` باشد، پاسخ SSE provider به صورت stream عبور داده می‌شود. |
+| `include[]` | اختیاری | گزینه‌های تکمیلی provider، مانند `logprobs`، وقتی مدل پشتیبانی کند. |
+| `chunking_strategy` | اختیاری | تنظیمات chunking برای مدل‌هایی که پردازش طولانی‌تر یا VAD دارند. |
+| `known_speaker_names[]` | اختیاری | نام speakerهای شناخته‌شده برای مدل‌هایی که diarization را پشتیبانی می‌کنند. |
+| `known_speaker_references[]` | اختیاری | referenceهای speaker برای providerهایی که این قابلیت را دارند. |
 
 :::tip
-اگر زبان فایل را می‌دانید، مقدار `language` را ارسال کنید. این کار معمولاً کیفیت تشخیص را بهتر و خطاهای زبان‌های نزدیک را کمتر می‌کند.
+اگر زمان‌بندی واژه یا segment می‌خواهید، `response_format` را روی `verbose_json` بگذارید و `timestamp_granularities[]` را ارسال کنید. همه providerها همه سطح‌های زمان‌بندی را پشتیبانی نمی‌کنند.
 :::
 
 ## خروجی
 
-خروجی ساده معمولاً متن پیاده‌شده را برمی‌گرداند:
+در حالت `json` خروجی ساده معمولاً متن پیاده‌شده را برمی‌گرداند:
 
 ```json
 {
@@ -145,7 +152,52 @@ console.log(transcript.text);`,
 }
 ```
 
-در بعضی مدل‌ها یا فرمت‌ها، خروجی می‌تواند شامل زمان‌بندی، segment یا جزئیات بیشتر باشد. فقط به فیلدهایی تکیه کنید که مدل و مسیر فعال محیط شما واقعاً برمی‌گرداند.
+در `verbose_json` پاسخ می‌تواند شامل segment، زمان‌بندی، زبان، مدت فایل و usage باشد:
+
+```json
+{
+  "text": "سلام دنیا",
+  "language": "fa",
+  "duration": 2.4,
+  "segments": [
+    {
+      "id": 0,
+      "start": 0,
+      "end": 2.4,
+      "text": "سلام دنیا"
+    }
+  ],
+  "usage": {
+    "type": "tokens",
+    "input_tokens": 14,
+    "output_tokens": 45,
+    "total_tokens": 59
+  }
+}
+```
+
+اگر `response_format` را `text`، `srt` یا `vtt` بگذارید، بدنه پاسخ ممکن است متن خام باشد. گدارAI `Content-Type` و بدنه provider را برای پاسخ موفق حفظ می‌کند.
+
+## Streaming
+
+برای مدل‌هایی که transcription streaming را پشتیبانی می‌کنند، `stream=true` را در فرم بفرستید:
+
+```bash
+curl --request POST "https://YOUR_WORKSPACE.godarai.ir/v1/audio/transcriptions" \
+  --header "Authorization: Bearer YOUR_GODARAI_TOKEN" \
+  --form "model=openai:default:gpt-4o-transcribe" \
+  --form "stream=true" \
+  --form "file=@sample.wav;type=audio/wav"
+```
+
+در این حالت پاسخ `text/event-stream` از provider عبور داده می‌شود. اگر مدل انتخابی streaming را پشتیبانی نکند، خطا یا رفتار نهایی را همان provider تعیین می‌کند.
+
+## نکات عملیاتی
+
+- کلید یا مدل باید اجازه `audio_transcription` داشته باشد؛ مدل chat یا image برای این مسیر پذیرفته نمی‌شود.
+- فایل صوتی خام، transcript خام و prompt خام در trace و request log ذخیره نمی‌شود؛ فقط طول، hash کوتاه، نوع محتوا و metadata امن ثبت می‌شود.
+- مصرف، هزینه و rate limit مثل سایر APIها در گدارAI محاسبه و ثبت می‌شود. اگر provider usage توکنی برگرداند، مصرف نهایی با همان usage reconcile می‌شود.
+- اگر provider خطا بدهد، پیام خطا با قالب OpenAI-compatible به client برمی‌گردد.
 
 ## کیفیت فایل ورودی
 
@@ -175,11 +227,13 @@ console.log(transcript.text);`,
 
 | نشانه | علت محتمل | راه‌حل |
 | --- | --- | --- |
-| مسیر در محیط شما در دسترس نیست | قابلیت صوتی فعال نشده است. | وضعیت فعال‌سازی فضای کاری را بررسی کنید. |
-| خطای مدل | مدل برای STT مجاز یا سازگار نیست. | مدل صوتی مناسب انتخاب کنید. |
-| کیفیت متن پایین است | فایل نویز دارد یا زبان اشتباه تشخیص داده شده است. | فایل تمیزتر، `language` و prompt کوتاه آزمایش کنید. |
-| خطای اندازه یا فرمت فایل | فایل با محدودیت مدل سازگار نیست. | فایل را کوتاه‌تر یا به فرمت رایج‌تر تبدیل کنید. |
+| `multipart/form-data content type is required` | درخواست JSON یا فرم نامعتبر ارسال شده است. | فایل را با `multipart/form-data` و فیلد `file` بفرستید. |
+| `model is required` | فیلد `model` در فرم نیست. | شناسه مدل مجاز فضای کاری را ارسال کنید. |
+| `file is required` | فایل صوتی در فیلد `file` نیست. | نام فیلد فایل را دقیقاً `file` بگذارید. |
+| `Model access denied or unsupported` | مدل برای `audio_transcription` مجاز نیست. | مدل صوتی مناسب یا مجوز کلید را بررسی کنید. |
+| `timestamp_granularities requires response_format=verbose_json` | زمان‌بندی خواسته‌اید اما خروجی verbose نیست. | `response_format=verbose_json` را اضافه کنید. |
+| خطای provider درباره فرمت یا اندازه فایل | فایل با محدودیت مدل سازگار نیست. | فایل را کوتاه‌تر، تمیزتر یا به فرمت رایج‌تر تبدیل کنید. |
 
 ## جمع‌بندی
 
-`Speech to Text` مسیر تبدیل صوت به متن قابل پردازش است. برای استفاده قابل اعتماد، مسیر فعال محیطتان را بررسی کنید، فایل تمیز بفرستید، زبان را مشخص کنید و متن خروجی را مثل داده حساس مدیریت کنید.
+`POST /v1/audio/transcriptions` مسیر استاندارد تبدیل صوت به متن در گدارAI است. این مسیر برای providerهای OpenAI-compatible فایل را به شکل multipart عبور می‌دهد، مدل و دسترسی را کنترل می‌کند، usage را ثبت می‌کند و داده حساس صوتی و transcript را در لاگ خام ذخیره نمی‌کند.

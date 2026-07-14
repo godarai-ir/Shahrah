@@ -297,6 +297,7 @@ func main() {
 	moderationsHandler := proxy.NewModerationsHandlerWithDependencies(baseProxyDeps)
 	rerankHandler := proxy.NewRerankHandlerWithDependencies(baseProxyDeps)
 	imagesHandler := proxy.NewImagesHandlerWithDependencies(baseProxyDeps)
+	audioTranscriptionsHandler := proxy.NewAudioTranscriptionsHandlerWithDependencies(baseProxyDeps)
 	modelsHandler := proxy.NewModelsHandler(runtimeDeploymentStore)
 
 	traceCfg := tracing.LoadConfigFromEnv()
@@ -333,25 +334,26 @@ func main() {
 	defer logRetentionCleaner.Stop()
 
 	app := server.NewFiberApp(cfg, server.Dependencies{
-		AuthMiddleware:          authMiddleware,
-		TenantResolver:          tenantMiddleware,
-		TracingMiddleware:       tracing.Middleware(traceQueue, traceSampler, traceCfg.SlowRequest.Milliseconds(), tracePrivacy),
-		TraceHealth:             reliableExporter,
-		ClickHouseHealth:        store,
-		AdminHandlers:           adminHandlers,
-		AuthHandlers:            authHandlers,
-		ProxyHandler:            proxyHandler,
-		CompletionsHandler:      completionsHandler,
-		ResponsesHandler:        responsesHandler,
-		EmbeddingsHandler:       embeddingsHandler,
-		ModerationsHandler:      moderationsHandler,
-		RerankHandler:           rerankHandler,
-		ImagesHandler:           imagesHandler,
-		ModelsHandler:           modelsHandler,
-		PoolStats:               store,
-		HTTPMetrics:             httpMetrics,
-		Logger:                  logger,
-		PlatformServiceAccounts: store,
+		AuthMiddleware:             authMiddleware,
+		TenantResolver:             tenantMiddleware,
+		TracingMiddleware:          tracing.Middleware(traceQueue, traceSampler, traceCfg.SlowRequest.Milliseconds(), tracePrivacy),
+		TraceHealth:                reliableExporter,
+		ClickHouseHealth:           store,
+		AdminHandlers:              adminHandlers,
+		AuthHandlers:               authHandlers,
+		ProxyHandler:               proxyHandler,
+		CompletionsHandler:         completionsHandler,
+		ResponsesHandler:           responsesHandler,
+		EmbeddingsHandler:          embeddingsHandler,
+		ModerationsHandler:         moderationsHandler,
+		RerankHandler:              rerankHandler,
+		ImagesHandler:              imagesHandler,
+		AudioTranscriptionsHandler: audioTranscriptionsHandler,
+		ModelsHandler:              modelsHandler,
+		PoolStats:                  store,
+		HTTPMetrics:                httpMetrics,
+		Logger:                     logger,
+		PlatformServiceAccounts:    store,
 	})
 
 	runCtx, cancel := context.WithCancel(context.Background())

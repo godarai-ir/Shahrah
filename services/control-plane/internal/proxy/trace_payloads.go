@@ -550,6 +550,86 @@ func buildTraceImageResponsePayload(body []byte) map[string]interface{} {
 	return out
 }
 
+func buildTraceAudioTranscriptionRequestPayload(_ []byte, contentType string, metadata map[string]interface{}) map[string]interface{} {
+	out := map[string]interface{}{
+		"operation":    "transcriptions",
+		"content_type": safeContentTypeFamily(contentType),
+	}
+	for k, v := range metadata {
+		switch k {
+		case "tenant_slug", "provider_endpoint_path", "billing_mode":
+			continue
+		default:
+			out[k] = v
+		}
+	}
+
+	return out
+}
+
+func buildTraceAudioTranscriptionResponsePayload(body []byte, headers map[string]string) map[string]interface{} {
+	out := map[string]interface{}{}
+	if contentType := responseContentType(headers); contentType != "" {
+		out["content_type"] = safeContentTypeFamily(contentType)
+	}
+	if len(body) == 0 {
+		return out
+	}
+
+	var raw map[string]interface{}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		out["body_bytes"] = len(body)
+		out["body_hash"] = hashTracePreview(string(body))
+		return out
+	}
+
+	if text, ok := raw["text"].(string); ok {
+		out["text_length"] = len(text)
+		out["text_hash"] = hashTracePreview(text)
+	}
+	for _, key := range []string{"task", "language", "duration"} {
+		if value, ok := raw[key]; ok {
+			out[key] = value
+		}
+	}
+	if segments, ok := raw["segments"].([]interface{}); ok {
+		out["segment_count"] = len(segments)
+	}
+	if words, ok := raw["words"].([]interface{}); ok {
+		out["word_count"] = len(words)
+	}
+	if speakers, ok := raw["speakers"].([]interface{}); ok {
+		out["speaker_count"] = len(speakers)
+	}
+	if usage, ok := raw["usage"].(map[string]interface{}); ok {
+		out["usage"] = summarizeAudioUsageTrace(usage)
+	}
+
+	return out
+}
+
+func summarizeAudioUsageTrace(usage map[string]interface{}) map[string]interface{} {
+	out := map[string]interface{}{}
+	for _, key := range []string{"type", "input_tokens", "output_tokens", "total_tokens", "prompt_tokens", "completion_tokens", "seconds"} {
+		if value, ok := usage[key]; ok {
+			out[key] = value
+		}
+	}
+	if details, ok := usage["input_token_details"].(map[string]interface{}); ok {
+		safeDetails := map[string]interface{}{}
+		for _, key := range []string{"text_tokens", "audio_tokens"} {
+			if value, exists := details[key]; exists {
+				safeDetails[key] = value
+			}
+		}
+		if len(safeDetails) > 0 {
+			out["input_token_details"] = safeDetails
+		}
+	}
+
+	return out
+}
+
 func safeContentTypeFamily(contentType string) string {
 	ct := strings.ToLower(strings.TrimSpace(contentType))
 	switch {

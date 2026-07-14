@@ -38,6 +38,8 @@ func newProviderRegistry() *providerRegistry {
 			"perplexity":   newOpenAICompatibleAdapter(""),
 			"perplexityai": newOpenAICompatibleAdapter(""),
 			"sambanova":    newOpenAICompatibleAdapter(""),
+			"deepinfra":    newOpenAICompatibleAdapter(""),
+			"fireworks":    newOpenAICompatibleAdapter(""),
 			"togetherai":   newOpenAICompatibleAdapter("https://api.together.ai/v1"),
 			"together-ai":  newOpenAICompatibleAdapter("https://api.together.ai/v1"),
 			"xai":          newOpenAICompatibleAdapter(""),
