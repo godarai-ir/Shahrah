@@ -146,6 +146,10 @@ func (m *mockBilling) FinalizeFromUsage(ctx context.Context, model string, usage
 	return m.cost, nil
 }
 
+func (m *mockBilling) FinalizeImageUsage(ctx context.Context, model string, usage *contractsopenai.Usage, providerCostUSDTicks *int64, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error) {
+	return m.cost, nil
+}
+
 // mockWalletStore implements walletStore interface.
 type mockWalletStore struct {
 	transaction *platform.Transaction

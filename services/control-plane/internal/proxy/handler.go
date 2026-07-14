@@ -38,6 +38,7 @@ type budgeter interface {
 	CheckRateLimit(ctx context.Context, auth *platform.AuthContext, model string, estimatedTokens int) (*cache.RateLimitResult, error)
 	CheckBudget(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown) error
 	FinalizeFromUsage(ctx context.Context, model string, usage *contractsopenai.Usage, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error)
+	FinalizeImageUsage(ctx context.Context, model string, usage *contractsopenai.Usage, providerCostUSDTicks *int64, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error)
 }
 
 type walletStore interface {
@@ -1187,11 +1188,19 @@ func cacheSimilarityForResult(result responsecache.Result) *float64 {
 
 func billingModelForDeployment(requestedModel string, deployment platform.Deployment) string {
 	model := strings.TrimSpace(deployment.Model)
-	if model != "" {
-		return model
+	if model == "" || model == "*" {
+		model = providerModelID(requestedModel)
+	}
+	if model == "" {
+		model = strings.TrimSpace(requestedModel)
 	}
 
-	return strings.TrimSpace(requestedModel)
+	provider := strings.TrimSpace(deployment.Provider)
+	if provider != "" && !strings.Contains(model, "/") {
+		return provider + "/" + model
+	}
+
+	return model
 }
 
 func (h *ChatCompletionHandler) virtualModelCacheVersion(ctx context.Context, authInfo *platform.AuthContext, tenantID, model string) string {

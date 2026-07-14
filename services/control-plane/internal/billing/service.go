@@ -508,6 +508,27 @@ func (s *Service) FinalizeFromUsage(ctx context.Context, model string, usage *op
 	return costBreakdown(model, usage.PromptTokens, usage.CompletionTokens, price, rate.USDtoIRR), nil
 }
 
+// FinalizeImageUsage recalculates final spend for image endpoints.
+func (s *Service) FinalizeImageUsage(ctx context.Context, model string, usage *openai.Usage, providerCostUSDTicks *int64, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error) {
+	if usage == nil && providerCostUSDTicks == nil {
+		return estimated, nil
+	}
+
+	rate := s.exchangeRate(ctx)
+	inputTokens, outputTokens, totalTokens := imageUsageTokenBreakdown(usage, estimated)
+	price := s.modelPrice(ctx, model)
+	breakdown := imageCostBreakdown(model, inputTokens, outputTokens, totalTokens, price, rate.USDtoIRR)
+
+	if providerCostUSDTicks != nil && *providerCostUSDTicks >= 0 {
+		totalUSD := float64(*providerCostUSDTicks) / usdTicksPerDollar
+		breakdown = applyProviderImageCost(breakdown, totalUSD)
+		breakdown.ExchangeRate = rate.USDtoIRR
+		breakdown.TotalCostIRR = totalUSD * rate.USDtoIRR
+	}
+
+	return breakdown, nil
+}
+
 func costBreakdown(model string, inputTokens int, outputTokens int, price priceInfo, exchangeRate float64) platform.UsageCostBreakdown {
 	inputCost := (float64(inputTokens) / 1000.0) * price.Input
 	outputCost := (float64(outputTokens) / 1000.0) * price.Output
@@ -524,6 +545,58 @@ func costBreakdown(model string, inputTokens int, outputTokens int, price priceI
 		ExchangeRate:  exchangeRate,
 		TotalCostIRR:  totalUSD * exchangeRate,
 	}
+}
+
+const usdTicksPerDollar = 10_000_000_000.0
+
+func imageUsageTokenBreakdown(usage *openai.Usage, estimated platform.UsageCostBreakdown) (int, int, int) {
+	if usage == nil {
+		return estimated.InputTokens, estimated.OutputTokens, estimated.TotalTokens
+	}
+
+	inputTokens := usage.PromptTokens
+	outputTokens := usage.CompletionTokens
+	totalTokens := usage.TotalTokens
+	if totalTokens <= 0 {
+		totalTokens = inputTokens + outputTokens
+	}
+
+	if inputTokens == 0 && outputTokens == 0 && totalTokens > 0 {
+		if estimated.InputTokens > 0 && totalTokens > estimated.InputTokens {
+			inputTokens = estimated.InputTokens
+			outputTokens = totalTokens - inputTokens
+		} else {
+			outputTokens = totalTokens
+		}
+	}
+
+	if totalTokens < inputTokens+outputTokens {
+		totalTokens = inputTokens + outputTokens
+	}
+
+	return inputTokens, outputTokens, totalTokens
+}
+
+func imageCostBreakdown(model string, inputTokens int, outputTokens int, totalTokens int, price priceInfo, exchangeRate float64) platform.UsageCostBreakdown {
+	out := costBreakdown(model, inputTokens, outputTokens, price, exchangeRate)
+	if totalTokens > 0 {
+		out.TotalTokens = totalTokens
+	}
+	return out
+}
+
+func applyProviderImageCost(breakdown platform.UsageCostBreakdown, totalUSD float64) platform.UsageCostBreakdown {
+	breakdown.TotalCostUSD = totalUSD
+	if breakdown.InputCostUSD+breakdown.OutputCostUSD > 0 {
+		pricedTotal := breakdown.InputCostUSD + breakdown.OutputCostUSD
+		breakdown.InputCostUSD = totalUSD * (breakdown.InputCostUSD / pricedTotal)
+		breakdown.OutputCostUSD = totalUSD - breakdown.InputCostUSD
+		return breakdown
+	}
+
+	breakdown.InputCostUSD = 0
+	breakdown.OutputCostUSD = totalUSD
+	return breakdown
 }
 
 func (s *Service) modelPrice(ctx context.Context, model string) priceInfo {

@@ -138,8 +138,8 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "auth.validate", "internal", authStart, fiber.StatusOK, map[string]interface{}{"model": requestedModel})
 
 	estimated := estimateImageCostFallback(requestedModel, metadata)
-	if usage := estimatedImageUsage(metadata); usage != nil {
-		finalizedEstimate, finalizeErr := h.billing.FinalizeFromUsage(c.Context(), providerModelID(requestedModel), usage, estimated)
+	if usage := estimatedImageUsage(requestedModel, metadata); usage != nil {
+		finalizedEstimate, finalizeErr := h.billing.FinalizeImageUsage(c.Context(), providerModelID(requestedModel), usage, nil, estimated)
 		if finalizeErr != nil {
 			return writeAPIError(c, fiber.StatusBadGateway, "Failed to estimate image request cost", "billing_error")
 		}
@@ -218,7 +218,7 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 		"model":                  requestedModel,
 		"provider_endpoint_path": op.Path,
 		"operation":              op.Name,
-		"billing_mode":           "image_mvp_reconciliation",
+		"billing_mode":           "image_usage_reconciliation",
 	}
 	for k, v := range metadata {
 		requestMetadata[k] = v
@@ -269,7 +269,8 @@ func (h *ImagesHandler) handleSync(c *fiber.Ctx, requestedModel string, authInfo
 	providerAttrs["response_payload"] = buildTraceImageResponsePayload(resp.Body)
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
 
-	finalCost, err := h.billing.FinalizeFromUsage(c.Context(), billingModelForDeployment(requestedModel, tunnelReq.Deployment), imageUsageToOpenAI(resp.Body), estimated)
+	providerCostUSDTicks := imageUsageCostTicksPtr(resp.Body)
+	finalCost, err := h.billing.FinalizeImageUsage(c.Context(), billingModelForDeployment(requestedModel, tunnelReq.Deployment), imageUsageToOpenAI(resp.Body), providerCostUSDTicks, estimated)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize image usage", "billing_error")
 	}
@@ -404,9 +405,14 @@ func fillImageJSONMetadata(metadata map[string]interface{}, raw map[string]inter
 		metadata["prompt_hash"] = hashTracePreview(prompt)
 	}
 
-	for _, key := range []string{"size", "quality", "response_format"} {
+	for _, key := range []string{"size", "quality", "response_format", "output_format", "moderation", "background"} {
 		if v, ok := raw[key].(string); ok && strings.TrimSpace(v) != "" {
 			metadata[key] = strings.TrimSpace(v)
+		}
+	}
+	for _, key := range []string{"output_compression", "partial_images"} {
+		if n := imageNumber(raw[key]); n > 0 {
+			metadata[key] = n
 		}
 	}
 
@@ -437,11 +443,26 @@ func validateImageOperationMetadata(op imageOperation, prompt interface{}, image
 		}
 	}
 
-	if image == nil {
+	if !imageProvided(image) {
 		return fmt.Errorf("image is required")
 	}
 
 	return nil
+}
+
+func imageProvided(image interface{}) bool {
+	switch v := image.(type) {
+	case nil:
+		return false
+	case string:
+		return strings.TrimSpace(v) != ""
+	case []interface{}:
+		return len(v) > 0
+	case map[string]interface{}:
+		return len(v) > 0
+	default:
+		return true
+	}
 }
 
 func imageValidationErrorDetail(err error) (string, string) {
@@ -480,7 +501,7 @@ func multipartImagePresence(c *fiber.Ctx) interface{} {
 }
 
 func fillImageMultipartMetadata(c *fiber.Ctx, metadata map[string]interface{}, op imageOperation) {
-	for _, key := range []string{"size", "quality", "response_format"} {
+	for _, key := range []string{"size", "quality", "response_format", "output_format", "moderation", "background", "output_compression", "partial_images"} {
 		if v := strings.TrimSpace(c.FormValue(key)); v != "" {
 			metadata[key] = v
 		}
@@ -535,7 +556,7 @@ func estimateImageCostFallback(model string, _ map[string]interface{}) platform.
 	}
 }
 
-func estimatedImageUsage(metadata map[string]interface{}) *contractsopenai.Usage {
+func estimatedImageUsage(model string, metadata map[string]interface{}) *contractsopenai.Usage {
 	if len(metadata) == 0 {
 		return nil
 	}
@@ -549,7 +570,8 @@ func estimatedImageUsage(metadata map[string]interface{}) *contractsopenai.Usage
 	}
 
 	imageCount := imageCountFromMetadata(metadata)
-	outputTokens := estimatedImageOutputTokens(metadata) * imageCount
+	outputTokens := estimatedImageOutputTokens(model, metadata) * imageCount
+	outputTokens += partialImageCountFromMetadata(metadata) * 100
 
 	return &contractsopenai.Usage{
 		PromptTokens:     inputTokens,
@@ -633,7 +655,8 @@ func imageCountFromMetadata(metadata map[string]interface{}) int {
 	return count
 }
 
-func estimatedImageOutputTokens(metadata map[string]interface{}) int {
+func estimatedImageOutputTokens(model string, metadata map[string]interface{}) int {
+	model = strings.ToLower(providerModelID(model))
 	quality := strings.ToLower(strings.TrimSpace(fmt.Sprint(metadata["quality"])))
 	size := strings.ToLower(strings.TrimSpace(fmt.Sprint(metadata["size"])))
 
@@ -642,6 +665,10 @@ func estimatedImageOutputTokens(metadata map[string]interface{}) int {
 	}
 	if size == "" || size == "<nil>" || size == "auto" {
 		size = "1024x1024"
+	}
+
+	if strings.Contains(model, "gpt-image-2") {
+		return estimatedGPTImage2OutputTokens(quality, size)
 	}
 
 	switch quality {
@@ -672,6 +699,26 @@ func estimatedImageOutputTokens(metadata map[string]interface{}) int {
 	}
 }
 
+func estimatedGPTImage2OutputTokens(quality string, size string) int {
+	switch quality {
+	case "low":
+		if isPortraitSize(size) || isLandscapeSize(size) {
+			return 167
+		}
+		return 196
+	case "high":
+		if isPortraitSize(size) || isLandscapeSize(size) {
+			return 5500
+		}
+		return 7033
+	default:
+		if isPortraitSize(size) || isLandscapeSize(size) {
+			return 1367
+		}
+		return 1767
+	}
+}
+
 func isPortraitSize(size string) bool {
 	parts := strings.Split(size, "x")
 	if len(parts) != 2 {
@@ -690,6 +737,18 @@ func isLandscapeSize(size string) bool {
 	width, wErr := strconv.Atoi(strings.TrimSpace(parts[0]))
 	height, hErr := strconv.Atoi(strings.TrimSpace(parts[1]))
 	return wErr == nil && hErr == nil && width > height
+}
+
+func partialImageCountFromMetadata(metadata map[string]interface{}) int {
+	if metadata == nil {
+		return 0
+	}
+
+	count := imageNumber(metadata["partial_images"])
+	if count < 0 {
+		return 0
+	}
+	return count
 }
 
 func intFromImageUsage(usage map[string]interface{}, key string) int {
@@ -747,6 +806,14 @@ func imageUsageCostTicks(body []byte) (int64, bool) {
 	default:
 		return 0, false
 	}
+}
+
+func imageUsageCostTicksPtr(body []byte) *int64 {
+	ticks, ok := imageUsageCostTicks(body)
+	if !ok {
+		return nil
+	}
+	return &ticks
 }
 
 func imageNumber(v interface{}) int {

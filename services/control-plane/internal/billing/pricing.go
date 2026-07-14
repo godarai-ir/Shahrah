@@ -53,6 +53,23 @@ var PricingRegistry = map[string]ModelPricing{
 		Provider: "openai", Model: "text-embedding-3-large",
 		InputPrice: 0.13, OutputPrice: 0.00, Currency: "USD",
 	},
+	// GPT Image family. InputPrice is text input; OutputPrice is image output.
+	"openai/gpt-image-2": {
+		Provider: "openai", Model: "gpt-image-2",
+		InputPrice: 5.00, OutputPrice: 30.00, Currency: "USD",
+	},
+	"openai/gpt-image-1.5": {
+		Provider: "openai", Model: "gpt-image-1.5",
+		InputPrice: 5.00, OutputPrice: 32.00, Currency: "USD",
+	},
+	"openai/gpt-image-1-mini": {
+		Provider: "openai", Model: "gpt-image-1-mini",
+		InputPrice: 2.00, OutputPrice: 8.00, Currency: "USD",
+	},
+	"openai/gpt-image-1": {
+		Provider: "openai", Model: "gpt-image-1",
+		InputPrice: 5.00, OutputPrice: 40.00, Currency: "USD",
+	},
 
 	// ========== ANTHROPIC ==========
 	// Claude 3.5 Family

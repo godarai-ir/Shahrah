@@ -374,6 +374,65 @@ func TestBillingService_ShouldFinalizeCostWithPer1KScaling(t *testing.T) {
 	assert.InDelta(t, expectedIRR, out.TotalCostIRR, 1e-6)
 }
 
+func TestBillingService_ShouldFinalizeImageCostWithImagePricing(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	svc := billing.NewService(memCache, &walletStoreStub{
+		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1_000_000},
+		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
+	}, 850000, "test")
+
+	usage := &openai.Usage{
+		PromptTokens:     1000,
+		CompletionTokens: 1000,
+		TotalTokens:      2000,
+	}
+	out, err := svc.FinalizeImageUsage(context.Background(), "gpt-image-1.5", usage, nil, platform.UsageCostBreakdown{})
+	require.NoError(t, err)
+
+	expectedUSD := 0.037
+	assert.InDelta(t, expectedUSD, out.TotalCostUSD, 1e-12)
+	assert.InDelta(t, expectedUSD*850000.0, out.TotalCostIRR, 1e-6)
+}
+
+func TestBillingService_ShouldUseProviderImageCostTicksWhenAvailable(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	svc := billing.NewService(memCache, &walletStoreStub{
+		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1_000_000},
+		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
+	}, 850000, "test")
+
+	ticks := int64(200000000)
+	usage := &openai.Usage{PromptTokens: 10, CompletionTokens: 20, TotalTokens: 30}
+	out, err := svc.FinalizeImageUsage(context.Background(), "grok-imagine-image", usage, &ticks, platform.UsageCostBreakdown{})
+	require.NoError(t, err)
+
+	assert.Equal(t, 10, out.InputTokens)
+	assert.Equal(t, 20, out.OutputTokens)
+	assert.Equal(t, 30, out.TotalTokens)
+	assert.InDelta(t, 0.02, out.TotalCostUSD, 1e-12)
+	assert.InDelta(t, 17000.0, out.TotalCostIRR, 1e-6)
+}
+
+func TestBillingService_ShouldChargeImageUsageWhenOnlyTotalTokensAreReturned(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	svc := billing.NewService(memCache, &walletStoreStub{
+		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1_000_000},
+		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
+	}, 850000, "test")
+
+	usage := &openai.Usage{TotalTokens: 284}
+	out, err := svc.FinalizeImageUsage(context.Background(), "gpt-image-2", usage, nil, platform.UsageCostBreakdown{})
+	require.NoError(t, err)
+
+	assert.Equal(t, 0, out.InputTokens)
+	assert.Equal(t, 284, out.OutputTokens)
+	assert.Equal(t, 284, out.TotalTokens)
+	assert.Greater(t, out.TotalCostUSD, 0.0)
+}
+
 func TestBillingService_ShouldRejectWhenWalletBalanceIsInsufficient(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)

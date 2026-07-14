@@ -49,6 +49,23 @@ func (b *testBudgeter) FinalizeFromUsage(_ context.Context, _ string, usage *con
 	return estimated, nil
 }
 
+func (b *testBudgeter) FinalizeImageUsage(_ context.Context, _ string, usage *contractsopenai.Usage, providerCostUSDTicks *int64, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error) {
+	if usage != nil {
+		estimated.InputTokens = usage.PromptTokens
+		estimated.OutputTokens = usage.CompletionTokens
+		estimated.TotalTokens = usage.TotalTokens
+		if estimated.TotalTokens == 0 {
+			estimated.TotalTokens = estimated.InputTokens + estimated.OutputTokens
+		}
+	}
+	if providerCostUSDTicks != nil {
+		estimated.TotalCostUSD = float64(*providerCostUSDTicks) / 10_000_000_000.0
+		estimated.TotalCostIRR = estimated.TotalCostUSD * 850000
+	}
+
+	return estimated, nil
+}
+
 type walletDebitCall struct {
 	TenantID  string
 	Breakdown platform.UsageCostBreakdown

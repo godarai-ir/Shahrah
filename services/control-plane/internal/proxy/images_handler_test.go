@@ -102,6 +102,7 @@ func TestImagesHandlerJSONGeneration(t *testing.T) {
 	assert.Equal(t, 12, logs.loggedSpends[0].InputTokens)
 	assert.Equal(t, 272, logs.loggedSpends[0].OutputTokens)
 	assert.Equal(t, 284, logs.loggedSpends[0].TotalTokens)
+	assert.InDelta(t, 0.0000012345, logs.loggedSpends[0].CostUSD, 1e-12)
 	assert.Equal(t, int64(12345), logs.loggedSpends[0].RequestMetadata["provider_cost_in_usd_ticks"])
 }
 
@@ -123,11 +124,43 @@ func TestImagesHandlerGenerationRequiresPrompt(t *testing.T) {
 	assert.Contains(t, string(bodyBytes), `"param":"prompt"`)
 }
 
+func TestEstimatedImageUsageUsesGPTImage2TokenTable(t *testing.T) {
+	usage := estimatedImageUsage("openai:default:gpt-image-2", map[string]interface{}{
+		"prompt_length":  20,
+		"size":           "1024x1024",
+		"quality":        "medium",
+		"partial_images": 2,
+	})
+
+	require.NotNil(t, usage)
+	assert.Equal(t, 5, usage.PromptTokens)
+	assert.Equal(t, 1967, usage.CompletionTokens)
+	assert.Equal(t, 1972, usage.TotalTokens)
+}
+
+func TestImagesHandlerJSONEditRejectsEmptyImage(t *testing.T) {
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{StatusCode: fiber.StatusOK, Headers: map[string]string{"content-type": "application/json"}, Body: []byte(`{}`)}}
+	app, _ := newImagesTestApp(t, "gpt-image-1", "openai", "gpt-image-1", tunnel, nil, nil)
+
+	req := httptest.NewRequest("POST", "/v1/images/edits", bytes.NewBufferString(`{"model":"gpt-image-1","prompt":"edit this","image":""}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Contains(t, string(bodyBytes), `"param":"image"`)
+}
+
 func TestImagesHandlerJSONEdit(t *testing.T) {
 	tunnel := &captureTunnel{resp: &platform.TunnelResponse{StatusCode: fiber.StatusOK, Headers: map[string]string{"content-type": "application/json"}, Body: []byte(`{"created":1,"data":[{"b64_json":"AAAA","mime_type":"image/png"}]}`)}}
 	app, _ := newImagesTestApp(t, "grok-imagine-image", "xai", "grok-imagine-image", tunnel, nil, nil)
 
-	req := httptest.NewRequest("POST", "/v1/images/edits", bytes.NewBufferString(`{"model":"grok-imagine-image","prompt":"make it brighter","image":{"url":"https://example.com/private/path/image.png","type":"image_url"}}`))
+	req := httptest.NewRequest("POST", "/v1/images/edits", bytes.NewBufferString(`{"model":"grok-imagine-image","prompt":"make it brighter","image":{"url":"https://example.com/private/path/image.png","type":"image_url"},"output_format":"webp","output_compression":80,"moderation":"low"}`))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
@@ -137,6 +170,9 @@ func TestImagesHandlerJSONEdit(t *testing.T) {
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.Equal(t, "/images/edits", tunnel.lastReq.RequestMetadata["provider_endpoint_path"])
 	assert.Equal(t, "image_url", tunnel.lastReq.RequestMetadata["image_source_type"])
+	assert.Equal(t, "webp", tunnel.lastReq.RequestMetadata["output_format"])
+	assert.Equal(t, 80, tunnel.lastReq.RequestMetadata["output_compression"])
+	assert.Equal(t, "low", tunnel.lastReq.RequestMetadata["moderation"])
 }
 
 func TestImagesHandlerMultipartEdit(t *testing.T) {
