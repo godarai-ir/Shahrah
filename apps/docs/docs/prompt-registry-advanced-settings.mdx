@@ -2,6 +2,8 @@
 title: تنظیمات پیشرفته نسخه
 ---
 
+import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
+
 # تنظیمات پیشرفته نسخه
 
 در رجیستری پرامپت می‌توانید کنار متن پرامپت، تنظیمات اجرایی و سیاست‌های مرتبط را هم در Spec نسخه ثبت کنید: تنظیمات مدل، کش پاسخ، گاردریل‌ها، خروجی ساخت‌یافته و متادیتا.
@@ -25,19 +27,67 @@ Spec نسخه برای بازبینی، مقایسه و تست آزمایشی م
 
 نمونه:
 
-```json
-{
-  "model": "openai:default:gpt-4o-mini",
-  "prompt_version_fqn": "chat_prompt:acme/support_reply:3",
-  "prompt_variables": {
-    "customer_name": "سارا"
+<ApiCodeTabs
+  endpoint="/v1/chat/completions"
+  groupId="chat-completions-language"
+  snippets={{
+    openaiPython: `from openai import OpenAI
+
+client = OpenAI(
+    api_key="YOUR_GODARAI_TOKEN",
+    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
+)
+
+response = client.chat.completions.create(
+    model="openai:default:gpt-4o-mini",
+    messages=[],
+    stream=False,
+    temperature=0.2,
+    max_tokens=500,
+    extra_body={
+        "prompt_version_fqn": "chat_prompt:acme/support_reply:3",
+        "prompt_variables": {"customer_name": "سارا"},
+    },
+)
+
+print(response.choices[0].message.content)`,
+    openaiNodejs: `import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: "YOUR_GODARAI_TOKEN",
+  baseURL: "https://YOUR_WORKSPACE.godarai.ir/v1",
+});
+
+const response = await client.chat.completions.create(
+  {
+    model: "openai:default:gpt-4o-mini",
+    messages: [],
+    stream: false,
+    temperature: 0.2,
+    max_tokens: 500,
   },
-  "messages": [],
-  "stream": false,
-  "temperature": 0.2,
-  "max_tokens": 500
-}
-```
+  {
+    body: {
+      prompt_version_fqn: "chat_prompt:acme/support_reply:3",
+      prompt_variables: { customer_name: "سارا" },
+    },
+  },
+);
+
+console.log(response.choices[0].message.content);`,
+  }}
+  body={{
+    model: "openai:default:gpt-4o-mini",
+    prompt_version_fqn: "chat_prompt:acme/support_reply:3",
+    prompt_variables: {
+      customer_name: "سارا",
+    },
+    messages: [],
+    stream: false,
+    temperature: 0.2,
+    max_tokens: 500,
+  }}
+/>
 
 ## تنظیمات کش
 
@@ -52,20 +102,21 @@ Spec نسخه برای بازبینی، مقایسه و تست آزمایشی م
 
 برای اجرای مستقیم از درگاه:
 
-```bash
-curl https://YOUR_WORKSPACE.godarai.ir/v1/chat/completions \
-  -H "Authorization: Bearer YOUR_GODARAI_TOKEN" \
-  -H "Content-Type: application/json" \
-  -H 'x-godarai-cache-config: {"type":"simple","ttl":600,"namespace":"support"}' \
-  -d '{
-    "model": "openai:default:gpt-4o-mini",
-    "prompt_version_fqn": "chat_prompt:acme/support_reply:3",
-    "prompt_variables": {
-      "customer_name": "سارا"
+<ApiCodeTabs
+  endpoint="/v1/chat/completions"
+  groupId="chat-completions-language"
+  headers={{
+    "x-godarai-cache-config": '{"type":"simple","ttl":600,"namespace":"support"}',
+  }}
+  body={{
+    model: "openai:default:gpt-4o-mini",
+    prompt_version_fqn: "chat_prompt:acme/support_reply:3",
+    prompt_variables: {
+      customer_name: "سارا",
     },
-    "messages": []
-  }'
-```
+    messages: [],
+  }}
+/>
 
 برای جزئیات بیشتر، [کش پاسخ](/guides/caching) را ببینید.
 
@@ -104,31 +155,33 @@ x-godarai-guardrails-scope: last
 
 نمونه اجرای نسخه با خروجی ساخت‌یافته:
 
-```json
-{
-  "model": "openai:default:gpt-4o-mini",
-  "prompt_version_fqn": "chat_prompt:acme/support_reply_json:2",
-  "prompt_variables": {
-    "issue": "تاخیر در ارسال"
-  },
-  "messages": [],
-  "response_format": {
-    "type": "json_schema",
-    "json_schema": {
-      "name": "support_reply",
-      "strict": true,
-      "schema": {
-        "type": "object",
-        "required": ["summary", "next_action"],
-        "properties": {
-          "summary": { "type": "string" },
-          "next_action": { "type": "string" }
-        }
-      }
-    }
-  }
-}
-```
+<ApiCodeTabs
+  endpoint="/v1/chat/completions"
+  groupId="chat-completions-language"
+  body={{
+    model: "openai:default:gpt-4o-mini",
+    prompt_version_fqn: "chat_prompt:acme/support_reply_json:2",
+    prompt_variables: {
+      issue: "تاخیر در ارسال",
+    },
+    messages: [],
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "support_reply",
+        strict: true,
+        schema: {
+          type: "object",
+          required: ["summary", "next_action"],
+          properties: {
+            summary: { type: "string" },
+            next_action: { type: "string" },
+          },
+        },
+      },
+    },
+  }}
+/>
 
 برای جزئیات بیشتر، [Structured Outputs](/supported-apis/chat-completions/structured-outputs) را ببینید.
 
@@ -138,20 +191,22 @@ x-godarai-guardrails-scope: last
 
 در اجرای واقعی، اگر می‌خواهید متادیتا در گزارش رخدادها و پایش هزینه دیده شود، آن را در بدنه درخواست هم بفرستید:
 
-```json
-{
-  "model": "openai:default:gpt-4o-mini",
-  "prompt_version_fqn": "chat_prompt:acme/support_reply:3",
-  "prompt_variables": {
-    "customer_name": "سارا"
-  },
-  "messages": [],
-  "metadata": {
-    "project_id": "support-center",
-    "cost_center": "customer-success"
-  }
-}
-```
+<ApiCodeTabs
+  endpoint="/v1/chat/completions"
+  groupId="chat-completions-language"
+  body={{
+    model: "openai:default:gpt-4o-mini",
+    prompt_version_fqn: "chat_prompt:acme/support_reply:3",
+    prompt_variables: {
+      customer_name: "سارا",
+    },
+    messages: [],
+    metadata: {
+      project_id: "support-center",
+      cost_center: "customer-success",
+    },
+  }}
+/>
 
 :::tip
 برای گزارش‌گیری هزینه، متادیتا را پایدار نگه دارید. کلیدهایی مثل `project_id` و `cost_center` بعداً در تحلیل مصرف و بودجه‌بندی کمک زیادی می‌کنند.

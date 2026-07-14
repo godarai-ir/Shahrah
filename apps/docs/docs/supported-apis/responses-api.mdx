@@ -2,6 +2,9 @@
 title: Responses API
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Responses API
 
 `Responses API` قرارداد جدیدتر OpenAI برای ساخت پاسخ است. اگر `Chat Completions` را مسیر کلاسیک چت بدانیم، `Responses API` تلاش می‌کند ورودی، دستور کلی، ابزارها، خروجی و جریان‌های استدلالی را در یک مدل یکپارچه‌تر کنار هم قرار دهد.
@@ -23,6 +26,74 @@ POST /v1/responses
 
 ## شروع سریع
 
+نمونه‌های زیر یک درخواست یکسان را با چند روش رایج نشان می‌دهند.
+
+<Tabs className="api-code-tabs" groupId="responses-api-language" queryString="language">
+<TabItem value="python" label="Python">
+
+```python
+import requests
+
+response = requests.post(
+    "https://YOUR_WORKSPACE.godarai.ir/v1/responses",
+    headers={
+        "Authorization": "Bearer YOUR_GODARAI_TOKEN",
+        "Content-Type": "application/json",
+    },
+    json={
+        "model": "openai:default:gpt-4o-mini",
+        "instructions": "You are a concise Persian technical assistant.",
+        "input": "برای من سه مزیت استفاده از درگاه مدل‌های زبانی را بنویس.",
+    },
+    timeout=60,
+)
+
+response.raise_for_status()
+print(response.json()["output_text"])
+```
+
+</TabItem>
+<TabItem value="nodejs" label="NodeJS">
+
+```js
+const response = await fetch("https://YOUR_WORKSPACE.godarai.ir/v1/responses", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer YOUR_GODARAI_TOKEN",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    model: "openai:default:gpt-4o-mini",
+    instructions: "You are a concise Persian technical assistant.",
+    input: "برای من سه مزیت استفاده از درگاه مدل‌های زبانی را بنویس.",
+  }),
+});
+
+if (!response.ok) {
+  throw new Error(`Request failed with status ${response.status}`);
+}
+
+const data = await response.json();
+console.log(data.output_text);
+```
+
+</TabItem>
+<TabItem value="rest" label="REST API">
+
+```bash
+curl --request POST "https://YOUR_WORKSPACE.godarai.ir/v1/responses" \
+  --header "Authorization: Bearer YOUR_GODARAI_TOKEN" \
+  --header "Content-Type: application/json" \
+  --data '{
+    "model": "openai:default:gpt-4o-mini",
+    "instructions": "You are a concise Persian technical assistant.",
+    "input": "برای من سه مزیت استفاده از درگاه مدل‌های زبانی را بنویس."
+  }'
+```
+
+</TabItem>
+<TabItem value="openai-python" label="OpenAI Python SDK">
+
 ```python
 from openai import OpenAI
 
@@ -39,6 +110,29 @@ response = client.responses.create(
 
 print(response.output_text)
 ```
+
+</TabItem>
+<TabItem value="openai-nodejs" label="OpenAI NodeJS SDK">
+
+```js
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: "YOUR_GODARAI_TOKEN",
+  baseURL: "https://YOUR_WORKSPACE.godarai.ir/v1",
+});
+
+const response = await client.responses.create({
+  model: "openai:default:gpt-4o-mini",
+  instructions: "You are a concise Persian technical assistant.",
+  input: "برای من سه مزیت استفاده از درگاه مدل‌های زبانی را بنویس.",
+});
+
+console.log(response.output_text);
+```
+
+</TabItem>
+</Tabs>
 
 مدل انتخابی باید در فضای کاری شما مجاز و با `Responses API` سازگار باشد. اگر این مسیر برای ارائه‌دهنده یا مدل خاصی در محیط شما فعال نباشد، درخواست با خطای دسترسی یا ناسازگاری برمی‌گردد.
 
@@ -70,7 +164,84 @@ print(response.output_text)
 
 ## پاسخ جریانی
 
+<Tabs className="api-code-tabs" groupId="responses-api-language" queryString="language">
+<TabItem value="python" label="Python">
+
 ```python
+import requests
+
+with requests.post(
+    "https://YOUR_WORKSPACE.godarai.ir/v1/responses",
+    headers={
+        "Authorization": "Bearer YOUR_GODARAI_TOKEN",
+        "Content-Type": "application/json",
+    },
+    json={
+        "model": "openai:default:gpt-4o-mini",
+        "input": "یک معرفی کوتاه از گدارAI بنویس.",
+        "stream": True,
+    },
+    stream=True,
+    timeout=60,
+) as response:
+    response.raise_for_status()
+    for line in response.iter_lines(decode_unicode=True):
+        if line:
+            print(line)
+```
+
+</TabItem>
+<TabItem value="nodejs" label="NodeJS">
+
+```js
+const response = await fetch("https://YOUR_WORKSPACE.godarai.ir/v1/responses", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer YOUR_GODARAI_TOKEN",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    model: "openai:default:gpt-4o-mini",
+    input: "یک معرفی کوتاه از گدارAI بنویس.",
+    stream: true,
+  }),
+});
+
+if (!response.ok || !response.body) {
+  throw new Error(`Request failed with status ${response.status}`);
+}
+
+const decoder = new TextDecoder();
+for await (const chunk of response.body) {
+  process.stdout.write(decoder.decode(chunk));
+}
+```
+
+</TabItem>
+<TabItem value="rest" label="REST API">
+
+```bash
+curl --no-buffer --request POST "https://YOUR_WORKSPACE.godarai.ir/v1/responses" \
+  --header "Authorization: Bearer YOUR_GODARAI_TOKEN" \
+  --header "Content-Type: application/json" \
+  --data '{
+    "model": "openai:default:gpt-4o-mini",
+    "input": "یک معرفی کوتاه از گدارAI بنویس.",
+    "stream": true
+  }'
+```
+
+</TabItem>
+<TabItem value="openai-python" label="OpenAI Python SDK">
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="YOUR_GODARAI_TOKEN",
+    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
+)
+
 stream = client.responses.create(
     model="openai:default:gpt-4o-mini",
     input="یک معرفی کوتاه از گدارAI بنویس.",
@@ -80,6 +251,31 @@ stream = client.responses.create(
 for event in stream:
     print(event)
 ```
+
+</TabItem>
+<TabItem value="openai-nodejs" label="OpenAI NodeJS SDK">
+
+```js
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: "YOUR_GODARAI_TOKEN",
+  baseURL: "https://YOUR_WORKSPACE.godarai.ir/v1",
+});
+
+const stream = await client.responses.create({
+  model: "openai:default:gpt-4o-mini",
+  input: "یک معرفی کوتاه از گدارAI بنویس.",
+  stream: true,
+});
+
+for await (const event of stream) {
+  console.log(event);
+}
+```
+
+</TabItem>
+</Tabs>
 
 در حالت جریانی، رابط کاربری زودتر شروع به نمایش پاسخ می‌کند، اما سرویس شما باید رویدادها را درست جمع‌آوری کند و وضعیت پایان، خطا و مصرف نهایی را جداگانه مدیریت کند.
 

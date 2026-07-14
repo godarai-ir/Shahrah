@@ -4,6 +4,8 @@ title: شروع سریع
 description: آماده‌سازی فضای کاری گدارAI، اتصال یک ارائه‌دهنده مدل، ساخت توکن دسترسی و ارسال اولین درخواست.
 ---
 
+import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
+
 # شروع سریع گدارAI
 
 در پایان این راهنما، یک حساب ارائه‌دهنده آماده دارید، یک توکن دسترسی ساخته‌اید و می‌توانید اولین درخواست Chat Completions را از مسیر گدارAI بفرستید.
@@ -65,25 +67,19 @@ description: آماده‌سازی فضای کاری گدارAI، اتصال ی�
 | توکن دسترسی | PAT برای تست یا VAT برای سرویس |
 | شناسه مدل | مدل مجاز یا مدل مجازی |
 
-نمونه زیر با SDK رسمی OpenAI در Python نوشته شده است. مقدارها را با اطلاعات فضای کاری خودتان جایگزین کنید.
+نمونه‌های زیر یک درخواست یکسان را با چند روش رایج نشان می‌دهند. مقدارها را با اطلاعات فضای کاری خودتان جایگزین کنید.
 
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    api_key="YOUR_GODARAI_TOKEN",
-    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
-)
-
-response = client.chat.completions.create(
-    model="YOUR_MODEL_ID",
-    messages=[
-        {"role": "user", "content": "سلام، سه مزیت استفاده از درگاه مدل‌های زبانی را بگو."}
+<ApiCodeTabs
+  endpoint="/v1/chat/completions"
+  groupId="chat-completions-language"
+  sdkOperation="chat.completions.create"
+  body={{
+    model: "YOUR_MODEL_ID",
+    messages: [
+      { role: "user", content: "سلام، سه مزیت استفاده از درگاه مدل‌های زبانی را بگو." },
     ],
-)
-
-print(response.choices[0].message.content)
-```
+  }}
+/>
 
 اگر می‌خواهید همین مقدارها را به‌صورت متغیر محیطی نگه دارید:
 

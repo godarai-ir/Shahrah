@@ -2,6 +2,8 @@
 title: Image Edit
 ---
 
+import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
+
 # Image Edit
 
 `Image Edit` برای تغییر هدفمند یک تصویر موجود استفاده می‌شود. در این مسیر، تصویر ورودی را همراه پرامپت می‌فرستید و مدل نسخه ویرایش‌شده را برمی‌گرداند.
@@ -27,8 +29,63 @@ POST /v1/images/edits
 
 ## شروع سریع با فایل
 
-```python
-from openai import OpenAI
+<ApiCodeTabs
+  endpoint="/v1/images/edits"
+  groupId="image-edit-language"
+  snippets={{
+    python: `import requests
+
+with open("sample.png", "rb") as image:
+    response = requests.post(
+        "https://YOUR_WORKSPACE.godarai.ir/v1/images/edits",
+        headers={"Authorization": "Bearer YOUR_GODARAI_TOKEN"},
+        data={
+            "model": "openai:default:gpt-image-1",
+            "prompt": "پس‌زمینه تصویر را ساده‌تر و روشن‌تر کن، اما سوژه اصلی را تغییر نده.",
+            "size": "1024x1024",
+            "response_format": "url",
+        },
+        files={"image": ("sample.png", image, "image/png")},
+        timeout=180,
+    )
+
+response.raise_for_status()
+print(response.json()["data"][0]["url"])`,
+    nodejs: `import { readFile } from "node:fs/promises";
+
+const form = new FormData();
+form.append("model", "openai:default:gpt-image-1");
+form.append("prompt", "پس‌زمینه تصویر را ساده‌تر و روشن‌تر کن، اما سوژه اصلی را تغییر نده.");
+form.append("size", "1024x1024");
+form.append("response_format", "url");
+form.append(
+  "image",
+  new Blob([await readFile("sample.png")], { type: "image/png" }),
+  "sample.png",
+);
+
+const response = await fetch("https://YOUR_WORKSPACE.godarai.ir/v1/images/edits", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer YOUR_GODARAI_TOKEN",
+  },
+  body: form,
+});
+
+if (!response.ok) {
+  throw new Error("Request failed with status " + response.status);
+}
+
+const editedImage = await response.json();
+console.log(editedImage.data[0].url);`,
+    rest: `curl --request POST "https://YOUR_WORKSPACE.godarai.ir/v1/images/edits" \
+  --header "Authorization: Bearer YOUR_GODARAI_TOKEN" \
+  --form "model=openai:default:gpt-image-1" \
+  --form "prompt=پس‌زمینه تصویر را ساده‌تر و روشن‌تر کن، اما سوژه اصلی را تغییر نده." \
+  --form "size=1024x1024" \
+  --form "response_format=url" \
+  --form "image=@sample.png;type=image/png"`,
+    openaiPython: `from openai import OpenAI
 
 client = OpenAI(
     api_key="YOUR_GODARAI_TOKEN",
@@ -44,8 +101,26 @@ with open("sample.png", "rb") as image:
         response_format="url",
     )
 
-print(response.data[0].url)
-```
+print(response.data[0].url)`,
+    openaiNodejs: `import { readFile } from "node:fs/promises";
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: "YOUR_GODARAI_TOKEN",
+  baseURL: "https://YOUR_WORKSPACE.godarai.ir/v1",
+});
+
+const response = await client.images.edit({
+  model: "openai:default:gpt-image-1",
+  image: new File([await readFile("sample.png")], "sample.png", { type: "image/png" }),
+  prompt: "پس‌زمینه تصویر را ساده‌تر و روشن‌تر کن، اما سوژه اصلی را تغییر نده.",
+  size: "1024x1024",
+  response_format: "url",
+});
+
+console.log(response.data[0].url);`,
+  }}
+/>
 
 این روش معمولاً با `multipart/form-data` ارسال می‌شود و برای فایل واقعی انتخاب طبیعی‌تری است.
 

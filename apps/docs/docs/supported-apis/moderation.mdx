@@ -2,6 +2,8 @@
 title: Moderation
 ---
 
+import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
+
 # Moderation
 
 `Moderation` برای ارزیابی ایمنی و سیاست محتوایی متن استفاده می‌شود. این API کمک می‌کند پیش از ادامه پردازش، نمایش به کاربر یا ارسال متن به مدل‌های دیگر، ریسک‌های محتوایی را تشخیص دهید.
@@ -24,21 +26,15 @@ POST /v1/moderations
 
 ## شروع سریع
 
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    api_key="YOUR_GODARAI_TOKEN",
-    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
-)
-
-response = client.moderations.create(
-    model="openai:default:omni-moderation-latest",
-    input="این متن را از نظر محتوای پرریسک بررسی کن.",
-)
-
-print(response.results[0].flagged)
-```
+<ApiCodeTabs
+  endpoint="/v1/moderations"
+  groupId="moderations-language"
+  sdkOperation="moderations.create"
+  body={{
+    model: "openai:default:omni-moderation-latest",
+    input: "این متن را از نظر محتوای پرریسک بررسی کن.",
+  }}
+/>
 
 مدل باید از نوع `moderation` باشد و در فضای کاری شما مجاز شده باشد. پس از اجرا، نتیجه را در پاسخ API و گزارش رخدادهای گدارAI می‌توانید پیگیری کنید.
 
@@ -46,15 +42,18 @@ print(response.results[0].flagged)
 
 ورودی معمولاً یک رشته یا آرایه‌ای از رشته‌هاست:
 
-```python
-response = client.moderations.create(
-    model="openai:default:omni-moderation-latest",
-    input=[
-        "متن اول برای بررسی",
-        "متن دوم برای بررسی",
+<ApiCodeTabs
+  endpoint="/v1/moderations"
+  groupId="moderations-language"
+  sdkOperation="moderations.create"
+  body={{
+    model: "openai:default:omni-moderation-latest",
+    input: [
+      "متن اول برای بررسی",
+      "متن دوم برای بررسی",
     ],
-)
-```
+  }}
+/>
 
 اگر آرایه می‌فرستید، ترتیب خروجی را با ترتیب ورودی نگه دارید تا بدانید هر نتیجه به کدام متن مربوط است.
 

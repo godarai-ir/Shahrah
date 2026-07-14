@@ -2,6 +2,8 @@
 title: چندرسانه‌ای
 ---
 
+import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
+
 # چندرسانه‌ای در Chat Completions
 
 در `Chat Completions`، پیام کاربر همیشه فقط یک رشته متنی نیست. اگر مدل و ارائه‌دهنده انتخابی پشتیبانی کنند، می‌توانید متن را همراه تصویر، فایل یا بعضی رسانه‌های دیگر بفرستید.
@@ -31,34 +33,28 @@ title: چندرسانه‌ای
 
 ## شروع سریع با تصویر
 
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    api_key="YOUR_GODARAI_TOKEN",
-    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
-)
-
-response = client.chat.completions.create(
-    model="openai:default:gpt-4o",
-    messages=[
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": "این تصویر چه چیزی را نشان می‌دهد؟"},
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": "https://YOUR_WORKSPACE.godarai.ir/assets/sample-image.png"
-                    },
-                },
-            ],
-        }
+<ApiCodeTabs
+  endpoint="/v1/chat/completions"
+  groupId="chat-completions-language"
+  sdkOperation="chat.completions.create"
+  body={{
+    model: "openai:default:gpt-4o",
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "این تصویر چه چیزی را نشان می‌دهد؟" },
+          {
+            type: "image_url",
+            image_url: {
+              url: "https://YOUR_WORKSPACE.godarai.ir/assets/sample-image.png",
+            },
+          },
+        ],
+      },
     ],
-)
-
-print(response.choices[0].message.content)
-```
+  }}
+/>
 
 نشانی تصویر باید برای ارائه‌دهنده مدل قابل دسترس باشد. اگر تصویر پشت شبکه خصوصی یا نیازمند نشست کاربری باشد، مدل نمی‌تواند آن را بخواند.
 

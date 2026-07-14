@@ -3,6 +3,8 @@ title: پشتیبانی از SDKهای بومی
 description: انتخاب بین مسیر سازگار با OpenAI و SDK بومی ارائه‌دهنده هنگام اتصال محصول به گدارAI.
 ---
 
+import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
+
 # پشتیبانی از SDKهای بومی
 
 برای اتصال محصول به گدارAI، مسیر پیشنهادی برای بیشتر تیم‌ها استفاده از APIها و SDKهای سازگار با OpenAI است. این مسیر ساده‌تر است، سریع‌تر آزمایش می‌شود و با بخش بزرگی از قابلیت‌های درگاه، مثل احراز هویت، کنترل مصرف و پایش، هماهنگ‌تر است.
@@ -20,21 +22,17 @@ SDK بومی ارائه‌دهنده زمانی مطرح می‌شود که مح
 
 نمونه:
 
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    api_key="YOUR_GODARAI_TOKEN",
-    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
-)
-
-response = client.chat.completions.create(
-    model="YOUR_MODEL_ID",
-    messages=[{"role": "user", "content": "سلام"}],
-)
-
-print(response.choices[0].message.content)
-```
+<ApiCodeTabs
+  endpoint="/v1/chat/completions"
+  groupId="chat-completions-language"
+  sdkOperation="chat.completions.create"
+  body={{
+    model: "YOUR_MODEL_ID",
+    messages: [
+      { role: "user", content: "سلام" },
+    ],
+  }}
+/>
 
 این مسیر برای شروع، تست اتصال و بیشتر سناریوهای چندارائه‌دهنده انتخاب قابل اتکاتری است.
 

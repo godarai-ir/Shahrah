@@ -2,6 +2,8 @@
 title: کش و استدلال
 ---
 
+import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
+
 # حافظه نهان و استدلال
 
 در `Chat Completions` دو قابلیت می‌توانند تجربه و هزینه را جدی تغییر دهند:
@@ -28,39 +30,43 @@ title: کش و استدلال
 
 نمونه `simple`:
 
-```bash
-curl https://YOUR_WORKSPACE.godarai.ir/v1/chat/completions \
-  -H "Authorization: Bearer YOUR_GODARAI_TOKEN" \
-  -H "Content-Type: application/json" \
-  -H 'x-godarai-cache-config: {"type":"simple","ttl":600,"namespace":"support"}' \
-  -d '{
-    "model": "openai:default:gpt-4o-mini",
-    "messages": [
+<ApiCodeTabs
+  endpoint="/v1/chat/completions"
+  groupId="chat-completions-language"
+  headers={{
+    "x-godarai-cache-config": '{"type":"simple","ttl":600,"namespace":"support"}',
+  }}
+  sdkOperation="chat.completions.create"
+  body={{
+    model: "openai:default:gpt-4o-mini",
+    messages: [
       {
-        "role": "user",
-        "content": "چطور رمز عبورم را بازیابی کنم؟"
-      }
-    ]
-  }'
-```
+        role: "user",
+        content: "چطور رمز عبورم را بازیابی کنم؟",
+      },
+    ],
+  }}
+/>
 
 نمونه `smart`:
 
-```bash
-curl https://YOUR_WORKSPACE.godarai.ir/v1/chat/completions \
-  -H "Authorization: Bearer YOUR_GODARAI_TOKEN" \
-  -H "Content-Type: application/json" \
-  -H 'x-godarai-cache-config: {"type":"smart","ttl":600,"similarity_threshold":0.9,"namespace":"helpdesk"}' \
-  -d '{
-    "model": "openai:default:gpt-4o-mini",
-    "messages": [
+<ApiCodeTabs
+  endpoint="/v1/chat/completions"
+  groupId="chat-completions-language"
+  headers={{
+    "x-godarai-cache-config": '{"type":"smart","ttl":600,"similarity_threshold":0.9,"namespace":"helpdesk"}',
+  }}
+  sdkOperation="chat.completions.create"
+  body={{
+    model: "openai:default:gpt-4o-mini",
+    messages: [
       {
-        "role": "user",
-        "content": "روش بازیابی گذرواژه چیست؟"
-      }
-    ]
-  }'
-```
+        role: "user",
+        content: "روش بازیابی گذرواژه چیست؟",
+      },
+    ],
+  }}
+/>
 
 ## انتخاب بین `simple` و `smart`
 
@@ -112,28 +118,22 @@ curl https://YOUR_WORKSPACE.godarai.ir/v1/chat/completions \
 
 ## نمونه `reasoning_effort`
 
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    api_key="YOUR_GODARAI_TOKEN",
-    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
-)
-
-response = client.chat.completions.create(
-    model="openai:default:o4-mini",
-    messages=[
-        {
-            "role": "user",
-            "content": "برای کاهش هزینه پاسخ‌های پرتکرار، یک برنامه سه‌مرحله‌ای پیشنهاد بده."
-        }
+<ApiCodeTabs
+  endpoint="/v1/chat/completions"
+  groupId="chat-completions-language"
+  sdkOperation="chat.completions.create"
+  body={{
+    model: "openai:default:o4-mini",
+    messages: [
+      {
+        role: "user",
+        content: "برای کاهش هزینه پاسخ‌های پرتکرار، یک برنامه سه‌مرحله‌ای پیشنهاد بده.",
+      },
     ],
-    reasoning_effort="medium",
-    max_tokens=1200,
-)
-
-print(response.choices[0].message.content)
-```
+    reasoning_effort: "medium",
+    max_tokens: 1200,
+  }}
+/>
 
 مقدارهای رایج `reasoning_effort` به مدل و ارائه‌دهنده وابسته‌اند؛ مثل `low`، `medium` و `high`. همیشه با مقدار کمتر شروع کنید و فقط وقتی کیفیت بهتر می‌شود مقدار را بالا ببرید.
 

@@ -3,6 +3,8 @@ title: احراز هویت در گدارAI
 description: انتخاب و ارسال توکن دسترسی گدارAI برای درخواست‌های مدل، و تشخیص تفاوت احراز هویت با مجوز دسترسی.
 ---
 
+import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
+
 # احراز هویت در گدارAI
 
 برای ارسال درخواست به مدل‌ها، اپلیکیشن شما باید توکن دسترسی گدارAI را بفرستد. کلید خام ارائه‌دهنده‌هایی مثل OpenAI، Anthropic یا Azure را در درخواست‌های محصول خودتان به گدارAI ارسال نکنید.
@@ -50,7 +52,7 @@ VAT نماینده یک کاربر مجازی یا هویت سرویس است. �
 - کاربر مجازی فعال وجود داشته باشد.
 - کاربر مجازی به تیم یا محدوده دسترسی معتبر متصل باشد.
 
-برای ساخت و مدیریت آن، [مدیریت Virtual User و VAT](/guides/virtual-account-management) را بخوانید.
+برای ساخت و مدیریت آن، [مدیریت کاربران مجازی و VAT](/guides/virtual-account-management) را بخوانید.
 
 ## تفاوت احراز هویت و دسترسی
 
@@ -66,25 +68,19 @@ VAT نماینده یک کاربر مجازی یا هویت سرویس است. �
 
 ## بررسی سریع احراز هویت
 
-با SDK رسمی OpenAI می‌توانید یک درخواست ساده بفرستید:
+یک درخواست ساده بفرستید:
 
-```python
-import os
-
-from openai import OpenAI
-
-client = OpenAI(
-    api_key=os.environ["OPENAI_API_KEY"],
-    base_url=os.environ["OPENAI_BASE_URL"],
-)
-
-response = client.chat.completions.create(
-    model=os.environ["GODARAI_MODEL"],
-    messages=[{"role": "user", "content": "سلام"}],
-)
-
-print(response.choices[0].message.content)
-```
+<ApiCodeTabs
+  endpoint="/v1/chat/completions"
+  groupId="chat-completions-language"
+  sdkOperation="chat.completions.create"
+  body={{
+    model: "YOUR_MODEL_ID",
+    messages: [
+      { role: "user", content: "سلام" },
+    ],
+  }}
+/>
 
 اگر خطای `401` نگرفتید، توکن از نظر احراز هویت پذیرفته شده است. اگر خطای `403` گرفتید، هویت شناخته شده اما دسترسی کافی ندارد.
 
@@ -133,9 +129,9 @@ print(response.choices[0].message.content)
 
 ## گام بعدی
 
-- برای ساخت توکن، [ساخت کلید دسترسی در گدارAI](/guides/api-keys) را بخوانید.
+- برای ساخت توکن، [توکن‌های دسترسی در گدارAI](/guides/api-keys) را بخوانید.
 - برای ارسال درخواست، [اولین درخواست به درگاه](/making-llm-requests-via-gateway) را دنبال کنید.
-- برای هویت سرویس، [مدیریت Virtual User و VAT](/guides/virtual-account-management) را ببینید.
+- برای هویت سرویس، [مدیریت کاربران مجازی و VAT](/guides/virtual-account-management) را ببینید.
 
 ## پرسش‌های پرتکرار
 

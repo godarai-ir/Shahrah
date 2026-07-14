@@ -2,6 +2,8 @@
 title: خروجی ساختاریافته
 ---
 
+import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
+
 # خروجی ساختاریافته
 
 گاهی پاسخ خوب کافی نیست؛ پاسخ باید قابل پردازش باشد. خروجی ساختاریافته کمک می‌کند مدل به‌جای متن آزاد، JSON معتبر یا ساختاری نزدیک به `JSON Schema` شما برگرداند.
@@ -38,78 +40,68 @@ title: خروجی ساختاریافته
 
 ## `json_object`
 
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    api_key="YOUR_GODARAI_TOKEN",
-    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
-)
-
-response = client.chat.completions.create(
-    model="openai:default:gpt-4o-mini",
-    messages=[
-        {
-            "role": "system",
-            "content": "You return valid JSON only.",
-        },
-        {
-            "role": "user",
-            "content": "سه مزیت استفاده از کلید دسترسی مجازی را به صورت JSON بده.",
-        },
+<ApiCodeTabs
+  endpoint="/v1/chat/completions"
+  groupId="chat-completions-language"
+  sdkOperation="chat.completions.create"
+  body={{
+    model: "openai:default:gpt-4o-mini",
+    messages: [
+      {
+        role: "system",
+        content: "You return valid JSON only.",
+      },
+      {
+        role: "user",
+        content: "سه مزیت استفاده از کلید دسترسی مجازی را به صورت JSON بده.",
+      },
     ],
-    response_format={"type": "json_object"},
-)
-
-print(response.choices[0].message.content)
-```
+    response_format: { type: "json_object" },
+  }}
+/>
 
 این حالت برای خروجی‌های سبک مناسب است، اما ساختار دقیق را تضمین نمی‌کند.
 
 ## `json_schema`
 
-```python
-import json
-from openai import OpenAI
-
-client = OpenAI(
-    api_key="YOUR_GODARAI_TOKEN",
-    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
-)
-
-ticket_schema = {
-    "type": "object",
-    "properties": {
-        "summary": {"type": "string"},
-        "priority": {"type": "string", "enum": ["low", "medium", "high"]},
-        "labels": {
-            "type": "array",
-            "items": {"type": "string"}
-        }
-    },
-    "required": ["summary", "priority", "labels"],
-    "additionalProperties": False
-}
-
-response = client.chat.completions.create(
-    model="openai:default:gpt-4o-mini",
-    messages=[
-        {"role": "system", "content": "درخواست پشتیبانی را به داده ساختاریافته تبدیل کن."},
-        {"role": "user", "content": "کاربر می‌گوید پاسخ‌ها کند شده‌اند و این برای صفحه پرداخت فوری است."}
+<ApiCodeTabs
+  endpoint="/v1/chat/completions"
+  groupId="chat-completions-language"
+  sdkOperation="chat.completions.create"
+  body={{
+    model: "openai:default:gpt-4o-mini",
+    messages: [
+      {
+        role: "system",
+        content: "درخواست پشتیبانی را به داده ساختاریافته تبدیل کن.",
+      },
+      {
+        role: "user",
+        content: "کاربر می‌گوید پاسخ‌ها کند شده‌اند و این برای صفحه پرداخت فوری است.",
+      },
     ],
-    response_format={
-        "type": "json_schema",
-        "json_schema": {
-            "name": "support_ticket",
-            "schema": ticket_schema,
-            "strict": True
-        }
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "support_ticket",
+        strict: true,
+        schema: {
+          type: "object",
+          required: ["summary", "priority", "labels"],
+          additionalProperties: false,
+          properties: {
+            summary: { type: "string" },
+            priority: { type: "string", enum: ["low", "medium", "high"] },
+            labels: {
+              type: "array",
+              items: { type: "string" },
+            },
+          },
+        },
+      },
     },
-)
-
-ticket = json.loads(response.choices[0].message.content)
-print(ticket)
-```
+  }}
+/>
 
 `strict: True` به مدل می‌گوید به schema نزدیک‌تر بماند. در عوض، schema شما هم باید دقیق و قابل اجرا باشد.
 

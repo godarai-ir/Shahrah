@@ -2,6 +2,8 @@
 title: پایش هزینه
 ---
 
+import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
+
 # پایش هزینه
 
 پایش هزینه در گدارAI یعنی هر درخواست فقط از نظر موفق یا ناموفق بودن دیده نمی‌شود؛ مصرف توکن، هزینه ریالی و دلاری، اثر کش، مدل استفاده‌شده و هویت مصرف‌کننده هم قابل بررسی است. این داده‌ها به شما کمک می‌کنند هزینه هوش مصنوعی را در محصول خودتان قابل توضیح و قابل کنترل نگه دارید.
@@ -67,24 +69,21 @@ title: پایش هزینه
 
 نمونه بررسی سریع:
 
-```bash
-curl https://YOUR_WORKSPACE.godarai.ir/v1/chat/completions \
-  -H "Authorization: Bearer YOUR_GODARAI_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "openai:default:gpt-4o-mini",
-    "messages": [
-      {
-        "role": "user",
-        "content": "این متن را در یک جمله خلاصه کن."
-      }
+<ApiCodeTabs
+  endpoint="/v1/chat/completions"
+  groupId="chat-completions-language"
+  sdkOperation="chat.completions.create"
+  body={{
+    model: "openai:default:gpt-4o-mini",
+    messages: [
+      { role: "user", content: "این متن را در یک جمله خلاصه کن." },
     ],
-    "metadata": {
-      "project_id": "support-center",
-      "cost_center": "customer-success"
-    }
-  }'
-```
+    metadata: {
+      project_id: "support-center",
+      cost_center: "customer-success",
+    },
+  }}
+/>
 
 :::warning
 سرآیندهای هزینه را منبع نهایی گزارش مالی در نظر نگیرید. برای گزارش رسمی، تصمیم‌های بودجه و بررسی اختلاف‌ها، سنجه‌ها و سوابق مالی فضای کاری را مبنا قرار دهید.
@@ -149,7 +148,7 @@ curl https://YOUR_WORKSPACE.godarai.ir/v1/chat/completions \
 ## ادامه مسیر
 
 - برای کنترل سقف مالی، [قوانین محدودیت بودجه](/guides/budget-limiting) را ببینید.
-- برای نسبت‌دادن مصرف به هویت درست، [ساخت API Key در گدارAI](/guides/api-keys) را بخوانید.
+- برای نسبت‌دادن مصرف به هویت درست، [توکن‌های دسترسی در گدارAI](/guides/api-keys) را بخوانید.
 - برای کاهش هزینه درخواست‌های تکراری، [کش پاسخ](/guides/caching) را بررسی کنید.
 
 ## جمع‌بندی

@@ -2,6 +2,8 @@
 title: Rerank
 ---
 
+import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
+
 # Rerank
 
 `Rerank` نتایج اولیه جست‌وجو یا بازیابی را دوباره امتیازدهی می‌کند و موارد مرتبط‌تر را بالاتر می‌آورد. این API معمولاً بعد از `Embeddings`، جست‌وجوی برداری یا جست‌وجوی کلیدواژه‌ای استفاده می‌شود.
@@ -40,18 +42,20 @@ POST /v1/rerank
 
 ## ساختار درخواست
 
-```json
-{
-  "model": "cohere:default:rerank-multilingual-v3.0",
-  "query": "تهران پایتخت کدام کشور است؟",
-  "documents": [
-    "تهران پایتخت ایران است.",
-    "آسمان امروز آبی است.",
-    "مشهد یکی از شهرهای بزرگ ایران است."
-  ],
-  "top_n": 2
-}
-```
+<ApiCodeTabs
+  endpoint="/v1/rerank"
+  groupId="rerank-language"
+  body={{
+    model: "cohere:default:rerank-multilingual-v3.0",
+    query: "تهران پایتخت کدام کشور است؟",
+    documents: [
+      "تهران پایتخت ایران است.",
+      "آسمان امروز آبی است.",
+      "مشهد یکی از شهرهای بزرگ ایران است.",
+    ],
+    top_n: 2,
+  }}
+/>
 
 فیلدهای اصلی:
 

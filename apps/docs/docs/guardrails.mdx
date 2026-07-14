@@ -2,6 +2,8 @@
 title: گاردریل‌ها
 ---
 
+import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
+
 # گاردریل‌ها در گدارAI
 
 گاردریل (Guardrail) قاعده‌ای است که متن ورودی یا خروجی مدل را پیش از ادامه مسیر بررسی یا اصلاح می‌کند. با گاردریل‌ها می‌توانید جلوی ارسال داده حساس به مدل را بگیرید، پاسخ پرریسک را پیش از نمایش کنترل کنید، یا متن را به شکل امن‌تری به مسیر بعدی بفرستید.
@@ -23,12 +25,62 @@ title: گاردریل‌ها
 
 نمونه زیر گاردریل آماده `guardrails/pii-redaction` را روی ورودی مدل اجرا می‌کند تا داده شخصی پایه پیش از ارسال به مدل ماسک شود.
 
-```bash
-curl https://YOUR_WORKSPACE.godarai.ir/v1/chat/completions \
-  -H "Authorization: Bearer YOUR_GODARAI_TOKEN" \
-  -H "Content-Type: application/json" \
-  -H 'x-godarai-guardrails: {"llm_input_guardrails":["guardrails/pii-redaction"]}' \
-  -d '{
+<ApiCodeTabs
+  endpoint="/v1/chat/completions"
+  groupId="chat-completions-language"
+  body={{
+    model: "openai:default:gpt-4o-mini",
+    messages: [
+      { role: "user", content: "ایمیل من customer@company.ir است. لطفاً متن را خلاصه کن." },
+    ],
+  }}
+  snippets={{
+    python: `import requests
+
+response = requests.post(
+    "https://YOUR_WORKSPACE.godarai.ir/v1/chat/completions",
+    headers={
+        "Authorization": "Bearer YOUR_GODARAI_TOKEN",
+        "Content-Type": "application/json",
+        "x-godarai-guardrails": '{"llm_input_guardrails":["guardrails/pii-redaction"]}',
+    },
+    json={
+        "model": "openai:default:gpt-4o-mini",
+        "messages": [
+            {"role": "user", "content": "ایمیل من customer@company.ir است. لطفاً متن را خلاصه کن."}
+        ],
+    },
+    timeout=60,
+)
+
+response.raise_for_status()
+print(response.json())`,
+    nodejs: `const response = await fetch("https://YOUR_WORKSPACE.godarai.ir/v1/chat/completions", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer YOUR_GODARAI_TOKEN",
+    "Content-Type": "application/json",
+    "x-godarai-guardrails": JSON.stringify({ llm_input_guardrails: ["guardrails/pii-redaction"] }),
+  },
+  body: JSON.stringify({
+    model: "openai:default:gpt-4o-mini",
+    messages: [
+      { role: "user", content: "ایمیل من customer@company.ir است. لطفاً متن را خلاصه کن." },
+    ],
+  }),
+});
+
+if (!response.ok) {
+  throw new Error("Request failed with status " + response.status);
+}
+
+const data = await response.json();
+console.log(data);`,
+    rest: `curl --request POST "https://YOUR_WORKSPACE.godarai.ir/v1/chat/completions" \
+  --header "Authorization: Bearer YOUR_GODARAI_TOKEN" \
+  --header "Content-Type: application/json" \
+  --header 'x-godarai-guardrails: {"llm_input_guardrails":["guardrails/pii-redaction"]}' \
+  --data '{
     "model": "openai:default:gpt-4o-mini",
     "messages": [
       {
@@ -36,8 +88,9 @@ curl https://YOUR_WORKSPACE.godarai.ir/v1/chat/completions \
         "content": "ایمیل من customer@company.ir است. لطفاً متن را خلاصه کن."
       }
     ]
-  }'
-```
+  }'`,
+  }}
+/>
 
 اگر گاردریل تطابق پیدا کند، متن ورودی پیش از ارسال به ارائه‌دهنده مدل تغییر می‌کند. در لاگ درخواست‌ها، وضعیت اجرای گاردریل را با `mutated` می‌بینید.
 

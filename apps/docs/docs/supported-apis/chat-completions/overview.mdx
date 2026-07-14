@@ -2,6 +2,8 @@
 title: نمای کلی
 ---
 
+import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
+
 # Chat Completions
 
 `Chat Completions` مسیر اصلی گدارAI برای ساخت پاسخ متنی، چت چندپیامی، فراخوانی ابزار و خروجی ساختاریافته است. این API با قرارداد سازگار با OpenAI کار می‌کند؛ یعنی بسیاری از SDKها و نمونه‌کدهای رایج را می‌توانید با تغییر `base_url` و توکن، از مسیر گدارAI اجرا کنید.
@@ -34,23 +36,17 @@ POST /v1/chat/completions
 
 ## شروع سریع
 
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    api_key="YOUR_GODARAI_TOKEN",
-    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
-)
-
-response = client.chat.completions.create(
-    model="openai:default:gpt-4o-mini",
-    messages=[
-        {"role": "user", "content": "سلام، گدارAI را در دو جمله معرفی کن."}
+<ApiCodeTabs
+  endpoint="/v1/chat/completions"
+  groupId="chat-completions-language"
+  sdkOperation="chat.completions.create"
+  body={{
+    model: "openai:default:gpt-4o-mini",
+    messages: [
+      { role: "user", content: "سلام، گدارAI را در دو جمله معرفی کن." },
     ],
-)
-
-print(response.choices[0].message.content)
-```
+  }}
+/>
 
 برای اجرای همین نمونه به سه مقدار نیاز دارید: توکن گدارAI، نشانی پایه درگاه و شناسه مدلی که در فضای کاری شما مجاز است. برای سرویس‌های محیط عملیاتی، کلید دسترسی مجازی انتخاب مطمئن‌تری از توکن شخصی است.
 

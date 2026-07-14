@@ -2,6 +2,8 @@
 title: Embeddings
 ---
 
+import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
+
 # Embeddings
 
 `Embeddings` متن را به بردار عددی تبدیل می‌کند. این بردارها معنی تقریبی متن را به شکلی قابل محاسبه نمایش می‌دهند؛ بنابراین می‌توانید شباهت معنایی، جست‌وجوی دانش، خوشه‌بندی یا حذف موارد تکراری را در محصول خود بسازید.
@@ -24,23 +26,15 @@ POST /v1/embeddings
 
 ## شروع سریع
 
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    api_key="YOUR_GODARAI_TOKEN",
-    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
-)
-
-response = client.embeddings.create(
-    model="openai:default:text-embedding-3-small",
-    input="گدارAI یک درگاه یکپارچه برای کار با مدل‌های زبانی است.",
-)
-
-vector = response.data[0].embedding
-print(len(vector))
-print(vector[:8])
-```
+<ApiCodeTabs
+  endpoint="/v1/embeddings"
+  groupId="embeddings-language"
+  sdkOperation="embeddings.create"
+  body={{
+    model: "openai:default:text-embedding-3-small",
+    input: "گدارAI یک درگاه یکپارچه برای کار با مدل‌های زبانی است.",
+  }}
+/>
 
 مدل باید از نوع `embedding` باشد و در دسترسی فضای کاری شما مجاز شده باشد. اگر از مدل چت برای این API استفاده کنید، درخواست رد می‌شود.
 
@@ -57,19 +51,19 @@ print(vector[:8])
 
 `input` می‌تواند یک رشته یا آرایه‌ای از رشته‌ها باشد:
 
-```python
-response = client.embeddings.create(
-    model="openai:default:text-embedding-3-small",
-    input=[
-        "راهنمای ساخت توکن دسترسی",
-        "مستندات سقف نرخ",
-        "تنظیم بودجه برای فضای کاری",
+<ApiCodeTabs
+  endpoint="/v1/embeddings"
+  groupId="embeddings-language"
+  sdkOperation="embeddings.create"
+  body={{
+    model: "openai:default:text-embedding-3-small",
+    input: [
+      "راهنمای ساخت توکن دسترسی",
+      "مستندات سقف نرخ",
+      "تنظیم بودجه برای فضای کاری",
     ],
-)
-
-for item in response.data:
-    print(item.index, len(item.embedding))
-```
+  }}
+/>
 
 نکته آموزشی: برای ورود اولیه حجم زیادی سند، آرایه‌ای از رشته‌ها معمولاً از ارسال تک‌به‌تک درخواست‌ها ساده‌تر است. با این حال اندازه هر دسته را کنترل کنید تا خطا، زمان پاسخ و هزینه قابل پیش‌بینی بماند.
 
@@ -80,13 +74,16 @@ for item in response.data:
 - `float`
 - `base64`
 
-```python
-response = client.embeddings.create(
-    model="openai:default:text-embedding-3-small",
-    input="مستندات چندمستاجری در گدارAI",
-    encoding_format="float",
-)
-```
+<ApiCodeTabs
+  endpoint="/v1/embeddings"
+  groupId="embeddings-language"
+  sdkOperation="embeddings.create"
+  body={{
+    model: "openai:default:text-embedding-3-small",
+    input: "مستندات چندمستاجری در گدارAI",
+    encoding_format: "float",
+  }}
+/>
 
 `float` برای بیشتر مخزن‌های برداری و پردازش مستقیم مناسب‌تر است. `base64` وقتی مفید است که بخواهید بردار را فشرده‌تر منتقل یا ذخیره کنید.
 
@@ -94,15 +91,16 @@ response = client.embeddings.create(
 
 بعضی مدل‌های Embedding اجازه می‌دهند اندازه بردار خروجی را با `dimensions` تنظیم کنید:
 
-```python
-response = client.embeddings.create(
-    model="openai:default:text-embedding-3-large",
-    input="راهنمای مدیریت نقش‌ها و دسترسی‌ها",
-    dimensions=1024,
-)
-
-print(len(response.data[0].embedding))
-```
+<ApiCodeTabs
+  endpoint="/v1/embeddings"
+  groupId="embeddings-language"
+  sdkOperation="embeddings.create"
+  body={{
+    model: "openai:default:text-embedding-3-large",
+    input: "راهنمای مدیریت نقش‌ها و دسترسی‌ها",
+    dimensions: 1024,
+  }}
+/>
 
 این پارامتر برای همه مدل‌ها معتبر نیست. اگر مدل انتخابی آن را پشتیبانی نکند، باید مدل یا تنظیمات خود را تغییر دهید.
 

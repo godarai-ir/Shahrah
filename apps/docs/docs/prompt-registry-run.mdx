@@ -2,6 +2,8 @@
 title: اجرای نسخه از درگاه
 ---
 
+import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
+
 # اجرای نسخه از درگاه
 
 پس از ذخیره نسخه پرامپت، می‌توانید آن نسخه را با `prompt_version_fqn` از مسیر `Chat Completions` اجرا کنید. در این حالت، گدارAI نسخه را پیدا می‌کند، متغیرها را جایگذاری می‌کند، پیام‌های اختیاری درخواست را اضافه می‌کند و سپس درخواست را به مدل مسیریابی می‌کند.
@@ -30,27 +32,83 @@ chat_prompt:acme/support_reply:3
 FQN به نسخه مشخص اشاره می‌کند، نه فقط نام پرامپت. اگر نسخه جدید بسازید، FQN نسخه قبلی تغییر نمی‌کند.
 :::
 
-## اجرای نسخه با curl
+## اجرای نسخه از کد
 
-```bash
-curl https://YOUR_WORKSPACE.godarai.ir/v1/chat/completions \
-  -H "Authorization: Bearer YOUR_GODARAI_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "openai:default:gpt-4o-mini",
-    "prompt_version_fqn": "chat_prompt:acme/support_reply:3",
-    "prompt_variables": {
-      "customer_name": "سارا",
-      "issue": "سفارش هنوز ارسال نشده است."
+<ApiCodeTabs
+  endpoint="/v1/chat/completions"
+  groupId="chat-completions-language"
+  sdkOperation="chat.completions.create"
+  body={{
+    model: "openai:default:gpt-4o-mini",
+    prompt_version_fqn: "chat_prompt:acme/support_reply:3",
+    prompt_variables: {
+      customer_name: "سارا",
+      issue: "سفارش هنوز ارسال نشده است.",
     },
-    "messages": [
+    messages: [
       {
-        "role": "user",
-        "content": "پاسخ را کوتاه و قابل اقدام بنویس."
-      }
-    ]
-  }'
-```
+        role: "user",
+        content: "پاسخ را کوتاه و قابل اقدام بنویس.",
+      },
+    ],
+  }}
+  snippets={{
+    openaiPython: `from openai import OpenAI
+
+client = OpenAI(
+    api_key="YOUR_GODARAI_TOKEN",
+    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
+)
+
+response = client.chat.completions.create(
+    model="openai:default:gpt-4o-mini",
+    messages=[
+        {
+            "role": "user",
+            "content": "پاسخ را کوتاه و قابل اقدام بنویس.",
+        }
+    ],
+    extra_body={
+        "prompt_version_fqn": "chat_prompt:acme/support_reply:3",
+        "prompt_variables": {
+            "customer_name": "سارا",
+            "issue": "سفارش هنوز ارسال نشده است.",
+        },
+    },
+)
+
+print(response.choices[0].message.content)`,
+    openaiNodejs: `import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: "YOUR_GODARAI_TOKEN",
+  baseURL: "https://YOUR_WORKSPACE.godarai.ir/v1",
+});
+
+const response = await client.chat.completions.create(
+  {
+    model: "openai:default:gpt-4o-mini",
+    messages: [
+      {
+        role: "user",
+        content: "پاسخ را کوتاه و قابل اقدام بنویس.",
+      },
+    ],
+  },
+  {
+    body: {
+      prompt_version_fqn: "chat_prompt:acme/support_reply:3",
+      prompt_variables: {
+        customer_name: "سارا",
+        issue: "سفارش هنوز ارسال نشده است.",
+      },
+    },
+  },
+);
+
+console.log(response.choices[0].message.content);`,
+  }}
+/>
 
 در این مثال:
 
@@ -63,32 +121,7 @@ curl https://YOUR_WORKSPACE.godarai.ir/v1/chat/completions \
 اگر می‌خواهید همیشه دقیقاً مدل ذخیره‌شده در نسخه اجرا شود، همان مدل را در کد محصول خود نگه دارید یا از قرارداد داخلی تیم برای تغییر مدل استفاده کنید. اگر درخواست `model` بفرستد، همان مقدار برای اجرا استفاده می‌شود.
 :::
 
-## اجرای نسخه با OpenAI SDK
-
-در SDKهای OpenAI-compatible، فیلدهای اختصاصی گدارAI را از طریق `extra_body` بفرستید:
-
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    api_key="YOUR_GODARAI_TOKEN",
-    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
-)
-
-response = client.chat.completions.create(
-    model="openai:default:gpt-4o-mini",
-    messages=[],
-    extra_body={
-        "prompt_version_fqn": "chat_prompt:acme/support_reply:3",
-        "prompt_variables": {
-            "customer_name": "Sara",
-            "issue": "Order has not shipped yet",
-        },
-    },
-)
-
-print(response.choices[0].message.content)
-```
+در SDKهای OpenAI-compatible، فیلدهای اختصاصی گدارAI در بدنه درخواست به همان مسیر سازگار با OpenAI ارسال می‌شوند.
 
 ## مدل و پیام‌ها چگونه ترکیب می‌شوند؟
 

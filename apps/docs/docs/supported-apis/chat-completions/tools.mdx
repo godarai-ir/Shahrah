@@ -2,6 +2,8 @@
 title: ابزارها
 ---
 
+import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
+
 # ابزارها و فراخوانی ابزار
 
 در `Chat Completions`، مدل می‌تواند به‌جای حدس‌زدن، از اپلیکیشن شما بخواهد یک ابزار را اجرا کند. این قابلیت با `tools`، `tool_choice` و `tool_calls` شناخته می‌شود.
@@ -65,32 +67,38 @@ tools = [
 
 ## دریافت tool call
 
-```python
-import json
-from openai import OpenAI
-
-client = OpenAI(
-    api_key="YOUR_GODARAI_TOKEN",
-    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
-)
-
-response = client.chat.completions.create(
-    model="openai:default:gpt-4o-mini",
-    messages=[
-        {"role": "user", "content": "وضعیت سفارش A-1024 را بگو."}
+<ApiCodeTabs
+  endpoint="/v1/chat/completions"
+  groupId="chat-completions-language"
+  sdkOperation="chat.completions.create"
+  body={{
+    model: "openai:default:gpt-4o-mini",
+    messages: [
+      { role: "user", content: "وضعیت سفارش A-1024 را بگو." },
     ],
-    tools=tools,
-    tool_choice="auto",
-)
-
-message = response.choices[0].message
-
-if message.tool_calls:
-    tool_call = message.tool_calls[0]
-    name = tool_call.function.name
-    args = json.loads(tool_call.function.arguments)
-    print(name, args)
-```
+    tools: [
+      {
+        type: "function",
+        function: {
+          name: "get_order_status",
+          description: "Get the latest status for a customer order by order id.",
+          parameters: {
+            type: "object",
+            properties: {
+              order_id: {
+                type: "string",
+                description: "Customer order id",
+              },
+            },
+            required: ["order_id"],
+            additionalProperties: false,
+          },
+        },
+      },
+    ],
+    tool_choice: "auto",
+  }}
+/>
 
 در این مرحله هنوز هیچ ابزار واقعی اجرا نشده است. شما فقط تصمیم مدل را دریافت کرده‌اید.
 
@@ -169,17 +177,38 @@ if assistant_message.tool_calls:
 
 نمونه اجبار به ابزار خاص:
 
-```python
-response = client.chat.completions.create(
-    model="openai:default:gpt-4o-mini",
-    messages=[{"role": "user", "content": "وضعیت سفارش A-1024 چیست؟"}],
-    tools=tools,
-    tool_choice={
-        "type": "function",
-        "function": {"name": "get_order_status"}
+<ApiCodeTabs
+  endpoint="/v1/chat/completions"
+  groupId="chat-completions-language"
+  sdkOperation="chat.completions.create"
+  body={{
+    model: "openai:default:gpt-4o-mini",
+    messages: [
+      { role: "user", content: "وضعیت سفارش A-1024 چیست؟" },
+    ],
+    tools: [
+      {
+        type: "function",
+        function: {
+          name: "get_order_status",
+          description: "Get the latest status for a customer order by order id.",
+          parameters: {
+            type: "object",
+            properties: {
+              order_id: { type: "string" },
+            },
+            required: ["order_id"],
+            additionalProperties: false,
+          },
+        },
+      },
+    ],
+    tool_choice: {
+      type: "function",
+      function: { name: "get_order_status" },
     },
-)
-```
+  }}
+/>
 
 `required` یا اجبار به ابزار خاص برای مسیرهایی مناسب است که پاسخ بدون داده واقعی قابل قبول نیست؛ مثل قیمت، موجودی، وضعیت سفارش یا اطلاعات حساب.
 

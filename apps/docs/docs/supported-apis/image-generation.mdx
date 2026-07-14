@@ -2,6 +2,8 @@
 title: Image Generation
 ---
 
+import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
+
 # Image Generation
 
 `Image Generation` برای تولید تصویر از متن استفاده می‌شود. شما پرامپت را می‌فرستید، مدل تصویری یک یا چند تصویر می‌سازد و گدارAI مسیر احراز هویت، دسترسی مدل، بودجه، گزارش رخداد و هزینه را از یک درگاه واحد مدیریت می‌کند.
@@ -27,24 +29,18 @@ POST /v1/images/generations
 
 ## شروع سریع
 
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    api_key="YOUR_GODARAI_TOKEN",
-    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
-)
-
-response = client.images.generate(
-    model="openai:default:gpt-image-1",
-    prompt="یک تصویر مینیمال از داشبورد هوش مصنوعی سازمانی با رنگ‌های آرام و فضای حرفه‌ای",
-    size="1024x1024",
-    quality="medium",
-    n=1,
-)
-
-print(response.data[0].b64_json[:48])
-```
+<ApiCodeTabs
+  endpoint="/v1/images/generations"
+  groupId="image-generation-language"
+  sdkOperation="images.generate"
+  body={{
+    model: "openai:default:gpt-image-1",
+    prompt: "یک تصویر مینیمال از داشبورد هوش مصنوعی سازمانی با رنگ‌های آرام و فضای حرفه‌ای",
+    size: "1024x1024",
+    quality: "medium",
+    n: 1,
+  }}
+/>
 
 :::tip
 برای سرویس‌های محیط عملیاتی، به‌جای توکن شخصی از کلید دسترسی مجازی استفاده کنید. این کار کنترل دسترسی، چرخش کلید و گزارش مصرف را برای تیم شما قابل اتکاتر می‌کند.

@@ -2,6 +2,8 @@
 title: تفکر عمیق‌تر
 ---
 
+import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
+
 # تفکر عمیق‌تر
 
 `Extended Thinking` برای مدل‌هایی مطرح می‌شود که هنگام حل مسئله، داده‌های ساختاریافته‌ای برای ادامه زمینه استدلالی بین نوبت‌ها برمی‌گردانند. این قابلیت برای همه مدل‌ها فعال نیست و باید آن را وابسته به مدل و ارائه‌دهنده بدانید.
@@ -68,28 +70,22 @@ title: تفکر عمیق‌تر
 
 ## نمونه پایه
 
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    api_key="YOUR_GODARAI_TOKEN",
-    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
-)
-
-response = client.chat.completions.create(
-    model="anthropic:default:claude-3-7-sonnet",
-    messages=[
-        {
-            "role": "user",
-            "content": "برای طراحی یک agent پشتیبانی، مراحل تصمیم‌گیری را پیشنهاد بده."
-        }
+<ApiCodeTabs
+  endpoint="/v1/chat/completions"
+  groupId="chat-completions-language"
+  sdkOperation="chat.completions.create"
+  body={{
+    model: "anthropic:default:claude-3-7-sonnet",
+    messages: [
+      {
+        role: "user",
+        content: "برای طراحی یک agent پشتیبانی، مراحل تصمیم‌گیری را پیشنهاد بده.",
+      },
     ],
-    reasoning_effort="high",
-    max_tokens=4000,
-)
-
-assistant_message = response.choices[0].message.model_dump(exclude_none=True)
-```
+    reasoning_effort: "high",
+    max_tokens: 4000,
+  }}
+/>
 
 در این نمونه، هدف اصلی ذخیره کامل `assistant_message` است. همین پیام ممکن است شامل `content`، `tool_calls`، `reasoning_content` یا `thinking_blocks` باشد.
 

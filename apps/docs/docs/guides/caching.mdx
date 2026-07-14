@@ -3,6 +3,8 @@ sidebar_position: 5
 title: کش پاسخ در گدارAI
 ---
 
+import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
+
 # کش پاسخ در گدارAI
 
 کش پاسخ به گدارAI کمک می‌کند پاسخ درخواست‌های تکراری یا بسیار مشابه را بدون فراخوانی دوباره ارائه‌دهنده مدل برگرداند. نتیجه برای محصول شما ساده است: پاسخ سریع‌تر، هزینه کمتر و رفتار قابل مشاهده‌تر در مسیر درخواست.
@@ -47,39 +49,43 @@ title: کش پاسخ در گدارAI
 
 ### نمونه کش ساده
 
-```bash
-curl https://YOUR_WORKSPACE.godarai.ir/v1/chat/completions \
-  -H "Authorization: Bearer YOUR_GODARAI_TOKEN" \
-  -H "Content-Type: application/json" \
-  -H 'x-godarai-cache-config: {"type":"simple","ttl":600,"namespace":"support"}' \
-  -d '{
-    "model": "openai:default:gpt-4o-mini",
-    "messages": [
+<ApiCodeTabs
+  endpoint="/v1/chat/completions"
+  groupId="chat-completions-language"
+  headers={{
+    "x-godarai-cache-config": '{"type":"simple","ttl":600,"namespace":"support"}',
+  }}
+  sdkOperation="chat.completions.create"
+  body={{
+    model: "openai:default:gpt-4o-mini",
+    messages: [
       {
-        "role": "user",
-        "content": "شرایط لغو اشتراک چیست؟"
-      }
-    ]
-  }'
-```
+        role: "user",
+        content: "شرایط لغو اشتراک چیست؟",
+      },
+    ],
+  }}
+/>
 
 ### نمونه کش هوشمند
 
-```bash
-curl https://YOUR_WORKSPACE.godarai.ir/v1/chat/completions \
-  -H "Authorization: Bearer YOUR_GODARAI_TOKEN" \
-  -H "Content-Type: application/json" \
-  -H 'x-godarai-cache-config: {"type":"smart","ttl":900,"similarity_threshold":0.9,"namespace":"helpdesk"}' \
-  -d '{
-    "model": "openai:default:gpt-4o-mini",
-    "messages": [
+<ApiCodeTabs
+  endpoint="/v1/chat/completions"
+  groupId="chat-completions-language"
+  headers={{
+    "x-godarai-cache-config": '{"type":"smart","ttl":900,"similarity_threshold":0.9,"namespace":"helpdesk"}',
+  }}
+  sdkOperation="chat.completions.create"
+  body={{
+    model: "openai:default:gpt-4o-mini",
+    messages: [
       {
-        "role": "user",
-        "content": "چطور رمز عبورم را بازیابی کنم؟"
-      }
-    ]
-  }'
-```
+        role: "user",
+        content: "چطور رمز عبورم را بازیابی کنم؟",
+      },
+    ],
+  }}
+/>
 
 ## پارامترهای `x-godarai-cache-config`
 

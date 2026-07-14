@@ -3,6 +3,8 @@ title: اولین درخواست به درگاه
 description: ارسال اولین درخواست مدل از محصول شما به گدارAI با نشانی پایه، توکن دسترسی و شناسه مدل.
 ---
 
+import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
+
 # اولین درخواست به درگاه
 
 برای ارسال درخواست مدل از مسیر گدارAI به سه مقدار نیاز دارید:
@@ -58,53 +60,31 @@ Authorization: Bearer YOUR_GODARAI_TOKEN
 
 شناسه مدل را از مدل‌های مجاز فضای کاری یا صفحه مدل‌های مجازی بردارید. نام‌های عمومی اینترنتی همیشه با شناسه فعال در فضای کاری شما یکی نیستند.
 
-## ۴. درخواست را با Python بفرستید
+## ۴. درخواست را بفرستید
 
 ابتدا متغیرهای محیطی را تنظیم کنید:
 
 ```bash
-export OPENAI_BASE_URL="https://YOUR_WORKSPACE.godarai.ir/v1"
-export OPENAI_API_KEY="YOUR_GODARAI_TOKEN"
+export GODARAI_BASE_URL="https://YOUR_WORKSPACE.godarai.ir"
+export GODARAI_TOKEN="YOUR_GODARAI_TOKEN"
 export GODARAI_MODEL="YOUR_MODEL_ID"
 ```
 
-سپس با SDK رسمی OpenAI درخواست بفرستید:
+سپس درخواست یکسان را با روش دلخواه خود بفرستید:
 
-```python
-import os
-
-from openai import OpenAI
-
-client = OpenAI(
-    api_key=os.environ["OPENAI_API_KEY"],
-    base_url=os.environ["OPENAI_BASE_URL"],
-)
-
-response = client.chat.completions.create(
-    model=os.environ["GODARAI_MODEL"],
-    messages=[
-        {"role": "user", "content": "سلام، یک پاسخ کوتاه بده."}
+<ApiCodeTabs
+  endpoint="/v1/chat/completions"
+  groupId="chat-completions-language"
+  sdkOperation="chat.completions.create"
+  body={{
+    model: "YOUR_MODEL_ID",
+    messages: [
+      { role: "user", content: "سلام، یک پاسخ کوتاه بده." },
     ],
-)
-
-print(response.choices[0].message.content)
-```
+  }}
+/>
 
 نتیجه مورد انتظار: متن پاسخ مدل چاپ می‌شود و درخواست در «لاگ درخواست‌ها» یا «ردیابی درخواست‌ها» قابل بررسی است.
-
-## نمونه با cURL
-
-```bash
-curl --location "$OPENAI_BASE_URL/chat/completions" \
-  --header "Authorization: Bearer $OPENAI_API_KEY" \
-  --header "Content-Type: application/json" \
-  --data '{
-    "model": "'$GODARAI_MODEL'",
-    "messages": [
-      { "role": "user", "content": "سلام، یک پاسخ کوتاه بده." }
-    ]
-  }'
-```
 
 ## بررسی نتیجه
 

@@ -2,6 +2,8 @@
 title: Image Variation
 ---
 
+import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
+
 # Image Variation
 
 `Image Variation` از یک تصویر مرجع، نسخه‌های نزدیک یا خلاقانه می‌سازد. این API برای زمانی مناسب است که تصویر پایه دارید و می‌خواهید چند گزینه مشابه، با تنوع کنترل‌شده، تولید کنید.
@@ -27,8 +29,66 @@ Variation یعنی ساخت نسخه‌های تازه از تصویر مرجع.
 
 ## شروع سریع
 
-```python
-from openai import OpenAI
+<ApiCodeTabs
+  endpoint="/v1/images/variations"
+  groupId="image-variation-language"
+  snippets={{
+    python: `import requests
+
+with open("reference.png", "rb") as image:
+    response = requests.post(
+        "https://YOUR_WORKSPACE.godarai.ir/v1/images/variations",
+        headers={"Authorization": "Bearer YOUR_GODARAI_TOKEN"},
+        data={
+            "model": "openai:default:gpt-image-1",
+            "n": "2",
+            "size": "1024x1024",
+            "response_format": "url",
+        },
+        files={"image": ("reference.png", image, "image/png")},
+        timeout=180,
+    )
+
+response.raise_for_status()
+for item in response.json()["data"]:
+    print(item["url"])`,
+    nodejs: `import { readFile } from "node:fs/promises";
+
+const form = new FormData();
+form.append("model", "openai:default:gpt-image-1");
+form.append("n", "2");
+form.append("size", "1024x1024");
+form.append("response_format", "url");
+form.append(
+  "image",
+  new Blob([await readFile("reference.png")], { type: "image/png" }),
+  "reference.png",
+);
+
+const response = await fetch("https://YOUR_WORKSPACE.godarai.ir/v1/images/variations", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer YOUR_GODARAI_TOKEN",
+  },
+  body: form,
+});
+
+if (!response.ok) {
+  throw new Error("Request failed with status " + response.status);
+}
+
+const variations = await response.json();
+for (const item of variations.data) {
+  console.log(item.url);
+}`,
+    rest: `curl --request POST "https://YOUR_WORKSPACE.godarai.ir/v1/images/variations" \
+  --header "Authorization: Bearer YOUR_GODARAI_TOKEN" \
+  --form "model=openai:default:gpt-image-1" \
+  --form "n=2" \
+  --form "size=1024x1024" \
+  --form "response_format=url" \
+  --form "image=@reference.png;type=image/png"`,
+    openaiPython: `from openai import OpenAI
 
 client = OpenAI(
     api_key="YOUR_GODARAI_TOKEN",
@@ -45,8 +105,28 @@ with open("reference.png", "rb") as image:
     )
 
 for item in response.data:
-    print(item.url)
-```
+    print(item.url)`,
+    openaiNodejs: `import { readFile } from "node:fs/promises";
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: "YOUR_GODARAI_TOKEN",
+  baseURL: "https://YOUR_WORKSPACE.godarai.ir/v1",
+});
+
+const response = await client.images.createVariation({
+  model: "openai:default:gpt-image-1",
+  image: new File([await readFile("reference.png")], "reference.png", { type: "image/png" }),
+  n: 2,
+  size: "1024x1024",
+  response_format: "url",
+});
+
+for (const item of response.data) {
+  console.log(item.url);
+}`,
+  }}
+/>
 
 در بیشتر سناریوها، ارسال فایل با `multipart/form-data` برای Variation طبیعی‌تر از ارسال JSON است.
 

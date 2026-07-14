@@ -2,6 +2,8 @@
 title: Messages API
 ---
 
+import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
+
 # Messages API
 
 `Messages API` قرارداد بومی Anthropic برای کار با مدل‌های Claude است. این صفحه کمک می‌کند بفهمید چه زمانی به این قرارداد نیاز دارید و چه زمانی بهتر است از مسیر عمومی‌تر `Chat Completions` در گدارAI استفاده کنید.
@@ -36,28 +38,21 @@ title: Messages API
 
 نمونه مفهومی:
 
-```python
-from anthropic import Anthropic
-
-client = Anthropic(
-    api_key="YOUR_GODARAI_TOKEN",
-    base_url="https://YOUR_WORKSPACE.godarai.ir",
-)
-
-response = client.messages.create(
-    model="anthropic:default:claude-3-5-sonnet",
-    max_tokens=1024,
-    system="You are a concise Persian technical assistant.",
-    messages=[
-        {
-            "role": "user",
-            "content": "معماری درگاه مدل‌های زبانی را ساده توضیح بده."
-        }
+<ApiCodeTabs
+  endpoint="/v1/messages"
+  groupId="messages-language"
+  body={{
+    model: "anthropic:default:claude-3-5-sonnet",
+    max_tokens: 1024,
+    system: "You are a concise Persian technical assistant.",
+    messages: [
+      {
+        role: "user",
+        content: "معماری درگاه مدل‌های زبانی را ساده توضیح بده.",
+      },
     ],
-)
-
-print(response.content)
-```
+  }}
+/>
 
 اگر SDK یا مسیر بومی در محیط شما فعال نیست، همین سناریو را با `Chat Completions` و شناسه مدل Anthropic مجاز پیاده کنید.
 
