@@ -96,7 +96,7 @@ export function Footer() {
           </div>
         </div>
         
-        <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3 border-t border-gray-200 pt-4 text-right dark:border-gray-800 md:pt-6">
+        <div className="grid grid-cols-[1fr_auto] items-center gap-3 border-t border-gray-200 pt-4 text-right dark:border-gray-800 md:pt-6">
           <p className="min-w-0 text-xs leading-5 text-slate-500 dark:text-gray-500 md:text-sm">
             © ۱۴۰۵ گدارAI. تمامی حقوق محفوظ است.
           </p>
@@ -119,11 +119,6 @@ export function Footer() {
               data-code="Dc476GaakpMUDp6MG3lSrtPK8uL9943N"
             />
           </a>
-          <div className="flex h-9 shrink-0 items-center gap-2 rounded-lg border border-gray-200 bg-white px-2 text-xs text-slate-500 dark:border-gray-800 dark:bg-[#111827] dark:text-gray-400 md:px-3 md:text-sm">
-            <span className="font-bold text-slate-900 dark:text-white">FA</span>
-            <span className="h-4 w-px bg-gray-300 dark:bg-gray-700"></span>
-            <span className="cursor-pointer hover:text-slate-900 dark:hover:text-white">EN</span>
-          </div>
         </div>
       </div>
     </footer>
