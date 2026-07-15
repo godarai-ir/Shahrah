@@ -2,6 +2,7 @@ import {useMemo, useState} from 'react';
 import {Search as SearchIcon} from 'lucide-react';
 import Layout from '@theme/Layout';
 import Link from '@docusaurus/Link';
+import Head from '@docusaurus/Head';
 import {usePluginData} from '@docusaurus/useGlobalData';
 import {searchDocs} from '../search/searchDocs';
 import type {SearchData} from '../search/types';
@@ -22,6 +23,9 @@ export default function SearchPage() {
 
   return (
     <Layout title="جستجو" description="جستجو در مستندات گدارAI">
+      <Head>
+        <meta name="robots" content="noindex, follow" />
+      </Head>
       <main className="search-page" dir="rtl">
         <section className="search-page__hero">
           <p className="search-page__eyebrow">جستجو در مستندات</p>

@@ -171,7 +171,7 @@ const config: Config = {
   future: {
     v4: true,
   },
-  url: 'https://sharah.ir',
+  url: 'https://godarai.ir',
   baseUrl: '/docs/',
   organizationName: 'Delpak',
   projectName: 'shahrah',
@@ -187,6 +187,35 @@ const config: Config = {
       },
     },
   },
+  headTags: [
+    {
+      tagName: 'script',
+      attributes: {
+        type: 'application/ld+json',
+      },
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'Organization',
+        name: 'گدارAI',
+        alternateName: 'GodarAI',
+        url: 'https://godarai.ir',
+        logo: 'https://godarai.ir/docs/img/logo.svg',
+      }),
+    },
+    {
+      tagName: 'script',
+      attributes: {
+        type: 'application/ld+json',
+      },
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        name: 'مستندات گدارAI',
+        url: 'https://godarai.ir/docs/',
+        inLanguage: 'fa-IR',
+      }),
+    },
+  ],
   presets: [
     [
       'classic',
@@ -197,6 +226,11 @@ const config: Config = {
           editUrl: 'https://github.com/Delpak/shahrah/tree/main/apps/docs/',
         },
         blog: false,
+        sitemap: {
+          changefreq: 'weekly',
+          priority: 0.7,
+          ignorePatterns: ['/search'],
+        },
         theme: {
           customCss: './src/css/custom.css',
         },
@@ -205,7 +239,17 @@ const config: Config = {
   ],
   plugins: [shahrahLocalSearchPlugin],
   themeConfig: {
-    image: 'img/docusaurus-social-card.jpg',
+    image: 'img/docs/intro-gateway-architecture.png',
+    metadata: [
+      {
+        name: 'keywords',
+        content:
+          'گدارAI, GodarAI, LLM Gateway, درگاه مدل‌های زبانی, API هوش مصنوعی, مستندات API, OpenAI compatible API',
+      },
+      {name: 'twitter:card', content: 'summary_large_image'},
+      {property: 'og:locale', content: 'fa_IR'},
+      {property: 'og:site_name', content: 'مستندات گدارAI'},
+    ],
     colorMode: {
       respectPrefersColorScheme: true,
     },
