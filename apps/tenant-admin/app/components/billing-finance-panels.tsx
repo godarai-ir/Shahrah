@@ -3,10 +3,10 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
-import { ArrowDownLeft, BarChart3, Download, FileImage, FileText, ReceiptText, Tag, TicketPercent, Trash2, Upload, WalletCards } from "lucide-react";
+import { ArrowDownLeft, BarChart3, Building2, CreditCard, Download, FileImage, FileText, Landmark, ReceiptText, Tag, TicketPercent, Trash2, Upload, WalletCards, type LucideIcon } from "lucide-react";
 import { Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
-import { AppCard, AppSelectField, AppTextField, FormSection, MetricCard, SettingsCard, StatusBadge } from "@/components/app-ui";
+import { AppCard, AppSelectField, AppTextField, CopyableValue, FormSection, MetricCard, SettingsCard, StatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Attachment,
@@ -58,6 +58,11 @@ type BankTransferPanelProps = {
 const MAX_RECEIPT_IMAGE_SIZE = 2 * 1024 * 1024;
 const ALLOWED_RECEIPT_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const BANK_TRANSFER_ACCOUNT_INFO = {
+  bankName: "بانک سامان",
+  iban: "IR50 0560 9701 8000 0782 3380 01",
+  cardNumber: "6219 8610 8689 9761",
+} as const;
 
 export function BankTransferPanel({ initialItems, initialError }: BankTransferPanelProps) {
   const router = useRouter();
@@ -175,6 +180,7 @@ export function BankTransferPanel({ initialItems, initialError }: BankTransferPa
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
+      <BankAccountDetailsCard />
       <SettingsCard>
         <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
           <AppTextField id="bank-amount" label="مبلغ (تومان)" value={amountToman} onChange={(event) => setAmountToman(event.target.value)} dir="ltr" inputMode="numeric" />
@@ -234,6 +240,76 @@ export function BankTransferPanel({ initialItems, initialError }: BankTransferPa
       <SettingsCard title="واریزهای ثبت‌شده" description="آخرین درخواست‌های واریز بانکی">
         <DataTable columns={columns} data={initialItems} emptyLabel="درخواستی ثبت نشده است." />
       </SettingsCard>
+    </div>
+  );
+}
+
+function BankAccountDetailsCard() {
+  return (
+    <section className="overflow-hidden rounded-xl border border-primary/30 bg-primary/5 text-card-foreground shadow-sm">
+      <div className="flex flex-col gap-4 p-4 md:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-background text-primary">
+              <Landmark className="size-5" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold md:text-lg">اطلاعات حساب برای واریز بانکی</h2>
+              <p className="text-sm leading-6 text-muted-foreground">
+                مبلغ را به حساب زیر واریز کنید و سپس رسید را برای بررسی بارگذاری کنید.
+              </p>
+            </div>
+          </div>
+          <div className="inline-flex w-fit items-center gap-2 rounded-lg border border-primary/20 bg-background px-3 py-2 text-sm font-semibold text-primary">
+            <Building2 className="size-4" aria-hidden="true" />
+            {BANK_TRANSFER_ACCOUNT_INFO.bankName}
+          </div>
+        </div>
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+          <BankAccountCopyField
+            icon={Landmark}
+            label="شماره شبا حساب بانکی"
+            value={BANK_TRANSFER_ACCOUNT_INFO.iban}
+            valueAriaLabel="شماره شبا حساب بانکی"
+          />
+          <BankAccountCopyField
+            icon={CreditCard}
+            label="شماره کارت"
+            value={BANK_TRANSFER_ACCOUNT_INFO.cardNumber}
+            valueAriaLabel="شماره کارت بانکی"
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function BankAccountCopyField({
+  icon: Icon,
+  label,
+  value,
+  valueAriaLabel,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  valueAriaLabel: string;
+}) {
+  return (
+    <div className="grid gap-2 rounded-lg border border-border bg-background p-3">
+      <div className="flex items-center gap-2 text-sm font-medium">
+        <Icon className="size-4 text-primary" aria-hidden="true" />
+        <span>{label}</span>
+      </div>
+      <CopyableValue
+        value={value}
+        labels={{
+          valueAriaLabel,
+          copy: "کپی",
+          copying: "در حال کپی",
+          copied: "کپی شد",
+        }}
+      />
     </div>
   );
 }
