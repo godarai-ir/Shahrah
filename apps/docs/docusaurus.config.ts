@@ -1,6 +1,168 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import {themes as prismThemes} from 'prism-react-renderer';
-import type {Config} from '@docusaurus/types';
+import type {Config, LoadContext, Plugin} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
+import {normalizeForSearch} from './src/search/normalize';
+import type {SearchData, SearchEntry} from './src/search/types';
+
+const localSearchPluginName = 'shahrah-local-search';
+
+function shahrahLocalSearchPlugin(context: LoadContext): Plugin {
+  const docsDirectory = path.join(context.siteDir, 'docs');
+
+  return {
+    name: localSearchPluginName,
+    getPathsToWatch() {
+      return [path.join(docsDirectory, '**/*.{md,mdx}')];
+    },
+    loadContent() {
+      return {
+        entries: readSearchEntries(docsDirectory),
+      };
+    },
+    contentLoaded({content, actions}) {
+      actions.setGlobalData(content as SearchData);
+    },
+  };
+}
+
+function readSearchEntries(docsDirectory: string): SearchEntry[] {
+  if (!fs.existsSync(docsDirectory)) return [];
+
+  return findMarkdownFiles(docsDirectory)
+    .map(filePath => createSearchEntry(docsDirectory, filePath))
+    .filter((entry): entry is SearchEntry => Boolean(entry))
+    .sort((a, b) => a.path.localeCompare(b.path));
+}
+
+function findMarkdownFiles(directory: string): string[] {
+  const entries = fs.readdirSync(directory, {withFileTypes: true});
+
+  return entries.flatMap(entry => {
+    const entryPath = path.join(directory, entry.name);
+
+    if (entry.isDirectory()) return findMarkdownFiles(entryPath);
+    if (entry.isFile() && /\.(md|mdx)$/i.test(entry.name)) return [entryPath];
+
+    return [];
+  });
+}
+
+function createSearchEntry(
+  docsDirectory: string,
+  filePath: string,
+): SearchEntry | null {
+  const raw = fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, '');
+  const {frontMatter, body} = parseFrontMatter(raw);
+
+  if (frontMatter.draft === 'true') return null;
+
+  const headings = extractHeadings(body);
+  const content = markdownToPlainText(body);
+  const title = frontMatter.title || headings[0] || path.basename(filePath, path.extname(filePath));
+  const description = frontMatter.description || createDescription(content);
+  const id = createDocId(docsDirectory, filePath);
+
+  return {
+    id,
+    title,
+    path: createDocPath(id, frontMatter.slug),
+    description,
+    headings,
+    content,
+    normalized: {
+      title: normalizeForSearch(title),
+      description: normalizeForSearch(description),
+      headings: normalizeForSearch(headings.join(' ')),
+      content: normalizeForSearch(content),
+    },
+  };
+}
+
+function parseFrontMatter(raw: string): {
+  frontMatter: Record<string, string>;
+  body: string;
+} {
+  const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+
+  if (!match) {
+    return {
+      frontMatter: {},
+      body: raw,
+    };
+  }
+
+  const frontMatter = Object.fromEntries(
+    match[1]
+      .split(/\r?\n/)
+      .map(line => line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/))
+      .filter((line): line is RegExpMatchArray => Boolean(line))
+      .map(line => [line[1], cleanFrontMatterValue(line[2])]),
+  );
+
+  return {
+    frontMatter,
+    body: raw.slice(match[0].length),
+  };
+}
+
+function cleanFrontMatterValue(value: string): string {
+  return value.trim().replace(/^['"]|['"]$/g, '');
+}
+
+function extractHeadings(markdown: string): string[] {
+  return [...markdown.matchAll(/^#{1,4}\s+(.+)$/gm)].map(match =>
+    cleanMarkdownInline(match[1]),
+  );
+}
+
+function markdownToPlainText(markdown: string): string {
+  return cleanMarkdownInline(
+    markdown
+      .replace(/```[\s\S]*?```/g, ' ')
+      .replace(/^import\s+.+$/gm, ' ')
+      .replace(/^export\s+.+$/gm, ' ')
+      .replace(/<[A-Z][\s\S]*?\/>/g, ' ')
+      .replace(/<\/?[A-Za-z][^>]*>/g, ' ')
+      .replace(/^#{1,6}\s+/gm, '')
+      .replace(/^\s*:::\w+.*$/gm, ' ')
+      .replace(/^\s*:::\s*$/gm, ' '),
+  );
+}
+
+function cleanMarkdownInline(value: string): string {
+  return value
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/[`*_>#|]/g, ' ')
+    .replace(/\{#[^}]+\}/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function createDescription(content: string): string {
+  const description = content.replace(/\s+/g, ' ').trim();
+
+  if (description.length <= 180) return description;
+
+  return `${description.slice(0, 177).trim()}...`;
+}
+
+function createDocId(docsDirectory: string, filePath: string): string {
+  return path
+    .relative(docsDirectory, filePath)
+    .replace(/\\/g, '/')
+    .replace(/\.(md|mdx)$/i, '');
+}
+
+function createDocPath(id: string, slug?: string): string {
+  if (slug) return slug.startsWith('/') ? slug : `/${slug}`;
+
+  const routePath = id.endsWith('/index') ? id.slice(0, -'/index'.length) : id;
+
+  return `/${routePath}`;
+}
 
 const config: Config = {
   title: 'مستندات گدارAI',
@@ -41,6 +203,7 @@ const config: Config = {
       } satisfies Preset.Options,
     ],
   ],
+  plugins: [shahrahLocalSearchPlugin],
   themeConfig: {
     image: 'img/docusaurus-social-card.jpg',
     colorMode: {

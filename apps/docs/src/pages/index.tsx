@@ -194,7 +194,7 @@ const docGroups: DocGroup[] = [
 
 const helpItems: HelpItem[] = [
   {
-    title: 'درخواست خطای احراز هویت دارد',
+    title: 'درخواست، خطای احراز هویت دارد',
     description:
       'توکن باید در خود گدارAI ساخته شده باشد. کلید خام ارائه‌دهنده مدل را به‌عنوان توکن گدارAI نفرستید.',
     icon: KeyRound,
@@ -235,12 +235,32 @@ export default function Home(): ReactNode {
         <section className={styles.hero} aria-labelledby="home-title">
           <div className={styles.heroText}>
             <p className={styles.eyebrow}>مستندات گدارAI</p>
-            <h1 id="home-title">از اینجا مسیر درست مستندات را پیدا کنید</h1>
-            <p>
-              این صفحه برای شروع سریع و پیدا کردن راهنمای بعدی طراحی شده است. اگر
-              می‌خواهید اولین درخواست را بفرستید، API مناسب را انتخاب کنید، یا
-              آماده‌سازی محیط عملیاتی را جلو ببرید، از همین مسیرها شروع کنید.
-            </p>
+            <div id="home-title" className={styles.heroIntro}>
+              <p>
+                <strong>گٌدارAI</strong>{' '}
+                <span className={styles.inlineLatin} dir="ltr">
+                  (GodarAI)
+                </span>{' '}
+                یک درگاه مدل‌های زبانی{' '}
+                <span className={styles.inlineLatin} dir="ltr">
+                  (LLM Gateway)
+                </span>{' '}
+                است که به‌عنوان لایه میانی بین اپلیکیشن‌های شما و
+                ارائه‌دهندگان مدل‌های هوش مصنوعی عمل می‌کند.
+              </p>
+              <p>
+                با استفاده از گدارAI می‌توانید تنها از طریق یک API سازگار با
+                استاندارد OpenAI به صدها مدل و ارائه‌دهنده مختلف مانند OpenAI،
+                Anthropic، Google Gemini، Azure OpenAI و AWS Bedrock متصل شوید،
+                بدون آنکه وابستگی مستقیمی به هر ارائه‌دهنده داشته باشید.
+              </p>
+              <p>
+                گدارAI امکاناتی مانند مدیریت کلیدهای API، مسیریابی هوشمند
+                درخواست‌ها، پایش مصرف، کنترل هزینه‌ها، حافظه نهان پاسخ‌ها،
+                سیاست‌های امنیتی و حاکمیتی، و مدیریت یکپارچه مدل‌ها را در
+                اختیار تیم‌های توسعه و سازمان‌ها قرار می‌دهد.
+              </p>
+            </div>
             <div className={styles.heroActions}>
               <Link className="button button--primary button--lg" to="/quick-start">
                 شروع سریع
@@ -333,10 +353,10 @@ export default function Home(): ReactNode {
         <section className={styles.mapSection} aria-labelledby="map-title">
           <div className={styles.sectionHeader}>
             <p className={styles.eyebrow}>نقشه مستندات</p>
-            <h2 id="map-title">شاخه‌ها را بر اساس موضوع دنبال کنید</h2>
+            <h2 id="map-title">دسته‌بندی موضوعی</h2>
             <p>
-              این نقشه برای مرور سریع ساخته شده است؛ هر کارت چند صفحه نزدیک به
-              همان موضوع را کنار هم نشان می‌دهد.
+              برای تسلط هرچه سریع‌تر بر گدارAI این دسته از موضوعات اهمیت
+              ویژه‌ای دارند.
             </p>
           </div>
 
@@ -371,7 +391,7 @@ export default function Home(): ReactNode {
         <section className={styles.helpSection} aria-labelledby="help-title">
           <div className={styles.sectionHeader}>
             <p className={styles.eyebrow}>کمک سریع</p>
-            <h2 id="help-title">وقتی مسیر بعدی روشن نیست</h2>
+            <h2 id="help-title">به مشکلی خورده‌اید؟ احتمالاً مشکل شما یکی از این‌هاست.</h2>
           </div>
 
           <div className={styles.helpGrid}>

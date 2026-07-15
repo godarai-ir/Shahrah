@@ -1,89 +1,91 @@
 import {useMemo, useState} from 'react';
+import {Search as SearchIcon} from 'lucide-react';
 import Layout from '@theme/Layout';
 import Link from '@docusaurus/Link';
+import {usePluginData} from '@docusaurus/useGlobalData';
+import {searchDocs} from '../search/searchDocs';
+import type {SearchData} from '../search/types';
 
-type DocEntry = {
-  title: string;
-  path: string;
-  excerpt: string;
-  keywords: string[];
-};
-
-const docs: DocEntry[] = [
-  {
-    title: 'معرفی گیت‌وی گدارAI',
-    path: '/intro-to-gateway',
-    excerpt: 'مرور مفاهیم gateway، provider account، virtual model، logs و policyها',
-    keywords: ['gateway', 'provider', 'virtual model', 'logs', 'policy'],
-  },
-  {
-    title: 'شروع سریع گدارAI',
-    path: '/quick-start',
-    excerpt: 'مراحل ثبت‌نام، اتصال provider، آزمایش مدل و گرفتن base URL و API key',
-    keywords: ['شروع سریع', 'provider', 'api key', 'playground'],
-  },
-  {
-    title: 'مدل مجازی',
-    path: '/virtual-model',
-    excerpt: 'alias پایدار، routing اولویتی یا وزنی، retry، fallback و کنترل دسترسی',
-    keywords: ['alias', 'routing', 'fallback', 'retry', 'weighted', 'priority'],
-  },
-  {
-    title: 'مقدمه',
-    path: '/intro',
-    excerpt: 'نمای کلی مستندات و معرفی بخش‌های اصلی محصول',
-    keywords: ['intro', 'documentation', 'مستندات'],
-  },
-];
+const localSearchPluginName = 'shahrah-local-search';
 
 export default function SearchPage() {
   const [query, setQuery] = useState('');
+  const searchData = usePluginData(localSearchPluginName) as SearchData | undefined;
+  const entries = searchData?.entries ?? [];
 
-  const results = useMemo(() => {
-    const normalized = normalize(query);
-    if (!normalized) return docs;
-    return docs.filter((doc) => {
-      const haystack = normalize([doc.title, doc.excerpt, ...doc.keywords].join(' '));
-      return haystack.includes(normalized);
-    });
-  }, [query]);
+  const search = useMemo(() => {
+    return searchDocs(entries, query);
+  }, [entries, query]);
+  const {results, total} = search;
+
+  const hasQuery = query.trim().length > 0;
 
   return (
     <Layout title="جستجو" description="جستجو در مستندات گدارAI">
       <main className="search-page" dir="rtl">
         <section className="search-page__hero">
           <p className="search-page__eyebrow">جستجو در مستندات</p>
-          <h1>صفحه جستجو</h1>
-          <p>نام صفحه، عبارت کلیدی یا موضوع موردنظر را بنویسید تا مستندات مرتبط را پیدا کنید.</p>
-          <input
-            className="search-page__input"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="مثلا: مدل مجازی، شروع سریع، provider account"
-            dir="rtl"
-          />
+          <p>
+            عنوان صفحه، عبارت فنی یا بخشی از مفهوم را بنویسید.
+          </p>
+          <label className="search-page__field">
+            <span className="search-page__input-wrap">
+              <SearchIcon aria-hidden="true" size={19} strokeWidth={2} />
+              <input
+                className="search-page__input"
+                value={query}
+                onChange={event => setQuery(event.target.value)}
+                placeholder="مثلا: مدل مجازی، كليد دسترسی، Chat Completions"
+                aria-label="عبارت جستجو"
+                dir="auto"
+                autoComplete="off"
+              />
+            </span>
+          </label>
         </section>
 
-        <section className="search-page__results" aria-live="polite">
-          {results.map((doc) => (
-            <article key={doc.path} className="search-page__card">
-              <h2>{doc.title}</h2>
-              <p>{doc.excerpt}</p>
-              <Link className="search-page__link" to={doc.path}>
-                مشاهده صفحه
-              </Link>
-            </article>
+        <section className="search-page__summary" aria-live="polite">
+          {hasQuery ? (
+            <p>
+              {results.length > 0
+                ? `${results.length.toLocaleString('fa-IR')} از ${total.toLocaleString('fa-IR')} نتیجه`
+                : 'نتیجه‌ای پیدا نشد.'}
+            </p>
+          ) : (
+            <p>
+              {entries.length.toLocaleString('fa-IR')} صفحه آماده جستجو است.
+              برای شروع، یک عبارت بنویسید.
+            </p>
+          )}
+        </section>
+
+        <section className="search-page__results" aria-label="نتایج جستجو">
+          {results.map(doc => (
+            <Link key={doc.id} className="search-page__card" to={doc.path}>
+              <div>
+                <h2>{doc.title}</h2>
+                {doc.excerpt ? <p>{doc.excerpt}</p> : null}
+              </div>
+            </Link>
           ))}
-          {results.length === 0 ? <p className="search-page__empty">نتیجه‌ای پیدا نشد.</p> : null}
+          {!hasQuery ? (
+            <div className="search-page__empty-state">
+              <SearchIcon aria-hidden="true" size={24} strokeWidth={2} />
+              <h2>عبارت جستجو را وارد کنید</h2>
+              <p>
+                می‌توانید نام صفحه، قابلیت، خطا، API یا عبارت فنی موردنظر را
+                جستجو کنید.
+              </p>
+            </div>
+          ) : null}
+          {hasQuery && results.length === 0 ? (
+            <p className="search-page__empty">
+              املای فارسی و انگلیسی عبارت را بررسی کنید یا یک واژه کوتاه‌تر
+              بنویسید.
+            </p>
+          ) : null}
         </section>
       </main>
     </Layout>
   );
-}
-
-function normalize(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .trim();
 }
