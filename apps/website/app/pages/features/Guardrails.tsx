@@ -544,7 +544,7 @@ export function Guardrails() {
               transition={{ duration: 0.5, delay: 0.2 }}
             >
               <Link
-                href="/signup"
+                href="/pricing"
                 className="w-full sm:w-auto px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-lg shadow-[0_0_20px_rgba(79,70,229,0.3)] hover:shadow-[0_0_30px_rgba(79,70,229,0.5)] transition-all active:scale-95 flex items-center justify-center gap-2 group"
               >
                 شروع کنید
@@ -1082,52 +1082,7 @@ export function Guardrails() {
         </div>
       </section>
 
-      {/* ═══ 9. Resources ════════════════════════════════════════════════════ */}
-      <section className="py-24 relative">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16 max-w-3xl mx-auto">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              راهنماها و منابع پیشنهادی
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              {
-                tag: 'راهنما', color: 'text-indigo-600 dark:text-indigo-400', tagBg: 'bg-indigo-50 dark:bg-indigo-500/10',
-                title: 'چرا Guardrails برای AI appها ضروری است؟',
-                desc: 'وقتی LLM وارد محصول واقعی می‌شود، باید ورودی، خروجی، داده حساس، کیفیت پاسخ و رفتار مدل را تحت کنترل داشته باشید.',
-              },
-              {
-                tag: 'مقاله', color: 'text-purple-600 dark:text-purple-400', tagBg: 'bg-purple-50 dark:bg-purple-500/10',
-                title: 'Real-time Guardrails در برابر Batch Evals',
-                desc: 'Batch Eval برای تحلیل بعدی مفید است، اما Guardrail لحظه‌ای کمک می‌کند ریسک را همان لحظه در مسیر درخواست کنترل کنید.',
-              },
-              {
-                tag: 'راهنما', color: 'text-rose-600 dark:text-rose-400', tagBg: 'bg-rose-50 dark:bg-rose-500/10',
-                title: 'چطور Prompt Injection را در LLM appها کنترل کنیم؟',
-                desc: 'با Input Guardrails، Policyهای سخت‌گیرانه، محدودیت ابزارها و بررسی الگوهای مشکوک می‌توان ریسک دستکاری Prompt را کاهش داد.',
-              },
-            ].map((res, i) => (
-              <div
-                key={i}
-                className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 hover:shadow-lg hover:border-slate-300 dark:hover:border-slate-700 transition-all cursor-pointer group flex flex-col"
-              >
-                <span className={`text-xs font-bold px-2.5 py-1 rounded-full w-fit mb-4 ${res.tagBg} ${res.color}`}>{res.tag}</span>
-                <h3 className="font-bold text-slate-900 dark:text-white mb-3 leading-snug flex-1" style={{ fontFamily: 'var(--font-heading)' }}>
-                  {res.title}
-                </h3>
-                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-4">{res.desc}</p>
-                <div className={`flex items-center gap-1 text-sm font-bold ${res.color} group-hover:gap-2 transition-all`}>
-                  بیشتر بخوانید
-                  <ArrowLeft className="w-4 h-4" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══ 10. FAQ ══════════════════════════════════════════════════════════ */}
+      {/* 10. FAQ Section */}
       <section className="py-24 bg-slate-50 dark:bg-slate-900/30 border-t border-slate-100 dark:border-slate-800/50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
@@ -1153,7 +1108,7 @@ export function Guardrails() {
               </p>
               <div className="flex flex-col sm:flex-row items-start gap-4">
                 <Link
-                  href="/signup"
+                  href="/pricing"
                   className="w-full sm:w-auto px-8 py-4 bg-white text-indigo-700 hover:bg-indigo-50 rounded-xl font-bold text-lg shadow-[0_0_30px_rgba(0,0,0,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 group"
                 >
                   شروع کنید

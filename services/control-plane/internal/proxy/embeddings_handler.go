@@ -147,9 +147,14 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
 
-	budgetReservation, err := reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
-	if err != nil {
-		return err
+	var budgetReservation *platform.BudgetReservation
+	budgetReservationAttempted := false
+	if !shouldDeferBudgetReservationUntilRoute(requestedModel) {
+		budgetReservationAttempted = true
+		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
+		if err != nil {
+			return err
+		}
 	}
 	releaseBudgetOnExit := true
 	defer func() {
@@ -221,6 +226,15 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 	if req.Dimensions != nil {
 		tunnelReq.RequestMetadata["dimensions"] = *req.Dimensions
 	}
+	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
+
+	if !budgetReservationAttempted {
+		budgetReservationAttempted = true
+		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
+		if err != nil {
+			return err
+		}
+	}
 
 	err = h.handleSync(c, req, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug)
 	if err == nil {
@@ -270,7 +284,7 @@ func (h *EmbeddingsHandler) handleSync(c *fiber.Ctx, req contractsopenai.Embeddi
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize usage", "billing_error")
 	}
 
-	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID); debitErr != nil {
+	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
 		return writeBudgetCheckError(c, debitErr)
 	}
 
@@ -322,7 +336,7 @@ func (h *EmbeddingsHandler) handleSync(c *fiber.Ctx, req contractsopenai.Embeddi
 		InputTokens:        finalCost.InputTokens,
 		OutputTokens:       finalCost.OutputTokens,
 		CostUSD:            finalCost.TotalCostUSD,
-		Metadata: map[string]interface{}{
+		Metadata: enrichMetricMetadataForDeployment(map[string]interface{}{
 			"endpoint":            "/v1/embeddings",
 			"key_type":            authInfo.KeyType,
 			"team_id":             authInfo.TeamID,
@@ -332,7 +346,7 @@ func (h *EmbeddingsHandler) handleSync(c *fiber.Ctx, req contractsopenai.Embeddi
 			"encoding_format":     embeddingEncodingValue(req.EncodingFormat),
 			"vector_dimensions":   vectorDimensions,
 			"requested_dimension": req.Dimensions,
-		},
+		}, tunnelReq.Deployment),
 	})
 
 	forwardProviderHeaders(c, resp.Headers)

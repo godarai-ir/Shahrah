@@ -61,7 +61,7 @@ export function Observability() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              <Link href="/signup" className="w-full sm:w-auto px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-lg shadow-[0_0_20px_rgba(79,70,229,0.3)] hover:shadow-[0_0_30px_rgba(79,70,229,0.5)] transition-all active:scale-95 flex items-center justify-center gap-2 group">
+              <Link href="/pricing" className="w-full sm:w-auto px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-lg shadow-[0_0_20px_rgba(79,70,229,0.3)] hover:shadow-[0_0_30px_rgba(79,70,229,0.5)] transition-all active:scale-95 flex items-center justify-center gap-2 group">
                 شروع کنید
                 <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
               </Link>
@@ -594,59 +594,6 @@ export function Observability() {
         </div>
       </section>
 
-      {/* 9. Resources Section */}
-      <section className="py-24 bg-white dark:bg-[#0B0F19] border-t border-slate-200 dark:border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-end justify-between mb-12">
-            <div>
-              <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2" style={{ fontFamily: 'var(--font-heading)' }}>
-                راهنماها و منابع پیشنهادی
-              </h2>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              {
-                title: 'چطور هزینه LLM را در سطح کاربر مانیتور کنیم؟',
-                desc: 'مصرف توکن و هزینه هر کاربر را در مدل‌ها، محصولات و Workspaceهای مختلف تحلیل کنید.',
-                tag: 'آموزش'
-              },
-              {
-                title: 'بهینه‌سازی هزینه‌های GenAI با نگاه FinOps',
-                desc: 'با اصول FinOps، هزینه‌های AI را قابل‌کنترل، قابل‌پیش‌بینی و قابل‌گزارش کنید.',
-                tag: 'FinOps'
-              },
-              {
-                title: 'چرا LLM Observability برای AI appها ضروری است؟',
-                desc: 'بدون Observability، Debug، کنترل هزینه و بهبود کیفیت پاسخ‌ها در مقیاس واقعی دشوار می‌شود.',
-                tag: 'مفاهیم پایه'
-              }
-            ].map((resource, idx) => (
-              <a key={idx} href="#" className="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden hover:border-indigo-400 dark:hover:border-indigo-500 transition-colors flex flex-col h-full">
-                <div className="h-40 bg-slate-100 dark:bg-slate-800 relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 group-hover:scale-105 transition-transform duration-500" />
-                  <div className="absolute top-4 right-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur text-xs font-bold px-2 py-1 rounded text-slate-700 dark:text-slate-300">
-                    {resource.tag}
-                  </div>
-                </div>
-                <div className="p-6 flex-1 flex flex-col">
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-3 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    {resource.title}
-                  </h3>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-4 flex-1">
-                    {resource.desc}
-                  </p>
-                  <div className="text-indigo-600 dark:text-indigo-400 text-sm font-bold flex items-center gap-1">
-                    مطالعه مقاله <ArrowLeft className="w-4 h-4" />
-                  </div>
-                </div>
-              </a>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* 10. FAQ Section */}
       <section className="py-24 bg-slate-50 dark:bg-slate-900/20 border-t border-slate-200 dark:border-slate-800">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -699,7 +646,7 @@ export function Observability() {
           </p>
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/signup" className="w-full sm:w-auto px-8 py-4 bg-white text-indigo-600 hover:bg-slate-50 rounded-xl font-bold text-lg shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 group">
+            <Link href="/pricing" className="w-full sm:w-auto px-8 py-4 bg-white text-indigo-600 hover:bg-slate-50 rounded-xl font-bold text-lg shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 group">
               شروع کنید
               <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
             </Link>

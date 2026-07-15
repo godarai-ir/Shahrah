@@ -15,7 +15,11 @@ type budgetReservationManager interface {
 	ReleaseBudget(ctx context.Context, reservation *platform.BudgetReservation, reason string) error
 }
 
-func reserveBudgetForRequest(c *fiber.Ctx, billing budgeter, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, requestID string) (*platform.BudgetReservation, error) {
+func reserveBudgetForRequest(c *fiber.Ctx, billing budgeter, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, requestID string, billingMode ...string) (*platform.BudgetReservation, error) {
+	if firstBillingMode(billingMode) == platform.BillingModeExternalBilled {
+		return nil, nil
+	}
+
 	estimated = enrichBudgetEvaluationContext(c, estimated)
 	if manager, ok := billing.(budgetReservationManager); ok {
 		reservation, err := manager.ReserveBudget(c.Context(), authInfo, estimated, requestID)
@@ -51,7 +55,12 @@ func budgetRequestTypeFromPath(path string) string {
 	return strings.ReplaceAll(normalized, "/", "_")
 }
 
-func commitBudgetOrDebit(ctx context.Context, logger *zap.Logger, billing budgeter, wallets walletStore, reservation *platform.BudgetReservation, tenantID string, breakdown platform.UsageCostBreakdown, requestID string) error {
+func commitBudgetOrDebit(ctx context.Context, logger *zap.Logger, billing budgeter, wallets walletStore, reservation *platform.BudgetReservation, tenantID string, breakdown platform.UsageCostBreakdown, requestID string, billingMode ...string) error {
+	if firstBillingMode(billingMode) == platform.BillingModeExternalBilled {
+		releaseBudgetBestEffort(ctx, logger, billing, reservation, "external_billed")
+		return nil
+	}
+
 	if manager, ok := billing.(budgetReservationManager); ok && reservation != nil {
 		return manager.CommitBudget(ctx, reservation, breakdown)
 	}
@@ -63,6 +72,17 @@ func commitBudgetOrDebit(ctx context.Context, logger *zap.Logger, billing budget
 		logger.Warn("failed to debit wallet", zap.Error(err), zap.String("request_id", requestID))
 	}
 	return err
+}
+
+func firstBillingMode(values []string) string {
+	if len(values) == 0 {
+		return platform.BillingModeWalletBilled
+	}
+	mode := strings.TrimSpace(values[0])
+	if mode == "" {
+		return platform.BillingModeWalletBilled
+	}
+	return mode
 }
 
 func releaseBudgetBestEffort(ctx context.Context, logger *zap.Logger, billing budgeter, reservation *platform.BudgetReservation, reason string) {

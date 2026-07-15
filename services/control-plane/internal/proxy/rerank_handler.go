@@ -148,9 +148,14 @@ func (h *RerankHandler) Handle(c *fiber.Ctx) error {
 		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
 
-	budgetReservation, err := reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
-	if err != nil {
-		return err
+	var budgetReservation *platform.BudgetReservation
+	budgetReservationAttempted := false
+	if !shouldDeferBudgetReservationUntilRoute(requestedModel) {
+		budgetReservationAttempted = true
+		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
+		if err != nil {
+			return err
+		}
 	}
 	releaseBudgetOnExit := true
 	defer func() {
@@ -217,6 +222,15 @@ func (h *RerankHandler) Handle(c *fiber.Ctx) error {
 			"top_n":                  req.TopN,
 		},
 	}
+	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
+
+	if !budgetReservationAttempted {
+		budgetReservationAttempted = true
+		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
+		if err != nil {
+			return err
+		}
+	}
 
 	err = h.handleSync(c, req, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug)
 	if err == nil {
@@ -264,7 +278,7 @@ func (h *RerankHandler) handleSync(c *fiber.Ctx, req contractsopenai.RerankReque
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize usage", "billing_error")
 	}
 
-	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID); debitErr != nil {
+	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
 		return writeBudgetCheckError(c, debitErr)
 	}
 
@@ -315,7 +329,7 @@ func (h *RerankHandler) handleSync(c *fiber.Ctx, req contractsopenai.RerankReque
 		InputTokens:        finalCost.InputTokens,
 		OutputTokens:       finalCost.OutputTokens,
 		CostUSD:            finalCost.TotalCostUSD,
-		Metadata: map[string]interface{}{
+		Metadata: enrichMetricMetadataForDeployment(map[string]interface{}{
 			"endpoint":       "/v1/rerank",
 			"key_type":       authInfo.KeyType,
 			"team_id":        authInfo.TeamID,
@@ -323,7 +337,7 @@ func (h *RerankHandler) handleSync(c *fiber.Ctx, req contractsopenai.RerankReque
 			"tenant_slug":    tenantSlug,
 			"document_count": len(req.Documents),
 			"top_n":          req.TopN,
-		},
+		}, tunnelReq.Deployment),
 	})
 
 	forwardProviderHeaders(c, resp.Headers)

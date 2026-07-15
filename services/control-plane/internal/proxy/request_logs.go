@@ -71,6 +71,9 @@ func buildRequestLogEntry(
 	if entry.FallbackStatus == "" {
 		entry.FallbackStatus = fallbackStatusFromReason("", entry.FallbackCount)
 	}
+	if hasDeploymentBillingContext(deployment) {
+		entry.Metadata = enrichDeploymentBillingMetadata(entry.Metadata, deployment)
+	}
 
 	return entry
 }

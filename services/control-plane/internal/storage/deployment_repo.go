@@ -163,8 +163,11 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 		       a.tenant_id::text,
 		       a.provider,
 		       a.name,
+		       a.auth_mode,
 		       COALESCE(a.provider_config, '{}'::jsonb),
 		       COALESCE(a.credential_data, '{}'::jsonb),
+		       a.has_credential,
+		       a.allow_virtual_keys_only,
 		       m.model,
 		       COALESCE(m.settings, '{}'::jsonb)
 		FROM tenant_provider_accounts a
@@ -187,12 +190,15 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 			accountTenant string
 			provider      string
 			accountName   string
+			authMode      string
 			providerRaw   []byte
 			credentialRaw []byte
+			hasCredential bool
+			virtualOnly   bool
 			model         string
 			settingsRaw   []byte
 		)
-		if err := rows.Scan(&accountID, &accountTenant, &provider, &accountName, &providerRaw, &credentialRaw, &model, &settingsRaw); err != nil {
+		if err := rows.Scan(&accountID, &accountTenant, &provider, &accountName, &authMode, &providerRaw, &credentialRaw, &hasCredential, &virtualOnly, &model, &settingsRaw); err != nil {
 			return nil, err
 		}
 
@@ -207,24 +213,39 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 		providerConfig := parseJSONObject(providerRaw)
 		credentials := parseJSONObject(credentialRaw)
 		settings := parseJSONObject(settingsRaw)
+		apiKey := strings.TrimSpace(toString(credentials["api_key"]))
+		runtimeAPIKey := ""
+		credentialSource := platform.CredentialSourceGodarManagedKey
+		billingMode := platform.BillingModeWalletBilled
+		if apiKey != "" && hasCredential && !virtualOnly && !strings.EqualFold(strings.TrimSpace(authMode), string(platform.ProviderAuthModeNoCredential)) {
+			runtimeAPIKey = apiKey
+			credentialSource = platform.CredentialSourceUserBYOK
+			billingMode = platform.BillingModeExternalBilled
+		}
 		deps = append(deps, platform.Deployment{
-			ID:         "provider-account:" + accountID + ":" + model,
-			TenantID:   accountTenant,
-			ModelName:  modelid.BuildModelFQN(provider, accountName, model),
-			Provider:   provider,
-			Model:      model,
-			APIBase:    firstString(providerConfig, settings, "api_base", "base_url"),
-			APIKey:     toString(credentials["api_key"]),
-			APIVersion: firstString(providerConfig, settings, "api_version"),
-			RegionName: firstString(providerConfig, settings, "region_name", "region", "aws_region"),
-			RPM:        firstInt64(settings, providerConfig, "rpm"),
-			TPM:        firstInt64(settings, providerConfig, "tpm"),
-			Weight:     firstFloat64(settings, providerConfig, "weight"),
-			TimeoutSec: firstFloat64(settings, providerConfig, "timeout", "timeout_sec"),
+			ID:                  "provider-account:" + accountID + ":" + model,
+			TenantID:            accountTenant,
+			ModelName:           modelid.BuildModelFQN(provider, accountName, model),
+			Provider:            provider,
+			Model:               model,
+			APIBase:             firstString(providerConfig, settings, "api_base", "base_url"),
+			APIKey:              runtimeAPIKey,
+			APIVersion:          firstString(providerConfig, settings, "api_version"),
+			RegionName:          firstString(providerConfig, settings, "region_name", "region", "aws_region"),
+			RPM:                 firstInt64(settings, providerConfig, "rpm"),
+			TPM:                 firstInt64(settings, providerConfig, "tpm"),
+			Weight:              firstFloat64(settings, providerConfig, "weight"),
+			TimeoutSec:          firstFloat64(settings, providerConfig, "timeout", "timeout_sec"),
+			CredentialSource:    credentialSource,
+			BillingMode:         billingMode,
+			ProviderAccountID:   accountID,
+			ProviderAccountName: accountName,
 			ModelInfo: map[string]interface{}{
 				"source":                "tenant_provider_account",
 				"provider_account_id":   accountID,
 				"provider_account_name": accountName,
+				"credential_source":     credentialSource,
+				"billing_mode":          billingMode,
 			},
 		})
 	}

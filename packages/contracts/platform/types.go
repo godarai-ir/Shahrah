@@ -6,6 +6,14 @@ import (
 	"time"
 )
 
+const (
+	CredentialSourceGodarManagedKey = "godar_managed_key"
+	CredentialSourceUserBYOK        = "user_byok"
+
+	BillingModeWalletBilled   = "wallet_billed"
+	BillingModeExternalBilled = "external_billed"
+)
+
 // Tenant represents the root tenant boundary for Shahrah.
 type Tenant struct {
 	ID        string    `json:"id"`
@@ -215,20 +223,24 @@ type BudgetReservation struct {
 
 // Deployment represents a configured provider target.
 type Deployment struct {
-	ID         string                 `json:"id"`
-	TenantID   string                 `json:"tenant_id,omitempty"`
-	ModelName  string                 `json:"model_name"`
-	Provider   string                 `json:"provider"`
-	Model      string                 `json:"model"`
-	APIBase    string                 `json:"api_base,omitempty"`
-	APIKey     string                 `json:"api_key,omitempty"`
-	APIVersion string                 `json:"api_version,omitempty"`
-	RegionName string                 `json:"region_name,omitempty"`
-	RPM        int64                  `json:"rpm,omitempty"`
-	TPM        int64                  `json:"tpm,omitempty"`
-	Weight     float64                `json:"weight,omitempty"`
-	TimeoutSec float64                `json:"timeout,omitempty"`
-	ModelInfo  map[string]interface{} `json:"model_info,omitempty"`
+	ID                  string                 `json:"id"`
+	TenantID            string                 `json:"tenant_id,omitempty"`
+	ModelName           string                 `json:"model_name"`
+	Provider            string                 `json:"provider"`
+	Model               string                 `json:"model"`
+	APIBase             string                 `json:"api_base,omitempty"`
+	APIKey              string                 `json:"api_key,omitempty"`
+	APIVersion          string                 `json:"api_version,omitempty"`
+	RegionName          string                 `json:"region_name,omitempty"`
+	RPM                 int64                  `json:"rpm,omitempty"`
+	TPM                 int64                  `json:"tpm,omitempty"`
+	Weight              float64                `json:"weight,omitempty"`
+	TimeoutSec          float64                `json:"timeout,omitempty"`
+	CredentialSource    string                 `json:"credential_source,omitempty"`
+	BillingMode         string                 `json:"billing_mode,omitempty"`
+	ProviderAccountID   string                 `json:"provider_account_id,omitempty"`
+	ProviderAccountName string                 `json:"provider_account_name,omitempty"`
+	ModelInfo           map[string]interface{} `json:"model_info,omitempty"`
 }
 
 // TenantStore resolves tenants for requests.

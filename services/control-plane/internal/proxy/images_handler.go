@@ -163,6 +163,7 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
 
+	contractDeployment := toContractDeployment(dep)
 	outboundModel := providerOutboundModel(requestedModel, dep)
 	estimated := estimateImageCostFallback(requestedModel, metadata)
 	if usage := estimatedImageUsage(outboundModel, metadata); usage != nil {
@@ -187,7 +188,7 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
 
-	budgetReservation, err := reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
+	budgetReservation, err := reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(contractDeployment))
 	if err != nil {
 		return err
 	}
@@ -225,11 +226,11 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 	}
 
 	requestMetadata := map[string]interface{}{
-		"tenant_slug":            apiheaders.GetTenant(c),
-		"model":                  requestedModel,
-		"provider_endpoint_path": op.Path,
-		"operation":              op.Name,
-		"billing_mode":           "image_usage_reconciliation",
+		"tenant_slug":               apiheaders.GetTenant(c),
+		"model":                     requestedModel,
+		"provider_endpoint_path":    op.Path,
+		"operation":                 op.Name,
+		"usage_reconciliation_mode": "image_usage_reconciliation",
 	}
 	for k, v := range metadata {
 		requestMetadata[k] = v
@@ -240,13 +241,14 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 		TenantID:   currentTenant.ID,
 		TraceID:    requestID,
 		Stream:     false,
-		Deployment: toContractDeployment(dep),
+		Deployment: contractDeployment,
 		Headers: map[string]string{
 			"Content-Type": outboundContentType,
 		},
 		Body:            outboundBody,
 		RequestMetadata: requestMetadata,
 	}
+	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
 	err = h.handleSync(c, requestedModel, authInfo, estimated, tunnelReq, budgetReservation, op, startTime, tenantSlug, outboundContentType)
 	if err == nil {
@@ -288,7 +290,7 @@ func (h *ImagesHandler) handleSync(c *fiber.Ctx, requestedModel string, authInfo
 
 	metadata := enrichPricingMetadata(withImageResponseMetadata(tunnelReq.RequestMetadata, resp.Body), auth.GetAuthInfo(c), requestedModel)
 
-	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID); debitErr != nil {
+	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
 		return writeBudgetCheckError(c, debitErr)
 	}
 
@@ -337,14 +339,14 @@ func (h *ImagesHandler) handleSync(c *fiber.Ctx, requestedModel string, authInfo
 		StatusCode:         resp.StatusCode,
 		LatencyMS:          responseTimeMS,
 		CostUSD:            finalCost.TotalCostUSD,
-		Metadata: map[string]interface{}{
+		Metadata: enrichMetricMetadataForDeployment(map[string]interface{}{
 			"endpoint":    "/v1" + op.Path,
 			"key_type":    authInfo.KeyType,
 			"team_id":     authInfo.TeamID,
 			"org_unit_id": authInfo.OrgUnitID,
 			"tenant_slug": tenantSlug,
 			"operation":   op.Name,
-		},
+		}, tunnelReq.Deployment),
 	})
 
 	forwardProviderHeaders(c, resp.Headers)

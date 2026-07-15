@@ -145,9 +145,14 @@ func (h *AudioTranscriptionsHandler) Handle(c *fiber.Ctx) error {
 		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
 
-	budgetReservation, err := reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
-	if err != nil {
-		return err
+	var budgetReservation *platform.BudgetReservation
+	budgetReservationAttempted := false
+	if !shouldDeferBudgetReservationUntilRoute(requestedModel) {
+		budgetReservationAttempted = true
+		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
+		if err != nil {
+			return err
+		}
 	}
 	releaseBudgetOnExit := true
 	defer func() {
@@ -189,11 +194,11 @@ func (h *AudioTranscriptionsHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	requestMetadata := map[string]interface{}{
-		"tenant_slug":            apiheaders.GetTenant(c),
-		"model":                  requestedModel,
-		"provider_endpoint_path": audioTranscriptionsPath,
-		"operation":              "transcriptions",
-		"billing_mode":           "audio_usage_reconciliation",
+		"tenant_slug":               apiheaders.GetTenant(c),
+		"model":                     requestedModel,
+		"provider_endpoint_path":    audioTranscriptionsPath,
+		"operation":                 "transcriptions",
+		"usage_reconciliation_mode": "audio_usage_reconciliation",
 	}
 	for k, v := range reqMeta.Metadata {
 		requestMetadata[k] = v
@@ -210,6 +215,15 @@ func (h *AudioTranscriptionsHandler) Handle(c *fiber.Ctx) error {
 		},
 		Body:            outboundBody,
 		RequestMetadata: requestMetadata,
+	}
+	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
+
+	if !budgetReservationAttempted {
+		budgetReservationAttempted = true
+		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
+		if err != nil {
+			return err
+		}
 	}
 
 	if reqMeta.Stream {
@@ -256,7 +270,7 @@ func (h *AudioTranscriptionsHandler) handleSync(c *fiber.Ctx, requestedModel str
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize audio transcription usage", "billing_error")
 	}
 
-	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID); debitErr != nil {
+	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
 		return writeBudgetCheckError(c, debitErr)
 	}
 
@@ -307,7 +321,7 @@ func (h *AudioTranscriptionsHandler) handleSync(c *fiber.Ctx, requestedModel str
 		InputTokens:        finalCost.InputTokens,
 		OutputTokens:       finalCost.OutputTokens,
 		CostUSD:            finalCost.TotalCostUSD,
-		Metadata: map[string]interface{}{
+		Metadata: enrichMetricMetadataForDeployment(map[string]interface{}{
 			"endpoint":        "/v1" + audioTranscriptionsPath,
 			"key_type":        authInfo.KeyType,
 			"team_id":         authInfo.TeamID,
@@ -315,7 +329,7 @@ func (h *AudioTranscriptionsHandler) handleSync(c *fiber.Ctx, requestedModel str
 			"tenant_slug":     tenantSlug,
 			"response_format": tunnelReq.RequestMetadata["response_format"],
 			"file_count":      tunnelReq.RequestMetadata["file_count"],
-		},
+		}, tunnelReq.Deployment),
 	})
 
 	forwardProviderHeaders(c, resp.Headers)
@@ -381,7 +395,7 @@ func (h *AudioTranscriptionsHandler) handleStream(c *fiber.Ctx, requestedModel s
 				finalCost = estimated
 				finalCost.Model = billingModelForDeployment(requestedModel, tunnelReq.Deployment)
 			}
-			if debitErr := commitBudgetOrDebit(requestCtx, h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID); debitErr != nil {
+			if debitErr := commitBudgetOrDebit(requestCtx, h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
 				h.logger.Warn("failed to commit budget for streaming audio transcription request", zap.Error(debitErr), zap.String("request_id", tunnelReq.RequestID))
 				return
 			}
@@ -422,14 +436,14 @@ func (h *AudioTranscriptionsHandler) handleStream(c *fiber.Ctx, requestedModel s
 				InputTokens:        finalCost.InputTokens,
 				OutputTokens:       finalCost.OutputTokens,
 				CostUSD:            finalCost.TotalCostUSD,
-				Metadata: map[string]interface{}{
+				Metadata: enrichMetricMetadataForDeployment(map[string]interface{}{
 					"endpoint":    "/v1" + audioTranscriptionsPath,
 					"key_type":    authInfo.KeyType,
 					"team_id":     authInfo.TeamID,
 					"org_unit_id": authInfo.OrgUnitID,
 					"tenant_slug": tenantSlug,
 					"stream":      true,
-				},
+				}, tunnelReq.Deployment),
 			})
 			budgetCommitted = true
 		}

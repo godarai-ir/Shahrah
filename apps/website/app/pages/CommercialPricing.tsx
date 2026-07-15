@@ -235,7 +235,7 @@ export function CommercialPricing({ plans }: { plans: PublicCommercialPlan[] }) 
               پلن‌های گدارAI
             </div>
             <h1 className="text-4xl font-bold leading-[1.35] tracking-tight text-slate-950 dark:text-white sm:text-5xl lg:text-6xl">
-              پلن مناسب برای هر مرحله از رشد
+              در هر نقطه از مسیر رشد، همراهتانیم
             </h1>
             <p className="max-w-2xl text-base leading-8 text-slate-600 dark:text-slate-300 sm:text-lg">
               از ساخت اولین نمونه تا پردازش میلیون‌ها درخواست؛ امکانات هر پلن را شفاف مقایسه کنید و متناسب با نیاز تیمتان انتخاب کنید.

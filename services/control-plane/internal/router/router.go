@@ -29,14 +29,18 @@ var (
 
 // Deployment represents a single model deployment.
 type Deployment struct {
-	ID        string
-	TenantID  string
-	ModelName string
-	Provider  string
-	Model     string
-	Params    config.ProviderEndpointConfig
-	Healthy   bool
-	Weight    float64
+	ID                  string
+	TenantID            string
+	ModelName           string
+	Provider            string
+	Model               string
+	Params              config.ProviderEndpointConfig
+	Healthy             bool
+	Weight              float64
+	CredentialSource    string
+	BillingMode         string
+	ProviderAccountID   string
+	ProviderAccountName string
 }
 
 // DeploymentStore allows dynamic deployment lookup from persistence.
@@ -86,10 +90,12 @@ func NewRouter(modelList []config.ModelDeployment, settings config.RouterSetting
 	// Parse model list
 	for _, md := range modelList {
 		deployment := &Deployment{
-			ID:        fmt.Sprintf("%v", md.ModelInfo["id"]),
-			ModelName: md.ModelName,
-			Params:    md.ProviderEndpoint,
-			Healthy:   true,
+			ID:               fmt.Sprintf("%v", md.ModelInfo["id"]),
+			ModelName:        md.ModelName,
+			Params:           md.ProviderEndpoint,
+			Healthy:          true,
+			CredentialSource: platform.CredentialSourceGodarManagedKey,
+			BillingMode:      platform.BillingModeWalletBilled,
 		}
 
 		// Parse provider from model string or config (e.g., "openai/gpt-3.5-turbo")
@@ -444,6 +450,8 @@ func isProviderAccountDeploymentWithoutRuntimeCredential(dep platform.Deployment
 
 func (r *Router) hydrateDynamicDeployment(dep platform.Deployment) *Deployment {
 	canonicalModel := canonicalProviderModel(dep.Provider, dep.Model)
+	isProviderAccount := strings.HasPrefix(strings.TrimSpace(dep.ID), "provider-account:")
+	hasProviderAccountRuntimeCredential := isProviderAccount && strings.TrimSpace(dep.APIKey) != ""
 	params := config.ProviderEndpointConfig{
 		Model:      canonicalModel,
 		APIKey:     dep.APIKey,
@@ -458,7 +466,7 @@ func (r *Router) hydrateDynamicDeployment(dep platform.Deployment) *Deployment {
 
 	// Provider-account deployments may omit BYOK credentials; in that case, fall back
 	// to the shared provider configuration loaded from proxy_config/model_list.
-	if strings.HasPrefix(strings.TrimSpace(dep.ID), "provider-account:") {
+	if isProviderAccount {
 		if shared := r.findSharedProviderDeployment(dep.Provider, dep.Model); shared != nil {
 			if strings.TrimSpace(params.APIKey) == "" {
 				params.APIKey = shared.Params.APIKey
@@ -482,35 +490,59 @@ func (r *Router) hydrateDynamicDeployment(dep platform.Deployment) *Deployment {
 		}
 	}
 
+	credentialSource := strings.TrimSpace(dep.CredentialSource)
+	if credentialSource == "" {
+		credentialSource = platform.CredentialSourceGodarManagedKey
+		if hasProviderAccountRuntimeCredential {
+			credentialSource = platform.CredentialSourceUserBYOK
+		}
+	}
+
+	billingMode := strings.TrimSpace(dep.BillingMode)
+	if billingMode == "" {
+		billingMode = platform.BillingModeWalletBilled
+		if credentialSource == platform.CredentialSourceUserBYOK {
+			billingMode = platform.BillingModeExternalBilled
+		}
+	}
+
 	hydrated := platform.Deployment{
-		ID:         dep.ID,
-		TenantID:   dep.TenantID,
-		ModelName:  dep.ModelName,
-		Provider:   dep.Provider,
-		Model:      canonicalModel,
-		APIBase:    params.APIBase,
-		APIKey:     params.APIKey,
-		APIVersion: params.APIVersion,
-		RegionName: params.RegionName,
-		RPM:        params.RPM,
-		TPM:        params.TPM,
-		Weight:     params.Weight,
-		TimeoutSec: params.Timeout,
-		ModelInfo:  dep.ModelInfo,
+		ID:                  dep.ID,
+		TenantID:            dep.TenantID,
+		ModelName:           dep.ModelName,
+		Provider:            dep.Provider,
+		Model:               canonicalModel,
+		APIBase:             params.APIBase,
+		APIKey:              params.APIKey,
+		APIVersion:          params.APIVersion,
+		RegionName:          params.RegionName,
+		RPM:                 params.RPM,
+		TPM:                 params.TPM,
+		Weight:              params.Weight,
+		TimeoutSec:          params.Timeout,
+		CredentialSource:    credentialSource,
+		BillingMode:         billingMode,
+		ProviderAccountID:   dep.ProviderAccountID,
+		ProviderAccountName: dep.ProviderAccountName,
+		ModelInfo:           dep.ModelInfo,
 	}
 	if isProviderAccountDeploymentWithoutRuntimeCredential(hydrated) && !r.canResolveProviderAccountCredential(dep.ModelName) {
 		return nil
 	}
 
 	return &Deployment{
-		ID:        dep.ID,
-		TenantID:  dep.TenantID,
-		ModelName: dep.ModelName,
-		Provider:  dep.Provider,
-		Model:     canonicalModel,
-		Params:    params,
-		Healthy:   true,
-		Weight:    fallbackWeight(hydrated),
+		ID:                  dep.ID,
+		TenantID:            dep.TenantID,
+		ModelName:           dep.ModelName,
+		Provider:            dep.Provider,
+		Model:               canonicalModel,
+		Params:              params,
+		Healthy:             true,
+		Weight:              fallbackWeight(hydrated),
+		CredentialSource:    credentialSource,
+		BillingMode:         billingMode,
+		ProviderAccountID:   dep.ProviderAccountID,
+		ProviderAccountName: dep.ProviderAccountName,
 	}
 }
 
@@ -585,6 +617,8 @@ func (r *Router) applyBYOK(ctx context.Context, tenantID, modelName string, dep 
 	cloned := *dep
 	cloned.Params = dep.Params
 	cloned.Params.APIKey = apiKey
+	cloned.CredentialSource = platform.CredentialSourceUserBYOK
+	cloned.BillingMode = platform.BillingModeExternalBilled
 
 	return &cloned
 }

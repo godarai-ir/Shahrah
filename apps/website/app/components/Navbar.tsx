@@ -16,6 +16,10 @@ const features = [
   { name: 'درگاه MCP', description: 'استقرار و مدیریت سرورهای MCP در محیط عملیاتی', icon: Server, href: '/features/mcp-gateway' },
 ];
 
+const mobileFeatures = features.filter(
+  (feature) => feature.href !== '/features/agents' && feature.href !== '/features/mcp-gateway'
+);
+
 export function Navbar() {
   const { theme, setTheme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
@@ -109,7 +113,7 @@ export function Navbar() {
       {isOpen && (
         <div id="mobile-menu" className="md:hidden border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0B0F19] overflow-y-auto max-h-[calc(100vh-64px)]">
           <div className="px-4 pt-2 pb-6 flex flex-col gap-3">
-            {features.map((feature, idx) => (
+            {mobileFeatures.map((feature, idx) => (
               <Link
                 key={idx}
                 href={feature.href}
@@ -123,13 +127,9 @@ export function Navbar() {
                 </span>
               </Link>
             ))}
-            <Link href="/pricing" className="block min-h-11 py-3 text-sm font-medium text-slate-600 dark:text-gray-300" onClick={() => setIsOpen(false)}>قیمت‌گذاری</Link>
-            <Link href="/about" className="block min-h-11 py-3 text-sm font-medium text-slate-600 dark:text-gray-300" onClick={() => setIsOpen(false)}>درباره ما</Link>
-            <Link href="/blog" className="block min-h-11 py-3 text-sm font-medium text-slate-600 dark:text-gray-300" onClick={() => setIsOpen(false)}>وبلاگ</Link>
-            <Link href="/contact" className="block min-h-11 py-3 text-sm font-medium text-slate-600 dark:text-gray-300" onClick={() => setIsOpen(false)}>تماس</Link>
             <div className="border-t border-gray-200 dark:border-gray-800 pt-4 flex flex-col gap-4">
               <Link href="/login" className="block min-h-12 rounded-lg border border-gray-200 px-4 py-3 text-center text-sm font-medium text-slate-700 dark:border-gray-800 dark:text-gray-200" onClick={() => setIsOpen(false)}>ورود</Link>
-              <Link href="/onboarding" className="block min-h-12 rounded-lg bg-indigo-500 px-4 py-3 text-center text-sm font-medium text-white" onClick={() => setIsOpen(false)}>شروع کنید</Link>
+              <Link href="/onboarding" className="block min-h-12 rounded-lg bg-indigo-500 px-4 py-3 text-center text-sm font-medium text-white" onClick={() => setIsOpen(false)}>۱۵ روز رایگان شروع کنید</Link>
             </div>
           </div>
         </div>

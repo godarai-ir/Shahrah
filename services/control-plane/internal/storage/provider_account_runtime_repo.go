@@ -22,9 +22,13 @@ func (s *Store) ResolveProviderAccountAPIKey(ctx context.Context, tenantID, mode
 		WHERE a.tenant_id = $1
 		  AND LOWER(a.provider) = LOWER($2)
 		  AND a.name = $3
+		  AND a.auth_mode <> $4
+		  AND a.has_credential = true
+		  AND a.allow_virtual_keys_only = false
+		  AND COALESCE(a.credential_data->>'api_key', '') <> ''
 		  AND m.enabled = true
 		ORDER BY a.updated_at DESC
-	`, tenantID, provider, accountAlias)
+	`, tenantID, provider, accountAlias, "no_credential")
 	if err != nil {
 		return "", err
 	}

@@ -338,8 +338,9 @@ func TestCompletionsHandlerStreamTransformsChatChunksAndDone(t *testing.T) {
 	assert.Contains(t, bodyText, `"object":"text_completion"`)
 	assert.Contains(t, bodyText, `"text":"Salam"`)
 	assert.True(t, stream.closed)
-	assert.Empty(t, wallets.debits)
-	assert.Empty(t, logs.loggedSpends)
+	assert.Len(t, wallets.debits, 1)
+	assert.Len(t, logs.loggedSpends, 1)
+	assert.Equal(t, "success", logs.loggedSpends[0].Status)
 }
 
 func TestCompletionsHandlerStreamErrorWritesStreamingErrorEvent(t *testing.T) {
@@ -417,4 +418,156 @@ func TestCompletionsHandlerStreamPassesThroughUnparseableChunk(t *testing.T) {
 
 	bodyText := string(body)
 	assert.True(t, strings.Contains(bodyText, "event: response.created") || strings.Contains(bodyText, "data: {\"raw\":true}"))
+}
+
+type completionsDeploymentStore struct {
+	deployments []platform.Deployment
+}
+
+func (s completionsDeploymentStore) ListDeployments(_ context.Context, _ string) ([]platform.Deployment, error) {
+	return append([]platform.Deployment(nil), s.deployments...), nil
+}
+
+type budgetDenyingBudgeter struct {
+	testBudgeter
+	checkBudgetCalls int
+}
+
+func (b *budgetDenyingBudgeter) CheckBudget(_ context.Context, _ *platform.AuthContext, _ platform.UsageCostBreakdown) error {
+	b.checkBudgetCalls++
+	return errors.New("wallet balance required")
+}
+
+func TestCompletionsHandlerBYOKProviderAccountSkipsWalletBudgetAndDebit(t *testing.T) {
+	payload := contractsopenai.ChatCompletionResponse{
+		ID:      "chatcmpl_byok",
+		Object:  "chat.completion",
+		Created: time.Now().Unix(),
+		Model:   "gpt-4o-mini",
+		Choices: []contractsopenai.Choice{
+			{Index: 0, Message: &contractsopenai.ChatMessage{Role: "assistant", Content: "hi"}},
+		},
+		Usage: &contractsopenai.Usage{PromptTokens: 4, CompletionTokens: 2, TotalTokens: 6},
+	}
+	body, err := json.Marshal(payload)
+	require.NoError(t, err)
+
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
+		StatusCode: fiber.StatusOK,
+		Headers:    map[string]string{"content-type": "application/json"},
+		Body:       body,
+	}}
+	billing := &budgetDenyingBudgeter{}
+	wallets := &testWallets{}
+	store := completionsDeploymentStore{deployments: []platform.Deployment{{
+		ID:                  "provider-account:acct_1:gpt-4o-mini",
+		TenantID:            "tenant_a",
+		ModelName:           "openai:personal-openai:gpt-4o-mini",
+		Provider:            "openai",
+		Model:               "gpt-4o-mini",
+		APIKey:              "user-openai-key",
+		ProviderAccountID:   "acct_1",
+		ProviderAccountName: "personal-openai",
+	}}}
+
+	mem, err := cache.NewMemoryCache(zap.NewNop())
+	require.NoError(t, err)
+	rt, err := router.NewRouter(nil, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, mem, store, zap.NewNop())
+	require.NoError(t, err)
+
+	h := NewCompletionsHandler(rt, tunnel, billing, wallets, &testLogs{}, zap.NewNop())
+	app := fiber.New()
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{
+			TenantID:  "tenant_a",
+			KeyID:     "key_1",
+			KeyType:   "pat",
+			Role:      "team_admin",
+			TokenHash: "hash_1",
+		})
+		c.Locals(tenant.ContextKey{}, &platform.Tenant{
+			ID:     "tenant_a",
+			Slug:   "a",
+			Status: "active",
+		})
+
+		return c.Next()
+	})
+	app.Post("/v1/completions", h.Handle)
+
+	req := httptest.NewRequest("POST", "/v1/completions", bytes.NewBufferString(`{"model":"openai:personal-openai:gpt-4o-mini","prompt":"hello"}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+	assert.Zero(t, billing.checkBudgetCalls)
+	assert.Empty(t, wallets.debits)
+	assert.Equal(t, "user-openai-key", tunnel.lastReq.Deployment.APIKey)
+	assert.Equal(t, platform.CredentialSourceUserBYOK, tunnel.lastReq.RequestMetadata["credential_source"])
+	assert.Equal(t, platform.BillingModeExternalBilled, tunnel.lastReq.RequestMetadata["billing_mode"])
+	assert.Equal(t, "acct_1", tunnel.lastReq.RequestMetadata["provider_account_id"])
+	assert.Equal(t, "personal-openai", tunnel.lastReq.RequestMetadata["provider_account_name"])
+}
+
+func TestCompletionsHandlerBYOKProviderAccountStreamLogsSpendOnDone(t *testing.T) {
+	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 2, 0)
+	stream.chunks <- platform.TunnelChunk{Data: []byte("data: {\"id\":\"chatcmpl-stream\",\"object\":\"chat.completion.chunk\",\"created\":123,\"model\":\"gpt-4o-mini\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Salam\"}}]}\n\n"), IsDone: true}
+	close(stream.chunks)
+
+	billing := &budgetDenyingBudgeter{}
+	wallets := &testWallets{}
+	logs := &testLogs{}
+	store := completionsDeploymentStore{deployments: []platform.Deployment{{
+		ID:                  "provider-account:acct_1:gpt-4o-mini",
+		TenantID:            "tenant_a",
+		ModelName:           "openai:personal-openai:gpt-4o-mini",
+		Provider:            "openai",
+		Model:               "gpt-4o-mini",
+		APIKey:              "user-openai-key",
+		ProviderAccountID:   "acct_1",
+		ProviderAccountName: "personal-openai",
+	}}}
+
+	mem, err := cache.NewMemoryCache(zap.NewNop())
+	require.NoError(t, err)
+	rt, err := router.NewRouter(nil, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, mem, store, zap.NewNop())
+	require.NoError(t, err)
+
+	h := NewCompletionsHandler(rt, &testTunnel{stream: stream}, billing, wallets, logs, zap.NewNop())
+	app := fiber.New()
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{
+			TenantID:  "tenant_a",
+			KeyID:     "key_1",
+			KeyType:   "pat",
+			Role:      "team_admin",
+			TokenHash: "hash_1",
+		})
+		c.Locals(tenant.ContextKey{}, &platform.Tenant{
+			ID:     "tenant_a",
+			Slug:   "a",
+			Status: "active",
+		})
+
+		return c.Next()
+	})
+	app.Post("/v1/completions", h.Handle)
+
+	req := httptest.NewRequest("POST", "/v1/completions", bytes.NewBufferString(`{"model":"openai:personal-openai:gpt-4o-mini","prompt":"hello","stream":true}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+	assert.Zero(t, billing.checkBudgetCalls)
+	assert.Empty(t, wallets.debits)
+	require.Len(t, logs.loggedSpends, 1)
+	assert.Equal(t, platform.BillingModeExternalBilled, logs.loggedSpends[0].RequestMetadata["billing_mode"])
+	assert.Equal(t, platform.CredentialSourceUserBYOK, logs.loggedSpends[0].RequestMetadata["credential_source"])
+	assert.Equal(t, "acct_1", logs.loggedSpends[0].RequestMetadata["provider_account_id"])
 }

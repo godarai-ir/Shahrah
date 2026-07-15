@@ -155,9 +155,14 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
 
-	budgetReservation, err := reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
-	if err != nil {
-		return err
+	var budgetReservation *platform.BudgetReservation
+	budgetReservationAttempted := false
+	if !shouldDeferBudgetReservationUntilRoute(requestedModel) {
+		budgetReservationAttempted = true
+		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
+		if err != nil {
+			return err
+		}
 	}
 	releaseBudgetOnExit := true
 	defer func() {
@@ -224,6 +229,15 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 			"provider_endpoint_path": "/responses",
 		},
 	}
+	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
+
+	if !budgetReservationAttempted {
+		budgetReservationAttempted = true
+		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
+		if err != nil {
+			return err
+		}
+	}
 
 	if req.Stream {
 		releaseBudgetOnExit = false
@@ -278,7 +292,7 @@ func (h *ResponsesHandler) handleSync(c *fiber.Ctx, req contractsopenai.Response
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize usage", "billing_error")
 	}
 
-	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID); debitErr != nil {
+	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
 		return writeBudgetCheckError(c, debitErr)
 	}
 
@@ -329,13 +343,13 @@ func (h *ResponsesHandler) handleSync(c *fiber.Ctx, req contractsopenai.Response
 		InputTokens:        finalCost.InputTokens,
 		OutputTokens:       finalCost.OutputTokens,
 		CostUSD:            finalCost.TotalCostUSD,
-		Metadata: map[string]interface{}{
+		Metadata: enrichMetricMetadataForDeployment(map[string]interface{}{
 			"endpoint":    "/v1/responses",
 			"key_type":    authInfo.KeyType,
 			"team_id":     authInfo.TeamID,
 			"org_unit_id": authInfo.OrgUnitID,
 			"tenant_slug": tenantSlug,
-		},
+		}, tunnelReq.Deployment),
 	})
 
 	forwardProviderHeaders(c, resp.Headers)
@@ -388,8 +402,8 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 				releaseBudgetBestEffort(requestCtx, h.logger, h.billing, budgetReservation, "stream_not_committed")
 			}
 		}()
-		commitDoneBudget := func() {
-			if budgetCommitted || budgetReservation == nil {
+		finalizeAndLogSuccess := func() {
+			if budgetCommitted {
 				return
 			}
 			billingModel := billingModelForDeployment(req.Model, tunnelReq.Deployment)
@@ -399,77 +413,62 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 				finalCost = estimated
 				finalCost.Model = billingModel
 			}
-			if debitErr := commitBudgetOrDebit(requestCtx, h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID); debitErr != nil {
+			if debitErr := commitBudgetOrDebit(requestCtx, h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
 				h.logger.Warn("failed to commit budget for streaming request", zap.Error(debitErr), zap.String("request_id", tunnelReq.RequestID))
-				return
+			} else {
+				budgetCommitted = true
 			}
-			budgetCommitted = true
+
+			logSpendBestEffort(h.logger, h.logs, requestCtx, platform.SpendLog{
+				RequestID:       tunnelReq.RequestID,
+				TokenHash:       authInfo.TokenHash,
+				TenantID:        authInfo.TenantID,
+				OrganizationID:  authInfo.OrganizationID,
+				TeamID:          authInfo.TeamID,
+				Model:           req.Model,
+				InputTokens:     finalCost.InputTokens,
+				OutputTokens:    finalCost.OutputTokens,
+				TotalTokens:     finalCost.TotalTokens,
+				CostUSD:         finalCost.TotalCostUSD,
+				CostIRR:         finalCost.TotalCostIRR,
+				ResponseTimeMS:  int(time.Since(start).Milliseconds()),
+				Status:          "success",
+				RequestMetadata: enrichPricingMetadata(tunnelReq.RequestMetadata, authInfo, req.Model),
+				CompletionStart: start,
+				CompletionEnd:   time.Now(),
+			})
+			h.emitModelMetric(metricsobs.BuildInput{
+				TS:                 time.Now().UTC(),
+				TenantID:           authInfo.TenantID,
+				RequestID:          tunnelReq.RequestID,
+				ModelName:          req.Model,
+				ProviderName:       tunnelReq.Deployment.Provider,
+				ProviderModelName:  tunnelReq.Deployment.Model,
+				RequestType:        "responses",
+				UserID:             authInfo.UserID,
+				VirtualAccountID:   authInfo.KeyID,
+				VirtualAccountName: authInfo.KeyAlias,
+				TeamIDs:            nonEmptySlice([]string{authInfo.TeamID}),
+				StatusCode:         fiber.StatusOK,
+				LatencyMS:          int(time.Since(start).Milliseconds()),
+				InputTokens:        finalCost.InputTokens,
+				OutputTokens:       finalCost.OutputTokens,
+				CostUSD:            finalCost.TotalCostUSD,
+				Metadata: enrichMetricMetadataForDeployment(map[string]interface{}{
+					"endpoint":    "/v1/responses",
+					"key_type":    authInfo.KeyType,
+					"team_id":     authInfo.TeamID,
+					"org_unit_id": authInfo.OrgUnitID,
+					"tenant_slug": tenantSlug,
+				}, tunnelReq.Deployment),
+			})
 		}
 
 		for {
 			select {
 			case chunk, ok := <-stream.Chunks():
 				if !ok {
-					billingModel := billingModelForDeployment(req.Model, tunnelReq.Deployment)
-
-					finalCost, finalizeErr := h.billing.FinalizeFromUsage(requestCtx, billingModel, nil, estimated)
-					if finalizeErr != nil {
-						h.logger.Warn("failed to finalize streaming usage", zap.Error(finalizeErr), zap.String("request_id", tunnelReq.RequestID))
-
-						finalCost = estimated
-						finalCost.Model = billingModel
-					}
-
-					if debitErr := commitBudgetOrDebit(requestCtx, h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID); debitErr != nil {
-						h.logger.Warn("failed to commit budget for streaming request", zap.Error(debitErr), zap.String("request_id", tunnelReq.RequestID))
-					} else {
-						budgetCommitted = true
-					}
-
-					logSpendBestEffort(h.logger, h.logs, requestCtx, platform.SpendLog{
-						RequestID:       tunnelReq.RequestID,
-						TokenHash:       authInfo.TokenHash,
-						TenantID:        authInfo.TenantID,
-						OrganizationID:  authInfo.OrganizationID,
-						TeamID:          authInfo.TeamID,
-						Model:           req.Model,
-						InputTokens:     finalCost.InputTokens,
-						OutputTokens:    finalCost.OutputTokens,
-						TotalTokens:     finalCost.TotalTokens,
-						CostUSD:         finalCost.TotalCostUSD,
-						CostIRR:         finalCost.TotalCostIRR,
-						ResponseTimeMS:  int(time.Since(start).Milliseconds()),
-						Status:          "success",
-						RequestMetadata: enrichPricingMetadata(tunnelReq.RequestMetadata, authInfo, req.Model),
-						CompletionStart: start,
-						CompletionEnd:   time.Now(),
-					})
-					h.emitModelMetric(metricsobs.BuildInput{
-						TS:                 time.Now().UTC(),
-						TenantID:           authInfo.TenantID,
-						RequestID:          tunnelReq.RequestID,
-						ModelName:          req.Model,
-						ProviderName:       tunnelReq.Deployment.Provider,
-						ProviderModelName:  tunnelReq.Deployment.Model,
-						RequestType:        "responses",
-						UserID:             authInfo.UserID,
-						VirtualAccountID:   authInfo.KeyID,
-						VirtualAccountName: authInfo.KeyAlias,
-						TeamIDs:            nonEmptySlice([]string{authInfo.TeamID}),
-						StatusCode:         fiber.StatusOK,
-						LatencyMS:          int(time.Since(start).Milliseconds()),
-						InputTokens:        finalCost.InputTokens,
-						OutputTokens:       finalCost.OutputTokens,
-						CostUSD:            finalCost.TotalCostUSD,
-						Metadata: map[string]interface{}{
-							"endpoint":    "/v1/responses",
-							"key_type":    authInfo.KeyType,
-							"team_id":     authInfo.TeamID,
-							"org_unit_id": authInfo.OrgUnitID,
-							"tenant_slug": tenantSlug,
-						},
-					})
-
+					finalizeAndLogSuccess()
 					return
 				}
 
@@ -481,7 +480,7 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 				}
 
 				if chunk.IsDone {
-					commitDoneBudget()
+					finalizeAndLogSuccess()
 					return
 				}
 			case err, ok := <-stream.Errors():

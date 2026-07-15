@@ -76,7 +76,7 @@ export function PromptEngineering() {
             </p>
             <div className="flex flex-col gap-3 sm:flex-row">
               <Link
-                href="/onboarding"
+                href="/pricing"
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-6 py-3 font-medium text-white shadow-[0_0_20px_rgba(99,102,241,0.25)] transition-colors hover:bg-indigo-600"
               >
                 شروع کنید
@@ -209,7 +209,7 @@ export function PromptEngineering() {
           وقتی پرامپت در تجربه کاربر اثر مستقیم دارد، نسخه، متغیر، مدل، گاردریل و پایش آن باید کنار هم دیده شوند.
         </p>
         <Link
-          href="/onboarding"
+          href="/pricing"
           className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-6 py-3 font-medium text-white transition-colors hover:bg-indigo-600"
         >
           ساخت فضای کاری

@@ -25,6 +25,10 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 		return nil, err
 	}
 
+	if shouldClearProviderAccountCredentials(string(req.AuthMode), req.AllowVirtualKeysOnly, req.Credentials) {
+		req.Credentials = nil
+	}
+
 	credentialData, hasCredential, err := marshalCredentialData(req.Credentials)
 	if err != nil {
 		return nil, err
@@ -188,9 +192,15 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 		return nil, err
 	}
 
-	nextCredentialMap := parseJSONObject(currentCredentialRaw)
+	nextVirtualOnly := currentVirtualOnly
+	if req.AllowVirtualKeysOnly != nil {
+		nextVirtualOnly = *req.AllowVirtualKeysOnly
+	}
 
-	if req.Credentials != nil {
+	nextCredentialMap := parseJSONObject(currentCredentialRaw)
+	if shouldClearProviderAccountCredentials(nextAuthMode, nextVirtualOnly, req.Credentials) {
+		nextCredentialMap = map[string]interface{}{}
+	} else if req.Credentials != nil {
 		if req.Credentials.APIKey != "" {
 			nextCredentialMap["api_key"] = strings.TrimSpace(req.Credentials.APIKey)
 		}
@@ -202,10 +212,6 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 		if len(req.Credentials.Raw) > 0 {
 			nextCredentialMap["raw"] = req.Credentials.Raw
 		}
-
-		if req.Credentials.SkipRequired {
-			nextCredentialMap["skip_required"] = true
-		}
 	}
 
 	nextCredentialRaw, err := marshalJSONObject(nextCredentialMap)
@@ -213,27 +219,21 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 		return nil, err
 	}
 
-	nextHasCredential := false
-	if v, ok := nextCredentialMap["api_key"].(string); ok && strings.TrimSpace(v) != "" {
-		nextHasCredential = true
-	}
-
-	if v, ok := nextCredentialMap["secret_ref"].(string); ok && strings.TrimSpace(v) != "" {
-		nextHasCredential = true
-	}
-
-	if _, ok := nextCredentialMap["raw"]; ok {
-		nextHasCredential = true
-	}
+	nextHasCredential := providerAccountCredentialMapHasCredential(nextCredentialMap)
 
 	if req.Credentials == nil {
 		nextHasCredential = currentHasCredential
 		nextCredentialRaw = currentCredentialRaw
 	}
 
-	nextVirtualOnly := currentVirtualOnly
-	if req.AllowVirtualKeysOnly != nil {
-		nextVirtualOnly = *req.AllowVirtualKeysOnly
+	if req.Credentials == nil && (currentVirtualOnly || strings.EqualFold(currentAuthMode, string(platform.ProviderAuthModeNoCredential))) && !nextVirtualOnly && !strings.EqualFold(nextAuthMode, string(platform.ProviderAuthModeNoCredential)) {
+		nextHasCredential = false
+		nextCredentialRaw = []byte("{}")
+	}
+
+	if nextVirtualOnly || strings.EqualFold(nextAuthMode, string(platform.ProviderAuthModeNoCredential)) {
+		nextHasCredential = false
+		nextCredentialRaw = []byte("{}")
 	}
 
 	_, execErr := tx.Exec(ctx, `
@@ -1123,6 +1123,30 @@ func marshalCredentialData(input *platform.ProviderAccountCredentials) ([]byte, 
 	_, hasRaw := payload["raw"]
 
 	return raw, hasAPIKey || hasSecretRef || hasRaw, nil
+}
+
+func shouldClearProviderAccountCredentials(authMode string, allowVirtualKeysOnly bool, input *platform.ProviderAccountCredentials) bool {
+	if allowVirtualKeysOnly || strings.EqualFold(strings.TrimSpace(authMode), string(platform.ProviderAuthModeNoCredential)) {
+		return true
+	}
+
+	return input != nil && input.SkipRequired
+}
+
+func providerAccountCredentialMapHasCredential(input map[string]interface{}) bool {
+	if v, ok := input["api_key"].(string); ok && strings.TrimSpace(v) != "" {
+		return true
+	}
+
+	if v, ok := input["secret_ref"].(string); ok && strings.TrimSpace(v) != "" {
+		return true
+	}
+
+	if _, ok := input["raw"]; ok {
+		return true
+	}
+
+	return false
 }
 
 func marshalJSONObject(input map[string]interface{}) ([]byte, error) {

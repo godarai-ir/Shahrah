@@ -146,9 +146,14 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
 
-	budgetReservation, err := reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
-	if err != nil {
-		return err
+	var budgetReservation *platform.BudgetReservation
+	budgetReservationAttempted := false
+	if !shouldDeferBudgetReservationUntilRoute(requestedModel) {
+		budgetReservationAttempted = true
+		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
+		if err != nil {
+			return err
+		}
 	}
 	releaseBudgetOnExit := true
 	defer func() {
@@ -190,11 +195,11 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	requestMetadata := map[string]interface{}{
-		"tenant_slug":            apiheaders.GetTenant(c),
-		"model":                  requestedModel,
-		"provider_endpoint_path": audioSpeechPath,
-		"operation":              "speech",
-		"billing_mode":           "audio_speech_estimated",
+		"tenant_slug":               apiheaders.GetTenant(c),
+		"model":                     requestedModel,
+		"provider_endpoint_path":    audioSpeechPath,
+		"operation":                 "speech",
+		"usage_reconciliation_mode": "audio_speech_estimated",
 	}
 	for k, v := range reqMeta.Metadata {
 		requestMetadata[k] = v
@@ -211,6 +216,15 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 		},
 		Body:            outboundBody,
 		RequestMetadata: requestMetadata,
+	}
+	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
+
+	if !budgetReservationAttempted {
+		budgetReservationAttempted = true
+		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
+		if err != nil {
+			return err
+		}
 	}
 
 	if reqMeta.Stream {
@@ -257,7 +271,7 @@ func (h *AudioSpeechHandler) handleSync(c *fiber.Ctx, requestedModel string, aut
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize text to speech usage", "billing_error")
 	}
 
-	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID); debitErr != nil {
+	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
 		return writeBudgetCheckError(c, debitErr)
 	}
 
@@ -308,7 +322,7 @@ func (h *AudioSpeechHandler) handleSync(c *fiber.Ctx, requestedModel string, aut
 		InputTokens:        finalCost.InputTokens,
 		OutputTokens:       finalCost.OutputTokens,
 		CostUSD:            finalCost.TotalCostUSD,
-		Metadata: map[string]interface{}{
+		Metadata: enrichMetricMetadataForDeployment(map[string]interface{}{
 			"endpoint":        "/v1" + audioSpeechPath,
 			"key_type":        authInfo.KeyType,
 			"team_id":         authInfo.TeamID,
@@ -316,7 +330,7 @@ func (h *AudioSpeechHandler) handleSync(c *fiber.Ctx, requestedModel string, aut
 			"tenant_slug":     tenantSlug,
 			"response_format": tunnelReq.RequestMetadata["response_format"],
 			"voice_type":      tunnelReq.RequestMetadata["voice_type"],
-		},
+		}, tunnelReq.Deployment),
 	})
 
 	forwardProviderHeaders(c, resp.Headers)
@@ -382,7 +396,7 @@ func (h *AudioSpeechHandler) handleStream(c *fiber.Ctx, requestedModel string, a
 				finalCost = estimated
 				finalCost.Model = billingModelForDeployment(requestedModel, tunnelReq.Deployment)
 			}
-			if debitErr := commitBudgetOrDebit(requestCtx, h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID); debitErr != nil {
+			if debitErr := commitBudgetOrDebit(requestCtx, h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
 				h.logger.Warn("failed to commit budget for streaming text to speech request", zap.Error(debitErr), zap.String("request_id", tunnelReq.RequestID))
 				return
 			}
@@ -423,14 +437,14 @@ func (h *AudioSpeechHandler) handleStream(c *fiber.Ctx, requestedModel string, a
 				InputTokens:        finalCost.InputTokens,
 				OutputTokens:       finalCost.OutputTokens,
 				CostUSD:            finalCost.TotalCostUSD,
-				Metadata: map[string]interface{}{
+				Metadata: enrichMetricMetadataForDeployment(map[string]interface{}{
 					"endpoint":      "/v1" + audioSpeechPath,
 					"key_type":      authInfo.KeyType,
 					"team_id":       authInfo.TeamID,
 					"org_unit_id":   authInfo.OrgUnitID,
 					"tenant_slug":   tenantSlug,
 					"stream_format": "sse",
-				},
+				}, tunnelReq.Deployment),
 			})
 			budgetCommitted = true
 		}

@@ -265,9 +265,15 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
 
-	budgetReservation, err := reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
-	if err != nil {
-		return err
+	var budgetReservation *platform.BudgetReservation
+	budgetReservationAttempted := false
+	deferBudgetUntilRoute := shouldDeferBudgetReservationUntilRoute(requestedModel) || h.shouldDeferBudgetForVirtualModel(c.Context(), currentTenant.ID, authInfo, requestedModel)
+	if !deferBudgetUntilRoute {
+		budgetReservationAttempted = true
+		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
+		if err != nil {
+			return err
+		}
 	}
 	releaseBudgetOnExit := true
 	defer func() {
@@ -360,6 +366,15 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	tunnelReq := baseReq
 	tunnelReq.Body = payload
 	tunnelReq.Deployment = toContractDeployment(deployment)
+	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
+
+	if !budgetReservationAttempted {
+		budgetReservationAttempted = true
+		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
+		if err != nil {
+			return err
+		}
+	}
 
 	if req.Stream {
 		releaseBudgetOnExit = false
@@ -585,6 +600,7 @@ func (h *ChatCompletionHandler) executeVirtualModelRoute(
 		dep = h.resolveVirtualDeployment(callCtx, tenantID, dep)
 		tunnelReq := baseReq
 		tunnelReq.Deployment = toContractDeployment(dep)
+		tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
 		payload, payloadErr := buildChatCompletionPayload(req, dep.Model, resolvedModel)
 		if payloadErr != nil {
@@ -605,6 +621,64 @@ func (h *ChatCompletionHandler) executeVirtualModelRoute(
 	}
 
 	return nil, nil
+}
+
+func (h *ChatCompletionHandler) shouldDeferBudgetForVirtualModel(ctx context.Context, tenantID string, authInfo *platform.AuthContext, requestedModel string) bool {
+	vm := h.virtualModelForBudgetDecision(ctx, tenantID, authInfo, requestedModel)
+	if vm == nil || h.vmEngine == nil {
+		return false
+	}
+
+	targets, err := h.vmEngine.SelectTargets(vm)
+	if err != nil || len(targets) == 0 {
+		return false
+	}
+
+	for _, target := range targets {
+		dep := h.resolveVirtualDeployment(ctx, tenantID, deploymentFromVirtualTarget(target))
+		if dep == nil || deploymentBillingMode(toContractDeployment(dep)) != platform.BillingModeExternalBilled {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (h *ChatCompletionHandler) virtualModelForBudgetDecision(ctx context.Context, tenantID string, authInfo *platform.AuthContext, requestedModel string) *platform.VirtualModel {
+	if snapshotVM, ok := buildVirtualModelFromSnapshot(authInfo, requestedModel); ok {
+		return snapshotVM
+	}
+
+	if h.vmResolver == nil {
+		return nil
+	}
+
+	vm, err := h.vmResolver.Resolve(ctx, tenantID, requestedModel)
+	if err != nil {
+		return nil
+	}
+
+	return vm
+}
+
+func deploymentFromVirtualTarget(target platform.VirtualModelTarget) *router.Deployment {
+	provider := strings.TrimSpace(target.Provider)
+	modelForProvider := strings.TrimSpace(target.Model)
+	if p, _, official, ok := splitModelFQN(target.Model); ok {
+		if provider == "" {
+			provider = p
+		}
+		modelForProvider = official
+	}
+
+	return &router.Deployment{
+		ID:        target.ID,
+		ModelName: target.Model,
+		Provider:  provider,
+		Model:     modelForProvider,
+		Healthy:   true,
+		Weight:    target.Weight,
+	}
 }
 
 func (h *ChatCompletionHandler) recordVirtualModelRoute(
@@ -717,7 +791,7 @@ func (h *ChatCompletionHandler) handleSync(
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize usage", "billing_error")
 	}
 
-	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID); debitErr != nil {
+	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
 		return writeBudgetCheckError(c, debitErr)
 	}
 
@@ -831,13 +905,13 @@ func (h *ChatCompletionHandler) handleSync(
 		CostUSD:            finalCost.TotalCostUSD,
 		CacheMode:          cacheMetricString(c, "response_cache_type"),
 		CacheStatus:        cacheMetricString(c, "response_cache_status"),
-		Metadata: enrichResponseCacheMetadata(c, map[string]interface{}{
+		Metadata: enrichMetricMetadataForDeployment(enrichResponseCacheMetadata(c, map[string]interface{}{
 			"endpoint":    "/v1/chat/completions",
 			"key_type":    authInfo.KeyType,
 			"team_id":     authInfo.TeamID,
 			"org_unit_id": authInfo.OrgUnitID,
 			"tenant_slug": tenantSlug,
-		}),
+		}), tunnelReq.Deployment),
 	})
 
 	// Forward allowed provider response headers
@@ -949,8 +1023,8 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 				releaseBudgetBestEffort(requestCtx, h.logger, h.billing, budgetReservation, "stream_not_committed")
 			}
 		}()
-		commitDoneBudget := func() {
-			if budgetCommitted || budgetReservation == nil {
+		finalizeAndLogSuccess := func() {
+			if budgetCommitted {
 				return
 			}
 			billingModel := billingModelForDeployment(req.Model, tunnelReq.Deployment)
@@ -960,78 +1034,63 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 				finalCost = estimated
 				finalCost.Model = billingModel
 			}
-			if debitErr := commitBudgetOrDebit(requestCtx, h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID); debitErr != nil {
+			if debitErr := commitBudgetOrDebit(requestCtx, h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
 				h.logger.Warn("failed to commit budget for streaming request", zap.Error(debitErr), zap.String("request_id", tunnelReq.RequestID))
-				return
+			} else {
+				budgetCommitted = true
 			}
-			budgetCommitted = true
+
+			logSpendBestEffort(h.logger, h.logs, requestCtx, platform.SpendLog{
+				RequestID:       tunnelReq.RequestID,
+				TokenHash:       authInfo.TokenHash,
+				TenantID:        authInfo.TenantID,
+				OrganizationID:  authInfo.OrganizationID,
+				TeamID:          authInfo.TeamID,
+				Model:           req.Model,
+				InputTokens:     finalCost.InputTokens,
+				OutputTokens:    finalCost.OutputTokens,
+				TotalTokens:     finalCost.TotalTokens,
+				CostUSD:         finalCost.TotalCostUSD,
+				CostIRR:         finalCost.TotalCostIRR,
+				ResponseTimeMS:  int(time.Since(start).Milliseconds()),
+				Status:          "success",
+				RequestMetadata: enrichPricingMetadata(tunnelReq.RequestMetadata, authInfo, req.Model),
+				CompletionStart: start,
+				CompletionEnd:   time.Now(),
+			})
+			h.emitModelMetric(metricsobs.BuildInput{
+				TS:                 time.Now().UTC(),
+				TenantID:           authInfo.TenantID,
+				RequestID:          tunnelReq.RequestID,
+				ModelName:          req.Model,
+				VirtualModelName:   virtualModelName,
+				ProviderName:       tunnelReq.Deployment.Provider,
+				ProviderModelName:  tunnelReq.Deployment.Model,
+				RequestType:        "chat_completions",
+				UserID:             authInfo.UserID,
+				VirtualAccountID:   authInfo.KeyID,
+				VirtualAccountName: authInfo.KeyAlias,
+				TeamIDs:            nonEmptySlice([]string{authInfo.TeamID}),
+				StatusCode:         fiber.StatusOK,
+				LatencyMS:          int(time.Since(start).Milliseconds()),
+				InputTokens:        finalCost.InputTokens,
+				OutputTokens:       finalCost.OutputTokens,
+				CostUSD:            finalCost.TotalCostUSD,
+				Metadata: enrichMetricMetadataForDeployment(map[string]interface{}{
+					"endpoint":    "/v1/chat/completions",
+					"key_type":    authInfo.KeyType,
+					"team_id":     authInfo.TeamID,
+					"org_unit_id": authInfo.OrgUnitID,
+					"tenant_slug": tenantSlug,
+				}, tunnelReq.Deployment),
+			})
 		}
 
 		for {
 			select {
 			case chunk, ok := <-stream.Chunks():
 				if !ok {
-					billingModel := billingModelForDeployment(req.Model, tunnelReq.Deployment)
-
-					finalCost, finalizeErr := h.billing.FinalizeFromUsage(requestCtx, billingModel, nil, estimated)
-					if finalizeErr != nil {
-						h.logger.Warn("failed to finalize streaming usage", zap.Error(finalizeErr), zap.String("request_id", tunnelReq.RequestID))
-
-						finalCost = estimated
-						finalCost.Model = billingModel
-					}
-
-					if debitErr := commitBudgetOrDebit(requestCtx, h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID); debitErr != nil {
-						h.logger.Warn("failed to commit budget for streaming request", zap.Error(debitErr), zap.String("request_id", tunnelReq.RequestID))
-					} else {
-						budgetCommitted = true
-					}
-
-					logSpendBestEffort(h.logger, h.logs, requestCtx, platform.SpendLog{
-						RequestID:       tunnelReq.RequestID,
-						TokenHash:       authInfo.TokenHash,
-						TenantID:        authInfo.TenantID,
-						OrganizationID:  authInfo.OrganizationID,
-						TeamID:          authInfo.TeamID,
-						Model:           req.Model,
-						InputTokens:     finalCost.InputTokens,
-						OutputTokens:    finalCost.OutputTokens,
-						TotalTokens:     finalCost.TotalTokens,
-						CostUSD:         finalCost.TotalCostUSD,
-						CostIRR:         finalCost.TotalCostIRR,
-						ResponseTimeMS:  int(time.Since(start).Milliseconds()),
-						Status:          "success",
-						RequestMetadata: enrichPricingMetadata(tunnelReq.RequestMetadata, authInfo, req.Model),
-						CompletionStart: start,
-						CompletionEnd:   time.Now(),
-					})
-					h.emitModelMetric(metricsobs.BuildInput{
-						TS:                 time.Now().UTC(),
-						TenantID:           authInfo.TenantID,
-						RequestID:          tunnelReq.RequestID,
-						ModelName:          req.Model,
-						VirtualModelName:   virtualModelName,
-						ProviderName:       tunnelReq.Deployment.Provider,
-						ProviderModelName:  tunnelReq.Deployment.Model,
-						RequestType:        "chat_completions",
-						UserID:             authInfo.UserID,
-						VirtualAccountID:   authInfo.KeyID,
-						VirtualAccountName: authInfo.KeyAlias,
-						TeamIDs:            nonEmptySlice([]string{authInfo.TeamID}),
-						StatusCode:         fiber.StatusOK,
-						LatencyMS:          int(time.Since(start).Milliseconds()),
-						InputTokens:        finalCost.InputTokens,
-						OutputTokens:       finalCost.OutputTokens,
-						CostUSD:            finalCost.TotalCostUSD,
-						Metadata: map[string]interface{}{
-							"endpoint":    "/v1/chat/completions",
-							"key_type":    authInfo.KeyType,
-							"team_id":     authInfo.TeamID,
-							"org_unit_id": authInfo.OrgUnitID,
-							"tenant_slug": tenantSlug,
-						},
-					})
-
+					finalizeAndLogSuccess()
 					return
 				}
 
@@ -1044,7 +1103,7 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 				}
 
 				if chunk.IsDone {
-					commitDoneBudget()
+					finalizeAndLogSuccess()
 					return
 				}
 			case err, ok := <-stream.Errors():
@@ -1223,19 +1282,23 @@ func (h *ChatCompletionHandler) virtualModelCacheVersion(ctx context.Context, au
 
 func toContractDeployment(dep *router.Deployment) platform.Deployment {
 	return platform.Deployment{
-		ID:         dep.ID,
-		TenantID:   dep.TenantID,
-		ModelName:  dep.ModelName,
-		Provider:   dep.Provider,
-		Model:      dep.Model,
-		APIBase:    dep.Params.APIBase,
-		APIKey:     dep.Params.APIKey,
-		APIVersion: dep.Params.APIVersion,
-		RegionName: dep.Params.RegionName,
-		RPM:        dep.Params.RPM,
-		TPM:        dep.Params.TPM,
-		Weight:     dep.Weight,
-		TimeoutSec: dep.Params.Timeout,
+		ID:                  dep.ID,
+		TenantID:            dep.TenantID,
+		ModelName:           dep.ModelName,
+		Provider:            dep.Provider,
+		Model:               dep.Model,
+		APIBase:             dep.Params.APIBase,
+		APIKey:              dep.Params.APIKey,
+		APIVersion:          dep.Params.APIVersion,
+		RegionName:          dep.Params.RegionName,
+		RPM:                 dep.Params.RPM,
+		TPM:                 dep.Params.TPM,
+		Weight:              dep.Weight,
+		TimeoutSec:          dep.Params.Timeout,
+		CredentialSource:    dep.CredentialSource,
+		BillingMode:         dep.BillingMode,
+		ProviderAccountID:   dep.ProviderAccountID,
+		ProviderAccountName: dep.ProviderAccountName,
 	}
 }
 

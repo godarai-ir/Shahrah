@@ -1,6 +1,6 @@
 'use client';
 
-import { Mail, MessageSquare, Phone, MapPin } from 'lucide-react';
+import { Mail, Phone, MapPin } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 
 type SubmitState = 'idle' | 'submitting' | 'success' | 'error';
@@ -62,12 +62,6 @@ export function Contact() {
                   title: 'ایمیل',
                   value: 'support@godarai.ir',
                   description: 'پاسخگویی در کمتر از ۲۴ ساعت',
-                },
-                {
-                  icon: MessageSquare,
-                  title: 'پشتیبانی آنلاین',
-                  value: 'چت مستقیم',
-                  description: 'دکمه پشتیبانی در پایین صفحه',
                 },
                 {
                   icon: Phone,
