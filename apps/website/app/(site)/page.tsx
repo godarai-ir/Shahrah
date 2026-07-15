@@ -3,21 +3,21 @@ import { Home } from '@/app/pages/Home';
 import { buildMetadata } from "@/app/lib/seo";
 
 export const metadata: Metadata = buildMetadata({
-  title: "AI Gateway for Iranian Teams",
+  title: "درگاه مدل‌های زبانی برای تیم‌های ایرانی",
   description:
-    "GodarAI helps Iranian teams connect to top AI models with reliable routing, monitoring, and cost control.",
+    "گدارAI به تیم‌های ایرانی کمک می‌کند اتصال به مدل‌های زبانی، مسیریابی، پایش و کنترل هزینه را از یک مسیر واحد مدیریت کنند.",
   path: "/",
-  keywords: ["AI Gateway", "LLM Gateway", "GodarAI", "Iran AI Infrastructure"],
+  keywords: ["درگاه مدل‌های زبانی", "LLM Gateway", "گدارAI", "زیرساخت هوش مصنوعی ایران"],
 });
 
 export default function Page() {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: "GodarAI",
+    name: "گدارAI",
     url: "https://godarai.ir",
     description:
-      "AI gateway infrastructure for Iranian developers and businesses.",
+      "درگاه مدل‌های زبانی برای توسعه‌دهندگان و کسب‌وکارهای ایرانی.",
     areaServed: "IR",
     sameAs: [],
   };

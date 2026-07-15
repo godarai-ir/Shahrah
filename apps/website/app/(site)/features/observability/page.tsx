@@ -3,9 +3,9 @@ import { Observability } from '@/app/pages/features/Observability';
 import { buildMetadata } from "@/app/lib/seo";
 
 export const metadata: Metadata = buildMetadata({
-  title: "Observability Feature",
+  title: "پایش و مشاهده‌پذیری",
   description:
-    "Track logs, traces, and key metrics across your AI stack with GodarAI observability features.",
+    "گزارش رخدادها، رد درخواست‌ها و سنجه‌های کلیدی مصرف مدل‌ها را در گدارAI دنبال کنید.",
   path: "/features/observability",
 });
 

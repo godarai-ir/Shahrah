@@ -7,11 +7,11 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 const features = [
-  { name: 'پایش و مشاهده‌پذیری', description: 'ثبت لاگ، ردیابی و پایش متریک‌های کلیدی', icon: Activity, href: '/features/observability' },
-  { name: 'درگاه هوش مصنوعی', description: 'مسیریابی به بیش از ۱۶۰۰ مدل زبانی بزرگ', icon: Network, href: '/features/ai-gateway' },
-  { name: 'حفاظت و کنترل', description: 'اعمال کنترل و محدودیت‌های بلادرنگ روی رفتار مدل‌ها', icon: ShieldCheck, href: '/features/guardrails' },
-  { name: 'مهندسی پرامپت', description: 'ساخت، نسخه‌بندی و استقرار پرامپت‌ها', icon: TerminalSquare, href: '/features/prompt-engineering' },
-  { name: 'ایجنت‌ها', description: 'استقرار ایجنت‌های هوش مصنوعی در محیط عملیاتی', icon: Bot, href: '/features/agents' },
+  { name: 'پایش و مشاهده‌پذیری', description: 'گزارش رخداد، رد درخواست و سنجه‌های مصرف', icon: Activity, href: '/features/observability' },
+  { name: 'درگاه مدل‌های زبانی', description: 'مسیریابی، مدل مجازی و کنترل هزینه از یک مسیر', icon: Network, href: '/features/ai-gateway' },
+  { name: 'گاردریل‌ها', description: 'کنترل ورودی، خروجی و داده حساس در مسیر مدل', icon: ShieldCheck, href: '/features/guardrails' },
+  { name: 'رجیستری پرامپت', description: 'ساخت، نسخه‌بندی و اجرای پرامپت‌های قابل تکرار', icon: TerminalSquare, href: '/features/prompt-engineering' },
+  { name: 'ایجنت‌ها', description: 'اجرای ایجنت‌ها با رد درخواست، گاردریل و کنترل هزینه', icon: Bot, href: '/features/agents' },
   { name: 'امنیت و تطابق', description: 'امنیت در سطح سازمانی و کنترل دسترسی‌ها', icon: Lock, href: '/features/security' },
   { name: 'درگاه MCP', description: 'استقرار و مدیریت سرورهای MCP در محیط عملیاتی', icon: Server, href: '/features/mcp-gateway' },
 ];
@@ -36,7 +36,7 @@ export function Navbar() {
                 height={36}
                 className="h-9 w-9 shrink-0 rounded-lg"
               />
-              <span className="truncate font-bold text-lg sm:text-xl text-slate-900 dark:text-white">گُدار AI</span>
+              <span className="truncate font-bold text-lg sm:text-xl text-slate-900 dark:text-white">گدارAI</span>
             </Link>
             <div className="hidden md:flex items-center gap-6 h-16">
               <div className="relative group/features h-full flex items-center">

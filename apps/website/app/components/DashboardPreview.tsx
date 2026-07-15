@@ -19,10 +19,10 @@ export function DashboardPreview() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-16">
           <h2 className="text-2xl sm:text-4xl font-bold mb-4 leading-tight">
-            نظارت دقیق بر روی هر درخواست
+            پایش دقیق هر درخواست
           </h2>
           <p className="text-sm sm:text-lg text-gray-400 leading-7 sm:leading-relaxed">
-            داشبورد حرفه‌ای گُدار AI به شما امکان می‌دهد تا تمام معیارها را در لحظه مانیتور کنید و تصمیمات بهتری بگیرید.
+            داشبورد گدارAI گزارش رخدادها، مصرف، هزینه و تاخیر را کنار هم نشان می‌دهد تا تصمیم‌های فنی و مالی قابل بررسی باشند.
           </p>
         </div>
 
@@ -30,10 +30,10 @@ export function DashboardPreview() {
           {/* Top Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
             {[
-              { label: 'Total Requests', value: '1,234,567', icon: <Activity className="text-blue-400" /> },
-              { label: 'Token Usage', value: '45.2M', icon: <Database className="text-indigo-400" /> },
-              { label: 'Total Cost', value: '$124.50', icon: <DollarSign className="text-green-400" /> },
-              { label: 'Active Users', value: '8,432', icon: <Users className="text-purple-400" /> },
+              { label: 'درخواست‌ها', value: '1,234,567', icon: <Activity className="text-blue-400" /> },
+              { label: 'مصرف توکن', value: '45.2M', icon: <Database className="text-indigo-400" /> },
+              { label: 'هزینه کل', value: '$124.50', icon: <DollarSign className="text-green-400" /> },
+              { label: 'کاربران فعال', value: '8,432', icon: <Users className="text-purple-400" /> },
             ].map((stat, i) => (
               <div key={i} className="bg-[#111827] p-4 rounded-xl border border-gray-800 flex items-center justify-between">
                 <div>
@@ -50,10 +50,10 @@ export function DashboardPreview() {
           {/* Chart Area */}
           <div className="bg-[#111827] p-4 sm:p-6 rounded-xl border border-gray-800">
             <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h3 className="font-bold">Requests Overview</h3>
+              <h3 className="font-bold">نمای درخواست‌ها</h3>
               <div className="flex gap-2 self-start">
-                <span className="px-3 py-1 rounded bg-indigo-500/20 text-indigo-400 text-xs font-medium">7 Days</span>
-                <span className="px-3 py-1 rounded hover:bg-gray-800 text-gray-400 cursor-pointer text-xs font-medium">30 Days</span>
+                <span className="px-3 py-1 rounded bg-indigo-500/20 text-indigo-400 text-xs font-medium">۷ روز</span>
+                <span className="px-3 py-1 rounded hover:bg-gray-800 text-gray-400 cursor-pointer text-xs font-medium">۳۰ روز</span>
               </div>
             </div>
             

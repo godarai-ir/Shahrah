@@ -1,6 +1,6 @@
 export const onboardingMessages = {
   backToPlans: "بازگشت به پلن‌ها",
-  title: "فعال‌سازی فضای کاری گُدار AI",
+  title: "فعال‌سازی فضای کاری گدارAI",
   subtitle:
     "شناسه فضای کاری را انتخاب کنید و کد تایید ارسال‌شده را تا پنج دقیقه وارد کنید.",
   detailsTitle: "اطلاعات فضای کاری",

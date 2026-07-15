@@ -1,15 +1,14 @@
-﻿import type { Metadata } from "next";
-import { redirect } from 'next/navigation';
+import type { Metadata } from "next";
+import { PromptEngineering } from '@/app/pages/features/PromptEngineering';
 import { buildMetadata } from "@/app/lib/seo";
 
 export const metadata: Metadata = buildMetadata({
-  title: "Prompt Engineering",
+  title: "رجیستری پرامپت",
   description:
-    "Prompt engineering workflows are available within GodarAI AI Gateway features.",
+    "پرامپت‌ها را با نسخه، متغیر، FQN و اجرای قابل‌پیگیری در گدارAI مدیریت کنید.",
   path: "/features/prompt-engineering",
-  noIndex: true,
 });
 
 export default function Page() {
-  redirect('/features/ai-gateway');
+  return <PromptEngineering />;
 }

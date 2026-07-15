@@ -163,7 +163,7 @@ export async function sendOnboardingOTPEmail(input: {
   expiresInMinutes: number;
   tenantSlug: string;
 }) {
-  const subject = "کد تایید فعال‌سازی فضای کار گُدار AI";
+  const subject = "کد تایید فعال‌سازی فضای کار گدارAI";
   const text = [
     `کد تایید فعال‌سازی فضای کار «${input.tenantSlug}»: ${input.otpCode}`,
     `این کد تا ${input.expiresInMinutes} دقیقه معتبر است.`,
@@ -172,7 +172,7 @@ export async function sendOnboardingOTPEmail(input: {
 
   const html = `
 <div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; line-height: 1.8; color: #111827;">
-  <h2>کد تایید فعال‌سازی فضای کار گُدار AI</h2>
+  <h2>کد تایید فعال‌سازی فضای کار گدارAI</h2>
   <p>کد تایید یک‌بارمصرف برای فضای کار <strong>${input.tenantSlug}</strong>:</p>
   <p style="font-size: 24px; font-weight: bold; letter-spacing: 3px;">${input.otpCode}</p>
   <p>این کد تا ${input.expiresInMinutes} دقیقه معتبر است.</p>

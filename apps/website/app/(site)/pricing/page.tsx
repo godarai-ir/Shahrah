@@ -1,11 +1,11 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import { CommercialPricing, type PublicCommercialPlan } from '@/app/pages/CommercialPricing';
 import { buildMetadata } from "@/app/lib/seo";
 
 export const metadata: Metadata = buildMetadata({
   title: "قیمت‌گذاری",
   description:
-    "پلن‌های گُدار AI را برای تیم‌های توسعه، کسب‌وکارهای در حال رشد و سازمان‌ها مقایسه کنید.",
+    "پلن‌های گدارAI را برای تیم‌های توسعه، کسب‌وکارهای در حال رشد و سازمان‌ها مقایسه کنید.",
   path: "/pricing",
 });
 

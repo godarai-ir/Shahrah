@@ -3,9 +3,9 @@ import { MCPGateway } from '@/app/pages/features/MCPGateway';
 import { buildMetadata } from "@/app/lib/seo";
 
 export const metadata: Metadata = buildMetadata({
-  title: "MCP Gateway Feature",
+  title: "درگاه MCP",
   description:
-    "Manage and scale MCP servers in production with secure and observable gateway controls.",
+    "سرورهای MCP را در محیط عملیاتی با کنترل دسترسی، مشاهده‌پذیری و سیاست‌های قابل پیگیری مدیریت کنید.",
   path: "/features/mcp-gateway",
 });
 

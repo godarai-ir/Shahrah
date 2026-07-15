@@ -3,9 +3,9 @@ import { Dashboard } from '@/app/pages/Dashboard';
 import { buildMetadata } from "@/app/lib/seo";
 
 export const metadata: Metadata = buildMetadata({
-  title: "Dashboard Overview",
+  title: "نمای کلی داشبورد",
   description:
-    "Explore GodarAI dashboard capabilities for monitoring requests, usage, and AI model performance.",
+    "قابلیت‌های داشبورد گدارAI برای پایش درخواست‌ها، مصرف، هزینه و عملکرد مدل‌ها را ببینید.",
   path: "/dashboard",
 });
 

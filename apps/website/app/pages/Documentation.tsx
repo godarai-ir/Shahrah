@@ -7,25 +7,25 @@ export function Documentation() {
     {
       icon: Zap,
       title: 'شروع سریع',
-      description: 'در عرض ۵ دقیقه اولین درخواست خود را ارسال کنید',
+      description: 'فضای کاری، توکن دسترسی و اولین درخواست را آماده کنید',
       link: '#quick-start',
     },
     {
       icon: Code,
       title: 'مرجع API',
-      description: 'مستندات کامل تمام endpoint‌ها و پارامترها',
+      description: 'قرارداد نقطه‌های پایانی، سرآیندها و بدنه درخواست‌ها',
       link: '#api-reference',
     },
     {
       icon: Book,
       title: 'راهنماها',
-      description: 'آموزش‌های گام‌به‌گام برای موارد استفاده مختلف',
+      description: 'راهنماهای گام‌به‌گام برای اتصال، پایش و کنترل هزینه',
       link: '#guides',
     },
     {
       icon: Shield,
       title: 'امنیت',
-      description: 'بهترین شیوه‌های امنیتی و مدیریت کلیدها',
+      description: 'مدیریت توکن، دسترسی تیمی و محافظت از داده حساس',
       link: '#security',
     },
   ];
@@ -38,7 +38,7 @@ export function Documentation() {
             مستندات توسعه‌دهندگان
           </h1>
           <p className="text-xl text-slate-600 dark:text-gray-400 max-w-2xl mx-auto">
-            همه چیز را که برای یکپارچه‌سازی گُدار AI نیاز دارید
+            منابع لازم برای اتصال امن و قابل‌پیگیری به گدارAI
           </p>
         </div>
 
@@ -64,14 +64,14 @@ export function Documentation() {
             <code>{`import OpenAI from 'openai';
 
 const client = new OpenAI({
-  apiKey: 'YOUR_SHAHRAH_API_KEY',
-  baseURL: 'https://api.sharah.ir/v1'
+  apiKey: 'YOUR_GODARAI_TOKEN',
+  baseURL: 'https://YOUR_WORKSPACE.godarai.ir/v1'
 });
 
 const response = await client.chat.completions.create({
   model: 'gpt-4',
   messages: [
-    { role: 'user', content: 'سلام! چطوری؟' }
+    { role: 'user', content: 'یک پاسخ کوتاه برای پیگیری سفارش بنویس.' }
   ]
 });
 

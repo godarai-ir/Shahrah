@@ -31,8 +31,8 @@ export function Privacy() {
           <section>
             <h2 className="text-2xl font-bold mb-4">۳. محافظت از داده‌ها</h2>
             <p className="text-slate-600 dark:text-gray-400 leading-relaxed">
-              ما از روش‌های امنیتی پیشرفته برای محافظت از اطلاعات شما استفاده می‌کنیم، از جمله رمزنگاری،
-              احراز هویت چند عاملی، و نظارت مستمر بر امنیت سیستم‌ها.
+              ما از روش‌های امنیتی متعارف برای محافظت از اطلاعات استفاده می‌کنیم؛ از جمله رمزنگاری،
+              کنترل دسترسی و پایش رخدادهای امنیتی. جزئیات اجرایی ممکن است با توجه به نوع استقرار تغییر کند.
             </p>
           </section>
 
@@ -76,8 +76,8 @@ export function Privacy() {
             <h2 className="text-2xl font-bold mb-4">۸. تماس با ما</h2>
             <p className="text-slate-600 dark:text-gray-400 leading-relaxed">
               برای سوالات مربوط به حریم خصوصی، با ما از طریق ایمیل{' '}
-              <a href="mailto:privacy@sharah.ir" className="text-indigo-500 hover:text-indigo-600">
-                privacy@sharah.ir
+              <a href="mailto:privacy@godarai.ir" className="text-indigo-500 hover:text-indigo-600">
+                privacy@godarai.ir
               </a>{' '}
               تماس بگیرید.
             </p>

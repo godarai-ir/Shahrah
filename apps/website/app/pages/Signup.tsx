@@ -37,7 +37,7 @@ function DashboardMockup() {
           </div>
           <div>
             <h3 className="text-white font-bold text-base" style={{ fontFamily: 'var(--font-heading)' }}>مانیتورینگ لحظه‌ای</h3>
-            <p className="text-slate-400 text-xs mt-0.5">وضعیت زیرساخت گُدار AI</p>
+            <p className="text-slate-400 text-xs mt-0.5">وضعیت زیرساخت گدارAI</p>
           </div>
         </div>
         <div className="flex items-center gap-2 bg-indigo-500/10 px-3 py-1.5 rounded-full border border-indigo-500/20 backdrop-blur-sm">
@@ -235,10 +235,10 @@ export function Signup() {
                   </div>
                   
                   <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-4 tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
-                    به گُدار AI بپیوندید
+                    به گدارAI بپیوندید
                   </h2>
                   <p className="text-slate-500 dark:text-slate-400 mb-10 text-sm leading-relaxed">
-                    با عضویت در لیست انتظار، علاوه بر امکانات رایگان گُدار AI، <span className="font-bold text-indigo-600 dark:text-indigo-400 border-b border-indigo-200 dark:border-indigo-500/30 pb-0.5">۱۰۰ هزار توکن رایگان</span> هدیه بگیرید.
+                    با عضویت در لیست انتظار، علاوه بر امکانات رایگان گدارAI، <span className="font-bold text-indigo-600 dark:text-indigo-400 border-b border-indigo-200 dark:border-indigo-500/30 pb-0.5">۱۰۰ هزار توکن رایگان</span> هدیه بگیرید.
                   </p>
                   
                   <div className="mb-8">
@@ -443,7 +443,7 @@ export function Signup() {
                   <h2 className="text-2xl font-bold mb-3 text-slate-900 dark:text-white tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
                     امکانات مورد نیاز شما
                   </h2>
-                  <p className="text-slate-500 dark:text-slate-400 mb-8 text-sm leading-relaxed">کدام یک از قابلیت‌های پیشرفته گُدار AI برای محصول شما اولویت بالاتری دارد؟ </p>
+                  <p className="text-slate-500 dark:text-slate-400 mb-8 text-sm leading-relaxed">کدام یک از قابلیت‌های پیشرفته گدارAI برای محصول شما اولویت بالاتری دارد؟ </p>
 
                                                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-10 w-full">
                     {featureOptions.map(option => (
@@ -557,7 +557,7 @@ export function Signup() {
           {/* Form Footer */}
           <div className="mt-8 pt-8 border-t border-slate-100 dark:border-slate-800 text-center">
             <p className="text-xs text-slate-400 dark:text-slate-500">
-              با ثبت‌نام در گُدار AI، با <Link href="/terms" className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold">قوانین و مقررات</Link> و <Link href="/privacy" className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold">حریم خصوصی</Link> ما موافقت می‌کنید.
+              با ثبت‌نام در گدارAI، با <Link href="/terms" className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold">قوانین و مقررات</Link> و <Link href="/privacy" className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold">حریم خصوصی</Link> ما موافقت می‌کنید.
             </p>
           </div>
 
@@ -587,7 +587,7 @@ export function Signup() {
               <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
                 <span className="text-white font-bold text-2xl" style={{ fontFamily: 'var(--font-heading)' }}>ش</span>
               </div>
-              <span className="font-bold text-3xl tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>گُدار AI</span>
+              <span className="font-bold text-3xl tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>گدارAI</span>
             </Link>
 
             <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full backdrop-blur-md">
@@ -606,7 +606,7 @@ export function Signup() {
             className="text-center mb-16 max-w-lg mt-12"
           >
             <p className="text-slate-400 leading-relaxed font-medium text-[16px]">
-              گُدار AI زیرساخت مقیاس‌پذیر، امن و پرسرعت برای توسعه‌دهندگان ایرانی فراهم می‌کند تا بدون دغدغه تحریم و پرداخت ارزی، محصولات مبتنی بر هوش مصنوعی بسازند.
+              گدارAI زیرساخت مقیاس‌پذیر، امن و پرسرعت برای توسعه‌دهندگان ایرانی فراهم می‌کند تا بدون دغدغه تحریم و پرداخت ارزی، محصولات مبتنی بر هوش مصنوعی بسازند.
             </p>
           </motion.div>
           

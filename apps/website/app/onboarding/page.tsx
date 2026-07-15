@@ -154,7 +154,7 @@ export default function OnboardingPage() {
         <header className="flex items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-3 transition-opacity hover:opacity-80">
             <Image src="/mini_logo.svg" alt="" width={40} height={40} className="size-10 rounded-xl" />
-            <span className="text-lg font-bold tracking-tight sm:text-xl">گُدار AI</span>
+            <span className="text-lg font-bold tracking-tight sm:text-xl">گدارAI</span>
           </Link>
           <Link
             href="/pricing"
@@ -197,7 +197,7 @@ export default function OnboardingPage() {
             <div className="order-1 rounded-3xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/5 dark:border-slate-800 dark:bg-slate-900 dark:shadow-black/20 sm:p-8 lg:order-2 lg:p-10">
               <div className="mb-8 flex items-start justify-between gap-4">
                 <div className="max-w-2xl">
-                  <p className="mb-2 text-sm font-semibold text-indigo-600 dark:text-indigo-400">شروع کار با گُدار AI</p>
+                  <p className="mb-2 text-sm font-semibold text-indigo-600 dark:text-indigo-400">شروع کار با گدارAI</p>
                   <h1 className="text-2xl font-bold leading-10 tracking-tight sm:text-3xl">{t.title}</h1>
                   <p className="mt-2 text-sm leading-7 text-slate-500 dark:text-slate-400 sm:text-base">{t.subtitle}</p>
                 </div>

@@ -148,7 +148,7 @@ function GatewayDashboard() {
 
         {/* Request log */}
         <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-          <h3 className="text-xs font-bold text-slate-900 dark:text-white mb-3">لاگ‌های درخواست (Live)</h3>
+          <h3 className="text-xs font-bold text-slate-900 dark:text-white mb-3">گزارش‌های رخداد درخواست (Live)</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-[10px] font-sans text-right">
               <thead>
@@ -360,12 +360,12 @@ function CTAMiniDashboard() {
 // ─── FAQ Data ────────────────────────────────────────────────────────────────
 const faqItems = [
   {
-    question: 'AI Gateway گُدار AI دقیقاً چه کاری انجام می‌دهد؟',
-    answer: 'گُدار AI یک لایه مرکزی بین محصول شما و مدل‌های AI است. درخواست‌ها از طریق این لایه ارسال می‌شوند تا اتصال، Routing، Fallback، Retry، Cache، مدیریت کلیدها، مانیتورینگ و کنترل هزینه ساده‌تر شود.',
+    question: 'AI Gateway گدارAI دقیقاً چه کاری انجام می‌دهد؟',
+    answer: 'گدارAI یک لایه مرکزی بین محصول شما و مدل‌های AI است. درخواست‌ها از طریق این لایه ارسال می‌شوند تا اتصال، Routing، Fallback، Retry، Cache، مدیریت کلیدها، پایش و کنترل هزینه ساده‌تر شود.',
   },
   {
-    question: 'آیا گُدار AI باعث افزایش تأخیر درخواست‌ها می‌شود؟',
-    answer: 'هدف گُدار AI این است که با Routing مناسب، Cache و مدیریت بهتر مسیرها، تأخیر را کنترل کند. در بسیاری از سناریوها، Cache و انتخاب مسیر مناسب می‌تواند پاسخ‌ها را سریع‌تر و پایدارتر کند.',
+    question: 'آیا گدارAI باعث افزایش تأخیر درخواست‌ها می‌شود؟',
+    answer: 'هدف گدارAI این است که با Routing مناسب، Cache و مدیریت بهتر مسیرها، تأخیر را کنترل کند. در بسیاری از سناریوها، Cache و انتخاب مسیر مناسب می‌تواند پاسخ‌ها را سریع‌تر و پایدارتر کند.',
   },
   {
     question: 'اگر یک تأمین‌کننده خطا بدهد یا به Rate Limit برسد چه می‌شود؟',
@@ -376,12 +376,12 @@ const faqItems = [
     answer: 'بله. در ساختار Gateway می‌توانید دسترسی به مدل‌ها، کلیدها و مسیرهای مجاز را کنترل کنید تا تیم‌ها فقط از مسیرهای تعریف‌شده استفاده کنند.',
   },
   {
-    question: 'آیا گُدار AI برای اپلیکیشن‌هایی با رشد سریع مناسب است؟',
-    answer: 'بله. گُدار AI برای سناریوهایی طراحی می‌شود که مصرف AI به‌مرور زیاد می‌شود و تیم به کنترل متمرکز، مانیتورینگ، توزیع بار و مدیریت هزینه نیاز دارد.',
+    question: 'آیا گدارAI برای اپلیکیشن‌هایی با رشد سریع مناسب است؟',
+    answer: 'بله. گدارAI برای سناریوهایی طراحی می‌شود که مصرف AI به‌مرور زیاد می‌شود و تیم به کنترل متمرکز، پایش، توزیع بار و مدیریت هزینه نیاز دارد.',
   },
   {
-    question: 'آیا برای استفاده از گُدار AI نیاز به پرداخت ارزی دارم؟',
-    answer: 'خیر. گُدار AI برای تیم‌های ایرانی طراحی شده و هدف آن ساده‌کردن دسترسی به مدل‌های AI بدون نیاز به پرداخت ارزی مستقیم و بدون درگیری با محدودیت‌های رایج سرویس‌های خارجی است.',
+    question: 'آیا برای استفاده از گدارAI نیاز به پرداخت ارزی دارم؟',
+    answer: 'خیر. گدارAI برای تیم‌های ایرانی طراحی شده و هدف آن ساده‌کردن دسترسی به مدل‌های AI بدون نیاز به پرداخت ارزی مستقیم و با ریسک کمتر نسبت به اتصال مستقیم به سرویس‌های خارجی است.',
   },
 ];
 
@@ -425,7 +425,7 @@ export function AIGateway() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              با گُدار AI، درخواست‌های AI محصول خود را از یک مسیر واحد مدیریت کنید؛ به چند مدل و تأمین‌کننده متصل شوید، کلیدها را امن نگه دارید، هزینه‌ها را کنترل کنید و بدون درگیری با تحریم یا پرداخت ارزی مستقیم، AI را وارد محصول واقعی کنید.
+              با گدارAI، درخواست‌های مدل زبانی محصول خود را از یک مسیر واحد مدیریت کنید؛ به چند مدل و ارائه‌دهنده وصل شوید، کلیدها را امن نگه دارید، هزینه‌ها را کنترل کنید و با کاهش ریسک اتصال مستقیم و پرداخت ارزی، هوش مصنوعی را وارد محصول واقعی کنید.
             </motion.p>
 
             <motion.div
@@ -474,7 +474,7 @@ export function AIGateway() {
               ساخته‌شده برای تیم‌هایی که AI را در محصول واقعی اجرا می‌کنند
             </h2>
             <p className="text-sm text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-              گُدار AI به تیم‌های محصول، فنی و AI کمک می‌کند اتصال به مدل‌های زبانی را از حالت آزمایشی به زیرساخت پایدار محصول تبدیل کنند؛ با مدیریت مرکزی، کنترل هزینه، مانیتورینگ لحظه‌ای و تجربه‌ای مناسب بازار ایران.
+              گدارAI به تیم‌های محصول، فنی و AI کمک می‌کند اتصال به مدل‌های زبانی را از حالت آزمایشی به زیرساخت پایدار محصول تبدیل کنند؛ با مدیریت مرکزی، کنترل هزینه، پایش لحظه‌ای و تجربه‌ای مناسب بازار ایران.
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-3">
@@ -496,10 +496,10 @@ export function AIGateway() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              AI Gateway سریع، پایدار و آماده Production
+              AI Gateway سریع، پایدار و آماده محیط عملیاتی
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              گُدار AI یک لایه مرکزی بین محصول شما و مدل‌های LLM است؛ تا درخواست‌ها را مدیریت، مسیریابی، مانیتور و بهینه کند.
+              گدارAI یک لایه مرکزی بین محصول شما و مدل‌های LLM است؛ تا درخواست‌ها را مدیریت، مسیریابی، مانیتور و بهینه کند.
             </p>
           </div>
 
@@ -514,7 +514,7 @@ export function AIGateway() {
                   اتصال به چند مدل از طریق یک API واحد
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  به‌جای پیاده‌سازی جداگانه برای هر تأمین‌کننده، همه درخواست‌های AI را از یک API واحد مدیریت کنید. گُدار AI کمک می‌کند مدل‌های مختلف را سریع‌تر تست، جایگزین و در محصول استفاده کنید.
+                  به‌جای پیاده‌سازی جداگانه برای هر تأمین‌کننده، همه درخواست‌های AI را از یک API واحد مدیریت کنید. گدارAI کمک می‌کند مدل‌های مختلف را سریع‌تر تست، جایگزین و در محصول استفاده کنید.
                 </p>
                 <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mb-6">
                   کمتر کد بزنید، سریع‌تر مدل عوض کنید، کنترل بیشتری داشته باشید.
@@ -533,7 +533,7 @@ export function AIGateway() {
                   پایداری بیشتر با Smart Routing
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  درخواست‌ها را بر اساس قانون‌های قابل تنظیم بین مدل‌ها و تأمین‌کننده‌ها مسیریابی کنید. اگر یک مدل کند شد، خطا داد یا به محدودیت رسید، گُدار AI می‌تواند مسیر مناسب‌تری برای ادامه درخواست انتخاب کند.
+                  درخواست‌ها را بر اساس قانون‌های قابل تنظیم بین مدل‌ها و تأمین‌کننده‌ها مسیریابی کنید. اگر یک مدل کند شد، خطا داد یا به محدودیت رسید، گدارAI می‌تواند مسیر مناسب‌تری برای ادامه درخواست انتخاب کند.
                 </p>
                 <p className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-6">
                   برای کاهش خطا، افزایش Uptime و کنترل بهتر تجربه کاربر.
@@ -568,7 +568,7 @@ export function AIGateway() {
                   <Key className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                  مدیریت امن کلیدهای API
+                  مدیریت امن کلیدهای دسترسی
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
                   کلیدهای مدل‌ها و تأمین‌کننده‌ها را به‌جای پخش شدن در چند سرویس و چند مخزن کد، در یک محیط مرکزی مدیریت کنید. دسترسی‌ها را کنترل، کلیدها را غیرفعال یا جایگزین کنید و مصرف هر کلید را مانیتور کنید.
@@ -591,7 +591,7 @@ export function AIGateway() {
               قابلیت‌های پیشرفته، آماده استفاده
             </h2>
             <p className="text-lg text-slate-400">
-              گُدار AI فقط یک اتصال ساده به مدل نیست؛ یک لایه عملیاتی برای اجرای پایدار AI در محصول است.
+              گدارAI فقط یک اتصال ساده به مدل نیست؛ یک لایه عملیاتی برای اجرای پایدار AI در محصول است.
             </p>
           </div>
 
@@ -642,7 +642,7 @@ export function AIGateway() {
                 Fine-tuning از مسیر یکپارچه
               </h3>
               <p className="text-slate-400 text-sm leading-relaxed mb-6">
-                اگر تیم شما از Fine-tuning استفاده می‌کند، گُدار AI می‌تواند مسیر مدیریت مدل‌های سفارشی و مدل‌های پایه را ساده‌تر کند تا همه چیز از یک لایه مرکزی قابل کنترل باشد.
+                اگر تیم شما از Fine-tuning استفاده می‌کند، گدارAI می‌تواند مسیر مدیریت مدل‌های سفارشی و مدل‌های پایه را ساده‌تر کند تا همه چیز از یک لایه مرکزی قابل کنترل باشد.
               </p>
               <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4 font-sans text-xs space-y-2">
                 {[
@@ -674,7 +674,7 @@ export function AIGateway() {
                 مدیریت مدل‌های چندحالته
               </h3>
               <p className="text-slate-400 text-sm leading-relaxed mb-6">
-                برای سناریوهای متنی، تصویری، صوتی یا Vision، گُدار AI می‌تواند به‌عنوان مسیر مرکزی ارتباط با مدل‌ها و تأمین‌کننده‌های مختلف عمل کند.
+                برای سناریوهای متنی، تصویری، صوتی یا Vision، گدارAI می‌تواند به‌عنوان مسیر مرکزی ارتباط با مدل‌ها و تأمین‌کننده‌های مختلف عمل کند.
               </p>
               <div className="flex flex-wrap gap-2">
                 {[
@@ -699,7 +699,7 @@ export function AIGateway() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              زیرساختی برای AI در مقیاس Production
+              زیرساختی برای AI در مقیاس محیط عملیاتی
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
               وقتی AI وارد محصول واقعی می‌شود، فقط پاسخ گرفتن از مدل کافی نیست. باید پایداری، هزینه، سرعت و امنیت را هم‌زمان مدیریت کنید.
@@ -712,7 +712,7 @@ export function AIGateway() {
                 icon: Network, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10',
                 value: 'میلیون‌ها', sub: 'درخواست در ماه',
                 label: 'درخواست‌های پردازش‌شده',
-                desc: 'گُدار AI باید طوری طراحی شود که بتواند رشد سریع مصرف AI را در محصول‌های واقعی پشتیبانی کند.',
+                desc: 'گدارAI باید طوری طراحی شود که بتواند رشد سریع مصرف AI را در محصول‌های واقعی پشتیبانی کند.',
               },
               {
                 icon: CheckCircle, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10',
@@ -762,7 +762,7 @@ export function AIGateway() {
               از Prototype تا Production، سریع‌تر و امن‌تر
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              گُدار AI به تیم‌ها کمک می‌کند AI app خود را با قابلیت‌های عملیاتی مثل Routing، Fallback، Retry، Load Balancing و مدیریت فایل‌ها پایدارتر کنند.
+              گدارAI به تیم‌ها کمک می‌کند AI app خود را با قابلیت‌های عملیاتی مثل Routing، Fallback، Retry، Load Balancing و مدیریت فایل‌ها پایدارتر کنند.
             </p>
           </div>
 
@@ -795,7 +795,7 @@ export function AIGateway() {
               },
               {
                 icon: Activity, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10',
-                title: 'مانیتورینگ APIهای Real-time',
+                title: 'پایش APIهای Real-time',
                 desc: 'درخواست‌های Real-time را همراه با هزینه، وضعیت، خطاها، تأخیر و تخطی از Guardrailها ثبت و بررسی کنید.',
               },
               {
@@ -841,7 +841,7 @@ export function AIGateway() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              چرا AI Gateway گُدار AI برای تیم‌های ایرانی مهم‌تر است؟
+              چرا AI Gateway گدارAI برای تیم‌های ایرانی مهم‌تر است؟
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
               برای تیم‌های ایرانی، اتصال مستقیم به مدل‌های خارجی فقط یک مسئله فنی نیست؛ مسئله دسترسی، پرداخت، پایداری، هزینه و ریسک قطع سرویس هم هست.
@@ -852,23 +852,23 @@ export function AIGateway() {
             {[
               {
                 icon: Shield, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10', border: 'border-indigo-100 dark:border-indigo-500/20',
-                title: 'بدون محدودیت‌های تحریمی',
-                desc: 'با گُدار AI، تیم شما برای استفاده از مدل‌های AI خارجی کمتر درگیر محدودیت‌های تحریم، مسدود شدن حساب یا قطع دسترسی مستقیم می‌شود.',
+                title: 'کاهش ریسک محدودیت‌های اتصال مستقیم',
+                desc: 'با گدارAI، تیم شما برای استفاده از مدل‌های AI خارجی کمتر درگیر محدودیت‌های تحریم، مسدود شدن حساب یا قطع دسترسی مستقیم می‌شود.',
               },
               {
                 icon: CreditCard, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', border: 'border-emerald-100 dark:border-emerald-500/20',
                 title: 'بدون پرداخت ارزی مستقیم',
-                desc: 'به‌جای درگیری با کارت اعتباری خارجی، پرداخت دلاری و حساب‌های بین‌المللی، مصرف AI را از طریق گُدار AI و متناسب با نیاز بازار ایران مدیریت کنید.',
+                desc: 'به‌جای درگیری با کارت اعتباری خارجی، پرداخت دلاری و حساب‌های بین‌المللی، مصرف AI را از طریق گدارAI و متناسب با نیاز بازار ایران مدیریت کنید.',
               },
               {
                 icon: Network, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10', border: 'border-purple-100 dark:border-purple-500/20',
                 title: 'یک لایه مرکزی برای چند مدل و تأمین‌کننده',
-                desc: 'به‌جای اتصال مستقیم و پراکنده به چند سرویس، گُدار AI یک مسیر واحد برای مدیریت مدل‌ها، کلیدها، هزینه، Routing و Observability فراهم می‌کند.',
+                desc: 'به‌جای اتصال مستقیم و پراکنده به چند سرویس، گدارAI یک مسیر واحد برای مدیریت مدل‌ها، کلیدها، هزینه، Routing و Observability فراهم می‌کند.',
               },
               {
                 icon: Globe, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10', border: 'border-amber-100 dark:border-amber-500/20',
                 title: 'آماده برای تیم‌های فارسی‌زبان',
-                desc: 'داشبوردها، گزارش‌ها و تجربه استفاده در گُدار AI برای تیم‌هایی طراحی می‌شود که محصول فارسی، کاربر ایرانی و نیازهای عملیاتی داخل ایران دارند.',
+                desc: 'داشبوردها، گزارش‌ها و تجربه استفاده در گدارAI برای تیم‌هایی طراحی می‌شود که محصول فارسی، کاربر ایرانی و نیازهای عملیاتی داخل ایران دارند.',
               },
             ].map((diff, i) => (
               <MagicCard
@@ -896,7 +896,7 @@ export function AIGateway() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              AI Gateway گُدار AI برای چه سناریوهایی مناسب است؟
+              AI Gateway گدارAI برای چه سناریوهایی مناسب است؟
             </h2>
           </div>
 
@@ -905,12 +905,12 @@ export function AIGateway() {
               {
                 icon: ShoppingCart, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10',
                 title: 'محصولات SaaS با قابلیت AI',
-                desc: 'اگر در محصول خود قابلیت‌هایی مثل چت‌بات، تولید محتوا، تحلیل متن یا دستیار هوشمند دارید، گُدار AI کمک می‌کند اتصال به مدل‌ها پایدارتر و قابل‌کنترل‌تر شود.',
+                desc: 'اگر در محصول خود قابلیت‌هایی مثل چت‌بات، تولید محتوا، تحلیل متن یا دستیار هوشمند دارید، گدارAI کمک می‌کند اتصال به مدل‌ها پایدارتر و قابل‌کنترل‌تر شود.',
               },
               {
                 icon: Layers, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10',
                 title: 'تیم‌های Backend و Platform',
-                desc: 'زیرساخت AI را از چند اتصال پراکنده به یک Gateway مرکزی تبدیل کنید و مدیریت Routing، Retry، Fallback، کلیدها و مانیتورینگ را ساده‌تر کنید.',
+                desc: 'زیرساخت AI را از چند اتصال پراکنده به یک Gateway مرکزی تبدیل کنید و مدیریت Routing، Retry، Fallback، کلیدها و پایش را ساده‌تر کنید.',
               },
               {
                 icon: TrendingUp, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10',
@@ -1018,7 +1018,7 @@ export function AIGateway() {
                 AI stack محصول خود را از یک Gateway واحد مدیریت کنید
               </h2>
               <p className="text-lg text-indigo-200 mb-10 leading-relaxed">
-                با گُدار AI، اتصال به مدل‌ها، مدیریت کلیدها، Routing، Fallback، Retry، Cache و مانیتورینگ را در یک لایه مرکزی داشته باشید؛ بدون محدودیت‌های تحریمی و بدون نیاز به پرداخت ارزی مستقیم.
+                با گدارAI، اتصال به مدل‌ها، مدیریت کلیدها، Routing، Fallback، Retry، Cache و پایش را در یک لایه مرکزی داشته باشید؛ با کاهش ریسک محدودیت‌های اتصال مستقیم و بدون نیاز به پرداخت ارزی مستقیم.
               </p>
               <div className="flex flex-col sm:flex-row items-start gap-4">
                 <Link

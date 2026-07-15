@@ -6,29 +6,29 @@ import { CreditCard, Network, DollarSign, Activity } from 'lucide-react';
 const problems = [
   {
     icon: <CreditCard className="w-6 h-6" />,
-    title: 'محدودیت پرداخت بین‌المللی',
-    description: 'دردسر تهیه ویزا کارت، مستر کارت و حساب‌های پی‌پال برای شارژ اکانت‌های هوش مصنوعی.',
+    title: 'پرداخت و تسویه پیچیده',
+    description: 'مدیریت پرداخت ارزی، شارژ حساب‌های خارجی و تطبیق آن با هزینه ریالی تیم محصول زمان‌بر است.',
     color: 'text-red-500',
     bg: 'bg-red-50 dark:bg-red-500/10'
   },
   {
     icon: <Network className="w-6 h-6" />,
-    title: 'پیچیدگی چند API',
-    description: 'مدیریت کلیدهای متعدد برای OpenAI, Anthropic, Google و سختی سوییچ بین آن‌ها.',
+    title: 'چند قرارداد و چند کلید',
+    description: 'هر ارائه‌دهنده مدل، کلید، نشانی و محدودیت خودش را دارد و تغییر مدل در کد محصول پرهزینه می‌شود.',
     color: 'text-orange-500',
     bg: 'bg-orange-50 dark:bg-orange-500/10'
   },
   {
     icon: <DollarSign className="w-6 h-6" />,
-    title: 'هزینه‌های بالا و غیرقابل کنترل',
-    description: 'محاسبه هزینه‌ها به دلار با نرخ نوسانی و عدم امکان اعمال لیمیت روی کاربران داخلی.',
+    title: 'مصرف نامشخص در تیم‌ها',
+    description: 'وقتی چند تیم از یک مدل استفاده می‌کنند، بدون سقف هزینه و گزارش مصرف نمی‌توان هزینه هر سرویس را دقیق دید.',
     color: 'text-rose-500',
     bg: 'bg-rose-50 dark:bg-rose-500/10'
   },
   {
     icon: <Activity className="w-6 h-6" />,
-    title: 'نبود مانیتورینگ دقیق',
-    description: 'عدم دسترسی به لاگ‌های دقیق و جزئیات مصرف توکن‌ها برای بهینه‌سازی سیستم.',
+    title: 'نبود پایش قابل اتکا',
+    description: 'برای عیب‌یابی پاسخ کند یا خطای مدل، تیم به گزارش رخداد، رد درخواست و سنجه‌های مصرف نیاز دارد.',
     color: 'text-purple-500',
     bg: 'bg-purple-50 dark:bg-purple-500/10'
   }
@@ -43,7 +43,7 @@ export function Problem() {
             چرا استفاده از هوش مصنوعی در ایران سخت است؟
           </h2>
           <p className="text-sm sm:text-lg text-slate-600 dark:text-gray-400 leading-7 sm:leading-relaxed">
-            توسعه‌دهندگان و کسب‌وکارهای ایرانی برای استفاده از مدل‌های روز دنیا با چالش‌های متعددی روبرو هستند.
+            تیم‌های ایرانی معمولاً هم‌زمان با پرداخت، اتصال، کنترل مصرف و عیب‌یابی مسیر مدل‌ها درگیر می‌شوند.
           </p>
         </div>
 

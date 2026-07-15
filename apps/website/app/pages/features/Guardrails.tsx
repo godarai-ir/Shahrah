@@ -467,7 +467,7 @@ function CTAMiniDashboard() {
 const faqItems = [
   {
     question: 'آیا Guardrails باعث افزایش Latency درخواست‌ها می‌شود؟',
-    answer: 'هر Check ممکن است مقدار کمی Latency اضافه کند، اما هدف گُدار AI این است که Guardrailها به‌صورت بهینه و قابل‌تنظیم اجرا شوند. می‌توانید فقط Checkهای ضروری را فعال کنید یا بر اساس ریسک، مسیرهای مختلف تعریف کنید.',
+    answer: 'هر Check ممکن است مقدار کمی Latency اضافه کند، اما هدف گدارAI این است که Guardrailها به‌صورت بهینه و قابل‌تنظیم اجرا شوند. می‌توانید فقط Checkهای ضروری را فعال کنید یا بر اساس ریسک، مسیرهای مختلف تعریف کنید.',
   },
   {
     question: 'آیا می‌توانم اگر یک Guardrail شکست خورد، درخواست را مسدود کنم؟',
@@ -487,11 +487,11 @@ const faqItems = [
   },
   {
     question: 'آیا Guardrails برای متن فارسی هم کاربرد دارد؟',
-    answer: 'بله. در گُدار AI می‌توان Guardrailها را برای نیازهای فارسی‌زبان‌ها تنظیم کرد؛ مثل تشخیص شماره موبایل ایرانی، کد ملی، الگوهای محتوایی فارسی، داده‌های سازمانی و Policyهای داخلی تیم.',
+    answer: 'بله. در گدارAI می‌توان Guardrailها را برای نیازهای فارسی‌زبان‌ها تنظیم کرد؛ مثل تشخیص شماره موبایل ایرانی، کد ملی، الگوهای محتوایی فارسی، داده‌های سازمانی و Policyهای داخلی تیم.',
   },
   {
-    question: 'آیا برای استفاده از گُدار AI نیاز به پرداخت ارزی دارم؟',
-    answer: 'خیر. گُدار AI برای تیم‌های ایرانی طراحی شده و هدف آن ساده‌کردن دسترسی به مدل‌های AI و اجرای Guardrailها بدون نیاز به پرداخت ارزی مستقیم و بدون درگیری با محدودیت‌های رایج سرویس‌های خارجی است.',
+    question: 'آیا برای استفاده از گدارAI نیاز به پرداخت ارزی دارم؟',
+    answer: 'خیر. گدارAI برای تیم‌های ایرانی طراحی شده و هدف آن ساده‌کردن دسترسی به مدل‌های AI و اجرای Guardrailها بدون نیاز به پرداخت ارزی مستقیم و با ریسک کمتر نسبت به اتصال مستقیم به سرویس‌های خارجی است.',
   },
 ];
 
@@ -534,7 +534,7 @@ export function Guardrails() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              با گُدار AI، روی هر Request و Response در مسیر LLM، Guardrailهای لحظه‌ای اجرا کنید؛ Prompt Injection را مسدود کنید، داده‌های حساس را کنترل کنید، پاسخ‌های نامطمئن را فیلتر کنید و در صورت نیاز درخواست را اصلاح، رد، Retry یا به مدل بهتر Route کنید.
+              با گدارAI، روی هر Request و Response در مسیر LLM، Guardrailهای لحظه‌ای اجرا کنید؛ Prompt Injection را مسدود کنید، داده‌های حساس را کنترل کنید، پاسخ‌های نامطمئن را فیلتر کنید و در صورت نیاز درخواست را اصلاح، رد، Retry یا به مدل بهتر Route کنید.
             </motion.p>
 
             <motion.div
@@ -582,7 +582,7 @@ export function Guardrails() {
               ساخته‌شده برای تیم‌هایی که AI را با کنترل و اعتماد وارد محصول می‌کنند
             </h2>
             <p className="text-sm text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-              گُدار AI به تیم‌های محصول، فنی، امنیت و AI کمک می‌کند درخواست‌ها و پاسخ‌های LLM را قبل و بعد از اجرای مدل بررسی کنند؛ تا خروجی‌ها امن‌تر، دقیق‌تر، قابل‌ردیابی‌تر و متناسب با Policyهای تیم باشند.
+              گدارAI به تیم‌های محصول، فنی، امنیت و AI کمک می‌کند درخواست‌ها و پاسخ‌های LLM را قبل و بعد از اجرای مدل بررسی کنند؛ تا خروجی‌ها امن‌تر، دقیق‌تر، قابل‌ردیابی‌تر و متناسب با Policyهای تیم باشند.
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-3">
@@ -607,7 +607,7 @@ export function Guardrails() {
               هر پاسخ AI را امن، قابل‌اعتماد و تحت کنترل نگه دارید
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              با Guardrails گُدار AI، تهدیدهایی مثل Prompt Injection، نشت داده حساس، پاسخ‌های نامطمئن، محتوای خارج از موضوع یا خروجی‌های ناسازگار با فرمت را قبل از آسیب‌زدن به تجربه کاربر کنترل کنید.
+              با Guardrails گدارAI، تهدیدهایی مثل Prompt Injection، نشت داده حساس، پاسخ‌های نامطمئن، محتوای خارج از موضوع یا خروجی‌های ناسازگار با فرمت را قبل از آسیب‌زدن به تجربه کاربر کنترل کنید.
             </p>
           </div>
 
@@ -622,7 +622,7 @@ export function Guardrails() {
                   جلوگیری از نشت PII و Hallucination با Output Guardrails
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  پاسخ‌های مدل را قبل از نمایش به کاربر بررسی کنید. گُدار AI می‌تواند داده‌های حساس، اطلاعات شخصی، خروجی‌های پرریسک، پاسخ‌های غیرقابل‌اعتماد یا نشانه‌های Hallucination را شناسایی کند و بر اساس Policy شما آن‌ها را فیلتر، اصلاح یا مسدود کند.
+                  پاسخ‌های مدل را قبل از نمایش به کاربر بررسی کنید. گدارAI می‌تواند داده‌های حساس، اطلاعات شخصی، خروجی‌های پرریسک، پاسخ‌های غیرقابل‌اعتماد یا نشانه‌های Hallucination را شناسایی کند و بر اساس Policy شما آن‌ها را فیلتر، اصلاح یا مسدود کند.
                 </p>
                 <p className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-6">
                   خروجی مدل را فقط نمایش ندهید؛ قبل از نمایش آن را کنترل کنید.
@@ -676,13 +676,13 @@ export function Guardrails() {
                   <Activity className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                  دید کامل با لاگ‌های Guardrails
+                  دید کامل با گزارش‌های رخداد Guardrails
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
                   برای هر Request ببینید کدام Guardrail اجرا شده، چه نتیجه‌ای داده، چقدر Latency اضافه کرده و آیا درخواست Pass، Fail، Block یا Route شده است.
                 </p>
                 <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-6">
-                  برای Debug، Audit، مانیتورینگ ریسک و بهبود Policyها.
+                  برای Debug، Audit، پایش ریسک و بهبود Policyها.
                 </p>
                 <GuardrailLogsTable />
               </div>
@@ -730,7 +730,7 @@ export function Guardrails() {
               درخواست‌های AI را از ابتدا تا انتها محافظت کنید
             </h2>
             <p className="text-lg text-slate-400">
-              Guardrails گُدار AI می‌توانند در مراحل مختلف LLM Pipeline اجرا شوند؛ قبل از ارسال Prompt، بعد از دریافت Response، هنگام Embedding، یا هنگام Routing بین مدل‌ها.
+              Guardrails گدارAI می‌توانند در مراحل مختلف LLM Pipeline اجرا شوند؛ قبل از ارسال Prompt، بعد از دریافت Response، هنگام Embedding، یا هنگام Routing بین مدل‌ها.
             </p>
           </div>
 
@@ -770,7 +770,7 @@ export function Guardrails() {
                 <Webhook className="w-5 h-5" />
               </div>
               <h3 className="font-bold text-white mb-2" style={{ fontFamily: 'var(--font-heading)' }}>Bring Your Own Guardrails</h3>
-              <p className="text-slate-400 text-sm mb-5">اگر تیم شما از سیستم داخلی، ابزار امنیتی یا سرویس ارزیابی اختصاصی استفاده می‌کند، آن را از طریق Webhook یا API به گُدار AI متصل کنید.</p>
+              <p className="text-slate-400 text-sm mb-5">اگر تیم شما از سیستم داخلی، ابزار امنیتی یا سرویس ارزیابی اختصاصی استفاده می‌کند، آن را از طریق Webhook یا API به گدارAI متصل کنید.</p>
               <div className="space-y-2 font-sans text-xs">
                 {['GodarAI Gateway', 'Webhook / API', 'Internal Guardrail Service', 'Security Tool', 'Policy Engine', 'Final Decision'].map((node, i) => (
                   <div key={i} className="flex items-center gap-2">
@@ -818,7 +818,7 @@ export function Guardrails() {
                 <LayoutGrid className="w-5 h-5" />
               </div>
               <h3 className="font-bold text-white mb-2" style={{ fontFamily: 'var(--font-heading)' }}>اتصال به پلتفرم‌ها و ابزارهای Guardrail</h3>
-              <p className="text-slate-400 text-sm mb-5">گُدار AI می‌تواند به ابزارهای تخصصی Guardrail و AI Safety متصل شود تا Policyهای امنیتی، ارزیابی کیفیت و Runtime Security از یک Gateway واحد اجرا شوند.</p>
+              <p className="text-slate-400 text-sm mb-5">گدارAI می‌تواند به ابزارهای تخصصی Guardrail و AI Safety متصل شود تا Policyهای امنیتی، ارزیابی کیفیت و Runtime Security از یک Gateway واحد اجرا شوند.</p>
               <div className="grid grid-cols-2 gap-2 font-sans text-xs">
                 {['AI Safety Tool', 'Prompt Security Engine', 'Runtime Security Plugin', 'Evaluation Platform', 'Policy Engine', 'Internal Review Service'].map(t => (
                   <div key={t} className="flex items-center gap-2 p-2 rounded-lg bg-slate-900/60 border border-slate-700">
@@ -842,7 +842,7 @@ export function Guardrails() {
               Guardrails لحظه‌ای، بدون کندکردن AI stack
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              گُدار AI کمک می‌کند ایمنی و کنترل را به مسیر درخواست اضافه کنید، بدون اینکه تجربه کاربر یا Performance محصول قربانی شود.
+              گدارAI کمک می‌کند ایمنی و کنترل را به مسیر درخواست اضافه کنید، بدون اینکه تجربه کاربر یا Performance محصول قربانی شود.
             </p>
           </div>
 
@@ -903,7 +903,7 @@ export function Guardrails() {
               وقتی یک Guardrail شکست می‌خورد، چه اتفاقی بیفتد؟
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              گُدار AI به شما اجازه می‌دهد برای هر Policy تصمیم مشخص تعریف کنید؛ از فقط مانیتور کردن تا مسدودسازی کامل درخواست.
+              گدارAI به شما اجازه می‌دهد برای هر Policy تصمیم مشخص تعریف کنید؛ از فقط مانیتور کردن تا مسدودسازی کامل درخواست.
             </p>
           </div>
 
@@ -970,7 +970,7 @@ export function Guardrails() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              چرا Guardrails گُدار AI برای تیم‌های ایرانی مهم‌تر است؟
+              چرا Guardrails گدارAI برای تیم‌های ایرانی مهم‌تر است؟
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
               برای تیم‌های ایرانی، کنترل AI فقط مسئله ایمنی خروجی نیست؛ دسترسی پایدار، پرداخت، مدیریت مدل‌ها، محدودیت سرویس‌های خارجی و ریسک داده‌های فارسی هم اهمیت دارد.
@@ -981,23 +981,23 @@ export function Guardrails() {
             {[
               {
                 icon: Shield, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10', border: 'border-indigo-100 dark:border-indigo-500/20',
-                title: 'بدون محدودیت‌های تحریمی',
-                desc: 'با گُدار AI، تیم شما برای استفاده از مدل‌های AI خارجی کمتر درگیر محدودیت‌های تحریم، مسدود شدن حساب یا قطع دسترسی مستقیم می‌شود.',
+                title: 'کاهش ریسک محدودیت‌های اتصال مستقیم',
+                desc: 'با گدارAI، تیم شما برای استفاده از مدل‌های AI خارجی کمتر درگیر محدودیت‌های تحریم، مسدود شدن حساب یا قطع دسترسی مستقیم می‌شود.',
               },
               {
                 icon: CreditCard, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', border: 'border-emerald-100 dark:border-emerald-500/20',
                 title: 'بدون پرداخت ارزی مستقیم',
-                desc: 'به‌جای درگیری با کارت اعتباری خارجی، پرداخت دلاری و حساب‌های بین‌المللی، مصرف AI و Guardrailها را از طریق گُدار AI و متناسب با نیاز بازار ایران مدیریت کنید.',
+                desc: 'به‌جای درگیری با کارت اعتباری خارجی، پرداخت دلاری و حساب‌های بین‌المللی، مصرف AI و Guardrailها را از طریق گدارAI و متناسب با نیاز بازار ایران مدیریت کنید.',
               },
               {
                 icon: Lock, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10', border: 'border-purple-100 dark:border-purple-500/20',
                 title: 'کنترل متمرکز روی مدل‌ها، Policyها و ریسک‌ها',
-                desc: 'به‌جای تعریف پراکنده Guardrailها در چند سرویس، همه قوانین ورودی، خروجی، Routing، لاگ‌ها و تصمیم‌های عملیاتی را در یک لایه مرکزی مدیریت کنید.',
+                desc: 'به‌جای تعریف پراکنده Guardrailها در چند سرویس، همه قوانین ورودی، خروجی، Routing، گزارش رخدادها و تصمیم‌های عملیاتی را در یک لایه مرکزی مدیریت کنید.',
               },
               {
                 icon: Globe, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10', border: 'border-amber-100 dark:border-amber-500/20',
                 title: 'مناسب برای محصول فارسی و داده کاربران ایرانی',
-                desc: 'گُدار AI می‌تواند برای سناریوهایی مثل شماره تماس، کد ملی، متن فارسی، محتوای کاربر، داده سازمانی و الگوهای خاص بازار ایران طراحی و تنظیم شود.',
+                desc: 'گدارAI می‌تواند برای سناریوهایی مثل شماره تماس، کد ملی، متن فارسی، محتوای کاربر، داده سازمانی و الگوهای خاص بازار ایران طراحی و تنظیم شود.',
               },
             ].map((diff, i) => (
               <MagicCard
@@ -1025,7 +1025,7 @@ export function Guardrails() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              Guardrails گُدار AI برای چه سناریوهایی مناسب است؟
+              Guardrails گدارAI برای چه سناریوهایی مناسب است؟
             </h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -1149,7 +1149,7 @@ export function Guardrails() {
                 Guardrails لحظه‌ای را به AI stack خود اضافه کنید
               </h2>
               <p className="text-lg text-indigo-200 mb-10 leading-relaxed">
-                با گُدار AI، Prompt Injection، نشت داده، Hallucination، خروجی نامعتبر و رفتارهای پرریسک را در یک لایه مرکزی کنترل کنید؛ بدون محدودیت‌های تحریمی و بدون نیاز به پرداخت ارزی مستقیم.
+                با گدارAI، Prompt Injection، نشت داده، Hallucination، خروجی نامعتبر و رفتارهای پرریسک را در یک لایه مرکزی کنترل کنید؛ با کاهش ریسک محدودیت‌های اتصال مستقیم و بدون نیاز به پرداخت ارزی مستقیم.
               </p>
               <div className="flex flex-col sm:flex-row items-start gap-4">
                 <Link

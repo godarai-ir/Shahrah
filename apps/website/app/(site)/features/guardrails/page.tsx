@@ -3,9 +3,9 @@ import { Guardrails } from '@/app/pages/features/Guardrails';
 import { buildMetadata } from "@/app/lib/seo";
 
 export const metadata: Metadata = buildMetadata({
-  title: "Guardrails Feature",
+  title: "گاردریل‌ها",
   description:
-    "Apply safety and policy controls on prompts and model outputs with GodarAI guardrails.",
+    "روی ورودی، خروجی و داده حساس در مسیر مدل، کنترل‌های ایمنی و سیاستی گدارAI را اعمال کنید.",
   path: "/features/guardrails",
 });
 

@@ -4,11 +4,11 @@ import { motion } from 'motion/react';
 import { UserPlus, Key, Send, Cpu, BarChart } from 'lucide-react';
 
 const steps = [
-  { icon: <UserPlus />, title: 'ثبت‌نام', desc: 'ساخت اکانت در پنل گُدار AI' },
-  { icon: <Key />, title: 'دریافت API', desc: 'تولید کلید امن برای پروژه' },
-  { icon: <Send />, title: 'ارسال درخواست', desc: 'اتصال به اندپوینت واحد' },
-  { icon: <Cpu />, title: 'مدیریت هوشمند', desc: 'مسیریابی و اجرای درخواست' },
-  { icon: <BarChart />, title: 'مشاهده داده‌ها', desc: 'مانیتورینگ و بررسی هزینه‌ها' },
+  { icon: <UserPlus />, title: 'ساخت فضای کاری', desc: 'ثبت تیم و آماده‌سازی مسیر مصرف مدل‌ها' },
+  { icon: <Key />, title: 'ساخت توکن دسترسی', desc: 'صدور PAT برای آزمایش یا VAT برای سرویس' },
+  { icon: <Send />, title: 'ارسال اولین درخواست', desc: 'استفاده از API سازگار با OpenAI' },
+  { icon: <Cpu />, title: 'تنظیم مسیریابی', desc: 'انتخاب مدل مجازی، مقصد و مسیر جایگزین' },
+  { icon: <BarChart />, title: 'بررسی نتیجه', desc: 'دیدن گزارش رخداد، مصرف و هزینه' },
 ];
 
 export function HowItWorks() {
@@ -20,7 +20,7 @@ export function HowItWorks() {
             چگونه کار می‌کند؟
           </h2>
           <p className="text-sm sm:text-lg text-slate-600 dark:text-gray-400 leading-7 sm:leading-relaxed">
-            شروع کار با گُدار AI تنها چند دقیقه زمان می‌برد.
+            مسیر شروع را کوتاه نگه داشته‌ایم: اول اتصال، بعد کنترل و پایش.
           </p>
         </div>
 

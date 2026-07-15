@@ -3,9 +3,9 @@ import { Agents } from '@/app/pages/features/Agents';
 import { buildMetadata } from "@/app/lib/seo";
 
 export const metadata: Metadata = buildMetadata({
-  title: "AI Agents Feature",
+  title: "ایجنت‌های هوش مصنوعی",
   description:
-    "Deploy and operate AI agents in production with GodarAI's reliable and secure orchestration layer.",
+    "ایجنت‌های هوش مصنوعی را در محیط عملیاتی با رد درخواست، گاردریل، مسیریابی و کنترل هزینه اجرا کنید.",
   path: "/features/agents",
 });
 

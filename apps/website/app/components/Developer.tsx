@@ -9,8 +9,8 @@ export function Developer() {
   const code = `import { OpenAI } from "openai";
 
 const client = new OpenAI({
-  apiKey: "SHAHRAH_API_KEY",
-  baseURL: "https://api.sharah.ir/v1" // تنها خطی که باید تغییر کند
+  apiKey: "YOUR_GODARAI_TOKEN",
+  baseURL: "https://YOUR_WORKSPACE.godarai.ir/v1" // نشانی پایه درگاه
 });
 
 const response = await client.chat.completions.create({
@@ -36,15 +36,15 @@ console.log(response.choices[0].message.content);`;
               طراحی شده برای توسعه‌دهندگان
             </h2>
             <p className="text-sm sm:text-lg text-slate-600 dark:text-gray-400 mb-6 sm:mb-8 leading-7 sm:leading-relaxed">
-              گُدار AI کاملاً با استاندارد OpenAI سازگار است. هیچ نیازی به یادگیری SDK جدید یا تغییرات گسترده در کدهای فعلی‌تان نیست. فقط Base URL را تغییر دهید.
+              گدارAI API سازگار با OpenAI ارائه می‌دهد. برای شروع، توکن دسترسی و نشانی پایه درگاه را جایگزین کنید و همان قرارداد آشنا را نگه دارید.
             </p>
             
             <ul className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
               {[
-                'مهاجرت (Migration) در کمتر از ۱ دقیقه',
-                'سازگاری ۱۰۰٪ با کتابخانه‌های رسمی OpenAI',
-                'پشتیبانی از Streaming و Function Calling',
-                'مستندات کامل با مثال‌های واقعی'
+                'نمونه‌های کوتاه برای Python، NodeJS و REST API',
+                'نشانی پایه درگاه برای هر فضای کاری',
+                'توکن دسترسی شخصی برای آزمایش و VAT برای سرویس‌ها',
+                'بررسی درخواست در گزارش رخدادها و رد درخواست‌ها'
               ].map((item, i) => (
                 <li key={i} className="flex items-start gap-3 text-sm sm:text-base text-slate-700 dark:text-gray-300">
                   <CircleCheck className="w-5 h-5 text-green-500 flex-shrink-0" />
@@ -86,8 +86,8 @@ console.log(response.choices[0].message.content);`;
                   <code>
 <span className="text-purple-400">import</span> {'{'} OpenAI {'}'} <span className="text-purple-400">from</span> <span className="text-green-400">"openai"</span>;{'\n\n'}
 <span className="text-purple-400">const</span> client = <span className="text-purple-400">new</span> OpenAI({'{'}{'\n'}
-{'  '}apiKey: <span className="text-green-400">"SHAHRAH_API_KEY"</span>,{'\n'}
-{'  '}baseURL: <span className="text-green-400">"https://api.sharah.ir/v1"</span> <span className="text-gray-500">// تنها خطی که باید تغییر کند</span>{'\n'}
+{'  '}apiKey: <span className="text-green-400">"YOUR_GODARAI_TOKEN"</span>,{'\n'}
+{'  '}baseURL: <span className="text-green-400">"https://YOUR_WORKSPACE.godarai.ir/v1"</span> <span className="text-gray-500">// نشانی پایه درگاه</span>{'\n'}
 {'}'});{'\n\n'}
 <span className="text-purple-400">const</span> response = <span className="text-blue-400">await</span> client.chat.completions.create({'{'}{'\n'}
 {'  '}model: <span className="text-green-400">"gpt-4-turbo"</span>,{'\n'}

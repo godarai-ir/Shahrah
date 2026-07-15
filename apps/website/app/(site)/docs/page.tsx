@@ -3,9 +3,9 @@ import { Documentation } from '@/app/pages/Documentation';
 import { buildMetadata } from "@/app/lib/seo";
 
 export const metadata: Metadata = buildMetadata({
-  title: "Documentation",
+  title: "مستندات",
   description:
-    "Get started with GodarAI API documentation, integration guides, and implementation references.",
+    "با مستندات API، راهنمای اتصال و مرجع پیاده‌سازی گدارAI شروع کنید.",
   path: "/docs",
 });
 

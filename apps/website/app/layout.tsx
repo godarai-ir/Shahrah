@@ -5,12 +5,12 @@ import { absoluteUrl } from "@/app/lib/seo";
 export const metadata: Metadata = {
   metadataBase: new URL(absoluteUrl("/")),
   title: {
-    default: "GodarAI | AI Gateway for Iranian Teams",
-    template: "%s | GodarAI",
+    default: "گدارAI | درگاه مدل‌های زبانی برای تیم‌های ایرانی",
+    template: "%s | گدارAI",
   },
   description:
-    "GodarAI is an AI gateway for Iranian teams to access, manage, and monitor leading language models with stable local infrastructure.",
-  applicationName: "GodarAI",
+    "گدارAI درگاه مدل‌های زبانی برای اتصال، مسیریابی، کنترل هزینه و پایش مصرف مدل‌ها در تیم‌های ایرانی است.",
+  applicationName: "گدارAI",
   manifest: "/site.webmanifest",
   icons: {
     icon: [
@@ -24,19 +24,19 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   openGraph: {
-    title: "GodarAI | AI Gateway for Iranian Teams",
+    title: "گدارAI | درگاه مدل‌های زبانی برای تیم‌های ایرانی",
     description:
-      "Route, monitor, and secure AI model usage with GodarAI's LLM gateway built for Iranian developers and businesses.",
+      "مصرف مدل‌های زبانی را با گدارAI از یک مسیر قابل‌پیگیری مدیریت، پایش و کنترل کنید.",
     url: "/",
-    siteName: "GodarAI",
+    siteName: "گدارAI",
     locale: "fa_IR",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "GodarAI | AI Gateway for Iranian Teams",
+    title: "گدارAI | درگاه مدل‌های زبانی",
     description:
-      "AI gateway for local payments, observability, and scalable model access in Iran.",
+      "درگاه مدل‌های زبانی برای پرداخت ریالی، مشاهده‌پذیری و کنترل مصرف در ایران.",
   },
   robots: {
     index: true,

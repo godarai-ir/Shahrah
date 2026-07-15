@@ -53,7 +53,7 @@ export function Observability() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-            >با گُدار AI، هر درخواست، پاسخ، هزینه، تأخیر، خطا، مصرف توکن و رفتار مدل‌های LLM را در لحظه مانیتور کنید؛ بدون درگیری با تحریم، پرداخت ارزی یا پیچیدگی اتصال مستقیم به تأمین‌کننده‌های خارجی.</motion.p>
+            >با گدارAI، هر درخواست، پاسخ، هزینه، تأخیر، خطا، مصرف توکن و رفتار مدل‌های زبانی را در یک مسیر پایش کنید؛ با کاهش ریسک اتصال مستقیم، پرداخت ارزی و پیچیدگی اتصال به چند ارائه‌دهنده خارجی.</motion.p>
             
             <motion.div 
               className="flex flex-col sm:flex-row items-center justify-center gap-4"
@@ -136,7 +136,7 @@ export function Observability() {
                   
                   {/* Logs Table */}
                   <div className="p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 overflow-hidden">
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-4">جدول لاگ‌ها (Live)</h3>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-4">جدول گزارش رخدادها (Live)</h3>
                     <div className="w-full overflow-x-auto">
                       <table className="w-full text-xs text-right">
                         <thead>
@@ -238,7 +238,7 @@ export function Observability() {
             <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2" style={{ fontFamily: 'var(--font-heading)' }}>
               ساخته‌شده برای تیم‌هایی که با LLM محصول واقعی می‌سازند
             </h2>
-            <p className="text-sm text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">گُدار AI به تیم‌های محصول، فنی و AI کمک می‌کند مصرف، کیفیت و عملکرد مدل‌های زبانی را در یک محیط واحد مدیریت کنند؛ با تجربه‌ای مناسب بازار ایران و بدون نیاز به پرداخت ارزی مستقیم.</p>
+            <p className="text-sm text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">گدارAI به تیم‌های محصول، فنی و AI کمک می‌کند مصرف، کیفیت و عملکرد مدل‌های زبانی را در یک محیط واحد مدیریت کنند؛ با تجربه‌ای مناسب بازار ایران و بدون نیاز به پرداخت ارزی مستقیم.</p>
           </div>
           
           <div className="flex flex-wrap justify-center gap-3">
@@ -262,7 +262,7 @@ export function Observability() {
               دید ۳۶۰ درجه روی هر تعامل AI
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              با ماژول LLM Observability گُدار AI، هزینه، عملکرد، کیفیت پاسخ‌ها و رفتار مدل‌ها را در سطح هر درخواست بررسی کنید.
+              با ماژول LLM Observability گدارAI، هزینه، عملکرد، کیفیت پاسخ‌ها و رفتار مدل‌ها را در سطح هر درخواست بررسی کنید.
             </p>
           </div>
 
@@ -276,7 +276,7 @@ export function Observability() {
                 ثبت لاگ کامل برای هر درخواست و پاسخ
               </h3>
               <p className="text-slate-600 dark:text-slate-400 mb-6 leading-relaxed flex-1">
-                گُدار AI تمام جزئیات مهم هر درخواست و پاسخ را ثبت می‌کند؛ از مدل انتخاب‌شده و تعداد توکن‌ها تا تأخیر، هزینه، وضعیت پاسخ، خطاها و Metadata. این یعنی تیم شما همیشه می‌داند در پشت هر تعامل AI چه اتفاقی افتاده است.
+                گدارAI تمام جزئیات مهم هر درخواست و پاسخ را ثبت می‌کند؛ از مدل انتخاب‌شده و تعداد توکن‌ها تا تأخیر، هزینه، وضعیت پاسخ، خطاها و Metadata. این یعنی تیم شما همیشه می‌داند در پشت هر تعامل AI چه اتفاقی افتاده است.
               </p>
               <div className="bg-indigo-50/50 dark:bg-indigo-500/5 border border-indigo-100 dark:border-indigo-500/10 rounded-xl p-4 text-xs text-indigo-800 dark:text-indigo-300 font-medium">
                 💡 مناسب برای Debug، گزارش‌گیری، Audit و تحلیل رفتار کاربران.
@@ -343,18 +343,18 @@ export function Observability() {
                 Observability فوری، بدون سربار فنی
               </h2>
               <p className="text-lg text-slate-400 mb-10">
-                گُدارAI به شما کمک می‌کند عملکرد AI app خود را در سطح Frameworkها، Promptها، Tool Callها، Agentها و تأمین‌کننده‌ها مانیتور کنید؛ بدون اینکه تیم فنی درگیر پیاده‌سازی پیچیده شود.
+                گدارAI به شما کمک می‌کند عملکرد AI app خود را در سطح Frameworkها، Promptها، Tool Callها، Agentها و تأمین‌کننده‌ها مانیتور کنید؛ بدون اینکه تیم فنی درگیر پیاده‌سازی پیچیده شود.
               </p>
               
               <div className="space-y-8">
                 {[
                   {
                     title: 'اندازه‌گیری Performance-to-Cost ROI در لحظه',
-                    desc: 'با داشبورد Real-time گُدار AI، بیش از ۴۰ شاخص مهم را برای سنجش عملکرد، هزینه، نرخ خطا، مصرف توکن و کیفیت پاسخ‌ها مانیتور کنید.'
+                    desc: 'با داشبورد Real-time گدارAI، بیش از ۴۰ شاخص مهم را برای سنجش عملکرد، هزینه، نرخ خطا، مصرف توکن و کیفیت پاسخ‌ها مانیتور کنید.'
                   },
                   {
                     title: 'مشاهده کامل چرخه اجرای Agent',
-                    desc: 'اگر از AI Agentها استفاده می‌کنید، گُدار AI مسیر کامل اجرای هر Agent Run را نمایش می‌دهد؛ از تصمیم‌گیری مدل تا Tool Callها، Retryها، Fallbackها و خروجی نهایی.'
+                    desc: 'اگر از AI Agentها استفاده می‌کنید، گدارAI مسیر کامل اجرای هر Agent Run را نمایش می‌دهد؛ از تصمیم‌گیری مدل تا Tool Callها، Retryها، Fallbackها و خروجی نهایی.'
                   },
                   {
                     title: 'شناسایی سریع گلوگاه‌ها با Filterهای دقیق',
@@ -455,7 +455,7 @@ export function Observability() {
             {[
               {
                 icon: ListFilter,
-                title: 'لاگ‌ها و Traces کامل',
+                title: 'گزارش رخدادها و Traces کامل',
                 desc: 'هر درخواست را ثبت کنید و مسیر کامل آن را از ابتدا تا انتها دنبال کنید. داده‌ها را Export کنید.'
               },
               {
@@ -501,10 +501,10 @@ export function Observability() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold mb-4">
-              چرا گُدار AI؟
+              چرا گدارAI؟
             </div>
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              چرا Observability در گُدار AI برای تیم‌های ایرانی مهم‌تر است؟
+              چرا Observability در گدارAI برای تیم‌های ایرانی مهم‌تر است؟
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
               وقتی محصول شما به LLM وابسته است، فقط اتصال به مدل کافی نیست. باید بدانید هر درخواست چقدر هزینه دارد، چقدر طول می‌کشد، چه خطایی می‌دهد و کدام تأمین‌کننده بهترین عملکرد را دارد.
@@ -515,18 +515,18 @@ export function Observability() {
             {[
               {
                 icon: ShieldAlert,
-                title: 'بدون محدودیت‌های تحریمی',
-                desc: 'با گُدار AI، تیم شما برای دسترسی به مدل‌های LLM خارجی درگیر محدودیت‌های تحریم، مسدود شدن حساب یا ریسک قطع دسترسی مستقیم نمی‌شود.'
+                title: 'کاهش ریسک محدودیت‌های اتصال مستقیم',
+                desc: 'با گدارAI، تیم شما برای دسترسی به مدل‌های LLM خارجی درگیر محدودیت‌های تحریم، مسدود شدن حساب یا ریسک قطع دسترسی مستقیم نمی‌شود.'
               },
               {
                 icon: CreditCard,
                 title: 'بدون پرداخت ارزی مستقیم',
-                desc: 'هزینه‌های AI را بدون نیاز به کارت اعتباری خارجی یا پرداخت دلاری مدیریت کنید. گُدار AI تجربه‌ای مناسب کسب‌وکارهای ایرانی فراهم می‌کند.'
+                desc: 'هزینه‌های AI را بدون نیاز به کارت اعتباری خارجی یا پرداخت دلاری مدیریت کنید. گدارAI تجربه‌ای مناسب کسب‌وکارهای ایرانی فراهم می‌کند.'
               },
               {
                 icon: Crosshair,
                 title: 'Observability متناسب با نیاز بازار ایران',
-                desc: 'داشبوردها، گزارش‌ها و جریان‌های مانیتورینگ گُدار AI برای تیم‌هایی طراحی شده‌اند که می‌خواهند AI را در محصول فارسی، بازار ایران و مقیاس واقعی استفاده کنند.'
+                desc: 'داشبوردها، گزارش‌ها و جریان‌های پایش گدارAI برای تیم‌هایی طراحی شده‌اند که می‌خواهند AI را در محصول فارسی، بازار ایران و مقیاس واقعی استفاده کنند.'
               },
               {
                 icon: Globe,
@@ -659,7 +659,7 @@ export function Observability() {
           <FAQAccordion items={[
               {
                 q: "آیا می‌توانم هر مرحله یا Tool Call داخل یک Agent Flow را ببینم؟",
-                a: "بله. گُدار AI مسیر اجرای Agent را به‌صورت Trace نمایش می‌دهد تا بتوانید Promptها، Model Callها، Tool Callها، Retryها و پاسخ نهایی را بررسی کنید."
+                a: "بله. گدارAI مسیر اجرای Agent را به‌صورت Trace نمایش می‌دهد تا بتوانید Promptها، Model Callها، Tool Callها، Retryها و پاسخ نهایی را بررسی کنید."
               },
               {
                 q: "آیا تأخیر و مصرف توکن را برای مدل‌ها و تیم‌های مختلف نشان می‌دهد؟",
@@ -667,19 +667,19 @@ export function Observability() {
               },
               {
                 q: "آیا می‌توانم بفهمم کدام تأمین‌کننده یا مدل بیشترین هزینه را ایجاد می‌کند؟",
-                a: "بله. گُدار AI مصرف و هزینه را در سطح مدل، تأمین‌کننده، کاربر، Workspace و فیچر محصول نمایش می‌دهد تا بتوانید تصمیم‌های بهینه‌تری بگیرید."
+                a: "بله. گدارAI مصرف و هزینه را در سطح مدل، تأمین‌کننده، کاربر، Workspace و فیچر محصول نمایش می‌دهد تا بتوانید تصمیم‌های بهینه‌تری بگیرید."
               },
               {
                 q: "آیا Retry، Fallback و Timeoutها قابل مانیتور هستند؟",
                 a: "بله. می‌توانید رفتار درخواست‌ها را در شرایط خطا، Timeout، Retry یا Fallback بررسی کنید و مسیرهای ناپایدار را سریع‌تر شناسایی کنید."
               },
               {
-                q: "آیا برای استفاده از گُدار AI نیاز به پرداخت ارزی دارم؟",
-                a: "خیر. گُدار AI برای تیم‌های ایرانی طراحی شده و هدف آن ساده‌کردن دسترسی، مدیریت و مانیتورینگ LLMها بدون نیاز به پرداخت ارزی مستقیم است."
+                q: "آیا برای استفاده از گدارAI نیاز به پرداخت ارزی دارم؟",
+                a: "خیر. گدارAI برای تیم‌های ایرانی طراحی شده و هدف آن ساده‌کردن دسترسی، مدیریت و پایش LLMها بدون نیاز به پرداخت ارزی مستقیم است."
               },
               {
-                q: "آیا گُدار AI فقط برای تیم‌های فنی است؟",
-                a: "خیر. تیم‌های فنی، محصول، مالی، پشتیبانی و مدیریت می‌توانند از داده‌های Observability گُدار AI برای تصمیم‌گیری بهتر استفاده کنند."
+                q: "آیا گدارAI فقط برای تیم‌های فنی است؟",
+                a: "خیر. تیم‌های فنی، محصول، مالی، پشتیبانی و مدیریت می‌توانند از داده‌های Observability گدارAI برای تصمیم‌گیری بهتر استفاده کنند."
               }
             ].map((faq) => ({
               question: faq.q,
@@ -695,7 +695,7 @@ export function Observability() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
           <h2 className="text-3xl md:text-5xl font-bold text-white mb-6" style={{ fontFamily: 'var(--font-heading)' }}>از امروز AI Stack خود را مانیتور کنید</h2>
           <p className="text-lg md:text-xl text-indigo-100 mb-10 leading-relaxed max-w-3xl mx-auto">
-            با گُدار AI، دید کامل روی مصرف، هزینه، عملکرد و کیفیت تعاملات LLM داشته باشید؛ بدون محدودیت‌های تحریمی، بدون پرداخت ارزی مستقیم و با تجربه‌ای متناسب با تیم‌های ایرانی.
+            با گدارAI، دید کامل روی مصرف، هزینه، عملکرد و کیفیت تعاملات LLM داشته باشید؛ با کاهش ریسک محدودیت‌های اتصال مستقیم، بدون پرداخت ارزی مستقیم و با تجربه‌ای متناسب با تیم‌های ایرانی.
           </p>
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">

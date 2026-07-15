@@ -1,258 +1,400 @@
-import type {ReactNode, SVGProps} from 'react';
+import type {ReactNode} from 'react';
+import type {LucideIcon} from 'lucide-react';
+import {
+  Activity,
+  BookOpen,
+  CheckCircle2,
+  Code2,
+  Compass,
+  CreditCard,
+  Gauge,
+  KeyRound,
+  Layers,
+  MessageSquare,
+  Route,
+  Search,
+  ShieldCheck,
+  Users,
+} from 'lucide-react';
 import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
-import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import styles from './index.module.css';
 
-type CatalogItem = {
+type EntryCard = {
+  eyebrow: string;
   title: string;
   description: string;
   to: string;
-  meta: string;
-  icon: (props: SVGProps<SVGSVGElement>) => ReactNode;
+  action: string;
+  icon: LucideIcon;
 };
 
-function BookIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" />
-    </svg>
-  );
-}
+type LinkItem = {
+  label: string;
+  to: string;
+};
 
-function CompassIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <circle cx="12" cy="12" r="9" />
-      <path d="m16.2 7.8-2.8 8.4-8.4 2.8 2.8-8.4 8.4-2.8Z" />
-    </svg>
-  );
-}
+type DocGroup = {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  links: LinkItem[];
+};
 
-function LayersIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="m12 3 9 4.5-9 4.5-9-4.5L12 3Z" />
-      <path d="m3 12 9 4.5 9-4.5" />
-      <path d="m3 16.5 9 4.5 9-4.5" />
-    </svg>
-  );
-}
+type HelpItem = {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  links: LinkItem[];
+};
 
-function KeyIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <circle cx="7.5" cy="15.5" r="3.5" />
-      <path d="M11 13h10" />
-      <path d="M18 10v6" />
-      <path d="M15 12v4" />
-    </svg>
-  );
-}
-
-function ShieldIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M12 3 5 6v6c0 5 3.4 8.4 7 9 3.6-.6 7-4 7-9V6l-7-3Z" />
-      <path d="m9.5 12 1.7 1.7 3.3-3.4" />
-    </svg>
-  );
-}
-
-function ChartIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M3 3v18h18" />
-      <path d="m7 14 3-3 3 2 4-5" />
-      <circle cx="7" cy="14" r="1" />
-      <circle cx="10" cy="11" r="1" />
-      <circle cx="13" cy="13" r="1" />
-      <circle cx="17" cy="8" r="1" />
-    </svg>
-  );
-}
-
-const catalogItems: CatalogItem[] = [
+const entryCards: EntryCard[] = [
   {
-    title: 'شروع کار',
+    eyebrow: 'مسیر پیشنهادی',
+    title: 'اولین درخواست را بفرستید',
     description:
-      'اگر تازه وارد GodarAI شده‌اید، از مسیر نصب، احراز هویت و اولین درخواست شروع کنید.',
+      'فضای کاری، حساب ارائه‌دهنده، توکن دسترسی و شناسه مدل را آماده کنید و یک درخواست Chat Completions از مسیر گدارAI بفرستید.',
     to: '/quick-start',
-    meta: 'Quick start, auth, first request',
-    icon: BookIcon,
+    action: 'شروع سریع',
+    icon: BookOpen,
   },
   {
-    title: 'مفاهیم و معماری',
+    eyebrow: 'انتخاب قرارداد',
+    title: 'API مناسب را پیدا کنید',
     description:
-      'مدل ذهنی گیت‌وی، مدل مجازی، رهگیری هزینه و مشاهده‌پذیری را یکجا ببینید.',
-    to: '/feature-overview',
-    meta: 'Gateway, virtual model, cost, observability',
-    icon: CompassIcon,
-  },
-  {
-    title: 'APIهای پشتیبانی‌شده',
-    description:
-      'از Chat Completions تا Embeddings، Image، Audio و Moderation را بر اساس use case پیدا کنید.',
+      'قراردادهای متن، داده، تصویر و صوت را بر اساس کاری که اپلیکیشن شما انجام می‌دهد بررسی کنید.',
     to: '/supported-apis',
-    meta: 'Text, image, audio, retrieval',
-    icon: LayersIcon,
+    action: 'دیدن APIها',
+    icon: Layers,
   },
   {
-    title: 'مدیریت دسترسی و هویت',
+    eyebrow: 'مدل ذهنی',
+    title: 'معماری درگاه را بفهمید',
     description:
-      'PAT، VAT، مدیریت کاربران، تیم‌ها، نقش‌ها و چرخش امن کلیدها را مرور کنید.',
-    to: '/guides/api-keys',
-    meta: 'PAT, VAT, users, teams, roles',
-    icon: KeyIcon,
-  },
-  {
-    title: 'سیاست‌ها و عملیات',
-    description:
-      'Guardrails، caching، rate limiting، budget limiting و کنترل داده حساس را فعال کنید.',
-    to: '/guardrails',
-    meta: 'Policies, safety, cost control',
-    icon: ShieldIcon,
-  },
-  {
-    title: 'مشاهده‌پذیری و تحلیل',
-    description:
-      'لاگ‌ها، export، OTel و تحلیل مصرف را برای debugging و تصمیم‌گیری عملیاتی دنبال کنید.',
-    to: '/observability-logs',
-    meta: 'Logs, exports, OTel, analytics',
-    icon: ChartIcon,
+      'جایگاه گدارAI میان اپلیکیشن، ارائه‌دهنده مدل، مدل مجازی، کنترل هزینه و داده‌های پایش را ببینید.',
+    to: '/intro-to-gateway',
+    action: 'خواندن معماری',
+    icon: Compass,
   },
 ];
 
-const readingPaths = [
+const requestEssentials = [
   {
-    title: 'برای اولین integration',
-    steps: 'شروع سریع ← احراز هویت ← اولین درخواست ← Chat Completions',
-    to: '/quick-start',
+    title: 'نشانی پایه درگاه',
+    description:
+      'نشانی فضای کاری که درخواست‌های سازگار با OpenAI را دریافت می‌کند. مقدار معمولاً با `/v1` پایان می‌یابد.',
+    value: 'https://YOUR_WORKSPACE.godarai.ir/v1',
+    to: '/making-llm-requests-via-gateway',
   },
   {
-    title: 'برای طراحی معماری',
-    steps: 'نمای کلی قابلیت‌ها ← معرفی GodarAI ← مدل مجازی ← رهگیری هزینه',
-    to: '/feature-overview',
-  },
-  {
-    title: 'برای production و governance',
-    steps: 'API Keyها ← چرخش کلید ← Guardrails ← Logs و OTel',
+    title: 'توکن دسترسی',
+    description:
+      'برای تست انسانی از PAT استفاده کنید. برای سرویس‌ها و محیط عملیاتی، VAT انتخاب مناسب‌تری است.',
+    value: 'YOUR_GODARAI_TOKEN',
     to: '/guides/api-keys',
+  },
+  {
+    title: 'شناسه مدل',
+    description:
+      'شناسه را از مدل‌های مجاز فضای کاری یا مدل مجازی بردارید. شناسه مدل را از روی نام عمومی مدل حدس نزنید.',
+    value: 'YOUR_MODEL_ID',
+    to: '/virtual-model',
+  },
+];
+
+const docGroups: DocGroup[] = [
+  {
+    title: 'شروع و نمای کلی',
+    description: 'شناخت محصول، مسیر شروع و انتخاب صفحه بعدی.',
+    icon: BookOpen,
+    links: [
+      {label: 'معرفی مستندات', to: '/intro'},
+      {label: 'نمای کلی قابلیت‌ها', to: '/feature-overview'},
+      {label: 'شروع سریع', to: '/quick-start'},
+    ],
+  },
+  {
+    title: 'درگاه، مدل‌ها و اتصال',
+    description: 'اتصال حساب ارائه‌دهنده، مدل مجازی، احراز هویت و ارسال درخواست.',
+    icon: Route,
+    links: [
+      {label: 'معرفی درگاه', to: '/intro-to-gateway'},
+      {label: 'مدل مجازی', to: '/virtual-model'},
+      {label: 'اولین درخواست به درگاه', to: '/making-llm-requests-via-gateway'},
+      {label: 'احراز هویت', to: '/authentication'},
+    ],
+  },
+  {
+    title: 'APIهای پشتیبانی‌شده',
+    description: 'قراردادهای سازگار با OpenAI برای متن، داده، تصویر و صوت.',
+    icon: Code2,
+    links: [
+      {label: 'فهرست APIها', to: '/supported-apis'},
+      {label: 'Chat Completions', to: '/supported-apis/chat-completions/overview'},
+      {label: 'Embeddings', to: '/supported-apis/embeddings'},
+      {label: 'تبدیل گفتار به متن', to: '/supported-apis/speech-to-text'},
+    ],
+  },
+  {
+    title: 'رجیستری پرامپت',
+    description: 'ساخت، نسخه‌بندی و اجرای پرامپت‌های قابل استفاده مجدد.',
+    icon: MessageSquare,
+    links: [
+      {label: 'نمای کلی رجیستری پرامپت', to: '/prompt-registry'},
+      {label: 'ساخت پرامپت', to: '/prompt-registry-create'},
+      {label: 'متغیرهای ورودی', to: '/prompt-registry-variables'},
+      {label: 'اجرای نسخه ذخیره‌شده', to: '/prompt-registry-run'},
+    ],
+  },
+  {
+    title: 'کاربران و دسترسی',
+    description: 'کاربران، تیم‌ها، نقش‌ها، PAT، VAT و چرخه عمر کلیدها.',
+    icon: Users,
+    links: [
+      {label: 'نمای کلی دسترسی', to: '/guides/users-access-overview'},
+      {label: 'توکن‌ها و کلیدها', to: '/guides/api-keys'},
+      {label: 'کاربران مجازی', to: '/guides/virtual-account-management'},
+      {label: 'نقش‌ها و مجوزها', to: '/guides/roles-and-permissions'},
+    ],
+  },
+  {
+    title: 'کنترل مصرف و هزینه',
+    description: 'حافظه نهان، محدودیت نرخ درخواست، محدودیت بودجه و رهگیری هزینه.',
+    icon: CreditCard,
+    links: [
+      {label: 'حافظه نهان', to: '/guides/caching'},
+      {label: 'محدودیت نرخ درخواست', to: '/guides/rate-limiting'},
+      {label: 'محدودیت بودجه', to: '/guides/budget-limiting'},
+      {label: 'رهگیری هزینه', to: '/cost-tracking'},
+    ],
+  },
+  {
+    title: 'گاردریل‌ها',
+    description: 'کنترل محتوای ورودی و خروجی، داده حساس و اعتبارسنجی قالب.',
+    icon: ShieldCheck,
+    links: [
+      {label: 'نمای کلی گاردریل‌ها', to: '/guardrails'},
+      {label: 'قابلیت‌های گاردریل', to: '/guardrails-capabilities'},
+      {label: 'تشخیص داده حساس', to: '/guardrails-secrets-detection'},
+      {label: 'اعتبارسنجی JSON Schema', to: '/guardrails-json-schema'},
+    ],
+  },
+  {
+    title: 'مشاهده‌پذیری و پایش',
+    description: 'گزارش رخداد، رد درخواست، سنجه‌های مدل و OpenTelemetry.',
+    icon: Activity,
+    links: [
+      {label: 'نمای کلی پایش', to: '/observability-overview'},
+      {label: 'لاگ درخواست‌ها', to: '/observability-logs'},
+      {label: 'ردیابی درخواست‌ها', to: '/observability-traces'},
+      {label: 'متریک مدل‌ها', to: '/observability-model-metrics'},
+    ],
+  },
+];
+
+const helpItems: HelpItem[] = [
+  {
+    title: 'درخواست خطای احراز هویت دارد',
+    description:
+      'توکن باید در خود گدارAI ساخته شده باشد. کلید خام ارائه‌دهنده مدل را به‌عنوان توکن گدارAI نفرستید.',
+    icon: KeyRound,
+    links: [
+      {label: 'احراز هویت', to: '/authentication'},
+      {label: 'توکن‌های دسترسی', to: '/guides/api-keys'},
+    ],
+  },
+  {
+    title: 'شناسه مدل یا مسیر API روشن نیست',
+    description:
+      'ابتدا نوع API را انتخاب کنید، سپس شناسه مدل را از مدل‌های مجاز یا مدل مجازی بردارید.',
+    icon: Gauge,
+    links: [
+      {label: 'فهرست APIها', to: '/supported-apis'},
+      {label: 'مدل مجازی', to: '/virtual-model'},
+    ],
+  },
+  {
+    title: 'می‌خواهید نتیجه را بررسی کنید',
+    description:
+      'بعد از ارسال درخواست، گزارش رخداد، رد درخواست و سنجه‌ها نشان می‌دهند چه اتفاقی افتاده است.',
+    icon: CheckCircle2,
+    links: [
+      {label: 'لاگ درخواست‌ها', to: '/observability-logs'},
+      {label: 'ردیابی درخواست‌ها', to: '/observability-traces'},
+    ],
   },
 ];
 
 export default function Home(): ReactNode {
-  const {siteConfig} = useDocusaurusContext();
-
   return (
-    <Layout title={siteConfig.title} description="کاتالوگ مستندات پلتفرم گدارAI">
+    <Layout
+      title="مستندات گدارAI"
+      description="نقطه شروع مستندات گدارAI برای شناخت درگاه، ارسال اولین درخواست، انتخاب API و بررسی مسیرهای راهنما."
+    >
       <main className={styles.page} dir="rtl">
-        <section className={styles.hero}>
-          <div className={styles.heroBackdrop} />
-          <div className={styles.heroContent}>
-            <div className={styles.heroBadge}>کاتالوگ مستندات GodarAI</div>
-            <div className={styles.heroGrid}>
-              <div>
-                <h1 className={styles.heroTitle}>
-                  سریع‌تر شاخه درست را پیدا کنید و با اطمینان ادامه بدهید
-                </h1>
-                <p className={styles.heroDescription}>
-                  این صفحه، نقشه ورود به مستندات گدارAI است. به‌جای جست‌وجوی
-                  پراکنده، از اینجا می‌توانید مسیر مناسب خود را بر اساس هدف
-                  مطالعه، نوع integration و سطح درگیری با محصول انتخاب کنید.
-                </p>
-                <div className={styles.heroActions}>
-                  <Link className="button button--primary button--lg" to="/intro">
-                    ورود به مستندات
-                  </Link>
-                  <Link className={styles.secondaryCta} to="/supported-apis">
-                    دیدن شاخه اصلی APIها
-                  </Link>
-                </div>
-              </div>
-
-              <aside className={styles.highlightPanel}>
-                <h2>از کجا شروع کنم؟</h2>
-                <ul className={styles.highlightList}>
-                  <li>اگر تازه‌کار هستید: از «شروع کار» شروع کنید.</li>
-                  <li>اگر دنبال endpoint مناسب هستید: وارد «APIهای پشتیبانی‌شده» شوید.</li>
-                  <li>اگر روی production کار می‌کنید: «هویت»، «سیاست‌ها» و «Observability» را ببینید.</li>
-                </ul>
-                <Link className={styles.panelLink} to="/quick-start">
-                  شروع مطالعه پیشنهادی
-                </Link>
-              </aside>
+        <section className={styles.hero} aria-labelledby="home-title">
+          <div className={styles.heroText}>
+            <p className={styles.eyebrow}>مستندات گدارAI</p>
+            <h1 id="home-title">از اینجا مسیر درست مستندات را پیدا کنید</h1>
+            <p>
+              این صفحه برای شروع سریع و پیدا کردن راهنمای بعدی طراحی شده است. اگر
+              می‌خواهید اولین درخواست را بفرستید، API مناسب را انتخاب کنید، یا
+              آماده‌سازی محیط عملیاتی را جلو ببرید، از همین مسیرها شروع کنید.
+            </p>
+            <div className={styles.heroActions}>
+              <Link className="button button--primary button--lg" to="/quick-start">
+                شروع سریع
+              </Link>
+              <Link className="button button--secondary button--lg" to="/supported-apis">
+                فهرست APIها
+              </Link>
+              <Link className={styles.searchAction} to="/search">
+                <Search aria-hidden="true" size={18} strokeWidth={2} />
+                جستجو در مستندات
+              </Link>
             </div>
           </div>
+
+          <aside className={styles.startPanel} aria-label="مسیر کوتاه اولین درخواست">
+            <div className={styles.panelHeader}>
+              <span>مسیر کوتاه</span>
+              <strong>اولین درخواست موفق</strong>
+            </div>
+            <ol className={styles.startList}>
+              <li>یک حساب ارائه‌دهنده فعال یا مدل مجاز داشته باشید.</li>
+              <li>برای تست PAT و برای سرویس‌ها VAT بسازید.</li>
+              <li>شناسه مدل یا مدل مجازی را انتخاب کنید.</li>
+              <li>درخواست را بفرستید و نتیجه را در داده‌های پایش بررسی کنید.</li>
+            </ol>
+            <Link className={styles.panelAction} to="/making-llm-requests-via-gateway">
+              جزئیات ارسال درخواست
+            </Link>
+          </aside>
         </section>
 
-        <section className={styles.catalogSection}>
+        <section className={styles.entrySection} aria-labelledby="entry-title">
           <div className={styles.sectionHeader}>
-            <p className={styles.sectionEyebrow}>شاخه‌های اصلی</p>
-            <h2>محتوا بر اساس نیاز واقعی شما دسته‌بندی شده است</h2>
+            <p className={styles.eyebrow}>شروع بر اساس هدف</p>
+            <h2 id="entry-title">سه مسیر پرتکرار برای ورود به مستندات</h2>
             <p>
-              هر کارت شما را به یکی از شاخه‌های اصلی docs می‌برد تا سریع‌تر به
-              مستند مرتبط برسید.
+              اگر دقیق نمی‌دانید کدام صفحه را باید باز کنید، یکی از این مسیرها
+              شما را به نزدیک‌ترین راهنمای عملی می‌رساند.
             </p>
           </div>
 
-          <div className={styles.catalogGrid}>
-            {catalogItems.map(item => {
+          <div className={styles.entryGrid}>
+            {entryCards.map(item => {
               const Icon = item.icon;
+
               return (
-                <Link key={item.title} className={styles.catalogCard} to={item.to}>
-                  <span className={styles.catalogIcon}>
-                    <Icon width={24} height={24} />
+                <Link key={item.title} className={styles.entryCard} to={item.to}>
+                  <span className={styles.cardTop}>
+                    <span className={styles.iconBox}>
+                      <Icon aria-hidden="true" size={22} strokeWidth={2} />
+                    </span>
+                    <span className={styles.cardEyebrow}>{item.eyebrow}</span>
                   </span>
-                  <span className={styles.catalogMeta}>{item.meta}</span>
                   <h3>{item.title}</h3>
                   <p>{item.description}</p>
-                  <span className={styles.catalogLink}>ورود به این شاخه</span>
+                  <span className={styles.cardAction}>{item.action}</span>
                 </Link>
               );
             })}
           </div>
         </section>
 
-        <section className={styles.readingSection}>
+        <section className={styles.essentialsSection} aria-labelledby="essentials-title">
           <div className={styles.sectionHeader}>
-            <p className={styles.sectionEyebrow}>مسیرهای پیشنهادی</p>
-            <h2>اگر هدفتان مشخص است، این مسیرها زمان شما را کم می‌کنند</h2>
+            <p className={styles.eyebrow}>قبل از نمونه‌کد</p>
+            <h2 id="essentials-title">سه مقدار لازم برای اولین درخواست</h2>
+            <p>
+              بیشتر خطاهای شروع از همین سه مقدار می‌آیند. آن‌ها را از فضای کاری
+              خودتان بردارید و در نمونه‌کد جایگزین کنید.
+            </p>
           </div>
 
-          <div className={styles.pathGrid}>
-            {readingPaths.map(path => (
-              <div key={path.title} className={styles.pathCard}>
-                <h3>{path.title}</h3>
-                <p>{path.steps}</p>
-                <Link className={styles.inlineAction} to={path.to}>
-                  شروع این مسیر
-                </Link>
-              </div>
+          <div className={styles.essentialsGrid}>
+            {requestEssentials.map((item, index) => (
+              <article key={item.title} className={styles.essentialItem}>
+                <span className={styles.stepNumber}>{index + 1}</span>
+                <div>
+                  <h3>{item.title}</h3>
+                  <p>{item.description}</p>
+                  <code dir="ltr">{item.value}</code>
+                  <Link className={styles.inlineLink} to={item.to}>
+                    راهنمای مرتبط
+                  </Link>
+                </div>
+              </article>
             ))}
           </div>
         </section>
 
-        <section className={styles.ctaSection}>
-          <div className={styles.ctaCard}>
-            <div>
-              <p className={styles.sectionEyebrow}>گام بعدی</p>
-              <h2>اگر فقط یک CTA بخواهیم، همین است: وارد شاخه اصلی شوید</h2>
-              <p>
-                برای بیشتر کاربران، بهترین نقطه ورود یکی از این دو مسیر است:
-                «شروع کار» برای اولین integration یا «APIهای پشتیبانی‌شده» برای
-                پیدا کردن endpoint مناسب.
-              </p>
-            </div>
-            <div className={styles.ctaActions}>
-              <Link className="button button--primary button--lg" to="/quick-start">
-                شروع کار
-              </Link>
-              <Link className="button button--secondary button--lg" to="/supported-apis">
-                رفتن به APIها
-              </Link>
-            </div>
+        <section className={styles.mapSection} aria-labelledby="map-title">
+          <div className={styles.sectionHeader}>
+            <p className={styles.eyebrow}>نقشه مستندات</p>
+            <h2 id="map-title">شاخه‌ها را بر اساس موضوع دنبال کنید</h2>
+            <p>
+              این نقشه برای مرور سریع ساخته شده است؛ هر کارت چند صفحه نزدیک به
+              همان موضوع را کنار هم نشان می‌دهد.
+            </p>
+          </div>
+
+          <div className={styles.docMapGrid}>
+            {docGroups.map(group => {
+              const Icon = group.icon;
+
+              return (
+                <article key={group.title} className={styles.docGroup}>
+                  <div className={styles.docGroupHeader}>
+                    <span className={styles.iconBox}>
+                      <Icon aria-hidden="true" size={21} strokeWidth={2} />
+                    </span>
+                    <div>
+                      <h3>{group.title}</h3>
+                      <p>{group.description}</p>
+                    </div>
+                  </div>
+                  <ul className={styles.linkList}>
+                    {group.links.map(link => (
+                      <li key={link.to}>
+                        <Link to={link.to}>{link.label}</Link>
+                      </li>
+                    ))}
+                  </ul>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className={styles.helpSection} aria-labelledby="help-title">
+          <div className={styles.sectionHeader}>
+            <p className={styles.eyebrow}>کمک سریع</p>
+            <h2 id="help-title">وقتی مسیر بعدی روشن نیست</h2>
+          </div>
+
+          <div className={styles.helpGrid}>
+            {helpItems.map(item => {
+              const Icon = item.icon;
+
+              return (
+                <article key={item.title} className={styles.helpItem}>
+                  <span className={styles.iconBox}>
+                    <Icon aria-hidden="true" size={21} strokeWidth={2} />
+                  </span>
+                  <h3>{item.title}</h3>
+                  <p>{item.description}</p>
+                  <div className={styles.helpLinks}>
+                    {item.links.map(link => (
+                      <Link key={link.to} to={link.to}>
+                        {link.label}
+                      </Link>
+                    ))}
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </section>
       </main>

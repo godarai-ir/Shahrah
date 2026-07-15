@@ -3,9 +3,9 @@ import { About } from '@/app/pages/About';
 import { buildMetadata } from "@/app/lib/seo";
 
 export const metadata: Metadata = buildMetadata({
-  title: "About GodarAI",
+  title: "درباره گدارAI",
   description:
-    "Learn about GodarAI, our mission, and how we build AI infrastructure for Iranian developers and businesses.",
+    "با ماموریت گدارAI برای ساخت درگاه مدل‌های زبانی، کنترل هزینه و پایش مصرف برای تیم‌های ایرانی آشنا شوید.",
   path: "/about",
 });
 

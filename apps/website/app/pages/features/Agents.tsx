@@ -460,12 +460,12 @@ function CTAMiniDashboard() {
 // FAQ
 const faqItems = [
   {
-    question: 'AI Agents در گُدار AI دقیقاً چه کمکی به تیم ما می‌کند؟',
-    answer: 'گُدار AI به شما کمک می‌کند Agentها را از حالت Prototype به Production ببرید؛ با Trace کامل، مانیتورینگ، Guardrails، Routing، Retry، Fallback، کنترل هزینه و مدیریت دسترسی.',
+    question: 'AI Agents در گدارAI دقیقاً چه کمکی به تیم ما می‌کند؟',
+    answer: 'گدارAI به شما کمک می‌کند Agentها را از حالت Prototype به محیط عملیاتی ببرید؛ با Trace کامل، پایش، Guardrails، Routing، Retry، Fallback، کنترل هزینه و مدیریت دسترسی.',
   },
   {
     question: 'آیا می‌توانم اجرای هر Agent را مرحله‌به‌مرحله ببینم؟',
-    answer: 'بله. گُدار AI می‌تواند Agent Run را در سطح Step نمایش دهد؛ شامل Prompt، Model Call، Tool Call، خروجی Tool، خطا، Retry، Fallback و پاسخ نهایی.',
+    answer: 'بله. گدارAI می‌تواند Agent Run را در سطح Step نمایش دهد؛ شامل Prompt، Model Call، Tool Call، خروجی Tool، خطا، Retry، Fallback و پاسخ نهایی.',
   },
   {
     question: 'اگر یک Tool Call خطا بدهد یا کند باشد چه می‌شود؟',
@@ -477,15 +477,15 @@ const faqItems = [
   },
   {
     question: 'چطور هزینه Agentها را کنترل کنم؟',
-    answer: 'با مانیتورینگ مصرف توکن، Cost by Agent، Budget، Rate Limit، Routing و انتخاب مدل مناسب می‌توانید هزینه Agentها را در سطح تیم، کاربر، Workspace یا محصول کنترل کنید.',
+    answer: 'با پایش مصرف توکن، Cost by Agent، Budget، Rate Limit، Routing و انتخاب مدل مناسب می‌توانید هزینه Agentها را در سطح تیم، کاربر، Workspace یا محصول کنترل کنید.',
   },
   {
-    question: 'آیا گُدار AI فقط برای Agentهای چت‌محور است؟',
-    answer: 'خیر. گُدار AI برای دستیارهای محصول، Customer Support Agentها، Workflow Automation، Research Agentها، Agentهای داخلی سازمان و Multi-agent Systems کاربرد دارد.',
+    question: 'آیا گدارAI فقط برای Agentهای چت‌محور است؟',
+    answer: 'خیر. گدارAI برای دستیارهای محصول، Customer Support Agentها، Workflow Automation، Research Agentها، Agentهای داخلی سازمان و Multi-agent Systems کاربرد دارد.',
   },
   {
-    question: 'آیا برای استفاده از گُدار AI نیاز به پرداخت ارزی دارم؟',
-    answer: 'خیر. گُدار AI برای تیم‌های ایرانی طراحی شده و هدف آن ساده‌کردن دسترسی به مدل‌های AI و اجرای Agentها بدون نیاز به پرداخت ارزی مستقیم و بدون درگیری با محدودیت‌های رایج سرویس‌های خارجی است.',
+    question: 'آیا برای استفاده از گدارAI نیاز به پرداخت ارزی دارم؟',
+    answer: 'خیر. گدارAI برای تیم‌های ایرانی طراحی شده و هدف آن ساده‌کردن دسترسی به مدل‌های AI و اجرای Agentها بدون نیاز به پرداخت ارزی مستقیم و با ریسک کمتر نسبت به اتصال مستقیم به سرویس‌های خارجی است.',
   },
 ];
 
@@ -530,7 +530,7 @@ export function Agents() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              با گُدار AI، Agentهای AI خود را به یک زیرساخت پایدار، قابل‌ردیابی و قابل‌کنترل متصل کنید؛ Gateway، Guardrails و Observability را در کنار هم داشته باشید، اجرای هر Agent Run را Trace کنید، هزینه و Latency را مانیتور کنید و بدون درگیری با تحریم یا پرداخت ارزی مستقیم، Agentها را وارد محصول واقعی کنید.
+              با گدارAI، ایجنت‌های هوش مصنوعی خود را به یک زیرساخت پایدار، قابل‌ردیابی و قابل‌کنترل وصل کنید؛ درگاه، گاردریل و مشاهده‌پذیری را کنار هم داشته باشید، اجرای هر ایجنت را ردگیری کنید، هزینه و تاخیر را پایش کنید و با کاهش ریسک اتصال مستقیم و پرداخت ارزی، ایجنت‌ها را وارد محصول واقعی کنید.
             </motion.p>
 
             <motion.div
@@ -569,7 +569,7 @@ export function Agents() {
               ساخته‌شده برای تیم‌هایی که Agent را در محصول واقعی اجرا می‌کنند
             </h2>
             <p className="text-sm text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-              گُدار AI به تیم‌های محصول، Backend، Platform و AI کمک می‌کند Agentهای آزمایشی را به سیستم‌های پایدار Production تبدیل کنند؛ با Trace کامل، کنترل خروجی، مانیتورینگ لحظه‌ای، Routing هوشمند و مدیریت هزینه.
+              گدارAI به تیم‌های محصول، Backend، Platform و AI کمک می‌کند Agentهای آزمایشی را به سیستم‌های پایدار محیط عملیاتی تبدیل کنند؛ با Trace کامل، کنترل خروجی، پایش لحظه‌ای، Routing هوشمند و مدیریت هزینه.
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-3">
@@ -592,10 +592,10 @@ export function Agents() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              Agentهای AI را آماده Production کنید
+              Agentهای AI را آماده محیط عملیاتی کنید
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              گُدار AI یک لایه عملیاتی برای اجرای Agentهاست؛ جایی که Gateway، Guardrails و Observability کنار هم قرار می‌گیرند تا Agentها فقط کار نکنند، بلکه قابل‌اعتماد، قابل‌دیباگ و قابل‌مقیاس باشند.
+              گدارAI یک لایه عملیاتی برای اجرای Agentهاست؛ جایی که Gateway، Guardrails و Observability کنار هم قرار می‌گیرند تا Agentها فقط کار نکنند، بلکه قابل‌اعتماد، قابل‌دیباگ و قابل‌مقیاس باشند.
             </p>
           </div>
 
@@ -626,7 +626,7 @@ export function Agents() {
                   <BarChart3 className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                  مانیتورینگ Performance و هزینه Agentها
+                  پایش Performance و هزینه Agentها
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
                   بیش از ۴۰ Metrics مهم را برای Agentها در لحظه مانیتور کنید؛ از Latency و Cost تا Token Usage، Error Rate، Success Rate، Tool Call Duration و کیفیت پاسخ. بفهمید کدام Agent، Tool، مدل یا مسیر بیشترین هزینه یا خطا را ایجاد می‌کند.
@@ -667,7 +667,7 @@ export function Agents() {
                   اتصال Agentها به چند مدل با یک Gateway واحد
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  Agentهای خود را به هر مدل LLM متصل کنید و مسیر اجرای آن‌ها را از یک Gateway مرکزی مدیریت کنید. اگر یک مدل کند شد، خطا داد یا خروجی مناسبی نداد، گُدار AI می‌تواند با Routing، Retry یا Fallback مسیر بهتری انتخاب کند.
+                  Agentهای خود را به هر مدل LLM متصل کنید و مسیر اجرای آن‌ها را از یک Gateway مرکزی مدیریت کنید. اگر یک مدل کند شد، خطا داد یا خروجی مناسبی نداد، گدارAI می‌تواند با Routing، Retry یا Fallback مسیر بهتری انتخاب کند.
                 </p>
                 <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-6">
                   مدل را آزادانه تغییر دهید؛ Agent را پایدار نگه دارید.
@@ -687,7 +687,7 @@ export function Agents() {
               Observability مخصوص Agentها، نه فقط درخواست‌های ساده
             </h2>
             <p className="text-lg text-slate-400">
-              Agentها فقط یک LLM Call نیستند. آن‌ها تصمیم می‌گیرند، ابزار صدا می‌زنند، مسیر عوض می‌کنند و چند مرحله اجرا می‌شوند. گُدار AI این مسیر را کامل قابل‌مشاهده می‌کند.
+              Agentها فقط یک LLM Call نیستند. آن‌ها تصمیم می‌گیرند، ابزار صدا می‌زنند، مسیر عوض می‌کنند و چند مرحله اجرا می‌شوند. گدارAI این مسیر را کامل قابل‌مشاهده می‌کند.
             </p>
           </div>
 
@@ -712,7 +712,7 @@ export function Agents() {
                 },
                 {
                   icon: Users, color: 'text-purple-400', bg: 'bg-purple-500/20',
-                  title: 'مانیتورینگ Agent در سطح کاربر و Workspace',
+                  title: 'پایش Agent در سطح کاربر و Workspace',
                   desc: 'مصرف، هزینه، خطا و کیفیت اجرای Agentها را در سطح کاربر، تیم، Workspace، محصول یا فیچر مشاهده کنید.',
                 },
               ].map((item, i) => (
@@ -813,7 +813,7 @@ export function Agents() {
               زیرساخت سازگار با Frameworkهای Agent
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              Agentهای شما هرجا ساخته شده باشند، گُدار AI می‌تواند یک لایه مشترک برای Gateway، Observability و Guardrails روی آن‌ها ایجاد کند.
+              Agentهای شما هرجا ساخته شده باشند، گدارAI می‌تواند یک لایه مشترک برای Gateway، Observability و Guardrails روی آن‌ها ایجاد کند.
             </p>
           </div>
 
@@ -828,7 +828,7 @@ export function Agents() {
                   سازگار با Agent Frameworkها
                 </h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-5">
-                  Agentهای ساخته‌شده با Frameworkهای رایج را به گُدار AI متصل کنید تا Tracing، مانیتورینگ، Guardrails و Routing را بدون ساخت زیرساخت جداگانه فعال کنید.
+                  Agentهای ساخته‌شده با Frameworkهای رایج را به گدارAI متصل کنید تا Tracing، پایش، Guardrails و Routing را بدون ساخت زیرساخت جداگانه فعال کنید.
                 </p>
                 <div className="grid grid-cols-2 gap-2 font-sans text-xs">
                   {['Agent Framework', 'Workflow Engine', 'Tool Calling SDK', 'Multi-agent System', 'Internal Agent Runtime', 'Custom Python Agent'].map(f => (
@@ -851,7 +851,7 @@ export function Agents() {
                   یکپارچگی با Gateway، Guardrails و Observability
                 </h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-5">
-                  به‌جای اینکه برای هر Agent ابزار جداگانه بسازید، گُدار AI یک مسیر مشترک برای اتصال مدل‌ها، کنترل خروجی و دید کامل روی اجرا فراهم می‌کند.
+                  به‌جای اینکه برای هر Agent ابزار جداگانه بسازید، گدارAI یک مسیر مشترک برای اتصال مدل‌ها، کنترل خروجی و دید کامل روی اجرا فراهم می‌کند.
                 </p>
                 <ThreeLayerArch />
               </div>
@@ -867,7 +867,7 @@ export function Agents() {
                   مناسب برای Agentهای داخلی و محصولی
                 </h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-5">
-                  چه Agent داخلی برای تیم خود بسازید، چه دستیار AI برای کاربران محصول، گُدار AI کمک می‌کند اجرای آن را امن‌تر، قابل‌مشاهده‌تر و قابل‌مدیریت‌تر کنید.
+                  چه Agent داخلی برای تیم خود بسازید، چه دستیار AI برای کاربران محصول، گدارAI کمک می‌کند اجرای آن را امن‌تر، قابل‌مشاهده‌تر و قابل‌مدیریت‌تر کنید.
                 </p>
                 <div className="grid grid-cols-2 gap-3 font-sans text-xs">
                   <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700">
@@ -900,7 +900,7 @@ export function Agents() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              Agentهایی که در Production قابل اعتماد می‌مانند
+              Agentهایی که در محیط عملیاتی قابل اعتماد می‌مانند
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
               Agentها وقتی وارد محصول واقعی می‌شوند، فقط به هوشمندی مدل نیاز ندارند؛ به پایداری، کنترل، Debug، هزینه قابل‌پیش‌بینی و کیفیت قابل‌سنجش نیاز دارند.
@@ -961,10 +961,10 @@ export function Agents() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              چرا اجرای Agent در گُدار AI برای تیم‌های ایرانی مهم‌تر است؟
+              چرا اجرای Agent در گدارAI برای تیم‌های ایرانی مهم‌تر است؟
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              برای تیم‌های ایرانی، Production کردن Agent فقط مسئله فنی نیست؛ دسترسی پایدار به مدل‌ها، پرداخت، تحریم، هزینه، داده فارسی و کنترل ریسک هم اهمیت دارد.
+              برای تیم‌های ایرانی، عملیاتی کردن Agent فقط مسئله فنی نیست؛ دسترسی پایدار به مدل‌ها، پرداخت، تحریم، هزینه، داده فارسی و کنترل ریسک هم اهمیت دارد.
             </p>
           </div>
 
@@ -972,23 +972,23 @@ export function Agents() {
             {[
               {
                 icon: Shield, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10', border: 'border-indigo-100 dark:border-indigo-500/20',
-                title: 'بدون محدودیت‌های تحریمی',
-                desc: 'با گُدار AI، تیم شما برای اجرای Agentهای متصل به مدل‌های خارجی کمتر درگیر محدودیت‌های تحریم، مسدود شدن حساب یا قطع دسترسی مستقیم می‌شود.',
+                title: 'کاهش ریسک محدودیت‌های اتصال مستقیم',
+                desc: 'با گدارAI، تیم شما برای اجرای Agentهای متصل به مدل‌های خارجی کمتر درگیر محدودیت‌های تحریم، مسدود شدن حساب یا قطع دسترسی مستقیم می‌شود.',
               },
               {
                 icon: CreditCard, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', border: 'border-emerald-100 dark:border-emerald-500/20',
                 title: 'بدون پرداخت ارزی مستقیم',
-                desc: 'به‌جای درگیری با کارت اعتباری خارجی، پرداخت دلاری و حساب‌های بین‌المللی، مصرف Agentها و مدل‌ها را از طریق گُدار AI و متناسب با نیاز بازار ایران مدیریت کنید.',
+                desc: 'به‌جای درگیری با کارت اعتباری خارجی، پرداخت دلاری و حساب‌های بین‌المللی، مصرف Agentها و مدل‌ها را از طریق گدارAI و متناسب با نیاز بازار ایران مدیریت کنید.',
               },
               {
                 icon: Lock, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10', border: 'border-purple-100 dark:border-purple-500/20',
                 title: 'کنترل متمرکز روی مدل، ابزار، هزینه و ریسک',
-                desc: 'به‌جای اتصال پراکنده Agentها به چند مدل و ابزار، گُدار AI یک مسیر مرکزی برای Gateway، Observability، Guardrails، Routing و Audit فراهم می‌کند.',
+                desc: 'به‌جای اتصال پراکنده Agentها به چند مدل و ابزار، گدارAI یک مسیر مرکزی برای Gateway، Observability، Guardrails، Routing و Audit فراهم می‌کند.',
               },
               {
                 icon: Globe, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10', border: 'border-amber-100 dark:border-amber-500/20',
                 title: 'مناسب برای متن فارسی و Workflowهای ایرانی',
-                desc: 'گُدار AI می‌تواند برای داده فارسی، شماره تماس، کد ملی، الگوهای محتوایی فارسی، نیازهای تیم‌های داخلی و سناریوهای بازار ایران تنظیم شود.',
+                desc: 'گدارAI می‌تواند برای داده فارسی، شماره تماس، کد ملی، الگوهای محتوایی فارسی، نیازهای تیم‌های داخلی و سناریوهای بازار ایران تنظیم شود.',
               },
             ].map((diff, i) => (
               <MagicCard
@@ -1016,7 +1016,7 @@ export function Agents() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              AI Agents گُدار AI برای چه سناریوهایی مناسب است؟
+              AI Agents گدارAI برای چه سناریوهایی مناسب است؟
             </h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -1034,7 +1034,7 @@ export function Agents() {
               {
                 icon: GitBranch, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10',
                 title: 'Workflow Automation',
-                desc: 'Agentهایی که چند مرحله تصمیم‌گیری، Tool Call، تحلیل داده یا تولید خروجی انجام می‌دهند را با Trace و Guardrails به Production ببرید.',
+                desc: 'Agentهایی که چند مرحله تصمیم‌گیری، Tool Call، تحلیل داده یا تولید خروجی انجام می‌دهند را با Trace و Guardrails به محیط عملیاتی ببرید.',
               },
               {
                 icon: Search, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10',
@@ -1086,7 +1086,7 @@ export function Agents() {
               {
                 tag: 'راهنما', color: 'text-indigo-600 dark:text-indigo-400', tagBg: 'bg-indigo-50 dark:bg-indigo-500/10',
                 title: 'چطور AI Agentها را به Production ببریم؟',
-                desc: 'برای Production کردن Agentها، فقط Prompt خوب کافی نیست؛ به Trace، Guardrails، Gateway، Routing، مانیتورینگ و کنترل هزینه نیاز دارید.',
+                desc: 'برای عملیاتی کردن Agentها، فقط Prompt خوب کافی نیست؛ به Trace، Guardrails، Gateway، Routing، پایش و کنترل هزینه نیاز دارید.',
               },
               {
                 tag: 'مقاله', color: 'text-purple-600 dark:text-purple-400', tagBg: 'bg-purple-50 dark:bg-purple-500/10',
@@ -1134,10 +1134,10 @@ export function Agents() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
               <h2 className="text-3xl md:text-4xl font-bold text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-                Agentهای AI خود را با اطمینان به Production ببرید
+                Agentهای AI خود را با اطمینان به محیط عملیاتی ببرید
               </h2>
               <p className="text-lg text-indigo-200 mb-10 leading-relaxed">
-                با گُدار AI، اجرای Agentها را Trace کنید، Performance و هزینه را مانیتور کنید، Guardrails را فعال کنید و مسیرهای Retry، Fallback و Routing را از یک لایه مرکزی مدیریت کنید؛ بدون محدودیت‌های تحریمی و بدون نیاز به پرداخت ارزی مستقیم.
+                با گدارAI، اجرای Agentها را Trace کنید، Performance و هزینه را مانیتور کنید، Guardrails را فعال کنید و مسیرهای Retry، Fallback و Routing را از یک لایه مرکزی مدیریت کنید؛ با کاهش ریسک محدودیت‌های اتصال مستقیم و بدون نیاز به پرداخت ارزی مستقیم.
               </p>
               <div className="flex flex-col sm:flex-row items-start gap-4">
                 <Link href="/signup" className="w-full sm:w-auto px-8 py-4 bg-white text-indigo-700 hover:bg-indigo-50 rounded-xl font-bold text-lg shadow-[0_0_30px_rgba(0,0,0,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 group">

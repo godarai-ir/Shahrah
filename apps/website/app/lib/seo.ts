@@ -29,7 +29,7 @@ export function buildMetadata(input: SEOInput): Metadata {
       title: input.title,
       description: input.description,
       url,
-      siteName: "GodarAI",
+      siteName: "گدارAI",
       locale: "fa_IR",
       type: "website",
     },

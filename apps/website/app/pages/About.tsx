@@ -8,10 +8,10 @@ export function About() {
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16">
           <h1 className="text-5xl font-bold mb-6 bg-gradient-to-l from-indigo-400 to-purple-500 bg-clip-text text-transparent">
-            درباره گُدار AI
+            درباره گدارAI
           </h1>
           <p className="text-xl text-slate-600 dark:text-gray-400 max-w-2xl mx-auto">
-            ما در حال ساختن پلی میان توسعه‌دهندگان ایرانی و دنیای هوش مصنوعی هستیم
+            ما مسیر اتصال تیم‌های ایرانی به مدل‌های زبانی را ساده‌تر، قابل‌پیگیری‌تر و قابل‌کنترل‌تر می‌کنیم.
           </p>
         </div>
 
@@ -19,21 +19,20 @@ export function About() {
           <div>
             <h2 className="text-3xl font-bold mb-6">ماموریت ما</h2>
             <p className="text-lg text-slate-600 dark:text-gray-400 leading-relaxed mb-4">
-              گُدار AI با هدف حل یکی از بزرگترین چالش‌های توسعه‌دهندگان و کسب‌وکارهای ایرانی ایجاد شد:
-              دسترسی آسان، مقرون‌به‌صرفه و بدون محدودیت به پیشرفته‌ترین مدل‌های هوش مصنوعی.
+              گدارAI با هدف حل یکی از چالش‌های جدی تیم‌های فنی ایرانی شکل گرفت:
+              اتصال پایدارتر به مدل‌های زبانی، پرداخت ریالی، کنترل هزینه و پایش مصرف در یک مسیر واحد.
             </p>
             <p className="text-lg text-slate-600 dark:text-gray-400 leading-relaxed">
-              ما معتقدیم که تحریم‌ها و محدودیت‌های پرداخت نباید مانع از نوآوری و پیشرفت باشند.
+              ما تلاش می‌کنیم محدودیت‌های پرداخت، پراکندگی کلیدها و نبود مشاهده‌پذیری مانع ساخت محصول‌های مبتنی بر هوش مصنوعی نشود.
             </p>
           </div>
           <div>
             <h2 className="text-3xl font-bold mb-6">چشم‌انداز ما</h2>
             <p className="text-lg text-slate-600 dark:text-gray-400 leading-relaxed mb-4">
-              ما تصویر می‌کنیم که هر توسعه‌دهنده و کسب‌وکار ایرانی بتواند با اطمینان و بدون دغدغه،
-              از قدرت هوش مصنوعی برای ساخت محصولات و خدمات نوآورانه استفاده کند.
+              می‌خواهیم هر تیم محصول بتواند مدل مناسب خود را انتخاب کند، مصرف را ببیند، هزینه را کنترل کند و درباره مسیر هر درخواست پاسخ روشن داشته باشد.
             </p>
             <p className="text-lg text-slate-600 dark:text-gray-400 leading-relaxed">
-              گُدار AI قرار است به زیرساخت اصلی دسترسی به AI در ایران تبدیل شود.
+              گدارAI قرار است یک لایه عملیاتی قابل اتکا برای استفاده از مدل‌های زبانی در بازار ایران باشد.
             </p>
           </div>
         </div>
@@ -52,13 +51,13 @@ export function About() {
             },
             {
               icon: Lightbulb,
-              title: 'نوآور',
-              description: 'همیشه به دنبال راه‌های بهتر و کارآمدتر هستیم',
+              title: 'دقیق',
+              description: 'ادعاها، هزینه‌ها و محدودیت‌ها را شفاف بیان می‌کنیم',
             },
             {
               icon: Heart,
               title: 'مسئولیت‌پذیر',
-              description: 'متعهد به ارائه سرویسی پایدار و قابل اعتماد',
+              description: 'متعهد به ارائه سرویسی پایدار، قابل بررسی و قابل پشتیبانی',
             },
           ].map((value) => (
             <div key={value.title} className="text-center p-6">

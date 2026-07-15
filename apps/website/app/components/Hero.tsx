@@ -24,11 +24,11 @@ export function Hero() {
           >
             <div className="inline-flex max-w-full items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[11px] sm:text-sm font-medium mb-4 sm:mb-8 border border-indigo-100 dark:border-indigo-500/20 whitespace-normal leading-6">
               <span className="flex h-2 w-2 rounded-full bg-indigo-500 animate-pulse"></span>
-              دسترسی بدون محدودیت به مدل‌های روز دنیا
+              درگاه مدل‌های زبانی برای تیم‌های ایرانی
             </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold text-slate-900 dark:text-white leading-[1.35] sm:leading-[1.2] mb-4 sm:mb-6 font-sans text-balance">گُدار AI؛ مسیر ساده و به‌صرفه برای دسترسی به <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500">مدل‌های هوش مصنوعی</span></h1>
+            <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold text-slate-900 dark:text-white leading-[1.35] sm:leading-[1.2] mb-4 sm:mb-6 font-sans text-balance">گدارAI؛ مسیر کنترل‌شده برای اتصال محصول شما به <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500">مدل‌های زبانی</span></h1>
             <p className="mx-auto max-w-xl text-sm sm:text-lg text-slate-600 dark:text-gray-400 mb-6 sm:mb-8 leading-8 sm:leading-relaxed lg:mx-0">
-              یک LLM Gateway برای کاربران و کسب‌وکارهای ایرانی — از درگاه پرداخت ایرانی تا مدیریت، بهینه‌سازی و استفاده از مدل‌های AI در مقیاس با کمترین هزینه و بالاترین پایداری.
+              یک درگاه مدل‌های زبانی (LLM Gateway) برای تیم‌هایی که می‌خواهند پرداخت ریالی، مسیریابی مدل، کنترل هزینه و پایش درخواست‌ها را از یک مسیر قابل‌پیگیری مدیریت کنند.
             </p>
             <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 sm:gap-4">
               <Link href="/signup" className="justify-center flex w-full sm:w-auto items-center gap-2 px-6 py-3.5 min-h-12 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-medium transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] hover:shadow-[0_0_30px_rgba(99,102,241,0.6)]">
@@ -64,14 +64,14 @@ export function Hero() {
                   <code className="language-python">
 <span className="text-purple-400">from</span> openai <span className="text-purple-400">import</span> OpenAI{'\n\n'}
 client = OpenAI({'\n'}
-{'  '}api_key=<span className="text-green-400">"sh_live_xxx"</span>,{'\n'}
-{'  '}base_url=<span className="text-green-400">"https://api.sharah.ir/v1"</span>{'\n'}
+{'  '}api_key=<span className="text-green-400">"YOUR_GODARAI_TOKEN"</span>,{'\n'}
+{'  '}base_url=<span className="text-green-400">"https://YOUR_WORKSPACE.godarai.ir/v1"</span>{'\n'}
 ){'\n\n'}
 response = client.chat.completions.create({'\n'}
 {'  '}model=<span className="text-green-400">"gpt-4o"</span>,{'\n'}
 {'  '}messages=[{'{'}{'\n'}
 {'    '}<span className="text-blue-400">"role"</span>: <span className="text-green-400">"user"</span>,{'\n'}
-{'    '}<span className="text-blue-400">"content"</span>: <span className="text-green-400">"سلام! گُدار AI چطور کار میکنه؟"</span>{'\n'}
+{'    '}<span className="text-blue-400">"content"</span>: <span className="text-green-400">"یک پیام کوتاه برای پیگیری سفارش بنویس."</span>{'\n'}
 {'  '}{'}'}]{'\n'}
 ){'\n\n'}
 <span className="text-yellow-400">print</span>(response.choices[<span className="text-orange-400">0</span>].message.content)
@@ -91,7 +91,7 @@ response = client.chat.completions.create({'\n'}
               </div>
               <div>
                 <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">کاهش هزینه</p>
-                <p className="text-sm font-bold text-slate-900 dark:text-white">تا ۴۰٪ بهینه‌سازی</p>
+                <p className="text-sm font-bold text-slate-900 dark:text-white">قابل‌پیگیری در هر تیم</p>
               </div>
             </motion.div>
 
@@ -105,7 +105,7 @@ response = client.chat.completions.create({'\n'}
               </div>
               <div>
                 <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">وضعیت سرویس</p>
-                <p className="text-sm font-bold text-slate-900 dark:text-white">۹۹.۹۹٪ آپتایم</p>
+                <p className="text-sm font-bold text-slate-900 dark:text-white">پایش وضعیت مسیرها</p>
               </div>
             </motion.div>
 

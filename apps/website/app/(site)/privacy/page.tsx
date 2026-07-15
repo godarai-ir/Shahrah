@@ -3,9 +3,9 @@ import { Privacy } from '@/app/pages/Privacy';
 import { buildMetadata } from "@/app/lib/seo";
 
 export const metadata: Metadata = buildMetadata({
-  title: "Privacy Policy",
+  title: "حریم خصوصی",
   description:
-    "Read GodarAI privacy policy and how we handle, protect, and process user data responsibly.",
+    "سیاست حریم خصوصی گدارAI و شیوه رسیدگی، محافظت و پردازش داده‌های کاربران را بخوانید.",
   path: "/privacy",
 });
 

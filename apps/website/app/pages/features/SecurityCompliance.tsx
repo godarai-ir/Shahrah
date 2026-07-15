@@ -443,16 +443,16 @@ function CTAMiniDashboard() {
 // ─── FAQ Data ────────────────────────────────────────────────────────────────
 const faqItems = [
   {
-    question: 'Security & Compliance گُدار AI دقیقاً چه کاری انجام می‌دهد؟',
-    answer: 'گُدار AI یک لایه مرکزی برای مدیریت کلیدها، دسترسی‌ها، Policyها، Audit Logs و محافظت از داده‌های حساس در مسیر تعامل با مدل‌های AI فراهم می‌کند.',
+    question: 'Security & Compliance گدارAI دقیقاً چه کاری انجام می‌دهد؟',
+    answer: 'گدارAI یک لایه مرکزی برای مدیریت کلیدها، دسترسی‌ها، Policyها، Audit Logs و محافظت از داده‌های حساس در مسیر تعامل با مدل‌های AI فراهم می‌کند.',
   },
   {
     question: 'Virtual Key چه تفاوتی با API Key اصلی دارد؟',
-    answer: 'API Key اصلی مربوط به تأمین‌کننده مدل است، اما Virtual Key در گُدار AI ساخته می‌شود و می‌توان برای آن محدودیت، سطح دسترسی، سقف مصرف، مدل‌های مجاز و وضعیت فعال یا غیرفعال تعریف کرد.',
+    answer: 'API Key اصلی مربوط به تأمین‌کننده مدل است، اما Virtual Key در گدارAI ساخته می‌شود و می‌توان برای آن محدودیت، سطح دسترسی، سقف مصرف، مدل‌های مجاز و وضعیت فعال یا غیرفعال تعریف کرد.',
   },
   {
     question: 'آیا می‌توانم جلوی ارسال داده‌های حساس به مدل را بگیرم؟',
-    answer: 'بله. با Data Redaction می‌توانید داده‌هایی مثل شماره تماس، ایمیل، کد ملی، Token، Secret یا Patternهای سفارشی را قبل از ارسال به مدل یا ذخیره در لاگ‌ها حذف یا ماسک کنید.',
+    answer: 'بله. با Data Redaction می‌توانید داده‌هایی مثل شماره تماس، ایمیل، کد ملی، Token، Secret یا Patternهای سفارشی را قبل از ارسال به مدل یا ذخیره در گزارش رخدادها حذف یا ماسک کنید.',
   },
   {
     question: 'آیا می‌توانم مشخص کنم چه IPهایی اجازه اتصال دارند؟',
@@ -463,8 +463,8 @@ const faqItems = [
     answer: 'بله. Audit Logs به شما کمک می‌کند فعالیت‌های مهم مثل ساخت کلید، تغییر دسترسی، درخواست‌های مسدودشده، مصرف مدل‌ها و تغییر Policyها را بررسی کنید.',
   },
   {
-    question: 'آیا برای استفاده از گُدار AI نیاز به پرداخت ارزی دارم؟',
-    answer: 'خیر. گُدار AI برای تیم‌های ایرانی طراحی شده و هدف آن ساده‌کردن دسترسی به مدل‌های AI بدون نیاز به پرداخت ارزی مستقیم و بدون درگیری با محدودیت‌های رایج سرویس‌های خارجی است.',
+    question: 'آیا برای استفاده از گدارAI نیاز به پرداخت ارزی دارم؟',
+    answer: 'خیر. گدارAI برای تیم‌های ایرانی طراحی شده و هدف آن ساده‌کردن دسترسی به مدل‌های AI بدون نیاز به پرداخت ارزی مستقیم و با ریسک کمتر نسبت به اتصال مستقیم به سرویس‌های خارجی است.',
   },
 ];
 
@@ -508,7 +508,7 @@ export function SecurityCompliance() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              با گُدار AI، کلیدهای API، داده‌های حساس، دسترسی تیم‌ها و مسیر درخواست‌های AI را از یک لایه مرکزی مدیریت کنید؛ بدون افشای کلیدها، بدون پراکندگی دسترسی‌ها و بدون درگیری با تحریم یا پرداخت ارزی مستقیم.
+              با گدارAI، کلیدهای دسترسی، داده‌های حساس، دسترسی تیم‌ها و مسیر درخواست‌های AI را از یک لایه مرکزی مدیریت کنید؛ بدون افشای کلیدها، بدون پراکندگی دسترسی‌ها و با کاهش ریسک اتصال مستقیم و پرداخت ارزی مستقیم.
             </motion.p>
 
             <motion.div
@@ -557,7 +557,7 @@ export function SecurityCompliance() {
               ساخته‌شده برای تیم‌هایی که AI را امن و قابل‌کنترل وارد محصول می‌کنند
             </h2>
             <p className="text-sm text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-              گُدار AI به تیم‌های فنی، محصول، امنیت و مدیریت کمک می‌کند استفاده از مدل‌های LLM را با کنترل دسترسی، مدیریت کلیدها، لاگ‌های قابل‌ردیابی و سیاست‌های امنیتی شفاف به سطح Production برسانند.
+              گدارAI به تیم‌های فنی، محصول، امنیت و مدیریت کمک می‌کند استفاده از مدل‌های LLM را با کنترل دسترسی، مدیریت کلیدها، گزارش‌های رخداد قابل‌ردیابی و سیاست‌های امنیتی شفاف به سطح محیط عملیاتی برسانند.
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-3">
@@ -582,7 +582,7 @@ export function SecurityCompliance() {
               امن بمانید، قابل‌ممیزی بمانید
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              گُدار AI کمک می‌کند کلیدها و داده‌های حساس شما در مسیر تعامل با مدل‌های AI افشا نشوند و استفاده از LLMها تحت سیاست‌های مشخص و قابل‌پیگیری انجام شود.
+              گدارAI کمک می‌کند کلیدها و داده‌های حساس شما در مسیر تعامل با مدل‌های AI افشا نشوند و استفاده از LLMها تحت سیاست‌های مشخص و قابل‌پیگیری انجام شود.
             </p>
           </div>
 
@@ -597,7 +597,7 @@ export function SecurityCompliance() {
                   Virtual Keys برای تأمین‌کننده‌های AI
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  به‌جای اینکه کلید اصلی هر تأمین‌کننده را در چند محصول، چند مخزن کد یا چند محیط توسعه پخش کنید، آن را در گُدار AI متصل کنید و برای هر تیم، محصول یا محیط، Virtual Key جداگانه بسازید.
+                  به‌جای اینکه کلید اصلی هر تأمین‌کننده را در چند محصول، چند مخزن کد یا چند محیط توسعه پخش کنید، آن را در گدارAI متصل کنید و برای هر تیم، محصول یا محیط، Virtual Key جداگانه بسازید.
                 </p>
                 <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mb-6">
                   امنیت بیشتر، چرخش ساده‌تر کلیدها، محدودیت‌گذاری دقیق‌تر و رهگیری مصرف در سطح هر کلید.
@@ -616,7 +616,7 @@ export function SecurityCompliance() {
                   کنترل دسترسی و Inbound Rules
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  مشخص کنید چه IPها، کشورها، تیم‌ها یا محیط‌هایی اجازه اتصال به Gateway گُدار AI را دارند. با Access Control و قوانین ورودی، ریسک استفاده غیرمجاز یا اتصال مشکوک را کاهش دهید.
+                  مشخص کنید چه IPها، کشورها، تیم‌ها یا محیط‌هایی اجازه اتصال به Gateway گدارAI را دارند. با Access Control و قوانین ورودی، ریسک استفاده غیرمجاز یا اتصال مشکوک را کاهش دهید.
                 </p>
                 <p className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-6">
                   مناسب برای تیم‌هایی که سیاست‌های امنیتی، محدودیت شبکه یا الزامات داخلی Compliance دارند.
@@ -635,7 +635,7 @@ export function SecurityCompliance() {
                   حذف خودکار داده‌های حساس با Data Redaction
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  گُدار AI می‌تواند داده‌های حساس را قبل از ارسال درخواست به مدل شناسایی و حذف یا ماسک کند. اطلاعاتی مثل شماره تماس، ایمیل، کد ملی، توکن‌های داخلی، کلیدها یا داده‌های شخصی می‌توانند از Promptها و لاگ‌ها پاک‌سازی شوند.
+                  گدارAI می‌تواند داده‌های حساس را قبل از ارسال درخواست به مدل شناسایی و حذف یا ماسک کند. اطلاعاتی مثل شماره تماس، ایمیل، کد ملی، توکن‌های داخلی، کلیدها یا داده‌های شخصی می‌توانند از Promptها و گزارش رخدادها پاک‌سازی شوند.
                 </p>
                 <p className="text-xs text-rose-600 dark:text-rose-400 font-medium mb-6">
                   داده حساس را قبل از اینکه به مدل یا لاگ برسد کنترل کنید.
@@ -654,7 +654,7 @@ export function SecurityCompliance() {
                   Compliance با سیاست‌های امنیتی تیم شما
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  وقتی AI وارد محصول واقعی می‌شود، تیم‌ها باید بدانند چه کسی، با چه کلیدی، از کدام مدل، در چه زمانی و با چه داده‌ای استفاده کرده است. گُدار AI با لاگ‌های قابل‌ردیابی، سیاست‌های دسترسی و کنترل متمرکز، مسیر استفاده از AI را شفاف‌تر و قابل‌ممیزی‌تر می‌کند.
+                  وقتی AI وارد محصول واقعی می‌شود، تیم‌ها باید بدانند چه کسی، با چه کلیدی، از کدام مدل، در چه زمانی و با چه داده‌ای استفاده کرده است. گدارAI با گزارش‌های رخداد قابل‌ردیابی، سیاست‌های دسترسی و کنترل متمرکز، مسیر استفاده از AI را شفاف‌تر و قابل‌ممیزی‌تر می‌کند.
                 </p>
                 <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-6">
                   برای Audit، گزارش‌گیری داخلی، کنترل ریسک و آماده‌سازی برای استانداردهای امنیتی.
@@ -671,7 +671,7 @@ export function SecurityCompliance() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              یک لایه امنیتی برای AI در مقیاس Production
+              یک لایه امنیتی برای AI در مقیاس محیط عملیاتی
             </h2>
             <p className="text-lg text-slate-400">
               اتصال مستقیم به مدل‌ها شاید برای Prototype کافی باشد، اما برای محصول واقعی به کنترل کلیدها، قوانین دسترسی، رهگیری مصرف، محدودیت‌گذاری و محافظت از داده نیاز دارید.
@@ -684,7 +684,7 @@ export function SecurityCompliance() {
               {[
                 {
                   icon: Key, color: 'text-indigo-400', bg: 'bg-indigo-500/20',
-                  title: 'مدیریت متمرکز API Keys',
+                  title: 'مدیریت متمرکز کلیدهای دسترسی',
                   desc: 'کلیدهای اصلی تأمین‌کننده‌ها را در یک نقطه امن مدیریت کنید و به‌جای اشتراک‌گذاری مستقیم آن‌ها، از Virtual Keys قابل‌کنترل در تیم‌ها و سرویس‌های مختلف استفاده کنید.',
                 },
                 {
@@ -734,7 +734,7 @@ export function SecurityCompliance() {
               داده‌های حساس را قبل از رسیدن به مدل کنترل کنید
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              در AI appها، داده‌های کاربران ممکن است ناخواسته وارد Prompt، Response یا Logs شوند. گُدار AI کمک می‌کند این داده‌ها قبل از افشا شناسایی، ماسک یا حذف شوند.
+              در AI appها، داده‌های کاربران ممکن است ناخواسته وارد Prompt، Response یا Logs شوند. گدارAI کمک می‌کند این داده‌ها قبل از افشا شناسایی، ماسک یا حذف شوند.
             </p>
           </div>
 
@@ -743,13 +743,13 @@ export function SecurityCompliance() {
               {
                 icon: EyeOff, color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-500/10',
                 title: 'Redaction برای اطلاعات شخصی',
-                desc: 'اطلاعاتی مثل شماره تماس، ایمیل، نام، کد ملی، آدرس یا شناسه‌های داخلی را قبل از ارسال به مدل یا ذخیره در لاگ‌ها شناسایی و پاک‌سازی کنید.',
+                desc: 'اطلاعاتی مثل شماره تماس، ایمیل، نام، کد ملی، آدرس یا شناسه‌های داخلی را قبل از ارسال به مدل یا ذخیره در گزارش رخدادها شناسایی و پاک‌سازی کنید.',
                 tags: ['Phone', 'Email', 'National ID', 'Address'],
               },
               {
                 icon: Lock, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10',
                 title: 'ماسک کردن Secrets و کلیدها',
-                desc: 'اگر کلید API، توکن داخلی، Authorization Header یا Secret به‌اشتباه وارد درخواست شود، گُدار AI می‌تواند آن را شناسایی و ماسک کند.',
+                desc: 'اگر کلید دسترسی، توکن داخلی، Authorization Header یا Secret به‌اشتباه وارد درخواست شود، گدارAI می‌تواند آن را شناسایی و ماسک کند.',
                 tags: ['API Key', 'Token', 'Secret', 'Auth Header'],
               },
               {
@@ -761,7 +761,7 @@ export function SecurityCompliance() {
               {
                 icon: FileText, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10',
                 title: 'کنترل داده در Prompt و Logs',
-                desc: 'داده‌های حساس فقط در مسیر ارسال به مدل مهم نیستند؛ باید در لاگ‌ها، گزارش‌ها و داشبوردها هم کنترل شوند تا دسترسی داخلی نیز امن بماند.',
+                desc: 'داده‌های حساس فقط در مسیر ارسال به مدل مهم نیستند؛ باید در گزارش رخدادها، گزارش‌ها و داشبوردها هم کنترل شوند تا دسترسی داخلی نیز امن بماند.',
                 tags: ['Prompt', 'Response', 'Logs', 'Dashboard'],
               },
             ].map((card, i) => (
@@ -872,7 +872,7 @@ export function SecurityCompliance() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              چرا Security & Compliance گُدار AI برای تیم‌های ایرانی مهم‌تر است؟
+              چرا Security & Compliance گدارAI برای تیم‌های ایرانی مهم‌تر است؟
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
               برای تیم‌های ایرانی، امنیت AI فقط به محافظت از داده محدود نیست؛ مسئله دسترسی پایدار، پرداخت، ریسک قطع سرویس، کنترل تأمین‌کننده‌ها و مدیریت متمرکز هم مطرح است.
@@ -883,23 +883,23 @@ export function SecurityCompliance() {
             {[
               {
                 icon: Shield, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10', border: 'border-indigo-100 dark:border-indigo-500/20',
-                title: 'بدون محدودیت‌های تحریمی',
-                desc: 'با گُدار AI، تیم شما برای استفاده از مدل‌های AI خارجی کمتر درگیر محدودیت‌های تحریم، مسدود شدن حساب یا قطع دسترسی مستقیم می‌شود.',
+                title: 'کاهش ریسک محدودیت‌های اتصال مستقیم',
+                desc: 'با گدارAI، تیم شما برای استفاده از مدل‌های AI خارجی کمتر درگیر محدودیت‌های تحریم، مسدود شدن حساب یا قطع دسترسی مستقیم می‌شود.',
               },
               {
                 icon: CreditCard, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', border: 'border-emerald-100 dark:border-emerald-500/20',
                 title: 'بدون پرداخت ارزی مستقیم',
-                desc: 'به‌جای درگیری با کارت اعتباری خارجی، پرداخت دلاری و حساب‌های بین‌المللی، مصرف AI را از طریق گُدار AI و متناسب با نیاز بازار ایران مدیریت کنید.',
+                desc: 'به‌جای درگیری با کارت اعتباری خارجی، پرداخت دلاری و حساب‌های بین‌المللی، مصرف AI را از طریق گدارAI و متناسب با نیاز بازار ایران مدیریت کنید.',
               },
               {
                 icon: Lock, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10', border: 'border-purple-100 dark:border-purple-500/20',
                 title: 'کنترل متمرکز روی کلیدها و دسترسی‌ها',
-                desc: 'گُدار AI کمک می‌کند کلیدها، دسترسی‌ها، مصرف، Policyها و لاگ‌های امنیتی از چند مسیر پراکنده به یک لایه مرکزی منتقل شوند.',
+                desc: 'گدارAI کمک می‌کند کلیدها، دسترسی‌ها، مصرف، Policyها و گزارش‌های رخداد امنیتی از چند مسیر پراکنده به یک لایه مرکزی منتقل شوند.',
               },
               {
                 icon: Globe, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10', border: 'border-amber-100 dark:border-amber-500/20',
                 title: 'طراحی‌شده برای تیم‌های فارسی‌زبان',
-                desc: 'داشبوردها، گزارش‌ها و تجربه استفاده در گُدار AI برای تیم‌هایی طراحی می‌شود که محصول فارسی، کاربر ایرانی و نیازهای عملیاتی داخل ایران دارند.',
+                desc: 'داشبوردها، گزارش‌ها و تجربه استفاده در گدارAI برای تیم‌هایی طراحی می‌شود که محصول فارسی، کاربر ایرانی و نیازهای عملیاتی داخل ایران دارند.',
               },
             ].map((diff, i) => (
               <MagicCard
@@ -927,7 +927,7 @@ export function SecurityCompliance() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              Security & Compliance گُدار AI برای چه سناریوهایی مناسب است؟
+              Security & Compliance گدارAI برای چه سناریوهایی مناسب است؟
             </h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -935,7 +935,7 @@ export function SecurityCompliance() {
               {
                 icon: ShoppingCart, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10',
                 title: 'محصولات SaaS با داده کاربران',
-                desc: 'اگر کاربران شما اطلاعات شخصی، مکالمه، فایل یا داده حساس وارد محصول می‌کنند، گُدار AI کمک می‌کند مسیر تعامل با مدل‌ها امن‌تر و قابل‌کنترل‌تر شود.',
+                desc: 'اگر کاربران شما اطلاعات شخصی، مکالمه، فایل یا داده حساس وارد محصول می‌کنند، گدارAI کمک می‌کند مسیر تعامل با مدل‌ها امن‌تر و قابل‌کنترل‌تر شود.',
               },
               {
                 icon: Layers, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10',
@@ -991,7 +991,7 @@ export function SecurityCompliance() {
             {[
               {
                 tag: 'راهنما', color: 'text-indigo-600 dark:text-indigo-400', tagBg: 'bg-indigo-50 dark:bg-indigo-500/10',
-                title: 'چطور کلیدهای API مدل‌های AI را امن مدیریت کنیم؟',
+                title: 'چطور کلیدهای دسترسی مدل‌های AI را امن مدیریت کنیم؟',
                 desc: 'با Virtual Keys، محدودیت مصرف، چرخش کلید و جداسازی محیط‌ها، ریسک افشای کلیدها را کاهش دهید.',
               },
               {
@@ -1047,7 +1047,7 @@ export function SecurityCompliance() {
                 AI stack خود را امن، قابل‌کنترل و قابل‌ممیزی کنید
               </h2>
               <p className="text-lg text-indigo-200 mb-10 leading-relaxed">
-                با گُدار AI، کلیدهای API، Virtual Keys، Access Control، Data Redaction، Audit Logs و Policyهای امنیتی را از یک لایه مرکزی مدیریت کنید؛ بدون محدودیت‌های تحریمی و بدون نیاز به پرداخت ارزی مستقیم.
+                با گدارAI، کلیدهای دسترسی، Virtual Keys، Access Control، Data Redaction، Audit Logs و Policyهای امنیتی را از یک لایه مرکزی مدیریت کنید؛ با کاهش ریسک محدودیت‌های اتصال مستقیم و بدون نیاز به پرداخت ارزی مستقیم.
               </p>
               <div className="flex flex-col sm:flex-row items-start gap-4">
                 <Link
@@ -1068,7 +1068,7 @@ export function SecurityCompliance() {
                 {[
                   { icon: Shield, label: 'بدون تحریم' },
                   { icon: CreditCard, label: 'بدون پرداخت ارزی' },
-                  { icon: ShieldCheck, label: 'آماده Production' },
+                  { icon: ShieldCheck, label: 'آماده محیط عملیاتی' },
                 ].map((b, i) => (
                   <div key={i} className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5">
                     <b.icon className="w-3.5 h-3.5 text-indigo-200" />

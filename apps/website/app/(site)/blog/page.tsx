@@ -3,9 +3,9 @@ import { Blog } from '@/app/pages/Blog';
 import { buildMetadata } from "@/app/lib/seo";
 
 export const metadata: Metadata = buildMetadata({
-  title: "Blog",
+  title: "وبلاگ",
   description:
-    "Read product updates, engineering insights, and AI gateway best practices from the GodarAI team.",
+    "یادداشت‌های گدارAI درباره درگاه مدل‌های زبانی، کنترل هزینه، امنیت و تجربه ساخت محصول در ایران.",
   path: "/blog",
 });
 

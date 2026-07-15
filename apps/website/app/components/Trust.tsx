@@ -10,15 +10,15 @@ export function Trust() {
     <section className="py-16 sm:py-24 lg:py-32 relative overflow-hidden">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white mb-4 sm:mb-6 leading-relaxed">
-          گُدار AI برای شرایط واقعی کاربران ایرانی طراحی شده است؛ تمرکز بر سادگی، پایداری و کاهش هزینه.
+          گدارAI برای شرایط واقعی تیم‌های ایرانی طراحی شده است؛ با تمرکز بر اتصال قابل‌اعتماد، کنترل هزینه و شفافیت مصرف.
         </h2>
         <p className="text-sm sm:text-lg text-slate-600 dark:text-gray-400 mb-8 sm:mb-12 leading-7 sm:leading-relaxed">
-          ما چالش‌های شما را می‌شناسیم و زیرساختی ساخته‌ایم تا شما فقط روی توسعه محصول خود تمرکز کنید.
+          هدف ما این است که تیم فنی به‌جای مدیریت چند حساب و چند کلید، روی کیفیت تجربه کاربر و محصول تمرکز کند.
         </p>
 
         <div className="flex flex-col items-center">
           <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mb-6 sm:mb-8">
-            مسیر استفاده از AI را ساده کنید
+            مسیر مصرف مدل‌ها را قابل مدیریت کنید
           </h3>
           <Link href="/dashboard" className="flex min-h-12 w-full sm:w-auto items-center justify-center gap-2 px-8 py-4 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-medium text-base sm:text-lg transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] hover:shadow-[0_0_30px_rgba(99,102,241,0.6)] hover:-translate-y-1">
             شروع کنید
@@ -45,10 +45,10 @@ export function Footer() {
                 height={36}
                 className="h-9 w-9 shrink-0 rounded-lg"
               />
-              <span className="font-bold text-xl text-slate-900 dark:text-white">گُدار AI</span>
+              <span className="font-bold text-xl text-slate-900 dark:text-white">گدارAI</span>
             </div>
             <p className="text-sm text-slate-500 dark:text-gray-400 leading-relaxed mb-6">
-              یک LLM Gateway امن، سریع و به‌صرفه برای دسترسی به بهترین مدل‌های هوش مصنوعی دنیا، بدون محدودیت.
+              درگاه مدل‌های زبانی برای اتصال، مسیریابی، کنترل هزینه و پایش مصرف مدل‌ها در تیم‌های ایرانی.
             </p>
             <div className="flex items-center gap-4">
               <a href="#" className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
@@ -75,7 +75,7 @@ export function Footer() {
               <li><Link href="/" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">امکانات</Link></li>
               <li><Link href="/pricing" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">قیمت‌گذاری</Link></li>
               <li><Link href="/docs" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">مستندات API</Link></li>
-              <li><a href="#" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">وضعیت سرورها (Status)</a></li>
+              <li><a href="#" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">وضعیت سرویس</a></li>
             </ul>
           </div>
 
@@ -102,7 +102,7 @@ export function Footer() {
         
         <div className="border-t border-gray-200 dark:border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-right">
           <p className="text-sm text-slate-500 dark:text-gray-500">
-            © ۱۴۰۵ گُدار AI. تمامی حقوق محفوظ است.
+            © ۱۴۰۵ گدارAI. تمامی حقوق محفوظ است.
           </p>
           <div className="flex flex-col sm:flex-row items-center gap-4">
             <a
@@ -116,7 +116,7 @@ export function Footer() {
               <img
                 referrerPolicy="origin"
                 src="https://trustseal.enamad.ir/logo.aspx?id=737580&Code=Dc476GaakpMUDp6MG3lSrtPK8uL9943N"
-                alt="GodarAi E-Namad Trust Seal"
+                alt="نماد اعتماد الکترونیکی گدارAI"
                 style={{ cursor: "pointer" }}
                 width={125}
                 height={136}

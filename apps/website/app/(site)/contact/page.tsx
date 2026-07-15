@@ -3,9 +3,9 @@ import { Contact } from '@/app/pages/Contact';
 import { buildMetadata } from "@/app/lib/seo";
 
 export const metadata: Metadata = buildMetadata({
-  title: "Contact",
+  title: "تماس با ما",
   description:
-    "Contact GodarAI for sales, partnerships, or product questions about our AI gateway platform.",
+    "برای پرسش‌های فروش، همکاری یا راه‌اندازی درگاه مدل‌های زبانی با تیم گدارAI در ارتباط باشید.",
   path: "/contact",
 });
 

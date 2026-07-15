@@ -13,6 +13,7 @@ const staticRoutes = [
   "/features/guardrails",
   "/features/mcp-gateway",
   "/features/observability",
+  "/features/prompt-engineering",
   "/features/security",
   "/pricing",
   "/privacy",
