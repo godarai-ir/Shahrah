@@ -12,6 +12,7 @@ const staticRoutes = [
   "/features/ai-gateway",
   "/features/guardrails",
   "/features/mcp-gateway",
+  "/features/model-discovery",
   "/features/observability",
   "/features/prompt-engineering",
   "/features/security",

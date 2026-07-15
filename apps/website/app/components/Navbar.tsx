@@ -1,6 +1,6 @@
 'use client';
 
-import { Moon, Sun, Menu, X, ArrowLeft, ChevronDown, Activity, Network, ShieldCheck, TerminalSquare, Bot, Lock, Server } from 'lucide-react';
+import { Moon, Sun, Menu, X, ArrowLeft, ChevronDown, Activity, Network, ShieldCheck, TerminalSquare, Bot, Lock, Server, Database } from 'lucide-react';
 import { useTheme } from './ThemeProvider';
 import { useState } from 'react';
 import Link from 'next/link';
@@ -9,6 +9,7 @@ import Image from 'next/image';
 const features = [
   { name: 'پایش و مشاهده‌پذیری', description: 'گزارش رخداد، رد درخواست و سنجه‌های مصرف', icon: Activity, href: '/features/observability' },
   { name: 'درگاه مدل‌های زبانی', description: 'مسیریابی، مدل مجازی و کنترل هزینه از یک مسیر', icon: Network, href: '/features/ai-gateway' },
+  { name: 'کشف و مقایسه مدل‌ها', description: 'جست‌وجو، فیلتر و مقایسه مدل‌ها از ۲۱ پروایدر', icon: Database, href: '/features/model-discovery' },
   { name: 'گاردریل‌ها', description: 'کنترل ورودی، خروجی و داده حساس در مسیر مدل', icon: ShieldCheck, href: '/features/guardrails' },
   { name: 'رجیستری پرامپت', description: 'ساخت، نسخه‌بندی و اجرای پرامپت‌های قابل تکرار', icon: TerminalSquare, href: '/features/prompt-engineering' },
   { name: 'ایجنت‌ها', description: 'اجرای ایجنت‌ها با رد درخواست، گاردریل و کنترل هزینه', icon: Bot, href: '/features/agents' },
@@ -19,6 +20,18 @@ const features = [
 const mobileFeatures = features.filter(
   (feature) => feature.href !== '/features/agents' && feature.href !== '/features/mcp-gateway'
 );
+
+const primaryLinks = [
+  { label: 'مستندات', href: '/docs' },
+  { label: 'کاتالوگ مدل‌ها', href: '/catalog' },
+  { label: 'قیمت‌گذاری', href: '/pricing' },
+  { label: 'تماس', href: '/contact' },
+];
+
+const actionLinks = [
+  { label: 'ورود', href: '/login', variant: 'secondary' },
+  { label: '۱۵ روز رایگان شروع کنید', href: '/onboarding', variant: 'primary' },
+] as const;
 
 export function Navbar() {
   const { theme, setTheme } = useTheme();
@@ -47,7 +60,7 @@ export function Navbar() {
                   امکانات
                   <ChevronDown className="w-4 h-4 transition-transform duration-300 group-hover/features:rotate-180" />
                 </button>
-                <div className="absolute top-full right-0 w-[650px] opacity-0 invisible group-hover/features:opacity-100 group-hover/features:visible transition-all duration-300 -translate-y-2 group-hover/features:translate-y-0">
+                <div className="absolute top-full right-0 w-[720px] opacity-0 invisible group-hover/features:opacity-100 group-hover/features:visible transition-all duration-300 -translate-y-2 group-hover/features:translate-y-0">
                   <div className="bg-white dark:bg-[#0B0F19] rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] dark:shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] border border-gray-100 dark:border-gray-800/60 p-5 grid grid-cols-2 gap-2 relative before:absolute before:inset-0 before:bg-gradient-to-b before:from-indigo-500/5 before:to-transparent before:rounded-2xl before:pointer-events-none">
                     {features.map((feature, idx) => (
                       <Link key={idx} href={feature.href} className="flex items-start gap-4 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group/item relative z-10">
