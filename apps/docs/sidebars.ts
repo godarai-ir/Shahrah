@@ -25,6 +25,19 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'ارائه‌دهندگان و مدل‌ها',
+      link: {
+        type: 'doc',
+        id: 'provider-models-overview',
+      },
+      items: [
+        'provider-models-catalog',
+        'provider-models-concepts',
+        'provider-models-compare',
+      ],
+    },
+    {
+      type: 'category',
       label: 'APIهای متنی و داده',
       items: [
         'supported-apis/index',
