@@ -7,10 +7,10 @@ import { FAQAccordion } from '../../components/ui/FAQAccordion';
 import {
   Server, ShieldCheck, Key, Eye, BarChart3, Lock, Network,
   Users, CheckCircle, XCircle, AlertTriangle, ArrowLeft,
-  Layers, CreditCard, Shield, Globe, Activity, Zap,
+  Layers, CreditCard, Shield, Globe, Activity,
   Database, GitBranch, Building, Package, Wrench, Terminal,
-  ChevronRight, FileCode, Settings, BookOpen, Search,
-  TrendingDown, Bot, Star, LayoutGrid
+  ChevronRight, Settings, BookOpen,
+  Bot, LayoutGrid
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 

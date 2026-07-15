@@ -125,7 +125,7 @@ export function Navbar() {
       {isOpen && (
         <div id="mobile-menu" className="md:hidden border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0B0F19] overflow-y-auto max-h-[calc(100vh-64px)]">
           <div className="px-4 pt-2 pb-6 flex flex-col gap-3">
-            {mobileFeatures.map((feature, idx) => (
+            {mobileFeatures.map((feature) => (
               <Link
                 key={feature.href}
                 href={feature.href}

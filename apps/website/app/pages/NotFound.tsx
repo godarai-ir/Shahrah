@@ -1,6 +1,6 @@
 'use client';
 
-import { Home, ArrowLeft } from 'lucide-react';
+import { Home } from 'lucide-react';
 import Link from 'next/link';
 
 export function NotFound() {

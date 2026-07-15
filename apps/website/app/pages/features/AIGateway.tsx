@@ -1,16 +1,15 @@
 'use client';
 
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import Link from 'next/link';
 import { MagicCard } from '../../components/ui/MagicCard';
 import { FAQAccordion } from '../../components/ui/FAQAccordion';
 import {
   ArrowLeft, Zap, Shield, GitBranch, RefreshCw, Layers, BarChart3,
   Clock, DollarSign, CheckCircle, Key, Network, Activity, Database,
-  Globe, CreditCard, AlertTriangle, ToggleRight, FlipHorizontal,
-  FileText, SlidersHorizontal, Cpu, LayoutDashboard, Users,
-  ShoppingCart, Briefcase, TrendingUp, Bot, BookOpen, ArrowRight,
-  Check
+  Globe, CreditCard, ToggleRight, FlipHorizontal,
+  FileText, SlidersHorizontal, Cpu, LayoutDashboard,
+  ShoppingCart, Briefcase, TrendingUp, Bot,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -30,7 +29,7 @@ function GatewayDashboard() {
     const t1 = setInterval(() => setRequestCount(v => v + Math.floor(Math.random() * 5) + 1), 1800);
     const t2 = setInterval(() => setActiveProvider(v => (v + 1) % providers.length), 3000);
     return () => { clearInterval(t1); clearInterval(t2); };
-  }, []);
+  }, [providers.length]);
 
   const logs = [
     { status: '200', model: 'gpt-4o', provider: 'OpenAI', latency: '380ms', tokens: '520', cache: 'HIT', cost: '۶۲۰ ت' },

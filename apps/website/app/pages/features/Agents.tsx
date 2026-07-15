@@ -5,12 +5,12 @@ import Link from 'next/link';
 import { MagicCard } from '../../components/ui/MagicCard';
 import { FAQAccordion } from '../../components/ui/FAQAccordion';
 import {
-  Bot, Activity, Zap, GitBranch, RotateCcw, Shield, ShieldCheck,
+  Bot, Activity, Zap, GitBranch, RotateCcw, Shield,
   Eye, AlertTriangle, CheckCircle, XCircle, Clock, DollarSign,
   ArrowLeft, Network, Layers, Lock, CreditCard, Globe,
-  Wrench, Users, Database, Cpu, BookOpen, BarChart3,
-  Play, ChevronRight, Settings, TrendingDown, MessagesSquare,
-  Briefcase, Search, Building, Share2, Terminal
+  Wrench, Users, Cpu, BookOpen, BarChart3,
+  ChevronRight, TrendingDown, MessagesSquare,
+  Search, Building, Share2, Terminal
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 

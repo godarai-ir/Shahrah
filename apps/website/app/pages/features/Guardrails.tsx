@@ -7,9 +7,9 @@ import { FAQAccordion } from '../../components/ui/FAQAccordion';
 import {
   ShieldCheck, ShieldAlert, Shield, AlertTriangle, CheckCircle,
   XCircle, RotateCcw, GitBranch, Bell, Eye, Lock, Zap,
-  FileCode, Regex, Bot, ArrowLeft, ArrowRight, Database,
-  Filter, Activity, Layers, Globe, CreditCard, Terminal,
-  BookOpen, Cpu, LayoutGrid, ChevronRight, Webhook, MessagesSquare,
+  Bot, ArrowLeft, Database,
+  Filter, Activity, Layers, Globe, CreditCard,
+  Cpu, LayoutGrid, Webhook, MessagesSquare,
   Network, Briefcase
 } from 'lucide-react';
 import { useState, useEffect } from 'react';

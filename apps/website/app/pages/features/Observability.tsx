@@ -5,13 +5,12 @@ import Link from 'next/link';
 import { MagicCard } from '../../components/ui/MagicCard';
 import { FAQAccordion } from '../../components/ui/FAQAccordion';
 import { 
-  ArrowLeft, Activity, Box, BarChart3, Clock, AlertTriangle, 
-  Layers, Table, Network, CheckCircle, Play, DollarSign, 
+  ArrowLeft, Activity, BarChart3, Clock, AlertTriangle, 
+  Table, Network, CheckCircle, DollarSign, 
   ListFilter, Users, Building, HelpCircle, Code, Workflow, 
-  Zap, Database, TerminalSquare, ShieldAlert, Cpu, Fingerprint, 
-  Search, ChevronDown, ChevronUp, Check, Globe, CreditCard, Crosshair
+  Database, TerminalSquare, ShieldAlert, Cpu, Fingerprint, 
+  Search, Check, Globe, CreditCard, Crosshair
 } from 'lucide-react';
-import { useState } from 'react';
 
 const fadeIn = {
   initial: { opacity: 0, y: 20 },

@@ -6,11 +6,10 @@ import { MagicCard } from '../../components/ui/MagicCard';
 import { FAQAccordion } from '../../components/ui/FAQAccordion';
 import {
   Shield, Key, Lock, Eye, EyeOff, AlertTriangle, CheckCircle,
-  Users, FileText, Globe, CreditCard, ArrowLeft, Database,
-  ShieldCheck, ShieldAlert, Layers, ToggleRight, Activity,
-  Briefcase, Bot, BookOpen, Network, Check, Settings,
-  ClipboardList, Filter, GitBranch, TrendingUp, ShoppingCart,
-  Clock, Terminal
+  Users, FileText, Globe, CreditCard, ArrowLeft,
+  ShieldCheck, ShieldAlert, Layers, ToggleRight,
+  Briefcase, Bot, Check, Settings,
+  ClipboardList, Filter, ShoppingCart
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
