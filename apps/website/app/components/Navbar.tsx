@@ -16,6 +16,18 @@ const features = [
   { name: 'درگاه MCP', description: 'استقرار و مدیریت سرورهای MCP در محیط عملیاتی', icon: Server, href: '/features/mcp-gateway' },
 ];
 
+const primaryLinks = [
+  { label: 'قیمت‌گذاری', href: '/pricing' },
+  { label: 'درباره ما', href: '/about' },
+  { label: 'وبلاگ', href: '/blog' },
+  { label: 'تماس', href: '/contact' },
+];
+
+const actionLinks = [
+  { label: 'ورود', href: '/login', variant: 'secondary' as const },
+  { label: 'شروع کنید', href: '/pricing', variant: 'primary' as const },
+];
+
 export function Navbar() {
   const { theme, setTheme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
@@ -59,10 +71,15 @@ export function Navbar() {
                   </div>
                 </div>
               </div>
-              <Link href="/pricing" className="text-sm font-medium text-slate-600 dark:text-gray-300 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors">قیمت‌گذاری</Link>
-              <Link href="/about" className="text-sm font-medium text-slate-600 dark:text-gray-300 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors">درباره ما</Link>
-              <Link href="/blog" className="text-sm font-medium text-slate-600 dark:text-gray-300 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors">وبلاگ</Link>
-              <Link href="/contact" className="text-sm font-medium text-slate-600 dark:text-gray-300 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors">تماس</Link>
+              {primaryLinks.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="text-sm font-medium text-slate-600 transition-colors hover:text-indigo-500 dark:text-gray-300 dark:hover:text-indigo-400"
+                >
+                  {item.label}
+                </Link>
+              ))}
             </div>
           </div>
 
@@ -74,13 +91,20 @@ export function Navbar() {
             >
               {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
-            <Link href="/login" className="text-sm font-medium text-slate-600 transition-colors hover:text-indigo-500 dark:text-gray-300 dark:hover:text-indigo-400">
-              ورود
-            </Link>
-            <Link href="/onboarding" className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium transition-all shadow-[0_0_15px_rgba(99,102,241,0.3)] hover:shadow-[0_0_25px_rgba(99,102,241,0.5)]">
-              شروع کنید
-              <ArrowLeft className="w-4 h-4" />
-            </Link>
+            {actionLinks.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={
+                  item.variant === 'primary'
+                    ? 'flex items-center gap-2 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white transition-all shadow-[0_0_15px_rgba(99,102,241,0.3)] hover:bg-indigo-600 hover:shadow-[0_0_25px_rgba(99,102,241,0.5)]'
+                    : 'text-sm font-medium text-slate-600 transition-colors hover:text-indigo-500 dark:text-gray-300 dark:hover:text-indigo-400'
+                }
+              >
+                {item.label}
+                {item.variant === 'primary' ? <ArrowLeft className="h-4 w-4" /> : null}
+              </Link>
+            ))}
           </div>
 
           {/* Mobile menu button */}
@@ -111,7 +135,7 @@ export function Navbar() {
           <div className="px-4 pt-2 pb-6 flex flex-col gap-3">
             {features.map((feature, idx) => (
               <Link
-                key={idx}
+                key={feature.href}
                 href={feature.href}
                 className="flex min-h-11 items-start gap-3 py-2"
                 onClick={() => setIsOpen(false)}
@@ -123,13 +147,31 @@ export function Navbar() {
                 </span>
               </Link>
             ))}
-            <Link href="/pricing" className="block min-h-11 py-3 text-sm font-medium text-slate-600 dark:text-gray-300" onClick={() => setIsOpen(false)}>قیمت‌گذاری</Link>
-            <Link href="/about" className="block min-h-11 py-3 text-sm font-medium text-slate-600 dark:text-gray-300" onClick={() => setIsOpen(false)}>درباره ما</Link>
-            <Link href="/blog" className="block min-h-11 py-3 text-sm font-medium text-slate-600 dark:text-gray-300" onClick={() => setIsOpen(false)}>وبلاگ</Link>
-            <Link href="/contact" className="block min-h-11 py-3 text-sm font-medium text-slate-600 dark:text-gray-300" onClick={() => setIsOpen(false)}>تماس</Link>
+            {primaryLinks.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="block min-h-11 py-3 text-sm font-medium text-slate-600 dark:text-gray-300"
+                onClick={() => setIsOpen(false)}
+              >
+                {item.label}
+              </Link>
+            ))}
             <div className="border-t border-gray-200 dark:border-gray-800 pt-4 flex flex-col gap-4">
-              <Link href="/login" className="block min-h-12 rounded-lg border border-gray-200 px-4 py-3 text-center text-sm font-medium text-slate-700 dark:border-gray-800 dark:text-gray-200" onClick={() => setIsOpen(false)}>ورود</Link>
-              <Link href="/onboarding" className="block min-h-12 rounded-lg bg-indigo-500 px-4 py-3 text-center text-sm font-medium text-white" onClick={() => setIsOpen(false)}>شروع کنید</Link>
+              {actionLinks.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={
+                    item.variant === 'primary'
+                      ? 'block min-h-12 rounded-lg bg-indigo-500 px-4 py-3 text-center text-sm font-medium text-white'
+                      : 'block min-h-12 rounded-lg border border-gray-200 px-4 py-3 text-center text-sm font-medium text-slate-700 dark:border-gray-800 dark:text-gray-200'
+                  }
+                  onClick={() => setIsOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              ))}
             </div>
           </div>
         </div>
