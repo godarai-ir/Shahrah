@@ -20,7 +20,7 @@ export function HowItWorks() {
             چگونه کار می‌کند؟
           </h2>
           <p className="text-sm sm:text-lg text-slate-600 dark:text-gray-400 leading-7 sm:leading-relaxed">
-            مسیر شروع را کوتاه نگه داشته‌ایم: اول اتصال، بعد کنترل و پایش.
+            دوره‌ی آزمایشی را شروع کنید. اولین درخواست را بزنید. از سیاست‌های کنترلی نظارتی استفاده کنید.
           </p>
         </div>
 

@@ -1,33 +1,33 @@
 'use client';
 
-import { MessageSquare, FileText, Wrench, Rocket, Database } from 'lucide-react';
+import { Activity, KeyRound, Route, ShieldCheck, WalletCards } from 'lucide-react';
 import { motion } from 'motion/react';
 
 const cases = [
   {
-    icon: <MessageSquare className="w-8 h-8" />,
-    title: 'پشتیبانی فروشگاه و پیام‌رسان',
-    desc: 'پاسخ‌گویی به پیگیری سفارش، وضعیت پرداخت و سوال‌های پرتکرار مشتریان با مسیر مصرف قابل‌پایش.'
+    icon: <KeyRound className="w-8 h-8" />,
+    title: 'پراکنده‌شدن کلیدها و دسترسی‌ها',
+    desc: 'وقتی هر محصول یا تیم مستقیم به ارائه‌دهنده وصل می‌شود، کلیدها در سرویس‌ها و مخزن‌ها پخش می‌شوند. LLM Gateway مسیر دسترسی را متمرکز و قابل‌کنترل می‌کند.'
   },
   {
-    icon: <FileText className="w-8 h-8" />,
-    title: 'تولید محتوا',
-    desc: 'تولید پیش‌نویس توضیح محصول، پیامک اطلاع‌رسانی یا متن شبکه‌های اجتماعی با مدل و هزینه مشخص.'
+    icon: <WalletCards className="w-8 h-8" />,
+    title: 'هزینه و مصرف نامشخص',
+    desc: 'بدون سقف مصرف، گزارش توکن و تفکیک هزینه، تشخیص سهم هر تیم سخت می‌شود. گدارAI مصرف مدل‌ها را قابل‌پایش و قابل‌بودجه‌بندی می‌کند.'
   },
   {
-    icon: <Wrench className="w-8 h-8" />,
-    title: 'ابزارهای داخلی سازمان',
-    desc: 'خلاصه‌سازی تیکت‌ها، دسته‌بندی درخواست‌های پشتیبانی و کمک به تیم عملیات بدون پخش کلیدهای اصلی.'
+    icon: <Route className="w-8 h-8" />,
+    title: 'وابستگی به یک مدل یا ارائه‌دهنده',
+    desc: 'اگر یک مدل کند، گران یا ناپایدار شود، تغییر مسیر در چند کدبیس پرهزینه است. Gateway امکان مسیریابی، مدل مجازی و تغییر مسیر کنترل‌شده را فراهم می‌کند.'
   },
   {
-    icon: <Rocket className="w-8 h-8" />,
-    title: 'استارتاپ‌های هوش مصنوعی',
-    desc: 'اتصال اولیه به چند مدل، کنترل هزینه آزمایش‌ها و آماده‌سازی مسیر پایدارتر برای رشد محصول.'
+    icon: <Activity className="w-8 h-8" />,
+    title: 'عیب‌یابی دشوار درخواست‌ها',
+    desc: 'وقتی پاسخ کند یا خطا رخ می‌دهد، تیم باید بداند کدام مدل، کاربر، کلید یا مسیر درگیر بوده است. گزارش رخداد و Trace این مسیر را روشن می‌کند.'
   },
   {
-    icon: <Database className="w-8 h-8" />,
-    title: 'پردازش داده‌ها',
-    desc: 'استخراج داده از پیام‌های فارسی، دسته‌بندی بازخورد کاربران و تحلیل متن‌های داخلی کسب‌وکار.'
+    icon: <ShieldCheck className="w-8 h-8" />,
+    title: 'کنترل‌نشدن داده و سیاست‌ها',
+    desc: 'ورودی و خروجی مدل می‌تواند شامل داده حساس، محتوای ناخواسته یا فرمت نامعتبر باشد. گاردریل‌ها و سیاست‌های Gateway ریسک را قبل از رسیدن به محصول کم می‌کنند.'
   }
 ];
 
@@ -37,10 +37,10 @@ export function UseCases() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-10 sm:mb-16">
           <h2 className="text-2xl sm:text-4xl font-bold text-slate-900 dark:text-white mb-4 leading-tight">
-            سناریوهای رایج گدارAI
+            مشکلات رایج تیم‌ها و سازمان‌ها در استفاده از مدل‌های AI
           </h2>
           <p className="text-sm sm:text-lg text-slate-600 dark:text-gray-400 leading-7 sm:leading-relaxed">
-            برای هر محصولی که به قدرت پردازش زبان طبیعی نیاز دارد.
+            چالش‌هایی که با یک LLM Gateway می‌توان آن‌ها را از مسیر اتصال، کنترل مصرف، پایش و امنیت مدیریت کرد.
           </p>
         </div>
 

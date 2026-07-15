@@ -1,105 +1,76 @@
 'use client';
 
-import { motion } from 'motion/react';
-import { CircleCheck, Copy } from 'lucide-react';
-import { useState } from 'react';
+import { Braces, FileJson, ImageIcon, MessageSquare, Mic, Search } from 'lucide-react';
+
+const endpoints = [
+  {
+    icon: <MessageSquare className="h-6 w-6" />,
+    title: 'Chat Completions',
+    description: 'برای چت، تولید متن، ابزارها و خروجی ساختاریافته با قرارداد سازگار با OpenAI.',
+  },
+  {
+    icon: <FileJson className="h-6 w-6" />,
+    title: 'Responses API',
+    description: 'برای تیم‌هایی که جریان‌های جدیدتر تولید پاسخ، ابزارها و ورودی چندبخشی را ترجیح می‌دهند.',
+  },
+  {
+    icon: <ImageIcon className="h-6 w-6" />,
+    title: 'Image APIs',
+    description: 'تولید، ویرایش و تغییر تصویر از همان مسیر درگاه، همراه با کنترل مصرف و گزارش رخداد.',
+  },
+  {
+    icon: <Braces className="h-6 w-6" />,
+    title: 'Embeddings',
+    description: 'تبدیل متن به بردار برای جست‌وجوی معنایی، RAG، دسته‌بندی و تحلیل داده‌های متنی.',
+  },
+  {
+    icon: <Mic className="h-6 w-6" />,
+    title: 'Audio APIs',
+    description: 'تبدیل گفتار به متن، متن به گفتار و ترجمه صوتی برای تجربه‌های صوتی و پشتیبانی.',
+  },
+  {
+    icon: <Search className="h-6 w-6" />,
+    title: 'Rerank و Moderation',
+    description: 'بهبود ترتیب نتایج بازیابی و بررسی ایمنی محتوا پیش از نمایش یا پردازش نهایی.',
+  },
+];
 
 export function Developer() {
-  const [copied, setCopied] = useState(false);
-  const code = `import { OpenAI } from "openai";
-
-const client = new OpenAI({
-  apiKey: "YOUR_GODARAI_TOKEN",
-  baseURL: "https://YOUR_WORKSPACE.godarai.ir/v1" // نشانی پایه درگاه
-});
-
-const response = await client.chat.completions.create({
-  model: "gpt-4-turbo",
-  messages: [{ role: "user", content: "سلام دنیا" }]
-});
-
-console.log(response.choices[0].message.content);`;
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   return (
     <section id="developers" className="py-14 sm:py-20 lg:py-24 overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid min-w-0 gap-10 lg:grid-cols-2 lg:gap-16 items-center">
-          
-          <div className="min-w-0">
-            <h2 className="text-2xl sm:text-4xl font-bold text-slate-900 dark:text-white mb-4 sm:mb-6 leading-tight">
-              طراحی شده برای توسعه‌دهندگان
-            </h2>
-            <p className="text-sm sm:text-lg text-slate-600 dark:text-gray-400 mb-6 sm:mb-8 leading-7 sm:leading-relaxed">
-              گدارAI API سازگار با OpenAI ارائه می‌دهد. برای شروع، توکن دسترسی و نشانی پایه درگاه را جایگزین کنید و همان قرارداد آشنا را نگه دارید.
-            </p>
-            
-            <ul className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
-              {[
-                'نمونه‌های کوتاه برای Python، NodeJS و REST API',
-                'نشانی پایه درگاه برای هر فضای کاری',
-                'توکن دسترسی شخصی برای آزمایش و VAT برای سرویس‌ها',
-                'بررسی درخواست در گزارش رخدادها و رد درخواست‌ها'
-              ].map((item, i) => (
-                <li key={i} className="flex items-start gap-3 text-sm sm:text-base text-slate-700 dark:text-gray-300">
-                  <CircleCheck className="w-5 h-5 text-green-500 flex-shrink-0" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-            
-            <a href="#docs" className="inline-flex min-h-12 w-full sm:w-auto items-center justify-center px-6 py-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-medium hover:bg-slate-800 dark:hover:bg-gray-100 transition-colors">
-              مطالعه مستندات API
-            </a>
-          </div>
+        <div className="mx-auto max-w-3xl text-center">
+          <h2 className="mb-4 text-2xl font-bold leading-tight text-slate-900 dark:text-white sm:text-4xl">
+            اندپوینت‌های قابل استفاده در گدارAI
+          </h2>
+          <p className="mb-8 text-sm leading-7 text-slate-600 dark:text-gray-400 sm:text-lg sm:leading-relaxed">
+            از تولید متن و پاسخ‌های ساختاریافته تا تصویر، صوت، Embedding و کنترل محتوا را از یک مسیر واحد فراخوانی کنید و همان‌جا مصرف، هزینه و رخدادها را ببینید.
+          </p>
+        </div>
 
-          <div className="relative min-w-0" dir="ltr">
-            <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-2xl blur-2xl opacity-20"></div>
-            <div className="relative max-w-full overflow-hidden rounded-2xl border border-gray-800 bg-[#0B0F19] shadow-2xl">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-[#111827]">
-                <div className="flex space-x-2">
-                  <div className="w-3 h-3 rounded-full bg-gray-700"></div>
-                  <div className="w-3 h-3 rounded-full bg-gray-700"></div>
-                  <div className="w-3 h-3 rounded-full bg-gray-700"></div>
-                </div>
-                <div className="text-xs text-gray-400 font-mono">index.ts</div>
-                <button 
-                  onClick={handleCopy}
-                  className="text-gray-400 hover:text-white transition-colors"
-                  title="Copy code"
-                >
-                  <Copy className="w-4 h-4" />
-                </button>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {endpoints.map((endpoint) => (
+            <div
+              key={endpoint.title}
+              className="rounded-2xl border border-gray-100 bg-white p-5 transition-colors hover:border-indigo-500/50 dark:border-gray-800 dark:bg-[#0B0F19] dark:hover:border-indigo-500/50"
+            >
+              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+                {endpoint.icon}
               </div>
-              <div className="relative overflow-x-auto p-4 sm:p-6 text-xs sm:text-sm font-mono text-gray-300">
-                {copied && (
-                  <div className="absolute top-4 right-4 bg-green-500/20 text-green-400 px-3 py-1 rounded text-xs">
-                    Copied!
-                  </div>
-                )}
-                <pre>
-                  <code>
-<span className="text-purple-400">import</span> {'{'} OpenAI {'}'} <span className="text-purple-400">from</span> <span className="text-green-400">"openai"</span>;{'\n\n'}
-<span className="text-purple-400">const</span> client = <span className="text-purple-400">new</span> OpenAI({'{'}{'\n'}
-{'  '}apiKey: <span className="text-green-400">"YOUR_GODARAI_TOKEN"</span>,{'\n'}
-{'  '}baseURL: <span className="text-green-400">"https://YOUR_WORKSPACE.godarai.ir/v1"</span> <span className="text-gray-500">// نشانی پایه درگاه</span>{'\n'}
-{'}'});{'\n\n'}
-<span className="text-purple-400">const</span> response = <span className="text-blue-400">await</span> client.chat.completions.create({'{'}{'\n'}
-{'  '}model: <span className="text-green-400">"gpt-4-turbo"</span>,{'\n'}
-{'  '}messages: [{'{'} role: <span className="text-green-400">"user"</span>, content: <span className="text-green-400">"سلام دنیا"</span> {'}'}]{'\n'}
-{'}'});{'\n\n'}
-<span className="text-yellow-400">console</span>.<span className="text-blue-400">log</span>(response.choices[<span className="text-orange-400">0</span>].message.content);
-                  </code>
-                </pre>
-              </div>
+              <h3 className="mb-2 text-lg font-bold text-slate-900 dark:text-white" dir="ltr">
+                {endpoint.title}
+              </h3>
+              <p className="text-sm leading-7 text-slate-600 dark:text-gray-400">
+                {endpoint.description}
+              </p>
             </div>
-          </div>
+          ))}
+        </div>
 
+        <div className="mt-8 flex justify-center">
+          <a href="/docs/supported-apis" className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-slate-900 px-6 py-3 font-medium text-white transition-colors hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-gray-100 sm:w-auto">
+            مطالعه مستندات API
+          </a>
         </div>
       </div>
     </section>

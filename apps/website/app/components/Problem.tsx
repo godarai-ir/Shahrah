@@ -6,14 +6,14 @@ import { CreditCard, Network, DollarSign, Activity } from 'lucide-react';
 const problems = [
   {
     icon: <CreditCard className="w-6 h-6" />,
-    title: 'پرداخت و تسویه پیچیده',
+    title: 'پرداخت و حسابداری پیچیده',
     description: 'مدیریت پرداخت ارزی، شارژ حساب‌های خارجی و تطبیق آن با هزینه ریالی تیم محصول زمان‌بر است.',
     color: 'text-red-500',
     bg: 'bg-red-50 dark:bg-red-500/10'
   },
   {
     icon: <Network className="w-6 h-6" />,
-    title: 'چند قرارداد و چند کلید',
+    title: 'تنوع ارائه‌دهندگان و مدل‌ها',
     description: 'هر ارائه‌دهنده مدل، کلید، نشانی و محدودیت خودش را دارد و تغییر مدل در کد محصول پرهزینه می‌شود.',
     color: 'text-orange-500',
     bg: 'bg-orange-50 dark:bg-orange-500/10'
@@ -40,10 +40,10 @@ export function Problem() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-16">
           <h2 className="text-2xl sm:text-4xl font-bold text-slate-900 dark:text-white mb-4 leading-tight">
-            چرا استفاده از هوش مصنوعی در ایران سخت است؟
+            در استفاده از AI بی‌گدار به آب نزنید!
           </h2>
           <p className="text-sm sm:text-lg text-slate-600 dark:text-gray-400 leading-7 sm:leading-relaxed">
-            تیم‌های ایرانی معمولاً هم‌زمان با پرداخت، اتصال، کنترل مصرف و عیب‌یابی مسیر مدل‌ها درگیر می‌شوند.
+            استفاده از AI در محیط عملیاتی به سطح متفاوتی از مشاهده‌پذیری، کنترل و امنیت نیازمند است. می‌توانید آنها را به گدارAI بسپارید.
           </p>
         </div>
 

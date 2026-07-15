@@ -19,7 +19,6 @@ const features = [
 export function Navbar() {
   const { theme, setTheme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
-  const [isMobileFeaturesOpen, setIsMobileFeaturesOpen] = useState(false);
 
   return (
     <nav className="sticky top-0 z-50 w-full backdrop-blur-xl bg-white/70 dark:bg-[#0B0F19]/70 border-b border-gray-200 dark:border-gray-800 transition-colors duration-300">
@@ -36,7 +35,7 @@ export function Navbar() {
                 height={36}
                 className="h-9 w-9 shrink-0 rounded-lg"
               />
-              <span className="truncate font-bold text-lg sm:text-xl text-slate-900 dark:text-white">گدارAI</span>
+              <span className="truncate font-bold text-lg sm:text-xl text-slate-900 dark:text-white">گٌدارAI</span>
             </Link>
             <div className="hidden md:flex items-center gap-6 h-16">
               <div className="relative group/features h-full flex items-center">
@@ -71,7 +70,7 @@ export function Navbar() {
           <div className="hidden md:flex items-center gap-4">
             <button
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="p-2 rounded-full text-slate-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              className="flex items-center justify-center p-2 rounded-full text-slate-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             >
               {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
@@ -85,22 +84,22 @@ export function Navbar() {
           </div>
 
           {/* Mobile menu button */}
-          <div className="md:hidden flex shrink-0 items-center gap-2">
-            <button
-              aria-label="Toggle theme"
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="min-h-11 min-w-11 p-2 rounded-full text-slate-600 dark:text-gray-300"
-            >
-              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </button>
+          <div className="flex shrink-0 items-center gap-2 md:hidden">
             <button
               aria-label={isOpen ? "Close menu" : "Open menu"}
               aria-expanded={isOpen}
               aria-controls="mobile-menu"
               onClick={() => setIsOpen(!isOpen)}
-              className="min-h-11 min-w-11 text-slate-600 dark:text-gray-300"
+              className="flex min-h-11 min-w-11 items-center justify-center text-slate-600 dark:text-gray-300"
             >
               {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+            <button
+              aria-label="Toggle theme"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="flex min-h-11 min-w-11 items-center justify-center p-2 rounded-full text-slate-600 dark:text-gray-300"
+            >
+              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
           </div>
         </div>
@@ -110,37 +109,20 @@ export function Navbar() {
       {isOpen && (
         <div id="mobile-menu" className="md:hidden border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0B0F19] overflow-y-auto max-h-[calc(100vh-64px)]">
           <div className="px-4 pt-2 pb-6 flex flex-col gap-3">
-            <div>
-              <button 
-                aria-expanded={isMobileFeaturesOpen}
-                onClick={() => setIsMobileFeaturesOpen(!isMobileFeaturesOpen)}
-                className="flex items-center justify-between w-full text-sm font-medium text-slate-600 dark:text-gray-300 py-3 min-h-11"
+            {features.map((feature, idx) => (
+              <Link
+                key={idx}
+                href={feature.href}
+                className="flex min-h-11 items-start gap-3 py-2"
+                onClick={() => setIsOpen(false)}
               >
-                امکانات
-                <ChevronDown className={`w-4 h-4 transition-transform ${isMobileFeaturesOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {isMobileFeaturesOpen && (
-                <div className="pl-4 pr-2 py-2 flex flex-col gap-3 border-r-2 border-indigo-100 dark:border-gray-800 mr-2 mt-2">
-                  {features.map((feature, idx) => (
-                    <Link 
-                      key={idx} 
-                      href={feature.href} 
-                      className="flex items-start gap-3 py-2 min-h-11"
-                      onClick={() => {
-                        setIsOpen(false);
-                        setIsMobileFeaturesOpen(false);
-                      }}
-                    >
-                      <feature.icon className="w-5 h-5 text-indigo-500 mt-0.5" />
-                      <div>
-                        <div className="text-sm font-bold text-slate-900 dark:text-white mb-0.5">{feature.name}</div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">{feature.description}</div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
+                <feature.icon className="mt-0.5 h-5 w-5 shrink-0 text-indigo-500" />
+                <span className="min-w-0">
+                  <span className="block text-sm font-bold text-slate-900 dark:text-white">{feature.name}</span>
+                  <span className="block truncate text-xs text-slate-500 dark:text-slate-400">{feature.description}</span>
+                </span>
+              </Link>
+            ))}
             <Link href="/pricing" className="block min-h-11 py-3 text-sm font-medium text-slate-600 dark:text-gray-300" onClick={() => setIsOpen(false)}>قیمت‌گذاری</Link>
             <Link href="/about" className="block min-h-11 py-3 text-sm font-medium text-slate-600 dark:text-gray-300" onClick={() => setIsOpen(false)}>درباره ما</Link>
             <Link href="/blog" className="block min-h-11 py-3 text-sm font-medium text-slate-600 dark:text-gray-300" onClick={() => setIsOpen(false)}>وبلاگ</Link>

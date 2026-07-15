@@ -24,18 +24,18 @@ export function Hero() {
           >
             <div className="inline-flex max-w-full items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[11px] sm:text-sm font-medium mb-4 sm:mb-8 border border-indigo-100 dark:border-indigo-500/20 whitespace-normal leading-6">
               <span className="flex h-2 w-2 rounded-full bg-indigo-500 animate-pulse"></span>
-              درگاه مدل‌های زبانی برای تیم‌های ایرانی
+              بی‌گٌدار به آب نزنید!
             </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold text-slate-900 dark:text-white leading-[1.35] sm:leading-[1.2] mb-4 sm:mb-6 font-sans text-balance">گدارAI؛ مسیر کنترل‌شده برای اتصال محصول شما به <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500">مدل‌های زبانی</span></h1>
+            <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold text-slate-900 dark:text-white leading-[1.35] sm:leading-[1.2] mb-4 sm:mb-6 font-sans text-balance">گدارAI؛ مسیر کنترل‌شده‌ی اتصال محصول به <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500">مدل‌های هوش‌مصنوعی</span></h1>
             <p className="mx-auto max-w-xl text-sm sm:text-lg text-slate-600 dark:text-gray-400 mb-6 sm:mb-8 leading-8 sm:leading-relaxed lg:mx-0">
-              یک درگاه مدل‌های زبانی (LLM Gateway) برای تیم‌هایی که می‌خواهند پرداخت ریالی، مسیریابی مدل، کنترل هزینه و پایش درخواست‌ها را از یک مسیر قابل‌پیگیری مدیریت کنند.
+              به‌جای مدیریت ده‌ها API و ارائه‌دهنده مختلف، تنها یک API را فراخوانی کنید. گدارAI با مسیریابی هوشمند، مدیریت هزینه، پایش مصرف، کش پاسخ‌ها و قابلیت‌های کنترل دسترسی، زیرساختی یکپارچه برای استفاده از مدل‌های هوش مصنوعی در مقیاس سازمانی فراهم می‌کند.
             </p>
-            <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 sm:gap-4">
-              <Link href="/signup" className="justify-center flex w-full sm:w-auto items-center gap-2 px-6 py-3.5 min-h-12 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-medium transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] hover:shadow-[0_0_30px_rgba(99,102,241,0.6)]">
-                شروع کنید
+            <div className="flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap sm:gap-4 lg:justify-start">
+              <Link href="/pricing" className="flex min-h-12 w-auto items-center justify-center gap-2 rounded-xl bg-indigo-500 px-6 py-3.5 font-medium text-white shadow-[0_0_20px_rgba(99,102,241,0.4)] transition-all hover:bg-indigo-600 hover:shadow-[0_0_30px_rgba(99,102,241,0.6)]">
+                ۱۵ روز رایگان شروع کنید
                 <ArrowLeft className="w-5 h-5" />
               </Link>
-              <Link href="/docs" className="justify-center flex w-full sm:w-auto items-center gap-2 px-6 py-3.5 min-h-12 rounded-xl bg-white dark:bg-gray-800 text-slate-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border border-gray-200 dark:border-gray-700 shadow-sm">
+              <Link href="/docs" className="flex min-h-12 w-auto items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-6 py-3.5 font-medium text-slate-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
                 مشاهده مستندات
                 <Terminal className="w-5 h-5" />
               </Link>
