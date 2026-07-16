@@ -188,7 +188,7 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
         }}
       />
 
-      <div className="relative mx-auto flex w-full max-w-4xl flex-col gap-8 px-4 py-5 sm:px-6 lg:px-8">
+      <div className="relative mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-8 px-4 py-5 sm:px-6 lg:px-8">
         <header className="flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
             <div className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-card p-1.5 shadow-sm">
@@ -211,7 +211,7 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
 
         <div className="flex flex-1 items-center justify-center py-4">
           <section className="mx-auto flex w-full max-w-md flex-col gap-4">
-            <div className="flex flex-col items-start gap-4">
+            <div className="flex flex-col items-center gap-4 text-center">
               <Badge variant="info" className="w-fit">
                 <ShieldCheck className="me-1 size-3.5" aria-hidden="true" />
                 {t("hero.badge")}
@@ -379,20 +379,20 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
                             <InputOTPSlot
                               key={index}
                               index={index}
-                              className="size-11 rounded-xl border bg-background text-base font-semibold shadow-xs"
+                              className="size-11 rounded-xl border bg-background text-base font-semibold shadow-xs first:rounded-xl last:rounded-xl"
                             />
                           ))}
                         </InputOTPGroup>
                       </InputOTP>
                     </div>
 
-                    <div className="flex flex-col-reverse gap-2 sm:flex-row">
+                    <div className="flex flex-col gap-2">
                       <Button
                         type="submit"
                         size="lg"
                         disabled={loading || otpCode.length !== 6}
                         aria-busy={loading}
-                        className="flex-1"
+                        className="w-full"
                       >
                         {loading ? <Spinner data-icon="inline-start" /> : null}
                         {loading ? t("otp.verifying") : t("otp.verify")}
@@ -402,6 +402,7 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
                         type="button"
                         variant="outline"
                         size="lg"
+                        className="w-full"
                         onClick={() => {
                           setOTPRequest(null);
                           setOTPCode("");

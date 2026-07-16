@@ -49,7 +49,7 @@
   "nav": {
     "title": "مسیریابی اصلی",
     "dashboard": "داشبورد",
-    "quickStart": "شروع سریع",
+    "quickStart": "راهنمای شروع سریع",
     "billing": "داشبورد مالی",
     "topup": "کیف پول",
     "bankTransfer": "واریز بانکی",
@@ -61,7 +61,7 @@
     "accountSettings": "حساب کاربری",
     "requestLoggingSettings": "تنظیمات لاگ درخواست",
     "tracePrivacySettings": "حریم خصوصی ردیابی درخواست‌ها",
-    "providerAccounts": "اتصال‌دهنده‌های LLM",
+    "providerAccounts": "اتصال به ارائه‌دهنده مدل",
     "virtualModels": "مدل‌های مجازی",
     "prompts": "رجیستری پرامپت",
     "virtualUsers": "کاربران مجازی",
@@ -75,9 +75,9 @@
     "traces": "ردیابی درخواست‌ها",
     "metrics": "متریک مدل‌ها",
     "gatewayPolicies": "سیاست‌های گیت‌وی",
-    "rateLimitPolicies": "سیاست‌های نرخ",
-    "budgetLimitPolicies": "سیاست‌های بودجه",
-    "guardrails": "گاردریل‌ها"
+    "rateLimitPolicies": "قوانین کنترل مصرف",
+    "budgetLimitPolicies": "قوانین کنترل هزینه",
+    "guardrails": "قواعد حفاظتی (گاردریل)"
   },
   "logoAlt": "لوگوی گُدارAI"
 }

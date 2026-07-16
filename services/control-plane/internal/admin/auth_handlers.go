@@ -193,21 +193,35 @@ func (h *AuthHandlers) CreateOTPRequest(c *fiber.Ctx) error {
 		return err
 	}
 
+	channel := strings.TrimSpace(strings.ToLower(body.Channel))
+	if channel == "" {
+		channel = "email"
+	}
+
+	if strings.TrimSpace(strings.ToLower(body.Purpose)) == "login" {
+		if _, err := h.store.FindOrCreateTenantAdminUser(c.Context(), storage.FindOrCreateTenantAdminUserParams{
+			TenantSlug: tenantSlug,
+			Channel:    channel,
+			Identifier: body.Identifier,
+		}); err != nil {
+			if strings.Contains(strings.ToLower(err.Error()), "tenant member not found") {
+				return fiber.NewError(fiber.StatusForbidden, "You do not have access to this tenant.")
+			}
+
+			return fiber.NewError(fiber.StatusInternalServerError, "Failed to find tenant user")
+		}
+	}
+
 	result, err := h.store.CreateTenantAdminOTPRequest(c.Context(), storage.TenantAdminOTPRequestParams{
 		TenantSlug:   tenantSlug,
 		Purpose:      body.Purpose,
-		Channel:      body.Channel,
+		Channel:      channel,
 		Identifier:   body.Identifier,
 		UserID:       body.UserID,
 		PendingValue: body.PendingValue,
 	})
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to create OTP request")
-	}
-
-	channel := ""
-	if value, ok := result["channel"].(string); ok {
-		channel = value
 	}
 
 	destination := ""

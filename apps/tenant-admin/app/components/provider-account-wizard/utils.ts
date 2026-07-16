@@ -391,7 +391,7 @@ export function getModelDiscoveryCatalogBaseURLForOrigin(origin: string): string
   const publicOrigin = new URL(getPublicSiteOrigin(origin));
   if (isLocalHostname(publicOrigin.hostname)) {
     publicOrigin.port = "3003";
-    return publicOrigin.origin;
+    return `${publicOrigin.origin}/catalog`;
   }
   return `${publicOrigin.origin}/catalog`;
 }

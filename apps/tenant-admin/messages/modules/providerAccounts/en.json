@@ -503,7 +503,8 @@
     "providerFilter": "AI Providers",
     "workspaceFilter": "Workspaces",
     "providerDescriptionFallback": "Connect this provider to route tenant traffic through Godar with managed credentials, model provisioning, and access control.",
-    "integrationDescriptionFallback": "Tenant-connected LLM integration for provisioned provider models.",
+    "integrationDescriptionFallback": "This connection routes workspace requests through the selected model provider.",
+    "integrationDescription": "\"{name}\" connects this workspace to active {provider} models using {authMode} authentication.",
     "connectedCount": "{count} connected",
     "modelCount": "{count} catalog models",
     "card": {
@@ -514,6 +515,10 @@
       "activeAccountCount": "connection",
       "noConnection": "No connection",
       "connectionRequired": "New connection required",
+      "credentialModeLabel": "Connection mode",
+      "authModeLabel": "Auth method",
+      "providerCredential": "Provider credential",
+      "virtualKeyOnly": "Virtual keys only",
       "createConnection": "Create new connection"
     },
     "actions": {
@@ -539,7 +544,9 @@
     "messages": {
       "loadFailed": "Failed to load LLM integrations.",
       "identifierCopied": "Integration identifier copied.",
-      "disconnectConfirm": "Disconnect integration \"{name}\"?",
+      "disconnectTitle": "Disconnect provider",
+      "disconnectConfirm": "Disconnecting \"{name}\" prevents dependent routes from using this connection's credential for requests.",
+      "disconnectConfirmInput": "Type the connection name to confirm: {name}",
       "disconnectSuccess": "Integration disconnected.",
       "disconnectFailed": "Failed to disconnect integration."
     }

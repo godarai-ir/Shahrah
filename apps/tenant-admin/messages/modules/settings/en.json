@@ -6,6 +6,14 @@
     "email": "Email",
     "mobile": "Mobile"
   },
+  "email": {
+    "description": "Email is used for sign-in, security notifications, and account recovery.",
+    "fieldDescription": "A verification code is sent to the new email and replaces the current value after confirmation."
+  },
+  "mobile": {
+    "description": "Mobile is used for sign-in and confirming sensitive changes.",
+    "fieldDescription": "Enter the number with country code; the verification code is sent to this number."
+  },
   "currentValue": "Current value",
   "newEmail": "New email",
   "newMobile": "New mobile",

@@ -504,7 +504,8 @@
     "providerFilter": "ارائه‌دهنده‌ها",
     "workspaceFilter": "Workspaces",
     "providerDescriptionFallback": "برای اتصال این Provider، ترافیک tenant از مسیر Godar با credential، مدل و دسترسی مدیریت‌شده route می‌شود.",
-    "integrationDescriptionFallback": "Integration متصل به tenant برای مدل‌های provision شده Provider.",
+    "integrationDescriptionFallback": "این اتصال درخواست‌های فضای کاری را از مسیر ارائه‌دهنده مدل عبور می‌دهد.",
+    "integrationDescription": "اتصال «{name}» درخواست‌های این فضای کاری را با روش احراز هویت {authMode} به مدل‌های فعال {provider} وصل می‌کند.",
     "connectedCount": "{count} متصل",
     "modelCount": "{count} مدل کاتالوگ",
     "card": {
@@ -515,6 +516,10 @@
       "activeAccountCount": "اتصال",
       "noConnection": "بدون اتصال",
       "connectionRequired": "اتصال جدید مورد نیاز است",
+      "credentialModeLabel": "حالت اتصال",
+      "authModeLabel": "روش احراز هویت",
+      "providerCredential": "اعتبارنامه ارائه‌دهنده",
+      "virtualKeyOnly": "فقط کلید مجازی",
       "createConnection": "ایجاد اتصال جدید"
     },
     "actions": {
@@ -522,7 +527,7 @@
       "connectProvider": "اتصال Provider",
       "manageConnections": "مدیریت اتصال‌ها",
       "copyIdentifier": "کپی slug",
-      "editIntegration": "ویرایش Integration",
+      "editIntegration": "ویرایش اتصال",
       "manageModels": "مدیریت مدل‌ها",
       "viewDocs": "مشاهده Docs",
       "disconnect": "قطع اتصال",
@@ -540,7 +545,9 @@
     "messages": {
       "loadFailed": "بارگیری LLM Integrationها ناموفق بود.",
       "identifierCopied": "شناسه Integration کپی شد.",
-      "disconnectConfirm": "Integration «{name}» قطع شود؟",
+      "disconnectTitle": "قطع اتصال ارائه‌دهنده",
+      "disconnectConfirm": "با قطع اتصال «{name}»، مسیرهای وابسته به این اتصال دیگر نمی‌توانند از اعتبارنامه آن برای ارسال درخواست استفاده کنند.",
+      "disconnectConfirmInput": "برای تایید، نام اتصال را وارد کنید: {name}",
       "disconnectSuccess": "Integration قطع شد.",
       "disconnectFailed": "قطع Integration ناموفق بود."
     }

@@ -17,16 +17,17 @@ import type {
 } from "@/app/components/provider-account-wizard/types";
 import {
   getModelDiscoveryCatalogBaseURL,
+  buildModelDiscoveryProviderHref,
   normalizeError,
   normalizeProviderSlug,
   requestJSON,
   stringsEqualFold,
   unwrapData,
 } from "@/app/components/provider-account-wizard/utils";
-import { ConfirmDialog, EmptyState, RowActionsMenu } from "@/components/app-ui";
+import { EmptyState, RowActionsMenu, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -420,7 +421,15 @@ export default function LLMIntegrationsManagement(props: {
                       viewDocsLabel={copy("actions.viewDocs")}
                       disconnectLabel={copy("actions.disconnect")}
                       disconnectingLabel={copy("actions.disconnecting")}
-                      descriptionFallback={copy("integrationDescriptionFallback")}
+                      credentialModeLabel={copy("card.credentialModeLabel")}
+                      authModeLabel={copy("card.authModeLabel")}
+                      providerCredentialLabel={copy("card.providerCredential")}
+                      virtualKeyOnlyLabel={copy("card.virtualKeyOnly")}
+                      description={copy("integrationDescription", {
+                        name: account.name,
+                        provider: provider?.display_name ?? account.provider,
+                        authMode: formatAuthMode(account.auth_mode),
+                      })}
                       onCopy={() => void copyIdentifier(account)}
                       onDisconnect={() => setPendingDisconnectAccount(account)}
                       isDisconnecting={deletingAccountID === account.id}
@@ -441,7 +450,22 @@ export default function LLMIntegrationsManagement(props: {
         </Tabs>
       </section>
     </main>
-    <ConfirmDialog open={pendingDisconnectAccount !== null} onOpenChange={(open) => { if (!open) setPendingDisconnectAccount(null); }} title={copy("actions.disconnect")} description={copy("messages.disconnectConfirm", { name: pendingDisconnectAccount?.name ?? "" })} cancelLabel={copy("actions.cancel")} confirmLabel={copy("actions.disconnect")} pendingLabel={copy("actions.disconnecting")} onConfirm={() => pendingDisconnectAccount ? disconnectAccount(pendingDisconnectAccount) : undefined} />
+    <TypedConfirmDialog
+      open={pendingDisconnectAccount !== null}
+      onOpenChange={(open) => {
+        if (!open) setPendingDisconnectAccount(null);
+      }}
+      title={copy("messages.disconnectTitle")}
+      description={copy("messages.disconnectConfirm", { name: pendingDisconnectAccount?.name ?? "" })}
+      expectedValue={pendingDisconnectAccount?.name ?? ""}
+      inputLabel={copy("messages.disconnectConfirmInput", { name: pendingDisconnectAccount?.name ?? "" })}
+      cancelLabel={copy("actions.cancel")}
+      confirmLabel={copy("actions.disconnect")}
+      pendingLabel={copy("actions.disconnecting")}
+      onConfirm={() => pendingDisconnectAccount ? disconnectAccount(pendingDisconnectAccount) : undefined}
+      disabled={!pendingDisconnectAccount}
+      inputDir="auto"
+    />
     </>
   );
 }
@@ -662,63 +686,96 @@ function ConnectedIntegrationCard(props: {
   viewDocsLabel: string;
   disconnectLabel: string;
   disconnectingLabel: string;
-  descriptionFallback: string;
+  credentialModeLabel: string;
+  authModeLabel: string;
+  providerCredentialLabel: string;
+  virtualKeyOnlyLabel: string;
+  description: string;
   onCopy: () => void;
   onDisconnect: () => void;
   isDisconnecting: boolean;
 }) {
   const docsURL = getProviderDocsURL(props.provider ?? { provider: props.account.provider });
   const workspaceHref = `/provider-accounts?account=${encodeURIComponent(props.account.id)}`;
+  const providerDisplayName = props.provider?.display_name ?? props.account.provider;
+  const providerHref = buildModelDiscoveryProviderHref(props.account.provider);
 
   return (
-    <Card className="surface-elevated min-h-52 overflow-hidden rounded-xl border shadow-none">
-      <CardContent className="flex h-full flex-col p-0">
-        <div className="flex flex-1 flex-col gap-4 p-4">
-          <div className="flex items-start justify-between gap-3">
+    <Card className="surface-elevated group overflow-hidden rounded-xl border border-card-border shadow-none transition-colors hover:border-primary/35">
+      <CardHeader className="flex flex-row items-start justify-between gap-3 p-4 pb-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border bg-background p-2 shadow-sm">
             <ProviderLogo
               provider={props.account.provider}
-              displayName={props.provider?.display_name ?? props.account.provider}
+              displayName={providerDisplayName}
               logoURL={props.provider?.logo_url}
-            />
-            <RowActionsMenu
-              label={props.manageModelsLabel}
-              triggerSize="icon-sm"
-              actions={[
-                { label: props.editLabel, href: workspaceHref, icon: <Settings /> },
-                { label: props.manageModelsLabel, href: workspaceHref, icon: <Plug /> },
-                ...(docsURL ? [{ label: props.viewDocsLabel, href: docsURL, external: true, icon: <ExternalLink /> }] : []),
-                {
-                  label: props.disconnectLabel,
-                  pendingLabel: props.disconnectingLabel,
-                  pending: props.isDisconnecting,
-                  destructive: true,
-                  separatorBefore: true,
-                  icon: <Trash2 />,
-                  onSelect: props.onDisconnect,
-                },
-              ]}
+              size={28}
             />
           </div>
           <div className="min-w-0">
-            <h2 className="truncate text-base font-semibold">{props.account.name}</h2>
-            <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
-              {props.provider?.description?.trim() || props.descriptionFallback}
-            </p>
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <a
+                href={providerHref}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-w-0 items-center gap-1 text-xs font-medium text-primary underline-offset-4 hover:underline"
+              >
+                <span className="truncate" dir="ltr">{providerDisplayName}</span>
+                <ExternalLink aria-hidden="true" />
+              </a>
+            </div>
+            <CardTitle className="mt-2 truncate text-base">{props.account.name}</CardTitle>
+            <CardDescription className="mt-2 line-clamp-3 leading-6">
+              {props.description}
+            </CardDescription>
           </div>
         </div>
-        <div className="flex items-center justify-between gap-3 border-t border-border/70 bg-muted/20 px-4 py-3">
-          <div className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">I</span>
-            <span className="truncate" dir="ltr">{props.account.provider}</span>
+        <RowActionsMenu
+          label={props.manageModelsLabel}
+          triggerSize="icon-sm"
+          actions={[
+            { key: "edit-integration", label: props.editLabel, href: workspaceHref, icon: <Settings /> },
+            { key: "manage-models", label: props.manageModelsLabel, href: workspaceHref, icon: <Plug /> },
+            ...(docsURL ? [{ key: "view-docs", label: props.viewDocsLabel, href: docsURL, external: true, icon: <ExternalLink /> }] : []),
+            {
+              key: "disconnect",
+              label: props.disconnectLabel,
+              pendingLabel: props.disconnectingLabel,
+              pending: props.isDisconnecting,
+              destructive: true,
+              separatorBefore: true,
+              icon: <Trash2 />,
+              onSelect: props.onDisconnect,
+            },
+          ]}
+        />
+      </CardHeader>
+      <CardContent className="flex flex-1 flex-col gap-3 px-4 pb-3 pt-0">
+        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+          <div className="rounded-lg border border-border bg-muted/20 px-3 py-2">
+            <span className="block">{props.credentialModeLabel}</span>
+            <span className="mt-1 block truncate font-medium text-foreground">
+              {props.account.allows_virtual_keys_only ? props.virtualKeyOnlyLabel : props.providerCredentialLabel}
+            </span>
           </div>
-          <Button type="button" size="sm" variant="outline" onClick={props.onCopy} className="max-w-40 font-mono">
-            <span className="truncate" dir="ltr">{props.fqn}</span>
-            <Copy data-icon="inline-end" />
-          </Button>
+          <div className="rounded-lg border border-border bg-muted/20 px-3 py-2">
+            <span className="block">{props.authModeLabel}</span>
+            <span className="mt-1 block truncate font-mono text-foreground" dir="ltr">{props.account.auth_mode}</span>
+          </div>
         </div>
       </CardContent>
+      <CardFooter className="border-t border-border/70 bg-muted/20 p-3">
+        <Button type="button" size="sm" variant="outline" onClick={props.onCopy} className="min-w-0 flex-1 justify-between font-mono" dir="ltr">
+          <span className="truncate" dir="ltr">{props.fqn}</span>
+          <Copy data-icon="inline-end" />
+        </Button>
+      </CardFooter>
     </Card>
   );
+}
+
+function formatAuthMode(value: string): string {
+  return value.replaceAll("_", " ");
 }
 
 function ProviderGridSkeleton(props: { direction: PageDirection }) {

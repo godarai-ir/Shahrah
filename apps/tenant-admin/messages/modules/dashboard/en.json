@@ -9,8 +9,8 @@
   },
   "quickStart": {
     "title": "Operational quick start",
-    "description": "An interactive quick start that adapts to your plan, advances the real tenant setup, and helps you run your first successful request in place.",
-    "action": "Open quick start"
+    "description": "We prepared an interactive quick start that adapts to your plan, prepares your workspace, and helps you run the first successful request.",
+    "action": "Let's go"
   },
   "plan": {
     "currentPlan": "Current plan",

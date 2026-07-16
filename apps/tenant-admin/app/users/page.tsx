@@ -70,6 +70,7 @@ export default async function UsersPage() {
         initialError={initialError}
         currentUserID={auth.user.id}
         canManageUsers={canManageUsers}
+        docsHref={docsHref}
       />
     </AdminShell>
   );

@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Info, Plus, UsersRound } from "lucide-react";
 
-import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, FormSheet, PageHeader, RowActionsMenu, SearchField, TableEmptyRow, TableLoadingRows, TablePagination } from "@/components/app-ui";
+import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, FormSheet, HelpLink, PageHeader, RowActionsMenu, SearchField, TableEmptyRow, TableLoadingRows, TablePagination } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -81,6 +81,7 @@ type UsersAccessManagementProps = {
   initialError: string | null;
   currentUserID: string;
   canManageUsers: boolean;
+  docsHref: string;
 };
 
 const PAGE_SIZE = 25;
@@ -328,6 +329,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       <PageHeader
         title={t("usersPage.title")}
         description={t("usersPage.description")}
+        titleAddon={<HelpLink href={props.docsHref} />}
         actions={
           <Button type="button" onClick={handleOpenInvite} disabled={!props.canManageUsers || !hasLoadedEntitlements}>
             <Plus data-icon="inline-start" />

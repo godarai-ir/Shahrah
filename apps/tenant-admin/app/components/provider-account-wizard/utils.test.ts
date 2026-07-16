@@ -190,7 +190,7 @@ describe("provider account curl guide helpers", () => {
     expect(getPublicSiteOrigin("https://delpak.godarai.ir")).toBe("https://godarai.ir");
     expect(getPublicSiteOrigin("http://tenant1.localhost:3000")).toBe("http://localhost");
     expect(getModelDiscoveryCatalogBaseURLForOrigin("https://delpak.godarai.ir")).toBe("https://godarai.ir/catalog");
-    expect(getModelDiscoveryCatalogBaseURLForOrigin("http://tenant1.localhost:3000")).toBe("http://localhost:3003");
+    expect(getModelDiscoveryCatalogBaseURLForOrigin("http://tenant1.localhost:3000")).toBe("http://localhost:3003/catalog");
   });
 
   it("normalizes the legacy catalog subdomain to the root catalog path", () => {

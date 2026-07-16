@@ -170,7 +170,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
   return (
     <div className="flex flex-col gap-6">
       <section className="px-1 py-1 sm:px-2 sm:py-2">
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)] xl:items-start">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(20rem,24rem)] xl:items-start">
           <div className="flex min-w-0 flex-col gap-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-wrap items-center gap-2">
@@ -203,7 +203,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
               <MetricCard
                 icon={PlanStatusIcon}
                 label={t("plan.currentPlan")}
@@ -211,6 +211,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
                 description={planStatus === "trialing" ? t("plan.trialSubtitle") : planIntervalLabel}
                 tone={planVisual.tone}
                 className="card-hover"
+                valueClassName="break-words"
               />
               <MetricCard
                 icon={Clock3}

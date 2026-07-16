@@ -2,12 +2,14 @@
 
 import { FormEvent, useState } from "react";
 import { useTranslations } from "next-intl";
+import { CheckCircle, Mail, Send, Smartphone } from "lucide-react";
 
-import { FormSection, PageHeader, SettingsCard } from "@/components/app-ui";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { PageHeader, SettingsCard } from "@/components/app-ui";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 
 type UserProfile = {
   id: string;
@@ -156,7 +158,7 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
       />
 
       {message ? (
-        <Alert className="border-primary/30 bg-primary/5">
+        <Alert variant="success" icon={<CheckCircle aria-hidden="true" />}>
           <AlertDescription>{message}</AlertDescription>
         </Alert>
       ) : null}
@@ -166,140 +168,211 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
         </Alert>
       ) : null}
 
-      <section className="grid gap-6 md:grid-cols-2">
-        <SettingsCard
+      <section className="grid gap-6 lg:grid-cols-2">
+        <ContactChangeCard
           title={t("sections.email")}
-          description={<>{t("currentValue")}: {user.email ?? common("notSet")}</>}
-        >
-          <FormSection title={t("sections.email")} description={t("newEmail")} className="border-0 p-0 md:grid-cols-1 md:p-0">
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="newEmail">{t("newEmail")}</FieldLabel>
-                <Input
-                  id="newEmail"
-                  value={emailState.value}
-                  onChange={(event) =>
-                    setEmailState((current) => ({
-                      ...current,
-                      value: event.target.value,
-                    }))
-                  }
-                  placeholder="name@example.com"
-                />
-              </Field>
-            </FieldGroup>
-            <Button
-              className="w-fit"
-              type="button"
-              onClick={() => void handleRequestChange("email")}
-              disabled={loadingField === "email"}
-            >
-              {t("sendCode")}
-            </Button>
+          description={t("email.description")}
+          icon={Mail}
+          currentLabel={t("currentValue")}
+          currentValue={user.email ?? common("notSet")}
+          fieldLabel={t("newEmail")}
+          fieldDescription={t("email.fieldDescription")}
+          inputID="newEmail"
+          inputType="email"
+          inputMode="email"
+          autoComplete="email"
+          value={emailState.value}
+          placeholder="name@example.com"
+          isLoading={loadingField === "email"}
+          onValueChange={(value) =>
+            setEmailState((current) => ({
+              ...current,
+              value,
+            }))
+          }
+          onRequestCode={() => void handleRequestChange("email")}
+          sendCodeLabel={t("sendCode")}
+          requestID={emailState.requestID}
+          destinationMasked={emailState.destinationMasked}
+          debugOTP={emailState.debugOTP}
+          otpValue={emailState.otpCode}
+          onOTPChange={(otpCode) =>
+            setEmailState((current) => ({
+              ...current,
+              otpCode,
+            }))
+          }
+          onVerify={(event) => void handleVerifyChange(event, "email")}
+          otpSentLabel={t("otpSentTo", { destination: emailState.destinationMasked })}
+          otpCodeLabel={t("otpCode")}
+          otpCodePlaceholder={t("otpCodePlaceholder")}
+          devCodeLabel={t("devCode")}
+          confirmLabel={t("confirmEmail")}
+        />
 
-            {emailState.requestID ? (
-              <form className="grid gap-3" onSubmit={(event) => void handleVerifyChange(event, "email")}>
-                <p className="text-xs text-muted-foreground">
-                  {t("otpSentTo", { destination: emailState.destinationMasked })}
-                </p>
-                {emailState.debugOTP ? (
-                  <Alert className="tone-warning">
-                    <AlertDescription>
-                      {t("devCode")}: <code>{emailState.debugOTP}</code>
-                    </AlertDescription>
-                  </Alert>
-                ) : null}
-                <FieldGroup className="gap-3">
-                  <Field>
-                    <FieldLabel htmlFor="emailOTP">{t("otpCode")}</FieldLabel>
-                    <Input
-                      id="emailOTP"
-                      value={emailState.otpCode}
-                      onChange={(event) =>
-                        setEmailState((current) => ({
-                          ...current,
-                          otpCode: event.target.value,
-                        }))
-                      }
-                      placeholder={t("otpCodePlaceholder")}
-                    />
-                  </Field>
-                </FieldGroup>
-                <Button type="submit" variant="secondary" disabled={loadingField === "email"}>
-                  {t("confirmEmail")}
-                </Button>
-              </form>
-            ) : null}
-          </FormSection>
-        </SettingsCard>
-
-        <SettingsCard
+        <ContactChangeCard
           title={t("sections.mobile")}
-          description={<>{t("currentValue")}: {user.mobile ?? common("notSet")}</>}
-        >
-          <FormSection title={t("sections.mobile")} description={t("newMobile")} className="border-0 p-0 md:grid-cols-1 md:p-0">
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="newMobile">{t("newMobile")}</FieldLabel>
-                <Input
-                  id="newMobile"
-                  value={mobileState.value}
-                  onChange={(event) =>
-                    setMobileState((current) => ({
-                      ...current,
-                      value: event.target.value,
-                    }))
-                  }
-                  placeholder="+98912..."
-                />
-              </Field>
-            </FieldGroup>
-            <Button
-              className="w-fit"
-              type="button"
-              onClick={() => void handleRequestChange("mobile")}
-              disabled={loadingField === "mobile"}
-            >
-              {t("sendCode")}
-            </Button>
-
-            {mobileState.requestID ? (
-              <form className="grid gap-3" onSubmit={(event) => void handleVerifyChange(event, "mobile")}>
-                <p className="text-xs text-muted-foreground">
-                  {t("otpSentTo", { destination: mobileState.destinationMasked })}
-                </p>
-                {mobileState.debugOTP ? (
-                  <Alert className="tone-warning">
-                    <AlertDescription>
-                      {t("devCode")}: <code>{mobileState.debugOTP}</code>
-                    </AlertDescription>
-                  </Alert>
-                ) : null}
-                <FieldGroup className="gap-3">
-                  <Field>
-                    <FieldLabel htmlFor="mobileOTP">{t("otpCode")}</FieldLabel>
-                    <Input
-                      id="mobileOTP"
-                      value={mobileState.otpCode}
-                      onChange={(event) =>
-                        setMobileState((current) => ({
-                          ...current,
-                          otpCode: event.target.value,
-                        }))
-                      }
-                      placeholder={t("otpCodePlaceholder")}
-                    />
-                  </Field>
-                </FieldGroup>
-                <Button type="submit" variant="secondary" disabled={loadingField === "mobile"}>
-                  {t("confirmMobile")}
-                </Button>
-              </form>
-            ) : null}
-          </FormSection>
-        </SettingsCard>
+          description={t("mobile.description")}
+          icon={Smartphone}
+          currentLabel={t("currentValue")}
+          currentValue={user.mobile ?? common("notSet")}
+          fieldLabel={t("newMobile")}
+          fieldDescription={t("mobile.fieldDescription")}
+          inputID="newMobile"
+          inputType="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          value={mobileState.value}
+          placeholder="+98912..."
+          isLoading={loadingField === "mobile"}
+          onValueChange={(value) =>
+            setMobileState((current) => ({
+              ...current,
+              value,
+            }))
+          }
+          onRequestCode={() => void handleRequestChange("mobile")}
+          sendCodeLabel={t("sendCode")}
+          requestID={mobileState.requestID}
+          destinationMasked={mobileState.destinationMasked}
+          debugOTP={mobileState.debugOTP}
+          otpValue={mobileState.otpCode}
+          onOTPChange={(otpCode) =>
+            setMobileState((current) => ({
+              ...current,
+              otpCode,
+            }))
+          }
+          onVerify={(event) => void handleVerifyChange(event, "mobile")}
+          otpSentLabel={t("otpSentTo", { destination: mobileState.destinationMasked })}
+          otpCodeLabel={t("otpCode")}
+          otpCodePlaceholder={t("otpCodePlaceholder")}
+          devCodeLabel={t("devCode")}
+          confirmLabel={t("confirmMobile")}
+        />
       </section>
     </div>
+  );
+}
+
+type ContactChangeCardProps = {
+  title: string;
+  description: string;
+  icon: typeof Mail;
+  currentLabel: string;
+  currentValue: string;
+  fieldLabel: string;
+  fieldDescription: string;
+  inputID: string;
+  inputType: "email" | "tel";
+  inputMode: "email" | "tel";
+  autoComplete: string;
+  value: string;
+  placeholder: string;
+  isLoading: boolean;
+  onValueChange: (value: string) => void;
+  onRequestCode: () => void;
+  sendCodeLabel: string;
+  requestID: string;
+  destinationMasked: string;
+  debugOTP?: string;
+  otpValue: string;
+  onOTPChange: (value: string) => void;
+  onVerify: (event: FormEvent<HTMLFormElement>) => void;
+  otpSentLabel: string;
+  otpCodeLabel: string;
+  otpCodePlaceholder: string;
+  devCodeLabel: string;
+  confirmLabel: string;
+};
+
+function ContactChangeCard(props: ContactChangeCardProps) {
+  const Icon = props.icon;
+
+  return (
+    <SettingsCard
+      title={
+        <span className="flex items-center gap-2">
+          <span className="flex size-9 items-center justify-center rounded-md bg-muted text-muted-foreground">
+            <Icon aria-hidden="true" />
+          </span>
+          <span>{props.title}</span>
+        </span>
+      }
+      description={props.description}
+      className="max-w-none"
+    >
+      <div className="rounded-md border border-border bg-muted/30 p-3">
+        <p className="text-xs font-medium text-muted-foreground">{props.currentLabel}</p>
+        <p dir="ltr" className="mt-1 truncate text-sm font-semibold text-foreground">
+          {props.currentValue}
+        </p>
+      </div>
+
+      <FieldGroup>
+        <Field>
+          <FieldLabel htmlFor={props.inputID}>{props.fieldLabel}</FieldLabel>
+          <Input
+            id={props.inputID}
+            type={props.inputType}
+            inputMode={props.inputMode}
+            autoComplete={props.autoComplete}
+            dir="ltr"
+            value={props.value}
+            onChange={(event) => props.onValueChange(event.target.value)}
+            placeholder={props.placeholder}
+          />
+          <FieldDescription>{props.fieldDescription}</FieldDescription>
+        </Field>
+      </FieldGroup>
+
+      <Button
+        type="button"
+        className="w-full sm:w-fit"
+        onClick={props.onRequestCode}
+        disabled={props.isLoading || !props.value.trim()}
+        aria-busy={props.isLoading}
+      >
+        {props.isLoading ? <Spinner data-icon="inline-start" /> : <Send data-icon="inline-start" aria-hidden="true" />}
+        {props.sendCodeLabel}
+      </Button>
+
+      {props.requestID ? (
+        <form className="flex flex-col gap-4 rounded-md border border-border bg-background p-4" onSubmit={props.onVerify}>
+          <Alert>
+            <AlertDescription>{props.otpSentLabel}</AlertDescription>
+          </Alert>
+          {props.debugOTP ? (
+            <Alert variant="warning">
+              <AlertTitle>{props.devCodeLabel}</AlertTitle>
+              <AlertDescription>
+                <code dir="ltr" className="font-mono text-sm">
+                  {props.debugOTP}
+                </code>
+              </AlertDescription>
+            </Alert>
+          ) : null}
+          <FieldGroup className="gap-3">
+            <Field>
+              <FieldLabel htmlFor={`${props.inputID}OTP`}>{props.otpCodeLabel}</FieldLabel>
+              <Input
+                id={`${props.inputID}OTP`}
+                dir="ltr"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={props.otpValue}
+                onChange={(event) => props.onOTPChange(event.target.value)}
+                placeholder={props.otpCodePlaceholder}
+              />
+            </Field>
+          </FieldGroup>
+          <Button type="submit" variant="secondary" disabled={props.isLoading || !props.otpValue.trim()} aria-busy={props.isLoading}>
+            {props.isLoading ? <Spinner data-icon="inline-start" /> : null}
+            {props.confirmLabel}
+          </Button>
+        </form>
+      ) : null}
+    </SettingsCard>
   );
 }
 

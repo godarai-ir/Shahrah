@@ -13,6 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -204,33 +205,42 @@ function UserProfileMenu({ userIdentity, currentUser }: UserProfileMenuProps) {
           <User data-icon="inline-start" aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56 text-right">
-        <DropdownMenuLabel className="flex flex-col items-start gap-1">
-          <span dir="ltr" className="max-w-full truncate text-sm font-medium">
-            {userIdentity}
+      <DropdownMenuContent align="start" className="w-64 text-right">
+        <DropdownMenuLabel className="flex items-center gap-3 p-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+            <User aria-hidden="true" />
           </span>
-          <Badge variant="secondary" className="w-fit text-xs" dir="ltr">
-            {currentUser.role}
-          </Badge>
+          <span className="flex min-w-0 flex-1 flex-col gap-1">
+            <span dir="ltr" className="truncate text-sm font-semibold text-popover-foreground">
+              {userIdentity}
+            </span>
+            <Badge variant="secondary" className="w-fit text-xs" dir="ltr">
+              {currentUser.role}
+            </Badge>
+          </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild className="justify-start">
-          <Link href="/settings/account">
-            <User data-icon="inline-start" aria-hidden="true" />
-            <span>{t("profile.account")}</span>
-          </Link>
-        </DropdownMenuItem>
+        <DropdownMenuGroup>
+          <DropdownMenuItem asChild className="justify-start">
+            <Link href="/settings/account">
+              <User aria-hidden="true" />
+              <span>{t("profile.account")}</span>
+            </Link>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          className="text-destructive focus:text-destructive"
-          onSelect={(event) => {
-            event.preventDefault();
-            void handleLogout();
-          }}
-        >
-          <LogOut data-icon="inline-start" aria-hidden="true" />
-          <span>{t("logout")}</span>
-        </DropdownMenuItem>
+        <DropdownMenuGroup>
+          <DropdownMenuItem
+            className="justify-start text-destructive focus:text-destructive"
+            onSelect={(event) => {
+              event.preventDefault();
+              void handleLogout();
+            }}
+          >
+            <LogOut aria-hidden="true" />
+            <span>{t("logout")}</span>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );
