@@ -108,22 +108,39 @@ func writeAuthError(c *fiber.Ctx, status int, message, errType string) error {
 }
 
 func (m *AuthMiddleware) handleMasterKeyRequest(c *fiber.Ctx) error {
-	resolved := &platform.AuthContext{Role: roleProxyAdmin}
 	// Clone request header value to avoid retaining mutable fasthttp buffer data.
 	userID := strings.Clone(strings.TrimSpace(c.Get("x-shahrah-user-id")))
-	if userID != "" {
-		currentTenant := tenant.FromContext(c)
-		if currentTenant != nil {
-			userCtx, err := m.keyStore.ResolveTenantUserAuth(c.Context(), currentTenant.ID, userID)
-			if err == nil && userCtx != nil {
-				resolved = userCtx
-			} else if err != nil {
-				m.logger.Debug("failed to resolve user auth context for master key request", zap.Error(err), zap.String("tenant_id", currentTenant.ID), zap.String("user_id", userID))
-			}
+	if userID == "" {
+		c.Locals(AuthContextKey{}, &platform.AuthContext{Role: roleProxyAdmin})
+		return c.Next()
+	}
+
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil || strings.TrimSpace(currentTenant.ID) == "" {
+		return writeAuthError(c, fiber.StatusForbidden, "Tenant context is required for delegated authentication", "authorization_error")
+	}
+
+	resolved, err := m.keyStore.ResolveTenantUserAuth(c.Context(), currentTenant.ID, userID)
+	if err != nil {
+		m.logger.Debug("failed to resolve user auth context for master key request", zap.Error(err), zap.String("tenant_id", currentTenant.ID), zap.String("user_id", userID))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return writeAuthError(c, fiber.StatusForbidden, "Delegated user is not authorized for this tenant", "authorization_error")
 		}
+		return writeAuthError(c, fiber.StatusInternalServerError, "Delegated authentication lookup failed", "server_error")
+	}
+	if resolved == nil {
+		return writeAuthError(c, fiber.StatusForbidden, "Delegated user is not authorized for this tenant", "authorization_error")
+	}
+	if !strings.EqualFold(strings.TrimSpace(resolved.UserID), userID) ||
+		!strings.EqualFold(strings.TrimSpace(resolved.TenantID), strings.TrimSpace(currentTenant.ID)) {
+		m.logger.Warn("delegated authentication lookup returned a mismatched identity", zap.String("tenant_id", currentTenant.ID), zap.String("user_id", userID))
+		return writeAuthError(c, fiber.StatusForbidden, "Delegated identity does not match the requested tenant and user", "authorization_error")
 	}
 
 	c.Locals(AuthContextKey{}, resolved)
+	if err := CheckRouteAuthorization(c.Method(), c.Path(), resolved); err != nil {
+		return writeAuthError(c, fiber.StatusForbidden, err.Error(), "authorization_error")
+	}
 
 	return c.Next()
 }

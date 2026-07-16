@@ -57,23 +57,27 @@ export async function proxyToControlPlane(options: ProxyOptions) {
     );
   }
 
-  const tenantSlug = tenantResolution.tenantSlug;
-  let resolvedUserID = options.userID?.trim() ?? "";
   const auth = await readAuthFromRequest(options.request);
-  if (auth.ok) {
-    if (!assertTenantMatch(tenantSlug, auth.tenantSlug)) {
-      return NextResponse.json(
-        { error: { message: "Tenant mismatch between host and authenticated session." } },
-        { status: 403 },
-      );
-    }
-    if (!resolvedUserID) {
-      resolvedUserID = auth.user.id;
-    }
-  } else if (!resolvedUserID && auth.status >= 500) {
+  if (!auth.ok) {
     return NextResponse.json(
       { error: { message: auth.message } },
       { status: auth.status },
+    );
+  }
+
+  const tenantSlug = tenantResolution.tenantSlug;
+  if (!assertTenantMatch(tenantSlug, auth.tenantSlug)) {
+    return NextResponse.json(
+      { error: { message: "Tenant mismatch between host and authenticated session." } },
+      { status: 403 },
+    );
+  }
+
+  const requestedUserID = options.userID?.trim() ?? "";
+  if (requestedUserID && requestedUserID !== auth.user.id) {
+    return NextResponse.json(
+      { error: { message: "Authenticated user does not match the requested user context." } },
+      { status: 403 },
     );
   }
 
@@ -82,30 +86,12 @@ export async function proxyToControlPlane(options: ProxyOptions) {
     method: options.method,
     path: options.path,
     body: options.body,
-    userID: resolvedUserID || undefined,
+    userID: auth.user.id,
     requestHeaders: options.request.headers,
     upstreamHeaders: options.upstreamHeaders,
   });
 
-  if (!upstream.ok) {
-    return NextResponse.json(
-      {
-        error: {
-          message:
-            upstream.errorMessage ??
-            `خطا در ارتباط با کنترل‌پلین (${upstream.status})`,
-        },
-        details: upstream.payload,
-      },
-      { status: upstream.status },
-    );
-  }
-
-  if (upstream.status === 204 || upstream.status === 205 || upstream.status === 304) {
-    return new NextResponse(null, { status: upstream.status });
-  }
-
-  return NextResponse.json(upstream.payload, { status: upstream.status });
+  return controlPlaneJSONResponse(upstream);
 }
 
 export async function proxyToControlPlaneBinary(options: ProxyOptions) {
@@ -117,23 +103,27 @@ export async function proxyToControlPlaneBinary(options: ProxyOptions) {
     );
   }
 
-  const tenantSlug = tenantResolution.tenantSlug;
-  let resolvedUserID = options.userID?.trim() ?? "";
   const auth = await readAuthFromRequest(options.request);
-  if (auth.ok) {
-    if (!assertTenantMatch(tenantSlug, auth.tenantSlug)) {
-      return NextResponse.json(
-        { error: { message: "Tenant mismatch between host and authenticated session." } },
-        { status: 403 },
-      );
-    }
-    if (!resolvedUserID) {
-      resolvedUserID = auth.user.id;
-    }
-  } else if (!resolvedUserID && auth.status >= 500) {
+  if (!auth.ok) {
     return NextResponse.json(
       { error: { message: auth.message } },
       { status: auth.status },
+    );
+  }
+
+  const tenantSlug = tenantResolution.tenantSlug;
+  if (!assertTenantMatch(tenantSlug, auth.tenantSlug)) {
+    return NextResponse.json(
+      { error: { message: "Tenant mismatch between host and authenticated session." } },
+      { status: 403 },
+    );
+  }
+
+  const requestedUserID = options.userID?.trim() ?? "";
+  if (requestedUserID && requestedUserID !== auth.user.id) {
+    return NextResponse.json(
+      { error: { message: "Authenticated user does not match the requested user context." } },
+      { status: 403 },
     );
   }
 
@@ -142,7 +132,7 @@ export async function proxyToControlPlaneBinary(options: ProxyOptions) {
     method: options.method,
     path: options.path,
     body: options.body,
-    userID: resolvedUserID || undefined,
+    userID: auth.user.id,
     requestHeaders: options.request.headers,
     upstreamHeaders: options.upstreamHeaders,
   });
@@ -167,6 +157,29 @@ export async function proxyToControlPlaneBinary(options: ProxyOptions) {
       ...(upstream.contentDisposition ? { "Content-Disposition": upstream.contentDisposition } : {}),
     },
   });
+}
+
+export async function proxyPublicInvitationAcceptance(
+  request: NextRequest,
+  token: string,
+) {
+  const tenantResolution = ensureTenantFromHeaders(request.headers);
+  if (!tenantResolution.ok) {
+    return NextResponse.json(
+      { error: { message: tenantResolution.message } },
+      { status: tenantResolution.status },
+    );
+  }
+
+  const upstream = await fetchControlPlaneJSON({
+    tenantSlug: tenantResolution.tenantSlug,
+    method: "POST",
+    path: "/api/v1/users/invitations/accept",
+    body: { token },
+    requestHeaders: request.headers,
+  });
+
+  return controlPlaneJSONResponse(upstream);
 }
 
 export async function fetchControlPlaneJSON(
@@ -194,20 +207,26 @@ export async function fetchControlPlaneJSON(
   const forwardedHost = resolveForwardedHost(options.requestHeaders);
   const forwardedProto = resolveForwardedProto(options.requestHeaders);
   const upstreamHeaders = new Headers(options.upstreamHeaders ?? {});
+  upstreamHeaders.set("Authorization", `Bearer ${masterKey}`);
+  upstreamHeaders.set("Accept", "application/json");
+  upstreamHeaders.set("Content-Type", "application/json");
+  upstreamHeaders.set("x-godarai-tenant", options.tenantSlug);
+  if (options.userID) {
+    upstreamHeaders.set("x-shahrah-user-id", options.userID);
+  } else {
+    upstreamHeaders.delete("x-shahrah-user-id");
+  }
+  if (forwardedHost) {
+    upstreamHeaders.set("x-forwarded-host", forwardedHost);
+  }
+  if (forwardedProto) {
+    upstreamHeaders.set("x-forwarded-proto", forwardedProto);
+  }
 
   try {
     const upstream = await fetch(url, {
       method: options.method,
-      headers: {
-        Authorization: `Bearer ${masterKey}`,
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "x-godarai-tenant": options.tenantSlug,
-        ...(options.userID ? { "x-shahrah-user-id": options.userID } : {}),
-        ...(forwardedHost ? { "x-forwarded-host": forwardedHost } : {}),
-        ...(forwardedProto ? { "x-forwarded-proto": forwardedProto } : {}),
-        ...Object.fromEntries(upstreamHeaders.entries()),
-      },
+      headers: upstreamHeaders,
       body: options.body ? JSON.stringify(options.body) : undefined,
       cache: "no-store",
     });
@@ -265,20 +284,30 @@ async function fetchControlPlaneRaw(
   const forwardedHost = resolveForwardedHost(options.requestHeaders);
   const forwardedProto = resolveForwardedProto(options.requestHeaders);
   const upstreamHeaders = new Headers(options.upstreamHeaders ?? {});
+  upstreamHeaders.set("Authorization", `Bearer ${masterKey}`);
+  upstreamHeaders.set("Accept", "*/*");
+  upstreamHeaders.set("x-godarai-tenant", options.tenantSlug);
+  if (options.body) {
+    upstreamHeaders.set("Content-Type", "application/json");
+  } else {
+    upstreamHeaders.delete("Content-Type");
+  }
+  if (options.userID) {
+    upstreamHeaders.set("x-shahrah-user-id", options.userID);
+  } else {
+    upstreamHeaders.delete("x-shahrah-user-id");
+  }
+  if (forwardedHost) {
+    upstreamHeaders.set("x-forwarded-host", forwardedHost);
+  }
+  if (forwardedProto) {
+    upstreamHeaders.set("x-forwarded-proto", forwardedProto);
+  }
 
   try {
     const upstream = await fetch(url, {
       method: options.method,
-      headers: {
-        Authorization: `Bearer ${masterKey}`,
-        Accept: "*/*",
-        ...(options.body ? { "Content-Type": "application/json" } : {}),
-        "x-godarai-tenant": options.tenantSlug,
-        ...(options.userID ? { "x-shahrah-user-id": options.userID } : {}),
-        ...(forwardedHost ? { "x-forwarded-host": forwardedHost } : {}),
-        ...(forwardedProto ? { "x-forwarded-proto": forwardedProto } : {}),
-        ...Object.fromEntries(upstreamHeaders.entries()),
-      },
+      headers: upstreamHeaders,
       body: options.body ? JSON.stringify(options.body) : undefined,
       cache: "no-store",
     });
@@ -363,6 +392,28 @@ function extractErrorMessage(payload: unknown): string | undefined {
     return value.error?.message ?? value.message;
   }
   return undefined;
+}
+
+function controlPlaneJSONResponse(upstream: ControlPlaneResponse) {
+  if (!upstream.ok) {
+    return NextResponse.json(
+      {
+        error: {
+          message:
+            upstream.errorMessage ??
+            `خطا در ارتباط با کنترل‌پلین (${upstream.status})`,
+        },
+        details: upstream.payload,
+      },
+      { status: upstream.status },
+    );
+  }
+
+  if (upstream.status === 204 || upstream.status === 205 || upstream.status === 304) {
+    return new NextResponse(null, { status: upstream.status });
+  }
+
+  return NextResponse.json(upstream.payload, { status: upstream.status });
 }
 
 function resolveForwardedHost(headers?: Headers): string {

@@ -11,8 +11,10 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
+	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -158,6 +160,132 @@ func TestAuthMiddleware_ShouldReturnInvalidAPIKey_WhenKeyIsNotFound(t *testing.T
 	require.NoError(t, json.Unmarshal(body, &payload))
 	assert.Equal(t, "Invalid API key", payload.Error.Message)
 	assert.Equal(t, "authentication_error", payload.Error.Type)
+}
+
+func TestAuthMiddleware_MasterKeyDelegationFailsClosedWhenUserLookupFails(t *testing.T) {
+	app := newMasterKeyDelegationTestApp(&delegatedKeyStore{resolveErr: errors.New("database lookup failed")})
+
+	resp := performMasterKeyDelegationRequest(t, app, "/api/v1/users", "user-1")
+	defer closeResponseBody(t, resp)
+
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+}
+
+func TestAuthMiddleware_MasterKeyDelegationFailsClosedWhenUserIsNotFound(t *testing.T) {
+	app := newMasterKeyDelegationTestApp(&delegatedKeyStore{resolveErr: pgx.ErrNoRows})
+
+	resp := performMasterKeyDelegationRequest(t, app, "/api/v1/users", "missing-user")
+	defer closeResponseBody(t, resp)
+
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+}
+
+func TestAuthMiddleware_MasterKeyDelegationAppliesResolvedUserAuthorization(t *testing.T) {
+	app := newMasterKeyDelegationTestApp(&delegatedKeyStore{resolved: &platform.AuthContext{
+		TenantID: "tenant-1",
+		UserID:   "user-1",
+		Role:     "member",
+	}})
+
+	resp := performMasterKeyDelegationRequest(t, app, "/api/v1/users", "user-1")
+	defer closeResponseBody(t, resp)
+
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+}
+
+func TestAuthMiddleware_MasterKeyDelegationAllowsResolvedUserOnAuthorizedRoute(t *testing.T) {
+	app := newMasterKeyDelegationTestApp(&delegatedKeyStore{resolved: &platform.AuthContext{
+		TenantID: "tenant-1",
+		UserID:   "user-1",
+		Role:     "member",
+	}})
+
+	resp := performMasterKeyDelegationRequest(t, app, "/api/v1/me/permissions", "user-1")
+	defer closeResponseBody(t, resp)
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+func TestAuthMiddleware_MasterKeyDelegationRequiresTenantContext(t *testing.T) {
+	app := fiber.New()
+	app.Use(auth.NewAuthMiddleware(&delegatedKeyStore{resolved: &platform.AuthContext{
+		TenantID: "tenant-1",
+		UserID:   "user-1",
+		Role:     "member",
+	}}, "test-master-key", zap.NewNop()).Middleware())
+	app.Get("/api/v1/me/permissions", func(c *fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
+
+	resp := performMasterKeyDelegationRequest(t, app, "/api/v1/me/permissions", "user-1")
+	defer closeResponseBody(t, resp)
+
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+}
+
+func TestAuthMiddleware_MasterKeyDelegationRejectsMismatchedResolvedIdentity(t *testing.T) {
+	app := newMasterKeyDelegationTestApp(&delegatedKeyStore{resolved: &platform.AuthContext{
+		TenantID: "tenant-2",
+		UserID:   "user-2",
+		Role:     "tenant_admin",
+	}})
+
+	resp := performMasterKeyDelegationRequest(t, app, "/api/v1/users", "user-1")
+	defer closeResponseBody(t, resp)
+
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+}
+
+func TestAuthMiddleware_MasterKeyWithoutDelegatedUserPreservesBootstrapAdmin(t *testing.T) {
+	app := newMasterKeyDelegationTestApp(&delegatedKeyStore{})
+
+	resp := performMasterKeyDelegationRequest(t, app, "/api/v1/users", "")
+	defer closeResponseBody(t, resp)
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+type delegatedKeyStore struct {
+	resolved   *platform.AuthContext
+	resolveErr error
+}
+
+func (s *delegatedKeyStore) GetKeyByHash(context.Context, string) (*platform.AuthContext, error) {
+	return nil, auth.ErrInvalidAPIKey
+}
+
+func (s *delegatedKeyStore) ResolveTenantUserAuth(context.Context, string, string) (*platform.AuthContext, error) {
+	return s.resolved, s.resolveErr
+}
+
+func newMasterKeyDelegationTestApp(store auth.KeyStore) *fiber.App {
+	app := fiber.New()
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals(tenant.ContextKey{}, &platform.Tenant{ID: "tenant-1", Slug: "acme"})
+		return c.Next()
+	})
+	app.Use(auth.NewAuthMiddleware(store, "test-master-key", zap.NewNop()).Middleware())
+	app.Get("/api/v1/users", func(c *fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
+	app.Get("/api/v1/me/permissions", func(c *fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
+	return app
+}
+
+func performMasterKeyDelegationRequest(t *testing.T, app *fiber.App, path string, userID string) *http.Response {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodGet, path, http.NoBody)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer test-master-key")
+	if userID != "" {
+		req.Header.Set("x-shahrah-user-id", userID)
+	}
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	return resp
 }
 
 type failingKeyStore struct {
