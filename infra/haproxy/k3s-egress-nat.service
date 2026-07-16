@@ -1,0 +1,12 @@
+[Unit]
+Description=K3s node egress NAT for private-only cluster nodes
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/k3s-egress-nat.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

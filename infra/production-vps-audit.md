@@ -4,7 +4,7 @@
 
 دامنه بررسی اولیه: اتصال SSH فقط خواندنی به VPSها، بررسی DNS، و چند تست HTTP/HTTPS از ماشین محلی.
 
-به‌روزرسانی عملیاتی 2026-07-16: پس از غیرفعال شدن Port Security شبکه خصوصی روی `lb-1` و `lb-2`، HAProxy روی هر دو Load Balancer به VIP خصوصی `10.10.0.6:6443` منتقل شد و failover کنترل‌شده Keepalived با موفقیت تست شد.
+به‌روزرسانی عملیاتی 2026-07-16: پس از غیرفعال شدن Port Security شبکه خصوصی روی `lb-1` و `lb-2`، HAProxy روی هر دو Load Balancer به VIP خصوصی `10.10.0.6:6443` منتقل شد و failover کنترل‌شده Keepalived با موفقیت تست شد. سپس Public IPهای `node-1`، `node-2` و `node-3` از پنل provider حذف شدند و خروجی اینترنت این نودها از مسیر VIP/NAT روی Load Balancerها تأمین شد.
 
 ## خلاصه اجرایی
 
@@ -16,6 +16,8 @@
 
 HA خصوصی Kubernetes API اکنون از طریق VIP خصوصی `10.10.0.6:6443` فعال است. از Bastion اتصال TCP به VIP برقرار شد و Kubernetes API برای درخواست بدون credential پاسخ `401 Unauthorized` داد. در تست failover، VIP از `lb-1` به `lb-2` منتقل شد و پس از بازگشت `lb-1` دوباره روی نود با priority بالاتر نشست.
 
+نودهای K3s اکنون private-only هستند. هیچ‌کدام Public IPv4 ندارند؛ SSH و Kubernetes API فقط از شبکه خصوصی و از طریق Bastion/Load Balancer قابل دسترسی است.
+
 ## فهرست ماشین‌ها
 
 | نقش | Hostname | اینترفیس خصوصی | IP خصوصی | اینترفیس عمومی | IP عمومی |
@@ -23,9 +25,9 @@ HA خصوصی Kubernetes API اکنون از طریق VIP خصوصی `10.10.0.6:
 | Bastion | `bastion` | `private0` / `fa:16:3e:e4:0c:1b` | `10.10.0.5/24` | `public0` / `fa:16:3e:19:75:91` | `37.152.191.92/22` |
 | Load balancer | `lb-1` | `eth0` / `fa:16:3e:d8:b2:72` | `10.10.0.7/24` + VIP `10.10.0.6/24` | Floating IP | `37.32.31.230` |
 | Load balancer | `lb-2` | `eth0` / `fa:16:3e:cc:41:ab` | `10.10.0.8/24` | Floating IP | `37.32.31.139` |
-| K3s node | `node-1` | `eth1` / `fa:16:3e:3a:7d:ce` | `10.10.0.21/24` | `eth0` / `fa:16:3e:df:6d:08` | `188.121.123.92/22` |
-| K3s node | `node-2` | `eth1` / `fa:16:3e:a7:91:15` | `10.10.0.22/24` | `eth0` / `fa:16:3e:07:a3:58` | `95.38.232.86/23` |
-| K3s node | `node-3` | `eth1` / `fa:16:3e:1a:14:bd` | `10.10.0.23/24` | `eth0` / `fa:16:3e:ba:c3:3c` | `95.38.189.206/23` |
+| K3s node | `node-1` | `eth1` / `fa:16:3e:3a:7d:ce` | `10.10.0.21/24` | حذف‌شده | ندارد |
+| K3s node | `node-2` | `eth1` / `fa:16:3e:a7:91:15` | `10.10.0.22/24` | حذف‌شده | ندارد |
+| K3s node | `node-3` | `eth1` / `fa:16:3e:1a:14:bd` | `10.10.0.23/24` | حذف‌شده | ندارد |
 
 همه ماشین‌ها Ubuntu 24.04 با kernel `6.8.0-134-generic` هستند.
 
@@ -48,15 +50,14 @@ HA خصوصی Kubernetes API اکنون از طریق VIP خصوصی `10.10.0.6:
 
 روی Bastion، اینترفیس عمومی و خصوصی با netplan استاتیک تعریف شده است. روی دو LB پس از cutover، public fixed interface از guest OS حذف شد و route پیش‌فرض روی `eth0` از طریق gateway خصوصی `10.10.0.1` تنظیم شد.
 
-روی نودهای K3s مدل شبکه ترکیبی است:
+روی نودهای K3s مدل شبکه اکنون private-only است:
 
 - `eth1` اینترفیس خصوصی static داخل `10.10.0.0/24` است.
-- `eth0` اینترفیس عمومی با DHCP است.
-- default route اصلی به سمت gateway خصوصی `10.10.0.1` است.
-- برای ترافیکی که source آن public IP ماشین است، policy routing با table `100` تعریف شده است.
-- routeهای host-level به سمت gateway عمومی برای مقصدهایی مثل `1.1.1.1`، `8.8.8.8` و `185.231.181.201` دیده شد.
+- `eth0` عمومی از guest OS و پنل provider حذف شده است.
+- default route روی هر سه node به VIP خصوصی `10.10.0.6` اشاره می‌کند.
+- policy routing مربوط به Public IPها حذف شده است.
 
-نتیجه عملی: خروجی عادی ماشین‌ها بیشتر از مسیر private gateway انجام می‌شود، ولی برگشت ترافیک public-source همچنان می‌تواند از NIC عمومی انجام شود.
+نتیجه عملی: خروجی اینترنت nodeها از مسیر `node -> 10.10.0.6 -> lb-1/lb-2 NAT -> internet` انجام می‌شود. این مسیر با پاسخ `200` از `1.1.1.1`، پاسخ `401` از Docker Registry و پاسخ `200` از GitHub روی نودها تست شد.
 
 ## Bastion
 
@@ -76,6 +77,7 @@ UFW غیرفعال است. سرویس `ufw` در systemd وجود دارد، ا�
 
 - `haproxy.service`: فعال و enabled.
 - `keepalived.service`: فعال و enabled.
+- `k3s-egress-nat.service`: فعال و enabled.
 - `nginx`: نصب/شناخته‌شده نیست.
 
 بنابراین runbookها و مستندات عملیاتی باید وضعیت زنده HAProxy + Keepalived را منبع اصلی بدانند.
@@ -122,6 +124,27 @@ HAProxy در mode `tcp` و با `roundrobin` کار می‌کند. TLS روی LB
 - پس از بازگرداندن `lb-1`، VIP به دلیل priority بالاتر به `lb-1` برگشت.
 
 نتیجه: مسیر رسمی API خصوصی اکنون VIP `10.10.0.6:6443` است.
+
+### مسیر خروجی نودهای K3s
+
+پس از حذف Public IP از nodeها، خروجی اینترنت آن‌ها از NAT روی Load Balancerها انجام می‌شود.
+
+روی هر دو LB:
+
+- `net.ipv4.ip_forward=1`
+- `net.ipv4.conf.eth0.send_redirects=0`
+- سرویس `k3s-egress-nat.service` فعال است.
+- ruleهای `MASQUERADE` فقط برای sourceهای زیر تعریف شده‌اند:
+  - `10.10.0.21/32`
+  - `10.10.0.22/32`
+  - `10.10.0.23/32`
+- مقصدهای داخل `10.10.0.0/24` از NAT مستثنی هستند.
+
+فایل‌های live روی LBها:
+
+- `/usr/local/sbin/k3s-egress-nat.sh`
+- `/etc/sysctl.d/70-k3s-egress-nat.conf`
+- `/etc/systemd/system/k3s-egress-nat.service`
 
 ## Kubernetes
 
@@ -191,7 +214,7 @@ NSهای دامنه:
 
 5. OS firewall غیرفعال است. با توجه به استفاده از Firewall پنل، این الزاماً اشتباه نیست، اما defense-in-depth حذف شده و هر خطای پنل می‌تواند listenerهای سیستم‌عامل را مستقیم expose کند.
 
-6. نودهای K3s اینترفیس عمومی دارند و سرویس‌های حساسی مثل SSH و پورت‌های Kubernetes روی host گوش می‌دهند. با نبود firewall سیستم‌عامل، صحت ruleهای پنل حیاتی است.
+6. نودهای K3s دیگر Public IP ندارند. این ریسک exposure عمومی SSH و پورت‌های Kubernetes را کاهش داده است، اما سلامت `k3s-egress-nat.service` روی LBها اکنون برای image pull، GitOps، دسترسی به registry و وابستگی‌های بیرونی حیاتی است.
 
 7. health check در Keepalived سطحی است. فقط وجود process HAProxy را چک می‌کند، نه bind بودن به VIP درست، نه reachability پورت `6443`، و نه سلامت backendها.
 
@@ -203,7 +226,7 @@ NSهای دامنه:
 
 11. بخشی از observability خراب یا ناقص است. Prometheus در `ImagePullBackOff` و Loki chunks cache در `Pending` بود؛ این توان تشخیص سریع مشکل HA را ضعیف می‌کند.
 
-12. بخشی از کانفیگ manual و بخشی versioned است. فایل‌های موجود در repo با وضعیت live و حتی بین دو LB کاملا یکی نیستند؛ این ریسک rebuild/recovery را بالا می‌برد.
+12. بخشی از کانفیگ manual و بخشی versioned است. NAT خروجی nodeها فعلاً روی LBها به‌صورت systemd/script live پیاده‌سازی شده و باید در runbookها و automation آینده نگه داشته شود.
 
 ## بررسی‌های پیشنهادی بعدی
 
@@ -213,10 +236,11 @@ NSهای دامنه:
 2. endpoint رسمی Kubernetes API اکنون `10.10.0.6:6443` است. kubeconfigها و tunnelها را به این VIP هم‌راستا نگه دارید.
 3. Port Security شبکه خصوصی را برای `lb-1` و `lb-2` خاموش نگه دارید؛ برای نودهای K3s خاموش کردن آن لازم نیست.
 4. کانفیگ `/etc/haproxy/haproxy.cfg` روی دو LB را با repo مقایسه کنید و هر drift جدید را قبل از reload اصلاح کنید.
-5. رفتار Arvan DNS/CDN برای `@` و `*` را بررسی کنید: proxy، weight، health check، یا round-robin ساده.
-6. رکورد دوم DNS برای `37.32.31.139` را در Arvan بررسی کنید؛ در نمونه query پس از cutover فقط `37.32.31.230` دیده شد.
-7. قبل از اتکا به alerting، وضعیت podهای مشکل‌دار observability را بررسی کنید.
-8. وضعیت runbookها را پس از هر تغییر عملیاتی با «HAProxy + Keepalived» هم‌راستا نگه دارید. این هم‌راستاسازی در `infra/haproxy/README.md`، `infra/keepalived/README.md` و `infra/k3s/windows-kubectl-access.md` شروع شده است.
+5. سلامت `k3s-egress-nat.service`، `ip_forward` و ruleهای `MASQUERADE` را به monitoring اضافه کنید.
+6. رفتار Arvan DNS/CDN برای `@` و `*` را بررسی کنید: proxy، weight، health check، یا round-robin ساده.
+7. رکورد دوم DNS برای `37.32.31.139` را در Arvan بررسی کنید؛ در نمونه query پس از cutover فقط `37.32.31.230` دیده شد.
+8. قبل از اتکا به alerting، وضعیت podهای مشکل‌دار observability را بررسی کنید.
+9. وضعیت runbookها را پس از هر تغییر عملیاتی با «HAProxy + Keepalived + NAT خروجی nodeها» هم‌راستا نگه دارید.
 
 ## شواهد خوانده‌شده
 

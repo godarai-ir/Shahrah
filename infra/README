@@ -348,6 +348,12 @@ Confirmed private interface naming:
 - `node-2`: `eth1`
 - `node-3`: `eth1`
 
+Current node exposure:
+
+- `node-1`, `node-2`, and `node-3` no longer have public IPv4 addresses.
+- K3s node default routes point to the private VIP `10.10.0.6`.
+- outbound internet access for K3s nodes is provided by NAT on `lb-1` and `lb-2`.
+
 Keepalived note:
 
 - if you use `auth_type PASS`, `auth_pass` must be at most `8` characters
@@ -432,6 +438,14 @@ Current load balancer note:
 - Floating IP traffic is delivered to the private NICs.
 - the load balancers need a default route through the private gateway `10.10.0.1` on `eth0`.
 - the stale public `eth1` netplan configuration should not be restored.
+- `k3s-egress-nat.service` must stay enabled on both load balancers because K3s nodes are private-only.
+
+Current K3s node note:
+
+- `node-1`, `node-2`, and `node-3` no longer have public IPv4 addresses.
+- each node uses `eth1` as the only routed node interface.
+- each node uses `10.10.0.6` as its default gateway.
+- egress is validated through the Load Balancer NAT path with Docker Registry returning `401`.
 
 If host firewalls remain enabled:
 
@@ -567,6 +581,39 @@ Important operational note:
 - after disabling Port Security on `lb-1` and `lb-2`, `10.10.0.6:6443` was validated from `bastion`
 - HAProxy on both load balancers now binds `10.10.0.6:6443`
 - keep Port Security enabled on the K3s nodes unless another floating-address design explicitly requires changing it
+
+### 8.2.1 K3s Node Egress NAT
+
+The K3s nodes are private-only. They do not have public IPv4 addresses.
+
+Outbound internet access for node-level operations such as image pulls, GitOps repository access, package updates, and external service calls is provided by NAT on both load balancers.
+
+Live files on `lb-1` and `lb-2`:
+
+```text
+/usr/local/sbin/k3s-egress-nat.sh
+/etc/sysctl.d/70-k3s-egress-nat.conf
+/etc/systemd/system/k3s-egress-nat.service
+```
+
+Versioned templates are kept under `infra/haproxy/` with the same filenames.
+
+Required live settings:
+
+```text
+net.ipv4.ip_forward=1
+net.ipv4.conf.eth0.send_redirects=0
+```
+
+The NAT rules are limited to:
+
+```text
+10.10.0.21/32
+10.10.0.22/32
+10.10.0.23/32
+```
+
+Do not remove `k3s-egress-nat.service` while the nodes remain private-only.
 
 ### 8.3 Ingress Backend Strategy
 

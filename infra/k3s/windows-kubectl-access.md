@@ -19,6 +19,7 @@ Important:
 - describe this path as HAProxy + Keepalived; the host-level edge is not Nginx
 - the Keepalived VIP `10.10.0.6` was validated from bastion on 2026-07-16
 - the Kubernetes API certificate includes `10.10.0.6` and `k3s-api.internal` in SAN
+- direct tunnels to `10.10.0.7:6443` or `10.10.0.8:6443` are no longer valid; HAProxy listens on the VIP
 
 ## Local prerequisites
 
@@ -185,6 +186,19 @@ Get-NetTCPConnection -LocalPort 16443
 Fix:
 
 - start the SSH tunnel again with `ssh -N shahrah-k3s-api`
+
+### 1.1. `wsarecv: An existing connection was forcibly closed by the remote host`
+
+Meaning:
+
+- the local kubeconfig points to `https://127.0.0.1:16443`, but the SSH tunnel is forwarding to an old or wrong Kubernetes API endpoint
+- after the VIP cutover, `10.10.0.7:6443` and `10.10.0.8:6443` are not the operational API listeners
+
+Fix:
+
+- update the tunnel target to `10.10.0.6:6443`
+- close any old process listening on local port `16443`
+- start the tunnel again with `ssh -N shahrah-k3s-api`
 
 ### 2. `You must be logged in to the server` or `Unauthorized`
 

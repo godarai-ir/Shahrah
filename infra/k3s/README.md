@@ -7,8 +7,10 @@ These are per-node config templates for the current Shahrah cluster shape.
 - `node-1`: `10.10.0.21`
 - `node-2`: `10.10.0.22`
 - `node-3`: `10.10.0.23`
-- private API endpoint for current bootstrap: `10.10.0.7`
+- private API endpoint: `10.10.0.6`
 - private API hostname: `k3s-api.internal`
+
+The nodes are private-only. They do not have public IPv4 addresses, and their default route points to the private VIP `10.10.0.6`.
 
 ## Before use
 
@@ -19,6 +21,22 @@ Replace:
 ## Confirmed interface
 
 - private NIC on `node-1`, `node-2`, and `node-3`: `eth1`
+
+## Current egress model
+
+Outbound internet access for all K3s nodes is provided by NAT on `lb-1` and `lb-2`.
+
+Expected node route:
+
+```bash
+default via 10.10.0.6 dev eth1
+```
+
+Expected Load Balancer service:
+
+```bash
+systemctl is-active k3s-egress-nat.service
+```
 
 ## Install flow
 
