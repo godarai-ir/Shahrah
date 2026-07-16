@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getAuthRepository } from "@/lib/auth/factory";
+import { debugOTPResponseField } from "@/lib/auth/debug-otp";
 import { resolveTenantSlugFromHeaders } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
       channel: otp.channel,
       destination_masked: otp.destination_masked,
       expires_in_seconds: otp.expires_in_seconds,
-      debug_otp: otp.debug_otp,
+      ...debugOTPResponseField(otp.debug_otp),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Authentication failed.";

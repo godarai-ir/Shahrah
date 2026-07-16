@@ -3,6 +3,7 @@ package admin
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http/httptest"
 	"testing"
@@ -39,9 +40,92 @@ func TestCreateOTPRequestRejectsUnknownLoginAccountBeforeCreatingOTP(t *testing.
 	}
 }
 
+func TestCreateOTPRequestDoesNotExposeDebugOTPWhenNodeEnvIsEmpty(t *testing.T) {
+	t.Setenv("NODE_ENV", "")
+	t.Setenv("SHAHRAH_EXPOSE_DEBUG_OTP", "true")
+
+	status, payload := performCreateOTPRequest(t)
+	if status != fiber.StatusOK {
+		t.Fatalf("status = %d, want %d", status, fiber.StatusOK)
+	}
+	if _, exists := payload["debug_otp"]; exists {
+		t.Fatal("debug_otp was exposed when NODE_ENV was empty")
+	}
+	if _, exists := payload["otp_code"]; exists {
+		t.Fatal("otp_code was exposed in the response")
+	}
+}
+
+func TestCreateOTPRequestRequiresExplicitDebugOTPOptIn(t *testing.T) {
+	t.Setenv("NODE_ENV", "development")
+	t.Setenv("SHAHRAH_EXPOSE_DEBUG_OTP", "")
+
+	_, payload := performCreateOTPRequest(t)
+	if _, exists := payload["debug_otp"]; exists {
+		t.Fatal("debug_otp was exposed without explicit opt-in")
+	}
+}
+
+func TestCreateOTPRequestExposesDebugOTPOnlyWithNonProductionOptIn(t *testing.T) {
+	t.Setenv("NODE_ENV", "development")
+	t.Setenv("SHAHRAH_EXPOSE_DEBUG_OTP", "true")
+
+	_, payload := performCreateOTPRequest(t)
+	if got := payload["debug_otp"]; got != "123456" {
+		t.Fatalf("debug_otp = %v, want 123456", got)
+	}
+}
+
+func TestCreateOTPRequestNeverExposesDebugOTPInProduction(t *testing.T) {
+	t.Setenv("NODE_ENV", "production")
+	t.Setenv("SHAHRAH_EXPOSE_DEBUG_OTP", "true")
+
+	_, payload := performCreateOTPRequest(t)
+	if _, exists := payload["debug_otp"]; exists {
+		t.Fatal("debug_otp was exposed in production")
+	}
+}
+
+func performCreateOTPRequest(t *testing.T) (int, map[string]interface{}) {
+	t.Helper()
+
+	store := &authHandlerTestStore{createOTPResult: map[string]interface{}{
+		"request_id":         "req-1",
+		"channel":            "email",
+		"destination_masked": "u***@example.com",
+		"expires_in_seconds": 300,
+		"otp_code":           "123456",
+	}}
+	handler := NewAuthHandlers(store, nil)
+	app := fiber.New()
+	app.Post("/auth/otp/request", handler.CreateOTPRequest)
+
+	req := httptest.NewRequest("POST", "/auth/otp/request", bytes.NewBufferString(`{
+		"tenant_slug": "tenant1",
+		"purpose": "login",
+		"channel": "email",
+		"identifier": "user@example.com"
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	t.Cleanup(func() { _ = resp.Body.Close() })
+
+	var payload map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	return resp.StatusCode, payload
+}
+
 type authHandlerTestStore struct {
 	findUserErr     error
 	createOTPCalled bool
+	createOTPResult map[string]interface{}
 }
 
 func (s *authHandlerTestStore) CreateTenantAdminCaptcha(context.Context) (string, string, time.Time, error) {
@@ -54,6 +138,9 @@ func (s *authHandlerTestStore) ConsumeTenantAdminCaptcha(context.Context, string
 
 func (s *authHandlerTestStore) CreateTenantAdminOTPRequest(context.Context, storage.TenantAdminOTPRequestParams) (map[string]interface{}, error) {
 	s.createOTPCalled = true
+	if s.createOTPResult != nil {
+		return s.createOTPResult, nil
+	}
 	return map[string]interface{}{}, nil
 }
 

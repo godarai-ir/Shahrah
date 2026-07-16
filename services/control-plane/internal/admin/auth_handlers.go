@@ -242,11 +242,20 @@ func (h *AuthHandlers) CreateOTPRequest(c *fiber.Ctx) error {
 		}
 	}
 
-	if strings.ToLower(os.Getenv("NODE_ENV")) != "production" && otpCode != "" {
+	if debugOTPExposureEnabled() && otpCode != "" {
 		result["debug_otp"] = otpCode
 	}
 
 	return c.JSON(result)
+}
+
+func debugOTPExposureEnabled() bool {
+	nodeEnv := strings.ToLower(strings.TrimSpace(os.Getenv("NODE_ENV")))
+	if nodeEnv != "development" && nodeEnv != "test" {
+		return false
+	}
+
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("SHAHRAH_EXPOSE_DEBUG_OTP")), "true")
 }
 
 // VerifyOTPRequest handles POST /api/v1/auth/otp/verify.

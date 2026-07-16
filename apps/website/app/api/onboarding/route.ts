@@ -66,7 +66,7 @@ export async function POST(request: Request) {
 }
 
 function sanitizeOnboardingPayload(payload: unknown) {
-  if (process.env.NODE_ENV !== "production") {
+  if (debugOTPExposureEnabled()) {
     return payload;
   }
   if (!payload || typeof payload !== "object") {
@@ -76,6 +76,15 @@ function sanitizeOnboardingPayload(payload: unknown) {
   const rest = { ...(payload as Record<string, unknown>) };
   delete rest.debug_otp;
   return rest;
+}
+
+function debugOTPExposureEnabled() {
+  const nodeEnv = process.env.NODE_ENV?.trim().toLowerCase() ?? "";
+  if (nodeEnv !== "development" && nodeEnv !== "test") {
+    return false;
+  }
+
+  return process.env.SHAHRAH_EXPOSE_DEBUG_OTP?.trim().toLowerCase() === "true";
 }
 
 async function sendOnboardingEmailIfPossible(body: OnboardingBody, payload: unknown) {
