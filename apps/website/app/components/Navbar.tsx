@@ -1,6 +1,6 @@
 'use client';
 
-import { Moon, Sun, Menu, X, ArrowLeft, ChevronDown, Activity, Network, ShieldCheck, TerminalSquare, Bot, Lock, Server, Database } from 'lucide-react';
+import { Moon, Sun, Menu, X, ArrowLeft, ChevronDown, Activity, Network, ShieldCheck, TerminalSquare, Lock, Database } from 'lucide-react';
 import { useTheme } from './ThemeProvider';
 import { useState } from 'react';
 import Link from 'next/link';
@@ -12,20 +12,15 @@ const features = [
   { name: 'کشف و مقایسه مدل‌ها', description: 'جست‌وجو، فیلتر و مقایسه مدل‌ها از ۲۱ پروایدر', icon: Database, href: '/features/model-discovery' },
   { name: 'گاردریل‌ها', description: 'کنترل ورودی، خروجی و داده حساس در مسیر مدل', icon: ShieldCheck, href: '/features/guardrails' },
   { name: 'رجیستری پرامپت', description: 'ساخت، نسخه‌بندی و اجرای پرامپت‌های قابل تکرار', icon: TerminalSquare, href: '/features/prompt-engineering' },
-  { name: 'ایجنت‌ها', description: 'اجرای ایجنت‌ها با رد درخواست، گاردریل و کنترل هزینه', icon: Bot, href: '/features/agents' },
   { name: 'امنیت و تطابق', description: 'امنیت در سطح سازمانی و کنترل دسترسی‌ها', icon: Lock, href: '/features/security' },
-  { name: 'درگاه MCP', description: 'استقرار و مدیریت سرورهای MCP در محیط عملیاتی', icon: Server, href: '/features/mcp-gateway' },
 ];
 
-const mobileFeatures = features.filter(
-  (feature) => feature.href !== '/features/agents' && feature.href !== '/features/mcp-gateway'
-);
+const mobileFeatures = features;
 
 const primaryLinks = [
   { label: 'مستندات', href: '/docs' },
   { label: 'کاتالوگ مدل‌ها', href: '/catalog' },
-  { label: 'قیمت‌گذاری', href: '/pricing' },
-  { label: 'تماس', href: '/contact' },
+  { label: 'پلن‌های اشتراک', href: '/pricing' },
 ];
 
 const actionLinks = [
@@ -152,6 +147,21 @@ export function Navbar() {
                 </span>
               </Link>
             ))}
+            <div className="border-t border-gray-200 dark:border-gray-800 pt-4 flex flex-col gap-3">
+              {[
+                { label: 'کاتالوگ مدل‌ها', href: '/catalog' },
+                { label: 'پلن‌های اشتراک', href: '/pricing' },
+              ].map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="block min-h-11 py-2 text-sm font-bold text-slate-900 dark:text-white"
+                  onClick={() => setIsOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
             <div className="border-t border-gray-200 dark:border-gray-800 pt-4 flex flex-col gap-4">
               <Link href="/login" className="block min-h-12 rounded-lg border border-gray-200 px-4 py-3 text-center text-sm font-medium text-slate-700 dark:border-gray-800 dark:text-gray-200" onClick={() => setIsOpen(false)}>ورود</Link>
               <Link href="/onboarding" className="block min-h-12 rounded-lg bg-indigo-500 px-4 py-3 text-center text-sm font-medium text-white" onClick={() => setIsOpen(false)}>۱۵ روز رایگان شروع کنید</Link>
