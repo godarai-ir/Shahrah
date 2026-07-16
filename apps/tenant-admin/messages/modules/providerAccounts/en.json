@@ -160,6 +160,7 @@
       "stepLabel": "Step {number}",
       "selectProviderTitle": "Select Provider",
       "selectProviderDesc": "Choose provider and continue to account details.",
+      "providerProfileLink": "View {provider} profile",
       "authModes": "auth modes",
       "accountBasicsTitle": "Account Basics & Credentials"
     },

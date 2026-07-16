@@ -161,6 +161,7 @@
       "stepLabel": "گام {number}",
       "selectProviderTitle": "انتخاب ارائه‌دهنده",
       "selectProviderDesc": "ارائه‌دهنده را انتخاب کنید و تنظیمات حساب را ادامه دهید.",
+      "providerProfileLink": "مشاهده پروفایل {provider}",
       "authModes": "روش‌های احراز هویت",
       "accountBasicsTitle": "مشخصات حساب و اعتبارنامه"
     },

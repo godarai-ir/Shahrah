@@ -5,6 +5,7 @@ import {
   buildCurlGuidePayload,
   buildPowerShellCurlGuideCommand,
   buildCurlGuideSampleResponse,
+  buildModelDiscoveryProviderHref,
   getCurlGuideEndpoint,
   getModelDiscoveryCatalogBaseURLForOrigin,
   getPublicSiteOrigin,
@@ -195,5 +196,11 @@ describe("provider account curl guide helpers", () => {
   it("normalizes the legacy catalog subdomain to the root catalog path", () => {
     expect(normalizeModelDiscoveryCatalogBaseURL("https://catalog.godarai.ir/")).toBe("https://godarai.ir/catalog");
     expect(normalizeModelDiscoveryCatalogBaseURL("https://godarai.ir/catalog/")).toBe("https://godarai.ir/catalog");
+  });
+
+  it("builds provider profile links on the root catalog path", () => {
+    expect(buildModelDiscoveryProviderHref("anthropic", "https://catalog.godarai.ir")).toBe(
+      "https://godarai.ir/catalog/providers/anthropic",
+    );
   });
 });

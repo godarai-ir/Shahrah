@@ -380,6 +380,13 @@ export function getModelDiscoveryCatalogBaseURL(): string {
   return getModelDiscoveryCatalogBaseURLForOrigin(window.location.origin);
 }
 
+export function buildModelDiscoveryProviderHref(provider: string, baseURL?: string): string {
+  const base = baseURL
+    ? normalizeModelDiscoveryCatalogBaseURL(baseURL)
+    : getModelDiscoveryCatalogBaseURL();
+  return `${base}/providers/${encodeURIComponent(normalizeProviderSlug(provider))}`;
+}
+
 export function getModelDiscoveryCatalogBaseURLForOrigin(origin: string): string {
   const publicOrigin = new URL(getPublicSiteOrigin(origin));
   if (isLocalHostname(publicOrigin.hostname)) {
