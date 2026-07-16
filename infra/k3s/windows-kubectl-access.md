@@ -8,14 +8,17 @@ This runbook documents the working Windows and PowerShell access path for the Sh
 - `node-1`: `10.10.0.21`
 - `node-2`: `10.10.0.22`
 - `node-3`: `10.10.0.23`
-- private K3s API load balancer: `lb-1`
-- private K3s API endpoint: `10.10.0.7:6443`
+- private K3s API load balancer: HAProxy + Keepalived on `lb-1` and `lb-2`
+- private K3s API endpoint: `10.10.0.6:6443`
 
 Important:
 
 - `kubectl` should not target `node-1` directly for normal laptop access
-- the stable path is laptop -> bastion -> `lb-1` -> `10.10.0.7:6443`
+- the stable path is laptop -> bastion -> VIP `10.10.0.6:6443`
 - local `kubectl` should talk to `https://127.0.0.1:16443`
+- describe this path as HAProxy + Keepalived; the host-level edge is not Nginx
+- the Keepalived VIP `10.10.0.6` was validated from bastion on 2026-07-16
+- the Kubernetes API certificate includes `10.10.0.6` and `k3s-api.internal` in SAN
 
 ## Local prerequisites
 
@@ -92,7 +95,7 @@ Host shahrah-k3s-api
     IdentitiesOnly yes
     ProxyJump bastion
     ExitOnForwardFailure yes
-    LocalForward 16443 10.10.0.7:6443
+    LocalForward 16443 10.10.0.6:6443
     ServerAliveInterval 30
     ServerAliveCountMax 3
     StrictHostKeyChecking accept-new
@@ -241,5 +244,6 @@ Expected current node IPs:
 ## Notes
 
 - the old PuTTY tunnel worked because it forwarded `L16443=10.10.0.7:6443`
+- the current tunnel should forward `L16443=10.10.0.6:6443`
 - forwarding to `node-1` SSH alone is not enough for `kubectl`
-- use `lb-1` and the private API endpoint for the normal access path
+- use the private VIP endpoint for the normal access path

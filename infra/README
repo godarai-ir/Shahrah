@@ -140,7 +140,7 @@ The intended production topology remains:
 - private K3s nodes on `10.10.0.0/24`
 - bastion host for administrative SSH access
 - two dedicated HAProxy load balancer nodes
-- floating public IPs in front of HAProxy
+- public DNS pointing at the HAProxy load balancer public IPs
 - K3s control-plane API restricted to bastion or VPN
 - PostgreSQL restricted to approved private nodes only
 - Kubernetes ingress behind HAProxy
@@ -149,8 +149,8 @@ The latest infrastructure diagram also clarifies that the current intended topol
 
 - a 3-node K3s cluster
 - every K3s node acts as both `control-plane` and `worker`
-- public traffic enters through the two active public IPs and lands on `lb-1` / `lb-2`
-- `HAProxy` is the intended public entry layer for ingress
+- public traffic enters through the two active floating IPs and lands on `lb-1` / `lb-2`
+- `HAProxy` + `Keepalived` is the host-level edge pattern; HAProxy is the public entry layer for ingress
 - PostgreSQL is external to the cluster
 - object storage / S3-compatible storage is external
 - backup storage is external
@@ -170,9 +170,9 @@ Current notes in this repo and the provided infrastructure diagram mention:
   - `node-3`: `10.10.0.23`
 - bastion private IP:
   - `10.10.0.5`
-- floating IPs:
-  - `37.32.29.47`
-  - `37.32.31.156`
+- live public floating IPs after the 2026-07-16 cutover:
+  - `lb-1`: `37.32.31.230`
+  - `lb-2`: `37.32.31.139`
 - DNS:
   - `godarai.ir`
 - private network:
@@ -206,10 +206,10 @@ From the provided infrastructure diagram, these should now be treated as current
 
 - K3s cluster nodes are multi-role nodes, not separate server/agent pools
 - ingress is intended to be multi-node
-- public/floating IPs are:
-  - `37.32.31.156`
-  - `37.32.29.47`
-- both public IPs are active
+- public entry uses provider floating IPs:
+  - `lb-1`: `37.32.31.230`
+  - `lb-2`: `37.32.31.139`
+- both floating IPs should be treated as active entry points, subject to DNS and provider firewall behavior
 - `lb-1` and `lb-2` already exist and are configured
 - the cluster uses Longhorn for PVC-backed storage
 - PostgreSQL is external and HA
@@ -225,7 +225,7 @@ Work in this order:
 
 1. Validate infrastructure inventory and DNS ownership
 2. Harden hosts and apply firewall rules
-3. Configure HAProxy and floating-IP failover
+3. Configure HAProxy and Keepalived failover
 4. Install K3s server nodes
 5. Join K3s worker nodes
 6. Install baseline cluster services
@@ -251,7 +251,7 @@ Before installing K3s, confirm:
 - container registry endpoint is chosen and reachable
 - persistent storage class strategy is chosen
 - domain DNS zone is under your control
-- floating IP failover method is supported by the provider
+- private API failover method is supported by the provider
 - external PostgreSQL decision is made
 - backup destination is defined
 
@@ -424,6 +424,15 @@ The K3s docs recommend disabling host firewalls such as `firewalld` or `ufw` unl
 
 For this infrastructure, keep the security boundary at the provider firewall/security-group layer and private network segmentation first.
 
+Use [`firewall-profiles.md`](firewall-profiles.md) as the provider-panel firewall profile reference for bastion, load balancers, and K3s nodes.
+
+Current load balancer note:
+
+- `lb-1` and `lb-2` no longer have fixed public IPs attached inside the guest OS.
+- Floating IP traffic is delivered to the private NICs.
+- the load balancers need a default route through the private gateway `10.10.0.1` on `eth0`.
+- the stale public `eth1` netplan configuration should not be restored.
+
 If host firewalls remain enabled:
 
 - allow the K3s-required inter-node ports listed above
@@ -490,7 +499,7 @@ Avoid introducing Raspberry Pi-specific guidance or mixed ARM/x86 clusters here 
 
 ---
 
-## 8. HAProxy and Floating-IP Layer
+## 8. HAProxy + Keepalived Layer
 
 Configure `lb-1` and `lb-2` before K3s ingress cutover.
 
@@ -508,7 +517,7 @@ Chosen design for this infrastructure:
 
 - public `80/443` terminate or pass through via `lb-1` and `lb-2`
 - Kubernetes API `6443` is exposed only on a private fixed endpoint behind HAProxy
-- `6443` must not be exposed on the public floating IPs
+- `6443` must not be exposed on the public load balancer IPs
 - `kube-vip` is not part of the default design
 
 ### 8.2 Private Kubernetes API Endpoint
@@ -554,9 +563,10 @@ Temporary fallback if you do not yet have a private VIP:
 
 Important operational note:
 
-- some VPS/private-network providers do not allow an unassigned private IP such as `10.10.0.6` to float via VRRP/Keepalived
-- if `10.10.0.6` is not reachable from `bastion` even though it appears on `lb-1`, assume the provider private network is blocking that VIP model
-- in that case, use `10.10.0.7` on `lb-1` as the K3s API bootstrap and operational endpoint until a provider-supported private failover mechanism exists
+- the provider requires private-network Port Security to be disabled on the load balancers that own the VIP
+- after disabling Port Security on `lb-1` and `lb-2`, `10.10.0.6:6443` was validated from `bastion`
+- HAProxy on both load balancers now binds `10.10.0.6:6443`
+- keep Port Security enabled on the K3s nodes unless another floating-address design explicitly requires changing it
 
 ### 8.3 Ingress Backend Strategy
 
@@ -578,13 +588,13 @@ This matches the current Argo CD app in `D:\source\shahrah-gitops\apps\ingress-n
 
 ### 8.4 Failover
 
-Use provider floating IP failover or Keepalived.
+Use DNS/provider behavior for public entry and Keepalived for the intended private Kubernetes API failover.
 
 The failover test is not optional. Validate:
 
 - active HAProxy node serves traffic
 - standby HAProxy node remains healthy
-- floating IP moves on failure
+- the private API failover endpoint behaves as expected
 - HTTPS still works after failover
 - private Kubernetes API endpoint remains reachable during load balancer failover
 
@@ -607,6 +617,7 @@ node-ip: 10.10.0.21
 advertise-address: 10.10.0.21
 tls-san:
   - k3s-api.internal
+  - 10.10.0.6
   - 10.10.0.7
   - 10.10.0.21
   - 10.10.0.22
@@ -647,6 +658,7 @@ node-ip: 10.10.0.22
 advertise-address: 10.10.0.22
 tls-san:
   - k3s-api.internal
+  - 10.10.0.6
   - 10.10.0.7
   - 10.10.0.21
   - 10.10.0.22
