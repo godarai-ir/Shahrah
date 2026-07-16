@@ -17,6 +17,12 @@ func (s *Store) CreateDeployment(ctx context.Context, dep platform.Deployment) (
 		dep.ID = uuid.NewString()
 	}
 
+	apiBase, err := ValidateProviderAPIBase(dep.Provider, dep.APIBase)
+	if err != nil {
+		return nil, err
+	}
+	dep.APIBase = apiBase
+
 	params, err := json.Marshal(map[string]interface{}{
 		"model":       dep.Model,
 		"api_key":     dep.APIKey,
@@ -119,7 +125,7 @@ func (s *Store) listDeploymentsFromDB(ctx context.Context, tenantID string) ([]p
 
 		var params map[string]interface{}
 		if jsonErr := json.Unmarshal(paramsRaw, &params); jsonErr == nil {
-			dep.APIBase = toString(params["api_base"])
+			dep.APIBase = safeProviderAPIBase(dep.Provider, toString(params["api_base"]))
 			dep.APIKey = toString(params["api_key"])
 			dep.APIVersion = toString(params["api_version"])
 			dep.RegionName = toString(params["region_name"])
@@ -222,13 +228,15 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 			credentialSource = platform.CredentialSourceUserBYOK
 			billingMode = platform.BillingModeExternalBilled
 		}
+		apiBase := safeProviderAPIBase(provider, firstString(providerConfig, settings, "api_base", "base_url"))
+
 		deps = append(deps, platform.Deployment{
 			ID:                  "provider-account:" + accountID + ":" + model,
 			TenantID:            accountTenant,
 			ModelName:           modelid.BuildModelFQN(provider, accountName, model),
 			Provider:            provider,
 			Model:               model,
-			APIBase:             firstString(providerConfig, settings, "api_base", "base_url"),
+			APIBase:             apiBase,
 			APIKey:              runtimeAPIKey,
 			APIVersion:          firstString(providerConfig, settings, "api_version"),
 			RegionName:          firstString(providerConfig, settings, "region_name", "region", "aws_region"),

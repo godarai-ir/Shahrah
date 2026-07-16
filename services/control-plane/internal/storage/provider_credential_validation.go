@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -20,7 +19,14 @@ type providerCredentialValidationResult struct {
 }
 
 func validateProviderAPIKey(ctx context.Context, provider, apiKey string, providerConfig map[string]interface{}, client *http.Client) providerCredentialValidationResult {
-	probe, ok := providerCredentialProbeFor(provider, providerConfig)
+	probe, ok, probeErr := providerCredentialProbeFor(provider, providerConfig)
+	if probeErr != nil {
+		return providerCredentialValidationResult{
+			Success: false,
+			Message: "provider api_base is not allowed for credential validation",
+		}
+	}
+
 	if !ok {
 		return providerCredentialValidationResult{
 			Success: false,
@@ -95,31 +101,35 @@ type providerCredentialProbe struct {
 	headers func(apiKey string) map[string]string
 }
 
-func providerCredentialProbeFor(provider string, providerConfig map[string]interface{}) (providerCredentialProbe, bool) {
+func providerCredentialProbeFor(provider string, providerConfig map[string]interface{}) (providerCredentialProbe, bool, error) {
 	normalized := strings.TrimSpace(strings.ToLower(provider))
 	switch normalized {
 	case "openai":
-		return bearerModelsProbe(configString(providerConfig, "api_base", "https://api.openai.com/v1")), true
+		return bearerModelsProbe(configString("openai", providerConfig, "api_base", "https://api.openai.com/v1"))
 	case "groq":
-		return bearerModelsProbe(configString(providerConfig, "api_base", "https://api.groq.com/openai/v1")), true
+		return bearerModelsProbe(configString("groq", providerConfig, "api_base", "https://api.groq.com/openai/v1"))
 	case "mistral":
-		return bearerModelsProbe(configString(providerConfig, "api_base", "https://api.mistral.ai/v1")), true
+		return bearerModelsProbe(configString("mistral", providerConfig, "api_base", "https://api.mistral.ai/v1"))
 	case "sambanova", "samba-nova":
-		return bearerModelsProbe(configString(providerConfig, "api_base", "https://api.sambanova.ai/v1")), true
+		return bearerModelsProbe(configString("sambanova", providerConfig, "api_base", "https://api.sambanova.ai/v1"))
 	case "togetherai", "together-ai", "together":
-		return bearerModelsProbe(configString(providerConfig, "api_base", "https://api.together.ai/v1")), true
+		return bearerModelsProbe(configString("togetherai", providerConfig, "api_base", "https://api.together.ai/v1"))
 	default:
-		return providerCredentialProbe{}, false
+		return providerCredentialProbe{}, false, nil
 	}
 }
 
-func bearerModelsProbe(apiBase string) providerCredentialProbe {
+func bearerModelsProbe(apiBase string, err error) (providerCredentialProbe, bool, error) {
+	if err != nil {
+		return providerCredentialProbe{}, false, err
+	}
+
 	return providerCredentialProbe{
 		url: strings.TrimRight(apiBase, "/") + "/models",
 		headers: func(apiKey string) map[string]string {
 			return map[string]string{"Authorization": "Bearer " + apiKey}
 		},
-	}
+	}, true, nil
 }
 
 func classifyProviderValidationStatus(status int, body []byte, apiKey string) string {
@@ -257,13 +267,15 @@ func isMaskedCredentialValue(value string) bool {
 	return strings.Contains(trimmed, "•") || strings.Contains(trimmed, "*") || strings.Contains(trimmed, "…")
 }
 
-func configString(config map[string]interface{}, key, fallback string) string {
+func configString(provider string, config map[string]interface{}, key, fallback string) (string, error) {
 	if value, ok := config[key].(string); ok && strings.TrimSpace(value) != "" {
-		parsed, err := url.Parse(strings.TrimSpace(value))
-		if err == nil && parsed.Scheme != "" && parsed.Host != "" {
-			return strings.TrimSpace(value)
+		normalized, err := ValidateProviderAPIBase(provider, value)
+		if err != nil {
+			return "", err
 		}
+
+		return normalized, nil
 	}
 
-	return fallback
+	return fallback, nil
 }

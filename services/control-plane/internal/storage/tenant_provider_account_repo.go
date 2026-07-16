@@ -20,6 +20,10 @@ var (
 
 // CreateTenantProviderAccount creates a provider account for the tenant.
 func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string, req platform.CreateTenantProviderAccountRequest) (*platform.TenantProviderAccount, error) {
+	if err := validateProviderConfigAPIBase(req.Provider, req.ProviderConfig, "api_base", "base_url"); err != nil {
+		return nil, err
+	}
+
 	providerCfg, err := marshalJSONObject(req.ProviderConfig)
 	if err != nil {
 		return nil, err
@@ -162,6 +166,7 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 
 	var (
 		currentAuthMode      string
+		currentProvider      string
 		currentProviderCfg   []byte
 		currentCredentialRaw []byte
 		currentHasCredential bool
@@ -169,10 +174,10 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 	)
 
 	queryErr := tx.QueryRow(ctx, `
-		SELECT auth_mode, provider_config, COALESCE(credential_data, '{}'::jsonb), has_credential, allow_virtual_keys_only
+		SELECT auth_mode, provider, provider_config, COALESCE(credential_data, '{}'::jsonb), has_credential, allow_virtual_keys_only
 		FROM tenant_provider_accounts
 		WHERE tenant_id = $1 AND account_id = $2
-	`, tenantID, accountID).Scan(&currentAuthMode, &currentProviderCfg, &currentCredentialRaw, &currentHasCredential, &currentVirtualOnly)
+	`, tenantID, accountID).Scan(&currentAuthMode, &currentProvider, &currentProviderCfg, &currentCredentialRaw, &currentHasCredential, &currentVirtualOnly)
 	if queryErr != nil {
 		return nil, queryErr
 	}
@@ -185,6 +190,10 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 	nextProviderCfg := parseJSONObject(currentProviderCfg)
 	if req.ProviderConfig != nil {
 		nextProviderCfg = req.ProviderConfig
+	}
+
+	if err := validateProviderConfigAPIBase(currentProvider, nextProviderCfg, "api_base", "base_url"); err != nil {
+		return nil, err
 	}
 
 	nextProviderCfgRaw, err := marshalJSONObject(nextProviderCfg)
@@ -275,6 +284,15 @@ func (s *Store) UpsertTenantProviderAccountModels(ctx context.Context, tenantID 
 		return nil, existsErr
 	}
 
+	var provider string
+	if err := tx.QueryRow(ctx, `
+		SELECT provider
+		FROM tenant_provider_accounts
+		WHERE tenant_id = $1 AND account_id = $2
+	`, tenantID, accountID).Scan(&provider); err != nil {
+		return nil, err
+	}
+
 	_, deleteErr := tx.Exec(ctx, `DELETE FROM tenant_provider_account_models WHERE account_id = $1`, accountID)
 	if deleteErr != nil {
 		return nil, deleteErr
@@ -291,6 +309,10 @@ func (s *Store) UpsertTenantProviderAccountModels(ctx context.Context, tenantID 
 
 		if _, ok := seenModel[modelName]; ok {
 			continue
+		}
+
+		if err := validateProviderConfigAPIBase(provider, item.Settings, "api_base", "base_url"); err != nil {
+			return nil, err
 		}
 
 		seenModel[modelName] = struct{}{}

@@ -62,6 +62,10 @@ func (h *Handlers) CreateModel(c *fiber.Ctx) error {
 		ModelInfo:  req.ModelInfo,
 	})
 	if err != nil {
+		if errors.Is(err, storage.ErrInvalidProviderAPIBase) {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+
 		return err
 	}
 

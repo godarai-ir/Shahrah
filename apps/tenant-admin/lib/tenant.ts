@@ -39,18 +39,45 @@ export function resolveTenantSlugFromHeaders(
   return resolveTenantContextFromHeaders(headers, fallbackTenant).tenantSlug;
 }
 
+export function resolveTenantContextFromRequestHost(
+  host: string,
+  fallbackTenant = "",
+): TenantResolutionContext {
+  const hostTenantSlug = resolveFromHostHeader(host);
+  if (hostTenantSlug) {
+    return {
+      tenantSlug: hostTenantSlug,
+      source: "host",
+      hostTenantSlug,
+      ambiguous: false,
+    };
+  }
+
+  const effectiveFallback = resolveTenantFallback(fallbackTenant);
+  if (effectiveFallback) {
+    return {
+      tenantSlug: effectiveFallback,
+      source: "fallback",
+      hostTenantSlug: "",
+      ambiguous: false,
+    };
+  }
+
+  return {
+    tenantSlug: "",
+    source: "none",
+    hostTenantSlug: "",
+    ambiguous: false,
+  };
+}
+
 export function resolveTenantContextFromHeaders(
   headers: Headers,
   fallbackTenant = "",
 ): TenantResolutionContext {
-  const envFallback =
-    process.env.SHAHRAH_TENANT_SLUG ??
-    process.env.TENANT_SLUG ??
-    process.env.NEXT_PUBLIC_TENANT_SLUG ??
-    "";
-  const effectiveFallback = normalizeTenantSlug(fallbackTenant || envFallback);
+  const effectiveFallback = resolveTenantFallback(fallbackTenant);
 
-  const resolvedHeaderTenant = normalizeTenantSlug(headers.get("x-shahrah-tenant-resolved"));
+  const resolvedHeaderTenant = normalizeTenantSlug(headers.get("x-godarai-tenant-resolved"));
   if (resolvedHeaderTenant) {
     return {
       tenantSlug: resolvedHeaderTenant,
@@ -184,6 +211,15 @@ function resolveFromHostHeader(value: string | null): string {
     return rawHint;
   }
   return "";
+}
+
+function resolveTenantFallback(fallbackTenant: string): string {
+  const envFallback =
+    process.env.SHAHRAH_TENANT_SLUG ??
+    process.env.TENANT_SLUG ??
+    process.env.NEXT_PUBLIC_TENANT_SLUG ??
+    "";
+  return normalizeTenantSlug(fallbackTenant || envFallback);
 }
 
 function normalizeTenantSlug(value: string | null | undefined): string {

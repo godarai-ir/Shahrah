@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { resolveTenantContextFromHeaders } from "@/lib/tenant";
+import { resolveTenantContextFromRequestHost } from "@/lib/tenant";
 
 export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
@@ -8,7 +8,8 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const resolved = resolveTenantContextFromHeaders(request.headers);
+  const canonicalHost = request.headers.get("host") ?? request.nextUrl.host;
+  const resolved = resolveTenantContextFromRequestHost(canonicalHost);
   if (resolved.ambiguous) {
     return respondTenantError(request, 400, "Ambiguous tenant context.");
   }
@@ -17,10 +18,14 @@ export function proxy(request: NextRequest) {
   }
 
   const nextHeaders = new Headers(request.headers);
-  nextHeaders.set("x-shahrah-tenant-resolved", resolved.tenantSlug);
+  nextHeaders.delete("x-godarai-tenant");
+  nextHeaders.set("x-forwarded-host", canonicalHost);
+  nextHeaders.set("x-godarai-tenant-resolved", resolved.tenantSlug);
   nextHeaders.set("x-shahrah-tenant-source", resolved.source);
   if (resolved.hostTenantSlug) {
     nextHeaders.set("x-shahrah-tenant-host", resolved.hostTenantSlug);
+  } else {
+    nextHeaders.delete("x-shahrah-tenant-host");
   }
 
   return NextResponse.next({

@@ -2,8 +2,9 @@ package storage
 
 import (
 	"context"
+	"io"
 	"net/http"
-	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,17 +13,15 @@ import (
 func TestValidateProviderAPIKeyCallsProviderModelsEndpoint(t *testing.T) {
 	var gotAuth string
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		gotAuth = r.Header.Get("Authorization")
-		assert.Equal(t, "/models", r.URL.Path)
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"data":[]}`))
-	}))
-	defer server.Close()
+		assert.Equal(t, "/v1/models", r.URL.Path)
+		return jsonResponse(http.StatusOK, `{"data":[]}`), nil
+	})}
 
 	result := validateProviderAPIKey(context.Background(), "openai", "sk-real-key-1234", map[string]interface{}{
-		"api_base": server.URL,
-	}, server.Client())
+		"api_base": "https://api.openai.com/v1",
+	}, client)
 
 	assert.True(t, result.Success)
 	assert.Equal(t, "Bearer sk-real-key-1234", gotAuth)
@@ -32,37 +31,51 @@ func TestValidateProviderAPIKeyCallsProviderModelsEndpoint(t *testing.T) {
 func TestValidateProviderAPIKeySupportsSambaNova(t *testing.T) {
 	var gotAuth string
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		gotAuth = r.Header.Get("Authorization")
-		assert.Equal(t, "/models", r.URL.Path)
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"data":[]}`))
-	}))
-	defer server.Close()
+		assert.Equal(t, "/v1/models", r.URL.Path)
+		return jsonResponse(http.StatusOK, `{"data":[]}`), nil
+	})}
 
 	result := validateProviderAPIKey(context.Background(), "sambanova", "sbnv-real-key-1234", map[string]interface{}{
-		"api_base": server.URL,
-	}, server.Client())
+		"api_base": "https://api.sambanova.ai/v1",
+	}, client)
 
 	assert.True(t, result.Success)
 	assert.Equal(t, "Bearer sbnv-real-key-1234", gotAuth)
 }
 
 func TestValidateProviderAPIKeyRejectsInvalidProviderKey(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusUnauthorized)
-		_, _ = w.Write([]byte(`{"error":{"message":"Incorrect API key provided: sk-real-key-1234"}}`))
-	}))
-	defer server.Close()
+	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return jsonResponse(http.StatusUnauthorized, `{"error":{"message":"Incorrect API key provided: sk-real-key-1234"}}`), nil
+	})}
 
 	result := validateProviderAPIKey(context.Background(), "openai", "sk-real-key-1234", map[string]interface{}{
-		"api_base": server.URL,
-	}, server.Client())
+		"api_base": "https://api.openai.com/v1",
+	}, client)
 
 	assert.False(t, result.Success)
 	assert.Contains(t, result.Message, "invalid")
 	assert.NotContains(t, result.Message, "sk-real-key-1234")
 	assert.Contains(t, result.Message, "[redacted]")
+}
+
+func TestValidateProviderAPIKeyRejectsPrivateAPIBaseBeforeNetwork(t *testing.T) {
+	called := false
+	client := &http.Client{
+		Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+			called = true
+			return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody}, nil
+		}),
+	}
+
+	result := validateProviderAPIKey(context.Background(), "openai", "sk-real-key-1234", map[string]interface{}{
+		"api_base": "http://127.0.0.1:8080/v1",
+	}, client)
+
+	assert.False(t, result.Success)
+	assert.Contains(t, result.Message, "api_base")
+	assert.False(t, called)
 }
 
 func TestValidateProviderAPIKeyClassifiesForbiddenAndQuota(t *testing.T) {
@@ -71,15 +84,13 @@ func TestValidateProviderAPIKeyClassifiesForbiddenAndQuota(t *testing.T) {
 		"quota":     http.StatusTooManyRequests,
 	} {
 		t.Run(name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(status)
-				_, _ = w.Write([]byte(`{"message":"provider detail"}`))
-			}))
-			defer server.Close()
+			client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+				return jsonResponse(status, `{"message":"provider detail"}`), nil
+			})}
 
 			result := validateProviderAPIKey(context.Background(), "mistral", "mistral-key-1234", map[string]interface{}{
-				"api_base": server.URL,
-			}, server.Client())
+				"api_base": "https://api.mistral.ai/v1",
+			}, client)
 
 			assert.False(t, result.Success)
 
@@ -91,6 +102,20 @@ func TestValidateProviderAPIKeyClassifiesForbiddenAndQuota(t *testing.T) {
 
 			assert.Contains(t, result.Message, "provider detail")
 		})
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func jsonResponse(status int, body string) *http.Response {
+	return &http.Response{
+		StatusCode: status,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(body)),
 	}
 }
 
