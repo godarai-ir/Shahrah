@@ -185,7 +185,7 @@ jobs:
               },
               {
                   "id": "tenant-admin",
-                  "context": "apps/tenant-admin",
+                  "context": ".",
                   "dockerfile": "apps/tenant-admin/Dockerfile",
                   "target": "",
                   "values_path": "tenantAdmin.image.tag",
@@ -441,6 +441,8 @@ jobs:
             APP_VERSION=${{ matrix.semver_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          sbom: ${{ matrix.id == 'tenant-admin' }}
+          provenance: ${{ matrix.id == 'tenant-admin' && 'mode=max' || 'true' }}
 
   tag-release:
     name: Create Per-Service Git Tags
