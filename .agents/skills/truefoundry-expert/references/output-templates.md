@@ -2,10 +2,10 @@
 
 ## MVP Capability Analysis
 
-Use this structure when the user asks which TrueFoundry ideas should become Shahrah MVP capabilities.
+Use this structure when the user asks which TrueFoundry ideas should become GodarAI MVP capabilities.
 
 ```markdown
-# Shahrah MVP Capability Analysis
+# GodarAI MVP Capability Analysis
 
 ## Decision Summary
 
@@ -13,7 +13,7 @@ State the recommended MVP scope in 3-7 bullets.
 
 ## TrueFoundry Capability Map
 
-| TrueFoundry capability | User/job value | MVP decision | Shahrah adaptation | Rationale |
+| TrueFoundry capability | User/job value | MVP decision | GodarAI adaptation | Rationale |
 |---|---:|---|---|---|
 | capability | high/medium/low | include/defer/exclude | adaptation | evidence from docs |
 
@@ -29,7 +29,7 @@ List useful but non-MVP capabilities and the trigger for adding them later.
 
 ### Exclude
 
-List capabilities not aligned with Shahrah's initial market or product goals.
+List capabilities not aligned with GodarAI's initial market or product goals.
 
 ## Iran-Specific Additions
 
@@ -49,7 +49,7 @@ Use this structure when writing or revising a PRD.
 
 ## Context
 
-Explain the customer problem, Shahrah product goal, and relevant TrueFoundry inspiration.
+Explain the customer problem, GodarAI product goal, and relevant TrueFoundry inspiration.
 
 ## Goals
 
@@ -115,7 +115,7 @@ One paragraph describing the feature and why it is in the MVP.
 
 - TrueFoundry docs: paths reviewed
 - TrueFoundry source: paths reviewed, only if needed
-- Shahrah plans: paths reviewed
+- GodarAI plans: paths reviewed
 
 ## Architecture
 
@@ -160,7 +160,7 @@ List unresolved items requiring product or engineering decision.
 ## API and Architecture Design
 
 ```markdown
-# Shahrah API and Architecture Design: [Area]
+# GodarAI API and Architecture Design: [Area]
 
 ## Design Goals
 

@@ -1,30 +1,30 @@
 ---
 name: truefoundry-expert
-description: Analyze TrueFoundry and adapt it into Shahrah product decisions, PRDs, phased implementation plans under `plans/`, and MVP API or architecture guidance for the Go-based Shahrah gateway. Use when Codex needs to study `.truefoundry-docs`, compare them with Shahrah planning docs, choose include/defer/exclude MVP scope, or translate TrueFoundry concepts into Iran-market requirements without copying the Python implementation wholesale.
+description: Analyze TrueFoundry and adapt it into GodarAI product decisions, PRDs, phased implementation plans under `plans/`, and MVP API or architecture guidance for the Go-based GodarAI gateway. Use when Codex needs to study `.truefoundry-docs`, compare them with GodarAI planning docs, choose include/defer/exclude MVP scope, or translate TrueFoundry concepts into Iran-market requirements without copying the Python implementation wholesale.
 ---
 
 # TrueFoundry-expert
 
-Build Shahrah as a focused Go gateway inspired by TrueFoundry, not a parity clone. Reuse the product ideas that improve adoption and operations, then simplify them to match Shahrah's MVP and local-market constraints.
+Build GodarAI as a focused Go gateway inspired by TrueFoundry, not a parity clone. Reuse the product ideas that improve adoption and operations, then simplify them to match GodarAI's MVP and local-market constraints.
 
 ## Gather Inputs In Order
 
 Read inputs in this order before making substantive recommendations:
 
 1. Read the relevant Markdown docs under `.truefoundry-docs`.
-2. Read `plans/readme.md` for Shahrah constraints and Iran-market requirements.
+2. Read `plans/readme.md` for GodarAI constraints and Iran-market requirements.
 3. Read overlapping files under `plans/` when the task may conflict with or extend existing work.
 
-Treat TrueFoundry source as evidence, not as a direct implementation blueprint for Shahrah.
+Treat TrueFoundry source as evidence, not as a direct implementation blueprint for GodarAI.
 
 ## Make Product Decisions Explicit
 
 For each TrueFoundry capability or idea, identify:
 
 - The user or operator problem it solves
-- Whether Shahrah should `include now`, `defer`, or `exclude` it
-- What must change for Shahrah's Go codebase or Iran-market requirements
-- Whether the decision is driven by documentation, Shahrah-specific constraints, or a stated assumption
+- Whether GodarAI should `include now`, `defer`, or `exclude` it
+- What must change for GodarAI's Go codebase or Iran-market requirements
+- Whether the decision is driven by documentation, GodarAI-specific constraints, or a stated assumption
 
 Prefer MVP features that directly improve gateway adoption and day-1 operability:
 
@@ -49,7 +49,7 @@ Use [references/output-templates.md](./references/output-templates.md) for struc
 
 ### MVP Capability Analysis
 
-Summarize candidate TrueFoundry capabilities and classify them as `include now`, `defer`, or `exclude`. Explain the Shahrah-specific adaptation and the reason behind each decision.
+Summarize candidate TrueFoundry capabilities and classify them as `include now`, `defer`, or `exclude`. Explain the GodarAI-specific adaptation and the reason behind each decision.
 
 ### PRD
 
@@ -81,7 +81,7 @@ Prefer a simple MVP split:
 
 Keep public APIs compatible where that reduces adoption friction, especially OpenAI-style request and response shapes. Specify behavior for provider timeouts, provider errors, rate limits, quota exhaustion, auth failures, unknown models, and fallback exhaustion.
 
-## Apply Shahrah Product Principles
+## Apply GodarAI Product Principles
 
 Use these defaults unless the user overrides them:
 
@@ -107,4 +107,4 @@ Proceed with explicit assumptions unless missing context blocks a correct answer
 
 Do not recommend copying TrueFoundry wholesale.
 Do not treat Python implementation details as requirements.
-Do not widen MVP scope unless the user asks for it or Shahrah planning docs require it.
+Do not widen MVP scope unless the user asks for it or GodarAI planning docs require it.

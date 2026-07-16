@@ -1,4 +1,4 @@
 interface:
   display_name: "PortKey Expert"
-  short_description: "Turn PortKey research into Shahrah plans."
-  default_prompt: "Use $portkey-expert to translate PortKey documentation into a focused Shahrah MVP plan."
+  short_description: "Turn PortKey research into GodarAI plans."
+  default_prompt: "Use $portkey-expert to translate PortKey documentation into a focused GodarAI MVP plan."

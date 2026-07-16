@@ -11,8 +11,8 @@ interface Props {
 }
 
 const {
-  title = "Shahrah Blog | مقالات، تحلیل و آموزش",
-  description = "بلاگ Shahrah برای انتشار مقاله‌های فنی، آموزشی و تحلیلی درباره AI infrastructure، LLM gateway و مدیریت محصول.",
+  title = "بلاگ گدارAI | مقالات، تحلیل و آموزش",
+  description = "بلاگ گدارAI برای انتشار مقاله‌های فنی، آموزشی و تحلیلی درباره زیرساخت هوش مصنوعی، درگاه مدل‌های زبانی و مدیریت محصول.",
   canonical,
   image,
 } = Astro.props;
@@ -35,7 +35,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:locale" content="fa_IR" />
-    <meta property="og:site_name" content="Shahrah Blog" />
+    <meta property="og:site_name" content="بلاگ گدارAI" />
     {canonical && <meta property="og:url" content={canonical} />}
     {image && <meta property="og:image" content={image} />}
     <meta name="twitter:card" content="summary_large_image" />
