@@ -58,10 +58,27 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  const body = await readJSONBankTransferBody(request);
+  if (!body.ok) {
+    return NextResponse.json({ error: { message: body.message } }, { status: 400 });
+  }
+
   return proxyToControlPlane({
     request,
     method: "POST",
     path: "/api/v1/wallet/bank-transfers",
-    body: await request.json().catch(() => undefined),
+    body: body.value,
   });
+}
+
+async function readJSONBankTransferBody(request: NextRequest) {
+  const body = await request.json().catch(() => undefined);
+  if (body && typeof body === "object" && "receipt_file_url" in body) {
+    return {
+      ok: false as const,
+      message: "receipt_file_url must be created by uploading a receipt image.",
+    };
+  }
+
+  return { ok: true as const, value: body };
 }

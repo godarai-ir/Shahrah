@@ -45,4 +45,27 @@ describe("wallet/bank-transfers POST route", () => {
     });
     expect(response.status).toBe(201);
   });
+
+  it("rejects caller-supplied receipt URLs on JSON requests", async () => {
+    const request = new NextRequest("http://localhost/api/wallet/bank-transfers", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        amount_irr: 250000,
+        tracking_number: "ABC-123",
+        bank_transaction_date_jalali: "1405-04-17",
+        receipt_file_url: "/api/wallet/bank-transfer-receipts/t_other_tenant_file.png",
+      }),
+    });
+
+    readAuthFromRequestMock.mockResolvedValueOnce({
+      ok: true,
+      tenantSlug: "tenant-one",
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(400);
+    expect(proxyToControlPlaneMock).not.toHaveBeenCalled();
+  });
 });

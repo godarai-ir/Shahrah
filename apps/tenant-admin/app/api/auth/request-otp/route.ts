@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getAuthRepository } from "@/lib/auth/factory";
 import { debugOTPResponseField } from "@/lib/auth/debug-otp";
+import {
+  buildGenericOTPRequestResult,
+  checkOTPRequestRateLimit,
+  clientAddressFromHeaders,
+  extractAuthAPIStatus,
+  isAccountEnumerationAuthError,
+} from "@/lib/auth/otp-request-security";
 import { resolveTenantSlugFromHeaders } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +57,27 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const rateLimit = checkOTPRequestRateLimit({
+    tenantSlug,
+    identifier: normalized,
+    clientAddress: clientAddressFromHeaders(request.headers),
+  });
+  if (!rateLimit.ok) {
+    return NextResponse.json(
+      {
+        error: {
+          message: "درخواست‌های زیادی ارسال شده است. کمی بعد دوباره تلاش کنید.",
+        },
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(rateLimit.retryAfterSeconds),
+        },
+      },
+    );
+  }
+
   try {
     const repo = getAuthRepository();
 
@@ -78,10 +106,25 @@ export async function POST(request: NextRequest) {
       ...debugOTPResponseField(otp.debug_otp),
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Authentication failed.";
-    const statusMatch =
-      error instanceof Error ? error.message.match(/Auth API error:\s+(\d{3})/) : null;
-    const status = statusMatch ? Number(statusMatch[1]) : 500;
-    return NextResponse.json({ error: { message } }, { status });
+    if (isAccountEnumerationAuthError(error)) {
+      return NextResponse.json(buildGenericOTPRequestResult(normalized));
+    }
+
+    const status = extractAuthAPIStatus(error);
+    if (status === 429) {
+      return NextResponse.json(
+        {
+          error: {
+            message: "درخواست‌های زیادی ارسال شده است. کمی بعد دوباره تلاش کنید.",
+          },
+        },
+        { status: 429 },
+      );
+    }
+
+    return NextResponse.json(
+      { error: { message: "امکان ارسال OTP در حال حاضر وجود ندارد." } },
+      { status: 502 },
+    );
   }
 }

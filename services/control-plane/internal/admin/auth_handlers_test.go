@@ -13,7 +13,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func TestCreateOTPRequestRejectsUnknownLoginAccountBeforeCreatingOTP(t *testing.T) {
+func TestCreateOTPRequestHidesUnknownLoginAccountBeforeCreatingOTP(t *testing.T) {
 	store := &authHandlerTestStore{findUserErr: errors.New("tenant member not found")}
 	handler := NewAuthHandlers(store, nil)
 	app := fiber.New()
@@ -31,12 +31,66 @@ func TestCreateOTPRequestRejectsUnknownLoginAccountBeforeCreatingOTP(t *testing.
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
+	t.Cleanup(func() { _ = resp.Body.Close() })
 
-	if resp.StatusCode != fiber.StatusForbidden {
-		t.Fatalf("status = %d, want %d", resp.StatusCode, fiber.StatusForbidden)
+	var payload map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("status = %d, want %d", resp.StatusCode, fiber.StatusOK)
 	}
 	if store.createOTPCalled {
 		t.Fatal("CreateTenantAdminOTPRequest was called for an unknown login account")
+	}
+	if payload["request_id"] == "" {
+		t.Fatal("generic OTP response did not include request_id")
+	}
+	if payload["destination_masked"] != "mi***@example.com" {
+		t.Fatalf("destination_masked = %v, want mi***@example.com", payload["destination_masked"])
+	}
+	if _, exists := payload["debug_otp"]; exists {
+		t.Fatal("debug_otp was exposed for a synthetic OTP response")
+	}
+}
+
+func TestCreateOTPRequestRateLimitsRepeatedLoginAttempts(t *testing.T) {
+	store := &authHandlerTestStore{createOTPResult: map[string]interface{}{
+		"request_id":         "req-1",
+		"channel":            "email",
+		"destination_masked": "ra***@example.com",
+		"expires_in_seconds": 300,
+		"otp_code":           "123456",
+	}}
+	handler := NewAuthHandlers(store, nil)
+	app := fiber.New()
+	app.Post("/auth/otp/request", handler.CreateOTPRequest)
+
+	var lastStatus int
+	for attempt := 1; attempt <= 6; attempt++ {
+		req := httptest.NewRequest("POST", "/auth/otp/request", bytes.NewBufferString(`{
+			"tenant_slug": "tenant1",
+			"purpose": "login",
+			"channel": "email",
+			"identifier": "ratelimited@example.com"
+		}`))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Forwarded-For", "198.51.100.30")
+
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("request %d failed: %v", attempt, err)
+		}
+		lastStatus = resp.StatusCode
+		_ = resp.Body.Close()
+	}
+
+	if lastStatus != fiber.StatusTooManyRequests {
+		t.Fatalf("last status = %d, want %d", lastStatus, fiber.StatusTooManyRequests)
+	}
+	if store.createOTPCalls != 5 {
+		t.Fatalf("CreateTenantAdminOTPRequest calls = %d, want 5", store.createOTPCalls)
 	}
 }
 
@@ -125,6 +179,7 @@ func performCreateOTPRequest(t *testing.T) (int, map[string]interface{}) {
 type authHandlerTestStore struct {
 	findUserErr     error
 	createOTPCalled bool
+	createOTPCalls  int
 	createOTPResult map[string]interface{}
 }
 
@@ -138,6 +193,7 @@ func (s *authHandlerTestStore) ConsumeTenantAdminCaptcha(context.Context, string
 
 func (s *authHandlerTestStore) CreateTenantAdminOTPRequest(context.Context, storage.TenantAdminOTPRequestParams) (map[string]interface{}, error) {
 	s.createOTPCalled = true
+	s.createOTPCalls++
 	if s.createOTPResult != nil {
 		return s.createOTPResult, nil
 	}

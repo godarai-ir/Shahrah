@@ -2,13 +2,18 @@ package admin
 
 import (
 	"context"
+	crand "crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"math/rand"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
@@ -35,13 +40,142 @@ type AuthStore interface {
 type AuthHandlers struct {
 	store       AuthStore
 	otpNotifier OTPEmailSender
+	otpLimiter  *authRateLimiter
 }
 
 func NewAuthHandlers(store AuthStore, otpNotifier OTPEmailSender) *AuthHandlers {
 	return &AuthHandlers{
 		store:       store,
 		otpNotifier: otpNotifier,
+		otpLimiter:  newAuthRateLimiter(),
 	}
+}
+
+const (
+	tenantAdminOTPIdentifierRateLimit       = 5
+	tenantAdminOTPIdentifierRateLimitWindow = 15 * time.Minute
+	tenantAdminOTPIPRateLimit               = 30
+	tenantAdminOTPIPRateLimitWindow         = time.Minute
+	tenantAdminOTPMaxRateLimitBuckets       = 10000
+)
+
+type authRateLimiter struct {
+	mu      sync.Mutex
+	buckets map[string]authRateLimitBucket
+	now     func() time.Time
+}
+
+type authRateLimitBucket struct {
+	count   int
+	resetAt time.Time
+}
+
+type authRateLimitPolicy struct {
+	key    string
+	limit  int
+	window time.Duration
+}
+
+func newAuthRateLimiter() *authRateLimiter {
+	return &authRateLimiter{
+		buckets: make(map[string]authRateLimitBucket),
+		now:     time.Now,
+	}
+}
+
+func (l *authRateLimiter) allow(policy authRateLimitPolicy) (bool, time.Duration) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	now := l.now()
+	l.pruneExpiredLocked(now)
+	bucket, exists := l.buckets[policy.key]
+	if !exists || !bucket.resetAt.After(now) {
+		l.buckets[policy.key] = authRateLimitBucket{
+			count:   1,
+			resetAt: now.Add(policy.window),
+		}
+		return true, 0
+	}
+
+	if bucket.count >= policy.limit {
+		return false, bucket.resetAt.Sub(now)
+	}
+
+	bucket.count++
+	l.buckets[policy.key] = bucket
+	return true, 0
+}
+
+func (l *authRateLimiter) pruneExpiredLocked(now time.Time) {
+	if len(l.buckets) <= tenantAdminOTPMaxRateLimitBuckets {
+		return
+	}
+
+	for key, bucket := range l.buckets {
+		if !bucket.resetAt.After(now) {
+			delete(l.buckets, key)
+		}
+	}
+
+	for key := range l.buckets {
+		if len(l.buckets) <= tenantAdminOTPMaxRateLimitBuckets {
+			break
+		}
+		delete(l.buckets, key)
+	}
+}
+
+func (h *AuthHandlers) enforceOTPRequestRateLimit(c *fiber.Ctx, tenantSlug, channel, identifier string) error {
+	policies := []authRateLimitPolicy{
+		{
+			key:    authRateLimitKey("identifier", tenantSlug, channel, strings.TrimSpace(strings.ToLower(identifier))),
+			limit:  tenantAdminOTPIdentifierRateLimit,
+			window: tenantAdminOTPIdentifierRateLimitWindow,
+		},
+		{
+			key:    authRateLimitKey("ip", tenantSlug, authRequestClientIP(c)),
+			limit:  tenantAdminOTPIPRateLimit,
+			window: tenantAdminOTPIPRateLimitWindow,
+		},
+	}
+
+	var retryAfter time.Duration
+	for _, policy := range policies {
+		ok, wait := h.otpLimiter.allow(policy)
+		if !ok && wait > retryAfter {
+			retryAfter = wait
+		}
+	}
+
+	if retryAfter <= 0 {
+		return nil
+	}
+
+	retryAfterSeconds := int((retryAfter + time.Second - time.Nanosecond) / time.Second)
+	if retryAfterSeconds < 1 {
+		retryAfterSeconds = 1
+	}
+	c.Set("Retry-After", strconv.Itoa(retryAfterSeconds))
+	return fiber.NewError(fiber.StatusTooManyRequests, "Too many OTP requests. Please try again later.")
+}
+
+func authRateLimitKey(parts ...string) string {
+	sum := sha256.Sum256([]byte(strings.Join(parts, "\x00")))
+	return fmt.Sprintf("%x", sum[:])
+}
+
+func authRequestClientIP(c *fiber.Ctx) string {
+	if value := strings.TrimSpace(strings.Split(c.Get("X-Forwarded-For"), ",")[0]); value != "" {
+		return value
+	}
+	if value := strings.TrimSpace(c.Get("X-Real-IP")); value != "" {
+		return value
+	}
+	if value := strings.TrimSpace(c.IP()); value != "" {
+		return value
+	}
+	return "unknown"
 }
 
 var tenantSlugPattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
@@ -198,6 +332,10 @@ func (h *AuthHandlers) CreateOTPRequest(c *fiber.Ctx) error {
 		channel = "email"
 	}
 
+	if err := h.enforceOTPRequestRateLimit(c, tenantSlug, channel, body.Identifier); err != nil {
+		return err
+	}
+
 	if strings.TrimSpace(strings.ToLower(body.Purpose)) == "login" {
 		if _, err := h.store.FindOrCreateTenantAdminUser(c.Context(), storage.FindOrCreateTenantAdminUserParams{
 			TenantSlug: tenantSlug,
@@ -205,7 +343,7 @@ func (h *AuthHandlers) CreateOTPRequest(c *fiber.Ctx) error {
 			Identifier: body.Identifier,
 		}); err != nil {
 			if strings.Contains(strings.ToLower(err.Error()), "tenant member not found") {
-				return fiber.NewError(fiber.StatusForbidden, "You do not have access to this tenant.")
+				return c.JSON(buildGenericTenantAdminOTPResponse(channel, body.Identifier))
 			}
 
 			return fiber.NewError(fiber.StatusInternalServerError, "Failed to find tenant user")
@@ -256,6 +394,50 @@ func debugOTPExposureEnabled() bool {
 	}
 
 	return strings.EqualFold(strings.TrimSpace(os.Getenv("SHAHRAH_EXPOSE_DEBUG_OTP")), "true")
+}
+
+func buildGenericTenantAdminOTPResponse(channel, identifier string) fiber.Map {
+	return fiber.Map{
+		"request_id":         generateTenantAdminAuthID(),
+		"channel":            channel,
+		"destination_masked": maskTenantAdminAuthIdentifier(channel, identifier),
+		"expires_in_seconds": int(5 * 60),
+	}
+}
+
+func generateTenantAdminAuthID() string {
+	b := make([]byte, 16)
+	_, _ = crand.Read(b)
+	return hex.EncodeToString(b)
+}
+
+func maskTenantAdminAuthIdentifier(channel, identifier string) string {
+	if channel == "email" {
+		parts := strings.SplitN(strings.ToLower(identifier), "@", 2)
+		local := parts[0]
+
+		domain := ""
+		if len(parts) > 1 {
+			domain = parts[1]
+		}
+
+		if local == "" {
+			return "***@" + domain
+		}
+
+		if len(local) <= 2 {
+			return string(local[0]) + "***@" + domain
+		}
+
+		return local[:2] + "***@" + domain
+	}
+
+	compact := strings.ReplaceAll(identifier, " ", "")
+	if len(compact) <= 4 {
+		return "***"
+	}
+
+	return compact[:3] + "****" + compact[len(compact)-3:]
 }
 
 // VerifyOTPRequest handles POST /api/v1/auth/otp/verify.

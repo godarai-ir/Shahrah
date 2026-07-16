@@ -33,6 +33,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (!normalizedFileName) {
     return NextResponse.json({ error: { message: "fileName is required." } }, { status: 400 });
   }
+  if (!isReceiptOwnedByTenant(normalizedFileName, auth.tenantSlug)) {
+    return NextResponse.json({ error: { message: "file not found." } }, { status: 404 });
+  }
 
   const filePath = resolve(RECEIPT_UPLOAD_DIR, normalizedFileName);
   const relativePath = relative(RECEIPT_UPLOAD_DIR, filePath);
@@ -62,20 +65,71 @@ export async function saveReceiptImage(file: File, tenantSlug: string) {
     throw new Error("حجم تصویر رسید باید حداکثر ۲ مگابایت باشد.");
   }
 
+  const content = Buffer.from(await file.arrayBuffer());
+  const detectedType = detectReceiptImageType(content);
+  if (!detectedType || detectedType !== file.type) {
+    throw new Error("فایل رسید معتبر نیست یا با نوع تصویر انتخاب‌شده همخوانی ندارد.");
+  }
+
   const preferredExtension = ALLOWED_RECEIPT_IMAGE_TYPES.get(file.type) ?? ".bin";
-  const originalExtension = extname(file.name || "").toLowerCase();
-  const extension = originalExtension && originalExtension.length <= 5 ? originalExtension : preferredExtension;
-  const safeTenant = tenantSlug.trim().replace(/[^a-z0-9-_]/gi, "-") || "tenant";
-  const fileName = `${safeTenant}-${Date.now()}-${randomUUID()}${extension}`;
+  const fileName = `${tenantReceiptPrefix(tenantSlug)}${randomUUID()}${preferredExtension}`;
   const filePath = join(RECEIPT_UPLOAD_DIR, fileName);
 
   await mkdir(RECEIPT_UPLOAD_DIR, { recursive: true });
-  await writeFile(filePath, Buffer.from(await file.arrayBuffer()));
+  await writeFile(filePath, content);
 
   return {
     fileName,
     url: `/api/wallet/bank-transfer-receipts/${encodeURIComponent(fileName)}`,
   };
+}
+
+function isReceiptOwnedByTenant(fileName: string, tenantSlug: string): boolean {
+  return fileName.startsWith(tenantReceiptPrefix(tenantSlug));
+}
+
+function tenantReceiptPrefix(tenantSlug: string): string {
+  const normalizedTenant = tenantSlug.trim().toLowerCase();
+  const tenantKey = Buffer.from(normalizedTenant || "tenant").toString("base64url");
+  return `t_${tenantKey}_`;
+}
+
+function detectReceiptImageType(content: Buffer): string | null {
+  if (content.length >= 3 && content[0] === 0xff && content[1] === 0xd8 && content[2] === 0xff) {
+    return "image/jpeg";
+  }
+
+  if (
+    content.length >= 8 &&
+    content[0] === 0x89 &&
+    content[1] === 0x50 &&
+    content[2] === 0x4e &&
+    content[3] === 0x47 &&
+    content[4] === 0x0d &&
+    content[5] === 0x0a &&
+    content[6] === 0x1a &&
+    content[7] === 0x0a
+  ) {
+    return "image/png";
+  }
+
+  if (
+    content.length >= 12 &&
+    content.subarray(0, 4).toString("ascii") === "RIFF" &&
+    content.subarray(8, 12).toString("ascii") === "WEBP"
+  ) {
+    return "image/webp";
+  }
+
+  if (
+    content.length >= 6 &&
+    (content.subarray(0, 6).toString("ascii") === "GIF87a" ||
+      content.subarray(0, 6).toString("ascii") === "GIF89a")
+  ) {
+    return "image/gif";
+  }
+
+  return null;
 }
 
 function getReceiptContentType(fileName: string): string {
