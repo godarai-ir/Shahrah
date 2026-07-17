@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  GoneException,
   Param,
   ParseBoolPipe,
   Post,
@@ -23,7 +24,7 @@ import { ScopesGuard } from '../common/guards/scopes.guard';
 import { ServiceAccountGuard } from '../common/guards/service-account.guard';
 import { UpsertProviderDto } from './dto/upsert-provider.dto';
 import { ProvidersService } from './providers.service';
-import { UpsertProviderConnectionProfileDto } from './dto/upsert-provider-connection-profile.dto';
+import { UpsertProviderConnectionSchemaDto } from './dto/upsert-provider-connection-schema.dto';
 
 @ApiTags('providers')
 @Controller({ path: 'providers', version: '1' })
@@ -40,9 +41,9 @@ export class ProvidersController {
     return this.providers.listModels(slug);
   }
 
-  @Get(':slug')
-  detail(@Param('slug') slug: string) {
-    return this.providers.detail(slug);
+  @Get(':slug/connection-schemas')
+  listConnectionSchemas(@Param('slug') slug: string) {
+    return this.providers.listConnectionSchemas(slug);
   }
 
   @ApiBearerAuth()
@@ -79,12 +80,12 @@ export class ProvidersController {
   @ApiBearerAuth()
   @UseGuards(ServiceAccountGuard, ScopesGuard)
   @Scopes('provider:write')
-  @Post('admin/connection-profile/upsert')
-  upsertConnectionProfile(
-    @Body() body: UpsertProviderConnectionProfileDto,
+  @Post('admin/connection-schemas/upsert')
+  upsertConnectionSchema(
+    @Body() body: UpsertProviderConnectionSchemaDto,
     @Req() request: AuthenticatedRequest,
   ) {
-    return this.providers.upsertConnectionProfile(body, request.user);
+    return this.providers.upsertConnectionSchema(body, request.user);
   }
 
   @ApiBearerAuth()
@@ -92,7 +93,33 @@ export class ProvidersController {
   @Scopes('catalog:read')
   @Get('admin/:slug/connection-profile')
   getConnectionProfile(@Param('slug') slug: string) {
-    return this.providers.getConnectionProfile(slug);
+    throw new GoneException({
+      error: {
+        code: 'provider_connection_profile_retired',
+        message:
+          'Value-bearing provider connection profiles have been retired.',
+        provider: slug,
+      },
+    });
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(ServiceAccountGuard, ScopesGuard)
+  @Scopes('provider:write')
+  @Post('admin/connection-profile/upsert')
+  retiredConnectionProfileWrite() {
+    throw new GoneException({
+      error: {
+        code: 'provider_connection_profile_retired',
+        message:
+          'Write credential values through the control-plane provider connection API.',
+      },
+    });
+  }
+
+  @Get(':slug')
+  detail(@Param('slug') slug: string) {
+    return this.providers.detail(slug);
   }
 
   @ApiBearerAuth()

@@ -13,7 +13,7 @@ import {
 } from '@nestjs/swagger';
 import { ModelsQueryDto } from './catalog/dto/models-query.dto';
 import { UpdateDisplaySettingsDto } from './display-settings/dto/update-display-settings.dto';
-import { UpsertProviderConnectionProfileDto } from './providers/dto/upsert-provider-connection-profile.dto';
+import { UpsertProviderConnectionSchemaDto } from './providers/dto/upsert-provider-connection-schema.dto';
 import { UpsertProviderDto } from './providers/dto/upsert-provider.dto';
 import { UpsertModelDto } from './catalog/dto/upsert-model.dto';
 import { UpsertModelSeriesDto } from './catalog/dto/upsert-model-series.dto';
@@ -94,15 +94,18 @@ class FacetsResponse {
   regions!: FacetOption[];
 }
 
-class ProviderConnectionProfileResponse {
+class ProviderConnectionSchemaResponse {
   @ApiProperty()
-  providerType!: string;
+  authMode!: string;
 
-  @ApiPropertyOptional()
-  authMode?: string | null;
+  @ApiProperty()
+  version!: number;
 
-  @ApiProperty({ additionalProperties: true })
-  configJson!: Record<string, unknown>;
+  @ApiProperty()
+  runtimeReady!: boolean;
+
+  @ApiProperty({ type: 'array', items: { type: 'object' } })
+  fieldsJson!: Record<string, unknown>[];
 }
 
 class ProviderCatalogEntry {
@@ -136,8 +139,8 @@ class ProviderCatalogEntry {
   @ApiPropertyOptional()
   supportsByok?: boolean | null;
 
-  @ApiPropertyOptional({ type: () => ProviderConnectionProfileResponse })
-  connectionProfile?: ProviderConnectionProfileResponse | null;
+  @ApiPropertyOptional({ type: () => [ProviderConnectionSchemaResponse] })
+  connectionSchemas?: ProviderConnectionSchemaResponse[];
 }
 
 class ProviderSummary {
@@ -796,21 +799,20 @@ class OpenAPIProvidersController {
   }
 
   @ApiBearerAuth()
-  @Post('admin/connection-profile/upsert')
+  @Post('admin/connection-schemas/upsert')
   @ApiOperation({
-    summary: 'Create or update provider connection profile metadata.',
+    summary: 'Create or update a value-free provider connection schema.',
   })
-  @ApiBody({ type: UpsertProviderConnectionProfileDto })
-  @ApiOkResponse({ type: ProviderCatalogEntry })
-  upsertConnectionProfile() {
+  @ApiBody({ type: UpsertProviderConnectionSchemaDto })
+  @ApiOkResponse({ type: ProviderConnectionSchemaResponse })
+  upsertConnectionSchema() {
     return undefined;
   }
 
-  @ApiBearerAuth()
-  @Get('admin/:slug/connection-profile')
-  @ApiOperation({ summary: 'Return provider connection profile metadata.' })
-  @ApiOkResponse({ type: ProviderCatalogEntry })
-  getConnectionProfile(@Param('slug') _slug: string) {
+  @Get(':slug/connection-schemas')
+  @ApiOperation({ summary: 'Return value-free provider connection schemas.' })
+  @ApiOkResponse({ type: [ProviderConnectionSchemaResponse] })
+  listConnectionSchemas(@Param('slug') _slug: string) {
     return undefined;
   }
 

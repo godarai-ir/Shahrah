@@ -23,6 +23,7 @@ import (
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	prommetrics "github.com/Delpak/shahrah/services/control-plane/internal/observability/prometheus"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
+	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
 	"github.com/Delpak/shahrah/services/control-plane/internal/responsecache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
@@ -62,6 +63,7 @@ func main() {
 		logger.Fatal("Failed to initialize storage", zap.Error(err))
 	}
 	defer store.Close()
+	httpMetrics := prommetrics.NewHTTPMetrics()
 
 	var dualCache cache.Cache
 	if cfg.RouterSettings.RedisHost != "" {
@@ -90,6 +92,52 @@ func main() {
 	store.SetEntitlementCache(dualCache)
 	store.SetRequestLoggingModeCacheTTL(time.Duration(cfg.RequestLogs.ModeCacheTTLSeconds) * time.Second)
 
+	credentialMode := strings.TrimSpace(os.Getenv("PLATFORM_PROVIDER_CREDENTIAL_MODE"))
+	if credentialMode == "" {
+		credentialMode = "env"
+	}
+	var (
+		platformCredentialManager *platformcredentials.Manager
+		platformCredentialService *platformcredentials.Service
+		platformCredentialBus     *platformcredentials.RedisInvalidationBus
+	)
+	if credentialMode != "env" || strings.TrimSpace(os.Getenv("PLATFORM_PROVIDER_CREDENTIAL_KEKS_JSON")) != "" {
+		keks, kekErr := platformcredentials.NewEnvironmentKEKProviderFromEnv()
+		fingerprintKey, fingerprintErr := platformcredentials.FingerprintKeyFromEnv()
+		if kekErr != nil || fingerprintErr != nil {
+			if credentialMode == "platform_store" {
+				logger.Fatal("Platform provider credential bootstrap keys are invalid")
+			}
+			logger.Warn("Platform provider credential store is unavailable; environment break-glass remains active")
+		} else {
+			secretStore, secretErr := platformcredentials.NewEncryptedDBSecretStore(keks, fingerprintKey)
+			if secretErr != nil {
+				logger.Fatal("Failed to initialize platform credential encryption")
+			}
+			platformCredentialManager = platformcredentials.NewManager(store, secretStore, httpMetrics)
+			if loadErr := platformCredentialManager.Reload(ctx); loadErr != nil {
+				if credentialMode == "platform_store" {
+					logger.Fatal("Failed to pre-warm platform provider credential snapshot", zap.Error(loadErr))
+				}
+				logger.Warn("Initial platform credential snapshot load failed; environment break-glass remains active", zap.Error(loadErr))
+			}
+			if redisCache, ok := dualCache.(*cache.DualCache); ok {
+				platformCredentialBus = platformcredentials.NewRedisInvalidationBus(redisCache)
+			}
+			schemaCatalog, schemaCatalogErr := platformcredentials.NewModelDiscoverySchemaCatalogFromEnv(nil)
+			if schemaCatalogErr != nil {
+				logger.Warn("Platform credential schema catalog is unavailable", zap.Error(schemaCatalogErr))
+			}
+			platformCredentialService = platformcredentials.NewService(store, secretStore, platformCredentialManager, platformCredentialBus, schemaCatalog, nil)
+			credentialRunCtx, cancelCredentials := context.WithCancel(ctx)
+			defer cancelCredentials()
+			go platformCredentialManager.Reconcile(credentialRunCtx, 30*time.Second)
+			if platformCredentialBus != nil {
+				go func() { _ = platformCredentialBus.Consume(credentialRunCtx, platformCredentialManager) }()
+			}
+		}
+	}
+
 	runtimeProfileCfg := runtimeprofile.LoadConfigFromEnv()
 	var distributedRuntimeProfileCache runtimeprofile.DistributedCache
 	if dc, ok := dualCache.(runtimeprofile.DistributedCache); ok {
@@ -105,6 +153,7 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed to initialize router", zap.Error(err))
 	}
+	llmRouter.SetPlatformCredentialResolver(platformCredentialManager, credentialMode, strings.TrimSpace(os.Getenv("PLATFORM_PROVIDER_CREDENTIAL_ENVIRONMENT")))
 
 	authMiddleware := auth.NewAuthMiddleware(store, cfg.GeneralSettings.MasterKey, logger)
 	authMiddleware.SetRuntimeProfiles(runtimeProfiles)
@@ -136,7 +185,6 @@ func main() {
 	tunnelClient := tunneltransport.NewHTTPTransport(cfg.TunnelSettings.ClientURL, time.Duration(cfg.TunnelSettings.Timeout)*time.Second)
 
 	metricsCfg := metricsobs.LoadConfigFromEnv()
-	httpMetrics := prommetrics.NewHTTPMetrics()
 	store.SetTokenUsageMetrics(httpMetrics)
 
 	var (
@@ -170,27 +218,28 @@ func main() {
 	}
 
 	adminHandlers := admin.New(admin.Dependencies{
-		Keys:             store,
-		Models:           store,
-		Wallets:          store,
-		ProviderAccounts: store,
-		OrgUnits:         store,
-		Memberships:      store,
-		Users:            store,
-		VirtualUsers:     store,
-		Teams:            store,
-		Onboarding:       store,
-		LoginDiscovery:   store,
-		Traces:           store,
-		Logs:             store,
-		Metrics:          store,
-		TracePrivacy:     store,
-		RequestLogging:   store,
-		Prompts:          store,
-		Roles:            store,
-		Plans:            store,
-		Entitlements:     store,
-		SupportTenants:   store,
+		Keys:                store,
+		Models:              store,
+		Wallets:             store,
+		ProviderAccounts:    store,
+		OrgUnits:            store,
+		Memberships:         store,
+		Users:               store,
+		VirtualUsers:        store,
+		Teams:               store,
+		Onboarding:          store,
+		LoginDiscovery:      store,
+		Traces:              store,
+		Logs:                store,
+		Metrics:             store,
+		TracePrivacy:        store,
+		RequestLogging:      store,
+		Prompts:             store,
+		Roles:               store,
+		Plans:               store,
+		Entitlements:        store,
+		SupportTenants:      store,
+		ProviderCredentials: platformCredentialService,
 	})
 	authHandlers := admin.NewAuthHandlers(store, admin.NewOTPEmailSenderFromEnv())
 	var requestLogger proxy.RequestLogger = store

@@ -34,6 +34,11 @@ export type ModelSeries = $Result.DefaultSelection<Prisma.$ModelSeriesPayload>
  */
 export type ProviderConnectionProfile = $Result.DefaultSelection<Prisma.$ProviderConnectionProfilePayload>
 /**
+ * Model ProviderConnectionSchema
+ * 
+ */
+export type ProviderConnectionSchema = $Result.DefaultSelection<Prisma.$ProviderConnectionSchemaPayload>
+/**
  * Model ModelVersion
  * 
  */
@@ -352,6 +357,16 @@ export class PrismaClient<
     * ```
     */
   get providerConnectionProfile(): Prisma.ProviderConnectionProfileDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.providerConnectionSchema`: Exposes CRUD operations for the **ProviderConnectionSchema** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more ProviderConnectionSchemas
+    * const providerConnectionSchemas = await prisma.providerConnectionSchema.findMany()
+    * ```
+    */
+  get providerConnectionSchema(): Prisma.ProviderConnectionSchemaDelegate<ExtArgs, ClientOptions>;
 
   /**
    * `prisma.modelVersion`: Exposes CRUD operations for the **ModelVersion** model.
@@ -1010,6 +1025,7 @@ export namespace Prisma {
     Model: 'Model',
     ModelSeries: 'ModelSeries',
     ProviderConnectionProfile: 'ProviderConnectionProfile',
+    ProviderConnectionSchema: 'ProviderConnectionSchema',
     ModelVersion: 'ModelVersion',
     ModelPricing: 'ModelPricing',
     Capability: 'Capability',
@@ -1047,7 +1063,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "provider" | "model" | "modelSeries" | "providerConnectionProfile" | "modelVersion" | "modelPricing" | "capability" | "modelCapability" | "modality" | "modelInputModality" | "modelOutputModality" | "supportedParameter" | "modelSupportedParameter" | "category" | "region" | "modelRegion" | "benchmark" | "modelBenchmark" | "sourceReference" | "modelChangelog" | "tag" | "modelTag" | "auditLog" | "serviceAccount" | "serviceAccountCredential" | "displaySetting"
+      modelProps: "provider" | "model" | "modelSeries" | "providerConnectionProfile" | "providerConnectionSchema" | "modelVersion" | "modelPricing" | "capability" | "modelCapability" | "modality" | "modelInputModality" | "modelOutputModality" | "supportedParameter" | "modelSupportedParameter" | "category" | "region" | "modelRegion" | "benchmark" | "modelBenchmark" | "sourceReference" | "modelChangelog" | "tag" | "modelTag" | "auditLog" | "serviceAccount" | "serviceAccountCredential" | "displaySetting"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -1344,6 +1360,80 @@ export namespace Prisma {
           count: {
             args: Prisma.ProviderConnectionProfileCountArgs<ExtArgs>
             result: $Utils.Optional<ProviderConnectionProfileCountAggregateOutputType> | number
+          }
+        }
+      }
+      ProviderConnectionSchema: {
+        payload: Prisma.$ProviderConnectionSchemaPayload<ExtArgs>
+        fields: Prisma.ProviderConnectionSchemaFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.ProviderConnectionSchemaFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ProviderConnectionSchemaPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.ProviderConnectionSchemaFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ProviderConnectionSchemaPayload>
+          }
+          findFirst: {
+            args: Prisma.ProviderConnectionSchemaFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ProviderConnectionSchemaPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.ProviderConnectionSchemaFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ProviderConnectionSchemaPayload>
+          }
+          findMany: {
+            args: Prisma.ProviderConnectionSchemaFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ProviderConnectionSchemaPayload>[]
+          }
+          create: {
+            args: Prisma.ProviderConnectionSchemaCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ProviderConnectionSchemaPayload>
+          }
+          createMany: {
+            args: Prisma.ProviderConnectionSchemaCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.ProviderConnectionSchemaCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ProviderConnectionSchemaPayload>[]
+          }
+          delete: {
+            args: Prisma.ProviderConnectionSchemaDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ProviderConnectionSchemaPayload>
+          }
+          update: {
+            args: Prisma.ProviderConnectionSchemaUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ProviderConnectionSchemaPayload>
+          }
+          deleteMany: {
+            args: Prisma.ProviderConnectionSchemaDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.ProviderConnectionSchemaUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.ProviderConnectionSchemaUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ProviderConnectionSchemaPayload>[]
+          }
+          upsert: {
+            args: Prisma.ProviderConnectionSchemaUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ProviderConnectionSchemaPayload>
+          }
+          aggregate: {
+            args: Prisma.ProviderConnectionSchemaAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateProviderConnectionSchema>
+          }
+          groupBy: {
+            args: Prisma.ProviderConnectionSchemaGroupByArgs<ExtArgs>
+            result: $Utils.Optional<ProviderConnectionSchemaGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.ProviderConnectionSchemaCountArgs<ExtArgs>
+            result: $Utils.Optional<ProviderConnectionSchemaCountAggregateOutputType> | number
           }
         }
       }
@@ -3087,6 +3177,7 @@ export namespace Prisma {
     model?: ModelOmit
     modelSeries?: ModelSeriesOmit
     providerConnectionProfile?: ProviderConnectionProfileOmit
+    providerConnectionSchema?: ProviderConnectionSchemaOmit
     modelVersion?: ModelVersionOmit
     modelPricing?: ModelPricingOmit
     capability?: CapabilityOmit
@@ -3190,10 +3281,12 @@ export namespace Prisma {
 
   export type ProviderCountOutputType = {
     models: number
+    connectionSchemas: number
   }
 
   export type ProviderCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     models?: boolean | ProviderCountOutputTypeCountModelsArgs
+    connectionSchemas?: boolean | ProviderCountOutputTypeCountConnectionSchemasArgs
   }
 
   // Custom InputTypes
@@ -3212,6 +3305,13 @@ export namespace Prisma {
    */
   export type ProviderCountOutputTypeCountModelsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: ModelWhereInput
+  }
+
+  /**
+   * ProviderCountOutputType without action
+   */
+  export type ProviderCountOutputTypeCountConnectionSchemasArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: ProviderConnectionSchemaWhereInput
   }
 
 
@@ -3882,7 +3982,8 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     models?: boolean | Provider$modelsArgs<ExtArgs>
-    connectionProfile?: boolean | Provider$connectionProfileArgs<ExtArgs>
+    legacyConnectionProfile?: boolean | Provider$legacyConnectionProfileArgs<ExtArgs>
+    connectionSchemas?: boolean | Provider$connectionSchemasArgs<ExtArgs>
     _count?: boolean | ProviderCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["provider"]>
 
@@ -3943,7 +4044,8 @@ export namespace Prisma {
   export type ProviderOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "slug" | "name" | "description" | "websiteUrl" | "docsUrl" | "logoUrl" | "status" | "enabled" | "privacyPolicyUrl" | "loggingPolicySummary" | "supportsByok" | "supportsRegionalRouting" | "createdAt" | "updatedAt", ExtArgs["result"]["provider"]>
   export type ProviderInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     models?: boolean | Provider$modelsArgs<ExtArgs>
-    connectionProfile?: boolean | Provider$connectionProfileArgs<ExtArgs>
+    legacyConnectionProfile?: boolean | Provider$legacyConnectionProfileArgs<ExtArgs>
+    connectionSchemas?: boolean | Provider$connectionSchemasArgs<ExtArgs>
     _count?: boolean | ProviderCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type ProviderIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {}
@@ -3953,7 +4055,8 @@ export namespace Prisma {
     name: "Provider"
     objects: {
       models: Prisma.$ModelPayload<ExtArgs>[]
-      connectionProfile: Prisma.$ProviderConnectionProfilePayload<ExtArgs> | null
+      legacyConnectionProfile: Prisma.$ProviderConnectionProfilePayload<ExtArgs> | null
+      connectionSchemas: Prisma.$ProviderConnectionSchemaPayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
@@ -4366,7 +4469,8 @@ export namespace Prisma {
   export interface Prisma__ProviderClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
     models<T extends Provider$modelsArgs<ExtArgs> = {}>(args?: Subset<T, Provider$modelsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ModelPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-    connectionProfile<T extends Provider$connectionProfileArgs<ExtArgs> = {}>(args?: Subset<T, Provider$connectionProfileArgs<ExtArgs>>): Prisma__ProviderConnectionProfileClient<$Result.GetResult<Prisma.$ProviderConnectionProfilePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    legacyConnectionProfile<T extends Provider$legacyConnectionProfileArgs<ExtArgs> = {}>(args?: Subset<T, Provider$legacyConnectionProfileArgs<ExtArgs>>): Prisma__ProviderConnectionProfileClient<$Result.GetResult<Prisma.$ProviderConnectionProfilePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    connectionSchemas<T extends Provider$connectionSchemasArgs<ExtArgs> = {}>(args?: Subset<T, Provider$connectionSchemasArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ProviderConnectionSchemaPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -4828,9 +4932,9 @@ export namespace Prisma {
   }
 
   /**
-   * Provider.connectionProfile
+   * Provider.legacyConnectionProfile
    */
-  export type Provider$connectionProfileArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+  export type Provider$legacyConnectionProfileArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     /**
      * Select specific fields to fetch from the ProviderConnectionProfile
      */
@@ -4844,6 +4948,30 @@ export namespace Prisma {
      */
     include?: ProviderConnectionProfileInclude<ExtArgs> | null
     where?: ProviderConnectionProfileWhereInput
+  }
+
+  /**
+   * Provider.connectionSchemas
+   */
+  export type Provider$connectionSchemasArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionSchema
+     */
+    select?: ProviderConnectionSchemaSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionSchema
+     */
+    omit?: ProviderConnectionSchemaOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionSchemaInclude<ExtArgs> | null
+    where?: ProviderConnectionSchemaWhereInput
+    orderBy?: ProviderConnectionSchemaOrderByWithRelationInput | ProviderConnectionSchemaOrderByWithRelationInput[]
+    cursor?: ProviderConnectionSchemaWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: ProviderConnectionSchemaScalarFieldEnum | ProviderConnectionSchemaScalarFieldEnum[]
   }
 
   /**
@@ -8799,6 +8927,1138 @@ export namespace Prisma {
      * Choose, which related nodes to fetch as well
      */
     include?: ProviderConnectionProfileInclude<ExtArgs> | null
+  }
+
+
+  /**
+   * Model ProviderConnectionSchema
+   */
+
+  export type AggregateProviderConnectionSchema = {
+    _count: ProviderConnectionSchemaCountAggregateOutputType | null
+    _avg: ProviderConnectionSchemaAvgAggregateOutputType | null
+    _sum: ProviderConnectionSchemaSumAggregateOutputType | null
+    _min: ProviderConnectionSchemaMinAggregateOutputType | null
+    _max: ProviderConnectionSchemaMaxAggregateOutputType | null
+  }
+
+  export type ProviderConnectionSchemaAvgAggregateOutputType = {
+    version: number | null
+  }
+
+  export type ProviderConnectionSchemaSumAggregateOutputType = {
+    version: number | null
+  }
+
+  export type ProviderConnectionSchemaMinAggregateOutputType = {
+    id: string | null
+    providerId: string | null
+    authMode: string | null
+    version: number | null
+    runtimeReady: boolean | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type ProviderConnectionSchemaMaxAggregateOutputType = {
+    id: string | null
+    providerId: string | null
+    authMode: string | null
+    version: number | null
+    runtimeReady: boolean | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type ProviderConnectionSchemaCountAggregateOutputType = {
+    id: number
+    providerId: number
+    authMode: number
+    version: number
+    runtimeReady: number
+    fieldsJson: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type ProviderConnectionSchemaAvgAggregateInputType = {
+    version?: true
+  }
+
+  export type ProviderConnectionSchemaSumAggregateInputType = {
+    version?: true
+  }
+
+  export type ProviderConnectionSchemaMinAggregateInputType = {
+    id?: true
+    providerId?: true
+    authMode?: true
+    version?: true
+    runtimeReady?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type ProviderConnectionSchemaMaxAggregateInputType = {
+    id?: true
+    providerId?: true
+    authMode?: true
+    version?: true
+    runtimeReady?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type ProviderConnectionSchemaCountAggregateInputType = {
+    id?: true
+    providerId?: true
+    authMode?: true
+    version?: true
+    runtimeReady?: true
+    fieldsJson?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type ProviderConnectionSchemaAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which ProviderConnectionSchema to aggregate.
+     */
+    where?: ProviderConnectionSchemaWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ProviderConnectionSchemas to fetch.
+     */
+    orderBy?: ProviderConnectionSchemaOrderByWithRelationInput | ProviderConnectionSchemaOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: ProviderConnectionSchemaWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ProviderConnectionSchemas from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ProviderConnectionSchemas.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned ProviderConnectionSchemas
+    **/
+    _count?: true | ProviderConnectionSchemaCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: ProviderConnectionSchemaAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: ProviderConnectionSchemaSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: ProviderConnectionSchemaMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: ProviderConnectionSchemaMaxAggregateInputType
+  }
+
+  export type GetProviderConnectionSchemaAggregateType<T extends ProviderConnectionSchemaAggregateArgs> = {
+        [P in keyof T & keyof AggregateProviderConnectionSchema]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateProviderConnectionSchema[P]>
+      : GetScalarType<T[P], AggregateProviderConnectionSchema[P]>
+  }
+
+
+
+
+  export type ProviderConnectionSchemaGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: ProviderConnectionSchemaWhereInput
+    orderBy?: ProviderConnectionSchemaOrderByWithAggregationInput | ProviderConnectionSchemaOrderByWithAggregationInput[]
+    by: ProviderConnectionSchemaScalarFieldEnum[] | ProviderConnectionSchemaScalarFieldEnum
+    having?: ProviderConnectionSchemaScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: ProviderConnectionSchemaCountAggregateInputType | true
+    _avg?: ProviderConnectionSchemaAvgAggregateInputType
+    _sum?: ProviderConnectionSchemaSumAggregateInputType
+    _min?: ProviderConnectionSchemaMinAggregateInputType
+    _max?: ProviderConnectionSchemaMaxAggregateInputType
+  }
+
+  export type ProviderConnectionSchemaGroupByOutputType = {
+    id: string
+    providerId: string
+    authMode: string
+    version: number
+    runtimeReady: boolean
+    fieldsJson: JsonValue
+    createdAt: Date
+    updatedAt: Date
+    _count: ProviderConnectionSchemaCountAggregateOutputType | null
+    _avg: ProviderConnectionSchemaAvgAggregateOutputType | null
+    _sum: ProviderConnectionSchemaSumAggregateOutputType | null
+    _min: ProviderConnectionSchemaMinAggregateOutputType | null
+    _max: ProviderConnectionSchemaMaxAggregateOutputType | null
+  }
+
+  type GetProviderConnectionSchemaGroupByPayload<T extends ProviderConnectionSchemaGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<ProviderConnectionSchemaGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof ProviderConnectionSchemaGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], ProviderConnectionSchemaGroupByOutputType[P]>
+            : GetScalarType<T[P], ProviderConnectionSchemaGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type ProviderConnectionSchemaSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    providerId?: boolean
+    authMode?: boolean
+    version?: boolean
+    runtimeReady?: boolean
+    fieldsJson?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    provider?: boolean | ProviderDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["providerConnectionSchema"]>
+
+  export type ProviderConnectionSchemaSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    providerId?: boolean
+    authMode?: boolean
+    version?: boolean
+    runtimeReady?: boolean
+    fieldsJson?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    provider?: boolean | ProviderDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["providerConnectionSchema"]>
+
+  export type ProviderConnectionSchemaSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    providerId?: boolean
+    authMode?: boolean
+    version?: boolean
+    runtimeReady?: boolean
+    fieldsJson?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    provider?: boolean | ProviderDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["providerConnectionSchema"]>
+
+  export type ProviderConnectionSchemaSelectScalar = {
+    id?: boolean
+    providerId?: boolean
+    authMode?: boolean
+    version?: boolean
+    runtimeReady?: boolean
+    fieldsJson?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type ProviderConnectionSchemaOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "providerId" | "authMode" | "version" | "runtimeReady" | "fieldsJson" | "createdAt" | "updatedAt", ExtArgs["result"]["providerConnectionSchema"]>
+  export type ProviderConnectionSchemaInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    provider?: boolean | ProviderDefaultArgs<ExtArgs>
+  }
+  export type ProviderConnectionSchemaIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    provider?: boolean | ProviderDefaultArgs<ExtArgs>
+  }
+  export type ProviderConnectionSchemaIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    provider?: boolean | ProviderDefaultArgs<ExtArgs>
+  }
+
+  export type $ProviderConnectionSchemaPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "ProviderConnectionSchema"
+    objects: {
+      provider: Prisma.$ProviderPayload<ExtArgs>
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      providerId: string
+      authMode: string
+      version: number
+      runtimeReady: boolean
+      fieldsJson: Prisma.JsonValue
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["providerConnectionSchema"]>
+    composites: {}
+  }
+
+  type ProviderConnectionSchemaGetPayload<S extends boolean | null | undefined | ProviderConnectionSchemaDefaultArgs> = $Result.GetResult<Prisma.$ProviderConnectionSchemaPayload, S>
+
+  type ProviderConnectionSchemaCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<ProviderConnectionSchemaFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: ProviderConnectionSchemaCountAggregateInputType | true
+    }
+
+  export interface ProviderConnectionSchemaDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['ProviderConnectionSchema'], meta: { name: 'ProviderConnectionSchema' } }
+    /**
+     * Find zero or one ProviderConnectionSchema that matches the filter.
+     * @param {ProviderConnectionSchemaFindUniqueArgs} args - Arguments to find a ProviderConnectionSchema
+     * @example
+     * // Get one ProviderConnectionSchema
+     * const providerConnectionSchema = await prisma.providerConnectionSchema.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends ProviderConnectionSchemaFindUniqueArgs>(args: SelectSubset<T, ProviderConnectionSchemaFindUniqueArgs<ExtArgs>>): Prisma__ProviderConnectionSchemaClient<$Result.GetResult<Prisma.$ProviderConnectionSchemaPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one ProviderConnectionSchema that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {ProviderConnectionSchemaFindUniqueOrThrowArgs} args - Arguments to find a ProviderConnectionSchema
+     * @example
+     * // Get one ProviderConnectionSchema
+     * const providerConnectionSchema = await prisma.providerConnectionSchema.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends ProviderConnectionSchemaFindUniqueOrThrowArgs>(args: SelectSubset<T, ProviderConnectionSchemaFindUniqueOrThrowArgs<ExtArgs>>): Prisma__ProviderConnectionSchemaClient<$Result.GetResult<Prisma.$ProviderConnectionSchemaPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first ProviderConnectionSchema that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ProviderConnectionSchemaFindFirstArgs} args - Arguments to find a ProviderConnectionSchema
+     * @example
+     * // Get one ProviderConnectionSchema
+     * const providerConnectionSchema = await prisma.providerConnectionSchema.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends ProviderConnectionSchemaFindFirstArgs>(args?: SelectSubset<T, ProviderConnectionSchemaFindFirstArgs<ExtArgs>>): Prisma__ProviderConnectionSchemaClient<$Result.GetResult<Prisma.$ProviderConnectionSchemaPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first ProviderConnectionSchema that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ProviderConnectionSchemaFindFirstOrThrowArgs} args - Arguments to find a ProviderConnectionSchema
+     * @example
+     * // Get one ProviderConnectionSchema
+     * const providerConnectionSchema = await prisma.providerConnectionSchema.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends ProviderConnectionSchemaFindFirstOrThrowArgs>(args?: SelectSubset<T, ProviderConnectionSchemaFindFirstOrThrowArgs<ExtArgs>>): Prisma__ProviderConnectionSchemaClient<$Result.GetResult<Prisma.$ProviderConnectionSchemaPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more ProviderConnectionSchemas that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ProviderConnectionSchemaFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all ProviderConnectionSchemas
+     * const providerConnectionSchemas = await prisma.providerConnectionSchema.findMany()
+     * 
+     * // Get first 10 ProviderConnectionSchemas
+     * const providerConnectionSchemas = await prisma.providerConnectionSchema.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const providerConnectionSchemaWithIdOnly = await prisma.providerConnectionSchema.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends ProviderConnectionSchemaFindManyArgs>(args?: SelectSubset<T, ProviderConnectionSchemaFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ProviderConnectionSchemaPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a ProviderConnectionSchema.
+     * @param {ProviderConnectionSchemaCreateArgs} args - Arguments to create a ProviderConnectionSchema.
+     * @example
+     * // Create one ProviderConnectionSchema
+     * const ProviderConnectionSchema = await prisma.providerConnectionSchema.create({
+     *   data: {
+     *     // ... data to create a ProviderConnectionSchema
+     *   }
+     * })
+     * 
+     */
+    create<T extends ProviderConnectionSchemaCreateArgs>(args: SelectSubset<T, ProviderConnectionSchemaCreateArgs<ExtArgs>>): Prisma__ProviderConnectionSchemaClient<$Result.GetResult<Prisma.$ProviderConnectionSchemaPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many ProviderConnectionSchemas.
+     * @param {ProviderConnectionSchemaCreateManyArgs} args - Arguments to create many ProviderConnectionSchemas.
+     * @example
+     * // Create many ProviderConnectionSchemas
+     * const providerConnectionSchema = await prisma.providerConnectionSchema.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends ProviderConnectionSchemaCreateManyArgs>(args?: SelectSubset<T, ProviderConnectionSchemaCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many ProviderConnectionSchemas and returns the data saved in the database.
+     * @param {ProviderConnectionSchemaCreateManyAndReturnArgs} args - Arguments to create many ProviderConnectionSchemas.
+     * @example
+     * // Create many ProviderConnectionSchemas
+     * const providerConnectionSchema = await prisma.providerConnectionSchema.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many ProviderConnectionSchemas and only return the `id`
+     * const providerConnectionSchemaWithIdOnly = await prisma.providerConnectionSchema.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends ProviderConnectionSchemaCreateManyAndReturnArgs>(args?: SelectSubset<T, ProviderConnectionSchemaCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ProviderConnectionSchemaPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a ProviderConnectionSchema.
+     * @param {ProviderConnectionSchemaDeleteArgs} args - Arguments to delete one ProviderConnectionSchema.
+     * @example
+     * // Delete one ProviderConnectionSchema
+     * const ProviderConnectionSchema = await prisma.providerConnectionSchema.delete({
+     *   where: {
+     *     // ... filter to delete one ProviderConnectionSchema
+     *   }
+     * })
+     * 
+     */
+    delete<T extends ProviderConnectionSchemaDeleteArgs>(args: SelectSubset<T, ProviderConnectionSchemaDeleteArgs<ExtArgs>>): Prisma__ProviderConnectionSchemaClient<$Result.GetResult<Prisma.$ProviderConnectionSchemaPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one ProviderConnectionSchema.
+     * @param {ProviderConnectionSchemaUpdateArgs} args - Arguments to update one ProviderConnectionSchema.
+     * @example
+     * // Update one ProviderConnectionSchema
+     * const providerConnectionSchema = await prisma.providerConnectionSchema.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends ProviderConnectionSchemaUpdateArgs>(args: SelectSubset<T, ProviderConnectionSchemaUpdateArgs<ExtArgs>>): Prisma__ProviderConnectionSchemaClient<$Result.GetResult<Prisma.$ProviderConnectionSchemaPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more ProviderConnectionSchemas.
+     * @param {ProviderConnectionSchemaDeleteManyArgs} args - Arguments to filter ProviderConnectionSchemas to delete.
+     * @example
+     * // Delete a few ProviderConnectionSchemas
+     * const { count } = await prisma.providerConnectionSchema.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends ProviderConnectionSchemaDeleteManyArgs>(args?: SelectSubset<T, ProviderConnectionSchemaDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more ProviderConnectionSchemas.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ProviderConnectionSchemaUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many ProviderConnectionSchemas
+     * const providerConnectionSchema = await prisma.providerConnectionSchema.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends ProviderConnectionSchemaUpdateManyArgs>(args: SelectSubset<T, ProviderConnectionSchemaUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more ProviderConnectionSchemas and returns the data updated in the database.
+     * @param {ProviderConnectionSchemaUpdateManyAndReturnArgs} args - Arguments to update many ProviderConnectionSchemas.
+     * @example
+     * // Update many ProviderConnectionSchemas
+     * const providerConnectionSchema = await prisma.providerConnectionSchema.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more ProviderConnectionSchemas and only return the `id`
+     * const providerConnectionSchemaWithIdOnly = await prisma.providerConnectionSchema.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends ProviderConnectionSchemaUpdateManyAndReturnArgs>(args: SelectSubset<T, ProviderConnectionSchemaUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ProviderConnectionSchemaPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one ProviderConnectionSchema.
+     * @param {ProviderConnectionSchemaUpsertArgs} args - Arguments to update or create a ProviderConnectionSchema.
+     * @example
+     * // Update or create a ProviderConnectionSchema
+     * const providerConnectionSchema = await prisma.providerConnectionSchema.upsert({
+     *   create: {
+     *     // ... data to create a ProviderConnectionSchema
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the ProviderConnectionSchema we want to update
+     *   }
+     * })
+     */
+    upsert<T extends ProviderConnectionSchemaUpsertArgs>(args: SelectSubset<T, ProviderConnectionSchemaUpsertArgs<ExtArgs>>): Prisma__ProviderConnectionSchemaClient<$Result.GetResult<Prisma.$ProviderConnectionSchemaPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of ProviderConnectionSchemas.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ProviderConnectionSchemaCountArgs} args - Arguments to filter ProviderConnectionSchemas to count.
+     * @example
+     * // Count the number of ProviderConnectionSchemas
+     * const count = await prisma.providerConnectionSchema.count({
+     *   where: {
+     *     // ... the filter for the ProviderConnectionSchemas we want to count
+     *   }
+     * })
+    **/
+    count<T extends ProviderConnectionSchemaCountArgs>(
+      args?: Subset<T, ProviderConnectionSchemaCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], ProviderConnectionSchemaCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a ProviderConnectionSchema.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ProviderConnectionSchemaAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends ProviderConnectionSchemaAggregateArgs>(args: Subset<T, ProviderConnectionSchemaAggregateArgs>): Prisma.PrismaPromise<GetProviderConnectionSchemaAggregateType<T>>
+
+    /**
+     * Group by ProviderConnectionSchema.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ProviderConnectionSchemaGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends ProviderConnectionSchemaGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: ProviderConnectionSchemaGroupByArgs['orderBy'] }
+        : { orderBy?: ProviderConnectionSchemaGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, ProviderConnectionSchemaGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetProviderConnectionSchemaGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the ProviderConnectionSchema model
+   */
+  readonly fields: ProviderConnectionSchemaFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for ProviderConnectionSchema.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__ProviderConnectionSchemaClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    provider<T extends ProviderDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ProviderDefaultArgs<ExtArgs>>): Prisma__ProviderClient<$Result.GetResult<Prisma.$ProviderPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the ProviderConnectionSchema model
+   */
+  interface ProviderConnectionSchemaFieldRefs {
+    readonly id: FieldRef<"ProviderConnectionSchema", 'String'>
+    readonly providerId: FieldRef<"ProviderConnectionSchema", 'String'>
+    readonly authMode: FieldRef<"ProviderConnectionSchema", 'String'>
+    readonly version: FieldRef<"ProviderConnectionSchema", 'Int'>
+    readonly runtimeReady: FieldRef<"ProviderConnectionSchema", 'Boolean'>
+    readonly fieldsJson: FieldRef<"ProviderConnectionSchema", 'Json'>
+    readonly createdAt: FieldRef<"ProviderConnectionSchema", 'DateTime'>
+    readonly updatedAt: FieldRef<"ProviderConnectionSchema", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * ProviderConnectionSchema findUnique
+   */
+  export type ProviderConnectionSchemaFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionSchema
+     */
+    select?: ProviderConnectionSchemaSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionSchema
+     */
+    omit?: ProviderConnectionSchemaOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionSchemaInclude<ExtArgs> | null
+    /**
+     * Filter, which ProviderConnectionSchema to fetch.
+     */
+    where: ProviderConnectionSchemaWhereUniqueInput
+  }
+
+  /**
+   * ProviderConnectionSchema findUniqueOrThrow
+   */
+  export type ProviderConnectionSchemaFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionSchema
+     */
+    select?: ProviderConnectionSchemaSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionSchema
+     */
+    omit?: ProviderConnectionSchemaOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionSchemaInclude<ExtArgs> | null
+    /**
+     * Filter, which ProviderConnectionSchema to fetch.
+     */
+    where: ProviderConnectionSchemaWhereUniqueInput
+  }
+
+  /**
+   * ProviderConnectionSchema findFirst
+   */
+  export type ProviderConnectionSchemaFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionSchema
+     */
+    select?: ProviderConnectionSchemaSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionSchema
+     */
+    omit?: ProviderConnectionSchemaOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionSchemaInclude<ExtArgs> | null
+    /**
+     * Filter, which ProviderConnectionSchema to fetch.
+     */
+    where?: ProviderConnectionSchemaWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ProviderConnectionSchemas to fetch.
+     */
+    orderBy?: ProviderConnectionSchemaOrderByWithRelationInput | ProviderConnectionSchemaOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for ProviderConnectionSchemas.
+     */
+    cursor?: ProviderConnectionSchemaWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ProviderConnectionSchemas from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ProviderConnectionSchemas.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of ProviderConnectionSchemas.
+     */
+    distinct?: ProviderConnectionSchemaScalarFieldEnum | ProviderConnectionSchemaScalarFieldEnum[]
+  }
+
+  /**
+   * ProviderConnectionSchema findFirstOrThrow
+   */
+  export type ProviderConnectionSchemaFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionSchema
+     */
+    select?: ProviderConnectionSchemaSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionSchema
+     */
+    omit?: ProviderConnectionSchemaOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionSchemaInclude<ExtArgs> | null
+    /**
+     * Filter, which ProviderConnectionSchema to fetch.
+     */
+    where?: ProviderConnectionSchemaWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ProviderConnectionSchemas to fetch.
+     */
+    orderBy?: ProviderConnectionSchemaOrderByWithRelationInput | ProviderConnectionSchemaOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for ProviderConnectionSchemas.
+     */
+    cursor?: ProviderConnectionSchemaWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ProviderConnectionSchemas from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ProviderConnectionSchemas.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of ProviderConnectionSchemas.
+     */
+    distinct?: ProviderConnectionSchemaScalarFieldEnum | ProviderConnectionSchemaScalarFieldEnum[]
+  }
+
+  /**
+   * ProviderConnectionSchema findMany
+   */
+  export type ProviderConnectionSchemaFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionSchema
+     */
+    select?: ProviderConnectionSchemaSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionSchema
+     */
+    omit?: ProviderConnectionSchemaOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionSchemaInclude<ExtArgs> | null
+    /**
+     * Filter, which ProviderConnectionSchemas to fetch.
+     */
+    where?: ProviderConnectionSchemaWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ProviderConnectionSchemas to fetch.
+     */
+    orderBy?: ProviderConnectionSchemaOrderByWithRelationInput | ProviderConnectionSchemaOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing ProviderConnectionSchemas.
+     */
+    cursor?: ProviderConnectionSchemaWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ProviderConnectionSchemas from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ProviderConnectionSchemas.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of ProviderConnectionSchemas.
+     */
+    distinct?: ProviderConnectionSchemaScalarFieldEnum | ProviderConnectionSchemaScalarFieldEnum[]
+  }
+
+  /**
+   * ProviderConnectionSchema create
+   */
+  export type ProviderConnectionSchemaCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionSchema
+     */
+    select?: ProviderConnectionSchemaSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionSchema
+     */
+    omit?: ProviderConnectionSchemaOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionSchemaInclude<ExtArgs> | null
+    /**
+     * The data needed to create a ProviderConnectionSchema.
+     */
+    data: XOR<ProviderConnectionSchemaCreateInput, ProviderConnectionSchemaUncheckedCreateInput>
+  }
+
+  /**
+   * ProviderConnectionSchema createMany
+   */
+  export type ProviderConnectionSchemaCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many ProviderConnectionSchemas.
+     */
+    data: ProviderConnectionSchemaCreateManyInput | ProviderConnectionSchemaCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * ProviderConnectionSchema createManyAndReturn
+   */
+  export type ProviderConnectionSchemaCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionSchema
+     */
+    select?: ProviderConnectionSchemaSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionSchema
+     */
+    omit?: ProviderConnectionSchemaOmit<ExtArgs> | null
+    /**
+     * The data used to create many ProviderConnectionSchemas.
+     */
+    data: ProviderConnectionSchemaCreateManyInput | ProviderConnectionSchemaCreateManyInput[]
+    skipDuplicates?: boolean
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionSchemaIncludeCreateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * ProviderConnectionSchema update
+   */
+  export type ProviderConnectionSchemaUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionSchema
+     */
+    select?: ProviderConnectionSchemaSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionSchema
+     */
+    omit?: ProviderConnectionSchemaOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionSchemaInclude<ExtArgs> | null
+    /**
+     * The data needed to update a ProviderConnectionSchema.
+     */
+    data: XOR<ProviderConnectionSchemaUpdateInput, ProviderConnectionSchemaUncheckedUpdateInput>
+    /**
+     * Choose, which ProviderConnectionSchema to update.
+     */
+    where: ProviderConnectionSchemaWhereUniqueInput
+  }
+
+  /**
+   * ProviderConnectionSchema updateMany
+   */
+  export type ProviderConnectionSchemaUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update ProviderConnectionSchemas.
+     */
+    data: XOR<ProviderConnectionSchemaUpdateManyMutationInput, ProviderConnectionSchemaUncheckedUpdateManyInput>
+    /**
+     * Filter which ProviderConnectionSchemas to update
+     */
+    where?: ProviderConnectionSchemaWhereInput
+    /**
+     * Limit how many ProviderConnectionSchemas to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * ProviderConnectionSchema updateManyAndReturn
+   */
+  export type ProviderConnectionSchemaUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionSchema
+     */
+    select?: ProviderConnectionSchemaSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionSchema
+     */
+    omit?: ProviderConnectionSchemaOmit<ExtArgs> | null
+    /**
+     * The data used to update ProviderConnectionSchemas.
+     */
+    data: XOR<ProviderConnectionSchemaUpdateManyMutationInput, ProviderConnectionSchemaUncheckedUpdateManyInput>
+    /**
+     * Filter which ProviderConnectionSchemas to update
+     */
+    where?: ProviderConnectionSchemaWhereInput
+    /**
+     * Limit how many ProviderConnectionSchemas to update.
+     */
+    limit?: number
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionSchemaIncludeUpdateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * ProviderConnectionSchema upsert
+   */
+  export type ProviderConnectionSchemaUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionSchema
+     */
+    select?: ProviderConnectionSchemaSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionSchema
+     */
+    omit?: ProviderConnectionSchemaOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionSchemaInclude<ExtArgs> | null
+    /**
+     * The filter to search for the ProviderConnectionSchema to update in case it exists.
+     */
+    where: ProviderConnectionSchemaWhereUniqueInput
+    /**
+     * In case the ProviderConnectionSchema found by the `where` argument doesn't exist, create a new ProviderConnectionSchema with this data.
+     */
+    create: XOR<ProviderConnectionSchemaCreateInput, ProviderConnectionSchemaUncheckedCreateInput>
+    /**
+     * In case the ProviderConnectionSchema was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<ProviderConnectionSchemaUpdateInput, ProviderConnectionSchemaUncheckedUpdateInput>
+  }
+
+  /**
+   * ProviderConnectionSchema delete
+   */
+  export type ProviderConnectionSchemaDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionSchema
+     */
+    select?: ProviderConnectionSchemaSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionSchema
+     */
+    omit?: ProviderConnectionSchemaOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionSchemaInclude<ExtArgs> | null
+    /**
+     * Filter which ProviderConnectionSchema to delete.
+     */
+    where: ProviderConnectionSchemaWhereUniqueInput
+  }
+
+  /**
+   * ProviderConnectionSchema deleteMany
+   */
+  export type ProviderConnectionSchemaDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which ProviderConnectionSchemas to delete
+     */
+    where?: ProviderConnectionSchemaWhereInput
+    /**
+     * Limit how many ProviderConnectionSchemas to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * ProviderConnectionSchema without action
+   */
+  export type ProviderConnectionSchemaDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ProviderConnectionSchema
+     */
+    select?: ProviderConnectionSchemaSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ProviderConnectionSchema
+     */
+    omit?: ProviderConnectionSchemaOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ProviderConnectionSchemaInclude<ExtArgs> | null
   }
 
 
@@ -32578,6 +33838,20 @@ export namespace Prisma {
   export type ProviderConnectionProfileScalarFieldEnum = (typeof ProviderConnectionProfileScalarFieldEnum)[keyof typeof ProviderConnectionProfileScalarFieldEnum]
 
 
+  export const ProviderConnectionSchemaScalarFieldEnum: {
+    id: 'id',
+    providerId: 'providerId',
+    authMode: 'authMode',
+    version: 'version',
+    runtimeReady: 'runtimeReady',
+    fieldsJson: 'fieldsJson',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type ProviderConnectionSchemaScalarFieldEnum = (typeof ProviderConnectionSchemaScalarFieldEnum)[keyof typeof ProviderConnectionSchemaScalarFieldEnum]
+
+
   export const ModelVersionScalarFieldEnum: {
     id: 'id',
     modelId: 'modelId',
@@ -33020,7 +34294,8 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"Provider"> | Date | string
     updatedAt?: DateTimeFilter<"Provider"> | Date | string
     models?: ModelListRelationFilter
-    connectionProfile?: XOR<ProviderConnectionProfileNullableScalarRelationFilter, ProviderConnectionProfileWhereInput> | null
+    legacyConnectionProfile?: XOR<ProviderConnectionProfileNullableScalarRelationFilter, ProviderConnectionProfileWhereInput> | null
+    connectionSchemas?: ProviderConnectionSchemaListRelationFilter
   }
 
   export type ProviderOrderByWithRelationInput = {
@@ -33040,7 +34315,8 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     models?: ModelOrderByRelationAggregateInput
-    connectionProfile?: ProviderConnectionProfileOrderByWithRelationInput
+    legacyConnectionProfile?: ProviderConnectionProfileOrderByWithRelationInput
+    connectionSchemas?: ProviderConnectionSchemaOrderByRelationAggregateInput
   }
 
   export type ProviderWhereUniqueInput = Prisma.AtLeast<{
@@ -33063,7 +34339,8 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"Provider"> | Date | string
     updatedAt?: DateTimeFilter<"Provider"> | Date | string
     models?: ModelListRelationFilter
-    connectionProfile?: XOR<ProviderConnectionProfileNullableScalarRelationFilter, ProviderConnectionProfileWhereInput> | null
+    legacyConnectionProfile?: XOR<ProviderConnectionProfileNullableScalarRelationFilter, ProviderConnectionProfileWhereInput> | null
+    connectionSchemas?: ProviderConnectionSchemaListRelationFilter
   }, "id" | "slug">
 
   export type ProviderOrderByWithAggregationInput = {
@@ -33443,6 +34720,79 @@ export namespace Prisma {
     configJson?: JsonWithAggregatesFilter<"ProviderConnectionProfile">
     createdAt?: DateTimeWithAggregatesFilter<"ProviderConnectionProfile"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"ProviderConnectionProfile"> | Date | string
+  }
+
+  export type ProviderConnectionSchemaWhereInput = {
+    AND?: ProviderConnectionSchemaWhereInput | ProviderConnectionSchemaWhereInput[]
+    OR?: ProviderConnectionSchemaWhereInput[]
+    NOT?: ProviderConnectionSchemaWhereInput | ProviderConnectionSchemaWhereInput[]
+    id?: StringFilter<"ProviderConnectionSchema"> | string
+    providerId?: StringFilter<"ProviderConnectionSchema"> | string
+    authMode?: StringFilter<"ProviderConnectionSchema"> | string
+    version?: IntFilter<"ProviderConnectionSchema"> | number
+    runtimeReady?: BoolFilter<"ProviderConnectionSchema"> | boolean
+    fieldsJson?: JsonFilter<"ProviderConnectionSchema">
+    createdAt?: DateTimeFilter<"ProviderConnectionSchema"> | Date | string
+    updatedAt?: DateTimeFilter<"ProviderConnectionSchema"> | Date | string
+    provider?: XOR<ProviderScalarRelationFilter, ProviderWhereInput>
+  }
+
+  export type ProviderConnectionSchemaOrderByWithRelationInput = {
+    id?: SortOrder
+    providerId?: SortOrder
+    authMode?: SortOrder
+    version?: SortOrder
+    runtimeReady?: SortOrder
+    fieldsJson?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    provider?: ProviderOrderByWithRelationInput
+  }
+
+  export type ProviderConnectionSchemaWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    providerId_authMode_version?: ProviderConnectionSchemaProviderIdAuthModeVersionCompoundUniqueInput
+    AND?: ProviderConnectionSchemaWhereInput | ProviderConnectionSchemaWhereInput[]
+    OR?: ProviderConnectionSchemaWhereInput[]
+    NOT?: ProviderConnectionSchemaWhereInput | ProviderConnectionSchemaWhereInput[]
+    providerId?: StringFilter<"ProviderConnectionSchema"> | string
+    authMode?: StringFilter<"ProviderConnectionSchema"> | string
+    version?: IntFilter<"ProviderConnectionSchema"> | number
+    runtimeReady?: BoolFilter<"ProviderConnectionSchema"> | boolean
+    fieldsJson?: JsonFilter<"ProviderConnectionSchema">
+    createdAt?: DateTimeFilter<"ProviderConnectionSchema"> | Date | string
+    updatedAt?: DateTimeFilter<"ProviderConnectionSchema"> | Date | string
+    provider?: XOR<ProviderScalarRelationFilter, ProviderWhereInput>
+  }, "id" | "providerId_authMode_version">
+
+  export type ProviderConnectionSchemaOrderByWithAggregationInput = {
+    id?: SortOrder
+    providerId?: SortOrder
+    authMode?: SortOrder
+    version?: SortOrder
+    runtimeReady?: SortOrder
+    fieldsJson?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: ProviderConnectionSchemaCountOrderByAggregateInput
+    _avg?: ProviderConnectionSchemaAvgOrderByAggregateInput
+    _max?: ProviderConnectionSchemaMaxOrderByAggregateInput
+    _min?: ProviderConnectionSchemaMinOrderByAggregateInput
+    _sum?: ProviderConnectionSchemaSumOrderByAggregateInput
+  }
+
+  export type ProviderConnectionSchemaScalarWhereWithAggregatesInput = {
+    AND?: ProviderConnectionSchemaScalarWhereWithAggregatesInput | ProviderConnectionSchemaScalarWhereWithAggregatesInput[]
+    OR?: ProviderConnectionSchemaScalarWhereWithAggregatesInput[]
+    NOT?: ProviderConnectionSchemaScalarWhereWithAggregatesInput | ProviderConnectionSchemaScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"ProviderConnectionSchema"> | string
+    providerId?: StringWithAggregatesFilter<"ProviderConnectionSchema"> | string
+    authMode?: StringWithAggregatesFilter<"ProviderConnectionSchema"> | string
+    version?: IntWithAggregatesFilter<"ProviderConnectionSchema"> | number
+    runtimeReady?: BoolWithAggregatesFilter<"ProviderConnectionSchema"> | boolean
+    fieldsJson?: JsonWithAggregatesFilter<"ProviderConnectionSchema">
+    createdAt?: DateTimeWithAggregatesFilter<"ProviderConnectionSchema"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"ProviderConnectionSchema"> | Date | string
   }
 
   export type ModelVersionWhereInput = {
@@ -34733,7 +36083,8 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     models?: ModelCreateNestedManyWithoutProviderInput
-    connectionProfile?: ProviderConnectionProfileCreateNestedOneWithoutProviderInput
+    legacyConnectionProfile?: ProviderConnectionProfileCreateNestedOneWithoutProviderInput
+    connectionSchemas?: ProviderConnectionSchemaCreateNestedManyWithoutProviderInput
   }
 
   export type ProviderUncheckedCreateInput = {
@@ -34753,7 +36104,8 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     models?: ModelUncheckedCreateNestedManyWithoutProviderInput
-    connectionProfile?: ProviderConnectionProfileUncheckedCreateNestedOneWithoutProviderInput
+    legacyConnectionProfile?: ProviderConnectionProfileUncheckedCreateNestedOneWithoutProviderInput
+    connectionSchemas?: ProviderConnectionSchemaUncheckedCreateNestedManyWithoutProviderInput
   }
 
   export type ProviderUpdateInput = {
@@ -34773,7 +36125,8 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     models?: ModelUpdateManyWithoutProviderNestedInput
-    connectionProfile?: ProviderConnectionProfileUpdateOneWithoutProviderNestedInput
+    legacyConnectionProfile?: ProviderConnectionProfileUpdateOneWithoutProviderNestedInput
+    connectionSchemas?: ProviderConnectionSchemaUpdateManyWithoutProviderNestedInput
   }
 
   export type ProviderUncheckedUpdateInput = {
@@ -34793,7 +36146,8 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     models?: ModelUncheckedUpdateManyWithoutProviderNestedInput
-    connectionProfile?: ProviderConnectionProfileUncheckedUpdateOneWithoutProviderNestedInput
+    legacyConnectionProfile?: ProviderConnectionProfileUncheckedUpdateOneWithoutProviderNestedInput
+    connectionSchemas?: ProviderConnectionSchemaUncheckedUpdateManyWithoutProviderNestedInput
   }
 
   export type ProviderCreateManyInput = {
@@ -35182,7 +36536,7 @@ export namespace Prisma {
     configJson: JsonNullValueInput | InputJsonValue
     createdAt?: Date | string
     updatedAt?: Date | string
-    provider: ProviderCreateNestedOneWithoutConnectionProfileInput
+    provider: ProviderCreateNestedOneWithoutLegacyConnectionProfileInput
   }
 
   export type ProviderConnectionProfileUncheckedCreateInput = {
@@ -35202,7 +36556,7 @@ export namespace Prisma {
     configJson?: JsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    provider?: ProviderUpdateOneRequiredWithoutConnectionProfileNestedInput
+    provider?: ProviderUpdateOneRequiredWithoutLegacyConnectionProfileNestedInput
   }
 
   export type ProviderConnectionProfileUncheckedUpdateInput = {
@@ -35240,6 +36594,82 @@ export namespace Prisma {
     providerType?: StringFieldUpdateOperationsInput | string
     authMode?: NullableStringFieldUpdateOperationsInput | string | null
     configJson?: JsonNullValueInput | InputJsonValue
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ProviderConnectionSchemaCreateInput = {
+    id?: string
+    authMode: string
+    version: number
+    runtimeReady?: boolean
+    fieldsJson: JsonNullValueInput | InputJsonValue
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    provider: ProviderCreateNestedOneWithoutConnectionSchemasInput
+  }
+
+  export type ProviderConnectionSchemaUncheckedCreateInput = {
+    id?: string
+    providerId: string
+    authMode: string
+    version: number
+    runtimeReady?: boolean
+    fieldsJson: JsonNullValueInput | InputJsonValue
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ProviderConnectionSchemaUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    authMode?: StringFieldUpdateOperationsInput | string
+    version?: IntFieldUpdateOperationsInput | number
+    runtimeReady?: BoolFieldUpdateOperationsInput | boolean
+    fieldsJson?: JsonNullValueInput | InputJsonValue
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    provider?: ProviderUpdateOneRequiredWithoutConnectionSchemasNestedInput
+  }
+
+  export type ProviderConnectionSchemaUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    providerId?: StringFieldUpdateOperationsInput | string
+    authMode?: StringFieldUpdateOperationsInput | string
+    version?: IntFieldUpdateOperationsInput | number
+    runtimeReady?: BoolFieldUpdateOperationsInput | boolean
+    fieldsJson?: JsonNullValueInput | InputJsonValue
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ProviderConnectionSchemaCreateManyInput = {
+    id?: string
+    providerId: string
+    authMode: string
+    version: number
+    runtimeReady?: boolean
+    fieldsJson: JsonNullValueInput | InputJsonValue
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ProviderConnectionSchemaUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    authMode?: StringFieldUpdateOperationsInput | string
+    version?: IntFieldUpdateOperationsInput | number
+    runtimeReady?: BoolFieldUpdateOperationsInput | boolean
+    fieldsJson?: JsonNullValueInput | InputJsonValue
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ProviderConnectionSchemaUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    providerId?: StringFieldUpdateOperationsInput | string
+    authMode?: StringFieldUpdateOperationsInput | string
+    version?: IntFieldUpdateOperationsInput | number
+    runtimeReady?: BoolFieldUpdateOperationsInput | boolean
+    fieldsJson?: JsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -36601,12 +38031,22 @@ export namespace Prisma {
     isNot?: ProviderConnectionProfileWhereInput | null
   }
 
+  export type ProviderConnectionSchemaListRelationFilter = {
+    every?: ProviderConnectionSchemaWhereInput
+    some?: ProviderConnectionSchemaWhereInput
+    none?: ProviderConnectionSchemaWhereInput
+  }
+
   export type SortOrderInput = {
     sort: SortOrder
     nulls?: NullsOrder
   }
 
   export type ModelOrderByRelationAggregateInput = {
+    _count?: SortOrder
+  }
+
+  export type ProviderConnectionSchemaOrderByRelationAggregateInput = {
     _count?: SortOrder
   }
 
@@ -37188,6 +38628,78 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>
     _min?: NestedJsonFilter<$PrismaModel>
     _max?: NestedJsonFilter<$PrismaModel>
+  }
+
+  export type IntFilter<$PrismaModel = never> = {
+    equals?: number | IntFieldRefInput<$PrismaModel>
+    in?: number[] | ListIntFieldRefInput<$PrismaModel>
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel>
+    lt?: number | IntFieldRefInput<$PrismaModel>
+    lte?: number | IntFieldRefInput<$PrismaModel>
+    gt?: number | IntFieldRefInput<$PrismaModel>
+    gte?: number | IntFieldRefInput<$PrismaModel>
+    not?: NestedIntFilter<$PrismaModel> | number
+  }
+
+  export type ProviderConnectionSchemaProviderIdAuthModeVersionCompoundUniqueInput = {
+    providerId: string
+    authMode: string
+    version: number
+  }
+
+  export type ProviderConnectionSchemaCountOrderByAggregateInput = {
+    id?: SortOrder
+    providerId?: SortOrder
+    authMode?: SortOrder
+    version?: SortOrder
+    runtimeReady?: SortOrder
+    fieldsJson?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type ProviderConnectionSchemaAvgOrderByAggregateInput = {
+    version?: SortOrder
+  }
+
+  export type ProviderConnectionSchemaMaxOrderByAggregateInput = {
+    id?: SortOrder
+    providerId?: SortOrder
+    authMode?: SortOrder
+    version?: SortOrder
+    runtimeReady?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type ProviderConnectionSchemaMinOrderByAggregateInput = {
+    id?: SortOrder
+    providerId?: SortOrder
+    authMode?: SortOrder
+    version?: SortOrder
+    runtimeReady?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type ProviderConnectionSchemaSumOrderByAggregateInput = {
+    version?: SortOrder
+  }
+
+  export type IntWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: number | IntFieldRefInput<$PrismaModel>
+    in?: number[] | ListIntFieldRefInput<$PrismaModel>
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel>
+    lt?: number | IntFieldRefInput<$PrismaModel>
+    lte?: number | IntFieldRefInput<$PrismaModel>
+    gt?: number | IntFieldRefInput<$PrismaModel>
+    gte?: number | IntFieldRefInput<$PrismaModel>
+    not?: NestedIntWithAggregatesFilter<$PrismaModel> | number
+    _count?: NestedIntFilter<$PrismaModel>
+    _avg?: NestedFloatFilter<$PrismaModel>
+    _sum?: NestedIntFilter<$PrismaModel>
+    _min?: NestedIntFilter<$PrismaModel>
+    _max?: NestedIntFilter<$PrismaModel>
   }
 
   export type ModelScalarRelationFilter = {
@@ -37941,6 +39453,13 @@ export namespace Prisma {
     connect?: ProviderConnectionProfileWhereUniqueInput
   }
 
+  export type ProviderConnectionSchemaCreateNestedManyWithoutProviderInput = {
+    create?: XOR<ProviderConnectionSchemaCreateWithoutProviderInput, ProviderConnectionSchemaUncheckedCreateWithoutProviderInput> | ProviderConnectionSchemaCreateWithoutProviderInput[] | ProviderConnectionSchemaUncheckedCreateWithoutProviderInput[]
+    connectOrCreate?: ProviderConnectionSchemaCreateOrConnectWithoutProviderInput | ProviderConnectionSchemaCreateOrConnectWithoutProviderInput[]
+    createMany?: ProviderConnectionSchemaCreateManyProviderInputEnvelope
+    connect?: ProviderConnectionSchemaWhereUniqueInput | ProviderConnectionSchemaWhereUniqueInput[]
+  }
+
   export type ModelUncheckedCreateNestedManyWithoutProviderInput = {
     create?: XOR<ModelCreateWithoutProviderInput, ModelUncheckedCreateWithoutProviderInput> | ModelCreateWithoutProviderInput[] | ModelUncheckedCreateWithoutProviderInput[]
     connectOrCreate?: ModelCreateOrConnectWithoutProviderInput | ModelCreateOrConnectWithoutProviderInput[]
@@ -37952,6 +39471,13 @@ export namespace Prisma {
     create?: XOR<ProviderConnectionProfileCreateWithoutProviderInput, ProviderConnectionProfileUncheckedCreateWithoutProviderInput>
     connectOrCreate?: ProviderConnectionProfileCreateOrConnectWithoutProviderInput
     connect?: ProviderConnectionProfileWhereUniqueInput
+  }
+
+  export type ProviderConnectionSchemaUncheckedCreateNestedManyWithoutProviderInput = {
+    create?: XOR<ProviderConnectionSchemaCreateWithoutProviderInput, ProviderConnectionSchemaUncheckedCreateWithoutProviderInput> | ProviderConnectionSchemaCreateWithoutProviderInput[] | ProviderConnectionSchemaUncheckedCreateWithoutProviderInput[]
+    connectOrCreate?: ProviderConnectionSchemaCreateOrConnectWithoutProviderInput | ProviderConnectionSchemaCreateOrConnectWithoutProviderInput[]
+    createMany?: ProviderConnectionSchemaCreateManyProviderInputEnvelope
+    connect?: ProviderConnectionSchemaWhereUniqueInput | ProviderConnectionSchemaWhereUniqueInput[]
   }
 
   export type StringFieldUpdateOperationsInput = {
@@ -37998,6 +39524,20 @@ export namespace Prisma {
     update?: XOR<XOR<ProviderConnectionProfileUpdateToOneWithWhereWithoutProviderInput, ProviderConnectionProfileUpdateWithoutProviderInput>, ProviderConnectionProfileUncheckedUpdateWithoutProviderInput>
   }
 
+  export type ProviderConnectionSchemaUpdateManyWithoutProviderNestedInput = {
+    create?: XOR<ProviderConnectionSchemaCreateWithoutProviderInput, ProviderConnectionSchemaUncheckedCreateWithoutProviderInput> | ProviderConnectionSchemaCreateWithoutProviderInput[] | ProviderConnectionSchemaUncheckedCreateWithoutProviderInput[]
+    connectOrCreate?: ProviderConnectionSchemaCreateOrConnectWithoutProviderInput | ProviderConnectionSchemaCreateOrConnectWithoutProviderInput[]
+    upsert?: ProviderConnectionSchemaUpsertWithWhereUniqueWithoutProviderInput | ProviderConnectionSchemaUpsertWithWhereUniqueWithoutProviderInput[]
+    createMany?: ProviderConnectionSchemaCreateManyProviderInputEnvelope
+    set?: ProviderConnectionSchemaWhereUniqueInput | ProviderConnectionSchemaWhereUniqueInput[]
+    disconnect?: ProviderConnectionSchemaWhereUniqueInput | ProviderConnectionSchemaWhereUniqueInput[]
+    delete?: ProviderConnectionSchemaWhereUniqueInput | ProviderConnectionSchemaWhereUniqueInput[]
+    connect?: ProviderConnectionSchemaWhereUniqueInput | ProviderConnectionSchemaWhereUniqueInput[]
+    update?: ProviderConnectionSchemaUpdateWithWhereUniqueWithoutProviderInput | ProviderConnectionSchemaUpdateWithWhereUniqueWithoutProviderInput[]
+    updateMany?: ProviderConnectionSchemaUpdateManyWithWhereWithoutProviderInput | ProviderConnectionSchemaUpdateManyWithWhereWithoutProviderInput[]
+    deleteMany?: ProviderConnectionSchemaScalarWhereInput | ProviderConnectionSchemaScalarWhereInput[]
+  }
+
   export type ModelUncheckedUpdateManyWithoutProviderNestedInput = {
     create?: XOR<ModelCreateWithoutProviderInput, ModelUncheckedCreateWithoutProviderInput> | ModelCreateWithoutProviderInput[] | ModelUncheckedCreateWithoutProviderInput[]
     connectOrCreate?: ModelCreateOrConnectWithoutProviderInput | ModelCreateOrConnectWithoutProviderInput[]
@@ -38020,6 +39560,20 @@ export namespace Prisma {
     delete?: ProviderConnectionProfileWhereInput | boolean
     connect?: ProviderConnectionProfileWhereUniqueInput
     update?: XOR<XOR<ProviderConnectionProfileUpdateToOneWithWhereWithoutProviderInput, ProviderConnectionProfileUpdateWithoutProviderInput>, ProviderConnectionProfileUncheckedUpdateWithoutProviderInput>
+  }
+
+  export type ProviderConnectionSchemaUncheckedUpdateManyWithoutProviderNestedInput = {
+    create?: XOR<ProviderConnectionSchemaCreateWithoutProviderInput, ProviderConnectionSchemaUncheckedCreateWithoutProviderInput> | ProviderConnectionSchemaCreateWithoutProviderInput[] | ProviderConnectionSchemaUncheckedCreateWithoutProviderInput[]
+    connectOrCreate?: ProviderConnectionSchemaCreateOrConnectWithoutProviderInput | ProviderConnectionSchemaCreateOrConnectWithoutProviderInput[]
+    upsert?: ProviderConnectionSchemaUpsertWithWhereUniqueWithoutProviderInput | ProviderConnectionSchemaUpsertWithWhereUniqueWithoutProviderInput[]
+    createMany?: ProviderConnectionSchemaCreateManyProviderInputEnvelope
+    set?: ProviderConnectionSchemaWhereUniqueInput | ProviderConnectionSchemaWhereUniqueInput[]
+    disconnect?: ProviderConnectionSchemaWhereUniqueInput | ProviderConnectionSchemaWhereUniqueInput[]
+    delete?: ProviderConnectionSchemaWhereUniqueInput | ProviderConnectionSchemaWhereUniqueInput[]
+    connect?: ProviderConnectionSchemaWhereUniqueInput | ProviderConnectionSchemaWhereUniqueInput[]
+    update?: ProviderConnectionSchemaUpdateWithWhereUniqueWithoutProviderInput | ProviderConnectionSchemaUpdateWithWhereUniqueWithoutProviderInput[]
+    updateMany?: ProviderConnectionSchemaUpdateManyWithWhereWithoutProviderInput | ProviderConnectionSchemaUpdateManyWithWhereWithoutProviderInput[]
+    deleteMany?: ProviderConnectionSchemaScalarWhereInput | ProviderConnectionSchemaScalarWhereInput[]
   }
 
   export type ModelCreatemodeInput = {
@@ -38609,18 +40163,40 @@ export namespace Prisma {
     deleteMany?: ModelScalarWhereInput | ModelScalarWhereInput[]
   }
 
-  export type ProviderCreateNestedOneWithoutConnectionProfileInput = {
-    create?: XOR<ProviderCreateWithoutConnectionProfileInput, ProviderUncheckedCreateWithoutConnectionProfileInput>
-    connectOrCreate?: ProviderCreateOrConnectWithoutConnectionProfileInput
+  export type ProviderCreateNestedOneWithoutLegacyConnectionProfileInput = {
+    create?: XOR<ProviderCreateWithoutLegacyConnectionProfileInput, ProviderUncheckedCreateWithoutLegacyConnectionProfileInput>
+    connectOrCreate?: ProviderCreateOrConnectWithoutLegacyConnectionProfileInput
     connect?: ProviderWhereUniqueInput
   }
 
-  export type ProviderUpdateOneRequiredWithoutConnectionProfileNestedInput = {
-    create?: XOR<ProviderCreateWithoutConnectionProfileInput, ProviderUncheckedCreateWithoutConnectionProfileInput>
-    connectOrCreate?: ProviderCreateOrConnectWithoutConnectionProfileInput
-    upsert?: ProviderUpsertWithoutConnectionProfileInput
+  export type ProviderUpdateOneRequiredWithoutLegacyConnectionProfileNestedInput = {
+    create?: XOR<ProviderCreateWithoutLegacyConnectionProfileInput, ProviderUncheckedCreateWithoutLegacyConnectionProfileInput>
+    connectOrCreate?: ProviderCreateOrConnectWithoutLegacyConnectionProfileInput
+    upsert?: ProviderUpsertWithoutLegacyConnectionProfileInput
     connect?: ProviderWhereUniqueInput
-    update?: XOR<XOR<ProviderUpdateToOneWithWhereWithoutConnectionProfileInput, ProviderUpdateWithoutConnectionProfileInput>, ProviderUncheckedUpdateWithoutConnectionProfileInput>
+    update?: XOR<XOR<ProviderUpdateToOneWithWhereWithoutLegacyConnectionProfileInput, ProviderUpdateWithoutLegacyConnectionProfileInput>, ProviderUncheckedUpdateWithoutLegacyConnectionProfileInput>
+  }
+
+  export type ProviderCreateNestedOneWithoutConnectionSchemasInput = {
+    create?: XOR<ProviderCreateWithoutConnectionSchemasInput, ProviderUncheckedCreateWithoutConnectionSchemasInput>
+    connectOrCreate?: ProviderCreateOrConnectWithoutConnectionSchemasInput
+    connect?: ProviderWhereUniqueInput
+  }
+
+  export type IntFieldUpdateOperationsInput = {
+    set?: number
+    increment?: number
+    decrement?: number
+    multiply?: number
+    divide?: number
+  }
+
+  export type ProviderUpdateOneRequiredWithoutConnectionSchemasNestedInput = {
+    create?: XOR<ProviderCreateWithoutConnectionSchemasInput, ProviderUncheckedCreateWithoutConnectionSchemasInput>
+    connectOrCreate?: ProviderCreateOrConnectWithoutConnectionSchemasInput
+    upsert?: ProviderUpsertWithoutConnectionSchemasInput
+    connect?: ProviderWhereUniqueInput
+    update?: XOR<XOR<ProviderUpdateToOneWithWhereWithoutConnectionSchemasInput, ProviderUpdateWithoutConnectionSchemasInput>, ProviderUncheckedUpdateWithoutConnectionSchemasInput>
   }
 
   export type ModelCreateNestedOneWithoutVersionsInput = {
@@ -39617,6 +41193,22 @@ export namespace Prisma {
     not?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
   }
 
+  export type NestedIntWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: number | IntFieldRefInput<$PrismaModel>
+    in?: number[] | ListIntFieldRefInput<$PrismaModel>
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel>
+    lt?: number | IntFieldRefInput<$PrismaModel>
+    lte?: number | IntFieldRefInput<$PrismaModel>
+    gt?: number | IntFieldRefInput<$PrismaModel>
+    gte?: number | IntFieldRefInput<$PrismaModel>
+    not?: NestedIntWithAggregatesFilter<$PrismaModel> | number
+    _count?: NestedIntFilter<$PrismaModel>
+    _avg?: NestedFloatFilter<$PrismaModel>
+    _sum?: NestedIntFilter<$PrismaModel>
+    _min?: NestedIntFilter<$PrismaModel>
+    _max?: NestedIntFilter<$PrismaModel>
+  }
+
   export type NestedFloatNullableWithAggregatesFilter<$PrismaModel = never> = {
     equals?: number | FloatFieldRefInput<$PrismaModel> | null
     in?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
@@ -39771,6 +41363,36 @@ export namespace Prisma {
     create: XOR<ProviderConnectionProfileCreateWithoutProviderInput, ProviderConnectionProfileUncheckedCreateWithoutProviderInput>
   }
 
+  export type ProviderConnectionSchemaCreateWithoutProviderInput = {
+    id?: string
+    authMode: string
+    version: number
+    runtimeReady?: boolean
+    fieldsJson: JsonNullValueInput | InputJsonValue
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ProviderConnectionSchemaUncheckedCreateWithoutProviderInput = {
+    id?: string
+    authMode: string
+    version: number
+    runtimeReady?: boolean
+    fieldsJson: JsonNullValueInput | InputJsonValue
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ProviderConnectionSchemaCreateOrConnectWithoutProviderInput = {
+    where: ProviderConnectionSchemaWhereUniqueInput
+    create: XOR<ProviderConnectionSchemaCreateWithoutProviderInput, ProviderConnectionSchemaUncheckedCreateWithoutProviderInput>
+  }
+
+  export type ProviderConnectionSchemaCreateManyProviderInputEnvelope = {
+    data: ProviderConnectionSchemaCreateManyProviderInput | ProviderConnectionSchemaCreateManyProviderInput[]
+    skipDuplicates?: boolean
+  }
+
   export type ModelUpsertWithWhereUniqueWithoutProviderInput = {
     where: ModelWhereUniqueInput
     update: XOR<ModelUpdateWithoutProviderInput, ModelUncheckedUpdateWithoutProviderInput>
@@ -39850,6 +41472,36 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type ProviderConnectionSchemaUpsertWithWhereUniqueWithoutProviderInput = {
+    where: ProviderConnectionSchemaWhereUniqueInput
+    update: XOR<ProviderConnectionSchemaUpdateWithoutProviderInput, ProviderConnectionSchemaUncheckedUpdateWithoutProviderInput>
+    create: XOR<ProviderConnectionSchemaCreateWithoutProviderInput, ProviderConnectionSchemaUncheckedCreateWithoutProviderInput>
+  }
+
+  export type ProviderConnectionSchemaUpdateWithWhereUniqueWithoutProviderInput = {
+    where: ProviderConnectionSchemaWhereUniqueInput
+    data: XOR<ProviderConnectionSchemaUpdateWithoutProviderInput, ProviderConnectionSchemaUncheckedUpdateWithoutProviderInput>
+  }
+
+  export type ProviderConnectionSchemaUpdateManyWithWhereWithoutProviderInput = {
+    where: ProviderConnectionSchemaScalarWhereInput
+    data: XOR<ProviderConnectionSchemaUpdateManyMutationInput, ProviderConnectionSchemaUncheckedUpdateManyWithoutProviderInput>
+  }
+
+  export type ProviderConnectionSchemaScalarWhereInput = {
+    AND?: ProviderConnectionSchemaScalarWhereInput | ProviderConnectionSchemaScalarWhereInput[]
+    OR?: ProviderConnectionSchemaScalarWhereInput[]
+    NOT?: ProviderConnectionSchemaScalarWhereInput | ProviderConnectionSchemaScalarWhereInput[]
+    id?: StringFilter<"ProviderConnectionSchema"> | string
+    providerId?: StringFilter<"ProviderConnectionSchema"> | string
+    authMode?: StringFilter<"ProviderConnectionSchema"> | string
+    version?: IntFilter<"ProviderConnectionSchema"> | number
+    runtimeReady?: BoolFilter<"ProviderConnectionSchema"> | boolean
+    fieldsJson?: JsonFilter<"ProviderConnectionSchema">
+    createdAt?: DateTimeFilter<"ProviderConnectionSchema"> | Date | string
+    updatedAt?: DateTimeFilter<"ProviderConnectionSchema"> | Date | string
+  }
+
   export type ProviderCreateWithoutModelsInput = {
     id?: string
     slug: string
@@ -39866,7 +41518,8 @@ export namespace Prisma {
     supportsRegionalRouting?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
-    connectionProfile?: ProviderConnectionProfileCreateNestedOneWithoutProviderInput
+    legacyConnectionProfile?: ProviderConnectionProfileCreateNestedOneWithoutProviderInput
+    connectionSchemas?: ProviderConnectionSchemaCreateNestedManyWithoutProviderInput
   }
 
   export type ProviderUncheckedCreateWithoutModelsInput = {
@@ -39885,7 +41538,8 @@ export namespace Prisma {
     supportsRegionalRouting?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
-    connectionProfile?: ProviderConnectionProfileUncheckedCreateNestedOneWithoutProviderInput
+    legacyConnectionProfile?: ProviderConnectionProfileUncheckedCreateNestedOneWithoutProviderInput
+    connectionSchemas?: ProviderConnectionSchemaUncheckedCreateNestedManyWithoutProviderInput
   }
 
   export type ProviderCreateOrConnectWithoutModelsInput = {
@@ -40232,7 +41886,8 @@ export namespace Prisma {
     supportsRegionalRouting?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    connectionProfile?: ProviderConnectionProfileUpdateOneWithoutProviderNestedInput
+    legacyConnectionProfile?: ProviderConnectionProfileUpdateOneWithoutProviderNestedInput
+    connectionSchemas?: ProviderConnectionSchemaUpdateManyWithoutProviderNestedInput
   }
 
   export type ProviderUncheckedUpdateWithoutModelsInput = {
@@ -40251,7 +41906,8 @@ export namespace Prisma {
     supportsRegionalRouting?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    connectionProfile?: ProviderConnectionProfileUncheckedUpdateOneWithoutProviderNestedInput
+    legacyConnectionProfile?: ProviderConnectionProfileUncheckedUpdateOneWithoutProviderNestedInput
+    connectionSchemas?: ProviderConnectionSchemaUncheckedUpdateManyWithoutProviderNestedInput
   }
 
   export type CategoryUpsertWithoutModelsInput = {
@@ -40716,7 +42372,7 @@ export namespace Prisma {
     data: XOR<ModelUpdateManyMutationInput, ModelUncheckedUpdateManyWithoutModelSeriesInput>
   }
 
-  export type ProviderCreateWithoutConnectionProfileInput = {
+  export type ProviderCreateWithoutLegacyConnectionProfileInput = {
     id?: string
     slug: string
     name: string
@@ -40733,9 +42389,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     models?: ModelCreateNestedManyWithoutProviderInput
+    connectionSchemas?: ProviderConnectionSchemaCreateNestedManyWithoutProviderInput
   }
 
-  export type ProviderUncheckedCreateWithoutConnectionProfileInput = {
+  export type ProviderUncheckedCreateWithoutLegacyConnectionProfileInput = {
     id?: string
     slug: string
     name: string
@@ -40752,25 +42409,26 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     models?: ModelUncheckedCreateNestedManyWithoutProviderInput
+    connectionSchemas?: ProviderConnectionSchemaUncheckedCreateNestedManyWithoutProviderInput
   }
 
-  export type ProviderCreateOrConnectWithoutConnectionProfileInput = {
+  export type ProviderCreateOrConnectWithoutLegacyConnectionProfileInput = {
     where: ProviderWhereUniqueInput
-    create: XOR<ProviderCreateWithoutConnectionProfileInput, ProviderUncheckedCreateWithoutConnectionProfileInput>
+    create: XOR<ProviderCreateWithoutLegacyConnectionProfileInput, ProviderUncheckedCreateWithoutLegacyConnectionProfileInput>
   }
 
-  export type ProviderUpsertWithoutConnectionProfileInput = {
-    update: XOR<ProviderUpdateWithoutConnectionProfileInput, ProviderUncheckedUpdateWithoutConnectionProfileInput>
-    create: XOR<ProviderCreateWithoutConnectionProfileInput, ProviderUncheckedCreateWithoutConnectionProfileInput>
+  export type ProviderUpsertWithoutLegacyConnectionProfileInput = {
+    update: XOR<ProviderUpdateWithoutLegacyConnectionProfileInput, ProviderUncheckedUpdateWithoutLegacyConnectionProfileInput>
+    create: XOR<ProviderCreateWithoutLegacyConnectionProfileInput, ProviderUncheckedCreateWithoutLegacyConnectionProfileInput>
     where?: ProviderWhereInput
   }
 
-  export type ProviderUpdateToOneWithWhereWithoutConnectionProfileInput = {
+  export type ProviderUpdateToOneWithWhereWithoutLegacyConnectionProfileInput = {
     where?: ProviderWhereInput
-    data: XOR<ProviderUpdateWithoutConnectionProfileInput, ProviderUncheckedUpdateWithoutConnectionProfileInput>
+    data: XOR<ProviderUpdateWithoutLegacyConnectionProfileInput, ProviderUncheckedUpdateWithoutLegacyConnectionProfileInput>
   }
 
-  export type ProviderUpdateWithoutConnectionProfileInput = {
+  export type ProviderUpdateWithoutLegacyConnectionProfileInput = {
     id?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     name?: StringFieldUpdateOperationsInput | string
@@ -40787,9 +42445,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     models?: ModelUpdateManyWithoutProviderNestedInput
+    connectionSchemas?: ProviderConnectionSchemaUpdateManyWithoutProviderNestedInput
   }
 
-  export type ProviderUncheckedUpdateWithoutConnectionProfileInput = {
+  export type ProviderUncheckedUpdateWithoutLegacyConnectionProfileInput = {
     id?: StringFieldUpdateOperationsInput | string
     slug?: StringFieldUpdateOperationsInput | string
     name?: StringFieldUpdateOperationsInput | string
@@ -40806,6 +42465,103 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     models?: ModelUncheckedUpdateManyWithoutProviderNestedInput
+    connectionSchemas?: ProviderConnectionSchemaUncheckedUpdateManyWithoutProviderNestedInput
+  }
+
+  export type ProviderCreateWithoutConnectionSchemasInput = {
+    id?: string
+    slug: string
+    name: string
+    description?: string | null
+    websiteUrl?: string | null
+    docsUrl?: string | null
+    logoUrl?: string | null
+    status?: $Enums.ProviderStatus
+    enabled?: boolean
+    privacyPolicyUrl?: string | null
+    loggingPolicySummary?: string | null
+    supportsByok?: boolean
+    supportsRegionalRouting?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    models?: ModelCreateNestedManyWithoutProviderInput
+    legacyConnectionProfile?: ProviderConnectionProfileCreateNestedOneWithoutProviderInput
+  }
+
+  export type ProviderUncheckedCreateWithoutConnectionSchemasInput = {
+    id?: string
+    slug: string
+    name: string
+    description?: string | null
+    websiteUrl?: string | null
+    docsUrl?: string | null
+    logoUrl?: string | null
+    status?: $Enums.ProviderStatus
+    enabled?: boolean
+    privacyPolicyUrl?: string | null
+    loggingPolicySummary?: string | null
+    supportsByok?: boolean
+    supportsRegionalRouting?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    models?: ModelUncheckedCreateNestedManyWithoutProviderInput
+    legacyConnectionProfile?: ProviderConnectionProfileUncheckedCreateNestedOneWithoutProviderInput
+  }
+
+  export type ProviderCreateOrConnectWithoutConnectionSchemasInput = {
+    where: ProviderWhereUniqueInput
+    create: XOR<ProviderCreateWithoutConnectionSchemasInput, ProviderUncheckedCreateWithoutConnectionSchemasInput>
+  }
+
+  export type ProviderUpsertWithoutConnectionSchemasInput = {
+    update: XOR<ProviderUpdateWithoutConnectionSchemasInput, ProviderUncheckedUpdateWithoutConnectionSchemasInput>
+    create: XOR<ProviderCreateWithoutConnectionSchemasInput, ProviderUncheckedCreateWithoutConnectionSchemasInput>
+    where?: ProviderWhereInput
+  }
+
+  export type ProviderUpdateToOneWithWhereWithoutConnectionSchemasInput = {
+    where?: ProviderWhereInput
+    data: XOR<ProviderUpdateWithoutConnectionSchemasInput, ProviderUncheckedUpdateWithoutConnectionSchemasInput>
+  }
+
+  export type ProviderUpdateWithoutConnectionSchemasInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    slug?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    websiteUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    docsUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumProviderStatusFieldUpdateOperationsInput | $Enums.ProviderStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
+    privacyPolicyUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    loggingPolicySummary?: NullableStringFieldUpdateOperationsInput | string | null
+    supportsByok?: BoolFieldUpdateOperationsInput | boolean
+    supportsRegionalRouting?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    models?: ModelUpdateManyWithoutProviderNestedInput
+    legacyConnectionProfile?: ProviderConnectionProfileUpdateOneWithoutProviderNestedInput
+  }
+
+  export type ProviderUncheckedUpdateWithoutConnectionSchemasInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    slug?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    websiteUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    docsUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumProviderStatusFieldUpdateOperationsInput | $Enums.ProviderStatus
+    enabled?: BoolFieldUpdateOperationsInput | boolean
+    privacyPolicyUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    loggingPolicySummary?: NullableStringFieldUpdateOperationsInput | string | null
+    supportsByok?: BoolFieldUpdateOperationsInput | boolean
+    supportsRegionalRouting?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    models?: ModelUncheckedUpdateManyWithoutProviderNestedInput
+    legacyConnectionProfile?: ProviderConnectionProfileUncheckedUpdateOneWithoutProviderNestedInput
   }
 
   export type ModelCreateWithoutVersionsInput = {
@@ -43705,6 +45461,16 @@ export namespace Prisma {
     updatedAt?: Date | string
   }
 
+  export type ProviderConnectionSchemaCreateManyProviderInput = {
+    id?: string
+    authMode: string
+    version: number
+    runtimeReady?: boolean
+    fieldsJson: JsonNullValueInput | InputJsonValue
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
   export type ModelUpdateWithoutProviderInput = {
     id?: StringFieldUpdateOperationsInput | string
     canonicalId?: StringFieldUpdateOperationsInput | string
@@ -43813,6 +45579,36 @@ export namespace Prisma {
     modelCardUrl?: NullableStringFieldUpdateOperationsInput | string | null
     officialDocsUrl?: NullableStringFieldUpdateOperationsInput | string | null
     popularityScore?: FloatFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ProviderConnectionSchemaUpdateWithoutProviderInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    authMode?: StringFieldUpdateOperationsInput | string
+    version?: IntFieldUpdateOperationsInput | number
+    runtimeReady?: BoolFieldUpdateOperationsInput | boolean
+    fieldsJson?: JsonNullValueInput | InputJsonValue
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ProviderConnectionSchemaUncheckedUpdateWithoutProviderInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    authMode?: StringFieldUpdateOperationsInput | string
+    version?: IntFieldUpdateOperationsInput | number
+    runtimeReady?: BoolFieldUpdateOperationsInput | boolean
+    fieldsJson?: JsonNullValueInput | InputJsonValue
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ProviderConnectionSchemaUncheckedUpdateManyWithoutProviderInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    authMode?: StringFieldUpdateOperationsInput | string
+    version?: IntFieldUpdateOperationsInput | number
+    runtimeReady?: BoolFieldUpdateOperationsInput | boolean
+    fieldsJson?: JsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }

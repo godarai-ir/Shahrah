@@ -6,10 +6,15 @@ import (
 )
 
 const (
-	PlatformScopeRead         = "platform:read"
-	PlatformScopeCatalogWrite = "platform:catalog:write"
-	PlatformScopeTenantWrite  = "platform:tenant:write"
-	PlatformScopeAll          = "platform:*"
+	PlatformScopeRead                            = "platform:read"
+	PlatformScopeCatalogWrite                    = "platform:catalog:write"
+	PlatformScopeTenantWrite                     = "platform:tenant:write"
+	PlatformScopeProviderCredentialRead          = "platform:provider-credentials:read-metadata"
+	PlatformScopeProviderCredentialCreateVersion = "platform:provider-credentials:create-version"
+	PlatformScopeProviderCredentialTest          = "platform:provider-credentials:test"
+	PlatformScopeProviderCredentialActivate      = "platform:provider-credentials:activate"
+	PlatformScopeProviderCredentialDisable       = "platform:provider-credentials:disable"
+	PlatformScopeAll                             = "platform:*"
 )
 
 var ErrInvalidPlatformServiceCredential = errors.New("invalid platform service credential")

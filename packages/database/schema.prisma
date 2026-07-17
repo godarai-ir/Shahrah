@@ -781,3 +781,108 @@ model tenant_runtime_profiles {
   @@index([tenant_id, version(sort: Desc)], map: "idx_tenant_runtime_profiles_latest")
   @@index([compiled_at(sort: Desc)], map: "idx_tenant_runtime_profiles_compiled_at")
 }
+
+model platform_provider_connections {
+  connection_id                String                                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  provider_slug                String                                  @db.VarChar(100)
+  name                         String                                  @db.VarChar(255)
+  environment                  String                                  @default("production") @db.VarChar(64)
+  auth_mode                    String                                  @db.VarChar(64)
+  schema_version               Int                                     @default(1)
+  config_json                  Json                                    @default("{}")
+  status                       String                                  @default("draft") @db.VarChar(32)
+  region                       String?                                 @db.VarChar(100)
+  priority                     Int                                     @default(0)
+  weight                       Float                                   @default(1)
+  is_primary                   Boolean                                 @default(false)
+  active_credential_version_id String?                                 @db.Uuid
+  last_test_status             String?                                 @db.VarChar(32)
+  last_test_category           String?                                 @db.VarChar(64)
+  last_test_summary            String?                                 @db.VarChar(255)
+  last_tested_at               DateTime?                               @db.Timestamptz(6)
+  last_success_at              DateTime?                               @db.Timestamptz(6)
+  last_rotation_at             DateTime?                               @db.Timestamptz(6)
+  revision                     BigInt                                  @default(1)
+  created_by                   String?                                 @db.VarChar(255)
+  updated_by                   String?                                 @db.VarChar(255)
+  created_at                   DateTime                                @default(now()) @db.Timestamptz(6)
+  updated_at                   DateTime                                @default(now()) @db.Timestamptz(6)
+  active_version               platform_provider_credential_versions? @relation("active_platform_provider_credential_version", fields: [connection_id, active_credential_version_id], references: [connection_id, credential_version_id], onDelete: Restrict, onUpdate: NoAction)
+  credential_versions          platform_provider_credential_versions[] @relation("platform_provider_connection_versions")
+  scopes                       platform_provider_connection_scopes[]
+  events                       platform_provider_credential_events[]
+
+  @@index([provider_slug, environment, status, is_primary], map: "idx_platform_provider_connections_lookup")
+}
+
+model platform_provider_credential_versions {
+  credential_version_id String                                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  connection_id         String                                @db.Uuid
+  version               BigInt
+  secret_backend        String                                @default("encrypted_db") @db.VarChar(32)
+  ciphertext            Bytes
+  data_nonce            Bytes
+  wrapped_dek           Bytes
+  wrap_nonce            Bytes
+  kek_version           String                                @db.VarChar(64)
+  fingerprint           String                                @db.VarChar(64)
+  display_hint          String                                @default("configured") @db.VarChar(64)
+  status                String                                @default("draft") @db.VarChar(32)
+  valid_from            DateTime?                             @db.Timestamptz(6)
+  expires_at            DateTime?                             @db.Timestamptz(6)
+  retire_at             DateTime?                             @db.Timestamptz(6)
+  created_by            String?                               @db.VarChar(255)
+  activated_by          String?                               @db.VarChar(255)
+  revoked_by            String?                               @db.VarChar(255)
+  revoked_at            DateTime?                             @db.Timestamptz(6)
+  idempotency_key       String?                               @db.VarChar(128)
+  request_hash          String?                               @db.VarChar(64)
+  created_at            DateTime                              @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime                              @default(now()) @db.Timestamptz(6)
+  connection            platform_provider_connections         @relation("platform_provider_connection_versions", fields: [connection_id], references: [connection_id], onDelete: Cascade, onUpdate: NoAction)
+  active_for             platform_provider_connections[]       @relation("active_platform_provider_credential_version")
+  events                 platform_provider_credential_events[]
+
+  @@unique([connection_id, version], map: "uq_platform_provider_credential_versions_version")
+  @@unique([connection_id, credential_version_id], map: "uq_platform_provider_credential_versions_connection_id")
+  @@unique([connection_id, idempotency_key], map: "uq_platform_provider_credential_versions_idempotency")
+  @@index([connection_id, version(sort: Desc)], map: "idx_platform_provider_credential_versions_connection")
+}
+
+model platform_provider_connection_scopes {
+  scope_id           String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  connection_id      String                        @db.Uuid
+  model_pattern      String?                       @db.VarChar(255)
+  deployment_pattern String?                       @db.VarChar(255)
+  capabilities       String[]                      @default([])
+  regions            String[]                      @default([])
+  enabled            Boolean                       @default(true)
+  created_at         DateTime                      @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime                      @default(now()) @db.Timestamptz(6)
+  connection         platform_provider_connections @relation(fields: [connection_id], references: [connection_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([connection_id, enabled], map: "idx_platform_provider_connection_scopes_connection")
+}
+
+model platform_provider_credential_events {
+  event_id             String                                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  connection_id        String                                  @db.Uuid
+  credential_version_id String?                                @db.Uuid
+  actor_id             String?                                 @db.VarChar(255)
+  actor_role           String?                                 @db.VarChar(100)
+  service_account_id   String?                                 @db.VarChar(255)
+  request_id           String?                                 @db.VarChar(255)
+  action               String                                  @db.VarChar(64)
+  result               String                                  @db.VarChar(32)
+  reason               String?                                 @db.VarChar(255)
+  metadata             Json                                    @default("{}")
+  source_ip            String?                                 @db.VarChar(64)
+  idempotency_key      String?                                 @db.VarChar(128)
+  request_hash         String?                                 @db.VarChar(64)
+  created_at           DateTime                                @default(now()) @db.Timestamptz(6)
+  connection           platform_provider_connections           @relation(fields: [connection_id], references: [connection_id], onDelete: Cascade, onUpdate: NoAction)
+  credential_version   platform_provider_credential_versions? @relation(fields: [credential_version_id], references: [credential_version_id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@unique([action, idempotency_key], map: "uq_platform_provider_credential_events_idempotency")
+  @@index([connection_id, created_at(sort: Desc)], map: "idx_platform_provider_credential_events_connection")
+}

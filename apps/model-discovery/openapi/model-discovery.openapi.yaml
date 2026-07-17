@@ -119,30 +119,30 @@ paths:
         - bearer: []
       summary: Enable or disable a provider.
       tags: *a1
-  /api/v1/providers/admin/connection-profile/upsert:
+  /api/v1/providers/admin/connection-schemas/upsert:
     post:
-      operationId: OpenAPIProvidersController_upsertConnectionProfile_v1
+      operationId: OpenAPIProvidersController_upsertConnectionSchema_v1
       parameters: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UpsertProviderConnectionProfileDto"
+              $ref: "#/components/schemas/UpsertProviderConnectionSchemaDto"
       responses:
         "200":
           description: ""
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ProviderCatalogEntry"
+                $ref: "#/components/schemas/ProviderConnectionSchemaResponse"
       security:
         - bearer: []
-      summary: Create or update provider connection profile metadata.
+      summary: Create or update a value-free provider connection schema.
       tags: *a1
-  /api/v1/providers/admin/{slug}/connection-profile:
+  /api/v1/providers/{slug}/connection-schemas:
     get:
-      operationId: OpenAPIProvidersController_getConnectionProfile_v1
+      operationId: OpenAPIProvidersController_listConnectionSchemas_v1
       parameters:
         - name: slug
           required: true
@@ -155,10 +155,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ProviderCatalogEntry"
-      security:
-        - bearer: []
-      summary: Return provider connection profile metadata.
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProviderConnectionSchemaResponse"
+      summary: Return value-free provider connection schemas.
       tags: *a1
   /api/v1/providers/admin/{slug}/logo:
     post:
@@ -767,19 +767,24 @@ components:
       type: http
       description: Opaque service credential in the form sa_<key-id>.<secret>.
   schemas:
-    ProviderConnectionProfileResponse:
+    ProviderConnectionSchemaResponse:
       type: object
       properties:
-        providerType:
-          type: string
         authMode:
-          type: object
-        configJson:
-          type: object
-          additionalProperties: true
+          type: string
+        version:
+          type: number
+        runtimeReady:
+          type: boolean
+        fieldsJson:
+          type: array
+          items:
+            type: object
       required:
-        - providerType
-        - configJson
+        - authMode
+        - version
+        - runtimeReady
+        - fieldsJson
     ProviderCatalogEntry:
       type: object
       properties:
@@ -803,8 +808,10 @@ components:
           type: boolean
         supportsByok:
           type: object
-        connectionProfile:
-          $ref: "#/components/schemas/ProviderConnectionProfileResponse"
+        connectionSchemas:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProviderConnectionSchemaResponse"
       required:
         - id
         - slug
@@ -967,8 +974,10 @@ components:
           type: boolean
         supportsByok:
           type: object
-        connectionProfile:
-          $ref: "#/components/schemas/ProviderConnectionProfileResponse"
+        connectionSchemas:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProviderConnectionSchemaResponse"
         models:
           type: array
           items:
@@ -1003,22 +1012,28 @@ components:
       required:
         - slug
         - name
-    UpsertProviderConnectionProfileDto:
+    UpsertProviderConnectionSchemaDto:
       type: object
       properties:
         providerSlug:
           type: string
-        providerType:
-          type: string
         authMode:
           type: string
-        configJson:
-          type: object
-          additionalProperties: true
+        version:
+          type: number
+          minimum: 1
+        runtimeReady:
+          type: boolean
+        fields:
+          type: array
+          items:
+            type: object
       required:
         - providerSlug
-        - providerType
-        - configJson
+        - authMode
+        - version
+        - runtimeReady
+        - fields
     UploadFileDto:
       type: object
       properties:

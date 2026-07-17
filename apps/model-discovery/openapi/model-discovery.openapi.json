@@ -204,16 +204,16 @@
         ]
       }
     },
-    "/api/v1/providers/admin/connection-profile/upsert": {
+    "/api/v1/providers/admin/connection-schemas/upsert": {
       "post": {
-        "operationId": "OpenAPIProvidersController_upsertConnectionProfile_v1",
+        "operationId": "OpenAPIProvidersController_upsertConnectionSchema_v1",
         "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpsertProviderConnectionProfileDto"
+                "$ref": "#/components/schemas/UpsertProviderConnectionSchemaDto"
               }
             }
           }
@@ -224,7 +224,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProviderCatalogEntry"
+                  "$ref": "#/components/schemas/ProviderConnectionSchemaResponse"
                 }
               }
             }
@@ -235,15 +235,15 @@
             "bearer": []
           }
         ],
-        "summary": "Create or update provider connection profile metadata.",
+        "summary": "Create or update a value-free provider connection schema.",
         "tags": [
           "providers"
         ]
       }
     },
-    "/api/v1/providers/admin/{slug}/connection-profile": {
+    "/api/v1/providers/{slug}/connection-schemas": {
       "get": {
-        "operationId": "OpenAPIProvidersController_getConnectionProfile_v1",
+        "operationId": "OpenAPIProvidersController_listConnectionSchemas_v1",
         "parameters": [
           {
             "name": "slug",
@@ -260,18 +260,16 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProviderCatalogEntry"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderConnectionSchemaResponse"
+                  }
                 }
               }
             }
           }
         },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Return provider connection profile metadata.",
+        "summary": "Return value-free provider connection schemas.",
         "tags": [
           "providers"
         ]
@@ -1300,23 +1298,30 @@
       }
     },
     "schemas": {
-      "ProviderConnectionProfileResponse": {
+      "ProviderConnectionSchemaResponse": {
         "type": "object",
         "properties": {
-          "providerType": {
+          "authMode": {
             "type": "string"
           },
-          "authMode": {
-            "type": "object"
+          "version": {
+            "type": "number"
           },
-          "configJson": {
-            "type": "object",
-            "additionalProperties": true
+          "runtimeReady": {
+            "type": "boolean"
+          },
+          "fieldsJson": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
           }
         },
         "required": [
-          "providerType",
-          "configJson"
+          "authMode",
+          "version",
+          "runtimeReady",
+          "fieldsJson"
         ]
       },
       "ProviderCatalogEntry": {
@@ -1352,8 +1357,11 @@
           "supportsByok": {
             "type": "object"
           },
-          "connectionProfile": {
-            "$ref": "#/components/schemas/ProviderConnectionProfileResponse"
+          "connectionSchemas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProviderConnectionSchemaResponse"
+            }
           }
         },
         "required": [
@@ -1593,8 +1601,11 @@
           "supportsByok": {
             "type": "object"
           },
-          "connectionProfile": {
-            "$ref": "#/components/schemas/ProviderConnectionProfileResponse"
+          "connectionSchemas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProviderConnectionSchemaResponse"
+            }
           },
           "models": {
             "type": "array",
@@ -1647,27 +1658,35 @@
           "name"
         ]
       },
-      "UpsertProviderConnectionProfileDto": {
+      "UpsertProviderConnectionSchemaDto": {
         "type": "object",
         "properties": {
           "providerSlug": {
             "type": "string"
           },
-          "providerType": {
-            "type": "string"
-          },
           "authMode": {
             "type": "string"
           },
-          "configJson": {
-            "type": "object",
-            "additionalProperties": true
+          "version": {
+            "type": "number",
+            "minimum": 1
+          },
+          "runtimeReady": {
+            "type": "boolean"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
           }
         },
         "required": [
           "providerSlug",
-          "providerType",
-          "configJson"
+          "authMode",
+          "version",
+          "runtimeReady",
+          "fields"
         ]
       },
       "UploadFileDto": {

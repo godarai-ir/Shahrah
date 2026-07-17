@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { resolveAssetUrl } from '@/lib/api';
@@ -377,7 +378,7 @@ export default function AdminProvidersPage() {
 
               <div className="flex flex-wrap gap-2">
                 <button type="button" className={tabClass('general')} onClick={() => setActiveTab('general')}>General</button>
-                <button type="button" className={tabClass('connection')} onClick={() => setActiveTab('connection')}>Connection</button>
+                <Link className="rounded-md bg-zinc-800 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-700" href="/admin/provider-connections">Credentials</Link>
                 <button type="button" className={tabClass('branding')} onClick={() => setActiveTab('branding')}>Branding</button>
                 <button type="button" className={tabClass('danger')} onClick={() => setActiveTab('danger')}>Danger Zone</button>
               </div>

@@ -19,6 +19,7 @@ func PlatformAdminAuthMiddleware(masterKey string, serviceAccounts PlatformServi
 		}
 
 		if strings.TrimSpace(masterKey) != "" && secureTokenEqual(apiKey, masterKey) {
+			c.Locals("platform_service_account_id", "master-key")
 			return c.Next()
 		}
 
@@ -39,12 +40,29 @@ func PlatformAdminAuthMiddleware(masterKey string, serviceAccounts PlatformServi
 		if credential == nil || !HasPlatformScope(credential.Scopes, requiredScope) {
 			return fiber.NewError(fiber.StatusForbidden, "platform service account lacks required scope")
 		}
+		c.Locals("platform_service_account_id", credential.CredentialID)
+		c.Locals("platform_service_account_name", credential.AccountName)
 
 		return c.Next()
 	}
 }
 
 func RequiredPlatformScope(method, path string) string {
+	if strings.Contains(path, "/provider-connections") || strings.Contains(path, "/provider-connection-schemas") {
+		if method == fiber.MethodGet || method == fiber.MethodHead || method == fiber.MethodOptions {
+			return PlatformScopeProviderCredentialRead
+		}
+		if strings.Contains(path, "/test") {
+			return PlatformScopeProviderCredentialTest
+		}
+		if strings.Contains(path, "/activate") || strings.Contains(path, "/rollback") {
+			return PlatformScopeProviderCredentialActivate
+		}
+		if strings.Contains(path, "/disable") || strings.Contains(path, "/revoke") {
+			return PlatformScopeProviderCredentialDisable
+		}
+		return PlatformScopeProviderCredentialCreateVersion
+	}
 	if method == fiber.MethodGet || method == fiber.MethodHead || method == fiber.MethodOptions {
 		return PlatformScopeRead
 	}

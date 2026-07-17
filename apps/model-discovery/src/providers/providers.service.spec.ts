@@ -11,16 +11,19 @@ describe('ProvidersService', () => {
             name: 'Anthropic',
             enabled: true,
             models: [{ id: 'model-1' }, { id: 'model-2' }],
-            connectionProfile: null,
+            connectionProfile: { configJson: { api_key: 'must-not-leak' } },
           },
         ]),
       },
     } as any;
     const service = new ProvidersService(prisma, {} as any);
 
-    await expect(service.list()).resolves.toEqual([
+    const result = await service.list();
+    expect(result).toEqual([
       expect.objectContaining({ slug: 'anthropic', modelCount: 2 }),
     ]);
+    expect(JSON.stringify(result)).not.toContain('connectionProfile');
+    expect(JSON.stringify(result)).not.toContain('must-not-leak');
     expect(prisma.provider.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { enabled: true },

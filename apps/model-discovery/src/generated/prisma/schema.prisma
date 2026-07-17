@@ -46,8 +46,11 @@ model Provider {
   createdAt               DateTime       @default(now())
   updatedAt               DateTime       @updatedAt
 
-  models            Model[]
-  connectionProfile ProviderConnectionProfile?
+  models                  Model[]
+  // Legacy value-bearing records are retained only for the redacted migration
+  // audit. They are never selected by an API.
+  legacyConnectionProfile ProviderConnectionProfile?
+  connectionSchemas       ProviderConnectionSchema[]
 
   @@index([slug])
 }
@@ -126,6 +129,22 @@ model ProviderConnectionProfile {
   updatedAt    DateTime @updatedAt
 
   provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+}
+
+model ProviderConnectionSchema {
+  id           String   @id @default(cuid())
+  providerId   String
+  authMode     String
+  version      Int
+  runtimeReady Boolean  @default(false)
+  fieldsJson   Json
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, authMode, version])
+  @@index([providerId, authMode, version])
 }
 
 model ModelVersion {

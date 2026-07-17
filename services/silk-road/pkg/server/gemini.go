@@ -87,14 +87,14 @@ func (a *geminiAdapter) Dispatch(ctx context.Context, client *http.Client, paylo
 	}
 
 	endpoint := fmt.Sprintf("%s/models/%s:generateContent", strings.TrimRight(target, "/"), url.PathEscape(canonicalGeminiModel(openAIReq.Model)))
-	if payload.Deployment.APIKey != "" {
-		endpoint += "?key=" + url.QueryEscape(payload.Deployment.APIKey)
-	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if apiKey := deploymentAPIKey(payload.Deployment); apiKey != "" {
+		req.Header.Set("x-goog-api-key", apiKey)
+	}
 
 	resp, err := client.Do(req)
 	if err != nil {

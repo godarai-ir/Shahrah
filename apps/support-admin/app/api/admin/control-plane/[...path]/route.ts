@@ -32,6 +32,16 @@ export async function PUT(request: Request, context: RouteContext) {
   });
 }
 
+export async function PATCH(request: Request, context: RouteContext) {
+  if (!isSameOriginRequest(request)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  return proxyControlPlanePlatform(context, {
+    method: 'PATCH',
+    body: await request.text(),
+    contentType: request.headers.get('content-type') ?? 'application/json',
+    idempotencyKey: request.headers.get('idempotency-key') ?? undefined,
+  });
+}
+
 export async function DELETE(request: Request, context: RouteContext) {
   if (!isSameOriginRequest(request)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   const body = await request.text();
@@ -44,7 +54,7 @@ export async function DELETE(request: Request, context: RouteContext) {
 
 async function proxyControlPlanePlatform(
   context: RouteContext,
-	init: { method: 'GET' | 'POST' | 'PUT' | 'DELETE'; body?: string; contentType?: string; search?: string },
+	init: { method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; body?: string; contentType?: string; search?: string; idempotencyKey?: string },
 ) {
   const { path = [] } = await context.params;
   const permission = controlPlanePermission(path, init.method);
@@ -72,6 +82,7 @@ async function proxyControlPlanePlatform(
       'x-request-id': randomUUID(),
       accept: 'application/json',
       ...(init.body ? { 'content-type': init.contentType ?? 'application/json' } : {}),
+      ...(init.idempotencyKey ? { 'idempotency-key': init.idempotencyKey } : {}),
     },
     body: init.body || undefined,
     cache: 'no-store',
@@ -85,6 +96,13 @@ async function proxyControlPlanePlatform(
 
 function controlPlanePermission(path: string[], method: string): AdminPermission {
   const joined = path.join('/');
+  if (joined.startsWith('provider-connections') || joined.startsWith('provider-connection-schemas')) {
+    if (method === 'GET') return 'platform_credentials:read_metadata';
+    if (joined.includes('/test')) return 'platform_credentials:test';
+    if (joined.includes('/activate') || joined.includes('/rollback')) return 'platform_credentials:activate';
+    if (joined.includes('/disable') || joined.includes('/revoke')) return 'platform_credentials:disable';
+    return 'platform_credentials:create_version';
+  }
   if (joined.startsWith('tenants/')) {
     if (method === 'GET') {
       if (joined.includes('/wallet')) return 'wallet:read';

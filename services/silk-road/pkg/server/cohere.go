@@ -36,9 +36,10 @@ func (a *cohereAdapter) Dispatch(ctx context.Context, client *http.Client, paylo
 	} else {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	if payload.Deployment.APIKey != "" {
-		req.Header.Set("Authorization", "Bearer "+payload.Deployment.APIKey)
+	if apiKey := deploymentAPIKey(payload.Deployment); apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
+	applyDocumentedProviderHeaders(req, payload.Deployment)
 
 	resp, err := client.Do(req)
 	if err != nil {

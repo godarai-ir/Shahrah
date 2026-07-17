@@ -233,6 +233,39 @@ func (d *DualCache) Publish(ctx context.Context, channel string, message string)
 	return d.redis.Publish(ctx, channel, message).Err()
 }
 
+// Subscribe returns only message payloads and keeps Redis details out of
+// credential/runtime coordination packages. Callers must cancel ctx to close
+// the subscription and output channel.
+func (d *DualCache) Subscribe(ctx context.Context, channel string) (<-chan string, error) {
+	subscription := d.redis.Subscribe(ctx, channel)
+	if _, err := subscription.Receive(ctx); err != nil {
+		_ = subscription.Close()
+		return nil, err
+	}
+	out := make(chan string, 32)
+	go func() {
+		defer close(out)
+		defer subscription.Close()
+		messages := subscription.Channel()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case message, ok := <-messages:
+				if !ok {
+					return
+				}
+				select {
+				case out <- message.Payload:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
+	}()
+	return out, nil
+}
+
 // Delete removes a value from both memory and Redis.
 func (d *DualCache) Delete(ctx context.Context, key string) {
 	d.memory.Delete(ctx, key)

@@ -1281,6 +1281,10 @@ func (h *ChatCompletionHandler) virtualModelCacheVersion(ctx context.Context, au
 }
 
 func toContractDeployment(dep *router.Deployment) platform.Deployment {
+	legacyAPIKey := dep.Params.APIKey
+	if dep.ProviderAuth != nil {
+		legacyAPIKey = ""
+	}
 	return platform.Deployment{
 		ID:                  dep.ID,
 		TenantID:            dep.TenantID,
@@ -1288,8 +1292,9 @@ func toContractDeployment(dep *router.Deployment) platform.Deployment {
 		Provider:            dep.Provider,
 		Model:               dep.Model,
 		APIBase:             dep.Params.APIBase,
-		APIKey:              dep.Params.APIKey,
+		APIKey:              legacyAPIKey,
 		APIVersion:          dep.Params.APIVersion,
+		ProviderHeaders:     dep.Params.CustomHeaders,
 		RegionName:          dep.Params.RegionName,
 		RPM:                 dep.Params.RPM,
 		TPM:                 dep.Params.TPM,
@@ -1299,6 +1304,9 @@ func toContractDeployment(dep *router.Deployment) platform.Deployment {
 		BillingMode:         dep.BillingMode,
 		ProviderAccountID:   dep.ProviderAccountID,
 		ProviderAccountName: dep.ProviderAccountName,
+		ConnectionID:        dep.ConnectionID,
+		CredentialVersionID: dep.CredentialVersionID,
+		ProviderAuth:        dep.ProviderAuth,
 	}
 }
 

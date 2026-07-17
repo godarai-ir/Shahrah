@@ -5,17 +5,30 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 )
 
 type openAICompatibleAdapter struct {
-	defaultBaseURL string
+	defaultBaseURL         string
+	authHeader             string
+	apiVersionQuery        bool
+	azureDeploymentRouting bool
 }
 
 func newOpenAICompatibleAdapter(defaultBaseURL string) providerAdapter {
-	return &openAICompatibleAdapter{defaultBaseURL: strings.TrimSpace(defaultBaseURL)}
+	return newOpenAICompatibleAdapterWithAuth(defaultBaseURL, "Authorization", false)
+
+}
+
+func newOpenAICompatibleAdapterWithAuth(defaultBaseURL, authHeader string, apiVersionQuery bool) providerAdapter {
+	return &openAICompatibleAdapter{defaultBaseURL: strings.TrimSpace(defaultBaseURL), authHeader: authHeader, apiVersionQuery: apiVersionQuery}
+}
+
+func newAzureOpenAIAdapter() providerAdapter {
+	return &openAICompatibleAdapter{authHeader: "api-key", apiVersionQuery: true, azureDeploymentRouting: true}
 }
 
 func (a *openAICompatibleAdapter) Dispatch(ctx context.Context, client *http.Client, payload platform.TunnelRequest) (*adapterResponse, error) {
@@ -24,7 +37,26 @@ func (a *openAICompatibleAdapter) Dispatch(ctx context.Context, client *http.Cli
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, joinURL(target, openAICompatiblePath(payload)), bytes.NewReader(payload.Body))
+	if a.azureDeploymentRouting && !strings.Contains(strings.ToLower(target), "/openai/v1") && !strings.Contains(strings.ToLower(target), "/openai/deployments/") {
+		deployment := strings.TrimSpace(payload.Deployment.Model)
+		if deployment == "" {
+			return nil, fmt.Errorf("azure openai deployment model is required")
+		}
+		target = joinURL(target, "/openai/deployments/"+url.PathEscape(deployment))
+	}
+	endpoint := joinURL(target, openAICompatiblePath(payload))
+	apiVersion := strings.TrimSpace(payload.Deployment.APIVersion)
+	if a.azureDeploymentRouting && !strings.Contains(strings.ToLower(target), "/openai/v1") && apiVersion == "" {
+		apiVersion = "2024-10-21"
+	}
+	if a.apiVersionQuery && !strings.Contains(strings.ToLower(target), "/openai/v1") && apiVersion != "" {
+		separator := "?"
+		if strings.Contains(endpoint, "?") {
+			separator = "&"
+		}
+		endpoint += separator + "api-version=" + url.QueryEscape(apiVersion)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(payload.Body))
 	if err != nil {
 		return nil, err
 	}
@@ -33,9 +65,14 @@ func (a *openAICompatibleAdapter) Dispatch(ctx context.Context, client *http.Cli
 	} else {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	if payload.Deployment.APIKey != "" {
-		req.Header.Set("Authorization", "Bearer "+payload.Deployment.APIKey)
+	if apiKey := deploymentAPIKey(payload.Deployment); apiKey != "" {
+		if strings.EqualFold(a.authHeader, "api-key") {
+			req.Header.Set("api-key", apiKey)
+		} else {
+			req.Header.Set("Authorization", "Bearer "+apiKey)
+		}
 	}
+	applyDocumentedProviderHeaders(req, payload.Deployment)
 	if payload.Stream {
 		req.Header.Set("Accept", "text/event-stream")
 	}

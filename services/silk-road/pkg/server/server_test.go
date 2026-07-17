@@ -868,9 +868,13 @@ func TestDispatchGeminiAdapterConvertsImageDataURL(t *testing.T) {
 	t.Parallel()
 
 	var gotPath string
+	var gotAPIKey string
+	var gotQueryKey string
 	var body map[string]any
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
+		gotAPIKey = r.Header.Get("x-goog-api-key")
+		gotQueryKey = r.URL.Query().Get("key")
 		defer r.Body.Close()
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Fatalf("decode request: %v", err)
@@ -908,6 +912,9 @@ func TestDispatchGeminiAdapterConvertsImageDataURL(t *testing.T) {
 	}
 	if gotPath != "/models/gemini-1.5-flash:generateContent" {
 		t.Fatalf("unexpected gemini path: %q", gotPath)
+	}
+	if gotAPIKey != "gemini-key" || gotQueryKey != "" {
+		t.Fatalf("Gemini key must use x-goog-api-key only; header=%q query=%q", gotAPIKey, gotQueryKey)
 	}
 	contents := body["contents"].([]any)
 	parts := contents[0].(map[string]any)["parts"].([]any)

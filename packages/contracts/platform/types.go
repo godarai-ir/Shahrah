@@ -231,6 +231,7 @@ type Deployment struct {
 	APIBase             string                 `json:"api_base,omitempty"`
 	APIKey              string                 `json:"api_key,omitempty"`
 	APIVersion          string                 `json:"api_version,omitempty"`
+	ProviderHeaders     map[string]string      `json:"provider_headers,omitempty"`
 	RegionName          string                 `json:"region_name,omitempty"`
 	RPM                 int64                  `json:"rpm,omitempty"`
 	TPM                 int64                  `json:"tpm,omitempty"`
@@ -240,6 +241,9 @@ type Deployment struct {
 	BillingMode         string                 `json:"billing_mode,omitempty"`
 	ProviderAccountID   string                 `json:"provider_account_id,omitempty"`
 	ProviderAccountName string                 `json:"provider_account_name,omitempty"`
+	ConnectionID        string                 `json:"connection_id,omitempty"`
+	CredentialVersionID string                 `json:"credential_version_id,omitempty"`
+	ProviderAuth        *ResolvedProviderAuth  `json:"provider_auth,omitempty"`
 	ModelInfo           map[string]interface{} `json:"model_info,omitempty"`
 }
 

@@ -4,6 +4,7 @@ package prometheus
 import (
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -34,28 +35,33 @@ type PgxPoolStats interface {
 
 // HTTPMetrics records request counts, latency, and in-flight totals.
 type HTTPMetrics struct {
-	registry                  *prom.Registry
-	requestsTotal             *prom.CounterVec
-	requestDuration           *prom.HistogramVec
-	inflight                  prom.Gauge
-	backpressureInFlight      prom.Gauge
-	backpressureRejectedTotal prom.Counter
-	tokenSpendQueuedTotal     prom.Counter
-	tokenSpendFallbackTotal   prom.Counter
-	tokenSpendFlushDuration   prom.Histogram
-	tokenSpendFlushBatchSize  prom.Histogram
-	tokenSpendFlushErrors     prom.Counter
-	spendLogQueuedTotal       prom.Counter
-	spendLogDroppedTotal      prom.Counter
-	spendLogFlushDuration     prom.Histogram
-	spendLogFlushBatchSize    prom.Histogram
-	spendLogFlushErrors       prom.Counter
-	keyLastUsedQueuedTotal    prom.Counter
-	keyLastUsedSkippedTotal   prom.Counter
-	keyLastUsedFallbackTotal  prom.Counter
-	keyLastUsedFlushDuration  prom.Histogram
-	keyLastUsedFlushBatchSize prom.Histogram
-	keyLastUsedFlushErrors    prom.Counter
+	registry                             *prom.Registry
+	requestsTotal                        *prom.CounterVec
+	requestDuration                      *prom.HistogramVec
+	inflight                             prom.Gauge
+	backpressureInFlight                 prom.Gauge
+	backpressureRejectedTotal            prom.Counter
+	tokenSpendQueuedTotal                prom.Counter
+	tokenSpendFallbackTotal              prom.Counter
+	tokenSpendFlushDuration              prom.Histogram
+	tokenSpendFlushBatchSize             prom.Histogram
+	tokenSpendFlushErrors                prom.Counter
+	spendLogQueuedTotal                  prom.Counter
+	spendLogDroppedTotal                 prom.Counter
+	spendLogFlushDuration                prom.Histogram
+	spendLogFlushBatchSize               prom.Histogram
+	spendLogFlushErrors                  prom.Counter
+	keyLastUsedQueuedTotal               prom.Counter
+	keyLastUsedSkippedTotal              prom.Counter
+	keyLastUsedFallbackTotal             prom.Counter
+	keyLastUsedFlushDuration             prom.Histogram
+	keyLastUsedFlushBatchSize            prom.Histogram
+	keyLastUsedFlushErrors               prom.Counter
+	platformCredentialResolves           *prom.CounterVec
+	platformCredentialSnapshotLoads      *prom.CounterVec
+	platformCredentialSnapshotDuration   prom.Histogram
+	platformCredentialSnapshotEntries    prom.Gauge
+	platformCredentialLastLoadedUnixNano *atomic.Int64
 }
 
 // NewHTTPMetrics creates a Prometheus registry and HTTP metrics collectors.
@@ -168,6 +174,33 @@ func NewHTTPMetrics() *HTTPMetrics {
 		Help:    "Number of key last-used timestamps persisted in each flush.",
 		Buckets: []float64{1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000},
 	})
+	platformCredentialResolves := prom.NewCounterVec(prom.CounterOpts{
+		Namespace: "shahrah", Subsystem: "control_plane", Name: "platform_credential_resolves_total",
+		Help: "Platform credential cache resolves by bounded result category.",
+	}, []string{"result"})
+	platformCredentialSnapshotLoads := prom.NewCounterVec(prom.CounterOpts{
+		Namespace: "shahrah", Subsystem: "control_plane", Name: "platform_credential_snapshot_loads_total",
+		Help: "Platform credential snapshot loads by success or failure.",
+	}, []string{"result"})
+	platformCredentialSnapshotDuration := prom.NewHistogram(prom.HistogramOpts{
+		Namespace: "shahrah", Subsystem: "control_plane", Name: "platform_credential_snapshot_load_duration_seconds",
+		Help: "Duration of platform credential snapshot loads outside the request path.", Buckets: prom.DefBuckets,
+	})
+	platformCredentialSnapshotEntries := prom.NewGauge(prom.GaugeOpts{
+		Namespace: "shahrah", Subsystem: "control_plane", Name: "platform_credential_snapshot_entries",
+		Help: "Number of active credentials in the current process-local snapshot.",
+	})
+	platformCredentialLastLoadedUnixNano := &atomic.Int64{}
+	platformCredentialSnapshotAge := prom.NewGaugeFunc(prom.GaugeOpts{
+		Namespace: "shahrah", Subsystem: "control_plane", Name: "platform_credential_snapshot_age_seconds",
+		Help: "Age of the current successfully loaded platform credential snapshot.",
+	}, func() float64 {
+		loadedAt := platformCredentialLastLoadedUnixNano.Load()
+		if loadedAt == 0 {
+			return 0
+		}
+		return time.Since(time.Unix(0, loadedAt)).Seconds()
+	})
 	keyLastUsedFlushErrors := prom.NewCounter(prom.CounterOpts{
 		Namespace: "shahrah", Subsystem: "control_plane", Name: "key_last_used_flush_errors_total",
 		Help: "Total key last-used aggregate flush failures.",
@@ -178,32 +211,69 @@ func NewHTTPMetrics() *HTTPMetrics {
 		tokenSpendQueuedTotal, tokenSpendFallbackTotal, tokenSpendFlushDuration, tokenSpendFlushBatchSize, tokenSpendFlushErrors,
 		spendLogQueuedTotal, spendLogDroppedTotal, spendLogFlushDuration, spendLogFlushBatchSize, spendLogFlushErrors,
 		keyLastUsedQueuedTotal, keyLastUsedSkippedTotal, keyLastUsedFallbackTotal, keyLastUsedFlushDuration, keyLastUsedFlushBatchSize, keyLastUsedFlushErrors,
+		platformCredentialResolves, platformCredentialSnapshotLoads, platformCredentialSnapshotDuration,
+		platformCredentialSnapshotEntries, platformCredentialSnapshotAge,
 	)
 
 	return &HTTPMetrics{
-		registry:                  registry,
-		requestsTotal:             requestsTotal,
-		requestDuration:           requestDuration,
-		inflight:                  inflight,
-		backpressureInFlight:      backpressureInFlight,
-		backpressureRejectedTotal: backpressureRejectedTotal,
-		tokenSpendQueuedTotal:     tokenSpendQueuedTotal,
-		tokenSpendFallbackTotal:   tokenSpendFallbackTotal,
-		tokenSpendFlushDuration:   tokenSpendFlushDuration,
-		tokenSpendFlushBatchSize:  tokenSpendFlushBatchSize,
-		tokenSpendFlushErrors:     tokenSpendFlushErrors,
-		spendLogQueuedTotal:       spendLogQueuedTotal,
-		spendLogDroppedTotal:      spendLogDroppedTotal,
-		spendLogFlushDuration:     spendLogFlushDuration,
-		spendLogFlushBatchSize:    spendLogFlushBatchSize,
-		spendLogFlushErrors:       spendLogFlushErrors,
-		keyLastUsedQueuedTotal:    keyLastUsedQueuedTotal,
-		keyLastUsedSkippedTotal:   keyLastUsedSkippedTotal,
-		keyLastUsedFallbackTotal:  keyLastUsedFallbackTotal,
-		keyLastUsedFlushDuration:  keyLastUsedFlushDuration,
-		keyLastUsedFlushBatchSize: keyLastUsedFlushBatchSize,
-		keyLastUsedFlushErrors:    keyLastUsedFlushErrors,
+		registry:                             registry,
+		requestsTotal:                        requestsTotal,
+		requestDuration:                      requestDuration,
+		inflight:                             inflight,
+		backpressureInFlight:                 backpressureInFlight,
+		backpressureRejectedTotal:            backpressureRejectedTotal,
+		tokenSpendQueuedTotal:                tokenSpendQueuedTotal,
+		tokenSpendFallbackTotal:              tokenSpendFallbackTotal,
+		tokenSpendFlushDuration:              tokenSpendFlushDuration,
+		tokenSpendFlushBatchSize:             tokenSpendFlushBatchSize,
+		tokenSpendFlushErrors:                tokenSpendFlushErrors,
+		spendLogQueuedTotal:                  spendLogQueuedTotal,
+		spendLogDroppedTotal:                 spendLogDroppedTotal,
+		spendLogFlushDuration:                spendLogFlushDuration,
+		spendLogFlushBatchSize:               spendLogFlushBatchSize,
+		spendLogFlushErrors:                  spendLogFlushErrors,
+		keyLastUsedQueuedTotal:               keyLastUsedQueuedTotal,
+		keyLastUsedSkippedTotal:              keyLastUsedSkippedTotal,
+		keyLastUsedFallbackTotal:             keyLastUsedFallbackTotal,
+		keyLastUsedFlushDuration:             keyLastUsedFlushDuration,
+		keyLastUsedFlushBatchSize:            keyLastUsedFlushBatchSize,
+		keyLastUsedFlushErrors:               keyLastUsedFlushErrors,
+		platformCredentialResolves:           platformCredentialResolves,
+		platformCredentialSnapshotLoads:      platformCredentialSnapshotLoads,
+		platformCredentialSnapshotDuration:   platformCredentialSnapshotDuration,
+		platformCredentialSnapshotEntries:    platformCredentialSnapshotEntries,
+		platformCredentialLastLoadedUnixNano: platformCredentialLastLoadedUnixNano,
 	}
+}
+
+// ObserveResolve implements platformcredentials.Metrics using only bounded
+// result labels (hit, unavailable, expired).
+func (m *HTTPMetrics) ObserveResolve(result string) {
+	if m == nil || m.platformCredentialResolves == nil {
+		return
+	}
+	switch result {
+	case "hit", "unavailable", "expired":
+	default:
+		result = "unavailable"
+	}
+	m.platformCredentialResolves.WithLabelValues(result).Inc()
+}
+
+// ObserveSnapshotLoad records background/pre-warm work and never includes a
+// provider, connection, version, or credential value as a label.
+func (m *HTTPMetrics) ObserveSnapshotLoad(success bool, duration time.Duration, entries int) {
+	if m == nil || m.platformCredentialSnapshotLoads == nil {
+		return
+	}
+	result := "failure"
+	if success {
+		result = "success"
+		m.platformCredentialSnapshotEntries.Set(float64(entries))
+		m.platformCredentialLastLoadedUnixNano.Store(time.Now().UnixNano())
+	}
+	m.platformCredentialSnapshotLoads.WithLabelValues(result).Inc()
+	m.platformCredentialSnapshotDuration.Observe(duration.Seconds())
 }
 
 // IncBackpressureInFlight records one request admitted by the gateway backpressure gate.

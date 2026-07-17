@@ -78,6 +78,9 @@ Provider onboarding uses:
 
 - `GET /api/v1/providers`
 - `GET /api/v1/providers/{slug}/models`
+- `GET /api/v1/providers/{slug}/connection-schemas` for value-free,
+  versioned provider-auth field definitions; control-plane may cache this only
+  for operator workflows and must not call it during gateway request handling
 - `GET /api/v1/models?provider=...` as a paginated compatibility fallback
 
 Rules for future changes:

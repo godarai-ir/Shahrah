@@ -110,7 +110,7 @@ func (a *anthropicAdapter) Dispatch(ctx context.Context, client *http.Client, pa
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-api-key", payload.Deployment.APIKey)
+	req.Header.Set("x-api-key", deploymentAPIKey(payload.Deployment))
 	req.Header.Set("anthropic-version", anthropicVersion(payload.Deployment.APIVersion))
 	if payload.Stream {
 		req.Header.Set("Accept", "text/event-stream")

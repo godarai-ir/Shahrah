@@ -16,6 +16,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	"github.com/Delpak/shahrah/services/control-plane/internal/modelid"
+	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
 	"go.uber.org/zap"
 	"golang.org/x/sync/singleflight"
 )
@@ -25,6 +26,7 @@ var (
 	ErrNoHealthyDeployments = errors.New("no healthy deployments available")
 	ErrModelNotFound        = errors.New("model not found")
 	ErrAllDeploymentsFailed = errors.New("all deployments failed or are in cooldown")
+	ErrNoPlatformCredential = errors.New("platform provider credential unavailable")
 )
 
 // Deployment represents a single model deployment.
@@ -41,6 +43,9 @@ type Deployment struct {
 	BillingMode         string
 	ProviderAccountID   string
 	ProviderAccountName string
+	ConnectionID        string
+	CredentialVersionID string
+	ProviderAuth        *platform.ResolvedProviderAuth
 }
 
 // DeploymentStore allows dynamic deployment lookup from persistence.
@@ -54,18 +59,33 @@ type byokCredentialResolver interface {
 
 // Router is the main LLM request router.
 type Router struct {
-	mu          sync.RWMutex
-	deployments map[string][]*Deployment // model_name -> deployments
-	cooldowns   *CooldownCache
-	strategy    RoutingStrategy
-	fallbacks   map[string][]string
-	numRetries  int
-	timeout     time.Duration
-	cache       cache.Cache
-	logger      *zap.Logger
-	store       DeploymentStore
-	dynamicTTL  time.Duration
-	loadGroup   singleflight.Group
+	mu                            sync.RWMutex
+	deployments                   map[string][]*Deployment // model_name -> deployments
+	cooldowns                     *CooldownCache
+	strategy                      RoutingStrategy
+	fallbacks                     map[string][]string
+	numRetries                    int
+	timeout                       time.Duration
+	cache                         cache.Cache
+	logger                        *zap.Logger
+	store                         DeploymentStore
+	dynamicTTL                    time.Duration
+	loadGroup                     singleflight.Group
+	platformCredentials           *platformcredentials.Manager
+	platformCredentialMode        string
+	platformCredentialEnvironment string
+}
+
+func (r *Router) SetPlatformCredentialResolver(manager *platformcredentials.Manager, mode, environment string) {
+	r.platformCredentials = manager
+	r.platformCredentialMode = strings.TrimSpace(mode)
+	if r.platformCredentialMode == "" {
+		r.platformCredentialMode = platform.ProviderCredentialModeEnv
+	}
+	r.platformCredentialEnvironment = strings.TrimSpace(environment)
+	if r.platformCredentialEnvironment == "" {
+		r.platformCredentialEnvironment = platform.ProviderCredentialEnvironmentProd
+	}
 }
 
 // NewRouter creates a new Router instance.
@@ -106,10 +126,14 @@ func NewRouter(modelList []config.ModelDeployment, settings config.RouterSetting
 			deployment.Provider = md.ProviderEndpoint.Provider
 			deployment.Model = canonicalProviderModel(deployment.Provider, modelParts)
 		} else {
-			// Parse from model string prefix - support all 10 providers
+			// Parse from the exact provider slugs currently owned by model-discovery.
 			providerPrefixes := []string{
-				"openai/", "azure/", "anthropic/", "groq/", "mistral/",
-				"togetherai/", "cohere/", "vertexai/", "gemini/", "bedrock/",
+				"ai21/", "anthropic/", "aws-bedrock/", "azure-ai-foundry/", "azure-open-ai/",
+				"cerebras/", "cohere/", "databricks/", "deepgram/", "deepinfra/", "elevenlabs/",
+				"google-gemini/", "google-vertex/", "groq/", "mistral-ai/", "openai/", "openrouter/",
+				"perplexity-ai/", "sambanova/", "together-ai/", "xai/",
+				// Staged aliases retained for already-deployed configuration.
+				"azure/", "mistral/", "togetherai/", "vertexai/", "gemini/", "bedrock/",
 			}
 			found := false
 
@@ -205,7 +229,7 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 						return nil, err
 					}
 
-					return r.applyBYOK(ctx, tenantID, modelName, selected), nil
+					return r.applyCredentials(ctx, tenantID, modelName, selected)
 				}
 			}
 		}
@@ -218,7 +242,66 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 		return nil, err
 	}
 
-	return r.applyBYOK(ctx, tenantID, modelName, selected), nil
+	return r.applyCredentials(ctx, tenantID, modelName, selected)
+}
+
+func (r *Router) applyCredentials(ctx context.Context, tenantID, modelName string, selected *Deployment) (*Deployment, error) {
+	selected = r.applyBYOK(ctx, tenantID, modelName, selected)
+	if selected == nil || selected.CredentialSource == platform.CredentialSourceUserBYOK || r.platformCredentialMode == "" || r.platformCredentialMode == platform.ProviderCredentialModeEnv {
+		return selected, nil
+	}
+	if r.platformCredentials != nil {
+		resolved, err := r.platformCredentials.Resolve(selected.Provider, r.platformCredentialEnvironment)
+		if err == nil {
+			cloned := *selected
+			cloned.Params = selected.Params
+			cloned.Params.APIKey = resolved.APIKey
+			if resolved.BaseURL != "" {
+				cloned.Params.APIBase = resolved.BaseURL
+			}
+			if resolved.APIVersion != "" {
+				cloned.Params.APIVersion = resolved.APIVersion
+			}
+			cloned.Params.CustomHeaders = providerConnectionHeaders(resolved)
+			cloned.CredentialSource = platform.CredentialSourcePlatformManaged
+			cloned.BillingMode = platform.BillingModeWalletBilled
+			cloned.ConnectionID = resolved.ConnectionID
+			cloned.CredentialVersionID = resolved.CredentialVersionID
+			cloned.ProviderAuth = &platform.ResolvedProviderAuth{Mode: resolved.AuthMode, APIKey: resolved.APIKey}
+			return &cloned, nil
+		}
+	}
+	if r.platformCredentialMode == platform.ProviderCredentialModeBreakGlass && strings.TrimSpace(selected.Params.APIKey) != "" {
+		cloned := *selected
+		cloned.CredentialSource = platform.CredentialSourceEnvBreakGlass
+		cloned.BillingMode = platform.BillingModeWalletBilled
+		cloned.ProviderAuth = &platform.ResolvedProviderAuth{Mode: "api_key", APIKey: cloned.Params.APIKey}
+		return &cloned, nil
+	}
+	return nil, ErrNoPlatformCredential
+}
+
+func providerConnectionHeaders(resolved platformcredentials.ResolvedCredential) map[string]string {
+	headers := make(map[string]string)
+	if resolved.Organization != "" {
+		headers["OpenAI-Organization"] = resolved.Organization
+	}
+	if resolved.Project != "" {
+		headers["OpenAI-Project"] = resolved.Project
+	}
+	if resolved.HTTPReferer != "" {
+		headers["HTTP-Referer"] = resolved.HTTPReferer
+	}
+	if resolved.AppTitle != "" {
+		headers["X-OpenRouter-Title"] = resolved.AppTitle
+	}
+	if resolved.ClientName != "" {
+		headers["X-Client-Name"] = resolved.ClientName
+	}
+	if len(headers) == 0 {
+		return nil
+	}
+	return headers
 }
 
 func (r *Router) listCachedDeployments(ctx context.Context, tenantID string) ([]platform.Deployment, error) {
@@ -453,15 +536,16 @@ func (r *Router) hydrateDynamicDeployment(dep platform.Deployment) *Deployment {
 	isProviderAccount := strings.HasPrefix(strings.TrimSpace(dep.ID), "provider-account:")
 	hasProviderAccountRuntimeCredential := isProviderAccount && strings.TrimSpace(dep.APIKey) != ""
 	params := config.ProviderEndpointConfig{
-		Model:      canonicalModel,
-		APIKey:     dep.APIKey,
-		APIBase:    dep.APIBase,
-		APIVersion: dep.APIVersion,
-		RPM:        dep.RPM,
-		TPM:        dep.TPM,
-		Weight:     dep.Weight,
-		Timeout:    dep.TimeoutSec,
-		RegionName: dep.RegionName,
+		Model:         canonicalModel,
+		APIKey:        dep.APIKey,
+		APIBase:       dep.APIBase,
+		APIVersion:    dep.APIVersion,
+		CustomHeaders: dep.ProviderHeaders,
+		RPM:           dep.RPM,
+		TPM:           dep.TPM,
+		Weight:        dep.Weight,
+		Timeout:       dep.TimeoutSec,
+		RegionName:    dep.RegionName,
 	}
 
 	// Provider-account deployments may omit BYOK credentials; in that case, fall back
@@ -497,6 +581,10 @@ func (r *Router) hydrateDynamicDeployment(dep platform.Deployment) *Deployment {
 			credentialSource = platform.CredentialSourceUserBYOK
 		}
 	}
+	providerAuth := dep.ProviderAuth
+	if providerAuth == nil && hasProviderAccountRuntimeCredential {
+		providerAuth = &platform.ResolvedProviderAuth{Mode: "api_key", APIKey: params.APIKey}
+	}
 
 	billingMode := strings.TrimSpace(dep.BillingMode)
 	if billingMode == "" {
@@ -515,6 +603,7 @@ func (r *Router) hydrateDynamicDeployment(dep platform.Deployment) *Deployment {
 		APIBase:             params.APIBase,
 		APIKey:              params.APIKey,
 		APIVersion:          params.APIVersion,
+		ProviderHeaders:     params.CustomHeaders,
 		RegionName:          params.RegionName,
 		RPM:                 params.RPM,
 		TPM:                 params.TPM,
@@ -524,6 +613,9 @@ func (r *Router) hydrateDynamicDeployment(dep platform.Deployment) *Deployment {
 		BillingMode:         billingMode,
 		ProviderAccountID:   dep.ProviderAccountID,
 		ProviderAccountName: dep.ProviderAccountName,
+		ConnectionID:        dep.ConnectionID,
+		CredentialVersionID: dep.CredentialVersionID,
+		ProviderAuth:        providerAuth,
 		ModelInfo:           dep.ModelInfo,
 	}
 	if isProviderAccountDeploymentWithoutRuntimeCredential(hydrated) && !r.canResolveProviderAccountCredential(dep.ModelName) {
@@ -543,6 +635,9 @@ func (r *Router) hydrateDynamicDeployment(dep platform.Deployment) *Deployment {
 		BillingMode:         billingMode,
 		ProviderAccountID:   dep.ProviderAccountID,
 		ProviderAccountName: dep.ProviderAccountName,
+		ConnectionID:        dep.ConnectionID,
+		CredentialVersionID: dep.CredentialVersionID,
+		ProviderAuth:        providerAuth,
 	}
 }
 
@@ -619,6 +714,7 @@ func (r *Router) applyBYOK(ctx context.Context, tenantID, modelName string, dep 
 	cloned.Params.APIKey = apiKey
 	cloned.CredentialSource = platform.CredentialSourceUserBYOK
 	cloned.BillingMode = platform.BillingModeExternalBilled
+	cloned.ProviderAuth = &platform.ResolvedProviderAuth{Mode: "api_key", APIKey: apiKey}
 
 	return &cloned
 }

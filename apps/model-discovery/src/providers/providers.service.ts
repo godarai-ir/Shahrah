@@ -9,7 +9,8 @@ import {
 } from '../common/authenticated-request';
 import { IndexingService } from '../indexing/indexing.service';
 import { UpsertProviderDto } from './dto/upsert-provider.dto';
-import { UpsertProviderConnectionProfileDto } from './dto/upsert-provider-connection-profile.dto';
+import { validateConnectionSchemaFields } from './connection-schema-validation';
+import { UpsertProviderConnectionSchemaDto } from './dto/upsert-provider-connection-schema.dto';
 
 @Injectable()
 export class ProvidersService {
@@ -24,14 +25,23 @@ export class ProvidersService {
       orderBy: { name: 'asc' },
       include: {
         models: { where: { enabled: true } },
-        connectionProfile: true,
       },
     });
 
-    return providers.map((provider) => ({
-      ...provider,
-      modelCount: provider.models.length,
-    }));
+    return providers.map((provider) => {
+      // Explicitly strip both the legacy relation name and its historical API
+      // name so a future include cannot reintroduce credential-bearing JSON.
+      const {
+        models,
+        legacyConnectionProfile: _legacyConnectionProfile,
+        connectionProfile: _connectionProfile,
+        ...safeProvider
+      } = provider as typeof provider & {
+        legacyConnectionProfile?: unknown;
+        connectionProfile?: unknown;
+      };
+      return { ...safeProvider, modelCount: models.length };
+    });
   }
 
   listAllForAdmin() {
@@ -39,7 +49,9 @@ export class ProvidersService {
       orderBy: { name: 'asc' },
       include: {
         models: { orderBy: { displayName: 'asc' } },
-        connectionProfile: true,
+        connectionSchemas: {
+          orderBy: [{ authMode: 'asc' }, { version: 'desc' }],
+        },
       },
     });
   }
@@ -158,51 +170,63 @@ export class ProvidersService {
     return provider;
   }
 
-  async upsertConnectionProfile(
-    dto: UpsertProviderConnectionProfileDto,
+  async upsertConnectionSchema(
+    dto: UpsertProviderConnectionSchemaDto,
     principal: ServicePrincipal,
   ) {
+    validateConnectionSchemaFields(dto.fields);
     return this.prisma.$transaction(async (tx) => {
-      const provider = await tx.provider.update({
+      const provider = await tx.provider.findUniqueOrThrow({
         where: { slug: dto.providerSlug },
-        data: {
-          connectionProfile: {
-            upsert: {
-              create: {
-                providerType: dto.providerType,
-                authMode: dto.authMode,
-                configJson: dto.configJson as any,
-              },
-              update: {
-                providerType: dto.providerType,
-                authMode: dto.authMode,
-                configJson: dto.configJson as any,
-              },
-            },
+      });
+      const schema = await tx.providerConnectionSchema.upsert({
+        where: {
+          providerId_authMode_version: {
+            providerId: provider.id,
+            authMode: dto.authMode,
+            version: dto.version,
           },
         },
-        include: { connectionProfile: true },
+        create: {
+          providerId: provider.id,
+          authMode: dto.authMode,
+          version: dto.version,
+          runtimeReady: dto.runtimeReady,
+          fieldsJson: dto.fields as any,
+        },
+        update: {
+          runtimeReady: dto.runtimeReady,
+          fieldsJson: dto.fields as any,
+        },
       });
       await tx.auditLog.create({
         data: {
-          entityType: 'provider_connection_profile',
-          entityId: provider.id,
+          entityType: 'provider_connection_schema',
+          entityId: schema.id,
           action: 'upsert',
           afterJson: {
-            providerType: dto.providerType,
-            authMode: dto.authMode ?? null,
+            providerSlug: dto.providerSlug,
+            authMode: dto.authMode,
+            version: dto.version,
+            runtimeReady: dto.runtimeReady,
+            fieldKeys: dto.fields.map((field) => String(field.key ?? '')),
           },
           ...auditPrincipal(principal),
         },
       });
-      return provider;
+      return schema;
     });
   }
 
-  getConnectionProfile(providerSlug: string) {
+  listConnectionSchemas(providerSlug: string) {
     return this.prisma.provider.findUnique({
       where: { slug: providerSlug },
-      include: { connectionProfile: true },
+      select: {
+        slug: true,
+        connectionSchemas: {
+          orderBy: [{ authMode: 'asc' }, { version: 'desc' }],
+        },
+      },
     });
   }
 

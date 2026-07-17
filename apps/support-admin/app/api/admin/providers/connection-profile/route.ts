@@ -1,10 +1,10 @@
-import { adminProxy } from '@/lib/admin-proxy';
+import { NextResponse } from 'next/server';
 
-export async function POST(request: Request) {
-  const body = await request.text();
-  return adminProxy('/providers/admin/connection-profile/upsert', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body,
-  });
+export async function POST() {
+  return NextResponse.json({
+    error: {
+      code: 'provider_connection_profile_retired',
+      message: 'Use the platform provider connections workflow.',
+    },
+  }, { status: 410 });
 }

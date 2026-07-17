@@ -41,7 +41,16 @@ Treat TrueFoundry as product evidence, not an implementation blueprint. Build a 
 
 Replace deployment-wide provider secrets from `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` with audited, encrypted, versioned Platform Provider Connections managed in `support-admin` and consumed by the Go control-plane without restart.
 
-The MVP must be production-capable for OpenAI and Anthropic API-key authentication. Make the schema, storage, and typed runtime contract extensible for Azure, Bedrock, and Vertex, but do not pretend their current adapters support Entra, SigV4, AssumeRole, or service-account auth if they do not. Clearly mark those runtime auth modes unsupported until implemented.
+The provider scope must come from a read-only query of the configured
+`model-discovery` database, not a hand-written OpenAI/Anthropic allow-list. For
+every enabled active provider returned by that query, read the provider's
+official authentication and endpoint documentation and implement an explicit
+provider schema. Use
+`plans/platform-managed-provider-credentials-provider-matrix.md` as the checked
+evidence matrix. Do not infer a generic bearer contract from superficial API
+compatibility. Clearly mark a documented auth mode `runtime_ready=false` when
+its signing, token refresh, protocol translation, or non-billable validation
+probe is not implemented.
 
 Include now:
 
@@ -78,10 +87,11 @@ Fix the current `ProviderConnectionProfile.configJson` path before adding the ne
 - Add a redacted audit utility that reports only affected row IDs/provider slugs and key names for any existing suspicious `ProviderConnectionProfile.configJson` data. Never print values. Do not delete production data or claim credentials were rotated; document the operator rotation step.
 - Regenerate model-discovery Prisma output and OpenAPI artifacts, and update the control-plane contract assertions when the upstream contract changes.
 
-Seed safe versioned schemas for:
-
-- OpenAI `api_key`: secret `api_key`; optional connection-scoped `base_url`, `organization`, and `project`.
-- Anthropic `api_key`: secret `api_key`; optional connection-scoped `base_url` and API version.
+Seed safe versioned schemas for every enabled active provider in the
+database-derived matrix. Each row must independently define its documented
+secret fields, connection fields, auth injection mapping, official documentation
+URL, and runtime readiness. Providers which share a transport still require
+separate rows.
 
 Model IDs, Azure deployment names, Bedrock model IDs/inference-profile ARNs, and similar deployment-specific fields do not belong in a credential bundle.
 
@@ -157,7 +167,7 @@ The required behavior is:
 - Keep decrypted active credentials only in a bounded process-local L1 snapshot.
 - Use an immutable map and atomic snapshot swap (or an equivalently contention-free design) keyed by provider/environment and selected connection/version. Resolution on a warm hit must be a local memory read only.
 - `Resolve` must never query PostgreSQL, read Redis, decrypt, or perform provider/network I/O. A missing/expired/disabled entry returns a typed unavailable error and fails the target before upstream dispatch.
-- Pre-warm active OpenAI/Anthropic credentials at process startup and reload them in background. A platform-store rollout mode must not be marked ready until its initial credential snapshot load has completed; absence of a credential makes only the affected targets unavailable, not the whole gateway.
+- Pre-warm every active runtime-ready provider credential at process startup and reload it in background. A platform-store rollout mode must not be marked ready until its initial credential snapshot load has completed; absence of a credential makes only the affected targets unavailable, not the whole gateway.
 - Collapse concurrent loads/reloads with `singleflight`. Never allow a cold burst to cause one DB query/decrypt per request.
 - On create-version/test there is no runtime invalidation. On activate/rollback/disable/revoke, update the local snapshot after the database transaction, then publish a redacted invalidation event containing only connection/provider/environment/version/action metadata.
 - Extend the Redis coordination abstraction with subscription support if appropriate. All instances must consume invalidation events and reload the affected entry outside the request path. Because Pub/Sub is not durable, also run a jittered reconciliation loop no slower than every 30 seconds that compares non-secret active-version metadata and reloads only changed entries. A missed event must converge within 60 seconds.
@@ -277,7 +287,7 @@ Default existing installations to `env` until an operator opts in. Emit non-secr
 
 Provide a runbook and configuration documentation covering:
 
-1. create and test draft OpenAI/Anthropic connections;
+1. create and test draft connections for every provider marked runtime-ready in the database-derived matrix;
 2. activate and verify cache propagation without restart;
 3. switch one provider at a time to shadow validation, then platform store;
 4. compare auth failure, billing source, cache, and provider metrics;
@@ -296,7 +306,7 @@ Add unit, integration, API contract, migration, security, cache, concurrency, an
 - optimistic locking and idempotency conflicts;
 - only validated versions activate;
 - atomic rollback and single active primary behavior;
-- OpenAI and Anthropic probe classification with fake HTTP servers;
+- table-driven provider-specific probe classification and exact auth-header tests with fake HTTP transports;
 - SSRF rejection for loopback, private/link-local IPs, userinfo, non-HTTPS, redirects to disallowed hosts, and disallowed DNS results;
 - read/create/test/activate/disable permissions for every support role and service scope;
 - recursive secret-key rejection and redaction in model-discovery;
@@ -327,7 +337,7 @@ Also regenerate and validate Prisma/OpenAPI artifacts using existing repository 
 
 The task is complete only when:
 
-- OpenAI and Anthropic platform credentials can be created, encrypted, tested, activated, resolved, rotated, rolled back, and disabled through support-admin;
+- every database provider has a documentation-derived schema, and every provider marked runtime-ready can be created, encrypted, tested, activated, resolved, rotated, rolled back, and disabled through support-admin;
 - no existing secret can be read back;
 - model-discovery no longer accepts or returns connection values;
 - request processing uses the process-local snapshot and performs zero DB/Redis/decrypt work on warm credential resolution;

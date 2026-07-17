@@ -11,8 +11,8 @@ func deploymentCredentialSource(dep platform.Deployment) string {
 	switch source {
 	case platform.CredentialSourceUserBYOK:
 		return platform.CredentialSourceUserBYOK
-	case platform.CredentialSourceGodarManagedKey:
-		return platform.CredentialSourceGodarManagedKey
+	case platform.CredentialSourceGodarManagedKey, platform.CredentialSourcePlatformManaged, platform.CredentialSourceEnvBreakGlass:
+		return source
 	default:
 		if strings.TrimSpace(dep.BillingMode) == platform.BillingModeExternalBilled {
 			return platform.CredentialSourceUserBYOK
@@ -60,6 +60,12 @@ func enrichDeploymentBillingMetadata(input map[string]interface{}, dep platform.
 
 	if value := strings.TrimSpace(dep.ProviderAccountID); value != "" {
 		out["provider_account_id"] = value
+	}
+	if value := strings.TrimSpace(dep.ConnectionID); value != "" {
+		out["connection_id"] = value
+	}
+	if value := strings.TrimSpace(dep.CredentialVersionID); value != "" {
+		out["credential_version_id"] = value
 	}
 	if value := strings.TrimSpace(dep.ProviderAccountName); value != "" {
 		out["provider_account_name"] = value

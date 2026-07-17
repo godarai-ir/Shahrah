@@ -188,6 +188,17 @@ exports.Prisma.ProviderConnectionProfileScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.ProviderConnectionSchemaScalarFieldEnum = {
+  id: 'id',
+  providerId: 'providerId',
+  authMode: 'authMode',
+  version: 'version',
+  runtimeReady: 'runtimeReady',
+  fieldsJson: 'fieldsJson',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.ModelVersionScalarFieldEnum = {
   id: 'id',
   modelId: 'modelId',
@@ -425,6 +436,7 @@ exports.Prisma.ModelName = {
   Model: 'Model',
   ModelSeries: 'ModelSeries',
   ProviderConnectionProfile: 'ProviderConnectionProfile',
+  ProviderConnectionSchema: 'ProviderConnectionSchema',
   ModelVersion: 'ModelVersion',
   ModelPricing: 'ModelPricing',
   Capability: 'Capability',

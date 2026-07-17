@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/gofiber/fiber/v2"
 )
@@ -252,79 +253,96 @@ type supportTenantOperationsStore interface {
 	ListTenantSubscriptionPaymentIntents(ctx context.Context, tenantID string, limit, offset int) ([]platform.SubscriptionPaymentIntent, error)
 }
 
+type platformProviderCredentialService interface {
+	Schemas(context.Context, string) ([]platform.ProviderConnectionSchema, error)
+	CreateConnection(context.Context, platform.CreatePlatformProviderConnectionRequest, platformcredentials.Actor, string) (*platform.PlatformProviderConnection, error)
+	UpdateConnection(context.Context, string, platform.UpdatePlatformProviderConnectionRequest, platformcredentials.Actor) (*platform.PlatformProviderConnection, error)
+	ListConnections(context.Context, string, string) ([]platform.PlatformProviderConnection, error)
+	GetConnection(context.Context, string) (*platform.PlatformProviderConnection, error)
+	CreateCredentialVersion(context.Context, string, platform.CreatePlatformProviderCredentialVersionRequest, platformcredentials.Actor, string) (*platform.PlatformProviderCredentialVersion, error)
+	TestCredential(context.Context, string, int64, platformcredentials.Actor) (*platform.PlatformProviderCredentialTestResult, error)
+	Activate(context.Context, string, int64, int64, platformcredentials.Actor, string, string) (*platform.PlatformProviderConnection, error)
+	Rollback(context.Context, string, int64, int64, platformcredentials.Actor, string) (*platform.PlatformProviderConnection, error)
+	Disable(context.Context, string, int64, platformcredentials.Actor, string) (*platform.PlatformProviderConnection, error)
+	Revoke(context.Context, string, int64, int64, platformcredentials.Actor, string) (*platform.PlatformProviderConnection, error)
+}
+
 type Dependencies struct {
-	Keys             keyStore
-	Models           modelStore
-	Wallets          walletStore
-	ProviderAccounts providerAccountStore
-	OrgUnits         orgUnitStore
-	Memberships      membershipStore
-	Users            userStore
-	VirtualUsers     virtualUserStore
-	Teams            teamStore
-	Onboarding       onboardingStore
-	LoginDiscovery   loginDiscoveryStore
-	Traces           traceStore
-	Logs             logsStore
-	Metrics          metricsStore
-	TracePrivacy     tracePrivacyStore
-	RequestLogging   requestLoggingSettingsStore
-	Prompts          promptStore
-	Roles            roleStore
-	Plans            planStore
-	Entitlements     entitlementResolverStore
-	SupportTenants   supportTenantOperationsStore
+	Keys                keyStore
+	Models              modelStore
+	Wallets             walletStore
+	ProviderAccounts    providerAccountStore
+	OrgUnits            orgUnitStore
+	Memberships         membershipStore
+	Users               userStore
+	VirtualUsers        virtualUserStore
+	Teams               teamStore
+	Onboarding          onboardingStore
+	LoginDiscovery      loginDiscoveryStore
+	Traces              traceStore
+	Logs                logsStore
+	Metrics             metricsStore
+	TracePrivacy        tracePrivacyStore
+	RequestLogging      requestLoggingSettingsStore
+	Prompts             promptStore
+	Roles               roleStore
+	Plans               planStore
+	Entitlements        entitlementResolverStore
+	SupportTenants      supportTenantOperationsStore
+	ProviderCredentials platformProviderCredentialService
 }
 
 // Handlers serves bootstrap management APIs.
 type Handlers struct {
-	keys             keyStore
-	models           modelStore
-	wallets          walletStore
-	providerAccounts providerAccountStore
-	orgUnits         orgUnitStore
-	memberships      membershipStore
-	users            userStore
-	virtualUsers     virtualUserStore
-	teams            teamStore
-	onboarding       onboardingStore
-	loginDiscovery   loginDiscoveryStore
-	traces           traceStore
-	logs             logsStore
-	metrics          metricsStore
-	tracePrivacy     tracePrivacyStore
-	requestLogging   requestLoggingSettingsStore
-	prompts          promptStore
-	roles            roleStore
-	plans            planStore
-	entitlements     entitlementResolverStore
-	supportTenants   supportTenantOperationsStore
+	keys                keyStore
+	models              modelStore
+	wallets             walletStore
+	providerAccounts    providerAccountStore
+	orgUnits            orgUnitStore
+	memberships         membershipStore
+	users               userStore
+	virtualUsers        virtualUserStore
+	teams               teamStore
+	onboarding          onboardingStore
+	loginDiscovery      loginDiscoveryStore
+	traces              traceStore
+	logs                logsStore
+	metrics             metricsStore
+	tracePrivacy        tracePrivacyStore
+	requestLogging      requestLoggingSettingsStore
+	prompts             promptStore
+	roles               roleStore
+	plans               planStore
+	entitlements        entitlementResolverStore
+	supportTenants      supportTenantOperationsStore
+	providerCredentials platformProviderCredentialService
 }
 
 // New creates a management handlers bundle.
 func New(deps Dependencies) *Handlers {
 	return &Handlers{
-		keys:             deps.Keys,
-		models:           deps.Models,
-		wallets:          deps.Wallets,
-		providerAccounts: deps.ProviderAccounts,
-		orgUnits:         deps.OrgUnits,
-		memberships:      deps.Memberships,
-		users:            deps.Users,
-		virtualUsers:     deps.VirtualUsers,
-		teams:            deps.Teams,
-		onboarding:       deps.Onboarding,
-		loginDiscovery:   deps.LoginDiscovery,
-		traces:           deps.Traces,
-		logs:             deps.Logs,
-		metrics:          deps.Metrics,
-		tracePrivacy:     deps.TracePrivacy,
-		requestLogging:   deps.RequestLogging,
-		prompts:          deps.Prompts,
-		roles:            deps.Roles,
-		plans:            deps.Plans,
-		entitlements:     deps.Entitlements,
-		supportTenants:   deps.SupportTenants,
+		keys:                deps.Keys,
+		models:              deps.Models,
+		wallets:             deps.Wallets,
+		providerAccounts:    deps.ProviderAccounts,
+		orgUnits:            deps.OrgUnits,
+		memberships:         deps.Memberships,
+		users:               deps.Users,
+		virtualUsers:        deps.VirtualUsers,
+		teams:               deps.Teams,
+		onboarding:          deps.Onboarding,
+		loginDiscovery:      deps.LoginDiscovery,
+		traces:              deps.Traces,
+		logs:                deps.Logs,
+		metrics:             deps.Metrics,
+		tracePrivacy:        deps.TracePrivacy,
+		requestLogging:      deps.RequestLogging,
+		prompts:             deps.Prompts,
+		roles:               deps.Roles,
+		plans:               deps.Plans,
+		entitlements:        deps.Entitlements,
+		supportTenants:      deps.SupportTenants,
+		providerCredentials: deps.ProviderCredentials,
 	}
 }
 
