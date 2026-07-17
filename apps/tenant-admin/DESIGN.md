@@ -100,6 +100,68 @@ Z-index should be standardized when overlays are introduced:
 | Dialogs / sheets | `z-50` |
 | Toasts / global command menu | `z-60` if configured as a project utility |
 
+### 3.1 Color Accessibility (WCAG 2.2)
+
+Tenant-admin UI must meet [WCAG 2.2 Level AA](https://www.w3.org/TR/WCAG22/) in both light and dark themes. Treat contrast as a property of a complete semantic token pair in its rendered context, not of an individual color. A token change is incomplete until its foreground/background, borders, focus state, hover state, and disabled state have been checked on every surface where the token is used.
+
+#### Contrast requirements
+
+| Content or indicator | Minimum contrast | Application rule |
+| --- | --- | --- |
+| Normal text and images of text | `4.5:1` against the effective background | Applies to body text, labels, helper text, placeholders, badge text, table content, and text inside controls. |
+| Large text | `3:1` against the effective background | Large means at least `18pt` (`24px`) regular or `14pt` (about `18.67px`) bold. Do not treat `text-lg` as large text unless its computed size and weight qualify. |
+| Essential control boundaries, states, and meaningful graphics | `3:1` against adjacent colors | Applies to input borders needed to locate a field, focus indicators, selected states, checkmarks, icons without a visible text equivalent, and meaningful chart elements. See [WCAG 1.4.11 Non-text Contrast](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html). |
+| Enhanced contrast target | `7:1` for normal text and `4.5:1` for large text | Prefer this WCAG AAA target for critical error, security, billing, and destructive-action copy when it can be achieved without weakening hierarchy. |
+
+Contrast ratios are thresholds and must not be rounded up: `4.49:1` does not satisfy `4.5:1`. Measure the computed foreground against the final composited background. Re-test text or controls placed on translucent colors, gradients, images, hover fills, selected rows, sticky regions, overlays, and nested surfaces because the effective contrast may differ from the base token value.
+
+#### Semantic color-pair contract
+
+Use the foreground token designed for the surface; do not assume that `foreground` or white is readable on every semantic color.
+
+| Surface | Required foreground | Typical use |
+| --- | --- | --- |
+| `background` | `foreground` | Page content. |
+| `card` | `card-foreground` | Cards, tables, grouped panels. |
+| `popover` | `popover-foreground` | Menus, selects, popovers. |
+| `primary` | `primary-foreground` | Primary actions and high-emphasis selections. |
+| `secondary` | `secondary-foreground` | Secondary actions and selections. |
+| `muted` | `muted-foreground` | Helper text and low-emphasis metadata; never use it for critical instructions or errors. |
+| `accent` | `accent-foreground` | Hovered and highlighted items. |
+| `success`, `warning`, `info`, `destructive` | Matching `*-foreground` | Solid semantic badges, alerts, and controls. |
+| `*-soft` | Matching `*-soft-foreground` and `*-soft-border` | Low-emphasis statuses and notices. |
+| `surface-demo`, `code` | Matching `*-foreground` | Console, code, and technical preview surfaces. |
+
+Do not reduce text opacity or apply Tailwind opacity modifiers to a passing pair without measuring the composited result. When a new color role is needed, add a semantic surface/foreground/border set to `design-system/tokens.css`, provide light and dark values, document its intended use, and test the pair before using it in a component. Do not fix a contrast failure locally with a raw color utility.
+
+#### Color must not carry meaning alone
+
+[WCAG 1.4.1 Use of Color](https://www.w3.org/WAI/WCAG22/Understanding/use-of-color) requires a visible cue in addition to color wherever color communicates meaning or action.
+
+- Statuses must include a persistent text label such as “فعال”, “در انتظار”, or “ناموفق”; an icon or shape may reinforce the label.
+- Form errors must include an error message and invalid-state semantics, not only a red border. Required fields need a text or symbol cue explained to users.
+- Links inside prose must be underlined or otherwise visibly distinguishable without relying only on hue. Preserve a non-color cue on hover and focus.
+- Selected rows, active navigation, toggles, and comparison results need a checkmark, border, icon, weight, or text change in addition to a fill-color change.
+- Charts must have direct labels or an accessible legend and distinguish series with shapes, dash patterns, markers, or labels as well as `chart-*` colors. Never use only green/red to encode success/failure or positive/negative values.
+
+Color alternatives must remain visible to sighted users with color-vision deficiency; an `aria-label` alone does not satisfy the color-only requirement. Programmatic names and states are still required for assistive technology.
+
+#### Interaction and focus states
+
+- Preserve the shared `ring-ring` focus indicator. It must remain visible on `background`, `card`, `popover`, sidebar, solid semantic fills, and dark demo surfaces. Aim for a focus indicator equivalent to a `2px` perimeter with at least a `3:1` change from the unfocused pixels, following the WCAG 2.2 [Focus Appearance](https://www.w3.org/WAI/WCAG22/Understanding/focus-appearance.html) enhanced target.
+- Hover, active, selected, validation, and focus states must remain identifiable and keep their text and essential graphics above the applicable contrast threshold. Do not make hover the only state that reveals an action.
+- Disabled controls are exempt from the WCAG minimum contrast thresholds, but they must still be recognizable. Communicate disabled state through native semantics and more than a subtle color change; do not make important explanatory text disabled or unreadable.
+
+#### Verification before merge
+
+For every new or changed color token or component:
+
+1. Check every documented foreground/background pair in light and dark themes with a contrast analyzer; record exact ratios for token changes in the pull request.
+2. Exercise default, hover, active, focus-visible, selected, invalid, loading, and disabled states on each surface used by the component.
+3. Verify the page in grayscale and with common red-green and blue-yellow color-vision simulations; all status, selection, chart, and validation meanings must remain understandable.
+4. Run the available automated accessibility checks, then manually inspect text over translucent or variable backgrounds and keyboard focus. Automated checks do not prove that color is not the only cue.
+5. Test representative Persian and English strings because font weight, size, and truncation can change whether text qualifies as large and whether its non-color cue remains visible.
+
 ## 4. Typography
 
 Current fonts are loaded through `next/font/google` in `app/layout.tsx`. Keep using `next/font` for app-wide fonts because it self-hosts optimized font assets and avoids layout shift. Do not add external font files or network CSS unless explicitly approved.
